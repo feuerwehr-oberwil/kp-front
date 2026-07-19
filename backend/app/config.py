@@ -170,6 +170,11 @@ class Settings(BaseSettings):
     # «An Stationsdrucker» button. Generate with `openssl rand -hex 24`.
     print_agent_secret: str = ""
 
+    # Dead-man's-switch: if set to a healthchecks.io / cron-monitor ping URL, a 60 s scheduler
+    # job GETs it — the monitor alerts if the pings ever stop (app/scheduler silently dead).
+    # Unset → the heartbeat job isn't scheduled.
+    healthcheck_ping_url: str = ""
+
     # --- Traccar (Phase 6) ---
     traccar_url: str = ""
     traccar_email: str = ""

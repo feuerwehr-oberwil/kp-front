@@ -5,6 +5,7 @@ Started/stopped from the FastAPI lifespan. No-op when no Divera access key is se
 
 import logging
 
+import httpx
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI
 
@@ -81,6 +82,18 @@ async def _print_jobs_sweep() -> None:
             logger.exception("Print-job sweep failed")
 
 
+async def _heartbeat() -> None:
+    """Dead-man's-switch: ping an external check URL (healthchecks.io / cron-monitor) on a short
+    cadence. If the app or its event loop dies, the pings stop and the monitor alerts — catching
+    the "silently down / scheduler wedged" class a plain HTTP probe of /ready can miss. Fail-open:
+    no URL = disabled; a failed ping never disturbs the app."""
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            await client.get(settings.healthcheck_ping_url)
+    except Exception:
+        logger.warning("Heartbeat ping failed (non-fatal)")
+
+
 async def start_scheduler(app: FastAPI) -> None:
     global _scheduler
     from .push import push_enabled
@@ -131,6 +144,9 @@ async def start_scheduler(app: FastAPI) -> None:
         coalesce=True,
     )
     jobs.append(f"auto-archive sweep ({settings.auto_archive_check_seconds}s)")
+    if settings.healthcheck_ping_url:
+        _scheduler.add_job(_heartbeat, "interval", seconds=60, id="heartbeat", max_instances=1, coalesce=True)
+        jobs.append("heartbeat (60s)")
     _scheduler.start()
     logger.info("Scheduler running: %s", ", ".join(jobs))
 
