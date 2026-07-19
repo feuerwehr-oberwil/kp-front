@@ -19,7 +19,7 @@ jobs:
     name: Frontend (tsc + build)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -64,7 +64,7 @@ jobs:
     name: Secrets (gitleaks)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # CLI via container (not gitleaks-action, which needs a license key for org repos).
       # Scans exactly the TRACKED tree at HEAD (git archive), so local .env files and
       # node_modules never enter the picture; deliberate test values carry inline
@@ -106,7 +106,7 @@ jobs:
       DATABASE_URL: postgresql+asyncpg://kpfront:kpfront@localhost:5432/kpfront
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
@@ -149,7 +149,7 @@ jobs:
     name: Image (hadolint + build + smoke)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Lint Dockerfile (hadolint)
         uses: hadolint/hadolint-action@v3.1.0
