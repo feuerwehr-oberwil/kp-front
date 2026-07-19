@@ -75,11 +75,12 @@ import { buildView } from './lib/footprint'
 import { useAuth } from './lib/auth'
 import {
   WorkspaceSync, uploadMedia, listIncidentsResilient, getIncident, archiveIncident, reactivateIncident,
-  migrateLegacyWorkspace, referenceUrl, takeDiveraAlarm, patchIncident, attachDiveraAlarm, archiveDiveraAlarm,
+  migrateLegacyWorkspace, referenceUrl, takeDiveraAlarm, patchIncident, attachDiveraAlarm,
   type DiveraAlarm, type IncidentFull, type IncidentMeta,
 } from './lib/incidents'
 import { ApiError } from './lib/api'
 import { useDiveraWatch } from './lib/useDiveraWatch'
+import { dismissAlarm, loadDismissedAlarms } from './lib/diveraDismiss'
 import { useIncidentWatch } from './lib/useIncidentWatch'
 import { pickBootIncident, sameIncidentList } from './lib/incidentAlerts'
 import { useAuditEvents } from './lib/useAuditEvents'
@@ -2335,6 +2336,9 @@ export default function App() {
   const [editMeta, setEditMeta] = useState<IncidentMeta | null>(null)
   // always-on Divera watch: surfaces fresh alarms wherever the EL is (editor only)
   const { alarms: poolAlarms, refresh: refreshPool } = useDiveraWatch(isEditor)
+  // per-device dismiss of pool alarms (kp.divera.dismissed) — «×» hides a dispatch on THIS
+  // tablet only; it never archives it for the crew. Shared store with the incoming-alarm banner.
+  const [dismissedAlarms, setDismissedAlarms] = useState<Set<number>>(loadDismissedAlarms)
   // always-on incident-list watch: with alarm auto-open an Einsatz can appear with no human
   // in the loop — keep the list fresh and announce mid-session arrivals (banner, never a
   // forced switch). Enabled for viewers too; announcing is read-only.
@@ -2643,9 +2647,10 @@ export default function App() {
                     <Icon id="chevron" />
                   </button>
                 ))}
-                {isEditor && poolAlarms.map((a) => (
+                {isEditor && poolAlarms.filter((a) => !dismissedAlarms.has(a.divera_id)).map((a) => (
                   // the pool's ONLY surface now (the intake sheet is gone): take, or ×
-                  // to archive a dispatch nobody will take (server-side — all devices)
+                  // to hide it on THIS device only (per-device, kp.divera.dismissed) — the ×
+                  // NEVER archives a live dispatch for the crew (that would be a server delete)
                   <div key={a.id} className="ip-launch alarm">
                     <button type="button" className="ip-launch-hit" disabled={taking != null} onClick={() => void takeAndOpen(a)}>
                       <span className="ip-launch-pulse"><Icon id={taking === a.divera_id ? 'rotate' : 'bell'} className={taking === a.divera_id ? 'spin' : undefined} /></span>
@@ -2658,7 +2663,7 @@ export default function App() {
                     </button>
                     <button
                       type="button" className="ip-launch-x" aria-label={appConfig.copy.intake.dismiss} disabled={taking != null}
-                      onClick={() => void archiveDiveraAlarm(a.divera_id).catch(() => {}).then(() => refreshPool())}
+                      onClick={() => setDismissedAlarms(dismissAlarm(a.divera_id))}
                     >
                       <Icon id="close" />
                     </button>

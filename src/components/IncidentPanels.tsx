@@ -5,6 +5,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { toast, confirmDialog } from '../lib/ui'
+import { dismissAlarm, loadDismissedAlarms } from '../lib/diveraDismiss'
 import { ApiError } from '../lib/api'
 import { initials, roleLabel, fillTemplate, fmtElapsedHM } from '../lib/format'
 import { filterIncidents, historyGroupKey, monthLabel } from '../lib/historyGroups'
@@ -1007,14 +1008,7 @@ export function EinsatzWizard({ seed, edit, nearCoord, onClose, onCreated }: {
 // onto the map — corrections happen there via the ReviewBanner, not in a gating wizard.
 // dismissed alarms are remembered PER DEVICE (localStorage), so a given alarm only ever
 // nags once on this device — across reloads, and whether it's X'd or taken.
-const DISMISS_KEY = 'kp.divera.dismissed'
 const ALARM_MAX_AGE_MS = 3 * 60 * 60 * 1000 // only surface dispatches < 3h old
-const loadDismissed = (): Set<number> => {
-  try { return new Set(JSON.parse(localStorage.getItem(DISMISS_KEY) ?? '[]') as number[]) } catch { return new Set() }
-}
-const saveDismissed = (s: Set<number>) => {
-  try { localStorage.setItem(DISMISS_KEY, JSON.stringify([...s])) } catch { /* private mode */ }
-}
 
 export function IncomingAlarmBanner({ alarms, taking, onTake, onAttach }: {
   alarms: DiveraAlarm[]
@@ -1025,8 +1019,8 @@ export function IncomingAlarmBanner({ alarms, taking, onTake, onAttach }: {
   onAttach: (a: DiveraAlarm) => void
 }) {
   const ix = appConfig.copy.intake
-  const [dismissed, setDismissed] = useState<Set<number>>(loadDismissed)
-  const dismiss = (id: number) => setDismissed((s) => { const n = new Set(s).add(id); saveDismissed(n); return n })
+  const [dismissed, setDismissed] = useState<Set<number>>(loadDismissedAlarms)
+  const dismiss = (id: number) => setDismissed(dismissAlarm(id))
   const now = Date.now()
   const live = alarms.filter((a) => {
     if (dismissed.has(a.divera_id)) return false
