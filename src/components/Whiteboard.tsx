@@ -1247,6 +1247,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 onPointerDown={(e) => chipDown(e, a.id)}
                 onDoubleClick={(e) => { if ((a.kind === 'text' || a.kind === 'resource') && tool === 'pan') { e.stopPropagation(); setEditId(a.id); setSelId(a.id) } }}
               >
+                {/* selection halo — the same accent ring the Lage map draws, so a selected
+                    symbol/shape reads identically on the plan (teams keep their own team-colour ring) */}
+                {(selId === a.id || selIds.includes(a.id)) && (a.kind === 'symbol' || a.kind === 'shape') && <div className="sel-halo" />}
                 {a.kind === 'symbol' && (() => {
                   // same renderer as the Lage map — so the plan symbol gets the white
                   // legibility chip, rotation, and count badge identically. (Floor is

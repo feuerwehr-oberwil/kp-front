@@ -1273,7 +1273,14 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 /* plan symbols use the shared <TacticalSymbol> (.ts/.ts-rot) like the map; .ts-plan
    adds the float shadow that distinguishes a symbol on a plan sheet from one on the map */
 .ts-plan .ts-rot svg { filter: drop-shadow(0 1px 1px rgba(15, 22, 34, .42)) drop-shadow(0 3px 6px rgba(30, 45, 70, .26)); }
-.wb-anno.sel .ts-plan, .wb-anno.sel .wb-text-label, .wb-anno.sel .wb-resource-pill { transform: scale(1.12); }
+/* selection pop mirrors the Lage map exactly: symbols bounce up to 1.22× (selpop), shapes
+   bounce their inner glyph (shapebounce), and the rendered .sel-halo ring sits behind them —
+   so a selected symbol looks & animates identically on Lage and Plan. (keyframes selpop /
+   shapebounce / haloIn are defined once in the map block above and are global.) */
+.wb-anno.sel .ts-plan { transform: scale(1.22); animation: selpop .24s var(--ease); }
+.wb-anno.sel .wb-text-label, .wb-anno.sel .wb-resource-pill { transform: scale(1.12); }
+.wb-anno.sel .shape-glyph .shape-svg { animation: shapebounce .26s var(--ease); transform-origin: 50% 50%; }
+.wb-anno.sel .ts-plan, .wb-anno.sel .shape-glyph { position: relative; z-index: 1; }
 /* text scales with the plan: font-size is set inline (13px × zoom); padding +
    radius use em so the bubble stays proportional at any zoom */
 .wb-text-label, .wb-text-input { font-family: var(--body); font-weight: 600; color: var(--note-ink);
