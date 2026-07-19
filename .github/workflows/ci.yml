@@ -27,7 +27,7 @@ jobs:
           version: 10  # matches Dockerfile (pnpm@10 / lockfileVersion 9.0)
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 20  # matches Dockerfile (node:20-slim)
           cache: pnpm
@@ -210,7 +210,7 @@ jobs:
           version: 10
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: pnpm
