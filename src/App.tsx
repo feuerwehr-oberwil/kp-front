@@ -2464,21 +2464,40 @@ export default function App() {
   // One-tap Divera take: create the incident from the alarm AS-IS (everything Divera
   // carries + backend type/priority/geocode), drop straight onto the live map, and arm the
   // in-map review banner. No wizard — corrections happen on the map, never blocking it.
+  // Undo a one-tap take: archive the just-created incident and return to the prior view (the
+  // previous open incident if there was one, else the landing). Always targets the passed id
+  // (the take made it active) — no activeId dep, so the toast's captured closure can't go stale.
+  const undoTake = useCallback(async (id: string) => {
+    if (syncRef.current) { syncRef.current.dispose(); syncRef.current = null }
+    await archiveIncident(id).catch(() => {})
+    await clearIncidentMedia(id).catch(() => {})
+    setReviewPendingId(null)
+    const list = await refreshList() // returns non-archived only → the taken incident is gone
+    setActiveId(null); setActiveMeta(null)
+    if (list[0]) await selectIncident(list[0].id, { meta: list[0] })
+    void refreshPool()
+  }, [refreshList, selectIncident, refreshPool])
+
   const takeAndOpen = useCallback(async (a: DiveraAlarm) => {
     if (taking != null) return
     setTaking(a.divera_id)
     try {
       const inc = await takeDiveraAlarm(a.divera_id)
-      toast(appConfig.copy.intake.taken, { icon: 'check', tone: 'success' })
       await openCreated(inc)
       setReviewPendingId(inc.id)
+      // confirm-with-undo: a one-tap take is otherwise only reversible via a multi-tap
+      // menu-archive. Undo archives the just-created incident and returns to the prior view.
+      toast(appConfig.copy.intake.taken, {
+        icon: 'check', tone: 'success',
+        action: { label: appConfig.copy.undo, onClick: () => void undoTake(inc.id) },
+      })
     } catch (e) {
       toast(e instanceof ApiError ? e.detail : appConfig.copy.intake.errorTake, { icon: 'warn', tone: 'warn' })
     } finally {
       setTaking(null)
       void refreshPool()
     }
-  }, [taking, openCreated, refreshPool])
+  }, [taking, openCreated, refreshPool, undoTake])
 
   // Split dispatch: the banner alarm may be the SAME Einsatz already open (reworded group
   // dispatch, Nachalarm) — attach it to the ACTIVE incident instead of opening a duplicate.
