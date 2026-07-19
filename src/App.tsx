@@ -1310,10 +1310,17 @@ function IncidentWorkspace({
     log('people', `${p.displayName} gegangen`, 'team')
   }
   const clearAttendance = (p: Person) => {
-    if (!attendance[p.id]) return
+    const prev = attendance[p.id]
+    if (!prev) return
     setAttendance((cur) => { const next = { ...cur }; delete next[p.id]; return next })
     // presence is a record — removing an entry is itself an event worth the Verlauf
     log('people', fillTemplate(appConfig.copy.abschluss.attendanceRemoved, { name: p.displayName }), 'team')
+    // confirm-with-undo: a mis-cycle to «frei» silently drops a corrected von/checkedInAt with
+    // no way back — restore the exact prior entry (status + times) on undo.
+    toast(fillTemplate(appConfig.copy.abschluss.attendanceRemoved, { name: p.displayName }), {
+      icon: 'undo',
+      action: { label: appConfig.copy.undo, onClick: () => setAttendance((cur) => ({ ...cur, [p.id]: prev })) },
+    })
   }
   // Stunden editor (Abschluss-Assistent): correct a person's von–bis. After the Rapport was
   // declared complete, a correction additionally self-documents in the Verlauf (Nachtrag).

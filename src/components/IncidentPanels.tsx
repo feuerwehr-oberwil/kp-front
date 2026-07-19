@@ -821,15 +821,22 @@ export function EinsatzWizard({ seed, edit, nearCoord, onClose, onCreated }: {
     setObjOpen(false); setAddrOpen(false)
   }
 
+  // «Eröffnen» must never be a dead-end: after the primary «Hier»/GPS path the title is often
+  // blank, which used to leave the button disabled with no hint. Fall back to the address
+  // short-form, then the category label (always set) — there's always a sensible incident name.
+  const effectiveTitle =
+    title.trim() ||
+    (address.trim() ? shortAddress(address.trim()) ?? '' : '') ||
+    (ix.kategorienLabels[kategorie ?? ix.kategorien[0]] ?? kategorie ?? ix.kategorien[0])
   const submit = async () => {
-    if (!title.trim() || busy) return
+    if (!effectiveTitle || busy) return
     setBusy(true)
     // Meldungstext/Alarmmeldung is sent on create/take, and on edit once the existing text
     // has been fetched (textReady) so a quick save can't blank it. Alarmierungszeit
     // (started_at) goes with edit and manual create (nachtragen); a Divera take keeps the
     // alarm's own time.
     const body = {
-      title: title.trim(),
+      title: effectiveTitle,
       type: kategorie,
       address: address.trim() || null,
       ...(textReady ? { text: text.trim() || null } : {}),
@@ -992,7 +999,7 @@ export function EinsatzWizard({ seed, edit, nearCoord, onClose, onCreated }: {
       <div className="ip-actions">
         {/* manual create is reached from the intake pool — "Zurück" signals it returns there */}
         <button className="ip-btn" onClick={onClose}>{!seed && !edit ? ix.back : ix.cancel}</button>
-        <button className="ip-btn primary" disabled={!title.trim() || busy} onClick={submit}>
+        <button className="ip-btn primary" disabled={!effectiveTitle || busy} onClick={submit}>
           {busy ? <><Icon id="rotate" className="spin" /> {edit ? ix.saving : ix.opening}</> : edit ? ix.save : ix.open}
         </button>
       </div>

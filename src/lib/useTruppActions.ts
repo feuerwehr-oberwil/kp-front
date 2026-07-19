@@ -190,6 +190,16 @@ export function useTruppActions(deps: Deps) {
     const icon = status === 'raus' ? 'logout' : status === 'rueckzug' ? 'undo' : 'flag'
     if (tpl) log(icon, fillTemplate(tpl, { name: tr?.name ?? '' }), 'team')
     emit('atemschutz.status', { id, status })
+    // «raus» is terminal — it ends monitoring and stamps exitTime. Without undo a mis-tap is a
+    // dead-end that only a full re-deployment (which resets the clocks) can reverse. Offer a
+    // Rückgängig toast restoring the pre-raus Trupp (status + entry/contact clocks + exitTime).
+    if (status === 'raus' && tr) {
+      const snapshot = tr
+      toast(fillTemplate(appConfig.copy.atemschutz.logExit, { name: tr.name }), {
+        icon: 'undo',
+        action: { label: appConfig.copy.undo, onClick: () => setTrupps((ts) => ts.map((t) => (t.id === id ? snapshot : t))) },
+      })
+    }
   }
   // edit a Trupp's Auftrag / team mid-incident (job changed, moved floor, crew swapped). Touches
   // only the descriptive fields — never the live clock/pressure. Keeps the plan chip label in sync.

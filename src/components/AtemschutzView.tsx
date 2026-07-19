@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
-import { confirmDialog, toast } from '../lib/ui'
+import { toast } from '../lib/ui'
 import { cx } from '../lib/cx'
 import { contactSeverity, deriveTruppLive, fmtClock, type TruppLive } from '../lib/atemschutz'
 import type { AttendanceState, Person, Trupp, TruppFields } from '../types'
@@ -354,10 +354,10 @@ function TruppCard({
   const lowPressure = live.currentBar <= atemschutzDoctrine().mindestBar
   const readings = t.readings ?? []
 
-  const askExit = async () => {
-    const ok = await confirmDialog({ title: az.exitConfirmTitle, message: az.exitConfirmMsg, confirmLabel: az.actExit, cancelLabel: az.cancel })
-    if (ok) onStatus(t.id, 'raus')
-  }
+  // «Raus» happens immediately with a Rückgängig toast (house rule: confirm-with-undo, no
+  // blocking dialog). The undo lives in the action (setTruppStatus) so it restores the full
+  // pre-raus Trupp — status + clocks — not just re-open a dead-ended card.
+  const askExit = () => onStatus(t.id, 'raus')
   // delete-now + Rückgängig toast (house rule: confirm-with-undo, no blocking dialog).
   // The captured Trupp restores with its full record; only the plan/map placement is gone.
   const doDelete = () => {
