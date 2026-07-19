@@ -1,0 +1,245 @@
+/* ===== Checklisten surface ====================================================== */
+/* A third working surface (Lage / Plan / Checkliste). Left rail of templates +
+   a main pane that runs the action checklist or opens the reference playbook.
+   Sits below the top bar; light "Karte Minimal" style, gloved-friendly targets.
+   Shared by ChecklistsView / ChecklistRunner / ChecklistReference. */
+/* left inset clears the NavRail (left:16px + --rail-w), matching .mapctl/.basesw so the
+   template rail isn't hidden behind the NavRail */
+.cl-surface { position: absolute; inset: 88px 16px 16px calc(var(--rail-w) + 28px); z-index: 20; display: flex; gap: 12px;
+  background: var(--app-bg); border-radius: var(--r-surface); overflow: hidden; box-shadow: var(--shadow); }
+
+/* left rail */
+.cl-rail { flex: 0 0 248px; overflow-y: auto; scrollbar-gutter: stable; padding: 12px; background: var(--surface);
+  border-right: 1px solid var(--glass-edge); display: flex; flex-direction: column; gap: 16px; }
+.cl-rail-group { display: flex; flex-direction: column; gap: 4px; }
+.cl-rail-label { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--ink-faint); padding: 2px 6px 4px; }
+.cl-rail-item { display: flex; align-items: center; gap: 9px; border: none; background: transparent; cursor: pointer;
+  font-family: var(--body); font-size: 13.5px; font-weight: 600; color: var(--ink-dim); text-align: left;
+  padding: 10px 11px; border-radius: var(--r-ctl); transition: background .14s var(--ease), color .14s var(--ease); }
+.cl-rail-item :global(.i) { width: 16px; height: 16px; flex: none; color: var(--ink-faint); }
+.cl-rail-item:hover { background: var(--fill-soft); color: var(--ink); }
+.cl-rail-item.on { background: var(--ink-fill); color: var(--on-accent-ink); }
+.cl-rail-item.on :global(.i) { color: var(--on-accent-ink); }
+.cl-rail-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cl-rail-prog { flex: none; font-family: var(--mono); font-size: 11px; font-weight: 700; opacity: .8; }
+.cl-rail-hint { display: flex; align-items: center; gap: 7px; border: none; cursor: pointer; text-align: left;
+  background: color-mix(in srgb, var(--red) 8%, transparent); color: var(--red-strong); font-family: var(--body); font-size: 12px; font-weight: 600;
+  padding: 8px 10px; border-radius: var(--r-ctl); margin-top: 2px; }
+.cl-rail-hint :global(.i) { width: 14px; height: 14px; flex: none; }
+/* Taktik Stichworte listed directly in the rail (no separate tab) */
+.cl-rail-grow { flex: 1 1 auto; min-height: 0; }
+.cl-rail-search { margin: 2px 0 4px; padding: 7px 10px; }
+.cl-rail-entries { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; min-height: 0; }
+/* all groups (Aufgaben + each reference template) are peers under the search bar */
+.cl-rail-groups { display: flex; flex-direction: column; gap: 14px; }
+.cl-rail-entry { display: flex; align-items: center; gap: 9px; border: none; background: transparent; cursor: pointer;
+  width: 100%; text-align: left; padding: 7px 10px; border-radius: var(--r-ctl); font: 500 13px var(--body); color: var(--ink-dim); }
+.cl-rail-entry:hover { background: var(--fill-soft); color: var(--ink); }
+.cl-rail-entry.on { background: var(--ink-fill); color: var(--on-accent-ink); }
+.cl-rail-entry.on .cl-ref-chip { box-shadow: 0 0 0 2px rgba(255,255,255,.5); }
+.cl-rail-entry-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* main pane */
+.cl-main { flex: 1 1 auto; min-width: 0; overflow-y: auto; scrollbar-gutter: stable; padding: 22px 26px; }
+
+/* --- action / rapport runner --- */
+.cl-runner { max-width: 720px; margin: 0 auto; }
+.cl-runner-head { display: flex; align-items: flex-start; gap: 18px; flex-wrap: wrap;
+  padding-bottom: 16px; margin-bottom: 18px; border-bottom: 1px solid var(--glass-edge); }
+.cl-runner-titles { flex: 1 1 240px; }
+.cl-runner-titles h2 { margin: 0; font-size: 21px; font-weight: 800; color: var(--ink); }
+.cl-runner-titles p { margin: 4px 0 0; font-size: 13px; color: var(--ink-dim); }
+.cl-overall { flex: 0 0 200px; display: flex; flex-direction: column; gap: 4px; }
+.cl-overall-num { font-family: var(--mono); font-size: 22px; font-weight: 800; color: var(--ink); line-height: 1; }
+.cl-overall-sub { font-size: 11.5px; color: var(--ink-faint); font-weight: 600; }
+
+.cl-bar { height: 7px; border-radius: 4px; background: var(--border); overflow: hidden; }
+.cl-bar-fill { display: block; height: 100%; background: var(--green); border-radius: 4px;
+  transition: width .25s var(--ease); }
+
+.cl-phase { margin-bottom: 22px; }
+.cl-phase-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 7px; }
+.cl-phase-titles { display: flex; align-items: baseline; gap: 9px; flex: 1 1 auto; min-width: 0; flex-wrap: wrap; }
+.cl-phase-titles h3 { margin: 0; font-size: 15px; font-weight: 700; color: var(--ink); }
+.cl-role { font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+  color: var(--ink-faint); background: var(--fill-soft); padding: 2px 7px; border-radius: var(--r-xs); }
+.cl-phase-count { flex: none; font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--ink-dim); }
+.cl-note { margin: 7px 0; font-size: 12.5px; color: var(--ink-dim); font-style: italic; }
+
+.cl-branches { display: inline-flex; gap: 3px; background: var(--fill-soft); border-radius: var(--r-ctl);
+  padding: 3px; margin: 10px 0 4px; flex-wrap: wrap; }
+.cl-branch { border: none; background: transparent; cursor: pointer; font-family: var(--body);
+  font-size: 12.5px; font-weight: 600; color: var(--ink-dim); padding: 7px 13px; border-radius: var(--r-sm);
+  transition: background .14s var(--ease), color .14s var(--ease); }
+.cl-branch:hover:not(:disabled) { color: var(--ink); }
+.cl-branch.on { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); }
+.cl-branch:disabled { cursor: default; opacity: .55; }
+
+.cl-items { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.cl-item { display: flex; align-items: flex-start; gap: 12px; background: var(--surface); border-radius: var(--r-ctl);
+  padding: 12px 14px; box-shadow: 0 0 0 1px var(--border-soft); }
+.cl-item.done { background: color-mix(in srgb, var(--green) 5%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--green) 18%, transparent); }
+.cl-check { flex: none; width: 38px; height: 38px; border-radius: var(--r-sm); border: 2px solid var(--border);
+  background: var(--surface); cursor: pointer; display: grid; place-items: center; color: var(--on-accent-ink); padding: 0;
+  transition: background .12s var(--ease), border-color .12s var(--ease); }
+.cl-check :global(.i) { width: 18px; height: 18px; }
+.cl-check:hover:not(:disabled) { border-color: var(--green); }
+.cl-item.done .cl-check { background: var(--green); border-color: var(--green); }
+.cl-check:disabled { cursor: default; opacity: .5; }
+/* gloved field use: ticking is THE action on this surface — full 44px checkbox on touch */
+@media (pointer: coarse) { .cl-check { width: 44px; height: 44px; } }
+.cl-item-body { flex: 1 1 auto; min-width: 0; }
+/* whole text body is a tap target to toggle the item (the checkbox is just the visual) */
+.cl-item-tap { cursor: pointer; }
+.cl-item-text { font-size: 14.5px; font-weight: 600; color: var(--ink); line-height: 1.35; }
+.cl-item.done .cl-item-text { color: var(--ink-dim); }
+.cl-item-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.cl-when { font-size: 11px; font-weight: 600; color: var(--amber); background: color-mix(in srgb, var(--amber) 12%, transparent);
+  padding: 1px 7px; border-radius: var(--r-xs); }
+.cl-milestone :global(.i) { width: 12px; height: 12px; color: var(--ink-faint); }
+.cl-tickinfo { font-family: var(--mono); font-size: 11px; color: var(--green); font-weight: 600; }
+.cl-deeplink { flex: none; align-self: center; display: inline-flex; align-items: center; gap: 4px; border: none;
+  background: color-mix(in srgb, var(--blue) 10%, transparent); color: var(--blue-strong); cursor: pointer; font-family: var(--body); font-size: 11.5px;
+  font-weight: 700; padding: 6px 9px; border-radius: var(--r-sm); }
+.cl-deeplink:hover { background: color-mix(in srgb, var(--blue) 18%, transparent); }
+.cl-deeplink :global(.i) { width: 13px; height: 13px; }
+.cl-deeplink :global(.i):last-child { width: 11px; height: 11px; opacity: .6; }
+
+.cl-runner-foot { margin-top: 22px; padding-top: 12px; border-top: 1px solid var(--glass-edge);
+  font-size: 11px; color: var(--ink-faint); }
+.cl-empty-hint { font-size: 13px; color: var(--ink-faint); font-style: italic; padding: 4px 2px; }
+
+/* --- reference playbook --- */
+.cl-ref { display: flex; gap: 20px; height: 100%; max-width: 1000px; margin: 0 auto; }
+.cl-ref-list { flex: 0 0 260px; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.cl-search { display: flex; align-items: center; gap: 8px; background: var(--surface); border-radius: var(--r-ctl);
+  padding: 9px 12px; box-shadow: 0 0 0 1px var(--border-soft); }
+.cl-search :global(.i) { width: 15px; height: 15px; color: var(--ink-faint); flex: none; }
+.cl-search input { border: none; outline: none; background: transparent; font-family: var(--body);
+  font-size: 13.5px; color: var(--ink); width: 100%; }
+.cl-automatch { display: flex; align-items: center; gap: 9px; border: none; cursor: pointer; text-align: left;
+  background: color-mix(in srgb, var(--red) 8%, transparent); color: var(--red-strong); border-radius: var(--r-ctl); padding: 10px 12px; }
+.cl-automatch :global(.i) { width: 15px; height: 15px; flex: none; }
+.cl-automatch > div { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
+.cl-automatch-lbl { font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; opacity: .8; }
+.cl-automatch-title { font-size: 13.5px; font-weight: 700; }
+.cl-ref-entries { display: flex; flex-direction: column; gap: 3px; overflow-y: auto; min-height: 0; }
+.cl-ref-entry { display: flex; align-items: center; gap: 10px; border: none; background: transparent; cursor: pointer;
+  text-align: left; font-family: var(--body); font-size: 13.5px; font-weight: 600; color: var(--ink-dim);
+  padding: 9px 11px; border-radius: var(--r-ctl); }
+.cl-ref-entry:hover { background: var(--fill-soft); color: var(--ink); }
+.cl-ref-entry.on { background: var(--ink-fill); color: var(--on-accent-ink); }
+.cl-ref-chip { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--ink-faint); }
+.cl-ref-entry-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hz-red .cl-ref-chip { background: var(--red); }
+.hz-orange .cl-ref-chip { background: var(--amber); }
+.hz-green .cl-ref-chip { background: var(--green); }
+.hz-yellow .cl-ref-chip { background: var(--hazard-yellow); }
+.hz-blue .cl-ref-chip { background: var(--blue); }
+
+.cl-ref-reader { flex: 1 1 auto; min-width: 0; overflow-y: auto; scrollbar-gutter: stable; }
+.cl-ref-doc { max-width: 640px; background: var(--surface); border-radius: var(--r-surface); padding: 24px 28px;
+  box-shadow: 0 0 0 1px var(--border-soft); border-top: 4px solid var(--ink-faint); }
+.cl-ref-doc.hz-red { border-top-color: var(--red); }
+.cl-ref-doc.hz-orange { border-top-color: var(--amber); }
+.cl-ref-doc.hz-green { border-top-color: var(--green); }
+.cl-ref-doc.hz-yellow { border-top-color: var(--hazard-yellow); }
+.cl-ref-doc.hz-blue { border-top-color: var(--blue); }
+.cl-ref-doc-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.cl-ref-doc-head h2 { margin: 0; font-size: 20px; font-weight: 800; color: var(--ink); }
+.cl-ref-badge { font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+  color: var(--on-accent-ink); padding: 3px 9px; border-radius: var(--r-xs); background: var(--ink-faint); }
+.cl-ref-badge.hz-red { background: var(--red); }
+.cl-ref-badge.hz-orange { background: var(--amber); }
+.cl-ref-badge.hz-green { background: var(--green); }
+.cl-ref-badge.hz-yellow { background: var(--hazard-yellow); }
+.cl-ref-badge.hz-blue { background: var(--blue); }
+.cl-ref-blocks { display: flex; flex-direction: column; gap: 7px; }
+.cl-ref-h { margin: 12px 0 2px; font-size: 14px; font-weight: 700; color: var(--ink); }
+.cl-ref-bullet { display: flex; gap: 9px; font-size: 14px; color: var(--ink); line-height: 1.4; }
+.cl-ref-bullet .cl-ref-dot { flex: none; width: 5px; height: 5px; border-radius: 50%; background: var(--ink-faint);
+  margin-top: 8px; }
+.cl-ref-bullet.em-red { color: var(--red); font-weight: 700; }
+.cl-ref-bullet.em-red .cl-ref-dot { background: var(--red); }
+.cl-ref-bullet.em-bold { font-weight: 700; }
+.cl-ref-note { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--ink-dim);
+  background: var(--fill-soft); border-radius: var(--r-ctl); padding: 9px 12px; margin: 6px 0; line-height: 1.4; }
+.cl-ref-note :global(.i) { width: 14px; height: 14px; flex: none; margin-top: 1px; color: var(--ink-faint); }
+/* inline diagram from the source EL PDF page */
+.cl-ref-fig { margin: 12px 0; }
+.cl-ref-fig img { width: 100%; max-width: 560px; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
+  box-shadow: var(--shadow-sm); display: block; background: var(--surface); }
+.cl-ref-fig figcaption { margin-top: 6px; font-size: 12px; color: var(--ink-faint); }
+
+/* tabular reference data (Gewichte/Flussraten, Aufgebotskonzept) */
+.cl-ref-tablewrap { margin: 8px 0; overflow-x: auto; }
+.cl-ref-table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+.cl-ref-table th, .cl-ref-table td { text-align: left; padding: 4px 10px 4px 0; border-bottom: 1px solid var(--border-soft);
+  vertical-align: top; }
+.cl-ref-table th { font-weight: 700; color: var(--ink); border-bottom-color: var(--line); white-space: nowrap; }
+.cl-ref-table td { color: var(--ink-dim); }
+.cl-ref-table td:not(:first-child) { font-family: var(--mono); white-space: nowrap; }
+.cl-ref-tablewrap figcaption { margin-top: 6px; font-size: 12px; color: var(--ink-faint); }
+
+/* tappable phone numbers (tel:) in reference text + the Telefonliste page */
+.cl-tel { color: var(--accent-ink, var(--accent)); font-weight: 600; text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); white-space: nowrap; }
+.cl-tel:hover { border-bottom-color: var(--accent); }
+
+/* wide screens: let the reference reader use the empty horizontal space with a 2-column
+   flow instead of a narrow centred column with a large dark void to the right (item 15) */
+@media (min-width: 980px) {
+  .cl-ref-doc { max-width: 940px; }
+  .cl-ref-blocks { columns: 2; column-gap: 32px; }
+  .cl-ref-blocks > * { break-inside: avoid; }
+  .cl-ref-h { break-after: avoid; }
+}
+
+.cl-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  height: 100%; color: var(--ink-faint); text-align: center; }
+.cl-placeholder :global(.i) { width: 28px; height: 28px; opacity: .5; }
+.cl-placeholder p { margin: 0; font-size: 14px; font-weight: 600; }
+.cl-placeholder span { font-size: 12.5px; }
+.cl-placeholder-full { padding: 40px; }
+
+/* phone-only collapsed-rail toggle row — hidden on desktop, where the rail is permanent */
+.cl-rail-toggle { display: none; }
+
+/* phone: rail becomes a scrollable block above a single-column main pane */
+@media (max-width: 600px) {
+  /* full width below the top bar (78px clears the floating bar with a visible gap — at 64px
+     the header sat glued under it); the bottom inset clears the NavRail bottom bar */
+  .cl-surface { inset: calc(78px + env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
+    calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); flex-direction: column; gap: 0; }
+  /* the picker rail collapses to the .cl-rail-toggle row after a pick (ChecklistsView), so
+     while open it may take real height — picking is the only job of that moment */
+  .cl-rail { flex: none; max-height: 44vh; width: auto; border-right: none;
+    border-bottom: 1px solid var(--glass-edge); padding: 8px; gap: 8px; }
+  /* collapsed state: one slim row — current selection + chevron — reopens the list; the
+     checklist/playbook below gets the full remaining height (the «fullsize text» ask) */
+  .cl-rail-toggle { display: flex; align-items: center; gap: 9px; flex: none; width: 100%;
+    min-height: 48px; padding: 10px 14px; border: none; cursor: pointer; text-align: left;
+    background: var(--surface); border-bottom: 1px solid var(--glass-edge);
+    font: 700 14px var(--body); color: var(--ink); }
+  .cl-rail-toggle :global(.i) { width: 16px; height: 16px; flex: none; color: var(--ink-faint); }
+  .cl-rail-toggle span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cl-rail-group { gap: 2px; }
+  .cl-rail-label { padding: 2px 6px 2px; }
+  .cl-rail-item { padding: 8px 10px; }
+  .cl-rail-entry { padding: 6px 10px; }
+  /* lift the main pane clear of the Eintrag FAB (bottom-right, z55) + tighten padding */
+  .cl-main { padding: 14px 14px; padding-bottom: 80px; }
+  /* shrink the runner head so the actual phase list leads sooner */
+  .cl-runner-head { padding-bottom: 12px; margin-bottom: 14px; gap: 10px; }
+  .cl-runner-titles h2 { font-size: 18px; }
+  .cl-runner-titles p { font-size: 12px; margin-top: 2px; }
+  .cl-overall-num { font-size: 19px; }
+  /* the playbook reader's doc shouldn't force horizontal scroll on a narrow screen */
+  .cl-ref { flex-direction: column; }
+  .cl-ref-list { flex: none; }
+  .cl-ref-entries { max-height: 200px; }
+  .cl-ref-doc { padding: 18px 16px; }
+  /* runner head stacks so the big progress number doesn't crowd the title */
+  .cl-overall { flex-basis: auto; }
+}

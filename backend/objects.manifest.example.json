@@ -1,0 +1,34 @@
+{
+  "objects": [
+    {
+      "id": "11111111-2222-5333-8444-555555555555",
+      "name": "Schulhaus Dorfmatt",
+      "address": "Schulstrasse 7",
+      "lat": 47.5158,
+      "lng": 7.5567,
+      "sourceNote": "Einsatzplan-Bibliothek: Schulhaus Dorfmatt",
+      "plans": [
+        {
+          "module": "modul1",
+          "file": "plans/dorfmatt/modul1.pdf",
+          "title": "Schulhaus Dorfmatt – Übersicht"
+        },
+        {
+          "module": "modul2",
+          "file": "plans/dorfmatt/modul2-3.pdf",
+          "title": "Schulhaus Dorfmatt – Umgebung"
+        },
+        {
+          "module": "modul6",
+          "file": "plans/dorfmatt/modul6.pdf",
+          "title": "Schulhaus Dorfmatt – Gebäudepläne"
+        },
+        {
+          "module": "modul5-wasser",
+          "file": "plans/dorfmatt/modul5-wasser.pdf",
+          "title": "Schulhaus Dorfmatt – Löschwasser"
+        }
+      ]
+    }
+  ]
+}

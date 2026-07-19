@@ -1,0 +1,181 @@
+/* Mittel surface — mirrors the Anwesenheit/Atemschutz shell (inset card + head), then a composer
+   section and a grouped list of material-use totals with in-place ±steppers. */
+
+/* opaque full-screen backdrop so the surface reads as its own screen rather than a card floating
+   over the live map. Sits above the map (z 19) but below the surface card (z 20), NavRail (35)
+   and top bar, so those chrome elements stay visible. */
+.backdrop { position: fixed; inset: 0; background: var(--app-bg); z-index: 19; }
+
+.surface {
+  position: absolute; inset: 88px 16px 16px calc(var(--rail-w) + 28px); z-index: 20;
+  display: flex; flex-direction: column;
+  background: var(--app-bg); border-radius: var(--r-surface); overflow: hidden; box-shadow: var(--shadow);
+}
+
+.head {
+  display: flex; align-items: center; gap: 16px; padding: 16px 22px;
+  background: var(--surface); border-bottom: 1px solid var(--glass-edge);
+}
+.headTitles { flex: 1 1 auto; min-width: 0; }
+.headActions { flex: none; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.headTitles h2 { margin: 0; font-size: 19px; font-weight: 800; color: var(--ink); }
+.headTitles p { margin: 3px 0 0; font-size: 12.5px; color: var(--ink-dim); }
+
+/* segmented view toggle (Mittel / nach Quelle) */
+.viewToggle { display: inline-flex; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); overflow: hidden; }
+.viewToggle button {
+  border: none; background: var(--surface); color: var(--ink-dim); cursor: pointer;
+  padding: 0 12px; min-height: var(--tap); font: 700 12.5px var(--body);
+}
+.viewToggle button + button { border-left: 1px solid var(--glass-edge); }
+.viewToggle button.on { background: color-mix(in srgb, var(--accent) 16%, var(--surface)); color: var(--ink); }
+
+.add {
+  flex: none; display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--glass-edge));
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface)); color: var(--ink);
+  border-radius: var(--r-ctl); padding: 0 14px; min-height: var(--tap); font: 800 13px var(--body);
+}
+.add:hover { border-color: var(--accent); }
+.add svg { width: 16px; height: 16px; }
+
+/* composer — a labelled section («Mittel erfassen»), then one wrapping row of fields with the
+   actions pinned right, so the strip reads as a form and not a loose scatter of inputs. */
+.composer {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 14px 22px 16px; background: var(--surface); border-bottom: 1px solid var(--glass-edge);
+}
+.composerTitle {
+  font: 800 12.5px var(--body); color: var(--ink-dim);
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.composerFields { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.field { display: flex; flex-direction: column; gap: 5px; flex: 1 1 200px; min-width: 0; }
+.fieldNarrow { flex: 0 1 130px; }
+.field label { font: 700 11.5px var(--body); color: var(--ink-faint); text-transform: uppercase; letter-spacing: .04em; }
+.composerActions { display: flex; align-items: center; gap: 8px; flex: none; margin-left: auto; }
+.cancel, .save {
+  cursor: pointer; border-radius: var(--r-ctl); padding: 0 16px; min-height: var(--tap); font: 800 13px var(--body);
+}
+.cancel { border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink-dim); }
+.cancel:hover { color: var(--ink); border-color: var(--ink-faint); }
+.save { border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink, #fff); }
+.save:disabled { opacity: .5; cursor: default; }
+
+/* grouped list — 6px between rows inside a group, a clear 16px break before the next group */
+.list { flex: 1 1 auto; overflow-y: auto; scrollbar-gutter: stable; padding: 8px 22px 18px; }
+.group { margin-top: 16px; }
+.group:first-child { margin-top: 4px; }
+/* padding-left aligns the header label with the item labels inside the cards
+   (card border 1px + row padding-left 12px) */
+.groupHead {
+  margin: 0 0 6px; padding: 0 13px; font: 800 12.5px var(--body); color: var(--ink-dim);
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.groupHead.muted { color: var(--ink-faint); }
+
+.row {
+  display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 6px 12px;
+  border: 1px solid var(--glass-edge); background: var(--surface); border-radius: var(--r-ctl);
+  margin-bottom: 6px;
+}
+.rowLabel { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 14.5px var(--body); color: var(--ink); }
+/* unit trails the quantity (qty and unit read as one value: «3 / 4 Stk»); the min-width keeps
+   the short unit strings (Stk/l/m) in a column so quantities align down a group */
+.rowUnit { flex: none; min-width: 28px; font: 600 12.5px var(--body); color: var(--ink-faint); }
+.rowQty { flex: none; font: 800 15px var(--body); color: var(--ink); min-width: 32px; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* used / available readout next to a source-line stepper */
+.rowEdit { flex: none; display: flex; align-items: center; gap: 8px; }
+.avail { font: 700 13px var(--body); color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.over { color: var(--red); }
+
+/* remaining-stock readout on a list row: filled dot = still there, empty = used; larger
+   stocks fall back to the «noch N» chip. Low → amber, nothing left / over-use → red. */
+.dots { flex: none; display: inline-flex; align-items: center; gap: 3px; min-width: 34px; justify-content: flex-end; }
+.dots i { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--ink-faint); background: none; }
+.dots i.dotOn, .dots .dotOn { border-color: var(--green); background: var(--green); }
+.dots.low .dotOn { border-color: var(--amber-strong); background: var(--amber-strong); }
+.dots.over i { border-color: var(--red); }
+.noch { flex: none; font: 700 12px var(--body); color: var(--ink-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.noch.low { color: var(--amber-strong); }
+.noch.over { color: var(--red-strong); }
+
+/* multi-source rows: the whole header line is the expand toggle; per-source stepper
+   sub-rows indent below it */
+.rowMulti { flex-direction: column; align-items: stretch; gap: 0; padding: 0; }
+.rowExpand { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 6px 12px;
+  border: none; background: none; cursor: pointer; text-align: left; font: inherit; color: inherit;
+  border-radius: var(--r-ctl); }
+.rowExpand svg { width: 14px; height: 14px; flex: none; color: var(--ink-faint); }
+.subRow { display: flex; flex-direction: column; gap: 4px; padding: 5px 12px 5px 34px;
+  border-top: 1px solid var(--glass-edge); }
+.subLabel { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font: 650 13px var(--body); color: var(--ink-dim); }
+
+/* trailing «Anderes Mittel» row — the composer path for free-typed entries */
+.addCustom { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%;
+  min-height: 48px; margin-top: 12px; cursor: pointer; border: 1px dashed var(--glass-edge);
+  background: none; border-radius: var(--r-ctl); color: var(--ink-dim); font: 700 13px var(--body); }
+.addCustom:hover { color: var(--ink); border-color: var(--ink-faint); }
+.addCustom svg { width: 15px; height: 15px; }
+
+/* equipment rows stack the main line over the Retablierung chips */
+.rowTall { flex-direction: column; align-items: stretch; gap: 4px; }
+.rowMain { flex: 1 1 auto; display: flex; align-items: center; gap: 12px; min-width: 0; min-height: 36px; }
+/* Retablierung chips: outline-only at rest so three pills per row don't shout — only the
+   selected state gets a (status-coloured) fill */
+.statusChips { display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 4px; }
+.statusChip { min-height: 40px; padding: 0 14px; cursor: pointer; border-radius: 999px;
+  border: 1px solid var(--glass-edge); background: none;
+  font: 650 12.5px var(--body); color: var(--ink-faint); }
+/* gloved field use: the three Retablierung pills are a dense picker — enlarge directly */
+@media (pointer: coarse) { .statusChip { min-height: 44px; } }
+.statusChip:hover:not(:disabled) { color: var(--ink-dim); border-color: color-mix(in srgb, var(--ink) 22%, var(--glass-edge)); }
+.statusChip:disabled { cursor: default; }
+.statusOn { border-color: color-mix(in srgb, var(--green) 55%, var(--glass-edge));
+  background: color-mix(in srgb, var(--green) 14%, var(--surface)); color: var(--ink); }
+.statusOn.statusVorOrt { border-color: color-mix(in srgb, var(--amber-strong) 55%, var(--glass-edge));
+  background: color-mix(in srgb, var(--amber-strong) 14%, var(--surface)); }
+.statusOn.statusDefekt { border-color: color-mix(in srgb, var(--red-strong) 55%, var(--glass-edge));
+  background: color-mix(in srgb, var(--red-strong) 14%, var(--surface)); }
+
+.empty {
+  flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  height: 100%; color: var(--ink-faint); text-align: center; padding: 24px;
+}
+.empty svg { width: 38px; height: 38px; opacity: .5; }
+.empty p { margin: 0; font-size: 15px; font-weight: 700; color: var(--ink-dim); }
+.empty span { max-width: 400px; font-size: 13px; line-height: 1.5; }
+.empty .add { margin-top: 6px; }
+
+@media (max-width: 600px) {
+  /* 78px clears the floating top bar with a visible gap (at 64px the header ran under it) */
+  .surface { inset: calc(78px + env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
+    calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
+  /* title row + actions row: side by side, the toggle (3 segments) + «+ Mittel» overflowed
+     the width and overlapped the title — actions wrap to their own full-width line instead */
+  .head { padding: 10px 14px; gap: 6px 10px; flex-wrap: wrap; }
+  .headTitles { flex: 1 1 100%; }
+  .headActions { flex: 1 1 100%; justify-content: space-between; }
+  .viewToggle { flex: 1 1 auto; }
+  .viewToggle button { flex: 1 1 0; padding: 0 8px; }
+  .headTitles h2 { font-size: 17px; }
+  .headTitles p { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .composer { padding: 12px 14px 14px; gap: 8px; }
+  .composerFields { gap: 10px; }
+  .field { flex: 1 1 100%; }
+  .fieldNarrow { flex: 1 1 calc(50% - 5px); }
+  /* actions get their own full-width row; Speichern is the big primary (3am tenet) */
+  .composerActions { flex: 1 1 100%; margin-left: 0; }
+  .cancel { flex: 1 1 auto; min-height: 48px; }
+  .save { flex: 2 1 auto; min-height: 48px; }
+  .list { padding: 8px 14px 18px; }
+  /* the ±stepper leaves ~130px for the label on a phone — let the name wrap to a second
+     line instead of truncating to «Ölsaug–/Wassers…» (recognition over recall).
+     overflow-wrap: compound tokens like «Ölsaug-/Wassersauger» get a break instead of
+     an ellipsis (plain wrapping finds no break opportunity inside them). */
+  .rowLabel, .subLabel { white-space: normal; line-height: 1.25; overflow-wrap: anywhere; }
+  .row, .rowMain, .rowExpand { gap: 8px; }
+  .rowEdit { gap: 6px; }
+}

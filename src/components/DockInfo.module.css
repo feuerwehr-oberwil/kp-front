@@ -1,0 +1,16 @@
+/* info (ℹ) button + tap-toggle help popover, to the left of the right-edge dock */
+.wb-dock-info { position: relative; display: grid; place-items: center; }
+.wb-dock-ibtn { width: 34px; height: 34px; border-radius: 50%; border: none; background: rgba(255, 255, 255, .14);
+  color: var(--on-accent-ink); display: grid; place-items: center; cursor: pointer; padding: 0; }
+.wb-dock-ibtn:hover, .wb-dock-ibtn.on { background: rgba(255, 255, 255, .28); }
+@media (pointer: coarse) { .wb-dock-ibtn { width: 40px; height: 40px; } }
+.wb-dock-ibtn :global(.i) { width: 18px; height: 18px; }
+/* help text always appears at the BOTTOM-centre of the screen (not floating beside the
+   button), so every in-function hint shows in the same place. Fixed to the viewport. */
+.wb-dock-tip { position: fixed; left: 50%; bottom: calc(28px + env(safe-area-inset-bottom)); right: auto; top: auto; transform: translateX(-50%);
+  width: max-content; max-width: min(440px, 90vw); background: var(--ink-fill); color: var(--on-accent-ink); font-size: 12.5px; font-weight: 500;
+  line-height: 1.4; text-align: center; padding: 9px 16px; border-radius: var(--r-surface); box-shadow: var(--shadow); z-index: 43; }
+/* phones: clear the bottom bars (nav + tool bar) so the hint isn't hidden behind them */
+@media (max-width: 600px) {
+  .wb-dock-tip { bottom: calc(var(--rail-h) * 2 + 28px + env(safe-area-inset-bottom)); max-width: calc(100vw - 20px); }
+}

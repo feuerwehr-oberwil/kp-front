@@ -1,0 +1,6912 @@
+{
+  "1005": [
+    {
+      "guide": "125",
+      "names": [
+        "Ammonia, anhydrous",
+        "Anhydrous ammonia"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": "Refer to Table 3"
+    }
+  ],
+  "1008": [
+    {
+      "guide": "125",
+      "names": [
+        "Boron trifluoride",
+        "Boron trifluoride, compressed"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.7 km (0.5 mi)"
+      },
+      "large": {
+        "isolate": "400 m (1250 ft)",
+        "protect_day": "2.4 km (1.5 mi)",
+        "protect_night": "4.7 km (2.9 mi)"
+      }
+    }
+  ],
+  "1016": [
+    {
+      "guide": "119",
+      "names": [
+        "Carbon monoxide, compressed"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "200 m (600 ft)",
+        "protect_day": "1.2 km (0.7 mi)",
+        "protect_night": "3.9 km (2.4 mi)"
+      }
+    }
+  ],
+  "1017": [
+    {
+      "guide": "124",
+      "names": [
+        "Chlorine"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "1.5 km (0.9 mi)"
+      },
+      "large": "Refer to Table 3"
+    }
+  ],
+  "1026": [
+    {
+      "guide": "119",
+      "names": [
+        "Cyanogen"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.4 km (0.3 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "1.1 km (0.7 mi)"
+      }
+    }
+  ],
+  "1040": [
+    {
+      "guide": "119P",
+      "names": [
+        "Ethylene oxide",
+        "Ethylene oxide with nitrogen"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.2 mi)"
+      },
+      "large": "Refer to Table 3"
+    }
+  ],
+  "1045": [
+    {
+      "guide": "124",
+      "names": [
+        "Fluorine, compressed"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "2.3 km (1.4 mi)"
+      }
+    }
+  ],
+  "1048": [
+    {
+      "guide": "125",
+      "names": [
+        "Hydrogen bromide, anhydrous"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.0 km (0.7 mi)",
+        "protect_night": "3.2 km (2.0 mi)"
+      }
+    }
+  ],
+  "1050": [
+    {
+      "guide": "125",
+      "names": [
+        "Hydrogen chloride, anhydrous"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": "Refer to Table 3"
+    }
+  ],
+  "1051": [
+    {
+      "guide": "117P",
+      "names": [
+        "Hydrogen cyanide, stabilized"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.7 km (0.4 mi)"
+      },
+      "large": {
+        "isolate": "200 m (600 ft)",
+        "protect_day": "0.7 km (0.5 mi)",
+        "protect_night": "1.8 km (1.1 mi)"
+      }
+    }
+  ],
+  "1052": [
+    {
+      "guide": "125",
+      "names": [
+        "Hydrogen fluoride, anhydrous"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.5 km (0.3 mi)"
+      },
+      "large": "Refer to Table 3"
+    }
+  ],
+  "1053": [
+    {
+      "guide": "117",
+      "names": [
+        "Hydrogen sulfide",
+        "Hydrogen sulphide"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.5 km (0.3 mi)"
+      },
+      "large": {
+        "isolate": "400 m (1250 ft)",
+        "protect_day": "2.4 km (1.5 mi)",
+        "protect_night": "6.3 km (4.0 mi)"
+      }
+    }
+  ],
+  "1061": [
+    {
+      "guide": "118",
+      "names": [
+        "Methylamine, anhydrous"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "200 m (600 ft)",
+        "protect_day": "0.6 km (0.4 mi)",
+        "protect_night": "2.1 km (1.3 mi)"
+      }
+    }
+  ],
+  "1062": [
+    {
+      "guide": "123",
+      "names": [
+        "Methyl bromide"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "0.7 km (0.5 mi)"
+      }
+    }
+  ],
+  "1064": [
+    {
+      "guide": "117",
+      "names": [
+        "Methyl mercaptan"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "200 m (600 ft)",
+        "protect_day": "1.3 km (0.8 mi)",
+        "protect_night": "3.9 km (2.4 mi)"
+      }
+    }
+  ],
+  "1067": [
+    {
+      "guide": "124",
+      "names": [
+        "Dinitrogen tetroxide",
+        "Nitrogen dioxide"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.4 km (0.3 mi)"
+      },
+      "large": {
+        "isolate": "400 m (1250 ft)",
+        "protect_day": "1.4 km (0.9 mi)",
+        "protect_night": "3.3 km (2.1 mi)"
+      }
+    }
+  ],
+  "1069": [
+    {
+      "guide": "125",
+      "names": [
+        "Nitrosyl chloride"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.2 mi)",
+        "protect_night": "1.0 km (0.7 mi)"
+      },
+      "large": {
+        "isolate": "800 m (2500 ft)",
+        "protect_day": "4.3 km (2.7 mi)",
+        "protect_night": "9.6 km (6.0 mi)"
+      }
+    }
+  ],
+  "1076": [
+    {
+      "guide": "125",
+      "names": [
+        "Phosgene"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.6 km (0.4 mi)",
+        "protect_night": "2.5 km (1.6 mi)"
+      },
+      "large": {
+        "isolate": "500 m (1500 ft)",
+        "protect_day": "3.0 km (1.9 mi)",
+        "protect_night": "9.5 km (5.9 mi)"
+      }
+    }
+  ],
+  "1079": [
+    {
+      "guide": "125",
+      "names": [
+        "Sulfur dioxide",
+        "Sulphur dioxide"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.6 km (0.4 mi)",
+        "protect_night": "2.6 km (1.6 mi)"
+      },
+      "large": "Refer to Table 3"
+    }
+  ],
+  "1082": [
+    {
+      "guide": "119P",
+      "names": [
+        "Refrigerant gas R-1113",
+        "Trifluorochloroethylene, stabilized"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.4 km (0.3 mi)",
+        "protect_night": "0.7 km (0.5 mi)"
+      }
+    }
+  ],
+  "1092": [
+    {
+      "guide": "131P",
+      "names": [
+        "Acrolein, stabilized"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "1.3 km (0.8 mi)",
+        "protect_night": "3.5 km (2.2 mi)"
+      },
+      "large": {
+        "isolate": "600 m (2000 ft)",
+        "protect_day": "6.8 km (4.2 mi)",
+        "protect_night": "11.1 km (6.9 mi)"
+      }
+    }
+  ],
+  "1093": [
+    {
+      "guide": "131P",
+      "names": [
+        "Acrylonitrile, stabilized"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.2 mi)",
+        "protect_night": "0.6 km (0.4 mi)"
+      },
+      "large": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "1.3 km (0.8 mi)",
+        "protect_night": "2.3 km (1.5 mi)"
+      }
+    }
+  ],
+  "1098": [
+    {
+      "guide": "131",
+      "names": [
+        "Allyl alcohol"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.8 km (0.5 mi)",
+        "protect_night": "1.2 km (0.8 mi)"
+      }
+    }
+  ],
+  "1135": [
+    {
+      "guide": "131",
+      "names": [
+        "Ethylene chlorohydrin"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      }
+    }
+  ],
+  "1143": [
+    {
+      "guide": "131P",
+      "names": [
+        "Crotonaldehyde",
+        "Crotonaldehyde, stabilized"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "0.7 km (0.5 mi)"
+      }
+    }
+  ],
+  "1162": [
+    {
+      "guide": "155",
+      "names": [
+        "Dimethyldichlorosilane"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.4 km (0.2 mi)",
+        "protect_night": "1.2 km (0.8 mi)"
+      }
+    }
+  ],
+  "1163": [
+    {
+      "guide": "131",
+      "names": [
+        "Dimethylhydrazine, unsymmetrical"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.5 km (0.3 mi)"
+      },
+      "large": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "1.0 km (0.7 mi)",
+        "protect_night": "1.8 km (1.1 mi)"
+      }
+    }
+  ],
+  "1182": [
+    {
+      "guide": "155",
+      "names": [
+        "Ethyl chloroformate"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.6 km (0.4 mi)",
+        "protect_night": "0.9 km (0.6 mi)"
+      }
+    }
+  ],
+  "1183": [
+    {
+      "guide": "139",
+      "names": [
+        "Ethyldichlorosilane"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "1.5 km (0.9 mi)"
+      }
+    }
+  ],
+  "1185": [
+    {
+      "guide": "131P",
+      "names": [
+        "Ethyleneimine, stabilized"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.5 km (0.3 mi)"
+      },
+      "large": {
+        "isolate": "200 m (600 ft)",
+        "protect_day": "1.0 km (0.6 mi)",
+        "protect_night": "1.8 km (1.1 mi)"
+      }
+    }
+  ],
+  "1196": [
+    {
+      "guide": "155",
+      "names": [
+        "Ethyltrichlorosilane"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.5 km (0.3 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.8 km (1.2 mi)",
+        "protect_night": "3.7 km (2.3 mi)"
+      }
+    }
+  ],
+  "1238": [
+    {
+      "guide": "155",
+      "names": [
+        "Methyl chloroformate"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.2 mi)",
+        "protect_night": "0.5 km (0.4 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.2 km (0.7 mi)",
+        "protect_night": "2.2 km (1.4 mi)"
+      }
+    }
+  ],
+  "1239": [
+    {
+      "guide": "131",
+      "names": [
+        "Methyl chloromethyl ether"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "1.5 km (1.0 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "3.4 km (2.1 mi)",
+        "protect_night": "5.7 km (3.6 mi)"
+      }
+    }
+  ],
+  "1242": [
+    {
+      "guide": "139",
+      "names": [
+        "Methyldichlorosilane"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.4 mi)",
+        "protect_night": "1.7 km (1.1 mi)"
+      }
+    }
+  ],
+  "1244": [
+    {
+      "guide": "131",
+      "names": [
+        "Methylhydrazine"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "0.6 km (0.4 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.5 km (0.9 mi)",
+        "protect_night": "2.2 km (1.4 mi)"
+      }
+    }
+  ],
+  "1250": [
+    {
+      "guide": "155",
+      "names": [
+        "Methyltrichlorosilane"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.6 km (0.4 mi)",
+        "protect_night": "1.9 km (1.2 mi)"
+      }
+    }
+  ],
+  "1251": [
+    {
+      "guide": "131P",
+      "names": [
+        "Methyl vinyl ketone, stabilized"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "0.7 km (0.5 mi)"
+      },
+      "large": {
+        "isolate": "800 m (2500 ft)",
+        "protect_day": "1.7 km (1.1 mi)",
+        "protect_night": "2.8 km (1.8 mi)"
+      }
+    }
+  ],
+  "1259": [
+    {
+      "guide": "131",
+      "names": [
+        "Nickel carbonyl"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "1.4 km (0.9 mi)",
+        "protect_night": "5.2 km (3.3 mi)"
+      },
+      "large": {
+        "isolate": "1000 m (3000 ft)",
+        "protect_day": "11.0+ km (7.0+ mi)",
+        "protect_night": "11.0+ km (7.0+ mi)"
+      }
+    }
+  ],
+  "1295": [
+    {
+      "guide": "139",
+      "names": [
+        "Trichlorosilane"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "1.5 km (0.9 mi)"
+      }
+    }
+  ],
+  "1298": [
+    {
+      "guide": "155",
+      "names": [
+        "Trimethylchlorosilane"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.4 km (0.2 mi)",
+        "protect_night": "1.0 km (0.6 mi)"
+      }
+    }
+  ],
+  "1305": [
+    {
+      "guide": "155P",
+      "names": [
+        "Vinyltrichlorosilane"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.4 km (0.3 mi)",
+        "protect_night": "1.3 km (0.8 mi)"
+      }
+    }
+  ],
+  "1340": [
+    {
+      "guide": "139",
+      "names": [
+        "Phosphorus pentasulfide, free from yellow and white phosphorus",
+        "Phosphorus pentasulphide, free from yellow and white phosphorus"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.2 mi)",
+        "protect_night": "1.0 km (0.6 mi)"
+      }
+    }
+  ],
+  "1360": [
+    {
+      "guide": "139",
+      "names": [
+        "Calcium phosphide"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.4 km (0.3 mi)"
+      },
+      "large": {
+        "isolate": "200 m (600 ft)",
+        "protect_day": "0.8 km (0.5 mi)",
+        "protect_night": "2.7 km (1.7 mi)"
+      }
+    }
+  ],
+  "1380": [
+    {
+      "guide": "135",
+      "names": [
+        "Pentaborane"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.6 km (0.4 mi)",
+        "protect_night": "2.0 km (1.3 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "3.0 km (1.9 mi)",
+        "protect_night": "6.5 km (4.1 mi)"
+      }
+    }
+  ],
+  "1384": [
+    {
+      "guide": "135",
+      "names": [
+        "Sodium dithionite",
+        "Sodium hydrosulfite",
+        "Sodium hydrosulphite"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.4 km (0.3 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "2.1 km (1.3 mi)"
+      }
+    }
+  ],
+  "1390": [
+    {
+      "guide": "139",
+      "names": [
+        "Alkali metal amides"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "1.8 km (1.1 mi)"
+      }
+    }
+  ],
+  "1397": [
+    {
+      "guide": "139",
+      "names": [
+        "Aluminum phosphide"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.7 km (0.4 mi)"
+      },
+      "large": {
+        "isolate": "400 m (1250 ft)",
+        "protect_day": "1.6 km (1.0 mi)",
+        "protect_night": "4.7 km (2.9 mi)"
+      }
+    }
+  ],
+  "1419": [
+    {
+      "guide": "139",
+      "names": [
+        "Magnesium aluminum phosphide"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.6 km (0.4 mi)"
+      },
+      "large": {
+        "isolate": "400 m (1250 ft)",
+        "protect_day": "1.4 km (0.9 mi)",
+        "protect_night": "4.1 km (2.6 mi)"
+      }
+    }
+  ],
+  "1432": [
+    {
+      "guide": "139",
+      "names": [
+        "Sodium phosphide"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.4 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "1.0 km (0.6 mi)",
+        "protect_night": "3.0 km (1.9 mi)"
+      }
+    }
+  ],
+  "1510": [
+    {
+      "guide": "143",
+      "names": [
+        "Tetranitromethane"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.4 km (0.3 mi)",
+        "protect_night": "0.7 km (0.4 mi)"
+      }
+    }
+  ],
+  "1541": [
+    {
+      "guide": "156",
+      "names": [
+        "Acetone cyanohydrin, stabilized"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.5 km (0.3 mi)"
+      }
+    }
+  ],
+  "1556": [
+    {
+      "guide": "152",
+      "names": [
+        "Methyldichloroarsine"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.4 km (0.9 mi)",
+        "protect_night": "2.2 km (1.4 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "4.0 km (2.5 mi)",
+        "protect_night": "5.8 km (3.6 mi)"
+      }
+    }
+  ],
+  "1560": [
+    {
+      "guide": "157",
+      "names": [
+        "Arsenic chloride",
+        "Arsenic trichloride"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "1.0 km (0.7 mi)",
+        "protect_night": "1.5 km (1.0 mi)"
+      }
+    }
+  ],
+  "1569": [
+    {
+      "guide": "131",
+      "names": [
+        "Bromoacetone"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.4 km (0.3 mi)",
+        "protect_night": "1.2 km (0.8 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.8 km (1.1 mi)",
+        "protect_night": "3.3 km (2.1 mi)"
+      }
+    }
+  ],
+  "1580": [
+    {
+      "guide": "154",
+      "names": [
+        "Chloropicrin"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.4 mi)",
+        "protect_night": "1.2 km (0.8 mi)"
+      },
+      "large": {
+        "isolate": "200 m (600 ft)",
+        "protect_day": "2.4 km (1.5 mi)",
+        "protect_night": "3.7 km (2.3 mi)"
+      }
+    }
+  ],
+  "1581": [
+    {
+      "guide": "123",
+      "names": [
+        "Chloropicrin and methyl bromide mixture"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.6 km (0.4 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "2.1 km (1.3 mi)",
+        "protect_night": "5.9 km (3.7 mi)"
+      }
+    }
+  ],
+  "1582": [
+    {
+      "guide": "119",
+      "names": [
+        "Chloropicrin and methyl chloride mixture"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.5 km (0.3 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "2.1 km (1.3 mi)"
+      }
+    }
+  ],
+  "1583": [
+    {
+      "guide": "154",
+      "names": [
+        "Chloropicrin mixture, n.o.s."
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.6 km (0.4 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "2.1 km (1.3 mi)",
+        "protect_night": "5.9 km (3.7 mi)"
+      }
+    }
+  ],
+  "1589": [
+    {
+      "guide": "125",
+      "names": [
+        "Cyanogen chloride, stabilized"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "1.9 km (1.2 mi)",
+        "protect_night": "6.6 km (4.1 mi)"
+      },
+      "large": {
+        "isolate": "1000 m (3000 ft)",
+        "protect_day": "11.0+ km (7.0+ mi)",
+        "protect_night": "11.0+ km (7.0+ mi)"
+      }
+    }
+  ],
+  "1595": [
+    {
+      "guide": "156",
+      "names": [
+        "Dimethyl sulfate",
+        "Dimethyl sulphate"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.7 km (0.4 mi)"
+      }
+    }
+  ],
+  "1605": [
+    {
+      "guide": "154",
+      "names": [
+        "Ethylene dibromide"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      }
+    }
+  ],
+  "1612": [
+    {
+      "guide": "123",
+      "names": [
+        "Hexaethyl tetraphosphate and compressed gas mixture"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.8 km (0.5 mi)",
+        "protect_night": "2.7 km (1.7 mi)"
+      },
+      "large": {
+        "isolate": "400 m (1250 ft)",
+        "protect_day": "3.5 km (2.2 mi)",
+        "protect_night": "8.1 km (5.1 mi)"
+      }
+    }
+  ],
+  "1613": [
+    {
+      "guide": "154",
+      "names": [
+        "Hydrocyanic acid, aqueous solution, with not more than",
+        "20% hydrogen cyanide",
+        "Hydrogen cyanide, aqueous solution, with not more than"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "1.1 km (0.7 mi)"
+      }
+    }
+  ],
+  "1614": [
+    {
+      "guide": "152",
+      "names": [
+        "Hydrogen cyanide, stabilized"
+      ],
+      "label": "absorbed",
+      "small": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.6 km (0.4 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "1.5 km (1.0 mi)"
+      }
+    }
+  ],
+  "1647": [
+    {
+      "guide": "151",
+      "names": [
+        "Methyl bromide and ethylene dibromide mixture, liquid"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "0.7 km (0.5 mi)"
+      }
+    }
+  ],
+  "1660": [
+    {
+      "guide": "124",
+      "names": [
+        "Nitric oxide, compressed"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.6 km (0.4 mi)"
+      },
+      "large": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.6 km (0.4 mi)",
+        "protect_night": "2.2 km (1.4 mi)"
+      }
+    }
+  ],
+  "1670": [
+    {
+      "guide": "157",
+      "names": [
+        "Perchloromethyl mercaptan"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "0.4 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.8 km (0.5 mi)",
+        "protect_night": "1.3 km (0.8 mi)"
+      }
+    }
+  ],
+  "1672": [
+    {
+      "guide": "151",
+      "names": [
+        "Phenylcarbylamine chloride"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "0.7 km (0.4 mi)"
+      }
+    }
+  ],
+  "1680": [
+    {
+      "guide": "157",
+      "names": [
+        "Potassium cyanide, solid"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.7 km (0.4 mi)"
+      }
+    }
+  ],
+  "1689": [
+    {
+      "guide": "157",
+      "names": [
+        "Sodium cyanide, solid"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.2 km (0.2 mi)",
+        "protect_night": "0.9 km (0.6 mi)"
+      }
+    }
+  ],
+  "1695": [
+    {
+      "guide": "131",
+      "names": [
+        "Chloroacetone, stabilized"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.4 km (0.3 mi)",
+        "protect_night": "0.6 km (0.4 mi)"
+      }
+    }
+  ],
+  "1716": [
+    {
+      "guide": "156",
+      "names": [
+        "Acetyl bromide"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.2 mi)",
+        "protect_night": "0.7 km (0.4 mi)"
+      }
+    }
+  ],
+  "1717": [
+    {
+      "guide": "155",
+      "names": [
+        "Acetyl chloride"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.7 km (0.4 mi)",
+        "protect_night": "2.0 km (1.2 mi)"
+      }
+    }
+  ],
+  "1722": [
+    {
+      "guide": "155",
+      "names": [
+        "Allyl chlorocarbonate",
+        "Allyl chloroformate"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "0.8 km (0.5 mi)"
+      },
+      "large": {
+        "isolate": "400 m (1250 ft)",
+        "protect_day": "1.5 km (0.9 mi)",
+        "protect_night": "2.4 km (1.5 mi)"
+      }
+    }
+  ],
+  "1724": [
+    {
+      "guide": "155",
+      "names": [
+        "Allyltrichlorosilane, stabilized"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.4 km (0.2 mi)",
+        "protect_night": "1.2 km (0.8 mi)"
+      }
+    }
+  ],
+  "1725": [
+    {
+      "guide": "137",
+      "names": [
+        "Aluminum bromide, anhydrous"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      }
+    }
+  ],
+  "1726": [
+    {
+      "guide": "137",
+      "names": [
+        "Aluminum chloride, anhydrous"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.4 km (0.2 mi)",
+        "protect_night": "1.5 km (1.0 mi)"
+      }
+    }
+  ],
+  "1728": [
+    {
+      "guide": "156",
+      "names": [
+        "Amyltrichlorosilane"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.4 km (0.2 mi)",
+        "protect_night": "1.2 km (0.7 mi)"
+      }
+    }
+  ],
+  "1732": [
+    {
+      "guide": "157",
+      "names": [
+        "Antimony pentafluoride"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.8 km (0.5 mi)",
+        "protect_night": "3.0 km (1.9 mi)"
+      }
+    }
+  ],
+  "1741": [
+    {
+      "guide": "125",
+      "names": [
+        "Boron trichloride"
+      ],
+      "label": "when spilled on land",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.6 km (0.4 mi)",
+        "protect_night": "1.3 km (0.8 mi)"
+      }
+    },
+    {
+      "guide": "125",
+      "names": [
+        "Boron trichloride"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.9 km (0.6 mi)",
+        "protect_night": "2.8 km (1.7 mi)"
+      }
+    }
+  ],
+  "1744": [
+    {
+      "guide": "154",
+      "names": [
+        "Bromine",
+        "Bromine, solution"
+      ],
+      "label": "Inhalation Hazard Zone A",
+      "small": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.8 km (0.5 mi)",
+        "protect_night": "2.4 km (1.5 mi)"
+      },
+      "large": {
+        "isolate": "400 m (1250 ft)",
+        "protect_day": "4.2 km (2.6 mi)",
+        "protect_night": "7.6 km (4.7 mi)"
+      }
+    },
+    {
+      "guide": "154",
+      "names": [
+        "Bromine, solution"
+      ],
+      "label": "Inhalation Hazard Zone B",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.4 km (0.3 mi)",
+        "protect_night": "0.5 km (0.3 mi)"
+      }
+    }
+  ],
+  "1745": [
+    {
+      "guide": "144",
+      "names": [
+        "Bromine pentafluoride"
+      ],
+      "label": "when spilled on land",
+      "small": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.9 km (0.5 mi)",
+        "protect_night": "2.7 km (1.7 mi)"
+      },
+      "large": {
+        "isolate": "500 m (1500 ft)",
+        "protect_day": "5.7 km (3.6 mi)",
+        "protect_night": "10.8 km (6.7 mi)"
+      }
+    },
+    {
+      "guide": "144",
+      "names": [
+        "Bromine pentafluoride"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.9 km (0.6 mi)",
+        "protect_night": "3.0 km (1.9 mi)"
+      }
+    }
+  ],
+  "1746": [
+    {
+      "guide": "144",
+      "names": [
+        "Bromine trifluoride"
+      ],
+      "label": "when spilled on land",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "0.5 km (0.3 mi)"
+      }
+    },
+    {
+      "guide": "144",
+      "names": [
+        "Bromine trifluoride"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.8 km (0.5 mi)",
+        "protect_night": "2.8 km (1.8 mi)"
+      }
+    }
+  ],
+  "1747": [
+    {
+      "guide": "155",
+      "names": [
+        "Butyltrichlorosilane"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.4 km (0.2 mi)",
+        "protect_night": "1.2 km (0.7 mi)"
+      }
+    }
+  ],
+  "1749": [
+    {
+      "guide": "124",
+      "names": [
+        "Chlorine trifluoride"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.2 mi)",
+        "protect_night": "1.1 km (0.7 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "1.4 km (0.9 mi)",
+        "protect_night": "3.7 km (2.3 mi)"
+      }
+    }
+  ],
+  "1752": [
+    {
+      "guide": "156",
+      "names": [
+        "Chloroacetyl chloride"
+      ],
+      "label": "when spilled on land",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "0.6 km (0.4 mi)"
+      },
+      "large": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "1.2 km (0.8 mi)",
+        "protect_night": "1.9 km (1.2 mi)"
+      }
+    },
+    {
+      "guide": "156",
+      "names": [
+        "Chloroacetyl chloride"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.4 km (0.3 mi)"
+      }
+    }
+  ],
+  "1753": [
+    {
+      "guide": "156",
+      "names": [
+        "Chlorophenyltrichlorosilane"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.5 km (0.4 mi)"
+      }
+    }
+  ],
+  "1754": [
+    {
+      "guide": "137",
+      "names": [
+        "Chlorosulfonic acid (with or without sulfur trioxide)",
+        "Chlorosulphonic acid (with or without sulphur trioxide)"
+      ],
+      "label": "when spilled on land",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      }
+    },
+    {
+      "guide": "137",
+      "names": [
+        "Chlorosulfonic acid (with or without sulfur trioxide)",
+        "Chlorosulphonic acid (with or without sulphur trioxide)"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "1.7 km (1.1 mi)"
+      }
+    }
+  ],
+  "1758": [
+    {
+      "guide": "137",
+      "names": [
+        "Chromium oxychloride"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      }
+    }
+  ],
+  "1762": [
+    {
+      "guide": "156",
+      "names": [
+        "Cyclohexenyltrichlorosilane"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.2 mi)",
+        "protect_night": "0.8 km (0.5 mi)"
+      }
+    }
+  ],
+  "1763": [
+    {
+      "guide": "156",
+      "names": [
+        "Cyclohexyltrichlorosilane"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.2 mi)",
+        "protect_night": "0.8 km (0.5 mi)"
+      }
+    }
+  ],
+  "1765": [
+    {
+      "guide": "156",
+      "names": [
+        "Dichloroacetyl chloride"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.5 km (0.3 mi)"
+      }
+    }
+  ],
+  "1766": [
+    {
+      "guide": "156",
+      "names": [
+        "Dichlorophenyltrichlorosilane"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.4 km (0.3 mi)",
+        "protect_night": "1.4 km (0.9 mi)"
+      }
+    }
+  ],
+  "1767": [
+    {
+      "guide": "155",
+      "names": [
+        "Diethyldichlorosilane"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.2 mi)",
+        "protect_night": "0.6 km (0.4 mi)"
+      }
+    }
+  ],
+  "1769": [
+    {
+      "guide": "156",
+      "names": [
+        "Diphenyldichlorosilane"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.2 mi)",
+        "protect_night": "0.7 km (0.5 mi)"
+      }
+    }
+  ],
+  "1771": [
+    {
+      "guide": "156",
+      "names": [
+        "Dodecyltrichlorosilane"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "0.8 km (0.5 mi)"
+      }
+    }
+  ],
+  "1777": [
+    {
+      "guide": "137",
+      "names": [
+        "Fluorosulfonic acid",
+        "Fluorosulphonic acid"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      }
+    }
+  ],
+  "1781": [
+    {
+      "guide": "156",
+      "names": [
+        "Hexadecyltrichlorosilane"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      }
+    }
+  ],
+  "1784": [
+    {
+      "guide": "156",
+      "names": [
+        "Hexyltrichlorosilane"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "0.9 km (0.6 mi)"
+      }
+    }
+  ],
+  "1799": [
+    {
+      "guide": "156",
+      "names": [
+        "Nonyltrichlorosilane"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "1.0 km (0.6 mi)"
+      }
+    }
+  ],
+  "1800": [
+    {
+      "guide": "156",
+      "names": [
+        "Octadecyltrichlorosilane"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "0.9 km (0.6 mi)"
+      }
+    }
+  ],
+  "1801": [
+    {
+      "guide": "156",
+      "names": [
+        "Octyltrichlorosilane"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "1.0 km (0.6 mi)"
+      }
+    }
+  ],
+  "1804": [
+    {
+      "guide": "156",
+      "names": [
+        "Phenyltrichlorosilane"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "1.0 km (0.6 mi)"
+      }
+    }
+  ],
+  "1806": [
+    {
+      "guide": "137",
+      "names": [
+        "Phosphorus pentachloride"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.2 mi)",
+        "protect_night": "0.9 km (0.6 mi)"
+      }
+    }
+  ],
+  "1808": [
+    {
+      "guide": "137",
+      "names": [
+        "Phosphorus tribromide"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "1.1 km (0.7 mi)"
+      }
+    }
+  ],
+  "1809": [
+    {
+      "guide": "137",
+      "names": [
+        "Phosphorus trichloride"
+      ],
+      "label": "when spilled on land",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.2 mi)",
+        "protect_night": "0.6 km (0.4 mi)"
+      },
+      "large": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "1.1 km (0.7 mi)",
+        "protect_night": "2.0 km (1.3 mi)"
+      }
+    },
+    {
+      "guide": "137",
+      "names": [
+        "Phosphorus trichloride"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "1.8 km (1.1 mi)"
+      }
+    }
+  ],
+  "1810": [
+    {
+      "guide": "137",
+      "names": [
+        "Phosphorus oxychloride"
+      ],
+      "label": "when spilled on land",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "0.6 km (0.4 mi)"
+      },
+      "large": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "1.1 km (0.7 mi)",
+        "protect_night": "1.8 km (1.2 mi)"
+      }
+    },
+    {
+      "guide": "137",
+      "names": [
+        "Phosphorus oxychloride"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "1.5 km (1.0 mi)"
+      }
+    }
+  ],
+  "1815": [
+    {
+      "guide": "155",
+      "names": [
+        "Propionyl chloride"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      }
+    }
+  ],
+  "1816": [
+    {
+      "guide": "155",
+      "names": [
+        "Propyltrichlorosilane"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.4 km (0.3 mi)",
+        "protect_night": "1.3 km (0.8 mi)"
+      }
+    }
+  ],
+  "1818": [
+    {
+      "guide": "157",
+      "names": [
+        "Silicon tetrachloride"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.6 km (0.4 mi)",
+        "protect_night": "2.0 km (1.3 mi)"
+      }
+    }
+  ],
+  "1828": [
+    {
+      "guide": "137",
+      "names": [
+        "Sulfur chlorides",
+        "Sulphur chlorides"
+      ],
+      "label": "when spilled on land",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "0.4 km (0.3 mi)"
+      }
+    },
+    {
+      "guide": "137",
+      "names": [
+        "Sulfur chlorides",
+        "Sulphur chlorides"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.7 km (0.4 mi)"
+      }
+    }
+  ],
+  "1829": [
+    {
+      "guide": "137",
+      "names": [
+        "Sulfur trioxide, stabilized",
+        "Sulphur trioxide, stabilized"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.4 km (0.2 mi)",
+        "protect_night": "1.0 km (0.6 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "2.9 km (1.8 mi)",
+        "protect_night": "6.3 km (4.0 mi)"
+      }
+    }
+  ],
+  "1831": [
+    {
+      "guide": "137",
+      "names": [
+        "Sulfuric acid, fuming",
+        "Sulphuric acid, fuming"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.4 km (0.2 mi)",
+        "protect_night": "1.0 km (0.6 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "2.9 km (1.8 mi)",
+        "protect_night": "6.3 km (4.0 mi)"
+      }
+    }
+  ],
+  "1834": [
+    {
+      "guide": "137",
+      "names": [
+        "Sulfuryl chloride",
+        "Sulphuryl chloride"
+      ],
+      "label": "when spilled on land",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.4 km (0.3 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.8 km (0.5 mi)",
+        "protect_night": "1.5 km (0.9 mi)"
+      }
+    },
+    {
+      "guide": "137",
+      "names": [
+        "Sulfuryl chloride",
+        "Sulphuryl chloride"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "1.1 km (0.7 mi)"
+      }
+    }
+  ],
+  "1836": [
+    {
+      "guide": "137",
+      "names": [
+        "Thionyl chloride"
+      ],
+      "label": "when spilled on land",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "0.5 km (0.4 mi)"
+      }
+    },
+    {
+      "guide": "137",
+      "names": [
+        "Thionyl chloride"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.9 km (0.6 mi)",
+        "protect_night": "2.9 km (1.8 mi)"
+      },
+      "large": {
+        "isolate": "600 m (2000 ft)",
+        "protect_day": "7.6 km (4.7 mi)",
+        "protect_night": "11.0+ km (7.0+ mi)"
+      }
+    }
+  ],
+  "1838": [
+    {
+      "guide": "137",
+      "names": [
+        "Titanium tetrachloride"
+      ],
+      "label": "when spilled on land",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.4 km (0.3 mi)",
+        "protect_night": "0.5 km (0.3 mi)"
+      }
+    },
+    {
+      "guide": "137",
+      "names": [
+        "Titanium tetrachloride"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "1.2 km (0.7 mi)"
+      }
+    }
+  ],
+  "1859": [
+    {
+      "guide": "125",
+      "names": [
+        "Silicon tetrafluoride",
+        "Silicon tetrafluoride, compressed"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.8 km (0.5 mi)"
+      },
+      "large": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "1.8 km (1.2 mi)"
+      }
+    }
+  ],
+  "1892": [
+    {
+      "guide": "151",
+      "names": [
+        "Ethyldichloroarsine"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.5 km (1.0 mi)",
+        "protect_night": "2.2 km (1.4 mi)"
+      },
+      "large": {
+        "isolate": "400 m (1250 ft)",
+        "protect_day": "5.1 km (3.2 mi)",
+        "protect_night": "6.4 km (4.0 mi)"
+      }
+    }
+  ],
+  "1898": [
+    {
+      "guide": "156",
+      "names": [
+        "Acetyl iodide"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "0.9 km (0.6 mi)"
+      }
+    }
+  ],
+  "1911": [
+    {
+      "guide": "119",
+      "names": [
+        "Diborane",
+        "Diborane mixtures"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "1.2 km (0.7 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "1.6 km (1.0 mi)",
+        "protect_night": "4.6 km (2.9 mi)"
+      }
+    }
+  ],
+  "1923": [
+    {
+      "guide": "135",
+      "names": [
+        "Calcium dithionite",
+        "Calcium hydrosulfite",
+        "Calcium hydrosulphite"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.4 km (0.3 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.4 mi)",
+        "protect_night": "2.1 km (1.3 mi)"
+      }
+    }
+  ],
+  "1929": [
+    {
+      "guide": "135",
+      "names": [
+        "Potassium dithionite",
+        "Potassium hydrosulfite",
+        "Potassium hydrosulphite"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.4 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "1.9 km (1.2 mi)"
+      }
+    }
+  ],
+  "1931": [
+    {
+      "guide": "171",
+      "names": [
+        "Zinc dithionite",
+        "Zinc hydrosulfite",
+        "Zinc hydrosulphite"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.4 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "1.9 km (1.2 mi)"
+      }
+    }
+  ],
+  "1953": [
+    {
+      "guide": "119",
+      "names": [
+        "Compressed gas, poisonous, flammable, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone A",
+      "small": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.0 km (0.6 mi)",
+        "protect_night": "3.9 km (2.4 mi)"
+      },
+      "large": {
+        "isolate": "1000 m (3000 ft)",
+        "protect_day": "6.2 km (3.9 mi)",
+        "protect_night": "10.5 km (6.5 mi)"
+      }
+    },
+    {
+      "guide": "119",
+      "names": [
+        "Compressed gas, poisonous, flammable, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone B",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.4 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "1.4 km (0.9 mi)",
+        "protect_night": "3.1 km (1.9 mi)"
+      }
+    },
+    {
+      "guide": "119",
+      "names": [
+        "Compressed gas, poisonous, flammable, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone D",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.0 km (0.6 mi)",
+        "protect_night": "2.7 km (1.7 mi)"
+      }
+    },
+    {
+      "guide": "119",
+      "names": [
+        "Compressed gas, toxic, flammable, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone A",
+      "small": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.0 km (0.6 mi)",
+        "protect_night": "3.9 km (2.4 mi)"
+      },
+      "large": {
+        "isolate": "1000 m (3000 ft)",
+        "protect_day": "6.2 km (3.9 mi)",
+        "protect_night": "10.5 km (6.5 mi)"
+      }
+    },
+    {
+      "guide": "119",
+      "names": [
+        "Compressed gas, toxic, flammable, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone B",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.4 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "1.4 km (0.9 mi)",
+        "protect_night": "3.1 km (1.9 mi)"
+      }
+    },
+    {
+      "guide": "119",
+      "names": [
+        "Compressed gas, toxic, flammable, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone D",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.0 km (0.6 mi)",
+        "protect_night": "2.7 km (1.7 mi)"
+      }
+    }
+  ],
+  "1955": [
+    {
+      "guide": "123",
+      "names": [
+        "Compressed gas, poisonous, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone A",
+      "small": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.0 km (0.6 mi)",
+        "protect_night": "3.9 km (2.4 mi)"
+      },
+      "large": {
+        "isolate": "1000 m (3000 ft)",
+        "protect_day": "6.2 km (3.9 mi)",
+        "protect_night": "10.5 km (6.5 mi)"
+      }
+    },
+    {
+      "guide": "123",
+      "names": [
+        "Compressed gas, poisonous, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone B",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.2 mi)",
+        "protect_night": "1.1 km (0.7 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "1.4 km (0.9 mi)",
+        "protect_night": "3.7 km (2.3 mi)"
+      }
+    },
+    {
+      "guide": "123",
+      "names": [
+        "Compressed gas, poisonous, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone D",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.0 km (0.6 mi)",
+        "protect_night": "2.7 km (1.7 mi)"
+      }
+    },
+    {
+      "guide": "123",
+      "names": [
+        "Compressed gas, toxic, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone A",
+      "small": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.0 km (0.6 mi)",
+        "protect_night": "3.9 km (2.4 mi)"
+      },
+      "large": {
+        "isolate": "1000 m (3000 ft)",
+        "protect_day": "6.2 km (3.9 mi)",
+        "protect_night": "10.5 km (6.5 mi)"
+      }
+    },
+    {
+      "guide": "123",
+      "names": [
+        "Compressed gas, toxic, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone B",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.2 mi)",
+        "protect_night": "1.1 km (0.7 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "1.4 km (0.9 mi)",
+        "protect_night": "3.7 km (2.3 mi)"
+      }
+    },
+    {
+      "guide": "123",
+      "names": [
+        "Compressed gas, toxic, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone D",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.0 km (0.6 mi)",
+        "protect_night": "2.7 km (1.7 mi)"
+      }
+    },
+    {
+      "guide": "123",
+      "names": [
+        "Organic phosphate compound mixed with compressed gas",
+        "Organic phosphate mixed with compressed gas",
+        "Organic phosphorus compound mixed with compressed gas"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "1.0 km (0.7 mi)",
+        "protect_night": "3.4 km (2.1 mi)"
+      },
+      "large": {
+        "isolate": "500 m (1500 ft)",
+        "protect_day": "4.4 km (2.7 mi)",
+        "protect_night": "9.6 km (6.0 mi)"
+      }
+    }
+  ],
+  "1967": [
+    {
+      "guide": "123",
+      "names": [
+        "Insecticide gas, poisonous, n.o.s.",
+        "Insecticide gas, toxic, n.o.s.",
+        "Parathion and compressed gas mixture"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "1.0 km (0.7 mi)",
+        "protect_night": "3.4 km (2.1 mi)"
+      },
+      "large": {
+        "isolate": "500 m (1500 ft)",
+        "protect_day": "4.4 km (2.7 mi)",
+        "protect_night": "9.6 km (6.0 mi)"
+      }
+    }
+  ],
+  "1975": [
+    {
+      "guide": "124",
+      "names": [
+        "Nitric oxide and dinitrogen tetroxide mixture",
+        "Nitric oxide and nitrogen dioxide mixture"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.6 km (0.4 mi)"
+      },
+      "large": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.6 km (0.4 mi)",
+        "protect_night": "2.2 km (1.4 mi)"
+      }
+    }
+  ],
+  "1994": [
+    {
+      "guide": "136",
+      "names": [
+        "Iron pentacarbonyl"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.9 km (0.6 mi)",
+        "protect_night": "2.1 km (1.3 mi)"
+      },
+      "large": {
+        "isolate": "400 m (1250 ft)",
+        "protect_day": "5.2 km (3.2 mi)",
+        "protect_night": "7.8 km (4.8 mi)"
+      }
+    }
+  ],
+  "2004": [
+    {
+      "guide": "135",
+      "names": [
+        "Magnesium diamide"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "1.8 km (1.1 mi)"
+      }
+    }
+  ],
+  "2011": [
+    {
+      "guide": "139",
+      "names": [
+        "Magnesium phosphide"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.6 km (0.4 mi)"
+      },
+      "large": {
+        "isolate": "400 m (1250 ft)",
+        "protect_day": "1.4 km (0.9 mi)",
+        "protect_night": "3.9 km (2.4 mi)"
+      }
+    }
+  ],
+  "2012": [
+    {
+      "guide": "139",
+      "names": [
+        "Potassium phosphide"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "200 m (600 ft)",
+        "protect_day": "0.9 km (0.6 mi)",
+        "protect_night": "2.8 km (1.8 mi)"
+      }
+    }
+  ],
+  "2013": [
+    {
+      "guide": "139",
+      "names": [
+        "Strontium phosphide"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "200 m (600 ft)",
+        "protect_day": "0.8 km (0.5 mi)",
+        "protect_night": "2.7 km (1.7 mi)"
+      }
+    }
+  ],
+  "2032": [
+    {
+      "guide": "157",
+      "names": [
+        "Nitric acid, red fuming"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "0.5 km (0.3 mi)"
+      }
+    }
+  ],
+  "2186": [
+    {
+      "guide": "125",
+      "names": [
+        "Hydrogen chloride, refrigerated liquid"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": "Refer to Table 3"
+    }
+  ],
+  "2188": [
+    {
+      "guide": "119",
+      "names": [
+        "Arsine"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.0 km (0.6 mi)",
+        "protect_night": "3.9 km (2.4 mi)"
+      },
+      "large": {
+        "isolate": "1000 m (3000 ft)",
+        "protect_day": "6.2 km (3.9 mi)",
+        "protect_night": "10.5 km (6.5 mi)"
+      }
+    }
+  ],
+  "2189": [
+    {
+      "guide": "119",
+      "names": [
+        "Dichlorosilane"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.4 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "1.4 km (0.9 mi)",
+        "protect_night": "3.1 km (1.9 mi)"
+      }
+    }
+  ],
+  "2190": [
+    {
+      "guide": "124",
+      "names": [
+        "Oxygen difluoride, compressed"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "1.8 km (1.1 mi)",
+        "protect_night": "7.2 km (4.5 mi)"
+      },
+      "large": {
+        "isolate": "1000 m (3000 ft)",
+        "protect_day": "11.0+ km (7.0+ mi)",
+        "protect_night": "11.0+ km (7.0+ mi)"
+      }
+    }
+  ],
+  "2191": [
+    {
+      "guide": "123",
+      "names": [
+        "Sulfuryl fluoride",
+        "Sulphuryl fluoride"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.5 km (0.3 mi)"
+      },
+      "large": {
+        "isolate": "400 m (1250 ft)",
+        "protect_day": "2.2 km (1.4 mi)",
+        "protect_night": "5.0 km (3.1 mi)"
+      }
+    }
+  ],
+  "2192": [
+    {
+      "guide": "119",
+      "names": [
+        "Germane"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "0.9 km (0.5 mi)",
+        "protect_night": "3.3 km (2.1 mi)"
+      },
+      "large": {
+        "isolate": "600 m (2000 ft)",
+        "protect_day": "3.6 km (2.3 mi)",
+        "protect_night": "7.4 km (4.6 mi)"
+      }
+    }
+  ],
+  "2194": [
+    {
+      "guide": "125",
+      "names": [
+        "Selenium hexafluoride"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "200 m (600 ft)",
+        "protect_day": "1.1 km (0.7 mi)",
+        "protect_night": "3.4 km (2.1 mi)"
+      },
+      "large": {
+        "isolate": "600 m (2000 ft)",
+        "protect_day": "3.9 km (2.4 mi)",
+        "protect_night": "7.6 km (4.8 mi)"
+      }
+    }
+  ],
+  "2195": [
+    {
+      "guide": "125",
+      "names": [
+        "Tellurium hexafluoride"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "1000 m (3000 ft)",
+        "protect_day": "5.9 km (3.7 mi)",
+        "protect_night": "11.1 km (6.9 mi)"
+      },
+      "large": {
+        "isolate": "1000 m (3000 ft)",
+        "protect_day": "11.0+ km (7.0+ mi)",
+        "protect_night": "11.0+ km (7.0+ mi)"
+      }
+    }
+  ],
+  "2196": [
+    {
+      "guide": "125",
+      "names": [
+        "Tungsten hexafluoride"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.8 km (0.5 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "0.8 km (0.5 mi)",
+        "protect_night": "2.8 km (1.7 mi)"
+      }
+    }
+  ],
+  "2197": [
+    {
+      "guide": "125",
+      "names": [
+        "Hydrogen iodide, anhydrous"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.0 km (0.6 mi)",
+        "protect_night": "2.7 km (1.7 mi)"
+      }
+    }
+  ],
+  "2198": [
+    {
+      "guide": "125",
+      "names": [
+        "Phosphorus pentafluoride",
+        "Phosphorus pentafluoride, compressed"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.2 mi)",
+        "protect_night": "1.0 km (0.7 mi)"
+      },
+      "large": {
+        "isolate": "200 m (600 ft)",
+        "protect_day": "1.1 km (0.7 mi)",
+        "protect_night": "3.5 km (2.2 mi)"
+      }
+    }
+  ],
+  "2199": [
+    {
+      "guide": "119",
+      "names": [
+        "Phosphine"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "1.1 km (0.7 mi)"
+      },
+      "large": {
+        "isolate": "400 m (1250 ft)",
+        "protect_day": "1.3 km (0.8 mi)",
+        "protect_night": "3.7 km (2.3 mi)"
+      }
+    }
+  ],
+  "2202": [
+    {
+      "guide": "117",
+      "names": [
+        "Hydrogen selenide, anhydrous"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "1.7 km (1.1 mi)",
+        "protect_night": "6.0 km (3.7 mi)"
+      },
+      "large": {
+        "isolate": "1000 m (3000 ft)",
+        "protect_day": "11.0+ km (7.0+ mi)",
+        "protect_night": "11.0+ km (7.0+ mi)"
+      }
+    }
+  ],
+  "2204": [
+    {
+      "guide": "119",
+      "names": [
+        "Carbonyl sulfide",
+        "Carbonyl sulphide"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "1.5 km (1.0 mi)",
+        "protect_night": "3.6 km (2.3 mi)"
+      }
+    }
+  ],
+  "2232": [
+    {
+      "guide": "153",
+      "names": [
+        "Chloroacetaldehyde",
+        "2-Chloroethanal"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.7 km (0.4 mi)",
+        "protect_night": "1.1 km (0.7 mi)"
+      }
+    }
+  ],
+  "2285": [
+    {
+      "guide": "155",
+      "names": [
+        "Isocyanatobenzotrifluorides"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "0.6 km (0.4 mi)"
+      }
+    }
+  ],
+  "2308": [
+    {
+      "guide": "157",
+      "names": [
+        "Nitrosylsulfuric acid, liquid",
+        "Nitrosylsulphuric acid, liquid"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "0.8 km (0.5 mi)",
+        "protect_night": "2.3 km (1.4 mi)"
+      }
+    }
+  ],
+  "2334": [
+    {
+      "guide": "131",
+      "names": [
+        "Allylamine"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.5 km (0.4 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.6 km (1.0 mi)",
+        "protect_night": "2.5 km (1.6 mi)"
+      }
+    }
+  ],
+  "2337": [
+    {
+      "guide": "131",
+      "names": [
+        "Phenyl mercaptan"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "0.4 km (0.2 mi)"
+      }
+    }
+  ],
+  "2353": [
+    {
+      "guide": "155",
+      "names": [
+        "Butyryl chloride"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.5 km (0.3 mi)"
+      }
+    }
+  ],
+  "2382": [
+    {
+      "guide": "131",
+      "names": [
+        "Dimethylhydrazine, symmetrical"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.8 km (0.5 mi)",
+        "protect_night": "1.3 km (0.8 mi)"
+      }
+    }
+  ],
+  "2395": [
+    {
+      "guide": "155",
+      "names": [
+        "Isobutyryl chloride"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      }
+    }
+  ],
+  "2407": [
+    {
+      "guide": "155",
+      "names": [
+        "Isopropyl chloroformate"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.4 mi)",
+        "protect_night": "0.9 km (0.6 mi)"
+      }
+    }
+  ],
+  "2417": [
+    {
+      "guide": "125",
+      "names": [
+        "Carbonyl fluoride"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.7 km (0.5 mi)",
+        "protect_night": "2.5 km (1.6 mi)"
+      },
+      "large": {
+        "isolate": "600 m (2000 ft)",
+        "protect_day": "3.8 km (2.4 mi)",
+        "protect_night": "8.2 km (5.1 mi)"
+      }
+    }
+  ],
+  "2418": [
+    {
+      "guide": "125",
+      "names": [
+        "Sulfur tetrafluoride",
+        "Sulphur tetrafluoride"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "2.4 km (1.5 mi)"
+      },
+      "large": {
+        "isolate": "400 m (1250 ft)",
+        "protect_day": "2.4 km (1.5 mi)",
+        "protect_night": "5.9 km (3.7 mi)"
+      }
+    }
+  ],
+  "2420": [
+    {
+      "guide": "125",
+      "names": [
+        "Hexafluoroacetone"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.7 km (0.4 mi)",
+        "protect_night": "2.7 km (1.7 mi)"
+      },
+      "large": {
+        "isolate": "1000 m (3000 ft)",
+        "protect_day": "11.0+ km (7.0+ mi)",
+        "protect_night": "11.0+ km (7.0+ mi)"
+      }
+    }
+  ],
+  "2421": [
+    {
+      "guide": "124",
+      "names": [
+        "Nitrogen trioxide"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "1.2 km (0.8 mi)"
+      },
+      "large": {
+        "isolate": "200 m (600 ft)",
+        "protect_day": "1.4 km (0.9 mi)",
+        "protect_night": "4.3 km (2.7 mi)"
+      }
+    }
+  ],
+  "2434": [
+    {
+      "guide": "156",
+      "names": [
+        "Dibenzyldichlorosilane"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      }
+    }
+  ],
+  "2435": [
+    {
+      "guide": "156",
+      "names": [
+        "Ethylphenyldichlorosilane"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.6 km (0.4 mi)"
+      }
+    }
+  ],
+  "2437": [
+    {
+      "guide": "156",
+      "names": [
+        "Methylphenyldichlorosilane"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.2 mi)",
+        "protect_night": "0.8 km (0.5 mi)"
+      }
+    }
+  ],
+  "2438": [
+    {
+      "guide": "131",
+      "names": [
+        "Trimethylacetyl chloride"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "1.0 km (0.7 mi)"
+      },
+      "large": {
+        "isolate": "200 m (600 ft)",
+        "protect_day": "2.3 km (1.5 mi)",
+        "protect_night": "3.3 km (2.1 mi)"
+      }
+    }
+  ],
+  "2442": [
+    {
+      "guide": "156",
+      "names": [
+        "Trichloroacetyl chloride"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.7 km (0.5 mi)",
+        "protect_night": "1.1 km (0.7 mi)"
+      }
+    }
+  ],
+  "2474": [
+    {
+      "guide": "156",
+      "names": [
+        "Thiophosgene"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.6 km (0.4 mi)",
+        "protect_night": "1.8 km (1.1 mi)"
+      },
+      "large": {
+        "isolate": "200 m (600 ft)",
+        "protect_day": "2.3 km (1.4 mi)",
+        "protect_night": "4.2 km (2.6 mi)"
+      }
+    }
+  ],
+  "2477": [
+    {
+      "guide": "131",
+      "names": [
+        "Methyl isothiocyanate"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "0.4 km (0.3 mi)"
+      }
+    }
+  ],
+  "2478": [
+    {
+      "guide": "155",
+      "names": [
+        "Isocyanate solution, flammable, poisonous, n.o.s.",
+        "Isocyanate solution, flammable, toxic, n.o.s.",
+        "Isocyanates, flammable, poisonous, n.o.s.",
+        "Isocyanates, flammable, toxic, n.o.s."
+      ],
+      "label": null,
+      "small": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.8 km (0.5 mi)",
+        "protect_night": "1.8 km (1.2 mi)"
+      },
+      "large": {
+        "isolate": "400 m (1250 ft)",
+        "protect_day": "4.7 km (3.0 mi)",
+        "protect_night": "7.0 km (4.4 mi)"
+      }
+    }
+  ],
+  "2480": [
+    {
+      "guide": "155P",
+      "names": [
+        "Methyl isocyanate"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.7 km (1.1 mi)",
+        "protect_night": "5.2 km (3.3 mi)"
+      },
+      "large": {
+        "isolate": "1000 m (3000 ft)",
+        "protect_day": "11.0+ km (7.0+ mi)",
+        "protect_night": "11.0+ km (7.0+ mi)"
+      }
+    }
+  ],
+  "2481": [
+    {
+      "guide": "155",
+      "names": [
+        "Ethyl isocyanate"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "2.0 km (1.3 mi)",
+        "protect_night": "5.3 km (3.3 mi)"
+      },
+      "large": {
+        "isolate": "1000 m (3000 ft)",
+        "protect_day": "11.0+ km (7.0+ mi)",
+        "protect_night": "11.0+ km (7.0+ mi)"
+      }
+    }
+  ],
+  "2482": [
+    {
+      "guide": "155P",
+      "names": [
+        "n-Propyl isocyanate"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "1.3 km (0.8 mi)",
+        "protect_night": "2.8 km (1.8 mi)"
+      },
+      "large": {
+        "isolate": "600 m (2000 ft)",
+        "protect_day": "7.8 km (4.8 mi)",
+        "protect_night": "10.7 km (6.6 mi)"
+      }
+    }
+  ],
+  "2483": [
+    {
+      "guide": "155P",
+      "names": [
+        "Isopropyl isocyanate"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.5 km (1.0 mi)",
+        "protect_night": "3.3 km (2.1 mi)"
+      },
+      "large": {
+        "isolate": "1000 m (3000 ft)",
+        "protect_day": "11.0+ km (7.0+ mi)",
+        "protect_night": "11.0+ km (7.0+ mi)"
+      }
+    }
+  ],
+  "2484": [
+    {
+      "guide": "155",
+      "names": [
+        "tert-Butyl isocyanate"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.8 km (0.5 mi)",
+        "protect_night": "1.8 km (1.2 mi)"
+      },
+      "large": {
+        "isolate": "400 m (1250 ft)",
+        "protect_day": "4.7 km (3.0 mi)",
+        "protect_night": "7.0 km (4.4 mi)"
+      }
+    }
+  ],
+  "2485": [
+    {
+      "guide": "155P",
+      "names": [
+        "n-Butyl isocyanate"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.6 km (0.4 mi)",
+        "protect_night": "1.2 km (0.8 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "2.9 km (1.8 mi)",
+        "protect_night": "4.2 km (2.6 mi)"
+      }
+    }
+  ],
+  "2486": [
+    {
+      "guide": "155P",
+      "names": [
+        "Isobutyl isocyanate"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.6 km (0.4 mi)",
+        "protect_night": "1.3 km (0.8 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "3.4 km (2.1 mi)",
+        "protect_night": "4.8 km (3.0 mi)"
+      }
+    }
+  ],
+  "2487": [
+    {
+      "guide": "155",
+      "names": [
+        "Phenyl isocyanate"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.9 km (0.6 mi)",
+        "protect_night": "1.5 km (0.9 mi)"
+      },
+      "large": {
+        "isolate": "400 m (1250 ft)",
+        "protect_day": "4.2 km (2.6 mi)",
+        "protect_night": "5.4 km (3.4 mi)"
+      }
+    }
+  ],
+  "2488": [
+    {
+      "guide": "155",
+      "names": [
+        "Cyclohexyl isocyanate"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "0.4 km (0.3 mi)"
+      },
+      "large": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "1.1 km (0.7 mi)",
+        "protect_night": "1.4 km (0.9 mi)"
+      }
+    }
+  ],
+  "2495": [
+    {
+      "guide": "144",
+      "names": [
+        "Iodine pentafluoride"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.9 km (0.6 mi)",
+        "protect_night": "3.2 km (2.0 mi)"
+      }
+    }
+  ],
+  "2521": [
+    {
+      "guide": "131P",
+      "names": [
+        "Diketene, stabilized"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.7 km (0.4 mi)",
+        "protect_night": "1.0 km (0.6 mi)"
+      }
+    }
+  ],
+  "2534": [
+    {
+      "guide": "119",
+      "names": [
+        "Methylchlorosilane"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "0.8 km (0.5 mi)",
+        "protect_night": "1.8 km (1.1 mi)"
+      }
+    }
+  ],
+  "2548": [
+    {
+      "guide": "124",
+      "names": [
+        "Chlorine pentafluoride"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "2.5 km (1.6 mi)"
+      },
+      "large": {
+        "isolate": "800 m (2500 ft)",
+        "protect_day": "5.1 km (3.2 mi)",
+        "protect_night": "11.0+ km (7.0+ mi)"
+      }
+    }
+  ],
+  "2605": [
+    {
+      "guide": "155",
+      "names": [
+        "Methoxymethyl isocyanate"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.2 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.7 km (0.4 mi)",
+        "protect_night": "0.9 km (0.6 mi)"
+      }
+    }
+  ],
+  "2606": [
+    {
+      "guide": "155",
+      "names": [
+        "Methyl orthosilicate"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.7 km (0.5 mi)",
+        "protect_night": "1.1 km (0.7 mi)"
+      }
+    }
+  ],
+  "2644": [
+    {
+      "guide": "151",
+      "names": [
+        "Methyl iodide"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "0.7 km (0.4 mi)"
+      }
+    }
+  ],
+  "2646": [
+    {
+      "guide": "151",
+      "names": [
+        "Hexachlorocyclopentadiene"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      }
+    }
+  ],
+  "2668": [
+    {
+      "guide": "131",
+      "names": [
+        "Chloroacetonitrile"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "0.4 km (0.2 mi)"
+      }
+    }
+  ],
+  "2676": [
+    {
+      "guide": "119",
+      "names": [
+        "Stibine"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "1.6 km (1.0 mi)"
+      },
+      "large": {
+        "isolate": "200 m (600 ft)",
+        "protect_day": "1.3 km (0.8 mi)",
+        "protect_night": "4.1 km (2.6 mi)"
+      }
+    }
+  ],
+  "2691": [
+    {
+      "guide": "137",
+      "names": [
+        "Phosphorus pentabromide"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.4 km (0.3 mi)"
+      }
+    }
+  ],
+  "2692": [
+    {
+      "guide": "157",
+      "names": [
+        "Boron tribromide"
+      ],
+      "label": "when spilled on land",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.4 km (0.3 mi)"
+      }
+    },
+    {
+      "guide": "157",
+      "names": [
+        "Boron tribromide"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.4 km (0.3 mi)",
+        "protect_night": "1.4 km (0.9 mi)"
+      }
+    }
+  ],
+  "2740": [
+    {
+      "guide": "155",
+      "names": [
+        "n-Propyl chloroformate"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.6 km (0.4 mi)",
+        "protect_night": "1.0 km (0.7 mi)"
+      }
+    }
+  ],
+  "2742": [
+    {
+      "guide": "155",
+      "names": [
+        "Chloroformates, poisonous, corrosive, flammable, n.o.s.",
+        "Chloroformates, toxic, corrosive, flammable, n.o.s."
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.2 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "0.7 km (0.5 mi)"
+      }
+    }
+  ],
+  "2743": [
+    {
+      "guide": "155",
+      "names": [
+        "n-Butyl chloroformate"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "0.4 km (0.3 mi)"
+      }
+    }
+  ],
+  "2806": [
+    {
+      "guide": "139",
+      "names": [
+        "Lithium nitride"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.4 km (0.3 mi)",
+        "protect_night": "1.6 km (1.0 mi)"
+      }
+    }
+  ],
+  "2826": [
+    {
+      "guide": "155",
+      "names": [
+        "Ethyl chlorothioformate"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.2 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "0.7 km (0.5 mi)"
+      }
+    }
+  ],
+  "2845": [
+    {
+      "guide": "135",
+      "names": [
+        "Ethyl phosphonous dichloride, anhydrous"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "0.7 km (0.5 mi)"
+      },
+      "large": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "1.4 km (0.9 mi)",
+        "protect_night": "2.3 km (1.4 mi)"
+      }
+    },
+    {
+      "guide": "135",
+      "names": [
+        "Methyl phosphonous dichloride"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.4 km (0.3 mi)",
+        "protect_night": "1.2 km (0.7 mi)"
+      },
+      "large": {
+        "isolate": "200 m (600 ft)",
+        "protect_day": "2.6 km (1.6 mi)",
+        "protect_night": "4.2 km (2.6 mi)"
+      }
+    }
+  ],
+  "2901": [
+    {
+      "guide": "124",
+      "names": [
+        "Bromine chloride"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "1.8 km (1.1 mi)"
+      },
+      "large": {
+        "isolate": "1000 m (3000 ft)",
+        "protect_day": "5.7 km (3.5 mi)",
+        "protect_night": "11.0+ km (7.0+ mi)"
+      }
+    }
+  ],
+  "2927": [
+    {
+      "guide": "154",
+      "names": [
+        "Ethyl phosphonothioic dichloride, anhydrous"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      }
+    },
+    {
+      "guide": "154",
+      "names": [
+        "Ethyl phosphorodichloridate"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      }
+    }
+  ],
+  "2965": [
+    {
+      "guide": "139",
+      "names": [
+        "Boron trifluoride dimethyl etherate"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.9 km (0.6 mi)",
+        "protect_night": "2.8 km (1.7 mi)"
+      }
+    }
+  ],
+  "2977": [
+    {
+      "guide": "166",
+      "names": [
+        "Radioactive material, uranium hexafluoride, fissile",
+        "Uranium hexafluoride, radioactive material, fissile"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.4 km (0.2 mi)",
+        "protect_night": "1.6 km (1.0 mi)"
+      }
+    }
+  ],
+  "2978": [
+    {
+      "guide": "166",
+      "names": [
+        "Radioactive material, uranium hexafluoride, non fissile or fissile-excepted",
+        "Uranium hexafluoride, radioactive material, non fissile or fissile-excepted"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.4 km (0.2 mi)",
+        "protect_night": "1.6 km (1.0 mi)"
+      }
+    }
+  ],
+  "2985": [
+    {
+      "guide": "155",
+      "names": [
+        "Chlorosilanes, flammable, corrosive, n.o.s."
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "1.6 km (1.0 mi)"
+      }
+    }
+  ],
+  "2986": [
+    {
+      "guide": "155",
+      "names": [
+        "Chlorosilanes, corrosive, flammable, n.o.s."
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "1.6 km (1.0 mi)"
+      }
+    }
+  ],
+  "2987": [
+    {
+      "guide": "156",
+      "names": [
+        "Chlorosilanes, corrosive, n.o.s."
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "1.6 km (1.0 mi)"
+      }
+    }
+  ],
+  "2988": [
+    {
+      "guide": "139",
+      "names": [
+        "Chlorosilanes, water-reactive, flammable, corrosive, n.o.s."
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "1.6 km (1.0 mi)"
+      }
+    }
+  ],
+  "3023": [
+    {
+      "guide": "131",
+      "names": [
+        "2-Methyl-2-heptanethiol"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.6 km (0.4 mi)",
+        "protect_night": "0.8 km (0.5 mi)"
+      }
+    }
+  ],
+  "3048": [
+    {
+      "guide": "157",
+      "names": [
+        "Aluminum phosphide pesticide"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.7 km (0.4 mi)"
+      },
+      "large": {
+        "isolate": "400 m (1250 ft)",
+        "protect_day": "1.6 km (1.0 mi)",
+        "protect_night": "4.5 km (2.8 mi)"
+      }
+    }
+  ],
+  "3057": [
+    {
+      "guide": "125",
+      "names": [
+        "Trifluoroacetyl chloride"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.9 km (0.6 mi)"
+      },
+      "large": {
+        "isolate": "800 m (2500 ft)",
+        "protect_day": "4.9 km (3.1 mi)",
+        "protect_night": "11.0+ km (7.0+ mi)"
+      }
+    }
+  ],
+  "3079": [
+    {
+      "guide": "131P",
+      "names": [
+        "Methacrylonitrile, stabilized"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "0.7 km (0.5 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.7 km (1.1 mi)",
+        "protect_night": "2.8 km (1.7 mi)"
+      }
+    }
+  ],
+  "3083": [
+    {
+      "guide": "124",
+      "names": [
+        "Perchloryl fluoride"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.2 mi)",
+        "protect_night": "1.1 km (0.7 mi)"
+      },
+      "large": {
+        "isolate": "1000 m (3000 ft)",
+        "protect_day": "5.5 km (3.4 mi)",
+        "protect_night": "10.9 km (6.8 mi)"
+      }
+    }
+  ],
+  "3160": [
+    {
+      "guide": "119",
+      "names": [
+        "Liquefied gas, poisonous, flammable, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone A",
+      "small": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.0 km (0.6 mi)",
+        "protect_night": "3.9 km (2.4 mi)"
+      },
+      "large": {
+        "isolate": "1000 m (3000 ft)",
+        "protect_day": "6.2 km (3.9 mi)",
+        "protect_night": "10.5 km (6.5 mi)"
+      }
+    },
+    {
+      "guide": "119",
+      "names": [
+        "Liquefied gas, poisonous, flammable, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone B",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.4 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "1.4 km (0.9 mi)",
+        "protect_night": "3.1 km (1.9 mi)"
+      }
+    },
+    {
+      "guide": "119",
+      "names": [
+        "Liquefied gas, poisonous, flammable, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone D",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.0 km (0.6 mi)",
+        "protect_night": "2.7 km (1.7 mi)"
+      }
+    },
+    {
+      "guide": "119",
+      "names": [
+        "Liquefied gas, toxic, flammable, n.o.s.",
+        "Liquefied gas, toxic, flammable, n.o.s. (Inhalation Hazard",
+        "Zone A)"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.0 km (0.6 mi)",
+        "protect_night": "3.9 km (2.4 mi)"
+      },
+      "large": {
+        "isolate": "1000 m (3000 ft)",
+        "protect_day": "6.2 km (3.9 mi)",
+        "protect_night": "10.5 km (6.5 mi)"
+      }
+    },
+    {
+      "guide": "119",
+      "names": [
+        "Liquefied gas, toxic, flammable, n.o.s. (Inhalation Hazard",
+        "Zone B)"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.4 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "1.4 km (0.9 mi)",
+        "protect_night": "3.1 km (1.9 mi)"
+      }
+    },
+    {
+      "guide": "119",
+      "names": [
+        "Liquefied gas, toxic, flammable, n.o.s. (Inhalation Hazard",
+        "Zone C)",
+        "Zone D)"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.0 km (0.6 mi)",
+        "protect_night": "2.7 km (1.7 mi)"
+      }
+    }
+  ],
+  "3162": [
+    {
+      "guide": "123",
+      "names": [
+        "Liquefied gas, poisonous, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone A",
+      "small": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.0 km (0.6 mi)",
+        "protect_night": "3.9 km (2.4 mi)"
+      },
+      "large": {
+        "isolate": "1000 m (3000 ft)",
+        "protect_day": "6.2 km (3.9 mi)",
+        "protect_night": "10.5 km (6.5 mi)"
+      }
+    },
+    {
+      "guide": "123",
+      "names": [
+        "Liquefied gas, poisonous, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone B",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.2 mi)",
+        "protect_night": "1.1 km (0.7 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "1.4 km (0.9 mi)",
+        "protect_night": "3.7 km (2.3 mi)"
+      }
+    },
+    {
+      "guide": "123",
+      "names": [
+        "Liquefied gas, poisonous, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone D",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.0 km (0.6 mi)",
+        "protect_night": "2.7 km (1.7 mi)"
+      }
+    },
+    {
+      "guide": "123",
+      "names": [
+        "Liquefied gas, toxic, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone A",
+      "small": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.0 km (0.6 mi)",
+        "protect_night": "3.9 km (2.4 mi)"
+      },
+      "large": {
+        "isolate": "1000 m (3000 ft)",
+        "protect_day": "6.2 km (3.9 mi)",
+        "protect_night": "10.5 km (6.5 mi)"
+      }
+    },
+    {
+      "guide": "123",
+      "names": [
+        "Liquefied gas, toxic, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone B",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.2 mi)",
+        "protect_night": "1.1 km (0.7 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "1.4 km (0.9 mi)",
+        "protect_night": "3.7 km (2.3 mi)"
+      }
+    },
+    {
+      "guide": "123",
+      "names": [
+        "Liquefied gas, toxic, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone D",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.0 km (0.6 mi)",
+        "protect_night": "2.7 km (1.7 mi)"
+      }
+    }
+  ],
+  "3246": [
+    {
+      "guide": "156",
+      "names": [
+        "Methanesulfonyl chloride",
+        "Methanesulphonyl chloride"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.2 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.7 km (0.5 mi)",
+        "protect_night": "1.0 km (0.6 mi)"
+      }
+    }
+  ],
+  "3275": [
+    {
+      "guide": "131",
+      "names": [
+        "Nitriles, poisonous, flammable, n.o.s.",
+        "Nitriles, toxic, flammable, n.o.s."
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "0.7 km (0.5 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.7 km (1.1 mi)",
+        "protect_night": "2.8 km (1.7 mi)"
+      }
+    }
+  ],
+  "3276": [
+    {
+      "guide": "151",
+      "names": [
+        "Nitriles, liquid, poisonous, n.o.s.",
+        "Nitriles, liquid, toxic, n.o.s.",
+        "Nitriles, poisonous, liquid, n.o.s.",
+        "Nitriles, toxic, liquid, n.o.s."
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "0.7 km (0.5 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.7 km (1.1 mi)",
+        "protect_night": "2.8 km (1.7 mi)"
+      }
+    }
+  ],
+  "3278": [
+    {
+      "guide": "151",
+      "names": [
+        "Organophosphorus compound, liquid, poisonous, n.o.s.",
+        "Organophosphorus compound, liquid, toxic, n.o.s."
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.4 km (0.3 mi)",
+        "protect_night": "1.2 km (0.7 mi)"
+      },
+      "large": {
+        "isolate": "200 m (600 ft)",
+        "protect_day": "2.6 km (1.6 mi)",
+        "protect_night": "4.2 km (2.6 mi)"
+      }
+    }
+  ],
+  "3279": [
+    {
+      "guide": "131",
+      "names": [
+        "Organophosphorus compound, poisonous, flammable, n.o.s.",
+        "Organophosphorus compound, toxic, flammable, n.o.s."
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.4 km (0.3 mi)",
+        "protect_night": "1.2 km (0.7 mi)"
+      },
+      "large": {
+        "isolate": "200 m (600 ft)",
+        "protect_day": "2.6 km (1.6 mi)",
+        "protect_night": "4.2 km (2.6 mi)"
+      }
+    }
+  ],
+  "3280": [
+    {
+      "guide": "151",
+      "names": [
+        "Organoarsenic compound, liquid, n.o.s."
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.7 km (0.5 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.7 km (1.1 mi)",
+        "protect_night": "3.6 km (2.2 mi)"
+      }
+    }
+  ],
+  "3281": [
+    {
+      "guide": "151",
+      "names": [
+        "Metal carbonyls, liquid, n.o.s."
+      ],
+      "label": null,
+      "small": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "1.4 km (0.9 mi)",
+        "protect_night": "5.2 km (3.3 mi)"
+      },
+      "large": {
+        "isolate": "1000 m (3000 ft)",
+        "protect_day": "11.0+ km (7.0+ mi)",
+        "protect_night": "11.0+ km (7.0+ mi)"
+      }
+    }
+  ],
+  "3294": [
+    {
+      "guide": "131",
+      "names": [
+        "Hydrogen cyanide, solution in alcohol, with not more than",
+        "45% hydrogen cyanide"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "0.7 km (0.5 mi)",
+        "protect_night": "2.0 km (1.2 mi)"
+      }
+    }
+  ],
+  "3300": [
+    {
+      "guide": "119P",
+      "names": [
+        "Ethylene oxide and carbon dioxide mixture, with more than 87% ethylene oxide"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "0.7 km (0.5 mi)",
+        "protect_night": "2.0 km (1.2 mi)"
+      }
+    }
+  ],
+  "3303": [
+    {
+      "guide": "124",
+      "names": [
+        "Compressed gas, poisonous, oxidizing, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone A",
+      "small": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "2.5 km (1.6 mi)"
+      },
+      "large": {
+        "isolate": "800 m (2500 ft)",
+        "protect_day": "5.1 km (3.2 mi)",
+        "protect_night": "11.0+ km (7.0+ mi)"
+      }
+    },
+    {
+      "guide": "124",
+      "names": [
+        "Compressed gas, poisonous, oxidizing, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone B",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.2 mi)",
+        "protect_night": "1.1 km (0.7 mi)"
+      },
+      "large": {
+        "isolate": "500 m (1500 ft)",
+        "protect_day": "3.5 km (2.2 mi)",
+        "protect_night": "9.9 km (6.2 mi)"
+      }
+    },
+    {
+      "guide": "124",
+      "names": [
+        "Compressed gas, poisonous, oxidizing, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone D",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.6 km (0.4 mi)"
+      },
+      "large": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.6 km (0.4 mi)",
+        "protect_night": "2.2 km (1.4 mi)"
+      }
+    },
+    {
+      "guide": "124",
+      "names": [
+        "Compressed gas, toxic, oxidizing, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone A",
+      "small": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "2.5 km (1.6 mi)"
+      },
+      "large": {
+        "isolate": "800 m (2500 ft)",
+        "protect_day": "5.1 km (3.2 mi)",
+        "protect_night": "11.0+ km (7.0+ mi)"
+      }
+    },
+    {
+      "guide": "124",
+      "names": [
+        "Compressed gas, toxic, oxidizing, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone B",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.2 mi)",
+        "protect_night": "1.1 km (0.7 mi)"
+      },
+      "large": {
+        "isolate": "500 m (1500 ft)",
+        "protect_day": "3.5 km (2.2 mi)",
+        "protect_night": "9.9 km (6.2 mi)"
+      }
+    },
+    {
+      "guide": "124",
+      "names": [
+        "Compressed gas, toxic, oxidizing, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone D",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.6 km (0.4 mi)"
+      },
+      "large": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.6 km (0.4 mi)",
+        "protect_night": "2.2 km (1.4 mi)"
+      }
+    }
+  ],
+  "3304": [
+    {
+      "guide": "125",
+      "names": [
+        "Compressed gas, poisonous, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone A",
+      "small": {
+        "isolate": "200 m (600 ft)",
+        "protect_day": "1.1 km (0.7 mi)",
+        "protect_night": "3.4 km (2.1 mi)"
+      },
+      "large": {
+        "isolate": "600 m (2000 ft)",
+        "protect_day": "3.9 km (2.4 mi)",
+        "protect_night": "7.6 km (4.8 mi)"
+      }
+    },
+    {
+      "guide": "125",
+      "names": [
+        "Compressed gas, poisonous, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone B",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.2 mi)",
+        "protect_night": "1.1 km (0.7 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "1.6 km (1.0 mi)",
+        "protect_night": "3.7 km (2.3 mi)"
+      }
+    },
+    {
+      "guide": "125",
+      "names": [
+        "Compressed gas, poisonous, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone C",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.5 km (0.3 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "1.4 km (0.9 mi)",
+        "protect_night": "3.2 km (2.0 mi)"
+      }
+    },
+    {
+      "guide": "125",
+      "names": [
+        "Compressed gas, poisonous, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone D",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "0.8 km (0.5 mi)",
+        "protect_night": "2.0 km (1.3 mi)"
+      }
+    },
+    {
+      "guide": "125",
+      "names": [
+        "Compressed gas, toxic, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone A",
+      "small": {
+        "isolate": "200 m (600 ft)",
+        "protect_day": "1.1 km (0.7 mi)",
+        "protect_night": "3.4 km (2.1 mi)"
+      },
+      "large": {
+        "isolate": "600 m (2000 ft)",
+        "protect_day": "3.9 km (2.4 mi)",
+        "protect_night": "7.6 km (4.8 mi)"
+      }
+    },
+    {
+      "guide": "125",
+      "names": [
+        "Compressed gas, toxic, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone B",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.2 mi)",
+        "protect_night": "1.1 km (0.7 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "1.6 km (1.0 mi)",
+        "protect_night": "3.7 km (2.3 mi)"
+      }
+    },
+    {
+      "guide": "125",
+      "names": [
+        "Compressed gas, toxic, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone C",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.5 km (0.3 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "1.4 km (0.9 mi)",
+        "protect_night": "3.2 km (2.0 mi)"
+      }
+    },
+    {
+      "guide": "125",
+      "names": [
+        "Compressed gas, toxic, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone D",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "0.8 km (0.5 mi)",
+        "protect_night": "2.0 km (1.3 mi)"
+      }
+    }
+  ],
+  "3305": [
+    {
+      "guide": "119",
+      "names": [
+        "Compressed gas, poisonous, flammable, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone A",
+      "small": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.0 km (0.6 mi)",
+        "protect_night": "3.9 km (2.4 mi)"
+      },
+      "large": {
+        "isolate": "1000 m (3000 ft)",
+        "protect_day": "6.2 km (3.9 mi)",
+        "protect_night": "10.5 km (6.5 mi)"
+      }
+    },
+    {
+      "guide": "119",
+      "names": [
+        "Compressed gas, poisonous, flammable, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone B",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.4 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "1.4 km (0.9 mi)",
+        "protect_night": "3.1 km (1.9 mi)"
+      }
+    },
+    {
+      "guide": "119",
+      "names": [
+        "Compressed gas, poisonous, flammable, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone D",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.0 km (0.6 mi)",
+        "protect_night": "2.7 km (1.7 mi)"
+      }
+    },
+    {
+      "guide": "119",
+      "names": [
+        "Compressed gas, toxic, flammable, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone A",
+      "small": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.0 km (0.6 mi)",
+        "protect_night": "3.9 km (2.4 mi)"
+      },
+      "large": {
+        "isolate": "1000 m (3000 ft)",
+        "protect_day": "6.2 km (3.9 mi)",
+        "protect_night": "10.5 km (6.5 mi)"
+      }
+    },
+    {
+      "guide": "119",
+      "names": [
+        "Compressed gas, toxic, flammable, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone B",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.4 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "1.4 km (0.9 mi)",
+        "protect_night": "3.1 km (1.9 mi)"
+      }
+    },
+    {
+      "guide": "119",
+      "names": [
+        "Compressed gas, toxic, flammable, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone D",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.0 km (0.6 mi)",
+        "protect_night": "2.7 km (1.7 mi)"
+      }
+    }
+  ],
+  "3306": [
+    {
+      "guide": "124",
+      "names": [
+        "Compressed gas, poisonous, oxidizing, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone A",
+      "small": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "2.5 km (1.6 mi)"
+      },
+      "large": {
+        "isolate": "1000 m (3000 ft)",
+        "protect_day": "5.5 km (3.4 mi)",
+        "protect_night": "11.0+ km (7.0+ mi)"
+      }
+    },
+    {
+      "guide": "124",
+      "names": [
+        "Compressed gas, poisonous, oxidizing, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone B",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.2 mi)",
+        "protect_night": "1.1 km (0.7 mi)"
+      },
+      "large": {
+        "isolate": "800 m (2500 ft)",
+        "protect_day": "5.1 km (3.2 mi)",
+        "protect_night": "10.9 km (6.8 mi)"
+      }
+    },
+    {
+      "guide": "124",
+      "names": [
+        "Compressed gas, poisonous, oxidizing, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone C",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.5 km (0.3 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "1.6 km (1.0 mi)",
+        "protect_night": "3.2 km (2.0 mi)"
+      }
+    },
+    {
+      "guide": "124",
+      "names": [
+        "Compressed gas, poisonous, oxidizing, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone D",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "0.8 km (0.5 mi)",
+        "protect_night": "2.0 km (1.3 mi)"
+      }
+    },
+    {
+      "guide": "124",
+      "names": [
+        "Compressed gas, toxic, oxidizing, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone A",
+      "small": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "2.5 km (1.6 mi)"
+      },
+      "large": {
+        "isolate": "1000 m (3000 ft)",
+        "protect_day": "5.5 km (3.4 mi)",
+        "protect_night": "11.0+ km (7.0+ mi)"
+      }
+    },
+    {
+      "guide": "124",
+      "names": [
+        "Compressed gas, toxic, oxidizing, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone B",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.2 mi)",
+        "protect_night": "1.1 km (0.7 mi)"
+      },
+      "large": {
+        "isolate": "800 m (2500 ft)",
+        "protect_day": "5.1 km (3.2 mi)",
+        "protect_night": "10.9 km (6.8 mi)"
+      }
+    },
+    {
+      "guide": "124",
+      "names": [
+        "Compressed gas, toxic, oxidizing, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone C",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.5 km (0.3 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "1.6 km (1.0 mi)",
+        "protect_night": "3.2 km (2.0 mi)"
+      }
+    },
+    {
+      "guide": "124",
+      "names": [
+        "Compressed gas, toxic, oxidizing, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone D",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "0.8 km (0.5 mi)",
+        "protect_night": "2.0 km (1.3 mi)"
+      }
+    }
+  ],
+  "3307": [
+    {
+      "guide": "124",
+      "names": [
+        "Liquefied gas, poisonous, oxidizing, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone A",
+      "small": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "2.5 km (1.6 mi)"
+      },
+      "large": {
+        "isolate": "800 m (2500 ft)",
+        "protect_day": "5.1 km (3.2 mi)",
+        "protect_night": "11.0+ km (7.0+ mi)"
+      }
+    },
+    {
+      "guide": "124",
+      "names": [
+        "Liquefied gas, poisonous, oxidizing, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone B",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.2 mi)",
+        "protect_night": "1.1 km (0.7 mi)"
+      },
+      "large": {
+        "isolate": "500 m (1500 ft)",
+        "protect_day": "2.8 km (1.8 mi)",
+        "protect_night": "10.9 km (6.8 mi)"
+      }
+    },
+    {
+      "guide": "124",
+      "names": [
+        "Liquefied gas, poisonous, oxidizing, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone D",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.6 km (0.4 mi)"
+      },
+      "large": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.6 km (0.4 mi)",
+        "protect_night": "2.2 km (1.4 mi)"
+      }
+    },
+    {
+      "guide": "124",
+      "names": [
+        "Liquefied gas, toxic, oxidizing, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone A",
+      "small": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "2.5 km (1.6 mi)"
+      },
+      "large": {
+        "isolate": "800 m (2500 ft)",
+        "protect_day": "5.1 km (3.2 mi)",
+        "protect_night": "11.0+ km (7.0+ mi)"
+      }
+    },
+    {
+      "guide": "124",
+      "names": [
+        "Liquefied gas, toxic, oxidizing, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone B",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.2 mi)",
+        "protect_night": "1.1 km (0.7 mi)"
+      },
+      "large": {
+        "isolate": "500 m (1500 ft)",
+        "protect_day": "2.8 km (1.8 mi)",
+        "protect_night": "10.9 km (6.8 mi)"
+      }
+    },
+    {
+      "guide": "124",
+      "names": [
+        "Liquefied gas, toxic, oxidizing, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone D",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.6 km (0.4 mi)"
+      },
+      "large": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.6 km (0.4 mi)",
+        "protect_night": "2.2 km (1.4 mi)"
+      }
+    }
+  ],
+  "3308": [
+    {
+      "guide": "125",
+      "names": [
+        "Liquefied gas, poisonous, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone A",
+      "small": {
+        "isolate": "200 m (600 ft)",
+        "protect_day": "1.1 km (0.7 mi)",
+        "protect_night": "3.4 km (2.1 mi)"
+      },
+      "large": {
+        "isolate": "600 m (2000 ft)",
+        "protect_day": "3.9 km (2.4 mi)",
+        "protect_night": "7.6 km (4.8 mi)"
+      }
+    },
+    {
+      "guide": "125",
+      "names": [
+        "Liquefied gas, poisonous, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone B",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "1.1 km (0.7 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "1.6 km (1.0 mi)",
+        "protect_night": "3.7 km (2.3 mi)"
+      }
+    },
+    {
+      "guide": "125",
+      "names": [
+        "Liquefied gas, poisonous, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone C",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.5 km (0.3 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "1.4 km (0.9 mi)",
+        "protect_night": "3.2 km (2.0 mi)"
+      }
+    },
+    {
+      "guide": "125",
+      "names": [
+        "Liquefied gas, poisonous, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone D",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "0.8 km (0.5 mi)",
+        "protect_night": "2.0 km (1.3 mi)"
+      }
+    },
+    {
+      "guide": "125",
+      "names": [
+        "Liquefied gas, toxic, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone A",
+      "small": {
+        "isolate": "200 m (600 ft)",
+        "protect_day": "1.1 km (0.7 mi)",
+        "protect_night": "3.4 km (2.1 mi)"
+      },
+      "large": {
+        "isolate": "600 m (2000 ft)",
+        "protect_day": "3.9 km (2.4 mi)",
+        "protect_night": "7.6 km (4.8 mi)"
+      }
+    },
+    {
+      "guide": "125",
+      "names": [
+        "Liquefied gas, toxic, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone B",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "1.1 km (0.7 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "1.6 km (1.0 mi)",
+        "protect_night": "3.7 km (2.3 mi)"
+      }
+    },
+    {
+      "guide": "125",
+      "names": [
+        "Liquefied gas, toxic, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone C",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.5 km (0.3 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "1.4 km (0.9 mi)",
+        "protect_night": "3.2 km (2.0 mi)"
+      }
+    },
+    {
+      "guide": "125",
+      "names": [
+        "Liquefied gas, toxic, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone D",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "0.8 km (0.5 mi)",
+        "protect_night": "2.0 km (1.3 mi)"
+      }
+    }
+  ],
+  "3309": [
+    {
+      "guide": "119",
+      "names": [
+        "Liquefied gas, poisonous, flammable, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone A",
+      "small": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.0 km (0.6 mi)",
+        "protect_night": "3.9 km (2.4 mi)"
+      },
+      "large": {
+        "isolate": "1000 m (3000 ft)",
+        "protect_day": "6.2 km (3.9 mi)",
+        "protect_night": "10.5 km (6.5 mi)"
+      }
+    },
+    {
+      "guide": "119",
+      "names": [
+        "Liquefied gas, poisonous, flammable, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone B",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "0.6 km (0.4 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "2.5 km (1.6 mi)",
+        "protect_night": "3.1 km (1.9 mi)"
+      }
+    },
+    {
+      "guide": "119",
+      "names": [
+        "Liquefied gas, poisonous, flammable, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone D",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.0 km (0.6 mi)",
+        "protect_night": "2.7 km (1.7 mi)"
+      }
+    },
+    {
+      "guide": "119",
+      "names": [
+        "Liquefied gas, toxic, flammable, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone A",
+      "small": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.0 km (0.6 mi)",
+        "protect_night": "3.9 km (2.4 mi)"
+      },
+      "large": {
+        "isolate": "1000 m (3000 ft)",
+        "protect_day": "6.2 km (3.9 mi)",
+        "protect_night": "10.5 km (6.5 mi)"
+      }
+    },
+    {
+      "guide": "119",
+      "names": [
+        "Liquefied gas, toxic, flammable, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone B",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "0.6 km (0.4 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "2.5 km (1.6 mi)",
+        "protect_night": "3.1 km (1.9 mi)"
+      }
+    },
+    {
+      "guide": "119",
+      "names": [
+        "Liquefied gas, toxic, flammable, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone D",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.0 km (0.6 mi)",
+        "protect_night": "2.7 km (1.7 mi)"
+      }
+    }
+  ],
+  "3310": [
+    {
+      "guide": "124",
+      "names": [
+        "Liquefied gas, poisonous, oxidizing, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone A",
+      "small": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "2.5 km (1.6 mi)"
+      },
+      "large": {
+        "isolate": "1000 m (3000 ft)",
+        "protect_day": "5.1 km (3.2 mi)",
+        "protect_night": "11.0+ km (7.0+ mi)"
+      }
+    },
+    {
+      "guide": "124",
+      "names": [
+        "Liquefied gas, poisonous, oxidizing, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone B",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.2 mi)",
+        "protect_night": "1.1 km (0.7 mi)"
+      },
+      "large": {
+        "isolate": "800 m (2500 ft)",
+        "protect_day": "4.5 km (2.8 mi)",
+        "protect_night": "10.9 km (6.8 mi)"
+      }
+    },
+    {
+      "guide": "124",
+      "names": [
+        "Liquefied gas, poisonous, oxidizing, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone C",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.5 km (0.3 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "1.6 km (1.0 mi)",
+        "protect_night": "3.2 km (2.0 mi)"
+      }
+    },
+    {
+      "guide": "124",
+      "names": [
+        "Liquefied gas, poisonous, oxidizing, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone D",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "0.8 km (0.5 mi)",
+        "protect_night": "2.0 km (1.3 mi)"
+      }
+    },
+    {
+      "guide": "124",
+      "names": [
+        "Liquefied gas, toxic, oxidizing, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone A",
+      "small": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "2.5 km (1.6 mi)"
+      },
+      "large": {
+        "isolate": "1000 m (3000 ft)",
+        "protect_day": "5.1 km (3.2 mi)",
+        "protect_night": "11.0+ km (7.0+ mi)"
+      }
+    },
+    {
+      "guide": "124",
+      "names": [
+        "Liquefied gas, toxic, oxidizing, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone B",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.2 mi)",
+        "protect_night": "1.1 km (0.7 mi)"
+      },
+      "large": {
+        "isolate": "800 m (2500 ft)",
+        "protect_day": "4.5 km (2.8 mi)",
+        "protect_night": "10.9 km (6.8 mi)"
+      }
+    },
+    {
+      "guide": "124",
+      "names": [
+        "Liquefied gas, toxic, oxidizing, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone C",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.5 km (0.3 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "1.6 km (1.0 mi)",
+        "protect_night": "3.2 km (2.0 mi)"
+      }
+    },
+    {
+      "guide": "124",
+      "names": [
+        "Liquefied gas, toxic, oxidizing, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone D",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "0.8 km (0.5 mi)",
+        "protect_night": "2.0 km (1.3 mi)"
+      }
+    }
+  ],
+  "3318": [
+    {
+      "guide": "125",
+      "names": [
+        "Ammonia solution, with more than 50% ammonia"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "0.8 km (0.5 mi)",
+        "protect_night": "2.0 km (1.3 mi)"
+      }
+    }
+  ],
+  "3355": [
+    {
+      "guide": "119",
+      "names": [
+        "Insecticide gas, poisonous, flammable, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone A",
+      "small": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.0 km (0.6 mi)",
+        "protect_night": "3.9 km (2.4 mi)"
+      },
+      "large": {
+        "isolate": "1000 m (3000 ft)",
+        "protect_day": "6.2 km (3.9 mi)",
+        "protect_night": "10.5 km (6.5 mi)"
+      }
+    },
+    {
+      "guide": "119",
+      "names": [
+        "Insecticide gas, poisonous, flammable, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone B",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.4 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "1.4 km (0.9 mi)",
+        "protect_night": "3.1 km (1.9 mi)"
+      }
+    },
+    {
+      "guide": "119",
+      "names": [
+        "Insecticide gas, poisonous, flammable, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone C",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.0 km (0.6 mi)",
+        "protect_night": "2.7 km (1.7 mi)"
+      }
+    },
+    {
+      "guide": "119",
+      "names": [
+        "Insecticide gas, poisonous, flammable, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone D",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "0.6 km (0.4 mi)",
+        "protect_night": "1.6 km (1.0 mi)"
+      }
+    },
+    {
+      "guide": "119",
+      "names": [
+        "Insecticide gas, toxic, flammable, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone A",
+      "small": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.0 km (0.6 mi)",
+        "protect_night": "3.9 km (2.4 mi)"
+      },
+      "large": {
+        "isolate": "1000 m (3000 ft)",
+        "protect_day": "6.2 km (3.9 mi)",
+        "protect_night": "10.5 km (6.5 mi)"
+      }
+    },
+    {
+      "guide": "119",
+      "names": [
+        "Insecticide gas, toxic, flammable, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone B",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.4 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "1.4 km (0.9 mi)",
+        "protect_night": "3.1 km (1.9 mi)"
+      }
+    },
+    {
+      "guide": "119",
+      "names": [
+        "Insecticide gas, toxic, flammable, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone C",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.0 km (0.6 mi)",
+        "protect_night": "2.7 km (1.7 mi)"
+      }
+    },
+    {
+      "guide": "119",
+      "names": [
+        "Insecticide gas, toxic, flammable, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone D",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "0.6 km (0.4 mi)",
+        "protect_night": "1.6 km (1.0 mi)"
+      }
+    }
+  ],
+  "3361": [
+    {
+      "guide": "156",
+      "names": [
+        "Chlorosilanes, poisonous, corrosive, n.o.s.",
+        "Chlorosilanes, toxic, corrosive, n.o.s. (when spilled in water)"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "1.6 km (1.0 mi)"
+      }
+    }
+  ],
+  "3362": [
+    {
+      "guide": "155",
+      "names": [
+        "Chlorosilanes, poisonous, corrosive, flammable, n.o.s.",
+        "Chlorosilanes, toxic, corrosive, flammable, n.o.s."
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "1.6 km (1.0 mi)"
+      }
+    }
+  ],
+  "3381": [
+    {
+      "guide": "151",
+      "names": [
+        "Poisonous by inhalation liquid, n.o.s.",
+        "Toxic by inhalation liquid, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone A",
+      "small": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.6 km (0.4 mi)",
+        "protect_night": "1.8 km (1.1 mi)"
+      },
+      "large": {
+        "isolate": "200 m (600 ft)",
+        "protect_day": "2.3 km (1.4 mi)",
+        "protect_night": "4.2 km (2.6 mi)"
+      }
+    }
+  ],
+  "3382": [
+    {
+      "guide": "151",
+      "names": [
+        "Poisonous by inhalation liquid, n.o.s.",
+        "Toxic by inhalation liquid, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone B",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "0.8 km (0.5 mi)"
+      }
+    }
+  ],
+  "3383": [
+    {
+      "guide": "131",
+      "names": [
+        "Poisonous by inhalation liquid, flammable, n.o.s.",
+        "Toxic by inhalation liquid, flammable, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone A",
+      "small": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "1.5 km (1.0 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "3.4 km (2.1 mi)",
+        "protect_night": "5.7 km (3.6 mi)"
+      }
+    }
+  ],
+  "3384": [
+    {
+      "guide": "131",
+      "names": [
+        "Poisonous by inhalation liquid, flammable, n.o.s.",
+        "Toxic by inhalation liquid, flammable, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone B",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.6 km (0.4 mi)",
+        "protect_night": "0.9 km (0.6 mi)"
+      }
+    }
+  ],
+  "3385": [
+    {
+      "guide": "139",
+      "names": [
+        "Poisonous by inhalation liquid, water-reactive, n.o.s.",
+        "Toxic by inhalation liquid, water-reactive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone A",
+      "small": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.6 km (0.4 mi)",
+        "protect_night": "1.8 km (1.1 mi)"
+      },
+      "large": {
+        "isolate": "200 m (600 ft)",
+        "protect_day": "2.3 km (1.4 mi)",
+        "protect_night": "4.2 km (2.6 mi)"
+      }
+    }
+  ],
+  "3386": [
+    {
+      "guide": "139",
+      "names": [
+        "Poisonous by inhalation liquid, water-reactive, n.o.s.",
+        "Toxic by inhalation liquid, water-reactive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone B",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "0.8 km (0.5 mi)"
+      }
+    }
+  ],
+  "3387": [
+    {
+      "guide": "142",
+      "names": [
+        "Poisonous by inhalation liquid, oxidizing, n.o.s.",
+        "Toxic by inhalation liquid, oxidizing, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone A",
+      "small": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "1.5 km (1.0 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "3.4 km (2.1 mi)",
+        "protect_night": "5.7 km (3.6 mi)"
+      }
+    }
+  ],
+  "3388": [
+    {
+      "guide": "142",
+      "names": [
+        "Poisonous by inhalation liquid, oxidizing, n.o.s.",
+        "Toxic by inhalation liquid, oxidizing, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone B",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "0.5 km (0.3 mi)"
+      }
+    }
+  ],
+  "3389": [
+    {
+      "guide": "154",
+      "names": [
+        "Poisonous by inhalation liquid, corrosive, n.o.s.",
+        "Toxic by inhalation liquid, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone A",
+      "small": {
+        "isolate": "100 m (300 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "0.7 km (0.5 mi)"
+      },
+      "large": {
+        "isolate": "800 m (2500 ft)",
+        "protect_day": "1.7 km (1.1 mi)",
+        "protect_night": "2.8 km (1.8 mi)"
+      }
+    }
+  ],
+  "3390": [
+    {
+      "guide": "154",
+      "names": [
+        "Poisonous by inhalation liquid, corrosive, n.o.s.",
+        "Toxic by inhalation liquid, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone B",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "0.6 km (0.4 mi)"
+      }
+    }
+  ],
+  "3456": [
+    {
+      "guide": "157",
+      "names": [
+        "Nitrosylsulfuric acid, solid",
+        "Nitrosylsulphuric acid, solid"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.4 km (0.3 mi)"
+      },
+      "large": {
+        "isolate": "200 m (600 ft)",
+        "protect_day": "0.7 km (0.4 mi)",
+        "protect_night": "2.3 km (1.5 mi)"
+      }
+    }
+  ],
+  "3488": [
+    {
+      "guide": "131",
+      "names": [
+        "Poisonous by inhalation liquid, flammable, corrosive, n.o.s.",
+        "Toxic by inhalation liquid, flammable, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone A",
+      "small": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "1.5 km (1.0 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "3.4 km (2.1 mi)",
+        "protect_night": "5.7 km (3.6 mi)"
+      }
+    }
+  ],
+  "3489": [
+    {
+      "guide": "131",
+      "names": [
+        "Poisonous by inhalation liquid, flammable, corrosive, n.o.s.",
+        "Toxic by inhalation liquid, flammable, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone B",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.6 km (0.4 mi)",
+        "protect_night": "0.9 km (0.6 mi)"
+      }
+    }
+  ],
+  "3490": [
+    {
+      "guide": "155",
+      "names": [
+        "Poisonous by inhalation liquid, water-reactive, flammable, n.o.s. (Inhalation Hazard",
+        "Zone A)",
+        "Toxic by inhalation liquid, water-reactive, flammable, n.o.s. (Inhalation Hazard"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "1.5 km (1.0 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "3.4 km (2.1 mi)",
+        "protect_night": "5.7 km (3.6 mi)"
+      }
+    }
+  ],
+  "3491": [
+    {
+      "guide": "155",
+      "names": [
+        "Poisonous by inhalation liquid, water-reactive, flammable, n.o.s. (Inhalation Hazard",
+        "Zone B)",
+        "Toxic by inhalation liquid, water-reactive, flammable, n.o.s. (Inhalation Hazard"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.6 km (0.4 mi)",
+        "protect_night": "0.9 km (0.6 mi)"
+      }
+    }
+  ],
+  "3492": [
+    {
+      "guide": "131",
+      "names": [
+        "Poisonous by inhalation liquid, corrosive, flammable, n.o.s.",
+        "Toxic by inhalation liquid, corrosive, flammable, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone A",
+      "small": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "1.5 km (1.0 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "3.4 km (2.1 mi)",
+        "protect_night": "5.7 km (3.6 mi)"
+      }
+    }
+  ],
+  "3493": [
+    {
+      "guide": "131",
+      "names": [
+        "Poisonous by inhalation liquid, corrosive, flammable, n.o.s.",
+        "Toxic by inhalation liquid, corrosive, flammable, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone B",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.6 km (0.4 mi)",
+        "protect_night": "0.9 km (0.6 mi)"
+      }
+    }
+  ],
+  "3494": [
+    {
+      "guide": "131",
+      "names": [
+        "Petroleum sour crude oil, flammable, poisonous",
+        "Petroleum sour crude oil, flammable, toxic"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "0.8 km (0.5 mi)"
+      }
+    }
+  ],
+  "3507": [
+    {
+      "guide": "166",
+      "names": [
+        "Uranium hexafluoride, radioactive material, excepted package, less than 0.1 kg per package, non-fissile or fissile-excepted"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      }
+    }
+  ],
+  "3512": [
+    {
+      "guide": "173",
+      "names": [
+        "Adsorbed gas, poisonous, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone D",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      }
+    },
+    {
+      "guide": "173",
+      "names": [
+        "Adsorbed gas, toxic, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone D",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      }
+    }
+  ],
+  "3514": [
+    {
+      "guide": "173",
+      "names": [
+        "Adsorbed gas, poisonous, flammable, n.o.s.",
+        "Adsorbed gas, poisonous, flammable, n.o.s. (Inhalation",
+        "Hazard Zone A)",
+        "Hazard Zone B)",
+        "Hazard Zone C)",
+        "Hazard Zone D)"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      }
+    },
+    {
+      "guide": "173",
+      "names": [
+        "Adsorbed gas, toxic, flammable, n.o.s.",
+        "Adsorbed gas, toxic, flammable, n.o.s. (Inhalation",
+        "Hazard Zone A)",
+        "Hazard Zone B)",
+        "Hazard Zone C)",
+        "Hazard Zone D)"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      }
+    }
+  ],
+  "3515": [
+    {
+      "guide": "173",
+      "names": [
+        "Adsorbed gas, poisonous, oxidizing, n.o.s.",
+        "Adsorbed gas, poisonous, oxidizing, n.o.s. (Inhalation",
+        "Hazard Zone A)",
+        "Hazard Zone B)",
+        "Hazard Zone C)",
+        "Hazard Zone D)"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      }
+    },
+    {
+      "guide": "173",
+      "names": [
+        "Adsorbed gas, toxic, oxidizing, n.o.s.",
+        "Adsorbed gas, toxic, oxidizing, n.o.s. (Inhalation Hazard",
+        "Zone A)",
+        "Zone B)",
+        "Zone C)",
+        "Zone D)"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      }
+    }
+  ],
+  "3516": [
+    {
+      "guide": "173",
+      "names": [
+        "Adsorbed gas, poisonous, corrosive, n.o.s.",
+        "Adsorbed gas, poisonous, corrosive, n.o.s. (Inhalation",
+        "Hazard Zone A)",
+        "Hazard Zone B)",
+        "Hazard Zone C)",
+        "Hazard Zone D)"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      }
+    },
+    {
+      "guide": "173",
+      "names": [
+        "Adsorbed gas, toxic, corrosive, n.o.s.",
+        "Adsorbed gas, toxic, corrosive, n.o.s. (Inhalation Hazard",
+        "Zone A)",
+        "Zone B)",
+        "Zone C)",
+        "Zone D)"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      }
+    }
+  ],
+  "3517": [
+    {
+      "guide": "173",
+      "names": [
+        "Adsorbed gas, poisonous, flammable, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone D",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      }
+    },
+    {
+      "guide": "173",
+      "names": [
+        "Adsorbed gas, toxic, flammable, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone D",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      }
+    }
+  ],
+  "3518": [
+    {
+      "guide": "173",
+      "names": [
+        "Adsorbed gas, poisonous, oxidizing, corrosive, n.o.s."
+      ],
+      "label": "Inhalation Hazard Zone D",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      }
+    },
+    {
+      "guide": "173",
+      "names": [
+        "Adsorbed gas, toxic, oxidizing, corrosive, n.o.s.",
+        "Adsorbed gas, toxic, oxidizing, corrosive, n.o.s. (Inhalation",
+        "Hazard Zone A)",
+        "Hazard Zone B)",
+        "Hazard Zone C)",
+        "Hazard Zone D)"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      }
+    }
+  ],
+  "3519": [
+    {
+      "guide": "173",
+      "names": [
+        "Boron trifluoride, adsorbed"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      }
+    }
+  ],
+  "3520": [
+    {
+      "guide": "173",
+      "names": [
+        "Chlorine, adsorbed"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      }
+    }
+  ],
+  "3521": [
+    {
+      "guide": "173",
+      "names": [
+        "Silicon tetrafluoride, adsorbed"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      }
+    }
+  ],
+  "3522": [
+    {
+      "guide": "173",
+      "names": [
+        "Arsine, adsorbed"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      }
+    }
+  ],
+  "3523": [
+    {
+      "guide": "173",
+      "names": [
+        "Germane, adsorbed"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      }
+    }
+  ],
+  "3524": [
+    {
+      "guide": "173",
+      "names": [
+        "Phosphorus pentafluoride, adsorbed"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      }
+    }
+  ],
+  "3525": [
+    {
+      "guide": "173",
+      "names": [
+        "Phosphine, adsorbed"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      }
+    }
+  ],
+  "3526": [
+    {
+      "guide": "173",
+      "names": [
+        "Hydrogen selenide, adsorbed"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      }
+    }
+  ],
+  "3539": [
+    {
+      "guide": "123",
+      "names": [
+        "Articles containing toxic gas, n.o.s."
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.3 km (0.2 mi)",
+        "protect_night": "1.1 km (0.7 mi)"
+      },
+      "large": {
+        "isolate": "300 m (1000 ft)",
+        "protect_day": "1.4 km (0.9 mi)",
+        "protect_night": "3.7 km (2.3 mi)"
+      }
+    }
+  ],
+  "9191": [
+    {
+      "guide": "143",
+      "names": [
+        "Chlorine dioxide, hydrate, frozen"
+      ],
+      "label": "when spilled in water",
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.5 km (0.3 mi)"
+      }
+    }
+  ],
+  "9202": [
+    {
+      "guide": "168",
+      "names": [
+        "Carbon monoxide, refrigerated liquid (cryogenic liquid)"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "200 m (600 ft)",
+        "protect_day": "1.2 km (0.7 mi)",
+        "protect_night": "3.9 km (2.4 mi)"
+      }
+    }
+  ],
+  "9206": [
+    {
+      "guide": "137",
+      "names": [
+        "Methyl phosphonic dichloride"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.1 mi)",
+        "protect_night": "0.2 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "60 m (200 ft)",
+        "protect_day": "0.5 km (0.3 mi)",
+        "protect_night": "0.6 km (0.4 mi)"
+      }
+    }
+  ],
+  "9263": [
+    {
+      "guide": "156",
+      "names": [
+        "Chloropivaloyl chloride"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.2 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      }
+    }
+  ],
+  "9264": [
+    {
+      "guide": "151",
+      "names": [
+        "3,5-Dichloro-2,4,6- trifluoropyridine"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.1 km (0.1 mi)",
+        "protect_night": "0.1 km (0.1 mi)"
+      },
+      "large": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.2 mi)",
+        "protect_night": "0.3 km (0.2 mi)"
+      }
+    }
+  ],
+  "9269": [
+    {
+      "guide": "132",
+      "names": [
+        "Trimethoxysilane"
+      ],
+      "label": null,
+      "small": {
+        "isolate": "30 m (100 ft)",
+        "protect_day": "0.2 km (0.2 mi)",
+        "protect_night": "0.7 km (0.4 mi)"
+      },
+      "large": {
+        "isolate": "150 m (500 ft)",
+        "protect_day": "1.4 km (0.9 mi)",
+        "protect_night": "2.4 km (1.5 mi)"
+      }
+    }
+  ]
+}

@@ -1,0 +1,133 @@
+# Self-hosting KP Front on a VPS: the app (SPA + API in one image) + its Postgres.
+# Railway users don't need this file — that path is driven by railway.json.
+#
+#   cp .env.example .env          # set POSTGRES_PASSWORD + SECRET_KEY (openssl rand -hex 32)
+#   docker compose up -d --build  # builds from the repo-root Dockerfile, runs migrations on boot
+#
+# Serves plain HTTP on ${APP_PORT:-8000}. For automatic HTTPS on a domain, add Caddy:
+#   docker compose --profile tls up -d --build      # set DOMAIN in .env, see deploy/Caddyfile
+#
+# To deploy a published image instead of building, comment out `build:` and set
+#   image: ghcr.io/<org>/kp-front:vX.Y.Z
+
+name: kp-front
+
+# Cap container logs so a long-lived station VPS can't slowly fill its disk.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-kpfront}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-kpfront}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kpfront} -d ${POSTGRES_DB:-kpfront}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # No published ports: reachable only by `app` over the internal compose network.
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: kp-front:local
+    restart: unless-stopped
+    logging: *default-logging
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-kpfront}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-kpfront}
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env (openssl rand -hex 32)}
+      # Unlocks the /admin UI + admin-write API/CLI (separate from the editor PIN). Empty =
+      # admin surface disabled (fail-closed). Generate: openssl rand -hex 24.
+      ADMIN_SECRET: ${ADMIN_SECRET:-}
+      # Optional: expose the OpenAPI docs (/docs, /openapi.json) in production for integrators.
+      EXPOSE_API_DOCS: ${EXPOSE_API_DOCS:-}
+      # Leave blank when serving over HTTPS (Secure cookies follow ENVIRONMENT=production).
+      # Set to false only for plain-HTTP access on a trusted LAN, so login cookies still stick.
+      COOKIE_SECURE: ${COOKIE_SECURE:-}
+      MEDIA_STORAGE_DIR: /data/storage
+      SEED_DATABASE: ${SEED_DATABASE:-true}
+      # Optional integrations — leave blank to disable. See .env.example.
+      DIVERA_ACCESS_KEY: ${DIVERA_ACCESS_KEY:-}
+      DIVERA_WEBHOOK_SECRET: ${DIVERA_WEBHOOK_SECRET:-}
+      DIVERA_PERSONNEL_ACCESS_KEY: ${DIVERA_PERSONNEL_ACCESS_KEY:-}
+      TRACCAR_URL: ${TRACCAR_URL:-}
+      TRACCAR_EMAIL: ${TRACCAR_EMAIL:-}
+      TRACCAR_PASSWORD: ${TRACCAR_PASSWORD:-}
+      # Generic alarm intake (POST /api/alarms) for non-Divera alerting systems.
+      # Empty = endpoint disabled (fail-closed).
+      ALARM_WEBHOOK_SECRET: ${ALARM_WEBHOOK_SECRET:-}
+      # Public origin (https://front.example.org) for absolute links in outbound webhooks
+      # and capture posters. Empty = links omitted.
+      PUBLIC_URL: ${PUBLIC_URL:-}
+      # Station print relay («An Stationsdrucker» queue + on-site polling agent).
+      # Empty = agent endpoints 403 and the button never renders (fail-closed).
+      PRINT_AGENT_SECRET: ${PRINT_AGENT_SECRET:-}
+      # Web Push (killed-app alarms) — see .env.example for VAPID key generation
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@example.org}
+      # Speech-to-text for the audio player (OpenAI-compatible server; see .env.example for
+      # Groq/OpenAI/self-hosted examples). Blank = feature off (fail-closed); the app —
+      # upload, player, waveform — works fully without it, only Transkribieren is absent.
+      STT_BASE_URL: ${STT_BASE_URL:-}
+      STT_API_KEY: ${STT_API_KEY:-}
+      STT_MODEL: ${STT_MODEL:-whisper-large-v3-turbo}
+      STT_LANGUAGE: ${STT_LANGUAGE:-de}
+      # Multipart upload cap in MB — keep above the media endpoint's 100 MB per-file cap.
+      # (Numeric default here on purpose: an empty value would break int parsing.)
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-110}
+      # swisstopo SearchServer for address autocomplete; override only with a compatible endpoint.
+      GEOCODER_URL: ${GEOCODER_URL:-https://api3.geo.admin.ch/rest/services/api/SearchServer}
+    volumes:
+      - storage:/data/storage
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    healthcheck:
+      # /ready probes DB + storage volume (not the static /health) so a data-layer outage
+      # actually flips the container unhealthy and restarts/alerts instead of serving green.
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/ready')\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  # Optional automatic HTTPS. Enabled only with `--profile tls`; set DOMAIN (A record → this host).
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    logging: *default-logging
+    profiles: ["tls"]
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      # Required for the tls profile; Caddy fails to start if empty (base profile ignores caddy).
+      DOMAIN: ${DOMAIN:-}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    ports:
+      - "80:80"
+      - "443:443"
+
+volumes:
+  pgdata:
+  storage:
+  caddy_data:
+  caddy_config:

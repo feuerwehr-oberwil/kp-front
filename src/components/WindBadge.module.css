@@ -1,0 +1,53 @@
+/* wind/weather badge — bottom-right corner, glass style (matches the map utilities). It's a
+   button: tapping opens the MeteoSwiss details for the incident location. */
+.badge {
+  /* default: the very bottom-right corner. On a SHORT viewport the right tool-rail's pinned nav
+     (center / coordinates) reaches this corner — the media query below then slides the badge clear
+     of the rail. On taller screens there's room, so it stays in the corner. */
+  position: absolute; right: max(16px, env(safe-area-inset-right)); bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 40;
+  display: flex; align-items: center; gap: 10px;
+  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid var(--glass-line); border-radius: var(--r-btn);
+  padding: 8px 12px; box-shadow: var(--shadow); color: var(--ink);
+  white-space: nowrap; font-variant-numeric: tabular-nums;
+  font: inherit; cursor: pointer; text-align: left;
+  transition: background .14s var(--ease), transform .12s var(--ease);
+}
+/* during time-travel replay the bottom-centre scrubber (z50, up to 760px) can reach this
+   corner on narrow widths — lift the badge straight up so they never overlap */
+.lifted { bottom: 150px; }
+.badge:hover:not(:disabled) { background: var(--hover-strong); }
+.badge:active:not(:disabled) { transform: scale(.97); }
+.badge:disabled { cursor: default; }
+
+/* single present-weather glyph (clear / cloud / rain / snow / fog / storm) */
+.cond { flex: none; display: grid; place-items: center; color: var(--ink); }
+.cond svg { width: 23px; height: 23px; display: block; }
+
+/* temperature reading at the incident location, leading the wind arrow */
+.temp { font-weight: 700; font-size: 15px; flex: none; font-variant-numeric: tabular-nums;
+  padding-right: 10px; margin-right: 2px; border-right: 1px solid var(--glass-line); }
+
+/* the arrow points DOWNWIND (where the wind/smoke drifts); 0° = up/north */
+.arrow { width: 26px; height: 26px; flex: none; display: grid; place-items: center;
+  transition: transform .25s var(--ease); }
+.arrow svg { width: 26px; height: 26px; display: block; }
+
+.text { display: flex; flex-direction: column; line-height: 1.15; }
+.speed { font-weight: 700; font-size: 14px; }
+.gust { font-size: 11px; opacity: .7; }
+.dir { font-size: 11px; opacity: .8; }
+
+/* shorter viewport (e.g. a landscape tablet, ~768–834px tall): the right tool-rail is now tall
+   enough that its bottom-pinned nav reaches this corner, so slide the badge left of the rail
+   (compact rail = 72px, + 16px inset + 12px gap). Threshold covers typical tablet/laptop heights;
+   only very tall displays leave room to keep the badge in the corner. */
+@media (max-height: 900px) {
+  .badge { right: calc(72px + 16px + 12px); }
+}
+
+@media (max-width: 600px) {
+  /* phone: the wind moves into the top bar (downwind arrow + speed, no temp), so the
+     floating corner badge is dropped entirely — the bottom edge is left to the FAB. */
+  .badge { display: none; }
+}

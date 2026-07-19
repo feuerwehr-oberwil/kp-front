@@ -1,0 +1,36 @@
+{
+  "id": "musterdorf-taktik",
+  "kind": "reference",
+  "title": "Taktik-Stichworte (Demo)",
+  "version": 1,
+  "source": "KP Front Demo",
+  "entries": [
+    {
+      "id": "wohnungsbrand",
+      "title": "Wohnungsbrand",
+      "keywords": ["brand", "wohnung", "gebäude"],
+      "diveraKeywords": ["wohnungsbrand", "zimmerbrand", "gebäudebrand"],
+      "hazardColor": "red",
+      "content": [
+        { "type": "heading", "text": "Erstmassnahmen" },
+        { "type": "bullet", "text": "Menschenrettung vor Brandbekämpfung" },
+        { "type": "bullet", "text": "Atemschutz-Trupp bereitstellen", "level": 1 },
+        { "type": "bullet", "text": "Wasserversorgung sicherstellen (Hydrant)" },
+        { "type": "note", "text": "Nachbarwohnungen auf Verrauchung prüfen." }
+      ]
+    },
+    {
+      "id": "verkehrsunfall",
+      "title": "Verkehrsunfall",
+      "keywords": ["verkehr", "unfall", "vu"],
+      "diveraKeywords": ["verkehrsunfall", "vu", "pkw"],
+      "hazardColor": "green",
+      "content": [
+        { "type": "heading", "text": "Absicherung" },
+        { "type": "bullet", "text": "Einsatzstelle absichern, Verkehr regeln" },
+        { "type": "bullet", "text": "Brandschutz sicherstellen" },
+        { "type": "bullet", "text": "Patientenrettung mit Sanität koordinieren" }
+      ]
+    }
+  ]
+}

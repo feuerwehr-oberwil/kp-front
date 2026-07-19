@@ -1,0 +1,222 @@
+{
+  "identity": {
+    "appName": "Feuerwehr Musterdorf",
+    "locale": "de-CH",
+    "accentColor": "#c4161c",
+    "helpIntro": "Digitale Lage- und Einsatzführung der Feuerwehr Musterdorf."
+  },
+  "map": {
+    "defaultView": {
+      "center": [
+        7.55604,
+        47.5151
+      ],
+      "zoom": 16
+    },
+    "geocoder": {
+      "defaultLocality": "4104 Musterdorf BL",
+      "bboxLv95": "2598000,1252000,2625000,1270000"
+    }
+  },
+  "referenceLayers": [
+    {
+      "id": "bl-hochwasser",
+      "group": "Gefahren",
+      "label": "Hochwasser",
+      "icon": "drop",
+      "kind": "wms",
+      "tiles": [
+        "https://geowms.example.ch/?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&FORMAT=image/png&TRANSPARENT=true&SRS=EPSG:3857&WIDTH=256&HEIGHT=256&LAYERS=hochwasser&BBOX={bbox-epsg-3857}"
+      ],
+      "opacity": 65,
+      "attribution": "© Geodaten Kanton …"
+    },
+    {
+      "id": "hydrant",
+      "group": "Wasser",
+      "label": "Hydranten",
+      "icon": "drop",
+      "kind": "geojson",
+      "geojson": "hydranten.geojson",
+      "vectorKind": "point",
+      "symbol": "SI Ueberflurhydrant",
+      "color": "#0f52b5"
+    }
+  ],
+  "modules": [
+    {
+      "id": "modul1",
+      "code": "M1",
+      "title": "Übersicht",
+      "order": 1,
+      "orientation": "portrait",
+      "match": "modul\\s*1(?!\\s*[-–/]\\s*\\d)"
+    },
+    {
+      "id": "modul2",
+      "code": "M2",
+      "title": "Umgebung",
+      "order": 2,
+      "match": "modul\\s*2(?!\\s*[-–/]\\s*\\d)"
+    },
+    {
+      "id": "modul3",
+      "code": "M3",
+      "title": "Objektplan",
+      "order": 3,
+      "match": "modul\\s*3(?!\\s*[-–/]\\s*\\d)"
+    },
+    {
+      "id": "modul2-3",
+      "code": "2/3",
+      "title": "Umgebung & Objekt",
+      "order": 4,
+      "match": "modul\\s*2\\s*[-–/]\\s*3",
+      "combinedWith": [
+        "modul2",
+        "modul3"
+      ]
+    },
+    {
+      "id": "modul6",
+      "code": "M6",
+      "title": "Gebäudepläne",
+      "order": 6,
+      "orientation": "portrait",
+      "match": "modul\\s*6"
+    },
+    {
+      "id": "modul5",
+      "code": "M5",
+      "title": "Spezialpläne",
+      "order": 5,
+      "family": true,
+      "match": "modul\\s*5(?:\\s*[-–—]\\s*([0-9A-Za-zÄÖÜäöü]+))?"
+    },
+    {
+      "id": "modul4",
+      "code": "M4",
+      "title": "Spezialplan",
+      "order": 7,
+      "match": "modul\\s*4"
+    }
+  ],
+  "fleet": {
+    "attributeLists": [
+      {
+        "symbol": "VKF Fahrzeug",
+        "field": "title",
+        "options": [
+          "TLF",
+          "ADL",
+          "HLF",
+          "ELW"
+        ]
+      },
+      {
+        "symbol": "VKF Luefter mobil",
+        "field": "Typ",
+        "options": [
+          "Überdruck",
+          "Elektro"
+        ]
+      },
+      {
+        "symbol": "FW Kleinloeschgeraet",
+        "field": "Typ",
+        "options": [
+          "Wasser",
+          "Schaum",
+          "CO₂"
+        ]
+      },
+      {
+        "symbol": "VKF Bereich Feuerwehr",
+        "field": "Einheit",
+        "options": [
+          "Stützpunkt",
+          "Nachbarwehr"
+        ]
+      },
+      {
+        "symbol": "VKF Bereich Sanitaet",
+        "field": "Einheit",
+        "options": [
+          "Rettungsdienst",
+          "Rega"
+        ]
+      },
+      {
+        "symbol": "VKF Bereich Polizei",
+        "field": "Einheit",
+        "options": [
+          "Kantonspolizei"
+        ]
+      }
+    ]
+  },
+  "doctrine": {
+    "defaultFunkkanal": 11,
+    "contactIntervalMin": 5,
+    "contactGraceSec": 60,
+    "rueckzugBar": 100,
+    "mindestBar": 60
+  },
+  "roster": {
+    "source": "manual"
+  },
+  "mittel": {
+    "catalogue": [
+      {
+        "id": "schaummittel",
+        "label": "Schaummittel",
+        "unit": "l",
+        "category": "Ölwehr"
+      },
+      {
+        "id": "bindemittel",
+        "label": "Ölbindemittel",
+        "unit": "Sack",
+        "category": "Ölwehr"
+      },
+      {
+        "id": "luefter",
+        "label": "Lüfter",
+        "unit": "Stk",
+        "category": "Geräte",
+        "stock": [
+          {
+            "source": "tlf",
+            "qty": 2
+          },
+          {
+            "source": "lf",
+            "qty": 1
+          }
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "id": "tlf",
+        "label": "TLF"
+      },
+      {
+        "id": "lf",
+        "label": "LF"
+      },
+      {
+        "id": "depot",
+        "label": "Magazin"
+      }
+    ],
+    "units": [
+      "Stk",
+      "l",
+      "m",
+      "Sack",
+      "Flasche",
+      "kg"
+    ]
+  }
+}

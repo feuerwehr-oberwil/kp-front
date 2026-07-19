@@ -1,0 +1,36 @@
+{
+  "id": "musterdorf-fu",
+  "kind": "action",
+  "title": "Aufgaben FU (Demo)",
+  "subtitle": "Beispiel-Aktionscheckliste für die Demo-Feuerwehr Musterdorf",
+  "version": 1,
+  "source": "KP Front Demo",
+  "phases": [
+    {
+      "id": "anfahrt",
+      "title": "Auf Anfahrt",
+      "items": [
+        { "id": "anfahrt-1", "text": "Objektplan bereitlegen", "action": "plan" },
+        { "id": "anfahrt-2", "text": "Journal vorbereiten", "action": "journal" },
+        { "id": "anfahrt-3", "text": "Persönlichen Funk mitnehmen" }
+      ]
+    },
+    {
+      "id": "vor-ort",
+      "title": "Vor Ort & immer",
+      "items": [
+        { "id": "vor-ort-1", "text": "Absprache mit Einsatzleitung", "milestone": true },
+        { "id": "vor-ort-2", "text": "Standort Führungsunterstützung bestimmen", "milestone": true },
+        { "id": "vor-ort-3", "text": "Dokumentation (Journal & Fotos)", "action": "journal", "milestone": true },
+        { "id": "vor-ort-4", "text": "Lage auf Karte festhalten", "action": "draw" }
+      ]
+    },
+    {
+      "id": "nach-einsatz",
+      "title": "Nach Einsatz",
+      "items": [
+        { "id": "nach-einsatz-1", "text": "Journal & Fotos sichern", "action": "journal", "milestone": true }
+      ]
+    }
+  ]
+}

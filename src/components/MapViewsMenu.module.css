@@ -1,0 +1,55 @@
+/* Saved map views popover — opened from the multi-purpose compass. Wears the same dark "dock"
+   chrome as the measure/draw ToolDock (solid --ink-fill pill, white controls, a round close
+   button and an info ⓘ), so it reads as one of the map tool utilities. Portalled to <body>.
+   No backdrop scrim — the map stays draggable/clickable underneath, like the tool docks. */
+.pop { z-index: 201; width: 232px; max-width: calc(100vw - 16px); max-height: calc(100dvh - 32px); overflow-y: auto;
+  background: var(--ink-fill); color: var(--on-accent-ink); border-radius: var(--r-surface);
+  box-shadow: var(--shadow); padding: 10px; animation: popIn .15s var(--ease); }
+/* sits in the same place as the measure/draw ToolDock: vertically centred, just left of the
+   right tool rail, and tracking its width (--vrail-w) — see .wb-dock-map */
+.dock { position: fixed; right: calc(var(--vrail-w, 60px) + 42px); top: 50%; transform: translateY(-50%); }
+
+/* phone: the trigger is the floating .phone-compass under the top bar, so the popover
+   anchors right below it (top-right) and stays clear of the bottom bars + Eintrag FAB */
+@media (max-width: 600px) {
+  .dock { right: max(10px, env(safe-area-inset-right)); top: calc(118px + env(safe-area-inset-top)); transform: none;
+    max-height: calc(100dvh - 140px - var(--rail-h, 60px) * 2 - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+}
+
+.head { display: flex; align-items: center; justify-content: flex-end; padding: 0 0 6px; }
+/* round close button — mirrors the ToolDock's .wb-dock-x */
+.close { flex: none; width: 34px; height: 34px; border-radius: 50%; border: none; background: rgba(255, 255, 255, .14);
+  color: var(--on-accent-ink); display: grid; place-items: center; cursor: pointer; padding: 0;
+  transition: background .14s var(--ease); }
+.close:hover { background: rgba(255, 255, 255, .28); }
+.close :global(.i) { width: 16px; height: 16px; }
+
+.row { display: flex; align-items: center; gap: 2px; width: 100%; min-height: 44px; border-radius: var(--r-sm); }
+.row.on { background: color-mix(in srgb, var(--blue) 30%, transparent); }
+/* the tap-to-fly target fills the row; mini actions sit to its right */
+.go, .north, .save { display: flex; align-items: center; gap: 10px; flex: 1 1 auto; min-width: 0;
+  min-height: 44px; padding: 0 8px; border: none; background: transparent; border-radius: var(--r-sm);
+  color: var(--on-accent-ink); cursor: pointer; text-align: left; font: inherit; transition: background .12s var(--ease); }
+.go:hover, .north:hover, .save:hover { background: rgba(255, 255, 255, .12); }
+.row.on .go { font-weight: 600; }
+
+.ico { flex: none; display: grid; place-items: center; width: 22px; height: 22px; color: var(--on-accent-ink); transition: transform .15s ease; }
+.ico :global(.i) { width: 18px; height: 18px; }
+.name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; font-size: 14px; }
+
+.mini { flex: none; width: 40px; height: 44px; display: grid; place-items: center; border: none;
+  background: transparent; border-radius: var(--r-sm); color: rgba(255, 255, 255, .6); cursor: pointer;
+  transition: background .12s var(--ease), color .12s var(--ease); }
+.mini:hover { background: rgba(255, 255, 255, .12); color: var(--on-accent-ink); }
+.mini :global(.i) { width: 16px; height: 16px; }
+
+.sep { height: 1px; background: rgba(255, 255, 255, .15); margin: 5px 4px; }
+.empty { padding: 6px 10px 10px; font-size: 12.5px; line-height: 1.4; color: rgba(255, 255, 255, .6); }
+
+.editing { padding: 0 8px; gap: 10px; }
+.input { flex: 1 1 auto; min-width: 0; height: 34px; padding: 0 8px; font: inherit; font-size: 14px;
+  color: var(--on-accent-ink); background: rgba(255, 255, 255, .1);
+  border: 1px solid rgba(255, 255, 255, .3); border-radius: var(--r-sm); outline: none; }
+
+/* the ⓘ sits bottom-right, like the dock's trailing info affordance */
+.foot { display: flex; justify-content: flex-end; padding: 1px 2px 0; }

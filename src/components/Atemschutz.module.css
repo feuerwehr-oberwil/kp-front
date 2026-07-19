@@ -1,0 +1,382 @@
+/* ===== Atemschutzüberwachung surface ============================================= */
+/* The digital Atemschutz-Überwachungstafel: a header + "Trupp anlegen" wizard and a
+   grid of big, glanceable monitoring cards with live pressure-based countdowns and an
+   escalating colour-coded status banner. Sits below the top bar like the Checkliste
+   surface; light "Karte Minimal" style, finger-friendly targets for a tired operator (~44px+). */
+/* left inset clears the NavRail (left:16px + --rail-w), matching .mapctl/.basesw so the
+   title isn't hidden behind the rail */
+.surface { position: absolute; inset: 88px 16px 16px calc(var(--rail-w) + 28px); z-index: 20; display: flex; flex-direction: column;
+  background: var(--app-bg); border-radius: var(--r-surface); overflow: hidden; box-shadow: var(--shadow); }
+
+.head { display: flex; align-items: center; gap: 16px; padding: 16px 22px; background: var(--surface);
+  border-bottom: 1px solid var(--glass-edge); }
+.headTitles { flex: 1 1 auto; min-width: 0; }
+.headTitles h2 { margin: 0; font-size: 19px; font-weight: 800; color: var(--ink); }
+.headTitles p { margin: 3px 0 0; font-size: 12.5px; color: var(--ink-dim); }
+.newBtn { display: inline-flex; align-items: center; gap: 8px; border: none; cursor: pointer;
+  background: var(--ink-fill); color: var(--on-accent-ink); font-family: var(--body); font-size: 14px; font-weight: 700;
+  padding: 11px 16px; border-radius: var(--r-ctl); }
+.newBtn :global(.i) { width: 16px; height: 16px; }
+.newBtn:hover { filter: brightness(1.12); }
+/* per-device alarm-sound toggle (visual alarm + wake-lock stay on either way) */
+.muteBtn { flex: none; display: grid; place-items: center; width: 44px; height: 44px; cursor: pointer;
+  border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink-dim); border-radius: var(--r-ctl); }
+.muteBtn :global(.i) { width: 18px; height: 18px; }
+.muteBtn:hover { color: var(--ink); border-color: var(--ink-faint); }
+.muteOn { color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 35%, var(--glass-edge)); }
+/* surface-level escalation: an überfällig count badge that's unmissable even if the tone is muted */
+.overdueBadge { flex: none; display: inline-flex; align-items: center; gap: 7px; padding: 8px 13px; border-radius: var(--r-pill);
+  background: var(--red); color: var(--on-accent-ink); font-size: 13px; font-weight: 800; letter-spacing: .02em;
+  animation: az-pulse 1.2s infinite; }
+.overdueBadge :global(.i) { width: 15px; height: 15px; }
+
+.body { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; padding: 18px 22px; }
+
+.empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  height: 100%; color: var(--ink-faint); text-align: center; }
+.empty :global(.i) { width: 30px; height: 30px; opacity: .5; }
+.empty p { margin: 0; font-size: 15px; font-weight: 700; color: var(--ink-dim); }
+.empty span { font-size: 13px; }
+
+/* align-items:start so a shorter card (e.g. angemeldet) keeps its natural height instead of
+   stretching to the tallest sibling and leaving dead space under its last action */
+/* minmax 270px so a normal landscape tablet fits 3 Trupp cards per row (was 300px → only 2) */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 16px; align-items: start; }
+.sep { grid-column: 1 / -1; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--ink-faint); padding: 10px 2px 2px; border-top: 1px solid var(--glass-edge); margin-top: 6px; }
+
+/* --- monitoring card --- */
+.card { background: var(--surface); border-radius: var(--r-surface); overflow: hidden;
+  box-shadow: 0 0 0 1px var(--border-soft), var(--shadow-sm); display: flex; flex-direction: column;
+  border-top: 5px solid var(--ink-faint); }
+.cardBanner { display: flex; align-items: center; gap: 9px; padding: 9px 14px;
+  background: var(--fill-soft); border-bottom: 1px solid var(--glass-edge); }
+.statusDot { width: 11px; height: 11px; border-radius: 50%; background: var(--ink-faint); flex: none; }
+.statusLabel { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 12px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim); }
+.iconBtn { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border: none; cursor: pointer;
+  background: transparent; color: var(--ink-faint); border-radius: var(--r-xs); padding: 0; }
+.iconBtn :global(.i) { width: 17px; height: 17px; }
+.iconBtn:hover { background: var(--fill-soft); color: var(--ink); }
+/* destructive variant (delete card) — extra separation + red hover so it never reads like the
+   neutral place/show actions beside it (avoids a mis-tapped delete during a stressful incident) */
+.iconBtn.danger { margin-left: 10px; }
+.iconBtn.danger:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
+
+.cardName { padding: 12px 14px 4px; }
+.nameStatic { display: block; font-size: 19px; font-weight: 800; color: var(--ink); padding: 2px 4px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.members { font-size: 12.5px; color: var(--ink-dim); padding: 4px 4px 0; }
+
+/* the dominant element: time since last Funkkontakt + a big Kontakt reset beneath it */
+.contactWrap { display: grid; grid-template-columns: 1fr; gap: 1px; background: var(--glass-edge);
+  margin: 12px 0 0; border-top: 1px solid var(--glass-edge); border-bottom: 1px solid var(--glass-edge); }
+.contactClock { background: var(--surface); padding: 13px 12px 12px; text-align: center; }
+/* the clock's state as a WORD (colourblind-safe; survives a muted alarm) */
+.contactState { font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--green-strong); margin-bottom: 7px; }
+.contactVal { font-family: var(--mono); font-size: 40px; font-weight: 800; color: var(--green); line-height: 1; }
+.contactLbl { font-size: 11px; font-weight: 600; color: var(--ink-faint); margin-top: 6px; text-transform: uppercase;
+  letter-spacing: .04em; }
+.contactWarn { background: color-mix(in srgb, var(--amber) 12%, transparent); }
+.contactWarn .contactState { color: var(--amber-strong); }
+.contactWarn .contactVal { color: var(--amber); }
+.contactCrit { background: color-mix(in srgb, var(--red) 14%, transparent); }
+.contactCrit .contactState { color: var(--red); }
+.contactCrit .contactVal { color: var(--red); animation: az-pulse 1s infinite; }
+/* the big primary action — reset the contact clock on Funkkontakt. Filled + ringed so it reads
+   as THE button before hover; takes on the warn/crit colour so the fix-it action self-announces */
+.kontaktBtn { display: inline-flex; align-items: center; justify-content: center; gap: 9px; border: none; cursor: pointer;
+  background: color-mix(in srgb, var(--green) 7%, var(--surface)); font-family: var(--body); font-size: 15px; font-weight: 800;
+  color: var(--green-strong); padding: 14px 10px; min-height: 50px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--green) 26%, transparent); }
+.kontaktBtn :global(.i) { width: 19px; height: 19px; }
+.kontaktBtn:hover { background: color-mix(in srgb, var(--green) 17%, var(--surface)); }
+.kontaktWarn { background: color-mix(in srgb, var(--amber) 15%, var(--surface)); color: var(--amber-strong);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--amber) 42%, transparent); }
+.kontaktWarn:hover { background: color-mix(in srgb, var(--amber) 24%, var(--surface)); }
+.kontaktCrit { background: color-mix(in srgb, var(--red) 15%, var(--surface)); color: var(--red);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--red) 46%, transparent); }
+.kontaktCrit:hover { background: color-mix(in srgb, var(--red) 24%, var(--surface)); }
+
+.meta { display: flex; flex-direction: column; gap: 7px; padding: 12px 14px; }
+.metaRow { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: 12.5px;
+  color: var(--ink-dim); }
+.metaRow b { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--ink); }
+.metaAlarm { color: var(--red) !important; }
+
+/* INLINE Druck control on a live card — ± adjust a PENDING value; nothing commits until the
+   explicit Bestätigen, so a misclick never logs a reading or resets the contact clock. Kept quiet
+   so the contact clock stays the hero; the grid columns are fixed so the buttons never shift as
+   the value's digit count changes (60 ↔ 300 bar). */
+.pressureBlock { display: flex; flex-direction: column; gap: 8px; }
+.pressureRow { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pressureLbl { font-size: 12.5px; font-weight: 700; color: var(--ink-dim); }
+.pressureCtl { display: grid; grid-template-columns: 44px 70px 44px; align-items: center; gap: 6px; }
+.pBtn { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--glass-edge);
+  background: var(--surface); border-radius: var(--r-ctl); cursor: pointer; color: var(--ink-dim); }
+.pBtn :global(.i) { width: 16px; height: 16px; }
+.pBtn:hover { border-color: var(--blue); color: var(--blue); }
+.pVal { display: inline-flex; align-items: baseline; gap: 4px; justify-content: center;
+  font: 800 19px/1 var(--mono); color: var(--ink); }
+.pVal span { font-size: 11px; font-weight: 700; color: var(--ink-faint); }
+/* tap-to-type: the value as a button (reset native chrome) + the inline numeric input */
+button.pValBtn { border: none; background: transparent; cursor: pointer; padding: 2px 4px; border-radius: var(--r-xs); }
+button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
+.pInput { width: 44px; box-sizing: border-box; text-align: center; border: none; background: transparent; outline: none;
+  font: 800 19px/1 var(--mono); color: var(--blue); padding: 0; }
+/* pending (unconfirmed) value — visually distinct from the saved reading */
+.pPending { color: var(--blue); }
+.pPending span { color: var(--blue); }
+/* explicit confirm row, shown only while a pending change is open */
+.pressureConfirm { display: grid; grid-template-columns: 1fr 44px; gap: 8px; }
+.pConfirm { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: none; cursor: pointer;
+  background: var(--green); color: var(--on-accent-ink); font: 800 14px var(--body); min-height: 44px; border-radius: var(--r-ctl); }
+.pConfirm :global(.i) { width: 17px; height: 17px; }
+.pConfirm:hover { background: var(--green-solid-hover); }
+.pCancel { display: grid; place-items: center; border: 1px solid var(--glass-edge); background: var(--surface);
+  color: var(--ink-dim); border-radius: var(--r-ctl); cursor: pointer; min-height: 44px; }
+.pCancel :global(.i) { width: 16px; height: 16px; }
+.pCancel:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+/* expandable per-Trupp contact/pressure log (collapsed by default) */
+.log { border-top: 1px solid var(--glass-edge); margin-top: 2px; padding-top: 7px; }
+.logToggle { display: inline-flex; align-items: center; gap: 7px; border: none; cursor: pointer; background: transparent;
+  color: var(--ink-dim); font: 700 12px var(--body); padding: 3px 2px; }
+.logToggle :global(.i) { width: 14px; height: 14px; }
+.logChev { color: var(--ink-faint); }
+.logList { list-style: none; margin: 6px 0 0; padding: 0; max-height: 168px; overflow-y: auto; scrollbar-gutter: stable; }
+.logRow { display: grid; grid-template-columns: auto 1fr auto; align-items: baseline; gap: 10px; padding: 5px 2px;
+  font-size: 12px; border-top: 1px solid var(--glass-edge); }
+.logRow:first-child { border-top: none; }
+.logTime { font-family: var(--mono); font-weight: 700; color: var(--ink-dim); }
+.logBar { font-family: var(--mono); font-weight: 700; color: var(--ink); }
+.logKind { color: var(--ink-dim); font-weight: 600; }
+
+/* one row of equal-width lifecycle actions; the 1px gap over the edge colour draws the dividers */
+.actions { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 1px; background: var(--glass-edge);
+  border-top: 1px solid var(--glass-edge); }
+.actBtn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: none; cursor: pointer;
+  background: var(--surface); font-family: var(--body); font-size: 13.5px; font-weight: 700; color: var(--ink);
+  padding: 14px 10px; min-height: 48px; }
+.actBtn :global(.i) { width: 16px; height: 16px; }
+.actEnter { color: var(--on-accent-ink); background: var(--green); }
+.actEnter:hover { background: var(--green-solid-hover); }
+.actRueckzug { color: var(--amber-strong); }
+.actRueckzug:hover { background: color-mix(in srgb, var(--amber) 10%, transparent); }
+/* call off a Rückzug — back into the field (forward/positive) */
+.actContinue { color: var(--green-strong); }
+.actContinue:hover { background: color-mix(in srgb, var(--green) 9%, transparent); }
+/* end monitoring — neutral, not a reassuring green check (green = "in field, contact fresh") */
+.actExit { color: var(--ink-dim); }
+.actExit:hover { background: var(--fill-soft); color: var(--ink); }
+/* re-deploy an exited Trupp — prominent filled action on the otherwise-quiet raus card */
+.actReenter { color: var(--on-accent-ink); background: var(--green); }
+.actReenter:hover { background: var(--green-solid-hover); }
+.exitedNote { padding: 11px 14px; font-size: 12.5px; font-weight: 600; color: var(--ink-faint);
+  border-top: 1px solid var(--glass-edge); background: var(--fill-soft); }
+
+/* status colour coding on the card top-border + banner dot */
+.st-aktiv { border-top-color: var(--green); }
+.st-aktiv .statusDot { background: var(--green); }
+.st-aktiv .statusLabel { color: var(--green); }
+.st-rueckzug { border-top-color: var(--amber); }
+.st-rueckzug .cardBanner { background: color-mix(in srgb, var(--amber) 10%, transparent); }
+.st-rueckzug .statusDot { background: var(--amber); }
+.st-rueckzug .statusLabel { color: var(--amber); }
+.st-ueberfaellig { border-top-color: var(--red); }
+.st-ueberfaellig .cardBanner { background: color-mix(in srgb, var(--red) 12%, transparent); }
+.st-ueberfaellig .statusDot { background: var(--red); animation: az-pulse 1s infinite; }
+.st-ueberfaellig .statusLabel { color: var(--red); }
+.st-raus { border-top-color: var(--ink-faint); opacity: .86; }
+.st-raus .statusDot { background: var(--ink-faint); }
+
+@keyframes az-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+
+/* --- shared create / edit / re-deploy form modal --- */
+.modalScrim { position: fixed; inset: 0; z-index: 60; background: rgba(15, 23, 40, .42);
+  display: grid; place-items: center;
+  /* viewport-fit=cover: keep the centred modal clear of the notch / home indicator */
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+.modal { width: min(680px, 100%); max-height: 90dvh; overflow-y: auto; background: var(--surface);
+  border-radius: var(--r-surface); box-shadow: var(--shadow); display: flex; flex-direction: column; }
+.modalHead { display: flex; align-items: center; gap: 12px; padding: 16px 18px; border-bottom: 1px solid var(--glass-edge); }
+.modalHead h3 { margin: 0; flex: 1 1 auto; font-size: 17px; font-weight: 800; color: var(--ink); }
+
+/* two columns (Auftrag · Trupp) so the create form fits without scrolling on a tablet; Druck
+   and warnings span the full width. Collapses to one column on a phone. */
+.modalBody { padding: 16px 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px 22px; align-items: start; }
+.formCol { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.formColWide { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 12px; }
+@media (max-width: 560px) { .modalBody { grid-template-columns: 1fr; } }
+/* Gebäude / Modul-6 placement picker */
+.placeModal { width: min(360px, 100%); }
+.placeOpts { padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+.placeOpt { display: flex; align-items: center; gap: 12px; border: 2px solid var(--glass-edge); background: var(--surface);
+  border-radius: var(--r-ctl); cursor: pointer; padding: 14px 16px; font: 700 15px var(--body); color: var(--ink); min-height: 56px; }
+.placeOpt:hover { border-color: var(--blue); color: var(--blue); }
+.placeOpt :global(.i) { width: 20px; height: 20px; color: var(--ink-faint); flex: none; }
+.placeOpt:hover :global(.i) { color: var(--blue); }
+
+.formWarn { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--red-strong);
+  background: color-mix(in srgb, var(--red) 9%, transparent); border-radius: var(--r-ctl); padding: 10px 12px; }
+.formWarn :global(.i) { width: 16px; height: 16px; flex: none; }
+/* section header inside the single-screen form (Auftrag · Trupp · Druck) */
+.formSection { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--ink-faint); padding-top: 4px; border-top: 1px solid var(--glass-edge); margin-top: 2px; }
+.formSection:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field > span { font-size: 12px; font-weight: 700; color: var(--ink-dim); }
+.field input { border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); padding: 11px 12px;
+  background: var(--surface); font-family: var(--body); font-size: 15px; color: var(--ink); outline: none; }
+.field input:focus { border-color: var(--ink); }
+
+.linkBtn { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; border: none; cursor: pointer;
+  background: transparent; color: var(--blue-strong); font-family: var(--body); font-size: 13px; font-weight: 700; padding: 4px 2px; }
+.linkBtn :global(.i) { width: 14px; height: 14px; }
+
+.modalFoot { display: flex; gap: 10px; justify-content: flex-end; padding: 14px 18px; border-top: 1px solid var(--glass-edge);
+  position: sticky; bottom: 0; background: var(--surface); }
+.ghostBtn { border: none; cursor: pointer; background: transparent; color: var(--ink-dim);
+  font-family: var(--body); font-size: 14px; font-weight: 700; padding: 11px 16px; border-radius: var(--r-ctl); }
+.ghostBtn:hover { background: var(--fill-soft); color: var(--ink); }
+.primaryBtn { border: none; cursor: pointer; background: var(--ink-fill); color: var(--on-accent-ink);
+  font-family: var(--body); font-size: 14px; font-weight: 700; padding: 11px 20px; border-radius: var(--r-ctl); }
+.primaryBtn:hover:not(:disabled) { filter: brightness(1.12); }
+.primaryBtn:disabled { opacity: .45; cursor: default; }
+
+/* angemeldet (registered, not yet entered): neutral blue banner, no alarm */
+.st-angemeldet { border-top-color: var(--blue); }
+.st-angemeldet .statusDot { background: var(--blue); }
+.st-angemeldet .statusLabel { color: var(--blue); }
+
+/* pre-entry hint replacing the clocks before the Trupp is "eingerückt" */
+.preEntry { padding: 14px; margin: 0 0 2px; font-size: 13px; font-weight: 600; color: var(--ink-dim);
+  background: color-mix(in srgb, var(--blue) 6%, transparent); border-radius: var(--r-ctl); line-height: 1.35; }
+
+/* Auftrag / Leitung chips on the card */
+.tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+.tag { font-size: 11.5px; font-weight: 700; color: var(--ink-dim); background: var(--fill-soft, rgba(0, 0, 0, .045));
+  border-radius: var(--r-pill); padding: 3px 10px; }
+/* Auftrag type chip pops (it's the order), Ziel/Ort rides alongside as plain emphasis text */
+.tagAuftrag { color: var(--blue); background: color-mix(in srgb, var(--blue) 10%, transparent); }
+.tagZiel { font-size: 12.5px; font-weight: 600; color: var(--ink-dim); align-self: center;
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* segmented Auftrag picker in the wizard */
+.segGroup { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.segBtn { border: 2px solid var(--glass-edge); background: var(--surface); border-radius: var(--r-ctl); cursor: pointer;
+  padding: 11px 10px; font: 700 13px var(--body); color: var(--ink-dim); min-height: 46px; }
+.segBtn:hover { border-color: var(--ink-faint); }
+.segOn { border-color: var(--blue); color: var(--blue); background: color-mix(in srgb, var(--blue) 6%, transparent); }
+
+/* gloved ±pressure stepper (wizard + Druck-aktualisieren modal) */
+.stepper { display: grid; grid-template-columns: 64px 1fr 64px; align-items: stretch; gap: 10px; }
+.stepBtn { display: grid; place-items: center; border: 2px solid var(--glass-edge); background: var(--surface);
+  border-radius: var(--r-ctl); cursor: pointer; color: var(--ink); min-height: 64px; }
+.stepBtn:hover { border-color: var(--blue); color: var(--blue); }
+.stepBtn :global(.i) { width: 22px; height: 22px; }
+.stepVal { display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--fill-soft, rgba(0, 0, 0, .03)); }
+/* the value is a tap-to-type button: reset native button chrome, keep the .stepVal box look */
+button.stepVal { width: 100%; font: inherit; color: inherit; cursor: pointer; padding: 0; }
+button.stepVal:hover { border-color: var(--blue); }
+.stepVal b { font: 800 28px/1 var(--mono); color: var(--ink); }
+.stepVal span { font-size: 11px; font-weight: 700; color: var(--ink-faint); margin-top: 3px; }
+/* inline numeric input shown when typing an exact value (matches the .stepVal b look) */
+.stepInput { width: 90%; box-sizing: border-box; text-align: center; border: none; background: transparent;
+  outline: none; font: 800 28px/1 var(--mono); color: var(--blue); padding: 0; }
+
+/* roster quick-select chips (previously-entered people) in the form */
+.roster { display: flex; flex-wrap: wrap; gap: 7px; }
+.rosterChip { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--glass-edge);
+  background: var(--fill-soft, rgba(0, 0, 0, .03)); border-radius: var(--r-pill); cursor: pointer;
+  padding: 7px 12px 7px 9px; font: 600 13px var(--body); color: var(--ink-dim); min-height: 38px; }
+.rosterChip:hover { border-color: var(--blue); color: var(--blue); }
+.rosterChip :global(.i) { width: 14px; height: 14px; }
+
+/* leader/AdF combobox — type freely or pick from the dropdown (present crew first) */
+.combo { position: relative; display: flex; flex-direction: column; }
+.combo input { width: 100%; box-sizing: border-box; }
+.comboLinked { position: absolute; right: 40px; top: 50%; transform: translateY(-50%); display: grid; place-items: center; color: var(--green); pointer-events: none; }
+.comboLinked :global(.i) { width: 16px; height: 16px; }
+/* clear / change the chosen name (item: no way to clear once entered) */
+.combo input { padding-right: 40px; }
+.comboClear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); display: grid; place-items: center;
+  width: 30px; height: 30px; border: none; background: transparent; color: var(--ink-faint); cursor: pointer;
+  border-radius: var(--r-xs); }
+/* centred transparent pad — 30px visible ✕, 44px touch target */
+.comboClear::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
+.comboClear:hover { background: var(--fill-soft); color: var(--ink); }
+.comboClear :global(.i) { width: 15px; height: 15px; }
+/* roster-first picker: a tap-to-open control styled like the input, no keyboard until the
+   user picks "Name eingeben" */
+.comboPick { width: 100%; box-sizing: border-box; display: flex; align-items: center; text-align: left;
+  border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); padding: 11px 40px 11px 12px;
+  background: var(--surface); font-family: var(--body); font-size: 15px; color: var(--ink); cursor: pointer;
+  min-height: var(--tap); }
+.comboPick:hover { border-color: var(--ink-faint); }
+.comboPickName { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.comboPickEmpty .comboPickName { color: var(--ink-faint); }
+.comboChev { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); display: grid; place-items: center;
+  color: var(--ink-faint); pointer-events: none; }
+.comboChev :global(.i) { width: 16px; height: 16px; }
+.comboType { color: var(--blue-strong); font-weight: 700; border-top: 1px solid var(--glass-edge); margin-top: 2px; }
+.comboType :global(.i) { width: 15px; height: 15px; }
+.comboEmpty { padding: 8px 12px; font-size: 12.5px; color: var(--ink-faint); }
+.comboMenu {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 5; margin: 0; padding: 4px; list-style: none;
+  max-height: 252px; overflow-y: auto; background: var(--surface); border: 1px solid var(--glass-edge);
+  border-radius: var(--r-ctl); box-shadow: var(--shadow);
+}
+/* portalled to <body> (mirrors the global Combo): the scrolling modal/sheet the field sits in
+   would otherwise clip the menu at its overflow boundary — z above sheets/drawers (.ctx @62) */
+.comboMenuPortal { position: fixed; right: auto; z-index: 70; }
+.comboOpt {
+  width: 100%; display: flex; align-items: center; gap: 9px; cursor: pointer; text-align: left;
+  border: none; background: none; border-radius: var(--r-xs); padding: 9px 10px; min-height: var(--tap);
+  font: 600 14px var(--body); color: var(--ink);
+}
+.comboOpt:hover { background: var(--fill-soft); }
+.comboDot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.comboDotPresent { background: var(--green); }
+.comboDotOff { background: var(--ink-faint); opacity: .4; }
+.comboName { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.comboBadge { flex: none; font-size: 10.5px; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; color: var(--amber-strong); }
+.comboHint { flex: none; font-size: 11px; color: var(--ink-faint); }
+/* rank badge inside a roster option */
+.comboRank {
+  flex: none; font: 800 10px var(--body); letter-spacing: .02em; color: var(--ink-dim);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface)); border-radius: 5px; padding: 2px 5px;
+}
+/* "nur Offiziere" toggle pinned above the roster list */
+.comboToggle {
+  color: var(--ink-dim); font-weight: 700; border-bottom: 1px solid var(--glass-edge);
+  margin-bottom: 2px; min-height: 40px;
+}
+.comboToggle :global(.i) { width: 15px; height: 15px; color: var(--accent); }
+.comboToggleOn { color: var(--ink); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+
+@media (max-width: 600px) {
+  /* full width below the top bar (78px clears the floating bar with a visible gap — at 64px
+     the header sat glued under it); the bottom inset clears the NavRail bottom bar */
+  .surface { inset: calc(78px + env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
+    calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
+  .body { padding: 14px; padding-bottom: 80px; }
+  .grid { grid-template-columns: 1fr; }
+  /* header: tighter, the title truncates instead of running under the create button, and
+     the button shrinks to an icon-only circle so the two never collide on a narrow screen */
+  .head { padding: 12px 14px; gap: 10px; }
+  .headTitles h2 { font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .newBtn { flex: none; padding: 11px; }
+  .newBtn span { display: none; }
+  /* the overdue badge is critical — keep it fully informative; the title truncates to make room */
+  .overdueBadge { flex: none; padding: 7px 11px; }
+}
+
+/* respect reduced-motion: the überfällig signal is carried by colour + the state WORD + the
+   badge, so dropping the pulse loses no information for users who opt out of animation */
+@media (prefers-reduced-motion: reduce) {
+  .statusDot, .contactCrit .contactVal, .overdueBadge { animation: none; }
+}

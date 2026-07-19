@@ -1,0 +1,28 @@
+[
+  {
+    "id": "lk-hydrant",
+    "kind": "geojson",
+    "file": "hydrant.geojson",
+    "group": "Wasser",
+    "label": "Hydranten",
+    "icon": "drop",
+    "vectorKind": "point",
+    "symbol": "SI Ueberflurhydrant",
+    "color": "#0f52b5",
+    "nightColor": "#5b9bff",
+    "attribution": "© Wasserversorgung Musterdorf",
+    "sourceNote": "Hydranten-Export der Wasserversorgung"
+  },
+  {
+    "id": "bl-hochwasser",
+    "kind": "wms",
+    "tiles": [
+      "https://geowms.example.ch/?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&FORMAT=image/png&TRANSPARENT=true&SRS=EPSG:3857&WIDTH=256&HEIGHT=256&LAYERS=hochwasser&BBOX={bbox-epsg-3857}"
+    ],
+    "group": "Gefahren",
+    "label": "Hochwasser",
+    "icon": "drop",
+    "opacity": 65,
+    "attribution": "© Geodaten Kanton Musterland"
+  }
+]

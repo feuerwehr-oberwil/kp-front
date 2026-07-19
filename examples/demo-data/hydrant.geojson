@@ -1,0 +1,3379 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-001"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.572222,
+     47.523492
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-002"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.557739,
+     47.514819
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-003"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.563368,
+     47.515566
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-004"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.571896,
+     47.523434
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-005"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.565554,
+     47.523529
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-006"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.563646,
+     47.523691
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-007"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.561672,
+     47.523564
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-008"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.561923,
+     47.518463
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-009"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.560761,
+     47.517371
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-010"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.568021,
+     47.526149
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-011"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.568945,
+     47.525003
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-012"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.566996,
+     47.521333
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-013"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.56769,
+     47.522597
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-014"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.568326,
+     47.523874
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-015"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.573145,
+     47.526142
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-016"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.573419,
+     47.526313
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-017"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.574044,
+     47.527574
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-018"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.565752,
+     47.522003
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-019"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.567629,
+     47.526736
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-020"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.566719,
+     47.5257
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-021"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.564826,
+     47.526041
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-022"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.562892,
+     47.525763
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-023"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.567115,
+     47.526716
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-024"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.565945,
+     47.527469
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-025"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.565309,
+     47.528675
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-026"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.563349,
+     47.528696
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-027"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.567329,
+     47.528064
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-028"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.568178,
+     47.526756
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-029"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.569578,
+     47.528089
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-030"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.569214,
+     47.526763
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-031"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.56963,
+     47.524456
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-032"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.57049,
+     47.525635
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-033"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.569974,
+     47.526563
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-034"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.57176,
+     47.526482
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-035"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.572112,
+     47.527805
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-036"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.582865,
+     47.525959
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-037"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.581055,
+     47.525429
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-038"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.579068,
+     47.525294
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-039"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.57715,
+     47.524947
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-040"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.575553,
+     47.524145
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-041"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.576165,
+     47.522968
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-042"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.573054,
+     47.525996
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-043"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.574949,
+     47.525571
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-044"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.573695,
+     47.525847
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-045"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.573277,
+     47.52456
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-046"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.574367,
+     47.524119
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-047"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.574957,
+     47.525403
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-048"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.576171,
+     47.526444
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-049"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.56694,
+     47.523371
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-050"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.568017,
+     47.524719
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-051"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.560712,
+     47.516326
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-052"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.562546,
+     47.518087
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-053"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.564211,
+     47.517342
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-054"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.560236,
+     47.51419
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-055"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.558611,
+     47.514107
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-056"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.56244,
+     47.513335
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-057"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.560507,
+     47.514486
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-058"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.558834,
+     47.514078
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-059"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.559732,
+     47.515008
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-060"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.559842,
+     47.513689
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-061"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.561554,
+     47.516224
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-062"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.560911,
+     47.514949
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-063"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.554775,
+     47.51531
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-064"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.556769,
+     47.515257
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-065"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.557946,
+     47.514077
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-066"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.561235,
+     47.516277
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-067"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.562829,
+     47.517162
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-068"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.562957,
+     47.516287
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-069"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.564797,
+     47.515364
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-070"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.566541,
+     47.514707
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-071"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.568296,
+     47.514086
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-072"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.569155,
+     47.514441
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-073"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.567479,
+     47.515165
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-074"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.565793,
+     47.515887
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-075"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.564351,
+     47.515659
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-076"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.565348,
+     47.516815
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-077"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.567247,
+     47.516769
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-078"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.567359,
+     47.518579
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-079"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.566194,
+     47.517483
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-080"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.567007,
+     47.518775
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-081"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.565811,
+     47.517695
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-082"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.564546,
+     47.516652
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-083"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.572146,
+     47.51988
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-084"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.571661,
+     47.521147
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-085"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.568806,
+     47.517603
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-086"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.570108,
+     47.518625
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-087"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.571173,
+     47.519758
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-088"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.569958,
+     47.520778
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-089"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.569831,
+     47.521295
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-090"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.572014,
+     47.521985
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-091"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.566235,
+     47.520286
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-092"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.55983,
+     47.516229
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-093"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.553272,
+     47.514171
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-094"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.554636,
+     47.514946
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-095"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.555652,
+     47.515845
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-096"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.556882,
+     47.518067
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-097"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.557379,
+     47.518619
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-098"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.556295,
+     47.517495
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-099"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.561276,
+     47.519604
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-100"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.559376,
+     47.519565
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-101"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.558288,
+     47.518438
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-102"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.557286,
+     47.517274
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-103"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.558983,
+     47.518139
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-104"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.558008,
+     47.516964
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-105"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.559447,
+     47.517394
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-106"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.560808,
+     47.517771
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-107"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.561465,
+     47.518796
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-108"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.560582,
+     47.517878
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-109"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.564787,
+     47.521267
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-110"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.565993,
+     47.522331
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-111"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.565305,
+     47.522611
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-112"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.565463,
+     47.522756
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-113"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.56691,
+     47.524518
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-114"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.567822,
+     47.525711
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-115"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.558359,
+     47.51605
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-116"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.572383,
+     47.524741
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-117"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.567216,
+     47.515278
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-118"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.568436,
+     47.515297
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-119"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.566999,
+     47.516216
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-120"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.580438,
+     47.519468
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-121"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.579112,
+     47.520455
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-122"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.577866,
+     47.521496
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-123"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.576579,
+     47.522522
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-124"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.574843,
+     47.523124
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-125"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.567046,
+     47.513086
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-126"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.565437,
+     47.513683
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-127"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.564459,
+     47.513607
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-128"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.568,
+     47.518555
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-129"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.569368,
+     47.518797
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-130"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.570484,
+     47.519911
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-131"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.57179,
+     47.520928
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-132"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.564655,
+     47.524757
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-133"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.565789,
+     47.520549
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-134"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.564168,
+     47.519775
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-135"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.562432,
+     47.519285
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-136"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.563288,
+     47.520182
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-137"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.564866,
+     47.520996
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-138"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.558196,
+     47.513925
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-139"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.559413,
+     47.512967
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-140"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.559068,
+     47.513311
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-141"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.564809,
+     47.514833
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-142"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.570612,
+     47.524244
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-143"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.571418,
+     47.525478
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-144"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.571895,
+     47.526076
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-145"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.569876,
+     47.524386
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-146"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.55728,
+     47.514508
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-147"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.557125,
+     47.515278
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-148"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.559412,
+     47.51551
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-149"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.572063,
+     47.520632
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-150"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.573643,
+     47.521325
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-151"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.560149,
+     47.50985
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-152"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.560523,
+     47.511175
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-153"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.560895,
+     47.5125
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-154"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.561184,
+     47.513499
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-155"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.561786,
+     47.514785
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-156"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.569032,
+     47.524855
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-157"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.569581,
+     47.526122
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-158"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.570014,
+     47.527439
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-159"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.570202,
+     47.528777
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-160"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.571245,
+     47.523985
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-161"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.556776,
+     47.513312
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-162"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.561817,
+     47.510641
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-163"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.561921,
+     47.51198
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-164"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.562733,
+     47.514617
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-165"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.558581,
+     47.519921
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-166"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.557523,
+     47.518778
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-167"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.558747,
+     47.515969
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-168"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.562833,
+     47.51345
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-169"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.563391,
+     47.514723
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-170"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.568252,
+     47.522086
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-171"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.571758,
+     47.523277
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-172"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.571752,
+     47.523658
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-173"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.57199,
+     47.523586
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-174"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.572407,
+     47.52337
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-175"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.57243,
+     47.523832
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-176"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.574018,
+     47.522612
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-177"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.575708,
+     47.521895
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-178"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.570409,
+     47.521932
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-179"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.56934,
+     47.520794
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-180"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.568124,
+     47.519723
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-181"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.558362,
+     47.515912
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-182"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.564166,
+     47.523206
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-183"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.56038,
+     47.51875
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-184"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.558873,
+     47.519617
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-185"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.557195,
+     47.520225
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-186"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.555417,
+     47.52082
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-187"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.55959,
+     47.517944
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-188"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.557775,
+     47.518506
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-189"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.555924,
+     47.519013
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-190"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.564107,
+     47.513594
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-191"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.563655,
+     47.514772
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-192"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.56633,
+     47.515675
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-193"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.564606,
+     47.515826
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-194"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.5748,
+     47.526457
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-195"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.571208,
+     47.52144
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-196"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.572873,
+     47.526201
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-197"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.563367,
+     47.517716
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-198"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.566726,
+     47.521485
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-199"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.566169,
+     47.521787
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-200"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.568006,
+     47.522325
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-201"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.558778,
+     47.51689
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-202"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.559841,
+     47.518032
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-203"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.560897,
+     47.519177
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-204"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.561982,
+     47.520309
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-205"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.563156,
+     47.5214
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-206"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.564358,
+     47.522477
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-207"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.563722,
+     47.515903
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-208"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.562339,
+     47.515988
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-209"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.57061,
+     47.522178
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-210"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.567497,
+     47.51379
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-211"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.565768,
+     47.51446
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-212"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.575324,
+     47.521332
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-213"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.574007,
+     47.522315
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-214"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.560863,
+     47.512769
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-215"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.560618,
+     47.512803
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-216"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.56097,
+     47.515625
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-217"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.560911,
+     47.515481
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-218"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.561067,
+     47.515863
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-219"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.560855,
+     47.515342
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-220"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.560064,
+     47.514044
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-221"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.55963,
+     47.513765
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-222"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.560124,
+     47.515605
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-223"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.560042,
+     47.515481
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-224"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.560325,
+     47.515923
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-225"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.560245,
+     47.515793
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-226"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.55923,
+     47.515313
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-227"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.558995,
+     47.515358
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-228"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.558554,
+     47.515609
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-229"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.559141,
+     47.513957
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-230"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.557691,
+     47.516685
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-231"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.55783,
+     47.516807
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-232"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.573354,
+     47.527716
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-233"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.573223,
+     47.526373
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-234"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.568396,
+     47.528096
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-235"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.555638,
+     47.51748
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-236"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.557193,
+     47.516639
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-237"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.55795,
+     47.515323
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-238"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.5575,
+     47.516431
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Unterflurhydrant",
+    "nr": "H-239"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.5565,
+     47.514158
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-240"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.571597,
+     47.523766
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "art": "Überflurhydrant",
+    "nr": "H-241"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     7.559329,
+     47.516342
+    ]
+   }
+  }
+ ]
+}

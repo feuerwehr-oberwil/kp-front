@@ -1,0 +1,28 @@
+version: 2
+updates:
+  # Frontend (pnpm)
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # Keep noise down: batch non-major bumps into one PR.
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  # Backend (uv / pip-compatible)
+  - package-ecosystem: pip
+    directory: "/backend"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  # GitHub Actions
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly

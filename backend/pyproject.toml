@@ -1,0 +1,70 @@
+[project]
+name = "kp-front-backend"
+version = "0.1.0"
+description = "Standalone FastAPI backend for the kp-front operational Lagekarte"
+license = "AGPL-3.0-or-later"
+authors = [{ name = "Bastian Eichenberger", email = "bastian@eichenbergers.ch" }]
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30.0",
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.6.0",
+    "alembic>=1.13.0",
+    "bcrypt>=4.2.0",
+    "python-jose[cryptography]>=3.5.0",
+    "python-multipart>=0.0.20",
+    "httpx>=0.28.1",
+    "apscheduler>=3.10.4",
+    "pillow>=11.0.0",
+    "reportlab>=4.2.0",
+    "pywebpush>=2.3.0",
+    "resvg-py>=0.3.3",
+    "pypdfium2>=5.12.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.8.0",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "aiosqlite>=0.20.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"app/main.py" = ["E402"]
+# Traccar models mirror the external camelCase API shape
+"app/traccar.py" = ["N815"]
+# Deployment-config schemas mirror the frontend's camelCase config contract (CONFIGURATION.md §1)
+"app/schemas.py" = ["N815"]
+# Geodata manifest entries mirror the same camelCase referenceLayer contract
+"app/admin_geodata.py" = ["N815"]
+# Objects manifest entries use the same camelCase contract (sourceNote)
+"app/admin_objects.py" = ["N815"]
+# Checklists manifest entries use the same camelCase contract (sourceNote)
+"app/admin_checklists.py" = ["N815"]
+# Report payload mirrors the frontend's camelCase report JSON (reportMeta, krokiKey, …)
+"app/report_pdf.py" = ["N815"]
+# Scenario fields mirror the milestone webhook's camelCase contract (alarmedAt, vorOrt)
+"app/fake_scenario.py" = ["N815"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

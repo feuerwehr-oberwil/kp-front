@@ -1,0 +1,37 @@
+/* live OSM building-outline backdrop — a traceable base; non-interactive so the
+   draw/team tools act on top. Light fill + crisp hairline outline. */
+.wb-osm-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.wb-osm-svg polygon { fill: color-mix(in srgb, var(--blue) 6%, transparent); stroke: var(--ink-faint); stroke-width: 1.25; stroke-linejoin: round; }
+/* selection surface: footprints become tappable to pick the affected building(s) */
+.wb-osm-svg.pick polygon { pointer-events: auto; cursor: pointer; }
+/* hover preview ONLY on real hover devices — iOS keeps :hover latched on the last-tapped
+   element, so a just-DESELECTED footprint stayed red ("always one building too much") */
+@media (hover: hover) {
+  .wb-osm-svg.pick polygon:hover { fill: color-mix(in srgb, var(--red) 16%, transparent); stroke: var(--red); stroke-width: 2; }
+  .wb-osm-svg.pick polygon.sel:hover { fill: color-mix(in srgb, var(--red) 30%, transparent); }
+}
+.wb-osm-svg.pick polygon.sel { fill: color-mix(in srgb, var(--red) 22%, transparent); stroke: var(--red); stroke-width: 2.25; }
+
+/* floating transfer bar for multi-building select — bottom-centre of the plan
+   viewport (portaled to <body>, so the panned/zoomed board never drags it) */
+.wb-osm-bar { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); z-index: 70;
+  display: flex; align-items: center; gap: 8px; padding: 7px 8px; background: var(--glass);
+  border: 1px solid var(--glass-line); border-radius: var(--r-pill); box-shadow: var(--shadow); backdrop-filter: blur(16px); }
+.wb-osm-barhint { font: 600 12.5px var(--body); color: var(--ink-dim); padding: 4px 12px; }
+.wb-osm-clear, .wb-osm-take { border: none; cursor: pointer; font: 600 13px var(--body); border-radius: var(--r-pill);
+  padding: 9px 16px; transition: filter .14s var(--ease), background .14s var(--ease); }
+.wb-osm-clear { background: var(--fill-soft); color: var(--ink-dim); }
+.wb-osm-clear:hover { background: var(--border); color: var(--ink); }
+.wb-osm-take { background: var(--red); color: var(--on-accent-ink); }
+.wb-osm-take:hover { filter: brightness(1.06); }
+.wb-osm-take:active { transform: scale(.97); }
+.wb-osm-hint { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;
+  font-family: var(--body); font-size: 14px; font-weight: 500; color: var(--ink-faint); pointer-events: none; }
+
+/* phones: lift the transfer bar above the stacked bottom bars — at bottom:26px it sat ON
+   the nav bar and blocked navigating away from the Gebäude view. Picking exists only while
+   editing, where BOTH bars (nav + tools) are up, so the two-bar offset is always right.
+   (The bar is portaled to <body>, so it can't key off the .app-scoped .phone-tools class.) */
+@media (max-width: 600px) {
+  .wb-osm-bar { bottom: calc(var(--rail-h) * 2 + 28px + env(safe-area-inset-bottom)); max-width: calc(100vw - 20px); }
+}

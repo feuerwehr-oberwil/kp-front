@@ -1,0 +1,18 @@
+{
+  "checklists": [
+    {
+      "id": "musterdorf-fu",
+      "kind": "action",
+      "title": "Aufgaben FU (Demo)",
+      "file": "checklists/musterdorf-fu.json",
+      "sourceNote": "KP Front Demo — synthetische Aktionscheckliste"
+    },
+    {
+      "id": "musterdorf-taktik",
+      "kind": "reference",
+      "title": "Taktik-Stichworte (Demo)",
+      "file": "checklists/musterdorf-taktik.json",
+      "sourceNote": "KP Front Demo — synthetische Taktik-Stichworte"
+    }
+  ]
+}

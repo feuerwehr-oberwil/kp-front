@@ -1,0 +1,87 @@
+/* ---- Time-travel replay scrubber (audit-trail sub-phase B) ----
+   A bottom-anchored read-only past view in the light "Karte Minimal" style: a clear
+   VERLAUF/WIEDERGABE banner + a draggable track with event markers and play/speed. */
+.replay {
+  position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
+  /* must clear the Plan whiteboard (.whiteboard z-index 20, inset:0) so the scrubber
+     stays visible when replaying over the Plan surface, not just the Lagekarte */
+  width: min(760px, calc(100vw - 32px)); z-index: 50;
+  display: flex; flex-direction: column; gap: 0;
+  background: var(--glass); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border-radius: var(--r-surface); box-shadow: var(--shadow); overflow: hidden;
+}
+.replay-banner {
+  display: flex; align-items: center; gap: 9px; padding: 9px 14px;
+  background: var(--amber); color: var(--on-accent-ink); font-size: 12px;
+}
+.replay-banner b { font-weight: 800; letter-spacing: .04em; }
+.replay-sub { font-weight: 600; opacity: .9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.replay-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--on-accent-ink); flex: none;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, .35); animation: recPulse 1.6s ease-in-out infinite; }
+.replay-exit {
+  margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: 5px;
+  border: none; background: rgba(255, 255, 255, .22); color: var(--on-accent-ink); cursor: pointer;
+  font-family: var(--body); font-weight: 700; font-size: 12px; padding: 6px 11px; border-radius: var(--r-ctl);
+}
+.replay-exit:hover { background: rgba(255, 255, 255, .34); }
+.replay-empty, .replay-note { padding: 12px 14px; font-size: 12.5px; color: var(--ink-dim); font-weight: 600; }
+.replay-note { border-top: 1px solid var(--glass-edge); color: var(--ink-faint); }
+.replay-controls { display: flex; align-items: center; gap: 12px; padding: 11px 14px; }
+.replay-transport { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.replay-play {
+  flex: none; width: 38px; height: 38px; border-radius: 50%; border: none; cursor: pointer;
+  background: var(--ink-fill); color: var(--on-accent-ink); display: grid; place-items: center; font-size: 15px;
+}
+.replay-play:hover { background: var(--ink-fill-hover); }
+.replay-skip {
+  flex: none; display: inline-flex; align-items: center; gap: 2px; height: 30px; padding: 0 8px;
+  border: 1px solid var(--glass-edge); background: var(--surface-veil); cursor: pointer;
+  border-radius: var(--r-ctl); color: var(--ink-dim); font-family: var(--mono); font-size: 11px; font-weight: 700; }
+.replay-skip:hover { background: var(--hover-strong); color: var(--ink); }
+.replay-skip .i { width: 14px; height: 14px; }
+.replay-speeds { display: inline-flex; gap: 2px; background: var(--fill-soft); border-radius: var(--r-ctl); padding: 2px; flex: none; }
+.replay-speeds button {
+  border: none; background: none; cursor: pointer; font-family: var(--mono); font-size: 11px; font-weight: 700;
+  color: var(--ink-dim); padding: 5px 8px; border-radius: var(--r-sm); }
+.replay-speeds button.on { background: var(--ink-fill); color: var(--on-accent-ink); }
+.replay-scrub { flex: 1 1 auto; display: flex; flex-direction: column; gap: 3px; min-width: 0; padding-top: 20px; position: relative; }
+/* current time rides above the handle as a bubble — never crowds the track or labels */
+.replay-time { position: absolute; top: 0; transform: translateX(-50%); font-family: var(--mono);
+  font-size: 12px; font-weight: 700; color: var(--on-accent-ink); background: var(--ink-fill); padding: 1px 7px; border-radius: var(--r-xs);
+  white-space: nowrap; pointer-events: none; }
+.replay-time::after { content: ''; position: absolute; left: 50%; bottom: -4px; transform: translateX(-50%);
+  border: 4px solid transparent; border-top-color: var(--ink-fill); border-bottom: none; }
+.replay-track {
+  position: relative; height: 24px; cursor: pointer; touch-action: none;
+  display: flex; align-items: center; }
+.replay-track::before {
+  content: ''; position: absolute; left: 0; right: 0; height: 5px; border-radius: var(--r-pill);
+  background: var(--border); }
+.replay-fill { position: absolute; left: 0; height: 5px; border-radius: var(--r-pill); background: var(--blue); pointer-events: none; }
+.replay-marker {
+  position: absolute; top: 50%; width: 8px; height: 8px; border-radius: 50%; padding: 0;
+  border: 1.5px solid #fff; transform: translate(-50%, -50%); cursor: pointer; opacity: .85;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .18); transition: transform .12s, opacity .12s; }
+/* the 8px dot stays the visual, but jump-to-event needs a finger-sized hit area (the
+   full 24px track height, ~28px wide — full 44px would swallow neighbouring events) */
+.replay-marker::before { content: ''; position: absolute; left: 50%; top: 50%;
+  width: 28px; height: 24px; transform: translate(-50%, -50%); }
+.replay-marker:hover { transform: translate(-50%, -50%) scale(1.3); opacity: 1; }
+.replay-handle {
+  position: absolute; top: 50%; width: 16px; height: 16px; border-radius: 50%;
+  background: var(--surface); border: 3px solid var(--blue); transform: translate(-50%, -50%);
+  box-shadow: var(--shadow-sm); pointer-events: none; z-index: 2; }
+.replay-range { display: flex; justify-content: space-between; gap: 8px;
+  font-family: var(--mono); font-size: 9.5px; color: var(--ink-faint); line-height: 1.2; padding: 0 1px; }
+.replay-range span:last-child { text-align: right; }
+
+@media (max-width: 600px) {
+  /* replay scrubber → full-width, lifted above the NavRail bottom bar (still lets you
+     toggle Lage/Plan during replay); drop the inline subtitle + end label */
+  .replay { left: 10px; right: 10px; bottom: calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)); width: auto; transform: none; }
+  .replay-sub { display: none; }
+  /* transport + speed stay on the top row; the scrub track drops to its own full-width row
+     below so it isn't squeezed to a sliver (and the time bubble no longer runs off the edge) */
+  .replay-controls { gap: 9px; padding: 10px; flex-wrap: wrap; row-gap: 4px; }
+  .replay-scrub { flex-basis: 100%; order: 3; }
+}

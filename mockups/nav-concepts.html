@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>KP Front · Navigations-Konzepte</title>
+<style>
+  :root{
+    --bg:#0c1116; --panel:#141b24; --panel2:#1b2531; --line:#26323f;
+    --ink:#e7edf3; --muted:#8295a8; --faint:#5a6b7d;
+    --rot:#e5484d;       /* Schäden */
+    --orange:#f5a524;    /* Gefahren */
+    --blau:#3b82f6;      /* eigene Mittel */
+    --live:#2ecc71;
+    --sel:#1e2c3b;
+    --selbar:#4aa3ff;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:radial-gradient(1200px 700px at 50% -10%,#10212f 0%,#0c1116 60%);
+    color:var(--ink);
+    font:14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    display:flex;flex-direction:column;align-items:center;
+    padding:22px 16px 60px;min-height:100%;
+  }
+
+  /* ── concept switcher ── */
+  .conceptbar{display:flex;gap:8px;align-items:center;margin-bottom:18px;flex-wrap:wrap;justify-content:center}
+  .conceptbar .t{color:var(--muted);font-size:12px;letter-spacing:.08em;text-transform:uppercase;margin-right:6px}
+  .cbtn{
+    background:var(--panel);border:1px solid var(--line);color:var(--muted);
+    padding:8px 14px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;
+    transition:.15s;
+  }
+  .cbtn:hover{color:var(--ink);border-color:#34465a}
+  .cbtn.on{background:#19384f;border-color:var(--selbar);color:#fff}
+
+  .caption{color:var(--muted);font-size:12.5px;max-width:760px;text-align:center;margin:0 0 16px;min-height:34px}
+  .caption b{color:var(--ink)}
+
+  /* ── tablet frame (11" landscape ≈ 1194×834) ── */
+  .device{
+    width:1040px;max-width:96vw;aspect-ratio:1194/834;
+    background:#000;border:10px solid #05080b;border-radius:26px;
+    box-shadow:0 30px 70px -20px #000,0 0 0 2px #1a242e;
+    padding:8px;position:relative;overflow:hidden;
+  }
+  .screen{width:100%;height:100%;border-radius:16px;overflow:hidden;background:var(--bg);display:flex;flex-direction:column}
+
+  /* top status / title bar shared */
+  .topbar{
+    height:46px;flex:0 0 auto;display:flex;align-items:center;gap:12px;
+    padding:0 14px;background:linear-gradient(#161f29,#121922);border-bottom:1px solid var(--line);
+  }
+  .brand{font-weight:800;letter-spacing:.03em;font-size:14px}
+  .brand .x{color:var(--orange)}
+  .incident{color:var(--muted);font-size:12.5px}
+  .spacer{flex:1}
+  .pill{display:inline-flex;align-items:center;gap:6px;background:#16222e;border:1px solid var(--line);
+    padding:5px 10px;border-radius:999px;font-size:12px;color:var(--muted)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--live);box-shadow:0 0 0 3px rgba(46,204,113,.18)}
+  .tbtn{background:#16222e;border:1px solid var(--line);color:var(--muted);border-radius:9px;padding:6px 11px;font-size:12.5px;cursor:pointer}
+
+  .body{flex:1;display:flex;min-height:0}
+
+  /* ════════ shared canvas (stage) ════════ */
+  .stage{flex:1;position:relative;min-width:0;background:var(--bg)}
+  .surface{position:absolute;inset:0;display:none;align-items:center;justify-content:center}
+  .surface.show{display:flex}
+
+  /* faux map */
+  .map{
+    background:
+      repeating-linear-gradient(0deg,transparent 0 39px,#13202b 39px 40px),
+      repeating-linear-gradient(90deg,transparent 0 39px,#13202b 39px 40px),
+      radial-gradient(700px 400px at 60% 40%,#16313f,#0e1a23);
+    inset:0;position:absolute;
+  }
+  .roads:before{content:"";position:absolute;inset:0;
+    background:
+      linear-gradient(115deg,transparent 48%,#26384a 48% 49%,transparent 49%),
+      linear-gradient(20deg,transparent 60%,#26384a 60% 60.7%,transparent 61%);}
+  .sym{position:absolute;width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;
+    font-size:13px;font-weight:800;color:#0c1116;box-shadow:0 4px 10px -2px #000}
+  .veh{position:absolute;width:26px;height:26px;border-radius:50%;background:var(--blau);border:2px solid #cfe3ff;
+    display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:800;
+    box-shadow:0 0 0 4px rgba(59,130,246,.18)}
+  .zone{position:absolute;border:2px dashed var(--orange);background:rgba(245,165,36,.08);border-radius:14px}
+  .badgegps{position:absolute;left:14px;bottom:14px;background:#0e1a23cc;border:1px solid var(--line);
+    border-radius:9px;padding:7px 11px;font-size:12px;color:var(--muted);backdrop-filter:blur(4px)}
+  .nrose{position:absolute;right:16px;top:14px;width:34px;height:34px;border:1px solid var(--line);border-radius:50%;
+    display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:11px;font-weight:700;background:#0e1a23aa}
+
+  /* faux plan sheet */
+  .plan{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#0a0f14}
+  .sheet{width:64%;height:80%;background:#f3efe6;border-radius:4px;box-shadow:0 20px 50px -16px #000;position:relative;color:#26323f}
+  .sheet .frame{position:absolute;inset:14px;border:2px solid #b9b09c}
+  .sheet .rooms{position:absolute;inset:40px;display:grid;grid-template-columns:1.4fr 1fr;grid-template-rows:1fr 1fr 1.2fr;gap:0}
+  .sheet .rooms div{border:1.5px solid #9c937f}
+  .sheet .title{position:absolute;right:18px;bottom:14px;font-weight:800;font-size:13px;letter-spacing:.04em;color:#4a4636}
+  .sheet .pin{position:absolute;width:26px;height:26px;border-radius:6px;background:var(--rot);color:#fff;display:flex;
+    align-items:center;justify-content:center;font-weight:800;font-size:12px;box-shadow:0 4px 8px -2px #0008}
+  .blankhint{color:var(--faint);font-size:14px;letter-spacing:.04em}
+
+  /* faux checklist */
+  .check{position:absolute;inset:0;padding:34px 48px;overflow:auto}
+  .check h3{margin:0 0 14px;font-size:15px;letter-spacing:.02em}
+  .crow{display:flex;align-items:center;gap:12px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;
+    background:var(--panel);margin-bottom:8px;max-width:560px}
+  .ck{width:20px;height:20px;border-radius:5px;border:2px solid var(--faint);flex:0 0 auto}
+  .crow.done .ck{background:var(--live);border-color:var(--live)}
+  .crow.done span{color:var(--muted);text-decoration:line-through}
+
+  /* tool rail on right of stage (decorative, shared) */
+  .toolrail{position:absolute;right:12px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:8px}
+  .toolrail b{width:38px;height:38px;border-radius:10px;background:#16222ecc;border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:15px;backdrop-filter:blur(4px)}
+
+  /* ════════ CONCEPT A — grouped labeled rail ════════ */
+  .railA{flex:0 0 214px;background:linear-gradient(#121922,#0f161e);border-right:1px solid var(--line);
+    display:flex;flex-direction:column;padding:10px 10px 8px;gap:2px;overflow:auto}
+  .grouphdr{color:var(--faint);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;
+    padding:12px 10px 5px}
+  .item{display:flex;align-items:center;gap:11px;padding:10px 11px;border-radius:11px;cursor:pointer;color:var(--muted);
+    position:relative;transition:.12s}
+  .item:hover{background:#172230;color:var(--ink)}
+  .item.sel{background:var(--sel);color:#fff}
+  .item.sel:before{content:"";position:absolute;left:-10px;top:9px;bottom:9px;width:4px;border-radius:0 4px 4px 0;background:var(--selbar)}
+  .item .ic{width:24px;height:24px;border-radius:7px;background:#1c2734;display:flex;align-items:center;justify-content:center;
+    font-size:13px;flex:0 0 auto}
+  .item .lbl{font-size:13.5px;font-weight:600}
+  .item .sub{font-size:11px;color:var(--faint);font-weight:500}
+  /* pinned Karte */
+  .karte{padding:9px;border-radius:13px;background:linear-gradient(#16384b,#10222e);border:1px solid #244b62;margin-bottom:4px}
+  .karte .thumb{height:62px;border-radius:9px;margin-bottom:8px;position:relative;overflow:hidden;
+    background:
+      repeating-linear-gradient(0deg,transparent 0 11px,#1b3346 11px 12px),
+      repeating-linear-gradient(90deg,transparent 0 11px,#1b3346 11px 12px),
+      radial-gradient(120px 60px at 60% 40%,#1d4257,#12283500)}
+  .karte .thumb .v{position:absolute;width:10px;height:10px;border-radius:50%;background:var(--blau);border:1.5px solid #cfe3ff}
+  .karte .row{display:flex;align-items:center;gap:9px}
+  .karte .ic{width:26px;height:26px;border-radius:8px;background:#0e2433;display:flex;align-items:center;justify-content:center}
+  .karte .lbl{font-weight:800;font-size:14px;color:#fff}
+  .livebadge{margin-left:auto;display:inline-flex;align-items:center;gap:5px;background:#0c2a1c;border:1px solid #1d5b3d;
+    color:#6ee7a8;font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px}
+  .livebadge .d{width:6px;height:6px;border-radius:50%;background:var(--live)}
+  .karte.sel{outline:2px solid var(--selbar);outline-offset:1px}
+
+  /* crisp monogram glyphs (M1/M2…) instead of ambiguous icons */
+  .ic.tx{font-size:11.5px;font-weight:800;letter-spacing:-.02em;color:#cdd9e5}
+  .bicon .g.tx{font-size:13px;font-weight:800;letter-spacing:-.02em}
+  /* Karte stays a map: mini map tile inside the glyph */
+  .bicon .g.mapmini{background:
+      repeating-linear-gradient(0deg,transparent 0 6px,#1b3346 6px 7px),
+      repeating-linear-gradient(90deg,transparent 0 6px,#1b3346 6px 7px),
+      radial-gradient(40px 26px at 55% 45%,#1d4257,#122835);position:relative}
+  .bicon .g.mapmini:before{content:"";position:absolute;left:55%;top:48%;width:7px;height:7px;border-radius:50%;
+    background:var(--blau);border:1.5px solid #cfe3ff;transform:translate(-50%,-50%)}
+
+  /* ── re-homed map controls — Ebenen/Legende styled like the real app (light glass card) ── */
+  .ebenen-launch{position:absolute;left:14px;top:14px;z-index:4;display:flex;align-items:center;gap:8px;
+    padding:10px 13px;background:#16222ecc;border:1px solid var(--line);border-radius:11px;color:var(--ink);
+    font-size:12.5px;font-weight:700;cursor:pointer;backdrop-filter:blur(5px)}
+  .ebenen-launch svg{width:16px;height:16px}
+  .layers-card{position:absolute;left:14px;top:14px;width:252px;max-height:calc(100% - 28px);overflow:auto;z-index:5;
+    background:rgba(255,255,255,.93);backdrop-filter:blur(22px) saturate(1.5);border:1px solid rgba(255,255,255,.7);
+    border-radius:18px;padding:8px;color:#1b2330;
+    box-shadow:0 0 0 1px rgba(30,45,70,.08),0 14px 40px rgba(8,14,20,.45)}
+  .lc-title{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#4d586a;
+    padding:10px 12px 4px;display:flex;align-items:center;gap:7px}
+  .lc-title svg{width:15px;height:15px}
+  .lgroup{font-size:11px;font-weight:700;color:#1b2330;padding:13px 12px 5px;opacity:.85}
+  .lrow{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:12px;font-size:13px;font-weight:500;
+    cursor:pointer;width:100%;border:0;background:none;text-align:left;color:inherit;font-family:inherit}
+  .lrow:hover{background:rgba(30,45,70,.06)}
+  .lrow .lic{font-size:14px;color:#4d586a;display:grid;place-items:center;width:18px}
+  .lrow .lname{flex:1}
+  .lrow .leye{color:#1f6feb;display:grid;place-items:center}
+  .lrow .leye svg{width:16px;height:16px}
+  .lrow.off{opacity:.45}
+  .lrow.off .leye{color:#6c7686}
+  .opacity{display:flex;gap:9px;align-items:center;padding:2px 12px 9px 41px}
+  .opacity input{flex:1;accent-color:#1f6feb;height:4px}
+  .opacity span{font-size:10px;color:#6c7686;width:34px;text-align:right;font-variant-numeric:tabular-nums}
+  .legend-row{display:flex;align-items:center;gap:11px;width:100%;padding:8px 10px;border-radius:11px;font-size:13px;cursor:pointer}
+  .legend-row:hover{background:rgba(30,45,70,.06)}
+  .legend-sym{width:24px;height:24px;flex:none;border-radius:6px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:11px}
+  .legend-label{flex:1}
+  .legend-count{font-size:12px;color:#4d586a;font-variant-numeric:tabular-nums}
+  .legend-go{color:#6c7686;opacity:.5}
+
+  .baseswitch{position:absolute;left:14px;bottom:14px;display:flex;gap:8px;z-index:3}
+  .bm{width:60px;height:46px;border-radius:9px;border:1px solid var(--line);position:relative;cursor:pointer;overflow:hidden;
+    background:repeating-linear-gradient(0deg,transparent 0 7px,#16313f 7px 8px),repeating-linear-gradient(90deg,transparent 0 7px,#16313f 7px 8px),#10222e}
+  .bm span{position:absolute;left:0;right:0;bottom:0;font-size:9px;text-align:center;color:#dde7f0;background:#0a1119cc;padding:2px 0}
+  .bm.on{outline:2px solid var(--selbar);outline-offset:-2px}
+  .bm-air{background:radial-gradient(40px 28px at 42% 42%,#3f6440,#243a24)}
+  .bm-topo{background:repeating-linear-gradient(45deg,#2a2f1f 0 6px,#34301f 6px 12px)}
+
+  .zoomctl{position:absolute;right:14px;bottom:14px;display:flex;flex-direction:column;gap:6px;z-index:3}
+  .zoomctl b{width:38px;height:38px;border-radius:10px;background:#16222ecc;border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;color:var(--ink);font-size:18px;cursor:pointer;backdrop-filter:blur(4px)}
+  .zoomctl .loc{font-size:15px;color:#bcd6ff}
+
+  /* global undo/redo in the topbar */
+  .uipair{display:inline-flex;gap:3px;align-items:center}
+  .uipair button{width:33px;height:30px;border:1px solid var(--line);background:#16222e;color:var(--muted);
+    border-radius:8px;cursor:pointer;font-size:15px}
+  .uipair button:hover{color:var(--ink)}
+  .uisep{width:1px;height:22px;background:var(--line);margin:0 6px}
+
+  /* ════════ CONCEPT B — compact icon rail ════════ */
+  .railB{flex:0 0 74px;background:linear-gradient(#121922,#0f161e);border-right:1px solid var(--line);
+    display:flex;flex-direction:column;align-items:center;padding:10px 0;gap:4px;overflow:auto}
+  .bicon{width:54px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 0;border-radius:12px;
+    cursor:pointer;color:var(--muted);position:relative;transition:.12s}
+  .bicon:hover{background:#172230;color:var(--ink)}
+  .bicon.sel{background:var(--sel);color:#fff}
+  .bicon.sel:before{content:"";position:absolute;left:-0px;top:8px;bottom:8px;left:4px;width:3px;border-radius:3px;background:var(--selbar)}
+  .bicon .g{width:30px;height:30px;border-radius:9px;background:#1c2734;display:flex;align-items:center;justify-content:center;font-size:15px}
+  .bicon .cap{font-size:9.5px;font-weight:600;letter-spacing:.02em}
+  .bicon.karteb .g{background:#0e2433;outline:1.5px solid #2a5168;position:relative}
+  .bicon.karteb .g:after{content:"";position:absolute;right:-2px;top:-2px;width:9px;height:9px;border-radius:50%;
+    background:var(--live);border:2px solid #0f161e}
+  .bsep{width:34px;height:1px;background:var(--line);margin:5px 0}
+  .bsep.lab{height:auto;background:none;color:var(--faint);font-size:8.5px;letter-spacing:.1em;text-align:center}
+
+  /* ════════ CONCEPT C — two-tier top (segmented + chips) ════════ */
+  .tier{display:flex;flex-direction:column;flex:1;min-width:0}
+  .seg{height:48px;flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:0 14px;background:#101822;border-bottom:1px solid var(--line)}
+  .segc{display:inline-flex;background:#0c141d;border:1px solid var(--line);border-radius:11px;padding:3px}
+  .segc button{border:0;background:none;color:var(--muted);font-weight:700;font-size:13px;padding:7px 16px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:7px}
+  .segc button.on{background:#1e2c3b;color:#fff}
+  .segc .livemini{width:7px;height:7px;border-radius:50%;background:var(--live)}
+  .chips{height:44px;flex:0 0 auto;display:flex;align-items:center;gap:7px;padding:0 14px;background:#0d141d;border-bottom:1px solid var(--line);overflow:auto}
+  .chips.hide{display:none}
+  .chip{white-space:nowrap;background:#141d27;border:1px solid var(--line);color:var(--muted);font-size:12.5px;font-weight:600;
+    padding:6px 13px;border-radius:999px;cursor:pointer}
+  .chip.on{background:#22364a;border-color:var(--selbar);color:#fff}
+  .chiphdr{color:var(--faint);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;margin-right:2px}
+
+  .notes{max-width:1040px;width:96vw;margin-top:18px;color:var(--muted);font-size:13px;line-height:1.6}
+  .notes h4{color:var(--ink);margin:0 0 6px;font-size:13px;letter-spacing:.02em}
+  .notes ul{margin:0;padding-left:18px}
+  .notes .k{color:#cdd9e5;font-weight:600}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+
+  <div class="conceptbar">
+    <span class="t">Konzept</span>
+    <button class="cbtn on" data-c="A" onclick="setConcept('A')">A · Gruppierte Leiste</button>
+    <button class="cbtn" data-c="B" onclick="setConcept('B')">B · Kompakte Icon-Leiste</button>
+    <button class="cbtn" data-c="C" onclick="setConcept('C')">C · Zwei-Ebenen oben</button>
+  </div>
+
+  <p class="caption" id="caption"></p>
+
+  <div class="device">
+    <div class="screen">
+
+      <!-- top bar -->
+      <div class="topbar">
+        <span class="brand">KP&nbsp;<span class="x">Front</span></span>
+        <span class="incident" id="topInc">Wehrlingasse 13 · Schulhaus Wehrlin</span>
+        <span class="spacer"></span>
+        <div class="uipair" title="Global — wirkt auf die aktive Fläche"><button>↶</button><button>↷</button></div>
+        <span class="uisep"></span>
+        <span class="pill"><span class="dot"></span>3 Fahrzeuge live</span>
+        <button class="tbtn">Verlauf</button>
+        <button class="tbtn">+ Eintrag</button>
+      </div>
+
+      <div class="body" id="bodyAB">
+        <!-- ░░ CONCEPT A rail ░░ -->
+        <nav class="railA" id="railA">
+          <div class="karte sel" data-surf="map" onclick="pick(this,'map')">
+            <div class="thumb"><span class="v" style="left:58%;top:42%"></span><span class="v" style="left:64%;top:54%"></span></div>
+            <div class="row">
+              <span class="ic">🗺️</span><span class="lbl">Karte</span>
+              <span class="livebadge"><span class="d"></span>live</span>
+            </div>
+          </div>
+
+          <div class="grouphdr">Pläne</div>
+          <div class="item" data-surf="m1" onclick="pick(this,'plan','Modul 1 · Übersicht')"><span class="ic tx">M1</span><span class="lbl">Übersicht</span></div>
+          <div class="item" data-surf="m2" onclick="pick(this,'plan','Modul 2 · Zufahrt')"><span class="ic tx">M2</span><span class="lbl">Modul 2 · Zufahrt</span></div>
+          <div class="item" data-surf="m3" onclick="pick(this,'plan','Modul 3 · Innen')"><span class="ic tx">M3</span><span class="lbl">Modul 3 · Innen</span></div>
+          <div class="item" data-surf="m6" onclick="pick(this,'plan','Modul 6 · Gebäude')"><span class="ic tx">M6</span><span class="lbl">Modul 6 · Gebäude</span></div>
+          <div class="item" data-surf="tafel" onclick="pick(this,'blank','Tafel')"><span class="ic tx">T</span><span class="lbl">Tafel</span></div>
+
+          <div class="grouphdr">Werkzeuge</div>
+          <div class="item" data-surf="check" onclick="pick(this,'check','Checklisten')"><span class="ic">✓</span><span class="lbl">Checklisten</span></div>
+          <div class="item" data-surf="verlauf" onclick="pick(this,'check','Verlauf')"><span class="ic">≡</span><span class="lbl">Verlauf</span></div>
+        </nav>
+
+        <!-- ░░ CONCEPT B rail ░░ -->
+        <nav class="railB hidden" id="railB">
+          <div class="bicon karteb sel" title="Karte" onclick="pick(this,'map')"><span class="g mapmini"></span></div>
+          <div class="bsep lab">PLÄNE</div>
+          <div class="bicon" title="Modul 1 · Übersicht" onclick="pick(this,'plan','Modul 1 · Übersicht')"><span class="g tx">M1</span></div>
+          <div class="bicon" title="Modul 2 · Zufahrt" onclick="pick(this,'plan','Modul 2 · Zufahrt')"><span class="g tx">M2</span></div>
+          <div class="bicon" title="Modul 3 · Innen" onclick="pick(this,'plan','Modul 3 · Innen')"><span class="g tx">M3</span></div>
+          <div class="bicon" title="Modul 6 · Gebäude" onclick="pick(this,'plan','Modul 6 · Gebäude')"><span class="g tx">M6</span></div>
+          <div class="bicon" title="Tafel" onclick="pick(this,'blank','Tafel')"><span class="g tx">T</span></div>
+          <div class="bsep lab">TOOLS</div>
+          <div class="bicon" title="Checklisten" onclick="pick(this,'check','Checklisten')"><span class="g">✓</span></div>
+          <div class="bicon" title="Verlauf" onclick="pick(this,'check','Verlauf')"><span class="g">≡</span></div>
+        </nav>
+
+        <!-- shared stage (used by A & B) -->
+        <div class="stage" id="stageAB"></div>
+      </div>
+
+      <!-- ░░ CONCEPT C two-tier ░░ -->
+      <div class="body hidden" id="bodyC">
+        <div class="tier">
+          <div class="seg">
+            <div class="segc">
+              <button class="on" id="cgLage" onclick="cTier('lage')"><span class="livemini"></span>Lage</button>
+              <button id="cgPlan" onclick="cTier('plan')">Pläne</button>
+              <button id="cgCheck" onclick="cTier('check')">Werkzeuge</button>
+            </div>
+          </div>
+          <div class="chips hide" id="cChips">
+            <span class="chiphdr">Plan</span>
+            <span class="chip on" onclick="cChip(this,'Übersicht')">Übersicht</span>
+            <span class="chip" onclick="cChip(this,'Modul 2 · Zufahrt')">Modul 2</span>
+            <span class="chip" onclick="cChip(this,'Modul 3 · Innen')">Modul 3</span>
+            <span class="chip" onclick="cChip(this,'Modul 6 · Gebäude')">Modul 6</span>
+            <span class="chip" onclick="cChip(this,'Tafel')">Tafel</span>
+          </div>
+          <div class="stage" id="stageC"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="notes" id="notes"></div>
+
+<script>
+  /* ── stage renderers (shared between concepts) ── */
+  const STAGE = {
+    map: ()=>`
+      <div class="surface show" onclick="closeEbenen()">
+        <div class="map roads"></div>
+        <div class="zone" style="left:46%;top:28%;width:200px;height:140px"></div>
+        <div class="sym" style="left:58%;top:36%;background:var(--rot)">B</div>
+        <div class="veh" style="left:62%;top:50%">10</div>
+        <div class="veh" style="left:68%;top:44%">21</div>
+        <div class="veh" style="left:59%;top:58%">30</div>
+        <div class="nrose">N</div>
+
+        <!-- Ebenen/Legende — like the current app; opens on tap, closes on click-away -->
+        ${ ebenenOpen ? `
+        <div class="layers-card" onclick="event.stopPropagation()">
+          <div class="lc-title">${LAYERS} Ebenen</div>
+          <div class="lgroup">Lage</div>
+          <button class="lrow"><span class="lic">▢</span><span class="lname">Fahrzeuge</span><span class="leye">${EYE}</span></button>
+          <div class="opacity"><input type="range" min="0" max="100" value="80"><span>80%</span></div>
+          <button class="lrow"><span class="lic">⬡</span><span class="lname">Hydranten</span><span class="leye">${EYE}</span></button>
+          <button class="lrow"><span class="lic">▤</span><span class="lname">Gefahrenzonen</span><span class="leye">${EYE}</span></button>
+          <button class="lrow off"><span class="lic">▲</span><span class="lname">Schäden</span><span class="leye">${EYEOFF}</span></button>
+          <div class="lgroup">Legende</div>
+          <div class="legend-row"><span class="legend-sym" style="background:var(--rot)">B</span><span class="legend-label">Brandstelle</span><span class="legend-count">1</span><span class="legend-go">›</span></div>
+          <div class="legend-row"><span class="legend-sym" style="background:var(--orange);color:#241a00">!</span><span class="legend-label">Gefahrenzone</span><span class="legend-count">1</span><span class="legend-go">›</span></div>
+          <div class="legend-row"><span class="legend-sym" style="background:var(--blau)">F</span><span class="legend-label">Fahrzeuge</span><span class="legend-count">3</span><span class="legend-go">›</span></div>
+        </div>`
+        : `<button class="ebenen-launch" onclick="openEbenen(event)">${LAYERS} Ebenen</button>` }
+
+        <!-- re-homed: Kartentyp-Wechsler, bottom-left -->
+        <div class="baseswitch">
+          <div class="bm on"><span>Karte</span></div>
+          <div class="bm bm-air"><span>Luftbild</span></div>
+          <div class="bm bm-topo"><span>Übersicht</span></div>
+        </div>
+
+        <!-- zoom + locate, bottom-right (same spot the Plan floats its zoom) -->
+        <div class="zoomctl"><b>+</b><b>−</b><b class="loc">◎</b></div>
+
+        <!-- drawing/placement tools stay on the right edge -->
+        <div class="toolrail"><b>◈</b><b>✎</b><b>▱</b><b>⤢</b><b>⊹</b></div>
+      </div>`,
+    plan: (t)=>`
+      <div class="surface show">
+        <div class="plan">
+          <div class="sheet">
+            <div class="frame"></div>
+            <div class="rooms"><div></div><div></div><div></div><div></div><div></div><div></div></div>
+            <div class="pin" style="left:33%;top:46%">T1</div>
+            <div class="pin" style="left:58%;top:60%;background:var(--orange);color:#241a00">!</div>
+            <div class="title">${t||'Plan'}</div>
+          </div>
+        </div>
+        <div class="zoomctl"><b>+</b><b>−</b><b class="loc">⤢</b></div>
+        <div class="toolrail"><b>◈</b><b>✎</b><b>T</b><b>⊹</b></div>
+      </div>`,
+    blank: (t)=>`
+      <div class="surface show">
+        <div class="plan"><div class="sheet" style="background:#fbfaf7"><div class="blankhint" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">Leere Tafel — antippen zum Zeichnen</div><div class="title">${t||'Tafel'}</div></div></div>
+        <div class="zoomctl"><b>+</b><b>−</b><b class="loc">⤢</b></div>
+        <div class="toolrail"><b>◈</b><b>✎</b><b>T</b><b>⊹</b></div>
+      </div>`,
+    check: (t)=>`
+      <div class="surface show">
+        <div class="check">
+          <h3>${t||'Checklisten'} · Eintreffen Einsatzleiter</h3>
+          <div class="crow done"><span class="ck"></span><span>Lagemeldung an Einsatzleitzentrale</span></div>
+          <div class="crow done"><span class="ck"></span><span>Erkundung / GAMS</span></div>
+          <div class="crow"><span class="ck"></span><span>Abschnitte bilden (&gt;1 Gruppe)</span></div>
+          <div class="crow"><span class="ck"></span><span>Atemschutzüberwachung einrichten</span></div>
+          <div class="crow"><span class="ck"></span><span>Wasserversorgung sicherstellen</span></div>
+        </div>
+      </div>`
+  };
+  function render(stageEl, kind, title){
+    stageEl.innerHTML = typeof STAGE[kind]==='function' ? STAGE[kind](title) : STAGE[kind];
+  }
+
+  /* Ebenen/Legende panel (map only) — opens on tap, closes on click-away */
+  const EYE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>`;
+  const EYEOFF = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.2A11 11 0 0 1 12 4c7 0 11 7 11 7a18 18 0 0 1-2.6 3.6M6.1 6.1A18 18 0 0 0 1 12s4 7 11 7a11 11 0 0 0 4.2-.8"/><path d="M1 1l22 22"/></svg>`;
+  const LAYERS = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>`;
+  let ebenenOpen = false;
+  let curConcept = 'B';
+  function mapStage(){ const s = curConcept==='C' ? document.getElementById('stageC') : document.getElementById('stageAB'); render(s,'map'); }
+  function openEbenen(e){ e.stopPropagation(); ebenenOpen = true; mapStage(); }
+  function closeEbenen(){ if(ebenenOpen){ ebenenOpen = false; mapStage(); } }
+
+  /* ── concept A & B selection ── */
+  function pick(el, kind, title){
+    const rail = el.closest('nav');
+    rail.querySelectorAll('.sel').forEach(n=>n.classList.remove('sel'));
+    el.classList.add('sel');
+    render(document.getElementById('stageAB'), kind, title);
+    document.getElementById('topInc').textContent =
+      kind==='map' ? 'Wehrlingasse 13 · Lage' : (title? 'Wehrlingasse 13 · '+title : 'Wehrlingasse 13');
+  }
+
+  /* ── concept C two-tier ── */
+  let cCurrentPlan='Übersicht';
+  function cTier(which){
+    document.getElementById('cgLage').classList.toggle('on',which==='lage');
+    document.getElementById('cgPlan').classList.toggle('on',which==='plan');
+    document.getElementById('cgCheck').classList.toggle('on',which==='check');
+    document.getElementById('cChips').classList.toggle('hide',which!=='plan');
+    if(which==='lage') render(document.getElementById('stageC'),'map');
+    else if(which==='check') render(document.getElementById('stageC'),'check','Checklisten');
+    else render(document.getElementById('stageC'),'plan',cCurrentPlan);
+  }
+  function cChip(el,title){
+    document.querySelectorAll('#cChips .chip').forEach(n=>n.classList.remove('on'));
+    el.classList.add('on'); cCurrentPlan=title;
+    render(document.getElementById('stageC'),title==='Tafel'?'blank':'plan',title);
+  }
+
+  /* ── concept switching ── */
+  const CAPS = {
+    A:'<b>A · Gruppierte Navigations-Leiste.</b> Eine Leiste links. <b>Karte</b> oben angepinnt mit Live-Vorschau + „live“-Badge — der Anker, kein gleichrangiges Listen-Element. Darunter Gruppen <b>PLÄNE</b> / <b>WERKZEUGE</b> als Überschriften = visuelle Hierarchie. <b>Die linke Leiste ist jetzt global</b>, darum sind die Karten-Bedienelemente umgezogen: <span class="k">Ebenen + Legende</span> → schwebendes Panel oben-links · <span class="k">Kartentyp</span> → unten-links · <span class="k">Zoom/Standort</span> → unten-rechts (gleicher Platz wie im Plan) · <span class="k">Rückgängig/Wiederholen</span> → global in die TopBar.',
+    B:'<b>B · Kompakte Icon-Leiste (gewählte Richtung).</b> Schmale 74-px-Leiste, maximiert die Zeichenfläche auf dem 11". Klare <b>Monogramme</b> statt mehrdeutiger Icons: <span class="k">K</span> (Karte, mit Live-Punkt) · <span class="k">M1–M6</span> (Module) · <span class="k">T</span> (Tafel) · ✓ / ≡. Gruppen durch Mini-Labels (PLÄNE / TOOLS). Karten-Bedienelemente schweben über der Karte (wie in A); das <b>Ebenen-Panel ist ein-/ausklappbar</b> — auf „Ebenen ▾“ tippen.',
+    C:'<b>C · Zwei-Ebenen oben (Status quo, verfeinert).</b> Segmented-Control oben (Lage/Pläne/Werkzeuge), darunter erscheint bei „Pläne“ eine zweite Chip-Reihe. Ehrlicher Vergleich: vertraut, aber genau die <i>verschachtelte</i> Umschaltung, die wir reduzieren wollten.'
+  };
+  const NOTES = {
+    A:`<h4>Umgezogene Bedienelemente (weil die linke Leiste global wird)</h4><ul>
+        <li><span class="k">Ebenen + Legende</span> → schwebendes Panel oben-links (per „Ebenen ▾“ ein-/ausklappbar; verdeckt Canvas nur offen).</li>
+        <li><span class="k">Kartentyp</span> (Karte/Luftbild/Übersicht) → Thumbnails unten-links — Slippy-Map-Konvention.</li>
+        <li><span class="k">Zoom + Standort</span> → unten-rechts, <i>gleicher Platz wie der Plan</i> = surface-übergreifend konsistent.</li>
+        <li><span class="k">Rückgängig / Wiederholen</span> → global in die TopBar; wirkt auf die aktive Fläche und ersetzt das getrennte „Zurück“ im Plan.</li>
+        <li><span class="k">Zeichen-Werkzeuge</span> bleiben rechts am Rand (unverändert).</li></ul>
+        <h4>Worauf beim Antesten achten</h4><ul>
+        <li>Fällt „Karte“ sofort als Live-Fläche auf? Kollidiert das Ebenen-Panel mit dem Arbeiten oben-links?</li>
+        <li>214-px-Leiste links + Werkzeuge rechts — bleibt in der Mitte genug Zeichenfläche auf dem 11"?</li></ul>`,
+    B:`<h4>Geändert wie gewünscht</h4><ul>
+        <li><span class="k">Nur Monogramme</span>, Beschriftungen darunter weg: Karte (Mini-Karte) · M1 · M2 · M3 · M6 · T · ✓ · ≡. Langnamen als Tooltip beim Halten.</li>
+        <li><span class="k">Karte bleibt Karte:</span> eigenes Mini-Karten-Kachel-Glyph + Live-Punkt — hebt sich von den M-Modulen ab.</li>
+        <li><span class="k">Ebenen/Legende wie heute:</span> helle Glas-Karte, Augen-Toggle + Deckkraft-Slider, Legende mit Anzahl. Öffnet per Tipp auf „Ebenen“, <b>schliesst beim Klick daneben</b> (kein explizites Schliessen mehr).</li></ul>
+        <h4>Worauf beim Antesten achten</h4><ul>
+        <li><span class="k">Mehr Canvas:</span> ~140 px breiter als A — auf dem 11" spürbar.</li>
+        <li><span class="k">Lesbarkeit:</span> reichen die Monogramme ohne Text mit Handschuhen / bei Sonne?</li></ul>`,
+    C:`<h4>Worauf beim Antesten achten (C)</h4><ul>
+        <li><span class="k">Doppel-Umschaltung:</span> erst Ebene wählen, dann Plan — genau die Reibung aus der Analyse.</li>
+        <li>Maximale Zeichenfläche (keine Seitenleiste), aber Karte ist gleichrangiger Tab.</li>
+        <li>Vertrauteste Variante — am wenigsten Umbau.</li></ul>`
+  };
+
+  function setConcept(c){
+    curConcept = c;
+    document.querySelectorAll('.cbtn').forEach(b=>b.classList.toggle('on',b.dataset.c===c));
+    document.getElementById('caption').innerHTML = CAPS[c];
+    document.getElementById('notes').innerHTML = NOTES[c];
+    const ab = document.getElementById('bodyAB'), cc = document.getElementById('bodyC');
+    document.getElementById('railA').classList.toggle('hidden',c!=='A');
+    document.getElementById('railB').classList.toggle('hidden',c!=='B');
+    if(c==='C'){ ab.classList.add('hidden'); cc.classList.remove('hidden'); cTier('lage'); }
+    else { cc.classList.add('hidden'); ab.classList.remove('hidden');
+      // reset selection to Karte on the active rail
+      const rail = document.getElementById(c==='A'?'railA':'railB');
+      rail.querySelectorAll('.sel').forEach(n=>n.classList.remove('sel'));
+      rail.querySelector(c==='A'?'.karte':'.karteb').classList.add('sel');
+      render(document.getElementById('stageAB'),'map');
+    }
+  }
+
+  setConcept('B');
+</script>
+</body>
+</html>

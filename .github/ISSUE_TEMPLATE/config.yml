@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/feuerwehr-oberwil/kp-front/security/advisories/new
+    about: Please report security issues privately — see SECURITY.md, not a public issue.
+  - name: Question / discussion
+    url: https://github.com/feuerwehr-oberwil/kp-front/discussions
+    about: Ask questions and discuss ideas here rather than opening an issue.

@@ -1,0 +1,419 @@
+{
+ "entities": [
+  {
+   "id": "brand",
+   "kind": "symbol",
+   "coord": [
+    7.563635810843209,
+    47.51709735942296
+   ],
+   "floor": 2,
+   "label": "Vollbrand 2. OG",
+   "layer": "taktisch",
+   "fields": {},
+   "spread": {
+    "h": "E",
+    "hBounded": true
+   },
+   "symbol": "VKF Feuer",
+   "caption": "off",
+   "subtitle": "Brandbekämpfung"
+  },
+  {
+   "id": "rettung",
+   "kind": "symbol",
+   "coord": [
+    7.563745709684866,
+    47.517228965468064
+   ],
+   "count": 2,
+   "label": "2 Personen vermisst",
+   "layer": "taktisch",
+   "fields": {
+    "Status": "in Rettung",
+    "Bereich": "OG 2, Nordseite"
+   },
+   "symbol": "VKF Rettungen",
+   "subtitle": "Menschenrettung"
+  },
+  {
+   "id": "elektro",
+   "kind": "symbol",
+   "coord": [
+    7.563556159166836,
+    47.51716860043584
+   ],
+   "label": "PV-Anlage Dach",
+   "layer": "taktisch",
+   "fields": {
+    "DC-Trennung": "nicht bestätigt"
+   },
+   "symbol": "FW Elektroanlage",
+   "subtitle": "Gefahr Elektrizität"
+  },
+  {
+   "id": "p1782915750429",
+   "kind": "symbol",
+   "coord": [
+    7.564076343519986,
+    47.51739633501586
+   ],
+   "label": "Einsatzleiter",
+   "layer": "taktisch",
+   "fields": {
+    "Name": "Céline Widmer"
+   },
+   "symbol": "VKF Einsatzleiter",
+   "subtitle": "Führung"
+  },
+  {
+   "id": "p1782915762310",
+   "kind": "symbol",
+   "coord": [
+    7.563472199310752,
+    47.5167675276266
+   ],
+   "label": "TLF",
+   "layer": "taktisch",
+   "fields": {
+    "Fahrer": ""
+   },
+   "symbol": "VKF Fahrzeug",
+   "rotation": 122
+  },
+  {
+   "id": "p1782915831573",
+   "kind": "symbol",
+   "coord": [
+    7.563793902156988,
+    47.5170969220255
+   ],
+   "label": "Lüfter",
+   "layer": "taktisch",
+   "fields": {
+    "Typ": ""
+   },
+   "symbol": "VKF Luefter mobil",
+   "rotation": 214,
+   "subtitle": "Fahrzeuge / Mittel"
+  },
+  {
+   "id": "p1782915848803",
+   "kind": "symbol",
+   "coord": [
+    7.5636157634366725,
+    47.517601994978435
+   ],
+   "label": "Sanität",
+   "layer": "taktisch",
+   "fields": {
+    "Einheit": ""
+   },
+   "symbol": "VKF Bereich Sanitaet",
+   "subtitle": "Personen / Sanität"
+  }
+ ],
+ "drawings": [
+  {
+   "id": "d-absperr",
+   "kind": "circle",
+   "color": "#e8392b",
+   "label": "Absperrkreis 90 m",
+   "coords": [
+    [
+     7.5636646743550955,
+     47.51716329645794
+    ]
+   ],
+   "locked": true,
+   "radiusM": 100,
+   "fillOpacity": 0.06
+  },
+  {
+   "id": "d1782915796504",
+   "kind": "line",
+   "color": "#1f6feb",
+   "width": 4,
+   "coords": [
+    [
+     7.562953262822333,
+     47.51630321450506
+    ],
+    [
+     7.56316352310256,
+     47.516499794053345
+    ],
+    [
+     7.563480545075208,
+     47.51668921034434
+    ],
+    [
+     7.56355954131692,
+     47.51677397486438
+    ],
+    [
+     7.563578688549853,
+     47.51684040208525
+    ],
+    [
+     7.563530710111934,
+     47.516829872792215
+    ],
+    [
+     7.563494051004227,
+     47.51678977853015
+    ]
+   ],
+   "dashed": false
+  },
+  {
+   "id": "d1782915803737",
+   "kind": "line",
+   "color": "#1f6feb",
+   "width": 4,
+   "coords": [
+    [
+     7.563472276197018,
+     47.51679317261906
+    ],
+    [
+     7.563479884801097,
+     47.51682016162701
+    ],
+    [
+     7.563507355423781,
+     47.51685453954414
+    ],
+    [
+     7.5635485306989665,
+     47.51689309271083
+    ],
+    [
+     7.563666059695862,
+     47.51698168821082
+    ],
+    [
+     7.563717444600314,
+     47.51704732801292
+    ]
+   ],
+   "dashed": false,
+   "teilstueck": true,
+   "showDistance": true
+  },
+  {
+   "id": "d1782915808354",
+   "kind": "line",
+   "arrow": true,
+   "color": "#1f6feb",
+   "width": 4,
+   "coords": [
+    [
+     7.563727534167612,
+     47.51706370203274
+    ],
+    [
+     7.563741682543252,
+     47.517072231472355
+    ],
+    [
+     7.563743235580546,
+     47.51708747110291
+    ],
+    [
+     7.563732184147852,
+     47.51709979677523
+    ],
+    [
+     7.563692274760626,
+     47.51712133848346
+    ]
+   ],
+   "dashed": false,
+   "lineNo": 1,
+   "floorTag": 2,
+   "endLabelAt": [
+    7.563719702691344,
+    47.51710691912538
+   ]
+  }
+ ],
+ "building": {
+  "src": [
+   [
+    [
+     0.9263096535875533,
+     0.2482869810646487
+    ],
+    [
+     0.4191558035909673,
+     1
+    ],
+    [
+     0,
+     0.7299476017682843
+    ],
+    [
+     0.47782116785975715,
+     0
+    ],
+    [
+     0.9263096535875533,
+     0.2482869810646487
+    ]
+   ]
+  ],
+  "ring": [
+   [
+    1,
+    1
+   ],
+   [
+    0.00397560511242388,
+    0.9753114344003735
+   ],
+   [
+    0,
+    0
+   ],
+   [
+    0.9583720537656573,
+    5.429215288959226e-17
+   ],
+   [
+    1,
+    1
+   ]
+  ],
+  "rings": [
+   [
+    [
+     1,
+     1
+    ],
+    [
+     0.00397560511242388,
+     0.9753114344003735
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0.9583720537656573,
+     5.429215288959226e-17
+    ],
+    [
+     1,
+     1
+    ]
+   ]
+  ],
+  "floors": [
+   0,
+   1,
+   2
+  ],
+  "northUp": false,
+  "orientDeg": 56.79138100780627,
+  "ringAspect": 0.5615856758469483
+ },
+ "board": {
+  "gebaeude": [
+   {
+    "t": "16:24",
+    "x": 0.4908373927163071,
+    "y": 0.5567010309278351,
+    "id": "r1782915890769",
+    "kind": "resource",
+    "text": "Hans Müller",
+    "color": "#1f6feb",
+    "floor": 2,
+    "trail": [
+     {
+      "t": "16:24",
+      "x": 0.461145905822315,
+      "y": 0.5335051546391751,
+      "floor": 1
+     },
+     {
+      "t": "16:24",
+      "x": 0.4908373927163071,
+      "y": 0.5567010309278351,
+      "floor": 2
+     }
+    ],
+    "truppId": "trupp1"
+   }
+  ]
+ },
+ "layerState": [
+  {
+   "id": "base-osm",
+   "opacity": 100,
+   "visible": false
+  },
+  {
+   "id": "base-color",
+   "opacity": 100,
+   "visible": false
+  },
+  {
+   "id": "base-grey",
+   "opacity": 100,
+   "visible": false
+  },
+  {
+   "id": "base-air",
+   "opacity": 100,
+   "visible": false
+  },
+  {
+   "id": "base-esri",
+   "opacity": 100,
+   "visible": false
+  },
+  {
+   "id": "base-topo",
+   "opacity": 100,
+   "visible": false
+  },
+  {
+   "id": "base-carto",
+   "opacity": 100,
+   "visible": true
+  },
+  {
+   "id": "taktisch",
+   "visible": true
+  },
+  {
+   "id": "fahrzeuge",
+   "visible": true
+  },
+  {
+   "id": "markup",
+   "visible": true
+  },
+  {
+   "id": "demo-wasserleitung",
+   "opacity": 100,
+   "visible": false
+  },
+  {
+   "id": "demo-hydrant",
+   "opacity": 100,
+   "visible": true
+  }
+ ],
+ "recent": [
+  "VKF Bereich Sanitaet",
+  "VKF Luefter mobil",
+  "VKF Fahrzeug",
+  "VKF Einsatzleiter",
+  "VKF Feuer",
+  "VKF Rettungen",
+  "VKF KP Front",
+  "VKF Sammelstelle"
+ ]
+}

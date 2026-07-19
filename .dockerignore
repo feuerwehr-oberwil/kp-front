@@ -1,0 +1,11 @@
+node_modules
+dist
+.git
+**/__pycache__
+backend/.venv
+backend/.env
+backend/data
+.vite
+*.log
+.DS_Store
+docs/design-concepts

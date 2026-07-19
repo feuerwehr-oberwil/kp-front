@@ -1,0 +1,8 @@
+# Reverse proxy with automatic HTTPS (Let's Encrypt / ZeroSSL) for the `tls` compose profile.
+# DOMAIN comes from .env; its A/AAAA record must point at this host and ports 80+443 be open.
+# Optional: add a global block `{ email you@example.com }` above to register an ACME account.
+
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy app:8000
+}

@@ -1,0 +1,34 @@
+/* results panel — bottom-centre, above the tool rail */
+.measure-panel { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 35; width: 320px;
+  display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; background: var(--glass);
+  backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); border-radius: var(--r-surface);
+  box-shadow: var(--shadow); animation: panelIn .16s var(--ease); }
+.mp-hint { text-align: center; font-size: 12.5px; font-weight: 500; color: var(--ink-dim); padding: 4px 0; }
+.mp-stat-row { display: flex; gap: 18px; }
+.mp-stat { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mp-k { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: var(--ink-dim); }
+.mp-k :global(.i) { width: 12px; height: 12px; }
+.mp-v { font-family: var(--mono); font-size: 17px; font-weight: 700; color: var(--ink); letter-spacing: -.3px; }
+.mp-v.up { color: var(--green); }
+.mp-v.down { color: var(--red); }
+.mp-prof-title { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
+.mp-prof-msg { font-size: 12px; color: var(--ink-faint); padding: 10px 0; text-align: center; }
+.mp-chart { width: 100%; height: 84px; display: block; }
+.mp-chart-fill { fill: color-mix(in srgb, var(--blue) 14%, transparent); stroke: none; }
+.mp-chart-line { fill: none; stroke: var(--blue); stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.mp-prof-stats .mp-v { font-size: 14px; }
+/* the descent arrow points down, the ascent arrow up (the base glyph points right) */
+.mp-prof-stats .mp-stat:nth-child(1) .mp-k :global(.i) { transform: rotate(-90deg); }
+.mp-prof-stats .mp-stat:nth-child(2) .mp-k :global(.i) { transform: rotate(90deg); }
+/* Plan-only: start/redo scale calibration straight from the panel */
+.mp-cal-btn { align-self: stretch; justify-content: center; gap: 6px; }
+.mp-cal-btn :global(.i) { width: 14px; height: 14px; }
+
+/* phones: the bottom bars (nav, + tool bar when .phone-tools) plus the home
+   indicator own the space bottom:28px points at — lift the panel above them */
+@media (max-width: 600px) {
+  .measure-panel { left: 10px; right: 10px; width: auto; transform: none;
+    bottom: calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)); }
+  :global(.phone-tools) .measure-panel {
+    bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom)); }
+}

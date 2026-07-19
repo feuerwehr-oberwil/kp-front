@@ -1,0 +1,31 @@
+# Dev-only Postgres for backend development. The production stack is docker-compose.yml.
+# This brings up JUST the database the backend dev server (uv run uvicorn ...) connects to,
+# matching the defaults in backend/.env.example (localhost:5434, kpfront/kpfront/kpfront).
+#
+#   just db            # start it (docker compose -f docker-compose.dev.yml up -d)
+#   just db-stop       # stop it
+#   just db-reset      # wipe the volume and restart (fresh schema on next migrate)
+#
+# The frontend dev server needs none of this — it runs against seed/demo data standalone.
+
+name: kp-front-dev
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: kpfront
+      POSTGRES_PASSWORD: kpfront
+      POSTGRES_DB: kpfront
+    ports:
+      - "5434:5432"
+    volumes:
+      - pgdata-dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kpfront -d kpfront"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  pgdata-dev:

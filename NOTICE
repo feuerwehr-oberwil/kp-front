@@ -1,0 +1,68 @@
+KP Front
+Copyright © 2026 Bastian Eichenberger
+
+This product is licensed under the GNU Affero General Public License v3.0 or later
+(AGPL-3.0-or-later); see the LICENSE file. This NOTICE file lists third-party works and
+data sources used by KP Front and their separate terms. It is informational; each work
+remains under its own license.
+
+================================================================================
+Bundled fonts (shipped in the production build)
+================================================================================
+
+- Sora — SIL Open Font License 1.1.
+- Spline Sans Mono — SIL Open Font License 1.1.
+
+  Delivered via the Fontsource project (@fontsource-variable). The OFL text travels with
+  each font package under node_modules/@fontsource-variable/*/LICENSE.
+
+================================================================================
+Map tiles & geodata (fetched at runtime; attributed in-app)
+================================================================================
+
+KP Front renders base maps and reference layers from external tile/data services. These are
+NOT redistributed in this repository — they are fetched by the browser or backend-proxied at
+runtime, and attributed in the map UI. Operators are responsible for honouring each provider's
+terms of use for their deployment.
+
+- swisstopo (geo.admin.ch / wmts.geo.admin.ch) — Swiss federal geodata and geocoding.
+    © swisstopo. See https://www.geo.admin.ch/terms-of-use
+- OpenStreetMap — © OpenStreetMap contributors, ODbL.
+    https://www.openstreetmap.org/copyright
+- CARTO basemaps (Voyager raster tiles) — © CARTO, built on OpenStreetMap data.
+    https://carto.com/attribution
+- OpenTopoMap — CC-BY-SA. https://opentopomap.org
+- MeteoSwiss (MeteoSchweiz) Open Government Data — current weather observations.
+    https://www.meteoswiss.admin.ch
+- Open-Meteo — open weather API (forecast fallback). https://open-meteo.com
+
+Per-station reference geodata (hydrants, cantonal WMS, object plans) is NOT part of this
+repository; it is loaded into a deployment from a private data source by the operator.
+
+One reference dataset IS bundled: excerpts of the U.S. DOT PHMSA Emergency Response
+Guidebook (ERG) 2024 — a public-domain U.S. federal government work — ship as
+src/data/erg.json (guide numbers, TIH initial isolation / protective distances), compiled
+by tools/gen_erg.py. Provenance and verification notes: tools/erg-source/README.md.
+
+================================================================================
+Tactical symbols
+================================================================================
+
+The bundled tactical symbol pack (public/tactical-symbols.json) is KP-Front-authored
+artwork, generated from geometric primitives by tools/gen_symbols.py and licensed with
+the project (AGPL-3.0-or-later). The symbol SHAPES follow the sign conventions of the
+Swiss fire-service Faltkarte Einsatzführung published by the Feuerwehr Koordination
+Schweiz FKS (feukos.ch), so operators see the signatures they trained on; no third-party
+vector artwork is redistributed.
+
+================================================================================
+Key open-source libraries
+================================================================================
+
+Frontend: React (MIT), MapLibre GL JS (BSD-3-Clause), Vite (MIT), Workbox (MIT).
+Backend:  FastAPI (MIT), Starlette (BSD-3-Clause), SQLAlchemy (MIT), Pydantic (MIT),
+          Alembic (MIT), uvicorn (BSD-3-Clause), ReportLab (BSD).
+
+The complete, authoritative dependency lists with exact versions and licenses are in
+package.json + pnpm-lock.yaml (frontend) and backend/pyproject.toml + backend/uv.lock
+(backend). All direct dependencies are AGPL-compatible.

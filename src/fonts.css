@@ -1,0 +1,56 @@
+/* Self-hosted fonts (was Google Fonts CDN in index.html).
+ *
+ * The CDN <link> meant fonts failed on a true cold offline launch — they weren't
+ * covered by any cache rule. By importing the @fontsource-variable woff2 files
+ * through Vite, the hashed woff2 lands in dist/assets/ and is precached by the
+ * Workbox `**\/*.woff2` glob, so the app cold-starts offline with correct fonts.
+ *
+ * The family names below ('Sora' / 'Spline Sans Mono') match what src/app.css
+ * already references via --body / --mono, so no app.css change is needed.
+ * Variable woff2 (one file per font) covers all weights the app uses
+ * (Sora 400/500/600/700, Spline Sans Mono 400/500).
+ */
+
+/* Sora — body. Latin + latin-ext subsets. */
+@font-face {
+  font-family: 'Sora';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url(@fontsource-variable/sora/files/sora-latin-wght-normal.woff2) format('woff2-variations');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Sora';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url(@fontsource-variable/sora/files/sora-latin-ext-wght-normal.woff2) format('woff2-variations');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
+    U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* Spline Sans Mono — monospace accents. Latin + latin-ext subsets. */
+@font-face {
+  font-family: 'Spline Sans Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 300 700;
+  src: url(@fontsource-variable/spline-sans-mono/files/spline-sans-mono-latin-wght-normal.woff2) format('woff2-variations');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Spline Sans Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 300 700;
+  src: url(@fontsource-variable/spline-sans-mono/files/spline-sans-mono-latin-ext-wght-normal.woff2) format('woff2-variations');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
+    U+2113, U+2C60-2C7F, U+A720-A7FF;
+}

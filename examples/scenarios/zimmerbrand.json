@@ -1,0 +1,26 @@
+{
+  "name": "Zimmerbrand Schlossgasse",
+  "alarms": [
+    {
+      "title": "BRAND: Zimmerbrand",
+      "text": "Gemeldeter Zimmerbrand im Obergeschoss, Rauch sichtbar. Personen möglicherweise im Gebäude.",
+      "address": "Schlossgasse 9, 4104 Musterdorf",
+      "lat": 47.52382,
+      "lng": 7.57037,
+      "t": "-25m",
+      "groups": [
+        { "id": "rot", "alarmedAt": "-25m" },
+        { "id": "gruen", "alarmedAt": "-22m" }
+      ],
+      "vehicles": [
+        { "id": "tlf", "ausgerueckt": "-21m", "vorOrt": "-17m" },
+        { "id": "adl", "ausgerueckt": "-19m", "vorOrt": "-15m" }
+      ]
+    }
+  ],
+  "positions": [
+    { "name": "TLF", "lat": 47.5239, "lng": 7.5706, "status": "online" },
+    { "name": "ADL", "lat": 47.5237, "lng": 7.5701, "status": "online" },
+    { "name": "MTF", "lat": 47.521, "lng": 7.5665, "speed": 38, "course": 65, "status": "online" }
+  ]
+}

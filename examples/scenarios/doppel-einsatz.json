@@ -1,0 +1,40 @@
+{
+  "name": "Doppel-Einsatz: Zimmerbrand + Ölwehr",
+  "alarms": [
+    {
+      "title": "BRAND: Zimmerbrand",
+      "text": "Gemeldeter Zimmerbrand im Obergeschoss, Rauch sichtbar. Personen möglicherweise im Gebäude.",
+      "address": "Schlossgasse 9, 4104 Musterdorf",
+      "lat": 47.52382,
+      "lng": 7.57037,
+      "t": "-40m",
+      "groups": [
+        { "id": "rot", "alarmedAt": "-40m" },
+        { "id": "gruen", "alarmedAt": "-37m" }
+      ],
+      "vehicles": [
+        { "id": "tlf", "ausgerueckt": "-36m", "vorOrt": "-32m" },
+        { "id": "adl", "ausgerueckt": "-34m", "vorOrt": "-30m" }
+      ]
+    },
+    {
+      "title": "OELWEHR: Ölspur nach Verkehrsunfall",
+      "text": "Ölspur über ca. 300 m nach Kollision, Fahrbahn rutschig. Polizei vor Ort.",
+      "address": "Hauptstrasse 42, 4104 Musterdorf",
+      "lat": 47.5275,
+      "lng": 7.5628,
+      "t": "-12m",
+      "groups": [
+        { "id": "gruen", "alarmedAt": "-12m" }
+      ],
+      "vehicles": [
+        { "id": "mtf", "ausgerueckt": "-8m", "vorOrt": "-4m" }
+      ]
+    }
+  ],
+  "positions": [
+    { "name": "TLF", "lat": 47.5239, "lng": 7.5706, "status": "online" },
+    { "name": "ADL", "lat": 47.5237, "lng": 7.5701, "status": "online" },
+    { "name": "MTF", "lat": 47.5274, "lng": 7.563, "status": "online" }
+  ]
+}

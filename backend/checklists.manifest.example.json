@@ -1,0 +1,35 @@
+{
+  "checklists": [
+    {
+      "id": "fu-aktion",
+      "kind": "action",
+      "title": "Aufgaben FU",
+      "file": "checklists/fu-aktion.json",
+      "sourceNote": "Checklisten FU.pdf"
+    },
+    {
+      "id": "lagerapport",
+      "kind": "rapport",
+      "title": "Lagerapport",
+      "file": "checklists/lagerapport.json",
+      "sourceNote": "Lagerapport_BL_BS.pdf"
+    },
+    {
+      "id": "el-playbook",
+      "kind": "reference",
+      "title": "Einsatzleiter-Checklisten",
+      "file": "checklists/el-playbook.json",
+      "sourceNote": "Checklisten EL.pdf",
+      "assets": [
+        {
+          "page": 12,
+          "file": "checklists/assets/el-p12.jpg"
+        },
+        {
+          "page": 14,
+          "file": "checklists/assets/el-p14.jpg"
+        }
+      ]
+    }
+  ]
+}

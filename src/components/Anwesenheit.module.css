@@ -1,0 +1,138 @@
+/* Anwesenheit surface — mirrors the Atemschutz surface shell (inset card + head), then a
+   dense grid of name buttons. Each button tap-cycles frei → anwesend → gegangen → frei, so
+   many crew fit on screen without scrolling and the whole board edits in place. */
+.surface {
+  position: absolute; inset: 88px 16px 16px calc(var(--rail-w) + 28px); z-index: 20;
+  display: flex; flex-direction: column;
+  background: var(--app-bg); border-radius: var(--r-surface); overflow: hidden; box-shadow: var(--shadow);
+}
+
+.head {
+  display: flex; align-items: center; gap: 16px; padding: 16px 22px;
+  background: var(--surface); border-bottom: 1px solid var(--glass-edge);
+}
+.headTitles { flex: 1 1 auto; min-width: 0; }
+.headActions { flex: none; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.headTitles h2 { margin: 0; font-size: 19px; font-weight: 800; color: var(--ink); }
+.headTitles p { margin: 3px 0 0; font-size: 12.5px; color: var(--ink-dim); }
+
+.reload {
+  flex: none; display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+  border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink-dim);
+  border-radius: var(--r-ctl); padding: 9px 13px; font: 700 13px var(--body);
+}
+.reload:hover { color: var(--ink); border-color: var(--ink-faint); }
+.reload:disabled { opacity: .55; cursor: default; }
+.reload svg { width: 15px; height: 15px; }
+
+.controls { display: flex; align-items: center; gap: 16px; padding: 12px 22px; flex-wrap: wrap; }
+.search { flex: 1 1 240px; display: flex; align-items: center; gap: 8px; min-width: 0;
+  border: 1px solid var(--glass-edge); background: var(--surface); border-radius: var(--r-ctl); padding: 0 12px; min-height: var(--tap); }
+.search svg { width: 16px; height: 16px; color: var(--ink-faint); flex: none; }
+.search input { flex: 1 1 auto; min-width: 0; border: none; background: none; outline: none; color: var(--ink); font: 500 15px var(--body); padding: 10px 0; }
+.searchClear { border: none; background: none; cursor: pointer; color: var(--ink-faint); padding: 4px; display: grid; place-items: center; }
+.searchClear:hover { color: var(--ink); }
+.searchClear svg { width: 15px; height: 15px; }
+
+/* rank quick-filter chips — a scrollable row of Dienstgrade present in the roster */
+.rankRow { display: flex; align-items: center; gap: 7px; padding: 0 22px 12px; flex-wrap: wrap; }
+.rankChip {
+  flex: none; cursor: pointer; border: 1px solid var(--glass-edge); background: var(--surface);
+  color: var(--ink-dim); border-radius: var(--r-ctl); padding: 6px 12px; min-height: 40px;
+  font: 700 12.5px var(--body);
+}
+.rankChip:hover { color: var(--ink); border-color: var(--ink-faint); }
+.rankChipOn {
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--glass-edge)); color: var(--ink);
+}
+
+/* per-person rank badge inside the name button */
+.rank {
+  flex: none; font: 800 10.5px var(--body); letter-spacing: .02em; color: var(--ink-dim);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  border-radius: 5px; padding: 2px 5px;
+}
+
+.legend { display: inline-flex; align-items: center; gap: 14px; flex: none; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--ink-faint); }
+.legend i { width: 9px; height: 9px; border-radius: 50%; }
+
+/* the dense grid — auto-fill so a wide screen packs many columns, narrow ones fewer */
+.grid {
+  flex: 1 1 auto; overflow-y: auto; scrollbar-gutter: stable; margin: 0; padding: 2px 22px 16px;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(228px, 1fr)); gap: 8px; align-content: start;
+}
+
+/* a row is the cycle button (personMain) plus, once anwesend/gegangen, a trailing time chip
+   that opens an inline time input — correcting a wrong auto-stamped time in place */
+.person {
+  display: flex; align-items: stretch; min-height: 46px;
+  border: 1px solid var(--glass-edge); background: var(--surface); border-radius: var(--r-ctl);
+  overflow: hidden; font: 700 14px var(--body); color: var(--ink);
+  transition: background .1s var(--ease), border-color .1s var(--ease);
+}
+.person:hover:has(.personMain:not(:disabled)) { border-color: var(--ink-faint); }
+.personMain {
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 9px; padding: 8px 11px;
+  border: none; background: none; cursor: pointer; text-align: left; font: inherit; color: inherit;
+}
+.personMain:disabled { cursor: default; }
+.personMain svg { width: 15px; height: 15px; flex: none; color: var(--amber-strong); margin-left: auto; }
+
+.isPresent { background: color-mix(in srgb, var(--green) 14%, var(--surface)); border-color: color-mix(in srgb, var(--green) 45%, var(--glass-edge)); }
+.isPresent:hover:not(:disabled) { border-color: var(--green); }
+.isLeft { background: var(--surface); color: var(--ink-faint); opacity: .8; }
+
+.dot { width: 11px; height: 11px; border-radius: 50%; flex: none; }
+.dotFrei { background: var(--ink-faint); opacity: .4; }
+.dotPresent { background: var(--green); opacity: 1; }
+.dotLeft { background: var(--amber); opacity: 1; }
+
+.name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* trailing time segment — full row height so it stays a gloved tap target */
+.timeChip {
+  flex: none; align-self: stretch; display: inline-flex; align-items: center; padding: 0 11px;
+  border: none; border-left: 1px solid var(--glass-edge); background: none; cursor: pointer;
+  font: 600 12px var(--mono); color: var(--ink-dim); white-space: nowrap;
+}
+.timeChip:hover:not(:disabled) { background: color-mix(in srgb, var(--ink) 6%, transparent); color: var(--ink); }
+.timeChip:disabled { cursor: default; }
+.timeChipLeft { font-weight: 800; font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--amber-strong); }
+.timeInput {
+  flex: none; align-self: center; width: 86px; margin: 0 6px; padding: 4px 6px; min-height: 36px;
+  border: 1px solid var(--accent); border-radius: var(--r-sm); background: var(--surface);
+  color: var(--ink); font: 600 13px var(--body);
+}
+
+.empty {
+  flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  height: 100%; color: var(--ink-faint); text-align: center; padding: 24px;
+}
+.empty svg { width: 38px; height: 38px; opacity: .5; }
+.empty p { margin: 0; font-size: 15px; font-weight: 700; color: var(--ink-dim); }
+.empty span { max-width: 380px; font-size: 13px; line-height: 1.5; }
+.empty .reload { margin-top: 6px; }
+
+@media (max-width: 600px) {
+  /* full width below the top bar (78px clears the floating bar with a visible gap — at 64px
+     the header sat glued under it); the bottom inset clears the bottom bar */
+  .surface { inset: calc(78px + env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
+    calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
+  .head { padding: 10px 14px; gap: 10px; align-items: center; }
+  .headTitles h2 { font-size: 17px; }
+  /* keep the counts on a single line so the header stays short (was wrapping to 4 lines and
+     ballooning the header); the action buttons collapse to icons to free the width for it */
+  .headTitles p { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .headActions { gap: 6px; }
+  .reload { padding: 0; width: var(--tap); height: var(--tap); justify-content: center; }
+  .reloadLabel { display: none; }
+  .controls { padding: 10px 14px; gap: 10px; }
+  .rankRow { padding: 0 14px 10px; }
+  /* one full-width column: two columns truncated most names («Binggeli Mic…») on a phone —
+     a readable name beats density here (field feedback 2026-07-08) */
+  .grid { padding: 2px 14px 16px; grid-template-columns: 1fr; gap: 6px; }
+  .person { min-height: 44px; font-size: 14px; }
+  .personMain { padding: 7px 12px; gap: 8px; }
+}

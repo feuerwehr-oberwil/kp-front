@@ -1,0 +1,40 @@
+name: CodeQL
+
+# Static security analysis for the TS frontend and Python backend. Code scanning is only
+# available on public repos (or with GitHub Advanced Security), so the jobs are gated on
+# repository visibility — this workflow is a no-op while the repo is private and starts
+# working the moment it flips public (OSS Phase E), with no further setup.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "17 4 * * 1" # weekly Monday sweep for newly published query packs
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    if: ${{ !github.event.repository.private }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript, python]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"

@@ -1,0 +1,45 @@
+node_modules
+dist
+*.local
+.DS_Store
+*.log
+.vite
+__pycache__/
+*.pyc
+.ruff_cache/
+*.tsbuildinfo
+
+# Playwright e2e smoke artifacts (see e2e/, playwright.config.ts)
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# Self-host secrets (compose). The committed template is .env.example.
+.env
+
+# Backend runtime object storage (media_storage_dir defaults to data/storage)
+/data/
+
+# Local scratch (working pdfs, throwaway files) — never published
+/tmp/
+
+# superseded static look&feel mockups (replaced by the React app at repo root)
+docs/design-concepts/
+
+# Private, station-specific deployment configs — never enter the public repo
+backend/private/
+
+# Maintainer-internal working notes & one-station policy drafts — kept locally, not published
+todo.md
+docs/planning/
+docs/operating-rules.md
+docs/data-retention.md
+docs/adfu-offizier-einsatzablauf.md
+docs/einsatzrapport-workflow.md
+PROVIDER_NEUTRAL_MIGRATION_PLAN.md
+
+# Per-station reference geodata is station data (restricted utility cadastre, etc.) — it
+# lives in a private data repo and is loaded via `admin_geodata`, never bundled here.
+public/leitungskataster/
+tools/symbols-new.json

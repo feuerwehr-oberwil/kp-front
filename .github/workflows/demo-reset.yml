@@ -1,0 +1,60 @@
+name: Demo reset
+
+# Keeps the public demo (kp-front-demo on Railway) clean: wipes incident data + roster,
+# re-ensures the two demo accounts, and reloads the synthetic Musterdorf dataset.
+# Runs every 2 hours, and on demand via the Actions tab. No-op if the demo secrets are unset.
+
+on:
+  schedule:
+    - cron: "0 */2 * * *"   # every 2 hours (UTC)
+  workflow_dispatch: {}
+
+concurrency:
+  group: demo-reset
+  cancel-in-progress: false
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Gate on the demo secret via a step OUTPUT — the `secrets` context is not reliably
+      # usable in `if:` expressions, so we surface presence as an output and branch on that.
+      # This also skips the toolchain setup entirely on forks/deploys without demo secrets.
+      - name: Check demo secrets
+        id: gate
+        env:
+          DEMO_DATABASE_URL: ${{ secrets.DEMO_DATABASE_URL }}
+        run: |
+          if [ -n "$DEMO_DATABASE_URL" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "DEMO_* secrets not set — skipping (configure them in repo settings to enable)."
+          fi
+
+      - name: Install uv
+        if: steps.gate.outputs.enabled == 'true'
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Set up Python
+        if: steps.gate.outputs.enabled == 'true'
+        run: uv python install 3.12
+
+      - name: Sync backend dependencies
+        if: steps.gate.outputs.enabled == 'true'
+        working-directory: backend
+        run: uv sync
+
+      - name: Reset demo
+        if: steps.gate.outputs.enabled == 'true'
+        env:
+          DATABASE_URL: ${{ secrets.DEMO_DATABASE_URL }}
+          SECRET_KEY: ${{ secrets.DEMO_SECRET_KEY }}
+          KP_BASE_URL: ${{ secrets.DEMO_BASE_URL }}
+          KP_ADMIN_SECRET: ${{ secrets.DEMO_ADMIN_SECRET }}
+        run: bash scripts/demo-reset.sh

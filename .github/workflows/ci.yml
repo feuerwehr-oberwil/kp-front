@@ -1,0 +1,243 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel superseded runs on the same ref (saves CI minutes on rapid pushes).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # --- Frontend: type-check + production build --------------------------------------
+  frontend:
+    name: Frontend (tsc + build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10  # matches Dockerfile (pnpm@10 / lockfileVersion 9.0)
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20  # matches Dockerfile (node:20-slim)
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint (eslint)
+        run: pnpm lint
+
+      - name: Type-check (tsc --noEmit)
+        run: pnpm exec tsc --noEmit
+
+      - name: Unit tests (vitest)
+        run: pnpm test
+
+      - name: Build SPA
+        run: pnpm build
+
+      # Advisory (like the backend's pip-audit): surface vulnerable prod deps in the log
+      # without wedging CI on an unfixable upstream CVE.
+      - name: Dependency audit (pnpm audit, advisory)
+        continue-on-error: true
+        run: pnpm audit --prod --audit-level high
+
+      # Blocking LICENSE audit (distinct from the vulnerability audit above): a new prod
+      # dependency with an AGPL-incompatible license fails CI. Allowlist + per-package
+      # overrides live in the script.
+      - name: License audit (prod deps)
+        run: python3 scripts/check_licenses.py frontend
+
+  # --- Secrets: fail the build if a credential-looking string is committed -----------
+  secrets:
+    name: Secrets (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # CLI via container (not gitleaks-action, which needs a license key for org repos).
+      # Scans exactly the TRACKED tree at HEAD (git archive), so local .env files and
+      # node_modules never enter the picture; deliberate test values carry inline
+      # `gitleaks:allow` comments. History cleanup is the OSS-squash's job (Phase B).
+      - name: Scan tracked tree for secrets
+        run: |
+          mkdir -p /tmp/scan
+          git archive HEAD | tar -x -C /tmp/scan
+          docker run --rm -v /tmp/scan:/repo zricethezav/gitleaks:latest \
+            detect --source /repo --no-git --redact --exit-code 1
+
+  # --- Backend: ruff + migrations + pytest ------------------------------------------
+  backend:
+    name: Backend (ruff + alembic + pytest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: kpfront
+          POSTGRES_PASSWORD: kpfront
+          POSTGRES_DB: kpfront
+        ports:
+          - 5432:5432
+        # Wait until Postgres is ready before the job's steps run.
+        options: >-
+          --health-cmd "pg_isready -U kpfront"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # CI secret: 64-hex (>= 32 chars) so config.py accepts it; non-production value.
+      SECRET_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef # gitleaks:allow
+      DATABASE_URL: postgresql+asyncpg://kpfront:kpfront@localhost:5432/kpfront
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Sync dependencies (incl. dev)
+        run: uv sync --extra dev
+
+      - name: Ruff lint
+        run: uv run ruff check app
+
+      # Dependency vulnerability scan. Non-blocking (advisory) so a fresh CVE with no fix
+      # yet doesn't wedge merges; review the warnings and bump when a fix lands.
+      - name: pip-audit (dependency vulnerabilities)
+        continue-on-error: true
+        run: uv run --with pip-audit pip-audit
+
+      # Blocking LICENSE audit — same rationale as the frontend job's. Runs from the repo
+      # root (the script cd's into backend/ itself).
+      - name: License audit (deps)
+        working-directory: .
+        run: python3 scripts/check_licenses.py backend
+
+      - name: Alembic upgrade head
+        run: uv run alembic upgrade head
+
+      - name: Pytest
+        run: uv run pytest -q
+
+  # --- Image: lint + build + boot + smoke the actual production container ------------
+  # CI builds the real Dockerfile/compose stack that Railway and self-hosters run, so a
+  # Dockerfile or compose regression can't ship green. The image is NOT pushed anywhere
+  # (private-repo GHCR storage is billed); this only proves it builds and boots.
+  image:
+    name: Image (hadolint + build + smoke)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint Dockerfile (hadolint)
+        uses: hadolint/hadolint-action@v3.1.0
+        continue-on-error: true  # advisory, like pip-audit — surfaces issues without wedging merges
+        with:
+          dockerfile: Dockerfile
+
+      - name: Write .env (required vars must exist before compose reads the file)
+        run: |
+          {
+            echo "POSTGRES_PASSWORD=ci_test_password"
+            echo "SECRET_KEY=$(openssl rand -hex 32)"
+            echo "APP_PORT=8000"
+            echo "COOKIE_SECURE=false"
+          } > .env
+
+      - name: Validate compose config (base + tls profile)
+        run: |
+          docker compose config -q
+          DOMAIN=example.org docker compose --profile tls config -q
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image (gha-cached)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          load: true            # load into the local daemon; do not push
+          tags: kp-front:local
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Boot the stack
+        run: docker compose up -d --wait   # waits for db + app healthchecks (migrations + seed)
+
+      - name: Smoke test (health + seed + kiosk login)
+        run: |
+          set -euo pipefail
+          curl -fsS http://localhost:8000/health
+          curl -fsS http://localhost:8000/ready   # DB + storage readiness in the real container
+          # Roster proves seeding ran; login proves auth + DB write + cookie issuance.
+          USERID=$(curl -fsS http://localhost:8000/api/auth/roster \
+            | python3 -c 'import sys,json; print(json.load(sys.stdin)[0]["id"])')
+          # PIN is the committed dev seed (backend/app/seed_users.json) — update if that changes.
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:8000/api/auth/login \
+            -H 'Content-Type: application/json' -d "{\"user_id\":\"$USERID\",\"pin\":\"000000\"}")
+          test "$code" = "200" || { echo "login smoke failed: HTTP $code"; exit 1; }
+          echo "image smoke OK"
+
+      # Browser-driven white-screen smoke against the SAME running production container.
+      # Catches the catastrophic class the curl check can't see: a surface that throws on
+      # mount, a wedged session, a build that loads blank.
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install deps (Playwright)
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: E2E smoke (browser → running container)
+        env:
+          E2E_BASE_URL: http://localhost:8000
+        run: pnpm exec playwright test
+
+      - name: Upload Playwright report (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+      - name: Container logs (on failure)
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v

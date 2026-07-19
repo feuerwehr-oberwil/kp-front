@@ -1,0 +1,31 @@
+[
+  {
+    "id": "demo-wasserleitung",
+    "kind": "geojson",
+    "file": "wasserleitung.geojson",
+    "group": "Wasser",
+    "label": "Wasserleitungen",
+    "icon": "drop",
+    "vectorKind": "line",
+    "color": "#1560c4",
+    "nightColor": "#5b9bff",
+    "attribution": "© Wasserversorgung Demo (synthetisch, folgt dem Strassennetz)",
+    "autoActivate": ["Brandbekämpfung"],
+    "sourceNote": "Synthetisches Leitungsnetz entlang der Strassen (Musterdorf)"
+  },
+  {
+    "id": "demo-hydrant",
+    "kind": "geojson",
+    "file": "hydrant.geojson",
+    "group": "Wasser",
+    "label": "Hydranten",
+    "icon": "drop",
+    "vectorKind": "point",
+    "symbol": "SI Ueberflurhydrant",
+    "color": "#0f52b5",
+    "nightColor": "#5b9bff",
+    "attribution": "© Wasserversorgung Demo (synthetisch)",
+    "autoActivate": ["Brandbekämpfung"],
+    "sourceNote": "Synthetische Hydranten entlang der Leitungen"
+  }
+]
