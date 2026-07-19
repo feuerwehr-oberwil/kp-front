@@ -43,6 +43,11 @@ OVERRIDES = {
     "mapbox-gl": "unused peer of react-map-gl v7; not imported, not bundled",
     # the backend package itself
     "kp-front-backend": "first-party (AGPL-3.0-or-later)",
+    # PDFium is BSD-3-Clause, the pypdfium2 wrapper Apache-2.0; both permissive. The
+    # comma-joined metadata string ("...dependency licenses") just isn't parseable here.
+    "pypdfium2": "BSD-3-Clause (PDFium) + Apache-2.0 (wrapper) — both permissive",
+    # resvg is MPL-2.0 (weak copyleft, AGPL-compatible); the Python binding ships no metadata.
+    "resvg_py": "MPL-2.0 (resvg); Python binding carries no license metadata",
 }
 
 
