@@ -1,7 +1,10 @@
 import { useEffect, useRef } from 'react'
 
 const DELAY_MS = 180     // touch: hold this long (still) before a drag arms — a quick flick stays a map pan
-const MOVE_TOL_PX = 8    // movement past this disqualifies a still-hold (touch) / starts a drag (mouse)
+// Shared drag deadzone: movement must pass this before a drag begins — on the map (here) AND on
+// the Plan's chip drag (Whiteboard) — so a tap never nudges a placed symbol on either surface.
+export const DRAG_DEADZONE_PX = 8
+const MOVE_TOL_PX = DRAG_DEADZONE_PX
 const TAP_TOL_PX = 16    // release within this much total movement still counts as a tap — generous for fat fingers
 
 export interface HoldDragCbs {

@@ -8,6 +8,7 @@ import { PdfScroller } from './PdfScroller'
 import { OsmOutline } from './OsmOutline'
 import { appConfig } from '../config/appConfig'
 import { linePresetPatch, markerParamsAlong, lerpPoint, lookbackPoint, simplifyFreehand, MAX_VERTEX_HANDLES } from '../lib/lineStyle'
+import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { confirmDialog, toast } from '../lib/ui'
@@ -158,7 +159,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const stageRef = useRef<HTMLDivElement>(null)
   // rail tool buttons, so a tool's option dock can be top-aligned to its button
   const toolBtn = useRef<Record<string, HTMLButtonElement | null>>({})
-  const chipDrag = useRef<{ id: string; moved: boolean } | null>(null)
+  const chipDrag = useRef<{ id: string; moved: boolean; sx: number; sy: number } | null>(null)
   // drag a single selected freehand stroke (its original board-space vertices + the start point)
   const drawDrag = useRef<{ id: string; floor: number; sx: number; sy: number; bpts: [number, number][]; moved: boolean } | null>(null)
   // drag a single VERTEX of a selected line/area (shared by both — they're both pts-based)
@@ -696,7 +697,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       return
     }
     e.stopPropagation()
-    chipDrag.current = { id, moved: false }
+    chipDrag.current = { id, moved: false, sx: e.clientX, sy: e.clientY }
     ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
     setSelId(id); setSelIds([])
   }
@@ -704,6 +705,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     if (!chipDrag.current) return
     const a = annos.find((x) => x.id === chipDrag.current!.id); if (!a) return
     const n = toNorm(e.clientX, e.clientY); if (!n) return
+    // deadzone (shared with the Lage map's hold-to-drag): don't move until the pointer travels
+    // past DRAG_DEADZONE_PX, so a tap-to-select can't nudge a placed chip a pixel.
+    if (!chipDrag.current.moved && Math.hypot(e.clientX - chipDrag.current.sx, e.clientY - chipDrag.current.sy) < DRAG_DEADZONE_PX) return
     if (!chipDrag.current.moved) pushPast() // one checkpoint per drag, before the first move
     chipDrag.current.moved = true
     // on the floor-stack the chip drags FREELY across storeys: the floor follows the cursor,
