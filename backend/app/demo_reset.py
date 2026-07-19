@@ -79,10 +79,12 @@ DEMO_PEOPLE = [
     ("Michael", "Baumann"), ("Céline", "Widmer"), ("Stefan", "Graf"), ("Petra", "Roth"),
 ]
 
-# Who is physically present (Anwesenheit) — the three Trupps' members plus one more.
+# Who is physically present (Anwesenheit) — all nine Trupp members plus the Einsatzleiter.
 DEMO_PRESENT = {
-    "Hans Müller", "Anna Meier", "Peter Schmid", "Laura Keller",
-    "Marco Weber", "Sarah Huber", "Thomas Brunner",
+    "Hans Müller", "Anna Meier", "Thomas Brunner",   # Trupp 1
+    "Peter Schmid", "Laura Keller", "Nina Frei",      # Trupp 2
+    "Marco Weber", "Sarah Huber", "Michael Baumann",  # Trupp 3
+    "Céline Widmer",                                  # Einsatzleiter
 }
 
 
@@ -102,7 +104,7 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
     # The first links to the floor-stack chip already placed in board.gebaeude (annoId/planId).
     ws["trupps"] = [
         {
-            "id": "trupp1", "name": "Hans Müller", "members": ["Anna Meier"],
+            "id": "trupp1", "name": "Hans Müller", "members": ["Anna Meier", "Thomas Brunner"],
             "auftrag": "retten", "ziel": "2. OG Wohnung Nord, 2 Personen vermisst",
             "lineNumber": "1", "funkkanal": 11, "entryPressureBar": 300,
             "entryTime": _iso(now - timedelta(minutes=14)),
@@ -112,7 +114,7 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
             "annoId": "r1782915890769", "planId": "gebaeude",
         },
         {
-            "id": "trupp2", "name": "Peter Schmid", "members": ["Laura Keller"],
+            "id": "trupp2", "name": "Peter Schmid", "members": ["Laura Keller", "Nina Frei"],
             "auftrag": "loeschen", "ziel": "Brandbekämpfung 2. OG",
             "lineNumber": "2", "funkkanal": 11, "entryPressureBar": 300,
             "entryTime": _iso(now - timedelta(minutes=8)),
@@ -121,7 +123,7 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
             "lowestBar": 250, "status": "aktiv",
         },
         {
-            "id": "trupp3", "name": "Marco Weber", "members": ["Sarah Huber"],
+            "id": "trupp3", "name": "Marco Weber", "members": ["Sarah Huber", "Michael Baumann"],
             "auftrag": "sichern", "ziel": "Sicherheitstrupp bereit",
             "funkkanal": 11, "entryPressureBar": 300,
             "entryTime": "", "lastContactTime": "", "status": "angemeldet",

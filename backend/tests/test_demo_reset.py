@@ -25,6 +25,8 @@ def test_adds_live_collections():
     # two in the field (aktiv), one Sicherheitstrupp angemeldet with no clock running
     assert [t["status"] for t in ws["trupps"]] == ["aktiv", "aktiv", "angemeldet"]
     assert ws["trupps"][2]["entryTime"] == "" and ws["trupps"][2]["lastContactTime"] == ""
+    # every Trupp is 3 people: a leader (name) + two members
+    assert all(len(t["members"]) == 2 for t in ws["trupps"])
 
 
 def test_trupp_clocks_are_reset_relative():
