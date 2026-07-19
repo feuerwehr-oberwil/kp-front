@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 10  # matches Dockerfile (pnpm@10 / lockfileVersion 9.0)
 
@@ -205,7 +205,7 @@ jobs:
       # Catches the catastrophic class the curl check can't see: a surface that throws on
       # mount, a wedged session, a build that loads blank.
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 10
 
