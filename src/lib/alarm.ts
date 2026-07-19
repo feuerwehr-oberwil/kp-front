@@ -84,6 +84,25 @@ export function startAlarm(level: AlarmLevel = 'warn') {
   timer = setInterval(beat, spec.beepMs + spec.gapMs)
 }
 
+/** A single soft pip (one-shot sine) — the amber «Kontakt fällig» cue when a station opts in
+ *  (atemschutz.contactDueChime). Distinct from the looping überfällig alarm; uses its own
+ *  short-lived nodes so it never touches the alarm oscillator. No-op if audio isn't unlocked. */
+export function chime() {
+  const c = getCtx()
+  if (!c || c.state !== 'running') return
+  const t = c.currentTime
+  const o = c.createOscillator()
+  const g = c.createGain()
+  o.type = 'sine'
+  o.frequency.value = 660
+  o.connect(g).connect(c.destination)
+  g.gain.setValueAtTime(0.0001, t)
+  g.gain.exponentialRampToValueAtTime(0.14, t + 0.012)
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2)
+  o.start(t)
+  o.stop(t + 0.22)
+}
+
 /** Stop the alarm and silence the oscillator. Safe to call when nothing is playing. */
 export function stopAlarm() {
   if (timer) {

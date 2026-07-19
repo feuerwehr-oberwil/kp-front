@@ -395,6 +395,10 @@ const base = {
     contactIntervalMin: 5,
     /** Nachfrist (sec) on top of the interval before the hard überfällig alarm fires */
     contactGraceSec: 60,
+    /** opt-in soft pip when a Trupp crosses into the amber «Kontakt fällig» lead (default OFF —
+     *  the überfällig alarm stays the only mandatory tone; stations that want an early audible
+     *  nudge set this true). Muted/demo suppress it like the main alarm. */
+    contactDueChime: false,
     /** default Funkkanal a new Trupp is seeded with (FKS-Standard: 11) */
     defaultFunkkanal: 11,
     /** Funkkanal stepper range offered in settings (FW Handfunk channels) */

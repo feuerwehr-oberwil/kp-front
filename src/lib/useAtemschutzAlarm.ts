@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { anyTruppInField, type AtemschutzAlarmState, contactSeverity, deriveTruppLive, peakAtemschutzAlarm } from './atemschutz'
-import { Alarm, notify } from './alarm'
+import { Alarm, chime, notify } from './alarm'
 import { isDemoMode } from './deploymentConfig'
 import type { Trupp } from '../types'
 
@@ -79,6 +79,9 @@ export function useAtemschutzAlarm({
       const was = prevSeverity.current.get(t.id) ?? 0
       const justCrossed = sev >= 2 && was < 2
       if (justCrossed) logAlarm(t.id, 'ueberfaellig') // crossed into overdue → record once
+      // opt-in early nudge: a soft one-shot pip the moment a Trupp crosses into the amber
+      // «Kontakt fällig» lead (sev 0→1). Off by default; muted/demo suppress it like the alarm.
+      if (cfg.contactDueChime && !muted && !demo && sev >= 1 && was < 1) chime()
       if (sev >= 2) {
         // OS notification carries the OS's own sound + vibration, so it still alerts when the
         // in-page Web Audio tone has been suspended (screen off / app backgrounded). Fire on the
