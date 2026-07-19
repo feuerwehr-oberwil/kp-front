@@ -17,7 +17,7 @@ jobs:
   reset:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Gate on the demo secret via a step OUTPUT — the `secrets` context is not reliably
       # usable in `if:` expressions, so we surface presence as an output and branch on that.
