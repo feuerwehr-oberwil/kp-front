@@ -1,4 +1,6 @@
-// Drive the live demo and capture screenshots of the populated incident's key surfaces.
+// Drive the live demo and capture the README screenshots of the pre-filled incident's key
+// surfaces. The demo seeds one running incident (see backend/app/demo_reset.py) that this
+// opens (or that auto-opens), then shoots Lage, Atemschutz, Gebäude, and Mittel.
 // Usage: node scripts/demo-screenshots.mjs <baseUrl> <outDir>
 import { chromium } from '@playwright/test'
 import { mkdirSync } from 'node:fs'
@@ -8,7 +10,6 @@ const OUT = process.argv[3] || 'docs/screenshots'
 mkdirSync(OUT, { recursive: true })
 
 const CRASH = 'Ein Fehler ist aufgetreten'
-
 const shot = async (page, name) => {
   await page.screenshot({ path: `${OUT}/${name}.png` })
   console.log(`  ✓ ${name}.png`)
@@ -28,32 +29,37 @@ const run = async () => {
   await page.locator('.pinpad').waitFor()
   for (const d of '000000') await page.keyboard.press(d)
 
-  // Landing: the pending alarm + the running incident. Screenshot it, then open the incident.
-  await page.getByText('Gebäudebrand Mehrfamilienhaus').first().waitFor({ timeout: 15000 })
-  await shot(page, '01-landing')
-  await page.getByText('Gebäudebrand Mehrfamilienhaus').first().click()
+  // The pre-filled incident either auto-opens (nav rail appears) or waits on the landing as a
+  // card to click. Handle both so the shot doesn't depend on the auto-open setting.
+  const navrail = page.locator('nav.navrail')
+  const landingCard = page.getByText('Zimmerbrand').first()
+  await Promise.race([
+    navrail.waitFor({ timeout: 20000 }),
+    landingCard.waitFor({ timeout: 20000 }),
+  ])
+  if (!(await navrail.count())) {
+    await landingCard.click()
+    await navrail.waitFor({ timeout: 15000 })
+  }
 
-  // Lage (map) with the populated command picture. Close the incident menu drawer first by
-  // clicking a neutral map point (default tool is select → just deselects, places nothing).
-  await page.locator('nav.navrail').waitFor({ timeout: 15000 })
+  // Lage (map): settle tiles + symbols, then deselect by clicking a neutral map point (default
+  // tool is select → just deselects, places nothing).
   const canvas = page.locator('canvas.maplibregl-canvas').first()
   await canvas.waitFor()
   await canvas.click({ position: { x: 1050, y: 640 } })
-  await page.waitForTimeout(2800) // let tiles + symbols settle
+  await page.waitForTimeout(3000)
   await noCrash(page, 'Lage')
-  await shot(page, '02-lage')
+  await shot(page, 'lage')
 
-  const surface = async (name, file) => {
-    await page.getByRole('button', { name, exact: true }).click()
-    await page.waitForTimeout(1400)
-    await noCrash(page, name)
+  const surface = async (label, file, wait = 1800) => {
+    await page.getByRole('button', { name: label, exact: true }).click()
+    await page.waitForTimeout(wait)
+    await noCrash(page, label)
     await shot(page, file)
   }
-  await surface('Atemschutz', '03-atemschutz')
-  await surface('Anwesenheit', '04-anwesenheit')
-  await surface('Mittel', '05-mittel')
-  await surface('Gebäude', '06-gebaeude').catch(()=>{}); await surface('Tafel', '08-tafel').catch(()=>{})
-  await surface('Karte', '07-lage-clean')
+  await surface('Atemschutz', 'atemschutz')
+  await surface('Mittel', 'mittel')
+  await surface('Gebäude', 'gebaeude', 3000) // the floor stack (present once a building outline exists)
 
   await browser.close()
   console.log('done')
