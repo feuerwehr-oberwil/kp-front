@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { anyTruppInField, type AtemschutzAlarmState, contactSeverity, deriveTruppLive, peakAtemschutzAlarm } from './atemschutz'
 import { Alarm, notify } from './alarm'
+import { isDemoMode } from './deploymentConfig'
 import type { Trupp } from '../types'
 
 const SILENT: AtemschutzAlarmState = { peak: 0, urgent: null }
@@ -63,6 +64,11 @@ export function useAtemschutzAlarm({
     return () => { document.removeEventListener('visibilitychange', onVis); window.removeEventListener('focus', onVis) }
   }, [])
 
+  // On the public demo the incident is frozen in a worked state, so its field Trupps drift
+  // overdue as real time passes since the last reset — which would otherwise blare the tone and
+  // re-post OS notifications at visitors forever. Keep the visual überfällig state, but silence
+  // the audible alarm + notifications. Real stations (demoMode off) are unaffected.
+  const demo = isDemoMode()
   useEffect(() => {
     if (!active) { alarm.current?.stop(); return }
     let peak = 0
@@ -79,7 +85,7 @@ export function useAtemschutzAlarm({
         // crossing, then re-fire on a cadence while still overdue (tag+renotify coalesce the tray
         // entry). NOTE: a fully KILLED app still can't fire this — that needs server Web Push.
         const lastN = lastNotify.current.get(t.id) ?? 0
-        if (justCrossed || now - lastN >= ALARM_RENOTIFY_MS) {
+        if (!demo && (justCrossed || now - lastN >= ALARM_RENOTIFY_MS)) {
           lastNotify.current.set(t.id, now)
           void notify(az.alarmNotifyTitle, { body: az.alarmNotifyBody.replace('{name}', t.name), tag: `atemschutz-${t.id}`, target: 'atemschutz' })
         }
@@ -90,11 +96,11 @@ export function useAtemschutzAlarm({
       if (sev > peak) peak = sev
     }
     if (!alarm.current) alarm.current = new Alarm()
-    alarm.current.setMuted(muted)
+    alarm.current.setMuted(muted || demo)
     // Only ÜBERFÄLLIG (tier 2) makes a sound — the amber "Kontakt fällig" lead stays silent (and
     // board-only), so the tone/wake-lock don't nag before a Trupp is actually overdue.
     alarm.current.set(peak >= 2 ? 2 : 0)
-  }, [trupps, now, muted, active, logAlarm, intervalMin, graceSec, az])
+  }, [trupps, now, muted, active, logAlarm, intervalMin, graceSec, az, demo])
 
   useEffect(() => () => alarm.current?.stop(), [])
 
