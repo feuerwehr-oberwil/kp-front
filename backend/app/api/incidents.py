@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import defer
 
 from .. import audit, storage
 from ..auth.dependencies import CurrentEditor, CurrentUser, UserOrAdmin
@@ -44,7 +45,9 @@ async def list_incidents(
     skip: int = 0,
     db: AsyncSession = Depends(get_db),
 ) -> list[Incident]:
-    q = select(Incident)
+    # IncidentMeta never carries the heavy JSONB blobs — defer them so the list (hit on open
+    # and every 30 s) doesn't drag every workspace + details out of Postgres.
+    q = select(Incident).options(defer(Incident.map_workspace_json), defer(Incident.details_json))
     if archived is not None:
         q = q.where(Incident.is_archived.is_(archived))
     q = q.order_by(Incident.started_at.desc()).limit(min(limit, 500)).offset(skip)
