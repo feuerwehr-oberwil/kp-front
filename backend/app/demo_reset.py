@@ -134,7 +134,7 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
         {"id": "md-1", "materialId": "schaummittel", "label": "Schaummittel", "unit": "l",
          "sourceId": "tlf", "sourceLabel": "TLF", "menge": 40,
          "at": _iso(now - timedelta(minutes=9)), "by": "Führungsunterstützung"},
-        {"id": "md-2", "materialId": "schlauch-c", "label": "Schlauch C", "unit": "Stk",
+        {"id": "md-2", "materialId": "schlauch-c", "label": "Schlauch 40er", "unit": "Stk",
          "sourceId": "tlf", "sourceLabel": "TLF", "menge": 6,
          "at": _iso(now - timedelta(minutes=7)), "by": "Führungsunterstützung"},
         {"id": "md-3", "materialId": "oelbindemittel", "label": "Ölbindemittel", "unit": "Sack",

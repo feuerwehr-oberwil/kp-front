@@ -31,8 +31,8 @@
     "units": ["Stk", "l", "m", "Sack", "Flasche"],
     "catalogue": [
       { "id": "oelbindemittel", "label": "Ölbindemittel", "unit": "Sack", "category": "Umwelt", "stock": [{ "source": "tlf", "qty": 4 }, { "source": "depot", "qty": 20 }] },
-      { "id": "schlauch-c", "label": "Schlauch C", "unit": "Stk", "category": "Schläuche", "stock": [{ "source": "tlf", "qty": 12 }] },
-      { "id": "schlauch-b", "label": "Schlauch B", "unit": "Stk", "category": "Schläuche", "stock": [{ "source": "tlf", "qty": 8 }] },
+      { "id": "schlauch-c", "label": "Schlauch 40er", "unit": "Stk", "category": "Schläuche", "stock": [{ "source": "tlf", "qty": 12 }] },
+      { "id": "schlauch-b", "label": "Schlauch 75er", "unit": "Stk", "category": "Schläuche", "stock": [{ "source": "tlf", "qty": 8 }] },
       { "id": "luefter", "label": "Drucklüfter", "unit": "Stk", "category": "Geräte", "stock": [{ "source": "tlf", "qty": 1 }, { "source": "depot", "qty": 2 }] },
       { "id": "tauchpumpe", "label": "Tauchpumpe", "unit": "Stk", "category": "Geräte", "stock": [{ "source": "mtf", "qty": 2 }] },
       { "id": "schaummittel", "label": "Schaummittel", "unit": "l", "category": "Löschmittel", "stock": [{ "source": "tlf", "qty": 120 }] },
