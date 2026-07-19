@@ -117,14 +117,25 @@ async def get_workspace(
     since: int | None = None,
     db: AsyncSession = Depends(get_db),
 ):
-    inc = await _get(db, incident_id)
     # Editors latch on read too (opening an incident GETs the workspace before any edit);
     # viewers (EL-Ansicht) don't — a read-only follower is not "the KP has it".
-    if user.role == "editor":
+    latch = user.role == "editor"
+    # Light live-follow: on a since= poll, read ONLY the revision (a cheap int column) to decide
+    # 304 — don't drag the whole workspace JSONB out of Postgres every ~2 s just to return a
+    # bodyless response. The full blob is loaded only on first open or when the caller is behind.
+    if since is not None:
+        rev = (
+            await db.execute(select(Incident.workspace_rev).where(Incident.id == incident_id))
+        ).scalar_one_or_none()
+        if rev is None:
+            raise HTTPException(status_code=404, detail="Einsatz nicht gefunden")
+        if latch:
+            await _latch_editor_opened(db, incident_id)
+        if since == rev:
+            return Response(status_code=status.HTTP_304_NOT_MODIFIED)
+    inc = await _get(db, incident_id)
+    if latch and since is None:
         await _latch_editor_opened(db, incident_id)
-    # Light live-follow: 304 when the caller already has the current revision.
-    if since is not None and since == inc.workspace_rev:
-        return Response(status_code=status.HTTP_304_NOT_MODIFIED)
     return WorkspaceOut(workspace=inc.map_workspace_json, workspace_rev=inc.workspace_rev)
 
 
