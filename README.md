@@ -10,9 +10,9 @@ exports; integrations add data but are not required to operate it.
 
 ## Try the demo
 
-The [public demo](https://kp-front-demo.up.railway.app) contains a running Gebäudebrand in
-fictional Musterdorf. Credentials are shown on the login screen, and the demo resets every two
-hours.
+The [public demo](https://kp-front-demo.up.railway.app) contains a running Zimmerbrand at the
+Schloss in fictional Musterdorf. Credentials are shown on the login screen, and the demo resets
+every two hours.
 
 The repository includes the same synthetic station dataset in
 [`examples/demo-data/`](examples/demo-data/). No real station data is bundled.
