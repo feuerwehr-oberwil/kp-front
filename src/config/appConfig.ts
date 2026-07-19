@@ -222,6 +222,7 @@ const base = {
       byName: {
         // ── Schadenlage ── on a storey (floor badge); the label carries the rest.
         'VKF Feuer': { controls: ['floor', 'spread'] },
+        'VKF Rauch': { controls: ['floor', 'spread'] },
         'VKF Rettungen': { controls: ['count', 'floor'], fields: ['Status'] },
         'VKF Unfall': { controls: ['floor'] },
         'VKF Gefaehrliche Stoffe': { controls: ['floor', 'spread'], fields: ['Stoff'] },

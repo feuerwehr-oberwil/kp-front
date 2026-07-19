@@ -263,3 +263,30 @@ describe('sanitizeWorkspace — load gate', () => {
     expect(sanitizeWorkspace({}).newerSchema).toBe(false) // pre-versioning blob
   })
 })
+
+describe('sanitizeWorkspace — Rauch cloud → VKF Rauch symbol migration', () => {
+  it('converts a placed cloud (map entity + plan anno) into the VKF Rauch symbol', () => {
+    const g = sanitizeWorkspace({
+      schemaVersion: WORKSPACE_SCHEMA_VERSION,
+      entities: [{ id: 'sh1', kind: 'shape', shape: 'cloud', coord: [7.5, 47.5], color: '#6b7280', sizeM: 80, sizeN: 0.18, rotation: 30 }],
+      board: { gebaeude: [{ id: 'sha', kind: 'shape', shape: 'cloud', x: 0.5, y: 0.5, floor: 1, color: '#6b7280', sizeN: 0.2, rotation: 10 }] },
+    })
+    // entities migrate at sanitize; the board migrates via normalizeBoard inside deriveInitial
+    const s = deriveInitial(g.ws, 'inc1', {})
+    const e = s.doc.entities[0] as unknown as Record<string, unknown>
+    expect(e.kind).toBe('symbol')
+    expect(e.symbol).toBe('VKF Rauch')
+    expect(e.shape).toBeUndefined()
+    expect(e.sizeM).toBeUndefined()
+    expect(e.sizeN).toBeUndefined()
+    expect(e.rotation).toBe(30) // rotation preserved
+    const a = s.board.gebaeude[0] as unknown as Record<string, unknown>
+    expect(a.kind).toBe('symbol')
+    expect(a.symbol).toBe('VKF Rauch')
+    expect(a.shape).toBeUndefined()
+  })
+  it('leaves other shapes (arrow/square) untouched', () => {
+    const g = sanitizeWorkspace({ schemaVersion: WORKSPACE_SCHEMA_VERSION, entities: [{ id: 'sh2', kind: 'shape', shape: 'arrow', coord: [7.5, 47.5] }] })
+    expect((g.ws!.entities[0] as unknown as Record<string, unknown>).kind).toBe('shape')
+  })
+})

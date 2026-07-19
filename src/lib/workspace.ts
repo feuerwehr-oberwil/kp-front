@@ -128,6 +128,20 @@ export interface Saved {
 type LegacyBoardAnno = Omit<BoardAnno, 'kind'> & { kind: BoardAnno['kind'] | 'trupp' }
 const TEAM_COLORS = appConfig.drawing.colors
 
+// Rauch used to be a `kind:'shape'` cloud; it is now the real «VKF Rauch» symbol (detail modal
+// + Entwicklung/spread, both surfaces). Idempotently convert any already-placed cloud — map
+// entity OR plan anno — so it gains the symbol behaviour: keep id/coord (or x,y,floor)/rotation,
+// drop the shape-only sizing (symbols are fixed-scale; extent is expressed via spread). A no-op
+// once no clouds remain, so it can run on every load without a schema-version bump.
+export const RAUCH_SYMBOL = 'VKF Rauch'
+export function migrateRauchCloud<T extends { kind?: string }>(a: T): T {
+  const o = a as Record<string, unknown>
+  if (o.kind !== 'shape' || o.shape !== 'cloud') return a
+  const next: Record<string, unknown> = { ...o, kind: 'symbol', symbol: RAUCH_SYMBOL, label: 'Rauch' }
+  delete next.shape; delete next.sizeM; delete next.sizeN; delete next.color
+  return next as unknown as T
+}
+
 // Per-plan normalization: migrate the old 'trupp' kind to 'resource', and give every team
 // an accent colour (cycled from the palette) so older saved docs — which predate per-team
 // colours — still get distinguishable trails.
@@ -137,7 +151,7 @@ export const normalizeBoard = (board?: BoardDoc): BoardDoc => {
     let teamIdx = 0
     return [id, annos.map((anno) => {
       const legacy = anno as LegacyBoardAnno
-      const a = legacy.kind === 'trupp' ? { ...legacy, kind: 'resource' as const } : { ...anno }
+      const a = migrateRauchCloud(legacy.kind === 'trupp' ? { ...legacy, kind: 'resource' as const } : { ...anno })
       if (a.kind === 'resource') a.color = a.color ?? TEAM_COLORS[teamIdx++ % TEAM_COLORS.length]
       return a
     })]
@@ -204,7 +218,7 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
   const sv = typeof raw.schemaVersion === 'number' ? raw.schemaVersion : undefined
   // (stepwise migrations for sv < WORKSPACE_SCHEMA_VERSION go here once version 2 exists)
   const ws: Saved = {
-    entities: arr<Entity>(raw.entities, hasId) ?? [],
+    entities: (arr<Entity>(raw.entities, hasId) ?? []).map(migrateRauchCloud),
     drawings: arr<Drawing>(raw.drawings, hasId) ?? [],
     recent: arr<string>(raw.recent, (x) => typeof x === 'string') ?? [],
     layerState: arr<Saved['layerState'][number]>(raw.layerState, (x) => hasId(x) && typeof (x as { visible?: unknown }).visible === 'boolean') ?? [],

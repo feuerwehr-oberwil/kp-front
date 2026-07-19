@@ -31,6 +31,7 @@ RED = "#ff0000"
 YELLOW = "#ffff00"
 GREEN = "#008040"
 WATER = "#0000ff"
+GREY = "#6b7280"      # Rauch (smoke)
 
 
 # --- tiny SVG builder -----------------------------------------------------------------
@@ -82,6 +83,17 @@ def letter_disc(letter, fill):
     return svg([circle(0, 0, 1, stroke=BLACK, sw=0.06, fill=fill), text(letter, 1.5)], vb=2.6)
 
 
+def smoke(fill=GREY):
+    """Rauch: a grey four-lobe smoke puff (the same silhouette as the app's cloud glyph),
+    black outline like the other Schadenlage signs; fill-opacity keeps it reading as smoke."""
+    d = ("M -0.624 0.624 Q -0.984 0.624 -0.984 0.288 Q -0.984 -0.024 -0.648 0 "
+         "Q -0.648 -0.384 -0.24 -0.36 Q -0.024 -0.624 0.288 -0.408 "
+         "Q 0.696 -0.456 0.672 -0.048 Q 0.984 0 0.888 0.336 Q 0.792 0.624 0.432 0.624 Z")
+    puff = (f'<path d="{d}" fill="{fill}" fill-opacity="0.6" stroke="{BLACK}" '
+            f'stroke-width="0.06" stroke-linejoin="round" stroke-linecap="round"/>')
+    return svg([puff], vb=2.6)
+
+
 def zone_circle(label):
     """Bereich: open blue circle with the unit label."""
     return svg([circle(0, 0, 1, stroke=BLUE, sw=0.1), text(label, 0.8, fill=BLUE)], vb=2.6)
@@ -126,6 +138,7 @@ def build() -> list[dict]:
 
     # ── Schadenlage
     add("Schadenlage", "VKF Feuer", letter_disc("F", RED))
+    add("Schadenlage", "VKF Rauch", smoke())
     add("Schadenlage", "VKF Rettungen", letter_disc("R", YELLOW))
     add("Schadenlage", "VKF Unfall", letter_disc("U", GREEN))
     add("Schadenlage", "VKF Gefaehrliche Stoffe", letter_disc("C", ORANGE))

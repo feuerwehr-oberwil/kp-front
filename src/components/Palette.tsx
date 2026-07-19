@@ -8,10 +8,8 @@ import { formatSymbolName } from '../lib/format'
 import { symbolMatchesQuery } from '../lib/symbolSearch'
 import { FORMEN_ORDER, SHAPE_DEFS, ShapeGlyph } from '../lib/shapes'
 
-// the geometric "Formen" section renders right after this FireGIS category; Rauch (cloud)
-// is offered inside the Schadenlage category instead of the Formen block.
+// the geometric "Formen" section (Pfeil · Rechteck) renders right after this FireGIS category.
 const FORMEN_AFTER_CAT = 'Gefahren'
-const RAUCH_IN_CAT = 'Schadenlage'
 
 function ShapeCell({ kind, onPick }: { kind: ShapeKind; onPick: (k: ShapeKind) => void }) {
   return (
@@ -108,8 +106,8 @@ export function Palette({ sym, onPick, onClose, onPickShape }: Props) {
                   <section>
                     <div className="sym-ghead">{appConfig.copy.symbolCategories[cat] ?? cat}</div>
                     <div className="sym-grid">
-                      {/* Rauch lives under Schadenlage (it's a damage picture, not a generic Form) */}
-                      {onPickShape && cat === RAUCH_IN_CAT && <ShapeCell kind="cloud" onPick={onPickShape} />}
+                      {/* Rauch is now a real «VKF Rauch» symbol in the pack (Schadenlage), so it
+                          renders as a normal symbol cell below — no special shape injection. */}
                       {sym.symbols.filter((s) => s.cat === cat).map((s) => <Cell key={s.name} name={s.name} svg={s.svg} onPick={onPick} />)}
                     </div>
                   </section>
