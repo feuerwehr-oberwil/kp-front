@@ -170,12 +170,18 @@ async def reset() -> None:
         # the fixed dummy roster so Anwesenheit / person-assignment always have people. Keep the
         # generated ids so the pre-filled Anwesenheit can reference real Person rows.
         await db.execute(delete(Personnel))
-        person_id: dict[str, str] = {}
+        people_rows: list[tuple[str, Personnel]] = []
         for first, last in DEMO_PEOPLE:
             name = f"{first} {last}"
             p = Personnel(display_name=name, first_name=first, last_name=last, is_active=True)
             db.add(p)
-            person_id[name] = str(p.id)  # uuid4 default is set on construction, before flush
+            people_rows.append((name, p))
+        # The uuid4 primary key is a COLUMN default — SQLAlchemy assigns it at flush (INSERT), not
+        # at construction. Flush first, THEN read p.id, or every id is None ⇒ Anwesenheit keyed
+        # "None" (a single ghost entry that matches no one).
+        await db.flush()
+        person_id: dict[str, str] = {name: str(p.id) for name, p in people_rows}
+        assert "None" not in person_id.values(), "Personnel ids not flushed — Anwesenheit would break"
         # Clear objects so the manifest is authoritative ("these two, nothing else"). Deleting
         # an ObjectSite cascades to its plan datasets; the geo: reference layers (object_id NULL)
         # are untouched and get re-pushed by the reset script.

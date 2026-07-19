@@ -1,7 +1,12 @@
 """The pre-filled demo workspace builder is pure, so it's unit-tested without a DB."""
 
+import json
 from datetime import UTC, datetime
 
+import pytest
+from sqlalchemy import text
+
+import app.demo_reset as dr
 from app.demo_reset import build_demo_workspace
 
 NOW = datetime(2026, 7, 19, 12, 0, 0, tzinfo=UTC)
@@ -64,3 +69,27 @@ def test_scene_geometry_preserved():
     ws = _ws()
     assert ws["entities"][0]["coord"] == [7.57, 47.52]
     assert ws["drawings"][0]["coords"] == [[7.57, 47.52]]
+
+
+@pytest.mark.asyncio
+async def test_reset_seeds_resolvable_attendance(session_factory, monkeypatch):
+    """Regression: Personnel.id is a uuid4 COLUMN default, assigned at flush — reading it before
+    flush yielded None, so Anwesenheit was keyed "None" (one ghost entry). reset() must flush
+    first so every attendance key is a real Personnel id."""
+    monkeypatch.setattr(dr, "async_session_maker", session_factory)
+    await dr.reset()
+    async with session_factory() as db:
+        pids = set((await db.execute(text("select cast(id as text) from personnel"))).scalars().all())
+        ws = (await db.execute(text(
+            "select map_workspace_json from incidents order by started_at desc limit 1"
+        ))).scalar_one()
+    if isinstance(ws, str):  # sqlite (test default) returns JSONB as text via raw SQL; pg gives a dict
+        ws = json.loads(ws)
+    att = ws["attendance"]
+    assert "None" not in att
+    assert len(att) == 10
+    # every present person resolves to a real roster row (normalize UUID text: sqlite's raw-SQL
+    # cast can drop hyphens vs Python's str(uuid), so compare hyphen-insensitively)
+    def _norm(s: str) -> str:
+        return s.replace("-", "").lower()
+    assert {_norm(k) for k in att} <= {_norm(p) for p in pids}
