@@ -3,6 +3,7 @@ import type { BoardAnno, BoardDoc, BuildingDoc, Entity, LngLat, TimelineEvent, T
 import type { Doc } from './workspace'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatTime } from './format'
+import { toast } from './ui'
 import { gebaeudeDoc } from '../data/demoIncident'
 import { abbreviateName } from './personnel'
 
@@ -149,6 +150,7 @@ export function useTruppActions(deps: Deps) {
   // derived state (lowestBar, the log row) is computed INSIDE the updater so it never reads stale.
   const recordPressure = (id: string, bar: number) => {
     const tr = trupps.find((t) => t.id === id)
+    const snapshot = tr // the Trupp as it was BEFORE the reading — for the undo
     const now = new Date().toISOString()
     setTrupps((ts) => ts.map((t) => (t.id === id
       ? { ...t, lastPressureBar: bar, lastPressureTime: now, lastContactTime: now, lowestBar: Math.min(t.lowestBar ?? t.entryPressureBar, bar),
@@ -156,6 +158,17 @@ export function useTruppActions(deps: Deps) {
       : t)))
     log('drop', fillTemplate(appConfig.copy.atemschutz.logPressure, { name: tr?.name ?? '', bar }), 'team')
     emit('atemschutz.pressure', { id, bar })
+    // confirm-with-undo (house rule): a fat-fingered reading ("20" for "200") would otherwise
+    // permanently poison lowestBar → a false red «tiefster Druck» on the legal record with no
+    // way back. Undo restores the Trupp's pre-reading state (pressure, contact clock, lowestBar,
+    // per-Trupp readings). The Verlauf line stays (append-only doctrine — the record shows the
+    // correction happened), but the safety-critical derived state is fixed.
+    if (snapshot) {
+      toast(fillTemplate(appConfig.copy.atemschutz.logPressure, { name: tr?.name ?? '', bar }), {
+        icon: 'drop',
+        action: { label: appConfig.copy.undo, onClick: () => setTrupps((ts) => ts.map((t) => (t.id === id ? snapshot : t))) },
+      })
+    }
   }
   // advance a Trupp's lifecycle phase: angemeldet → aktiv (eingerückt, starts the contact clock +
   // logs the entry reading) → rueckzug → raus (sets exitTime, ends monitoring), and the reverse
