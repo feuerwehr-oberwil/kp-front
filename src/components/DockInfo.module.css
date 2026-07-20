@@ -7,9 +7,13 @@
 .wb-dock-ibtn :global(.i) { width: 18px; height: 18px; }
 /* help text always appears at the BOTTOM-centre of the screen (not floating beside the
    button), so every in-function hint shows in the same place. Fixed to the viewport. */
+/* z-index sits ABOVE the dock/popover that spawned it (the compass views popover + tool docks are
+   z-201): the help text is portalled to the viewport bottom-centre, and on a phone the compass
+   dropdown extends down into that band — at the old z-43 the dropdown covered the tip, so the hint
+   read as clipped/obstructed. On top, the momentary tap-toggle hint is always fully readable. */
 .wb-dock-tip { position: fixed; left: 50%; bottom: calc(28px + env(safe-area-inset-bottom)); right: auto; top: auto; transform: translateX(-50%);
   width: max-content; max-width: min(440px, 90vw); background: var(--ink-fill); color: var(--on-accent-ink); font-size: 12.5px; font-weight: 500;
-  line-height: 1.4; text-align: center; padding: 9px 16px; border-radius: var(--r-surface); box-shadow: var(--shadow); z-index: 43; }
+  line-height: 1.4; text-align: center; padding: 9px 16px; border-radius: var(--r-surface); box-shadow: var(--shadow); z-index: 205; }
 /* phones: clear the bottom bars (nav + tool bar) so the hint isn't hidden behind them */
 @media (max-width: 600px) {
   .wb-dock-tip { bottom: calc(var(--rail-h) * 2 + 28px + env(safe-area-inset-bottom)); max-width: calc(100vw - 20px); }

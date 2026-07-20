@@ -979,17 +979,6 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
   transform: rotate(-45deg); background: var(--amber); color: var(--on-accent-ink);
   text-align: center; padding: 3px 0; font-size: 11px; font-weight: 800; letter-spacing: 2px;
   box-shadow: 0 1px 5px rgba(20, 28, 40, .35); }
-/* Demo sandbox "Zurücksetzen" — restores the curated scene after a visitor scribbles. Bottom-centre
-   in the banner stack (the install banner is hidden on the demo, so it owns that slot); steps up
-   above an UpdateBanner via the sibling rule below. Demo instances only. */
-.demo-reset { position: absolute; bottom: calc(16px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
-  z-index: 41; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 9px 18px;
-  border: 1px solid var(--glass-edge); border-radius: 999px; background: var(--surface); color: var(--ink);
-  font: 700 12.5px var(--body); cursor: pointer; box-shadow: var(--shadow); pointer-events: auto; }
-.demo-reset:hover { background: var(--hover-strong); }
-.demo-reset .i { width: 15px; height: 15px; }
-/* stack above an app-update banner when both are on screen (mirrors .update-banner ~ .install-banner) */
-.update-banner ~ .demo-reset { bottom: calc(88px + env(safe-area-inset-bottom)); }
 /* First-visit demo welcome modal (own scrim above the DEMO ribbon so it owns the screen). */
 .dw-scrim { z-index: 160; padding: 24px; }
 .dw-card { position: relative; width: min(440px, 92vw); max-height: 88dvh; overflow-y: auto;
@@ -3088,6 +3077,11 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
   .phone-tools .wb-dock { position: fixed; left: auto; right: max(8px, env(safe-area-inset-right)); top: auto;
     bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom)); transform: none;
     max-height: calc(100dvh - 220px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+  /* On the MAP, the floating .phone-compass (compass + wind, ~96px tall under the top bar) shares
+     this right edge — a tall dock grew up under it and its top row (the ✕) hid behind the cluster.
+     Reserve that band too (220 → 320: +96 cluster + ~4 gap) so the dock's top always clears it and
+     scrolls instead. Plan has no compass cluster, so it keeps the taller default above. */
+  .mode-map.phone-tools .wb-dock { max-height: calc(100dvh - 320px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
   .phone-tools .whiteboard { bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom)); }
   .phone-tools .coord-read { bottom: calc(var(--rail-h) * 2 + 30px + env(safe-area-inset-bottom)); }
   /* the Eintrag-FAB clears both bars on the drawing surfaces */
@@ -3160,9 +3154,12 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
      "read, not felt" detail that doesn't fit the narrow bar) */
   .tb-weather { gap: 4px; padding: 6px 6px; min-height: 40px; }
   .tb-weather-cond, .tb-weather-temp { display: none; }
-  /* Atemschutz überfällig-chip: tighten the name so the alarm (icon + clock) never pushes
-     the right cluster past the bar edge at 375px — the full name lives in the AS board */
-  .tb-az-name { max-width: 56px; }
+  /* Atemschutz überfällig-chip: on a phone the bar is too narrow to carry the Trupp name too —
+     it pushed the whole chip off the right edge (clipped, unreadable, untappable). Drop the name
+     (it lives on the AS board) and keep the alarm essentials: the pulsing red gauge + the overdue
+     clock, tapping through to the board. The mapNav center button is dropped on the phone map for
+     the same reason (App.tsx), which frees the width this needs. */
+  .tb-az-name { display: none; }
 
   /* ── NavRail → bottom bar on a phone ── the SAME surface items, re-laid-out as a
      horizontally-scrollable row in the thumb zone (Karte · M1 M2 … · Checkliste ·
