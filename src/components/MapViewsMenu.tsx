@@ -109,7 +109,7 @@ function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose }: {
           </>
         )}
         <div className={s.sep} />
-        <div className={s.foot}><DockInfo text={cp.hint} /></div>
+        <div className={s.foot}><DockInfo text={cp.hint} inline /></div>
       </div>
     </>,
     document.body,
