@@ -1,21 +1,15 @@
 // Shared primitives for the incident panels: the Modal shell + two formatting/coord
 // helpers used by more than one panel. Split out of the former IncidentPanels.tsx.
-import { Icon } from '../../lib/icons'
-import { appConfig } from '../../config/appConfig'
+import { Sheet } from '../../lib/overlays'
 
+// `fit` = height hugs the content (capped), for short one-off modals that would otherwise
+// leave a big empty bottom in the uniform 800px frame. Backed by the shared <Sheet> primitive
+// (Base UI Dialog + focus trap/restore/scroll-lock), so every consumer gets that for free.
 export function Modal({ title, onClose, children, wide, fit }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean; fit?: boolean }) {
   return (
-    <div className="ip-ovl" onClick={onClose}>
-      {/* `fit` = height hugs the content (capped), for short one-off modals that would otherwise
-          leave a big empty bottom in the uniform 800px frame */}
-      <div className={`ip-sheet${wide ? ' ip-wide' : ''}${fit ? ' ip-fit' : ''}`} onClick={(e) => e.stopPropagation()}>
-        <div className="ip-head">
-          <h2>{title}</h2>
-          <button className="ip-x" onClick={onClose} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
-        </div>
-        <div className="ip-body">{children}</div>
-      </div>
-    </div>
+    <Sheet open onClose={onClose} title={title} wide={wide} fit={fit}>
+      {children}
+    </Sheet>
   )
 }
 

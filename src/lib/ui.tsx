@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Icon } from './icons'
 import { appConfig } from '../config/appConfig'
+import { ConfirmCard } from './overlays/ConfirmCard'
 
 // Lightweight app-wide toast + confirm host. Replaces native alert()/confirm()
 // so transient feedback and destructive confirmations stay inside the glass
@@ -69,7 +70,6 @@ function useForceUpdate() {
 
 export function Overlays() {
   useForceUpdate()
-  const confirmBtnRef = useRef<HTMLButtonElement>(null)
   const req = confirmReq
 
   const close = (v: boolean) => {
@@ -78,18 +78,6 @@ export function Overlays() {
     emit()
     r?.resolve(v)
   }
-
-  // Enter confirms, Escape cancels; focus the confirm action on open.
-  useEffect(() => {
-    if (!req) return
-    confirmBtnRef.current?.focus()
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { e.preventDefault(); close(false) }
-      else if (e.key === 'Enter') { e.preventDefault(); close(true) }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [req?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <>
@@ -114,30 +102,15 @@ export function Overlays() {
         ))}
       </div>
 
-      {req && (
-        <div className="modal-backdrop confirm-backdrop" onClick={() => close(false)}>
-          <div
-            className="confirm-card"
-            role="alertdialog"
-            aria-modal="true"
-            aria-label={req.title ?? req.message}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {req.title && <h3 className="confirm-title">{req.title}</h3>}
-            <p className="confirm-msg">{req.message}</p>
-            <div className="confirm-actions">
-              <button className="btn" onClick={() => close(false)}>{req.cancelLabel}</button>
-              <button
-                ref={confirmBtnRef}
-                className={`btn ${req.danger ? 'warn-solid' : 'primary'}`}
-                onClick={() => close(true)}
-              >
-                {req.confirmLabel}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmCard
+        open={!!req}
+        title={req?.title}
+        message={req?.message ?? ''}
+        confirmLabel={req?.confirmLabel ?? ''}
+        cancelLabel={req?.cancelLabel ?? ''}
+        danger={req?.danger}
+        onResolve={close}
+      />
     </>
   )
 }

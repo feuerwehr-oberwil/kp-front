@@ -71,7 +71,7 @@ export function IncidentSwitcher({
     // deliberately stays open underneath a sheet it opened (see openSheet below)
     const onDoc = (e: MouseEvent) => {
       const t = e.target as Element
-      if (ref.current && !ref.current.contains(t) && !t.closest?.('.ip-ovl, .help-scrim, .confirm-backdrop, .toaster')) setOpen(false)
+      if (ref.current && !ref.current.contains(t) && !t.closest?.('.ip-sheet, .ui-backdrop, .help-scrim, .confirm-backdrop, .toaster')) setOpen(false)
     }
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)

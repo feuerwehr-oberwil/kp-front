@@ -4,6 +4,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { deploymentDefaultCenter } from '../lib/deploymentConfig'
+import { Overlay } from '../lib/overlays'
 import type { LngLat } from '../types'
 
 // Self-contained location picker for the intake wizard: works with NO active incident
@@ -31,8 +32,7 @@ export function MapPicker({ initial, onCancel, onConfirm }: {
   const center = initial ?? station ?? COUNTRY_CENTER
   const mp = appConfig.copy.mapPicker
   return (
-    <div className="mp-ovl" onClick={onCancel}>
-      <div className="mp-sheet" onClick={(e) => e.stopPropagation()}>
+    <Overlay open onClose={onCancel} className="mp-sheet ui-dialog" backdropClassName="mp-backdrop" ariaLabel={mp.title}>
         <div className="mp-head">
           <span>{mp.title}</span>
           <button className="ip-x" onClick={onCancel} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
@@ -58,7 +58,6 @@ export function MapPicker({ initial, onCancel, onConfirm }: {
             <Icon id="flag" /> {mp.confirm}
           </button>
         </div>
-      </div>
-    </div>
+    </Overlay>
   )
 }

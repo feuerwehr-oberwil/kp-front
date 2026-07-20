@@ -8,6 +8,7 @@ import { confirmDialog } from '../lib/ui'
 import { fillTemplate } from '../lib/format'
 import { fmtDistance } from '../lib/geo'
 import { listObjects, type ObjectWithPlans } from '../lib/incidents'
+import { Overlay } from '../lib/overlays'
 import type { LngLat } from '../types'
 
 // Carto Voyager — the app's default basemap (see demoIncident base-carto), so the
@@ -55,6 +56,7 @@ export function PlanPicker({ center, activeObjectId, onSelect, onReset, onClose 
   // collapsed via the toggle below to give the list the full width on a narrow screen.
   const [mapOpen, setMapOpen] = useState(true)
   const mapRef = useRef<MapRef>(null)
+  const searchRef = useRef<HTMLInputElement>(null) // Base UI initial focus → the search box (not the close button)
 
   // load near the incident so distance_m comes back ranked; the text filter is applied
   // client-side so typing is instant (the 155-object list is small).
@@ -95,8 +97,7 @@ export function PlanPicker({ center, activeObjectId, onSelect, onReset, onClose 
   }
 
   return (
-    <div className="ip-ovl" onClick={onClose}>
-      <div className={`ip-sheet pp-sheet ${mapOpen ? '' : 'pp-nomap'}`} onClick={(e) => e.stopPropagation()}>
+    <Overlay open onClose={onClose} className={`ip-sheet pp-sheet ui-dialog ${mapOpen ? '' : 'pp-nomap'}`} ariaLabel={appConfig.copy.whiteboard.otherObject} initialFocus={searchRef}>
         <div className="ip-head">
           <h2>{appConfig.copy.whiteboard.otherObject}</h2>
           <button className="ip-x" onClick={onClose} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
@@ -104,7 +105,7 @@ export function PlanPicker({ center, activeObjectId, onSelect, onReset, onClose 
 
         <div className="pp-search">
           <Icon id="search" />
-          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={pp.searchPlaceholder} />
+          <input ref={searchRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder={pp.searchPlaceholder} />
           {q && <button className="pp-clear" onClick={() => setQ('')} aria-label={appConfig.copy.clear}><Icon id="close" /></button>}
         </div>
 
@@ -182,7 +183,6 @@ export function PlanPicker({ center, activeObjectId, onSelect, onReset, onClose 
         <button className="pp-maptoggle" onClick={() => setMapOpen((v) => !v)}>
           <Icon id="map" /> {mapOpen ? pp.hideMap : pp.showMap}
         </button>
-      </div>
-    </div>
+    </Overlay>
   )
 }
