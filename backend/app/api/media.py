@@ -150,8 +150,8 @@ async def _run_stt(media_id: uuid.UUID, storage_key: str) -> None:
             payload = [{**s, "status": "open"} for s in segments]
         except audio.SttError as e:
             status, error, payload = "failed", str(e), None
-        except Exception:  # noqa: BLE001 — a crashed job must land as 'failed', not vanish
-            status, error, payload = "failed", "Unerwarteter Fehler", None
+        except Exception as e:  # noqa: BLE001 — a crashed job must land as 'failed', not vanish
+            status, error, payload = "failed", f"Unerwarteter Fehler: {e!r}", None
         # resolved through the module so tests can point it at their loop-local factory
         async with database.async_session_maker() as db:
             job = (await db.execute(select(SttJob).where(SttJob.media_id == media_id))).scalar_one_or_none()

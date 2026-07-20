@@ -270,7 +270,8 @@ async def test_delete_transcription_resets_to_none(client, editor, viewer, stt_c
     assert (await client.delete(f"/api/media/{media_id}/transcription")).status_code == 404
     # and Transkribieren can run fresh
     assert (await client.post(f"/api/media/{media_id}/transcribe")).status_code == 202
-    assert (await _poll_done(client, media_id))["status"] == "done"
+    body = await _poll_done(client, media_id)
+    assert body["status"] == "done", body  # DIAGNOSTIC: surface job.error on the CI-only failure
 
 
 async def test_transcribe_adapter_parses_verbose_json(monkeypatch, tmp_path):
