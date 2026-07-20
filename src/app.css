@@ -1877,8 +1877,15 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .archived-banner { border-left-color: var(--amber-strong); }
 .archived-banner > .i { color: var(--amber-strong); }
 @media (max-width: 600px) {
-  /* clear the phone bottom nav bar (the tool bar is absent — archived views are read-only) */
-  .archived-banner { bottom: calc(var(--rail-h) + 24px + env(safe-area-inset-bottom)); }
+  /* Every bottom banner (Update/Install/TabLock/Archived all share .update-banner) must clear the
+     phone bottom nav bar — previously only .archived-banner did, so Update/Install/TabLock sat ON
+     the nav row and covered its centre items (the banner is z-40, the nav bar z-35). The drawing
+     surfaces (map/plan) carry a SECOND (tool) bar, so clear both there; keep a stacked Install
+     nudge above its Update sibling. */
+  .update-banner { bottom: calc(var(--rail-h) + 24px + env(safe-area-inset-bottom)); }
+  .phone-tools .update-banner { bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom)); }
+  .update-banner ~ .install-banner { bottom: calc(var(--rail-h) + 96px + env(safe-area-inset-bottom)); }
+  .phone-tools .update-banner ~ .install-banner { bottom: calc(var(--rail-h) * 2 + 96px + env(safe-area-inset-bottom)); }
   /* narrow phones: an action cluster that can't fit beside the text WRAPS onto its own
      line instead of spilling out of the fixed banner — spilled fixed content silently
      widens the iOS layout viewport, and the whole app renders shifted off-screen
@@ -3243,9 +3250,14 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
   /* with the bottom bar present, the FAB lifts above it and the map attribution ⓘ lifts
      above the FAB so the bottom-right reads bar → FAB → ⓘ with no overlap */
   .fab-entry { bottom: calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)); }
+  /* «Zurück zum Rapport» return pill (Anwesenheit/Mittel only → single nav bar) sat at 18px, i.e.
+     ON the nav bar; lift it clear like the FAB. */
+  .rp-return { bottom: calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)); }
   .maplibregl-ctrl-bottom-right { margin-bottom: calc(var(--rail-h) + 86px + env(safe-area-inset-bottom)); }
-  /* toasts clear the bottom bar */
+  /* toasts clear the bottom bar — and BOTH bars on the drawing surfaces (else a toast landed on
+     the tool bar, covering its buttons), matching .phone-tools .coord-read / .fab-entry */
   .toaster { bottom: calc(var(--rail-h) + 24px + env(safe-area-inset-bottom)); }
+  .phone-tools .toaster { bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom)); }
   /* long toast texts wrap on phones instead of nowrap-overflowing the fixed toaster
      (same layout-viewport-widening failure mode as the banners) */
   .toast { white-space: normal; }
