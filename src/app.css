@@ -1653,7 +1653,9 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 /* weather detail popover (tap the bar readout) */
 .tb-weather-wrap { position: relative; display: inline-flex; }
 .tb-weather-scrim { position: fixed; inset: 0; z-index: 200; border: none; background: rgba(20, 28, 40, .12); cursor: default; }
-.tb-weather-pop { position: fixed; z-index: 201; width: 280px;
+/* position + z-index now come from the Base UI Popover Positioner (src/lib/overlays/Popover.tsx);
+   the popup itself is static within it. */
+.tb-weather-pop { width: 280px;
   /* landscape phones: the pop is taller than the leftover viewport below the bar —
      cap it and scroll instead of pushing the MeteoSchweiz link off-screen */
   max-height: calc(100dvh - 90px - env(safe-area-inset-top)); overflow-y: auto; overscroll-behavior: contain;
