@@ -27,6 +27,7 @@ import { loadPrefs, savePrefs, symbolMul } from './lib/prefs'
 import { useDevicePrefs } from './lib/useDevicePrefs'
 import { useSheets } from './lib/useSheets'
 import { useAtemschutzMute } from './lib/useAtemschutzMute'
+import { useTacticalSelection } from './lib/useTacticalSelection'
 import { buildLabel } from './lib/buildInfo'
 import { consumeJustUpdated } from './lib/swUpdate'
 import { useAutoTheme } from './lib/useAutoTheme'
@@ -239,6 +240,11 @@ function IncidentWorkspace({
   // (persisted) and win over the GPS value until reset via the "GPS" button.
   const { gpsVehicles, liveVehicles, liveIds, overrides: vehicleOverrides, setOverrides: setVehicleOverrides } = useVehicleLayer(init.vehicleOverrides)
 
+  // Session-only tactical editing state (active tool, place gesture, selection) — see
+  // useTacticalSelection. Declared before enterReplay (which clears it) so its setters are in
+  // scope for that callback; threaded into useMapDrawing below just as before.
+  const { selectedId, setSelectedId, tool, setTool, teamPick, setTeamPick, pending, setPending, pendingShape, setPendingShape, placeLock, setPlaceLock, selectedDrawingId, setSelectedDrawingId, selectedDrawIds, setSelectedDrawIds, selectedEntityIds, setSelectedEntityIds } = useTacticalSelection()
+
   // --- time-travel replay (read-only past view) — state/reconstruction owned by useReplay ---
   // Enter replay WITHOUT forcing a surface: one timeline drives both the Lagekarte and the
   // Plan, so the user can toggle Lage/Plan during playback to inspect each surface at the
@@ -290,10 +296,6 @@ function IncidentWorkspace({
   const [recent, setRecent] = useState<string[]>(init.recent)
   // most-recently-used symbols (shared by both surfaces' palettes) — newest first, deduped, capped
   const addRecent = (name: string) => setRecent((r) => [name, ...r.filter((x) => x !== name)].slice(0, 12))
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [tool, setTool] = useState('select')
-  // map Team tool: the tapped coord awaiting the «Welcher Trupp?» choice (mirrors the plan)
-  const [teamPick, setTeamPick] = useState<LngLat | null>(null)
   // overlay / popover / sheet open-state (views popover, symbol palette, Einstellungen,
   // Objekt-Picker, Hilfe, Installations-Guide, Offline-Bereitschaft, Rapport-Preflight,
   // layers panel) — grouped in useSheets; switching to a tool closes the views popover + panel.
@@ -303,10 +305,6 @@ function IncidentWorkspace({
   // gesture state it's cleared alongside (enterReplay), so those stay plain useState setters.
   const [panel, setPanel] = useState<'layers' | null>(null)
   useEffect(() => { if (tool !== 'select') { setViewsOpen(false); setPanel(null) } }, [tool])
-  const [pending, setPending] = useState<string | null>(null)
-  const [pendingShape, setPendingShape] = useState<ShapeKind | null>(null)
-  // when on, placing a symbol/shape keeps place-mode active for rapid multi-placement
-  const [placeLock, setPlaceLock] = useState(false)
   // measurement tool (distance/height-profile line, or area) — extracted to useMeasure.
   // All ephemeral (never saved); gated on the measure tool being active.
   const measure = useMeasure(tool === 'measure')
@@ -549,11 +547,6 @@ function IncidentWorkspace({
     else patchEntity(id, { label: v })
     setEditNoteId(null)
   }
-  const [selectedDrawingId, setSelectedDrawingId] = useState<string | null>(null)
-  // marquee group selection — mutually exclusive with single-edit selection. The lasso boxes
-  // drawings AND placed entities (symbols/shapes/notes), so the group spans both sets.
-  const [selectedDrawIds, setSelectedDrawIds] = useState<string[]>([])
-  const [selectedEntityIds, setSelectedEntityIds] = useState<string[]>([])
   const [view, setView] = useState<{ bearing: number; center: LngLat; zoom: number }>({ bearing: 0, center: incidentView.center, zoom: getDeploymentConfig().map?.defaultView?.zoom ?? 17.6 })
   // coordinate picker (one-shot crosshair + LV95/WGS84 readout) — extracted to useCoordPicker.
   const coord = useCoordPicker(false, view.center)
