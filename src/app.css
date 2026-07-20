@@ -3083,12 +3083,16 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
      transform:none cancels .wb-dock-map's desktop translateY(-50%) centring. Scrolls horizontally
      when a busy tool (line/area) has more options than fit. */
   .phone-tools .wb-dock { position: fixed; left: 50%; right: auto; top: auto; transform: translateX(-50%);
-    bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom));
+    /* 6px above the tool bar — the SAME gap the tool bar has above the nav bar (both are +6 offsets) */
+    bottom: calc(var(--rail-h) * 2 + 20px + env(safe-area-inset-bottom));
     flex-direction: row; align-items: center; gap: 10px;
     /* width HUGS the content (centred) so a 2-item dock isn't stretched across the screen;
        caps at the viewport and scrolls when a busy tool (line/area) overflows */
     width: max-content; max-width: calc(100vw - 16px); height: var(--rail-h); max-height: var(--rail-h);
     padding: 6px 12px; overflow-x: auto; overflow-y: hidden; }
+  /* buttons keep their size instead of flex-shrinking when a busy dock overflows — otherwise the
+     round × / ℹ squashed into ovals in line/area docks while the bar scrolled */
+  .phone-tools .wb-dock > * { flex: none; }
   /* group dividers run vertically in a horizontal bar (they're a horizontal line in the column) */
   .phone-tools .wb-dock .wb-style-sep { width: 1px; height: 24px; }
   /* colours: a single full-size row (not a cramped 2-row grid) */
@@ -3172,12 +3176,15 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
      "read, not felt" detail that doesn't fit the narrow bar) */
   .tb-weather { gap: 4px; padding: 6px 6px; min-height: 40px; }
   .tb-weather-cond, .tb-weather-temp { display: none; }
-  /* Atemschutz überfällig-chip: on a phone the bar is too narrow to carry the Trupp name too —
-     it pushed the whole chip off the right edge (clipped, unreadable, untappable). Drop the name
-     (it lives on the AS board) and keep the alarm essentials: the pulsing red gauge + the overdue
-     clock, tapping through to the board. The mapNav center button is dropped on the phone map for
-     the same reason (App.tsx), which frees the width this needs. */
-  .tb-az-name { display: none; }
+  /* the weather pop anchors near the top bar; reserve the two bottom bars so a tall readout
+     scrolls internally instead of spilling over them (matches the compass/views menu) */
+  .tb-weather-pop { max-height: calc(100dvh - 90px - var(--rail-h) * 2 - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+  /* Atemschutz überfällig-chip: on a phone the bar is too narrow for the name OR the clock — even
+     with just the clock it still overflowed the header. Show ONLY the pulsing red gauge (crit
+     already blinks); a compact icon-only chip that can't overflow. The exact overdue time lives on
+     the AS board, one tap away. (The mapNav center button is also dropped on the phone map — App.tsx.) */
+  .tb-az-name, .tb-az-clock { display: none; }
+  .tb-az { gap: 0; padding: 7px; }
 
   /* ── NavRail → bottom bar on a phone ── the SAME surface items, re-laid-out as a
      horizontally-scrollable row in the thumb zone (Karte · M1 M2 … · Checkliste ·

@@ -22,5 +22,5 @@
 /* phones: clear ALL THREE bottom bars (nav + tool bar + the horizontal tool-option dock) so the
    hint sits above the dock, not under it — rail-h*3 (was *2, which collided with the dock) */
 @media (max-width: 600px) {
-  .wb-dock-tip { bottom: calc(var(--rail-h) * 3 + 30px + env(safe-area-inset-bottom)); max-width: calc(100vw - 20px); }
+  .wb-dock-tip { bottom: calc(var(--rail-h) * 3 + 26px + env(safe-area-inset-bottom)); max-width: calc(100vw - 20px); }
 }
