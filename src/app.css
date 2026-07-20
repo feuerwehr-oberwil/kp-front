@@ -3314,8 +3314,12 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
   /* Einstellungen rows: the 3-segment controls (Farbschema, Beschriftungen) are wider than
      a phone row leaves next to the label — let the control wrap onto its own right-aligned
      line instead of clipping at the card edge */
-  .set-row { flex-wrap: wrap; }
-  .set-row .set-seg { margin-left: auto; }
+  /* uniform phone layout: the label (+ sub) always takes the full first line, the control drops
+     to its own right-aligned line below — for EVERY row (seg AND stepper), so short rows don't
+     stay inline while long ones wrap and the stepper doesn't sit left while segments sit right */
+  .set-row { flex-wrap: wrap; row-gap: 12px; }
+  .set-row-l { flex: 1 1 100%; }
+  .set-row .set-seg, .set-row .set-step { margin-left: auto; }
 
   /* Einsätze list rows: title + two status badges + the Reaktivieren button never fit one
      line — badges slid under the button and the title crushed to one character. Text block
