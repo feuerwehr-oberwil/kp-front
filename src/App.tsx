@@ -25,6 +25,7 @@ import { useWakeLock } from './lib/useWakeLock'
 import { Overlays, toast, confirmDialog } from './lib/ui'
 import { loadPrefs, savePrefs, symbolMul } from './lib/prefs'
 import { useDevicePrefs } from './lib/useDevicePrefs'
+import { useSheets } from './lib/useSheets'
 import { buildLabel } from './lib/buildInfo'
 import { consumeJustUpdated } from './lib/swUpdate'
 import { useAutoTheme } from './lib/useAutoTheme'
@@ -292,9 +293,15 @@ function IncidentWorkspace({
   const [tool, setTool] = useState('select')
   // map Team tool: the tapped coord awaiting the «Welcher Trupp?» choice (mirrors the plan)
   const [teamPick, setTeamPick] = useState<LngLat | null>(null)
-  // the saved-views (compass) popover open state — lifted here so it's mutually exclusive with
-  // the drawing/measure tool docks (which share its on-screen slot): opening one closes the other.
-  const [viewsOpen, setViewsOpen] = useState(false)
+  // overlay / popover / sheet open-state (views popover, symbol palette, Einstellungen,
+  // Objekt-Picker, Hilfe, Installations-Guide, Offline-Bereitschaft, Rapport-Preflight,
+  // layers panel) — grouped in useSheets; switching to a tool closes the views popover + panel.
+  const { viewsOpen, setViewsOpen, paletteOpen, setPaletteOpen, settingsOpen, setSettingsOpen, pickerOpen, setPickerOpen, helpOpen, setHelpOpen, installGuideOpen, setInstallGuideOpen, offlineReadyOpen, setOfflineReadyOpen, reportPreflightOpen, setReportPreflightOpen } = useSheets()
+  // the layers side panel shares the tool docks' on-screen slot, so switching to any drawing
+  // tool closes it + the views popover. Kept here (not in useSheets) next to the tactical
+  // gesture state it's cleared alongside (enterReplay), so those stay plain useState setters.
+  const [panel, setPanel] = useState<'layers' | null>(null)
+  useEffect(() => { if (tool !== 'select') { setViewsOpen(false); setPanel(null) } }, [tool])
   const [pending, setPending] = useState<string | null>(null)
   const [pendingShape, setPendingShape] = useState<ShapeKind | null>(null)
   // when on, placing a symbol/shape keeps place-mode active for rapid multi-placement
@@ -302,7 +309,6 @@ function IncidentWorkspace({
   // measurement tool (distance/height-profile line, or area) — extracted to useMeasure.
   // All ephemeral (never saved); gated on the measure tool being active.
   const measure = useMeasure(tool === 'measure')
-  const [paletteOpen, setPaletteOpen] = useState(false)
   // surface + active plan are remembered across reloads via a cookie
   const [mode, setMode] = useState<'map' | 'plans' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel'>(prefs.mode ?? 'map')
   // both bars are stacked on the two drawing surfaces (tool bar above the surface bar) —
@@ -326,7 +332,6 @@ function IncidentWorkspace({
   const azIntervalMin = incidentSettings.contactIntervalMin ?? doctrine.contactIntervalMin
   const azGraceSec = incidentSettings.contactGraceSec ?? doctrine.contactGraceSec
   const azFunkkanal = incidentSettings.defaultFunkkanal ?? doctrine.defaultFunkkanal
-  const [settingsOpen, setSettingsOpen] = useState(false)
   // One-shot confirmation after an update reload (swUpdate stamps sessionStorage before it) —
   // closes the loop the reload cut off: the operator sees the new build actually landed.
   useEffect(() => {
@@ -395,11 +400,6 @@ function IncidentWorkspace({
   // the manually-picked Einsatzobjekt id — synced per incident via the workspace blob (not a
   // device cookie), so switching incidents keeps each one's pick and every device agrees.
   const [pickedObjectId, setPickedObjectId] = useState<string | undefined>(init.pickedObjectId)
-  const [pickerOpen, setPickerOpen] = useState(false)
-  const [helpOpen, setHelpOpen] = useState(false)
-  const [installGuideOpen, setInstallGuideOpen] = useState(false)
-  const [offlineReadyOpen, setOfflineReadyOpen] = useState(false)
-  const [reportPreflightOpen, setReportPreflightOpen] = useState(false)
   // a Rapport checklist row navigated to Anwesenheit/Mittel → offer the one-tap way back
   const [rapportReturn, setRapportReturn] = useState(false)
   // the Verlauf drawer sits BELOW the Rapport sheet (z 61 vs 80), so opening it from the
@@ -507,7 +507,6 @@ function IncidentWorkspace({
     if (stillLoading) return // known plan, just not loaded yet — keep it
     setActivePlanId(planDocs[0].id)
   }, [planDocs, activePlanId])
-  const [panel, setPanel] = useState<'layers' | null>(null)
   // unified journal (Verlauf): a single append-only stream shared by both
   // surfaces, plus its quick-add composer — both reachable from the TopBar.
   const [journalOpen, setJournalOpen] = useState(false)
@@ -1045,7 +1044,6 @@ function IncidentWorkspace({
     if (open) { setTool('select'); setPending(null); setPendingShape(null); setDraft([]); setPanel(null) }
     setViewsOpen(open)
   }
-  useEffect(() => { if (tool !== 'select') { setViewsOpen(false); setPanel(null) } }, [tool])
 
   const DRAW_COLORS = appConfig.drawing.colors
   const DRAW_WIDTHS = appConfig.drawing.widths
