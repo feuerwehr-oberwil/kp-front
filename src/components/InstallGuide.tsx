@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
+import { Sheet } from '../lib/overlays'
 import {
   canPromptNative, getInstallPlatform, isInstalled, isStandalone,
   onInstallStateChange, promptNativeInstall,
@@ -40,13 +41,7 @@ export function InstallGuide({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="ip-ovl" onClick={onClose}>
-      <div className="ip-sheet" onClick={(e) => e.stopPropagation()}>
-        <div className="ip-head">
-          <h2>{C.title}</h2>
-          <button className="ip-x" onClick={onClose} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
-        </div>
-        <div className="ip-body">
+    <Sheet open onClose={onClose} title={C.title}>
           {isStandalone() || isInstalled() || accepted ? (
             <div className="ig-done"><Icon id="check" /> {accepted || isInstalled() ? C.installed : C.alreadyStandalone}</div>
           ) : (
@@ -74,8 +69,6 @@ export function InstallGuide({ onClose }: { onClose: () => void }) {
               )}
             </>
           )}
-        </div>
-      </div>
-    </div>
+    </Sheet>
   )
 }

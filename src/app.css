@@ -2895,6 +2895,12 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 /* standalone map picker (intake "Auf Karte setzen" — works with no active incident) */
 .mp-ovl { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; padding: 18px;
   background: rgba(10, 14, 20, .5); backdrop-filter: blur(2px); }
+/* Base UI Overlay variant of the map-picker frame (src/lib/overlays/Overlay.tsx). The mp modals
+   open OVER other sheets, so scrim + popup sit at the old .mp-ovl z-index 120/121 (above the
+   .ip-sheet 80/81). Popup is transform-centred (no .mp-ovl grid parent); the width keeps the old
+   18px gutter that .mp-ovl's padding used to provide. */
+.mp-backdrop { position: fixed; inset: 0; z-index: 120; background: rgba(10, 14, 20, .5); backdrop-filter: blur(2px); }
+.mp-sheet.ui-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 121; width: min(720px, calc(100vw - 36px)); }
 .mp-sheet { display: flex; flex-direction: column; width: min(720px, 100%); height: min(560px, 90vh);
   background: var(--glass); border: 1px solid var(--glass-line); border-radius: var(--r-card, 18px); overflow: hidden;
   box-shadow: 0 24px 60px rgba(0, 0, 0, .4); }

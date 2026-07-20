@@ -3,6 +3,7 @@ import { Icon } from '../lib/icons'
 import { confirmDialog, toast } from '../lib/ui'
 import { buildDirectReportPayload, downloadDirectReportPdf } from '../lib/reportPdfDirect'
 import { KrokiFramingModal } from './KrokiFramingModal'
+import { Overlay } from '../lib/overlays'
 import { cancelPrint, editorPrintTransport, enqueuePrint, fetchPrintStatus, type PrintRelayStatus } from '../lib/printRelay'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
@@ -356,8 +357,8 @@ export function ReportPreflight({
   const close = () => { savedScroll.current = null; onClose() }
 
   return (
-    <div className="ip-ovl" onClick={close}>
-      <div className="ip-sheet ip-wide report-preflight" onClick={(e) => e.stopPropagation()}>
+    <>
+      <Overlay open onClose={close} className="ip-sheet ip-wide report-preflight ui-dialog" ariaLabel={P.title}>
         <div className="ip-head">
           <h2>{P.title}</h2>
           <button className="ip-x" onClick={close} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
@@ -660,7 +661,7 @@ export function ReportPreflight({
             </button>
           </div>
         </div>
-      </div>
+      </Overlay>
 
       {framingFor && scene && (
         <KrokiFramingModal
@@ -676,6 +677,6 @@ export function ReportPreflight({
           }}
         />
       )}
-    </div>
+    </>
   )
 }
