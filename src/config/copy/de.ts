@@ -137,7 +137,9 @@ export const de = {
             '**Stockwerke** als Stapel: mit den **OG/UG**-Knöpfen am Plan ein Geschoss darüber/darunter hinzufügen.',
             '**Zoom/Einpassen** unten in der Werkzeugleiste, wie auf der Karte.',
             '**Teams** (Trupps) als farbige Marker; **Spuren** ein-/ausblenden zeigt ihren Weg. Team-Chips, deren Trupp „raus" ist, werden ausgegraut/durchgestrichen.',
+            '**Massstab** — die zwei Endpunkte des gedruckten Massstabsbalken antippen und die reale Länge eingeben. Danach zeigen Linien mit «Länge» und das **Messen** echte Meter.',
           ] },
+          { kind: 'note', text: 'Die **Gebäudeumrisse** kommen live von OpenStreetMap; **Modul 6** (Geschosspläne) ist ein reiner Blätter-/Zoom-Betrachter — annotiert wird auf dem Gebäude-Stockwerkstapel, nicht auf dem Modul-6-PDF.' },
         ],
       },
       {
@@ -196,6 +198,30 @@ export const de = {
             '**Divera-Pool** — eingehende Alarme übernehmen.',
             '**Einsätze** — Archiv/frühere Einsätze öffnen.',
             '**Aktuellen archivieren** schliesst den laufenden Einsatz ab.',
+          ] },
+        ],
+      },
+      {
+        id: 'rapport', title: 'Rapport & Abschluss', icon: 'doc',
+        blocks: [
+          { kind: 'lead', text: 'Am Einsatzende führt der **Abschluss-Assistent** durch den Rapport — ein vorausgefülltes Erfassungsblatt, kein Formular von null.' },
+          { kind: 'list', items: [
+            'Prüfe **Anwesenheit**, **Mittel** und die Rapportangaben; fehlende Punkte sind markiert, blockieren den Druck aber nie.',
+            '**Rapport-PDF** erzeugt den fertigen Einsatzrapport (inkl. Kroki-Kartenausschnitt) — serverseitig gerendert, ein Knopf.',
+            'Wo eine Wehr einen **Stationsdrucker** betreibt: **Ausdrucken** schickt den Rapport direkt dorthin (bei Unterbruch wird gespeichert und nachgeschickt).',
+            '**Einsatz abschliessen** archiviert den Einsatz und hält das Einsatzende fest.',
+          ] },
+          { kind: 'note', text: 'Ein abgeschlossener Einsatz lässt sich **wieder öffnen** — spätere Ergänzungen erscheinen in Verlauf und Rapport als **Nachträge**, nichts geht verloren.' },
+        ],
+      },
+      {
+        id: 'erfassung', title: 'Erfassung per QR', icon: 'cam',
+        blocks: [
+          { kind: 'lead', text: 'Ein **QR-Poster** im Magazin öffnet die Erfassungs-Ansicht — ohne Login, für alle ohne Tablet-Zugriff.' },
+          { kind: 'list', items: [
+            'Der laufende Einsatz wird gewählt; **Anwesenheit** und **Mittel** lassen sich am eigenen Handy erfassen.',
+            'Die Angaben fliessen in **denselben Einsatz** wie am KP-Tablet und werden zusammengeführt (bei Abweichungen mit Hinweis zum Prüfen).',
+            'Als Rückfall gibt es das **leere Erfassungsblatt (PDF)** zum Ausdrucken und Nachtragen von Hand.',
           ] },
         ],
       },
