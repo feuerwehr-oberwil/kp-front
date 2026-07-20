@@ -1,4 +1,4 @@
-"""The public demo alarm and its synthetic object plan stay one coherent story."""
+"""The pre-filled demo incident and its synthetic object plan stay one coherent story."""
 
 import json
 from pathlib import Path
@@ -6,7 +6,7 @@ from pathlib import Path
 import pypdfium2 as pdfium
 
 from app.admin_objects import _read_manifest, _validate_files
-from app.demo_reset import DEMO_ALARM, DEMO_INCIDENT
+from app.demo_reset import DEMO_INCIDENT
 
 ROOT = Path(__file__).resolve().parents[2]
 DEMO_DIR = ROOT / "examples" / "demo-data"
@@ -24,10 +24,6 @@ def test_demo_incident_matches_its_only_object_plan() -> None:
     assert obj["lat"] == DEMO_INCIDENT["lat"]
     assert obj["lng"] == DEMO_INCIDENT["lng"]
     assert [plan["module"] for plan in obj["plans"]] == ["modul1", "modul2-3", "modul6"]
-
-    # the still-pending alarm is a DIFFERENT incident (shows the take-flow next to the running
-    # one), so it must NOT sit on the Schloss object.
-    assert DEMO_ALARM["address"] != DEMO_INCIDENT["address"]
 
 
 def test_demo_object_manifest_and_pdfs_are_valid() -> None:

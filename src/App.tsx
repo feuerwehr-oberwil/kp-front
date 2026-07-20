@@ -137,13 +137,15 @@ interface WorkspaceProps {
   /** leave the archived read-only view — back to the previously active incident, else the
    *  «Alle Einsätze» list it was entered from (everyone, not just editors) */
   onBackFromArchive?: () => void
+  /** demo sandbox: restore the curated scene (discards the visitor's local scribbles) */
+  onDemoReset: () => void
 }
 
 
 function IncidentWorkspace({
   incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost, onTakeOverTab, onCompleteRapport,
   onSwitchIncident, onOpenHistory, onOpenDivera, onOpenDatenquellen, onArchiveActive, onReactivateActive, onBackFromArchive,
-  needsReview, onReviewDone, onEditMeta, onPatchMeta,
+  needsReview, onReviewDone, onEditMeta, onPatchMeta, onDemoReset,
 }: WorkspaceProps) {
   // Identity + permissions. Viewers get a read-only picture: they can pan / zoom /
   // inspect, but every editing affordance is hidden and commit() is neutered so
@@ -1637,8 +1639,18 @@ function IncidentWorkspace({
 
       {/* "Als App installieren" nudge — browser-tab only, one «Später» dismisses it for good
           on this device (the menu keeps the permanent entry); must stay ADJACENT to
-          UpdateBanner: a CSS sibling rule stacks the two when both are visible */}
-      <InstallBanner onOpenGuide={() => setInstallGuideOpen(true)} />
+          UpdateBanner: a CSS sibling rule stacks the two when both are visible.
+          Hidden on the demo: a visitor isn't installing the demo as their command app. */}
+      {!isDemoMode() && <InstallBanner onOpenGuide={() => setInstallGuideOpen(true)} />}
+
+      {/* Demo sandbox «Zurücksetzen» — bottom-centre in the banner stack (steps up above an
+          UpdateBanner via a CSS sibling rule). Install banner is hidden here, so it owns the
+          slot; discards the visitor's local scribbles and restores the curated scene. */}
+      {isDemoMode() && (
+        <button type="button" className="demo-reset" onClick={onDemoReset}>
+          <Icon id="undo" />{appConfig.copy.demo.resetButton}
+        </button>
+      )}
 
       {/* another tab of this browser is editing this incident → this one is read-only; one tap
           moves editing here (only meaningful for editors — viewers are read-only anyway) */}
@@ -2636,11 +2648,6 @@ export default function App() {
 
   return (
     <>
-      {isDemoMode() && activeId && (
-        <button type="button" className="demo-reset" onClick={resetDemo}>
-          <Icon id="undo" />{appConfig.copy.demo.resetButton}
-        </button>
-      )}
       {activeId && activeMeta && syncRef.current ? (
         <ErrorBoundary key={`eb:${activeId}:${remount}`}>
         <IncidentWorkspace
@@ -2667,6 +2674,7 @@ export default function App() {
           onReviewDone={() => setReviewPendingId(null)}
           onEditMeta={() => setEditMeta(activeMeta)}
           onPatchMeta={(patch) => void patchActiveMeta(patch)}
+          onDemoReset={resetDemo}
         />
         </ErrorBoundary>
       ) : (
