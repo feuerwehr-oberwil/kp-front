@@ -187,11 +187,13 @@ body {
    without inflating the visible button. Densely-packed pickers are enlarged
    directly (overlapping invisible targets would cause mis-taps). */
 .ctx-x, .sym-close, .sym-clear, .tl-play,
-.journal-x, .wb-dock-x, .ip-x, .jc-clip-x, .pp-clear, .step-clear { position: relative; }
+.journal-x, .wb-dock-x, .ip-x, .jc-clip-x, .pp-clear, .step-clear,
+.wb-dock-tog, .wb-dock-go, .jr-jump, .jr-open { position: relative; }
 .ctx-x::after, .sym-close::after, .sym-clear::after,
 .tl-play::after, .wb-del::after,
 .journal-x::after, .wb-dock-x::after, .ip-x::after,
-.jc-clip-x::after, .pp-clear::after, .step-clear::after {
+.jc-clip-x::after, .pp-clear::after, .step-clear::after,
+.wb-dock-tog::after, .wb-dock-go::after, .jr-jump::after, .jr-open::after {
   content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px;
   transform: translate(-50%, -50%);
 }
@@ -962,7 +964,7 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .sym-shape { width: 40px; height: 40px; display: block; }
 /* proper German hyphenation (lang=de) so long compounds split at valid points
    ("Ver­wun­de­ten­nest"), not mid-word orphans like "Verwundetennes-t" */
-.sym-cell small { font-size: 10px; font-weight: 600; color: var(--ink-dim); text-align: center; line-height: 1.1;
+.sym-cell small { font-size: 12px; font-weight: 600; color: var(--ink-dim); text-align: center; line-height: 1.1;
   hyphens: auto; -webkit-hyphens: auto; overflow-wrap: break-word; word-break: normal; }
 /* terse empty/transient line — search no-match, loading, load error (shared with .pp-empty) */
 .sym-empty, .pp-empty { text-align: center; color: var(--ink-faint); font: 500 13px var(--body); padding: 28px 0; }
@@ -1478,28 +1480,6 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 /* current-zoom readout — shares the [fit] row in the plan's pinned footer */
 .vrail-zoom-pct { display: grid; place-items: center; height: 44px; font-family: var(--mono); font-size: 11px; color: var(--ink-dim); }
 
-/* placement hint pinned at the BOTTOM-centre (all in-function help text lives at the bottom,
-   consistent with the coordinate readout — never at the top) */
-/* width: max-content (capped) — without it the left:50% anchor caps the shrink-to-fit box
-   at ~half the stage width, so on a phone the bare-text flex item wrapped into a tall skinny
-   column. Now it stays a short wide pill and the text wraps to at most a couple of lines. */
-.wb-hint { position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%); z-index: 42; background: var(--ink-fill); color: var(--on-accent-ink);
-  width: max-content; max-width: min(92vw, 460px); text-align: center; pointer-events: none;
-  font-size: 12.5px; font-weight: 600; padding: 9px 16px; border-radius: var(--r-surface); box-shadow: var(--shadow); display: flex; align-items: center; justify-content: center; gap: 10px; }
-/* the pill must not swallow the placement tap underneath it (it sits over the stage where the
-   operator is aiming) — only its buttons stay interactive, matching .mp-hint / .kf-hint */
-.wb-hint button { flex: none; pointer-events: auto; }
-.wb-hint button { background: rgba(255, 255, 255, .18); border: none; color: var(--on-accent-ink); border-radius: var(--r-ctl); padding: 4px 10px; font-size: 11px; font-weight: 600; cursor: pointer; }
-.wb-hint-tog { display: grid; place-items: center; padding: 5px 9px; }
-.wb-hint-tog .i { width: 15px; height: 15px; }
-.wb-hint-tog.on { background: var(--on-accent-ink); color: var(--ink); }
-/* node-shape "Fertig" confirm inside the hint bar — green, enabled once the shape is valid */
-.wb-hint-go { display: inline-flex; align-items: center; gap: 5px; background: var(--green) !important; }
-.wb-hint-go:disabled { opacity: .4; cursor: default; background: rgba(255, 255, 255, .12) !important; }
-.wb-hint-go .i { width: 14px; height: 14px; }
-/* on a phone the pill sits low enough to collide with the bottom-left «Massstab …» chip
-   (bottom: 12px) — lift it clear so the two never overlap */
-@media (max-width: 600px) { .wb-hint { bottom: 60px; } }
 
 /* line arrowhead — a 0×0 svg (overflow visible) so the path tip sits exactly at the line end;
    the marker letter (e.g. R for Rettungsachse) sits at the line midpoint */
@@ -3481,7 +3461,7 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 /* Durchhören: opens the audio player sheet for long recordings (rows with audioMeta).
    `.jr-transcript button` would out-specify a bare class — hence the qualified selector. */
 .jr-transcript button.jr-open, button.jr-open { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border);
-  border-radius: 999px; background: var(--surface); color: var(--ink); padding: 6px 12px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; flex: none; }
+  border-radius: 999px; background: var(--surface); color: var(--ink); padding: 6px 12px; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; flex: none; }
 .jr-open .i { width: 13px; height: 13px; }
 .jr-open:hover { background: var(--hover-strong); }
 /* jump chip on rows that annotate a recording — opens the player at that moment */
