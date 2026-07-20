@@ -2323,6 +2323,12 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .ip-sheet > .ip-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 /* fit variant: hug the content instead of the fixed 800px frame (short one-off modals) */
 .ip-sheet.ip-fit { height: auto; max-height: min(800px, 88dvh); }
+/* Base UI Dialog wrapper (src/lib/overlays/Sheet.tsx). Base UI portals the Backdrop and the
+   Popup as SIBLINGS — there is no .ip-ovl grid parent — so the scrim moves onto .ui-backdrop
+   and the centering onto .ip-sheet.ui-dialog. Values mirror the old .ip-ovl exactly (incl. the
+   phone bottom-sheet override at the end of this file) so migrated sheets are pixel-identical. */
+.ui-backdrop { position: fixed; inset: 0; z-index: 80; background: rgba(20,28,40,.32); backdrop-filter: blur(2px); }
+.ip-sheet.ui-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 81; }
 .ip-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 8px; }
 .ip-head h2 { margin: 0; font: 700 19px var(--body); color: var(--ink); }
 .ip-x { border: none; background: none; cursor: pointer; color: var(--ink-dim); padding: 6px; border-radius: var(--r-sm); }
@@ -3240,6 +3246,9 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
   .ip-sheet, .ip-sheet.ip-wide, .pp-sheet:not(.pp-nomap) { width: 100%; max-width: none;
     height: auto; max-height: 92dvh; border-radius: var(--r-hero) var(--r-hero) 0 0; }
   .ip-body { padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
+  /* Base UI Dialog popup has no .ip-ovl grid parent, so bottom-anchor it here (the old
+     .ip-ovl{place-items:end center} did this) — same full-width bottom sheet + sheetUp entrance. */
+  .ip-sheet.ui-dialog { top: auto; bottom: 0; left: 0; transform: none; }
 
   /* confirm dialog stays centred but fits the narrow screen with safe-area gutters */
   .confirm-card { width: min(420px, calc(100vw - 24px)); }

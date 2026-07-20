@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
+import { Sheet } from '../lib/overlays'
 import { fillTemplate } from '../lib/format'
 import { personnelSyncExecute, personnelSyncPreview, type PersonnelSyncPreview, type PersonnelSyncResult } from '../lib/incidents'
 
@@ -48,53 +49,45 @@ export function PersonnelSyncDialog({ provider, onClose, onSynced }: { provider:
   ]
 
   return (
-    <div className="ip-ovl" onClick={onClose}>
-      <div className="ip-sheet" onClick={(e) => e.stopPropagation()}>
-        <div className="ip-head">
-          <h2>{fillTemplate(ps.title, { provider })}</h2>
-          <button className="ip-x" onClick={onClose} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
-        </div>
-        <div className="ip-body">
-          {loading ? (
-            <p className="ip-note"><Icon id="rotate" /> {fillTemplate(ps.querying, { provider })}</p>
-          ) : error && !result ? (
-            <p className="ip-note"><Icon id="warn" /> {error}</p>
-          ) : result ? (
-            <>
-              <p className="ip-note"><Icon id="check" /> {ps.done}</p>
-              <ul className="psync-result">
-                <li>{fillTemplate(ps.resultCreated, { n: result.created })}</li>
-                <li>{fillTemplate(ps.resultUpdated, { n: result.updated })}{result.reactivated ? fillTemplate(ps.resultReactivated, { n: result.reactivated }) : ''}</li>
-                <li>{fillTemplate(ps.resultUnchanged, { n: result.unchanged })}</li>
-                <li>{fillTemplate(ps.resultDeactivated, { n: result.deactivated })}</li>
-              </ul>
-              <div className="ip-actions">
-                <button className="ip-btn primary" onClick={onClose}><Icon id="check" /> {appConfig.copy.done}</button>
-              </div>
-            </>
-          ) : preview ? (
-            <>
-              <ul className="psync-counts">
-                {counts!.map((c) => (
-                  <li key={c.label}><b>{c.n}</b> <span>{c.label}</span></li>
-                ))}
-              </ul>
-              {preview.stale.length > 0 && (
-                <label className="psync-stale">
-                  <input type="checkbox" checked={deactivateStale} onChange={(e) => setDeactivateStale(e.target.checked)} />
-                  <span>{fillTemplate(ps.staleHide, { n: preview.stale.length, provider })}</span>
-                </label>
-              )}
-              <div className="ip-actions">
-                <button className="ip-btn" onClick={onClose} disabled={busy}>{appConfig.copy.cancel}</button>
-                <button className="ip-btn primary" onClick={() => void run()} disabled={busy}>
-                  <Icon id="rotate" />{busy ? ps.syncing : ps.sync}
-                </button>
-              </div>
-            </>
-          ) : null}
-        </div>
-      </div>
-    </div>
+    <Sheet open onClose={onClose} title={fillTemplate(ps.title, { provider })}>
+      {loading ? (
+        <p className="ip-note"><Icon id="rotate" /> {fillTemplate(ps.querying, { provider })}</p>
+      ) : error && !result ? (
+        <p className="ip-note"><Icon id="warn" /> {error}</p>
+      ) : result ? (
+        <>
+          <p className="ip-note"><Icon id="check" /> {ps.done}</p>
+          <ul className="psync-result">
+            <li>{fillTemplate(ps.resultCreated, { n: result.created })}</li>
+            <li>{fillTemplate(ps.resultUpdated, { n: result.updated })}{result.reactivated ? fillTemplate(ps.resultReactivated, { n: result.reactivated }) : ''}</li>
+            <li>{fillTemplate(ps.resultUnchanged, { n: result.unchanged })}</li>
+            <li>{fillTemplate(ps.resultDeactivated, { n: result.deactivated })}</li>
+          </ul>
+          <div className="ip-actions">
+            <button className="ip-btn primary" onClick={onClose}><Icon id="check" /> {appConfig.copy.done}</button>
+          </div>
+        </>
+      ) : preview ? (
+        <>
+          <ul className="psync-counts">
+            {counts!.map((c) => (
+              <li key={c.label}><b>{c.n}</b> <span>{c.label}</span></li>
+            ))}
+          </ul>
+          {preview.stale.length > 0 && (
+            <label className="psync-stale">
+              <input type="checkbox" checked={deactivateStale} onChange={(e) => setDeactivateStale(e.target.checked)} />
+              <span>{fillTemplate(ps.staleHide, { n: preview.stale.length, provider })}</span>
+            </label>
+          )}
+          <div className="ip-actions">
+            <button className="ip-btn" onClick={onClose} disabled={busy}>{appConfig.copy.cancel}</button>
+            <button className="ip-btn primary" onClick={() => void run()} disabled={busy}>
+              <Icon id="rotate" />{busy ? ps.syncing : ps.sync}
+            </button>
+          </div>
+        </>
+      ) : null}
+    </Sheet>
   )
 }
