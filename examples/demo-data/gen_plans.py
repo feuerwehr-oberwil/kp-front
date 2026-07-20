@@ -287,11 +287,13 @@ def draw_modul23(path: Path) -> None:
     c.setFillColor(BLUE)
     c.rect(fx - 1.5 * mm, fy + fh * 0.10, 3 * mm, 13 * mm, fill=1, stroke=0)
 
-    # one symbol centred per room box
-    glyph(c, "GB Treppe 8", fx + fw * 0.17, fy + fh * 0.50, 12 * mm)          # FOYER
-    glyph(c, "GB Brandmeldezentrale", fx + fw * 0.52, fy + fh * 0.72, 12 * mm)  # SAAL
-    glyph(c, "GB Elektrotableau", fx + fw * 0.52, fy + fh * 0.22, 11 * mm)     # TECHNIK
-    glyph(c, "SI Schieber", fx + fw * 0.85, fy + fh * 0.22, 11 * mm)          # LAGER
+    # one symbol centred per room box. The middle/right columns are split by the 0.48 divider
+    # (see the walls above), so the true box centres are (0.48+1)/2 = 0.74 and 0.48/2 = 0.24 —
+    # not the eyeballed 0.72/0.22, which sat the icons ~1.6 mm low.
+    glyph(c, "GB Treppe 8", fx + fw * 0.17, fy + fh * 0.50, 12 * mm)          # FOYER (undivided column)
+    glyph(c, "GB Brandmeldezentrale", fx + fw * 0.52, fy + fh * 0.74, 12 * mm)  # SAAL
+    glyph(c, "GB Elektrotableau", fx + fw * 0.52, fy + fh * 0.24, 11 * mm)     # TECHNIK
+    glyph(c, "SI Schieber", fx + fw * 0.85, fy + fh * 0.24, 11 * mm)          # LAGER
 
     legend(c, fx, panel_y + 5 * mm, fw, [
         ("SI Ueberflurhydrant", "Überflurhydrant"),

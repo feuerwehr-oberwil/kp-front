@@ -448,10 +448,10 @@ def build() -> list[dict]:
         vb=2.4,
     ))
     add("Gebäude", "GB BMA Melder", svg(
-        # single detector as drawn on the BMA-Anlageplan: circle with a centre dot —
+        # single detector as drawn on the BMA-Anlageplan: circle with a RED centre dot —
         # marks the Melder that tripped / where the crew went to check
         [circle(0, 0, 0.75, stroke=BLACK, sw=0.06),
-         circle(0, 0, 0.16, stroke=BLACK, sw=0.06, fill=BLACK)],
+         circle(0, 0, 0.16, stroke=RED, sw=0.06, fill=RED)],
         vb=2.0,
     ))
     add("Gebäude", "GB Fernsignaltableau", svg(
