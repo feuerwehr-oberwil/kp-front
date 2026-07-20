@@ -10,7 +10,7 @@ import { useReplay } from './lib/useReplay'
 import { incident as demoIncident, layers as initialLayers, planDocuments, gebaeudeDoc, preparedOverlays } from './data/demoIncident'
 import type { AttendanceState, BoardAnno, BoardDoc, BuildingDoc, CameraView, CaptionMode, Drawing, Entity, Incident, LayerDef, LayerId, LngLat, MittelEntry, Person, ShapeKind, TimelineEvent, Trupp, TruppFields } from './types'
 import { appConfig } from './config/appConfig'
-import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, shortAddress } from './lib/deploymentConfig'
+import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, shortAddress, isDemoMode } from './lib/deploymentConfig'
 import { fillTemplate, formatSymbolName, formatTime, initials, roleLabel } from './lib/format'
 import { formatAudioDuration } from './lib/audioImport'
 import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys } from './lib/symbols'
@@ -2396,6 +2396,14 @@ export default function App() {
     return list
   }, [])
 
+  // Demo sandbox reset: a visitor's edits live only in the mounted workspace's derived state
+  // (demo never pushes/pulls — see useIncidentSync), so re-deriving from the pristine `workspace`
+  // blob via a remount restores the curated scene. No re-fetch (works offline); discards scribbles.
+  const resetDemo = useCallback(() => {
+    setRemount((n) => n + 1)
+    toast(appConfig.copy.demo.resetDone, { icon: 'check' })
+  }, [])
+
   const selectIncident = useCallback(async (id: string, opts: { readOnly?: boolean; meta?: IncidentMeta } = {}) => {
     const my = ++selectReq.current // any newer call supersedes this one
     if (opts.readOnly) {
@@ -2628,6 +2636,11 @@ export default function App() {
 
   return (
     <>
+      {isDemoMode() && activeId && (
+        <button type="button" className="demo-reset" onClick={resetDemo}>
+          <Icon id="undo" />{appConfig.copy.demo.resetButton}
+        </button>
+      )}
       {activeId && activeMeta && syncRef.current ? (
         <ErrorBoundary key={`eb:${activeId}:${remount}`}>
         <IncidentWorkspace
