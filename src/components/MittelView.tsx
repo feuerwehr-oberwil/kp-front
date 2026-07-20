@@ -239,15 +239,17 @@ export function MittelView({ entries, canEdit, onSave, captureUsage }: {
                     <button type="button" className={s.rowExpand} aria-expanded={open} onClick={() => toggleExpand(row.key)}>
                       <Icon id={open ? 'chevron-down' : 'chevron'} />
                       <span className={s.rowLabel}>{row.label}</span>
+                      {/* stock indicator before the count, matching the single rows */}
+                      {row.totalStock != null && <StockDots remaining={row.totalStock - row.totalUsed} total={row.totalStock} label={row.label} />}
                       <span className={s.rowQty}>{row.totalUsed}</span>
                       <span className={s.rowUnit}>{row.unit}</span>
-                      {row.totalStock != null && <StockDots remaining={row.totalStock - row.totalUsed} total={row.totalStock} label={row.label} />}
                     </button>
                     {open && row.cells.map((cell) => {
                           return (
                         <div key={cell.sourceId ?? cell.sourceLabel ?? ''} className={s.subRow}>
                           <div className={s.rowMain}>
                             <span className={s.subLabel}>{cell.sourceLabel ?? M.noSource}</span>
+                            {cell.stock != null && <StockDots remaining={cell.stock - cell.used} total={cell.stock} label={`${row.label} · ${cell.sourceLabel ?? ''}`} />}
                             {canEdit ? (
                               <div className={s.rowEdit}>
                                 <Stepper value={cell.used} min={0} max={9999} ariaLabel={`${row.label} · ${cell.sourceLabel ?? M.noSource}`} onChange={(v) => saveCell(row, cell, v)} />
@@ -255,7 +257,6 @@ export function MittelView({ entries, canEdit, onSave, captureUsage }: {
                             ) : (
                               <span className={s.rowQty}>{cell.used}</span>
                             )}
-                            {cell.stock != null && <StockDots remaining={cell.stock - cell.used} total={cell.stock} label={`${row.label} · ${cell.sourceLabel ?? ''}`} />}
                           </div>
                             </div>
                       )

@@ -16,6 +16,7 @@ Run from the repository root (uses the backend's reportlab + resvg dependencies)
 import sys
 from pathlib import Path
 
+from PIL import Image
 from reportlab.lib.colors import HexColor, white
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.units import mm
@@ -49,6 +50,18 @@ def glyph(c: canvas.Canvas, name: str, x: float, y: float, size: float = 10 * mm
     img = PACK.raster(name, GLYPH_PX)
     if img is None:
         raise SystemExit(f"unknown symbol {name!r} — check public/tactical-symbols.json")
+    # Centre the actual INK, not the viewBox: symbols vary in where their content sits within their
+    # square viewBox (and how much padding it has), so drawing the raw raster left icons visibly
+    # high/low/small in the chip. Crop to the non-transparent bbox and re-centre it in a square with
+    # a small uniform margin — every glyph then sits dead-centre at a consistent size. (crop/new
+    # return fresh images, so the SymbolPack's cached raster is never mutated.)
+    bbox = img.getbbox()
+    if bbox:
+        content = img.crop(bbox)
+        m = int(max(content.width, content.height) * 1.16)  # ~14 % breathing room inside the chip
+        square = Image.new("RGBA", (m, m), (0, 0, 0, 0))
+        square.paste(content, ((m - content.width) // 2, (m - content.height) // 2))
+        img = square
     c.setFillColor(white)
     c.setStrokeColor(LINE)
     c.setLineWidth(0.6)
@@ -309,7 +322,7 @@ def draw_modul23(path: Path) -> None:
     c.save()
 
 
-def floor_plan(c: canvas.Canvas, w: float, h: float, floor: str, page_no: int, ground: bool = False) -> None:
+def floor_plan(c: canvas.Canvas, w: float, h: float, floor: str, page_no: int, total: int = 3, ground: bool = False) -> None:
     top = header(c, w, h, "MODUL 6", f"Gebäudepläne - {floor}")
     x, y = 27 * mm, 31 * mm
     fw, fh = w - 54 * mm, top - y - 4 * mm
@@ -350,16 +363,25 @@ def floor_plan(c: canvas.Canvas, w: float, h: float, floor: str, page_no: int, g
     c.setFont("Helvetica-Bold", 14)
     c.drawString(x, top + 1 * mm, floor)
     north_arrow(c, x + fw + 11 * mm, y + fh - 22 * mm)
-    footer(c, w, f"Modul 6 / {page_no} von 3")
+    footer(c, w, f"Modul 6 / {page_no} von {total}")
     c.showPage()
 
 
 def draw_modul6(path: Path) -> None:
+    # A longer multi-page document (one storey per page) so the demo shows off the scrolling
+    # object-plan viewer — a real Modul-6 Gebäudeplan set runs to several storeys.
     w, h = A4
     c = new_canvas(path)
-    floor_plan(c, w, h, "ERDGESCHOSS", 1, ground=True)
-    floor_plan(c, w, h, "1. OBERGESCHOSS", 2)
-    floor_plan(c, w, h, "2. OBERGESCHOSS", 3)
+    floors = [
+        ("UNTERGESCHOSS", False),
+        ("ERDGESCHOSS", True),
+        ("1. OBERGESCHOSS", False),
+        ("2. OBERGESCHOSS", False),
+        ("3. OBERGESCHOSS", False),
+    ]
+    total = len(floors)
+    for i, (title, ground) in enumerate(floors, start=1):
+        floor_plan(c, w, h, title, i, total, ground=ground)
     c.save()
 
 
