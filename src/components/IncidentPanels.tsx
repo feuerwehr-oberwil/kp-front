@@ -23,7 +23,7 @@ import { EmptyState } from './EmptyState'
 import { appConfig } from '../config/appConfig'
 import type { IncidentSettings } from '../lib/workspace'
 import type { CaptionMode } from '../types'
-import { atemschutzDoctrine, externalMapLinks, getDeploymentConfig, shortAddress } from '../lib/deploymentConfig'
+import { atemschutzDoctrine, externalMapLinks, getDeploymentConfig, isDemoMode, shortAddress } from '../lib/deploymentConfig'
 import {
   createIncident,
   deleteIncident,
@@ -49,10 +49,12 @@ import {
   type SyncStatus,
 } from '../lib/incidents'
 
-function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
+function Modal({ title, onClose, children, wide, fit }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean; fit?: boolean }) {
   return (
     <div className="ip-ovl" onClick={onClose}>
-      <div className={`ip-sheet${wide ? ' ip-wide' : ''}`} onClick={(e) => e.stopPropagation()}>
+      {/* `fit` = height hugs the content (capped), for short one-off modals that would otherwise
+          leave a big empty bottom in the uniform 800px frame */}
+      <div className={`ip-sheet${wide ? ' ip-wide' : ''}${fit ? ' ip-fit' : ''}`} onClick={(e) => e.stopPropagation()}>
         <div className="ip-head">
           <h2>{title}</h2>
           <button className="ip-x" onClick={onClose} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
@@ -400,7 +402,7 @@ export function OfflineReadinessSheet({
         : o.error
 
   return (
-    <Modal title={o.title} onClose={onClose}>
+    <Modal title={o.title} onClose={onClose} fit>
       <div className="or-sheet">
         <div className={`or-stand or-sync-${syncStatus}`}>
           {/* always offered — a manual refresh must be reachable even when the badge claims
@@ -828,8 +830,11 @@ export function EinsatzWizard({ seed, edit, nearCoord, onClose, onCreated }: {
     title.trim() ||
     (address.trim() ? shortAddress(address.trim()) ?? '' : '') ||
     (ix.kategorienLabels[kategorie ?? ix.kategorien[0]] ?? kategorie ?? ix.kategorien[0])
+  // Demo: a visitor may explore the whole wizard, but actually opening a new Einsatz is blocked
+  // (it would write to the shared backend). Edit / Divera-take stay allowed; only manual create.
+  const demoBlocked = isDemoMode() && !edit && !seed
   const submit = async () => {
-    if (!effectiveTitle || busy) return
+    if (!effectiveTitle || busy || demoBlocked) return
     setBusy(true)
     // Meldungstext/Alarmmeldung is sent on create/take, and on edit once the existing text
     // has been fetched (textReady) so a quick save can't blank it. Alarmierungszeit
@@ -996,10 +1001,11 @@ export function EinsatzWizard({ seed, edit, nearCoord, onClose, onCreated }: {
         </>
       )}
 
+      {demoBlocked && <p className="ip-demo-block"><Icon id="info" /> {ix.demoBlocked}</p>}
       <div className="ip-actions">
         {/* manual create is reached from the intake pool — "Zurück" signals it returns there */}
         <button className="ip-btn" onClick={onClose}>{!seed && !edit ? ix.back : ix.cancel}</button>
-        <button className="ip-btn primary" disabled={!effectiveTitle || busy} onClick={submit}>
+        <button className="ip-btn primary" disabled={!effectiveTitle || busy || demoBlocked} onClick={submit}>
           {busy ? <><Icon id="rotate" className="spin" /> {edit ? ix.saving : ix.opening}</> : edit ? ix.save : ix.open}
         </button>
       </div>
