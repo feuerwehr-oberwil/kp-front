@@ -139,15 +139,13 @@ interface WorkspaceProps {
   /** leave the archived read-only view — back to the previously active incident, else the
    *  «Alle Einsätze» list it was entered from (everyone, not just editors) */
   onBackFromArchive?: () => void
-  /** demo sandbox: restore the curated scene (discards the visitor's local scribbles) */
-  onDemoReset: () => void
 }
 
 
 function IncidentWorkspace({
   incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost, onTakeOverTab, onCompleteRapport,
   onSwitchIncident, onOpenHistory, onOpenDivera, onOpenDatenquellen, onArchiveActive, onReactivateActive, onBackFromArchive,
-  needsReview, onReviewDone, onEditMeta, onPatchMeta, onDemoReset,
+  needsReview, onReviewDone, onEditMeta, onPatchMeta,
 }: WorkspaceProps) {
   // Identity + permissions. Viewers get a read-only picture: they can pan / zoom /
   // inspect, but every editing affordance is hidden and commit() is neutered so
@@ -1586,8 +1584,11 @@ function IncidentWorkspace({
         onOpenWeather={openWeatherDetails}
         azAlarm={azAlarm}
         onOpenAtemschutz={() => { setMode('atemschutz'); setPanel(null) }}
+        // On the phone map surface the floating compass cluster already carries Einpassen
+        // (== centerIncident) + Mein Standort, so a top-bar center button here would just
+        // duplicate it AND crowd the narrow bar off its right edge (clipping the Atemschutz
+        // alarm chip). Plan has no compass cluster, so it keeps its Einpassen button here.
         mapNav={!isPhone ? null
-          : mapUI ? { action: { icon: 'cross', label: appConfig.copy.nav.centerIncident, onClick: centerIncident } }
           : mode === 'plans' ? { action: { icon: 'cross', label: appConfig.copy.nav.fit, onClick: () => planFit.current?.() } }
           : null}
         titleSlot={
@@ -1645,14 +1646,10 @@ function IncidentWorkspace({
           Hidden on the demo: a visitor isn't installing the demo as their command app. */}
       {!isDemoMode() && <InstallBanner onOpenGuide={() => setInstallGuideOpen(true)} />}
 
-      {/* Demo sandbox «Zurücksetzen» — bottom-centre in the banner stack (steps up above an
-          UpdateBanner via a CSS sibling rule). Install banner is hidden here, so it owns the
-          slot; discards the visitor's local scribbles and restores the curated scene. */}
-      {isDemoMode() && (
-        <button type="button" className="demo-reset" onClick={onDemoReset}>
-          <Icon id="undo" />{appConfig.copy.demo.resetButton}
-        </button>
-      )}
+      {/* No demo «Zurücksetzen» button: it sat bottom-centre over the map's bottom controls
+          (obstructing them on a phone), and a plain page reload already restores the pristine
+          scene — the sandbox keeps a visitor's edits in React state only (see useIncidentSync),
+          so reloading re-fetches the curated seed. The welcome modal spells this out. */}
 
       {/* another tab of this browser is editing this incident → this one is read-only; one tap
           moves editing here (only meaningful for editors — viewers are read-only anyway) */}
@@ -1701,8 +1698,8 @@ function IncidentWorkspace({
         <>
           {/* zoom + locate — normally folded into the right ToolRail footer; floats
               top-right only on desktop where the rail is gone (read-only / replay). On a
-              phone, locate + wind live in the top bar instead (see TopBar mapNav), so this
-              cluster isn't rendered there at all. */}
+              phone, the floating .phone-compass cluster below carries Einpassen · Standort ·
+              wind, so this cluster isn't rendered there at all. */}
           {tacticalLocked && !isPhone && (
             <MapUtility
               onZoomIn={() => mapRef.current?.zoomIn()}
@@ -2412,14 +2409,6 @@ export default function App() {
     return list
   }, [])
 
-  // Demo sandbox reset: a visitor's edits live only in the mounted workspace's derived state
-  // (demo never pushes/pulls — see useIncidentSync), so re-deriving from the pristine `workspace`
-  // blob via a remount restores the curated scene. No re-fetch (works offline); discards scribbles.
-  const resetDemo = useCallback(() => {
-    setRemount((n) => n + 1)
-    toast(appConfig.copy.demo.resetDone, { icon: 'check' })
-  }, [])
-
   const selectIncident = useCallback(async (id: string, opts: { readOnly?: boolean; meta?: IncidentMeta } = {}) => {
     const my = ++selectReq.current // any newer call supersedes this one
     if (opts.readOnly) {
@@ -2679,7 +2668,6 @@ export default function App() {
           onReviewDone={() => setReviewPendingId(null)}
           onEditMeta={() => setEditMeta(activeMeta)}
           onPatchMeta={(patch) => void patchActiveMeta(patch)}
-          onDemoReset={resetDemo}
         />
         </ErrorBoundary>
       ) : (

@@ -1204,8 +1204,6 @@ export const de = {
   demo: {
     ribbon: 'DEMO',
     ariaLabel: 'Demo-Instanz mit synthetischen Daten',
-    resetButton: 'Demo zurücksetzen',
-    resetDone: 'Ausgangslage wiederhergestellt.',
     welcome: {
       title: 'Willkommen bei KP Front',
       intro: 'Das ist eine Demo mit erfundenen Daten – kein echter Einsatz. Probier alles frei aus.',
@@ -1219,7 +1217,7 @@ export const de = {
       knowTitle: 'Gut zu wissen',
       know: [
         'Deine Änderungen bleiben nur auf diesem Gerät – nichts wird mit anderen geteilt oder gespeichert.',
-        'Mit «Demo zurücksetzen» (unten) stellst du jederzeit die Ausgangslage wieder her.',
+        'Ein Neuladen der Seite stellt jederzeit die Ausgangslage wieder her.',
       ],
       cta: 'Los geht’s',
     },
