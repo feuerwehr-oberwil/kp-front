@@ -1111,7 +1111,9 @@
   transition: background .14s var(--ease), border-color .14s var(--ease), color .14s var(--ease);
 }
 .adm-menu-btn:hover { background: var(--surface); color: var(--ink); border-color: color-mix(in srgb, var(--blue) 30%, var(--border)); }
-.adm-menu.open .adm-menu-btn { background: var(--surface); color: var(--ink); border-color: var(--blue); }
+/* open trigger: Base UI sets [data-popup-open] on the trigger (the old .adm-menu.open class
+   is gone with the hand-rolled menu) */
+.adm-menu-btn[data-popup-open] { background: var(--surface); color: var(--ink); border-color: var(--blue); }
 .adm-menu-btn:disabled { opacity: .45; cursor: not-allowed; }
 .adm-menu-btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 .adm-menu-ic { width: 18px; height: 18px; }
@@ -1131,10 +1133,14 @@
   transition: background .12s var(--ease), color .12s var(--ease);
 }
 .adm-menu-item-label { font: 600 13px var(--body); }
-.adm-menu-item:hover:not(:disabled) { background: color-mix(in srgb, var(--blue) 8%, transparent); color: var(--ink); }
+/* Base UI Menu.Item is a div with data-disabled / data-highlighted (keyboard nav) attributes,
+   not a <button> with :disabled — so hover AND keyboard highlight both light the row. */
+.adm-menu-item:hover:not([data-disabled]),
+.adm-menu-item[data-highlighted]:not([data-disabled]) { background: color-mix(in srgb, var(--blue) 8%, transparent); color: var(--ink); }
 .adm-menu-item.danger { color: var(--red); }
-.adm-menu-item.danger:hover:not(:disabled) { background: color-mix(in srgb, var(--red) 8%, transparent); }
-.adm-menu-item:disabled { cursor: default; color: var(--ink-faint); }
+.adm-menu-item.danger:hover:not([data-disabled]),
+.adm-menu-item.danger[data-highlighted]:not([data-disabled]) { background: color-mix(in srgb, var(--red) 8%, transparent); }
+.adm-menu-item[data-disabled] { cursor: default; color: var(--ink-faint); }
 .adm-menu-item:focus-visible { outline: 2px solid var(--blue); outline-offset: -1px; }
 .adm-menu-reason { font-size: 10.5px; font-weight: 500; color: var(--ink-faint); }
 

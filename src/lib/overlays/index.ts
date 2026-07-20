@@ -4,3 +4,4 @@
 export { Sheet, SheetClose, type SheetProps } from './Sheet'
 export { Overlay, type OverlayProps } from './Overlay'
 export { ConfirmCard } from './ConfirmCard'
+export { Menu, type MenuActionItem } from './Menu'
