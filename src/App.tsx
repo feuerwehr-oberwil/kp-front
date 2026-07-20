@@ -8,7 +8,7 @@ import { useVehicleLayer, type VehicleOverrides } from './lib/useVehicleLayer'
 import { autoActivateLayers, deriveInitial, rebaseDemoClocks, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type IncidentSettings, type PlanScales, type ReportMeta, type Saved, type WorkspaceGate } from './lib/workspace'
 import { useReplay } from './lib/useReplay'
 import { incident as demoIncident, layers as initialLayers, planDocuments, gebaeudeDoc, preparedOverlays } from './data/demoIncident'
-import type { AttendanceState, BoardAnno, BoardDoc, BuildingDoc, CameraView, CaptionMode, Drawing, Entity, Incident, LayerDef, LayerId, LngLat, MittelEntry, Person, ShapeKind, TimelineEvent, Trupp, TruppFields } from './types'
+import type { AttendanceState, BoardAnno, BoardDoc, BuildingDoc, CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LngLat, MittelEntry, Person, ShapeKind, TimelineEvent, Trupp, TruppFields } from './types'
 import { appConfig } from './config/appConfig'
 import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, shortAddress, isDemoMode } from './lib/deploymentConfig'
 import { fillTemplate, formatSymbolName, formatTime, initials, roleLabel } from './lib/format'
@@ -23,7 +23,8 @@ import { useUndoableDoc } from './lib/useUndoableDoc'
 import { useJournal } from './lib/useJournal'
 import { useWakeLock } from './lib/useWakeLock'
 import { Overlays, toast, confirmDialog } from './lib/ui'
-import { loadPrefs, savePrefs, symbolMul, type SymbolSize } from './lib/prefs'
+import { loadPrefs, savePrefs, symbolMul } from './lib/prefs'
+import { useDevicePrefs } from './lib/useDevicePrefs'
 import { buildLabel } from './lib/buildInfo'
 import { consumeJustUpdated } from './lib/swUpdate'
 import { useAutoTheme } from './lib/useAutoTheme'
@@ -307,18 +308,11 @@ function IncidentWorkspace({
   // both bars are stacked on the two drawing surfaces (tool bar above the surface bar) —
   // this drives the extra bottom clearances for FAB / docks / stage on phones
   const phoneTools = isPhone && !tacticalLocked && (mode === 'map' || mode === 'plans')
-  // global tactical-symbol size (S/M/L) — applied to both surfaces, persisted like theme.
-  // These four read loadPrefs() lazily (not the boot-time `prefs` snapshot) so changes made
-  // in the landing Einstellungen survive opening an incident afterwards.
-  const [symbolSize, setSymbolSize] = useState<SymbolSize>(() => loadPrefs().symbolSize ?? 'M')
+  // global tactical-symbol size (S/M/L), captions, offline cache radius, keep-screen-on —
+  // device prefs shared with the landing Einstellungen (see useDevicePrefs; lazy loadPrefs
+  // seed). Their persistence rides the mode/activePlanId effect below.
+  const { symbolSize, setSymbolSize, symbolCaptions, setSymbolCaptions, offlineRadiusM, setOfflineRadiusM, keepScreenOn, setKeepScreenOn } = useDevicePrefs()
   const symMul = symbolMul(symbolSize)
-  // on-canvas symbol captions (Aus/Auto/Alle) — device pref, applied to both surfaces
-  const [symbolCaptions, setSymbolCaptions] = useState<CaptionMode>(() => loadPrefs().symbolCaptions ?? appConfig.symbols.captionDefault as CaptionMode)
-  // how much map/Leitungskataster to cache around the incident — editable device pref
-  const [offlineRadiusM, setOfflineRadiusM] = useState<number>(() => loadPrefs().offlineRadiusM ?? 1200)
-  // keep the screen awake while an incident is open — device pref, default on (a scene tablet must
-  // not dim). Lets a personal/background device opt out and save battery. See useWakeLock.
-  const [keepScreenOn, setKeepScreenOn] = useState<boolean>(() => loadPrefs().keepScreenOn ?? true)
   // "Mein Standort": bumping this takes a single GPS fix + flies to it. On-demand (no continuous
   // watch) so the GPS chip isn't powered all shift — see MapView.locateNonce.
   const [locateReq, setLocateReq] = useState(0)
@@ -2304,10 +2298,7 @@ function IncidentWorkspace({
  *  pref state itself (mounted only while open, reads/writes the prefs cookie directly);
  *  the synced per-incident section is hidden by omitting settings/onSettings. */
 function LandingSettings({ onClose }: { onClose: () => void }) {
-  const [symbolSize, setSymbolSize] = useState<SymbolSize>(() => loadPrefs().symbolSize ?? 'M')
-  const [symbolCaptions, setSymbolCaptions] = useState<CaptionMode>(() => loadPrefs().symbolCaptions ?? appConfig.symbols.captionDefault as CaptionMode)
-  const [offlineRadiusM, setOfflineRadiusM] = useState<number>(() => loadPrefs().offlineRadiusM ?? 1200)
-  const [keepScreenOn, setKeepScreenOn] = useState<boolean>(() => loadPrefs().keepScreenOn ?? true)
+  const { symbolSize, setSymbolSize, symbolCaptions, setSymbolCaptions, offlineRadiusM, setOfflineRadiusM, keepScreenOn, setKeepScreenOn } = useDevicePrefs()
   useEffect(() => {
     savePrefs({ ...loadPrefs(), symbolSize, symbolCaptions, offlineRadiusM, keepScreenOn })
   }, [symbolSize, symbolCaptions, offlineRadiusM, keepScreenOn])
