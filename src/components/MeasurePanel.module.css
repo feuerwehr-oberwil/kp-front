@@ -29,6 +29,8 @@
 @media (max-width: 600px) {
   .measure-panel { left: 10px; right: 10px; width: auto; transform: none;
     bottom: calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)); }
+  /* the Messen tool carries a tool-option dock (its own horizontal bar), so the results panel
+     clears THREE bars: nav + tool bar + dock (rail-h*3), else the dock overlapped it */
   :global(.phone-tools) .measure-panel {
-    bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom)); }
+    bottom: calc(var(--rail-h) * 3 + 24px + env(safe-area-inset-bottom)); }
 }

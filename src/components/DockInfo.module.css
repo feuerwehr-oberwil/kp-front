@@ -14,7 +14,8 @@
 .wb-dock-tip { position: fixed; left: 50%; bottom: calc(28px + env(safe-area-inset-bottom)); right: auto; top: auto; transform: translateX(-50%);
   width: max-content; max-width: min(440px, 90vw); background: var(--ink-fill); color: var(--on-accent-ink); font-size: 12.5px; font-weight: 500;
   line-height: 1.4; text-align: center; padding: 9px 16px; border-radius: var(--r-surface); box-shadow: var(--shadow); z-index: 205; }
-/* phones: clear the bottom bars (nav + tool bar) so the hint isn't hidden behind them */
+/* phones: clear ALL THREE bottom bars (nav + tool bar + the horizontal tool-option dock) so the
+   hint sits above the dock, not under it — rail-h*3 (was *2, which collided with the dock) */
 @media (max-width: 600px) {
-  .wb-dock-tip { bottom: calc(var(--rail-h) * 2 + 28px + env(safe-area-inset-bottom)); max-width: calc(100vw - 20px); }
+  .wb-dock-tip { bottom: calc(var(--rail-h) * 3 + 30px + env(safe-area-inset-bottom)); max-width: calc(100vw - 20px); }
 }
