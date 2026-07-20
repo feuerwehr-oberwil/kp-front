@@ -258,7 +258,9 @@ export const DEFAULT_MODULES: DeploymentModule[] = [
   { id: 'modul2', code: 'M2', title: 'Umgebung', order: 2, match: String.raw`modul\s*2(?!\s*[-–/]\s*\d)` },
   { id: 'modul3', code: 'M3', title: 'Objektplan', order: 3, match: String.raw`modul\s*3(?!\s*[-–/]\s*\d)` },
   { id: 'modul2-3', code: '2/3', title: 'Umgebung & Objekt', order: 4, match: String.raw`modul\s*2\s*[-–/]\s*3`, combinedWith: ['modul2', 'modul3'] },
-  { id: 'modul6', code: 'M6', title: 'Gebäudepläne', order: 6, orientation: 'portrait', match: String.raw`modul\s*6` },
+  // Modul 6 = Geschosspläne: a reference PDF you SCROLL, not annotate (building annotation lives on
+  // the interactive Gebäude floor-stack) — so it opens in the plain multi-page viewer by default.
+  { id: 'modul6', code: 'M6', title: 'Gebäudepläne', order: 6, orientation: 'portrait', viewer: true, match: String.raw`modul\s*6` },
   { id: 'modul5', code: 'M5', title: 'Spezialpläne', order: 5, family: true, match: String.raw`modul\s*5(?:\s*[-–—]\s*([0-9A-Za-zÄÖÜäöü]+))?` },
   { id: 'modul4', code: 'M4', title: 'Spezialplan', order: 7, match: String.raw`modul\s*4` },
 ]
@@ -473,8 +475,9 @@ export function modulesFromConfig(): PlanDocument[] {
  *  config, else a `family` module whose id is the slot's prefix (modul5 → modul5-pv). False when
  *  unconfigured. */
 export function moduleViewer(id: string): boolean {
-  const mods = resolved.modules
-  if (!Array.isArray(mods)) return false
+  // fall back to the national defaults when the deployment didn't configure modules, so the
+  // built-in viewer flags (e.g. Modul 6 = scroll-only) still apply.
+  const mods = Array.isArray(resolved.modules) && resolved.modules.length ? resolved.modules : DEFAULT_MODULES
   const exact = mods.find((m) => m.id === id && !m.family)
   if (exact) return !!exact.viewer
   const family = mods.find((m) => m.family && (id === m.id || id.startsWith(`${m.id}-`)))

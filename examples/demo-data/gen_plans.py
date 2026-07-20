@@ -236,6 +236,19 @@ def draw_modul1(path: Path) -> None:
     for i, text in enumerate(("- Zufahrt nur via Schlossgasse", "- Innenhof für ADL freihalten", "- Hydrant H-17: DN 150")):
         c.drawString(lx + 4 * mm, hints_y + (13 - i * 5) * mm, text)
 
+    # dummy MASSSTAB (scale bar) bottom-left so the plan-scale calibration is testable in the demo:
+    # tap the two ends, then enter 10 m. On a white chip so it reads on any map background.
+    sb_len = 32 * mm
+    sb_x, sb_y = x0 + 8 * mm, y0 + 10 * mm
+    c.setFillColor(white); c.setStrokeColor(LINE); c.setLineWidth(0.6)
+    c.roundRect(sb_x - 5 * mm, sb_y - 5 * mm, sb_len + 10 * mm, 13 * mm, 1.5 * mm, fill=1, stroke=1)
+    c.setStrokeColor(INK); c.setLineWidth(1.6)
+    c.line(sb_x, sb_y, sb_x + sb_len, sb_y)
+    c.line(sb_x, sb_y - 2 * mm, sb_x, sb_y + 2 * mm)                       # end ticks
+    c.line(sb_x + sb_len, sb_y - 2 * mm, sb_x + sb_len, sb_y + 2 * mm)
+    c.setFillColor(INK); c.setFont("Helvetica-Bold", 8)
+    c.drawCentredString(sb_x + sb_len / 2, sb_y + 3.5 * mm, "10 m")
+
     footer(c, w, "Modul 1 / 1")
     c.showPage()
     c.save()
