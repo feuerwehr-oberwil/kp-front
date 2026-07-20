@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useEffect, useState } from 'react'
+import { Popover, PopoverClose } from '../lib/overlays'
 import { fmtMMSS } from '../lib/geo'
 import { fmtElapsedHM } from '../lib/format'
 import { formatTime, fillTemplate } from '../lib/format'
@@ -143,29 +143,32 @@ export function TopBar({ incident, startedAt, recording, recStartedAt, journalOp
  *  instead (the bar is too narrow — it clipped at the screen edge). */
 export function WeatherBadge({ weather, onOpenMeteo }: { weather: WeatherData; onOpenMeteo?: () => void }) {
   const cond = condition(weather.weather_code)
-  const [wxOpen, setWxOpen] = useState(false)
-  const wxBtnRef = useRef<HTMLButtonElement>(null)
-  useEffect(() => {
-    if (!wxOpen) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setWxOpen(false) }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [wxOpen])
   if (weather.wind_dir_deg == null) return null
   return (
     <div className="tb-weather-wrap">
-      <button ref={wxBtnRef} className="tb-weather" onClick={() => setWxOpen((v) => !v)} aria-expanded={wxOpen}
-        title={`${cond ? `${cond.label} · ` : ''}${fillTemplate(appConfig.copy.weather.windTitle, { dir: fromLabel(weather.wind_dir_deg), deg: Math.round(weather.wind_dir_deg) })}${appConfig.copy.weather.detailsHint}`}
-        aria-label={appConfig.copy.weather.label}>
-        {cond && <span className="tb-weather-cond" aria-hidden><Icon id={cond.icon} /></span>}
-        {weather.temp_c != null && <b className="tb-weather-temp">{Math.round(weather.temp_c)}°</b>}
-        {/* arrow points DOWNWIND (where the wind/smoke is going) — dir is the FROM bearing */}
-        <span className="tb-wind-arr" style={{ transform: `rotate(${windArrowRotation(weather.wind_dir_deg)}deg)` }} aria-hidden>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3 L12 21" /><path d="M6 15 L12 21 L18 15" /></svg>
-        </span>
-        {weather.wind_speed_kmh != null && <b>{Math.round(weather.wind_speed_kmh)} km/h</b>}
-      </button>
-      {wxOpen && <WeatherDetails weather={weather} cond={cond} anchor={wxBtnRef.current} onClose={() => setWxOpen(false)} onOpenMeteo={onOpenMeteo} />}
+      <Popover
+        popupClassName="tb-weather-pop"
+        ariaLabel={appConfig.copy.weather.details}
+        side="bottom"
+        align="end"
+        sideOffset={8}
+        zIndex={201}
+        trigger={
+          <button className="tb-weather"
+            title={`${cond ? `${cond.label} · ` : ''}${fillTemplate(appConfig.copy.weather.windTitle, { dir: fromLabel(weather.wind_dir_deg), deg: Math.round(weather.wind_dir_deg) })}${appConfig.copy.weather.detailsHint}`}
+            aria-label={appConfig.copy.weather.label}>
+            {cond && <span className="tb-weather-cond" aria-hidden><Icon id={cond.icon} /></span>}
+            {weather.temp_c != null && <b className="tb-weather-temp">{Math.round(weather.temp_c)}°</b>}
+            {/* arrow points DOWNWIND (where the wind/smoke is going) — dir is the FROM bearing */}
+            <span className="tb-wind-arr" style={{ transform: `rotate(${windArrowRotation(weather.wind_dir_deg)}deg)` }} aria-hidden>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3 L12 21" /><path d="M6 15 L12 21 L18 15" /></svg>
+            </span>
+            {weather.wind_speed_kmh != null && <b>{Math.round(weather.wind_speed_kmh)} km/h</b>}
+          </button>
+        }
+      >
+        <WeatherDetails weather={weather} cond={cond} onOpenMeteo={onOpenMeteo} />
+      </Popover>
     </div>
   )
 }
@@ -173,24 +176,20 @@ export function WeatherBadge({ weather, onOpenMeteo }: { weather: WeatherData; o
 // Tap-to-open weather detail popover: spells the wind direction out, surfaces the params we
 // already fetch but don't fit in the bar (gusts, precip, station, reading time), and is the
 // ONLY place the external MeteoSchweiz radar link lives.
-function WeatherDetails({ weather, cond, anchor, onClose, onOpenMeteo }: {
+// Content of the weather detail popover (the <Popover> primitive supplies the anchored,
+// portalled, dismissible shell): spells the wind direction out, surfaces the params we already
+// fetch but don't fit in the bar (gusts, precip, station, reading time), and is the ONLY place
+// the external MeteoSchweiz radar link lives.
+function WeatherDetails({ weather, cond, onOpenMeteo }: {
   weather: WeatherData
   cond: { icon: string; label: string } | null
-  anchor: HTMLElement | null
-  onClose: () => void
   onOpenMeteo?: () => void
 }) {
   const dir = weather.wind_dir_deg
   const observed = weather.observed_at ? new Date(weather.observed_at).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) : null
-  // portalled to <body> so the full-screen scrim escapes the TopBar's backdrop-filter containing
-  // block (which otherwise traps a position:fixed scrim to the bar, so taps on the map never closed it)
-  const r = anchor?.getBoundingClientRect()
-  const pos: React.CSSProperties = r ? { position: 'fixed', top: r.bottom + 8, right: Math.max(8, window.innerWidth - r.right) } : {}
   const w = appConfig.copy.weather
-  return createPortal(
+  return (
     <>
-      <button className="tb-weather-scrim" aria-label={appConfig.copy.closeDialog} onClick={onClose} />
-      <div className="tb-weather-pop" role="dialog" aria-label={w.details} style={pos}>
         <div className="wx-pop-head">
           {cond && <span className="wx-pop-cond" aria-hidden><Icon id={cond.icon} /></span>}
           <div className="wx-pop-head-t">
@@ -219,12 +218,10 @@ function WeatherDetails({ weather, cond, anchor, onClose, onOpenMeteo }: {
           )}
         </dl>
         {onOpenMeteo && (
-          <button className="wx-pop-link" onClick={() => { onOpenMeteo(); onClose() }}>
+          <PopoverClose className="wx-pop-link" onClick={onOpenMeteo}>
             <Icon id="eye" /><span>{w.meteoRadar}</span>
-          </button>
+          </PopoverClose>
         )}
-      </div>
-    </>,
-    document.body,
+    </>
   )
 }

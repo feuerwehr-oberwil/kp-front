@@ -1,6 +1,6 @@
-import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { createPortal } from 'react-dom'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
+import { Menu } from '../lib/overlays'
 import { InfoTip } from './InfoTip'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
@@ -234,80 +234,31 @@ export function ActionMenu({ actions, ariaLabel, disabled }: {
   ariaLabel: string
   disabled?: boolean
 }) {
-  const [open, setOpen] = useState(false)
-  // The list is PORTALLED to <body> with fixed positioning: rendered inline it forced the
-  // table's scroll container to grow/scroll (feedback 2026-07-14). Flip upward when there
-  // isn't room below so the last rows of a long table stay reachable.
-  const [rect, setRect] = useState<DOMRect | null>(null)
-  const ref = useRef<HTMLDivElement>(null)
-  const listRef = useRef<HTMLUListElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    setRect(ref.current?.getBoundingClientRect() ?? null)
-    const onDoc = (e: MouseEvent) => {
-      const target = e.target as Node
-      if (ref.current && !ref.current.contains(target) && !listRef.current?.contains(target)) setOpen(false)
-    }
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
-    const onAway = () => setOpen(false) // scroll/resize: cheap close beats stale coordinates
-    document.addEventListener('mousedown', onDoc)
-    document.addEventListener('keydown', onKey)
-    window.addEventListener('scroll', onAway, true)
-    window.addEventListener('resize', onAway)
-    return () => {
-      document.removeEventListener('mousedown', onDoc)
-      document.removeEventListener('keydown', onKey)
-      window.removeEventListener('scroll', onAway, true)
-      window.removeEventListener('resize', onAway)
-    }
-  }, [open])
-
-  const up = rect ? window.innerHeight - rect.bottom < 260 : false
-  const listStyle: CSSProperties = rect
-    ? {
-        position: 'fixed',
-        right: Math.max(8, window.innerWidth - rect.right),
-        ...(up ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.bottom + 4 }),
-      }
-    : { display: 'none' }
-
+  // Base UI's Positioner handles the portal + collision-aware flip-up that this used to hand-roll
+  // (getBoundingClientRect + a 260px threshold + scroll/resize close), and adds keyboard nav.
+  // The .adm-menu wrapper stays for layout (.adm-members-actions-col .adm-menu); the open trigger
+  // styles off [data-popup-open] (Base UI) instead of the old .adm-menu.open class.
   return (
-    <div className={`adm-menu${open ? ' open' : ''}`} ref={ref}>
-      <button
-        type="button"
-        className="adm-menu-btn"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label={ariaLabel}
-        disabled={disabled}
-        onClick={() => setOpen((o) => !o)}
-      >
-        <Icon id="more-vert" className="adm-menu-ic" />
-      </button>
-      {open && createPortal(
-        <ul className="adm-menu-list adm-menu-portal" role="menu" ref={listRef} style={listStyle}>
-          {actions.map((a, i) => (
-            <li key={i} role="none">
-              <button
-                type="button"
-                role="menuitem"
-                className={`adm-menu-item${a.danger ? ' danger' : ''}`}
-                disabled={a.disabled}
-                title={a.title}
-                onClick={() => { setOpen(false); a.onClick() }}
-              >
-                <span className="adm-menu-item-label">{a.label}</span>
-                {/* a disabled item keeps its reason visible (native title never shows on a
-                    disabled control) so the operator still learns WHY it's off. */}
-                {a.disabled && a.title && <span className="adm-menu-reason">{a.title}</span>}
-              </button>
-            </li>
-          ))}
-        </ul>,
-        document.body,
-      )}
-    </div>
+    <span className="adm-menu">
+      <Menu
+        trigger={
+          <button type="button" className="adm-menu-btn" aria-label={ariaLabel} disabled={disabled}>
+            <Icon id="more-vert" className="adm-menu-ic" />
+          </button>
+        }
+        items={actions.map((a) => ({
+          label: <span className="adm-menu-item-label">{a.label}</span>,
+          onClick: a.onClick,
+          danger: a.danger,
+          disabled: a.disabled,
+          // a disabled item keeps its reason visible (native title never shows on a disabled control)
+          reason: a.title,
+        }))}
+        popupClassName="adm-menu-list adm-menu-portal"
+        itemClassName={(danger) => `adm-menu-item${danger ? ' danger' : ''}`}
+        reasonClassName="adm-menu-reason"
+      />
+    </span>
   )
 }
 

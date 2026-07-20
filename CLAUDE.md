@@ -86,6 +86,17 @@ to prod.
 - **CSS:** design tokens, the day/night flip (`[data-theme="night"]`), and shared chrome live
   in `src/app.css`; component-specific layout goes in `*.module.css` files that reference
   `var(--token)`; the admin UI uses `src/admin/admin.css`.
+- **Overlays go through `src/lib/overlays/`** (`Sheet`/`SheetClose`, `Overlay`, `ConfirmCard`,
+  `Menu`, `Popover`/`PopoverClose`) — thin wrappers over **Base UI** (`@base-ui/react`, headless)
+  that supply focus trap/restore, scroll-lock, Esc, backdrop/outside-click dismissal, and ARIA,
+  painted with the existing `.ip-*`/token CSS. That package is imported **only** inside
+  `src/lib/overlays/` — every surface uses the wrappers, so behaviour/theming/a11y live in one
+  place. Base UI portals Backdrop+Popup as siblings, so scrim = `.ui-backdrop` and centering =
+  `.ip-sheet.ui-dialog` (see app.css). **Modal surfaces only** — the non-modal map tool-docks
+  (`MapViewsMenu` views popover, the `.ctx` tool editors, the incident `ip-menu`) stay
+  hand-rolled: a focus-trapping/scroll-locking primitive would break map interaction. `Combo`
+  and the tap-toggle `DockInfo`/`InfoTip` also stay bespoke (free-type + in-menu toggle / a
+  tablet tap model don't map cleanly to Base UI Select/Tooltip).
 - **Coordinates are WGS84 `[lng, lat]` wherever the map renders.** LV95 only at the edges via
   `src/lib/geo.ts` (`wgs84ToLV95` / `lv95ToWgs84` / `fmtLV95`), the `centerLv95` config option,
   and the geocoder bbox. Reference-layer GeoJSON (hydrants, …) must be WGS84.
