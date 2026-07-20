@@ -1036,6 +1036,10 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 @keyframes toastIn { from { opacity: 0; transform: translateY(10px) scale(.96); } }
 
 .confirm-backdrop { z-index: 95; }
+/* Base UI AlertDialog (src/lib/overlays/ConfirmCard.tsx): scrim + card are portal siblings, so
+   the card centres itself (the old .modal-backdrop grid parent is gone). Sits just above the
+   confirm-backdrop (95). */
+.confirm-card.ui-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 96; }
 .confirm-card { width: min(420px, 92vw); background: var(--surface); backdrop-filter: blur(14px) saturate(1.4);
   border: 1px solid var(--glass-line); border-radius: var(--r-hero); padding: 22px 22px 16px; box-shadow: 0 30px 80px rgba(20, 28, 40, .4);
   animation: pop .14s ease; }

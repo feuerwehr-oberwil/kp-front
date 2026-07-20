@@ -3,3 +3,4 @@
 // See docs/planning/base-ui-adoption.md.
 export { Sheet, SheetClose, type SheetProps } from './Sheet'
 export { Overlay, type OverlayProps } from './Overlay'
+export { ConfirmCard } from './ConfirmCard'
