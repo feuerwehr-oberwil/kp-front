@@ -32,6 +32,7 @@ import { useBoardView } from './useBoardView'
 import { useBoardDoc } from './useBoardDoc'
 import { useBoardGestures } from './useBoardGestures'
 import { WbToolDocks, WbInkLayer, WbVertexHandles } from './WbControls'
+import { ToolDock } from './ToolDock'
 import { ToolRail } from './ToolRail'
 
 const COLORS = appConfig.drawing.colors
@@ -1553,18 +1554,24 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         />
       )}
 
+      {/* symbol/shape placement — the SAME shared ToolDock the Lage map uses (close + keep-placing
+          lock + info hint), so placing on the plan feels identical to placing on the map. Rest tool
+          is 'pan' here (the plan pans on empty canvas) vs the map's 'select'. */}
       {pending && tool === 'symbol' && (
-        <div className="wb-hint">{fillTemplate(appConfig.copy.whiteboard.placeSymbolHint, { name: formatSymbolName(pending) })}
-          <button className={`wb-hint-tog ${placeLock ? 'on' : ''}`} aria-pressed={placeLock} title={appConfig.copy.keepPlacing} aria-label={appConfig.copy.keepPlacing} onClick={() => setPlaceLock((v) => !v)}><Icon id="lock" /></button>
-          <button onClick={() => { setPending(null); setTool('pan') }}>{appConfig.copy.cancel}</button>
-        </div>
+        <ToolDock groups={[
+          [{ type: 'close', onClick: () => { setPending(null); setTool('pan') } }],
+          [{ type: 'toggle', icon: 'lock', label: appConfig.copy.keepPlacing, on: placeLock, onClick: () => setPlaceLock((v) => !v) }],
+          [{ type: 'info', text: appConfig.copy.dockHints.symbol }],
+        ]} />
       )}
 
       {pendingShape && tool === 'shape' && (
-        <div className="wb-hint">{fillTemplate(appConfig.copy.whiteboard.placeSymbolHint, { name: appConfig.copy.shapes.names[pendingShape] ?? appConfig.copy.shapes.kindLabel })}
-          <button className={`wb-hint-tog ${placeLock ? 'on' : ''}`} aria-pressed={placeLock} title={appConfig.copy.keepPlacing} aria-label={appConfig.copy.keepPlacing} onClick={() => setPlaceLock((v) => !v)}><Icon id="lock" /></button>
-          <button onClick={() => { setPendingShape(null); setTool('pan') }}>{appConfig.copy.cancel}</button>
-        </div>
+        <ToolDock groups={[
+          [{ type: 'close', onClick: () => { setPendingShape(null); setTool('pan') } }],
+          [{ type: 'glyph', node: <ShapeGlyph kind={pendingShape} color="#fff" /> }],
+          [{ type: 'toggle', icon: 'lock', label: appConfig.copy.keepPlacing, on: placeLock, onClick: () => setPlaceLock((v) => !v) }],
+          [{ type: 'info', text: appConfig.copy.dockHints.shape }],
+        ]} />
       )}
 
 
