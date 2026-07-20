@@ -6,6 +6,7 @@ the file. Returned URL is same-origin (`/api/media/{id}`).
 
 import asyncio
 import json
+import logging
 import mimetypes
 import uuid
 from datetime import UTC, datetime
@@ -24,6 +25,7 @@ from ..database import get_db
 from ..models import Incident, Media, SttJob
 
 router = APIRouter(tags=["media"])
+logger = logging.getLogger(__name__)
 
 _EXT = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp",
         "audio/webm": ".webm", "audio/mpeg": ".mp3", "audio/ogg": ".ogg", "audio/wav": ".wav",
@@ -150,8 +152,9 @@ async def _run_stt(media_id: uuid.UUID, storage_key: str) -> None:
             payload = [{**s, "status": "open"} for s in segments]
         except audio.SttError as e:
             status, error, payload = "failed", str(e), None
-        except Exception as e:  # noqa: BLE001 — a crashed job must land as 'failed', not vanish
-            status, error, payload = "failed", f"Unerwarteter Fehler: {e!r}", None
+        except Exception:  # noqa: BLE001 — a crashed job must land as 'failed', not vanish
+            logger.exception("STT job crashed for media %s", media_id)  # keep the detail server-side
+            status, error, payload = "failed", "Unerwarteter Fehler", None
         # resolved through the module so tests can point it at their loop-local factory
         async with database.async_session_maker() as db:
             job = (await db.execute(select(SttJob).where(SttJob.media_id == media_id))).scalar_one_or_none()
@@ -194,7 +197,12 @@ async def start_transcription(
     # a failed (or vanished) run is replaced by a fresh one (drafts are working data)
     job.status, job.error, job.segments, job.finished_at = "running", None, None, None
     job.created_by = user.id
-    await db.flush()
+    # COMMIT (not just flush) before spawning the background task: `_run_stt` opens its OWN
+    # session and reads this SttJob by media_id. A bare flush leaves the row uncommitted, so a
+    # freshly-created job (the re-transcribe-after-delete case) is invisible to that session —
+    # it reads `job is None`, returns doing nothing, and the row is left stuck 'running' with no
+    # live task, which the get_transcription orphan-check then force-fails ("Serverneustart …").
+    await db.commit()
     task = asyncio.create_task(_run_stt(media_id, media.storage_key))
     _stt_tasks[key] = task
     task.add_done_callback(lambda _t: _stt_tasks.pop(key, None))

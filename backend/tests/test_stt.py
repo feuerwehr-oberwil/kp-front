@@ -25,28 +25,6 @@ def isolated_storage(tmp_path, monkeypatch):
     monkeypatch.setattr(storage_mod, "_ROOT", str(tmp_path))
 
 
-@pytest.fixture(autouse=True)
-def _reset_stt_globals():
-    """Give every test a fresh, loop-unbound STT semaphore + empty in-flight task maps.
-
-    `_stt_gate` / `_stt_tasks` / `_peaks_jobs` are module-globals that outlive a single test.
-    pytest-asyncio hands each test its own event loop, and an ``asyncio.Semaphore`` binds to
-    the first loop that awaits it — so a later test on a *different* loop hits "bound to a
-    different event loop" inside ``async with _stt_gate``, which ``_run_stt`` swallows as an
-    "Unerwarteter Fehler" and the job lands as ``failed`` instead of ``done``. That's invisible
-    locally (the loop gets reused) but red in CI, where it isn't. Recreating the semaphore per
-    test (and clearing/cancelling any leaked tasks) removes the whole cross-loop leak class.
-    In production this never bites: one process, one loop for the app's lifetime."""
-    media_api._stt_gate = asyncio.Semaphore(1)
-    media_api._stt_tasks.clear()
-    media_api._peaks_jobs.clear()
-    yield
-    for task in list(media_api._stt_tasks.values()) + list(media_api._peaks_jobs.values()):
-        task.cancel()
-    media_api._stt_tasks.clear()
-    media_api._peaks_jobs.clear()
-
-
 @pytest.fixture()
 def stt_configured(monkeypatch, session_factory):
     monkeypatch.setattr(settings, "stt_base_url", "https://stt.example")
@@ -271,7 +249,7 @@ async def test_delete_transcription_resets_to_none(client, editor, viewer, stt_c
     # and Transkribieren can run fresh
     assert (await client.post(f"/api/media/{media_id}/transcribe")).status_code == 202
     body = await _poll_done(client, media_id)
-    assert body["status"] == "done", body  # DIAGNOSTIC: surface job.error on the CI-only failure
+    assert body["status"] == "done", body  # body carries job.error if the fresh run is stuck
 
 
 async def test_transcribe_adapter_parses_verbose_json(monkeypatch, tmp_path):
