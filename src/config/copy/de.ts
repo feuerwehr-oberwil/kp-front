@@ -1207,8 +1207,9 @@ export const de = {
     resetDone: 'Ausgangslage wiederhergestellt.',
     welcome: {
       title: 'Willkommen bei KP Front',
-      intro: 'Das ist eine Demo mit erfundenen Daten — kein echter Einsatz. Probieren Sie alles frei aus.',
-      canTitle: 'Sie können …',
+      intro: 'Das ist eine Demo mit erfundenen Daten – kein echter Einsatz. Probier alles frei aus.',
+      reloadWarn: 'Wichtig: Wenn du die Seite neu lädst, wird alles zurückgesetzt.',
+      canTitle: 'Du kannst …',
       can: [
         'Auf Karte und Plan zeichnen und taktische Zeichen setzen',
         'Atemschutz-Trupps und Mittel führen',
@@ -1216,9 +1217,8 @@ export const de = {
       ],
       knowTitle: 'Gut zu wissen',
       know: [
-        'Ihre Änderungen bleiben nur auf diesem Gerät — nichts wird mit anderen Besuchern geteilt oder dauerhaft gespeichert.',
-        'Mit «Demo zurücksetzen» (unten) stellen Sie jederzeit die Ausgangslage wieder her.',
-        '«Führungsunterstützung» darf bearbeiten, «Betrachter» nur ansehen.',
+        'Deine Änderungen bleiben nur auf diesem Gerät – nichts wird mit anderen geteilt oder gespeichert.',
+        'Mit «Demo zurücksetzen» (unten) stellst du jederzeit die Ausgangslage wieder her.',
       ],
       cta: 'Los geht’s',
     },

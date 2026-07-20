@@ -1002,7 +1002,13 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .dw-badge { flex: none; background: var(--amber); color: var(--on-accent-ink); font-size: 10px; font-weight: 800;
   letter-spacing: 1.5px; padding: 3px 8px; border-radius: var(--r-pill); }
 .dw-title { margin: 0; font-size: 19px; font-weight: 800; color: var(--ink); }
-.dw-intro { margin: 0 0 16px; font-size: 13.5px; line-height: 1.5; color: var(--ink-dim); font-weight: 500; }
+.dw-intro { margin: 0 0 14px; font-size: 13.5px; line-height: 1.5; color: var(--ink-dim); font-weight: 500; }
+/* large reload caveat — the one thing a visitor must know (edits vanish on reload) */
+.dw-warn { display: flex; align-items: center; gap: 11px; margin: 0 0 16px; padding: 13px 15px;
+  border-radius: var(--r-sm); background: color-mix(in srgb, var(--amber) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--amber) 45%, transparent); }
+.dw-warn .i { width: 24px; height: 24px; flex: none; color: var(--amber); stroke-width: 2.2; }
+.dw-warn span { font-size: 14px; line-height: 1.4; font-weight: 700; color: var(--ink); }
 .dw-sec { margin-bottom: 14px; }
 .dw-sec h3 { display: flex; align-items: center; gap: 7px; margin: 0 0 7px; font-size: 13px; font-weight: 700; color: var(--ink); }
 .dw-sec h3 .i { width: 16px; height: 16px; color: var(--accent); flex: none; }
