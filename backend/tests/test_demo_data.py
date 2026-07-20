@@ -30,7 +30,7 @@ def test_demo_object_manifest_and_pdfs_are_valid() -> None:
     objects = _read_manifest(MANIFEST)
     assert _validate_files(MANIFEST, objects) == 3
 
-    expected_pages = {"modul1": 1, "modul2-3": 1, "modul6": 3}
+    expected_pages = {"modul1": 1, "modul2-3": 1, "modul6": 5}  # Modul 6 = multi-page scrolling plan
     for plan in objects[0].plans:
         path = MANIFEST.parent / plan.file
         assert path.read_bytes().startswith(b"%PDF-")
