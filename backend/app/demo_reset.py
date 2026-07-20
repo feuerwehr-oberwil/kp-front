@@ -50,8 +50,8 @@ DEMO_INCIDENT = {
     "type": "Brand",
     "text": "Gemeldeter Zimmerbrand im 2. OG, Rauch sichtbar. Menschenrettung läuft.",
     "address": "Schlossgasse 9, 4103 Bottmingen",
-    "lat": 47.52556,
-    "lng": 7.58389,
+    "lat": 47.52371857249871,
+    "lng": 7.570345444795164,
     "divera_id": 990000,
     "divera_number": "2026-DEMO-000",
     # how long the incident has been running when the demo is viewed (drives the Einsatz clock)
