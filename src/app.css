@@ -1991,7 +1991,10 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
    Login gate — kiosk PIN lock. A calm, glass lock screen that speaks the app's
    palette + radius + shadow language. Built for gloved taps: large targets.
    ============================================================ */
-.login { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center;
+/* justify-items centres horizontally; align-items uses `safe center` so a card taller
+   than the viewport (tall pinpad + demo banner) falls back to top-aligned and stays
+   fully scrollable instead of clipping the bottom 0/⌫ row past the scroll start edge. */
+.login { position: fixed; inset: 0; z-index: 200; display: grid; justify-items: center; align-items: safe center;
   background: var(--app-bg);
   color: var(--ink); overflow: auto; padding: 24px; }
 .login-card { width: min(408px, 100%); display: flex; flex-direction: column; gap: 24px;
