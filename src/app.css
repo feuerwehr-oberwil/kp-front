@@ -3089,10 +3089,11 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
     overflow-x: auto; overflow-y: hidden; }
   /* group dividers run vertically in a horizontal bar (they're a horizontal line in the column) */
   .phone-tools .wb-dock .wb-style-sep { width: 1px; height: 24px; }
-  /* colour swatches: a compact 2-ROW grid that grows in columns, so it fits the bar height
-     instead of the tall 2-wide column; slightly smaller so both rows clear the padding */
-  .phone-tools .wb-dock .wb-sw-grid { grid-template-columns: none; grid-auto-flow: column; grid-template-rows: repeat(2, auto); gap: 5px; }
-  .phone-tools .wb-dock .wb-sw { width: 22px; height: 22px; }
+  /* colours: a single full-size row (not a cramped 2-row grid) */
+  .phone-tools .wb-dock .wb-sw-grid { display: flex; grid-template-columns: none; gap: 8px; }
+  .phone-tools .wb-dock .wb-sw { width: 30px; height: 30px; }
+  /* tool buttons get WIDER (not taller) so they're easier to hit without growing the bar height */
+  .phone-tools .wb-dock .wb-dock-tog, .phone-tools .wb-dock .wb-dock-go, .phone-tools .wb-dock .wb-ww { width: 48px; min-width: 48px; }
   .phone-tools .whiteboard { bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom)); }
   .phone-tools .coord-read { bottom: calc(var(--rail-h) * 2 + 30px + env(safe-area-inset-bottom)); }
   /* the Eintrag-FAB clears both bars on the drawing surfaces */
