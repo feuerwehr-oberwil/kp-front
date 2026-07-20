@@ -1203,6 +1203,8 @@ export const de = {
   demo: {
     ribbon: 'DEMO',
     ariaLabel: 'Demo-Instanz mit synthetischen Daten',
+    resetButton: 'Demo zurücksetzen',
+    resetDone: 'Ausgangslage wiederhergestellt.',
   },
   login: {
     subtitle: 'Führungsunterstützung',

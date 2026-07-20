@@ -4,6 +4,7 @@ import { appConfig } from '../config/appConfig'
 import { attendanceConflictRows } from './attendanceConflict'
 import type { RecordConflict } from './mergeWorkspace'
 import { nextPollDelay } from './pollBackoff'
+import { isDemoMode } from './deploymentConfig'
 import { createSyncAlertTracker } from './syncAlert'
 import { toast } from './ui'
 import type { Saved } from './workspace'
@@ -63,7 +64,11 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
     const payload = buildPayload()
     if (firstSave.current) { firstSave.current = false; return }
     if (skipSave.current) { skipSave.current = false; return }
-    if (!readOnly) sync.save(payload as unknown as Workspace)
+    // Demo = LOCAL SANDBOX: never push a visitor's edits to the shared server, so every visitor
+    // lands on the same pristine curated scene regardless of what the previous one drew. save()
+    // also writes the IDB cache, so skipping it keeps edits in React state only (gone on reload/
+    // reset — exactly the sandbox contract). Pull is disabled below for the same reason.
+    if (!readOnly && !isDemoMode()) sync.save(payload as unknown as Workspace)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [buildPayload])
 
@@ -124,7 +129,10 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
     const tick = async (myGen: number) => {
       if (stopped || myGen !== gen) return
       let changed = false
-      if (readOnly || !sync.hasUnsynced) {
+      // Demo sandbox: don't pull the shared server either — a visitor's local edits stay put
+      // until they reload or hit «zurücksetzen» (a mid-session server change, e.g. the 2 h reset,
+      // would otherwise wipe their scribbles). The next page load re-fetches the pristine seed.
+      if (!isDemoMode() && (readOnly || !sync.hasUnsynced)) {
         try {
           const since = Math.max(liveRev.current, sync.rev)
           const res = await pollWorkspaceSince(incidentId, since)
