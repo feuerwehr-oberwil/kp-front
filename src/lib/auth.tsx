@@ -1,6 +1,11 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { apiGet, apiPost, ApiError } from './api'
 import { idbGet, idbSet, idbDel } from './idb'
+import { isDemoMode } from './deploymentConfig'
+
+// The demo's public PIN (shown to every visitor) — used to auto-sign-in on demo instances so
+// there's no login screen. Only ever sent when isDemoMode() is true; real stations never use it.
+const DEMO_PIN = '000000'
 
 // Authenticated user as returned by the backend. role === 'editor' grants
 // edit rights; 'viewer' is read-only (can pan / zoom / inspect, never mutate).
@@ -50,23 +55,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // Demo instances skip the login screen: on a fresh visit (no session) auto-sign-in as the
+  // demo editor so a visitor lands straight in the action. Fetch the roster, pick the editor,
+  // login with the public demo PIN. Failure falls through to the normal login screen.
+  const tryDemoAutoLogin = async (): Promise<AuthUser | null> => {
+    if (!isDemoMode()) return null
+    try {
+      const roster = await apiGet<RosterEntry[]>('/api/auth/roster')
+      const editor = roster.find((r) => r.role === 'editor') ?? roster[0]
+      if (!editor) return null
+      return await apiPost<AuthUser>('/api/auth/login', { user_id: editor.id, pin: DEMO_PIN })
+    } catch { return null }
+  }
+
   // On mount, ask the backend who we are. A 401 just means "not logged in" (normal
-  // cold-start). A network error (status 0 = offline) falls back to the cached user so
-  // an installed PWA opens straight into the app at the scene with no signal.
+  // cold-start) — on the demo we then auto-sign-in. A network error (status 0 = offline)
+  // falls back to the cached user so an installed PWA opens straight into the app with no signal.
   useEffect(() => {
     let alive = true
-    apiGet<AuthUser>('/api/auth/me')
-      .then((u) => { if (alive) { setUser(u); writeCachedUser(u) } })
-      .catch(async (e) => {
+    void (async () => {
+      try {
+        const u = await apiGet<AuthUser>('/api/auth/me')
+        if (alive) { setUser(u); writeCachedUser(u) }
+      } catch (e) {
         if (!alive) return
         if (e instanceof ApiError && e.status === 0) {
           const cached = await readCachedUser()
           if (alive && cached) setUser(cached) // offline — keep the session usable
         } else if (e instanceof ApiError && e.status === 401) {
           writeCachedUser(null) // genuinely logged out
+          const demoUser = await tryDemoAutoLogin() // demo → straight in; real stations → login screen
+          if (alive && demoUser) { setUser(demoUser); writeCachedUser(demoUser) }
         }
-      })
-      .finally(() => { if (alive) setLoading(false) })
+      } finally {
+        if (alive) setLoading(false)
+      }
+    })()
     return () => { alive = false }
   }, [])
 
