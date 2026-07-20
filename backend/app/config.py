@@ -175,6 +175,14 @@ class Settings(BaseSettings):
     # Unset → the heartbeat job isn't scheduled.
     healthcheck_ping_url: str = ""
 
+    # --- Public demo auto-reset (DEMO ONLY) ---
+    # If > 0, an in-process scheduler job wipes + reseeds the synthetic Musterdorf incident/roster
+    # on this cadence (7200 = every 2 h), so the public demo self-cleans reliably regardless of
+    # GitHub Actions cron delays/skips. DESTRUCTIVE — it wipes ALL incidents/roster/objects — so
+    # it's fail-closed: unset/0 → the job isn't scheduled, and a real station must never set it.
+    # The GitHub demo-reset workflow still handles the static config/geodata/objects reload.
+    demo_reset_seconds: int = 0
+
     # --- Traccar (Phase 6) ---
     traccar_url: str = ""
     traccar_email: str = ""

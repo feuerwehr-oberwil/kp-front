@@ -82,6 +82,19 @@ async def _print_jobs_sweep() -> None:
             logger.exception("Print-job sweep failed")
 
 
+async def _demo_reset() -> None:
+    """DEMO ONLY: wipe + reseed the synthetic Musterdorf incident/roster (see demo_reset.reset).
+    Runs in-process so the public demo self-cleans on an exact cadence, instead of relying on the
+    GitHub Actions cron, which delays/skips scheduled runs (the demo drifted to 2.5 h+ between
+    resets). `reset()` owns its own session + commit, so there's nothing to manage here."""
+    from .demo_reset import reset
+
+    try:
+        await reset()
+    except Exception:  # noqa: BLE001
+        logger.exception("Demo reset sweep failed")
+
+
 async def _heartbeat() -> None:
     """Dead-man's-switch: ping an external check URL (healthchecks.io / cron-monitor) on a short
     cadence. If the app or its event loop dies, the pings stop and the monitor alerts — catching
@@ -147,6 +160,22 @@ async def start_scheduler(app: FastAPI) -> None:
     if settings.healthcheck_ping_url:
         _scheduler.add_job(_heartbeat, "interval", seconds=60, id="heartbeat", max_instances=1, coalesce=True)
         jobs.append("heartbeat (60s)")
+    if settings.demo_reset_seconds > 0:
+        _scheduler.add_job(
+            _demo_reset,
+            "interval",
+            seconds=settings.demo_reset_seconds,
+            id="demo_reset",
+            max_instances=1,
+            coalesce=True,
+        )
+        jobs.append(f"DEMO reset ({settings.demo_reset_seconds}s)")
+        # Loud, so an accidental prod activation is unmissable in the boot logs.
+        logger.warning(
+            "DEMO auto-reset ACTIVE: this deployment WIPES + reseeds ALL incident data every %ds. "
+            "If this is NOT the public demo, unset DEMO_RESET_SECONDS now.",
+            settings.demo_reset_seconds,
+        )
     _scheduler.start()
     logger.info("Scheduler running: %s", ", ".join(jobs))
 
