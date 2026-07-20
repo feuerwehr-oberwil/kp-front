@@ -26,6 +26,7 @@ import { Overlays, toast, confirmDialog } from './lib/ui'
 import { loadPrefs, savePrefs, symbolMul } from './lib/prefs'
 import { useDevicePrefs } from './lib/useDevicePrefs'
 import { useSheets } from './lib/useSheets'
+import { useAtemschutzMute } from './lib/useAtemschutzMute'
 import { buildLabel } from './lib/buildInfo'
 import { consumeJustUpdated } from './lib/swUpdate'
 import { useAutoTheme } from './lib/useAutoTheme'
@@ -373,17 +374,8 @@ function IncidentWorkspace({
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc.entities])
-  // alarm audibility is a per-device choice (silent / radio-heavy scenes) — persisted locally,
-  // NOT synced as incident data. Lives in App so the alarm runs app-wide (useAtemschutzAlarm),
-  // not only while the Atemschutz surface is mounted.
-  const [atemschutzMuted, setAtemschutzMuted] = useState(() => {
-    try { return localStorage.getItem('kp.atemschutz.alarmMute') === '1' } catch { return false }
-  })
-  const toggleAtemschutzMuted = () => setAtemschutzMuted((m) => {
-    const n = !m
-    try { localStorage.setItem('kp.atemschutz.alarmMute', n ? '1' : '0') } catch { /* ignore */ }
-    return n
-  })
+  // alarm audibility — per-device, localStorage-backed, app-wide (see useAtemschutzMute).
+  const { muted: atemschutzMuted, toggle: toggleAtemschutzMuted } = useAtemschutzMute()
   // per-incident attendance (who is physically present), keyed by Person id; rides the workspace blob
   const [attendance, setAttendance] = useState<AttendanceState>(init.attendance)
   // per-incident Mittel (material-use): append-only event log; current state derived (lib/mittel).
