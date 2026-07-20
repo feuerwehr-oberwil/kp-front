@@ -58,20 +58,6 @@ DEMO_INCIDENT = {
     "elapsed_min": 14,
 }
 
-# A SECOND, still-pending alarm at a different address — the pool GET reads this straight from
-# the DB (no Divera key needed), so the demo editor sees the incoming-alarm banner and can
-# one-tap-take it. autoOpen is off in the demo config, and the running incident's split-dispatch
-# guard would hold it anyway, so it stays pending. received_at defaults to now() ⇒ always fresh.
-DEMO_ALARM = {
-    "divera_id": 990002,
-    "divera_number": "2026-DEMO-002",
-    "title": "Automatische Brandmeldeanlage",
-    "text": "BMA-Auslösung im Untergeschoss, Ursache noch unklar. Erkundung läuft.",
-    "address": "Hauptstrasse 40, 4104 Oberwil",
-    "lat": 47.5262,
-    "lng": 7.5748,
-}
-
 # Dummy roster so Anwesenheit / Atemschutz person-assignment have people to work with.
 DEMO_PEOPLE = [
     ("Hans", "Müller"), ("Anna", "Meier"), ("Peter", "Schmid"), ("Laura", "Keller"),
@@ -186,9 +172,10 @@ async def reset() -> None:
         # an ObjectSite cascades to its plan datasets; the geo: reference layers (object_id NULL)
         # are untouched and get re-pushed by the reset script.
         await db.execute(delete(ObjectSite))
-        # Clear any prior/taken alarms, then re-seed the one prepared pending alarm fresh.
+        # Clear any prior/taken alarms so the demo lands with NO incoming-alarm waiting — just
+        # the one running incident below (decision 2026-07-20: the take-flow banner cluttered the
+        # landing; the default running Einsatz is the demo). Re-add a DEMO_ALARM here to restore it.
         await db.execute(delete(DiveraEmergency))
-        db.add(DiveraEmergency(**DEMO_ALARM, is_taken=False, is_archived=False))
 
         # The pre-filled running incident: static scene from the data file + live collections.
         now = datetime.now(UTC)
