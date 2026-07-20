@@ -990,6 +990,28 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .demo-reset .i { width: 15px; height: 15px; }
 /* stack above an app-update banner when both are on screen (mirrors .update-banner ~ .install-banner) */
 .update-banner ~ .demo-reset { bottom: calc(88px + env(safe-area-inset-bottom)); }
+/* First-visit demo welcome modal (own scrim above the DEMO ribbon so it owns the screen). */
+.dw-scrim { z-index: 160; padding: 24px; }
+.dw-card { position: relative; width: min(440px, 92vw); max-height: 88dvh; overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--glass-line); border-radius: var(--r-hero);
+  box-shadow: var(--shadow); padding: 22px 22px 20px; animation: panelIn .16s var(--ease); }
+.dw-x { position: absolute; top: 12px; right: 12px; width: 34px; height: 34px; border-radius: 50%;
+  border: none; background: var(--fill-soft); color: var(--ink-dim); display: grid; place-items: center; cursor: pointer; }
+.dw-x .i { width: 16px; height: 16px; }
+.dw-head { display: flex; align-items: center; gap: 10px; margin: 0 40px 12px 0; }
+.dw-badge { flex: none; background: var(--amber); color: var(--on-accent-ink); font-size: 10px; font-weight: 800;
+  letter-spacing: 1.5px; padding: 3px 8px; border-radius: var(--r-pill); }
+.dw-title { margin: 0; font-size: 19px; font-weight: 800; color: var(--ink); }
+.dw-intro { margin: 0 0 16px; font-size: 13.5px; line-height: 1.5; color: var(--ink-dim); font-weight: 500; }
+.dw-sec { margin-bottom: 14px; }
+.dw-sec h3 { display: flex; align-items: center; gap: 7px; margin: 0 0 7px; font-size: 13px; font-weight: 700; color: var(--ink); }
+.dw-sec h3 .i { width: 16px; height: 16px; color: var(--accent); flex: none; }
+.dw-know h3 .i { color: var(--ink-dim); }
+.dw-sec ul { margin: 0; padding-left: 23px; display: flex; flex-direction: column; gap: 5px; }
+.dw-sec li { font-size: 13px; line-height: 1.45; color: var(--ink-dim); font-weight: 500; }
+.dw-cta { margin-top: 6px; width: 100%; min-height: 48px; border: none; border-radius: var(--r-ctl);
+  background: var(--accent); color: var(--on-accent-ink); font-size: 14.5px; font-weight: 700; cursor: pointer; }
+.dw-cta:hover { filter: brightness(1.06); }
 /* Login credential hint on a demo instance. */
 .login-demo-note { margin: 2px 0 14px; padding: 8px 12px; border-radius: var(--r-sm);
   background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--ink-dim);

@@ -1205,6 +1205,23 @@ export const de = {
     ariaLabel: 'Demo-Instanz mit synthetischen Daten',
     resetButton: 'Demo zurücksetzen',
     resetDone: 'Ausgangslage wiederhergestellt.',
+    welcome: {
+      title: 'Willkommen bei KP Front',
+      intro: 'Das ist eine Demo mit erfundenen Daten — kein echter Einsatz. Probieren Sie alles frei aus.',
+      canTitle: 'Sie können …',
+      can: [
+        'Auf Karte und Plan zeichnen und taktische Zeichen setzen',
+        'Atemschutz-Trupps und Mittel führen',
+        'Zwischen Lage und Plan wechseln und Objektpläne öffnen',
+      ],
+      knowTitle: 'Gut zu wissen',
+      know: [
+        'Ihre Änderungen bleiben nur auf diesem Gerät — nichts wird mit anderen Besuchern geteilt oder dauerhaft gespeichert.',
+        'Mit «Demo zurücksetzen» (unten) stellen Sie jederzeit die Ausgangslage wieder her.',
+        '«Führungsunterstützung» darf bearbeiten, «Betrachter» nur ansehen.',
+      ],
+      cta: 'Los geht’s',
+    },
   },
   login: {
     subtitle: 'Führungsunterstützung',

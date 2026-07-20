@@ -51,6 +51,8 @@ import { AudioPlayerSheet } from './components/AudioPlayerSheet'
 import { ReminderBanner } from './components/ReminderBanner'
 import { UpdateBanner } from './components/UpdateBanner'
 import { InstallBanner } from './components/InstallBanner'
+import { DemoWelcome } from './components/DemoWelcome'
+import { hasSeenDemoWelcome, markDemoWelcomeSeen } from './lib/demoWelcome'
 import { InstallGuide } from './components/InstallGuide'
 import { getInstallPlatform, isStandalone } from './lib/installPrompt'
 import { installOffered } from './lib/installPolicy'
@@ -2342,6 +2344,8 @@ export default function App() {
   const [activeMeta, setActiveMeta] = useState<IncidentMeta | null>(null)
   const [workspace, setWorkspace] = useState<Saved | null>(null)
   const [remount, setRemount] = useState(0)
+  // Demo instances greet a first-time visitor once per device with the can/can't intro.
+  const [showWelcome, setShowWelcome] = useState(() => isDemoMode() && !hasSeenDemoWelcome())
   const [forceReadOnly, setForceReadOnly] = useState(false)
   // single-editor-per-browser: only one tab may edit an incident (they'd race the shared
   // IDB sync cache); a second tab is read-only with a one-tap take-over.
@@ -2648,6 +2652,7 @@ export default function App() {
 
   return (
     <>
+      {showWelcome && <DemoWelcome onClose={() => { markDemoWelcomeSeen(); setShowWelcome(false) }} />}
       {activeId && activeMeta && syncRef.current ? (
         <ErrorBoundary key={`eb:${activeId}:${remount}`}>
         <IncidentWorkspace
