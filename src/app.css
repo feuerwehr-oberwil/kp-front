@@ -3076,19 +3076,23 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
     mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent); }
   :is(.tool-rail, .wb-tools) .vrail-tool { width: 50px; min-width: 50px; flex: 0 0 auto; }
   :is(.tool-rail, .wb-tools) .vrail-sep { width: 1px; height: 26px; margin: 0 4px; flex: none; }
-  /* the tool-option dock floats above BOTH bars instead of beside the (gone) right rail —
-     fixed for the same compounding reason as the bars above (it nests in .whiteboard on Plan).
-     transform:none is load-bearing: .wb-dock-map's desktop centring (translateY(-50%)) would
-     otherwise still apply and shift the bottom-anchored dock up half its height (the
-     "options panel in the middle of nowhere"). */
-  .phone-tools .wb-dock { position: fixed; left: auto; right: max(8px, env(safe-area-inset-right)); top: auto;
+  /* the tool-option dock is a HORIZONTAL bar in line with the other bottom bars (not a right-edge
+     vertical column, which overlapped the centred hints + measure panel). It stacks as the third
+     bar above the tool bar; the ℹ tip + measure panel sit above IT (see their rail-h*3 rules).
+     fixed for the same compounding reason as the bars above (it nests in .whiteboard on Plan);
+     transform:none cancels .wb-dock-map's desktop translateY(-50%) centring. Scrolls horizontally
+     when a busy tool (line/area) has more options than fit. */
+  .phone-tools .wb-dock { position: fixed; left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); top: auto;
     bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom)); transform: none;
-    max-height: calc(100dvh - 220px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
-  /* On the MAP, the floating .phone-compass (compass + wind, ~96px tall under the top bar) shares
-     this right edge — a tall dock grew up under it and its top row (the ✕) hid behind the cluster.
-     Reserve that band too (220 → 320: +96 cluster + ~4 gap) so the dock's top always clears it and
-     scrolls instead. Plan has no compass cluster, so it keeps the taller default above. */
-  .mode-map.phone-tools .wb-dock { max-height: calc(100dvh - 320px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+    flex-direction: row; align-items: center; justify-content: flex-start; gap: 10px;
+    width: auto; height: var(--rail-h); max-height: var(--rail-h); padding: 6px 12px;
+    overflow-x: auto; overflow-y: hidden; }
+  /* group dividers run vertically in a horizontal bar (they're a horizontal line in the column) */
+  .phone-tools .wb-dock .wb-style-sep { width: 1px; height: 24px; }
+  /* colour swatches: a compact 2-ROW grid that grows in columns, so it fits the bar height
+     instead of the tall 2-wide column; slightly smaller so both rows clear the padding */
+  .phone-tools .wb-dock .wb-sw-grid { grid-template-columns: none; grid-auto-flow: column; grid-template-rows: repeat(2, auto); gap: 5px; }
+  .phone-tools .wb-dock .wb-sw { width: 22px; height: 22px; }
   .phone-tools .whiteboard { bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom)); }
   .phone-tools .coord-read { bottom: calc(var(--rail-h) * 2 + 30px + env(safe-area-inset-bottom)); }
   /* the Eintrag-FAB clears both bars on the drawing surfaces */
