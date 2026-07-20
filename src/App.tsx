@@ -5,10 +5,10 @@ import { IconSprite, Icon } from './lib/icons'
 import { useSymbols } from './lib/useSymbols'
 import { vehicleSymbolSvg } from './lib/useVehiclePositions'
 import { useVehicleLayer, type VehicleOverrides } from './lib/useVehicleLayer'
-import { autoActivateLayers, deriveInitial, rebaseDemoClocks, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type IncidentSettings, type PlanScales, type ReportMeta, type Saved, type WorkspaceGate } from './lib/workspace'
+import { autoActivateLayers, deriveInitial, rebaseDemoClocks, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type Saved, type WorkspaceGate } from './lib/workspace'
 import { useReplay } from './lib/useReplay'
 import { incident as demoIncident, layers as initialLayers, planDocuments, gebaeudeDoc, preparedOverlays } from './data/demoIncident'
-import type { AttendanceState, BoardAnno, BoardDoc, BuildingDoc, CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LngLat, MittelEntry, Person, ShapeKind, TimelineEvent, Trupp, TruppFields } from './types'
+import type { BoardAnno, CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LngLat, MittelEntry, Person, ShapeKind, TimelineEvent, Trupp, TruppFields } from './types'
 import { appConfig } from './config/appConfig'
 import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, shortAddress, isDemoMode } from './lib/deploymentConfig'
 import { fillTemplate, formatSymbolName, formatTime, initials, roleLabel } from './lib/format'
@@ -28,6 +28,7 @@ import { useDevicePrefs } from './lib/useDevicePrefs'
 import { useSheets } from './lib/useSheets'
 import { useAtemschutzMute } from './lib/useAtemschutzMute'
 import { useTacticalSelection } from './lib/useTacticalSelection'
+import { useWorkspaceDoc } from './lib/useWorkspaceDoc'
 import { buildLabel } from './lib/buildInfo'
 import { consumeJustUpdated } from './lib/swUpdate'
 import { useAutoTheme } from './lib/useAutoTheme'
@@ -105,7 +106,7 @@ import { AnwesenheitView } from './components/AnwesenheitView'
 import { MittelView, type MittelDraft } from './components/MittelView'
 import { usePersonnel } from './lib/usePersonnel'
 import { assignedPersonIds } from './lib/personnel'
-import type { ChecklistState, ChecklistTemplate, Item } from './lib/checklists'
+import type { ChecklistTemplate, Item } from './lib/checklists'
 import { ReportPreflight } from './components/ReportPreflight'
 import { annotatedPlans } from './lib/report'
 import { currentMengeFor, currentLineFor, materialForSymbol, mittelLineCount } from './lib/mittel'
@@ -245,6 +246,17 @@ function IncidentWorkspace({
   // scope for that callback; threaded into useMapDrawing below just as before.
   const { selectedId, setSelectedId, tool, setTool, teamPick, setTeamPick, pending, setPending, pendingShape, setPendingShape, placeLock, setPlaceLock, selectedDrawingId, setSelectedDrawingId, selectedDrawIds, setSelectedDrawIds, selectedEntityIds, setSelectedEntityIds } = useTacticalSelection()
 
+  // Per-incident SYNCED workspace slices (board, checklists, trupps, attendance, mittel, camera
+  // views, plan scale, report meta, Gebäude, active plan, picked object, synced settings) — see
+  // useWorkspaceDoc. State only; buildPayload/applyWorkspace + the trupps auto-free effects stay
+  // below and read these. layers/recent stay in the component (own derivation/effects).
+  const {
+    incidentSettings, setIncidentSettings, board, setBoard, checklists, setChecklists,
+    trupps, setTrupps, attendance, setAttendance, mittel, setMittel, cameraViews, setCameraViews,
+    planScale, setPlanScale, reportMeta, setReportMeta, building, setBuilding,
+    activePlanId, setActivePlanId, pickedObjectId, setPickedObjectId,
+  } = useWorkspaceDoc(init)
+
   // --- time-travel replay (read-only past view) — state/reconstruction owned by useReplay ---
   // Enter replay WITHOUT forcing a surface: one timeline drives both the Lagekarte and the
   // Plan, so the user can toggle Lage/Plan during playback to inspect each surface at the
@@ -321,9 +333,6 @@ function IncidentWorkspace({
   // "Mein Standort": bumping this takes a single GPS fix + flies to it. On-demand (no continuous
   // watch) so the GPS chip isn't powered all shift — see MapView.locateNonce.
   const [locateReq, setLocateReq] = useState(0)
-  // per-incident SYNCED operational settings (Atemschutz interval …) — part of the workspace
-  // blob, so they apply on every device on this incident. Device prefs (above) stay local.
-  const [incidentSettings, setIncidentSettings] = useState<IncidentSettings>(init.settings)
   // Atemschutz doctrine resolves in two tiers here: per-incident synced settings →
   // atemschutzDoctrine() (deployment /api/config override → static appConfig fallback).
   // These already merged values flow to AtemschutzView via props.
@@ -336,11 +345,6 @@ function IncidentWorkspace({
   useEffect(() => {
     if (consumeJustUpdated()) toast(fillTemplate(appConfig.copy.update.updated, { v: buildLabel() }), { icon: 'check', tone: 'success' })
   }, [])
-  const [board, setBoard] = useState<BoardDoc>(init.board)
-  // per-incident checklist tick state; rides the workspace blob (offline cache + sync)
-  const [checklists, setChecklists] = useState<ChecklistState>(init.checklists)
-  // Atemschutzüberwachung: monitored SCBA teams; rides the workspace blob (offline + sync)
-  const [trupps, setTrupps] = useState<Trupp[]>(init.trupps)
   // If a Trupp's placed plan chip gets deleted on the board, free the Trupp (clear annoId/planId)
   // so it can be placed again — otherwise the "Platzieren" button (gated on !annoId) stayed hidden.
   useEffect(() => {
@@ -374,22 +378,6 @@ function IncidentWorkspace({
   }, [doc.entities])
   // alarm audibility — per-device, localStorage-backed, app-wide (see useAtemschutzMute).
   const { muted: atemschutzMuted, toggle: toggleAtemschutzMuted } = useAtemschutzMute()
-  // per-incident attendance (who is physically present), keyed by Person id; rides the workspace blob
-  const [attendance, setAttendance] = useState<AttendanceState>(init.attendance)
-  // per-incident Mittel (material-use): append-only event log; current state derived (lib/mittel).
-  // Rides the workspace blob (offline + sync); merged three-way by event id like the timeline.
-  const [mittel, setMittel] = useState<MittelEntry[]>(init.mittel)
-  // saved map views (camera bookmarks: position + zoom + rotation); synced per incident
-  const [cameraViews, setCameraViews] = useState<CameraView[]>(init.cameraViews)
-  // per-plan distance calibration (planId → scale factor); rides the workspace blob (offline + sync)
-  const [planScale, setPlanScale] = useState<PlanScales>(init.planScale)
-  // Einsatzrapport metadata: documentation-only fields, saved with the workspace.
-  const [reportMeta, setReportMeta] = useState<ReportMeta>(init.reportMeta)
-  const [building, setBuilding] = useState<BuildingDoc | null>(init.building)
-  const [activePlanId, setActivePlanId] = useState<string>(init.activePlanId)
-  // the manually-picked Einsatzobjekt id — synced per incident via the workspace blob (not a
-  // device cookie), so switching incidents keeps each one's pick and every device agrees.
-  const [pickedObjectId, setPickedObjectId] = useState<string | undefined>(init.pickedObjectId)
   // a Rapport checklist row navigated to Anwesenheit/Mittel → offer the one-tap way back
   const [rapportReturn, setRapportReturn] = useState(false)
   // the Verlauf drawer sits BELOW the Rapport sheet (z 61 vs 80), so opening it from the
