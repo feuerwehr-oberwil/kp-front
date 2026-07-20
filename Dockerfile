@@ -43,6 +43,9 @@ RUN uv sync --no-dev
 # SPA build + public assets (plans, leitungskataster, symbols seed source).
 COPY --from=frontend /app/dist /app/dist
 COPY public /app/public
+# Synthetic demo dataset (Musterdorf) — small (~276K). Needed in-image so the demo deployment's
+# in-process auto-reset (DEMO_RESET_SECONDS) can read examples/demo-data/incident.workspace.json.
+COPY examples /app/examples
 
 ENV SPA_DIR=/app/dist
 # Railway volume mount for media / snapshots / reference files.

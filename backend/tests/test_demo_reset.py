@@ -72,6 +72,29 @@ def test_scene_geometry_preserved():
 
 
 @pytest.mark.asyncio
+async def test_demo_reset_job_gated_on_setting(monkeypatch):
+    """The destructive in-process demo auto-reset is fail-closed: no job unless
+    demo_reset_seconds > 0 (a real station never wipes itself), and when enabled it registers
+    on the configured cadence."""
+    from fastapi import FastAPI
+
+    import app.scheduler as sched
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "demo_reset_seconds", 0)
+    await sched.start_scheduler(FastAPI())
+    assert sched._scheduler.get_job("demo_reset") is None
+    await sched.stop_scheduler()
+
+    monkeypatch.setattr(settings, "demo_reset_seconds", 7200)
+    await sched.start_scheduler(FastAPI())
+    job = sched._scheduler.get_job("demo_reset")
+    assert job is not None
+    assert job.trigger.interval.total_seconds() == 7200
+    await sched.stop_scheduler()
+
+
+@pytest.mark.asyncio
 async def test_reset_seeds_resolvable_attendance(session_factory, monkeypatch):
     """Regression: Personnel.id is a uuid4 COLUMN default, assigned at flush — reading it before
     flush yielded None, so Anwesenheit was keyed "None" (one ghost entry). reset() must flush
