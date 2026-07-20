@@ -208,7 +208,7 @@ async def reset() -> None:
             user.is_active = True
         await db.commit()
     logger.info(
-        "Demo reset: seeded 1 running incident (%d Trupps, %d Mittel, %d present) + 1 pending "
+        "Demo reset: seeded 1 running incident (%d Trupps, %d Mittel, %d present), no pending "
         "alarm, ensured %d user(s), %d people.",
         len(workspace["trupps"]), len(workspace["mittel"]), len(present),
         len(DEMO_USERS), len(DEMO_PEOPLE),
