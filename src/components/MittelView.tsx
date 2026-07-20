@@ -215,6 +215,9 @@ export function MittelView({ entries, canEdit, onSave, captureUsage }: {
                     <div key={row.key} className={s.row}>
                       <div className={s.rowMain}>
                         <span className={s.rowLabel}>{row.label}</span>
+                        {/* remaining-stock indicator sits BEFORE the ±stepper so the counting
+                            buttons line up on a consistent right edge across rows */}
+                        {row.totalStock != null && <StockDots remaining={row.totalStock - row.totalUsed} total={row.totalStock} label={row.label} />}
                         {canEdit ? (
                           <div className={s.rowEdit}>
                             <Stepper value={cell.used} min={0} max={9999} ariaLabel={`${row.label} ${row.unit}`} onChange={(v) => saveCell(row, cell, v)} />
@@ -226,7 +229,6 @@ export function MittelView({ entries, canEdit, onSave, captureUsage }: {
                             <span className={s.rowUnit}>{row.unit}</span>
                           </>
                         )}
-                        {row.totalStock != null && <StockDots remaining={row.totalStock - row.totalUsed} total={row.totalStock} label={row.label} />}
                       </div>
                     </div>
                   )

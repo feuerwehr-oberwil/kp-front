@@ -16,6 +16,8 @@ export const LAGE_TARGET = 'lage'
 interface Deps {
   trupps: Trupp[]
   setTrupps: Dispatch<SetStateAction<Trupp[]>>
+  /** read-only board (to locate a Trupp's plan chip so «auf Plan zeigen» centres on it) */
+  board: BoardDoc
   setBoard: Dispatch<SetStateAction<BoardDoc>>
   /** raw Lage-doc setter (no undo snapshot — placement mirrors the plan chip's setBoard) */
   setDocRaw: Dispatch<SetStateAction<Doc>>
@@ -41,7 +43,7 @@ interface Deps {
  * persistence blob + hydrate + multiple components) and are passed in.
  */
 export function useTruppActions(deps: Deps) {
-  const { trupps, setTrupps, setBoard, setDocRaw, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus, mapCenter, focusMapEntity } = deps
+  const { trupps, setTrupps, board, setBoard, setDocRaw, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus, mapCenter, focusMapEntity } = deps
 
   // A Trupp is tracked at exactly ONE place — drop any prior placement (plan chip AND/OR
   // map marker) before adding a new one, so re-placing or a sync re-fire can't leave an
@@ -133,7 +135,10 @@ export function useTruppActions(deps: Deps) {
     if (tr.entityId) { setPanel(null); focusMapEntity(tr.entityId); return }
     if (!tr.annoId || !tr.planId) return
     setMode('plans'); setActivePlanId(tr.planId); setPanel(null)
-    setPlanFocus({ x: 0.5, y: 0.5, floor: 0, annoId: tr.annoId, nonce: Date.now() })
+    // Centre on the Trupp's actual chip, not the plan centre — look up its anchor + floor from
+    // the board (was hard-coded 0.5,0.5,0, so it only opened the plan at the current position).
+    const anno = (board[tr.planId] ?? []).find((a) => a.id === tr.annoId)
+    setPlanFocus({ x: anno?.x ?? 0.5, y: anno?.y ?? 0.5, floor: anno?.floor ?? 0, annoId: tr.annoId, nonce: Date.now() })
   }
   // record a Funkkontakt: resets the contact clock (the core FKS safety signal) and appends a
   // log row carrying the current pressure (so the Verlauf shows the trend even at radio checks)

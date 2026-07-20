@@ -656,7 +656,7 @@ export function ReportPreflight({
               </button>
             )}
             <button className="ip-btn primary" disabled={pdfBusy} onClick={() => startOutput('pdf')}>
-              <Icon id={pdfBusy ? 'rotate' : 'doc'} />{pdfBusy ? P.pdfBusy : P.pdfFull}
+              <Icon id={pdfBusy ? 'rotate' : 'doc'} className={pdfBusy ? 'spin' : undefined} />{pdfBusy ? P.pdfBusy : P.pdfFull}
             </button>
           </div>
         </div>

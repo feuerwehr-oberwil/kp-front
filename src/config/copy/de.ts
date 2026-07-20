@@ -562,6 +562,7 @@ export const de = {
     // --- Actions ---
     open: 'Einsatz öffnen',
     opening: 'Wird eröffnet …',
+    demoBlocked: 'In der Demo deaktiviert – hier lässt sich kein neuer Einsatz eröffnen.',
     cancel: 'Abbrechen',
     errorCreate: 'Fehler beim Erstellen',
     errorTake: 'Übernahme fehlgeschlagen',

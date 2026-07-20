@@ -13,6 +13,21 @@ type Ring = [number, number][]
 
 const M_PER_LAT = 110540
 const cache = new Map<string, Promise<Ring[]>>()
+// Resolved outlines by key — lets the component seed its state SYNCHRONOUSLY. The `cache` Map
+// only holds the Promise, so even a warm reload flashed "…werden geladen" for one async tick
+// while the IDB read settled; seeding from this map skips that flash entirely.
+const resolved = new Map<string, Ring[]>()
+
+// The persistent-cache key (rounded bbox) + its bounds — pulled out so the component can compute
+// the key up front and check `resolved` before its first paint.
+function bboxKey(center: LngLat, radiusM: number) {
+  const mPerLon = 111320 * Math.cos((center[1] * Math.PI) / 180)
+  const dLat = radiusM / M_PER_LAT
+  const dLon = radiusM / mPerLon
+  const south = center[1] - dLat, north = center[1] + dLat
+  const west = center[0] - dLon, east = center[0] + dLon
+  return { key: `${south.toFixed(6)},${west.toFixed(6)},${north.toFixed(6)},${east.toFixed(6)}`, south, west, north, east }
+}
 
 // Several Overpass mirrors — we race them so the fastest healthy server wins (the public
 // overpass-api.de alone is often slow/queued). Kumi is usually the quickest.
@@ -36,12 +51,7 @@ function fetchOverpass(query: string): Promise<{ elements?: any[] }> {
 // bbox is a metre-square, so reporting aspect 1 keeps the outlines undistorted.
 // Cached per bbox so switching documents doesn't refetch.
 function loadBuildings(center: LngLat, radiusM: number): Promise<Ring[]> {
-  const mPerLon = 111320 * Math.cos((center[1] * Math.PI) / 180)
-  const dLat = radiusM / M_PER_LAT
-  const dLon = radiusM / mPerLon
-  const south = center[1] - dLat, north = center[1] + dLat
-  const west = center[0] - dLon, east = center[0] + dLon
-  const key = `${south.toFixed(6)},${west.toFixed(6)},${north.toFixed(6)},${east.toFixed(6)}`
+  const { key, south, west, north, east } = bboxKey(center, radiusM)
   const hit = cache.get(key)
   if (hit) return hit
 
@@ -70,7 +80,7 @@ function loadBuildings(center: LngLat, radiusM: number): Promise<Ring[]> {
       void idbSet(cacheKey, rings)
       return rings
     })
-  })
+  }).then((rings) => { resolved.set(key, rings); return rings }) // seed the sync cache on resolve
   cache.set(key, p)
   p.catch(() => cache.delete(key)) // let a failed fetch be retried on next mount
   return p
@@ -100,7 +110,9 @@ interface Props {
 // the surface where the affected building(s) are picked into the floor-stack.
 // Tapping footprints toggles a selection; "Übernehmen" transfers them all at once.
 export function OsmOutline({ center, radiusM, onAspect, interactive, onPick }: Props) {
-  const [rings, setRings] = useState<Ring[] | null>(null)
+  // Seed from the resolved cache so a warm hit (prefetched at boot, or a prior open) paints the
+  // outlines immediately instead of flashing the loader while the async IDB read settles.
+  const [rings, setRings] = useState<Ring[] | null>(() => resolved.get(bboxKey(center, radiusM).key) ?? null)
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<number>>(new Set())
 
@@ -130,7 +142,9 @@ export function OsmOutline({ center, radiusM, onAspect, interactive, onPick }: P
   useEffect(() => {
     let alive = true
     onAspect(1) // square metre-bbox
-    setRings(null); setError(null); setSelected(new Set())
+    // Only blank to the loader on a COLD key — a warm key keeps the already-painted outlines.
+    const warm = resolved.get(bboxKey(center, radiusM).key) ?? null
+    setRings(warm); setError(null); setSelected(new Set())
     loadBuildings(center, radiusM)
       .then((r) => { if (alive) setRings(r) })
       .catch((e) => { if (alive) setError(e instanceof Error ? e.message : 'OSM nicht erreichbar') })
