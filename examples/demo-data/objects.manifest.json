@@ -2,15 +2,27 @@
   "objects": [
     {
       "id": "d0000000-0000-5000-8000-00000000b077",
-      "name": "Schloss Musterdorf",
-      "address": "Schlossgasse 9, 4104 Oberwil",
-      "lat": 47.52382,
-      "lng": 7.57037,
+      "name": "Schloss Bottmingen",
+      "address": "Schlossgasse 9, 4103 Bottmingen",
+      "lat": 47.52556,
+      "lng": 7.58389,
       "sourceNote": "Demo-Objekt (öffentliches Wahrzeichen, synthetische Pläne)",
       "plans": [
-        { "module": "modul1", "file": "plans/schloss-musterdorf/modul1.pdf", "title": "Schloss Musterdorf – Übersicht" },
-        { "module": "modul2-3", "file": "plans/schloss-musterdorf/modul2-3.pdf", "title": "Schloss Musterdorf – Zugang & Objekt" },
-        { "module": "modul6", "file": "plans/schloss-musterdorf/modul6.pdf", "title": "Schloss Musterdorf – Gebäudepläne" }
+        {
+          "module": "modul1",
+          "file": "plans/schloss-musterdorf/modul1.pdf",
+          "title": "Schloss Bottmingen – Übersicht"
+        },
+        {
+          "module": "modul2-3",
+          "file": "plans/schloss-musterdorf/modul2-3.pdf",
+          "title": "Schloss Bottmingen – Zugang & Objekt"
+        },
+        {
+          "module": "modul6",
+          "file": "plans/schloss-musterdorf/modul6.pdf",
+          "title": "Schloss Bottmingen – Gebäudepläne"
+        }
       ]
     }
   ]

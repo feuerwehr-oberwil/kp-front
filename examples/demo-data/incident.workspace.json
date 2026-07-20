@@ -1,604 +1,604 @@
 {
- "entities": [
-  {
-   "id": "brand",
-   "kind": "symbol",
-   "coord": [
-    7.570461800187928,
-    47.523709638484405
-   ],
-   "floor": 2,
-   "label": "Vollbrand 2. OG",
-   "layer": "taktisch",
-   "fields": {},
-   "spread": {
-    "h": "E",
-    "hBounded": true
-   },
-   "symbol": "VKF Feuer",
-   "caption": "off",
-   "subtitle": "Brandbekämpfung"
-  },
-  {
-   "id": "rettung",
-   "kind": "symbol",
-   "coord": [
-    7.570155343330583,
-    47.52368472916493
-   ],
-   "count": 2,
-   "label": "2 Personen vermisst",
-   "layer": "taktisch",
-   "fields": {
-    "Status": "in Rettung",
-    "Bereich": "OG 2, Nordseite"
-   },
-   "symbol": "VKF Rettungen",
-   "subtitle": "Menschenrettung"
-  },
-  {
-   "id": "elektro",
-   "kind": "symbol",
-   "coord": [
-    7.570363795662104,
-    47.523620275015276
-   ],
-   "label": "PV-Anlage Dach",
-   "layer": "taktisch",
-   "fields": {
-    "DC-Trennung": "nicht bestätigt"
-   },
-   "symbol": "FW Elektroanlage",
-   "subtitle": "Gefahr Elektrizität"
-  },
-  {
-   "id": "p1782915750429",
-   "kind": "symbol",
-   "coord": [
-    7.570647419309637,
-    47.524083737036165
-   ],
-   "label": "Einsatzleiter",
-   "layer": "taktisch",
-   "fields": {
-    "Name": "Céline Widmer"
-   },
-   "symbol": "VKF Einsatzleiter",
-   "subtitle": "Führung"
-  },
-  {
-   "id": "p1782915762310",
-   "kind": "symbol",
-   "coord": [
-    7.570375414225111,
-    47.524151709317806
-   ],
-   "label": "TLF",
-   "layer": "taktisch",
-   "fields": {
-    "Fahrer": ""
-   },
-   "symbol": "VKF Fahrzeug",
-   "rotation": 207
-  },
-  {
-   "id": "p1782915831573",
-   "kind": "symbol",
-   "coord": [
-    7.570418989568566,
-    47.52389501641804
-   ],
-   "label": "Lüfter",
-   "layer": "taktisch",
-   "fields": {
-    "Typ": ""
-   },
-   "symbol": "VKF Luefter mobil",
-   "rotation": 111,
-   "subtitle": "Fahrzeuge / Mittel"
-  },
-  {
-   "id": "p1782915848803",
-   "kind": "symbol",
-   "coord": [
-    7.570321089082,
-    47.52425869852
-   ],
-   "label": "Sanität",
-   "layer": "taktisch",
-   "fields": {
-    "Einheit": ""
-   },
-   "symbol": "VKF Bereich Sanitaet",
-   "subtitle": "Personen / Sanität"
-  }
- ],
- "drawings": [
-  {
-   "id": "d-absperr",
-   "kind": "circle",
-   "color": "#e8392b",
-   "label": "Absperrkreis 90 m",
-   "coords": [
-    [
-     7.57037,
-     47.52382
-    ]
-   ],
-   "locked": true,
-   "radiusM": 100,
-   "fillOpacity": 0.06
-  },
-  {
-   "id": "d1784485082900",
-   "kind": "line",
-   "color": "#1f6feb",
-   "width": 4,
-   "coords": [
-    [
-     7.570603055379706,
-     47.524237153351265
-    ],
-    [
-     7.570534858211204,
-     47.524150805656745
-    ],
-    [
-     7.570493939910676,
-     47.524139292620134
-    ],
-    [
-     7.570410398379352,
-     47.52414274653157
-    ]
-   ],
-   "dashed": false
-  },
-  {
-   "id": "d1784485103784",
-   "kind": "line",
-   "color": "#1f6feb",
-   "width": 4,
-   "coords": [
-    [
-     7.570417218105263,
-     47.52413008218571
-    ],
-    [
-     7.570453021617851,
-     47.52413008218571
-    ],
-    [
-     7.570483710344462,
-     47.52411972044882
-    ],
-    [
-     7.570505874423532,
-     47.52408633261592
-    ],
-    [
-     7.570505874423532,
-     47.52404028039763
-    ],
-    [
-     7.570463251193672,
-     47.523950478455845
-    ],
-    [
-     7.570359250511643,
-     47.52382268312019
-    ]
-   ],
-   "dashed": false,
-   "content": "W",
-   "teilstueck": true
-  },
-  {
-   "id": "d1784485139951",
-   "kind": "line",
-   "arrow": true,
-   "color": "#1f6feb",
-   "width": 4,
-   "coords": [
-    [
-     7.570356816689582,
-     47.52380683414984
-    ],
-    [
-     7.570334889383389,
-     47.523769816249796
-    ],
-    [
-     7.570334889383389,
-     47.523759122184714
-    ],
-    [
-     7.570360471240178,
-     47.5237467828766
-    ],
-    [
-     7.570417725873199,
-     47.5237344435655
-    ]
-   ],
-   "dashed": false,
-   "lineNo": 10,
-   "content": "W",
-   "floorTag": 2,
-   "endLabelAt": [
-    7.5703660246358595,
-    47.52373976553611
-   ]
-  }
- ],
- "building": {
-  "src": [
-   [
-    [
-     0,
-     0
-    ],
-    [
-     0.272727,
-     0
-    ],
-    [
-     0.272727,
-     0.136364
-    ],
-    [
-     0.727273,
-     0.136364
-    ],
-    [
-     0.727273,
-     0
-    ],
-    [
-     1,
-     0
-    ],
-    [
-     1,
-     0.272727
-    ],
-    [
-     0.863636,
-     0.272727
-    ],
-    [
-     0.863636,
-     0.727273
-    ],
-    [
-     1,
-     0.727273
-    ],
-    [
-     1,
-     1
-    ],
-    [
-     0.727273,
-     1
-    ],
-    [
-     0.727273,
-     0.863636
-    ],
-    [
-     0.272727,
-     0.863636
-    ],
-    [
-     0.272727,
-     1
-    ],
-    [
-     0,
-     1
-    ],
-    [
-     0,
-     0.727273
-    ],
-    [
-     0.136364,
-     0.727273
-    ],
-    [
-     0.136364,
-     0.272727
-    ],
-    [
-     0,
-     0.272727
-    ],
-    [
-     0,
-     0
-    ]
-   ]
+  "entities": [
+    {
+      "id": "brand",
+      "kind": "symbol",
+      "coord": [
+        7.5839818,
+        47.525449638
+      ],
+      "floor": 2,
+      "label": "Vollbrand 2. OG",
+      "layer": "taktisch",
+      "fields": {},
+      "spread": {
+        "h": "E",
+        "hBounded": true
+      },
+      "symbol": "VKF Feuer",
+      "caption": "off",
+      "subtitle": "Brandbekämpfung"
+    },
+    {
+      "id": "rettung",
+      "kind": "symbol",
+      "coord": [
+        7.583675343,
+        47.525424729
+      ],
+      "count": 2,
+      "label": "2 Personen vermisst",
+      "layer": "taktisch",
+      "fields": {
+        "Status": "in Rettung",
+        "Bereich": "OG 2, Nordseite"
+      },
+      "symbol": "VKF Rettungen",
+      "subtitle": "Menschenrettung"
+    },
+    {
+      "id": "elektro",
+      "kind": "symbol",
+      "coord": [
+        7.583883796,
+        47.525360275
+      ],
+      "label": "PV-Anlage Dach",
+      "layer": "taktisch",
+      "fields": {
+        "DC-Trennung": "nicht bestätigt"
+      },
+      "symbol": "FW Elektroanlage",
+      "subtitle": "Gefahr Elektrizität"
+    },
+    {
+      "id": "p1782915750429",
+      "kind": "symbol",
+      "coord": [
+        7.584167419,
+        47.525823737
+      ],
+      "label": "Einsatzleiter",
+      "layer": "taktisch",
+      "fields": {
+        "Name": "Céline Widmer"
+      },
+      "symbol": "VKF Einsatzleiter",
+      "subtitle": "Führung"
+    },
+    {
+      "id": "p1782915762310",
+      "kind": "symbol",
+      "coord": [
+        7.583895414,
+        47.525891709
+      ],
+      "label": "TLF",
+      "layer": "taktisch",
+      "fields": {
+        "Fahrer": ""
+      },
+      "symbol": "VKF Fahrzeug",
+      "rotation": 207
+    },
+    {
+      "id": "p1782915831573",
+      "kind": "symbol",
+      "coord": [
+        7.58393899,
+        47.525635016
+      ],
+      "label": "Lüfter",
+      "layer": "taktisch",
+      "fields": {
+        "Typ": ""
+      },
+      "symbol": "VKF Luefter mobil",
+      "rotation": 111,
+      "subtitle": "Fahrzeuge / Mittel"
+    },
+    {
+      "id": "p1782915848803",
+      "kind": "symbol",
+      "coord": [
+        7.583841089,
+        47.525998699
+      ],
+      "label": "Sanität",
+      "layer": "taktisch",
+      "fields": {
+        "Einheit": ""
+      },
+      "symbol": "VKF Bereich Sanitaet",
+      "subtitle": "Personen / Sanität"
+    }
   ],
-  "orientDeg": 0,
-  "northUp": false,
-  "rings": [
-   [
-    [
-     0,
-     0
+  "drawings": [
+    {
+      "id": "d-absperr",
+      "kind": "circle",
+      "color": "#e8392b",
+      "label": "Absperrkreis 90 m",
+      "coords": [
+        [
+          7.58389,
+          47.52556
+        ]
+      ],
+      "locked": true,
+      "radiusM": 100,
+      "fillOpacity": 0.06
+    },
+    {
+      "id": "d1784485082900",
+      "kind": "line",
+      "color": "#1f6feb",
+      "width": 4,
+      "coords": [
+        [
+          7.584123055,
+          47.525977153
+        ],
+        [
+          7.584054858,
+          47.525890806
+        ],
+        [
+          7.58401394,
+          47.525879293
+        ],
+        [
+          7.583930398,
+          47.525882747
+        ]
+      ],
+      "dashed": false
+    },
+    {
+      "id": "d1784485103784",
+      "kind": "line",
+      "color": "#1f6feb",
+      "width": 4,
+      "coords": [
+        [
+          7.583937218,
+          47.525870082
+        ],
+        [
+          7.583973022,
+          47.525870082
+        ],
+        [
+          7.58400371,
+          47.52585972
+        ],
+        [
+          7.584025874,
+          47.525826333
+        ],
+        [
+          7.584025874,
+          47.52578028
+        ],
+        [
+          7.583983251,
+          47.525690478
+        ],
+        [
+          7.583879251,
+          47.525562683
+        ]
+      ],
+      "dashed": false,
+      "content": "W",
+      "teilstueck": true
+    },
+    {
+      "id": "d1784485139951",
+      "kind": "line",
+      "arrow": true,
+      "color": "#1f6feb",
+      "width": 4,
+      "coords": [
+        [
+          7.583876817,
+          47.525546834
+        ],
+        [
+          7.583854889,
+          47.525509816
+        ],
+        [
+          7.583854889,
+          47.525499122
+        ],
+        [
+          7.583880471,
+          47.525486783
+        ],
+        [
+          7.583937726,
+          47.525474444
+        ]
+      ],
+      "dashed": false,
+      "lineNo": 10,
+      "content": "W",
+      "floorTag": 2,
+      "endLabelAt": [
+        7.5703660246358595,
+        47.52373976553611
+      ]
+    }
+  ],
+  "building": {
+    "src": [
+      [
+        [
+          0,
+          0
+        ],
+        [
+          0.272727,
+          0
+        ],
+        [
+          0.272727,
+          0.136364
+        ],
+        [
+          0.727273,
+          0.136364
+        ],
+        [
+          0.727273,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          1,
+          0.272727
+        ],
+        [
+          0.863636,
+          0.272727
+        ],
+        [
+          0.863636,
+          0.727273
+        ],
+        [
+          1,
+          0.727273
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          0.727273,
+          1
+        ],
+        [
+          0.727273,
+          0.863636
+        ],
+        [
+          0.272727,
+          0.863636
+        ],
+        [
+          0.272727,
+          1
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          0.727273
+        ],
+        [
+          0.136364,
+          0.727273
+        ],
+        [
+          0.136364,
+          0.272727
+        ],
+        [
+          0,
+          0.272727
+        ],
+        [
+          0,
+          0
+        ]
+      ]
     ],
-    [
-     0.272727,
-     0
+    "orientDeg": 0,
+    "northUp": false,
+    "rings": [
+      [
+        [
+          0,
+          0
+        ],
+        [
+          0.272727,
+          0
+        ],
+        [
+          0.272727,
+          0.136364
+        ],
+        [
+          0.727273,
+          0.136364
+        ],
+        [
+          0.727273,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          1,
+          0.272727
+        ],
+        [
+          0.863636,
+          0.272727
+        ],
+        [
+          0.863636,
+          0.727273
+        ],
+        [
+          1,
+          0.727273
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          0.727273,
+          1
+        ],
+        [
+          0.727273,
+          0.863636
+        ],
+        [
+          0.272727,
+          0.863636
+        ],
+        [
+          0.272727,
+          1
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          0.727273
+        ],
+        [
+          0.136364,
+          0.727273
+        ],
+        [
+          0.136364,
+          0.272727
+        ],
+        [
+          0,
+          0.272727
+        ],
+        [
+          0,
+          0
+        ]
+      ]
     ],
-    [
-     0.272727,
-     0.136364
+    "ring": [
+      [
+        0,
+        0
+      ],
+      [
+        0.272727,
+        0
+      ],
+      [
+        0.272727,
+        0.136364
+      ],
+      [
+        0.727273,
+        0.136364
+      ],
+      [
+        0.727273,
+        0
+      ],
+      [
+        1,
+        0
+      ],
+      [
+        1,
+        0.272727
+      ],
+      [
+        0.863636,
+        0.272727
+      ],
+      [
+        0.863636,
+        0.727273
+      ],
+      [
+        1,
+        0.727273
+      ],
+      [
+        1,
+        1
+      ],
+      [
+        0.727273,
+        1
+      ],
+      [
+        0.727273,
+        0.863636
+      ],
+      [
+        0.272727,
+        0.863636
+      ],
+      [
+        0.272727,
+        1
+      ],
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        0.727273
+      ],
+      [
+        0.136364,
+        0.727273
+      ],
+      [
+        0.136364,
+        0.272727
+      ],
+      [
+        0,
+        0.272727
+      ],
+      [
+        0,
+        0
+      ]
     ],
-    [
-     0.727273,
-     0.136364
-    ],
-    [
-     0.727273,
-     0
-    ],
-    [
-     1,
-     0
-    ],
-    [
-     1,
-     0.272727
-    ],
-    [
-     0.863636,
-     0.272727
-    ],
-    [
-     0.863636,
-     0.727273
-    ],
-    [
-     1,
-     0.727273
-    ],
-    [
-     1,
-     1
-    ],
-    [
-     0.727273,
-     1
-    ],
-    [
-     0.727273,
-     0.863636
-    ],
-    [
-     0.272727,
-     0.863636
-    ],
-    [
-     0.272727,
-     1
-    ],
-    [
-     0,
-     1
-    ],
-    [
-     0,
-     0.727273
-    ],
-    [
-     0.136364,
-     0.727273
-    ],
-    [
-     0.136364,
-     0.272727
-    ],
-    [
-     0,
-     0.272727
-    ],
-    [
-     0,
-     0
+    "ringAspect": 1,
+    "floors": [
+      0,
+      1,
+      2
     ]
-   ]
+  },
+  "board": {
+    "gebaeude": [
+      {
+        "t": "16:24",
+        "x": 0.4908373927163071,
+        "y": 0.5567010309278351,
+        "id": "r1782915890769",
+        "kind": "resource",
+        "text": "Hans Müller",
+        "color": "#1f6feb",
+        "floor": 2,
+        "trail": [
+          {
+            "t": "16:24",
+            "x": 0.461145905822315,
+            "y": 0.5335051546391751,
+            "floor": 1
+          },
+          {
+            "t": "16:24",
+            "x": 0.4908373927163071,
+            "y": 0.5567010309278351,
+            "floor": 2
+          }
+        ],
+        "truppId": "trupp1"
+      }
+    ]
+  },
+  "layerState": [
+    {
+      "id": "base-osm",
+      "opacity": 100,
+      "visible": false
+    },
+    {
+      "id": "base-color",
+      "opacity": 100,
+      "visible": false
+    },
+    {
+      "id": "base-grey",
+      "opacity": 100,
+      "visible": false
+    },
+    {
+      "id": "base-air",
+      "opacity": 100,
+      "visible": false
+    },
+    {
+      "id": "base-esri",
+      "opacity": 100,
+      "visible": false
+    },
+    {
+      "id": "base-topo",
+      "opacity": 100,
+      "visible": false
+    },
+    {
+      "id": "base-carto",
+      "opacity": 100,
+      "visible": true
+    },
+    {
+      "id": "taktisch",
+      "visible": true
+    },
+    {
+      "id": "fahrzeuge",
+      "visible": true
+    },
+    {
+      "id": "markup",
+      "visible": true
+    },
+    {
+      "id": "demo-wasserleitung",
+      "opacity": 100,
+      "visible": false
+    },
+    {
+      "id": "demo-hydrant",
+      "opacity": 100,
+      "visible": true
+    }
   ],
-  "ring": [
-   [
-    0,
-    0
-   ],
-   [
-    0.272727,
-    0
-   ],
-   [
-    0.272727,
-    0.136364
-   ],
-   [
-    0.727273,
-    0.136364
-   ],
-   [
-    0.727273,
-    0
-   ],
-   [
-    1,
-    0
-   ],
-   [
-    1,
-    0.272727
-   ],
-   [
-    0.863636,
-    0.272727
-   ],
-   [
-    0.863636,
-    0.727273
-   ],
-   [
-    1,
-    0.727273
-   ],
-   [
-    1,
-    1
-   ],
-   [
-    0.727273,
-    1
-   ],
-   [
-    0.727273,
-    0.863636
-   ],
-   [
-    0.272727,
-    0.863636
-   ],
-   [
-    0.272727,
-    1
-   ],
-   [
-    0,
-    1
-   ],
-   [
-    0,
-    0.727273
-   ],
-   [
-    0.136364,
-    0.727273
-   ],
-   [
-    0.136364,
-    0.272727
-   ],
-   [
-    0,
-    0.272727
-   ],
-   [
-    0,
-    0
-   ]
-  ],
-  "ringAspect": 1,
-  "floors": [
-   0,
-   1,
-   2
+  "recent": [
+    "VKF Bereich Sanitaet",
+    "VKF Luefter mobil",
+    "VKF Fahrzeug",
+    "VKF Einsatzleiter",
+    "VKF Feuer",
+    "VKF Rettungen",
+    "VKF KP Front",
+    "VKF Sammelstelle"
   ]
- },
- "board": {
-  "gebaeude": [
-   {
-    "t": "16:24",
-    "x": 0.4908373927163071,
-    "y": 0.5567010309278351,
-    "id": "r1782915890769",
-    "kind": "resource",
-    "text": "Hans Müller",
-    "color": "#1f6feb",
-    "floor": 2,
-    "trail": [
-     {
-      "t": "16:24",
-      "x": 0.461145905822315,
-      "y": 0.5335051546391751,
-      "floor": 1
-     },
-     {
-      "t": "16:24",
-      "x": 0.4908373927163071,
-      "y": 0.5567010309278351,
-      "floor": 2
-     }
-    ],
-    "truppId": "trupp1"
-   }
-  ]
- },
- "layerState": [
-  {
-   "id": "base-osm",
-   "opacity": 100,
-   "visible": false
-  },
-  {
-   "id": "base-color",
-   "opacity": 100,
-   "visible": false
-  },
-  {
-   "id": "base-grey",
-   "opacity": 100,
-   "visible": false
-  },
-  {
-   "id": "base-air",
-   "opacity": 100,
-   "visible": false
-  },
-  {
-   "id": "base-esri",
-   "opacity": 100,
-   "visible": false
-  },
-  {
-   "id": "base-topo",
-   "opacity": 100,
-   "visible": false
-  },
-  {
-   "id": "base-carto",
-   "opacity": 100,
-   "visible": true
-  },
-  {
-   "id": "taktisch",
-   "visible": true
-  },
-  {
-   "id": "fahrzeuge",
-   "visible": true
-  },
-  {
-   "id": "markup",
-   "visible": true
-  },
-  {
-   "id": "demo-wasserleitung",
-   "opacity": 100,
-   "visible": false
-  },
-  {
-   "id": "demo-hydrant",
-   "opacity": 100,
-   "visible": true
-  }
- ],
- "recent": [
-  "VKF Bereich Sanitaet",
-  "VKF Luefter mobil",
-  "VKF Fahrzeug",
-  "VKF Einsatzleiter",
-  "VKF Feuer",
-  "VKF Rettungen",
-  "VKF KP Front",
-  "VKF Sammelstelle"
- ]
 }
