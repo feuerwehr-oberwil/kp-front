@@ -49,7 +49,7 @@ DEMO_INCIDENT = {
     "title": "Zimmerbrand",
     "type": "Brand",
     "text": "Gemeldeter Zimmerbrand im 2. OG, Rauch sichtbar. Menschenrettung läuft.",
-    "address": "Schlossgasse 9, 4104 Musterdorf",
+    "address": "Schlossgasse 9, 4104 Oberwil",
     "lat": 47.52382,
     "lng": 7.57037,
     "divera_id": 990000,
@@ -67,7 +67,7 @@ DEMO_ALARM = {
     "divera_number": "2026-DEMO-002",
     "title": "Automatische Brandmeldeanlage",
     "text": "BMA-Auslösung im Untergeschoss, Ursache noch unklar. Erkundung läuft.",
-    "address": "Gewerbestrasse 4, 4104 Musterdorf",
+    "address": "Hauptstrasse 40, 4104 Oberwil",
     "lat": 47.5262,
     "lng": 7.5748,
 }
