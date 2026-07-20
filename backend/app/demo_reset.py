@@ -49,9 +49,9 @@ DEMO_INCIDENT = {
     "title": "Zimmerbrand",
     "type": "Brand",
     "text": "Gemeldeter Zimmerbrand im 2. OG, Rauch sichtbar. Menschenrettung läuft.",
-    "address": "Schlossgasse 9, 4104 Oberwil",
-    "lat": 47.52382,
-    "lng": 7.57037,
+    "address": "Schlossgasse 9, 4103 Bottmingen",
+    "lat": 47.52556,
+    "lng": 7.58389,
     "divera_id": 990000,
     "divera_number": "2026-DEMO-000",
     # how long the incident has been running when the demo is viewed (drives the Einsatz clock)

@@ -9,11 +9,14 @@
   },
   "map": {
     "defaultView": {
-      "center": [7.5662, 47.5201],
+      "center": [
+        7.5839,
+        47.5256
+      ],
       "zoom": 14
     },
     "geocoder": {
-      "defaultLocality": "4104 Oberwil",
+      "defaultLocality": "4103 Bottmingen",
       "bboxLv95": "2606000,1258000,2614000,1266000"
     }
   },
@@ -24,20 +27,131 @@
   },
   "mittel": {
     "sources": [
-      { "id": "tlf", "label": "TLF" },
-      { "id": "mtf", "label": "MTF" },
-      { "id": "depot", "label": "Depot" }
+      {
+        "id": "tlf",
+        "label": "TLF"
+      },
+      {
+        "id": "mtf",
+        "label": "MTF"
+      },
+      {
+        "id": "depot",
+        "label": "Depot"
+      }
     ],
-    "units": ["Stk", "l", "m", "Sack", "Flasche"],
+    "units": [
+      "Stk",
+      "l",
+      "m",
+      "Sack",
+      "Flasche"
+    ],
     "catalogue": [
-      { "id": "oelbindemittel", "label": "Ölbindemittel", "unit": "Sack", "category": "Umwelt", "stock": [{ "source": "tlf", "qty": 4 }, { "source": "depot", "qty": 20 }] },
-      { "id": "schlauch-c", "label": "Schlauch 40er", "unit": "Stk", "category": "Schläuche", "stock": [{ "source": "tlf", "qty": 12 }] },
-      { "id": "schlauch-b", "label": "Schlauch 75er", "unit": "Stk", "category": "Schläuche", "stock": [{ "source": "tlf", "qty": 8 }] },
-      { "id": "luefter", "label": "Drucklüfter", "unit": "Stk", "category": "Geräte", "stock": [{ "source": "tlf", "qty": 1 }, { "source": "depot", "qty": 2 }] },
-      { "id": "tauchpumpe", "label": "Tauchpumpe", "unit": "Stk", "category": "Geräte", "stock": [{ "source": "mtf", "qty": 2 }] },
-      { "id": "schaummittel", "label": "Schaummittel", "unit": "l", "category": "Löschmittel", "stock": [{ "source": "tlf", "qty": 120 }] },
-      { "id": "leitkegel", "label": "Verkehrsleitkegel", "unit": "Stk", "category": "Absperrung", "stock": [{ "source": "mtf", "qty": 10 }] },
-      { "id": "auffangbehaelter", "label": "Auffangbehälter", "unit": "Stk", "category": "Umwelt", "stock": [{ "source": "depot", "qty": 3 }] }
+      {
+        "id": "oelbindemittel",
+        "label": "Ölbindemittel",
+        "unit": "Sack",
+        "category": "Umwelt",
+        "stock": [
+          {
+            "source": "tlf",
+            "qty": 4
+          },
+          {
+            "source": "depot",
+            "qty": 20
+          }
+        ]
+      },
+      {
+        "id": "schlauch-c",
+        "label": "Schlauch 40er",
+        "unit": "Stk",
+        "category": "Schläuche",
+        "stock": [
+          {
+            "source": "tlf",
+            "qty": 12
+          }
+        ]
+      },
+      {
+        "id": "schlauch-b",
+        "label": "Schlauch 75er",
+        "unit": "Stk",
+        "category": "Schläuche",
+        "stock": [
+          {
+            "source": "tlf",
+            "qty": 8
+          }
+        ]
+      },
+      {
+        "id": "luefter",
+        "label": "Drucklüfter",
+        "unit": "Stk",
+        "category": "Geräte",
+        "stock": [
+          {
+            "source": "tlf",
+            "qty": 1
+          },
+          {
+            "source": "depot",
+            "qty": 2
+          }
+        ]
+      },
+      {
+        "id": "tauchpumpe",
+        "label": "Tauchpumpe",
+        "unit": "Stk",
+        "category": "Geräte",
+        "stock": [
+          {
+            "source": "mtf",
+            "qty": 2
+          }
+        ]
+      },
+      {
+        "id": "schaummittel",
+        "label": "Schaummittel",
+        "unit": "l",
+        "category": "Löschmittel",
+        "stock": [
+          {
+            "source": "tlf",
+            "qty": 120
+          }
+        ]
+      },
+      {
+        "id": "leitkegel",
+        "label": "Verkehrsleitkegel",
+        "unit": "Stk",
+        "category": "Absperrung",
+        "stock": [
+          {
+            "source": "mtf",
+            "qty": 10
+          }
+        ]
+      },
+      {
+        "id": "auffangbehaelter",
+        "label": "Auffangbehälter",
+        "unit": "Stk",
+        "category": "Umwelt",
+        "stock": [
+          {
+            "source": "depot",
+            "qty": 3
+          }
+        ]
+      }
     ]
   }
 }

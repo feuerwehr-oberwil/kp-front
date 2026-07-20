@@ -19,7 +19,7 @@ def test_demo_incident_matches_its_only_object_plan() -> None:
 
     # the pre-filled RUNNING incident is the Schloss, so its object's Module plans attach.
     obj = raw["objects"][0]
-    assert obj["name"] == "Schloss Musterdorf"
+    assert obj["name"] == "Schloss Bottmingen"
     assert obj["address"] == DEMO_INCIDENT["address"]
     assert obj["lat"] == DEMO_INCIDENT["lat"]
     assert obj["lng"] == DEMO_INCIDENT["lng"]
@@ -38,7 +38,7 @@ def test_demo_object_manifest_and_pdfs_are_valid() -> None:
         try:
             assert len(pdf) == expected_pages[plan.module]
             first_page_text = pdf[0].get_textpage().get_text_range()
-            assert "Schloss Musterdorf" in first_page_text
+            assert "Schloss Bottmingen" in first_page_text
             assert "synthetisch" in first_page_text
         finally:
             pdf.close()

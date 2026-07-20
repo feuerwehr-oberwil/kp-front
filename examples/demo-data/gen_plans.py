@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the synthetic Schloss Musterdorf object-plan module PDFs.
+"""Generate the synthetic Schloss Bottmingen object-plan module PDFs.
 
 The diagrams are intentionally fictional but useful enough to demonstrate KP Front's
 module rail, PDF viewer, and multi-page floor-plan flow. Markers use the app's OWN
@@ -28,8 +28,8 @@ ROOT = HERE.parent.parent
 sys.path.insert(0, str(ROOT / "backend"))
 from app.kroki import SymbolPack  # noqa: E402  (needs the backend on sys.path first)
 
-OBJECT = "Schloss Musterdorf"
-ADDRESS = "Schlossgasse 9, 4104 Musterdorf"
+OBJECT = "Schloss Bottmingen"
+ADDRESS = "Schlossgasse 9, 4103 Bottmingen"
 
 RED = HexColor("#c4161c")
 INK = HexColor("#172033")
