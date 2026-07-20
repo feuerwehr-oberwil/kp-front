@@ -274,6 +274,41 @@ export function autoActivateLayers(layers: LayerDef[], kategorie: string | null 
 }
 
 /**
+ * Demo only: slide the Atemschutz (SCBA) Trupp clocks so the scene reads as fresh at PAGE-LOAD
+ * instead of at the server's last 2 h reset. Otherwise a visitor landing late in the reset window
+ * sees Trupps already überfällig and the alarm fires the moment they arrive. Every Trupp timestamp
+ * is shifted by one offset so the most-recent contact lands at `now`, preserving the relative
+ * timing (who's been in longest, contact gaps). Applied to the fetched seed at open, in demo mode.
+ */
+export function rebaseDemoClocks(ws: Saved, now: number): Saved {
+  const trupps = ws.trupps
+  if (!trupps?.length) return ws
+  const stamps: number[] = []
+  for (const t of trupps) {
+    for (const iso of [t.entryTime, t.lastContactTime]) {
+      const ms = iso ? Date.parse(iso) : NaN
+      if (!Number.isNaN(ms)) stamps.push(ms)
+    }
+    for (const r of t.readings ?? []) { const ms = Date.parse(r.t); if (!Number.isNaN(ms)) stamps.push(ms) }
+  }
+  if (!stamps.length) return ws
+  const offset = now - Math.max(...stamps)
+  const shift = (iso: string): string => {
+    const ms = iso ? Date.parse(iso) : NaN
+    return Number.isNaN(ms) ? iso : new Date(ms + offset).toISOString()
+  }
+  return {
+    ...ws,
+    trupps: trupps.map((t) => ({
+      ...t,
+      entryTime: shift(t.entryTime),
+      lastContactTime: shift(t.lastContactTime),
+      readings: t.readings?.map((r) => ({ ...r, t: shift(r.t) })),
+    })),
+  }
+}
+
+/**
  * Derive App's initial state slices from an incident's workspace blob (or empty for a
  * brand-new incident — no demo seed; a fresh incident starts blank). `prefs` carries the
  * remembered surface/plan so reopening the SAME incident honours it. `incidentType` (the
