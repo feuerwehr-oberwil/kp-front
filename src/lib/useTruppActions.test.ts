@@ -23,6 +23,7 @@ function harness(trupp: Trupp, seed?: { board?: BoardDoc; entities?: Entity[] })
   const actions = useTruppActions({
     trupps: state.trupps,
     setTrupps: ((a) => { state.trupps = apply(state.trupps, a) }) as Dispatch<SetStateAction<Trupp[]>>,
+    board: state.board,
     setBoard: ((a) => { state.board = apply(state.board, a) }) as Dispatch<SetStateAction<BoardDoc>>,
     setDocRaw: ((a) => { state.doc = apply(state.doc, a) }) as Dispatch<SetStateAction<Doc>>,
     building: null,
