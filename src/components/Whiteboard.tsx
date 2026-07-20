@@ -1307,8 +1307,18 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                   // a chip linked to a Trupp that's been marked «raus» (Atemschutz board)
                   // dims + strikes through, so the plan reflects that the team is out.
                   const isRaus = !!a.truppId && trupps.some((t) => t.id === a.truppId && t.status === 'raus')
+                  const teamCol = a.color || TEAM_COLORS[0]
+                  // parity with the Lage map: a compact dot + name at rest, expanding to the full
+                  // pill (cap · rename · time badge) only when the team is selected.
+                  if (selId !== a.id) {
+                    return (
+                      <span className={`team-dot ${isRaus ? 'raus' : ''}`} style={{ '--team': teamCol } as React.CSSProperties}>
+                        <i /><b>{a.text}</b>
+                      </span>
+                    )
+                  }
                   return (
-                  <span className={`wb-resource-pill ${isRaus ? 'raus' : ''}`} style={{ '--team': a.color || TEAM_COLORS[0] } as React.CSSProperties}>
+                  <span className={`wb-resource-pill ${isRaus ? 'raus' : ''}`} style={{ '--team': teamCol } as React.CSSProperties}>
                     <span className="wb-resource-cap" />
                     {editId === a.id
                       ? <input className="wb-resource-input" ref={focusOnce} defaultValue={a.text}
