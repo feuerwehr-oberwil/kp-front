@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { autoActivateLayers, deriveInitial, normalizeBoard, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Saved } from './workspace'
+import { autoActivateLayers, deriveInitial, normalizeBoard, rebaseDemoClocks, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Saved } from './workspace'
 import type { LayerDef } from '../types'
 
 // Inject one station reference layer with a category rule so the auto-activation path is
@@ -19,6 +19,27 @@ vi.mock('./deploymentConfig', () => ({
 // The heavy domain types (Entity/TimelineEvent/BoardAnno/LayerDef) carry many fields irrelevant
 // here; build minimal shapes and cast, like the sibling merge tests do.
 const ws = (partial: Partial<Saved>): Saved => partial as Saved
+
+describe('rebaseDemoClocks — demo SCBA clocks slide to page-load', () => {
+  const T = (min: number) => new Date(Date.UTC(2026, 0, 1, 12, min, 0)).toISOString()
+  it('shifts every Trupp timestamp so the newest contact lands at now, gaps preserved', () => {
+    const blob = ws({ trupps: [
+      { id: 'A', entryTime: T(0), lastContactTime: T(20), readings: [{ t: T(10) }, { t: T(20) }] },
+      { id: 'B', entryTime: T(5), lastContactTime: T(25), readings: [{ t: T(25) }] }, // 25 = newest
+    ] as unknown as Saved['trupps'] })
+    const now = Date.UTC(2026, 6, 1, 9, 0, 0)
+    const out = rebaseDemoClocks(blob, now)
+    const t = out.trupps!
+    expect(Date.parse(t[1].lastContactTime)).toBe(now)                  // newest → now
+    expect(now - Date.parse(t[0].entryTime)).toBe(25 * 60_000)          // A entered 25 min before newest
+    expect(now - Date.parse(t[0].readings![1].t)).toBe(5 * 60_000)      // readings shifted too
+    expect(blob.trupps![1].lastContactTime).toBe(T(25))                 // pure: original untouched
+  })
+  it('leaves a workspace with no valid Trupp clocks unchanged (same ref)', () => {
+    const blob = ws({ trupps: [{ id: 'X', entryTime: '', lastContactTime: '' }] as unknown as Saved['trupps'] })
+    expect(rebaseDemoClocks(blob, 123)).toBe(blob)
+  })
+})
 
 describe('deriveInitial — fresh / empty incident', () => {
   it('a null workspace yields a blank slate (no demo seed leaks in)', () => {

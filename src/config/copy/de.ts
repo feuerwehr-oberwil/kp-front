@@ -408,7 +408,7 @@ export const de = {
   // hose-count hint for the Messpfeil label (lib/geo · hoseLengthHint), e.g. "~5 Schläuche"
   hoseHint: '~{n} Schläuche',
   noHistoryRows: 'Noch keine Ereignisse erfasst',
-  symbolSearchPlaceholder: 'Taktisches Zeichen suchen ...',
+  symbolSearchPlaceholder: 'Suchen …',
   noSymbolMatches: 'Keine Treffer',
   close: 'Zu',
   closeDialog: 'Schliessen',
@@ -1204,6 +1204,7 @@ export const de = {
   demo: {
     ribbon: 'DEMO',
     ariaLabel: 'Demo-Instanz mit synthetischen Daten',
+    actionBlocked: 'In der Demo nicht möglich.',
     welcome: {
       title: 'Willkommen bei KP Front',
       intro: 'Das ist eine Demo mit erfundenen Daten – kein echter Einsatz. Probier alles frei aus.',

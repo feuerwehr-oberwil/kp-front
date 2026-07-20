@@ -5,7 +5,7 @@ import { IconSprite, Icon } from './lib/icons'
 import { useSymbols } from './lib/useSymbols'
 import { vehicleSymbolSvg } from './lib/useVehiclePositions'
 import { useVehicleLayer, type VehicleOverrides } from './lib/useVehicleLayer'
-import { autoActivateLayers, deriveInitial, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type IncidentSettings, type PlanScales, type ReportMeta, type Saved, type WorkspaceGate } from './lib/workspace'
+import { autoActivateLayers, deriveInitial, rebaseDemoClocks, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type IncidentSettings, type PlanScales, type ReportMeta, type Saved, type WorkspaceGate } from './lib/workspace'
 import { useReplay } from './lib/useReplay'
 import { incident as demoIncident, layers as initialLayers, planDocuments, gebaeudeDoc, preparedOverlays } from './data/demoIncident'
 import type { AttendanceState, BoardAnno, BoardDoc, BuildingDoc, CameraView, CaptionMode, Drawing, Entity, Incident, LayerDef, LayerId, LngLat, MittelEntry, Person, ShapeKind, TimelineEvent, Trupp, TruppFields } from './types'
@@ -2442,7 +2442,10 @@ export default function App() {
         return arr.some((i) => i.id === id) ? arr.map((i) => (i.id === id ? m : i)) : [m, ...arr]
       })
     }
-    setWorkspace((ws as unknown as Saved) ?? null)
+    // Demo: rebase the SCBA clocks to page-load so a late visitor doesn't land on an overdue
+    // alarm (the seed's clocks are as-of the last 2 h reset). Read-only fetch, display only.
+    const seed = ws ? (isDemoMode() ? rebaseDemoClocks(ws as unknown as Saved, Date.now()) : (ws as unknown as Saved)) : null
+    setWorkspace(seed)
     setForceReadOnly(!!opts.readOnly)
     setActiveId(id)
     setRemount((n) => n + 1)
@@ -2555,6 +2558,9 @@ export default function App() {
   // incident; archiving a background one just removes it and leaves the current one open.
   const archiveById = useCallback(async (id: string) => {
     if (!id) return
+    // Demo: don't let a visitor close the one running incident (it would archive on the shared
+    // server and stay gone until the next 2 h reset). The reload keeps the scene; abschliessen off.
+    if (isDemoMode()) { toast(appConfig.copy.demo.actionBlocked, { icon: 'info' }); return }
     const ok = await confirmDialog({
       title: appConfig.copy.history.archiveConfirmTitle,
       message: appConfig.copy.history.archiveConfirmMsg,
@@ -2611,6 +2617,7 @@ export default function App() {
   // dialog. Late corrections stay possible (reactivate / Nachträge) and flip the derived
   // chip to «geändert nach Abschluss».
   const completeRapport = useCallback(async (id: string) => {
+    if (isDemoMode()) { toast(appConfig.copy.demo.actionBlocked, { icon: 'info' }); return }
     try {
       if (id === activeId && syncRef.current) await syncRef.current.flush().catch(() => {})
       await patchIncident(id, { report_done_at: new Date().toISOString() })
