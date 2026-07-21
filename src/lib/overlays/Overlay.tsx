@@ -33,12 +33,27 @@ export interface OverlayProps {
    * full `modal` would mark inert. See Sheet's `modal` doc.
    */
   modal?: boolean | 'trap-focus'
+  /**
+   * Let Base UI close the dialog on Escape. Default `true`. Pass `false` when the surface owns
+   * Escape itself (e.g. AudioPlayerSheet, where Esc-in-a-field blurs the field rather than closing,
+   * plus Space/←/→/↑/↓ transport) — then its own keydown handler calls `onClose` when appropriate.
+   */
+  dismissEscape?: boolean
   children: ReactNode
 }
 
-export function Overlay({ open, onClose, className, backdropClassName = 'ui-backdrop', ariaLabel, initialFocus, modal = 'trap-focus', children }: OverlayProps) {
+export function Overlay({ open, onClose, className, backdropClassName = 'ui-backdrop', ariaLabel, initialFocus, modal = 'trap-focus', dismissEscape = true, children }: OverlayProps) {
   return (
-    <Dialog.Root open={open} onOpenChange={(next) => { if (!next) onClose() }} modal={modal}>
+    <Dialog.Root
+      open={open}
+      modal={modal}
+      onOpenChange={(next, details) => {
+        if (next) return
+        // the caller owns Escape → veto Base UI's escape-driven close (it still closes via `open`)
+        if (!dismissEscape && details.reason === 'escape-key') { details.cancel(); return }
+        onClose()
+      }}
+    >
       <Dialog.Portal>
         <Dialog.Backdrop className={backdropClassName} />
         <Dialog.Popup className={className} aria-label={ariaLabel} initialFocus={initialFocus}>

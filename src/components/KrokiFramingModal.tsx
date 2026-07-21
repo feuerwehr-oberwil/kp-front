@@ -1,9 +1,9 @@
 import { useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import Map, { Layer, Marker, Source, type MapRef } from 'react-map-gl/maplibre'
 import type { Map as MapLibreMap } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { Icon } from '../lib/icons'
+import { Overlay } from '../lib/overlays'
 import { appConfig } from '../config/appConfig'
 import { operationalExtentPoints } from '../lib/report'
 import { circlePolygon } from '../lib/geo'
@@ -89,13 +89,13 @@ export function KrokiFramingModal({ scene, initial, onCancel, onConfirm }: {
     })
   }
 
-  return createPortal((
-    // portalled to <body> (like the Palette): inside `.app` the mode-scoped
-    // `.maplibregl-map { visibility: hidden }` rules (Plan mode / phone non-map modes)
-    // would blank the preview canvas. stopPropagation: dismissing the framing must not
-    // also dismiss the Rapport sheet through the React tree.
-    <div className="mp-ovl" onClick={(e) => { e.stopPropagation(); onCancel() }}>
-      <div className="mp-sheet kf-sheet" onClick={(e) => e.stopPropagation()}>
+  return (
+    // Base UI Overlay portals to <body> (like the old createPortal): inside `.app` the mode-scoped
+    // `.maplibregl-map { visibility: hidden }` rules (Plan / phone non-map modes) would blank the
+    // preview canvas. Opens OVER the Rapport sheet (mp z-index 120 > ip 80); full `modal` makes the
+    // Rapport behind it inert until framing is dismissed, and the preview map (inside the popup)
+    // stays fully interactive for pan/zoom.
+    <Overlay open onClose={onCancel} className="mp-sheet kf-sheet ui-dialog" backdropClassName="mp-backdrop" ariaLabel={P.framingTitle} modal>
         <div className="mp-head">
           <span>{P.framingTitle}</span>
           <button className="ip-x" onClick={onCancel} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
@@ -167,7 +167,6 @@ export function KrokiFramingModal({ scene, initial, onCancel, onConfirm }: {
           <button className="ip-btn" onClick={onCancel}>{appConfig.copy.cancel}</button>
           <button className="ip-btn primary" onClick={confirm}><Icon id="check" /> {P.framingConfirm}</button>
         </div>
-      </div>
-    </div>
-  ), document.body)
+    </Overlay>
+  )
 }

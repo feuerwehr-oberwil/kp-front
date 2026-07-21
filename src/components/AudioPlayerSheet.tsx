@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { TimelineEvent } from '../types'
 import { Icon } from '../lib/icons'
+import { Overlay } from '../lib/overlays'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { ApiError, apiGet, apiPatch, apiPost } from '../lib/api'
@@ -345,8 +346,9 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onPatchEnt
     : wallClockAt(win, 0)
 
   return (
-    <div className="ip-ovl" onClick={onClose}>
-      <div className="ip-sheet ap-sheet" onClick={(e) => e.stopPropagation()}>
+    // dismissEscape=false: this sheet owns Escape (Esc-in-a-field blurs it; Esc elsewhere closes;
+    // plus Space/←/→/↑/↓ transport) via the keydown effect above — Base UI must not also close on Esc.
+    <Overlay open onClose={onClose} className="ip-sheet ap-sheet ui-dialog" ariaLabel={row.text} dismissEscape={false}>
         <div className="ip-head ap-head">
           <span className="ap-title">
             <h2>{row.text}</h2>
@@ -525,7 +527,6 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onPatchEnt
             ))}
           </div>
         </div>
-      </div>
-    </div>
+    </Overlay>
   )
 }
