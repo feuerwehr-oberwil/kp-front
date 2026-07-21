@@ -1321,14 +1321,18 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                   return (
                   <span className={`wb-resource-pill ${isRaus ? 'raus' : ''}`} style={{ '--team': teamCol } as React.CSSProperties}>
                     <span className="wb-resource-cap" />
-                    {editId === a.id
-                      ? <input className="wb-resource-input" ref={focusOnce} defaultValue={a.text}
-                          onPointerDown={(e) => e.stopPropagation()}
-                          onBlur={(e) => { patchCommit(a.id, { text: e.target.value || a.text }); setEditId(null) }}
-                          onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} />
-                      : <b>{a.text}</b>}
-                    {isRaus && <span className="wb-resource-raus">{appConfig.copy.atemschutz.status.raus}</span>}
-                    <i className="wb-resource-time">{a.t}</i>
+                    <span className="wb-resource-body">
+                      <span className="wb-resource-name">
+                        {editId === a.id
+                          ? <input className="wb-resource-input" ref={focusOnce} defaultValue={a.text}
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onBlur={(e) => { patchCommit(a.id, { text: e.target.value || a.text }); setEditId(null) }}
+                              onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} />
+                          : <b>{a.text}</b>}
+                        {isRaus && <span className="wb-resource-raus">{appConfig.copy.atemschutz.status.raus}</span>}
+                      </span>
+                      <i className="wb-resource-time">{a.t}</i>
+                    </span>
                   </span>
                   )
                 })()}

@@ -1325,6 +1325,9 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .wb-resource-pill { --team: var(--blue); display: inline-flex; align-items: center; gap: 8px; background: var(--surface);
   border: 1px solid var(--border); border-radius: var(--r-ctl); padding: 5px 8px;
   box-shadow: 0 4px 12px rgba(30, 45, 70, .22); white-space: nowrap; }
+/* name on top, the team timer stacked BELOW it (was inline) */
+.wb-resource-body { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; }
+.wb-resource-name { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
 .wb-resource-pill b { font-size: 12.5px; font-weight: 700; color: var(--ink); }
 /* slim vertical accent bar — clearer team identity than the old dot, and it never
    collides with the name the way a leading dot + gap did */
@@ -1858,9 +1861,9 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
    safety banners' z-index, never competing with a due-reminder alert at the top. Calm accent
    (the themeable --accent token, not the amber alert colour). */
 .update-banner { position: absolute; bottom: calc(16px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); z-index: 40;
-  width: min(440px, calc(100vw - 32px)); display: flex; align-items: center; gap: 11px;
+  width: min(400px, calc(100vw - 32px)); display: flex; align-items: center; gap: 10px;
   background: var(--surface); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
-  border-left: 3px solid var(--accent); border-radius: var(--r-hero); box-shadow: var(--shadow); padding: 11px 13px;
+  border-left: 3px solid var(--accent); border-radius: var(--r-hero); box-shadow: var(--shadow); padding: 9px 12px;
   animation: panelIn .16s var(--ease); }
 .update-banner > .i { width: 16px; height: 16px; flex: none; color: var(--accent); }
 .ub-text { display: flex; flex-direction: column; gap: 1px; margin-right: auto; min-width: 0; }
@@ -1888,7 +1891,12 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
      the nav row and covered its centre items (the banner is z-40, the nav bar z-35). The drawing
      surfaces (map/plan) carry a SECOND (tool) bar, so clear both there; keep a stacked Install
      nudge above its Update sibling. */
-  .update-banner { bottom: calc(var(--rail-h) + 24px + env(safe-area-inset-bottom)); }
+  /* phone: left-align + cap width so the banner never sits under the bottom-right Eintrag FAB
+     (it used to be centred and full-width, so the FAB covered its action). Slightly tighter type. */
+  .update-banner { bottom: calc(var(--rail-h) + 24px + env(safe-area-inset-bottom));
+    left: 12px; transform: none; width: min(340px, calc(100vw - 96px)); }
+  .update-banner .ub-title { font-size: 12.5px; }
+  .update-banner .ub-hint { font-size: 11.5px; }
   .phone-tools .update-banner { bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom)); }
   .update-banner ~ .install-banner { bottom: calc(var(--rail-h) + 96px + env(safe-area-inset-bottom)); }
   .phone-tools .update-banner ~ .install-banner { bottom: calc(var(--rail-h) * 2 + 96px + env(safe-area-inset-bottom)); }

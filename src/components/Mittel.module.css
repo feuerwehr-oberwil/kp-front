@@ -29,6 +29,9 @@
 }
 .viewToggle button + button { border-left: 1px solid var(--glass-edge); }
 .viewToggle button.on { background: color-mix(in srgb, var(--accent) 16%, var(--surface)); color: var(--ink); }
+/* shown-but-inert while there's nothing to sort yet (keeps the header height stable) */
+.viewToggleEmpty { opacity: .4; }
+.viewToggle button:disabled { cursor: default; }
 
 .add {
   flex: none; display: inline-flex; align-items: center; gap: 7px; cursor: pointer;

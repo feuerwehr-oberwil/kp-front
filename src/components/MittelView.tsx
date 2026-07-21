@@ -137,12 +137,11 @@ export function MittelView({ entries, canEdit, onSave, captureUsage }: {
         </div>
         <div className={s.headActions}>
           <CaptureUsageChip usage={captureUsage} />
-          {lines > 0 && (
-            <div className={s.viewToggle} role="group" aria-label={M.viewLabel}>
-              <button type="button" className={cx(view === 'list' && s.on)} aria-pressed={view === 'list'} onClick={() => setView('list')}>{M.viewList}</button>
-              <button type="button" className={cx(view === 'source' && s.on)} aria-pressed={view === 'source'} onClick={() => setView('source')}>{M.viewBySource}</button>
-            </div>
-          )}
+          {/* always shown (disabled while empty) so adding the first position doesn't shift the layout */}
+          <div className={cx(s.viewToggle, lines === 0 && s.viewToggleEmpty)} role="group" aria-label={M.viewLabel}>
+            <button type="button" className={cx(view === 'list' && s.on)} aria-pressed={view === 'list'} disabled={lines === 0} onClick={() => setView('list')}>{M.viewList}</button>
+            <button type="button" className={cx(view === 'source' && s.on)} aria-pressed={view === 'source'} disabled={lines === 0} onClick={() => setView('source')}>{M.viewBySource}</button>
+          </div>
         </div>
       </header>
 

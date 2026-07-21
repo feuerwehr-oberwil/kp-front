@@ -1272,7 +1272,7 @@ export const de = {
     // announce-only: no in-place «Neu laden» — a full app restart is the path that
     // reliably activates the waiting build (decision 2026-07-09)
     available: 'Update bereit',
-    hint: 'Wird beim nächsten Start aktiv — App dafür vollständig schliessen und neu öffnen.',
+    hint: 'Wird beim Neustart aktiv – App schliessen & neu öffnen.',
     dismiss: 'OK',
     updated: 'Aktualisiert – {v}',
   },

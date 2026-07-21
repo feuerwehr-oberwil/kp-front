@@ -13,7 +13,9 @@
    anchors right below it (top-right) and stays clear of the bottom bars + Eintrag FAB */
 @media (max-width: 600px) {
   .dock { right: max(10px, env(safe-area-inset-right)); top: calc(118px + env(safe-area-inset-top)); transform: none;
-    max-height: calc(100dvh - 140px - var(--rail-h, 60px) * 2 - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+    /* overlay the two bottom docks (tool + section bar) instead of stopping above them, so the
+       list rarely needs to scroll — the popover is z-201, above the z-35/40 bars. */
+    max-height: calc(100dvh - 130px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
 }
 
 .head { display: flex; align-items: center; justify-content: flex-end; padding: 0 0 6px; }

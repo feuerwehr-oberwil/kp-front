@@ -293,9 +293,13 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
               return (
                 <span className={`wb-resource-pill ${isRaus ? 'raus' : ''}`} style={{ '--team': teamCol } as React.CSSProperties}>
                   <span className="wb-resource-cap" />
-                  <b>{e.label}</b>
-                  {isRaus && <span className="wb-resource-raus">{appConfig.copy.atemschutz.status.raus}</span>}
-                  {e.t && <i className="wb-resource-time">{e.t}</i>}
+                  <span className="wb-resource-body">
+                    <span className="wb-resource-name">
+                      <b>{e.label}</b>
+                      {isRaus && <span className="wb-resource-raus">{appConfig.copy.atemschutz.status.raus}</span>}
+                    </span>
+                    {e.t && <i className="wb-resource-time">{e.t}</i>}
+                  </span>
                 </span>
               )
             })() : e.kind === 'shape' ? (
