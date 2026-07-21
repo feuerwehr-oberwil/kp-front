@@ -1586,6 +1586,7 @@ function IncidentWorkspace({
         showHistory={!tacticalLocked && (mode === 'map' || mode === 'plans')}
         weather={mapUI ? displayWeather : null}
         onOpenWeather={openWeatherDetails}
+        bearing={view.bearing}
         azAlarm={azAlarm}
         onOpenAtemschutz={() => { setMode('atemschutz'); setPanel(null) }}
         // On the phone map surface the floating compass cluster already carries Einpassen
@@ -1729,7 +1730,7 @@ function IncidentWorkspace({
               <MapViewsButton api={viewsApi} bearing={view.bearing} readOnly={readOnly} variant="util" btnClassName="pc-btn" activeClassName="on" glyphClassName="pc-glyph" open={viewsOpen} onOpenChange={toggleViews} coordsOn={coord.mode !== 'off'} onToggleCoords={coord.cycle} />
               {/* wind rides with the compass on phones — in the bar it clipped at the screen
                   edge (the bar already carries switcher · Einsatzuhr · locate · undo/redo · Verlauf) */}
-              {displayWeather?.wind_dir_deg != null && <WeatherBadge weather={displayWeather} onOpenMeteo={openWeatherDetails} />}
+              {displayWeather?.wind_dir_deg != null && <WeatherBadge weather={displayWeather} onOpenMeteo={openWeatherDetails} bearing={view.bearing} />}
             </div>
           )}
 

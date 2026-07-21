@@ -29,9 +29,11 @@ export function fromLabelLong(deg: number): string {
 
 /** CSS rotation (deg) for the wind arrow. The arrow's SVG points DOWN at rest (bearing
  *  180°), and we want it pointing where the wind blows TOWARD = the FROM bearing + 180.
- *  toward − 180 = dir, so rotating by `dir` aims the arrow downwind. */
-export function windArrowRotation(dir: number): number {
-  return dir
+ *  toward − 180 = dir, so rotating by `dir` aims the arrow downwind on a north-up map.
+ *  When the map is rotated to a bearing, a compass direction θ appears on screen at θ − bearing,
+ *  so the arrow follows the map's rotation (like the compass needle) by subtracting it. */
+export function windArrowRotation(dir: number, bearing = 0): number {
+  return dir - bearing
 }
 
 /** WMO present-weather code → a single condition icon + localized label. */

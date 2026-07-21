@@ -51,6 +51,8 @@ interface Props {
   weather?: WeatherData | null
   /** open the MeteoSwiss details for the incident location */
   onOpenWeather?: () => void
+  /** live map bearing (deg) — the wind arrow follows the map rotation like the compass */
+  bearing?: number
   /** app-wide Atemschutz alarm state — drives the conditional chip (only shown when a Trupp is
    *  fällig/überfällig, so it never crowds the bar in the normal case) */
   azAlarm?: AtemschutzAlarmState
@@ -61,7 +63,7 @@ interface Props {
 // Single-line top bar: incident identity + clock on the left, global journal +
 // undo/redo on the right (the surface switch moved to the left NavRail). The clock
 // interval lives here so the per-second tick re-renders only the bar, not the map below.
-export function TopBar({ incident, startedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, titleSlot, onUndo, onRedo, canUndo, canRedo, showHistory, mapNav, weather, onOpenWeather, azAlarm, onOpenAtemschutz }: Props) {
+export function TopBar({ incident, startedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, titleSlot, onUndo, onRedo, canUndo, canRedo, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, onOpenAtemschutz }: Props) {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000)
@@ -136,7 +138,7 @@ export function TopBar({ incident, startedAt, recording, recStartedAt, journalOp
             ? <><span className="tb-stop" /><span>{fmtMMSS(recSec)}</span></>
             : <><Icon id="plus" /><span>{appConfig.copy.journal.add}</span></>}
         </button>
-        {hasWind && <WeatherBadge weather={weather!} onOpenMeteo={onOpenWeather} />}
+        {hasWind && <WeatherBadge weather={weather!} onOpenMeteo={onOpenWeather} bearing={bearing} />}
         {/* Atemschutz alarm chip — pinned at the far right so it never shifts the other controls.
             Only present once a Trupp is ÜBERFÄLLIG (red); the amber "fällig" lead stays on the
             board only. Taps through to the Atemschutz surface. */}
@@ -162,7 +164,7 @@ export function TopBar({ incident, startedAt, recording, recStartedAt, journalOp
 /** The tappable wind/weather readout + its detail popover. Lives in the TopBar on
  *  desktop/tablet; on phones App floats it in the top-right .phone-compass cluster
  *  instead (the bar is too narrow — it clipped at the screen edge). */
-export function WeatherBadge({ weather, onOpenMeteo }: { weather: WeatherData; onOpenMeteo?: () => void }) {
+export function WeatherBadge({ weather, onOpenMeteo, bearing = 0 }: { weather: WeatherData; onOpenMeteo?: () => void; bearing?: number }) {
   const cond = condition(weather.weather_code)
   if (weather.wind_dir_deg == null) return null
   return (
@@ -180,8 +182,8 @@ export function WeatherBadge({ weather, onOpenMeteo }: { weather: WeatherData; o
             aria-label={appConfig.copy.weather.label}>
             {cond && <span className="tb-weather-cond" aria-hidden><Icon id={cond.icon} /></span>}
             {weather.temp_c != null && <b className="tb-weather-temp">{Math.round(weather.temp_c)}°</b>}
-            {/* arrow points DOWNWIND (where the wind/smoke is going) — dir is the FROM bearing */}
-            <span className="tb-wind-arr" style={{ transform: `rotate(${windArrowRotation(weather.wind_dir_deg)}deg)` }} aria-hidden>
+            {/* arrow points DOWNWIND (where the wind/smoke is going); follows the map rotation */}
+            <span className="tb-wind-arr" style={{ transform: `rotate(${windArrowRotation(weather.wind_dir_deg, bearing)}deg)` }} aria-hidden>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3 L12 21" /><path d="M6 15 L12 21 L18 15" /></svg>
             </span>
             {weather.wind_speed_kmh != null && <b>{Math.round(weather.wind_speed_kmh)} km/h</b>}
