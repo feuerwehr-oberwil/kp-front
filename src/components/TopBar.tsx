@@ -13,10 +13,9 @@ import { condition, fromLabel, fromLabelLong, windArrowRotation } from './WindBa
 
 type ClockMode = 'elapsed' | 'now' | 'start'
 const NEXT_CLOCK: Record<ClockMode, ClockMode> = { elapsed: 'now', now: 'start', start: 'elapsed' }
-// distinct glyph per mode so the icon itself says which time you're reading: running duration
-// (circular/elapsing), current wall time (plain clock), start of the operation (flag). At 14px a
-// clock-with-arrow reads the same as a plain clock, so the duration uses a clearly non-clock mark.
-const CLOCK_ICON: Record<ClockMode, string> = { elapsed: 'rotate', now: 'clock', start: 'flag' }
+// distinct glyph per mode so the icon itself says which time you're reading: elapsed duration
+// (hourglass), current wall time (plain clock), start of the operation (flag).
+const CLOCK_ICON: Record<ClockMode, string> = { elapsed: 'hourglass', now: 'clock', start: 'flag' }
 
 interface Props {
   incident: Incident
