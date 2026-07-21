@@ -69,10 +69,8 @@ export function useSectionSwipe(ref: RefObject<HTMLElement | null>, { enabled, o
   }, [ref, enabled, onPrev, onNext])
 }
 
-/** The swipe-paged non-canvas sections, in nav order. Map & Plan are deliberately absent. */
+/** The non-canvas sections whose full-surface swipe is armed (they render the .section-pager).
+ *  The map/plan canvas uses the edge strips instead. The actual ordered nav targets (incl. each
+ *  plan doc) are built in App from planDocs. */
 export const SWIPE_SECTIONS = ['checklists', 'atemschutz', 'anwesenheit', 'mittel'] as const
 export type SwipeSection = typeof SWIPE_SECTIONS[number]
-
-/** Full nav order — used by the phone canvas EDGE-swipe (map/plan reachable too, from their edge). */
-export const NAV_ORDER = ['map', 'plans', 'checklists', 'atemschutz', 'anwesenheit', 'mittel'] as const
-export type NavSection = typeof NAV_ORDER[number]

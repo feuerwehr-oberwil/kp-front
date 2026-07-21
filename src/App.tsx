@@ -33,7 +33,7 @@ import { buildLabel } from './lib/buildInfo'
 import { consumeJustUpdated } from './lib/swUpdate'
 import { useAutoTheme } from './lib/useAutoTheme'
 import { useIsPhone } from './lib/useIsPhone'
-import { useSectionSwipe, SWIPE_SECTIONS, NAV_ORDER, type SwipeSection, type NavSection } from './lib/useSectionSwipe'
+import { useSectionSwipe, SWIPE_SECTIONS } from './lib/useSectionSwipe'
 import { useOnline } from './lib/useOnline'
 import { MapView } from './components/MapView'
 import { Splash } from './components/Splash'
@@ -326,34 +326,13 @@ function IncidentWorkspace({
   // both bars are stacked on the two drawing surfaces (tool bar above the surface bar) —
   // this drives the extra bottom clearances for FAB / docks / stage on phones
   const phoneTools = isPhone && !tacticalLocked && (mode === 'map' || mode === 'plans')
-  // #10: horizontal swipe pages between the non-canvas sections (Checkliste ↔ Atemschutz ↔
-  // Anwesenheit ↔ Mittel). Map/Plan keep their pan/zoom and are excluded.
-  const pageSection = (dir: -1 | 1) => {
-    const i = SWIPE_SECTIONS.indexOf(mode as SwipeSection)
-    if (i < 0) return
-    const next = SWIPE_SECTIONS[i + dir]
-    if (next) setMode(next)
-  }
+  // #10: horizontal swipe pages between sections in nav order. Non-canvas surfaces swipe anywhere;
+  // the map/plan canvas swipes from a phone screen edge (they keep pan/zoom). The wiring that needs
+  // the ordered plan list lives below planDocs; the refs + the canvas gate are here.
   const sectionPagerRef = useRef<HTMLDivElement>(null)
-  useSectionSwipe(sectionPagerRef, {
-    enabled: (SWIPE_SECTIONS as readonly string[]).includes(mode),
-    onPrev: () => pageSection(-1),
-    onNext: () => pageSection(1),
-  })
-  // #10 phase 2: on a PHONE, an edge-swipe on the map/plan canvas pages to the adjacent section
-  // (full nav order — canvas is reachable from its own edge). Tablet keeps its bars, no edge-swipe.
-  const pageNav = (dir: -1 | 1) => {
-    let i = NAV_ORDER.indexOf(mode as NavSection) + dir
-    while (NAV_ORDER[i] === 'plans' && !activePlanId) i += dir // skip Plan when there's none open
-    const next = NAV_ORDER[i]
-    if (next) setMode(next)
-  }
-  const canvasEdge = isPhone && (mode === 'map' || mode === 'plans')
   const edgeLRef = useRef<HTMLDivElement>(null)
   const edgeRRef = useRef<HTMLDivElement>(null)
-  // left edge: inward swipe (→) = previous section; right edge: inward swipe (←) = next section
-  useSectionSwipe(edgeLRef, { enabled: canvasEdge, onPrev: () => pageNav(-1), onNext: () => pageNav(1) })
-  useSectionSwipe(edgeRRef, { enabled: canvasEdge, onPrev: () => pageNav(-1), onNext: () => pageNav(1) })
+  const canvasEdge = isPhone && (mode === 'map' || mode === 'plans')
   // global tactical-symbol size (S/M/L), captions, offline cache radius, keep-screen-on —
   // device prefs shared with the landing Einstellungen (see useDevicePrefs; lazy loadPrefs
   // seed). Their persistence rides the mode/activePlanId effect below.
@@ -503,6 +482,33 @@ function IncidentWorkspace({
     out.splice(osmIdx >= 0 ? osmIdx + 1 : out.length, 0, gebaeudeDoc)
     return out
   }, [effBuilding, resolvedPlanDocs])
+
+  // #10: the flat nav order (matches NavRail) — map, EACH plan doc, then the four sections. A swipe
+  // steps one destination at a time, so it walks through the modules individually instead of
+  // collapsing to whatever plan was last open (the Gebäude). Same target list for both the
+  // non-canvas content-swipe and the phone canvas edge-swipe.
+  const navList = useMemo(() => [
+    { mode: 'map' as const },
+    ...planDocs.map((d) => ({ mode: 'plans' as const, planId: d.id })),
+    { mode: 'checklists' as const },
+    { mode: 'atemschutz' as const },
+    { mode: 'anwesenheit' as const },
+    { mode: 'mittel' as const },
+  ], [planDocs])
+  const goToNav = (dir: -1 | 1) => {
+    const cur = navList.findIndex((n) => n.mode === mode && (n.mode !== 'plans' || n.planId === activePlanId))
+    const next = cur >= 0 ? navList[cur + dir] : undefined
+    if (!next) return
+    if (next.mode === 'plans') { setMode('plans'); setActivePlanId(next.planId); setPanel(null) }
+    else setMode(next.mode)
+  }
+  useSectionSwipe(sectionPagerRef, {
+    enabled: (SWIPE_SECTIONS as readonly string[]).includes(mode),
+    onPrev: () => goToNav(-1), onNext: () => goToNav(1),
+  })
+  // left edge inward-swipe (→) = previous; right edge inward-swipe (←) = next
+  useSectionSwipe(edgeLRef, { enabled: canvasEdge, onPrev: () => goToNav(-1), onNext: () => goToNav(1) })
+  useSectionSwipe(edgeRRef, { enabled: canvasEdge, onPrev: () => goToNav(-1), onNext: () => goToNav(1) })
   // if the active plan vanished, fall back to the first available plan so the sidebar stays
   // in sync — BUT don't bump away from a remembered plan that's merely still loading: module
   // PDFs are filtered out of planDocs until their backend URL arrives, so a restored 'modul6'
