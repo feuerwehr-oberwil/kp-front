@@ -924,6 +924,8 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .step-val-btn { display: inline-grid; place-items: center; min-height: 44px; border: none; background: transparent; cursor: pointer; padding: 3px 5px; border-radius: var(--r-xs); }
 .step-val-btn:hover:not(:disabled) { background: var(--hover); }
 .step-val-btn:disabled { cursor: default; }
+/* over-stock flag: the value reads red (e.g. Mittel used past the available amount) */
+.step-val.step-over { color: var(--red); }
 .step-input { width: 52px; box-sizing: border-box; border: 1px solid var(--blue); border-radius: var(--r-xs);
   background: var(--surface); padding: 3px 4px; outline: none; }
 .step-clear { width: 32px; height: 32px; flex: none; margin-left: 8px; border-radius: var(--r-xs); border: none; padding: 0;
@@ -3711,8 +3713,12 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .jc-phrase:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--glass-edge));
   background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
 
-/* Einsatzuhr: elapsed since incident start, beside the wall clock */
-.tb-einsatzuhr { color: var(--ink-dim); }
+/* Einsatzuhr: tap-to-cycle clock (duration / wall time / start) beside the wall clock. It's a
+   <button> now — strip the native chrome and give it a comfortable tap area. */
+.tb-einsatzuhr { color: var(--ink-dim); background: none; border: none; cursor: pointer; font: inherit;
+  padding: 6px 4px; margin: -6px 0; border-radius: var(--r-sm); -webkit-tap-highlight-color: transparent; }
+.tb-einsatzuhr:hover { color: var(--ink); }
+.tb-einsatzuhr:active { background: var(--fill-soft); }
 .tb-einsatzuhr .i { width: 14px; height: 14px; }
 
 /* ERG response block inside the UN-hazard readout */

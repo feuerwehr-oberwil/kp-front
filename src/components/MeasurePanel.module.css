@@ -4,7 +4,14 @@
   backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); border-radius: var(--r-surface);
   box-shadow: var(--shadow); animation: panelIn .16s var(--ease); }
 .mp-hint { text-align: center; font-size: 12.5px; font-weight: 500; color: var(--ink-dim); padding: 4px 0; }
-.mp-stat-row { display: flex; gap: 18px; }
+.mp-stat-row { display: flex; gap: 18px; align-items: center; }
+/* ↕ toggle that opens/closes the elevation profile; sits at the right of the summary row */
+.mp-prof-toggle { margin-left: auto; flex: none; width: 40px; height: 40px; display: grid; place-items: center;
+  border: none; background: transparent; color: var(--ink-dim); cursor: pointer; border-radius: var(--r-sm);
+  -webkit-tap-highlight-color: transparent; }
+.mp-prof-toggle:hover { color: var(--ink); background: var(--fill-soft); }
+.mp-prof-toggle :global(.i) { width: 18px; height: 18px; transition: transform .18s var(--ease); }
+.mp-prof-open :global(.i) { transform: rotate(180deg); }
 .mp-stat { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .mp-k { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: var(--ink-dim); }
 .mp-k :global(.i) { width: 12px; height: 12px; }

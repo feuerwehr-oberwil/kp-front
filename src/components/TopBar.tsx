@@ -7,8 +7,12 @@ import { Icon } from '../lib/icons'
 import { fmtClock, type AtemschutzAlarmState } from '../lib/atemschutz'
 import type { Incident, WeatherData } from '../types'
 import { appConfig } from '../config/appConfig'
+import { loadPrefs, savePrefs } from '../lib/prefs'
 import { useHoldEntry } from '../lib/useHoldEntry'
 import { condition, fromLabel, fromLabelLong, windArrowRotation } from './WindBadge'
+
+type ClockMode = 'elapsed' | 'now' | 'start'
+const NEXT_CLOCK: Record<ClockMode, ClockMode> = { elapsed: 'now', now: 'start', start: 'elapsed' }
 
 interface Props {
   incident: Incident
@@ -63,6 +67,17 @@ export function TopBar({ incident, startedAt, recording, recStartedAt, journalOp
   const recSec = recording && recStartedAt ? Math.max(0, Math.round((now - recStartedAt) / 1000)) : 0
   const hasWind = weather?.wind_dir_deg != null
 
+  // Einsatzuhr can show the running duration, the wall clock, or the start time — tap to cycle
+  // (persisted per device). On phones it's the ONLY clock in the bar, so this surfaces all three.
+  const [clockMode, setClockMode] = useState<ClockMode>(() => loadPrefs().clockMode ?? 'elapsed')
+  const cycleClock = () => setClockMode((m) => { const n = NEXT_CLOCK[m]; savePrefs({ ...loadPrefs(), clockMode: n }); return n })
+  const clockText = startedAt
+    ? clockMode === 'now' ? formatTime(new Date(now), true)
+      : clockMode === 'start' ? formatTime(new Date(startedAt))
+        : fmtElapsedHM(now - Date.parse(startedAt))
+    : ''
+  const E = appConfig.copy.einsatzuhr
+
   // Eintrag gesture (shared with the mobile FAB so they behave identically).
   const { pressing, handlers } = useHoldEntry({ recording, onTap: onAddEntry, onHoldStart, onHoldStop: onHoldEnd })
 
@@ -76,14 +91,17 @@ export function TopBar({ incident, startedAt, recording, recStartedAt, journalOp
       )}
       <div className="vr" />
       <div className="stat"><b>{formatTime(new Date(now), true)}</b></div>
-      {/* Einsatzuhr: elapsed since incident start — the long-incident awareness anchor */}
+      {/* Einsatzuhr: the long-incident awareness anchor — tap to cycle duration / clock / start */}
       {startedAt && (
-        <div
+        <button
+          type="button"
           className="stat tb-einsatzuhr"
-          title={fillTemplate(appConfig.copy.einsatzuhr.title, { t: formatTime(new Date(startedAt)) })}
+          onClick={cycleClock}
+          title={`${E.cycleHint} · ${fillTemplate(E.title, { t: formatTime(new Date(startedAt)) })}`}
+          aria-label={`${clockMode === 'now' ? E.modeNow : clockMode === 'start' ? E.modeStart : E.modeElapsed}: ${clockText}. ${E.cycleHint}`}
         >
-          <Icon id="clock" /><b>{fmtElapsedHM(now - Date.parse(startedAt))}</b>
-        </div>
+          <Icon id="clock" /><b>{clockText}</b>
+        </button>
       )}
 
       {/* global journal + undo/redo — reachable from both surfaces */}

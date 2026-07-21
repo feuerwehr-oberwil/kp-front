@@ -181,4 +181,10 @@
   .rowLabel, .subLabel { white-space: normal; line-height: 1.25; overflow-wrap: anywhere; }
   .row, .rowMain, .rowExpand { gap: 8px; }
   .rowEdit { gap: 6px; }
+  /* #5: give long names room — the name takes the full width on its own line and the
+     ±stepper (or read-only count) drops to a second line, right-aligned, instead of the
+     name wrapping to 3 cramped lines beside the controls. */
+  .rowMain { flex-wrap: wrap; row-gap: 6px; }
+  .rowMain > .rowLabel, .rowMain > .subLabel { flex: 1 1 100%; }
+  .rowMain > .rowEdit, .rowMain > .rowQty { margin-left: auto; }
 }

@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { LngLat } from '../types'
 import type { ProfileResult } from '../lib/profile'
 import { pathLengthM, polygonAreaM2, fmtDistance, fmtArea, hoseCount } from '../lib/geo'
@@ -55,6 +55,10 @@ export function MeasurePanel({ mode, coords, profile, profileLoading, metrics, s
   const perimeterM = metrics ? metrics.perimeterM : mode === 'area' && coords.length >= 3 ? lengthM + (coords[0] && coords.length ? pathLengthM([coords[coords.length - 1], coords[0]]) : 0) : 0
 
   const enough = mode === 'line' ? coords.length >= 2 : coords.length >= 3
+  // #1: keep the panel slim — the Höhenprofil (chart + gain/loss) is collapsed by default and
+  // opens on the ↕ toggle, so the summary bar barely covers the map.
+  const [profileOpen, setProfileOpen] = useState(false)
+  const hasProfile = showProfile && (profileLoading || !!profile)
 
   return (
     <div className={s['measure-panel']}>
@@ -65,12 +69,18 @@ export function MeasurePanel({ mode, coords, profile, profileLoading, metrics, s
           <div className={s['mp-stat-row']}>
             <div className={s['mp-stat']}><span className={s['mp-k']}>{C.distance}</span><b className={s['mp-v']}>{fmtDistance(lengthM)}</b></div>
             <div className={s['mp-stat']}><span className={s['mp-k']}>{C.hoses} à {appConfig.drawing.hoseLengthM} m</span><b className={s['mp-v']}>{hoseCount(lengthM)}</b></div>
+            {hasProfile && (
+              <button type="button" className={cx(s['mp-prof-toggle'], profileOpen && s['mp-prof-open'])}
+                aria-expanded={profileOpen} aria-label={C.profile} onClick={() => setProfileOpen((o) => !o)}>
+                <Icon id="chevron-down" />
+              </button>
+            )}
           </div>
-          {showProfile && <div className={s['mp-prof-title']}>{C.profile}</div>}
-          {showProfile && (profileLoading ? (
+          {hasProfile && profileOpen && (profileLoading ? (
             <div className={s['mp-prof-msg']}>{C.profileLoading}</div>
           ) : profile ? (
             <>
+              <div className={s['mp-prof-title']}>{C.profile}</div>
               <Chart p={profile} />
               <div className={cx(s['mp-stat-row'], s['mp-prof-stats'])}>
                 <div className={s['mp-stat']}><span className={s['mp-k']}><Icon id="arrow" />{C.ascent}</span><b className={cx(s['mp-v'], s.up)}>+{Math.round(profile.gain)} m</b></div>

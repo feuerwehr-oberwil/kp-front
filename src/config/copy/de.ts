@@ -1337,7 +1337,12 @@ export const de = {
   },
   // running incident clock in the TopBar
   einsatzuhr: {
-    title: 'Einsatzdauer — Beginn {t}',
+    title: 'Einsatzdauer – Beginn {t}',
+    /** aria/labels for the tap-to-cycle clock modes */
+    modeElapsed: 'Einsatzdauer',
+    modeNow: 'Uhrzeit',
+    modeStart: 'Einsatzbeginn',
+    cycleHint: 'Tippen: Dauer / Uhrzeit / Beginn',
   },
   // self-contained location picker for the intake wizard (MapPicker)
   mapPicker: {

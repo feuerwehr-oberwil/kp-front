@@ -2,8 +2,13 @@ import { Icon } from '../lib/icons'
 import type { ChecklistTemplate, Item, Phase, TemplateState } from '../lib/checklists'
 import { phaseItems, phaseProgress, templateProgress } from '../lib/checklists'
 import { cx } from '../lib/cx'
+import { formatTime } from '../lib/format'
 import { appConfig } from '../config/appConfig'
 import s from './Checklists.module.css'
+
+// Ticks store a full ISO timestamp (append-only record); show only HH:MM inline. Guard
+// against any legacy tick that already held a display string.
+const tickTime = (t: string) => (t.includes('T') ? formatTime(new Date(t)) : t)
 
 // Action / rapport checklist: phases → checkable items, branch toggles, per-phase
 // and overall progress. Gloved-friendly: big tap targets. Ticking writes to the
@@ -57,7 +62,7 @@ function ItemRow({
           {item.milestone && <span className={s['cl-milestone']} title={CL.milestoneTitle}><Icon id="flag" /></span>}
           {checked && tickInfo && (
             <span className={s['cl-tickinfo']}>
-              {tickInfo.t}{tickInfo.by ? ` · ${tickInfo.by}` : ''}
+              {tickTime(tickInfo.t)}{tickInfo.by ? ` · ${tickInfo.by}` : ''}
             </span>
           )}
         </div>

@@ -183,7 +183,7 @@ export function MittelView({ entries, canEdit, onSave, captureUsage }: {
                       {/* qty and unit read as one value («3 / 4 Stk») — unit trails the number */}
                       {canEdit ? (
                         <div className={s.rowEdit}>
-                          <Stepper value={c.menge} min={0} max={9999} ariaLabel={`${c.label} ${c.unit}`} onChange={(v) => editRow(c, v)} />
+                          <Stepper value={c.menge} min={0} max={9999} over={over} ariaLabel={`${c.label} ${c.unit}`} onChange={(v) => editRow(c, v)} />
                           {avail !== undefined && <span className={cx(s.avail, over && s.over)}>/ {avail}</span>}
                           <span className={s.rowUnit}>{c.unit}</span>
                         </div>
@@ -210,6 +210,7 @@ export function MittelView({ entries, canEdit, onSave, captureUsage }: {
                 const multi = row.cells.length > 1
                 if (!multi) {
                   const cell = row.cells[0]
+                  const over = row.totalStock != null && cell.used > row.totalStock
                   return (
                     <div key={row.key} className={s.row}>
                       <div className={s.rowMain}>
@@ -219,12 +220,12 @@ export function MittelView({ entries, canEdit, onSave, captureUsage }: {
                         {row.totalStock != null && <StockDots remaining={row.totalStock - row.totalUsed} total={row.totalStock} label={row.label} />}
                         {canEdit ? (
                           <div className={s.rowEdit}>
-                            <Stepper value={cell.used} min={0} max={9999} ariaLabel={`${row.label} ${row.unit}`} onChange={(v) => saveCell(row, cell, v)} />
+                            <Stepper value={cell.used} min={0} max={9999} over={over} ariaLabel={`${row.label} ${row.unit}`} onChange={(v) => saveCell(row, cell, v)} />
                             <span className={s.rowUnit}>{row.unit}</span>
                           </div>
                         ) : (
                           <>
-                            <span className={s.rowQty}>{cell.used}</span>
+                            <span className={cx(s.rowQty, over && s.over)}>{cell.used}</span>
                             <span className={s.rowUnit}>{row.unit}</span>
                           </>
                         )}
@@ -240,10 +241,12 @@ export function MittelView({ entries, canEdit, onSave, captureUsage }: {
                       <span className={s.rowLabel}>{row.label}</span>
                       {/* stock indicator before the count, matching the single rows */}
                       {row.totalStock != null && <StockDots remaining={row.totalStock - row.totalUsed} total={row.totalStock} label={row.label} />}
-                      <span className={s.rowQty}>{row.totalUsed}</span>
+                      {/* #8: allow over-use but flag it — count turns red past the available stock */}
+                      <span className={cx(s.rowQty, row.totalStock != null && row.totalUsed > row.totalStock && s.over)}>{row.totalUsed}</span>
                       <span className={s.rowUnit}>{row.unit}</span>
                     </button>
                     {open && row.cells.map((cell) => {
+                          const cellOver = cell.stock != null && cell.used > cell.stock
                           return (
                         <div key={cell.sourceId ?? cell.sourceLabel ?? ''} className={s.subRow}>
                           <div className={s.rowMain}>
@@ -251,10 +254,10 @@ export function MittelView({ entries, canEdit, onSave, captureUsage }: {
                             {cell.stock != null && <StockDots remaining={cell.stock - cell.used} total={cell.stock} label={`${row.label} · ${cell.sourceLabel ?? ''}`} />}
                             {canEdit ? (
                               <div className={s.rowEdit}>
-                                <Stepper value={cell.used} min={0} max={9999} ariaLabel={`${row.label} · ${cell.sourceLabel ?? M.noSource}`} onChange={(v) => saveCell(row, cell, v)} />
+                                <Stepper value={cell.used} min={0} max={9999} over={cellOver} ariaLabel={`${row.label} · ${cell.sourceLabel ?? M.noSource}`} onChange={(v) => saveCell(row, cell, v)} />
                               </div>
                             ) : (
-                              <span className={s.rowQty}>{cell.used}</span>
+                              <span className={cx(s.rowQty, cellOver && s.over)}>{cell.used}</span>
                             )}
                           </div>
                             </div>

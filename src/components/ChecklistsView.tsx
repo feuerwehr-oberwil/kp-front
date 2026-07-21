@@ -99,7 +99,7 @@ export function ChecklistsView({
           <Icon id="chevron-down" />
         </button>
       ) : (
-      <nav className={s['cl-rail']} aria-label={CL.railLabel}>
+      <nav className={cx(s['cl-rail'], isPhone && railOpen && s['cl-rail-full'])} aria-label={CL.railLabel}>
         <div className={cx(s['cl-search'], s['cl-rail-search'])}>
           <Icon id="search" />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={CL.searchPlaceholder} aria-label={CL.searchAria} />
@@ -155,20 +155,24 @@ export function ChecklistsView({
       </nav>
       )}
 
-      <main className={s['cl-main']}>
-        {activeTemplate ? (
-          <ChecklistRunner
-            template={activeTemplate}
-            state={checklists[activeTemplate.id] ?? EMPTY_STATE}
-            canTick={canTick}
-            onToggle={(item) => onTick(activeTemplate, item)}
-            onBranch={(phaseId, branchId) => onBranch(activeTemplate.id, phaseId, branchId)}
-            onAction={onAction}
-          />
-        ) : (
-          <ChecklistEntryReader entry={activeEntry} templateId={activeEntryTemplateId} />
-        )}
-      </main>
+      {/* #4: on a phone, while the list is open show ONLY the list (no small preview underneath).
+          Opening an item collapses the list to the toggle row and gives the checklist the screen. */}
+      {!(isPhone && railOpen) && (
+        <main className={s['cl-main']}>
+          {activeTemplate ? (
+            <ChecklistRunner
+              template={activeTemplate}
+              state={checklists[activeTemplate.id] ?? EMPTY_STATE}
+              canTick={canTick}
+              onToggle={(item) => onTick(activeTemplate, item)}
+              onBranch={(phaseId, branchId) => onBranch(activeTemplate.id, phaseId, branchId)}
+              onAction={onAction}
+            />
+          ) : (
+            <ChecklistEntryReader entry={activeEntry} templateId={activeEntryTemplateId} />
+          )}
+        </main>
+      )}
     </div>
   )
 }

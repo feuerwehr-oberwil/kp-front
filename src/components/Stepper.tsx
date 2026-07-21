@@ -13,7 +13,7 @@ import { useHoldRepeat } from '../lib/useHoldRepeat'
  * `value` may be null for OPTIONAL fields (no badge yet): the display shows `placeholder`, − is
  * disabled, and + seeds `seed ?? min`. `onChange` always receives a concrete clamped number.
  */
-export function Stepper({ value, min, max, step = 1, seed, format, placeholder = '–', onChange, onClear, canClear, readOnly, ariaLabel }: {
+export function Stepper({ value, min, max, step = 1, seed, format, placeholder = '–', onChange, onClear, canClear, readOnly, over, ariaLabel }: {
   value: number | null
   min: number
   max: number
@@ -29,6 +29,8 @@ export function Stepper({ value, min, max, step = 1, seed, format, placeholder =
   /** whether a reset would do anything; false ⇒ the ✕ stays visible but greyed/disabled */
   canClear?: boolean
   readOnly?: boolean
+  /** flag the value in red — e.g. Mittel usage past the available stock (allowed, but surfaced) */
+  over?: boolean
   ariaLabel?: string
 }) {
   const clamp = (v: number) => Math.max(min, Math.min(max, v))
@@ -57,7 +59,7 @@ export function Stepper({ value, min, max, step = 1, seed, format, placeholder =
           onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); else if (e.key === 'Escape') setEditing(false) }}
         />
       ) : (
-        <button className="step-val step-val-btn" onClick={startEdit} disabled={readOnly} title={st.typeToEnter}>{display}</button>
+        <button className={`step-val step-val-btn${over ? ' step-over' : ''}`} onClick={startEdit} disabled={readOnly} title={st.typeToEnter}>{display}</button>
       )}
       <button className="step-btn" disabled={readOnly || (has && value >= max)} {...inc} aria-label={st.more}>+</button>
       {onClear && (

@@ -48,6 +48,8 @@ export interface Prefs {
    *  read-only symbol details stay live). Unset = follow the login's server-side default
    *  (AuthUser.el_view_default); an explicit toggle here overrides it. Editors only. */
   elView?: boolean
+  /** what the top Einsatzuhr shows — tap it to cycle. Default 'elapsed' (running duration). */
+  clockMode?: 'elapsed' | 'now' | 'start'
 }
 
 /** The multiplier the S/M/L preference applies to every tactical symbol's size on
