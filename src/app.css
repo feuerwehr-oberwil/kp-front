@@ -2230,7 +2230,10 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 /* #10: event anchor for section swipe — wraps the non-canvas surfaces so a horizontal drag
    bubbles to the pager handler. Fills the app so a swipe registers anywhere on the surface; the
    child views keep their own absolute inset/z-index (rendered relative to this box). */
-.section-pager { position: absolute; inset: 0; z-index: 20; }
+/* touch-action pan-y: the browser keeps vertical scrolling but hands us horizontal gestures, so a
+   sideways drag fires pointermove (instead of ending in pointercancel as an assumed scroll). An
+   ancestor's touch-action restricts descendants, so this covers the scrollable views inside. */
+.section-pager { position: absolute; inset: 0; z-index: 20; touch-action: pan-y; }
 /* #10 phase 2: thin phone-only edge strips over the map/plan canvas that catch an inward swipe to
    change section. Kept narrow so normal map panning (from the middle) is unaffected; z below the
    tool docks/bars (z-35+) so those still win where they overlap. touch-action:none so the browser

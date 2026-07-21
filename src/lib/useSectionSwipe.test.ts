@@ -1,84 +1,76 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { renderHook, cleanup } from '@testing-library/react'
-import { useSectionSwipe } from './useSectionSwipe'
+import { createRef } from 'react'
+import { swipeOutcome, useSectionSwipe } from './useSectionSwipe'
 
 afterEach(cleanup)
 
-type Ev = { clientX: number; clientY: number; pointerType?: string; target?: Partial<Element> }
-const ev = (o: Ev) => ({ pointerType: 'touch', target: { closest: () => null }, ...o }) as unknown as React.PointerEvent
+describe('swipeOutcome (pure decision)', () => {
+  it('pages next on a clear leftward drag', () => {
+    expect(swipeOutcome(-80, 10)).toBe('next')
+  })
+  it('pages previous on a clear rightward drag', () => {
+    expect(swipeOutcome(80, -8)).toBe('prev')
+  })
+  it('bails to scroll on a mostly-vertical drag', () => {
+    expect(swipeOutcome(10, 60)).toBe('bail')
+  })
+  it('returns null below the horizontal threshold', () => {
+    expect(swipeOutcome(-40, 5)).toBeNull()
+  })
+  it('returns null for a diagonal drag that neither dominates nor bails', () => {
+    expect(swipeOutcome(30, 12)).toBeNull() // dx below threshold, dy below bail
+  })
+})
 
-function setup(enabled = true) {
-  const onPrev = vi.fn(), onNext = vi.fn()
-  const { result } = renderHook(() => useSectionSwipe({ enabled, onPrev, onNext }))
-  const swipe = (from: [number, number], to: [number, number], down: Partial<Ev> = {}) => {
-    result.current.onPointerDown(ev({ clientX: from[0], clientY: from[1], ...down }))
-    result.current.onPointerUp(ev({ clientX: to[0], clientY: to[1] }))
-  }
-  return { onPrev, onNext, swipe }
+// jsdom Touch/TouchEvent helpers (jsdom has no Touch ctor).
+function touch(target: EventTarget, type: string, x: number, y: number, opts: EventInit = {}) {
+  const e = new Event(type, { bubbles: true, cancelable: true, ...opts }) as TouchEvent & { touches: unknown }
+  const t = { clientX: x, clientY: y, target }
+  Object.defineProperty(e, 'touches', { value: type === 'touchend' ? [] : [t] })
+  Object.defineProperty(e, 'target', { value: target })
+  return e
 }
 
-describe('useSectionSwipe', () => {
-  it('pages next on a clear leftward swipe', () => {
-    const { onNext, onPrev, swipe } = setup()
-    swipe([300, 400], [200, 410]) // dx -100, dy 10
+describe('useSectionSwipe (native touch)', () => {
+  function mount(enabled = true) {
+    const el = document.createElement('div')
+    document.body.appendChild(el)
+    const ref = createRef<HTMLDivElement>()
+    ;(ref as { current: HTMLDivElement }).current = el
+    const onPrev = vi.fn(), onNext = vi.fn()
+    renderHook(() => useSectionSwipe(ref, { enabled, onPrev, onNext }))
+    return { el, onPrev, onNext }
+  }
+
+  it('fires next on a horizontal touch drag left', () => {
+    const { el, onNext } = mount()
+    el.dispatchEvent(touch(el, 'touchstart', 300, 400))
+    el.dispatchEvent(touch(el, 'touchmove', 220, 405))
     expect(onNext).toHaveBeenCalledTimes(1)
-    expect(onPrev).not.toHaveBeenCalled()
   })
 
-  it('pages previous on a clear rightward swipe', () => {
-    const { onNext, onPrev, swipe } = setup()
-    swipe([100, 400], [220, 405])
-    expect(onPrev).toHaveBeenCalledTimes(1)
-    expect(onNext).not.toHaveBeenCalled()
-  })
-
-  it('ignores a mostly-vertical drag (a scroll)', () => {
-    const { onNext, onPrev, swipe } = setup()
-    swipe([200, 200], [230, 400]) // dx 30, dy 200 → vertical dominates
+  it('does not fire on a vertical drag (scroll)', () => {
+    const { el, onNext, onPrev } = mount()
+    el.dispatchEvent(touch(el, 'touchstart', 200, 200))
+    el.dispatchEvent(touch(el, 'touchmove', 210, 300))
     expect(onNext).not.toHaveBeenCalled()
     expect(onPrev).not.toHaveBeenCalled()
   })
 
-  it('ignores a short drag below the threshold', () => {
-    const { onNext, onPrev, swipe } = setup()
-    swipe([200, 200], [160, 205]) // dx -40 < 64
-    expect(onNext).not.toHaveBeenCalled()
-    expect(onPrev).not.toHaveBeenCalled()
-  })
-
-  it('ignores mouse pointers (desktop uses the nav bar)', () => {
-    const { onNext, swipe } = setup()
-    swipe([300, 400], [180, 405], { pointerType: 'mouse' })
-    expect(onNext).not.toHaveBeenCalled()
+  it('fires only once per gesture', () => {
+    const { el, onNext } = mount()
+    el.dispatchEvent(touch(el, 'touchstart', 300, 400))
+    el.dispatchEvent(touch(el, 'touchmove', 220, 405))
+    el.dispatchEvent(touch(el, 'touchmove', 120, 405))
+    expect(onNext).toHaveBeenCalledTimes(1)
   })
 
   it('does nothing when disabled', () => {
-    const { onNext, swipe } = setup(false)
-    swipe([300, 400], [180, 405])
-    expect(onNext).not.toHaveBeenCalled()
-  })
-
-  it('captures the pointer when capture=true and still pages', () => {
-    const onPrev = vi.fn(), onNext = vi.fn()
-    const { result } = renderHook(() => useSectionSwipe({ enabled: true, onPrev, onNext, capture: true }))
-    const setPointerCapture = vi.fn()
-    const down = { ...ev({ clientX: 300, clientY: 400 }), pointerId: 1, currentTarget: { setPointerCapture } } as unknown as React.PointerEvent
-    result.current.onPointerDown(down)
-    result.current.onPointerUp(ev({ clientX: 180, clientY: 405 }))
-    expect(setPointerCapture).toHaveBeenCalledWith(1)
-    expect(onNext).toHaveBeenCalledTimes(1)
-  })
-
-  it('does not arm on an interactive control (slider/input)', () => {
-    const { onNext, result } = (() => {
-      const onPrev = vi.fn(), onNext = vi.fn()
-      const { result } = renderHook(() => useSectionSwipe({ enabled: true, onPrev, onNext }))
-      return { onNext, result }
-    })()
-    const target = { closest: (sel: string) => (sel.includes('slider') ? {} : null) } as unknown as Element
-    result.current.onPointerDown(ev({ clientX: 300, clientY: 400, target }))
-    result.current.onPointerUp(ev({ clientX: 180, clientY: 405 }))
+    const { el, onNext } = mount(false)
+    el.dispatchEvent(touch(el, 'touchstart', 300, 400))
+    el.dispatchEvent(touch(el, 'touchmove', 120, 405))
     expect(onNext).not.toHaveBeenCalled()
   })
 })

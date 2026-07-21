@@ -334,7 +334,8 @@ function IncidentWorkspace({
     const next = SWIPE_SECTIONS[i + dir]
     if (next) setMode(next)
   }
-  const sectionSwipe = useSectionSwipe({
+  const sectionPagerRef = useRef<HTMLDivElement>(null)
+  useSectionSwipe(sectionPagerRef, {
     enabled: (SWIPE_SECTIONS as readonly string[]).includes(mode),
     onPrev: () => pageSection(-1),
     onNext: () => pageSection(1),
@@ -348,12 +349,11 @@ function IncidentWorkspace({
     if (next) setMode(next)
   }
   const canvasEdge = isPhone && (mode === 'map' || mode === 'plans')
-  const edgeSwipe = useSectionSwipe({
-    enabled: canvasEdge,
-    capture: true, // thin strips: keep the gesture after the finger leaves the edge zone
-    onPrev: () => pageNav(-1), // left edge, swipe inward (→) = previous section
-    onNext: () => pageNav(1), // right edge, swipe inward (←) = next section
-  })
+  const edgeLRef = useRef<HTMLDivElement>(null)
+  const edgeRRef = useRef<HTMLDivElement>(null)
+  // left edge: inward swipe (→) = previous section; right edge: inward swipe (←) = next section
+  useSectionSwipe(edgeLRef, { enabled: canvasEdge, onPrev: () => pageNav(-1), onNext: () => pageNav(1) })
+  useSectionSwipe(edgeRRef, { enabled: canvasEdge, onPrev: () => pageNav(-1), onNext: () => pageNav(1) })
   // global tactical-symbol size (S/M/L), captions, offline cache radius, keep-screen-on —
   // device prefs shared with the landing Einstellungen (see useDevicePrefs; lazy loadPrefs
   // seed). Their persistence rides the mode/activePlanId effect below.
@@ -1450,8 +1450,8 @@ function IncidentWorkspace({
       <IconSprite />
       {/* #10 phase 2: phone-only edge-swipe strips over the map/plan canvas — swipe inward from a
           screen edge to change section (the canvas keeps its pan/zoom everywhere else). */}
-      {canvasEdge && <div className="edge-swipe edge-swipe-l" {...edgeSwipe} aria-hidden />}
-      {canvasEdge && <div className="edge-swipe edge-swipe-r" {...edgeSwipe} aria-hidden />}
+      {canvasEdge && <div className="edge-swipe edge-swipe-l" ref={edgeLRef} aria-hidden />}
+      {canvasEdge && <div className="edge-swipe edge-swipe-r" ref={edgeRRef} aria-hidden />}
       <AtemschutzAlarmHost trupps={trupps} muted={atemschutzMuted} active={!replayActive}
         logAlarm={logTruppAlarm} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
 
@@ -2085,7 +2085,7 @@ function IncidentWorkspace({
       )}
 
       {(SWIPE_SECTIONS as readonly string[]).includes(mode) && (
-      <div className="section-pager" {...sectionSwipe}>
+      <div className="section-pager" ref={sectionPagerRef}>
       {mode === 'checklists' && (
         <ChecklistsView
           checklists={checklists}
