@@ -13,6 +13,10 @@ import { condition, fromLabel, fromLabelLong, windArrowRotation } from './WindBa
 
 type ClockMode = 'elapsed' | 'now' | 'start'
 const NEXT_CLOCK: Record<ClockMode, ClockMode> = { elapsed: 'now', now: 'start', start: 'elapsed' }
+// distinct glyph per mode so the icon itself says which time you're reading: running duration
+// (circular/elapsing), current wall time (plain clock), start of the operation (flag). At 14px a
+// clock-with-arrow reads the same as a plain clock, so the duration uses a clearly non-clock mark.
+const CLOCK_ICON: Record<ClockMode, string> = { elapsed: 'rotate', now: 'clock', start: 'flag' }
 
 interface Props {
   incident: Incident
@@ -100,7 +104,7 @@ export function TopBar({ incident, startedAt, recording, recStartedAt, journalOp
           title={`${E.cycleHint} · ${fillTemplate(E.title, { t: formatTime(new Date(startedAt)) })}`}
           aria-label={`${clockMode === 'now' ? E.modeNow : clockMode === 'start' ? E.modeStart : E.modeElapsed}: ${clockText}. ${E.cycleHint}`}
         >
-          <Icon id="clock" /><b>{clockText}</b>
+          <Icon id={CLOCK_ICON[clockMode]} /><b>{clockText}</b>
         </button>
       )}
 
