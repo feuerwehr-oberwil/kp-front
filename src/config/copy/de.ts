@@ -1958,8 +1958,8 @@ export const de = {
     add: 'Mittel',
     viewLabel: 'Ansicht',
     viewList: 'Mittel',
-    viewBySource: 'nach Quelle',
-    noSource: 'Ohne Quelle',
+    viewBySource: 'In Verwendung',
+    noSource: 'Ohne Zuordnung',
     categoryOther: 'Übrige',
     // trailing group for free-typed (incident-local) lines in the unified list
     customGroup: 'Weitere',

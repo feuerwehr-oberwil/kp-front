@@ -169,7 +169,12 @@ export function IncidentSwitcher({
                 </button>
               )}
               {onArchive && (
-                <button className="ip-menu-act" onClick={() => { setOpen(false); onArchive() }}><Icon id="check" /> {cp.archive}</button>
+                <>
+                  {/* set the terminal «abschliessen» apart from the edit actions (Rapport/Objekt)
+                      so it isn't a mis-tap neighbour — it still runs the «wirklich abschliessen?» confirm */}
+                  <div className="ip-menu-sep ip-menu-sep-tight" />
+                  <button className="ip-menu-act" onClick={() => { setOpen(false); onArchive() }}><Icon id="check" /> {cp.archive}</button>
+                </>
               )}
               <div className="ip-menu-sep" />
             </>

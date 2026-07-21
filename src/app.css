@@ -2212,6 +2212,8 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .ip-menu-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ip-menu-sub { font: 500 12px var(--body); color: var(--ink-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ip-menu-sep { height: 1px; background: var(--glass-edge); margin: 4px; }
+/* tight variant: isolates a single terminal action (Einsatz abschliessen) without the full gap */
+.ip-menu-sep-tight { margin: 2px 4px; background: color-mix(in srgb, var(--glass-edge) 60%, transparent); }
 .ip-menu-act.danger { color: var(--red); }
 /* app utilities (Einstellungen · Bereitschaft · Hilfe · Installieren) as one compact row of
    labeled tiles — icon + word keeps recognition (3am tenet) while taking a third of the
