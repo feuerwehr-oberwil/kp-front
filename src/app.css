@@ -2231,6 +2231,14 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
    bubbles to the pager handler. Fills the app so a swipe registers anywhere on the surface; the
    child views keep their own absolute inset/z-index (rendered relative to this box). */
 .section-pager { position: absolute; inset: 0; z-index: 20; }
+/* #10 phase 2: thin phone-only edge strips over the map/plan canvas that catch an inward swipe to
+   change section. Kept narrow so normal map panning (from the middle) is unaffected; z below the
+   tool docks/bars (z-35+) so those still win where they overlap. touch-action:none so the browser
+   doesn't treat the horizontal drag as a scroll/gesture. */
+.edge-swipe { position: fixed; top: calc(96px + env(safe-area-inset-top)); bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom));
+  width: 20px; z-index: 15; touch-action: none; }
+.edge-swipe-l { left: 0; }
+.edge-swipe-r { right: 0; }
 
 .ip-menu-sep { height: 1px; background: var(--glass-edge); margin: 4px; }
 /* tight variant: isolates a single terminal action (Einsatz abschliessen) without the full gap */

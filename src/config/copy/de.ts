@@ -1963,7 +1963,7 @@ export const de = {
     summaryEmpty: 'Noch nichts erfasst',
     add: 'Mittel',
     viewLabel: 'Ansicht',
-    viewList: 'Mittel',
+    viewList: 'Alle',
     viewBySource: 'In Verwendung',
     noSource: 'Ohne Zuordnung',
     categoryOther: 'Übrige',

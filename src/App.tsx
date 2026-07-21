@@ -33,7 +33,7 @@ import { buildLabel } from './lib/buildInfo'
 import { consumeJustUpdated } from './lib/swUpdate'
 import { useAutoTheme } from './lib/useAutoTheme'
 import { useIsPhone } from './lib/useIsPhone'
-import { useSectionSwipe, SWIPE_SECTIONS, type SwipeSection } from './lib/useSectionSwipe'
+import { useSectionSwipe, SWIPE_SECTIONS, NAV_ORDER, type SwipeSection, type NavSection } from './lib/useSectionSwipe'
 import { useOnline } from './lib/useOnline'
 import { MapView } from './components/MapView'
 import { Splash } from './components/Splash'
@@ -338,6 +338,21 @@ function IncidentWorkspace({
     enabled: (SWIPE_SECTIONS as readonly string[]).includes(mode),
     onPrev: () => pageSection(-1),
     onNext: () => pageSection(1),
+  })
+  // #10 phase 2: on a PHONE, an edge-swipe on the map/plan canvas pages to the adjacent section
+  // (full nav order — canvas is reachable from its own edge). Tablet keeps its bars, no edge-swipe.
+  const pageNav = (dir: -1 | 1) => {
+    let i = NAV_ORDER.indexOf(mode as NavSection) + dir
+    while (NAV_ORDER[i] === 'plans' && !activePlanId) i += dir // skip Plan when there's none open
+    const next = NAV_ORDER[i]
+    if (next) setMode(next)
+  }
+  const canvasEdge = isPhone && (mode === 'map' || mode === 'plans')
+  const edgeSwipe = useSectionSwipe({
+    enabled: canvasEdge,
+    capture: true, // thin strips: keep the gesture after the finger leaves the edge zone
+    onPrev: () => pageNav(-1), // left edge, swipe inward (→) = previous section
+    onNext: () => pageNav(1), // right edge, swipe inward (←) = next section
   })
   // global tactical-symbol size (S/M/L), captions, offline cache radius, keep-screen-on —
   // device prefs shared with the landing Einstellungen (see useDevicePrefs; lazy loadPrefs
@@ -1433,6 +1448,10 @@ function IncidentWorkspace({
   return (
     <div className={`app mode-${mode}${phoneTools ? ' phone-tools' : ''} ${(tool === 'symbol' && pending) || (tool === 'shape' && pendingShape) ? 'placing' : ''}`}>
       <IconSprite />
+      {/* #10 phase 2: phone-only edge-swipe strips over the map/plan canvas — swipe inward from a
+          screen edge to change section (the canvas keeps its pan/zoom everywhere else). */}
+      {canvasEdge && <div className="edge-swipe edge-swipe-l" {...edgeSwipe} aria-hidden />}
+      {canvasEdge && <div className="edge-swipe edge-swipe-r" {...edgeSwipe} aria-hidden />}
       <AtemschutzAlarmHost trupps={trupps} muted={atemschutzMuted} active={!replayActive}
         logAlarm={logTruppAlarm} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
 

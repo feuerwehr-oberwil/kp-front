@@ -8,10 +8,13 @@ import { useRef } from 'react'
 const THRESHOLD = 64 // px of net horizontal travel before it counts as a page
 const DOMINANCE = 1.7 // |dx| must beat |dy| by this factor (a scroll stays a scroll)
 
-export function useSectionSwipe({ enabled, onPrev, onNext }: {
+export function useSectionSwipe({ enabled, onPrev, onNext, capture }: {
   enabled: boolean
   onPrev: () => void
   onNext: () => void
+  /** capture the pointer on arm — needed for thin edge strips, so a swipe that leaves the strip
+   *  (onto the map) still delivers its move/up to this element. */
+  capture?: boolean
 }) {
   const start = useRef<{ x: number; y: number } | null>(null)
 
@@ -21,6 +24,7 @@ export function useSectionSwipe({ enabled, onPrev, onNext }: {
     // don't arm on controls that consume horizontal drags themselves
     if ((e.target as Element).closest?.('input, textarea, select, [role="slider"], [data-noswipe]')) return
     start.current = { x: e.clientX, y: e.clientY }
+    if (capture) try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* unsupported */ }
   }
   const onPointerUp = (e: React.PointerEvent) => {
     const s = start.current
@@ -39,3 +43,7 @@ export function useSectionSwipe({ enabled, onPrev, onNext }: {
 /** The swipe-paged non-canvas sections, in nav order. Map & Plan are deliberately absent. */
 export const SWIPE_SECTIONS = ['checklists', 'atemschutz', 'anwesenheit', 'mittel'] as const
 export type SwipeSection = typeof SWIPE_SECTIONS[number]
+
+/** Full nav order — used by the phone canvas EDGE-swipe (map/plan reachable too, from their edge). */
+export const NAV_ORDER = ['map', 'plans', 'checklists', 'atemschutz', 'anwesenheit', 'mittel'] as const
+export type NavSection = typeof NAV_ORDER[number]

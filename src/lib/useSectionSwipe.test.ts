@@ -59,6 +59,17 @@ describe('useSectionSwipe', () => {
     expect(onNext).not.toHaveBeenCalled()
   })
 
+  it('captures the pointer when capture=true and still pages', () => {
+    const onPrev = vi.fn(), onNext = vi.fn()
+    const { result } = renderHook(() => useSectionSwipe({ enabled: true, onPrev, onNext, capture: true }))
+    const setPointerCapture = vi.fn()
+    const down = { ...ev({ clientX: 300, clientY: 400 }), pointerId: 1, currentTarget: { setPointerCapture } } as unknown as React.PointerEvent
+    result.current.onPointerDown(down)
+    result.current.onPointerUp(ev({ clientX: 180, clientY: 405 }))
+    expect(setPointerCapture).toHaveBeenCalledWith(1)
+    expect(onNext).toHaveBeenCalledTimes(1)
+  })
+
   it('does not arm on an interactive control (slider/input)', () => {
     const { onNext, result } = (() => {
       const onPrev = vi.fn(), onNext = vi.fn()
