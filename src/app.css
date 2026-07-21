@@ -2235,11 +2235,12 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
    ancestor's touch-action restricts descendants, so this covers the scrollable views inside. */
 .section-pager { position: absolute; inset: 0; z-index: 20; touch-action: pan-y; }
 /* #10 phase 2: thin phone-only edge strips over the map/plan canvas that catch an inward swipe to
-   change section. Kept narrow so normal map panning (from the middle) is unaffected; z below the
-   tool docks/bars (z-35+) so those still win where they overlap. touch-action:none so the browser
-   doesn't treat the horizontal drag as a scroll/gesture. */
+   change section. Kept narrow so normal map/plan panning (from the middle) is unaffected. z-index
+   MUST sit above the Plan whiteboard (z-20, absolute inset:0 — it would otherwise swallow these
+   edge touches so only the map worked) but below the tool docks/controls (z-28+) so those still
+   win where they overlap. touch-action:none so the browser doesn't treat the drag as a scroll. */
 .edge-swipe { position: fixed; top: calc(96px + env(safe-area-inset-top)); bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom));
-  width: 20px; z-index: 15; touch-action: none; }
+  width: 22px; z-index: 24; touch-action: none; }
 .edge-swipe-l { left: 0; }
 .edge-swipe-r { right: 0; }
 
