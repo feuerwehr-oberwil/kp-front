@@ -2211,6 +2211,11 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .ip-menu-rowmain:hover, .ip-menu-act:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); }
 .ip-menu-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ip-menu-sub { font: 500 12px var(--body); color: var(--ink-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* #10: event anchor for section swipe — wraps the non-canvas surfaces so a horizontal drag
+   bubbles to the pager handler. Fills the app so a swipe registers anywhere on the surface; the
+   child views keep their own absolute inset/z-index (rendered relative to this box). */
+.section-pager { position: absolute; inset: 0; z-index: 20; }
+
 .ip-menu-sep { height: 1px; background: var(--glass-edge); margin: 4px; }
 /* tight variant: isolates a single terminal action (Einsatz abschliessen) without the full gap */
 .ip-menu-sep-tight { margin: 2px 4px; background: color-mix(in srgb, var(--glass-edge) 60%, transparent); }

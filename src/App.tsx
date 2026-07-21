@@ -33,6 +33,7 @@ import { buildLabel } from './lib/buildInfo'
 import { consumeJustUpdated } from './lib/swUpdate'
 import { useAutoTheme } from './lib/useAutoTheme'
 import { useIsPhone } from './lib/useIsPhone'
+import { useSectionSwipe, SWIPE_SECTIONS, type SwipeSection } from './lib/useSectionSwipe'
 import { useOnline } from './lib/useOnline'
 import { MapView } from './components/MapView'
 import { Splash } from './components/Splash'
@@ -325,6 +326,19 @@ function IncidentWorkspace({
   // both bars are stacked on the two drawing surfaces (tool bar above the surface bar) —
   // this drives the extra bottom clearances for FAB / docks / stage on phones
   const phoneTools = isPhone && !tacticalLocked && (mode === 'map' || mode === 'plans')
+  // #10: horizontal swipe pages between the non-canvas sections (Checkliste ↔ Atemschutz ↔
+  // Anwesenheit ↔ Mittel). Map/Plan keep their pan/zoom and are excluded.
+  const pageSection = (dir: -1 | 1) => {
+    const i = SWIPE_SECTIONS.indexOf(mode as SwipeSection)
+    if (i < 0) return
+    const next = SWIPE_SECTIONS[i + dir]
+    if (next) setMode(next)
+  }
+  const sectionSwipe = useSectionSwipe({
+    enabled: (SWIPE_SECTIONS as readonly string[]).includes(mode),
+    onPrev: () => pageSection(-1),
+    onNext: () => pageSection(1),
+  })
   // global tactical-symbol size (S/M/L), captions, offline cache radius, keep-screen-on —
   // device prefs shared with the landing Einstellungen (see useDevicePrefs; lazy loadPrefs
   // seed). Their persistence rides the mode/activePlanId effect below.
@@ -2051,6 +2065,8 @@ function IncidentWorkspace({
         />
       )}
 
+      {(SWIPE_SECTIONS as readonly string[]).includes(mode) && (
+      <div className="section-pager" {...sectionSwipe}>
       {mode === 'checklists' && (
         <ChecklistsView
           checklists={checklists}
@@ -2112,6 +2128,8 @@ function IncidentWorkspace({
           onSave={saveMittel}
           captureUsage={captureUsage}
         />
+      )}
+      </div>
       )}
 
       {/* time-travel replay scrubber — read-only past view, owns the playhead + fold */}
