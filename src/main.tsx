@@ -14,6 +14,7 @@ import { Splash } from './components/Splash'
 import { lockChromeZoom } from './lib/lockZoom'
 import { loadPrefs, applyTheme, resolveTheme } from './lib/prefs'
 import { loadDeploymentConfig, applyDeploymentBranding } from './lib/deploymentConfig'
+import { loadStationPlanScales } from './lib/stationPlanScale'
 import { migrateLocalStorageToIdb } from './lib/storageMigration'
 import { applyLocale } from './config/copy'
 
@@ -76,6 +77,8 @@ void (async () => {
     await migrateLocalStorageToIdb()
     const cfg = await loadDeploymentConfig()
     applyDeploymentBranding(cfg)
+    // station plan calibration (public, offline-cached) — so plans measure out of the box (#3)
+    void loadStationPlanScales()
     // Resolve the UI language now that the deployment config is in: device pref →
     // deployment locale → de-CH. Runs before first render, so appConfig.copy.* (a getter
     // delegating to config/copy · getCopy) is already in the right language from the first paint.

@@ -362,6 +362,10 @@ class DeploymentConfig(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
     config_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # Editor-authored (NOT admin) station plan-scale calibration: {default, byPlan}. Kept OUT of
+    # config_json so an admin config push never wipes it and it isn't schema-validated as config.
+    # Persists a once-off plan calibration across incidents/devices — see docs/CONFIGURATION.md.
+    plan_scales_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     # Station-level capture secret (the Erfassungs-Poster QR). NOT part of config_json —
     # GET /api/config is public and must never leak it. NULL = capture disabled (fail-closed);
     # rotating replaces it, invalidating every printed poster at once.

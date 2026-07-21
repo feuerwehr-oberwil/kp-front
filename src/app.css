@@ -1591,6 +1591,22 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .wb-scale-chip:hover { border-color: var(--blue); color: var(--ink); }
 .wb-scale-chip.on { color: var(--ink); border-color: color-mix(in srgb, var(--blue) 45%, var(--glass-edge)); }
 .wb-scale-chip.stale { color: var(--warn, #e2920a); border-color: var(--warn, #e2920a); }
+/* #3: persist-a-calibration bar, sits just above the Maßstab chip after a fresh calibration */
+.wb-scale-persist { position: absolute; left: calc(var(--rail-w) + 28px); bottom: 52px; z-index: 9;
+  display: inline-flex; align-items: center; gap: 8px; max-width: min(94%, 520px); padding: 7px 8px 7px 12px;
+  border-radius: var(--r-ctl); border: 1px solid var(--glass-line); background: var(--surface);
+  box-shadow: var(--shadow); animation: panelIn .16s var(--ease); }
+.wb-scale-persist-t { font: 700 12.5px var(--body); color: var(--ink); white-space: nowrap; margin-right: 2px; }
+.wb-scale-persist .btn { padding: 7px 11px; font-size: 12.5px; white-space: nowrap; }
+.wb-scale-persist-x { flex: none; width: 34px; height: 34px; display: grid; place-items: center; border: none;
+  background: transparent; color: var(--ink-dim); cursor: pointer; border-radius: var(--r-sm); }
+.wb-scale-persist-x:hover { background: var(--fill-soft); color: var(--ink); }
+.wb-scale-persist-x svg { width: 15px; height: 15px; }
+@media (max-width: 600px) {
+  /* clear the two bottom bars on phones, and hug the left edge (no side rail) */
+  .wb-scale-persist { left: 10px; right: 10px; bottom: calc(var(--rail-h) * 2 + 62px + env(safe-area-inset-bottom));
+    max-width: none; flex-wrap: wrap; }
+}
 .wb-scale-chip.arm { border-color: var(--blue); color: var(--blue); }
 
 /* vertex-editing handles for a selected line/area (board px, absolute on the board) —

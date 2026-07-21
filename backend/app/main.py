@@ -231,6 +231,7 @@ def _register_optional_routers() -> None:
     for module_name, attr in [
         ("app.api.admin", "router"),
         ("app.api.config", "router"),
+        ("app.api.plan_scales", "router"),
         ("app.api.branding", "router"),
         ("app.api.incidents", "router"),
         ("app.api.media", "router"),

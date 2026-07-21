@@ -23,6 +23,7 @@ import { ShapeEditor } from './ShapeEditor'
 import { ShapeGlyph, SHAPE_DEFS } from '../lib/shapes'
 import { planUrl, TILE_AR, TOP_INSET, STACK_VPAD, clamp01, floorLabel, floorGeometry } from '../lib/whiteboard'
 import { calibrate, pathMetres, polyAreaM2, isStale, type PlanScale } from '../lib/planScale'
+import { resolvePlanScale, saveStationDefault, saveStationPlanOverride } from '../lib/stationPlanScale'
 import { MeasurePanel } from './MeasurePanel'
 import type { PlanScales } from '../lib/workspace'
 import { fmtDistance, fmtArea, hoseLengthHint } from '../lib/geo'
@@ -149,6 +150,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const [calPrompt, setCalPrompt] = useState<{ a: [number, number]; b: [number, number] } | null>(null)
   const [lastRefM, setLastRefM] = useState<number>(appConfig.drawing.planScaleDefaultM)
   const [refMInput, setRefMInput] = useState<string>('')
+  // after a fresh field calibration: offer to persist it station-wide (#3) — as the default for
+  // every plan, or just for this one. Cleared on plan switch so it never lingers on another sheet.
+  const [savePrompt, setSavePrompt] = useState<PlanScale | null>(null)
+  useEffect(() => { setSavePrompt(null) }, [activeId])
   // Messen (measure): node-based distance / area, ephemeral (never saved). Each mode keeps its own
   // points, exactly like the Lage map's useMeasure. Metrics come from the plan calibration.
   const [measMode, setMeasMode] = useState<'line' | 'area'>('line')
@@ -301,9 +306,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // TILE is measured in its own space (1/TILE_AR), so one calibration covers every floor of the
   // same drawing. The reference drag and stored line `pts` live in this same space.
   const measureAR = stack ? 1 / TILE_AR : 1 / aspect
-  const activeScale: PlanScale | undefined = planScale[activeId]
-  const scaleStale = !!activeScale && isStale(activeScale, measureAR)
-  const calibrated = !!activeScale && !scaleStale
+  // Resolve through the STATION calibration (per-incident → per-plan override → station default),
+  // so a plan measures out of the box without re-calibrating each incident (#3). A field
+  // calibration for this incident still wins; a stale candidate falls through.
+  const workspaceScale: PlanScale | undefined = planScale[activeId]
+  const activeScale: PlanScale | undefined = resolvePlanScale(activeId, workspaceScale, measureAR)
+  const scaleStale = !!workspaceScale && isStale(workspaceScale, measureAR) && !activeScale
+  const calibrated = !!activeScale
   // metres of a stored polyline (tile-local pts already, for a floor-stack) under the calibration
   const planMetres = (pts: [number, number][]): number | null =>
     calibrated && activeScale ? pathMetres(pts, activeScale.mPerU, measureAR) : null
@@ -527,6 +536,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     onCalibrate?.(activeId, sc)
     log('measure', fillTemplate(appConfig.copy.whiteboard.scale.saved, { m: String(refM) }))
     toast(fillTemplate(appConfig.copy.whiteboard.scale.saved, { m: String(refM) }))
+    if (onCalibrate) setSavePrompt(sc) // editor: offer to remember it across incidents
   }
   // create a Linie from a finished path (a freehand drag OR a node-tapped draft), baking the sticky
   // preset's arrow/marker/dash — then one-shot to pan with the new line selected so its style editor
@@ -1749,6 +1759,20 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               : appConfig.copy.whiteboard.scale.chipUncalibrated
           }</span>
         </button>
+      )}
+
+      {/* #3: persist a fresh calibration station-wide so plans measure out of the box next time */}
+      {savePrompt && !readOnly && (
+        <div className="wb-scale-persist" role="group" aria-label={appConfig.copy.whiteboard.scale.persistTitle}>
+          <span className="wb-scale-persist-t">{appConfig.copy.whiteboard.scale.persistTitle}</span>
+          <button className="btn" onClick={() => { void saveStationDefault(savePrompt); toast(appConfig.copy.whiteboard.scale.savedAll); setSavePrompt(null) }}>
+            {appConfig.copy.whiteboard.scale.saveAll}
+          </button>
+          <button className="btn" onClick={() => { void saveStationPlanOverride(activeId, savePrompt); toast(appConfig.copy.whiteboard.scale.savedThis); setSavePrompt(null) }}>
+            {appConfig.copy.whiteboard.scale.saveThis}
+          </button>
+          <button className="wb-scale-persist-x" aria-label={appConfig.copy.closeDialog} onClick={() => setSavePrompt(null)}><Icon id="close" /></button>
+        </div>
       )}
     </div>
   )
