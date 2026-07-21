@@ -39,12 +39,21 @@ export interface SheetProps {
   grip?: boolean
   /** Override where focus lands on open (default: Base UI picks the first focusable). */
   initialFocus?: RefObject<HTMLElement | null>
+  /**
+   * Modality. Default `'trap-focus'`: focus is trapped, but pointer interaction with elements
+   * OUTSIDE the popup stays enabled — required because our field pickers (Combo / PersonField,
+   * e.g. the Einsatzleiter picker) portal their dropdown menu to <body>, which full `modal`
+   * would mark inert (making the options unclickable). Scroll-lock is dropped with it, but the
+   * kiosk `body { overflow: hidden }` already prevents background scroll, so that's redundant.
+   * Pass `modal` (true) only for a sheet with NO body-portalled child popup.
+   */
+  modal?: boolean | 'trap-focus'
 }
 
-export function Sheet({ open, onClose, title, ariaLabel, children, footer, wide, fit, sheetClassName, grip, initialFocus }: SheetProps) {
+export function Sheet({ open, onClose, title, ariaLabel, children, footer, wide, fit, sheetClassName, grip, initialFocus, modal = 'trap-focus' }: SheetProps) {
   const cls = ['ip-sheet', 'ui-dialog', wide && 'ip-wide', fit && 'ip-fit', sheetClassName].filter(Boolean).join(' ')
   return (
-    <Dialog.Root open={open} onOpenChange={(next) => { if (!next) onClose() }}>
+    <Dialog.Root open={open} onOpenChange={(next) => { if (!next) onClose() }} modal={modal}>
       <Dialog.Portal>
         <Dialog.Backdrop className="ui-backdrop" />
         <Dialog.Popup className={cls} initialFocus={initialFocus} aria-label={title == null ? ariaLabel : undefined}>

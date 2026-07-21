@@ -27,12 +27,18 @@ export interface OverlayProps {
   ariaLabel: string
   /** Override where focus lands on open (default: Base UI picks the first focusable). */
   initialFocus?: RefObject<HTMLElement | null>
+  /**
+   * Modality; default `'trap-focus'` for the same reason as <Sheet>: these overlays host field
+   * pickers (Combo / PersonField, e.g. Einsatzleiter) that portal their menu to <body>, which
+   * full `modal` would mark inert. See Sheet's `modal` doc.
+   */
+  modal?: boolean | 'trap-focus'
   children: ReactNode
 }
 
-export function Overlay({ open, onClose, className, backdropClassName = 'ui-backdrop', ariaLabel, initialFocus, children }: OverlayProps) {
+export function Overlay({ open, onClose, className, backdropClassName = 'ui-backdrop', ariaLabel, initialFocus, modal = 'trap-focus', children }: OverlayProps) {
   return (
-    <Dialog.Root open={open} onOpenChange={(next) => { if (!next) onClose() }}>
+    <Dialog.Root open={open} onOpenChange={(next) => { if (!next) onClose() }} modal={modal}>
       <Dialog.Portal>
         <Dialog.Backdrop className={backdropClassName} />
         <Dialog.Popup className={className} aria-label={ariaLabel} initialFocus={initialFocus}>
