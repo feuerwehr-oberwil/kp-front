@@ -1,4 +1,4 @@
-import { useEffect, type RefObject } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
 
 // Horizontal swipe to page between sections. Two consumers: the non-canvas surfaces
 // (Checkliste ↔ Atemschutz ↔ Anwesenheit ↔ Mittel), and thin phone edge strips over the
@@ -31,6 +31,14 @@ export function useSectionSwipe(ref: RefObject<HTMLElement | null>, { enabled, o
   onPrev: () => void
   onNext: () => void
 }) {
+  // Keep the callbacks in a ref so the listener effect DOESN'T depend on them. They're new
+  // closures every render (`() => goToNav(±1)`); if the effect re-ran on each render it would
+  // detach/reattach the listeners — and if that lands mid-gesture the in-flight `start` is lost,
+  // so the FIRST swipe after a busy launch (sync/weather/roster settling) silently fails. Attach
+  // once per (element, enabled) and read the current handlers from the ref.
+  const cbs = useRef({ onPrev, onNext })
+  useEffect(() => { cbs.current = { onPrev, onNext } }) // keep latest, without a render-time ref write
+
   useEffect(() => {
     const el = ref.current
     if (!el || !enabled) return
@@ -51,7 +59,7 @@ export function useSectionSwipe(ref: RefObject<HTMLElement | null>, { enabled, o
       if (outcome === 'prev' || outcome === 'next') {
         start.fired = true
         e.preventDefault() // stop the browser treating the confirmed horizontal drag as a scroll
-        ;(outcome === 'next' ? onNext : onPrev)()
+        ;(outcome === 'next' ? cbs.current.onNext : cbs.current.onPrev)()
       }
     }
     const end = () => { start = null }
@@ -66,7 +74,7 @@ export function useSectionSwipe(ref: RefObject<HTMLElement | null>, { enabled, o
       el.removeEventListener('touchend', end)
       el.removeEventListener('touchcancel', end)
     }
-  }, [ref, enabled, onPrev, onNext])
+  }, [ref, enabled])
 }
 
 /** The non-canvas sections whose full-surface swipe is armed (they render the .section-pager).
