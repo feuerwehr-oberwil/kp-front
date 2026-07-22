@@ -4,9 +4,11 @@ Started/stopped from the FastAPI lifespan. No-op when no Divera access key is se
 """
 
 import logging
+from zoneinfo import ZoneInfo
 
 import httpx
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI
 
 from .config import settings
@@ -164,7 +166,23 @@ async def start_scheduler(app: FastAPI) -> None:
     if settings.healthcheck_ping_url:
         _scheduler.add_job(_heartbeat, "interval", seconds=60, id="heartbeat", max_instances=1, coalesce=True)
         jobs.append("heartbeat (60s)")
-    if settings.demo_reset_seconds > 0:
+    # DEMO daily hard-reset. Prefer a crontab (Europe/Zurich local midnight) so the demo persists
+    # edits during the day and only resets nightly; fall back to the legacy fixed-interval job.
+    if settings.demo_reset_cron:
+        _scheduler.add_job(
+            _demo_reset,
+            CronTrigger.from_crontab(settings.demo_reset_cron, timezone=ZoneInfo("Europe/Zurich")),
+            id="demo_reset",
+            max_instances=1,
+            coalesce=True,
+        )
+        jobs.append(f"DEMO reset (cron '{settings.demo_reset_cron}' Europe/Zurich)")
+        logger.warning(
+            "DEMO auto-reset ACTIVE: this deployment WIPES + reseeds ALL incident data on cron "
+            "'%s' (Europe/Zurich). If this is NOT the public demo, unset DEMO_RESET_CRON now.",
+            settings.demo_reset_cron,
+        )
+    elif settings.demo_reset_seconds > 0:
         _scheduler.add_job(
             _demo_reset,
             "interval",

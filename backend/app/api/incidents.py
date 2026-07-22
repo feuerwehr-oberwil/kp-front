@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
 from .. import audit, storage
+from ..alarms import is_demo_deployment
 from ..auth.dependencies import CurrentEditor, CurrentUser, UserOrAdmin
 from ..database import get_db
 from ..geocode import geocode
@@ -58,6 +59,10 @@ async def list_incidents(
 async def create_incident(
     body: IncidentCreate, user: CurrentEditor, db: AsyncSession = Depends(get_db)
 ) -> Incident:
+    # The public demo is a single living incident everyone edits — block spawning new ones
+    # server-side (the UI already hides the action). Editing the existing incident stays open.
+    if await is_demo_deployment(db):
+        raise HTTPException(status_code=403, detail="In der Demo können keine neuen Einsätze erstellt werden.")
     if (body.lat is None) != (body.lng is None):
         raise HTTPException(status_code=422, detail="lat und lng müssen beide oder keine gesetzt sein")
     # Geocode the address via swisstopo when coords are missing (map-click is the fallback).
