@@ -30,6 +30,16 @@ export const floorBadge = (f: number) => (f > 0 ? `+${f}` : `${f}`)
 export const GROSSLUEFTER = 'Grosslüfter'
 export const GROSSLUEFTER_BODY = 'VKF Fahrzeug'
 export const GROSSLUEFTER_FAN = 'VKF Luefter mobil'
+// the mobile Lüfter + its extract/Absaugen variant (SAME fan, airflow arrow reversed to point INTO
+// the fan). The variant is a render-only glyph (kept in `byName`, hidden from the palette — see
+// useSymbols); a placed Lüfter carries `extract` and stays named 'VKF Luefter mobil', so presets,
+// captions and the Grosslüfter fan reference all key off the one canonical name.
+export const LUEFTER = 'VKF Luefter mobil'
+export const LUEFTER_EXTRACT = 'VKF Luefter mobil saugend'
+/** the library name to render for a placed symbol — the reversed-arrow glyph for an extract Lüfter,
+ *  the symbol's own name otherwise. */
+export const luefterVariant = (name: string | undefined, extract?: boolean): string | undefined =>
+  extract && name === LUEFTER ? LUEFTER_EXTRACT : name
 // the fan reads at ~60% of the body box so the carrier stays recognisable behind it
 export const FAN_OVERLAY_SCALE = 0.6
 // strip a glyph's outer <svg> wrapper, keeping its inner paths (for nesting one glyph in another)

@@ -267,6 +267,19 @@ def build() -> list[dict]:
          line(-0.6, -0.4, -0.6, 0.4, stroke=BLACK, sw=0.06)],
         viewbox="-1.2 -1.2 2.4 2.4",
     ))
+    # The extract/Absaugen airflow variant of the mobile Lüfter: SAME fan housing, but the airflow
+    # arrow reversed to point INTO the fan (air drawn in from the right → sucked out of the space).
+    # Reached only via the Lüfter's Luftrichtung toggle (SymbolProps.extract) — NOT a separate palette
+    # entry: useSymbols keeps it in `byName` for rendering but filters it out of the picker. The arrow
+    # is the base arrow reflected about its own centre (x'=0.75-x), so it stays in the same box.
+    add("Fahrzeuge / Mittel", "VKF Luefter mobil saugend", svg(
+        [path([(-0.9, -0.4), (-0.6, -0.4), (-0.3, -0.7), (-0.3, 0.7), (-0.6, 0.4), (-0.9, 0.4)],
+              stroke=BLACK, sw=0.06, fill=YELLOW, close=True),
+         path([(0.9, -0.1), (0.35, -0.1), (0.35, -0.4), (-0.15, 0), (0.35, 0.4), (0.35, 0.1), (0.9, 0.1)],
+              stroke=BLACK, sw=0.06, fill=YELLOW, close=True),
+         line(-0.6, -0.4, -0.6, 0.4, stroke=BLACK, sw=0.06)],
+        viewbox="-1.2 -1.2 2.4 2.4",
+    ))
     add("Fahrzeuge / Mittel", "FW Kleinloeschgeraet", svg(
         [path([(-0.3, 0.6), (0, -0.4), (0.3, 0.6)], stroke=BLUE, sw=0.1, close=True)],
         viewbox="-0.8 -0.7 1.6 1.6",

@@ -7,7 +7,7 @@ import { Icon } from '../lib/icons'
 import { ShapeGlyph } from '../lib/shapes'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
-import { TacticalSymbol, GROSSLUEFTER_BODY, GROSSLUEFTER_FAN, FAN_OVERLAY_SCALE } from '../lib/symbolRender'
+import { TacticalSymbol, GROSSLUEFTER_BODY, GROSSLUEFTER_FAN, FAN_OVERLAY_SCALE, luefterVariant } from '../lib/symbolRender'
 import { symbolCaptionText } from '../lib/symbols'
 import { pxPerM, symPx, shapePx, isRotatableSym, isVehicleSym, isGrossluefter } from '../lib/mapView'
 
@@ -351,7 +351,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
               const rot = (e.rotation ?? 0) - (directional ? bearing : 0)
               const svg = veh ? vehicleSymbolSvg(e.label ?? '', rot)
                 : gross ? (byName[GROSSLUEFTER_BODY] ?? '')
-                : (placardSvgForSymbol(e.symbol, e.fields) ?? e.symbolSvg ?? (e.symbol ? byName[e.symbol] ?? '' : ''))
+                : (placardSvgForSymbol(e.symbol, e.fields) ?? e.symbolSvg ?? (e.symbol ? byName[luefterVariant(e.symbol, e.extract)!] ?? byName[e.symbol] ?? '' : ''))
               // the Grosslüfter stacks the fan as a separately-rotatable overlay (airflow direction)
               const overlay = gross ? { svg: byName[GROSSLUEFTER_FAN] ?? '', rotation: (e.rotation2 ?? 0) - bearing, scale: FAN_OVERLAY_SCALE } : undefined
               // the vehicle glyph rotates its body internally, so the chip must NOT also rotate;

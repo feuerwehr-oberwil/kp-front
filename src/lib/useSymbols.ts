@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { SymbolLibrary } from '../types'
-import { GROSSLUEFTER, GROSSLUEFTER_BODY, GROSSLUEFTER_FAN, composeGrossluefterSvg } from './symbolRender'
+import { GROSSLUEFTER, GROSSLUEFTER_BODY, GROSSLUEFTER_FAN, LUEFTER_EXTRACT, composeGrossluefterSvg } from './symbolRender'
 
 export interface SymbolsApi {
   ready: boolean
@@ -52,9 +52,12 @@ export function useSymbols(): SymbolsApi {
     if (!lib) return EMPTY
     // normalise every glyph's text-centering once, up front, so both the palette (which renders
     // s.svg directly) and every byName consumer get the cross-browser-centred version.
-    const symbols = lib.symbols.map((s) => ({ ...s, svg: centerSymbolText(s.svg) }))
+    const all = lib.symbols.map((s) => ({ ...s, svg: centerSymbolText(s.svg) }))
     const byName: Record<string, string> = {}
-    for (const s of symbols) byName[s.name] = s.svg
+    for (const s of all) byName[s.name] = s.svg
+    // the Lüfter's extract/Absaugen glyph is a render-only variant reached via the symbol's
+    // Luftrichtung toggle — keep it in byName (above) but drop it from the pickable palette.
+    const symbols = all.filter((s) => s.name !== LUEFTER_EXTRACT)
     // synthesise the composite Grosslüfter from the two authoritative FireGIS glyphs (vehicle +
     // fan) so it appears in the palette without hand-authoring artwork that could drift from the
     // source. byName carries the static composite (thumbnail/fallback); the map/plan render the

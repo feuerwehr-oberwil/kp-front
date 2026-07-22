@@ -36,7 +36,7 @@ export type ShapeKind = 'arrow' | 'cloud' | 'square'
  *  rendered as a combined `-1/+3` badge on BOTH surfaces). Each symbol declares,
  *  via its preset, which are meaningful for it; the editor shows only those
  *  (see symbolControls). */
-export type SymbolControl = 'rotation' | 'rotation2' | 'count' | 'floor' | 'floorRange' | 'spread'
+export type SymbolControl = 'rotation' | 'rotation2' | 'count' | 'floor' | 'floorRange' | 'spread' | 'airflow'
 
 /** FKS Entwicklung (spread) on a damage symbol — Feuer/Wasser/Gefahrstoffe.
  *  Rendered as arrows in the symbol's own colour (red/blue/orange): a horizontal
@@ -89,6 +89,11 @@ export interface SymbolProps {
   floorTo?: number
   /** FKS Entwicklung (spread) arrows — see Spread. Shown on Feuer/Wasser/Gefahrstoffe. */
   spread?: Spread
+  /** airflow direction of a Lüfter: absent/false = Einblasen (arrow blows away from the fan,
+   *  Überdruck), true = Absaugen (arrow reversed to point INTO the fan — the fan is positioned in
+   *  the space but draws air out). Only meaningful for the mobile Lüfter (`controls: ['airflow']`);
+   *  the renderer swaps in the reversed-arrow glyph. */
+  extract?: boolean
   /** symbol/shape accent colour */
   color?: string
   /** on-canvas caption mode for this one symbol — overrides the global device default

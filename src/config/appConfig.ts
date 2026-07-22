@@ -265,7 +265,7 @@ const base = {
         'VKF Fahrzeug': { controls: ['rotation'], fields: ['Fahrer'] },
         'VKF Pumpe Typ2': {},
         'VKF Helilandeplatz': {},
-        'VKF Luefter mobil': { controls: ['rotation'], fields: ['Typ'] },
+        'VKF Luefter mobil': { controls: ['rotation', 'airflow'], fields: ['Typ'] },
         // composite vehicle-mounted Grosslüfter: body heading (rotation) + airflow (rotation2),
         // each with its own on-canvas rotor + Drehung stepper. Synthesised in lib/useSymbols.
         'Grosslüfter': { controls: ['rotation', 'rotation2'] },
