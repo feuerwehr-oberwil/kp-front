@@ -323,9 +323,9 @@ function IncidentWorkspace({
   const measure = useMeasure(tool === 'measure')
   // surface + active plan are remembered across reloads via a cookie
   const [mode, setMode] = useState<'map' | 'plans' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel'>(prefs.mode ?? 'map')
-  // both bars are stacked on the two drawing surfaces (tool bar above the surface bar) —
-  // this drives the extra bottom clearances for FAB / docks / stage on phones
-  const phoneTools = isPhone && !tacticalLocked && (mode === 'map' || mode === 'plans')
+  // `phoneTools` (the second, stacked tool bar → its extra bottom clearances) is computed below,
+  // once `planDocs` is known: a viewer-only plan renders NO tool bar, so it must reserve one bar,
+  // not two.
   // #10: horizontal swipe pages between sections in nav order. Non-canvas surfaces swipe anywhere;
   // the map/plan canvas swipes from a phone screen edge (they keep pan/zoom). The wiring that needs
   // the ordered plan list lives below planDocs; the refs + the canvas gate are here.
@@ -482,6 +482,13 @@ function IncidentWorkspace({
     out.splice(osmIdx >= 0 ? osmIdx + 1 : out.length, 0, gebaeudeDoc)
     return out
   }, [effBuilding, resolvedPlanDocs])
+
+  // both bars are stacked on the two drawing surfaces (tool bar above the surface bar) — this drives
+  // the extra bottom clearances for FAB / docks / stage / whiteboard on phones. A viewer-only plan
+  // (e.g. Modul 6 Gebäudepläne) renders no tool bar, so it gets ONE bar of clearance, not two —
+  // otherwise the empty tool-bar lane blocks the PDF from scrolling to the bottom nav.
+  const activePlanViewer = mode === 'plans' && planDocs.find((p) => p.id === activePlanId)?.viewer === true
+  const phoneTools = isPhone && !tacticalLocked && (mode === 'map' || (mode === 'plans' && !activePlanViewer))
 
   // #10: the flat nav order (matches NavRail) — map, EACH plan doc, then the four sections. A swipe
   // steps one destination at a time, so it walks through the modules individually instead of
