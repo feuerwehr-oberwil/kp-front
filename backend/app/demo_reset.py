@@ -27,7 +27,7 @@ from sqlalchemy import delete, select
 
 from .auth.security import hash_pin
 from .database import async_session_maker
-from .models import DiveraEmergency, Incident, ObjectSite, Personnel, User
+from .models import DiveraEmergency, Incident, JournalEntry, ObjectSite, Personnel, User
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +65,19 @@ DEMO_PEOPLE = [
     ("Michael", "Baumann"), ("Céline", "Widmer"), ("Stefan", "Graf"), ("Petra", "Roth"),
 ]
 
+# A pre-filled Verlauf (journal) so the demo lands with a worked incident's log instead of the
+# empty "Noch keine Ereignisse erfasst" state. Each is (minutes-before-now, text); seeded as
+# human `kind: 'journal'` TimelineEvents oldest-first. Times stay within the 14-min elapsed window.
+DEMO_JOURNAL = [
+    (14, "Alarmierung Zimmerbrand Schlossgasse 9, Ausrücken TLF und ADF."),
+    (13, "Eintreffen. Rauch aus Fenster 2. OG, Menschenrettung eingeleitet."),
+    (12, "Angriffstrupp 1 (Müller) zur Personenrettung 2. OG Nord eingesetzt."),
+    (10, "Wasserversorgung ab Hydrant Schlossgasse sichergestellt."),
+    (8, "Angriffstrupp 2 (Schmid) zur Brandbekämpfung 2. OG eingesetzt."),
+    (5, "1 Person gerettet und an Sanität übergeben."),
+    (2, "Brand unter Kontrolle, Nachlöscharbeiten laufen."),
+]
+
 # Who is physically present (Anwesenheit) — all nine Trupp members plus the Einsatzleiter.
 DEMO_PRESENT = {
     "Hans Müller", "Anna Meier", "Thomas Brunner",   # Trupp 1
@@ -98,6 +111,15 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
             "lastPressureBar": 210, "lastPressureTime": _iso(now - timedelta(minutes=2)),
             "lowestBar": 210, "status": "aktiv",
             "annoId": "r1782915890769", "planId": "gebaeude",
+            # Contact/pressure Verlauf shown (collapsed) on the card — the frontend rebases these
+            # timestamps to page-load along with the clocks, so they always read as fresh.
+            "readings": [
+                {"t": _iso(now - timedelta(minutes=14)), "bar": 300, "kind": "entry"},
+                {"t": _iso(now - timedelta(minutes=11)), "bar": 280, "kind": "contact"},
+                {"t": _iso(now - timedelta(minutes=8)), "bar": 250, "kind": "pressure"},
+                {"t": _iso(now - timedelta(minutes=5)), "bar": 230, "kind": "contact"},
+                {"t": _iso(now - timedelta(minutes=2)), "bar": 210, "kind": "pressure"},
+            ],
         },
         {
             "id": "trupp2", "name": "Peter Schmid", "members": ["Laura Keller", "Nina Frei"],
@@ -107,6 +129,12 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
             "lastContactTime": _iso(now - timedelta(seconds=150)),
             "lastPressureBar": 250, "lastPressureTime": _iso(now - timedelta(seconds=150)),
             "lowestBar": 250, "status": "aktiv",
+            "readings": [
+                {"t": _iso(now - timedelta(minutes=8)), "bar": 300, "kind": "entry"},
+                {"t": _iso(now - timedelta(minutes=6)), "bar": 285, "kind": "contact"},
+                {"t": _iso(now - timedelta(minutes=4)), "bar": 270, "kind": "pressure"},
+                {"t": _iso(now - timedelta(seconds=150)), "bar": 250, "kind": "contact"},
+            ],
         },
         {
             "id": "trupp3", "name": "Marco Weber", "members": ["Sarah Huber", "Michael Baumann"],
@@ -194,7 +222,7 @@ async def reset(wipe_objects: bool = True) -> None:
         present = [(pid, name) for name, pid in person_id.items() if name in DEMO_PRESENT]
         workspace = build_demo_workspace(scene, present, now)
         started = now - timedelta(minutes=DEMO_INCIDENT["elapsed_min"])
-        db.add(Incident(
+        incident = Incident(
             title=DEMO_INCIDENT["title"], type=DEMO_INCIDENT["type"], priority="HIGH",
             text=DEMO_INCIDENT["text"], address=DEMO_INCIDENT["address"],
             lat=DEMO_INCIDENT["lat"], lng=DEMO_INCIDENT["lng"],
@@ -202,7 +230,21 @@ async def reset(wipe_objects: bool = True) -> None:
             divera_id=DEMO_INCIDENT["divera_id"], auto_opened=False,
             started_at=started, editor_opened_at=started, is_archived=False,
             map_workspace_json=workspace, workspace_rev=1,
-        ))
+        )
+        db.add(incident)
+        # Flush so the incident's uuid4 PK (a column default assigned at INSERT) is available for
+        # the Verlauf rows' incident_id FK — same flush-then-read pattern as the Personnel ids above.
+        await db.flush()
+        # Seed the pre-filled Verlauf: each row is a human `journal` TimelineEvent stored verbatim
+        # in row_json (that's the shape the append API and the frontend Verlauf renderer expect),
+        # with a monotonic per-incident `seq` giving the display order (oldest first).
+        for i, (mins_ago, text) in enumerate(DEMO_JOURNAL, start=1):
+            at = _iso(now - timedelta(minutes=mins_ago))
+            db.add(JournalEntry(
+                incident_id=incident.id, client_id=f"demo-journal-{i}", seq=i,
+                row_json={"id": f"demo-journal-{i}", "t": "", "at": at,
+                          "icon": "type", "text": text, "kind": "journal", "surface": "map"},
+            ))
 
         for u in DEMO_USERS:
             user = (
@@ -219,9 +261,9 @@ async def reset(wipe_objects: bool = True) -> None:
             user.is_active = True
         await db.commit()
     logger.info(
-        "Demo reset: seeded 1 running incident (%d Trupps, %d Mittel, %d present), no pending "
-        "alarm, ensured %d user(s), %d people.",
-        len(workspace["trupps"]), len(workspace["mittel"]), len(present),
+        "Demo reset: seeded 1 running incident (%d Trupps, %d Mittel, %d present, %d Verlauf), no "
+        "pending alarm, ensured %d user(s), %d people.",
+        len(workspace["trupps"]), len(workspace["mittel"]), len(present), len(DEMO_JOURNAL),
         len(DEMO_USERS), len(DEMO_PEOPLE),
     )
 

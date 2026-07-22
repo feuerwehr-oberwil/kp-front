@@ -140,6 +140,8 @@ export interface DeploymentDoctrine {
   defaultPressureBar?: number | null
   pressureStep?: number | null
   pressureMax?: number | null
+  cylinderLiters?: number | null
+  estConsumptionLPerMin?: number | null
 }
 
 /** One Dienstgrad in the station's ordered rank list. Mirrors backend `RankConfig`. Position
@@ -355,6 +357,8 @@ export function atemschutzDoctrine() {
     defaultFunkkanal: d.defaultFunkkanal ?? a.defaultFunkkanal,
     funkkanalMin: d.funkkanalMin ?? a.funkkanalMin,
     funkkanalMax: d.funkkanalMax ?? a.funkkanalMax,
+    cylinderLiters: d.cylinderLiters ?? a.cylinderLiters,
+    estConsumptionLPerMin: d.estConsumptionLPerMin ?? a.estConsumptionLPerMin,
   }
 }
 

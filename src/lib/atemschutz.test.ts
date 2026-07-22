@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { anyTruppInField, contactSeverity, deriveTruppLive, fmtClock, peakAtemschutzAlarm, truppInField } from './atemschutz'
+import { anyTruppInField, contactSeverity, deriveTruppLive, estimateBar, fmtClock, peakAtemschutzAlarm, truppInField } from './atemschutz'
 import type { Trupp } from '../types'
 
 // A Trupp that entered at a fixed reference time; its contact clock starts at entry.
@@ -82,6 +82,26 @@ describe('deriveTruppLive', () => {
     expect(live.status).toBe('angemeldet')
     expect(live.elapsedSec).toBe(0)
     expect(live.sinceContactSec).toBeNull()
+  })
+})
+
+describe('estimateBar (Planungshilfe — expected pressure)', () => {
+  // 7 L cylinder at 50 L/min ⇒ 50/7 ≈ 7.143 bar/min drop from the 300 bar entry pressure.
+  it('drops from entry pressure at consumption/capacity bar per minute', () => {
+    expect(estimateBar(base, REF, 7, 50)).toBe(300) // t=0 → full entry pressure
+    expect(estimateBar(base, REF + 7 * 60_000, 7, 50)).toBe(250) // 7 min × 7.143 ≈ 50 bar used
+    expect(estimateBar(base, REF + 14 * 60_000, 7, 50)).toBe(200) // 14 min ≈ 100 bar used
+  })
+
+  it('never goes negative and never predates entry', () => {
+    expect(estimateBar(base, REF + 120 * 60_000, 7, 50)).toBe(0) // floored, not negative
+    expect(estimateBar(base, REF - 60_000, 7, 50)).toBe(300) // clock before entry → elapsed 0
+  })
+
+  it('returns null when the Trupp has not entered or the assumptions are unusable', () => {
+    expect(estimateBar({ ...base, entryTime: '' }, REF, 7, 50)).toBeNull()
+    expect(estimateBar(base, REF, 0, 50)).toBeNull() // no divide-by-zero on a 0 L cylinder
+    expect(estimateBar(base, REF, 7, 0)).toBeNull()
   })
 })
 

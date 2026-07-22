@@ -5,7 +5,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { toast } from '../lib/ui'
 import { cx } from '../lib/cx'
-import { contactSeverity, deriveTruppLive, fmtClock, type TruppLive } from '../lib/atemschutz'
+import { contactSeverity, deriveTruppLive, estimateBar, fmtClock, type TruppLive } from '../lib/atemschutz'
 import type { AttendanceState, Person, Trupp, TruppFields } from '../types'
 import { assignedPersonIds } from '../lib/personnel'
 import { isOfficer, rankAbbr, rankLabel, rankOrder } from '../lib/rank'
@@ -152,7 +152,7 @@ export function AtemschutzView({
 
   const cards = (list: Trupp[]) => list.map((t) => (
     <TruppCard
-      key={t.id} t={t} live={live.get(t.id)!} canEdit={canEdit} intervalMin={intervalMin} graceSec={graceSec}
+      key={t.id} t={t} live={live.get(t.id)!} now={now} canEdit={canEdit} intervalMin={intervalMin} graceSec={graceSec}
       onContact={recordContact} onPressure={recordPressure} onStatus={setTruppStatus}
       onEdit={() => openForm('edit', t)} onReenter={() => openForm('redeploy', t)}
       onDelete={deleteTrupp} onRestore={restoreTrupp} onPlace={handlePlace} onShowPlan={focusTruppOnPlan}
@@ -327,9 +327,9 @@ function PressureInline({ value, onCommit }: { value: number; onCommit: (bar: nu
 // Funkkontakt) with a large Kontakt reset; the inline Druck control + an expandable Verlauf log
 // sit below, and the lifecycle actions run along the bottom.
 function TruppCard({
-  t, live, canEdit, intervalMin, graceSec, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onRestore, onPlace, onShowPlan,
+  t, live, now, canEdit, intervalMin, graceSec, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onRestore, onPlace, onShowPlan,
 }: {
-  t: Trupp; live: TruppLive; canEdit: boolean
+  t: Trupp; live: TruppLive; now: number; canEdit: boolean
   intervalMin: number; graceSec: number
   onContact: (id: string) => void
   onPressure: (id: string, bar: number) => void
@@ -351,7 +351,11 @@ function TruppCard({
   // the clock's OWN state as a word — so green-number-on-amber-card parses instantly and the
   // signal survives colourblindness / a muted alarm (not colour alone)
   const clockState = sev >= 2 ? az.clockOverdue : sev === 1 ? az.clockWarn : az.clockOk
-  const lowPressure = live.currentBar <= atemschutzDoctrine().mindestBar
+  const dz = atemschutzDoctrine()
+  const lowPressure = live.currentBar <= dz.mindestBar
+  // Planungshilfe: expected pressure from elapsed time + assumed consumption. In-field only, and
+  // deliberately a Schätzung shown BESIDE the logged Druck — it never replaces a real reading.
+  const estBar = inField ? estimateBar(t, now, dz.cylinderLiters, dz.estConsumptionLPerMin) : null
   const readings = t.readings ?? []
 
   // «Raus» happens immediately with a Rückgängig toast (house rule: confirm-with-undo, no
@@ -436,6 +440,12 @@ function TruppCard({
           <div className={s.metaRow}>
             <span>{az.elapsed}</span>
             <b>{fmtClock(live.elapsedSec)}</b>
+          </div>
+        )}
+        {estBar != null && (
+          <div className={s.metaRow} title={fillTemplate(az.estimatedHint, { liters: dz.cylinderLiters, rate: dz.estConsumptionLPerMin })}>
+            <span>{az.estimated}</span>
+            <b className={s.metaEst}>≈ {estBar} bar</b>
           </div>
         )}
         {canEdit && inField ? (

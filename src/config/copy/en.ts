@@ -657,6 +657,8 @@ export const en: Localizable<Copy> = {
     reenterSubmit: 'Deploy',
     sinceContact: 'Since last contact',
     elapsed: 'Deployment time',
+    estimated: 'Expected (estimate)',
+    estimatedHint: 'Planning aid — estimated from deployment time, a {liters} L cylinder and {rate} L/min consumption. Does not replace a pressure report.',
     currentPressure: 'Pressure',
     lowestPressure: 'Lowest',
     lineField: 'Line',

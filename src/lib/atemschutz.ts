@@ -134,6 +134,27 @@ export function peakAtemschutzAlarm(
   return { peak, urgent }
 }
 
+/**
+ * Planungshilfe only — a rough *expected* cylinder pressure from elapsed time and an assumed
+ * air-consumption rate. Deliberately kept OUT of `deriveTruppLive` and the alarm path: an
+ * estimate must never replace a logged reading or drive the alarm (air is the wearer's own
+ * responsibility, per the module doctrine above). The view shows it as a labelled Schätzung next
+ * to the real Druck so the Überwacher has a sense of the trend between contacts.
+ *
+ *   bar = entryPressure − (consumptionLPerMin / cylinderLiters) × elapsedMinutes, floored at 0.
+ *
+ * Returns null when the Trupp hasn't entered or the assumptions are unusable (no divide-by-zero).
+ */
+export function estimateBar(
+  t: Trupp, now: number, cylinderLiters: number, consumptionLPerMin: number,
+): number | null {
+  const entry = ms(t.entryTime)
+  if (!entry || cylinderLiters <= 0 || consumptionLPerMin <= 0) return null
+  const elapsedMin = Math.max(0, (now - entry) / 60000)
+  const barPerMin = consumptionLPerMin / cylinderLiters
+  return Math.max(0, Math.round(t.entryPressureBar - barPerMin * elapsedMin))
+}
+
 /** mm:ss for a non-negative second count; an em-dash for null/unknown. */
 export function fmtClock(sec: number | null): string {
   if (sec == null) return '–:––'

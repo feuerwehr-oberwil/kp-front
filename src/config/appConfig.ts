@@ -405,9 +405,16 @@ const base = {
     contactDueChime: false,
     /** default Funkkanal a new Trupp is seeded with (FKS-Standard: 11) */
     defaultFunkkanal: 11,
-    /** Funkkanal stepper range offered in settings (FW Handfunk channels) */
+    /** Funkkanal stepper range offered in settings. Handfunk is 1–99, but digital/relay
+     *  schemes number channels far higher, so the ceiling is generous — the field is really a
+     *  free channel number, not a fixed FKS 1–99 dial. */
     funkkanalMin: 1,
-    funkkanalMax: 99,
+    funkkanalMax: 9999,
+    /** SCBA cylinder volume (L) and assumed air consumption (L/min) for the *expected pressure*
+     *  Planungshilfe shown next to the logged Druck. A Schätzung only — deliberately kept out of
+     *  the alarm math (air stays the wearer's responsibility); it never replaces a real reading. */
+    cylinderLiters: 7,
+    estConsumptionLPerMin: 50,
     /** Auftrag types offered in the wizard (FKS); the actual order + location go in `ziel` */
     auftrag: [
       { id: 'retten', label: 'Retten' },
