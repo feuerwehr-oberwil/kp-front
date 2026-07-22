@@ -579,6 +579,14 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .field { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border-soft); font-size: 14px; }
 .field span { color: var(--ink-dim); font-weight: 600; }
 .field b { font-family: var(--mono); font-weight: 500; text-align: right; }
+/* a compact segmented control sitting in a .field row's value slot (e.g. the Lüfter Luftrichtung),
+   so a two-state choice reads like the stepper rows above it */
+.ctx-seg { display: flex; border: 1px solid var(--border); border-radius: var(--r-xs); overflow: hidden; }
+.ctx-seg-btn { appearance: none; border: 0; border-left: 1px solid var(--border); background: var(--surface-2);
+  color: var(--ink-dim); font-size: 13px; font-weight: 600; padding: 5px 12px; cursor: pointer; white-space: nowrap; }
+.ctx-seg-btn:first-child { border-left: 0; }
+.ctx-seg-btn:hover { color: var(--ink); }
+.ctx-seg-btn.on { background: var(--blue); border-left-color: var(--blue); color: var(--on-accent-ink); }
 
 /* the glyph-affecting steppers (Geschoss / Anzahl / Drehung) sit in one group;
    the section header below — not a hairline — separates them from the details */

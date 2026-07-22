@@ -120,7 +120,7 @@ const base = {
     // exactly like the live GPS vehicles (see lib/useVehiclePositions · vehicleSymbolSvg)
     vehicleName: 'VKF Fahrzeug',
     // detail fields that offer the Mannschaft roster as a combobox (person pickers)
-    rosterFields: ['Name', 'Fahrer'],
+    rosterFields: ['Name', 'Fahrer', 'Stv.'],
     // symbols whose roster picker offers a "nur Offiziere" filter + officer-first order
     // (leadership glyphs where you pick the FU/EL/officer by name) — same toggle as the
     // Einsatzleiter picker in the Rapport preflight.
@@ -249,7 +249,9 @@ const base = {
         'VKF Bereich Sanitaet': { fields: ['Einheit'] },
         // ── Führung ── name is the info; only the two person symbols seed 'Name'.
         'VKF KP Front': {},
-        'VKF Einsatzleiter': { fields: ['Name'] },
+        // Name = the Einsatzleiter (caption source, fields[0]); Stv. = deputy — both roster pickers
+        // (officer-first, since VKF Einsatzleiter is in officerRosterSymbols).
+        'VKF Einsatzleiter': { fields: ['Name', 'Stv.'] },
         // 'Funktion' = separate Führungsaufgabe picker (Front/SiBe/…); 'Name' stays the person
         // (roster-fed). Suggestion lists for 'Funktion' come from the deployment config, not code.
         'FW Offizier': { fields: ['Funktion', 'Name'] },
@@ -271,6 +273,7 @@ const base = {
         'Grosslüfter': { controls: ['rotation', 'rotation2'] },
         'FW Entrauchung': { controls: ['rotation'] },
         'FW Kleinloeschgeraet': { fields: ['Typ'] },
+        'FW Boot': { controls: ['rotation'] },
         'FW Sprungretter': {},
         'FW Leiter': { controls: ['rotation'] },
         // ── Wasser ── fixed supply points; the symbol is the info.

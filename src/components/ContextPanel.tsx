@@ -349,7 +349,7 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
               {entity.extract && <div className="field"><span>{C.airflow}</span><b>{C.airflowExtract}</b></div>}
             </div>
           )}
-          {!readOnly && (showFloor || showCount || showRotate) && (
+          {!readOnly && (showFloor || showCount || showRotate || showAirflow) && (
             <div className="ctx-steps">
               {showFloor && (
                 <LabeledStepper label={C.floor} value={entity.floor ?? null} format={floorStr} placeholder={C.floorNone} seed={0}
@@ -382,23 +382,23 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
                   onChange={(v) => onRotate2!(v)} onClear={() => onRotate2!(null)} canClear={(entity.rotation2 ?? 0) !== 0}
                   min={-180} max={180} readOnly={readOnly} ariaLabel={C.rotationFan} />
               )}
-            </div>
-          )}
-
-          {/* Lüfter airflow direction — Einblasen (arrow away from the fan) vs Absaugen (arrow
-              reversed into the fan). Segmented, styled like the caption override. */}
-          {!readOnly && showAirflow && (
-            <div className="ctx-caprow">
-              <span className="ctx-caprow-lbl">{C.airflow}</span>
-              <div className="ctx-caprow-seg" role="group" aria-label={C.airflow}>
-                {([
-                  { v: false, label: C.airflowBlow },
-                  { v: true, label: C.airflowExtract },
-                ]).map(({ v, label }) => (
-                  <button key={label} type="button" className={`ctx-caprow-btn${(entity.extract ?? false) === v ? ' on' : ''}`}
-                    aria-pressed={(entity.extract ?? false) === v} onClick={() => onAirflow!(v)}>{label}</button>
-                ))}
-              </div>
+              {/* Lüfter airflow direction — Einblasen (arrow away from the fan) vs Absaugen (arrow
+                  reversed into the fan). A field row (label + segmented value) so it reads like the
+                  steppers above, not a separate widget. */}
+              {showAirflow && (
+                <div className="field">
+                  <span>{C.airflow}</span>
+                  <div className="ctx-seg" role="group" aria-label={C.airflow}>
+                    {([
+                      { v: false, label: C.airflowBlow },
+                      { v: true, label: C.airflowExtract },
+                    ]).map(({ v, label }) => (
+                      <button key={label} type="button" className={`ctx-seg-btn${(entity.extract ?? false) === v ? ' on' : ''}`}
+                        aria-pressed={(entity.extract ?? false) === v} onClick={() => onAirflow!(v)}>{label}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

@@ -280,6 +280,16 @@ def build() -> list[dict]:
          line(-0.6, -0.4, -0.6, 0.4, stroke=BLACK, sw=0.06)],
         viewbox="-1.2 -1.2 2.4 2.4",
     ))
+    # Boot / Rettungsboot — side profile, bow to the right, with a small wheelhouse (BLUE outline
+    # like the other Fahrzeuge). Rotatable so the heading can be aimed on the map.
+    add("Fahrzeuge / Mittel", "FW Boot", svg(
+        [path([(-0.85, -0.1), (1.05, -0.1), (0.6, 0.45), (-0.55, 0.45)],
+              stroke=BLUE, sw=0.1, fill="none", close=True),
+         path([(-0.5, -0.1), (-0.5, -0.5), (0.05, -0.5), (0.05, -0.1)],
+              stroke=BLUE, sw=0.1, fill="none", close=True),
+         line(-0.55, 0.45, 0.6, 0.45, stroke=BLUE, sw=0.1)],
+        vb=2.6,
+    ))
     add("Fahrzeuge / Mittel", "FW Kleinloeschgeraet", svg(
         [path([(-0.3, 0.6), (0, -0.4), (0.3, 0.6)], stroke=BLUE, sw=0.1, close=True)],
         viewbox="-0.8 -0.7 1.6 1.6",
