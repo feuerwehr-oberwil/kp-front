@@ -1,4 +1,4 @@
-import type { BoardAnno, BoardTool } from '../types'
+import type { BoardAnno, BoardPoint, BoardTool } from '../types'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { LINE_DASH_SVG } from '../lib/draw'
@@ -10,7 +10,7 @@ const TEAM_COLORS = appConfig.drawing.teamColors // distinct accent per team (cy
 
 interface InkProps {
   annos: BoardAnno[]
-  draft: [number, number][] | null
+  draft: BoardPoint[] | null
   draftFloor: number
   draftClosed?: boolean // area tool: preview the draft as a closed/filled polygon
   color: string
@@ -19,6 +19,7 @@ interface InkProps {
   showTrails: boolean
   mapY: (floor: number | undefined, ly: number) => number
   selId?: string | null
+  networkIds?: string[]
   /** select/drag a stroke / area by tapping it (pan mode only); omitted ⇒ not hittable */
   onPickDraw?: (id: string, e: React.PointerEvent) => void
 }
@@ -30,8 +31,8 @@ interface InkProps {
  * non-interactive. (Line arrowheads + marker letters render OUTSIDE this layer, in board px, since
  * this SVG is stretched 1×1 and would distort them.)
  */
-export function WbInkLayer({ annos, draft, draftFloor, draftClosed, color, width, dashed, showTrails, mapY, selId, onPickDraw }: InkProps) {
-  const pointStr = (pts: [number, number][], floor: number | undefined) => pts.map((p) => `${p[0]},${mapY(floor, p[1])}`).join(' ')
+export function WbInkLayer({ annos, draft, draftFloor, draftClosed, color, width, dashed, showTrails, mapY, selId, networkIds = [], onPickDraw }: InkProps) {
+  const pointStr = (pts: BoardPoint[], floor: number | undefined) => pts.map((p) => `${p[0]},${mapY(p[2] ?? floor, p[1])}`).join(' ')
   return (
     <svg className="wb-ink-svg" viewBox="0 0 1 1" preserveAspectRatio="none">
       {/* filled areas (under the lines) */}
@@ -52,6 +53,7 @@ export function WbInkLayer({ annos, draft, draftFloor, draftClosed, color, width
         const pts = pointStr(a.pts!, a.floor)
         return (
         <g key={a.id}>
+          {networkIds.includes(a.id) && <polyline points={pts} fill="none" stroke="var(--accent)" strokeWidth={(a.width || 5) + 9} strokeOpacity={selId === a.id ? 0.34 : 0.16} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />}
           {selId === a.id && (
             <polyline points={pts} fill="none" stroke="var(--blue)" strokeWidth={(a.width || 5) + 6}
               strokeOpacity={0.35} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
@@ -111,7 +113,7 @@ export function WbVertexHandles({ anno, sW, sH, mapY, onVertexDown, onInsert, on
   const pts = anno.pts ?? []
   if (pts.length < 2) return null
   const closed = anno.kind === 'area'
-  const sp = pts.map(([x, y]) => [x * sW, mapY(anno.floor, y) * sH] as const)
+  const sp = pts.map(([x, y, floor]) => [x * sW, mapY(floor ?? anno.floor, y) * sH] as const)
   const segs: number[] = [] // segment i runs from vertex i → i+1 (wraps to 0 for a closed area)
   for (let i = 0; i < sp.length - 1; i++) segs.push(i)
   if (closed && sp.length >= 3) segs.push(sp.length - 1)
@@ -247,4 +249,3 @@ export function WbToolDocks({ tool, lineMode, color, width, dashed, draftActive,
     </>
   )
 }
-

@@ -139,6 +139,8 @@ interface Props {
   hasOverride?: boolean
   /** reset a live vehicle's manual position/orientation back to the GPS feed */
   onResetGps?: () => void
+  connectedLines?: { id: string; label: string }[]
+  onFocusLine?: (id: string) => void
 }
 
 // signed storey label for the badge / stepper readout: +2, -1, 0 (EG)
@@ -161,7 +163,7 @@ function LabeledStepper({ label, ...rest }: { label: string } & React.ComponentP
   )
 }
 
-export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, readOnly, hasOverride, onResetGps }: Props) {
+export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, readOnly, hasOverride, onResetGps, connectedLines = [], onFocusLine }: Props) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
   // leadership glyph → its roster picker offers the officer-first sort + "nur Offiziere" filter
@@ -546,6 +548,10 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
             </div>
           )}
         </>}
+        {connectedLines.length > 0 && <div className="ctx-section ctx-connections">
+          <span className="ctx-section-label">{appConfig.copy.drawingEditor.connectedLines.replace('{n}', String(connectedLines.length))}</span>
+          {connectedLines.map((line) => <button key={line.id} onClick={() => onFocusLine?.(line.id)}><span>{line.label}</span><span>{appConfig.copy.drawingEditor.showConnection}</span></button>)}
+        </div>}
         <div className="ctx-footer-inline">{caprow}{actions}</div>
       </div>
 

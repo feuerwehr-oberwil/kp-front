@@ -70,6 +70,8 @@ interface Props {
   /** entities in the current marquee multi-selection — shown with a halo (no per-item
    *  handles; the group hub carries the move/delete) */
   groupSelectedIds?: string[]
+  /** relationship-network highlight only; never broadens selection or movement */
+  networkEntityIds?: string[]
   zoom: number
   /** current map bearing (deg). Placed symbols are pinned to GEOGRAPHIC orientation, so every
    *  glyph/handle CSS rotation is offset by −bearing and a drag stores rotation + bearing. */
@@ -121,7 +123,7 @@ interface Props {
  * vehicle) plus its selection affordances — delete, rotor (live vehicles), and the
  * shape/symbol transform handles. Owns the rotor/transform pointer-drag refs.
  */
-export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, trupps, onShowTrupp, onTeamMark, onTeamClearTrail, trailsVisible = true, onToggleTrails }: Props) {
+export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, trupps, onShowTrupp, onTeamMark, onTeamClearTrail, trailsVisible = true, onToggleTrails }: Props) {
   // captions declutter out below a zoom threshold (glyphs are tiny there); the Plan has no zoom
   const captionsVisible = zoom >= appConfig.symbols.captionMinZoom
   // when the note input mounted — onBlur uses this to tell a real "done editing" click-away
@@ -232,7 +234,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
           onClick={(ev) => ev.originalEvent.stopPropagation()}
         >
           <div
-            className={`marker${e.kind === 'note' ? ' marker-note' : ''} ${selectedId === e.id || groupSelectedIds.includes(e.id) || draggingId === e.id ? 'sel' : ''}`}
+            className={`marker${e.kind === 'note' ? ' marker-note' : ''}${networkEntityIds.includes(e.id) ? ' network' : ''} ${selectedId === e.id || groupSelectedIds.includes(e.id) || draggingId === e.id ? 'sel' : ''}`}
             style={{ ['--gpx' as string]: `${gpx}px` }}
             // Tap selects; press-and-hold (touch) / press-and-drag (mouse) moves. A quick flick stays
             // a map pan/zoom. Not while editing a note's text (the input owns the pointer).
@@ -277,6 +279,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
               : undefined}
           >
             {(selectedId === e.id || groupSelectedIds.includes(e.id) || draggingId === e.id) && e.kind !== 'note' && e.kind !== 'team' && <div className="sel-halo" />}
+            {networkEntityIds.includes(e.id) && selectedId !== e.id && <div className="network-halo" />}
             {e.kind === 'team' ? (() => {
               // resting: a compact team-coloured dot + name (low map clutter); selected: the
               // full pill (the plan board's resource chip, shared wb-resource CSS) with the

@@ -12,6 +12,7 @@ import { vehicleSymbolSvg } from './useVehiclePositions'
 import { GROSSLUEFTER_BODY, GROSSLUEFTER_FAN, LUEFTER, LUEFTER_EXTRACT, composeGrossluefterSvg } from './symbolRender'
 import { SHAPE_DEFS } from './shapes'
 import { operationalExtentPoints, type KrokiView } from './report'
+import { resolveMapDrawings } from './lineAttachments'
 
 export interface KrokiEntityOut {
   coord: LngLat
@@ -101,7 +102,8 @@ export function buildKrokiPayload(args: {
   currentView?: KrokiView | null
   includeLiveVehiclesInExtent?: boolean
 }): KrokiPayloadOut | null {
-  const { entities, drawings, layers, byName, center } = args
+  const { entities, drawings: storedDrawings, layers, byName, center } = args
+  const drawings = resolveMapDrawings(storedDrawings, entities)
   const visible = (id: string) => layers.find((l) => l.id === id)?.visible ?? true
   const base = layers.find((l) => l.base && l.visible && l.tiles?.length) ?? layers.find((l) => l.base && l.tiles?.length)
   if (!base?.tiles?.length) return null

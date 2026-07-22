@@ -143,6 +143,16 @@ describe('mergeWorkspace — task-scoped cross-domain merges (no clobbering)', (
     expect(merged.building.floors.map((f) => f.id)).toEqual(['f0', 'f1']) // their building edit survives
   })
 
+  it('merges target movement concurrently with attachment/style editing on a different line object', () => {
+    const attachment = { target: { kind: 'object', id: 'pump' }, routing: 'direct' }
+    const base = { entities: [o('pump', { coord: [7, 47] })], drawings: [o('hose', { coords: [[7, 47], [7.1, 47.1]], color: 'blue', startAttachment: attachment })] }
+    const theirs = { ...base, entities: [o('pump', { coord: [7.01, 47.01] })] }
+    const mine = { ...base, drawings: [o('hose', { coords: [[7, 47], [7.1, 47.1]], color: 'red', startAttachment: attachment })] }
+    const merged = mergeWorkspace(base, mine, theirs) as { entities: { coord: number[] }[]; drawings: { color: string; startAttachment: unknown }[] }
+    expect(merged.entities[0].coord).toEqual([7.01, 47.01])
+    expect(merged.drawings[0]).toMatchObject({ color: 'red', startAttachment: attachment })
+  })
+
   it('the shared picked Einsatzobjekt propagates when the resolver did not change it', () => {
     const base = { pickedObjectId: undefined }
     const theirs = { pickedObjectId: 'obj-7' } // they picked an object

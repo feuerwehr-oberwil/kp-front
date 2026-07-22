@@ -53,12 +53,14 @@ function pick3<T>(base: T, mine: T, theirs: T): T {
 
 /**
  * Merge one id-keyed collection three ways. `mine` is the local (later) writer, so on a
- * same-id edit it wins. An object present in `base` but dropped on a side is a delete, and a
+ * same-id divergence it wins. If only one side changed an object, that change survives. An
+ * object present in `base` but dropped on a side is a delete, and a
  * delete beats the other side's edit. Output order is server (theirs) order first, then my
  * new additions — deterministic, so every device converges on the same array after merging.
  */
 export function mergeById<T extends HasId>(base: T[], mine: T[], theirs: T[]): T[] {
   const baseIds = new Set(base.map((o) => o.id))
+  const baseMap = new Map(base.map((o) => [o.id, o]))
   const mineMap = new Map(mine.map((o) => [o.id, o]))
   const theirsMap = new Map(theirs.map((o) => [o.id, o]))
 
@@ -66,7 +68,13 @@ export function mergeById<T extends HasId>(base: T[], mine: T[], theirs: T[]): T
   const survives = (id: Id): T | null => {
     const inMine = mineMap.has(id)
     const inTheirs = theirsMap.has(id)
-    if (inMine && inTheirs) return mineMap.get(id)! // both kept it → last-writer-wins (mine)
+    if (inMine && inTheirs) {
+      const mine = mineMap.get(id)!, theirs = theirsMap.get(id)!, ancestor = baseMap.get(id)
+      if (!ancestor) return mine // concurrent same-id add → last-writer-wins (mine)
+      if (eq(mine, ancestor)) return theirs // only the server changed it
+      if (eq(theirs, ancestor)) return mine // only I changed it
+      return mine // both changed it → last-writer-wins (mine)
+    }
     if (inMine) return baseIds.has(id) ? null : mineMap.get(id)! // theirs deleted → drop; else my add
     if (inTheirs) return baseIds.has(id) ? null : theirsMap.get(id)! // I deleted → drop; else their add
     return null

@@ -170,6 +170,25 @@ export interface WeatherData {
 }
 
 export type DrawKind = 'line' | 'area' | 'circle'
+export type LineEndpoint = 'start' | 'end'
+export type LineRoutingMode = 'direct' | 'trace'
+export type GpsFollowState = 'guarded' | 'continuous' | 'paused'
+
+/** Persisted relationship intent for one magnetic line endpoint. The coordinate stored in
+ *  `coords`/`pts` remains its fail-safe fallback and is materialised before detaching. */
+export interface LineAttachment {
+  target: { kind: 'object'; id: string; live?: boolean } | { kind: 'line'; id: string; endpoint: LineEndpoint }
+  routing: LineRoutingMode
+  /** Assigned 0..2 when the target is the three-port end of an FKS Teilstück (-E). */
+  port?: number
+  gps?: {
+    state: GpsFollowState
+    /** Target position at the last operator confirmation (WGS84 on Lage). */
+    confirmedAt: LngLat
+    /** Last safely resolved endpoint; used while GPS following is paused/missing. */
+    lastSafe: LngLat
+  }
+}
 export interface Drawing {
   id: string
   kind: DrawKind
@@ -224,6 +243,9 @@ export interface Drawing {
    *  swallow clicks meant for objects over it (e.g. a big Absperrkreis under other work).
    *  A lock chip at its centre unlocks it. Absent = editable. */
   locked?: boolean
+  /** Magnetic relationship intent at the first/last vertex (lines only). */
+  startAttachment?: LineAttachment
+  endAttachment?: LineAttachment
 }
 
 /** Which surface an event originated on. Drives the Verlauf row's chip + the
@@ -371,13 +393,15 @@ export type PreparedMapOverlay =
  *  so they stick to the plan across zoom/pan. */
 export type BoardTool = 'pan' | 'lasso' | 'draw' | 'line' | 'area' | 'text' | 'symbol' | 'shape' | 'resource' | 'scale' | 'measure'
 export type BoardKind = 'draw' | 'area' | 'text' | 'symbol' | 'shape' | 'resource'
+/** Plan point. The optional storey is backward compatible: legacy points inherit BoardAnno.floor. */
+export type BoardPoint = [x: number, y: number] | [x: number, y: number, floor: number]
 export interface BoardAnno extends SymbolProps {
   // `symbol`, `label`, `subtitle`, `fields`, `notes`, `count`, `rotation`, `color`
   // are inherited from SymbolProps — a Plan symbol now carries the same attribute
   // set as a Map Entity. (`color` doubles as the draw/resource accent + trail colour.)
   id: string
   kind: BoardKind
-  pts?: [number, number][]   // draw (freehand or node-line) polyline / area polygon vertices
+  pts?: BoardPoint[]         // draw/area vertices; magnetic lines may span floors per point
   x?: number                 // text / symbol / shape / resource: anchor
   y?: number
   text?: string              // text label / resource name
@@ -410,6 +434,9 @@ export interface BoardAnno extends SymbolProps {
    *  independent when storeys are added/removed. Absent = floor 0. NOTE: this is a
    *  tile INDEX, distinct from Entity.floor's signed badge value (see SymbolProps). */
   floor?: number
+  /** Magnetic relationship intent at the first/last vertex (draw/line only). */
+  startAttachment?: LineAttachment
+  endAttachment?: LineAttachment
 }
 /** One past position of a team on a plan, in normalized 0..1 plan space. */
 /** a recorded breadcrumb. `floor` = the storey the team was on at time `t` (floor-stack

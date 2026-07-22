@@ -23,11 +23,12 @@ import { SHAPE_DEFS } from './shapes'
 import { placardSvgForSymbol } from './placard'
 import { vehicleSymbolSvg } from './useVehiclePositions'
 import { downloadReportPdf, reportFilenameHint } from './reportPdf'
+import { resolvePlanAnnos } from './lineAttachments'
 
 /** Board annotations of one plan, in the server's PlanAnnoIn shape (dynamic symbol
  *  glyphs resolved to SVG strings, like the whiteboard renders them). */
 export function planAnnosForPdf(annos: BoardAnno[], byName: Record<string, string>): Record<string, unknown>[] {
-  return annos.map((a) => {
+  return resolvePlanAnnos(annos).map((a) => {
     const out: Record<string, unknown> = {
       kind: a.kind, x: a.x, y: a.y, pts: a.pts, color: a.color, width: a.width,
       dashed: a.dashed, fillOpacity: a.fillOpacity, label: a.label, text: a.text, rotation: a.rotation,
@@ -104,10 +105,14 @@ export function floorStackPages(
     const lift = (a: BoardAnno, idx: number): BoardAnno => ({
       ...a,
       y: a.y != null ? (idx + a.y) / N : a.y,
-      pts: a.pts?.map(([px, py]) => [px, (idx + py) / N] as [number, number]),
+      pts: a.pts?.map(([px, py, floor]) => {
+        const pointIdx = chunk.indexOf(floor ?? a.floor ?? 0)
+        return [px, ((pointIdx < 0 ? idx : pointIdx) + py) / N] as [number, number]
+      }),
     })
-    const lifted = annos.flatMap((a) => {
-      const idx = chunk.indexOf(a.floor ?? 0)
+    const lifted = resolvePlanAnnos(annos).flatMap((a) => {
+      const pointFloors = a.pts?.map((p) => p[2] ?? a.floor ?? 0) ?? []
+      const idx = chunk.indexOf(pointFloors.find((f) => chunk.includes(f)) ?? a.floor ?? 0)
       return idx < 0 ? [] : [lift(a, idx)]
     })
     page.push(...planAnnosForPdf(lifted, byName))
