@@ -174,6 +174,26 @@ describe('stateAt — fold over a snapshot anchor', () => {
   })
 })
 
+describe('attachment and Plan replay folding', () => {
+  it('replays attach intent and fallback geometry between snapshots', async () => {
+    const ws = emptyWs()
+    ws.drawings = [{ id: 'l1', kind: 'line', coords: [[0, 0], [1, 1]] }]
+    const attachment = { target: { kind: 'object', id: 'pump' }, routing: 'direct' }
+    const b = bundle([ev({ seq: 1, op_type: 'draw.attach', occurred_at: iso(1000), payload_json: { id: 'l1', endpoint: 'start', attachment, fallback: [2, 3] } })], () => ({ workspace: ws, occurredMs: 0 }))
+    const out = await stateAt(b, 2000)
+    expect(out?.drawings[0]).toMatchObject({ coords: [[2, 3], [1, 1]], startAttachment: attachment })
+  })
+
+  it('replays board add/edit/delete payloads including per-vertex floors', async () => {
+    const events = [
+      ev({ seq: 1, op_type: 'board.add', occurred_at: iso(1000), payload_json: { id: 'p1', planId: 'gebaeude', anno: { id: 'p1', kind: 'draw', pts: [[0, 0, 0], [1, 1, 1]] } } }),
+      ev({ seq: 2, op_type: 'board.edit', occurred_at: iso(2000), payload_json: { id: 'p1', planId: 'gebaeude', patch: { color: 'red' } } }),
+    ]
+    const b = bundle(events, () => ({ workspace: { ...emptyWs(), board: {} }, occurredMs: 0 }))
+    expect((await stateAt(b, 3000))?.board?.gebaeude[0]).toMatchObject({ color: 'red', pts: [[0, 0, 0], [1, 1, 1]] })
+  })
+})
+
 describe('vehiclesAt — interpolated sample paths', () => {
   const sample = (over: Partial<VehicleSampleRow>): VehicleSampleRow => ({
     device_id: 1,

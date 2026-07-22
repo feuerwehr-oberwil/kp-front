@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { BoardAnno, BoardTool, BuildingDoc, CaptionMode, PlanDocument, ShapeKind, Trupp } from '../types'
+import type { BoardAnno, BoardPoint, BoardTool, BuildingDoc, CaptionMode, LineAttachment, LineEndpoint, PlanDocument, ShapeKind, Trupp } from '../types'
 import type { SymbolsApi } from '../lib/useSymbols'
 import { Icon } from '../lib/icons'
 import { Palette } from './Palette'
@@ -7,7 +7,7 @@ import { PdfViewport, prewarmPlans } from './PdfViewport'
 import { PdfScroller } from './PdfScroller'
 import { OsmOutline } from './OsmOutline'
 import { appConfig } from '../config/appConfig'
-import { linePresetPatch, markerParamsAlong, lerpPoint, lookbackPoint, simplifyFreehand, MAX_VERTEX_HANDLES } from '../lib/lineStyle'
+import { linePresetPatch, markerParamsAlong, lerpPoint, lookbackPoint, rdpIndices, FREEHAND_SIMPLIFY_PX, MAX_VERTEX_HANDLES } from '../lib/lineStyle'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
@@ -22,6 +22,7 @@ import { DrawEditor } from './DrawEditor'
 import { ShapeEditor } from './ShapeEditor'
 import { ShapeGlyph, SHAPE_DEFS } from '../lib/shapes'
 import { planUrl, TILE_AR, TOP_INSET, STACK_VPAD, clamp01, floorLabel, floorGeometry } from '../lib/whiteboard'
+import { advanceDwell, applyRouting, boundaryPoint, DETACH_RADIUS_PX, EMPTY_DWELL, incomingAttachments, nearestBlockedTarget, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 import { calibrate, pathMetres, polyAreaM2, isStale, type PlanScale } from '../lib/planScale'
 import { resolvePlanScale, saveStationDefault, saveStationPlanOverride } from '../lib/stationPlanScale'
 import { MeasurePanel } from './MeasurePanel'
@@ -133,7 +134,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const [color, setColor] = useState<string>(appConfig.drawing.defaultColor)
   const [width, setWidth] = useState(5)
   const [dashed, setDashed] = useState(false)
-  const [draft, setDraft] = useState<[number, number][] | null>(null)
+  const [draft, setDraft] = useState<BoardPoint[] | null>(null)
+  const draftAttachments = useRef<{ startAttachment?: LineAttachment; endAttachment?: LineAttachment }>({})
   // the single Linie tool's input mode: Freihand (drag) ↔ Punkte (tap each vertex), like the Lage map
   const [lineMode, setLineMode] = useState<'freehand' | 'nodes'>('freehand')
   // sticky line preset (Freihand / Messpfeil / Rettungsachse) baked into a new line + editable after,
@@ -167,9 +169,19 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const toolBtn = useRef<Record<string, HTMLButtonElement | null>>({})
   const chipDrag = useRef<{ id: string; moved: boolean; sx: number; sy: number } | null>(null)
   // drag a single selected freehand stroke (its original board-space vertices + the start point)
-  const drawDrag = useRef<{ id: string; floor: number; sx: number; sy: number; bpts: [number, number][]; moved: boolean } | null>(null)
+  const drawDrag = useRef<{ id: string; floor: number; sx: number; sy: number; bpts: BoardPoint[]; moved: boolean } | null>(null)
   // drag a single VERTEX of a selected line/area (shared by both — they're both pts-based)
   const vertDrag = useRef<{ id: string; idx: number; floor: number; moved: boolean } | null>(null)
+  type PlanEndpointDrag = { id: string; endpoint: LineEndpoint; point: BoardPoint; sx: number; sy: number; dwell: DwellState; candidate: MagneticTarget | null; detachArmed: boolean }
+  const [planEndpointDragState, setPlanEndpointDragState] = useState<PlanEndpointDrag | null>(null)
+  const planEndpointDrag = useRef<PlanEndpointDrag | null>(null)
+  const planDwellTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const setPlanEndpointDrag = (next: PlanEndpointDrag | null) => { planEndpointDrag.current = next; setPlanEndpointDragState(next) }
+  type PlanDraftMagnet = { atStart: boolean; point: BoardPoint; dwell: DwellState; candidate: MagneticTarget | null }
+  const [planDraftMagnetState, setPlanDraftMagnetState] = useState<PlanDraftMagnet | null>(null)
+  const planDraftMagnet = useRef<PlanDraftMagnet | null>(null)
+  const planDraftTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const setPlanDraftMagnet = (next: PlanDraftMagnet | null) => { planDraftMagnet.current = next; setPlanDraftMagnetState(next) }
   // drag a Messen vertex (ephemeral measurement path; mirrors vertDrag but never persisted)
   const measDrag = useRef<{ idx: number; moved: boolean } | null>(null)
   // which text note is mid-edit (so we checkpoint undo once per edit session, then stream
@@ -180,7 +192,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // the group-move drag origin (start client point and the original board-space geometry of
   // every selected anno). Pan/pinch/marquee refs live in useBoardGestures.
   const groupMove = useRef<{ sx: number; sy: number } | null>(null)
-  type GrpOrig = { id: string; floor: number; bx?: number; by?: number; bpts?: [number, number][] }
+  type GrpOrig = { id: string; floor: number; bx?: number; by?: number; bpts?: BoardPoint[] }
   const groupOrig = useRef<GrpOrig[]>([])
   // zoom/pan view state (layout-based zoom + focal wheel-zoom) lives in a hook
   const { scale, pos, scaleRef, posRef, applyView, zoomTo, zoom } = useBoardView(canvasRef)
@@ -331,7 +343,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // Annotation document + per-plan undo/redo (the keyed history map, the set/commit mutation
   // funnel, audit-emitting CRUD, and the global-TopBar history wiring) live in useBoardDoc; the
   // gesture handlers and render below call the returned mutators exactly as before.
-  const { pushPast, set, commit, add, patch, patchCommit, remove, removeAnno } = useBoardDoc({
+  const { pushPast, set, commit, add, patch, patchCommit, removeAnno } = useBoardDoc({
     annos, onChange, emit, activeId, log, selId, setSelId, editId, setEditId, historyRef, onHistoryState,
   })
   // expose fit-to-view (the phone top bar's Fit button calls it; desktop uses the rail footer)
@@ -357,6 +369,89 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const symBase = (stack ? 28 : Math.max(16, Math.min(52, fit.w * 0.085))) * symMul
   const txtBase = stack ? 10 : Math.max(7, Math.min(16, fit.w * 0.026))
 
+  // Resolve every magnetic Plan line once in stacked-board screen space. The optional floor on
+  // each point lets one polyline cross storeys while legacy two-tuples inherit anno.floor.
+  const attachmentLines: AttachableLine<BoardPoint>[] = annos
+    .filter((a) => a.kind === 'draw' && (a.pts?.length ?? 0) >= 2)
+    .map((a) => ({ id: a.id, points: a.pts!, teilstueck: a.teilstueck, startAttachment: a.startAttachment, endAttachment: a.endAttachment }))
+  const resolvedPts = new Map<string, BoardPoint[]>()
+  const objectPoint = (id: string, toward: BoardPoint): BoardPoint | null => {
+    const target = annos.find((a) => a.id === id && (a.kind === 'symbol' || a.kind === 'resource'))
+    if (!target || target.x == null || target.y == null || !sW || !sH) return null
+    const floor = target.floor ?? 0
+    const center: [number, number] = [target.x * sW, mapY(floor, target.y) * sH]
+    const tp: [number, number] = [toward[0] * sW, mapY(toward[2] ?? floor, toward[1]) * sH]
+    const p = boundaryPoint({ shape: 'rect', center, width: target.kind === 'resource' ? 76 : symBase, height: target.kind === 'resource' ? 44 : symBase, rotation: target.rotation }, tp)
+    return [p[0] / sW, localY(p[1] / sH, floor), floor]
+  }
+  const linePoint = (target: AttachableLine<BoardPoint>, endpoint: LineEndpoint, attachment: LineAttachment, resolved: BoardPoint): BoardPoint => {
+    if (!(endpoint === 'end' && target.teilstueck) || attachment.port == null || target.points.length < 2) return resolved
+    const q = target.points[target.points.length - 2]
+    const ppx: [number, number] = [resolved[0] * sW, mapY(resolved[2], resolved[1]) * sH], qpx: [number, number] = [q[0] * sW, mapY(q[2], q[1]) * sH]
+    const len = Math.hypot(ppx[0] - qpx[0], ppx[1] - qpx[1]) || 1, off = (attachment.port - 1) * 10, floor = resolved[2] ?? q[2] ?? 0
+    return [(ppx[0] - (ppx[1] - qpx[1]) / len * off) / sW, localY((ppx[1] + (ppx[0] - qpx[0]) / len * off) / sH, floor), floor]
+  }
+  for (const l of attachmentLines) resolvedPts.set(l.id, resolveLinePoints(l, { lines: attachmentLines, objectPoint, linePoint }))
+  const relationship = relationshipNetwork(attachmentLines, selId && attachmentLines.some((l) => l.id === selId) ? [selId] : [], selId && annos.some((a) => a.id === selId && (a.kind === 'symbol' || a.kind === 'resource')) ? [selId] : [])
+  const renderAnnos = annos.map((a) => {
+    const base = resolvedPts.has(a.id) ? { ...a, pts: resolvedPts.get(a.id)! } : a
+    if (planEndpointDragState?.id !== a.id || !base.pts?.length) return base
+    return { ...base, pts: base.pts.map((p, i): BoardPoint => i === (planEndpointDragState.endpoint === 'start' ? 0 : base.pts!.length - 1) ? planEndpointDragState.point : p) }
+  })
+  const planLineJoins = renderAnnos.flatMap((a) => (['start', 'end'] as const).flatMap((endpoint) => {
+    const rel = endpoint === 'start' ? a.startAttachment : a.endAttachment
+    if (a.kind !== 'draw' || rel?.target.kind !== 'line' || !a.pts?.length) return []
+    const p = a.pts[endpoint === 'start' ? 0 : a.pts.length - 1]
+    return [{ key: `${a.id}-${endpoint}`, point: [p[0] * sW, mapY(p[2] ?? a.floor, p[1]) * sH] as [number, number] }]
+  }))
+
+  const planCandidatesAt = (sourceId: string, pointer: [number, number]): MagneticTarget[] => {
+    const objects: MagneticTarget[] = annos
+      .filter((a) => (a.kind === 'symbol' || a.kind === 'resource') && a.x != null && a.y != null)
+      .map((a) => {
+        const center: [number, number] = [a.x! * sW, mapY(a.floor, a.y!) * sH]
+        const edge = boundaryPoint({ shape: 'rect', center, width: a.kind === 'resource' ? 76 : symBase, height: a.kind === 'resource' ? 44 : symBase, rotation: a.rotation }, pointer)
+        return { key: `object:${a.id}`, target: { kind: 'object', id: a.id }, point: edge, defaultRouting: a.kind === 'resource' ? 'trace' : 'direct' }
+      })
+    const lines: MagneticTarget[] = renderAnnos
+      .filter((a) => a.kind === 'draw' && a.id !== sourceId && (a.pts?.length ?? 0) >= 2)
+      .flatMap((a) => (['start', 'end'] as const).flatMap((endpoint) => {
+        const p = endpoint === 'start' ? a.pts![0] : a.pts![a.pts!.length - 1]
+        const capacity = endpoint === 'end' && a.teilstueck ? 3 : 1
+        const usedPorts = incomingAttachments(attachmentLines, a.id, endpoint).map((x) => x.attachment.port ?? 0)
+        const free = Array.from({ length: capacity }, (_, i) => i).filter((port) => !usedPorts.includes(port))
+        const q = endpoint === 'start' ? a.pts![1] : a.pts![a.pts!.length - 2]
+        const pp: [number, number] = [p[0] * sW, mapY(p[2] ?? a.floor, p[1]) * sH]
+        const qp: [number, number] = [q[0] * sW, mapY(q[2] ?? a.floor, q[1]) * sH]
+        const len = Math.hypot(pp[0] - qp[0], pp[1] - qp[1]) || 1, nx = -(pp[1] - qp[1]) / len, ny = (pp[0] - qp[0]) / len
+        return free.map((port) => { const off = capacity === 3 ? (port - 1) * 10 : 0; return { key: `line:${a.id}:${endpoint}:${port}`, target: { kind: 'line', id: a.id, endpoint }, point: [pp[0] + nx * off, pp[1] + ny * off] as [number, number], capacity, usedPorts, port, blocked: wouldCreateCycle(attachmentLines, sourceId, a.id), defaultRouting: 'direct' as const } })
+      }))
+    return [...objects, ...lines]
+  }
+  const activePlanMagnet = planEndpointDragState ?? planDraftMagnetState
+  const activePlanEPorts = activePlanMagnet?.candidate?.target.kind === 'line' && activePlanMagnet.candidate.target.endpoint === 'end'
+    ? planCandidatesAt(planEndpointDragState?.id ?? '__draft__', [activePlanMagnet.point[0] * sW, mapY(activePlanMagnet.point[2], activePlanMagnet.point[1]) * sH])
+      .filter((c) => c.target.kind === 'line' && c.target.id === activePlanMagnet.candidate!.target.id && c.target.endpoint === 'end')
+    : []
+  const updatePlanDraftMagnet = (point: BoardPoint, atStart: boolean) => {
+    const pointer: [number, number] = [point[0] * sW, mapY(point[2], point[1]) * sH]
+    const cur = planDraftMagnet.current
+    const targets = planCandidatesAt('__draft__', pointer)
+    const candidate = nearestMagneticTarget(pointer, targets) ?? nearestBlockedTarget(pointer, targets)
+    const next: PlanDraftMagnet = { point, atStart, candidate, dwell: advanceDwell(cur?.dwell ?? EMPTY_DWELL, candidate && !candidate.blocked ? candidate.key : null, Date.now()) }
+    setPlanDraftMagnet(next)
+    if (planDraftTimer.current) clearTimeout(planDraftTimer.current)
+    if (candidate && !candidate.blocked && !next.dwell.armed) planDraftTimer.current = setTimeout(() => {
+      const now = planDraftMagnet.current
+      if (!now || now.candidate?.key !== candidate.key) return
+      const target = candidate.target
+      const attachment: LineAttachment = { target, routing: candidate.defaultRouting ?? 'direct', ...(target.kind === 'line' ? { port: candidate.port ?? nextFreePort(attachmentLines, target.id, target.endpoint) ?? undefined } : {}) }
+      draftAttachments.current = { ...draftAttachments.current, ...(now.atStart ? { startAttachment: attachment } : { endAttachment: attachment }) }
+      setPlanDraftMagnet({ ...now, dwell: { ...now.dwell, armed: true } }); navigator.vibrate?.(12)
+    }, Math.max(0, 350 - (Date.now() - next.dwell.since)))
+  }
+  const finishPlanDraftMagnet = () => { if (planDraftTimer.current) clearTimeout(planDraftTimer.current); setPlanDraftMagnet(null) }
+
   // --- create-tool interactions (on the ink overlay) ---
   // every created anno carries its storey (floor) and tile-local coords; on a
   // single-sheet doc that's floor 0 and coords == board-normalized.
@@ -366,7 +461,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       // a second finger means "pinch-zoom", not "place another point": abort an in-progress
       // freehand stroke (node/area drafts keep their tapped vertices) and start the pinch
       e.stopPropagation()
-      if (tool === 'line' && lineMode === 'freehand') setDraft(null)
+      if (tool === 'line' && lineMode === 'freehand') { setDraft(null); finishPlanDraftMagnet() }
       inkTap.current = null // a second finger → pinch-zoom, not a node tap
       inkPinch.current = inkPinchPts()?.dist ?? null
       return
@@ -375,12 +470,18 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     e.stopPropagation() // placement owns this pointer — don't let the stage ALSO start a board pan
     const floor = stack ? floorAt(n[1]) : 0
     const x = n[0], y = localY(n[1], floor)
+    if (tool === 'line') {
+      const atStart = !draft?.length
+      if (atStart) draftAttachments.current = {}
+      else draftAttachments.current = { ...draftAttachments.current, endAttachment: undefined }
+      updatePlanDraftMagnet([x, y, floor], atStart)
+    }
     if (tool === 'line' && lineMode === 'freehand') {
       // Freehand is the one create tool whose gesture IS the drag — the stroke follows the finger,
       // so it can't double as a pan. Every OTHER create tool places on a single tap (placeNode/inkUp).
       ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
       draftFloor.current = floor
-      setDraft([[x, y]])
+      setDraft([[x, y, floor]])
       return
     }
     // All tap-to-place tools — Maßstab, Messen, node-draw (Linie/Fläche), Text, Symbol, Trupp —
@@ -430,15 +531,16 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     }
     if (noding) {
       // node-based Linie / Fläche: each tap drops a vertex; a double-tap (or the «Fertig» button)
-      // closes the shape. The whole shape lives on the FIRST vertex's storey.
+      // closes the shape. Lines retain the floor below each pointer; areas stay on the first floor.
       const now = e.timeStamp
       const lt = lastTap.current
       const dbl = !!(lt && now - lt.t < 350 && Math.hypot(e.clientX - lt.x, e.clientY - lt.y) < 24)
       lastTap.current = { t: now, x: e.clientX, y: e.clientY }
       if (dbl) { finishShape(); return }
       if (!draft) draftFloor.current = floor
-      const ly = localY(n[1], draftFloor.current)
-      setDraft((d) => (d ? [...d, [n[0], ly]] : [[n[0], ly]]))
+      const pointFloor = tool === 'line' ? floor : draftFloor.current
+      const ly = localY(n[1], pointFloor)
+      setDraft((d) => (d ? [...d, [n[0], ly, pointFloor]] : [[n[0], ly, pointFloor]]))
       return
     }
     if (tool === 'text') {
@@ -495,6 +597,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       return
     }
     if (inkTap.current) {
+      if (tool === 'line') {
+        const n = toNorm(e.clientX, e.clientY)
+        if (n) { const floor = stack ? floorAt(n[1]) : draftFloor.current; updatePlanDraftMagnet([n[0], localY(n[1], floor), floor], !draft?.length) }
+      }
       // node tool: drag pans the board (and disqualifies the tap). 8px of slop tolerates finger
       // jitter so a still tap still places. Pan from the recorded origin, like useBoardGestures.
       const st = inkTap.current, dx = e.clientX - st.x, dy = e.clientY - st.y
@@ -503,7 +609,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       return
     }
     if (!(tool === 'line' && lineMode === 'freehand') || !draft) return
-    const n = toNorm(e.clientX, e.clientY); if (n) setDraft((d) => (d ? [...d, [n[0], localY(n[1], draftFloor.current)]] : [[n[0], localY(n[1], draftFloor.current)]]))
+    const n = toNorm(e.clientX, e.clientY); if (n) {
+      const floor = stack ? floorAt(n[1]) : draftFloor.current
+      updatePlanDraftMagnet([n[0], localY(n[1], floor), floor], false)
+      setDraft((d) => (d ? [...d, [n[0], localY(n[1], floor), floor]] : [[n[0], localY(n[1], floor), floor]]))
+    }
   }
   const inkUp = (e?: React.PointerEvent) => {
     if (e) inkPtrs.current.delete(e.pointerId)
@@ -513,13 +623,18 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       // a clean pointer-up that never panned is a tap → drop the node; a drag (moved) or a
       // pointer-cancel just leaves the panned view as-is, with no stray node placed.
       if (e && e.type === 'pointerup' && !st.moved) placeNode(e)
+      finishPlanDraftMagnet()
       return
     }
     if (tool === 'line' && lineMode === 'freehand' && draft) {
       // thin the raw stroke into a clean, editable polyline (drops the point clusters a slow finger
       // dumps at the start/end). Node-mode lines keep their explicit taps (finishShape doesn't thin).
-      if (draft.length >= 2) addLine(simplifyFreehand(draft, sW, sH))
+      if (draft.length >= 2) {
+        const idx = rdpIndices(draft.map(([x, y, floor]) => [x * sW, mapY(floor ?? draftFloor.current, y) * sH]), FREEHAND_SIMPLIFY_PX)
+        addLine(idx.map((i) => draft[i]))
+      }
       setDraft(null)
+      finishPlanDraftMagnet()
     }
   }
   // close the metre-entry popover, returning to where calibration was started from: stay in
@@ -541,13 +656,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // create a Linie from a finished path (a freehand drag OR a node-tapped draft), baking the sticky
   // preset's arrow/marker/dash — then one-shot to pan with the new line selected so its style editor
   // opens right away. Mirrors the Lage map's createLine, so both surfaces behave identically.
-  const addLine = (pts: [number, number][]) => {
+  const addLine = (pts: BoardPoint[]) => {
     const p = linePresetPatch(linePreset) // SAME preset bundle the Lage map bakes (lib/lineStyle)
     const id = `l${Date.now()}`
-    add({ id, kind: 'draw', pts, floor: draftFloor.current, color, width,
+    add({ id, kind: 'draw', pts, floor: pts[0]?.[2] ?? draftFloor.current, color, width, ...draftAttachments.current,
       dashed: p.dashed ?? dashed, arrow: p.arrow || undefined, marker: p.marker || undefined, showDistance: p.showDistance || undefined })
     log('pen', appConfig.copy.whiteboard.placeLine)
-    setSelId(id); setTool('pan')
+    draftAttachments.current = {}; setSelId(id); setTool('pan')
   }
   // commit the in-progress node shape: a Linie (≥2 pts) or a Fläche (≥3 pts, closed + filled).
   // Then drop to pan so it's immediately selectable.
@@ -569,7 +684,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     }
     setDraft(null); lastTap.current = null; setTool('pan')
   }
-  const cancelShape = () => { setDraft(null); lastTap.current = null }
+  const cancelShape = () => { setDraft(null); draftAttachments.current = {}; lastTap.current = null }
 
   // --- single freehand-stroke select + drag (tap the fat hit-line in WbInkLayer, pan mode) ---
   const drawDown = (id: string, e: React.PointerEvent) => {
@@ -581,7 +696,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     // snapshot the vertices in board-space (y mapped to the stacked board), so the delta is always
     // applied to the original geometry — no drift across re-renders (mirrors the group-move math)
     drawDrag.current = { id, floor: a.floor ?? 0, sx: e.clientX, sy: e.clientY,
-      bpts: (a.pts ?? []).map(([x, y]) => [x, mapY(a.floor, y)] as [number, number]), moved: false }
+      bpts: (a.pts ?? []).map(([x, y, floor]): BoardPoint => [x, mapY(floor ?? a.floor, y), floor ?? a.floor ?? 0]), moved: false }
   }
   const drawMove = (e: React.PointerEvent) => {
     const st = drawDrag.current; if (!st) return
@@ -594,7 +709,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       pushPast(); st.moved = true // one checkpoint per drag
     }
     const ndx = (e.clientX - st.sx) / rect.width, ndy = (e.clientY - st.sy) / rect.height
-    patch(st.id, { pts: st.bpts.map(([x, by]) => [x + ndx, localY(by + ndy, st.floor)] as [number, number]) })
+    const a = annos.find((x) => x.id === st.id)
+    patch(st.id, { pts: st.bpts.map(([x, by, floor], i): BoardPoint => {
+      if ((i === 0 && a?.startAttachment) || (i === st.bpts.length - 1 && a?.endAttachment)) return a?.pts?.[i] ?? [x, localY(by, floor ?? st.floor), floor ?? st.floor]
+      const pf = floor ?? st.floor
+      return [x + ndx, localY(by + ndy, pf), pf]
+    }) })
   }
   const drawUp = () => {
     const st = drawDrag.current; drawDrag.current = null
@@ -645,24 +765,69 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     e.stopPropagation()
     ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
     const a = annos.find((x) => x.id === selId); if (!a?.pts) return
+    const endpoint: LineEndpoint | null = a.kind === 'draw' && idx === 0 ? 'start' : a.kind === 'draw' && idx === a.pts.length - 1 ? 'end' : null
+    if (endpoint) {
+      const resolved = resolvedPts.get(a.id) ?? a.pts
+      setPlanEndpointDrag({ id: a.id, endpoint, point: resolved[idx], sx: e.clientX, sy: e.clientY, dwell: EMPTY_DWELL, candidate: null, detachArmed: false })
+    }
     vertDrag.current = { id: a.id, idx, floor: a.floor ?? 0, moved: false }
   }
   const vertMove = (e: React.PointerEvent) => {
     const st = vertDrag.current; if (!st) return
     const n = toNorm(e.clientX, e.clientY); if (!n) return
+    const magnetic = planEndpointDrag.current
+    if (magnetic) {
+      const floor = stack ? floorAt(n[1]) : st.floor
+      const point: BoardPoint = [n[0], localY(n[1], floor), floor]
+      const pointer: [number, number] = [n[0] * sW, n[1] * sH]
+      const targets = planCandidatesAt(st.id, pointer)
+      const candidate = nearestMagneticTarget(pointer, targets) ?? nearestBlockedTarget(pointer, targets)
+      const dwell = advanceDwell(magnetic.dwell, candidate && !candidate.blocked ? candidate.key : null, Date.now())
+      const next = { ...magnetic, point, candidate, dwell, detachArmed: Math.hypot(e.clientX - magnetic.sx, e.clientY - magnetic.sy) >= DETACH_RADIUS_PX }
+      setPlanEndpointDrag(next); st.moved = true
+      if (planDwellTimer.current) clearTimeout(planDwellTimer.current)
+      if (candidate && !candidate.blocked && !dwell.armed) planDwellTimer.current = setTimeout(() => {
+        const cur = planEndpointDrag.current
+        if (!cur || cur.candidate?.key !== candidate.key) return
+        setPlanEndpointDrag({ ...cur, dwell: { ...cur.dwell, armed: true } }); navigator.vibrate?.(12)
+      }, Math.max(0, 350 - (Date.now() - dwell.since)))
+      return
+    }
     if (!st.moved) { pushPast(); st.moved = true }
-    patch(st.id, { pts: (annos.find((a) => a.id === st.id)?.pts ?? []).map((p, i) => (i === st.idx ? [n[0], localY(n[1], st.floor)] : p)) })
+    const floor = stack ? floorAt(n[1]) : st.floor
+    patch(st.id, { pts: (annos.find((a) => a.id === st.id)?.pts ?? []).map((p, i): BoardPoint => (i === st.idx ? [n[0], localY(n[1], floor), floor] : p)) })
   }
   const vertUp = () => {
     const st = vertDrag.current; vertDrag.current = null
+    const magnetic = planEndpointDrag.current
+    if (magnetic && st?.moved) {
+      if (planDwellTimer.current) clearTimeout(planDwellTimer.current)
+      const a = annos.find((x) => x.id === magnetic.id)
+      if (a?.pts) {
+        const existing = magnetic.endpoint === 'start' ? a.startAttachment : a.endAttachment
+        let attachment: LineAttachment | undefined = existing
+        if (magnetic.dwell.armed && magnetic.candidate) {
+          const target = magnetic.candidate.target
+          attachment = { target, routing: magnetic.candidate.defaultRouting ?? 'direct', ...(target.kind === 'line' ? { port: magnetic.candidate.port ?? nextFreePort(attachmentLines, target.id, target.endpoint) ?? undefined } : {}) }
+        } else if (existing && magnetic.detachArmed) attachment = undefined
+        else if (!existing) attachment = undefined
+        const pts = a.pts.map((p, i): BoardPoint => i === (magnetic.endpoint === 'start' ? 0 : a.pts!.length - 1) ? magnetic.point : p)
+        patchCommit(a.id, { pts, ...(magnetic.endpoint === 'start' ? { startAttachment: attachment } : { endAttachment: attachment }) })
+      }
+      setPlanEndpointDrag(null)
+      return
+    }
+    setPlanEndpointDrag(null)
     if (st?.moved) emit('board.edit', { id: st.id, planId: activeId })
   }
   // insert a node on the segment after vertex `idx` (at its midpoint), then commit
   const insertVertex = (idx: number, e: React.PointerEvent) => {
     e.stopPropagation()
     const a = annos.find((x) => x.id === selId); const pts = a?.pts; if (!a || !pts) return
+    const n = toNorm(e.clientX, e.clientY)
+    const floor = a.kind === 'draw' && n && stack ? floorAt(n[1]) : (a.floor ?? 0)
     const next = pts[(idx + 1) % pts.length] // wraps for the closing edge of an area
-    const mid: [number, number] = [(pts[idx][0] + next[0]) / 2, (pts[idx][1] + next[1]) / 2]
+    const mid: BoardPoint = n ? [n[0], localY(n[1], floor), floor] : [(pts[idx][0] + next[0]) / 2, (pts[idx][1] + next[1]) / 2, floor]
     patchCommit(a.id, { pts: [...pts.slice(0, idx + 1), mid, ...pts.slice(idx + 1)] })
   }
   // delete vertex `idx`, keeping a valid shape (≥2 for a line, ≥3 for an area)
@@ -724,7 +889,17 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     // on the floor-stack the chip drags FREELY across storeys: the floor follows the cursor,
     // y is re-localised into whichever storey the pointer is over. Single-sheet docs unchanged.
     const f = stack ? floorAt(n[1]) : a.floor
-    patch(chipDrag.current.id, { x: n[0], y: localY(n[1], f ?? 0), ...(stack ? { floor: f } : {}) })
+    const point: BoardPoint = [n[0], localY(n[1], f ?? 0), f ?? 0]
+    set(annos.map((anno) => {
+      if (anno.id === chipDrag.current!.id) return { ...anno, x: point[0], y: point[1], ...(stack ? { floor: point[2] } : {}) }
+      if (anno.kind !== 'draw' || !anno.pts?.length) return anno
+      let next = anno
+      for (const endpoint of ['start', 'end'] as const) {
+        const rel = endpoint === 'start' ? next.startAttachment : next.endAttachment
+        if (rel?.target.kind === 'object' && rel.target.id === a.id && rel.routing === 'trace') next = { ...next, pts: applyRouting(next.pts!, endpoint, point, 'trace', 0.002) }
+      }
+      return next
+    }))
   }
   const chipUp = () => {
     const d = chipDrag.current; chipDrag.current = null
@@ -736,6 +911,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     if (a?.kind === 'resource') patch(d.id, { t: formatTime(new Date()) })
     // record the relocation in the audit trail (the drag itself was silent patches)
     if (a) emit('board.move', { id: d.id, x: a.x, y: a.y, floor: a.floor, planId: activeId })
+    annos.filter((line) => [line.startAttachment, line.endAttachment].some((rel) => rel?.target.kind === 'object' && rel.target.id === d.id && rel.routing === 'trace'))
+      .forEach((line) => emit('board.edit', { id: line.id, patch: { pts: line.pts }, planId: activeId }))
   }
 
   // object-manipulation hand-off for the stage dispatcher in useBoardGestures: when no
@@ -820,6 +997,47 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // is part of the incident record, so it must be cleared deliberately first
   const teamLocked = (a: BoardAnno) => a.kind === 'resource' && (a.trail?.length ?? 0) > 0
 
+  const removeWithConnections = async (target: BoardAnno) => {
+    if (teamLocked(target)) { toast(appConfig.copy.whiteboard.deleteLocked, { icon: 'lock', tone: 'warn' }); return }
+    const affected = annos.flatMap((a) => (['start', 'end'] as const).flatMap((endpoint) => {
+      const rel = endpoint === 'start' ? a.startAttachment : a.endAttachment
+      return rel && ((rel.target.kind === 'object' && rel.target.id === target.id) || (rel.target.kind === 'line' && rel.target.id === target.id)) ? [{ a, endpoint, rel }] : []
+    }))
+    if (!affected.length) { await removeAnno(target); return }
+    const ok = await confirmDialog({
+      title: fillTemplate(appConfig.copy.drawingEditor.removeConnectedTitle, { name: target.label ?? target.text ?? appConfig.copy.drawingEditor.drawing }),
+      message: fillTemplate(appConfig.copy.drawingEditor.removeConnectedMessage, { n: affected.length }),
+      confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true,
+    })
+    if (!ok) return
+    const changed = new Set(affected.map((x) => x.a.id))
+    commit(annos.filter((a) => a.id !== target.id).map((a) => {
+      let next = a
+      for (const endpoint of ['start', 'end'] as const) {
+        const rel = endpoint === 'start' ? next.startAttachment : next.endAttachment
+        if (!rel || rel.target.id !== target.id || !next.pts?.length) continue
+        const resolvedSource = renderAnnos.find((x) => x.id === next.id)?.pts
+        const fallback: BoardPoint = resolvedSource?.[endpoint === 'start' ? 0 : resolvedSource.length - 1] ?? next.pts[endpoint === 'start' ? 0 : next.pts.length - 1]
+        const pts = next.pts.map((p, i): BoardPoint => i === (endpoint === 'start' ? 0 : next.pts!.length - 1) ? fallback : p)
+        next = { ...next, pts, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) }
+      }
+      return next
+    }))
+    emit('board.delete', { id: target.id, planId: activeId })
+    changed.forEach((id) => {
+      const source = annos.find((a) => a.id === id)
+      if (!source?.pts) return
+      let next = source
+      for (const { endpoint } of affected.filter((x) => x.a.id === id)) {
+        const resolvedSource = renderAnnos.find((x) => x.id === next.id)?.pts
+        const fallback: BoardPoint = resolvedSource?.[endpoint === 'start' ? 0 : resolvedSource.length - 1] ?? next.pts![endpoint === 'start' ? 0 : next.pts!.length - 1]
+        next = { ...next, pts: next.pts!.map((p, i): BoardPoint => i === (endpoint === 'start' ? 0 : next.pts!.length - 1) ? fallback : p), ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) }
+      }
+      emit('board.edit', { id, patch: { pts: next.pts, startAttachment: next.startAttachment, endAttachment: next.endAttachment }, planId: activeId })
+    })
+    if (selId === target.id) setSelId(null)
+  }
+
   // --- marquee group: a single move grip + delete at the combined centre (≥2 selected),
   // mirroring the Lage map's group handles. Both point annos and freehand drawings join. ---
   // centroid in board-normalized space (point anchors + every draw vertex)
@@ -828,7 +1046,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     let sx = 0, sy = 0, n = 0
     for (const a of annos) {
       if (!selIds.includes(a.id)) continue
-      if (a.kind === 'draw') { for (const [x, y] of a.pts ?? []) { sx += x; sy += mapY(a.floor, y); n++ } }
+      if (a.kind === 'draw') { for (const [x, y, floor] of a.pts ?? []) { sx += x; sy += mapY(floor ?? a.floor, y); n++ } }
       else { sx += a.x ?? 0; sy += mapY(a.floor, a.y ?? 0); n++ }
     }
     return n ? { x: sx / n, y: sy / n } : null
@@ -842,7 +1060,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     // delta is always applied to the start position (no drift across re-renders)
     groupOrig.current = annos.filter((a) => selIds.includes(a.id)).map((a) =>
       a.kind === 'draw'
-        ? { id: a.id, floor: a.floor ?? 0, bpts: (a.pts ?? []).map(([x, y]) => [x, mapY(a.floor, y)] as [number, number]) }
+        ? { id: a.id, floor: a.floor ?? 0, bpts: (a.pts ?? []).map(([x, y, floor]): BoardPoint => [x, mapY(floor ?? a.floor, y), floor ?? a.floor ?? 0]) }
         : { id: a.id, floor: a.floor ?? 0, bx: a.x ?? 0, by: mapY(a.floor, a.y ?? 0) },
     )
   }
@@ -853,7 +1071,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     // move within each anno's own storey (floor unchanged), consistent with the flat map group-move
     set(annos.map((a) => {
       const o = groupOrig.current.find((g) => g.id === a.id); if (!o) return a
-      if (o.bpts) return { ...a, pts: o.bpts.map(([x, by]) => [x + ndx, localY(by + ndy, o.floor)] as [number, number]) }
+      if (o.bpts) return { ...a, pts: o.bpts.map(([x, by, floor], i): BoardPoint => {
+        if ((i === 0 && a.startAttachment) || (i === o.bpts!.length - 1 && a.endAttachment)) return a.pts?.[i] ?? [x, localY(by, floor ?? o.floor), floor ?? o.floor]
+        const pf = floor ?? o.floor
+        return [x + ndx, localY(by + ndy, pf), pf]
+      }) }
       return { ...a, x: (o.bx ?? 0) + ndx, y: localY((o.by ?? 0) + ndy, o.floor) }
     }))
   }
@@ -864,10 +1086,29 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   }
   // group delete — removes the selection, but trail-carrying teams are protected (their
   // recorded trail is part of the incident record); those stay selected.
-  const deleteGroup = () => {
+  const deleteGroup = async () => {
     const removable = selIds.filter((id) => { const a = annos.find((x) => x.id === id); return !!a && !teamLocked(a) })
     if (!removable.length) return
-    commit(annos.filter((a) => !removable.includes(a.id)))
+    const affected = annos.flatMap((a) => removable.includes(a.id) ? [] : (['start', 'end'] as const).flatMap((endpoint) => {
+      const rel = endpoint === 'start' ? a.startAttachment : a.endAttachment
+      return rel && removable.includes(rel.target.id) ? [{ a, endpoint, rel }] : []
+    }))
+    if (affected.length) {
+      const ok = await confirmDialog({ title: appConfig.copy.whiteboard.groupDeleted, message: fillTemplate(appConfig.copy.drawingEditor.removeConnectedMessage, { n: affected.length }), confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true })
+      if (!ok) return
+    }
+    commit(annos.filter((a) => !removable.includes(a.id)).map((a) => {
+      let next = a
+      for (const endpoint of ['start', 'end'] as const) {
+        const rel = endpoint === 'start' ? next.startAttachment : next.endAttachment
+        if (!rel || !removable.includes(rel.target.id) || !next.pts?.length) continue
+        const resolvedSource = renderAnnos.find((x) => x.id === next.id)?.pts
+        const fallback: BoardPoint = resolvedSource?.[endpoint === 'start' ? 0 : resolvedSource.length - 1] ?? next.pts[endpoint === 'start' ? 0 : next.pts.length - 1]
+        const pts = next.pts.map((p, i): BoardPoint => i === (endpoint === 'start' ? 0 : next.pts!.length - 1) ? fallback : p)
+        next = { ...next, pts, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) }
+      }
+      return next
+    }))
     removable.forEach((id) => emit('board.delete', { id, planId: activeId }))
     setSelIds((ids) => ids.filter((id) => !removable.includes(id)))
     setSelId(null)
@@ -899,9 +1140,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       // anchored annos (symbol/text/resource) give one point; a draw/area gives its whole
       // vertex set — the box nudge clears the full extent (map parity), capped so an
       // extent wider than the open area never slides fully off the stage.
-      const norm: [number, number][] = a.pts?.length ? a.pts : a.x != null && a.y != null ? [[a.x, a.y]] : []
+      const norm: BoardPoint[] = a.pts?.length ? a.pts : a.x != null && a.y != null ? [[a.x, a.y]] : []
       if (!norm.length) return
-      const pts = norm.map(([px, py]) => ({ x: rect.left + px * rect.width, y: rect.top + mapY(a.floor, py) * rect.height }))
+      const pts = norm.map(([px, py, pf]) => ({ x: rect.left + px * rect.width, y: rect.top + mapY(pf ?? a.floor, py) * rect.height }))
       const box = {
         minX: Math.min(...pts.map((p) => p.x)), maxX: Math.max(...pts.map((p) => p.x)),
         minY: Math.min(...pts.map((p) => p.y)), maxY: Math.max(...pts.map((p) => p.y)),
@@ -949,12 +1190,43 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // a selected generic shape — colour via the same ShapeEditor sheet as the Lage map
   const selShape = annos.find((a) => a.id === selId && a.kind === 'shape')
 
+  const changePlanEnding = async (ending: 'none' | 'arrow' | 'teilstueck') => {
+    if (!selDraw) return
+    const incoming = selDraw.teilstueck && ending !== 'teilstueck' ? annos.flatMap((a) => (['start', 'end'] as const).filter((endpoint) => {
+      const rel = endpoint === 'start' ? a.startAttachment : a.endAttachment
+      return rel?.target.kind === 'line' && rel.target.id === selDraw.id && rel.target.endpoint === 'end'
+    }).map((endpoint) => ({ id: a.id, endpoint }))) : []
+    if (incoming.length) {
+      const ok = await confirmDialog({ title: appConfig.copy.drawingEditor.endingTeilstueck, message: fillTemplate(appConfig.copy.drawingEditor.removeEMessage, { n: incoming.length }), confirmLabel: appConfig.copy.confirm.ok, cancelLabel: appConfig.copy.cancel, danger: true })
+      if (!ok) return
+    }
+    const resolved = renderAnnos.find((a) => a.id === selDraw.id)?.pts
+    const fallback = resolved?.[resolved.length - 1] ?? selDraw.pts?.[selDraw.pts.length - 1]
+    commit(annos.map((a) => {
+      if (a.id === selDraw.id) return { ...a, arrow: ending === 'arrow' || undefined, teilstueck: ending === 'teilstueck' || undefined }
+      let next = a
+      for (const endpoint of ['start', 'end'] as const) {
+        if (!fallback || !incoming.some((x) => x.id === a.id && x.endpoint === endpoint) || !next.pts?.length) continue
+        const pts = next.pts.map((p, i): BoardPoint => i === (endpoint === 'start' ? 0 : next.pts!.length - 1) ? fallback : p)
+        next = { ...next, pts, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) }
+      }
+      return next
+    }))
+    emit('board.edit', { id: selDraw.id, patch: { arrow: ending === 'arrow' || undefined, teilstueck: ending === 'teilstueck' || undefined }, planId: activeId })
+    incoming.forEach(({ id, endpoint }) => {
+      const line = annos.find((a) => a.id === id)
+      if (!line?.pts || !fallback) return
+      const pts = line.pts.map((p, i): BoardPoint => i === (endpoint === 'start' ? 0 : line.pts!.length - 1) ? fallback : p)
+      emit('board.edit', { id, patch: { pts, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) }, planId: activeId })
+    })
+  }
+
 
   // removing a storey is frictionless when empty, but a floor that carries any
   // annotation (even a single team trace) must be confirmed before it's dropped
   const removeFloor = async (f: number) => {
     if (readOnly) return
-    const hasContent = annos.some((a) => (a.floor ?? 0) === f)
+    const hasContent = annos.some((a) => (a.floor ?? 0) === f || a.pts?.some((p) => (p[2] ?? a.floor ?? 0) === f) || a.trail?.some((p) => (p.floor ?? a.floor ?? 0) === f))
     if (hasContent) {
       const ok = await confirmDialog({
         title: appConfig.copy.whiteboard.removeFloor,
@@ -993,7 +1265,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const remapped = annos.map((a) => {
       const next: BoardAnno = { ...a }
       if (a.x != null && a.y != null) { const [x, y] = mv([a.x, a.y]); next.x = x; next.y = y }
-      if (a.pts) next.pts = a.pts.map(mv)
+      if (a.pts) next.pts = a.pts.map((p): BoardPoint => { const [x, y] = mv([p[0], p[1]]); return p[2] == null ? [x, y] : [x, y, p[2]] })
       if (a.trail) next.trail = a.trail.map((tp) => { const [x, y] = mv([tp.x, tp.y]); return { ...tp, x, y } })
       return next
     })
@@ -1084,16 +1356,30 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             )}
 
             {/* committed drawings */}
-            <WbInkLayer annos={annos} draft={draft} draftFloor={draftFloor.current} draftClosed={tool === 'area'} color={color} width={width} dashed={dashed} showTrails={showTrails} mapY={mapY}
-              selId={selId} onPickDraw={tool === 'pan' ? drawDown : undefined} />
+            <WbInkLayer annos={renderAnnos} draft={draft} draftFloor={draftFloor.current} draftClosed={tool === 'area'} color={color} width={width} dashed={dashed} showTrails={showTrails} mapY={mapY}
+              selId={selId} networkIds={[...relationship.lineIds]} onPickDraw={tool === 'pan' ? drawDown : undefined} />
+            {planEndpointDragState?.candidate && (
+              <span className={`magnet-port wb-magnet${planEndpointDragState.dwell.armed ? ' armed' : ''}${planEndpointDragState.candidate.blocked ? ' blocked' : ''}`}
+                style={{ left: planEndpointDragState.candidate.point[0], top: planEndpointDragState.candidate.point[1] }}>{planEndpointDragState.candidate.blocked ? <small>{appConfig.copy.drawingEditor.cycleBlocked}</small> : null}</span>
+            )}
+            {planEndpointDragState?.detachArmed && !planEndpointDragState.candidate && (
+              <span className="magnet-port detach wb-magnet" style={{ left: planEndpointDragState.point[0] * sW, top: mapY(planEndpointDragState.point[2], planEndpointDragState.point[1]) * sH }}>×</span>
+            )}
+            {planDraftMagnetState?.candidate && (
+              <span className={`magnet-port wb-magnet${planDraftMagnetState.dwell.armed ? ' armed' : ''}${planDraftMagnetState.candidate.blocked ? ' blocked' : ''}`}
+                style={{ left: planDraftMagnetState.candidate.point[0], top: planDraftMagnetState.candidate.point[1] }}>{planDraftMagnetState.candidate.blocked ? <small>{appConfig.copy.drawingEditor.cycleBlocked}</small> : null}</span>
+            )}
+            {planLineJoins.map((join) => <span key={join.key} className="line-coupling-dot wb-magnet" style={{ left: join.point[0], top: join.point[1] }} />)}
+            {selDraw?.teilstueck && selDraw.pts?.length && planCandidatesAt('__ports__', [0, 0]).filter((c) => c.target.kind === 'line' && c.target.id === selDraw.id && c.target.endpoint === 'end').map((port) => <span key={port.key} className="line-e-port wb-magnet" style={{ left: port.point[0], top: port.point[1] }} />)}
+            {activePlanEPorts.map((port) => <span key={`active-${port.key}`} className="line-e-port wb-magnet" style={{ left: port.point[0], top: port.point[1] }} />)}
 
             {/* line arrowheads · repeated marker letters · free-text label + distance — rendered in
                 board px (the ink SVG is stretched 1×1 and would distort them). Same feature set +
                 spacing math as the Lage map (markerParamsAlong / —R— rhythm); the metric distance
                 read-out now works too, once the plan is calibrated (lib/planScale). One per Linie. */}
-            {annos.filter((a) => a.kind === 'draw' && (a.arrow || a.marker || a.label || a.showDistance || hasLineDecor(a)) && (a.pts?.length ?? 0) >= 2).map((a) => {
+            {renderAnnos.filter((a) => a.kind === 'draw' && (a.arrow || a.marker || a.label || a.showDistance || hasLineDecor(a)) && (a.pts?.length ?? 0) >= 2).map((a) => {
               const p = a.pts!
-              const bpx = p.map(([x, y]) => [x * sW, mapY(a.floor, y) * sH] as [number, number])
+              const bpx = p.map(([x, y, floor]) => [x * sW, mapY(floor ?? a.floor, y) * sH] as [number, number])
               const end = bpx[bpx.length - 1]
               const mid = bpx[Math.floor((bpx.length - 1) / 2)]
               const color = a.color || COLORS[0]
@@ -1114,7 +1400,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 ? (() => { const ps = markerParamsAlong(bpx).map(({ seg, t }) => lerpPoint(bpx[seg], bpx[seg + 1], t)); return ps.length ? ps : [mid] })()
                 : []
               // distance read-out (calibrated plans only); falls back to a "calibrate first" nudge
-              const distM = a.showDistance ? planMetres(a.pts!) : null
+              const distM = a.showDistance ? planMetres(a.pts!.map(([x, y]) => [x, y])) : null
               const labelLines: string[] = []
               if (distM != null) labelLines.push(`${fmtDistance(distM)} · ${hoseLengthHint(distM)}`)
               else if (a.showDistance) labelLines.push(appConfig.copy.whiteboard.scale.needsCalibration)
@@ -1171,8 +1457,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
 
             {/* area (Sektor/Abschnitt) labels — a labelled area renders its free text at the polygon
                 centroid in board px (the 1×1 ink SVG would distort text). Draggable like a line label. */}
-            {annos.filter((a) => a.kind === 'area' && a.label && (a.pts?.length ?? 0) >= 3).map((a) => {
-              const bpx = a.pts!.map(([x, y]) => [x * sW, mapY(a.floor, y) * sH] as [number, number])
+            {renderAnnos.filter((a) => a.kind === 'area' && a.label && (a.pts?.length ?? 0) >= 3).map((a) => {
+              const bpx = a.pts!.map(([x, y, floor]) => [x * sW, mapY(floor ?? a.floor, y) * sH] as [number, number])
               const cx = bpx.reduce((s, q) => s + q[0], 0) / bpx.length
               const cy = bpx.reduce((s, q) => s + q[1], 0) / bpx.length
               return (
@@ -1246,7 +1532,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 code path for Linie + Fläche). Skipped for a many-point freehand stroke, where
                 per-node handles would be unusable (mirrors the map's vertex-handle cap). */}
             {selDraw && tool === 'pan' && (selDraw.kind === 'area' || (selDraw.pts?.length ?? 99) <= MAX_VERTEX_HANDLES) && (
-              <WbVertexHandles anno={selDraw} sW={sW} sH={sH} mapY={mapY}
+              <WbVertexHandles anno={renderAnnos.find((a) => a.id === selDraw.id) ?? selDraw} sW={sW} sH={sH} mapY={mapY}
                 onVertexDown={vertDown} onInsert={insertVertex} onDeleteVertex={deleteVertex} />
             )}
 
@@ -1254,7 +1540,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             {annos.filter((a) => a.kind !== 'draw').map((a) => (
               <div
                 key={a.id}
-                className={`wb-anno wb-${a.kind} ${selId === a.id || selIds.includes(a.id) ? 'sel' : ''}`}
+                className={`wb-anno wb-${a.kind}${relationship.objectIds.has(a.id) ? ' network' : ''} ${selId === a.id || selIds.includes(a.id) ? 'sel' : ''}`}
                 // transform positions the anchor at the (scaled) plan point. Symbols
                 // and text scale WITH the plan via numeric sizing below (crisp, since
                 // the board is layout-scaled); team pills stay a constant size.
@@ -1262,6 +1548,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 onPointerDown={(e) => chipDown(e, a.id)}
                 onDoubleClick={(e) => { if ((a.kind === 'text' || a.kind === 'resource') && tool === 'pan') { e.stopPropagation(); setEditId(a.id); setSelId(a.id) } }}
               >
+                {relationship.objectIds.has(a.id) && selId !== a.id && <span className="network-halo" />}
                 {/* selection halo — the same accent ring the Lage map draws, so a selected
                     symbol/shape reads identically on the plan (teams keep their own team-colour ring) */}
                 {(selId === a.id || selIds.includes(a.id)) && (a.kind === 'symbol' || a.kind === 'shape') && <div className="sel-halo" />}
@@ -1366,11 +1653,18 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                     )}
                     {teamLocked(a)
                       ? <button className="wb-pa wb-pa-lock" title={appConfig.copy.whiteboard.deleteLocked} aria-label={appConfig.copy.whiteboard.deleteLocked} onClick={() => void clearTrail()}><Icon id="lock" /></button>
-                      : <button className="wb-pa wb-pa-del" title={appConfig.copy.delete} aria-label={appConfig.copy.delete} onClick={() => remove(a.id)}><Icon id="trash" /></button>}
+                      : <button className="wb-pa wb-pa-del" title={appConfig.copy.delete} aria-label={appConfig.copy.delete} onClick={() => void removeWithConnections(a)}><Icon id="trash" /></button>}
                   </div>
                 )}
+                {a.kind === 'resource' && selId === a.id && tool === 'pan' && (() => {
+                  const connected = annos.filter((line) => [line.startAttachment, line.endAttachment].some((rel) => rel?.target.kind === 'object' && rel.target.id === a.id))
+                  return connected.length > 0 ? <div className="wb-resource-connections ctx-connections" onPointerDown={(e) => e.stopPropagation()}>
+                    <span className="ctx-section-label">{appConfig.copy.drawingEditor.connectedLines.replace('{n}', String(connected.length))}</span>
+                    {connected.map((line) => <button key={line.id} onClick={() => setSelId(line.id)}><span>{line.label ?? `${appConfig.copy.drawingEditor.drawing} ${line.id}`}</span><span>{appConfig.copy.drawingEditor.showConnection}</span></button>)}
+                  </div> : null
+                })()}
                 {a.kind !== 'resource' && selId === a.id && tool === 'pan' && !readOnly && (
-                  <button className="wb-del" title={appConfig.copy.delete} aria-label={appConfig.copy.delete} onPointerDown={(e) => e.stopPropagation()} onClick={() => removeAnno(a)}><Icon id="close" /></button>
+                  <button className="wb-del" title={appConfig.copy.delete} aria-label={appConfig.copy.delete} onPointerDown={(e) => e.stopPropagation()} onClick={() => void removeWithConnections(a)}><Icon id="close" /></button>
                 )}
                 {/* selected text note: explicit edit handle so touch can re-enter editing */}
                 {a.kind === 'text' && editId !== a.id && selId === a.id && tool === 'pan' && !readOnly && (
@@ -1453,7 +1747,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               <div className="wb-group-acts" style={{ transform: `translate(${groupCentroid.x * sW}px, ${groupCentroid.y * sH}px) translate(-50%, -50%)` }} onPointerDown={(e) => e.stopPropagation()}>
                 <button className="wb-pa wb-pa-move" title={appConfig.copy.drawingEditor.move} aria-label={appConfig.copy.drawingEditor.move}
                   onPointerDown={grpDown} onPointerMove={grpMove} onPointerUp={grpUp} onPointerCancel={grpUp} onClick={(e) => e.stopPropagation()}><Icon id="move" /></button>
-                <button className="wb-pa wb-pa-del" title={appConfig.copy.delete} aria-label={appConfig.copy.delete} onClick={deleteGroup}><Icon id="trash" /></button>
+                <button className="wb-pa wb-pa-del" title={appConfig.copy.delete} aria-label={appConfig.copy.delete} onClick={() => void deleteGroup()}><Icon id="trash" /></button>
               </div>
             )}
 
@@ -1617,7 +1911,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           fieldOptions={symbolFieldOptions(selSymbol.symbol, sym.symbols.find((x) => x.name === selSymbol.symbol)?.cat, rosterNames)}
           rosterRank={rosterRank}
           protectedKeys={new Set(symbolPresetFieldKeys(selSymbol.symbol, sym.symbols.find((x) => x.name === selSymbol.symbol)?.cat))}
-          onDelete={() => remove(selSymbol.id)}
+          connectedLines={annos.filter((a) => [a.startAttachment, a.endAttachment].some((rel) => rel?.target.kind === 'object' && rel.target.id === selSymbol.id)).map((a) => ({ id: a.id, label: a.label ?? `${appConfig.copy.drawingEditor.drawing} ${a.id}` }))}
+          onFocusLine={(id) => setSelId(id)}
+          onDelete={() => void removeWithConnections(selSymbol)}
         />
       )}
 
@@ -1627,7 +1923,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       {!readOnly && selDraw && tool === 'pan' && (
         <DrawEditor
           key={selDraw.id}
-          drawing={{ kind: selDraw.kind as 'draw' | 'area', color: selDraw.color, width: selDraw.width, dashed: selDraw.dashed, label: selDraw.label, marker: selDraw.marker, arrow: selDraw.arrow, showDistance: selDraw.showDistance, fillOpacity: selDraw.fillOpacity, teilstueck: selDraw.teilstueck, content: selDraw.content, lineNo: selDraw.lineNo, floorTag: selDraw.floorTag }}
+          drawing={{ kind: selDraw.kind as 'draw' | 'area', color: selDraw.color, width: selDraw.width, dashed: selDraw.dashed, label: selDraw.label, marker: selDraw.marker, arrow: selDraw.arrow, showDistance: selDraw.showDistance, fillOpacity: selDraw.fillOpacity, teilstueck: selDraw.teilstueck, content: selDraw.content, lineNo: selDraw.lineNo, floorTag: selDraw.floorTag, startAttachment: selDraw.startAttachment, endAttachment: selDraw.endAttachment }}
           pointCount={selDraw.pts?.length ?? 0}
           /* the distance toggle appears once the plan is calibrated against its printed scale bar */
           supportsDistance={calibrated}
@@ -1642,14 +1938,40 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           onLabel={(label) => patchCommit(selDraw.id, { label: label || undefined })}
           onMarker={(marker) => patchCommit(selDraw.id, { marker: marker || undefined })}
           onArrow={(arrow) => patchCommit(selDraw.id, { arrow: arrow || undefined })}
-          onEnding={(ending) => patchCommit(selDraw.id, { arrow: ending === 'arrow' || undefined, teilstueck: ending === 'teilstueck' || undefined })}
+          onEnding={(ending) => void changePlanEnding(ending)}
           onContent={(content) => patchCommit(selDraw.id, { content })}
           onLineNo={(lineNo) => patchCommit(selDraw.id, { lineNo })}
           onFloorTag={(floorTag) => patchCommit(selDraw.id, { floorTag })}
           onShowDistance={(showDistance) => patchCommit(selDraw.id, { showDistance: showDistance || undefined })}
           onRadius={() => {}}
           onFillOpacity={(fillOpacity) => patchCommit(selDraw.id, { fillOpacity })}
-          onDelete={() => removeAnno(selDraw)}
+          attachmentLabels={Object.fromEntries((['start', 'end'] as const).flatMap((endpoint) => {
+            const a = endpoint === 'start' ? selDraw.startAttachment : selDraw.endAttachment
+            if (!a) return []
+            const target = annos.find((x) => x.id === a.target.id)
+            return [[endpoint, target?.label ?? target?.text ?? `${appConfig.copy.drawingEditor.drawing} ${a.target.id}`]]
+          }))}
+          onRouting={(endpoint, routing) => {
+            const key = endpoint === 'start' ? 'startAttachment' : 'endAttachment'
+            const a = selDraw[key]; if (a) patchCommit(selDraw.id, { [key]: { ...a, routing } })
+          }}
+          onDetach={(endpoint) => {
+            const a = endpoint === 'start' ? selDraw.startAttachment : selDraw.endAttachment
+            if (!a || !selDraw.pts?.length) return
+            const target = annos.find((x) => x.id === a.target.id)
+            const fallback: BoardPoint = a.target.kind === 'object' && target?.x != null && target.y != null
+              ? [target.x, target.y, target.floor ?? 0]
+              : a.target.kind === 'line' && target?.pts?.length
+                ? (a.target.endpoint === 'start' ? target.pts[0] : target.pts[target.pts.length - 1])
+                : (endpoint === 'start' ? selDraw.pts[0] : selDraw.pts[selDraw.pts.length - 1])
+            const pts = selDraw.pts.map((p, i): BoardPoint => i === (endpoint === 'start' ? 0 : selDraw.pts!.length - 1) ? fallback : p)
+            patchCommit(selDraw.id, { pts, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) })
+          }}
+          onFocusAttachment={(endpoint) => {
+            const a = endpoint === 'start' ? selDraw.startAttachment : selDraw.endAttachment
+            if (a) setSelId(a.target.id)
+          }}
+          onDelete={() => void removeWithConnections(selDraw)}
           onClose={() => setSelId(null)}
         />
       )}
@@ -1662,7 +1984,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           entity={selShape}
           onColor={(c) => patchCommit(selShape.id, { color: c })}
           onScale={(f) => patchCommit(selShape.id, { sizeN: Math.max(0.03, Math.min(0.9, (selShape.sizeN ?? SHAPE_DEFS[selShape.shape ?? 'square'].defaultSizeN) * f)) })}
-          onDelete={() => removeAnno(selShape)}
+          onDelete={() => void removeWithConnections(selShape)}
           onClose={() => setSelId(null)}
         />
       )}

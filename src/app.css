@@ -1372,6 +1372,10 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .wb-pa-clear:hover:not(:disabled) { background: var(--ink-soft); filter: brightness(1.08); }
 /* delete locked because the team carries a recorded trail — muted, non-interactive */
 .wb-pa-lock { background: rgba(255, 255, 255, .08); color: rgba(255, 255, 255, .5); cursor: not-allowed; }
+.wb-resource-connections { position: absolute; top: calc(100% + 62px); left: 50%; transform: translateX(-50%); z-index: 7;
+  width: min(290px, 70vw); padding: 9px; border: 1px solid var(--border); border-radius: var(--r-ctl);
+  background: var(--surface); box-shadow: var(--shadow-pop); color: var(--ink); }
+.wb-resource-connections .ctx-section-label { font-size: 11px; font-weight: 800; color: var(--ink-dim); }
 
 /* "Welcher Trupp?" quick picker shown when placing a team chip on the plan */
 .wb-trupp-scrim { position: absolute; inset: 0; z-index: 44; display: grid; place-items: center;
@@ -2021,6 +2025,36 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .measure-handle::after, .draw-handle::after { content: ''; position: absolute; left: 50%; top: 50%;
   width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .measure-handle:active, .draw-handle:active { cursor: grabbing; transform: scale(1.15); }
+.magnet-port { display: grid; place-items: center; width: 26px; height: 26px; border: 3px solid var(--accent);
+  border-radius: 50%; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--danger);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--surface) 75%, transparent); pointer-events: none; }
+.magnet-port::after { content: ''; width: 0; height: 0; border-radius: 50%; background: var(--accent);
+  transition: width 350ms linear, height 350ms linear; }
+.magnet-port.armed::after { width: 14px; height: 14px; }
+.magnet-port.detach { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 14%, var(--surface));
+  font-size: 18px; font-weight: 800; }
+.magnet-port.detach::after { display: none; }
+.magnet-port.blocked { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, var(--surface)); }
+.magnet-port.blocked::after { display: none; }
+.magnet-port > small { position: absolute; top: 30px; width: max-content; max-width: 220px; padding: 5px 8px; border-radius: 7px;
+  background: var(--ink); color: var(--surface); font-size: 11px; font-weight: 700; }
+.wb-magnet { position: absolute; z-index: 12; transform: translate(-50%, -50%); }
+.network-halo { position: absolute; inset: -7px; border: 2px solid color-mix(in srgb, var(--accent) 55%, transparent); border-radius: 50%; pointer-events: none; }
+.hidden-attachment-marker { width: 14px; height: 14px; border: 2px dashed var(--accent); border-radius: 50%; background: color-mix(in srgb, var(--surface) 80%, transparent); }
+.line-coupling-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--surface); border: 2px solid var(--ink); pointer-events: none; }
+.line-e-port { width: 11px; height: 11px; border-radius: 50%; background: var(--surface); border: 2px solid var(--accent); pointer-events: none; }
+.de-section-title { font-size: 12px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.de-connection { display: grid; gap: 8px; padding: 10px 0; border-top: 1px solid var(--line); }
+.de-connection-head { display: flex; gap: 8px; justify-content: space-between; font-size: 13px; }
+.de-connection-head span { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.de-connection-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.de-connection-actions button { min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); }
+.de-connection-actions button.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+.de-connection-actions button.warn { color: var(--danger); }
+.ctx-connections { display: grid; gap: 6px; }
+.ctx-connections button { min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); }
+.ctx-connections button span:last-child { color: var(--accent); font-weight: 700; }
 
 /* selected-drawing edit handles (reshape vertices + move grip + delete) — each gets a
    transparent hit pad; kept below 44px because move/delete/rotate cluster around the
@@ -3769,3 +3803,20 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .un-erg-tih { margin-top: 4px; }
 .un-erg-n { display: block; font-size: 11px; font-weight: 700; color: var(--ink-dim); margin-bottom: 2px; }
 .un-erg-src { margin: 6px 0 0; font-size: 11px; color: var(--ink-dim); }
+
+/* Guarded live-GPS attachment: persistent but compact, so the safety choice stays available
+   without obscuring the map or implying the known Traccar position itself is an alarm. */
+.gps-follow-prompts { position: fixed; z-index: 46; top: calc(76px + env(safe-area-inset-top)); left: 50%;
+  transform: translateX(-50%); display: flex; flex-direction: column; gap: 6px; width: min(540px, calc(100vw - 32px)); pointer-events: none; }
+.gps-follow-prompt { pointer-events: auto; display: flex; align-items: center; gap: 9px; padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--amber) 38%, var(--glass-edge)); border-radius: var(--r-ctl);
+  background: color-mix(in srgb, var(--amber) 8%, var(--surface)); box-shadow: var(--shadow-pop); color: var(--ink); }
+.gps-follow-prompt > .i { width: 17px; height: 17px; color: var(--amber-strong); flex: none; }
+.gps-follow-prompt > span { min-width: 0; flex: 1; display: flex; flex-direction: column; font-size: 12.5px; }
+.gps-follow-prompt small { color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gps-follow-prompt button { min-height: 44px; padding: 7px 11px; border: 1px solid var(--border); border-radius: var(--r-btn);
+  background: var(--surface); color: var(--ink); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; flex: none; }
+@media (max-width: 620px) {
+  .gps-follow-prompt { flex-wrap: wrap; }
+  .gps-follow-prompt > span { flex-basis: calc(100% - 30px); }
+}

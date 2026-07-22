@@ -1,11 +1,14 @@
-import { useState } from 'react'
+import { useState, type SetStateAction } from 'react'
 import { appConfig } from '../config/appConfig'
 import { getLinePreset, linePresetPatch } from './lineStyle'
 import type { Doc } from './workspace'
-import type { Drawing, LngLat, TimelineEvent } from '../types'
+import type { Drawing, LineAttachment, LineEndpoint, LngLat, TimelineEvent } from '../types'
+import { confirmDialog } from './ui'
+import { fillTemplate } from './format'
 
 interface MapDrawingDeps {
   drawings: Drawing[]
+  resolvedDrawings?: Drawing[]
   selectedDrawingId: string | null
   tacticalLocked: boolean
   tool: string
@@ -35,12 +38,18 @@ interface MapDrawingDeps {
  */
 export function useMapDrawing(deps: MapDrawingDeps) {
   const {
-    drawings, selectedDrawingId, tacticalLocked, tool, setTool,
+    drawings, resolvedDrawings = drawings, selectedDrawingId, tacticalLocked, tool, setTool,
     commit, setDocRaw, beginDrag, endDrag, emit, log,
     setSelectedDrawingId, setSelectedId, setSelectedDrawIds, setSelectedEntityIds,
   } = deps
 
-  const [draft, setDraft] = useState<LngLat[]>([])
+  const [draft, setDraftRaw] = useState<LngLat[]>([])
+  const [draftAttachments, setDraftAttachments] = useState<{ startAttachment?: LineAttachment; endAttachment?: LineAttachment }>({})
+  const setDraft = (action: SetStateAction<LngLat[]>) => setDraftRaw((prev) => {
+    const next = typeof action === 'function' ? action(prev) : action
+    if (!next.length) setDraftAttachments({})
+    return next
+  })
   const [drawColor, setDrawColor] = useState<string>(appConfig.drawing.defaultColor)
   const [drawWidth, setDrawWidth] = useState(4)
   const [drawDashed, setDrawDashed] = useState(false)
@@ -50,7 +59,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
   const commitDraft = () => {
     // node-mode line: ≥2 tapped vertices → a line (createLine drops into Select itself)
     if (tool === 'line') {
-      if (draft.length >= 2) { const coords = draft; setDraft([]); createLine(coords); return }
+      if (draft.length >= 2) { const coords = draft; const attachments = draftAttachments; setDraft([]); createLine(coords, attachments); return }
       setDraft([]); return
     }
     if (draft.length >= 3) {
@@ -73,20 +82,24 @@ export function useMapDrawing(deps: MapDrawingDeps) {
   // create a line from a finished path (freehand stroke OR node-tapped draft), applying the
   // sticky line preset. EVERY finished line one-shots to Select with the new line active, so
   // its detail editor opens right away for post-draw tweaks — no extra click needed.
-  const createLine = (coords: LngLat[]) => {
+  const createLine = (coords: LngLat[], attachments?: { startAttachment?: LineAttachment; endAttachment?: LineAttachment }) => {
     const id = `d${Date.now()}`
     const preset = getLinePreset(linePreset)
     const styled = preset.id !== 'freihand'
     // styled presets (Messpfeil/Rettungsachse) carry their own colour/dash; Freihand uses the
     // freehand dock controls. A new line inherits the last-used preset (post-pick + sticky).
     const drawing: Drawing = styled
-      ? { id, kind: 'line', coords, color: drawColor, width: drawWidth, ...preset.defaults }
-      : { id, kind: 'line', coords, color: drawColor, width: drawWidth, dashed: drawDashed }
+      ? { id, kind: 'line', coords, color: drawColor, width: drawWidth, ...preset.defaults, ...attachments }
+      : { id, kind: 'line', coords, color: drawColor, width: drawWidth, dashed: drawDashed, ...attachments }
     commit((d) => ({ ...d, drawings: [...d.drawings, drawing] }))
     log('pen', appConfig.copy.log.drawingCreated, 'symbol'); emit('draw.add', { id, kind: 'line', drawing })
     setTool('select'); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null)
   }
-  const onFreehand = (coords: LngLat[]) => createLine(coords)
+  const onFreehand = (coords: LngLat[], attachments?: { startAttachment?: LineAttachment; endAttachment?: LineAttachment }) => createLine(coords, attachments)
+  const setDraftPointAttachment = (attachment?: LineAttachment) => {
+    if (!attachment) return
+    setDraftAttachments((a) => draft.length === 0 ? { ...a, startAttachment: attachment } : { ...a, endAttachment: attachment })
+  }
   // Absperrkreis / Gefahrenradius: a dragged circle becomes a real (undoable, synced,
   // journaled) circle Drawing — centre in coords[0], radius in metres. Drops into Select
   // with the new circle active so its radius is tweakable in the DrawEditor right away.
@@ -146,11 +159,55 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     const coords = dr.coords.filter((_, j) => j !== index)
     emit('draw.edit', { id, patch: { coords } }); commit((d) => ({ ...d, drawings: d.drawings.map((x) => (x.id === id ? { ...x, coords } : x)) }))
   }
-  const deleteDrawing = (id: string) => {
+  const deleteDrawing = async (id: string) => {
     if (tacticalLocked) return
-    commit((d) => ({ ...d, drawings: d.drawings.filter((dr) => dr.id !== id) }))
+    const target = drawings.find((d) => d.id === id)
+    const resolvedTarget = resolvedDrawings.find((d) => d.id === id) ?? target
+    const incoming = drawings.flatMap((d) => (['start', 'end'] as const).filter((ep) => {
+      const a = ep === 'start' ? d.startAttachment : d.endAttachment
+      return a?.target.kind === 'line' && a.target.id === id
+    }).map((ep) => ({ drawing: d, endpoint: ep })))
+    if (incoming.length) {
+      const ok = await confirmDialog({
+        title: fillTemplate(appConfig.copy.drawingEditor.removeConnectedTitle, { name: target?.label ?? appConfig.copy.drawingEditor.drawing }),
+        message: fillTemplate(appConfig.copy.drawingEditor.removeConnectedMessage, { n: incoming.length }),
+        confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true,
+      })
+      if (!ok) return
+    }
+    commit((d) => ({ ...d, drawings: d.drawings.filter((dr) => dr.id !== id).map((dr) => {
+      let next = dr
+      for (const ep of ['start', 'end'] as const) {
+        const a = ep === 'start' ? next.startAttachment : next.endAttachment
+        if (a?.target.kind !== 'line' || a.target.id !== id || next.coords.length < 2) continue
+        const fallback = resolvedTarget?.coords[a.target.endpoint === 'start' ? 0 : resolvedTarget.coords.length - 1] ?? next.coords[ep === 'start' ? 0 : next.coords.length - 1]
+        const coords = next.coords.map((p, i) => i === (ep === 'start' ? 0 : next.coords.length - 1) ? fallback : p)
+        next = { ...next, coords, ...(ep === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) }
+      }
+      return next
+    }) }))
+    emit('draw.delete', { id })
+    incoming.forEach(({ drawing, endpoint }) => {
+      const attachment = endpoint === 'start' ? drawing.startAttachment : drawing.endAttachment
+      const targetEndpoint = attachment?.target.kind === 'line' ? attachment.target.endpoint : endpoint
+      const fallback = resolvedTarget?.coords[targetEndpoint === 'start' ? 0 : resolvedTarget.coords.length - 1] ?? drawing.coords[endpoint === 'start' ? 0 : drawing.coords.length - 1]
+      const coords = drawing.coords.map((p, i) => i === (endpoint === 'start' ? 0 : drawing.coords.length - 1) ? fallback : p)
+      emit('draw.edit', { id: drawing.id, patch: { coords, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) } })
+    })
     if (selectedDrawingId === id) setSelectedDrawingId(null)
     log('close', appConfig.copy.log.drawingDeleted)
+  }
+
+  /** One magnetic attach/detach/retarget gesture = one document checkpoint and one audit event. */
+  const setDrawingAttachment = (id: string, endpoint: LineEndpoint, attachment: LineAttachment | undefined, fallback: LngLat) => {
+    if (tacticalLocked) return
+    const key = endpoint === 'start' ? 'startAttachment' : 'endAttachment'
+    commit((d) => ({ ...d, drawings: d.drawings.map((dr) => {
+      if (dr.id !== id || dr.kind !== 'line' || dr.coords.length < 2) return dr
+      const coords = dr.coords.map((p, i) => i === (endpoint === 'start' ? 0 : dr.coords.length - 1) ? fallback : p)
+      return { ...dr, coords, [key]: attachment }
+    }) }))
+    emit(attachment ? 'draw.attach' : 'draw.detach', { id, endpoint, attachment, fallback })
   }
 
   // ✓ enabled when the draft is committable: an area needs ≥3 points, a node-mode line ≥2
@@ -163,7 +220,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     drawColor, setDrawColor, drawWidth, setDrawWidth, drawDashed, setDrawDashed,
     linePreset, setLinePreset, lineMode, setLineMode,
     draftActive, lineNodes, selectedDrawing,
-    commitDraft, createLine, onFreehand, createCircle, applyLinePreset, patchDrawing, patchDrawingById,
-    editDrawingCoords, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing,
+    commitDraft, createLine, onFreehand, setDraftPointAttachment, createCircle, applyLinePreset, patchDrawing, patchDrawingById,
+    editDrawingCoords, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, setDrawingAttachment,
   }
 }

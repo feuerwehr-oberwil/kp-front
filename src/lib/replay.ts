@@ -16,7 +16,7 @@
 import { apiGet } from './api'
 import { appConfig } from '../config/appConfig'
 import type { Saved } from './workspace'
-import type { BoardDoc, BuildingDoc, Drawing, Entity, LayerId, LngLat, WeatherData } from '../types'
+import type { BoardAnno, BoardDoc, BuildingDoc, Drawing, Entity, LayerId, LngLat, WeatherData } from '../types'
 
 // --- API shapes (mirror backend schemas) --------------------------------------------
 export interface ReplayEvent {
@@ -183,6 +183,38 @@ function applyEvent(ws: Saved, e: ReplayEvent): void {
     case 'draw.edit': {
       const patch = p.patch as Partial<Drawing> | undefined
       if (id && patch) ws.drawings = ws.drawings.map((x) => (x.id === id ? { ...x, ...patch } : x))
+      break
+    }
+    case 'draw.delete': {
+      if (id) ws.drawings = ws.drawings.filter((x) => x.id !== id)
+      break
+    }
+    case 'draw.attach':
+    case 'draw.detach': {
+      const endpoint = p.endpoint === 'start' || p.endpoint === 'end' ? p.endpoint : null
+      const fallback = coordOf({ coord: p.fallback })
+      if (id && endpoint && fallback) ws.drawings = ws.drawings.map((x) => {
+        if (x.id !== id || x.coords.length < 2) return x
+        const coords = x.coords.map((c, i) => i === (endpoint === 'start' ? 0 : x.coords.length - 1) ? fallback : c)
+        return { ...x, coords, ...(endpoint === 'start' ? { startAttachment: p.attachment } : { endAttachment: p.attachment }) }
+      }) as Drawing[]
+      break
+    }
+    case 'board.add': {
+      const planId = typeof p.planId === 'string' ? p.planId : null
+      const anno = p.anno as BoardAnno | undefined
+      if (planId && anno) ws.board = { ...(ws.board ?? {}), [planId]: [...(ws.board?.[planId] ?? []).filter((a) => a.id !== anno.id), anno] }
+      break
+    }
+    case 'board.edit': {
+      const planId = typeof p.planId === 'string' ? p.planId : null
+      const patch = p.patch as Partial<BoardAnno> | undefined
+      if (planId && id && patch) ws.board = { ...(ws.board ?? {}), [planId]: (ws.board?.[planId] ?? []).map((a) => a.id === id ? { ...a, ...patch } : a) }
+      break
+    }
+    case 'board.delete': {
+      const planId = typeof p.planId === 'string' ? p.planId : null
+      if (planId && id) ws.board = { ...(ws.board ?? {}), [planId]: (ws.board?.[planId] ?? []).filter((a) => a.id !== id) }
       break
     }
     case 'layer.toggle': {
