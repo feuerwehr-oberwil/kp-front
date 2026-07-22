@@ -1251,6 +1251,8 @@ export const de = {
       know: [
         'Deine Änderungen bleiben nur auf diesem Gerät – nichts wird mit anderen geteilt oder gespeichert.',
         'Ein Neuladen der Seite stellt jederzeit die Ausgangslage wieder her.',
+        'KP Front ist eine installierbare App (PWA): am Einsatzort läuft sie im Vollbild, offline-fähig und mit eigenem Symbol.',
+        'Diese Browser-Demo wird nicht installiert – volle Offline-Nutzung und Benachrichtigungen gibt es erst in der App deiner Wehr.',
       ],
       cta: 'Los geht’s',
     },

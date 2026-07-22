@@ -116,3 +116,29 @@ async def test_reset_seeds_resolvable_attendance(session_factory, monkeypatch):
     def _norm(s: str) -> str:
         return s.replace("-", "").lower()
     assert {_norm(k) for k in att} <= {_norm(p) for p in pids}
+
+
+@pytest.mark.asyncio
+async def test_reset_keeps_objects_when_not_wiping(session_factory, monkeypatch):
+    """Regression: the in-process scheduler calls reset(wipe_objects=False) and never reloads the
+    reference Einsatzobjekte — so reset() must LEAVE them in place. Wiping them (as the CLI path
+    does) stripped the Schloss's Modul plans from the demo's plan rail for most of each cycle."""
+    from app.models import ObjectSite
+
+    monkeypatch.setattr(dr, "async_session_maker", session_factory)
+    async with session_factory() as db:
+        db.add(ObjectSite(name="Schloss Bottmingen", address="Schlossgasse 9, 4103 Bottmingen",
+                          lat=47.5237186, lng=7.5703454))
+        await db.commit()
+
+    # in-process cadence: incident/roster reseeded, objects retained
+    await dr.reset(wipe_objects=False)
+    async with session_factory() as db:
+        kept = (await db.execute(text("select count(*) from objects"))).scalar_one()
+    assert kept == 1, "in-process reset must keep the reference objects (nothing reloads them)"
+
+    # CLI cadence (default): objects cleared so the re-pushed manifest is authoritative
+    await dr.reset()
+    async with session_factory() as db:
+        cleared = (await db.execute(text("select count(*) from objects"))).scalar_one()
+    assert cleared == 0, "CLI reset clears objects (the reset script reloads them next step)"

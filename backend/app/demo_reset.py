@@ -148,7 +148,16 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
     return ws
 
 
-async def reset() -> None:
+async def reset(wipe_objects: bool = True) -> None:
+    """Wipe + reseed the demo's mutable state. ``wipe_objects`` controls whether the reference
+    Einsatzobjekte (+ their Module PDFs) are cleared too:
+      - ``True`` (the CLI / ``scripts/demo-reset.sh`` path): clear them so the re-pushed manifest is
+        authoritative — the script reloads objects in the very next step, so they're gone only for a
+        blink.
+      - ``False`` (the in-process scheduler): KEEP them. The in-process job only reseeds the
+        incident/roster and never reloads objects, so wiping them here would strip the Schloss's
+        Modul 1 / 2-3 / 6 plans until the next GitHub reload — the demo's plan rail would sit empty
+        (Umrisse + Tafel only) for most of each cycle."""
     async with async_session_maker() as db:
         # Deleting incidents cascades to all incident-scoped tables (ON DELETE CASCADE).
         await db.execute(delete(Incident))
@@ -170,8 +179,10 @@ async def reset() -> None:
         assert "None" not in person_id.values(), "Personnel ids not flushed — Anwesenheit would break"
         # Clear objects so the manifest is authoritative ("these two, nothing else"). Deleting
         # an ObjectSite cascades to its plan datasets; the geo: reference layers (object_id NULL)
-        # are untouched and get re-pushed by the reset script.
-        await db.execute(delete(ObjectSite))
+        # are untouched and get re-pushed by the reset script. Skipped in-process (wipe_objects=
+        # False), where nothing reloads them — see the reset() docstring.
+        if wipe_objects:
+            await db.execute(delete(ObjectSite))
         # Clear any prior/taken alarms so the demo lands with NO incoming-alarm waiting — just
         # the one running incident below (decision 2026-07-20: the take-flow banner cluttered the
         # landing; the default running Einsatz is the demo). Re-add a DEMO_ALARM here to restore it.
