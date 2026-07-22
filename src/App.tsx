@@ -14,7 +14,7 @@ import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, short
 import { fillTemplate, formatSymbolName, formatTime, initials, roleLabel } from './lib/format'
 import { formatAudioDuration } from './lib/audioImport'
 import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys } from './lib/symbols'
-import { circlePolygon, fmtLV95, fmtWGS } from './lib/geo'
+import { circlePolygon, fmtLV95, fmtWGS, haversineM } from './lib/geo'
 import { panelNudge, panelNudgeUp, panelNudgeBox, panelNudgeBoxUp, isBottomSheet } from './lib/panelNudge'
 import { useMeasure } from './lib/useMeasure'
 import { useCoordPicker } from './lib/useCoordPicker'
@@ -93,6 +93,7 @@ import { useIncidentWatch } from './lib/useIncidentWatch'
 import { pickBootIncident, sameIncidentList } from './lib/incidentAlerts'
 import { useAuditEvents } from './lib/useAuditEvents'
 import { useMapDrawing } from './lib/useMapDrawing'
+import { applyRouting, moveLineBody, resolveMapDrawings, resolvePlanAnnos } from './lib/lineAttachments'
 import { useIncidentSync } from './lib/useIncidentSync'
 import { useTruppActions, LAGE_TARGET } from './lib/useTruppActions'
 import { useObjectPlans } from './lib/useObjectPlans'
@@ -271,6 +272,7 @@ function IncidentWorkspace({
     [replayActive, replayEntities, doc.entities, liveVehicles],
   )
   const drawings = replayActive ? (replayWs?.drawings ?? []) : doc.drawings
+  const resolvedMapDrawings = useMemo(() => resolveMapDrawings(drawings, entities), [drawings, entities])
   // undo/redo wrap the hook's pure history step with the audit log + emit (App-level).
   const undo = () => { if (undoDoc()) { log('undo', appConfig.copy.log.undo, 'history'); emit('undo') } }
   const redo = () => { if (redoDoc()) { log('redo', appConfig.copy.log.redo, 'history'); emit('redo') } }
@@ -792,13 +794,95 @@ function IncidentWorkspace({
     drawColor, setDrawColor, drawWidth, setDrawWidth, drawDashed, setDrawDashed,
     linePreset, setLinePreset, lineMode, setLineMode,
     draftActive, lineNodes, selectedDrawing,
-    commitDraft, onFreehand, createCircle, applyLinePreset, patchDrawing, patchDrawingById,
-    editDrawingCoords, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing,
+    commitDraft, onFreehand, setDraftPointAttachment, createCircle, applyLinePreset, patchDrawing, patchDrawingById,
+    editDrawingCoords, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, setDrawingAttachment,
   } = useMapDrawing({
-    drawings, selectedDrawingId, tacticalLocked, tool, setTool,
+    drawings, resolvedDrawings: resolvedMapDrawings, selectedDrawingId, tacticalLocked, tool, setTool,
     commit, setDocRaw, beginDrag, endDrag, emit, log,
     setSelectedDrawingId, setSelectedId, setSelectedDrawIds, setSelectedEntityIds,
   })
+  const changeMapEnding = async (ending: 'none' | 'arrow' | 'teilstueck') => {
+    if (!selectedDrawing) return
+    const incoming = selectedDrawing.teilstueck && ending !== 'teilstueck'
+      ? drawings.flatMap((d) => (['start', 'end'] as const).filter((endpoint) => {
+        const a = endpoint === 'start' ? d.startAttachment : d.endAttachment
+        return a?.target.kind === 'line' && a.target.id === selectedDrawing.id && a.target.endpoint === 'end'
+      }).map((endpoint) => ({ id: d.id, endpoint }))) : []
+    if (incoming.length) {
+      const ok = await confirmDialog({ title: appConfig.copy.drawingEditor.endingTeilstueck, message: fillTemplate(appConfig.copy.drawingEditor.removeEMessage, { n: incoming.length }), confirmLabel: appConfig.copy.confirm.ok, cancelLabel: appConfig.copy.cancel, danger: true })
+      if (!ok) return
+    }
+    const resolvedTarget = resolvedMapDrawings.find((d) => d.id === selectedDrawing.id)
+    const fallback = resolvedTarget?.coords[resolvedTarget.coords.length - 1] ?? selectedDrawing.coords[selectedDrawing.coords.length - 1]
+    commit((doc) => ({ ...doc, drawings: doc.drawings.map((d) => {
+      if (d.id === selectedDrawing.id) return { ...d, arrow: ending === 'arrow' || undefined, teilstueck: ending === 'teilstueck' || undefined }
+      let next = d
+      for (const endpoint of ['start', 'end'] as const) {
+        const a = endpoint === 'start' ? next.startAttachment : next.endAttachment
+        if (!incoming.some((x) => x.id === d.id && x.endpoint === endpoint) || !a || next.coords.length < 2) continue
+        const coords = next.coords.map((p, i) => i === (endpoint === 'start' ? 0 : next.coords.length - 1) ? fallback : p)
+        next = { ...next, coords, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) }
+      }
+      return next
+    }) }))
+    emit('draw.edit', { id: selectedDrawing.id, patch: { arrow: ending === 'arrow' || undefined, teilstueck: ending === 'teilstueck' || undefined } })
+    incoming.forEach(({ id, endpoint }) => {
+      const line = drawings.find((d) => d.id === id)
+      if (!line) return
+      const coords = line.coords.map((p, i) => i === (endpoint === 'start' ? 0 : line.coords.length - 1) ? fallback : p)
+      emit('draw.edit', { id, patch: { coords, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) } })
+    })
+  }
+  // External GPS movement is safety-guarded per connection. Safe samples update only the small
+  // lastSafe field; continuous/Spur samples intentionally edit and simplify the line geometry.
+  // No hover/sample audit spam: the operator's follow/pause choice is emitted by DrawEditor.
+  useEffect(() => {
+    if (replayActive || !liveVehicles.length) return
+    setDocRaw((cur) => {
+      let changed = false
+      const next = cur.drawings.map((d) => {
+        if (d.kind !== 'line') return d
+        let drawing = d
+        for (const endpoint of ['start', 'end'] as const) {
+          const key = endpoint === 'start' ? 'startAttachment' : 'endAttachment'
+          const a = drawing[key]
+          if (a?.target.kind !== 'object' || !a.target.live || !a.gps) continue
+          const target = liveVehicles.find((e) => e.id === a.target.id)
+          if (!target || a.gps.state === 'paused') continue // known Traccar positions remain visible; no prominent missing-signal alarm
+          if (a.gps.state === 'guarded') {
+            const exceeded = haversineM(a.gps.confirmedAt, target.coord) >= 20
+            const gps = exceeded ? { ...a.gps, state: 'paused' as const } : { ...a.gps, lastSafe: target.coord }
+            drawing = { ...drawing, [key]: { ...a, gps } }; changed = true
+          } else {
+            const coords = applyRouting(drawing.coords, endpoint, target.coord, 'trace', 0.000008)
+            drawing = { ...drawing, coords, [key]: { ...a, gps: { ...a.gps, lastSafe: target.coord } } }; changed = true
+          }
+        }
+        return drawing
+      })
+      return changed ? { ...cur, drawings: next } : cur
+    })
+  }, [liveVehicles, replayActive, setDocRaw])
+
+  const pausedGpsConnections = useMemo(() => drawings.flatMap((drawing) => (['start', 'end'] as const).flatMap((endpoint) => {
+    const attachment = endpoint === 'start' ? drawing.startAttachment : drawing.endAttachment
+    return attachment?.gps?.state === 'paused' ? [{ drawing, endpoint, attachment }] : []
+  })), [drawings])
+  const setGpsRouting = (drawing: Drawing, endpoint: 'start' | 'end', routing: 'direct' | 'trace') => {
+    const key = endpoint === 'start' ? 'startAttachment' : 'endAttachment'
+    const attachment = drawing[key]
+    if (!attachment) return
+    const target = attachment.target.kind === 'object' ? entities.find((e) => e.id === attachment.target.id) : null
+    const state = routing === 'trace' ? 'continuous' : attachment.gps?.state === 'continuous' ? 'paused' : 'guarded'
+    patchDrawingById(drawing.id, { [key]: { ...attachment, routing, ...(attachment.gps ? { gps: { ...attachment.gps, state, ...(target && state === 'guarded' ? { confirmedAt: target.coord, lastSafe: target.coord } : {}) } } : {}) } })
+  }
+  const detachGpsHere = (drawing: Drawing, endpoint: 'start' | 'end') => {
+    const attachment = endpoint === 'start' ? drawing.startAttachment : drawing.endAttachment
+    if (!attachment) return
+    const resolved = resolvedMapDrawings.find((d) => d.id === drawing.id)
+    const fallback = resolved?.coords[endpoint === 'start' ? 0 : resolved.coords.length - 1] ?? drawing.coords[endpoint === 'start' ? 0 : drawing.coords.length - 1]
+    setDrawingAttachment(drawing.id, endpoint, undefined, fallback)
+  }
 
   const toggleLayer = (id: LayerId) => {
     const target = layers.find((l) => l.id === id)
@@ -1007,7 +1091,7 @@ function IncidentWorkspace({
     // exclude live GPS vehicles — they may be parked at the Magazin, far from the scene, and
     // would blow the bounds wide open. Only the placed tactical picture frames the view.
     for (const e of entities) if (!liveIds.has(e.id) && Array.isArray(e.coord)) pts.push(e.coord as LngLat)
-    for (const d of drawings) {
+    for (const d of resolvedMapDrawings) {
       if (!Array.isArray(d.coords)) continue
       if (d.kind === 'circle' && d.coords[0] && d.radiusM) {
         const [lng, lat] = d.coords[0]
@@ -1155,7 +1239,9 @@ function IncidentWorkspace({
     }
     setDocRaw((d) => ({
       ...d,
-      drawings: d.drawings.map((dr) => (ids.includes(dr.id) && groupOrig.current.draws[dr.id] ? { ...dr, coords: groupOrig.current.draws[dr.id].map(([x, y]): LngLat => [x + dLng, y + dLat]) } : dr)),
+      drawings: d.drawings.map((dr) => (ids.includes(dr.id) && groupOrig.current.draws[dr.id]
+        ? { ...dr, coords: moveLineBody({ id: dr.id, points: groupOrig.current.draws[dr.id], startAttachment: dr.startAttachment, endAttachment: dr.endAttachment }, [dLng, dLat]) }
+        : dr)),
       entities: d.entities.map((e) => (entIds.includes(e.id) && groupOrig.current.ents[e.id] ? { ...e, coord: [groupOrig.current.ents[e.id][0] + dLng, groupOrig.current.ents[e.id][1] + dLat] as LngLat } : e)),
     }))
     if (phase === 'end') {
@@ -1166,10 +1252,44 @@ function IncidentWorkspace({
   // a team marker that carries recorded positions is protected from deletion — its trail is
   // part of the incident record, so it must be cleared deliberately first (plan-board parity)
   const teamEntityLocked = (e: Entity | undefined) => e?.kind === 'team' && (e.trail?.length ?? 0) > 0
-  const deleteGroup = (ids: string[], entIds: string[]) => {
+  const deleteGroup = async (ids: string[], entIds: string[]) => {
     if (tacticalLocked) return
     const ents = entIds.filter((id) => !liveIds.has(id) && !teamEntityLocked(entities.find((e) => e.id === id)))
-    commit((d) => ({ ...d, drawings: d.drawings.filter((dr) => !ids.includes(dr.id)), entities: d.entities.filter((e) => !ents.includes(e.id)) }))
+    const affected = drawings.flatMap((dr) => ids.includes(dr.id) ? [] : (['start', 'end'] as const).flatMap((endpoint) => {
+      const a = endpoint === 'start' ? dr.startAttachment : dr.endAttachment
+      return a && ((a.target.kind === 'object' && ents.includes(a.target.id)) || (a.target.kind === 'line' && ids.includes(a.target.id))) ? [{ dr, endpoint, a }] : []
+    }))
+    if (affected.length) {
+      const ok = await confirmDialog({ title: appConfig.copy.whiteboard.groupDeleted, message: fillTemplate(appConfig.copy.drawingEditor.removeConnectedMessage, { n: affected.length }), confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true })
+      if (!ok) return
+    }
+    commit((d) => ({
+      ...d,
+      drawings: d.drawings.filter((dr) => !ids.includes(dr.id)).map((dr) => {
+        let next = dr
+        for (const endpoint of ['start', 'end'] as const) {
+          const a = endpoint === 'start' ? next.startAttachment : next.endAttachment
+          if (!a || next.coords.length < 2) continue
+          const object = a.target.kind === 'object' && ents.includes(a.target.id) ? entities.find((e) => e.id === a.target.id) : null
+          const targetLine = a.target.kind === 'line' && ids.includes(a.target.id) ? drawings.find((x) => x.id === a.target.id) : null
+          const fallback = object?.coord ?? (targetLine && a.target.kind === 'line' ? targetLine.coords[a.target.endpoint === 'start' ? 0 : targetLine.coords.length - 1] : null)
+          if (!fallback) continue
+          const coords = next.coords.map((p, i) => i === (endpoint === 'start' ? 0 : next.coords.length - 1) ? fallback : p)
+          next = { ...next, coords, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) }
+        }
+        return next
+      }),
+      entities: d.entities.filter((e) => !ents.includes(e.id)),
+    }))
+    ids.forEach((id) => emit('draw.delete', { id }))
+    ents.forEach((id) => emit('entity.delete', { id }))
+    affected.forEach(({ dr, endpoint, a }) => {
+      const object = a.target.kind === 'object' ? entities.find((e) => e.id === a.target.id) : null
+      const targetLine = a.target.kind === 'line' ? drawings.find((x) => x.id === a.target.id) : null
+      const fallback = object?.coord ?? (targetLine && a.target.kind === 'line' ? targetLine.coords[a.target.endpoint === 'start' ? 0 : targetLine.coords.length - 1] : dr.coords[endpoint === 'start' ? 0 : dr.coords.length - 1])
+      const coords = dr.coords.map((p, i) => i === (endpoint === 'start' ? 0 : dr.coords.length - 1) ? fallback : p)
+      emit('draw.edit', { id: dr.id, patch: { coords, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) } })
+    })
     setSelectedDrawIds([]); setSelectedEntityIds([]); log('close', appConfig.copy.log.drawingDeleted)
   }
 
@@ -1186,16 +1306,42 @@ function IncidentWorkspace({
     const ent = entities.find((e) => e.id === id)
     // a trail-carrying team stays: clear the trail deliberately first (plan-board parity)
     if (teamEntityLocked(ent)) { toast(appConfig.copy.whiteboard.deleteLocked, { icon: 'lock', tone: 'warn' }); return }
-    // a note with typed content asks before deleting (an empty note deletes silently)
-    if (ent?.kind === 'note' && (ent.label ?? '').trim()) {
-      const ok = await confirmDialog({ title: appConfig.copy.notes.deleteTitle, message: appConfig.copy.notes.deleteMsg, confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true })
+    const connected = drawings.filter((d) => [d.startAttachment, d.endAttachment].some((a) => a?.target.kind === 'object' && a.target.id === id))
+    // Written notes and any indirectly detached lines ask once before the structural change.
+    if ((ent?.kind === 'note' && (ent.label ?? '').trim()) || connected.length) {
+      const ok = await confirmDialog({
+        title: connected.length ? fillTemplate(appConfig.copy.drawingEditor.removeConnectedTitle, { name: ent?.label ?? appConfig.copy.entities.fallbackObjectName }) : appConfig.copy.notes.deleteTitle,
+        message: connected.length ? fillTemplate(appConfig.copy.drawingEditor.removeConnectedMessage, { n: connected.length }) : appConfig.copy.notes.deleteMsg,
+        confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true,
+      })
       if (!ok) return
     }
-    commit((d) => ({ ...d, entities: d.entities.filter((e) => e.id !== id) }))
+    commit((d) => ({
+      ...d,
+      entities: d.entities.filter((e) => e.id !== id),
+      drawings: d.drawings.map((dr) => {
+        let next = dr
+        for (const endpoint of ['start', 'end'] as const) {
+          const a = endpoint === 'start' ? next.startAttachment : next.endAttachment
+          if (a?.target.kind !== 'object' || a.target.id !== id || !ent || next.coords.length < 2) continue
+          const coords = next.coords.map((p, i) => i === (endpoint === 'start' ? 0 : next.coords.length - 1) ? ent.coord : p)
+          next = { ...next, coords, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) }
+        }
+        return next
+      }),
+    }))
     if (selectedId === id) setSelectedId(null)
     if (editNoteId === id) setEditNoteId(null)
     log('close', fillTemplate(appConfig.copy.log.objectDeleted, { name: ent?.label ?? appConfig.copy.entities.fallbackObjectName }))
     emit('entity.delete', { id })
+    if (ent) connected.forEach((dr) => {
+      for (const endpoint of ['start', 'end'] as const) {
+        const a = endpoint === 'start' ? dr.startAttachment : dr.endAttachment
+        if (a?.target.kind !== 'object' || a.target.id !== id) continue
+        const coords = dr.coords.map((p, i) => i === (endpoint === 'start' ? 0 : dr.coords.length - 1) ? ent.coord : p)
+        emit('draw.edit', { id: dr.id, patch: { coords, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) } })
+      }
+    })
   }
   // a generic (untracked) team marker — the map twin of the plan's placeTeamChip
   const placeGenericTeam = (c: LngLat) => {
@@ -1504,6 +1650,7 @@ function IncidentWorkspace({
           onDraftDrag={(i, c) => setDraft((pts) => pts.map((p, j) => (j === i ? c : p)))}
           onDraftInsert={(i, c) => setDraft((pts) => { const next = [...pts]; next.splice(i, 0, c); return next })}
           onDraftDelete={(i) => setDraft((pts) => pts.filter((_, j) => j !== i))}
+          onDraftPointAttachment={setDraftPointAttachment}
           measurePoints={tool === 'measure' ? measure.path : []}
           measureKind={tool === 'measure' ? measure.mode : null}
           onMeasureDrag={(i, c) => measure.setPath((pts) => pts.map((p, j) => (j === i ? c : p)))}
@@ -1515,7 +1662,19 @@ function IncidentWorkspace({
           onMarkerMove={(id, c) => {
             if (tacticalLocked) return
             if (liveIds.has(id)) setVehicleOverrides((m) => ({ ...m, [id]: { ...m[id], coord: c } }))
-            else setDocRaw((d) => ({ ...d, entities: d.entities.map((e) => (e.id === id ? { ...e, coord: c } : e)) }))
+            else setDocRaw((d) => ({
+              ...d,
+              entities: d.entities.map((e) => (e.id === id ? { ...e, coord: c } : e)),
+              drawings: d.drawings.map((dr) => {
+                if (dr.kind !== 'line') return dr
+                let next = dr
+                for (const endpoint of ['start', 'end'] as const) {
+                  const a = endpoint === 'start' ? next.startAttachment : next.endAttachment
+                  if (a?.target.kind === 'object' && a.target.id === id && a.routing === 'trace') next = { ...next, coords: applyRouting(next.coords, endpoint, c, 'trace', 0.000008) }
+                }
+                return next
+              }),
+            }))
           }}
           onMarkerDragEnd={(id, c) => {
             if (tacticalLocked) return
@@ -1529,6 +1688,8 @@ function IncidentWorkspace({
             }
             log('select', fillTemplate(appConfig.copy.log.objectMoved, { name: entities.find((x) => x.id === id)?.label ?? appConfig.copy.entities.fallbackObjectName }), 'symbol', undefined, id)
             emit(liveIds.has(id) ? 'entity.edit' : 'entity.move', { id, coord: c })
+            drawings.filter((d) => [d.startAttachment, d.endAttachment].some((a) => a?.target.kind === 'object' && a.target.id === id && a.routing === 'trace'))
+              .forEach((d) => emit('draw.edit', { id: d.id, patch: { coords: d.coords } }))
           }}
           onRotate={(id, deg) => { if (tacticalLocked) return; setVehicleOverrides((m) => ({ ...m, [id]: { ...m[id], rotation: deg } })) }}
           onShapeTransform={(id, patch, phase) => {
@@ -1561,6 +1722,7 @@ function IncidentWorkspace({
           onDrawingVertexInsert={insertDrawingVertex}
           onDrawingVertexDelete={deleteDrawingVertex}
           onDrawingDelete={deleteDrawing}
+          onDrawingAttachment={setDrawingAttachment}
           onLabelMove={tacticalLocked ? undefined : moveLabel}
           marqueeEnabled={tool === 'lasso' && !tacticalLocked && coord.mode === 'off'}
           selectedDrawIds={selectedDrawIds}
@@ -1636,6 +1798,19 @@ function IncidentWorkspace({
         onSnooze={(r) => reminders.snooze(r, 10)}
         onOpen={() => setJournalOpen(true)}
       />
+
+      {mapUI && !tacticalLocked && pausedGpsConnections.length > 0 && (
+        <div className="gps-follow-prompts" role="status">
+          {pausedGpsConnections.map(({ drawing, endpoint, attachment }) => (
+            <div className="gps-follow-prompt" key={`${drawing.id}:${endpoint}`}>
+              <Icon id="warn" />
+              <span><b>{appConfig.copy.drawingEditor.gpsMovingAway}</b><small>{entities.find((e) => e.id === attachment.target.id)?.label ?? drawing.label ?? appConfig.copy.drawingEditor.drawing}</small></span>
+              <button onClick={() => setGpsRouting(drawing, endpoint, 'trace')}>{appConfig.copy.drawingEditor.gpsContinue}</button>
+              <button onClick={() => detachGpsHere(drawing, endpoint)}>{appConfig.copy.drawingEditor.gpsDetachHere}</button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* one-tap way back after a Rapport checklist row navigated here — without it, the
           round trip went through the incident menu every time (feedback 2026-07-08) */}
@@ -1827,6 +2002,8 @@ function IncidentWorkspace({
           onDelete={() => deleteEntity(selected.id)}
           hasOverride={vehicleOverrides[selected.id] != null}
           onResetGps={selected.live ? () => setVehicleOverrides((m) => { const { [selected.id]: _drop, ...rest } = m; return rest }) : undefined}
+          connectedLines={drawings.filter((d) => [d.startAttachment, d.endAttachment].some((a) => a?.target.kind === 'object' && a.target.id === selected.id)).map((d) => ({ id: d.id, label: d.label ?? `${appConfig.copy.drawingEditor.drawing} ${d.id}` }))}
+          onFocusLine={focusDrawing}
         />
       )}
 
@@ -1842,13 +2019,43 @@ function IncidentWorkspace({
           onLabel={(label) => patchDrawing({ label })}
           onMarker={(marker) => patchDrawing({ marker })}
           onArrow={(arrow) => patchDrawing({ arrow })}
-          onEnding={(ending) => patchDrawing({ arrow: ending === 'arrow' || undefined, teilstueck: ending === 'teilstueck' || undefined })}
+          onEnding={(ending) => void changeMapEnding(ending)}
           onContent={(content) => patchDrawing({ content })}
           onLineNo={(lineNo) => patchDrawing({ lineNo })}
           onFloorTag={(floorTag) => patchDrawing({ floorTag })}
           onShowDistance={(showDistance) => patchDrawing({ showDistance })}
           onRadius={(radiusM) => patchDrawing({ radiusM })}
           onFillOpacity={(fillOpacity) => patchDrawing({ fillOpacity })}
+          attachmentLabels={Object.fromEntries((['start', 'end'] as const).flatMap((endpoint) => {
+            const a = endpoint === 'start' ? selectedDrawing.startAttachment : selectedDrawing.endAttachment
+            if (!a) return []
+            const label = a.target.kind === 'object' ? entities.find((e) => e.id === a.target.id)?.label ?? a.target.id : `${appConfig.copy.drawingEditor.drawing} ${a.target.id}`
+            return [[endpoint, label]]
+          }))}
+          onRouting={(endpoint, routing) => setGpsRouting(selectedDrawing, endpoint, routing)}
+          onDetach={(endpoint) => {
+            const a = endpoint === 'start' ? selectedDrawing.startAttachment : selectedDrawing.endAttachment
+            if (!a) return
+            const fallback: LngLat = a.target.kind === 'object'
+              ? entities.find((e) => e.id === a.target.id)?.coord ?? (endpoint === 'start' ? selectedDrawing.coords[0] : selectedDrawing.coords[selectedDrawing.coords.length - 1])
+              : (() => { const target = drawings.find((d) => d.id === a.target.id); return target ? (a.target.endpoint === 'start' ? target.coords[0] : target.coords[target.coords.length - 1]) : (endpoint === 'start' ? selectedDrawing.coords[0] : selectedDrawing.coords[selectedDrawing.coords.length - 1]) })()
+            setDrawingAttachment(selectedDrawing.id, endpoint, undefined, fallback)
+          }}
+          onFocusAttachment={(endpoint) => {
+            const a = endpoint === 'start' ? selectedDrawing.startAttachment : selectedDrawing.endAttachment
+            if (!a) return
+            if (a.target.kind === 'object') focusEntity(a.target.id); else focusDrawing(a.target.id)
+          }}
+          attachmentHidden={Object.fromEntries((['start', 'end'] as const).map((endpoint) => {
+            const a = endpoint === 'start' ? selectedDrawing.startAttachment : selectedDrawing.endAttachment
+            const target = a?.target.kind === 'object' ? entities.find((e) => e.id === a.target.id) : null
+            return [endpoint, !!target && !isVisible(target.layer)]
+          }))}
+          onRevealAttachment={(endpoint) => {
+            const a = endpoint === 'start' ? selectedDrawing.startAttachment : selectedDrawing.endAttachment
+            const target = a?.target.kind === 'object' ? entities.find((e) => e.id === a.target.id) : null
+            if (target && !isVisible(target.layer)) toggleLayer(target.layer)
+          }}
           locked={!!selectedDrawing.locked}
           onToggleLock={() => { patchDrawing({ locked: selectedDrawing.locked ? undefined : true }); if (!selectedDrawing.locked) setSelectedDrawingId(null) }}
           onDelete={() => selectedDrawingId && deleteDrawing(selectedDrawingId)}
@@ -2062,8 +2269,31 @@ function IncidentWorkspace({
           onRemoveFloor={(floor) => {
             const prevBuilding = building
             const prevGebaeude = board.gebaeude ?? []
+            const resolvedBeforeRemoval = new Map(resolvePlanAnnos(prevGebaeude).map((a) => [a.id, a]))
             setBuilding((b) => (b ? { ...b, floors: b.floors.filter((f) => f !== floor) } : b))
-            setBoard((b) => ({ ...b, gebaeude: (b.gebaeude ?? []).filter((a) => (a.floor ?? 0) !== floor) }))
+            setBoard((b) => {
+              const removedIds = new Set((b.gebaeude ?? []).filter((a) => a.pts?.length
+                ? a.pts.every((p) => (p[2] ?? a.floor ?? 0) === floor)
+                : (a.floor ?? 0) === floor).map((a) => a.id))
+              const gebaeude = (b.gebaeude ?? []).filter((a) => !removedIds.has(a.id)).map((a) => {
+                const oldPts = a.pts ?? []
+                let pts = oldPts.filter((p) => (p[2] ?? a.floor ?? 0) !== floor)
+                const droppedStart = oldPts.length > 0 && pts.length > 0 && oldPts[0] !== pts[0]
+                const droppedEnd = oldPts.length > 0 && pts.length > 0 && oldPts[oldPts.length - 1] !== pts[pts.length - 1]
+                const targetGone = (rel: typeof a.startAttachment) => !!rel && removedIds.has(rel.target.id)
+                const resolved = resolvedBeforeRemoval.get(a.id)?.pts
+                if (pts.length && resolved && targetGone(a.startAttachment)) pts = pts.map((p, i) => i === 0 ? [resolved[0][0], resolved[0][1], p[2] ?? a.floor ?? 0] : p)
+                if (pts.length && resolved && targetGone(a.endAttachment)) pts = pts.map((p, i) => i === pts.length - 1 ? [resolved[resolved.length - 1][0], resolved[resolved.length - 1][1], p[2] ?? a.floor ?? 0] : p)
+                return {
+                  ...a,
+                  ...(a.pts ? { pts } : {}),
+                  ...(a.trail ? { trail: a.trail.filter((p) => (p.floor ?? a.floor ?? 0) !== floor) } : {}),
+                  ...((droppedStart || targetGone(a.startAttachment)) ? { startAttachment: undefined } : {}),
+                  ...((droppedEnd || targetGone(a.endAttachment)) ? { endAttachment: undefined } : {}),
+                }
+              }).filter((a) => !a.pts || a.pts.length >= (a.kind === 'area' ? 3 : 2))
+              return { ...b, gebaeude }
+            })
             // confirm-with-undo: the removed storey's annotations come back with it
             toast(appConfig.copy.whiteboard.floorRemoved, {
               icon: 'undo',

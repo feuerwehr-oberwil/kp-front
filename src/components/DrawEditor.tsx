@@ -6,6 +6,7 @@ import { fmtDistance } from '../lib/geo'
 import { CONTENT_LABELS } from '../lib/lineDecor'
 import { floorBadge } from '../lib/symbolRender'
 import { Stepper } from './Stepper'
+import type { LineAttachment, LineEndpoint, LineRoutingMode } from '../types'
 
 // small glyph for the line-ending picker: plain · arrow · FKS Teilstück "E"-fork
 function EndingGlyph({ kind }: { kind: 'none' | 'arrow' | 'teilstueck' }) {
@@ -46,6 +47,8 @@ export interface DrawStyle {
   content?: 'S' | 'W' | 'H' | 'P'
   lineNo?: number
   floorTag?: number
+  startAttachment?: LineAttachment
+  endAttachment?: LineAttachment
 }
 
 interface Props {
@@ -77,11 +80,17 @@ interface Props {
   locked?: boolean
   onDelete: () => void
   onClose: () => void
+  attachmentLabels?: Partial<Record<LineEndpoint, string>>
+  onRouting?: (endpoint: LineEndpoint, mode: LineRoutingMode) => void
+  onDetach?: (endpoint: LineEndpoint) => void
+  onFocusAttachment?: (endpoint: LineEndpoint) => void
+  attachmentHidden?: Partial<Record<LineEndpoint, boolean>>
+  onRevealAttachment?: (endpoint: LineEndpoint) => void
 }
 
 const FILL_OPACITIES = appConfig.drawing.fillOpacities
 
-export function DrawEditor({ drawing, pointCount, supportsDistance = false, onColor, onWidth, onDashed, onLabel, onMarker, onArrow, onEnding, onContent, onLineNo, onFloorTag, onShowDistance, onRadius, onFillOpacity, onToggleLock, locked, onDelete, onClose }: Props) {
+export function DrawEditor({ drawing, pointCount, supportsDistance = false, onColor, onWidth, onDashed, onLabel, onMarker, onArrow, onEnding, onContent, onLineNo, onFloorTag, onShowDistance, onRadius, onFillOpacity, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment }: Props) {
   const color = drawing.color ?? '#1f6feb'
   const width = drawing.width ?? 4
   const dashed = !!drawing.dashed
@@ -224,6 +233,32 @@ export function DrawEditor({ drawing, pointCount, supportsDistance = false, onCo
                 </span>
               </div>
             )}
+          </div>
+        )}
+        {isLine && (drawing.startAttachment || drawing.endAttachment) && (
+          <div className="de-group de-connections">
+            <div className="de-section-title">{appConfig.copy.drawingEditor.connections}</div>
+            {(['start', 'end'] as const).map((endpoint) => {
+              const a = endpoint === 'start' ? drawing.startAttachment : drawing.endAttachment
+              if (!a) return null
+              return <div className="de-connection" key={endpoint}>
+                <div className="de-connection-head"><b>{endpoint === 'start' ? appConfig.copy.drawingEditor.connectedStart : appConfig.copy.drawingEditor.connectedEnd}</b><span>{attachmentLabels?.[endpoint] ?? a.target.id}</span></div>
+                {a.gps?.state === 'continuous' && <small>{appConfig.copy.drawingEditor.gpsFollowing}</small>}
+                {a.gps?.state === 'paused' && <small>{appConfig.copy.drawingEditor.gpsMovingAway}</small>}
+                {attachmentHidden?.[endpoint] && <small>{appConfig.copy.drawingEditor.hiddenTarget}</small>}
+                <div className="de-connection-actions">
+                  {onFocusAttachment && <button onClick={() => onFocusAttachment(endpoint)}>{appConfig.copy.drawingEditor.showConnection}</button>}
+                  {attachmentHidden?.[endpoint] && onRevealAttachment && <button onClick={() => onRevealAttachment(endpoint)}>{appConfig.copy.drawingEditor.revealTarget}</button>}
+                  {onRouting && a.gps?.state === 'paused' && <button onClick={() => onRouting(endpoint, 'trace')}>{appConfig.copy.drawingEditor.gpsContinue}</button>}
+                  {onRouting && a.gps?.state === 'continuous' && <button onClick={() => onRouting(endpoint, 'direct')}>{appConfig.copy.drawingEditor.gpsPause}</button>}
+                  {onRouting && !a.gps && <button className={a.routing === 'direct' ? 'on' : ''} onClick={() => onRouting(endpoint, 'direct')}>{appConfig.copy.drawingEditor.routeDirect}</button>}
+                  {onRouting && !a.gps && <button className={a.routing === 'trace' ? 'on' : ''} onClick={() => onRouting(endpoint, 'trace')}>{appConfig.copy.drawingEditor.routeTrace}</button>}
+                  {onRouting && a.gps?.state === 'guarded' && <button className="on" onClick={() => onRouting(endpoint, 'direct')}>{appConfig.copy.drawingEditor.routeDirect}</button>}
+                  {onRouting && a.gps?.state === 'guarded' && <button onClick={() => onRouting(endpoint, 'trace')}>{appConfig.copy.drawingEditor.routeTrace}</button>}
+                  {onDetach && <button className="warn" onClick={() => onDetach(endpoint)}>{a.gps?.state === 'paused' ? appConfig.copy.drawingEditor.gpsDetachHere : appConfig.copy.drawingEditor.detachConnection}</button>}
+                </div>
+              </div>
+            })}
           </div>
         )}
         <div className="ctx-footer-inline">{actions}</div>

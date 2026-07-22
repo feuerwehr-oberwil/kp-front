@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import type { Map as MlMap } from 'maplibre-gl'
-import type { Drawing, Entity, LngLat } from '../types'
+import type { Drawing, Entity, LineAttachment, LngLat } from '../types'
 import { haversineM } from '../lib/geo'
 import { rdpIndices, FREEHAND_SIMPLIFY_PX } from '../lib/lineStyle'
 
@@ -11,7 +11,8 @@ interface Args {
   mapInst: RefObject<MlMap | null>
   mapReady: boolean
   freehand: boolean
-  onFreehand: (coords: LngLat[]) => void
+  onFreehand: (coords: LngLat[], attachments?: { startAttachment?: LineAttachment; endAttachment?: LineAttachment }) => void
+  onFreehandPointer?: (phase: 'start' | 'move' | 'end', coord: LngLat) => { startAttachment?: LineAttachment; endAttachment?: LineAttachment } | void
   marqueeEnabled: boolean
   drawings: Drawing[]
   /** placed map entities (symbols/shapes/notes…) the marquee should also catch */
@@ -41,7 +42,7 @@ interface Args {
  * commit, no editor, the map pans out from under the finger). Keeping the listeners bound for
  * the whole gesture (deps = enable-flag + mapReady only) is what makes the map match the Plan.
  */
-export function useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, marqueeEnabled, drawings, entities, onMarquee, circleEnabled = false, onCircle, circleMinRadiusM = 5, circleInitialRadiusM = 25 }: Args) {
+export function useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, onFreehandPointer, marqueeEnabled, drawings, entities, onMarquee, circleEnabled = false, onCircle, circleMinRadiusM = 5, circleInitialRadiusM = 25 }: Args) {
   const [fhPath, setFhPath] = useState<LngLat[] | null>(null)
 
   // Freehand drawing happens ON the map canvas (not a blocking overlay) so the map can
@@ -60,12 +61,14 @@ export function useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, 
   // "latest ref" mirrors — synced in an effect (NOT during render) so the gesture effects can
   // read fresh callbacks/data without listing them as deps (which would rebind mid-stroke).
   const onFreehandRef = useRef(onFreehand)
+  const onFreehandPointerRef = useRef(onFreehandPointer)
   const drawingsRef = useRef(drawings)
   const entitiesRef = useRef(entities)
   const onMarqueeRef = useRef(onMarquee)
   const onCircleRef = useRef(onCircle)
   useEffect(() => {
     onFreehandRef.current = onFreehand
+    onFreehandPointerRef.current = onFreehandPointer
     drawingsRef.current = drawings
     entitiesRef.current = entities
     onMarqueeRef.current = onMarquee
@@ -77,8 +80,8 @@ export function useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, 
     const cancelRaf = () => { if (fhRaf.current != null) { cancelAnimationFrame(fhRaf.current); fhRaf.current = null } }
     const flushPreview = () => { fhRaf.current = null; if (fhActive.current) setFhPath(fhPoints.current.slice()) }
     const schedule = () => { if (fhRaf.current == null) fhRaf.current = requestAnimationFrame(flushPreview) }
-    const start = (ll: LngLat) => { fhActive.current = true; fhPoints.current = [ll]; setFhPath([ll]); map.dragPan.disable() }
-    const addPoint = (ll: LngLat) => { fhPoints.current.push(ll); schedule() }
+    const start = (ll: LngLat) => { fhActive.current = true; fhPoints.current = [ll]; setFhPath([ll]); map.dragPan.disable(); onFreehandPointerRef.current?.('start', ll) }
+    const addPoint = (ll: LngLat) => { fhPoints.current.push(ll); schedule(); onFreehandPointerRef.current?.('move', ll) }
     const finish = (commit: boolean) => {
       map.dragPan.enable()
       cancelRaf()
@@ -87,12 +90,13 @@ export function useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, 
       const p = fhPoints.current
       fhPoints.current = []
       setFhPath(null)
+      const attachments = p.length ? onFreehandPointerRef.current?.('end', p[p.length - 1]) || undefined : undefined
       if (commit && p.length >= 2) {
         // thin the raw stroke into a clean, editable polyline before committing — project to
         // screen px so the tolerance is zoom-correct, keep the RDP nodes (parity with the Plan).
         const px = p.map((c) => { const pt = map.project(c as [number, number]); return [pt.x, pt.y] as [number, number] })
         const idx = rdpIndices(px, FREEHAND_SIMPLIFY_PX)
-        onFreehandRef.current(idx.length >= 2 ? idx.map((i) => p[i]) : p)
+        onFreehandRef.current(idx.length >= 2 ? idx.map((i) => p[i]) : p, attachments)
       }
     }
     const onTouchStart = (e: any) => {

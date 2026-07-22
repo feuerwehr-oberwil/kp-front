@@ -2,12 +2,12 @@ import { forwardRef, Fragment, useEffect, useRef, useState } from 'react'
 import Map, { Marker, Source, Layer, type MapRef, type MapLayerMouseEvent } from 'react-map-gl/maplibre'
 import type { Map as MlMap } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import type { CaptionMode, Drawing, Entity, LayerDef, LayerId, LngLat, PreparedMapOverlay, Trupp, WeatherData } from '../types'
+import type { CaptionMode, Drawing, Entity, LayerDef, LayerId, LineAttachment, LineEndpoint, LngLat, PreparedMapOverlay, Trupp, WeatherData } from '../types'
 import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
 import { LINE_DASH_ML } from '../lib/draw'
 import { markerParamsAlong, lerpPoint, MAX_VERTEX_HANDLES } from '../lib/lineStyle'
-import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, snapNorth } from '../lib/mapView'
+import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, snapNorth, shapePx, symPx } from '../lib/mapView'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
 import { pathLengthM, fmtDistance, hoseLengthHint, circlePolygon } from '../lib/geo'
 import { useMapCanvasGestures } from './useMapCanvasGestures'
@@ -17,6 +17,7 @@ import { MapLayers } from './MapLayers'
 // move threshold lives in MapMarkers with the entity-drag logic.
 import { useLongPress } from '../lib/useLongPress'
 import { QuietAttributionControl } from './MapAttribution'
+import { advanceDwell, boundaryPoint, DETACH_RADIUS_PX, EMPTY_DWELL, gpsGuard, incomingAttachments, moveLineBody, nearestBlockedTarget, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 
 // Lock chip on a locked drawing: a SHORT HOLD (not a tap) unlocks it, with a filling ring as
 // the progress indicator (Miro-style) so a stray tap never unlocks instantly.
@@ -112,6 +113,7 @@ interface Props {
   onDraftDrag?: (index: number, coord: LngLat) => void
   onDraftInsert?: (index: number, coord: LngLat) => void
   onDraftDelete?: (index: number) => void
+  onDraftPointAttachment?: (attachment?: LineAttachment) => void
   draggable: boolean
   onMarkerDragStart: (id: string) => void
   onMarkerMove: (id: string, c: LngLat) => void
@@ -129,7 +131,7 @@ interface Props {
   onPick?: (c: LngLat) => void
   pickedPoint?: LngLat | null
   freehand: boolean
-  onFreehand: (coords: LngLat[]) => void
+  onFreehand: (coords: LngLat[], attachments?: { startAttachment?: LineAttachment; endAttachment?: LineAttachment }) => void
   drawColor: string
   drawWidth: number
   drawDashed: boolean
@@ -156,6 +158,8 @@ interface Props {
   onDrawingVertexInsert?: (id: string, index: number, coord: LngLat) => void
   onDrawingVertexDelete?: (id: string, index: number) => void
   onDrawingDelete?: (id: string) => void
+  /** Commit one armed endpoint attach/retarget/detach gesture. */
+  onDrawingAttachment?: (id: string, endpoint: LineEndpoint, attachment: LineAttachment | undefined, fallback: LngLat) => void
   /** drag a line's distance/text label to a GEOREFERENCED anchor (WGS84 [lng,lat]), so it
    *  stays pinned to the ground at every zoom + bearing (the old screen-px offset drifted).
    *  `at` is null on 'start' (just the undo snapshot). Folds the drag into one undo step. */
@@ -177,9 +181,9 @@ interface Props {
 
 export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   const { entities, layers, byName, symMul = 1, captionMode = 'off', initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, mapActive = true, weather = null, onOpenWeather, replayActive = false, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, trupps, onShowTrupp, onTeamMark, onTeamClearTrail,
-    drawings, drawingsVisible, draft, draftKind, placing, onDraftDrag, onDraftInsert, onDraftDelete, draggable, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onRotate, onShapeTransform,
+    drawings: storedDrawings, drawingsVisible, draft, draftKind, placing, onDraftDrag, onDraftInsert, onDraftDelete, onDraftPointAttachment, draggable, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onRotate, onShapeTransform,
     onView, picking, onCursor, onPick, pickedPoint, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, onSelectDrawing, onUnlockDrawing, onDelete, measureLabels = [], measurePoints = [], measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
-    selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingDelete, onLabelMove,
+    selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingDelete, onDrawingAttachment, onLabelMove,
     marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupMove, onGroupDelete, selectedEntityIds = [], circleEnabled = false, onCircle } = props
   const [zoom, setZoom] = useState(initialZoom)
   // team-trail visibility (map-session, default on) — the eye toggle in the team action bar
@@ -193,6 +197,203 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // long-press to delete a path vertex (touch equivalent of the desktop right-click)
   const vertexPress = useLongPress()
   const [mapReady, setMapReady] = useState(false)
+  type EndpointDrag = { id: string; endpoint: LineEndpoint; coord: LngLat; originPx: [number, number]; dwell: DwellState; candidate: MagneticTarget | null; detachArmed: boolean }
+  const [endpointDrag, setEndpointDragState] = useState<EndpointDrag | null>(null)
+  const endpointDragRef = useRef<EndpointDrag | null>(null)
+  const dwellTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const setEndpointDrag = (next: EndpointDrag | null) => { endpointDragRef.current = next; setEndpointDragState(next) }
+  type DraftMagnet = { first: LngLat; coord: LngLat; atStart: boolean; dwell: DwellState; candidate: MagneticTarget | null; startAttachment?: LineAttachment; endAttachment?: LineAttachment }
+  const [draftMagnetState, setDraftMagnetState] = useState<DraftMagnet | null>(null)
+  const draftMagnet = useRef<DraftMagnet | null>(null)
+  const draftDwellTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const setDraftMagnet = (next: DraftMagnet | null) => { draftMagnet.current = next; setDraftMagnetState(next) }
+
+  // Resolve magnetic intent late, in the renderer's current screen space. Stored endpoint
+  // coordinates stay untouched as fallbacks; every downstream map consumer below sees this
+  // single resolved list (ink, hit testing, arrows, labels, bounds and edit handles).
+  const attachmentLines: AttachableLine<LngLat>[] = storedDrawings
+    .filter((d) => d.kind === 'line' && d.coords.length >= 2)
+    .map((d) => ({ id: d.id, points: d.coords, teilstueck: d.teilstueck, startAttachment: d.startAttachment, endAttachment: d.endAttachment }))
+  const resolvedCoords = new globalThis.Map<string, LngLat[]>()
+  const objectPoint = (id: string, toward: LngLat, attachment: import('../types').LineAttachment): LngLat | null => {
+    const e = entities.find((x) => x.id === id)
+    const map = mapInst.current
+    if (!e || !map || !Array.isArray(e.coord)) return attachment.gps?.lastSafe ?? null
+    let center = e.coord
+    if (attachment.gps) {
+      const guarded = gpsGuard(attachment.gps.state, attachment.gps.confirmedAt, attachment.gps.lastSafe, center,
+        (a, b) => pathLengthM([a as LngLat, b as LngLat]))
+      center = guarded.point as LngLat
+    }
+    const c = map.project(center), t = map.project(toward)
+    const size = e.kind === 'shape' ? shapePx(e.sizeM, e.coord[1], zoom)
+      : e.kind === 'team' ? 56 : e.kind === 'note' || e.kind === 'photo' ? 56 : symPx(e.kind, e.coord[1], zoom, symMul)
+    const p = boundaryPoint({ shape: 'rect', center: [c.x, c.y], width: size, height: e.kind === 'vehicle' ? size * 0.7 : size, rotation: (e.rotation ?? 0) - bearing }, [t.x, t.y])
+    const ll = map.unproject(p)
+    return [ll.lng, ll.lat]
+  }
+  const linePoint = (target: AttachableLine<LngLat>, endpoint: LineEndpoint, attachment: LineAttachment, resolved: LngLat): LngLat => {
+    const map = mapInst.current
+    if (!map || !(endpoint === 'end' && target.teilstueck) || attachment.port == null || target.points.length < 2) return resolved
+    const p = map.project(resolved), q = map.project(target.points[target.points.length - 2]), len = Math.hypot(p.x - q.x, p.y - q.y) || 1, off = (attachment.port - 1) * 10
+    const ll = map.unproject([p.x - (p.y - q.y) / len * off, p.y + (p.x - q.x) / len * off])
+    return [ll.lng, ll.lat]
+  }
+  for (const l of attachmentLines) resolvedCoords.set(l.id, resolveLinePoints(l, { lines: attachmentLines, objectPoint, linePoint }))
+  const relationship = relationshipNetwork(attachmentLines, selectedDrawingId ? [selectedDrawingId] : [], selectedId ? [selectedId] : [])
+  const drawings: Drawing[] = storedDrawings.map((d): Drawing => {
+    const base = resolvedCoords.has(d.id) ? { ...d, coords: resolvedCoords.get(d.id)! } : d
+    if (endpointDrag?.id !== d.id || base.coords.length < 2) return base
+    return { ...base, coords: base.coords.map((p, i) => i === (endpointDrag.endpoint === 'start' ? 0 : base.coords.length - 1) ? endpointDrag.coord : p) }
+  })
+  const resolvedSelectedDrawing = selectedDrawing && resolvedCoords.has(selectedDrawing.id)
+    ? { ...selectedDrawing, coords: resolvedCoords.get(selectedDrawing.id)! } : selectedDrawing
+  const hiddenAttachmentTargets = selectedDrawing ? [selectedDrawing.startAttachment, selectedDrawing.endAttachment].flatMap((a) => {
+    if (a?.target.kind !== 'object') return []
+    const e = entities.find((x) => x.id === a.target.id)
+    return e && !isVisible(e.layer) ? [e] : []
+  }) : []
+  const lineJoins = drawings.flatMap((d) => (['start', 'end'] as const).flatMap((endpoint) => {
+    const a = endpoint === 'start' ? d.startAttachment : d.endAttachment
+    if (a?.target.kind !== 'line' || !d.coords.length) return []
+    return [{ key: `${d.id}-${endpoint}`, coord: d.coords[endpoint === 'start' ? 0 : d.coords.length - 1] }]
+  }))
+  const candidatesAt = (sourceId: string, at: LngLat): MagneticTarget[] => {
+    const map = mapInst.current
+    if (!map) return []
+    const pointer = map.project(at)
+    const objectTargets: MagneticTarget[] = entities
+      .filter((e) => ['symbol', 'vehicle', 'team'].includes(e.kind) && Array.isArray(e.coord))
+      .map((e) => {
+        const c = map.project(e.coord), size = e.kind === 'team' ? 56 : symPx(e.kind, e.coord[1], zoom, symMul)
+        const edge = boundaryPoint({ shape: 'rect', center: [c.x, c.y], width: size, height: e.kind === 'vehicle' ? size * 0.7 : size, rotation: (e.rotation ?? 0) - bearing }, [pointer.x, pointer.y])
+        return { key: `object:${e.id}`, target: { kind: 'object', id: e.id, live: !!e.live }, point: edge, defaultRouting: e.kind === 'team' ? 'trace' : 'direct' }
+      })
+    const lineTargets: MagneticTarget[] = drawings
+      .filter((d) => d.kind === 'line' && d.id !== sourceId && d.coords.length >= 2)
+      .flatMap((d) => (['start', 'end'] as const).flatMap((endpoint) => {
+        const point = endpoint === 'start' ? d.coords[0] : d.coords[d.coords.length - 1]
+        const p = map.project(point)
+        const capacity = endpoint === 'end' && d.teilstueck ? 3 : 1
+        const usedPorts = incomingAttachments(attachmentLines, d.id, endpoint).map((x) => x.attachment.port ?? 0)
+        const free = Array.from({ length: capacity }, (_, i) => i).filter((port) => !usedPorts.includes(port))
+        const neighbor = map.project(endpoint === 'start' ? d.coords[1] : d.coords[d.coords.length - 2])
+        const len = Math.hypot(p.x - neighbor.x, p.y - neighbor.y) || 1
+        const nx = -(p.y - neighbor.y) / len, ny = (p.x - neighbor.x) / len
+        return free.map((port) => {
+          const off = capacity === 3 ? (port - 1) * 10 : 0
+          return { key: `line:${d.id}:${endpoint}:${port}`, target: { kind: 'line', id: d.id, endpoint }, point: [p.x + nx * off, p.y + ny * off] as [number, number], capacity, usedPorts, port, blocked: wouldCreateCycle(attachmentLines, sourceId, d.id), defaultRouting: 'direct' as const }
+        })
+      }))
+    return [...objectTargets, ...lineTargets]
+  }
+  const selectedEPorts = selectedDrawing?.teilstueck && selectedDrawing.coords.length >= 2
+    ? candidatesAt('__ports__', selectedDrawing.coords[selectedDrawing.coords.length - 1]).filter((c) => c.target.kind === 'line' && c.target.id === selectedDrawing.id && c.target.endpoint === 'end') : []
+  const activeMagnet = endpointDrag ?? draftMagnetState
+  const activeEPorts = activeMagnet?.candidate?.target.kind === 'line' && activeMagnet.candidate.target.endpoint === 'end'
+    ? candidatesAt(endpointDrag?.id ?? '__draft__', activeMagnet.coord)
+      .filter((c) => c.target.kind === 'line' && c.target.id === activeMagnet.candidate!.target.id && c.target.endpoint === 'end')
+    : []
+
+  const beginEndpointDrag = (id: string, endpoint: LineEndpoint, coord: LngLat) => {
+    const p = mapInst.current?.project(coord)
+    if (!p) return
+    setEndpointDrag({ id, endpoint, coord, originPx: [p.x, p.y], dwell: EMPTY_DWELL, candidate: null, detachArmed: false })
+  }
+  const moveEndpointDrag = (coord: LngLat) => {
+    const st = endpointDragRef.current, map = mapInst.current
+    if (!st || !map) return
+    const pointer = map.project(coord)
+    const targets = candidatesAt(st.id, coord)
+    const candidate = nearestMagneticTarget([pointer.x, pointer.y], targets) ?? nearestBlockedTarget([pointer.x, pointer.y], targets)
+    const dwell = advanceDwell(st.dwell, candidate && !candidate.blocked ? candidate.key : null, Date.now())
+    const next = { ...st, coord, candidate, dwell, detachArmed: Math.hypot(pointer.x - st.originPx[0], pointer.y - st.originPx[1]) >= DETACH_RADIUS_PX }
+    setEndpointDrag(next)
+    if (dwellTimer.current) clearTimeout(dwellTimer.current)
+    if (candidate && !candidate.blocked && !dwell.armed) {
+      dwellTimer.current = setTimeout(() => {
+        const cur = endpointDragRef.current
+        if (!cur || cur.candidate?.key !== candidate.key) return
+        const armed = { ...cur, dwell: { ...cur.dwell, armed: true } }
+        setEndpointDrag(armed)
+        navigator.vibrate?.(12)
+      }, Math.max(0, 350 - (Date.now() - dwell.since)))
+    }
+  }
+  const finishEndpointDrag = () => {
+    const st = endpointDragRef.current
+    if (!st) return
+    if (dwellTimer.current) clearTimeout(dwellTimer.current)
+    const stored = storedDrawings.find((d) => d.id === st.id)
+    const existing = st.endpoint === 'start' ? stored?.startAttachment : stored?.endAttachment
+    if (st.dwell.armed && st.candidate) {
+      const target = st.candidate.target
+      const entity = target.kind === 'object' ? entities.find((e) => e.id === target.id) : null
+      const port = target.kind === 'line' ? st.candidate.port ?? nextFreePort(attachmentLines, target.id, target.endpoint) ?? undefined : undefined
+      const attachment: LineAttachment = {
+        target, port, routing: st.candidate.defaultRouting ?? 'direct',
+        ...(target.kind === 'object' && entity?.live ? { gps: { state: 'guarded' as const, confirmedAt: entity.coord, lastSafe: entity.coord } } : {}),
+      }
+      onDrawingAttachment?.(st.id, st.endpoint, attachment, st.coord)
+    } else if (existing && st.detachArmed) onDrawingAttachment?.(st.id, st.endpoint, undefined, st.coord)
+    else if (!existing) onDrawingAttachment?.(st.id, st.endpoint, undefined, st.coord)
+    setEndpointDrag(null)
+  }
+
+  const attachmentForCandidate = (candidate: MagneticTarget): LineAttachment => {
+    const target = candidate.target
+    const entity = target.kind === 'object' ? entities.find((e) => e.id === target.id) : null
+    return {
+      target, routing: candidate.defaultRouting ?? 'direct',
+      ...(target.kind === 'line' ? { port: candidate.port ?? nextFreePort(attachmentLines, target.id, target.endpoint) ?? undefined } : {}),
+      ...(target.kind === 'object' && entity?.live ? { gps: { state: 'guarded' as const, confirmedAt: entity.coord, lastSafe: entity.coord } } : {}),
+    }
+  }
+  const updateDraftMagnet = (phase: 'start' | 'move' | 'end', coord: LngLat): { startAttachment?: LineAttachment; endAttachment?: LineAttachment } | void => {
+    const map = mapInst.current
+    if (!map) return
+    if (phase === 'start') {
+      const targets = candidatesAt('__draft__', coord), pp = map.project(coord)
+      const candidate = nearestMagneticTarget([pp.x, pp.y], targets) ?? nearestBlockedTarget([pp.x, pp.y], targets)
+      const atStart = draftKind === 'line' && !freehand ? draft.length === 0 : true
+      const next: DraftMagnet = { first: coord, coord, atStart, dwell: advanceDwell(EMPTY_DWELL, candidate && !candidate.blocked ? candidate.key : null, Date.now()), candidate }
+      setDraftMagnet(next)
+      if (candidate && !candidate.blocked) draftDwellTimer.current = setTimeout(() => {
+        const now = draftMagnet.current
+        if (!now || now.candidate?.key !== candidate.key) return
+        const attachment = attachmentForCandidate(candidate)
+        setDraftMagnet({ ...now, dwell: { ...now.dwell, armed: true }, ...(now.atStart ? { startAttachment: attachment } : { endAttachment: attachment }) })
+        navigator.vibrate?.(12)
+      }, 350)
+    } else if (phase === 'move') {
+      const cur = draftMagnet.current; if (!cur) return
+      const a = map.project(cur.first), b = map.project(coord)
+      const atStart = Math.hypot(b.x - a.x, b.y - a.y) < 10 && !cur.startAttachment
+      const targets = candidatesAt('__draft__', coord)
+      const candidate = nearestMagneticTarget([b.x, b.y], targets) ?? nearestBlockedTarget([b.x, b.y], targets)
+      const next = { ...cur, coord, atStart, candidate, dwell: advanceDwell(cur.dwell, candidate && !candidate.blocked ? candidate.key : null, Date.now()) }
+      setDraftMagnet(next)
+      if (draftDwellTimer.current) clearTimeout(draftDwellTimer.current)
+      if (candidate && !candidate.blocked && !next.dwell.armed) draftDwellTimer.current = setTimeout(() => {
+        const now = draftMagnet.current
+        if (!now || now.candidate?.key !== candidate.key) return
+        const attachment = attachmentForCandidate(candidate)
+        setDraftMagnet({ ...now, dwell: { ...now.dwell, armed: true }, ...(now.atStart ? { startAttachment: attachment } : { endAttachment: attachment }) })
+        navigator.vibrate?.(12)
+      }, Math.max(0, 350 - (Date.now() - next.dwell.since)))
+    } else {
+      const cur = draftMagnet.current
+      if (draftDwellTimer.current) clearTimeout(draftDwellTimer.current)
+      const out = cur ? { startAttachment: cur.startAttachment, endAttachment: cur.endAttachment } : undefined
+      setDraftMagnet(null)
+      return out
+    }
+  }
+  const nodeMagnetActive = draftKind === 'line' && !freehand && !!onDraftPointAttachment
+  const finishDraftNodeMagnet = (coord: LngLat) => {
+    const out = updateDraftMagnet('end', coord)
+    onDraftPointAttachment?.(out?.startAttachment ?? out?.endAttachment)
+  }
   // own position (GPS) — a quiet blue dot so the crew can see where they stand relative to the
   // Einsatzort. ON DEMAND, not a continuous watch: a permanent high-accuracy watchPosition keeps
   // the GPS chip powered for the whole shift, one of the biggest battery drains — and once you know
@@ -325,7 +526,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
 
   // canvas-level pointer gestures (freehand drawing + marquee multi-select) live in a
   // dedicated hook; they bind directly to the MapLibre instance and toggle dragPan.
-  const { fhPath, marquee, circle } = useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, marqueeEnabled, drawings, entities, onMarquee, circleEnabled, onCircle, circleMinRadiusM: appConfig.drawing.circleMinRadiusM, circleInitialRadiusM: appConfig.drawing.circleInitialRadiusM })
+  const { fhPath, marquee, circle } = useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, onFreehandPointer: updateDraftMagnet, marqueeEnabled, drawings, entities, onMarquee, circleEnabled, onCircle, circleMinRadiusM: appConfig.drawing.circleMinRadiusM, circleInitialRadiusM: appConfig.drawing.circleInitialRadiusM })
 
   // a circle drawing as a closed polygon ring (LngLat[]) for rendering / selection outline.
   const circleRing = (d: Drawing): LngLat[] => circlePolygon(d.coords[0], d.radiusM ?? 0)[0] as LngLat[]
@@ -341,7 +542,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   }
 
   const drawFC = fc(drawings.filter((d) => Array.isArray(d.coords) && d.coords.length > 0).map((d) => {
-    const p = { id: d.id, color: d.color || '#1f6feb', width: d.width || 4, dashed: !!d.dashed, arrow: !!d.arrow, marker: d.marker || '', showDistance: !!d.showDistance, label: d.label || '', fillOpacity: d.fillOpacity ?? 0.14 }
+    const p = { id: d.id, color: d.color || '#1f6feb', width: d.width || 4, dashed: !!d.dashed, arrow: !!d.arrow, marker: d.marker || '', showDistance: !!d.showDistance, label: d.label || '', fillOpacity: d.fillOpacity ?? 0.14, networkDepth: relationship.depth.get(`line:${d.id}`) ?? -1 }
     if (d.kind === 'circle') return polyFeat(circleRing(d), p)
     return d.kind === 'area' && d.coords.length >= 3 ? polyFeat(d.coords, p) : lineFeat(d.coords, p)
   }))
@@ -449,7 +650,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // editing a selected drawing: show draggable vertex handles + a move handle. Vertex
   // handles are hidden for big freehand strokes (too many points to grab) — those can
   // still be moved/deleted as a whole. The fat hit-line lets a click insert a vertex.
-  const editDraw = !picking && !freehand && !draftKind && !measureKind && selectedDrawing && Array.isArray(selectedDrawing.coords) && selectedDrawing.coords.length > 0 ? selectedDrawing : null
+  const editDraw = !picking && !freehand && !draftKind && !measureKind && resolvedSelectedDrawing && Array.isArray(resolvedSelectedDrawing.coords) && resolvedSelectedDrawing.coords.length > 0 ? resolvedSelectedDrawing : null
   const editCircle = !!editDraw && editDraw.kind === 'circle'
   const editArea = !!editDraw && editDraw.kind === 'area' && editDraw.coords.length >= 3
   // circle: no per-vertex handles (it's centre + radius, not a polyline) — the centre
@@ -461,6 +662,11 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
        editDraw.coords.reduce((s, c) => s + c[1], 0) / editDraw.coords.length]
     : null
   const moveRef = useRef<{ start: LngLat; coords: LngLat[] } | null>(null)
+  const bodyMovedCoords = (id: string, dx: number, dy: number): LngLat[] => {
+    const stored = storedDrawings.find((d) => d.id === id)
+    if (!stored) return []
+    return moveLineBody({ id, points: stored.coords, startAttachment: stored.startAttachment, endAttachment: stored.endAttachment }, [dx, dy])
+  }
   // a marquee group (≥2 across drawings + entities): a single move grip + delete at the
   // combined centre; which objects light up as "selected" = the group, else the single edit
   // target. Both boxed drawings AND boxed symbols/entities join the group.
@@ -644,11 +850,15 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           mapInst.current?.easeTo({ bearing: 0, duration: 250 })
         }
       }}
-      onMouseMove={picking ? (e) => onCursor?.([e.lngLat.lng, e.lngLat.lat]) : undefined}
+      onMouseDown={nodeMagnetActive ? (e) => updateDraftMagnet('start', [e.lngLat.lng, e.lngLat.lat]) : undefined}
+      onMouseMove={(picking || nodeMagnetActive) ? (e) => { if (picking) onCursor?.([e.lngLat.lng, e.lngLat.lat]); if (nodeMagnetActive) updateDraftMagnet('move', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
+      onMouseUp={nodeMagnetActive ? (e) => finishDraftNodeMagnet([e.lngLat.lng, e.lngLat.lat]) : undefined}
       onMouseOut={picking ? () => onCursor?.(null) : undefined}
       // mousemove never fires on touch — stream the aim coords from the drag as well,
       // so the crosshair readout tracks the finger on iPhone/iPad
-      onTouchMove={picking ? (e) => onCursor?.([e.lngLat.lng, e.lngLat.lat]) : undefined}
+      onTouchStart={nodeMagnetActive ? (e) => updateDraftMagnet('start', [e.lngLat.lng, e.lngLat.lat]) : undefined}
+      onTouchMove={(picking || nodeMagnetActive) ? (e) => { if (picking) onCursor?.([e.lngLat.lng, e.lngLat.lat]); if (nodeMagnetActive) updateDraftMagnet('move', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
+      onTouchEnd={nodeMagnetActive ? (e) => finishDraftNodeMagnet([e.lngLat.lng, e.lngLat.lat]) : undefined}
       cursor={picking ? 'crosshair' : undefined}
       attributionControl={false}
       maxPitch={0}
@@ -664,6 +874,9 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
 
       {/* committed drawings (per-feature colour/width) — gated by the markup layer toggle */}
       <Source id="s-draw" type="geojson" data={drawFC}>
+        <Layer id="l-draw-network" type="line" filter={['>=', ['get', 'networkDepth'], 0] as any}
+          layout={{ 'line-cap': 'round', 'line-join': 'round', ...vis(drawingsVisible) }}
+          paint={{ 'line-color': appConfig.drawing.selectColor, 'line-width': ['+', ['get', 'width'], 9], 'line-opacity': ['interpolate', ['linear'], ['get', 'networkDepth'], 0, 0.34, 4, 0.08] } as any} />
         <Layer id="l-draw-sel" type="line" filter={['in', ['get', 'id'], ['literal', selHighlight]] as any}
           layout={{ 'line-cap': 'round', 'line-join': 'round', ...vis(drawingsVisible) }}
           paint={{ 'line-color': appConfig.drawing.selectColor, 'line-width': ['+', ['get', 'width'], 6], 'line-opacity': 0.5 } as any} />
@@ -870,6 +1083,23 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         </Marker>
       ))}
 
+      {/* Candidate boundary/port and its 350 ms fill. */}
+      {endpointDrag?.candidate && mapInst.current && (() => {
+        const ll = mapInst.current.unproject(endpointDrag.candidate.point)
+        return <Marker longitude={ll.lng} latitude={ll.lat} anchor="center"><span className={`magnet-port${endpointDrag.dwell.armed ? ' armed' : ''}${endpointDrag.candidate.blocked ? ' blocked' : ''}`}>{endpointDrag.candidate.blocked ? <small>{appConfig.copy.drawingEditor.cycleBlocked}</small> : null}</span></Marker>
+      })()}
+      {endpointDrag?.detachArmed && !endpointDrag.candidate && (
+        <Marker longitude={endpointDrag.coord[0]} latitude={endpointDrag.coord[1]} anchor="center"><span className="magnet-port detach">×</span></Marker>
+      )}
+      {draftMagnetState?.candidate && mapInst.current && (() => {
+        const ll = mapInst.current.unproject(draftMagnetState.candidate.point)
+        return <Marker longitude={ll.lng} latitude={ll.lat} anchor="center"><span className={`magnet-port${draftMagnetState.dwell.armed ? ' armed' : ''}${draftMagnetState.candidate.blocked ? ' blocked' : ''}`}>{draftMagnetState.candidate.blocked ? <small>{appConfig.copy.drawingEditor.cycleBlocked}</small> : null}</span></Marker>
+      })()}
+      {hiddenAttachmentTargets.map((e) => <Marker key={`hidden-${e.id}`} longitude={e.coord[0]} latitude={e.coord[1]} anchor="center"><span className="hidden-attachment-marker" /></Marker>)}
+      {lineJoins.map((j) => <Marker key={`join-${j.key}`} longitude={j.coord[0]} latitude={j.coord[1]} anchor="center"><span className="line-coupling-dot" /></Marker>)}
+      {selectedEPorts.map((port) => { const ll = mapInst.current?.unproject(port.point); return ll ? <Marker key={port.key} longitude={ll.lng} latitude={ll.lat} anchor="center"><span className="line-e-port" /></Marker> : null })}
+      {activeEPorts.map((port) => { const ll = mapInst.current?.unproject(port.point); return ll ? <Marker key={`active-${port.key}`} longitude={ll.lng} latitude={ll.lat} anchor="center"><span className="line-e-port" /></Marker> : null })}
+
       {/* selected drawing — on-canvas edit handles: a move grip at the centre, a delete
           ✕ above it, and (for non-huge shapes) a draggable handle on every vertex */}
       {editDraw && editCentroid && (
@@ -909,22 +1139,24 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           anchor="center"
           draggable
           onDragStart={() => { moveRef.current = { start: editCentroid, coords: editDraw.coords }; onDrawingEdit(editDraw.id, editDraw.coords, 'start') }}
-          onDrag={(e) => { const m = moveRef.current; if (!m) return; const dx = e.lngLat.lng - m.start[0], dy = e.lngLat.lat - m.start[1]; onDrawingEdit(editDraw.id, m.coords.map((q) => [q[0] + dx, q[1] + dy]), 'move') }}
-          onDragEnd={(e) => { const m = moveRef.current; if (!m) { onDrawingEdit(editDraw.id, editDraw.coords, 'end'); return } const dx = e.lngLat.lng - m.start[0], dy = e.lngLat.lat - m.start[1]; onDrawingEdit(editDraw.id, m.coords.map((q) => [q[0] + dx, q[1] + dy]), 'end'); moveRef.current = null }}
+          onDrag={(e) => { const m = moveRef.current; if (!m) return; const dx = e.lngLat.lng - m.start[0], dy = e.lngLat.lat - m.start[1]; onDrawingEdit(editDraw.id, bodyMovedCoords(editDraw.id, dx, dy), 'move') }}
+          onDragEnd={(e) => { const m = moveRef.current; if (!m) { onDrawingEdit(editDraw.id, editDraw.coords, 'end'); return } const dx = e.lngLat.lng - m.start[0], dy = e.lngLat.lat - m.start[1]; onDrawingEdit(editDraw.id, bodyMovedCoords(editDraw.id, dx, dy), 'end'); moveRef.current = null }}
         >
           <div className="draw-move" title={appConfig.copy.drawingEditor.move} aria-label={appConfig.copy.drawingEditor.move}><Icon id="move" /></div>
         </Marker>
       )}
-      {editDraw && editVertices && onDrawingEdit && editDraw.coords.map((p, i) => (
+      {editDraw && editVertices && onDrawingEdit && editDraw.coords.map((p, i) => {
+        const endpoint: LineEndpoint | null = editDraw.kind === 'line' && i === 0 ? 'start' : editDraw.kind === 'line' && i === editDraw.coords.length - 1 ? 'end' : null
+        return (
         <Marker
           key={`dv${i}`}
           longitude={p[0]}
           latitude={p[1]}
           anchor="center"
           draggable
-          onDragStart={() => onDrawingEdit(editDraw.id, editDraw.coords, 'start')}
-          onDrag={(e) => { vertexPress.cancel(); onDrawingEdit(editDraw.id, editDraw.coords.map((q, j) => (j === i ? [e.lngLat.lng, e.lngLat.lat] : q)), 'move') }}
-          onDragEnd={(e) => onDrawingEdit(editDraw.id, editDraw.coords.map((q, j) => (j === i ? [e.lngLat.lng, e.lngLat.lat] : q)), 'end')}
+          onDragStart={() => endpoint && onDrawingAttachment ? beginEndpointDrag(editDraw.id, endpoint, p) : onDrawingEdit(editDraw.id, editDraw.coords, 'start')}
+          onDrag={(e) => { vertexPress.cancel(); endpoint && onDrawingAttachment ? moveEndpointDrag([e.lngLat.lng, e.lngLat.lat]) : onDrawingEdit(editDraw.id, editDraw.coords.map((q, j) => (j === i ? [e.lngLat.lng, e.lngLat.lat] : q)), 'move') }}
+          onDragEnd={(e) => endpoint && onDrawingAttachment ? (moveEndpointDrag([e.lngLat.lng, e.lngLat.lat]), finishEndpointDrag()) : onDrawingEdit(editDraw.id, editDraw.coords.map((q, j) => (j === i ? [e.lngLat.lng, e.lngLat.lat] : q)), 'end')}
         >
           <div
             className="draw-handle"
@@ -933,7 +1165,8 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
             onContextMenu={(ev) => { ev.stopPropagation(); ev.preventDefault(); onDrawingVertexDelete?.(editDraw.id, i) }}
           />
         </Marker>
-      ))}
+        )
+      })}
 
       {/* marquee group (≥2 drawings + entities): one move grip + delete at the combined centre */}
       {groupCentroid && (
@@ -973,6 +1206,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         isVisible={isVisible}
         selectedId={selectedId}
         groupSelectedIds={groupEnts.length ? selectedEntityIds : []}
+        networkEntityIds={[...relationship.objectIds]}
         zoom={zoom}
         bearing={bearing}
         symMul={symMul}
