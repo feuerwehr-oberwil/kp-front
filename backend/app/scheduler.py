@@ -86,11 +86,15 @@ async def _demo_reset() -> None:
     """DEMO ONLY: wipe + reseed the synthetic Musterdorf incident/roster (see demo_reset.reset).
     Runs in-process so the public demo self-cleans on an exact cadence, instead of relying on the
     GitHub Actions cron, which delays/skips scheduled runs (the demo drifted to 2.5 h+ between
-    resets). `reset()` owns its own session + commit, so there's nothing to manage here."""
+    resets). `reset()` owns its own session + commit, so there's nothing to manage here.
+
+    `wipe_objects=False`: the in-process job never reloads the reference Einsatzobjekte (only the
+    GitHub workflow's `scripts/demo-reset.sh` does), so it must NOT delete them — otherwise the
+    Schloss's Modul 1 / 2-3 / 6 plans vanish from the plan rail until the next GitHub reload."""
     from .demo_reset import reset
 
     try:
-        await reset()
+        await reset(wipe_objects=False)
     except Exception:  # noqa: BLE001
         logger.exception("Demo reset sweep failed")
 
