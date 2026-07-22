@@ -9,7 +9,7 @@ import { appConfig } from '../config/appConfig'
 import { isGrossluefter, isVehicleSym } from './mapView'
 import { placardSvgForSymbol } from './placard'
 import { vehicleSymbolSvg } from './useVehiclePositions'
-import { GROSSLUEFTER_BODY, GROSSLUEFTER_FAN, composeGrossluefterSvg } from './symbolRender'
+import { GROSSLUEFTER_BODY, GROSSLUEFTER_FAN, LUEFTER, LUEFTER_EXTRACT, composeGrossluefterSvg } from './symbolRender'
 import { SHAPE_DEFS } from './shapes'
 import { operationalExtentPoints, type KrokiView } from './report'
 
@@ -83,6 +83,9 @@ export function krokiEntity(e: Entity, byName: Record<string, string>): KrokiEnt
   }
   const placard = placardSvgForSymbol(e.symbol, e.fields)
   if (placard) return { ...base, symbolSvg: placard }
+  // an extract Lüfter renders the reversed-arrow variant — resolve it to SVG here (like the
+  // Grosslüfter) so the server prints the same glyph without needing to know the `extract` flag.
+  if (e.extract && e.symbol === LUEFTER && byName[LUEFTER_EXTRACT]) return { ...base, symbolSvg: byName[LUEFTER_EXTRACT] }
   return e.symbol ? { ...base, symbol: e.symbol } : null
 }
 

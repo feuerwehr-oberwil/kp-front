@@ -1107,6 +1107,11 @@ export const de = {
     rotation: 'Drehung',
     rotationVehicle: 'Fahrzeug',
     rotationFan: 'Lüfter',
+    // Lüfter airflow direction — Einblasen (blows away from the fan, Überdruck) vs Absaugen
+    // (arrow reversed to point into the fan; the fan sits in the space but draws air out)
+    airflow: 'Luftrichtung',
+    airflowBlow: 'Einblasen',
+    airflowExtract: 'Absaugen',
     center: 'Zentrieren',
     resetGps: 'GPS',
     resetGpsTitle: 'Auf GPS-Position und -Kurs zurücksetzen',
@@ -2295,12 +2300,14 @@ export const de = {
         floor: 'Stockwerk',
         floorRange: 'Stockwerk-Bereich',
         spread: 'Ausbreitung',
+        airflow: 'Luftrichtung',
       },
       propertiesMeaningTitle: 'Eigenschaften',
       controlGlossary: {
         rotation: 'Symbol kann nach der Platzierung gedreht werden.', rotation2: 'Ein zweiter unabhängiger Richtungswinkel ist verfügbar.',
         count: 'Mehrere gleichartige Elemente werden als Anzahl geführt.', floor: 'Das Symbol kann einem Stockwerk zugeordnet werden.',
         floorRange: 'Das Symbol kann einen Bereich von Stockwerken abdecken.', spread: 'Richtung und Ausmass einer Ausbreitung können dargestellt werden.',
+        airflow: 'Die Luftrichtung des Lüfters (Einblasen / Absaugen) kann umgeschaltet werden.',
       },
       listsMeaningTitle: 'Quelle & Auswahlliste.',
       noConfiguredLists: 'Für diese Station sind keine eigenen Auswahllisten hinterlegt. Name und Fahrer kommen aus der Mannschaft; alle übrigen Felder bleiben frei editierbar.',

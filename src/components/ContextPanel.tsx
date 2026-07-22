@@ -116,6 +116,9 @@ interface Props {
   /** set/clear this symbol's on-canvas caption mode override (null = follow the device
    *  default). Absent for non-symbols. See SymbolProps.caption / lib/symbols. */
   onCaption?: (mode: CaptionMode | null) => void
+  /** set the Lüfter airflow direction (false = Einblasen, true = Absaugen). Wired only where
+   *  the symbol's preset lists 'airflow' (the mobile Lüfter). See SymbolProps.extract. */
+  onAirflow?: (extract: boolean) => void
   /** which built-in steppers this symbol declares as meaningful (its preset). A
    *  stepper shows only if BOTH its callback is wired (surface supports it) AND it
    *  is in this set. Absent = show every wired stepper (back-compat / non-symbols). */
@@ -158,7 +161,7 @@ function LabeledStepper({ label, ...rest }: { label: string } & React.ComponentP
   )
 }
 
-export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, readOnly, hasOverride, onResetGps }: Props) {
+export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, readOnly, hasOverride, onResetGps }: Props) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
   // leadership glyph → its roster picker offers the officer-first sort + "nur Offiziere" filter
@@ -238,6 +241,7 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
   const showCount = onCount && allow('count')
   const showRotate = onRotate && allow('rotation')
   const showRotate2 = onRotate2 && allow('rotation2')   // composite Grosslüfter: body + fan
+  const showAirflow = onAirflow && allow('airflow')     // mobile Lüfter: Einblasen / Absaugen
   const showSpread = onSpread && allow('spread') && !readOnly
   // live ADR hazard readout — derived from the current UN-Nr row, so it updates as you
   // type. Only present when this symbol carries a UN-Nr field with a value.
@@ -257,7 +261,7 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
   const unLookupHref = C.unLookupUrl
     .replace('{un}', encodeURIComponent(unValue))
     .replace('{name}', encodeURIComponent(unHit?.name_de ?? ''))
-  const showDetails = showFloor || showFloorRange || showCount || showRotate || showSpread || onNotes || rows.length > 0 || showUnHazard || !readOnly
+  const showDetails = showFloor || showFloorRange || showCount || showRotate || showSpread || showAirflow || onNotes || rows.length > 0 || showUnHazard || !readOnly
 
   /* on-canvas caption override for THIS symbol — small + de-emphasised down by the actions
      (the field values matter first; visibility is a rare tweak). Standard follows the device
@@ -342,6 +346,7 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
               {entity.floorTo != null && <div className="field"><span>{C.floorTo}</span><b>{floorStr(entity.floorTo)}</b></div>}
               {(entity.count ?? 1) > 1 && <div className="field"><span>{C.count}</span><b>{entity.count}</b></div>}
               {(entity.rotation ?? 0) !== 0 && <div className="field"><span>{showRotate2 ? C.rotationVehicle : C.rotation}</span><b>{entity.rotation}°</b></div>}
+              {entity.extract && <div className="field"><span>{C.airflow}</span><b>{C.airflowExtract}</b></div>}
             </div>
           )}
           {!readOnly && (showFloor || showCount || showRotate) && (
@@ -377,6 +382,23 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
                   onChange={(v) => onRotate2!(v)} onClear={() => onRotate2!(null)} canClear={(entity.rotation2 ?? 0) !== 0}
                   min={-180} max={180} readOnly={readOnly} ariaLabel={C.rotationFan} />
               )}
+            </div>
+          )}
+
+          {/* Lüfter airflow direction — Einblasen (arrow away from the fan) vs Absaugen (arrow
+              reversed into the fan). Segmented, styled like the caption override. */}
+          {!readOnly && showAirflow && (
+            <div className="ctx-caprow">
+              <span className="ctx-caprow-lbl">{C.airflow}</span>
+              <div className="ctx-caprow-seg" role="group" aria-label={C.airflow}>
+                {([
+                  { v: false, label: C.airflowBlow },
+                  { v: true, label: C.airflowExtract },
+                ]).map(({ v, label }) => (
+                  <button key={label} type="button" className={`ctx-caprow-btn${(entity.extract ?? false) === v ? ' on' : ''}`}
+                    aria-pressed={(entity.extract ?? false) === v} onClick={() => onAirflow!(v)}>{label}</button>
+                ))}
+              </div>
             </div>
           )}
 

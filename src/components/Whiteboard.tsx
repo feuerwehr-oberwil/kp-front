@@ -13,7 +13,7 @@ import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { confirmDialog, toast } from '../lib/ui'
 import { panelNudgeBox, panelNudgeBoxUp, isBottomSheet } from '../lib/panelNudge'
-import { TacticalSymbol, GROSSLUEFTER, GROSSLUEFTER_BODY, GROSSLUEFTER_FAN, FAN_OVERLAY_SCALE } from '../lib/symbolRender'
+import { TacticalSymbol, GROSSLUEFTER, GROSSLUEFTER_BODY, GROSSLUEFTER_FAN, FAN_OVERLAY_SCALE, luefterVariant } from '../lib/symbolRender'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
 import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys, symbolCaptionText, ROTATABLE } from '../lib/symbols'
@@ -1275,7 +1275,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                   const gross = isGrossluefter(a)
                   const svg = veh ? vehicleSymbolSvg(a.label ?? '', a.rotation ?? 0)
                     : gross ? (sym.byName[GROSSLUEFTER_BODY] ?? '')
-                    : (placardSvgForSymbol(a.symbol, a.fields) ?? (a.symbol ? sym.byName[a.symbol] ?? '' : ''))
+                    : (placardSvgForSymbol(a.symbol, a.fields) ?? (a.symbol ? sym.byName[luefterVariant(a.symbol, a.extract)!] ?? sym.byName[a.symbol] ?? '' : ''))
                   // the Grosslüfter stacks the fan as a separately-rotatable overlay (airflow direction)
                   const overlay = gross ? { svg: sym.byName[GROSSLUEFTER_FAN] ?? '', rotation: a.rotation2 ?? 0, scale: FAN_OVERLAY_SCALE } : undefined
                   return (
@@ -1611,6 +1611,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           onRotate={(deg) => patchCommit(selSymbol.id, { rotation: deg ?? undefined })}
           onRotate2={(deg) => patchCommit(selSymbol.id, { rotation2: deg ?? undefined })}
           onCaption={(m) => patchCommit(selSymbol.id, { caption: m ?? undefined })}
+          onAirflow={(extract) => patchCommit(selSymbol.id, { extract: extract || undefined })}
           controls={symbolControls(selSymbol.symbol, sym.symbols.find((x) => x.name === selSymbol.symbol)?.cat)}
           titleOptions={symbolTitleOptions(selSymbol.symbol, sym.symbols.find((x) => x.name === selSymbol.symbol)?.cat)}
           fieldOptions={symbolFieldOptions(selSymbol.symbol, sym.symbols.find((x) => x.name === selSymbol.symbol)?.cat, rosterNames)}
