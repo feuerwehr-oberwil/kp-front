@@ -1245,7 +1245,7 @@ export const de = {
     welcome: {
       title: 'Willkommen bei KP Front',
       intro: 'Das ist eine Demo mit erfundenen Daten – kein echter Einsatz. Probier alles frei aus.',
-      reloadWarn: 'Wichtig: Deine Änderungen sind für alle Besucher sichtbar und werden jede Nacht um Mitternacht zurückgesetzt.',
+      reloadWarn: 'Alle Besucher bearbeiten gemeinsam denselben Einsatz – deine Änderungen sehen also alle anderen live. Sei nett zu ihnen 🙂 Jede Nacht um Mitternacht wird zurückgesetzt.',
       canTitle: 'Du kannst …',
       can: [
         'Auf Karte und Plan zeichnen und taktische Zeichen setzen',
@@ -1254,7 +1254,7 @@ export const de = {
       ],
       knowTitle: 'Gut zu wissen',
       know: [
-        'Deine Änderungen bleiben erhalten und sind für alle Besucher sichtbar – das ist ein gemeinsamer Übungs-Einsatz.',
+        'Ihr bearbeitet alle denselben Einsatz gleichzeitig – bitte nichts von anderen löschen, was du nicht selbst gesetzt hast.',
         'Jede Nacht um Mitternacht wird die Demo auf den Ausgangszustand zurückgesetzt.',
         'Einen neuen Einsatz kannst du in der Demo nicht eröffnen – aber den laufenden frei bearbeiten.',
         'KP Front ist eine installierbare App (PWA): am Einsatzort läuft sie im Vollbild, offline-fähig und mit eigenem Symbol.',
