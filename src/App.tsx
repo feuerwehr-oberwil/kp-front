@@ -2572,8 +2572,8 @@ export default function App() {
   // incident; archiving a background one just removes it and leaves the current one open.
   const archiveById = useCallback(async (id: string) => {
     if (!id) return
-    // Demo: don't let a visitor close the one running incident (it would archive on the shared
-    // server and stay gone until the next 2 h reset). The reload keeps the scene; abschliessen off.
+    // Demo: don't let a visitor close the one shared running incident (it would archive for
+    // everyone until the nightly reset). Editing it stays open; only closing/creating is blocked.
     if (isDemoMode()) { toast(appConfig.copy.demo.actionBlocked, { icon: 'info' }); return }
     const ok = await confirmDialog({
       title: appConfig.copy.history.archiveConfirmTitle,

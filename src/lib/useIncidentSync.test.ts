@@ -43,12 +43,12 @@ function render(sync: any) {
 beforeEach(() => { vi.useFakeTimers() })
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks() })
 
-describe('useIncidentSync — demo sandbox', () => {
-  it('does NOT push a visitor edit to the server in demo mode', () => {
+describe('useIncidentSync — persistence', () => {
+  it('DOES push a visitor edit in demo mode (edits persist + are shared; reset happens nightly)', () => {
     vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(true)
     const sync = makeSync()
     render(sync)
-    expect(sync.save).not.toHaveBeenCalled()
+    expect(sync.save).toHaveBeenCalledTimes(1)
   })
 
   it('DOES push when not a demo instance (unchanged behavior)', () => {

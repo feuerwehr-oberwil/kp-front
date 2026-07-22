@@ -39,6 +39,14 @@ async def get_alarms_config(db: AsyncSession) -> AlarmsConfig:
     return (await get_config_model(db)).alarms
 
 
+async def is_demo_deployment(db: AsyncSession) -> bool:
+    """True on the public demo (deployment config `identity.demoMode`). Single source of truth —
+    the same flag the frontend reads — so no separate env var. Used to block creating NEW incidents
+    while leaving edits to the existing demo incident fully open."""
+    identity = (await get_config_model(db)).identity
+    return bool(identity and identity.demoMode)
+
+
 def passes_auto_open_filter(cfg: AlarmsConfig, *, title: str, text: str | None, priority: str) -> bool:
     """None filters accept everything; keywords are case-insensitive substrings of title+text."""
     if cfg.autoOpenPriorities is not None and priority not in cfg.autoOpenPriorities:

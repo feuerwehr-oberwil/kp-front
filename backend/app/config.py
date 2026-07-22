@@ -182,6 +182,11 @@ class Settings(BaseSettings):
     # it's fail-closed: unset/0 → the job isn't scheduled, and a real station must never set it.
     # The GitHub demo-reset workflow still handles the static config/geodata/objects reload.
     demo_reset_seconds: int = 0
+    # Preferred over demo_reset_seconds: a crontab expression (Europe/Zurich) for the daily hard
+    # reset, e.g. "0 0 * * *" = every night at 00:00. The demo persists edits DURING the day (like a
+    # real station) and only resets on this schedule. When set, it wins over demo_reset_seconds. Same
+    # fail-closed contract: empty → no in-process reset job. A real station must never set either.
+    demo_reset_cron: str = ""
 
     # --- Traccar (Phase 6) ---
     traccar_url: str = ""

@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import audit
 from .. import divera as divera_svc
+from ..alarms import is_demo_deployment
 from ..auth.dependencies import CurrentEditor, EditorOrAdmin
 from ..config import settings
 from ..database import get_db
@@ -83,6 +84,8 @@ async def take(
     overrides: DiveraTakeBody | None = None,
     db: AsyncSession = Depends(get_db),
 ) -> Incident:
+    if await is_demo_deployment(db):
+        raise HTTPException(status_code=403, detail="In der Demo können keine neuen Einsätze übernommen werden.")
     em = (
         await db.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == divera_id))
     ).scalar_one_or_none()
