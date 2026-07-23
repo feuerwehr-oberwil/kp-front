@@ -7,6 +7,7 @@ import { lookupUN, decodeKemler, type UnHazardEntry } from '../lib/unHazard'
 import { ERG_VERSION, lookupErg } from '../lib/erg'
 import { Combo } from './Combo'
 import { Stepper } from './Stepper'
+import { compositeSpec } from '../lib/symbolRender'
 
 // detail-field controls: short fixed lists render as directly-tappable segmented tabs (they
 // wrap to multiple rows), longer lists (and the person roster) as a native dropdown; roster
@@ -188,16 +189,20 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
   }
   const [title, setTitle] = useState(entity.label ?? '')
   // Rows come from the stored fields, but ALWAYS surface the symbol's preset fields too —
-  // a symbol placed before a preset field existed (e.g. the Offizier «Funktion», added after
-  // some officers were already on the map) would otherwise only ever show its stored keys.
-  // protectedKeys carries the preset keys in canonical order, so missing ones lead (Funktion
-  // before Name), then any extra stored rows. Read-only entities are left untouched (no blanks).
+  // a symbol placed before a preset field existed (e.g. the Offizier «Funktion» or the
+  // Einsatzleiter «Stv.», added after some symbols were already on the map) would otherwise
+  // only ever show its stored keys. protectedKeys carries the preset keys in canonical order:
+  // we render the preset fields FIRST in that order (missing ones seeded empty, stored ones
+  // carrying their value), then any extra custom stored rows. Ordering by the preset — not by
+  // "missing leads" — keeps a trailing preset field trailing (Einsatzleiter: Name before Stv.,
+  // not Stv. hoisted above Name just because it was blank). Read-only left untouched (no blanks).
   const [rows, setRows] = useState<Row[]>(() => {
     const base = toRows(entity.fields)
     if (readOnly || !protectedKeys?.size) return base
-    const present = new Set(base.map((r) => r.k.trim()))
-    const missing = [...protectedKeys].filter((k) => k && !present.has(k)).map((k) => ({ k, v: '' }))
-    return [...missing, ...base]
+    const byKey = new Map(base.map((r) => [r.k.trim(), r]))
+    const preset = [...protectedKeys].filter(Boolean).map((k) => byKey.get(k) ?? { k, v: '' })
+    const extra = base.filter((r) => !protectedKeys.has(r.k.trim()))
+    return [...preset, ...extra]
   })
   const [notes, setNotes] = useState(entity.notes ?? '')
   const titleRef = useRef<HTMLInputElement>(null)
@@ -379,11 +384,15 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
                   onChange={(v) => onRotate!(v)} onClear={() => onRotate!(null)} canClear={(entity.rotation ?? 0) !== 0}
                   min={-180} max={180} readOnly={readOnly} ariaLabel={showRotate2 ? C.rotationVehicle : C.rotation} />
               )}
-              {showRotate2 && (
-                <LabeledStepper label={C.rotationFan} value={entity.rotation2 ?? 0} step={ROT_STEP} format={(v) => `${v}°`}
-                  onChange={(v) => onRotate2!(v)} onClear={() => onRotate2!(null)} canClear={(entity.rotation2 ?? 0) !== 0}
-                  min={-180} max={180} readOnly={readOnly} ariaLabel={C.rotationFan} />
-              )}
+              {showRotate2 && (() => {
+                // the part stepper reads «Lüfter», «Leiter» … per the composite (fan vs ladder/boom)
+                const partLabel = C[compositeSpec(entity.symbol)?.partLabel ?? 'rotationFan']
+                return (
+                  <LabeledStepper label={partLabel} value={entity.rotation2 ?? 0} step={ROT_STEP} format={(v) => `${v}°`}
+                    onChange={(v) => onRotate2!(v)} onClear={() => onRotate2!(null)} canClear={(entity.rotation2 ?? 0) !== 0}
+                    min={-180} max={180} readOnly={readOnly} ariaLabel={partLabel} />
+                )
+              })()}
               {/* Lüfter airflow direction — Einblasen (arrow away from the fan) vs Absaugen (arrow
                   reversed into the fan). A field row (label + segmented value) so it reads like the
                   steppers above, not a separate widget. */}

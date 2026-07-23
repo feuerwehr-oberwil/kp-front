@@ -3277,12 +3277,6 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
      instead; the full title lives one tap away in the dropdown header */
   .ip-switch-title { display: none; }
   .ip-switch-glyph { display: grid; }
-  /* the OS status bar already shows the time; drop the in-bar clock on phones so
-     the incident title keeps a readable width */
-  .stat { display: none; }
-  /* …but keep the Einsatzuhr: elapsed-since-start is the long-incident awareness anchor
-     (3am tenet) and exists nowhere else on a phone — only the wall clock is redundant */
-  .stat.tb-einsatzuhr { display: flex; }
   .tb-act-add { display: none; }                    /* Eintrag handled by the FAB on phones */
   .tb-act:not(.tb-act-add) span { display: none; }  /* Verlauf goes icon-only */
   /* icon-only bar actions need a gloved 44px hit area without inflating the glyph */

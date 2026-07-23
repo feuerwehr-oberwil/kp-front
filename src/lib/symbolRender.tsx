@@ -44,12 +44,49 @@ export const luefterVariant = (name: string | undefined, extract?: boolean): str
 export const FAN_OVERLAY_SCALE = 0.6
 // strip a glyph's outer <svg> wrapper, keeping its inner paths (for nesting one glyph in another)
 const innerSvg = (svg: string) => svg.replace(/^\s*<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '')
-// the static composite (default orientation) used for the palette thumbnail / fallback — the live
-// map/plan render the two layers separately so each part rotates on its own.
-export function composeGrossluefterSvg(bodySvg: string, fanSvg: string): string {
-  if (!bodySvg || !fanSvg) return bodySvg || fanSvg
-  return `<svg viewBox="-1.3 -1.3 2.6 2.6" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">${innerSvg(bodySvg)}<g transform="scale(${FAN_OVERLAY_SCALE})">${innerSvg(fanSvg)}</g></svg>`
+// A static composite: base body + overlaid part, the part rotated `partDeg` about the shared centre
+// (0,0) and scaled. Used for the palette thumbnail (partDeg 0) and the server print (where the two
+// layers can't be separate DOM nodes). The live map/plan instead render them as two independently-
+// rotatable divs (TacticalSymbol `overlay`), so each part rotates on its own.
+export function composeCompositeSvg(baseSvg: string, partSvg: string, scale = FAN_OVERLAY_SCALE, partDeg = 0): string {
+  if (!baseSvg || !partSvg) return baseSvg || partSvg
+  const part = `<g transform="rotate(${partDeg}) scale(${scale})">${innerSvg(partSvg)}</g>`
+  return `<svg viewBox="-1.3 -1.3 2.6 2.6" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">${innerSvg(baseSvg)}${part}</svg>`
 }
+
+// ── Composite symbols: a carrier body + a second part that rotates independently ─────────────
+// The Grosslüfter (vehicle + fan/airflow) and the aerial appliances (Drehleiter ladder / Hubretter
+// articulated boom) all render as two stacked, separately-rotatable layers: the body by `rotation`,
+// the overlaid part by `rotation2`. The part glyphs are render-only (hidden from the palette by
+// useSymbols); the full authored VKF Drehleiter / VKF Hubretter glyphs stay as the palette thumbnails.
+export const DREHLEITER = 'VKF Drehleiter'
+export const HUBRETTER = 'VKF Hubretter'
+export const DREHLEITER_PART = 'VKF Drehleiter Leiter'
+export const HUBRETTER_PART = 'VKF Hubretter Arm'
+
+/** One composite's parts. `partExtract`/`airflow` are the Lüfter's reversed-airflow specifics; the
+ *  ladders leave them unset (the boom/ladder has no airflow). `partLabel` is the contextPanel copy
+ *  key naming the part's rotor + Drehung stepper (fan vs. ladder). */
+export interface CompositeSpec {
+  base: string
+  part: string
+  partExtract?: string
+  scale: number
+  airflow?: boolean
+  partLabel: 'rotationFan' | 'rotationLadder'
+}
+export const COMPOSITES: Record<string, CompositeSpec> = {
+  // base = the plain vehicle body (VKF Fahrzeug) for all three; each part slews on `rotation2`.
+  [GROSSLUEFTER]: { base: GROSSLUEFTER_BODY, part: GROSSLUEFTER_FAN, partExtract: LUEFTER_EXTRACT, scale: FAN_OVERLAY_SCALE, airflow: true, partLabel: 'rotationFan' },
+  [DREHLEITER]: { base: GROSSLUEFTER_BODY, part: DREHLEITER_PART, scale: 1, partLabel: 'rotationLadder' },
+  [HUBRETTER]: { base: GROSSLUEFTER_BODY, part: HUBRETTER_PART, scale: 1, partLabel: 'rotationLadder' },
+}
+export const compositeSpec = (name?: string): CompositeSpec | undefined => (name ? COMPOSITES[name] : undefined)
+/** the render-only overlay part glyphs — hidden from the palette (like the reversed-airflow Lüfter). */
+export const COMPOSITE_PART_GLYPHS: string[] = [LUEFTER_EXTRACT, DREHLEITER_PART, HUBRETTER_PART]
+/** the library glyph name for a composite's overlay part, honouring the Lüfter airflow variant. */
+export const compositePartGlyph = (spec: CompositeSpec, extract?: boolean): string =>
+  spec.airflow && extract && spec.partExtract ? spec.partExtract : spec.part
 
 // FKS Entwicklung overlay: hollow block arrows (in the symbol's colour) drawn OUTSIDE
 // the glyph so they read against a same-coloured icon. Horizontal development is

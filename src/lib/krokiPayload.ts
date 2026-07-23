@@ -6,10 +6,10 @@
 
 import type { Drawing, Entity, LayerDef, LngLat, ShapeKind } from '../types'
 import { appConfig } from '../config/appConfig'
-import { isGrossluefter, isVehicleSym } from './mapView'
+import { isVehicleSym } from './mapView'
 import { placardSvgForSymbol } from './placard'
 import { vehicleSymbolSvg } from './useVehiclePositions'
-import { GROSSLUEFTER_BODY, GROSSLUEFTER_FAN, LUEFTER, LUEFTER_EXTRACT, composeGrossluefterSvg } from './symbolRender'
+import { LUEFTER, LUEFTER_EXTRACT, compositeSpec, compositePartGlyph, composeCompositeSvg } from './symbolRender'
 import { SHAPE_DEFS } from './shapes'
 import { operationalExtentPoints, type KrokiView } from './report'
 import { resolveMapDrawings } from './lineAttachments'
@@ -78,10 +78,14 @@ export function krokiEntity(e: Entity, byName: Record<string, string>): KrokiEnt
   // live vehicles carry their resolved glyph already (name + heading baked in — upright text)
   if (e.symbolSvg) return { ...base, symbolSvg: e.symbolSvg, rotation: undefined }
   if (isVehicleSym(e)) return { ...base, symbolSvg: vehicleSymbolSvg(e.label ?? '', e.rotation ?? 0), rotation: undefined }
-  if (isGrossluefter(e)) {
-    // extract (Absaugen) prints the reversed-arrow fan, same swap as the mobile Lüfter below
-    const fan = (e.extract && byName[LUEFTER_EXTRACT]) ? byName[LUEFTER_EXTRACT] : byName[GROSSLUEFTER_FAN] ?? ''
-    const svg = composeGrossluefterSvg(byName[GROSSLUEFTER_BODY] ?? '', fan)
+  const comp = compositeSpec(e.symbol)
+  if (comp) {
+    // Composite (Grosslüfter / Drehleiter / Hubretter): bake the part onto the body as ONE svg (the
+    // server can't stack two rotatable layers). The body prints at base.rotation, so the part is
+    // pre-rotated by its offset (rotation2 − rotation) — after the server rotates the whole by
+    // base.rotation the part lands at rotation2. Lüfter extract (Absaugen) prints the reversed fan.
+    const part = byName[compositePartGlyph(comp, e.extract)] ?? byName[comp.part] ?? ''
+    const svg = composeCompositeSvg(byName[comp.base] ?? '', part, comp.scale, (e.rotation2 ?? 0) - (e.rotation ?? 0))
     return svg ? { ...base, symbolSvg: svg } : null
   }
   const placard = placardSvgForSymbol(e.symbol, e.fields)

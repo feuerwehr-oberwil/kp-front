@@ -73,7 +73,8 @@ export function TopBar({ incident, startedAt, recording, recStartedAt, journalOp
   const hasWind = weather?.wind_dir_deg != null
 
   // Einsatzuhr can show the running duration, the wall clock, or the start time — tap to cycle
-  // (persisted per device). On phones it's the ONLY clock in the bar, so this surfaces all three.
+  // (persisted per device). It's the only clock in the bar (the OS status bar covers wall time),
+  // so this surfaces all three.
   const [clockMode, setClockMode] = useState<ClockMode>(() => loadPrefs().clockMode ?? 'elapsed')
   const cycleClock = () => setClockMode((m) => { const n = NEXT_CLOCK[m]; savePrefs({ ...loadPrefs(), clockMode: n }); return n })
   const clockText = startedAt
@@ -95,7 +96,8 @@ export function TopBar({ incident, startedAt, recording, recStartedAt, journalOp
         </>
       )}
       <div className="vr" />
-      <div className="stat"><b>{formatTime(new Date(now), true)}</b></div>
+      {/* No fixed wall clock in the bar — the OS status bar (iPad navbar) already shows the time,
+          and the Einsatzuhr below can be cycled to the wall clock when needed. */}
       {/* Einsatzuhr: the long-incident awareness anchor — tap to cycle duration / clock / start */}
       {startedAt && (
         <button

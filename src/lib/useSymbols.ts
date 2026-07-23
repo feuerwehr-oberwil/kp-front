@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { SymbolLibrary } from '../types'
-import { GROSSLUEFTER, GROSSLUEFTER_BODY, GROSSLUEFTER_FAN, LUEFTER_EXTRACT, composeGrossluefterSvg } from './symbolRender'
+import { GROSSLUEFTER, GROSSLUEFTER_BODY, GROSSLUEFTER_FAN, COMPOSITE_PART_GLYPHS, composeCompositeSvg } from './symbolRender'
 
 export interface SymbolsApi {
   ready: boolean
@@ -55,16 +55,18 @@ export function useSymbols(): SymbolsApi {
     const all = lib.symbols.map((s) => ({ ...s, svg: centerSymbolText(s.svg) }))
     const byName: Record<string, string> = {}
     for (const s of all) byName[s.name] = s.svg
-    // the Lüfter's extract/Absaugen glyph is a render-only variant reached via the symbol's
-    // Luftrichtung toggle — keep it in byName (above) but drop it from the pickable palette.
-    const symbols = all.filter((s) => s.name !== LUEFTER_EXTRACT)
+    // the composite overlay parts (the reversed-airflow Lüfter, the Drehleiter ladder, the Hubretter
+    // boom) are render-only glyphs reached only as a composite's overlay — keep them in byName (above)
+    // for rendering but drop them from the pickable palette.
+    const partGlyphs = new Set(COMPOSITE_PART_GLYPHS)
+    const symbols = all.filter((s) => !partGlyphs.has(s.name))
     // synthesise the composite Grosslüfter from the two authoritative FireGIS glyphs (vehicle +
     // fan) so it appears in the palette without hand-authoring artwork that could drift from the
     // source. byName carries the static composite (thumbnail/fallback); the map/plan render the
     // two layers separately for independent rotation. Placed in the Fahrzeuge/Mittel category.
     if (byName[GROSSLUEFTER_BODY] && byName[GROSSLUEFTER_FAN] && !byName[GROSSLUEFTER]) {
       const cat = symbols.find((s) => s.name === GROSSLUEFTER_FAN)?.cat ?? 'Fahrzeuge / Mittel'
-      const svg = composeGrossluefterSvg(byName[GROSSLUEFTER_BODY], byName[GROSSLUEFTER_FAN])
+      const svg = composeCompositeSvg(byName[GROSSLUEFTER_BODY], byName[GROSSLUEFTER_FAN])
       symbols.push({ name: GROSSLUEFTER, cat, svg })
       byName[GROSSLUEFTER] = svg
     }

@@ -13,7 +13,7 @@ import { TeilstueckFork, EndTag, hasLineDecor, lineLabel } from '../lib/lineDeco
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { confirmDialog, toast } from '../lib/ui'
 import { panelNudgeBox, panelNudgeBoxUp, isBottomSheet } from '../lib/panelNudge'
-import { TacticalSymbol, GROSSLUEFTER, GROSSLUEFTER_BODY, GROSSLUEFTER_FAN, FAN_OVERLAY_SCALE, luefterVariant } from '../lib/symbolRender'
+import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant } from '../lib/symbolRender'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
 import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys, symbolCaptionText, ROTATABLE } from '../lib/symbols'
@@ -44,8 +44,9 @@ const TEAM_COLORS = appConfig.drawing.teamColors // distinct accent per team (cy
 // vehicle whose typed name is baked into the glyph (text stays upright).
 const isRotatableSym = (a: BoardAnno) => a.kind === 'symbol' && !!a.symbol && ROTATABLE.has(a.symbol)
 const isVehicleSym = (a: BoardAnno) => a.kind === 'symbol' && a.symbol === appConfig.symbols.vehicleName
-// the composite Grosslüfter (vehicle body + fan): a two-handle rotor + two-layer render, like the map
-const isGrossluefter = (a: BoardAnno) => a.kind === 'symbol' && a.symbol === GROSSLUEFTER
+// a composite symbol (Grosslüfter vehicle+fan, Drehleiter/Hubretter body+ladder/boom): a two-handle
+// rotor + two-layer render, like the map. Returns the spec (base/part/scale/label) or undefined.
+const annoComposite = (a: BoardAnno) => (a.kind === 'symbol' ? compositeSpec(a.symbol) : undefined)
 
 interface Props {
   plans: PlanDocument[]
@@ -1605,13 +1606,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                   // the generic vehicle bakes its name + heading into the glyph (text
                   // stays upright), so its body rotation is in the SVG, not the chip.
                   const veh = isVehicleSym(a)
-                  const gross = isGrossluefter(a)
+                  const comp = annoComposite(a)
                   const svg = veh ? vehicleSymbolSvg(a.label ?? '', a.rotation ?? 0)
-                    : gross ? (sym.byName[GROSSLUEFTER_BODY] ?? '')
+                    : comp ? (sym.byName[comp.base] ?? '')
                     : (placardSvgForSymbol(a.symbol, a.fields) ?? (a.symbol ? sym.byName[luefterVariant(a.symbol, a.extract)!] ?? sym.byName[a.symbol] ?? '' : ''))
-                  // the Grosslüfter stacks the fan as a separately-rotatable overlay (airflow direction);
-                  // extract (Absaugen) swaps to the reversed-arrow fan glyph, same as the mobile Lüfter
-                  const overlay = gross ? { svg: sym.byName[luefterVariant(GROSSLUEFTER_FAN, a.extract)!] ?? sym.byName[GROSSLUEFTER_FAN] ?? '', rotation: a.rotation2 ?? 0, scale: FAN_OVERLAY_SCALE } : undefined
+                  // a composite stacks its part (fan / ladder / boom) as a separately-rotatable overlay
+                  // aimed by rotation2; the Lüfter's extract (Absaugen) swaps to the reversed-arrow fan.
+                  const overlay = comp ? { svg: sym.byName[compositePartGlyph(comp, a.extract)] ?? sym.byName[comp.part] ?? '', rotation: a.rotation2 ?? 0, scale: comp.scale } : undefined
                   return (
                     <TacticalSymbol
                       svg={svg}
@@ -1734,7 +1735,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 )}
                 {/* directional symbol: tethered rotor knob (rotate-only), identical to
                     the Lage map — rotates with the symbol so the handle stays attached */}
-                {isRotatableSym(a) && !isGrossluefter(a) && selId === a.id && tool === 'pan' && !readOnly && (
+                {isRotatableSym(a) && !annoComposite(a) && selId === a.id && tool === 'pan' && !readOnly && (
                   <div className="shape-rotor" style={{ transform: `rotate(${a.rotation ?? 0}deg)` }}>
                     <span className="shape-stem" />
                     <button
@@ -1751,8 +1752,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                     </button>
                   </div>
                 )}
-                {/* composite Grosslüfter: two rotors — blue body knob (short) + amber fan knob (long) */}
-                {isGrossluefter(a) && selId === a.id && tool === 'pan' && !readOnly && (
+                {/* composite (Grosslüfter / Drehleiter / Hubretter): two rotors — blue body knob (short)
+                    + amber part knob (long), the part = fan / ladder / boom aimed on rotation2 */}
+                {annoComposite(a) && selId === a.id && tool === 'pan' && !readOnly && (
                   <>
                     <div className="shape-rotor" style={{ transform: `rotate(${a.rotation ?? 0}deg)` }}>
                       <span className="shape-stem" />
@@ -1763,7 +1765,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                     </div>
                     <div className="shape-rotor shape-rotor-fan" style={{ transform: `rotate(${a.rotation2 ?? 0}deg)` }}>
                       <span className="shape-stem" />
-                      <button className="handle shape-rotate shape-rotate-fan" title={appConfig.copy.contextPanel.rotationFan} aria-label={appConfig.copy.contextPanel.rotationFan}
+                      <button className="handle shape-rotate shape-rotate-fan" title={appConfig.copy.contextPanel[annoComposite(a)!.partLabel]} aria-label={appConfig.copy.contextPanel[annoComposite(a)!.partLabel]}
                         onPointerDown={(e) => rotDown(e, a.id, 'rotate2')} onPointerMove={rotMove} onPointerUp={rotUp} onPointerCancel={rotUp} onClick={(e) => e.stopPropagation()}>
                         <Icon id="rotate" />
                       </button>

@@ -845,6 +845,7 @@ export const en: Localizable<Copy> = {
     rotation: 'Rotation',
     rotationVehicle: 'Vehicle',
     rotationFan: 'Fan',
+    rotationLadder: 'Ladder',
     center: 'Center',
     resetGps: 'GPS',
     resetGpsTitle: 'Reset to GPS position and heading',

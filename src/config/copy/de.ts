@@ -376,6 +376,7 @@ export const de = {
     'VKF Hubretter': ['Hebebühne', 'Teleskopmast'],
     'VKF Pumpe Typ2': ['Motorspritze', 'Wassertransport'],
     'VKF Helilandeplatz': ['Helikopter', 'Heli', 'Rega', 'Landeplatz'],
+    'VKF Drohne': ['Drone', 'UAV', 'Multicopter', 'Quadrocopter', 'Luftaufklärung', 'Wärmebild'],
     'FW Entrauchung': ['Rauchabzug', 'Belüftung', 'Abluft'],
     'FW Sprungretter': ['Sprungkissen', 'Sprungpolster', 'Rettungskissen'],
     'FW Leiter': ['Anstellleiter', 'Schiebleiter', 'Steckleiter'],
@@ -1112,6 +1113,7 @@ export const de = {
     rotation: 'Drehung',
     rotationVehicle: 'Fahrzeug',
     rotationFan: 'Lüfter',
+    rotationLadder: 'Leiter',
     // Lüfter airflow direction — Einblasen (blows away from the fan, Überdruck) vs Absaugen
     // (arrow reversed to point into the fan; the fan sits in the space but draws air out)
     airflow: 'Luftrichtung',

@@ -102,6 +102,19 @@ describe('symbolCaptionText — metadata printed under a symbol glyph', () => {
     expect(symbolCaptionText({ symbol: 'FW Gefahr Tafel', fields: { 'UN-Nr': '1203', Stoff: 'Benzin' } }, 'all')).toBe('1203\nBenzin')
   })
 
+  it('all mode includes custom (non-preset) fields after the preset ones, then notes', () => {
+    // preset fields first (canonical order), then any custom key the operator added, then notes
+    expect(symbolCaptionText({
+      symbol: 'FW Gefahr Tafel',
+      fields: { 'UN-Nr': '1203', Stoff: 'Benzin', Menge: '200 l' },
+      notes: 'ausgelaufen',
+    }, 'all')).toBe('1203\nBenzin\n200 l\nausgelaufen')
+  })
+
+  it('all mode shows notes even when the symbol has no filled fields', () => {
+    expect(symbolCaptionText({ symbol: 'SI Ueberflurhydrant', notes: 'defekt' }, 'all')).toBe('defekt')
+  })
+
   it('auto shows a custom label when the symbol has no filled fields', () => {
     // a user-named vehicle/title differs from the auto-formatted symbol name
     expect(symbolCaptionText({ symbol: 'VKF Einsatzleiter', label: 'Müller', fields: { Name: '' } }, 'auto')).toBe('Müller')

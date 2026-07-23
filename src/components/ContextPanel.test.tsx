@@ -104,6 +104,17 @@ describe('ContextPanel — preset fields always surface', () => {
     expect(keys).toEqual(['Funktion', 'Name'])
   })
 
+  // a trailing preset field (Einsatzleiter «Stv.», added after Name) must stay AFTER Name even
+  // when it's blank/missing — not hoisted above it just because it isn't stored yet.
+  it('keeps a missing trailing preset field in canonical order (Name before Stv.)', () => {
+    setup({
+      entity: { id: 'el1', symbol: 'VKF Einsatzleiter', fields: { Name: 'Müller' } },
+      protectedKeys: new Set(['Name', 'Stv.']),
+    })
+    const keys = screen.getAllByText((_t, el) => el?.className === 'kv-key-ro').map((el) => el.textContent)
+    expect(keys).toEqual(['Name', 'Stv.'])
+  })
+
   it('does not seed blank rows on a read-only entity', () => {
     setup({
       entity: { id: 'o3', symbol: 'FW Offizier', fields: { Name: 'Hans' } },
