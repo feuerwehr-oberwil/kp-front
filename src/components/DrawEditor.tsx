@@ -7,6 +7,7 @@ import { fmtDistance } from '../lib/geo'
 import { CONTENT_LABELS } from '../lib/lineDecor'
 import { floorBadge } from '../lib/symbolRender'
 import { Stepper } from './Stepper'
+import { Segmented } from './Segmented'
 import type { LineAttachment, LineEndpoint, LineRoutingMode } from '../types'
 
 // small glyph for the line-ending picker: plain · arrow · FKS Teilstück "E"-fork
@@ -189,12 +190,16 @@ export function DrawEditor({ drawing, pointCount, supportsDistance = false, onCo
           <div className="de-group">
             {onEnding ? (
               <div className="de-row"><span>{appConfig.copy.drawingEditor.ending}</span>
-                <span className="de-glyphs">
-                  {([['none', appConfig.copy.drawingEditor.endingNone], ['arrow', appConfig.copy.drawingEditor.endingArrow], ['teilstueck', appConfig.copy.drawingEditor.endingTeilstueck]] as const).map(([id, lbl]) => {
-                    const cur = drawing.teilstueck ? 'teilstueck' : drawing.arrow ? 'arrow' : 'none'
-                    return <button key={id} className={`de-glyph ${cur === id ? 'on' : ''}`} title={lbl} aria-label={lbl} aria-pressed={cur === id} onClick={() => onEnding(id)}><EndingGlyph kind={id} /></button>
-                  })}
-                </span>
+                <Segmented
+                  ariaLabel={appConfig.copy.drawingEditor.ending}
+                  value={drawing.teilstueck ? 'teilstueck' : drawing.arrow ? 'arrow' : 'none'}
+                  onChange={onEnding}
+                  options={[
+                    { value: 'none', label: <EndingGlyph kind="none" />, title: appConfig.copy.drawingEditor.endingNone },
+                    { value: 'arrow', label: <EndingGlyph kind="arrow" />, title: appConfig.copy.drawingEditor.endingArrow },
+                    { value: 'teilstueck', label: <EndingGlyph kind="teilstueck" />, title: appConfig.copy.drawingEditor.endingTeilstueck },
+                  ]}
+                />
               </div>
             ) : (
               <div className="de-row"><span>{appConfig.copy.drawingEditor.arrow}</span>

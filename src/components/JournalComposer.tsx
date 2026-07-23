@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../lib/icons'
+import { Segmented } from './Segmented'
 import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
 import { acceptPhrase, suggestPhrases } from '../lib/quickPhrases'
@@ -336,13 +337,16 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
         </div>
 
         {/* mode: a normal Eintrag, or a time-due Wiedervorlage (reminder) */}
-        <div className="jc-mode" role="tablist">
-          <button role="tab" aria-selected={mode === 'entry'} className={`jc-mode-tab ${mode === 'entry' ? 'on' : ''}`} onClick={() => setMode('entry')}>
-            <Icon id="type" />{C.modeEntry}
-          </button>
-          <button role="tab" aria-selected={mode === 'reminder'} className={`jc-mode-tab ${mode === 'reminder' ? 'on' : ''}`} onClick={() => setMode('reminder')}>
-            <Icon id="clock" />{C.modeReminder}
-          </button>
+        <div className="jc-mode">
+          <Segmented
+            ariaLabel={C.composerTitle}
+            value={mode}
+            onChange={setMode}
+            options={[
+              { value: 'entry', label: <><Icon id="type" />{C.modeEntry}</> },
+              { value: 'reminder', label: <><Icon id="clock" />{C.modeReminder}</> },
+            ]}
+          />
         </div>
 
         <textarea

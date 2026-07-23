@@ -5,6 +5,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { toast } from '../lib/ui'
 import { cx } from '../lib/cx'
+import { Segmented } from './Segmented'
 import { contactSeverity, deriveTruppLive, estimatePressure, fmtClock, type TruppLive } from '../lib/atemschutz'
 import type { AttendanceState, Person, Trupp, TruppFields } from '../types'
 import { assignedPersonIds } from '../lib/personnel'
@@ -799,15 +800,12 @@ function TruppForm({
             <div className={s.formSection}>{az.sectionAuftrag}</div>
             <div className={s.field}>
               <span>{az.auftragLabel}</span>
-              <div className={s.segGroup}>
-                {cfg.auftrag.map((a) => (
-                  <button
-                    key={a.id} type="button"
-                    className={cx(s.segBtn, auftrag === a.id && s.segOn)}
-                    onClick={() => setAuftrag(a.id)}
-                  >{az.auftragLabels[a.id] ?? a.label}</button>
-                ))}
-              </div>
+              <Segmented
+                ariaLabel={az.auftragLabel}
+                value={auftrag ?? undefined}
+                onChange={(v) => setAuftrag(v)}
+                options={cfg.auftrag.map((a) => ({ value: a.id, label: az.auftragLabels[a.id] ?? a.label }))}
+              />
             </div>
             <label className={s.field}>
               <span>{az.zielLabel}</span>

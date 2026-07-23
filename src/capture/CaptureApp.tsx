@@ -24,6 +24,7 @@ import { cancelPrint, capturePrintTransport, enqueuePrint, fetchPrintStatus, typ
 import type { AttendanceEntry, MittelEntry } from '../types'
 import type { ReportMeta } from '../lib/workspace'
 import { Combo } from '../components/Combo'
+import { Stepper } from '../components/Stepper'
 import { TimeField } from '../components/TimeField'
 import { fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit } from '../lib/alarmzeiten'
 import type { IncidentMeta, Workspace } from '../lib/incidents'
@@ -329,6 +330,25 @@ export default function CaptureApp() {
     }
   }
 
+  const flushMetaRef = useRef(flushMeta)
+  useEffect(() => { flushMetaRef.current = flushMeta }) // flushers outlive renders — call the fresh closure
+  // Gerettete counts drive the shared <Stepper>: optimistic locally, debounced to one meta save
+  // (± taps must feel instant; the network write coalesces). null = cleared → undefined in meta.
+  const [gerettetePending, setGerettetePending] = useState<{ personen?: number | null; tiere?: number | null }>({})
+  const [geretteteFlush] = useState(() => makeDebouncedFlush<{ personen?: number; tiere?: number } | undefined>(600, async (g) => {
+    const ok = await flushMetaRef.current({ gerettete: g })
+    if (ok) savedToast()
+  }))
+  const savedPersonen = gerettetePending.personen !== undefined ? gerettetePending.personen : (rm?.gerettete?.personen ?? null)
+  const savedTiere = gerettetePending.tiere !== undefined ? gerettetePending.tiere : (rm?.gerettete?.tiere ?? null)
+  const setGerettete = (personen: number | null, tiere: number | null) => {
+    setGerettetePending({ personen, tiere })
+    const g: { personen?: number; tiere?: number } = {}
+    if (personen != null) g.personen = personen
+    if (tiere != null) g.tiere = tiere
+    geretteteFlush.push(Object.keys(g).length ? g : undefined)
+  }
+
   // attendance tap: frei → anwesend → gegangen are visibly reflected on the row itself; the
   // third tap DELETES the entry incl. its recorded times — that one gets confirm-with-undo
   const tapPerson = async (p: CapturePerson) => {
@@ -437,6 +457,8 @@ export default function CaptureApp() {
     return () => {
       flushers.forEach((f) => f.cancel())
       flushers.clear()
+      geretteteFlush.cancel()
+      setGerettetePending({})
       setMatPending({})
       setMatSearch('')
     }
@@ -739,11 +761,9 @@ export default function CaptureApp() {
                       return (
                         <li key={item.id} className={cur > 0 ? 'used' : ''}>
                           <span className="cv-mittel-label">{item.label}</span>
-                          <span className="cv-step">
-                            <button type="button" className="cv-stepbtn" aria-label={C.stepLess} disabled={cur === 0} onClick={() => stepMittel(key, probe, cur, -1)}><Icon id="minus" /></button>
-                            <b>{cur} {probe.unit}</b>
-                            <button type="button" className="cv-stepbtn" aria-label={C.stepMore} onClick={() => stepMittel(key, probe, cur, 1)}><Icon id="plus" /></button>
-                          </span>
+                          <Stepper value={cur} min={0} max={9999} ariaLabel={`${item.label} ${probe.unit}`}
+                            format={(v) => `${v} ${probe.unit}`}
+                            onChange={(v) => stepMittel(key, probe, cur, v - cur)} />
                         </li>
                       )
                     })}
@@ -760,11 +780,9 @@ export default function CaptureApp() {
                       return (
                         <li key={l.key} className="used">
                           <span className="cv-mittel-label">{l.label}{l.sourceLabel ? ` · ${l.sourceLabel}` : ''}</span>
-                          <span className="cv-step">
-                            <button type="button" className="cv-stepbtn" aria-label={C.stepLess} disabled={cur === 0} onClick={() => stepMittel(l.key, probe, cur, -1)}><Icon id="minus" /></button>
-                            <b>{cur} {l.unit}</b>
-                            <button type="button" className="cv-stepbtn" aria-label={C.stepMore} onClick={() => stepMittel(l.key, probe, cur, 1)}><Icon id="plus" /></button>
-                          </span>
+                          <Stepper value={cur} min={0} max={9999} ariaLabel={`${l.label}${l.sourceLabel ? ` · ${l.sourceLabel}` : ''}`}
+                            format={(v) => `${v}${l.unit ? ` ${l.unit}` : ''}`}
+                            onChange={(v) => stepMittel(l.key, probe, cur, v - cur)} />
                         </li>
                       )
                     })}
@@ -845,26 +863,16 @@ export default function CaptureApp() {
               <div className="cv-row">
                 <span>{C.gerettete}</span>
                 <div className="cv-row-controls">
-                  <DraftField key={`${incident.id}:gerettetePersonen`} incidentId={incident.id} field="gerettetePersonen"
-                    number saved={rm?.gerettete?.personen !== undefined ? String(rm.gerettete.personen) : ''}
-                    className="cv-input cv-count" placeholder={C.gerettetePersonen} ariaLabel={C.gerettetePersonen}
-                    commit={async (raw) => {
-                      const n = raw.trim() === '' ? undefined : Math.max(0, Math.round(Number(raw) || 0))
-                      if (n === rm?.gerettete?.personen) return true
-                      const ok = await flushMeta({ gerettete: { ...rm?.gerettete, personen: n } })
-                      if (ok) savedToast()
-                      return ok
-                    }} />
-                  <DraftField key={`${incident.id}:geretteteTiere`} incidentId={incident.id} field="geretteteTiere"
-                    number saved={rm?.gerettete?.tiere !== undefined ? String(rm.gerettete.tiere) : ''}
-                    className="cv-input cv-count" placeholder={C.geretteteTiere} ariaLabel={C.geretteteTiere}
-                    commit={async (raw) => {
-                      const n = raw.trim() === '' ? undefined : Math.max(0, Math.round(Number(raw) || 0))
-                      if (n === rm?.gerettete?.tiere) return true
-                      const ok = await flushMeta({ gerettete: { ...rm?.gerettete, tiere: n } })
-                      if (ok) savedToast()
-                      return ok
-                    }} />
+                  <label className="cv-count-row"><span>{C.gerettetePersonen}</span>
+                    <Stepper value={savedPersonen} min={0} max={999} seed={1} placeholder="0" ariaLabel={C.gerettetePersonen}
+                      onChange={(v) => setGerettete(v, savedTiere)}
+                      onClear={() => setGerettete(null, savedTiere)} canClear={savedPersonen != null} />
+                  </label>
+                  <label className="cv-count-row"><span>{C.geretteteTiere}</span>
+                    <Stepper value={savedTiere} min={0} max={999} seed={1} placeholder="0" ariaLabel={C.geretteteTiere}
+                      onChange={(v) => setGerettete(savedPersonen, v)}
+                      onClear={() => setGerettete(savedPersonen, null)} canClear={savedTiere != null} />
+                  </label>
                 </div>
               </div>
               {/* Kurzbericht lives HERE (moved from its own Bericht section 2026-07-18 —

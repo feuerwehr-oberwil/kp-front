@@ -237,6 +237,10 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 .field input { border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); padding: 11px 12px;
   background: var(--surface); font-family: var(--body); font-size: 15px; color: var(--ink); outline: none; }
 .field input:focus { border-color: var(--ink); }
+/* Auftrag picker uses the shared <Segmented>, but with gloved-size tap targets in the wizard
+   (the canonical .useg-btn is 34px; here we keep the ≥46px 2-up grid the wizard had). */
+.field :global(.useg) { display: flex; flex-wrap: wrap; width: 100%; }
+.field :global(.useg-btn) { flex: 1 0 40%; min-height: 46px; font-weight: 700; }
 
 .linkBtn { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; border: none; cursor: pointer;
   background: transparent; color: var(--blue-strong); font-family: var(--body); font-size: 13px; font-weight: 700; padding: 4px 2px; }
@@ -269,13 +273,6 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 .tagAuftrag { color: var(--blue); background: color-mix(in srgb, var(--blue) 10%, transparent); }
 .tagZiel { font-size: 12.5px; font-weight: 600; color: var(--ink-dim); align-self: center;
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-/* segmented Auftrag picker in the wizard */
-.segGroup { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
-.segBtn { border: 2px solid var(--glass-edge); background: var(--surface); border-radius: var(--r-ctl); cursor: pointer;
-  padding: 11px 10px; font: 700 13px var(--body); color: var(--ink-dim); min-height: 46px; }
-.segBtn:hover { border-color: var(--ink-faint); }
-.segOn { border-color: var(--blue); color: var(--blue); background: color-mix(in srgb, var(--blue) 6%, transparent); }
 
 /* gloved ±pressure stepper (wizard + Druck-aktualisieren modal) */
 .stepper { display: grid; grid-template-columns: 64px 1fr 64px; align-items: stretch; gap: 10px; }

@@ -2,6 +2,7 @@ import { Icon } from '../lib/icons'
 import type { ChecklistTemplate, Item, Phase, TemplateState } from '../lib/checklists'
 import { phaseItems, phaseProgress, templateProgress } from '../lib/checklists'
 import { cx } from '../lib/cx'
+import { Segmented } from './Segmented'
 import { formatTime } from '../lib/format'
 import { appConfig } from '../config/appConfig'
 import s from './Checklists.module.css'
@@ -106,20 +107,16 @@ function PhaseBlock({
       {phase.note && <p className={s['cl-note']}>{phase.note}</p>}
 
       {phase.branches?.length ? (
-        <div className={s['cl-branches']} role="tablist" aria-label={CL.variantLabel}>
-          {phase.branches.map((b) => (
-            <button
-              key={b.id}
-              role="tab"
-              aria-selected={activeBranch === b.id}
-              className={cx(s['cl-branch'], activeBranch === b.id && s.on)}
-              disabled={!canTick && activeBranch !== b.id}
-              onClick={() => onBranch(phase.id, b.id)}
-            >
-              {b.title}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          ariaLabel={CL.variantLabel}
+          value={activeBranch}
+          onChange={(id) => onBranch(phase.id, id)}
+          options={phase.branches.map((b) => ({
+            value: b.id,
+            label: b.title,
+            disabled: !canTick && activeBranch !== b.id,
+          }))}
+        />
       ) : null}
 
       <div className={s['cl-items']}>

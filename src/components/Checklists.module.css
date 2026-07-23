@@ -67,14 +67,8 @@
 .cl-phase-count { flex: none; font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--ink-dim); }
 .cl-note { margin: 7px 0; font-size: 12.5px; color: var(--ink-dim); font-style: italic; }
 
-.cl-branches { display: inline-flex; gap: 3px; background: var(--fill-soft); border-radius: var(--r-ctl);
-  padding: 3px; margin: 10px 0 4px; flex-wrap: wrap; }
-.cl-branch { border: none; background: transparent; cursor: pointer; font-family: var(--body);
-  font-size: 12.5px; font-weight: 600; color: var(--ink-dim); padding: 7px 13px; border-radius: var(--r-sm);
-  transition: background .14s var(--ease), color .14s var(--ease); }
-.cl-branch:hover:not(:disabled) { color: var(--ink); }
-.cl-branch.on { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); }
-.cl-branch:disabled { cursor: default; opacity: .55; }
+/* branch/variant picker is the shared <Segmented>; keep its wizard spacing */
+.cl-phase > :global(.useg) { margin: 10px 0 4px; }
 
 .cl-items { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 .cl-item { display: flex; align-items: flex-start; gap: 12px; background: var(--surface); border-radius: var(--r-ctl);

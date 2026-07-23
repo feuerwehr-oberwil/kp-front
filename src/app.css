@@ -592,7 +592,9 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .useg { display: inline-flex; flex-wrap: wrap; gap: 2px; background: var(--fill-soft); border-radius: var(--r-sm); padding: 3px; max-width: 100%; }
 .field .useg, .ctx-caprow .useg, .kv-row .useg { margin-left: auto; }
 .useg-btn { appearance: none; border: 0; background: transparent; border-radius: 7px; padding: 6px 12px; min-height: 34px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   font: 600 12.5px var(--body); color: var(--ink-dim); cursor: pointer; white-space: nowrap; transition: background .12s, color .12s; }
+.useg-btn .i { width: 15px; height: 15px; }
 .useg-btn:hover:not(.on):not(:disabled) { color: var(--ink); }
 .useg-btn.on { background: var(--blue); color: var(--on-accent-ink); box-shadow: 0 1px 2px rgba(20, 40, 80, .22); }
 .useg-btn:disabled { opacity: .4; cursor: default; }
@@ -1141,12 +1143,7 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .draw-editor .de-preset { padding: 4px 10px; border: 1px solid var(--border); border-radius: var(--r-xs);
   font-size: 12px; font-weight: 600; color: var(--ink-dim); background: var(--fill-soft); cursor: pointer; }
 .draw-editor .de-preset.on { background: var(--blue); border-color: var(--blue); color: var(--on-accent-ink); }
-/* line-ending glyph picker (plain · arrow · Teilstück fork) */
-.draw-editor .de-glyphs { display: inline-flex; gap: 6px; }
-.draw-editor .de-glyph { display: grid; place-items: center; width: 46px; height: 32px; border: 1px solid var(--border);
-  border-radius: var(--r-sm); color: var(--ink-dim); background: var(--fill-soft); cursor: pointer; padding: 0; }
-.draw-editor .de-glyph:hover { border-color: var(--ink-faint); color: var(--ink); }
-.draw-editor .de-glyph.on { border-color: var(--blue); color: var(--blue); background: color-mix(in srgb, var(--blue) 8%, transparent); }
+/* line-ending glyph picker (plain · arrow · Teilstück fork) uses the shared <Segmented> */
 
 /* shape editor — size / rotation range rows */
 /* shape editor hint row (size/rotation are done by dragging on the map) */
@@ -1829,13 +1826,9 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .jc-send:disabled { opacity: .45; cursor: default; }
 
 /* composer mode toggle: Eintrag vs Wiedervorlage */
-.jc-mode { display: flex; gap: 4px; padding: 3px; background: var(--surface-2); border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); }
-.jc-mode-tab { flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px; border: none; cursor: pointer;
-  background: transparent; color: var(--ink-dim); border-radius: calc(var(--r-ctl) - 3px); padding: 9px 12px; font-size: 13px; font-weight: 600;
-  font-family: inherit; min-height: var(--tap); }
-.jc-mode-tab .i { width: 15px; height: 15px; }
-.jc-mode-tab:hover { color: var(--ink); }
-.jc-mode-tab.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(15, 22, 34, .14); }
+/* mode switch uses the shared <Segmented>; full-width with composer-size tap targets */
+.jc-mode .useg { display: flex; width: 100%; }
+.jc-mode .useg-btn { flex: 1; min-height: var(--tap); }
 
 /* Erinnerung due-time picker */
 .jc-due { display: flex; flex-direction: column; gap: 8px; }
@@ -2590,7 +2583,6 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .cv-card { background: var(--surface-veil); border-radius: var(--r-ctl); padding: 14px; display: flex; flex-direction: column; gap: 10px; }
 .cv-card h2 { font: 700 14.5px var(--body); color: var(--ink); margin: 0; display: flex; justify-content: space-between; align-items: baseline; }
 .cv-center { align-items: center; text-align: center; padding: 32px 16px; color: var(--ink-faint); }
-.cv-count { font: 600 12.5px var(--body); color: var(--ink-faint); }
 .cv-hint { font: 500 13px var(--body); color: var(--ink-dim); margin: 0; }
 /* clock-skew warning — non-blocking, but a drifted device clock corrupts every erfasste Zeit */
 .cv-skew { display: flex; align-items: center; gap: 6px; margin: 0;
@@ -2638,13 +2630,10 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .cv-mittel li { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px;
   font: 500 14px var(--body); color: var(--ink); }
 .cv-mittel-label { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-/* ± stepper on each recorded line: a wrong amount is fixable in place (0 removes, with undo) */
-.cv-step { display: inline-flex; align-items: center; gap: 4px; }
-.cv-step b { min-width: 64px; text-align: center; font: 700 14px var(--body); }
-.cv-stepbtn { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--glass-line);
-  border-radius: var(--r-ctl); background: var(--surface); color: var(--ink); cursor: pointer; }
-.cv-stepbtn:disabled { opacity: .5; }
-.cv-stepbtn svg { width: 15px; height: 15px; }
+/* Mittel lines + Gerettete counts use the shared <Stepper> (.step chrome); a wrong amount is
+   fixable in place (0 removes, with undo) */
+.cv-count-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.cv-count-row > span { font: 600 12.5px var(--body); color: var(--ink-dim); }
 .cv-matrow { display: flex; gap: 8px; }
 .cv-matrow .cv-input { flex: 1; min-width: 0; }
 .cv-amount { flex: 0 0 72px !important; text-align: center; }
@@ -2729,8 +2718,7 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .cv-matgroup { display: flex; flex-direction: column; gap: 2px; }
 .cv-matgroup-head { font: 700 11.5px var(--body); letter-spacing: .04em; text-transform: uppercase;
   color: var(--ink-faint); padding: 6px 0 2px; }
-.cv-mittel li.used .cv-mittel-label, .cv-mittel li.used b { color: var(--accent); font-weight: 700; }
-.cv-count { flex: 1 1 0 !important; max-width: 150px; min-width: 0; text-align: center; }
+.cv-mittel li.used .cv-mittel-label { color: var(--accent); font-weight: 700; }
 .cv-rueck { flex-wrap: wrap; }
 .cv-textarea { min-height: 64px; resize: vertical; width: 100%; box-sizing: border-box; }
 .cv-row.top { align-items: start; }
