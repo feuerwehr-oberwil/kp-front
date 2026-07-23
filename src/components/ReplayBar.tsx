@@ -61,7 +61,9 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit }
     return () => { alive = false }
   }, [incidentId, startedAt])
 
-  const markers = useMemo(() => (bundle ? deriveMarkers(bundle.events) : []), [bundle])
+  // only markers within the active (trimmed) range land on the track — an incident.create that
+  // sits before the first real change would otherwise render off the left edge.
+  const markers = useMemo(() => (bundle ? deriveMarkers(bundle.events).filter((m) => m.ms >= bundle.startMs && m.ms <= bundle.endMs) : []), [bundle])
 
   // Reconstruct + push state whenever the playhead (or bundle) changes. Folds locally —
   // no per-frame server call; snapshots are memoised inside the bundle.
