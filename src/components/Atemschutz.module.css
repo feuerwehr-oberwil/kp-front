@@ -334,8 +334,9 @@ button.stepVal:hover { border-color: var(--blue); }
   border-radius: var(--r-ctl); box-shadow: var(--shadow);
 }
 /* portalled to <body> (mirrors the global Combo): the scrolling modal/sheet the field sits in
-   would otherwise clip the menu at its overflow boundary — z above sheets/drawers (.ctx @62) */
-.comboMenuPortal { position: fixed; right: auto; z-index: 70; }
+   would otherwise clip the menu at its overflow boundary. Keep it above modal sheets (@80/81)
+   as well as drawers (.ctx @62), but below the toaster (@90). */
+.comboMenuPortal { position: fixed; right: auto; z-index: 85; }
 .comboOpt {
   width: 100%; display: flex; align-items: center; gap: 9px; cursor: pointer; text-align: left;
   border: none; background: none; border-radius: var(--r-xs); padding: 9px 10px; min-height: var(--tap);
