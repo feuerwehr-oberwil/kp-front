@@ -268,9 +268,11 @@ const base = {
         'VKF Pumpe Typ2': {},
         'VKF Helilandeplatz': {},
         'VKF Luefter mobil': { controls: ['rotation', 'airflow'], fields: ['Typ'] },
-        // composite vehicle-mounted Grosslüfter: body heading (rotation) + airflow (rotation2),
-        // each with its own on-canvas rotor + Drehung stepper. Synthesised in lib/useSymbols.
-        'Grosslüfter': { controls: ['rotation', 'rotation2'] },
+        // composite vehicle-mounted Grosslüfter: body heading (rotation) + fan aim (rotation2),
+        // each with its own on-canvas rotor + Drehung stepper, PLUS the Lüfter airflow direction
+        // (Einblasen / Absaugen — reverses the fan glyph, same as the mobile Lüfter). Synthesised
+        // in lib/useSymbols.
+        'Grosslüfter': { controls: ['rotation', 'rotation2', 'airflow'] },
         'FW Entrauchung': { controls: ['rotation'] },
         'FW Kleinloeschgeraet': { fields: ['Typ'] },
         'FW Boot': { controls: ['rotation'] },

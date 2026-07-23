@@ -355,8 +355,9 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
               const svg = veh ? vehicleSymbolSvg(e.label ?? '', rot)
                 : gross ? (byName[GROSSLUEFTER_BODY] ?? '')
                 : (placardSvgForSymbol(e.symbol, e.fields) ?? e.symbolSvg ?? (e.symbol ? byName[luefterVariant(e.symbol, e.extract)!] ?? byName[e.symbol] ?? '' : ''))
-              // the Grosslüfter stacks the fan as a separately-rotatable overlay (airflow direction)
-              const overlay = gross ? { svg: byName[GROSSLUEFTER_FAN] ?? '', rotation: (e.rotation2 ?? 0) - bearing, scale: FAN_OVERLAY_SCALE } : undefined
+              // the Grosslüfter stacks the fan as a separately-rotatable overlay (airflow direction);
+              // extract (Absaugen) swaps to the reversed-arrow fan glyph, same as the mobile Lüfter
+              const overlay = gross ? { svg: byName[luefterVariant(GROSSLUEFTER_FAN, e.extract)!] ?? byName[GROSSLUEFTER_FAN] ?? '', rotation: (e.rotation2 ?? 0) - bearing, scale: FAN_OVERLAY_SCALE } : undefined
               // the vehicle glyph rotates its body internally, so the chip must NOT also rotate;
               // every other symbol (incl. the Grosslüfter body) applies its stored rotation to the chip.
               return (

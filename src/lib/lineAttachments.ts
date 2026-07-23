@@ -27,10 +27,12 @@ export const distance = (a: Point, b: Point) => Math.hypot(b[0] - a[0], b[1] - a
 
 /** Teilstück fork geometry — single source of truth shared by the drawn fork glyph
  *  (`TeilstueckFork` in lineDecor) and the three branch attach-ports, so the outputs always
- *  land on the visible prong tips instead of a separate offset overlay. `width` = line stroke. */
+ *  land on the visible prong tips instead of a separate offset overlay. `width` = line stroke.
+ *  Sized generously so the three prongs are far enough apart to aim a branch at the middle one
+ *  on a touch screen (the prong pitch = `half`, so a bigger half = fatter, more tappable ports). */
 export function forkDims(width = 4) {
-  const half = Math.max(8, width * 1.7)   // spine half-height
-  return { half, prong: half * 1.05 }     // prong length, forward
+  const half = Math.max(14, width * 2.8)  // spine half-height / prong pitch
+  return { half, prong: half * 1.1 }      // prong length, forward
 }
 /** Screen-px position of Teilstück port `port` (0 = top, 1 = middle, 2 = bottom): the tip of the
  *  matching fork prong — `prong` forward along tip→travel and `(port-1)*half` across it. Falls

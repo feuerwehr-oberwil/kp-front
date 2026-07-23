@@ -79,7 +79,9 @@ export function krokiEntity(e: Entity, byName: Record<string, string>): KrokiEnt
   if (e.symbolSvg) return { ...base, symbolSvg: e.symbolSvg, rotation: undefined }
   if (isVehicleSym(e)) return { ...base, symbolSvg: vehicleSymbolSvg(e.label ?? '', e.rotation ?? 0), rotation: undefined }
   if (isGrossluefter(e)) {
-    const svg = composeGrossluefterSvg(byName[GROSSLUEFTER_BODY] ?? '', byName[GROSSLUEFTER_FAN] ?? '')
+    // extract (Absaugen) prints the reversed-arrow fan, same swap as the mobile Lüfter below
+    const fan = (e.extract && byName[LUEFTER_EXTRACT]) ? byName[LUEFTER_EXTRACT] : byName[GROSSLUEFTER_FAN] ?? ''
+    const svg = composeGrossluefterSvg(byName[GROSSLUEFTER_BODY] ?? '', fan)
     return svg ? { ...base, symbolSvg: svg } : null
   }
   const placard = placardSvgForSymbol(e.symbol, e.fields)

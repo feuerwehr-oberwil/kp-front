@@ -81,7 +81,7 @@ describe('capacity, E ports, and cycles', () => {
 describe('Teilstück fork ports', () => {
   it('lands the three ports on the fork prong tips: prong forward, ±half across', () => {
     const tip: [number, number] = [10, 0], neighbor: [number, number] = [0, 0], w = 10
-    const { half, prong } = forkDims(w) // half 17, prong 17.85
+    const { half, prong } = forkDims(w) // touch-sized: half = max(14, w*2.8)
     const mid = forkPortPoint(tip, neighbor, w, 1)
     expect(mid[0]).toBeCloseTo(10 + prong); expect(mid[1]).toBeCloseTo(0)       // middle prong straight ahead
     const top = forkPortPoint(tip, neighbor, w, 0), bot = forkPortPoint(tip, neighbor, w, 2)

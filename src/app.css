@@ -2040,14 +2040,14 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .magnet-port > small { position: absolute; top: 32px; width: max-content; max-width: 220px; padding: 5px 8px; border-radius: 7px;
   background: var(--ink); color: var(--surface); font-size: 11px; font-weight: 700; }
 .wb-magnet { position: absolute; z-index: 12; transform: translate(-50%, -50%); }
-/* explicit detach affordance: a small × chip beside a selected, connected endpoint (map + plan) */
-.line-detach-chip { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
-  border: 2px solid var(--red); background: var(--surface); color: var(--red); font-size: 15px; font-weight: 800;
-  line-height: 1; box-shadow: 0 1px 4px rgba(30, 45, 70, .3); cursor: pointer; }
-.line-detach-chip:active { transform: scale(1.12); }
+/* explicit detach affordance: a chip beside a selected, connected endpoint (map + plan). Sized for
+   fat fingers — it's the only on-canvas control that both signals "connected" and breaks the link. */
+.line-detach-chip { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%;
+  border: 3px solid var(--red); background: var(--surface); color: var(--red); font-size: 24px; font-weight: 800;
+  line-height: 1; box-shadow: 0 2px 6px rgba(30, 45, 70, .34); cursor: pointer; }
+.line-detach-chip:active { transform: scale(1.1); }
 .network-halo { position: absolute; inset: -7px; border: 2px solid color-mix(in srgb, var(--accent) 55%, transparent); border-radius: 50%; pointer-events: none; }
 .hidden-attachment-marker { width: 14px; height: 14px; border: 2px dashed var(--accent); border-radius: 50%; background: color-mix(in srgb, var(--surface) 80%, transparent); }
-.line-coupling-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--surface); border: 2px solid var(--ink); pointer-events: none; }
 /* Verbindungen — reuses the editor's own .de-row / .de-preset rows verbatim so it reads as one more
    FKS group, not a separate widget. Only the target value, the note line and the detach get styling. */
 .draw-editor .de-conn-title { padding: 4px 0 2px; font-size: 11px; font-weight: 700; letter-spacing: .08em;
