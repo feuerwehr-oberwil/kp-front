@@ -410,9 +410,9 @@ const base = {
      *  free channel number, not a fixed FKS 1–99 dial. */
     funkkanalMin: 1,
     funkkanalMax: 9999,
-    /** SCBA cylinder volume (L) and assumed air consumption (L/min) for the *expected pressure*
-     *  Planungshilfe shown next to the logged Druck. A Schätzung only — deliberately kept out of
-     *  the alarm math (air stays the wearer's responsibility); it never replaces a real reading. */
+    /** SCBA cylinder volume (L) and assumed air consumption (L/min) used only as the initial
+     *  expected-pressure fallback until confirmed pressure history provides a measured rate.
+     *  A Schätzung only — kept out of alarm math; it never replaces a real reading. */
     cylinderLiters: 7,
     estConsumptionLPerMin: 50,
     /** Auftrag types offered in the wizard (FKS); the actual order + location go in `ziel` */
@@ -445,4 +445,3 @@ export const appConfig = {
   ...base,
   get copy(): Copy { return getCopy() },
 } as typeof base & { readonly copy: Copy }
-

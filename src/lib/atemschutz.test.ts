@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { anyTruppInField, contactSeverity, deriveTruppLive, estimateBar, fmtClock, peakAtemschutzAlarm, truppInField } from './atemschutz'
+import { anyTruppInField, contactSeverity, deriveTruppLive, estimatePressure, fmtClock, peakAtemschutzAlarm, truppInField } from './atemschutz'
 import type { Trupp } from '../types'
 
 // A Trupp that entered at a fixed reference time; its contact clock starts at entry.
@@ -85,23 +85,97 @@ describe('deriveTruppLive', () => {
   })
 })
 
-describe('estimateBar (Planungshilfe — expected pressure)', () => {
-  // 7 L cylinder at 50 L/min ⇒ 50/7 ≈ 7.143 bar/min drop from the 300 bar entry pressure.
-  it('drops from entry pressure at consumption/capacity bar per minute', () => {
-    expect(estimateBar(base, REF, 7, 50)).toBe(300) // t=0 → full entry pressure
-    expect(estimateBar(base, REF + 7 * 60_000, 7, 50)).toBe(250) // 7 min × 7.143 ≈ 50 bar used
-    expect(estimateBar(base, REF + 14 * 60_000, 7, 50)).toBe(200) // 14 min ≈ 100 bar used
+describe('estimatePressure (Planungshilfe — expected pressure)', () => {
+  const pressure = (minute: number, bar: number) => ({
+    t: new Date(REF + minute * 60_000).toISOString(), bar, kind: 'pressure' as const,
   })
 
-  it('never goes negative and never predates entry', () => {
-    expect(estimateBar(base, REF + 120 * 60_000, 7, 50)).toBe(0) // floored, not negative
-    expect(estimateBar(base, REF - 60_000, 7, 50)).toBe(300) // clock before entry → elapsed 0
+  it('uses the configured assumption until a measured pressure drop exists', () => {
+    const estimate = estimatePressure(base, REF + 7 * 60_000, 7, 50)
+    expect(estimate).toMatchObject({
+      bar: 250,
+      source: 'assumption',
+      rateBarPerMin: 50 / 7,
+      basedAt: new Date(REF).toISOString(),
+      sampleCount: 1,
+    })
   })
 
-  it('returns null when the Trupp has not entered or the assumptions are unusable', () => {
-    expect(estimateBar({ ...base, entryTime: '' }, REF, 7, 50)).toBeNull()
-    expect(estimateBar(base, REF, 0, 50)).toBeNull() // no divide-by-zero on a 0 L cylinder
-    expect(estimateBar(base, REF, 7, 0)).toBeNull()
+  it('projects from confirmed pressure consumption instead of the assumed rate', () => {
+    const t: Trupp = {
+      ...base,
+      readings: [pressure(5, 270), pressure(10, 240)],
+      lastPressureBar: 240,
+      lastPressureTime: pressure(10, 240).t,
+    }
+    // 60 bar used in 10 min = 6 bar/min; two more min from the latest 240 bar reading => 228.
+    expect(estimatePressure(t, REF + 12 * 60_000, 7, 50)).toMatchObject({
+      bar: 228,
+      source: 'history',
+      rateBarPerMin: 6,
+      basedAt: pressure(10, 240).t,
+      sampleCount: 3,
+    })
+  })
+
+  it('uses real intervals and ignores contact rows that repeat the last pressure', () => {
+    const t: Trupp = {
+      ...base,
+      readings: [
+        { t: new Date(REF + 5 * 60_000).toISOString(), bar: 300, kind: 'contact' },
+        pressure(16, 220),
+      ],
+    }
+    // 80 bar in 16 min = 5 bar/min; contact at minute 5 is not a measurement.
+    expect(estimatePressure(t, REF + 20 * 60_000, 7, 50)).toMatchObject({
+      bar: 200,
+      source: 'history',
+      rateBarPerMin: 5,
+      sampleCount: 2,
+    })
+  })
+
+  it('starts a fresh history segment after pressure rises', () => {
+    const t: Trupp = {
+      ...base,
+      readings: [pressure(10, 200), pressure(11, 300), pressure(15, 280)],
+    }
+    // The 300 bar increase is a new cylinder/correction. Only 300 → 280 over 4 min is used.
+    expect(estimatePressure(t, REF + 17 * 60_000, 7, 50)).toMatchObject({
+      bar: 270,
+      source: 'history',
+      rateBarPerMin: 5,
+      basedAt: pressure(15, 280).t,
+      sampleCount: 2,
+    })
+  })
+
+  it('re-anchors the fallback at a confirmed value when no drop was measured', () => {
+    const t: Trupp = { ...base, readings: [pressure(5, 300)] }
+    const estimate = estimatePressure(t, REF + 7 * 60_000, 7, 50)
+    expect(estimate).toMatchObject({
+      bar: 286,
+      source: 'assumption',
+      basedAt: pressure(5, 300).t,
+      sampleCount: 2,
+    })
+  })
+
+  it('uses measured history even when fallback assumptions are unavailable', () => {
+    const t: Trupp = { ...base, readings: [pressure(10, 250)] }
+    expect(estimatePressure(t, REF + 12 * 60_000, 0, 0)).toMatchObject({
+      bar: 240,
+      source: 'history',
+      rateBarPerMin: 5,
+    })
+  })
+
+  it('never goes negative and rejects unusable data', () => {
+    const t: Trupp = { ...base, readings: [pressure(10, 250)] }
+    expect(estimatePressure(t, REF + 120 * 60_000, 7, 50)?.bar).toBe(0)
+    expect(estimatePressure(base, REF - 60_000, 7, 50)?.bar).toBe(300)
+    expect(estimatePressure({ ...base, entryTime: '' }, REF, 7, 50)).toBeNull()
+    expect(estimatePressure(base, REF, 0, 0)).toBeNull()
   })
 })
 
