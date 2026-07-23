@@ -27,10 +27,19 @@ export function getLinePreset(id: string) {
 
 /** The style patch a preset applies — the SAME bundle on both surfaces (the Plan simply doesn't
  *  RENDER `showDistance`, since a building plan has no metric scale; the flag is still carried so the
- *  data model and preset-inference stay identical). Each preset clears every field it owns, so
- *  switching back to Freihand cleanly removes a previous preset's arrow/marker/dash. */
-export function linePresetPatch(id: string): LinePresetFields {
-  return { ...getLinePreset(id).defaults }
+ *  data model and preset-inference stay identical). Empty flags coerce to `undefined` so switching
+ *  back to Freihand cleanly REMOVES a previous preset's arrow/marker/distance (rather than persisting
+ *  `false`/`''` noise into the synced blob); `dashed` falls back to the line's current value when the
+ *  preset doesn't own it (Freihand keeps whatever dash the line/dock had). Both surfaces — the map
+ *  (useMapDrawing) and the plan (Whiteboard) — apply this ONE bundle, so they can't drift. */
+export function resolveLinePreset(id: string, currentDashed?: boolean): LinePresetFields {
+  const p = getLinePreset(id).defaults
+  return {
+    arrow: p.arrow || undefined,
+    marker: p.marker || undefined,
+    showDistance: p.showDistance || undefined,
+    dashed: p.dashed ?? currentDashed,
+  }
 }
 
 /** Repeated inline marker (e.g. —R— on a Rettungsachse): how far apart, in screen/board px, the
