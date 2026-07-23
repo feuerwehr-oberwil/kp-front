@@ -585,14 +585,16 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .field { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border-soft); font-size: 14px; }
 .field span { color: var(--ink-dim); font-weight: 600; }
 .field b { font-family: var(--mono); font-weight: 500; text-align: right; }
-/* a compact segmented control sitting in a .field row's value slot (e.g. the Lüfter Luftrichtung),
-   so a two-state choice reads like the stepper rows above it */
-.ctx-seg { display: flex; border: 1px solid var(--border); border-radius: var(--r-xs); overflow: hidden; }
-.ctx-seg-btn { appearance: none; border: 0; border-left: 1px solid var(--border); background: var(--surface-2);
-  color: var(--ink-dim); font-size: 13px; font-weight: 600; padding: 5px 12px; cursor: pointer; white-space: nowrap; }
-.ctx-seg-btn:first-child { border-left: 0; }
-.ctx-seg-btn:hover { color: var(--ink); }
-.ctx-seg-btn.on { background: var(--blue); border-left-color: var(--blue); color: var(--on-accent-ink); }
+/* THE segmented option-picker for the whole details modal — a soft track with a blue-filled active
+   segment (Luftrichtung, Beschriftung, and short fixed detail-field lists like a Kleinlöscher Typ all
+   render through components/Segmented, so they look + feel identical). Wraps for longer sets; longer
+   lists / the Mannschaft roster use the Combo dropdown instead. Right-aligned in a .field row. */
+.useg { display: inline-flex; flex-wrap: wrap; gap: 2px; background: var(--fill-soft); border-radius: var(--r-sm); padding: 3px; max-width: 100%; }
+.field .useg, .ctx-caprow .useg, .kv-row .useg { margin-left: auto; }
+.useg-btn { appearance: none; border: 0; background: transparent; border-radius: 7px; padding: 6px 12px; min-height: 34px;
+  font: 600 12.5px var(--body); color: var(--ink-dim); cursor: pointer; white-space: nowrap; transition: background .12s, color .12s; }
+.useg-btn:hover:not(.on) { color: var(--ink); }
+.useg-btn.on { background: var(--blue); color: var(--on-accent-ink); box-shadow: 0 1px 2px rgba(20, 40, 80, .22); }
 
 /* the glyph-affecting steppers (Geschoss / Anzahl / Drehung) sit in one group;
    the section header below — not a hairline — separates them from the details */
@@ -602,20 +604,21 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .ctx-section-label { display: block; font-size: 11px; font-weight: 700; letter-spacing: .08em;
   text-transform: uppercase; color: var(--ink-dim); margin-bottom: 6px; }
 
-/* editable key/value detail rows */
-.kv-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--border-soft); }
+/* Preset / read-only detail fields render as plain .field rows (label left, control right) — the
+   SAME row as the Darstellung steppers above, so a «Typ» sits identically to a «Luftrichtung». Their
+   label reuses .kv-key-ro, styled to match .field span. Only USER-added custom fields keep the
+   editable key box + delete (.kv-row). */
+.kv-key-ro { font-size: 14px; font-weight: 600; color: var(--ink-dim); }
+.field .kv-val { flex: 0 1 auto; min-width: 132px; text-align: left; }
+.field b.kv-val-ro { font-family: var(--mono); font-weight: 500; }
+.field .combo, .kv-row .combo { margin-left: auto; min-width: 132px; }
+/* editable custom key/value rows */
+.kv-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border-soft); }
 .kv-key, .kv-val { font-size: 13px; color: var(--ink); border: none; background: var(--fill-soft); border-radius: var(--r-sm);
   padding: 8px 10px; min-width: 0; font-family: var(--body); }
 .kv-key { flex: 0 0 38%; font-weight: 600; color: var(--ink-dim); }
 .kv-val { flex: 1; font-family: var(--mono); }
 .kv-key:focus, .kv-val:focus { outline: none; background: color-mix(in srgb, var(--blue) 10%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--blue) 35%, transparent); }
-.kv-key-ro { flex: 0 0 38%; font-size: 13px; font-weight: 600; color: var(--ink-dim); padding: 8px 0; }
-/* detail-field controls: segmented tabs for short fixed lists, native dropdown for long/roster */
-.kv-tabs { flex: 1; display: flex; flex-wrap: wrap; gap: 4px; }
-.kv-tab { display: inline-flex; align-items: center; min-height: var(--tap); border: 1px solid var(--border); background: var(--fill-soft); border-radius: var(--r-xs); padding: 5px 10px;
-  font: 600 12.5px var(--body); color: var(--ink-dim); cursor: pointer; }
-.kv-tab:hover { border-color: var(--ink-faint); color: var(--ink); }
-.kv-tab.on { background: var(--blue); border-color: var(--blue); color: var(--on-accent-ink); }
 /* shared custom dropdown (Combo) — styled like the Atemschutz Trupp picker, no native chrome */
 .combo { position: relative; flex: 1; min-width: 0; }
 .combo-pick { width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 6px; text-align: left;
@@ -711,12 +714,10 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
    low-emphasis since field values matter first; visibility is a rare tweak (a tiny inline seg). */
 .ctx-caprow { display: flex; align-items: center; gap: 8px; padding: 4px 14px 0; }
 .ctx-caprow-lbl { font-size: 11px; color: var(--ink-dim); white-space: nowrap; }
-.ctx-caprow-seg { display: flex; margin-left: auto; border: 1px solid var(--border); border-radius: var(--r-xs); overflow: hidden; }
-.ctx-caprow-btn { appearance: none; border: 0; border-left: 1px solid var(--border); background: var(--surface-2);
-  color: var(--ink-dim); font-size: 11px; font-weight: 600; padding: 4px 8px; cursor: pointer; white-space: nowrap; }
-.ctx-caprow-btn:first-child { border-left: 0; }
-.ctx-caprow-btn:hover { color: var(--ink); }
-.ctx-caprow-btn.on { background: var(--blue); border-left-color: var(--blue); color: var(--on-accent-ink); }
+/* the caption picker uses the shared .useg segmented control (see components/Segmented); the row
+   just pins it to the right. A touch smaller here since it sits by the footer actions. */
+.ctx-caprow .useg { gap: 1px; padding: 2px; }
+.ctx-caprow .useg-btn { min-height: 28px; padding: 4px 10px; font-size: 11.5px; }
 
 .ctx-actions { display: flex; gap: 6px; padding: 12px 14px 16px; }
 .btn { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 5px; min-height: var(--tap); font-size: 12.5px; font-weight: 600;

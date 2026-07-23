@@ -7,6 +7,7 @@ import { lookupUN, decodeKemler, type UnHazardEntry } from '../lib/unHazard'
 import { ERG_VERSION, lookupErg } from '../lib/erg'
 import { Combo } from './Combo'
 import { Stepper } from './Stepper'
+import { Segmented } from './Segmented'
 import { compositeSpec } from '../lib/symbolRender'
 
 // detail-field controls: short fixed lists render as directly-tappable segmented tabs (they
@@ -39,14 +40,11 @@ function FieldControl({ fieldKey, value, options, placeholder, officerFilter, ra
         onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} />
     )
   }
-  // short, non-roster fixed list → segmented tabs
+  // short, non-roster fixed list → the shared segmented control (re-tap the active one to clear)
   if (!isRoster && options.length <= OPTION_TABS_MAX) {
     return (
-      <div className="kv-tabs">
-        {options.map((o) => (
-          <button key={o} type="button" className={`kv-tab${value === o ? ' on' : ''}`} onClick={() => onCommit(value === o ? '' : o)}>{o}</button>
-        ))}
-      </div>
+      <Segmented options={options.map((o) => ({ value: o, label: o }))} value={value}
+        onChange={(v) => onCommit(v === value ? '' : v)} ariaLabel={fieldKey} />
     )
   }
   // long list or roster → custom dropdown (roster adds a "Name eingeben …" free-type escape)
@@ -284,16 +282,13 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
   const caprow = onCaption && !readOnly && (
     <div className="ctx-caprow">
       <span className="ctx-caprow-lbl">{C.caption}</span>
-      <div className="ctx-caprow-seg" role="group" aria-label={C.caption}>
-        {([
-          { v: 'off' as const, label: C.captionOff },
-          { v: 'auto' as const, label: C.captionAuto },
-          { v: 'all' as const, label: C.captionAll },
-        ]).map(({ v, label }) => (
-          <button key={label} type="button" className={`ctx-caprow-btn${capMode === v ? ' on' : ''}`}
-            aria-pressed={capMode === v} onClick={() => onCaption(v)}>{label}</button>
-        ))}
-      </div>
+      <Segmented ariaLabel={C.caption} value={capMode}
+        options={[
+          { value: 'off' as const, label: C.captionOff },
+          { value: 'auto' as const, label: C.captionAuto },
+          { value: 'all' as const, label: C.captionAll },
+        ]}
+        onChange={(v) => onCaption(v)} />
     </div>
   )
   // rendered twice: pinned at the sheet bottom on desktop/tablet, and again inside the
@@ -405,15 +400,9 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
               {showAirflow && (
                 <div className="field">
                   <span>{C.airflow}</span>
-                  <div className="ctx-seg" role="group" aria-label={C.airflow}>
-                    {([
-                      { v: false, label: C.airflowBlow },
-                      { v: true, label: C.airflowExtract },
-                    ]).map(({ v, label }) => (
-                      <button key={label} type="button" className={`ctx-seg-btn${(entity.extract ?? false) === v ? ' on' : ''}`}
-                        aria-pressed={(entity.extract ?? false) === v} onClick={() => onAirflow!(v)}>{label}</button>
-                    ))}
-                  </div>
+                  <Segmented ariaLabel={C.airflow} value={entity.extract ?? false}
+                    options={[{ value: false, label: C.airflowBlow }, { value: true, label: C.airflowExtract }]}
+                    onChange={(v) => onAirflow!(v)} />
                 </div>
               )}
             </div>
@@ -452,23 +441,31 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
           {(!readOnly || rows.length > 0) && (
             <div className="ctx-section">
               <span className="ctx-section-label">{C.detailsTitle}</span>
-              {rows.filter((r) => !readOnly || r.v.trim()).map((r, i) => (
-                <div className="kv-row" key={i}>
-                  {readOnly || protectedKeys?.has(r.k.trim())
-                    ? <span className="kv-key-ro">{r.k}</span>
-                    : <input className="kv-key" value={r.k} placeholder={C.fieldKeyPlaceholder}
-                        onChange={(e) => setRow(i, { k: e.target.value })} onBlur={() => commitRows(rows)}
-                        onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} />}
-                  {readOnly
-                    ? <b className="kv-val kv-val-ro">{r.v}</b>
-                    : <FieldControl fieldKey={r.k} value={r.v} options={fieldOptions?.[r.k]} placeholder={C.fieldValuePlaceholder}
-                        officerFilter={officerSym} rankOf={rankOf}
-                        onInput={(v) => setRow(i, { v })} onCommit={(v) => setRowValue(i, v)} />}
-                  {!readOnly && !protectedKeys?.has(r.k.trim()) && (
+              {rows.filter((r) => !readOnly || r.v.trim()).map((r, i) => {
+                const fixed = readOnly || !!protectedKeys?.has(r.k.trim())
+                const field = (
+                  <FieldControl fieldKey={r.k} value={r.v} options={fieldOptions?.[r.k]} placeholder={C.fieldValuePlaceholder}
+                    officerFilter={officerSym} rankOf={rankOf}
+                    onInput={(v) => setRow(i, { v })} onCommit={(v) => setRowValue(i, v)} />
+                )
+                // a preset / read-only field reads like the Darstellung rows above — a plain label and
+                // the control, no editable-key box, no delete — so a «Typ» sits identically to a
+                // «Luftrichtung». A user-added custom field keeps its editable key + delete.
+                return fixed ? (
+                  <div className="field" key={i}>
+                    <span className="kv-key-ro">{r.k}</span>
+                    {readOnly ? <b className="kv-val-ro">{r.v}</b> : field}
+                  </div>
+                ) : (
+                  <div className="kv-row" key={i}>
+                    <input className="kv-key" value={r.k} placeholder={C.fieldKeyPlaceholder}
+                      onChange={(e) => setRow(i, { k: e.target.value })} onBlur={() => commitRows(rows)}
+                      onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} />
+                    {field}
                     <button className="kv-x" title={C.removeField} aria-label={C.removeField} onClick={() => removeRow(i)}><Icon id="close" /></button>
-                  )}
-                </div>
-              ))}
+                  </div>
+                )
+              })}
 
               {!readOnly && (
                 <button className="kv-add" onClick={addRow}><Icon id="plus" />{C.addField}</button>
