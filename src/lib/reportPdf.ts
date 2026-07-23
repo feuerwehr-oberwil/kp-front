@@ -5,6 +5,8 @@
 // shared symbol pack), the plan pages (pdfium) and loads journal photos from its own media
 // store; nothing is captured or uploaded from the browser anymore.
 
+import { downloadBlob } from './download'
+
 // Mirror api.ts's base so a cross-origin deployment still resolves (Vite proxies /api in dev).
 const BASE = import.meta.env.VITE_KP_RUECK_URL ?? ''
 
@@ -34,14 +36,7 @@ export async function downloadReportPdf(
   if (!res.ok) throw new Error(`Rapport-PDF fehlgeschlagen (${res.status})`)
 
   const blob = await res.blob()
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `Einsatzrapport_${filenameHint || 'Einsatz'}.pdf`
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 5000)
+  downloadBlob(blob, `Einsatzrapport_${filenameHint || 'Einsatz'}.pdf`)
 }
 
 /** Sanitise an incident title into a safe filename fragment (mirrors the server side). */

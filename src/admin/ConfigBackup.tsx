@@ -3,6 +3,7 @@ import { apiGet, apiPut, ApiError } from '../lib/api'
 import type { DeploymentConfig } from '../lib/deploymentConfig'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
+import { downloadBlob } from '../lib/download'
 
 // Config backup (Batch A · A1): export the current config to a JSON file, import one back,
 // and show who last changed it & when. `integrations` is env-derived/read-only so it's
@@ -51,14 +52,7 @@ export function ConfigBackup({ config, onImported }: {
   const exportConfig = (filename: string) => {
     const { integrations: _ignore, ...payload } = config as DeploymentConfig & { integrations?: unknown }
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    URL.revokeObjectURL(url)
+    downloadBlob(blob, filename)
   }
 
   const onExport = () => exportConfig('kp-front-config.json')
