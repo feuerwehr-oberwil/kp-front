@@ -95,6 +95,29 @@ const MARKER_KIND: Record<string, { kind: ReplayMarker['kind']; labelKey: Marker
   'workspace.save': { kind: 'save', labelKey: 'markerSave' },
 }
 
+// Structural events that are NOT a content change — they must not stretch the scrub range into
+// idle time (incident.create fires at the incident's open, often well before any real work).
+const IDLE_OP_TYPES = new Set(['incident.create'])
+
+/** The slider domain: the span where something actually changed — every event except the
+ *  structural incident.create, plus vehicle GPS samples. This trims idle head/tail (the app
+ *  opened early, or left running long after the work stopped) so the track covers the part
+ *  worth scrubbing instead of mostly-empty time. Falls back to the full window when nothing
+ *  was recorded. Pure — the fold (`stateAt`) still sees every event regardless of the range. */
+export function activeReplayRange(
+  events: { occurred_at: string; op_type: string }[],
+  samples: { ts: string }[],
+  windowStartMs: number,
+  windowEndMs: number,
+): { startMs: number; endMs: number } {
+  const changeMs = [
+    ...events.filter((e) => !IDLE_OP_TYPES.has(e.op_type)).map((e) => ms(e.occurred_at)),
+    ...samples.map((s) => ms(s.ts)),
+  ].filter((t) => Number.isFinite(t))
+  if (!changeMs.length) return { startMs: windowStartMs, endMs: windowEndMs }
+  return { startMs: Math.min(...changeMs), endMs: Math.max(...changeMs) }
+}
+
 /** Pick the events worth showing as track markers (skip noisy move/edit/toggle). */
 export function deriveMarkers(events: ReplayEvent[]): ReplayMarker[] {
   const copy = appConfig.copy.replay
@@ -121,11 +144,9 @@ export async function loadReplay(
     fetchEvents(incidentId).catch(() => [] as ReplayEvent[]),
     fetchSamples(incidentId).catch(() => [] as VehicleSampleRow[]),
   ])
-  // The true domain spans the incident start → now, but clamp to actual event/ sample
-  // extent when those run past the supplied window (e.g. a long incident).
-  const eventTimes = events.map((e) => ms(e.occurred_at))
-  const startMs = Math.min(windowStartMs, ...(eventTimes.length ? [eventTimes[0]] : [windowStartMs]))
-  const endMs = Math.max(windowEndMs, ...(eventTimes.length ? [eventTimes[eventTimes.length - 1]] : [windowEndMs]))
+  // The slider spans only the active period (first → last change), not the whole incident
+  // start → now, so idle stretches don't eat the track (see activeReplayRange).
+  const { startMs, endMs } = activeReplayRange(events, samples, windowStartMs, windowEndMs)
 
   const snapshotCache = new Map<number, Saved | null>()
   const loadSnapshotAt = async (tMs: number) => {

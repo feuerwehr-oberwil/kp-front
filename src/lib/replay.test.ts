@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { deriveMarkers, stateAt, vehiclesAt } from './replay'
+import { activeReplayRange, deriveMarkers, stateAt, vehiclesAt } from './replay'
 import type { ReplayBundle, ReplayEvent, VehicleSampleRow } from './replay'
 import type { Saved } from './workspace'
 
@@ -35,6 +35,30 @@ const bundle = (
   endMs: 1_000_000,
   snapshotCache: new Map(),
   loadSnapshotAt: async (tMs: number) => snap(tMs),
+})
+
+describe('activeReplayRange — trim idle head/tail to where changes happened', () => {
+  const WIN_START = 0, WIN_END = 1_000_000
+  it('spans first → last change, not the whole incident window', () => {
+    const r = activeReplayRange([
+      ev({ op_type: 'incident.create', occurred_at: iso(0) }),   // idle head — excluded
+      ev({ op_type: 'entity.add', occurred_at: iso(200_000) }),
+      ev({ op_type: 'draw.add', occurred_at: iso(500_000) }),
+    ], [], WIN_START, WIN_END)
+    expect(r).toEqual({ startMs: 200_000, endMs: 500_000 })  // idle before first + after last trimmed
+  })
+  it('ignores incident.create so a late first action trims the head', () => {
+    const r = activeReplayRange([ev({ op_type: 'incident.create', occurred_at: iso(0) }), ev({ op_type: 'status.change', occurred_at: iso(300_000) })], [], WIN_START, WIN_END)
+    expect(r.startMs).toBe(300_000)
+  })
+  it('includes vehicle samples as changes', () => {
+    const r = activeReplayRange([ev({ op_type: 'entity.add', occurred_at: iso(400_000) })], [{ ts: iso(100_000) }], WIN_START, WIN_END)
+    expect(r).toEqual({ startMs: 100_000, endMs: 400_000 })
+  })
+  it('falls back to the full window when nothing but incident.create was recorded', () => {
+    expect(activeReplayRange([ev({ op_type: 'incident.create', occurred_at: iso(0) })], [], WIN_START, WIN_END)).toEqual({ startMs: WIN_START, endMs: WIN_END })
+    expect(activeReplayRange([], [], WIN_START, WIN_END)).toEqual({ startMs: WIN_START, endMs: WIN_END })
+  })
 })
 
 describe('deriveMarkers', () => {
