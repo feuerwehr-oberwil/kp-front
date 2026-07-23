@@ -19,9 +19,6 @@ import type { KrokiView } from '../lib/report'
 // printed Kroki. Preview-grade rendering: real glyphs at a fixed small size + plain
 // drawing geometry; the server render stays the source of truth for the final look.
 
-// the server composes the Kroki at 1600×940 — the preview keeps the same aspect so the
-// chosen crop IS the printed crop (no hidden letterboxing)
-export const KROKI_AR = '1600 / 940'
 const FIT_MAX_ZOOM = 20 // mirror of the server's fit_view max_z
 const CARTO_FALLBACK = 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png'
 // backend/app/kroki.py renders print overlays against this reference viewport. Scaling the

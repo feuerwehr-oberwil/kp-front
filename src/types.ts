@@ -582,8 +582,6 @@ export interface MittelEntry {
   /** author display name snapshot, when known */
   by?: string
 }
-export type MittelLog = MittelEntry[]
-
 // A saved map view (camera bookmark): the full Lage camera — position, zoom and rotation —
 // so the crew can flip between framings (e.g. a north-up overview and the map rotated to how
 // they're physically standing in front of the Einsatzort) with a single tap. Synced per

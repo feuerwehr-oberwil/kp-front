@@ -97,14 +97,6 @@ export function rdpIndices(pts: [number, number][], epsilon: number): number[] {
  *  (≈ this many screen px). Tuned so a hand-drawn line keeps its shape but lands a editable node count. */
 export const FREEHAND_SIMPLIFY_PX = 3.5
 
-/** Thin a freehand stroke whose points are in some normalized/abstract space, by projecting through
- *  (w, h) px so the tolerance is pixel-consistent and aspect-correct, then keeping the RDP nodes. */
-export function simplifyFreehand(pts: [number, number][], w: number, h: number, tolPx = FREEHAND_SIMPLIFY_PX): [number, number][] {
-  if (pts.length <= 2) return pts
-  const idx = rdpIndices(pts.map(([x, y]) => [x * w, y * h] as [number, number]), tolPx)
-  return idx.map((i) => pts[i])
-}
-
 /** The point `dist` px back from the END of a pixel polyline — used to derive a STABLE arrowhead
  *  bearing. The final captured segment of a freehand stroke is tiny and jittery, so pointing the
  *  arrow along just the last segment makes it wobble/skew; sampling a fixed distance back gives the

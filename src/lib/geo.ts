@@ -16,24 +16,6 @@ export function circlePolygon(center: LngLat, radiusM: number, n = 96): number[]
   return [ring]
 }
 
-export function rectPolygon(center: LngLat, wM: number, hM: number): number[][][] {
-  const mPerLon = 111320 * Math.cos((center[1] * Math.PI) / 180)
-  const dx = wM / 2 / mPerLon
-  const dy = hM / 2 / M_PER_LAT
-  const [x, y] = center
-  return [[[x - dx, y - dy], [x + dx, y - dy], [x + dx, y + dy], [x - dx, y + dy], [x - dx, y - dy]]]
-}
-
-type Corners = [[number, number], [number, number], [number, number], [number, number]]
-/** Four corners [TL, TR, BR, BL] (lng,lat) of a north-up rectangle around a centre. */
-export function cornersFromCenter(center: LngLat, wM: number, hM: number): Corners {
-  const mPerLon = 111320 * Math.cos((center[1] * Math.PI) / 180)
-  const dx = wM / 2 / mPerLon
-  const dy = hM / 2 / M_PER_LAT
-  const [x, y] = center
-  return [[x - dx, y + dy], [x + dx, y + dy], [x + dx, y - dy], [x - dx, y - dy]]
-}
-
 // WGS84 (lon,lat °) → Schweizer Landeskoordinaten LV95 (E,N in m). swisstopo-Näherungsformel.
 export function wgs84ToLV95(lon: number, lat: number): [number, number] {
   const phi = (lat * 3600 - 169028.66) / 10000
@@ -60,14 +42,6 @@ export function fmtLV95(lon: number, lat: number): string {
 }
 export function fmtWGS(lon: number, lat: number): string {
   return `${lat.toFixed(5)}, ${lon.toFixed(5)}`
-}
-
-export function fmtDuration(totalSec: number): string {
-  const h = Math.floor(totalSec / 3600)
-  const m = Math.floor((totalSec % 3600) / 60)
-  const s = totalSec % 60
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${p(h)}:${p(m)}:${p(s)}`
 }
 
 export function fmtMMSS(totalSec: number): string {

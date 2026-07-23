@@ -51,10 +51,6 @@ export function nearestMagneticTarget(pointer: Point, targets: MagneticTarget[],
     .filter((t) => !t.blocked && distance(pointer, t.point) <= radius && (t.capacity == null || (t.usedPorts?.length ?? 0) < t.capacity))
     .sort((a, b) => distance(pointer, a.point) - distance(pointer, b.point) || a.key.localeCompare(b.key))[0] ?? null
 }
-export function nearestBlockedTarget(pointer: Point, targets: MagneticTarget[], radius = MAGNET_RADIUS_PX): MagneticTarget | null {
-  return targets.filter((t) => !!t.blocked && distance(pointer, t.point) <= radius)
-    .sort((a, b) => distance(pointer, a.point) - distance(pointer, b.point) || a.key.localeCompare(b.key))[0] ?? null
-}
 /** Hysteresis around the magnetic pick: keep holding the current target until the pointer leaves a
  *  larger `keep` radius, and only switch to another when it's clearly closer. Kills the flicker of
  *  jitter at the acquire boundary and the hop between a Teilstück's three close prongs — the source

@@ -81,4 +81,3 @@ export function useSectionSwipe(ref: RefObject<HTMLElement | null>, { enabled, o
  *  The map/plan canvas uses the edge strips instead. The actual ordered nav targets (incl. each
  *  plan doc) are built in App from planDocs. */
 export const SWIPE_SECTIONS = ['checklists', 'atemschutz', 'anwesenheit', 'mittel'] as const
-export type SwipeSection = typeof SWIPE_SECTIONS[number]

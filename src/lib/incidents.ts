@@ -169,7 +169,6 @@ export const ingestEvents = (id: string, events: ClientEvent[]) =>
 /** Fire-and-forget event ingest for page teardown — survives the document unloading. */
 export const ingestEventsBeacon = (id: string, events: ClientEvent[]) =>
   apiBeacon(`/api/incidents/${id}/events`, { events })
-export const listEvents = (id: string) => apiGet<unknown[]>(`/api/incidents/${id}/events`)
 export const verifyChain = (id: string) =>
   apiGet<{ intact: boolean; broken_at_seq: number | null; count: number; head?: string }>(`/api/incidents/${id}/verify`)
 
@@ -201,7 +200,6 @@ export interface DiveraTakeOverrides {
 }
 export const takeDiveraAlarm = (diveraId: number, overrides?: DiveraTakeOverrides) =>
   apiPost<IncidentFull>(`/api/divera/pool/${diveraId}/take`, overrides ?? {})
-export const archiveDiveraAlarm = (diveraId: number) => apiDelete(`/api/divera/pool/${diveraId}`)
 /** Attach a pool alarm to an EXISTING incident (split/Nachalarm dispatch) instead of
  *  opening a duplicate: the alarm's Meldung lands in the Verlauf and its GPS milestones
  *  follow to this incident; the incident's own title/location stay untouched. */

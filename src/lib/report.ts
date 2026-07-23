@@ -2,7 +2,7 @@ import type { AttendanceState, BoardDoc, Drawing, Entity, LngLat, MittelEntry, P
 import type { ReportMeta } from './workspace'
 import { appConfig } from '../config/appConfig'
 import { fmtDistance } from './geo'
-import { fillTemplate, formatSymbolName } from './format'
+import { fillTemplate } from './format'
 import { fahrzeugRows, gruppenRows } from './alarmzeiten'
 import { getDeploymentConfig } from './deploymentConfig'
 import { mittelReportRows } from './mittel'
@@ -244,10 +244,6 @@ export function describeDrawing(d: Drawing): string {
   if (d.marker === 'R') return r.drawRescueAxis
   if (d.showDistance) return r.drawMeasureArrow
   return r.drawLine
-}
-
-export function entityLabel(e: Entity): string {
-  return e.label || (e.symbol ? formatSymbolName(e.symbol) : appConfig.copy.entities.fallbackObjectName)
 }
 
 /** Pre-formatted meta extras for the SERVER-rendered PDF (facts rows are placed, not

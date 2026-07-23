@@ -156,11 +156,6 @@ export function initServiceWorker() {
   })
 }
 
-/** Is a newer build installed and waiting to be applied? */
-export function isUpdateAvailable(): boolean {
-  return updateWaiting
-}
-
 /** Subscribe to the pending-update state: `cb(true)` when a new build is waiting (fires
  *  immediately if one already is), `cb(false)` when the wait resolves without us (the
  *  worker activated) so the banner retracts. Returns an unsubscribe. Single subscriber by
