@@ -122,7 +122,7 @@ interface Props {
   onRotate?: (id: string, deg: number) => void
   /** drag-to-transform a placed shape: rotate (top handle) / resize (corner handle).
    *  phase lets the app snapshot once for undo and persist on release. */
-  onShapeTransform?: (id: string, patch: { rotation?: number; rotation2?: number; sizeM?: number }, phase: 'start' | 'move' | 'end') => void
+  onShapeTransform?: (id: string, patch: { rotation?: number; rotation2?: number; sizeM?: number; reachM?: number }, phase: 'start' | 'move' | 'end') => void
   onView: (v: { bearing: number; center: LngLat; zoom: number }) => void
   /** coordinate picker: while aiming the map shows a crosshair, the cursor lng/lat
    *  streams to onCursor, and the next map click locks the point via onPick. */

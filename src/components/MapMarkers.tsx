@@ -7,7 +7,7 @@ import { Icon } from '../lib/icons'
 import { ShapeGlyph } from '../lib/shapes'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
-import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant } from '../lib/symbolRender'
+import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom } from '../lib/symbolRender'
 import { symbolCaptionText } from '../lib/symbols'
 import { pxPerM, symPx, shapePx, isRotatableSym, isVehicleSym } from '../lib/mapView'
 
@@ -94,7 +94,7 @@ interface Props {
   onMarkerDragEnd: (id: string, c: LngLat) => void
   onDelete: (id: string) => void
   onRotate?: (id: string, deg: number) => void
-  onShapeTransform?: (id: string, patch: { rotation?: number; rotation2?: number; sizeM?: number }, phase: 'start' | 'move' | 'end') => void
+  onShapeTransform?: (id: string, patch: { rotation?: number; rotation2?: number; sizeM?: number; reachM?: number }, phase: 'start' | 'move' | 'end') => void
   /** which note is in raw inline-text edit mode (mirrors the Plan whiteboard's text notes) */
   editNoteId?: string | null
   /** stream a note's text live as it's typed */
@@ -149,7 +149,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
     el.focus(); el.select?.()
   }, [])
   const rotateRef = useRef<{ id: string; cx: number; cy: number } | null>(null)
-  const shapeRef = useRef<{ id: string; cx: number; cy: number; lat: number; mode: 'rotate' | 'resize' | 'rotate2' } | null>(null)
+  const shapeRef = useRef<{ id: string; cx: number; cy: number; lat: number; mode: 'rotate' | 'resize' | 'rotate2' | 'cage' } | null>(null)
   // Press-and-hold to move a placed symbol. Markers are NOT react-map-gl-draggable (that would
   // claim every pan/zoom that starts on a symbol and drag it instead of the map); instead a still
   // hold past the delay arms a drag — a quick flick to pan/zoom passes straight through to the map.
@@ -184,7 +184,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
   // drag-to-transform a shape. Both handles measure from the glyph centre, so the maths is
   // rotation-invariant: rotate = angle centre→pointer (+90° so the top handle leads); resize =
   // pointer distance → ground size in metres. A 'start' / 'end' pair folds the gesture into one undo.
-  const shapeDown = (clientX: number, clientY: number, el: HTMLElement, id: string, lat: number, mode: 'rotate' | 'resize' | 'rotate2') => {
+  const shapeDown = (clientX: number, clientY: number, el: HTMLElement, id: string, lat: number, mode: 'rotate' | 'resize' | 'rotate2' | 'cage') => {
     hold.cancel() // a handle press takes over from any pending/active marker hold
     const marker = el.closest('.marker')
     const glyph = marker?.querySelector('.shape-glyph, .ts') as HTMLElement | null
@@ -195,7 +195,16 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
   }
   const shapeMove = (clientX: number, clientY: number) => {
     const st = shapeRef.current; if (!st) return
-    if (st.mode === 'rotate' || st.mode === 'rotate2') {
+    if (st.mode === 'cage') {
+      // Hubretter cage tip: one handle sets BOTH the boom bearing (rotation2, geographic) AND the
+      // reach (metres from the truck to the cage). No +90/−90 offset — the handle IS the tip, so its
+      // angle is the boom direction directly.
+      const deg = (Math.atan2(clientY - st.cy, clientX - st.cx) * 180) / Math.PI
+      const rotation2 = Math.round((((deg + bearing) % 360) + 360) % 360)
+      const dist = Math.hypot(clientX - st.cx, clientY - st.cy)
+      const reachM = Math.max(5, Math.min(120, Math.round(dist / pxPerM(st.lat, zoom))))
+      onShapeTransform?.(st.id, { rotation2, reachM }, 'move')
+    } else if (st.mode === 'rotate' || st.mode === 'rotate2') {
       const deg = (Math.atan2(clientY - st.cy, clientX - st.cx) * 180) / Math.PI
       // the body knob sits at the top (+90 → 0°); the fan knob sits at the BOTTOM (−90), so the two
       // are always on opposite sides of the ring and easy to grab apart. + bearing stores the
@@ -347,34 +356,44 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
               // upright); every other symbol uses its library/static svg
               const veh = isVehicleSym(e)
               const comp = compositeSpec(e.symbol)
+              const hub = isHubretter(e.symbol)
               // ONLY directional symbols (a rotation handle, or a vehicle/live unit) stay pinned to
               // the ground via − bearing; plain markers (hydrants, KP, command posts, lifts…) stay
               // UPRIGHT at every bearing ("always north"), so they never look crooked on a turned map.
-              const directional = veh || !!e.live || isRotatableSym(e)
-              const rot = (e.rotation ?? 0) - (directional ? bearing : 0)
+              // The Hubretter body auto-faces its boom, so it's directional and its heading is rotation2.
+              const directional = veh || !!e.live || isRotatableSym(e) || hub
+              const bodyHeading = hub ? (e.rotation2 ?? 0) : (e.rotation ?? 0)
+              const rot = bodyHeading - (directional ? bearing : 0)
               const svg = veh ? vehicleSymbolSvg(e.label ?? '', rot)
                 : comp ? (byName[comp.base] ?? '')
+                : hub ? (byName[appConfig.symbols.vehicleName] ?? '')   // plain body; the boom is drawn separately
                 : (placardSvgForSymbol(e.symbol, e.fields) ?? e.symbolSvg ?? (e.symbol ? byName[luefterVariant(e.symbol, e.extract)!] ?? byName[e.symbol] ?? '' : ''))
-              // a composite stacks its part (Grosslüfter fan / Drehleiter ladder / Hubretter boom) as a
-              // separately-rotatable overlay aimed by rotation2; the Lüfter's extract (Absaugen) swaps
-              // to the reversed-arrow fan glyph. Ladders/boom scale 1:1 over the body; the fan reads at 60%.
+              // a composite stacks its part (Grosslüfter fan / Drehleiter ladder) as a separately-
+              // rotatable overlay aimed by rotation2; the Lüfter's extract (Absaugen) swaps to the
+              // reversed-arrow fan glyph. Ladder scales 1:1 over the body; the fan reads at 60%.
               const overlay = comp ? { svg: byName[compositePartGlyph(comp, e.extract)] ?? byName[comp.part] ?? '', rotation: (e.rotation2 ?? 0) - bearing, scale: comp.scale } : undefined
+              // Hubretter boom: a variable-reach articulated arm drawn behind the body, ground-scaled in
+              // metres (reachM) and aimed by rotation2 (−bearing). The cage tip carries the drag handle.
+              const boomPx = hub ? Math.max(24, Math.min(900, (e.reachM ?? 18) * pxPerM(e.coord[1], zoom))) : 0
               // the vehicle glyph rotates its body internally, so the chip must NOT also rotate;
               // every other symbol (incl. a composite body) applies its stored rotation to the chip.
               return (
-                <TacticalSymbol
-                  svg={svg}
-                  sizePx={symPx(e.kind, e.coord[1], zoom, symMul)}
-                  rotation={veh ? 0 : rot}
-                  overlay={overlay}
-                  floor={e.floor}
-                  floorFrom={e.floorFrom}
-                  floorTo={e.floorTo}
-                  spread={e.spread}
-                  count={e.count}
-                  // vehicles bake their name into the glyph already, so they get no caption
-                  caption={captionsVisible && !veh ? symbolCaptionText(e, captionMode) : null}
-                />
+                <>
+                  {hub && <HubretterBoom lengthPx={boomPx} deg={(e.rotation2 ?? 0) - bearing} />}
+                  <TacticalSymbol
+                    svg={svg}
+                    sizePx={symPx(e.kind, e.coord[1], zoom, symMul)}
+                    rotation={veh ? 0 : rot}
+                    overlay={overlay}
+                    floor={e.floor}
+                    floorFrom={e.floorFrom}
+                    floorTo={e.floorTo}
+                    spread={e.spread}
+                    count={e.count}
+                    // vehicles bake their name into the glyph already, so they get no caption
+                    caption={captionsVisible && !veh ? symbolCaptionText(e, captionMode) : null}
+                  />
+                </>
               )
             })()}
             {/* Inline delete is kept ONLY for notes — they have no ContextPanel ("dashboard") to
@@ -509,6 +528,24 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                 </div>
               </>
             )}
+            {selectedId === e.id && isHubretter(e.symbol) && onShapeTransform && (() => {
+              // Hubretter cage tip: ONE handle at the boom end. Dragging it sets both the boom bearing
+              // (rotation2) and the reach (reachM). Positioned at the tip = centre + reach·(bearing).
+              const rad = (((e.rotation2 ?? 0) - bearing) * Math.PI) / 180
+              const len = Math.max(24, Math.min(900, (e.reachM ?? 18) * pxPerM(e.coord[1], zoom)))
+              return (
+                <div className="cage-handle" style={{ left: `calc(50% + ${(Math.cos(rad) * len).toFixed(1)}px)`, top: `calc(50% + ${(Math.sin(rad) * len).toFixed(1)}px)` }}>
+                  <TransformHandle
+                    className="handle shape-rotate shape-cage"
+                    icon="move"
+                    title={appConfig.copy.shapes.moveHint}
+                    onStart={(x, y, el) => shapeDown(x, y, el, e.id, e.coord[1], 'cage')}
+                    onMove={shapeMove}
+                    onEnd={shapeUp}
+                  />
+                </div>
+              )
+            })()}
           </div>
         </Marker>
         )

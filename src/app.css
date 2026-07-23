@@ -357,6 +357,12 @@ input[type='number'] { -moz-appearance: textfield; appearance: textfield; }
 .shape-rotor-fan .shape-stem { top: calc(50% + var(--hbox, 56px) / 2); height: 18px; background: var(--amber); }
 .shape-rotor-fan .shape-rotate { top: calc(50% + var(--hbox, 56px) / 2 + 18px); background: var(--amber); }
 .shape-rotor-fan .shape-rotate:hover { background: var(--amber-strong); }
+/* Hubretter cage: a single amber grab handle AT the boom tip (positioned in JS at the truck centre +
+   reach·bearing). The boom line is its own tether, so there's no stem. */
+.cage-handle { position: absolute; z-index: 9; }
+.cage-handle .shape-cage { left: 0; top: 0; transform: translate(-50%, -50%); background: var(--amber); cursor: grab; touch-action: none; }
+.cage-handle .shape-cage:active { cursor: grabbing; }
+.cage-handle .shape-cage:hover { background: var(--amber-strong); }
 
 /* panel + context entrance motion — subtle & quick */
 @keyframes panelIn { from { opacity: 0; transform: translateY(-50%) translateX(-12px); } }

@@ -712,6 +712,7 @@ export const de = {
     sizeBigger: 'Grösser',
     rotateHint: 'Griff ziehen zum Drehen',
     resizeHint: 'Ecke ziehen zum Skalieren',
+    moveHint: 'Korb ziehen — Richtung und Reichweite',
     names: { arrow: 'Pfeil', cloud: 'Rauch', square: 'Rechteck' } as Record<string, string>,
   },
   log: {

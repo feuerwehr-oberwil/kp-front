@@ -13,7 +13,7 @@ import { TeilstueckFork, EndTag, hasLineDecor, lineLabel } from '../lib/lineDeco
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { confirmDialog, toast } from '../lib/ui'
 import { panelNudgeBox, panelNudgeBoxUp, isBottomSheet } from '../lib/panelNudge'
-import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant } from '../lib/symbolRender'
+import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom } from '../lib/symbolRender'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
 import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys, symbolCaptionText, ROTATABLE } from '../lib/symbols'
@@ -189,7 +189,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // each keystroke live into the anno — like the Lage note title)
   const textEditId = useRef<string | null>(null)
   // drag-to-rotate a selected directional symbol — mirrors the map's rotor handle
-  const rotate = useRef<{ id: string; cx: number; cy: number; moved: boolean; mode: 'rotate' | 'rotate2' | 'resize' } | null>(null)
+  const rotate = useRef<{ id: string; cx: number; cy: number; moved: boolean; mode: 'rotate' | 'rotate2' | 'resize' | 'cage' } | null>(null)
   // the group-move drag origin (start client point and the original board-space geometry of
   // every selected anno). Pan/pinch/marquee refs live in useBoardGestures.
   const groupMove = useRef<{ sx: number; sy: number } | null>(null)
@@ -953,7 +953,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // --- drag-to-rotate a selected directional symbol (rotor handle) ---
   // angle from the glyph centre to the pointer becomes the rotation (+90° so the
   // top knob leads); the whole gesture is one undo step (checkpoint on first move).
-  const rotDown = (e: React.PointerEvent, id: string, mode: 'rotate' | 'rotate2' | 'resize' = 'rotate') => {
+  const rotDown = (e: React.PointerEvent, id: string, mode: 'rotate' | 'rotate2' | 'resize' | 'cage' = 'rotate') => {
     if (tool !== 'pan' || readOnly) return
     e.stopPropagation()
     const anno = (e.currentTarget as HTMLElement).closest('.wb-anno')
@@ -973,6 +973,14 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       patch(st.id, { sizeN: Math.max(0.03, Math.min(0.9, (dist * Math.SQRT2) / sW)) })
       return
     }
+    if (st.mode === 'cage') {
+      // Hubretter cage tip: one handle sets the boom bearing (rotation2, no offset — the handle IS the
+      // tip) AND the reach as a fraction of the (scaled) plan width — the plan analogue of reachM.
+      const deg = (Math.atan2(e.clientY - st.cy, e.clientX - st.cx) * 180) / Math.PI
+      const dist = Math.hypot(e.clientX - st.cx, e.clientY - st.cy)
+      patch(st.id, { rotation2: Math.round(((deg % 360) + 360) % 360), reachN: Math.max(0.03, Math.min(0.6, dist / sW)) })
+      return
+    }
     const deg = (Math.atan2(e.clientY - st.cy, e.clientX - st.cx) * 180) / Math.PI
     // body knob at the top (+90), fan knob at the BOTTOM (−90) — opposite sides, easy to grab apart
     const val = Math.round((((deg + (st.mode === 'rotate2' ? -90 : 90)) % 360) + 360) % 360)
@@ -983,7 +991,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     if (!st?.moved) return
     const a = annos.find((x) => x.id === st.id)
     if (!a) return
-    const patchOut = st.mode === 'resize' ? { sizeN: a.sizeN } : st.mode === 'rotate2' ? { rotation2: a.rotation2 } : { rotation: a.rotation }
+    const patchOut = st.mode === 'resize' ? { sizeN: a.sizeN }
+      : st.mode === 'cage' ? { rotation2: a.rotation2, reachN: a.reachN }
+      : st.mode === 'rotate2' ? { rotation2: a.rotation2 } : { rotation: a.rotation }
     emit('board.edit', { id: st.id, patch: patchOut, planId: activeId })
   }
 
@@ -1607,26 +1617,34 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                   // stays upright), so its body rotation is in the SVG, not the chip.
                   const veh = isVehicleSym(a)
                   const comp = annoComposite(a)
+                  const hub = isHubretter(a.symbol)
                   const svg = veh ? vehicleSymbolSvg(a.label ?? '', a.rotation ?? 0)
                     : comp ? (sym.byName[comp.base] ?? '')
+                    : hub ? (sym.byName[appConfig.symbols.vehicleName] ?? '')   // plain body; the boom is drawn separately
                     : (placardSvgForSymbol(a.symbol, a.fields) ?? (a.symbol ? sym.byName[luefterVariant(a.symbol, a.extract)!] ?? sym.byName[a.symbol] ?? '' : ''))
-                  // a composite stacks its part (fan / ladder / boom) as a separately-rotatable overlay
-                  // aimed by rotation2; the Lüfter's extract (Absaugen) swaps to the reversed-arrow fan.
+                  // a composite stacks its part (fan / ladder) as a separately-rotatable overlay aimed
+                  // by rotation2; the Lüfter's extract (Absaugen) swaps to the reversed-arrow fan.
                   const overlay = comp ? { svg: sym.byName[compositePartGlyph(comp, a.extract)] ?? sym.byName[comp.part] ?? '', rotation: a.rotation2 ?? 0, scale: comp.scale } : undefined
+                  // Hubretter boom: variable-reach articulated arm behind the body, sized as a fraction
+                  // of the plan width (reachN) and aimed by rotation2; the body auto-faces the boom.
+                  const boomPx = hub ? Math.max(12, (a.reachN ?? 0.12) * sW) : 0
                   return (
-                    <TacticalSymbol
-                      svg={svg}
-                      sizePx={symBase * scale}
-                      rotation={veh ? 0 : (a.rotation ?? 0)}
-                      overlay={overlay}
-                      floorFrom={a.floorFrom}
-                      floorTo={a.floorTo}
-                      spread={a.spread}
-                      count={a.count}
-                      // vehicles bake their name into the glyph already, so they get no caption
-                      caption={!veh ? symbolCaptionText(a, captionMode) : null}
-                      className="ts-plan"
-                    />
+                    <>
+                      {hub && <HubretterBoom lengthPx={boomPx} deg={a.rotation2 ?? 0} />}
+                      <TacticalSymbol
+                        svg={svg}
+                        sizePx={symBase * scale}
+                        rotation={veh ? 0 : hub ? (a.rotation2 ?? 0) : (a.rotation ?? 0)}
+                        overlay={overlay}
+                        floorFrom={a.floorFrom}
+                        floorTo={a.floorTo}
+                        spread={a.spread}
+                        count={a.count}
+                        // vehicles bake their name into the glyph already, so they get no caption
+                        caption={!veh ? symbolCaptionText(a, captionMode) : null}
+                        className="ts-plan"
+                      />
+                    </>
                   )
                 })()}
                 {a.kind === 'shape' && (
@@ -1772,6 +1790,20 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                     </div>
                   </>
                 )}
+                {/* Hubretter cage tip: ONE amber handle at the boom end (same as the Lage map). Dragging
+                    it sets the boom bearing (rotation2) + reach (reachN); positioned at the tip. */}
+                {isHubretter(a.symbol) && selId === a.id && tool === 'pan' && !readOnly && (() => {
+                  const rad = ((a.rotation2 ?? 0) * Math.PI) / 180
+                  const len = Math.max(12, (a.reachN ?? 0.12) * sW)
+                  return (
+                    <div className="cage-handle" style={{ left: `calc(50% + ${(Math.cos(rad) * len).toFixed(1)}px)`, top: `calc(50% + ${(Math.sin(rad) * len).toFixed(1)}px)` }}>
+                      <button className="handle shape-cage" title={appConfig.copy.shapes.moveHint} aria-label={appConfig.copy.shapes.moveHint}
+                        onPointerDown={(e) => rotDown(e, a.id, 'cage')} onPointerMove={rotMove} onPointerUp={rotUp} onPointerCancel={rotUp} onClick={(e) => e.stopPropagation()}>
+                        <Icon id="move" />
+                      </button>
+                    </div>
+                  )
+                })()}
               </div>
             ))}
 

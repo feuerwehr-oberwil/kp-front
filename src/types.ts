@@ -126,6 +126,11 @@ export interface Entity extends SymbolProps {
   // --- kind 'shape' ---
   shape?: ShapeKind
   sizeM?: number        // shape size on the ground, in metres
+  /** aerial-appliance boom reach in metres (Hubretter) — the ground distance from the truck
+   *  (`coord`) to the rescue cage; the cage is the draggable tip and `rotation2` its bearing.
+   *  Metre-scaled like `sizeM` so the cage stays over its ground spot as the map zooms. The Plan
+   *  mirror is `BoardAnno.reachN`. Absent = the seeded default. */
+  reachM?: number
   // --- kind 'team' (Atemschutz-Trupp tracked on the Lage map — the geo mirror of the
   // plan board's 'resource' chip; a Trupp is placed on exactly ONE surface at a time) ---
   /** linked Atemschutz Trupp (this marker represents that team) */
@@ -409,6 +414,9 @@ export interface BoardAnno extends SymbolProps {
   shape?: ShapeKind
   /** shape size as a fraction of the plan width (0..1) — the plan-space analogue of Entity.sizeM */
   sizeN?: number
+  /** aerial-appliance boom reach as a fraction of the plan width (0..1) — the plan-space analogue of
+   *  Entity.reachM (the Hubretter cage distance from the truck; bearing = `rotation2`). */
+  reachN?: number
   width?: number             // draw stroke width
   dashed?: boolean           // draw: render dashed instead of solid (mirrors Drawing.dashed). Absent = solid.
   arrow?: boolean            // draw: an arrowhead at the last vertex (Messpfeil / Rettungsachse line presets)
