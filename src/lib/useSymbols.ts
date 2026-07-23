@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { SymbolLibrary } from '../types'
-import { GROSSLUEFTER, GROSSLUEFTER_BODY, GROSSLUEFTER_FAN, COMPOSITE_PART_GLYPHS, composeCompositeSvg } from './symbolRender'
+import { GROSSLUEFTER, GROSSLUEFTER_BODY, GROSSLUEFTER_FAN, HUBRETTER, COMPOSITE_PART_GLYPHS, composeCompositeSvg } from './symbolRender'
 
 export interface SymbolsApi {
   ready: boolean
@@ -63,12 +63,16 @@ export function useSymbols(): SymbolsApi {
     // synthesise the composite Grosslüfter from the two authoritative FireGIS glyphs (vehicle +
     // fan) so it appears in the palette without hand-authoring artwork that could drift from the
     // source. byName carries the static composite (thumbnail/fallback); the map/plan render the
-    // two layers separately for independent rotation. Placed in the Fahrzeuge/Mittel category.
+    // two layers separately for independent rotation. Inserted right AFTER the Hubretter (the
+    // crews' Fahrzeuge order: Fahrzeug, Drehleiter, Hubretter, Grosslüfter, Boot, Pumpe, …), with
+    // a fall-back to the end if the Hubretter is missing.
     if (byName[GROSSLUEFTER_BODY] && byName[GROSSLUEFTER_FAN] && !byName[GROSSLUEFTER]) {
       const cat = symbols.find((s) => s.name === GROSSLUEFTER_FAN)?.cat ?? 'Fahrzeuge / Mittel'
       const svg = composeCompositeSvg(byName[GROSSLUEFTER_BODY], byName[GROSSLUEFTER_FAN])
-      symbols.push({ name: GROSSLUEFTER, cat, svg })
       byName[GROSSLUEFTER] = svg
+      const at = symbols.findIndex((s) => s.name === HUBRETTER)
+      const entry = { name: GROSSLUEFTER, cat, svg }
+      if (at >= 0) symbols.splice(at + 1, 0, entry); else symbols.push(entry)
     }
     return { ready: true, order: lib.order, symbols, byName }
   }, [lib])

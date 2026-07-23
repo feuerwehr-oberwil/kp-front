@@ -360,10 +360,9 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
               // ONLY directional symbols (a rotation handle, or a vehicle/live unit) stay pinned to
               // the ground via − bearing; plain markers (hydrants, KP, command posts, lifts…) stay
               // UPRIGHT at every bearing ("always north"), so they never look crooked on a turned map.
-              // The Hubretter body auto-faces its boom, so it's directional and its heading is rotation2.
-              const directional = veh || !!e.live || isRotatableSym(e) || hub
-              const bodyHeading = hub ? (e.rotation2 ?? 0) : (e.rotation ?? 0)
-              const rot = bodyHeading - (directional ? bearing : 0)
+              // The Hubretter body is rotatable (`rotation`), INDEPENDENT of the boom (`rotation2`).
+              const directional = veh || !!e.live || isRotatableSym(e)
+              const rot = (e.rotation ?? 0) - (directional ? bearing : 0)
               const svg = veh ? vehicleSymbolSvg(e.label ?? '', rot)
                 : comp ? (byName[comp.base] ?? '')
                 : hub ? (byName[appConfig.symbols.vehicleName] ?? '')   // plain body; the boom is drawn separately

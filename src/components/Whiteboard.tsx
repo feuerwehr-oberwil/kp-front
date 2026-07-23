@@ -1634,7 +1634,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                       <TacticalSymbol
                         svg={svg}
                         sizePx={symBase * scale}
-                        rotation={veh ? 0 : hub ? (a.rotation2 ?? 0) : (a.rotation ?? 0)}
+                        rotation={veh ? 0 : (a.rotation ?? 0)}
                         overlay={overlay}
                         floorFrom={a.floorFrom}
                         floorTo={a.floorTo}

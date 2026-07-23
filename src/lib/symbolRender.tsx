@@ -132,17 +132,17 @@ export function HubretterBoom({ lengthPx, deg, color = '#00a0ff' }: { lengthPx: 
  *  the two live layers can't exist and the boom isn't metre-scaled. Reach is approximated to the glyph
  *  box — capped so the truck stays readable — good enough for the rapport; the metric print is deferred.
  *  Returns one SVG string; the caller prints it with rotation unset (the bearing is baked in). */
-export function composeHubretterSvg(bodySvg: string, reachM = 18, rotation2 = 0): string {
+export function composeHubretterSvg(bodySvg: string, reachM = 18, boomDeg = 0, bodyDeg = 0): string {
   if (!bodySvg) return bodySvg
   const L = Math.max(0.9, Math.min(1.8, reachM / 20)) // glyph-box units; capped so the body stays legible
-  const rad = (rotation2 * Math.PI) / 180
+  const rad = (boomDeg * Math.PI) / 180
   const tip: [number, number] = [Math.cos(rad) * L, Math.sin(rad) * L]
   const k = boomKnuckle([0, 0], tip)
   const cage = 0.26
   const pts = `0,0 ${k[0].toFixed(2)},${k[1].toFixed(2)} ${tip[0].toFixed(2)},${tip[1].toFixed(2)}`
   const boom = `<polyline points="${pts}" fill="none" stroke="#00a0ff" stroke-width="0.16" stroke-linejoin="round" stroke-linecap="round"/>`
     + `<rect x="${(tip[0] - cage / 2).toFixed(2)}" y="${(tip[1] - cage / 2).toFixed(2)}" width="${cage}" height="${cage}" rx="0.05" fill="#fff" stroke="#00a0ff" stroke-width="0.11"/>`
-  const body = `<g transform="rotate(${rotation2})">${innerSvg(bodySvg)}</g>` // body auto-faces the boom
+  const body = `<g transform="rotate(${bodyDeg})">${innerSvg(bodySvg)}</g>` // truck heading, independent of the boom
   const box = L + 0.6
   return `<svg viewBox="${-box} ${-box} ${2 * box} ${2 * box}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">${boom}${body}</svg>`
 }

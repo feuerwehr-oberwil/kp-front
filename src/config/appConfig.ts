@@ -266,11 +266,12 @@ const base = {
         // `rotation2` aims the ladder (own rotor + Drehung stepper). Synthesised like the Grosslüfter
         // (see lib/symbolRender COMPOSITES).
         'VKF Drehleiter': { controls: ['rotation', 'rotation2'] },
-        // Hubretter: NOT a rotor composite — the articulated boom is shaped by dragging the cage tip
-        // (a single on-canvas handle sets bearing `rotation2` + reach `reachM`/`reachN`), and the truck
-        // body auto-faces the boom. So no rotation steppers/rotor: controls stay empty. See MapMarkers /
-        // Whiteboard cage handle + lib/symbolRender HubretterBoom.
-        'VKF Hubretter': {},
+        // Hubretter: the truck body rotates on its own (`rotation` — normal rotor + Drehung stepper),
+        // INDEPENDENT of the articulated boom, which is shaped by dragging the cage tip (a separate
+        // on-canvas handle sets the boom bearing `rotation2` + reach `reachM`/`reachN`). Rotating the
+        // truck doesn't move the boom and vice-versa. See MapMarkers / Whiteboard cage handle +
+        // lib/symbolRender HubretterBoom.
+        'VKF Hubretter': { controls: ['rotation'] },
         // Drohne: a hovering-asset marker — stays upright (no rotation), no fields.
         'VKF Drohne': {},
         // generic vehicle: user-named (see lib/symbols) — title + a Fahrer picker; type lists via config
