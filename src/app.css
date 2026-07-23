@@ -2025,21 +2025,26 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .measure-handle::after, .draw-handle::after { content: ''; position: absolute; left: 50%; top: 50%;
   width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .measure-handle:active, .draw-handle:active { cursor: grabbing; transform: scale(1.15); }
-/* endpoint-drag feedback — one clean ring pinned to the connection point; the dragged endpoint is
-   already locked onto that same point, so there is no second wandering handle to fight it.
-   .snap = magnetically locked onto a valid target · .blocked = would form a cycle ·
-   .detach = dragged clear of its object, release to disconnect. */
-.magnet-port { display: grid; place-items: center; width: 30px; height: 30px; border: 3px solid var(--danger);
-  border-radius: 50%; background: transparent; color: var(--danger);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--surface) 70%, transparent); pointer-events: none; }
-.magnet-port.snap { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--surface) 70%, transparent), 0 0 0 7px color-mix(in srgb, var(--danger) 22%, transparent); }
-.magnet-port.detach { width: 28px; height: 28px; border-color: var(--ink); color: var(--ink); background: var(--surface);
-  font-size: 17px; font-weight: 800; line-height: 1; }
-.magnet-port.blocked { border-color: var(--danger); color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, var(--surface)); }
+/* endpoint-attach feedback — a ring on the connection point whose centre fills to solid over ~350ms
+   while hovered (the classic "fills up until it locks" affordance). Keyed to the target in JSX, so a
+   fresh target restarts the fill. It's a hover flourish; the attach commits on release. Dragging
+   never detaches — the × detach chip beside the node does that — so there is no drag-× state. */
+.magnet-port { display: grid; place-items: center; width: 27px; height: 27px; border: 3px solid var(--accent);
+  border-radius: 50%; background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--surface) 72%, transparent); pointer-events: none; }
+.magnet-port::after { content: ''; width: 0; height: 0; border-radius: 50%; background: var(--accent); }
+.magnet-port.snap::after { animation: magnetFill 350ms ease-out forwards; }
+@keyframes magnetFill { from { width: 0; height: 0; } to { width: 15px; height: 15px; } }
+.magnet-port.blocked { border-color: var(--red); color: var(--red); background: color-mix(in srgb, var(--red) 12%, var(--surface)); }
+.magnet-port.blocked::after { display: none; }
 .magnet-port > small { position: absolute; top: 32px; width: max-content; max-width: 220px; padding: 5px 8px; border-radius: 7px;
   background: var(--ink); color: var(--surface); font-size: 11px; font-weight: 700; }
 .wb-magnet { position: absolute; z-index: 12; transform: translate(-50%, -50%); }
+/* explicit detach affordance: a small × chip beside a selected, connected endpoint (map + plan) */
+.line-detach-chip { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
+  border: 2px solid var(--red); background: var(--surface); color: var(--red); font-size: 15px; font-weight: 800;
+  line-height: 1; box-shadow: 0 1px 4px rgba(30, 45, 70, .3); cursor: pointer; }
+.line-detach-chip:active { transform: scale(1.12); }
 .network-halo { position: absolute; inset: -7px; border: 2px solid color-mix(in srgb, var(--accent) 55%, transparent); border-radius: 50%; pointer-events: none; }
 .hidden-attachment-marker { width: 14px; height: 14px; border: 2px dashed var(--accent); border-radius: 50%; background: color-mix(in srgb, var(--surface) 80%, transparent); }
 .line-coupling-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--surface); border: 2px solid var(--ink); pointer-events: none; }
@@ -2053,11 +2058,11 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .draw-editor .de-conn-name:disabled { color: var(--ink-dim); }
 .draw-editor .de-conn-go { flex: none; color: var(--ink-faint); font-size: 16px; line-height: 1; }
 .draw-editor .de-conn-note { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 0 6px; font-size: 12px; color: var(--ink-dim); }
-.draw-editor .de-conn-note.warn { color: var(--danger); font-weight: 600; }
+.draw-editor .de-conn-note.warn { color: var(--red); font-weight: 600; }
 .draw-editor .de-conn-reveal { color: var(--blue); font-size: 12px; font-weight: 600; text-decoration: underline; }
-.draw-editor .de-conn-detach-row { padding-top: 2px; }
-.draw-editor .de-conn-detach { min-height: 32px; padding: 4px 10px; border: 1px solid var(--border-soft); border-radius: var(--r-xs);
-  background: transparent; color: var(--danger); font-size: 12.5px; font-weight: 600; }
+.draw-editor .de-conn-detach { display: inline-flex; margin: 2px 0 4px; min-height: 28px; padding: 2px 4px;
+  border: 0; background: transparent; color: var(--red); font-size: 12.5px; font-weight: 600; }
+.draw-editor .de-conn-detach:hover { text-decoration: underline; }
 /* Verbundene Linien — flat rows in the sidebar idiom (hairline separators, chevron affordance),
    not floating cards; the row label uses the friendly line name, not the raw id. */
 .ctx-connections button { width: 100%; min-height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 8px;

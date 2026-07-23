@@ -5,7 +5,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { toast } from '../lib/ui'
 import { cx } from '../lib/cx'
-import { contactSeverity, deriveTruppLive, estimateBar, fmtClock, type TruppLive } from '../lib/atemschutz'
+import { contactSeverity, deriveTruppLive, estimatePressure, fmtClock, type TruppLive } from '../lib/atemschutz'
 import type { AttendanceState, Person, Trupp, TruppFields } from '../types'
 import { assignedPersonIds } from '../lib/personnel'
 import { isOfficer, rankAbbr, rankLabel, rankOrder } from '../lib/rank'
@@ -353,9 +353,9 @@ function TruppCard({
   const clockState = sev >= 2 ? az.clockOverdue : sev === 1 ? az.clockWarn : az.clockOk
   const dz = atemschutzDoctrine()
   const lowPressure = live.currentBar <= dz.mindestBar
-  // Planungshilfe: expected pressure from elapsed time + assumed consumption. In-field only, and
-  // deliberately a Schätzung shown BESIDE the logged Druck — it never replaces a real reading.
-  const estBar = inField ? estimateBar(t, now, dz.cylinderLiters, dz.estConsumptionLPerMin) : null
+  // Planungshilfe: measured consumption history wins; the configured assumption is used only
+  // until enough confirmed Druck values exist. It never replaces a reading or drives an alarm.
+  const estimate = inField ? estimatePressure(t, now, dz.cylinderLiters, dz.estConsumptionLPerMin) : null
   const readings = t.readings ?? []
 
   // «Raus» happens immediately with a Rückgängig toast (house rule: confirm-with-undo, no
@@ -442,10 +442,17 @@ function TruppCard({
             <b>{fmtClock(live.elapsedSec)}</b>
           </div>
         )}
-        {estBar != null && (
-          <div className={s.metaRow} title={fillTemplate(az.estimatedHint, { liters: dz.cylinderLiters, rate: dz.estConsumptionLPerMin })}>
+        {estimate && (
+          <div className={cx(s.metaRow, s.metaEstimate)} title={estimate.source === 'history'
+            ? az.estimatedHintHistory
+            : fillTemplate(az.estimatedHint, { liters: dz.cylinderLiters, rate: dz.estConsumptionLPerMin })}>
             <span>{az.estimated}</span>
-            <b className={s.metaEst}>≈ {estBar} bar</b>
+            <span className={s.metaEstimateValue}>
+              <b className={s.metaEst}>≈ {estimate.bar} bar</b>
+              <small>{estimate.source === 'history'
+                ? fillTemplate(az.estimatedSourceHistory, { count: estimate.sampleCount, time: fmtTime(estimate.basedAt) })
+                : fillTemplate(az.estimatedSourceFallback, { rate: dz.estConsumptionLPerMin, time: fmtTime(estimate.basedAt) })}</small>
+            </span>
           </div>
         )}
         {canEdit && inField ? (

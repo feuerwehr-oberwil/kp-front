@@ -107,6 +107,9 @@
 /* the expected-pressure Schätzung: mono for alignment with the real Druck, but dimmed + lighter
    so it reads as a subordinate estimate, never mistaken for a logged reading. */
 .metaEst { color: var(--ink-dim) !important; font-weight: 500 !important; }
+.metaEstimate { align-items: flex-start; }
+.metaEstimateValue { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: right; }
+.metaEstimateValue small { max-width: 190px; font-size: 10.5px; line-height: 1.25; color: var(--ink-faint); }
 
 /* INLINE Druck control on a live card — ± adjust a PENDING value; nothing commits until the
    explicit Bestätigen, so a misclick never logs a reading or resets the contact clock. Kept quiet

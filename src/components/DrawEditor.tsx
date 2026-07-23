@@ -272,9 +272,7 @@ export function DrawEditor({ drawing, pointCount, supportsDistance = false, onCo
                     </span>
                   </div>
                 )}
-                {onDetach && <div className="de-row de-conn-detach-row"><span aria-hidden />
-                  <button type="button" className="de-conn-detach" onClick={() => onDetach(endpoint)}>{gps === 'paused' ? appConfig.copy.drawingEditor.gpsDetachHere : appConfig.copy.drawingEditor.detachConnection}</button>
-                </div>}
+                {onDetach && <button type="button" className="de-conn-detach" onClick={() => onDetach(endpoint)}>{gps === 'paused' ? appConfig.copy.drawingEditor.gpsDetachHere : appConfig.copy.drawingEditor.detachConnection}</button>}
               </Fragment>
             })}
           </div>

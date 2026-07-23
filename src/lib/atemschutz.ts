@@ -134,25 +134,79 @@ export function peakAtemschutzAlarm(
   return { peak, urgent }
 }
 
+export interface PressureEstimate {
+  bar: number
+  /** measured pressure loss, or the configured assumed-rate fallback before enough history exists */
+  source: 'history' | 'assumption'
+  rateBarPerMin: number
+  /** latest real pressure value anchoring the projection */
+  basedAt: string
+  /** entry baseline + confirmed pressure readings in the current non-increasing segment */
+  sampleCount: number
+}
+
 /**
- * Planungshilfe only — a rough *expected* cylinder pressure from elapsed time and an assumed
- * air-consumption rate. Deliberately kept OUT of `deriveTruppLive` and the alarm path: an
- * estimate must never replace a logged reading or drive the alarm (air is the wearer's own
- * responsibility, per the module doctrine above). The view shows it as a labelled Schätzung next
- * to the real Druck so the Überwacher has a sense of the trend between contacts.
+ * Planungshilfe only — expected pressure projected from the Trupp's confirmed pressure history.
+ * Entry + actual `pressure` readings form timestamped samples; ordinary contact rows are ignored
+ * because they merely repeat the last pressure and are not new measurements. A pressure increase
+ * starts a fresh segment (new cylinder/correction) rather than becoming negative consumption.
  *
- *   bar = entryPressure − (consumptionLPerMin / cylinderLiters) × elapsedMinutes, floored at 0.
- *
- * Returns null when the Trupp hasn't entered or the assumptions are unusable (no divide-by-zero).
+ * Until a segment contains a measured pressure drop, the configured L/min assumption remains as
+ * an explicitly labelled fallback. Deliberately OUT of `deriveTruppLive` and the alarm path: this
+ * estimate never replaces a logged reading or drives an alarm.
  */
-export function estimateBar(
+export function estimatePressure(
   t: Trupp, now: number, cylinderLiters: number, consumptionLPerMin: number,
-): number | null {
+): PressureEstimate | null {
   const entry = ms(t.entryTime)
-  if (!entry || cylinderLiters <= 0 || consumptionLPerMin <= 0) return null
-  const elapsedMin = Math.max(0, (now - entry) / 60000)
-  const barPerMin = consumptionLPerMin / cylinderLiters
-  return Math.max(0, Math.round(t.entryPressureBar - barPerMin * elapsedMin))
+  if (!entry || !Number.isFinite(now) || !Number.isFinite(t.entryPressureBar) || t.entryPressureBar < 0) return null
+
+  type Sample = { at: number; bar: number }
+  const validSample = (at: number, bar: number): boolean =>
+    at >= entry && at <= now && Number.isFinite(bar) && bar >= 0
+  const samples: Sample[] = [{ at: entry, bar: t.entryPressureBar }]
+
+  for (const reading of t.readings ?? []) {
+    if (reading.kind !== 'pressure') continue
+    const at = ms(reading.t)
+    if (validSample(at, reading.bar)) samples.push({ at, bar: reading.bar })
+  }
+  const lastAt = ms(t.lastPressureTime)
+  if (t.lastPressureBar != null && validSample(lastAt, t.lastPressureBar)) {
+    samples.push({ at: lastAt, bar: t.lastPressureBar })
+  }
+
+  samples.sort((a, b) => a.at - b.at)
+  const unique = samples.filter((sample, i) =>
+    i === 0 || sample.at !== samples[i - 1].at || sample.bar !== samples[i - 1].bar)
+
+  // Only the latest continuous segment is meaningful. A rise indicates a new pressure basis,
+  // normally a cylinder change or correction, so older consumption must not leak across it.
+  let segment: Sample[] = []
+  for (const sample of unique) {
+    if (segment.length && sample.bar > segment[segment.length - 1].bar) segment = [sample]
+    else segment.push(sample)
+  }
+
+  const first = segment[0]
+  const latest = segment[segment.length - 1]
+  const elapsedMin = (latest.at - first.at) / 60000
+  const measuredRate = elapsedMin > 0 ? (first.bar - latest.bar) / elapsedMin : 0
+  const hasMeasuredConsumption = segment.length >= 2 && measuredRate > 0
+  const fallbackRate = cylinderLiters > 0 && consumptionLPerMin > 0
+    ? consumptionLPerMin / cylinderLiters
+    : 0
+  const rateBarPerMin = hasMeasuredConsumption ? measuredRate : fallbackRate
+  if (!(rateBarPerMin > 0)) return null
+
+  const projectedMin = Math.max(0, (now - latest.at) / 60000)
+  return {
+    bar: Math.max(0, Math.min(latest.bar, Math.round(latest.bar - rateBarPerMin * projectedMin))),
+    source: hasMeasuredConsumption ? 'history' : 'assumption',
+    rateBarPerMin,
+    basedAt: new Date(latest.at).toISOString(),
+    sampleCount: segment.length,
+  }
 }
 
 /** mm:ss for a non-negative second count; an em-dash for null/unknown. */

@@ -17,7 +17,7 @@ import { MapLayers } from './MapLayers'
 // move threshold lives in MapMarkers with the entity-drag logic.
 import { useLongPress } from '../lib/useLongPress'
 import { QuietAttributionControl } from './MapAttribution'
-import { advanceDwell, boundaryPoint, DETACH_RADIUS_PX, EMPTY_DWELL, forkPortPoint, gpsGuard, incomingAttachments, moveLineBody, nearestBlockedTarget, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
+import { advanceDwell, boundaryPoint, EMPTY_DWELL, forkPortPoint, gpsGuard, incomingAttachments, moveLineBody, nearestBlockedTarget, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 
 // Lock chip on a locked drawing: a SHORT HOLD (not a tap) unlocks it, with a filling ring as
 // the progress indicator (Miro-style) so a stray tap never unlocks instantly.
@@ -197,7 +197,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // long-press to delete a path vertex (touch equivalent of the desktop right-click)
   const vertexPress = useLongPress()
   const [mapReady, setMapReady] = useState(false)
-  type EndpointDrag = { id: string; endpoint: LineEndpoint; coord: LngLat; originPx: [number, number]; dwell: DwellState; candidate: MagneticTarget | null; detachArmed: boolean }
+  type EndpointDrag = { id: string; endpoint: LineEndpoint; coord: LngLat; dwell: DwellState; candidate: MagneticTarget | null }
   const [endpointDrag, setEndpointDragState] = useState<EndpointDrag | null>(null)
   const endpointDragRef = useRef<EndpointDrag | null>(null)
   const dwellTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -211,9 +211,22 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // Resolve magnetic intent late, in the renderer's current screen space. Stored endpoint
   // coordinates stay untouched as fallbacks; every downstream map consumer below sees this
   // single resolved list (ink, hit testing, arrows, labels, bounds and edit handles).
+  // The dragged endpoint follows the FINGER, so we feed its live coord into resolution and treat
+  // that endpoint as temporarily free (its own attachment ignored) — this makes attached branch
+  // lines follow the node live (move + carry) instead of snapping only on release. The other
+  // endpoint keeps its attachment.
   const attachmentLines: AttachableLine<LngLat>[] = storedDrawings
     .filter((d) => d.kind === 'line' && d.coords.length >= 2)
-    .map((d) => ({ id: d.id, points: d.coords, teilstueck: d.teilstueck, width: d.width, startAttachment: d.startAttachment, endAttachment: d.endAttachment }))
+    .map((d) => {
+      const drag = endpointDrag?.id === d.id ? endpointDrag : null
+      if (!drag) return { id: d.id, points: d.coords, teilstueck: d.teilstueck, width: d.width, startAttachment: d.startAttachment, endAttachment: d.endAttachment }
+      const idx = drag.endpoint === 'start' ? 0 : d.coords.length - 1
+      return {
+        id: d.id, points: d.coords.map((p, i) => (i === idx ? drag.coord : p)), teilstueck: d.teilstueck, width: d.width,
+        startAttachment: drag.endpoint === 'start' ? undefined : d.startAttachment,
+        endAttachment: drag.endpoint === 'end' ? undefined : d.endAttachment,
+      }
+    })
   const resolvedCoords = new globalThis.Map<string, LngLat[]>()
   const objectPoint = (id: string, toward: LngLat, attachment: import('../types').LineAttachment): LngLat | null => {
     const e = entities.find((x) => x.id === id)
@@ -242,19 +255,10 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   }
   for (const l of attachmentLines) resolvedCoords.set(l.id, resolveLinePoints(l, { lines: attachmentLines, objectPoint, linePoint }))
   const relationship = relationshipNetwork(attachmentLines, selectedDrawingId ? [selectedDrawingId] : [], selectedId ? [selectedId] : [])
-  // While dragging an endpoint, lock it onto a valid candidate's connection point instead of the
-  // raw pointer — the line snaps cleanly (no rubber-band twitch) and reads as one gesture with the
-  // snap ring. Blocked candidates and empty space fall back to the pointer.
-  const endpointDragCoord: LngLat | null = endpointDrag && (() => {
-    const c = endpointDrag.candidate, map = mapInst.current
-    if (c && !c.blocked && map) { const ll = map.unproject(c.point); return [ll.lng, ll.lat] as LngLat }
-    return endpointDrag.coord
-  })()
-  const drawings: Drawing[] = storedDrawings.map((d): Drawing => {
-    const base = resolvedCoords.has(d.id) ? { ...d, coords: resolvedCoords.get(d.id)! } : d
-    if (endpointDrag?.id !== d.id || base.coords.length < 2 || !endpointDragCoord) return base
-    return { ...base, coords: base.coords.map((p, i) => i === (endpointDrag.endpoint === 'start' ? 0 : base.coords.length - 1) ? endpointDragCoord : p) }
-  })
+  // resolvedCoords already carries the dragged endpoint at the finger position (attachmentLines
+  // injects it above), so downstream consumers see the live drag without a second override.
+  const drawings: Drawing[] = storedDrawings.map((d): Drawing =>
+    resolvedCoords.has(d.id) ? { ...d, coords: resolvedCoords.get(d.id)! } : d)
   const resolvedSelectedDrawing = selectedDrawing && resolvedCoords.has(selectedDrawing.id)
     ? { ...selectedDrawing, coords: resolvedCoords.get(selectedDrawing.id)! } : selectedDrawing
   const hiddenAttachmentTargets = selectedDrawing ? [selectedDrawing.startAttachment, selectedDrawing.endAttachment].flatMap((a) => {
@@ -296,9 +300,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     return [...objectTargets, ...lineTargets]
   }
   const beginEndpointDrag = (id: string, endpoint: LineEndpoint, coord: LngLat) => {
-    const p = mapInst.current?.project(coord)
-    if (!p) return
-    setEndpointDrag({ id, endpoint, coord, originPx: [p.x, p.y], dwell: EMPTY_DWELL, candidate: null, detachArmed: false })
+    setEndpointDrag({ id, endpoint, coord, dwell: EMPTY_DWELL, candidate: null })
   }
   const moveEndpointDrag = (coord: LngLat) => {
     const st = endpointDragRef.current, map = mapInst.current
@@ -307,15 +309,14 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     const targets = candidatesAt(st.id, coord)
     const candidate = stickyMagneticTarget([pointer.x, pointer.y], targets, st.candidate && !st.candidate.blocked ? st.candidate.key : null) ?? nearestBlockedTarget([pointer.x, pointer.y], targets)
     const dwell = advanceDwell(st.dwell, candidate && !candidate.blocked ? candidate.key : null, Date.now())
-    const next = { ...st, coord, candidate, dwell, detachArmed: Math.hypot(pointer.x - st.originPx[0], pointer.y - st.originPx[1]) >= DETACH_RADIUS_PX }
-    setEndpointDrag(next)
+    setEndpointDrag({ ...st, coord, candidate, dwell })
+    // haptic tick when a fresh target locks (visual fill is CSS-driven); no gating on it
     if (dwellTimer.current) clearTimeout(dwellTimer.current)
     if (candidate && !candidate.blocked && !dwell.armed) {
       dwellTimer.current = setTimeout(() => {
         const cur = endpointDragRef.current
         if (!cur || cur.candidate?.key !== candidate.key) return
-        const armed = { ...cur, dwell: { ...cur.dwell, armed: true } }
-        setEndpointDrag(armed)
+        setEndpointDrag({ ...cur, dwell: { ...cur.dwell, armed: true } })
         navigator.vibrate?.(12)
       }, Math.max(0, 350 - (Date.now() - dwell.since)))
     }
@@ -326,8 +327,10 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     if (dwellTimer.current) clearTimeout(dwellTimer.current)
     const stored = storedDrawings.find((d) => d.id === st.id)
     const existing = st.endpoint === 'start' ? stored?.startAttachment : stored?.endAttachment
-    // Release over a valid candidate attaches — the endpoint was already visually locked there, so
-    // no dwell hold is required (that hold was the twitchy part). Blocked candidates never attach.
+    // Move-not-detach: releasing over a valid target attaches / re-targets. Over empty space a FREE
+    // endpoint just moves there; an already-attached endpoint snaps back to its target (no change) —
+    // detaching is explicit (the × chip beside the node / the Verbindung lösen button), never a
+    // side effect of dragging. So attached branch lines can be repositioned without being severed.
     if (st.candidate && !st.candidate.blocked) {
       const target = st.candidate.target
       const entity = target.kind === 'object' ? entities.find((e) => e.id === target.id) : null
@@ -337,8 +340,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         ...(target.kind === 'object' && entity?.live ? { gps: { state: 'guarded' as const, confirmedAt: entity.coord, lastSafe: entity.coord } } : {}),
       }
       onDrawingAttachment?.(st.id, st.endpoint, attachment, st.coord)
-    } else if (existing && st.detachArmed) onDrawingAttachment?.(st.id, st.endpoint, undefined, st.coord)
-    else if (!existing) onDrawingAttachment?.(st.id, st.endpoint, undefined, st.coord)
+    } else if (!existing) onDrawingAttachment?.(st.id, st.endpoint, undefined, st.coord)
     setEndpointDrag(null)
   }
 
@@ -386,12 +388,16 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     } else {
       const cur = draftMagnet.current
       if (draftDwellTimer.current) clearTimeout(draftDwellTimer.current)
-      // Finish over a valid candidate attaches even without the dwell hold, matching endpoint drag.
+      // Attach on release, no dwell hold needed. Recompute the target at the actual release point
+      // (a fast stroke never lingers long enough for 'move' to have locked one) so the END of a
+      // freehand line attaches when it finishes on an object or another line's endpoint.
+      const rp = map.project(coord)
+      const candidate = stickyMagneticTarget([rp.x, rp.y], candidatesAt('__draft__', coord), cur?.candidate && !cur.candidate.blocked ? cur.candidate.key : null)
+      const atEnd = !!cur && !cur.atStart
       let start = cur?.startAttachment, end = cur?.endAttachment
-      const c = cur?.candidate
-      if (cur && c && !c.blocked) {
-        const attachment = attachmentForCandidate(c)
-        if (cur.atStart) start = start ?? attachment; else end = end ?? attachment
+      if (candidate && !candidate.blocked) {
+        const attachment = attachmentForCandidate(candidate)
+        if (cur?.atStart) start = start ?? attachment; else if (atEnd) end = end ?? attachment
       }
       const out = cur ? { startAttachment: start, endAttachment: end } : undefined
       setDraftMagnet(null)
@@ -1096,19 +1102,17 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         </Marker>
       ))}
 
-      {/* Snap indicator: one clean ring pinned to the connection point. The dragged endpoint is
-          already locked onto this same point (see the drawings mapping), so there is no second
-          wandering handle. Blocked → red cross-connection ring; drag-away → detach ×. */}
+      {/* Snap indicator: a ring pinned to the connection point that fills up to solid over ~350ms
+          while hovered (keyed to the target so it restarts on a new one). It's a hover flourish —
+          the attach commits on release. Blocked → red cross-connection ring. No detach × on drag:
+          dragging only moves/re-targets; detach is the explicit chip beside the node. */}
       {endpointDrag?.candidate && mapInst.current && (() => {
-        const ll = mapInst.current.unproject(endpointDrag.candidate.point)
-        return <Marker longitude={ll.lng} latitude={ll.lat} anchor="center"><span className={`magnet-port${endpointDrag.candidate.blocked ? ' blocked' : ' snap'}`}>{endpointDrag.candidate.blocked ? <small>{appConfig.copy.drawingEditor.cycleBlocked}</small> : null}</span></Marker>
+        const c = endpointDrag.candidate!, ll = mapInst.current.unproject(c.point)
+        return <Marker key={c.key} longitude={ll.lng} latitude={ll.lat} anchor="center"><span className={`magnet-port${c.blocked ? ' blocked' : ' snap'}`}>{c.blocked ? <small>{appConfig.copy.drawingEditor.cycleBlocked}</small> : null}</span></Marker>
       })()}
-      {endpointDrag && !endpointDrag.candidate && endpointDrag.detachArmed && (
-        <Marker longitude={endpointDrag.coord[0]} latitude={endpointDrag.coord[1]} anchor="center"><span className="magnet-port detach">×</span></Marker>
-      )}
       {draftMagnetState?.candidate && mapInst.current && (() => {
-        const ll = mapInst.current.unproject(draftMagnetState.candidate.point)
-        return <Marker longitude={ll.lng} latitude={ll.lat} anchor="center"><span className={`magnet-port${draftMagnetState.candidate.blocked ? ' blocked' : ' snap'}`}>{draftMagnetState.candidate.blocked ? <small>{appConfig.copy.drawingEditor.cycleBlocked}</small> : null}</span></Marker>
+        const c = draftMagnetState.candidate!, ll = mapInst.current.unproject(c.point)
+        return <Marker key={c.key} longitude={ll.lng} latitude={ll.lat} anchor="center"><span className={`magnet-port${c.blocked ? ' blocked' : ' snap'}`}>{c.blocked ? <small>{appConfig.copy.drawingEditor.cycleBlocked}</small> : null}</span></Marker>
       })()}
       {hiddenAttachmentTargets.map((e) => <Marker key={`hidden-${e.id}`} longitude={e.coord[0]} latitude={e.coord[1]} anchor="center"><span className="hidden-attachment-marker" /></Marker>)}
       {lineJoins.map((j) => <Marker key={`join-${j.key}`} longitude={j.coord[0]} latitude={j.coord[1]} anchor="center"><span className="line-coupling-dot" /></Marker>)}
@@ -1178,6 +1182,20 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
             onContextMenu={(ev) => { ev.stopPropagation(); ev.preventDefault(); onDrawingVertexDelete?.(editDraw.id, i) }}
           />
         </Marker>
+        )
+      })}
+      {/* explicit detach: a × chip beside a connected endpoint of the selected line. Dragging the node
+          only moves/re-targets (never severs), so this is how a connection is broken on-canvas. */}
+      {editDraw && editDraw.kind === 'line' && onDrawingAttachment && !endpointDrag && (['start', 'end'] as const).map((ep) => {
+        const a = ep === 'start' ? selectedDrawing?.startAttachment : selectedDrawing?.endAttachment
+        if (!a || editDraw.coords.length < 2) return null
+        const pt = ep === 'start' ? editDraw.coords[0] : editDraw.coords[editDraw.coords.length - 1]
+        return (
+          <Marker key={`detach-${ep}`} longitude={pt[0]} latitude={pt[1]} anchor="center" offset={[16, -16]}>
+            <span className="line-detach-chip" role="button" title={appConfig.copy.drawingEditor.detachConnection} aria-label={appConfig.copy.drawingEditor.detachConnection}
+              onPointerDown={(ev) => ev.stopPropagation()}
+              onClick={(ev) => { ev.stopPropagation(); onDrawingAttachment(editDraw.id, ep, undefined, pt) }}>×</span>
+          </Marker>
         )
       })}
 
