@@ -342,14 +342,16 @@ def build() -> list[dict]:
     # Drohne — top-down quadcopter: an X-frame of two arms with a rotor ring at each tip and a
     # filled hub. Own-pack aviation glyph (FKS has none); stays upright (no rotation) like a
     # hovering-asset marker.
+    # drawn to ~0.85× the unit radius so the square 4-rotor footprint reads at the same visual
+    # size as the thin Einsatzleiter/vehicle glyphs (a full-unit square looks noticeably larger)
     add("Fahrzeuge / Mittel", "VKF Drohne", svg(
-        [line(-0.7, -0.7, 0.7, 0.7, stroke=BLUE, sw=0.1),
-         line(-0.7, 0.7, 0.7, -0.7, stroke=BLUE, sw=0.1),
-         circle(-0.7, -0.7, 0.3, stroke=BLUE, sw=0.1),
-         circle(0.7, -0.7, 0.3, stroke=BLUE, sw=0.1),
-         circle(-0.7, 0.7, 0.3, stroke=BLUE, sw=0.1),
-         circle(0.7, 0.7, 0.3, stroke=BLUE, sw=0.1),
-         circle(0, 0, 0.22, stroke=BLUE, sw=0.1, fill=BLUE)],
+        [line(-0.6, -0.6, 0.6, 0.6, stroke=BLUE, sw=0.1),
+         line(-0.6, 0.6, 0.6, -0.6, stroke=BLUE, sw=0.1),
+         circle(-0.6, -0.6, 0.26, stroke=BLUE, sw=0.1),
+         circle(0.6, -0.6, 0.26, stroke=BLUE, sw=0.1),
+         circle(-0.6, 0.6, 0.26, stroke=BLUE, sw=0.1),
+         circle(0.6, 0.6, 0.26, stroke=BLUE, sw=0.1),
+         circle(0, 0, 0.19, stroke=BLUE, sw=0.1, fill=BLUE)],
         vb=2.6,
     ))
     add("Fahrzeuge / Mittel", "FW Entrauchung", svg(

@@ -114,9 +114,12 @@ interface Props {
    *  symbol; when wired AND the symbol's preset lists 'rotation2', the rotation control
    *  splits into a Fahrzeug (body) + Lüfter (fan) pair. */
   onRotate2?: (deg: number | null) => void
-  /** set/clear this symbol's on-canvas caption mode override (null = follow the device
-   *  default). Absent for non-symbols. See SymbolProps.caption / lib/symbols. */
-  onCaption?: (mode: CaptionMode | null) => void
+  /** set this symbol's on-canvas caption mode (Aus / Auto / Alle). Absent for non-symbols.
+   *  See SymbolProps.caption / lib/symbols. */
+  onCaption?: (mode: CaptionMode) => void
+  /** the device-wide caption default, shown as active when this symbol has no explicit override
+   *  (so the picker never needs a separate "Standard/inherit" option). Defaults to 'auto'. */
+  captionDefault?: CaptionMode
   /** set the Lüfter airflow direction (false = Einblasen, true = Absaugen). Wired only where
    *  the symbol's preset lists 'airflow' (the mobile Lüfter). See SymbolProps.extract. */
   onAirflow?: (extract: boolean) => void
@@ -164,7 +167,7 @@ function LabeledStepper({ label, ...rest }: { label: string } & React.ComponentP
   )
 }
 
-export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, readOnly, hasOverride, onResetGps, connectedLines = [], onFocusLine }: Props) {
+export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, readOnly, hasOverride, onResetGps, connectedLines = [], onFocusLine }: Props) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
   // leadership glyph → its roster picker offers the officer-first sort + "nur Offiziere" filter
@@ -274,18 +277,21 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
      (the field values matter first; visibility is a rare tweak). Standard follows the device
      default (Einstellungen ▸ Beschriftungen); 'Aus' silences a noisy one, 'Auto'/'Alle' opt a
      single key symbol in even when the device default is off. */
+  // Just Aus / Auto / Alle — the operator never has to reason about "follow the device default"
+  // (the old "Standard" option): an untouched symbol simply shows the effective default as active,
+  // and picking any button pins that mode on this symbol.
+  const capMode = entity.caption ?? captionDefault
   const caprow = onCaption && !readOnly && (
     <div className="ctx-caprow">
       <span className="ctx-caprow-lbl">{C.caption}</span>
       <div className="ctx-caprow-seg" role="group" aria-label={C.caption}>
         {([
-          { v: null, label: C.captionDefault },
           { v: 'off' as const, label: C.captionOff },
           { v: 'auto' as const, label: C.captionAuto },
           { v: 'all' as const, label: C.captionAll },
         ]).map(({ v, label }) => (
-          <button key={label} type="button" className={`ctx-caprow-btn${(entity.caption ?? null) === v ? ' on' : ''}`}
-            aria-pressed={(entity.caption ?? null) === v} onClick={() => onCaption(v)}>{label}</button>
+          <button key={label} type="button" className={`ctx-caprow-btn${capMode === v ? ' on' : ''}`}
+            aria-pressed={capMode === v} onClick={() => onCaption(v)}>{label}</button>
         ))}
       </div>
     </div>

@@ -1953,7 +1953,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           onCount={(n) => patchCommit(selSymbol.id, { count: n && n > 1 ? n : undefined })}
           onRotate={(deg) => patchCommit(selSymbol.id, { rotation: deg ?? undefined })}
           onRotate2={(deg) => patchCommit(selSymbol.id, { rotation2: deg ?? undefined })}
-          onCaption={(m) => patchCommit(selSymbol.id, { caption: m ?? undefined })}
+          onCaption={(m) => patchCommit(selSymbol.id, { caption: m })}
+          captionDefault={captionMode}
           onAirflow={(extract) => patchCommit(selSymbol.id, { extract: extract || undefined })}
           controls={symbolControls(selSymbol.symbol, sym.symbols.find((x) => x.name === selSymbol.symbol)?.cat)}
           titleOptions={symbolTitleOptions(selSymbol.symbol, sym.symbols.find((x) => x.name === selSymbol.symbol)?.cat)}
