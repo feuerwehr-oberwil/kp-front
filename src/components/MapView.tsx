@@ -17,7 +17,7 @@ import { MapLayers } from './MapLayers'
 // move threshold lives in MapMarkers with the entity-drag logic.
 import { useLongPress } from '../lib/useLongPress'
 import { QuietAttributionControl } from './MapAttribution'
-import { advanceDwell, boundaryPoint, EMPTY_DWELL, forkPortPoint, gpsGuard, incomingAttachments, moveLineBody, nearestBlockedTarget, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
+import { advanceDwell, boundaryPoint, EMPTY_DWELL, forkPortPoint, gpsGuard, incomingAttachments, moveLineBody, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 
 // Lock chip on a locked drawing: a SHORT HOLD (not a tap) unlocks it, with a filling ring as
 // the progress indicator (Miro-style) so a stray tap never unlocks instantly.
@@ -196,6 +196,11 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   const mapInst = useRef<MlMap | null>(null)
   // long-press to delete a path vertex (touch equivalent of the desktop right-click)
   const vertexPress = useLongPress()
+  // A long-press vertex-delete fires mid-gesture; the finger's release then lands a map click on
+  // the reshaped background, which would deselect and close the editor. This swallows that one
+  // click so the line stays selected and more nodes can be deleted in a row.
+  const suppressClick = useRef(false)
+  const deleteVertexKeepSelection = (id: string, i: number) => { suppressClick.current = true; onDrawingVertexDelete?.(id, i) }
   const [mapReady, setMapReady] = useState(false)
   type EndpointDrag = { id: string; endpoint: LineEndpoint; coord: LngLat; dwell: DwellState; candidate: MagneticTarget | null }
   const [endpointDrag, setEndpointDragState] = useState<EndpointDrag | null>(null)
@@ -266,11 +271,6 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     const e = entities.find((x) => x.id === a.target.id)
     return e && !isVisible(e.layer) ? [e] : []
   }) : []
-  const lineJoins = drawings.flatMap((d) => (['start', 'end'] as const).flatMap((endpoint) => {
-    const a = endpoint === 'start' ? d.startAttachment : d.endAttachment
-    if (a?.target.kind !== 'line' || !d.coords.length) return []
-    return [{ key: `${d.id}-${endpoint}`, coord: d.coords[endpoint === 'start' ? 0 : d.coords.length - 1] }]
-  }))
   const candidatesAt = (sourceId: string, at: LngLat): MagneticTarget[] => {
     const map = mapInst.current
     if (!map) return []
@@ -307,7 +307,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     if (!st || !map) return
     const pointer = map.project(coord)
     const targets = candidatesAt(st.id, coord)
-    const candidate = stickyMagneticTarget([pointer.x, pointer.y], targets, st.candidate && !st.candidate.blocked ? st.candidate.key : null) ?? nearestBlockedTarget([pointer.x, pointer.y], targets)
+    const candidate = stickyMagneticTarget([pointer.x, pointer.y], targets, st.candidate?.key ?? null)
     const dwell = advanceDwell(st.dwell, candidate && !candidate.blocked ? candidate.key : null, Date.now())
     setEndpointDrag({ ...st, coord, candidate, dwell })
     // haptic tick when a fresh target locks (visual fill is CSS-driven); no gating on it
@@ -358,7 +358,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     if (!map) return
     if (phase === 'start') {
       const targets = candidatesAt('__draft__', coord), pp = map.project(coord)
-      const candidate = nearestMagneticTarget([pp.x, pp.y], targets) ?? nearestBlockedTarget([pp.x, pp.y], targets)
+      const candidate = nearestMagneticTarget([pp.x, pp.y], targets)
       const atStart = draftKind === 'line' && !freehand ? draft.length === 0 : true
       const next: DraftMagnet = { first: coord, coord, atStart, dwell: advanceDwell(EMPTY_DWELL, candidate && !candidate.blocked ? candidate.key : null, Date.now()), candidate }
       setDraftMagnet(next)
@@ -374,7 +374,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       const a = map.project(cur.first), b = map.project(coord)
       const atStart = Math.hypot(b.x - a.x, b.y - a.y) < 10 && !cur.startAttachment
       const targets = candidatesAt('__draft__', coord)
-      const candidate = stickyMagneticTarget([b.x, b.y], targets, cur.candidate && !cur.candidate.blocked ? cur.candidate.key : null) ?? nearestBlockedTarget([b.x, b.y], targets)
+      const candidate = stickyMagneticTarget([b.x, b.y], targets, cur.candidate?.key ?? null)
       const next = { ...cur, coord, atStart, candidate, dwell: advanceDwell(cur.dwell, candidate && !candidate.blocked ? candidate.key : null, Date.now()) }
       setDraftMagnet(next)
       if (draftDwellTimer.current) clearTimeout(draftDwellTimer.current)
@@ -788,6 +788,8 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   }
 
   const handleClick = (e: MapLayerMouseEvent) => {
+    // swallow the click that trails a long-press vertex delete (keeps the line selected)
+    if (suppressClick.current) { suppressClick.current = false; return }
     // picking takes precedence — lock the clicked coordinate, place nothing
     if (picking) { onPick?.([e.lngLat.lng, e.lngLat.lat]); return }
     const lc: LngLat = [e.lngLat.lng, e.lngLat.lat]
@@ -1104,18 +1106,17 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
 
       {/* Snap indicator: a ring pinned to the connection point that fills up to solid over ~350ms
           while hovered (keyed to the target so it restarts on a new one). It's a hover flourish —
-          the attach commits on release. Blocked → red cross-connection ring. No detach × on drag:
-          dragging only moves/re-targets; detach is the explicit chip beside the node. */}
+          the attach commits on release. Cycle-forming targets are silently skipped (never offered),
+          so there is no blocked state. No detach × on drag: detach is the explicit chip beside the node. */}
       {endpointDrag?.candidate && mapInst.current && (() => {
-        const c = endpointDrag.candidate!, ll = mapInst.current.unproject(c.point)
-        return <Marker key={c.key} longitude={ll.lng} latitude={ll.lat} anchor="center"><span className={`magnet-port${c.blocked ? ' blocked' : ' snap'}`}>{c.blocked ? <small>{appConfig.copy.drawingEditor.cycleBlocked}</small> : null}</span></Marker>
+        const ll = mapInst.current.unproject(endpointDrag.candidate.point)
+        return <Marker key={endpointDrag.candidate.key} longitude={ll.lng} latitude={ll.lat} anchor="center"><span className="magnet-port snap" /></Marker>
       })()}
       {draftMagnetState?.candidate && mapInst.current && (() => {
-        const c = draftMagnetState.candidate!, ll = mapInst.current.unproject(c.point)
-        return <Marker key={c.key} longitude={ll.lng} latitude={ll.lat} anchor="center"><span className={`magnet-port${c.blocked ? ' blocked' : ' snap'}`}>{c.blocked ? <small>{appConfig.copy.drawingEditor.cycleBlocked}</small> : null}</span></Marker>
+        const ll = mapInst.current.unproject(draftMagnetState.candidate.point)
+        return <Marker key={draftMagnetState.candidate.key} longitude={ll.lng} latitude={ll.lat} anchor="center"><span className="magnet-port snap" /></Marker>
       })()}
       {hiddenAttachmentTargets.map((e) => <Marker key={`hidden-${e.id}`} longitude={e.coord[0]} latitude={e.coord[1]} anchor="center"><span className="hidden-attachment-marker" /></Marker>)}
-      {lineJoins.map((j) => <Marker key={`join-${j.key}`} longitude={j.coord[0]} latitude={j.coord[1]} anchor="center"><span className="line-coupling-dot" /></Marker>)}
 
       {/* selected drawing — on-canvas edit handles: a move grip at the centre, a delete
           ✕ above it, and (for non-huge shapes) a draggable handle on every vertex */}
@@ -1178,8 +1179,8 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           <div
             className="draw-handle"
             title={appConfig.copy.measure.deleteNode}
-            {...vertexPress.press(() => onDrawingVertexDelete?.(editDraw.id, i))}
-            onContextMenu={(ev) => { ev.stopPropagation(); ev.preventDefault(); onDrawingVertexDelete?.(editDraw.id, i) }}
+            {...vertexPress.press(() => deleteVertexKeepSelection(editDraw.id, i))}
+            onContextMenu={(ev) => { ev.stopPropagation(); ev.preventDefault(); deleteVertexKeepSelection(editDraw.id, i) }}
           />
         </Marker>
         )
@@ -1190,11 +1191,20 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         const a = ep === 'start' ? selectedDrawing?.startAttachment : selectedDrawing?.endAttachment
         if (!a || editDraw.coords.length < 2) return null
         const pt = ep === 'start' ? editDraw.coords[0] : editDraw.coords[editDraw.coords.length - 1]
+        const neighbor = ep === 'start' ? editDraw.coords[1] : editDraw.coords[editDraw.coords.length - 2]
+        // On detach, retract the endpoint ~26px toward its own body so it visibly pops off the target.
+        const detachAt = (): LngLat => {
+          const map = mapInst.current; if (!map) return pt
+          const p = map.project(pt), q = map.project(neighbor)
+          const dx = q.x - p.x, dy = q.y - p.y, len = Math.hypot(dx, dy) || 1
+          const ll = map.unproject([p.x + (dx / len) * 26, p.y + (dy / len) * 26])
+          return [ll.lng, ll.lat]
+        }
         return (
-          <Marker key={`detach-${ep}`} longitude={pt[0]} latitude={pt[1]} anchor="center" offset={[16, -16]}>
+          <Marker key={`detach-${ep}`} longitude={pt[0]} latitude={pt[1]} anchor="center" offset={[18, -18]}>
             <span className="line-detach-chip" role="button" title={appConfig.copy.drawingEditor.detachConnection} aria-label={appConfig.copy.drawingEditor.detachConnection}
               onPointerDown={(ev) => ev.stopPropagation()}
-              onClick={(ev) => { ev.stopPropagation(); onDrawingAttachment(editDraw.id, ep, undefined, pt) }}>×</span>
+              onClick={(ev) => { ev.stopPropagation(); onDrawingAttachment(editDraw.id, ep, undefined, detachAt()) }}>×</span>
           </Marker>
         )
       })}

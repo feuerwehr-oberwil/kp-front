@@ -22,7 +22,7 @@ import { DrawEditor } from './DrawEditor'
 import { ShapeEditor } from './ShapeEditor'
 import { ShapeGlyph, SHAPE_DEFS } from '../lib/shapes'
 import { planUrl, TILE_AR, TOP_INSET, STACK_VPAD, clamp01, floorLabel, floorGeometry } from '../lib/whiteboard'
-import { advanceDwell, applyRouting, boundaryPoint, EMPTY_DWELL, forkPortPoint, incomingAttachments, nearestBlockedTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
+import { advanceDwell, applyRouting, boundaryPoint, EMPTY_DWELL, forkPortPoint, incomingAttachments, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 import { calibrate, pathMetres, polyAreaM2, isStale, type PlanScale } from '../lib/planScale'
 import { resolvePlanScale, saveStationDefault, saveStationPlanOverride } from '../lib/stationPlanScale'
 import { MeasurePanel } from './MeasurePanel'
@@ -407,12 +407,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // resolvedPts already carries the dragged endpoint at the finger position (attachmentLines injects
   // it above), so the anno list needs no second override.
   const renderAnnos = annos.map((a) => (resolvedPts.has(a.id) ? { ...a, pts: resolvedPts.get(a.id)! } : a))
-  const planLineJoins = renderAnnos.flatMap((a) => (['start', 'end'] as const).flatMap((endpoint) => {
-    const rel = endpoint === 'start' ? a.startAttachment : a.endAttachment
-    if (a.kind !== 'draw' || rel?.target.kind !== 'line' || !a.pts?.length) return []
-    const p = a.pts[endpoint === 'start' ? 0 : a.pts.length - 1]
-    return [{ key: `${a.id}-${endpoint}`, point: [p[0] * sW, mapY(p[2] ?? a.floor, p[1]) * sH] as [number, number] }]
-  }))
 
   const planCandidatesAt = (sourceId: string, pointer: [number, number]): MagneticTarget[] => {
     const objects: MagneticTarget[] = annos
@@ -444,7 +438,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const pointer: [number, number] = [point[0] * sW, mapY(point[2], point[1]) * sH]
     const cur = planDraftMagnet.current
     const targets = planCandidatesAt('__draft__', pointer)
-    const candidate = stickyMagneticTarget(pointer, targets, cur?.candidate && !cur.candidate.blocked ? cur.candidate.key : null) ?? nearestBlockedTarget(pointer, targets)
+    const candidate = stickyMagneticTarget(pointer, targets, cur?.candidate?.key ?? null)
     const next: PlanDraftMagnet = { point, atStart, candidate, dwell: advanceDwell(cur?.dwell ?? EMPTY_DWELL, candidate && !candidate.blocked ? candidate.key : null, Date.now()) }
     setPlanDraftMagnet(next)
     if (planDraftTimer.current) clearTimeout(planDraftTimer.current)
@@ -800,7 +794,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       const point: BoardPoint = [n[0], localY(n[1], floor), floor]
       const pointer: [number, number] = [n[0] * sW, n[1] * sH]
       const targets = planCandidatesAt(st.id, pointer)
-      const candidate = stickyMagneticTarget(pointer, targets, magnetic.candidate && !magnetic.candidate.blocked ? magnetic.candidate.key : null) ?? nearestBlockedTarget(pointer, targets)
+      const candidate = stickyMagneticTarget(pointer, targets, magnetic.candidate?.key ?? null)
       const dwell = advanceDwell(magnetic.dwell, candidate && !candidate.blocked ? candidate.key : null, Date.now())
       setPlanEndpointDrag({ ...magnetic, point, candidate, dwell }); st.moved = true
       if (planDwellTimer.current) clearTimeout(planDwellTimer.current)
@@ -1216,13 +1210,15 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     if (!selDraw?.pts?.length) return
     const a = endpoint === 'start' ? selDraw.startAttachment : selDraw.endAttachment
     if (!a) return
-    const target = annos.find((x) => x.id === a.target.id)
-    const fallback: BoardPoint = a.target.kind === 'object' && target?.x != null && target.y != null
-      ? [target.x, target.y, target.floor ?? 0]
-      : a.target.kind === 'line' && target?.pts?.length
-        ? (a.target.endpoint === 'start' ? target.pts[0] : target.pts[target.pts.length - 1])
-        : (endpoint === 'start' ? selDraw.pts[0] : selDraw.pts[selDraw.pts.length - 1])
-    const pts = selDraw.pts.map((p, i): BoardPoint => i === (endpoint === 'start' ? 0 : selDraw.pts!.length - 1) ? fallback : p)
+    // resolved endpoint (where it visually sits, on the target)
+    const resolved = renderAnnos.find((x) => x.id === selDraw.id)?.pts ?? selDraw.pts
+    const idx = endpoint === 'start' ? 0 : selDraw.pts.length - 1
+    const here = resolved[idx] ?? selDraw.pts[idx]
+    const nb = resolved[endpoint === 'start' ? 1 : resolved.length - 2] ?? here
+    // retract ~0.02 board units toward its own body so it visibly pops off the target
+    const dx = nb[0] - here[0], dy = nb[1] - here[1], len = Math.hypot(dx, dy) || 1
+    const off: BoardPoint = [here[0] + (dx / len) * 0.02, here[1] + (dy / len) * 0.02, here[2] ?? selDraw.floor ?? 0]
+    const pts = selDraw.pts.map((p, i): BoardPoint => (i === idx ? off : p))
     patchCommit(selDraw.id, { pts, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) })
   }
   // a selected generic shape — colour via the same ShapeEditor sheet as the Lage map
@@ -1396,18 +1392,17 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             {/* committed drawings */}
             <WbInkLayer annos={renderAnnos} draft={draft} draftFloor={draftFloor.current} draftClosed={tool === 'area'} color={color} width={width} dashed={dashed} showTrails={showTrails} mapY={mapY}
               selId={selId} networkIds={[...relationship.lineIds]} onPickDraw={tool === 'pan' ? drawDown : undefined} />
-            {/* snap ring that fills up while hovered (keyed to the target so it restarts on a new
-                one); attach commits on release. No detach × on drag — the × chip beside the node does
-                that. Dragging only moves/re-targets and carries connected branches live. */}
+            {/* snap ring that fills up while hovered (keyed to the target so it restarts on a new one);
+                attach commits on release. Cycle-forming targets are silently skipped, so no blocked
+                state. Detach is the explicit × chip beside the node, not a drag side effect. */}
             {planEndpointDragState?.candidate && (
-              <span key={planEndpointDragState.candidate.key} className={`magnet-port wb-magnet${planEndpointDragState.candidate.blocked ? ' blocked' : ' snap'}`}
-                style={{ left: planEndpointDragState.candidate.point[0], top: planEndpointDragState.candidate.point[1] }}>{planEndpointDragState.candidate.blocked ? <small>{appConfig.copy.drawingEditor.cycleBlocked}</small> : null}</span>
+              <span key={planEndpointDragState.candidate.key} className="magnet-port wb-magnet snap"
+                style={{ left: planEndpointDragState.candidate.point[0], top: planEndpointDragState.candidate.point[1] }} />
             )}
             {planDraftMagnetState?.candidate && (
-              <span key={planDraftMagnetState.candidate.key} className={`magnet-port wb-magnet${planDraftMagnetState.candidate.blocked ? ' blocked' : ' snap'}`}
-                style={{ left: planDraftMagnetState.candidate.point[0], top: planDraftMagnetState.candidate.point[1] }}>{planDraftMagnetState.candidate.blocked ? <small>{appConfig.copy.drawingEditor.cycleBlocked}</small> : null}</span>
+              <span key={planDraftMagnetState.candidate.key} className="magnet-port wb-magnet snap"
+                style={{ left: planDraftMagnetState.candidate.point[0], top: planDraftMagnetState.candidate.point[1] }} />
             )}
-            {planLineJoins.map((join) => <span key={join.key} className="line-coupling-dot wb-magnet" style={{ left: join.point[0], top: join.point[1] }} />)}
 
             {/* line arrowheads · repeated marker letters · free-text label + distance — rendered in
                 board px (the ink SVG is stretched 1×1 and would distort them). Same feature set +
@@ -1614,8 +1609,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                   const svg = veh ? vehicleSymbolSvg(a.label ?? '', a.rotation ?? 0)
                     : gross ? (sym.byName[GROSSLUEFTER_BODY] ?? '')
                     : (placardSvgForSymbol(a.symbol, a.fields) ?? (a.symbol ? sym.byName[luefterVariant(a.symbol, a.extract)!] ?? sym.byName[a.symbol] ?? '' : ''))
-                  // the Grosslüfter stacks the fan as a separately-rotatable overlay (airflow direction)
-                  const overlay = gross ? { svg: sym.byName[GROSSLUEFTER_FAN] ?? '', rotation: a.rotation2 ?? 0, scale: FAN_OVERLAY_SCALE } : undefined
+                  // the Grosslüfter stacks the fan as a separately-rotatable overlay (airflow direction);
+                  // extract (Absaugen) swaps to the reversed-arrow fan glyph, same as the mobile Lüfter
+                  const overlay = gross ? { svg: sym.byName[luefterVariant(GROSSLUEFTER_FAN, a.extract)!] ?? sym.byName[GROSSLUEFTER_FAN] ?? '', rotation: a.rotation2 ?? 0, scale: FAN_OVERLAY_SCALE } : undefined
                   return (
                     <TacticalSymbol
                       svg={svg}
