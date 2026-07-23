@@ -1981,6 +1981,10 @@ export const de = {
     send: 'Ausdrucken',
     sending: 'Wird gesendet …',
     queued: 'An Stationsdrucker gesendet',
+    // live status toast follows the job: gesendet → wird gedruckt → gedruckt / fehlgeschlagen
+    printing: 'Wird gedruckt …',
+    printed: 'Gedruckt',
+    printFailed: 'Druck fehlgeschlagen – Drucker prüfen',
     // every print goes through a confirm modal — no accidental paper (2026-07-18)
     confirmTitle: 'Ausdrucken',
     confirmMsg: 'Einsatzrapport an den Stationsdrucker senden?',

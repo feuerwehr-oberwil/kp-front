@@ -25,6 +25,9 @@ def relay_secret(monkeypatch):
     from app.api import print_relay
 
     monkeypatch.setattr(print_relay, "_last_seen", None)
+    # collapse the long-poll hang so an idle claim returns 204 immediately instead of hanging
+    # the production CLAIM_HANG_SEC (the claim-with-a-job path is unaffected — it never waits)
+    monkeypatch.setattr(print_relay, "CLAIM_HANG_SEC", 0.0)
 
 
 async def _login(client, user) -> None:
@@ -145,6 +148,40 @@ async def test_failed_status_records_error(client, editor, relay_secret):
     )
     assert r.status_code == 200
     assert r.json()["status"] == "failed"
+
+
+async def test_client_reads_job_lifecycle(client, editor, relay_secret):
+    """GET /api/print-jobs/{id} drives the live «wird gedruckt … → gedruckt» toast."""
+    await _login(client, editor)
+    inc = await _create_incident(client)
+    job_id = await _enqueue(client, inc)
+
+    assert (await client.get(f"/api/print-jobs/{job_id}")).json()["status"] == "queued"
+
+    await client.post("/api/print-agent/claim", headers=H)
+    assert (await client.get(f"/api/print-jobs/{job_id}")).json()["status"] == "printing"
+
+    await client.post(f"/api/print-agent/jobs/{job_id}/status", headers=H, json={"status": "done"})
+    body = (await client.get(f"/api/print-jobs/{job_id}")).json()
+    assert body["status"] == "done"
+    assert body["finished_at"]
+
+    r = await client.get("/api/print-jobs/00000000-0000-0000-0000-000000000000")
+    assert r.status_code == 404
+
+
+async def test_prewarm_ok_when_available_noop_without_relay(client, editor, monkeypatch):
+    await _login(client, editor)
+    inc = await _create_incident(client)
+    data = {"payload": json.dumps(_payload(inc))}
+
+    monkeypatch.setattr(settings, "print_agent_secret", AGENT_SECRET)
+    r = await client.post(f"/api/incidents/{inc}/report/print/prewarm", data=data)
+    assert r.status_code == 200 and r.json() == {"ok": True}
+
+    monkeypatch.setattr(settings, "print_agent_secret", "")
+    r = await client.post(f"/api/incidents/{inc}/report/print/prewarm", data=data)
+    assert r.status_code == 200 and r.json() == {"ok": False}
 
 
 def test_color_only_with_rendered_kroki():

@@ -27,13 +27,41 @@ const listeners = new Set<() => void>()
 let seq = 1
 const emit = () => listeners.forEach((l) => l())
 
-export function toast(text: string, opts?: { icon?: string; tone?: Tone; duration?: number; action?: ToastAction }) {
+// Pending auto-dismiss timers, keyed by toast id, so updateToast can reset a toast's clock
+// and dismissToast can cancel it (a live status toast is sticky until it reaches done/failed).
+const timers = new Map<number, ReturnType<typeof setTimeout>>()
+function scheduleDismiss(id: number, ms: number) {
+  const prev = timers.get(id)
+  if (prev) clearTimeout(prev)
+  timers.set(id, setTimeout(() => { dismissToast(id) }, ms))
+}
+
+export function dismissToast(id: number) {
+  const prev = timers.get(id)
+  if (prev) { clearTimeout(prev); timers.delete(id) }
+  toasts = toasts.filter((t) => t.id !== id)
+  emit()
+}
+
+export function toast(text: string, opts?: { icon?: string; tone?: Tone; duration?: number; action?: ToastAction; sticky?: boolean }): number {
   const id = seq++
   toasts = [...toasts, { id, text, icon: opts?.icon, tone: opts?.tone ?? 'default', action: opts?.action }]
   emit()
-  // an action (e.g. confirm-with-undo) needs time to be seen and tapped
-  const duration = opts?.duration ?? (opts?.action ? 6000 : 2800)
-  setTimeout(() => { toasts = toasts.filter((t) => t.id !== id); emit() }, duration)
+  // sticky toasts stay until updateToast/dismissToast decides (live status). Otherwise an
+  // action (e.g. confirm-with-undo) needs time to be seen and tapped.
+  if (!opts?.sticky) scheduleDismiss(id, opts?.duration ?? (opts?.action ? 6000 : 2800))
+  return id
+}
+
+/** Patch a live toast in place (text/icon/tone/action). Pass `duration` to auto-dismiss it
+ * (e.g. once the job reaches done/failed); omit to keep it sticky. Unknown id = no-op. */
+export function updateToast(id: number, text: string, opts?: { icon?: string; tone?: Tone; duration?: number; action?: ToastAction | null }) {
+  if (!toasts.some((t) => t.id === id)) return
+  toasts = toasts.map((t) => t.id === id
+    ? { ...t, text, icon: opts?.icon, tone: opts?.tone ?? 'default', action: opts?.action ?? undefined }
+    : t)
+  emit()
+  if (opts?.duration) scheduleDismiss(id, opts.duration)
 }
 
 export function confirmDialog(opts: {
@@ -90,8 +118,7 @@ export function Overlays() {
               <button
                 className="btn toast-action"
                 onClick={() => {
-                  toasts = toasts.filter((x) => x.id !== t.id)
-                  emit()
+                  dismissToast(t.id)
                   t.action!.onClick()
                 }}
               >

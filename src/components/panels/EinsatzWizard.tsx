@@ -7,6 +7,7 @@ import { MapPicker } from '../MapPicker'
 import { DateTimeField } from '../TimeField'
 import { Combo } from '../Combo'
 import { appConfig } from '../../config/appConfig'
+import { dtLocalValue, dtLocalToIso } from '../../lib/format'
 import { isDemoMode, shortAddress } from '../../lib/deploymentConfig'
 import {
   createIncident,
@@ -35,20 +36,6 @@ function guessKategorie(title: string): string | null {
   // value is the same in any locale — but read through the getter for consistency.
   for (const [kw, label] of appConfig.copy.intake.kategorieGuess) if (up.includes(kw)) return label
   return null
-}
-
-/** ISO ⇄ <input type="datetime-local"> string (local time, minute precision). */
-function dtLocalValue(iso?: string | null): string {
-  if (!iso) return ''
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
-}
-function dtIso(local: string): string | undefined {
-  if (!local) return undefined
-  const d = new Date(local)
-  return Number.isNaN(d.getTime()) ? undefined : d.toISOString()
 }
 
 // Single guided panel used for both intake paths: a Divera alarm pre-fills every field
@@ -201,7 +188,7 @@ export function EinsatzWizard({ seed, edit, nearCoord, onClose, onCreated }: {
       type: kategorie,
       address: address.trim() || null,
       ...(textReady ? { text: text.trim() || null } : {}),
-      ...(!seed && dtIso(alarmiertAt) ? { started_at: dtIso(alarmiertAt) } : {}),
+      ...(!seed && dtLocalToIso(alarmiertAt) ? { started_at: dtLocalToIso(alarmiertAt) } : {}),
       ...(!seed ? { is_exercise: isExercise } : {}),
       ...(coord ? { lng: coord[0], lat: coord[1] } : {}),
     }
@@ -337,7 +324,7 @@ export function EinsatzWizard({ seed, edit, nearCoord, onClose, onCreated }: {
           row is what puts the right date into the catalogue). Divera take: alarm's time. */}
       {!edit && !seed && (
         <label className="ip-field"><span>{ix.alarmTime}</span>
-          <DateTimeField ariaLabel={ix.alarmTime} value={dtIso(alarmiertAt)}
+          <DateTimeField ariaLabel={ix.alarmTime} value={dtLocalToIso(alarmiertAt)}
             onCommit={(iso) => setAlarmiertAt(dtLocalValue(iso))} />
         </label>
       )}
@@ -348,7 +335,7 @@ export function EinsatzWizard({ seed, edit, nearCoord, onClose, onCreated }: {
         <>
           <div className="ip-ix-head">{ix.alarmierungHead}</div>
           <label className="ip-field"><span>{ix.alarmTime}</span>
-            <DateTimeField ariaLabel={ix.alarmTime} value={dtIso(alarmiertAt)}
+            <DateTimeField ariaLabel={ix.alarmTime} value={dtLocalToIso(alarmiertAt)}
               onCommit={(iso) => setAlarmiertAt(dtLocalValue(iso))} />
           </label>
           <label className="ip-field"><span>{ix.alarmMessage}</span>

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { Overlays, toast, confirmDialog } from './ui'
+import { Overlays, toast, updateToast, dismissToast, confirmDialog } from './ui'
 
 afterEach(() => {
   cleanup()
@@ -63,5 +63,36 @@ describe('toast with an action (confirm-with-undo)', () => {
 
     act(() => vi.advanceTimersByTime(3500)) // past the 6s action default
     expect(screen.queryByText('mit Undo')).toBeNull()
+  })
+})
+
+describe('sticky/updatable toast (live print status)', () => {
+  it('a sticky toast stays put, then updateToast patches it in place', () => {
+    vi.useFakeTimers()
+    render(<Overlays />)
+    let id!: number
+    act(() => { id = toast('An Stationsdrucker gesendet', { sticky: true, icon: 'check' }) })
+
+    act(() => vi.advanceTimersByTime(10_000)) // no auto-dismiss while sticky
+    expect(screen.getByText('An Stationsdrucker gesendet')).toBeTruthy()
+
+    act(() => updateToast(id, 'Wird gedruckt …', { icon: 'print' }))
+    expect(screen.queryByText('An Stationsdrucker gesendet')).toBeNull()
+    expect(screen.getByText('Wird gedruckt …')).toBeTruthy()
+
+    act(() => updateToast(id, 'Gedruckt', { icon: 'check', duration: 4000 }))
+    expect(screen.getByText('Gedruckt')).toBeTruthy()
+    act(() => vi.advanceTimersByTime(4001)) // terminal state auto-dismisses
+    expect(screen.queryByText('Gedruckt')).toBeNull()
+  })
+
+  it('dismissToast removes a sticky toast and updateToast on an unknown id is a no-op', () => {
+    render(<Overlays />)
+    let id!: number
+    act(() => { id = toast('sticky', { sticky: true }) })
+    act(() => dismissToast(id))
+    expect(screen.queryByText('sticky')).toBeNull()
+    act(() => updateToast(id, 'ghost'))
+    expect(screen.queryByText('ghost')).toBeNull()
   })
 })

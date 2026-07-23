@@ -11,6 +11,11 @@ Loop: claim the oldest queued job (`POST /api/print-agent/claim`, authenticated 
 `lpstat -W not-completed` until the CUPS job drains → report done. Claiming with an empty
 queue is the heartbeat that shows the relay «online» in the app.
 
+The claim request LONG-POLLS: the backend hangs it until a job is queued (or ~25 s pass),
+so a freshly queued job is claimed near-instantly and the idle loop makes ~one request per
+hang instead of one every few seconds. Backward-compatible: against an older backend that
+answers 204 immediately, the agent falls back to sleeping KP_POLL_SEC between claims.
+
 A CUPS job that stays queued (printer off, paper out, network hiccup) is PENDING, not
 failed: CUPS stores and forwards, so the agent waits up to KP_CUPS_TIMEOUT_SEC and only
 then reports the job failed — noting that it may still print once the printer recovers —
@@ -20,7 +25,10 @@ Environment (see `python3 print_agent.py install` for setup):
   KP_BASE_URL             backend origin, e.g. https://front.example.org (required)
   KP_PRINT_AGENT_SECRET   must match the backend's PRINT_AGENT_SECRET (required)
   KP_PRINTER              CUPS destination, e.g. from `lpstat -p` (required)
-  KP_POLL_SEC             claim interval in seconds (default 5)
+  KP_POLL_SEC             idle gap between claims when the backend does NOT long-poll
+                          (fallback for older backends; default 5)
+  KP_CLAIM_TIMEOUT_SEC    HTTP timeout for the long-polling claim request; must exceed the
+                          backend's hang (~25 s). Default 60
   KP_LP_OPTS              extra `lp` options, space-separated, appended after the
                           defaults (A4, duplex, monochrome-unless-Kroki) — CUPS takes
                           the last occurrence of a same-name option, so this overrides
@@ -52,6 +60,8 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 POLL_SEC = float(os.environ.get("KP_POLL_SEC", "5"))
+# Long-poll timeout: the backend hangs the claim ~25 s, so give it comfortable headroom.
+CLAIM_TIMEOUT_SEC = float(os.environ.get("KP_CLAIM_TIMEOUT_SEC", "60"))
 CUPS_TIMEOUT_SEC = float(os.environ.get("KP_CUPS_TIMEOUT_SEC", "1800"))
 # Defaults: A4, duplex, and monochrome unless the job carries the coloured Kroki.
 # KP_LP_OPTS appends extra `lp` options AFTER these — for a same-name option CUPS takes
@@ -92,7 +102,7 @@ def _request(base: str, secret: str, path: str, body: bytes | None = None,
 
 
 def claim(base: str, secret: str) -> dict | None:
-    status, data = _request(base, secret, "/api/print-agent/claim", body=b"")
+    status, data = _request(base, secret, "/api/print-agent/claim", body=b"", timeout=CLAIM_TIMEOUT_SEC)
     if status == 204:
         return None
     if status == 200:
@@ -162,14 +172,20 @@ def run_loop(once: bool = False) -> None:
     base = _env("KP_BASE_URL")
     secret = _env("KP_PRINT_AGENT_SECRET")
     printer = _env("KP_PRINTER")
-    log(f"kp-print-agent: {base} → Drucker {printer} (Poll {POLL_SEC:.0f}s)")
+    log(f"kp-front-print-agent: {base} → Drucker {printer} (Long-Poll, Fallback {POLL_SEC:.0f}s)")
 
     backoff = POLL_SEC
     while True:
         try:
+            t0 = time.monotonic()
             job = claim(base, secret)
             if job is not None:
                 print_job(base, secret, printer, job)
+                # a job likely means more may be queued — reconnect at once
+            elif time.monotonic() - t0 < POLL_SEC:
+                # the backend answered 204 immediately (no long-poll) → don't hot-loop
+                time.sleep(POLL_SEC)
+            # else the backend long-polled the idle wait for us → reconnect immediately
             backoff = POLL_SEC
         except Exception as e:  # one bad cycle never kills the loop
             log(f"WARN: {e} — nächster Versuch in {backoff:.0f}s")
@@ -180,7 +196,6 @@ def run_loop(once: bool = False) -> None:
             continue
         if once:
             return
-        time.sleep(POLL_SEC)
 
 
 INSTALL = """\

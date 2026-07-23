@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiGet, ApiError } from '../lib/api'
+import { downloadBlob } from '../lib/download'
 import { PersonnelSyncDialog } from '../components/PersonnelSyncDialog'
 import {
   listRoster,
@@ -156,14 +157,7 @@ function CsvImportCard({ onImported }: { onImported: () => void }) {
   const downloadTemplate = () => {
     const csv = 'name,rank\r\nMuster Max,\r\nBeispiel Anna,fw\r\n'
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'mannschaft-vorlage.csv'
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    URL.revokeObjectURL(url)
+    downloadBlob(blob, 'mannschaft-vorlage.csv')
   }
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {

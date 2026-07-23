@@ -1,6 +1,6 @@
 import { useState, type SetStateAction } from 'react'
 import { appConfig } from '../config/appConfig'
-import { getLinePreset, linePresetPatch } from './lineStyle'
+import { resolveLinePreset } from './lineStyle'
 import type { Doc } from './workspace'
 import type { Drawing, LineAttachment, LineEndpoint, LngLat, TimelineEvent } from '../types'
 import { confirmDialog } from './ui'
@@ -84,13 +84,10 @@ export function useMapDrawing(deps: MapDrawingDeps) {
   // its detail editor opens right away for post-draw tweaks — no extra click needed.
   const createLine = (coords: LngLat[], attachments?: { startAttachment?: LineAttachment; endAttachment?: LineAttachment }) => {
     const id = `d${Date.now()}`
-    const preset = getLinePreset(linePreset)
-    const styled = preset.id !== 'freihand'
-    // styled presets (Messpfeil/Rettungsachse) carry their own colour/dash; Freihand uses the
-    // freehand dock controls. A new line inherits the last-used preset (post-pick + sticky).
-    const drawing: Drawing = styled
-      ? { id, kind: 'line', coords, color: drawColor, width: drawWidth, ...preset.defaults, ...attachments }
-      : { id, kind: 'line', coords, color: drawColor, width: drawWidth, dashed: drawDashed, ...attachments }
+    // styled presets (Messpfeil/Rettungsachse) carry their own arrow/marker/dash; Freihand falls
+    // back to the dock's dash. A new line inherits the last-used preset (post-pick + sticky) — the
+    // SAME resolved bundle the Plan whiteboard bakes (lib/lineStyle), so the surfaces can't drift.
+    const drawing: Drawing = { id, kind: 'line', coords, color: drawColor, width: drawWidth, ...resolveLinePreset(linePreset, drawDashed), ...attachments }
     commit((d) => ({ ...d, drawings: [...d.drawings, drawing] }))
     log('pen', appConfig.copy.log.drawingCreated, 'symbol'); emit('draw.add', { id, kind: 'line', drawing })
     setTool('select'); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null)
@@ -113,7 +110,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
   // apply a line preset to the selected drawing + remember it for the next new line
   const applyLinePreset = (presetId: string) => {
     setLinePreset(presetId)
-    patchDrawing(linePresetPatch(presetId)) // SAME bundle the Plan editor applies (lib/lineStyle)
+    patchDrawing(resolveLinePreset(presetId, selectedDrawing?.dashed)) // SAME bundle the Plan editor applies (lib/lineStyle)
   }
 
   const selectedDrawing = drawings.find((d) => d.id === selectedDrawingId) ?? null

@@ -2,7 +2,7 @@ import type { AttendanceState, BoardDoc, Drawing, Entity, LngLat, MittelEntry, P
 import type { ReportMeta } from './workspace'
 import { appConfig } from '../config/appConfig'
 import { fmtDistance } from './geo'
-import { fillTemplate } from './format'
+import { fillTemplate, hhmm } from './format'
 import { fahrzeugRows, gruppenRows } from './alarmzeiten'
 import { getDeploymentConfig } from './deploymentConfig'
 import { mittelReportRows } from './mittel'
@@ -263,7 +263,7 @@ export function metaExtrasForPdf(meta: ReportMeta): {
     if (!iso) return ''
     const d = new Date(iso)
     if (!Number.isFinite(d.getTime())) return ''
-    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+    return hhmm(d)
   }
   const gerettete = meta.gerettete && (meta.gerettete.personen != null || meta.gerettete.tiere != null)
     ? [
@@ -304,7 +304,7 @@ export function personalForPdf(
     if (!iso) return undefined
     const d = new Date(iso)
     if (!Number.isFinite(d.getTime())) return undefined
-    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+    return hhmm(d)
   }
   const row = (name: string, a?: AttendanceState[string]) => ({
     name, erfasst: !!a, von: clock(a?.checkedInAt), bis: clock(a?.leftAt),

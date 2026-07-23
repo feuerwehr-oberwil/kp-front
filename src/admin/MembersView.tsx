@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { apiGet, apiPost, apiPatch, ApiError } from '../lib/api'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
-import { ActionMenu, Select } from './ui'
+import { ActionMenu, Select, fmtDate } from './ui'
 
 // ─── types ───────────────────────────────────────────────────────────────────
 
@@ -22,13 +22,6 @@ interface AdminUser {
 const PIN_LEN = 6 // mirrors backend settings.pin_length
 
 // ─── helpers ───────────────────────────────────────────────────────────────
-
-function fmtDate(iso: string | null | undefined): string {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '—'
-  return d.toLocaleDateString('de-CH')
-}
 
 function isValidPin(pin: string): boolean {
   return pin.length === PIN_LEN && /^\d+$/.test(pin)

@@ -7,7 +7,7 @@ import { PdfViewport, prewarmPlans } from './PdfViewport'
 import { PdfScroller } from './PdfScroller'
 import { OsmOutline } from './OsmOutline'
 import { appConfig } from '../config/appConfig'
-import { linePresetPatch, markerParamsAlong, lerpPoint, lookbackPoint, rdpIndices, FREEHAND_SIMPLIFY_PX, MAX_VERTEX_HANDLES } from '../lib/lineStyle'
+import { resolveLinePreset, markerParamsAlong, lerpPoint, lookbackPoint, rdpIndices, FREEHAND_SIMPLIFY_PX, MAX_VERTEX_HANDLES } from '../lib/lineStyle'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { TeilstueckFork, EndTag, hasLineDecor, lineLabel } from '../lib/lineDecor'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
@@ -690,10 +690,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // preset's arrow/marker/dash — then one-shot to pan with the new line selected so its style editor
   // opens right away. Mirrors the Lage map's createLine, so both surfaces behave identically.
   const addLine = (pts: BoardPoint[]) => {
-    const p = linePresetPatch(linePreset) // SAME preset bundle the Lage map bakes (lib/lineStyle)
     const id = `l${Date.now()}`
     add({ id, kind: 'draw', pts, floor: pts[0]?.[2] ?? draftFloor.current, color, width, ...draftAttachments.current,
-      dashed: p.dashed ?? dashed, arrow: p.arrow || undefined, marker: p.marker || undefined, showDistance: p.showDistance || undefined })
+      ...resolveLinePreset(linePreset, dashed) }) // SAME preset bundle the Lage map bakes (lib/lineStyle)
     log('pen', appConfig.copy.whiteboard.placeLine)
     draftAttachments.current = {}; setSelId(id); setTool('pan')
   }
@@ -2031,8 +2030,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           supportsDistance={calibrated}
           onPreset={(presetId) => {
             setLinePreset(presetId)
-            const p = linePresetPatch(presetId) // identical bundle + field-mapping to the Lage map
-            patchCommit(selDraw.id, { arrow: p.arrow || undefined, marker: p.marker || undefined, showDistance: p.showDistance || undefined, dashed: p.dashed ?? selDraw.dashed })
+            patchCommit(selDraw.id, resolveLinePreset(presetId, selDraw.dashed)) // ONE bundle, shared with the Lage map (lib/lineStyle)
           }}
           onColor={(c) => patchCommit(selDraw.id, { color: c })}
           onWidth={(w) => patchCommit(selDraw.id, { width: w })}

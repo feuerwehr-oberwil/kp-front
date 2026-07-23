@@ -4,9 +4,10 @@ import { confirmDialog, toast } from '../lib/ui'
 import { buildDirectReportPayload, downloadDirectReportPdf } from '../lib/reportPdfDirect'
 import { KrokiFramingModal } from './KrokiFramingModal'
 import { Overlay } from '../lib/overlays'
-import { cancelPrint, editorPrintTransport, enqueuePrint, fetchPrintStatus, type PrintRelayStatus } from '../lib/printRelay'
+import { editorPrintTransport, enqueuePrint, fetchPrintStatus, prewarmPrint, type PrintRelayStatus } from '../lib/printRelay'
+import { trackPrintJob } from '../lib/printJobToast'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate } from '../lib/format'
+import { fillTemplate, hhmm, dtLocalValue, dtLocalToIso } from '../lib/format'
 import type { IncidentMeta } from '../lib/incidents'
 import { getIncident, verifyChain } from '../lib/incidents'
 import type { FahrzeugZeit, GruppeZeit, ReportMeta } from '../lib/workspace'
@@ -26,26 +27,12 @@ import { Stepper } from './Stepper'
 
 const NO_IDS = new Set<string>()
 
-function localValue(iso?: string): string {
-  if (!iso) return ''
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
-}
-
-function isoValue(local: string): string | undefined {
-  if (!local) return undefined
-  const d = new Date(local)
-  return Number.isNaN(d.getTime()) ? undefined : d.toISOString()
-}
-
 /** HH:MM display value for the compact time inputs of the Zeiten grid. */
 function clockOf(iso?: string): string {
   if (!iso) return ''
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ''
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  return hhmm(d)
 }
 
 function CheckRow({ done, label, sub, onGo, children }: {
@@ -165,8 +152,8 @@ export function ReportPreflight({
   const [summary, setSummary] = useState(reportMeta.summary ?? '')
   const [kontaktperson, setKontaktperson] = useState(reportMeta.kontaktperson ?? '')
   const [einsatzleiter, setEinsatzleiter] = useState(reportMeta.einsatzleiter ?? '')
-  const [endedAt, setEndedAt] = useState(localValue(reportMeta.endedAt ?? incident.closed_at ?? undefined))
-  const [ausgerueckt, setAusgerueckt] = useState(localValue(reportMeta.ausgeruecktAt))
+  const [endedAt, setEndedAt] = useState(dtLocalValue(reportMeta.endedAt ?? incident.closed_at ?? undefined))
+  const [ausgerueckt, setAusgerueckt] = useState(dtLocalValue(reportMeta.ausgeruecktAt))
   const [remarks, setRemarks] = useState(reportMeta.remarks ?? '')
   const [lehren, setLehren] = useState(reportMeta.lehren ?? '')
   // Alarmierungs-/Ausrückzeiten grid (G1/G2) + the paper-form Details fields (G4).
@@ -224,8 +211,8 @@ export function ReportPreflight({
     summary: summary.trim() || undefined,
     kontaktperson: kontaktperson.trim() || undefined,
     einsatzleiter: einsatzleiter.trim() || undefined,
-    endedAt: isoValue(endedAt),
-    ausgeruecktAt: derivedAus ?? isoValue(ausgerueckt),
+    endedAt: dtLocalToIso(endedAt),
+    ausgeruecktAt: derivedAus ?? dtLocalToIso(ausgerueckt),
     remarks: remarks.trim() || undefined,
     lehren: lehren.trim() || undefined,
     gruppen: gruppen.length ? gruppen : undefined,
@@ -286,6 +273,20 @@ export function ReportPreflight({
     void fetchPrintStatus(editorPrintTransport()).then((s) => { if (alive) setPrintStatus(s) })
     return () => { alive = false }
   }, [])
+  // Opening this modal is a strong «about to print» signal: once we know the relay is
+  // available and the report carries a Kroki, warm the server's map-tile cache so the real
+  // enqueue render is near-instant. Fire once, best-effort — reframes reuse overlapping tiles.
+  const warmedRef = useRef(false)
+  useEffect(() => {
+    if (warmedRef.current || !printStatus?.available || !options.kroki || mapContentCount === 0 || !scene) return
+    warmedRef.current = true
+    const payload = buildDirectReportPayload({
+      incident, draft: buildDraft(null), trupps, attendance, events, plans, mittel, scene, board, building,
+      roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
+    })
+    void prewarmPrint(editorPrintTransport(), incident.id, payload)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [printStatus?.available, options.kroki, mapContentCount])
   const R = appConfig.copy.printRelay
   const sendToPrinter = async (krokiView?: KrokiView | null) => {
     // ALWAYS confirm — «Ausdrucken» must never produce accidental paper; when the relay
@@ -302,16 +303,7 @@ export function ReportPreflight({
         roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
       })
       const jobId = await enqueuePrint(t, incident.id, payload)
-      toast(R.queued, {
-        icon: 'check',
-        action: {
-          label: R.undo,
-          onClick: () => {
-            void cancelPrint(t, jobId).then((ok) =>
-              toast(ok ? R.cancelled : R.undoTooLate, ok ? {} : { icon: 'warn', tone: 'warn' }))
-          },
-        },
-      })
+      trackPrintJob(t, jobId)
     } catch {
       toast(R.failed, { icon: 'warn', tone: 'warn' })
     } finally {
@@ -442,8 +434,8 @@ export function ReportPreflight({
               <label className="ip-field">
                 <span>{A.ausgerueckt}</span>
                 <div className="report-meta-end dtrow">
-                  <DateTimeField ariaLabel={A.ausgerueckt} value={isoValue(ausgerueckt)}
-                    onCommit={(iso) => { setAusgerueckt(localValue(iso ?? undefined)); persist({ ausgeruecktAt: iso ?? undefined }) }} />
+                  <DateTimeField ariaLabel={A.ausgerueckt} value={dtLocalToIso(ausgerueckt)}
+                    onCommit={(iso) => { setAusgerueckt(dtLocalValue(iso ?? undefined)); persist({ ausgeruecktAt: iso ?? undefined }) }} />
                 </div>
               </label>
             ) : null}
@@ -462,7 +454,7 @@ export function ReportPreflight({
                 const iso = hhmm ? applyTimeToIso(incident.started_at, hhmm) : null
                 const next = setFahrzeugZeit(fahrzeuge, id, 'ausgerueckt', iso)
                 setFahrzeuge(next)
-                persist({ fahrzeuge: next.length ? next : undefined, ausgeruecktAt: deriveAusgerueckt(next) ?? isoValue(ausgerueckt) })
+                persist({ fahrzeuge: next.length ? next : undefined, ausgeruecktAt: deriveAusgerueckt(next) ?? dtLocalToIso(ausgerueckt) })
               }
               return (
                 <>
@@ -506,9 +498,9 @@ export function ReportPreflight({
             <label className="ip-field">
               <span>{P.incidentEndLabel}</span>
               <div className="report-meta-end dtrow">
-                <DateTimeField ariaLabel={P.incidentEndLabel} value={isoValue(endedAt)}
-                  onCommit={(iso) => { setEndedAt(localValue(iso ?? undefined)); persist({ endedAt: iso ?? undefined }) }} />
-                <button type="button" className="ip-btn" onClick={() => { const v = localValue(new Date().toISOString()); setEndedAt(v); persist({ endedAt: isoValue(v) }) }}>{P.now}</button>
+                <DateTimeField ariaLabel={P.incidentEndLabel} value={dtLocalToIso(endedAt)}
+                  onCommit={(iso) => { setEndedAt(dtLocalValue(iso ?? undefined)); persist({ endedAt: iso ?? undefined }) }} />
+                <button type="button" className="ip-btn" onClick={() => { const v = dtLocalValue(new Date().toISOString()); setEndedAt(v); persist({ endedAt: dtLocalToIso(v) }) }}>{P.now}</button>
               </div>
             </label>
             <label className="ip-field">
@@ -558,7 +550,7 @@ export function ReportPreflight({
                     {rows.map((r) => (
                       <span key={r.personId} className="rp-person">
                         {r.name}
-                        {r.to && <em>{fillTemplate(A.leftEarly, { t: localValue(r.to).slice(11) })}</em>}
+                        {r.to && <em>{fillTemplate(A.leftEarly, { t: dtLocalValue(r.to).slice(11) })}</em>}
                       </span>
                     ))}
                   </div>
