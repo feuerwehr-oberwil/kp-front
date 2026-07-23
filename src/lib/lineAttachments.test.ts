@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest'
 import type { LineAttachment } from '../types'
 import {
   advanceDwell, applyRouting, boundaryPoint, connectedNetwork, detachAffected, endpointCapacity,
-  gpsGuard, incomingAttachments, materializeEndpoint, moveLineBody, nearestMagneticTarget,
-  nextFreePort, relationshipNetwork, resolveLinePoints, wouldCreateCycle, type AttachableLine,
+  forkDims, forkPortPoint, gpsGuard, incomingAttachments, materializeEndpoint, moveLineBody,
+  nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, wouldCreateCycle,
+  type AttachableLine,
 } from './lineAttachments'
 
 const line = (id: string, extra: Partial<AttachableLine> = {}): AttachableLine => ({ id, points: [[0, 0], [10, 0]], ...extra })
@@ -58,6 +59,22 @@ describe('capacity, E ports, and cycles', () => {
     expect(wouldCreateCycle([a, b, c], 'c', 'b')).toBe(true)
     expect(wouldCreateCycle([a, b, c], 'c', 'a')).toBe(true)
     expect(wouldCreateCycle([a, b, c], 'c', 'x')).toBe(false)
+  })
+})
+
+describe('Teilstück fork ports', () => {
+  it('lands the three ports on the fork prong tips: prong forward, ±half across', () => {
+    const tip: [number, number] = [10, 0], neighbor: [number, number] = [0, 0], w = 10
+    const { half, prong } = forkDims(w) // half 17, prong 17.85
+    const mid = forkPortPoint(tip, neighbor, w, 1)
+    expect(mid[0]).toBeCloseTo(10 + prong); expect(mid[1]).toBeCloseTo(0)       // middle prong straight ahead
+    const top = forkPortPoint(tip, neighbor, w, 0), bot = forkPortPoint(tip, neighbor, w, 2)
+    expect(top[1]).toBeCloseTo(-half); expect(bot[1]).toBeCloseTo(half)         // symmetric across the spine
+    expect(top[0]).toBeCloseTo(10 + prong); expect(bot[0]).toBeCloseTo(10 + prong)
+  })
+  it('stays finite when the tip segment is degenerate', () => {
+    const p = forkPortPoint([0, 0], [0, 0], 4, 0)
+    expect(Number.isFinite(p[0]) && Number.isFinite(p[1])).toBe(true)
   })
 })
 

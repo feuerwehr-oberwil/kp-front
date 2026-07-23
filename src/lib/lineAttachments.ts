@@ -25,6 +25,24 @@ export const GPS_GUARD_METRES = 20
 
 export const distance = (a: Point, b: Point) => Math.hypot(b[0] - a[0], b[1] - a[1])
 
+/** Teilstück fork geometry — single source of truth shared by the drawn fork glyph
+ *  (`TeilstueckFork` in lineDecor) and the three branch attach-ports, so the outputs always
+ *  land on the visible prong tips instead of a separate offset overlay. `width` = line stroke. */
+export function forkDims(width = 4) {
+  const half = Math.max(8, width * 1.7)   // spine half-height
+  return { half, prong: half * 1.05 }     // prong length, forward
+}
+/** Screen-px position of Teilstück port `port` (0 = top, 1 = middle, 2 = bottom): the tip of the
+ *  matching fork prong — `prong` forward along tip→travel and `(port-1)*half` across it. Falls
+ *  back to the bare tip when the segment is degenerate. */
+export function forkPortPoint(tip: Point, neighbor: Point, width: number, port: number): Point {
+  const { half, prong } = forkDims(width)
+  const dx = tip[0] - neighbor[0], dy = tip[1] - neighbor[1], len = Math.hypot(dx, dy) || 1
+  const fx = dx / len, fy = dy / len                 // forward unit (tip travel direction)
+  const perp = (port - 1) * half                     // perpendicular unit is (-fy, fx)
+  return [tip[0] + fx * prong - fy * perp, tip[1] + fy * prong + fx * perp]
+}
+
 /** Nearest eligible target in screen space. Stable key ordering breaks exact-distance ties. */
 export function nearestMagneticTarget(pointer: Point, targets: MagneticTarget[], radius = MAGNET_RADIUS_PX): MagneticTarget | null {
   return targets
@@ -71,6 +89,7 @@ export interface AttachableLine<P extends Coordinate = Point> {
   id: string
   points: P[]
   teilstueck?: boolean
+  width?: number
   startAttachment?: LineAttachment
   endAttachment?: LineAttachment
 }
@@ -262,8 +281,10 @@ export function resolveMapDrawings(drawings: Drawing[], entities: Entity[], radi
     if (!(endpoint === 'end' && target.teilstueck) || attachment.port == null || target.points.length < 2) return resolved
     const q = target.points[target.points.length - 2], cos = Math.cos(resolved[1] * Math.PI / 180) || 1e-6
     const dx = (resolved[0] - q[0]) * 111320 * cos, dy = (resolved[1] - q[1]) * 110540, len = Math.hypot(dx, dy) || 1
-    const off = (attachment.port - 1) * 1.5
-    return [resolved[0] + (-dy / len * off) / (111320 * cos), resolved[1] + (dx / len * off) / 110540]
+    const fx = dx / len, fy = dy / len                              // forward unit (metres)
+    const fwd = 1.5, perp = (attachment.port - 1) * 1.5             // fork-shaped fan onto the prong tips
+    const ox = fx * fwd - fy * perp, oy = fy * fwd + fx * perp
+    return [resolved[0] + ox / (111320 * cos), resolved[1] + oy / 110540]
   }
   const resolved = new globalThis.Map(lines.map((l) => [l.id, resolveLinePoints(l, { lines, objectPoint, linePoint })]))
   return drawings.map((d) => resolved.has(d.id) ? { ...d, coords: resolved.get(d.id)! } : d)
@@ -282,8 +303,9 @@ export function resolvePlanAnnos(annos: BoardAnno[]): BoardAnno[] {
   }
   const linePoint = (target: AttachableLine<BoardPoint>, endpoint: LineEndpoint, attachment: LineAttachment, resolved: BoardPoint): BoardPoint => {
     if (!(endpoint === 'end' && target.teilstueck) || attachment.port == null || target.points.length < 2) return resolved
-    const q = target.points[target.points.length - 2], dx = resolved[0] - q[0], dy = resolved[1] - q[1], len = Math.hypot(dx, dy) || 1, off = (attachment.port - 1) * 0.012
-    return [resolved[0] - dy / len * off, resolved[1] + dx / len * off, resolved[2] ?? q[2] ?? 0]
+    const q = target.points[target.points.length - 2], dx = resolved[0] - q[0], dy = resolved[1] - q[1], len = Math.hypot(dx, dy) || 1
+    const fx = dx / len, fy = dy / len, fwd = 0.012, perp = (attachment.port - 1) * 0.012   // fork-shaped fan
+    return [resolved[0] + fx * fwd - fy * perp, resolved[1] + fy * fwd + fx * perp, resolved[2] ?? q[2] ?? 0]
   }
   const resolved = new globalThis.Map(lines.map((l) => [l.id, resolveLinePoints(l, { lines, objectPoint, linePoint })]))
   return annos.map((a) => resolved.has(a.id) ? { ...a, pts: resolved.get(a.id)! } : a)

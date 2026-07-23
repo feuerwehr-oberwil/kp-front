@@ -1219,6 +1219,7 @@ export const de = {
     connectedStart: 'Anfang',
     connectedEnd: 'Ende',
     connectedLines: 'Verbundene Linien ({n})',
+    route: 'Verlauf',
     routeDirect: 'Direkt',
     routeTrace: 'Spur',
     showConnection: 'Anzeigen',

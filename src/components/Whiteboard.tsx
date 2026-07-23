@@ -22,7 +22,7 @@ import { DrawEditor } from './DrawEditor'
 import { ShapeEditor } from './ShapeEditor'
 import { ShapeGlyph, SHAPE_DEFS } from '../lib/shapes'
 import { planUrl, TILE_AR, TOP_INSET, STACK_VPAD, clamp01, floorLabel, floorGeometry } from '../lib/whiteboard'
-import { advanceDwell, applyRouting, boundaryPoint, DETACH_RADIUS_PX, EMPTY_DWELL, incomingAttachments, nearestBlockedTarget, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
+import { advanceDwell, applyRouting, boundaryPoint, DETACH_RADIUS_PX, EMPTY_DWELL, forkPortPoint, incomingAttachments, nearestBlockedTarget, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 import { calibrate, pathMetres, polyAreaM2, isStale, type PlanScale } from '../lib/planScale'
 import { resolvePlanScale, saveStationDefault, saveStationPlanOverride } from '../lib/stationPlanScale'
 import { MeasurePanel } from './MeasurePanel'
@@ -373,7 +373,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // each point lets one polyline cross storeys while legacy two-tuples inherit anno.floor.
   const attachmentLines: AttachableLine<BoardPoint>[] = annos
     .filter((a) => a.kind === 'draw' && (a.pts?.length ?? 0) >= 2)
-    .map((a) => ({ id: a.id, points: a.pts!, teilstueck: a.teilstueck, startAttachment: a.startAttachment, endAttachment: a.endAttachment }))
+    .map((a) => ({ id: a.id, points: a.pts!, teilstueck: a.teilstueck, width: a.width, startAttachment: a.startAttachment, endAttachment: a.endAttachment }))
   const resolvedPts = new Map<string, BoardPoint[]>()
   const objectPoint = (id: string, toward: BoardPoint): BoardPoint | null => {
     const target = annos.find((a) => a.id === id && (a.kind === 'symbol' || a.kind === 'resource'))
@@ -386,17 +386,24 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   }
   const linePoint = (target: AttachableLine<BoardPoint>, endpoint: LineEndpoint, attachment: LineAttachment, resolved: BoardPoint): BoardPoint => {
     if (!(endpoint === 'end' && target.teilstueck) || attachment.port == null || target.points.length < 2) return resolved
-    const q = target.points[target.points.length - 2]
+    const q = target.points[target.points.length - 2], floor = resolved[2] ?? q[2] ?? 0
     const ppx: [number, number] = [resolved[0] * sW, mapY(resolved[2], resolved[1]) * sH], qpx: [number, number] = [q[0] * sW, mapY(q[2], q[1]) * sH]
-    const len = Math.hypot(ppx[0] - qpx[0], ppx[1] - qpx[1]) || 1, off = (attachment.port - 1) * 10, floor = resolved[2] ?? q[2] ?? 0
-    return [(ppx[0] - (ppx[1] - qpx[1]) / len * off) / sW, localY((ppx[1] + (ppx[0] - qpx[0]) / len * off) / sH, floor), floor]
+    const port = forkPortPoint(ppx, qpx, target.width ?? 4, attachment.port)
+    return [port[0] / sW, localY(port[1] / sH, floor), floor]
   }
   for (const l of attachmentLines) resolvedPts.set(l.id, resolveLinePoints(l, { lines: attachmentLines, objectPoint, linePoint }))
   const relationship = relationshipNetwork(attachmentLines, selId && attachmentLines.some((l) => l.id === selId) ? [selId] : [], selId && annos.some((a) => a.id === selId && (a.kind === 'symbol' || a.kind === 'resource')) ? [selId] : [])
+  // While dragging a plan endpoint, lock it onto a valid candidate's connection point instead of the
+  // raw pointer — the line snaps cleanly (no rubber-band twitch) and reads as one gesture with the ring.
+  const planEndpointDragPoint: BoardPoint | null = planEndpointDragState && (() => {
+    const c = planEndpointDragState.candidate, floor = planEndpointDragState.point[2] ?? 0
+    if (c && !c.blocked && sW && sH) return [c.point[0] / sW, localY(c.point[1] / sH, floor), floor] as BoardPoint
+    return planEndpointDragState.point
+  })()
   const renderAnnos = annos.map((a) => {
     const base = resolvedPts.has(a.id) ? { ...a, pts: resolvedPts.get(a.id)! } : a
-    if (planEndpointDragState?.id !== a.id || !base.pts?.length) return base
-    return { ...base, pts: base.pts.map((p, i): BoardPoint => i === (planEndpointDragState.endpoint === 'start' ? 0 : base.pts!.length - 1) ? planEndpointDragState.point : p) }
+    if (planEndpointDragState?.id !== a.id || !base.pts?.length || !planEndpointDragPoint) return base
+    return { ...base, pts: base.pts.map((p, i): BoardPoint => i === (planEndpointDragState.endpoint === 'start' ? 0 : base.pts!.length - 1) ? planEndpointDragPoint : p) }
   })
   const planLineJoins = renderAnnos.flatMap((a) => (['start', 'end'] as const).flatMap((endpoint) => {
     const rel = endpoint === 'start' ? a.startAttachment : a.endAttachment
@@ -423,16 +430,14 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         const q = endpoint === 'start' ? a.pts![1] : a.pts![a.pts!.length - 2]
         const pp: [number, number] = [p[0] * sW, mapY(p[2] ?? a.floor, p[1]) * sH]
         const qp: [number, number] = [q[0] * sW, mapY(q[2] ?? a.floor, q[1]) * sH]
-        const len = Math.hypot(pp[0] - qp[0], pp[1] - qp[1]) || 1, nx = -(pp[1] - qp[1]) / len, ny = (pp[0] - qp[0]) / len
-        return free.map((port) => { const off = capacity === 3 ? (port - 1) * 10 : 0; return { key: `line:${a.id}:${endpoint}:${port}`, target: { kind: 'line', id: a.id, endpoint }, point: [pp[0] + nx * off, pp[1] + ny * off] as [number, number], capacity, usedPorts, port, blocked: wouldCreateCycle(attachmentLines, sourceId, a.id), defaultRouting: 'direct' as const } })
+        return free.map((port) => {
+          // three-port Teilstück ends fan onto the drawn fork prongs; every other endpoint is the bare tip
+          const point = capacity === 3 ? forkPortPoint(pp, qp, a.width ?? 4, port) : pp
+          return { key: `line:${a.id}:${endpoint}:${port}`, target: { kind: 'line', id: a.id, endpoint }, point, capacity, usedPorts, port, blocked: wouldCreateCycle(attachmentLines, sourceId, a.id), defaultRouting: 'direct' as const }
+        })
       }))
     return [...objects, ...lines]
   }
-  const activePlanMagnet = planEndpointDragState ?? planDraftMagnetState
-  const activePlanEPorts = activePlanMagnet?.candidate?.target.kind === 'line' && activePlanMagnet.candidate.target.endpoint === 'end'
-    ? planCandidatesAt(planEndpointDragState?.id ?? '__draft__', [activePlanMagnet.point[0] * sW, mapY(activePlanMagnet.point[2], activePlanMagnet.point[1]) * sH])
-      .filter((c) => c.target.kind === 'line' && c.target.id === activePlanMagnet.candidate!.target.id && c.target.endpoint === 'end')
-    : []
   const updatePlanDraftMagnet = (point: BoardPoint, atStart: boolean) => {
     const pointer: [number, number] = [point[0] * sW, mapY(point[2], point[1]) * sH]
     const cur = planDraftMagnet.current
@@ -450,7 +455,19 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       setPlanDraftMagnet({ ...now, dwell: { ...now.dwell, armed: true } }); navigator.vibrate?.(12)
     }, Math.max(0, 350 - (Date.now() - next.dwell.since)))
   }
-  const finishPlanDraftMagnet = () => { if (planDraftTimer.current) clearTimeout(planDraftTimer.current); setPlanDraftMagnet(null) }
+  const finishPlanDraftMagnet = () => {
+    if (planDraftTimer.current) clearTimeout(planDraftTimer.current)
+    // Finish over a valid candidate attaches even without the dwell hold, matching endpoint drag.
+    const now = planDraftMagnet.current, c = now?.candidate
+    if (now && c && !c.blocked) {
+      const target = c.target, key = now.atStart ? 'startAttachment' : 'endAttachment'
+      if (!draftAttachments.current[key]) {
+        const attachment: LineAttachment = { target, routing: c.defaultRouting ?? 'direct', ...(target.kind === 'line' ? { port: c.port ?? nextFreePort(attachmentLines, target.id, target.endpoint) ?? undefined } : {}) }
+        draftAttachments.current = { ...draftAttachments.current, [key]: attachment }
+      }
+    }
+    setPlanDraftMagnet(null)
+  }
 
   // --- create-tool interactions (on the ink overlay) ---
   // every created anno carries its storey (floor) and tile-local coords; on a
@@ -806,12 +823,17 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       if (a?.pts) {
         const existing = magnetic.endpoint === 'start' ? a.startAttachment : a.endAttachment
         let attachment: LineAttachment | undefined = existing
-        if (magnetic.dwell.armed && magnetic.candidate) {
+        // Release over a valid candidate attaches — the endpoint was already locked there, so no
+        // dwell hold is required (that hold was the twitchy part). Blocked candidates never attach.
+        const floor = magnetic.point[2] ?? 0
+        let endPt = magnetic.point
+        if (magnetic.candidate && !magnetic.candidate.blocked) {
           const target = magnetic.candidate.target
           attachment = { target, routing: magnetic.candidate.defaultRouting ?? 'direct', ...(target.kind === 'line' ? { port: magnetic.candidate.port ?? nextFreePort(attachmentLines, target.id, target.endpoint) ?? undefined } : {}) }
+          if (sW && sH) endPt = [magnetic.candidate.point[0] / sW, localY(magnetic.candidate.point[1] / sH, floor), floor]
         } else if (existing && magnetic.detachArmed) attachment = undefined
         else if (!existing) attachment = undefined
-        const pts = a.pts.map((p, i): BoardPoint => i === (magnetic.endpoint === 'start' ? 0 : a.pts!.length - 1) ? magnetic.point : p)
+        const pts = a.pts.map((p, i): BoardPoint => i === (magnetic.endpoint === 'start' ? 0 : a.pts!.length - 1) ? endPt : p)
         patchCommit(a.id, { pts, ...(magnetic.endpoint === 'start' ? { startAttachment: attachment } : { endAttachment: attachment }) })
       }
       setPlanEndpointDrag(null)
@@ -1358,20 +1380,20 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             {/* committed drawings */}
             <WbInkLayer annos={renderAnnos} draft={draft} draftFloor={draftFloor.current} draftClosed={tool === 'area'} color={color} width={width} dashed={dashed} showTrails={showTrails} mapY={mapY}
               selId={selId} networkIds={[...relationship.lineIds]} onPickDraw={tool === 'pan' ? drawDown : undefined} />
+            {/* one clean snap ring at the connection point; the dragged endpoint is already locked
+                there (renderAnnos), so there is no second wandering handle */}
             {planEndpointDragState?.candidate && (
-              <span className={`magnet-port wb-magnet${planEndpointDragState.dwell.armed ? ' armed' : ''}${planEndpointDragState.candidate.blocked ? ' blocked' : ''}`}
+              <span className={`magnet-port wb-magnet${planEndpointDragState.candidate.blocked ? ' blocked' : ' snap'}`}
                 style={{ left: planEndpointDragState.candidate.point[0], top: planEndpointDragState.candidate.point[1] }}>{planEndpointDragState.candidate.blocked ? <small>{appConfig.copy.drawingEditor.cycleBlocked}</small> : null}</span>
             )}
-            {planEndpointDragState?.detachArmed && !planEndpointDragState.candidate && (
+            {planEndpointDragState && !planEndpointDragState.candidate && planEndpointDragState.detachArmed && (
               <span className="magnet-port detach wb-magnet" style={{ left: planEndpointDragState.point[0] * sW, top: mapY(planEndpointDragState.point[2], planEndpointDragState.point[1]) * sH }}>×</span>
             )}
             {planDraftMagnetState?.candidate && (
-              <span className={`magnet-port wb-magnet${planDraftMagnetState.dwell.armed ? ' armed' : ''}${planDraftMagnetState.candidate.blocked ? ' blocked' : ''}`}
+              <span className={`magnet-port wb-magnet${planDraftMagnetState.candidate.blocked ? ' blocked' : ' snap'}`}
                 style={{ left: planDraftMagnetState.candidate.point[0], top: planDraftMagnetState.candidate.point[1] }}>{planDraftMagnetState.candidate.blocked ? <small>{appConfig.copy.drawingEditor.cycleBlocked}</small> : null}</span>
             )}
             {planLineJoins.map((join) => <span key={join.key} className="line-coupling-dot wb-magnet" style={{ left: join.point[0], top: join.point[1] }} />)}
-            {selDraw?.teilstueck && selDraw.pts?.length && planCandidatesAt('__ports__', [0, 0]).filter((c) => c.target.kind === 'line' && c.target.id === selDraw.id && c.target.endpoint === 'end').map((port) => <span key={port.key} className="line-e-port wb-magnet" style={{ left: port.point[0], top: port.point[1] }} />)}
-            {activePlanEPorts.map((port) => <span key={`active-${port.key}`} className="line-e-port wb-magnet" style={{ left: port.point[0], top: port.point[1] }} />)}
 
             {/* line arrowheads · repeated marker letters · free-text label + distance — rendered in
                 board px (the ink SVG is stretched 1×1 and would distort them). Same feature set +

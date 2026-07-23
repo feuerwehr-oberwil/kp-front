@@ -25,7 +25,7 @@ describe('shared magnetic connection controls', () => {
     expect(screen.getByText('TLF 1')).toBeTruthy(); expect(screen.getByText('Leitung 2')).toBeTruthy()
     fireEvent.click(screen.getAllByRole('button', { name: 'Spur' })[0])
     fireEvent.click(screen.getAllByRole('button', { name: 'Verbindung lösen' })[1])
-    fireEvent.click(screen.getAllByRole('button', { name: 'Anzeigen' })[0])
+    fireEvent.click(screen.getByRole('button', { name: /TLF 1/ })) // tap the target chip to fly there
     expect(onRouting).toHaveBeenCalledWith('start', 'trace')
     expect(onDetach).toHaveBeenCalledWith('end')
     expect(onFocusAttachment).toHaveBeenCalledWith('start')

@@ -2025,32 +2025,46 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .measure-handle::after, .draw-handle::after { content: ''; position: absolute; left: 50%; top: 50%;
   width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .measure-handle:active, .draw-handle:active { cursor: grabbing; transform: scale(1.15); }
-.magnet-port { display: grid; place-items: center; width: 26px; height: 26px; border: 3px solid var(--accent);
-  border-radius: 50%; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--danger);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--surface) 75%, transparent); pointer-events: none; }
-.magnet-port::after { content: ''; width: 0; height: 0; border-radius: 50%; background: var(--accent);
-  transition: width 350ms linear, height 350ms linear; }
-.magnet-port.armed::after { width: 14px; height: 14px; }
-.magnet-port.detach { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 14%, var(--surface));
-  font-size: 18px; font-weight: 800; }
-.magnet-port.detach::after { display: none; }
-.magnet-port.blocked { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, var(--surface)); }
-.magnet-port.blocked::after { display: none; }
-.magnet-port > small { position: absolute; top: 30px; width: max-content; max-width: 220px; padding: 5px 8px; border-radius: 7px;
+/* endpoint-drag feedback — one clean ring pinned to the connection point; the dragged endpoint is
+   already locked onto that same point, so there is no second wandering handle to fight it.
+   .snap = magnetically locked onto a valid target · .blocked = would form a cycle ·
+   .detach = dragged clear of its object, release to disconnect. */
+.magnet-port { display: grid; place-items: center; width: 30px; height: 30px; border: 3px solid var(--danger);
+  border-radius: 50%; background: transparent; color: var(--danger);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--surface) 70%, transparent); pointer-events: none; }
+.magnet-port.snap { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--surface) 70%, transparent), 0 0 0 7px color-mix(in srgb, var(--danger) 22%, transparent); }
+.magnet-port.detach { width: 28px; height: 28px; border-color: var(--ink); color: var(--ink); background: var(--surface);
+  font-size: 17px; font-weight: 800; line-height: 1; }
+.magnet-port.blocked { border-color: var(--danger); color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, var(--surface)); }
+.magnet-port > small { position: absolute; top: 32px; width: max-content; max-width: 220px; padding: 5px 8px; border-radius: 7px;
   background: var(--ink); color: var(--surface); font-size: 11px; font-weight: 700; }
 .wb-magnet { position: absolute; z-index: 12; transform: translate(-50%, -50%); }
 .network-halo { position: absolute; inset: -7px; border: 2px solid color-mix(in srgb, var(--accent) 55%, transparent); border-radius: 50%; pointer-events: none; }
 .hidden-attachment-marker { width: 14px; height: 14px; border: 2px dashed var(--accent); border-radius: 50%; background: color-mix(in srgb, var(--surface) 80%, transparent); }
 .line-coupling-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--surface); border: 2px solid var(--ink); pointer-events: none; }
-.line-e-port { width: 11px; height: 11px; border-radius: 50%; background: var(--surface); border: 2px solid var(--accent); pointer-events: none; }
-.de-section-title { font-size: 12px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-.de-connection { display: grid; gap: 8px; padding: 10px 0; border-top: 1px solid var(--line); }
-.de-connection-head { display: flex; gap: 8px; justify-content: space-between; font-size: 13px; }
-.de-connection-head span { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.de-connection-actions { display: flex; flex-wrap: wrap; gap: 6px; }
-.de-connection-actions button { min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); }
-.de-connection-actions button.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
-.de-connection-actions button.warn { color: var(--danger); }
+/* Verbindungen — speaks the same de-row / de-group / de-toggle language as the editor above it:
+   a quiet group label, a tappable target chip per endpoint, one segmented Verlauf control, and a
+   restrained detach action. */
+.draw-editor .de-group-label { padding: 2px 0 6px; font-size: 13px; font-weight: 700; color: var(--ink); }
+.draw-editor .de-connection { display: grid; gap: 6px; padding: 8px 0; }
+.draw-editor .de-connection + .de-connection { border-top: 1px solid var(--border-soft); }
+.draw-editor .de-conn-target { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px; padding: 5px 8px;
+  border: 1px solid var(--border); border-radius: var(--r-xs); background: var(--surface); text-align: left; }
+.draw-editor .de-conn-target:disabled { pointer-events: none; }
+.draw-editor .de-conn-ep { flex: none; font-size: 11px; font-weight: 700; color: var(--ink-dim); text-transform: uppercase; letter-spacing: .03em; }
+.draw-editor .de-conn-name { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.draw-editor .de-conn-go { flex: none; color: var(--ink-faint); font-size: 17px; line-height: 1; }
+.draw-editor .de-conn-note { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 2px; font-size: 12px; color: var(--ink-dim); }
+.draw-editor .de-conn-note .warn { color: var(--danger); font-weight: 600; }
+.draw-editor .de-conn-link { color: var(--blue); font-size: 12px; font-weight: 600; text-decoration: underline; }
+.draw-editor .de-conn-route { padding: 3px 2px; }
+.draw-editor .de-seg { display: inline-flex; gap: 5px; }
+.draw-editor .de-seg-btn { min-height: 34px; padding: 4px 12px; border: 1px solid var(--border); border-radius: var(--r-xs);
+  background: var(--surface); color: var(--ink); font-size: 13px; font-weight: 500; }
+.draw-editor .de-seg-btn.on { background: var(--blue); border-color: var(--blue); color: var(--on-accent-ink); }
+.draw-editor .de-conn-detach { justify-self: start; min-height: 36px; padding: 0 12px; margin-top: 2px;
+  border: 1px solid var(--border-soft); border-radius: var(--r-xs); background: transparent; color: var(--danger); font-size: 12.5px; font-weight: 600; }
 .ctx-connections { display: grid; gap: 6px; }
 .ctx-connections button { min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 8px;
   padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); }
