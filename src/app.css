@@ -593,8 +593,9 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .field .useg, .ctx-caprow .useg, .kv-row .useg { margin-left: auto; }
 .useg-btn { appearance: none; border: 0; background: transparent; border-radius: 7px; padding: 6px 12px; min-height: 34px;
   font: 600 12.5px var(--body); color: var(--ink-dim); cursor: pointer; white-space: nowrap; transition: background .12s, color .12s; }
-.useg-btn:hover:not(.on) { color: var(--ink); }
+.useg-btn:hover:not(.on):not(:disabled) { color: var(--ink); }
 .useg-btn.on { background: var(--blue); color: var(--on-accent-ink); box-shadow: 0 1px 2px rgba(20, 40, 80, .22); }
+.useg-btn:disabled { opacity: .4; cursor: default; }
 
 /* the glyph-affecting steppers (Geschoss / Anzahl / Drehung) sit in one group;
    the section header below — not a hairline — separates them from the details */
@@ -3564,7 +3565,7 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .report-pre-section.report-pre-meta h3 { margin: 0; } /* gap owns the spacing — no double margin */
 .report-meta-dispatch { display: flex; flex-direction: column; gap: 8px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
 .report-meta-dispatch-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.report-meta-dispatch-head > span { font: 600 11px var(--body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-faint); }
+.report-meta-dispatch-head > span { font: 700 11px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); }
 .report-meta-editlink { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; margin: -4px -8px -4px 0;
   font: 600 12px var(--body); color: var(--blue); background: none; border: none; border-radius: var(--r-ctl); cursor: pointer; }
 .report-meta-editlink:hover { background: color-mix(in srgb, var(--blue) 10%, transparent); }
@@ -3596,8 +3597,11 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .rz-sub { font: 500 11.5px var(--body); color: var(--ink-faint); }
 .rz-derived { align-items: baseline; gap: 10px; }
 .rz-derived b { font: 700 15px var(--body); color: var(--ink); }
-.rz-counts { display: flex; gap: 8px; }
-.rz-counts input { flex: 1; min-width: 0; text-align: center; }
+/* Gerettete: two labelled ±steppers (Personen / Tiere), each a label-left / stepper-right row like
+   the details-modal count control */
+.rz-counts { display: flex; flex-direction: column; gap: 6px; }
+.rz-count { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: var(--tap); }
+.rz-count > span { font: 600 13px var(--body); color: var(--ink-dim); }
 .rz-rueck { display: flex; gap: 8px; }
 .rz-rueck input:first-child { flex: 1; min-width: 0; }
 .rz-rueck input[type="time"] { flex: none; width: 112px; font-variant-numeric: tabular-nums; }
@@ -3622,12 +3626,15 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .rm-partner-add:hover { border-color: var(--blue); color: var(--blue); }
 .rm-partner-add svg { width: 15px; height: 15px; }
 .report-pre-section { border: 1px solid var(--border); border-radius: var(--r-ctl); padding: 14px; background: var(--surface-2); }
-.report-pre-section h3 { margin: 0 0 12px; font-size: 14px; color: var(--ink); }
+/* section header = the SAME uppercase eyebrow as the details modal (.ctx-section-label) so every
+   header across the app reads identically (was a one-off 14px sentence-case here) */
+.report-pre-section h3 { margin: 0 0 12px; font: 700 11px var(--body); letter-spacing: .08em;
+  text-transform: uppercase; color: var(--ink-dim); }
 .report-toggles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 /* Abschnitte grouping: «Karte & Pläne» / «Inhalte» sub-heads span both columns, the plans
    choice is one 3-way segment, and the two expert options fold behind «Erweitert» */
 .report-toggle-grouphead { grid-column: 1 / -1; margin: 4px 0 -2px; font: 700 11px var(--body);
-  letter-spacing: .05em; text-transform: uppercase; color: var(--ink-faint); }
+  letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); }
 .report-toggles .report-toggle-grouphead:first-child { margin-top: 0; }
 .report-plans-row { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 10px;
   min-height: var(--tap); border: 1px solid var(--border); border-radius: var(--r-ctl); background: var(--surface);

@@ -21,6 +21,8 @@ import { visibleMittel } from '../lib/mittel'
 import { PersonField } from './AtemschutzView'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import { DateTimeField, TimeField } from './TimeField'
+import { Segmented } from './Segmented'
+import { Stepper } from './Stepper'
 
 const NO_IDS = new Set<string>()
 
@@ -403,18 +405,26 @@ export function ReportPreflight({
                 the kantonale Eigentümer/Ursache/Verursacher trio was retired: cause is
                 not the Feuerwehr's to judge, one contact suffices) */}
             <div className="report-meta-grid">
-              <label className="ip-field">
+              <div className="ip-field">
                 <span>{P.geretteteLabel}</span>
+                {/* two labelled ±steppers (shared Stepper) — tap −/+ or the value to type; matches the
+                    details-modal count control. over-object carries the fresh values (state set in the
+                    same tick is stale). Empty = null (shows «0» placeholder, − disabled). */}
                 <div className="rz-counts">
-                  {/* over-object carries the fresh values — state set in the same tick is stale */}
-                  <input type="number" min={0} inputMode="numeric" value={geretteteP} placeholder={P.gerettetePersonen}
-                    aria-label={P.gerettetePersonen}
-                    onChange={(e) => { setGeretteteP(e.target.value); persist(geretteteOver(e.target.value, geretteteT)) }} />
-                  <input type="number" min={0} inputMode="numeric" value={geretteteT} placeholder={P.geretteteTiere}
-                    aria-label={P.geretteteTiere}
-                    onChange={(e) => { setGeretteteT(e.target.value); persist(geretteteOver(geretteteP, e.target.value)) }} />
+                  <div className="rz-count">
+                    <span>{P.gerettetePersonen}</span>
+                    <Stepper value={numOrU(geretteteP) ?? null} min={0} max={999} seed={1} placeholder="0" ariaLabel={P.gerettetePersonen}
+                      onChange={(v) => { setGeretteteP(String(v)); persist(geretteteOver(String(v), geretteteT)) }}
+                      onClear={() => { setGeretteteP(''); persist(geretteteOver('', geretteteT)) }} canClear={geretteteP !== ''} />
+                  </div>
+                  <div className="rz-count">
+                    <span>{P.geretteteTiere}</span>
+                    <Stepper value={numOrU(geretteteT) ?? null} min={0} max={999} seed={1} placeholder="0" ariaLabel={P.geretteteTiere}
+                      onChange={(v) => { setGeretteteT(String(v)); persist(geretteteOver(geretteteP, String(v))) }}
+                      onClear={() => { setGeretteteT(''); persist(geretteteOver(geretteteP, '')) }} canClear={geretteteT !== ''} />
+                  </div>
                 </div>
-              </label>
+              </div>
             </div>
             {/* Ausgerückt: derived from the vehicle grid when it exists; the manual field
                 only appears on deployments WITHOUT configured vehicles (nothing else to
@@ -594,20 +604,16 @@ export function ReportPreflight({
               <Toggle label={P.toggleKroki} checked={options.kroki && mapContentCount > 0} onChange={(v) => patchOpt({ kroki: v })} disabled={mapContentCount === 0} />
               <div className="report-plans-row">
                 <span>{P.plansLabel}</span>
-                <div className="set-seg" role="group" aria-label={P.plansLabel}>
-                  {([
-                    ['annotated', fillTemplate(P.plansAnnotated, { n: annotatedPlanCount }), annotatedPlanCount === 0],
-                    ['all', P.plansAll, false],
-                    ['none', P.plansNone, false],
-                  ] as const).map(([id, label, disabled]) => {
-                    const cur = options.allPlans ? 'all' : options.annotatedPlans ? 'annotated' : 'none'
-                    return (
-                      <button key={id} type="button" className={`set-seg-btn${cur === id ? ' on' : ''}`} disabled={disabled} aria-pressed={cur === id}
-                        onClick={() => patchOpt(id === 'all' ? { allPlans: true } : id === 'annotated' ? { annotatedPlans: true, allPlans: false } : { annotatedPlans: false, allPlans: false })}
-                      >{label}</button>
-                    )
-                  })}
-                </div>
+                <Segmented<'annotated' | 'all' | 'none'>
+                  ariaLabel={P.plansLabel}
+                  value={options.allPlans ? 'all' : options.annotatedPlans ? 'annotated' : 'none'}
+                  options={[
+                    { value: 'annotated', label: fillTemplate(P.plansAnnotated, { n: annotatedPlanCount }), disabled: annotatedPlanCount === 0 },
+                    { value: 'all', label: P.plansAll },
+                    { value: 'none', label: P.plansNone },
+                  ]}
+                  onChange={(id) => patchOpt(id === 'all' ? { allPlans: true } : id === 'annotated' ? { annotatedPlans: true, allPlans: false } : { annotatedPlans: false, allPlans: false })}
+                />
               </div>
               <div className="report-toggle-grouphead">{P.groupContents}</div>
               <Toggle label={fillTemplate(P.toggleAtemschutz, { n: truppCount })} checked={options.atemschutz && truppCount > 0} onChange={(v) => patchOpt({ atemschutz: v })} disabled={truppCount === 0} />
