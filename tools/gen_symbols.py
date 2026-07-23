@@ -272,6 +272,39 @@ def build() -> list[dict]:
            for x in (-0.15, -0.35, -0.55, -0.75, -0.95)],
         vb=2.6,
     ))
+    add("Fahrzeuge / Mittel", "VKF Hubretter", svg(
+        vehicle_body(BLUE, 0.1)
+        + [path([(-1, 0.38), (0, 0.18), (-0.86, -0.02)], stroke=BLUE, sw=0.1)],
+        vb=2.6,
+    ))
+    # Boom-only overlay for the composite Hubretter — the articulated Gelenkmast (two-segment boom
+    # with a rescue cage at the tip) as a separately-rotatable layer over the plain body (see VKF
+    # Drehleiter Leiter). The base sits at the turntable (glyph centre 0,0). Render-only (hidden from
+    # the palette); the full VKF Hubretter glyph above is the palette thumbnail.
+    add("Fahrzeuge / Mittel", "VKF Hubretter Arm", svg(
+        [path([(0.1, 0.12), (-0.6, 0.1), (-1.05, -0.42)], stroke=BLUE, sw=0.1),
+         path([(-1.22, -0.28), (-0.95, -0.62), (-0.78, -0.44)], stroke=BLUE, sw=0.1, close=True)],
+        vb=2.6,
+    ))
+    # NOTE: the composite Grosslüfter (VKF Fahrzeug + VKF Luefter mobil) is synthesised in
+    # lib/useSymbols and inserted into the palette RIGHT HERE (after the Hubretter, before the Boot)
+    # — the order the crews asked for: Fahrzeug, Drehleiter, Hubretter, Grosslüfter, Boot, Pumpe, …
+    # Boot / Rettungsboot — side profile, bow to the right, with a small wheelhouse (BLUE outline
+    # like the other Fahrzeuge). Rotatable so the heading can be aimed on the map.
+    add("Fahrzeuge / Mittel", "FW Boot", svg(
+        [path([(-0.85, -0.1), (1.05, -0.1), (0.6, 0.45), (-0.55, 0.45)],
+              stroke=BLUE, sw=0.1, fill="none", close=True),
+         path([(-0.5, -0.1), (-0.5, -0.5), (0.05, -0.5), (0.05, -0.1)],
+              stroke=BLUE, sw=0.1, fill="none", close=True),
+         line(-0.55, 0.45, 0.6, 0.45, stroke=BLUE, sw=0.1)],
+        vb=2.6,
+    ))
+    add("Fahrzeuge / Mittel", "VKF Pumpe Typ2", svg(
+        [path([(-1, -1), (1, -1), (1, 1), (-1, 1)], stroke=BLUE, sw=0.1, close=True),
+         text("MS", 0.8, fill=BLUE, y=-0.4), text("2", 0.8, fill=BLUE, y=0.4)],
+        vb=2.6,
+    ))
+    # ── the smaller Mittel (after the vehicles) ──
     add("Fahrzeuge / Mittel", "VKF Luefter mobil", svg(
         [path([(-0.9, -0.4), (-0.6, -0.4), (-0.3, -0.7), (-0.3, 0.7), (-0.6, 0.4), (-0.9, 0.4)],
               stroke=BLACK, sw=0.06, fill=YELLOW, close=True),
@@ -293,51 +326,9 @@ def build() -> list[dict]:
          line(-0.6, -0.4, -0.6, 0.4, stroke=BLACK, sw=0.06)],
         viewbox="-1.2 -1.2 2.4 2.4",
     ))
-    # Boot / Rettungsboot — side profile, bow to the right, with a small wheelhouse (BLUE outline
-    # like the other Fahrzeuge). Rotatable so the heading can be aimed on the map.
-    add("Fahrzeuge / Mittel", "FW Boot", svg(
-        [path([(-0.85, -0.1), (1.05, -0.1), (0.6, 0.45), (-0.55, 0.45)],
-              stroke=BLUE, sw=0.1, fill="none", close=True),
-         path([(-0.5, -0.1), (-0.5, -0.5), (0.05, -0.5), (0.05, -0.1)],
-              stroke=BLUE, sw=0.1, fill="none", close=True),
-         line(-0.55, 0.45, 0.6, 0.45, stroke=BLUE, sw=0.1)],
-        vb=2.6,
-    ))
     add("Fahrzeuge / Mittel", "FW Kleinloeschgeraet", svg(
         [path([(-0.3, 0.6), (0, -0.4), (0.3, 0.6)], stroke=BLUE, sw=0.1, close=True)],
         viewbox="-0.8 -0.7 1.6 1.6",
-    ))
-    add("Fahrzeuge / Mittel", "VKF Hubretter", svg(
-        vehicle_body(BLUE, 0.1)
-        + [path([(-1, 0.38), (0, 0.18), (-0.86, -0.02)], stroke=BLUE, sw=0.1)],
-        vb=2.6,
-    ))
-    # Boom-only overlay for the composite Hubretter — the articulated Gelenkmast (two-segment boom
-    # with a rescue cage at the tip) as a separately-rotatable layer over the plain body (see VKF
-    # Drehleiter Leiter). The base sits at the turntable (glyph centre 0,0) so rotation2 swings the
-    # boom about it; rotation2=0 reaches back/up-left, matching the thumbnail. Render-only (hidden
-    # from the palette); the full VKF Hubretter glyph above is the palette thumbnail.
-    add("Fahrzeuge / Mittel", "VKF Hubretter Arm", svg(
-        [path([(0.1, 0.12), (-0.6, 0.1), (-1.05, -0.42)], stroke=BLUE, sw=0.1),
-         path([(-1.22, -0.28), (-0.95, -0.62), (-0.78, -0.44)], stroke=BLUE, sw=0.1, close=True)],
-        vb=2.6,
-    ))
-    add("Fahrzeuge / Mittel", "VKF Pumpe Typ2", svg(
-        [path([(-1, -1), (1, -1), (1, 1), (-1, 1)], stroke=BLUE, sw=0.1, close=True),
-         text("MS", 0.8, fill=BLUE, y=-0.4), text("2", 0.8, fill=BLUE, y=0.4)],
-        vb=2.6,
-    ))
-    add("Fahrzeuge / Mittel", "VKF Helilandeplatz", svg(
-        [path([(-1, -1), (1, -1), (1, 1), (-1, 1)], stroke=BLUE, sw=0.1, close=True),
-         line(-1, 0, 1, 0, stroke=BLUE, sw=0.1),
-         # rope-knot (lying eight) in the top half: centre cross + two side loops
-         line(0, -0.5, -0.2, -0.4, stroke=BLUE, sw=0.1),
-         line(0, -0.5, 0.2, -0.6, stroke=BLUE, sw=0.1),
-         line(0, -0.5, 0.2, -0.4, stroke=BLUE, sw=0.1),
-         line(0, -0.5, -0.2, -0.6, stroke=BLUE, sw=0.1),
-         f'<path d="M -0.2 -0.6 L -0.4 -0.7 A 0.21 0.21 0 0 0 -0.7 -0.5 A 0.23 0.23 0 0 0 -0.4 -0.3 A 0.81 0.81 0 0 0 -0.2 -0.4" fill="none" stroke="{BLUE}" stroke-width="0.1" stroke-linejoin="round"/>',
-         f'<path d="M 0.2 -0.6 L 0.4 -0.7 A 0.21 0.21 0 0 1 0.7 -0.5 A 0.23 0.23 0 0 1 0.4 -0.3 A 0.81 0.81 0 0 1 0.2 -0.4" fill="none" stroke="{BLUE}" stroke-width="0.1" stroke-linejoin="round"/>'],
-        vb=2.6,
     ))
     # Drohne — top-down quadcopter: an X-frame of two arms with a rotor ring at each tip and a
     # filled hub. Own-pack aviation glyph (FKS has none); stays upright (no rotation) like a
@@ -352,6 +343,18 @@ def build() -> list[dict]:
          circle(-0.6, 0.6, 0.26, stroke=BLUE, sw=0.1),
          circle(0.6, 0.6, 0.26, stroke=BLUE, sw=0.1),
          circle(0, 0, 0.19, stroke=BLUE, sw=0.1, fill=BLUE)],
+        vb=2.6,
+    ))
+    add("Fahrzeuge / Mittel", "VKF Helilandeplatz", svg(
+        [path([(-1, -1), (1, -1), (1, 1), (-1, 1)], stroke=BLUE, sw=0.1, close=True),
+         line(-1, 0, 1, 0, stroke=BLUE, sw=0.1),
+         # rope-knot (lying eight) in the top half: centre cross + two side loops
+         line(0, -0.5, -0.2, -0.4, stroke=BLUE, sw=0.1),
+         line(0, -0.5, 0.2, -0.6, stroke=BLUE, sw=0.1),
+         line(0, -0.5, 0.2, -0.4, stroke=BLUE, sw=0.1),
+         line(0, -0.5, -0.2, -0.6, stroke=BLUE, sw=0.1),
+         f'<path d="M -0.2 -0.6 L -0.4 -0.7 A 0.21 0.21 0 0 0 -0.7 -0.5 A 0.23 0.23 0 0 0 -0.4 -0.3 A 0.81 0.81 0 0 0 -0.2 -0.4" fill="none" stroke="{BLUE}" stroke-width="0.1" stroke-linejoin="round"/>',
+         f'<path d="M 0.2 -0.6 L 0.4 -0.7 A 0.21 0.21 0 0 1 0.7 -0.5 A 0.23 0.23 0 0 1 0.4 -0.3 A 0.81 0.81 0 0 1 0.2 -0.4" fill="none" stroke="{BLUE}" stroke-width="0.1" stroke-linejoin="round"/>'],
         vb=2.6,
     ))
     add("Fahrzeuge / Mittel", "FW Entrauchung", svg(

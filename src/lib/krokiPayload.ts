@@ -89,9 +89,10 @@ export function krokiEntity(e: Entity, byName: Record<string, string>): KrokiEnt
     return svg ? { ...base, symbolSvg: svg } : null
   }
   if (isHubretter(e.symbol)) {
-    // Hubretter: bake the plain body + articulated boom (at its bearing) into one svg, rotation unset
-    // (the bearing is baked). Reach approximated to the glyph box — see composeHubretterSvg.
-    const svg = composeHubretterSvg(byName[appConfig.symbols.vehicleName] ?? '', e.reachM, e.rotation2)
+    // Hubretter: bake the plain body (at its own heading `rotation`) + the articulated boom (at its
+    // independent bearing `rotation2`) into one svg, rotation unset (both baked). Reach approximated
+    // to the glyph box — see composeHubretterSvg.
+    const svg = composeHubretterSvg(byName[appConfig.symbols.vehicleName] ?? '', e.reachM, e.rotation2, e.rotation)
     return svg ? { ...base, symbolSvg: svg, rotation: undefined } : null
   }
   const placard = placardSvgForSymbol(e.symbol, e.fields)
