@@ -94,6 +94,23 @@ describe('Teilstück fork ports', () => {
   })
 })
 
+describe('Teilstück branch carry', () => {
+  it('a branch on a Teilstück -E follows the parent end (move + carry) via forkPortPoint', () => {
+    const branchAttachment: LineAttachment = { target: { kind: 'line', id: 'p', endpoint: 'end' }, routing: 'direct', port: 1 }
+    const branch: AttachableLine = { id: 'b', points: [[5, 5], [9, 1]], endAttachment: branchAttachment }
+    const linePoint = (t: AttachableLine, ep: 'start' | 'end', att: LineAttachment, resolved: [number, number]) =>
+      ep === 'end' && t.teilstueck && att.port != null && t.points.length >= 2
+        ? forkPortPoint(resolved, t.points[t.points.length - 2], t.width ?? 4, att.port) : resolved
+    const resolve = (parentEnd: [number, number]) => {
+      const parent: AttachableLine = { id: 'p', points: [[0, 0], parentEnd], teilstueck: true }
+      return resolveLinePoints(branch, { lines: [parent, branch], objectPoint: () => null, linePoint })
+    }
+    const near = resolve([10, 0])[1][0]
+    const far = resolve([20, 0])[1][0]
+    expect(far).toBeGreaterThan(near)   // parent end slides right → branch end carries with it
+  })
+})
+
 describe('resolution, movement, detach, and networks', () => {
   it('resolves object boundaries and line endpoint chains without rewriting fallbacks', () => {
     const root = line('root', { points: [[2, 2], [10, 2]] })
