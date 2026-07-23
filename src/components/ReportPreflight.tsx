@@ -6,7 +6,7 @@ import { KrokiFramingModal } from './KrokiFramingModal'
 import { Overlay } from '../lib/overlays'
 import { cancelPrint, editorPrintTransport, enqueuePrint, fetchPrintStatus, type PrintRelayStatus } from '../lib/printRelay'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate } from '../lib/format'
+import { fillTemplate, hhmm } from '../lib/format'
 import type { IncidentMeta } from '../lib/incidents'
 import { getIncident, verifyChain } from '../lib/incidents'
 import type { FahrzeugZeit, GruppeZeit, ReportMeta } from '../lib/workspace'
@@ -45,7 +45,7 @@ function clockOf(iso?: string): string {
   if (!iso) return ''
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ''
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  return hhmm(d)
 }
 
 function CheckRow({ done, label, sub, onGo, children }: {

@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
-import { fillTemplate } from '../lib/format'
+import { fillTemplate, hhmm } from '../lib/format'
 import { Icon, IconSprite } from '../lib/icons'
 import { Splash } from '../components/Splash'
 import { currentLineFor, visibleMittel } from '../lib/mittel'
@@ -56,7 +56,7 @@ const toTime = (iso?: string): string => {
   if (!iso) return ''
   const d = new Date(iso)
   if (!Number.isFinite(d.getTime())) return ''
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  return hhmm(d)
 }
 
 // per-INCIDENT: who records is a fresh question on every Einsatz (a stale name from the

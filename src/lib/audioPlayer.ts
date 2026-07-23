@@ -4,6 +4,7 @@
 // offset = at − startedAt. No back-references, no extra data structure.
 
 import type { TimelineEvent } from '../types'
+import { hhmm } from './format'
 
 export interface AudioWindow {
   startMs: number      // epoch ms of the recording start
@@ -73,7 +74,7 @@ export function formatElapsed(sec: number): string {
 /** Wall-clock HH:MM at an offset into the recording (the operator thinks in Einsatzzeit). */
 export function wallClockAt(win: AudioWindow, offsetSec: number): string {
   const d = new Date(win.startMs + offsetSec * 1000)
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  return hhmm(d)
 }
 
 export interface ClockTick { p: number; label: string }

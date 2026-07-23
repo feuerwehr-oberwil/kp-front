@@ -6,6 +6,7 @@
 
 import type { AttendanceEntry, MittelEntry, TimelineEvent } from '../types'
 import type { ReportMeta } from './workspace'
+import { hhmm } from './format'
 import type { IncidentMeta, Workspace } from './incidents'
 import { currentLineFor } from './mittel'
 
@@ -82,7 +83,7 @@ export function applyAction(ws: Workspace | null, action: CaptureAction, nowIso:
  *  shape has no author field — same convention as system rows). */
 export function noteRow(text: string, by: string, nowIso: string): TimelineEvent {
   const d = new Date(nowIso)
-  const t = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  const t = hhmm(d)
   return { id: `c${d.getTime()}`, t, at: nowIso, icon: 'note', text: `${text.trim()} — ${by}`, kind: 'note' }
 }
 

@@ -64,6 +64,15 @@ export function fmtElapsedHM(ms: number): string {
   return `${Math.floor(mins / 60)}:${String(mins % 60).padStart(2, '0')}`
 }
 
+/** Zero-pad a number to two digits: 7 → "07". */
+export const pad2 = (n: number) => String(n).padStart(2, '0')
+
+/** Local wall-clock HH:MM (24h, always zero-padded) from a Date — the hand-inlined
+ *  `${pad(h)}:${pad(m)}` spelled once. Locale-independent by design, unlike formatTime. */
+export function hhmm(date: Date): string {
+  return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`
+}
+
 export function formatTime(date: Date, withSeconds = false): string {
   return date.toLocaleTimeString(appConfig.locale, {
     hour: '2-digit',
