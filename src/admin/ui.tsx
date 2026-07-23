@@ -10,6 +10,15 @@ import { fillTemplate } from '../lib/format'
 // were previously copy-pasted into ConfigEditor / DataView / SystemView and could
 // drift. All styles live on the global tokens in app.css via admin.css class names.
 
+/** Short de-CH date for admin tables; null/invalid → "—". (Admin tooling is German-only,
+ *  so the locale is fixed rather than following appConfig.locale.) */
+export function fmtDate(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleDateString('de-CH')
+}
+
 /** Section card — the single container used by every admin view. `title` is optional:
  *  a single-card page leans on the page head (h1 + lede + tip) and renders the card as a
  *  plain panel, so the title/caption aren't duplicated. Multi-card pages title each card. */

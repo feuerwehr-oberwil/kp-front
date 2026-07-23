@@ -15,21 +15,13 @@ import type { VehiclePosition } from '../types'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { providerLabel } from '../lib/deploymentConfig'
-import { Card, StatusBadge, Table, EmptyState, ResultChip } from './ui'
+import { Card, StatusBadge, Table, EmptyState, ResultChip, fmtDate } from './ui'
 
 // The three read-only "Daten" pages — Integrationen, Objekte & Pläne, Geodaten. Each is
 // its own nav destination (they used to be stacked cards in one DataView). Every fetch is
 // wrapped so one failing endpoint can never crash a page.
 
 // ─── helpers ───────────────────────────────────────────────────────────────
-
-/** Short locale date; null/invalid → "—". */
-function fmtDate(iso: string | null | undefined): string {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '—'
-  return d.toLocaleDateString('de-CH')
-}
 
 /** Short relative time ("vor 3 Min."), falling back to de-CH date+time; invalid → "—". */
 function fmtRelTime(iso: string | null | undefined): string {

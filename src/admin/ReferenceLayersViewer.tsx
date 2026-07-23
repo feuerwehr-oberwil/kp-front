@@ -3,7 +3,7 @@ import { Icon } from '../lib/icons'
 import { useSymbols } from '../lib/useSymbols'
 import { fillTemplate } from '../lib/format'
 import { appConfig } from '../config/appConfig'
-import { Table } from './ui'
+import { Table, fmtDate } from './ui'
 import type { DeploymentReferenceLayer } from '../lib/deploymentConfig'
 import type { ReferenceDataset } from '../lib/incidents'
 
@@ -24,12 +24,6 @@ function fmtBytes(n: number): string {
   if (n < 1024) return `${n} B`
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`
   return `${(n / (1024 * 1024)).toFixed(1)} MB`
-}
-
-// Local date for a dataset timestamp (no fmtDate helper in lib/format — format inline, de-CH).
-function fmtDate(iso: string): string {
-  const d = new Date(iso)
-  return isNaN(d.getTime()) ? iso : d.toLocaleDateString('de-CH')
 }
 
 type Status = 'loaded' | 'missing' | 'external'
