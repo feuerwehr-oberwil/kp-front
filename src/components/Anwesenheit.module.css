@@ -98,15 +98,6 @@
   color: var(--ink); font: 600 13px var(--body);
 }
 
-.empty {
-  flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
-  height: 100%; color: var(--ink-faint); text-align: center; padding: 24px;
-}
-.empty svg { width: 38px; height: 38px; opacity: .5; }
-.empty p { margin: 0; font-size: 15px; font-weight: 700; color: var(--ink-dim); }
-.empty span { max-width: 380px; font-size: 13px; line-height: 1.5; }
-.empty .reload { margin-top: 6px; }
-
 @media (max-width: 600px) {
   /* full width below the top bar (78px clears the floating bar with a visible gap — at 64px
      the header sat glued under it); the bottom inset clears the bottom bar */

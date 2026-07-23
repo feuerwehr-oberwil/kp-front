@@ -5,6 +5,7 @@ import { allEntries, loadTemplates, matchDiveraEntry, searchEntries, templatePro
 import { ChecklistRunner } from './ChecklistRunner'
 import { ChecklistEntryReader } from './ChecklistReference'
 import { cx } from '../lib/cx'
+import { EmptyState } from './EmptyState'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { useIsPhone } from '../lib/useIsPhone'
@@ -80,10 +81,7 @@ export function ChecklistsView({
   if (ready && !templates.length) {
     return (
       <div className={s['cl-surface']}>
-        <div className={cx(s['cl-placeholder'], s['cl-placeholder-full'])}>
-          <Icon id="check" />
-          <p>{CL.none}</p>
-        </div>
+        <EmptyState className="empty-fill" icon="check" title={CL.none} />
       </div>
     )
   }

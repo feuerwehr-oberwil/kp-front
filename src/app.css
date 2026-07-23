@@ -2316,7 +2316,7 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
    iOS-style — small-caps group label, hairline-divided rows in a soft card, footnote below */
 .set-sheet { display: flex; flex-direction: column; gap: 24px; }
 .set-group { display: flex; flex-direction: column; gap: 8px; }
-.set-group-t { margin: 0 0 0 4px; font: 700 12px var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
+.set-group-t { margin: 0 0 0 4px; font: 700 11px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-dim); }
 .set-card { border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface-2); overflow: hidden; }
 .set-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 11px 14px; min-height: 56px; }
 .set-row + .set-row { border-top: 1px solid var(--glass-edge); }
@@ -2482,6 +2482,8 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
    optional explainer + optional CTA. Teaches what the surface is for instead of a bare line. */
 .empty-state { display: flex; flex-direction: column; align-items: center; text-align: center;
   gap: 6px; padding: 32px 16px 24px; color: var(--ink-faint); }
+/* fill + vertically center within a flex panel (Mittel/Anwesenheit/Checklists destinations) */
+.empty-state.empty-fill { flex: 1 1 auto; height: 100%; justify-content: center; }
 .empty-state-icon { display: grid; place-items: center; width: 46px; height: 46px; margin-bottom: 4px;
   border-radius: 50%; background: var(--surface-2); color: var(--ink-dim); }
 .empty-state-icon svg { width: 22px; height: 22px; }
@@ -2828,7 +2830,8 @@ summary.ip-group-head::before { content: '▸'; font-size: 10px; transition: tra
 details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .ip-objects-head { cursor: default; margin-top: 10px; }
 .ip-group-count { font-weight: 600; color: var(--ink-faint); text-transform: none; letter-spacing: 0; }
-.ip-sub2 { margin: 8px 0 2px; font: 600 11px var(--body); color: var(--blue); }
+/* section subhead = the shared uppercase eyebrow (.ctx-section-label spec), not a blue sentence-case one-off */
+.ip-sub2 { margin: 8px 0 2px; font: 700 11px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-dim); }
 .ip-search { width: 100%; box-sizing: border-box; margin: 4px 0 6px; padding: 9px 12px; border: 1px solid var(--glass-edge);
   border-radius: var(--r-ctl); background: var(--surface); font: 500 13px var(--body); color: var(--ink); }
 /* "Neue Geo-Ebene" form: a small card under the global datasets list */
@@ -2868,6 +2871,8 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .ip-ac-row:hover { background: var(--hover-strong); }
 .ip-ac-row svg { width: 15px; height: 15px; flex: none; color: var(--ink-faint); }
 .ip-ac-note { padding: 9px 10px; font: 500 12.5px var(--body); color: var(--ink-faint); }
+/* terse transient "no matches" note, centered for a filtered list/grid destination */
+.ip-ac-note-center { text-align: center; padding: 18px 12px; }
 
 /* object library picker */
 .ip-objpick { border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); padding: 6px 8px; background: var(--surface-2); }

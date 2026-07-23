@@ -8,6 +8,7 @@ import { applyTimeToIso } from '../lib/abschluss'
 import { rankAbbr, rankLabel, rankOrder } from '../lib/rank'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import { Segmented } from './Segmented'
+import { EmptyState } from './EmptyState'
 import s from './Anwesenheit.module.css'
 
 /** sentinel value for the «Alle» segment of the rank filter (no real rank uses it) */
@@ -140,18 +141,11 @@ export function AnwesenheitView({
       )}
 
       {empty ? (
-        <div className={s.empty}>
-          <Icon id={error ? 'warn' : 'people'} />
-          {error
-            ? <><p>{A.loadFailedTitle}</p><span>{A.loadFailedHint}</span></>
-            : <><p>{A.emptyTitle}</p><span>{A.emptyHint}</span></>}
-          <button className={s.reload} onClick={onReload} disabled={loading}><Icon id="rotate" /> {A.retry}</button>
-        </div>
+        <EmptyState className="empty-fill" icon={error ? 'warn' : 'people'}
+          title={error ? A.loadFailedTitle : A.emptyTitle} sub={error ? A.loadFailedHint : A.emptyHint}
+          action={<button type="button" className="ip-btn" onClick={onReload} disabled={loading}><Icon id="rotate" /> {A.retry}</button>} />
       ) : !rows.length ? (
-        <div className={s.empty}>
-          <Icon id="search" />
-          <p>{A.noMatches}</p>
-        </div>
+        <div className="ip-ac-note ip-ac-note-center">{A.noMatches}</div>
       ) : (
         <div className={s.grid}>
           {rows.map((p) => {

@@ -8,6 +8,7 @@ import { toast } from '../lib/ui'
 import { Combo } from './Combo'
 import { Stepper } from './Stepper'
 import { Segmented } from './Segmented'
+import { EmptyState } from './EmptyState'
 import type { MittelEntry, MittelStatus } from '../types'
 import {
   visibleMittel, groupBySource, currentMengeFor, availableFor, mittelListGroups, groupCatalogue,
@@ -156,20 +157,17 @@ export function MittelView({ entries, canEdit, onSave, captureUsage }: {
       )}
 
       {empty ? (
-        <div className={s.empty}>
-          <Icon id="box" />
-          {canEdit ? (
-            <>
-              <p>{M.emptyTitle}</p><span>{M.emptyHint}</span>
-              {/* the taught action right where the teaching text is (recognition over recall) */}
-              {!adding && (
-                <button type="button" className={s.add} onClick={() => setAdding(true)}>
-                  <Icon id="plus" /><span>{M.add}</span>
-                </button>
-              )}
-            </>
-          ) : <p>{M.emptyReadonly}</p>}
-        </div>
+        canEdit ? (
+          // the taught action right where the teaching text is (recognition over recall)
+          <EmptyState className="empty-fill" icon="box" title={M.emptyTitle} sub={M.emptyHint}
+            action={!adding && (
+              <button type="button" className="ip-btn primary" onClick={() => setAdding(true)}>
+                <Icon id="plus" /><span>{M.add}</span>
+              </button>
+            )} />
+        ) : (
+          <EmptyState className="empty-fill" icon="box" title={M.emptyReadonly} />
+        )
       ) : view === 'source' && lines > 0 ? (
         <div className={s.list}>
           {bySource.map((g) => (
@@ -354,8 +352,8 @@ function MittelComposer({ M, catalogue, sources, units, entries, categorised, on
           <Stepper value={menge} min={1} max={9999} ariaLabel={M.qtyLabel} onChange={setMenge} />
         </div>
         <div className={s.composerActions}>
-          <button type="button" className={s.cancel} onClick={onCancel}>{M.cancel}</button>
-          <button type="button" className={s.save} disabled={!valid} onClick={submit}>{M.save}</button>
+          <button type="button" className="ip-btn" onClick={onCancel}>{M.cancel}</button>
+          <button type="button" className="ip-btn primary" disabled={!valid} onClick={submit}>{M.save}</button>
         </div>
       </div>
     </div>

@@ -191,13 +191,6 @@
   .cl-ref-h { break-after: avoid; }
 }
 
-.cl-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
-  height: 100%; color: var(--ink-faint); text-align: center; }
-.cl-placeholder :global(.i) { width: 28px; height: 28px; opacity: .5; }
-.cl-placeholder p { margin: 0; font-size: 14px; font-weight: 600; }
-.cl-placeholder span { font-size: 12.5px; }
-.cl-placeholder-full { padding: 40px; }
-
 /* phone-only collapsed-rail toggle row — hidden on desktop, where the rail is permanent */
 .cl-rail-toggle { display: none; }
 
