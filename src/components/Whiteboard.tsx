@@ -87,6 +87,9 @@ interface Props {
   onHistoryState?: (s: { canUndo: boolean; canRedo: boolean }) => void
   /** expose fit-to-view so the phone top bar can offer Fit instead of a floating cluster. */
   fitRef?: React.MutableRefObject<(() => void) | null>
+  /** expose tool-pick + zoom so the global keyboard-shortcut layer (App) can drive the Plan
+   *  surface, keeping Lage↔Plan shortcut parity. Semantic tool ids map to Plan tools inside. */
+  keysRef?: React.MutableRefObject<{ pickTool: (tool: string) => void; zoom: (f: number) => void } | null>
   /** a Verlauf row asked to revisit a plan point — center + select on arrival. */
   focus: { x: number; y: number; floor: number; annoId?: string; nonce: number } | null
   /** report the current plan-view centre (tile-local) so a journal pin can anchor to it. */
@@ -111,7 +114,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', onChange, building, onSelectBuilding, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRecent, log, onSymbolPlaced, emit = () => {}, historyRef, onHistoryState, fitRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, planScale = {}, onCalibrate }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', onChange, building, onSelectBuilding, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRecent, log, onSymbolPlaced, emit = () => {}, historyRef, onHistoryState, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, planScale = {}, onCalibrate }: Props) {
   const active = plans.find((p) => p.id === activeId) ?? plans[0]
   // A viewer-only plan (e.g. PV/documentation PDF) is read-only regardless of role: plain
   // pan/zoom, no drawing tools or annotation surface. Folds into the existing readOnly gates.
@@ -349,6 +352,22 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   })
   // expose fit-to-view (the phone top bar's Fit button calls it; desktop uses the rail footer)
   useEffect(() => { if (fitRef) fitRef.current = () => applyView(1, { x: 0, y: 0 }); return () => { if (fitRef) fitRef.current = null } })
+  // expose tool-pick + zoom to the keyboard-shortcut layer. Semantic ids (from App) → Plan tools;
+  // the rest tool is 'pan' (the plan pans on empty canvas), 'note'→'text', 'team'→'resource'.
+  // No dep array (mirrors fitRef) so the toggle always closes over the current tool.
+  useEffect(() => {
+    if (!keysRef) return
+    const MAP: Record<string, BoardTool> = { select: 'pan', lasso: 'lasso', line: 'line', area: 'area', note: 'text', team: 'resource', measure: 'measure' }
+    keysRef.current = {
+      pickTool: (cmd) => {
+        if (cmd === 'symbol') { setTool('symbol'); setPaletteOpen(true); return }
+        const id = MAP[cmd]; if (!id) return // e.g. 'circle' has no Plan equivalent
+        setTool(tool === id ? 'pan' : id); setPending(null)
+      },
+      zoom: (f) => zoom(f),
+    }
+    return () => { if (keysRef) keysRef.current = null }
+  })
 
   // every tap-to-place tool needs the .wb-ink capture overlay mounted — INCLUDING 'shape'
   // (the palette's Rauch/Rechteck/Pfeil forms). Omitting 'shape' left its overlay off the

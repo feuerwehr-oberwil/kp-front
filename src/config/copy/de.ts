@@ -80,6 +80,31 @@ export const de = {
         ],
       },
       {
+        id: 'tastatur', title: 'Tastaturkürzel', icon: 'type',
+        blocks: [
+          { kind: 'lead', text: 'Wer mit Tastatur arbeitet, erreicht alles ohne Maus. Kürzel wirken nicht, während in einem Textfeld getippt wird.' },
+          { kind: 'sub', text: 'Bereiche wechseln (Zahlen springen durch die Liste)' },
+          { kind: 'list', items: [
+            '[[1]] Karte · [[2]] Pläne · [[3]] Checkliste · [[4]] Atemschutz · [[5]] Anwesenheit · [[6]] Mittel.',
+            '[[2]] erneut gedrückt blättert durch die Plan-Module. [[⌘]] [[[]] / [[⌘]] []]] geht einen Bereich zurück/vor.',
+          ] },
+          { kind: 'sub', text: 'Werkzeuge (Lage & Plan gleich)' },
+          { kind: 'list', items: [
+            '[[V]] Auswahl · [[M]] Mehrfach · [[S]] Symbol · [[L]] Linie · [[F]] Fläche · [[K]] Absperrkreis · [[N]] Notiz · [[T]] Trupp · [[D]] Messen.',
+          ] },
+          { kind: 'sub', text: 'Bearbeiten' },
+          { kind: 'list', items: [
+            '[[⌘]] [[Z]] Rückgängig · [[⌘]] [[⇧]] [[Z]] Wiederholen · [[⌘]] [[D]] Duplizieren.',
+            '[[Esc]] Abwählen/Abbrechen · [[⌫]] Auswahl löschen.',
+          ] },
+          { kind: 'sub', text: 'Ansicht & Panels' },
+          { kind: 'list', items: [
+            '[[+]] / [[−]] Zoom · [[0]] Einpassen · [[G]] Mein Standort · [[R]] Nach Norden · [[C]] Koordinaten-Format.',
+            '[[J]] Verlauf · [[E]] Eintrag · [[B]] Ebenen · [[O]] Objekt wählen · [[⌘]] [[,]] Einstellungen · [[?]] diese Hilfe.',
+          ] },
+        ],
+      },
+      {
         id: 'lage', title: 'Lage — Karte', icon: 'map',
         blocks: [
           { kind: 'lead', text: 'Die taktische Karte über dem realen Kartenhintergrund (Einsatzgebiet und Umgebung).' },
@@ -728,6 +753,7 @@ export const de = {
     objectMoved: '{name} verschoben',
     objectDeleted: '{name} entfernt',
     drawingDeleted: 'Zeichnung entfernt',
+    duplicated: 'Objekt dupliziert',
     undo: 'Aktion rückgängig gemacht',
     redo: 'Aktion wiederholt',
     journalNote: 'Notiz',

@@ -7,6 +7,7 @@ import { vehicleSymbolSvg } from './lib/useVehiclePositions'
 import { useVehicleLayer, type VehicleOverrides } from './lib/useVehicleLayer'
 import { autoActivateLayers, deriveInitial, rebaseDemoClocks, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type Saved, type WorkspaceGate } from './lib/workspace'
 import { useReplay } from './lib/useReplay'
+import { resolveHotkey, isTypingTarget } from './lib/hotkeys'
 import { incident as demoIncident, layers as initialLayers, planDocuments, gebaeudeDoc, preparedOverlays } from './data/demoIncident'
 import type { BoardAnno, CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LngLat, MittelEntry, Person, ShapeKind, TimelineEvent, Trupp, TruppFields } from './types'
 import { appConfig } from './config/appConfig'
@@ -285,6 +286,12 @@ function IncidentWorkspace({
   // the Plan exposes its fit-to-view here so the phone top bar can offer Fit (the plan's
   // equivalent of the map's locate) instead of a floating zoom cluster on a small screen.
   const planFit = useRef<(() => void) | null>(null)
+  // the Plan exposes tool-pick + zoom here so the global keyboard-shortcut layer can drive it
+  // while the Plan is the active surface (parity with how it drives the Lage map).
+  const planKeys = useRef<{ pickTool: (tool: string) => void; zoom: (f: number) => void } | null>(null)
+  // always-fresh keydown dispatcher — assigned every render (below, once all handlers exist) so
+  // the single window listener never re-subscribes yet never closes over stale state.
+  const hotkeyRef = useRef<(e: KeyboardEvent) => void>(() => {})
   // one place that edits a single map entity: a discrete undo step + the audit
   // emit, so every field edit (label/fields/notes/floor/count/rotation) is recorded
   // identically — previously notes/floor/count silently skipped the audit stream.
@@ -728,6 +735,15 @@ function IncidentWorkspace({
     return () => window.removeEventListener('keydown', onKey)
   }, [selectedId, selectedDrawingId, selectedDrawIds, selectedEntityIds, doc, tacticalLocked])  // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Keyboard shortcuts (see lib/hotkeys + the "Tastaturkürzel" help section). One mount-once
+  // listener delegates to hotkeyRef, which is reassigned every render with the live handlers —
+  // so shortcuts always act on current state without a churn of add/removeEventListener.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => hotkeyRef.current(e)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   // warm the OSM building-outline cache at startup so the Umgebung sheet (and the
   // building picker) open instantly instead of waiting on the Overpass fetch
   useEffect(() => {
@@ -1144,6 +1160,92 @@ function IncidentWorkspace({
     if (open) { setTool('select'); setPending(null); setPendingShape(null); setDraft([]); setPanel(null) }
     setViewsOpen(open)
   }
+
+  // --- keyboard shortcuts ---------------------------------------------------------------------
+  // Duplicate the current selection (Cmd/Ctrl+D) — a small nudge so the copy is visibly offset and
+  // separately selectable. Single symbol/shape/note OR single drawing; live GPS markers can't be
+  // copied. Multi-select duplicate isn't wired (rare; would need per-item id remap).
+  const DUP_OFFSET = 0.00008 // ~6–9 m in WGS84 at Swiss latitudes
+  const duplicateSelection = () => {
+    if (readOnly) return
+    if (selectedId && !tacticalLocked) {
+      const src = doc.entities.find((e) => e.id === selectedId)
+      if (!src || src.live || !Array.isArray(src.coord)) return
+      const id = `p${Date.now()}`
+      const copy: Entity = { ...src, id, coord: [src.coord[0] + DUP_OFFSET, src.coord[1] - DUP_OFFSET] }
+      commit((d) => ({ ...d, entities: [...d.entities, copy] }))
+      setSelectedId(id); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([])
+      log('layers', appConfig.copy.log.duplicated, 'symbol', undefined, id); emit('entity.add', { id, entity: copy })
+    } else if (selectedDrawingId) {
+      const src = doc.drawings.find((dr) => dr.id === selectedDrawingId)
+      if (!src) return
+      const id = `sh${Date.now()}`
+      const copy: Drawing = { ...src, id, coords: src.coords.map(([x, y]) => [x + DUP_OFFSET, y - DUP_OFFSET] as LngLat) }
+      commit((d) => ({ ...d, drawings: [...d.drawings, copy] }))
+      setSelectedDrawingId(id); setSelectedId(null); setSelectedDrawIds([]); setSelectedEntityIds([])
+      log('layers', appConfig.copy.log.duplicated, 'symbol', undefined, id); emit('draw.add', { id, kind: src.kind, drawing: copy })
+    }
+  }
+
+  // Jump straight to the Nth surface (number keys). Pressing the Pläne key again while already in
+  // Pläne cycles to the next plan document, so the whole nav is reachable from the keyboard.
+  const goToSurface = (n: number) => {
+    const target = (['map', 'plans', 'checklists', 'atemschutz', 'anwesenheit', 'mittel'] as const)[n - 1]
+    if (!target) return
+    if (target === 'plans') {
+      if (mode !== 'plans') { setMode('plans'); setPanel(null) }
+      else if (planDocs.length > 1) {
+        const i = planDocs.findIndex((p) => p.id === activePlanId)
+        setActivePlanId(planDocs[(i + 1) % planDocs.length]?.id ?? planDocs[0].id)
+      }
+    } else setMode(target)
+  }
+
+  // Reassigned every render (effect, no deps) so the mount-once listener (above) always sees
+  // live handlers/state without re-subscribing — the latest-ref pattern.
+  useEffect(() => { hotkeyRef.current = (e: KeyboardEvent) => {
+    if (isTypingTarget(document.activeElement)) return
+    // a modal sheet owns the screen — its own focus trap / Esc handle keys; stay inert behind it.
+    if (settingsOpen || paletteOpen || pickerOpen || helpOpen || installGuideOpen || offlineReadyOpen || reportPreflightOpen || composerOpen) return
+    const cmd = resolveHotkey(e)
+    if (!cmd) return
+    const onMap = mode === 'map', onPlan = mode === 'plans', drawing = onMap || onPlan
+    switch (cmd.type) {
+      case 'surface': e.preventDefault(); goToSurface(cmd.n); break
+      case 'nav': e.preventDefault(); goToNav(cmd.dir); break
+      case 'fit':
+        e.preventDefault()
+        if (onPlan) planFit.current?.(); else if (onMap) centerIncident()
+        break
+      case 'undo': e.preventDefault(); if (onPlan) planHist.current?.undo(); else undo(); break
+      case 'redo': e.preventDefault(); if (onPlan) planHist.current?.redo(); else redo(); break
+      case 'duplicate': if (onMap) { e.preventDefault(); duplicateSelection() } break
+      case 'tool':
+        if (!drawing || readOnly || tacticalLocked) break
+        e.preventDefault()
+        if (onMap) pick(cmd.tool); else planKeys.current?.pickTool(cmd.tool)
+        break
+      case 'panel':
+        switch (cmd.panel) {
+          case 'journal': e.preventDefault(); setJournalOpen((v) => !v); break
+          case 'composer': if (!readOnly) { e.preventDefault(); setComposerOpen(true) } break
+          case 'layers': if (onMap) { e.preventDefault(); togglePanel('layers') } break
+          case 'picker': e.preventDefault(); setPickerOpen(true); break
+          case 'settings': e.preventDefault(); setSettingsOpen(true); break
+          case 'help': e.preventDefault(); setHelpOpen(true); break
+        }
+        break
+      case 'view':
+        switch (cmd.view) {
+          case 'zoomIn': e.preventDefault(); if (onPlan) planKeys.current?.zoom(1.3); else mapRef.current?.zoomIn(); break
+          case 'zoomOut': e.preventDefault(); if (onPlan) planKeys.current?.zoom(1 / 1.3); else mapRef.current?.zoomOut(); break
+          case 'locate': if (onMap) { e.preventDefault(); setLocateReq((n) => n + 1) } break
+          case 'coord': if (onMap) { e.preventDefault(); coord.cycle() } break
+          case 'north': if (onMap) { e.preventDefault(); mapRef.current?.resetNorth() } break
+        }
+        break
+    }
+  } })
 
   const DRAW_COLORS = appConfig.drawing.colors
   const DRAW_WIDTHS = appConfig.drawing.widths
@@ -2312,6 +2414,7 @@ function IncidentWorkspace({
           historyRef={planHist}
           onHistoryState={setPlanCan}
           fitRef={planFit}
+          keysRef={planKeys}
           focus={planFocus}
           onView={(c) => { planCenter.current = c }}
           trupps={trupps}
