@@ -1,22 +1,14 @@
-import { useEffect } from 'react'
 import { Icon } from '../lib/icons'
+import { Overlay } from '../lib/overlays'
 import { appConfig } from '../config/appConfig'
 
 // First-visit welcome for demo instances: a light, one-screen intro of what this is and what a
 // visitor can / can't do (the local-sandbox contract). Shown once per device (see demoWelcome.ts)
-// so it never re-nags. Reuses the shared .modal-backdrop scrim; dismissed by the CTA, the ×,
-// clicking the scrim, or Esc.
+// so it never re-nags. Uses the shared <Overlay> (focus trap, scroll-lock, Esc, backdrop-close).
 export function DemoWelcome({ onClose }: { onClose: () => void }) {
   const C = appConfig.copy.demo.welcome
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
   return (
-    <div className="modal-backdrop dw-scrim" onClick={onClose}>
-      <div className="dw-card" role="dialog" aria-modal="true" aria-label={C.title} onClick={(e) => e.stopPropagation()}>
+    <Overlay open onClose={onClose} className="dw-card" backdropClassName="modal-backdrop dw-scrim" ariaLabel={C.title}>
         <button className="dw-x" onClick={onClose} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
         <div className="dw-head">
           <span className="dw-badge">{appConfig.copy.demo.ribbon}</span>
@@ -33,7 +25,6 @@ export function DemoWelcome({ onClose }: { onClose: () => void }) {
           <ul>{C.know.map((t, i) => <li key={i}>{t}</li>)}</ul>
         </div>
         <button className="dw-cta" onClick={onClose}>{C.cta}</button>
-      </div>
-    </div>
+    </Overlay>
   )
 }

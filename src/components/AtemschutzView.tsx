@@ -6,6 +6,7 @@ import { fillTemplate } from '../lib/format'
 import { toast } from '../lib/ui'
 import { cx } from '../lib/cx'
 import { Segmented } from './Segmented'
+import { Overlay } from '../lib/overlays'
 import { contactSeverity, deriveTruppLive, estimatePressure, fmtClock, type TruppLive } from '../lib/atemschutz'
 import type { AttendanceState, Person, Trupp, TruppFields } from '../types'
 import { assignedPersonIds } from '../lib/personnel'
@@ -210,22 +211,20 @@ export function AtemschutzView({
         />
       )}
 
-      {placePick && createPortal((
-        <div className={s.modalScrim} onClick={() => setPlacePick(null)}>
-          <div className={cx(s.modal, s.placeModal)} onClick={(e) => e.stopPropagation()}>
-            <div className={s.modalHead}><h3>{az.placeWhere}</h3>
-              <button className={s.iconBtn} aria-label={az.cancel} onClick={() => setPlacePick(null)}><Icon id="close" /></button>
-            </div>
-            <div className={s.placeOpts}>
-              {placeTargets.map((tgt) => (
-                <button key={tgt.id} className={s.placeOpt} onClick={() => { placeTrupp(placePick, tgt.id); setPlacePick(null) }}>
-                  <Icon id={tgt.id === 'lage' ? 'map' : 'doc'} /><span>{tgt.label}</span>
-                </button>
-              ))}
-            </div>
+      {placePick && (
+        <Overlay open onClose={() => setPlacePick(null)} className={cx(s.modal, s.placeModal)} ariaLabel={az.placeWhere}>
+          <div className={s.modalHead}><h3>{az.placeWhere}</h3>
+            <button className={s.iconBtn} aria-label={az.cancel} onClick={() => setPlacePick(null)}><Icon id="close" /></button>
           </div>
-        </div>
-      ), document.body)}
+          <div className={s.placeOpts}>
+            {placeTargets.map((tgt) => (
+              <button key={tgt.id} className={s.placeOpt} onClick={() => { placeTrupp(placePick, tgt.id); setPlacePick(null) }}>
+                <Icon id={tgt.id === 'lage' ? 'map' : 'doc'} /><span>{tgt.label}</span>
+              </button>
+            ))}
+          </div>
+        </Overlay>
+      )}
     </div>
   )
 }
@@ -787,13 +786,12 @@ function TruppForm({
 
   // portal to <body> so the modal escapes the .surface stacking context (z-index 20) and covers
   // the TopBar ("+ Eintrag", z-index 40) instead of rendering beneath it
-  return createPortal((
-    <div className={s.modalScrim} onClick={onCancel}>
-      <div className={s.modal} onClick={(e) => e.stopPropagation()}>
-        <div className={s.modalHead}>
-          <h3>{title}</h3>
-          <button className={s.iconBtn} aria-label={az.cancel} onClick={onCancel}><Icon id="close" /></button>
-        </div>
+  return (
+    <Overlay open onClose={onCancel} className={s.modal} ariaLabel={title}>
+      <div className={s.modalHead}>
+        <h3>{title}</h3>
+        <button className={s.iconBtn} aria-label={az.cancel} onClick={onCancel}><Icon id="close" /></button>
+      </div>
 
         <div className={s.modalBody}>
           <div className={s.formCol}>
@@ -864,13 +862,12 @@ function TruppForm({
           )}
         </div>
 
-        <div className={s.modalFoot}>
-          <button className={s.ghostBtn} onClick={onCancel}>{az.cancel}</button>
-          <button className={s.primaryBtn} disabled={!canSubmit} onClick={submit}>{submitLabel}</button>
-        </div>
+      <div className={s.modalFoot}>
+        <button className={s.ghostBtn} onClick={onCancel}>{az.cancel}</button>
+        <button className={s.primaryBtn} disabled={!canSubmit} onClick={submit}>{submitLabel}</button>
       </div>
-    </div>
-  ), document.body)
+    </Overlay>
+  )
 }
 
 function fmtTime(iso: string): string {

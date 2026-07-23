@@ -200,13 +200,12 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 @keyframes az-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
 
 /* --- shared create / edit / re-deploy form modal --- */
-.modalScrim { position: fixed; inset: 0; z-index: 60; background: rgba(15, 23, 40, .42);
-  display: grid; place-items: center;
-  /* viewport-fit=cover: keep the centred modal clear of the notch / home indicator */
-  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
-    max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
-.modal { width: min(680px, 100%); max-height: 90dvh; overflow-y: auto; background: var(--surface);
-  border-radius: var(--r-surface); box-shadow: var(--shadow); display: flex; flex-direction: column; }
+/* centered dialog frame — Base UI (<Overlay>) supplies the scrim (.ui-backdrop), focus trap,
+   scroll-lock and Esc; the popup owns its own fixed centering (siblings, no grid parent). */
+.modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 81;
+  width: min(680px, calc(100vw - 32px)); max-height: min(90dvh, calc(100dvh - 32px)); overflow-y: auto;
+  background: var(--surface); border-radius: var(--r-surface); box-shadow: var(--shadow);
+  display: flex; flex-direction: column; }
 .modalHead { display: flex; align-items: center; gap: 12px; padding: 16px 18px; border-bottom: 1px solid var(--glass-edge); }
 .modalHead h3 { margin: 0; flex: 1 1 auto; font-size: 17px; font-weight: 800; color: var(--ink); }
 
@@ -217,7 +216,7 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 .formColWide { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 12px; }
 @media (max-width: 560px) { .modalBody { grid-template-columns: 1fr; } }
 /* Gebäude / Modul-6 placement picker */
-.placeModal { width: min(360px, 100%); }
+.placeModal { width: min(360px, calc(100vw - 32px)); }
 .placeOpts { padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
 .placeOpt { display: flex; align-items: center; gap: 12px; border: 2px solid var(--glass-edge); background: var(--surface);
   border-radius: var(--r-ctl); cursor: pointer; padding: 14px 16px; font: 700 15px var(--body); color: var(--ink); min-height: 56px; }

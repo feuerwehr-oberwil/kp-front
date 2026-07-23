@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
+import { Overlay } from '../lib/overlays'
 import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
 
@@ -58,8 +59,7 @@ export function HelpOverlay({ onClose }: { onClose: () => void }) {
   const go = (id: string) => document.getElementById(`help-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
   return (
-    <div className="help-scrim" onClick={onClose}>
-      <div className="help-modal" role="dialog" aria-modal="true" aria-label={C.title} onClick={(e) => e.stopPropagation()}>
+    <Overlay open onClose={onClose} className="help-modal" backdropClassName="help-scrim" ariaLabel={C.title}>
         <div className="help-head">
           <span className="help-head-ic"><Icon id="info" /></span>
           <div className="help-head-tt">
@@ -105,7 +105,6 @@ export function HelpOverlay({ onClose }: { onClose: () => void }) {
             ))}
           </div>
         </div>
-      </div>
-    </div>
+    </Overlay>
   )
 }

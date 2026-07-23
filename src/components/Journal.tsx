@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { PlanDocument, TimelineEvent } from '../types'
 import { Icon } from '../lib/icons'
 import { EmptyState } from './EmptyState'
+import { Overlay } from '../lib/overlays'
 import { appConfig } from '../config/appConfig'
 import { formatTime } from '../lib/format'
 import { groupByDay, isNachtrag, rowTime } from '../lib/verlauf'
@@ -103,9 +104,7 @@ export function Journal({ events, plans, closedAt, onSelect, onClose, onTranscri
     })
     .filter((w) => !Number.isNaN(w.start)), [events])
   return (
-    <>
-      <div className="journal-scrim" onClick={onClose} />
-      <aside className="journal-drawer" role="dialog" aria-label={C.title}>
+    <Overlay open onClose={onClose} className="journal-drawer" backdropClassName="journal-scrim" ariaLabel={C.title} dismissEscape={false}>
         <div className="journal-head">
           <span className="journal-title"><Icon id="history" />{C.title} · {events.length}</span>
           {onReplay && (
@@ -267,7 +266,6 @@ export function Journal({ events, plans, closedAt, onSelect, onClose, onTranscri
             </Fragment>
           ))}
         </div>
-      </aside>
-    </>
+    </Overlay>
   )
 }
