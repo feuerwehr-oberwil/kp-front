@@ -176,6 +176,7 @@ const base = {
       'VKF Fahrzeug': 'Fahrzeug',
       'VKF Pumpe Typ2': 'Pumpe',
       'VKF Helilandeplatz': 'Helilandeplatz',
+      'VKF Drohne': 'Drohne',
       'VKF Luefter mobil': 'Lüfter',
       'FW Entrauchung': 'Entrauchung',
       'FW Kleinloeschgeraet': 'Kleinlöschgerät',
@@ -261,8 +262,13 @@ const base = {
         'FW Absperrung': { controls: ['rotation'] },
         'VKF Verkehrssperre ueberwacht': { controls: ['rotation'] },
         // ── Fahrzeuge / Mittel ── operator-named; directional ones rotate, no fields.
-        'VKF Drehleiter': { controls: ['rotation'] },
-        'VKF Hubretter': { controls: ['rotation'] },
+        // aerial appliances: composite body + independently-slewing aerial part — `rotation` aims the
+        // truck, `rotation2` aims the ladder/boom (own rotor + Drehung stepper). Synthesised like the
+        // Grosslüfter (see lib/symbolRender COMPOSITES).
+        'VKF Drehleiter': { controls: ['rotation', 'rotation2'] },
+        'VKF Hubretter': { controls: ['rotation', 'rotation2'] },
+        // Drohne: a hovering-asset marker — stays upright (no rotation), no fields.
+        'VKF Drohne': {},
         // generic vehicle: user-named (see lib/symbols) — title + a Fahrer picker; type lists via config
         'VKF Fahrzeug': { controls: ['rotation'], fields: ['Fahrer'] },
         'VKF Pumpe Typ2': {},

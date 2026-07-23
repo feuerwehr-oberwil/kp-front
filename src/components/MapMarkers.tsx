@@ -7,9 +7,9 @@ import { Icon } from '../lib/icons'
 import { ShapeGlyph } from '../lib/shapes'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
-import { TacticalSymbol, GROSSLUEFTER_BODY, GROSSLUEFTER_FAN, FAN_OVERLAY_SCALE, luefterVariant } from '../lib/symbolRender'
+import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant } from '../lib/symbolRender'
 import { symbolCaptionText } from '../lib/symbols'
-import { pxPerM, symPx, shapePx, isRotatableSym, isVehicleSym, isGrossluefter } from '../lib/mapView'
+import { pxPerM, symPx, shapePx, isRotatableSym, isVehicleSym } from '../lib/mapView'
 
 // A transform handle (rotate / resize) whose drag is bound with NATIVE pointer listeners that
 // stopPropagation, so react-map-gl's marker-drag (a listener on the parent that fires on the same
@@ -346,20 +346,21 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
               // the generic vehicle bakes its name + heading into the glyph (text stays
               // upright); every other symbol uses its library/static svg
               const veh = isVehicleSym(e)
-              const gross = isGrossluefter(e)
+              const comp = compositeSpec(e.symbol)
               // ONLY directional symbols (a rotation handle, or a vehicle/live unit) stay pinned to
               // the ground via − bearing; plain markers (hydrants, KP, command posts, lifts…) stay
               // UPRIGHT at every bearing ("always north"), so they never look crooked on a turned map.
               const directional = veh || !!e.live || isRotatableSym(e)
               const rot = (e.rotation ?? 0) - (directional ? bearing : 0)
               const svg = veh ? vehicleSymbolSvg(e.label ?? '', rot)
-                : gross ? (byName[GROSSLUEFTER_BODY] ?? '')
+                : comp ? (byName[comp.base] ?? '')
                 : (placardSvgForSymbol(e.symbol, e.fields) ?? e.symbolSvg ?? (e.symbol ? byName[luefterVariant(e.symbol, e.extract)!] ?? byName[e.symbol] ?? '' : ''))
-              // the Grosslüfter stacks the fan as a separately-rotatable overlay (airflow direction);
-              // extract (Absaugen) swaps to the reversed-arrow fan glyph, same as the mobile Lüfter
-              const overlay = gross ? { svg: byName[luefterVariant(GROSSLUEFTER_FAN, e.extract)!] ?? byName[GROSSLUEFTER_FAN] ?? '', rotation: (e.rotation2 ?? 0) - bearing, scale: FAN_OVERLAY_SCALE } : undefined
+              // a composite stacks its part (Grosslüfter fan / Drehleiter ladder / Hubretter boom) as a
+              // separately-rotatable overlay aimed by rotation2; the Lüfter's extract (Absaugen) swaps
+              // to the reversed-arrow fan glyph. Ladders/boom scale 1:1 over the body; the fan reads at 60%.
+              const overlay = comp ? { svg: byName[compositePartGlyph(comp, e.extract)] ?? byName[comp.part] ?? '', rotation: (e.rotation2 ?? 0) - bearing, scale: comp.scale } : undefined
               // the vehicle glyph rotates its body internally, so the chip must NOT also rotate;
-              // every other symbol (incl. the Grosslüfter body) applies its stored rotation to the chip.
+              // every other symbol (incl. a composite body) applies its stored rotation to the chip.
               return (
                 <TacticalSymbol
                   svg={svg}
@@ -463,7 +464,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                 />
               </div>
             )}
-            {selectedId === e.id && isRotatableSym(e) && !isGrossluefter(e) && onShapeTransform && (
+            {selectedId === e.id && isRotatableSym(e) && !compositeSpec(e.symbol) && onShapeTransform && (
               // directional symbol: rotate-only handle (no resize — symbols keep their
               // real-world scale). Tethered knob rotates with the symbol.
               <div className="shape-rotor" style={{ transform: `rotate(${(e.rotation ?? 0) - bearing}deg)` }}>
@@ -478,10 +479,11 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                 />
               </div>
             )}
-            {selectedId === e.id && isGrossluefter(e) && onShapeTransform && (
-              // composite Grosslüfter: TWO tethered rotors — a short blue knob aims the vehicle
-              // body, a longer amber knob aims the fan/airflow. Each rotor rotates with its own
-              // part (− bearing) so the handles stay attached as the map turns.
+            {selectedId === e.id && !!compositeSpec(e.symbol) && onShapeTransform && (
+              // composite (Grosslüfter / Drehleiter / Hubretter): TWO tethered rotors — a short blue
+              // knob aims the vehicle body, a longer amber knob aims the part (fan / ladder / boom).
+              // Each rotor rotates with its own part (− bearing) so the handles stay attached as the
+              // map turns.
               <>
                 <div className="shape-rotor" style={{ transform: `rotate(${(e.rotation ?? 0) - bearing}deg)` }}>
                   <span className="shape-stem" />
@@ -499,7 +501,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                   <TransformHandle
                     className="handle shape-rotate shape-rotate-fan"
                     icon="rotate"
-                    title={appConfig.copy.contextPanel.rotationFan}
+                    title={appConfig.copy.contextPanel[compositeSpec(e.symbol)!.partLabel]}
                     onStart={(x, y, el) => shapeDown(x, y, el, e.id, e.coord[1], 'rotate2')}
                     onMove={shapeMove}
                     onEnd={shapeUp}

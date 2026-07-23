@@ -259,6 +259,19 @@ def build() -> list[dict]:
            for x in (-0.9, -0.7, -0.5, -0.3, -0.1, 0.1, 0.3)],
         vb=2.6,
     ))
+    # Ladder-only overlay for the composite Drehleiter — the aerial ladder rendered as a
+    # separately-rotatable layer over the plain vehicle body (like the Grosslüfter fan), so the
+    # ladder slews independently of the truck heading. Pivots at the turntable (glyph centre 0,0)
+    # and extends to one side; rotation2=0 points it back/left, matching the static thumbnail.
+    # Render-only (hidden from the palette — useSymbols filters it); the palette shows the full
+    # VKF Drehleiter glyph above.
+    add("Fahrzeuge / Mittel", "VKF Drehleiter Leiter", svg(
+        [line(0, -0.17, -1.15, -0.17, stroke=BLUE, sw=0.1),
+         line(0, 0.17, -1.15, 0.17, stroke=BLUE, sw=0.1)]
+        + [line(x, -0.17, x, 0.17, stroke=BLUE, sw=0.1)
+           for x in (-0.15, -0.35, -0.55, -0.75, -0.95)],
+        vb=2.6,
+    ))
     add("Fahrzeuge / Mittel", "VKF Luefter mobil", svg(
         [path([(-0.9, -0.4), (-0.6, -0.4), (-0.3, -0.7), (-0.3, 0.7), (-0.6, 0.4), (-0.9, 0.4)],
               stroke=BLACK, sw=0.06, fill=YELLOW, close=True),
@@ -299,6 +312,16 @@ def build() -> list[dict]:
         + [path([(-1, 0.38), (0, 0.18), (-0.86, -0.02)], stroke=BLUE, sw=0.1)],
         vb=2.6,
     ))
+    # Boom-only overlay for the composite Hubretter — the articulated Gelenkmast (two-segment boom
+    # with a rescue cage at the tip) as a separately-rotatable layer over the plain body (see VKF
+    # Drehleiter Leiter). The base sits at the turntable (glyph centre 0,0) so rotation2 swings the
+    # boom about it; rotation2=0 reaches back/up-left, matching the thumbnail. Render-only (hidden
+    # from the palette); the full VKF Hubretter glyph above is the palette thumbnail.
+    add("Fahrzeuge / Mittel", "VKF Hubretter Arm", svg(
+        [path([(0.1, 0.12), (-0.6, 0.1), (-1.05, -0.42)], stroke=BLUE, sw=0.1),
+         path([(-1.22, -0.28), (-0.95, -0.62), (-0.78, -0.44)], stroke=BLUE, sw=0.1, close=True)],
+        vb=2.6,
+    ))
     add("Fahrzeuge / Mittel", "VKF Pumpe Typ2", svg(
         [path([(-1, -1), (1, -1), (1, 1), (-1, 1)], stroke=BLUE, sw=0.1, close=True),
          text("MS", 0.8, fill=BLUE, y=-0.4), text("2", 0.8, fill=BLUE, y=0.4)],
@@ -314,6 +337,19 @@ def build() -> list[dict]:
          line(0, -0.5, -0.2, -0.6, stroke=BLUE, sw=0.1),
          f'<path d="M -0.2 -0.6 L -0.4 -0.7 A 0.21 0.21 0 0 0 -0.7 -0.5 A 0.23 0.23 0 0 0 -0.4 -0.3 A 0.81 0.81 0 0 0 -0.2 -0.4" fill="none" stroke="{BLUE}" stroke-width="0.1" stroke-linejoin="round"/>',
          f'<path d="M 0.2 -0.6 L 0.4 -0.7 A 0.21 0.21 0 0 1 0.7 -0.5 A 0.23 0.23 0 0 1 0.4 -0.3 A 0.81 0.81 0 0 1 0.2 -0.4" fill="none" stroke="{BLUE}" stroke-width="0.1" stroke-linejoin="round"/>'],
+        vb=2.6,
+    ))
+    # Drohne — top-down quadcopter: an X-frame of two arms with a rotor ring at each tip and a
+    # filled hub. Own-pack aviation glyph (FKS has none); stays upright (no rotation) like a
+    # hovering-asset marker.
+    add("Fahrzeuge / Mittel", "VKF Drohne", svg(
+        [line(-0.7, -0.7, 0.7, 0.7, stroke=BLUE, sw=0.1),
+         line(-0.7, 0.7, 0.7, -0.7, stroke=BLUE, sw=0.1),
+         circle(-0.7, -0.7, 0.3, stroke=BLUE, sw=0.1),
+         circle(0.7, -0.7, 0.3, stroke=BLUE, sw=0.1),
+         circle(-0.7, 0.7, 0.3, stroke=BLUE, sw=0.1),
+         circle(0.7, 0.7, 0.3, stroke=BLUE, sw=0.1),
+         circle(0, 0, 0.22, stroke=BLUE, sw=0.1, fill=BLUE)],
         vb=2.6,
     ))
     add("Fahrzeuge / Mittel", "FW Entrauchung", svg(

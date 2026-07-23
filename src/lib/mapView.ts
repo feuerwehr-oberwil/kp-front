@@ -3,7 +3,7 @@
 import type { Entity, LngLat } from '../types'
 import { appConfig } from '../config/appConfig'
 import { ROTATABLE } from '../lib/symbols'
-import { GROSSLUEFTER } from '../lib/symbolRender'
+import { compositeSpec } from '../lib/symbolRender'
 
 export const EMPTY_STYLE = { version: 8 as const, sources: {}, layers: [] }
 
@@ -29,9 +29,10 @@ export const shapePx = (sizeM: number | undefined, lat: number, z: number) => Ma
 export const isRotatableSym = (e: Entity) => e.kind === 'symbol' && !!e.symbol && ROTATABLE.has(e.symbol)
 // a placed generic vehicle — rendered like the live GPS glyph, with its typed name baked in
 export const isVehicleSym = (e: Entity) => e.kind === 'symbol' && e.symbol === appConfig.symbols.vehicleName
-// the composite Grosslüfter (vehicle body + fan) — gets a two-handle rotor (body + airflow)
-// instead of the single rotor, and renders its two layers separately. `e` may be a board anno too.
-export const isGrossluefter = (e: { kind?: string; symbol?: string }) => e.kind === 'symbol' && e.symbol === GROSSLUEFTER
+// a composite symbol (Grosslüfter vehicle+fan, Drehleiter/Hubretter body+ladder) — gets a two-handle
+// rotor (body + part) instead of the single rotor, and renders its two layers separately so the part
+// slews independently of the body heading. `e` may be a board anno too.
+export const isComposite = (e: { kind?: string; symbol?: string }) => e.kind === 'symbol' && !!compositeSpec(e.symbol)
 
 // Accidental-rotation self-heal: a rotate gesture that ends ALMOST north (within ±threshold°)
 // snaps back to exactly 0 — the common case of a two-finger zoom that drags the bearing a few

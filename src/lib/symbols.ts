@@ -146,8 +146,14 @@ export function symbolCaptionText(props: SymbolProps, globalMode: CaptionMode): 
   const filled = order.map((k) => fields[k]?.trim()).filter((v): v is string => !!v)
   const label = customLabel(props)
   if (mode === 'all') {
+    // 'all' = EVERYTHING the operator typed on this symbol: the preset detail fields (in canonical
+    // order) PLUS any custom key/value rows they added PLUS the free-text notes — not just the
+    // pre-defined preset fields. Value-only (the glyph implies the keys), de-duplicated.
+    const extraKeys = Object.keys(fields).filter((k) => !order.includes(k))
+    const allFilled = [...order, ...extraKeys].map((k) => fields[k]?.trim()).filter((v): v is string => !!v)
+    const notes = props.notes?.trim()
     const seen = new Set<string>()
-    const lines = [label, ...filled].filter((v): v is string => !!v && !seen.has(v) && !!seen.add(v))
+    const lines = [label, ...allFilled, notes].filter((v): v is string => !!v && !seen.has(v) && !!seen.add(v))
     return lines.length ? lines.join('\n') : null
   }
   // 'auto': the primary discriminating value, else the first filled field, else a custom label
