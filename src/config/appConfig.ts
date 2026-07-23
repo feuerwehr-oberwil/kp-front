@@ -262,11 +262,15 @@ const base = {
         'FW Absperrung': { controls: ['rotation'] },
         'VKF Verkehrssperre ueberwacht': { controls: ['rotation'] },
         // ── Fahrzeuge / Mittel ── operator-named; directional ones rotate, no fields.
-        // aerial appliances: composite body + independently-slewing aerial part — `rotation` aims the
-        // truck, `rotation2` aims the ladder/boom (own rotor + Drehung stepper). Synthesised like the
-        // Grosslüfter (see lib/symbolRender COMPOSITES).
+        // Drehleiter: composite body + independently-slewing ladder — `rotation` aims the truck,
+        // `rotation2` aims the ladder (own rotor + Drehung stepper). Synthesised like the Grosslüfter
+        // (see lib/symbolRender COMPOSITES).
         'VKF Drehleiter': { controls: ['rotation', 'rotation2'] },
-        'VKF Hubretter': { controls: ['rotation', 'rotation2'] },
+        // Hubretter: NOT a rotor composite — the articulated boom is shaped by dragging the cage tip
+        // (a single on-canvas handle sets bearing `rotation2` + reach `reachM`/`reachN`), and the truck
+        // body auto-faces the boom. So no rotation steppers/rotor: controls stay empty. See MapMarkers /
+        // Whiteboard cage handle + lib/symbolRender HubretterBoom.
+        'VKF Hubretter': {},
         // Drohne: a hovering-asset marker — stays upright (no rotation), no fields.
         'VKF Drohne': {},
         // generic vehicle: user-named (see lib/symbols) — title + a Fahrer picker; type lists via config

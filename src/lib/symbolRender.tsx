@@ -76,10 +76,10 @@ export interface CompositeSpec {
   partLabel: 'rotationFan' | 'rotationLadder'
 }
 export const COMPOSITES: Record<string, CompositeSpec> = {
-  // base = the plain vehicle body (VKF Fahrzeug) for all three; each part slews on `rotation2`.
+  // base = the plain vehicle body (VKF Fahrzeug); each part slews on `rotation2`. The Hubretter is
+  // NOT a rotation composite — its boom is a variable-reach, cage-draggable element (see below).
   [GROSSLUEFTER]: { base: GROSSLUEFTER_BODY, part: GROSSLUEFTER_FAN, partExtract: LUEFTER_EXTRACT, scale: FAN_OVERLAY_SCALE, airflow: true, partLabel: 'rotationFan' },
   [DREHLEITER]: { base: GROSSLUEFTER_BODY, part: DREHLEITER_PART, scale: 1, partLabel: 'rotationLadder' },
-  [HUBRETTER]: { base: GROSSLUEFTER_BODY, part: HUBRETTER_PART, scale: 1, partLabel: 'rotationLadder' },
 }
 export const compositeSpec = (name?: string): CompositeSpec | undefined => (name ? COMPOSITES[name] : undefined)
 /** the render-only overlay part glyphs — hidden from the palette (like the reversed-airflow Lüfter). */
@@ -87,6 +87,65 @@ export const COMPOSITE_PART_GLYPHS: string[] = [LUEFTER_EXTRACT, DREHLEITER_PART
 /** the library glyph name for a composite's overlay part, honouring the Lüfter airflow variant. */
 export const compositePartGlyph = (spec: CompositeSpec, extract?: boolean): string =>
   spec.airflow && extract && spec.partExtract ? spec.partExtract : spec.part
+
+// ── Hubretter: a variable-reach articulated boom the operator shapes by dragging the cage tip ────
+// Unlike the composite rotors, the boom isn't a fixed glyph: it extends from the truck (the symbol
+// `coord`) out to a rescue cage at a stored reach (`Entity.reachM` metres on the map / `BoardAnno.reachN`
+// board-fraction on the plan) and bearing (`rotation2`). The truck body auto-faces the boom; there's
+// no rotor — the single cage handle sets both bearing and reach.
+export const isHubretter = (name?: string): boolean => name === HUBRETTER
+/** The auto-articulated knuckle for a boom drawn from `base` to `tip`: a point ~`along` of the way
+ *  from base to tip, pushed perpendicular by `offset`×length, so the boom reads as a bent Gelenkmast
+ *  rather than a straight stick. Pure (same inputs → same point). Perp = base→tip rotated +90°. */
+export function boomKnuckle(base: readonly [number, number], tip: readonly [number, number], along = 0.55, offset = 0.18): [number, number] {
+  const dx = tip[0] - base[0], dy = tip[1] - base[1]
+  return [base[0] + dx * along - dy * offset, base[1] + dy * along + dx * offset]
+}
+
+/** The visual boom for a Hubretter: an articulated base→knuckle→cage polyline with a rescue cage at
+ *  the tip, drawn from the truck centre (0,0) out `lengthPx` at screen bearing `deg`. Rendered behind
+ *  the body glyph and SHARED by Lage + Plan so the boom reads identically; each surface positions the
+ *  draggable cage handle itself. A white underlay keeps the ink legible over busy map tiles. */
+export function HubretterBoom({ lengthPx, deg, color = '#00a0ff' }: { lengthPx: number; deg: number; color?: string }) {
+  const L = Math.max(0, lengthPx)
+  const rad = (deg * Math.PI) / 180
+  const tip: [number, number] = [Math.cos(rad) * L, Math.sin(rad) * L]
+  const k = boomKnuckle([0, 0], tip)
+  const sw = Math.max(3, Math.min(6, L * 0.05))
+  const cage = Math.max(9, Math.min(18, L * 0.16))
+  const box = L + cage + sw + 2
+  const pts = `0,0 ${k[0].toFixed(1)},${k[1].toFixed(1)} ${tip[0].toFixed(1)},${tip[1].toFixed(1)}`
+  // rendered as the FIRST marker child with no positive z-index, so it paints behind the body glyph
+  // (which follows it in the DOM) — a clean truck symbol with the boom emanating from under it.
+  return (
+    <svg className="ts-boom" viewBox={`${-box} ${-box} ${2 * box} ${2 * box}`}
+      style={{ position: 'absolute', left: '50%', top: '50%', width: 2 * box, height: 2 * box, transform: 'translate(-50%,-50%)', overflow: 'visible', pointerEvents: 'none' }}>
+      <polyline points={pts} fill="none" stroke="#fff" strokeWidth={sw + 2.5} strokeLinejoin="round" strokeLinecap="round" opacity={0.9} />
+      <polyline points={pts} fill="none" stroke={color} strokeWidth={sw} strokeLinejoin="round" strokeLinecap="round" />
+      <rect x={tip[0] - cage / 2} y={tip[1] - cage / 2} width={cage} height={cage} rx={cage * 0.18}
+        fill="var(--on-accent-ink, #fff)" stroke={color} strokeWidth={Math.max(2, sw * 0.8)} />
+    </svg>
+  )
+}
+
+/** A static Hubretter (plain body + articulated boom baked at its bearing) for the server print, where
+ *  the two live layers can't exist and the boom isn't metre-scaled. Reach is approximated to the glyph
+ *  box — capped so the truck stays readable — good enough for the rapport; the metric print is deferred.
+ *  Returns one SVG string; the caller prints it with rotation unset (the bearing is baked in). */
+export function composeHubretterSvg(bodySvg: string, reachM = 18, rotation2 = 0): string {
+  if (!bodySvg) return bodySvg
+  const L = Math.max(0.9, Math.min(1.8, reachM / 20)) // glyph-box units; capped so the body stays legible
+  const rad = (rotation2 * Math.PI) / 180
+  const tip: [number, number] = [Math.cos(rad) * L, Math.sin(rad) * L]
+  const k = boomKnuckle([0, 0], tip)
+  const cage = 0.26
+  const pts = `0,0 ${k[0].toFixed(2)},${k[1].toFixed(2)} ${tip[0].toFixed(2)},${tip[1].toFixed(2)}`
+  const boom = `<polyline points="${pts}" fill="none" stroke="#00a0ff" stroke-width="0.16" stroke-linejoin="round" stroke-linecap="round"/>`
+    + `<rect x="${(tip[0] - cage / 2).toFixed(2)}" y="${(tip[1] - cage / 2).toFixed(2)}" width="${cage}" height="${cage}" rx="0.05" fill="#fff" stroke="#00a0ff" stroke-width="0.11"/>`
+  const body = `<g transform="rotate(${rotation2})">${innerSvg(bodySvg)}</g>` // body auto-faces the boom
+  const box = L + 0.6
+  return `<svg viewBox="${-box} ${-box} ${2 * box} ${2 * box}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">${boom}${body}</svg>`
+}
 
 // FKS Entwicklung overlay: hollow block arrows (in the symbol's colour) drawn OUTSIDE
 // the glyph so they read against a same-coloured icon. Horizontal development is
