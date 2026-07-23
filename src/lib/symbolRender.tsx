@@ -119,8 +119,10 @@ export function HubretterBoom({ lengthPx, deg, color = '#00a0ff' }: { lengthPx: 
   // placed AFTER the body glyph in the DOM, so it paints on top — the boom mounts on the turntable
   // (the truck's roof) and reaches out over the vehicle, not from underneath it.
   return (
+    // zIndex 2 keeps the boom above the body even when selected — `.marker.sel .ts` gets z-index:1,
+    // which would otherwise lift the truck back over the boom. Still below the handles (z 8–9).
     <svg className="ts-boom" viewBox={`${-box} ${-box} ${2 * box} ${2 * box}`}
-      style={{ position: 'absolute', left: '50%', top: '50%', width: 2 * box, height: 2 * box, transform: 'translate(-50%,-50%)', overflow: 'visible', pointerEvents: 'none' }}>
+      style={{ position: 'absolute', left: '50%', top: '50%', width: 2 * box, height: 2 * box, transform: 'translate(-50%,-50%)', overflow: 'visible', pointerEvents: 'none', zIndex: 2 }}>
       <polyline points={pts} fill="none" stroke="#fff" strokeWidth={sw + 2.5} strokeLinejoin="round" strokeLinecap="round" opacity={0.9} />
       <polyline points={pts} fill="none" stroke={color} strokeWidth={sw} strokeLinejoin="round" strokeLinecap="round" />
       <rect x={tip[0] - cage / 2} y={tip[1] - cage / 2} width={cage} height={cage} rx={cage * 0.18}
