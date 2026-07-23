@@ -959,12 +959,6 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 /* the Eintrag/Erinnerung composer is top-anchored on tablet/desktop so its mode toggle keeps
    the same vertical position when the two modes differ in height (centred, it jumped). On
    phones it stays a bottom sheet (see the ≤600px rule). */
-@media (min-width: 601px) {
-  .modal-backdrop.modal-sheet { align-items: start; }
-  /* cap + scroll: with the iPad keyboard up (interactive-widget=resizes-content) a tall
-     composer (photo preview / reminder stepper) must not push the send row off-screen */
-  .modal-sheet .journal-composer { margin-top: 11vh; max-height: calc(88dvh - 11vh); overflow-y: auto; overscroll-behavior: contain; }
-}
 .sym-modal { width: min(760px, 92vw); height: min(620px, 86vh); display: flex; flex-direction: column; gap: 12px;
   background: var(--surface); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
   border-radius: var(--r-hero); padding: 16px; box-shadow: 0 30px 80px rgba(20, 28, 40, .4); animation: pop .14s ease; }
@@ -1779,7 +1773,12 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 /* quick-add composer — centred card over the modal backdrop */
 /* pop, not panelIn: the composer is centred (or a bottom sheet on phones) — panelIn's
    translateY(-50%) start made it fly in from half a screen up */
-.journal-composer { width: min(460px, 92vw); background: var(--surface); backdrop-filter: blur(14px) saturate(1.4);
+/* <Overlay>: backdrop is .modal-backdrop; the composer owns its own positioning. Desktop = top-
+   anchored 11vh, horizontally centred (a mode switch that changes height keeps a stable top);
+   phones flip it to a keyboard-lifting bottom sheet (see the ≤600px rule). */
+.journal-composer { position: fixed; left: 50%; top: 11vh; transform: translateX(-50%); z-index: 81;
+  width: min(460px, 92vw); max-height: calc(88dvh - 11vh); overflow-y: auto; overscroll-behavior: contain;
+  background: var(--surface); backdrop-filter: blur(14px) saturate(1.4);
   border: 1px solid var(--glass-line); border-radius: var(--r-hero); box-shadow: var(--shadow); padding: 16px;
   display: flex; flex-direction: column; gap: 12px; animation: pop .16s var(--ease); }
 .jc-head { display: flex; align-items: center; }
@@ -3326,10 +3325,10 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
     max-height: calc(100dvh - 70px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     border-radius: var(--r-hero) var(--r-hero) var(--r-surface) var(--r-surface); }
 
-  /* journal composer + incident wizards → full-width bottom sheet that lifts above the
-     keyboard (the inline marginBottom = keyboard height keeps the actions + send reachable) */
-  .modal-sheet { place-items: end center; }
-  .modal-sheet .journal-composer { width: 100%; max-width: none;
+  /* journal composer → full-width bottom sheet that lifts above the keyboard (the inline
+     marginBottom = keyboard height keeps the actions + send reachable) */
+  .journal-composer { left: 0; right: 0; bottom: 0; top: auto; transform: none;
+    width: 100%; max-width: none;
     border-radius: var(--r-hero) var(--r-hero) 0 0; max-height: 86dvh; overflow-y: auto;
     padding-bottom: calc(16px + env(safe-area-inset-bottom));
     animation: sheetUp .22s var(--ease); }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { Segmented } from './Segmented'
+import { Overlay } from '../lib/overlays'
 import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
 import { acceptPhrase, suggestPhrases } from '../lib/quickPhrases'
@@ -312,25 +313,15 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
     })
   }
 
-  // The tap that OPENS the composer (pointerup on the Eintrag button) is followed by a
-  // synthesized `click` that Android fires on the freshly-mounted backdrop — which would
-  // close the sheet instantly (keyboard flashes, then gone). Arm the tap-outside dismissal
-  // only after that trailing click has passed, and only for clicks that land on the
-  // backdrop itself (not on the composer or its controls).
-  const armed = useRef(false)
-  useEffect(() => { const t = setTimeout(() => { armed.current = true }, 300); return () => clearTimeout(t) }, [])
-  const onBackdrop = (e: React.MouseEvent) => { if (armed.current && e.target === e.currentTarget) onClose() }
-
   const kbInset = useKeyboardInset()
   return (
-    <div className="modal-backdrop modal-sheet" onClick={onBackdrop}>
-      <div
-        className="journal-composer"
-        style={{ marginBottom: kbInset }}
-        role="dialog"
-        aria-label={C.composerTitle}
-        onPaste={onPaste}
-      >
+    // <Overlay> (Base UI) owns focus-trap + scroll-lock + backdrop-close; its pointerdown-based
+    // outside-press already ignores the opening tap, so the old Android `armed` delay is gone.
+    // dismissEscape=false: the composer holds unsaved text — Esc must not discard it (parity with
+    // the old surface, which never closed on Esc). The keyboard inset lifts the phone bottom sheet.
+    <Overlay open onClose={onClose} className="journal-composer" backdropClassName="modal-backdrop"
+      ariaLabel={C.composerTitle} dismissEscape={false} initialFocus={textRef} style={{ marginBottom: kbInset }}>
+      <div onPaste={onPaste} style={{ display: 'contents' }}>
         <div className="jc-head">
           <span className="jc-title"><Icon id={mode === 'reminder' ? 'clock' : 'type'} />{mode === 'reminder' ? C.modeReminder : C.composerTitle}</span>
           <button className="journal-x" title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog} onClick={onClose}><Icon id="close" /></button>
@@ -467,6 +458,6 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
           </button>
         </div>
       </div>
-    </div>
+    </Overlay>
   )
 }

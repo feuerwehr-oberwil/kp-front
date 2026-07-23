@@ -1,4 +1,4 @@
-import type { ReactNode, RefObject } from 'react'
+import type { CSSProperties, ReactNode, RefObject } from 'react'
 import { Dialog } from '@base-ui/react/dialog'
 
 /**
@@ -39,10 +39,12 @@ export interface OverlayProps {
    * plus Space/←/→/↑/↓ transport) — then its own keydown handler calls `onClose` when appropriate.
    */
   dismissEscape?: boolean
+  /** Inline style for the popup frame — e.g. a keyboard-inset `marginBottom` on a bottom sheet. */
+  style?: CSSProperties
   children: ReactNode
 }
 
-export function Overlay({ open, onClose, className, backdropClassName = 'ui-backdrop', ariaLabel, initialFocus, modal = 'trap-focus', dismissEscape = true, children }: OverlayProps) {
+export function Overlay({ open, onClose, className, backdropClassName = 'ui-backdrop', ariaLabel, initialFocus, modal = 'trap-focus', dismissEscape = true, style, children }: OverlayProps) {
   return (
     <Dialog.Root
       open={open}
@@ -56,7 +58,7 @@ export function Overlay({ open, onClose, className, backdropClassName = 'ui-back
     >
       <Dialog.Portal>
         <Dialog.Backdrop className={backdropClassName} />
-        <Dialog.Popup className={className} aria-label={ariaLabel} initialFocus={initialFocus}>
+        <Dialog.Popup className={className} style={style} aria-label={ariaLabel} initialFocus={initialFocus}>
           {children}
         </Dialog.Popup>
       </Dialog.Portal>
