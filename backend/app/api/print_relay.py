@@ -12,6 +12,7 @@ The agent heartbeat is in-memory (module global): prod runs a single uvicorn wor
 (backend/start.sh), and a restart heals within one poll interval (~5 s).
 """
 
+import asyncio
 import secrets as pysecrets
 import uuid
 from datetime import UTC, datetime
@@ -26,13 +27,43 @@ from ..config import settings
 from ..database import get_db
 from ..models import Incident, PrintJob
 from ..report_pdf import ReportPayload
-from .report import compose_report_from_payload, report_filename
+from .report import compose_report_from_payload, report_filename, warm_report_from_payload
 
 router = APIRouter(tags=["print-relay"])
 
-# Poll interval is ~5 s (tools/print_agent.py); the relay counts as online while the last
-# heartbeat is fresher than ~6× that, so brief hiccups don't flicker the UI dot.
-ONLINE_WINDOW_SEC = 30
+# The agent's claim request LONG-POLLS: it hangs on the server for up to CLAIM_HANG_SEC,
+# woken the instant a job is enqueued (`_job_ready`), instead of the agent re-polling every
+# few seconds. Idle HTTP traffic drops ~10× and a freshly queued job is claimed near-
+# instantly. CLAIM_RECHECK_SEC is the correctness backstop: enqueue sets the event *before*
+# its own COMMIT, so a woken claim may briefly not see the row yet — it re-queries every
+# RECHECK regardless, so a raced wake-up costs at most one recheck, never the full hang.
+CLAIM_HANG_SEC = 25.0
+CLAIM_RECHECK_SEC = 2.0
+
+# Heartbeat marks on connect (start of each hang), so last_seen refreshes about once per
+# hang; the online window must comfortably exceed the hang or the dot would flicker offline
+# mid-hang. The agent's claim request timeout (KP_CLAIM_TIMEOUT_SEC, default 60) also exceeds
+# the hang.
+ONLINE_WINDOW_SEC = 45
+
+# Set by enqueue, awaited by the long-polling claim. Module-global: prod runs one uvicorn
+# worker; a move to multiple workers wants Postgres LISTEN/NOTIFY here instead (the SQLite
+# test harness has no NOTIFY, which is why this stays an in-process Event for now).
+_job_ready: asyncio.Event | None = None
+_job_loop: asyncio.AbstractEventLoop | None = None
+
+
+def _job_event() -> asyncio.Event:
+    """The enqueue→claim wake-up, lazily bound to the running loop. Recreated only if the loop
+    changes — which happens across the test harness's per-test loops; prod has one long-lived
+    loop, so the single agent and every enqueue share one event."""
+    global _job_ready, _job_loop
+    loop = asyncio.get_running_loop()
+    if _job_ready is None or _job_loop is not loop:
+        _job_ready = asyncio.Event()
+        _job_loop = loop
+    return _job_ready
+
 
 _last_seen: datetime | None = None
 
@@ -106,6 +137,9 @@ async def enqueue_print_job(db: AsyncSession, inc: Incident, payload: str, *,
     )
     db.add(job)
     await db.flush()
+    # Wake a long-polling agent. Set before this request commits: the claim's re-check window
+    # (CLAIM_RECHECK_SEC) covers the brief gap until the row is visible to its own session.
+    _job_event().set()
     return job
 
 
@@ -122,6 +156,20 @@ async def cancel_print_job(db: AsyncSession, job_id: uuid.UUID) -> dict:
     return {"job_id": str(job.id), "status": job.status}
 
 
+def job_view(job: PrintJob) -> dict:
+    """Lifecycle snapshot the client polls to drive the live «wird gedruckt … ✓» toast."""
+    return {
+        "id": str(job.id),
+        "status": job.status,  # queued | printing | done | failed | cancelled
+        "kind": job.kind,
+        "filename": job.filename,
+        "error": job.error,
+        "created_at": job.created_at.isoformat() if job.created_at else None,
+        "claimed_at": job.claimed_at.isoformat() if job.claimed_at else None,
+        "finished_at": job.finished_at.isoformat() if job.finished_at else None,
+    }
+
+
 @router.post("/incidents/{incident_id}/report/print")
 async def report_print(
     incident_id: uuid.UUID,
@@ -134,6 +182,36 @@ async def report_print(
         raise HTTPException(status_code=404, detail="Einsatz nicht gefunden")
     job = await enqueue_print_job(db, inc, payload, kind="report", requested_by=user.id)
     return {"job_id": str(job.id), "status": job.status}
+
+
+@router.post("/incidents/{incident_id}/report/print/prewarm")
+async def report_print_prewarm(
+    incident_id: uuid.UUID,
+    _user: CurrentUser,
+    payload: str = Form(...),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Speculatively warm the map-tile cache when the rapport modal opens, so the real
+    enqueue render is near-instant. Best-effort: no printer side effects, never fails hard."""
+    if not relay_available():
+        return {"ok": False}
+    inc = (await db.execute(select(Incident).where(Incident.id == incident_id))).scalar_one_or_none()
+    if inc is None:
+        raise HTTPException(status_code=404, detail="Einsatz nicht gefunden")
+    await warm_report_from_payload(payload)
+    return {"ok": True}
+
+
+@router.get("/print-jobs/{job_id}")
+async def report_print_job(
+    job_id: uuid.UUID,
+    _user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    job = (await db.execute(select(PrintJob).where(PrintJob.id == job_id))).scalar_one_or_none()
+    if job is None:
+        raise HTTPException(status_code=404, detail="Druckauftrag nicht gefunden")
+    return job_view(job)
 
 
 @router.delete("/print-jobs/{job_id}")
@@ -153,17 +231,10 @@ class AgentJobStatus(BaseModel):
     error: str | None = None
 
 
-@router.post("/print-agent/claim")
-async def agent_claim(
-    x_print_agent_secret: str | None = Header(default=None),
-    db: AsyncSession = Depends(get_db),
-):
-    """Atomically claim the oldest queued job (→ metadata JSON), or 204 when idle.
-    Every call is also the heartbeat that keeps the relay «online» in the UI."""
-    _check_agent_secret(x_print_agent_secret)
-    _mark_seen()
-    # Conditional UPDATE guards the claim (portable to the SQLite test harness, atomic on
-    # one row); the single agent makes real contention theoretical anyway.
+async def _try_claim(db: AsyncSession) -> dict | None:
+    """Atomically claim the oldest queued job, or None when the queue is empty.
+    Conditional UPDATE guards the claim (portable to the SQLite test harness, atomic on one
+    row); the single agent makes real contention theoretical anyway."""
     for _ in range(3):
         job = (
             await db.execute(
@@ -171,7 +242,7 @@ async def agent_claim(
             )
         ).scalar_one_or_none()
         if job is None:
-            return Response(status_code=status.HTTP_204_NO_CONTENT)
+            return None
         claimed = await db.execute(
             update(PrintJob)
             .where(PrintJob.id == job.id, PrintJob.status == "queued")
@@ -187,7 +258,37 @@ async def agent_claim(
                 "color": job.color,
                 "created_at": job.created_at.isoformat() if job.created_at else None,
             }
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    return None
+
+
+@router.post("/print-agent/claim")
+async def agent_claim(
+    x_print_agent_secret: str | None = Header(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    """Long-poll: claim the oldest queued job (→ metadata JSON), or hang up to CLAIM_HANG_SEC
+    and answer 204 when the queue stays idle. Woken instantly by `_job_ready` on enqueue.
+    Every call is also the heartbeat that keeps the relay «online» in the UI."""
+    _check_agent_secret(x_print_agent_secret)
+    _mark_seen()
+    loop = asyncio.get_running_loop()
+    ev = _job_event()
+    deadline = loop.time() + CLAIM_HANG_SEC
+    while True:
+        ev.clear()
+        job = await _try_claim(db)
+        if job is not None:
+            return job
+        # Nothing to claim — end the read transaction so we don't idle-in-transaction while
+        # the request hangs, then wait to be woken (or re-check after CLAIM_RECHECK_SEC).
+        await db.rollback()
+        remaining = deadline - loop.time()
+        if remaining <= 0:
+            return Response(status_code=status.HTTP_204_NO_CONTENT)
+        try:
+            await asyncio.wait_for(ev.wait(), timeout=min(CLAIM_RECHECK_SEC, remaining))
+        except TimeoutError:
+            pass
 
 
 @router.get("/print-agent/jobs/{job_id}/file")

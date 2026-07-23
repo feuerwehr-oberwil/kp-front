@@ -20,7 +20,8 @@ import { Splash } from '../components/Splash'
 import { currentLineFor, visibleMittel } from '../lib/mittel'
 import { applyTimeToIso } from '../lib/abschluss'
 import { Overlays, toast } from '../lib/ui'
-import { cancelPrint, capturePrintTransport, enqueuePrint, fetchPrintStatus, type PrintRelayStatus } from '../lib/printRelay'
+import { capturePrintTransport, enqueuePrint, fetchPrintStatus, type PrintRelayStatus } from '../lib/printRelay'
+import { trackPrintJob } from '../lib/printJobToast'
 import type { AttendanceEntry, MittelEntry } from '../types'
 import type { ReportMeta } from '../lib/workspace'
 import { Combo } from '../components/Combo'
@@ -576,16 +577,7 @@ export default function CaptureApp() {
       const t = capturePrintTransport(token)
       // stalled enqueue must clear printBusy into the failed-toast, never freeze the button
       const jobId = await withTimeout(enqueuePrint(t, incident.id, payload), 15_000)
-      toast(R.queued, {
-        icon: 'check',
-        action: {
-          label: R.undo,
-          onClick: () => {
-            void cancelPrint(t, jobId).then((ok) =>
-              toast(ok ? R.cancelled : R.undoTooLate, ok ? {} : { icon: 'warn', tone: 'warn' }))
-          },
-        },
-      })
+      trackPrintJob(t, jobId)
     } catch { toast(R.failed, { icon: 'warn', tone: 'warn' }) } finally { setPrintBusy(false) }
   }
 

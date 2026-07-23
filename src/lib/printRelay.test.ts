@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cancelPrint, capturePrintTransport, editorPrintTransport, enqueuePrint, fetchPrintStatus } from './printRelay'
+import { cancelPrint, capturePrintTransport, editorPrintTransport, enqueuePrint, fetchJobStatus, fetchPrintStatus, pollJobUntilDone, prewarmPrint } from './printRelay'
 
 const jsonResponse = (body: unknown, ok = true, status = 200) =>
   ({ ok, status, json: async () => body }) as Response
@@ -13,6 +13,8 @@ describe('print transports', () => {
     const t = editorPrintTransport('')
     expect(t.statusUrl).toBe('/api/print/status')
     expect(t.enqueueUrl('inc-1')).toBe('/api/incidents/inc-1/report/print')
+    expect(t.prewarmUrl('inc-1')).toBe('/api/incidents/inc-1/report/print/prewarm')
+    expect(t.jobUrl('job-1')).toBe('/api/print-jobs/job-1')
     expect(t.cancelUrl('job-1')).toBe('/api/print-jobs/job-1')
     expect(t.headers).toBeUndefined()
   })
@@ -21,6 +23,8 @@ describe('print transports', () => {
     const t = capturePrintTransport('tok-123')
     expect(t.statusUrl).toBe('/api/capture/print/status')
     expect(t.enqueueUrl('inc-1')).toBe('/api/capture/incidents/inc-1/report/print')
+    expect(t.prewarmUrl('inc-1')).toBe('/api/capture/incidents/inc-1/report/print/prewarm')
+    expect(t.jobUrl('job-1')).toBe('/api/capture/print-jobs/job-1')
     expect(t.cancelUrl('job-1')).toBe('/api/capture/print-jobs/job-1')
     expect(t.headers).toEqual({ 'X-Capture-Token': 'tok-123' })
   })
@@ -67,5 +71,43 @@ describe('enqueuePrint / cancelPrint', () => {
     expect(await cancelPrint(editorPrintTransport(''), 'j1')).toBe(false)
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ status: 'cancelled' })))
     expect(await cancelPrint(editorPrintTransport(''), 'j1')).toBe(true)
+  })
+})
+
+describe('fetchJobStatus', () => {
+  it('maps the lifecycle shape', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ status: 'printing', error: null })))
+    expect(await fetchJobStatus(editorPrintTransport(''), 'j1')).toEqual({ status: 'printing', error: null })
+  })
+  it('returns null on error (caller keeps last known state)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({}, false, 404)))
+    expect(await fetchJobStatus(editorPrintTransport(''), 'j1')).toBeNull()
+  })
+})
+
+describe('pollJobUntilDone', () => {
+  it('reports each status change and stops at a terminal state', async () => {
+    const seq = ['queued', 'printing', 'done']
+    let i = 0
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ status: seq[Math.min(i++, seq.length - 1)] })))
+    const seen: string[] = []
+    const final = await pollJobUntilDone(editorPrintTransport(''), 'j1', (s) => seen.push(s.status), { intervalMs: 0 })
+    expect(seen).toEqual(['queued', 'printing', 'done'])
+    expect(final?.status).toBe('done')
+  })
+
+  it('gives up at the timeout without a terminal state', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ status: 'queued' })))
+    const final = await pollJobUntilDone(editorPrintTransport(''), 'j1', () => {}, { intervalMs: 0, timeoutMs: 5 })
+    expect(final?.status).toBe('queued')
+  })
+})
+
+describe('prewarmPrint', () => {
+  it('posts the payload and swallows failures (best-effort)', async () => {
+    const fetchMock = vi.fn(async () => { throw new Error('offline') })
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(prewarmPrint(editorPrintTransport(''), 'inc-1', { a: 1 })).resolves.toBeUndefined()
+    expect(fetchMock).toHaveBeenCalledWith('/api/incidents/inc-1/report/print/prewarm', expect.objectContaining({ method: 'POST' }))
   })
 })

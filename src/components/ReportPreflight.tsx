@@ -4,7 +4,8 @@ import { confirmDialog, toast } from '../lib/ui'
 import { buildDirectReportPayload, downloadDirectReportPdf } from '../lib/reportPdfDirect'
 import { KrokiFramingModal } from './KrokiFramingModal'
 import { Overlay } from '../lib/overlays'
-import { cancelPrint, editorPrintTransport, enqueuePrint, fetchPrintStatus, type PrintRelayStatus } from '../lib/printRelay'
+import { editorPrintTransport, enqueuePrint, fetchPrintStatus, prewarmPrint, type PrintRelayStatus } from '../lib/printRelay'
+import { trackPrintJob } from '../lib/printJobToast'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, hhmm, dtLocalValue, dtLocalToIso } from '../lib/format'
 import type { IncidentMeta } from '../lib/incidents'
@@ -272,6 +273,20 @@ export function ReportPreflight({
     void fetchPrintStatus(editorPrintTransport()).then((s) => { if (alive) setPrintStatus(s) })
     return () => { alive = false }
   }, [])
+  // Opening this modal is a strong «about to print» signal: once we know the relay is
+  // available and the report carries a Kroki, warm the server's map-tile cache so the real
+  // enqueue render is near-instant. Fire once, best-effort — reframes reuse overlapping tiles.
+  const warmedRef = useRef(false)
+  useEffect(() => {
+    if (warmedRef.current || !printStatus?.available || !options.kroki || mapContentCount === 0 || !scene) return
+    warmedRef.current = true
+    const payload = buildDirectReportPayload({
+      incident, draft: buildDraft(null), trupps, attendance, events, plans, mittel, scene, board, building,
+      roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
+    })
+    void prewarmPrint(editorPrintTransport(), incident.id, payload)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [printStatus?.available, options.kroki, mapContentCount])
   const R = appConfig.copy.printRelay
   const sendToPrinter = async (krokiView?: KrokiView | null) => {
     // ALWAYS confirm — «Ausdrucken» must never produce accidental paper; when the relay
@@ -288,16 +303,7 @@ export function ReportPreflight({
         roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
       })
       const jobId = await enqueuePrint(t, incident.id, payload)
-      toast(R.queued, {
-        icon: 'check',
-        action: {
-          label: R.undo,
-          onClick: () => {
-            void cancelPrint(t, jobId).then((ok) =>
-              toast(ok ? R.cancelled : R.undoTooLate, ok ? {} : { icon: 'warn', tone: 'warn' }))
-          },
-        },
-      })
+      trackPrintJob(t, jobId)
     } catch {
       toast(R.failed, { icon: 'warn', tone: 'warn' })
     } finally {

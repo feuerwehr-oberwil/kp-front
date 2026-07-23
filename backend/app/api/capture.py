@@ -297,6 +297,26 @@ async def capture_report_print(
     return {"job_id": str(job.id), "status": job.status}
 
 
+@router.get("/print-jobs/{job_id}")
+async def capture_print_job(
+    job_id: uuid.UUID,
+    request: Request,
+    x_capture_token: str | None = Header(default=None),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Poll a just-queued job's lifecycle (queued → printing → done/failed) for the live
+    toast. Token holders may only read jobs of incidents still reachable through the poster."""
+    await _check_token(db, request, x_capture_token)
+    from ..models import PrintJob
+    from .print_relay import job_view
+
+    job = (await db.execute(select(PrintJob).where(PrintJob.id == job_id))).scalar_one_or_none()
+    if job is None:
+        raise HTTPException(status_code=404, detail="Druckauftrag nicht gefunden")
+    await _get_in_window(db, job.incident_id)
+    return job_view(job)
+
+
 @router.delete("/print-jobs/{job_id}")
 async def capture_print_cancel(
     job_id: uuid.UUID,

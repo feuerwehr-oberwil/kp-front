@@ -465,6 +465,43 @@ def _fit_image(data: bytes | None, max_w: float, max_h: float) -> Image | None:
 
 # ----------------------------------------------------------------------------- composition
 
+# Print Kroki canvas size — the composer and the tile prewarm share it so both derive the
+# same View and hit identical tile-cache keys.
+_KROKI_PX = (1600, 940)
+
+
+def _kroki_view(pk, kw: int, kh: int):
+    """Derive the print View for a Kroki scene — shared by the composer and the tile prewarm."""
+    from . import kroki as kk
+
+    if pk.bounds and len(pk.bounds) == 4:
+        view = kk.bounds_view(tuple(pk.bounds), kw, kh)
+        # Bounds carry no camera zoom; retain it for print symbol scaling when present.
+        view.overlay_z = pk.zoom
+        return view
+    if pk.center and pk.zoom is not None:
+        return kk.center_view(tuple(pk.center), pk.zoom, kw, kh)
+    scene = kk.KrokiScene(entities=[e.model_dump() for e in pk.entities],
+                          drawings=[d.model_dump() for d in pk.drawings])
+    pts = [tuple(p) for p in pk.fitPoints] or scene.extent_points()
+    return kk.fit_view(pts, kw, kh)
+
+
+def warm_report_tiles(payload: ReportPayload) -> None:
+    """Fetch+cache the Kroki base tiles for this report's map view and discard the image, so
+    a later compose skips the network round-trips. Pure cache warming; never raises."""
+    opt = payload.options
+    if not (opt.kroki and payload.kroki is not None and payload.kroki.tiles):
+        return
+    try:
+        from . import kroki as kk
+
+        view = _kroki_view(payload.kroki, *_KROKI_PX)
+        kk.render_base(view, payload.kroki.tiles, cache=kk.get_tile_cache(),
+                       max_tile_z=payload.kroki.maxTileZoom or 19)
+    except Exception:
+        pass
+
 
 def compose_report_pdf(payload: ReportPayload, figures: dict[str, bytes],
                        plan_pdfs: dict[str, bytes] | None = None) -> bytes:
@@ -664,20 +701,12 @@ def compose_report_pdf(payload: ReportPayload, figures: dict[str, bytes],
 
         pack = kk.get_pack()
         if pack is not None and payload.kroki.tiles:
-            kw, kh = 1600, 940
+            kw, kh = _KROKI_PX
             scene = kk.KrokiScene(
                 entities=[e.model_dump() for e in payload.kroki.entities],
                 drawings=[d.model_dump() for d in payload.kroki.drawings],
             )
-            if payload.kroki.bounds and len(payload.kroki.bounds) == 4:
-                view = kk.bounds_view(tuple(payload.kroki.bounds), kw, kh)
-                # Bounds carry no camera zoom; retain it for print symbol scaling when present.
-                view.overlay_z = payload.kroki.zoom
-            elif payload.kroki.center and payload.kroki.zoom is not None:
-                view = kk.center_view(tuple(payload.kroki.center), payload.kroki.zoom, kw, kh)
-            else:
-                pts = [tuple(p) for p in payload.kroki.fitPoints] or scene.extent_points()
-                view = kk.fit_view(pts, kw, kh)
+            view = _kroki_view(payload.kroki, kw, kh)
             symbol_zoom = view.overlay_z if view.overlay_z is not None else view.z
             img_out = kk.render_kroki(scene, pack, payload.kroki.tiles, width=kw, height=kh,
                                      view=view, cache=kk.get_tile_cache(),

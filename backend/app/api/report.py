@@ -91,6 +91,20 @@ async def compose_report_from_payload(db: AsyncSession, payload: str,
     return pdf, data
 
 
+async def warm_report_from_payload(payload: str) -> None:
+    """Best-effort tile-cache prewarm (fired when the rapport modal opens). Validates the
+    payload and warms the Kroki base tiles off the event loop so a later compose skips the
+    slow network round-trips. Swallows everything — a warm miss just means the real render
+    pays the cost, exactly as before."""
+    try:
+        data = ReportPayload.model_validate_json(payload)
+    except ValidationError:
+        return
+    from ..report_pdf import warm_report_tiles
+
+    await anyio.to_thread.run_sync(warm_report_tiles, data)
+
+
 def report_filename(title: str) -> str:
     safe = "".join(c for c in title if c.isalnum() or c in " -_").strip().replace(" ", "_")[:60] or "Einsatzrapport"
     return f"Einsatzrapport_{safe}.pdf"
