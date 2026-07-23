@@ -4,6 +4,7 @@ import { toast } from '../../lib/ui'
 import { ApiError } from '../../lib/api'
 import { fillTemplate } from '../../lib/format'
 import { appConfig } from '../../config/appConfig'
+import { Segmented } from '../Segmented'
 import { externalMapLinks } from '../../lib/deploymentConfig'
 import {
   inspectGeojson,
@@ -138,12 +139,8 @@ export function DatenquellenPanel({ isEditor, incidentCoord, onClose }: {
             <input className="ip-search" placeholder={ds.labelPlaceholder} value={nLabel} onChange={(e) => setNLabel(e.target.value)} />
             <input className="ip-search" placeholder={ds.groupPlaceholder} value={nGroup} onChange={(e) => setNGroup(e.target.value)} />
             <div className="ip-addlayer-row">
-              <div className="set-seg" role="group" aria-label={ds.kindLines}>
-                {([['line', ds.kindLines], ['point', ds.kindPoints]] as const).map(([k, label]) => (
-                  <button key={k} type="button" className={`set-seg-btn${nKind === k ? ' on' : ''}`}
-                    aria-pressed={nKind === k} onClick={() => setNKind(k)}>{label}</button>
-                ))}
-              </div>
+              <Segmented<'line' | 'point'> ariaLabel={ds.kindLines} value={nKind} onChange={setNKind}
+                options={[{ value: 'line', label: ds.kindLines }, { value: 'point', label: ds.kindPoints }]} />
               <input type="color" value={nColor} onChange={(e) => setNColor(e.target.value)} aria-label={ds.color} />
               <button type="button" className="ip-btn" disabled={!nf || !nLabel.trim() || busy} onClick={() => void addLayer()}>
                 {busy ? ds.adding : ds.add}

@@ -2330,10 +2330,9 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .set-row-l { display: flex; flex-direction: column; gap: 2px; font: 600 14.5px var(--body); color: var(--ink); }
 .set-row-l small { font: 500 12px var(--body); color: var(--ink-faint); }
 .set-group-foot { margin: 2px 4px 0; font: 500 12px var(--body); color: var(--ink-faint); line-height: 1.4; }
-.set-seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: var(--r-sm); background: color-mix(in srgb, var(--ink) 8%, transparent); }
-.set-seg-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 40px; padding: 5px 13px; border: none; background: none; border-radius: calc(var(--r-sm) - 3px);
-  cursor: pointer; color: var(--ink-faint); font: 600 13px var(--body); transition: background .14s var(--ease), color .14s var(--ease); white-space: nowrap; }
-.set-seg-btn:hover { color: var(--ink); }
+/* the Einstellungen segmented controls + ±steppers now use the shared <Segmented>/.useg and
+   <Stepper>/.step (components/Segmented, components/Stepper) — the old .set-seg / .set-step chrome
+   was a duplicate and has been removed. */
 /* utility action row (Leeres Erfassungsblatt) — a download button, not a segmented setting */
 .set-dl { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 6px 14px;
   border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface);
@@ -2341,23 +2340,6 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .set-dl:hover:not(:disabled) { border-color: var(--glass-line); }
 .set-dl:disabled { opacity: .5; }
 .set-dl svg { width: 15px; height: 15px; }
-.set-seg-btn.on { background: var(--surface); color: var(--blue); font-weight: 700; box-shadow: 0 1px 3px rgba(0,0,0,.14); }
-/* gloved field use: segmented options are a dense picker — enlarge directly (house rule) */
-@media (pointer: coarse) { .set-seg-btn { min-height: 44px; } }
-.set-step { display: inline-flex; align-items: center; gap: 6px; }
-.set-step b { min-width: 58px; text-align: center; font: 700 14px var(--body); color: var(--ink); }
-/* tap-to-type: the value as a button, then the inline numeric input (both match .set-step b) */
-.set-step-val { min-width: 58px; text-align: center; font: 700 14px var(--body); color: var(--ink);
-  border: none; background: transparent; cursor: pointer; padding: 3px 4px; border-radius: var(--r-xs); }
-.set-step-val:hover:not(:disabled) { background: color-mix(in srgb, var(--blue) 10%, var(--surface)); }
-.set-step-val:disabled { cursor: default; }
-.set-step-input { width: 58px; box-sizing: border-box; text-align: center; font: 700 14px var(--body); color: var(--ink);
-  border: 1px solid var(--blue); border-radius: var(--r-xs); background: var(--surface); padding: 2px 3px; outline: none; }
-.set-step button { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--glass-edge);
-  background: var(--surface); border-radius: var(--r-sm); cursor: pointer; color: var(--ink); transition: background .14s var(--ease), border-color .14s var(--ease); }
-.set-step button:hover:not(:disabled) { background: color-mix(in srgb, var(--blue) 10%, var(--surface)); border-color: color-mix(in srgb, var(--blue) 30%, var(--glass-edge)); }
-.set-step button:disabled { opacity: .35; cursor: default; }
-.set-step button svg { width: 15px; height: 15px; }
 
 /* Offline-Bereitschaft sheet — a glanceable readiness checklist + one load-all action */
 .or-sheet { display: flex; flex-direction: column; gap: 14px; }
@@ -3447,7 +3429,7 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
      stay inline while long ones wrap and the stepper doesn't sit left while segments sit right */
   .set-row { flex-wrap: wrap; row-gap: 12px; }
   .set-row-l { flex: 1 1 100%; }
-  .set-row .set-seg, .set-row .set-step { margin-left: auto; }
+  .set-row .useg, .set-row .step { margin-left: auto; }
 
   /* Einsätze list rows: title + two status badges + the Reaktivieren button never fit one
      line — badges slid under the button and the title crushed to one character. Text block

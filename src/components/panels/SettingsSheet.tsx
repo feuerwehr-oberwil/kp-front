@@ -2,44 +2,14 @@ import { useState } from 'react'
 import { Icon } from '../../lib/icons'
 import { toast } from '../../lib/ui'
 import { loadPrefs, savePrefs, applyTheme, resolveTheme, type ThemeMode, type SymbolSize } from '../../lib/prefs'
-import { useHoldRepeat } from '../../lib/useHoldRepeat'
-import { useTapToType } from '../../lib/useTapToType'
 import { appConfig } from '../../config/appConfig'
 import type { IncidentSettings } from '../../lib/workspace'
 import type { CaptionMode } from '../../types'
 import { atemschutzDoctrine, getDeploymentConfig } from '../../lib/deploymentConfig'
 import { listPersonnel } from '../../lib/incidents'
 import { Modal } from './_shared'
-
-/** A `.set-step` ±stepper for the Einstellungen sheet: press-and-hold to repeat, and tap the
- *  value to type an exact number (clamped to [min,max]). Disabled greys the whole control. */
-function SetStep({ value, min, max, step = 1, format, onChange, disabled, label }: {
-  value: number
-  min: number
-  max: number
-  step?: number
-  format: (v: number) => string
-  onChange: (v: number) => void
-  disabled?: boolean
-  label: string
-}) {
-  const clamp = (v: number) => Math.max(min, Math.min(max, v))
-  const dec = useHoldRepeat(() => onChange(clamp(value - step)))
-  const inc = useHoldRepeat(() => onChange(clamp(value + step)))
-  const edit = useTapToType({ min, max, onCommit: onChange })
-  const st = appConfig.copy.stepper
-  return (
-    <span className="set-step">
-      <button {...(disabled ? {} : dec)} disabled={disabled || value <= min} aria-label={`${label} ${st.less}`}><Icon id="minus" /></button>
-      {edit.editing ? (
-        <input className="set-step-input" {...edit.inputProps} />
-      ) : (
-        <button className="set-step-val" onClick={() => edit.start(value)} disabled={disabled} title={st.typeToEnter}>{format(value)}</button>
-      )}
-      <button {...(disabled ? {} : inc)} disabled={disabled || value >= max} aria-label={`${label} ${st.more}`}><Icon id="plus" /></button>
-    </span>
-  )
-}
+import { Segmented } from '../Segmented'
+import { Stepper } from '../Stepper'
 
 /** Einstellungen: device prefs (theme, symbol size — local cookie) in one section, and
  *  synced per-incident settings (Atemschutz interval — stored in the workspace blob, so
@@ -140,52 +110,33 @@ export function SettingsSheet({
           <div className="set-card">
             <div className="set-row">
               <span className="set-row-l">{cp.colorScheme}</span>
-              <span className="set-seg" role="group" aria-label={cp.colorScheme}>
-                {themeOpts.map(({ m, label }) => (
-                  <button key={m} className={`set-seg-btn${themeMode === m ? ' on' : ''}`} aria-pressed={themeMode === m} onClick={() => setTheme(m)}>{label}</button>
-                ))}
-              </span>
+              <Segmented<ThemeMode> ariaLabel={cp.colorScheme} value={themeMode} onChange={setTheme}
+                options={themeOpts.map(({ m, label }) => ({ value: m, label }))} />
             </div>
             <div className="set-row">
               <span className="set-row-l">{cp.symbolSize}</span>
-              <span className="set-seg" role="group" aria-label={cp.symbolSize}>
-                {(['S', 'M', 'L'] as SymbolSize[]).map((s) => (
-                  <button key={s} className={`set-seg-btn${symbolSize === s ? ' on' : ''}`} aria-pressed={symbolSize === s} onClick={() => onSymbolSize(s)}>{s}</button>
-                ))}
-              </span>
+              <Segmented<SymbolSize> ariaLabel={cp.symbolSize} value={symbolSize} onChange={onSymbolSize}
+                options={(['S', 'M', 'L'] as SymbolSize[]).map((s) => ({ value: s, label: s }))} />
             </div>
             <div className="set-row">
               <span className="set-row-l">{cp.symbolCaptions}<small>{cp.symbolCaptionsSub}</small></span>
-              <span className="set-seg" role="group" aria-label={cp.symbolCaptions}>
-                {captionOpts.map(({ m, label }) => (
-                  <button key={m} className={`set-seg-btn${symbolCaptions === m ? ' on' : ''}`} aria-pressed={symbolCaptions === m} onClick={() => onSymbolCaptions(m)}>{label}</button>
-                ))}
-              </span>
+              <Segmented<CaptionMode> ariaLabel={cp.symbolCaptions} value={symbolCaptions} onChange={onSymbolCaptions}
+                options={captionOpts.map(({ m, label }) => ({ value: m, label }))} />
             </div>
             <div className="set-row">
               <span className="set-row-l">{cp.offlineRadius}<small>{cp.offlineRadiusSub}</small></span>
-              <SetStep value={offlineRadiusM} min={500} max={3000} step={250} format={(v) => (v < 1000 ? `${v} m` : `${v / 1000} km`)} onChange={onOfflineRadius} label={cp.offlineRadius} />
+              <Stepper value={offlineRadiusM} min={500} max={3000} step={250} format={(v) => (v < 1000 ? `${v} m` : `${v / 1000} km`)} onChange={onOfflineRadius} ariaLabel={cp.offlineRadius} />
             </div>
             <div className="set-row">
               <span className="set-row-l">{cp.keepScreenOn}<small>{cp.keepScreenOnSub}</small></span>
-              <span className="set-seg" role="group" aria-label={cp.keepScreenOn}>
-                {([['on', true], ['off', false]] as const).map(([k, v]) => (
-                  <button key={k} className={`set-seg-btn${keepScreenOn === v ? ' on' : ''}`} aria-pressed={keepScreenOn === v} onClick={() => onKeepScreenOn(v)}>
-                    {k === 'on' ? cp.keepScreenOnOn : cp.keepScreenOnOff}
-                  </button>
-                ))}
-              </span>
+              <Segmented<boolean> ariaLabel={cp.keepScreenOn} value={keepScreenOn} onChange={onKeepScreenOn}
+                options={[{ value: true, label: cp.keepScreenOnOn }, { value: false, label: cp.keepScreenOnOff }]} />
             </div>
             {onElView && (
               <div className="set-row">
                 <span className="set-row-l">{cp.elView}<small>{cp.elViewSub}</small></span>
-                <span className="set-seg" role="group" aria-label={cp.elView}>
-                  {([['on', true], ['off', false]] as const).map(([k, v]) => (
-                    <button key={k} className={`set-seg-btn${elView === v ? ' on' : ''}`} aria-pressed={elView === v} onClick={() => onElView(v)}>
-                      {k === 'on' ? cp.elViewOn : cp.elViewOff}
-                    </button>
-                  ))}
-                </span>
+                <Segmented<boolean> ariaLabel={cp.elView} value={elView} onChange={onElView}
+                  options={[{ value: true, label: cp.elViewOn }, { value: false, label: cp.elViewOff }]} />
               </div>
             )}
           </div>
@@ -198,15 +149,15 @@ export function SettingsSheet({
           <div className="set-card">
             <div className="set-row">
               <span className="set-row-l">{cp.contactInterval}<small>{cp.contactIntervalSub}</small></span>
-              <SetStep value={intervalMin} min={1} max={60} format={(v) => `${v} min`} onChange={setIntervalMin} disabled={!canEdit} label={cp.contactIntervalAria} />
+              <Stepper value={intervalMin} min={1} max={60} format={(v) => `${v} min`} onChange={setIntervalMin} readOnly={!canEdit} ariaLabel={cp.contactIntervalAria} />
             </div>
             <div className="set-row">
               <span className="set-row-l">{cp.grace}<small>{cp.graceSub}</small></span>
-              <SetStep value={graceSec} min={0} max={300} step={15} format={(v) => `${v} s`} onChange={setGraceSec} disabled={!canEdit} label={cp.grace} />
+              <Stepper value={graceSec} min={0} max={300} step={15} format={(v) => `${v} s`} onChange={setGraceSec} readOnly={!canEdit} ariaLabel={cp.grace} />
             </div>
             <div className="set-row">
               <span className="set-row-l">{cp.funkkanal}<small>{cp.funkkanalSub}</small></span>
-              <SetStep value={funkkanal} min={az.funkkanalMin} max={az.funkkanalMax} format={(v) => `K ${v}`} onChange={setFunkkanal} disabled={!canEdit} label={cp.funkkanal} />
+              <Stepper value={funkkanal} min={az.funkkanalMin} max={az.funkkanalMax} format={(v) => `K ${v}`} onChange={setFunkkanal} readOnly={!canEdit} ariaLabel={cp.funkkanal} />
             </div>
           </div>
           <p className="set-group-foot">

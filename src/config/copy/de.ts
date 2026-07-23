@@ -1250,7 +1250,7 @@ export const de = {
     tiles: 'Tiles',
     recording: 'REC',
   },
-  // shared compact ±stepper chrome (Stepper.tsx + the Einstellungen SetStep)
+  // shared compact ±stepper chrome (Stepper.tsx — used everywhere incl. the Einstellungen sheet)
   stepper: {
     less: 'weniger',
     more: 'mehr',
