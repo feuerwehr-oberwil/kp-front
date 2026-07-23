@@ -15,6 +15,7 @@ import { fillTemplate, formatSymbolName, formatTime, initials, roleLabel } from 
 import { formatAudioDuration } from './lib/audioImport'
 import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys } from './lib/symbols'
 import { circlePolygon, fmtLV95, fmtWGS, haversineM } from './lib/geo'
+import { lineLabel } from './lib/lineDecor'
 import { panelNudge, panelNudgeUp, panelNudgeBox, panelNudgeBoxUp, isBottomSheet } from './lib/panelNudge'
 import { useMeasure } from './lib/useMeasure'
 import { useCoordPicker } from './lib/useCoordPicker'
@@ -2002,7 +2003,7 @@ function IncidentWorkspace({
           onDelete={() => deleteEntity(selected.id)}
           hasOverride={vehicleOverrides[selected.id] != null}
           onResetGps={selected.live ? () => setVehicleOverrides((m) => { const { [selected.id]: _drop, ...rest } = m; return rest }) : undefined}
-          connectedLines={drawings.filter((d) => [d.startAttachment, d.endAttachment].some((a) => a?.target.kind === 'object' && a.target.id === selected.id)).map((d) => ({ id: d.id, label: d.label ?? `${appConfig.copy.drawingEditor.drawing} ${d.id}` }))}
+          connectedLines={drawings.filter((d) => [d.startAttachment, d.endAttachment].some((a) => a?.target.kind === 'object' && a.target.id === selected.id)).map((d) => ({ id: d.id, label: lineLabel(d) }))}
           onFocusLine={focusDrawing}
         />
       )}
@@ -2029,7 +2030,8 @@ function IncidentWorkspace({
           attachmentLabels={Object.fromEntries((['start', 'end'] as const).flatMap((endpoint) => {
             const a = endpoint === 'start' ? selectedDrawing.startAttachment : selectedDrawing.endAttachment
             if (!a) return []
-            const label = a.target.kind === 'object' ? entities.find((e) => e.id === a.target.id)?.label ?? a.target.id : `${appConfig.copy.drawingEditor.drawing} ${a.target.id}`
+            const targetLine = drawings.find((x) => x.id === a.target.id)
+            const label = a.target.kind === 'object' ? entities.find((e) => e.id === a.target.id)?.label ?? a.target.id : targetLine ? lineLabel(targetLine) : appConfig.copy.drawingEditor.line
             return [[endpoint, label]]
           }))}
           onRouting={(endpoint, routing) => setGpsRouting(selectedDrawing, endpoint, routing)}

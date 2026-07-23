@@ -550,7 +550,7 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
         </>}
         {connectedLines.length > 0 && <div className="ctx-section ctx-connections">
           <span className="ctx-section-label">{appConfig.copy.drawingEditor.connectedLines.replace('{n}', String(connectedLines.length))}</span>
-          {connectedLines.map((line) => <button key={line.id} onClick={() => onFocusLine?.(line.id)}><span>{line.label}</span><span>{appConfig.copy.drawingEditor.showConnection}</span></button>)}
+          {connectedLines.map((line) => <button key={line.id} onClick={() => onFocusLine?.(line.id)}><span>{line.label}</span><span className="ctx-conn-go" aria-hidden>›</span></button>)}
         </div>}
         <div className="ctx-footer-inline">{caprow}{actions}</div>
       </div>

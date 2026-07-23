@@ -1,4 +1,5 @@
 import { floorBadge } from './symbolRender'
+import { forkDims } from './lineAttachments'
 import { appConfig } from '../config/appConfig'
 
 // FKS hose-line decorations shared by the Lage map (DOM markers over MapLibre) and the Plan
@@ -11,6 +12,15 @@ export const CONTENT_LABELS: Record<string, string> = new Proxy(
   { get: (_t, letter: string) => appConfig.copy.lineDecor[letter] ?? letter },
 )
 
+/** A friendly name for a hose line in lists (connected-lines, focus targets) — its FKS
+ *  descriptor (Leitung Nr. / content letter) instead of the raw internal id. */
+export function lineLabel(a: { label?: string; lineNo?: number; content?: string }): string {
+  if (a.label) return a.label
+  if (a.lineNo != null) return appConfig.copy.drawingEditor.lineLabelNo.replace('{n}', String(a.lineNo))
+  if (a.content) return CONTENT_LABELS[a.content]
+  return appConfig.copy.drawingEditor.line
+}
+
 /** A line carries any FKS decoration? (gates the per-line decoration render on both surfaces) */
 export function hasLineDecor(a: { teilstueck?: boolean; content?: string; lineNo?: number; floorTag?: number }): boolean {
   return !!a.teilstueck || !!a.content || a.lineNo != null || a.floorTag != null
@@ -20,8 +30,7 @@ export function hasLineDecor(a: { teilstueck?: boolean; content?: string; lineNo
  *  short prongs pointing the way the line travels. Drawn in a tip-centred viewBox and rotated
  *  by the line's SCREEN angle (deg), so the spine pins to the end point at any map bearing. */
 export function TeilstueckFork({ angleDeg, color, width = 5 }: { angleDeg: number; color: string; width?: number }) {
-  const half = Math.max(8, width * 1.7)   // spine half-height
-  const prong = half * 1.05               // prong length, forward (+x)
+  const { half, prong } = forkDims(width) // spine half-height + forward (+x) prong length
   const sw = Math.max(2, width * 0.9)
   const box = (half + prong) * 2 + 8
   return (

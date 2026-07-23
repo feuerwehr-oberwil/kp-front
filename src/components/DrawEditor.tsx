@@ -1,3 +1,4 @@
+import { Fragment } from 'react'
 import { Icon } from '../lib/icons'
 import { SheetGrip } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
@@ -237,27 +238,44 @@ export function DrawEditor({ drawing, pointCount, supportsDistance = false, onCo
         )}
         {isLine && (drawing.startAttachment || drawing.endAttachment) && (
           <div className="de-group de-connections">
-            <div className="de-section-title">{appConfig.copy.drawingEditor.connections}</div>
+            <div className="de-conn-title">{appConfig.copy.drawingEditor.connections}</div>
             {(['start', 'end'] as const).map((endpoint) => {
               const a = endpoint === 'start' ? drawing.startAttachment : drawing.endAttachment
               if (!a) return null
-              return <div className="de-connection" key={endpoint}>
-                <div className="de-connection-head"><b>{endpoint === 'start' ? appConfig.copy.drawingEditor.connectedStart : appConfig.copy.drawingEditor.connectedEnd}</b><span>{attachmentLabels?.[endpoint] ?? a.target.id}</span></div>
-                {a.gps?.state === 'continuous' && <small>{appConfig.copy.drawingEditor.gpsFollowing}</small>}
-                {a.gps?.state === 'paused' && <small>{appConfig.copy.drawingEditor.gpsMovingAway}</small>}
-                {attachmentHidden?.[endpoint] && <small>{appConfig.copy.drawingEditor.hiddenTarget}</small>}
-                <div className="de-connection-actions">
-                  {onFocusAttachment && <button onClick={() => onFocusAttachment(endpoint)}>{appConfig.copy.drawingEditor.showConnection}</button>}
-                  {attachmentHidden?.[endpoint] && onRevealAttachment && <button onClick={() => onRevealAttachment(endpoint)}>{appConfig.copy.drawingEditor.revealTarget}</button>}
-                  {onRouting && a.gps?.state === 'paused' && <button onClick={() => onRouting(endpoint, 'trace')}>{appConfig.copy.drawingEditor.gpsContinue}</button>}
-                  {onRouting && a.gps?.state === 'continuous' && <button onClick={() => onRouting(endpoint, 'direct')}>{appConfig.copy.drawingEditor.gpsPause}</button>}
-                  {onRouting && !a.gps && <button className={a.routing === 'direct' ? 'on' : ''} onClick={() => onRouting(endpoint, 'direct')}>{appConfig.copy.drawingEditor.routeDirect}</button>}
-                  {onRouting && !a.gps && <button className={a.routing === 'trace' ? 'on' : ''} onClick={() => onRouting(endpoint, 'trace')}>{appConfig.copy.drawingEditor.routeTrace}</button>}
-                  {onRouting && a.gps?.state === 'guarded' && <button className="on" onClick={() => onRouting(endpoint, 'direct')}>{appConfig.copy.drawingEditor.routeDirect}</button>}
-                  {onRouting && a.gps?.state === 'guarded' && <button onClick={() => onRouting(endpoint, 'trace')}>{appConfig.copy.drawingEditor.routeTrace}</button>}
-                  {onDetach && <button className="warn" onClick={() => onDetach(endpoint)}>{a.gps?.state === 'paused' ? appConfig.copy.drawingEditor.gpsDetachHere : appConfig.copy.drawingEditor.detachConnection}</button>}
+              const gps = a.gps?.state, hidden = !!attachmentHidden?.[endpoint]
+              const name = attachmentLabels?.[endpoint] ?? a.target.id
+              const note = gps === 'continuous' ? appConfig.copy.drawingEditor.gpsFollowing
+                : gps === 'paused' ? appConfig.copy.drawingEditor.gpsMovingAway
+                : hidden ? appConfig.copy.drawingEditor.hiddenTarget : null
+              return <Fragment key={endpoint}>
+                {/* endpoint → target: same de-row as the FKS rows above; the value taps to fly there */}
+                <div className="de-row"><span>{endpoint === 'start' ? appConfig.copy.drawingEditor.connectedStart : appConfig.copy.drawingEditor.connectedEnd}</span>
+                  <button type="button" className="de-conn-name" onClick={onFocusAttachment ? () => onFocusAttachment(endpoint) : undefined} disabled={!onFocusAttachment}>
+                    <span>{name}</span>{onFocusAttachment && <span className="de-conn-go" aria-hidden>›</span>}
+                  </button>
                 </div>
-              </div>
+                {note && <div className={`de-conn-note${gps === 'paused' ? ' warn' : ''}`}>
+                  <span>{note}</span>
+                  {hidden && onRevealAttachment && <button type="button" className="de-conn-reveal" onClick={() => onRevealAttachment(endpoint)}>{appConfig.copy.drawingEditor.revealTarget}</button>}
+                </div>}
+                {onRouting && (
+                  <div className="de-row"><span>{appConfig.copy.drawingEditor.route}</span>
+                    <span className="de-presets">
+                      {gps === 'paused'
+                        ? <button className="de-preset" onClick={() => onRouting(endpoint, 'trace')}>{appConfig.copy.drawingEditor.gpsContinue}</button>
+                        : gps === 'continuous'
+                        ? <button className="de-preset on" onClick={() => onRouting(endpoint, 'direct')}>{appConfig.copy.drawingEditor.gpsPause}</button>
+                        : <>
+                            <button className={`de-preset ${a.routing === 'direct' ? 'on' : ''}`} onClick={() => onRouting(endpoint, 'direct')}>{appConfig.copy.drawingEditor.routeDirect}</button>
+                            <button className={`de-preset ${a.routing === 'trace' ? 'on' : ''}`} onClick={() => onRouting(endpoint, 'trace')}>{appConfig.copy.drawingEditor.routeTrace}</button>
+                          </>}
+                    </span>
+                  </div>
+                )}
+                {onDetach && <div className="de-row de-conn-detach-row"><span aria-hidden />
+                  <button type="button" className="de-conn-detach" onClick={() => onDetach(endpoint)}>{gps === 'paused' ? appConfig.copy.drawingEditor.gpsDetachHere : appConfig.copy.drawingEditor.detachConnection}</button>
+                </div>}
+              </Fragment>
             })}
           </div>
         )}
