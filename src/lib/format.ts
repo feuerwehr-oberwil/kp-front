@@ -73,6 +73,19 @@ export function hhmm(date: Date): string {
   return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`
 }
 
+/** ISO ⇄ <input type="datetime-local"> string (local time, minute precision). */
+export function dtLocalValue(iso?: string | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+}
+export function dtLocalToIso(local: string): string | undefined {
+  if (!local) return undefined
+  const d = new Date(local)
+  return Number.isNaN(d.getTime()) ? undefined : d.toISOString()
+}
+
 export function formatTime(date: Date, withSeconds = false): string {
   return date.toLocaleTimeString(appConfig.locale, {
     hour: '2-digit',

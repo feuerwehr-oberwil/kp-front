@@ -6,7 +6,7 @@ import { KrokiFramingModal } from './KrokiFramingModal'
 import { Overlay } from '../lib/overlays'
 import { cancelPrint, editorPrintTransport, enqueuePrint, fetchPrintStatus, type PrintRelayStatus } from '../lib/printRelay'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate, hhmm } from '../lib/format'
+import { fillTemplate, hhmm, dtLocalValue, dtLocalToIso } from '../lib/format'
 import type { IncidentMeta } from '../lib/incidents'
 import { getIncident, verifyChain } from '../lib/incidents'
 import type { FahrzeugZeit, GruppeZeit, ReportMeta } from '../lib/workspace'
@@ -25,20 +25,6 @@ import { Segmented } from './Segmented'
 import { Stepper } from './Stepper'
 
 const NO_IDS = new Set<string>()
-
-function localValue(iso?: string): string {
-  if (!iso) return ''
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
-}
-
-function isoValue(local: string): string | undefined {
-  if (!local) return undefined
-  const d = new Date(local)
-  return Number.isNaN(d.getTime()) ? undefined : d.toISOString()
-}
 
 /** HH:MM display value for the compact time inputs of the Zeiten grid. */
 function clockOf(iso?: string): string {
@@ -165,8 +151,8 @@ export function ReportPreflight({
   const [summary, setSummary] = useState(reportMeta.summary ?? '')
   const [kontaktperson, setKontaktperson] = useState(reportMeta.kontaktperson ?? '')
   const [einsatzleiter, setEinsatzleiter] = useState(reportMeta.einsatzleiter ?? '')
-  const [endedAt, setEndedAt] = useState(localValue(reportMeta.endedAt ?? incident.closed_at ?? undefined))
-  const [ausgerueckt, setAusgerueckt] = useState(localValue(reportMeta.ausgeruecktAt))
+  const [endedAt, setEndedAt] = useState(dtLocalValue(reportMeta.endedAt ?? incident.closed_at ?? undefined))
+  const [ausgerueckt, setAusgerueckt] = useState(dtLocalValue(reportMeta.ausgeruecktAt))
   const [remarks, setRemarks] = useState(reportMeta.remarks ?? '')
   const [lehren, setLehren] = useState(reportMeta.lehren ?? '')
   // Alarmierungs-/Ausrückzeiten grid (G1/G2) + the paper-form Details fields (G4).
@@ -224,8 +210,8 @@ export function ReportPreflight({
     summary: summary.trim() || undefined,
     kontaktperson: kontaktperson.trim() || undefined,
     einsatzleiter: einsatzleiter.trim() || undefined,
-    endedAt: isoValue(endedAt),
-    ausgeruecktAt: derivedAus ?? isoValue(ausgerueckt),
+    endedAt: dtLocalToIso(endedAt),
+    ausgeruecktAt: derivedAus ?? dtLocalToIso(ausgerueckt),
     remarks: remarks.trim() || undefined,
     lehren: lehren.trim() || undefined,
     gruppen: gruppen.length ? gruppen : undefined,
@@ -442,8 +428,8 @@ export function ReportPreflight({
               <label className="ip-field">
                 <span>{A.ausgerueckt}</span>
                 <div className="report-meta-end dtrow">
-                  <DateTimeField ariaLabel={A.ausgerueckt} value={isoValue(ausgerueckt)}
-                    onCommit={(iso) => { setAusgerueckt(localValue(iso ?? undefined)); persist({ ausgeruecktAt: iso ?? undefined }) }} />
+                  <DateTimeField ariaLabel={A.ausgerueckt} value={dtLocalToIso(ausgerueckt)}
+                    onCommit={(iso) => { setAusgerueckt(dtLocalValue(iso ?? undefined)); persist({ ausgeruecktAt: iso ?? undefined }) }} />
                 </div>
               </label>
             ) : null}
@@ -462,7 +448,7 @@ export function ReportPreflight({
                 const iso = hhmm ? applyTimeToIso(incident.started_at, hhmm) : null
                 const next = setFahrzeugZeit(fahrzeuge, id, 'ausgerueckt', iso)
                 setFahrzeuge(next)
-                persist({ fahrzeuge: next.length ? next : undefined, ausgeruecktAt: deriveAusgerueckt(next) ?? isoValue(ausgerueckt) })
+                persist({ fahrzeuge: next.length ? next : undefined, ausgeruecktAt: deriveAusgerueckt(next) ?? dtLocalToIso(ausgerueckt) })
               }
               return (
                 <>
@@ -506,9 +492,9 @@ export function ReportPreflight({
             <label className="ip-field">
               <span>{P.incidentEndLabel}</span>
               <div className="report-meta-end dtrow">
-                <DateTimeField ariaLabel={P.incidentEndLabel} value={isoValue(endedAt)}
-                  onCommit={(iso) => { setEndedAt(localValue(iso ?? undefined)); persist({ endedAt: iso ?? undefined }) }} />
-                <button type="button" className="ip-btn" onClick={() => { const v = localValue(new Date().toISOString()); setEndedAt(v); persist({ endedAt: isoValue(v) }) }}>{P.now}</button>
+                <DateTimeField ariaLabel={P.incidentEndLabel} value={dtLocalToIso(endedAt)}
+                  onCommit={(iso) => { setEndedAt(dtLocalValue(iso ?? undefined)); persist({ endedAt: iso ?? undefined }) }} />
+                <button type="button" className="ip-btn" onClick={() => { const v = dtLocalValue(new Date().toISOString()); setEndedAt(v); persist({ endedAt: dtLocalToIso(v) }) }}>{P.now}</button>
               </div>
             </label>
             <label className="ip-field">
@@ -558,7 +544,7 @@ export function ReportPreflight({
                     {rows.map((r) => (
                       <span key={r.personId} className="rp-person">
                         {r.name}
-                        {r.to && <em>{fillTemplate(A.leftEarly, { t: localValue(r.to).slice(11) })}</em>}
+                        {r.to && <em>{fillTemplate(A.leftEarly, { t: dtLocalValue(r.to).slice(11) })}</em>}
                       </span>
                     ))}
                   </div>
