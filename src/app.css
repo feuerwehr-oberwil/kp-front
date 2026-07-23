@@ -2043,8 +2043,10 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 /* explicit detach affordance: a chip beside a selected, connected endpoint (map + plan). Sized for
    fat fingers — it's the only on-canvas control that both signals "connected" and breaks the link. */
 .line-detach-chip { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%;
-  border: 3px solid var(--red); background: var(--surface); color: var(--red); font-size: 24px; font-weight: 800;
-  line-height: 1; box-shadow: 0 2px 6px rgba(30, 45, 70, .34); cursor: pointer; }
+  border: 3px solid var(--red); background: var(--surface); color: var(--red);
+  box-shadow: 0 2px 6px rgba(30, 45, 70, .34); cursor: pointer; }
+/* the geometrically-centred close glyph — a text "×" sits off-centre by its font metrics */
+.line-detach-chip .i { width: 20px; height: 20px; stroke-width: 2.6; vertical-align: baseline; }
 .line-detach-chip:active { transform: scale(1.1); }
 .network-halo { position: absolute; inset: -7px; border: 2px solid color-mix(in srgb, var(--accent) 55%, transparent); border-radius: 50%; pointer-events: none; }
 .hidden-attachment-marker { width: 14px; height: 14px; border: 2px dashed var(--accent); border-radius: 50%; background: color-mix(in srgb, var(--surface) 80%, transparent); }

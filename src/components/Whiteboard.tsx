@@ -1579,7 +1579,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                   title={appConfig.copy.drawingEditor.detachConnection} aria-label={appConfig.copy.drawingEditor.detachConnection}
                   style={{ left: p[0] * sW + 16, top: mapY(p[2] ?? selDraw.floor, p[1]) * sH - 16 }}
                   onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => { e.stopPropagation(); detachPlanEndpoint(ep) }}>×</span>
+                  onClick={(e) => { e.stopPropagation(); detachPlanEndpoint(ep) }}><Icon id="close" /></span>
               )
             })}
 
