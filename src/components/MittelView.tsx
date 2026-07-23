@@ -7,6 +7,7 @@ import { cx } from '../lib/cx'
 import { toast } from '../lib/ui'
 import { Combo } from './Combo'
 import { Stepper } from './Stepper'
+import { Segmented } from './Segmented'
 import type { MittelEntry, MittelStatus } from '../types'
 import {
   visibleMittel, groupBySource, currentMengeFor, availableFor, mittelListGroups, groupCatalogue,
@@ -138,10 +139,11 @@ export function MittelView({ entries, canEdit, onSave, captureUsage }: {
         <div className={s.headActions}>
           <CaptureUsageChip usage={captureUsage} />
           {/* always shown (disabled while empty) so adding the first position doesn't shift the layout */}
-          <div className={cx(s.viewToggle, lines === 0 && s.viewToggleEmpty)} role="group" aria-label={M.viewLabel}>
-            <button type="button" className={cx(view === 'list' && s.on)} aria-pressed={view === 'list'} disabled={lines === 0} onClick={() => setView('list')}>{M.viewList}</button>
-            <button type="button" className={cx(view === 'source' && s.on)} aria-pressed={view === 'source'} disabled={lines === 0} onClick={() => setView('source')}>{M.viewBySource}</button>
-          </div>
+          <Segmented<'list' | 'source'> ariaLabel={M.viewLabel} value={view} onChange={setView}
+            options={[
+              { value: 'list', label: M.viewList, disabled: lines === 0 },
+              { value: 'source', label: M.viewBySource, disabled: lines === 0 },
+            ]} />
         </div>
       </header>
 

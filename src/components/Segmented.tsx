@@ -7,7 +7,7 @@ import type { ReactNode } from 'react'
  *  the Combo dropdown instead. The caller owns toggle semantics: it decides which value to commit on
  *  click (e.g. a detail field clears when its active option is tapped again). */
 export function Segmented<T extends string | number | boolean>({ options, value, onChange, ariaLabel }: {
-  options: readonly { value: T; label: ReactNode; disabled?: boolean }[]
+  options: readonly { value: T; label: ReactNode; disabled?: boolean; title?: string }[]
   value: T | undefined
   onChange: (value: T) => void
   ariaLabel?: string
@@ -17,7 +17,7 @@ export function Segmented<T extends string | number | boolean>({ options, value,
       {options.map((o) => {
         const on = value === o.value
         return (
-          <button key={String(o.value)} type="button" className={`useg-btn${on ? ' on' : ''}`}
+          <button key={String(o.value)} type="button" className={`useg-btn${on ? ' on' : ''}`} title={o.title}
             aria-pressed={on} disabled={o.disabled} onClick={() => onChange(o.value)}>{o.label}</button>
         )
       })}

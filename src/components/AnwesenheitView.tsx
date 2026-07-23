@@ -7,7 +7,11 @@ import { fillTemplate } from '../lib/format'
 import { applyTimeToIso } from '../lib/abschluss'
 import { rankAbbr, rankLabel, rankOrder } from '../lib/rank'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
+import { Segmented } from './Segmented'
 import s from './Anwesenheit.module.css'
+
+/** sentinel value for the «Alle» segment of the rank filter (no real rank uses it) */
+const RANK_ALL = '__all__'
 
 // HH:MM of an ISO stamp — the tappable time chip / the <input type="time"> value
 function toHM(iso: string): string {
@@ -123,18 +127,15 @@ export function AnwesenheitView({
       )}
 
       {!empty && ranksPresent.length > 1 && (
-        <div className={s.rankRow} role="group" aria-label={A.rankFilterLabel}>
-          <button
-            type="button" className={cx(s.rankChip, !rankFilter && s.rankChipOn)}
-            aria-pressed={!rankFilter} onClick={() => setRankFilter(null)}
-          >{A.rankAll}</button>
-          {ranksPresent.map((r) => (
-            <button
-              key={r} type="button" className={cx(s.rankChip, rankFilter === r && s.rankChipOn)}
-              aria-pressed={rankFilter === r} title={rankLabel(r)}
-              onClick={() => setRankFilter((cur) => (cur === r ? null : r))}
-            >{rankAbbr(r) || rankLabel(r)}</button>
-          ))}
+        <div className={s.rankRow}>
+          {/* rank filter — the shared <Segmented>; «Alle» (sentinel) clears the filter, and re-tapping
+              the active rank clears it too (parent decides the toggle-off). */}
+          <Segmented<string> ariaLabel={A.rankFilterLabel} value={rankFilter ?? RANK_ALL}
+            onChange={(v) => setRankFilter(v === RANK_ALL || v === rankFilter ? null : v)}
+            options={[
+              { value: RANK_ALL, label: A.rankAll },
+              ...ranksPresent.map((r) => ({ value: r, label: rankAbbr(r) || rankLabel(r), title: rankLabel(r) })),
+            ]} />
         </div>
       )}
 

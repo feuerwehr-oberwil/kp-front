@@ -10,7 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { formatTime } from '../lib/format'
 import { appConfig } from '../config/appConfig'
-import { cx } from '../lib/cx'
+import { Segmented } from './Segmented'
 import s from './ReplayBar.module.css'
 import {
   deriveMarkers, loadReplay, stateAt, vehiclesAt,
@@ -161,11 +161,8 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit }
             </button>
           </div>
 
-          <div className={s['replay-speeds']} role="group" aria-label={rp.speed}>
-            {SPEEDS.map((sp) => (
-              <button key={sp} className={cx(speed === sp && s.on)} onClick={() => setSpeed(sp)}>{sp}×</button>
-            ))}
-          </div>
+          <Segmented<(typeof SPEEDS)[number]> ariaLabel={rp.speed} value={speed} onChange={setSpeed}
+            options={SPEEDS.map((sp) => ({ value: sp, label: `${sp}×` }))} />
 
           {/* the track + its end labels share a column; the current time rides ABOVE the
               handle as a bubble so it never crowds the track or the start label */}

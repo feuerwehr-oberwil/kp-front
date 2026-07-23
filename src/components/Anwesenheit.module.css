@@ -35,17 +35,9 @@
 .searchClear svg { width: 15px; height: 15px; }
 
 /* rank quick-filter chips — a scrollable row of Dienstgrade present in the roster */
+/* the rank filter is the shared <Segmented> (.useg); this row just positions it (its old bespoke
+   .rankChip pills were removed). */
 .rankRow { display: flex; align-items: center; gap: 7px; padding: 0 22px 12px; flex-wrap: wrap; }
-.rankChip {
-  flex: none; cursor: pointer; border: 1px solid var(--glass-edge); background: var(--surface);
-  color: var(--ink-dim); border-radius: var(--r-ctl); padding: 6px 12px; min-height: 44px;
-  font: 700 12.5px var(--body);
-}
-.rankChip:hover { color: var(--ink); border-color: var(--ink-faint); }
-.rankChipOn {
-  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--glass-edge)); color: var(--ink);
-}
 
 /* per-person rank badge inside the name button */
 .rank {
