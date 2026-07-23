@@ -19,7 +19,7 @@ import { applyTimeToIso, missingSteps, stepDone, type AbschlussFacts } from '../
 import { hoursRows } from '../lib/attendanceHours'
 import type { AttendanceState, BoardDoc, BuildingDoc, Drawing, Entity, LayerDef, LngLat, MittelEntry, Person, PlanDocument, TimelineEvent, Trupp } from '../types'
 import { visibleMittel } from '../lib/mittel'
-import { PersonField } from './AtemschutzView'
+import { PersonField } from './PersonField'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import { DateTimeField, TimeField } from './TimeField'
 import { Segmented } from './Segmented'

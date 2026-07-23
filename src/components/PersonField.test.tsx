@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Person } from '../types'
-import { PersonField } from './AtemschutzView'
+import { PersonField } from './PersonField'
 
 afterEach(cleanup)
 
