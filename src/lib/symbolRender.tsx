@@ -103,9 +103,10 @@ export function boomKnuckle(base: readonly [number, number], tip: readonly [numb
 }
 
 /** The visual boom for a Hubretter: an articulated base→knuckle→cage polyline with a rescue cage at
- *  the tip, drawn from the truck centre (0,0) out `lengthPx` at screen bearing `deg`. Rendered behind
- *  the body glyph and SHARED by Lage + Plan so the boom reads identically; each surface positions the
- *  draggable cage handle itself. A white underlay keeps the ink legible over busy map tiles. */
+ *  the tip, drawn from the truck centre (0,0) out `lengthPx` at screen bearing `deg`. Rendered ON TOP
+ *  of the body glyph (the boom mounts on the turntable / roof) — the caller places it AFTER the body
+ *  in the DOM. SHARED by Lage + Plan so the boom reads identically; each surface positions the
+ *  draggable cage handle itself. A white underlay keeps the ink legible over the body + busy tiles. */
 export function HubretterBoom({ lengthPx, deg, color = '#00a0ff' }: { lengthPx: number; deg: number; color?: string }) {
   const L = Math.max(0, lengthPx)
   const rad = (deg * Math.PI) / 180
@@ -115,8 +116,8 @@ export function HubretterBoom({ lengthPx, deg, color = '#00a0ff' }: { lengthPx: 
   const cage = Math.max(9, Math.min(18, L * 0.16))
   const box = L + cage + sw + 2
   const pts = `0,0 ${k[0].toFixed(1)},${k[1].toFixed(1)} ${tip[0].toFixed(1)},${tip[1].toFixed(1)}`
-  // rendered as the FIRST marker child with no positive z-index, so it paints behind the body glyph
-  // (which follows it in the DOM) — a clean truck symbol with the boom emanating from under it.
+  // placed AFTER the body glyph in the DOM, so it paints on top — the boom mounts on the turntable
+  // (the truck's roof) and reaches out over the vehicle, not from underneath it.
   return (
     <svg className="ts-boom" viewBox={`${-box} ${-box} ${2 * box} ${2 * box}`}
       style={{ position: 'absolute', left: '50%', top: '50%', width: 2 * box, height: 2 * box, transform: 'translate(-50%,-50%)', overflow: 'visible', pointerEvents: 'none' }}>
@@ -144,7 +145,8 @@ export function composeHubretterSvg(bodySvg: string, reachM = 18, boomDeg = 0, b
     + `<rect x="${(tip[0] - cage / 2).toFixed(2)}" y="${(tip[1] - cage / 2).toFixed(2)}" width="${cage}" height="${cage}" rx="0.05" fill="#fff" stroke="#00a0ff" stroke-width="0.11"/>`
   const body = `<g transform="rotate(${bodyDeg})">${innerSvg(bodySvg)}</g>` // truck heading, independent of the boom
   const box = L + 0.6
-  return `<svg viewBox="${-box} ${-box} ${2 * box} ${2 * box}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">${boom}${body}</svg>`
+  // body first, boom second → the boom paints ON TOP (mounted on the turntable / roof)
+  return `<svg viewBox="${-box} ${-box} ${2 * box} ${2 * box}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">${body}${boom}</svg>`
 }
 
 // FKS Entwicklung overlay: hollow block arrows (in the symbol's colour) drawn OUTSIDE

@@ -378,7 +378,6 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
               // every other symbol (incl. a composite body) applies its stored rotation to the chip.
               return (
                 <>
-                  {hub && <HubretterBoom lengthPx={boomPx} deg={(e.rotation2 ?? 0) - bearing} />}
                   <TacticalSymbol
                     svg={svg}
                     sizePx={symPx(e.kind, e.coord[1], zoom, symMul)}
@@ -392,6 +391,8 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                     // vehicles bake their name into the glyph already, so they get no caption
                     caption={captionsVisible && !veh ? symbolCaptionText(e, captionMode) : null}
                   />
+                  {/* boom AFTER the body → paints on top (mounted on the turntable / roof) */}
+                  {hub && <HubretterBoom lengthPx={boomPx} deg={(e.rotation2 ?? 0) - bearing} />}
                 </>
               )
             })()}

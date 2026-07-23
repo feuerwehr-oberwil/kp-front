@@ -1625,12 +1625,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                   // a composite stacks its part (fan / ladder) as a separately-rotatable overlay aimed
                   // by rotation2; the Lüfter's extract (Absaugen) swaps to the reversed-arrow fan.
                   const overlay = comp ? { svg: sym.byName[compositePartGlyph(comp, a.extract)] ?? sym.byName[comp.part] ?? '', rotation: a.rotation2 ?? 0, scale: comp.scale } : undefined
-                  // Hubretter boom: variable-reach articulated arm behind the body, sized as a fraction
-                  // of the plan width (reachN) and aimed by rotation2; the body auto-faces the boom.
+                  // Hubretter boom: variable-reach articulated arm mounted on the turntable (drawn ON
+                  // TOP of the body), sized as a fraction of the plan width (reachN), aimed by rotation2.
                   const boomPx = hub ? Math.max(12, (a.reachN ?? 0.12) * sW) : 0
                   return (
                     <>
-                      {hub && <HubretterBoom lengthPx={boomPx} deg={a.rotation2 ?? 0} />}
                       <TacticalSymbol
                         svg={svg}
                         sizePx={symBase * scale}
@@ -1644,6 +1643,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                         caption={!veh ? symbolCaptionText(a, captionMode) : null}
                         className="ts-plan"
                       />
+                      {/* boom AFTER the body → paints on top (mounted on the turntable / roof) */}
+                      {hub && <HubretterBoom lengthPx={boomPx} deg={a.rotation2 ?? 0} />}
                     </>
                   )
                 })()}
