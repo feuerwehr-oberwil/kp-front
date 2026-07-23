@@ -1,5 +1,6 @@
 import { useRef, useState, type MutableRefObject, type RefObject, type PointerEvent as ReactPointerEvent } from 'react'
 import type { BoardAnno, BoardTool } from '../types'
+import { isMarqueeTap, marqueeContains } from '../lib/marquee'
 
 interface BoardGesturesDeps {
   tool: BoardTool
@@ -61,15 +62,16 @@ export function useBoardGestures({ tool, annos, setSelId, setSelIds, applyView, 
   const marqueeUp = () => {
     const r = marqueeRef.current; marqueeRef.current = null; setMarquee(null)
     if (!r) return
-    if (Math.abs(r.x1 - r.x0) < 6 && Math.abs(r.y1 - r.y0) < 6) { setSelIds([]); return } // a tap, not a box
+    if (isMarqueeTap(r)) { setSelIds([]); return } // a tap, not a box
     const rect = boardRef.current?.getBoundingClientRect(); if (!rect || !rect.width) return
-    const minX = Math.min(r.x0, r.x1), maxX = Math.max(r.x0, r.x1), minY = Math.min(r.y0, r.y1), maxY = Math.max(r.y0, r.y1)
-    const inBox = (x: number, y: number, floor: number | undefined) => {
-      const cx = rect.left + x * rect.width, cy = rect.top + mapY(floor, y) * rect.height
-      return cx >= minX && cx <= maxX && cy >= minY && cy <= maxY
-    }
+    // project a normalized board point (x, y, floor) into client px; shared bounds test does the rest
+    const inBox = marqueeContains(r, ({ x, y, floor }: { x: number; y: number; floor: number | undefined }) => ({
+      cx: rect.left + x * rect.width, cy: rect.top + mapY(floor, y) * rect.height,
+    }))
     const ids = annos.filter((a) =>
-      a.kind === 'draw' ? (a.pts ?? []).some(([x, y]) => inBox(x, y, a.floor)) : inBox(a.x ?? 0, a.y ?? 0, a.floor),
+      a.kind === 'draw'
+        ? (a.pts ?? []).some(([x, y]) => inBox({ x, y, floor: a.floor }))
+        : inBox({ x: a.x ?? 0, y: a.y ?? 0, floor: a.floor }),
     ).map((a) => a.id)
     setSelId(null); setSelIds(ids)
   }

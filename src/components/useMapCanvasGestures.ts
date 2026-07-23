@@ -3,8 +3,9 @@ import type { Map as MlMap } from 'maplibre-gl'
 import type { Drawing, Entity, LineAttachment, LngLat } from '../types'
 import { haversineM } from '../lib/geo'
 import { rdpIndices, FREEHAND_SIMPLIFY_PX } from '../lib/lineStyle'
+import { isMarqueeTap, marqueeContains, type MarqueeRect } from '../lib/marquee'
 
-type Rect = { x0: number; y0: number; x1: number; y1: number }
+type Rect = MarqueeRect
 type Circle = { center: LngLat; radiusM: number }
 
 interface Args {
@@ -154,17 +155,16 @@ export function useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, 
       map.dragPan.enable()
       const r = marqueeRef.current; marqueeRef.current = null; setMarquee(null)
       if (!r) return
-      if (Math.abs(r.x1 - r.x0) < 6 && Math.abs(r.y1 - r.y0) < 6) return // a tap, not a box → let click select
-      const minX = Math.min(r.x0, r.x1), maxX = Math.max(r.x0, r.x1), minY = Math.min(r.y0, r.y1), maxY = Math.max(r.y0, r.y1)
+      if (isMarqueeTap(r)) return // a tap, not a box → let click select
       const rect = map.getContainer().getBoundingClientRect()
-      const inBox = (lng: number, lat: number) => {
+      // back-project lng/lat through MapLibre into client px; shared bounds test does the rest
+      const inBox = marqueeContains(r, ([lng, lat]: LngLat) => {
         const p = map.project([lng, lat] as [number, number])
-        const cx = rect.left + p.x, cy = rect.top + p.y
-        return cx >= minX && cx <= maxX && cy >= minY && cy <= maxY
-      }
+        return { cx: rect.left + p.x, cy: rect.top + p.y }
+      })
       // a drawing is caught if any vertex falls in the box; an entity if its point does
-      const drawIds = drawingsRef.current.filter((d) => Array.isArray(d.coords) && d.coords.some(([lng, lat]) => inBox(lng, lat))).map((d) => d.id)
-      const entityIds = entitiesRef.current.filter((e) => Array.isArray(e.coord) && inBox(e.coord[0], e.coord[1])).map((e) => e.id)
+      const drawIds = drawingsRef.current.filter((d) => Array.isArray(d.coords) && d.coords.some((c) => inBox(c))).map((d) => d.id)
+      const entityIds = entitiesRef.current.filter((e) => Array.isArray(e.coord) && inBox(e.coord)).map((e) => e.id)
       onMarqueeRef.current?.(drawIds, entityIds)
     }
     const onTouchStart = (e: any) => {
