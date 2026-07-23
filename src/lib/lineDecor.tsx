@@ -12,6 +12,15 @@ export const CONTENT_LABELS: Record<string, string> = new Proxy(
   { get: (_t, letter: string) => appConfig.copy.lineDecor[letter] ?? letter },
 )
 
+/** A friendly name for a hose line in lists (connected-lines, focus targets) — its FKS
+ *  descriptor (Leitung Nr. / content letter) instead of the raw internal id. */
+export function lineLabel(a: { label?: string; lineNo?: number; content?: string }): string {
+  if (a.label) return a.label
+  if (a.lineNo != null) return appConfig.copy.drawingEditor.lineLabelNo.replace('{n}', String(a.lineNo))
+  if (a.content) return CONTENT_LABELS[a.content]
+  return appConfig.copy.drawingEditor.line
+}
+
 /** A line carries any FKS decoration? (gates the per-line decoration render on both surfaces) */
 export function hasLineDecor(a: { teilstueck?: boolean; content?: string; lineNo?: number; floorTag?: number }): boolean {
   return !!a.teilstueck || !!a.content || a.lineNo != null || a.floorTag != null

@@ -9,7 +9,7 @@ import { OsmOutline } from './OsmOutline'
 import { appConfig } from '../config/appConfig'
 import { linePresetPatch, markerParamsAlong, lerpPoint, lookbackPoint, rdpIndices, FREEHAND_SIMPLIFY_PX, MAX_VERTEX_HANDLES } from '../lib/lineStyle'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
-import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
+import { TeilstueckFork, EndTag, hasLineDecor, lineLabel } from '../lib/lineDecor'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { confirmDialog, toast } from '../lib/ui'
 import { panelNudgeBox, panelNudgeBoxUp, isBottomSheet } from '../lib/panelNudge'
@@ -22,7 +22,7 @@ import { DrawEditor } from './DrawEditor'
 import { ShapeEditor } from './ShapeEditor'
 import { ShapeGlyph, SHAPE_DEFS } from '../lib/shapes'
 import { planUrl, TILE_AR, TOP_INSET, STACK_VPAD, clamp01, floorLabel, floorGeometry } from '../lib/whiteboard'
-import { advanceDwell, applyRouting, boundaryPoint, DETACH_RADIUS_PX, EMPTY_DWELL, forkPortPoint, incomingAttachments, nearestBlockedTarget, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
+import { advanceDwell, applyRouting, boundaryPoint, DETACH_RADIUS_PX, EMPTY_DWELL, forkPortPoint, incomingAttachments, nearestBlockedTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 import { calibrate, pathMetres, polyAreaM2, isStale, type PlanScale } from '../lib/planScale'
 import { resolvePlanScale, saveStationDefault, saveStationPlanOverride } from '../lib/stationPlanScale'
 import { MeasurePanel } from './MeasurePanel'
@@ -442,7 +442,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const pointer: [number, number] = [point[0] * sW, mapY(point[2], point[1]) * sH]
     const cur = planDraftMagnet.current
     const targets = planCandidatesAt('__draft__', pointer)
-    const candidate = nearestMagneticTarget(pointer, targets) ?? nearestBlockedTarget(pointer, targets)
+    const candidate = stickyMagneticTarget(pointer, targets, cur?.candidate && !cur.candidate.blocked ? cur.candidate.key : null) ?? nearestBlockedTarget(pointer, targets)
     const next: PlanDraftMagnet = { point, atStart, candidate, dwell: advanceDwell(cur?.dwell ?? EMPTY_DWELL, candidate && !candidate.blocked ? candidate.key : null, Date.now()) }
     setPlanDraftMagnet(next)
     if (planDraftTimer.current) clearTimeout(planDraftTimer.current)
@@ -798,7 +798,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       const point: BoardPoint = [n[0], localY(n[1], floor), floor]
       const pointer: [number, number] = [n[0] * sW, n[1] * sH]
       const targets = planCandidatesAt(st.id, pointer)
-      const candidate = nearestMagneticTarget(pointer, targets) ?? nearestBlockedTarget(pointer, targets)
+      const candidate = stickyMagneticTarget(pointer, targets, magnetic.candidate && !magnetic.candidate.blocked ? magnetic.candidate.key : null) ?? nearestBlockedTarget(pointer, targets)
       const dwell = advanceDwell(magnetic.dwell, candidate && !candidate.blocked ? candidate.key : null, Date.now())
       const next = { ...magnetic, point, candidate, dwell, detachArmed: Math.hypot(e.clientX - magnetic.sx, e.clientY - magnetic.sy) >= DETACH_RADIUS_PX }
       setPlanEndpointDrag(next); st.moved = true
@@ -1682,7 +1682,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                   const connected = annos.filter((line) => [line.startAttachment, line.endAttachment].some((rel) => rel?.target.kind === 'object' && rel.target.id === a.id))
                   return connected.length > 0 ? <div className="wb-resource-connections ctx-connections" onPointerDown={(e) => e.stopPropagation()}>
                     <span className="ctx-section-label">{appConfig.copy.drawingEditor.connectedLines.replace('{n}', String(connected.length))}</span>
-                    {connected.map((line) => <button key={line.id} onClick={() => setSelId(line.id)}><span>{line.label ?? `${appConfig.copy.drawingEditor.drawing} ${line.id}`}</span><span>{appConfig.copy.drawingEditor.showConnection}</span></button>)}
+                    {connected.map((line) => <button key={line.id} onClick={() => setSelId(line.id)}><span>{lineLabel(line)}</span><span className="ctx-conn-go" aria-hidden>›</span></button>)}
                   </div> : null
                 })()}
                 {a.kind !== 'resource' && selId === a.id && tool === 'pan' && !readOnly && (
@@ -1933,7 +1933,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           fieldOptions={symbolFieldOptions(selSymbol.symbol, sym.symbols.find((x) => x.name === selSymbol.symbol)?.cat, rosterNames)}
           rosterRank={rosterRank}
           protectedKeys={new Set(symbolPresetFieldKeys(selSymbol.symbol, sym.symbols.find((x) => x.name === selSymbol.symbol)?.cat))}
-          connectedLines={annos.filter((a) => [a.startAttachment, a.endAttachment].some((rel) => rel?.target.kind === 'object' && rel.target.id === selSymbol.id)).map((a) => ({ id: a.id, label: a.label ?? `${appConfig.copy.drawingEditor.drawing} ${a.id}` }))}
+          connectedLines={annos.filter((a) => [a.startAttachment, a.endAttachment].some((rel) => rel?.target.kind === 'object' && rel.target.id === selSymbol.id)).map((a) => ({ id: a.id, label: lineLabel(a) }))}
           onFocusLine={(id) => setSelId(id)}
           onDelete={() => void removeWithConnections(selSymbol)}
         />
@@ -1971,7 +1971,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             const a = endpoint === 'start' ? selDraw.startAttachment : selDraw.endAttachment
             if (!a) return []
             const target = annos.find((x) => x.id === a.target.id)
-            return [[endpoint, target?.label ?? target?.text ?? `${appConfig.copy.drawingEditor.drawing} ${a.target.id}`]]
+            const label = target?.kind === 'draw' ? lineLabel(target) : target?.label ?? target?.text ?? appConfig.copy.drawingEditor.line
+            return [[endpoint, label]]
           }))}
           onRouting={(endpoint, routing) => {
             const key = endpoint === 'start' ? 'startAttachment' : 'endAttachment'

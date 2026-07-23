@@ -53,6 +53,20 @@ export function nearestBlockedTarget(pointer: Point, targets: MagneticTarget[], 
   return targets.filter((t) => !!t.blocked && distance(pointer, t.point) <= radius)
     .sort((a, b) => distance(pointer, a.point) - distance(pointer, b.point) || a.key.localeCompare(b.key))[0] ?? null
 }
+/** Hysteresis around the magnetic pick: keep holding the current target until the pointer leaves a
+ *  larger `keep` radius, and only switch to another when it's clearly closer. Kills the flicker of
+ *  jitter at the acquire boundary and the hop between a Teilstück's three close prongs — the source
+ *  of the twitchy snapped endpoint. Falls back to the plain nearest when nothing is held. */
+export function stickyMagneticTarget(pointer: Point, targets: MagneticTarget[], prevKey: string | null, radius = MAGNET_RADIUS_PX, keep = DETACH_RADIUS_PX): MagneticTarget | null {
+  const usable = (t: MagneticTarget) => !t.blocked && (t.capacity == null || (t.usedPorts?.length ?? 0) < t.capacity)
+  const held = prevKey ? targets.find((t) => t.key === prevKey && usable(t)) : null
+  if (held && distance(pointer, held.point) <= keep) {
+    const nearest = nearestMagneticTarget(pointer, targets, radius)
+    if (nearest && nearest.key !== held.key && distance(pointer, nearest.point) <= distance(pointer, held.point) - 8) return nearest
+    return held
+  }
+  return nearestMagneticTarget(pointer, targets, radius)
+}
 
 export interface DwellState { key: string | null; since: number; armed: boolean }
 export const EMPTY_DWELL: DwellState = { key: null, since: 0, armed: false }

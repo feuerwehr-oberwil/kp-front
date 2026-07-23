@@ -17,7 +17,7 @@ import { MapLayers } from './MapLayers'
 // move threshold lives in MapMarkers with the entity-drag logic.
 import { useLongPress } from '../lib/useLongPress'
 import { QuietAttributionControl } from './MapAttribution'
-import { advanceDwell, boundaryPoint, DETACH_RADIUS_PX, EMPTY_DWELL, forkPortPoint, gpsGuard, incomingAttachments, moveLineBody, nearestBlockedTarget, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
+import { advanceDwell, boundaryPoint, DETACH_RADIUS_PX, EMPTY_DWELL, forkPortPoint, gpsGuard, incomingAttachments, moveLineBody, nearestBlockedTarget, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 
 // Lock chip on a locked drawing: a SHORT HOLD (not a tap) unlocks it, with a filling ring as
 // the progress indicator (Miro-style) so a stray tap never unlocks instantly.
@@ -305,7 +305,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     if (!st || !map) return
     const pointer = map.project(coord)
     const targets = candidatesAt(st.id, coord)
-    const candidate = nearestMagneticTarget([pointer.x, pointer.y], targets) ?? nearestBlockedTarget([pointer.x, pointer.y], targets)
+    const candidate = stickyMagneticTarget([pointer.x, pointer.y], targets, st.candidate && !st.candidate.blocked ? st.candidate.key : null) ?? nearestBlockedTarget([pointer.x, pointer.y], targets)
     const dwell = advanceDwell(st.dwell, candidate && !candidate.blocked ? candidate.key : null, Date.now())
     const next = { ...st, coord, candidate, dwell, detachArmed: Math.hypot(pointer.x - st.originPx[0], pointer.y - st.originPx[1]) >= DETACH_RADIUS_PX }
     setEndpointDrag(next)
@@ -372,7 +372,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       const a = map.project(cur.first), b = map.project(coord)
       const atStart = Math.hypot(b.x - a.x, b.y - a.y) < 10 && !cur.startAttachment
       const targets = candidatesAt('__draft__', coord)
-      const candidate = nearestMagneticTarget([b.x, b.y], targets) ?? nearestBlockedTarget([b.x, b.y], targets)
+      const candidate = stickyMagneticTarget([b.x, b.y], targets, cur.candidate && !cur.candidate.blocked ? cur.candidate.key : null) ?? nearestBlockedTarget([b.x, b.y], targets)
       const next = { ...cur, coord, atStart, candidate, dwell: advanceDwell(cur.dwell, candidate && !candidate.blocked ? candidate.key : null, Date.now()) }
       setDraftMagnet(next)
       if (draftDwellTimer.current) clearTimeout(draftDwellTimer.current)

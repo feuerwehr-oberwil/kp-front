@@ -1,3 +1,4 @@
+import { Fragment } from 'react'
 import { Icon } from '../lib/icons'
 import { SheetGrip } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
@@ -237,43 +238,44 @@ export function DrawEditor({ drawing, pointCount, supportsDistance = false, onCo
         )}
         {isLine && (drawing.startAttachment || drawing.endAttachment) && (
           <div className="de-group de-connections">
-            <div className="de-group-label">{appConfig.copy.drawingEditor.connections}</div>
+            <div className="de-conn-title">{appConfig.copy.drawingEditor.connections}</div>
             {(['start', 'end'] as const).map((endpoint) => {
               const a = endpoint === 'start' ? drawing.startAttachment : drawing.endAttachment
               if (!a) return null
               const gps = a.gps?.state, hidden = !!attachmentHidden?.[endpoint]
               const name = attachmentLabels?.[endpoint] ?? a.target.id
-              return <div className="de-connection" key={endpoint}>
-                {/* target row: endpoint tag + name, tap to fly there (focus) */}
-                <button type="button" className="de-conn-target" onClick={onFocusAttachment ? () => onFocusAttachment(endpoint) : undefined} disabled={!onFocusAttachment}>
-                  <span className="de-conn-ep">{endpoint === 'start' ? appConfig.copy.drawingEditor.connectedStart : appConfig.copy.drawingEditor.connectedEnd}</span>
-                  <span className="de-conn-name">{name}</span>
-                  {onFocusAttachment && <span className="de-conn-go" aria-hidden>›</span>}
-                </button>
-                {(gps === 'continuous' || gps === 'paused' || hidden) && (
-                  <div className="de-conn-note">
-                    {gps === 'continuous' && <span>{appConfig.copy.drawingEditor.gpsFollowing}</span>}
-                    {gps === 'paused' && <span className="warn">{appConfig.copy.drawingEditor.gpsMovingAway}</span>}
-                    {hidden && <span>{appConfig.copy.drawingEditor.hiddenTarget}</span>}
-                    {hidden && onRevealAttachment && <button type="button" className="de-conn-link" onClick={() => onRevealAttachment(endpoint)}>{appConfig.copy.drawingEditor.revealTarget}</button>}
-                  </div>
-                )}
+              const note = gps === 'continuous' ? appConfig.copy.drawingEditor.gpsFollowing
+                : gps === 'paused' ? appConfig.copy.drawingEditor.gpsMovingAway
+                : hidden ? appConfig.copy.drawingEditor.hiddenTarget : null
+              return <Fragment key={endpoint}>
+                {/* endpoint → target: same de-row as the FKS rows above; the value taps to fly there */}
+                <div className="de-row"><span>{endpoint === 'start' ? appConfig.copy.drawingEditor.connectedStart : appConfig.copy.drawingEditor.connectedEnd}</span>
+                  <button type="button" className="de-conn-name" onClick={onFocusAttachment ? () => onFocusAttachment(endpoint) : undefined} disabled={!onFocusAttachment}>
+                    <span>{name}</span>{onFocusAttachment && <span className="de-conn-go" aria-hidden>›</span>}
+                  </button>
+                </div>
+                {note && <div className={`de-conn-note${gps === 'paused' ? ' warn' : ''}`}>
+                  <span>{note}</span>
+                  {hidden && onRevealAttachment && <button type="button" className="de-conn-reveal" onClick={() => onRevealAttachment(endpoint)}>{appConfig.copy.drawingEditor.revealTarget}</button>}
+                </div>}
                 {onRouting && (
-                  <div className="de-row de-conn-route"><span>{appConfig.copy.drawingEditor.route}</span>
-                    <span className="de-seg">
+                  <div className="de-row"><span>{appConfig.copy.drawingEditor.route}</span>
+                    <span className="de-presets">
                       {gps === 'paused'
-                        ? <button className="de-seg-btn" onClick={() => onRouting(endpoint, 'trace')}>{appConfig.copy.drawingEditor.gpsContinue}</button>
+                        ? <button className="de-preset" onClick={() => onRouting(endpoint, 'trace')}>{appConfig.copy.drawingEditor.gpsContinue}</button>
                         : gps === 'continuous'
-                        ? <button className="de-seg-btn on" onClick={() => onRouting(endpoint, 'direct')}>{appConfig.copy.drawingEditor.gpsPause}</button>
+                        ? <button className="de-preset on" onClick={() => onRouting(endpoint, 'direct')}>{appConfig.copy.drawingEditor.gpsPause}</button>
                         : <>
-                            <button className={`de-seg-btn ${a.routing === 'direct' ? 'on' : ''}`} onClick={() => onRouting(endpoint, 'direct')}>{appConfig.copy.drawingEditor.routeDirect}</button>
-                            <button className={`de-seg-btn ${a.routing === 'trace' ? 'on' : ''}`} onClick={() => onRouting(endpoint, 'trace')}>{appConfig.copy.drawingEditor.routeTrace}</button>
+                            <button className={`de-preset ${a.routing === 'direct' ? 'on' : ''}`} onClick={() => onRouting(endpoint, 'direct')}>{appConfig.copy.drawingEditor.routeDirect}</button>
+                            <button className={`de-preset ${a.routing === 'trace' ? 'on' : ''}`} onClick={() => onRouting(endpoint, 'trace')}>{appConfig.copy.drawingEditor.routeTrace}</button>
                           </>}
                     </span>
                   </div>
                 )}
-                {onDetach && <button type="button" className="de-conn-detach" onClick={() => onDetach(endpoint)}>{gps === 'paused' ? appConfig.copy.drawingEditor.gpsDetachHere : appConfig.copy.drawingEditor.detachConnection}</button>}
-              </div>
+                {onDetach && <div className="de-row de-conn-detach-row"><span aria-hidden />
+                  <button type="button" className="de-conn-detach" onClick={() => onDetach(endpoint)}>{gps === 'paused' ? appConfig.copy.drawingEditor.gpsDetachHere : appConfig.copy.drawingEditor.detachConnection}</button>
+                </div>}
+              </Fragment>
             })}
           </div>
         )}

@@ -3,8 +3,8 @@ import type { LineAttachment } from '../types'
 import {
   advanceDwell, applyRouting, boundaryPoint, connectedNetwork, detachAffected, endpointCapacity,
   forkDims, forkPortPoint, gpsGuard, incomingAttachments, materializeEndpoint, moveLineBody,
-  nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, wouldCreateCycle,
-  type AttachableLine,
+  nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget,
+  wouldCreateCycle, type AttachableLine, type MagneticTarget,
 } from './lineAttachments'
 
 const line = (id: string, extra: Partial<AttachableLine> = {}): AttachableLine => ({ id, points: [[0, 0], [10, 0]], ...extra })
@@ -19,6 +19,22 @@ describe('magnetic candidate and dwell', () => {
     ])
     expect(got?.key).toBe('near')
     expect(nearestMagneticTarget([0, 0], [{ key: 'x', target: { kind: 'object', id: 'x' }, point: [33, 0] }])).toBeNull()
+  })
+
+  it('holds a locked target through boundary jitter and hops only for a clearly closer one', () => {
+    const a: MagneticTarget = { key: 'a', target: { kind: 'object', id: 'a' }, point: [0, 0] }
+    const far: MagneticTarget = { key: 'far', target: { kind: 'object', id: 'far' }, point: [100, 0] }
+    const c: MagneticTarget = { key: 'c', target: { kind: 'object', id: 'c' }, point: [30, 0] }
+    // held 'a' 36px out — past its 32px acquire radius but still inside the 44px keep radius → held
+    expect(stickyMagneticTarget([36, 0], [a, far], 'a')?.key).toBe('a')
+    // dragged clear of the keep radius → dropped (lets the detach × show)
+    expect(stickyMagneticTarget([60, 0], [a, far], 'a')).toBeNull()
+    // near-equidistant rival stays with the held one (14 vs 16) — no flicker
+    expect(stickyMagneticTarget([14, 0], [a, c], 'a')?.key).toBe('a')
+    // rival clearly closer (>8px: 10 vs 20) wins
+    expect(stickyMagneticTarget([20, 0], [a, c], 'a')?.key).toBe('c')
+    // nothing held → plain nearest
+    expect(stickyMagneticTarget([20, 0], [a, c], null)?.key).toBe('c')
   })
 
   it('restarts fill on candidate changes and arms at 350 ms', () => {

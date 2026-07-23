@@ -2043,32 +2043,29 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .network-halo { position: absolute; inset: -7px; border: 2px solid color-mix(in srgb, var(--accent) 55%, transparent); border-radius: 50%; pointer-events: none; }
 .hidden-attachment-marker { width: 14px; height: 14px; border: 2px dashed var(--accent); border-radius: 50%; background: color-mix(in srgb, var(--surface) 80%, transparent); }
 .line-coupling-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--surface); border: 2px solid var(--ink); pointer-events: none; }
-/* Verbindungen — speaks the same de-row / de-group / de-toggle language as the editor above it:
-   a quiet group label, a tappable target chip per endpoint, one segmented Verlauf control, and a
-   restrained detach action. */
-.draw-editor .de-group-label { padding: 2px 0 6px; font-size: 13px; font-weight: 700; color: var(--ink); }
-.draw-editor .de-connection { display: grid; gap: 6px; padding: 8px 0; }
-.draw-editor .de-connection + .de-connection { border-top: 1px solid var(--border-soft); }
-.draw-editor .de-conn-target { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px; padding: 5px 8px;
-  border: 1px solid var(--border); border-radius: var(--r-xs); background: var(--surface); text-align: left; }
-.draw-editor .de-conn-target:disabled { pointer-events: none; }
-.draw-editor .de-conn-ep { flex: none; font-size: 11px; font-weight: 700; color: var(--ink-dim); text-transform: uppercase; letter-spacing: .03em; }
-.draw-editor .de-conn-name { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.draw-editor .de-conn-go { flex: none; color: var(--ink-faint); font-size: 17px; line-height: 1; }
-.draw-editor .de-conn-note { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 2px; font-size: 12px; color: var(--ink-dim); }
-.draw-editor .de-conn-note .warn { color: var(--danger); font-weight: 600; }
-.draw-editor .de-conn-link { color: var(--blue); font-size: 12px; font-weight: 600; text-decoration: underline; }
-.draw-editor .de-conn-route { padding: 3px 2px; }
-.draw-editor .de-seg { display: inline-flex; gap: 5px; }
-.draw-editor .de-seg-btn { min-height: 34px; padding: 4px 12px; border: 1px solid var(--border); border-radius: var(--r-xs);
-  background: var(--surface); color: var(--ink); font-size: 13px; font-weight: 500; }
-.draw-editor .de-seg-btn.on { background: var(--blue); border-color: var(--blue); color: var(--on-accent-ink); }
-.draw-editor .de-conn-detach { justify-self: start; min-height: 36px; padding: 0 12px; margin-top: 2px;
-  border: 1px solid var(--border-soft); border-radius: var(--r-xs); background: transparent; color: var(--danger); font-size: 12.5px; font-weight: 600; }
-.ctx-connections { display: grid; gap: 6px; }
-.ctx-connections button { min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); }
-.ctx-connections button span:last-child { color: var(--accent); font-weight: 700; }
+/* Verbindungen — reuses the editor's own .de-row / .de-preset rows verbatim so it reads as one more
+   FKS group, not a separate widget. Only the target value, the note line and the detach get styling. */
+.draw-editor .de-conn-title { padding: 4px 0 2px; font-size: 11px; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--ink-dim); }
+.draw-editor .de-conn-name { display: inline-flex; align-items: center; gap: 3px; max-width: 60%; padding: 0; border: 0;
+  background: none; color: var(--ink); font-size: 13px; font-weight: 600; }
+.draw-editor .de-conn-name > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.draw-editor .de-conn-name:disabled { color: var(--ink-dim); }
+.draw-editor .de-conn-go { flex: none; color: var(--ink-faint); font-size: 16px; line-height: 1; }
+.draw-editor .de-conn-note { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 0 6px; font-size: 12px; color: var(--ink-dim); }
+.draw-editor .de-conn-note.warn { color: var(--danger); font-weight: 600; }
+.draw-editor .de-conn-reveal { color: var(--blue); font-size: 12px; font-weight: 600; text-decoration: underline; }
+.draw-editor .de-conn-detach-row { padding-top: 2px; }
+.draw-editor .de-conn-detach { min-height: 32px; padding: 4px 10px; border: 1px solid var(--border-soft); border-radius: var(--r-xs);
+  background: transparent; color: var(--danger); font-size: 12.5px; font-weight: 600; }
+/* Verbundene Linien — flat rows in the sidebar idiom (hairline separators, chevron affordance),
+   not floating cards; the row label uses the friendly line name, not the raw id. */
+.ctx-connections button { width: 100%; min-height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 8px 0; border: 0; border-top: 1px solid var(--border-soft); background: none; color: var(--ink);
+  font-size: 13px; font-weight: 500; text-align: left; }
+.ctx-connections button:first-of-type { border-top: 0; }
+.ctx-connections button > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctx-conn-go { flex: none; color: var(--ink-faint); font-size: 16px; line-height: 1; }
 
 /* selected-drawing edit handles (reshape vertices + move grip + delete) — each gets a
    transparent hit pad; kept below 44px because move/delete/rotate cluster around the
