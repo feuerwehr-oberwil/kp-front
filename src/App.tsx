@@ -27,6 +27,7 @@ import { useWakeLock } from './lib/useWakeLock'
 import { Overlays, toast, confirmDialog } from './lib/ui'
 import { loadPrefs, savePrefs, symbolMul } from './lib/prefs'
 import { useAttendanceActions } from './lib/useAttendanceActions'
+import { useMittelActions } from './lib/useMittelActions'
 import { useDevicePrefs } from './lib/useDevicePrefs'
 import { useSheets } from './lib/useSheets'
 import { useAtemschutzMute } from './lib/useAtemschutzMute'
@@ -108,13 +109,13 @@ import { predownloadArea } from './lib/offlineTiles'
 import { ChecklistsView } from './components/ChecklistsView'
 import { AtemschutzView } from './components/AtemschutzView'
 import { AnwesenheitView } from './components/AnwesenheitView'
-import { MittelView, type MittelDraft } from './components/MittelView'
+import { MittelView } from './components/MittelView'
 import { usePersonnel } from './lib/usePersonnel'
 import { assignedPersonIds } from './lib/personnel'
 import type { ChecklistTemplate, Item } from './lib/checklists'
 import { ReportPreflight } from './components/ReportPreflight'
 import { annotatedPlans } from './lib/report'
-import { currentMengeFor, currentLineFor, materialForSymbol, mittelLineCount } from './lib/mittel'
+import { mittelLineCount } from './lib/mittel'
 
 const prefs = loadPrefs()
 // The manually-picked Einsatzobjekt moved from this device cookie into the synced workspace blob
@@ -1560,52 +1561,7 @@ function IncidentWorkspace({
     attendance, setAttendance, blockedAttendanceIds,
     startedAt: incidentMeta.started_at, reportDoneAt: incidentMeta.report_done_at, log,
   })
-  // Save a Mittel (material-use) total. Append-only: every change is a NEW event carrying the
-  // running total for its material+unit+source key; the current picture is derived (lib/mittel).
-  // Re-saving the same value is a no-op (no event, no Verlauf row). Setting menge to 0 keeps the
-  // history but hides the line. Mirrors the Anwesenheit log pattern. Draft `status` semantics:
-  // value sets, null clears, omitted keeps the current one. Reads go through `mittelRef` so the
-  // symbol-capture toast action (which outlives its render) always sees the fresh log.
-  const M = appConfig.copy.mittel
-  const mittelRef = useRef(mittel)
-  useEffect(() => { mittelRef.current = mittel }, [mittel])
-  const saveMittel = (d: MittelDraft) => {
-    const label = d.label.trim()
-    const unit = d.unit.trim()
-    if (!label || !unit) return
-    const sourceLabel = d.sourceLabel?.trim() || undefined
-    const menge = Math.max(0, Math.round(d.menge))
-    const probe = { materialId: d.materialId, label, unit, sourceId: d.sourceId, sourceLabel }
-    const cur = currentLineFor(mittelRef.current, probe)
-    if ((cur?.menge ?? 0) === menge) return // unchanged → no-op
-    // (Retablierung status retired 2026-07-14 — old entries keep their stored status,
-    // new events simply don't carry one; cleanup/defects live outside the system.)
-    const at = new Date().toISOString()
-    setMittel((c) => [...c, { id: `m${Date.now()}-${c.length}`, ...probe, menge, at, by: user?.display_name || undefined }])
-    const where = sourceLabel ? ` · ${sourceLabel}` : ''
-    if (menge === 0) log('box', fillTemplate(M.logRemoved, { label }) + where, 'team')
-    else log('box', fillTemplate(M.logSet, { label, menge, unit }) + where, 'team')
-  }
-  // Symbol→Mittel capture: placing a matching tactical symbol (Lage or Plan) offers logging the
-  // material with one tap — never automatic, and deleting a symbol never decrements (symbols are
-  // freely redrawn; the log stays the operator's record).
-  const offerMittelCapture = (symbolName: string) => {
-    const cfgM = getDeploymentConfig().mittel
-    const item = materialForSymbol(cfgM?.catalogue ?? appConfig.mittel.catalogue, symbolName)
-    if (!item) return
-    const unit = item.unit || 'Stk'
-    toast(fillTemplate(M.captureOffer, { label: item.label }), {
-      icon: 'box',
-      action: {
-        label: M.captureAction,
-        onClick: () => {
-          const menge = currentMengeFor(mittelRef.current, { materialId: item.id, label: item.label, unit }) + 1
-          saveMittel({ materialId: item.id, label: item.label, unit, menge })
-          toast(fillTemplate(M.captured, { label: item.label, menge, unit }), { icon: 'check', tone: 'success' })
-        },
-      },
-    })
-  }
+  const { saveMittel, offerMittelCapture } = useMittelActions({ mittel, setMittel, authorName: user?.display_name, log })
   // assigning someone to a Trupp implies they're on scene — mark every roster-linked member
   // present (even at "angemeldet"). Only the newly-present are logged, so re-edits don't spam.
   const rosterById = useMemo(() => new Map(personnel.map((p) => [p.id, p])), [personnel])
