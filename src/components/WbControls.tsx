@@ -16,7 +16,8 @@ interface InkProps {
   color: string
   width: number
   dashed: boolean
-  showTrails: boolean
+  /** per-team hidden trails (anno ids) — a team's trail renders unless its id is in here */
+  hiddenTrails: ReadonlySet<string>
   mapY: (floor: number | undefined, ly: number) => number
   selId?: string | null
   networkIds?: string[]
@@ -31,7 +32,7 @@ interface InkProps {
  * non-interactive. (Line arrowheads + marker letters render OUTSIDE this layer, in board px, since
  * this SVG is stretched 1×1 and would distort them.)
  */
-export function WbInkLayer({ annos, draft, draftFloor, draftClosed, color, width, dashed, showTrails, mapY, selId, networkIds = [], onPickDraw }: InkProps) {
+export function WbInkLayer({ annos, draft, draftFloor, draftClosed, color, width, dashed, hiddenTrails, mapY, selId, networkIds = [], onPickDraw }: InkProps) {
   const pointStr = (pts: BoardPoint[], floor: number | undefined) => pts.map((p) => `${p[0]},${mapY(p[2] ?? floor, p[1])}`).join(' ')
   return (
     <svg className="wb-ink-svg" viewBox="0 0 1 1" preserveAspectRatio="none">
@@ -80,7 +81,7 @@ export function WbInkLayer({ annos, draft, draftFloor, draftClosed, color, width
       )}
       {/* team trails — path through the explicitly RECORDED positions only
           (not the live pill); non-scaling stroke keeps the weight constant */}
-      {showTrails && annos.filter((a) => a.kind === 'resource' && (a.trail?.length ?? 0) > 1).map((a) => (
+      {annos.filter((a) => a.kind === 'resource' && (a.trail?.length ?? 0) > 1 && !hiddenTrails.has(a.id)).map((a) => (
         <polyline
           key={`trail-${a.id}`}
           points={(a.trail ?? []).map((p) => `${p.x},${mapY(p.floor ?? a.floor, p.y)}`).join(' ')}
@@ -158,7 +159,7 @@ interface DocksProps {
   onFinish: () => void
   onCancelDraft: () => void
   recolorTeam: (c: string) => void
-  /** global trail visibility (the rail's Spuren toggle) — the dock mirrors it per-team */
+  /** the SELECTED team's trail visibility — the dock eye toggles just that team */
   trailsShown: boolean
   onToggleTrails: () => void
   /** Messen tool: line/area mode + clear/close, mirroring the Lage map's measure dock */

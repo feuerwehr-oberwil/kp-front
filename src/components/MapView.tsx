@@ -186,9 +186,15 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingDelete, onDrawingAttachment, onLabelMove,
     marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupMove, onGroupDelete, selectedEntityIds = [], circleEnabled = false, onCircle } = props
   const [zoom, setZoom] = useState(initialZoom)
-  // team-trail visibility (map-session, default on) — the eye toggle in the team action bar
-  // flips it; mirrors the plan board's showTrails. The record itself is never touched here.
-  const [trailsVisible, setTrailsVisible] = useState(true)
+  // per-team trail visibility (map-session, default all shown) — the eye in a selected
+  // team's action bar hides only THAT team's trail; mirrors the plan board's per-team
+  // hiddenTrails. The record itself is never touched here.
+  const [hiddenTrails, setHiddenTrails] = useState<ReadonlySet<string>>(new Set())
+  const toggleTrail = (id: string) => setHiddenTrails((prev) => {
+    const next = new Set(prev)
+    next.has(id) ? next.delete(id) : next.add(id)
+    return next
+  })
   // current map bearing (deg) — placed symbols are pinned to GEOGRAPHIC orientation, so the
   // glyph CSS rotation is offset by −bearing and re-renders live as the map rotates (a vehicle
   // "facing south" keeps facing south when you spin the map). Streamed on every rotate frame.
@@ -833,9 +839,9 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   const fhFC = fc(fhPath && fhPath.length >= 2 ? [lineFeat(fhPath)] : [])
   // team trails: the dashed line through a Trupp's RECORDED positions (parity with the plan
   // board's ink polyline — the breadcrumb dots + timestamps stay DOM markers in MapMarkers)
-  const trailFC = fc(trailsVisible ? entities
-    .filter((e) => e.kind === 'team' && isVisible(e.layer) && (e.trail?.length ?? 0) >= 2)
-    .map((e) => lineFeat((e.trail ?? []).map((p) => p.coord), { color: e.color || appConfig.drawing.teamColors[0] })) : [])
+  const trailFC = fc(entities
+    .filter((e) => e.kind === 'team' && isVisible(e.layer) && (e.trail?.length ?? 0) >= 2 && !hiddenTrails.has(e.id))
+    .map((e) => lineFeat((e.trail ?? []).map((p) => p.coord), { color: e.color || appConfig.drawing.teamColors[0] })))
 
   return (
    <>
@@ -1271,8 +1277,8 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         onShowTrupp={onShowTrupp}
         onTeamMark={onTeamMark}
         onTeamClearTrail={onTeamClearTrail}
-        trailsVisible={trailsVisible}
-        onToggleTrails={() => setTrailsVisible((v) => !v)}
+        hiddenTrails={hiddenTrails}
+        onToggleTrail={toggleTrail}
       />
 
     </Map>

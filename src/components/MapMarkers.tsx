@@ -113,9 +113,10 @@ interface Props {
   /** clear a team marker's recorded trail (unlocks deletion) — reached via the lock button,
    *  behind a confirm; the everyday bar button only TOGGLES visibility */
   onTeamClearTrail?: (id: string) => void
-  /** global trail visibility (lines + breadcrumb dots) — mirrors the plan's showTrails */
-  trailsVisible?: boolean
-  onToggleTrails?: () => void
+  /** per-team hidden trails (entity ids) — mirrors the plan's hiddenTrails; the eye on a
+   *  selected team toggles just that team's lines + breadcrumb dots */
+  hiddenTrails?: ReadonlySet<string>
+  onToggleTrail?: (id: string) => void
 }
 
 /**
@@ -123,7 +124,7 @@ interface Props {
  * vehicle) plus its selection affordances — delete, rotor (live vehicles), and the
  * shape/symbol transform handles. Owns the rotor/transform pointer-drag refs.
  */
-export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, trupps, onShowTrupp, onTeamMark, onTeamClearTrail, trailsVisible = true, onToggleTrails }: Props) {
+export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, trupps, onShowTrupp, onTeamMark, onTeamClearTrail, hiddenTrails, onToggleTrail }: Props) {
   // captions declutter out below a zoom threshold (glyphs are tiny there); the Plan has no zoom
   const captionsVisible = zoom >= appConfig.symbols.captionMinZoom
   // when the note input mounted — onBlur uses this to tell a real "done editing" click-away
@@ -437,13 +438,16 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                 {onTeamMark && (
                   <button className="wb-pa wb-pa-mark" title={appConfig.copy.whiteboard.markPosition} aria-label={appConfig.copy.whiteboard.markPosition} onClick={() => onTeamMark(e.id)}><Icon id="flag" /></button>
                 )}
-                {/* visibility toggle, NOT deletion — the ✕ here silently wiped the record */}
-                {(e.trail?.length ?? 0) > 0 && onToggleTrails && (
-                  <button className="wb-pa" title={trailsVisible ? appConfig.copy.whiteboard.trailsOff : appConfig.copy.whiteboard.trailsOn}
-                    aria-label={appConfig.copy.whiteboard.trails} aria-pressed={trailsVisible} onClick={onToggleTrails}>
-                    <Icon id={trailsVisible ? 'eye' : 'eyeoff'} />
-                  </button>
-                )}
+                {/* per-team visibility toggle, NOT deletion — the ✕ here silently wiped the record */}
+                {(e.trail?.length ?? 0) > 0 && onToggleTrail && (() => {
+                  const shown = !hiddenTrails?.has(e.id)
+                  return (
+                    <button className="wb-pa" title={shown ? appConfig.copy.whiteboard.trailsOff : appConfig.copy.whiteboard.trailsOn}
+                      aria-label={appConfig.copy.whiteboard.trails} aria-pressed={shown} onClick={() => onToggleTrail(e.id)}>
+                      <Icon id={shown ? 'eye' : 'eyeoff'} />
+                    </button>
+                  )
+                })()}
                 {(e.trail?.length ?? 0) > 0
                   ? <button className="wb-pa wb-pa-lock" title={appConfig.copy.whiteboard.deleteLocked} aria-label={appConfig.copy.whiteboard.deleteLocked}
                       onClick={() => onTeamClearTrail?.(e.id)}><Icon id="lock" /></button>
@@ -552,7 +556,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
       })}
       {/* team trail breadcrumbs (recorded via «Position markieren») — same dot + timestamp
           look as the plan board; pointer-transparent so they never block a map tap */}
-      {trailsVisible && entities.filter((e) => e.kind === 'team' && isVisible(e.layer) && Array.isArray(e.coord) && e.trail?.length).flatMap((e) =>
+      {entities.filter((e) => e.kind === 'team' && isVisible(e.layer) && Array.isArray(e.coord) && e.trail?.length && !hiddenTrails?.has(e.id)).flatMap((e) =>
         (e.trail ?? []).map((p, i) => (
           // style on the Marker itself: the WRAPPER div must be pointer-transparent too,
           // or a dot lying under the pill (marked without moving) swallows the pill's tap

@@ -149,7 +149,14 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const lastTap = useRef<{ t: number; x: number; y: number } | null>(null)
   const [aspect, setAspect] = useState(1.414) // h/w, A4 default until image loads
   const [vp, setVp] = useState({ w: 0, h: 0 })
-  const [showTrails, setShowTrails] = useState(true) // global team-trail visibility
+  // per-team trail visibility (anno ids hidden this session) — the eye on a selected team
+  // hides only THAT team's trail; there is no global Spuren toggle anymore
+  const [hiddenTrails, setHiddenTrails] = useState<ReadonlySet<string>>(new Set())
+  const toggleTrail = (id: string) => setHiddenTrails((prev) => {
+    const next = new Set(prev)
+    next.has(id) ? next.delete(id) : next.add(id)
+    return next
+  })
   // Plan-Maßstab calibration: the reference is captured by tapping its TWO endpoints (nodes), then
   // a popover asks for its real length. last-used length is pre-filled (plans share similar bars).
   const [calNodes, setCalNodes] = useState<[number, number][]>([])
@@ -1428,7 +1435,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             )}
 
             {/* committed drawings */}
-            <WbInkLayer annos={renderAnnos} draft={draft} draftFloor={draftFloor.current} draftClosed={tool === 'area'} color={color} width={width} dashed={dashed} showTrails={showTrails} mapY={mapY}
+            <WbInkLayer annos={renderAnnos} draft={draft} draftFloor={draftFloor.current} draftClosed={tool === 'area'} color={color} width={width} dashed={dashed} hiddenTrails={hiddenTrails} mapY={mapY}
               selId={selId} networkIds={[...relationship.lineIds]} onPickDraw={tool === 'pan' ? drawDown : undefined} />
             {/* snap ring that fills up while hovered (keyed to the target so it restarts on a new one);
                 attach commits on release. Cycle-forming targets are silently skipped, so no blocked
@@ -1737,14 +1744,17 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                       <button className="wb-pa wb-pa-show" title={appConfig.copy.whiteboard.showTrupp} aria-label={appConfig.copy.whiteboard.showTrupp} onClick={() => onShowTrupp(a.truppId!)}><Icon id="warn" /></button>
                     )}
                     <button className="wb-pa wb-pa-mark" title={appConfig.copy.whiteboard.markPosition} aria-label={appConfig.copy.whiteboard.markPosition} onClick={markPosition}><Icon id="flag" /></button>
-                    {/* trail visibility toggle (mirrors the rail's Spuren eye) — deletion of the
-                        record itself lives behind the lock's confirmed clear, never one tap */}
-                    {(a.trail?.length ?? 0) > 0 && (
-                      <button className="wb-pa" title={showTrails ? appConfig.copy.whiteboard.trailsOff : appConfig.copy.whiteboard.trailsOn}
-                        aria-label={appConfig.copy.whiteboard.trails} aria-pressed={showTrails} onClick={() => setShowTrails((v) => !v)}>
-                        <Icon id={showTrails ? 'eye' : 'eyeoff'} />
-                      </button>
-                    )}
+                    {/* per-team trail visibility toggle — deletion of the record itself
+                        lives behind the lock's confirmed clear, never one tap */}
+                    {(a.trail?.length ?? 0) > 0 && (() => {
+                      const shown = !hiddenTrails.has(a.id)
+                      return (
+                        <button className="wb-pa" title={shown ? appConfig.copy.whiteboard.trailsOff : appConfig.copy.whiteboard.trailsOn}
+                          aria-label={appConfig.copy.whiteboard.trails} aria-pressed={shown} onClick={() => toggleTrail(a.id)}>
+                          <Icon id={shown ? 'eye' : 'eyeoff'} />
+                        </button>
+                      )
+                    })()}
                     {teamLocked(a)
                       ? <button className="wb-pa wb-pa-lock" title={appConfig.copy.whiteboard.deleteLocked} aria-label={appConfig.copy.whiteboard.deleteLocked} onClick={() => void clearTrail()}><Icon id="lock" /></button>
                       : <button className="wb-pa wb-pa-del" title={appConfig.copy.delete} aria-label={appConfig.copy.delete} onClick={() => void removeWithConnections(a)}><Icon id="trash" /></button>}
@@ -1837,7 +1847,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
 
             {/* trail breadcrumbs — a constant-size dot + timestamp at each RECORDED
                 position, so the trail reads as a time-stamped log at a glance */}
-            {showTrails && annos.filter((a) => a.kind === 'resource').flatMap((a) =>
+            {annos.filter((a) => a.kind === 'resource' && !hiddenTrails.has(a.id)).flatMap((a) =>
               (a.trail ?? []).map((p, i) => (
                 <div
                   key={`dot-${a.id}-${i}`}
@@ -1903,8 +1913,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           onFinish={finishShape}
           onCancelDraft={cancelShape}
           recolorTeam={recolorTeam}
-          trailsShown={showTrails}
-          onToggleTrails={() => setShowTrails((v) => !v)}
+          trailsShown={!!selResource && !hiddenTrails.has(selResource.id)}
+          onToggleTrails={() => { if (selResource) toggleTrail(selResource.id) }}
           measMode={measMode}
           setMeasMode={setMeasMode}
           measCount={measPath.length}
@@ -1940,13 +1950,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             if (id === 'symbol') { setTool('symbol'); setPaletteOpen(true); return }
             setTool(tool === id ? 'pan' : (id as BoardTool)); setPending(null)
           }}
-          extras={
-            <button className={`vrail-tool ${showTrails ? 'on' : ''}`} title={showTrails ? appConfig.copy.whiteboard.trailsOff : appConfig.copy.whiteboard.trailsOn}
-              aria-label={appConfig.copy.whiteboard.trails} aria-pressed={showTrails}
-              onClick={() => setShowTrails((v) => !v)}>
-              <span className="vrail-glyph"><Icon id={showTrails ? 'eye' : 'eyeoff'} /></span><span className="vrail-label">{appConfig.copy.whiteboard.trails}</span>
-            </button>
-          }
           footer={
             <>
               <button className="vrail-nbtn" title={appConfig.copy.nav.zoomOut} aria-label={appConfig.copy.nav.zoomOut} disabled={scale <= 1} onClick={() => zoom(1 / 1.3)}><span className="vrail-glyph"><Icon id="minus" /></span><span className="vrail-label">{appConfig.copy.nav.zoomOut}</span></button>
