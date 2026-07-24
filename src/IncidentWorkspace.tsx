@@ -715,6 +715,21 @@ export function IncidentWorkspace({
     return () => window.removeEventListener('keydown', onKey)
   }, [pending, pendingShape, panel, viewsOpen, selectedId, selectedDrawingId, selectedDrawIds, selectedEntityIds])
 
+  // The Ebenen dock is transient map chrome — dismiss it the moment attention moves elsewhere, so
+  // it never lingers over a details panel or a sheet. Two triggers: (1) a NEW selection is made
+  // (its ContextPanel/details opens) — tracked by a changing key so merely *opening* Ebenen while
+  // something is already selected doesn't insta-close it; (2) any modal sheet opens.
+  const selKey = `${selectedId ?? ''}|${selectedDrawingId ?? ''}|${selectedDrawIds.join(',')}|${selectedEntityIds.join(',')}`
+  const prevSelKey = useRef(selKey)
+  useEffect(() => {
+    const changedToSelection = prevSelKey.current !== selKey && (!!selectedId || !!selectedDrawingId || selectedDrawIds.length > 0 || selectedEntityIds.length > 0)
+    prevSelKey.current = selKey
+    if (changedToSelection) setPanel(null)
+  }, [selKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (settingsOpen || paletteOpen || pickerOpen || helpOpen || installGuideOpen || offlineReadyOpen || reportPreflightOpen || composerOpen || journalOpen || teamPick) setPanel(null)
+  }, [settingsOpen, paletteOpen, pickerOpen, helpOpen, installGuideOpen, offlineReadyOpen, reportPreflightOpen, composerOpen, journalOpen, teamPick])
+
   // Delete / Backspace removes the current selection (drawing first, then entity) — but
   // never while typing in a field. `doc` is a dep so the delete closes over fresh state.
   useEffect(() => {
