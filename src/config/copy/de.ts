@@ -82,20 +82,21 @@ export const de = {
       {
         id: 'tastatur', title: 'Tastaturkürzel', icon: 'type',
         blocks: [
-          { kind: 'lead', text: 'Wer mit Tastatur arbeitet, erreicht alles ohne Maus. Kürzel wirken nicht, während in einem Textfeld getippt wird.' },
-          { kind: 'sub', text: 'Bereiche wechseln (Zahlen springen durch die Liste)' },
+          { kind: 'lead', text: 'Wer mit Tastatur arbeitet, erreicht alles ohne Maus. Kürzel wirken nicht, während in einem Textfeld getippt wird. Jedes Feld in der linken Leiste zeigt seine Taste.' },
+          { kind: 'sub', text: 'Bereiche wechseln' },
           { kind: 'list', items: [
-            '[[1]] Karte · [[2]] Pläne · [[3]] Checkliste · [[4]] Atemschutz · [[5]] Anwesenheit · [[6]] Mittel.',
-            '[[2]] erneut gedrückt blättert durch die Plan-Module. [[⌘]] [[[]] / [[⌘]] []]] geht einen Bereich zurück/vor.',
+            'Zahlen öffnen das Plan-Modul mit dieser Nummer: [[1]] Modul 1, [[2]] oder [[3]] das Modul «2/3», [[4]] Modul 4 …',
+            '[[K]] Karte · [[H]] Checkliste · [[A]] Atemschutz · [[W]] Anwesenheit · [[I]] Mittel.',
+            '[[⌘]] [[[]] / [[⌘]] []]] blättert Schritt für Schritt durch alle Bereiche (auch Umgebung und Gebäude, die keine Nummer haben).',
           ] },
           { kind: 'sub', text: 'Werkzeuge (Lage & Plan gleich)' },
           { kind: 'list', items: [
-            '[[V]] Auswahl · [[M]] Mehrfach · [[S]] Symbol · [[L]] Linie · [[F]] Fläche · [[K]] Absperrkreis · [[N]] Notiz · [[T]] Trupp · [[D]] Messen.',
+            '[[V]] Auswahl · [[M]] Mehrfach · [[S]] Symbol · [[L]] Linie · [[F]] Fläche · [[P]] Absperrkreis · [[N]] Notiz · [[T]] Trupp · [[D]] Messen.',
           ] },
           { kind: 'sub', text: 'Bearbeiten' },
           { kind: 'list', items: [
             '[[⌘]] [[Z]] Rückgängig · [[⌘]] [[⇧]] [[Z]] Wiederholen · [[⌘]] [[D]] Duplizieren.',
-            '[[Esc]] Abwählen/Abbrechen · [[⌫]] Auswahl löschen.',
+            '[[Esc]] schliesst der Reihe nach: Werkzeug → offenes Panel → Auswahl. [[⌫]] löscht die Auswahl.',
           ] },
           { kind: 'sub', text: 'Ansicht & Panels' },
           { kind: 'list', items: [

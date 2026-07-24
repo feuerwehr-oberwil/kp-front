@@ -490,6 +490,17 @@ input[type='number'] { -moz-appearance: textfield; appearance: textfield; }
 .nav-live.nav-alarm { background: var(--amber); }
 .nav-live.nav-alarm.crit { background: var(--red); animation: nav-alarm-pulse 1.4s infinite; }
 @keyframes nav-alarm-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+/* keyboard-shortcut badge on the fixed surface items (Karte/Checkliste/…) — mirrors .help-kbd and
+   sits bottom-right so it never collides with the top-right live/alarm dot. Shown only on devices
+   with a real keyboard/pointer, so touch tablets stay uncluttered. Modules already show their
+   number as the glyph, so they need no separate badge. */
+.nav-item { position: relative; }
+.nav-key { display: none; position: absolute; right: 5px; bottom: 4px; min-width: 15px; height: 15px;
+  box-sizing: border-box; padding: 0 3px; font-family: var(--mono); font-size: 9.5px; font-weight: 700;
+  line-height: 13px; text-align: center; border-radius: var(--r-xs); border: 1px solid var(--border);
+  background: var(--fill-soft); color: color-mix(in srgb, var(--ink) 55%, transparent); pointer-events: none; }
+.nav-item.on .nav-key { border-color: color-mix(in srgb, var(--on-accent-ink) 45%, transparent); color: var(--on-accent-ink); background: transparent; }
+@media (hover: hover) and (pointer: fine) { .nav-key { display: block; } }
 .nav-grip { position: absolute; top: 0; right: -7px; width: 20px; height: 100%; border: 0; background: transparent; padding: 0;
   cursor: ew-resize; z-index: 3; display: flex; align-items: center; justify-content: center; touch-action: none; }
 .nav-grip::after { content: ""; width: 4px; height: 38px; border-radius: 3px; background: var(--border); transition: background .14s var(--ease); }

@@ -7,15 +7,22 @@ const ev = (key: string, mod: Partial<KeyboardEvent> = {}): KeyboardEvent =>
 
 const resolve = (key: string, mod?: Partial<KeyboardEvent>): HotkeyCommand | null => resolveHotkey(ev(key, mod))
 
-describe('resolveHotkey — surfaces & fit (numbers jump through items)', () => {
-  it('digits 1..6 map to surfaces', () => {
-    for (let n = 1; n <= 6; n++) expect(resolve(String(n))).toEqual({ type: 'surface', n })
+describe('resolveHotkey — modules & fit (numbers address the plan modules)', () => {
+  it('digits 1..9 map to the module with that number', () => {
+    for (let n = 1; n <= 9; n++) expect(resolve(String(n))).toEqual({ type: 'module', n })
   })
-  it('0 is einpassen/fit, not a surface', () => {
+  it('0 is einpassen/fit, not a module', () => {
     expect(resolve('0')).toEqual({ type: 'fit' })
   })
-  it('7..9 are unbound (only six surfaces)', () => {
-    for (const k of ['7', '8', '9']) expect(resolve(k)).toBeNull()
+})
+
+describe('resolveHotkey — non-module surfaces carry their own letter', () => {
+  it('K/H/A/W/I select the fixed surfaces', () => {
+    expect(resolve('k')).toEqual({ type: 'surface', surface: 'map' })
+    expect(resolve('h')).toEqual({ type: 'surface', surface: 'checklists' })
+    expect(resolve('a')).toEqual({ type: 'surface', surface: 'atemschutz' })
+    expect(resolve('w')).toEqual({ type: 'surface', surface: 'anwesenheit' })
+    expect(resolve('i')).toEqual({ type: 'surface', surface: 'mittel' })
   })
 })
 
@@ -40,13 +47,13 @@ describe('resolveHotkey — doc-level ops need Cmd/Ctrl', () => {
 })
 
 describe('resolveHotkey — bare tool/panel/view keys', () => {
-  it('maps the tool letters', () => {
+  it('maps the tool letters (Absperrkreis is P — K belongs to the Karte surface)', () => {
     expect(resolve('v')).toEqual({ type: 'tool', tool: 'select' })
     expect(resolve('m')).toEqual({ type: 'tool', tool: 'lasso' })
     expect(resolve('s')).toEqual({ type: 'tool', tool: 'symbol' })
     expect(resolve('l')).toEqual({ type: 'tool', tool: 'line' })
     expect(resolve('f')).toEqual({ type: 'tool', tool: 'area' })
-    expect(resolve('k')).toEqual({ type: 'tool', tool: 'circle' })
+    expect(resolve('p')).toEqual({ type: 'tool', tool: 'circle' })
     expect(resolve('n')).toEqual({ type: 'tool', tool: 'note' })
     expect(resolve('t')).toEqual({ type: 'tool', tool: 'team' })
   })
@@ -74,7 +81,7 @@ describe('resolveHotkey — bare tool/panel/view keys', () => {
 
 describe('resolveHotkey — non-shortcuts', () => {
   it('bare letters that are not bound return null', () => {
-    for (const k of ['a', 'q', 'w', 'x', 'z']) expect(resolve(k)).toBeNull()
+    for (const k of ['q', 'u', 'x', 'y', 'z']) expect(resolve(k)).toBeNull()
   })
   it('a bound letter with Cmd is NOT a bare tool (never hijack browser combos)', () => {
     expect(resolve('s', { metaKey: true })).toBeNull() // Cmd+S = browser save

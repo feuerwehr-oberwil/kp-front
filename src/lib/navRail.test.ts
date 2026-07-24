@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { clampRailWidth, snapExpanded, planGlyph } from './navRail'
+import { clampRailWidth, snapExpanded, planGlyph, moduleNumbers } from './navRail'
 import type { PlanDocument } from '../types'
 
 // a minimal PlanDocument factory — only the fields planGlyph reads matter
@@ -29,4 +29,12 @@ describe('planGlyph', () => {
   it('defaults the Tafel glyph to pen when no icon is set', () => expect(planGlyph(doc({ id: 'tafel' }))).toEqual({ icon: 'pen' }))
   it('falls back to the doc icon for a generic plan', () => expect(planGlyph(doc({ id: 'osm', icon: 'map' }))).toEqual({ icon: 'map' }))
   it('falls back to the doc icon when none is set', () => expect(planGlyph(doc({ id: 'other' }))).toEqual({ icon: 'doc' }))
+})
+
+describe('moduleNumbers — the digit(s) a plan doc answers to', () => {
+  it('a single module answers its own number', () => expect(moduleNumbers(doc({ id: 'modul4' }))).toEqual([4]))
+  it('a combined sheet answers BOTH digits', () => expect(moduleNumbers(doc({ id: 'modul2-3' }))).toEqual([2, 3]))
+  it('a sub-slot (PV) carries no number', () => expect(moduleNumbers(doc({ id: 'modul5-pv', code: 'PV' }))).toEqual([]))
+  it('the Umgebung / a generic plan carries no number', () => expect(moduleNumbers(doc({ id: 'osm', icon: 'map' }))).toEqual([]))
+  it('the Gebäude floor-stack carries no number', () => expect(moduleNumbers(doc({ id: 'gebaeude', floorStack: true }))).toEqual([]))
 })

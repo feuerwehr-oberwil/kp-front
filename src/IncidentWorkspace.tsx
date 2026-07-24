@@ -8,6 +8,7 @@ import { useVehicleLayer } from './lib/useVehicleLayer'
 import { autoActivateLayers, deriveInitial, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type Saved, type WorkspaceGate } from './lib/workspace'
 import { useReplay } from './lib/useReplay'
 import { resolveHotkey, isTypingTarget } from './lib/hotkeys'
+import { moduleNumbers } from './lib/navRail'
 import { incident as demoIncident, planDocuments, gebaeudeDoc, preparedOverlays } from './data/demoIncident'
 import type { CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LngLat, MittelEntry, ShapeKind, TimelineEvent, Trupp, TruppFields } from './types'
 import { appConfig } from './config/appConfig'
@@ -699,17 +700,20 @@ export function IncidentWorkspace({
   // a stronger signal than the browser's `online` event, which fires on link-up not reach.
   useEffect(() => { if (syncStatus === 'synced') void media.flush() }, [syncStatus, media])
 
-  // Escape is the universal bail-out: cancel a pending placement, else clear the
-  // current selection — so there's always a quick way back to the plain map.
+  // Escape is the universal bail-out — it peels back one layer of transient state at a time so
+  // there's always a quick way back to the plain map: (1) cancel an armed placement, (2) close the
+  // open map chrome (Ebenen panel / views popover), (3) clear the current selection. (Modal sheets
+  // handle their own Esc via the overlay wrapper; this is only the non-modal map chrome.)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
       if (pending || pendingShape) { setPending(null); setPendingShape(null); setTool('select') }
+      else if (panel || viewsOpen) { setPanel(null); setViewsOpen(false) }
       else if (selectedId || selectedDrawingId || selectedDrawIds.length || selectedEntityIds.length) { setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [pending, pendingShape, selectedId, selectedDrawingId, selectedDrawIds, selectedEntityIds])
+  }, [pending, pendingShape, panel, viewsOpen, selectedId, selectedDrawingId, selectedDrawIds, selectedEntityIds])
 
   // Delete / Backspace removes the current selection (drawing first, then entity) — but
   // never while typing in a field. `doc` is a dep so the delete closes over fresh state.
@@ -1180,16 +1184,12 @@ export function IncidentWorkspace({
 
   // Jump straight to the Nth surface (number keys). Pressing the Pläne key again while already in
   // Pläne cycles to the next plan document, so the whole nav is reachable from the keyboard.
-  const goToSurface = (n: number) => {
-    const target = (['map', 'plans', 'checklists', 'atemschutz', 'anwesenheit', 'mittel'] as const)[n - 1]
-    if (!target) return
-    if (target === 'plans') {
-      if (mode !== 'plans') { setMode('plans'); setPanel(null) }
-      else if (planDocs.length > 1) {
-        const i = planDocs.findIndex((p) => p.id === activePlanId)
-        setActivePlanId(planDocs[(i + 1) % planDocs.length]?.id ?? planDocs[0].id)
-      }
-    } else setMode(target)
+  // a number key opens the plan module carrying that number (2 or 3 → the "2/3" sheet). No such
+  // module → do nothing. Sub-slots / Umgebung / Gebäude have no number and are reached by stepping.
+  const goToModule = (n: number) => {
+    const doc = planDocs.find((p) => moduleNumbers(p).includes(n))
+    if (!doc) return
+    setMode('plans'); setActivePlanId(doc.id); setPanel(null)
   }
 
   // Reassigned every render (effect, no deps) so the mount-once listener (above) always sees
@@ -1202,7 +1202,8 @@ export function IncidentWorkspace({
     if (!cmd) return
     const onMap = mode === 'map', onPlan = mode === 'plans', drawing = onMap || onPlan
     switch (cmd.type) {
-      case 'surface': e.preventDefault(); goToSurface(cmd.n); break
+      case 'module': e.preventDefault(); goToModule(cmd.n); break
+      case 'surface': e.preventDefault(); if (cmd.surface === 'map') setPanel(null); setMode(cmd.surface); break
       case 'nav': e.preventDefault(); goToNav(cmd.dir); break
       case 'fit':
         e.preventDefault()

@@ -37,3 +37,14 @@ export function planGlyph(doc: PlanDocument): { mono: string } | { icon: string 
   if (doc.id === 'tafel') return { icon: doc.icon ?? 'pen' }
   return { icon: doc.icon ?? 'doc' }
 }
+
+/** the digit(s) that address this plan doc from the keyboard — the numbers in its rail glyph.
+ *  A single module ("2") → [2]; a combined sheet ("2/3") → [2, 3] (either digit opens it); a
+ *  sub-slot ("PV"), the Umgebung and the Gebäude floor-stack carry no number → [] (reach them by
+ *  stepping the nav with Cmd+[ / Cmd+]). Keeps the digit→module map in lockstep with planGlyph. */
+export function moduleNumbers(doc: PlanDocument): number[] {
+  const g = planGlyph(doc)
+  if (!('mono' in g)) return []
+  const nums = g.mono.match(/\d+/g)
+  return nums ? nums.map(Number) : []
+}

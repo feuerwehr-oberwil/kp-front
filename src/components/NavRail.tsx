@@ -3,6 +3,7 @@ import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import type { PlanDocument } from '../types'
 import { clampRailWidth, snapExpanded, planGlyph } from '../lib/navRail'
+import { SURFACE_KEY } from '../lib/hotkeys'
 
 // precomposed Unicode fraction glyphs for combined-module monograms (clean proper fractions);
 // anything without one falls back to a compact diagonal rendering.
@@ -119,6 +120,7 @@ export function NavRail(p: Props) {
         <button className={`nav-item${p.mode === 'map' ? ' on' : ''}`} aria-pressed={p.mode === 'map'} aria-label={nav.map} onClick={() => p.onMode('map')}>
           <span className="nav-glyph"><Icon id="map" />{p.mapLive && <span className="nav-live" />}</span>
           <span className="nav-label">{nav.map}</span>
+          <span className="nav-key" aria-hidden>{SURFACE_KEY.map}</span>
         </button>
 
         {p.planDocs.map((doc) => {
@@ -151,18 +153,22 @@ export function NavRail(p: Props) {
         <button className={`nav-item${p.mode === 'checklists' ? ' on' : ''}`} aria-pressed={p.mode === 'checklists'} aria-label={appConfig.copy.modes.checklists} onClick={() => p.onMode('checklists')}>
           <span className="nav-glyph"><Icon id="checklist" /></span>
           <span className="nav-label">{appConfig.copy.modes.checklists}</span>
+          <span className="nav-key" aria-hidden>{SURFACE_KEY.checklists}</span>
         </button>
         <button className={`nav-item${p.mode === 'atemschutz' ? ' on' : ''}`} aria-pressed={p.mode === 'atemschutz'} aria-label={appConfig.copy.modes.atemschutz} onClick={() => p.onMode('atemschutz')}>
           <span className="nav-glyph"><Icon id="gauge" />{(p.azSeverity ?? 0) >= 2 ? <span className="nav-live nav-alarm crit" /> : null}</span>
           <span className="nav-label">{appConfig.copy.modes.atemschutz}</span>
+          <span className="nav-key" aria-hidden>{SURFACE_KEY.atemschutz}</span>
         </button>
         <button className={`nav-item${p.mode === 'anwesenheit' ? ' on' : ''}`} aria-pressed={p.mode === 'anwesenheit'} aria-label={appConfig.copy.modes.anwesenheit} onClick={() => p.onMode('anwesenheit')}>
           <span className="nav-glyph"><Icon id="people" /></span>
           <span className="nav-label">{appConfig.copy.modes.anwesenheit}</span>
+          <span className="nav-key" aria-hidden>{SURFACE_KEY.anwesenheit}</span>
         </button>
         <button className={`nav-item${p.mode === 'mittel' ? ' on' : ''}`} aria-pressed={p.mode === 'mittel'} aria-label={appConfig.copy.modes.mittel} onClick={() => p.onMode('mittel')}>
           <span className="nav-glyph"><Icon id="box" /></span>
           <span className="nav-label">{appConfig.copy.modes.mittel}</span>
+          <span className="nav-key" aria-hidden>{SURFACE_KEY.mittel}</span>
         </button>
 
         {/* (object switch moved to the incident dropdown's «Objekt: …» row, 2026-07-14) */}

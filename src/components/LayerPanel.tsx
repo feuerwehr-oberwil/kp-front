@@ -1,4 +1,4 @@
-import { Fragment } from 'react'
+import { Fragment, useEffect, useRef } from 'react'
 import type { LayerDef } from '../types'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
@@ -22,8 +22,13 @@ export function LayerPanel({ layers, onToggle, onOpacity, onDownloadOffline, off
     return acc
   }, {})
 
+  // opening the panel (e.g. via the [[B]] shortcut) drops focus onto the first layer row so the
+  // whole list is immediately Tab/Enter navigable from the keyboard — the rows are real buttons.
+  const cardRef = useRef<HTMLDivElement>(null)
+  useEffect(() => { cardRef.current?.querySelector<HTMLButtonElement>('.lrow')?.focus() }, [])
+
   return (
-    <div className="layers-card">
+    <div className="layers-card" ref={cardRef}>
       <div className="lc-title">
         <Icon id="layers" />{appConfig.copy.panels.layers}
         {onClose && <button type="button" className="lc-x" aria-label={appConfig.copy.closeDialog} onClick={onClose}><Icon id="close" /></button>}
