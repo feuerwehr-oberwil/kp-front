@@ -18,6 +18,15 @@
   <symbol id="i-arrow" viewBox="0 0 16 16">
     <path d="M8.8 2.3a.9.9 0 0 0-1.3 1.25L10.4 6.6H2.2a.9.9 0 0 0 0 1.8h8.2l-2.9 3.05a.9.9 0 0 0 1.3 1.25l4.3-4.5a.9.9 0 0 0 0-1.2z"/>
   </symbol>
+  <symbol id="i-bug" viewBox="0 0 16 16">
+    <path d="M8 1.2A6.8 6.8 0 1 0 8 14.8 6.8 6.8 0 0 0 8 1.2zm0 3.1a.95.95 0 0 1 .95 1l-.22 3.4a.73.73 0 0 1-1.46 0l-.22-3.4a.95.95 0 0 1 .95-1zm0 6.2a1.05 1.05 0 1 1 0 2.1 1.05 1.05 0 0 1 0-2.1z"/>
+  </symbol>
+  <symbol id="i-idea" viewBox="0 0 16 16">
+    <path d="M8 1.2a4.8 4.8 0 0 0-2.95 8.58c.4.32.63.75.7 1.22l.08.5h4.34l.08-.5c.07-.47.3-.9.7-1.22A4.8 4.8 0 0 0 8 1.2zM6.25 12.9a.75.75 0 0 0 0 1.5h3.5a.75.75 0 0 0 0-1.5z"/>
+  </symbol>
+  <symbol id="i-mail" viewBox="0 0 16 16">
+    <path d="M2 4.6c0-.77.63-1.4 1.4-1.4h9.2c.77 0 1.4.63 1.4 1.4v.2L8 8.4 2 4.8zm0 1.95 5.6 3.36c.25.15.55.15.8 0L14 6.55v4.85c0 .77-.63 1.4-1.4 1.4H3.4A1.4 1.4 0 0 1 2 11.4z"/>
+  </symbol>
 </svg>
 
 <header class="top">
@@ -38,7 +47,7 @@
       </svg>
       <span>KP Front</span></a>
     <nav aria-label="Hauptnavigation">
-      <a href="#einsatz">Funktionen</a>
+      <a href="#funktionen">Funktionen</a>
       <a href="#kontakt">Kontakt</a>
       <a class="icon-link" href="https://github.com/feuerwehr-oberwil/kp-front" target="_blank" rel="noopener" aria-label="KP Front auf GitHub"><svg class="ico"><use href="#i-gh"/></svg></a>
       <a class="cta" href="https://kp-front-demo.up.railway.app" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg>Demo</a>
@@ -147,29 +156,117 @@
     <div class="sec-head">
       <p class="eyebrow">Aus der Demo</p>
       <h2>So sieht das aus.</h2>
+      <p>Alle Bilder sind aus der öffentlichen Demo aufgenommen – keine Montagen. Klick auf
+        «Demo öffnen», und du stehst in derselben Lage.</p>
     </div>
     <div class="shots-grid">
       <figure class="shot">
-        <img src="shots/atemschutz.jpg" alt="Atemschutz-Ansicht: Trupps mit Druck und laufender Kontaktuhr" width="1500" height="937">
+        <img src="shots/plan.jpg" alt="Plan-Ansicht: Objektplan als Whiteboard mit Zeichnung, Symbolen und Massstab" width="1500" height="937" loading="lazy" decoding="async">
+        <figcaption>
+          <div class="cap-t">Plan</div>
+          <div class="cap-s">Objektplan als Whiteboard – zeichnen, platzieren, massstabsgetreu messen</div>
+        </figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="shots/atemschutz.jpg" alt="Atemschutz-Ansicht: Trupps mit Druck und laufender Kontaktuhr" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Atemschutz</div>
           <div class="cap-s">Trupps, Druck und Kontaktuhr</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="shots/gebaeude.jpg" alt="Gebäude-Ansicht: Geschossstapel mit Truppzuordnung" width="1500" height="937">
+        <img src="shots/gebaeude.jpg" alt="Gebäude-Ansicht: Geschossstapel mit Truppzuordnung" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Gebäude</div>
-          <div class="cap-s">Geschosse und Trupps im Objekt</div>
+          <div class="cap-s">Geschosse übereinander – welcher Trupp ist auf welchem Stock</div>
         </figcaption>
       </figure>
       <figure class="shot">
-        <img src="shots/mittel.jpg" alt="Mittel-Ansicht: Materialeinsatz nach Quelle" width="1500" height="937">
+        <img src="shots/verlauf.jpg" alt="Verlauf: chronologische Einträge neben der Karte" width="1500" height="937" loading="lazy" decoding="async">
+        <figcaption>
+          <div class="cap-t">Verlauf</div>
+          <div class="cap-s">Journal, das nur ergänzt wird – auch per Sprachnotiz</div>
+        </figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="shots/anwesenheit.jpg" alt="Anwesenheit: Mannschaftsliste mit Ankunftszeiten" width="1500" height="937" loading="lazy" decoding="async">
+        <figcaption>
+          <div class="cap-t">Anwesenheit</div>
+          <div class="cap-s">Wer ist da, seit wann – Grundlage für den Rapport</div>
+        </figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="shots/checkliste.jpg" alt="Checkliste: Aufgaben der Führungsunterstützung mit Fortschritt" width="1500" height="937" loading="lazy" decoding="async">
+        <figcaption>
+          <div class="cap-t">Checklisten</div>
+          <div class="cap-s">Eure Führungs-Checklisten, abhakbar statt im Ordner</div>
+        </figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="shots/mittel.jpg" alt="Mittel-Ansicht: Materialeinsatz nach Quelle" width="1500" height="937" loading="lazy" decoding="async">
         <figcaption>
           <div class="cap-t">Mittel</div>
           <div class="cap-s">Was gebraucht wurde, direkt erfasst</div>
         </figcaption>
       </figure>
+    </div>
+  </section>
+
+  <section class="wrap" id="funktionen">
+    <div class="sec-head">
+      <p class="eyebrow">Funktionsumfang</p>
+      <h2>Was alles drin ist.</h2>
+      <p>Gewachsen an echten Einsätzen und Übungen, nicht an einer Featureliste. Alles, was von
+        aussen dazukommt – Alarmierung, GPS, Drucker – ist <strong>optional</strong>: KP Front
+        läuft vollständig ohne.</p>
+    </div>
+    <div class="feature-cols">
+      <div class="fgroup">
+        <h3>Lage &amp; Plan</h3>
+        <ul class="flist">
+          <li><strong>Taktische Zeichen</strong> nach FKS-Konventionen, mit Attributen und Beschriftung</li>
+          <li>Sektoren, Absperrkreise, Flächen und Freihandzeichnung</li>
+          <li>Schlauchleitungen mit FKS-Annotationen</li>
+          <li>Messen von Distanz und Fläche, massstabsgetreu auch auf dem Plan</li>
+          <li>Ebenen: Hydranten, Leitungskataster, kantonale Kartendienste</li>
+          <li>Objektpläne als Whiteboard, Geschossstapel, leere Tafel</li>
+          <li>Rückgängig/Wiederholen auf jeder Fläche</li>
+        </ul>
+      </div>
+      <div class="fgroup">
+        <h3>Mannschaft &amp; Mittel</h3>
+        <ul class="flist">
+          <li><strong>Atemschutzüberwachung</strong>: Druck, Rückzugszeit, Kontaktuhr, Alarme</li>
+          <li>Trupps auf Karte, Plan und im Geschossstapel</li>
+          <li>Anwesenheit mit Ankunftszeiten und Dienstgraden</li>
+          <li>Mittel und Material mit Bestand und Verbrauch</li>
+          <li>Checklisten für Führungsunterstützung und Einsatzleitung</li>
+          <li>Einsatzleiter-Ansicht: mitlesen, ohne etwas zu verschieben</li>
+        </ul>
+      </div>
+      <div class="fgroup">
+        <h3>Dokumentation</h3>
+        <ul class="flist">
+          <li><strong>Verlauf</strong>, der nur ergänzt und nie umgeschrieben wird</li>
+          <li>Sprachnotizen mit Transkription, Fotos, Erinnerungen</li>
+          <li>Einsatzrapport als PDF, serverseitig gerendert – mit Kroki der Lage</li>
+          <li>Erfassungsblatt für alle, die etwas beitragen, per QR-Code</li>
+          <li>Alarm- und Einsatzzeiten aus dem Ablauf statt aus dem Gedächtnis</li>
+        </ul>
+      </div>
+      <div class="fgroup">
+        <h3>Betrieb</h3>
+        <ul class="flist">
+          <li><strong>Offline-fähig</strong> als installierbare App, inkl. Bereitschaftsprüfung</li>
+          <li>Mehrere Geräte gleichzeitig, Änderungen werden zusammengeführt</li>
+          <li>Rollen: bearbeiten oder nur mitlesen</li>
+          <li>Tag-/Nachtmodus, Symbolgrösse, grosse Bedienflächen fürs Tablet</li>
+          <li>Alarmübernahme aus dem Alarmierungssystem <span class="opt">optional</span></li>
+          <li>Fahrzeugpositionen per GPS <span class="opt">optional</span></li>
+          <li>Thermodruck im Magazin <span class="opt">optional</span></li>
+          <li>Eigene Verwaltungsoberfläche pro Feuerwehr, mehrsprachig</li>
+        </ul>
+      </div>
     </div>
   </section>
 
@@ -215,35 +312,37 @@
         <p class="eyebrow">Kontakt</p>
         <h2>Sag uns, was du denkst.</h2>
         <p>Willst du KP Front bei euch ausprobieren? Fehlt etwas, oder funktioniert etwas nicht so,
-          wie du es erwartest? Schreib uns – wir lesen alles.</p>
-        <p class="alt">Lieber direkt? <a href="mailto:bastian.eichenberger@feuerwehr-oberwil.ch">bastian.eichenberger@feuerwehr-oberwil.ch</a>
-          oder eine <a href="https://github.com/feuerwehr-oberwil/kp-front/discussions" target="_blank" rel="noopener">GitHub-Diskussion</a> starten.</p>
+          wie du es erwartest? Melde dich – wir lesen alles.</p>
+        <p class="alt">Für Fragen und offene Ideen gibt es die
+          <a href="https://github.com/feuerwehr-oberwil/kp-front/discussions" target="_blank" rel="noopener">GitHub-Diskussionen</a>.
+          Sicherheitslücken bitte nicht öffentlich melden – siehe <a href="https://github.com/feuerwehr-oberwil/kp-front/security/policy" target="_blank" rel="noopener">SECURITY.md</a>.</p>
       </div>
-      <form class="card" id="feedback-form">
-        <div class="field">
-          <label for="f-name">Name</label>
-          <input id="f-name" name="name" type="text" autocomplete="name" required>
-        </div>
-        <div class="field">
-          <label for="f-org">Feuerwehr / Organisation</label>
-          <input id="f-org" name="org" type="text" autocomplete="organization" placeholder="Optional">
-        </div>
-        <div class="field full">
-          <label for="f-mail">E-Mail</label>
-          <input id="f-mail" name="email" type="email" autocomplete="email" required>
-        </div>
-        <div class="field full">
-          <label for="f-msg">Nachricht</label>
-          <textarea id="f-msg" name="message" required placeholder="Was du loswerden willst …"></textarea>
-        </div>
-        <div class="form-foot">
-          <button class="btn btn-primary" type="submit">Nachricht senden</button>
-          <span class="form-note">Prototyp – das Formular sendet noch nicht.</span>
-        </div>
-        <div class="form-ok" role="status">
-          <strong>Gesendet.</strong>&nbsp;Danke für deine Nachricht – wir melden uns.
-        </div>
-      </form>
+      <div class="contact-ways">
+        <a class="way" href="https://github.com/feuerwehr-oberwil/kp-front/issues/new?template=bug_report.md" target="_blank" rel="noopener">
+          <span class="way-ico"><svg class="ico"><use href="#i-bug"/></svg></span>
+          <span class="way-body">
+            <span class="way-t">Fehler melden</span>
+            <span class="way-s">Was ist passiert, was hättest du erwartet? Screenshots ziehst du direkt ins Formular.</span>
+          </span>
+          <svg class="way-go"><use href="#i-arrow"/></svg>
+        </a>
+        <a class="way" href="https://github.com/feuerwehr-oberwil/kp-front/issues/new?template=feature_request.md" target="_blank" rel="noopener">
+          <span class="way-ico"><svg class="ico"><use href="#i-idea"/></svg></span>
+          <span class="way-body">
+            <span class="way-t">Etwas wünschen</span>
+            <span class="way-s">Fehlt ein Handgriff, der bei euch zum Ablauf gehört? Beschreib den Fall, nicht die Lösung.</span>
+          </span>
+          <svg class="way-go"><use href="#i-arrow"/></svg>
+        </a>
+        <a class="way" href="mailto:bastian.eichenberger@feuerwehr-oberwil.ch?subject=KP%20Front">
+          <span class="way-ico"><svg class="ico"><use href="#i-mail"/></svg></span>
+          <span class="way-body">
+            <span class="way-t">Direkt schreiben</span>
+            <span class="way-s">Ohne GitHub-Konto, oder wenn etwas nicht öffentlich stehen soll – auch für «wir würden das gerne bei uns ausprobieren».</span>
+          </span>
+          <svg class="way-go"><use href="#i-arrow"/></svg>
+        </a>
+      </div>
     </div>
   </section>
 </main>
@@ -263,17 +362,11 @@
 </footer>
 
 <script>
-  document.getElementById('feedback-form').addEventListener('submit', function (e) {
-    e.preventDefault();
-    if (!this.reportValidity()) return;
-    this.classList.add('sent');
-  });
-
   // Scroll-Reveal: nur mit JS und ohne Reduced-Motion; bereits sichtbare
   // Elemente erscheinen sofort (kein Nachfaden beim Reload mitten auf der Seite)
   document.documentElement.classList.add('js');
   if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
-    var els = document.querySelectorAll('.sec-head, .entry, .pillar, .shot, .tenet .wrap, .sibling-txt, .contact-side, form.card');
+    var els = document.querySelectorAll('.sec-head, .entry, .pillar, .shot, .fgroup, .tenet .wrap, .sibling-txt, .contact-side, .contact-ways');
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (e) {
         if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }

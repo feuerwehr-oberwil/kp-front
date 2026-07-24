@@ -30,12 +30,25 @@ const arg = (name) => {
 const base = (arg('base') || DEFAULT_BASE).replace(/\/$/, '')
 const only = arg('only')?.split(',').map((s) => s.trim()).filter(Boolean)
 
-/** Ein Shot = eine Ansicht aus der linken Navigationsleiste, plus Einschwingzeit. */
+/** Ein Shot = eine Ansicht aus der linken Navigationsleiste, plus Einschwingzeit.
+ *  `prep` öffnet vorher noch etwas (Sheet, Menü); `nav` darf dann fehlen. */
 const shots = [
   { name: 'lage', nav: 'Karte', settle: 3500, note: 'Hero: taktische Karte' },
-  { name: 'atemschutz', nav: 'Atemschutz', settle: 1200 },
+  { name: 'plan', nav: 'Modul 1', settle: 4000, note: 'Objektplan als Whiteboard' },
   { name: 'gebaeude', nav: 'Gebäude', settle: 1500 },
+  { name: 'atemschutz', nav: 'Atemschutz', settle: 1200 },
+  { name: 'anwesenheit', nav: 'Anwesenheit', settle: 1500 },
   { name: 'mittel', nav: 'Mittel', settle: 1200 },
+  { name: 'checkliste', nav: 'Checkliste', settle: 1500 },
+  {
+    name: 'verlauf',
+    nav: 'Karte',
+    settle: 2500,
+    prep: async (page) => {
+      await page.locator('.tb-act').filter({ hasText: 'Verlauf' }).first().click()
+      await page.waitForTimeout(1500)
+    },
+  },
 ]
 
 /** Demo-Chrome, die im Marketing-Bild nichts zu suchen hat. */
@@ -87,6 +100,7 @@ const run = async () => {
     await item.click()
     await page.waitForLoadState('networkidle').catch(() => {})
     await page.waitForTimeout(shot.settle)
+    if (shot.prep) await shot.prep(page)
     const path = join(SHOTS, `${shot.name}.jpg`)
     await page.screenshot({ path, type: 'jpeg', quality: QUALITY })
     console.log(`  ✓ ${shot.name}.jpg  (${shot.nav})`)

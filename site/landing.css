@@ -265,6 +265,41 @@ section[id] { scroll-margin-top: 76px; } /* anchor targets clear the sticky head
 .pillar p strong { color: var(--ink); font-weight: 600; }
 .pillar a { color: var(--ink); }
 
+/* drei statt zwei Karten — für die Ausfallstufen */
+.pillars-grid.three { grid-template-columns: repeat(3, 1fr); }
+
+/* ---------- Funktionsumfang ---------- */
+/* Die Liste, die den Umfang zeigt, ohne für jede Ansicht ein Bild zu brauchen */
+.feature-cols {
+  margin-top: 40px;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 32px 28px;
+}
+.fgroup h3 {
+  font-family: var(--mono); font-size: 12px; font-weight: 600;
+  letter-spacing: .13em; text-transform: uppercase; color: var(--red);
+  padding-bottom: 10px; border-bottom: 1px solid var(--line-soft);
+}
+.flist { list-style: none; margin: 0; padding: 0; }
+.flist li {
+  position: relative;
+  padding: 9px 0 9px 20px;
+  font-size: .95rem; color: var(--ink-dim);
+  border-bottom: 1px solid var(--line-soft);
+}
+.flist li:last-child { border-bottom: 0; }
+.flist li::before {
+  content: ''; position: absolute; left: 2px; top: 17px;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: color-mix(in srgb, var(--red) 55%, transparent);
+}
+.flist strong { color: var(--ink); font-weight: 600; }
+.flist .opt {
+  font-family: var(--mono); font-size: 10.5px; font-weight: 600;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint);
+  border: 1px solid var(--line); border-radius: 4px;
+  padding: 1px 5px; margin-left: 6px; white-space: nowrap;
+}
+
 /* ---------- Schwesterprojekt ---------- */
 .sibling {
   border-top: 1px solid var(--line-soft);
@@ -291,47 +326,31 @@ section[id] { scroll-margin-top: 76px; } /* anchor targets clear the sticky head
 .contact-side .alt { margin-top: 26px; font-size: .93rem; color: var(--ink-faint); }
 .contact-side .alt a { color: var(--ink-dim); }
 
-form.card {
+/* Kontaktwege statt Formular: je eine Karte pro Weg (Issue, Issue, Mail) */
+.contact-ways { display: flex; flex-direction: column; gap: 14px; }
+.way {
+  display: flex; align-items: flex-start; gap: 16px;
   border: 1px solid var(--line);
   border-radius: var(--r-surface);
   background: var(--surface);
   box-shadow: var(--shadow);
-  padding: 28px;
-  display: grid; grid-template-columns: 1fr 1fr; gap: 18px;
+  padding: 22px 24px;
+  text-decoration: none;
 }
-.field { display: flex; flex-direction: column; gap: 7px; }
-.field.full { grid-column: 1 / -1; }
-.field label {
-  font-family: var(--mono); font-size: 12px; font-weight: 500;
-  letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint);
+.way:hover { border-color: color-mix(in srgb, var(--red) 45%, var(--line)); }
+.way-ico {
+  flex: none; width: 42px; height: 42px; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--red) 9%, transparent);
+  color: var(--red);
 }
-.field input, .field textarea {
-  font: inherit; font-size: 16px; color: var(--ink); /* ≥16px: no iOS focus zoom */
-  background: #f6f4ee;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 12px 14px;
-  min-height: 46px;
-}
-.field textarea { resize: vertical; min-height: 120px; }
-.field input::placeholder, .field textarea::placeholder { color: var(--ink-faint); }
-.field input:focus, .field textarea:focus {
-  outline: none; border-color: var(--red);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--red) 22%, transparent);
-}
-.form-foot { grid-column: 1 / -1; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-.form-note { font-size: .85rem; color: var(--ink-faint); }
-.form-ok {
-  grid-column: 1 / -1;
-  display: none;
-  align-items: flex-start; gap: 12px;
-  border: 1px solid color-mix(in srgb, var(--ok) 50%, transparent);
-  background: color-mix(in srgb, var(--ok) 10%, transparent);
-  border-radius: 8px; padding: 14px 16px;
-  color: var(--ink);
-}
-form.sent .form-ok { display: flex; }
-form.sent .form-foot { display: none; }
+.way-ico .ico { width: 20px; height: 20px; }
+.way-body { display: block; flex: 1; min-width: 0; }
+.way-t { display: block; font-weight: 700; font-size: 1.06rem; letter-spacing: -.01em; }
+.way-s { display: block; color: var(--ink-dim); font-size: .93rem; margin-top: 5px; }
+.way-go { flex: none; width: 15px; height: 15px; color: var(--ink-faint); margin-top: 5px; }
+.way:hover .way-go { color: var(--red); }
+.contact-note { margin-top: 16px; font-size: .85rem; color: var(--ink-faint); }
 
 /* ---------- footer ---------- */
 footer {
@@ -380,9 +399,8 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
   section, section.wrap { padding-top: 64px; padding-bottom: 64px; }
   section.hero { padding-top: 48px; }
   .shots-grid { grid-template-columns: 1fr; }
-  .pillars-grid { grid-template-columns: 1fr; }
+  .pillars-grid, .pillars-grid.three { grid-template-columns: 1fr; }
   .contact-grid { grid-template-columns: 1fr; gap: 28px; }
-  form.card { grid-template-columns: 1fr; }
   .entry { grid-template-columns: 52px 16px 1fr; gap: 0 12px; }
 }
 @media (max-width: 560px) {
