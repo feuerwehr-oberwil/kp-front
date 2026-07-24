@@ -235,7 +235,7 @@ export function IncidentWorkspace({
   // they auto-update and never get persisted. The operator can drag a vehicle to
   // reposition it and drag its handle to orient it; those overrides live here
   // (persisted) and win over the GPS value until reset via the "GPS" button.
-  const { gpsVehicles, liveVehicles, liveIds, overrides: vehicleOverrides, setOverrides: setVehicleOverrides } = useVehicleLayer(init.vehicleOverrides)
+  const { liveVehicles, liveIds, overrides: vehicleOverrides, setOverrides: setVehicleOverrides } = useVehicleLayer(init.vehicleOverrides)
 
   // Session-only tactical editing state (active tool, place gesture, selection) — see
   // useTacticalSelection. Declared before enterReplay (which clears it) so its setters are in
@@ -1841,7 +1841,6 @@ export function IncidentWorkspace({
         planDocs={planDocs}
         activePlanId={activePlanId}
         onSelectPlan={(id) => { setMode('plans'); setActivePlanId(id); setPanel(null) }}
-        mapLive={gpsVehicles.length > 0}
         azSeverity={azAlarm.peak}
         mapControls={mapUI && isPhone ? (
           // PHONE ONLY: the bottom surface bar keeps the Ebenen launcher (the right tool

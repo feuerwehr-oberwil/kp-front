@@ -33,7 +33,7 @@ export function planGlyph(doc: PlanDocument): { mono: string } | { icon: string 
   }
   const m = /^modul(\d+)/i.exec(doc.id)
   if (m) return { mono: m[1] }
-  if (doc.floorStack) return { icon: doc.icon ?? 'layers' } // Gebäude floor-stack: stacked-sheets icon, not a bare "G"
+  if (doc.floorStack) return { icon: doc.icon ?? 'floors' } // Gebäude floor-stack: stacked-floors icon, not a bare "G"
   if (doc.id === 'tafel') return { icon: doc.icon ?? 'pen' }
   return { icon: doc.icon ?? 'doc' }
 }

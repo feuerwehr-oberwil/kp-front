@@ -12,7 +12,7 @@ import { useHoldEntry } from '../lib/useHoldEntry'
 import { condition, fromLabel, fromLabelLong, windArrowRotation } from './WindBadge'
 
 type ClockMode = 'elapsed' | 'now' | 'start'
-const NEXT_CLOCK: Record<ClockMode, ClockMode> = { elapsed: 'now', now: 'start', start: 'elapsed' }
+const CLOCK_MODES: ClockMode[] = ['elapsed', 'now', 'start']
 // distinct glyph per mode so the icon itself says which time you're reading: elapsed duration
 // (hourglass), current wall time (plain clock), start of the operation (flag).
 const CLOCK_ICON: Record<ClockMode, string> = { elapsed: 'hourglass', now: 'clock', start: 'flag' }
@@ -72,17 +72,20 @@ export function TopBar({ incident, startedAt, recording, recStartedAt, journalOp
   const recSec = recording && recStartedAt ? Math.max(0, Math.round((now - recStartedAt) / 1000)) : 0
   const hasWind = weather?.wind_dir_deg != null
 
-  // Einsatzuhr can show the running duration, the wall clock, or the start time — tap to cycle
-  // (persisted per device). It's the only clock in the bar (the OS status bar covers wall time),
-  // so this surfaces all three.
+  // Einsatzuhr can show the running duration, the wall clock, or the start time. It's the only
+  // clock in the bar (the OS status bar covers wall time), so all three are reachable — from a
+  // LABELLED dropdown (each mode named + its value + a check on the active one) rather than a
+  // blind tap-to-cycle, so the reading is never ambiguous at 3am. Choice persists per device.
   const [clockMode, setClockMode] = useState<ClockMode>(() => loadPrefs().clockMode ?? 'elapsed')
-  const cycleClock = () => setClockMode((m) => { const n = NEXT_CLOCK[m]; savePrefs({ ...loadPrefs(), clockMode: n }); return n })
-  const clockText = startedAt
-    ? clockMode === 'now' ? formatTime(new Date(now), true)
-      : clockMode === 'start' ? formatTime(new Date(startedAt))
-        : fmtElapsedHM(now - Date.parse(startedAt))
-    : ''
   const E = appConfig.copy.einsatzuhr
+  const startMs = startedAt ? Date.parse(startedAt) : 0
+  const clockValue = (m: ClockMode) =>
+    m === 'now' ? formatTime(new Date(now), true)
+      : m === 'start' ? formatTime(new Date(startMs))
+        : fmtElapsedHM(now - startMs)
+  const clockLabel: Record<ClockMode, string> = { elapsed: E.modeElapsed, now: E.modeNow, start: E.modeStart }
+  const pickClock = (m: ClockMode) => { setClockMode(m); savePrefs({ ...loadPrefs(), clockMode: m }) }
+  const clockText = startedAt ? clockValue(clockMode) : ''
 
   // Eintrag gesture (shared with the mobile FAB so they behave identically).
   const { pressing, handlers } = useHoldEntry({ recording, onTap: onAddEntry, onHoldStart, onHoldStop: onHoldEnd })
@@ -98,17 +101,31 @@ export function TopBar({ incident, startedAt, recording, recStartedAt, journalOp
       <div className="vr" />
       {/* No fixed wall clock in the bar — the OS status bar (iPad navbar) already shows the time,
           and the Einsatzuhr below can be cycled to the wall clock when needed. */}
-      {/* Einsatzuhr: the long-incident awareness anchor — tap to cycle duration / clock / start */}
+      {/* Einsatzuhr: the long-incident awareness anchor — tap opens a labelled mode menu */}
       {startedAt && (
-        <button
-          type="button"
-          className="stat tb-einsatzuhr"
-          onClick={cycleClock}
-          title={`${E.cycleHint} · ${fillTemplate(E.title, { t: formatTime(new Date(startedAt)) })}`}
-          aria-label={`${clockMode === 'now' ? E.modeNow : clockMode === 'start' ? E.modeStart : E.modeElapsed}: ${clockText}. ${E.cycleHint}`}
+        <Popover
+          side="bottom"
+          align="start"
+          popupClassName="tb-uhr-menu"
+          ariaLabel={fillTemplate(E.title, { t: formatTime(new Date(startedAt)) })}
+          trigger={
+            <button
+              type="button"
+              className="stat tb-einsatzuhr"
+              title={fillTemplate(E.title, { t: formatTime(new Date(startedAt)) })}
+              aria-label={`${clockLabel[clockMode]}: ${clockText}`}
+            >
+              <Icon id={CLOCK_ICON[clockMode]} /><b>{clockText}</b><Icon id="chevron-down" className="tb-uhr-chev" />
+            </button>
+          }
         >
-          <Icon id={CLOCK_ICON[clockMode]} /><b>{clockText}</b>
-        </button>
+          {CLOCK_MODES.map((m) => (
+            <PopoverClose key={m} className={`tb-uhr-row${clockMode === m ? ' on' : ''}`} onClick={() => pickClock(m)}>
+              <Icon id={CLOCK_ICON[m]} /><span className="tb-uhr-lbl">{clockLabel[m]}</span>
+              <span className="tb-uhr-val">{clockValue(m)}</span><Icon id="check" className="tb-uhr-chk" />
+            </PopoverClose>
+          ))}
+        </Popover>
       )}
 
       {/* global journal + undo/redo — reachable from both surfaces */}

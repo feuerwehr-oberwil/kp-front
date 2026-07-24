@@ -480,6 +480,11 @@ input[type='number'] { -moz-appearance: textfield; appearance: textfield; }
 .nav-frac-diag .nav-frac-n { font-size: .56em; align-self: flex-start; }
 .nav-frac-diag .nav-frac-s { font-size: .9em; font-weight: 300; margin: 0 -.12em; }
 .nav-frac-diag .nav-frac-d { font-size: .56em; align-self: flex-end; }
+/* module/floor monograms sit in a bordered chip so they read as document tabs rather than bare
+   tool glyphs; the chip hugs its content (1 / 2 / 6 / RWA / ⅔) and inverts on the active pill */
+.nav-mono-chip { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
+  min-width: 30px; min-height: 30px; padding: 1px 6px; border: 1.5px solid var(--border); border-radius: 8px; line-height: 1; }
+.nav-item.on .nav-mono-chip { border-color: color-mix(in srgb, var(--on-accent-ink) 45%, transparent); }
 /* labels render ONLY in the committed expanded state and never during a drag, so they
    can't clip mid-resize — they fade in once the rail snaps open */
 .nav-label { display: none; white-space: nowrap; font-size: 13.5px; font-weight: 600; }
@@ -3811,6 +3816,20 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .tb-einsatzuhr:hover { color: var(--ink); }
 .tb-einsatzuhr:active { background: var(--fill-soft); }
 .tb-einsatzuhr .i { width: 14px; height: 14px; }
+.tb-uhr-chev { width: 12px; height: 12px; opacity: .5; margin-left: 1px; }
+/* Einsatzuhr mode dropdown: labelled, selectable rows (Dauer / Uhrzeit / Beginn) so the reading
+   is never ambiguous — recognition over the old blind tap-to-cycle. */
+.tb-uhr-menu { background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
+  border-radius: var(--r-ctl); box-shadow: var(--shadow); padding: 6px; min-width: 236px; }
+.tb-uhr-row { display: flex; align-items: center; gap: 11px; width: 100%; height: 42px; padding: 0 10px; border: 0;
+  background: transparent; border-radius: var(--r-sm); cursor: pointer; color: var(--ink); font: inherit; text-align: left; }
+.tb-uhr-row:hover { background: var(--hover); }
+.tb-uhr-row.on { background: var(--fill-soft); }
+.tb-uhr-row .i { width: 18px; height: 18px; color: var(--ink-dim); flex: none; }
+.tb-uhr-lbl { font-size: 13px; font-weight: 600; flex: 1; }
+.tb-uhr-val { font-family: var(--mono); font-size: 12.5px; color: var(--ink-dim); }
+.tb-uhr-row .tb-uhr-chk { width: 16px; height: 16px; color: var(--green); flex: none; visibility: hidden; }
+.tb-uhr-row.on .tb-uhr-chk { visibility: visible; }
 
 /* ERG response block inside the UN-hazard readout */
 .un-erg { margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--glass-edge); }

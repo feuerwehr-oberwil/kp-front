@@ -126,5 +126,5 @@ export const planDocuments: PlanDocument[] = [
 // the Umgebung sheet; its annotations live in board['gebaeude'] (floor-tagged).
 export const gebaeudeDoc: PlanDocument = {
   id: 'gebaeude', code: 'Gebäude', title: 'Geschosse (Skizze)',
-  subtitle: 'Aus Gebäudeumriss – ohne Pläne', imageUrl: '', orientation: 'portrait', icon: 'layers', floorStack: true,
+  subtitle: 'Aus Gebäudeumriss – ohne Pläne', imageUrl: '', orientation: 'portrait', icon: 'floors', floorStack: true,
 }
