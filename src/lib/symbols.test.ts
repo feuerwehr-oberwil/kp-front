@@ -75,7 +75,7 @@ describe('symbolFieldOptions — roster fields stay separate from category lists
   })
 
   it('every driven vehicle exposes a Fahrer roster picker', () => {
-    for (const v of ['VKF Fahrzeug', 'VKF Drehleiter', 'VKF Hubretter', 'Grosslüfter']) {
+    for (const v of ['VKF Fahrzeug', 'VKF Drehleiter', 'VKF Hubretter', 'Grosslüfter', 'FW Boot']) {
       const opts = symbolFieldOptions(v, 'Fahrzeuge / Mittel', ROSTER)
       expect(opts.Fahrer, `${v} must carry a Fahrer field`).toEqual(ROSTER)
     }

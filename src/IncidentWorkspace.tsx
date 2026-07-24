@@ -715,16 +715,17 @@ export function IncidentWorkspace({
     return () => window.removeEventListener('keydown', onKey)
   }, [pending, pendingShape, panel, viewsOpen, selectedId, selectedDrawingId, selectedDrawIds, selectedEntityIds])
 
-  // The Ebenen dock is transient map chrome — dismiss it the moment attention moves elsewhere, so
-  // it never lingers over a details panel or a sheet. Two triggers: (1) a NEW selection is made
-  // (its ContextPanel/details opens) — tracked by a changing key so merely *opening* Ebenen while
-  // something is already selected doesn't insta-close it; (2) any modal sheet opens.
+  // Selecting something opens its details (ContextPanel) — so the moment a NEW selection lands, drop
+  // every other transient bit of map chrome that would sit over it or the tool rail: the Ebenen dock,
+  // the views popover, and any armed tool / placement dock (back to Auswahl). Edge-triggered on a
+  // changing key so merely *opening* one of those while something is already selected doesn't
+  // insta-close it. (Separate effect below handles modal sheets opening.)
   const selKey = `${selectedId ?? ''}|${selectedDrawingId ?? ''}|${selectedDrawIds.join(',')}|${selectedEntityIds.join(',')}`
   const prevSelKey = useRef(selKey)
   useEffect(() => {
     const changedToSelection = prevSelKey.current !== selKey && (!!selectedId || !!selectedDrawingId || selectedDrawIds.length > 0 || selectedEntityIds.length > 0)
     prevSelKey.current = selKey
-    if (changedToSelection) setPanel(null)
+    if (changedToSelection) { setPanel(null); setViewsOpen(false); setTool('select'); setPending(null); setPendingShape(null); setDraft([]) }
   }, [selKey]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (settingsOpen || paletteOpen || pickerOpen || helpOpen || installGuideOpen || offlineReadyOpen || reportPreflightOpen || composerOpen || journalOpen || teamPick) setPanel(null)

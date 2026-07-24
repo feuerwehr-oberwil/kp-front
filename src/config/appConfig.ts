@@ -262,7 +262,7 @@ const base = {
         'FW Absperrung': { controls: ['rotation'] },
         'VKF Verkehrssperre ueberwacht': { controls: ['rotation'] },
         // ── Fahrzeuge / Mittel ── operator-named; directional ones rotate. The driven vehicles
-        // (generic Fahrzeug, Drehleiter, Hubretter, Grosslüfter) also carry a Fahrer roster picker.
+        // (generic Fahrzeug, Drehleiter, Hubretter, Grosslüfter, Boot) also carry a Fahrer roster picker.
         // Drehleiter: composite body + independently-slewing ladder — `rotation` aims the truck,
         // `rotation2` aims the ladder (own rotor + Drehung stepper). Synthesised like the Grosslüfter
         // (see lib/symbolRender COMPOSITES).
@@ -287,7 +287,7 @@ const base = {
         'Grosslüfter': { controls: ['rotation', 'rotation2', 'airflow'], fields: ['Fahrer'] },
         'FW Entrauchung': { controls: ['rotation'] },
         'FW Kleinloeschgeraet': { fields: ['Typ'] },
-        'FW Boot': { controls: ['rotation'] },
+        'FW Boot': { controls: ['rotation'], fields: ['Fahrer'] },
         'FW Sprungretter': {},
         'FW Leiter': { controls: ['rotation'] },
         // ── Wasser ── fixed supply points; the symbol is the info.
