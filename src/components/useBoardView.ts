@@ -7,7 +7,12 @@ import { TOP_INSET } from '../lib/whiteboard'
  * actual zoom. Mirrors scale/pos into refs so wheel/pinch/button math reads current
  * values synchronously (StrictMode-safe). Owns the focal-point wheel-zoom listener.
  */
-export function useBoardView(canvasRef: RefObject<HTMLDivElement | null>) {
+export function useBoardView(
+  canvasRef: RefObject<HTMLDivElement | null>,
+  /** the canvas element as state — re-attaches the wheel listener when the canvas
+   *  (re)mounts, e.g. after the Whiteboard first rendered a viewer-only doc without it */
+  canvasEl?: HTMLDivElement | null,
+) {
   const [scale, setScale] = useState(1)
   const [pos, setPos] = useState({ x: 0, y: 0 })
   // refs mirror scale/pos so wheel/zoom math reads current values synchronously
@@ -34,7 +39,7 @@ export function useBoardView(canvasRef: RefObject<HTMLDivElement | null>) {
   }
   const zoom = (f: number) => zoomTo(f)
   useEffect(() => {
-    const el = canvasRef.current; if (!el) return
+    const el = canvasEl ?? canvasRef.current; if (!el) return
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
       const r = el.getBoundingClientRect()
@@ -42,7 +47,7 @@ export function useBoardView(canvasRef: RefObject<HTMLDivElement | null>) {
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [canvasEl]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return { scale, pos, scaleRef, posRef, applyView, zoomTo, zoom, clamp }
 }

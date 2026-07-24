@@ -166,7 +166,15 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const [measLine, setMeasLine] = useState<[number, number][]>([])
   const [measArea, setMeasArea] = useState<[number, number][]>([])
 
-  const canvasRef = useRef<HTMLDivElement>(null)
+  const canvasRef = useRef<HTMLDivElement | null>(null)
+  // The canvas element as STATE, so effects that attach observers/listeners re-run when it
+  // (re)mounts. The viewer-only early return renders WITHOUT the canvas — if the Whiteboard
+  // first mounts on a viewer plan, a mount-once ([]) effect sees canvasRef.current === null
+  // and never recovers: vp stays 0×0, every later board doc renders collapsed (empty
+  // Gebäude, PDFs stuck on «wird geladen»). Stable callback — an inline ref would detach/
+  // re-attach every render and loop through setState.
+  const [canvasEl, setCanvasEl] = useState<HTMLDivElement | null>(null)
+  const setCanvas = useCallback((el: HTMLDivElement | null) => { canvasRef.current = el; setCanvasEl(el) }, [])
   const boardRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<HTMLDivElement>(null)
   // rail tool buttons, so a tool's option dock can be top-aligned to its button
@@ -199,7 +207,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   type GrpOrig = { id: string; floor: number; bx?: number; by?: number; bpts?: BoardPoint[] }
   const groupOrig = useRef<GrpOrig[]>([])
   // zoom/pan view state (layout-based zoom + focal wheel-zoom) lives in a hook
-  const { scale, pos, scaleRef, posRef, applyView, zoomTo, zoom } = useBoardView(canvasRef)
+  const { scale, pos, scaleRef, posRef, applyView, zoomTo, zoom } = useBoardView(canvasRef, canvasEl)
 
   const osm = active.osm
   // floor-stack: a vertical stack of footprint sheets (top = highest storey)
@@ -279,13 +287,14 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     el.focus(); el.select?.()
   }, [])
 
-  // measure viewport so the board can be sized to "contain" the plan exactly
+  // measure viewport so the board can be sized to "contain" the plan exactly — keyed to the
+  // canvas ELEMENT, not mount, so it attaches when the canvas appears after a viewer-only doc
   useEffect(() => {
-    const el = canvasRef.current; if (!el) return
+    const el = canvasEl; if (!el) return
     const ro = new ResizeObserver(() => setVp({ w: el.clientWidth, h: el.clientHeight }))
     ro.observe(el); setVp({ w: el.clientWidth, h: el.clientHeight })
     return () => ro.disconnect()
-  }, [])
+  }, [canvasEl])
 
   // warm every plan's bitmap in the background once the viewport is measured, so
   // switching documents is an instant blit rather than a fresh rasterization
@@ -1356,7 +1365,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       {/* plan canvas + annotation layer */}
       <div className="wb-stage" ref={stageRef}>
         <div
-          ref={canvasRef}
+          ref={setCanvas}
           className={`wb-canvas tool-${tool} ${pending || pendingShape ? 'placing' : ''}`}
           onPointerDown={stageDown}
           onPointerMove={stageMove}
