@@ -73,6 +73,13 @@ describe('symbolFieldOptions — roster fields stay separate from category lists
     const opts = symbolFieldOptions('VKF Fahrzeug', 'Fahrzeuge / Mittel', ROSTER)
     expect(opts.Fahrer).toEqual(ROSTER)
   })
+
+  it('every driven vehicle exposes a Fahrer roster picker', () => {
+    for (const v of ['VKF Fahrzeug', 'VKF Drehleiter', 'VKF Hubretter', 'Grosslüfter']) {
+      const opts = symbolFieldOptions(v, 'Fahrzeuge / Mittel', ROSTER)
+      expect(opts.Fahrer, `${v} must carry a Fahrer field`).toEqual(ROSTER)
+    }
+  })
 })
 
 describe('symbolCaptionText — metadata printed under a symbol glyph', () => {

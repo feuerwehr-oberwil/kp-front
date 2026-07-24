@@ -261,17 +261,18 @@ const base = {
         'VKF Bereich Materialdepot': {},
         'FW Absperrung': { controls: ['rotation'] },
         'VKF Verkehrssperre ueberwacht': { controls: ['rotation'] },
-        // ── Fahrzeuge / Mittel ── operator-named; directional ones rotate, no fields.
+        // ── Fahrzeuge / Mittel ── operator-named; directional ones rotate. The driven vehicles
+        // (generic Fahrzeug, Drehleiter, Hubretter, Grosslüfter) also carry a Fahrer roster picker.
         // Drehleiter: composite body + independently-slewing ladder — `rotation` aims the truck,
         // `rotation2` aims the ladder (own rotor + Drehung stepper). Synthesised like the Grosslüfter
         // (see lib/symbolRender COMPOSITES).
-        'VKF Drehleiter': { controls: ['rotation', 'rotation2'] },
+        'VKF Drehleiter': { controls: ['rotation', 'rotation2'], fields: ['Fahrer'] },
         // Hubretter: the truck body rotates on its own (`rotation` — normal rotor + Drehung stepper),
         // INDEPENDENT of the articulated boom, which is shaped by dragging the cage tip (a separate
         // on-canvas handle sets the boom bearing `rotation2` + reach `reachM`/`reachN`). Rotating the
         // truck doesn't move the boom and vice-versa. See MapMarkers / Whiteboard cage handle +
         // lib/symbolRender HubretterBoom.
-        'VKF Hubretter': { controls: ['rotation'] },
+        'VKF Hubretter': { controls: ['rotation'], fields: ['Fahrer'] },
         // Drohne: a hovering-asset marker — stays upright (no rotation), no fields.
         'VKF Drohne': {},
         // generic vehicle: user-named (see lib/symbols) — title + a Fahrer picker; type lists via config
@@ -283,7 +284,7 @@ const base = {
         // each with its own on-canvas rotor + Drehung stepper, PLUS the Lüfter airflow direction
         // (Einblasen / Absaugen — reverses the fan glyph, same as the mobile Lüfter). Synthesised
         // in lib/useSymbols.
-        'Grosslüfter': { controls: ['rotation', 'rotation2', 'airflow'] },
+        'Grosslüfter': { controls: ['rotation', 'rotation2', 'airflow'], fields: ['Fahrer'] },
         'FW Entrauchung': { controls: ['rotation'] },
         'FW Kleinloeschgeraet': { fields: ['Typ'] },
         'FW Boot': { controls: ['rotation'] },
