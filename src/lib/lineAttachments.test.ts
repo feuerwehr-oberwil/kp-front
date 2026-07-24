@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { LineAttachment } from '../types'
 import {
-  advanceDwell, applyRouting, boundaryPoint, connectedNetwork, detachAffected, endpointCapacity,
+  advanceDwell, applyRouting, boundaryPoint, endpointCapacity,
   forkDims, forkPortPoint, gpsGuard, incomingAttachments, materializeEndpoint, moveLineBody,
   nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget,
   wouldCreateCycle, type AttachableLine, type MagneticTarget,
@@ -130,11 +130,6 @@ describe('resolution, movement, detach, and networks', () => {
     expect(detached.points[0]).toEqual([5, 6]); expect(detached.startAttachment).toBeUndefined()
   })
 
-  it('traverses a full undirected display network', () => {
-    const lines = [line('a', { endAttachment: toLine('b') }), line('b'), line('c', { startAttachment: toLine('b') }), line('z')]
-    expect([...connectedNetwork(lines, ['a'])].sort()).toEqual(['a', 'b', 'c'])
-  })
-
   it('traverses line and object parties with decreasing network depth', () => {
     const a = line('a', { startAttachment: { target: { kind: 'object', id: 'pump' }, routing: 'direct' }, endAttachment: toLine('b') })
     const b = line('b', { endAttachment: { target: { kind: 'object', id: 'team' }, routing: 'trace' } })
@@ -143,15 +138,6 @@ describe('resolution, movement, detach, and networks', () => {
     expect(net.depth.get('object:team')).toBe(3)
   })
 
-  it('deleting a target materializes affected endpoints and never cascades', () => {
-    const a = line('a', { endAttachment: { target: { kind: 'object', id: 'o' }, routing: 'direct' } })
-    const b = line('b', { endAttachment: toLine('gone') })
-    const gone = line('gone')
-    const out = detachAffected([a, b, gone], new Set(['o']), new Set(['gone']), (l) => l.id === 'a' ? [[0, 0], [20, 20]] as [number, number][] : [[0, 0], [30, 30]] as [number, number][])
-    expect(out.map((l) => l.id)).toEqual(['a', 'b'])
-    expect(out[0].points[1]).toEqual([20, 20]); expect(out[0].endAttachment).toBeUndefined()
-    expect(out[1].points[1]).toEqual([30, 30]); expect(out[1].endAttachment).toBeUndefined()
-  })
 })
 
 describe('routing and GPS guard', () => {

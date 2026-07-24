@@ -152,25 +152,6 @@ export function wouldCreateCycle<P extends Coordinate>(lines: AttachableLine<P>[
   return visit(targetId)
 }
 
-export function connectedNetwork<P extends Coordinate>(lines: AttachableLine<P>[], seedIds: string[]): Set<string> {
-  const out = new Set(seedIds)
-  let changed = true
-  while (changed) {
-    changed = false
-    for (const line of lines) {
-      for (const ep of ['start', 'end'] as const) {
-        const a = attachmentAt(line, ep)
-        if (a?.target.kind !== 'line') continue
-        if (out.has(line.id) || out.has(a.target.id)) {
-          if (!out.has(line.id)) { out.add(line.id); changed = true }
-          if (!out.has(a.target.id)) { out.add(a.target.id); changed = true }
-        }
-      }
-    }
-  }
-  return out
-}
-
 export function relationshipNetwork<P extends Coordinate>(lines: AttachableLine<P>[], seedLineIds: string[] = [], seedObjectIds: string[] = []) {
   const lineIds = new Set(seedLineIds), objectIds = new Set(seedObjectIds)
   const depth = new globalThis.Map<string, number>()
@@ -252,19 +233,6 @@ export function gpsGuard(state: GpsFollowState, confirmedAt: Point, lastSafe: Po
   if (state === 'continuous') return { state, point: target, exceeded: false }
   if (metresBetween(confirmedAt, target) >= GPS_GUARD_METRES) return { state: 'paused', point: lastSafe, exceeded: true }
   return { state, point: target, exceeded: false }
-}
-
-export function detachAffected<P extends Coordinate>(lines: AttachableLine<P>[], removedObjectIds: Set<string>, removedLineIds: Set<string>, resolve: (line: AttachableLine<P>) => P[]): AttachableLine<P>[] {
-  return lines.filter((l) => !removedLineIds.has(l.id)).map((line) => {
-    let next = line
-    const resolved = resolve(line)
-    for (const ep of ['start', 'end'] as const) {
-      const a = attachmentAt(next, ep)
-      const affected = a && (a.target.kind === 'object' ? removedObjectIds.has(a.target.id) : removedLineIds.has(a.target.id))
-      if (affected) next = materializeEndpoint(next, ep, endpointPoint({ ...line, points: resolved }, ep)!)
-    }
-    return next
-  })
 }
 
 /** Non-interactive/map-export adapter. Uses a small ground footprint so fitting, Kroki and

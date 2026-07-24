@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isOfficer, matchRank, rankAbbr, rankLabel, rankOrder, rankTier } from './rank'
+import { isOfficer, rankAbbr, rankLabel, rankOrder, rankTier } from './rank'
 
 // No deployment config is loaded in the test env, so these exercise the in-code Swiss default
 // (getDeploymentConfig() → {} → SWISS_DEFAULT_RANKS).
@@ -37,20 +37,5 @@ describe('labels', () => {
     expect(rankAbbr('hptm')).toBe('Hptm')
     expect(rankLabel('nonesuch')).toBe('')
     expect(rankAbbr(undefined)).toBe('')
-  })
-})
-
-describe('matchRank', () => {
-  it('matches by key, label and abbr', () => {
-    expect(matchRank('hptm')).toBe('hptm')
-    expect(matchRank('Hauptmann')).toBe('hptm')
-    expect(matchRank('Hptm')).toBe('hptm')
-  })
-  it('is accent- and case-insensitive with surrounding whitespace', () => {
-    expect(matchRank('  FEUERWEHRMANN ')).toBe('fwm')
-  })
-  it('returns undefined for blank or unknown input', () => {
-    expect(matchRank('')).toBeUndefined()
-    expect(matchRank('Admiral')).toBeUndefined()
   })
 })

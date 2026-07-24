@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { IDBFactory } from 'fake-indexeddb'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { idbGet, idbSet, idbDel, idbKeys, __resetIdbForTests } from './idb'
+import { idbGet, idbSet, idbDel, __resetIdbForTests } from './idb'
 
 beforeEach(() => {
   // Fresh in-memory IndexedDB per test; reset the module's cached open promise to match.
@@ -31,14 +31,6 @@ describe('idb key-value store (IndexedDB backend)', () => {
     await idbDel('k')
     expect(await idbGet('k')).toBeNull()
   })
-
-  it('lists all keys, and filters by prefix (enumerating workspace caches)', async () => {
-    await idbSet('kp-front-ws-a', 1)
-    await idbSet('kp-front-ws-b', 2)
-    await idbSet('kp-front-incidents', 3)
-    expect((await idbKeys()).sort()).toEqual(['kp-front-incidents', 'kp-front-ws-a', 'kp-front-ws-b'])
-    expect((await idbKeys('kp-front-ws-')).sort()).toEqual(['kp-front-ws-a', 'kp-front-ws-b'])
-  })
 })
 
 describe('idb localStorage fallback when IndexedDB is unavailable', () => {
@@ -65,10 +57,8 @@ describe('idb localStorage fallback when IndexedDB is unavailable', () => {
     expect(localStorage.getItem('k')).toBe(JSON.stringify({ x: 1 }))
   })
 
-  it('round-trips delete and key listing via the fallback', async () => {
+  it('round-trips delete via the fallback', async () => {
     await idbSet('kp-front-ws-a', 1)
-    await idbSet('kp-front-ws-b', 2)
-    expect((await idbKeys('kp-front-ws-')).sort()).toEqual(['kp-front-ws-a', 'kp-front-ws-b'])
     await idbDel('kp-front-ws-a')
     expect(await idbGet('kp-front-ws-a')).toBeNull()
   })

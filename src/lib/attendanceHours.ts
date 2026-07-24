@@ -43,15 +43,3 @@ export function hoursRows(
     .sort((x, y) => x.name.localeCompare(y.name, 'de-CH'))
 }
 
-/** Sum of the known durations in whole minutes (unknown rows count 0). */
-export function hoursTotalMinutes(rows: HoursRow[]): number {
-  return rows.reduce((sum, r) => sum + (r.minutes ?? 0), 0)
-}
-
-/** '7:35' style h:mm for a minute count (used by the Stunden column + total). */
-export function fmtMinutesHM(minutes: number | null): string {
-  if (minutes == null) return '–'
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
-  return `${h}:${String(m).padStart(2, '0')}`
-}

@@ -41,6 +41,3 @@ export function lookupErg(un: string): ErgEntry | null {
   if (!key) return null
   return data.un[key] ?? null
 }
-
-/** a material is TIH/PIH (toxic-inhalation hazard) iff it appears in Table 1 */
-export const isTih = (e: ErgEntry | null): boolean => !!e?.tih?.length

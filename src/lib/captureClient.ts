@@ -6,7 +6,6 @@
 
 import type { AttendanceEntry, MittelEntry, TimelineEvent } from '../types'
 import type { ReportMeta } from './workspace'
-import { hhmm } from './format'
 import type { IncidentMeta, Workspace } from './incidents'
 import { currentLineFor } from './mittel'
 
@@ -77,14 +76,6 @@ export function applyAction(ws: Workspace | null, action: CaptureAction, nowIso:
   mittel.push({ id: `m${Date.parse(nowIso)}-${mittel.length}`, ...probe, menge, status: cur?.status, at: nowIso, by: action.by })
   base.mittel = mittel
   return base
-}
-
-/** Journal note row appended by the capture view; attribution rides in the text (the row
- *  shape has no author field — same convention as system rows). */
-export function noteRow(text: string, by: string, nowIso: string): TimelineEvent {
-  const d = new Date(nowIso)
-  const t = hhmm(d)
-  return { id: `c${d.getTime()}`, t, at: nowIso, icon: 'note', text: `${text.trim()} — ${by}`, kind: 'note' }
 }
 
 // --- fetch layer (poster token in a header; the URL path carries it only for entry) -----

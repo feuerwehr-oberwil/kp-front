@@ -259,9 +259,6 @@ export function AlarmProviderView() {
   )
 }
 
-/** @deprecated stable export for downstream imports during the provider-neutral rename. */
-export const DiveraView = AlarmProviderView
-
 // ─── Traccar (GPS) ───────────────────────────────────────────────────────────
 
 interface TraccarStatus { configured: boolean; host?: string | null }
@@ -392,9 +389,6 @@ export function VehicleProviderView() {
     </div>
   )
 }
-
-/** @deprecated stable export for downstream imports during the provider-neutral rename. */
-export const TraccarView = VehicleProviderView
 
 // ─── Objekte & Pläne ───────────────────────────────────────────────────────────
 

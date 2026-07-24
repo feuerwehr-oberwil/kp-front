@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyAction, autoOpenTarget, cycleAttendance, noteRow } from './captureClient'
+import { applyAction, autoOpenTarget, cycleAttendance } from './captureClient'
 import type { AttendanceEntry } from '../types'
 
 const NOW = '2026-07-08T14:00:00.000Z'
@@ -81,15 +81,6 @@ describe('applyAction', () => {
     const restored = applyAction(removed, { kind: 'restoreAttendance', personId: 'p1', entry }, '2026-07-08T16:00:00Z')
     expect((restored.attendance as Record<string, AttendanceEntry>).p1).toEqual(entry)
     expect(restored.entities).toEqual([{ id: 'e1' }])
-  })
-})
-
-describe('noteRow', () => {
-  it('carries the attribution in the text and a clock display time', () => {
-    const row = noteRow('  Keller ausgepumpt ', 'Meier', NOW)
-    expect(row.text).toBe('Keller ausgepumpt — Meier')
-    expect(row.icon).toBe('note')
-    expect(row.t).toMatch(/^\d{2}:\d{2}$/)
   })
 })
 

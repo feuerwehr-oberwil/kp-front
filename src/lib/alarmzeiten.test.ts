@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  deriveAusgerueckt, fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit, tagespikettAlarmed,
+  deriveAusgerueckt, fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit,
 } from './alarmzeiten'
 import type { AlarmGroup, FleetVehicle } from './deploymentConfig'
 
@@ -47,13 +47,5 @@ describe('grid rows', () => {
     expect(rows[1].value?.alarmedAt).toBe('2026-07-13T01:01:00Z')
     const vrows = fahrzeugRows(VEHICLES, [{ id: 'unimog', ausgerueckt: '2026-07-13T01:05:00Z' }])
     expect(vrows.map((r) => r.config.label)).toEqual(['TLF', 'Pio', 'UNIMOG'])
-  })
-})
-
-describe('tagespikettAlarmed', () => {
-  it('true only when a tagespikett-flagged group actually has an alarm time', () => {
-    expect(tagespikettAlarmed(GROUPS, [{ id: 'tgp', alarmedAt: '2026-07-13T07:00:00Z' }])).toBe(true)
-    expect(tagespikettAlarmed(GROUPS, [{ id: 'g2', alarmedAt: '2026-07-13T07:00:00Z' }])).toBe(false)
-    expect(tagespikettAlarmed(GROUPS, [{ id: 'tgp' }])).toBe(false)
   })
 })

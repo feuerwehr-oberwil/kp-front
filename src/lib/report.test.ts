@@ -9,11 +9,9 @@ import {
   missingTranscriptCount,
   mittelFormForPdf,
   operationalExtentPoints,
-  pageOrientation,
   personalForPdf,
   proofLabel,
   readingKindLabel,
-  shortHash,
   truppStatusLabel,
 } from './report'
 
@@ -73,12 +71,6 @@ describe('report plan selection', () => {
     }
     expect(hasVisiblePlanAnnotation(board, 'm1')).toBe(true)
   })
-
-  it('chooses print orientation from page height/width aspect', () => {
-    expect(pageOrientation(1.414)).toBe('portrait')
-    expect(pageOrientation(0.707)).toBe('landscape')
-    expect(pageOrientation(1)).toBe('portrait')
-  })
 })
 
 describe('report journal rows', () => {
@@ -114,7 +106,6 @@ describe('report proof and Atemschutz labels', () => {
   it('formats proof state', () => {
     expect(proofLabel({ intact: true, count: 2, checkedAt: 'now' })).toBe('Hash-Kette intakt')
     expect(proofLabel({ intact: null, checkedAt: 'now', offline: true })).toContain('offline')
-    expect(shortHash('1234567890abcdef1234567890abcdef')).toBe('12345678…90abcdef')
   })
 
   it('uses rapport status wording', () => {

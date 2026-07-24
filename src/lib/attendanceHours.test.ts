@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fmtMinutesHM, hoursRows, hoursTotalMinutes } from './attendanceHours'
+import { hoursRows } from './attendanceHours'
 import type { AttendanceState } from '../types'
 
 const ALARM = '2026-07-08T03:12:00Z'
@@ -38,21 +38,5 @@ describe('hoursRows', () => {
       p1: { status: 'left', checkedInAt: ALARM, leftAt: '2026-07-08T04:12:00Z', displayNameSnapshot: 'Weg' },
     }
     expect(hoursRows(att, { alarmedAt: ALARM, endedAt: ENDE })).toHaveLength(1)
-  })
-})
-
-describe('totals + formatting', () => {
-  it('sums known minutes and formats h:mm', () => {
-    const rows = hoursRows(
-      {
-        p1: { status: 'present', checkedInAt: ALARM, displayNameSnapshot: 'A' },
-        p2: { status: 'present', displayNameSnapshot: 'B' },
-      },
-      { alarmedAt: ALARM, endedAt: ENDE },
-    )
-    expect(hoursTotalMinutes(rows)).toBe(300)
-    expect(fmtMinutesHM(300)).toBe('5:00')
-    expect(fmtMinutesHM(65)).toBe('1:05')
-    expect(fmtMinutesHM(null)).toBe('–')
   })
 })

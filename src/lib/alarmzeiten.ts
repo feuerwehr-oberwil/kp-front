@@ -58,8 +58,3 @@ export function fahrzeugRows(config: FleetVehicle[], values: FahrzeugZeit[] | un
   return [...rows, ...extra]
 }
 
-/** Tagespikett flag: derived — true when a config group marked `tagespikett` was alarmed. */
-export function tagespikettAlarmed(config: AlarmGroup[], values: GruppeZeit[] | undefined): boolean {
-  const tgp = new Set(config.filter((g) => g.tagespikett).map((g) => g.id))
-  return (values ?? []).some((g) => tgp.has(g.id) && !!g.alarmedAt)
-}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Person, Trupp } from '../types'
-import { abbreviateName, assignedPersonIds, presentCount, resolvePersonName, resolveTruppNames, rosterFromList } from './personnel'
+import { abbreviateName, assignedPersonIds, presentCount, resolvePersonName, rosterFromList } from './personnel'
 
 const person = (id: string, displayName: string, active = true): Person => ({ id, displayName, active, updatedAt: '2026-06-23T10:00:00Z' })
 
@@ -22,23 +22,6 @@ describe('resolvePersonName', () => {
   })
   it('returns empty string when nothing is given', () => {
     expect(resolvePersonName(roster)).toBe('')
-  })
-})
-
-describe('resolveTruppNames', () => {
-  const roster = rosterFromList([person('p1', 'Müller Hans'), person('p2', 'Meier Anna')])
-
-  it('uses free-text name/members strings as the snapshot', () => {
-    const t = trupp({ name: 'Müller', members: ['Meier', 'Keller'] })
-    expect(resolveTruppNames(t, roster)).toEqual({ leader: 'Müller', members: ['Meier', 'Keller'] })
-  })
-  it('resolves structured ids when strings are absent', () => {
-    const t = trupp({ name: '', members: [], leaderPersonId: 'p1', memberPersonIds: ['p2'] })
-    expect(resolveTruppNames(t, roster)).toEqual({ leader: 'Müller Hans', members: ['Meier Anna'] })
-  })
-  it('drops blank member strings', () => {
-    const t = trupp({ name: 'Müller', members: ['', '  ', 'Keller'] })
-    expect(resolveTruppNames(t, roster).members).toEqual(['Keller'])
   })
 })
 

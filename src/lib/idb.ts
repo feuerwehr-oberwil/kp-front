@@ -72,16 +72,6 @@ const lsGet = <T>(key: string): T | null => {
 const lsSet = (key: string, value: unknown): void => {
   try { localStorage.setItem(key, JSON.stringify(value)) } catch { /* quota — server is authoritative */ }
 }
-const lsKeys = (prefix?: string): string[] => {
-  const out: string[] = []
-  try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i)
-      if (k && (!prefix || k.startsWith(prefix))) out.push(k)
-    }
-  } catch { /* ignore */ }
-  return out
-}
 
 // --- Public API: async, structured-clone values, transparent fallback ----------------
 
@@ -115,18 +105,6 @@ export async function idbDel(key: string): Promise<void> {
     await tx('readwrite', (s) => s.delete(key))
   } catch {
     try { localStorage.removeItem(key) } catch { /* ignore */ }
-  }
-}
-
-/** All keys, optionally filtered by prefix (used to enumerate per-incident workspace caches). */
-export async function idbKeys(prefix?: string): Promise<string[]> {
-  if (idbUnavailable) return lsKeys(prefix)
-  try {
-    const all = await tx<IDBValidKey[]>('readonly', (s) => s.getAllKeys())
-    const keys = all.map(String)
-    return prefix ? keys.filter((k) => k.startsWith(prefix)) : keys
-  } catch {
-    return lsKeys(prefix)
   }
 }
 

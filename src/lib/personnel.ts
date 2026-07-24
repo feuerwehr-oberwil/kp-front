@@ -19,17 +19,6 @@ export function resolvePersonName(roster: Roster, id?: string, snapshot?: string
   return id ?? ''
 }
 
-/** Resolve a Trupp's leader + members. The free-text `name`/`members` strings ARE the
- *  snapshots and win; structured ids only fill gaps (e.g. a roster pick with no string). */
-export function resolveTruppNames(trupp: Trupp, roster: Roster): { leader: string; members: string[] } {
-  const leader = trupp.name?.trim() || resolvePersonName(roster, trupp.leaderPersonId)
-  const memberStrings = (trupp.members ?? []).map((m) => m.trim()).filter(Boolean)
-  const members = memberStrings.length
-    ? memberStrings
-    : (trupp.memberPersonIds ?? []).map((id) => resolvePersonName(roster, id)).filter(Boolean)
-  return { leader, members }
-}
-
 /** Person ids currently assigned to any non-exited Trupp — used for present-first ordering
  *  and the duplicate-assignment warning in the picker. */
 export function assignedPersonIds(trupps: Trupp[]): Set<string> {

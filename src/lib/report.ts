@@ -66,11 +66,6 @@ export function hasVisiblePlanAnnotation(board: BoardDoc, planId: string): boole
   })
 }
 
-/** Report page orientation from rendered page aspect (height / width). */
-export function pageOrientation(aspect: number): 'portrait' | 'landscape' {
-  return aspect >= 1 ? 'portrait' : 'landscape'
-}
-
 export function annotatedPlans(plans: PlanDocument[], board: BoardDoc, includeAll: boolean): PlanDocument[] {
   return includeAll ? plans : plans.filter((p) => hasVisiblePlanAnnotation(board, p.id))
 }
@@ -184,11 +179,6 @@ export function formatDateTime(iso: string): string {
     hour: '2-digit',
     minute: '2-digit',
   })
-}
-
-export function shortHash(hash?: string): string {
-  if (!hash) return '—'
-  return hash.length <= 18 ? hash : `${hash.slice(0, 8)}…${hash.slice(-8)}`
 }
 
 export function proofLabel(proof: AuditProof): string {

@@ -30,14 +30,14 @@ vi.mock('../lib/incidents', () => ({
 // The objects map is lazy-loaded MapLibre (needs WebGL) — stub it out for jsdom.
 vi.mock('./ObjectsMap', () => ({ default: () => <div data-testid="objects-map" /> }))
 
-import { DiveraView, TraccarView, ObjectsView, GeodataView } from './DataView'
+import { AlarmProviderView, VehicleProviderView, ObjectsView, GeodataView } from './DataView'
 
 /** Union of the Daten pages — they share no state, so mounting together is safe. */
 function DataView() {
   return (
     <>
-      <DiveraView />
-      <TraccarView />
+      <AlarmProviderView />
+      <VehicleProviderView />
       <ObjectsView />
       <GeodataView />
     </>

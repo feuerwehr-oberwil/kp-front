@@ -72,13 +72,3 @@ export function normalizeRank(text: string): string {
     .toLowerCase()
 }
 
-/** Map free-text (CSV cell / Divera field) onto a rank key by key/label/abbr, accent- and
- *  case-insensitively. Returns undefined when blank or unmatched. */
-export function matchRank(text: string): string | undefined {
-  const needle = normalizeRank(text || '')
-  if (!needle) return undefined
-  for (const r of activeRanks()) {
-    if ([r.key, r.label, r.abbr].some((c) => c && normalizeRank(c) === needle)) return r.key
-  }
-  return undefined
-}
