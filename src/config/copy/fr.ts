@@ -790,6 +790,7 @@ export const fr: Localizable<Copy> = {
     osmLoading: 'Chargement des contours de bâtiment …',
     osmError: 'Contours de bâtiment (OSM) injoignables',
     osmEmpty: 'Aucun bâtiment dans cette zone',
+    osmRetry: 'Recharger',
     osmPickHint: 'Touchez un bâtiment, puis appliquez',
     osmTransfer: 'Appliquer ({n})',
     osmClear: 'Effacer la sélection',
@@ -972,6 +973,11 @@ export const fr: Localizable<Copy> = {
       fog: 'Brouillard', drizzle: 'Bruine', rain: 'Pluie', snow: 'Neige',
       rainShowers: 'Averses de pluie', snowShowers: 'Averses de neige', thunder: 'Orage', cloudy: 'Nuageux',
     },
+  },
+  pdf: {
+    loading: 'Chargement du PDF…',
+    failed: 'Le PDF n’a pas pu être chargé.',
+    retry: 'Recharger',
   },
   settings: {
     title: 'Réglages',

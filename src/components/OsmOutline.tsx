@@ -37,13 +37,20 @@ const OVERPASS_MIRRORS = [
   'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
 ]
 const CACHE_PREFIX = 'kp.osm.bld.' // persistent (IndexedDB) outline cache, keyed by bbox
+const FETCH_TIMEOUT_MS = 20_000 // per-mirror stall guard; all mirrors timing out → error state
+const RETRY_AFTER_MS = 5_000    // show «Erneut laden» once a load has been pending this long
 
-// Race the mirrors; the first one to return wins, the slower requests are harmless.
+// Race the mirrors; the first one to return wins, the slower requests are harmless. Each
+// request carries an abort timeout so a hung mirror can't pin the loader forever — when
+// every mirror stalls/fails the race rejects and the hint flips to the retryable error.
 function fetchOverpass(query: string): Promise<{ elements?: any[] }> {
-  return Promise.any(OVERPASS_MIRRORS.map((url) =>
-    fetch(url, { method: 'POST', body: `data=${encodeURIComponent(query)}` })
-      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() }),
-  ))
+  return Promise.any(OVERPASS_MIRRORS.map((url) => {
+    const ctrl = new AbortController()
+    const t = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS)
+    return fetch(url, { method: 'POST', body: `data=${encodeURIComponent(query)}`, signal: ctrl.signal })
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() })
+      .finally(() => clearTimeout(t))
+  }))
 }
 
 // Fetch building footprints in a square bbox (±radiusM around center) from the
@@ -82,8 +89,16 @@ function loadBuildings(center: LngLat, radiusM: number): Promise<Ring[]> {
     })
   }).then((rings) => { resolved.set(key, rings); return rings }) // seed the sync cache on resolve
   cache.set(key, p)
-  p.catch(() => cache.delete(key)) // let a failed fetch be retried on next mount
+  // let a failed fetch be retried on next mount — identity-guarded so a superseded
+  // promise (evicted by «Erneut laden») can't delete its replacement when it settles
+  p.catch(() => { if (cache.get(key) === p) cache.delete(key) })
   return p
+}
+
+// Drop the cached (possibly still-pending) fetch for a bbox so the «Erneut laden» tap
+// starts a fresh request instead of re-awaiting the stuck one.
+function evictOutlines(center: LngLat, radiusM: number) {
+  cache.delete(bboxKey(center, radiusM).key)
 }
 
 // Warm the cache ahead of time (called at app start) so opening the Umgebung
@@ -115,6 +130,26 @@ export function OsmOutline({ center, radiusM, onAspect, interactive, onPick }: P
   const [rings, setRings] = useState<Ring[] | null>(() => resolved.get(bboxKey(center, radiusM).key) ?? null)
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [attempt, setAttempt] = useState(0)
+  const [slow, setSlow] = useState(false)
+
+  // «Erneut laden» surfaces once a load has been pending for a while (same model as the
+  // PDF placeholders — a warm/instant load never flashes the button)
+  const loading = !error && !rings
+  useEffect(() => {
+    if (!loading) { setSlow(false); return }
+    setSlow(false)
+    const t = setTimeout(() => setSlow(true), RETRY_AFTER_MS)
+    return () => clearTimeout(t)
+  }, [loading, center, radiusM, attempt])
+
+  // drop the cached fetch (even a stuck-pending one) and start over — in-app recovery
+  // that previously required a full page reload
+  const retry = () => {
+    evictOutlines(center, radiusM)
+    setError(null)
+    setAttempt((a) => a + 1)
+  }
 
   const toggle = (i: number) =>
     setSelected((prev) => {
@@ -149,15 +184,25 @@ export function OsmOutline({ center, radiusM, onAspect, interactive, onPick }: P
       .then((r) => { if (alive) setRings(r) })
       .catch((e) => { if (alive) setError(e instanceof Error ? e.message : 'OSM nicht erreichbar') })
     return () => { alive = false }
-  }, [center, radiusM, onAspect])
+  }, [center, radiusM, onAspect, attempt])
 
   // a fresh fetch clears stale selections; also drop selections if interactivity is lost
   useEffect(() => { if (!interactive) setSelected(new Set()) }, [interactive])
 
   const copy = appConfig.copy.whiteboard
 
-  if (error) return <div className={s['wb-osm-hint']}>{copy.osmError}</div>
-  if (!rings) return <div className={s['wb-osm-hint']}>{copy.osmLoading}</div>
+  if (error) return (
+    <div className={s['wb-osm-hint']}>
+      <span>{copy.osmError}</span>
+      <button type="button" className={s['wb-osm-retry']} onClick={retry}>{copy.osmRetry}</button>
+    </div>
+  )
+  if (!rings) return (
+    <div className={s['wb-osm-hint']}>
+      <span>{copy.osmLoading}</span>
+      {slow && <button type="button" className={s['wb-osm-retry']} onClick={retry}>{copy.osmRetry}</button>}
+    </div>
+  )
   if (rings.length === 0) return <div className={s['wb-osm-hint']}>{copy.osmEmpty}</div>
 
   const n = selected.size

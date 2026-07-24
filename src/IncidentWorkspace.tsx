@@ -755,11 +755,14 @@ export function IncidentWorkspace({
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  // warm the OSM building-outline cache at startup so the Umgebung sheet (and the
-  // building picker) open instantly instead of waiting on the Overpass fetch
+  // warm the OSM building-outline cache so the Umgebung sheet (and the building picker)
+  // opens instantly instead of waiting on the Overpass fetch. Must use the RESOLVED docs:
+  // useObjectPlans re-centres the osm surface on the incident, so prefetching the bundled
+  // catalog's default center warmed a bbox nobody looks at. Re-runs when the center moves
+  // (e.g. the alarm address lands); prefetchOutlines dedupes by bbox, so repeats are free.
   useEffect(() => {
-    for (const p of planDocuments) if (p.osm) prefetchOutlines(p.osm.center, p.osm.radiusM)
-  }, [])
+    for (const p of resolvedPlanDocs) if (p.osm) prefetchOutlines(p.osm.center, p.osm.radiusM)
+  }, [resolvedPlanDocs])
 
   // remember the active surface + plan document in a cookie (preserve incidentId)
   useEffect(() => { savePrefs({ ...loadPrefs(), mode, activePlanId, symbolSize, symbolCaptions, offlineRadiusM, keepScreenOn }) }, [mode, activePlanId, symbolSize, symbolCaptions, offlineRadiusM, keepScreenOn])

@@ -2,13 +2,33 @@
 .wb-pdf-base { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; -webkit-user-drag: none; }
 .wb-pdf-refine { position: absolute; pointer-events: none; -webkit-user-drag: none; }
 /* cold-load placeholder — visible only until the first baked bitmap paints (or the load
-   fails); same quiet visual language as PdfScroller's status hint */
+   fails); same quiet visual language as PdfScroller's status hint. The container stays
+   click-through (the board underneath keeps panning); only the retry button is tappable. */
 .wb-pdf-status {
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
   color: var(--muted, #9aa);
   font-size: 14px;
   pointer-events: none;
 }
+.wb-pdf-retry {
+  pointer-events: auto;
+  min-height: 44px;
+  padding: 10px 22px;
+  border: 1px solid var(--glass-line);
+  border-radius: var(--r-pill);
+  background: var(--glass);
+  color: var(--ink);
+  font: 600 13px var(--body);
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(16px);
+  transition: filter .14s var(--ease);
+}
+.wb-pdf-retry:hover { filter: brightness(1.06); }
+.wb-pdf-retry:active { transform: scale(.97); }

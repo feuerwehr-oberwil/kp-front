@@ -1092,6 +1092,7 @@ export const de = {
     osmLoading: 'Gebäudeumrisse werden geladen …',
     osmError: 'Gebäudeumrisse (OSM) nicht erreichbar',
     osmEmpty: 'Keine Gebäude in diesem Bereich',
+    osmRetry: 'Erneut laden',
     osmPickHint: 'Gebäude antippen, dann übernehmen',
     osmTransfer: 'Übernehmen ({n})',
     osmClear: 'Auswahl löschen',
@@ -1455,6 +1456,7 @@ export const de = {
   pdf: {
     loading: 'PDF wird geladen…',
     failed: 'PDF konnte nicht geladen werden.',
+    retry: 'Erneut laden',
   },
   // Einstellungen sheet (device prefs + synced per-incident settings)
   settings: {

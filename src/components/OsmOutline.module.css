@@ -26,7 +26,16 @@
 .wb-osm-take:hover { filter: brightness(1.06); }
 .wb-osm-take:active { transform: scale(.97); }
 .wb-osm-hint { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
   font-family: var(--body); font-size: 14px; font-weight: 500; color: var(--ink-faint); pointer-events: none; }
+/* retry affordance on the loading/error hint — the hint stays click-through, only the
+   button is tappable (same look as the PDF placeholders' «Erneut laden») */
+.wb-osm-retry { pointer-events: auto; min-height: 44px; padding: 10px 22px;
+  border: 1px solid var(--glass-line); border-radius: var(--r-pill); background: var(--glass);
+  color: var(--ink); font: 600 13px var(--body); cursor: pointer; box-shadow: var(--shadow);
+  backdrop-filter: blur(16px); transition: filter .14s var(--ease); }
+.wb-osm-retry:hover { filter: brightness(1.06); }
+.wb-osm-retry:active { transform: scale(.97); }
 
 /* phones: lift the transfer bar above the stacked bottom bars — at bottom:26px it sat ON
    the nav bar and blocked navigating away from the Gebäude view. Picking exists only while

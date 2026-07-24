@@ -26,9 +26,28 @@
 .hint {
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
   color: var(--muted, #9aa);
   font-size: 14px;
   pointer-events: none;
 }
+.retry {
+  pointer-events: auto;
+  min-height: 44px;
+  padding: 10px 22px;
+  border: 1px solid var(--glass-line);
+  border-radius: var(--r-pill);
+  background: var(--glass);
+  color: var(--ink);
+  font: 600 13px var(--body);
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(16px);
+  transition: filter .14s var(--ease);
+}
+.retry:hover { filter: brightness(1.06); }
+.retry:active { transform: scale(.97); }

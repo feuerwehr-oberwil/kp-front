@@ -801,6 +801,7 @@ export const en: Localizable<Copy> = {
     osmLoading: 'Loading building outlines …',
     osmError: 'Building outlines (OSM) unreachable',
     osmEmpty: 'No buildings in this area',
+    osmRetry: 'Reload',
     osmPickHint: 'Tap a building, then apply',
     osmTransfer: 'Apply ({n})',
     osmClear: 'Clear selection',
@@ -996,6 +997,7 @@ export const en: Localizable<Copy> = {
   pdf: {
     loading: 'Loading PDF…',
     failed: 'Could not load the PDF.',
+    retry: 'Reload',
   },
   settings: {
     title: 'Settings',

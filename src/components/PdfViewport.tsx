@@ -10,7 +10,7 @@ import s from './PdfViewport.module.css'
 let pdfjsPromise: Promise<typeof PdfjsLib> | null = null
 function getPdfjs(): Promise<typeof PdfjsLib> {
   if (!pdfjsPromise) {
-    pdfjsPromise = (async () => {
+    const p = (async () => {
       const [pdfjsLib, { default: workerUrl }] = await Promise.all([
         import('pdfjs-dist'),
         import('pdfjs-dist/build/pdf.worker.min.mjs?url'),
@@ -18,15 +18,66 @@ function getPdfjs(): Promise<typeof PdfjsLib> {
       pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl
       return pdfjsLib
     })()
+    // a failed chunk load (brief offline moment) must not poison the app until a full
+    // reload — drop the cached rejection so the next attempt re-imports
+    p.catch(() => { if (pdfjsPromise === p) pdfjsPromise = null })
+    pdfjsPromise = p
   }
   return pdfjsPromise
 }
 
-const docCache = new Map<string, Promise<PDFDocumentProxy>>()
-export function loadDoc(url: string) {
-  let p = docCache.get(url)
-  if (!p) { p = getPdfjs().then((lib) => lib.getDocument({ url }).promise); docCache.set(url, p) }
-  return p
+const LOAD_TIMEOUT_MS = 20_000 // stall guard on the doc open — pdf.js' own fetch has no timeout
+
+// Doc cache entries keep the pdf.js loading task alongside the promise so a stuck or
+// superseded load can be aborted (destroy cancels the underlying fetch). Failed loads
+// self-evict — a transient error must be retryable, not replayed from the cache forever.
+type DocEntry = { promise: Promise<PDFDocumentProxy>; destroy: () => void }
+const docCache = new Map<string, DocEntry>()
+function docEntry(url: string): DocEntry {
+  let e = docCache.get(url)
+  if (!e) {
+    let dead = false
+    let task: PdfjsLib.PDFDocumentLoadingTask | null = null
+    const promise = getPdfjs().then((lib) => {
+      task = lib.getDocument({ url })
+      if (dead) void task.destroy()
+      return task.promise
+    })
+    const entry: DocEntry = {
+      promise,
+      destroy: () => {
+        dead = true
+        void task?.destroy().catch(() => {})
+        if (docCache.get(url) === entry) docCache.delete(url)
+      },
+    }
+    promise.catch(() => { if (docCache.get(url) === entry) docCache.delete(url) })
+    docCache.set(url, entry)
+    e = entry
+  }
+  return e
+}
+export function loadDoc(url: string) { return docEntry(url).promise }
+
+// Doc open with the stall guard: a request that hangs (tablet radio limbo) would pin
+// «PDF wird geladen…» forever — after LOAD_TIMEOUT_MS the entry is destroyed + evicted,
+// so the next attempt (auto or «Erneut laden») starts a fresh fetch.
+export function loadDocTimed(url: string): Promise<PDFDocumentProxy> {
+  const e = docEntry(url)
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => { e.destroy(); reject(new Error('pdf load timeout')) }, LOAD_TIMEOUT_MS)
+    e.promise.then(
+      (doc) => { clearTimeout(t); resolve(doc) },
+      (err) => { clearTimeout(t); reject(err) },
+    )
+  })
+}
+
+// Forget everything cached for one plan URL — the «Erneut laden» tap goes through here
+// so the re-bake starts from a clean fetch instead of a stuck/rejected promise.
+export function evictPlan(url: string) {
+  docCache.get(url)?.destroy()
+  bitmapCache.delete(url)
 }
 
 interface Props {
@@ -44,6 +95,7 @@ const BASE_HEADROOM = 1.4 // bake the page a bit above display res so panning + 
 const REFINE_FROM = 1.15  // engage the full-res pass just past the base bitmap's crisp range, so there's no blurry dead zone between base and refine
 const SETTLE_MS = 40      // re-raster quickly after the view settles (kept non-zero so a continuous zoom gesture doesn't thrash pdf.js)
 const BITMAP_CAP = 12     // how many baked page bitmaps to keep resident
+export const RETRY_AFTER_MS = 5_000 // show «Erneut laden» once a load has been pending this long
 const MAX_COMPOSITE_PX = 12000 // ceiling on the stitched bitmap's long side (browser canvas limit safety for many-page plans)
 const DPR = () => Math.min(window.devicePixelRatio || 1, 2)
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
@@ -56,6 +108,13 @@ type Baked = { bitmap: ImageBitmap; aspect: number; side: number; pages: number 
 // ONLY pdf.js rasterization for normal viewing; open / switch / pan / zoom are served from this
 // bitmap (a GPU blit + CSS transform), so they're instant. Keyed by url; memory-bounded by a count cap.
 const bitmapCache = new Map<string, Promise<Baked>>()
+
+// Never keep a rejected bake — a failed/timed-out load must be retryable on the next
+// mount (or the «Erneut laden» tap) instead of replaying the cached rejection.
+function setBitmap(url: string, p: Promise<Baked>) {
+  p.catch(() => { if (bitmapCache.get(url) === p) bitmapCache.delete(url) })
+  bitmapCache.set(url, p)
+}
 
 // Compute the contain-fit of a page (h/w aspect) inside the viewport, then the
 // pixel width to bake at — display size × dpr × headroom, rounded to a step so
@@ -82,17 +141,17 @@ function bake(url: string, vw: number, vh: number): Promise<Baked> {
     bitmapCache.delete(url); bitmapCache.set(url, existing)
     // fall through to re-bake only on the stale rejection
     const p = reuse.catch(() => render(url, vw, vh))
-    bitmapCache.set(url, p)
+    setBitmap(url, p)
     return p
   }
   const p = render(url, vw, vh)
-  bitmapCache.set(url, p)
+  setBitmap(url, p)
   evict()
   return p
 }
 
 function render(url: string, vw: number, vh: number): Promise<Baked> {
-  return loadDoc(url).then(async (pdf) => {
+  return loadDocTimed(url).then(async (pdf) => {
     const n = pdf.numPages
     // measure every page; stitched width is the widest page, height is the sum
     const metas: { page: Awaited<ReturnType<PDFDocumentProxy['getPage']>>; w: number; h: number }[] = []
@@ -169,7 +228,26 @@ export function PdfViewport({ url, fitW, fitH, scale, pos, vw, vh, onAspect }: P
   // (the adjust-state-on-prop-change pattern, no extra effect pass).
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [statusUrl, setStatusUrl] = useState(url)
+  const [attempt, setAttempt] = useState(0)
+  const [slow, setSlow] = useState(false)
   if (url !== statusUrl) { setStatusUrl(url); setStatus('loading') }
+
+  // «Erneut laden» surfaces once a load has been pending for a while — the normal
+  // cached/prewarmed fast path never flashes the button
+  useEffect(() => {
+    if (status !== 'loading') { setSlow(false); return }
+    setSlow(false)
+    const t = setTimeout(() => setSlow(true), RETRY_AFTER_MS)
+    return () => clearTimeout(t)
+  }, [status, statusUrl, attempt])
+
+  // bust every cache for this document and re-bake — the in-app recovery for a stuck or
+  // failed load (previously only a full page reload cleared the module-level caches)
+  const retry = () => {
+    evictPlan(url)
+    setStatus('loading')
+    setAttempt((a) => a + 1)
+  }
 
   // base — blit the baked bitmap (instant if cached/prewarmed; a single render otherwise)
   useEffect(() => {
@@ -189,7 +267,7 @@ export function PdfViewport({ url, fitW, fitH, scale, pos, vw, vh, onAspect }: P
       })
       .catch(() => { if (!cancelled) setStatus('error') })
     return () => { cancelled = true }
-  }, [url, vw, vh]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [url, vw, vh, attempt]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // refine — visible region at full zoom resolution, on settle, only when zoomed deep (single-page
   // plans only; a stitched multi-page plan stays on its base bitmap)
@@ -246,7 +324,10 @@ export function PdfViewport({ url, fitW, fitH, scale, pos, vw, vh, onAspect }: P
       />
       {status !== 'ready' && (
         <div className={s['wb-pdf-status']} role="status">
-          {status === 'error' ? appConfig.copy.pdf.failed : appConfig.copy.pdf.loading}
+          <span>{status === 'error' ? appConfig.copy.pdf.failed : appConfig.copy.pdf.loading}</span>
+          {(status === 'error' || slow) && (
+            <button type="button" className={s['wb-pdf-retry']} onClick={retry}>{appConfig.copy.pdf.retry}</button>
+          )}
         </div>
       )}
     </>

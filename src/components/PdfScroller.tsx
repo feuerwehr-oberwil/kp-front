@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
-import { loadDoc } from './PdfViewport'
+import { loadDocTimed, evictPlan, RETRY_AFTER_MS } from './PdfViewport'
 import s from './PdfScroller.module.css'
 
 // A plain, scrollable multi-page PDF viewer for viewer-only plans (e.g. PV / documentation
@@ -16,6 +16,8 @@ export function PdfScroller({ url }: { url: string }) {
   const pagesRef = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
+  const [attempt, setAttempt] = useState(0)
+  const [slow, setSlow] = useState(false)
 
   // track the available column width so pages render crisp at the current size
   useEffect(() => {
@@ -28,6 +30,22 @@ export function PdfScroller({ url }: { url: string }) {
     return () => ro?.disconnect()
   }, [])
 
+  // «Erneut laden» surfaces once a load has been pending for a while (same model as the
+  // board's PdfViewport placeholder — the cached fast path never flashes the button)
+  useEffect(() => {
+    if (status !== 'loading') { setSlow(false); return }
+    setSlow(false)
+    const t = setTimeout(() => setSlow(true), RETRY_AFTER_MS)
+    return () => clearTimeout(t)
+  }, [status, url, attempt])
+
+  // bust the doc cache and refetch — in-app recovery for a stuck or failed load
+  const retry = () => {
+    evictPlan(url)
+    setStatus('loading')
+    setAttempt((a) => a + 1)
+  }
+
   useEffect(() => {
     const host = pagesRef.current
     if (!host || !width) return
@@ -35,7 +53,7 @@ export function PdfScroller({ url }: { url: string }) {
     setStatus('loading')
     const cssW = Math.max(120, Math.min(width - 24, MAX_COL_W)) // minus the column padding
     const dpr = DPR()
-    loadDoc(url)
+    loadDocTimed(url)
       .then(async (pdf) => {
         const frag = document.createDocumentFragment()
         for (let i = 1; i <= pdf.numPages; i++) {
@@ -60,13 +78,16 @@ export function PdfScroller({ url }: { url: string }) {
       })
       .catch(() => { if (!cancelled) setStatus('error') })
     return () => { cancelled = true }
-  }, [url, width])
+  }, [url, width, attempt])
 
   return (
     <div ref={wrapRef} className={s.scroller}>
       {status !== 'ready' && (
         <div className={s.hint}>
-          {status === 'error' ? appConfig.copy.pdf.failed : appConfig.copy.pdf.loading}
+          <span>{status === 'error' ? appConfig.copy.pdf.failed : appConfig.copy.pdf.loading}</span>
+          {(status === 'error' || slow) && (
+            <button type="button" className={s.retry} onClick={retry}>{appConfig.copy.pdf.retry}</button>
+          )}
         </div>
       )}
       <div ref={pagesRef} className={s.pages} />

@@ -789,6 +789,7 @@ export const it: Localizable<Copy> = {
     osmLoading: 'Caricamento sagome degli edifici …',
     osmError: 'Sagome degli edifici (OSM) non raggiungibili',
     osmEmpty: 'Nessun edificio in questa zona',
+    osmRetry: 'Ricarica',
     osmPickHint: 'Tocca un edificio, poi applica',
     osmTransfer: 'Applica ({n})',
     osmClear: 'Cancella selezione',
@@ -1027,6 +1028,11 @@ export const it: Localizable<Copy> = {
       fog: 'Nebbia', drizzle: 'Pioviggine', rain: 'Pioggia', snow: 'Neve',
       rainShowers: 'Rovesci di pioggia', snowShowers: 'Rovesci di neve', thunder: 'Temporale', cloudy: 'Nuvoloso',
     },
+  },
+  pdf: {
+    loading: 'Caricamento del PDF…',
+    failed: 'Impossibile caricare il PDF.',
+    retry: 'Ricarica',
   },
   settings: {
     title: 'Impostazioni',
