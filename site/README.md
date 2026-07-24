@@ -1,4 +1,4 @@
-# site/ — die öffentliche Landingpage (kp-front.ch)
+# site/ – die öffentliche Landingpage (kp-front.ch)
 
 Statische Seite, kein Build-Framework. Was hier liegt, ist die Seite:
 
@@ -26,7 +26,7 @@ node site/build.mjs                          # danach die Ein-Datei-Variante neu
 zusätzliche Abhängigkeit), erzwingt den Tagmodus über das Prefs-Cookie, überspringt den
 Demo-Willkommensdialog, blendet die DEMO-Banderole aus und schiesst jede Ansicht in 1500 × 937.
 Neue Bilder kommen als neuer Eintrag in die `shots`-Liste im Skript **und** als `<img>` in
-`index.html` — die Dateinamen sind der Vertrag zwischen beiden.
+`index.html` – die Dateinamen sind der Vertrag zwischen beiden.
 
 Zwei Dinge zur Demo: sie wird von Besuchern mitbenutzt und jede Nacht um 00:00 zurückgesetzt.
 Für saubere Bilder also am besten kurz nach dem Reset aufnehmen – oder mit `--base` gegen eine
@@ -54,5 +54,5 @@ unterscheidet sich: Inhalt, Bilder und die gegenseitige Verlinkung
 ## Hosten
 
 `site/` ist direkt ausrollbar (statische Dateien, keine Server-Logik). `dist/index.html` aus
-`build.mjs` ist dieselbe Seite als eine einzige Datei mit eingebetteten Schriften und Bildern —
+`build.mjs` ist dieselbe Seite als eine einzige Datei mit eingebetteten Schriften und Bildern –
 zum Weitergeben oder für einen Host, der nur eine Datei annimmt.

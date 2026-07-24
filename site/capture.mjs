@@ -8,7 +8,7 @@
  *
  * Fährt eine echte Instanz mit Playwright an, schaltet auf Tagmodus, blendet die
  * Demo-Chrome (Willkommensdialog, DEMO-Banderole) aus und legt die Bilder in
- * site/shots/ ab. Die Bildnamen sind der Vertrag mit site/index.html — wer hier
+ * site/shots/ ab. Die Bildnamen sind der Vertrag mit site/index.html – wer hier
  * umbenennt, muss dort mitziehen.
  */
 import { chromium } from '@playwright/test'
@@ -19,7 +19,7 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const SHOTS = join(HERE, 'shots')
 
 const DEFAULT_BASE = 'https://kp-front-demo.up.railway.app'
-const VIEWPORT = { width: 1500, height: 937 } // 1.6:1 — dieselbe Kachelform für alle Shots
+const VIEWPORT = { width: 1500, height: 937 } // 1.6:1 – dieselbe Kachelform für alle Shots
 const QUALITY = 82
 
 const argv = process.argv.slice(2)

@@ -43,7 +43,7 @@ html = html.replace(/<link rel="stylesheet" href="([^"]+)">/g, (_, rel) => {
   return `<style>\n${readFileSync(join(HERE, rel), 'utf8')}</style>`
 })
 
-// url(fonts/…) in CSS und src="shots/…" im Markup — beide relativ zu site/
+// url(fonts/…) in CSS und src="shots/…" im Markup – beide relativ zu site/
 html = html.replace(/url\((fonts\/[^)'"]+)\)/g, (_, rel) => {
   embedded.push(rel)
   return `url(${inline(rel)})`

@@ -1,4 +1,4 @@
-/* Landingpage KP Front / KP Rück — «Schweizer Plakat × Tageslicht».
+/* Landingpage KP Front / KP Rück – «Schweizer Plakat × Tageslicht».
    Diese Datei ist in beiden Repos identisch: wer hier etwas ändert, kopiert sie
    nach kp-rueck/site/landing.css (bzw. kp-front/site/landing.css) hinüber. */
 @font-face {
@@ -39,7 +39,7 @@
 html { scroll-behavior: smooth; background: var(--bg); }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 
-/* reset — the page must render identically with and without a host stylesheet */
+/* reset – the page must render identically with and without a host stylesheet */
 *, *::before, *::after { box-sizing: border-box; }
 body, h1, h2, h3, p, blockquote, figure, figcaption, form { margin: 0; padding: 0; }
 img { max-width: 100%; }
@@ -265,7 +265,7 @@ section[id] { scroll-margin-top: 76px; } /* anchor targets clear the sticky head
 .pillar p strong { color: var(--ink); font-weight: 600; }
 .pillar a { color: var(--ink); }
 
-/* drei statt zwei Karten — für die Ausfallstufen */
+/* drei statt zwei Karten – für die Ausfallstufen */
 .pillars-grid.three { grid-template-columns: repeat(3, 1fr); }
 
 /* ---------- Funktionsumfang ---------- */
@@ -404,7 +404,7 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
   .entry { grid-template-columns: 52px 16px 1fr; gap: 0 12px; }
 }
 @media (max-width: 560px) {
-  /* Funktionen/Kontakt are only scroll anchors — GitHub + Demo carry the header */
+  /* Funktionen/Kontakt are only scroll anchors – GitHub + Demo carry the header */
   .top nav a:not(.cta):not(.icon-link) { display: none; }
   .top-in { gap: 12px; }
 }
