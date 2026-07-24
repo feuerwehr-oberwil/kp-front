@@ -28,6 +28,7 @@ import { Overlays, toast, confirmDialog } from './lib/ui'
 import { loadPrefs, savePrefs, symbolMul } from './lib/prefs'
 import { useAttendanceActions } from './lib/useAttendanceActions'
 import { useMittelActions } from './lib/useMittelActions'
+import { useChecklistActions } from './lib/useChecklistActions'
 import { useDevicePrefs } from './lib/useDevicePrefs'
 import { useSheets } from './lib/useSheets'
 import { useAtemschutzMute } from './lib/useAtemschutzMute'
@@ -112,7 +113,7 @@ import { AnwesenheitView } from './components/AnwesenheitView'
 import { MittelView } from './components/MittelView'
 import { usePersonnel } from './lib/usePersonnel'
 import { assignedPersonIds } from './lib/personnel'
-import type { ChecklistTemplate, Item } from './lib/checklists'
+import type { Item } from './lib/checklists'
 import { ReportPreflight } from './components/ReportPreflight'
 import { annotatedPlans } from './lib/report'
 import { mittelLineCount } from './lib/mittel'
@@ -1597,30 +1598,7 @@ function IncidentWorkspace({
   // (editor, incl. on a phone) rather than tacticalLocked — but still blocked for
   // true viewers and during replay. Presence in `ticks` = checked.
   const canTick = canEditIncident
-  const toggleTick = (template: ChecklistTemplate, item: Item) => {
-    if (!canTick) return
-    setChecklists((cl) => {
-      const prev = cl[template.id] ?? { ticks: {}, activeBranch: {} }
-      const ticks = { ...prev.ticks }
-      const wasChecked = !!ticks[item.id]
-      if (wasChecked) delete ticks[item.id]
-      else ticks[item.id] = { t: new Date().toISOString(), by: user?.display_name }
-      return { ...cl, [template.id]: { ...prev, ticks } }
-    })
-    const checking = !checklists[template.id]?.ticks[item.id]
-    // Milestone ticks surface in the Verlauf (kept clean — non-milestones stay silent);
-    // every tick still emits an audit event for the time-travel replay.
-    if (item.milestone && checking) log('check', `☑ ${item.text}`, 'journal')
-    emit('checklist.tick', { template: template.id, item: item.id, checked: checking, milestone: !!item.milestone })
-  }
-  const setBranch = (templateId: string, phaseId: string, branchId: string) => {
-    if (!canTick) return
-    setChecklists((cl) => {
-      const prev = cl[templateId] ?? { ticks: {}, activeBranch: {} }
-      return { ...cl, [templateId]: { ...prev, activeBranch: { ...prev.activeBranch, [phaseId]: branchId } } }
-    })
-    emit('checklist.branch', { template: templateId, phase: phaseId, branch: branchId })
-  }
+  const { toggleTick, setBranch } = useChecklistActions({ canTick, checklists, setChecklists, authorName: user?.display_name, log, emit })
   // Deep links: an item's `action` jumps to the matching surface (best-effort, reusing
   // existing setters). journal → open the composer; plan → Plan tab; draw → Lage + pen.
   const checklistAction = (_item: Item, a: NonNullable<Item['action']>) => {
