@@ -26,6 +26,7 @@ import { useJournal } from './lib/useJournal'
 import { useWakeLock } from './lib/useWakeLock'
 import { Overlays, toast, confirmDialog } from './lib/ui'
 import { loadPrefs, savePrefs, symbolMul } from './lib/prefs'
+import { useAttendanceActions } from './lib/useAttendanceActions'
 import { useDevicePrefs } from './lib/useDevicePrefs'
 import { useSheets } from './lib/useSheets'
 import { useAtemschutzMute } from './lib/useAtemschutzMute'
@@ -1555,41 +1556,10 @@ function IncidentWorkspace({
     }
   }, [layers, incidentView.center, backendPlans, withGeoBbox])
   const blockedAttendanceIds = useMemo(() => assignedPersonIds(trupps), [trupps])
-  const markPresent = (p: Person) => {
-    if (attendance[p.id]?.status === 'present') return
-    // «von» defaults to the alarm time (Vorschlag ab Alarmzeit) — ticking often happens
-    // long after arrival, and now() would print an end-of-incident «von» on the rapport
-    setAttendance((cur) => ({ ...cur, [p.id]: { status: 'present', checkedInAt: cur[p.id]?.checkedInAt ?? incidentMeta.started_at, leftAt: cur[p.id]?.leftAt, displayNameSnapshot: p.displayName } }))
-    log('people', `${p.displayName} anwesend`, 'team')
-  }
-  const markLeft = (p: Person) => {
-    if (blockedAttendanceIds.has(p.id) || attendance[p.id]?.status === 'left') return
-    setAttendance((cur) => ({ ...cur, [p.id]: { status: 'left', checkedInAt: cur[p.id]?.checkedInAt, leftAt: new Date().toISOString(), displayNameSnapshot: p.displayName } }))
-    log('people', `${p.displayName} gegangen`, 'team')
-  }
-  const clearAttendance = (p: Person) => {
-    const prev = attendance[p.id]
-    if (!prev) return
-    setAttendance((cur) => { const next = { ...cur }; delete next[p.id]; return next })
-    // presence is a record — removing an entry is itself an event worth the Verlauf
-    log('people', fillTemplate(appConfig.copy.abschluss.attendanceRemoved, { name: p.displayName }), 'team')
-    // confirm-with-undo: a mis-cycle to «frei» silently drops a corrected von/checkedInAt with
-    // no way back — restore the exact prior entry (status + times) on undo.
-    toast(fillTemplate(appConfig.copy.abschluss.attendanceRemoved, { name: p.displayName }), {
-      icon: 'undo',
-      action: { label: appConfig.copy.undo, onClick: () => setAttendance((cur) => ({ ...cur, [p.id]: prev })) },
-    })
-  }
-  // Stunden editor (Abschluss-Assistent): correct a person's von–bis. After the Rapport was
-  // declared complete, a correction additionally self-documents in the Verlauf (Nachtrag).
-  const setAttendanceTimes = (personId: string, patch: { checkedInAt?: string; leftAt?: string }) => {
-    const e = attendance[personId]
-    if (!e) return
-    setAttendance((cur) => (cur[personId] ? { ...cur, [personId]: { ...cur[personId], ...patch } } : cur))
-    if (incidentMeta.report_done_at) {
-      log('people', fillTemplate(appConfig.copy.abschluss.corrected, { name: e.displayNameSnapshot }), 'team')
-    }
-  }
+  const { markPresent, markLeft, clearAttendance, setAttendanceTimes } = useAttendanceActions({
+    attendance, setAttendance, blockedAttendanceIds,
+    startedAt: incidentMeta.started_at, reportDoneAt: incidentMeta.report_done_at, log,
+  })
   // Save a Mittel (material-use) total. Append-only: every change is a NEW event carrying the
   // running total for its material+unit+source key; the current picture is derived (lib/mittel).
   // Re-saving the same value is a no-op (no event, no Verlauf row). Setting menge to 0 keeps the
