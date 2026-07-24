@@ -14,6 +14,7 @@ export function IconSprite() {
       <symbol id="eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></symbol>
       <symbol id="eyeoff" viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 6.2A9.5 9.5 0 0 1 12 6c6.5 0 10 6 10 6a16 16 0 0 1-3.3 3.8M6.4 7.7A15.7 15.7 0 0 0 2 12s3.5 6 10 6a9.4 9.4 0 0 0 3.2-.6" /></symbol>
       <symbol id="layers" viewBox="0 0 24 24"><path d="M12 3 3 8l9 5 9-5z" /><path d="M3 13l9 5 9-5" /></symbol>
+      <symbol id="floors" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18M3 15h18" /></symbol>
       <symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></symbol>
       <symbol id="minus" viewBox="0 0 24 24"><path d="M5 12h14" /></symbol>
       <symbol id="cross" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" /><path d="M12 2v4M12 18v4M2 12h4M18 12h4" /></symbol>

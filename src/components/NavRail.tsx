@@ -17,8 +17,6 @@ interface Props {
   planDocs: PlanDocument[]
   activePlanId: string
   onSelectPlan: (id: string) => void
-  /** green live-dot on Karte while at least one GPS vehicle is on the map */
-  mapLive?: boolean
   /** Atemschutz contact-clock alarm tier (0 silent · 1 fällig · 2 überfällig) — drives a
    *  cross-surface dot on the Atemschutz item so a due Trupp is visible from any surface */
   azSeverity?: 0 | 1 | 2
@@ -118,31 +116,40 @@ export function NavRail(p: Props) {
       {edge.bottom && <button type="button" className="nav-more nav-more-down" aria-label={nav.scrollMore} onClick={() => nudge(1)}><Icon id="chevron-down" /></button>}
       <div ref={scrollRef} className={`nav-scroll${edge.top ? ' more-top' : ''}${edge.bottom ? ' more-bottom' : ''}`}>
         <button className={`nav-item${p.mode === 'map' ? ' on' : ''}`} aria-pressed={p.mode === 'map'} aria-label={nav.map} onClick={() => p.onMode('map')}>
-          <span className="nav-glyph"><Icon id="map" />{p.mapLive && <span className="nav-live" />}</span>
+          <span className="nav-glyph"><Icon id="map" /></span>
           <span className="nav-label">{nav.map}</span>
           <span className="nav-key" aria-hidden>{SURFACE_KEY.map}</span>
         </button>
 
+        {/* divider ABOVE the plan group too, so the module/floor tabs read as their own
+            navigable "Pläne" cluster instead of blending into the Karte icon above them */}
+        {p.planDocs.length > 0 && <div className="nav-sep" />}
         {p.planDocs.map((doc) => {
           const g = planGlyph(doc)
           const on = p.mode === 'plans' && p.activePlanId === doc.id
-          // short code ("Modul 3") as the label — the descriptive title overflows the rail
+          // short code ("Modul 3") as the label — the descriptive title overflows the rail.
+          // Module monograms sit in a bordered chip (.nav-mono-chip) so they read as document
+          // tabs, not bare tool glyphs; the Gebäude/Umgebung/Tafel icon-docs stay un-chipped.
           return (
             <button key={doc.id} className={`nav-item${on ? ' on' : ''}`} aria-pressed={on} aria-label={doc.code} onClick={() => p.onSelectPlan(doc.id)}>
-              {'mono' in g && g.mono.includes('/') ? (
-                // combined module ("2/3") as a proper typographic fraction — a precomposed glyph
-                // (⅔ …) where one exists, else a compact diagonal fallback. Single-glyph footprint.
-                FRAC_GLYPH[g.mono] ? (
-                  <span className="nav-glyph mono nav-frac" aria-hidden>{FRAC_GLYPH[g.mono]}</span>
+              {'mono' in g ? (
+                g.mono.includes('/') ? (
+                  // combined module ("2/3") as a proper typographic fraction — a precomposed glyph
+                  // (⅔ …) where one exists, else a compact diagonal fallback. Single-glyph footprint.
+                  FRAC_GLYPH[g.mono] ? (
+                    <span className="nav-glyph mono nav-frac" aria-hidden><span className="nav-mono-chip">{FRAC_GLYPH[g.mono]}</span></span>
+                  ) : (
+                    <span className="nav-glyph mono nav-frac nav-frac-diag" aria-hidden><span className="nav-mono-chip">
+                      <span className="nav-frac-n">{g.mono.split('/')[0]}</span>
+                      <span className="nav-frac-s">/</span>
+                      <span className="nav-frac-d">{g.mono.split('/')[1]}</span>
+                    </span></span>
+                  )
                 ) : (
-                  <span className="nav-glyph mono nav-frac nav-frac-diag" aria-hidden>
-                    <span className="nav-frac-n">{g.mono.split('/')[0]}</span>
-                    <span className="nav-frac-s">/</span>
-                    <span className="nav-frac-d">{g.mono.split('/')[1]}</span>
-                  </span>
+                  <span className="nav-glyph mono"><span className="nav-mono-chip">{g.mono}</span></span>
                 )
               ) : (
-                <span className={`nav-glyph${'mono' in g ? ' mono' : ''}`}>{'mono' in g ? g.mono : <Icon id={g.icon} />}</span>
+                <span className="nav-glyph"><Icon id={g.icon} /></span>
               )}
               <span className="nav-label">{doc.code}</span>
             </button>
