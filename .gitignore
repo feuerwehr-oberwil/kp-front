@@ -43,3 +43,6 @@ PROVIDER_NEUTRAL_MIGRATION_PLAN.md
 # lives in a private data repo and is loaded via `admin_geodata`, never bundled here.
 public/leitungskataster/
 tools/symbols-new.json
+
+# Die Ein-Datei-Variante der Landingpage wird gebaut, nicht eingecheckt.
+site/dist/

@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="de">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>KP Front – Einsatzführung für die Milizfeuerwehr</title>
+<meta name="description" content="KP Front ist der digitale Kommandoposten am Einsatzort: Lage, Pläne, Atemschutz, Verlauf und Rapport in einer offline-fähigen Open-Source-App.">
+<link rel="stylesheet" href="landing.css">
+
+
+<svg style="display:none" aria-hidden="true">
+  <symbol id="i-gh" viewBox="0 0 16 16">
+    <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+  </symbol>
+  <symbol id="i-play" viewBox="0 0 16 16">
+    <path d="M4.5 3.1a.7.7 0 0 1 1.05-.6l7.2 4.9a.7.7 0 0 1 0 1.2l-7.2 4.9a.7.7 0 0 1-1.05-.6z"/>
+  </symbol>
+  <symbol id="i-arrow" viewBox="0 0 16 16">
+    <path d="M8.8 2.3a.9.9 0 0 0-1.3 1.25L10.4 6.6H2.2a.9.9 0 0 0 0 1.8h8.2l-2.9 3.05a.9.9 0 0 0 1.3 1.25l4.3-4.5a.9.9 0 0 0 0-1.2z"/>
+  </symbol>
+</svg>
+
+<header class="top">
+  <div class="wrap top-in">
+    <a class="mark" href="#">
+      <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="7" fill="#1b2330"/>
+        <g transform="translate(16 16.5) scale(0.085) translate(-257 -274)">
+          <ellipse cx="256" cy="398" rx="150" ry="19" fill="#000" opacity="0.22"/>
+          <g stroke="#c4cedb" stroke-width="3" stroke-linejoin="round">
+            <polygon points="100,216 198,190 198,380 100,406" fill="#e7edf4"/>
+            <polygon points="208,190 306,216 306,406 208,380" fill="#ffffff"/>
+            <polygon points="316,216 414,190 414,380 316,406" fill="#d8e1ec"/>
+          </g>
+          <path fill="#e8392b" d="M256 350 C221 297 186 260 186 206 A70 70 0 1 1 326 206 C326 260 291 297 256 350 Z"/>
+          <circle cx="256" cy="200" r="30" fill="#fff"/>
+        </g>
+      </svg>
+      <span>KP Front</span></a>
+    <nav aria-label="Hauptnavigation">
+      <a href="#einsatz">Funktionen</a>
+      <a href="#kontakt">Kontakt</a>
+      <a class="icon-link" href="https://github.com/feuerwehr-oberwil/kp-front" target="_blank" rel="noopener" aria-label="KP Front auf GitHub"><svg class="ico"><use href="#i-gh"/></svg></a>
+      <a class="cta" href="https://kp-front-demo.up.railway.app" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg>Demo</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero wrap">
+    <p class="eyebrow">Milizfeuerwehr&nbsp;· Schweiz</p>
+    <h1>Digitale Einsatzführung für die Feuerwehr.</h1>
+    <p class="lede">KP Front ist der digitale Kommandoposten am Einsatzort:
+      <strong>Lage, Pläne, Atemschutz, Verlauf und Rapport</strong> in einer App.
+      Läuft auch ohne Netz, und der Code ist offen.</p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="https://kp-front-demo.up.railway.app" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg>Demo öffnen</a>
+      <span class="cta-note">Ohne Login – in der Demo brennt es gerade in Musterdorf</span>
+    </div>
+    <figure class="frame">
+      <div class="frame-bar" aria-hidden="true">
+        <span class="dot live"></span><span class="dot"></span><span class="dot"></span>
+        <span class="addr">LAGE · ZIMMERBRAND · 2611624 / 1263070</span>
+      </div>
+      <img src="shots/lage.jpg" alt="Lage-Ansicht: taktische Karte mit FKS-Symbolen, Sektoren und Schlauchleitungen" width="1500" height="937">
+    </figure>
+  </section>
+
+  <section class="tenet">
+    <div class="wrap">
+      <p class="eyebrow">Der Massstab</p>
+      <blockquote>«Bedienbar um <em>3 Uhr nachts</em> – nach sechs Monaten ohne Übung.»</blockquote>
+      <p class="expl">In der Milizfeuerwehr sitzt niemand täglich am Gerät. Also muss die App so
+        gebaut sein, dass man sie im Halbschlaf richtig bedient:
+        <strong>alles Wichtige direkt sichtbar, sinnvolle Vorgaben statt Einstellungen, und jede
+        Aktion lässt sich rückgängig machen.</strong></p>
+    </div>
+  </section>
+
+  <section class="wrap" id="einsatz">
+    <div class="sec-head">
+      <p class="eyebrow">Vom Alarm bis zum Rapport</p>
+      <h2>Ein Einsatz, eine App.</h2>
+      <p>So sieht eine Nacht mit KP Front aus – was du im Einsatz erfasst, musst du nachher
+        nirgends mehr abtippen.</p>
+    </div>
+    <div class="verlauf-list">
+      <article class="entry">
+        <div class="time">03:01</div><div class="rail" aria-hidden="true"></div>
+        <div class="body">
+          <p class="tag">Alarm</p>
+          <h3>Der Alarm kommt rein.</h3>
+          <p>Alarme aus dem Alarmierungssystem (z.&nbsp;B. Divera) mit einem Tipp übernehmen – oder
+            von Hand ab Adresse, Objekt oder Karte starten. Einsatzort und Objektdaten stehen,
+            bevor das erste Fahrzeug rollt.</p>
+        </div>
+      </article>
+      <article class="entry">
+        <div class="time">03:07</div><div class="rail" aria-hidden="true"></div>
+        <div class="body">
+          <p class="tag">Lage</p>
+          <h3>Die erste Lage steht.</h3>
+          <p>FKS-Symbole, Sektoren, Schlauchleitungen und Notizen auf der swisstopo-Karte.
+            Hydranten, Leitungen und Fahrzeugpositionen liegen als Ebenen drunter.</p>
+        </div>
+      </article>
+      <article class="entry">
+        <div class="time">03:12</div><div class="rail" aria-hidden="true"></div>
+        <div class="body">
+          <p class="tag">Atemschutz</p>
+          <h3>Trupp 1 geht rein.</h3>
+          <p>Druck, Rückzugszeit und Kontaktuhr laufen pro Trupp mit. Die App meldet sich,
+            bevor es knapp wird – auch wenn gerade niemand auf die Uhr schaut.</p>
+        </div>
+      </article>
+      <article class="entry">
+        <div class="time">03:18</div><div class="rail" aria-hidden="true"></div>
+        <div class="body">
+          <p class="tag">Plan</p>
+          <h3>Der Objektplan wird zum Whiteboard.</h3>
+          <p>Einsatzplan aufziehen, drauf zeichnen, Trupps platzieren, massstabsgetreu messen –
+            mit denselben Werkzeugen wie auf der Karte.</p>
+        </div>
+      </article>
+      <article class="entry">
+        <div class="time">03:40</div><div class="rail" aria-hidden="true"></div>
+        <div class="body">
+          <p class="tag">Verlauf</p>
+          <h3>Alles steht im Verlauf.</h3>
+          <p>Der Verlauf wird nur ergänzt, nie umgeschrieben – korrigiert wird mit neuen
+            Einträgen, nicht mit dem Radiergummi. So bleibt der Einsatz belegbar.</p>
+        </div>
+      </article>
+      <article class="entry">
+        <div class="time">05:55</div><div class="rail" aria-hidden="true"></div>
+        <div class="body">
+          <p class="tag">Rapport</p>
+          <h3>Beim Einrücken ist der Rapport fast fertig.</h3>
+          <p>Lage, Mannschaft, Mittel und Verlauf fliessen direkt ins Rapport-PDF.
+            Niemand muss die Nacht nachher aus dem Kopf rekonstruieren.</p>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Aus der Demo</p>
+      <h2>So sieht das aus.</h2>
+    </div>
+    <div class="shots-grid">
+      <figure class="shot">
+        <img src="shots/atemschutz.jpg" alt="Atemschutz-Ansicht: Trupps mit Druck und laufender Kontaktuhr" width="1500" height="937">
+        <figcaption>
+          <div class="cap-t">Atemschutz</div>
+          <div class="cap-s">Trupps, Druck und Kontaktuhr</div>
+        </figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="shots/gebaeude.jpg" alt="Gebäude-Ansicht: Geschossstapel mit Truppzuordnung" width="1500" height="937">
+        <figcaption>
+          <div class="cap-t">Gebäude</div>
+          <div class="cap-s">Geschosse und Trupps im Objekt</div>
+        </figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="shots/mittel.jpg" alt="Mittel-Ansicht: Materialeinsatz nach Quelle" width="1500" height="937">
+        <figcaption>
+          <div class="cap-t">Mittel</div>
+          <div class="cap-s">Was gebraucht wurde, direkt erfasst</div>
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="wrap" id="offen">
+    <div class="sec-head">
+      <p class="eyebrow">Zwei Grundsätze</p>
+      <h2>Offline-fähig und quelloffen.</h2>
+    </div>
+    <div class="pillars-grid">
+      <div class="pillar">
+        <p class="tag">Offline-first</p>
+        <h3>Das Funkloch ist der Normalfall.</h3>
+        <p>Karten, Pläne und Einsatzdaten sind lokal gespeichert – die App <strong>prüft selber,
+          ob sie offline bereit ist</strong>, statt es einfach anzunehmen. Mehrere Tablets arbeiten
+          getrennt weiter und gleichen sich ab, sobald wieder Netz da ist.</p>
+      </div>
+      <div class="pillar">
+        <p class="tag">Open Source · AGPL</p>
+        <h3>Eure Feuerwehr, eure Daten.</h3>
+        <p>Eine Instanz pro Feuerwehr, <strong>keine Lizenz pro Gerät</strong>, kein Vendor-Lock-in.
+          Selbst gehostet oder in der Cloud – der ganze Code steht auf
+          <a href="https://github.com/feuerwehr-oberwil/kp-front" target="_blank" rel="noopener">GitHub <svg class="ico" style="width:13px;height:13px;vertical-align:-2px"><use href="#i-gh"/></svg></a>.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="sibling">
+    <div class="wrap">
+      <div class="sibling-txt">
+        <p class="eyebrow">Verwandtes Projekt</p>
+        <h2>KP Front führt vorne. KP Rück hält hinten den Überblick.</h2>
+        <p><strong>KP Rück</strong> ersetzt die Magnettafel im rückwärtigen Kommandoposten:
+          ein Board für Personal, Fahrzeuge und Material. Eigene App, gleiche Handschrift –
+          die beiden können sich Alarme übergeben, brauchen einander aber nicht.</p>
+        <a class="btn btn-ghost" href="https://kp-rueck.ch">KP Rück ansehen<svg class="ico" style="width:14px;height:14px"><use href="#i-arrow"/></svg></a>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap" id="kontakt">
+    <div class="contact-grid">
+      <div class="contact-side">
+        <p class="eyebrow">Kontakt</p>
+        <h2>Sag uns, was du denkst.</h2>
+        <p>Willst du KP Front bei euch ausprobieren? Fehlt etwas, oder funktioniert etwas nicht so,
+          wie du es erwartest? Schreib uns – wir lesen alles.</p>
+        <p class="alt">Lieber direkt? <a href="mailto:bastian.eichenberger@feuerwehr-oberwil.ch">bastian.eichenberger@feuerwehr-oberwil.ch</a>
+          oder eine <a href="https://github.com/feuerwehr-oberwil/kp-front/discussions" target="_blank" rel="noopener">GitHub-Diskussion</a> starten.</p>
+      </div>
+      <form class="card" id="feedback-form">
+        <div class="field">
+          <label for="f-name">Name</label>
+          <input id="f-name" name="name" type="text" autocomplete="name" required>
+        </div>
+        <div class="field">
+          <label for="f-org">Feuerwehr / Organisation</label>
+          <input id="f-org" name="org" type="text" autocomplete="organization" placeholder="Optional">
+        </div>
+        <div class="field full">
+          <label for="f-mail">E-Mail</label>
+          <input id="f-mail" name="email" type="email" autocomplete="email" required>
+        </div>
+        <div class="field full">
+          <label for="f-msg">Nachricht</label>
+          <textarea id="f-msg" name="message" required placeholder="Was du loswerden willst …"></textarea>
+        </div>
+        <div class="form-foot">
+          <button class="btn btn-primary" type="submit">Nachricht senden</button>
+          <span class="form-note">Prototyp – das Formular sendet noch nicht.</span>
+        </div>
+        <div class="form-ok" role="status">
+          <strong>Gesendet.</strong>&nbsp;Danke für deine Nachricht – wir melden uns.
+        </div>
+      </form>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p class="foot-origin">KP Front kommt aus der <a href="https://www.feuerwehr-oberwil.ch" target="_blank" rel="noopener">Feuerwehr Oberwil BL</a> und ist dort im Einsatz.
+      Jede Feuerwehr betreibt ihre eigene Instanz mit eigenen Karten, Plänen und Daten.</p>
+    <div class="foot-row">
+      <span>© 2026 <a href="https://bastianeichenberger.ch" target="_blank" rel="noopener">Bastian Eichenberger</a> · AGPL-3.0</span>
+      <a href="https://github.com/feuerwehr-oberwil/kp-front" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://kp-front-demo.up.railway.app" target="_blank" rel="noopener">Demo</a>
+      <a href="https://kp-rueck.ch">KP Rück</a>
+      <a href="mailto:bastian.eichenberger@feuerwehr-oberwil.ch">Kontakt</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  document.getElementById('feedback-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (!this.reportValidity()) return;
+    this.classList.add('sent');
+  });
+
+  // Scroll-Reveal: nur mit JS und ohne Reduced-Motion; bereits sichtbare
+  // Elemente erscheinen sofort (kein Nachfaden beim Reload mitten auf der Seite)
+  document.documentElement.classList.add('js');
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
+    var els = document.querySelectorAll('.sec-head, .entry, .pillar, .shot, .tenet .wrap, .sibling-txt, .contact-side, form.card');
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+      });
+    }, { rootMargin: '0px 0px -60px' });
+    els.forEach(function (el) {
+      el.classList.add('reveal');
+      if (el.getBoundingClientRect().top < innerHeight * 0.9) el.classList.add('in');
+      else io.observe(el);
+    });
+  }
+</script>
