@@ -35,11 +35,11 @@ export const de = {
   help: {
     menu: 'Funktionen & Hilfe',
     title: 'Was kann KP Front?',
-    subtitle: 'Alle Funktionen auf einen Blick — gebaut, um auch um 3 Uhr morgens ohne Übung bedienbar zu sein.',
+    subtitle: 'Alle Funktionen auf einen Blick – gebaut, um auch um 3 Uhr morgens ohne Übung bedienbar zu sein.',
     contents: 'Inhalt',
     close: 'Schliessen',
     // Fallback-Einleitung wenn die Station keine eigene helpIntro konfiguriert hat.
-    introFallback: 'KP Front ist die digitale Lage- und Einsatzführung Ihrer Feuerwehr: taktische Lagekarte, Objektpläne, Atemschutzüberwachung und ein gemeinsames Verlaufsprotokoll — alles live auf mehreren Geräten gleichzeitig.',
+    introFallback: 'KP Front ist die digitale Lage- und Einsatzführung Ihrer Feuerwehr: taktische Lagekarte, Objektpläne, Atemschutzüberwachung und ein gemeinsames Verlaufsprotokoll – alles live auf mehreren Geräten gleichzeitig.',
     // Inhalt der Hilfe-Sektionen. Inline-Auszeichnung: **fett** für Hervorhebungen,
     // [[Taste]] für Tastatur-Chips. blocks: lead/sub/list/note werden in HelpOverlay gerendert.
     sections: [
@@ -49,10 +49,10 @@ export const de = {
           { kind: 'intro' },
           { kind: 'sub', text: 'Die vier Arbeitsbereiche (linke Leiste)' },
           { kind: 'list', items: [
-            '**Lage** — die taktische Karte mit Symbolen, Linien, Flächen und den Werkleitungs-Ebenen.',
-            '**Plan** — die Objektpläne (Module 1–6, Gebäudeumrisse) als Whiteboard, stockwerkweise.',
-            '**Checkliste** — abarbeitbare Einsatz-Checklisten.',
-            '**Atemschutz** — Überwachung der eingesetzten Trupps mit Zeit und Druck.',
+            '**Lage** – die taktische Karte mit Symbolen, Linien, Flächen und den Werkleitungs-Ebenen.',
+            '**Plan** – die Objektpläne (Module 1–6, Gebäudeumrisse) als Whiteboard, stockwerkweise.',
+            '**Checkliste** – abarbeitbare Einsatz-Checklisten.',
+            '**Atemschutz** – Überwachung der eingesetzten Trupps mit Zeit und Druck.',
           ] },
           { kind: 'note', text: 'Leitgedanke: bedienbar um 3 Uhr morgens, nach einem halben Jahr ohne Übung. Wiedererkennen statt auswendig lernen, mit Handschuhen und offline nutzbar.' },
         ],
@@ -65,7 +65,7 @@ export const de = {
           { kind: 'list', items: [
             'Wechselt den Arbeitsbereich: **Karte** (Lage), die **Pläne** (Module/Gebäude), **Checkliste**, **Atemschutz**.',
             'Unten **Objekt wählen** wechselt das Gebäude/Objekt der Pläne.',
-            'Im Lage-Modus sind **Ebenen** und der **Karten**-Umschalter unten angeheftet — immer sichtbar.',
+            'Im Lage-Modus sind **Ebenen** und der **Karten**-Umschalter unten angeheftet – immer sichtbar.',
             'Am rechten Rand der Leiste ziehen klappt sie mit Beschriftungen auf bzw. wieder zu.',
           ] },
           { kind: 'sub', text: 'Obere Einsatzleiste' },
@@ -106,7 +106,7 @@ export const de = {
         ],
       },
       {
-        id: 'lage', title: 'Lage — Karte', icon: 'map',
+        id: 'lage', title: 'Lage – Karte', icon: 'map',
         blocks: [
           { kind: 'lead', text: 'Die taktische Karte über dem realen Kartenhintergrund (Einsatzgebiet und Umgebung).' },
           { kind: 'list', items: [
@@ -120,20 +120,20 @@ export const de = {
       {
         id: 'ebenen', title: 'Ebenen & Daten', icon: 'layers',
         blocks: [
-          { kind: 'lead', text: 'Über **Ebenen** blendest du die Werkleitungs- und Gefahren-Daten ein — geordnet nach Typ.' },
+          { kind: 'lead', text: 'Über **Ebenen** blendest du die Werkleitungs- und Gefahren-Daten ein – geordnet nach Typ.' },
           { kind: 'list', items: [
-            '**Lage** — Taktische Zeichen, Fahrzeuge, Skizzen & Notizen.',
-            '**Wasser** — Hydranten, Leitungen, Schieber, Quellen.',
-            '**Abwasser** — Schmutz/Misch, Regen/Rein, Schächte / Gully.',
-            '**Gas** — Leitungen.',
-            '**Strom** — Leitungen, PV-Anlagen.',
-            '**Gefahren** — Hochwasser, Überschwemmungstiefe.',
+            '**Lage** – Taktische Zeichen, Fahrzeuge, Skizzen & Notizen.',
+            '**Wasser** – Hydranten, Leitungen, Schieber, Quellen.',
+            '**Abwasser** – Schmutz/Misch, Regen/Rein, Schächte / Gully.',
+            '**Gas** – Leitungen.',
+            '**Strom** – Leitungen, PV-Anlagen.',
+            '**Gefahren** – Hochwasser, Überschwemmungstiefe.',
           ] },
           { kind: 'lead', text: 'Jede Ebene lässt sich ein-/ausblenden und in der Deckkraft regeln.' },
           { kind: 'list', items: [
             '**Karte offline laden** (im Ebenen-Bereich) lädt Kartenkacheln, Pläne, Symbole und Geodaten für den Einsatzort vor.',
           ] },
-          { kind: 'note', text: 'Die Werkleitungsdaten decken das konfigurierte Einsatzgebiet ab und sind lokal verfügbar — sie funktionieren auch offline.' },
+          { kind: 'note', text: 'Die Werkleitungsdaten decken das konfigurierte Einsatzgebiet ab und sind lokal verfügbar – sie funktionieren auch offline.' },
         ],
       },
       {
@@ -141,21 +141,21 @@ export const de = {
         blocks: [
           { kind: 'lead', text: 'Werkzeuge der rechten Leiste im Lage-Modus.' },
           { kind: 'list', items: [
-            '**Symbol** — das taktische Zeichen (FKS/VKF). Schnellwahl der häufigsten Zeichen oder Suche in der ganzen Bibliothek. Tippen platziert; mit dem Schloss mehrere nacheinander setzen.',
-            '**Auswahl** — Objekte antippen, verschieben, im Editor anpassen.',
-            '**Mehrfach** — Lasso: mehrere Symbole/Zeichnungen auf einmal auswählen.',
-            '**Linie** — ziehen oder Punkte tippen; der Stil wird danach im Editor gewählt: **Freihand**, **Pfeil** oder **Rettungsachse**.',
-            '**Fläche** — Eckpunkte tippen (ab 3 Punkten mit Flächeninhalt); Eckpunkte ziehen/einfügen/löschen.',
-            '**Absperrkreis** — von der Mitte zum Rand ziehen setzt den Radius in Metern (Füllung einstellbar).',
-            '**Notiz** — freier Text direkt auf die Karte.',
-            '**Messen** — Strecke (Distanz + Höhenprofil) oder Fläche (Inhalt + Umfang). Punkte ziehen verschiebt, Tippen auf die Linie setzt Zwischenpunkte, Rechtsklick entfernt einen Punkt.',
+            '**Symbol** – das taktische Zeichen (FKS/VKF). Schnellwahl der häufigsten Zeichen oder Suche in der ganzen Bibliothek. Tippen platziert; mit dem Schloss mehrere nacheinander setzen.',
+            '**Auswahl** – Objekte antippen, verschieben, im Editor anpassen.',
+            '**Mehrfach** – Lasso: mehrere Symbole/Zeichnungen auf einmal auswählen.',
+            '**Linie** – ziehen oder Punkte tippen; der Stil wird danach im Editor gewählt: **Freihand**, **Pfeil** oder **Rettungsachse**.',
+            '**Fläche** – Eckpunkte tippen (ab 3 Punkten mit Flächeninhalt); Eckpunkte ziehen/einfügen/löschen.',
+            '**Absperrkreis** – von der Mitte zum Rand ziehen setzt den Radius in Metern (Füllung einstellbar).',
+            '**Notiz** – freier Text direkt auf die Karte.',
+            '**Messen** – Strecke (Distanz + Höhenprofil) oder Fläche (Inhalt + Umfang). Punkte ziehen verschiebt, Tippen auf die Linie setzt Zwischenpunkte, Rechtsklick entfernt einen Punkt.',
           ] },
           { kind: 'sub', text: 'Symbol-Voreinstellungen' },
-          { kind: 'lead', text: 'Jedes Symbol bringt nur die sinnvollen Regler mit: **Drehung** bei gerichteten Zeichen (Pfeile, Leitern, Wände), **Anzahl** wo mehrere zählen, **Stockwerk** bzw. ein **Stockwerk-Bereich** (z. B. Treppe/Lift), **Ausbreitung** bei Schadenlagen — plus passende Eingabefelder (z. B. Name, Stoff, Status).' },
+          { kind: 'lead', text: 'Jedes Symbol bringt nur die sinnvollen Regler mit: **Drehung** bei gerichteten Zeichen (Pfeile, Leitern, Wände), **Anzahl** wo mehrere zählen, **Stockwerk** bzw. ein **Stockwerk-Bereich** (z. B. Treppe/Lift), **Ausbreitung** bei Schadenlagen – plus passende Eingabefelder (z. B. Name, Stoff, Status).' },
         ],
       },
       {
-        id: 'plan', title: 'Plan — Module & Gebäude', icon: 'doc',
+        id: 'plan', title: 'Plan – Module & Gebäude', icon: 'doc',
         blocks: [
           { kind: 'lead', text: 'Pro Objekt ein Whiteboard über den Modul-/Gebäudeplänen. Stockwerkweise, mit eigenen Werkzeugen.' },
           { kind: 'list', items: [
@@ -163,15 +163,15 @@ export const de = {
             '**Stockwerke** als Stapel: mit den **OG/UG**-Knöpfen am Plan ein Geschoss darüber/darunter hinzufügen.',
             '**Zoom/Einpassen** unten in der Werkzeugleiste, wie auf der Karte.',
             '**Teams** (Trupps) als farbige Marker; **Spuren** ein-/ausblenden zeigt ihren Weg. Team-Chips, deren Trupp „raus" ist, werden ausgegraut/durchgestrichen.',
-            '**Massstab** — die zwei Endpunkte des gedruckten Massstabsbalken antippen und die reale Länge eingeben. Danach zeigen Linien mit «Länge» und das **Messen** echte Meter.',
+            '**Massstab** – die zwei Endpunkte des gedruckten Massstabsbalken antippen und die reale Länge eingeben. Danach zeigen Linien mit «Länge» und das **Messen** echte Meter.',
           ] },
-          { kind: 'note', text: 'Die **Gebäudeumrisse** kommen live von OpenStreetMap; **Modul 6** (Geschosspläne) ist ein reiner Blätter-/Zoom-Betrachter — annotiert wird auf dem Gebäude-Stockwerkstapel, nicht auf dem Modul-6-PDF.' },
+          { kind: 'note', text: 'Die **Gebäudeumrisse** kommen live von OpenStreetMap; **Modul 6** (Geschosspläne) ist ein reiner Blätter-/Zoom-Betrachter – annotiert wird auf dem Gebäude-Stockwerkstapel, nicht auf dem Modul-6-PDF.' },
         ],
       },
       {
         id: 'atemschutz', title: 'Atemschutzüberwachung', icon: 'gauge',
         blocks: [
-          { kind: 'lead', text: 'Lückenlose Überwachung jedes Atemschutztrupps nach FKS — das Sicherheitssignal ist die **Zeit seit dem letzten Funkkontakt**, nicht eine geschätzte Restzeit.' },
+          { kind: 'lead', text: 'Lückenlose Überwachung jedes Atemschutztrupps nach FKS – das Sicherheitssignal ist die **Zeit seit dem letzten Funkkontakt**, nicht eine geschätzte Restzeit.' },
           { kind: 'sub', text: 'Trupp anlegen' },
           { kind: 'list', items: [
             '**Auftrag** zuerst: Art wählen (Retten · Löschen · Absuchen · Sichern · Erkunden · Anderes), **Ziel / Ort** in Klartext (z. B. „2. OG Wohnung links") und optional die Leitungs-/Schlauch-Nr.',
@@ -181,7 +181,7 @@ export const de = {
           { kind: 'list', items: [
             'Gross die Uhr **Seit letztem Kontakt**: grün **Kontakt ok** → gelb **Kontakt fällig** → rot **Überfällig** (kein Kontakt innert ~5 Min.) mit Alarm.',
             '**Kontakt** (grosser Knopf) bestätigt den Funkkontakt und stellt die Uhr zurück.',
-            '**Druck** direkt mit ± einstellen und mit **Bestätigen** übernehmen — das zählt als Kontakt und wird protokolliert; ein Fehlklick ohne Bestätigen ändert nichts. Niedriger Druck wird rot.',
+            '**Druck** direkt mit ± einstellen und mit **Bestätigen** übernehmen – das zählt als Kontakt und wird protokolliert; ein Fehlklick ohne Bestätigen ändert nichts. Niedriger Druck wird rot.',
             'Status **Angemeldet → Im Einsatz → Rückzug → Draussen**. **Rückzug** lässt sich mit **Fortsetzen** widerrufen; ein draussener Trupp geht mit **Wieder einrücken** (neue Flasche) zurück in die Überwachung.',
             '**Verlauf** je Trupp (ausklappbar) zeigt jeden Kontakt mit Uhrzeit und Druck.',
             '**Bearbeiten** (Stift) passt Auftrag, Ziel/Stockwerk oder Team mitten im Einsatz an.',
@@ -195,8 +195,8 @@ export const de = {
         blocks: [
           { kind: 'lead', text: 'Zwei Spalten: abarbeitbare Aufgaben und ein durchsuchbares Taktik-Nachschlagewerk.' },
           { kind: 'list', items: [
-            '**Aufgaben** — Einsatz-Checklisten (z. B. FU, Lagerapport) mit Fortschrittsanzeige; Punkte abhaken, Verzweigungen folgen mehrstufigen Abläufen.',
-            '**Taktik · Stichworte** — Stichwort suchen und den passenden Eintrag öffnen (mit Gefahren-Farbcode und Skizzen).',
+            '**Aufgaben** – Einsatz-Checklisten (z. B. FU, Lagerapport) mit Fortschrittsanzeige; Punkte abhaken, Verzweigungen folgen mehrstufigen Abläufen.',
+            '**Taktik · Stichworte** – Stichwort suchen und den passenden Eintrag öffnen (mit Gefahren-Farbcode und Skizzen).',
             'Bei einem übernommenen Divera-Alarm wird automatisch ein passendes Stichwort vorgeschlagen.',
           ] },
           { kind: 'lead', text: 'Der Stand bleibt erhalten und wird auf alle Geräte synchronisiert.' },
@@ -205,7 +205,7 @@ export const de = {
       {
         id: 'verlauf', title: 'Verlauf & Eintrag', icon: 'history',
         blocks: [
-          { kind: 'lead', text: 'Ein gemeinsames, fortlaufendes Protokoll über Lage und Plan — die Einsatz-Chronik.' },
+          { kind: 'lead', text: 'Ein gemeinsames, fortlaufendes Protokoll über Lage und Plan – die Einsatz-Chronik.' },
           { kind: 'list', items: [
             '**+ Eintrag** (oben rechts): kurz tippen öffnet die Texteingabe; **gedrückt halten** nimmt eine **Sprachnotiz** auf. Fotos lassen sich ebenfalls anhängen.',
             'Wesentliche Aktionen (Symbol gesetzt, Zeichnung erstellt/entfernt …) landen automatisch im Verlauf.',
@@ -221,8 +221,8 @@ export const de = {
           { kind: 'lead', text: 'Alles im Einsatz-Menü (Name oben links).' },
           { kind: 'list', items: [
             '**Einsatz wechseln** zwischen den offenen Einsätzen; **Neuer Einsatz** (Ort auf der Karte wählbar).',
-            '**Divera-Pool** — eingehende Alarme übernehmen.',
-            '**Einsätze** — Archiv/frühere Einsätze öffnen.',
+            '**Divera-Pool** – eingehende Alarme übernehmen.',
+            '**Einsätze** – Archiv/frühere Einsätze öffnen.',
             '**Aktuellen archivieren** schliesst den laufenden Einsatz ab.',
           ] },
         ],
@@ -230,20 +230,20 @@ export const de = {
       {
         id: 'rapport', title: 'Rapport & Abschluss', icon: 'doc',
         blocks: [
-          { kind: 'lead', text: 'Am Einsatzende führt der **Abschluss-Assistent** durch den Rapport — ein vorausgefülltes Erfassungsblatt, kein Formular von null.' },
+          { kind: 'lead', text: 'Am Einsatzende führt der **Abschluss-Assistent** durch den Rapport – ein vorausgefülltes Erfassungsblatt, kein Formular von null.' },
           { kind: 'list', items: [
             'Prüfe **Anwesenheit**, **Mittel** und die Rapportangaben; fehlende Punkte sind markiert, blockieren den Druck aber nie.',
-            '**Rapport-PDF** erzeugt den fertigen Einsatzrapport (inkl. Kroki-Kartenausschnitt) — serverseitig gerendert, ein Knopf.',
+            '**Rapport-PDF** erzeugt den fertigen Einsatzrapport (inkl. Kroki-Kartenausschnitt) – serverseitig gerendert, ein Knopf.',
             'Wo eine Wehr einen **Stationsdrucker** betreibt: **Ausdrucken** schickt den Rapport direkt dorthin (bei Unterbruch wird gespeichert und nachgeschickt).',
             '**Einsatz abschliessen** archiviert den Einsatz und hält das Einsatzende fest.',
           ] },
-          { kind: 'note', text: 'Ein abgeschlossener Einsatz lässt sich **wieder öffnen** — spätere Ergänzungen erscheinen in Verlauf und Rapport als **Nachträge**, nichts geht verloren.' },
+          { kind: 'note', text: 'Ein abgeschlossener Einsatz lässt sich **wieder öffnen** – spätere Ergänzungen erscheinen in Verlauf und Rapport als **Nachträge**, nichts geht verloren.' },
         ],
       },
       {
         id: 'erfassung', title: 'Erfassung per QR', icon: 'cam',
         blocks: [
-          { kind: 'lead', text: 'Ein **QR-Poster** im Magazin öffnet die Erfassungs-Ansicht — ohne Login, für alle ohne Tablet-Zugriff.' },
+          { kind: 'lead', text: 'Ein **QR-Poster** im Magazin öffnet die Erfassungs-Ansicht – ohne Login, für alle ohne Tablet-Zugriff.' },
           { kind: 'list', items: [
             'Der laufende Einsatz wird gewählt; **Anwesenheit** und **Mittel** lassen sich am eigenen Handy erfassen.',
             'Die Angaben fliessen in **denselben Einsatz** wie am KP-Tablet und werden zusammengeführt (bei Abweichungen mit Hinweis zum Prüfen).',
@@ -281,7 +281,7 @@ export const de = {
           ] },
           { kind: 'sub', text: 'Tag / Nacht' },
           { kind: 'list', items: [
-            'Im Einsatz-Menü umschaltbar — der Nachtmodus dämpft Karte und Oberfläche fürs Dunkle.',
+            'Im Einsatz-Menü umschaltbar – der Nachtmodus dämpft Karte und Oberfläche fürs Dunkle.',
           ] },
         ],
       },
@@ -525,7 +525,7 @@ export const de = {
     centerIncident: 'Auf Einsatz zentrieren',
     coords: 'Koordinaten abgreifen',
     coordsHint: 'Auf Karte klicken zum Festhalten',
-    coordsLocked: 'Festgehalten — Knopf für neuen Punkt',
+    coordsLocked: 'Festgehalten – Knopf für neuen Punkt',
     // colour-scheme control (cycles in the incident menu); 'auto' tracks daylight
     themeLabel: 'Darstellung',
     autoMode: 'Automatisch',
@@ -588,7 +588,7 @@ export const de = {
   intake: {
     titleNew: 'Einsatz eröffnen',
     titleDivera: 'Alarm übernehmen',
-    diveraHint: 'Aus der Alarmquelle übernommen — prüfen und bei Bedarf korrigieren.',
+    diveraHint: 'Aus der Alarmquelle übernommen – prüfen und bei Bedarf korrigieren.',
     // --- Standort section ---
     locationHead: 'Standort',
     addressLabel: 'Adresse',
@@ -605,7 +605,7 @@ export const de = {
     hereButton: 'Hier',
     hereFailed: 'Standort nicht verfügbar',
     coordSet: 'Koordinate gesetzt',
-    coordNone: 'Kein Standort — wird ohne Koordinate eröffnet',
+    coordNone: 'Kein Standort – wird ohne Koordinate eröffnet',
     coordClear: 'Standort entfernen',
     // --- Stichwort section ---
     keywordHead: 'Stichwort & Kategorie',
@@ -614,7 +614,7 @@ export const de = {
     categoryLabel: 'Kategorie',
     // Übungen bleiben voll bedienbar, fliessen aber nicht in die Statistik ein und sind
     // als einzige löschbar (Alle Einsätze)
-    exerciseToggle: 'Übung — zählt nicht zur Einsatzstatistik',
+    exerciseToggle: 'Übung – zählt nicht zur Einsatzstatistik',
     detailsLabel: 'Meldungstext (optional)',
     detailsPlaceholder: 'Zusätzliche Angaben zur Meldung',
     // --- Actions ---
@@ -654,7 +654,7 @@ export const de = {
     hide: 'Ausblenden',
     fromDivera: 'Aus der Alarmquelle übernommen',
     locationSet: 'Standort gesetzt',
-    noLocationOnMap: 'Kein Standort — auf Karte setzen',
+    noLocationOnMap: 'Kein Standort – auf Karte setzen',
     ok: 'Passt',
     // VKF Schadenkategorien — mirrors the labels Divera derives server-side (see
     // backend app/divera.py TYPE_LABELS); keep in sync if that map changes.
@@ -743,7 +743,7 @@ export const de = {
     sizeBigger: 'Grösser',
     rotateHint: 'Griff ziehen zum Drehen',
     resizeHint: 'Ecke ziehen zum Skalieren',
-    moveHint: 'Korb ziehen — Richtung und Reichweite',
+    moveHint: 'Korb ziehen – Richtung und Reichweite',
     names: { arrow: 'Pfeil', cloud: 'Rauch', square: 'Rechteck' } as Record<string, string>,
   },
   log: {
@@ -817,7 +817,7 @@ export const de = {
     sttFailed: 'Transkription fehlgeschlagen: {error}',
     sttRetry: 'Erneut versuchen',
     sttErrorGeneric: 'Server nicht erreichbar',
-    sttBanner: '{n} Entwürfe erkannt — prüfen und übernehmen.',
+    sttBanner: '{n} Entwürfe erkannt – prüfen und übernehmen.',
     sttTakeAll: 'Alle übernehmen',
     sttTake: 'Übernehmen',
     sttDismiss: 'Verwerfen',
@@ -835,7 +835,7 @@ export const de = {
     // system row appended when a three-way sync merge saw BOTH sides (KP tablet and
     // QR-Erfassung/server) change the SAME person's attendance to different values —
     // last-writer-wins stays, but the divergence is said, not silent (append-only record)
-    attendanceConflict: 'Anwesenheit von {name}: abweichende Angaben aus QR-Erfassung und KP wurden zusammengeführt — bitte prüfen.',
+    attendanceConflict: 'Anwesenheit von {name}: abweichende Angaben aus QR-Erfassung und KP wurden zusammengeführt – bitte prüfen.',
     quickPhrasesAria: 'Textbausteine',
     pinMap: 'An aktueller Kartenmitte anheften',
     pinPlan: 'An aktueller Planmitte anheften',
@@ -938,8 +938,8 @@ export const de = {
     sinceContact: 'Seit letztem Kontakt',
     elapsed: 'Einsatzzeit',
     estimated: 'Erwartet (Schätzung)',
-    estimatedHint: 'Planungshilfe — bis genügend Druckverlauf vorliegt, geschätzt mit {liters} L Flasche und {rate} L/min Verbrauch. Ersetzt keine Druckmeldung.',
-    estimatedHintHistory: 'Planungshilfe — aus dem bestätigten Druckverbrauch dieses Trupps hochgerechnet. Ersetzt keine Druckmeldung.',
+    estimatedHint: 'Planungshilfe – bis genügend Druckverlauf vorliegt, geschätzt mit {liters} L Flasche und {rate} L/min Verbrauch. Ersetzt keine Druckmeldung.',
+    estimatedHintHistory: 'Planungshilfe – aus dem bestätigten Druckverbrauch dieses Trupps hochgerechnet. Ersetzt keine Druckmeldung.',
     estimatedSourceHistory: 'aus {count} Druckwerten · Stand {time}',
     estimatedSourceFallback: '{rate} L/min angenommen · Stand {time}',
     currentPressure: 'Druck',
@@ -949,7 +949,7 @@ export const de = {
     pressureDown: '10 bar weniger',
     pressureUp: '10 bar mehr',
     pressureConfirm: 'Bestätigen',
-    pressureConfirmHint: 'Neuen Druck bestätigen — zählt als Kontakt',
+    pressureConfirmHint: 'Neuen Druck bestätigen – zählt als Kontakt',
     // per-Trupp contact/pressure log (expandable on the card)
     verlauf: 'Verlauf',
     readingKind: { entry: 'Eingerückt', contact: 'Kontakt', pressure: 'Druck' } as Record<string, string>,
@@ -960,7 +960,7 @@ export const de = {
     // header overdue badge ({n} = number of überfällige Trupps)
     overdueBadge: '{n} überfällig',
     // cross-surface TopBar chip (shown on any surface while a Trupp is fällig/überfällig)
-    chipHint: 'Atemschutz — antippen zur Überwachung',
+    chipHint: 'Atemschutz – antippen zur Überwachung',
     // lifecycle action buttons
     actEnter: 'Eingerückt',
     actContact: 'Kontakt',
@@ -975,17 +975,17 @@ export const de = {
     removedToast: 'Trupp {name} entfernt',
     place: 'Platzieren',
     placeWhere: 'Wohin platzieren?',
-    placeNoTarget: 'Kein Plan vorhanden — erst ein Gebäude aus den Umrissen anlegen.',
+    placeNoTarget: 'Kein Plan vorhanden – erst ein Gebäude aus den Umrissen anlegen.',
     showOnPlan: 'Auf Plan zeigen',
     showOnMap: 'Auf der Lage zeigen',
     rosterLabel: 'Bereits erfasst',
-    preEntryHint: 'Noch nicht eingerückt — «Eingerückt» drücken, sobald der Trupp unter PA geht.',
+    preEntryHint: 'Noch nicht eingerückt – «Eingerückt» drücken, sobald der Trupp unter PA geht.',
     // alarm sound toggle (per-device, persisted locally)
     alarmOn: 'Alarmton an',
     alarmOff: 'Alarmton aus',
     // OS notification when a Trupp goes überfällig while the app is backgrounded
     alarmNotifyTitle: 'Atemschutz überfällig',
-    alarmNotifyBody: 'Trupp {name} überfällig — Kontakt herstellen.',
+    alarmNotifyBody: 'Trupp {name} überfällig – Kontakt herstellen.',
     // status labels
     status: { angemeldet: 'Angemeldet', aktiv: 'Im Einsatz', rueckzug: 'Rückzug', ueberfaellig: 'Überfällig', raus: 'Draussen' } as Record<string, string>,
     // Verlauf templates ({name}, {bar}, {status})
@@ -1044,7 +1044,7 @@ export const de = {
       text: 'Auf den Plan tippen, um eine Notiz zu setzen.',
       resource: 'Auf den Plan tippen, um ein Team zu setzen. Zum Verschieben ziehen.',
       scale: 'Die zwei Endpunkte des gedruckten Massstabs antippen, dann die reale Länge eingeben. Danach zeigen Linien mit «Länge» echte Meter.',
-      measure: 'Punkte auf den Plan tippen. «Strecke» zeigt die Distanz, «Fläche» den Inhalt + Umfang — in echten Metern, sobald der Massstab kalibriert ist. Punkte ziehen zum Verschieben, doppeltippen entfernt einen Punkt.',
+      measure: 'Punkte auf den Plan tippen. «Strecke» zeigt die Distanz, «Fläche» den Inhalt + Umfang – in echten Metern, sobald der Massstab kalibriert ist. Punkte ziehen zum Verschieben, doppeltippen entfernt einen Punkt.',
     },
     // Plan-Maßstab (calibrate against a printed scale bar so plan lines read in metres)
     scale: {
@@ -1091,13 +1091,13 @@ export const de = {
     trails: 'Spuren',
     trailsOn: 'Spuren einblenden',
     trailsOff: 'Spuren ausblenden',
-    deleteLocked: 'Team mit erfasstem Verlauf — zuerst Spur löschen',
+    deleteLocked: 'Team mit erfasstem Verlauf – zuerst Spur löschen',
     drawCreated: 'Zeichnung auf Plan erstellt',
     placeSymbolHint: 'Auf den Plan tippen, um "{name}" zu setzen',
     textHint: 'Auf den Plan tippen, um Text zu setzen',
     teamHint: 'Auf den Plan tippen, um ein Team zu setzen',
     textPlaceholder: 'Notiz ...',
-    blankHint: 'Leeres Blatt — mit Zeichnen, Text, Symbol oder Team beschriften',
+    blankHint: 'Leeres Blatt – mit Zeichnen, Text, Symbol oder Team beschriften',
     osmLoading: 'Gebäudeumrisse werden geladen …',
     osmError: 'Gebäudeumrisse (OSM) nicht erreichbar',
     osmEmpty: 'Keine Gebäude in diesem Bereich',
@@ -1125,7 +1125,7 @@ export const de = {
     // Gebäudeview orientation: the footprint auto-rotates so its longest axis runs
     // horizontal; the north arrow shows the applied rotation; the toggle is reversible.
     northLabel: 'N',
-    northTitle: 'Nordrichtung — Gebäude auf Längsachse gedreht',
+    northTitle: 'Nordrichtung – Gebäude auf Längsachse gedreht',
     orientNorthUp: 'Norden oben',
     orientLongAxis: 'Auf Längsachse drehen',
   },
@@ -1187,7 +1187,7 @@ export const de = {
     unNoMatch: 'UN-Nr nicht in ADR-Tabelle gefunden',
     // ERG 2024 response block (bundled, offline): guide number + TIH-Distanzen — Planungshilfe
     ergGuide: 'ERG-Leitfaden',
-    ergPolymerization: 'Polymerisationsgefahr (P) — Behälter kann gewaltsam bersten',
+    ergPolymerization: 'Polymerisationsgefahr (P) – Behälter kann gewaltsam bersten',
     ergIsolate: 'Isolation (kleine Menge)',
     ergProtectDay: 'Schutzabstand Tag',
     ergProtectNight: 'Schutzabstand Nacht',
@@ -1195,7 +1195,7 @@ export const de = {
     ergTable3: 'siehe ERG Tabelle 3 (Behälter/Wind)',
     ergDayShort: 'Tag',
     ergNightShort: 'Nacht',
-    ergSource: 'Quelle: {v} (PHMSA) — Planungshilfe, nicht validiert',
+    ergSource: 'Quelle: {v} (PHMSA) – Planungshilfe, nicht validiert',
     ergCameoLabel: 'CAMEO Chemicals (ERG-Details)',
     // the decoded Gefahrnummer hazards (the tactical "kann ich löschen?" answer); the
     // water line is shown red+bold when the Kemler code carries a leading "X".
@@ -1384,7 +1384,7 @@ export const de = {
     title: 'Als App installieren',
     why: 'Installiert läuft KP Front wie eine App: offline verfügbar am Einsatzort, im Vollbild ohne Browser-Leiste, mit eigenem Symbol auf dem Home-Bildschirm.',
     nativeButton: 'Jetzt installieren',
-    nativeHint: 'Der Browser fragt kurz nach — mit «Installieren» bestätigen.',
+    nativeHint: 'Der Browser fragt kurz nach – mit «Installieren» bestätigen.',
     manualIntro: 'Oder manuell:',
     installed: 'Installiert! KP Front ab jetzt über das App-Symbol starten.',
     alreadyStandalone: 'KP Front läuft bereits als installierte App.',
@@ -1428,7 +1428,7 @@ export const de = {
   // single-editor tab lock: a second browser tab on the SAME incident is read-only
   tabLock: {
     title: 'In einem anderen Tab geöffnet',
-    hint: 'Dieser Tab ist nur zum Lesen — die Bearbeitung läuft im anderen Tab.',
+    hint: 'Dieser Tab ist nur zum Lesen – die Bearbeitung läuft im anderen Tab.',
     takeOver: 'Hier bearbeiten',
   },
   // running incident clock in the TopBar
@@ -1456,8 +1456,8 @@ export const de = {
     cardinals: ['N', 'NO', 'O', 'SO', 'S', 'SW', 'W', 'NW'] as string[],
     cardinalsLong: ['Nord', 'Nordost', 'Ost', 'Südost', 'Süd', 'Südwest', 'West', 'Nordwest'] as string[],
     windTitle: 'Wind {dir} ({deg}°)',
-    detailsHint: ' — für Details tippen',
-    meteoHint: ' — für MeteoSchweiz-Details tippen',
+    detailsHint: ' – für Details tippen',
+    meteoHint: ' – für MeteoSchweiz-Details tippen',
     windDir: 'Windrichtung',
     windSpeed: 'Windstärke',
     gust: 'Böen',
@@ -1519,7 +1519,7 @@ export const de = {
     blankSheet: 'Leeres Erfassungsblatt (PDF)',
     blankSheetSub: 'Papierblatt zum Handausfüllen',
     blankSheetDownload: 'Herunterladen',
-    blankSheetFailed: 'PDF fehlgeschlagen — nochmals versuchen.',
+    blankSheetFailed: 'PDF fehlgeschlagen – nochmals versuchen.',
   },
   // Offline-Bereitschaft readiness diagnostics
   offline: {
@@ -1583,8 +1583,8 @@ export const de = {
   emptyApp: {
     title: 'Kein offener Einsatz',
     bodyViewer: 'Zurzeit ist kein Einsatz aktiv.',
-    bodyPoolOne: '1 Divera-Alarm im Pool — eröffnen und auf der Karte prüfen.',
-    bodyPoolMany: '{n} Divera-Alarme im Pool — eröffnen und auf der Karte prüfen.',
+    bodyPoolOne: '1 Divera-Alarm im Pool – eröffnen und auf der Karte prüfen.',
+    bodyPoolMany: '{n} Divera-Alarme im Pool – eröffnen und auf der Karte prüfen.',
     bodyEditor: 'Eröffne einen Einsatz oder übernimm einen Divera-Alarm.',
     history: 'Verlauf',
   },
@@ -1603,13 +1603,13 @@ export const de = {
     title: 'Einsatz erfassen',
     invalid: 'Link ungültig oder Erfassung deaktiviert.',
     noIncidents: 'Zurzeit kein erfassbarer Einsatz.',
-    noIncidentsHint: 'Hier erscheinen laufende und noch nicht rapportierte Einsätze. Fehlt euer Einsatz? Auf dem Papier-Erfassungsblatt notieren oder der Einsatzleitung melden — sie kann ihn später nachtragen.',
+    noIncidentsHint: 'Hier erscheinen laufende und noch nicht rapportierte Einsätze. Fehlt euer Einsatz? Auf dem Papier-Erfassungsblatt notieren oder der Einsatzleitung melden – sie kann ihn später nachtragen.',
     whoTitle: 'Wer erfasst?',
     searchName: 'Name suchen …',
     back: 'Zurück',
     alarmedAt: 'Alarm {t}',
-    saveFailed: 'Speichern fehlgeschlagen — nochmals versuchen.',
-    saveFailedOffline: 'Kein Empfang — die letzte Änderung wurde nicht gespeichert.',
+    saveFailed: 'Speichern fehlgeschlagen – nochmals versuchen.',
+    saveFailedOffline: 'Kein Empfang – die letzte Änderung wurde nicht gespeichert.',
     retry: 'Nochmals versuchen',
     savedOk: 'Gespeichert',
     undo: 'Rückgängig',
@@ -1635,7 +1635,7 @@ export const de = {
     einsatzleiter: 'Einsatzleiter',
     rueckName2: 'Name',
     rapportPdf: 'Rapport-PDF',
-    pdfFailed: 'PDF fehlgeschlagen — nochmals versuchen.',
+    pdfFailed: 'PDF fehlgeschlagen – nochmals versuchen.',
     sectionZeiten: 'Zeiten',
     sectionAngaben: 'Angaben',
     zeitenFilled: '{n} Zeiten erfasst',
@@ -1665,14 +1665,14 @@ export const de = {
     sectionNotizen: 'Notizen',
     notePlaceholder: 'Notiz für den Verlauf …',
     footNote: 'Alles wird laufend gespeichert.',
-    loadFailedOffline: 'Kein Empfang — bitte nochmals versuchen.',
-    clockSkew: 'Die Uhr dieses Geräts weicht um {n} Minuten ab — erfasste Zeiten prüfen.',
+    loadFailedOffline: 'Kein Empfang – bitte nochmals versuchen.',
+    clockSkew: 'Die Uhr dieses Geräts weicht um {n} Minuten ab – erfasste Zeiten prüfen.',
     searchMaterial: 'Material suchen …',
     // Cross-visibility QR ↔ KP: the live-dot line in the capture header once the KP tablet
     // has the incident (editor_opened_at latch), and the quiet hint that de-emphasizes the
     // print buttons — the full rapport (incl. Lageskizze) will come from the KP.
     kpActive: 'KP-Tablet aktiv',
-    kpActiveHint: 'Das KP-Tablet ist im Einsatz — der vollständige Rapport (mit Kroki) kommt von dort.',
+    kpActiveHint: 'Das KP-Tablet ist im Einsatz – der vollständige Rapport (mit Kroki) kommt von dort.',
     // tablet-side mirror: chip on the QR-writable surfaces (Anwesenheit, Mittel, Rapport)
     usageChip: 'QR: {n} Einträge · zuletzt {t}',
     usageChipOne: 'QR: 1 Eintrag · zuletzt {t}',
@@ -1710,7 +1710,7 @@ export const de = {
   // persistent banner while an archived incident is open read-only (ArchivedBanner)
   archived: {
     title: 'Einsatz archiviert',
-    hint: 'Nur ansehen — zum Bearbeiten reaktivieren.',
+    hint: 'Nur ansehen – zum Bearbeiten reaktivieren.',
     back: 'Zurück',
     reactivate: 'Reaktivieren',
   },
@@ -1780,7 +1780,7 @@ export const de = {
     uploaded: 'Hochgeladen',
     uploadFailed: 'Upload fehlgeschlagen',
     invalidFilename: 'Dateiname ergibt keine gültige Kennung',
-    layerAdded: 'Ebene «{name}» hinzugefügt — beim nächsten Laden sichtbar',
+    layerAdded: 'Ebene «{name}» hinzugefügt – beim nächsten Laden sichtbar',
     addLayerFailed: 'Konnte Ebene nicht hinzufügen',
     globalDatasets: 'Globale Datensätze',
     objectsCount: 'Objekte',
@@ -1832,7 +1832,7 @@ export const de = {
     noObject: 'Kein Objekt gefunden.',
     planOne: 'Plan',
     planMany: 'Pläne',
-    mapNote: 'Koordinaten teils ungenau — Liste ist massgebend.',
+    mapNote: 'Koordinaten teils ungenau – Liste ist massgebend.',
     hideMap: 'Karte ausblenden',
     showMap: 'Karte einblenden',
   },
@@ -2004,16 +2004,16 @@ export const de = {
     toggleDetailedAudit: 'Detaillierter Prüfnachweis',
     // Kroki framing modal (WYSIWYG crop before PDF / Ausdrucken)
     framingTitle: 'Kroki-Ausschnitt wählen',
-    framingHint: 'Karte verschieben und zoomen — gedruckt wird genau dieser Ausschnitt.',
+    framingHint: 'Karte verschieben und zoomen – gedruckt wird genau dieser Ausschnitt.',
     framingFit: 'Auf Einsatz zoomen',
     framingConfirm: 'Ausschnitt übernehmen',
     // Kontrolle section
     controlHead: 'Kontrolle',
     proofChecking: 'Prüfnachweis wird geprüft …',
     annotatedDefault: '{n} annotierte Pläne werden standardmässig gedruckt.',
-    missingTranscripts: '{n} Audioeintrag/-einträge ohne Transkript — fürs Protokoll nachtragen.',
+    missingTranscripts: '{n} Audioeintrag/-einträge ohne Transkript – fürs Protokoll nachtragen.',
     fixTranscripts: 'Im Verlauf ergänzen',
-    pendingMedia: '{n} Foto/Audio noch nicht hochgeladen — wird bei Verbindung ergänzt; auf anderen Geräten evtl. noch nicht sichtbar.',
+    pendingMedia: '{n} Foto/Audio noch nicht hochgeladen – wird bei Verbindung ergänzt; auf anderen Geräten evtl. noch nicht sichtbar.',
     stateNote: 'Stand: ganzer Einsatz bis Rapport-Erstellung ({at}).',
     // actions
     cancel: 'Abbrechen',
@@ -2034,7 +2034,7 @@ export const de = {
     confirmBtn: 'Ausdrucken',
     undo: 'Rückgängig',
     cancelled: 'Druckauftrag abgebrochen',
-    undoTooLate: 'Zu spät — der Auftrag ist schon beim Drucker',
+    undoTooLate: 'Zu spät – der Auftrag ist schon beim Drucker',
     failed: 'Senden an Stationsdrucker fehlgeschlagen',
     online: 'Stationsdrucker erreichbar',
     offline: 'Stationsdrucker offline',
@@ -2060,7 +2060,7 @@ export const de = {
     emptyHint: 'Synchronisiere die Mannschaft aus Divera.',
     retry: 'Erneut versuchen',
     noMatches: 'Keine Treffer.',
-    lockedTitle: 'Im Atemschutz-Trupp — zuerst Trupp draussen melden',
+    lockedTitle: 'Im Atemschutz-Trupp – zuerst Trupp draussen melden',
     notInDivera: 'Nicht mehr in Divera',
     weg: 'weg',
     // time chip on anwesend/gegangen rows — tap to correct a wrong auto-stamped time
@@ -2085,7 +2085,7 @@ export const de = {
     noch: 'noch {n}',
     stockAria: '{label}: noch {remaining} von {total}',
     emptyTitle: 'Noch keine Mittel erfasst.',
-    emptyHint: 'Erfasse mit «+ Mittel», was verbraucht wurde — fürs Rapport und um zu sehen, ob Nachschub nötig ist.',
+    emptyHint: 'Erfasse mit «+ Mittel», was verbraucht wurde – fürs Rapport und um zu sehen, ob Nachschub nötig ist.',
     emptyReadonly: 'Keine Mittel erfasst.',
     // Composer
     composerTitle: 'Mittel erfassen',
@@ -2128,7 +2128,7 @@ export const de = {
     done: 'erledigt',
     variantLabel: 'Variante',
     pickVariant: 'Variante wählen, um die Aufgaben zu sehen.',
-    milestoneTitle: 'Meilenstein — erscheint im Verlauf',
+    milestoneTitle: 'Meilenstein – erscheint im Verlauf',
     actionLabels: { journal: 'Journal', plan: 'Plan', draw: 'Zeichnen' } as Record<string, string>,
     // reference reader: hazard-colour badge labels
     hazardLabels: { red: 'Brand', orange: 'Gefahren', green: 'Verkehr', yellow: 'Technik', blue: 'Wasser' } as Record<string, string>,
@@ -2158,7 +2158,7 @@ export const de = {
     },
     unlock: {
       title: 'Verwaltung entsperren',
-      body: 'Die Verwaltung ist mit dem Stations-Adminschlüssel geschützt — getrennt von der Einsatz-PIN. Bitte gib den Schlüssel ein, um fortzufahren.',
+      body: 'Die Verwaltung ist mit dem Stations-Adminschlüssel geschützt – getrennt von der Einsatz-PIN. Bitte gib den Schlüssel ein, um fortzufahren.',
       label: 'Adminschlüssel',
       submit: 'Entsperren',
       submitting: 'Wird geprüft…',
@@ -2179,7 +2179,7 @@ export const de = {
         label: 'Symbole',
         title: 'Symbole',
         lede: 'Symbol-Felder dieser Wehr und ihre Auswahllisten (schreibgeschützt). Listen werden via admin_config-CLI gepflegt; ohne Konfiguration bleibt ein Feld Freitext.',
-        tip: 'Jede Liste hängt Auswahl-Vorschläge an ein Symbol-Feld — z. B. Fahrzeugtypen an «VKF Fahrzeug · Titel». Vorschläge nur; freies Tippen bleibt in der Lage immer möglich.',
+        tip: 'Jede Liste hängt Auswahl-Vorschläge an ein Symbol-Feld – z. B. Fahrzeugtypen an «VKF Fahrzeug · Titel». Vorschläge nur; freies Tippen bleibt in der Lage immer möglich.',
       },
       ebenen: { label: 'Kartenebenen', title: 'Kartenebenen & Geodaten', lede: 'Referenzebenen dieser Wehr (Hydranten, Leitungskataster, Kanton-WMS …) mit Lade-Status sowie die geladenen Datensätze. Bearbeiten via admin_geodata-CLI; Grundkarten sind national/mitgeliefert.' },
       objektplaene: {
@@ -2226,14 +2226,14 @@ export const de = {
     },
     erfassung: {
       cardTitle: 'Erfassungs-Poster',
-      body: 'Wer das Poster im Magazin scannt, kann für einen Einsatz der letzten Stunden Anwesenheit, Material und Notizen erfassen — ohne Anmeldung, ohne Schulung. Vertrauensmodell: Zugang zum Magazin = Berechtigung (wie das Klemmbrett vorher).',
+      body: 'Wer das Poster im Magazin scannt, kann für einen Einsatz der letzten Stunden Anwesenheit, Material und Notizen erfassen – ohne Anmeldung, ohne Schulung. Vertrauensmodell: Zugang zum Magazin = Berechtigung (wie das Klemmbrett vorher).',
       stateLabel: 'Erfassung',
       stateOn: 'aktiv',
       stateOff: 'deaktiviert',
       enableBtn: 'Aktivieren & Token erzeugen',
       rotateBtn: 'Token rotieren',
       rotateMsg: 'Neuen Token erzeugen? Alle bereits gedruckten Poster werden sofort ungültig.',
-      rotated: 'Neuer Token erzeugt — Poster neu drucken.',
+      rotated: 'Neuer Token erzeugt – Poster neu drucken.',
       disableBtn: 'Deaktivieren',
       disableMsg: 'Erfassung deaktivieren? Der QR-Code auf allen Postern funktioniert danach nicht mehr.',
       disabled: 'Erfassung deaktiviert.',
@@ -2245,7 +2245,7 @@ export const de = {
       failed: 'Aktion fehlgeschlagen',
       sheetBtn: 'Erfassungsblatt als PDF (A4)',
       sheetCardTitle: 'Erfassungsblatt (Papier)',
-      sheetCardBody: 'Der Papier-Zwilling des digitalen Rapports: gleiche Felder, gleiche Reihenfolge — für den voll analogen Einsatz. Erzeugt aus aktuellem Mannschafts-, Material- und Konfigurationsstand; ausgefüllte Blätter fotografieren (Verlauf/Beilage) und in der App nachtragen.',
+      sheetCardBody: 'Der Papier-Zwilling des digitalen Rapports: gleiche Felder, gleiche Reihenfolge – für den voll analogen Einsatz. Erzeugt aus aktuellem Mannschafts-, Material- und Konfigurationsstand; ausgefüllte Blätter fotografieren (Verlauf/Beilage) und in der App nachtragen.',
       sheetHead: 'Erfassungsblatt Einsatz',
       sheetIncident: 'Einsatz',
       sheetAdresse: 'Adresse / Objekt',
@@ -2270,7 +2270,7 @@ export const de = {
       hint: 'Der Link gilt für laufende und noch nicht rapportierte Einsätze; rapportierte verschwinden nach wenigen Stunden (Standard 12 h, alarms.captureWindowHours). Kein Zugriff auf Karte, Verwaltung oder archivierte Einsätze.',
     },
     statistik: {
-      body: 'Read-only-Export aller Einsätze als flache JSON-Datensätze (Metadaten, Zeiten, Anwesenheit von–bis, Material, Rapportstatus) — für externe Auswertungen wie die Jahresstatistik. Keine Schreibrechte, kein Zugriff auf Karte oder Verwaltung.',
+      body: 'Read-only-Export aller Einsätze als flache JSON-Datensätze (Metadaten, Zeiten, Anwesenheit von–bis, Material, Rapportstatus) – für externe Auswertungen wie die Jahresstatistik. Keine Schreibrechte, kein Zugriff auf Karte oder Verwaltung.',
       stateLabel: 'Export',
       stateOn: 'aktiv',
       stateOff: 'deaktiviert',
@@ -2284,7 +2284,7 @@ export const de = {
       failed: 'Aktion fehlgeschlagen',
       exampleLabel: 'Abfrage-Beispiel',
       tokenLabel: 'Token',
-      hint: 'Token geheim halten — er gewährt Lesezugriff auf alle Einsatzdaten inkl. Namen. Übergabe an das Auswertungs-Tool als Header X-Stats-Token (oder ?t=).',
+      hint: 'Token geheim halten – er gewährt Lesezugriff auf alle Einsatzdaten inkl. Namen. Übergabe an das Auswertungs-Tool als Header X-Stats-Token (oder ?t=).',
     },
     incidentHistory: {
       loading: 'Einsätze werden geladen…', error: 'Einsätze konnten nicht geladen werden.', search: 'Titel, Adresse oder Herkunft suchen…',
@@ -2296,7 +2296,7 @@ export const de = {
       saving: 'Speichern…',
       pending: 'Änderungen werden gespeichert…',
       saved: 'Gespeichert',
-      sessionExpired: 'Sitzung abgelaufen — bitte neu anmelden.',
+      sessionExpired: 'Sitzung abgelaufen – bitte neu anmelden.',
       saveFailed: 'Speichern fehlgeschlagen',
       loadFailed: 'Konfiguration konnte nicht geladen werden',
     },
@@ -2313,12 +2313,12 @@ export const de = {
       languageTip: 'Sprache aller Bedienoberflächen-Texte. Gilt für die gesamte Wehr (ein Deployment = eine Sprache); wird beim Laden der App angewendet. fr/it sind erst teilweise übersetzt und fallen sonst auf Deutsch zurück.',
       pickLanguage: 'Sprache wählen',
       kommandant: 'Kommandant',
-      kommandantTip: 'Name des Kommandanten — wird auf dem Einsatzrapport neben der Unterschriftszeile «Kommandant» vorgedruckt. Leer = nur die Beschriftung.',
+      kommandantTip: 'Name des Kommandanten – wird auf dem Einsatzrapport neben der Unterschriftszeile «Kommandant» vorgedruckt. Leer = nur die Beschriftung.',
     },
     map: {
-      centerLon: 'Zentrum — Länge (lon)',
+      centerLon: 'Zentrum – Länge (lon)',
       centerLonTip: 'Längengrad (WGS84) des Kartenstarts, bevor ein Einsatz gewählt ist.',
-      centerLat: 'Zentrum — Breite (lat)',
+      centerLat: 'Zentrum – Breite (lat)',
       centerLatTip: 'Breitengrad (WGS84) des Kartenstarts, bevor ein Einsatz gewählt ist.',
       zoom: 'Zoom',
       zoomTip: 'Anfangs-Zoomstufe der Karte (höher = näher; ~16 zeigt einen Quartierausschnitt).',
@@ -2329,8 +2329,8 @@ export const de = {
     },
     doctrine: {
       groupFunk: 'Funk',
-      groupPressure: 'Atemschutz — Druck',
-      groupContact: 'Atemschutz — Kontakt',
+      groupPressure: 'Atemschutz – Druck',
+      groupContact: 'Atemschutz – Kontakt',
       defaultFunkkanal: 'Funkkanal (Standard)',
       defaultFunkkanalTip: 'Voreingestellter Funkkanal eines neuen Einsatzes.',
       contactInterval: 'Kontaktintervall (min)',
@@ -2361,7 +2361,7 @@ export const de = {
       notConfig: 'Datei enthält keine gültige Konfiguration.',
       replaceConfirm: 'Diese Datei ersetzt die aktuelle Konfiguration vollständig. Die bisherige wird vorher als Sicherung heruntergeladen. Fortfahren?',
       imported: 'Konfiguration importiert.',
-      invalidSchema: 'Konfiguration ungültig (422) — Datei passt nicht zum Schema.',
+      invalidSchema: 'Konfiguration ungültig (422) – Datei passt nicht zum Schema.',
       importFailed: 'Import fehlgeschlagen.',
     },
     common2: {
@@ -2422,7 +2422,7 @@ export const de = {
       configuredBadge: 'Konfiguriert',
       configuredBadgeHint: 'in der Stationskonfiguration hinterlegt',
       freitextBadge: 'Freitext',
-      freitextBadgeHint: 'keine Liste — Operator gibt frei ein',
+      freitextBadgeHint: 'keine Liste – Operator gibt frei ein',
       freitextValue: 'frei eingeben',
     },
     members: {
@@ -2494,7 +2494,7 @@ export const de = {
       colSource: 'Quelle',
       colStatus: 'Status',
       colActions: 'Aktionen',
-      rankNone: '—',
+      rankNone: '–',
       sourceDivera: 'Divera',
       sourceManual: 'manuell',
       active: 'Aktiv',
@@ -2541,7 +2541,7 @@ export const de = {
       objectsUnavailable: 'Objekte nicht verfügbar.',
       objectsError: 'Objekte konnten nicht geladen werden.',
       objectsNone: 'Keine Objekte hinterlegt.',
-      objectsHintBefore: 'Objekte und ihre Pläne werden serverseitig eingespielt — per ',
+      objectsHintBefore: 'Objekte und ihre Pläne werden serverseitig eingespielt – per ',
       objectsHintAfter: ' aus dem privaten Datenrepository. Hier erscheinen sie danach zur Ansicht.',
       mapLoading: 'Karte wird geladen…',
       noLocation: 'kein Standort',
@@ -2549,7 +2549,7 @@ export const de = {
       geodataUnavailable: 'Daten nicht verfügbar.',
       geodataError: 'Daten konnten nicht geladen werden.',
       geodataNone: 'Keine Referenzdaten eingespielt.',
-      geodataHintBefore: 'Hydranten, Leitungskataster und weitere Layer werden serverseitig geladen — per ',
+      geodataHintBefore: 'Hydranten, Leitungskataster und weitere Layer werden serverseitig geladen – per ',
       geodataHintAfter: ' aus dem privaten Datenrepository. GeoJSON muss WGS84 sein.',
       colDataset: 'Datensatz',
       colType: 'Typ',
@@ -2567,7 +2567,7 @@ export const de = {
     },
     modules: {
       empty: 'Keine Module konfiguriert.',
-      usingDefaults: 'Keine eigenen Module konfiguriert — es gelten die mitgelieferten Standard-Module.',
+      usingDefaults: 'Keine eigenen Module konfiguriert – es gelten die mitgelieferten Standard-Module.',
       summary: '{modules} Module · {objects} Objekte · {plans} Pläne',
       coverage: '{covered}/{total} Objekte',
       code: 'Kürzel',
@@ -2670,7 +2670,7 @@ export const de = {
       notConfigured: 'nicht konfiguriert',
       // Verbindungen — every consumer/producer of this deployment, read-only
       connectors: 'Verbindungen',
-      connectorsTip: 'Alle Anbindungen dieser Installation — Provider (Divera/Traccar) und alle Konsumenten/Produzenten — nur Anzeige. Konfiguriert wird per Umgebungsvariablen bzw. Admin-Bereich (Erfassung, Statistik).',
+      connectorsTip: 'Alle Anbindungen dieser Installation – Provider (Divera/Traccar) und alle Konsumenten/Produzenten – nur Anzeige. Konfiguriert wird per Umgebungsvariablen bzw. Admin-Bereich (Erfassung, Statistik).',
       connection: 'Verbindung',
       directionIn: 'eingehend',
       directionOut: 'ausgehend',
