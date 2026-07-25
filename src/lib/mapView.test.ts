@@ -7,6 +7,7 @@ import {
   lineFeat,
   polyFeat,
   pxPerM,
+  resumeViewState,
   shapePx,
   snapNorth,
   symPx,
@@ -122,5 +123,26 @@ describe('GeoJSON feature builders', () => {
     const f = polyFeat(coords)
     expect(f.geometry.type).toBe('Polygon')
     expect(f.geometry.coordinates[0]).toEqual([[0, 0], [1, 0], [1, 1], [0, 0]])
+  })
+})
+
+// Consumed once per map instance. It matters on the SECOND instance: after a WebGL context loss
+// the map is rebuilt, and snapping the operator back to the incident's opening framing mid-Lage
+// would be its own small disaster.
+describe('resumeViewState — surviving a context-loss remount', () => {
+  const center: LngLat = [7.6, 47.5]
+
+  it('uses the incident framing on a first mount (no live view yet)', () => {
+    expect(resumeViewState(null, center, 17.6, 0)).toEqual({ longitude: 7.6, latitude: 47.5, zoom: 17.6, bearing: 0 })
+  })
+
+  it('resumes the live view — including a rotated bearing — on a rebuild', () => {
+    const live = { center: [7.61, 47.51] as LngLat, zoom: 19.2, bearing: 142 }
+    expect(resumeViewState(live, center, 17.6, 0)).toEqual({ longitude: 7.61, latitude: 47.51, zoom: 19.2, bearing: 142 })
+  })
+
+  it('keeps a zeroed live view rather than falling back to the initial one', () => {
+    const live = { center: [0, 0] as LngLat, zoom: 0, bearing: 0 }
+    expect(resumeViewState(live, center, 17.6, 30)).toEqual({ longitude: 0, latitude: 0, zoom: 0, bearing: 0 })
   })
 })

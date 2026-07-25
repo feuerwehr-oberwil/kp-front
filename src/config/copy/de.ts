@@ -576,6 +576,11 @@ export const de = {
   map: {
     incidentHere: 'Einsatzort',
     youHere: 'Mein Standort',
+    // WebGL context loss (iPad reclaims the GPU in the background) — the map goes blank while
+    // everything around it still works, so it needs naming and a way out.
+    glLost: 'Kartenansicht unterbrochen',
+    glLostHint: 'Das Gerät hat die Grafikanzeige der Karte freigegeben. Deine Einträge sind gespeichert.',
+    glLostAction: 'Karte neu aufbauen',
   },
   // "Einsatz eröffnen" intake wizard. The primary path is a Divera alarm that
   // pre-fills everything (the EL just reviews/corrects); manual create uses the same
@@ -874,6 +879,10 @@ export const de = {
   errors: {
     noMicrophone: 'Kein Mikrofonzugriff. Audionotiz als Platzhalter vermerkt.',
     updateFailed: 'Aktualisierung fehlgeschlagen',
+    // network failures, both with ApiError status 0 — the app falls back to its offline caches
+    // either way; the wording only tells the operator WHICH kind of dead line they have.
+    serverUnreachable: 'Netzwerkfehler – Server nicht erreichbar',
+    serverTimeout: 'Server antwortet nicht – Zeitüberschreitung',
   },
   atemschutz: {
     title: 'Atemschutzüberwachung',
@@ -1332,12 +1341,26 @@ export const de = {
     loginFailed: 'Anmeldung fehlgeschlagen',
     pleaseWait: 'Bitte kurz warten…',
     clearDigit: 'Löschen',
+    retry: 'Erneut versuchen',
   },
-  // render-throw fallback (ErrorBoundary)
+  // boot Splash: shown while the /me probe, the incident list or a lazy chunk settles. If a
+  // stage takes unusually long the splash grows a status line + an action, so a stalled launch
+  // is never a dead screen the operator can only escape by killing the app.
+  splash: {
+    stuck: 'Start dauert länger als gewöhnlich',
+    stuckHint: 'Verbindung schwach oder Server nicht erreichbar. Gespeicherte Einsätze sind offline verfügbar.',
+    reload: 'Neu starten',
+  },
+  // render-throw fallback (ErrorBoundary). Escalates on a repeat crash of the same Einsatz:
+  // reloading auto-reopens it, so after the second crash the escape actions take over.
   errorBoundary: {
     title: 'Ein Fehler ist aufgetreten',
     body: 'Die Ansicht konnte nicht geladen werden. Deine lokalen Änderungen sind gespeichert und bleiben erhalten.',
+    bodyRepeat: 'Dieser Einsatz lässt sich nicht öffnen – auch nach dem Neuladen nicht. Schliesse ihn, um zur Übersicht zu kommen; die gespeicherten Daten bleiben auf dem Server.',
     reload: 'Neu laden',
+    closeIncident: 'Einsatz schliessen',
+    discardLocal: 'Lokale Kopie verwerfen',
+    discardLocalHint: 'Verwirft nur die Kopie auf diesem Gerät und lädt den Einsatz neu vom Server. Noch nicht synchronisierte Änderungen von diesem Gerät gehen dabei verloren.',
   },
   // PWA update prompt (UpdateBanner). A new build installs and waits (registerType 'prompt')
   // instead of reloading mid-incident; the operator applies it when it's safe.

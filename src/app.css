@@ -1095,6 +1095,12 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 @keyframes ping { 0% { transform: scale(.25); opacity: .9; } 80%, 100% { transform: scale(1); opacity: 0; } }
 .loading-name { font-size: 16px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--ink); }
 .loading-sub { font-family: var(--mono); font-size: 12px; color: var(--ink-dim); }
+/* stalled-launch block: appears only after Splash's STUCK_MS, so it must fade in rather than
+   pop, and it must never widen the centred card on a phone. */
+.loading-stuck { display: flex; flex-direction: column; align-items: center; gap: 10px; max-width: 30ch; text-align: center;
+  padding-top: 14px; border-top: 1px solid var(--border-soft); animation: fade .3s var(--ease); }
+.loading-stuck-title { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.loading-stuck-hint { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--ink-dim); }
 
 /* note pill + photo markers */
 /* shape/padding kept identical to the Plan note (.wb-text-label) so a Notiz reads the same on
@@ -2117,6 +2123,16 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .draw-rotate:active { cursor: grabbing; }
 .draw-rotate::after { content: ''; position: absolute; inset: -6px; }
 .draw-rotate .i { width: 15px; height: 15px; }
+/* WebGL context lost: centred over the (now blank) canvas, above the map chrome but below
+   sheets/toasts. Persistent by design — it stays until the operator rebuilds the map. */
+.map-gl-lost { position: absolute; z-index: 120; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center;
+  width: min(30ch, calc(100% - 32px)); padding: 18px 20px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-surface);
+  box-shadow: var(--shadow); animation: pop .3s var(--ease); }
+.map-gl-lost-title { font-size: 14px; font-weight: 650; color: var(--ink); }
+.map-gl-lost-hint { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--ink-dim); }
+
 /* marquee selection rectangle (Select tool drag) */
 .marquee-box { z-index: 6; pointer-events: none; border: 1.5px solid var(--blue);
   background: color-mix(in srgb, var(--blue) 10%, transparent); border-radius: 2px; }
@@ -2147,6 +2163,15 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
   border-radius: var(--r-hero); padding: 30px 28px 32px;
   box-shadow: var(--shadow); backdrop-filter: blur(14px) saturate(1.4); animation: pop .3s var(--ease); }
 
+/* ErrorBoundary fallback — reuses the login card, but centred and with a stacked action list
+   (up to three: reload / close incident / discard local copy). Buttons go full-width so the
+   escape actions are unmissable and comfortably tappable in the dark. */
+.eb-card { text-align: center; gap: 16px; align-items: stretch; }
+.eb-body { margin: 0; color: var(--ink-dim); font-size: 14px; line-height: 1.45; }
+.eb-actions { display: flex; flex-direction: column; gap: 8px; }
+.eb-actions .ip-btn { width: 100%; justify-content: center; }
+.eb-warn { margin: 0; color: var(--ink-faint); font-size: 12.5px; line-height: 1.4; }
+
 /* brand lockup — app logo + wordmark, separated from the body by a hairline */
 .login-brand { display: flex; align-items: center; gap: 15px; padding-bottom: 22px;
   border-bottom: 1px solid var(--glass-edge); }
@@ -2158,7 +2183,10 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
   color: var(--ink-faint); margin-bottom: -6px; }
 .login-state { display: flex; align-items: center; justify-content: center; gap: 8px;
   padding: 30px 0; font-size: 13.5px; font-weight: 500; color: var(--ink-faint); text-align: center; }
-.login-state-err { color: var(--red); }
+/* the roster-failed state carries a retry action: keep icon + message on the first line and
+   drop the button onto its own full-width row (a dead-end error line is what this replaces) */
+.login-state-err { color: var(--red); flex-wrap: wrap; }
+.login-state-err .ip-btn { flex-basis: 100%; justify-content: center; margin-top: 6px; }
 .login-state .i { width: 18px; height: 18px; flex: none; }
 
 /* roster — large tappable tiles (2-up grid for many; one prominent row for a single user) */

@@ -110,6 +110,38 @@ describe('request — transparent 401 refresh + retry', () => {
   })
 })
 
+describe('request — timeouts (half-open connections)', () => {
+  // The field failure mode is not a refused connection but a stalled one (dying AP, one bar of
+  // LTE, captive portal). fetch has no default timeout, so without these the boot path hangs
+  // forever behind a blank page / an actionless splash. Status MUST stay 0 so every existing
+  // offline fallback (cached user, cached incident list, cached workspace) still triggers.
+  it('arms an abort signal on a normal request', async () => {
+    fetchMock.mockResolvedValueOnce(json({ ok: 1 }))
+    await apiGet('/api/x')
+    expect(fetchMock.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal)
+  })
+
+  it('maps its own timeout abort to ApiError(0) with the timeout wording', async () => {
+    fetchMock.mockRejectedValueOnce(new DOMException('timed out', 'TimeoutError'))
+    const err = await apiGet('/api/x').catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(ApiError)
+    expect((err as ApiError).status).toBe(0) // offline fallbacks key off this
+    expect((err as ApiError).detail).toMatch(/Zeitüberschreitung/)
+  })
+
+  it('distinguishes a hard network failure from a timeout in the message', async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    const err = await apiGet('/api/x').catch((e: unknown) => e)
+    expect((err as ApiError).detail).toMatch(/nicht erreichbar/)
+  })
+
+  it('leaves a keepalive beacon UNBOUNDED — its whole point is to outlive the page', () => {
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 200 }))
+    apiBeacon('/api/diag/client-error', { a: 1 })
+    expect(fetchMock.mock.calls[0][1].signal).toBeUndefined()
+  })
+})
+
 describe('apiGetRaw — caller-branched statuses', () => {
   it('returns the Response without throwing on a non-2xx (e.g. 304)', async () => {
     fetchMock.mockResolvedValueOnce(new Response(null, { status: 304 }))

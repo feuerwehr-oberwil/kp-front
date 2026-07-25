@@ -306,6 +306,9 @@ export const it: Localizable<Copy> = {
   map: {
     incidentHere: 'Luogo d’intervento',
     youHere: 'La mia posizione',
+    glLost: 'Visualizzazione della mappa interrotta',
+    glLostHint: 'Il dispositivo ha rilasciato il contesto grafico della mappa. Le tue voci sono salvate.',
+    glLostAction: 'Ricostruisci mappa',
   },
   intake: {
     titleNew: 'Apri intervento',
@@ -601,6 +604,8 @@ export const it: Localizable<Copy> = {
   },
   errors: {
     noMicrophone: 'Nessun accesso al microfono. Nota audio registrata come segnaposto.',
+    serverUnreachable: 'Errore di rete – server non raggiungibile',
+    serverTimeout: 'Il server non risponde – timeout',
   },
   atemschutz: {
     title: 'Sorveglianza autoprotezione',
@@ -934,11 +939,21 @@ export const it: Localizable<Copy> = {
     loginFailed: 'Accesso fallito',
     pleaseWait: 'Attendi un momento…',
     clearDigit: 'Cancella',
+    retry: 'Riprova',
+  },
+  splash: {
+    stuck: 'L’avvio richiede più tempo del solito',
+    stuckHint: 'Connessione debole o server non raggiungibile. Gli interventi salvati sono disponibili offline.',
+    reload: 'Riavvia',
   },
   errorBoundary: {
     title: 'Si è verificato un errore',
     body: 'Impossibile caricare la vista. Le tue modifiche locali sono salvate e restano intatte.',
+    bodyRepeat: 'Questo intervento non si apre – nemmeno dopo il ricaricamento. Chiudilo per tornare alla panoramica; i dati salvati restano sul server.',
     reload: 'Ricarica',
+    closeIncident: 'Chiudi intervento',
+    discardLocal: 'Elimina copia locale',
+    discardLocalHint: 'Elimina solo la copia su questo dispositivo e ricarica l’intervento dal server. Le modifiche di questo dispositivo non ancora sincronizzate andranno perse.',
   },
   update: {
     available: 'Aggiornamento pronto',
