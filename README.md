@@ -95,13 +95,19 @@ Log in with the seeded default editor — user `fu` (Führungsunterstützung), P
 
 ### Self-host
 
-The production setup uses one application container and PostgreSQL. See the full
+The production setup uses one application container and PostgreSQL, pulled as a published
+image – no build toolchain on the server. See the full
 [`deployment guide`](docs/DEPLOYMENT.md).
 
 ```bash
 just init-env
-docker compose up -d --build
+docker compose up -d          # ghcr.io/feuerwehr-oberwil/kp-front:${KP_FRONT_TAG:-latest}
 ```
+
+Updating is `docker compose pull && docker compose up -d`; migrations run on boot. Pin a
+version with `KP_FRONT_TAG` in `.env` and follow the
+[releases](https://github.com/feuerwehr-oberwil/kp-front/releases) –
+[`CHANGELOG.md`](CHANGELOG.md) explains what a MAJOR/MINOR/PATCH bump means for a deployment.
 
 ### Common recipes
 

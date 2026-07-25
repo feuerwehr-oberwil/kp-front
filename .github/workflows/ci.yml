@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  # release.yml runs this whole gate against the tag before publishing an image.
+  workflow_call:
 
 # Cancel superseded runs on the same ref (saves CI minutes on rapid pushes).
 concurrency:
@@ -141,8 +143,8 @@ jobs:
 
   # --- Image: lint + build + boot + smoke the actual production container ------------
   # CI builds the real Dockerfile/compose stack that Railway and self-hosters run, so a
-  # Dockerfile or compose regression can't ship green. The image is NOT pushed anywhere
-  # (private-repo GHCR storage is billed); this only proves it builds and boots.
+  # Dockerfile or compose regression can't ship green. Nothing is pushed here — publishing
+  # to GHCR happens in release.yml, which runs this same workflow first.
   image:
     name: Image (hadolint + build + smoke)
     runs-on: ubuntu-latest
@@ -162,6 +164,9 @@ jobs:
             echo "SECRET_KEY=$(openssl rand -hex 32)"
             echo "APP_PORT=8000"
             echo "COOKIE_SECURE=false"
+            # compose pulls ghcr.io/…:${KP_FRONT_TAG:-latest}; point it at the image built
+            # below so the stack boots THIS commit instead of the last published release.
+            echo "KP_FRONT_TAG=ci"
           } > .env
 
       - name: Validate compose config (base + tls profile)
@@ -178,7 +183,7 @@ jobs:
           context: .
           file: Dockerfile
           load: true            # load into the local daemon; do not push
-          tags: kp-front:local
+          tags: ghcr.io/feuerwehr-oberwil/kp-front:ci   # matches KP_FRONT_TAG=ci above
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

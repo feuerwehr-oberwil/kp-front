@@ -104,6 +104,35 @@ openapi:
     cd backend && uv run python -m app.dump_openapi ../docs/openapi.json
 
 # ============================================
+# Releases  (tag a green main commit — see CHANGELOG.md for what the number means)
+# ============================================
+
+# Draft release notes from the commits since the last tag. A STARTING POINT: curate it into
+# CHANGELOG.md's [Unreleased] section before bumping. Needs no install (uvx fetches git-cliff).
+changelog:
+    uvx git-cliff --unreleased
+
+# Same draft, headed with the version you're about to cut.
+changelog-for version:
+    uvx git-cliff --unreleased --tag v{{version}}
+
+# Bump every version file + open the CHANGELOG section. Touches no git state — review the diff.
+release version:
+    python3 scripts/release.py {{version}}
+
+# Commit the bump and tag it. Stages ONLY the release files (this tree carries WIP).
+# Then: git push --follow-tags  → CI gate → GHCR image + GitHub Release.
+release-tag version:
+    git add package.json backend/pyproject.toml backend/uv.lock backend/app/config.py CHANGELOG.md
+    git commit -m "chore(release): v{{version}}"
+    git tag -a v{{version}} -m "v{{version}}"
+    @echo "\033[1;32m✓ Tagged v{{version}}. Push with: git push --follow-tags\033[0m"
+
+# Preview the GitHub Release body for a version (what release.yml will publish).
+release-notes version:
+    python3 scripts/changelog_section.py {{version}}
+
+# ============================================
 # Deployment config  (config-as-code via the admin CLIs — see docs/CONFIGURATION.md)
 # ============================================
 

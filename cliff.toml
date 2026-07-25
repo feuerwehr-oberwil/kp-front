@@ -1,0 +1,49 @@
+# git-cliff – turns the conventional-commit log into a CHANGELOG draft.
+#
+#   just changelog              # draft the notes for everything since the last tag
+#   just changelog-for 0.3.0    # same, headed with the version you're about to cut
+#
+# The draft is a STARTING POINT, not the artifact: paste it into CHANGELOG.md and rewrite it
+# for the audience (a station commander deciding whether to update), then commit. The release
+# workflow reads the committed CHANGELOG section – never git-cliff – so published release
+# notes are exactly what was reviewed.
+#
+# No install needed: the recipes call `uvx git-cliff`.
+
+[changelog]
+header = ""
+body = """
+{% for group, commits in commits | group_by(attribute="group") %}
+{{ group }}
+{% for commit in commits %}\
+- {% if commit.scope %}**{{ commit.scope }}:** {% endif %}{{ commit.message | upper_first }}
+{% endfor %}\
+{% endfor %}
+"""
+trim = true
+footer = ""
+
+[git]
+conventional_commits = true
+# Keep unconventional subjects (older squash-merges have plain titles) – they land in
+# "Uncategorised" so they get looked at rather than silently dropped.
+filter_unconventional = false
+filter_commits = false
+sort_commits = "oldest"
+
+# Group names are the Keep a Changelog headings, and alphabetical ordering happens to give
+# the right sequence (Added, Changed, Documentation, Fixed, Uncategorised).
+commit_parsers = [
+  { message = "^Merge ", skip = true },
+  # The landing page (site/) ships to GitHub Pages, not to a deployment – irrelevant to
+  # someone reading release notes to decide whether to update their station.
+  { message = "^\\w+\\(site\\)", skip = true },
+  { message = "^feat", group = "### Added" },
+  { message = "^fix", group = "### Fixed" },
+  { message = "^perf", group = "### Changed" },
+  { message = "^copy", group = "### Changed" },
+  { message = "^docs", group = "### Documentation" },
+  # Internal churn: real work, but nothing a self-hoster acts on.
+  { message = "^(refactor|chore|style|test|build|ci)", skip = true },
+  { message = ".*", group = "### Uncategorised" },
+]

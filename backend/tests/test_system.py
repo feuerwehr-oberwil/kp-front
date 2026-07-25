@@ -31,7 +31,7 @@ async def test_system_shape_as_admin(client, editor, admin_login):
         assert key in body
 
     # Version block.
-    assert set(body["version"]) == {"commit", "branch", "env"}
+    assert set(body["version"]) == {"release", "commit", "branch", "env"}
     assert body["version"]["env"] in {"production", "dev"}
 
     # DB probe is live against the test session.

@@ -30,10 +30,16 @@ router = APIRouter(prefix="/system", tags=["system"])
 
 
 def _version() -> dict:
-    """Build/version string from Railway's injected git env vars (fallbacks for dev)."""
+    """Release version + build stamp.
+
+    `release` is the tagged version this image was published as (the number in the release
+    notes / the KP_FRONT_TAG a self-hoster pins); commit/branch come from Railway's injected
+    git env vars and pin down the exact build when running from `main` between releases.
+    """
     commit = os.getenv("RAILWAY_GIT_COMMIT_SHA") or "dev"
     branch = os.getenv("RAILWAY_GIT_BRANCH") or None
     return {
+        "release": settings.version,
         "commit": commit,
         "branch": branch,
         "env": "production" if settings.is_production else "dev",

@@ -59,21 +59,22 @@ services — no credentials.
 Everything ships in the repo root: `docker-compose.yml`, `.env.example`, `deploy/Caddyfile`.
 
 ```bash
-# 1. Get the code (or a tagged release)
-git clone <repo> && cd kp-front
+# 1. Get the compose file + templates (a tagged release is the safe choice)
+git clone <repo> && cd kp-front && git checkout v0.2.0
 
 # 2. Configure secrets — 'just init-env' writes .env with all three generated for you:
 just init-env               # POSTGRES_PASSWORD + SECRET_KEY + ADMIN_SECRET (note the ADMIN_SECRET it prints)
 #    …or by hand: cp .env.example .env  and set  (see §4 and CONFIGURATION.md §6)
 #    SECRET_KEY:   openssl rand -hex 32   (KEEP IT STABLE — it signs JWTs and peppers PINs)
 #    ADMIN_SECRET: openssl rand -hex 24   (unlocks /admin; empty = admin disabled)
+#    KP_FRONT_TAG: which release to run (default: latest) — see §5
 
-# 3a. Plain HTTP on APP_PORT (LAN / behind your own proxy). Build + migrate + seed on boot (D8):
-docker compose up -d --build
+# 3a. Plain HTTP on APP_PORT (LAN / behind your own proxy). Pull + migrate + seed on boot (D8):
+docker compose up -d
 #     On a trusted LAN with no TLS, set COOKIE_SECURE=false in .env so login cookies work.
 
 # 3b. …or automatic HTTPS on a public domain (set DOMAIN in .env first):
-docker compose --profile tls up -d --build
+docker compose --profile tls up -d
 
 # 4. The first incident editor account is seeded from backend/app/seed_users.json on
 #    first boot: user "fu" (Führungsunterstützung), stored role editor, PIN 000000.
@@ -84,16 +85,24 @@ docker compose --profile tls up -d --build
 > which makes `SECRET_KEY` mandatory (no silent per-restart rotation), enables Secure cookies
 > (unless you opt out with `COOKIE_SECURE=false`), and hands schema ownership to Alembic.
 
-### Updating an image vs. building from source
-The compose file **builds from the repo Dockerfile** by default, and CI builds + boots +
-smoke-tests that exact image on every push, so `main` is always deployable. To pin a published
-image instead, comment out `build:` in the `app` service and set
-`image: ghcr.io/<org>/kp-front:vX.Y.Z`.
+### Published images vs. building from source
+The compose file **pulls a published image** —
+`ghcr.io/feuerwehr-oberwil/kp-front:${KP_FRONT_TAG:-latest}` (linux/amd64) — so a station VPS
+needs nothing but Docker: no Node, no uv, no build step. Every `v*` tag is built, booted and
+smoke-tested by CI before it is pushed (`.github/workflows/release.yml`), and the same gate runs
+on every commit to `main`, so a Dockerfile regression can't reach a release.
 
-Pre-built images aren't published yet: GHCR storage is **billed for private packages**, and
-this repo is private. Once it goes public, GHCR is free — at that point a tag-triggered build
-can publish versioned images and self-host becomes `docker compose pull` (no Node/uv toolchain
-on the VPS). Until then: `git pull` + rebuild.
+Pick what `KP_FRONT_TAG` follows, in `.env`:
+
+| Value | Follows | For |
+| --- | --- | --- |
+| `0.2.0` | nothing — exactly this build | production stations that update deliberately |
+| `0.2` | patch releases in the 0.2 series | stations that want fixes but not features |
+| `latest` (default) | every release | evaluation, demo instances |
+
+**To build from source instead** (contributors, or a patched fork): comment out the `image:`
+line in the `app` service, uncomment the `build:` block below it, and use
+`docker compose up -d --build`.
 
 Then open the app and **log in by picking your name + PIN**. For station setup, prefer the
 config/CLI path in `CONFIGURATION.md` (`admin_config`, `admin_geodata`, `admin_objects`) so the
@@ -120,15 +129,25 @@ Postgres vars automatically. For a managed Postgres, set `DATABASE_URL` directly
 ## 5. Updating
 
 ```bash
-git pull
-docker compose up -d --build          # add --profile tls if you run Caddy
+docker compose pull
+docker compose up -d                  # add --profile tls if you run Caddy
 ```
+Pinned to a specific version? Edit `KP_FRONT_TAG` in `.env` first, then run the two commands.
+Release notes: <https://github.com/feuerwehr-oberwil/kp-front/releases>.
+
+**What the version number tells you** (see `CHANGELOG.md` for the full table): a **PATCH** bump
+is fixes only and always safe; a **MINOR** bump adds features and migrates automatically; a
+**MAJOR** bump needs you to read the notes first, because something requires operator action.
+
 - The new image carries its DB migrations; **they run automatically on boot** (D8, via
   `start.sh` → `alembic upgrade head`). When a migration is actually pending, `start.sh`
   first writes a **pre-migration dump** to `<MEDIA_STORAGE_DIR>/backups/pre-migrate-*.sql.gz`
   (best-effort, newest 5 kept), so a bad migration is recoverable even without external backups.
-- **Rollback:** check out the previous tag and rebuild. Migrations are kept backward-safe
-  within a minor series, so the prior image runs against the migrated schema.
+- **Rollback:** set `KP_FRONT_TAG` to the previous version and re-run the two commands.
+  Migrations are kept backward-safe within a minor series, so the prior image runs against the
+  migrated schema.
+- **Which build am I running?** `/admin` → System shows the version, commit and environment;
+  the app menu carries the same stamp (`v0.2.0 · <sha> · <date>`) on the tablet itself.
 - **Postgres major upgrades** (e.g. 16→17) are *not* automatic — a 16 data volume won't be
   read by a 17 server. Stay on `postgres:16` for the life of the volume; to move majors, take a
   `pg_dump` (see §6), start a fresh volume on the new major, and restore.
