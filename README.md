@@ -116,8 +116,9 @@ history, integrations, and reference data. Deployment configuration is managed a
 ## Self-host
 
 The production setup is one application container and PostgreSQL, pulled as a published
-image – no build toolchain on the server. See the full
-[`deployment guide`](docs/DEPLOYMENT.md).
+image – no build toolchain on the server. Setting up a station for the first time? Follow
+[`docs/SETUP.md`](docs/SETUP.md), which walks the whole path in order; the full
+[`deployment guide`](docs/DEPLOYMENT.md) is the reference behind it.
 
 ```bash
 just init-env
@@ -256,6 +257,8 @@ docs/                      product and technical documentation
 
 Start with the [`documentation index`](docs/README.md):
 
+- [`Setup`](docs/SETUP.md) – **start here** if you are bringing up a new station: the ordered
+  path from an empty host to a deployment you can run an incident on.
 - [`Configuration`](docs/CONFIGURATION.md) – deployment configuration and station data.
 - [`Station data`](docs/STATION-DATA.md) – build and load a private station-data repository.
 - [`Deployment`](docs/DEPLOYMENT.md) – production and self-hosted setup.
