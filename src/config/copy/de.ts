@@ -1552,6 +1552,19 @@ export const de = {
     rowPersonnel: 'Mannschaft',
     personnelCount: '{n} Personen',
     rowObjectSearch: 'Objektsuche',
+    // Gerätespeicher — die Bereitschaftszeile, die es nie gab: ein volles Gerät speichert
+    // NICHTS offline, egal wie grün alle anderen Zeilen sind.
+    rowStorage: 'Gerätespeicher',
+    storageFree: '{size} frei',
+    storageUnknown: 'Gerät meldet keinen Speicherstand',
+    storageFullShort: 'Voll – nichts wird lokal gesichert',
+    storageFull: 'Speicher voll – Änderungen sind nicht lokal gesichert',
+    // Vorabprüfung von «Alles für offline laden»: der Offline-Vorrat und der Einsatzrapport
+    // teilen denselben Speicher, also darf ein Kartendownload den Rapport nicht verdrängen.
+    dlTightTitle: 'Wenig Speicher auf diesem Gerät',
+    dlTightMsg: 'Der Download braucht ≈ {need}, frei sind {free}. Reduziert wird das ganze Gebiet geladen, aber weniger detailliert (etwa {pct} % der Kartenkacheln). Der Einsatzrapport behält so Platz.',
+    dlTightConfirm: 'Reduziert laden',
+    dlNoSpace: 'Zu wenig Speicher für den Offline-Vorrat (nur {free} frei). Bitte Platz auf dem Gerät freigeben.',
     loadingForOffline: 'Lädt für offline …',
     loadAll: 'Alles für offline laden',
     foot: 'Lädt Karte, Pläne, Symbole und Leitungen für diesen Einsatz auf dieses Gerät. Wetter und Objektsuche brauchen eine Verbindung und sind offline nicht verfügbar.',
@@ -1673,8 +1686,12 @@ export const de = {
     badgePending: 'Nicht synchronisiert – wird gespeichert',
     badgeOffline: 'Offline – lokal gespeichert, wird synchronisiert sobald wieder verbunden',
     badgeError: 'Synchronisierung fehlgeschlagen – lokal gespeichert, wird erneut versucht',
+    // Speicher voll: die anderen Zustände versprechen «lokal gespeichert» – genau das trifft
+    // hier NICHT zu, die Änderungen leben nur in dieser App-Sitzung.
+    badgeStorage: 'Speicher voll – Änderungen sind NICHT lokal gesichert und gehen beim Schliessen verloren',
     offlineShort: 'Offline',
     errorShort: 'Sync-Fehler',
+    storageShort: 'Speicher voll',
     // one-shot Warn-Toasts (useIncidentSync) — einmal pro Episode, bewusst kein Dauerbanner
     syncErrorToast: 'Synchronisierung fehlgeschlagen – Änderungen sind lokal gespeichert.',
     syncOfflineToast: 'Immer noch offline – Änderungen werden lokal gespeichert.',

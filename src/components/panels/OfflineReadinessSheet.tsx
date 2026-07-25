@@ -3,6 +3,8 @@ import { Icon } from '../../lib/icons'
 import { fillTemplate } from '../../lib/format'
 import { appConfig } from '../../config/appConfig'
 import type { SyncStatus } from '../../lib/incidents'
+import { isStorageDegraded, onStorageDegraded } from '../../lib/idb'
+import { estimateStorage, fmtBytes } from '../../lib/storageBudget'
 import { Modal } from './_shared'
 
 // --- Offline-Bereitschaft (readiness diagnostics) ----------------------------------
@@ -93,6 +95,21 @@ export function OfflineReadinessSheet({
     return () => { alive = false }
   }, [probeUrls.tiles.join(','), probeUrls.plan, geoKey, loading, progress?.done])
 
+  // Free space is itself a readiness fact, and the one nothing used to report: a full device
+  // caches NOTHING for offline no matter how green every other row is. Re-probed after a load so
+  // the figure reflects what «Alles laden» just consumed.
+  const [space, setSpace] = useState<{ free: number } | null | undefined>(undefined)
+  useEffect(() => {
+    let alive = true
+    void estimateStorage().then((b) => { if (alive) setSpace(b) })
+    return () => { alive = false }
+  }, [loading, progress?.done])
+  // Subscribed, not read once at render: a write can be refused WHILE this sheet is open (the
+  // «Alles laden» button is right here), and a readiness sheet that keeps claiming "bereit" after
+  // storage gave out would be the very kind of stale reassurance this whole change removes.
+  const [degraded, setDegraded] = useState(isStorageDegraded)
+  useEffect(() => onStorageDegraded(setDegraded), [])
+
   const o = appConfig.copy.offline
   const probed = (v: boolean | undefined, readyNote: string): { s: ReadyState; n: string } =>
     v === undefined ? { s: 'unknown', n: o.checking } : v ? { s: 'ready', n: readyNote } : { s: 'missing', n: o.notLoaded }
@@ -112,14 +129,18 @@ export function OfflineReadinessSheet({
           ? { s: 'ready', n: fillTemplate(o.geoAllReady, { n: probe.geo.total }) }
           : { s: 'online', n: fillTemplate(o.geoSome, { cached: probe.geo.cached, total: probe.geo.total }) }
 
-  const syncMark = syncStatus === 'synced' ? <Icon id="check" /> : syncStatus === 'error' ? <Icon id="warn" /> : <span className="ip-status-dot" />
+  const syncMark = syncStatus === 'synced'
+    ? <Icon id="check" />
+    : syncStatus === 'error' || syncStatus === 'storage' ? <Icon id="warn" /> : <span className="ip-status-dot" />
   const syncText = syncStatus === 'synced'
     ? fillTemplate(o.syncedAgo, { ago: fmtAgo(lastSyncedAt) })
     : syncStatus === 'offline'
       ? o.offline
       : syncStatus === 'pending'
         ? o.pending
-        : o.error
+        : syncStatus === 'storage'
+          ? o.storageFull // must NOT fall through to o.error: nothing failed to sync, the DEVICE is full
+          : o.error
 
   return (
     <Modal title={o.title} onClose={onClose} fit>
@@ -140,6 +161,17 @@ export function OfflineReadinessSheet({
           <ReadyRow label={o.rowWeather} state={weatherError ? 'missing' : weatherOk ? 'online' : 'unknown'} note={weatherError ? o.weatherUnreachable : weatherOk ? o.onlineOnly : o.loading} />
           <ReadyRow label={o.rowPersonnel} state={personnelCount > 0 ? 'ready' : 'missing'} note={personnelCount > 0 ? fillTemplate(o.personnelCount, { n: personnelCount }) : o.notLoaded} />
           <ReadyRow label={o.rowObjectSearch} state="online" note={o.onlineOnly} />
+          {/* Device storage: 'missing' whenever a write has actually been refused — that outranks
+              a healthy-looking free figure, since it's the observed fact rather than an estimate. */}
+          <ReadyRow
+            label={o.rowStorage}
+            state={degraded ? 'missing' : space === undefined ? 'unknown' : space === null ? 'online' : 'ready'}
+            note={degraded
+              ? o.storageFullShort
+              : space === undefined ? o.checking
+                : space === null ? o.storageUnknown
+                  : fillTemplate(o.storageFree, { size: fmtBytes(space.free) })}
+          />
         </div>
 
         {loading ? (
