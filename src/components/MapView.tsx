@@ -2,7 +2,7 @@ import { forwardRef, Fragment, useEffect, useRef, useState } from 'react'
 import Map, { Marker, Source, Layer, type MapRef, type MapLayerMouseEvent } from 'react-map-gl/maplibre'
 import type { Map as MlMap } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import type { CaptionMode, Drawing, Entity, LayerDef, LayerId, LineAttachment, LineEndpoint, LngLat, PreparedMapOverlay, Trupp, WeatherData } from '../types'
+import type { CaptionMode, Drawing, Entity, LayerDef, LayerId, LineAttachment, LineEndpoint, LngLat, PreparedMapOverlay, Trupp } from '../types'
 import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
 import { LINE_DASH_ML } from '../lib/draw'
@@ -80,14 +80,6 @@ interface Props {
   /** bump to take a single GPS fix and fly to it (the "Mein Standort" dot). On demand — no
    *  continuous watch — so the GPS chip isn't powered all shift. 0 = never located yet. */
   locateNonce?: number
-  /** the map surface is the active one (Lage mode) — gates map-only chrome like the wind badge */
-  mapActive?: boolean
-  /** weather reading for the wind badge (live poll, or the folded reading during replay) */
-  weather?: WeatherData | null
-  /** open the MeteoSwiss details for the incident location */
-  onOpenWeather?: () => void
-  /** lift the wind badge clear of the replay scrubber while time-travel is active */
-  replayActive?: boolean
   preparedOverlays: PreparedMapOverlay[]
   isVisible: (id: LayerId) => boolean
   selectedId: string | null
@@ -182,7 +174,7 @@ interface Props {
 }
 
 export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
-  const { entities, layers, byName, symMul = 1, captionMode = 'off', initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, mapActive = true, weather = null, onOpenWeather, replayActive = false, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, trupps, onShowTrupp, onTeamMark, onTeamClearTrail,
+  const { entities, layers, byName, symMul = 1, captionMode = 'off', initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, trupps, onShowTrupp, onTeamMark, onTeamClearTrail,
     drawings: storedDrawings, drawingsVisible, draft, draftKind, placing, onDraftDrag, onDraftInsert, onDraftDelete, onDraftPointAttachment, draggable, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onRotate, onShapeTransform,
     onView, picking, onCursor, onPick, pickedPoint, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, onSelectDrawing, onUnlockDrawing, onDelete, measureLabels = [], measurePoints = [], measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingDelete, onDrawingAttachment, onLabelMove,

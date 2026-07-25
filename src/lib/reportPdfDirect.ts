@@ -27,7 +27,7 @@ import { resolvePlanAnnos } from './lineAttachments'
 
 /** Board annotations of one plan, in the server's PlanAnnoIn shape (dynamic symbol
  *  glyphs resolved to SVG strings, like the whiteboard renders them). */
-export function planAnnosForPdf(annos: BoardAnno[], byName: Record<string, string>): Record<string, unknown>[] {
+export function planAnnosForPdf(annos: BoardAnno[], _byName: Record<string, string>): Record<string, unknown>[] {
   return resolvePlanAnnos(annos).map((a) => {
     const out: Record<string, unknown> = {
       kind: a.kind, x: a.x, y: a.y, pts: a.pts, color: a.color, width: a.width,
