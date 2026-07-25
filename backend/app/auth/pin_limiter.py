@@ -16,7 +16,7 @@ class PinLimiter:
 
     def retry_after(self, user_id: str) -> int:
         """Seconds the caller must wait, or 0 if allowed to try now."""
-        fails, until = self._state.get(user_id, (0, 0.0))
+        _fails, until = self._state.get(user_id, (0, 0.0))
         remaining = until - time.monotonic()
         return max(0, int(remaining + 0.999)) if remaining > 0 else 0
 

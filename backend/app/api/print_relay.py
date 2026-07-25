@@ -13,6 +13,7 @@ The agent heartbeat is in-memory (module global): prod runs a single uvicorn wor
 """
 
 import asyncio
+import contextlib
 import secrets as pysecrets
 import uuid
 from datetime import UTC, datetime
@@ -285,10 +286,8 @@ async def agent_claim(
         remaining = deadline - loop.time()
         if remaining <= 0:
             return Response(status_code=status.HTTP_204_NO_CONTENT)
-        try:
+        with contextlib.suppress(TimeoutError):
             await asyncio.wait_for(ev.wait(), timeout=min(CLAIM_RECHECK_SEC, remaining))
-        except TimeoutError:
-            pass
 
 
 @router.get("/print-agent/jobs/{job_id}/file")

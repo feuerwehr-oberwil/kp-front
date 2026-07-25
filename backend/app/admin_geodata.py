@@ -83,9 +83,8 @@ class GeodataManifestEntry(BaseModel):
         if self.kind in ("wms", "wmts"):
             if not self.tiles:
                 raise ValueError(f"layer {self.id!r}: raster layer ({self.kind}) requires 'tiles'")
-        elif self.kind == "geojson":
-            if bool(self.file) == bool(self.geojson):
-                raise ValueError(f"layer {self.id!r}: geojson layer needs exactly one of 'file' or 'geojson'")
+        elif self.kind == "geojson" and bool(self.file) == bool(self.geojson):
+            raise ValueError(f"layer {self.id!r}: geojson layer needs exactly one of 'file' or 'geojson'")
         return self
 
     def slug(self) -> str:

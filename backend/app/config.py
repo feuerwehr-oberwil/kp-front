@@ -50,7 +50,9 @@ class Settings(BaseSettings):
     api_prefix: str = "/api"
 
     # --- Uvicorn ---
-    host: str = "0.0.0.0"
+    # S104 suppressed: binding all interfaces is correct for a containerised service — the container
+    # network, not the process, is the boundary. Same call kp-rueck's bandit B104 annotation makes.
+    host: str = "0.0.0.0"  # noqa: S104
     port: int = 8000
 
     # --- Database ---

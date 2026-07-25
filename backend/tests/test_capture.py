@@ -35,7 +35,7 @@ async def capture_secret(db_session):
 
 
 def _incident(**kw) -> Incident:
-    base = dict(title="Wasser im Keller", source="manual", status="offen")
+    base = {"title": "Wasser im Keller", "source": "manual", "status": "offen"}
     return Incident(**{**base, **kw})
 
 

@@ -12,6 +12,7 @@ request, so ``is_revoked`` is a single indexed primary-key lookup.
 """
 
 import asyncio
+import contextlib
 import logging
 from datetime import UTC, datetime
 
@@ -49,10 +50,8 @@ class TokenBlocklist:
     async def stop_cleanup_task(self) -> None:
         if self._cleanup_task:
             self._cleanup_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._cleanup_task
-            except asyncio.CancelledError:
-                pass
             self._cleanup_task = None
 
     async def _cleanup_loop(self) -> None:

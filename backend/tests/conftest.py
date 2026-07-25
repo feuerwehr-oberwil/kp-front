@@ -39,11 +39,11 @@ def _install_sqlite_shims() -> None:
     from sqlalchemy.ext.compiler import compiles
 
     @compiles(JSONB, "sqlite")
-    def _compile_jsonb(type_, compiler, **kw):  # noqa: ANN001, ANN202
+    def _compile_jsonb(type_, compiler, **kw):
         return "JSON"
 
     @compiles(UUID, "sqlite")
-    def _compile_uuid(type_, compiler, **kw):  # noqa: ANN001, ANN202
+    def _compile_uuid(type_, compiler, **kw):
         return "CHAR(36)"
 
 

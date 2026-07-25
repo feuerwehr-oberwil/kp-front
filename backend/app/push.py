@@ -121,7 +121,7 @@ def _send_one(sub: dict, payload: str) -> bool:
             return False  # endpoint gone — caller prunes it
         logger.warning("Web push failed (%s): %s", code, e)
         return True
-    except Exception:  # noqa: BLE001 — malformed keys must not abort the whole sweep
+    except Exception:  # intake must survive a broken push path  # malformed keys must not abort the whole sweep
         logger.exception("Web push subscription unusable — pruning %s", sub["endpoint"][:60])
         return False
 
@@ -160,7 +160,7 @@ async def notify_new_alarm(
         # auto-opened there is nothing to take — target None just focuses/boots the app,
         # whose cold-start pick then lands on the newest alarm incident.
         return await broadcast(db, title="Neuer Einsatz", body=body, tag=tag, target=target)
-    except Exception:  # noqa: BLE001 — intake must survive a broken push path
+    except Exception:
         logger.exception("New-alarm push failed (%s)", tag)
         return 0
 

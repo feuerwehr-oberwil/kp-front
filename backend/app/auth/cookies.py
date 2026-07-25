@@ -15,7 +15,7 @@ ADMIN_COOKIE = "admin_session"
 
 
 def set_auth_cookies(response: Response, access_token: str, refresh_token: str | None = None) -> None:
-    common = dict(httponly=True, samesite="lax", secure=settings.cookie_secure, path="/")
+    common = {"httponly": True, "samesite": "lax", "secure": settings.cookie_secure, "path": "/"}
     response.set_cookie(
         ACCESS_COOKIE,
         access_token,

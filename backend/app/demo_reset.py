@@ -204,7 +204,8 @@ async def reset(wipe_objects: bool = True) -> None:
         # "None" (a single ghost entry that matches no one).
         await db.flush()
         person_id: dict[str, str] = {name: str(p.id) for name, p in people_rows}
-        assert "None" not in person_id.values(), "Personnel ids not flushed — Anwesenheit would break"
+        # S101 suppressed: a seed-time invariant, and the demo reset is never run under `python -O`.
+        assert "None" not in person_id.values(), "Personnel ids not flushed — Anwesenheit would break"  # noqa: S101
         # Clear objects so the manifest is authoritative ("these two, nothing else"). Deleting
         # an ObjectSite cascades to its plan datasets; the geo: reference layers (object_id NULL)
         # are untouched and get re-pushed by the reset script. Skipped in-process (wipe_objects=

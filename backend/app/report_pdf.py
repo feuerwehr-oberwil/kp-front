@@ -22,6 +22,7 @@ sent as strings, so the PDF matches the on-screen report exactly.
 from __future__ import annotations
 
 import io
+import logging
 
 from pydantic import BaseModel
 from reportlab.lib import colors
@@ -47,6 +48,8 @@ from reportlab.platypus import (
     Table,
     TableStyle,
 )
+
+logger = logging.getLogger(__name__)
 
 # ----------------------------------------------------------------------------- payload models
 
@@ -455,7 +458,7 @@ def _fit_image(data: bytes | None, max_w: float, max_h: float) -> Image | None:
         return None
     try:
         iw, ih = ImageReader(io.BytesIO(data)).getSize()
-    except Exception:
+    except Exception:  # noqa: BLE001 — unreadable image → no image, never a failed rapport
         return None
     if iw <= 0 or ih <= 0:
         return None
@@ -499,8 +502,10 @@ def warm_report_tiles(payload: ReportPayload) -> None:
         view = _kroki_view(payload.kroki, *_KROKI_PX)
         kk.render_base(view, payload.kroki.tiles, cache=kk.get_tile_cache(),
                        max_tile_z=payload.kroki.maxTileZoom or 19)
-    except Exception:
-        pass
+    except Exception:  # noqa: BLE001 — a cold cache must not fail the rapport
+        # Was a silent `pass`. A failed prewarm is recoverable (the real render refetches),
+        # but silence here is how a permanently unreachable tile source stays invisible.
+        logger.warning("Rapport tile prewarm failed; the render will refetch", exc_info=True)
 
 
 def compose_report_pdf(payload: ReportPayload, figures: dict[str, bytes],
@@ -736,8 +741,9 @@ def compose_report_pdf(payload: ReportPayload, figures: dict[str, bytes],
                 if pdf_bytes
                 else kk.render_blank_page(pp.blankAspect or 1.0, [a.model_dump() for a in pp.annos], kk.get_pack())
             )
-        except Exception:
-            continue  # a broken plan PDF must not sink the whole rapport
+        except Exception:  # noqa: BLE001 — a broken plan PDF must not sink the whole rapport
+            logger.warning("Plan page %r could not be rendered; skipped", pp.label, exc_info=True)
+            continue
         b = io.BytesIO()
         rendered.save(b, "PNG")
         plan_imgs.append((pp.label, b.getvalue(), rendered.width >= rendered.height))

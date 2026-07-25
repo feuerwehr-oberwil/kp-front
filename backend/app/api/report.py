@@ -50,8 +50,7 @@ async def resolve_report_assets(db: AsyncSession, data: ReportPayload,
         if media is None or not media.storage_key:
             continue
         try:
-            with open(storage.local_path(media.storage_key), "rb") as fh:
-                figs[f"photo:{row.photoUrl}"] = fh.read()
+            figs[f"photo:{row.photoUrl}"] = await storage.aget_bytes(media.storage_key)
         except OSError:
             continue
 
@@ -66,8 +65,7 @@ async def resolve_report_assets(db: AsyncSession, data: ReportPayload,
         if ds is None or not ds.storage_key or ds.kind != "pdf":
             continue
         try:
-            with open(storage.local_path(ds.storage_key), "rb") as fh:
-                plan_pdfs[pp.url] = fh.read()
+            plan_pdfs[pp.url] = await storage.aget_bytes(ds.storage_key)
         except OSError:
             continue
     return plan_pdfs

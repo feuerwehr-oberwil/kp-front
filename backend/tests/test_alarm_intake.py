@@ -121,7 +121,10 @@ async def test_intake_zero_coordinate_falls_back_to_geocoder(client, alarm_secre
 
 
 async def test_intake_rejects_reserved_sources(client, alarm_secret):
-    for source in ("manual", "migrated", "divera"):
+    # The full union with kp-rueck's list, not just Front's own three — see the comment on
+    # RESERVED_ALARM_SOURCES. "intake", "operator" and "training" are Rück's; rejecting them
+    # here is what makes one dispatch integration portable between the two apps.
+    for source in ("manual", "migrated", "divera", "intake", "operator", "training"):
         r = await client.post(
             "/api/alarms?secret=alarm-secret-123", json={**PAYLOAD, "source": source}
         )
@@ -255,7 +258,7 @@ async def test_report_done_patch_self_documents(client, editor):
 
 
 def _incident(**kw) -> Incident:
-    base = dict(title="Alt", source="leitstelle", status="offen")
+    base = {"title": "Alt", "source": "leitstelle", "status": "offen"}
     return Incident(**{**base, **kw})
 
 

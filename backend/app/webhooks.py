@@ -24,6 +24,9 @@ logger = logging.getLogger(__name__)
 
 RETRY_DELAYS_S = (0, 2, 8)  # first attempt immediate, then backoff
 
+# Strong references to in-flight delivery tasks; see notify_incident_created.
+_inflight: set[asyncio.Task] = set()
+
 
 def build_incident_payload(inc: Incident, capture_token: str | None) -> dict:
     """The webhook body: incident facts + (when composable) the capture deep link."""
@@ -86,8 +89,13 @@ async def notify_incident_created(db: AsyncSession, inc: Incident) -> int:
         ).scalar_one_or_none()
         payload = build_incident_payload(inc, row.capture_secret if row else None)
         for url in urls:
-            asyncio.create_task(_deliver(url, payload))
+            # Keep a strong reference until the task finishes. asyncio only holds a WEAK one,
+            # so a fire-and-forget task can be garbage-collected mid-flight and the webhook
+            # silently never arrives — the exact failure this retry logic exists to prevent.
+            task = asyncio.create_task(_deliver(url, payload))
+            _inflight.add(task)
+            task.add_done_callback(_inflight.discard)
         return len(urls)
-    except Exception:  # noqa: BLE001 — webhooks must never break intake
+    except Exception:  # webhooks must never break intake
         logger.exception("Scheduling incident webhooks failed")
         return 0

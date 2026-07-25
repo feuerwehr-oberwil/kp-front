@@ -85,7 +85,7 @@ async def _resolve_bias() -> tuple[str, str]:
             locality = cfg_locality
         if cfg_bbox:
             bbox = cfg_bbox
-    except Exception as e:  # never let config lookup break geocoding
+    except Exception as e:  # noqa: BLE001 — never let config lookup break geocoding
         logger.warning("Geocoder bias config lookup failed; using settings defaults: %s", e)
 
     _bias_cache = (now, (locality, bbox))

@@ -57,7 +57,7 @@ async def test_replayed_batch_is_idempotent(client, editor):
     assert r.json()["latest_seq"] == 2
 
     # …and a mixed batch only inserts the genuinely new row, continuing the seq
-    mixed = {"entries": _rows(2) + [{"id": "t9", "t": "15:00", "icon": "flag", "text": "neu"}]}
+    mixed = {"entries": [*_rows(2), {"id": "t9", "t": "15:00", "icon": "flag", "text": "neu"}]}
     r = await client.post(f"/api/incidents/{inc}/journal", json=mixed)
     assert [e["row"]["id"] for e in r.json()["entries"]] == ["t9"]
     assert r.json()["latest_seq"] == 3

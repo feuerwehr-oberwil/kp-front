@@ -97,6 +97,28 @@ browser. Everything below has been running in production at Feuerwehr Oberwil.
 - **Replay no longer throws on a long incident.** A `RangeError` could end the scrub.
 
 ### Changed
+- **The station print agent moved, and now serves both KP systems.** `tools/print_agent.py` is
+  retired; the agent lives in kp-rueck at
+  [`tools/print-agent/`](https://github.com/feuerwehr-oberwil/kp-rueck/tree/main/tools/print-agent)
+  and speaks both protocols, so a station running KP Front *and* KP Rück runs one service
+  instead of two agents on the same box reaching the same printer room.
+
+  **KP Front's endpoint contract is unchanged** — the agent was ported to it, not the other way
+  round — including the behaviour that matters: a queued CUPS job counts as pending rather than
+  failed, and `lp` options still append after the A4/duplex/monochrome defaults. Writing your own
+  agent against the documented endpoints remains entirely reasonable.
+
+  > **No action required.** An existing Pi keeps working, and the environment variables it
+  > already uses are read unchanged. When you do migrate, **stop the old agent first** — two
+  > agents polling one queue both claim jobs, so each job prints once, from whichever asked
+  > first. See [`tools/PRINT-AGENT.md`](tools/PRINT-AGENT.md).
+- **[`docs/RUNNING-BOTH.md`](docs/RUNNING-BOTH.md)** for stations running both systems on one
+  host: the places two independent stacks collide (ports, variable names that mean different
+  things, alarm secrets), plus a mapping table for the variables the two projects name
+  differently. Kept identical in both repositories.
+- **The generic alarm intake reserves the same `source` slugs as KP Rück.** Both now reject the
+  union of the two lists, so a station feeding one dispatch system into both apps can't pick a
+  name that one accepts and the other rejects.
 - **Day-one documentation for a station that isn't us.** A new
   [`docs/SETUP.md`](docs/SETUP.md) walks the ordered path from an empty Docker host to a usable
   board, [`SUPPORT.md`](SUPPORT.md) says plainly what may be expected from a one-person project

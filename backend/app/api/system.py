@@ -56,7 +56,7 @@ async def _database_ok(db: AsyncSession) -> dict:
         return {"ok": False}
 
 
-async def _count(db: AsyncSession, stmt) -> int | None:  # noqa: ANN001
+async def _count(db: AsyncSession, stmt) -> int | None:
     """Run a COUNT, returning None on failure so one bad query can't sink the section."""
     try:
         return int((await db.execute(stmt)).scalar_one())

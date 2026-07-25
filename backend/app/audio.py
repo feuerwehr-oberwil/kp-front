@@ -54,7 +54,7 @@ async def extract_peaks(src_path: str) -> list[float] | None:
         )
     except FileNotFoundError:
         return None
-    assert proc.stdout is not None
+    assert proc.stdout is not None  # noqa: S101 — narrows the Optional for the reader below; PIPE guarantees it
     coarse: list[int] = []
     buf = b""
     seg_bytes = _COARSE * 2
@@ -127,7 +127,9 @@ async def transcribe(src_path: str) -> list[dict]:
             data["language"] = settings.stt_language
         try:
             async with httpx.AsyncClient(timeout=STT_TIMEOUT_SEC) as client:
-                with open(ogg, "rb") as fh:
+                # ASYNC230 suppressed: the handle is not read here — it is handed to httpx, which
+                # streams it as multipart. Slurping it into memory first would be strictly worse.
+                with open(ogg, "rb") as fh:  # noqa: ASYNC230
                     r = await client.post(url, headers=headers, data=data,
                                           files={"file": ("audio.ogg", fh, "audio/ogg")})
         except httpx.HTTPError as e:

@@ -252,7 +252,7 @@ def _fetch_config_ids(client) -> tuple[set[str], set[str]] | None:
         groups = {g.get("id") for g in (cfg.get("alarms") or {}).get("groups", []) if isinstance(g, dict)}
         vehicles = {v.get("id") for v in (cfg.get("fleet") or {}).get("vehicles", []) if isinstance(v, dict)}
         return groups, vehicles
-    except Exception:
+    except Exception:  # noqa: BLE001 — a dev-only config probe; unknown ids just go unvalidated
         return None
 
 

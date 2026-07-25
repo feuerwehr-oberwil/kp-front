@@ -152,7 +152,7 @@ async def _run_stt(media_id: uuid.UUID, storage_key: str) -> None:
             payload = [{**s, "status": "open"} for s in segments]
         except audio.SttError as e:
             status, error, payload = "failed", str(e), None
-        except Exception:  # noqa: BLE001 — a crashed job must land as 'failed', not vanish
+        except Exception:  # a crashed job must land as 'failed', not vanish
             logger.exception("STT job crashed for media %s", media_id)  # keep the detail server-side
             status, error, payload = "failed", "Unerwarteter Fehler", None
         # resolved through the module so tests can point it at their loop-local factory

@@ -38,9 +38,7 @@ async def _session_valid(admin_session: str | None) -> bool:
     if payload.get("type") != "admin" or payload.get("scope") != "admin":
         return False
     jti = payload.get("jti")
-    if jti and await token_blocklist.is_revoked(jti):
-        return False
-    return True
+    return not (jti and await token_blocklist.is_revoked(jti))
 
 
 @router.get("/session")

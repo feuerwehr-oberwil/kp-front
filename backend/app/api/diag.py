@@ -94,7 +94,7 @@ async def report_client_error(
 ) -> None:
     """Log a client-reported error at WARNING (visible without DEBUG). Never raises."""
     ua = request.headers.get("user-agent", "?")[:300]
-    try:
+    try:  # noqa: SIM105 — contextlib.suppress would hide which call is the fragile one
         logger.warning(
             "client-error kind=%s build=%s path=%s ua=%s :: %s%s%s",
             payload.kind,
@@ -105,7 +105,7 @@ async def report_client_error(
             f"\n{payload.stack}" if payload.stack else "",
             f"\ncomponentStack:{payload.component_stack}" if payload.component_stack else "",
         )
-    except Exception:  # noqa: BLE001 — a diagnostics sink must never raise
+    except Exception:  # noqa: BLE001, S110 — a diagnostics sink must never raise
         pass
 
     # Second hop: only with consent, and only if we haven't already queued enough this hour.
@@ -180,7 +180,7 @@ async def submit_problem_report(
         )
         await outbox.enqueue(db, channel="report", payload=event)
         await db.commit()
-    except Exception:  # noqa: BLE001
+    except Exception:
         await db.rollback()
         logger.exception("problem report could not be queued")
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="queue-failed") from None

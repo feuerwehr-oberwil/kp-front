@@ -101,7 +101,7 @@ async def _seed_alarm(db_session, **kw) -> int:
     """Insert a pool alarm and return its divera_id."""
     from app.models import DiveraEmergency
 
-    defaults = dict(divera_id=4711, title="FEUER mittel", text="Rauch aus Fenster", address="Alte Gasse 1")
+    defaults = {"divera_id": 4711, "title": "FEUER mittel", "text": "Rauch aus Fenster", "address": "Alte Gasse 1"}
     em = DiveraEmergency(**{**defaults, **kw})
     db_session.add(em)
     await db_session.commit()

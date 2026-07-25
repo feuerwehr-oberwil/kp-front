@@ -270,7 +270,7 @@ def _num(value: object) -> float | None:
 
 def _int(value: object) -> int | None:
     f = _num(value)
-    return None if f is None else int(round(f))
+    return None if f is None else round(f)
 
 
 weather_client = WeatherClient()

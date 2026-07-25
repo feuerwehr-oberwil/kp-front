@@ -47,7 +47,7 @@ def patch_httpx(monkeypatch):
         transport = httpx.MockTransport(handler)
         orig_init = httpx.AsyncClient.__init__
 
-        def patched_init(self, *args, **kwargs):  # noqa: ANN001, ANN002, ANN003
+        def patched_init(self, *args, **kwargs):
             kwargs["transport"] = transport
             orig_init(self, *args, **kwargs)
 

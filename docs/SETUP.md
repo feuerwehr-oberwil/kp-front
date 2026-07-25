@@ -137,7 +137,8 @@ Every integration is fail-closed: no credential means the feature is off, not br
   relies on the Atemschutz clock, do this one.**
 - **Speech-to-text** – any OpenAI-compatible endpoint (Groq's free tier, OpenAI, or a self-hosted
   faster-whisper). Audio leaves your instance only if you set this.
-- **Station printer** – `PRINT_AGENT_SECRET` plus the polling agent from `tools/print_agent.py`.
+- **Station printer** – `PRINT_AGENT_SECRET` plus the polling agent, which now lives in
+  kp-rueck and serves both systems: see [`tools/PRINT-AGENT.md`](../tools/PRINT-AGENT.md).
 
 ## 6. Backups, before you rely on any of it
 

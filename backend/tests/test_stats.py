@@ -52,7 +52,7 @@ WS = {
 
 
 def _incident(**kw) -> Incident:
-    base = dict(title="Ölspur Hauptstrasse", source="manual", status="offen")
+    base = {"title": "Ölspur Hauptstrasse", "source": "manual", "status": "offen"}
     return Incident(**{**base, **kw})
 
 

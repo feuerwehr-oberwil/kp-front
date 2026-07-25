@@ -319,7 +319,13 @@ class DiveraTakeBody(BaseModel):
 
 
 # --- Generic alarm intake -------------------------------------------------------------
-RESERVED_ALARM_SOURCES = {"manual", "migrated", "divera"}
+# Slugs a generic sender may not claim. This is the UNION of what KP Front and KP Rück each
+# use internally, not just Front's own three ("manual", "migrated", "divera") — a station
+# running both feeds one dispatch system into both apps, and a slug accepted here but
+# rejected there would be a trap that only shows up on the second integration. Reserving a
+# name Front doesn't use costs nothing; it was never a valid external sender name anyway.
+# Keep in sync with kp-rueck's app/schemas/alarms.py. See docs/RUNNING-BOTH.md.
+RESERVED_ALARM_SOURCES = {"divera", "intake", "manual", "migrated", "operator", "training"}
 
 
 class AlarmIn(BaseModel):

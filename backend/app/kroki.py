@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import itertools
 import json
 import math
 from dataclasses import dataclass, field
@@ -190,7 +191,7 @@ def render_base(view: View, tile_url: str, cache: TileCache | None = None,
                     continue
                 try:
                     tile = Image.open(io.BytesIO(data)).convert("RGB")
-                except Exception:
+                except Exception:  # noqa: BLE001, S112 — one corrupt tile must not sink the map
                     continue
                 img.paste(tile, (int(tx * TILE - x0), int(ty * TILE - y0)))
     finally:
@@ -375,7 +376,7 @@ def _teilstueck_fork(overlay: Image.Image, pts: list[tuple[float, float]],
         f'<path d="M0,{half} L{prong},{half}"/>'
         f"</g></svg>"
     )
-    size = int(round(box))
+    size = round(box)
     fork = raster_svg(svg, size)
     overlay.alpha_composite(fork, (int(tip[0] - size / 2), int(tip[1] - size / 2)))
 
@@ -419,7 +420,7 @@ def _dashed(draw: ImageDraw.ImageDraw, pts: list[tuple[float, float]], color: st
     dash phase continuous across vertices."""
     period = dash + gap
     dist = 0.0  # cumulative length along the polyline
-    for (x1, y1), (x2, y2) in zip(pts, pts[1:]):
+    for (x1, y1), (x2, y2) in itertools.pairwise(pts):
         seg = math.hypot(x2 - x1, y2 - y1)
         if seg == 0:
             continue
@@ -516,7 +517,7 @@ def _hose_hint(m: float, hose_len: float = 20.0, reserve: float = 0.10) -> str:
 
 def _geodesic_m(coords: list[tuple[float, float]]) -> float:
     total = 0.0
-    for (lng1, lat1), (lng2, lat2) in zip(coords, coords[1:]):
+    for (lng1, lat1), (lng2, lat2) in itertools.pairwise(coords):
         dx = (lng2 - lng1) * 111320 * math.cos(math.radians((lat1 + lat2) / 2))
         dy = (lat2 - lat1) * 110540
         total += math.hypot(dx, dy)
@@ -605,7 +606,7 @@ def render_kroki(scene: KrokiScene, pack: SymbolPack, tile_url: str,
             draw.polygon([pt(a, b) for a, b in d["coords"]], fill=_hex_alpha(color, alpha))
     for d in scene.drawings:
         color = d.get("color") or "#1f6feb"
-        w = max(1, int(round((d.get("width") or 4) * u * ss)))
+        w = max(1, round((d.get("width") or 4) * u * ss))
         kind = d.get("kind")
         if kind == "circle" and d.get("coords"):
             lng, lat = d["coords"][0]
@@ -676,9 +677,9 @@ def render_kroki(scene: KrokiScene, pack: SymbolPack, tile_url: str,
             continue
         # shapes are sized in real-world metres (client shapePx); symbols use the band
         if e.get("sizeM"):
-            size = int(round(max(24.0, min(900.0, e["sizeM"] * px_per_m(lat, overlay_z))) * u * ss))
+            size = round(max(24.0, min(900.0, e["sizeM"] * px_per_m(lat, overlay_z))) * u * ss)
         else:
-            size = int(round(sym_px(e.get("kind", "symbol"), lat, overlay_z, sym_mul) * u * ss))
+            size = round(sym_px(e.get("kind", "symbol"), lat, overlay_z, sym_mul) * u * ss)
         glyph = raster_svg(svg, size)
         color = sym_color(svg)
         x, y = x0_, y0_
@@ -738,7 +739,7 @@ def render_plan_page(pdf_bytes: bytes, annos: list[dict], pack: SymbolPack | Non
     doc = pdfium.PdfDocument(pdf_bytes)
     try:
         page = doc[0]
-        pw, ph = page.get_size()
+        pw, _ph = page.get_size()
         scale = (width * ss) / pw
         base = page.render(scale=scale).to_pil().convert("RGBA")
     finally:
@@ -756,7 +757,7 @@ def render_blank_page(aspect: float, annos: list[dict], pack: SymbolPack | None,
     glyphs/text/strokes than a dense Modul-PDF to read well on paper."""
     aspect = max(0.2, min(4.0, aspect))
     ss = supersample
-    base = Image.new("RGBA", (width * ss, int(round(width * aspect)) * ss), (255, 255, 255, 255))
+    base = Image.new("RGBA", (width * ss, round(width * aspect) * ss), (255, 255, 255, 255))
     return _overlay_board_annos(base, annos, pack, width, supersample, ref_width)
 
 
@@ -775,7 +776,7 @@ def _overlay_board_annos(base: Image.Image, annos: list[dict], pack: SymbolPack 
     for a in annos:
         kind = a.get("kind")
         color = a.get("color") or "#1f6feb"
-        sw = max(1, int(round((a.get("width") or 4) * u * ss)))
+        sw = max(1, round((a.get("width") or 4) * u * ss))
         if kind in ("draw", "area") and len(a.get("pts") or []) >= 2:
             pts = [pp(px_, py_) for px_, py_ in a["pts"]]
             if kind == "area" and len(pts) >= 3:
@@ -796,7 +797,7 @@ def _overlay_board_annos(base: Image.Image, annos: list[dict], pack: SymbolPack 
                 continue
             # symbols print at a fixed 42px; generic shapes carry their size as a
             # fraction of the plan width (sizeN) — mirror of the on-screen sizing
-            size = int(round(a["sizeN"] * w)) if a.get("sizeN") else int(round(42 * u * ss))
+            size = round(a["sizeN"] * w) if a.get("sizeN") else round(42 * u * ss)
             glyph = raster_svg(svg, size)
             if a.get("rotation"):
                 glyph = glyph.rotate(-a["rotation"], expand=True, resample=Image.BICUBIC)
@@ -822,4 +823,4 @@ def _overlay_board_annos(base: Image.Image, annos: list[dict], pack: SymbolPack 
         _label_box(draw, xy, lines, int(fs))
 
     out = Image.alpha_composite(base, overlay)
-    return out.resize((width, int(round(h / ss))), Image.LANCZOS).convert("RGB")
+    return out.resize((width, round(h / ss)), Image.LANCZOS).convert("RGB")
