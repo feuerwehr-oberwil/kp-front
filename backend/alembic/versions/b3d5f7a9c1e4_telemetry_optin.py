@@ -6,7 +6,7 @@ station has to click something first. Same for ``telemetry_install_id``: no id i
 until the first payload is actually queued, so an instance that never opts in never even
 generates one.
 
-Revision ID: a1b2c3d4e5f6
+Revision ID: b3d5f7a9c1e4
 Revises: e9f0a1b2c3d4
 Create Date: 2026-07-25 18:30:00.000000
 """
@@ -17,7 +17,7 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 from alembic import op
 
-revision: str = 'a1b2c3d4e5f6'
+revision: str = 'b3d5f7a9c1e4'
 down_revision: str | None = 'e9f0a1b2c3d4'
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None

@@ -27,7 +27,7 @@ from .consent import CONSENT_OFF, env_allows_outbound, get_consent
 from .dsn import parse_dsn
 from .envelope import serialise_envelope
 
-logger = logging.getLogger("kpfront.telemetry")
+logger = logging.getLogger("kp.telemetry")
 
 # Short: the instance is not waiting on this, and a hung connection to our ingest must not
 # hold a scheduler slot. If it can't be delivered in 10s it can be delivered in 5 minutes.

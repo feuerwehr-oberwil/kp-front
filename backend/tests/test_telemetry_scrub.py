@@ -51,7 +51,9 @@ def test_absolute_paths_lose_everything_but_the_basename(raw: str):
         ("LV95 2611000.5, 1265000.2 out of range", "2611000"),
         ("Einsatz Hauptstrasse 12", "Hauptstrasse 12"),
         ("Brand Bahnhofweg 7a", "Bahnhofweg 7a"),
-        ("token=abc123def456", "abc123def456"),
+        # The FIXTURE for the rule that strips tokens, not a token. gitleaks reading it
+        # as one is the rule working, so it is annotated rather than weakened.
+        ("token=abc123def456", "abc123def456"),  # gitleaks:allow
         ("Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abc", "eyJhbGciOiJIUzI1NiJ9"),
         ("GET /api/incidents?token=s3cret&address=Dorfstrasse", "s3cret"),
     ],

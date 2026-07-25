@@ -25,7 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..config import settings
 from ..models import DeploymentConfig
 
-logger = logging.getLogger("kpfront.telemetry")
+logger = logging.getLogger("kp.telemetry")
 
 # The only two values the column may hold. 'off' and NULL are the same thing; NULL is what a
 # fresh or upgraded install has, which is why "off" is the default without any code running.

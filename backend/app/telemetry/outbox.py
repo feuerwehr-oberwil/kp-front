@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import TelemetryOutbox
 
-logger = logging.getLogger("kpfront.telemetry")
+logger = logging.getLogger("kp.telemetry")
 
 # How long a delivered row is kept so the deployer can still audit it after the fact. The
 # payload is already in their log too; this is the convenient copy, not the record.
