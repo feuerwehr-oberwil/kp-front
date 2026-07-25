@@ -47,11 +47,6 @@ const noFallback = new Set<string>()
 function setDegraded(v: boolean) {
   if (degraded === v) return
   degraded = v
-  // Remember the transition into degraded for the Rückmeldung prompt: the UI already tells the
-  // operator now, but «ist dabei etwas verlorengegangen?» can only be answered by them, later.
-  // Recorded here rather than in a listener so it is captured wherever the write happened, not
-  // only while the Offline-Bereitschaft sheet is mounted.
-  if (v) void import('./trouble').then((m) => m.recordTrouble('storageFull')).catch(() => {})
   degradedListeners.forEach((l) => l(v))
 }
 

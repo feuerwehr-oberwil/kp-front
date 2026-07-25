@@ -36,7 +36,8 @@ import { dismissAlarm, loadDismissedAlarms } from './lib/diveraDismiss'
 import { useIncidentWatch } from './lib/useIncidentWatch'
 import { pickBootIncident, sameIncidentList } from './lib/incidentAlerts'
 import { EinsatzWizard, DatenquellenPanel, FeedbackPrompt, FeedbackSheet, HistoryPanel, IncomingAlarmBanner, NewIncidentBanner, SettingsSheet } from './components/panels'
-import { pickTrouble, readTrouble, type TroubleEvent } from './lib/trouble'
+import { pickTrouble, readTrouble, recordTrouble, type TroubleEvent } from './lib/trouble'
+import { onStorageDegraded } from './lib/idb'
 import { HelpOverlay } from './components/HelpOverlay'
 
 
@@ -98,6 +99,11 @@ export default function App() {
   // incident, and by then this branch isn't rendered anyway.
   const [trouble, setTrouble] = useState<TroubleEvent | null>(() => pickTrouble(readTrouble(), Date.now()))
   const [feedbackFor, setFeedbackFor] = useState<TroubleEvent | 'plain' | null>(null)
+  // Note a full device storage for the same prompt. Subscribed here rather than inside
+  // lib/idb's setDegraded on purpose: that runs ON the failing write, and answering a failed
+  // localStorage write with ANOTHER localStorage write is both futile and a side effect on the
+  // one path that must stay minimal. App is mounted for the whole session, so nothing is missed.
+  useEffect(() => onStorageDegraded((d) => { if (d) recordTrouble('storageFull') }), [])
   // Divera alarm handed to the intake wizard for review/override (null = manual create)
   const [wizardSeed, setWizardSeed] = useState<DiveraAlarm | null>(null)
   // existing incident opened in the wizard for in-place correction (PATCH, not create)
