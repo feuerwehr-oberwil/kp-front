@@ -94,7 +94,7 @@ async def test_the_exact_payload_is_logged_before_it_is_queued(client, db_sessio
     # The transparency requirement: a deployer running default log levels can read what
     # left, in their own log, without being told to enable anything.
     await _set_consent(db_session, consent_mod.CONSENT_ERRORS)
-    with caplog.at_level(logging.INFO, logger="kpfront.telemetry"):
+    with caplog.at_level(logging.INFO, logger="kp.telemetry"):
         await client.post("/api/diag/client-error", json=A_CRASH)
     logged = "\n".join(r.getMessage() for r in caplog.records)
     assert "exact content follows" in logged
