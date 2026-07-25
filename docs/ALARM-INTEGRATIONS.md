@@ -41,6 +41,41 @@ curl -X POST "https://front.example.org/api/alarms?secret=$ALARM_WEBHOOK_SECRET"
 # → 201 {"incident_id": "…", "created": true}
 ```
 
+### Contract stability
+
+What a sender can rely on:
+
+- **Additive only.** New optional fields may appear; existing ones will not be removed,
+  renamed, or made stricter within a major version. Unknown fields in your payload are
+  **ignored**, so sending extra keys is safe and forward-compatible.
+- **A breaking change to this endpoint is a MAJOR release**, with the migration written up in
+  [`CHANGELOG.md`](../CHANGELOG.md). It will not happen in a patch.
+- **Idempotency is part of the contract**, not an implementation detail: retrying the same
+  `(source, source_id)` is always safe.
+
+### Talking to both KP Front and KP Rück
+
+KP Rück has an endpoint with the same name and the same idea, but the two are **independent
+implementations, not one shared specification** – they were built for different jobs and their
+payloads have drifted. If you are writing one sender for both, stay inside the portable subset:
+
+| Field | Portable | Notes |
+| --- | --- | --- |
+| `title` | ✅ required by both | KP Rück caps it at 255 characters |
+| `source` | ✅ | Keep it ≤16 chars and matching `^[a-z0-9][a-z0-9_-]*$` – KP Front is the stricter of the two |
+| `source_id` | ✅ **always send it** | **Required** by KP Front, optional in KP Rück |
+| `text`, `address` | ✅ | KP Rück caps them at 5000 / 500 characters |
+| `lat` + `lng` | ✅ | WGS84, both or neither |
+| `type`, `priority`, `started_at` | KP Front only | Ignored by KP Rück |
+| `number` | KP Rück only | Ignored by KP Front |
+
+Avoid the union of both reserved `source` slugs: `divera`, `manual`, `migrated`, `operator`,
+`intake`, `training`.
+
+**Do not share a response parser.** KP Front answers `{"incident_id": …, "created": …}`;
+KP Rück answers `{"status": …, "created": …, "emergency_id": …, "auto_attached_incident_id": …}`.
+Only `created` means the same thing in both.
+
 ### Milestone enrichment – `POST /api/alarms/milestones`
 
 The alarm pipeline can push per-group alarm times and per-vehicle Ausrück/Vor-Ort/Zurück
