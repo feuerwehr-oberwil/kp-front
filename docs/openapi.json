@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "kp-front API",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "paths": {
     "/health": {
@@ -834,6 +834,86 @@
         }
       }
     },
+    "/api/plan-scales": {
+      "get": {
+        "tags": [
+          "plan-scales"
+        ],
+        "summary": "Get Plan Scales",
+        "description": "PUBLIC — needed to measure on plans (viewers included) and cached offline at boot.\nNever raises: a malformed stored blob falls back to empty.",
+        "operationId": "get_plan_scales_api_plan_scales_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanScales"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "plan-scales"
+        ],
+        "summary": "Put Plan Scales",
+        "description": "Editor-only. Replaces the whole document (the client sends the merged result). Creates\nthe singleton row if the station has no config row yet.",
+        "operationId": "put_plan_scales_api_plan_scales_put",
+        "parameters": [
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanScales"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanScales"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/branding/{slot}": {
       "post": {
         "tags": [
@@ -1090,6 +1170,22 @@
               ],
               "title": "Access Token"
             }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
           }
         ],
         "responses": {
@@ -1289,6 +1385,57 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Delete Incident",
+        "description": "Hard delete — Übungen only. Real Einsätze are an append-only operational record and\nstay undeletable (403). Child rows (journal, audit chain, people, media, snapshots) go\nvia FK CASCADE; their storage blobs are removed best-effort first.",
+        "operationId": "delete_incident_api_incidents__incident_id__delete",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
           },
           "422": {
             "description": "Validation Error",
@@ -1910,6 +2057,322 @@
         }
       }
     },
+    "/api/media/{media_id}/peaks": {
+      "get": {
+        "tags": [
+          "media"
+        ],
+        "summary": "Get Peaks",
+        "operationId": "get_peaks_api_media__media_id__peaks_get",
+        "parameters": [
+          {
+            "name": "media_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Media Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media/{media_id}/transcribe": {
+      "post": {
+        "tags": [
+          "media"
+        ],
+        "summary": "Start Transcription",
+        "description": "First run → fresh engine call (202 + poll). An already-finished job → 200 with the\nexisting segments, dismissed ones re-opened: tapping Transkribieren again re-presents\nthe suggestions instead of returning nothing — and because POST responses are never\nHTTP-cached, this path also survives clients with a stale cached status GET. Confirmed\nsegments stay confirmed (re-opening them would invite duplicate journal rows).",
+        "operationId": "start_transcription_api_media__media_id__transcribe_post",
+        "parameters": [
+          {
+            "name": "media_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Media Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media/{media_id}/transcription": {
+      "get": {
+        "tags": [
+          "media"
+        ],
+        "summary": "Get Transcription",
+        "operationId": "get_transcription_api_media__media_id__transcription_get",
+        "parameters": [
+          {
+            "name": "media_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Media Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Transcription Api Media  Media Id  Transcription Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "media"
+        ],
+        "summary": "Delete Transcription",
+        "description": "Discard a transcription (drafts are working data — confirmed journal rows stay).\nResets the recording to 'no job', so Transkribieren can run fresh.",
+        "operationId": "delete_transcription_api_media__media_id__transcription_delete",
+        "parameters": [
+          {
+            "name": "media_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Media Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Delete Transcription Api Media  Media Id  Transcription Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media/{media_id}/transcription/segments/{index}": {
+      "patch": {
+        "tags": [
+          "media"
+        ],
+        "summary": "Patch Segment",
+        "operationId": "patch_segment_api_media__media_id__transcription_segments__index__patch",
+        "parameters": [
+          {
+            "name": "media_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Media Id"
+            }
+          },
+          {
+            "name": "index",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Index"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SegmentPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Patch Segment Api Media  Media Id  Transcription Segments  Index  Patch"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/divera/webhook": {
       "post": {
         "tags": [
@@ -2048,6 +2511,22 @@
               ],
               "title": "Access Token"
             }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
           }
         ],
         "responses": {
@@ -2151,6 +2630,77 @@
         }
       }
     },
+    "/api/divera/pool/{divera_id}/attach/{incident_id}": {
+      "post": {
+        "tags": [
+          "divera"
+        ],
+        "summary": "Attach",
+        "description": "Attach a pool alarm to an EXISTING incident instead of opening a new one.\n\nThe dispatch center may split one physical Einsatz into several Divera alarms\n(re-worded group dispatches, Nachalarm); taking each would create duplicate\nincidents (2026-07-15: PIO's GPS milestones landed in a duplicate nobody had\nopen). Attach marks the alarm taken against the existing incident, so milestone\nrouting (`/api/alarms/milestones`) follows it there via `taken_incident_id`.\nThe incident's own title/address/coords are deliberately NOT touched — the\nalarm's Meldung lands as a Verlauf row instead.",
+        "operationId": "attach_api_divera_pool__divera_id__attach__incident_id__post",
+        "parameters": [
+          {
+            "name": "divera_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Divera Id"
+            }
+          },
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Attach Api Divera Pool  Divera Id  Attach  Incident Id  Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/divera/pool/{divera_id}": {
       "delete": {
         "tags": [
@@ -2211,6 +2761,1076 @@
         }
       }
     },
+    "/api/alarms": {
+      "post": {
+        "tags": [
+          "alarms"
+        ],
+        "summary": "Intake",
+        "description": "Receive an alarm. Secret via ?secret= or X-Webhook-Secret (same convention as the\nDivera webhook). Returns 201 with the new incident id, or 200 with the existing one\nwhen the same (source, source_id) was already delivered.",
+        "operationId": "intake_api_alarms_post",
+        "parameters": [
+          {
+            "name": "x-webhook-secret",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Webhook-Secret"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlarmIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlarmOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/alarms/milestones": {
+      "post": {
+        "tags": [
+          "alarms"
+        ],
+        "summary": "Milestones",
+        "description": "Apply milestone times to an existing incident. 404 while no incident matches —\nthe sender retries with backoff (dispatch precedes take/auto-open by minutes at most).",
+        "operationId": "milestones_api_alarms_milestones_post",
+        "parameters": [
+          {
+            "name": "x-webhook-secret",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Webhook-Secret"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MilestonesIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MilestonesOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/capture/secret": {
+      "get": {
+        "tags": [
+          "capture"
+        ],
+        "summary": "Get Capture Secret",
+        "operationId": "get_capture_secret_api_capture_secret_get",
+        "parameters": [
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Capture Secret Api Capture Secret Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "capture"
+        ],
+        "summary": "Disable Capture",
+        "operationId": "disable_capture_api_capture_secret_delete",
+        "parameters": [
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Disable Capture Api Capture Secret Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/capture/secret/rotate": {
+      "post": {
+        "tags": [
+          "capture"
+        ],
+        "summary": "Rotate Capture Secret",
+        "description": "Mint a fresh poster secret — every previously printed poster stops working at once.",
+        "operationId": "rotate_capture_secret_api_capture_secret_rotate_post",
+        "parameters": [
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Rotate Capture Secret Api Capture Secret Rotate Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/capture/incidents": {
+      "get": {
+        "tags": [
+          "capture"
+        ],
+        "summary": "List Capture Incidents",
+        "operationId": "list_capture_incidents_api_capture_incidents_get",
+        "parameters": [
+          {
+            "name": "x-capture-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Capture-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/IncidentMeta"
+                  },
+                  "title": "Response List Capture Incidents Api Capture Incidents Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/capture/roster": {
+      "get": {
+        "tags": [
+          "capture"
+        ],
+        "summary": "Capture Roster",
+        "description": "Active Mannschaft for the attendance checklist + «Wer erfasst?» attribution picker.",
+        "operationId": "capture_roster_api_capture_roster_get",
+        "parameters": [
+          {
+            "name": "x-capture-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Capture-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PersonnelOut"
+                  },
+                  "title": "Response Capture Roster Api Capture Roster Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/capture/incidents/{incident_id}/status": {
+      "get": {
+        "tags": [
+          "capture"
+        ],
+        "summary": "Capture Incident Status",
+        "description": "Tiny cross-visibility poll for the open capture form: has the KP tablet opened this\nincident (the editor_opened_at latch)? The form polls ~45 s ONLY while false — once\ntrue it stays true (latched), so the common case costs zero polls after the initial\nlist load (which already carries editor_opened_at).",
+        "operationId": "capture_incident_status_api_capture_incidents__incident_id__status_get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "x-capture-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Capture-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Capture Incident Status Api Capture Incidents  Incident Id  Status Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/capture/incidents/{incident_id}/workspace": {
+      "get": {
+        "tags": [
+          "capture"
+        ],
+        "summary": "Capture Get Workspace",
+        "operationId": "capture_get_workspace_api_capture_incidents__incident_id__workspace_get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "x-capture-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Capture-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "capture"
+        ],
+        "summary": "Capture Put Workspace",
+        "description": "Same optimistic-concurrency save as the editor endpoint (shared helper), so capture\nedits merge with a live KP tablet exactly like a second editor would.",
+        "operationId": "capture_put_workspace_api_capture_incidents__incident_id__workspace_put",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "x-capture-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Capture-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspacePut"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/capture/incidents/{incident_id}/verify": {
+      "get": {
+        "tags": [
+          "capture"
+        ],
+        "summary": "Capture Verify Chain",
+        "description": "Read-only audit-chain check for the capture Rapport-PDF — same output as the\neditor endpoint, so the QR-generated PDF shows a real Prüfnachweis.",
+        "operationId": "capture_verify_chain_api_capture_incidents__incident_id__verify_get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "x-capture-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Capture-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Capture Verify Chain Api Capture Incidents  Incident Id  Verify Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/capture/incidents/{incident_id}/report/pdf": {
+      "post": {
+        "tags": [
+          "capture"
+        ],
+        "summary": "Capture Report Pdf",
+        "description": "Data-only Rapport-PDF for the capture view (no kiosk cookie there — poster token\nauth). Same composer as the editor endpoint; journal photos resolve from the media\nstore server-side (the poster token never carried the media cookie, so the old\nclient-side photo fetch silently dropped them). Read-only output.",
+        "operationId": "capture_report_pdf_api_capture_incidents__incident_id__report_pdf_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "x-capture-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Capture-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_capture_report_pdf_api_capture_incidents__incident_id__report_pdf_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/capture/print/status": {
+      "get": {
+        "tags": [
+          "capture"
+        ],
+        "summary": "Capture Print Status",
+        "operationId": "capture_print_status_api_capture_print_status_get",
+        "parameters": [
+          {
+            "name": "x-capture-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Capture-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Capture Print Status Api Capture Print Status Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/capture/incidents/{incident_id}/report/print": {
+      "post": {
+        "tags": [
+          "capture"
+        ],
+        "summary": "Capture Report Print",
+        "description": "Queue the data-only Rapport-PDF on the station printer — the phone needs no\nprinter setup, possession of the poster token is the authority (same as the PDF).",
+        "operationId": "capture_report_print_api_capture_incidents__incident_id__report_print_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "x-capture-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Capture-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_capture_report_print_api_capture_incidents__incident_id__report_print_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Capture Report Print Api Capture Incidents  Incident Id  Report Print Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/capture/print-jobs/{job_id}": {
+      "get": {
+        "tags": [
+          "capture"
+        ],
+        "summary": "Capture Print Job",
+        "description": "Poll a just-queued job's lifecycle (queued → printing → done/failed) for the live\ntoast. Token holders may only read jobs of incidents still reachable through the poster.",
+        "operationId": "capture_print_job_api_capture_print_jobs__job_id__get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "x-capture-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Capture-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Capture Print Job Api Capture Print Jobs  Job Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "capture"
+        ],
+        "summary": "Capture Print Cancel",
+        "description": "Rückgängig for a just-queued job. Token holders may only touch jobs of incidents\nstill reachable through the poster (and never already-claimed ones).",
+        "operationId": "capture_print_cancel_api_capture_print_jobs__job_id__delete",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "x-capture-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Capture-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Capture Print Cancel Api Capture Print Jobs  Job Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/capture/incidents/{incident_id}/journal": {
+      "get": {
+        "tags": [
+          "capture"
+        ],
+        "summary": "Capture Read Journal",
+        "description": "Read-only Verlauf for the capture view's data-only Rapport-PDF.",
+        "operationId": "capture_read_journal_api_capture_incidents__incident_id__journal_get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "x-capture-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Capture-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JournalPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "capture"
+        ],
+        "summary": "Capture Append Journal",
+        "operationId": "capture_append_journal_api_capture_incidents__incident_id__journal_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "x-capture-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Capture-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JournalAppendIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JournalPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/personnel": {
       "get": {
         "tags": [
@@ -2244,6 +3864,22 @@
                 }
               ],
               "title": "Access Token"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
             }
           }
         ],
@@ -2296,6 +3932,22 @@
                 }
               ],
               "title": "Access Token"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
             }
           }
         ],
@@ -2367,6 +4019,22 @@
               ],
               "title": "Access Token"
             }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
           }
         ],
         "requestBody": {
@@ -2435,6 +4103,22 @@
               ],
               "title": "Access Token"
             }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
           }
         ],
         "responses": {
@@ -2469,7 +4153,7 @@
           "personnel"
         ],
         "summary": "Import Csv",
-        "description": "Import a UTF-8 CSV (header row required). Columns: ``name`` (→ display_name,\nrequired), ``divera_id`` (int, optional) and ``rank`` (optional — key/label/abbr of a\nconfigured Dienstgrad, mapped to a rank key). Upsert by divera_id when present, else\ncreate. Bad rows are skipped and collected into ``errors``.",
+        "description": "Import a UTF-8 CSV. ``name`` is required; ``rank`` is optional. Provider-neutral\n``provider`` + ``external_id`` columns may upsert an externally managed record. The legacy\n``divera_id`` column remains accepted during the compatibility window.",
         "operationId": "import_csv_api_personnel_import_csv_post",
         "parameters": [
           {
@@ -2486,6 +4170,22 @@
                 }
               ],
               "title": "Access Token"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
             }
           }
         ],
@@ -2548,6 +4248,22 @@
               ],
               "title": "Access Token"
             }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
           }
         ],
         "responses": {
@@ -2597,6 +4313,22 @@
               ],
               "title": "Access Token"
             }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
           }
         ],
         "requestBody": {
@@ -2640,6 +4372,121 @@
         }
       }
     },
+    "/api/traccar/fake": {
+      "post": {
+        "tags": [
+          "traccar"
+        ],
+        "summary": "Set Fake Positions",
+        "description": "Replace the injected fake fleet (secret via ?secret= or X-Webhook-Secret).",
+        "operationId": "set_fake_positions_api_traccar_fake_post",
+        "parameters": [
+          {
+            "name": "x-webhook-secret",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Webhook-Secret"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/FakeVehicleIn"
+                },
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Set Fake Positions Api Traccar Fake Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "traccar"
+        ],
+        "summary": "Clear Fake Positions",
+        "operationId": "clear_fake_positions_api_traccar_fake_delete",
+        "parameters": [
+          {
+            "name": "x-webhook-secret",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Webhook-Secret"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Clear Fake Positions Api Traccar Fake Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/traccar/status": {
       "get": {
         "tags": [
@@ -2662,6 +4509,22 @@
                 }
               ],
               "title": "Access Token"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
             }
           }
         ],
@@ -2713,6 +4576,22 @@
                 }
               ],
               "title": "Access Token"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
             }
           }
         ],
@@ -2776,6 +4655,22 @@
                 }
               ],
               "title": "Access Token"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
             }
           }
         ],
@@ -3052,6 +4947,22 @@
                 }
               ],
               "title": "Access Token"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
             }
           }
         ],
@@ -3420,6 +5331,22 @@
                 }
               ],
               "title": "Access Token"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
             }
           }
         ],
@@ -4629,6 +6556,732 @@
         }
       }
     },
+    "/api/print/status": {
+      "get": {
+        "tags": [
+          "print-relay"
+        ],
+        "summary": "Get Print Status",
+        "description": "Availability + heartbeat freshness for the «An Stationsdrucker» button.",
+        "operationId": "get_print_status_api_print_status_get",
+        "parameters": [
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Print Status Api Print Status Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incidents/{incident_id}/report/print": {
+      "post": {
+        "tags": [
+          "print-relay"
+        ],
+        "summary": "Report Print",
+        "operationId": "report_print_api_incidents__incident_id__report_print_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_report_print_api_incidents__incident_id__report_print_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Report Print Api Incidents  Incident Id  Report Print Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incidents/{incident_id}/report/print/prewarm": {
+      "post": {
+        "tags": [
+          "print-relay"
+        ],
+        "summary": "Report Print Prewarm",
+        "description": "Speculatively warm the map-tile cache when the rapport modal opens, so the real\nenqueue render is near-instant. Best-effort: no printer side effects, never fails hard.",
+        "operationId": "report_print_prewarm_api_incidents__incident_id__report_print_prewarm_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_report_print_prewarm_api_incidents__incident_id__report_print_prewarm_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Report Print Prewarm Api Incidents  Incident Id  Report Print Prewarm Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/print-jobs/{job_id}": {
+      "get": {
+        "tags": [
+          "print-relay"
+        ],
+        "summary": "Report Print Job",
+        "operationId": "report_print_job_api_print_jobs__job_id__get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Report Print Job Api Print Jobs  Job Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "print-relay"
+        ],
+        "summary": "Report Print Cancel",
+        "operationId": "report_print_cancel_api_print_jobs__job_id__delete",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Report Print Cancel Api Print Jobs  Job Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/print-agent/claim": {
+      "post": {
+        "tags": [
+          "print-relay"
+        ],
+        "summary": "Agent Claim",
+        "description": "Long-poll: claim the oldest queued job (→ metadata JSON), or hang up to CLAIM_HANG_SEC\nand answer 204 when the queue stays idle. Woken instantly by `_job_ready` on enqueue.\nEvery call is also the heartbeat that keeps the relay «online» in the UI.",
+        "operationId": "agent_claim_api_print_agent_claim_post",
+        "parameters": [
+          {
+            "name": "x-print-agent-secret",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Print-Agent-Secret"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/print-agent/jobs/{job_id}/file": {
+      "get": {
+        "tags": [
+          "print-relay"
+        ],
+        "summary": "Agent Job File",
+        "operationId": "agent_job_file_api_print_agent_jobs__job_id__file_get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "x-print-agent-secret",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Print-Agent-Secret"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/print-agent/jobs/{job_id}/status": {
+      "post": {
+        "tags": [
+          "print-relay"
+        ],
+        "summary": "Agent Job Status",
+        "operationId": "agent_job_status_api_print_agent_jobs__job_id__status_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "x-print-agent-secret",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Print-Agent-Secret"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentJobStatus"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Agent Job Status Api Print Agent Jobs  Job Id  Status Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stats/secret": {
+      "get": {
+        "tags": [
+          "stats"
+        ],
+        "summary": "Get Stats Secret",
+        "operationId": "get_stats_secret_api_stats_secret_get",
+        "parameters": [
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Stats Secret Api Stats Secret Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "stats"
+        ],
+        "summary": "Disable Stats",
+        "operationId": "disable_stats_api_stats_secret_delete",
+        "parameters": [
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Disable Stats Api Stats Secret Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stats/secret/rotate": {
+      "post": {
+        "tags": [
+          "stats"
+        ],
+        "summary": "Rotate Stats Secret",
+        "description": "Mint a fresh export token — every consumer must be reconfigured at once.",
+        "operationId": "rotate_stats_secret_api_stats_secret_rotate_post",
+        "parameters": [
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Rotate Stats Secret Api Stats Secret Rotate Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stats/incidents": {
+      "get": {
+        "tags": [
+          "stats"
+        ],
+        "summary": "Stats Incidents",
+        "description": "All incidents (optionally one local calendar year), oldest first, flat records.\n\nÜbungen are excluded by default — they must not land in the WinFAP/fwo-stats numbers;\n?include_exercises=1 exports them too (each record carries is_exercise).",
+        "operationId": "stats_incidents_api_stats_incidents_get",
+        "parameters": [
+          {
+            "name": "year",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 2100,
+                  "minimum": 2000
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Year"
+            }
+          },
+          {
+            "name": "include_exercises",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Exercises"
+            }
+          },
+          {
+            "name": "x-stats-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Stats-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response Stats Incidents Api Stats Incidents Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/system": {
       "get": {
         "tags": [
@@ -4732,6 +7385,306 @@
         ],
         "title": "AdminLogin"
       },
+      "AgentJobStatus": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "AgentJobStatus"
+      },
+      "AlarmGroup": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Label"
+          },
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "winfapAlias": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Winfapalias"
+          },
+          "tagespikett": {
+            "type": "boolean",
+            "title": "Tagespikett",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "AlarmGroup",
+        "description": "One station alarm group for the Alarmierungs-/Ausrückzeiten grid. `id` must match\nwhat the milestone sender uses; `tagespikett` marks the day-duty group."
+      },
+      "AlarmIn": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "maxLength": 16,
+            "minLength": 1,
+            "pattern": "^[a-z0-9][a-z0-9_-]*$",
+            "title": "Source",
+            "default": "webhook"
+          },
+          "source_id": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Source Id"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Title"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "lat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lat"
+          },
+          "lng": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lng"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "HIGH",
+                  "LOW"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_id",
+          "title"
+        ],
+        "title": "AlarmIn",
+        "description": "Generic alarm-intake payload (`POST /api/alarms`) for non-Divera alerting systems.\n\n`source` names the sender (a short slug, one per upstream system); `source_id` is the\nsender's alarm id — together they dedupe, so a retried webhook returns the existing\nincident instead of duplicating it. `type`/`priority` fall back to the same keyword\ninference the Divera path uses."
+      },
+      "AlarmOut": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "created": {
+            "type": "boolean",
+            "title": "Created"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id",
+          "created"
+        ],
+        "title": "AlarmOut"
+      },
+      "AlarmsConfig": {
+        "properties": {
+          "autoOpen": {
+            "type": "boolean",
+            "title": "Autoopen",
+            "default": false
+          },
+          "autoOpenPriorities": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "HIGH",
+                    "LOW"
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Autoopenpriorities"
+          },
+          "autoOpenKeywords": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Autoopenkeywords"
+          },
+          "autoArchiveDays": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Autoarchivedays",
+            "default": 7
+          },
+          "captureWindowHours": {
+            "type": "integer",
+            "maximum": 168.0,
+            "minimum": 1.0,
+            "title": "Capturewindowhours",
+            "default": 12
+          },
+          "webhooks": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Webhooks"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/AlarmGroup"
+            },
+            "type": "array",
+            "title": "Groups"
+          }
+        },
+        "type": "object",
+        "title": "AlarmsConfig",
+        "description": "Alarm handling: auto-open incidents from incoming alarms + auto-archive of untouched\nauto-opened ones. `autoOpen` gates the Divera pool path (the generic `/api/alarms`\nintake always creates — configuring its secret is the opt-in). Filters are None =\naccept all; keywords match as case-insensitive substrings of title+text."
+      },
+      "Body_capture_report_pdf_api_capture_incidents__incident_id__report_pdf_post": {
+        "properties": {
+          "payload": {
+            "type": "string",
+            "title": "Payload"
+          }
+        },
+        "type": "object",
+        "required": [
+          "payload"
+        ],
+        "title": "Body_capture_report_pdf_api_capture_incidents__incident_id__report_pdf_post"
+      },
+      "Body_capture_report_print_api_capture_incidents__incident_id__report_print_post": {
+        "properties": {
+          "payload": {
+            "type": "string",
+            "title": "Payload"
+          }
+        },
+        "type": "object",
+        "required": [
+          "payload"
+        ],
+        "title": "Body_capture_report_print_api_capture_incidents__incident_id__report_print_post"
+      },
       "Body_import_csv_api_personnel_import_csv_post": {
         "properties": {
           "file": {
@@ -4803,6 +7756,32 @@
           "payload"
         ],
         "title": "Body_report_pdf_api_incidents__incident_id__report_pdf_post"
+      },
+      "Body_report_print_api_incidents__incident_id__report_print_post": {
+        "properties": {
+          "payload": {
+            "type": "string",
+            "title": "Payload"
+          }
+        },
+        "type": "object",
+        "required": [
+          "payload"
+        ],
+        "title": "Body_report_print_api_incidents__incident_id__report_print_post"
+      },
+      "Body_report_print_prewarm_api_incidents__incident_id__report_print_prewarm_post": {
+        "properties": {
+          "payload": {
+            "type": "string",
+            "title": "Payload"
+          }
+        },
+        "type": "object",
+        "required": [
+          "payload"
+        ],
+        "title": "Body_report_print_prewarm_api_incidents__incident_id__report_print_prewarm_post"
       },
       "Body_upload_branding_api_branding__slot__post": {
         "properties": {
@@ -4951,6 +7930,27 @@
             "type": "boolean",
             "title": "Traccarconfigured",
             "default": false
+          },
+          "sttConfigured": {
+            "type": "boolean",
+            "title": "Sttconfigured",
+            "default": false
+          },
+          "personnel": {
+            "$ref": "#/components/schemas/ProviderCapability"
+          },
+          "alarms": {
+            "$ref": "#/components/schemas/ProviderCapability"
+          },
+          "vehicles": {
+            "$ref": "#/components/schemas/ProviderCapability"
+          },
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderRegistration"
+            },
+            "type": "array",
+            "title": "Providers"
           }
         },
         "type": "object",
@@ -4990,6 +7990,15 @@
           },
           "mittel": {
             "$ref": "#/components/schemas/MittelConfig"
+          },
+          "journal": {
+            "$ref": "#/components/schemas/JournalConfig"
+          },
+          "alarms": {
+            "$ref": "#/components/schemas/AlarmsConfig"
+          },
+          "report": {
+            "$ref": "#/components/schemas/ReportConfig"
           }
         },
         "type": "object",
@@ -5029,6 +8038,15 @@
           },
           "mittel": {
             "$ref": "#/components/schemas/MittelConfig"
+          },
+          "journal": {
+            "$ref": "#/components/schemas/JournalConfig"
+          },
+          "alarms": {
+            "$ref": "#/components/schemas/AlarmsConfig"
+          },
+          "report": {
+            "$ref": "#/components/schemas/ReportConfig"
           },
           "integrations": {
             "$ref": "#/components/schemas/ConfigIntegrations"
@@ -5368,17 +8386,6 @@
             ],
             "title": "Funkkanalmax"
           },
-          "rueckzugBar": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Rueckzugbar"
-          },
           "mindestBar": {
             "anyOf": [
               {
@@ -5583,6 +8590,70 @@
         ],
         "title": "EventOut"
       },
+      "FakeVehicleIn": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "lat": {
+            "type": "number",
+            "title": "Lat"
+          },
+          "lng": {
+            "type": "number",
+            "title": "Lng"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "online"
+          },
+          "speed": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speed"
+          },
+          "course": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "lat",
+          "lng"
+        ],
+        "title": "FakeVehicleIn",
+        "description": "One fake vehicle position. `name` should match a `fleet.vehicles[].id`/label so the\nmap and the milestone times tell the same story."
+      },
       "FleetAttributeList": {
         "properties": {
           "symbol": {
@@ -5611,6 +8682,13 @@
       },
       "FleetConfig": {
         "properties": {
+          "vehicles": {
+            "items": {
+              "$ref": "#/components/schemas/FleetVehicle"
+            },
+            "type": "array",
+            "title": "Vehicles"
+          },
           "attributeLists": {
             "items": {
               "$ref": "#/components/schemas/FleetAttributeList"
@@ -5686,6 +8764,38 @@
         },
         "type": "object",
         "title": "FleetPartner"
+      },
+      "FleetVehicle": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Label"
+          },
+          "winfapAlias": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Winfapalias"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "FleetVehicle",
+        "description": "One station vehicle for the Alarmierungs-/Ausrückzeiten grid (rapport form, paper\nErfassungsblatt, milestone webhook matching, stats export). `id` should equal the\nsender's device name (Traccar convention, e.g. 'tlf') — matching is a plain string\ncompare. Empty `fleet.vehicles` (default) hides every vehicle-times surface."
       },
       "GeoHit": {
         "properties": {
@@ -5822,6 +8932,17 @@
             ],
             "title": "Helpintro"
           },
+          "kommandant": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kommandant"
+          },
           "demoMode": {
             "anyOf": [
               {
@@ -5933,6 +9054,11 @@
             ],
             "title": "Started At"
           },
+          "is_exercise": {
+            "type": "boolean",
+            "title": "Is Exercise",
+            "default": false
+          },
           "details_json": {
             "anyOf": [
               {
@@ -6037,6 +9163,22 @@
             "type": "string",
             "title": "Source"
           },
+          "source_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Ref"
+          },
+          "auto_opened": {
+            "type": "boolean",
+            "title": "Auto Opened",
+            "default": false
+          },
           "started_at": {
             "type": "string",
             "format": "date-time",
@@ -6057,6 +9199,52 @@
           "is_archived": {
             "type": "boolean",
             "title": "Is Archived"
+          },
+          "is_exercise": {
+            "type": "boolean",
+            "title": "Is Exercise",
+            "default": false
+          },
+          "report_done_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Done At"
+          },
+          "editor_opened_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Editor Opened At"
+          },
+          "capture_writes": {
+            "type": "integer",
+            "title": "Capture Writes",
+            "default": 0
+          },
+          "capture_last_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capture Last At"
           },
           "workspace_rev": {
             "type": "integer",
@@ -6219,6 +9407,22 @@
             "type": "string",
             "title": "Source"
           },
+          "source_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Ref"
+          },
+          "auto_opened": {
+            "type": "boolean",
+            "title": "Auto Opened",
+            "default": false
+          },
           "started_at": {
             "type": "string",
             "format": "date-time",
@@ -6239,6 +9443,52 @@
           "is_archived": {
             "type": "boolean",
             "title": "Is Archived"
+          },
+          "is_exercise": {
+            "type": "boolean",
+            "title": "Is Exercise",
+            "default": false
+          },
+          "report_done_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Done At"
+          },
+          "editor_opened_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Editor Opened At"
+          },
+          "capture_writes": {
+            "type": "integer",
+            "title": "Capture Writes",
+            "default": 0
+          },
+          "capture_last_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capture Last At"
           },
           "workspace_rev": {
             "type": "integer",
@@ -6394,6 +9644,29 @@
               }
             ],
             "title": "Is Archived"
+          },
+          "is_exercise": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Exercise"
+          },
+          "report_done_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Done At"
           }
         },
         "type": "object",
@@ -6416,6 +9689,20 @@
         ],
         "title": "JournalAppendIn",
         "description": "Batch of Verlauf rows (frontend TimelineEvent dicts, stored verbatim). The row's\nown `id` is the idempotency key; a 32 KB per-row cap keeps a bad client from turning\nthe journal into blob storage (photos/audio go through /media, never in rows)."
+      },
+      "JournalConfig": {
+        "properties": {
+          "quickPhrases": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Quickphrases"
+          }
+        },
+        "type": "object",
+        "title": "JournalConfig",
+        "description": "Journal composer configuration: the station's Textbausteine (quick phrases) —\ntappable chips that pre-fill the entry text. Empty = the app's national defaults."
       },
       "JournalEntryOut": {
         "properties": {
@@ -6598,6 +9885,157 @@
         "type": "object",
         "title": "MapGeocoder"
       },
+      "MilestoneGroup": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Id"
+          },
+          "alarmedAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Alarmedat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "alarmedAt"
+        ],
+        "title": "MilestoneGroup",
+        "description": "One alarmed group: id matches `alarms.groups[].id` in the deployment config."
+      },
+      "MilestoneVehicle": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Id"
+          },
+          "ausgerueckt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ausgerueckt"
+          },
+          "vorOrt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vorort"
+          },
+          "zurueck": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zurueck"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "MilestoneVehicle",
+        "description": "Per-vehicle timeline milestones: id matches `fleet.vehicles[].id` (Traccar name)."
+      },
+      "MilestonesIn": {
+        "properties": {
+          "divera_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Divera Id"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 16,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/MilestoneGroup"
+            },
+            "type": "array",
+            "title": "Groups"
+          },
+          "vehicles": {
+            "items": {
+              "$ref": "#/components/schemas/MilestoneVehicle"
+            },
+            "type": "array",
+            "title": "Vehicles"
+          }
+        },
+        "type": "object",
+        "title": "MilestonesIn",
+        "description": "`POST /api/alarms/milestones` — alarm/vehicle timeline enrichment from the alarm\npipeline (e.g. fwo-divera's Traccar state machine). Targets an existing incident by\n`divera_id` OR by the generic-intake `(source, source_id)` pair; 404 while it doesn't\nexist yet (senders retry). Idempotent per-key upsert; operator-edited entries\n(`manual: true` in the workspace) are never overwritten."
+      },
+      "MilestonesOut": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "applied": {
+            "type": "integer",
+            "title": "Applied"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id",
+          "applied"
+        ],
+        "title": "MilestonesOut"
+      },
       "MittelConfig": {
         "properties": {
           "catalogue": {
@@ -6664,6 +10102,22 @@
             },
             "type": "array",
             "title": "Stock"
+          },
+          "symbol": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbol"
+          },
+          "verbrauchbar": {
+            "type": "boolean",
+            "title": "Verbrauchbar",
+            "default": false
           }
         },
         "type": "object",
@@ -7256,6 +10710,30 @@
         "title": "PersonnelCreate",
         "description": "Manually add a crew member. ``divera_id`` is normally null (hand entry); a bare\nname is enough."
       },
+      "PersonnelExternalIdentityOut": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "external_id": {
+            "type": "string",
+            "title": "External Id"
+          },
+          "synced_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Synced At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "external_id",
+          "synced_at"
+        ],
+        "title": "PersonnelExternalIdentityOut"
+      },
       "PersonnelOut": {
         "properties": {
           "id": {
@@ -7273,6 +10751,13 @@
               }
             ],
             "title": "Divera Id"
+          },
+          "external_identities": {
+            "items": {
+              "$ref": "#/components/schemas/PersonnelExternalIdentityOut"
+            },
+            "type": "array",
+            "title": "External Identities"
           },
           "display_name": {
             "type": "string",
@@ -7499,6 +10984,126 @@
           "pin"
         ],
         "title": "PinReset"
+      },
+      "PlanScale": {
+        "properties": {
+          "mPerU": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Mperu"
+          },
+          "refM": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Refm"
+          },
+          "ar": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Ar"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mPerU",
+          "refM",
+          "ar"
+        ],
+        "title": "PlanScale",
+        "description": "Metres per aspect-corrected normalized unit + the reference/aspect it was derived at\n(mirrors src/lib/planScale.ts PlanScale)."
+      },
+      "PlanScales": {
+        "properties": {
+          "default": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlanScale"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "byPlan": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PlanScale"
+            },
+            "type": "object",
+            "title": "Byplan"
+          }
+        },
+        "type": "object",
+        "title": "PlanScales",
+        "description": "The station calibration document: one default + per-plan overrides (planId → scale)."
+      },
+      "ProviderCapability": {
+        "properties": {
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "configured": {
+            "type": "boolean",
+            "title": "Configured",
+            "default": false
+          },
+          "capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Capabilities"
+          }
+        },
+        "type": "object",
+        "title": "ProviderCapability"
+      },
+      "ProviderRegistration": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "domain": {
+            "type": "string",
+            "enum": [
+              "personnel",
+              "alarms",
+              "vehicles"
+            ],
+            "title": "Domain"
+          },
+          "configured": {
+            "type": "boolean",
+            "title": "Configured"
+          },
+          "active": {
+            "type": "boolean",
+            "title": "Active"
+          },
+          "capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Capabilities"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "domain",
+          "configured",
+          "active"
+        ],
+        "title": "ProviderRegistration"
       },
       "RankConfig": {
         "properties": {
@@ -7826,11 +11431,39 @@
               }
             ],
             "title": "Attribution"
+          },
+          "autoActivate": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Autoactivate"
           }
         },
         "type": "object",
         "title": "ReferenceLayerConfig",
         "description": "A station-supplied reference layer (raster WMS/WMTS or vector GeoJSON).\n\nPermissive (extra=ignore) but enforces the kind→payload invariant: raster layers\nmust carry `tiles`, geojson layers must carry `geojson`. Malformed entries reject."
+      },
+      "ReportConfig": {
+        "properties": {
+          "partnerOrgs": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Partnerorgs"
+          }
+        },
+        "type": "object",
+        "title": "ReportConfig",
+        "description": "Einsatzrapport form presets. `partnerOrgs` feeds the Partnerorganisationen\ncheckbox row (paper Erfassungsblatt + rapport form quick-pick); free-text entries\nremain possible everywhere. Empty = no preset row."
       },
       "RosterConfig": {
         "properties": {
@@ -7895,6 +11528,45 @@
         ],
         "title": "RosterUser",
         "description": "A login tile — never includes anything secret."
+      },
+      "SegmentPatch": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "confirmed",
+              "dismissed"
+            ],
+            "title": "Status"
+          },
+          "rowId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rowid"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "SegmentPatch"
       },
       "SnapshotOut": {
         "properties": {
@@ -8030,6 +11702,11 @@
               }
             ],
             "title": "Last Login"
+          },
+          "el_view_default": {
+            "type": "boolean",
+            "title": "El View Default",
+            "default": false
           }
         },
         "type": "object",
@@ -8075,6 +11752,11 @@
               }
             ],
             "title": "Color"
+          },
+          "el_view_default": {
+            "type": "boolean",
+            "title": "El View Default",
+            "default": false
           },
           "pin": {
             "type": "string",
@@ -8133,6 +11815,11 @@
               }
             ],
             "title": "Last Login"
+          },
+          "el_view_default": {
+            "type": "boolean",
+            "title": "El View Default",
+            "default": false
           }
         },
         "type": "object",
@@ -8194,6 +11881,17 @@
               }
             ],
             "title": "Is Active"
+          },
+          "el_view_default": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "El View Default"
           }
         },
         "type": "object",
