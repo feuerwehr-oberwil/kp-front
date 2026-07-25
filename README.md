@@ -281,6 +281,9 @@ alarms to each other through the same generic `POST /api/alarms` webhook, and no
 Contributions are welcome: bug fixes, integrations, translations, or ideas. See
 **[CONTRIBUTING.md](CONTRIBUTING.md)** for guidelines.
 
+Need help, or want to know what you can expect from a one-maintainer project before you rely on
+it? **[SUPPORT.md](SUPPORT.md)** says so plainly.
+
 ## License
 
 KP Front is licensed under the **GNU Affero General Public License v3.0 or later**

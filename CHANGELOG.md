@@ -14,7 +14,15 @@ library, so the number answers one question: *how much attention does this updat
 | **PATCH** | Fixes only. Always safe to take. |
 
 Releases are labels on a `main` commit that CI already proved green – prod and the demo deploy
-continuously from `main`, so a tag exists for *other* stations, not for us.
+continuously from `main`, so a tag exists for *other* stations, not for us. Put differently:
+every published image has already been carrying live incidents at Feuerwehr Oberwil before it
+was tagged.
+
+**Why still 0.x?** Because exactly one fire station runs this in production, and a 1.0 claims
+more than that. It becomes **1.0 when a second station is running it in the field** – not when
+the feature list feels complete. Until then, read 0.x as *"not yet proven anywhere but
+Oberwil"*, **not** as *"we may break things without warning"*: the table above holds today and
+will keep holding.
 
 `0.1.0` is the initial public release: the git history was squashed for the open-source launch,
 so this file – not the log – is the record of what shipped up to that point.
