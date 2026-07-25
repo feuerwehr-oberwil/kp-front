@@ -71,8 +71,14 @@ You do not have to take any of the above on faith:
 
 ## Where it goes
 
-To a GlitchTip instance run by the maintainer. GlitchTip is an open-source, Sentry-compatible
-error tracker; it runs on a host that is network-isolated from anything else of ours.
+To `ingest.kp-front.ch`, a GlitchTip instance run by the maintainer. GlitchTip is an
+open-source, Sentry-compatible error tracker.
+
+It runs in its own Railway project, with its own database, sharing nothing with the KP Front
+or KP Rück deployments. The honest limit of that: it is the same provider and the same
+account, so this is project-level isolation, not host-level — a compromise of the maintainer's
+Railway account would reach it. Its full configuration is checked in at
+[`deploy/ingest/`](deploy/ingest/), including what it does *not* do.
 
 The credential embedded in this repository (`backend/app/telemetry/dsn.py`) is a Sentry **public
 key**. It is write-only by construction: it can submit an event and nothing else — it cannot
@@ -99,8 +105,14 @@ are swept after 14 days (yours to change).
 ## The IP question
 
 Your server's IP address is visible to our ingest host, the same way it is visible to any server
-you make a request to. We do not put it in the payload and GlitchTip is configured not to store
-it. We cannot prove that second claim to you from inside this repository, which is exactly why
+you make a request to. We do not put it in the payload; the reverse proxy in front of GlitchTip
+strips `X-Forwarded-For` and friends before the request reaches the app, and its access log is
+configured to drop the remote address. That configuration is checked in — read
+[`deploy/ingest/railway/Caddyfile`](deploy/ingest/railway/Caddyfile) rather than believing this
+paragraph.
+
+What you *cannot* verify from here is that the running instance matches the checked-in config,
+or what the hosting platform logs at its own edge. That is exactly why
 `KP_TELEMETRY_ENABLED=0` exists and why the default is off. If your threat model includes the
 maintainer's own infrastructure, do not switch this on — that is a legitimate position and the
 app is fully functional without it.

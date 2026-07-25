@@ -1,12 +1,11 @@
 # Ingest edge. Three jobs: terminate TLS, rate-limit, and make sure no client IP survives
 # the hop. See README.md for the threat model.
 #
-# The rate_limit directive needs the caddy-ratelimit module, so the compose file's stock
-# caddy image has to be swapped for a build that includes it:
-#   xcaddy build --with github.com/mholt/caddy-ratelimit
-# Caddy refuses to start on an unknown directive rather than ignoring it, which is the
-# behaviour we want: an ingest that came up without its limits would be worse than one that
-# did not come up at all.
+# The rate_limit directive needs the caddy-ratelimit module, which stock caddy does not
+# ship — Caddy.Dockerfile builds it in, which is why the compose service is a `build:` and
+# not an `image:`. Caddy refuses to start on an unknown directive rather than ignoring it,
+# and that is the behaviour we want here: an ingest that came up without its limits would be
+# worse than one that did not come up at all.
 
 {
 	order rate_limit before reverse_proxy

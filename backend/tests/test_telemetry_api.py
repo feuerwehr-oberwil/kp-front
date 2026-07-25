@@ -326,13 +326,16 @@ async def test_flush_delivers_and_marks_sent(client, db_session, fake_http):
     assert b"MapView.tsx" in body
 
 
-async def test_placeholder_dsn_sends_nothing(client, db_session, fake_http, monkeypatch):
-    from app.telemetry.dsn import UPSTREAM_DSN
+async def test_unparseable_dsn_sends_nothing(client, db_session, fake_http, monkeypatch):
+    # The DSN is live now, so this can no longer lean on the shipped placeholder. The
+    # invariant it actually guards is the one that keeps a misconfiguration quiet instead of
+    # dangerous: if the configured DSN cannot be parsed, nothing goes out at all — the rows
+    # stay queued and the instance carries on.
     from app.telemetry.forwarder import flush
 
     await _set_consent(db_session, consent_mod.CONSENT_ERRORS)
     await client.post("/api/diag/client-error", json=A_CRASH)
-    monkeypatch.setattr(settings, "telemetry_dsn", UPSTREAM_DSN)
+    monkeypatch.setattr(settings, "telemetry_dsn", "not-a-dsn://broken")
 
     assert await flush(db_session) == 0
     assert fake_http.posted == []

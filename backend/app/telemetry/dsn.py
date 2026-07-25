@@ -40,11 +40,10 @@ from dataclasses import dataclass
 
 # The upstream ingest. Public by design — read the module docstring before "fixing" this.
 #
-# NOTE: until the ingest host is actually deployed this is the documented placeholder shape
-# and NOT a live key. `parse_dsn` rejects it, so the forwarder stays a no-op and no instance
-# can dribble events at a hostname that doesn't exist yet. Replacing it is a one-line change
-# once deploy/ingest/ is up.
-UPSTREAM_DSN = "https://PLACEHOLDER_PUBLIC_KEY@ingest.kp-front.ch/1"
+# One ingest host serves both apps, one project each: kp-front is /1, kp-rueck is /2. Keeping
+# them apart at the project level rather than the host level means one project's quota or
+# spike protection can never silence the other.
+UPSTREAM_DSN = "https://f8ac2e518d46448d80037de2b4499141@ingest.kp-front.ch/1"
 
 _PLACEHOLDER = "PLACEHOLDER_PUBLIC_KEY"
 

@@ -9,7 +9,12 @@ name: kp-ingest
 
 services:
   caddy:
-    image: caddy:2-alpine
+    # Built, not pulled: the Caddyfile's rate_limit directive needs a module that stock
+    # caddy does not ship, and Caddy fails to start on an unknown directive. See
+    # Caddy.Dockerfile.
+    build:
+      context: .
+      dockerfile: Caddy.Dockerfile
     restart: unless-stopped
     ports:
       - "80:80"

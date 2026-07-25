@@ -250,11 +250,16 @@ def test_exception_type_is_split_out_so_the_ingest_can_group():
     assert event["exception"]["values"][0]["value"] == "invalid array length"
 
 
-def test_shipped_placeholder_dsn_is_not_usable():
-    # The DSN in the repo is a documented placeholder until the ingest host exists. If this
-    # ever starts parsing without someone deliberately replacing it, instances would begin
-    # posting at a hostname nobody controls.
-    assert parse_dsn(UPSTREAM_DSN) is None
+def test_shipped_dsn_points_at_our_ingest_and_nowhere_else():
+    # The DSN is live now, so the guard inverts: it must parse (a DSN that silently stops
+    # parsing turns the whole feature into a no-op that nobody notices), and it must point at
+    # the host and project we actually run. A typo here would send kp-front's reports into the
+    # other app's project, or at a hostname someone else could claim.
+    dsn = parse_dsn(UPSTREAM_DSN)
+    assert dsn is not None
+    assert dsn.envelope_url == "https://ingest.kp-front.ch/api/1/envelope/"
+    # Public key, not a secret — see app/telemetry/dsn.py for why it is checked in.
+    assert len(dsn.public_key) == 32
 
 
 @pytest.mark.parametrize("bad", [None, "", "not-a-dsn", "https://ingest.example.ch/1", "ftp://k@h/1"])
