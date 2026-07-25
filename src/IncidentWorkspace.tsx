@@ -95,7 +95,8 @@ import { PlanPicker } from './components/PlanPicker'
 import { IncidentSwitcher, ReviewBanner, SettingsSheet, OfflineReadinessSheet } from './components/panels'
 import { HelpOverlay } from './components/HelpOverlay'
 import { useWeather } from './lib/useWeather'
-import { predownloadArea } from './lib/offlineTiles'
+import { predownloadArea, tilesForBounds } from './lib/offlineTiles'
+import { WARM_BYTES, estimateStorage, fittedTileCap, fmtBytes, prefetchFit } from './lib/storageBudget'
 import { ChecklistsView } from './components/ChecklistsView'
 import { AtemschutzView } from './components/AtemschutzView'
 import { AnwesenheitView } from './components/AnwesenheitView'
@@ -438,6 +439,35 @@ export function IncidentWorkspace({
       referenceUrl('symbols:tactical'),
       ...layers.filter((l) => l.geojson).map((l) => withGeoBbox(l.geojson as string)),
     ]
+    // Pre-flight: everything cached for offline shares ONE origin quota, so a download into a
+    // nearly-full bucket used to succeed at the expense of whatever wrote next — the incident
+    // record. Predict the cost and, when it won't fit, offer the reduced download instead of
+    // silently starting a doomed one. An unknown budget is never treated as a full one.
+    const HARD_CAP = 1200
+    const tileCount = Math.min(tilesForBounds(bounds, 14, 17).length, HARD_CAP)
+    const extraBytes = warmUrls.length * WARM_BYTES
+    const budget = await estimateStorage()
+    const fit = prefetchFit(budget, tileCount, extraBytes)
+    let cap = HARD_CAP
+    if (!fit.fits && budget) {
+      const co = appConfig.copy.offline
+      const reduced = fittedTileCap(budget, HARD_CAP, extraBytes)
+      if (reduced === 0) {
+        // not even the plans fit — nothing useful to offer but the honest refusal
+        toast(fillTemplate(co.dlNoSpace, { free: fmtBytes(budget.free) }), { icon: 'map', tone: 'warn' })
+        return
+      }
+      const ok = await confirmDialog({
+        title: co.dlTightTitle,
+        message: fillTemplate(co.dlTightMsg, {
+          need: fmtBytes(fit.needBytes), free: fmtBytes(budget.free), pct: String(Math.round((reduced / tileCount) * 100)),
+        }),
+        confirmLabel: co.dlTightConfirm,
+        cancelLabel: appConfig.copy.cancel,
+      })
+      if (!ok) return
+      cap = reduced
+    }
     setOfflineProgress({ done: 0, total: 1 })
     // throttle progress to whole-percent changes so we don't re-render this (huge) component
     // ~750× during the download — a real contributor to memory/CPU pressure on the device.
@@ -449,7 +479,7 @@ export function IncidentWorkspace({
         minZoom: 14,
         // z17 (building-level), not 18: z18 ~4× the tiles and OOMs an iPad mid-download
         maxZoom: 17,
-        cap: 1200,
+        cap,
         warmUrls,
         onProgress: (done, total) => {
           const pct = total ? Math.floor((done / total) * 100) : 0

@@ -16,6 +16,7 @@ import { loadPrefs, applyTheme, resolveTheme } from './lib/prefs'
 import { loadDeploymentConfigBounded, applyDeploymentBranding } from './lib/deploymentConfig'
 import { loadStationPlanScales } from './lib/stationPlanScale'
 import { migrateLocalStorageToIdb } from './lib/storageMigration'
+import { requestPersistentStorage } from './lib/idb'
 import { applyLocale } from './config/copy'
 
 // zoom applies only to the map/plan, not the UI chrome (app feel, not a web page)
@@ -29,6 +30,12 @@ installGlobalErrorReporting()
 // flashes the wrong chrome. Default 'auto' tracks daylight (brigade region at boot,
 // the incident coordinate once known via useAutoTheme); 'day'/'night' are overrides.
 applyTheme(resolveTheme(loadPrefs().theme, null, new Date()))
+
+// Ask for PERSISTENT storage: without it this origin's bucket is "best-effort" and the browser
+// may evict the whole offline cache — cached incident workspaces, queued media, unsynced edits —
+// under disk pressure, with no error to catch. Deliberately NOT awaited: nothing on the boot path
+// may block first paint (that was the af9b842 white-screen class of bug).
+void requestPersistentStorage()
 
 // PWA: register the service worker (precaches the app shell + runtime-caches map tiles
 // and reference data so the tool launches and renders offline on station/vehicle tablets).

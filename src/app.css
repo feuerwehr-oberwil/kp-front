@@ -2279,6 +2279,9 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .ip-status-pending { color: var(--amber); }
 .ip-status-offline { color: var(--ink-dim); }
 .ip-status-error { color: var(--red); }
+/* storage-full: red like a sync error, because it is the more severe of the two — the work
+   isn't merely un-synced, it isn't saved anywhere */
+.ip-status-storage { color: var(--red); }
 /* loud offline pill in the switcher header — only shows while offline, so it never causes the
    constant saving↔saved layout flip; amber-on-tint so it reads at a glance at 3am */
 .ip-offline-chip { display: inline-flex; align-items: center; gap: 5px; flex: none;
@@ -2386,6 +2389,8 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .or-stand svg { width: 15px; height: 15px; flex: none; }
 .or-stand.or-sync-synced { color: var(--green-strong); background: color-mix(in srgb, var(--green) 9%, var(--surface)); }
 .or-stand.or-sync-offline, .or-stand.or-sync-error { color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 11%, var(--surface)); }
+/* not amber with the retryable states: nothing here will be retried */
+.or-stand.or-sync-storage { color: var(--red); background: color-mix(in srgb, var(--red) 10%, var(--surface)); }
 .or-stand .ip-status-dot { width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
 .or-resync { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 6px 12px;
   border: 1px solid color-mix(in srgb, var(--blue) 45%, transparent); border-radius: var(--r-ctl); background: var(--surface);

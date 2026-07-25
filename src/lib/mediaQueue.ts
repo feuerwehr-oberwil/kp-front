@@ -14,6 +14,7 @@
 
 import { ApiError } from './api'
 import { idbDel, idbGet, idbSet } from './idb'
+import { withTileEviction } from './tileEvict'
 
 const PREFIX = 'kp-front-mediaq-'
 const keyFor = (incidentId: string) => `${PREFIX}${incidentId}`
@@ -53,9 +54,12 @@ const navigatorOnline = () => (typeof navigator !== 'undefined' ? navigator.onLi
 async function readQueue(incidentId: string): Promise<MediaQueueItem[]> {
   return (await idbGet<MediaQueueItem[]>(keyFor(incidentId))) ?? []
 }
-async function writeQueue(incidentId: string, items: MediaQueueItem[]): Promise<void> {
-  if (items.length) await idbSet(keyFor(incidentId), items)
-  else await idbDel(keyFor(incidentId))
+/** Returns whether the queue is durably stored. A queued photo/voice memo is an incident record
+ *  that exists ONLY here until it uploads, so a full device evicts map tiles to make room rather
+ *  than dropping it — scenery is re-downloadable, the capture is not. */
+async function writeQueue(incidentId: string, items: MediaQueueItem[]): Promise<boolean> {
+  if (!items.length) { await idbDel(keyFor(incidentId)); return true }
+  return withTileEviction(() => idbSet(keyFor(incidentId), items))
 }
 
 /** Persist a captured blob for later upload, replacing any prior entry for the same row+kind

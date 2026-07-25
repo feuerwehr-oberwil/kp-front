@@ -3,6 +3,7 @@
 // heaviest, most stateful unit — see ./workspace for the plain get/put the engine drives.
 import { ApiError } from '../api'
 import { idbDel, idbGet, idbSet } from '../idb'
+import { withTileEviction } from '../tileEvict'
 import { mergeWorkspace, type RecordConflict } from '../mergeWorkspace'
 import { getWorkspace, putWorkspace, putWorkspaceBeacon, type Workspace } from './workspace'
 
@@ -22,12 +23,10 @@ const cacheKey = (id: string) => `kp-front-ws-${id}`
 function readCache(id: string): Promise<CacheEntry | null> {
   return idbGet<CacheEntry>(cacheKey(id))
 }
-// Fire-and-forget: the in-memory `entry` is the authoritative session state; this just keeps a
-// durable copy for reload/offline. A storage failure is non-fatal (the server is authoritative),
-// exactly like the old localStorage write that swallowed quota errors.
-function writeCache(id: string, e: CacheEntry) {
-  void idbSet(cacheKey(id), e)
-}
+// NOTE: the per-instance writer is `this.writeCache` below — it keeps the durability of each
+// write, which a bare fire-and-forget threw away. "Non-fatal because the server is authoritative"
+// holds only while we ARE reaching the server; offline it is the difference between an edit that
+// survives teardown and one that doesn't.
 
 /** Drop one incident's offline cache. DESTRUCTIVE: any edit that hasn't reached the server yet
  *  lives only here. The single caller is the ErrorBoundary's last-resort recovery — when the
@@ -40,8 +39,25 @@ export function discardWorkspaceCache(id: string): Promise<void> {
 /** Lifecycle of the per-incident sync, surfaced to the UI so unsynced/offline/error
  *  states are never silent: `synced` = server has our latest; `pending` = local edits
  *  not yet flushed; `offline` = a flush failed on the network (cached locally, will
- *  retry); `error` = a flush failed for another reason (also cached, also retried). */
-export type SyncStatus = 'synced' | 'pending' | 'offline' | 'error'
+ *  retry); `error` = a flush failed for another reason (also cached, also retried);
+ *  `storage` = the offline cache itself refused the write, so unsynced edits are NOT
+ *  "cached locally, will retry" — they live only in this tab. See effectiveSyncStatus. */
+export type SyncStatus = 'synced' | 'pending' | 'offline' | 'error' | 'storage'
+
+/**
+ * Collapse the sync lifecycle and the durability of the local cache into the one state the UI
+ * shows. `storage` outranks everything else, but ONLY while there are unsynced edits.
+ *
+ * That condition is the whole point. Every other status quietly promises "your work is cached
+ * and will be retried" — a promise a full storage bucket breaks, turning "will sync later" into
+ * "will be lost on teardown", which the operator must see. But when the server already has our
+ * latest, a cache that can't write costs nothing right now; it only means this device is not
+ * offline-READY. Shouting then would be crying wolf, and the Offline-Bereitschaft sheet is the
+ * honest place for it (it reports device readiness, which is exactly what's degraded).
+ */
+export function effectiveSyncStatus(base: SyncStatus, dirty: boolean, cacheDurable: boolean): SyncStatus {
+  return !cacheDurable && dirty ? 'storage' : base
+}
 
 export interface WorkspaceSyncOptions {
   /** called whenever the synced revision changes (e.g. to update UI badges). */
@@ -85,7 +101,14 @@ export class WorkspaceSync {
    *  merge) buffer until the first registration/drain. */
   onAttendanceConflicts?: (conflicts: RecordConflict[]) => void
   private conflictBuf: RecordConflict[] = []
+  /** the lifecycle state on its own, before the cache-durability overlay (effectiveSyncStatus) */
+  private base: SyncStatus
+  /** what the UI last saw — the overlaid value */
   private status: SyncStatus
+  /** did the most recent offline-cache write actually land? Per-incident on purpose: the global
+   *  isStorageDegraded() flag also moves for unrelated keys (config, roster), which would make
+   *  this incident's badge flap. */
+  private cacheDurable = true
 
   constructor(
     private readonly incidentId: string,
@@ -95,14 +118,33 @@ export class WorkspaceSync {
     // The cache lives in IndexedDB (async), so it can't be read in the constructor; init()
     // loads it before the first edit. Start empty/synced until then.
     this.entry = { workspace: {}, baseRev: 0, dirty: false, lastSyncedAt: null }
+    this.base = 'synced'
     this.status = 'synced'
   }
 
-  /** Fire onStatus only on a real transition (de-dupes repeated saves while pending). */
+  /** Record the lifecycle state, then publish whatever the overlay makes of it. */
   private setStatus(s: SyncStatus) {
-    if (this.status === s) return
-    this.status = s
-    this.onStatus?.(s)
+    this.base = s
+    this.publish()
+  }
+
+  /** Fire onStatus only on a real transition (de-dupes repeated saves while pending). */
+  private publish() {
+    const eff = effectiveSyncStatus(this.base, this.entry.dirty, this.cacheDurable)
+    if (this.status === eff) return
+    this.status = eff
+    this.onStatus?.(eff)
+  }
+
+  /** Cache one revision for reload/offline, KEEPING whether it was durable. A refused write means
+   *  any unsynced edit in it exists only in this tab, which `publish` turns into 'storage'.
+   *  A full device evicts map tiles and retries first — the incident record outranks scenery. */
+  private writeCache(e: CacheEntry) {
+    void withTileEviction(() => idbSet(cacheKey(this.incidentId), e)).then((ok) => {
+      if (this.disposed || this.cacheDurable === ok) return
+      this.cacheDurable = ok
+      this.publish()
+    })
   }
 
   /** mergeWorkspace with attendance-divergence reporting: collected conflicts go to the
@@ -152,14 +194,14 @@ export class WorkspaceSync {
         const server = workspace ?? {}
         const merged = this.mergeReporting(cached.base ?? {}, cached.workspace, server)
         this.entry = { workspace: merged, base: server, baseRev: workspace_rev, dirty: true, lastSyncedAt: cached.lastSyncedAt }
-        writeCache(this.incidentId, this.entry)
+        this.writeCache(this.entry)
         this.opts.onRev?.(workspace_rev)
         this.setStatus('pending')
         return { workspace: merged, rev: workspace_rev, fromCache: true }
       }
       const ws = workspace ?? {}
       this.entry = { workspace: ws, base: ws, baseRev: workspace_rev, dirty: false, lastSyncedAt: Date.now() }
-      writeCache(this.incidentId, this.entry)
+      this.writeCache(this.entry)
       this.opts.onRev?.(workspace_rev)
       this.setStatus('synced')
       return { workspace, rev: workspace_rev, fromCache: false }
@@ -178,7 +220,7 @@ export class WorkspaceSync {
     if (this.disposed) return
     this.saveSeq++
     this.entry = { ...this.entry, workspace, dirty: true }
-    writeCache(this.incidentId, this.entry)
+    this.writeCache(this.entry)
     this.setStatus('pending')
     this.armDebounce()
   }
@@ -262,7 +304,7 @@ export class WorkspaceSync {
       this.setStatus('pending')
       this.armDebounce()
     }
-    writeCache(this.incidentId, this.entry)
+    this.writeCache(this.entry)
     this.opts.onRev?.(workspace_rev)
   }
 
@@ -279,7 +321,7 @@ export class WorkspaceSync {
       const server = await getWorkspace(this.incidentId)
       const merged = this.mergeReporting(this.entry.base ?? {}, this.entry.workspace, server.workspace ?? {})
       this.entry = { ...this.entry, workspace: merged, base: server.workspace ?? {}, baseRev: server.workspace_rev, dirty: true }
-      writeCache(this.incidentId, this.entry)
+      this.writeCache(this.entry)
       try {
         const seqAtStart = this.saveSeq
         const { workspace_rev } = await putWorkspace(this.incidentId, merged, server.workspace_rev)
@@ -287,7 +329,7 @@ export class WorkspaceSync {
         this.retryCount = 0 // merge landed → backoff starts over on the next failure
         if (this.saveSeq === seqAtStart) {
           this.entry = { ...this.entry, base: merged, baseRev: workspace_rev, dirty: false, lastSyncedAt: Date.now() }
-          writeCache(this.incidentId, this.entry)
+          this.writeCache(this.entry)
           this.setStatus('synced')
           // Surface the merged union to the live view in place, so the resolver sees the other
           // device's additions without a remount.
@@ -299,7 +341,7 @@ export class WorkspaceSync {
           // overwrite the remote additions we just merged in. Different objects all survive.
           const remerged = mergeWorkspace(mine0, this.entry.workspace, merged)
           this.entry = { ...this.entry, workspace: remerged, base: merged, baseRev: workspace_rev, dirty: true, lastSyncedAt: Date.now() }
-          writeCache(this.incidentId, this.entry)
+          this.writeCache(this.entry)
           this.setStatus('pending')
           this.armDebounce()
         }
@@ -326,7 +368,7 @@ export class WorkspaceSync {
   adoptServer(workspace: Workspace, rev: number) {
     if (this.disposed) return
     this.entry = { workspace, base: workspace, baseRev: rev, dirty: false, lastSyncedAt: Date.now() }
-    writeCache(this.incidentId, this.entry)
+    this.writeCache(this.entry)
     this.opts.onRev?.(rev)
     this.setStatus('synced')
   }

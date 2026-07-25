@@ -53,7 +53,7 @@ export function IncidentSwitcher({
 }) {
   const cp = appConfig.copy.incidentSwitcher
   const badgeTitle: Record<Exclude<SyncStatus, 'synced'>, string> = {
-    pending: cp.badgePending, offline: cp.badgeOffline, error: cp.badgeError,
+    pending: cp.badgePending, offline: cp.badgeOffline, error: cp.badgeError, storage: cp.badgeStorage,
   }
   const [open, setOpen] = useState(false)
   // Einsatzbeginn/-dauer row in the dropdown (phones hide the TopBar clocks, so the times
@@ -94,7 +94,7 @@ export function IncidentSwitcher({
     : badgeTitle[syncStatus]
   const statusMark = syncStatus === 'synced'
     ? <Icon id="check" />
-    : syncStatus === 'error'
+    : syncStatus === 'error' || syncStatus === 'storage'
       ? <Icon id="warn" />
       : <span className="ip-status-dot" />
   return (
@@ -111,7 +111,13 @@ export function IncidentSwitcher({
             blocks switching incidents to the server, and a failing sync means edits are
             stranded on this device; the operator needs to recognise both at a glance
             WITHOUT opening the dropdown (there is deliberately no persistent banner). */}
-        {active && syncStatus === 'offline' ? (
+        {/* Storage-full is the loudest of the three: offline and sync-error both still mean the
+            work is safely cached on this device, this one means it is not saved ANYWHERE. */}
+        {active && syncStatus === 'storage' ? (
+          <span className="ip-offline-chip ip-error-chip" title={savedText} aria-label={savedText}>
+            <Icon id="warn" />{cp.storageShort}
+          </span>
+        ) : active && syncStatus === 'offline' ? (
           <span className="ip-offline-chip" title={savedText} aria-label={savedText}>
             <span className="ip-status-dot" />{cp.offlineShort}
           </span>
