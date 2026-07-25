@@ -1,7 +1,7 @@
 # Documentation
 
 This folder holds KP Front's longer-form documentation: the product concept and the
-per-deployment configuration and deployment contracts — the slower-moving "why" and "how".
+per-deployment configuration and deployment contracts – the slower-moving "why" and "how".
 Day-to-day priorities and plans are discussed in GitHub issues and discussions.
 
 **Status legend:** 🟢 reflects shipped behaviour · 🟡 partially implemented · 🔵 proposed /
@@ -14,7 +14,7 @@ requirement) now live in the [root README](../README.md).
 
 | Doc | Status | What it is |
 | --- | --- | --- |
-| [`SETUP.md`](SETUP.md) | 🟢 | **Start here for a new station.** The ordered path from an empty Docker host to a deployment that can run an incident: boot, take over the seeded account, station config, station data, integrations, backups — plus the gotchas that catch people and a pre-field checklist. Links to the reference docs below rather than repeating them. |
+| [`SETUP.md`](SETUP.md) | 🟢 | **Start here for a new station.** The ordered path from an empty Docker host to a deployment that can run an incident: boot, take over the seeded account, station config, station data, integrations, backups – plus the gotchas that catch people and a pre-field checklist. Links to the reference docs below rather than repeating them. |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | 🟢 | System overview: how the PWA, FastAPI service, Postgres, and external sources fit together, plus where each dataset comes from. Mermaid diagrams for system context, backend modules, config layers, sync/audit flow, and deployment. |
 | [`CONFIGURATION.md`](CONFIGURATION.md) | 🟢 | Live data contract for per-deployment configuration: config-as-code/CLI as the primary path, admin UI for inspection/basic edits, the four config layers, reference-data formats, roster/auth notes, and empty-state rules. |
 | [`STATION-DATA.md`](STATION-DATA.md) | 🟢 | Practical path from the synthetic example to a private, field-ready station-data repository: layout, provenance, validation, loading, and readiness checks. |
@@ -36,6 +36,5 @@ Printable/manual verification material for internal release checks and training-
 
 ## Historical
 
-- [`design-concepts/`](design-concepts/) and [`../mockups/`](../mockups/) — early look-and-feel
-  explorations (HTML mockups). Kept for reference; the chosen direction was "Karte Minimal".
-  Not maintained.
+- [`../mockups/`](../mockups/) – early look-and-feel explorations (HTML mockups). Kept for
+  reference; the chosen direction was "Karte Minimal". Not maintained.

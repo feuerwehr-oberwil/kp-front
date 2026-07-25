@@ -1,17 +1,17 @@
-# DEPLOYMENT — self-hosting KP Front
+# DEPLOYMENT – self-hosting KP Front
 
 **Status:** Two supported paths, both tested: **docker-compose on a VPS** (this doc) and
 **Railway** (`railway.json`, one-click from the repo Dockerfile). Same image, same
-auto-migrate-on-boot behaviour — pick by who runs the server. Decisions it encodes: Docker,
+auto-migrate-on-boot behaviour – pick by who runs the server. Decisions it encodes: Docker,
 auto-migrate on boot (D8), local-volume storage (D10), one-instance-per-station (D3),
 individual accounts (D5).
 
 > **Railway + non-root (learned the hard way, 2026-07-02):** the image runs as uid 10001, but
 > Railway mounts volumes **root-owned**, so the app can't write media and `/ready` correctly
-> fails the deploy. Set **`RAILWAY_RUN_UID=0`** on the service (documented Railway override —
+> fails the deploy. Set **`RAILWAY_RUN_UID=0`** on the service (documented Railway override –
 > the container then runs as root there, like any pre-non-root deploy). Compose self-hosters
 > keep the non-root user; fresh named volumes inherit the app user's ownership. Note also that
-> a failed Railway healthcheck did **not** keep the previous deployment serving — treat deploys
+> a failed Railway healthcheck did **not** keep the previous deployment serving – treat deploys
 > that change the runtime user or healthcheck as maintenance windows.
 
 ```bash
@@ -20,15 +20,11 @@ railway variable set RAILWAY_RUN_UID=0 --service <app-service>
 
 Verify `GET /ready` after the deployment; both `database` and `storage` must report `ok`.
 
-> **Don't have a server / don't want to run one?** KP Front is open source and self-hostable,
-> but we also offer **managed hosting** (Swiss datacenter) for a fee covering licensing +
-> server costs. See `§7 Managed hosting`.
-
 ---
 
 ## 1. What you're deploying
 
-One **deployment = one fire station** with its own database — no shared multi-tenancy. The
+One **deployment = one fire station** with its own database – no shared multi-tenancy. The
 stack:
 
 ```
@@ -42,14 +38,14 @@ stack:
 
 Plus optional external services you bring credentials for: Divera (alarms/roster), Traccar
 (live vehicle GPS). Base maps, weather, and the geocoder are public swisstopo/MeteoSwiss
-services — no credentials.
+services – no credentials.
 
 ## 2. Requirements
 
-- A host that can run Docker + Docker Compose (a small VPS — 1 vCPU / 1 GB RAM — is enough
+- A host that can run Docker + Docker Compose (a small VPS – 1 vCPU / 1 GB RAM – is enough
   for one station; disk grows with uploaded plans + incident history, budget a few GB).
 - For HTTPS: a domain pointed at the host. The bundled **`tls` profile runs Caddy** and gets
-  a certificate automatically (Let's Encrypt / ZeroSSL) — no manual cert work. Or front it
+  a certificate automatically (Let's Encrypt / ZeroSSL) – no manual cert work. Or front it
   with your own reverse proxy / Traefik.
 - Postgres: **bundled in the compose file** (the `db` service), or point `DATABASE_URL` at a
   managed Postgres and drop the `db` service.
@@ -62,12 +58,12 @@ Everything ships in the repo root: `docker-compose.yml`, `.env.example`, `deploy
 # 1. Get the compose file + templates (a tagged release is the safe choice)
 git clone <repo> && cd kp-front && git checkout v0.2.0
 
-# 2. Configure secrets — 'just init-env' writes .env with all three generated for you:
+# 2. Configure secrets – 'just init-env' writes .env with all three generated for you:
 just init-env               # POSTGRES_PASSWORD + SECRET_KEY + ADMIN_SECRET (note the ADMIN_SECRET it prints)
 #    …or by hand: cp .env.example .env  and set  (see §4 and CONFIGURATION.md §6)
-#    SECRET_KEY:   openssl rand -hex 32   (KEEP IT STABLE — it signs JWTs and peppers PINs)
+#    SECRET_KEY:   openssl rand -hex 32   (KEEP IT STABLE – it signs JWTs and peppers PINs)
 #    ADMIN_SECRET: openssl rand -hex 24   (unlocks /admin; empty = admin disabled)
-#    KP_FRONT_TAG: which release to run (default: latest) — see §5
+#    KP_FRONT_TAG: which release to run (default: latest) – see §5
 
 # 3a. Plain HTTP on APP_PORT (LAN / behind your own proxy). Pull + migrate + seed on boot (D8):
 docker compose up -d
@@ -86,8 +82,8 @@ docker compose --profile tls up -d
 > (unless you opt out with `COOKIE_SECURE=false`), and hands schema ownership to Alembic.
 
 ### Published images vs. building from source
-The compose file **pulls a published image** —
-`ghcr.io/feuerwehr-oberwil/kp-front:${KP_FRONT_TAG:-latest}` (linux/amd64) — so a station VPS
+The compose file **pulls a published image** –
+`ghcr.io/feuerwehr-oberwil/kp-front:${KP_FRONT_TAG:-latest}` (linux/amd64) – so a station VPS
 needs nothing but Docker: no Node, no uv, no build step. Every `v*` tag is built, booted and
 smoke-tested by CI before it is pushed (`.github/workflows/release.yml`), and the same gate runs
 on every commit to `main`, so a Dockerfile regression can't reach a release.
@@ -96,7 +92,7 @@ Pick what `KP_FRONT_TAG` follows, in `.env`:
 
 | Value | Follows | For |
 | --- | --- | --- |
-| `0.2.0` | nothing — exactly this build | production stations that update deliberately |
+| `0.2.0` | nothing – exactly this build | production stations that update deliberately |
 | `0.2` | patch releases in the 0.2 series | stations that want fixes but not features |
 | `latest` (default) | every release | evaluation, demo instances |
 
@@ -148,7 +144,7 @@ is fixes only and always safe; a **MINOR** bump adds features and migrates autom
   migrated schema.
 - **Which build am I running?** `/admin` → System shows the version, commit and environment;
   the app menu carries the same stamp (`v0.2.0 · <sha> · <date>`) on the tablet itself.
-- **Postgres major upgrades** (e.g. 16→17) are *not* automatic — a 16 data volume won't be
+- **Postgres major upgrades** (e.g. 16→17) are *not* automatic – a 16 data volume won't be
   read by a 17 server. Stay on `postgres:16` for the life of the volume; to move majors, take a
   `pg_dump` (see §6), start a fresh volume on the new major, and restore.
 - Watch the release notes for any breaking config changes.
@@ -157,7 +153,7 @@ is fixes only and always safe; a **MINOR** bump adds features and migrates autom
 
 - **Back up two things, together:** the Postgres database and the asset volume
   (`MEDIA_STORAGE_DIR`, the `storage` volume). A DB restored against an older/newer volume
-  leaves media rows pointing at missing blobs — capture both at the same time.
+  leaves media rows pointing at missing blobs – capture both at the same time.
 - **`scripts/backup.sh` does both** (dump + volume tarball into one directory, with
   retention via `BACKUP_KEEP`, default 14). Schedule it from cron on the docker host:
 
@@ -175,25 +171,27 @@ docker compose exec -T app tar czf - -C /data/storage . > storage-$(date +%F).ta
 gunzip -c kpfront-YYYY-MM-DD.sql.gz | docker compose exec -T db psql -U kpfront kpfront
 docker compose exec -T app sh -c 'tar xzf - -C /data/storage' < storage-YYYY-MM-DD.tar.gz
 ```
-- **Do one restore drill** into a fresh stack before relying on the files — the incident
+- **Do one restore drill** into a fresh stack before relying on the files – the incident
   record is only provably recoverable once you've actually restored it.
-- On **Railway** the database is managed — use scheduled `pg_dump` against
+- On **Railway** the database is managed – use scheduled `pg_dump` against
   `DATABASE_PUBLIC_URL` from a machine you control, plus the automatic pre-migration dumps
   on the volume (§5).
-- Single-instance isolation means **all your station's data is in your DB** — strong story for
+- Single-instance isolation means **all your station's data is in your DB** – strong story for
   cantonal data-protection. If you process personal/operational data, follow your canton's DSG
   guidance. Minimum operational stance for an internal station release: keep exports and database
   backups access-controlled, document who can restore them, and define how long incident records,
   roster data, GPS traces, uploaded plans, photos, and audio notes are retained.
 
-## 7. Managed hosting (paid)
+## 7. "Can you host it for us?"
 
-If running a server isn't realistic for your corps, we host an instance for you:
-- Dedicated instance + database (one per station — your data is isolated).
-- Hosted in a **Swiss datacenter**.
-- We handle updates, backups, TLS.
-- Cost = licensing + server costs. Before public launch, publish a stable managed-hosting
-  contact path in the README and on the demo instance.
+**Not today.** KP Front is self-hosted only: you run it, you own the data, and there is no
+service to buy. Running one station needs a small VPS and the steps in `SETUP.md` – no build
+toolchain, no ongoing maintenance beyond `docker compose pull` and a backup job.
+
+If that is genuinely out of reach for your corps, say so in a
+[discussion](https://github.com/feuerwehr-oberwil/kp-front/discussions). Whether a managed
+offering is ever worth setting up depends on how many stations are in that position, and right
+now we don't know.
 
 ## 8. Troubleshooting
 
