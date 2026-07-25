@@ -265,8 +265,20 @@ section[id] { scroll-margin-top: 76px; } /* anchor targets clear the sticky head
 .pillar p strong { color: var(--ink); font-weight: 600; }
 .pillar a { color: var(--ink); }
 
-/* drei statt zwei Karten – für die Ausfallstufen */
-.pillars-grid.three { grid-template-columns: repeat(3, 1fr); }
+/* Ausfallstufen im dunklen Band: drei Spalten, die auf dem Grundsatz aufbauen */
+.stages { margin-top: 40px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px; }
+.stage { border-top: 2px solid #ff4d3f; padding-top: 18px; }
+.stage-n {
+  font-family: var(--mono); font-size: 11.5px; font-weight: 600;
+  letter-spacing: .14em; text-transform: uppercase; color: #ff4d3f;
+}
+.stage h3 {
+  font-size: 1.12rem; font-weight: 700; letter-spacing: -.015em;
+  margin-top: 8px; color: #f2f4f8;
+}
+.stage p { color: #a8b1c0; font-size: .95rem; margin-top: 9px; }
+.stage p strong { color: #fff; font-weight: 600; }
+.stage-note { margin-top: 30px; font-size: .88rem; color: #7f8899; max-width: 78ch; }
 
 /* ---------- Funktionsumfang ---------- */
 /* Die Liste, die den Umfang zeigt, ohne für jede Ansicht ein Bild zu brauchen */
@@ -399,7 +411,8 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
   section, section.wrap { padding-top: 64px; padding-bottom: 64px; }
   section.hero { padding-top: 48px; }
   .shots-grid { grid-template-columns: 1fr; }
-  .pillars-grid, .pillars-grid.three { grid-template-columns: 1fr; }
+  .pillars-grid { grid-template-columns: 1fr; }
+  .stages { grid-template-columns: 1fr; gap: 22px; }
   .contact-grid { grid-template-columns: 1fr; gap: 28px; }
   .entry { grid-template-columns: 52px 16px 1fr; gap: 0 12px; }
 }
