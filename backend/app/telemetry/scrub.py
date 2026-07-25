@@ -255,8 +255,6 @@ def build_report(*, message: str, trouble_kind: str | None, trouble_at: str | No
     """
     return {
         "message": scrub_text(message),
-        "trouble": trouble_kind
-        if trouble_kind in {"crashLoop", "crash", "storageFull", "syncConflict"}
-        else None,
+        "trouble": trouble_kind if trouble_kind in {"crashLoop", "crash", "storageFull", "syncConflict"} else None,
         "troubleAt": scrub_text(trouble_at, limit=40) or None,
     }

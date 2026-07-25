@@ -117,8 +117,6 @@ def build_event(
 def serialise_envelope(event: dict) -> bytes:
     """Wrap one event in the envelope frame. Bytes, because `length` is a BYTE count."""
     body = json.dumps(event, separators=(",", ":"), ensure_ascii=False).encode()
-    header = json.dumps(
-        {"event_id": event["event_id"], "sent_at": _now_iso()}, separators=(",", ":")
-    ).encode()
+    header = json.dumps({"event_id": event["event_id"], "sent_at": _now_iso()}, separators=(",", ":")).encode()
     item = json.dumps({"type": "event", "length": len(body)}, separators=(",", ":")).encode()
     return b"\n".join((header, item, body)) + b"\n"

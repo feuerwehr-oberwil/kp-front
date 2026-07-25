@@ -54,9 +54,7 @@ class ClientError(BaseModel):
 
     message: str = Field(default="", max_length=2000)
     stack: str | None = Field(default=None, max_length=8000)
-    component_stack: str | None = Field(
-        default=None, max_length=8000, alias="componentStack"
-    )
+    component_stack: str | None = Field(default=None, max_length=8000, alias="componentStack")
     # 'render' (ErrorBoundary) | 'error' (window.onerror) | 'unhandledrejection'
     kind: str = Field(default="error", max_length=40)
     path: str | None = Field(default=None, max_length=400)
@@ -81,9 +79,7 @@ async def _queued_last_hour(db: AsyncSession) -> int:
     return int(
         (
             await db.execute(
-                select(func.count())
-                .select_from(TelemetryOutbox)
-                .where(TelemetryOutbox.created_at >= since)
+                select(func.count()).select_from(TelemetryOutbox).where(TelemetryOutbox.created_at >= since)
             )
         ).scalar()
         or 0
@@ -107,9 +103,7 @@ async def report_client_error(
             ua,
             payload.message,
             f"\n{payload.stack}" if payload.stack else "",
-            f"\ncomponentStack:{payload.component_stack}"
-            if payload.component_stack
-            else "",
+            f"\ncomponentStack:{payload.component_stack}" if payload.component_stack else "",
         )
     except Exception:  # noqa: BLE001 — a diagnostics sink must never raise
         pass
@@ -189,9 +183,7 @@ async def submit_problem_report(
     except Exception:  # noqa: BLE001
         await db.rollback()
         logger.exception("problem report could not be queued")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="queue-failed"
-        ) from None
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="queue-failed") from None
     return {"queued": True, "sent": event}
 
 
@@ -211,11 +203,7 @@ async def telemetry_status(_admin: CurrentAdmin, db: AsyncSession = Depends(get_
     the actual JSON without opening psql.
     """
     rows = list(
-        (
-            await db.execute(
-                select(TelemetryOutbox).order_by(TelemetryOutbox.created_at.desc()).limit(10)
-            )
-        )
+        (await db.execute(select(TelemetryOutbox).order_by(TelemetryOutbox.created_at.desc()).limit(10)))
         .scalars()
         .all()
     )
@@ -247,9 +235,7 @@ async def telemetry_status(_admin: CurrentAdmin, db: AsyncSession = Depends(get_
 
 
 @router.put("/telemetry/consent")
-async def update_consent(
-    body: ConsentUpdate, _admin: CurrentAdmin, db: AsyncSession = Depends(get_db)
-) -> dict:
+async def update_consent(body: ConsentUpdate, _admin: CurrentAdmin, db: AsyncSession = Depends(get_db)) -> dict:
     """Turn the background channel on or off. Off also discards whatever is still queued."""
     try:
         value = await consent_mod.set_consent(db, body.consent)

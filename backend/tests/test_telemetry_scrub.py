@@ -109,9 +109,7 @@ def test_user_agent_is_reduced_to_a_device_class():
 
 
 def test_context_drops_unparseable_extras_rather_than_passing_them_through():
-    ctx = scrub.build_context(
-        install_id="i", app="kp-front", release="0.2.0", viewport="Dorfstrasse 3"
-    )
+    ctx = scrub.build_context(install_id="i", app="kp-front", release="0.2.0", viewport="Dorfstrasse 3")
     assert "viewport" not in ctx
 
 
@@ -181,8 +179,7 @@ def test_a_helpful_operator_cannot_leak_by_being_helpful():
         context=scrub.build_context(install_id="i", app="kp-front", release="0.2.0"),
         report=scrub.build_report(
             message=(
-                "Beim Einsatz Bahnhofstrasse 4 ist der Bildschirm weg. "
-                "Rückruf 079 123 45 67 oder wache@oberwil.ch"
+                "Beim Einsatz Bahnhofstrasse 4 ist der Bildschirm weg. Rückruf 079 123 45 67 oder wache@oberwil.ch"
             ),
             trouble_kind="crash",
             trouble_at="2026-07-25T02:14:00Z",

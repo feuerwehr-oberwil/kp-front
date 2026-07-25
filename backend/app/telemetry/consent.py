@@ -46,9 +46,7 @@ def env_allows_outbound() -> bool:
 
 
 async def _row(db: AsyncSession) -> DeploymentConfig | None:
-    return (
-        await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))
-    ).scalar_one_or_none()
+    return (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
 
 
 async def get_consent(db: AsyncSession) -> str:

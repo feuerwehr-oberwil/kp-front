@@ -48,9 +48,7 @@ UPSTREAM_DSN = "https://PLACEHOLDER_PUBLIC_KEY@ingest.kp-front.ch/1"
 
 _PLACEHOLDER = "PLACEHOLDER_PUBLIC_KEY"
 
-_DSN_RE = re.compile(
-    r"^(?P<scheme>https?)://(?P<key>[0-9a-z]+)@(?P<host>[^/]+)/(?P<project>\d+)$", re.I
-)
+_DSN_RE = re.compile(r"^(?P<scheme>https?)://(?P<key>[0-9a-z]+)@(?P<host>[^/]+)/(?P<project>\d+)$", re.I)
 
 
 @dataclass(frozen=True)

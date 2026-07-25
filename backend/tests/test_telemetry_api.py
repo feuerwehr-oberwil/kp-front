@@ -246,9 +246,7 @@ async def test_status_shows_the_queue_verbatim(client, db_session, admin_login):
     assert body["recent"][0]["payload"]["tags"]["channel"] == "error"
 
 
-async def test_status_reports_the_env_override_so_the_ui_can_explain_itself(
-    client, admin_login, monkeypatch
-):
+async def test_status_reports_the_env_override_so_the_ui_can_explain_itself(client, admin_login, monkeypatch):
     await admin_login(client)
     monkeypatch.setattr(settings, "telemetry_enabled", False)
     body = (await client.get("/api/diag/telemetry")).json()
@@ -329,8 +327,8 @@ async def test_flush_delivers_and_marks_sent(client, db_session, fake_http):
 
 
 async def test_placeholder_dsn_sends_nothing(client, db_session, fake_http, monkeypatch):
-    from app.telemetry.forwarder import flush
     from app.telemetry.dsn import UPSTREAM_DSN
+    from app.telemetry.forwarder import flush
 
     await _set_consent(db_session, consent_mod.CONSENT_ERRORS)
     await client.post("/api/diag/client-error", json=A_CRASH)
@@ -367,9 +365,7 @@ async def test_rate_limit_stops_the_batch_instead_of_hammering(client, db_sessio
     assert len(fake_http.posted) == 1
 
 
-async def test_consent_revoked_between_queue_and_flush_sends_nothing(
-    client, db_session, fake_http, editor
-):
+async def test_consent_revoked_between_queue_and_flush_sends_nothing(client, db_session, fake_http, editor):
     # The race the design has to survive: an admin switches off while a payload is queued.
     from app.telemetry.forwarder import flush
 
