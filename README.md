@@ -10,7 +10,7 @@ exports; integrations add data but are not required to operate it.
 
 ## Try the demo
 
-The [public demo](https://kp-front-demo.up.railway.app) contains a running Zimmerbrand at the
+The [public demo](https://demo.kp-front.ch) contains a running Zimmerbrand at the
 Schloss in fictional Musterdorf. Credentials are shown on the login screen, and the demo resets
 every two hours.
 
@@ -228,7 +228,7 @@ KP Front runs the **frontline** command surface — the Lagekarte. If you're loo
 **rear** command post — a Kanban resource board that replaces the physical magnet board for
 tracking personnel, vehicles, materials, and incidents — see its companion
 **[KP Rück](https://github.com/feuerwehr-oberwil/kp-rueck)**
-([live demo](https://kp-rueck-demo.up.railway.app/)).
+([live demo](https://demo.kp-rueck.ch)).
 
 The two grew out of the same brigade and share a design language, but they are **completely
 independent** codebases and deployments — neither requires the other. They can *optionally* hand
