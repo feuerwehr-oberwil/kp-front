@@ -48,6 +48,13 @@ the latest tagged release (or `main`) and update promptly – see [`docs/DEPLOYM
   strong, stable `SECRET_KEY`** (≥32 chars, e.g. `openssl rand -hex 32`) – it signs JWTs and
   peppers PINs, so rotating it invalidates all sessions and PIN hashes. `just init-env` generates
   both secrets for a fresh `.env`.
+- **One credential *is* in the repo, deliberately:** the telemetry DSN in
+  `backend/app/telemetry/dsn.py`. It is a Sentry **public key** – write-only by construction,
+  able to submit an event and nothing else. It cannot read stored events, reach another project,
+  or authenticate to anything. It is in the clear so that an auditor grepping this repository
+  finds it and can rule it out in thirty seconds, rather than finding it hidden behind an env var
+  and wondering. If you would still rather it did not exist on your instance, set
+  `KP_TELEMETRY_ENABLED=0` – see [`PRIVACY.md`](PRIVACY.md).
 
 ## Data protection
 
@@ -60,5 +67,10 @@ controllers** for their deployment:
   [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) §6).
 - **Per-station data is not in this repo** – configs (`backend/private/`) and reference geodata
   live outside it and must never be committed.
+- **Nothing leaves your instance unless you switch it on.** There is no cloud account, licence
+  check or usage beacon. Two opt-in channels exist for reporting problems to the maintainer –
+  both off or manual by default, both showing you the exact payload first.
+  [`PRIVACY.md`](PRIVACY.md) documents what they send, what they can never send, how to verify
+  that from your own log and database, and how to disable them centrally.
 - If you process personal or operational data, follow your canton's data-protection (DSG)
   guidance.

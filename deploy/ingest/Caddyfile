@@ -1,0 +1,80 @@
+# Ingest edge. Three jobs: terminate TLS, rate-limit, and make sure no client IP survives
+# the hop. See README.md for the threat model.
+#
+# The rate_limit directive needs the caddy-ratelimit module, so the compose file's stock
+# caddy image has to be swapped for a build that includes it:
+#   xcaddy build --with github.com/mholt/caddy-ratelimit
+# Caddy refuses to start on an unknown directive rather than ignoring it, which is the
+# behaviour we want: an ingest that came up without its limits would be worse than one that
+# did not come up at all.
+
+{
+	order rate_limit before reverse_proxy
+}
+
+ingest.kp-front.ch {
+	encode gzip
+
+	# Only the envelope endpoint is public. The GlitchTip UI, the API and the admin live on a
+	# different hostname behind a VPN — a public dashboard is an invitation, and none of the
+	# stations sending here need to see it.
+	@envelope path_regexp envelope ^/api/\d+/envelope/?$
+
+	handle @envelope {
+		rate_limit {
+			# Per IP: a station batches on a 5-minute timer, so this is generous for the
+			# honest case and useless for flooding.
+			zone per_ip {
+				key {remote_host}
+				events 60
+				window 1m
+			}
+			# Per install: stops one wedged installation — or one attacker rotating through
+			# addresses — from eating the project quota, which a per-IP limit alone allows.
+			# The tag is in the payload, so this keys on what the sender claims to be; that is
+			# fine, because the per-IP bucket is what bounds a liar.
+			zone per_install {
+				key {http.request.header.X-Sentry-Auth}
+				events 200
+				window 1h
+			}
+			status_code 429
+		}
+
+		# Strip every trace of who sent this before it reaches the app. The payload contains
+		# no IP by construction; this makes sure the SERVER cannot add one either, and that a
+		# future GlitchTip release which starts recording X-Forwarded-For finds nothing.
+		request_header -X-Forwarded-For
+		request_header -X-Real-IP
+		request_header -Forwarded
+		request_header -CF-Connecting-IP
+
+		reverse_proxy web:8000 {
+			header_up X-Forwarded-For ""
+			header_up X-Real-IP ""
+		}
+	}
+
+	# Anything else: a flat 404. No UI, no API, no login page, nothing to enumerate.
+	handle {
+		respond 404
+	}
+
+	log {
+		output file /data/access.log {
+			roll_size 20mb
+			roll_keep 3
+		}
+		# Do not log the remote address: the whole point of the header stripping above is that
+		# we do not keep a record of which station sent what, and an access log would quietly
+		# reintroduce exactly that.
+		format filter {
+			wrap json
+			fields {
+				request>remote_ip delete
+				request>remote_port delete
+				request>headers delete
+			}
+		}
+	}
+}

@@ -263,6 +263,8 @@ Start with the [`documentation index`](docs/README.md):
 - [`Station data`](docs/STATION-DATA.md) – build and load a private station-data repository.
 - [`Deployment`](docs/DEPLOYMENT.md) – production and self-hosted setup.
 - [`Architecture`](docs/ARCHITECTURE.md) – system overview and design decisions.
+- [`Privacy`](PRIVACY.md) – what this app does and does not send anywhere. Short answer:
+  nothing, until a station switches it on, and there is a switch to make that impossible.
 
 ## Related project
 
