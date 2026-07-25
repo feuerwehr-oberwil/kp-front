@@ -1,6 +1,6 @@
-# Statistik-Export API — `GET /api/stats/incidents`
+# Statistik-Export API – `GET /api/stats/incidents`
 
-Read-only feed of every incident as one flat JSON record — for external analytics (e.g.
+Read-only feed of every incident as one flat JSON record – for external analytics (e.g.
 a yearly-statistics dashboard). Design: [`planning/stats-integration.md`](planning/stats-integration.md) (interface C2).
 
 ## Auth
@@ -52,7 +52,7 @@ Notes for consumers:
 
 - **No workspace blob, no map data** ever appears in this feed.
 - `gruppen`/`fahrzeuge` are prefilled by the alarm pipeline's milestone webhook
-  (`docs/ALARM-INTEGRATIONS.md` §1) and human-correctable — `manual: true` marks operator
+  (`docs/ALARM-INTEGRATIONS.md` §1) and human-correctable – `manual: true` marks operator
   entries. Unknown ids are passed through verbatim.
-- Matching against WinFAP exports: no shared id — match on `started_at` within a ±3 h
+- Matching against WinFAP exports: no shared id – match on `started_at` within a ±3 h
   window (reference consumer: fwo-stats `kpfront_service.py`).

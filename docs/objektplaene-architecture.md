@@ -73,9 +73,9 @@ folder name, copies the matched Modul-PDFs into `plans/`, and writes `objects.ma
 the manifest with authoritative ones from the FireGIS amtliche Vermessung register. `admin_objects`
 (OSS) then ingests that manifest into a deployment.
 
-## Ingest — one manifest, two ways in
+## Ingest – one manifest, two ways in
 
-Every path writes the same three things — an `ObjectSite` row, a `ReferenceDataset` per Modul
+Every path writes the same three things – an `ObjectSite` row, a `ReferenceDataset` per Modul
 (`plan:<obj>:<module>`), and the PDF blob in object storage. The deterministic `uuid5` keys
 everything, so reruns upsert in place rather than duplicating.
 
@@ -114,7 +114,7 @@ uv run python -m app.admin_objects show                   # list stored objects 
 
 **The storage caveat (why `push` exists):** a plain `load` writes PDFs to its *local*
 `MEDIA_STORAGE_DIR`. Run from a laptop against a remote DB it would point the rows at files the
-server can't see. So from a workstation use `push` — files go through the API and the server
+server can't see. So from a workstation use `push` – files go through the API and the server
 writes its own volume.
 
 **Module mapping** (done by the importer in the private repo): `Modul 1`→`modul1`,
@@ -123,7 +123,7 @@ writes its own volume.
 `modul5-rwa`** (the sub-slot is kept distinct so Wasser/PV/RWA don't collapse onto one tile).
 `Vertrag/` and `Zusatz/` subfolders are ignored.
 
-## Runtime render — proximity surface
+## Runtime render – proximity surface
 
 Unlike geodata (config-driven map layers, visible whenever switched on), Objektpläne surface
 **per incident, by proximity**. There is no `referenceLayers` entry; the app asks the backend
@@ -144,15 +144,15 @@ object's Modul-PDFs into the Plan tabs. If no object is near or configured, ther
 public-repo plan fallback: the app offers only generic `osm` building outlines and `tafel` blank
 sketch sheets. The combined `Modul 2-3` sheet collapses to a single tile. The fixed catalog
 (`planDocuments`) defines tiles for `modul1/2/2-3/3/6`; **`modul4` and the `modul5-*` sub-slots
-have no fixed tile — their tile is synthesized on the fly from the backend module key** (with a
+have no fixed tile – their tile is synthesized on the fly from the backend module key** (with a
 German label for Wasser/PV/RWA), so whatever sub-sheets a station's library carries show up
 without a code change. An editor can override the auto-pick and select another object manually.
 
-## Refresh — getting the latest data
+## Refresh – getting the latest data
 
 Objektpläne change as the brigade updates its Einsatzplan library. To refresh a deployment:
 
-1. **Re-run the importer** in the data repo against the current OneDrive library — it rewrites
+1. **Re-run the importer** in the data repo against the current OneDrive library – it rewrites
    `objects.manifest.json` + `plans/` (idempotent: deterministic `uuid5`, so objects update in
    place, new objects are added).
 2. *(optional)* **`fix_object_coords.py`** if you have a refreshed authoritative register.
@@ -160,11 +160,11 @@ Objektpläne change as the brigade updates its Einsatzplan library. To refresh a
    the live deployment via its API.
 
 There is no live remote `pull` (the source is OneDrive on a workstation, not a server-reachable
-URL) — refresh is import-on-workstation → push-to-prod, mirroring geodata's `just push`.
+URL) – refresh is import-on-workstation → push-to-prod, mirroring geodata's `just push`.
 
 ## Configurable module catalog (types · labels · parsing)
 
-The module set is **not hardcoded** — one config in `deployment_config.modules` declares each
+The module set is **not hardcoded** – one config in `deployment_config.modules` declares each
 module's **type** (`id`), **label** (`code` like `M1` / `2/3`, plus `title`/`subtitle`/`order`/
 `orientation`), and **parsing rule** (`match` regex on the source filename, `combinedWith` for a
 combined sheet, `family` for a generative sub-slot). The same list drives **both** ends:
@@ -172,9 +172,9 @@ combined sheet, `family` for a generative sub-slot). The same list drives **both
 - **App** (`modulesFromConfig()` in `deploymentConfig.ts` → `useObjectPlans`) renders the plan
   tiles from it (falling back to the bundled module entries; OSM/Tafel surfaces stay app-defined,
   Modul 4/5 sub-sheets still synthesize data-driven tiles from the backend).
-- **Importer** (`import_einsatzplaene.py`) loads the **same** `modules` — via `--modules <file>`,
+- **Importer** (`import_einsatzplaene.py`) loads the **same** `modules` – via `--modules <file>`,
   else the live deployment (`KP_BASE_URL` → `GET /api/config`), else its `BUILTIN_MODULES` default
-  — and parses filenames with the `match`/`combinedWith`/`family` rules. The built-in reproduces
+  – and parses filenames with the `match`/`combinedWith`/`family` rules. The built-in reproduces
   the canonical mapping exactly (verified: 0 slot mismatches over 154 objects).
 
 Edit it as code with the config CLI and upload via the same path as any config:

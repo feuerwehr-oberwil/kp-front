@@ -18,7 +18,7 @@ What you'd like to see happen.
 
 How does this hold up for an infrequent expert, under stress, possibly offline, using it at
 3am after months without practice? (Recognition over recall, sensible defaults, nothing that
-can't be undone — see `CONTRIBUTING.md`.)
+can't be undone – see `CONTRIBUTING.md`.)
 
 ## Alternatives considered
 

@@ -1,7 +1,7 @@
 # API reference
 
 KP Front's backend is a single FastAPI service that **serves the SPA same-origin** and exposes
-its HTTP API under `/api/*`. There is no separate API host and no CORS surface — one deployment
+its HTTP API under `/api/*`. There is no separate API host and no CORS surface – one deployment
 is one station (single-tenant). Most users never touch the API directly: the app is the client,
 and per-station setup goes through the [admin CLIs](#configuration--data-cli). This page is for
 integrators and contributors.
@@ -11,7 +11,7 @@ integrators and contributors.
 The full contract is committed as [`openapi.json`](openapi.json) (regenerate with `just openapi`).
 
 Interactive docs (`/docs` Swagger, `/redoc`, `/openapi.json`) are served **in development**. In
-production they are **off by default** — set `EXPOSE_API_DOCS=true` to enable them on a deployed
+production they are **off by default** – set `EXPOSE_API_DOCS=true` to enable them on a deployed
 instance for integration work.
 
 | Environment | `/docs`, `/openapi.json` |
@@ -23,18 +23,18 @@ instance for integration work.
 
 PIN-kiosk flow issuing JWTs as **httpOnly cookies** (single-origin, so no tokens in JS):
 
-1. `GET /api/auth/roster` — public list of login tiles (active users, no secrets).
-2. `POST /api/auth/login` `{user_id, pin}` — sets `access_token` + `refresh_token` cookies.
-3. `POST /api/auth/refresh` — rotates the pair; `POST /api/auth/logout` revokes them.
-4. `GET /api/auth/me` — the current user.
+1. `GET /api/auth/roster` – public list of login tiles (active users, no secrets).
+2. `POST /api/auth/login` `{user_id, pin}` – sets `access_token` + `refresh_token` cookies.
+3. `POST /api/auth/refresh` – rotates the pair; `POST /api/auth/logout` revokes them.
+4. `GET /api/auth/me` – the current user.
 
 **Two authorization layers:**
 
-- **Incident role** — `editor` (can mutate incident state) vs `viewer` (read-only). Mutating
+- **Incident role** – `editor` (can mutate incident state) vs `viewer` (read-only). Mutating
   incident endpoints require `editor`.
-- **Deployment admin** — the `/admin` surface and admin-write endpoints (config, branding,
+- **Deployment admin** – the `/admin` surface and admin-write endpoints (config, branding,
   system, user CRUD, geodata/objects) require an **admin session**, unlocked by the deployment
-  `ADMIN_SECRET` via `POST /api/admin/login` `{secret}` — separate from the editor PIN, and
+  `ADMIN_SECRET` via `POST /api/admin/login` `{secret}` – separate from the editor PIN, and
   fail-closed when `ADMIN_SECRET` is unset. See [CONFIGURATION.md](CONFIGURATION.md) §5.
 
 ## Endpoint groups

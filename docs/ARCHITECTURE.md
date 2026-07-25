@@ -7,13 +7,13 @@ config contract, [`CONFIGURATION.md`](CONFIGURATION.md); for running it,
 
 The shape in one sentence: a tablet-first **PWA** talks to a single **FastAPI** service that
 serves the app same-origin, owns a **PostgreSQL** database and an asset store, and is the only
-thing that reaches **external services** — one deployment per station, no multi-tenancy.
+thing that reaches **external services** – one deployment per station, no multi-tenancy.
 
 ## System context
 
 ```mermaid
 flowchart TB
-  subgraph CLIENT["Browser — installable PWA (one tablet per command point)"]
+  subgraph CLIENT["Browser – installable PWA (one tablet per command point)"]
     UI["Lage (map) · Plan (whiteboard)<br/>React + TypeScript + MapLibre GL"]
     SW["Service worker (Workbox)<br/>app-shell precache · runtime cache · offline"]
     LS[("localStorage<br/>incident doc · device prefs")]
@@ -21,7 +21,7 @@ flowchart TB
     UI --- LS
   end
 
-  subgraph DEP["Deployment — one per station (single-tenant)"]
+  subgraph DEP["Deployment – one per station (single-tenant)"]
     API["FastAPI service<br/>serves the SPA same-origin (no CORS)<br/>auth · workspace sync · audit · integrations"]
     DB[("PostgreSQL<br/>incidents · events · config · roster")]
     FILES[("Asset storage (volume / S3)<br/>plans · media · reference GeoJSON · symbols")]
@@ -39,7 +39,7 @@ flowchart TB
   TILES["Raster map tiles<br/>swisstopo WMTS · OSM · canton WMS"]
   PRIV["Station's private data repo<br/>(hydrants · Leitungskataster · …)"]
 
-  UI -->|"/api/* — same-origin, JWT cookie"| API
+  UI -->|"/api/* – same-origin, JWT cookie"| API
   API --> DIV
   API --> TRC
   API --> GEO
@@ -64,7 +64,7 @@ flowchart TB
 
 Three classes: **bundled** (offline, ships in the app), **backend-proxied** (cached, one
 SSRF-guarded client per service), and **browser-direct** (raster tiles only). No station data
-is bundled — see the geodata doc for why.
+is bundled – see the geodata doc for why.
 
 ## Backend modules
 
@@ -111,14 +111,14 @@ every change and keeps fold snapshots so an incident can be replayed and verifie
 
 ```mermaid
 flowchart TB
-  subgraph PREC["Resolution order — highest wins, falls back downward"]
+  subgraph PREC["Resolution order – highest wins, falls back downward"]
     direction TB
-    L4["4 · Per-incident — workspace blob (synced, any user)"]
-    L2["2 · Per-station — deployment_config DB row (CLI/config files primary; admin UI helper)"]
-    L1["1 · National defaults — code (appConfig.ts · config.py)"]
+    L4["4 · Per-incident – workspace blob (synced, any user)"]
+    L2["2 · Per-station – deployment_config DB row (CLI/config files primary; admin UI helper)"]
+    L1["1 · National defaults – code (appConfig.ts · config.py)"]
     L4 --> L2 --> L1
   end
-  L3["3 · Secrets — environment variables (infra only, never in the UI)"]
+  L3["3 · Secrets – environment variables (infra only, never in the UI)"]
   L3 -. "configures" .-> L2
 ```
 
@@ -141,7 +141,7 @@ sequenceDiagram
   API->>DB: store workspace + workspace_rev++
   API-->>A: 200 (new rev)
   B->>API: GET workspace?since=rev
-  API-->>B: 200 newer blob — or 304 unchanged
+  API-->>B: 200 newer blob – or 304 unchanged
   Note over API,DB: /api/incidents/{id}/verify re-walks the chain (tamper check)
 ```
 
@@ -158,7 +158,7 @@ self-hosted via docker-compose. Full guide in [`DEPLOYMENT.md`](DEPLOYMENT.md).
 flowchart LR
   USER["Operator (browser)"]
   CADDY["Caddy (optional)<br/>auto-HTTPS"]
-  APP["app container<br/>uvicorn — FastAPI + built SPA"]
+  APP["app container<br/>uvicorn – FastAPI + built SPA"]
   PG[("postgres:16<br/>pgdata volume")]
   VOL[("storage volume<br/>media · plans · reference data")]
   USER --> CADDY --> APP

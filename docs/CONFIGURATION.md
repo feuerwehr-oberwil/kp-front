@@ -1,4 +1,4 @@
-# CONFIGURATION — what a station must provide, and in what format
+# CONFIGURATION – what a station must provide, and in what format
 
 **Status:** Live configuration contract. The Tier-2 config layer is implemented as a DB-backed
 `deployment_config` document, with CLI/config-file tooling as the primary administration path and
@@ -20,7 +20,7 @@ the backend validates.
 | **Per-incident settings** | Live operational knobs (synced) | workspace blob (`IncidentSettings`) | any **user**, in-incident |
 
 **Resolution:** per-incident overrides deployment config overrides defaults. **An empty
-deployment config is valid** — the app must run as a generic, empty station (see `§8 Empty
+deployment config is valid** – the app must run as a generic, empty station (see `§8 Empty
 state`).
 
 ---
@@ -58,7 +58,7 @@ One JSON document, stored as the single `deployment_config` row, returned by `GE
     }
   },
 
-  "referenceLayers": [ /* see §2 — entirely station-supplied, none bundled */ ],
+  "referenceLayers": [ /* see §2 – entirely station-supplied, none bundled */ ],
 
   "fleet": {
     // Station vehicles for the Alarmierungs-/Ausrückzeiten grid (rapport form, paper
@@ -67,7 +67,7 @@ One JSON document, stored as the single `deployment_config` row, returned by `GE
     "vehicles": [],                               // e.g. { "id": "tlf", "label": "TLF", "winfapAlias": "TLF" }
     // Data-driven Auswahl-Vorschläge: each entry attaches a suggestion list to one symbol
     // field. `field` is "title" (the symbol's title combobox) or a detail-row key (e.g. "Typ",
-    // "Einheit"). Free typing in the Lage always stays possible — these only prefill. Edit in
+    // "Einheit"). Free typing in the Lage always stays possible – these only prefill. Edit in
     // Verwaltung › Fahrzeuge & Geräte, or edit in the config JSON and load via CLI.
     "attributeLists": [
       { "symbol": "VKF Fahrzeug",          "field": "title",   "options": ["TLF", "ADL", "HLF", "ELW"] },
@@ -84,14 +84,14 @@ One JSON document, stored as the single `deployment_config` row, returned by `GE
   "doctrine": {                                  // FKS defaults shown; override per corps
     "defaultFunkkanal": 11,                       // null = no preset (national default)
     "funkkanalMin": 1, "funkkanalMax": 99,
-    "mindestBar": 60,                             // critical minimum — low-pressure highlight
-    "contactIntervalMin": 5,                      // SCBA contact interval — "Kontakt fällig" (amber)
+    "mindestBar": 60,                             // critical minimum – low-pressure highlight
+    "contactIntervalMin": 5,                      // SCBA contact interval – "Kontakt fällig" (amber)
     "contactGraceSec": 60,                        // Nachfrist after the interval before the überfällig alarm
     "defaultPressureBar": 300, "pressureStep": 10, "pressureMax": 320
   },
 
   "roster": {
-    "source": "manual"                            // "divera" | "manual" (CSV/hand) — see §4
+    "source": "manual"                            // "divera" | "manual" (CSV/hand) – see §4
   },
 
   "mittel": {                                    // material-use sheet (Mittel): billing/report + "brauchen wir mehr?"
@@ -106,7 +106,7 @@ One JSON document, stored as the single `deployment_config` row, returned by `GE
         "stock": [ { "source": "tlf", "qty": 1 }, { "source": "pio", "qty": 1 } ] },   // → MoWa: none
       { "id": "atemschutzgeraet", "label": "Atemschutzgerät",     "unit": "Stk",  "category": "Atemschutz" }
     ],
-    "sources": [                                  // where a Mittel was drawn from — optional per entry,
+    "sources": [                                  // where a Mittel was drawn from – optional per entry,
       { "id": "tlf",     "label": "TLF" },        // typically the vehicles + the depot. The picker
       { "id": "pio",     "label": "Pio" },        // offers exactly this list (no free-typed sources).
       { "id": "magazin", "label": "Magazin" }     // `stock[].source` references these ids.
@@ -116,7 +116,7 @@ One JSON document, stored as the single `deployment_config` row, returned by `GE
 
   "alarms": {                                    // alarm auto-open + auto-archive
     "autoOpen": false,                            // NEW Divera alarm → incident, no human in the loop
-                                                  // (generic POST /api/alarms always creates — its env
+                                                  // (generic POST /api/alarms always creates – its env
                                                   // secret ALARM_WEBHOOK_SECRET is the opt-in, §6)
     "autoOpenPriorities": null,                   // e.g. ["HIGH"]; null = all
     "autoOpenKeywords": null,                     // case-insensitive substrings of title+text; null = all
@@ -151,13 +151,13 @@ One JSON document, stored as the single `deployment_config` row, returned by `GE
 
 ---
 
-## 2. Reference / werkleitungs layers — **station-supplied, nothing bundled**
+## 2. Reference / werkleitungs layers – **station-supplied, nothing bundled**
 
 No layers ship with the app except the swisstopo/OSM base maps (§7). Every operational
 reference layer (hydrant, water/gas/electricity mains, hazard zones) is entered by the station.
 Two kinds, mirroring the existing `LayerDef`:
 
-### 2a. Raster layer (WMS / WMTS) — *paste a URL template*
+### 2a. Raster layer (WMS / WMTS) – *paste a URL template*
 ```jsonc
 {
   "id": "bl-hochwasser",
@@ -176,7 +176,7 @@ Two kinds, mirroring the existing `LayerDef`:
   individual layer changes; keep the manifest/config file as the source of truth.
 - Station gets the URL + layer name from its canton/commune GIS GetCapabilities.
 
-### 2b. Vector layer (GeoJSON) — *for points/lines you own*
+### 2b. Vector layer (GeoJSON) – *for points/lines you own*
 ```jsonc
 {
   "id": "hydrant",
@@ -194,15 +194,15 @@ Two kinds, mirroring the existing `LayerDef`:
 }
 ```
 
-`autoActivate` (also valid on raster layers) names the **Einsatz categories** — the German
-VKF `kategorien` values (`Brandbekämpfung`, `Elementarereignis`, `Ölwehr`, …) — for which the
+`autoActivate` (also valid on raster layers) names the **Einsatz categories** – the German
+VKF `kategorien` values (`Brandbekämpfung`, `Elementarereignis`, `Ölwehr`, …) – for which the
 layer switches itself visible: when an incident of that category is opened for the first time,
 and additively when an incident is later re-categorized (a BMA that turns out to be a real
 fire brings the hydrants up). It only ever turns layers **on**, and once the operator has
-toggled layers in an incident their choice is authoritative — a deliberately hidden layer is
+toggled layers in an incident their choice is authoritative – a deliberately hidden layer is
 not re-forced on reopen. Unset = the layer never auto-activates (the default).
 You don't write the `geojson` URL by hand: load the file with the **`admin_geodata` CLI**
-(§9c) from a *manifest* — a layer entry plus a `file:` pointing at the GeoJSON. The CLI puts
+(§9c) from a *manifest* – a layer entry plus a `file:` pointing at the GeoJSON. The CLI puts
 the file in the reference store and writes this render config (with the resolved
 `/api/reference/geo:<slug>` URL) into `referenceLayers`. The in-app **Datenquellen** panel is
 for inspection and simple one-off changes, not the long-term source of truth. Restricted data
@@ -222,9 +222,9 @@ Stored in the configured asset store (local volume by default; S3 optional). Lim
 | App icon | PNG **192×192** and **512×512** | PWA / home-screen |
 | Favicon | SVG or ICO | browser tab |
 
-### 3b. Hydrants — GeoJSON
+### 3b. Hydrants – GeoJSON
 - **Type:** `FeatureCollection` of `Point` features.
-- **CRS:** **WGS84 (EPSG:4326), `[lng, lat]`** — per RFC 7946. The app does **not** reproject;
+- **CRS:** **WGS84 (EPSG:4326), `[lng, lat]`** – per RFC 7946. The app does **not** reproject;
   `admin_geodata` and the upload panel **reject** LV95-looking coordinates. Convert at the edge
   first (the private data repo's `leitungskataster_to_geojson.py` reprojects LV95 → WGS84).
 - **Properties (all optional; geometry is the only requirement):**
@@ -237,7 +237,7 @@ Stored in the configured asset store (local volume by default; S3 optional). Lim
   | `druck` | static pressure | `"4.5 bar"` |
   - Unknown properties are ignored; they surface in the symbol detail panel.
 
-### 3c. Plans (object plans) — PDF
+### 3c. Plans (object plans) – PDF
 - One PDF per module. The **module key** is parsed from the filename/field; accepted forms
   (already normalized in `useObjectPlans`):
   `modul1`, `modul2`, `modul3`, **`modul2-3` / `2-3` / `Modul 2/3` / `modul2_3`** (combined
@@ -253,7 +253,7 @@ Stored in the configured asset store (local volume by default; S3 optional). Lim
 - Built-in, non-uploaded plan tiles (always available): `osm` (live OSM building outlines) and
   `tafel` (blank sketch sheet).
 - **Objects** (which plans belong to which building) come from the backend reference store
-  (`/api/reference/objects`); a station with no object data simply has no object plans — the
+  (`/api/reference/objects`); a station with no object data simply has no object plans – the
   `osm` and `tafel` sheets still work.
 
 ---
@@ -262,11 +262,11 @@ Stored in the configured asset store (local volume by default; S3 optional). Lim
 
 `roster.source` selects how `Person` records are populated.
 
-### 4a. `"divera"` — auto-sync
+### 4a. `"divera"` – auto-sync
 - Requires a Divera access key in env (§6). The backend syncs Divera personnel → `Person`.
 - No file needed; the admin UI shows the synced roster read-only.
 
-### 4b. `"manual"` — CSV import + hand entry
+### 4b. `"manual"` – CSV import + hand entry
 - Admin imports a CSV and/or adds people in the UI. **CSV columns:**
   | column | required | meaning |
   |--------|----------|---------|
@@ -277,14 +277,14 @@ Stored in the configured asset store (local volume by default; S3 optional). Lim
   | `divera_id` | – | for later reconciliation if they adopt Divera |
 - Encoding UTF-8, comma-separated, header row required. Extra columns ignored.
 
-> Either way, the **app stays usable with an empty roster** — every person picker (Einsatzleiter,
+> Either way, the **app stays usable with an empty roster** – every person picker (Einsatzleiter,
 > Fahrer, Trupp names) offers free-typing, so a station can run before importing anyone (§8).
 
 ---
 
 ## 5. User accounts, roles, and deployment administration
 
-Not part of `deployment_config` — operational users are managed separately from station config.
+Not part of `deployment_config` – operational users are managed separately from station config.
 The product role model is deliberately small:
 
 - **Login:** pick your name from the roster → enter your **PIN** (fast at 3am, per-person
@@ -297,7 +297,7 @@ The product role model is deliberately small:
   **`ADMIN_SECRET`** env var (a deploy-time secret), *separate* from the editor PIN. Unlock once
   with the secret to get a short admin session; the `admin_geodata`/`admin_objects` `push` CLI
   authenticates the same way (`KP_ADMIN_SECRET`). **Fail-closed:** if `ADMIN_SECRET` is unset the
-  admin surface is disabled (every admin endpoint returns 403) — it never falls back to the editor
+  admin surface is disabled (every admin endpoint returns 403) – it never falls back to the editor
   PIN. Use it for config/user maintenance, not for 3am incident work.
 - **Account source of truth:** preferably config/CLI/seed file for deployers, with the admin UI
   for inspection, PIN reset, deactivation, and simple changes. **PIN reset is admin-driven** (no
@@ -305,7 +305,7 @@ The product role model is deliberately small:
 
 ---
 
-## 6. Environment variables (secrets / infra — operator, not admin)
+## 6. Environment variables (secrets / infra – operator, not admin)
 
 Set at deploy time; never editable from the UI, never in the repo.
 
@@ -317,9 +317,9 @@ Set at deploy time; never editable from the UI, never in the repo.
 | `MEDIA_STORAGE_DIR` | local asset/media dir (default `data/storage`) |
 | `S3_*` | optional: bucket/endpoint/keys if using object storage |
 | `DIVERA_ACCESS_KEY`, `DIVERA_WEBHOOK_SECRET` | if `diveraEnabled` |
-| `ALARM_WEBHOOK_SECRET` | generic alarm intake `POST /api/alarms` for non-Divera alerting systems — auto-opens an incident per alarm, idempotent on `source`+`source_id` (empty = endpoint disabled, fail-closed) |
+| `ALARM_WEBHOOK_SECRET` | generic alarm intake `POST /api/alarms` for non-Divera alerting systems – auto-opens an incident per alarm, idempotent on `source`+`source_id` (empty = endpoint disabled, fail-closed) |
 
-> **Erfassungs-Poster (station capture):** not an env var — the poster token lives in the DB and is
+> **Erfassungs-Poster (station capture):** not an env var – the poster token lives in the DB and is
 > managed in the admin UI (Personen › Erfassung): activate/rotate/disable, print the A4 poster.
 > Scanning it opens `/e/<token>`, where attendance/material/notes for incidents of the last
 > `alarms.captureWindowHours` are recorded without a login. Fail-closed: no token → the whole
@@ -327,22 +327,22 @@ Set at deploy time; never editable from the UI, never in the repo.
 
 > **Statistik-Export:** also DB-stored, managed in the admin UI (Datenquellen › Statistik-Export).
 > `GET /api/stats/incidents?year=` returns one flat read-only JSON record per incident (metadata,
-> Zeiten, Anwesenheit von–bis, Mittel totals, Rapport status) for external analytics — auth via
+> Zeiten, Anwesenheit von–bis, Mittel totals, Rapport status) for external analytics – auth via
 > `X-Stats-Token` header or `?t=`. Fail-closed: no token → 403. Full field reference:
 > `docs/STATS-EXPORT.md`. |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Web Push for killed-app alarms + new-alarm push (generate once: `cd backend && uv run python -m app.gen_vapid`; empty = push disabled, fail-closed) |
-| `PRINT_AGENT_SECRET` | station print relay: «An Stationsdrucker» queues the Einsatzrapport-PDF for an on-site agent (`tools/print_agent.py` — any always-on box with a CUPS queue; `python3 tools/print_agent.py install` prints the setup). Empty = agent endpoints 403 and the button never renders, fail-closed. |
+| `PRINT_AGENT_SECRET` | station print relay: «An Stationsdrucker» queues the Einsatzrapport-PDF for an on-site agent (`tools/print_agent.py` – any always-on box with a CUPS queue; `python3 tools/print_agent.py install` prints the setup). Empty = agent endpoints 403 and the button never renders, fail-closed. |
 | `TRACCAR_URL`, `TRACCAR_EMAIL`, `TRACCAR_PASSWORD` | if `traccarEnabled` |
-| `STT_BASE_URL`, `STT_API_KEY`, `STT_MODEL`, `STT_LANGUAGE` | speech-to-text for the audio player's Transkribieren (OpenAI-compatible `/v1/audio/transcriptions`; base URL without `/v1` — Groq: `https://api.groq.com/openai`, OpenAI: `https://api.openai.com`, or a self-hosted faster-whisper server). Empty base URL = off, fail-closed. **Audio is sent to that server** — prefer self-hosted for sensitive deployments. |
-| `MAX_UPLOAD_MB` | request-body cap for multipart uploads (default 110 — must stay above the media endpoint's 100 MB per-file cap) |
-| `GEOCODER_URL` | address-autocomplete endpoint (default the swisstopo SearchServer — see the caveat below) |
+| `STT_BASE_URL`, `STT_API_KEY`, `STT_MODEL`, `STT_LANGUAGE` | speech-to-text for the audio player's Transkribieren (OpenAI-compatible `/v1/audio/transcriptions`; base URL without `/v1` – Groq: `https://api.groq.com/openai`, OpenAI: `https://api.openai.com`, or a self-hosted faster-whisper server). Empty base URL = off, fail-closed. **Audio is sent to that server** – prefer self-hosted for sensitive deployments. |
+| `MAX_UPLOAD_MB` | request-body cap for multipart uploads (default 110 – must stay above the media endpoint's 100 MB per-file cap) |
+| `GEOCODER_URL` | address-autocomplete endpoint (default the swisstopo SearchServer – see the caveat below) |
 | `SEED_DATABASE`, `DEV_CREATE_ALL` | dev seeding / auto-create tables (prod uses Alembic) |
 
-Weather (MeteoSwiss/Open-Meteo) and the swisstopo geocoder need **no** credentials — public
+Weather (MeteoSwiss/Open-Meteo) and the swisstopo geocoder need **no** credentials – public
 endpoints, national, work everywhere *in Switzerland*. One honest limitation: the geocoder
 client speaks the swisstopo SearchServer API shape only, so outside Switzerland address
 autocomplete simply returns nothing (map-pick still works). `GEOCODER_URL` exists to point at
-a *compatible* endpoint (e.g. a proxy) — it is **not** a generic-geocoder swap point for
+a *compatible* endpoint (e.g. a proxy) – it is **not** a generic-geocoder swap point for
 Nominatim/Google/etc.
 
 ---
@@ -352,7 +352,7 @@ Nominatim/Google/etc.
 - **Base maps:** swisstopo (farbig/grau/SWISSIMAGE via WMTS), OpenStreetMap, Carto (incl. the
   night theme), Esri/OpenTopo. National coverage, day one.
 - **FKS symbol set:** the KP-Front-authored library (`public/tactical-symbols.json`, generated
-  by `tools/gen_symbols.py`) + presets + display names. **Not station-editable** — keeps
+  by `tools/gen_symbols.py`) + presets + display names. **Not station-editable** – keeps
   stations interoperable.
 - **Weather/wind, geocoder:** national public services.
 
@@ -360,7 +360,7 @@ Nominatim/Google/etc.
 
 A deployment with an empty config must be fully operable:
 - swisstopo base map, centered on a neutral default until `map.defaultView` is set;
-- no reference layers, no hydrants, no plans, no roster — and **nothing errors**;
+- no reference layers, no hydrants, no plans, no roster – and **nothing errors**;
 - every person/unit picker offers **free-type entry** (no "select from empty list" dead-ends);
 - optional layers/integrations that aren't configured are shown as "nicht konfiguriert", never
   as empty-but-implied-complete.
@@ -404,7 +404,7 @@ it with the station's values. An empty config is always valid (§8).
 
 Reference layers (§2) are loaded separately from the rest of the config, because they pair
 render config with GeoJSON **files**. A station keeps those files + a **manifest** in a private
-data repo and loads them with `backend/app/admin_geodata.py` — the GeoJSON goes into the
+data repo and loads them with `backend/app/admin_geodata.py` – the GeoJSON goes into the
 reference store (served at `/api/reference/geo:<slug>`) and the render config is written into
 `deployment_config.referenceLayers`. Same loop as `admin_config`:
 
@@ -424,7 +424,7 @@ frontend persists as `layerState`, so saved layer visibility carries across a re
 
 **Storage caveat for remote loads.** A full `load` writes the GeoJSON to the *local*
 `MEDIA_STORAGE_DIR`, so run it **server-side** (where storage = the server volume) for a fresh
-deployment — or push the files through the in-app **Datenquellen** upload (which goes via the
+deployment – or push the files through the in-app **Datenquellen** upload (which goes via the
 API to the server's store). From a workstation against a remote DB, use **`load --config-only`**
 (inject `DATABASE_PUBLIC_URL`, like `admin_config`): it writes just `referenceLayers` and never
 touches files, so it can't point rows at GeoJSON that isn't on the server.
@@ -432,13 +432,13 @@ touches files, so it can't point rows at GeoJSON that isn't on the server.
 ## 9d. Loading checklists (`admin_checklists`)
 
 Checklist templates (the FU action list, the Lagerapport agenda, the EL tactical playbook) are
-station data too: one `ChecklistTemplate` JSON per list — plus playbook diagram images for
-`reference` templates — and a `checklists.manifest.json`, kept in the private data repo and
+station data too: one `ChecklistTemplate` JSON per list – plus playbook diagram images for
+`reference` templates – and a `checklists.manifest.json`, kept in the private data repo and
 loaded with `backend/app/admin_checklists.py`. Each template becomes a `checklists:<id>`
 reference dataset (diagram pages as `checklists:<id>:p<N>`), served at
 `/api/reference/checklists:<id>` and fetched + offline-cached by the Checkliste surface
 (`loadTemplates` in `src/lib/checklists.ts`). With nothing loaded, the app falls back to one
-neutral bundled example (`src/data/checklists/generic-action.json`) — never a station's real
+neutral bundled example (`src/data/checklists/generic-action.json`) – never a station's real
 lists. Same loop as the other CLIs:
 
 ```bash
@@ -455,9 +455,9 @@ The manifest is the single place a station controls checklist rail ordering (`or
 `load`/`push` **prune** stale `checklists:*` datasets not in the manifest, so renamed or
 removed lists don't linger. Like `admin_objects`, `load` writes the local storage volume (run
 it server-side); `push` goes through a running server's HTTP API (`ADMIN_SECRET`) so the
-server writes its own volume — the way to refresh a remote deployment from a workstation.
+server writes its own volume – the way to refresh a remote deployment from a workstation.
 
 ## 9. Out of scope for this doc
-- **Device preferences** (theme day/night/auto, symbol size) — per-device cookie, not synced.
+- **Device preferences** (theme day/night/auto, symbol size) – per-device cookie, not synced.
 - **Per-incident settings** (`IncidentSettings`: `contactIntervalMin`, `contactGraceSec`,
-  `defaultFunkkanal`) — live in the workspace blob, default from `doctrine` above.
+  `defaultFunkkanal`) – live in the workspace blob, default from `doctrine` above.

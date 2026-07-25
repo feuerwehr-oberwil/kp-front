@@ -143,12 +143,12 @@ per station. Full diagrams (data provenance, backend modules, config layers, syn
 
 ```mermaid
 flowchart TB
-  subgraph CLIENT["Browser — installable PWA"]
+  subgraph CLIENT["Browser – installable PWA"]
     UI["Lage (map) · Plan (whiteboard)<br/>React + MapLibre GL"]
     SW["Service worker<br/>precache · offline"]
     UI --- SW
   end
-  subgraph DEP["Deployment — one per station (single-tenant)"]
+  subgraph DEP["Deployment – one per station (single-tenant)"]
     API["FastAPI<br/>serves SPA same-origin · auth · sync · audit"]
     DB[("PostgreSQL")]
     FILES[("Asset storage<br/>plans · media · geodata")]

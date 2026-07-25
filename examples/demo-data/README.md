@@ -1,6 +1,6 @@
 # Demo dataset (Musterdorf)
 
-A minimal, **synthetic** dataset for evaluating a fresh KP Front instance — no private station
+A minimal, **synthetic** dataset for evaluating a fresh KP Front instance – no private station
 data, roster, or plans. Two public landmarks anchor the map; the water network is synthetic but
 follows the real streets. Safe to commit and to load into a throwaway deployment.
 
@@ -21,7 +21,7 @@ Modul-PDFs and real checklists (incl. playbook diagrams) from a private data sou
 (see [`docs/objektplaene-architecture.md`](../../docs/objektplaene-architecture.md)).
 
 The live demo also seeds a prepared "incoming alarm" (mimicking Divera), a dummy **roster** (12
-people), and the two demo login accounts — that's `app.demo_reset` (see `scripts/demo-reset.sh`),
+people), and the two demo login accounts – that's `app.demo_reset` (see `scripts/demo-reset.sh`),
 not `load.sh`.
 
 ## Load it

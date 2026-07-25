@@ -1,4 +1,4 @@
-# SETUP — from nothing to a station that can run an incident
+# SETUP – from nothing to a station that can run an incident
 
 This is the **ordered path**, written for someone setting KP Front up for their own fire station
 for the first time. It links to the reference docs rather than repeating them:
@@ -35,7 +35,7 @@ with a switch.
 ```bash
 git clone https://github.com/feuerwehr-oberwil/kp-front.git
 cd kp-front
-git checkout v0.2.0          # a tagged release, not main — see §6
+git checkout v0.2.0          # a tagged release, not main – see §6
 just init-env                # generates POSTGRES_PASSWORD, SECRET_KEY and ADMIN_SECRET into .env
 ```
 
@@ -45,10 +45,10 @@ unlocks `/admin` later, and it is not recoverable from the running app.
 Then start the stack:
 
 ```bash
-# With a domain (set DOMAIN in .env first) — automatic HTTPS via Caddy:
+# With a domain (set DOMAIN in .env first) – automatic HTTPS via Caddy:
 docker compose --profile tls up -d
 
-# …or plain HTTP on a trusted LAN — also set COOKIE_SECURE=false in .env, see §7:
+# …or plain HTTP on a trusted LAN – also set COOKIE_SECURE=false in .env, see §7:
 docker compose up -d
 ```
 

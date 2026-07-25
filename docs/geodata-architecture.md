@@ -7,7 +7,7 @@ at runtime from a station's own (often private) data.
 
 See also [`CONFIGURATION.md`](CONFIGURATION.md) §2 (layer schema) and §9c (the `admin_geodata`
 CLI). Restricted utility cadastre (gas/electricity/water/sewer) is held under data-sharing
-agreements — it stays in a **private data repo**, never here.
+agreements – it stays in a **private data repo**, never here.
 
 ## End to end
 
@@ -49,9 +49,9 @@ flowchart LR
 `just update` in the private repo runs the left half (fetch → validate → push); the deployment
 serves the right half. `fetch_geodata.py` is the source-of-truth pull (GeoView BL WFS +
 federal PV); `leitungskataster_to_geojson.py` is an offline fallback from local FireGIS files.
-WMS layers carry only a tile-URL in the manifest — no file is stored.
+WMS layers carry only a tile-URL in the manifest – no file is stored.
 
-## Ingest — three ways in, two things written
+## Ingest – three ways in, two things written
 
 Every path writes the same two things: the **GeoJSON file** (→ reference store) and the **render
 config** (→ `deployment_config.referenceLayers`). They differ in *where they run* and *what they
@@ -83,7 +83,7 @@ flowchart TD
 | Path | Runs | Files? | Config? | Use when |
 | --- | --- | --- | --- | --- |
 | `load` | **server-side** (storage = the server volume) | ✅ | ✅ | first seeding a deployment from a shell that has the data |
-| `load --config-only` | workstation → remote DB | — | ✅ | files already on the server; you only changed colours/labels/groups |
+| `load --config-only` | workstation → remote DB | – | ✅ | files already on the server; you only changed colours/labels/groups |
 | `push --base URL` | workstation → server **API** (editor PIN today; deployment-admin auth target) | ✅ | ✅ | **refresh a live deployment's data** from your machine (`just push`) |
 | Datenquellen UI | browser → server API | ✅ (one file) | ✅ | ad hoc inspection/basic edit: add/replace a single layer in the running app |
 
@@ -91,7 +91,7 @@ flowchart TD
 to its *local* `MEDIA_STORAGE_DIR`. Run from a laptop against a remote DB it would point the
 DB rows at files the server can't see. So from a workstation: `push` (files go through the API,
 server writes its own volume) or `--config-only` (touch config only). GeoJSON is validated as a
-**WGS84 `[lng,lat]`** FeatureCollection — LV95-looking coordinates are rejected at every entry.
+**WGS84 `[lng,lat]`** FeatureCollection – LV95-looking coordinates are rejected at every entry.
 
 ## Runtime render
 

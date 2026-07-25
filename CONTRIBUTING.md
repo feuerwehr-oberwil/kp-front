@@ -1,6 +1,6 @@
 # Contributing to KP Front
 
-KP Front is an **Einsatzführungs-app for frontline fire-service command** — a tablet-first
+KP Front is an **Einsatzführungs-app for frontline fire-service command** – a tablet-first
 situation map, plan whiteboard, live documentation, and offline-capable record. Thanks for
 considering a contribution.
 
@@ -19,12 +19,12 @@ just setup          # install frontend + backend deps
 just db             # dev Postgres (Docker, localhost:5434)
 just api            # backend  → http://localhost:8000 (migrates first)
 just dev            # frontend → http://localhost:5188 (use http://, not file://)
-just lint && just test   # both stacks — run before pushing
+just lint && just test   # both stacks – run before pushing
 ```
 
 Or drive the tools directly:
 
-**Frontend** (React 18 + TypeScript, Vite 5, MapLibre GL, Workbox/PWA, Vitest) — uses
+**Frontend** (React 18 + TypeScript, Vite 5, MapLibre GL, Workbox/PWA, Vitest) – uses
 [pnpm](https://pnpm.io/):
 
 ```bash
@@ -35,12 +35,12 @@ pnpm test    # vitest
 pnpm lint    # eslint
 ```
 
-**Backend** (FastAPI + PostgreSQL, Alembic) — Python managed with [uv](https://docs.astral.sh/uv/).
+**Backend** (FastAPI + PostgreSQL, Alembic) – Python managed with [uv](https://docs.astral.sh/uv/).
 See [`backend/README.md`](backend/README.md) for setup, migrations, and the admin CLIs, and
 [`docs/API.md`](docs/API.md) for the HTTP API.
 
 For self-hosting (Postgres + the backend serving the SPA same-origin), use the bundled
-docker-compose stack — see [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+docker-compose stack – see [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
 ## The 3am tenet (the design bar)
 
@@ -49,9 +49,9 @@ stress, possibly in the dark and offline, who must use this correctly at 3am aft
 without practice.** So: **recognition over recall, right defaults over configuration, nothing
 that can't be undone.** Concretely:
 
-- Undo/redo (or confirm-with-undo) on every mutable surface — add undo for new mutations.
+- Undo/redo (or confirm-with-undo) on every mutable surface – add undo for new mutations.
 - In-context empty states that teach what a surface is for.
-- Consistent controls/gestures across surfaces — Lage ↔ Plan parity is a review criterion.
+- Consistent controls/gestures across surfaces – Lage ↔ Plan parity is a review criterion.
 - Place-don't-configure: lean on presets and sensible defaults.
 - Touch targets ≥44px (primary actions ~48–56px), interactive text ≥12.5px.
 - For any generated calculation, show source, timestamp, and editable assumptions, and label
@@ -62,19 +62,19 @@ kept current when a convention changes.
 
 ## Conventions
 
-- **Replace files in place** — no `_v2` / `-new` / `-fixed` variants.
+- **Replace files in place** – no `_v2` / `-new` / `-fixed` variants.
 - **Match the surrounding code's style**, naming, and comment density.
-- **Domain language is German** (Lage, Atemschutz, Trupp, Einsatz, Verlauf, …) — keep terms
+- **Domain language is German** (Lage, Atemschutz, Trupp, Einsatz, Verlauf, …) – keep terms
   accurate. All user-facing strings live in `appConfig.copy.*`; never hard-code UI text in a
-  component — add a key and reference it.
+  component – add a key and reference it.
 - **Theming:** use tokens / `color-mix(in srgb, var(--accent) N%, …)`, never a frozen `rgba()`
-  of the accent — that breaks day/night and per-station accent theming.
-- The backend has a ruff pre-commit hook; the frontend has none — so **run
+  of the accent – that breaks day/night and per-station accent theming.
+- The backend has a ruff pre-commit hook; the frontend has none – so **run
   `pnpm lint && pnpm test` before pushing**.
 
 ## Pull requests
 
-- Keep PRs **small and focused** — one coherent change.
+- Keep PRs **small and focused** – one coherent change.
 - Describe **what** changed and **why**; include screenshots for UI changes.
 - Run `pnpm lint && pnpm test` (and the backend's `pytest` if you touched it) first.
 - There is **no per-file license-header requirement**, but new files must be compatible with
@@ -83,7 +83,7 @@ kept current when a convention changes.
 ## Releases (maintainers)
 
 Other stations run **published images**, not `main`, so a tag is a promise. A release is a
-label on a `main` commit CI already proved green — never a rushed cut.
+label on a `main` commit CI already proved green – never a rushed cut.
 
 ```bash
 just changelog            # draft notes from the commits since the last tag
@@ -97,7 +97,7 @@ Pick the number by **what the update costs the operator**, not by how much code 
 PATCH = fixes only, MINOR = features with automatic migrations, MAJOR = operator action
 required. The table at the top of [`CHANGELOG.md`](CHANGELOG.md) is the contract.
 
-Write the notes for a station commander deciding whether to update tonight — not for the
+Write the notes for a station commander deciding whether to update tonight – not for the
 person who wrote the diff.
 
 ## Never commit private / station data
@@ -107,8 +107,8 @@ Per-station deployment data is **not** part of this repo and must never be commi
 - Station config files live in `backend/private/` (gitignored) and are loaded via the
   `admin_config` CLI.
 - Reference geodata (hydrants, Leitungskataster, canton WMS) lives in a **private data repo**
-  and is loaded via `admin_geodata` — never bundled here.
+  and is loaded via `admin_geodata` – never bundled here.
 - Secrets (`SECRET_KEY`, `DATABASE_URL`, Divera/Traccar credentials) live in environment
-  variables only — never in the repo.
+  variables only – never in the repo.
 
 Keep deployment data, rosters, and any personal/operational data out of the repository.

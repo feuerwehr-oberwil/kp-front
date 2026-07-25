@@ -1,4 +1,4 @@
-# Backup/restore drill — 2026-07-02
+# Backup/restore drill – 2026-07-02
 
 **Result: PASS.** The production database is provably recoverable into a fresh stack; every
 incident's audit hash chain verifies intact after restore.
@@ -20,7 +20,7 @@ incident's audit hash chain verifies intact after restore.
    gunzip -c prod-drill.sql.gz | docker exec -i drill-pg psql -q -U postgres -d drill   # 0 errors
    ```
 
-3. **Verify row counts** — identical to production across all checked tables:
+3. **Verify row counts** – identical to production across all checked tables:
    incidents 12 · incident_events 4565 · workspace_snapshots 1842 · users 4 · personnel 66 ·
    media 8 · objects 155 · reference_datasets 470.
 
@@ -35,7 +35,7 @@ incident's audit hash chain verifies intact after restore.
 
 ## Caveats / follow-ups
 
-- **Media volume not drilled** — Railway volumes aren't reachable via CLI, so the storage half
+- **Media volume not drilled** – Railway volumes aren't reachable via CLI, so the storage half
   (8 media blobs) is covered only by the tooling (`scripts/backup.sh` tars it on self-hosted
   stacks) and by the missing-blob 404 handling (`backend/tests/test_media.py`). A prod media
   drill needs a shell on the Railway service or the next migration to a self-managed host.

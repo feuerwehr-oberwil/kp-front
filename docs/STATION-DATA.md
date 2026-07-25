@@ -1,4 +1,4 @@
-# STATION DATA — configure a brigade deployment
+# STATION DATA – configure a brigade deployment
 
 KP Front runs without station data, but a field-ready deployment normally adds its own
 branding, map defaults, reference layers, object plans, checklists, and integrations. Keep
