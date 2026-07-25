@@ -110,12 +110,23 @@ export function activeReplayRange(
   windowStartMs: number,
   windowEndMs: number,
 ): { startMs: number; endMs: number } {
-  const changeMs = [
-    ...events.filter((e) => !IDLE_OP_TYPES.has(e.op_type)).map((e) => ms(e.occurred_at)),
-    ...samples.map((s) => ms(s.ts)),
-  ].filter((t) => Number.isFinite(t))
-  if (!changeMs.length) return { startMs: windowStartMs, endMs: windowEndMs }
-  return { startMs: Math.min(...changeMs), endMs: Math.max(...changeMs) }
+  // Folded rather than spread into Math.min/max. V8 throws RangeError somewhere around 100k spread
+  // arguments, and NOTHING here bounds these counts — the server does. Vehicle samples are the
+  // realistic driver: a handful of vehicles reporting every ~30 s produces tens of thousands a day,
+  // so a multi-day Einsatz reaches the limit. That would throw during render of the replay view,
+  // driven purely by the incident's own data volume — precisely the crash-loop shape the
+  // ErrorBoundary escalation exists for. A loop has no argument limit.
+  let startMs = Infinity
+  let endMs = -Infinity
+  const note = (t: number) => {
+    if (!Number.isFinite(t)) return
+    if (t < startMs) startMs = t
+    if (t > endMs) endMs = t
+  }
+  for (const e of events) if (!IDLE_OP_TYPES.has(e.op_type)) note(ms(e.occurred_at))
+  for (const s of samples) note(ms(s.ts))
+  if (startMs === Infinity) return { startMs: windowStartMs, endMs: windowEndMs }
+  return { startMs, endMs }
 }
 
 /** Pick the events worth showing as track markers (skip noisy move/edit/toggle). */
