@@ -33,6 +33,7 @@ Printable/manual verification material for internal release checks and training-
 | Doc | Status | What it is |
 | --- | --- | --- |
 | [`testing/manual-limit-test-cards.md`](testing/manual-limit-test-cards.md) | 🟡 | Printable manual test cards for release confidence, limit-finding, offline/sync drills, 118 Magazin Kroki replays, tabletop-game scenarios, report/print checks, and field ergonomics. |
+| [`testing/restore-drill-2026-07-02.md`](testing/restore-drill-2026-07-02.md) | 🟢 | Record of an actual backup-restore drill (2026-07-02): what was restored, how long it took, and what the drill found. A worked example for a station running its own drill. |
 
 ## Historical
 

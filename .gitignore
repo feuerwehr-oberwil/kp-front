@@ -24,6 +24,11 @@ __pycache__/
 # Local scratch (working pdfs, throwaway files) — never published
 /tmp/
 
+# UI prototypes & screenshot harnesses (Base UI spike, rail mockups). Throwaway by design:
+# they are how a look is tried out, not how it ships — the real app is the record.
+/proto/
+/proto.html
+
 # superseded static look&feel mockups (replaced by the React app at repo root)
 docs/design-concepts/
 

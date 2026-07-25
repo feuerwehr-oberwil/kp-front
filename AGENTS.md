@@ -176,12 +176,10 @@ to prod.
   tenet) – but run `pnpm lint && pnpm test` (and ideally `pnpm build`) locally first. For
   interactive changes a unit test can't cover, use `/code-review` on the diff and `/verify` to
   drive the real app. Keep the house rule: every new mutating feature ships with a `src/lib` test.
-- **Server-side enforcement of the gate is NOT yet active.** GitHub gates branch protection /
-  rulesets behind a paid plan for *private* repos (a `PUT …/branches/main/protection` returns
-  403 here), so "required status checks" can't be configured while the repo is private + free.
-  Enable it the moment the repo goes **public** (OSS Phase E – protection is free for public
-  repos) or upgrades to **Pro**: require the three CI jobs above, with `enforce_admins: false` so
-  a 3am hotfix can still bypass. Until then the gate is **by convention**, not machine-enforced.
+- **The gate is server-enforced.** Branch protection on `main` requires four checks to pass
+  before a merge: *Frontend (tsc + build)*, *Backend (ruff + alembic + pytest)*, *Image
+  (hadolint + build + smoke)*, and *Secrets (gitleaks)*. `enforce_admins` is **off** on purpose,
+  so a 3am hotfix can still bypass it – that is the only intended bypass, not a routine one.
 - **Releases are for other stations, not for us.** Prod + demo deploy continuously from `main`;
   a `v*` tag exists so a self-hoster can pull a known image. The number answers *what does this
   update cost the operator* – PATCH = fixes, MINOR = features + automatic migrations, MAJOR =

@@ -1,7 +1,7 @@
 # Statistik-Export API – `GET /api/stats/incidents`
 
 Read-only feed of every incident as one flat JSON record – for external analytics (e.g.
-a yearly-statistics dashboard). Design: [`planning/stats-integration.md`](planning/stats-integration.md) (interface C2).
+a yearly-statistics dashboard).
 
 ## Auth
 
