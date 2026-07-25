@@ -853,7 +853,7 @@ export function IncidentWorkspace({
   const {
     draft, setDraft,
     drawColor, setDrawColor, drawWidth, setDrawWidth, drawDashed, setDrawDashed,
-    linePreset, setLinePreset, lineMode, setLineMode,
+    lineMode, setLineMode,
     draftActive, lineNodes, selectedDrawing,
     commitDraft, onFreehand, setDraftPointAttachment, createCircle, applyLinePreset, patchDrawing, patchDrawingById,
     editDrawingCoords, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, setDrawingAttachment,
@@ -1288,9 +1288,6 @@ export function IncidentWorkspace({
     }
   } })
 
-  const DRAW_COLORS = appConfig.drawing.colors
-  const DRAW_WIDTHS = appConfig.drawing.widths
-
   const selected = entities.find((e) => e.id === selectedId) ?? null
 
   // keep the tapped symbol visible: the ContextPanel overlay covers the right band of the
@@ -1580,7 +1577,6 @@ export function IncidentWorkspace({
   const ensurePresentFromTrupp = (ids: (string | undefined)[]) => {
     const fresh = [...new Set(ids.filter(Boolean) as string[])].filter((id) => attendance[id]?.status !== 'present')
     if (!fresh.length) return
-    const now = new Date().toISOString()
     setAttendance((cur) => {
       const next = { ...cur }
       for (const id of fresh) {
@@ -1634,10 +1630,6 @@ export function IncidentWorkspace({
           initialCenter={incidentView.center}
           fitPoints={initialFitPoints}
           locateNonce={locateReq}
-          mapActive={mapUI}
-          weather={displayWeather}
-          onOpenWeather={openWeatherDetails}
-          replayActive={replayActive}
           editNoteId={editNoteId}
           onNoteText={noteTextLive}
           onNoteCommit={noteTextCommit}

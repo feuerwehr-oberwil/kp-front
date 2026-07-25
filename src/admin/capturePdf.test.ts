@@ -3,7 +3,7 @@
 // tick-off sheet (≤3 A4 pages with a 66-name roster — 2 without the guest lines' spill).
 // Set CAPTURE_PDF_OUT=/some/dir to also write the rendered PDF for eyeballing.
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { jsPDF } from 'jspdf'
 import { downloadSheetPdf } from './capturePdf'
 

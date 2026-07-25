@@ -86,7 +86,7 @@ function classifyTest(e: unknown): TestState {
 }
 
 /** Small inline button + transient result chip for a single integration probe. */
-function TestButton({ label, run }: { label: string; run: () => Promise<unknown> }) {
+function TestButton({ run }: { run: () => Promise<unknown> }) {
   const [state, setState] = useState<TestState>({ kind: 'idle' })
   const C = appConfig.copy.admin.data
 
@@ -227,10 +227,10 @@ export function AlarmProviderView() {
               >
                 {refreshing ? C.refreshing : C.refresh}
               </button>
-              <TestButton label={providerName} run={() => apiPost('/api/divera/pool/refresh')} />
+              <TestButton run={() => apiPost('/api/divera/pool/refresh')} />
             </>
           ) : (
-            <TestButton label={providerName} run={() => apiPost('/api/divera/pool/refresh')} />
+            <TestButton run={() => apiPost('/api/divera/pool/refresh')} />
           )}
         </IntStatus>
 
@@ -335,7 +335,7 @@ export function VehicleProviderView() {
               {(positions.kind === 'unconfigured' || positions.kind === 'error') && C.positionsUnavailable}
             </span>
           ) : null}
-          <TestButton label="Traccar" run={() => apiGet('/api/traccar/positions')} />
+          <TestButton run={() => apiGet('/api/traccar/positions')} />
         </IntStatus>
 
         {configured && (host || freshest) && (

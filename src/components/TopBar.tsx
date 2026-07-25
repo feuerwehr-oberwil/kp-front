@@ -128,7 +128,9 @@ export function TopBar({ incident, startedAt, recording, recStartedAt, journalOp
         </Popover>
       )}
 
-      {/* global journal + undo/redo — reachable from both surfaces */}
+      {/* Journal + undo/redo, reachable from both surfaces. Do not open this comment with the
+          word "global" — ESLint reads such a block as a globals declaration and then reports
+          every word in it as an unused variable. */}
       <div className="tb-actions">
         {mapNav && (
           <>
