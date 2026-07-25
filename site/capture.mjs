@@ -18,7 +18,7 @@ import { dirname, join } from 'node:path'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SHOTS = join(HERE, 'shots')
 
-const DEFAULT_BASE = 'https://kp-front-demo.up.railway.app'
+const DEFAULT_BASE = 'https://demo.kp-front.ch'
 const VIEWPORT = { width: 1500, height: 937 } // 1.6:1 – dieselbe Kachelform für alle Shots
 const QUALITY = 82
 

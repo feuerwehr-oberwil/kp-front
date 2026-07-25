@@ -16,7 +16,7 @@ site/
 ## Screenshots aktualisieren
 
 ```bash
-node site/capture.mjs                        # gegen https://kp-front-demo.up.railway.app
+node site/capture.mjs                        # gegen https://demo.kp-front.ch
 node site/capture.mjs --base http://localhost:5188
 node site/capture.mjs --only lage,mittel     # nur einzelne Bilder
 node site/build.mjs                          # danach die Ein-Datei-Variante neu bauen
