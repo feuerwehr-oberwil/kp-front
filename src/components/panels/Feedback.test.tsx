@@ -1,15 +1,21 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
 import { FeedbackPrompt } from './FeedbackPrompt'
 import { FeedbackSheet } from './FeedbackSheet'
 import { appConfig } from '../../config/appConfig'
 import { readTrouble, type TroubleEvent } from '../../lib/trouble'
+import { submitReport } from '../../lib/feedbackSubmit'
 
-// The two guarantees worth pinning, because breaking either turns a helpful prompt into the
+// The guarantees worth pinning, because breaking any of them turns a helpful prompt into the
 // thing the 3am tenet forbids:
 //   1. Dismissing starts the cooldown — so this can never become a nag.
-//   2. Nothing is sent. The operator sees the whole payload and decides.
+//   2. Nothing is transmitted without a deliberate tap on a button that says so.
+//   3. When sending fails, the operator is not stranded: copy/mail still work and what they
+//      typed is still on screen.
+
+vi.mock('../../lib/feedbackSubmit', () => ({ submitReport: vi.fn() }))
+const mockSubmit = vi.mocked(submitReport)
 
 const cp = appConfig.copy.feedback
 const trouble: TroubleEvent = { kind: 'crashLoop', at: 1_800_000_000_000 }
@@ -27,7 +33,11 @@ function installLocalStorage() {
   } as unknown as Storage
 }
 
-beforeEach(installLocalStorage)
+beforeEach(() => {
+  installLocalStorage()
+  mockSubmit.mockReset()
+  mockSubmit.mockResolvedValue({ ok: true, sent: { tags: { channel: 'report' } } })
+})
 afterEach(cleanup)
 
 describe('FeedbackPrompt', () => {
@@ -61,14 +71,22 @@ describe('FeedbackSheet', () => {
     expect(screen.getByText(cp.promptFor.crashLoop)).toBeTruthy()
   })
 
-  it('has no send button — nothing leaves the device on its own', () => {
+  it('sends nothing on its own — every exit needs a deliberate tap', () => {
     render(<FeedbackSheet onClose={() => {}} />)
-    // only copy / mail / close: every one of them requires a deliberate tap, and `mail` hands
-    // off to the operator's own client rather than posting anywhere.
+    // The invariant is NOT "there is no send button" any more; it is that opening, typing
+    // and reading never transmit. Four exits (close / copy / mail / send), all of them a tap.
     const labels = [...document.querySelectorAll('.fb-actions button')].map((b) => b.textContent?.trim())
-    expect(labels).toHaveLength(3)
+    expect(labels).toHaveLength(4)
     expect(labels.join(' ')).toContain(cp.copy)
     expect(labels.join(' ')).toContain(cp.mail)
+    expect(labels.join(' ')).toContain(cp.send)
+    expect(submitReport).not.toHaveBeenCalled()
+  })
+
+  it('does not send while the operator is typing', () => {
+    render(<FeedbackSheet onClose={() => {}} />)
+    fireEvent.change(document.querySelector('.fb-input')!, { target: { value: 'Bildschirm weg' } })
+    expect(submitReport).not.toHaveBeenCalled()
   })
 
   it('starts the cooldown when closed without sending', () => {
@@ -83,5 +101,62 @@ describe('FeedbackSheet', () => {
     render(<FeedbackSheet onClose={() => {}} />)
     expect(screen.queryByText(cp.promptFor.crashLoop)).toBeNull()
     expect(screen.getByText(cp.intro)).toBeTruthy()
+  })
+})
+
+describe('FeedbackSheet — direct send', () => {
+  it('sends what the operator typed, with the trouble that prompted it', async () => {
+    render(<FeedbackSheet trouble={trouble} onClose={() => {}} />)
+    fireEvent.change(document.querySelector('.fb-input')!, { target: { value: 'Trupp gesetzt, dann weg' } })
+    fireEvent.click(screen.getByText(cp.send))
+
+    await waitFor(() => expect(mockSubmit).toHaveBeenCalledOnce())
+    expect(mockSubmit.mock.calls[0][0]).toMatchObject({
+      message: 'Trupp gesetzt, dann weg',
+      trouble: { kind: 'crashLoop' },
+    })
+  })
+
+  it('shows what the SERVER says it queued, not what the client hoped it sent', async () => {
+    mockSubmit.mockResolvedValue({ ok: true, sent: { tags: { install: 'abc-123' } } })
+    render(<FeedbackSheet onClose={() => {}} />)
+    fireEvent.click(screen.getByText(cp.send))
+
+    // The echo is the check: a preview written by the sender proves nothing, one returned by
+    // the receiver proves what was actually stored.
+    await waitFor(() => expect(screen.getByText(cp.sentTitle)).toBeTruthy())
+    expect(document.querySelector('.fb-tech-block')?.textContent).toContain('abc-123')
+  })
+
+  it('counts as asked once sent, so the same crash is not asked about again', async () => {
+    render(<FeedbackSheet trouble={trouble} onClose={() => {}} />)
+    fireEvent.click(screen.getByText(cp.send))
+    await waitFor(() => expect(screen.getByText(cp.sentTitle)).toBeTruthy())
+    expect(readTrouble().askedAt).toBeTypeOf('number')
+  })
+
+  it('falls back to mail when sending fails, keeping what was typed', async () => {
+    mockSubmit.mockResolvedValue({ ok: false, reason: 'failed' })
+    render(<FeedbackSheet onClose={() => {}} />)
+    const input = document.querySelector('.fb-input') as HTMLTextAreaElement
+    fireEvent.change(input, { target: { value: 'wichtiger Text' } })
+    fireEvent.click(screen.getByText(cp.send))
+
+    await waitFor(() => expect(screen.getByText(cp.sendFailed)).toBeTruthy())
+    // The sheet stays open with the text intact — losing it would be the real failure here.
+    expect((document.querySelector('.fb-input') as HTMLTextAreaElement).value).toBe('wichtiger Text')
+    // ...and the send button steps aside so the operator isn't invited to retry the route
+    // that just failed; mail becomes the primary one instead.
+    expect(screen.queryByText(cp.send)).toBeNull()
+    expect(document.querySelector('.fb-actions .ip-btn.primary')?.textContent).toContain(cp.mail)
+  })
+
+  it('explains a deployment that has outbound switched off, rather than calling it an error', async () => {
+    mockSubmit.mockResolvedValue({ ok: false, reason: 'disabled' })
+    render(<FeedbackSheet onClose={() => {}} />)
+    fireEvent.click(screen.getByText(cp.send))
+
+    await waitFor(() => expect(screen.getByText(cp.sendDisabled)).toBeTruthy())
+    expect(screen.queryByText(cp.sendFailed)).toBeNull()
   })
 })
