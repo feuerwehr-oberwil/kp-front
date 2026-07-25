@@ -2,7 +2,10 @@
 # from one origin (SameSite=Lax cookies, zero CORS). One Railway service.
 
 # --- Stage 1: build the SPA ---------------------------------------------------------
-FROM node:20-slim AS frontend
+# Pinned to the BUILD platform, not the target: the output is plain JS/CSS and works on any
+# architecture, so pinning keeps the Vite build native even when the final image is arm64 —
+# otherwise a multi-arch build runs pnpm under QEMU and takes an order of magnitude longer.
+FROM --platform=$BUILDPLATFORM node:20-slim AS frontend
 WORKDIR /app
 # Pin pnpm 10 (matches lockfileVersion 9.0). corepack's bundled default is incompatible
 # with this Node, so install explicitly.
