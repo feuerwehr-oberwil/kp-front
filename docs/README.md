@@ -38,3 +38,15 @@ Printable/manual verification material for internal release checks and training-
 
 - [`../mockups/`](../mockups/) – early look-and-feel explorations (HTML mockups). Kept for
   reference; the chosen direction was "Karte Minimal". Not maintained.
+
+## Not in this repository
+
+Internal working documents – the roadmap, point-in-time audits, feature planning, operating
+notes – stay local and are not published. They are snapshots of a moment, they go stale fast,
+and a half-finished register of past worries is a worse answer to "is this software any good?"
+than the [CHANGELOG](../CHANGELOG.md), the
+[known limitations](../README.md#known-limitations), and the
+[open issues](https://github.com/feuerwehr-oberwil/kp-front/issues) – all of which are current.
+
+Per-station data (config, rosters, reference geodata, object plans, checklists) is never in this
+repository either – see [`STATION-DATA.md`](STATION-DATA.md).
