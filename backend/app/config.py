@@ -10,6 +10,8 @@ import secrets
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from .telemetry.dsn import UPSTREAM_DSN
+
 
 def is_production() -> bool:
     """Production when explicitly flagged, or auto-detected on Railway.
@@ -247,6 +249,29 @@ class Settings(BaseSettings):
     geocoder_default_locality: str = ""
     # LV95 (EPSG:2056) bbox "minE,minN,maxE,maxN" used to rank local results first.
     geocoder_bbox_lv95: str = ""
+
+    # --- Telemetry (opt-in; see app/telemetry/) ---
+    # The DEPLOYER's half of the switch, above whatever an admin later clicks in the UI:
+    # KP_TELEMETRY_ENABLED=0 (or a blank DSN) compiles the forwarder out of this process, so
+    # a station whose IT policy forbids outbound traffic can enforce that in the compose file
+    # rather than trusting that nobody ticks a box. Consent is the SECOND gate, not the first.
+    telemetry_enabled: bool = True
+    # Points at our ingest by default (a public, write-only key — read app/telemetry/dsn.py
+    # before assuming that's a mistake). Override to aim the same machinery at your own
+    # GlitchTip and upstream never hears from you.
+    telemetry_dsn: str = UPSTREAM_DSN
+    # Minutes between flush attempts. Nothing waits on this; it exists so an offline station
+    # drains its queue eventually, not so a crash reaches us quickly.
+    telemetry_flush_minutes: int = 5
+
+    @field_validator("telemetry_enabled", mode="before")
+    @classmethod
+    def _empty_telemetry_flag_is_false(cls, v: object) -> object:
+        # Same compose-passthrough trap as EXPOSE_API_DOCS — but here blank must mean OFF
+        # rather than crashing the boot, because the safe reading of "unset" is "don't send".
+        if isinstance(v, str) and v.strip() == "":
+            return False
+        return v
 
     # Expose the OpenAPI docs (/docs, /redoc, /openapi.json) in production. Off by default —
     # the API has no public surface beyond the same-origin SPA — but a self-hoster can turn it

@@ -1166,3 +1166,25 @@
 
 /* ── shared toolbar row (right-aligned compact actions above a list) ──────────── */
 .adm-toolbar { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   Fehlerberichte (Telemetrie): der Schalter, und darunter die Belege
+   ════════════════════════════════════════════════════════════════════════════ */
+.adm-tel-state { margin-bottom: 8px; }
+.adm-tel-ask { margin: 0 0 4px; font: 600 14px var(--body); color: var(--ink); }
+.adm-tel-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 4px; }
+.adm-tel-id { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.adm-tel-log { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px; }
+.adm-tel-log-t { margin: 0 0 8px; font: 600 12.5px var(--body); color: var(--ink-dim); }
+.adm-tel-row { border-bottom: 1px solid var(--border); }
+.adm-tel-row > summary { display: flex; align-items: baseline; gap: 10px; cursor: pointer;
+  padding: 7px 2px; font-size: 12.5px; }
+.adm-tel-ch { font-weight: 600; color: var(--ink); }
+.adm-tel-when { color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.adm-tel-st { margin-left: auto; color: var(--ink-faint); }
+.adm-tel-st.sent { color: var(--ok, #2e7d32); }
+/* The payload is the point of the whole card — give it room and let it scroll rather than
+   wrap, so the JSON stays readable as JSON. */
+.adm-tel-payload { margin: 0 0 10px; padding: 10px 12px; max-height: 340px; overflow: auto;
+  background: var(--surface-2, rgba(127, 127, 127, .08)); border-radius: 6px;
+  font: 400 11.5px var(--mono); white-space: pre; }

@@ -35,7 +35,9 @@ import { useDiveraWatch } from './lib/useDiveraWatch'
 import { dismissAlarm, loadDismissedAlarms } from './lib/diveraDismiss'
 import { useIncidentWatch } from './lib/useIncidentWatch'
 import { pickBootIncident, sameIncidentList } from './lib/incidentAlerts'
-import { EinsatzWizard, DatenquellenPanel, HistoryPanel, IncomingAlarmBanner, NewIncidentBanner, SettingsSheet } from './components/panels'
+import { EinsatzWizard, DatenquellenPanel, FeedbackPrompt, FeedbackSheet, HistoryPanel, IncomingAlarmBanner, NewIncidentBanner, SettingsSheet } from './components/panels'
+import { pickTrouble, readTrouble, recordTrouble, type TroubleEvent } from './lib/trouble'
+import { onStorageDegraded } from './lib/idb'
 import { HelpOverlay } from './components/HelpOverlay'
 
 
@@ -47,7 +49,7 @@ import { HelpOverlay } from './components/HelpOverlay'
 /** Einstellungen opened from the landing card (no incident): device prefs only. Owns the
  *  pref state itself (mounted only while open, reads/writes the prefs cookie directly);
  *  the synced per-incident section is hidden by omitting settings/onSettings. */
-function LandingSettings({ onClose }: { onClose: () => void }) {
+function LandingSettings({ onClose, onFeedback }: { onClose: () => void; onFeedback: () => void }) {
   const { symbolSize, setSymbolSize, symbolCaptions, setSymbolCaptions, offlineRadiusM, setOfflineRadiusM, keepScreenOn, setKeepScreenOn } = useDevicePrefs()
   useEffect(() => {
     savePrefs({ ...loadPrefs(), symbolSize, symbolCaptions, offlineRadiusM, keepScreenOn })
@@ -65,6 +67,7 @@ function LandingSettings({ onClose }: { onClose: () => void }) {
       onKeepScreenOn={setKeepScreenOn}
       themeCoord={null}
       elView={false}
+      onFeedback={onFeedback}
     />
   )
 }
@@ -91,6 +94,16 @@ export default function App() {
   const [overlay, setOverlay] = useState<null | 'create' | 'history' | 'daten'>(null)
   // landing-card utilities (no incident open): device settings / help / install guide
   const [landingSheet, setLandingSheet] = useState<null | 'settings' | 'help' | 'install'>(null)
+  // Rückmeldung: something went wrong recently and the cooldown has passed → ask on the
+  // LAUNCHER, never inside an incident. Read once at mount; the log only grows during an
+  // incident, and by then this branch isn't rendered anyway.
+  const [trouble, setTrouble] = useState<TroubleEvent | null>(() => pickTrouble(readTrouble(), Date.now()))
+  const [feedbackFor, setFeedbackFor] = useState<TroubleEvent | 'plain' | null>(null)
+  // Note a full device storage for the same prompt. Subscribed here rather than inside
+  // lib/idb's setDegraded on purpose: that runs ON the failing write, and answering a failed
+  // localStorage write with ANOTHER localStorage write is both futile and a side effect on the
+  // one path that must stay minimal. App is mounted for the whole session, so nothing is missed.
+  useEffect(() => onStorageDegraded((d) => { if (d) recordTrouble('storageFull') }), [])
   // Divera alarm handed to the intake wizard for review/override (null = manual create)
   const [wizardSeed, setWizardSeed] = useState<DiveraAlarm | null>(null)
   // existing incident opened in the wizard for in-place correction (PATCH, not create)
@@ -465,6 +478,13 @@ export default function App() {
           <IconSprite />
           <div className="ip-emptyapp-card">
             <Brand className="ip-emptyapp-brand" sub={appConfig.copy.login.subtitle} />
+            {trouble && (
+              <FeedbackPrompt
+                trouble={trouble}
+                onOpen={() => { setFeedbackFor(trouble); setTrouble(null) }}
+                onDismiss={() => setTrouble(null)}
+              />
+            )}
             {hasLanding ? (
               <div className="ip-launch-list">
                 {openIncidents.map((i) => (
@@ -536,9 +556,20 @@ export default function App() {
             </div>
             <div className="ip-emptyapp-ver">{buildLabel()}</div>
           </div>
-          {landingSheet === 'settings' && <LandingSettings onClose={() => setLandingSheet(null)} />}
+          {landingSheet === 'settings' && (
+            <LandingSettings
+              onClose={() => setLandingSheet(null)}
+              onFeedback={() => { setLandingSheet(null); setFeedbackFor('plain') }}
+            />
+          )}
           {landingSheet === 'help' && <HelpOverlay onClose={() => setLandingSheet(null)} />}
           {landingSheet === 'install' && <InstallGuide onClose={() => setLandingSheet(null)} />}
+          {feedbackFor && (
+            <FeedbackSheet
+              trouble={feedbackFor === 'plain' ? undefined : feedbackFor}
+              onClose={() => setFeedbackFor(null)}
+            />
+          )}
         </div>
       )}
 

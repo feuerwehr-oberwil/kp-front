@@ -1,0 +1,101 @@
+# The maintainer's ingest host. NOT part of a station deployment — see README.md.
+#
+# Nothing here holds station data: the events that land in this database have already been
+# stripped of everything identifying by the sending instance (backend/app/telemetry/scrub.py).
+# It is still kept on its own host, because "contains only sanitised data" is a claim about
+# code that could be wrong, and isolation is a property that cannot be.
+
+name: kp-ingest
+
+services:
+  caddy:
+    # Built, not pulled: the Caddyfile's rate_limit directive needs a module that stock
+    # caddy does not ship, and Caddy fails to start on an unknown directive. See
+    # Caddy.Dockerfile.
+    build:
+      context: .
+      dockerfile: Caddy.Dockerfile
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+
+  web:
+    image: glitchtip/glitchtip:v4.1.5
+    restart: unless-stopped
+    # Deliberately NOT published: Caddy is the only way in, so the rate limits cannot be
+    # bypassed by hitting the app port directly.
+    expose:
+      - "8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment: &glitchtip_env
+      DATABASE_URL: postgres://glitchtip:${POSTGRES_PASSWORD}@postgres:5432/glitchtip
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY}
+      GLITCHTIP_DOMAIN: ${GLITCHTIP_DOMAIN}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL}
+      # An ingest host with open signup is an ingest host with someone else's account on it.
+      # This defaults to TRUE upstream; turning it off before DNS is pointed here is the one
+      # step that must not be forgotten.
+      ENABLE_OPEN_USER_REGISTRATION: "false"
+      # The payload never carries an IP; this stops the server from adding one.
+      GLITCHTIP_MAX_EVENT_LIFE_DAYS: "90"
+      CELERY_WORKER_AUTOSCALE: "1,3"
+
+  worker:
+    image: glitchtip/glitchtip:v4.1.5
+    restart: unless-stopped
+    command: ./bin/run-celery-with-beat.sh
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment: *glitchtip_env
+
+  migrate:
+    image: glitchtip/glitchtip:v4.1.5
+    command: ./manage.py migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment: *glitchtip_env
+    restart: on-failure
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    # No ports: — nothing outside this compose network talks to the database.
+    environment:
+      POSTGRES_USER: glitchtip
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: glitchtip
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U glitchtip"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+volumes:
+  pg_data:
+  redis_data:
+  caddy_data:
+  caddy_config:

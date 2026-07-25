@@ -5,6 +5,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { providerLabel } from '../lib/deploymentConfig'
 import { Card, StatusBadge, Metric, UsageBar, EmptyState, ResultChip } from './ui'
+import { TelemetryCard } from './TelemetryCard'
 
 // ─── shapes (plain dict from GET /api/system; resilient — sections may be null) ──
 
@@ -453,6 +454,9 @@ export function SystemView() {
 
             {/* Client-side offline cache (this device) — a half-row card in the grid. */}
             <OfflineCacheCard />
+
+            {/* Was diese Anlage nach aussen sendet — opt-in, standardmässig aus. */}
+            <TelemetryCard />
             </div>
           </>
         )

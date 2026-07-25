@@ -113,6 +113,26 @@ async def _heartbeat() -> None:
         logger.warning("Heartbeat ping failed (non-fatal)")
 
 
+async def _telemetry_flush() -> None:
+    """Drain the telemetry outbox, if there is anything in it and consent still stands.
+
+    Registered unconditionally but genuinely free when telemetry is off: `flush` returns at
+    the first env check without touching the DB. Registering it always (rather than behind
+    the env flag) means an admin who switches consent on does not have to restart anything.
+    """
+    from .telemetry.forwarder import flush
+    from .telemetry.outbox import sweep
+
+    async with async_session_maker() as db:
+        try:
+            await flush(db)
+            await sweep(db)
+            await db.commit()
+        except Exception:  # noqa: BLE001 — never let diagnostics wedge the scheduler
+            await db.rollback()
+            logger.exception("Telemetry flush failed")
+
+
 async def start_scheduler(app: FastAPI) -> None:
     global _scheduler
     from .push import push_enabled
@@ -166,6 +186,16 @@ async def start_scheduler(app: FastAPI) -> None:
     if settings.healthcheck_ping_url:
         _scheduler.add_job(_heartbeat, "interval", seconds=60, id="heartbeat", max_instances=1, coalesce=True)
         jobs.append("heartbeat (60s)")
+    # Always on, and a no-op unless an admin has opted in — see _telemetry_flush.
+    _scheduler.add_job(
+        _telemetry_flush,
+        "interval",
+        minutes=max(1, settings.telemetry_flush_minutes),
+        id="telemetry_flush",
+        max_instances=1,
+        coalesce=True,
+    )
+    jobs.append(f"telemetry flush ({settings.telemetry_flush_minutes}min)")
     # DEMO daily hard-reset. Prefer a crontab (Europe/Zurich local midnight) so the demo persists
     # edits during the day and only resets nightly; fall back to the legacy fixed-interval job.
     if settings.demo_reset_cron:

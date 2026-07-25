@@ -1520,6 +1520,68 @@ export const de = {
     blankSheetSub: 'Papierblatt zum Handausfüllen',
     blankSheetDownload: 'Herunterladen',
     blankSheetFailed: 'PDF fehlgeschlagen – nochmals versuchen.',
+    feedbackRow: 'Rückmeldung geben',
+    feedbackRowSub: 'Was umständlich war oder gefehlt hat',
+    feedbackOpen: 'Schreiben',
+  },
+  // Rückmeldung — the feedback composer + the prompt after something went wrong. Nothing here
+  // is sent automatically: the app writes the text, the operator sends it (see lib/feedbackReport).
+  feedback: {
+    title: 'Rückmeldung',
+    // shown on the launcher when a trouble event is waiting to be asked about
+    promptTitle: 'Kurz gefragt',
+    promptDismiss: 'Nicht jetzt',
+    promptOpen: 'Kurz schildern',
+    // one per TroubleKind — the prompt asks about the specific thing that happened
+    promptFor: {
+      crashLoop: 'Die App ist in einem Einsatz mehrmals abgestürzt. Was hast du gerade gemacht?',
+      crash: 'Die App ist zuletzt einmal abgestürzt. Was hast du gerade gemacht?',
+      storageFull: 'Auf diesem Gerät war der Speicher voll. Ist dabei etwas verlorengegangen?',
+      syncConflict: 'Zwei Geräte hatten unterschiedliche Stände. Hat am Ende etwas gefehlt?',
+    },
+    // the same labels, in the report itself
+    kinds: {
+      crashLoop: 'wiederholter Absturz im selben Einsatz',
+      crash: 'Absturz der Oberfläche',
+      storageFull: 'Gerätespeicher voll',
+      syncConflict: 'Sync-Konflikt beim Zusammenführen',
+    },
+    subject: 'Rückmeldung',
+    intro: 'Was ist passiert, und was hättest du erwartet? Ein, zwei Sätze genügen.',
+    placeholder: 'z. B. «Trupp auf Rückweg gesetzt, dann war der Bildschirm weiss.»',
+    techTitle: 'Das wird mitgeschickt',
+    techNote: 'Sonst nichts – keine Einsatzdaten, keine Adressen, keine Namen, kein Screenshot.',
+    privacy: 'Nichts wird automatisch gesendet. Du entscheidest, ob, wie und an wen.',
+    copy: 'Text kopieren',
+    copied: 'Kopiert – jetzt einfügen und senden.',
+    copyFailed: 'Kopieren nicht möglich – Text markieren und von Hand kopieren.',
+    mail: 'E-Mail schreiben',
+    send: 'Senden',
+    sending: 'Wird gesendet …',
+    // Nach dem Senden: der Server antwortet mit dem, was er tatsächlich abgelegt hat.
+    sentTitle: 'Danke – ist angekommen.',
+    sentBody: 'Die Rückmeldung liegt auf eurem eigenen Server und geht von dort weiter, sobald '
+      + 'eine Verbindung besteht. Bis dahin bleibt sie hier liegen.',
+    sentWhat: 'Das wurde gesendet',
+    sentEcho: 'Das ist die Antwort eures Servers – also wörtlich das, was er abgelegt hat, nicht '
+      + 'bloss eine Vorschau. Beim Direktversand wird übrigens weniger übertragen als oben steht: '
+      + 'statt der vollen Browser-Kennung nur die Geräteart, z. B. «iPad Safari».',
+    sendDisabled: 'Direktversand ist auf dieser Anlage abgeschaltet. Per E-Mail oder Kopie geht es '
+      + 'weiterhin.',
+    sendFailed: 'Senden hat nicht geklappt – vermutlich offline. Per E-Mail oder Kopie geht es '
+      + 'trotzdem.',
+    close: 'Schliessen',
+    tech: {
+      version: 'Version:',
+      locale: 'Sprache:',
+      device: 'Gerät:  ',
+      viewport: 'Fenster:',
+      network: 'Netz:   ',
+      event: 'Vorfall:',
+      online: 'online',
+      offline: 'offline',
+      noDescription: '(keine Beschreibung)',
+    },
   },
   // Offline-Bereitschaft readiness diagnostics
   offline: {
@@ -2707,6 +2769,52 @@ export const de = {
       cleared: 'geleert',
       clearConfirm: 'Offline-Cache auf DIESEM Gerät leeren?\n\nDie gespeicherten Karten, Pläne und App-Dateien werden gelöscht. Beim nächsten Laden werden sie neu vom Server geholt (Internet nötig). Anmeldung und Server-Daten bleiben unberührt.',
       offlineCacheCaption: 'Lokale Wartung: leert nur den Offline-Cache auf DIESEM Gerät. Beim nächsten Laden werden die Dateien neu geholt. Anmeldung und Server bleiben unberührt.',
+    },
+    // Fehlerberichte nach aussen. Standard: aus. Der Ton hier ist bewusst nüchtern –
+    // die Anlage gehört der Feuerwehr, wir fragen, wir informieren nicht bloss.
+    telemetry: {
+      title: 'Fehlerberichte an die Entwicklung',
+      caption: 'Standardmässig aus. Nichts verlässt diese Anlage, solange das hier nicht '
+        + 'eingeschaltet ist.',
+      tip: 'Betrifft nur automatische Absturzberichte im Hintergrund. Die Rückmeldung, die eine '
+        + 'Bedienerin selbst abschickt, läuft unabhängig davon – dort ist der Knopf die '
+        + 'Zustimmung. Was in beiden Fällen übertragen wird, steht unten wörtlich.',
+      loading: 'Wird geladen…',
+      loadError: 'Status konnte nicht geladen werden.',
+      // Erstmalige Frage: keine Antwort ist vorausgewählt, keine ist hervorgehoben.
+      askCaption: 'Einmal entscheiden – bis dahin wird nichts gesendet.',
+      askQuestion: 'Sollen Abstürze dieser Anlage automatisch an die Entwicklung gemeldet '
+        + 'werden?',
+      askYes: 'Ja, Abstürze melden',
+      askNo: 'Nein, nichts senden',
+      askLater: 'Beides lässt sich hier jederzeit wieder ändern.',
+      onBadge: 'Fehlerberichte',
+      onState: 'eingeschaltet',
+      offBadge: 'Fehlerberichte',
+      offState: 'aus',
+      lockedBadge: 'Fehlerberichte',
+      lockedState: 'vom Betreiber gesperrt',
+      explain: 'Eingeschaltet werden bereinigte Absturzmeldungen an die Entwicklung gesendet: '
+        + 'App-Version, Geräteart, Fehlertyp. Keine Adressen, keine Namen, keine Einsatzdaten, '
+        + 'keine IP. Jede einzelne Übertragung steht unten und zusätzlich im Server-Log.',
+      lockedNote: 'Auf dieser Anlage ist der Versand per Umgebungsvariable abgeschaltet '
+        + '(KP_TELEMETRY_ENABLED=0). Dieser Schalter kann daran nichts ändern – so gedacht: '
+        + 'wer die Anlage betreibt, entscheidet vor allen anderen.',
+      turnOn: 'Einschalten',
+      turnOff: 'Ausschalten',
+      installId: 'Kennung dieser Anlage',
+      noInstallId: 'Diese Anlage hat noch keine Kennung – es wurde noch nie etwas gesendet.',
+      rotate: 'Neue Kennung',
+      rotateConfirm: 'Neue Kennung erzeugen? Bereits gesendete Berichte lassen sich danach '
+        + 'nicht mehr mit dieser Anlage in Verbindung bringen.',
+      sentTitle: 'Was diese Anlage gesendet hat',
+      nothingSent: 'Noch nichts – weder gesendet noch in der Warteschlange.',
+      pendingNote: 'Noch nicht übertragen: wird beim nächsten Versuch nachgeholt, sobald eine '
+        + 'Verbindung besteht.',
+      chError: 'Absturz',
+      chReport: 'Rückmeldung',
+      stSent: 'gesendet',
+      stPending: 'wartet',
     },
   },
 } as const
