@@ -92,7 +92,7 @@ import { useIncidentSync } from './lib/useIncidentSync'
 import { useTruppActions, LAGE_TARGET } from './lib/useTruppActions'
 import { useObjectPlans } from './lib/useObjectPlans'
 import { PlanPicker } from './components/PlanPicker'
-import { IncidentSwitcher, ReviewBanner, SettingsSheet, OfflineReadinessSheet } from './components/panels'
+import { FeedbackSheet, IncidentSwitcher, ReviewBanner, SettingsSheet, OfflineReadinessSheet } from './components/panels'
 import { HelpOverlay } from './components/HelpOverlay'
 import { useWeather } from './lib/useWeather'
 import { predownloadArea, tilesForBounds } from './lib/offlineTiles'
@@ -316,6 +316,9 @@ export function IncidentWorkspace({
   // Objekt-Picker, Hilfe, Installations-Guide, Offline-Bereitschaft, Rapport-Preflight,
   // layers panel) — grouped in useSheets; switching to a tool closes the views popover + panel.
   const { viewsOpen, setViewsOpen, paletteOpen, setPaletteOpen, settingsOpen, setSettingsOpen, pickerOpen, setPickerOpen, helpOpen, setHelpOpen, installGuideOpen, setInstallGuideOpen, offlineReadyOpen, setOfflineReadyOpen, reportPreflightOpen, setReportPreflightOpen } = useSheets()
+  // Rückmeldung composer, reachable only from Einstellungen. Deliberately NOT in useSheets'
+  // mutual-exclusion group: it is opened by that sheet closing itself, not by a tool switch.
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
   // the layers side panel shares the tool docks' on-screen slot, so switching to any drawing
   // tool closes it + the views popover. Kept here (not in useSheets) next to the tactical
   // gesture state it's cleared alongside (enterReplay), so those stay plain useState setters.
@@ -2525,8 +2528,12 @@ export function IncidentWorkspace({
           canEdit={canEditIncident}
           elView={elView}
           onElView={isEditor ? setElView : undefined}
+          onFeedback={() => { setSettingsOpen(false); setFeedbackOpen(true) }}
         />
       )}
+      {/* Rückmeldung, opened deliberately from Einstellungen. Nothing ever PUSHES this at the
+          operator mid-incident — the trouble prompt lives on the launcher (see lib/trouble). */}
+      {feedbackOpen && <FeedbackSheet onClose={() => setFeedbackOpen(false)} />}
 
       {/* phone field-capture: a editor can't draw tactical symbols on a phone, but can
           always add a journal entry / photo / voice memo from the field — tap to compose,

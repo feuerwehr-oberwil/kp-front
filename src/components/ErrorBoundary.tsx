@@ -2,6 +2,7 @@ import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { appConfig } from '../config/appConfig'
 import { reportClientError } from '../lib/reportError'
 import { isLooping, recordCrash, type CrashRecord } from '../lib/crashLoop'
+import { recordTrouble } from '../lib/trouble'
 
 // Guards the incident workspace: a render throw (malformed board anno, bad symbol SVG,
 // unexpected hydrated workspace) would otherwise white-screen the kiosk mid-incident.
@@ -44,7 +45,11 @@ export class ErrorBoundary extends Component<Props, State> {
     // Also report to the server log so a field crash isn't invisible to the deployer.
     reportClientError(error, { kind: 'render', componentStack: info.componentStack ?? undefined })
     // Count it (survives the reload) so a second crash on the same incident can escalate.
-    this.setState({ crash: recordCrash(this.props.scopeId ?? '') })
+    const crash = recordCrash(this.props.scopeId ?? '')
+    // Remember it for the Rückmeldung prompt too: the server log gets the stack, but only the
+    // operator can say what they were doing. Asked later, on the launcher — never here.
+    recordTrouble(isLooping(crash, this.props.scopeId ?? '', Date.now()) ? 'crashLoop' : 'crash')
+    this.setState({ crash })
   }
 
   render() {

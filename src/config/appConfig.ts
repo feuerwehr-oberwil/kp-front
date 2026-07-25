@@ -21,6 +21,15 @@ const base = {
     key: 'incident-map-workspace-v1',
     legacyKeys: ['kp-front-poc-v5'],
   },
+  // Rückmeldung (see lib/feedbackReport). Nothing is ever sent automatically — this is only the
+  // address the «E-Mail schreiben» button pre-addresses, and the operator sees the whole text
+  // first. Upstream by default so a fresh self-hosted station's feedback reaches the people who
+  // can act on it; a deployment that would rather triage internally overrides `mailto` with its
+  // own address and upstream never hears from it, which is the correct default for a project
+  // whose promise is that the station owns its data.
+  feedback: {
+    mailto: 'bastian@eichenbergers.ch',
+  },
   defaults: {
     operationalLayerId: 'taktisch' as LayerId,   // placed symbols
     drawingLayerId: 'markup' as LayerId,          // freehand/area drawings, notes, photos

@@ -1520,6 +1520,54 @@ export const de = {
     blankSheetSub: 'Papierblatt zum Handausfüllen',
     blankSheetDownload: 'Herunterladen',
     blankSheetFailed: 'PDF fehlgeschlagen – nochmals versuchen.',
+    feedbackRow: 'Rückmeldung geben',
+    feedbackRowSub: 'Was umständlich war oder gefehlt hat',
+    feedbackOpen: 'Schreiben',
+  },
+  // Rückmeldung — the feedback composer + the prompt after something went wrong. Nothing here
+  // is sent automatically: the app writes the text, the operator sends it (see lib/feedbackReport).
+  feedback: {
+    title: 'Rückmeldung',
+    // shown on the launcher when a trouble event is waiting to be asked about
+    promptTitle: 'Kurz gefragt',
+    promptDismiss: 'Nicht jetzt',
+    promptOpen: 'Kurz schildern',
+    // one per TroubleKind — the prompt asks about the specific thing that happened
+    promptFor: {
+      crashLoop: 'Die App ist in einem Einsatz mehrmals abgestürzt. Was hast du gerade gemacht?',
+      crash: 'Die App ist zuletzt einmal abgestürzt. Was hast du gerade gemacht?',
+      storageFull: 'Auf diesem Gerät war der Speicher voll. Ist dabei etwas verlorengegangen?',
+      syncConflict: 'Zwei Geräte hatten unterschiedliche Stände. Hat am Ende etwas gefehlt?',
+    },
+    // the same labels, in the report itself
+    kinds: {
+      crashLoop: 'wiederholter Absturz im selben Einsatz',
+      crash: 'Absturz der Oberfläche',
+      storageFull: 'Gerätespeicher voll',
+      syncConflict: 'Sync-Konflikt beim Zusammenführen',
+    },
+    subject: 'Rückmeldung',
+    intro: 'Was ist passiert, und was hättest du erwartet? Ein, zwei Sätze genügen.',
+    placeholder: 'z. B. «Trupp auf Rückweg gesetzt, dann war der Bildschirm weiss.»',
+    techTitle: 'Das wird mitgeschickt',
+    techNote: 'Sonst nichts – keine Einsatzdaten, keine Adressen, keine Namen, kein Screenshot.',
+    privacy: 'Nichts wird automatisch gesendet. Du entscheidest, ob und an wen.',
+    copy: 'Text kopieren',
+    copied: 'Kopiert – jetzt einfügen und senden.',
+    copyFailed: 'Kopieren nicht möglich – Text markieren und von Hand kopieren.',
+    mail: 'E-Mail schreiben',
+    close: 'Schliessen',
+    tech: {
+      version: 'Version:',
+      locale: 'Sprache:',
+      device: 'Gerät:  ',
+      viewport: 'Fenster:',
+      network: 'Netz:   ',
+      event: 'Vorfall:',
+      online: 'online',
+      offline: 'offline',
+      noDescription: '(keine Beschreibung)',
+    },
   },
   // Offline-Bereitschaft readiness diagnostics
   offline: {

@@ -5,6 +5,7 @@ import { attendanceConflictRows } from './attendanceConflict'
 import type { RecordConflict } from './mergeWorkspace'
 import { nextPollDelay } from './pollBackoff'
 import { createSyncAlertTracker } from './syncAlert'
+import { recordTrouble } from './trouble'
 import { toast } from './ui'
 import type { Saved } from './workspace'
 import type { TimelineEvent } from '../types'
@@ -49,7 +50,11 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
   useEffect(() => {
     if (!appendJournal || readOnly) return
     const report = (conflicts: RecordConflict[]) => {
-      for (const row of attendanceConflictRows(conflicts, seenConflicts.current)) appendJournal(row)
+      const rows = attendanceConflictRows(conflicts, seenConflicts.current)
+      for (const row of rows) appendJournal(row)
+      // A divergence that produced a note is worth asking the operator about later: LWW kept
+      // one side, and only a human knows whether the losing side mattered.
+      if (rows.length > 0) recordTrouble('syncConflict')
     }
     sync.onAttendanceConflicts = report
     report(sync.drainAttendanceConflicts()) // conflicts from init()'s cold-reopen merge

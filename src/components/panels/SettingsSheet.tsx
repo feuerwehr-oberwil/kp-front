@@ -18,7 +18,7 @@ import { Stepper } from '../Stepper'
  *  Also opens from the landing card with no incident: omit settings/onSettings and the
  *  synced section disappears (device prefs need no workspace). */
 export function SettingsSheet({
-  onClose, symbolSize, onSymbolSize, symbolCaptions, onSymbolCaptions, offlineRadiusM, onOfflineRadius, keepScreenOn, onKeepScreenOn, themeCoord, settings, onSettings, canEdit, elView, onElView,
+  onClose, symbolSize, onSymbolSize, symbolCaptions, onSymbolCaptions, offlineRadiusM, onOfflineRadius, keepScreenOn, onKeepScreenOn, themeCoord, settings, onSettings, canEdit, elView, onElView, onFeedback,
 }: {
   onClose: () => void
   symbolSize: SymbolSize
@@ -43,6 +43,9 @@ export function SettingsSheet({
    *  view itself (it must — it's the way back out). */
   elView: boolean
   onElView?: (v: boolean) => void
+  /** open the Rückmeldung composer (the caller closes this sheet first — two stacked modals is
+   *  not a thing we do). Omitted → the row is hidden. */
+  onFeedback?: () => void
 }) {
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => loadPrefs().theme ?? 'auto')
   const setTheme = (m: ThemeMode) => {
@@ -175,6 +178,14 @@ export function SettingsSheet({
                 <Icon id="doc" /> {cp.blankSheetDownload}
               </button>
             </div>
+            {onFeedback && (
+              <div className="set-row">
+                <span className="set-row-l">{cp.feedbackRow}<small>{cp.feedbackRowSub}</small></span>
+                <button type="button" className="set-dl" onClick={onFeedback}>
+                  <Icon id="mail" /> {cp.feedbackOpen}
+                </button>
+              </div>
+            )}
           </div>
         </section>
       </div>
