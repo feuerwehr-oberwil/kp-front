@@ -1,15 +1,114 @@
 # Changelog
 
 All notable changes to KP Front are documented here. The format is based on
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project aims to follow
-[Semantic Versioning](https://semver.org/spec/v2.0.0.html) once it cuts its first tagged release.
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+**What the version number means for a deployment** – KP Front is a self-hosted app, not a
+library, so the number answers one question: *how much attention does this update need?*
+
+| Bump | What it means for you |
+| --- | --- |
+| **MAJOR** | Operator action required – a breaking config change, a migration that can't be rolled back, a new mandatory env var, a Postgres major. Read the notes before updating. |
+| **MINOR** | New features. Migrations run automatically on boot; `docker compose pull && docker compose up -d` is enough. |
+| **PATCH** | Fixes only. Always safe to take. |
+
+Releases are labels on a `main` commit that CI already proved green – prod and the demo deploy
+continuously from `main`, so a tag exists for *other* stations, not for us.
 
 `0.1.0` is the initial public release: the git history was squashed for the open-source launch,
-so this file — not the log — is the record of what shipped up to that point.
+so this file – not the log – is the record of what shipped up to that point.
 
 ## [Unreleased]
 
-## [0.1.0] — 2026-07-19
+## [0.2.0] – 2026-07-25
+
+The first release with **published container images**: self-hosting no longer needs a Node/uv
+toolchain on the VPS. Everything else here has been running in production since `0.1.0`.
+
+### Added
+- **Published images on GHCR.** `ghcr.io/feuerwehr-oberwil/kp-front:0.2.0` (plus `0.2` and
+  `latest`) is built, booted and smoke-tested by CI on every tag. `docker-compose.yml` now pulls
+  by default and `KP_FRONT_TAG` in `.env` pins the version, so updating is
+  `docker compose pull && docker compose up -d`. Building from source stays supported – see
+  [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) §5.
+- **Keyboard control of the whole surface:** number keys address the modules, letters switch
+  surfaces, and tools, undo/redo and the panels all have shortcuts – so a station with a
+  keyboard-equipped tablet dock can drive KP Front without touching the screen.
+- **Phone/mobile editing round 2:** swipe to page between sections and through the individual
+  plan documents (including an edge-swipe over the canvas), the tool-option dock became a
+  horizontal bar that hugs its content, the Einsatzuhr got a distinct icon per mode, and Mittel
+  gained an «Alle» tab.
+- **Symbol pack grown:** VKF **Rauch** as a real symbol with detail modal and spread, **Boot**,
+  **Drohne**, Lüfter airflow toggle (Einblasen/Absaugen), and Drehleiter/Hubretter as composite
+  symbols with an independent slewing boom you drag by the cage tip (reach + bearing). Every
+  driven vehicle now has a **Fahrer** picker, and the EL card leads with the name plus a deputy.
+- **Atemschutz: expected-pressure Schätzung** derived from the Trupp's own consumption history
+  (labelled as *Schätzung*, with its assumptions visible), a free-text Funkkanal, and an opt-in
+  soft pip on «Kontakt fällig» (off by default).
+- **Print relay status you can trust:** the «An Stationsdrucker» button now reports
+  gesendet → wird gedruckt → gedruckt as a live toast, the agent claims jobs by long-poll
+  (near-instant, ~10× less traffic from the station Pi), and the editor prewarms map tiles.
+- **Persistent plan-scale calibration** per station: a Massstab measured once on a plan document
+  is remembered instead of being recalibrated at every incident.
+- **Per-team Spuren toggle:** each Trupp's trail is switched on its own eye icon, replacing the
+  single global trail switch.
+- **Replay trims its scrub range** to the span where changes actually happened, so an 8-hour
+  incident with 20 minutes of drawing doesn't scrub through hours of nothing.
+- **Optional scheduler heartbeat** (dead-man's-switch) for deployments that want external
+  alerting when the background scheduler dies.
+- **Demo-mode deployment support:** `DEMO_RESET_SECONDS` runs the incident/roster reset
+  in-process (fail-closed, default off – production stays off), seeding a pre-filled example
+  incident, with auto-login and a welcome modal explaining what a visitor can and can't do.
+- **Help content** for Rapport & Abschluss, Erfassung per QR, and Massstab in Funktionen & Hilfe.
+
+### Changed
+- **All modal surfaces now sit on [Base UI](https://base-ui.com/)** (sheets, confirm dialogs,
+  menus, popovers) behind the existing `src/lib/overlays/` wrappers, so focus trap/restore,
+  scroll-lock, Esc, outside-click and ARIA behave identically everywhere instead of being
+  hand-rolled per surface. The non-modal map tool-docks stay bespoke on purpose – a focus trap
+  would break map interaction.
+- **Lage ↔ Plan parity** pushed further: identical selection halo and pop, the same drag deadzone
+  and orb touch-pad, teams that rest as a compact dot and expand to a pill on selection, and one
+  shared placement dock (close · keep-placing lock · info hint) for both surfaces.
+- **One control vocabulary** in the details modals and the Einsatzrapport: a single segmented
+  control and a consistent row rhythm instead of per-modal variations.
+- **Left rail and top bar decluttered:** duplicate glyphs removed, plan tabs grouped, and the
+  Einsatzuhr menu labelled.
+- **Touch/text sweep** toward the 3am tenet: rank chips and time inputs to 44px, shared 44px
+  hit-pads on dock and journal buttons, symbol captions to 12.5px.
+- **Sync got cheaper on tablets:** the 304 poll reads only `workspace_rev` instead of the whole
+  workspace blob, and the incident list defers its heavy JSONB column.
+- **Wind arrow follows map rotation** like the compass does.
+
+### Fixed
+- **Undo gaps closed** (the standing rule is that every mutation is undoable): logging an
+  Atemschutz pressure, taking an alarm with one tap, and «Raus» + clearing Anwesenheit are all
+  undoable now, and «Eröffnen» can no longer dead-end.
+- Dismissing an alarm on the landing screen with «×» is **per-device** and no longer hides it
+  for the whole crew.
+- **Speech-to-text re-transcribe race:** a re-transcribe started after a delete could leave the
+  job stuck in `running` until the orphan check force-failed it («Serverneustart …»). The job row
+  is committed before the background task reads it, and a failing transcription now logs
+  server-side instead of being swallowed.
+- **Line/hose drawing polish:** fork-aligned Teilstück ports, a sticky (de-twitched) magnet,
+  endpoints that move instead of detaching, fill-circle snapping, clearer red indicators, and a
+  centred × on the detach chip.
+- **Plan documents recover from a failed load** – PDF/Umrisse loading has a timeout, evicts a bad
+  cache entry, and offers «Erneut laden» instead of a permanent blank board. The board canvas is
+  also measured whenever it remounts, fixing a plan that rendered at the wrong size.
+- A **viewer-only** plan no longer reserves an empty tool-bar lane, and the Ebenen dock closes
+  when focus moves elsewhere.
+- Mobile layout fixes: update-banner sizing, views-popover height, the team-time stack, the
+  Mittel toggle, uniform settings rows, and a PIN pad whose bottom row stayed reachable on short
+  viewports.
+- Personnel dropdowns in the Einsatzrapport render above the modal instead of behind it.
+- Batch from the field-feedback round: BMA red dot, plan centring, Trupp on plan, Mittel,
+  readiness modal, demo create-block, rapport spinner, and the outline cache.
+- Hubretter boom heading is independent of the vehicle's and stays drawn on top (it is
+  turntable-mounted), and the Drohne glyph matches the size of the rest of the pack.
+
+## [0.1.0] – 2026-07-19
 
 ### Added
 - Deployment-admin auth separated from the incident role: the `/admin` UI and admin-write API
@@ -30,7 +129,7 @@ so this file — not the log — is the record of what shipped up to that point.
 - Backup tooling: `scripts/backup.sh` (Postgres dump + storage-volume tarball with retention,
   cron-ready) and an automatic pre-migration `pg_dump` in `start.sh` whenever a migration is
   pending (newest 5 kept on the storage volume).
-- Confirm-with-undo on the two lossy Gebäude operations (remove floor, replace building) —
+- Confirm-with-undo on the two lossy Gebäude operations (remove floor, replace building) –
   the removed storey/stack and its sketches are restorable from the toast.
 - Automatic sync retry with backoff: a failed workspace flush (server error or network drop)
   now re-flushes on 5s→60s backoff instead of waiting for the next manual edit.
@@ -38,15 +137,15 @@ so this file — not the log — is the record of what shipped up to that point.
   `pnpm audit` (mirroring the backend's `pip-audit`), and a CodeQL workflow that activates
   automatically once the repository is public.
 - Single-editor tab lock (Web Locks): a second browser tab on the same incident is read-only
-  with an "In einem anderen Tab geöffnet" banner and a one-tap "Hier bearbeiten" take-over —
+  with an "In einem anderen Tab geöffnet" banner and a one-tap "Hier bearbeiten" take-over –
   two tabs can no longer race the shared sync cache.
 - The Verlauf is now a first-class append-only journal store (server rows + offline outbox)
-  instead of an array inside the synced workspace blob — the one unbounded domain no longer
+  instead of an array inside the synced workspace blob – the one unbounded domain no longer
   re-syncs wholesale on every edit. Older incidents migrate lazily and losslessly (the blob
   echoes their rows until each is on the server, then ships empty); transcripts and uploaded
   media URLs are appended enrichment patches, never in-place edits.
 - The sync channel is gzip-compressed in both directions (responses via middleware, large
-  request bodies via CompressionStream) — repetitive workspace JSON shrinks ~8–10× on
+  request bodies via CompressionStream) – repetitive workspace JSON shrinks ~8–10× on
   field LTE.
 - The Einsatzende is now first class: archiving stamps `closed_at` (confirm dialog; reopen
   keeps it), both transitions self-document in the Verlauf, post-closure rows carry a
@@ -57,15 +156,15 @@ so this file — not the log — is the record of what shipped up to that point.
 - Mittel capture + Retablierung: placing a matching tactical symbol (Lüfter, Pumpe, …) on
   Lage or Plan offers logging the material with one tap (never automatic); equipment lines
   carry a Retablierung status (zurück / vor Ort geblieben / defekt) and the Rapport gains a
-  «Retablierung / Nachschub» worksheet — refill list, flagged equipment, and still-open
+  «Retablierung / Nachschub» worksheet – refill list, flagged equipment, and still-open
   lines. Catalogue items take optional `symbol` and `verbrauchbar` keys in the deployment
   config; without a `symbol` key a label↔symbol-name match still applies.
 - Web Push (VAPID) for killed-app alarms: a server-side sweep recomputes Atemschutz
   überfällig + due Wiedervorlagen from the synced data (same doctrine fallbacks as the
-  client) and notifies every subscribed browser — the "tablet stays foregrounded" rule
+  client) and notifies every subscribed browser – the "tablet stays foregrounded" rule
   becomes a fallback once a deployment sets its VAPID keys.
 - New-alarm push: a NEW Divera alarm (webhook or poll) immediately pushes «Neuer Einsatz:
-  Stichwort — Adresse» to every subscribed browser, best-effort (a broken push path never
+  Stichwort – Adresse» to every subscribed browser, best-effort (a broken push path never
   breaks the intake). VAPID pair generation without Node:
   `cd backend && uv run python -m app.gen_vapid`.
 - Tactical symbols: FKS damage signatures (Beschädigung, Teil-/Totalzerstörung) and
@@ -74,20 +173,20 @@ so this file — not the log — is the record of what shipped up to that point.
 ### Changed (assets)
 - The tactical symbol pack is now KP-Front-authored artwork (`public/tactical-symbols.json`,
   generated by `tools/gen_symbols.py`, corps-reviewed against the official FKS Faltkarte
-  11/2022) — all 66 signs redrawn as clean geometric primitives, same names/categories. The
+  11/2022) – all 66 signs redrawn as clean geometric primitives, same names/categories. The
   backend overlay dataset id moved from `symbols:firegis` to `symbols:tactical`; the legacy
   dataset in existing deployments is simply no longer fetched.
 
 ### Removed
 - The real station plan PDFs (`public/plans/modul*.pdf`) and the FireGIS symbol-extraction
-  tools — station plans are deployment data served from the database; the module tiles in the
+  tools – station plans are deployment data served from the database; the module tiles in the
   bundled catalog no longer reference any repo asset.
 - `public/firegis-symbols.json` and the FireGIS curation scripts, replaced by the authored
   pack above (the last FireGIS-derived asset in the tree).
 
 ### Changed
 - Smoother app updates: an update discovered right after launch (before any interaction) now
-  applies silently instead of asking — the banner only appears for deploys landing mid-work.
+  applies silently instead of asking – the banner only appears for deploys landing mid-work.
   Applying an update shows a calm "Neue Version wird geladen" cover, a watchdog guarantees the
   reload, and the next launch confirms the new build with a toast. The menu's update check
   reports its verdict inline on the button (with a distinct offline message), and standby
@@ -106,3 +205,7 @@ so this file — not the log — is the record of what shipped up to that point.
   all posts (403) instead of accepting unauthenticated alarms. Polling is unaffected.
 - A render error on the login screen, landing list, or admin surface now shows the recoverable
   error card instead of a white screen (root-level error boundary + guarded boot init).
+
+[Unreleased]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/feuerwehr-oberwil/kp-front/releases/tag/v0.1.0

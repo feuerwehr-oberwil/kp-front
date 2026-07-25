@@ -1,14 +1,16 @@
 # Self-hosting KP Front on a VPS: the app (SPA + API in one image) + its Postgres.
 # Railway users don't need this file — that path is driven by railway.json.
 #
-#   cp .env.example .env          # set POSTGRES_PASSWORD + SECRET_KEY (openssl rand -hex 32)
-#   docker compose up -d --build  # builds from the repo-root Dockerfile, runs migrations on boot
+#   cp .env.example .env    # set POSTGRES_PASSWORD + SECRET_KEY (openssl rand -hex 32)
+#   docker compose up -d    # pulls the published image, runs migrations on boot
+#
+# Updating:  docker compose pull && docker compose up -d
+# Pinning:   set KP_FRONT_TAG=0.2.0 in .env (default: latest). Rollback = pin the older tag.
 #
 # Serves plain HTTP on ${APP_PORT:-8000}. For automatic HTTPS on a domain, add Caddy:
-#   docker compose --profile tls up -d --build      # set DOMAIN in .env, see deploy/Caddyfile
+#   docker compose --profile tls up -d              # set DOMAIN in .env, see deploy/Caddyfile
 #
-# To deploy a published image instead of building, comment out `build:` and set
-#   image: ghcr.io/<org>/kp-front:vX.Y.Z
+# To build from source instead (contributors, or a patched fork), see the `app` service below.
 
 name: kp-front
 
@@ -38,10 +40,14 @@ services:
     # No published ports: reachable only by `app` over the internal compose network.
 
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: kp-front:local
+    # Published on every git tag by .github/workflows/release.yml (linux/amd64).
+    # KP_FRONT_TAG pins a version: 0.2.0 | 0.2 | latest.
+    image: ghcr.io/feuerwehr-oberwil/kp-front:${KP_FRONT_TAG:-latest}
+    # Build from source instead: comment out `image:` above, uncomment this, and run
+    # `docker compose up -d --build`.
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
     restart: unless-stopped
     logging: *default-logging
     depends_on:

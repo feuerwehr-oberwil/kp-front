@@ -1,0 +1,129 @@
+name: Release
+
+# Pushing a v* tag publishes a release. The tag is expected to sit on a main commit whose CI
+# was already green – but the full gate runs again here anyway, because a published image is
+# the one artifact a strange station downloads without reading the diff.
+#
+#   just release 0.3.0 && just release-tag 0.3.0 && git push --follow-tags
+#
+# NOTE (one-time, after the first run): GHCR packages start PRIVATE even on a public repo.
+# Set the package to public under Packages → kp-front → Package settings → Change visibility,
+# or `docker pull` fails for everyone else.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  # The same three gate jobs as a normal push: frontend, backend, and the real container
+  # built + booted + smoke-tested.
+  gate:
+    name: CI gate
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    name: Publish image + GitHub Release
+    needs: gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # create the GitHub Release
+      packages: write   # push to GHCR
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0   # release.py's tag comparison needs the full tag list
+
+      # The tag is the source of truth for the version; the committed files must agree with
+      # it, or a mistyped tag would publish an image whose /api/system reports another number.
+      - name: Resolve and verify the version
+        id: v
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          case "$version" in
+            [0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "tag $GITHUB_REF_NAME is not vMAJOR.MINOR.PATCH"; exit 1 ;;
+          esac
+          pkg=$(python3 -c 'import json;print(json.load(open("package.json"))["version"])')
+          if [ "$pkg" != "$version" ]; then
+            echo "tag says $version but package.json says $pkg – run 'just release $version' first"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+          # Only move `latest` when this really is the newest release – a late patch on an
+          # older series (0.1.1 after 0.2.0) must not drag `latest` backwards.
+          image="ghcr.io/${GITHUB_REPOSITORY}"
+          newest=$(git tag -l 'v*' | sort -V | tail -1)
+          tags="${image}:${version}"$'\n'"${image}:${version%.*}"
+          if [ "$newest" = "$GITHUB_REF_NAME" ]; then
+            tags="$tags"$'\n'"${image}:latest"
+          else
+            echo "::notice::$GITHUB_REF_NAME is older than $newest – not moving 'latest'"
+          fi
+          {
+            echo "tags<<TAGS_EOF"
+            echo "$tags"
+            echo "TAGS_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      # Fails the release if the version has no notes, rather than publishing an empty one.
+      - name: Extract the release notes
+        run: python3 scripts/changelog_section.py "${{ steps.v.outputs.version }}" > RELEASE_NOTES.md
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # linux/amd64 only: that's what a station VPS runs, and the image's Python wheels
+      # (pdfium/resvg for server-side rendering) have no reliable arm64 story. Building
+      # arm64 under QEMU here would take longer than the whole rest of the pipeline.
+      - name: Build and push the image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64
+          push: true
+          # Same context the gate just built, so this is mostly a cache replay.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            GIT_SHA=${{ github.sha }}
+          tags: ${{ steps.v.outputs.tags }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.v.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.licenses=AGPL-3.0-or-later
+            org.opencontainers.image.description=KP Front – Einsatzführungs-app for frontline fire-service command
+
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          {
+            echo "**Image:** \`ghcr.io/${{ github.repository }}:${{ steps.v.outputs.version }}\`"
+            echo " · **Update:** \`docker compose pull && docker compose up -d\`"
+            echo " · **New deployment:** [docs/DEPLOYMENT.md](https://github.com/${{ github.repository }}/blob/${GITHUB_REF_NAME}/docs/DEPLOYMENT.md)"
+            echo
+            echo "Migrations run automatically on boot, after an automatic pre-migration dump."
+            echo
+            echo "---"
+            echo
+            cat RELEASE_NOTES.md
+          } > BODY.md
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file BODY.md \
+            --verify-tag

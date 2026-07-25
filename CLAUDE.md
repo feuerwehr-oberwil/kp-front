@@ -182,6 +182,16 @@ to prod.
   Enable it the moment the repo goes **public** (OSS Phase E — protection is free for public
   repos) or upgrades to **Pro**: require the three CI jobs above, with `enforce_admins: false` so
   a 3am hotfix can still bypass. Until then the gate is **by convention**, not machine-enforced.
+- **Releases are for other stations, not for us.** Prod + demo deploy continuously from `main`;
+  a `v*` tag exists so a self-hoster can pull a known image. The number answers *what does this
+  update cost the operator* — PATCH = fixes, MINOR = features + automatic migrations, MAJOR =
+  operator action required (table at the top of `CHANGELOG.md`). Cutting one:
+  `just changelog` (git-cliff draft) → curate into `[Unreleased]` → `just release X.Y.Z` (bumps
+  `package.json`, `backend/pyproject.toml`, `backend/app/config.py`, opens the CHANGELOG section;
+  a pytest fails if those three ever drift) → `just release-tag X.Y.Z` → `git push --follow-tags`,
+  which runs the CI gate and publishes `ghcr.io/feuerwehr-oberwil/kp-front:{X.Y.Z,X.Y,latest}`
+  plus a GitHub Release whose body is the committed CHANGELOG section. `docker-compose.yml`
+  **pulls** that image by default (`KP_FRONT_TAG`); building from source is the commented path.
 - Replace files in place — no `_v2` / `-new` / `-fixed` variants.
 - Match the surrounding code's style, naming, and comment density.
 - When writing docs, convert relative dates to absolute.

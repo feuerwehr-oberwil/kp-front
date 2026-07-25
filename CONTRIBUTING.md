@@ -80,6 +80,26 @@ kept current when a convention changes.
 - There is **no per-file license-header requirement**, but new files must be compatible with
   AGPL-3.0-or-later.
 
+## Releases (maintainers)
+
+Other stations run **published images**, not `main`, so a tag is a promise. A release is a
+label on a `main` commit CI already proved green — never a rushed cut.
+
+```bash
+just changelog            # draft notes from the commits since the last tag
+#                           → curate them into CHANGELOG.md's [Unreleased] section
+just release 0.3.0        # bump package.json + pyproject.toml + config.py + CHANGELOG
+just release-tag 0.3.0    # commit (only those four files) + annotated tag
+git push --follow-tags    # → CI gate → GHCR image → GitHub Release
+```
+
+Pick the number by **what the update costs the operator**, not by how much code moved:
+PATCH = fixes only, MINOR = features with automatic migrations, MAJOR = operator action
+required. The table at the top of [`CHANGELOG.md`](CHANGELOG.md) is the contract.
+
+Write the notes for a station commander deciding whether to update tonight — not for the
+person who wrote the diff.
+
 ## Never commit private / station data
 
 Per-station deployment data is **not** part of this repo and must never be committed:

@@ -9,6 +9,7 @@ import { Card, StatusBadge, Metric, UsageBar, EmptyState, ResultChip } from './u
 // ─── shapes (plain dict from GET /api/system; resilient — sections may be null) ──
 
 interface SystemVersion {
+  release: string
   commit: string
   branch: string | null
   env: string
@@ -300,6 +301,7 @@ export function SystemView() {
             >
               {version ? (
                 <>
+                  <Metric label={C.release} value={version.release ? `v${version.release}` : '—'} />
                   <Metric label={C.commit} value={version.commit || commitShort} />
                   <Metric label={C.branch} value={version.branch ?? '—'} />
                   <div className="adm-sys-metric">
