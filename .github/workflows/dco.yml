@@ -1,0 +1,46 @@
+name: DCO
+
+# Every commit in a pull request must carry a Signed-off-by line (Developer Certificate of
+# Origin 1.1). See CONTRIBUTING.md for the why – in short, shared copyright is what keeps
+# "what we operate is what you can operate" enforceable.
+#
+# Pull requests only: a maintainer pushing straight to main during a 3am hotfix is not gated
+# on this.
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  dco:
+    name: DCO (sign-off)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Check every commit carries a Signed-off-by line
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          missing=0
+          # --no-merges: a merge of the base branch back in is not the contributor's patch.
+          for sha in $(git rev-list --no-merges "$BASE..$HEAD"); do
+            if ! git log -1 --format=%B "$sha" | grep -qiE '^Signed-off-by: .+ <.+@.+>'; then
+              echo "::error::Missing Signed-off-by: $(git log -1 --format='%h %s' "$sha")"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo ""
+            echo "Add the line with 'git commit -s', or for a whole series:"
+            echo "  git rebase --signoff $BASE && git push --force-with-lease"
+            exit 1
+          fi
+          echo "All commits signed off."

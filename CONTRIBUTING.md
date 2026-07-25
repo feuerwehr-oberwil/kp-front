@@ -9,6 +9,28 @@ The project is licensed under the **GNU Affero General Public License v3.0 or la
 contributions are licensed under AGPL-3.0-or-later. Please also read our
 [Code of Conduct](CODE_OF_CONDUCT.md).
 
+## Sign your commits (DCO)
+
+Every commit needs a `Signed-off-by` line. Add it automatically with `-s`:
+
+```bash
+git commit -s -m "fix: …"     # appends: Signed-off-by: Your Name <you@example.com>
+```
+
+That line is your statement that you wrote the patch, or otherwise have the right to submit it
+under this project's licence – the [Developer Certificate of Origin
+1.1](https://developercertificate.org/). Nothing is signed away and no copyright is transferred:
+you keep the rights to your work, and it stays under AGPL-3.0-or-later like the rest of the
+codebase.
+
+We use the DCO rather than a Contributor Licence Agreement on purpose. A CLA would let the
+maintainer relicense contributed code – for a closed hosted tier, say – and this project's
+promise to the fire departments running it is that **what we operate is what you can operate**.
+Shared copyright is what keeps that promise enforceable rather than voluntary.
+
+Forgot the sign-off? `git commit --amend -s` for the last commit, or
+`git rebase --signoff <base>` for a series, then force-push the branch.
+
 ## Dev setup
 
 The fastest path uses the [`just`](https://github.com/casey/just) task runner (`just` with no
