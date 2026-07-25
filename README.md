@@ -1,5 +1,8 @@
 # KP Front
 
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![Live Demo](https://img.shields.io/badge/Demo-live-brightgreen)](https://demo.kp-front.ch)
+
 **Einsatzführungs-app for frontline fire-service command.** KP Front replaces the physical
 Lagekarte and command table with a shared situation map, prepared plans and object data, live
 documentation, and an offline-capable record.
@@ -10,17 +13,17 @@ exports; integrations add data but are not required to operate it.
 
 ## Try the demo
 
-The [public demo](https://kp-front-demo.up.railway.app) contains a running Zimmerbrand at the
+The [public demo](https://demo.kp-front.ch) contains a running Zimmerbrand at the
 Schloss in fictional Musterdorf. Credentials are shown on the login screen, and the demo resets
 every two hours.
 
 The repository includes the same synthetic station dataset in
 [`examples/demo-data/`](examples/demo-data/). No real station data is bundled.
 
-| Lage — live command picture | Atemschutz — SCBA teams on the clock |
+| Lage – live command picture | Atemschutz – SCBA teams on the clock |
 | --- | --- |
 | ![Lage map](docs/screenshots/lage.png) | ![Atemschutz](docs/screenshots/atemschutz.png) |
-| **Gebäude — floor stack and AGT tracking** | **Mittel — material use by source** |
+| **Gebäude – floor stack and AGT tracking** | **Mittel – material use by source** |
 | ![Gebäude](docs/screenshots/gebaeude.png) | ![Mittel](docs/screenshots/mittel.png) |
 
 ## Why KP Front
@@ -90,24 +93,8 @@ just api         # start the API on localhost:8000
 just dev         # start the frontend on localhost:5188
 ```
 
-Log in with the seeded default editor — user `fu` (Führungsunterstützung), PIN `000000`
+Log in with the seeded default editor – user `fu` (Führungsunterstützung), PIN `000000`
 (from `backend/app/seed_users.json`; change it after first login).
-
-### Self-host
-
-The production setup uses one application container and PostgreSQL, pulled as a published
-image – no build toolchain on the server. See the full
-[`deployment guide`](docs/DEPLOYMENT.md).
-
-```bash
-just init-env
-docker compose up -d          # ghcr.io/feuerwehr-oberwil/kp-front:${KP_FRONT_TAG:-latest}
-```
-
-Updating is `docker compose pull && docker compose up -d`; migrations run on boot. Pin a
-version with `KP_FRONT_TAG` in `.env` and follow the
-[releases](https://github.com/feuerwehr-oberwil/kp-front/releases) –
-[`CHANGELOG.md`](CHANGELOG.md) explains what a MAJOR/MINOR/PATCH bump means for a deployment.
 
 ### Common recipes
 
@@ -126,10 +113,30 @@ The React frontend can run alone. The FastAPI backend adds authentication, works
 history, integrations, and reference data. Deployment configuration is managed as code; see
 [`Configuration`](docs/CONFIGURATION.md) and [`API`](docs/API.md).
 
+## Self-host
+
+The production setup is one application container and PostgreSQL, pulled as a published
+image – no build toolchain on the server. See the full
+[`deployment guide`](docs/DEPLOYMENT.md).
+
+```bash
+just init-env
+docker compose up -d          # ghcr.io/feuerwehr-oberwil/kp-front:${KP_FRONT_TAG:-latest}
+```
+
+Updating is `docker compose pull && docker compose up -d`; migrations run on boot. Pin a
+version with `KP_FRONT_TAG` in `.env` and follow the
+[releases](https://github.com/feuerwehr-oberwil/kp-front/releases) –
+[`CHANGELOG.md`](CHANGELOG.md) explains what a MAJOR/MINOR/PATCH bump means for a deployment.
+
+**Every published image has already run a real fire station.** Feuerwehr Oberwil's production
+deployment and the public demo both track `main` continuously; a version tag is a label on a
+commit that has been carrying live incidents. Releases exist for *other* stations, not for us.
+
 ## Architecture & key decisions
 
 A tablet-first PWA talks to a single FastAPI service that serves the app same-origin, owns the
-database and asset store, and is the only thing that reaches external services — one deployment
+database and asset store, and is the only thing that reaches external services – one deployment
 per station. Full diagrams (data provenance, backend modules, config layers, sync flow) are in
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
@@ -165,8 +172,8 @@ flowchart TB
 **Frontend:** React 18, TypeScript, Vite 5, MapLibre GL, Workbox/PWA, and Vitest. Incident
 workspaces persist in IndexedDB and sync with the backend when online.
 
-**Backend:** FastAPI, PostgreSQL, Alembic, and `uv`. It serves the frontend from the same origin,
-supports Railway and Docker Compose deployments, and uses PIN-based `editor` and `viewer` roles.
+**Backend:** FastAPI, PostgreSQL, Alembic, and `uv`. It serves the frontend from the same origin
+and supports Railway and Docker Compose deployments.
 
 **Configuration layers** (see [`Configuration`](docs/CONFIGURATION.md)):
 
@@ -178,16 +185,44 @@ supports Railway and Docker Compose deployments, and uses PIN-based `editor` and
 **Deliberate tradeoffs:**
 
 - **Single-tenant:** one station per deployment keeps ownership and isolation simple.
+- **Local PIN login, on purpose:** incident roles are `editor` (may mutate incident state) and
+  `viewer` (read-only), authenticated by a PIN held in the deployment's own database. There is no
+  SSO on the way into an incident, and that is a design decision rather than a missing feature –
+  an identity-provider round-trip is a network dependency on the one path that has to work at 3am
+  in a cellar with no signal. Deployment administration is separated behind its own
+  `ADMIN_SECRET`, fail-closed.
 - **Task-scoped sync:** collections merge by item; simultaneous edits to one item use a simple
   conflict model.
 - **Append-only history:** operational records are corrected with new events, not rewritten.
 - **Verified offline readiness:** the app checks required cached data instead of assuming it is
   available.
 
-**The 3am tenet** — the guiding UX rule across every feature: the operator is an infrequent
+**The 3am tenet** – the guiding UX rule across every feature: the operator is an infrequent
 expert, under stress, possibly in the dark and offline, who must use this correctly at 3am
 after six months without practice. Recognition over recall, right defaults over
 configuration, nothing that can't be undone.
+
+## Integrations
+
+Every external service is proxied by the backend (the browser never calls a third party) and is
+**optional** – the app runs fully without any of them, and each one is fail-closed: no
+credential configured means the feature is off, not degraded. Secrets are environment-only; the
+database stores selection and behaviour, never credentials.
+
+| Connector | Direction | Works with today | Adding another |
+|-----------|-----------|------------------|----------------|
+| **Alarm intake** | in | **Any** alerting system via the open `POST /api/alarms` webhook (idempotent on source + id, auto-opens an incident); a native [Divera 24/7](https://www.divera247.com/) adapter | Already open – POST the documented JSON, no code needed. See [docs/ALARM-INTEGRATIONS.md](docs/ALARM-INTEGRATIONS.md) |
+| **Incident relay** | out | Any endpoint that accepts the incident JSON – KP Rück's `/api/alarms` is one consumer, a pager or chat bot is another | Point a URL at it; the core knows nothing about the receiver |
+| **Personnel roster** | in | Divera 24/7, including Qualifikationen mapped to Dienstgrad | Synced identities are stored provider-neutrally (`personnel_external_identities`), so a second source can be added |
+| **Vehicle GPS** | in | [Traccar](https://www.traccar.org/) | Currently Traccar-specific – no abstraction yet. It can be generalised the same way as the alarm connectors |
+| **Maps & geocoding** | in | swisstopo (search, LV95), OpenStreetMap, cantonal WMS layers | `GEOCODER_URL` plus config-driven reference layers – see [docs/geodata-architecture.md](docs/geodata-architecture.md) |
+| **Weather** | in | MeteoSwiss / Open-Meteo (wind for the spread estimate) | – |
+| **Speech-to-text** | in | Any OpenAI-compatible `/v1/audio/transcriptions` server – Groq, OpenAI, or a self-hosted faster-whisper | Set `STT_BASE_URL`. Empty means off everywhere, and audio never leaves the instance |
+| **Push notifications** | out | Web Push (VAPID) for Atemschutz and reminder alerts when the app is killed | Unset keys disable the sweep entirely |
+| **Printing** | out | Station printer via a pull-based relay agent | Point a custom agent at the relay endpoints |
+| **Station data** | in | Reference geodata, object plans, and checklists loaded from a private data repo via `admin_geodata` / `admin_objects` / `admin_checklists` | GeoJSON must be WGS84. See [docs/STATION-DATA.md](docs/STATION-DATA.md) |
+
+New connectors are welcome contributions – the alarm seam is the model to copy.
 
 ## Known limitations
 
@@ -195,6 +230,10 @@ configuration, nothing that can't be undone.
   storage.
 - Simultaneous edits to the same object can overwrite one another.
 - Workspace data has a schema version but is not yet validated and migration-gated on load.
+- There is no SSO. See the tradeoff above – this is deliberate for the incident login, but a
+  station whose IT department mandates central identity has no path today.
+- The UI ships in German, French, Italian, and English, but German is the canonical catalogue;
+  the other locales fall back to German for any untranslated string.
 
 See [GitHub issues](https://github.com/feuerwehr-oberwil/kp-front/issues) for current work.
 
@@ -217,27 +256,32 @@ docs/                      product and technical documentation
 
 Start with the [`documentation index`](docs/README.md):
 
-- [`Configuration`](docs/CONFIGURATION.md) — deployment configuration and station data.
-- [`Station data`](docs/STATION-DATA.md) — build and load a private station-data repository.
-- [`Deployment`](docs/DEPLOYMENT.md) — production and self-hosted setup.
-- [`Architecture`](docs/ARCHITECTURE.md) — system overview and design decisions.
+- [`Configuration`](docs/CONFIGURATION.md) – deployment configuration and station data.
+- [`Station data`](docs/STATION-DATA.md) – build and load a private station-data repository.
+- [`Deployment`](docs/DEPLOYMENT.md) – production and self-hosted setup.
+- [`Architecture`](docs/ARCHITECTURE.md) – system overview and design decisions.
 
 ## Related project
 
-KP Front runs the **frontline** command surface — the Lagekarte. If you're looking for the
-**rear** command post — a Kanban resource board that replaces the physical magnet board for
-tracking personnel, vehicles, materials, and incidents — see its companion
+KP Front runs the **frontline** command surface – the Lagekarte. If you're looking for the
+**rear** command post – a Kanban resource board that replaces the physical magnet board for
+tracking personnel, vehicles, materials, and incidents – see its companion
 **[KP Rück](https://github.com/feuerwehr-oberwil/kp-rueck)**
-([live demo](https://kp-rueck-demo.up.railway.app/)).
+([live demo](https://demo.kp-rueck.ch)).
 
 The two grew out of the same brigade and share a design language, but they are **completely
-independent** codebases and deployments — neither requires the other. They can *optionally* hand
+independent** codebases and deployments – neither requires the other. They can *optionally* hand
 alarms to each other through the same generic `POST /api/alarms` webhook, and nothing more.
+
+## Contributing
+
+Contributions are welcome: bug fixes, integrations, translations, or ideas. See
+**[CONTRIBUTING.md](CONTRIBUTING.md)** for guidelines.
 
 ## License
 
 KP Front is licensed under the **GNU Affero General Public License v3.0 or later**
-(`AGPL-3.0-or-later`) — see [`LICENSE`](LICENSE). You may run, study, share, and modify it; if
+(`AGPL-3.0-or-later`) – see [`LICENSE`](LICENSE). You may run, study, share, and modify it; if
 you run a modified version as a network service, you must offer your users the modified source.
 
 Copyright © 2026 Bastian Eichenberger.

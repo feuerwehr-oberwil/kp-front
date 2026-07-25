@@ -39,6 +39,15 @@ const bundle = (
 
 describe('activeReplayRange — trim idle head/tail to where changes happened', () => {
   const WIN_START = 0, WIN_END = 1_000_000
+  it('survives an event count that would blow the spread-argument limit', () => {
+    // The counts here are bounded by the SERVER, not by the client: a multi-day Einsatz keeps
+    // accumulating events. Math.min(...arr) throws RangeError well before this size, which would
+    // crash the replay view from data volume alone.
+    const many = Array.from({ length: 200_000 }, (_, i) => ev({ op_type: 'entity.add', occurred_at: iso(i + 1) }))
+    const r = activeReplayRange(many, [], WIN_START, WIN_END)
+    expect(r).toEqual({ startMs: 1, endMs: 200_000 })
+  })
+
   it('spans first → last change, not the whole incident window', () => {
     const r = activeReplayRange([
       ev({ op_type: 'incident.create', occurred_at: iso(0) }),   // idle head — excluded
