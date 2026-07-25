@@ -13,7 +13,7 @@ import { DemoRibbon } from './components/DemoRibbon'
 import { Splash } from './components/Splash'
 import { lockChromeZoom } from './lib/lockZoom'
 import { loadPrefs, applyTheme, resolveTheme } from './lib/prefs'
-import { loadDeploymentConfig, applyDeploymentBranding } from './lib/deploymentConfig'
+import { loadDeploymentConfigBounded, applyDeploymentBranding } from './lib/deploymentConfig'
 import { loadStationPlanScales } from './lib/stationPlanScale'
 import { migrateLocalStorageToIdb } from './lib/storageMigration'
 import { applyLocale } from './config/copy'
@@ -64,18 +64,33 @@ function Gate() {
   )
 }
 
+// Nothing before createRoot may be unbounded. Anything still pending here is a LITERALLY blank
+// screen — `#root` is empty, so there is no splash, no error boundary and nothing to tap, and
+// killing the app just re-runs the same stall. Both awaits below therefore carry a hard
+// wall-clock budget and fall back to their offline caches; first paint is guaranteed.
+const BOOT_BUDGET_MS = 4_000
+
+/** Resolve `p`, or `fallback` if it hasn't settled within `ms`. The loser keeps running. */
+function withBudget<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  return Promise.race([
+    p.catch(() => fallback),
+    new Promise<T>((res) => { timer = setTimeout(() => res(fallback), ms) }),
+  ]).finally(() => clearTimeout(timer))
+}
+
 // Resolve the deployment config (PUBLIC /api/config) BEFORE first render so per-deployment
 // branding/defaults are in place from the very first paint and the synchronous accessor
-// (getDeploymentConfig) is already populated when read sites run. The await is bounded by a
-// single public fetch and falls back safely on error (offline cache, else {}), so it never
-// blocks the launch — no separate splash needed; the auth Gate's /me splash still follows.
+// (getDeploymentConfig) is already populated when read sites run. Budgeted: a slow/stalled
+// network serves the offline-cached config instead of holding the blank page.
 void (async () => {
   try {
     // Move operational state (workspace caches, incident list, roster, config, outlines) from
     // localStorage into IndexedDB once, BEFORE anything reads its cache — loadDeploymentConfig's
-    // offline fallback and WorkspaceSync.init both now read from IDB. Bounded + best-effort.
-    await migrateLocalStorageToIdb()
-    const cfg = await loadDeploymentConfig()
+    // offline fallback and WorkspaceSync.init both now read from IDB. Best-effort; budgeted too,
+    // because a blocked IndexedDB upgrade (another tab holding the old version) never settles.
+    await withBudget(migrateLocalStorageToIdb(), BOOT_BUDGET_MS, undefined)
+    const cfg = await loadDeploymentConfigBounded(BOOT_BUDGET_MS)
     applyDeploymentBranding(cfg)
     // station plan calibration (public, offline-cached) — so plans measure out of the box (#3)
     void loadStationPlanScales()

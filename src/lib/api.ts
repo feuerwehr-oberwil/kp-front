@@ -3,9 +3,44 @@
 // ApiError on any non-2xx so callers can branch on status (401 unauth, 429
 // cooldown, …). Reused by every later phase — keep it generic.
 
+import { appConfig } from '../config/appConfig'
+
 // Base URL: empty in dev (Vite proxies /api to the backend), or a fully-qualified
 // origin in a deployment that talks to the backend cross-origin.
 const BASE = import.meta.env.VITE_KP_RUECK_URL ?? ''
+
+// Every request is time-bounded. `fetch` has NO default timeout, and the failure mode that
+// matters in the field is not a refused connection (which rejects instantly) but a HALF-OPEN
+// one: the tablet is still associated to a dying AP, holding one bar of LTE, or sitting behind
+// a captive portal that completes the handshake and never answers. iOS then keeps the request
+// pending for minutes. Without a bound that stalls the whole launch — the deployment-config
+// load blocks first paint, the /me probe and the incident list each pin the boot Splash — and
+// none of those screens carry an action, so the operator's only move is to kill the app, which
+// re-hangs identically. Bounding here is what turns all three into the ALREADY-HANDLED offline
+// path (cached user, cached incident list, cached workspace).
+const DEFAULT_TIMEOUT_MS = 20_000
+// Media (photos / voice memos) are up to ~100 MB and upload over field LTE, so they get a far
+// longer leash — a premature abort would count a failed attempt against the upload queue.
+const UPLOAD_TIMEOUT_MS = 5 * 60_000
+
+/** AbortSignal that fires after `ms`. Guarded: an environment without AbortSignal.timeout
+ *  simply keeps the old unbounded behaviour rather than failing every request. */
+function timeoutSignal(ms: number): AbortSignal | undefined {
+  return typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
+    ? AbortSignal.timeout(ms)
+    : undefined
+}
+
+/** Did this rejection come from our own timeout rather than a hard network failure? Used only
+ *  to pick the operator-facing message — the ApiError status stays 0 either way, because every
+ *  offline fallback in the app branches on `status === 0`. */
+const isTimeout = (e: unknown): boolean =>
+  e instanceof DOMException && (e.name === 'TimeoutError' || e.name === 'AbortError')
+
+function networkError(e: unknown): ApiError {
+  const c = appConfig.copy.errors
+  return new ApiError(0, isTimeout(e) ? c.serverTimeout : c.serverUnreachable)
+}
 
 export class ApiError extends Error {
   status: number
@@ -21,12 +56,15 @@ export class ApiError extends Error {
   }
 }
 
-async function rawFetch(path: string, init?: RequestInit): Promise<Response> {
+async function rawFetch(path: string, init?: RequestInit, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<Response> {
   return fetch(`${BASE}${path}`, {
     credentials: 'include',
     // API JSON must never come from the HTTP cache: responses carry no Cache-Control, and
     // Safari's heuristic caching served stale poll results (an STT job stuck on "none").
     cache: 'no-store',
+    // keepalive beacons outlive the page, so they must NOT carry a signal — the caller passes
+    // timeoutMs: 0 to opt out. Everything else is bounded (see DEFAULT_TIMEOUT_MS).
+    signal: timeoutMs > 0 ? timeoutSignal(timeoutMs) : undefined,
     ...init,
     headers: { Accept: 'application/json', ...(init?.headers ?? {}) },
   })
@@ -47,16 +85,16 @@ function tryRefresh(): Promise<boolean> {
   return refreshInFlight
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(path: string, init?: RequestInit, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<T> {
   // /api/auth/* and /api/admin/* are excluded from the 401→refresh→retry below: a failing
   // login/refresh (or a wrong admin secret) must not loop or get silently double-submitted.
   const isAuthPath = path.startsWith('/api/auth/') || path.startsWith('/api/admin/')
   let res: Response
   try {
-    res = await rawFetch(path, init)
-  } catch {
-    // network / CORS failure — no HTTP status to report
-    throw new ApiError(0, 'Netzwerkfehler — Server nicht erreichbar')
+    res = await rawFetch(path, init, timeoutMs)
+  } catch (e) {
+    // network / CORS failure or our own timeout — no HTTP status to report
+    throw networkError(e)
   }
 
   // 401 on a non-auth path → attempt one refresh + retry. /api/auth/* is excluded so a
@@ -65,9 +103,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const ok = await tryRefresh()
     if (ok) {
       try {
-        res = await rawFetch(path, init)
-      } catch {
-        throw new ApiError(0, 'Netzwerkfehler — Server nicht erreichbar')
+        res = await rawFetch(path, init, timeoutMs)
+      } catch (e) {
+        throw networkError(e)
       }
     }
   }
@@ -138,7 +176,7 @@ export function apiDelete<T>(path: string): Promise<T> {
 
 /** multipart upload (FormData). Lets the browser set the boundary Content-Type. */
 export function apiUpload<T>(path: string, form: FormData, method = 'POST'): Promise<T> {
-  return request<T>(path, { method, body: form })
+  return request<T>(path, { method, body: form }, UPLOAD_TIMEOUT_MS)
 }
 
 /**
@@ -158,7 +196,8 @@ export function apiBeacon(path: string, body: unknown, method: 'POST' | 'PUT' = 
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
       keepalive: true,
-    }).catch(() => { /* best-effort — nothing to recover to during teardown */ })
+    }, 0 /* no timeout: the point of a beacon is to outlive this page */)
+      .catch(() => { /* best-effort — nothing to recover to during teardown */ })
   } catch { /* JSON.stringify / fetch construction failure — best-effort */ }
 }
 
@@ -170,7 +209,7 @@ export function apiBeacon(path: string, body: unknown, method: 'POST' | 'PUT' = 
 export async function apiGetRaw(path: string): Promise<Response> {
   try {
     return await rawFetch(path, { method: 'GET' })
-  } catch {
-    throw new ApiError(0, 'Netzwerkfehler — Server nicht erreichbar')
+  } catch (e) {
+    throw networkError(e)
   }
 }

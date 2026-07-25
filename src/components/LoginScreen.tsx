@@ -18,9 +18,15 @@ export function LoginScreen() {
   const [roster, setRoster] = useState<RosterEntry[] | null>(null)
   const [rosterError, setRosterError] = useState<string | null>(null)
   const [selected, setSelected] = useState<RosterEntry | null>(null)
+  // Retry nonce: the roster fetch is the very first thing the operator depends on, and on a
+  // flaky fireground link it can simply fail. Without a retry the login screen was a dead end —
+  // an error line with nothing to tap, escapable only by knowing to kill the app.
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     let alive = true
+    setRosterError(null)
+    setRoster(null)
     apiGet<RosterEntry[]>('/api/auth/roster')
       .then((r) => { if (alive) setRoster(r) })
       .catch((e: unknown) => {
@@ -28,7 +34,7 @@ export function LoginScreen() {
         setRosterError(e instanceof ApiError ? e.detail : appConfig.copy.login.connectionFailed)
       })
     return () => { alive = false }
-  }, [])
+  }, [attempt])
 
   return (
     <div className="login">
@@ -40,22 +46,24 @@ export function LoginScreen() {
 
         {selected
           ? <PinPad user={selected} onLogin={login} onBack={() => setSelected(null)} />
-          : <Roster roster={roster} error={rosterError} onPick={setSelected} />}
+          : <Roster roster={roster} error={rosterError} onPick={setSelected} onRetry={() => setAttempt((n) => n + 1)} />}
       </div>
     </div>
   )
 }
 
-function Roster({ roster, error, onPick }: {
+function Roster({ roster, error, onPick, onRetry }: {
   roster: RosterEntry[] | null
   error: string | null
   onPick: (r: RosterEntry) => void
+  onRetry: () => void
 }) {
   if (error) {
     return (
       <div className="login-state login-state-err">
         <Icon id="warn" />
         <span>{error}</span>
+        <button type="button" className="ip-btn" onClick={onRetry}>{appConfig.copy.login.retry}</button>
       </div>
     )
   }

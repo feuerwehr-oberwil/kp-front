@@ -7,7 +7,7 @@ import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
 import { LINE_DASH_ML } from '../lib/draw'
 import { markerParamsAlong, lerpPoint, MAX_VERTEX_HANDLES } from '../lib/lineStyle'
-import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, snapNorth, shapePx, symPx } from '../lib/mapView'
+import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, resumeViewState, snapNorth, shapePx, symPx } from '../lib/mapView'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
 import { pathLengthM, fmtDistance, hoseLengthHint, circlePolygon } from '../lib/geo'
 import { useMapCanvasGestures } from './useMapCanvasGestures'
@@ -16,6 +16,8 @@ import { MapLayers } from './MapLayers'
 // long-press to delete a path vertex (touch — desktop right-click kept); the placed-object
 // move threshold lives in MapMarkers with the entity-drag logic.
 import { useLongPress } from '../lib/useLongPress'
+import { useGlRecovery } from '../lib/useGlRecovery'
+import { reportClientError } from '../lib/reportError'
 import { QuietAttributionControl } from './MapAttribution'
 import { advanceDwell, boundaryPoint, EMPTY_DWELL, forkPortPoint, gpsGuard, incomingAttachments, moveLineBody, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 
@@ -208,6 +210,15 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   const suppressClick = useRef(false)
   const deleteVertexKeepSelection = (id: string, i: number) => { suppressClick.current = true; onDrawingVertexDelete?.(id, i) }
   const [mapReady, setMapReady] = useState(false)
+  // WebGL context recovery: iPadOS drops the context under memory pressure / after a long
+  // background spell, and MapLibre stays blank without rebuilding. `gl.generation` keys the
+  // <Map> below so recovery is a fresh instance; `viewRef` carries the CURRENT view across that
+  // remount so the operator doesn't get thrown back to the incident's initial framing.
+  const viewRef = useRef<{ center: LngLat; zoom: number; bearing: number } | null>(null)
+  const gl = useGlRecovery(() => mapInst.current, mapReady, () => {
+    mapInst.current = null
+    setMapReady(false)
+  })
   type EndpointDrag = { id: string; endpoint: LineEndpoint; coord: LngLat; dwell: DwellState; candidate: MagneticTarget | null }
   const [endpointDrag, setEndpointDragState] = useState<EndpointDrag | null>(null)
   const endpointDragRef = useRef<EndpointDrag | null>(null)
@@ -846,9 +857,21 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   return (
    <>
     <Map
+      // A changed key rebuilds the whole map — the ONLY way back from a lost WebGL context.
+      key={gl.generation}
       ref={ref}
-      initialViewState={{ longitude: initialCenter[0], latitude: initialCenter[1], zoom: initialZoom, bearing: initialBearing }}
+      // Reading a ref during render is exactly right here and nowhere else: `initialViewState`
+      // is consumed ONCE per map instance (on mount), so on a context-loss remount it must see
+      // the view as it stood a moment ago — resuming the operator's framing instead of snapping
+      // back to the incident's initial one. Putting the live view in state would re-render the
+      // map on every pan.
+      // eslint-disable-next-line react-hooks/refs
+      initialViewState={resumeViewState(viewRef.current, initialCenter, initialZoom, initialBearing)}
       mapStyle={EMPTY_STYLE}
+      // Map/style/tile errors were only console.error'd by react-map-gl's default handler, so a
+      // field failure was invisible to the deployer. Report, but never rethrow: a failed tile
+      // must not take the incident down.
+      onError={(e) => reportClientError(e.error ?? new Error('map error'), { kind: 'error' })}
       onClick={handleClick}
       interactiveLayerIds={['l-draw-edit-hit', 'l-measure-hit', 'l-draft-hit', 'l-draw-hit', 'l-draw-line', 'l-draw-line-dash', 'l-draw-fill']}
       onLoad={(e) => {
@@ -861,7 +884,11 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         requestAnimationFrame(() => { try { m.resize() } catch { /* map gone */ } })
         setTimeout(() => { try { m.resize() } catch { /* map gone */ } }, 400)
       }}
-      onMoveEnd={(e) => { setZoom(e.viewState.zoom); setBearing(e.viewState.bearing); onView({ bearing: e.viewState.bearing, center: [e.viewState.longitude, e.viewState.latitude], zoom: e.viewState.zoom }) }}
+      onMoveEnd={(e) => {
+        setZoom(e.viewState.zoom); setBearing(e.viewState.bearing)
+        viewRef.current = { center: [e.viewState.longitude, e.viewState.latitude], zoom: e.viewState.zoom, bearing: e.viewState.bearing }
+        onView({ bearing: e.viewState.bearing, center: [e.viewState.longitude, e.viewState.latitude], zoom: e.viewState.zoom })
+      }}
       // Keep only the LOCAL bearing live per rotate frame (the tactical glyphs re-render with the
       // −bearing offset so they stay geographically pinned). Deliberately NOT calling onView here:
       // that re-renders all of IncidentWorkspace every frame of a two-finger rotate. onMoveEnd
@@ -1282,6 +1309,18 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       />
 
     </Map>
+    {/* WebGL context lost and auto-healing has already been tried: without this the map is just
+        a blank rectangle surrounded by working chrome, with no hint and no action — a full app
+        restart was the only cure. Deliberately NOT a toast: it must stay until acted on. */}
+    {gl.lost && (
+      <div className="map-gl-lost" role="alert">
+        <div className="map-gl-lost-title">{appConfig.copy.map.glLost}</div>
+        <p className="map-gl-lost-hint">{appConfig.copy.map.glLostHint}</p>
+        <button type="button" className="ip-btn primary" onClick={gl.recover}>
+          {appConfig.copy.map.glLostAction}
+        </button>
+      </div>
+    )}
     {/* the live wind/temperature readout moved into the TopBar (next to "Eintrag"); the
         floating corner badge is retired so it no longer collides with the right tool rail. */}
     {marquee && (

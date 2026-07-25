@@ -306,6 +306,9 @@ export const en: Localizable<Copy> = {
   map: {
     incidentHere: 'Incident',
     youHere: 'My location',
+    glLost: 'Map display interrupted',
+    glLostHint: 'The device released the map’s graphics context. Your entries are saved.',
+    glLostAction: 'Rebuild map',
   },
   intake: {
     titleNew: 'Open incident',
@@ -608,6 +611,8 @@ export const en: Localizable<Copy> = {
   errors: {
     noMicrophone: 'No microphone access. Audio note recorded as a placeholder.',
     updateFailed: 'Update failed',
+    serverUnreachable: 'Network error – server unreachable',
+    serverTimeout: 'Server not responding – timed out',
   },
   atemschutz: {
     title: 'SCBA monitoring',
@@ -954,11 +959,21 @@ export const en: Localizable<Copy> = {
     loginFailed: 'Login failed',
     pleaseWait: 'Please wait a moment…',
     clearDigit: 'Delete',
+    retry: 'Try again',
+  },
+  splash: {
+    stuck: 'Startup is taking longer than usual',
+    stuckHint: 'Weak connection or server unreachable. Saved incidents are available offline.',
+    reload: 'Restart',
   },
   errorBoundary: {
     title: 'Something went wrong',
     body: 'The view could not be loaded. Your local changes are saved and stay intact.',
+    bodyRepeat: 'This incident will not open – not even after a reload. Close it to get back to the overview; the saved data stays on the server.',
     reload: 'Reload',
+    closeIncident: 'Close incident',
+    discardLocal: 'Discard local copy',
+    discardLocalHint: 'Discards only the copy on this device and reloads the incident from the server. Changes made on this device that have not synced yet will be lost.',
   },
   tabLock: {
     title: 'Open in another tab',

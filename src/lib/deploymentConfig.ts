@@ -331,6 +331,34 @@ export async function loadDeploymentConfig(): Promise<DeploymentConfig> {
   }
 }
 
+/**
+ * Boot variant with a hard wall-clock budget. `loadDeploymentConfig` is awaited BEFORE
+ * `createRoot`, so for as long as it is pending the operator stares at an empty `#root` — a
+ * literally blank screen with no splash, no error boundary and nothing to tap. The request
+ * itself is time-bounded (api.ts), but even that bound is far too long to hold first paint.
+ *
+ * So: race the load against `budgetMs`. If the network hasn't answered by then we resolve with
+ * the offline-cached config (the normal case on a station tablet) and let the in-flight load
+ * keep running — when it lands it still updates the singleton, so read sites pick it up on
+ * their next render. Only the ONE-SHOT boot side-effects (branding, locale) miss out on a
+ * slow-network first boot, which is the right trade: a usable app with default chrome beats a
+ * perfectly-branded blank screen. NEVER throws.
+ */
+export async function loadDeploymentConfigBounded(budgetMs: number): Promise<DeploymentConfig> {
+  const load = loadDeploymentConfig()
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const budget = new Promise<'timeout'>((res) => { timer = setTimeout(() => res('timeout'), budgetMs) })
+  const winner = await Promise.race([load, budget])
+  clearTimeout(timer)
+  if (winner !== 'timeout') return winner
+  // Budget blown. The load is still pending, so `resolved` is necessarily still {} — seed it
+  // from the cache so synchronous read sites get the STATION's config from the first render
+  // instead of national defaults. The pending load overwrites it when it lands (fresher wins).
+  const cached = (await readCache()) ?? {}
+  resolved = cached
+  return cached
+}
+
 /** Synchronous accessor returning the resolved singleton ({} until loadDeploymentConfig
  *  resolves). The PRIMARY read path — config resolves before first render, so read sites
  *  do `getDeploymentConfig().X ?? appConfig.X`. */

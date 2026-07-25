@@ -1,5 +1,8 @@
-import { describe, expect, it } from 'vitest'
-import { mapReferenceLayers, stripLocality } from './deploymentConfig'
+import 'fake-indexeddb/auto'
+import { IDBFactory } from 'fake-indexeddb'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { getDeploymentConfig, loadDeploymentConfigBounded, mapReferenceLayers, stripLocality } from './deploymentConfig'
+import { idbSet, __resetIdbForTests } from './idb'
 
 describe('mapReferenceLayers', () => {
   it('returns [] for missing/empty input', () => {
@@ -77,5 +80,46 @@ describe('stripLocality — home town off compact addresses', () => {
   it('degrades safely: empty locality, and a town-only address returns itself', () => {
     expect(stripLocality('Musterdorf (BL), Bachweg 1', null)).toBe('Musterdorf (BL), Bachweg 1')
     expect(stripLocality('Musterdorf (BL)', '4104 Musterdorf BL')).toBe('Musterdorf (BL)')
+  })
+})
+
+// loadDeploymentConfigBounded guards the ONE await that sits before createRoot. While it is
+// pending the operator sees an empty #root — no splash, no error boundary, nothing to tap —
+// and killing the app just re-runs the same stall. So it must ALWAYS settle within its budget,
+// serving the offline cache rather than holding first paint.
+describe('loadDeploymentConfigBounded — first paint is never held hostage', () => {
+  const CACHE_KEY = 'kp-front-deployment-config'
+  const fetchMock = vi.fn()
+
+  beforeEach(() => {
+    globalThis.indexedDB = new IDBFactory()
+    __resetIdbForTests()
+    vi.stubGlobal('fetch', fetchMock)
+    fetchMock.mockReset()
+  })
+  afterEach(() => { vi.unstubAllGlobals() })
+
+  const json = (body: unknown) =>
+    new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } })
+
+  it('returns the fresh config when the network answers inside the budget', async () => {
+    fetchMock.mockResolvedValueOnce(json({ identity: { appName: 'Fresh' } }))
+    const cfg = await loadDeploymentConfigBounded(2_000)
+    expect(cfg.identity?.appName).toBe('Fresh')
+  })
+
+  it('falls back to the cached config when the request never settles', async () => {
+    await idbSet(CACHE_KEY, { identity: { appName: 'Cached' } })
+    fetchMock.mockReturnValueOnce(new Promise(() => { /* a half-open connection: never settles */ }))
+    const cfg = await loadDeploymentConfigBounded(30)
+    expect(cfg.identity?.appName).toBe('Cached')
+    // ...and the synchronous accessor is seeded too, so read sites get the STATION's config
+    // from the very first render instead of national defaults.
+    expect(getDeploymentConfig().identity?.appName).toBe('Cached')
+  })
+
+  it('resolves to {} on a stalled request with no cache (first-ever boot) — never hangs', async () => {
+    fetchMock.mockReturnValueOnce(new Promise(() => {}))
+    await expect(loadDeploymentConfigBounded(30)).resolves.toEqual({})
   })
 })

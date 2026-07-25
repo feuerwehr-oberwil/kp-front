@@ -26,9 +26,10 @@ import { useAuth } from './lib/auth'
 import { IncidentWorkspace } from './IncidentWorkspace'
 import {
   WorkspaceSync, listIncidentsResilient, getIncident, archiveIncident, reactivateIncident,
-  migrateLegacyWorkspace, takeDiveraAlarm, patchIncident, attachDiveraAlarm,
+  migrateLegacyWorkspace, takeDiveraAlarm, patchIncident, attachDiveraAlarm, discardWorkspaceCache,
   type DiveraAlarm, type IncidentFull, type IncidentMeta,
 } from './lib/incidents'
+import { clearCrash } from './lib/crashLoop'
 import { ApiError } from './lib/api'
 import { useDiveraWatch } from './lib/useDiveraWatch'
 import { dismissAlarm, loadDismissedAlarms } from './lib/diveraDismiss'
@@ -211,6 +212,15 @@ export default function App() {
     })()
   }, [selectIncident])
 
+  // An incident that has rendered for this long without throwing is healthy — forget the crash
+  // streak so an unrelated crash weeks later starts from one, and the destructive recovery stays
+  // hidden until it's genuinely warranted. A crash loop never reaches the timeout.
+  useEffect(() => {
+    if (!activeId) return
+    const t = setTimeout(clearCrash, 15_000)
+    return () => clearTimeout(t)
+  }, [activeId])
+
   const openCreated = useCallback(async (inc: IncidentFull) => {
     setOverlay(null)
     await refreshList()
@@ -381,6 +391,30 @@ export default function App() {
   // colour flash, so the launch stays continuous from /me probe → list → workspace.
   if (incidents === null) return <Splash />
 
+  // --- ErrorBoundary escapes (see lib/crashLoop) -------------------------------------------
+  // «Neu laden» alone can't recover a workspace whose own data throws: boot auto-reopens the
+  // last incident, so the reload lands straight back on the crash. These two give the operator
+  // a way off it without a dedicated admin surface.
+  //
+  // Lossless: forget the remembered incident and drop to the launcher, where a DIFFERENT
+  // Einsatz (or a fresh one) can be opened. Nothing is archived and nothing is deleted — the
+  // crashing incident is still there, and still on the server.
+  const escapeToLanding = () => {
+    savePrefs({ ...loadPrefs(), incidentId: undefined })
+    clearCrash()
+    if (syncRef.current) { syncRef.current.dispose(); syncRef.current = null }
+    setActiveId(null); setActiveMeta(null); setWorkspace(null); setForceReadOnly(false)
+  }
+
+  // Last resort, only offered after reopening has already failed once: the crash is coming from
+  // the cached copy on THIS device, so drop it and reload — the next open re-pulls from the
+  // server. Destructive for unsynced edits, which is why the boundary warns before offering it.
+  const discardLocalAndReload = (id: string) => {
+    void discardWorkspaceCache(id)
+      .catch(() => {})
+      .finally(() => { clearCrash(); location.reload() })
+  }
+
   // Landing list when no incident is active: the open Einsätze to resume + the Divera alarms
   // to take, shown directly (no "Kein offener Einsatz" dead-end), with manual create always on.
   const openIncidents = incidents.filter((i) => !i.is_archived)
@@ -390,7 +424,16 @@ export default function App() {
     <>
       {showWelcome && <DemoWelcome onClose={() => { markDemoWelcomeSeen(); setShowWelcome(false) }} />}
       {activeId && activeMeta && syncRef.current ? (
-        <ErrorBoundary key={`eb:${activeId}:${remount}`}>
+        <ErrorBoundary
+          /* Keyed on activeId ONLY (not `remount`): a background remount — the live-follow
+             poll, a resolved 409 calling onServerWorkspace — must NOT reset a latched crash,
+             or the boundary re-renders the same throwing workspace in a flicker loop. It
+             resets on a deliberate incident change, which is exactly what the escapes do. */
+          key={`eb:${activeId}`}
+          scopeId={activeId}
+          onCloseIncident={escapeToLanding}
+          onDiscardLocal={() => discardLocalAndReload(activeId)}
+        >
         <IncidentWorkspace
           key={`${activeId}:${remount}`}
           incidentMeta={activeMeta}

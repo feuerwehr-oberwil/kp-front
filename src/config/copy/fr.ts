@@ -307,6 +307,9 @@ export const fr: Localizable<Copy> = {
   map: {
     incidentHere: 'Lieu d’intervention',
     youHere: 'Ma position',
+    glLost: 'Affichage de la carte interrompu',
+    glLostHint: 'L’appareil a libéré le contexte graphique de la carte. Vos saisies sont enregistrées.',
+    glLostAction: 'Reconstruire la carte',
   },
   intake: {
     titleNew: 'Ouvrir une intervention',
@@ -602,6 +605,8 @@ export const fr: Localizable<Copy> = {
   },
   errors: {
     noMicrophone: 'Pas d’accès au micro. Note audio enregistrée comme marqueur.',
+    serverUnreachable: 'Erreur réseau – serveur inaccessible',
+    serverTimeout: 'Le serveur ne répond pas – délai dépassé',
   },
   atemschutz: {
     title: 'Surveillance ARI',
@@ -935,11 +940,21 @@ export const fr: Localizable<Copy> = {
     loginFailed: 'Échec de la connexion',
     pleaseWait: 'Un instant, s’il te plaît…',
     clearDigit: 'Effacer',
+    retry: 'Réessayer',
+  },
+  splash: {
+    stuck: 'Le démarrage prend plus de temps que d’habitude',
+    stuckHint: 'Connexion faible ou serveur inaccessible. Les interventions enregistrées sont disponibles hors ligne.',
+    reload: 'Redémarrer',
   },
   errorBoundary: {
     title: 'Une erreur est survenue',
     body: 'La vue n’a pas pu être chargée. Vos modifications locales sont enregistrées et conservées.',
+    bodyRepeat: 'Cette intervention ne s’ouvre pas – même après un rechargement. Fermez-la pour revenir à la vue d’ensemble ; les données enregistrées restent sur le serveur.',
     reload: 'Recharger',
+    closeIncident: 'Fermer l’intervention',
+    discardLocal: 'Supprimer la copie locale',
+    discardLocalHint: 'Supprime uniquement la copie sur cet appareil et recharge l’intervention depuis le serveur. Les modifications de cet appareil non encore synchronisées seront perdues.',
   },
   tabLock: {
     title: 'Ouvert dans un autre onglet',

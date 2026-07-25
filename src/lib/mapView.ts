@@ -38,6 +38,18 @@ export const snapNorth = (bearing: number, threshold = 6): number | null => {
   return d > 0 && d <= threshold ? 0 : null
 }
 
+/** `initialViewState` for a map instance: the live view when we have one (so a WebGL
+ *  context-loss remount resumes the operator's framing instead of snapping back to the
+ *  incident's initial one), else the incident's opening view. */
+export const resumeViewState = (
+  live: { center: LngLat; zoom: number; bearing: number } | null,
+  center: LngLat,
+  zoom: number,
+  bearing: number,
+) => (live
+  ? { longitude: live.center[0], latitude: live.center[1], zoom: live.zoom, bearing: live.bearing }
+  : { longitude: center[0], latitude: center[1], zoom, bearing })
+
 export type FC = { type: 'FeatureCollection'; features: any[] }
 export const fc = (features: any[]): FC => ({ type: 'FeatureCollection', features })
 export const lineFeat = (coords: LngLat[], props: any = {}) => ({ type: 'Feature', geometry: { type: 'LineString', coordinates: coords }, properties: props })

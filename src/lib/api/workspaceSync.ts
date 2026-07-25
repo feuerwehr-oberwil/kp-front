@@ -2,7 +2,7 @@
 // three-way merge on conflict. Split out of the incidents data layer because it's the single
 // heaviest, most stateful unit — see ./workspace for the plain get/put the engine drives.
 import { ApiError } from '../api'
-import { idbGet, idbSet } from '../idb'
+import { idbDel, idbGet, idbSet } from '../idb'
 import { mergeWorkspace, type RecordConflict } from '../mergeWorkspace'
 import { getWorkspace, putWorkspace, putWorkspaceBeacon, type Workspace } from './workspace'
 
@@ -27,6 +27,14 @@ function readCache(id: string): Promise<CacheEntry | null> {
 // exactly like the old localStorage write that swallowed quota errors.
 function writeCache(id: string, e: CacheEntry) {
   void idbSet(cacheKey(id), e)
+}
+
+/** Drop one incident's offline cache. DESTRUCTIVE: any edit that hasn't reached the server yet
+ *  lives only here. The single caller is the ErrorBoundary's last-resort recovery — when the
+ *  cached blob is what crashes the render, this is the only way back in from the device itself
+ *  (the next open re-pulls from the server). */
+export function discardWorkspaceCache(id: string): Promise<void> {
+  return idbDel(cacheKey(id))
 }
 
 /** Lifecycle of the per-incident sync, surfaced to the UI so unsynced/offline/error

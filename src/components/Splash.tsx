@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react'
+import { appConfig } from '../config/appConfig'
 import { deploymentName } from '../lib/deploymentConfig'
 
 /**
@@ -11,13 +13,37 @@ import { deploymentName } from '../lib/deploymentConfig'
  * layer) to the lighter in-workspace overlay used once an incident is mounted and the
  * TopBar is already painted.
  */
+
+/** How long a launch may pulse silently before the splash admits something is wrong. Past a
+ *  few seconds "alive and starting" stops reassuring and starts being a dead end, so the
+ *  splash names the problem and offers the one action that helps. Every request on the boot
+ *  path is itself time-bounded (api.ts), so reaching this is already unusual — but a wedged
+ *  lazy chunk or a stalled service worker carries no such bound, and those are exactly the
+ *  cases where the operator otherwise has nothing on screen to tap. */
+const STUCK_MS = 9_000
+
 export function Splash({ sub, inApp }: { sub?: string; inApp?: boolean }) {
+  const [stuck, setStuck] = useState(false)
+  useEffect(() => {
+    const t = setTimeout(() => setStuck(true), STUCK_MS)
+    return () => clearTimeout(t)
+  }, [])
+  const c = appConfig.copy.splash
   return (
     <div className={inApp ? 'loading' : 'login splash'}>
       <div className="loading-card">
         <div className="ping"><span /><span /><span className="core" /></div>
         <div className="loading-name">{deploymentName()}</div>
         {sub && <div className="loading-sub">{sub}</div>}
+        {stuck && (
+          <div className="loading-stuck" role="status">
+            <div className="loading-stuck-title">{c.stuck}</div>
+            <p className="loading-stuck-hint">{c.stuckHint}</p>
+            <button type="button" className="ip-btn primary" onClick={() => location.reload()}>
+              {c.reload}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

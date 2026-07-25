@@ -24,7 +24,7 @@ export type { IncidentMeta, IncidentFull, IncidentCreate } from './api/incidents
 export { getWorkspace, putWorkspace, putWorkspaceBeacon, pollWorkspaceSince } from './api/workspace'
 export type { Workspace } from './api/workspace'
 
-export { WorkspaceSync } from './api/workspaceSync'
+export { WorkspaceSync, discardWorkspaceCache } from './api/workspaceSync'
 export type { SyncStatus, WorkspaceSyncOptions } from './api/workspaceSync'
 
 export { ingestEvents, ingestEventsBeacon, verifyChain } from './api/events'
