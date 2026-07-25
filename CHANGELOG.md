@@ -29,6 +29,86 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ## [Unreleased]
 
+A recovery release. The app was already hard to crash; the gap was **getting back out** – a
+handful of states could only be cleared by restarting the app, or in one case by resetting the
+browser. Everything below has been running in production at Feuerwehr Oberwil.
+
+### Added
+- **Rückmeldung – the app asks after a mishap, and can now send it.** After a crash the launcher
+  offers to file a report. It could previously only be copied or mailed; there is now a **Senden**
+  button, and afterwards the sheet shows what the *server* actually stored – a preview written by
+  the sender is a promise, one returned by the receiver is a check.
+
+  Alongside it, and deliberately separate, is a second channel for **background crashes**, which
+  a deployment has to switch on first. The distinction is the whole design: pressing Senden by
+  hand *is* the consent, the same as sending an e-mail. Nobody is watching when a background
+  crash fires, so that channel defaults to off – and off means a NULL column, which is what every
+  existing installation updates into. It is enabled in the **admin area, never on the device**:
+  the fire service is the controller, not whoever happens to be holding the tablet.
+
+  What leaves the building is built field by field in `app/telemetry/scrub.py` – nothing is passed
+  through or spread, so a field nobody wrote a line for cannot leak. Free text is scrubbed too,
+  because the value is usually *in* the message: paths, e-mails, phone numbers, IPs, coordinates
+  (WGS84 and LV95), UUIDs, tokens, street names with house numbers, and the full user agent
+  reduced to «iPad Safari» so it can't fingerprint. Every payload is written to the station's own
+  log before it is sent and kept verbatim in `telemetry_outbox` – two copies on your own
+  infrastructure, and the admin sheet shows the same table. `KP_TELEMETRY_ENABLED=0` overrides
+  every switch in the UI. See [`PRIVACY.md`](PRIVACY.md), which also answers the IP question
+  honestly, including the part that can't be solved in code.
+- **arm64 images.** The published image builds for `linux/arm64` as well as `linux/amd64`, so an
+  ARM host (Hetzner CAX, Oracle Ampere, a Raspberry Pi) can run it. The Vite stage builds on the
+  native build platform, so the multi-arch build doesn't emulate the slow part.
+
+### Fixed
+- **No more states that only an app restart could clear.** A sweep across every state and
+  transition that could strand the app turned up three classes, none of which offered a way out
+  on screen:
+  - **Boot could hang forever with nothing to tap.** No `fetch` had a timeout, and the field
+    failure isn't a refused connection but a half-open one – a dying access point, one bar of
+    LTE, a captive portal – where `fetch` hangs for minutes. The deployment config is awaited
+    *before* the first render, so the result was a literally blank white page: no splash, no
+    error boundary, nothing. Killing the app didn't help, because it hung again. Requests now
+    time out (20 s; uploads 5 min), boot is bounded by a 4 s budget after which the offline cache
+    is used and the app renders anyway, and the splash grows a status line and a **«Neu starten»**
+    action after 9 s. Verified against a real blackhole server that accepts TCP and never answers:
+    first paint after 4.8 s instead of never.
+  - **A crash could loop.** The error boundary's only action was «Neu laden» – and boot reopens
+    the last incident automatically, so if *that* incident's data threw during render, reloading
+    landed straight back in the same crash. Crashes are now counted per incident and survive the
+    reload: the first offers **«Einsatz schliessen»** (loses nothing), a second crash on the same
+    incident adds **«Lokale Kopie verwerfen»** with a warning and demotes «Neu laden», which is
+    demonstrably the action that does not help.
+  - **A lost WebGL context left a blank map.** iPadOS releases the context under memory pressure
+    or after a long spell in the background, and MapLibre does not rebuild itself – so the map
+    became an empty rectangle surrounded by working chrome, which doesn't even read as a crash.
+    The first loss now heals silently and keeps your current view; a second within 60 s offers
+    **«Karte neu aufbauen»** rather than looping through remounts.
+- **A full device no longer loses incident data.** The offline cache wasn't just unprotected
+  against a full disk, it was **silent** about it – worse than a visible crash for an
+  Einsatzrapport. Three defects, each reproduced against a fake IndexedDB before being fixed: a
+  failed write was swallowed so the *old* value was served back as current (including a stale
+  "nothing to sync" flag), the localStorage fallback threw on every save because a workspace blob
+  never fits there, and the fallback turned out to be **write-only** – the copy was written and
+  never found again. Now: map tiles are evicted before incident data (a tile reloads in seconds,
+  the Lagekarte never), the sync indicator gains a **storage** state that is loud only while
+  there is unsynced work, Offline-Bereitschaft shows the free space it actually has, and
+  «Alles für offline laden» checks first and offers **«Reduziert laden»** if the download won't
+  fit.
+- **Replay no longer throws on a long incident.** A `RangeError` could end the scrub.
+
+### Changed
+- **Day-one documentation for a station that isn't us.** A new
+  [`docs/SETUP.md`](docs/SETUP.md) walks the ordered path from an empty Docker host to a usable
+  board, [`SUPPORT.md`](SUPPORT.md) says plainly what may be expected from a one-person project
+  and what 1.0 will mean, and [`docs/ALARM-INTEGRATIONS.md`](docs/ALARM-INTEGRATIONS.md) now
+  carries a stability promise for the intake contract plus the real differences to KP Rück.
+- **Managed hosting is no longer implied.** The deployment docs promised something that isn't on
+  offer; they now give the honest answer instead.
+- `docs/openapi.json` had drifted **31 endpoints** behind the code. It is current, and a test
+  now fails if it drifts again.
+- Dead code removed across the frontend (236 → 214 lint warnings), and the DCO sign-off check is
+  enforced again after being lost in a rebase.
+
 ## [0.2.0] – 2026-07-25
 
 The first release with **published container images**: self-hosting no longer needs a Node/uv
