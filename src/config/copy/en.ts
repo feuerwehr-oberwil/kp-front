@@ -920,6 +920,8 @@ export const en: Localizable<Copy> = {
     lineNo: 'Line no.',
     floorTag: 'Floor',
     distance: 'Length',
+    measurement: 'Measurement',
+    showOnMap: 'On map',
     inputMode: 'Input',
     modeFreehand: 'Freehand',
     modeNodes: 'Points',

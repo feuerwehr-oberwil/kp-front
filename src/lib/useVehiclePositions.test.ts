@@ -92,6 +92,44 @@ describe('useVehiclePositions polling', () => {
     unmount()
   })
 
+  // Cold start: the tablet is normally opened AFTER the vehicles have parked at the incident, so
+  // the hook never witnesses them moving. Traccar still reports the last fix's course — that is
+  // the direction the truck is standing in, and it must orient the glyph.
+  it('orients a vehicle already parked at boot by its last reported course', async () => {
+    const parked = { ...gpsPos(1), speed: 0, course: 270 }
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify([parked]), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const { result, unmount } = renderHook(() => useVehiclePositions())
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    expect(result.current.vehicles[0].rotation).toBe(autoRotation(270))
+    expect(result.current.vehicles[0].symbolSvg).toContain('rotate(180.0)') // body turned, not neutral
+    unmount()
+  })
+
+  it('does not let a stale parked course override the direction it then drives in', async () => {
+    const parked = { ...gpsPos(1), speed: 0, course: 270 }
+    const driving = { ...gpsPos(1), speed: 40, course: 0 }
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify([parked]), { status: 200 }))
+      .mockResolvedValue(new Response(JSON.stringify([driving]), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const { result, unmount } = renderHook(() => useVehiclePositions())
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(15_000) })
+    expect(result.current.vehicles[0].rotation).toBe(autoRotation(0))
+    unmount()
+  })
+
+  it('leaves a vehicle without any reported course neutral (no false direction)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify([gpsPos(1)]), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const { result, unmount } = renderHook(() => useVehiclePositions())
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    expect(result.current.vehicles[0].rotation).toBe(0)
+    expect(result.current.vehicles[0].symbolSvg).not.toContain('M 0.46,-0.4 L 1,0') // no front chevron
+    unmount()
+  })
+
   it('keeps polling through transient upstream failures (502)', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 502 }))
     vi.stubGlobal('fetch', fetchMock)

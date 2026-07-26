@@ -900,6 +900,8 @@ export const it: Localizable<Copy> = {
     lineNo: 'Linea n.',
     floorTag: 'Piano',
     distance: 'Lunghezza',
+    measurement: 'Misura',
+    showOnMap: 'Sulla mappa',
     inputMode: 'Immissione',
     modeFreehand: 'Mano libera',
     modeNodes: 'Punti',

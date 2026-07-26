@@ -154,7 +154,14 @@ export function useVehiclePositions(): VehiclePositionsApi {
         if (!alive) return
         for (const p of data) {
           const id = String(p.device_id)
-          if (isMoving(p.speed, p.course) && p.course != null) lastCourse.current.set(id, p.course)
+          // Seed from the reported course the first time we see a device: `lastCourse` is
+          // per-session, so after an app reload — the normal case, the tablet is opened once the
+          // vehicles are already parked at the incident — nothing has moved under our eyes and
+          // every truck would point neutrally east. Traccar keeps the last fix's course on a
+          // stopped device, so that value IS the direction it is standing in.
+          if ((isMoving(p.speed, p.course) || !lastCourse.current.has(id)) && p.course != null) {
+            lastCourse.current.set(id, p.course)
+          }
           const heading = lastCourse.current.get(id) ?? null
           const e = toEntity(p, heading)
           known.current.set(e.id, e)

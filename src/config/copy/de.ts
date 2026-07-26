@@ -1248,6 +1248,9 @@ export const de = {
     lineNo: 'Leitung Nr.',
     floorTag: 'Stockwerk',
     distance: 'Länge',
+    // Messung-Gruppe: die Zahlen einer bereits gezeichneten Linie (Länge, Schläuche, Höhenprofil)
+    measurement: 'Messung',
+    showOnMap: 'Auf Karte',
     inputMode: 'Eingabe',
     modeFreehand: 'Freihand',
     modeNodes: 'Punkte',

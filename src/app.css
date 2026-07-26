@@ -2074,6 +2074,18 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .line-detach-chip:active { transform: scale(1.1); }
 .network-halo { position: absolute; inset: -7px; border: 2px solid color-mix(in srgb, var(--accent) 55%, transparent); border-radius: 50%; pointer-events: none; }
 .hidden-attachment-marker { width: 14px; height: 14px; border: 2px dashed var(--accent); border-radius: 50%; background: color-mix(in srgb, var(--surface) 80%, transparent); }
+/* Messung — length + Schläuche of an already-drawn line, and the collapsible Höhenprofil. The
+   chart itself keeps MeasurePanel's .mp-* classes (see components/ProfileChart), which are sized
+   off width:100% and so fit the narrower ctx dock unchanged. */
+.draw-editor .de-measure-v { font-family: var(--mono); font-size: 14px; font-weight: 700; color: var(--ink); letter-spacing: -.2px; }
+.draw-editor .de-prof-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%;
+  min-height: var(--tap); padding: 7px 0; border: 0; background: transparent; color: var(--ink-dim);
+  font-size: 13px; font-weight: 500; -webkit-tap-highlight-color: transparent; }
+.draw-editor .de-prof-toggle .i { width: 16px; height: 16px; transition: transform .18s var(--ease); }
+.draw-editor .de-prof-toggle.on { color: var(--ink); }
+.draw-editor .de-prof-toggle.on .i { transform: rotate(180deg); }
+.draw-editor .de-prof-msg { padding: 10px 0; font-size: 12px; color: var(--ink-faint); text-align: center; }
+
 /* Verbindungen — reuses the editor's own .de-row / .de-preset rows verbatim so it reads as one more
    FKS group, not a separate widget. Only the target value, the note line and the detach get styling. */
 .draw-editor .de-conn-title { padding: 4px 0 2px; font-size: 11px; font-weight: 700; letter-spacing: .08em;
