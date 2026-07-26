@@ -18,8 +18,11 @@ export function FeedbackPrompt({ trouble, onOpen, onDismiss }: {
 }) {
   const cp = appConfig.copy.feedback
   const dismiss = () => { markTroubleAsked(); onDismiss() }
+  // A region, not role="status": a live region re-announces its whole subtree on change, and this
+  // one contains two buttons. The card is not news arriving mid-task either — it is part of the
+  // launcher the operator is already looking at.
   return (
-    <div className="fb-prompt" role="status">
+    <div className="fb-prompt" role="region" aria-label={cp.promptTitle}>
       <div className="fb-prompt-head">
         <Icon id="info" />
         <span className="fb-prompt-kicker">{cp.promptTitle}</span>

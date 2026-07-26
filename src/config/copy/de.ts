@@ -1550,7 +1550,9 @@ export const de = {
     intro: 'Was ist passiert, und was hättest du erwartet? Ein, zwei Sätze genügen.',
     placeholder: 'z. B. «Trupp auf Rückweg gesetzt, dann war der Bildschirm weiss.»',
     techTitle: 'Das wird mitgeschickt',
-    techNote: 'Sonst nichts – keine Einsatzdaten, keine Adressen, keine Namen, kein Screenshot.',
+    techNote: 'Sonst nichts – keine Einsatzdaten, keine Adressen, keine Namen, kein Screenshot. '
+      + 'Beim Direktversand wird davon noch weniger übertragen: statt der vollen Browser-Kennung '
+      + 'nur die Geräteart, z. B. «iPad Safari».',
     privacy: 'Nichts wird automatisch gesendet. Du entscheidest, ob, wie und an wen.',
     copy: 'Text kopieren',
     copied: 'Kopiert – jetzt einfügen und senden.',
@@ -1564,8 +1566,7 @@ export const de = {
       + 'eine Verbindung besteht. Bis dahin bleibt sie hier liegen.',
     sentWhat: 'Das wurde gesendet',
     sentEcho: 'Das ist die Antwort eures Servers – also wörtlich das, was er abgelegt hat, nicht '
-      + 'bloss eine Vorschau. Beim Direktversand wird übrigens weniger übertragen als oben steht: '
-      + 'statt der vollen Browser-Kennung nur die Geräteart, z. B. «iPad Safari».',
+      + 'bloss eine Vorschau.',
     sendDisabled: 'Direktversand ist auf dieser Anlage abgeschaltet. Per E-Mail oder Kopie geht es '
       + 'weiterhin.',
     sendFailed: 'Senden hat nicht geklappt – vermutlich offline. Per E-Mail oder Kopie geht es '
