@@ -37,6 +37,9 @@ export function useLaneGesture(opts: {
   onCommit: (sh: Shift) => void
   /** press-and-hold anywhere in the lane */
   onHold: () => void
+  /** the shift covering a moment, if any — lets a tap ANYWHERE in the row's height hit the bar
+   *  at that time, instead of only the ~28px the bar itself occupies */
+  shiftAtTime: (t: number) => Shift | null
 }) {
   const [preview, setPreview] = useState<Shift | null>(null)
   const [draw, setDraw] = useState<LaneDraw | null>(null)
@@ -106,9 +109,13 @@ export function useLaneGesture(opts: {
       else if (!d.shift && liveDraw && liveDraw.to > liveDraw.from) opts.onCreate(liveDraw.from, liveDraw.to)
       return
     }
-    // a press that neither moved nor held is a tap: on a bar it flips planned ⇄ fix. On empty
-    // lane it does nothing — planning is a sweep, so a mis-tap cannot litter the grid.
-    if (commit && d.shift) opts.onToggle(d.shift)
+    if (!commit) return
+    // A press that neither moved nor held is a tap. On a bar — or anywhere in the row's full
+    // height at a time a bar covers, because a lane is 44px tall and a bar only ~28px, so a tap
+    // a few pixels high used to land on dead ground — it flips planned ⇄ fix. On genuinely empty
+    // lane it does nothing: planning is a sweep, so a mis-tap cannot litter the grid.
+    const hit = d.shift ?? opts.shiftAtTime(d.startAt)
+    if (hit) opts.onToggle(hit)
   }
 
   return {

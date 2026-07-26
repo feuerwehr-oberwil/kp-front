@@ -18,8 +18,13 @@ import { EmptyState } from './EmptyState'
 import s from './Zeitplan.module.css'
 
 const HOUR = 3_600_000
-/** px per hour of axis — wide enough that a half-hour block is still a visible bar */
-const PX_PER_HOUR = 68
+/** Minimum width an hour is allowed to shrink to. A wider Zeitraum COMPRESSES the axis rather
+ *  than growing it — the point of asking for 48 h is to see 48 h, not to scroll through it — and
+ *  the track then flexes to fill whatever width the surface has. At this floor a half-hour block
+ *  is still ~11px, so the shortest possible shift stays a visible bar. */
+const MIN_PX_PER_HOUR = 22
+/** roughly how many hour labels fit across without colliding */
+const MAX_TICKS = 12
 
 const clock = (iso?: string): string => {
   if (!iso) return ''
@@ -146,6 +151,10 @@ function PersonRow({ person, shifts, blocks, span, nowMs, canEdit, conflicts, no
     onToggle: (sh) => onReplace({ ...sh, confirmed: !sh.confirmed }),
     onCommit: onReplace,
     onHold: onOpen,
+    shiftAtTime: (t) => shifts.find((x) => {
+      const sp = shiftSpan(x)
+      return !!sp && t >= sp.from && t < sp.to
+    }) ?? null,
   })
 
   const barStyle = (from: number, to: number) => {
@@ -262,16 +271,22 @@ export function ZeitplanView({
 
   // hour ticks across the head; the grid itself is half-hourly (SLOT_MS) but labelling every
   // half hour is unreadable on a tablet
+  // Label every nth hour, not every one: at 24 h the numbers ran into each other, and thinning
+  // them is what lets the axis compress instead of scrolling.
   const hours = useMemo(() => {
+    const totalH = Math.max(1, Math.round((span.to - span.from) / HOUR))
+    const step = Math.max(1, Math.ceil(totalH / MAX_TICKS))
     const out: { at: number; label: string }[] = []
     const first = Math.ceil(span.from / HOUR) * HOUR
-    for (let at = first; at < span.to; at += HOUR) out.push({ at, label: hhmm(new Date(at)) })
+    for (let at = first; at < span.to; at += HOUR) {
+      if (new Date(at).getHours() % step === 0) out.push({ at, label: hhmm(new Date(at)) })
+    }
     return out
   }, [span])
 
   const pct = (t: number) => `${(((t - span.from) / Math.max(1, span.to - span.from)) * 100).toFixed(3)}%`
   const nowInside = nowMs >= span.from && nowMs <= span.to
-  const trackW = Math.max(320, ((span.to - span.from) / HOUR) * PX_PER_HOUR)
+  const trackW = Math.max(320, ((span.to - span.from) / HOUR) * MIN_PX_PER_HOUR)
   const nothingPlanned = shifts.length === 0
   // the «now» line repeats per lane rather than spanning the whole grid: with a sticky name column
   // a single full-height rule would slide out from under its own coordinates while scrolling
@@ -350,8 +365,12 @@ export function ZeitplanView({
 
       {nothingPlanned && <EmptyState icon="clock" title={Z.emptyTitle} sub={Z.emptyHint} />}
 
+      {/* three states, in the order they happen: what somebody OFFERS, what we ASSIGNED from it,
+          and what actually HAPPENED. The first two flip on a bar tap; the third comes from the
+          Anwesenheit and is never written here. */}
       <p className={s.legend}>
-        <span className={cx(s.swatch, s.plannedBar)} /> {Z.planned}
+        <span className={cx(s.swatch, s.plannedBar)} /> {Z.available}
+        <span className={cx(s.swatch, s.plannedBar, s.confirmedBar)} /> {Z.confirmed}
         <span className={cx(s.swatch, s.actual)} /> {Z.actual}
         <span className={s.legendHint}>{Z.laneHint}</span>
       </p>

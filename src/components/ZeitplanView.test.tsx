@@ -79,11 +79,37 @@ describe('ZeitplanView', () => {
     const shifts: Shift[] = [{ id: 'sh1', personId: 'p1', from: T(14), to: T(18) }]
     render(<ZeitplanView {...base} attendance={{}} shifts={shifts} onReplace={onReplace} onRemove={onRemove} />)
     sizeLane(screen.getByLabelText(fillTemplate(Z.planAt, { name: 'Meier Anna' })))
-    const bar = screen.getByTitle(new RegExp(`^${Z.tentative}:`))
+    const bar = screen.getByTitle(new RegExp(`^${Z.available}:`))
     ptr(bar, 'pointerdown', 300)
     ptr(bar, 'pointerup', 300)
     expect(onReplace).toHaveBeenCalledWith(expect.objectContaining({ id: 'sh1', confirmed: true }))
     expect(onRemove).not.toHaveBeenCalled() // deleting lives in the sheet only
+  })
+
+  // a lane is 44px tall and a bar only ~34px, so a tap a few pixels high used to hit dead ground
+  it('flips the bar even when the tap lands above or below it, at that time', () => {
+    const onReplace = vi.fn()
+    const shifts: Shift[] = [{ id: 'sh1', personId: 'p1', from: T(14), to: T(18) }]
+    render(<ZeitplanView {...base} attendance={{}} shifts={shifts} onReplace={onReplace} />)
+    const lane = screen.getByLabelText(fillTemplate(Z.planAt, { name: 'Meier Anna' }))
+    // the window opens at 14:00 (2 h look-back from NOW=16:00) and runs 12 h over 1200px,
+    // so 100px per hour: x=200 is 16:00, inside the 14–18 bar
+    sizeLane(lane, 1200)
+    ptr(lane, 'pointerdown', 200)
+    ptr(lane, 'pointerup', 200)
+    expect(onReplace).toHaveBeenCalledWith(expect.objectContaining({ id: 'sh1', confirmed: true }))
+  })
+
+  it('still does nothing when the tap is at a time no bar covers', () => {
+    const onReplace = vi.fn(); const onAddSpan = vi.fn()
+    const shifts: Shift[] = [{ id: 'sh1', personId: 'p1', from: T(14), to: T(15) }]
+    render(<ZeitplanView {...base} attendance={{}} shifts={shifts} onReplace={onReplace} onAddSpan={onAddSpan} />)
+    const lane = screen.getByLabelText(fillTemplate(Z.planAt, { name: 'Meier Anna' }))
+    sizeLane(lane, 1200)
+    ptr(lane, 'pointerdown', 900) // 23:00 — well clear of the 14–15 bar
+    ptr(lane, 'pointerup', 900)
+    expect(onReplace).not.toHaveBeenCalled()
+    expect(onAddSpan).not.toHaveBeenCalled()
   })
 
   it('a drag moves the bar and commits once, on release', () => {
@@ -92,7 +118,7 @@ describe('ZeitplanView', () => {
     const shifts: Shift[] = [{ id: 'sh1', personId: 'p1', from: T(14), to: T(18) }]
     render(<ZeitplanView {...base} attendance={{}} shifts={shifts} onReplace={onReplace} onRemove={onRemove} />)
     sizeLane(screen.getByLabelText(fillTemplate(Z.planAt, { name: 'Meier Anna' })))
-    const bar = screen.getByTitle(new RegExp(`^${Z.tentative}:`))
+    const bar = screen.getByTitle(new RegExp(`^${Z.available}:`))
     ptr(bar, 'pointerdown', 100)
     ptr(bar, 'pointermove', 200)
     ptr(bar, 'pointerup', 200)
@@ -178,7 +204,7 @@ describe('ZeitplanView', () => {
       p1: { status: 'left', displayNameSnapshot: 'Meier Anna', intervals: [{ from: T(14), to: T(15) }] },
     }
     render(<ZeitplanView {...base} attendance={attendance} shifts={shifts} />)
-    expect(screen.getAllByTitle(new RegExp(`^${Z.tentative}:`))).toHaveLength(1)
+    expect(screen.getAllByTitle(new RegExp(`^${Z.available}:`))).toHaveLength(1)
     expect(screen.getAllByTitle(new RegExp(`^${Z.actual}:`))).toHaveLength(1)
   })
 

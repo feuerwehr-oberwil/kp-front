@@ -7,6 +7,7 @@ import { fillTemplate } from '../lib/format'
 import { applyTimeToIso } from '../lib/abschluss'
 import { rankAbbr, rankLabel, rankOrder } from '../lib/rank'
 import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
+import { loadPrefs, savePrefs } from '../lib/prefs'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import { Segmented } from './Segmented'
 import { TimeField } from './TimeField'
@@ -53,18 +54,24 @@ function PresenceSheet({ person, blocks, canEdit, onSetTimes, onBack, onClose }:
         <h4 className={s.sheetTitle}>{A.blocksSection}</h4>
         {blocks.length === 0 && <p className={s.sheetNote}>{A.blocksNone}</p>}
         {blocks.map((iv, i) => (
-          <div key={i} className={s.sheetRow}>
-            <TimeField className={s.sheetTime} ariaLabel={`${A.von} – ${person.displayName}`}
-              value={toHM(iv.from)} disabled={!canEdit || !onSetTimes}
-              onCommit={(v) => { const iso = v ? applyTimeToIso(iv.from, v) : null; if (iso) onSetTimes?.(person.id, { from: iso }, i) }} />
-            <span className={s.sheetDash}>–</span>
-            {iv.to ? (
-              <TimeField className={s.sheetTime} ariaLabel={`${A.bis} – ${person.displayName}`}
-                value={toHM(iv.to)} disabled={!canEdit || !onSetTimes}
-                onCommit={(v) => { const iso = v ? applyTimeToIso(iv.to!, v, { nextDayIfBefore: iv.from }) : null; if (iso) onSetTimes?.(person.id, { to: iso }, i) }} />
-            ) : (
-              <em className={s.sheetOpen}>{A.stillHere}</em>
-            )}
+          <div key={i} className={s.sheetBlock}>
+            {blocks.length > 1 && <span className={s.sheetIndex}>{i + 1}</span>}
+            <span className={s.sheetField}>
+              <span className={s.sheetLabel}>{A.von}</span>
+              <TimeField className={s.sheetTime} ariaLabel={`${A.von} – ${person.displayName}`}
+                value={toHM(iv.from)} disabled={!canEdit || !onSetTimes}
+                onCommit={(v) => { const iso = v ? applyTimeToIso(iv.from, v) : null; if (iso) onSetTimes?.(person.id, { from: iso }, i) }} />
+            </span>
+            <span className={s.sheetField}>
+              <span className={s.sheetLabel}>{A.bis}</span>
+              {iv.to ? (
+                <TimeField className={s.sheetTime} ariaLabel={`${A.bis} – ${person.displayName}`}
+                  value={toHM(iv.to)} disabled={!canEdit || !onSetTimes}
+                  onCommit={(v) => { const iso = v ? applyTimeToIso(iv.to!, v, { nextDayIfBefore: iv.from }) : null; if (iso) onSetTimes?.(person.id, { to: iso }, i) }} />
+              ) : (
+                <em className={s.sheetOpen}>{A.stillHere}</em>
+              )}
+            </span>
           </div>
         ))}
         {canEdit && !open && (
@@ -127,12 +134,14 @@ export function AnwesenheitView({
   const [rankFilter, setRankFilter] = useState<string | null>(null)
   // Anwesenheit and Zeitplan are two readings of the SAME filtered, ordered Mannschaft — the
   // search + rank filter above apply to both, so a name sits in the same place in either view.
-  const [view, setView] = useState<'list' | 'plan'>('list')
+  const [view, setView] = useState<'list' | 'plan'>(() => loadPrefs().anwesenheitView ?? 'list')
+  const pickView = (v: 'list' | 'plan') => { setView(v); savePrefs({ ...loadPrefs(), anwesenheitView: v }) }
   // one clock for the whole surface: it drives the «jetzt» line and the growing open bar. Only
   // ticks while the Zeitplan is on screen — the attendance list has nothing that moves.
   const [nowMs, setNowMs] = useState(() => Date.now())
   // how many hours of axis fit on screen; a device preference of the moment, not incident data
-  const [horizonH, setHorizonH] = useState(12)
+  const [horizonH, setHorizonH] = useState(() => loadPrefs().zeitplanHorizonH ?? 12)
+  const pickHorizon = (h: number) => { setHorizonH(h); savePrefs({ ...loadPrefs(), zeitplanHorizonH: h }) }
   // person whose recorded presence blocks are open in a sheet
   const [blocksFor, setBlocksFor] = useState<string | null>(null)
   useEffect(() => {
@@ -214,7 +223,7 @@ export function AnwesenheitView({
           {/* the two readings of this Mannschaft. Only offered where a Zeitplan can actually be
               edited/read — the surface is inert without the shift slice wired up. */}
           {!empty && planAvailable && (
-            <Segmented<'list' | 'plan'> ariaLabel={A.viewLabel} value={view} onChange={setView}
+            <Segmented<'list' | 'plan'> ariaLabel={A.viewLabel} value={view} onChange={pickView}
               options={[{ value: 'list', label: A.viewList }, { value: 'plan', label: A.viewPlan }]} />
           )}
           <button className={s.reload} onClick={onReload} disabled={loading} aria-label={A.reload}>
@@ -273,7 +282,7 @@ export function AnwesenheitView({
           onAddSpan={onAddShiftSpan!}
           onReplace={onReplaceShift!}
           horizonH={horizonH}
-          onHorizon={setHorizonH}
+          onHorizon={pickHorizon}
         />
       ) : (
         <div className={s.grid}>

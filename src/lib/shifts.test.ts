@@ -21,40 +21,41 @@ describe('slot grid', () => {
 describe('timelineSpan', () => {
   const att: AttendanceState = {}
 
-  it('opens a 12 h window from the incident start', () => {
+  it('is exactly as long as the Zeitraum asks for', () => {
     const span = timelineSpan(T(12), [], att, ms(T(13)))
     expect(span.from).toBe(ms(T(12)))
-    expect(span.to).toBe(ms(T(24)))
+    expect(span.to - span.from).toBe(12 * 3_600_000)
+    expect(timelineSpan(T(12), [], att, ms(T(13)), 6).to - ms(T(12))).toBe(6 * 3_600_000)
   })
 
-  it('grows so a shift planned into the small hours is reachable, not invisible', () => {
-    const span = timelineSpan(T(12), [shift('s1', 'p1', T(22), '2026-07-27T04:00:00.000Z')], att, ms(T(13)))
-    expect(span.to).toBe(Date.parse('2026-07-27T04:00:00.000Z'))
+  it('does NOT stretch to swallow a shift planned into tomorrow', () => {
+    // asking for a narrow window and getting a 30 h axis is the opposite of what was asked;
+    // a far-off shift is reached by widening the Zeitraum, not by the axis deciding for you
+    const far = [shift('s1', 'p1', T(22), '2026-07-28T04:00:00.000Z')]
+    const span = timelineSpan(T(12), far, att, ms(T(13)), 6)
+    expect(span.to - span.from).toBe(6 * 3_600_000)
   })
 
-  it('grows for a long executed block too', () => {
+  it('does not stretch for a long executed block either', () => {
     const withAtt: AttendanceState = {
       p1: { status: 'left', displayNameSnapshot: 'M', intervals: [{ from: T(12), to: '2026-07-27T06:00:00.000Z' }] },
     }
-    expect(timelineSpan(T(12), [], withAtt, ms(T(13))).to).toBe(Date.parse('2026-07-27T06:00:00.000Z'))
+    expect(timelineSpan(T(12), [], withAtt, ms(T(13)), 12).to - ms(T(12))).toBe(12 * 3_600_000)
   })
 
-  it('stays near NOW on a long incident instead of spanning two empty days', () => {
-    // 50 h into an Elementarereignis: the axis must not open on an empty yesterday
+  it('stays near NOW on a long incident instead of opening on an empty yesterday', () => {
     const now = ms(T(12)) + 50 * 3_600_000
     const span = timelineSpan(T(12), [], att, now)
     expect(span.from).toBeGreaterThanOrEqual(now - 3 * 3_600_000)
-    expect(span.to - span.from).toBeLessThanOrEqual(48 * 3_600_000)
   })
 
   it('still opens at the incident start while that is the nearer edge', () => {
-    const span = timelineSpan(T(12), [], att, ms(T(13)))
-    expect(span.from).toBe(ms(T(12)))
+    expect(timelineSpan(T(12), [], att, ms(T(13))).from).toBe(ms(T(12)))
   })
 
-  it('always keeps room to plan ahead of the clock', () => {
-    const span = timelineSpan(T(12), [], att, ms(T(23, 30)))
-    expect(span.to).toBeGreaterThanOrEqual(ms(T(24)) + 30 * 60_000)
+  it('refuses a nonsense window rather than collapsing the axis', () => {
+    expect(timelineSpan(T(12), [], att, ms(T(13)), 0).to - ms(T(12))).toBe(3_600_000)
+    expect(timelineSpan(T(12), [], att, ms(T(13)), 999).to - ms(T(12))).toBe(48 * 3_600_000)
   })
 })
 

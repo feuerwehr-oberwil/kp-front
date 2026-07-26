@@ -66,7 +66,9 @@
 
 /* ---- the time track ---------------------------------------------------------------- */
 
-.track { position: relative; flex: none; width: var(--track-w); }
+/* grow to fill when the chosen Zeitraum is narrower than the screen, never shrink below the
+   width its hours deserve — that is what makes 6 h fill the row and 48 h scroll */
+.track { position: relative; flex: 1 0 var(--track-w); width: var(--track-w); }
 .headRow { position: sticky; top: 0; z-index: 4; background: var(--panel, var(--surface)); }
 .headRow .who { z-index: 5; }
 .headRow .track { height: 22px; border-bottom: 1px solid var(--border); }
@@ -87,11 +89,10 @@
 .laneEditable:hover { background: color-mix(in srgb, var(--blue) 5%, var(--surface)); }
 .rowPlanned .lane { border-color: color-mix(in srgb, var(--blue) 45%, var(--glass-edge)); }
 
-/* bars sit ON the lane and are dragged directly, so they need real height for a gloved finger */
-.bar { position: absolute; top: 8px; bottom: 8px; border-radius: var(--r-xs); min-width: 8px; }
+/* bars sit ON the lane and are dragged directly, so they take nearly its full height — a gloved
+   finger aiming at a 28px stripe inside a 44px row missed more often than it hit */
+.bar { position: absolute; top: 5px; bottom: 5px; border-radius: var(--r-xs); min-width: 10px; }
 .plannedBar { cursor: grab; touch-action: none; }
-/* «fix» — agreed, so it is drawn solid; still blue, because it is a plan and not the record */
-.confirmedBar { background: var(--blue); border-color: var(--blue); }
 /* the stretch under the finger, before it becomes a shift */
 .drawing { border-style: dashed; opacity: .75; pointer-events: none; }
 .dragging { cursor: grabbing; opacity: .9; box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue) 45%, transparent); }
@@ -108,14 +109,19 @@
   background: color-mix(in srgb, var(--blue) 70%, transparent);
 }
 .plannedBar:hover .handle::after { background: var(--blue); }
-/* Planned: hollow — an outline, because it has not happened yet. Tactical BLUE, deliberately not
-   var(--accent): a station's accent is its brand colour (Oberwil's is alarm red), and a plan that
-   reads like an alarm is exactly the wrong signal at 3am. Red stays reserved for a conflict. */
+/* Three states, three weights, in the order a shift lives through them. They must stay in THIS
+   order in the file: they are all single-class selectors, so the later rule wins — `.confirmedBar`
+   sitting above `.plannedBar` is what once made every «geplant» bar render grey.
+     verfügbar — GREY outline: somebody offered this time, nothing is committed yet
+     geplant   — solid BLUE: we assigned it (deliberately not var(--accent); a station's accent is
+                 its brand colour, and in Oberwil that is alarm red — a plan must not read as an
+                 alarm at 3am. Red stays reserved for a conflict.)
+     anwesend  — solid GREEN: it actually happened, and that one comes from the attendance record */
 .plannedBar {
-  border: 1.5px solid var(--blue);
-  background: color-mix(in srgb, var(--blue) 14%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--ink) 45%, transparent);
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
 }
-/* actually present: solid — this is the record */
+.confirmedBar { background: var(--blue); border-color: var(--blue); }
 .actual { background: var(--green); opacity: .85; }
 /* an open block runs to «now» and keeps growing; the soft right edge says it is unfinished */
 .open { border-radius: var(--r-xs) 0 0 var(--r-xs); mask-image: linear-gradient(to right, #000 80%, color-mix(in srgb, #000 35%, transparent)); }
@@ -135,7 +141,7 @@
 .coverage { height: 34px; border-top: 1px solid var(--border); }
 .cov { position: absolute; top: 4px; bottom: 0; display: flex; align-items: flex-end; gap: 1px; }
 .cov em { flex: 1 1 0; min-height: 1px; border-radius: 1px; }
-.covPlanned { background: color-mix(in srgb, var(--blue) 55%, transparent); }
+.covPlanned { background: color-mix(in srgb, var(--blue) 60%, transparent); }
 .covActual { background: color-mix(in srgb, var(--green) 70%, transparent); }
 
 /* ---- per-row controls ---------------------------------------------------------------- */

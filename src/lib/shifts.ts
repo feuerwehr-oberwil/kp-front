@@ -40,26 +40,26 @@ export const ceilSlot = (t: number): number => Math.ceil(t / SLOT_MS) * SLOT_MS
 export interface Span { from: number; to: number }
 
 /**
- * The window the grid covers.
+ * The window the grid covers — exactly `windowH` hours of it.
  *
- * Anchored near NOW, not at the incident start: after two days of an Elementarereignis the axis
- * would otherwise span 50 hours, and the visible left edge would show an empty yesterday while
- * the shift you are planning sits far off to the right. A Zeitplan is about the coming hours, so
- * it reaches `LOOKBACK_HOURS` back — enough to see the shift that is ending — and forward far
- * enough to hold every planned block, capped at `MAX_SPAN_HOURS`. A young incident still starts
- * at its own beginning, because that is nearer than the look-back.
+ * The Zeitraum control sets the LENGTH of the axis, so 6 h means six hours end to end. It is not
+ * a minimum that content then stretches: a plan reaching into tomorrow used to blow the axis out
+ * to 30 h and squash tonight into a sliver, which is the opposite of what asking for a narrower
+ * window means. A shift outside the window is reached by widening it, not by the axis deciding.
+ *
+ * The left edge is anchored near NOW rather than at the incident start: after two days of an
+ * Elementarereignis the visible edge would otherwise be an empty yesterday. It reaches
+ * `LOOKBACK_HOURS` back — enough to see the shift that is ending — while a young incident still
+ * starts at its own beginning, because that is nearer than the look-back.
  */
-export function timelineSpan(startedAt: string | null, shifts: Shift[], attendance: AttendanceState, nowMs: number, windowH: number = WINDOW_HOURS): Span {
+export function timelineSpan(
+  startedAt: string | null, _shifts: Shift[], _attendance: AttendanceState, nowMs: number,
+  windowH: number = WINDOW_HOURS,
+): Span {
   const startMs = ms(startedAt) ?? nowMs
+  const hours = Math.min(MAX_SPAN_HOURS, Math.max(1, windowH))
   const start = floorSlot(Math.max(startMs, nowMs - LOOKBACK_HOURS * HOUR))
-  let end = start + windowH * HOUR
-  const bump = (t: number | null) => { if (t != null && t > end) end = t }
-  for (const s of shifts) { bump(ms(s.to)); bump(ms(s.from)) }
-  for (const e of Object.values(attendance)) {
-    for (const iv of intervalsOf(e)) { bump(ms(iv.to)); bump(ms(iv.from)) }
-  }
-  bump(nowMs + HOUR) // always a little room to plan ahead of the clock
-  return { from: start, to: ceilSlot(Math.min(end, start + MAX_SPAN_HOURS * HOUR)) }
+  return { from: start, to: ceilSlot(start + hours * HOUR) }
 }
 
 /** Where a block sits in the window, as fractions 0..1 — null when it lies entirely outside. */
