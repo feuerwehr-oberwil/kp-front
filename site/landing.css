@@ -312,6 +312,14 @@ section[id] { scroll-margin-top: 76px; } /* anchor targets clear the sticky head
   padding: 1px 5px; margin-left: 6px; white-space: nowrap;
 }
 
+/* ---------- FAQ ---------- */
+.faq-list { max-width: 720px; margin-top: 6px; }
+.faq-item { padding: 20px 0 22px; border-top: 1px solid var(--line-soft); }
+.faq-item:last-child { border-bottom: 1px solid var(--line-soft); }
+.faq-item h3 { font-size: 1.08rem; font-weight: 700; letter-spacing: -.015em; }
+.faq-item p { color: var(--ink-dim); margin-top: 8px; max-width: 62ch; }
+.faq-item p strong { color: var(--ink); font-weight: 600; }
+
 /* ---------- Schwesterprojekt ---------- */
 .sibling {
   border-top: 1px solid var(--line-soft);

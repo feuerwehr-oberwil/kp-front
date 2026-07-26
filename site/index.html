@@ -234,7 +234,8 @@
     <div class="sec-head">
       <p class="eyebrow">Funktionsumfang</p>
       <h2>Was alles drin ist.</h2>
-      <p>Gewachsen an echten Einsätzen und Übungen, nicht an einer Featureliste. Alles, was von
+      <p>Gewachsen an echten Einsätzen und Übungen der Feuerwehr Oberwil BL, nicht an einer
+        Featureliste. Alles, was von
         aussen dazukommt – Alarmierung, GPS, Drucker – ist <strong>optional</strong>: KP Front
         läuft vollständig ohne.</p>
     </div>
@@ -288,18 +289,6 @@
     </div>
   </section>
 
-  <section class="wrap" id="offen">
-    <div class="sec-head">
-      <p class="eyebrow">Open Source · AGPL</p>
-      <h2>Eure Feuerwehr, eure Daten.</h2>
-      <p>Jede Feuerwehr betreibt ihr eigenes KP Front – <strong>keine Lizenz pro Gerät</strong>,
-        keine Abhängigkeit von einem Anbieter. Es läuft auf eurem Rechner im Magazin oder in der
-        Cloud – ihr entscheidet, wo Karten, Pläne und Einsatzdaten liegen. Der ganze Code steht auf
-        <a href="https://github.com/feuerwehr-oberwil/kp-front" target="_blank" rel="noopener">GitHub <svg class="ico" style="width:13px;height:13px;vertical-align:-2px"><use href="#i-gh"/></svg></a>,
-        und wer etwas anders braucht, kann es selber bauen oder bauen lassen.</p>
-    </div>
-  </section>
-
   <section class="sibling">
     <div class="wrap">
       <div class="sibling-txt">
@@ -309,6 +298,45 @@
           ein Board für Personal, Fahrzeuge und Material. Eigene App, gleiche Handschrift –
           die beiden können sich Alarme übergeben, brauchen einander aber nicht.</p>
         <a class="btn btn-ghost" href="https://kp-rueck.ch">KP Rück ansehen<svg class="ico" style="width:14px;height:14px"><use href="#i-arrow"/></svg></a>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap" id="fragen">
+    <div class="sec-head">
+      <p class="eyebrow">Fragen &amp; Antworten</p>
+      <h2>Die häufigsten Fragen.</h2>
+    </div>
+    <div class="faq-list">
+      <div class="faq-item">
+        <h3>Wem gehören die Daten?</h3>
+        <p>Euch. Jede Feuerwehr betreibt ihr eigenes KP Front – auf dem eigenen Rechner im
+          Magazin oder in der Cloud. Ihr entscheidet, wo Karten, Pläne und Einsatzdaten
+          liegen; nichts geht an einen Hersteller oder an Dritte.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Was kostet das?</h3>
+        <p>Nichts. KP Front ist Open Source (AGPL) – <strong>keine Lizenz, kein Abo, keine
+          Kosten pro Gerät</strong>. Was bleibt, sind die eigenen Betriebskosten: ein kleiner
+          Server oder ein Rechner im Magazin.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Was braucht es für den Betrieb?</h3>
+        <p>Jemanden, der einen Server aufsetzen kann – in der Feuerwehr, in der Gemeinde oder
+          eine befreundete IT. Danach läuft das System weitgehend von selber, und Updates sind
+          ein Handgriff.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Können wir es an unsere Abläufe anpassen?</h3>
+        <p>Ja. Checklisten, Karten-Ebenen und Vorlagen sind frei einstellbar. Und weil der
+          ganze Code auf <a href="https://github.com/feuerwehr-oberwil/kp-front" target="_blank" rel="noopener">GitHub <svg class="ico" style="width:13px;height:13px;vertical-align:-2px"><use href="#i-gh"/></svg></a>
+          steht, lässt sich alles Übrige bauen – selber oder in Auftrag.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Wie fangen wir an?</h3>
+        <p>Mit der <a href="https://demo.kp-front.ch" target="_blank" rel="noopener">Demo</a>,
+          ohne Anmeldung – in Musterdorf brennt es schon. Danach an einer Übung ausprobieren.
+          Und wenn es passt: melde dich, wir helfen beim Aufsetzen.</p>
       </div>
     </div>
   </section>
@@ -372,7 +400,7 @@
   // Elemente erscheinen sofort (kein Nachfaden beim Reload mitten auf der Seite)
   document.documentElement.classList.add('js');
   if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
-    var els = document.querySelectorAll('.sec-head, .entry, .pillar, .shot, .fgroup, .tenet .wrap, .sibling-txt, .contact-side, .contact-ways');
+    var els = document.querySelectorAll('.sec-head, .entry, .pillar, .shot, .fgroup, .faq-item, .tenet .wrap, .sibling-txt, .contact-side, .contact-ways');
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (e) {
         if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
