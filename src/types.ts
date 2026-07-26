@@ -575,6 +575,9 @@ export interface Shift {
   from: string
   /** ISO end */
   to: string
+  /** agreed with the person (drawn solid) rather than still a proposal (drawn hollow). Tapping
+   *  the bar flips it — the one thing about a shift that changes constantly while planning. */
+  confirmed?: boolean
   note?: string
 }
 

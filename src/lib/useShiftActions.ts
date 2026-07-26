@@ -25,6 +25,17 @@ export function useShiftActions({ shifts, setShifts, startedAt }: ShiftActionsDe
     const hours = appConfig.shifts.defaultHours
     setShifts((cur) => [...cur, draftShift(p.id, Date.now(), startedAt, hours)])
   }
+  /** the grid sweep — exactly the stretch drawn, not a fixed default watch */
+  const addShiftSpan = (p: Person, from: number, to: number) => {
+    setShifts((cur) => [...cur, {
+      id: `sh${Date.now()}`, personId: p.id,
+      from: new Date(from).toISOString(), to: new Date(to).toISOString(),
+    }])
+  }
+  /** a drag committed: the whole shift replaces its stored self, so one gesture is one undo step */
+  const replaceShift = (sh: Shift) => {
+    setShifts((cur) => cur.map((x) => (x.id === sh.id ? sh : x)))
+  }
   const setShiftTime = (id: string, patch: { from?: string; to?: string }) => {
     setShifts((cur) => cur.map((s) => (s.id === id ? { ...s, ...patch } : s)))
   }
@@ -37,5 +48,5 @@ export function useShiftActions({ shifts, setShifts, startedAt }: ShiftActionsDe
       action: { label: appConfig.copy.undo, onClick: () => setShifts((cur) => (cur.some((s) => s.id === id) ? cur : [...cur, prev])) },
     })
   }
-  return { addShift, setShiftTime, removeShift }
+  return { addShift, addShiftSpan, replaceShift, setShiftTime, removeShift }
 }

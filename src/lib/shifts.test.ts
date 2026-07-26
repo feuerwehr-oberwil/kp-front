@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
-  SLOT_MS, barGeometry, ceilSlot, conflictingShiftIds, coverage, draftShift, floorSlot,
-  intervalSpan, overlaps, plannedPersonCount, shiftSpan, shiftsFor, timelineSpan,
+  SLOT_MS, barGeometry, ceilSlot, conflictingShiftIds, coverage, draftShift, dragShift, floorSlot,
+  intervalSpan, overlaps, plannedPersonCount, shiftAt, shiftSpan, shiftsFor, timeAtFraction, timelineSpan,
 } from './shifts'
 import type { AttendanceState, Shift } from '../types'
 
 const T = (h: number, m = 0) => `2026-07-26T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00.000Z`
 const ms = (iso: string) => Date.parse(iso)
 const shift = (id: string, personId: string, from: string, to: string): Shift => ({ id, personId, from, to })
+const MIDNIGHT = '2026-07-27T00:00:00.000Z' // the right edge of a window written as T(24)
 
 describe('slot grid', () => {
   it('snaps to the half hour so a bar never starts on half a column', () => {
@@ -159,5 +160,60 @@ describe('draftShift', () => {
 
   it('anchors to the incident start while that is still ahead (planning before the alarm time)', () => {
     expect(draftShift('p1', ms(T(10)), T(12), 4).from).toBe(T(12))
+  })
+})
+
+
+describe('direct manipulation on the grid', () => {
+  const span = { from: ms(T(12)), to: ms(T(24)) }
+
+  it('snaps a tap to the half-hour grid', () => {
+    expect(timeAtFraction(0.5, span)).toBe(ms(T(18)))
+    expect(timeAtFraction(0.51, span)).toBe(ms(T(18)))   // 18:07 → 18:00
+    expect(timeAtFraction(0.54, span)).toBe(ms(T(18, 30)))
+  })
+
+  it('never yields an invalid time from an unmeasurable lane or a coordinate-less press', () => {
+    // a zero-width lane mid-layout used to produce NaN and crash the surface on the next render
+    expect(timeAtFraction(NaN, span)).toBe(span.from)
+    expect(timeAtFraction(Infinity, span)).toBe(span.to)
+    const sh = shiftAt('p1', NaN, 8, span)
+    expect(Number.isFinite(Date.parse(sh.from))).toBe(true)
+    expect(Number.isFinite(Date.parse(sh.to))).toBe(true)
+  })
+
+  it('plans one default watch where the finger landed, clipped to the window', () => {
+    const sh = shiftAt('p1', ms(T(14)), 8, span)
+    expect(sh.from).toBe(T(14))
+    expect(sh.to).toBe(T(22))
+    // a tap near the right edge yields a short shift rather than one running off the axis
+    expect(shiftAt('p1', ms(T(23, 30)), 8, span).to).toBe(MIDNIGHT)
+  })
+
+  it('moves a bar whole, keeping its length', () => {
+    const sh = shift('a', 'p1', T(14), T(18))
+    const moved = dragShift(sh, 'move', 2 * 3_600_000, span)
+    expect(moved.from).toBe(T(16))
+    expect(moved.to).toBe(T(20))
+  })
+
+  it('holds a moved bar inside the window instead of sliding it off the axis', () => {
+    const sh = shift('a', 'p1', T(14), T(18))
+    expect(dragShift(sh, 'move', -99 * 3_600_000, span).from).toBe(T(12))
+    expect(dragShift(sh, 'move', 99 * 3_600_000, span).to).toBe(MIDNIGHT)
+  })
+
+  it('stretches one end without ever inverting the bar', () => {
+    const sh = shift('a', 'p1', T(14), T(18))
+    expect(dragShift(sh, 'from', 2 * 3_600_000, span).from).toBe(T(16))
+    expect(dragShift(sh, 'to', -2 * 3_600_000, span).to).toBe(T(16))
+    // dragged past its other end it stops one slot short, not backwards
+    expect(dragShift(sh, 'from', 99 * 3_600_000, span).from).toBe(T(17, 30))
+    expect(dragShift(sh, 'to', -99 * 3_600_000, span).to).toBe(T(14, 30))
+  })
+
+  it('leaves a shift alone when the drag distance is not a number', () => {
+    const sh = shift('a', 'p1', T(14), T(18))
+    expect(dragShift(sh, 'move', NaN, span)).toBe(sh)
   })
 })

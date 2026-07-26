@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Icon } from '../lib/icons'
-import type { AttendanceState, Person, Shift } from '../types'
+import type { AttendanceState, Person, PresenceInterval, Shift } from '../types'
 import { cx } from '../lib/cx'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
@@ -9,6 +9,8 @@ import { rankAbbr, rankLabel, rankOrder } from '../lib/rank'
 import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import { Segmented } from './Segmented'
+import { TimeField } from './TimeField'
+import { Sheet } from '../lib/overlays'
 import { EmptyState } from './EmptyState'
 import { ZeitplanView } from './ZeitplanView'
 import s from './Anwesenheit.module.css'
@@ -24,6 +26,58 @@ function toHM(iso: string): string {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+
+/**
+ * Every recorded block of one person, opened from the row's «Wieder da» control.
+ *
+ * A single chip on the row can only ever show the LATEST block, which reads as the whole story
+ * when somebody has come and gone twice. This lists them all, corrects any of them, and is where
+ * a return is opened — the same shape as the Zeitplan's Schichten sheet, so the two read alike.
+ */
+function PresenceSheet({ person, blocks, canEdit, onSetTimes, onBack, onClose }: {
+  person: Person
+  blocks: PresenceInterval[]
+  canEdit: boolean
+  onSetTimes?: (personId: string, patch: { from?: string; to?: string }, index?: number) => void
+  onBack: () => void
+  onClose: () => void
+}) {
+  const A = appConfig.copy.anwesenheit
+  const open = blocks.length > 0 && !blocks[blocks.length - 1].to
+  return (
+    <Sheet open onClose={onClose} fit sheetClassName={s.sheet}
+      title={fillTemplate(A.blocksTitle, { name: person.displayName })}
+      footer={<button type="button" className="ip-btn primary" onClick={onClose}>{A.done}</button>}
+    >
+      <div className={s.sheetGroup}>
+        <h4 className={s.sheetTitle}>{A.blocksSection}</h4>
+        {blocks.length === 0 && <p className={s.sheetNote}>{A.blocksNone}</p>}
+        {blocks.map((iv, i) => (
+          <div key={i} className={s.sheetRow}>
+            <TimeField className={s.sheetTime} ariaLabel={`${A.von} – ${person.displayName}`}
+              value={toHM(iv.from)} disabled={!canEdit || !onSetTimes}
+              onCommit={(v) => { const iso = v ? applyTimeToIso(iv.from, v) : null; if (iso) onSetTimes?.(person.id, { from: iso }, i) }} />
+            <span className={s.sheetDash}>–</span>
+            {iv.to ? (
+              <TimeField className={s.sheetTime} ariaLabel={`${A.bis} – ${person.displayName}`}
+                value={toHM(iv.to)} disabled={!canEdit || !onSetTimes}
+                onCommit={(v) => { const iso = v ? applyTimeToIso(iv.to!, v, { nextDayIfBefore: iv.from }) : null; if (iso) onSetTimes?.(person.id, { to: iso }, i) }} />
+            ) : (
+              <em className={s.sheetOpen}>{A.stillHere}</em>
+            )}
+          </div>
+        ))}
+        {canEdit && !open && (
+          <button type="button" className={cx('btn', 'ghost', s.sheetAdd)} onClick={onBack}>
+            <Icon id="plus" />{A.backAgain}
+          </button>
+        )}
+        <p className={s.sheetNote}>{A.blocksHint}</p>
+      </div>
+    </Sheet>
+  )
+}
+
 // The Anwesenheit surface: one unified, compact grid of the whole Mannschaft. Each name is a
 // button whose tap cycles its state — frei → anwesend → gegangen → frei — so a single view
 // both shows and edits attendance with no mode switching (3am tenet: recognition over recall).
@@ -33,7 +87,7 @@ function toHM(iso: string): string {
 export function AnwesenheitView({
   people, attendance, canEdit, loading, error, blockedIds,
   onMarkPresent, onMarkLeft, onClear, onJumpToTrupp, onReload, onSetTimes, captureUsage,
-  shifts, startedAt, onAddShift, onSetShiftTime, onRemoveShift,
+  shifts, startedAt, onAddShift, onAddShiftSpan, onReplaceShift, onSetShiftTime, onRemoveShift,
   onPrintZeitplan, onDownloadZeitplan, zeitplanPrintOnline,
 }: {
   people: Person[]
@@ -58,6 +112,10 @@ export function AnwesenheitView({
   shifts?: Shift[]
   startedAt?: string | null
   onAddShift?: (p: Person) => void
+  /** plan exactly the stretch swept out on the grid */
+  onAddShiftSpan?: (p: Person, from: number, to: number) => void
+  /** a whole shift replaced after a drag */
+  onReplaceShift?: (sh: Shift) => void
   onSetShiftTime?: (id: string, patch: { from?: string; to?: string }) => void
   onRemoveShift?: (id: string, personName: string) => void
   /** print / download the Zeitplan-Führungsformular (rendered server-side) */
@@ -73,6 +131,10 @@ export function AnwesenheitView({
   // one clock for the whole surface: it drives the «jetzt» line and the growing open bar. Only
   // ticks while the Zeitplan is on screen — the attendance list has nothing that moves.
   const [nowMs, setNowMs] = useState(() => Date.now())
+  // how many hours of axis fit on screen; a device preference of the moment, not incident data
+  const [horizonH, setHorizonH] = useState(12)
+  // person whose recorded presence blocks are open in a sheet
+  const [blocksFor, setBlocksFor] = useState<string | null>(null)
   useEffect(() => {
     if (view !== 'plan') return
     const t = setInterval(() => setNowMs(Date.now()), 30_000)
@@ -121,8 +183,9 @@ export function AnwesenheitView({
     }
   }
 
+  const blocksPerson = people.find((p) => p.id === blocksFor)
   const empty = !people.length
-  const planAvailable = !!shifts && !!onAddShift && !!onSetShiftTime && !!onRemoveShift
+  const planAvailable = !!shifts && !!onAddShift && !!onAddShiftSpan && !!onReplaceShift && !!onSetShiftTime && !!onRemoveShift
   const showPlan = planAvailable && view === 'plan'
 
   return (
@@ -134,20 +197,31 @@ export function AnwesenheitView({
         </div>
         <div className={s.headActions}>
           <CaptureUsageChip usage={captureUsage} />
+          {/* the Zeitplan's paper output belongs with the other surface actions, not buried under
+              the grid — same place the Mittel view keeps its own controls */}
+          {showPlan && onPrintZeitplan && (
+            <button className="btn" onClick={() => onPrintZeitplan(rows)}
+              title={zeitplanPrintOnline ? appConfig.copy.printRelay.online : appConfig.copy.printRelay.offline}>
+              <span className={`dot print-relay-dot${zeitplanPrintOnline ? ' online' : ''}`} aria-hidden />
+              {appConfig.copy.printRelay.send}
+            </button>
+          )}
+          {showPlan && onDownloadZeitplan && (
+            <button className="btn ghost" onClick={() => onDownloadZeitplan(rows)}>
+              <Icon id="doc" />{appConfig.copy.zeitplan.pdf}
+            </button>
+          )}
+          {/* the two readings of this Mannschaft. Only offered where a Zeitplan can actually be
+              edited/read — the surface is inert without the shift slice wired up. */}
+          {!empty && planAvailable && (
+            <Segmented<'list' | 'plan'> ariaLabel={A.viewLabel} value={view} onChange={setView}
+              options={[{ value: 'list', label: A.viewList }, { value: 'plan', label: A.viewPlan }]} />
+          )}
           <button className={s.reload} onClick={onReload} disabled={loading} aria-label={A.reload}>
             <Icon id="rotate" /><span className={s.reloadLabel}>{loading ? A.loading : A.refresh}</span>
           </button>
         </div>
       </header>
-
-      {/* the two readings of this Mannschaft. Only offered where a Zeitplan can actually be
-          edited/read — the surface is inert without the shift slice wired up. */}
-      {!empty && planAvailable && (
-        <div className={s.rankRow}>
-          <Segmented<'list' | 'plan'> ariaLabel={A.viewLabel} value={view} onChange={setView}
-            options={[{ value: 'list', label: A.viewList }, { value: 'plan', label: A.viewPlan }]} />
-        </div>
-      )}
 
       {!empty && (
         <div className={s.controls}>
@@ -196,10 +270,10 @@ export function AnwesenheitView({
           onAdd={onAddShift!}
           onSetTime={onSetShiftTime!}
           onRemove={onRemoveShift!}
-          /* the sheet prints the FILTERED rows — what you see is what you hang up */
-          onPrint={onPrintZeitplan ? () => onPrintZeitplan(rows) : undefined}
-          onDownload={onDownloadZeitplan ? () => onDownloadZeitplan(rows) : undefined}
-          printOnline={zeitplanPrintOnline}
+          onAddSpan={onAddShiftSpan!}
+          onReplace={onReplaceShift!}
+          horizonH={horizonH}
+          onHorizon={setHorizonH}
         />
       ) : (
         <div className={s.grid}>
@@ -261,12 +335,15 @@ export function AnwesenheitView({
                     doing that (it is the only way back from a mis-tick). So coming back gets its
                     own control: it opens a NEW block instead of reopening the closed one. */}
                 {left && canEdit && (
+                  /* opens the person's blocks rather than silently starting a new one: with two
+                     or more turns on site the row can only show the latest, and «zurück?» is a
+                     decision worth seeing the whole record for */
                   <button
                     type="button"
                     className={s.backBtn}
-                    title={fillTemplate(A.backAgainHint, { name: p.displayName })}
-                    aria-label={`${A.backAgain} – ${p.displayName}`}
-                    onClick={() => onMarkPresent(p)}
+                    title={fillTemplate(A.openBlocks, { name: p.displayName })}
+                    aria-label={fillTemplate(A.openBlocks, { name: p.displayName })}
+                    onClick={() => setBlocksFor(p.id)}
                   >
                     <Icon id="plus" />
                   </button>
@@ -282,6 +359,17 @@ export function AnwesenheitView({
             )
           })}
         </div>
+      )}
+
+      {blocksPerson && (
+        <PresenceSheet
+          person={blocksPerson}
+          blocks={intervalsOf(attendance[blocksPerson.id])}
+          canEdit={canEdit}
+          onSetTimes={onSetTimes}
+          onBack={() => { onMarkPresent(blocksPerson); setBlocksFor(null) }}
+          onClose={() => setBlocksFor(null)}
+        />
       )}
     </div>
   )

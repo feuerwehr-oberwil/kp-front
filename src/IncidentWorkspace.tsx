@@ -1572,7 +1572,7 @@ export function IncidentWorkspace({
   })
   const { saveMittel, offerMittelCapture } = useMittelActions({ mittel, setMittel, authorName: user?.display_name, log })
   // Schichtenplanung — a PLAN over the same Mannschaft; it never writes the attendance record
-  const { addShift, setShiftTime, removeShift } = useShiftActions({ shifts, setShifts, startedAt: incidentMeta.started_at })
+  const { addShift, addShiftSpan, replaceShift, setShiftTime, removeShift } = useShiftActions({ shifts, setShifts, startedAt: incidentMeta.started_at })
   // The Zeitplan-Führungsformular on paper. The relay status is fetched once per incident and
   // fail-closed (null → no printer button at all); the PDF download needs no relay.
   const [zeitplanRelay, setZeitplanRelay] = useState<PrintRelayStatus | null>(null)
@@ -2428,6 +2428,8 @@ export function IncidentWorkspace({
           shifts={effShifts}
           startedAt={incidentMeta.started_at}
           onAddShift={canEditIncident ? addShift : undefined}
+          onAddShiftSpan={canEditIncident ? addShiftSpan : undefined}
+          onReplaceShift={canEditIncident ? replaceShift : undefined}
           onSetShiftTime={canEditIncident ? setShiftTime : undefined}
           onRemoveShift={canEditIncident ? removeShift : undefined}
           onPrintZeitplan={zeitplanRelay?.available ? onPrintZeitplan : undefined}

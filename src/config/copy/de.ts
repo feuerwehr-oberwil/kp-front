@@ -2138,6 +2138,16 @@ export const de = {
     backAgain: 'Wieder da',
     backAgainHint: '{name} ist zurück – neuer Block ab jetzt',
     blockCount: '{n} Blöcke',
+    // Anwesenheitsblätter: dieselbe Form wie die Schichten-Ansicht, damit beide gleich zu lesen sind
+    von: 'von',
+    bis: 'bis',
+    blocksTitle: 'Anwesenheit – {name}',
+    blocksSection: 'Erfasste Blöcke',
+    blocksNone: 'Noch nicht anwesend gewesen.',
+    blocksHint: 'Jeder Block ist ein tatsächlicher Einsatz dieser Person. Zeiten hier korrigieren, wenn eine Stempelung daneben liegt.',
+    openBlocks: 'Anwesenheit von {name} öffnen',
+    stillHere: 'noch da',
+    done: 'Fertig',
     // Umschalter zwischen der Anwesenheitsliste und dem Zeitplan (gleiche Mannschaft, zwei Blicke)
     viewList: 'Anwesenheit',
     viewPlan: 'Zeitplan',
@@ -2180,6 +2190,19 @@ export const de = {
     addShift: 'Schicht hinzufügen',
     stillHere: 'noch da',
     done: 'Fertig',
+    // Direktbedienung auf dem Raster – wie das Papierformular, das man ausfüllt
+    laneHint: 'Ziehen plant eine Schicht · Balken tippen setzt sie fix · ziehen verschiebt · gedrückt halten öffnet die Schichten',
+    confirmed: 'fix',
+    tentative: 'geplant',
+    toggleHint: 'Tippen: {state}',
+    zoomIn: 'Zeitraum enger',
+    zoomOut: 'Zeitraum weiter',
+    horizon: 'Zeitraum',
+    openFor: 'Schichten von {name} öffnen',
+    planAt: 'Schicht für {name} planen',
+    dragMove: 'Verschieben',
+    dragFrom: 'Beginn ziehen',
+    dragTo: 'Ende ziehen',
   },
   // Mittel surface (MittelView) — manuelle Materialerfassung für Rapport / Nachschub
   mittel: {

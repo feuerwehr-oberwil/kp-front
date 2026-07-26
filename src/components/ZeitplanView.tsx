@@ -7,10 +7,12 @@ import { cx } from '../lib/cx'
 import { rankAbbr, rankLabel } from '../lib/rank'
 import { intervalsOf } from '../lib/attendanceIntervals'
 import { Sheet } from '../lib/overlays'
+import { useLaneGesture } from '../lib/useLaneGesture'
 import {
-  SLOT_MS, barGeometry, conflictingShiftIds, coverage, intervalSpan, shiftSpan, shiftsFor, timelineSpan,
+  SLOT_MS, barGeometry, conflictingShiftIds, coverage, intervalSpan, shiftAt, shiftSpan, shiftsFor, timelineSpan,
 } from '../lib/shifts'
 import type { AttendanceState, Person, PresenceInterval, Shift } from '../types'
+import type { Span } from '../lib/shifts'
 import { TimeField } from './TimeField'
 import { EmptyState } from './EmptyState'
 import s from './Zeitplan.module.css'
@@ -116,6 +118,101 @@ function PersonSheet({ person, shifts, blocks, canEdit, conflicts, nowMs, onAdd,
 }
 
 /**
+ * One person's line: the name, and their own lane of time.
+ *
+ * The lane is worked directly, the way the paper form is filled in — tap to plan, tap a bar to
+ * drop it, drag to move or stretch it, press and hold for the sheet (see lib/useLaneGesture).
+ * That is why the row carries no «+» and no time chips any more: they crowded the name out and
+ * put every edit two taps away from the thing it edits.
+ */
+function PersonRow({ person, shifts, blocks, span, nowMs, canEdit, conflicts, nowLine, onAddSpan, onReplace, onOpen }: {
+  person: Person
+  shifts: Shift[]
+  blocks: PresenceInterval[]
+  span: Span
+  nowMs: number
+  canEdit: boolean
+  conflicts: Set<string>
+  nowLine: React.ReactNode
+  onAddSpan: (p: Person, from: number, to: number) => void
+  onReplace: (sh: Shift) => void
+  onOpen: () => void
+}) {
+  const Z = appConfig.copy.zeitplan
+  const g = useLaneGesture({
+    span,
+    canEdit,
+    onCreate: (from, to) => onAddSpan(person, from, to),
+    onToggle: (sh) => onReplace({ ...sh, confirmed: !sh.confirmed }),
+    onCommit: onReplace,
+    onHold: onOpen,
+  })
+
+  const barStyle = (from: number, to: number) => {
+    const b = barGeometry(from, to, span)
+    return b ? { left: `${b.left * 100}%`, width: `${b.width * 100}%` } : null
+  }
+  // while a bar is being dragged it is drawn from the live preview instead of the stored value,
+  // so it follows the finger without a workspace write per pointer event
+  const shown = shifts.map((sh) => (g.preview?.id === sh.id ? g.preview : sh))
+
+  return (
+    <div className={cx(s.row, shifts.length > 0 && s.rowPlanned)}>
+      <button type="button" className={s.who} onClick={onOpen}
+        aria-label={fillTemplate(Z.openFor, { name: person.displayName })}
+        title={fillTemplate(Z.openFor, { name: person.displayName })}>
+        {person.rank && <span className={s.rank} title={rankLabel(person.rank)}>{rankAbbr(person.rank)}</span>}
+        <span className={s.name}>{person.displayName}</span>
+        {shifts.length > 1 && (
+          <span className={cx(s.count, shifts.some((x) => conflicts.has(x.id)) && s.countConflict)}>
+            {shifts.length}
+          </span>
+        )}
+      </button>
+      <div className={cx(s.track, s.lane, canEdit && s.laneEditable)}
+        aria-label={fillTemplate(Z.planAt, { name: person.displayName })}
+        {...g.laneProps(canEdit)}>
+        {/* executed presence first, so a planned outline drawn over it stays readable */}
+        {blocks.map((iv, i) => {
+          const sp = intervalSpan(iv, nowMs)
+          const st = sp && barStyle(sp.from, sp.to)
+          return st ? (
+            <span key={`a${i}`} className={cx(s.bar, s.actual, !iv.to && s.open)} style={st}
+              title={`${Z.actual}: ${clock(iv.from)}–${iv.to ? clock(iv.to) : ''}`} />
+          ) : null
+        })}
+        {/* the stretch currently being swept out, so the sweep is visible while it happens */}
+        {g.draw && (() => {
+          const st = barStyle(g.draw.from, g.draw.to)
+          return st ? <span className={cx(s.bar, s.plannedBar, s.drawing)} style={st} aria-hidden /> : null
+        })()}
+        {shown.map((sh) => {
+          const sp = shiftSpan(sh)
+          const st = sp && barStyle(sp.from, sp.to)
+          if (!st) return null
+          const bad = conflicts.has(sh.id)
+          const next = sh.confirmed ? Z.tentative : Z.confirmed
+          return (
+            <span key={sh.id} className={cx(s.bar, s.plannedBar, sh.confirmed && s.confirmedBar, bad && s.conflict, g.preview?.id === sh.id && s.dragging)}
+              style={st} {...(canEdit ? g.barProps(sh, 'move') : {})}
+              title={bad ? Z.conflict
+                : `${sh.confirmed ? Z.confirmed : Z.tentative}: ${clock(sh.from)}–${clock(sh.to)} · ${fillTemplate(Z.toggleHint, { state: next })}`}>
+              {canEdit && (
+                <>
+                  <em className={cx(s.handle, s.handleFrom)} title={Z.dragFrom} {...g.barProps(sh, 'from')} />
+                  <em className={cx(s.handle, s.handleTo)} title={Z.dragTo} {...g.barProps(sh, 'to')} />
+                </>
+              )}
+            </span>
+          )
+        })}
+        {nowLine}
+      </div>
+    </div>
+  )
+}
+
+/**
  * Schichtenplanung — the BGV/KKO «Zeitplan» Führungsformular as a live surface.
  *
  * ONE grid, exactly like the paper form: every name sits at the left of its OWN lane, time runs
@@ -131,7 +228,7 @@ function PersonSheet({ person, shifts, blocks, canEdit, conflicts, nowMs, onAdd,
  */
 export function ZeitplanView({
   people, attendance, shifts, canEdit, startedAt, nowMs,
-  onAdd, onSetTime, onRemove, onPrint, onDownload, printOnline,
+  onAdd, onAddSpan, onReplace, onSetTime, onRemove, horizonH, onHorizon,
 }: {
   /** already filtered + ordered by the shared Anwesenheit header, so both views read alike */
   people: Person[]
@@ -142,21 +239,22 @@ export function ZeitplanView({
   /** ticked by the parent — the «now» line and the growing open bar move with it */
   nowMs: number
   onAdd: (p: Person) => void
+  /** plan exactly the stretch swept out on the grid */
+  onAddSpan: (p: Person, from: number, to: number) => void
+  /** a whole shift replaced — after a drag, or when its planned/fix state flips */
+  onReplace: (sh: Shift) => void
   onSetTime: (id: string, patch: { from?: string; to?: string }) => void
   onRemove: (id: string, personName: string) => void
-  /** hand the sheet to the printer / the download — absent when neither is reachable */
-  onPrint?: () => void
-  onDownload?: () => void
-  /** the station relay is configured AND its agent is alive */
-  printOnline?: boolean
+  /** how many hours the axis shows at once, and the control to change it */
+  horizonH: number
+  onHorizon: (h: number) => void
 }) {
   const Z = appConfig.copy.zeitplan // read per-render so the resolved locale applies
-  const P = appConfig.copy.printRelay
   const [openPerson, setOpenPerson] = useState<string | null>(null)
 
   const span = useMemo(
-    () => timelineSpan(startedAt, shifts, attendance, nowMs),
-    [startedAt, shifts, attendance, nowMs],
+    () => timelineSpan(startedAt, shifts, attendance, nowMs, horizonH),
+    [startedAt, shifts, attendance, nowMs, horizonH],
   )
   const conflicts = useMemo(() => conflictingShiftIds(shifts), [shifts])
   const slots = useMemo(() => coverage(shifts, attendance, span, nowMs), [shifts, attendance, span, nowMs])
@@ -186,73 +284,52 @@ export function ZeitplanView({
     return g ? { left: `${g.left * 100}%`, width: `${g.width * 100}%` } : null
   }
 
+  const HORIZONS = [6, 12, 24, 48]
+  const step = (dir: 1 | -1) => {
+    const i = HORIZONS.indexOf(horizonH)
+    const next = HORIZONS[Math.min(HORIZONS.length - 1, Math.max(0, (i < 0 ? 1 : i) + dir))]
+    onHorizon(next)
+  }
+
   return (
     <div className={s.zeitplan}>
+      {/* how far the axis reaches. Scrolling pans through time; this changes how much of it fits
+          on screen at once, which is the other half of «where is the hole tonight». */}
+      <div className={s.horizon}>
+        <span className={s.horizonLabel}>{Z.horizon}</span>
+        <button type="button" className={s.zoomBtn} onClick={() => step(-1)}
+          disabled={horizonH <= HORIZONS[0]} aria-label={Z.zoomIn}><Icon id="minus" /></button>
+        <b className={s.horizonValue}>{horizonH} h</b>
+        <button type="button" className={s.zoomBtn} onClick={() => step(1)}
+          disabled={horizonH >= HORIZONS[HORIZONS.length - 1]} aria-label={Z.zoomOut}><Icon id="plus" /></button>
+      </div>
       <div className={s.scroll}>
         <div className={s.grid} style={{ ['--track-w' as string]: `${trackW}px` }}>
           {/* head — «Wer» over the name column, the clock over the track, exactly as on paper */}
           <div className={cx(s.row, s.headRow)}>
-            <div className={cx(s.who, s.whoHead)}>{Z.who}</div>
+            <div className={cx(s.who, s.whoHead)} aria-hidden />
             <div className={s.track}>
               {hours.map((h) => <span key={h.at} className={s.tick} style={{ left: pct(h.at) }}>{h.label}</span>)}
               {nowInside && <span className={cx(s.nowLine, s.nowLineHead)} style={{ left: pct(nowMs) }}><em>{Z.now}</em></span>}
             </div>
           </div>
 
-          {people.map((p) => {
-            const mine = shiftsFor(shifts, p.id)
-            const blocks = intervalsOf(attendance[p.id])
-            return (
-              <div key={p.id} className={cx(s.row, mine.length > 0 && s.rowPlanned)}>
-                <div className={s.who}>
-                  <span className={s.whoName}>
-                    {p.rank && <span className={s.rank} title={rankLabel(p.rank)}>{rankAbbr(p.rank)}</span>}
-                    <span className={s.name}>{p.displayName}</span>
-                  </span>
-                  {/* One shift edits inline — the common case, and it deserves no extra tap. From
-                      the second on, two more chips beside a name turn the row into a puzzle, so
-                      they collapse into a single button onto that person's sheet. */}
-                  {mine.length > 1 ? (
-                    <button type="button" className={cx(s.countBtn, mine.some((x) => conflicts.has(x.id)) && s.countConflict)}
-                      onClick={() => setOpenPerson(p.id)}>
-                      {fillTemplate(Z.shiftCount, { n: mine.length })}<Icon id="chevron" />
-                    </button>
-                  ) : mine.length === 1 ? (
-                    <ShiftChips sh={mine[0]} name={p.displayName} canEdit={canEdit}
-                      conflict={conflicts.has(mine[0].id)} onSetTime={onSetTime} onRemove={onRemove} />
-                  ) : null}
-                  {canEdit && (
-                    <button type="button" className={s.add} title={fillTemplate(Z.addFor, { name: p.displayName })}
-                      aria-label={fillTemplate(Z.addFor, { name: p.displayName })}
-                      // adding a SECOND shift lands straight in the sheet, where there is room for it
-                      onClick={() => { onAdd(p); if (mine.length >= 1) setOpenPerson(p.id) }}>
-                      <Icon id="plus" />
-                    </button>
-                  )}
-                </div>
-                <div className={cx(s.track, s.lane)}>
-                  {/* executed presence first, so a planned outline drawn over it stays readable */}
-                  {blocks.map((iv, i) => {
-                    const sp = intervalSpan(iv, nowMs)
-                    const st = sp && barStyle(sp.from, sp.to)
-                    return st ? (
-                      <span key={`a${i}`} className={cx(s.bar, s.actual, !iv.to && s.open)} style={st}
-                        title={`${Z.actual}: ${clock(iv.from)}–${iv.to ? clock(iv.to) : ''}`} />
-                    ) : null
-                  })}
-                  {mine.map((sh) => {
-                    const sp = shiftSpan(sh)
-                    const st = sp && barStyle(sp.from, sp.to)
-                    return st ? (
-                      <span key={sh.id} className={cx(s.bar, s.plannedBar, conflicts.has(sh.id) && s.conflict)} style={st}
-                        title={conflicts.has(sh.id) ? Z.conflict : `${Z.planned}: ${clock(sh.from)}–${clock(sh.to)}`} />
-                    ) : null
-                  })}
-                  {nowLine}
-                </div>
-              </div>
-            )
-          })}
+          {people.map((p) => (
+            <PersonRow
+              key={p.id}
+              person={p}
+              shifts={shiftsFor(shifts, p.id)}
+              blocks={intervalsOf(attendance[p.id])}
+              span={span}
+              nowMs={nowMs}
+              canEdit={canEdit}
+              conflicts={conflicts}
+              nowLine={nowLine}
+              onAddSpan={onAddSpan}
+              onReplace={onReplace}
+              onOpen={() => setOpenPerson(p.id)}
+            />
+          ))}
 
           {/* coverage: planned above, actually there below — the future half of the lower strip
               stays empty on purpose, nobody knows yet who will turn up */}
@@ -273,30 +350,11 @@ export function ZeitplanView({
 
       {nothingPlanned && <EmptyState icon="clock" title={Z.emptyTitle} sub={Z.emptyHint} />}
 
-      <div className={s.foot}>
-        <p className={s.legend}>
-          <span className={cx(s.swatch, s.plannedBar)} /> {Z.planned}
-          <span className={cx(s.swatch, s.actual)} /> {Z.actual}
-        </p>
-        {/* the sheet on paper: hang it at the front, hand it to the relief */}
-        {(onDownload || onPrint) && (
-          <span className={s.footActions}>
-            {onPrint && (
-              /* same idiom as the Rapport's «An Stationsdrucker»: a heartbeat dot rather than a
-                 hidden button, so the relay is honest about being offline */
-              <button type="button" className="btn" onClick={onPrint} title={printOnline ? P.online : P.offline}>
-                <span className={`dot print-relay-dot${printOnline ? ' online' : ''}`} aria-hidden />
-                {P.send}
-              </button>
-            )}
-            {onDownload && (
-              <button type="button" className="btn ghost" onClick={onDownload}>
-                <Icon id="doc" />{Z.pdf}
-              </button>
-            )}
-          </span>
-        )}
-      </div>
+      <p className={s.legend}>
+        <span className={cx(s.swatch, s.plannedBar)} /> {Z.planned}
+        <span className={cx(s.swatch, s.actual)} /> {Z.actual}
+        <span className={s.legendHint}>{Z.laneHint}</span>
+      </p>
 
       {person && (
         <PersonSheet

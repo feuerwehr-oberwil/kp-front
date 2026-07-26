@@ -3,11 +3,33 @@
    its right, every name on the same line as its own lane. (The first cut floated the lanes above
    a separate list of names, and nothing tied a bar to a person.) */
 
-.zeitplan { display: flex; flex-direction: column; gap: 12px; min-height: 0; min-width: 0; max-width: 100%; }
+/* padding matches the surface's own .controls/.grid (22px) so the name column's left edge and
+   the horizon control's right edge line up with the search field above them */
+.zeitplan {
+  flex: 1 1 auto; min-height: 0; min-width: 0; max-width: 100%;
+  display: flex; flex-direction: column; gap: 10px; padding: 2px 22px 16px;
+}
+
+/* sits on its own line above the grid, right-aligned so the grid's left edge stays flush with
+   the search field above it */
+.horizon { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+.horizonLabel { font: 600 11px var(--mono); color: var(--ink-faint); letter-spacing: .06em; text-transform: uppercase; }
+.horizonValue { min-width: 3.2rem; text-align: center; font: 700 12.5px var(--mono); color: var(--ink); }
+.zoomBtn {
+  display: inline-grid; place-items: center; min-width: 34px; min-height: 34px;
+  border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface);
+  color: var(--ink-dim); cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.zoomBtn svg { width: 14px; height: 14px; }
+.zoomBtn:hover:not(:disabled) { color: var(--ink); border-color: var(--ink-faint); }
+.zoomBtn:disabled { opacity: .4; cursor: default; }
 
 /* flex: none — as a shrinkable item in the column flex parent this collapsed to ~4px while its
    content was 279px tall, so the whole time track was invisible. It sizes to its content. */
-.scroll { flex: none; overflow-x: auto; overflow-y: hidden; }
+/* both axes: time runs off to the right, and a full Mannschaft runs off the bottom. flex:1 with
+   min-height:0 lets it take the space the surface has and scroll inside it, instead of pushing
+   the legend off screen. */
+.scroll { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 .grid { display: flex; flex-direction: column; gap: 4px; width: max-content; min-width: 100%; }
 
 .row { display: flex; align-items: stretch; gap: 0; }
@@ -16,13 +38,14 @@
 
 .who {
   position: sticky; left: 0; z-index: 3; flex: none;
-  width: 430px; display: flex; align-items: center; gap: 7px; padding: 4px 8px 4px 11px;
+  width: 230px; display: flex; align-items: center; gap: 7px; padding: 4px 10px 4px 12px;
+  min-height: var(--tap); text-align: left; cursor: pointer;
   border: 1px solid var(--glass-edge); border-right: none;
   border-radius: var(--r-ctl) 0 0 var(--r-ctl);
   background: var(--surface); font: 700 13.5px var(--body); color: var(--ink);
+  -webkit-tap-highlight-color: transparent;
 }
-/* the NAME is the row's identity — it holds a readable floor and the chips give way first */
-.whoName { flex: 1 1 auto; min-width: 7.5rem; display: flex; align-items: center; gap: 7px; }
+.who:hover { background: color-mix(in srgb, var(--ink) 4%, var(--surface)); }
 .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rank {
   flex: none; padding: 1px 5px; border-radius: var(--r-xs);
@@ -33,8 +56,10 @@
 .rowPlanned .who { border-color: color-mix(in srgb, var(--blue) 45%, var(--glass-edge)); }
 
 /* head + coverage label cells are chrome, not rows — no card frame */
+/* the head cell carries no «Wer» label any more — the names below say it. It stays as a spacer
+   so the hour ticks line up with the lanes they belong to. */
 .whoHead, .whoFoot {
-  border: none; background: transparent; align-items: flex-end; padding-bottom: 3px;
+  border: none; background: transparent; align-items: center; padding-bottom: 3px;
   font: 700 10.5px var(--mono); color: var(--ink-faint); letter-spacing: .08em; text-transform: uppercase;
 }
 .whoFoot { align-items: center; padding-bottom: 4px; }
@@ -42,6 +67,8 @@
 /* ---- the time track ---------------------------------------------------------------- */
 
 .track { position: relative; flex: none; width: var(--track-w); }
+.headRow { position: sticky; top: 0; z-index: 4; background: var(--panel, var(--surface)); }
+.headRow .who { z-index: 5; }
 .headRow .track { height: 22px; border-bottom: 1px solid var(--border); }
 .tick {
   position: absolute; top: 2px; transform: translateX(-50%);
@@ -49,13 +76,38 @@
 }
 
 .lane {
-  display: flex; align-items: center;
+  display: flex; align-items: center; min-height: var(--tap);
   border: 1px solid var(--glass-edge); border-left: none; border-radius: 0 var(--r-ctl) var(--r-ctl) 0;
   background: color-mix(in srgb, var(--ink) 4%, var(--surface));
+  /* the lane owns the horizontal gesture: without this the browser claims the drag for scrolling
+     and a bar never moves on a touch device */
+  touch-action: pan-y; -webkit-tap-highlight-color: transparent;
 }
+.laneEditable { cursor: crosshair; }
+.laneEditable:hover { background: color-mix(in srgb, var(--blue) 5%, var(--surface)); }
 .rowPlanned .lane { border-color: color-mix(in srgb, var(--blue) 45%, var(--glass-edge)); }
 
-.bar { position: absolute; top: 9px; bottom: 9px; border-radius: var(--r-xs); min-width: 3px; }
+/* bars sit ON the lane and are dragged directly, so they need real height for a gloved finger */
+.bar { position: absolute; top: 8px; bottom: 8px; border-radius: var(--r-xs); min-width: 8px; }
+.plannedBar { cursor: grab; touch-action: none; }
+/* «fix» — agreed, so it is drawn solid; still blue, because it is a plan and not the record */
+.confirmedBar { background: var(--blue); border-color: var(--blue); }
+/* the stretch under the finger, before it becomes a shift */
+.drawing { border-style: dashed; opacity: .75; pointer-events: none; }
+.dragging { cursor: grabbing; opacity: .9; box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue) 45%, transparent); }
+/* end handles: a wide invisible grab zone over a thin visible grip, so a fat finger still gets
+   the edge instead of moving the whole bar */
+.handle {
+  position: absolute; top: -4px; bottom: -4px; width: 18px; cursor: ew-resize; touch-action: none;
+  display: grid; place-items: center;
+}
+.handleFrom { left: -9px; }
+.handleTo { right: -9px; }
+.handle::after {
+  content: ''; width: 3px; height: 14px; border-radius: 2px;
+  background: color-mix(in srgb, var(--blue) 70%, transparent);
+}
+.plannedBar:hover .handle::after { background: var(--blue); }
 /* Planned: hollow — an outline, because it has not happened yet. Tactical BLUE, deliberately not
    var(--accent): a station's accent is its brand colour (Oberwil's is alarm red), and a plan that
    reads like an alarm is exactly the wrong signal at 3am. Red stays reserved for a conflict. */
@@ -102,27 +154,22 @@
 .chipPair :global(.timefield-input) { width: 62px; padding: 4px 4px; font-size: 13.5px; }
 .chipPair :global(.timefield-trigger) { min-width: 62px; padding: 4px 6px; font-size: 13.5px; }
 
-/* from the second shift on, one button replaces the chips and opens the person's sheet */
-.countBtn {
-  flex: none; display: inline-flex; align-items: center; gap: 3px; min-height: var(--tap);
-  padding: 4px 6px 4px 10px; border: 1px solid color-mix(in srgb, var(--blue) 45%, transparent);
-  border-radius: var(--r-sm); background: color-mix(in srgb, var(--blue) 10%, transparent);
-  color: var(--ink); font: 700 12px var(--body); cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
+/* how many shifts this person carries — a quiet badge, since the bars already say when */
+.count {
+  flex: none; min-width: 19px; padding: 1px 5px; border-radius: 9px; text-align: center;
+  background: color-mix(in srgb, var(--blue) 22%, transparent);
+  font: 700 10.5px var(--mono); color: var(--ink);
 }
-.countBtn svg { width: 13px; height: 13px; color: var(--ink-faint); }
-.countConflict { border-color: var(--red); background: color-mix(in srgb, var(--red) 12%, transparent); }
+.countConflict { background: color-mix(in srgb, var(--red) 28%, transparent); }
 
-.del, .add {
-  flex: none; display: inline-grid; place-items: center; min-width: var(--tap); min-height: var(--tap);
+/* only the sheet still has a delete button — the grid drops a shift by tapping its bar */
+.del {
+  flex: none; display: inline-grid; place-items: center; min-width: 34px; min-height: var(--tap);
   border: none; background: none; cursor: pointer; color: var(--ink-faint);
   -webkit-tap-highlight-color: transparent; border-radius: var(--r-sm);
 }
-.del svg, .add svg { width: 15px; height: 15px; }
-.del { min-width: 34px; }
+.del svg { width: 15px; height: 15px; }
 .del:hover { color: var(--red); background: color-mix(in srgb, var(--red) 10%, transparent); }
-.add { color: var(--blue); border: 1px dashed color-mix(in srgb, var(--blue) 45%, transparent); }
-.add:hover { background: color-mix(in srgb, var(--blue) 12%, transparent); }
 
 /* ---- foot ---------------------------------------------------------------------------- */
 
@@ -162,6 +209,7 @@
 }
 
 @media (max-width: 700px) {
+  .zeitplan { padding: 2px 12px 12px; }
   /* the sticky column would eat a phone screen, so the row stacks: name + controls on top, the
      lane full-width underneath, and the track scrolls on its own */
   .row { flex-wrap: wrap; }
@@ -169,6 +217,7 @@
     position: static; width: 100%; border-right: 1px solid var(--glass-edge);
     border-radius: var(--r-ctl) var(--r-ctl) 0 0;
   }
+  .legendHint { margin-left: 0; }
   .whoHead, .whoFoot { border: none; }
   .track { width: 100%; min-width: var(--track-w); }
   .lane { border-left: 1px solid var(--glass-edge); border-radius: 0 0 var(--r-ctl) var(--r-ctl); height: 26px; }

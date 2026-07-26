@@ -49,10 +49,10 @@ export interface Span { from: number; to: number }
  * enough to hold every planned block, capped at `MAX_SPAN_HOURS`. A young incident still starts
  * at its own beginning, because that is nearer than the look-back.
  */
-export function timelineSpan(startedAt: string | null, shifts: Shift[], attendance: AttendanceState, nowMs: number): Span {
+export function timelineSpan(startedAt: string | null, shifts: Shift[], attendance: AttendanceState, nowMs: number, windowH: number = WINDOW_HOURS): Span {
   const startMs = ms(startedAt) ?? nowMs
   const start = floorSlot(Math.max(startMs, nowMs - LOOKBACK_HOURS * HOUR))
-  let end = start + WINDOW_HOURS * HOUR
+  let end = start + windowH * HOUR
   const bump = (t: number | null) => { if (t != null && t > end) end = t }
   for (const s of shifts) { bump(ms(s.to)); bump(ms(s.from)) }
   for (const e of Object.values(attendance)) {
@@ -169,4 +169,57 @@ export function draftShift(personId: string, nowMs: number, startedAt: string | 
     from: new Date(base).toISOString(),
     to: new Date(base + hours * HOUR).toISOString(),
   }
+}
+
+// ---------------------------------------------------------------- direct manipulation on the grid
+
+/** Wall-clock time under a pointer, snapped to the half-hour grid and clamped to the window.
+ *  A non-finite fraction — a lane measured at zero width mid-layout, a pointer event that carries
+ *  no usable coordinate — resolves to the window start rather than poisoning a shift with NaN. */
+export function timeAtFraction(fraction: number, span: Span): number {
+  // clamp first so ±Infinity lands on an edge; only a genuine NaN falls back to the start
+  const clamped = Math.max(0, Math.min(1, fraction))
+  const f = Number.isFinite(clamped) ? clamped : 0
+  const raw = span.from + f * (span.to - span.from)
+  return Math.max(span.from, Math.min(span.to, Math.round(raw / SLOT_MS) * SLOT_MS))
+}
+
+/** A shift begun by tapping empty lane at `at` — one default watch, clipped to the window's end. */
+export function shiftAt(personId: string, at: number, hours: number, span: Span): Shift {
+  const want = Number.isFinite(at) ? at : span.from
+  const from = Math.max(span.from, Math.min(want, span.to - SLOT_MS))
+  const to = Math.min(from + (Number.isFinite(hours) ? hours : 1) * HOUR, span.to)
+  return {
+    id: `sh${Date.now()}`,
+    personId,
+    from: new Date(from).toISOString(),
+    to: new Date(Math.max(to, from + SLOT_MS)).toISOString(),
+  }
+}
+
+export type DragEdge = 'move' | 'from' | 'to'
+
+/**
+ * A bar under the finger: dragged whole, or by one end. Everything snaps to the half-hour grid,
+ * never inverts (a shift always keeps at least one slot), and stays inside the window — at 3am a
+ * bar that silently flipped or slid off the axis is worse than one that refuses to.
+ */
+export function dragShift(sh: Shift, edge: DragEdge, deltaMs: number, span: Span): Shift {
+  const from = Date.parse(sh.from)
+  const to = Date.parse(sh.to)
+  if (!Number.isFinite(from) || !Number.isFinite(to) || !Number.isFinite(deltaMs)) return sh
+  const snap = (t: number) => Math.round(t / SLOT_MS) * SLOT_MS
+
+  if (edge === 'move') {
+    const len = to - from
+    let nf = snap(from + deltaMs)
+    nf = Math.max(span.from, Math.min(nf, span.to - len))
+    return { ...sh, from: new Date(nf).toISOString(), to: new Date(nf + len).toISOString() }
+  }
+  if (edge === 'from') {
+    const nf = Math.max(span.from, Math.min(snap(from + deltaMs), to - SLOT_MS))
+    return { ...sh, from: new Date(nf).toISOString() }
+  }
+  const nt = Math.min(span.to, Math.max(snap(to + deltaMs), from + SLOT_MS))
+  return { ...sh, to: new Date(nt).toISOString() }
 }
