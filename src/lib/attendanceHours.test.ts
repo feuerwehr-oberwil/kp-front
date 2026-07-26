@@ -39,4 +39,22 @@ describe('hoursRows', () => {
     }
     expect(hoursRows(att, { alarmedAt: ALARM, endedAt: ENDE })).toHaveLength(1)
   })
+
+  it('bills the blocks, not the span, for someone who left and came back', () => {
+    const att: AttendanceState = {
+      p1: {
+        status: 'left', displayNameSnapshot: 'Rückkehr',
+        checkedInAt: '2026-07-08T03:12:00Z', leftAt: '2026-07-08T05:42:00Z',
+        intervals: [
+          { from: '2026-07-08T03:12:00Z', to: '2026-07-08T04:12:00Z' }, // 60
+          { from: '2026-07-08T05:12:00Z', to: '2026-07-08T05:42:00Z' }, // 30
+        ],
+      },
+    }
+    const [row] = hoursRows(att, { alarmedAt: ALARM, endedAt: ENDE })
+    expect(row.minutes).toBe(90) // NOT the 150 of the outer span — the hour away isn't served
+    expect(row.from).toBe('2026-07-08T03:12:00Z')
+    expect(row.to).toBe('2026-07-08T05:42:00Z')
+    expect(row.intervals).toHaveLength(2)
+  })
 })

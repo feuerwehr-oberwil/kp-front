@@ -124,21 +124,33 @@ def _current_mittel(entries: Any) -> list[dict]:
 
 
 def _attendance(att: Any) -> list[dict]:
+    """One row per executed presence BLOCK.
+
+    Someone who left and came back has several blocks; emitting only the outer span would bill
+    the hours they were away. Entries written before blocks existed carry no ``intervals`` and
+    project their single ``checkedInAt``/``leftAt`` pair, so both shapes read the same here.
+    """
     if not isinstance(att, dict):
         return []
     out = []
     for pid, a in att.items():
         if not isinstance(a, dict):
             continue
-        out.append(
-            {
-                "name": a.get("displayNameSnapshot") or pid,
-                "von": a.get("checkedInAt"),
-                "bis": a.get("leftAt"),
-                "status": a.get("status"),
-            }
-        )
-    return sorted(out, key=lambda x: str(x["name"]))
+        name = a.get("displayNameSnapshot") or pid
+        raw = a.get("intervals")
+        blocks = [b for b in raw if isinstance(b, dict)] if isinstance(raw, list) else []
+        if not blocks:
+            blocks = [{"from": a.get("checkedInAt"), "to": a.get("leftAt")}]
+        for b in blocks:
+            out.append(
+                {
+                    "name": name,
+                    "von": b.get("from"),
+                    "bis": b.get("to"),
+                    "status": a.get("status"),
+                }
+            )
+    return sorted(out, key=lambda x: (str(x["name"]), str(x["von"] or "")))
 
 
 def _iso(dt: datetime | None) -> str | None:

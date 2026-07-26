@@ -3,6 +3,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
 import { toast } from './ui'
 import type { AttendanceState, Person, TimelineEvent } from '../types'
+import { closePresence, currentIntervalIndex, intervalsOf, isPresent, openPresence, setIntervalTime } from './attendanceIntervals'
 
 interface AttendanceActionsDeps {
   attendance: AttendanceState
@@ -24,15 +25,19 @@ interface AttendanceActionsDeps {
  */
 export function useAttendanceActions({ attendance, setAttendance, blockedAttendanceIds, startedAt, reportDoneAt, log }: AttendanceActionsDeps) {
   const markPresent = (p: Person) => {
-    if (attendance[p.id]?.status === 'present') return
-    // «von» defaults to the alarm time (Vorschlag ab Alarmzeit) — ticking often happens
-    // long after arrival, and now() would print an end-of-incident «von» on the rapport
-    setAttendance((cur) => ({ ...cur, [p.id]: { status: 'present', checkedInAt: cur[p.id]?.checkedInAt ?? startedAt, leftAt: cur[p.id]?.leftAt, displayNameSnapshot: p.displayName } }))
-    log('people', `${p.displayName} anwesend`, 'team')
+    if (isPresent(attendance[p.id])) return
+    // First tick: «von» defaults to the alarm time (Vorschlag ab Alarmzeit) — ticking often
+    // happens long after arrival, and now() would print an end-of-incident «von» on the rapport.
+    // A RETURN opens a fresh block at the real clock instead; the alarm time would be nonsense
+    // there, and the earlier block keeps its own von–bis untouched.
+    const returning = intervalsOf(attendance[p.id]).length > 0
+    const at = returning ? new Date().toISOString() : startedAt
+    setAttendance((cur) => ({ ...cur, [p.id]: openPresence(cur[p.id], at, p.displayName) }))
+    log('people', `${p.displayName} ${returning ? 'wieder anwesend' : 'anwesend'}`, 'team')
   }
   const markLeft = (p: Person) => {
-    if (blockedAttendanceIds.has(p.id) || attendance[p.id]?.status === 'left') return
-    setAttendance((cur) => ({ ...cur, [p.id]: { status: 'left', checkedInAt: cur[p.id]?.checkedInAt, leftAt: new Date().toISOString(), displayNameSnapshot: p.displayName } }))
+    if (blockedAttendanceIds.has(p.id) || !isPresent(attendance[p.id])) return
+    setAttendance((cur) => (cur[p.id] ? { ...cur, [p.id]: closePresence(cur[p.id], new Date().toISOString(), p.displayName) } : cur))
     log('people', `${p.displayName} gegangen`, 'team')
   }
   const clearAttendance = (p: Person) => {
@@ -48,12 +53,14 @@ export function useAttendanceActions({ attendance, setAttendance, blockedAttenda
       action: { label: appConfig.copy.undo, onClick: () => setAttendance((cur) => ({ ...cur, [p.id]: prev })) },
     })
   }
-  // Stunden editor (Abschluss-Assistent): correct a person's von–bis. After the Rapport was
-  // declared complete, a correction additionally self-documents in the Verlauf (Nachtrag).
-  const setAttendanceTimes = (personId: string, patch: { checkedInAt?: string; leftAt?: string }) => {
+  // Stunden editor (Abschluss-Assistent): correct ONE block's von–bis (`index` defaults to the
+  // block the surface is showing). After the Rapport was declared complete, a correction
+  // additionally self-documents in the Verlauf (Nachtrag).
+  const setAttendanceTimes = (personId: string, patch: { from?: string; to?: string }, index?: number) => {
     const e = attendance[personId]
     if (!e) return
-    setAttendance((cur) => (cur[personId] ? { ...cur, [personId]: { ...cur[personId], ...patch } } : cur))
+    const i = index ?? currentIntervalIndex(e)
+    setAttendance((cur) => (cur[personId] ? { ...cur, [personId]: setIntervalTime(cur[personId], i, patch) } : cur))
     if (reportDoneAt) {
       log('people', fillTemplate(appConfig.copy.abschluss.corrected, { name: e.displayNameSnapshot }), 'team')
     }

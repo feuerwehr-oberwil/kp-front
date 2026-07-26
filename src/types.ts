@@ -544,13 +544,24 @@ export interface Person {
   updatedAt: string
 }
 
+/** One executed block of presence. `to` absent = still here. */
+export interface PresenceInterval {
+  from: string
+  to?: string
+}
+
 /** Per-incident attendance: who is physically present. Keyed by Person id. `left` keeps
  *  the earlier presence (not deleted); the snapshot survives roster name edits / report. */
 export interface AttendanceEntry {
   status: 'present' | 'left'
+  /** DERIVED first arrival — the shape the rapport / statistics export / QR sheet read. */
   checkedInAt?: string
+  /** DERIVED last departure; absent while the person came back. */
   leftAt?: string
   displayNameSnapshot: string
+  /** Every executed block, oldest first — the truth (see lib/attendanceIntervals). Absent on an
+   *  entry written before blocks existed, which projects its checkedInAt/leftAt pair instead. */
+  intervals?: PresenceInterval[]
 }
 export type AttendanceState = Record<string, AttendanceEntry>
 

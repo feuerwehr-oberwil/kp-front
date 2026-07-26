@@ -39,12 +39,21 @@ describe('applyAction', () => {
 
   it('setTimes refines an existing entry and never creates one', () => {
     const ws = { attendance: { p1: { status: 'left', checkedInAt: NOW, leftAt: NOW, displayNameSnapshot: 'Meier' } } }
-    const next = applyAction(ws, { kind: 'setTimes', personId: 'p1', leftAt: '2026-07-08T15:30:00Z' }, NOW)
+    const next = applyAction(ws, { kind: 'setTimes', personId: 'p1', to: '2026-07-08T15:30:00Z' }, NOW)
     const att = next.attendance as Record<string, AttendanceEntry>
     expect(att.p1.leftAt).toBe('2026-07-08T15:30:00Z')
     expect(att.p1.checkedInAt).toBe(NOW)
-    const noop = applyAction({}, { kind: 'setTimes', personId: 'ghost', leftAt: NOW }, NOW)
+    const noop = applyAction({}, { kind: 'setTimes', personId: 'ghost', to: NOW }, NOW)
     expect(noop.attendance).toBeUndefined()
+  })
+
+  // a legacy entry (no `intervals`) must be correctable in place — the projection is written
+  // back as a block, so the poster keeps working on data from before blocks existed
+  it('setTimes upgrades a legacy pair into a block without moving the times', () => {
+    const ws = { attendance: { p1: { status: 'left', checkedInAt: NOW, leftAt: NOW, displayNameSnapshot: 'Meier' } } }
+    const next = applyAction(ws, { kind: 'setTimes', personId: 'p1', to: '2026-07-08T15:30:00Z' }, NOW)
+    const att = next.attendance as Record<string, AttendanceEntry>
+    expect(att.p1.intervals).toEqual([{ from: NOW, to: '2026-07-08T15:30:00Z' }])
   })
 
   it('setMittel appends a running total, no-ops on unchanged, keeps history', () => {

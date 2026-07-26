@@ -17,6 +17,7 @@ import { fillTemplate, formatSymbolName, formatTime } from './lib/format'
 import { formatAudioDuration } from './lib/audioImport'
 import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys } from './lib/symbols'
 import { circlePolygon, fmtLV95, fmtWGS, haversineM, pathLengthM } from './lib/geo'
+import { intervalsOf, isPresent, openPresence } from './lib/attendanceIntervals'
 import { lineLabel } from './lib/lineDecor'
 import { panelNudge, panelNudgeUp, panelNudgeBox, panelNudgeBoxUp, isBottomSheet } from './lib/panelNudge'
 import { useMeasure } from './lib/useMeasure'
@@ -1578,13 +1579,16 @@ export function IncidentWorkspace({
   // present crew (attendance) — offered first in the Einsatzleiter picker (mirrors Atemschutz)
   const presentIds = useMemo(() => new Set(Object.entries(attendance).filter(([, a]) => a.status === 'present').map(([id]) => id)), [attendance])
   const ensurePresentFromTrupp = (ids: (string | undefined)[]) => {
-    const fresh = [...new Set(ids.filter(Boolean) as string[])].filter((id) => attendance[id]?.status !== 'present')
+    const fresh = [...new Set(ids.filter(Boolean) as string[])].filter((id) => !isPresent(attendance[id]))
     if (!fresh.length) return
     setAttendance((cur) => {
       const next = { ...cur }
       for (const id of fresh) {
         const name = rosterById.get(id)?.displayName ?? cur[id]?.displayNameSnapshot ?? id
-        next[id] = { status: 'present', checkedInAt: cur[id]?.checkedInAt ?? incidentMeta.started_at, leftAt: cur[id]?.leftAt, displayNameSnapshot: name }
+        // being put in a Trupp opens a presence block: the alarm time for a first one, the real
+        // clock for someone who had already left and is being sent out again
+        const at = intervalsOf(cur[id]).length ? new Date().toISOString() : incidentMeta.started_at
+        next[id] = openPresence(cur[id], at, name)
       }
       return next
     })
