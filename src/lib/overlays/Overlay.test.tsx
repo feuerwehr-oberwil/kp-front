@@ -30,4 +30,15 @@ describe('Overlay', () => {
     fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
     expect(onClose).not.toHaveBeenCalled()
   })
+
+  // Regression: the «Eintrag» composer opens from a pointerup handler, and iPadOS then delivers the
+  // compatibility click of that same tap — which Base UI read as an outside press, so the sheet
+  // closed within the tap that opened it and the tablet button looked dead. See dismissGrace.
+  it('survives the synthetic outside press that follows the opening tap', () => {
+    const onClose = vi.fn()
+    render(<Overlay open onClose={onClose} className="ip-sheet ui-dialog" ariaLabel="Test">x</Overlay>)
+    fireEvent.click(document.body)
+    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.getByRole('dialog', { name: 'Test' })).toBeTruthy()
+  })
 })

@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode, RefObject } from 'react'
 import { Dialog } from '@base-ui/react/dialog'
+import { useDismissGrace } from './dismissGrace'
 
 /**
  * Lower-level sibling of <Sheet>: gives an EXISTING bespoke overlay — one with its own
@@ -45,6 +46,7 @@ export interface OverlayProps {
 }
 
 export function Overlay({ open, onClose, className, backdropClassName = 'ui-backdrop', ariaLabel, initialFocus, modal = 'trap-focus', dismissEscape = true, style, children }: OverlayProps) {
+  const isOpeningEcho = useDismissGrace(open)
   return (
     <Dialog.Root
       open={open}
@@ -53,6 +55,9 @@ export function Overlay({ open, onClose, className, backdropClassName = 'ui-back
         if (next) return
         // the caller owns Escape → veto Base UI's escape-driven close (it still closes via `open`)
         if (!dismissEscape && details.reason === 'escape-key') { details.cancel(); return }
+        // a touch surface opened from pointerup gets its own synthetic mousedown back as an
+        // "outside press" — ignore it (see dismissGrace)
+        if (isOpeningEcho(details.reason)) { details.cancel(); return }
         onClose()
       }}
     >

@@ -3,6 +3,7 @@ import { Dialog } from '@base-ui/react/dialog'
 import { Icon } from '../icons'
 import { appConfig } from '../../config/appConfig'
 import { SheetGrip } from '../../components/SheetGrip'
+import { useDismissGrace } from './dismissGrace'
 
 /**
  * The shared modal Sheet — ONE overlay primitive behind every `.ip-sheet`.
@@ -52,8 +53,19 @@ export interface SheetProps {
 
 export function Sheet({ open, onClose, title, ariaLabel, children, footer, wide, fit, sheetClassName, grip, initialFocus, modal = 'trap-focus' }: SheetProps) {
   const cls = ['ip-sheet', 'ui-dialog', wide && 'ip-wide', fit && 'ip-fit', sheetClassName].filter(Boolean).join(' ')
+  const isOpeningEcho = useDismissGrace(open)
   return (
-    <Dialog.Root open={open} onOpenChange={(next) => { if (!next) onClose() }} modal={modal}>
+    <Dialog.Root
+      open={open}
+      modal={modal}
+      onOpenChange={(next, details) => {
+        if (next) return
+        // a touch surface opened from pointerup gets its own synthetic mousedown back as an
+        // "outside press" — ignore it (see dismissGrace)
+        if (isOpeningEcho(details.reason)) { details.cancel(); return }
+        onClose()
+      }}
+    >
       <Dialog.Portal>
         <Dialog.Backdrop className="ui-backdrop" />
         <Dialog.Popup className={cls} initialFocus={initialFocus} aria-label={title == null ? ariaLabel : undefined}>
