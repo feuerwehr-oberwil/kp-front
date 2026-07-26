@@ -278,6 +278,12 @@ The two grew out of the same brigade and share a design language, but they are *
 independent** codebases and deployments – neither requires the other. They can *optionally* hand
 alarms to each other through the same generic `POST /api/alarms` webhook, and nothing more.
 
+**Running both on one host?** Read
+[`RUNNING-BOTH.md`](https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RUNNING-BOTH.md) first. Independent
+does not mean they can't collide: both stacks ship a Caddy that wants port 443, both have a
+`PUBLIC_URL` that means something different, and their `/api/alarms` payloads overlap without
+being interchangeable. Three traps, all silent, all cheaper to read about than to debug.
+
 ## Contributing
 
 Contributions are welcome: bug fixes, integrations, translations, or ideas. See

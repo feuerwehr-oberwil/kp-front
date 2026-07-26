@@ -268,9 +268,7 @@ class SttJob(Base):
     __tablename__ = "stt_jobs"
 
     id: Mapped[uuid.UUID] = _uuid_pk()
-    media_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("media.id", ondelete="CASCADE"), nullable=False, unique=True
-    )
+    media_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("media.id", ondelete="CASCADE"), nullable=False, unique=True)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="queued")  # queued|running|done|failed
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     segments: Mapped[list | None] = mapped_column(JSONB, nullable=True)  # [{start,end,text,status,rowId?}]
@@ -385,9 +383,7 @@ class DeploymentConfig(Base):
     # instance that never opts in never even generates one. Not derived from the hostname,
     # the config or the DB: it identifies reports as same-origin and nothing else, and
     # regenerating it (admin UI) is how a station makes its past reports unlinkable.
-    telemetry_install_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), nullable=True
-    )
+    telemetry_install_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -482,9 +478,7 @@ class VehicleSample(Base):
     __tablename__ = "vehicle_samples"
 
     id: Mapped[uuid.UUID] = _uuid_pk()
-    incident_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False
-    )
+    incident_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False)
     device_id: Mapped[int] = mapped_column(Integer, nullable=False)
     ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     lat: Mapped[float] = mapped_column(Numeric(10, 7), nullable=False)
@@ -517,9 +511,7 @@ class TelemetryOutbox(Base):
     # 'error' (background, needs consent) | 'report' (manual, the send button is the consent)
     channel: Mapped[str] = mapped_column(String(16), nullable=False)
     payload_json: Mapped[dict] = mapped_column(JSONB, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     # NULL = still queued. Set once the ingest has 200'd; rows are swept after a few days.
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))

@@ -123,7 +123,7 @@ release version:
 # Commit the bump and tag it. Stages ONLY the release files (this tree carries WIP).
 # Then: git push --follow-tags  → CI gate → GHCR image + GitHub Release.
 release-tag version:
-    git add package.json backend/pyproject.toml backend/uv.lock backend/app/config.py CHANGELOG.md
+    git add package.json backend/pyproject.toml backend/uv.lock backend/app/config.py docs/openapi.json CHANGELOG.md
     git commit -m "chore(release): v{{version}}"
     git tag -a v{{version}} -m "v{{version}}"
     @echo "\033[1;32m✓ Tagged v{{version}}. Push with: git push --follow-tags\033[0m"

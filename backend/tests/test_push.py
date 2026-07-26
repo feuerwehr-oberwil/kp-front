@@ -24,8 +24,14 @@ NOW = ms("2026-07-02T14:10:00+00:00")
 
 
 def trupp(id_: str, contact: str | None, status: str = "aktiv", **over) -> dict:
-    return {"id": id_, "name": f"Trupp {id_}", "entryTime": "2026-07-02T14:00:00Z",
-            "lastContactTime": contact, "status": status, **over}
+    return {
+        "id": id_,
+        "name": f"Trupp {id_}",
+        "entryTime": "2026-07-02T14:00:00Z",
+        "lastContactTime": contact,
+        "status": status,
+        **over,
+    }
 
 
 class TestDueTrupps:
@@ -38,11 +44,13 @@ class TestDueTrupps:
         assert due_trupps(ws, {}, NOW) == []
 
     def test_out_of_field_never_fires(self):
-        ws = {"trupps": [
-            trupp("raus", "2026-07-02T13:00:00Z", status="raus"),
-            trupp("exited", "2026-07-02T13:00:00Z", exitTime="2026-07-02T13:30:00Z"),
-            trupp("angemeldet", None, status="angemeldet") | {"entryTime": None},
-        ]}
+        ws = {
+            "trupps": [
+                trupp("raus", "2026-07-02T13:00:00Z", status="raus"),
+                trupp("exited", "2026-07-02T13:00:00Z", exitTime="2026-07-02T13:30:00Z"),
+                trupp("angemeldet", None, status="angemeldet") | {"entryTime": None},
+            ]
+        }
         assert due_trupps(ws, {}, NOW) == []
 
     def test_doctrine_and_incident_settings_override(self):
@@ -69,7 +77,8 @@ class TestDueReminders:
 
     def test_done_and_future_do_not_fire(self):
         rows = [
-            rem_row("done", "created", "2026-07-02T14:00:00Z"), rem_row("done", "done"),
+            rem_row("done", "created", "2026-07-02T14:00:00Z"),
+            rem_row("done", "done"),
             rem_row("future", "created", "2026-07-02T15:00:00Z"),
         ]
         assert due_reminders(rows, NOW, None) == []
@@ -204,7 +213,9 @@ async def test_notify_new_alarm_broadcasts_stichwort_and_address(db_session, mon
     monkeypatch.setattr(push_mod, "broadcast", fake_broadcast)
     n = await push_mod.notify_new_alarm(db_session, tag="divera-99", title="Zimmerbrand", address="Teststrasse 1")
     assert n == 2
-    assert calls == [{"title": "Neuer Einsatz", "body": "Zimmerbrand — Teststrasse 1", "tag": "divera-99", "target": "divera"}]
+    assert calls == [
+        {"title": "Neuer Einsatz", "body": "Zimmerbrand — Teststrasse 1", "tag": "divera-99", "target": "divera"}
+    ]
 
 
 async def test_webhook_pushes_only_for_new_alarms(client, monkeypatch):
@@ -252,7 +263,5 @@ def test_gen_vapid_emits_a_matching_urlsafe_pair():
     assert len(raw_priv) == 32  # raw scalar
     # the public point actually belongs to the private scalar
     key = ec.derive_private_key(int.from_bytes(raw_priv, "big"), ec.SECP256R1())
-    derived = key.public_key().public_bytes(
-        serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint
-    )
+    derived = key.public_key().public_bytes(serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint)
     assert derived == raw_pub

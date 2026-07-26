@@ -19,9 +19,7 @@ from app.main import app
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 COMMITTED = ROOT / "docs" / "openapi.json"
 
-pytestmark = pytest.mark.skipif(
-    not COMMITTED.exists(), reason="repo root not available (running from the image)"
-)
+pytestmark = pytest.mark.skipif(not COMMITTED.exists(), reason="repo root not available (running from the image)")
 
 
 def test_committed_openapi_matches_the_app():

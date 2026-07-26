@@ -27,9 +27,15 @@ async def _login(client, editor) -> None:
 
 
 async def _incident(db_session, **kw) -> Incident:
-    inc = Incident(title="Verunreinigung Bachweg", source="divera", status="offen",
-                   divera_id=36123165, address="Bachweg 1",
-                   started_at=datetime(2026, 7, 15, 3, 54, tzinfo=UTC), **kw)
+    inc = Incident(
+        title="Verunreinigung Bachweg",
+        source="divera",
+        status="offen",
+        divera_id=36123165,
+        address="Bachweg 1",
+        started_at=datetime(2026, 7, 15, 3, 54, tzinfo=UTC),
+        **kw,
+    )
     db_session.add(inc)
     await db_session.commit()
     return inc
@@ -37,9 +43,12 @@ async def _incident(db_session, **kw) -> Incident:
 
 async def _pool_alarm(db_session, divera_id=36123120, **kw) -> DiveraEmergency:
     em = DiveraEmergency(
-        divera_id=divera_id, title="Verunreinigung durch Diesel",
-        text="Stellenweise, ab BLT Leitstelle", address="Bachweg 1, Musterdorf",
-        received_at=datetime(2026, 7, 15, 3, 57, 52, tzinfo=UTC), **kw,
+        divera_id=divera_id,
+        title="Verunreinigung durch Diesel",
+        text="Stellenweise, ab BLT Leitstelle",
+        address="Bachweg 1, Musterdorf",
+        received_at=datetime(2026, 7, 15, 3, 57, 52, tzinfo=UTC),
+        **kw,
     )
     db_session.add(em)
     await db_session.commit()
@@ -68,9 +77,7 @@ async def test_attach_joins_existing_incident_without_creating_one(client, db_se
     assert inc.address == "Bachweg 1"
     assert inc.divera_id == 36123165
 
-    rows = (
-        await db_session.execute(select(JournalEntry).where(JournalEntry.incident_id == inc.id))
-    ).scalars().all()
+    rows = (await db_session.execute(select(JournalEntry).where(JournalEntry.incident_id == inc.id))).scalars().all()
     texts = [row.row_json["text"] for row in rows]
     assert texts, "no journal rows at all"
     # full Meldung in one Verlauf row: local time, title, text, address
@@ -115,8 +122,7 @@ async def test_milestones_follow_attached_alarm(client, db_session, editor, monk
     # milestones addressed to the ATTACHED alarm's divera_id land on the incident
     r = await client.post(
         "/api/alarms/milestones",
-        json={"divera_id": em.divera_id,
-              "vehicles": [{"id": "pio", "ausgerueckt": "2026-07-15T04:07:46Z"}]},
+        json={"divera_id": em.divera_id, "vehicles": [{"id": "pio", "ausgerueckt": "2026-07-15T04:07:46Z"}]},
         headers={"X-Webhook-Secret": "hook-secret-123"},
     )
     assert r.status_code == 200

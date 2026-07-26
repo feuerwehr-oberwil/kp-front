@@ -150,8 +150,13 @@ class TraccarClient:
                 if hr.status_code != 200:
                     return None
                 pts = [
-                    {"lat": p["latitude"], "lng": p["longitude"], "ts": p["deviceTime"],
-                     "course": p.get("course"), "speed": (p["speed"] * 1.852 if p.get("speed") is not None else None)}
+                    {
+                        "lat": p["latitude"],
+                        "lng": p["longitude"],
+                        "ts": p["deviceTime"],
+                        "course": p.get("course"),
+                        "speed": (p["speed"] * 1.852 if p.get("speed") is not None else None),
+                    }
                     for p in hr.json()
                 ]
                 if not pts:

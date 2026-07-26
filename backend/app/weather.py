@@ -48,21 +48,12 @@ def lv95_to_wgs84(east: float, north: float) -> tuple[float, float]:
     """
     y = (east - 2_600_000.0) / 1_000_000.0
     x = (north - 1_200_000.0) / 1_000_000.0
-    lng = (
-        2.6779094
-        + 4.728982 * y
-        + 0.791484 * y * x
-        + 0.1306 * y * x * x
-        - 0.0436 * y * y * y
-    ) * 100.0 / 36.0
+    lng = (2.6779094 + 4.728982 * y + 0.791484 * y * x + 0.1306 * y * x * x - 0.0436 * y * y * y) * 100.0 / 36.0
     lat = (
-        16.9023892
-        + 3.238272 * x
-        - 0.270978 * y * y
-        - 0.002528 * x * x
-        - 0.0447 * y * y * x
-        - 0.0140 * x * x * x
-    ) * 100.0 / 36.0
+        (16.9023892 + 3.238272 * x - 0.270978 * y * y - 0.002528 * x * x - 0.0447 * y * y * x - 0.0140 * x * x * x)
+        * 100.0
+        / 36.0
+    )
     return lat, lng
 
 
@@ -228,7 +219,7 @@ class WeatherClient:
         return out
 
     async def _from_open_meteo(self, lat: float, lng: float) -> WeatherData | None:
-        params = {
+        params: dict[str, float | str] = {
             "latitude": lat,
             "longitude": lng,
             "current": "wind_speed_10m,wind_direction_10m,wind_gusts_10m,temperature_2m,precipitation,weather_code",
@@ -270,7 +261,7 @@ def _num(value: object) -> float | None:
 
 def _int(value: object) -> int | None:
     f = _num(value)
-    return None if f is None else int(round(f))
+    return None if f is None else round(f)
 
 
 weather_client = WeatherClient()

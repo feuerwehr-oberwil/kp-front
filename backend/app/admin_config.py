@@ -96,12 +96,40 @@ EXAMPLE_CONFIG: dict[str, Any] = {
     # `combinedWith` = a combined sheet that fills several slots; `family` = generative (the
     # `match` capture becomes a sub-slot, e.g. "Modul 5 - Wasser" → modul5-wasser).
     "modules": [
-        {"id": "modul1", "code": "M1", "title": "Übersicht", "order": 1, "orientation": "portrait", "match": r"modul\s*1(?!\s*[-–/]\s*\d)"},
+        {
+            "id": "modul1",
+            "code": "M1",
+            "title": "Übersicht",
+            "order": 1,
+            "orientation": "portrait",
+            "match": r"modul\s*1(?!\s*[-–/]\s*\d)",
+        },
         {"id": "modul2", "code": "M2", "title": "Umgebung", "order": 2, "match": r"modul\s*2(?!\s*[-–/]\s*\d)"},
         {"id": "modul3", "code": "M3", "title": "Objektplan", "order": 3, "match": r"modul\s*3(?!\s*[-–/]\s*\d)"},
-        {"id": "modul2-3", "code": "2/3", "title": "Umgebung & Objekt", "order": 4, "match": r"modul\s*2\s*[-–/]\s*3", "combinedWith": ["modul2", "modul3"]},
-        {"id": "modul6", "code": "M6", "title": "Gebäudepläne", "order": 6, "orientation": "portrait", "match": r"modul\s*6"},
-        {"id": "modul5", "code": "M5", "title": "Spezialpläne", "order": 5, "family": True, "match": r"modul\s*5(?:\s*[-–—]\s*([0-9A-Za-zÄÖÜäöü]+))?"},
+        {
+            "id": "modul2-3",
+            "code": "2/3",
+            "title": "Umgebung & Objekt",
+            "order": 4,
+            "match": r"modul\s*2\s*[-–/]\s*3",
+            "combinedWith": ["modul2", "modul3"],
+        },
+        {
+            "id": "modul6",
+            "code": "M6",
+            "title": "Gebäudepläne",
+            "order": 6,
+            "orientation": "portrait",
+            "match": r"modul\s*6",
+        },
+        {
+            "id": "modul5",
+            "code": "M5",
+            "title": "Spezialpläne",
+            "order": 5,
+            "family": True,
+            "match": r"modul\s*5(?:\s*[-–—]\s*([0-9A-Za-zÄÖÜäöü]+))?",
+        },
         {"id": "modul4", "code": "M4", "title": "Spezialplan", "order": 7, "match": r"modul\s*4"},
     ],
     "fleet": {
@@ -331,7 +359,11 @@ async def _amain(argv: list[str]) -> int:
         return 0
     # show
     stored = await _show()
-    print(json.dumps(stored, indent=2, ensure_ascii=False) if stored else "No deployment config stored (row absent or empty).")
+    print(
+        json.dumps(stored, indent=2, ensure_ascii=False)
+        if stored
+        else "No deployment config stored (row absent or empty)."
+    )
     return 0
 
 

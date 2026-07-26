@@ -12,7 +12,7 @@ from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI
 
 from .config import settings
-from .database import async_session_maker
+from .database import async_session_maker, execute_dml
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ async def _poll_divera() -> None:
             await db.commit()
             if new:
                 logger.info("Divera poll: %d new alarm(s)", new)
-        except Exception:  # noqa: BLE001
+        except Exception:  # never let diagnostics wedge the scheduler
             await db.rollback()
             logger.exception("Divera poll failed")
 
@@ -42,7 +42,7 @@ async def _push_sweep() -> None:
             await db.commit()
             if sent:
                 logger.info("Push sweep: %d alert(s) sent", sent)
-        except Exception:  # noqa: BLE001
+        except Exception:
             await db.rollback()
             logger.exception("Push sweep failed")
 
@@ -56,7 +56,7 @@ async def _auto_archive_sweep() -> None:
             await db.commit()
             if n:
                 logger.info("Auto-archive sweep: %d incident(s)", n)
-        except Exception:  # noqa: BLE001
+        except Exception:
             await db.rollback()
             logger.exception("Auto-archive sweep failed")
 
@@ -75,11 +75,11 @@ async def _print_jobs_sweep() -> None:
     async with async_session_maker() as db:
         try:
             cutoff = datetime.now(UTC) - timedelta(days=PRINT_JOB_RETENTION_DAYS)
-            res = await db.execute(delete(PrintJob).where(PrintJob.created_at < cutoff))
+            res = await execute_dml(db, delete(PrintJob).where(PrintJob.created_at < cutoff))
             await db.commit()
             if res.rowcount:
                 logger.info("Print-job sweep: %d job(s) removed", res.rowcount)
-        except Exception:  # noqa: BLE001
+        except Exception:
             await db.rollback()
             logger.exception("Print-job sweep failed")
 
@@ -97,7 +97,7 @@ async def _demo_reset() -> None:
 
     try:
         await reset(wipe_objects=False)
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.exception("Demo reset sweep failed")
 
 
@@ -109,7 +109,7 @@ async def _heartbeat() -> None:
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             await client.get(settings.healthcheck_ping_url)
-    except Exception:
+    except Exception:  # noqa: BLE001 — fail-open: a dead monitor must not disturb the app
         logger.warning("Heartbeat ping failed (non-fatal)")
 
 
@@ -128,7 +128,7 @@ async def _telemetry_flush() -> None:
             await flush(db)
             await sweep(db)
             await db.commit()
-        except Exception:  # noqa: BLE001 — never let diagnostics wedge the scheduler
+        except Exception:
             await db.rollback()
             logger.exception("Telemetry flush failed")
 

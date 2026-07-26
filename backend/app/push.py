@@ -121,7 +121,7 @@ def _send_one(sub: dict, payload: str) -> bool:
             return False  # endpoint gone — caller prunes it
         logger.warning("Web push failed (%s): %s", code, e)
         return True
-    except Exception:  # noqa: BLE001 — malformed keys must not abort the whole sweep
+    except Exception:  # intake must survive a broken push path  # malformed keys must not abort the whole sweep
         logger.exception("Web push subscription unusable — pruning %s", sub["endpoint"][:60])
         return False
 
@@ -134,9 +134,7 @@ async def broadcast(db: AsyncSession, *, title: str, body: str, tag: str, target
     payload = json.dumps({"title": title, "body": body, "tag": tag, "target": target})
     dead: list[str] = []
     for s in subs:
-        ok = await asyncio.to_thread(
-            _send_one, {"endpoint": s.endpoint, "p256dh": s.p256dh, "auth": s.auth}, payload
-        )
+        ok = await asyncio.to_thread(_send_one, {"endpoint": s.endpoint, "p256dh": s.p256dh, "auth": s.auth}, payload)
         if not ok:
             dead.append(s.endpoint)
     if dead:
@@ -160,7 +158,7 @@ async def notify_new_alarm(
         # auto-opened there is nothing to take — target None just focuses/boots the app,
         # whose cold-start pick then lands on the newest alarm incident.
         return await broadcast(db, title="Neuer Einsatz", body=body, tag=tag, target=target)
-    except Exception:  # noqa: BLE001 — intake must survive a broken push path
+    except Exception:
         logger.exception("New-alarm push failed (%s)", tag)
         return 0
 
@@ -184,15 +182,11 @@ def _should_send(key: str, now_ms: float) -> bool:
 async def check_and_push(db: AsyncSession, now_ms: float | None = None) -> int:
     """One due-ness sweep over all open incidents. Returns alerts sent."""
     now_ms = now_ms if now_ms is not None else datetime.now(UTC).timestamp() * 1000
-    doctrine_row = (
-        await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))
-    ).scalar_one_or_none()
+    doctrine_row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     doctrine = ((doctrine_row.config_json if doctrine_row else {}) or {}).get("doctrine") or {}
 
     sent = 0
-    incidents = list(
-        (await db.execute(select(Incident).where(Incident.is_archived.is_(False)))).scalars()
-    )
+    incidents = list((await db.execute(select(Incident).where(Incident.is_archived.is_(False)))).scalars())
     for inc in incidents:
         ws = inc.map_workspace_json or {}
         for t in due_trupps(ws, doctrine, now_ms):
@@ -210,9 +204,7 @@ async def check_and_push(db: AsyncSession, now_ms: float | None = None) -> int:
             r.row_json
             for r in (
                 await db.execute(
-                    select(JournalEntry)
-                    .where(JournalEntry.incident_id == inc.id)
-                    .order_by(JournalEntry.seq.asc())
+                    select(JournalEntry).where(JournalEntry.incident_id == inc.id).order_by(JournalEntry.seq.asc())
                 )
             ).scalars()
         ]

@@ -46,16 +46,46 @@ TYPE_LABELS: dict[str, str] = {
 }
 
 HIGH_PRIORITY_KEYWORDS = [
-    "BRAND", "FEUER", "FEUERALARM", "VOLLBRAND", "RAUCH", "FLAMMEN",
-    "BMA", "BRANDMELDEANLAGE", "BRANDMELDER", "RAUCHMELDER",
-    "PERSON IN", "PERSON IM", "EINGEKLEMMT", "EINGESCHLOSSEN", "ABSTURZ",
-    "VERMISST", "BEWUSSTLOS", "VERLETZT",
-    "VU", "VERKEHRSUNFALL",
-    "GAS", "GASGERUCH", "GASAUSTRITT", "CHEMIE", "CHEMIKALIEN", "GEFAHRGUT", "GEFAHRSTOFF",
-    "MED USTÜ", "MED.", "MEDIZINISCH", "REANIMATION", "NOTARZT", "RETTUNGSDIENST",
-    "EXPLOSION", "DETONATION",
-    "EINSTURZ", "EINGESTÜRZT",
-    "LIFT", "AUFZUG", "FAHRSTUHL",
+    "BRAND",
+    "FEUER",
+    "FEUERALARM",
+    "VOLLBRAND",
+    "RAUCH",
+    "FLAMMEN",
+    "BMA",
+    "BRANDMELDEANLAGE",
+    "BRANDMELDER",
+    "RAUCHMELDER",
+    "PERSON IN",
+    "PERSON IM",
+    "EINGEKLEMMT",
+    "EINGESCHLOSSEN",
+    "ABSTURZ",
+    "VERMISST",
+    "BEWUSSTLOS",
+    "VERLETZT",
+    "VU",
+    "VERKEHRSUNFALL",
+    "GAS",
+    "GASGERUCH",
+    "GASAUSTRITT",
+    "CHEMIE",
+    "CHEMIKALIEN",
+    "GEFAHRGUT",
+    "GEFAHRSTOFF",
+    "MED USTÜ",
+    "MED.",
+    "MEDIZINISCH",
+    "REANIMATION",
+    "NOTARZT",
+    "RETTUNGSDIENST",
+    "EXPLOSION",
+    "DETONATION",
+    "EINSTURZ",
+    "EINGESTÜRZT",
+    "LIFT",
+    "AUFZUG",
+    "FAHRSTUHL",
 ]
 
 
@@ -176,7 +206,8 @@ async def maybe_auto_open(db: AsyncSession, em: DiveraEmergency) -> Incident | N
     if running:
         logger.info(
             "Auto-open suppressed for Divera %s: %d running incident(s) — pooled for take/attach",
-            em.divera_id, running,
+            em.divera_id,
+            running,
         )
         return None
     inc = await create_incident_from_alarm(
@@ -194,7 +225,11 @@ async def maybe_auto_open(db: AsyncSession, em: DiveraEmergency) -> Incident | N
     em.is_taken = True
     em.taken_incident_id = inc.id
     await audit.append_event(
-        db, incident_id=inc.id, op_type="divera.update", source="divera", user_id=None,
+        db,
+        incident_id=inc.id,
+        op_type="divera.update",
+        source="divera",
+        user_id=None,
         payload={"divera_id": em.divera_id, "auto": True},
     )
     return inc
@@ -221,7 +256,10 @@ async def fetch_and_upsert(db: AsyncSession) -> int:
             new += 1
             inc = await maybe_auto_open(db, em)
             await notify_new_alarm(
-                db, tag=f"divera-{alarm.id}", title=alarm.title, address=alarm.address,
+                db,
+                tag=f"divera-{alarm.id}",
+                title=alarm.title,
+                address=alarm.address,
                 target=None if inc else "divera",
             )
     return new

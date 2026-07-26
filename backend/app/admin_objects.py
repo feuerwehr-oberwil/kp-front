@@ -90,7 +90,7 @@ class ObjectEntry(BaseModel):
             raise ValueError(f"object {self.id}: 'name' must not be empty")
         if (self.lat is None) != (self.lng is None):
             raise ValueError(f"object {self.id}: lat and lng must both be set or both omitted")
-        if self.lat is not None and (abs(self.lat) > 90 or abs(self.lng) > 180):
+        if self.lat is not None and self.lng is not None and (abs(self.lat) > 90 or abs(self.lng) > 180):
             raise ValueError(
                 f"object {self.id}: ({self.lat}, {self.lng}) is not WGS84 [lat, lng] — reproject before loading"
             )
@@ -115,7 +115,11 @@ EXAMPLE_MANIFEST: dict[str, Any] = {
                 {"module": "modul1", "file": "plans/dorfmatt/modul1.pdf", "title": "Schulhaus Dorfmatt – Übersicht"},
                 {"module": "modul2", "file": "plans/dorfmatt/modul2-3.pdf", "title": "Schulhaus Dorfmatt – Umgebung"},
                 {"module": "modul6", "file": "plans/dorfmatt/modul6.pdf", "title": "Schulhaus Dorfmatt – Gebäudepläne"},
-                {"module": "modul5-wasser", "file": "plans/dorfmatt/modul5-wasser.pdf", "title": "Schulhaus Dorfmatt – Löschwasser"},
+                {
+                    "module": "modul5-wasser",
+                    "file": "plans/dorfmatt/modul5-wasser.pdf",
+                    "title": "Schulhaus Dorfmatt – Löschwasser",
+                },
             ],
         }
     ]
@@ -143,7 +147,7 @@ def _read_manifest(path: Path) -> list[ObjectEntry]:
     if isinstance(data, dict) and isinstance(data.get("objects"), list):
         data = data["objects"]
     if not isinstance(data, list):
-        _fail(f"ERROR: {path} must be a JSON list of objects (or {{\"objects\": [...]}}).")
+        _fail(f'ERROR: {path} must be a JSON list of objects (or {{"objects": [...]}}).')
     objects: list[ObjectEntry] = []
     seen: set[uuid.UUID] = set()
     for i, item in enumerate(data):
@@ -192,9 +196,7 @@ async def _load(manifest_path: Path, objects: list[ObjectEntry]) -> tuple[int, i
     async with async_session_maker() as db:
         n_plans = 0
         for o in objects:
-            existing = (
-                await db.execute(select(ObjectSite).where(ObjectSite.id == o.id))
-            ).scalar_one_or_none()
+            existing = (await db.execute(select(ObjectSite).where(ObjectSite.id == o.id))).scalar_one_or_none()
             if existing is None:
                 existing = ObjectSite(id=o.id)
                 db.add(existing)
@@ -290,14 +292,18 @@ def _push(
 async def _show() -> list[dict[str, Any]]:
     async with async_session_maker() as db:
         objs = list((await db.execute(select(ObjectSite).order_by(ObjectSite.name))).scalars())
-        counts = dict(
+        # .tuples() so the rows are typed as (object_id, count) pairs rather than opaque Rows —
+        # dict() over them then needs no annotation and no cast.
+        counts: dict[uuid.UUID | None, int] = dict(
             (
                 await db.execute(
                     select(ReferenceDataset.object_id, func.count())
                     .where(ReferenceDataset.kind == "pdf")
                     .group_by(ReferenceDataset.object_id)
                 )
-            ).all()
+            )
+            .tuples()
+            .all()
         )
         return [
             {
@@ -331,7 +337,11 @@ async def _amain(argv: list[str]) -> int:
     p_push = sub.add_parser("push", help="upload objects + PDFs to a RUNNING deployment via its API")
     p_push.add_argument("manifest")
     p_push.add_argument("--base", default=os.environ.get("KP_BASE_URL"), help="deployment base URL (env KP_BASE_URL)")
-    p_push.add_argument("--admin-secret", default=os.environ.get("KP_ADMIN_SECRET"), help="deployment ADMIN_SECRET (env KP_ADMIN_SECRET)")
+    p_push.add_argument(
+        "--admin-secret",
+        default=os.environ.get("KP_ADMIN_SECRET"),
+        help="deployment ADMIN_SECRET (env KP_ADMIN_SECRET)",
+    )
     p_push.add_argument("--dry-run", action="store_true", help="authenticate + report only, do not upload/write")
     sub.add_parser("show", help="print the stored objects + plan counts")
 

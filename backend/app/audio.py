@@ -18,8 +18,8 @@ from . import storage
 from .config import settings
 
 PEAKS_BUCKETS = 2000
-_RATE = 8000            # mono decode rate — plenty for a speech amplitude envelope
-_COARSE = _RATE // 20   # coarse reduction unit: one max per 50 ms
+_RATE = 8000  # mono decode rate — plenty for a speech amplitude envelope
+_COARSE = _RATE // 20  # coarse reduction unit: one max per 50 ms
 
 PEAKS_SUFFIX = ".peaks.json"
 
@@ -54,7 +54,7 @@ async def extract_peaks(src_path: str) -> list[float] | None:
         )
     except FileNotFoundError:
         return None
-    assert proc.stdout is not None
+    assert proc.stdout is not None  # noqa: S101 — narrows the Optional for the reader below; PIPE guarantees it
     coarse: list[int] = []
     buf = b""
     seg_bytes = _COARSE * 2
@@ -98,8 +98,23 @@ class SttError(Exception):
 async def reencode_for_stt(src_path: str, dst_path: str) -> None:
     """Shrink the recording to mono 24 kbps Opus so multi-hour memos fit the cloud
     engines' ~25 MB per-file caps (2 h ≈ 21 MB) — speech stays fully intelligible."""
-    cmd = ["ffmpeg", "-v", "error", "-y", "-i", src_path,
-           "-ac", "1", "-c:a", "libopus", "-b:a", "24k", "-application", "voip", dst_path]
+    cmd = [
+        "ffmpeg",
+        "-v",
+        "error",
+        "-y",
+        "-i",
+        src_path,
+        "-ac",
+        "1",
+        "-c:a",
+        "libopus",
+        "-b:a",
+        "24k",
+        "-application",
+        "voip",
+        dst_path,
+    ]
     try:
         proc = await asyncio.create_subprocess_exec(
             *cmd, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE
@@ -127,9 +142,12 @@ async def transcribe(src_path: str) -> list[dict]:
             data["language"] = settings.stt_language
         try:
             async with httpx.AsyncClient(timeout=STT_TIMEOUT_SEC) as client:
-                with open(ogg, "rb") as fh:
-                    r = await client.post(url, headers=headers, data=data,
-                                          files={"file": ("audio.ogg", fh, "audio/ogg")})
+                # ASYNC230 suppressed: the handle is not read here — it is handed to httpx, which
+                # streams it as multipart. Slurping it into memory first would be strictly worse.
+                with open(ogg, "rb") as fh:  # noqa: ASYNC230
+                    r = await client.post(
+                        url, headers=headers, data=data, files={"file": ("audio.ogg", fh, "audio/ogg")}
+                    )
         except httpx.HTTPError as e:
             raise SttError(f"STT-Server nicht erreichbar: {type(e).__name__}") from None
     if r.status_code != 200:
@@ -139,8 +157,7 @@ async def transcribe(src_path: str) -> list[dict]:
     except ValueError:
         raise SttError("STT-Server: ungültige Antwort") from None
     segments = [
-        {"start": float(s.get("start") or 0), "end": float(s.get("end") or 0),
-         "text": (s.get("text") or "").strip()}
+        {"start": float(s.get("start") or 0), "end": float(s.get("end") or 0), "text": (s.get("text") or "").strip()}
         for s in (body.get("segments") or [])
     ]
     segments = [s for s in segments if s["text"]]

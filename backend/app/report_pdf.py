@@ -22,6 +22,7 @@ sent as strings, so the PDF matches the on-screen report exactly.
 from __future__ import annotations
 
 import io
+import logging
 
 from pydantic import BaseModel
 from reportlab.lib import colors
@@ -47,6 +48,8 @@ from reportlab.platypus import (
     Table,
     TableStyle,
 )
+
+logger = logging.getLogger(__name__)
 
 # ----------------------------------------------------------------------------- payload models
 
@@ -344,34 +347,84 @@ def _styles() -> dict[str, ParagraphStyle]:
     return {
         # the built-in Title style is CENTERED; force left so titles/headings sit at the margin
         # (the real alignment fix is zeroing the Frame side padding below).
-        "title": ParagraphStyle("rp_title", parent=base["Title"], fontSize=20, leading=24, textColor=ink,
-                                spaceAfter=2, alignment=TA_LEFT, leftIndent=0),
-        "eyebrow": ParagraphStyle("rp_eyebrow", parent=base["Normal"], fontSize=10, leading=12, textColor=dim,
-                                  spaceAfter=1, fontName="Helvetica-Bold", alignment=TA_LEFT, leftIndent=0),
+        "title": ParagraphStyle(
+            "rp_title",
+            parent=base["Title"],
+            fontSize=20,
+            leading=24,
+            textColor=ink,
+            spaceAfter=2,
+            alignment=TA_LEFT,
+            leftIndent=0,
+        ),
+        "eyebrow": ParagraphStyle(
+            "rp_eyebrow",
+            parent=base["Normal"],
+            fontSize=10,
+            leading=12,
+            textColor=dim,
+            spaceAfter=1,
+            fontName="Helvetica-Bold",
+            alignment=TA_LEFT,
+            leftIndent=0,
+        ),
         # section heading matching the Erfassungsblatt: 11.5pt bold with a solid dark rule
         # right underneath (the rule is a separate HRFlowable, see head() in the composer)
-        "h2": ParagraphStyle("rp_h2", parent=base["Heading2"], fontSize=11.5, leading=14, textColor=ink,
-                             spaceBefore=16, spaceAfter=2, alignment=TA_LEFT, leftIndent=0),
-        "h3": ParagraphStyle("rp_h3", parent=base["Heading3"], fontSize=12, leading=15, textColor=ink,
-                             spaceBefore=6, spaceAfter=3, alignment=TA_LEFT, leftIndent=0),
-        "body": ParagraphStyle("rp_body", parent=base["Normal"], fontSize=10, leading=13.5, textColor=ink, alignment=TA_LEFT),
-        "label": ParagraphStyle("rp_label", parent=base["Normal"], fontSize=8.5, leading=11, textColor=dim,
-                               fontName="Helvetica-Bold", spaceAfter=0),
+        "h2": ParagraphStyle(
+            "rp_h2",
+            parent=base["Heading2"],
+            fontSize=11.5,
+            leading=14,
+            textColor=ink,
+            spaceBefore=16,
+            spaceAfter=2,
+            alignment=TA_LEFT,
+            leftIndent=0,
+        ),
+        "h3": ParagraphStyle(
+            "rp_h3",
+            parent=base["Heading3"],
+            fontSize=12,
+            leading=15,
+            textColor=ink,
+            spaceBefore=6,
+            spaceAfter=3,
+            alignment=TA_LEFT,
+            leftIndent=0,
+        ),
+        "body": ParagraphStyle(
+            "rp_body", parent=base["Normal"], fontSize=10, leading=13.5, textColor=ink, alignment=TA_LEFT
+        ),
+        "label": ParagraphStyle(
+            "rp_label",
+            parent=base["Normal"],
+            fontSize=8.5,
+            leading=11,
+            textColor=dim,
+            fontName="Helvetica-Bold",
+            spaceAfter=0,
+        ),
         "cell": ParagraphStyle("rp_cell", parent=base["Normal"], fontSize=9, leading=12, textColor=ink),
-        "cellhead": ParagraphStyle("rp_cellhead", parent=base["Normal"], fontSize=8, leading=10, textColor=dim,
-                                  fontName="Helvetica-Bold"),
+        "cellhead": ParagraphStyle(
+            "rp_cellhead", parent=base["Normal"], fontSize=8, leading=10, textColor=dim, fontName="Helvetica-Bold"
+        ),
         "muted": ParagraphStyle("rp_muted", parent=base["Normal"], fontSize=9, leading=12, textColor=dim),
-        "mono": ParagraphStyle("rp_mono", parent=base["Normal"], fontSize=8.5, leading=11, textColor=ink, fontName="Courier"),
-        "stub": ParagraphStyle("rp_stub", parent=base["Normal"], fontSize=9, leading=12,
-                               textColor=colors.HexColor("#969696")),
+        "mono": ParagraphStyle(
+            "rp_mono", parent=base["Normal"], fontSize=8.5, leading=11, textColor=ink, fontName="Courier"
+        ),
+        "stub": ParagraphStyle(
+            "rp_stub", parent=base["Normal"], fontSize=9, leading=12, textColor=colors.HexColor("#969696")
+        ),
         # the tick inside a checkbox square — centered in its narrow cell
-        "check": ParagraphStyle("rp_check", parent=base["Normal"], fontSize=8.5, leading=10,
-                                textColor=ink, alignment=TA_CENTER),
+        "check": ParagraphStyle(
+            "rp_check", parent=base["Normal"], fontSize=8.5, leading=10, textColor=ink, alignment=TA_CENTER
+        ),
         # compact worksheet rows (roster / Material) — tight leading so a 66er roster
         # plus Material plus signatures still lands on two sheets
         "rcell": ParagraphStyle("rp_rcell", parent=base["Normal"], fontSize=8.5, leading=10, textColor=ink),
-        "rstub": ParagraphStyle("rp_rstub", parent=base["Normal"], fontSize=8.5, leading=10,
-                                textColor=colors.HexColor("#969696")),
+        "rstub": ParagraphStyle(
+            "rp_rstub", parent=base["Normal"], fontSize=8.5, leading=10, textColor=colors.HexColor("#969696")
+        ),
     }
 
 
@@ -455,7 +508,7 @@ def _fit_image(data: bytes | None, max_w: float, max_h: float) -> Image | None:
         return None
     try:
         iw, ih = ImageReader(io.BytesIO(data)).getSize()
-    except Exception:
+    except Exception:  # noqa: BLE001 — unreadable image → no image, never a failed rapport
         return None
     if iw <= 0 or ih <= 0:
         return None
@@ -481,8 +534,9 @@ def _kroki_view(pk, kw: int, kh: int):
         return view
     if pk.center and pk.zoom is not None:
         return kk.center_view(tuple(pk.center), pk.zoom, kw, kh)
-    scene = kk.KrokiScene(entities=[e.model_dump() for e in pk.entities],
-                          drawings=[d.model_dump() for d in pk.drawings])
+    scene = kk.KrokiScene(
+        entities=[e.model_dump() for e in pk.entities], drawings=[d.model_dump() for d in pk.drawings]
+    )
     pts = [tuple(p) for p in pk.fitPoints] or scene.extent_points()
     return kk.fit_view(pts, kw, kh)
 
@@ -497,14 +551,16 @@ def warm_report_tiles(payload: ReportPayload) -> None:
         from . import kroki as kk
 
         view = _kroki_view(payload.kroki, *_KROKI_PX)
-        kk.render_base(view, payload.kroki.tiles, cache=kk.get_tile_cache(),
-                       max_tile_z=payload.kroki.maxTileZoom or 19)
-    except Exception:
-        pass
+        kk.render_base(view, payload.kroki.tiles, cache=kk.get_tile_cache(), max_tile_z=payload.kroki.maxTileZoom or 19)
+    except Exception:  # noqa: BLE001 — a cold cache must not fail the rapport
+        # Was a silent `pass`. A failed prewarm is recoverable (the real render refetches),
+        # but silence here is how a permanently unreachable tile source stays invisible.
+        logger.warning("Rapport tile prewarm failed; the render will refetch", exc_info=True)
 
 
-def compose_report_pdf(payload: ReportPayload, figures: dict[str, bytes],
-                       plan_pdfs: dict[str, bytes] | None = None) -> bytes:
+def compose_report_pdf(
+    payload: ReportPayload, figures: dict[str, bytes], plan_pdfs: dict[str, bytes] | None = None
+) -> bytes:
     """Compose the full rapport. `figures` carries legacy client-captured PNGs plus
     server-resolved journal photos (key `photo:<url>`); `plan_pdfs` maps a planPage url
     to the plan-PDF bytes the API layer loaded from the reference store."""
@@ -516,18 +572,26 @@ def compose_report_pdf(payload: ReportPayload, figures: dict[str, bytes],
     lw, lh = landscape(A4)
     margin = 14 * mm
     doc = BaseDocTemplate(
-        buf, pagesize=A4, leftMargin=margin, rightMargin=margin, topMargin=margin, bottomMargin=margin,
-        title=f"Einsatzrapport — {payload.incident.title}", author="KP Front",
+        buf,
+        pagesize=A4,
+        leftMargin=margin,
+        rightMargin=margin,
+        topMargin=margin,
+        bottomMargin=margin,
+        title=f"Einsatzrapport — {payload.incident.title}",
+        author="KP Front",
     )
     # leftPadding/rightPadding=0: ReportLab Frames default to 6pt side padding, which paragraphs
     # honour but the full-width tables render flush to the frame edge — so headings/paragraphs sat
     # ~6pt right of the tables. Zero it so every flowable is flush at the doc margin.
     portrait_frame = Frame(margin, margin, pw - 2 * margin, ph - 2 * margin, id="p", leftPadding=0, rightPadding=0)
     land_frame = Frame(margin, margin, lw - 2 * margin, lh - 2 * margin, id="l", leftPadding=0, rightPadding=0)
-    doc.addPageTemplates([
-        PageTemplate(id="portrait", frames=[portrait_frame], pagesize=A4),
-        PageTemplate(id="landscape", frames=[land_frame], pagesize=landscape(A4)),
-    ])
+    doc.addPageTemplates(
+        [
+            PageTemplate(id="portrait", frames=[portrait_frame], pagesize=A4),
+            PageTemplate(id="landscape", frames=[land_frame], pagesize=landscape(A4)),
+        ]
+    )
     inner_w = pw - 2 * margin
     land_inner_w, land_inner_h = lw - 2 * margin, lh - 2 * margin
 
@@ -541,20 +605,30 @@ def compose_report_pdf(payload: ReportPayload, figures: dict[str, bytes],
         `cond=False` for headings already inside a KeepTogether (a nested page break
         would confuse its measuring)."""
         return [
-            *( [CondPageBreak(26 * mm)] if cond else [] ),
+            *([CondPageBreak(26 * mm)] if cond else []),
             Paragraph(_esc(text), st["h2"]),
-            HRFlowable(width="100%", thickness=1.1, color=colors.HexColor("#282828"),
-                       spaceBefore=0, spaceAfter=6, lineCap="butt"),
+            HRFlowable(
+                width="100%",
+                thickness=1.1,
+                color=colors.HexColor("#282828"),
+                spaceBefore=0,
+                spaceAfter=6,
+                lineCap="butt",
+            ),
         ]
 
     def write_lines(n: int, row_h: float = 8 * mm) -> Table:
         """N dotted write-in lines (the Erfassungsblatt's Notizen look)."""
         t = Table([[Paragraph(_LINE_STUB, st["body"])] for _ in range(n)], colWidths=[inner_w], rowHeights=[row_h] * n)
-        t.setStyle(TableStyle([
-            ("LINEBELOW", (0, 0), (-1, -1), 0.5, _WRITE, 1, (0.8, 0.8)),
-            ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
-            ("LEFTPADDING", (0, 0), (-1, -1), 0),
-        ]))
+        t.setStyle(
+            TableStyle(
+                [
+                    ("LINEBELOW", (0, 0), (-1, -1), 0.5, _WRITE, 1, (0.8, 0.8)),
+                    ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ]
+            )
+        )
         return t
 
     # --- page 1: Haupt-Rapport ------------------------------------------------------------
@@ -571,17 +645,29 @@ def compose_report_pdf(payload: ReportPayload, figures: dict[str, bytes],
     # automatic facts and any recorded human facts printed ON the lines. Missing values stay
     # writable by hand; nothing blocks the print.
     half = 0.5
-    story.append(_FormRows(inner_w, [
-        [{"label": L["keyword"], "w": half, "value": payload.incident.type},
-         {"label": L["alarmierung"], "w": half, "value": m.alarmiertAt}],
-        [{"label": L["address"], "w": 1.0, "value": payload.incident.address}],
-        [{"label": L["ausgerueckt"], "w": half, "value": m.ausgeruecktAt},
-         {"label": L["incidentEnd"], "w": half, "value": m.endedAt}],
-        [{"label": L["einsatzleiter"], "w": half, "value": m.einsatzleiter},
-         {"label": L["gerettete"], "w": half, "value": m.gerettete}],
-        [{"label": L["kontaktperson"], "w": 1.0, "value": m.kontaktperson}],
-        [{"label": L["rueckmeldungElz"], "w": 1.0, "value": m.rueckmeldungElz}],
-    ], boxed=True))
+    story.append(
+        _FormRows(
+            inner_w,
+            [
+                [
+                    {"label": L["keyword"], "w": half, "value": payload.incident.type},
+                    {"label": L["alarmierung"], "w": half, "value": m.alarmiertAt},
+                ],
+                [{"label": L["address"], "w": 1.0, "value": payload.incident.address}],
+                [
+                    {"label": L["ausgerueckt"], "w": half, "value": m.ausgeruecktAt},
+                    {"label": L["incidentEnd"], "w": half, "value": m.endedAt},
+                ],
+                [
+                    {"label": L["einsatzleiter"], "w": half, "value": m.einsatzleiter},
+                    {"label": L["gerettete"], "w": half, "value": m.gerettete},
+                ],
+                [{"label": L["kontaktperson"], "w": 1.0, "value": m.kontaktperson}],
+                [{"label": L["rueckmeldungElz"], "w": 1.0, "value": m.rueckmeldungElz}],
+            ],
+            boxed=True,
+        )
+    )
     story.append(Spacer(1, 2))
 
     # Kurzbericht — the form's central human field: printed text or dotted write lines
@@ -595,37 +681,57 @@ def compose_report_pdf(payload: ReportPayload, figures: dict[str, bytes],
     # capture medium (otherwise the times stay digital-only and never print).
     if m.zeiten:
         story.extend(head(L["zeiten"]))
-        zrows = [[Paragraph(_esc(val or _TIME_STUB), st["stub" if not val else "cell"]),
-                  Paragraph(_esc(lab), st["cell"])] for lab, val in m.zeiten]
+        zrows = [
+            [Paragraph(_esc(val or _TIME_STUB), st["stub" if not val else "cell"]), Paragraph(_esc(lab), st["cell"])]
+            for lab, val in m.zeiten
+        ]
         # 3-up columns to keep the grid compact
         cols = 3
         n_rows = -(-len(zrows) // cols)
         grid: list[list] = []
-        for r in range(n_rows):
+        for ri in range(n_rows):
             row: list = []
             for c in range(cols):
-                i = c * n_rows + r
+                i = c * n_rows + ri
                 row.extend(zrows[i] if i < len(zrows) else ["", ""])
             grid.append(row)
         cw = inner_w / cols
         zt = Table(grid, colWidths=[cw * 0.32, cw * 0.68] * cols)
-        zt.setStyle(TableStyle([
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("TOPPADDING", (0, 0), (-1, -1), 3),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-            ("LEFTPADDING", (0, 0), (-1, -1), 0),
-        ]))
+        zt.setStyle(
+            TableStyle(
+                [
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("TOPPADDING", (0, 0), (-1, -1), 3),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ]
+            )
+        )
         story.append(zt)
 
     if m.partnerContacts:
         story.extend(head(L["partnerOrgs"]))
-        prows = [[Paragraph(_esc(c.org), st["cell"]), Paragraph(_esc(c.name), st["cell"]),
-                  Paragraph(_esc(c.phone), st["mono"]), Paragraph(_esc(c.note), st["cell"])]
-                 for c in m.partnerContacts]
+        prows = [
+            [
+                Paragraph(_esc(c.org), st["cell"]),
+                Paragraph(_esc(c.name), st["cell"]),
+                Paragraph(_esc(c.phone), st["mono"]),
+                Paragraph(_esc(c.note), st["cell"]),
+            ]
+            for c in m.partnerContacts
+        ]
         pt = Table(prows, colWidths=[inner_w * x for x in (0.3, 0.25, 0.22, 0.23)])
-        pt.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LINEBELOW", (0, 0), (-1, -1), 0.4, _GRID),
-                                ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-                                ("LEFTPADDING", (0, 0), (0, -1), 0)]))
+        pt.setStyle(
+            TableStyle(
+                [
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("LINEBELOW", (0, 0), (-1, -1), 0.4, _GRID),
+                    ("TOPPADDING", (0, 0), (-1, -1), 3),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                    ("LEFTPADDING", (0, 0), (0, -1), 0),
+                ]
+            )
+        )
         story.append(pt)
     elif payload.partnerPresets:
         # nothing recorded → tick-off row like the Erfassungsblatt
@@ -662,10 +768,14 @@ def compose_report_pdf(payload: ReportPayload, figures: dict[str, bytes],
     # record — no digital proof section replaces it (field-classification decision E).
     el = L["einsatzleiter"] + (f" · {m.einsatzleiter}" if m.einsatzleiter else "")
     kdt = L["sigKommandant"] + (f" · {m.kommandant}" if m.kommandant else "")
-    sig = _FormRows(inner_w, [
-        [{"label": L["sigOrtDatum"], "w": 0.4}, {"label": el, "w": 0.6}],
-        [{"label": L["sigOrtDatum"], "w": 0.4}, {"label": kdt, "w": 0.6}],
-    ], pitch=9.5 * mm)
+    sig = _FormRows(
+        inner_w,
+        [
+            [{"label": L["sigOrtDatum"], "w": 0.4}, {"label": el, "w": 0.6}],
+            [{"label": L["sigOrtDatum"], "w": 0.4}, {"label": kdt, "w": 0.6}],
+        ],
+        pitch=9.5 * mm,
+    )
     story.append(KeepTogether([*head(L["signoff"], cond=False), sig]))
 
     # --- Einsatzjournal (Beilage) — only when there are entries; an empty journal table
@@ -678,8 +788,9 @@ def compose_report_pdf(payload: ReportPayload, figures: dict[str, bytes],
             entry_cells: list = [Paragraph(_esc(r.text), st["cell"])]
             if r.transcript:
                 entry_cells.append(Paragraph(f"<b>{_esc(L['transcript'])}:</b> {_esc(r.transcript)}", st["muted"]))
-            photo_bytes = (figures.get(r.photoKey) if r.photoKey else None) \
-                or (figures.get(f"photo:{r.photoUrl}") if r.photoUrl else None)
+            photo_bytes = (figures.get(r.photoKey) if r.photoKey else None) or (
+                figures.get(f"photo:{r.photoUrl}") if r.photoUrl else None
+            )
             photo = _fit_image(photo_bytes, inner_w * 0.45, 45 * mm)
             if photo:
                 entry_cells.append(Spacer(1, 2))
@@ -708,11 +819,18 @@ def compose_report_pdf(payload: ReportPayload, figures: dict[str, bytes],
             )
             view = _kroki_view(payload.kroki, kw, kh)
             symbol_zoom = view.overlay_z if view.overlay_z is not None else view.z
-            img_out = kk.render_kroki(scene, pack, payload.kroki.tiles, width=kw, height=kh,
-                                     view=view, cache=kk.get_tile_cache(),
-                                     sym_mul=kk.kroki_symbol_mul(symbol_zoom),
-                                     max_tile_z=payload.kroki.maxTileZoom or 19,
-                                     attribution=payload.kroki.attribution)
+            img_out = kk.render_kroki(
+                scene,
+                pack,
+                payload.kroki.tiles,
+                width=kw,
+                height=kh,
+                view=view,
+                cache=kk.get_tile_cache(),
+                sym_mul=kk.kroki_symbol_mul(symbol_zoom),
+                max_tile_z=payload.kroki.maxTileZoom or 19,
+                attribution=payload.kroki.attribution,
+            )
             b = io.BytesIO()
             img_out.save(b, "PNG")
             kroki_png = b.getvalue()
@@ -736,8 +854,9 @@ def compose_report_pdf(payload: ReportPayload, figures: dict[str, bytes],
                 if pdf_bytes
                 else kk.render_blank_page(pp.blankAspect or 1.0, [a.model_dump() for a in pp.annos], kk.get_pack())
             )
-        except Exception:
-            continue  # a broken plan PDF must not sink the whole rapport
+        except Exception:  # noqa: BLE001 — a broken plan PDF must not sink the whole rapport
+            logger.warning("Plan page %r could not be rendered; skipped", pp.label, exc_info=True)
+            continue
         b = io.BytesIO()
         rendered.save(b, "PNG")
         plan_imgs.append((pp.label, b.getvalue(), rendered.width >= rendered.height))
@@ -793,8 +912,14 @@ def compose_report_pdf(payload: ReportPayload, figures: dict[str, bytes],
             for k, v in meta_bits:
                 story.append(Paragraph(f"<b>{_esc(k)}:</b> {_esc(v)}", st["cell"]))
             thead = [Paragraph(_esc(L[c]), st["cellhead"]) for c in ("colTime", "colKind", "colPressure")]
-            body = [[Paragraph(_esc(r.t), st["cell"]), Paragraph(_esc(r.kindLabel), st["cell"]),
-                     Paragraph(_esc(r.bar), st["cell"])] for r in tr.readings]
+            body = [
+                [
+                    Paragraph(_esc(r.t), st["cell"]),
+                    Paragraph(_esc(r.kindLabel), st["cell"]),
+                    Paragraph(_esc(r.bar), st["cell"]),
+                ]
+                for r in tr.readings
+            ]
             if not body:
                 body = [[Paragraph(_esc(L["noPressureLog"]), st["muted"]), "", ""]]
             tbl = Table([thead, *body], colWidths=[inner_w * x for x in (0.45, 0.35, 0.2)], repeatRows=1)
@@ -866,24 +991,29 @@ def _mittel_table(mittel: list[MittelFormRowIn], inner_w: float, st: dict[str, P
         if row is None:
             return ["", ""]
         amt = f"<b>{_esc(row.menge)}</b> {_esc(row.unit)}" if row.menge else f"______ {_esc(row.unit)}"
-        return [Paragraph(_esc(row.label), st["rcell"]),
-                Paragraph(amt, st["rcell"] if row.menge else st["rstub"])]
+        return [Paragraph(_esc(row.label), st["rcell"]), Paragraph(amt, st["rcell"] if row.menge else st["rstub"])]
 
     rows = []
     for r in range(half):
         right = mittel[half + r] if half + r < len(mittel) else None
         rows.append([*cells(mittel[r]), "", *cells(right)])
     t = Table(rows, colWidths=[label_w, amt_w, 3 * mm, label_w, amt_w])
-    t.setStyle(TableStyle([
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING", (0, 0), (-1, -1), 1.8),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 1.8),
-        ("LEFTPADDING", (0, 0), (-1, -1), 0),
-    ]))
+    t.setStyle(
+        TableStyle(
+            [
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("TOPPADDING", (0, 0), (-1, -1), 1.8),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 1.8),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ]
+        )
+    )
     return t
 
 
-def _check_grid(items: list[str], ticked: set[str], inner_w: float, st: dict[str, ParagraphStyle], cols: int = 3) -> Table:
+def _check_grid(
+    items: list[str], ticked: set[str], inner_w: float, st: dict[str, ParagraphStyle], cols: int = 3
+) -> Table:
     """Compact checkbox raster (Partner presets): fixed columns, tick-off only."""
     n_rows = -(-len(items) // cols)
     check_w = 4 * mm
@@ -904,8 +1034,12 @@ def _check_grid(items: list[str], ticked: set[str], inner_w: float, st: dict[str
         for c in range(cols):
             i = r * cols + c
             if i < len(items):
-                row.extend([Paragraph("<b>X</b>" if items[i] in ticked else "", st["check"]),
-                            Paragraph(_esc(items[i]), st["cell"])])
+                row.extend(
+                    [
+                        Paragraph("<b>X</b>" if items[i] in ticked else "", st["check"]),
+                        Paragraph(_esc(items[i]), st["cell"]),
+                    ]
+                )
                 style.append(("BOX", (c * 2, r), (c * 2, r), 0.5, _WRITE))
             else:
                 row.extend(["", ""])
@@ -916,12 +1050,14 @@ def _check_grid(items: list[str], ticked: set[str], inner_w: float, st: dict[str
 
 
 def _table_style() -> TableStyle:
-    return TableStyle([
-        ("GRID", (0, 0), (-1, -1), 0.4, _GRID),
-        ("BACKGROUND", (0, 0), (-1, 0), _PANEL),
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-        ("LEFTPADDING", (0, 0), (-1, -1), 5),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
-    ])
+    return TableStyle(
+        [
+            ("GRID", (0, 0), (-1, -1), 0.4, _GRID),
+            ("BACKGROUND", (0, 0), (-1, 0), _PANEL),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("LEFTPADDING", (0, 0), (-1, -1), 5),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+        ]
+    )

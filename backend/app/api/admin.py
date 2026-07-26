@@ -38,9 +38,7 @@ async def _session_valid(admin_session: str | None) -> bool:
     if payload.get("type") != "admin" or payload.get("scope") != "admin":
         return False
     jti = payload.get("jti")
-    if jti and await token_blocklist.is_revoked(jti):
-        return False
-    return True
+    return not (jti and await token_blocklist.is_revoked(jti))
 
 
 @router.get("/session")
@@ -73,9 +71,7 @@ async def admin_login(body: AdminLogin, response: Response) -> dict:
     if not secrets.compare_digest(body.secret, settings.admin_secret):
         cooldown = pin_limiter.record_failure(_RATE_KEY)
         detail = (
-            "Falsches Admin-Passwort"
-            if cooldown == 0
-            else f"Falsches Admin-Passwort. Nächster Versuch in {cooldown}s."
+            "Falsches Admin-Passwort" if cooldown == 0 else f"Falsches Admin-Passwort. Nächster Versuch in {cooldown}s."
         )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)
 

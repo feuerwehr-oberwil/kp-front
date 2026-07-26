@@ -35,9 +35,7 @@ async def seed_users() -> int:
     created = 0
     async with async_session_maker() as db:
         for e in entries:
-            existing = (
-                await db.execute(select(User).where(User.username == e["username"]))
-            ).scalar_one_or_none()
+            existing = (await db.execute(select(User).where(User.username == e["username"]))).scalar_one_or_none()
             if existing is not None:
                 continue
             db.add(

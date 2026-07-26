@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..database import get_db
 from ..models import Incident, JournalEntry
-from ..schemas import JournalAppendIn, JournalPage
+from ..schemas import JournalAppendIn, JournalEntryOut, JournalPage
 
 router = APIRouter(prefix="/incidents", tags=["journal"])
 
@@ -51,12 +51,12 @@ async def read_journal(
             .order_by(JournalEntry.seq.asc())
         )
     ).scalars()
-    entries = [{"seq": r.seq, "row": r.row_json} for r in rows]
-    latest = entries[-1]["seq"] if entries else since_seq
+    entries = [JournalEntryOut(seq=r.seq, row=r.row_json) for r in rows]
+    latest = entries[-1].seq if entries else since_seq
     return JournalPage(entries=entries, latest_seq=latest)
 
 
-async def append_rows(db: AsyncSession, incident_id: uuid.UUID, entries: list[dict]) -> list[dict]:
+async def append_rows(db: AsyncSession, incident_id: uuid.UUID, entries: list[dict]) -> list[JournalEntryOut]:
     """Core append (idempotent by row id, per-incident seq under the incident row lock).
     Shared by the HTTP endpoint and server-side system rows (archive/reopen boundary)."""
     await _ensure(db, incident_id, lock=True)
@@ -73,14 +73,12 @@ async def append_rows(db: AsyncSession, incident_id: uuid.UUID, entries: list[di
     )
     next_seq = (
         (
-            await db.execute(
-                select(func.max(JournalEntry.seq)).where(JournalEntry.incident_id == incident_id)
-            )
+            await db.execute(select(func.max(JournalEntry.seq)).where(JournalEntry.incident_id == incident_id))
         ).scalar_one()
         or 0
     ) + 1
 
-    accepted = []
+    accepted: list[JournalEntryOut] = []
     seen: set[str] = set()
     for e in entries:
         cid = e["id"]
@@ -88,7 +86,7 @@ async def append_rows(db: AsyncSession, incident_id: uuid.UUID, entries: list[di
             continue
         seen.add(cid)
         db.add(JournalEntry(incident_id=incident_id, client_id=cid, seq=next_seq, row_json=e))
-        accepted.append({"seq": next_seq, "row": e})
+        accepted.append(JournalEntryOut(seq=next_seq, row=e))
         next_seq += 1
 
     await db.flush()
@@ -117,11 +115,9 @@ async def append_journal(
         raise HTTPException(status_code=422, detail=f"Batch zu gross (max. {MAX_BATCH})")
     accepted = await append_rows(db, incident_id, body.entries)
     if accepted:
-        latest = accepted[-1]["seq"]
+        latest = accepted[-1].seq
     else:
         latest = (
-            await db.execute(
-                select(func.max(JournalEntry.seq)).where(JournalEntry.incident_id == incident_id)
-            )
+            await db.execute(select(func.max(JournalEntry.seq)).where(JournalEntry.incident_id == incident_id))
         ).scalar_one() or 0
     return JournalPage(entries=accepted, latest_seq=latest)

@@ -35,10 +35,14 @@ def test_reads_list_and_checklists_wrapper(tmp_path):
 
 
 def test_duplicate_id_rejected(tmp_path):
-    m = _write(tmp_path, "m.json", [
-        {"id": "x", "kind": "action", "title": "A", "file": "a.json"},
-        {"id": "x", "kind": "action", "title": "B", "file": "b.json"},
-    ])
+    m = _write(
+        tmp_path,
+        "m.json",
+        [
+            {"id": "x", "kind": "action", "title": "A", "file": "a.json"},
+            {"id": "x", "kind": "action", "title": "B", "file": "b.json"},
+        ],
+    )
     with pytest.raises(SystemExit):
         _read_manifest(m)
 
@@ -74,7 +78,10 @@ def test_assets_only_on_reference():
 def test_duplicate_asset_page_rejected():
     with pytest.raises(ValueError):
         ChecklistEntry(
-            id="pb", kind="reference", title="PB", file="pb.json",
+            id="pb",
+            kind="reference",
+            title="PB",
+            file="pb.json",
             assets=[{"page": 4, "file": "assets/p4.jpg"}, {"page": 4, "file": "assets/p4b.jpg"}],
         )
 
@@ -83,14 +90,22 @@ def test_duplicate_asset_page_rejected():
 
 
 def test_validate_files_checks_template_shape(tmp_path):
-    _write(tmp_path, "fu.json", {"id": "fu", "kind": "action", "title": "FU", "phases": [{"id": "p", "title": "P", "items": []}]})
+    _write(
+        tmp_path,
+        "fu.json",
+        {"id": "fu", "kind": "action", "title": "FU", "phases": [{"id": "p", "title": "P", "items": []}]},
+    )
     m = _write(tmp_path, "m.json", [{"id": "fu", "kind": "action", "title": "FU", "file": "fu.json"}])
     entries = _read_manifest(m)
     assert _validate_files(m, entries) == (1, 0)
 
 
 def test_validate_files_rejects_id_mismatch(tmp_path):
-    _write(tmp_path, "fu.json", {"id": "other", "kind": "action", "title": "FU", "phases": [{"id": "p", "title": "P", "items": []}]})
+    _write(
+        tmp_path,
+        "fu.json",
+        {"id": "other", "kind": "action", "title": "FU", "phases": [{"id": "p", "title": "P", "items": []}]},
+    )
     m = _write(tmp_path, "m.json", [{"id": "fu", "kind": "action", "title": "FU", "file": "fu.json"}])
     entries = _read_manifest(m)
     with pytest.raises(SystemExit):
@@ -111,7 +126,10 @@ def test_expected_ids_covers_templates_and_assets():
     entries = [
         ChecklistEntry(id="fu", kind="action", title="FU", file="fu.json"),
         ChecklistEntry(
-            id="pb", kind="reference", title="PB", file="pb.json",
+            id="pb",
+            kind="reference",
+            title="PB",
+            file="pb.json",
             assets=[{"page": 4, "file": "a/p4.jpg"}, {"page": 9, "file": "a/p9.jpg"}],
         ),
     ]
@@ -147,8 +165,12 @@ def test_checklist_role_classification():
 
 
 def test_validate_checklist_template_accepts_valid():
-    _validate_checklist_template(json.dumps({"id": "fu", "kind": "action", "title": "FU", "phases": [{"id": "p"}]}).encode())
-    _validate_checklist_template(json.dumps({"id": "pb", "kind": "reference", "title": "PB", "entries": [{"id": "e"}]}).encode())
+    _validate_checklist_template(
+        json.dumps({"id": "fu", "kind": "action", "title": "FU", "phases": [{"id": "p"}]}).encode()
+    )
+    _validate_checklist_template(
+        json.dumps({"id": "pb", "kind": "reference", "title": "PB", "entries": [{"id": "e"}]}).encode()
+    )
 
 
 def test_validate_checklist_template_rejects_bad():
@@ -157,7 +179,11 @@ def test_validate_checklist_template_rejects_bad():
     with pytest.raises(HTTPException):
         _validate_checklist_template(b"not json")
     with pytest.raises(HTTPException):
-        _validate_checklist_template(json.dumps({"id": "fu", "kind": "action", "title": "FU"}).encode())  # neither phases nor entries
+        _validate_checklist_template(
+            json.dumps({"id": "fu", "kind": "action", "title": "FU"}).encode()
+        )  # neither phases nor entries
     with pytest.raises(HTTPException):
         # both phases and entries → ambiguous
-        _validate_checklist_template(json.dumps({"id": "x", "kind": "action", "title": "X", "phases": [{}], "entries": [{}]}).encode())
+        _validate_checklist_template(
+            json.dumps({"id": "x", "kind": "action", "title": "X", "phases": [{}], "entries": [{}]}).encode()
+        )

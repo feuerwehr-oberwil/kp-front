@@ -23,7 +23,15 @@ from ..auth.capture_limiter import capture_limiter
 from ..auth.dependencies import CurrentAdmin
 from ..database import get_db
 from ..models import DeploymentConfig, Incident, Personnel
-from ..schemas import IncidentMeta, JournalAppendIn, JournalPage, PersonnelOut, WorkspaceOut, WorkspacePut
+from ..schemas import (
+    IncidentMeta,
+    JournalAppendIn,
+    JournalEntryOut,
+    JournalPage,
+    PersonnelOut,
+    WorkspaceOut,
+    WorkspacePut,
+)
 
 
 def _client_ip(request: Request) -> str:
@@ -56,9 +64,7 @@ router = APIRouter(prefix="/capture", tags=["capture"], dependencies=[Depends(_r
 
 
 async def _config_row(db: AsyncSession) -> DeploymentConfig:
-    row = (
-        await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))
-    ).scalar_one_or_none()
+    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     if row is None:
         row = DeploymentConfig(id=1, config_json=None)
         db.add(row)
@@ -93,9 +99,7 @@ async def disable_capture(_admin: CurrentAdmin, db: AsyncSession = Depends(get_d
 
 
 async def _check_token(db: AsyncSession, request: Request, header_token: str | None) -> None:
-    row = (
-        await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))
-    ).scalar_one_or_none()
+    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     expected = row.capture_secret if row else None
     if not expected:
         # Fail CLOSED: no poster secret configured → the whole capture surface is off.
@@ -154,9 +158,7 @@ async def capture_roster(
     """Active Mannschaft for the attendance checklist + «Wer erfasst?» attribution picker."""
     await _check_token(db, request, x_capture_token)
     rows = (
-        await db.execute(
-            select(Personnel).where(Personnel.is_active.is_(True)).order_by(Personnel.display_name)
-        )
+        await db.execute(select(Personnel).where(Personnel.is_active.is_(True)).order_by(Personnel.display_name))
     ).scalars()
     return list(rows)
 
@@ -353,13 +355,11 @@ async def capture_read_journal(
 
     rows = (
         await db.execute(
-            sa_select(JournalEntry)
-            .where(JournalEntry.incident_id == incident_id)
-            .order_by(JournalEntry.seq.asc())
+            sa_select(JournalEntry).where(JournalEntry.incident_id == incident_id).order_by(JournalEntry.seq.asc())
         )
     ).scalars()
-    entries = [{"seq": r.seq, "row": r.row_json} for r in rows]
-    return JournalPage(entries=entries, latest_seq=entries[-1]["seq"] if entries else 0)
+    entries = [JournalEntryOut(seq=r.seq, row=r.row_json) for r in rows]
+    return JournalPage(entries=entries, latest_seq=entries[-1].seq if entries else 0)
 
 
 @router.post("/incidents/{incident_id}/journal", response_model=JournalPage, status_code=201)
@@ -384,11 +384,9 @@ async def capture_append_journal(
         # journal rows from the capture surface count as QR usage too (idempotent replays
         # that appended nothing don't — the counter mirrors real record growth)
         await _bump_capture_usage(db, incident_id)
-        latest = accepted[-1]["seq"]
+        latest = accepted[-1].seq
     else:
         latest = (
-            await db.execute(
-                select(sa_func.max(JournalEntry.seq)).where(JournalEntry.incident_id == incident_id)
-            )
+            await db.execute(select(sa_func.max(JournalEntry.seq)).where(JournalEntry.incident_id == incident_id))
         ).scalar_one() or 0
     return JournalPage(entries=accepted, latest_seq=latest)

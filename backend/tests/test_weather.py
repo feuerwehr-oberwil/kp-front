@@ -47,7 +47,7 @@ def patch_httpx(monkeypatch):
         transport = httpx.MockTransport(handler)
         orig_init = httpx.AsyncClient.__init__
 
-        def patched_init(self, *args, **kwargs):  # noqa: ANN001, ANN002, ANN003
+        def patched_init(self, *args, **kwargs):
             kwargs["transport"] = transport
             orig_init(self, *args, **kwargs)
 
@@ -95,6 +95,7 @@ async def test_meteoswiss_picks_nearest_station(patch_httpx):
 async def test_faraway_coordinate_never_pins_a_swiss_station(patch_httpx):
     """A bogus coordinate (0/0 'no location' once surfaced Grosser St. Bernhard as
     'nearest') must fall through to point-based Open-Meteo — no misleading station."""
+
     def handler(request: httpx.Request) -> httpx.Response:
         if "stations" in str(request.url):
             return httpx.Response(200, text=STATIONS_CSV)

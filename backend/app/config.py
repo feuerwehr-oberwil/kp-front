@@ -50,7 +50,9 @@ class Settings(BaseSettings):
     api_prefix: str = "/api"
 
     # --- Uvicorn ---
-    host: str = "0.0.0.0"
+    # S104 suppressed: binding all interfaces is correct for a containerised service — the container
+    # network, not the process, is the boundary. Same call kp-rueck's bandit B104 annotation makes.
+    host: str = "0.0.0.0"  # noqa: S104
     port: int = 8000
 
     # --- Database ---
@@ -139,8 +141,8 @@ class Settings(BaseSettings):
     # --- Request body size caps (reject early with 413; protect the single instance) ---
     # Must stay above the media endpoint's per-file cap (media.py MAX_UPLOAD_BYTES, 100 MB)
     # plus multipart overhead, or imported voice memos die in the middleware instead.
-    max_upload_mb: int = 110     # multipart file uploads (media, plans, reference data)
-    max_json_body_mb: int = 8    # JSON bodies (workspace blob, details, etc.)
+    max_upload_mb: int = 110  # multipart file uploads (media, plans, reference data)
+    max_json_body_mb: int = 8  # JSON bodies (workspace blob, details, etc.)
 
     # --- Divera (Phase 3) ---
     divera_access_key: str = ""

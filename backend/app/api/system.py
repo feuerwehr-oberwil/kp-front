@@ -56,7 +56,7 @@ async def _database_ok(db: AsyncSession) -> dict:
         return {"ok": False}
 
 
-async def _count(db: AsyncSession, stmt) -> int | None:  # noqa: ANN001
+async def _count(db: AsyncSession, stmt) -> int | None:
     """Run a COUNT, returning None on failure so one bad query can't sink the section."""
     try:
         return int((await db.execute(stmt)).scalar_one())
@@ -70,20 +70,14 @@ async def _counts(db: AsyncSession) -> dict:
         "incidents": await _count(db, select(func.count()).select_from(Incident)),
         "incidents_open": await _count(
             db,
-            select(func.count())
-            .select_from(Incident)
-            .where(Incident.is_archived.is_(False)),
+            select(func.count()).select_from(Incident).where(Incident.is_archived.is_(False)),
         ),
         "personnel_active": await _count(
             db,
-            select(func.count())
-            .select_from(Personnel)
-            .where(Personnel.is_active.is_(True)),
+            select(func.count()).select_from(Personnel).where(Personnel.is_active.is_(True)),
         ),
         "users": await _count(db, select(func.count()).select_from(User)),
-        "reference_datasets": await _count(
-            db, select(func.count()).select_from(ReferenceDataset)
-        ),
+        "reference_datasets": await _count(db, select(func.count()).select_from(ReferenceDataset)),
     }
 
 
@@ -141,9 +135,7 @@ async def _connectors(db: AsyncSession) -> list[dict]:
     from ..push import push_enabled
     from .print_relay import relay_status
 
-    row = (
-        await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))
-    ).scalar_one_or_none()
+    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
 
     relay = relay_status()
     return [

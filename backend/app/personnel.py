@@ -10,6 +10,7 @@ The diff (:func:`diff_members`) is pure so it can be unit-tested without a datab
 
 import logging
 import unicodedata
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Protocol
@@ -62,9 +63,9 @@ async def provider_people(db: AsyncSession, provider: str) -> list[ProviderPerso
     """
     people = list((await db.execute(select(Personnel))).scalars())
     identities = list(
-        (await db.execute(
-            select(PersonnelExternalIdentity).where(PersonnelExternalIdentity.provider == provider)
-        )).scalars()
+        (
+            await db.execute(select(PersonnelExternalIdentity).where(PersonnelExternalIdentity.provider == provider))
+        ).scalars()
     )
     external_by_person = {identity.personnel_id: identity.external_id for identity in identities}
     out: list[ProviderPerson] = []
@@ -233,7 +234,7 @@ async def fetch_divera_members() -> list[dict]:
         for q in info.get("qualifications") or []:
             qid = q.get("id") if isinstance(q, dict) else q
             try:
-                nm = qual_names.get(int(qid))
+                nm = qual_names.get(int(qid)) if qid is not None else None
             except (ValueError, TypeError):
                 nm = None
             if nm:
@@ -252,7 +253,7 @@ async def fetch_divera_members() -> list[dict]:
     return members
 
 
-def diff_members(members: list[dict], existing: list[_ExistingPerson]) -> dict:
+def diff_members(members: list[dict], existing: Sequence[_ExistingPerson]) -> dict:
     """Reconcile freshly-fetched Divera members against existing personnel by divera_id.
 
     Returns serializable categories: ``new`` (insert), ``updated`` (name/rank changed or
@@ -337,13 +338,19 @@ async def execute_sync(db: AsyncSession, *, deactivate_stale: bool) -> dict:
     for item in diff["new"]:
         m = by_member[item["divera_id"]]
         person = Personnel(
-            display_name=m["name"], first_name=m["first_name"], last_name=m["last_name"],
-            rank=m.get("rank"), is_active=True,
+            display_name=m["name"],
+            first_name=m["first_name"],
+            last_name=m["last_name"],
+            rank=m.get("rank"),
+            is_active=True,
         )
         db.add(person)
         await db.flush()
         await attach_external_identity(
-            db, person=person, provider="divera", external_id=str(m["divera_id"]),
+            db,
+            person=person,
+            provider="divera",
+            external_id=str(m["divera_id"]),
             metadata={"first_name": m["first_name"], "last_name": m["last_name"]},
         )
     reactivated = 0
@@ -359,7 +366,10 @@ async def execute_sync(db: AsyncSession, *, deactivate_stale: bool) -> dict:
             person.is_active = True
             reactivated += 1
         await attach_external_identity(
-            db, person=person, provider="divera", external_id=str(m["divera_id"]),
+            db,
+            person=person,
+            provider="divera",
+            external_id=str(m["divera_id"]),
             metadata={"first_name": m["first_name"], "last_name": m["last_name"]},
         )
     deactivated = 0

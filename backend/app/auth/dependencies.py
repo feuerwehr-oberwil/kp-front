@@ -115,9 +115,7 @@ async def _admin_session_valid(admin_session: str | None) -> bool:
         if payload.get("type") != "admin" or payload.get("scope") != "admin":
             return False
         jti = payload.get("jti")
-        if jti and await token_blocklist.is_revoked(jti):
-            return False
-        return True
+        return not (jti and await token_blocklist.is_revoked(jti))
     except (JWTError, ValueError):
         return False
 
@@ -159,7 +157,9 @@ async def get_editor_or_admin(
                 # a kiosk viewer with an admin session unlocked still counts as admin
                 if await _admin_session_valid(admin_session):
                     return None
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Bearbeiter-Berechtigung erforderlich")
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN, detail="Bearbeiter-Berechtigung erforderlich"
+                )
             return user
     if await _admin_session_valid(admin_session):
         return None

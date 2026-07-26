@@ -47,9 +47,7 @@ def _claims(user: User) -> dict:
 @router.get("/roster", response_model=list[RosterUser])
 async def roster(db: AsyncSession = Depends(get_db)) -> list[User]:
     """Tappable login tiles for the kiosk — active users only, no secrets."""
-    result = await db.execute(
-        select(User).where(User.is_active.is_(True)).order_by(User.display_name)
-    )
+    result = await db.execute(select(User).where(User.is_active.is_(True)).order_by(User.display_name))
     return list(result.scalars().all())
 
 
@@ -66,8 +64,9 @@ async def login(body: LoginRequest, response: Response, db: AsyncSession = Depen
         )
 
     user = (await db.execute(select(User).where(User.id == body.user_id))).scalar_one_or_none()
-    ok = user is not None and user.is_active and verify_pin(body.pin, user.pin_hash)
-    if not ok:
+    # Spelled out rather than via an `ok` flag so the None-check actually narrows `user` for
+    # everything below; short-circuiting keeps verify_pin off the unknown-user path as before.
+    if user is None or not user.is_active or not verify_pin(body.pin, user.pin_hash):
         cooldown = pin_limiter.record_failure(uid)
         detail = "Falsche PIN" if cooldown == 0 else f"Falsche PIN. Nächster Versuch in {cooldown}s."
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)
@@ -101,9 +100,7 @@ async def refresh(
     if jti and await token_blocklist.is_revoked(jti):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh-Token widerrufen")
 
-    user = (
-        await db.execute(select(User).where(User.id == uuid.UUID(payload["sub"])))
-    ).scalar_one_or_none()
+    user = (await db.execute(select(User).where(User.id == uuid.UUID(payload["sub"])))).scalar_one_or_none()
     if user is None or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Benutzer inaktiv")
 
@@ -149,9 +146,7 @@ def _hash_pin_or_400(pin: str) -> str:
 
 
 async def _count_active_editors(db: AsyncSession, *, exclude_id: uuid.UUID | None = None) -> int:
-    stmt = select(func.count()).select_from(User).where(
-        User.role == "editor", User.is_active.is_(True)
-    )
+    stmt = select(func.count()).select_from(User).where(User.role == "editor", User.is_active.is_(True))
     if exclude_id is not None:
         stmt = stmt.where(User.id != exclude_id)
     return int((await db.execute(stmt)).scalar_one())
@@ -165,16 +160,10 @@ async def list_users(_admin: CurrentAdmin, db: AsyncSession = Depends(get_db)) -
 
 
 @router.post("/users", response_model=UserAdminOut, status_code=status.HTTP_201_CREATED)
-async def create_user(
-    body: UserCreate, _admin: CurrentAdmin, db: AsyncSession = Depends(get_db)
-) -> User:
-    taken = (
-        await db.execute(select(User).where(User.username == body.username))
-    ).scalar_one_or_none()
+async def create_user(body: UserCreate, _admin: CurrentAdmin, db: AsyncSession = Depends(get_db)) -> User:
+    taken = (await db.execute(select(User).where(User.username == body.username))).scalar_one_or_none()
     if taken is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="Benutzername bereits vergeben"
-        )
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Benutzername bereits vergeben")
 
     user = User(
         username=body.username,

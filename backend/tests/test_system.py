@@ -55,7 +55,13 @@ async def test_system_shape_as_admin(client, editor, admin_login):
     # Integrations expose generic capability blocks and retain old flags temporarily.
     integ = body["integrations"]
     assert set(integ) == {
-        "diveraConfigured", "traccarConfigured", "sttConfigured", "personnel", "alarms", "vehicles", "providers"
+        "diveraConfigured",
+        "traccarConfigured",
+        "sttConfigured",
+        "personnel",
+        "alarms",
+        "vehicles",
+        "providers",
     }
     assert isinstance(integ["diveraConfigured"], bool)
     assert isinstance(integ["traccarConfigured"], bool)
@@ -66,15 +72,15 @@ async def test_system_shape_as_admin(client, editor, admin_login):
         assert isinstance(integ[domain]["capabilities"], list)
     registrations = integ["providers"]
     assert {(p["provider"], p["domain"]) for p in registrations} == {
-        ("divera", "personnel"), ("divera", "alarms"), ("traccar", "vehicles"),
+        ("divera", "personnel"),
+        ("divera", "alarms"),
+        ("traccar", "vehicles"),
     }
     assert all(isinstance(p["capabilities"], list) for p in registrations)
 
     # Connectors — every consumer/producer listed read-only, one row each.
     connectors = {c["id"]: c for c in body["connectors"]}
-    assert set(connectors) == {
-        "print_relay", "capture", "stats", "divera_webhook", "alarm_webhook", "push", "stt"
-    }
+    assert set(connectors) == {"print_relay", "capture", "stats", "divera_webhook", "alarm_webhook", "push", "stt"}
     for c in connectors.values():
         assert c["direction"] in {"in", "out"}
         assert isinstance(c["configured"], bool)

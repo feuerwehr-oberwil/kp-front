@@ -34,8 +34,14 @@ PAYLOAD = {
 
 
 async def _incident(db_session, **kw) -> Incident:
-    inc = Incident(title="Brand Dachstock", source="divera", status="offen", divera_id=4711,
-                   started_at=datetime(2026, 7, 13, 1, 11, tzinfo=UTC), **kw)
+    inc = Incident(
+        title="Brand Dachstock",
+        source="divera",
+        status="offen",
+        divera_id=4711,
+        started_at=datetime(2026, 7, 13, 1, 11, tzinfo=UTC),
+        **kw,
+    )
     db_session.add(inc)
     await db_session.commit()
     return inc
@@ -71,9 +77,7 @@ async def test_apply_replay_and_journal(client, db_session):
     assert rm["fahrzeuge"][0]["ausgerueckt"] == "2026-07-13T01:16:40+00:00"
     assert inc.workspace_rev == 1
 
-    rows = (
-        await db_session.execute(select(JournalEntry).where(JournalEntry.incident_id == inc.id))
-    ).scalars().all()
+    rows = (await db_session.execute(select(JournalEntry).where(JournalEntry.incident_id == inc.id))).scalars().all()
     texts = [row.row_json["text"] for row in rows]
     # config lists are empty in tests → labels fall back to the id (vehicles uppercased)
     assert any("g2 alarmiert" in t for t in texts)
@@ -84,9 +88,7 @@ async def test_apply_replay_and_journal(client, db_session):
     assert r.json()["applied"] == 0
     await db_session.refresh(inc)
     assert inc.workspace_rev == 1
-    rows2 = (
-        await db_session.execute(select(JournalEntry).where(JournalEntry.incident_id == inc.id))
-    ).scalars().all()
+    rows2 = (await db_session.execute(select(JournalEntry).where(JournalEntry.incident_id == inc.id))).scalars().all()
     assert len(rows2) == len(rows)
 
     # later milestone on the same vehicle: vorOrt fills in, ausgerueckt untouched
@@ -104,10 +106,13 @@ async def test_apply_replay_and_journal(client, db_session):
 async def test_manual_entries_win(client, db_session):
     inc = await _incident(
         db_session,
-        map_workspace_json={"reportMeta": {
-            "gruppen": [{"id": "g2", "alarmedAt": "2026-07-13T01:00:00+00:00", "manual": True}],
-            "fahrzeuge": [{"id": "tlf", "ausgerueckt": "2026-07-13T01:20:00+00:00", "manual": True}],
-        }, "entities": [{"id": "e1"}]},
+        map_workspace_json={
+            "reportMeta": {
+                "gruppen": [{"id": "g2", "alarmedAt": "2026-07-13T01:00:00+00:00", "manual": True}],
+                "fahrzeuge": [{"id": "tlf", "ausgerueckt": "2026-07-13T01:20:00+00:00", "manual": True}],
+            },
+            "entities": [{"id": "e1"}],
+        },
     )
     r = await client.post("/api/alarms/milestones", json=PAYLOAD, headers={"X-Webhook-Secret": SECRET})
     assert r.json()["applied"] == 0
@@ -132,14 +137,22 @@ async def test_unknown_ids_stored_verbatim(client, db_session):
 
 
 async def test_resolve_by_source_ref(client, db_session):
-    inc = Incident(title="Pager", source="pager", source_ref="p-9", status="offen",
-                   started_at=datetime(2026, 7, 13, 2, 0, tzinfo=UTC))
+    inc = Incident(
+        title="Pager",
+        source="pager",
+        source_ref="p-9",
+        status="offen",
+        started_at=datetime(2026, 7, 13, 2, 0, tzinfo=UTC),
+    )
     db_session.add(inc)
     await db_session.commit()
     r = await client.post(
         "/api/alarms/milestones",
-        json={"source": "pager", "source_id": "p-9",
-              "vehicles": [{"id": "pio", "ausgerueckt": "2026-07-13T02:05:00Z"}]},
+        json={
+            "source": "pager",
+            "source_id": "p-9",
+            "vehicles": [{"id": "pio", "ausgerueckt": "2026-07-13T02:05:00Z"}],
+        },
         headers={"X-Webhook-Secret": SECRET},
     )
     assert r.status_code == 200 and r.json()["applied"] == 1

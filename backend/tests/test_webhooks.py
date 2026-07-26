@@ -41,8 +41,7 @@ async def _set_webhooks(db, urls, public_url=None, monkeypatch=None, capture_sec
 
 
 def test_payload_includes_capture_url_only_when_composable(monkeypatch):
-    inc = Incident(title="Brand", source="divera", status="offen", auto_opened=True,
-                   started_at=datetime.now(UTC))
+    inc = Incident(title="Brand", source="divera", status="offen", auto_opened=True, started_at=datetime.now(UTC))
     monkeypatch.setattr(settings, "public_url", "https://front.example.org")
     p = webhooks.build_incident_payload(inc, "tok123")
     assert p["event"] == "incident.created"
@@ -60,8 +59,11 @@ async def test_generic_intake_schedules_webhooks(client, db_session, monkeypatch
 
     monkeypatch.setattr(settings, "alarm_webhook_secret", "s3cret")
     await _set_webhooks(
-        db_session, ["https://hook.example.org/a", "ftp://nope.example.org"],
-        public_url="https://front.example.org", monkeypatch=monkeypatch, capture_secret="tok",
+        db_session,
+        ["https://hook.example.org/a", "ftp://nope.example.org"],
+        public_url="https://front.example.org",
+        monkeypatch=monkeypatch,
+        capture_secret="tok",
     )
     r = await client.post(
         "/api/alarms?secret=s3cret",

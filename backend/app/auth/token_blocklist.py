@@ -12,6 +12,7 @@ request, so ``is_revoked`` is a single indexed primary-key lookup.
 """
 
 import asyncio
+import contextlib
 import logging
 from datetime import UTC, datetime
 
@@ -19,6 +20,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from ..database import execute_dml
 from ..models import RevokedToken
 
 logger = logging.getLogger(__name__)
@@ -49,10 +51,8 @@ class TokenBlocklist:
     async def stop_cleanup_task(self) -> None:
         if self._cleanup_task:
             self._cleanup_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._cleanup_task
-            except asyncio.CancelledError:
-                pass
             self._cleanup_task = None
 
     async def _cleanup_loop(self) -> None:
@@ -85,7 +85,7 @@ class TokenBlocklist:
         """Delete rows whose tokens have already expired; returns rows removed."""
         async with self._factory()() as session:
             now = datetime.now(UTC)
-            result = await session.execute(delete(RevokedToken).where(RevokedToken.expires_at <= now))
+            result = await execute_dml(session, delete(RevokedToken).where(RevokedToken.expires_at <= now))
             await session.commit()
             return result.rowcount or 0
 
@@ -108,9 +108,7 @@ class TokenBlocklist:
             await session.execute(stmt)
             return
 
-        exists = (
-            await session.execute(select(RevokedToken.jti).where(RevokedToken.jti == jti))
-        ).scalar_one_or_none()
+        exists = (await session.execute(select(RevokedToken.jti).where(RevokedToken.jti == jti))).scalar_one_or_none()
         if exists is None:
             session.add(RevokedToken(jti=jti, expires_at=expires_at))
 

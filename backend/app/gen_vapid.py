@@ -24,9 +24,7 @@ def _b64url(raw: bytes) -> str:
 def generate() -> tuple[str, str]:
     """Return a fresh ``(public, private)`` VAPID pair as URL-safe base64."""
     key = ec.generate_private_key(ec.SECP256R1())
-    public = key.public_key().public_bytes(
-        serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint
-    )
+    public = key.public_key().public_bytes(serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint)
     private = key.private_numbers().private_value.to_bytes(32, "big")
     return _b64url(public), _b64url(private)
 

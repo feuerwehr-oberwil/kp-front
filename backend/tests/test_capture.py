@@ -35,7 +35,7 @@ async def capture_secret(db_session):
 
 
 def _incident(**kw) -> Incident:
-    base = dict(title="Wasser im Keller", source="manual", status="offen")
+    base = {"title": "Wasser im Keller", "source": "manual", "status": "offen"}
     return Incident(**{**base, **kw})
 
 
@@ -88,16 +88,12 @@ async def test_capture_workspace_roundtrip_and_conflict(client, capture_secret, 
     assert r.json() == {"workspace": None, "workspace_rev": 0}
 
     ws = {"attendance": {"p1": {"status": "present", "displayNameSnapshot": "Meier"}}}
-    r = await client.put(
-        f"/api/capture/incidents/{inc.id}/workspace?t={TOKEN}", json={"workspace": ws, "base_rev": 0}
-    )
+    r = await client.put(f"/api/capture/incidents/{inc.id}/workspace?t={TOKEN}", json={"workspace": ws, "base_rev": 0})
     assert r.status_code == 200
     assert r.json()["workspace_rev"] == 1
 
     # stale base_rev → 409 exactly like the editor endpoint
-    r = await client.put(
-        f"/api/capture/incidents/{inc.id}/workspace?t={TOKEN}", json={"workspace": ws, "base_rev": 0}
-    )
+    r = await client.put(f"/api/capture/incidents/{inc.id}/workspace?t={TOKEN}", json={"workspace": ws, "base_rev": 0})
     assert r.status_code == 409
 
 
@@ -175,9 +171,7 @@ async def test_editor_latch_set_once_and_not_by_capture(client, capture_secret, 
     # capture reads/writes never latch — the latch means "the KP tablet has it"
     r = await client.get(f"/api/capture/incidents/{inc.id}/workspace?t={TOKEN}")
     assert r.status_code == 200
-    r = await client.put(
-        f"/api/capture/incidents/{inc.id}/workspace?t={TOKEN}", json={"workspace": {}, "base_rev": 0}
-    )
+    r = await client.put(f"/api/capture/incidents/{inc.id}/workspace?t={TOKEN}", json={"workspace": {}, "base_rev": 0})
     assert r.status_code == 200
     r = await client.get(f"/api/capture/incidents/{inc.id}/status?t={TOKEN}")
     assert r.status_code == 200
@@ -203,9 +197,7 @@ async def test_editor_latch_set_once_and_not_by_capture(client, capture_secret, 
     # … and stays latched (set ONCE — a later read/write never advances it)
     r = await client.get(f"/api/incidents/{inc.id}/workspace")
     assert r.status_code == 200
-    r = await client.put(
-        f"/api/incidents/{inc.id}/workspace", json={"workspace": {}, "base_rev": 1}
-    )
+    r = await client.put(f"/api/incidents/{inc.id}/workspace", json={"workspace": {}, "base_rev": 1})
     assert r.status_code == 200
     await db_session.refresh(inc)
     assert inc.editor_opened_at == first
@@ -226,13 +218,9 @@ async def test_capture_writes_bump_count_and_timestamp(client, capture_secret, d
     assert inc.capture_writes == 0 and inc.capture_last_at is None
 
     # accepted workspace PUTs count …
-    r = await client.put(
-        f"/api/capture/incidents/{inc.id}/workspace?t={TOKEN}", json={"workspace": {}, "base_rev": 0}
-    )
+    r = await client.put(f"/api/capture/incidents/{inc.id}/workspace?t={TOKEN}", json={"workspace": {}, "base_rev": 0})
     assert r.status_code == 200
-    r = await client.put(
-        f"/api/capture/incidents/{inc.id}/workspace?t={TOKEN}", json={"workspace": {}, "base_rev": 1}
-    )
+    r = await client.put(f"/api/capture/incidents/{inc.id}/workspace?t={TOKEN}", json={"workspace": {}, "base_rev": 1})
     assert r.status_code == 200
     await db_session.refresh(inc)
     assert inc.capture_writes == 2
@@ -240,9 +228,7 @@ async def test_capture_writes_bump_count_and_timestamp(client, capture_secret, d
     last = inc.capture_last_at
 
     # … a rejected save (stale base_rev → 409) does not
-    r = await client.put(
-        f"/api/capture/incidents/{inc.id}/workspace?t={TOKEN}", json={"workspace": {}, "base_rev": 0}
-    )
+    r = await client.put(f"/api/capture/incidents/{inc.id}/workspace?t={TOKEN}", json={"workspace": {}, "base_rev": 0})
     assert r.status_code == 409
     await db_session.refresh(inc)
     assert inc.capture_writes == 2 and inc.capture_last_at == last

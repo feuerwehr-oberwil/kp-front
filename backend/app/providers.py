@@ -28,15 +28,24 @@ def integrations() -> ConfigIntegrations:
         ),
         providers=[
             ProviderRegistration(
-                provider="divera", domain="personnel", configured=divera, active=divera,
+                provider="divera",
+                domain="personnel",
+                configured=divera,
+                active=divera,
                 capabilities=["pull", "preview", "sync"],
             ),
             ProviderRegistration(
-                provider="divera", domain="alarms", configured=divera, active=divera,
+                provider="divera",
+                domain="alarms",
+                configured=divera,
+                active=divera,
                 capabilities=["pool", "refresh", "webhook", "take"],
             ),
             ProviderRegistration(
-                provider="traccar", domain="vehicles", configured=traccar, active=traccar,
+                provider="traccar",
+                domain="vehicles",
+                configured=traccar,
+                active=traccar,
                 capabilities=["positions", "status"],
             ),
         ],

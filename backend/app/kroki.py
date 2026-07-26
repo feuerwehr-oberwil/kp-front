@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import itertools
 import json
 import math
 from dataclasses import dataclass, field
@@ -78,8 +79,14 @@ class View:
         return wx - self.origin[0], wy - self.origin[1]
 
 
-def fit_view(points: list[tuple[float, float]], width: int, height: int,
-             pad_frac: float = 0.08, min_z: float = 10.0, max_z: float = 20.0) -> View:
+def fit_view(
+    points: list[tuple[float, float]],
+    width: int,
+    height: int,
+    pad_frac: float = 0.08,
+    min_z: float = 10.0,
+    max_z: float = 20.0,
+) -> View:
     """Fractional zoom at which all points fill the frame (with padding), centered —
     the same framing feel as MapLibre's fitBounds.
 
@@ -127,8 +134,7 @@ def bounds_view(bounds: tuple[float, float, float, float], width: int, height: i
     selector and output sharing an aspect ratio, the two corners land on the image edges.
     """
     west, south, east, north = bounds
-    return fit_view([(west, south), (east, north)], width, height,
-                    pad_frac=0.0, min_z=0.0, max_z=24.0)
+    return fit_view([(west, south), (east, north)], width, height, pad_frac=0.0, min_z=0.0, max_z=24.0)
 
 
 # ----------------------------------------------------------------------------- tiles
@@ -149,8 +155,9 @@ class TileCache:
         (self.dir / hashlib.sha256(url.encode()).hexdigest()).write_bytes(data)
 
 
-def render_base(view: View, tile_url: str, cache: TileCache | None = None,
-                client: httpx.Client | None = None, max_tile_z: int = 19) -> Image.Image:
+def render_base(
+    view: View, tile_url: str, cache: TileCache | None = None, client: httpx.Client | None = None, max_tile_z: int = 19
+) -> Image.Image:
     """Stitch the XYZ raster tiles covering the view. `tile_url` has {z}/{x}/{y} slots.
     Fractional view zoom: tiles come from ceil(z) (crisper than upscaling from floor)
     and the stitched canvas is resized down to the view's pixel size."""
@@ -190,13 +197,17 @@ def render_base(view: View, tile_url: str, cache: TileCache | None = None,
                     continue
                 try:
                     tile = Image.open(io.BytesIO(data)).convert("RGB")
-                except Exception:
+                except Exception:  # noqa: BLE001, S112 — one corrupt tile must not sink the map
                     continue
                 img.paste(tile, (int(tx * TILE - x0), int(ty * TILE - y0)))
     finally:
         if own:
             client.close()
-    return img.resize((view.width, view.height), Image.LANCZOS) if (tw, th) != (view.width, view.height) else img
+    return (
+        img.resize((view.width, view.height), Image.Resampling.LANCZOS)
+        if (tw, th) != (view.width, view.height)
+        else img
+    )
 
 
 # ----------------------------------------------------------------------------- symbols
@@ -213,11 +224,17 @@ def raster_svg(svg: str, size_px: int) -> Image.Image:
     first, so the pin is inert there."""
     import resvg_py
 
-    png = bytes(resvg_py.svg_to_bytes(
-        svg_string=svg, width=size_px, height=size_px,
-        font_family="DejaVu Sans", sans_serif_family="DejaVu Sans",
-        serif_family="DejaVu Serif", monospace_family="DejaVu Sans Mono",
-    ))
+    png = bytes(
+        resvg_py.svg_to_bytes(
+            svg_string=svg,
+            width=size_px,
+            height=size_px,
+            font_family="DejaVu Sans",
+            sans_serif_family="DejaVu Sans",
+            serif_family="DejaVu Serif",
+            monospace_family="DejaVu Sans Mono",
+        )
+    )
     return Image.open(io.BytesIO(png)).convert("RGBA")
 
 
@@ -310,8 +327,10 @@ def spread_overlay_svg(spread: dict, color: str) -> str:
 
     def arrow(deg: int, bounded: bool) -> str:
         bar = '<rect x="33" y="1" width="34" height="6" rx="1.5" stroke-width="3"/>' if bounded else ""
-        return (f'<g transform="rotate({deg} 50 50)" fill="#fff" stroke="{color}" '
-                f'stroke-width="3.5" stroke-linejoin="round"><path d="{_BLOCK_ARROW}"/>{bar}</g>')
+        return (
+            f'<g transform="rotate({deg} 50 50)" fill="#fff" stroke="{color}" '
+            f'stroke-width="3.5" stroke-linejoin="round"><path d="{_BLOCK_ARROW}"/>{bar}</g>'
+        )
 
     if spread.get("up"):
         parts.append(arrow(0, bool(spread.get("vBounded"))))
@@ -324,14 +343,18 @@ def spread_overlay_svg(spread: dict, color: str) -> str:
     return f'<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">{"".join(parts)}</svg>'
 
 
-def _badge(draw: ImageDraw.ImageDraw, xy: tuple[float, float], text: str, h: float,
-           bg: str, fg: str) -> None:
+def _badge(draw: ImageDraw.ImageDraw, xy: tuple[float, float], text: str, h: float, bg: str, fg: str) -> None:
     """A small rounded chip (floor / count badge), centred on xy."""
     f = _font(int(h * 0.72))
     w = max(h, draw.textlength(text, font=f) + h * 0.5)
     x, y = xy
-    draw.rounded_rectangle([x - w / 2, y - h / 2, x + w / 2, y + h / 2], radius=h * 0.3,
-                           fill=bg, outline="#d4dae3" if bg == "white" else None, width=1)
+    draw.rounded_rectangle(
+        [x - w / 2, y - h / 2, x + w / 2, y + h / 2],
+        radius=h * 0.3,
+        fill=bg,
+        outline="#d4dae3" if bg == "white" else None,
+        width=1,
+    )
     draw.text((x, y - h * 0.04), text, font=f, fill=fg, anchor="mm")
 
 
@@ -343,8 +366,13 @@ def _caption(draw: ImageDraw.ImageDraw, xy: tuple[float, float], lines: list[str
     bh = lh * len(lines)
     pad = fs * 0.4
     x, y = xy  # top-centre of the chip
-    draw.rounded_rectangle([x - bw / 2 - pad, y, x + bw / 2 + pad, y + bh + pad],
-                           radius=max(2, fs // 4), fill=(255, 255, 255, 240), outline="#d4dae3", width=1)
+    draw.rounded_rectangle(
+        [x - bw / 2 - pad, y, x + bw / 2 + pad, y + bh + pad],
+        radius=max(2, fs // 4),
+        fill=(255, 255, 255, 240),
+        outline="#d4dae3",
+        width=1,
+    )
     for i, t in enumerate(lines):
         draw.text((x, y + pad / 2 + lh * (i + 0.5)), t, font=f, fill="#1b2330", anchor="mm")
 
@@ -352,8 +380,7 @@ def _caption(draw: ImageDraw.ImageDraw, xy: tuple[float, float], lines: list[str
 # ----------------------------------------------------------------------------- line decor
 
 
-def _teilstueck_fork(overlay: Image.Image, pts: list[tuple[float, float]],
-                     color: str, width: int) -> None:
+def _teilstueck_fork(overlay: Image.Image, pts: list[tuple[float, float]], color: str, width: int) -> None:
     """The forward «E»-fork Teilstück coupling at the line tip — the client's
     TeilstueckFork SVG (round caps, clean joins) rasterised via resvg and composited
     at the tip; PIL's fat butt-capped strokes turned into blobs."""
@@ -375,13 +402,12 @@ def _teilstueck_fork(overlay: Image.Image, pts: list[tuple[float, float]],
         f'<path d="M0,{half} L{prong},{half}"/>'
         f"</g></svg>"
     )
-    size = int(round(box))
+    size = round(box)
     fork = raster_svg(svg, size)
     overlay.alpha_composite(fork, (int(tip[0] - size / 2), int(tip[1] - size / 2)))
 
 
-def _end_tag(draw: ImageDraw.ImageDraw, pts: list[tuple[float, float]], parts: list[str],
-             color: str, fs: int) -> None:
+def _end_tag(draw: ImageDraw.ImageDraw, pts: list[tuple[float, float]], parts: list[str], color: str, fs: int) -> None:
     """Boxed tag just before the tip (72 % along the last segment): «1 · S · +2»."""
     a, b = pts[-2], pts[-1]
     x, y = a[0] + (b[0] - a[0]) * 0.72, a[1] + (b[1] - a[1]) * 0.72
@@ -389,8 +415,13 @@ def _end_tag(draw: ImageDraw.ImageDraw, pts: list[tuple[float, float]], parts: l
     f = _font(fs)
     tw = draw.textlength(text, font=f)
     pad = fs * 0.4
-    draw.rounded_rectangle([x - tw / 2 - pad, y - fs * 0.8 - pad / 2, x + tw / 2 + pad, y + fs * 0.8 + pad / 2],
-                           radius=max(2, fs // 4), fill=(255, 255, 255, 240), outline=color, width=max(1, fs // 7))
+    draw.rounded_rectangle(
+        [x - tw / 2 - pad, y - fs * 0.8 - pad / 2, x + tw / 2 + pad, y + fs * 0.8 + pad / 2],
+        radius=max(2, fs // 4),
+        fill=(255, 255, 255, 240),
+        outline=color,
+        width=max(1, fs // 7),
+    )
     draw.text((x, y), text, font=f, fill=color, anchor="mm")
 
 
@@ -413,13 +444,14 @@ def _font(size: int) -> ImageFont.FreeTypeFont:
     return ImageFont.load_default()  # type: ignore[return-value]
 
 
-def _dashed(draw: ImageDraw.ImageDraw, pts: list[tuple[float, float]], color: str, width: int,
-            dash: float = 14, gap: float = 10) -> None:
+def _dashed(
+    draw: ImageDraw.ImageDraw, pts: list[tuple[float, float]], color: str, width: int, dash: float = 14, gap: float = 10
+) -> None:
     """PIL has no dash pattern — walk the polyline and emit dash segments, keeping the
     dash phase continuous across vertices."""
     period = dash + gap
     dist = 0.0  # cumulative length along the polyline
-    for (x1, y1), (x2, y2) in zip(pts, pts[1:]):
+    for (x1, y1), (x2, y2) in itertools.pairwise(pts):
         seg = math.hypot(x2 - x1, y2 - y1)
         if seg == 0:
             continue
@@ -429,8 +461,9 @@ def _dashed(draw: ImageDraw.ImageDraw, pts: list[tuple[float, float]], color: st
             phase = (dist + t) % period
             if phase < dash:
                 step = min(dash - phase, seg - t)
-                draw.line([(x1 + ux * t, y1 + uy * t), (x1 + ux * (t + step), y1 + uy * (t + step))],
-                          fill=color, width=width)
+                draw.line(
+                    [(x1 + ux * t, y1 + uy * t), (x1 + ux * (t + step), y1 + uy * (t + step))], fill=color, width=width
+                )
             else:
                 step = min(period - phase, seg - t)
             t += max(step, 0.05)  # epsilon floor — a phase landing exactly on a boundary must still advance
@@ -499,8 +532,13 @@ def _label_box(draw: ImageDraw.ImageDraw, xy: tuple[float, float], lines: list[s
     bw, bh = max(widths), lh * len(lines)
     pad = fs * 0.4
     x, y = xy
-    draw.rounded_rectangle([x - bw / 2 - pad, y - bh / 2 - pad, x + bw / 2 + pad, y + bh / 2 + pad],
-                           radius=max(2, fs // 4), fill=(255, 255, 255, 238), outline="#d4dae3", width=1)
+    draw.rounded_rectangle(
+        [x - bw / 2 - pad, y - bh / 2 - pad, x + bw / 2 + pad, y + bh / 2 + pad],
+        radius=max(2, fs // 4),
+        fill=(255, 255, 255, 238),
+        outline="#d4dae3",
+        width=1,
+    )
     for i, t in enumerate(lines):
         draw.text((x, y - bh / 2 + lh * (i + 0.5)), t, font=f, fill="#1b2330", anchor="mm")
 
@@ -516,7 +554,7 @@ def _hose_hint(m: float, hose_len: float = 20.0, reserve: float = 0.10) -> str:
 
 def _geodesic_m(coords: list[tuple[float, float]]) -> float:
     total = 0.0
-    for (lng1, lat1), (lng2, lat2) in zip(coords, coords[1:]):
+    for (lng1, lat1), (lng2, lat2) in itertools.pairwise(coords):
         dx = (lng2 - lng1) * 111320 * math.cos(math.radians((lat1 + lat2) / 2))
         dy = (lat2 - lat1) * 110540
         total += math.hypot(dx, dy)
@@ -546,10 +584,12 @@ def _circle_points(lng: float, lat: float, radius_m: float, n: int = 72) -> list
     out = []
     for i in range(n + 1):
         a = 2 * math.pi * i / n
-        out.append((
-            lng + (radius_m * math.cos(a)) / (111320 * math.cos(math.radians(lat))),
-            lat + (radius_m * math.sin(a)) / 110540,
-        ))
+        out.append(
+            (
+                lng + (radius_m * math.cos(a)) / (111320 * math.cos(math.radians(lat))),
+                lat + (radius_m * math.sin(a)) / 110540,
+            )
+        )
     return out
 
 
@@ -561,12 +601,20 @@ def _hex_alpha(color: str, alpha: float) -> tuple[int, int, int, int]:
     return (r, g, b, int(alpha * 255))
 
 
-def render_kroki(scene: KrokiScene, pack: SymbolPack, tile_url: str,
-                 width: int = 1600, height: int = 980, view: View | None = None,
-                 cache: TileCache | None = None, sym_mul: float = 0.7,
-                 attribution: str = "© CARTO, © OpenStreetMap-Mitwirkende",
-                 supersample: int = 2, ref_width: int = 1050,
-                 max_tile_z: int = 19) -> Image.Image:
+def render_kroki(
+    scene: KrokiScene,
+    pack: SymbolPack,
+    tile_url: str,
+    width: int = 1600,
+    height: int = 980,
+    view: View | None = None,
+    cache: TileCache | None = None,
+    sym_mul: float = 0.7,
+    attribution: str = "© CARTO, © OpenStreetMap-Mitwirkende",
+    supersample: int = 2,
+    ref_width: int = 1050,
+    max_tile_z: int = 19,
+) -> Image.Image:
     """Compose one Kroki bitmap: base tiles + drawings + tactical symbols + attribution.
 
     `ref_width`: the on-screen viewport width the client sizing rules assume (~the print
@@ -580,7 +628,7 @@ def render_kroki(scene: KrokiScene, pack: SymbolPack, tile_url: str,
     # upscaled — map detail stays honest, but every overlay edge is drawn at ss× and
     # downsampled, which is where the crispness matters)
     base = render_base(view, tile_url, cache=cache, max_tile_z=max_tile_z)
-    img = base.resize((width * ss, height * ss), Image.LANCZOS).convert("RGBA")
+    img = base.resize((width * ss, height * ss), Image.Resampling.LANCZOS).convert("RGBA")
     overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
 
@@ -596,22 +644,25 @@ def render_kroki(scene: KrokiScene, pack: SymbolPack, tile_url: str,
     for d in scene.drawings:
         color = d.get("color") or "#1f6feb"
         kind = d.get("kind")
-        alpha = d.get("fillOpacity") if d.get("fillOpacity") is not None else 0.14
+        raw_alpha = d.get("fillOpacity")
+        alpha = float(raw_alpha) if raw_alpha is not None else 0.14
         if kind == "circle" and d.get("coords"):
             lng, lat = d["coords"][0]
-            draw.polygon([pt(a, b) for a, b in _circle_points(lng, lat, d.get("radiusM") or 50)],
-                         fill=_hex_alpha(color, alpha))
+            draw.polygon(
+                [pt(a, b) for a, b in _circle_points(lng, lat, d.get("radiusM") or 50)], fill=_hex_alpha(color, alpha)
+            )
         elif kind == "area" and len(d.get("coords", [])) >= 3:
             draw.polygon([pt(a, b) for a, b in d["coords"]], fill=_hex_alpha(color, alpha))
     for d in scene.drawings:
         color = d.get("color") or "#1f6feb"
-        w = max(1, int(round((d.get("width") or 4) * u * ss)))
+        w = max(1, round((d.get("width") or 4) * u * ss))
         kind = d.get("kind")
         if kind == "circle" and d.get("coords"):
             lng, lat = d["coords"][0]
             pts = [pt(a, b) for a, b in _circle_points(lng, lat, d.get("radiusM") or 50)]
-            _dashed(draw, pts, color, w, dash=14 * u * ss, gap=10 * u * ss) if d.get("dashed") \
-                else draw.line(pts, fill=color, width=w, joint="curve")
+            _dashed(draw, pts, color, w, dash=14 * u * ss, gap=10 * u * ss) if d.get("dashed") else draw.line(
+                pts, fill=color, width=w, joint="curve"
+            )
             if d.get("radiusM"):
                 labels.append((pts[len(pts) // 8], [f"r = {round(d['radiusM'])} m"], int(13 * u * ss)))
         elif kind == "area" and len(d.get("coords", [])) >= 3:
@@ -669,16 +720,18 @@ def render_kroki(scene: KrokiScene, pack: SymbolPack, tile_url: str,
             if e.get("kind") == "team" and e.get("caption"):
                 r = 7 * u * ss
                 tc = e.get("color") or "#1f6feb"
-                draw.ellipse([x0_ - r, y0_ - r, x0_ + r, y0_ + r], fill=tc, outline="white", width=max(1, int(1.5 * u * ss)))
+                draw.ellipse(
+                    [x0_ - r, y0_ - r, x0_ + r, y0_ + r], fill=tc, outline="white", width=max(1, int(1.5 * u * ss))
+                )
                 _caption(draw, (x0_, y0_ + r + 2 * u * ss), [str(e["caption"])], int(11.5 * u * ss))
             elif e.get("kind") == "note" and e.get("caption"):
                 _label_box(draw, (x0_, y0_), [str(e["caption"])], int(12 * u * ss))
             continue
         # shapes are sized in real-world metres (client shapePx); symbols use the band
         if e.get("sizeM"):
-            size = int(round(max(24.0, min(900.0, e["sizeM"] * px_per_m(lat, overlay_z))) * u * ss))
+            size = round(max(24.0, min(900.0, e["sizeM"] * px_per_m(lat, overlay_z))) * u * ss)
         else:
-            size = int(round(sym_px(e.get("kind", "symbol"), lat, overlay_z, sym_mul) * u * ss))
+            size = round(sym_px(e.get("kind", "symbol"), lat, overlay_z, sym_mul) * u * ss)
         glyph = raster_svg(svg, size)
         color = sym_color(svg)
         x, y = x0_, y0_
@@ -689,10 +742,11 @@ def render_kroki(scene: KrokiScene, pack: SymbolPack, tile_url: str,
             overlay.alpha_composite(oimg, (int(x - osize / 2), int(y - osize / 2)))
         # white legibility chip behind outline symbols (KP Front, hydrants, …)
         if needs_white(svg):
-            draw.rounded_rectangle([x - size / 2, y - size / 2, x + size / 2, y + size / 2],
-                                   radius=size * 0.14, fill=(255, 255, 255, 235))
+            draw.rounded_rectangle(
+                [x - size / 2, y - size / 2, x + size / 2, y + size / 2], radius=size * 0.14, fill=(255, 255, 255, 235)
+            )
         if e.get("rotation"):
-            glyph = glyph.rotate(-e["rotation"], expand=True, resample=Image.BICUBIC)
+            glyph = glyph.rotate(-e["rotation"], expand=True, resample=Image.Resampling.BICUBIC)
         overlay.alpha_composite(glyph, (int(x - glyph.width / 2), int(y - glyph.height / 2)))
         # storey badge top-right (white chip, symbol colour) / count bottom-right (ink chip)
         bh = max(16.0 * u * ss / 2, size * 0.46)
@@ -713,7 +767,7 @@ def render_kroki(scene: KrokiScene, pack: SymbolPack, tile_url: str,
     for xy, lines, fs in labels:
         _label_box(draw, xy, lines, int(fs))
 
-    out = Image.alpha_composite(img, overlay).resize((width, height), Image.LANCZOS).convert("RGB")
+    out = Image.alpha_composite(img, overlay).resize((width, height), Image.Resampling.LANCZOS).convert("RGB")
     # attribution (tile ToS) bottom-right
     d2 = ImageDraw.Draw(out)
     f = _font(int(11 * u))
@@ -726,8 +780,14 @@ def render_kroki(scene: KrokiScene, pack: SymbolPack, tile_url: str,
 # ----------------------------------------------------------------------------- plan pages
 
 
-def render_plan_page(pdf_bytes: bytes, annos: list[dict], pack: SymbolPack | None,
-                     width: int = 1600, supersample: int = 2, ref_width: int = 1050) -> Image.Image:
+def render_plan_page(
+    pdf_bytes: bytes,
+    annos: list[dict],
+    pack: SymbolPack | None,
+    width: int = 1600,
+    supersample: int = 2,
+    ref_width: int = 1050,
+) -> Image.Image:
     """Render an annotated Objektplan page: the plan PDF's first page via pdfium, then the
     board annotations (relative 0..1 coords — the Whiteboard's model) drawn on top with the
     same primitives as the Kroki. Mirrors the print view's PlanPrintPage (42px symbols,
@@ -738,7 +798,7 @@ def render_plan_page(pdf_bytes: bytes, annos: list[dict], pack: SymbolPack | Non
     doc = pdfium.PdfDocument(pdf_bytes)
     try:
         page = doc[0]
-        pw, ph = page.get_size()
+        pw, _ph = page.get_size()
         scale = (width * ss) / pw
         base = page.render(scale=scale).to_pil().convert("RGBA")
     finally:
@@ -746,8 +806,14 @@ def render_plan_page(pdf_bytes: bytes, annos: list[dict], pack: SymbolPack | Non
     return _overlay_board_annos(base, annos, pack, width, supersample, ref_width)
 
 
-def render_blank_page(aspect: float, annos: list[dict], pack: SymbolPack | None,
-                      width: int = 1600, supersample: int = 2, ref_width: int = 800) -> Image.Image:
+def render_blank_page(
+    aspect: float,
+    annos: list[dict],
+    pack: SymbolPack | None,
+    width: int = 1600,
+    supersample: int = 2,
+    ref_width: int = 800,
+) -> Image.Image:
     """A plan page WITHOUT a PDF behind it (the Gebäude floor-stack): a white base of the
     given aspect (h/w), with the whole page — footprint outlines, floor labels, north dial
     and the board annos — expressed as the client-sent anno list.
@@ -756,12 +822,13 @@ def render_blank_page(aspect: float, annos: list[dict], pack: SymbolPack | None,
     glyphs/text/strokes than a dense Modul-PDF to read well on paper."""
     aspect = max(0.2, min(4.0, aspect))
     ss = supersample
-    base = Image.new("RGBA", (width * ss, int(round(width * aspect)) * ss), (255, 255, 255, 255))
+    base = Image.new("RGBA", (width * ss, round(width * aspect) * ss), (255, 255, 255, 255))
     return _overlay_board_annos(base, annos, pack, width, supersample, ref_width)
 
 
-def _overlay_board_annos(base: Image.Image, annos: list[dict], pack: SymbolPack | None,
-                         width: int, supersample: int, ref_width: int) -> Image.Image:
+def _overlay_board_annos(
+    base: Image.Image, annos: list[dict], pack: SymbolPack | None, width: int, supersample: int, ref_width: int
+) -> Image.Image:
     ss = supersample
     u = width / ref_width
     w, h = base.size
@@ -775,11 +842,12 @@ def _overlay_board_annos(base: Image.Image, annos: list[dict], pack: SymbolPack 
     for a in annos:
         kind = a.get("kind")
         color = a.get("color") or "#1f6feb"
-        sw = max(1, int(round((a.get("width") or 4) * u * ss)))
+        sw = max(1, round((a.get("width") or 4) * u * ss))
         if kind in ("draw", "area") and len(a.get("pts") or []) >= 2:
             pts = [pp(px_, py_) for px_, py_ in a["pts"]]
             if kind == "area" and len(pts) >= 3:
-                draw.polygon(pts, fill=_hex_alpha(color, (a.get("fillOpacity") if a.get("fillOpacity") is not None else 0.14)))
+                raw_alpha = a.get("fillOpacity")
+                draw.polygon(pts, fill=_hex_alpha(color, float(raw_alpha) if raw_alpha is not None else 0.14))
                 draw.line([*pts, pts[0]], fill=color, width=sw, joint="curve")
                 if a.get("label"):
                     cx = sum(p[0] for p in pts) / len(pts)
@@ -796,10 +864,10 @@ def _overlay_board_annos(base: Image.Image, annos: list[dict], pack: SymbolPack 
                 continue
             # symbols print at a fixed 42px; generic shapes carry their size as a
             # fraction of the plan width (sizeN) — mirror of the on-screen sizing
-            size = int(round(a["sizeN"] * w)) if a.get("sizeN") else int(round(42 * u * ss))
+            size = round(a["sizeN"] * w) if a.get("sizeN") else round(42 * u * ss)
             glyph = raster_svg(svg, size)
             if a.get("rotation"):
-                glyph = glyph.rotate(-a["rotation"], expand=True, resample=Image.BICUBIC)
+                glyph = glyph.rotate(-a["rotation"], expand=True, resample=Image.Resampling.BICUBIC)
             x, y = pp(a.get("x") or 0, a.get("y") or 0)
             overlay.alpha_composite(glyph, (int(x - glyph.width / 2), int(y - glyph.height / 2)))
         elif kind in ("text", "resource") and (a.get("text") or "").strip():
@@ -813,13 +881,16 @@ def _overlay_board_annos(base: Image.Image, annos: list[dict], pack: SymbolPack 
             half = tw_ / 2 + pad
             x = max(half + 2, min(w - half - 2, x))
             dark = kind == "resource"  # resource chips are ink-on-dark like the app
-            draw.rounded_rectangle([x - half, y - fs * 0.9, x + half, y + fs * 0.9],
-                                   radius=max(2, fs // 4),
-                                   fill="#1b2330" if dark else (255, 255, 255, 240),
-                                   outline=None if dark else "#d4dae3", width=1)
+            draw.rounded_rectangle(
+                [x - half, y - fs * 0.9, x + half, y + fs * 0.9],
+                radius=max(2, fs // 4),
+                fill="#1b2330" if dark else (255, 255, 255, 240),
+                outline=None if dark else "#d4dae3",
+                width=1,
+            )
             draw.text((x, y), t, font=f, fill="white" if dark else "#1b2330", anchor="mm")
     for xy, lines, fs in labels:
         _label_box(draw, xy, lines, int(fs))
 
     out = Image.alpha_composite(base, overlay)
-    return out.resize((width, int(round(h / ss))), Image.LANCZOS).convert("RGB")
+    return out.resize((width, round(h / ss)), Image.Resampling.LANCZOS).convert("RGB")

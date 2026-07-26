@@ -28,6 +28,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "ruff>=0.8.0",
+    "mypy>=1.13.0",
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
     "aiosqlite>=0.20.0",
@@ -45,11 +46,61 @@ line-length = 120
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "N", "W", "UP"]
-ignore = ["E501"]
+# Beyond the style core (E/F/I/N/W/UP), the families here were picked for signal, not
+# tidiness: ASYNC catches blocking I/O inside async request handlers, B the classic
+# footguns, S the flake8-bandit subset (kp-rueck runs bandit as its own CI job; doing it
+# inside ruff keeps this repo to one gate), LOG/PIE/C4/SIM the cheap correctness wins.
+# Deliberately NOT selected: PTH (62 hits, pure style) and TRY (46, mostly opinions about
+# exception shape). Both are noise-to-signal losers here.
+select = ["E", "F", "I", "N", "W", "UP", "B", "ASYNC", "BLE", "SIM", "C4", "PIE", "LOG", "S", "RUF"]
+ignore = [
+    "E501",
+    # RUF001/2/3 flag "ambiguous" unicode. Every hit in this repo is deliberate German
+    # typography — en dashes (a house style rule), ›angle quotes‹, non-breaking spaces.
+    # There is no lookalike-character attack surface in server-side prose constants.
+    "RUF001",
+    "RUF002",
+    "RUF003",
+    # ASYNC240 wants trio.Path/anyio.Path for os.path calls. Those are `stat`s costing
+    # microseconds — the SPA fallback's isfile check, seed scripts resolving a manifest path —
+    # and routing them through a thread would cost more than it saves. ASYNC230 stays ON:
+    # opening and *reading* a whole file does stall the loop, and the fix there is the
+    # `anyio.to_thread.run_sync` this codebase already uses.
+    "ASYNC240",
+]
+
+# FastAPI's whole dependency-injection idiom is a function call in an argument default
+# (`user=Depends(get_user)`), which is exactly what B008 exists to flag. Without this the
+# rule reports 114 findings, none of them real, and B as a family becomes unusable.
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = [
+    "fastapi.Body",
+    "fastapi.Cookie",
+    "fastapi.Depends",
+    "fastapi.File",
+    "fastapi.Form",
+    "fastapi.Header",
+    "fastapi.Path",
+    "fastapi.Query",
+    "fastapi.Security",
+]
 
 [tool.ruff.lint.per-file-ignores]
+# Test code legitimately does things app code must not: assert (S101, the whole point),
+# hardcode throwaway credentials (S105/S106), build stub classes with mutable class attrs
+# (RUF012), and read fixture files straight off disk inside an async test (ASYNC230 — there
+# is no event loop to protect, the test IS the only thing running).
+"tests/**" = ["S101", "S105", "S106", "S311", "B017", "RUF059", "RUF012", "ASYNC230"]
+# Alembic revisions are generated files: the boilerplate header and import order are the
+# tool's, not ours, and rewriting them by hand invites merge pain for zero benefit.
+"alembic/versions/**" = ["I001", "W291", "E402", "UP035", "UP006"]
 "app/main.py" = ["E402"]
+# Boot/one-shot scripts: they run before the app serves traffic (seed, roster reset) or from
+# the CLI, so blocking the event loop is exactly what they should do. ASYNC230 only matters
+# for code on a request path.
+"app/seed.py" = ["ASYNC230"]
+"app/seed_reference.py" = ["ASYNC230"]
+"app/reset_roster.py" = ["ASYNC230"]
 # Traccar models mirror the external camelCase API shape
 "app/traccar.py" = ["N815"]
 # Deployment-config schemas mirror the frontend's camelCase config contract (CONFIGURATION.md §1)
@@ -64,6 +115,29 @@ ignore = ["E501"]
 "app/report_pdf.py" = ["N815"]
 # Scenario fields mirror the milestone webhook's camelCase contract (alarmedAt, vorOrt)
 "app/fake_scenario.py" = ["N815"]
+
+[tool.mypy]
+python_version = "3.12"
+# Deliberately NOT `strict`. Strict's headline flag is disallow_untyped_defs, which on this
+# codebase means several hundred findings that are all "add `-> None` to a route handler" —
+# annotation debt, not defects. kp-rueck went that way and ended up with a 705-error advisory
+# gate nobody reads (see its docs/plans/14-typing-debt.md). The settings below are the ones
+# that catch REAL mistakes, and the tree is at zero against them, so the gate can block.
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+# Third-party stubs (jose, pypdfium2, resvg_py, apscheduler, …) are absent or partial.
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# The vendored telemetry modules are byte-identical with kp-rueck's copies and pinned by
+# checksum (tests/test_telemetry_vendored.py). The fixes they'd need — a typed DML helper,
+# a widened ctx dict — cannot be shared, because the two apps have different database
+# modules, so annotating them here would break the identity the checksum protects.
+# kp-rueck excludes them for the same reason (its docs/plans/14-typing-debt.md). Their
+# guarantee comes from the 39 absence-based sanitiser tests and the checksum, not from mypy.
+module = ["app.telemetry.scrub", "app.telemetry.envelope", "app.telemetry.outbox", "app.telemetry.forwarder"]
+ignore_errors = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

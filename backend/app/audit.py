@@ -87,15 +87,11 @@ async def append_event(
     return event
 
 
-async def snapshot_workspace(
-    db: AsyncSession, *, incident_id: uuid.UUID, workspace: dict
-) -> WorkspaceSnapshot:
+async def snapshot_workspace(db: AsyncSession, *, incident_id: uuid.UUID, workspace: dict) -> WorkspaceSnapshot:
     """Persist a versioned copy of the saved blob = a fold checkpoint for replay."""
     seq_at = (
         await db.execute(
-            select(func.coalesce(func.max(IncidentEvent.seq), 0)).where(
-                IncidentEvent.incident_id == incident_id
-            )
+            select(func.coalesce(func.max(IncidentEvent.seq), 0)).where(IncidentEvent.incident_id == incident_id)
         )
     ).scalar_one()
     key = storage.new_key(f"snapshots/{incident_id}", ".json")
@@ -159,9 +155,7 @@ async def reconstruct_state(db: AsyncSession, incident_id: uuid.UUID, at: dateti
     """
     snap, blob = await load_snapshot_at(db, incident_id, at)
     snap_occurred = snap.occurred_at if snap else None
-    q = select(IncidentEvent).where(
-        IncidentEvent.incident_id == incident_id, IncidentEvent.occurred_at <= at
-    )
+    q = select(IncidentEvent).where(IncidentEvent.incident_id == incident_id, IncidentEvent.occurred_at <= at)
     if snap_occurred is not None:
         q = q.where(IncidentEvent.occurred_at > snap_occurred)
     q = q.order_by(IncidentEvent.seq.asc())
@@ -198,9 +192,7 @@ async def verify_chain(db: AsyncSession, incident_id: uuid.UUID) -> dict:
     events = list(
         (
             await db.execute(
-                select(IncidentEvent)
-                .where(IncidentEvent.incident_id == incident_id)
-                .order_by(IncidentEvent.seq.asc())
+                select(IncidentEvent).where(IncidentEvent.incident_id == incident_id).order_by(IncidentEvent.seq.asc())
             )
         ).scalars()
     )

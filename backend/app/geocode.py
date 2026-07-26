@@ -74,9 +74,7 @@ async def _resolve_bias() -> tuple[str, str]:
         from .models import DeploymentConfig
 
         async with async_session_maker() as db:
-            row = (
-                await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))
-            ).scalar_one_or_none()
+            row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
         cfg = (row.config_json or {}) if row else {}
         geo = ((cfg.get("map") or {}).get("geocoder") or {}) if isinstance(cfg, dict) else {}
         cfg_locality = str(geo.get("defaultLocality") or "").strip()
@@ -85,7 +83,7 @@ async def _resolve_bias() -> tuple[str, str]:
             locality = cfg_locality
         if cfg_bbox:
             bbox = cfg_bbox
-    except Exception as e:  # never let config lookup break geocoding
+    except Exception as e:  # noqa: BLE001 — never let config lookup break geocoding
         logger.warning("Geocoder bias config lookup failed; using settings defaults: %s", e)
 
     _bias_cache = (now, (locality, bbox))
@@ -160,10 +158,7 @@ async def geocode(address: str) -> tuple[float, float] | None:
 # Reverse geocode runs against the same geo.admin host (SSRF-pinned like the SearchServer
 # above) but the MapServer/identify service, hitting the official building-address register
 # (GWR). Lets a map-click on the intake wizard auto-fill the nearest address.
-_IDENTIFY_URL = (
-    f"{_GEOCODER_SPLIT.scheme}://{_GEOCODER_SPLIT.hostname}"
-    "/rest/services/api/MapServer/identify"
-)
+_IDENTIFY_URL = f"{_GEOCODER_SPLIT.scheme}://{_GEOCODER_SPLIT.hostname}/rest/services/api/MapServer/identify"
 _ADDR_LAYER = "ch.bfs.gebaeude_wohnungs_register"
 
 

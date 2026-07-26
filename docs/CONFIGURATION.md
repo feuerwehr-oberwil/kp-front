@@ -331,7 +331,7 @@ Set at deploy time; never editable from the UI, never in the repo.
 > `X-Stats-Token` header or `?t=`. Fail-closed: no token → 403. Full field reference:
 > `docs/STATS-EXPORT.md`. |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Web Push for killed-app alarms + new-alarm push (generate once: `cd backend && uv run python -m app.gen_vapid`; empty = push disabled, fail-closed) |
-| `PRINT_AGENT_SECRET` | station print relay: «An Stationsdrucker» queues the Einsatzrapport-PDF for an on-site agent (`tools/print_agent.py` – any always-on box with a CUPS queue; `python3 tools/print_agent.py install` prints the setup). Empty = agent endpoints 403 and the button never renders, fail-closed. |
+| `PRINT_AGENT_SECRET` | station print relay: «An Stationsdrucker» queues the Einsatzrapport-PDF for an on-site agent (any always-on box with a CUPS queue). The agent now serves KP Front *and* KP Rück from one install – see [`tools/PRINT-AGENT.md`](../tools/PRINT-AGENT.md); the endpoint contract below is unchanged. Empty = agent endpoints 403 and the button never renders, fail-closed. |
 | `TRACCAR_URL`, `TRACCAR_EMAIL`, `TRACCAR_PASSWORD` | if `traccarEnabled` |
 | `STT_BASE_URL`, `STT_API_KEY`, `STT_MODEL`, `STT_LANGUAGE` | speech-to-text for the audio player's Transkribieren (OpenAI-compatible `/v1/audio/transcriptions`; base URL without `/v1` – Groq: `https://api.groq.com/openai`, OpenAI: `https://api.openai.com`, or a self-hosted faster-whisper server). Empty base URL = off, fail-closed. **Audio is sent to that server** – prefer self-hosted for sensitive deployments. |
 | `MAX_UPLOAD_MB` | request-body cap for multipart uploads (default 110 – must stay above the media endpoint's 100 MB per-file cap) |

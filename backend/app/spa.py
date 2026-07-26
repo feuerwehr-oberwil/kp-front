@@ -11,6 +11,8 @@ import os
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.responses import Response
+from starlette.types import Scope
 
 from .config import settings
 
@@ -31,7 +33,7 @@ def _cache_control(basename: str) -> str:
 class ImmutableStaticFiles(StaticFiles):
     """/assets/* carries a content hash in the filename — safe to cache forever."""
 
-    async def get_response(self, path: str, scope):  # type: ignore[no-untyped-def]
+    async def get_response(self, path: str, scope: Scope) -> Response:
         response = await super().get_response(path, scope)
         response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
         return response

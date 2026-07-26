@@ -54,15 +54,27 @@ DEMO_INCIDENT = {
     "lng": 7.570345444795164,
     "divera_id": 990000,
     "divera_number": "2026-DEMO-000",
-    # how long the incident has been running when the demo is viewed (drives the Einsatz clock)
-    "elapsed_min": 14,
 }
+
+# How long the incident has been running when the demo is viewed (drives the Einsatz clock).
+# Its own constant rather than a DEMO_INCIDENT key: it is the only numeric field consumed as a
+# number, and inside the mixed-value dict its type is just `object`.
+DEMO_ELAPSED_MIN = 14
 
 # Dummy roster so Anwesenheit / Atemschutz person-assignment have people to work with.
 DEMO_PEOPLE = [
-    ("Hans", "Müller"), ("Anna", "Meier"), ("Peter", "Schmid"), ("Laura", "Keller"),
-    ("Marco", "Weber"), ("Sarah", "Huber"), ("Thomas", "Brunner"), ("Nina", "Frei"),
-    ("Michael", "Baumann"), ("Céline", "Widmer"), ("Stefan", "Graf"), ("Petra", "Roth"),
+    ("Hans", "Müller"),
+    ("Anna", "Meier"),
+    ("Peter", "Schmid"),
+    ("Laura", "Keller"),
+    ("Marco", "Weber"),
+    ("Sarah", "Huber"),
+    ("Thomas", "Brunner"),
+    ("Nina", "Frei"),
+    ("Michael", "Baumann"),
+    ("Céline", "Widmer"),
+    ("Stefan", "Graf"),
+    ("Petra", "Roth"),
 ]
 
 # A pre-filled Verlauf (journal) so the demo lands with a worked incident's log instead of the
@@ -80,10 +92,16 @@ DEMO_JOURNAL = [
 
 # Who is physically present (Anwesenheit) — all nine Trupp members plus the Einsatzleiter.
 DEMO_PRESENT = {
-    "Hans Müller", "Anna Meier", "Thomas Brunner",   # Trupp 1
-    "Peter Schmid", "Laura Keller", "Nina Frei",      # Trupp 2
-    "Marco Weber", "Sarah Huber", "Michael Baumann",  # Trupp 3
-    "Céline Widmer",                                  # Einsatzleiter
+    "Hans Müller",
+    "Anna Meier",
+    "Thomas Brunner",  # Trupp 1
+    "Peter Schmid",
+    "Laura Keller",
+    "Nina Frei",  # Trupp 2
+    "Marco Weber",
+    "Sarah Huber",
+    "Michael Baumann",  # Trupp 3
+    "Céline Widmer",  # Einsatzleiter
 }
 
 
@@ -103,14 +121,22 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
     # The first links to the floor-stack chip already placed in board.gebaeude (annoId/planId).
     ws["trupps"] = [
         {
-            "id": "trupp1", "name": "Hans Müller", "members": ["Anna Meier", "Thomas Brunner"],
-            "auftrag": "retten", "ziel": "2. OG Wohnung Nord, 2 Personen vermisst",
-            "lineNumber": "1", "funkkanal": 11, "entryPressureBar": 300,
+            "id": "trupp1",
+            "name": "Hans Müller",
+            "members": ["Anna Meier", "Thomas Brunner"],
+            "auftrag": "retten",
+            "ziel": "2. OG Wohnung Nord, 2 Personen vermisst",
+            "lineNumber": "1",
+            "funkkanal": 11,
+            "entryPressureBar": 300,
             "entryTime": _iso(now - timedelta(minutes=14)),
             "lastContactTime": _iso(now - timedelta(minutes=2)),
-            "lastPressureBar": 210, "lastPressureTime": _iso(now - timedelta(minutes=2)),
-            "lowestBar": 210, "status": "aktiv",
-            "annoId": "r1782915890769", "planId": "gebaeude",
+            "lastPressureBar": 210,
+            "lastPressureTime": _iso(now - timedelta(minutes=2)),
+            "lowestBar": 210,
+            "status": "aktiv",
+            "annoId": "r1782915890769",
+            "planId": "gebaeude",
             # Contact/pressure Verlauf shown (collapsed) on the card — the frontend rebases these
             # timestamps to page-load along with the clocks, so they always read as fresh.
             "readings": [
@@ -122,13 +148,20 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
             ],
         },
         {
-            "id": "trupp2", "name": "Peter Schmid", "members": ["Laura Keller", "Nina Frei"],
-            "auftrag": "loeschen", "ziel": "Brandbekämpfung 2. OG",
-            "lineNumber": "2", "funkkanal": 11, "entryPressureBar": 300,
+            "id": "trupp2",
+            "name": "Peter Schmid",
+            "members": ["Laura Keller", "Nina Frei"],
+            "auftrag": "loeschen",
+            "ziel": "Brandbekämpfung 2. OG",
+            "lineNumber": "2",
+            "funkkanal": 11,
+            "entryPressureBar": 300,
             "entryTime": _iso(now - timedelta(minutes=8)),
             "lastContactTime": _iso(now - timedelta(seconds=150)),
-            "lastPressureBar": 250, "lastPressureTime": _iso(now - timedelta(seconds=150)),
-            "lowestBar": 250, "status": "aktiv",
+            "lastPressureBar": 250,
+            "lastPressureTime": _iso(now - timedelta(seconds=150)),
+            "lowestBar": 250,
+            "status": "aktiv",
             "readings": [
                 {"t": _iso(now - timedelta(minutes=8)), "bar": 300, "kind": "entry"},
                 {"t": _iso(now - timedelta(minutes=6)), "bar": 285, "kind": "contact"},
@@ -137,34 +170,72 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
             ],
         },
         {
-            "id": "trupp3", "name": "Marco Weber", "members": ["Sarah Huber", "Michael Baumann"],
-            "auftrag": "sichern", "ziel": "Sicherheitstrupp bereit",
-            "funkkanal": 11, "entryPressureBar": 300,
-            "entryTime": "", "lastContactTime": "", "status": "angemeldet",
+            "id": "trupp3",
+            "name": "Marco Weber",
+            "members": ["Sarah Huber", "Michael Baumann"],
+            "auftrag": "sichern",
+            "ziel": "Sicherheitstrupp bereit",
+            "funkkanal": 11,
+            "entryPressureBar": 300,
+            "entryTime": "",
+            "lastContactTime": "",
+            "status": "angemeldet",
         },
     ]
 
     # A few logged Mittel, keyed to the demo catalogue ids so each lands in the right group and
     # shows a stock ring ("noch N").
     ws["mittel"] = [
-        {"id": "md-1", "materialId": "schaummittel", "label": "Schaummittel", "unit": "l",
-         "sourceId": "tlf", "sourceLabel": "TLF", "menge": 40,
-         "at": _iso(now - timedelta(minutes=9)), "by": "Führungsunterstützung"},
-        {"id": "md-2", "materialId": "schlauch-c", "label": "Schlauch 40er", "unit": "Stk",
-         "sourceId": "tlf", "sourceLabel": "TLF", "menge": 6,
-         "at": _iso(now - timedelta(minutes=7)), "by": "Führungsunterstützung"},
-        {"id": "md-3", "materialId": "oelbindemittel", "label": "Ölbindemittel", "unit": "Sack",
-         "sourceId": "depot", "sourceLabel": "Depot", "menge": 2,
-         "at": _iso(now - timedelta(minutes=5)), "by": "Führungsunterstützung"},
-        {"id": "md-4", "materialId": "luefter", "label": "Drucklüfter", "unit": "Stk",
-         "sourceId": "tlf", "sourceLabel": "TLF", "menge": 1,
-         "at": _iso(now - timedelta(minutes=4)), "by": "Führungsunterstützung", "status": "vorOrt"},
+        {
+            "id": "md-1",
+            "materialId": "schaummittel",
+            "label": "Schaummittel",
+            "unit": "l",
+            "sourceId": "tlf",
+            "sourceLabel": "TLF",
+            "menge": 40,
+            "at": _iso(now - timedelta(minutes=9)),
+            "by": "Führungsunterstützung",
+        },
+        {
+            "id": "md-2",
+            "materialId": "schlauch-c",
+            "label": "Schlauch 40er",
+            "unit": "Stk",
+            "sourceId": "tlf",
+            "sourceLabel": "TLF",
+            "menge": 6,
+            "at": _iso(now - timedelta(minutes=7)),
+            "by": "Führungsunterstützung",
+        },
+        {
+            "id": "md-3",
+            "materialId": "oelbindemittel",
+            "label": "Ölbindemittel",
+            "unit": "Sack",
+            "sourceId": "depot",
+            "sourceLabel": "Depot",
+            "menge": 2,
+            "at": _iso(now - timedelta(minutes=5)),
+            "by": "Führungsunterstützung",
+        },
+        {
+            "id": "md-4",
+            "materialId": "luefter",
+            "label": "Drucklüfter",
+            "unit": "Stk",
+            "sourceId": "tlf",
+            "sourceLabel": "TLF",
+            "menge": 1,
+            "at": _iso(now - timedelta(minutes=4)),
+            "by": "Führungsunterstützung",
+            "status": "vorOrt",
+        },
     ]
 
     # Anwesenheit: the present crew, checked in shortly after the alarm.
     ws["attendance"] = {
-        pid: {"status": "present", "checkedInAt": _iso(now - timedelta(minutes=20)),
-              "displayNameSnapshot": name}
+        pid: {"status": "present", "checkedInAt": _iso(now - timedelta(minutes=20)), "displayNameSnapshot": name}
         for pid, name in present
     }
 
@@ -204,7 +275,8 @@ async def reset(wipe_objects: bool = True) -> None:
         # "None" (a single ghost entry that matches no one).
         await db.flush()
         person_id: dict[str, str] = {name: str(p.id) for name, p in people_rows}
-        assert "None" not in person_id.values(), "Personnel ids not flushed — Anwesenheit would break"
+        # S101 suppressed: a seed-time invariant, and the demo reset is never run under `python -O`.
+        assert "None" not in person_id.values(), "Personnel ids not flushed — Anwesenheit would break"  # noqa: S101
         # Clear objects so the manifest is authoritative ("these two, nothing else"). Deleting
         # an ObjectSite cascades to its plan datasets; the geo: reference layers (object_id NULL)
         # are untouched and get re-pushed by the reset script. Skipped in-process (wipe_objects=
@@ -221,15 +293,25 @@ async def reset(wipe_objects: bool = True) -> None:
         scene = json.loads(SCENE_PATH.read_text(encoding="utf-8"))
         present = [(pid, name) for name, pid in person_id.items() if name in DEMO_PRESENT]
         workspace = build_demo_workspace(scene, present, now)
-        started = now - timedelta(minutes=DEMO_INCIDENT["elapsed_min"])
+        started = now - timedelta(minutes=DEMO_ELAPSED_MIN)
         incident = Incident(
-            title=DEMO_INCIDENT["title"], type=DEMO_INCIDENT["type"], priority="HIGH",
-            text=DEMO_INCIDENT["text"], address=DEMO_INCIDENT["address"],
-            lat=DEMO_INCIDENT["lat"], lng=DEMO_INCIDENT["lng"],
-            status="offen", source="divera", source_ref=DEMO_INCIDENT["divera_number"],
-            divera_id=DEMO_INCIDENT["divera_id"], auto_opened=False,
-            started_at=started, editor_opened_at=started, is_archived=False,
-            map_workspace_json=workspace, workspace_rev=1,
+            title=DEMO_INCIDENT["title"],
+            type=DEMO_INCIDENT["type"],
+            priority="HIGH",
+            text=DEMO_INCIDENT["text"],
+            address=DEMO_INCIDENT["address"],
+            lat=DEMO_INCIDENT["lat"],
+            lng=DEMO_INCIDENT["lng"],
+            status="offen",
+            source="divera",
+            source_ref=DEMO_INCIDENT["divera_number"],
+            divera_id=DEMO_INCIDENT["divera_id"],
+            auto_opened=False,
+            started_at=started,
+            editor_opened_at=started,
+            is_archived=False,
+            map_workspace_json=workspace,
+            workspace_rev=1,
         )
         db.add(incident)
         # Flush so the incident's uuid4 PK (a column default assigned at INSERT) is available for
@@ -240,16 +322,25 @@ async def reset(wipe_objects: bool = True) -> None:
         # with a monotonic per-incident `seq` giving the display order (oldest first).
         for i, (mins_ago, text) in enumerate(DEMO_JOURNAL, start=1):
             at = _iso(now - timedelta(minutes=mins_ago))
-            db.add(JournalEntry(
-                incident_id=incident.id, client_id=f"demo-journal-{i}", seq=i,
-                row_json={"id": f"demo-journal-{i}", "t": "", "at": at,
-                          "icon": "type", "text": text, "kind": "journal", "surface": "map"},
-            ))
+            db.add(
+                JournalEntry(
+                    incident_id=incident.id,
+                    client_id=f"demo-journal-{i}",
+                    seq=i,
+                    row_json={
+                        "id": f"demo-journal-{i}",
+                        "t": "",
+                        "at": at,
+                        "icon": "type",
+                        "text": text,
+                        "kind": "journal",
+                        "surface": "map",
+                    },
+                )
+            )
 
         for u in DEMO_USERS:
-            user = (
-                await db.execute(select(User).where(User.username == u["username"]))
-            ).scalar_one_or_none()
+            user = (await db.execute(select(User).where(User.username == u["username"]))).scalar_one_or_none()
             if user is None:
                 user = User(username=u["username"])
                 db.add(user)
@@ -263,8 +354,12 @@ async def reset(wipe_objects: bool = True) -> None:
     logger.info(
         "Demo reset: seeded 1 running incident (%d Trupps, %d Mittel, %d present, %d Verlauf), no "
         "pending alarm, ensured %d user(s), %d people.",
-        len(workspace["trupps"]), len(workspace["mittel"]), len(present), len(DEMO_JOURNAL),
-        len(DEMO_USERS), len(DEMO_PEOPLE),
+        len(workspace["trupps"]),
+        len(workspace["mittel"]),
+        len(present),
+        len(DEMO_JOURNAL),
+        len(DEMO_USERS),
+        len(DEMO_PEOPLE),
     )
 
 

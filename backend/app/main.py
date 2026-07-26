@@ -14,19 +14,19 @@ logging.basicConfig(level=logging.INFO)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
-from collections.abc import AsyncGenerator  # noqa: E402
-from datetime import UTC, datetime  # noqa: E402
+from collections.abc import AsyncGenerator
+from datetime import UTC, datetime
 
-from fastapi import FastAPI, Request  # noqa: E402
-from fastapi.responses import JSONResponse  # noqa: E402
-from starlette.exceptions import HTTPException as StarletteHTTPException  # noqa: E402
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from .auth.router import router as auth_router  # noqa: E402
-from .auth.token_blocklist import token_blocklist  # noqa: E402
-from .config import settings  # noqa: E402
-from .database import Base, engine  # noqa: E402
-from .i18n import set_locale, translate_detail  # noqa: E402
-from .spa import mount_spa  # noqa: E402
+from .auth.router import router as auth_router
+from .auth.token_blocklist import token_blocklist
+from .config import settings
+from .database import Base, engine
+from .i18n import set_locale, translate_detail
+from .spa import mount_spa
 
 
 @asynccontextmanager
@@ -46,7 +46,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             await seed_users()
             await seed_reference()
             await seed_deployment_config()
-        except Exception:  # noqa: BLE001
+        except Exception:  # the probe must report, never raise  # never let locale loading block startup
             logger.exception("Seeding failed (continuing)")
 
     # Load the deployment locale for error-detail i18n (null-safe; stays de-CH otherwise).
@@ -57,13 +57,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         from .models import DeploymentConfig
 
         async with async_session_maker() as db:
-            row = (
-                await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))
-            ).scalar_one_or_none()
+            row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
         cfg = (row.config_json if (row and row.config_json) else {}) or {}
         identity = cfg.get("identity") or {}
         set_locale(identity.get("locale"))
-    except Exception:  # noqa: BLE001 — never let locale loading block startup
+    except Exception:
         logger.exception("Loading deployment locale failed (defaulting to de-CH)")
 
     await token_blocklist.start_cleanup_task()
@@ -102,9 +100,9 @@ app = FastAPI(
 # frontend (large workspace saves). Request inflation enforces a decompressed-size cap so a
 # gzip bomb can't expand past the JSON body limit; the Content-Length middleware below still
 # bounds the wire size. No streaming/SSE endpoints exist, so response gzip is safe globally.
-from starlette.middleware.gzip import GZipMiddleware  # noqa: E402
+from starlette.middleware.gzip import GZipMiddleware
 
-from .gzip_request import GzipRequestMiddleware  # noqa: E402
+from .gzip_request import GzipRequestMiddleware
 
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 app.add_middleware(GzipRequestMiddleware, max_decompressed_bytes=settings.max_json_body_mb * 1024 * 1024)
@@ -205,13 +203,13 @@ async def ready() -> JSONResponse:
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
         checks["database"] = "ok"
-    except Exception:  # noqa: BLE001 — the probe must report, never raise
+    except Exception:
         logger.exception("Readiness probe: database unreachable")
         checks["database"] = "error"
     try:
         storage.probe_writable()
         checks["storage"] = "ok"
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.exception("Readiness probe: storage not writable")
         checks["storage"] = "error"
     ok = all(v == "ok" for v in checks.values())

@@ -2,6 +2,7 @@
 
 - GET is public and starts empty; PUT is editor-only and round-trips; a viewer cannot write.
 """
+
 import pytest
 
 pytestmark = pytest.mark.asyncio

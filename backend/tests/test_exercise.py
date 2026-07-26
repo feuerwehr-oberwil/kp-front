@@ -103,9 +103,7 @@ async def test_stats_excludes_exercises_by_default(client, editor, stats_secret)
     assert real_id in ids
     assert ex_id not in ids
 
-    r = await client.get(
-        "/api/stats/incidents?include_exercises=1", headers={"X-Stats-Token": stats_secret}
-    )
+    r = await client.get("/api/stats/incidents?include_exercises=1", headers={"X-Stats-Token": stats_secret})
     recs = {rec["id"]: rec for rec in r.json()}
     assert recs[real_id]["is_exercise"] is False
     assert recs[ex_id]["is_exercise"] is True

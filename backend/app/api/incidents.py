@@ -11,7 +11,7 @@ from sqlalchemy.orm import defer
 from .. import audit, storage
 from ..alarms import is_demo_deployment
 from ..auth.dependencies import CurrentEditor, CurrentUser, UserOrAdmin
-from ..database import get_db
+from ..database import execute_dml, get_db
 from ..geocode import geocode
 from ..models import Incident, IncidentNote, IncidentPerson
 from ..schemas import (
@@ -56,9 +56,7 @@ async def list_incidents(
 
 
 @router.post("", response_model=IncidentFull, status_code=status.HTTP_201_CREATED)
-async def create_incident(
-    body: IncidentCreate, user: CurrentEditor, db: AsyncSession = Depends(get_db)
-) -> Incident:
+async def create_incident(body: IncidentCreate, user: CurrentEditor, db: AsyncSession = Depends(get_db)) -> Incident:
     # The public demo is a single living incident everyone edits — block spawning new ones
     # server-side (the UI already hides the action). Editing the existing incident stays open.
     if await is_demo_deployment(db):
@@ -89,7 +87,11 @@ async def create_incident(
     db.add(inc)
     await db.flush()
     await audit.append_event(
-        db, incident_id=inc.id, op_type="incident.create", source="status", user_id=user.id,
+        db,
+        incident_id=inc.id,
+        op_type="incident.create",
+        source="status",
+        user_id=user.id,
         payload={"title": inc.title, "source": inc.source},
     )
     from ..webhooks import notify_incident_created
@@ -132,9 +134,7 @@ async def get_workspace(
     # 304 — don't drag the whole workspace JSONB out of Postgres every ~2 s just to return a
     # bodyless response. The full blob is loaded only on first open or when the caller is behind.
     if since is not None:
-        rev = (
-            await db.execute(select(Incident.workspace_rev).where(Incident.id == incident_id))
-        ).scalar_one_or_none()
+        rev = (await db.execute(select(Incident.workspace_rev).where(Incident.id == incident_id))).scalar_one_or_none()
         if rev is None:
             raise HTTPException(status_code=404, detail="Einsatz nicht gefunden")
         if latch:
@@ -148,7 +148,11 @@ async def get_workspace(
 
 
 async def apply_workspace_put(
-    db: AsyncSession, incident_id: uuid.UUID, body: WorkspacePut, *, user_id: uuid.UUID | None,
+    db: AsyncSession,
+    incident_id: uuid.UUID,
+    body: WorkspacePut,
+    *,
+    user_id: uuid.UUID | None,
     source: str = "client",
 ) -> WorkspaceOut:
     """Shared save path for the editor endpoint and the station capture endpoint.
@@ -158,14 +162,15 @@ async def apply_workspace_put(
     rev=N can't both win — the loser matches 0 rows and gets the 409 (the app-level
     check alone raced because autoflush is off and the row isn't locked).
     """
-    result = await db.execute(
+    result = await execute_dml(
+        db,
         update(Incident)
         .where(Incident.id == incident_id, Incident.workspace_rev == body.base_rev)
         .values(
             map_workspace_json=body.workspace,
             workspace_rev=Incident.workspace_rev + 1,
             updated_at=func.now(),
-        )
+        ),
     )
     if result.rowcount == 0:
         inc = await _get(db, incident_id)
@@ -181,8 +186,12 @@ async def apply_workspace_put(
     await audit.snapshot_workspace(db, incident_id=incident_id, workspace=body.workspace)
     # Record the save in the hash chain so workspace changes are replayable/attributable.
     await audit.append_event(
-        db, incident_id=incident_id, op_type="workspace.save", source=source,
-        user_id=user_id, payload={"rev": new_rev},
+        db,
+        incident_id=incident_id,
+        op_type="workspace.save",
+        source=source,
+        user_id=user_id,
+        payload={"rev": new_rev},
     )
     return WorkspaceOut(workspace=body.workspace, workspace_rev=new_rev)
 
@@ -210,12 +219,20 @@ async def patch_incident(
         setattr(inc, k, v)
     if "is_exercise" in data and data["is_exercise"] != exercise_before:
         await audit.append_event(
-            db, incident_id=inc.id, op_type="meta.change", source="status", user_id=user.id,
+            db,
+            incident_id=inc.id,
+            op_type="meta.change",
+            source="status",
+            user_id=user.id,
             payload={"exercise": data["is_exercise"]},
         )
     if "report_done_at" in data and data["report_done_at"] != report_done_before:
         await audit.append_event(
-            db, incident_id=inc.id, op_type="status.change", source="status", user_id=user.id,
+            db,
+            incident_id=inc.id,
+            op_type="status.change",
+            source="status",
+            user_id=user.id,
             payload={"report_done": data["report_done_at"] is not None},
         )
         if data["report_done_at"] is not None:
@@ -223,16 +240,28 @@ async def patch_incident(
 
             # A re-completion after late corrections self-documents: the journal shows when
             # each Rapport version was declared complete.
-            text = "Rapport abgeschlossen" if report_done_before is None else "Rapport erneut abgeschlossen (ersetzt frühere Version)"
+            text = (
+                "Rapport abgeschlossen"
+                if report_done_before is None
+                else "Rapport erneut abgeschlossen (ersetzt frühere Version)"
+            )
             await append_system_row(db, inc.id, icon="check", text=text)
     if "status" in data and data["status"] != status_before:
         await audit.append_event(
-            db, incident_id=inc.id, op_type="status.change", source="status", user_id=user.id,
+            db,
+            incident_id=inc.id,
+            op_type="status.change",
+            source="status",
+            user_id=user.id,
             payload={"from": status_before, "to": data["status"]},
         )
     if "is_archived" in data and data["is_archived"] != archived_before:
         await audit.append_event(
-            db, incident_id=inc.id, op_type="status.change", source="status", user_id=user.id,
+            db,
+            incident_id=inc.id,
+            op_type="status.change",
+            source="status",
+            user_id=user.id,
             payload={"archived": data["is_archived"]},
         )
         # Archive = the end of the incident (§6 record model): the FIRST archive stamps the
@@ -253,9 +282,7 @@ async def patch_incident(
 
 
 @router.delete("/{incident_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_incident(
-    incident_id: uuid.UUID, _user: CurrentEditor, db: AsyncSession = Depends(get_db)
-) -> None:
+async def delete_incident(incident_id: uuid.UUID, _user: CurrentEditor, db: AsyncSession = Depends(get_db)) -> None:
     """Hard delete — Übungen only. Real Einsätze are an append-only operational record and
     stay undeletable (403). Child rows (journal, audit chain, people, media, snapshots) go
     via FK CASCADE; their storage blobs are removed best-effort first."""
@@ -264,13 +291,9 @@ async def delete_incident(
         raise HTTPException(status_code=403, detail="Nur Übungen können gelöscht werden")
     from ..models import Media, WorkspaceSnapshot
 
-    keys = list(
-        (await db.execute(select(Media.storage_key).where(Media.incident_id == incident_id))).scalars()
-    ) + list(
+    keys = list((await db.execute(select(Media.storage_key).where(Media.incident_id == incident_id))).scalars()) + list(
         (
-            await db.execute(
-                select(WorkspaceSnapshot.storage_key).where(WorkspaceSnapshot.incident_id == incident_id)
-            )
+            await db.execute(select(WorkspaceSnapshot.storage_key).where(WorkspaceSnapshot.incident_id == incident_id))
         ).scalars()
     )
     for key in keys:
@@ -287,7 +310,11 @@ async def patch_details(
     inc = await _get(db, incident_id)
     inc.details_json = body.details_json
     await audit.append_event(
-        db, incident_id=inc.id, op_type="meta.change", source="status", user_id=user.id,
+        db,
+        incident_id=inc.id,
+        op_type="meta.change",
+        source="status",
+        user_id=user.id,
         payload={"keys": sorted(body.details_json.keys())},
     )
     await db.flush()
@@ -316,7 +343,11 @@ async def replace_people(
     for i, p in enumerate(people):
         db.add(
             IncidentPerson(
-                incident_id=incident_id, role=p.role, name=p.name, contact=p.contact, note=p.note,
+                incident_id=incident_id,
+                role=p.role,
+                name=p.name,
+                contact=p.contact,
+                note=p.note,
                 position=p.position if p.position else i,
             )
         )

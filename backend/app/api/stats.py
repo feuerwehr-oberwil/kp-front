@@ -38,9 +38,7 @@ SELF_PATCH_EPSILON_S = 90
 
 
 async def _config_row(db: AsyncSession) -> DeploymentConfig:
-    row = (
-        await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))
-    ).scalar_one_or_none()
+    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     if row is None:
         row = DeploymentConfig(id=1, config_json=None)
         db.add(row)
@@ -75,9 +73,7 @@ async def disable_stats(_admin: CurrentAdmin, db: AsyncSession = Depends(get_db)
 
 
 async def _check_token(db: AsyncSession, request: Request, header_token: str | None) -> None:
-    row = (
-        await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))
-    ).scalar_one_or_none()
+    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     expected = row.stats_secret if row else None
     if not expected:
         raise HTTPException(
@@ -121,8 +117,9 @@ def _current_mittel(entries: Any) -> list[dict]:
     for e in latest.values():
         menge = e.get("menge")
         if isinstance(menge, (int, float)) and menge > 0:
-            out.append({"label": e["label"], "menge": menge, "unit": e.get("unit") or "Stk",
-                        "source": e.get("sourceLabel")})
+            out.append(
+                {"label": e["label"], "menge": menge, "unit": e.get("unit") or "Stk", "source": e.get("sourceLabel")}
+            )
     return sorted(out, key=lambda x: str(x["label"]))
 
 
@@ -133,12 +130,14 @@ def _attendance(att: Any) -> list[dict]:
     for pid, a in att.items():
         if not isinstance(a, dict):
             continue
-        out.append({
-            "name": a.get("displayNameSnapshot") or pid,
-            "von": a.get("checkedInAt"),
-            "bis": a.get("leftAt"),
-            "status": a.get("status"),
-        })
+        out.append(
+            {
+                "name": a.get("displayNameSnapshot") or pid,
+                "von": a.get("checkedInAt"),
+                "bis": a.get("leftAt"),
+                "status": a.get("status"),
+            }
+        )
     return sorted(out, key=lambda x: str(x["name"]))
 
 
@@ -148,7 +147,9 @@ def _iso(dt: datetime | None) -> str | None:
 
 def _record(inc: Incident) -> dict:
     ws = inc.map_workspace_json if isinstance(inc.map_workspace_json, dict) else {}
-    rm = ws.get("reportMeta") if isinstance(ws.get("reportMeta"), dict) else {}
+    # Bind before the isinstance so the narrowing sticks (and so reportMeta is looked up once).
+    raw_rm = ws.get("reportMeta")
+    rm = raw_rm if isinstance(raw_rm, dict) else {}
     return {
         "id": str(inc.id),
         "started_at": _iso(inc.started_at),

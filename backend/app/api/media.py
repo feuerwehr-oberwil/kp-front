@@ -27,16 +27,24 @@ from ..models import Incident, Media, SttJob
 router = APIRouter(tags=["media"])
 logger = logging.getLogger(__name__)
 
-_EXT = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp",
-        "audio/webm": ".webm", "audio/mpeg": ".mp3", "audio/ogg": ".ogg", "audio/wav": ".wav",
-        "audio/mp4": ".m4a", "audio/x-m4a": ".m4a", "audio/m4a": ".m4a"}
+_EXT = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "audio/webm": ".webm",
+    "audio/mpeg": ".mp3",
+    "audio/ogg": ".ogg",
+    "audio/wav": ".wav",
+    "audio/mp4": ".m4a",
+    "audio/x-m4a": ".m4a",
+    "audio/m4a": ".m4a",
+}
 
 # Allowlist: only the image/audio types we know how to store and serve back. Anything else
 # (executables, html, octet-stream) is rejected with 415 so a stored blob can't be a vector.
 # The M4A trio covers Apple Voice Memos exports across inconsistent browser MIME labelling.
 _ALLOWED_PHOTO = {"image/jpeg", "image/png", "image/webp"}
-_ALLOWED_AUDIO = {"audio/webm", "audio/mpeg", "audio/ogg", "audio/wav",
-                  "audio/mp4", "audio/x-m4a", "audio/m4a"}
+_ALLOWED_AUDIO = {"audio/webm", "audio/mpeg", "audio/ogg", "audio/wav", "audio/mp4", "audio/x-m4a", "audio/m4a"}
 _M4A_TYPES = {"audio/mp4", "audio/x-m4a", "audio/m4a"}
 
 # External Voice Memos can be hours long — stream to disk in chunks (never file.read() the
@@ -96,8 +104,7 @@ async def upload_media(
 
     # The DB row exists only after a complete, size-checked write — an aborted upload leaves
     # neither a partial blob (put_astream cleans up) nor a dangling Media record.
-    media = Media(incident_id=incident_id, kind=kind, storage_key=key,
-                  content_type=content_type, created_by=user.id)
+    media = Media(incident_id=incident_id, kind=kind, storage_key=key, content_type=content_type, created_by=user.id)
     db.add(media)
     await db.flush()
     return {"id": str(media.id), "url": f"/api/media/{media.id}", "kind": kind, "content_type": content_type}
@@ -152,7 +159,7 @@ async def _run_stt(media_id: uuid.UUID, storage_key: str) -> None:
             payload = [{**s, "status": "open"} for s in segments]
         except audio.SttError as e:
             status, error, payload = "failed", str(e), None
-        except Exception:  # noqa: BLE001 — a crashed job must land as 'failed', not vanish
+        except Exception:  # a crashed job must land as 'failed', not vanish
             logger.exception("STT job crashed for media %s", media_id)  # keep the detail server-side
             status, error, payload = "failed", "Unerwarteter Fehler", None
         # resolved through the module so tests can point it at their loop-local factory
@@ -184,10 +191,7 @@ async def start_transcription(
     if job is not None and job.status in ("queued", "running") and key in _stt_tasks:
         return JSONResponse({"status": job.status}, status_code=202)
     if job is not None and job.status == "done" and job.segments is not None:
-        segments = [
-            {**s, "status": "open"} if s.get("status") == "dismissed" else dict(s)
-            for s in job.segments
-        ]
+        segments = [{**s, "status": "open"} if s.get("status") == "dismissed" else dict(s) for s in job.segments]
         job.segments = segments
         await db.flush()
         return JSONResponse({"status": "done", "segments": segments})
@@ -210,9 +214,7 @@ async def start_transcription(
 
 
 @router.get("/media/{media_id}/transcription")
-async def get_transcription(
-    media_id: uuid.UUID, _user: CurrentUser, db: AsyncSession = Depends(get_db)
-) -> dict:
+async def get_transcription(media_id: uuid.UUID, _user: CurrentUser, db: AsyncSession = Depends(get_db)) -> dict:
     job = (await db.execute(select(SttJob).where(SttJob.media_id == media_id))).scalar_one_or_none()
     if job is None:
         return {"status": "none", "error": None, "segments": None}
@@ -224,9 +226,7 @@ async def get_transcription(
 
 
 @router.delete("/media/{media_id}/transcription")
-async def delete_transcription(
-    media_id: uuid.UUID, _user: CurrentEditor, db: AsyncSession = Depends(get_db)
-) -> dict:
+async def delete_transcription(media_id: uuid.UUID, _user: CurrentEditor, db: AsyncSession = Depends(get_db)) -> dict:
     """Discard a transcription (drafts are working data — confirmed journal rows stay).
     Resets the recording to 'no job', so Transkribieren can run fresh."""
     job = (await db.execute(select(SttJob).where(SttJob.media_id == media_id))).scalar_one_or_none()
@@ -240,12 +240,15 @@ async def delete_transcription(
 class SegmentPatch(BaseModel):
     status: Literal["confirmed", "dismissed"]
     rowId: str | None = None  # noqa: N815 — mirrors the frontend's camelCase field
-    text: str | None = None   # corrected utterance text (post-confirm edits stay in sync)
+    text: str | None = None  # corrected utterance text (post-confirm edits stay in sync)
 
 
 @router.patch("/media/{media_id}/transcription/segments/{index}")
 async def patch_segment(
-    media_id: uuid.UUID, index: int, body: SegmentPatch, _user: CurrentEditor,
+    media_id: uuid.UUID,
+    index: int,
+    body: SegmentPatch,
+    _user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     job = (await db.execute(select(SttJob).where(SttJob.media_id == media_id))).scalar_one_or_none()

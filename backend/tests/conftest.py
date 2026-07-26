@@ -22,7 +22,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 # Ensure config accepts a secret in local runs before app modules import settings.
 os.environ.setdefault(
-    "SECRET_KEY", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"  # gitleaks:allow
+    "SECRET_KEY",
+    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",  # gitleaks:allow
 )
 # Configure the deployment-admin secret so the admin surface is ENABLED under test (fail-closed
 # otherwise). Tests unlock it via the ``admin_login`` fixture; ``test_admin_auth`` overrides it
@@ -39,11 +40,11 @@ def _install_sqlite_shims() -> None:
     from sqlalchemy.ext.compiler import compiles
 
     @compiles(JSONB, "sqlite")
-    def _compile_jsonb(type_, compiler, **kw):  # noqa: ANN001, ANN202
+    def _compile_jsonb(type_, compiler, **kw):
         return "JSON"
 
     @compiles(UUID, "sqlite")
-    def _compile_uuid(type_, compiler, **kw):  # noqa: ANN001, ANN202
+    def _compile_uuid(type_, compiler, **kw):
         return "CHAR(36)"
 
 

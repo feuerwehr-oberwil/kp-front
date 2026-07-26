@@ -25,17 +25,13 @@ _ALLOWED_PLAN_TYPES = {"application/pdf"}
 async def _plans_for(db: AsyncSession, object_id: uuid.UUID) -> list[ReferenceDataset]:
     rows = (
         await db.execute(
-            select(ReferenceDataset)
-            .where(ReferenceDataset.object_id == object_id)
-            .order_by(ReferenceDataset.module)
+            select(ReferenceDataset).where(ReferenceDataset.object_id == object_id).order_by(ReferenceDataset.module)
         )
     ).scalars()
     return list(rows)
 
 
-async def _plans_by_object(
-    db: AsyncSession, object_ids: list[uuid.UUID]
-) -> dict[uuid.UUID, list[ReferenceDataset]]:
+async def _plans_by_object(db: AsyncSession, object_ids: list[uuid.UUID]) -> dict[uuid.UUID, list[ReferenceDataset]]:
     """Fetch plans for many objects in ONE query and group in Python (avoids per-object N+1).
 
     Order within each object matches `_plans_for` (by module).
@@ -45,13 +41,12 @@ async def _plans_by_object(
         return grouped
     rows = (
         await db.execute(
-            select(ReferenceDataset)
-            .where(ReferenceDataset.object_id.in_(object_ids))
-            .order_by(ReferenceDataset.module)
+            select(ReferenceDataset).where(ReferenceDataset.object_id.in_(object_ids)).order_by(ReferenceDataset.module)
         )
     ).scalars()
     for p in rows:
-        grouped.setdefault(p.object_id, []).append(p)
+        if p.object_id is not None:  # the .in_() filter guarantees this; the column is nullable
+            grouped.setdefault(p.object_id, []).append(p)
     return grouped
 
 
@@ -80,7 +75,7 @@ async def list_objects(
         plans = [ReferenceDatasetOut.model_validate(p) for p in plans_by_obj.get(o.id, [])]
         dist = (
             haversine_m(ref_lat, ref_lng, float(o.lat), float(o.lng))
-            if ref_lat is not None and o.lat is not None and o.lng is not None
+            if ref_lat is not None and ref_lng is not None and o.lat is not None and o.lng is not None
             else None
         )
         item = ObjectWithPlans.model_validate(o)
@@ -187,9 +182,7 @@ def _norm_addr(s: str | None) -> str:
 
 
 @incidents_objects_router.get("/{incident_id}/objects", response_model=list[ObjectWithPlans])
-async def objects_near_incident(
-    incident_id: uuid.UUID, _user: CurrentUser, db: AsyncSession = Depends(get_db)
-):
+async def objects_near_incident(incident_id: uuid.UUID, _user: CurrentUser, db: AsyncSession = Depends(get_db)):
     inc = (await db.execute(select(Incident).where(Incident.id == incident_id))).scalar_one_or_none()
     if inc is None:
         raise HTTPException(status_code=404, detail="Einsatz nicht gefunden")
@@ -200,15 +193,13 @@ async def objects_near_incident(
     # object can be a neighbour. When the incident's address matches an Einsatzobjekt's
     # address, surface THAT object first regardless of distance.
     ia = _norm_addr(inc.address)
-    has_coords = inc.lat is not None and inc.lng is not None
-
     candidates: list[tuple[ObjectSite, float | None, bool]] = []
     for o in objs:
         oa = _norm_addr(o.address)
         matched = bool(ia) and bool(oa) and (ia == oa or oa.startswith(ia) or ia.startswith(oa))
         dist = (
             haversine_m(float(inc.lat), float(inc.lng), float(o.lat), float(o.lng))
-            if has_coords and o.lat is not None and o.lng is not None
+            if inc.lat is not None and inc.lng is not None and o.lat is not None and o.lng is not None
             else None
         )
         if matched or (dist is not None and dist <= OBJECT_SURFACE_RADIUS_M):

@@ -5,10 +5,13 @@ the storage root; used for media, snapshot blobs, and reference-data files. Swap
 module's internals for R2/S3 at scale without touching callers.
 """
 
+import contextlib
 import os
 import shutil
 import uuid
 from collections.abc import AsyncIterator, Iterator
+
+import anyio
 
 from .config import settings
 
@@ -60,7 +63,10 @@ async def put_astream(key: str, chunks: AsyncIterator[bytes], max_bytes: int | N
     os.makedirs(os.path.dirname(path), exist_ok=True)
     total = 0
     try:
-        with open(path, "wb") as fh:
+        # ASYNC230 suppressed: the point of this function is to NOT hold the upload in memory. The
+        # writes interleave with awaited chunk reads, so the loop yields between them; routing
+        # each individual write through a thread would cost more than the write itself.
+        with open(path, "wb") as fh:  # noqa: ASYNC230
             async for chunk in chunks:
                 total += len(chunk)
                 if max_bytes is not None and total > max_bytes:
@@ -73,8 +79,20 @@ async def put_astream(key: str, chunks: AsyncIterator[bytes], max_bytes: int | N
 
 
 def get_bytes(key: str) -> bytes:
+    """Read a stored blob. Synchronous — from an async context use `aget_bytes`."""
     with open(_full(key), "rb") as fh:
         return fh.read()
+
+
+async def aget_bytes(key: str) -> bytes:
+    """Read a stored blob without stalling the event loop.
+
+    Not premature: the reference store holds region-wide Leitungskataster GeoJSON in the tens
+    of megabytes, and a rapport render pulls a dozen journal photos back to back. A plain
+    `open().read()` in a request handler freezes every other request — including the live
+    position feed — for the whole read.
+    """
+    return await anyio.to_thread.run_sync(get_bytes, key)
 
 
 def exists(key: str) -> bool:
@@ -83,10 +101,8 @@ def exists(key: str) -> bool:
 
 def delete(key: str) -> None:
     """Best-effort remove a stored blob; a missing file is not an error."""
-    try:
+    with contextlib.suppress(FileNotFoundError):
         os.remove(_full(key))
-    except FileNotFoundError:
-        pass
 
 
 def local_path(key: str) -> str:

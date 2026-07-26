@@ -18,11 +18,15 @@ from ..config import settings
 
 def _pepper(pin: str) -> bytes:
     """HMAC-SHA256(pin, SECRET_KEY) → 64-char hex digest (bytes)."""
-    return hmac.new(
-        settings.secret_key.encode("utf-8"),
-        pin.encode("utf-8"),
-        hashlib.sha256,
-    ).hexdigest().encode("utf-8")
+    return (
+        hmac.new(
+            settings.secret_key.encode("utf-8"),
+            pin.encode("utf-8"),
+            hashlib.sha256,
+        )
+        .hexdigest()
+        .encode("utf-8")
+    )
 
 
 def hash_pin(pin: str) -> str:
@@ -55,12 +59,15 @@ def _encode(data: dict, *, token_type: str, expires: timedelta) -> str:
     return jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
 
 
+# The S106 suppressions below are all on `token_type=` — a JWT claim discriminator, not a
+# credential. S106 matches on the argument name containing "token"; there is no way to teach
+# it the difference, so each site says so explicitly.
 def create_access_token(data: dict) -> str:
-    return _encode(data, token_type="access", expires=timedelta(minutes=settings.access_token_expire_minutes))
+    return _encode(data, token_type="access", expires=timedelta(minutes=settings.access_token_expire_minutes))  # noqa: S106
 
 
 def create_refresh_token(data: dict) -> str:
-    return _encode(data, token_type="refresh", expires=timedelta(days=settings.refresh_token_expire_days))
+    return _encode(data, token_type="refresh", expires=timedelta(days=settings.refresh_token_expire_days))  # noqa: S106
 
 
 def create_admin_token() -> str:
@@ -68,7 +75,7 @@ def create_admin_token() -> str:
     is the shared ADMIN_SECRET, not the incident role (see deps.get_current_admin)."""
     return _encode(
         {"scope": "admin"},
-        token_type="admin",
+        token_type="admin",  # noqa: S106
         expires=timedelta(minutes=settings.admin_session_expire_minutes),
     )
 

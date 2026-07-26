@@ -57,7 +57,7 @@ async def test_replayed_batch_is_idempotent(client, editor):
     assert r.json()["latest_seq"] == 2
 
     # …and a mixed batch only inserts the genuinely new row, continuing the seq
-    mixed = {"entries": _rows(2) + [{"id": "t9", "t": "15:00", "icon": "flag", "text": "neu"}]}
+    mixed = {"entries": [*_rows(2), {"id": "t9", "t": "15:00", "icon": "flag", "text": "neu"}]}
     r = await client.post(f"/api/incidents/{inc}/journal", json=mixed)
     assert [e["row"]["id"] for e in r.json()["entries"]] == ["t9"]
     assert r.json()["latest_seq"] == 3
@@ -107,9 +107,7 @@ async def test_validation_and_404(client, editor):
 
     missing = uuid.uuid4()
     assert (await client.get(f"/api/incidents/{missing}/journal")).status_code == 404
-    assert (
-        await client.post(f"/api/incidents/{missing}/journal", json={"entries": _rows(1)})
-    ).status_code == 404
+    assert (await client.post(f"/api/incidents/{missing}/journal", json={"entries": _rows(1)})).status_code == 404
 
 
 async def test_archive_stamps_einsatzende_and_documents_the_boundary(client, editor):

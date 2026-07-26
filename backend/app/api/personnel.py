@@ -27,13 +27,17 @@ from ..schemas import (
 router = APIRouter(prefix="/personnel", tags=["personnel"])
 
 
-async def _identity_map(db: AsyncSession, person_ids: list[uuid.UUID]) -> dict[uuid.UUID, list[PersonnelExternalIdentity]]:
+async def _identity_map(
+    db: AsyncSession, person_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, list[PersonnelExternalIdentity]]:
     if not person_ids:
         return {}
     rows = list(
-        (await db.execute(
-            select(PersonnelExternalIdentity).where(PersonnelExternalIdentity.personnel_id.in_(person_ids))
-        )).scalars()
+        (
+            await db.execute(
+                select(PersonnelExternalIdentity).where(PersonnelExternalIdentity.personnel_id.in_(person_ids))
+            )
+        ).scalars()
     )
     out: dict[uuid.UUID, list[PersonnelExternalIdentity]] = {}
     for identity in rows:
@@ -48,13 +52,16 @@ def _personnel_out(person: Personnel, identities: list[PersonnelExternalIdentity
     except ValueError:
         legacy_divera_id = person.divera_id
     return {
-        "id": person.id, "divera_id": legacy_divera_id,
+        "id": person.id,
+        "divera_id": legacy_divera_id,
         "external_identities": [
-            {"provider": i.provider, "external_id": i.external_id, "synced_at": i.synced_at}
-            for i in identities
+            {"provider": i.provider, "external_id": i.external_id, "synced_at": i.synced_at} for i in identities
         ],
-        "display_name": person.display_name, "first_name": person.first_name,
-        "last_name": person.last_name, "rank": person.rank, "is_active": person.is_active,
+        "display_name": person.display_name,
+        "first_name": person.first_name,
+        "last_name": person.last_name,
+        "rank": person.rank,
+        "is_active": person.is_active,
         "updated_at": person.updated_at,
     }
 
@@ -237,6 +244,8 @@ async def sync_execute(
 ):
     _require_divera()
     try:
-        return await personnel_svc.execute_sync(db, deactivate_stale=(body or PersonnelSyncExecuteBody()).deactivate_stale)
+        return await personnel_svc.execute_sync(
+            db, deactivate_stale=(body or PersonnelSyncExecuteBody()).deactivate_stale
+        )
     except (httpx.HTTPError, ValueError) as e:
         raise HTTPException(status_code=502, detail=f"Divera nicht erreichbar: {e}") from e

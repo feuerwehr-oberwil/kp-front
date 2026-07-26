@@ -43,25 +43,19 @@ async def test_workspace_put_conflict_on_stale_base_rev(client, editor):
     inc_id = await _create_incident(client)
 
     # First save off rev 0 succeeds and bumps to rev 1.
-    r1 = await client.put(
-        f"/api/incidents/{inc_id}/workspace", json={"base_rev": 0, "workspace": {"objects": [1]}}
-    )
+    r1 = await client.put(f"/api/incidents/{inc_id}/workspace", json={"base_rev": 0, "workspace": {"objects": [1]}})
     assert r1.status_code == 200
     assert r1.json()["workspace_rev"] == 1
 
     # A second client still on rev 0 must lose with a 409 carrying the server rev.
-    r2 = await client.put(
-        f"/api/incidents/{inc_id}/workspace", json={"base_rev": 0, "workspace": {"objects": [2]}}
-    )
+    r2 = await client.put(f"/api/incidents/{inc_id}/workspace", json={"base_rev": 0, "workspace": {"objects": [2]}})
     assert r2.status_code == 409
     detail = r2.json()["detail"]
     assert detail["server_rev"] == 1
     assert detail["your_base_rev"] == 0
 
     # Re-basing on the current rev succeeds.
-    r3 = await client.put(
-        f"/api/incidents/{inc_id}/workspace", json={"base_rev": 1, "workspace": {"objects": [3]}}
-    )
+    r3 = await client.put(f"/api/incidents/{inc_id}/workspace", json={"base_rev": 1, "workspace": {"objects": [3]}})
     assert r3.status_code == 200
     assert r3.json()["workspace_rev"] == 2
 
@@ -84,9 +78,7 @@ async def test_viewer_cannot_save_workspace_but_can_read(client, editor, viewer)
     # Viewer can read it but not mutate the workspace.
     await _login(client, viewer)
     assert (await client.get(f"/api/incidents/{inc_id}/workspace")).status_code == 200
-    r = await client.put(
-        f"/api/incidents/{inc_id}/workspace", json={"base_rev": 0, "workspace": {"x": 1}}
-    )
+    r = await client.put(f"/api/incidents/{inc_id}/workspace", json={"base_rev": 0, "workspace": {"x": 1}})
     assert r.status_code == 403
 
 
@@ -101,7 +93,7 @@ async def _seed_alarm(db_session, **kw) -> int:
     """Insert a pool alarm and return its divera_id."""
     from app.models import DiveraEmergency
 
-    defaults = dict(divera_id=4711, title="FEUER mittel", text="Rauch aus Fenster", address="Alte Gasse 1")
+    defaults = {"divera_id": 4711, "title": "FEUER mittel", "text": "Rauch aus Fenster", "address": "Alte Gasse 1"}
     em = DiveraEmergency(**{**defaults, **kw})
     db_session.add(em)
     await db_session.commit()

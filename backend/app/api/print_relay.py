@@ -13,6 +13,7 @@ The agent heartbeat is in-memory (module global): prod runs a single uvicorn wor
 """
 
 import asyncio
+import contextlib
 import secrets as pysecrets
 import uuid
 from datetime import UTC, datetime
@@ -24,7 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth.dependencies import CurrentUser
 from ..config import settings
-from ..database import get_db
+from ..database import execute_dml, get_db
 from ..models import Incident, PrintJob
 from ..report_pdf import ReportPayload
 from .report import compose_report_from_payload, report_filename, warm_report_from_payload
@@ -120,8 +121,9 @@ def payload_wants_color(data: ReportPayload) -> bool:
     return bool(data.options.kroki and data.kroki is not None)
 
 
-async def enqueue_print_job(db: AsyncSession, inc: Incident, payload: str, *,
-                            kind: str, requested_by: uuid.UUID | None) -> PrintJob:
+async def enqueue_print_job(
+    db: AsyncSession, inc: Incident, payload: str, *, kind: str, requested_by: uuid.UUID | None
+) -> PrintJob:
     """Compose the Rapport-PDF (same path as the download endpoints) and queue it."""
     if not relay_available():
         raise HTTPException(status_code=403, detail="Stationsdrucker nicht konfiguriert")
@@ -243,10 +245,11 @@ async def _try_claim(db: AsyncSession) -> dict | None:
         ).scalar_one_or_none()
         if job is None:
             return None
-        claimed = await db.execute(
+        claimed = await execute_dml(
+            db,
             update(PrintJob)
             .where(PrintJob.id == job.id, PrintJob.status == "queued")
-            .values(status="printing", claimed_at=datetime.now(UTC))
+            .values(status="printing", claimed_at=datetime.now(UTC)),
         )
         if claimed.rowcount:
             await db.flush()
@@ -285,10 +288,8 @@ async def agent_claim(
         remaining = deadline - loop.time()
         if remaining <= 0:
             return Response(status_code=status.HTTP_204_NO_CONTENT)
-        try:
+        with contextlib.suppress(TimeoutError):
             await asyncio.wait_for(ev.wait(), timeout=min(CLAIM_RECHECK_SEC, remaining))
-        except TimeoutError:
-            pass
 
 
 @router.get("/print-agent/jobs/{job_id}/file")

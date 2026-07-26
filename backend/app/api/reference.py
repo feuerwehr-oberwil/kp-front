@@ -2,6 +2,7 @@
 
 import json
 
+import anyio
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy import select
@@ -56,7 +57,8 @@ def _validate_checklist_template(data: bytes) -> None:
     has_entries = isinstance(tpl.get("entries"), list) and tpl["entries"]
     if bool(has_phases) == bool(has_entries):
         raise HTTPException(
-            status_code=422, detail="Checkliste braucht genau eines von 'phases' (action/rapport) oder 'entries' (reference)"
+            status_code=422,
+            detail="Checkliste braucht genau eines von 'phases' (action/rapport) oder 'entries' (reference)",
         )
 
 
@@ -98,6 +100,11 @@ def _overlaps(a: tuple, b: tuple) -> bool:
     return not (a[2] < b[0] or a[0] > b[2] or a[3] < b[1] or a[1] > b[3])
 
 
+def _load_geojson(storage_key: str) -> dict:
+    """Blocking read + parse, meant to be run via `anyio.to_thread.run_sync`."""
+    return json.loads(storage.get_bytes(storage_key))
+
+
 @router.get("/{dataset_id}")
 async def download_reference(
     dataset_id: str,
@@ -115,8 +122,10 @@ async def download_reference(
         try:
             w, s, e, n = (float(v) for v in bbox.split(","))
             qbox = (min(w, e), min(s, n), max(w, e), max(s, n))
-            with open(storage.local_path(ds.storage_key), "rb") as fh:
-                fc = json.loads(fh.read())
+            # Read AND parse in one thread hop: at tens of megabytes the json.loads costs as
+            # much as the read, and both would otherwise freeze the event loop for the whole
+            # request — every other tablet's polling stalls behind one bbox crop.
+            fc = await anyio.to_thread.run_sync(_load_geojson, ds.storage_key)
             feats = fc.get("features") if isinstance(fc, dict) else None
             if isinstance(feats, list):
                 kept = [f for f in feats if (bb := _feature_bbox(f)) is None or _overlaps(bb, qbox)]
@@ -148,7 +157,9 @@ async def replace_reference(
                 status_code=415,
                 detail=f"Dateityp {content_type!r} nicht erlaubt (Checklisten-Diagramm erwartet ein Bild)",
             )
-    elif content_type not in _ALLOWED_REFERENCE_TYPES and not (content_type == "application/octet-stream" and is_json_slot):
+    elif content_type not in _ALLOWED_REFERENCE_TYPES and not (
+        content_type == "application/octet-stream" and is_json_slot
+    ):
         raise HTTPException(
             status_code=415,
             detail=f"Dateityp {content_type!r} nicht erlaubt (erwartet: PDF oder GeoJSON/JSON)",
