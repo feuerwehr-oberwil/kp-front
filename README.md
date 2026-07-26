@@ -77,21 +77,22 @@ Recipes use [`just`](https://github.com/casey/just) (`brew install just`). See t
 
 ### Frontend only
 
-Run the interface with built-in demo data:
+Run the interface with built-in demo data (no database, no backend):
 
 ```bash
-just install && just dev        # http://localhost:5188
+just install && just fe         # http://localhost:5188
 ```
 
 ### Full development stack
 
 ```bash
-just setup       # install dependencies
-just db          # start PostgreSQL on localhost:5434
-just demo-load   # load the optional Musterdorf dataset
-just api         # start the API on localhost:8000
-just dev         # start the frontend on localhost:5188
+just setup       # install dependencies (once)
+just demo-load   # load the optional Musterdorf dataset (starts nothing; migrates first)
+just dev         # PostgreSQL + API (:8001) + frontend (:5188), Ctrl+C stops all
 ```
+
+`just dev` is the everyday command. The individual pieces – `just db`, `just api`,
+`just fe` – still exist for when you want them in separate terminals.
 
 Log in with the seeded default editor – user `fu` (Führungsunterstützung), PIN `000000`
 (from `backend/app/seed_users.json`; change it after first login).
@@ -102,7 +103,8 @@ Run `just` without an argument to list every recipe.
 
 | Recipe | Purpose |
 | --- | --- |
-| `just dev` / `just api` | frontend / backend dev servers |
+| `just dev` | the whole stack: database + backend + frontend |
+| `just fe` / `just api` / `just db` | the pieces, one per terminal |
 | `just lint` / `just test` | lint / test both stacks |
 | `just build` | type-check + production build |
 | `just config-example` | print a starting deployment config (copy & edit) |

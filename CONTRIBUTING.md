@@ -38,9 +38,9 @@ argument lists every recipe):
 
 ```bash
 just setup          # install frontend + backend deps
-just db             # dev Postgres (Docker, localhost:5434)
-just api            # backend  → http://localhost:8000 (migrates first)
-just dev            # frontend → http://localhost:5188 (use http://, not file://)
+just demo-load      # optional: synthetic Musterdorf data + crew (no incident)
+just dev            # dev Postgres (Docker, :5434) + backend (:8001) + frontend (:5188)
+                    # open http://localhost:5188 — an http:// origin, not file://
 just lint && just test   # both stacks – run before pushing
 ```
 
@@ -51,7 +51,9 @@ Or drive the tools directly:
 
 ```bash
 pnpm install
-pnpm dev     # Vite dev server on http://localhost:5188 (use an http:// origin, not file://)
+pnpm dev     # Vite dev server on http://localhost:5188 (use an http:// origin, not file://).
+             # Standalone by default; VITE_API_PROXY=http://localhost:8001 points /api at a
+             # local backend (what `just dev` / `just fe` set for you).
 pnpm build   # tsc --noEmit + vite build
 pnpm test    # vitest
 pnpm lint    # eslint

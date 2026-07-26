@@ -37,9 +37,11 @@ uv sync --extra dev
 
 # 3. Migrate + run
 uv run alembic upgrade head
-uv run uvicorn app.main:app --reload --port 8000
+uv run uvicorn app.main:app --reload --port 8001
 ```
-The Vite dev server (`pnpm dev`, :5188) proxies `/api` to :8000, so run both.
+The Vite dev server (:5188) proxies `/api` to this backend, so run both – `just dev` from the
+repo root does the whole thing (Postgres + backend + frontend) in one terminal. Port 8001, not
+8000: the latter is usually taken by a local kp-rueck.
 
 > **SECRET_KEY note:** it peppers PINs *and* signs JWTs. Keep it stable in dev – changing
 > it invalidates already-seeded PIN hashes. Auto-generated (and printed) if empty, but then

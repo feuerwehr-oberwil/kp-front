@@ -20,17 +20,16 @@ shows the object-plan module rail and multi-page floor plans. A real deployment 
 Modul-PDFs and real checklists (incl. playbook diagrams) from a private data source
 (see [`docs/objektplaene-architecture.md`](../../docs/objektplaene-architecture.md)).
 
-The live demo also seeds a prepared "incoming alarm" (mimicking Divera), a dummy **roster** (12
-people), and the two demo login accounts – that's `app.demo_reset` (see `scripts/demo-reset.sh`),
-not `load.sh`.
+`load.sh` seeds the synthetic **Mannschaft** (12 people, so Anwesenheit and Schichtenplanung have
+someone to work with) but no incident and no alarm – you start those yourself. The live demo goes
+further and seeds a pre-filled *running* incident plus the two demo login accounts – that's
+`app.demo_reset` (see `scripts/demo-reset.sh`), not `load.sh`.
 
 ## Load it
 
 ```bash
-just db          # start the dev Postgres (once)
-just demo-load   # load config + water layers + objects + checklists (migrates first)
-just api         # backend  → http://localhost:8000
-just dev         # frontend → http://localhost:5188
+just demo-load   # config + water layers + objects + checklists + crew (starts the DB, migrates)
+just dev         # database + backend (:8001) + frontend (:5188)
 ```
 
 Then log in (default editor `fu`, PIN `000000`, from `backend/app/seed_users.json`) and open an

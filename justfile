@@ -1,6 +1,17 @@
 # KP Front — task runner.  Run `just` (or `just --list`) to see everything.
 # Frontend: pnpm + Vite.  Backend: uv + FastAPI + Postgres.  Most recipes are thin
 # wrappers over the underlying tools — see README.md / docs/DEPLOYMENT.md for context.
+#
+# Two conventions worth knowing before you edit this file:
+#   · `just --list` shows the LAST comment line above a recipe — keep the summary there and
+#     put the caveats in the lines above it.
+#   · File arguments go through `absolute_path()`, so paths are relative to where YOU are,
+#     not to the backend/ directory the admin CLIs run from.
+
+# Dev backend port. NOT 8000: that one is usually taken by a local kp-rueck, and a silent
+# port clash sends the frontend's /api calls to the wrong app. Override: `just api_port=8000 dev`.
+api_port := "8001"
+api_url := "http://localhost:" + api_port
 
 default:
     @just --list --unsorted
@@ -11,7 +22,7 @@ default:
 
 # Install ALL deps (frontend + backend) — run this once after cloning.
 setup: install backend-install
-    @echo "\033[1;32m✓ Setup complete. Next: 'just db' then 'just api' (backend), and 'just dev' (frontend).\033[0m"
+    @echo "\033[1;32m✓ Setup complete. Next: 'just demo-load' (demo data), then 'just dev' (db + backend + frontend).\033[0m"
 
 # Install frontend deps (pnpm).
 install:
@@ -29,41 +40,76 @@ init-env:
 # Development
 # ============================================
 
-# Frontend dev server with hot reload (http://localhost:5188). Runs standalone on demo data.
-dev:
+# THE dev command: Postgres + backend + frontend in one terminal (Ctrl+C stops all).
+dev: db migrate
+    #!/usr/bin/env bash
+    set -euo pipefail
+    printf '\033[1;34m→ API  http://localhost:%s   ·   App  http://localhost:5188  (Ctrl+C stops both)\033[0m\n' '{{api_port}}'
+    (cd backend && uv run uvicorn app.main:app --reload --port {{api_port}}) &
+    api=$!
+    # Ctrl+C reaches both directly (same process group). The trap covers the other exit paths —
+    # vite crashing or being quit leaves nothing holding {{api_port}}. `uv run` passes the
+    # signal on to uvicorn, and the database is a container: it stays up until 'just db-stop'.
+    trap 'kill $api 2>/dev/null' EXIT
+    # Vite in the foreground, so quitting it ends the recipe (and the trap takes the backend down).
+    VITE_API_PROXY='{{api_url}}' pnpm dev
+
+# Frontend only (http://localhost:5188) — /api is proxied to a backend you start yourself.
+fe:
     @echo "\033[1;34m→ Vite dev server on http://localhost:5188 (Ctrl+C to stop)\033[0m"
-    pnpm dev
+    VITE_API_PROXY='{{api_url}}' pnpm dev
 
-# Alias for dev.
-fe: dev
-
-# Backend dev server (http://localhost:8000) — runs migrations first. Needs 'just db' running.
+# Backend only (http://localhost:8001) — runs migrations first. Needs 'just db' running.
 api: migrate
-    @echo "\033[1;34m→ FastAPI (uvicorn --reload) on http://localhost:8000\033[0m"
-    cd backend && uv run uvicorn app.main:app --reload --port 8000
+    @echo "\033[1;34m→ FastAPI (uvicorn --reload) on {{api_url}}\033[0m"
+    cd backend && uv run uvicorn app.main:app --reload --port {{api_port}}
 
-# Start the dev Postgres (docker-compose.dev.yml, localhost:5434).
+# Start the dev Postgres (docker-compose.dev.yml, localhost:5434) — waits until it's healthy.
 db:
-    docker compose -f docker-compose.dev.yml up -d
+    docker compose -f docker-compose.dev.yml up -d --wait
     @echo "\033[1;32m✓ Dev Postgres on localhost:5434\033[0m"
 
 # Stop the dev Postgres (keeps the data volume).
 db-stop:
     docker compose -f docker-compose.dev.yml stop
 
-# Wipe the dev Postgres volume and restart fresh (next 'just migrate' rebuilds the schema).
+# Wipe the dev Postgres volume and restart fresh — an empty database, no schema.
 db-reset:
     docker compose -f docker-compose.dev.yml down -v
-    docker compose -f docker-compose.dev.yml up -d
-    @echo "\033[1;32m✓ Fresh dev Postgres on localhost:5434\033[0m"
+    docker compose -f docker-compose.dev.yml up -d --wait
+    @echo "\033[1;32m✓ Fresh dev Postgres — rebuild with 'just migrate' (schema) or 'just demo-load' (schema + demo data).\033[0m"
 
 # Apply database migrations (alembic upgrade head).
 migrate:
     cd backend && uv run alembic upgrade head
 
-# Seed the default editor user (idempotent; PIN/account from app/seed_users.json).
-seed:
-    cd backend && uv run python -m app.seed
+# ============================================
+# Demo & test data  (local dev DB — see examples/demo-data/README.md)
+# ============================================
+
+# (Starts the DB and migrates first, so this works on a fresh clone.)
+# Load the Musterdorf demo dataset: config, geodata, Objekt, Checklisten, Mannschaft — no incident.
+demo-load: db migrate
+    bash examples/demo-data/load.sh
+
+# (The dataset's config has demoMode ON — right for the public demo, but locally it shows the
+# DEMO ribbon and blocks creating incidents. Re-run this after every 'just demo-load'.)
+# Turn demo mode OFF in the local dev DB: no ribbon, no welcome, incidents can be created.
+demo-off:
+    docker compose -f docker-compose.dev.yml exec -T db psql -q -U kpfront -d kpfront -c \
+      "update deployment_config set config_json = jsonb_set(config_json, '{identity,demoMode}', 'false') where id = 1;"
+    @echo "\033[1;32m✓ Demo mode off (identity.demoMode = false)\033[0m"
+
+# (Needs the dev backend running. Mints a fresh divera_id per run, so alarms never collide; it
+# then waits for you to take the alarm before sending the times — Ctrl+C if you don't want them.)
+# Inject a fake alarm through the real webhooks (default: the Zimmerbrand demo alarm).
+scenario file="examples/scenarios/zimmerbrand.json":
+    cd backend && uv run python -m app.fake_scenario run "{{absolute_path(file)}}" --base {{api_url}}
+
+# (Needs DATABASE_URL / SECRET_KEY / KP_BASE_URL / KP_ADMIN_SECRET set to the demo's values.)
+# Reset a DEMO deployment: wipe incidents + roster, re-ensure accounts, reload data + demo incident.
+demo-reset:
+    bash scripts/demo-reset.sh
 
 # ============================================
 # Code Quality  (run 'just lint && just test' before pushing)
@@ -88,52 +134,38 @@ check:
     pnpm exec tsc --noEmit
 
 # ============================================
-# Build
+# Build & Release  (tag a green main commit — see CHANGELOG.md for what the number means)
 # ============================================
 
 # Type-check + production build (output: dist/).
 build:
     pnpm build
 
-# Preview the production build (http://localhost:4173).
-preview: build
-    pnpm preview
-
 # Dump the OpenAPI schema to docs/openapi.json (committed API contract).
 openapi:
     cd backend && uv run python -m app.dump_openapi ../docs/openapi.json
 
-# ============================================
-# Releases  (tag a green main commit — see CHANGELOG.md for what the number means)
-# ============================================
-
-# Draft release notes from the commits since the last tag. A STARTING POINT: curate it into
-# CHANGELOG.md's [Unreleased] section before bumping. Needs no install (uvx fetches git-cliff).
+# (Needs no install — uvx fetches git-cliff. Add --tag vX.Y.Z to head it with a version.)
+# Draft release notes from the commits since the last tag — a STARTING POINT: curate into CHANGELOG.md.
 changelog:
     uvx git-cliff --unreleased
-
-# Same draft, headed with the version you're about to cut.
-changelog-for version:
-    uvx git-cliff --unreleased --tag v{{version}}
 
 # Bump every version file + open the CHANGELOG section. Touches no git state — review the diff.
 release version:
     python3 scripts/release.py {{version}}
 
-# Commit the bump and tag it. Stages ONLY the release files (this tree carries WIP).
-# Then: git push --follow-tags  → CI gate → GHCR image + GitHub Release.
+# (Then: git push --follow-tags → CI gate → GHCR image + GitHub Release.)
+# Commit the version bump and tag it. Stages ONLY the release files (this tree carries WIP).
 release-tag version:
     git add package.json backend/pyproject.toml backend/uv.lock backend/app/config.py docs/openapi.json CHANGELOG.md
     git commit -m "chore(release): v{{version}}"
     git tag -a v{{version}} -m "v{{version}}"
     @echo "\033[1;32m✓ Tagged v{{version}}. Push with: git push --follow-tags\033[0m"
 
-# Preview the GitHub Release body for a version (what release.yml will publish).
-release-notes version:
-    python3 scripts/changelog_section.py {{version}}
-
 # ============================================
 # Deployment config  (config-as-code via the admin CLIs — see docs/CONFIGURATION.md)
+# `load` writes to DATABASE_URL directly; `push` goes through a live deployment's API
+# (needs KP_ADMIN_SECRET) and is how you refresh a running station from your machine.
 # ============================================
 
 # Print a fully-populated example deployment config (starting point — copy & edit).
@@ -142,37 +174,31 @@ config-example:
 
 # Validate a config file (no DB needed).
 config-validate file:
-    cd backend && uv run python -m app.admin_config validate {{file}}
+    cd backend && uv run python -m app.admin_config validate "{{absolute_path(file)}}"
 
 # Diff a config file against the deployment's stored config (needs DATABASE_URL).
 config-diff file:
-    cd backend && uv run python -m app.admin_config diff {{file}}
+    cd backend && uv run python -m app.admin_config diff "{{absolute_path(file)}}"
 
 # Load a config file into the deployment (needs DATABASE_URL).
 config-load file:
-    cd backend && uv run python -m app.admin_config load {{file}}
+    cd backend && uv run python -m app.admin_config load "{{absolute_path(file)}}"
 
-# Validate / load a reference-geodata manifest (hydrants, WMS layers, …).
-geodata-validate file:
-    cd backend && uv run python -m app.admin_geodata validate {{file}}
+# Load a reference-geodata manifest (hydrants, WMS layers, …) into the deployment's database.
 geodata-load file:
-    cd backend && uv run python -m app.admin_geodata load {{file}}
+    cd backend && uv run python -m app.admin_geodata load "{{absolute_path(file)}}"
 
-# Validate / load an object-plans manifest (Einsatzobjekte + Modul-PDFs).
-objects-validate file:
-    cd backend && uv run python -m app.admin_objects validate {{file}}
+# Push a reference-geodata manifest to a live deployment's API (KP_BASE_URL / KP_ADMIN_SECRET).
+geodata-push file:
+    cd backend && uv run python -m app.admin_geodata push "{{absolute_path(file)}}"
+
+# Load an object-plans manifest (Einsatzobjekte + Modul-PDFs) into the deployment's database.
 objects-load file:
-    cd backend && uv run python -m app.admin_objects load {{file}}
+    cd backend && uv run python -m app.admin_objects load "{{absolute_path(file)}}"
 
-# Load the synthetic Musterdorf demo dataset into the local dev DB (config + geodata + objects).
-# Runs migrations first, so it works on a fresh 'just db'.
-demo-load: migrate
-    bash examples/demo-data/load.sh
-
-# Reset a DEMO deployment: wipe incidents + roster, re-ensure demo accounts, reload demo data.
-# Needs DATABASE_URL / KP_BASE_URL / KP_ADMIN_SECRET set to the demo instance's values.
-demo-reset:
-    bash scripts/demo-reset.sh
+# Push an object-plans manifest to a live deployment's API (KP_BASE_URL / KP_ADMIN_SECRET).
+objects-push file:
+    cd backend && uv run python -m app.admin_objects push "{{absolute_path(file)}}"
 
 # ============================================
 # Symbol Tooling (Python, via uv)
