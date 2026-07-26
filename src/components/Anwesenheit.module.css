@@ -101,11 +101,14 @@
 }
 .backBtn svg { width: 16px; height: 16px; }
 .backBtn:hover { background: color-mix(in srgb, var(--green) 14%, transparent); }
-/* «2×» — this row's chip shows only the LATEST block, so say when there are more */
+/* «2×» — this row's chip shows only the LATEST block, so say when there are more. It opens the
+   same sheet as the trailing control: two pointers at one place beat one hidden one. */
 .blocks {
-  flex: none; align-self: center; padding: 0 8px 0 2px;
-  font: 700 10.5px var(--mono); color: var(--ink-faint);
+  flex: none; align-self: stretch; min-width: var(--tap); padding: 0 6px;
+  border: none; background: none; cursor: pointer;
+  font: 700 11px var(--mono); color: var(--ink-faint);
 }
+.blocks:hover { color: var(--ink); }
 .timeInput {
   flex: none; align-self: center; width: 86px; margin: 0 6px; padding: 4px 6px; min-height: 44px;
   border: 1px solid var(--accent); border-radius: var(--r-sm); background: var(--surface);
@@ -169,7 +172,7 @@
 .horizonLabel { font: 600 10.5px var(--mono); color: var(--ink-faint); letter-spacing: .06em; text-transform: uppercase; }
 .horizonValue { min-width: 3.4rem; text-align: center; font: 700 12.5px var(--mono); color: var(--ink); }
 .zoomBtn {
-  display: inline-grid; place-items: center; min-width: 34px; min-height: 34px;
+  display: inline-grid; place-items: center; min-width: var(--tap); min-height: var(--tap);
   border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface);
   color: var(--ink-dim); cursor: pointer; -webkit-tap-highlight-color: transparent;
 }

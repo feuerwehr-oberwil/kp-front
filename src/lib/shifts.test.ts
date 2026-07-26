@@ -198,10 +198,21 @@ describe('direct manipulation on the grid', () => {
     expect(moved.to).toBe(T(20))
   })
 
-  it('holds a moved bar inside the window instead of sliding it off the axis', () => {
+  it('keeps a moved bar its own length, wherever it lands', () => {
     const sh = shift('a', 'p1', T(14), T(18))
-    expect(dragShift(sh, 'move', -99 * 3_600_000, span).from).toBe(T(12))
-    expect(dragShift(sh, 'move', 99 * 3_600_000, span).to).toBe(MIDNIGHT)
+    const out = dragShift(sh, 'move', -99 * 3_600_000, span)
+    expect(Date.parse(out.to) - Date.parse(out.from)).toBe(4 * 3_600_000)
+  })
+
+  // the window is a viewport, not a constraint on the data: clamping to it used to snap any shift
+  // LONGER than the visible window to the window start — 10:00–22:00 became 14:00–02:00 on a 6 h
+  // horizon, four hours adrift, from a one-minute slip, with no undo
+  it('never relocates a shift that is longer than the visible window', () => {
+    const narrow = { from: ms(T(14)), to: ms(T(20)) } // 6 h
+    const long = shift('a', 'p1', T(10), T(22))       // 12 h
+    const out = dragShift(long, 'move', 60_000, narrow)
+    expect(out.from).toBe(T(10))
+    expect(out.to).toBe(T(22))
   })
 
   it('stretches one end without ever inverting the bar', () => {

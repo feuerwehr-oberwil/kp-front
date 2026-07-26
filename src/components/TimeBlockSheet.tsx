@@ -1,10 +1,12 @@
 import type { ReactNode } from 'react'
 import { Icon } from '../lib/icons'
-import { appConfig } from '../config/appConfig'
 import { cx } from '../lib/cx'
 import { Sheet } from '../lib/overlays'
 import { TimeField } from './TimeField'
 import s from './TimeBlockSheet.module.css'
+
+/** bis strictly before von — the block would silently disappear everywhere else. */
+const reversed = (b: { from: string; to?: string }) => !!b.to && b.to < b.from
 
 /** One von–bis row. `to` absent = still running, drawn as a state chip instead of a second field. */
 export interface TimeBlock {
@@ -13,7 +15,8 @@ export interface TimeBlock {
   to?: string
   /** shown in place of the «bis» field while the block is open (e.g. «noch da») */
   openLabel?: string
-  /** flagged as a problem — e.g. a shift overlapping another */
+  /** flagged as a problem — e.g. a shift overlapping another. A REVERSED block (bis before von)
+   *  is flagged automatically, whatever the caller says. */
   warn?: boolean
   /** right-hand control: the planned/fix toggle in the Zeitplan, nothing in the Anwesenheit */
   trailing?: ReactNode
@@ -42,7 +45,8 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
   /** absent = this surface cannot add a block here */
   addLabel?: string
   onAdd?: () => void
-  note: string
+  /** closing note; omit where a surface has nothing useful to say */
+  note?: string
   /** an additional read-only section under the blocks (the Zeitplan's «tatsächlich anwesend») */
   extra?: ReactNode
   onClose: () => void
@@ -56,7 +60,10 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
         <h4 className={s.groupTitle}>{sectionTitle}</h4>
         {blocks.length === 0 && <p className={s.note}>{emptyLabel}</p>}
         {blocks.map((b) => (
-          <div key={b.key} className={cx(s.row, b.warn && s.rowWarn)}>
+          // A reversed block renders as NOTHING on the grid (shiftSpan/barGeometry both bail) and
+          // counts as zero minutes on the Rapport — it must never look normal here, which is the
+          // only place it is visible at all.
+          <div key={b.key} className={cx(s.row, (b.warn || reversed(b)) && s.rowWarn)}>
             <span className={s.field}>
               <span className={s.label}>{labels.from}</span>
               <TimeField className={s.time} ariaLabel={`${labels.from} – ${subject}`} value={b.from}
@@ -83,7 +90,7 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
             <Icon id="plus" />{addLabel}
           </button>
         )}
-        <p className={s.note}>{note}</p>
+        {note && <p className={s.note}>{note}</p>}
       </div>
       {extra}
     </Sheet>
@@ -117,11 +124,3 @@ export function TimeBlockReadOnly({ title, blocks, emptyLabel, note, openLabel }
     </div>
   )
 }
-
-/** Shared label set, so both callers read the same words. */
-export const timeBlockLabels = () => ({
-  from: appConfig.copy.anwesenheit.von,
-  to: appConfig.copy.anwesenheit.bis,
-  done: appConfig.copy.anwesenheit.done,
-  remove: appConfig.copy.zeitplan.remove,
-})

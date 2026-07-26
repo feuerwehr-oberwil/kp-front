@@ -30,7 +30,7 @@
 
 .del {
   flex: none; align-self: center; display: inline-grid; place-items: center;
-  min-width: 34px; min-height: 34px; border: none; border-radius: var(--r-sm); background: none;
+  min-width: var(--tap); min-height: var(--tap); border: none; border-radius: var(--r-sm); background: none;
   color: var(--ink-faint); cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
 .del svg { width: 15px; height: 15px; }

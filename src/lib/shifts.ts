@@ -200,11 +200,17 @@ export function shiftAt(personId: string, at: number, hours: number, span: Span)
 export type DragEdge = 'move' | 'from' | 'to'
 
 /**
- * A bar under the finger: dragged whole, or by one end. Everything snaps to the half-hour grid,
- * never inverts (a shift always keeps at least one slot), and stays inside the window — at 3am a
- * bar that silently flipped or slid off the axis is worse than one that refuses to.
+ * A bar under the finger: dragged whole, or by one end. Everything snaps to the half-hour grid and
+ * never inverts — a shift always keeps at least one slot.
+ *
+ * The window deliberately does NOT clamp the result. It is a viewport, not a constraint on the
+ * data, and clamping to it corrupted shifts: for a shift LONGER than the visible window,
+ * `span.to - len` falls below `span.from`, so every move — even a one-pixel slip — snapped it to
+ * the window start. A 10:00–22:00 shift became 14:00–02:00 on a 6 h horizon, four hours adrift,
+ * with no undo. A drag can only ever move a bar by the window's own width anyway, so nothing runs
+ * away; `barGeometry` clips whatever ends up off-screen.
  */
-export function dragShift(sh: Shift, edge: DragEdge, deltaMs: number, span: Span): Shift {
+export function dragShift(sh: Shift, edge: DragEdge, deltaMs: number, _span: Span): Shift {
   const from = Date.parse(sh.from)
   const to = Date.parse(sh.to)
   if (!Number.isFinite(from) || !Number.isFinite(to) || !Number.isFinite(deltaMs)) return sh
@@ -212,14 +218,13 @@ export function dragShift(sh: Shift, edge: DragEdge, deltaMs: number, span: Span
 
   if (edge === 'move') {
     const len = to - from
-    let nf = snap(from + deltaMs)
-    nf = Math.max(span.from, Math.min(nf, span.to - len))
+    const nf = snap(from + deltaMs)
     return { ...sh, from: new Date(nf).toISOString(), to: new Date(nf + len).toISOString() }
   }
   if (edge === 'from') {
-    const nf = Math.max(span.from, Math.min(snap(from + deltaMs), to - SLOT_MS))
+    const nf = Math.min(snap(from + deltaMs), to - SLOT_MS)
     return { ...sh, from: new Date(nf).toISOString() }
   }
-  const nt = Math.min(span.to, Math.max(snap(to + deltaMs), from + SLOT_MS))
+  const nt = Math.max(snap(to + deltaMs), from + SLOT_MS)
   return { ...sh, to: new Date(nt).toISOString() }
 }

@@ -39,7 +39,7 @@ export function missingSteps(f: AbschlussFacts): AbschlussStep[] {
  * the original stamp — with `nextDayIfBefore` handling a span that crosses midnight
  * (bis 01:30 after von 22:00 lands on the following day).
  */
-export function applyTimeToIso(baseIso: string, hhmm: string, opts?: { nextDayIfBefore?: string }): string | null {
+export function applyTimeToIso(baseIso: string, hhmm: string, opts?: { nextDayIfBefore?: string; prevDayIfAfter?: string }): string | null {
   const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm)
   if (!m) return null
   const d = new Date(baseIso)
@@ -48,6 +48,12 @@ export function applyTimeToIso(baseIso: string, hhmm: string, opts?: { nextDayIf
   if (opts?.nextDayIfBefore) {
     const floor = new Date(opts.nextDayIfBefore)
     if (Number.isFinite(floor.getTime()) && d.getTime() < floor.getTime()) d.setDate(d.getDate() + 1)
+  }
+  // the mirror: a START typed after its own end belongs to the previous day (a night shift), not
+  // backwards in time — a reversed block renders as nothing and counts as zero minutes
+  if (opts?.prevDayIfAfter) {
+    const ceil = new Date(opts.prevDayIfAfter)
+    if (Number.isFinite(ceil.getTime()) && d.getTime() > ceil.getTime()) d.setDate(d.getDate() - 1)
   }
   return d.toISOString()
 }

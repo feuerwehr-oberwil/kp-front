@@ -10,7 +10,8 @@ import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
 import { loadPrefs, savePrefs } from '../lib/prefs'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import { Segmented } from './Segmented'
-import { TimeBlockSheet, timeBlockLabels } from './TimeBlockSheet'
+import { TimeBlockSheet } from './TimeBlockSheet'
+import { timeBlockLabels } from '../lib/timeBlockLabels'
 import { EmptyState } from './EmptyState'
 import { ZeitplanView } from './ZeitplanView'
 import s from './Anwesenheit.module.css'
@@ -59,13 +60,14 @@ function PresenceSheet({ person, blocks, canEdit, onSetTimes, onBack, onClose }:
       addLabel={canEdit && !open ? A.backAgain : undefined}
       onAdd={canEdit && !open ? onBack : undefined}
       onClose={onClose}
-      labels={timeBlockLabels()}
+      labels={timeBlockLabels(A.blockRemove)}
       blocks={blocks.map((iv, i) => ({
         key: String(i),
         from: toHM(iv.from),
         to: iv.to ? toHM(iv.to) : undefined,
         openLabel: A.stillHere,
-        onFrom: canEdit && onSetTimes ? (v) => { const iso = applyTimeToIso(iv.from, v); if (iso) onSetTimes(person.id, { from: iso }, i) } : undefined,
+        // mirror of onTo: a von typed after the bis means the block STARTED the previous day
+        onFrom: canEdit && onSetTimes ? (v) => { const iso = applyTimeToIso(iv.from, v, { prevDayIfAfter: iv.to }); if (iso) onSetTimes(person.id, { from: iso }, i) } : undefined,
         onTo: canEdit && onSetTimes && iv.to ? (v) => { const iso = applyTimeToIso(iv.to!, v, { nextDayIfBefore: iv.from }); if (iso) onSetTimes(person.id, { to: iso }, i) } : undefined,
       }))}
     />
@@ -347,10 +349,10 @@ export function AnwesenheitView({
                 {/* Rückkehr — the tap cycle's third step CLEARS the row (frei), and it must keep
                     doing that (it is the only way back from a mis-tick). So coming back gets its
                     own control: it opens a NEW block instead of reopening the closed one. */}
-                {left && canEdit && (
-                  /* opens the person's blocks rather than silently starting a new one: with two
-                     or more turns on site the row can only show the latest, and «zurück?» is a
-                     decision worth seeing the whole record for */
+                {canEdit && blocks.length > 0 && (
+                  /* opens the person's blocks. Gated on `left` before, which locked out exactly
+                     the person this sheet was built for — somebody who came BACK is present, and
+                     their earlier blocks were then unreachable. */
                   <button
                     type="button"
                     className={s.backBtn}
@@ -358,15 +360,17 @@ export function AnwesenheitView({
                     aria-label={fillTemplate(A.openBlocks, { name: p.displayName })}
                     onClick={() => setBlocksFor(p.id)}
                   >
-                    <Icon id="plus" />
+                    <Icon id={left ? 'plus' : 'clock'} />
                   </button>
                 )}
                 {/* someone with more than one block: say so, else the single chip reads as the
                     whole story when it is only the latest block */}
                 {blocks.length > 1 && (
-                  <span className={s.blocks} title={fillTemplate(A.blockCount, { n: blocks.length })}>
+                  <button type="button" className={s.blocks} onClick={() => setBlocksFor(p.id)}
+                    title={fillTemplate(A.blockCount, { n: blocks.length })}
+                    aria-label={fillTemplate(A.openBlocks, { name: p.displayName })}>
                     {blocks.length}×
-                  </span>
+                  </button>
                 )}
               </div>
             )
@@ -380,7 +384,9 @@ export function AnwesenheitView({
           blocks={intervalsOf(attendance[blocksPerson.id])}
           canEdit={canEdit}
           onSetTimes={onSetTimes}
-          onBack={() => { onMarkPresent(blocksPerson); setBlocksFor(null) }}
+          /* stays open: the new block appears in the list you are looking at, so a mis-tap is
+             seen and can be corrected on the spot */
+          onBack={() => onMarkPresent(blocksPerson)}
           onClose={() => setBlocksFor(null)}
         />
       )}

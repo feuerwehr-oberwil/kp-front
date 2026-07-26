@@ -2141,6 +2141,7 @@ export const de = {
     // Anwesenheitsblätter: dieselbe Form wie die Schichten-Ansicht, damit beide gleich zu lesen sind
     von: 'von',
     bis: 'bis',
+    blockRemove: 'Block entfernen',
     blocksTitle: 'Anwesenheit – {name}',
     blocksSection: 'Erfasste Blöcke',
     blocksNone: 'Noch nicht anwesend gewesen.',
@@ -2168,7 +2169,7 @@ export const de = {
     conflict: 'Überschneidet sich mit einer anderen Schicht',
     now: 'jetzt',
     coverage: 'Deckung',
-    coverageHint: 'Oben geplant, unten tatsächlich anwesend – die Lücke zeigt, wo niemand eingeteilt ist.',
+    coverageHint: 'Links geplant, rechts tatsächlich anwesend – die Lücke zeigt, wo niemand eingeteilt ist.',
     planned: 'verfügbar',
     actual: 'anwesend',
     emptyTitle: 'Noch keine Schicht geplant.',
@@ -2191,6 +2192,7 @@ export const de = {
     stillHere: 'noch da',
     done: 'Fertig',
     // Direktbedienung auf dem Raster – wie das Papierformular, das man ausfüllt
+    sheetHint: 'Zeiten hier anpassen · Zustand rechts umschalten · gelöscht wird nur hier.',
     laneHint: 'Ziehen trägt Verfügbarkeit ein · Balken tippen macht daraus einen Plan · ziehen verschiebt · gedrückt halten öffnet die Schichten',
     // Drei Zustände einer Zeile: was jemand ANBIETET, was daraus EINGETEILT wurde, und was
     // tatsächlich passiert ist. Die ersten zwei schaltet ein Balken-Tipp um, der dritte kommt
@@ -2198,7 +2200,7 @@ export const de = {
     available: 'verfügbar',
     confirmed: 'geplant',
     tentative: 'verfügbar',
-    toggleHint: 'Tippen: {state}',
+    toggleHint: 'Tippen macht daraus «{state}»',
     zoomIn: 'Zeitraum enger',
     zoomOut: 'Zeitraum weiter',
     horizon: 'Zeitraum',

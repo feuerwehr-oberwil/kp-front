@@ -8,11 +8,12 @@ import { rankAbbr, rankLabel } from '../lib/rank'
 import { intervalsOf } from '../lib/attendanceIntervals'
 import { useLaneGesture } from '../lib/useLaneGesture'
 import {
-  SLOT_MS, barGeometry, conflictingShiftIds, coverage, intervalSpan, shiftAt, shiftSpan, shiftsFor, timelineSpan,
+  SLOT_MS, barGeometry, conflictingShiftIds, coverage, intervalSpan, shiftSpan, shiftsFor, timelineSpan,
 } from '../lib/shifts'
 import type { AttendanceState, Person, PresenceInterval, Shift } from '../types'
 import type { Span } from '../lib/shifts'
-import { TimeBlockReadOnly, TimeBlockSheet, timeBlockLabels } from './TimeBlockSheet'
+import { TimeBlockReadOnly, TimeBlockSheet } from './TimeBlockSheet'
+import { timeBlockLabels } from '../lib/timeBlockLabels'
 import s from './Zeitplan.module.css'
 
 const HOUR = 3_600_000
@@ -37,13 +38,12 @@ const clock = (iso?: string): string => {
  *
  * Built on the SAME sheet the Anwesenheit uses, so the two never drift apart again.
  */
-function PersonSheet({ person, shifts, blocks, canEdit, conflicts, nowMs, onAdd, onSetTime, onToggle, onRemove, onClose }: {
+function PersonSheet({ person, shifts, blocks, canEdit, conflicts, onAdd, onSetTime, onToggle, onRemove, onClose }: {
   person: Person
   shifts: Shift[]
   blocks: PresenceInterval[]
   canEdit: boolean
   conflicts: Set<string>
-  nowMs: number
   onAdd: (p: Person) => void
   onSetTime: (id: string, patch: { from?: string; to?: string }) => void
   onToggle: (sh: Shift) => void
@@ -58,23 +58,26 @@ function PersonSheet({ person, shifts, blocks, canEdit, conflicts, nowMs, onAdd,
       subject={person.displayName}
       sectionTitle={Z.plannedSection}
       emptyLabel={Z.plannedNone}
-      note={Z.laneHint}
+      note={Z.sheetHint}
       addLabel={canEdit ? Z.addShift : undefined}
       onAdd={canEdit ? () => onAdd(person) : undefined}
       onClose={onClose}
-      labels={timeBlockLabels()}
+      labels={timeBlockLabels(Z.remove)}
       blocks={shifts.map((sh) => ({
         key: sh.id,
         from: clock(sh.from),
         to: clock(sh.to),
         warn: conflicts.has(sh.id),
-        onFrom: canEdit ? (v) => { const iso = applyTimeToIso(sh.from, v); if (iso) onSetTime(sh.id, { from: iso }) } : undefined,
+        // mirror of onTo: a von typed after the bis means the shift STARTED the previous day,
+        // not that it runs backwards — a reversed shift renders as nothing at all
+        onFrom: canEdit ? (v) => { const iso = applyTimeToIso(sh.from, v, { prevDayIfAfter: sh.to }); if (iso) onSetTime(sh.id, { from: iso }) } : undefined,
         // a bis before the von means the shift runs past midnight, not backwards
         onTo: canEdit ? (v) => { const iso = applyTimeToIso(sh.to, v, { nextDayIfBefore: sh.from }); if (iso) onSetTime(sh.id, { to: iso }) } : undefined,
         onRemove: canEdit ? () => onRemove(sh.id, person.displayName) : undefined,
         trailing: (
           <button type="button" className={cx(s.sheetState, sh.confirmed && s.sheetStateOn)}
-            disabled={!canEdit} onClick={() => onToggle(sh)}
+            disabled={!canEdit} onClick={() => onToggle(sh)} aria-pressed={!!sh.confirmed}
+            aria-label={`${person.displayName}: ${fillTemplate(Z.toggleHint, { state: sh.confirmed ? Z.available : Z.confirmed })}`}
             title={fillTemplate(Z.toggleHint, { state: sh.confirmed ? Z.available : Z.confirmed })}>
             {sh.confirmed ? Z.confirmed : Z.available}
           </button>
@@ -122,7 +125,9 @@ function PersonRow({ person, shifts, blocks, span, nowMs, canEdit, conflicts, no
     onToggle: (sh) => onReplace({ ...sh, confirmed: !sh.confirmed }),
     onCommit: onReplace,
     onHold: onOpen,
-    shiftAtTime: (t) => shifts.find((x) => {
+    // findLast, not find: overlapping bars are painted in order, so the LAST one is the one on
+    // top and the one the finger actually pointed at
+    shiftAtTime: (t) => [...shifts].reverse().find((x) => {
       const sp = shiftSpan(x)
       return !!sp && t >= sp.from && t < sp.to
     }) ?? null,
@@ -145,7 +150,7 @@ function PersonRow({ person, shifts, blocks, span, nowMs, canEdit, conflicts, no
         title={fillTemplate(Z.openFor, { name: person.displayName })}>
         {person.rank && <span className={s.rank} title={rankLabel(person.rank)}>{rankAbbr(person.rank)}</span>}
         <span className={s.name}>{person.displayName}</span>
-        {shifts.length > 1 && (
+        {shifts.length > 0 && (
           <span className={cx(s.count, shifts.some((x) => conflicts.has(x.id)) && s.countConflict)}>
             {shifts.length}
           </span>
@@ -269,10 +274,6 @@ export function ZeitplanView({
 
   const person = people.find((p) => p.id === openPerson)
 
-  const barStyle = (from: number, to: number) => {
-    const g = barGeometry(from, to, span)
-    return g ? { left: `${g.left * 100}%`, width: `${g.width * 100}%` } : null
-  }
 
   return (
     <div className={s.zeitplan}>
@@ -342,7 +343,6 @@ export function ZeitplanView({
           blocks={intervalsOf(attendance[person.id])}
           canEdit={canEdit}
           conflicts={conflicts}
-          nowMs={nowMs}
           onAdd={onAdd}
           onSetTime={onSetTime}
           onToggle={(sh) => onReplace({ ...sh, confirmed: !sh.confirmed })}
