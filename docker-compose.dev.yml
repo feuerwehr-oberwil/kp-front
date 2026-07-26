@@ -7,7 +7,7 @@
 #   just db-stop       # stop it
 #   just db-reset      # wipe the volume and restart (fresh schema on next migrate)
 #
-# The frontend dev server needs none of this — 'just fe' runs against seed/demo data standalone.
+# The frontend dev server needs none of this — plain 'pnpm dev' runs against demo data standalone.
 
 name: kp-front-dev
 

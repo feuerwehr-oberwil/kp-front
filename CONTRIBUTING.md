@@ -53,7 +53,7 @@ Or drive the tools directly:
 pnpm install
 pnpm dev     # Vite dev server on http://localhost:5188 (use an http:// origin, not file://).
              # Standalone by default; VITE_API_PROXY=http://localhost:8001 points /api at a
-             # local backend (what `just dev` / `just fe` set for you).
+             # local backend (what `just dev` sets for you).
 pnpm build   # tsc --noEmit + vite build
 pnpm test    # vitest
 pnpm lint    # eslint

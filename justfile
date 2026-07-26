@@ -22,18 +22,10 @@ default:
 
 # Install ALL deps (frontend + backend) — run this once after cloning.
 [group('Setup')]
-setup: install backend-install
-    @echo "\033[1;32m✓ Setup complete. Next: 'just demo-load' (demo data), then 'just dev' (db + backend + frontend).\033[0m"
-
-# Install frontend deps (pnpm).
-[group('Setup')]
-install:
+setup:
     pnpm install
-
-# Install backend deps (uv, incl. dev extras).
-[group('Setup')]
-backend-install:
     cd backend && uv sync --extra dev
+    @echo "\033[1;32m✓ Setup complete. Next: 'just demo-load' (demo data), then 'just dev' (db + backend + frontend).\033[0m"
 
 # Generate a deployment .env with strong secrets (POSTGRES_PASSWORD / SECRET_KEY / ADMIN_SECRET).
 [group('Setup')]
@@ -56,18 +48,6 @@ dev: db migrate
     trap 'kill $api 2>/dev/null' EXIT
     # Vite in the foreground, so quitting it ends the recipe (and the trap takes the backend down).
     VITE_API_PROXY='{{api_url}}' pnpm dev
-
-# Frontend only (http://localhost:5188) — /api is proxied to a backend you start yourself.
-[group('Development')]
-fe:
-    @echo "\033[1;34m→ Vite dev server on http://localhost:5188 (Ctrl+C to stop)\033[0m"
-    VITE_API_PROXY='{{api_url}}' pnpm dev
-
-# Backend only (http://localhost:8001) — runs migrations first. Needs 'just db' running.
-[group('Development')]
-api: migrate
-    @echo "\033[1;34m→ FastAPI (uvicorn --reload) on {{api_url}}\033[0m"
-    cd backend && uv run uvicorn app.main:app --reload --port {{api_port}}
 
 # Start the dev Postgres (docker-compose.dev.yml, localhost:5434) — waits until it's healthy.
 [group('Development')]
@@ -128,28 +108,16 @@ demo-reset:
 
 # --- Code quality  (run 'just lint && just test' before pushing) --------------
 
-# Lint both stacks.
+# Lint both stacks (eslint + ruff).
 [group('Quality')]
-lint: lint-fe lint-be
-
-[group('Quality')]
-lint-fe:
+lint:
     pnpm lint
-
-[group('Quality')]
-lint-be:
     cd backend && uv run ruff check app tests
 
-# Test both stacks.
+# Test both stacks (vitest + pytest).
 [group('Quality')]
-test: test-fe test-be
-
-[group('Quality')]
-test-fe:
+test:
     pnpm test
-
-[group('Quality')]
-test-be:
     cd backend && uv run pytest -q
 
 # Type-check the frontend without emitting.

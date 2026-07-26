@@ -75,15 +75,7 @@ Interested in using or contributing to KP Front? Start a
 Recipes use [`just`](https://github.com/casey/just) (`brew install just`). See the
 [`justfile`](justfile) for the underlying commands.
 
-### Frontend only
-
-Run the interface with built-in demo data (no database, no backend):
-
-```bash
-just install && just fe         # http://localhost:5188
-```
-
-### Full development stack
+### Development stack
 
 ```bash
 just setup       # install dependencies (once)
@@ -91,8 +83,9 @@ just demo-load   # load the optional Musterdorf dataset (starts nothing; migrate
 just dev         # PostgreSQL + API (:8001) + frontend (:5188), Ctrl+C stops all
 ```
 
-`just dev` is the everyday command. The individual pieces – `just db`, `just api`,
-`just fe` – still exist for when you want them in separate terminals.
+`just dev` is the only command you need day to day – it starts the database, waits for it,
+migrates, and runs both servers in one terminal. For the frontend alone (no database, no
+backend, built-in demo data): `pnpm dev`.
 
 Log in with the seeded default editor – user `fu` (Führungsunterstützung), PIN `000000`
 (from `backend/app/seed_users.json`; change it after first login).
@@ -104,7 +97,7 @@ Run `just` without an argument to list every recipe.
 | Recipe | Purpose |
 | --- | --- |
 | `just dev` | the whole stack: database + backend + frontend |
-| `just fe` / `just api` / `just db` | the pieces, one per terminal |
+| `just db-stop` / `just db-reset` | stop the dev database / wipe its volume |
 | `just lint` / `just test` | lint / test both stacks |
 | `just build` | type-check + production build |
 | `just config-example` | print a starting deployment config (copy & edit) |
