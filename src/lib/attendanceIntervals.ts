@@ -17,18 +17,30 @@ import type { AttendanceEntry, PresenceInterval } from '../types'
  * never write into this one.
  */
 
-/** Every executed block of an entry, oldest first — legacy pair included, so callers see one shape. */
+/** Every executed block of an entry, oldest first — legacy pair included, so callers see one shape.
+ *
+ *  A legacy entry may carry the old half-state: `status: 'present'` WITH a stale `leftAt`, left
+ *  behind when a second «anwesend» kept the earlier departure. `status` is the operational truth
+ *  there — the person is in the incident — so that projects as one OPEN block and the stale
+ *  departure is dropped rather than marking a present member gone. */
 export function intervalsOf(e: AttendanceEntry | undefined): PresenceInterval[] {
   if (!e) return []
   if (e.intervals?.length) return e.intervals
   if (!e.checkedInAt) return []
-  return [e.leftAt ? { from: e.checkedInAt, to: e.leftAt } : { from: e.checkedInAt }]
+  if (e.status === 'present') return [{ from: e.checkedInAt }]
+  return e.leftAt ? [{ from: e.checkedInAt, to: e.leftAt }] : [{ from: e.checkedInAt }]
 }
 
-/** True while the person is here: the newest block has no end yet. */
+/** True while the person is here: the newest block has no end yet.
+ *
+ *  For an entry that predates blocks the RECORDED status decides instead — a legacy 'left' row
+ *  whose `leftAt` never made it to disk would otherwise read as an open block and put someone who
+ *  went home back on the board. */
 export function isPresent(e: AttendanceEntry | undefined): boolean {
-  const list = intervalsOf(e)
-  return list.length > 0 && !list[list.length - 1].to
+  if (!e) return false
+  if (!e.intervals?.length) return e.status === 'present'
+  const list = e.intervals
+  return !list[list.length - 1].to
 }
 
 /**

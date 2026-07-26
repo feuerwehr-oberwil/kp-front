@@ -2138,6 +2138,33 @@ export const de = {
     backAgain: 'Wieder da',
     backAgainHint: '{name} ist zurück – neuer Block ab jetzt',
     blockCount: '{n} Blöcke',
+    // Umschalter zwischen der Anwesenheitsliste und dem Zeitplan (gleiche Mannschaft, zwei Blicke)
+    viewList: 'Anwesenheit',
+    viewPlan: 'Zeitplan',
+    viewLabel: 'Ansicht',
+  },
+  // Schichtenplanung – das Führungsformular «Zeitplan» (Wer × Zeit), rein planend:
+  // geplante Balken sind hohl, tatsächliche Anwesenheit ist gefüllt. Der Plan schreibt nie.
+  zeitplan: {
+    title: 'Zeitplan',
+    summary: '{planned} eingeplant · {present} jetzt da',
+    summaryEmpty: 'Noch nichts geplant',
+    add: 'Schicht',
+    addFor: 'Schicht für {name} planen',
+    from: 'von',
+    to: 'bis',
+    remove: 'Schicht löschen',
+    removed: 'Schicht {name} gelöscht',
+    conflict: 'Überschneidet sich mit einer anderen Schicht',
+    now: 'jetzt',
+    coverage: 'Deckung',
+    coverageHint: 'Oben geplant, unten tatsächlich anwesend – die Lücke zeigt, wo niemand eingeteilt ist.',
+    planned: 'geplant',
+    actual: 'anwesend',
+    emptyTitle: 'Noch keine Schicht geplant.',
+    emptyHint: 'Plane pro Person, von wann bis wann sie verfügbar ist. Der Plan verändert die Anwesenheit nicht – abgehakt wird sie weiterhin in der Anwesenheitsliste.',
+    legendHint: 'Hohl = geplant · gefüllt = tatsächlich anwesend',
+    print: 'Zeitplan drucken',
   },
   // Mittel surface (MittelView) — manuelle Materialerfassung für Rapport / Nachschub
   mittel: {

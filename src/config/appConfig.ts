@@ -457,6 +457,11 @@ const base = {
     sources: [] as { id: string; label: string }[],
     units: ['Stk', 'l', 'm', 'Sack', 'Flasche', 'kg', 'Rolle', 'Paar', 'h'] as string[],
   },
+  /** Schichtenplanung (the Zeitplan surface) */
+  shifts: {
+    /** length a freshly added availability block opens on — one watch, correctable in two taps */
+    defaultHours: 8,
+  },
 } as const
 
 // `copy` is sourced from the active locale (see ./copy): `appConfig.copy.*` resolves

@@ -110,6 +110,25 @@ describe('mergeWorkspace — task-scoped cross-domain merges (no clobbering)', (
     expect(merged.attendance).toEqual({ p1: { present: true } }) // their attendance NOT clobbered
   })
 
+  it('one device plans the Zeitplan while another ticks Anwesenheit — both survive', () => {
+    // the exact split the Schichtenplanung invites: the Einsatzleiter plans the night on one
+    // tablet while the AdFU ticks arrivals on another
+    const base = { shifts: [o('sh1')], attendance: {} }
+    const theirs = { shifts: [o('sh1')], attendance: { p1: { status: 'present' } } }
+    const mine = { shifts: [o('sh1'), o('sh2')], attendance: {} }
+    const merged = mergeWorkspace(base, mine, theirs) as { shifts: { id: string }[]; attendance: Record<string, unknown> }
+    expect(merged.shifts.map((x) => x.id)).toEqual(['sh1', 'sh2'])
+    expect(merged.attendance).toEqual({ p1: { status: 'present' } })
+  })
+
+  it('a deleted shift stays deleted against a concurrent edit of it', () => {
+    const base = { shifts: [o('sh1'), o('sh2')] }
+    const theirs = { shifts: [{ id: 'sh1' }, { id: 'sh2', to: '2026-07-27T02:00:00Z' }] } // they moved sh2
+    const mine = { shifts: [o('sh1')] } // I deleted sh2
+    const merged = mergeWorkspace(base, mine, theirs) as { shifts: { id: string }[] }
+    expect(merged.shifts.map((x) => x.id)).toEqual(['sh1'])
+  })
+
   it('a settings change on one device is not reverted by an unrelated map edit on another', () => {
     const base = { entities: [o('e1')], settings: { contactIntervalMin: 10 } }
     const theirs = { entities: [o('e1')], settings: { contactIntervalMin: 20 } } // they changed doctrine

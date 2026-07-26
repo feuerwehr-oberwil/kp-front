@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Icon } from '../lib/icons'
-import type { AttendanceState, Person } from '../types'
+import type { AttendanceState, Person, Shift } from '../types'
 import { cx } from '../lib/cx'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
@@ -10,6 +10,7 @@ import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import { Segmented } from './Segmented'
 import { EmptyState } from './EmptyState'
+import { ZeitplanView } from './ZeitplanView'
 import s from './Anwesenheit.module.css'
 
 /** sentinel value for the «Alle» segment of the rank filter (no real rank uses it) */
@@ -32,6 +33,7 @@ function toHM(iso: string): string {
 export function AnwesenheitView({
   people, attendance, canEdit, loading, error, blockedIds,
   onMarkPresent, onMarkLeft, onClear, onJumpToTrupp, onReload, onSetTimes, captureUsage,
+  shifts, startedAt, onAddShift, onSetShiftTime, onRemoveShift,
 }: {
   people: Person[]
   attendance: AttendanceState
@@ -51,9 +53,26 @@ export function AnwesenheitView({
   onSetTimes?: (personId: string, patch: { from?: string; to?: string }, index?: number) => void
   /** QR self-reporting in use — «QR: N Einträge · zuletzt HH:MM» chip (informational) */
   captureUsage?: CaptureUsage | null
+  /** Schichtenplanung — the second view of this same Mannschaft (see ZeitplanView) */
+  shifts?: Shift[]
+  startedAt?: string | null
+  onAddShift?: (p: Person) => void
+  onSetShiftTime?: (id: string, patch: { from?: string; to?: string }) => void
+  onRemoveShift?: (id: string, personName: string) => void
 }) {
   const [q, setQ] = useState('')
   const [rankFilter, setRankFilter] = useState<string | null>(null)
+  // Anwesenheit and Zeitplan are two readings of the SAME filtered, ordered Mannschaft — the
+  // search + rank filter above apply to both, so a name sits in the same place in either view.
+  const [view, setView] = useState<'list' | 'plan'>('list')
+  // one clock for the whole surface: it drives the «jetzt» line and the growing open bar. Only
+  // ticks while the Zeitplan is on screen — the attendance list has nothing that moves.
+  const [nowMs, setNowMs] = useState(() => Date.now())
+  useEffect(() => {
+    if (view !== 'plan') return
+    const t = setInterval(() => setNowMs(Date.now()), 30_000)
+    return () => clearInterval(t)
+  }, [view])
   // person whose time chip is open as an inline <input type="time">
   const [editing, setEditing] = useState<string | null>(null)
   const A = appConfig.copy.anwesenheit
@@ -98,6 +117,8 @@ export function AnwesenheitView({
   }
 
   const empty = !people.length
+  const planAvailable = !!shifts && !!onAddShift && !!onSetShiftTime && !!onRemoveShift
+  const showPlan = planAvailable && view === 'plan'
 
   return (
     <div className={s.surface}>
@@ -114,6 +135,15 @@ export function AnwesenheitView({
         </div>
       </header>
 
+      {/* the two readings of this Mannschaft. Only offered where a Zeitplan can actually be
+          edited/read — the surface is inert without the shift slice wired up. */}
+      {!empty && planAvailable && (
+        <div className={s.rankRow}>
+          <Segmented<'list' | 'plan'> ariaLabel={A.viewLabel} value={view} onChange={setView}
+            options={[{ value: 'list', label: A.viewList }, { value: 'plan', label: A.viewPlan }]} />
+        </div>
+      )}
+
       {!empty && (
         <div className={s.controls}>
           <label className={s.search}>
@@ -121,11 +151,13 @@ export function AnwesenheitView({
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={A.searchPlaceholder} inputMode="search" />
             {q && <button className={s.searchClear} onClick={() => setQ('')} aria-label={A.clearSearch}><Icon id="close" /></button>}
           </label>
-          <div className={s.legend} aria-hidden>
-            <span><i className={s.dotFrei} />{A.legendFrei}</span>
-            <span><i className={s.dotPresent} />{A.legendPresent}</span>
-            <span><i className={s.dotLeft} />{A.legendLeft}</span>
-          </div>
+          {view === 'list' && (
+            <div className={s.legend} aria-hidden>
+              <span><i className={s.dotFrei} />{A.legendFrei}</span>
+              <span><i className={s.dotPresent} />{A.legendPresent}</span>
+              <span><i className={s.dotLeft} />{A.legendLeft}</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -148,6 +180,18 @@ export function AnwesenheitView({
           action={<button type="button" className="ip-btn" onClick={onReload} disabled={loading}><Icon id="rotate" /> {A.retry}</button>} />
       ) : !rows.length ? (
         <div className="ip-ac-note ip-ac-note-center">{A.noMatches}</div>
+      ) : showPlan ? (
+        <ZeitplanView
+          people={rows}
+          attendance={attendance}
+          shifts={shifts!}
+          canEdit={canEdit}
+          startedAt={startedAt ?? null}
+          nowMs={nowMs}
+          onAdd={onAddShift!}
+          onSetTime={onSetShiftTime!}
+          onRemove={onRemoveShift!}
+        />
       ) : (
         <div className={s.grid}>
           {rows.map((p) => {

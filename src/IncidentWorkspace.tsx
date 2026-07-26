@@ -18,6 +18,7 @@ import { formatAudioDuration } from './lib/audioImport'
 import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys } from './lib/symbols'
 import { circlePolygon, fmtLV95, fmtWGS, haversineM, pathLengthM } from './lib/geo'
 import { intervalsOf, isPresent, openPresence } from './lib/attendanceIntervals'
+import { useShiftActions } from './lib/useShiftActions'
 import { lineLabel } from './lib/lineDecor'
 import { panelNudge, panelNudgeUp, panelNudgeBox, panelNudgeBoxUp, isBottomSheet } from './lib/panelNudge'
 import { useMeasure } from './lib/useMeasure'
@@ -250,7 +251,7 @@ export function IncidentWorkspace({
   // below and read these. layers/recent stay in the component (own derivation/effects).
   const {
     incidentSettings, setIncidentSettings, board, setBoard, checklists, setChecklists,
-    trupps, setTrupps, attendance, setAttendance, mittel, setMittel, cameraViews, setCameraViews,
+    trupps, setTrupps, attendance, setAttendance, mittel, setMittel, shifts, setShifts, cameraViews, setCameraViews,
     planScale, setPlanScale, reportMeta, setReportMeta, building, setBuilding,
     activePlanId, setActivePlanId, pickedObjectId, setPickedObjectId,
   } = useWorkspaceDoc(init)
@@ -509,6 +510,7 @@ export function IncidentWorkspace({
   // views are read-only then) so scrubbing moves Trupp status + attendance back in time too
   const effTrupps = replayActive ? (replayWs?.trupps ?? []) : trupps
   const effAttendance = replayActive ? (replayWs?.attendance ?? {}) : attendance
+  const effShifts = replayActive ? (replayWs?.shifts ?? []) : shifts
   // during replay the Mittel log is reconstructed from the scrubbed-instant workspace blob
   const effMittel = replayActive ? ((replayWs?.mittel as MittelEntry[] | undefined) ?? []) : mittel
   const planDocs = useMemo(() => {
@@ -661,7 +663,7 @@ export function IncidentWorkspace({
     // remote/merged state — undoing into it would resurrect remotely-deleted content).
     replaceDoc(next.doc); setLayers(next.layers); journal.ingestLegacy(next.timeline)
     setRecent(next.recent); setBoard(next.board); setBuilding(next.building)
-    setVehicleOverrides(next.vehicleOverrides); setChecklists(next.checklists); setTrupps(next.trupps); setAttendance(next.attendance); setCameraViews(next.cameraViews); setPlanScale(next.planScale); setReportMeta(next.reportMeta); setIncidentSettings(next.settings); setPickedObjectId(next.pickedObjectId)
+    setVehicleOverrides(next.vehicleOverrides); setChecklists(next.checklists); setTrupps(next.trupps); setAttendance(next.attendance); setShifts(next.shifts); setCameraViews(next.cameraViews); setPlanScale(next.planScale); setReportMeta(next.reportMeta); setIncidentSettings(next.settings); setPickedObjectId(next.pickedObjectId)
     // Drop any selection pointing at an entity/drawing that no longer exists after the merge.
     setSelectedId((id) => (id && next.doc.entities.some((e) => e.id === id) ? id : null))
     setSelectedDrawingId((id) => (id && next.doc.drawings.some((d) => d.id === id) ? id : null))
@@ -674,13 +676,13 @@ export function IncidentWorkspace({
   // useIncidentSync (replacing the old slice-keyed persistence effect's dependency array).
   const buildPayload = useCallback((): Saved => ({
     entities: doc.entities.filter((e) => e.kind !== 'photo'),
-    drawings: doc.drawings, recent, board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, trupps, attendance, mittel, cameraViews, planScale, reportMeta, settings: incidentSettings,
+    drawings: doc.drawings, recent, board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, trupps, attendance, mittel, shifts, cameraViews, planScale, reportMeta, settings: incidentSettings,
     layerState: layers.map((l) => ({ id: l.id, visible: l.visible, opacity: l.opacity })),
     // Verlauf rows live in the journal store now; the blob echoes an older incident's legacy
     // rows only until they're safely on the server, then ships empty forever (see JournalStore).
     timeline: journal.blobTimeline,
     schemaVersion: WORKSPACE_SCHEMA_VERSION,
-  }), [doc, layers, journal.blobTimeline, recent, board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, trupps, attendance, mittel, cameraViews, planScale, reportMeta, incidentSettings])
+  }), [doc, layers, journal.blobTimeline, recent, board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, trupps, attendance, mittel, shifts, cameraViews, planScale, reportMeta, incidentSettings])
 
   // persistence, teardown beacons, live-follow poll (with the tablet sync-race guard),
   // in-place auto-merge apply, and the reactive sync-status badge all live in useIncidentSync.
@@ -1566,6 +1568,8 @@ export function IncidentWorkspace({
     startedAt: incidentMeta.started_at, reportDoneAt: incidentMeta.report_done_at, log,
   })
   const { saveMittel, offerMittelCapture } = useMittelActions({ mittel, setMittel, authorName: user?.display_name, log })
+  // Schichtenplanung — a PLAN over the same Mannschaft; it never writes the attendance record
+  const { addShift, setShiftTime, removeShift } = useShiftActions({ shifts, setShifts, startedAt: incidentMeta.started_at })
   // assigning someone to a Trupp implies they're on scene — mark every roster-linked member
   // present (even at "angemeldet"). Only the newly-present are logged, so re-edits don't spam.
   const rosterById = useMemo(() => new Map(personnel.map((p) => [p.id, p])), [personnel])
@@ -1577,7 +1581,7 @@ export function IncidentWorkspace({
     [personnel],
   )
   // present crew (attendance) — offered first in the Einsatzleiter picker (mirrors Atemschutz)
-  const presentIds = useMemo(() => new Set(Object.entries(attendance).filter(([, a]) => a.status === 'present').map(([id]) => id)), [attendance])
+  const presentIds = useMemo(() => new Set(Object.entries(attendance).filter(([, a]) => isPresent(a)).map(([id]) => id)), [attendance])
   const ensurePresentFromTrupp = (ids: (string | undefined)[]) => {
     const fresh = [...new Set(ids.filter(Boolean) as string[])].filter((id) => !isPresent(attendance[id]))
     if (!fresh.length) return
@@ -2396,6 +2400,11 @@ export function IncidentWorkspace({
           onReload={() => { void reloadPersonnel() }}
           onSetTimes={canEditIncident ? setAttendanceTimes : undefined}
           captureUsage={captureUsage}
+          shifts={effShifts}
+          startedAt={incidentMeta.started_at}
+          onAddShift={canEditIncident ? addShift : undefined}
+          onSetShiftTime={canEditIncident ? setShiftTime : undefined}
+          onRemoveShift={canEditIncident ? removeShift : undefined}
         />
       )}
 

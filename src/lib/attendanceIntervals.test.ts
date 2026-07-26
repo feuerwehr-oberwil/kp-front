@@ -24,6 +24,27 @@ describe('legacy entries (written before blocks existed)', () => {
     expect(intervalsOf({ status: 'left', displayNameSnapshot: 'Meier' })).toEqual([])
     expect(intervalsOf(undefined)).toEqual([])
   })
+
+  // real rows on prod: a second «anwesend» used to keep the earlier leftAt, so the person was
+  // marked present AND carried a departure. Status is the operational truth — they are here.
+  it('keeps the old half-state (present WITH a stale leftAt) on the board', () => {
+    const halfState: AttendanceEntry = { status: 'present', checkedInAt: T(14), leftAt: T(18), displayNameSnapshot: 'Meier' }
+    expect(isPresent(halfState)).toBe(true)
+    expect(intervalsOf(halfState)).toEqual([{ from: T(14) }]) // stale departure dropped
+  })
+
+  it('does not put a legacy «gegangen» row without a leftAt back on the board', () => {
+    const noEnd: AttendanceEntry = { status: 'left', checkedInAt: T(14), displayNameSnapshot: 'Meier' }
+    expect(isPresent(noEnd)).toBe(false)
+  })
+
+  it('lets the blocks decide once an entry has them, whatever status says', () => {
+    const stale: AttendanceEntry = {
+      status: 'left', displayNameSnapshot: 'Meier', checkedInAt: T(14),
+      intervals: [{ from: T(14), to: T(18) }, { from: T(22) }],
+    }
+    expect(isPresent(stale)).toBe(true)
+  })
 })
 
 describe('opening and closing blocks', () => {
