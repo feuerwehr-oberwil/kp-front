@@ -32,9 +32,7 @@ def _set_session_cookie(response: Response, key: str, value: str, max_age: int) 
 def set_auth_cookies(response: Response, access_token: str, refresh_token: str | None = None) -> None:
     _set_session_cookie(response, ACCESS_COOKIE, access_token, settings.access_token_expire_minutes * 60)
     if refresh_token is not None:
-        _set_session_cookie(
-            response, REFRESH_COOKIE, refresh_token, settings.refresh_token_expire_days * 24 * 3600
-        )
+        _set_session_cookie(response, REFRESH_COOKIE, refresh_token, settings.refresh_token_expire_days * 24 * 3600)
 
 
 def clear_auth_cookies(response: Response) -> None:

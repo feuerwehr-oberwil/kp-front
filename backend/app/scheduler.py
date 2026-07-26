@@ -12,7 +12,7 @@ from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI
 
 from .config import settings
-from .database import async_session_maker
+from .database import async_session_maker, execute_dml
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +75,7 @@ async def _print_jobs_sweep() -> None:
     async with async_session_maker() as db:
         try:
             cutoff = datetime.now(UTC) - timedelta(days=PRINT_JOB_RETENTION_DAYS)
-            res = await db.execute(delete(PrintJob).where(PrintJob.created_at < cutoff))
+            res = await execute_dml(db, delete(PrintJob).where(PrintJob.created_at < cutoff))
             await db.commit()
             if res.rowcount:
                 logger.info("Print-job sweep: %d job(s) removed", res.rowcount)

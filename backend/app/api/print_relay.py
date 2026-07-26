@@ -25,7 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth.dependencies import CurrentUser
 from ..config import settings
-from ..database import get_db
+from ..database import execute_dml, get_db
 from ..models import Incident, PrintJob
 from ..report_pdf import ReportPayload
 from .report import compose_report_from_payload, report_filename, warm_report_from_payload
@@ -245,10 +245,11 @@ async def _try_claim(db: AsyncSession) -> dict | None:
         ).scalar_one_or_none()
         if job is None:
             return None
-        claimed = await db.execute(
+        claimed = await execute_dml(
+            db,
             update(PrintJob)
             .where(PrintJob.id == job.id, PrintJob.status == "queued")
-            .values(status="printing", claimed_at=datetime.now(UTC))
+            .values(status="printing", claimed_at=datetime.now(UTC)),
         )
         if claimed.rowcount:
             await db.flush()

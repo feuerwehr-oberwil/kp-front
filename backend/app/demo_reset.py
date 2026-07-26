@@ -54,9 +54,12 @@ DEMO_INCIDENT = {
     "lng": 7.570345444795164,
     "divera_id": 990000,
     "divera_number": "2026-DEMO-000",
-    # how long the incident has been running when the demo is viewed (drives the Einsatz clock)
-    "elapsed_min": 14,
 }
+
+# How long the incident has been running when the demo is viewed (drives the Einsatz clock).
+# Its own constant rather than a DEMO_INCIDENT key: it is the only numeric field consumed as a
+# number, and inside the mixed-value dict its type is just `object`.
+DEMO_ELAPSED_MIN = 14
 
 # Dummy roster so Anwesenheit / Atemschutz person-assignment have people to work with.
 DEMO_PEOPLE = [
@@ -290,7 +293,7 @@ async def reset(wipe_objects: bool = True) -> None:
         scene = json.loads(SCENE_PATH.read_text(encoding="utf-8"))
         present = [(pid, name) for name, pid in person_id.items() if name in DEMO_PRESENT]
         workspace = build_demo_workspace(scene, present, now)
-        started = now - timedelta(minutes=DEMO_INCIDENT["elapsed_min"])
+        started = now - timedelta(minutes=DEMO_ELAPSED_MIN)
         incident = Incident(
             title=DEMO_INCIDENT["title"],
             type=DEMO_INCIDENT["type"],

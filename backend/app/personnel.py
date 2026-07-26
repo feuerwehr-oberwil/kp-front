@@ -10,6 +10,7 @@ The diff (:func:`diff_members`) is pure so it can be unit-tested without a datab
 
 import logging
 import unicodedata
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Protocol
@@ -252,7 +253,7 @@ async def fetch_divera_members() -> list[dict]:
     return members
 
 
-def diff_members(members: list[dict], existing: list[_ExistingPerson]) -> dict:
+def diff_members(members: list[dict], existing: Sequence[_ExistingPerson]) -> dict:
     """Reconcile freshly-fetched Divera members against existing personnel by divera_id.
 
     Returns serializable categories: ``new`` (insert), ``updated`` (name/rank changed or

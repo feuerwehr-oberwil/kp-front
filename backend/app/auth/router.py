@@ -64,8 +64,9 @@ async def login(body: LoginRequest, response: Response, db: AsyncSession = Depen
         )
 
     user = (await db.execute(select(User).where(User.id == body.user_id))).scalar_one_or_none()
-    ok = user is not None and user.is_active and verify_pin(body.pin, user.pin_hash)
-    if not ok:
+    # Spelled out rather than via an `ok` flag so the None-check actually narrows `user` for
+    # everything below; short-circuiting keeps verify_pin off the unknown-user path as before.
+    if user is None or not user.is_active or not verify_pin(body.pin, user.pin_hash):
         cooldown = pin_limiter.record_failure(uid)
         detail = "Falsche PIN" if cooldown == 0 else f"Falsche PIN. Nächster Versuch in {cooldown}s."
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)

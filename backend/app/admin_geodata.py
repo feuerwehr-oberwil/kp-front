@@ -221,6 +221,8 @@ def _dig(node: Any) -> tuple[float, float] | None:
 
 def _resolve(manifest_path: Path, entry: GeodataManifestEntry) -> Path:
     """Absolute path of a file-backed entry's GeoJSON, relative to the manifest's directory."""
+    if entry.file is None:
+        raise ValueError(f"geodata entry {entry.id!r} has no 'file' — _resolve is for file-backed entries only")
     return (manifest_path.parent / entry.file).resolve()
 
 
@@ -460,9 +462,9 @@ async def _amain(argv: list[str]) -> int:
         if not args.dry_run:
             print(f"OK: uploaded {up} file(s) and wrote {layers} referenceLayer(s) to {args.base}.")
         return 0
-    # show
-    layers = await _show()
-    print(json.dumps(layers, indent=2, ensure_ascii=False) if layers else "No referenceLayers stored.")
+    # show — its own name: `layers` is an int (a count) in the branches above.
+    stored = await _show()
+    print(json.dumps(stored, indent=2, ensure_ascii=False) if stored else "No referenceLayers stored.")
     return 0
 
 

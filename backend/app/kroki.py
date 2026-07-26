@@ -203,7 +203,11 @@ def render_base(
     finally:
         if own:
             client.close()
-    return img.resize((view.width, view.height), Image.Resampling.LANCZOS) if (tw, th) != (view.width, view.height) else img
+    return (
+        img.resize((view.width, view.height), Image.Resampling.LANCZOS)
+        if (tw, th) != (view.width, view.height)
+        else img
+    )
 
 
 # ----------------------------------------------------------------------------- symbols
@@ -640,7 +644,8 @@ def render_kroki(
     for d in scene.drawings:
         color = d.get("color") or "#1f6feb"
         kind = d.get("kind")
-        alpha = d.get("fillOpacity") if d.get("fillOpacity") is not None else 0.14
+        raw_alpha = d.get("fillOpacity")
+        alpha = float(raw_alpha) if raw_alpha is not None else 0.14
         if kind == "circle" and d.get("coords"):
             lng, lat = d["coords"][0]
             draw.polygon(
@@ -841,9 +846,8 @@ def _overlay_board_annos(
         if kind in ("draw", "area") and len(a.get("pts") or []) >= 2:
             pts = [pp(px_, py_) for px_, py_ in a["pts"]]
             if kind == "area" and len(pts) >= 3:
-                draw.polygon(
-                    pts, fill=_hex_alpha(color, (a.get("fillOpacity") if a.get("fillOpacity") is not None else 0.14))
-                )
+                raw_alpha = a.get("fillOpacity")
+                draw.polygon(pts, fill=_hex_alpha(color, float(raw_alpha) if raw_alpha is not None else 0.14))
                 draw.line([*pts, pts[0]], fill=color, width=sw, joint="curve")
                 if a.get("label"):
                     cx = sum(p[0] for p in pts) / len(pts)

@@ -11,7 +11,7 @@ from sqlalchemy.orm import defer
 from .. import audit, storage
 from ..alarms import is_demo_deployment
 from ..auth.dependencies import CurrentEditor, CurrentUser, UserOrAdmin
-from ..database import get_db
+from ..database import execute_dml, get_db
 from ..geocode import geocode
 from ..models import Incident, IncidentNote, IncidentPerson
 from ..schemas import (
@@ -162,14 +162,15 @@ async def apply_workspace_put(
     rev=N can't both win — the loser matches 0 rows and gets the 409 (the app-level
     check alone raced because autoflush is off and the row isn't locked).
     """
-    result = await db.execute(
+    result = await execute_dml(
+        db,
         update(Incident)
         .where(Incident.id == incident_id, Incident.workspace_rev == body.base_rev)
         .values(
             map_workspace_json=body.workspace,
             workspace_rev=Incident.workspace_rev + 1,
             updated_at=func.now(),
-        )
+        ),
     )
     if result.rowcount == 0:
         inc = await _get(db, incident_id)

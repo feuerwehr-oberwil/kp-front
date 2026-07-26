@@ -90,7 +90,7 @@ class ObjectEntry(BaseModel):
             raise ValueError(f"object {self.id}: 'name' must not be empty")
         if (self.lat is None) != (self.lng is None):
             raise ValueError(f"object {self.id}: lat and lng must both be set or both omitted")
-        if self.lat is not None and (abs(self.lat) > 90 or abs(self.lng) > 180):
+        if self.lat is not None and self.lng is not None and (abs(self.lat) > 90 or abs(self.lng) > 180):
             raise ValueError(
                 f"object {self.id}: ({self.lat}, {self.lng}) is not WGS84 [lat, lng] — reproject before loading"
             )
@@ -292,14 +292,18 @@ def _push(
 async def _show() -> list[dict[str, Any]]:
     async with async_session_maker() as db:
         objs = list((await db.execute(select(ObjectSite).order_by(ObjectSite.name))).scalars())
-        counts = dict(
+        # .tuples() so the rows are typed as (object_id, count) pairs rather than opaque Rows —
+        # dict() over them then needs no annotation and no cast.
+        counts: dict[uuid.UUID | None, int] = dict(
             (
                 await db.execute(
                     select(ReferenceDataset.object_id, func.count())
                     .where(ReferenceDataset.kind == "pdf")
                     .group_by(ReferenceDataset.object_id)
                 )
-            ).all()
+            )
+            .tuples()
+            .all()
         )
         return [
             {

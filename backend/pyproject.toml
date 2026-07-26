@@ -129,6 +129,16 @@ warn_unused_ignores = true
 # Third-party stubs (jose, pypdfium2, resvg_py, apscheduler, …) are absent or partial.
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+# The vendored telemetry modules are byte-identical with kp-rueck's copies and pinned by
+# checksum (tests/test_telemetry_vendored.py). The fixes they'd need — a typed DML helper,
+# a widened ctx dict — cannot be shared, because the two apps have different database
+# modules, so annotating them here would break the identity the checksum protects.
+# kp-rueck excludes them for the same reason (its docs/plans/14-typing-debt.md). Their
+# guarantee comes from the 39 absence-based sanitiser tests and the checksum, not from mypy.
+module = ["app.telemetry.scrub", "app.telemetry.envelope", "app.telemetry.outbox", "app.telemetry.forwarder"]
+ignore_errors = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"

@@ -45,7 +45,8 @@ async def _plans_by_object(db: AsyncSession, object_ids: list[uuid.UUID]) -> dic
         )
     ).scalars()
     for p in rows:
-        grouped.setdefault(p.object_id, []).append(p)
+        if p.object_id is not None:  # the .in_() filter guarantees this; the column is nullable
+            grouped.setdefault(p.object_id, []).append(p)
     return grouped
 
 
@@ -74,7 +75,7 @@ async def list_objects(
         plans = [ReferenceDatasetOut.model_validate(p) for p in plans_by_obj.get(o.id, [])]
         dist = (
             haversine_m(ref_lat, ref_lng, float(o.lat), float(o.lng))
-            if ref_lat is not None and o.lat is not None and o.lng is not None
+            if ref_lat is not None and ref_lng is not None and o.lat is not None and o.lng is not None
             else None
         )
         item = ObjectWithPlans.model_validate(o)
@@ -192,15 +193,13 @@ async def objects_near_incident(incident_id: uuid.UUID, _user: CurrentUser, db: 
     # object can be a neighbour. When the incident's address matches an Einsatzobjekt's
     # address, surface THAT object first regardless of distance.
     ia = _norm_addr(inc.address)
-    has_coords = inc.lat is not None and inc.lng is not None
-
     candidates: list[tuple[ObjectSite, float | None, bool]] = []
     for o in objs:
         oa = _norm_addr(o.address)
         matched = bool(ia) and bool(oa) and (ia == oa or oa.startswith(ia) or ia.startswith(oa))
         dist = (
             haversine_m(float(inc.lat), float(inc.lng), float(o.lat), float(o.lng))
-            if has_coords and o.lat is not None and o.lng is not None
+            if inc.lat is not None and inc.lng is not None and o.lat is not None and o.lng is not None
             else None
         )
         if matched or (dist is not None and dist <= OBJECT_SURFACE_RADIUS_M):

@@ -20,6 +20,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from ..database import execute_dml
 from ..models import RevokedToken
 
 logger = logging.getLogger(__name__)
@@ -84,7 +85,7 @@ class TokenBlocklist:
         """Delete rows whose tokens have already expired; returns rows removed."""
         async with self._factory()() as session:
             now = datetime.now(UTC)
-            result = await session.execute(delete(RevokedToken).where(RevokedToken.expires_at <= now))
+            result = await execute_dml(session, delete(RevokedToken).where(RevokedToken.expires_at <= now))
             await session.commit()
             return result.rowcount or 0
 

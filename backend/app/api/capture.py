@@ -23,7 +23,15 @@ from ..auth.capture_limiter import capture_limiter
 from ..auth.dependencies import CurrentAdmin
 from ..database import get_db
 from ..models import DeploymentConfig, Incident, Personnel
-from ..schemas import IncidentMeta, JournalAppendIn, JournalPage, PersonnelOut, WorkspaceOut, WorkspacePut
+from ..schemas import (
+    IncidentMeta,
+    JournalAppendIn,
+    JournalEntryOut,
+    JournalPage,
+    PersonnelOut,
+    WorkspaceOut,
+    WorkspacePut,
+)
 
 
 def _client_ip(request: Request) -> str:
@@ -350,8 +358,8 @@ async def capture_read_journal(
             sa_select(JournalEntry).where(JournalEntry.incident_id == incident_id).order_by(JournalEntry.seq.asc())
         )
     ).scalars()
-    entries = [{"seq": r.seq, "row": r.row_json} for r in rows]
-    return JournalPage(entries=entries, latest_seq=entries[-1]["seq"] if entries else 0)
+    entries = [JournalEntryOut(seq=r.seq, row=r.row_json) for r in rows]
+    return JournalPage(entries=entries, latest_seq=entries[-1].seq if entries else 0)
 
 
 @router.post("/incidents/{incident_id}/journal", response_model=JournalPage, status_code=201)
@@ -376,7 +384,7 @@ async def capture_append_journal(
         # journal rows from the capture surface count as QR usage too (idempotent replays
         # that appended nothing don't — the counter mirrors real record growth)
         await _bump_capture_usage(db, incident_id)
-        latest = accepted[-1]["seq"]
+        latest = accepted[-1].seq
     else:
         latest = (
             await db.execute(select(sa_func.max(JournalEntry.seq)).where(JournalEntry.incident_id == incident_id))
