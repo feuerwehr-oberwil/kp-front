@@ -49,6 +49,17 @@ const shots = [
       await page.waitForTimeout(1500)
     },
   },
+  {
+    name: 'rapport',
+    nav: 'Karte',
+    settle: 2500,
+    note: 'Der Einsatzrapport vor dem PDF: Angaben prüfen, Fehlendes nachtragen',
+    prep: async (page) => {
+      await page.locator('.ip-switch-btn').click()
+      await page.getByRole('button', { name: 'Einsatzrapport' }).click()
+      await page.waitForTimeout(2000)
+    },
+  },
 ]
 
 /** Demo-Chrome, die im Marketing-Bild nichts zu suchen hat. */
