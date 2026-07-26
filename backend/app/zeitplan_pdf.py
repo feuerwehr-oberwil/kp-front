@@ -7,9 +7,11 @@ rapport's styles and its page-number canvas are borrowed so both look like the s
 
 The layout follows the KKO BS / KFS BL sheet: a ``Wer × Zeit`` grid, names down the left, a
 time axis across the top with a heavier rule every full hour. Planned availability is drawn
-hollow and recorded presence filled — the same language the on-screen Zeitplan uses, so the
-paper reads like the tablet. Rows without a plan still print: a Führungsformular is meant to
-be written on, and an empty row is where the pen goes.
+hollow and assigned time filled — the same language the on-screen Zeitplan uses, so the paper
+reads like the tablet. Recorded attendance is deliberately NOT on the sheet: this is a planning
+aid you hang at the front and write on, and what actually happened belongs in the Rapport. Rows
+without a plan still print — a Führungsformular is meant to be written on, and an empty row is
+where the pen goes.
 """
 
 from __future__ import annotations
@@ -35,15 +37,14 @@ _INK = colors.HexColor("#1b2330")
 _DIM = colors.HexColor("#8a94a3")
 _RULE = colors.HexColor("#c9cfd8")
 _ACCENT = colors.HexColor("#1f6feb")
-_GREEN = colors.HexColor("#1f9d57")
 
 
 class ZeitplanBlock(BaseModel):
-    """One bar. ``planned`` false marks presence that was actually recorded."""
+    """One planned bar: availability offered (hollow) or, once ``confirmed``, assigned (solid)."""
 
     start: datetime = Field(alias="from")
     end: datetime | None = Field(default=None, alias="to")
-    planned: bool = True
+    confirmed: bool = False
 
     model_config = {"populate_by_name": True}
 
@@ -144,15 +145,15 @@ class _Grid(Flowable):
                 x0, x1 = self._x(b.start), self._x(end)
                 if x1 - x0 < 0.6:
                     x1 = x0 + 0.6
-                if b.planned:
-                    # hollow: what was planned, not what happened
+                if b.confirmed:
+                    c.setFillColor(_ACCENT)
+                    c.rect(x0, y + 2.0 * mm, x1 - x0, self.ROW_H - 4.0 * mm, stroke=0, fill=1)
+                else:
+                    # hollow: offered, not yet assigned
                     c.setStrokeColor(_ACCENT)
                     c.setFillColor(colors.white)
                     c.setLineWidth(0.8)
                     c.rect(x0, y + 1.6 * mm, x1 - x0, self.ROW_H - 3.2 * mm, stroke=1, fill=0)
-                else:
-                    c.setFillColor(_GREEN)
-                    c.rect(x0, y + 2.2 * mm, x1 - x0, self.ROW_H - 4.4 * mm, stroke=0, fill=1)
 
         # ---- frame + the head/name separators
         c.setStrokeColor(_RULE)
@@ -220,8 +221,8 @@ def compose_zeitplan_pdf(payload: ZeitplanPayload) -> bytes:
     story.append(Spacer(1, 3 * mm))
     story.append(
         Paragraph(
-            "Ausgezogen = geplante Verfügbarkeit · ausgefüllt = tatsächlich anwesend. "
-            "Planungshilfe – der Zeitplan verändert die Anwesenheitserfassung nicht.",
+            "Ausgezogen = verfügbar · ausgefüllt = eingeteilt. Planungshilfe – die tatsächliche "
+            "Anwesenheit steht im Einsatzrapport, nicht auf diesem Blatt.",
             st["muted"],
         )
     )

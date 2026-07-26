@@ -3,7 +3,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
 import { toast } from './ui'
 import type { Person, Shift } from '../types'
-import { draftShift } from './shifts'
+import { SLOT_MS, draftShift } from './shifts'
 
 interface ShiftActionsDeps {
   shifts: Shift[]
@@ -25,11 +25,14 @@ export function useShiftActions({ shifts, setShifts, startedAt }: ShiftActionsDe
     const hours = appConfig.shifts.defaultHours
     setShifts((cur) => [...cur, draftShift(p.id, Date.now(), startedAt, hours)])
   }
-  /** the grid sweep — exactly the stretch drawn, not a fixed default watch */
+  /** The grid sweep — exactly the stretch drawn, snapped to the half hour, never shorter than one
+   *  slot: a quick flick of the finger should still produce a usable 30-minute block rather than
+   *  a zero-length shift that renders as nothing. */
   const addShiftSpan = (p: Person, from: number, to: number) => {
+    const end = Math.max(to, from + SLOT_MS)
     setShifts((cur) => [...cur, {
       id: `sh${Date.now()}`, personId: p.id,
-      from: new Date(from).toISOString(), to: new Date(to).toISOString(),
+      from: new Date(from).toISOString(), to: new Date(end).toISOString(),
     }])
   }
   /** a drag committed: the whole shift replaces its stored self, so one gesture is one undo step */

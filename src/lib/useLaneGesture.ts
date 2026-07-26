@@ -106,7 +106,7 @@ export function useLaneGesture(opts: {
     if (d.moved) {
       if (!commit) return
       if (d.shift && livePreview) opts.onCommit(livePreview)
-      else if (!d.shift && liveDraw && liveDraw.to > liveDraw.from) opts.onCreate(liveDraw.from, liveDraw.to)
+      else if (!d.shift && liveDraw) opts.onCreate(liveDraw.from, liveDraw.to)
       return
     }
     if (!commit) return

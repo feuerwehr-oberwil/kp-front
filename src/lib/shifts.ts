@@ -24,8 +24,8 @@ export const SLOT_MS = SLOT_MIN * MIN
 export const WINDOW_HOURS = 12
 /** How far back the axis reaches: enough to see the shift that is ending, no more. */
 export const LOOKBACK_HOURS = 2
-/** Hard ceiling on the axis, so one shift planned days out can't squash today into a sliver. */
-export const MAX_SPAN_HOURS = 48
+/** Hard ceiling on the axis — four days, the longest Zeitraum the control offers. */
+export const MAX_SPAN_HOURS = 96
 
 const ms = (iso: string | null | undefined): number | null => {
   if (!iso) return null

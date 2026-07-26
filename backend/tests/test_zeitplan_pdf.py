@@ -31,8 +31,8 @@ def _payload(inc_title: str = "Brand Hauptstrasse 4") -> dict:
                 "name": "Meier Anna",
                 "rank": "Wm",
                 "blocks": [
-                    {"from": _iso(T0 + timedelta(hours=2)), "to": _iso(T0 + timedelta(hours=10)), "planned": True},
-                    {"from": _iso(T0 + timedelta(hours=2)), "to": _iso(T0 + timedelta(hours=4)), "planned": False},
+                    {"from": _iso(T0 + timedelta(hours=2)), "to": _iso(T0 + timedelta(hours=10)), "confirmed": True},
+                    {"from": _iso(T0 + timedelta(hours=12)), "to": _iso(T0 + timedelta(hours=16)), "confirmed": False},
                 ],
             },
             {"name": "Ohne Plan", "blocks": []},
@@ -99,9 +99,9 @@ def test_compose_renders_a_pdf_and_pads_the_form_out_to_full_pages():
 
 
 def test_compose_survives_an_open_block_and_an_empty_plan():
-    """An open presence block (nobody has left yet) and a plan with no rows at all."""
+    """A block with no end yet, and a plan with no rows at all."""
     p = _payload()
-    p["rows"][0]["blocks"] = [{"from": _iso(T0), "planned": False}]  # no `to`
+    p["rows"][0]["blocks"] = [{"from": _iso(T0)}]  # no `to`
     assert compose_zeitplan_pdf(ZeitplanPayload.model_validate(p))[:5] == b"%PDF-"
     assert compose_zeitplan_pdf(ZeitplanPayload(incidentTitle="Leer"))[:5] == b"%PDF-"
 

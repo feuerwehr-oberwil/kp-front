@@ -163,3 +163,16 @@
 }
 .sheetAdd { margin-top: 10px; gap: 6px; }
 .sheetNote { margin: 10px 0 0; font: 500 12px var(--body); color: var(--ink-faint); }
+
+/* Zeitraum control — sits at the end of the search row, beside the thing it scopes */
+.horizon { flex: none; display: flex; align-items: center; gap: 6px; }
+.horizonLabel { font: 600 10.5px var(--mono); color: var(--ink-faint); letter-spacing: .06em; text-transform: uppercase; }
+.horizonValue { min-width: 3.4rem; text-align: center; font: 700 12.5px var(--mono); color: var(--ink); }
+.zoomBtn {
+  display: inline-grid; place-items: center; min-width: 34px; min-height: 34px;
+  border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface);
+  color: var(--ink-dim); cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.zoomBtn svg { width: 14px; height: 14px; }
+.zoomBtn:hover:not(:disabled) { color: var(--ink); border-color: var(--ink-faint); }
+.zoomBtn:disabled { opacity: .4; cursor: default; }

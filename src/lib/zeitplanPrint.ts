@@ -5,7 +5,6 @@
 // printer for the sheet you hang at the front.
 
 import type { AttendanceState, Person, Shift } from '../types'
-import { intervalsOf } from './attendanceIntervals'
 import { shiftsFor } from './shifts'
 import { editorPrintTransport, enqueuePrint } from './printRelay'
 
@@ -16,13 +15,16 @@ export interface ZeitplanPrintPayload {
   incidentAddress?: string
   startedAt?: string
   printedAt: string
-  rows: { name: string; rank?: string; blocks: { from: string; to?: string; planned: boolean }[] }[]
+  rows: { name: string; rank?: string; blocks: { from: string; to?: string; confirmed: boolean }[] }[]
 }
 
 /**
- * The sheet's data: one row per person in the order the surface shows them, carrying both the
- * planned blocks and the presence actually recorded — printed hollow and filled respectively,
- * so the paper says the same thing the screen does.
+ * The sheet's data: one row per person in the order the surface shows them, carrying the PLAN
+ * only — availability offered (hollow) and what was assigned from it (solid).
+ *
+ * Recorded attendance is deliberately left off the paper. The sheet is a planning aid you hang at
+ * the front and write on; what actually happened is the record, and it belongs in the Rapport,
+ * not in a form that will be corrected by hand over the next six hours.
  *
  * Everyone gets a row, planned or not: a Führungsformular is written on, and an empty lane is
  * where the pen goes.
@@ -42,10 +44,7 @@ export function buildZeitplanPayload(
     rows: people.map((p) => ({
       name: p.displayName,
       ...(p.rank ? { rank: p.rank } : {}),
-      blocks: [
-        ...shiftsFor(shifts, p.id).map((s) => ({ from: s.from, to: s.to, planned: true })),
-        ...intervalsOf(attendance[p.id]).map((iv) => ({ from: iv.from, to: iv.to, planned: false })),
-      ],
+      blocks: shiftsFor(shifts, p.id).map((s) => ({ from: s.from, to: s.to, confirmed: !!s.confirmed })),
     })),
   }
 }

@@ -10,11 +10,13 @@ import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
 import { loadPrefs, savePrefs } from '../lib/prefs'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import { Segmented } from './Segmented'
-import { TimeField } from './TimeField'
-import { Sheet } from '../lib/overlays'
+import { TimeBlockSheet, timeBlockLabels } from './TimeBlockSheet'
 import { EmptyState } from './EmptyState'
 import { ZeitplanView } from './ZeitplanView'
 import s from './Anwesenheit.module.css'
+
+/** Zeitraum stops for the Zeitplan axis, in hours — from one watch to a four-day deployment. */
+const HORIZONS = [3, 6, 9, 12, 18, 24, 36, 48, 72, 96]
 
 /** sentinel value for the «Alle» segment of the rank filter (no real rank uses it) */
 const RANK_ALL = '__all__'
@@ -29,11 +31,12 @@ function toHM(iso: string): string {
 
 
 /**
- * Every recorded block of one person, opened from the row's «Wieder da» control.
+ * Every recorded block of one person, opened from the row's «+».
  *
  * A single chip on the row can only ever show the LATEST block, which reads as the whole story
  * when somebody has come and gone twice. This lists them all, corrects any of them, and is where
- * a return is opened — the same shape as the Zeitplan's Schichten sheet, so the two read alike.
+ * a return is opened. Built on the SAME sheet the Zeitplan's Schichten use, so the two stay
+ * identical rather than drifting apart.
  */
 function PresenceSheet({ person, blocks, canEdit, onSetTimes, onBack, onClose }: {
   person: Person
@@ -46,42 +49,26 @@ function PresenceSheet({ person, blocks, canEdit, onSetTimes, onBack, onClose }:
   const A = appConfig.copy.anwesenheit
   const open = blocks.length > 0 && !blocks[blocks.length - 1].to
   return (
-    <Sheet open onClose={onClose} fit sheetClassName={s.sheet}
+    <TimeBlockSheet
       title={fillTemplate(A.blocksTitle, { name: person.displayName })}
-      footer={<button type="button" className="ip-btn primary" onClick={onClose}>{A.done}</button>}
-    >
-      <div className={s.sheetGroup}>
-        <h4 className={s.sheetTitle}>{A.blocksSection}</h4>
-        {blocks.length === 0 && <p className={s.sheetNote}>{A.blocksNone}</p>}
-        {blocks.map((iv, i) => (
-          <div key={i} className={s.sheetBlock}>
-            {blocks.length > 1 && <span className={s.sheetIndex}>{i + 1}</span>}
-            <span className={s.sheetField}>
-              <span className={s.sheetLabel}>{A.von}</span>
-              <TimeField className={s.sheetTime} ariaLabel={`${A.von} – ${person.displayName}`}
-                value={toHM(iv.from)} disabled={!canEdit || !onSetTimes}
-                onCommit={(v) => { const iso = v ? applyTimeToIso(iv.from, v) : null; if (iso) onSetTimes?.(person.id, { from: iso }, i) }} />
-            </span>
-            <span className={s.sheetField}>
-              <span className={s.sheetLabel}>{A.bis}</span>
-              {iv.to ? (
-                <TimeField className={s.sheetTime} ariaLabel={`${A.bis} – ${person.displayName}`}
-                  value={toHM(iv.to)} disabled={!canEdit || !onSetTimes}
-                  onCommit={(v) => { const iso = v ? applyTimeToIso(iv.to!, v, { nextDayIfBefore: iv.from }) : null; if (iso) onSetTimes?.(person.id, { to: iso }, i) }} />
-              ) : (
-                <em className={s.sheetOpen}>{A.stillHere}</em>
-              )}
-            </span>
-          </div>
-        ))}
-        {canEdit && !open && (
-          <button type="button" className={cx('btn', 'ghost', s.sheetAdd)} onClick={onBack}>
-            <Icon id="plus" />{A.backAgain}
-          </button>
-        )}
-        <p className={s.sheetNote}>{A.blocksHint}</p>
-      </div>
-    </Sheet>
+      subject={person.displayName}
+      sectionTitle={A.blocksSection}
+      emptyLabel={A.blocksNone}
+      note={A.blocksHint}
+      // a block is only opened while nobody is on site — you cannot come back before leaving
+      addLabel={canEdit && !open ? A.backAgain : undefined}
+      onAdd={canEdit && !open ? onBack : undefined}
+      onClose={onClose}
+      labels={timeBlockLabels()}
+      blocks={blocks.map((iv, i) => ({
+        key: String(i),
+        from: toHM(iv.from),
+        to: iv.to ? toHM(iv.to) : undefined,
+        openLabel: A.stillHere,
+        onFrom: canEdit && onSetTimes ? (v) => { const iso = applyTimeToIso(iv.from, v); if (iso) onSetTimes(person.id, { from: iso }, i) } : undefined,
+        onTo: canEdit && onSetTimes && iv.to ? (v) => { const iso = applyTimeToIso(iv.to!, v, { nextDayIfBefore: iv.from }); if (iso) onSetTimes(person.id, { to: iso }, i) } : undefined,
+      }))}
+    />
   )
 }
 
@@ -142,6 +129,12 @@ export function AnwesenheitView({
   // how many hours of axis fit on screen; a device preference of the moment, not incident data
   const [horizonH, setHorizonH] = useState(() => loadPrefs().zeitplanHorizonH ?? 12)
   const pickHorizon = (h: number) => { setHorizonH(h); savePrefs({ ...loadPrefs(), zeitplanHorizonH: h }) }
+  // finer steps than a doubling ladder: the difference between «tonight» and «the next two days»
+  // is worth several stops, not two
+  const stepHorizon = (dir: 1 | -1) => {
+    const i = HORIZONS.indexOf(horizonH)
+    pickHorizon(HORIZONS[Math.min(HORIZONS.length - 1, Math.max(0, (i < 0 ? 2 : i) + dir))])
+  }
   // person whose recorded presence blocks are open in a sheet
   const [blocksFor, setBlocksFor] = useState<string | null>(null)
   useEffect(() => {
@@ -246,6 +239,18 @@ export function AnwesenheitView({
               <span><i className={s.dotLeft} />{A.legendLeft}</span>
             </div>
           )}
+          {/* how far the axis reaches — it belongs on the search line beside the thing it filters,
+              not on a row of its own pushing the grid down */}
+          {showPlan && (
+            <div className={s.horizon}>
+              <span className={s.horizonLabel}>{appConfig.copy.zeitplan.horizon}</span>
+              <button type="button" className={s.zoomBtn} onClick={() => stepHorizon(-1)}
+                disabled={horizonH <= HORIZONS[0]} aria-label={appConfig.copy.zeitplan.zoomIn}><Icon id="minus" /></button>
+              <b className={s.horizonValue}>{horizonH} h</b>
+              <button type="button" className={s.zoomBtn} onClick={() => stepHorizon(1)}
+                disabled={horizonH >= HORIZONS[HORIZONS.length - 1]} aria-label={appConfig.copy.zeitplan.zoomOut}><Icon id="plus" /></button>
+            </div>
+          )}
         </div>
       )}
 
@@ -282,7 +287,6 @@ export function AnwesenheitView({
           onAddSpan={onAddShiftSpan!}
           onReplace={onReplaceShift!}
           horizonH={horizonH}
-          onHorizon={pickHorizon}
         />
       ) : (
         <div className={s.grid}>

@@ -55,7 +55,7 @@ describe('timelineSpan', () => {
 
   it('refuses a nonsense window rather than collapsing the axis', () => {
     expect(timelineSpan(T(12), [], att, ms(T(13)), 0).to - ms(T(12))).toBe(3_600_000)
-    expect(timelineSpan(T(12), [], att, ms(T(13)), 999).to - ms(T(12))).toBe(48 * 3_600_000)
+    expect(timelineSpan(T(12), [], att, ms(T(13)), 999).to - ms(T(12))).toBe(96 * 3_600_000)
   })
 })
 

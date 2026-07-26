@@ -6,15 +6,13 @@ import { applyTimeToIso } from '../lib/abschluss'
 import { cx } from '../lib/cx'
 import { rankAbbr, rankLabel } from '../lib/rank'
 import { intervalsOf } from '../lib/attendanceIntervals'
-import { Sheet } from '../lib/overlays'
 import { useLaneGesture } from '../lib/useLaneGesture'
 import {
   SLOT_MS, barGeometry, conflictingShiftIds, coverage, intervalSpan, shiftAt, shiftSpan, shiftsFor, timelineSpan,
 } from '../lib/shifts'
 import type { AttendanceState, Person, PresenceInterval, Shift } from '../types'
 import type { Span } from '../lib/shifts'
-import { TimeField } from './TimeField'
-import { EmptyState } from './EmptyState'
+import { TimeBlockReadOnly, TimeBlockSheet, timeBlockLabels } from './TimeBlockSheet'
 import s from './Zeitplan.module.css'
 
 const HOUR = 3_600_000
@@ -32,42 +30,14 @@ const clock = (iso?: string): string => {
   return Number.isFinite(d.getTime()) ? hhmm(d) : ''
 }
 
-/** von/bis pair for one shift — the same 24h TimeField the Anwesenheit and the Rapport use. */
-function ShiftChips({ sh, name, canEdit, conflict, onSetTime, onRemove }: {
-  sh: Shift
-  name: string
-  canEdit: boolean
-  conflict: boolean
-  onSetTime: (id: string, patch: { from?: string; to?: string }) => void
-  onRemove: (id: string, personName: string) => void
-}) {
-  const Z = appConfig.copy.zeitplan
-  return (
-    <span className={cx(s.chipPair, conflict && s.chipConflict)}>
-      <TimeField
-        className={s.time} ariaLabel={`${Z.from} – ${name}`} value={clock(sh.from)} disabled={!canEdit}
-        onCommit={(v) => { const iso = v ? applyTimeToIso(sh.from, v) : null; if (iso) onSetTime(sh.id, { from: iso }) }}
-      />
-      <span className={s.dash}>–</span>
-      <TimeField
-        className={s.time} ariaLabel={`${Z.to} – ${name}`} value={clock(sh.to)} disabled={!canEdit}
-        // a bis before the von means the shift runs past midnight, not backwards
-        onCommit={(v) => { const iso = v ? applyTimeToIso(sh.to, v, { nextDayIfBefore: sh.from }) : null; if (iso) onSetTime(sh.id, { to: iso }) }}
-      />
-      {canEdit && (
-        <button type="button" className={s.del} title={Z.remove} aria-label={`${Z.remove} – ${name}`}
-          onClick={() => onRemove(sh.id, name)}><Icon id="close" /></button>
-      )}
-    </span>
-  )
-}
-
 /**
- * Everything about ONE person's time, opened from their row once a second shift makes the inline
- * chips unreadable. Both halves live here — the availability we PLAN (editable) and the presence
- * that actually HAPPENED (read-only: it is the record, and it is ticked in the Anwesenheit list).
+ * Everything about ONE person's time, opened from their row (pencil, or press-and-hold on the
+ * lane). Both halves live here — the availability we PLAN (editable) and the presence that
+ * actually HAPPENED (read-only: it is the record, and it is ticked in the Anwesenheit list).
+ *
+ * Built on the SAME sheet the Anwesenheit uses, so the two never drift apart again.
  */
-function PersonSheet({ person, shifts, blocks, canEdit, conflicts, nowMs, onAdd, onSetTime, onRemove, onClose }: {
+function PersonSheet({ person, shifts, blocks, canEdit, conflicts, nowMs, onAdd, onSetTime, onToggle, onRemove, onClose }: {
   person: Person
   shifts: Shift[]
   blocks: PresenceInterval[]
@@ -76,59 +46,60 @@ function PersonSheet({ person, shifts, blocks, canEdit, conflicts, nowMs, onAdd,
   nowMs: number
   onAdd: (p: Person) => void
   onSetTime: (id: string, patch: { from?: string; to?: string }) => void
+  onToggle: (sh: Shift) => void
   onRemove: (id: string, personName: string) => void
   onClose: () => void
 }) {
   const Z = appConfig.copy.zeitplan
+  const A = appConfig.copy.anwesenheit
   return (
-    <Sheet open onClose={onClose} fit sheetClassName={s.sheet}
+    <TimeBlockSheet
       title={fillTemplate(Z.editTitle, { name: person.displayName })}
-      footer={<button type="button" className="ip-btn primary" onClick={onClose}>{Z.done}</button>}
-    >
-      <div className={s.sheetGroup}>
-        <h4 className={s.sheetTitle}>{Z.plannedSection}</h4>
-        {shifts.length === 0 && <p className={s.sheetNote}>{Z.plannedNone}</p>}
-        {shifts.map((sh) => (
-          <div key={sh.id} className={s.sheetRow}>
-            <ShiftChips sh={sh} name={person.displayName} canEdit={canEdit}
-              conflict={conflicts.has(sh.id)} onSetTime={onSetTime} onRemove={onRemove} />
-            {conflicts.has(sh.id) && <span className={s.sheetWarn}><Icon id="warn" />{Z.conflict}</span>}
-          </div>
-        ))}
-        {canEdit && (
-          <button type="button" className={cx('btn', 'ghost', s.sheetAdd)} onClick={() => onAdd(person)}>
-            <Icon id="plus" />{Z.addShift}
+      subject={person.displayName}
+      sectionTitle={Z.plannedSection}
+      emptyLabel={Z.plannedNone}
+      note={Z.laneHint}
+      addLabel={canEdit ? Z.addShift : undefined}
+      onAdd={canEdit ? () => onAdd(person) : undefined}
+      onClose={onClose}
+      labels={timeBlockLabels()}
+      blocks={shifts.map((sh) => ({
+        key: sh.id,
+        from: clock(sh.from),
+        to: clock(sh.to),
+        warn: conflicts.has(sh.id),
+        onFrom: canEdit ? (v) => { const iso = applyTimeToIso(sh.from, v); if (iso) onSetTime(sh.id, { from: iso }) } : undefined,
+        // a bis before the von means the shift runs past midnight, not backwards
+        onTo: canEdit ? (v) => { const iso = applyTimeToIso(sh.to, v, { nextDayIfBefore: sh.from }); if (iso) onSetTime(sh.id, { to: iso }) } : undefined,
+        onRemove: canEdit ? () => onRemove(sh.id, person.displayName) : undefined,
+        trailing: (
+          <button type="button" className={cx(s.sheetState, sh.confirmed && s.sheetStateOn)}
+            disabled={!canEdit} onClick={() => onToggle(sh)}
+            title={fillTemplate(Z.toggleHint, { state: sh.confirmed ? Z.available : Z.confirmed })}>
+            {sh.confirmed ? Z.confirmed : Z.available}
           </button>
-        )}
-      </div>
-
-      <div className={s.sheetGroup}>
-        <h4 className={s.sheetTitle}>{Z.actualSection}</h4>
-        {blocks.length === 0 ? (
-          <p className={s.sheetNote}>{Z.actualNone}</p>
-        ) : (
-          <ul className={s.sheetActual}>
-            {blocks.map((iv, i) => (
-              <li key={i}>
-                <b>{clock(iv.from)} – {iv.to ? clock(iv.to) : clock(new Date(nowMs).toISOString())}</b>
-                {!iv.to && <em>{Z.stillHere}</em>}
-              </li>
-            ))}
-          </ul>
-        )}
-        <p className={s.sheetNote}>{Z.actualHint}</p>
-      </div>
-    </Sheet>
+        ),
+      }))}
+      extra={
+        <TimeBlockReadOnly
+          title={Z.actualSection}
+          blocks={blocks.map((iv) => ({ from: clock(iv.from), to: iv.to ? clock(iv.to) : undefined }))}
+          emptyLabel={Z.actualNone}
+          note={Z.actualHint}
+          openLabel={A.stillHere}
+        />
+      }
+    />
   )
 }
 
 /**
  * One person's line: the name, and their own lane of time.
  *
- * The lane is worked directly, the way the paper form is filled in — tap to plan, tap a bar to
- * drop it, drag to move or stretch it, press and hold for the sheet (see lib/useLaneGesture).
- * That is why the row carries no «+» and no time chips any more: they crowded the name out and
- * put every edit two taps away from the thing it edits.
+ * The lane is worked directly, the way the paper form is filled in — sweep to record availability,
+ * tap a bar to turn it into a plan, drag to move or stretch it, pencil (or press-and-hold) for the
+ * sheet. That is why the row carries no «+» and no time chips: they crowded the name out and put
+ * every edit two taps away from the thing it edits.
  */
 function PersonRow({ person, shifts, blocks, span, nowMs, canEdit, conflicts, nowLine, onAddSpan, onReplace, onOpen }: {
   person: Person
@@ -167,6 +138,8 @@ function PersonRow({ person, shifts, blocks, span, nowMs, canEdit, conflicts, no
 
   return (
     <div className={cx(s.row, shifts.length > 0 && s.rowPlanned)}>
+      {/* the whole name cell opens the sheet — the pencil inside is the visible cue, not a
+          separate control, so there is one target and one label instead of two overlapping ones */}
       <button type="button" className={s.who} onClick={onOpen}
         aria-label={fillTemplate(Z.openFor, { name: person.displayName })}
         title={fillTemplate(Z.openFor, { name: person.displayName })}>
@@ -177,10 +150,18 @@ function PersonRow({ person, shifts, blocks, span, nowMs, canEdit, conflicts, no
             {shifts.length}
           </span>
         )}
+        {/* press-and-hold on the lane opens the same sheet, but a gesture nobody was told about is
+            not a way in — this is the one you can see */}
+        {canEdit && <span className={s.editBtn} aria-hidden><Icon id="pen" /></span>}
       </button>
       <div className={cx(s.track, s.lane, canEdit && s.laneEditable)}
         aria-label={fillTemplate(Z.planAt, { name: person.displayName })}
         {...g.laneProps(canEdit)}>
+        {/* the stretch currently being swept out, so the sweep is visible while it happens */}
+        {g.draw && (() => {
+          const st = barStyle(g.draw.from, g.draw.to)
+          return st ? <span className={cx(s.bar, s.plannedBar, s.drawing)} style={st} aria-hidden /> : null
+        })()}
         {/* executed presence first, so a planned outline drawn over it stays readable */}
         {blocks.map((iv, i) => {
           const sp = intervalSpan(iv, nowMs)
@@ -190,22 +171,17 @@ function PersonRow({ person, shifts, blocks, span, nowMs, canEdit, conflicts, no
               title={`${Z.actual}: ${clock(iv.from)}–${iv.to ? clock(iv.to) : ''}`} />
           ) : null
         })}
-        {/* the stretch currently being swept out, so the sweep is visible while it happens */}
-        {g.draw && (() => {
-          const st = barStyle(g.draw.from, g.draw.to)
-          return st ? <span className={cx(s.bar, s.plannedBar, s.drawing)} style={st} aria-hidden /> : null
-        })()}
         {shown.map((sh) => {
           const sp = shiftSpan(sh)
           const st = sp && barStyle(sp.from, sp.to)
           if (!st) return null
           const bad = conflicts.has(sh.id)
-          const next = sh.confirmed ? Z.tentative : Z.confirmed
+          const next = sh.confirmed ? Z.available : Z.confirmed
           return (
             <span key={sh.id} className={cx(s.bar, s.plannedBar, sh.confirmed && s.confirmedBar, bad && s.conflict, g.preview?.id === sh.id && s.dragging)}
               style={st} {...(canEdit ? g.barProps(sh, 'move') : {})}
               title={bad ? Z.conflict
-                : `${sh.confirmed ? Z.confirmed : Z.tentative}: ${clock(sh.from)}–${clock(sh.to)} · ${fillTemplate(Z.toggleHint, { state: next })}`}>
+                : `${sh.confirmed ? Z.confirmed : Z.available}: ${clock(sh.from)}–${clock(sh.to)} · ${fillTemplate(Z.toggleHint, { state: next })}`}>
               {canEdit && (
                 <>
                   <em className={cx(s.handle, s.handleFrom)} title={Z.dragFrom} {...g.barProps(sh, 'from')} />
@@ -237,7 +213,7 @@ function PersonRow({ person, shifts, blocks, span, nowMs, canEdit, conflicts, no
  */
 export function ZeitplanView({
   people, attendance, shifts, canEdit, startedAt, nowMs,
-  onAdd, onAddSpan, onReplace, onSetTime, onRemove, horizonH, onHorizon,
+  onAdd, onAddSpan, onReplace, onSetTime, onRemove, horizonH,
 }: {
   /** already filtered + ordered by the shared Anwesenheit header, so both views read alike */
   people: Person[]
@@ -254,9 +230,8 @@ export function ZeitplanView({
   onReplace: (sh: Shift) => void
   onSetTime: (id: string, patch: { from?: string; to?: string }) => void
   onRemove: (id: string, personName: string) => void
-  /** how many hours the axis shows at once, and the control to change it */
+  /** how many hours the axis shows at once (the Zeitraum control lives in the surface header) */
   horizonH: number
-  onHorizon: (h: number) => void
 }) {
   const Z = appConfig.copy.zeitplan // read per-render so the resolved locale applies
   const [openPerson, setOpenPerson] = useState<string | null>(null)
@@ -299,25 +274,8 @@ export function ZeitplanView({
     return g ? { left: `${g.left * 100}%`, width: `${g.width * 100}%` } : null
   }
 
-  const HORIZONS = [6, 12, 24, 48]
-  const step = (dir: 1 | -1) => {
-    const i = HORIZONS.indexOf(horizonH)
-    const next = HORIZONS[Math.min(HORIZONS.length - 1, Math.max(0, (i < 0 ? 1 : i) + dir))]
-    onHorizon(next)
-  }
-
   return (
     <div className={s.zeitplan}>
-      {/* how far the axis reaches. Scrolling pans through time; this changes how much of it fits
-          on screen at once, which is the other half of «where is the hole tonight». */}
-      <div className={s.horizon}>
-        <span className={s.horizonLabel}>{Z.horizon}</span>
-        <button type="button" className={s.zoomBtn} onClick={() => step(-1)}
-          disabled={horizonH <= HORIZONS[0]} aria-label={Z.zoomIn}><Icon id="minus" /></button>
-        <b className={s.horizonValue}>{horizonH} h</b>
-        <button type="button" className={s.zoomBtn} onClick={() => step(1)}
-          disabled={horizonH >= HORIZONS[HORIZONS.length - 1]} aria-label={Z.zoomOut}><Icon id="plus" /></button>
-      </div>
       <div className={s.scroll}>
         <div className={s.grid} style={{ ['--track-w' as string]: `${trackW}px` }}>
           {/* head — «Wer» over the name column, the clock over the track, exactly as on paper */}
@@ -363,7 +321,9 @@ export function ZeitplanView({
         </div>
       </div>
 
-      {nothingPlanned && <EmptyState icon="clock" title={Z.emptyTitle} sub={Z.emptyHint} />}
+      {/* a full EmptyState block here squeezed the grid down to five visible rows — and the grid
+          is not empty, it is a ready-to-use form. One line under it says the same thing. */}
+      {nothingPlanned && <p className={s.emptyNote}><Icon id="clock" />{Z.emptyTitle}</p>}
 
       {/* three states, in the order they happen: what somebody OFFERS, what we ASSIGNED from it,
           and what actually HAPPENED. The first two flip on a bar tap; the third comes from the
@@ -385,6 +345,7 @@ export function ZeitplanView({
           nowMs={nowMs}
           onAdd={onAdd}
           onSetTime={onSetTime}
+          onToggle={(sh) => onReplace({ ...sh, confirmed: !sh.confirmed })}
           onRemove={onRemove}
           onClose={() => setOpenPerson(null)}
         />
