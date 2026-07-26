@@ -3,11 +3,13 @@
    strip), and the editable von/bis list below. They are stacked rather than side-by-side so a
    tablet in portrait keeps full-width rows instead of a squeezed 6-column axis. */
 
-.zeitplan { display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+.zeitplan { display: flex; flex-direction: column; gap: 14px; min-height: 0; min-width: 0; max-width: 100%; }
 
 /* ---- time track -------------------------------------------------------------------- */
 
-.scroll { overflow-x: auto; overflow-y: hidden; padding-bottom: 4px; }
+/* flex: none — as a shrinkable item in the column flex parent this collapsed to ~4px while its
+   content was 279px tall, so the whole time track was invisible. It sizes to its content. */
+.scroll { flex: none; overflow-x: auto; overflow-y: hidden; padding-bottom: 4px; }
 .track { position: relative; min-width: 100%; }
 
 .head { position: relative; height: 22px; border-bottom: 1px solid var(--border); }
@@ -23,10 +25,12 @@
 }
 
 .bar { position: absolute; top: 0; bottom: 0; border-radius: var(--r-xs); min-width: 2px; }
-/* planned: hollow — an outline, because it has not happened yet */
+/* Planned: hollow — an outline, because it has not happened yet. Tactical BLUE, deliberately not
+   var(--accent): a station's accent is its brand colour (Oberwil's is alarm red), and a plan that
+   reads like an alarm is exactly the wrong signal at 3am. Red stays reserved for a conflict. */
 .plannedBar {
-  border: 1.5px solid var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1.5px solid var(--blue);
+  background: color-mix(in srgb, var(--blue) 12%, transparent);
 }
 /* actually present: solid — this is the record */
 .actual { background: var(--green); opacity: .85; }
@@ -35,8 +39,11 @@
 .conflict { border-color: var(--red); background: color-mix(in srgb, var(--red) 16%, transparent); }
 
 .nowLine { position: absolute; top: 0; bottom: 0; width: 1.5px; background: var(--red); z-index: 2; pointer-events: none; }
+/* the label rides ON the line and must stay readable where it lands on an hour tick, so it
+   carries the surface colour behind it rather than blending into the number underneath */
 .nowLineHead em {
-  position: absolute; top: 1px; left: 3px; font: 700 9.5px var(--mono); font-style: normal;
+  position: absolute; top: 0; left: 3px; padding: 1px 3px; border-radius: 2px;
+  background: var(--surface); font: 700 9.5px var(--mono); font-style: normal;
   color: var(--red); letter-spacing: .04em; text-transform: uppercase;
 }
 
@@ -44,21 +51,23 @@
 .coverage { position: relative; height: 34px; margin-top: 6px; border-top: 1px solid var(--border); }
 .cov { position: absolute; top: 3px; bottom: 0; display: flex; align-items: flex-end; gap: 1px; }
 .cov em { flex: 1 1 0; min-height: 1px; border-radius: 1px; }
-.covPlanned { background: color-mix(in srgb, var(--accent) 55%, transparent); }
+.covPlanned { background: color-mix(in srgb, var(--blue) 55%, transparent); }
 .covActual { background: color-mix(in srgb, var(--green) 70%, transparent); }
 
 /* ---- editable list ----------------------------------------------------------------- */
 
-.list { display: flex; flex-direction: column; gap: 6px; }
+.list { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .row {
-  display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 5px 11px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px; min-height: 46px; padding: 5px 11px;
   border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface);
   font: 700 14px var(--body); color: var(--ink);
 }
 /* a row that carries a plan reads as "done", like .isPresent does in the Anwesenheit list */
-.rowPlanned { border-color: color-mix(in srgb, var(--accent) 45%, var(--glass-edge)); }
+.rowPlanned { border-color: color-mix(in srgb, var(--blue) 45%, var(--glass-edge)); }
 
-.who { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; }
+/* the name holds a readable minimum and then yields; without the basis a row carrying several
+   shifts pushed the chips past the container and scrolled the whole PAGE sideways */
+.who { flex: 1 1 40%; min-width: 8rem; display: flex; align-items: center; gap: 8px; }
 .rank {
   flex: none; padding: 1px 5px; border-radius: var(--r-xs);
   background: color-mix(in srgb, var(--ink) 8%, transparent);
@@ -66,11 +75,12 @@
 }
 .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.blocks { flex: none; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; }
+/* shrinkable + wrapping: four shifts on one person stack into rows instead of overflowing */
+.blocks { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; }
 .chipPair {
   display: inline-flex; align-items: center; gap: 2px; padding: 2px 2px 2px 6px;
   border: 1px solid var(--border); border-radius: var(--r-sm);
-  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  background: color-mix(in srgb, var(--blue) 7%, transparent);
 }
 .chipConflict { border-color: var(--red); background: color-mix(in srgb, var(--red) 10%, transparent); }
 .dash { color: var(--ink-faint); font: 600 12px var(--mono); }
@@ -82,11 +92,14 @@
 }
 .del svg, .add svg { width: 15px; height: 15px; }
 .del:hover { color: var(--red); background: color-mix(in srgb, var(--red) 10%, transparent); }
-.add { color: var(--accent); border: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent); }
-.add:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.add { color: var(--blue); border: 1px dashed color-mix(in srgb, var(--blue) 45%, transparent); }
+.add:hover { background: color-mix(in srgb, var(--blue) 12%, transparent); }
 
+/* legend on the left, the paper actions on the right — one row, wrapping on a phone */
+.foot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding-top: 2px; }
+.footActions { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
 .legend {
-  display: flex; align-items: center; gap: 6px; margin: 0; padding-top: 2px;
+  display: flex; align-items: center; gap: 6px; margin: 0;
   font: 500 11.5px var(--body); color: var(--ink-faint);
 }
 .swatch { width: 16px; height: 9px; border-radius: 2px; flex: none; }

@@ -10,7 +10,7 @@ import { useReplay } from './lib/useReplay'
 import { resolveHotkey, isTypingTarget } from './lib/hotkeys'
 import { moduleNumbers } from './lib/navRail'
 import { incident as demoIncident, planDocuments, gebaeudeDoc, preparedOverlays } from './data/demoIncident'
-import type { CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LngLat, MittelEntry, ShapeKind, TimelineEvent, Trupp, TruppFields } from './types'
+import type { CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LngLat, MittelEntry, Person, ShapeKind, TimelineEvent, Trupp, TruppFields } from './types'
 import { appConfig } from './config/appConfig'
 import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDemoMode } from './lib/deploymentConfig'
 import { fillTemplate, formatSymbolName, formatTime } from './lib/format'
@@ -19,6 +19,9 @@ import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions
 import { circlePolygon, fmtLV95, fmtWGS, haversineM, pathLengthM } from './lib/geo'
 import { intervalsOf, isPresent, openPresence } from './lib/attendanceIntervals'
 import { useShiftActions } from './lib/useShiftActions'
+import { editorPrintTransport, fetchPrintStatus, type PrintRelayStatus } from './lib/printRelay'
+import { trackPrintJob } from './lib/printJobToast'
+import { buildZeitplanPayload, downloadZeitplanPdf, printZeitplan } from './lib/zeitplanPrint'
 import { lineLabel } from './lib/lineDecor'
 import { panelNudge, panelNudgeUp, panelNudgeBox, panelNudgeBoxUp, isBottomSheet } from './lib/panelNudge'
 import { useMeasure } from './lib/useMeasure'
@@ -1570,6 +1573,28 @@ export function IncidentWorkspace({
   const { saveMittel, offerMittelCapture } = useMittelActions({ mittel, setMittel, authorName: user?.display_name, log })
   // Schichtenplanung — a PLAN over the same Mannschaft; it never writes the attendance record
   const { addShift, setShiftTime, removeShift } = useShiftActions({ shifts, setShifts, startedAt: incidentMeta.started_at })
+  // The Zeitplan-Führungsformular on paper. The relay status is fetched once per incident and
+  // fail-closed (null → no printer button at all); the PDF download needs no relay.
+  const [zeitplanRelay, setZeitplanRelay] = useState<PrintRelayStatus | null>(null)
+  useEffect(() => {
+    let alive = true
+    void fetchPrintStatus(editorPrintTransport()).then((st) => { if (alive) setZeitplanRelay(st) })
+    return () => { alive = false }
+  }, [])
+  const zeitplanPayload = (rowPeople: Person[]) => buildZeitplanPayload(
+    rowPeople, attendance, shifts,
+    { title: incidentMeta.title, address: incidentMeta.address, startedAt: incidentMeta.started_at },
+    new Date().toISOString(),
+  )
+  const onDownloadZeitplan = (rowPeople: Person[]) => {
+    void downloadZeitplanPdf(incidentMeta.id, zeitplanPayload(rowPeople))
+      .catch(() => toast(appConfig.copy.zeitplan.printFailed, { icon: 'warn', tone: 'warn' }))
+  }
+  const onPrintZeitplan = (rowPeople: Person[]) => {
+    void printZeitplan(incidentMeta.id, zeitplanPayload(rowPeople))
+      .then((jobId) => trackPrintJob(editorPrintTransport(), jobId))
+      .catch(() => toast(appConfig.copy.zeitplan.printFailed, { icon: 'warn', tone: 'warn' }))
+  }
   // assigning someone to a Trupp implies they're on scene — mark every roster-linked member
   // present (even at "angemeldet"). Only the newly-present are logged, so re-edits don't spam.
   const rosterById = useMemo(() => new Map(personnel.map((p) => [p.id, p])), [personnel])
@@ -2405,6 +2430,9 @@ export function IncidentWorkspace({
           onAddShift={canEditIncident ? addShift : undefined}
           onSetShiftTime={canEditIncident ? setShiftTime : undefined}
           onRemoveShift={canEditIncident ? removeShift : undefined}
+          onPrintZeitplan={zeitplanRelay?.available ? onPrintZeitplan : undefined}
+          onDownloadZeitplan={onDownloadZeitplan}
+          zeitplanPrintOnline={!!zeitplanRelay?.online}
         />
       )}
 

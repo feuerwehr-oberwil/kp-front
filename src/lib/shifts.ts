@@ -22,6 +22,10 @@ export const SLOT_MIN = 30
 export const SLOT_MS = SLOT_MIN * MIN
 /** How much of the timeline is on screen before scrolling — a long night, not a whole deployment. */
 export const WINDOW_HOURS = 12
+/** How far back the axis reaches: enough to see the shift that is ending, no more. */
+export const LOOKBACK_HOURS = 2
+/** Hard ceiling on the axis, so one shift planned days out can't squash today into a sliver. */
+export const MAX_SPAN_HOURS = 48
 
 const ms = (iso: string | null | undefined): number | null => {
   if (!iso) return null
@@ -36,12 +40,18 @@ export const ceilSlot = (t: number): number => Math.ceil(t / SLOT_MS) * SLOT_MS
 export interface Span { from: number; to: number }
 
 /**
- * The window the grid covers: from the incident start (floored to the grid) far enough to hold
- * every planned and executed block plus a look-ahead, so a shift planned into tomorrow morning is
- * reachable by scrolling rather than invisible.
+ * The window the grid covers.
+ *
+ * Anchored near NOW, not at the incident start: after two days of an Elementarereignis the axis
+ * would otherwise span 50 hours, and the visible left edge would show an empty yesterday while
+ * the shift you are planning sits far off to the right. A Zeitplan is about the coming hours, so
+ * it reaches `LOOKBACK_HOURS` back — enough to see the shift that is ending — and forward far
+ * enough to hold every planned block, capped at `MAX_SPAN_HOURS`. A young incident still starts
+ * at its own beginning, because that is nearer than the look-back.
  */
 export function timelineSpan(startedAt: string | null, shifts: Shift[], attendance: AttendanceState, nowMs: number): Span {
-  const start = floorSlot(ms(startedAt) ?? nowMs)
+  const startMs = ms(startedAt) ?? nowMs
+  const start = floorSlot(Math.max(startMs, nowMs - LOOKBACK_HOURS * HOUR))
   let end = start + WINDOW_HOURS * HOUR
   const bump = (t: number | null) => { if (t != null && t > end) end = t }
   for (const s of shifts) { bump(ms(s.to)); bump(ms(s.from)) }
@@ -49,7 +59,7 @@ export function timelineSpan(startedAt: string | null, shifts: Shift[], attendan
     for (const iv of intervalsOf(e)) { bump(ms(iv.to)); bump(ms(iv.from)) }
   }
   bump(nowMs + HOUR) // always a little room to plan ahead of the clock
-  return { from: start, to: ceilSlot(end) }
+  return { from: start, to: ceilSlot(Math.min(end, start + MAX_SPAN_HOURS * HOUR)) }
 }
 
 /** Where a block sits in the window, as fractions 0..1 — null when it lies entirely outside. */

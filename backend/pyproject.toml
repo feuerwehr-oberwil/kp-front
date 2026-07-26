@@ -113,6 +113,8 @@ extend-immutable-calls = [
 "app/admin_checklists.py" = ["N815"]
 # Report payload mirrors the frontend's camelCase report JSON (reportMeta, krokiKey, …)
 "app/report_pdf.py" = ["N815"]
+# Zeitplan payload mirrors the same camelCase contract (incidentTitle, startedAt)
+"app/zeitplan_pdf.py" = ["N815"]
 # Scenario fields mirror the milestone webhook's camelCase contract (alarmedAt, vorOrt)
 "app/fake_scenario.py" = ["N815"]
 

@@ -34,6 +34,7 @@ export function AnwesenheitView({
   people, attendance, canEdit, loading, error, blockedIds,
   onMarkPresent, onMarkLeft, onClear, onJumpToTrupp, onReload, onSetTimes, captureUsage,
   shifts, startedAt, onAddShift, onSetShiftTime, onRemoveShift,
+  onPrintZeitplan, onDownloadZeitplan, zeitplanPrintOnline,
 }: {
   people: Person[]
   attendance: AttendanceState
@@ -59,6 +60,10 @@ export function AnwesenheitView({
   onAddShift?: (p: Person) => void
   onSetShiftTime?: (id: string, patch: { from?: string; to?: string }) => void
   onRemoveShift?: (id: string, personName: string) => void
+  /** print / download the Zeitplan-Führungsformular (rendered server-side) */
+  onPrintZeitplan?: (people: Person[]) => void
+  onDownloadZeitplan?: (people: Person[]) => void
+  zeitplanPrintOnline?: boolean
 }) {
   const [q, setQ] = useState('')
   const [rankFilter, setRankFilter] = useState<string | null>(null)
@@ -191,6 +196,10 @@ export function AnwesenheitView({
           onAdd={onAddShift!}
           onSetTime={onSetShiftTime!}
           onRemove={onRemoveShift!}
+          /* the sheet prints the FILTERED rows — what you see is what you hang up */
+          onPrint={onPrintZeitplan ? () => onPrintZeitplan(rows) : undefined}
+          onDownload={onDownloadZeitplan ? () => onDownloadZeitplan(rows) : undefined}
+          printOnline={zeitplanPrintOnline}
         />
       ) : (
         <div className={s.grid}>

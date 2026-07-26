@@ -1,0 +1,230 @@
+"""Führungsformular «Zeitplan» — the Schichtenplanung as one A4-landscape sheet.
+
+Its own composer, deliberately NOT a section of ``compose_report_pdf``: the rapport is the
+record of a finished Einsatz, this is a working sheet you print mid-incident to hang at the
+front or hand to the relief. Different lifetime, different page, no shared state — only the
+rapport's styles and its page-number canvas are borrowed so both look like the same house.
+
+The layout follows the KKO BS / KFS BL sheet: a ``Wer × Zeit`` grid, names down the left, a
+time axis across the top with a heavier rule every full hour. Planned availability is drawn
+hollow and recorded presence filled — the same language the on-screen Zeitplan uses, so the
+paper reads like the tablet. Rows without a plan still print: a Führungsformular is meant to
+be written on, and an empty row is where the pen goes.
+"""
+
+from __future__ import annotations
+
+import io
+from datetime import UTC, datetime, timedelta
+
+from pydantic import BaseModel, Field
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.units import mm
+from reportlab.platypus import BaseDocTemplate, Flowable, Frame, PageBreak, PageTemplate, Paragraph, Spacer
+
+from .report_pdf import _esc, _NumberedCanvas, _styles
+
+SLOT_MIN = 30
+#: rows per sheet — as many lanes as fit under the heading at a height you can still write in
+MAX_ROWS = 16
+#: how far the axis runs when nothing says otherwise
+DEFAULT_WINDOW_H = 12
+
+_INK = colors.HexColor("#1b2330")
+_DIM = colors.HexColor("#8a94a3")
+_RULE = colors.HexColor("#c9cfd8")
+_ACCENT = colors.HexColor("#1f6feb")
+_GREEN = colors.HexColor("#1f9d57")
+
+
+class ZeitplanBlock(BaseModel):
+    """One bar. ``planned`` false marks presence that was actually recorded."""
+
+    start: datetime = Field(alias="from")
+    end: datetime | None = Field(default=None, alias="to")
+    planned: bool = True
+
+    model_config = {"populate_by_name": True}
+
+
+class ZeitplanRow(BaseModel):
+    name: str
+    rank: str | None = None
+    blocks: list[ZeitplanBlock] = []
+
+
+class ZeitplanPayload(BaseModel):
+    incidentTitle: str
+    incidentAddress: str | None = None
+    startedAt: datetime | None = None
+    printedAt: datetime | None = None
+    rows: list[ZeitplanRow] = []
+
+
+def _window(payload: ZeitplanPayload) -> tuple[datetime, datetime]:
+    """The stretch of time the axis covers: from the incident start (floored to the hour) up to
+    the last block, at least ``DEFAULT_WINDOW_H`` wide so a fresh plan is not a sliver."""
+    stamps = [b.start for r in payload.rows for b in r.blocks]
+    stamps += [b.end for r in payload.rows for b in r.blocks if b.end]
+    anchor = payload.startedAt or payload.printedAt or (min(stamps) if stamps else datetime.now(UTC))
+    start = anchor.replace(minute=0, second=0, microsecond=0)
+    end = start + timedelta(hours=DEFAULT_WINDOW_H)
+    for s in stamps:
+        if s > end:
+            end = s
+    # round the tail up to a full hour so the last column is a whole one
+    if end.minute or end.second:
+        end = end.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+    return start, end
+
+
+class _Grid(Flowable):
+    """The Wer × Zeit grid itself, drawn directly — a Platypus Table cannot express bars that
+    start and end between column boundaries."""
+
+    NAME_W = 46 * mm
+    HEAD_H = 7 * mm
+    ROW_H = 8.2 * mm
+
+    def __init__(self, rows: list[ZeitplanRow], start: datetime, end: datetime, width: float):
+        super().__init__()
+        self.rows = rows
+        self.start = start
+        self.end = end
+        self.width = width
+        self.height = self.HEAD_H + self.ROW_H * len(rows)
+
+    def wrap(self, *_args):
+        return self.width, self.height
+
+    def _x(self, t: datetime) -> float:
+        total = (self.end - self.start).total_seconds() or 1
+        frac = min(1.0, max(0.0, (t - self.start).total_seconds() / total))
+        return self.NAME_W + frac * (self.width - self.NAME_W)
+
+    def draw(self):
+        c = self.canv
+        top = self.height
+        grid_left, grid_right = self.NAME_W, self.width
+
+        # ---- vertical rules: light every half hour, firm on the hour, with the label above
+        c.setFont("Helvetica", 6.5)
+        t = self.start
+        while t <= self.end:
+            x = self._x(t)
+            on_hour = t.minute == 0
+            c.setStrokeColor(_RULE if on_hour else colors.HexColor("#e7eaef"))
+            c.setLineWidth(0.7 if on_hour else 0.3)
+            c.line(x, 0, x, top - self.HEAD_H)
+            if on_hour:
+                c.setFillColor(_DIM)
+                # nudge the outermost labels inside the frame — centred on the very first/last
+                # rule they are sliced in half by the grid border
+                lx = min(max(x, grid_left + 5 * mm), grid_right - 5 * mm)
+                c.drawCentredString(lx, top - self.HEAD_H + 2 * mm, t.strftime("%H:%M"))
+            t += timedelta(minutes=SLOT_MIN)
+
+        # ---- one lane per person
+        c.setFont("Helvetica", 8.5)
+        for i, row in enumerate(self.rows):
+            y = top - self.HEAD_H - self.ROW_H * (i + 1)
+            c.setStrokeColor(_RULE)
+            c.setLineWidth(0.4)
+            c.line(0, y, grid_right, y)
+
+            label = f"{row.rank} {row.name}".strip() if row.rank else row.name
+            c.setFillColor(_INK)
+            c.drawString(1.5 * mm, y + self.ROW_H / 2 - 2.6, label[:34])
+
+            for b in row.blocks:
+                end = b.end or self.end
+                if end <= self.start or b.start >= self.end:
+                    continue
+                x0, x1 = self._x(b.start), self._x(end)
+                if x1 - x0 < 0.6:
+                    x1 = x0 + 0.6
+                if b.planned:
+                    # hollow: what was planned, not what happened
+                    c.setStrokeColor(_ACCENT)
+                    c.setFillColor(colors.white)
+                    c.setLineWidth(0.8)
+                    c.rect(x0, y + 1.6 * mm, x1 - x0, self.ROW_H - 3.2 * mm, stroke=1, fill=0)
+                else:
+                    c.setFillColor(_GREEN)
+                    c.rect(x0, y + 2.2 * mm, x1 - x0, self.ROW_H - 4.4 * mm, stroke=0, fill=1)
+
+        # ---- frame + the head/name separators
+        c.setStrokeColor(_RULE)
+        c.setLineWidth(0.7)
+        c.rect(0, 0, grid_right, top, stroke=1, fill=0)
+        c.line(0, top - self.HEAD_H, grid_right, top - self.HEAD_H)
+        c.line(grid_left, 0, grid_left, top - self.HEAD_H)
+
+        # the sheet's own «Wer / Zeit» corner, as on the printed form
+        c.setFont("Helvetica-Bold", 7.5)
+        c.setFillColor(_DIM)
+        c.drawString(1.5 * mm, top - self.HEAD_H + 2 * mm, "WER")
+
+
+def compose_zeitplan_pdf(payload: ZeitplanPayload) -> bytes:
+    """One landscape sheet with the Wer × Zeit grid, ready to hang up."""
+    st = _styles()
+    buf = io.BytesIO()
+    lw, lh = landscape(A4)
+    margin = 12 * mm
+    doc = BaseDocTemplate(
+        buf,
+        pagesize=landscape(A4),
+        leftMargin=margin,
+        rightMargin=margin,
+        topMargin=margin,
+        bottomMargin=margin,
+        title=f"Zeitplan — {payload.incidentTitle}",
+        author="KP Front",
+    )
+    frame = Frame(margin, margin, lw - 2 * margin, lh - 2 * margin, id="z", leftPadding=0, rightPadding=0)
+    doc.addPageTemplates([PageTemplate(id="zeitplan", frames=[frame], pagesize=landscape(A4))])
+    inner_w = lw - 2 * margin
+
+    start, end = _window(payload)
+    printed = payload.printedAt or datetime.now(UTC)
+    subtitle = " · ".join(
+        x
+        for x in (
+            payload.incidentAddress,
+            f"Einsatzbeginn {payload.startedAt.strftime('%d.%m.%Y %H:%M')}" if payload.startedAt else None,
+            f"gedruckt {printed.strftime('%d.%m.%Y %H:%M')}",
+        )
+        if x
+    )
+
+    story: list = [
+        Paragraph("ZEITPLAN", st["title"]),
+        Paragraph(_esc(payload.incidentTitle), st["eyebrow"]),
+        Paragraph(_esc(subtitle), st["muted"]),
+        Spacer(1, 4 * mm),
+    ]
+
+    # a page each, so a big Mannschaft prints as several sheets instead of one unreadable one;
+    # every sheet is padded out to full height, because a Führungsformular is meant to be written
+    # on and an empty lane is where the pen goes
+    rows = payload.rows or []
+    pages = [rows[i : i + MAX_ROWS] for i in range(0, max(len(rows), 1), MAX_ROWS)] or [[]]
+    for i, page_rows in enumerate(pages):
+        if i:
+            story.append(PageBreak())
+        padded = list(page_rows) + [ZeitplanRow(name="") for _ in range(MAX_ROWS - len(page_rows))]
+        story.append(_Grid(padded, start, end, inner_w))
+
+    story.append(Spacer(1, 3 * mm))
+    story.append(
+        Paragraph(
+            "Ausgezogen = geplante Verfügbarkeit · ausgefüllt = tatsächlich anwesend. "
+            "Planungshilfe – der Zeitplan verändert die Anwesenheitserfassung nicht.",
+            st["muted"],
+        )
+    )
+
+    doc.build(story, canvasmaker=_NumberedCanvas)
+    return buf.getvalue()

@@ -38,6 +38,19 @@ describe('timelineSpan', () => {
     expect(timelineSpan(T(12), [], withAtt, ms(T(13))).to).toBe(Date.parse('2026-07-27T06:00:00.000Z'))
   })
 
+  it('stays near NOW on a long incident instead of spanning two empty days', () => {
+    // 50 h into an Elementarereignis: the axis must not open on an empty yesterday
+    const now = ms(T(12)) + 50 * 3_600_000
+    const span = timelineSpan(T(12), [], att, now)
+    expect(span.from).toBeGreaterThanOrEqual(now - 3 * 3_600_000)
+    expect(span.to - span.from).toBeLessThanOrEqual(48 * 3_600_000)
+  })
+
+  it('still opens at the incident start while that is the nearer edge', () => {
+    const span = timelineSpan(T(12), [], att, ms(T(13)))
+    expect(span.from).toBe(ms(T(12)))
+  })
+
   it('always keeps room to plan ahead of the clock', () => {
     const span = timelineSpan(T(12), [], att, ms(T(23, 30)))
     expect(span.to).toBeGreaterThanOrEqual(ms(T(24)) + 30 * 60_000)

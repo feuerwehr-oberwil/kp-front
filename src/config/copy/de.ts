@@ -2165,6 +2165,8 @@ export const de = {
     emptyHint: 'Plane pro Person, von wann bis wann sie verfügbar ist. Der Plan verändert die Anwesenheit nicht – abgehakt wird sie weiterhin in der Anwesenheitsliste.',
     legendHint: 'Hohl = geplant · gefüllt = tatsächlich anwesend',
     print: 'Zeitplan drucken',
+    pdf: 'Als PDF',
+    printFailed: 'Zeitplan konnte nicht gedruckt werden.',
   },
   // Mittel surface (MittelView) — manuelle Materialerfassung für Rapport / Nachschub
   mittel: {

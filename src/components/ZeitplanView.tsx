@@ -32,7 +32,10 @@ const clock = (iso?: string): string => {
  * 22:00, actually gone at 20:00. Under the rows, the coverage strip answers the question a wall
  * of bars cannot: where is the hole at 02:00.
  */
-export function ZeitplanView({ people, attendance, shifts, canEdit, startedAt, nowMs, onAdd, onSetTime, onRemove }: {
+export function ZeitplanView({
+  people, attendance, shifts, canEdit, startedAt, nowMs,
+  onAdd, onSetTime, onRemove, onPrint, onDownload, printOnline,
+}: {
   /** already filtered + ordered by the shared Anwesenheit header, so both views read alike */
   people: Person[]
   attendance: AttendanceState
@@ -44,8 +47,14 @@ export function ZeitplanView({ people, attendance, shifts, canEdit, startedAt, n
   onAdd: (p: Person) => void
   onSetTime: (id: string, patch: { from?: string; to?: string }) => void
   onRemove: (id: string, personName: string) => void
+  /** hand the sheet to the printer / the download — absent when neither is reachable */
+  onPrint?: () => void
+  onDownload?: () => void
+  /** the station relay is configured AND its agent is alive */
+  printOnline?: boolean
 }) {
   const Z = appConfig.copy.zeitplan // read per-render so the resolved locale applies
+  const P = appConfig.copy.printRelay
 
   const span = useMemo(
     () => timelineSpan(startedAt, shifts, attendance, nowMs),
@@ -193,10 +202,30 @@ export function ZeitplanView({ people, attendance, shifts, canEdit, startedAt, n
         })}
       </div>
 
-      <p className={s.legend}>
-        <span className={cx(s.swatch, s.plannedBar)} /> {Z.planned}
-        <span className={cx(s.swatch, s.actual)} /> {Z.actual}
-      </p>
+      <div className={s.foot}>
+        <p className={s.legend}>
+          <span className={cx(s.swatch, s.plannedBar)} /> {Z.planned}
+          <span className={cx(s.swatch, s.actual)} /> {Z.actual}
+        </p>
+        {/* the sheet on paper: hang it at the front, hand it to the relief */}
+        {(onDownload || onPrint) && (
+          <span className={s.footActions}>
+            {onPrint && (
+              /* same idiom as the Rapport's «An Stationsdrucker»: a heartbeat dot rather than a
+                 hidden button, so the relay is honest about being offline */
+              <button type="button" className="btn" onClick={onPrint} title={printOnline ? P.online : P.offline}>
+                <span className={`dot print-relay-dot${printOnline ? ' online' : ''}`} aria-hidden />
+                {P.send}
+              </button>
+            )}
+            {onDownload && (
+              <button type="button" className="btn ghost" onClick={onDownload}>
+                <Icon id="doc" />{Z.pdf}
+              </button>
+            )}
+          </span>
+        )}
+      </div>
     </div>
   )
 }
