@@ -5,10 +5,14 @@
 # Pinned to the BUILD platform, not the target: the output is plain JS/CSS and works on any
 # architecture, so pinning keeps the Vite build native even when the final image is arm64 —
 # otherwise a multi-arch build runs pnpm under QEMU and takes an order of magnitude longer.
-FROM --platform=$BUILDPLATFORM node:20-slim AS frontend
+# Node 24 = Active LTS (security support to 2028-04-30). Node 20 went end-of-life on
+# 2026-04-30 and this stage sat on it for three months. Keep in step with node-version in
+# .github/workflows/ci.yml and the engines field in package.json; dependabot's docker
+# ecosystem now proposes the bumps so it cannot drift silently again.
+FROM --platform=$BUILDPLATFORM node:24-slim AS frontend
 WORKDIR /app
 # Pin pnpm 10 (matches lockfileVersion 9.0). corepack's bundled default is incompatible
-# with this Node, so install explicitly.
+# with the Node line above, so install explicitly.
 RUN npm install -g pnpm@10
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
