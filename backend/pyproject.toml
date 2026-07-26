@@ -28,6 +28,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "ruff>=0.8.0",
+    "mypy>=1.13.0",
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
     "aiosqlite>=0.20.0",
@@ -114,6 +115,19 @@ extend-immutable-calls = [
 "app/report_pdf.py" = ["N815"]
 # Scenario fields mirror the milestone webhook's camelCase contract (alarmedAt, vorOrt)
 "app/fake_scenario.py" = ["N815"]
+
+[tool.mypy]
+python_version = "3.12"
+# Deliberately NOT `strict`. Strict's headline flag is disallow_untyped_defs, which on this
+# codebase means several hundred findings that are all "add `-> None` to a route handler" —
+# annotation debt, not defects. kp-rueck went that way and ended up with a 705-error advisory
+# gate nobody reads (see its docs/plans/14-typing-debt.md). The settings below are the ones
+# that catch REAL mistakes, and the tree is at zero against them, so the gate can block.
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+# Third-party stubs (jose, pypdfium2, resvg_py, apscheduler, …) are absent or partial.
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

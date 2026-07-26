@@ -120,8 +120,20 @@ jobs:
       - name: Sync dependencies (incl. dev)
         run: uv sync --extra dev
 
+      # Formatting is a gate, not a suggestion — same as kp-rueck. Fix locally with
+      # `uv run ruff format .` from backend/.
+      - name: Ruff format check
+        run: uv run ruff format --check .
+
+      # `.` not `app`: alembic/ and tests/ are lint-clean too, and code that CI never looks
+      # at is where the rot starts. Rule set + per-file ignores live in backend/pyproject.toml.
       - name: Ruff lint
-        run: uv run ruff check app
+        run: uv run ruff check .
+
+      # Blocking over the whole app tree. It went in at zero errors and must stay there —
+      # if this ever gets expensive to satisfy, fix the types, don't narrow the path.
+      - name: Type check (mypy)
+        run: uv run mypy app
 
       # Dependency vulnerability scan. Non-blocking (advisory) so a fresh CVE with no fix
       # yet doesn't wedge merges; review the warnings and bump when a fix lands.

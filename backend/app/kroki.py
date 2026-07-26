@@ -203,7 +203,7 @@ def render_base(
     finally:
         if own:
             client.close()
-    return img.resize((view.width, view.height), Image.LANCZOS) if (tw, th) != (view.width, view.height) else img
+    return img.resize((view.width, view.height), Image.Resampling.LANCZOS) if (tw, th) != (view.width, view.height) else img
 
 
 # ----------------------------------------------------------------------------- symbols
@@ -624,7 +624,7 @@ def render_kroki(
     # upscaled — map detail stays honest, but every overlay edge is drawn at ss× and
     # downsampled, which is where the crispness matters)
     base = render_base(view, tile_url, cache=cache, max_tile_z=max_tile_z)
-    img = base.resize((width * ss, height * ss), Image.LANCZOS).convert("RGBA")
+    img = base.resize((width * ss, height * ss), Image.Resampling.LANCZOS).convert("RGBA")
     overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
 
@@ -741,7 +741,7 @@ def render_kroki(
                 [x - size / 2, y - size / 2, x + size / 2, y + size / 2], radius=size * 0.14, fill=(255, 255, 255, 235)
             )
         if e.get("rotation"):
-            glyph = glyph.rotate(-e["rotation"], expand=True, resample=Image.BICUBIC)
+            glyph = glyph.rotate(-e["rotation"], expand=True, resample=Image.Resampling.BICUBIC)
         overlay.alpha_composite(glyph, (int(x - glyph.width / 2), int(y - glyph.height / 2)))
         # storey badge top-right (white chip, symbol colour) / count bottom-right (ink chip)
         bh = max(16.0 * u * ss / 2, size * 0.46)
@@ -762,7 +762,7 @@ def render_kroki(
     for xy, lines, fs in labels:
         _label_box(draw, xy, lines, int(fs))
 
-    out = Image.alpha_composite(img, overlay).resize((width, height), Image.LANCZOS).convert("RGB")
+    out = Image.alpha_composite(img, overlay).resize((width, height), Image.Resampling.LANCZOS).convert("RGB")
     # attribution (tile ToS) bottom-right
     d2 = ImageDraw.Draw(out)
     f = _font(int(11 * u))
@@ -863,7 +863,7 @@ def _overlay_board_annos(
             size = round(a["sizeN"] * w) if a.get("sizeN") else round(42 * u * ss)
             glyph = raster_svg(svg, size)
             if a.get("rotation"):
-                glyph = glyph.rotate(-a["rotation"], expand=True, resample=Image.BICUBIC)
+                glyph = glyph.rotate(-a["rotation"], expand=True, resample=Image.Resampling.BICUBIC)
             x, y = pp(a.get("x") or 0, a.get("y") or 0)
             overlay.alpha_composite(glyph, (int(x - glyph.width / 2), int(y - glyph.height / 2)))
         elif kind in ("text", "resource") and (a.get("text") or "").strip():
@@ -889,4 +889,4 @@ def _overlay_board_annos(
         _label_box(draw, xy, lines, int(fs))
 
     out = Image.alpha_composite(base, overlay)
-    return out.resize((width, round(h / ss)), Image.LANCZOS).convert("RGB")
+    return out.resize((width, round(h / ss)), Image.Resampling.LANCZOS).convert("RGB")

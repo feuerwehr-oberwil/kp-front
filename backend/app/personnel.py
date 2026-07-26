@@ -233,7 +233,7 @@ async def fetch_divera_members() -> list[dict]:
         for q in info.get("qualifications") or []:
             qid = q.get("id") if isinstance(q, dict) else q
             try:
-                nm = qual_names.get(int(qid))
+                nm = qual_names.get(int(qid)) if qid is not None else None
             except (ValueError, TypeError):
                 nm = None
             if nm:

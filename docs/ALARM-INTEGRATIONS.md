@@ -24,8 +24,9 @@ for third parties, so it is not gated by `alarms.autoOpen`.
 - **Idempotent:** one incident per `(source, source_id)` – a retried delivery returns the
   existing incident (`200`, `"created": false`) instead of duplicating it.
 - `type`/`priority` fall back to the same keyword inference the Divera path uses.
-- `source` is a short slug naming the upstream (`leitstelle`, `pager`, …); `manual`,
-  `migrated` and `divera` are reserved.
+- `source` is a short slug naming the upstream (`leitstelle`, `pager`, …). Reserved, and
+  rejected with `422`: `divera`, `intake`, `manual`, `migrated`, `operator`, `training` — the
+  union with KP Rück's list, so one sender can address both systems (see below).
 
 ```bash
 curl -X POST "https://front.example.org/api/alarms?secret=$ALARM_WEBHOOK_SECRET" \

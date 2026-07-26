@@ -147,7 +147,9 @@ def _iso(dt: datetime | None) -> str | None:
 
 def _record(inc: Incident) -> dict:
     ws = inc.map_workspace_json if isinstance(inc.map_workspace_json, dict) else {}
-    rm = ws.get("reportMeta") if isinstance(ws.get("reportMeta"), dict) else {}
+    # Bind before the isinstance so the narrowing sticks (and so reportMeta is looked up once).
+    raw_rm = ws.get("reportMeta")
+    rm = raw_rm if isinstance(raw_rm, dict) else {}
     return {
         "id": str(inc.id),
         "started_at": _iso(inc.started_at),

@@ -689,10 +689,10 @@ def compose_report_pdf(
         cols = 3
         n_rows = -(-len(zrows) // cols)
         grid: list[list] = []
-        for r in range(n_rows):
+        for ri in range(n_rows):
             row: list = []
             for c in range(cols):
-                i = c * n_rows + r
+                i = c * n_rows + ri
                 row.extend(zrows[i] if i < len(zrows) else ["", ""])
             grid.append(row)
         cw = inner_w / cols

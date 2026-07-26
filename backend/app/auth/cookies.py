@@ -14,20 +14,26 @@ REFRESH_COOKIE = "refresh_token"
 ADMIN_COOKIE = "admin_session"
 
 
-def set_auth_cookies(response: Response, access_token: str, refresh_token: str | None = None) -> None:
-    common = {"httponly": True, "samesite": "lax", "secure": settings.cookie_secure, "path": "/"}
+def _set_session_cookie(response: Response, key: str, value: str, max_age: int) -> None:
+    """The one place the session-cookie flags are spelled out. Every auth cookie in this app
+    is httpOnly + SameSite=Lax + Secure-in-production + site-wide; keeping that in a single
+    function means a flag can't drift on one cookie and not the others."""
     response.set_cookie(
-        ACCESS_COOKIE,
-        access_token,
-        max_age=settings.access_token_expire_minutes * 60,
-        **common,
+        key,
+        value,
+        max_age=max_age,
+        httponly=True,
+        samesite="lax",
+        secure=settings.cookie_secure,
+        path="/",
     )
+
+
+def set_auth_cookies(response: Response, access_token: str, refresh_token: str | None = None) -> None:
+    _set_session_cookie(response, ACCESS_COOKIE, access_token, settings.access_token_expire_minutes * 60)
     if refresh_token is not None:
-        response.set_cookie(
-            REFRESH_COOKIE,
-            refresh_token,
-            max_age=settings.refresh_token_expire_days * 24 * 3600,
-            **common,
+        _set_session_cookie(
+            response, REFRESH_COOKIE, refresh_token, settings.refresh_token_expire_days * 24 * 3600
         )
 
 
@@ -37,15 +43,7 @@ def clear_auth_cookies(response: Response) -> None:
 
 
 def set_admin_cookie(response: Response, token: str) -> None:
-    response.set_cookie(
-        ADMIN_COOKIE,
-        token,
-        max_age=settings.admin_session_expire_minutes * 60,
-        httponly=True,
-        samesite="lax",
-        secure=settings.cookie_secure,
-        path="/",
-    )
+    _set_session_cookie(response, ADMIN_COOKIE, token, settings.admin_session_expire_minutes * 60)
 
 
 def clear_admin_cookie(response: Response) -> None:
