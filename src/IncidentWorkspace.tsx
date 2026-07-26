@@ -16,7 +16,7 @@ import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDem
 import { fillTemplate, formatSymbolName, formatTime } from './lib/format'
 import { formatAudioDuration } from './lib/audioImport'
 import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys } from './lib/symbols'
-import { circlePolygon, fmtLV95, fmtWGS, haversineM } from './lib/geo'
+import { circlePolygon, fmtLV95, fmtWGS, haversineM, pathLengthM } from './lib/geo'
 import { lineLabel } from './lib/lineDecor'
 import { panelNudge, panelNudgeUp, panelNudgeBox, panelNudgeBoxUp, isBottomSheet } from './lib/panelNudge'
 import { useMeasure } from './lib/useMeasure'
@@ -2016,6 +2016,10 @@ export function IncidentWorkspace({
           drawing={selectedDrawing}
           pointCount={selectedDrawing.coords.length}
           supportsDistance
+          /* Messung on a line that is already drawn — geodesic length here, and the coords feed
+             the collapsible swisstopo Höhenprofil (fetched only once it is opened) */
+          lengthM={selectedDrawing.coords.length >= 2 ? pathLengthM(selectedDrawing.coords) : null}
+          profileCoords={selectedDrawing.coords}
           onPreset={applyLinePreset}
           onColor={(c) => patchDrawing({ color: c })}
           onWidth={(w) => patchDrawing({ width: w })}

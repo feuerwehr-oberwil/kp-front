@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { LngLat } from '../types'
 import { pathLengthM, fmtDistance, polygonAreaM2, fmtArea } from './geo'
-import { fetchElevationProfile, type ProfileResult } from './profile'
+import type { ProfileResult } from './profile'
+import { useLineProfile } from './useLineProfile'
 
 // Measurement tool, extracted from App's god component. All state here is EPHEMERAL —
 // it is never written to the workspace blob, so this hook is fully self-contained and
@@ -50,8 +51,6 @@ export function useMeasure(active: boolean): Measure {
   const [mode, setMode] = useState<MeasureMode>('line')
   const [line, setLine] = useState<LngLat[]>([])
   const [area, setArea] = useState<LngLat[]>([])
-  const [profile, setProfile] = useState<ProfileResult | null>(null)
-  const [loading, setLoading] = useState(false)
 
   const path = mode === 'line' ? line : area
   const setPath = (fn: (pts: LngLat[]) => LngLat[]) => (mode === 'line' ? setLine(fn) : setArea(fn))
@@ -59,21 +58,9 @@ export function useMeasure(active: boolean): Measure {
 
   const labels = useMemo(() => (active ? measureLabels(mode, path) : []), [active, mode, path])
 
-  // fetch the swisstopo height profile for a measured line (debounced, abortable);
-  // a null result (outside CH / API down) just leaves the panel showing distance
-  useEffect(() => {
-    if (!active || mode !== 'line' || line.length < 2) { setProfile(null); setLoading(false); return }
-    setLoading(true)
-    const ctrl = new AbortController()
-    const p = line
-    const t = setTimeout(() => {
-      fetchElevationProfile(p, ctrl.signal).then((res) => {
-        if (ctrl.signal.aborted) return
-        setProfile(res); setLoading(false)
-      })
-    }, 450)
-    return () => { clearTimeout(t); ctrl.abort() }
-  }, [active, mode, line])
+  // the swisstopo height profile for a measured line — same fetch the line editor's Höhenprofil
+  // uses; a null result (outside CH / API down) just leaves the panel showing distance
+  const { profile, loading } = useLineProfile(line, active && mode === 'line')
 
   return { mode, setMode, path, setPath, reset, labels, profile, loading }
 }

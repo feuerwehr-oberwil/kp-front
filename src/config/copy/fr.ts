@@ -901,6 +901,8 @@ export const fr: Localizable<Copy> = {
     lineNo: 'Conduite n°',
     floorTag: 'Étage',
     distance: 'Longueur',
+    measurement: 'Mesure',
+    showOnMap: 'Sur la carte',
     inputMode: 'Saisie',
     modeFreehand: 'Main levée',
     modeNodes: 'Points',

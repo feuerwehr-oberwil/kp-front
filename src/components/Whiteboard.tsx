@@ -2040,6 +2040,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           pointCount={selDraw.pts?.length ?? 0}
           /* the distance toggle appears once the plan is calibrated against its printed scale bar */
           supportsDistance={calibrated}
+          /* same Messung section as the Lage, in the plan's calibrated metres — but no
+             Höhenprofil: a building plan carries no height data */
+          lengthM={selDraw.pts && selDraw.pts.length >= 2 ? planMetres(selDraw.pts.map(([x, y]) => [x, y])) : null}
           onPreset={(presetId) => {
             setLinePreset(presetId)
             patchCommit(selDraw.id, resolveLinePreset(presetId, selDraw.dashed)) // ONE bundle, shared with the Lage map (lib/lineStyle)

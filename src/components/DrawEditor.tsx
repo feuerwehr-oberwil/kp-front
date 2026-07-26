@@ -1,14 +1,16 @@
-import { Fragment } from 'react'
+import { Fragment, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { SheetGrip } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
 import { LineStylePicker } from '../lib/draw'
-import { fmtDistance } from '../lib/geo'
+import { fmtDistance, hoseCount } from '../lib/geo'
 import { CONTENT_LABELS } from '../lib/lineDecor'
 import { floorBadge } from '../lib/symbolRender'
+import { useLineProfile } from '../lib/useLineProfile'
+import { ProfileChart, ProfileStats } from './ProfileChart'
 import { Stepper } from './Stepper'
 import { Segmented } from './Segmented'
-import type { LineAttachment, LineEndpoint, LineRoutingMode } from '../types'
+import type { LineAttachment, LineEndpoint, LngLat, LineRoutingMode } from '../types'
 
 // small glyph for the line-ending picker: plain · arrow · FKS Teilstück "E"-fork
 function EndingGlyph({ kind }: { kind: 'none' | 'arrow' | 'teilstueck' }) {
@@ -59,6 +61,13 @@ interface Props {
   pointCount: number
   /** offer the geodesic distance toggle — Lage only (a Plan has no metric scale) */
   supportsDistance?: boolean
+  /** measured length of the selected line, so the Messung section can state it without the
+   *  operator re-drawing it with the Messen tool. Lage passes the geodesic length, Plan the
+   *  calibrated one; null/absent (uncalibrated plan, area, circle) hides the section. */
+  lengthM?: number | null
+  /** WGS84 path of the line, enabling the swisstopo Höhenprofil inside the Messung section.
+   *  Omitted on the Plan — a building plan has no height data. */
+  profileCoords?: LngLat[] | null
   onPreset: (presetId: string) => void
   onColor: (c: string) => void
   onWidth: (w: number) => void
@@ -92,7 +101,7 @@ interface Props {
 
 const FILL_OPACITIES = appConfig.drawing.fillOpacities
 
-export function DrawEditor({ drawing, pointCount, supportsDistance = false, onColor, onWidth, onDashed, onLabel, onMarker, onArrow, onEnding, onContent, onLineNo, onFloorTag, onShowDistance, onRadius, onFillOpacity, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment }: Props) {
+export function DrawEditor({ drawing, pointCount, supportsDistance = false, lengthM, profileCoords, onColor, onWidth, onDashed, onLabel, onMarker, onArrow, onEnding, onContent, onLineNo, onFloorTag, onShowDistance, onRadius, onFillOpacity, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment }: Props) {
   const color = drawing.color ?? '#1f6feb'
   const width = drawing.width ?? 4
   const dashed = !!drawing.dashed
@@ -107,6 +116,12 @@ export function DrawEditor({ drawing, pointCount, supportsDistance = false, onCo
   const radiusM = drawing.radiusM ?? 0
   const radStep = appConfig.drawing.circleRadiusStepM
   const radMin = appConfig.drawing.circleMinRadiusM
+  // Messung on an ALREADY DRAWN line: the length is free (it comes from the geometry), the
+  // Höhenprofil costs a swisstopo request — so it stays collapsed and only fetches once opened,
+  // which also keeps a tap on a line offline-silent.
+  const [profileOpen, setProfileOpen] = useState(false)
+  const hasProfileCoords = isLine && !!profileCoords && profileCoords.length >= 2
+  const { profile, loading: profileLoading } = useLineProfile(profileCoords ?? [], hasProfileCoords && profileOpen)
   // rendered twice: pinned at the sheet bottom on desktop/tablet, and again inside the
   // scrolling body for phones (.ctx-footer-inline) — CSS shows exactly one copy
   const actions = (
@@ -232,12 +247,44 @@ export function DrawEditor({ drawing, pointCount, supportsDistance = false, onCo
                   ariaLabel={appConfig.copy.drawingEditor.floorTag} />
               </div>
             )}
+          </div>
+        )}
+        {/* Messung — the numbers of a line that is already on the map. Before this, length was
+            only reachable by re-drawing the line with the Messen tool, and the Höhenprofil not at
+            all; the old An/Aus toggle lives on here as «Auf Karte», which is what it always did. */}
+        {isLine && (lengthM != null || supportsDistance) && (
+          <div className="de-group">
+            <div className="de-conn-title">{appConfig.copy.drawingEditor.measurement}</div>
+            {lengthM != null && (
+              <>
+                <div className="de-row"><span>{appConfig.copy.drawingEditor.distance}</span>
+                  <b className="de-measure-v">{fmtDistance(lengthM)}</b>
+                </div>
+                <div className="de-row"><span>{appConfig.copy.measure.hoses} à {appConfig.drawing.hoseLengthM} m</span>
+                  <b className="de-measure-v">{hoseCount(lengthM)}</b>
+                </div>
+              </>
+            )}
             {supportsDistance && (
-              <div className="de-row"><span>{appConfig.copy.drawingEditor.distance}</span>
+              <div className="de-row"><span>{appConfig.copy.drawingEditor.showOnMap}</span>
                 <span className="dh-widths">
                   <button className={`de-toggle ${drawing.showDistance ? 'on' : ''}`} aria-pressed={!!drawing.showDistance} onClick={() => onShowDistance(!drawing.showDistance)}>{drawing.showDistance ? appConfig.copy.drawingEditor.on : appConfig.copy.drawingEditor.off}</button>
                 </span>
               </div>
+            )}
+            {hasProfileCoords && (
+              <>
+                <button type="button" className={`de-prof-toggle${profileOpen ? ' on' : ''}`} aria-expanded={profileOpen} onClick={() => setProfileOpen((o) => !o)}>
+                  <span>{appConfig.copy.measure.profile}</span><Icon id="chevron-down" />
+                </button>
+                {profileOpen && (profileLoading ? (
+                  <div className="de-prof-msg">{appConfig.copy.measure.profileLoading}</div>
+                ) : profile ? (
+                  <><ProfileChart p={profile} /><ProfileStats p={profile} /></>
+                ) : (
+                  <div className="de-prof-msg">{appConfig.copy.measure.profileNone}</div>
+                ))}
+              </>
             )}
           </div>
         )}

@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { DrawEditor } from './DrawEditor'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
+import { hoseCount } from '../lib/geo'
 
 afterEach(cleanup)
 
@@ -33,5 +34,40 @@ describe('shared magnetic connection controls', () => {
 
   it('uses the reviewed indirect-removal consequence copy', () => {
     expect(fillTemplate(appConfig.copy.drawingEditor.removeConnectedMessage, { n: 2 })).toBe('2 Linien werden gelöst.')
+  })
+})
+
+// Measuring a line AFTER it was drawn: before this the length was only reachable by re-drawing
+// the line with the Messen tool, and the Höhenprofil not at all.
+describe('Messung on an already drawn line', () => {
+  const D = appConfig.copy.drawingEditor
+
+  it('states length + hose count without any operator action', () => {
+    render(<DrawEditor {...base} drawing={{ kind: 'line' }} lengthM={412} />)
+    expect(screen.getByText(D.measurement)).toBeTruthy()
+    expect(screen.getByText('412 m')).toBeTruthy()
+    expect(screen.getByText(String(hoseCount(412)))).toBeTruthy() // incl. the configured reserve
+  })
+
+  it('keeps the Höhenprofil collapsed until asked (no swisstopo request on selection)', () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    render(<DrawEditor {...base} drawing={{ kind: 'line' }} lengthM={412} profileCoords={[[7.5, 47.5], [7.51, 47.51]]} />)
+    expect(screen.getByRole('button', { name: appConfig.copy.measure.profile })).toHaveProperty('ariaExpanded', 'false')
+    expect(fetchMock).not.toHaveBeenCalled()
+    vi.unstubAllGlobals()
+  })
+
+  it('has no Messung section on an area or an uncalibrated plan line', () => {
+    render(<DrawEditor {...base} drawing={{ kind: 'area' }} lengthM={412} />)
+    expect(screen.queryByText(D.measurement)).toBeNull()
+    cleanup()
+    render(<DrawEditor {...base} drawing={{ kind: 'line' }} lengthM={null} />)
+    expect(screen.queryByText(D.measurement)).toBeNull()
+  })
+
+  it('offers no Höhenprofil where there is no height data (the Plan)', () => {
+    render(<DrawEditor {...base} drawing={{ kind: 'line' }} lengthM={412} />)
+    expect(screen.queryByRole('button', { name: appConfig.copy.measure.profile })).toBeNull()
   })
 })
