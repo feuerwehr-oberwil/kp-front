@@ -2167,6 +2167,19 @@ export const de = {
     print: 'Zeitplan drucken',
     pdf: 'Als PDF',
     printFailed: 'Zeitplan konnte nicht gedruckt werden.',
+    // Kopf der Namensspalte – wie auf dem gedruckten Formular
+    who: 'Wer',
+    // Ab der zweiten Schicht ersetzt ein Sammelknopf die Chips (sonst wird die Zeile unlesbar)
+    shiftCount: '{n} Schichten',
+    editTitle: 'Schichten – {name}',
+    plannedSection: 'Geplante Verfügbarkeit',
+    actualSection: 'Tatsächlich anwesend',
+    actualHint: 'Kommt aus der Anwesenheit und wird dort erfasst – der Zeitplan ändert sie nicht.',
+    actualNone: 'Noch nicht anwesend gewesen.',
+    plannedNone: 'Noch keine Verfügbarkeit geplant.',
+    addShift: 'Schicht hinzufügen',
+    stillHere: 'noch da',
+    done: 'Fertig',
   },
   // Mittel surface (MittelView) — manuelle Materialerfassung für Rapport / Nachschub
   mittel: {

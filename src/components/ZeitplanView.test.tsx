@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { ZeitplanView } from './ZeitplanView'
 import { appConfig } from '../config/appConfig'
+import { fillTemplate } from '../lib/format'
 import type { AttendanceState, Person, Shift } from '../types'
 
 afterEach(cleanup)
@@ -63,9 +64,47 @@ describe('ZeitplanView', () => {
       { id: 'sh2', personId: 'p1', from: T(18), to: T(22) },
     ]
     render(<ZeitplanView {...base} attendance={{}} shifts={shifts} />)
-    // both bars carry the conflict note, and both shifts are still there to edit
-    expect(screen.getAllByTitle(Z.conflict).length).toBe(2)
-    expect(screen.getAllByLabelText(`${Z.from} – Meier Anna`)).toHaveLength(2)
+    expect(screen.getAllByTitle(Z.conflict).length).toBe(2) // both bars flagged, neither refused
+  })
+
+  // Two von–bis pairs beside a name turn the row into a puzzle, so from the second shift on the
+  // chips collapse into one button onto that person's sheet.
+  it('collapses a second shift into a button and opens the person sheet', () => {
+    const shifts: Shift[] = [
+      { id: 'sh1', personId: 'p1', from: T(14), to: T(18) },
+      { id: 'sh2', personId: 'p1', from: T(20), to: T(23) },
+    ]
+    render(<ZeitplanView {...base} attendance={{}} shifts={shifts} />)
+    expect(screen.queryByLabelText(`${Z.from} – Meier Anna`)).toBeNull() // no inline chips
+    fireEvent.click(screen.getByRole('button', { name: fillTemplate(Z.shiftCount, { n: 2 }) }))
+    const sheet = screen.getByRole('dialog')
+    expect(within(sheet).getAllByLabelText(`${Z.from} – Meier Anna`)).toHaveLength(2)
+  })
+
+  // the sheet carries BOTH halves of a person's time: the availability we plan, and the presence
+  // that actually happened — which is the record and is only ticked in the Anwesenheit list
+  it('shows planned availability and recorded presence side by side in the sheet', () => {
+    const shifts: Shift[] = [
+      { id: 'sh1', personId: 'p1', from: T(14), to: T(18) },
+      { id: 'sh2', personId: 'p1', from: T(20), to: T(23) },
+    ]
+    const attendance: AttendanceState = {
+      p1: { status: 'present', displayNameSnapshot: 'Meier Anna', intervals: [{ from: T(14), to: T(15) }, { from: T(20) }] },
+    }
+    render(<ZeitplanView {...base} attendance={attendance} shifts={shifts} />)
+    fireEvent.click(screen.getByRole('button', { name: fillTemplate(Z.shiftCount, { n: 2 }) }))
+    const sheet = screen.getByRole('dialog')
+    expect(within(sheet).getByText(Z.plannedSection)).toBeTruthy()
+    expect(within(sheet).getByText(Z.actualSection)).toBeTruthy()
+    expect(within(sheet).getByText(Z.stillHere)).toBeTruthy() // the open block is marked as running
+    expect(within(sheet).getByText(Z.actualHint)).toBeTruthy() // …and says where it is edited
+  })
+
+  it('names every lane, so a bar always belongs to somebody', () => {
+    render(<ZeitplanView {...base} attendance={{}} shifts={[]} />)
+    // the «Wer» column of the printed form: each person labels their own row
+    expect(screen.getByText(Z.who)).toBeTruthy()
+    for (const p of people) expect(screen.getByText(p.displayName)).toBeTruthy()
   })
 
   it('draws the plan and the recorded presence as separate bars on the same row', () => {
