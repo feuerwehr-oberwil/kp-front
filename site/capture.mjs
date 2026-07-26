@@ -49,6 +49,33 @@ const shots = [
       await page.waitForTimeout(1500)
     },
   },
+  {
+    name: 'rapport',
+    nav: 'Karte',
+    settle: 2500,
+    note: 'Der Einsatzrapport vor dem PDF: Angaben prüfen, Fehlendes nachtragen',
+    prep: async (page) => {
+      await page.locator('.ip-switch-btn').click()
+      await page.getByRole('button', { name: 'Einsatzrapport' }).click()
+      await page.waitForTimeout(2000)
+      // Der Dialogkopf zeigt lauter leere Felder – das Bild soll aber zeigen, was
+      // schon drinsteht. Darum bis zur Anwesenheits-Karte scrollen: Mannschaft,
+      // Mittel und die Abschnitte des PDF stehen dann zusammen im Bild.
+      await page.evaluate(() => {
+        const body = document.querySelector('.report-preflight-body')
+        if (!body) return
+        const card = [...body.querySelectorAll('*')].find((el) => {
+          const r = el.getBoundingClientRect()
+          return /Anwesenheit/.test(el.textContent || '') && el.children.length
+            && r.height > 100 && r.height < 320
+        })
+        if (card) {
+          body.scrollTop += card.getBoundingClientRect().top - body.getBoundingClientRect().top - 14
+        }
+      })
+      await page.waitForTimeout(1000)
+    },
+  },
 ]
 
 /** Demo-Chrome, die im Marketing-Bild nichts zu suchen hat. */

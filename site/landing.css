@@ -230,11 +230,13 @@ section[id] { scroll-margin-top: 76px; } /* anchor targets clear the sticky head
 .entry p { color: var(--ink-dim); margin-top: 6px; max-width: 58ch; }
 
 /* ---------- screenshots ---------- */
+/* Drei Spalten: die Kachel ist nur noch der Wegweiser – das ganze Bild kommt
+   per Klick in der Lightbox. Darum darf sie kleiner sein als lesbar. Die
+   Sektion behält die Breite aller anderen (.wrap), damit die Kante stimmt. */
 .shots-grid {
   margin-top: 40px;
-  display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px;
 }
-.shot:first-child { grid-column: 1 / -1; }
 .shot {
   border-radius: var(--r-surface);
   border: 1px solid var(--line);
@@ -245,7 +247,7 @@ section[id] { scroll-margin-top: 76px; } /* anchor targets clear the sticky head
 .shot img { display: block; width: 100%; height: auto; border-bottom: 1px solid var(--line-soft); }
 .shot figcaption { padding: 14px 16px 16px; }
 .shot .cap-t { font-weight: 700; font-size: .98rem; }
-.shot .cap-s { color: var(--ink-faint); font-size: .88rem; margin-top: 3px; }
+.shot .cap-s { color: var(--ink-faint); font-size: .83rem; margin-top: 3px; }
 
 /* ---------- pillars ---------- */
 .pillars-grid { margin-top: 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
@@ -312,6 +314,14 @@ section[id] { scroll-margin-top: 76px; } /* anchor targets clear the sticky head
   padding: 1px 5px; margin-left: 6px; white-space: nowrap;
 }
 
+/* ---------- FAQ ---------- */
+.faq-list { max-width: 720px; margin-top: 6px; }
+.faq-item { padding: 20px 0 22px; border-top: 1px solid var(--line-soft); }
+.faq-item:last-child { border-bottom: 1px solid var(--line-soft); }
+.faq-item h3 { font-size: 1.08rem; font-weight: 700; letter-spacing: -.015em; }
+.faq-item p { color: var(--ink-dim); margin-top: 8px; max-width: 62ch; }
+.faq-item p strong { color: var(--ink); font-weight: 600; }
+
 /* ---------- Schwesterprojekt ---------- */
 .sibling {
   border-top: 1px solid var(--line-soft);
@@ -364,6 +374,31 @@ section[id] { scroll-margin-top: 76px; } /* anchor targets clear the sticky head
 .way:hover .way-go { color: var(--red); }
 .contact-note { margin-top: 16px; font-size: .85rem; color: var(--ink-faint); }
 
+/* Die dritte Karte ist ein echtes Formular statt eines mailto:-Links – wer kein
+   GitHub-Konto und kein eingerichtetes Mailprogramm hat, kommt sonst nicht durch. */
+.way-form:hover { border-color: var(--line); }
+.f-row { margin-top: 14px; }
+.f-lab {
+  display: block; font-size: .82rem; font-weight: 600;
+  color: var(--ink-dim); margin-bottom: 5px;
+}
+.f-in {
+  display: block; width: 100%;
+  font-family: var(--body-f); font-size: .95rem; color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line); border-radius: var(--r-btn);
+  padding: 10px 12px;
+}
+.f-in::placeholder { color: var(--ink-faint); }
+.f-in:focus { border-color: var(--red); }
+textarea.f-in { resize: vertical; min-height: 92px; }
+.f-send { margin-top: 16px; }
+.f-note { margin-top: 14px; font-size: .92rem; color: var(--ink-dim); }
+.f-note.ok { color: var(--ink); font-weight: 600; }
+.f-note.err { color: var(--red-deep); }
+/* Honigtopf: für Menschen unsichtbar, Bots füllen ihn aus */
+.hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+
 /* ---------- footer ---------- */
 footer {
   border-top: 1px solid var(--line-soft);
@@ -407,6 +442,57 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
   .js .pillar.reveal:nth-child(2), .js .shot.reveal:nth-child(3) { transition-delay: .1s; }
 }
 
+/* ---------- Lightbox ---------- */
+/* Die Kacheln zeigen die Screenshots klein; ein Klick legt sie bildschirmfüllend
+   über die Seite. Additiv per JS aufgebaut – ohne JS bleibt das Raster ein
+   Raster, nur ohne Zoom. */
+.shot-zoom {
+  display: block; width: 100%; padding: 0; border: 0;
+  background: none; font: inherit; color: inherit; cursor: zoom-in;
+}
+.shot-zoom img { display: block; }
+
+dialog.lb {
+  width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh;
+  margin: 0; padding: min(4vh, 36px) min(4vw, 44px);
+  border: 0; background: transparent; color: #fff;
+}
+dialog.lb[open] { display: grid; place-items: center; }
+dialog.lb::backdrop { background: rgba(12, 14, 17, .9); }
+
+.lb-fig { display: grid; gap: 14px; justify-items: center; max-height: 100%; }
+.lb-fig img {
+  max-width: 100%; max-height: calc(100dvh - 150px); width: auto; height: auto;
+  object-fit: contain;
+  border-radius: var(--r-surface);
+  background: var(--surface);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .5);
+}
+.lb-fig figcaption {
+  font-size: .95rem; color: #d5dae1; text-align: center; max-width: 68ch;
+}
+.lb-fig figcaption b { color: #fff; font-weight: 700; }
+
+.lb-x, .lb-nav {
+  position: fixed; border: 0; cursor: pointer; color: #fff;
+  background: rgba(255, 255, 255, .13);
+  border-radius: 999px; display: grid; place-items: center;
+  font-family: var(--body-f); line-height: 1;
+}
+.lb-x { top: 16px; right: 18px; width: 40px; height: 40px; font-size: 25px; }
+.lb-nav { top: 50%; transform: translateY(-50%); width: 44px; height: 44px; font-size: 27px; }
+.lb-prev { left: 14px; }
+.lb-next { right: 14px; }
+.lb-x:hover, .lb-nav:hover { background: rgba(255, 255, 255, .24); }
+@media (max-width: 620px) {
+  .lb-nav { display: none; }
+  dialog.lb { padding: 56px 12px 20px; }
+}
+
+@media (max-width: 1180px) {
+  /* unter der vollen Breite wird die dritte Spalte zu schmal */
+  .shots-grid { grid-template-columns: 1fr 1fr; }
+}
 @media (max-width: 860px) {
   section, section.wrap { padding-top: 64px; padding-bottom: 64px; }
   section.hero { padding-top: 48px; }
