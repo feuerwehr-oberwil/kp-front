@@ -107,9 +107,7 @@ class TokenBlocklist:
             await session.execute(stmt)
             return
 
-        exists = (
-            await session.execute(select(RevokedToken.jti).where(RevokedToken.jti == jti))
-        ).scalar_one_or_none()
+        exists = (await session.execute(select(RevokedToken.jti).where(RevokedToken.jti == jti))).scalar_one_or_none()
         if exists is None:
             session.add(RevokedToken(jti=jti, expires_at=expires_at))
 

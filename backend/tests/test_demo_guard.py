@@ -13,9 +13,7 @@ async def _login(client, user) -> None:
 
 
 async def _set_demo(db_session, on: bool) -> None:
-    row = (
-        await db_session.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))
-    ).scalar_one_or_none()
+    row = (await db_session.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     identity = {"demoMode": on}
     if row is None:
         db_session.add(DeploymentConfig(id=1, config_json={"identity": identity}))

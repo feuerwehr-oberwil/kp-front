@@ -210,7 +210,11 @@ def milestones_payload(alarm: ScenarioAlarm, divera_id: int, now: datetime) -> d
         "vehicles": [
             {
                 "id": v.id,
-                **{f: iso(val) for f, val in (("ausgerueckt", v.ausgerueckt), ("vorOrt", v.vorOrt), ("zurueck", v.zurueck)) if val is not None},
+                **{
+                    f: iso(val)
+                    for f, val in (("ausgerueckt", v.ausgerueckt), ("vorOrt", v.vorOrt), ("zurueck", v.zurueck))
+                    if val is not None
+                },
             }
             for v in alarm.vehicles
         ],
@@ -381,7 +385,10 @@ def _amain(argv: list[str]) -> int:
     p_run.add_argument("--divera-secret", default=None, help="Divera webhook secret (default: local .env)")
     p_run.add_argument("--alarm-secret", default=None, help="alarm/milestone webhook secret (default: local .env)")
     p_run.add_argument(
-        "--wait", type=int, default=600, metavar="SECONDS",
+        "--wait",
+        type=int,
+        default=600,
+        metavar="SECONDS",
         help="how long to keep retrying milestones while alarms await their take (default 600, 0 = one attempt)",
     )
 

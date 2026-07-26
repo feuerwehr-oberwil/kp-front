@@ -10,23 +10,24 @@ Revision ID: f6a7b8c9d0e1
 Revises: e5f6a7b8c9d0
 Create Date: 2026-06-30 00:00:00.000000
 """
+
 from collections.abc import Sequence
 
 from alembic import op
 
-revision: str = 'f6a7b8c9d0e1'
-down_revision: str | None = 'e5f6a7b8c9d0'
+revision: str = "f6a7b8c9d0e1"
+down_revision: str | None = "e5f6a7b8c9d0"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.drop_constraint('ck_users_role', 'users', type_='check')
+    op.drop_constraint("ck_users_role", "users", type_="check")
     op.execute("UPDATE users SET role = 'editor' WHERE role = 'commander'")
-    op.create_check_constraint('ck_users_role', 'users', "role in ('editor','viewer')")
+    op.create_check_constraint("ck_users_role", "users", "role in ('editor','viewer')")
 
 
 def downgrade() -> None:
-    op.drop_constraint('ck_users_role', 'users', type_='check')
+    op.drop_constraint("ck_users_role", "users", type_="check")
     op.execute("UPDATE users SET role = 'commander' WHERE role = 'editor'")
-    op.create_check_constraint('ck_users_role', 'users', "role in ('commander','viewer')")
+    op.create_check_constraint("ck_users_role", "users", "role in ('commander','viewer')")

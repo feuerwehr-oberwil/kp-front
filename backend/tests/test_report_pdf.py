@@ -70,10 +70,16 @@ async def test_report_pdf_full_with_figures(client, editor):
     payload["krokiKey"] = "kroki"
     payload["krokiCaption"] = "Stand 03:00"
     payload["plans"] = [{"key": "plan_modul1", "label": "M1 Übersicht", "landscape": False}]
-    payload["trupps"] = [{
-        "name": "AT 1", "statusLabel": "im Einsatz", "members": ["A", "B"], "auftrag": "Löschangriff",
-        "entryTime": "03:05", "readings": [{"t": "03:05", "kindLabel": "Eintritt", "bar": "300"}],
-    }]
+    payload["trupps"] = [
+        {
+            "name": "AT 1",
+            "statusLabel": "im Einsatz",
+            "members": ["A", "B"],
+            "auftrag": "Löschangriff",
+            "entryTime": "03:05",
+            "readings": [{"t": "03:05", "kindLabel": "Eintritt", "bar": "300"}],
+        }
+    ]
     payload["attendance"] = [{"name": "C. Beispiel", "statusLabel": "Anwesend", "checkedInAt": "03:01"}]
     payload["journal"] = [
         {"timeLabel": "03:02", "area": "Kroki", "text": "Erkundung Vorderseite", "transcript": "..."},
@@ -105,7 +111,9 @@ async def test_report_pdf_viewer_allowed(client, viewer, editor):
 async def test_report_pdf_unknown_incident_404(client, editor):
     await _login(client, editor)
     missing = "99999999-9999-9999-9999-999999999999"
-    r = await client.post(f"/api/incidents/{missing}/report/pdf", data={"payload": json.dumps(_minimal_payload(missing))})
+    r = await client.post(
+        f"/api/incidents/{missing}/report/pdf", data={"payload": json.dumps(_minimal_payload(missing))}
+    )
     assert r.status_code == 404
 
 

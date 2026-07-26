@@ -25,17 +25,13 @@ _ALLOWED_PLAN_TYPES = {"application/pdf"}
 async def _plans_for(db: AsyncSession, object_id: uuid.UUID) -> list[ReferenceDataset]:
     rows = (
         await db.execute(
-            select(ReferenceDataset)
-            .where(ReferenceDataset.object_id == object_id)
-            .order_by(ReferenceDataset.module)
+            select(ReferenceDataset).where(ReferenceDataset.object_id == object_id).order_by(ReferenceDataset.module)
         )
     ).scalars()
     return list(rows)
 
 
-async def _plans_by_object(
-    db: AsyncSession, object_ids: list[uuid.UUID]
-) -> dict[uuid.UUID, list[ReferenceDataset]]:
+async def _plans_by_object(db: AsyncSession, object_ids: list[uuid.UUID]) -> dict[uuid.UUID, list[ReferenceDataset]]:
     """Fetch plans for many objects in ONE query and group in Python (avoids per-object N+1).
 
     Order within each object matches `_plans_for` (by module).
@@ -45,9 +41,7 @@ async def _plans_by_object(
         return grouped
     rows = (
         await db.execute(
-            select(ReferenceDataset)
-            .where(ReferenceDataset.object_id.in_(object_ids))
-            .order_by(ReferenceDataset.module)
+            select(ReferenceDataset).where(ReferenceDataset.object_id.in_(object_ids)).order_by(ReferenceDataset.module)
         )
     ).scalars()
     for p in rows:
@@ -187,9 +181,7 @@ def _norm_addr(s: str | None) -> str:
 
 
 @incidents_objects_router.get("/{incident_id}/objects", response_model=list[ObjectWithPlans])
-async def objects_near_incident(
-    incident_id: uuid.UUID, _user: CurrentUser, db: AsyncSession = Depends(get_db)
-):
+async def objects_near_incident(incident_id: uuid.UUID, _user: CurrentUser, db: AsyncSession = Depends(get_db)):
     inc = (await db.execute(select(Incident).where(Incident.id == incident_id))).scalar_one_or_none()
     if inc is None:
         raise HTTPException(status_code=404, detail="Einsatz nicht gefunden")

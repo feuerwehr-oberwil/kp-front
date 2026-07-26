@@ -105,14 +105,31 @@ def test_dashed_walk_terminates_on_exact_boundaries():
 def test_render_kroki_offline_still_produces_full_overlay():
     scene = kk.KrokiScene(
         entities=[
-            {"coord": [7.556, 47.5139], "symbol": "VKF Feuer", "spread": {"h": "E", "up": True},
-             "floor": 2, "caption": "Vollbrand"},
-            {"coord": [7.5566, 47.514], "symbolSvg": '<svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10" fill="#123456"/></svg>'},
+            {
+                "coord": [7.556, 47.5139],
+                "symbol": "VKF Feuer",
+                "spread": {"h": "E", "up": True},
+                "floor": 2,
+                "caption": "Vollbrand",
+            },
+            {
+                "coord": [7.5566, 47.514],
+                "symbolSvg": '<svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10" fill="#123456"/></svg>',
+            },
         ],
         drawings=[
             {"kind": "circle", "coords": [[7.556, 47.5139]], "radiusM": 60, "dashed": True, "color": "#d43d3d"},
-            {"kind": "line", "coords": [[7.5555, 47.5135], [7.556, 47.5139]], "arrow": True,
-             "marker": "R", "showDistance": True, "teilstueck": True, "lineNo": 1, "content": "S", "floorTag": -1},
+            {
+                "kind": "line",
+                "coords": [[7.5555, 47.5135], [7.556, 47.5139]],
+                "arrow": True,
+                "marker": "R",
+                "showDistance": True,
+                "teilstueck": True,
+                "lineNo": 1,
+                "content": "S",
+                "floorTag": -1,
+            },
             {"kind": "area", "coords": [[7.555, 47.513], [7.556, 47.513], [7.556, 47.5136]], "label": "Nord"},
         ],
     )
@@ -167,7 +184,10 @@ def test_pack_and_dynamic_svg_raster():
     glyph = PACK.raster("VKF Feuer", 64)
     assert glyph is not None and glyph.size == (64, 64)
     assert PACK.raster("Gibt Es Nicht", 64) is None
-    inline = kk.raster_svg('<svg viewBox="0 0 4 4" xmlns="http://www.w3.org/2000/svg"><circle cx="2" cy="2" r="2" fill="#ff0000"/></svg>', 32)
+    inline = kk.raster_svg(
+        '<svg viewBox="0 0 4 4" xmlns="http://www.w3.org/2000/svg"><circle cx="2" cy="2" r="2" fill="#ff0000"/></svg>',
+        32,
+    )
     assert inline.size == (32, 32)
 
 
@@ -204,18 +224,26 @@ def test_composer_embeds_server_rendered_kroki_and_plan():
     c = canvas.Canvas(buf, pagesize=A4)
     c.drawString(100, 100, "Plan")
     c.save()
-    p = ReportPayload.model_validate({
-        "incident": {"title": "T", "id": "i"},
-        "generatedAt": "n",
-        "kroki": {
-            "entities": [{"coord": [7.556, 47.5139], "symbol": "VKF Feuer"}],
-            "drawings": [],
-            "tiles": NO_TILES,
-        },
-        "planPages": [{"label": "Modul 1", "url": "/api/reference/plan:x:modul1", "annos": [
-            {"kind": "text", "x": 0.5, "y": 0.5, "text": "EL"},
-        ]}],
-    })
+    p = ReportPayload.model_validate(
+        {
+            "incident": {"title": "T", "id": "i"},
+            "generatedAt": "n",
+            "kroki": {
+                "entities": [{"coord": [7.556, 47.5139], "symbol": "VKF Feuer"}],
+                "drawings": [],
+                "tiles": NO_TILES,
+            },
+            "planPages": [
+                {
+                    "label": "Modul 1",
+                    "url": "/api/reference/plan:x:modul1",
+                    "annos": [
+                        {"kind": "text", "x": 0.5, "y": 0.5, "text": "EL"},
+                    ],
+                }
+            ],
+        }
+    )
     pdf = compose_report_pdf(p, {}, {"/api/reference/plan:x:modul1": buf.getvalue()})
     assert pdf[:5] == b"%PDF-"
     assert len(pdf) > 8_000  # embedded kroki + plan bitmaps (offline grey base compresses well)

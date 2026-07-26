@@ -37,12 +37,14 @@ SCENE_KEYS = ["entities", "drawings", "building", "board", "layerState", "recent
 async def export() -> None:
     async with async_session_maker() as db:
         inc = (
-            await db.execute(
-                select(Incident)
-                .where(Incident.is_archived.is_(False))
-                .order_by(Incident.started_at.desc())
+            (
+                await db.execute(
+                    select(Incident).where(Incident.is_archived.is_(False)).order_by(Incident.started_at.desc())
+                )
             )
-        ).scalars().first()
+            .scalars()
+            .first()
+        )
     if inc is None:
         raise SystemExit("No open incident found — is DATABASE_URL pointing at the demo database?")
     ws = inc.map_workspace_json or {}
@@ -50,7 +52,10 @@ async def export() -> None:
     SEED_PATH.write_text(json.dumps(scene, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     logger.info(
         "Wrote %s (%d entities, %d drawings) from incident '%s'. Review the diff and commit.",
-        SEED_PATH, len(scene.get("entities", [])), len(scene.get("drawings", [])), inc.title,
+        SEED_PATH,
+        len(scene.get("entities", [])),
+        len(scene.get("drawings", [])),
+        inc.title,
     )
 
 

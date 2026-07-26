@@ -21,9 +21,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 PACKAGE_JSON = ROOT / "package.json"
 PYPROJECT = ROOT / "backend" / "pyproject.toml"
 
-pytestmark = pytest.mark.skipif(
-    not PACKAGE_JSON.exists(), reason="repo root not available (running from the image)"
-)
+pytestmark = pytest.mark.skipif(not PACKAGE_JSON.exists(), reason="repo root not available (running from the image)")
 
 
 def test_frontend_and_backend_versions_agree():
@@ -46,6 +44,4 @@ def test_version_is_semver():
 def test_changelog_documents_the_current_version():
     """A released version must have notes; an in-progress bump must not be tagged yet."""
     changelog = (ROOT / "CHANGELOG.md").read_text()
-    assert f"## [{settings.version}]" in changelog, (
-        f"CHANGELOG.md has no section for {settings.version}"
-    )
+    assert f"## [{settings.version}]" in changelog, f"CHANGELOG.md has no section for {settings.version}"

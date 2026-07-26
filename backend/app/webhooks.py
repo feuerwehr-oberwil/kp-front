@@ -31,9 +31,7 @@ _inflight: set[asyncio.Task] = set()
 def build_incident_payload(inc: Incident, capture_token: str | None) -> dict:
     """The webhook body: incident facts + (when composable) the capture deep link."""
     capture_url = (
-        f"{settings.public_url.rstrip('/')}/e/{capture_token}"
-        if capture_token and settings.public_url
-        else None
+        f"{settings.public_url.rstrip('/')}/e/{capture_token}" if capture_token and settings.public_url else None
     )
     return {
         "event": "incident.created",
@@ -84,9 +82,7 @@ async def notify_incident_created(db: AsyncSession, inc: Incident) -> int:
         urls = [u for u in cfg.webhooks if urlsplit(u).scheme in ("http", "https")]
         if not urls:
             return 0
-        row = (
-            await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))
-        ).scalar_one_or_none()
+        row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
         payload = build_incident_payload(inc, row.capture_secret if row else None)
         for url in urls:
             # Keep a strong reference until the task finishes. asyncio only holds a WEAK one,

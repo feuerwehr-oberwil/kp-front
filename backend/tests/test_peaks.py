@@ -74,6 +74,7 @@ def test_max_abs_handles_negative_peaks_and_odd_bytes():
 async def test_peaks_endpoint_202_then_cached(client, editor, monkeypatch):
     async def fake_extract(_path):
         return [0.5] * 10
+
     monkeypatch.setattr(audio_mod, "extract_peaks", fake_extract)
     await _login(client, editor)
     media_id = await _upload_audio(client)
@@ -91,6 +92,7 @@ async def test_peaks_endpoint_202_then_cached(client, editor, monkeypatch):
 async def test_failed_extraction_caches_null(client, editor, monkeypatch):
     async def fake_extract(_path):
         return None
+
     monkeypatch.setattr(audio_mod, "extract_peaks", fake_extract)
     await _login(client, editor)
     media_id = await _upload_audio(client)
@@ -126,10 +128,7 @@ async def test_extract_peaks_real_ffmpeg(tmp_path):
         w.setnchannels(1)
         w.setsampwidth(2)
         w.setframerate(8000)
-        frames = b"".join(
-            struct.pack("<h", int(20000 * math.sin(2 * math.pi * 440 * i / 8000)))
-            for i in range(16000)
-        )
+        frames = b"".join(struct.pack("<h", int(20000 * math.sin(2 * math.pi * 440 * i / 8000))) for i in range(16000))
         w.writeframes(frames)
     peaks = await audio_mod.extract_peaks(str(path))
     assert peaks is not None and len(peaks) > 10
@@ -139,6 +138,7 @@ async def test_extract_peaks_real_ffmpeg(tmp_path):
 async def test_extract_peaks_missing_binary(monkeypatch, tmp_path):
     async def boom(*_a, **_k):
         raise FileNotFoundError("ffmpeg")
+
     monkeypatch.setattr(asyncio, "create_subprocess_exec", boom)
     assert await audio_mod.extract_peaks(str(tmp_path / "x.m4a")) is None
 

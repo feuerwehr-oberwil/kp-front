@@ -4,6 +4,7 @@ Revision ID: d7e8f9a0b1c2
 Revises: c6d7e8f9a0b1
 Create Date: 2026-07-15 16:10:00.000000
 """
+
 from collections.abc import Sequence
 
 import sqlalchemy as sa
@@ -56,4 +57,3 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_index("ix_personnel_external_personnel_id", table_name="personnel_external_identities")
     op.drop_table("personnel_external_identities")
-

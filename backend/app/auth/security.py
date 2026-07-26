@@ -18,11 +18,15 @@ from ..config import settings
 
 def _pepper(pin: str) -> bytes:
     """HMAC-SHA256(pin, SECRET_KEY) → 64-char hex digest (bytes)."""
-    return hmac.new(
-        settings.secret_key.encode("utf-8"),
-        pin.encode("utf-8"),
-        hashlib.sha256,
-    ).hexdigest().encode("utf-8")
+    return (
+        hmac.new(
+            settings.secret_key.encode("utf-8"),
+            pin.encode("utf-8"),
+            hashlib.sha256,
+        )
+        .hexdigest()
+        .encode("utf-8")
+    )
 
 
 def hash_pin(pin: str) -> str:

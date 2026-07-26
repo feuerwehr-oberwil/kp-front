@@ -121,8 +121,9 @@ def payload_wants_color(data: ReportPayload) -> bool:
     return bool(data.options.kroki and data.kroki is not None)
 
 
-async def enqueue_print_job(db: AsyncSession, inc: Incident, payload: str, *,
-                            kind: str, requested_by: uuid.UUID | None) -> PrintJob:
+async def enqueue_print_job(
+    db: AsyncSession, inc: Incident, payload: str, *, kind: str, requested_by: uuid.UUID | None
+) -> PrintJob:
     """Compose the Rapport-PDF (same path as the download endpoints) and queue it."""
     if not relay_available():
         raise HTTPException(status_code=403, detail="Stationsdrucker nicht konfiguriert")

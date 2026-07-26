@@ -18,9 +18,7 @@ logger = logging.getLogger(__name__)
 
 async def seed_deployment_config() -> int:
     async with async_session_maker() as db:
-        existing = (
-            await db.execute(select(DeploymentConfig.id).where(DeploymentConfig.id == 1))
-        ).scalar_one_or_none()
+        existing = (await db.execute(select(DeploymentConfig.id).where(DeploymentConfig.id == 1))).scalar_one_or_none()
         if existing is not None:
             return 0
         db.add(DeploymentConfig(id=1, config_json={}))

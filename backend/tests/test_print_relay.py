@@ -143,7 +143,8 @@ async def test_failed_status_records_error(client, editor, relay_secret):
     await client.post("/api/print-agent/claim", headers=H)
 
     r = await client.post(
-        f"/api/print-agent/jobs/{job_id}/status", headers=H,
+        f"/api/print-agent/jobs/{job_id}/status",
+        headers=H,
         json={"status": "failed", "error": "CUPS: Drucker nicht erreichbar"},
     )
     assert r.status_code == 200
@@ -193,7 +194,10 @@ def test_color_only_with_rendered_kroki():
     kroki = {"entities": [], "drawings": [], "center": [7.5, 47.5], "zoom": 16}
     assert payload_wants_color(ReportPayload.model_validate(base)) is False
     assert payload_wants_color(ReportPayload.model_validate({**base, "kroki": kroki})) is True
-    assert payload_wants_color(ReportPayload.model_validate({**base, "kroki": kroki, "options": {"kroki": False}})) is False
+    assert (
+        payload_wants_color(ReportPayload.model_validate({**base, "kroki": kroki, "options": {"kroki": False}}))
+        is False
+    )
 
 
 # --- cancel (Rückgängig) --------------------------------------------------------------
@@ -244,7 +248,8 @@ async def test_capture_print_flow(client, editor, db_session, relay_secret):
     assert r.json() == {"available": True, "online": False}
 
     r = await client.post(
-        f"/api/capture/incidents/{inc}/report/print", headers=ch,
+        f"/api/capture/incidents/{inc}/report/print",
+        headers=ch,
         data={"payload": json.dumps(_payload(inc))},
     )
     assert r.status_code == 200, r.text

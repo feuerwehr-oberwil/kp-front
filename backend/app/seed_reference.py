@@ -31,6 +31,7 @@ async def seed_reference() -> int:
         return 0
     created = 0
     async with async_session_maker() as db:
+
         async def ensure_dataset(ds_id: str, src_path: str, **fields) -> None:
             nonlocal created
             if (await db.execute(select(ReferenceDataset.id).where(ReferenceDataset.id == ds_id))).scalar_one_or_none():
@@ -42,8 +43,11 @@ async def seed_reference() -> int:
             storage.copy_in(src_path, key)
             db.add(
                 ReferenceDataset(
-                    id=ds_id, storage_key=key, size_bytes=os.path.getsize(src_path),
-                    source_type="uploaded", **fields,
+                    id=ds_id,
+                    storage_key=key,
+                    size_bytes=os.path.getsize(src_path),
+                    source_type="uploaded",
+                    **fields,
                 )
             )
             created += 1
@@ -52,8 +56,11 @@ async def seed_reference() -> int:
         # KP-Front-authored artwork (tools/gen_symbols.py); the legacy 'symbols:firegis'
         # dataset in older deployments is simply never fetched anymore.
         await ensure_dataset(
-            "symbols:tactical", os.path.join(_PUBLIC, "tactical-symbols.json"),
-            kind="symbols", title="Taktische Zeichen (FKS)", content_type="application/json",
+            "symbols:tactical",
+            os.path.join(_PUBLIC, "tactical-symbols.json"),
+            kind="symbols",
+            title="Taktische Zeichen (FKS)",
+            content_type="application/json",
             source_note="public/tactical-symbols.json (KP Front, FKS-Konvention)",
         )
 

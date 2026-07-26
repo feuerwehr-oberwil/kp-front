@@ -43,9 +43,7 @@ class GzipRequestMiddleware:
                     out = inflater.decompress(chunk, self.max_bytes + 1 - total)
                     total += len(out)
                     if total > self.max_bytes or inflater.unconsumed_tail:
-                        await self._reject(
-                            send, 413, f"Anfrage zu gross (max. {self.max_bytes // (1024 * 1024)} MB)"
-                        )
+                        await self._reject(send, 413, f"Anfrage zu gross (max. {self.max_bytes // (1024 * 1024)} MB)")
                         return
                     parts.append(out)
                 if not msg.get("more_body", False):
@@ -60,11 +58,7 @@ class GzipRequestMiddleware:
             return
 
         # rewrite the scope so downstream sees a plain request with the true length
-        new_headers = [
-            (k, v)
-            for k, v in scope["headers"]
-            if k.lower() not in (b"content-encoding", b"content-length")
-        ]
+        new_headers = [(k, v) for k, v in scope["headers"] if k.lower() not in (b"content-encoding", b"content-length")]
         new_headers.append((b"content-length", str(len(body)).encode()))
         scope = dict(scope, headers=new_headers)
 
@@ -82,12 +76,14 @@ class GzipRequestMiddleware:
     @staticmethod
     async def _reject(send, status: int, detail: str) -> None:
         payload = json.dumps({"detail": detail}).encode()
-        await send({
-            "type": "http.response.start",
-            "status": status,
-            "headers": [
-                (b"content-type", b"application/json"),
-                (b"content-length", str(len(payload)).encode()),
-            ],
-        })
+        await send(
+            {
+                "type": "http.response.start",
+                "status": status,
+                "headers": [
+                    (b"content-type", b"application/json"),
+                    (b"content-length", str(len(payload)).encode()),
+                ],
+            }
+        )
         await send({"type": "http.response.body", "body": payload})

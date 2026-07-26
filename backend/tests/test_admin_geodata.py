@@ -32,10 +32,14 @@ def test_reads_list_and_layers_wrapper(tmp_path):
 
 
 def test_duplicate_id_rejected(tmp_path):
-    m = _write(tmp_path, "m.json", [
-        {"id": "x", "kind": "geojson", "file": "a.geojson"},
-        {"id": "x", "kind": "geojson", "file": "b.geojson"},
-    ])
+    m = _write(
+        tmp_path,
+        "m.json",
+        [
+            {"id": "x", "kind": "geojson", "file": "a.geojson"},
+            {"id": "x", "kind": "geojson", "file": "b.geojson"},
+        ],
+    )
     with pytest.raises(SystemExit):
         _read_manifest(m)
 
@@ -68,9 +72,12 @@ def test_slug_defaults_to_file_stem():
 
 
 def _fc(coords):
-    return {"type": "FeatureCollection", "features": [
-        {"type": "Feature", "geometry": {"type": "Point", "coordinates": coords}, "properties": {}},
-    ]}
+    return {
+        "type": "FeatureCollection",
+        "features": [
+            {"type": "Feature", "geometry": {"type": "Point", "coordinates": coords}, "properties": {}},
+        ],
+    }
 
 
 def test_valid_wgs84_passes(tmp_path):
@@ -99,9 +106,11 @@ def test_file_layer_resolves_store_url():
 
 
 def test_hosted_url_passthrough_and_wms():
-    layers = _to_reference_layers([
-        GeodataManifestEntry(id="a", kind="geojson", geojson="/api/reference/geo:a"),
-        GeodataManifestEntry(id="b", kind="wms", tiles=["https://x/{z}/{x}/{y}"]),
-    ])
+    layers = _to_reference_layers(
+        [
+            GeodataManifestEntry(id="a", kind="geojson", geojson="/api/reference/geo:a"),
+            GeodataManifestEntry(id="b", kind="wms", tiles=["https://x/{z}/{x}/{y}"]),
+        ]
+    )
     assert layers[0]["geojson"] == "/api/reference/geo:a"
     assert layers[1]["tiles"] == ["https://x/{z}/{x}/{y}"]

@@ -154,7 +154,7 @@ def _read_manifest(path: Path) -> list[ChecklistEntry]:
     if isinstance(data, dict) and isinstance(data.get("checklists"), list):
         data = data["checklists"]
     if not isinstance(data, list):
-        _fail(f"ERROR: {path} must be a JSON list of entries (or {{\"checklists\": [...]}}).")
+        _fail(f'ERROR: {path} must be a JSON list of entries (or {{"checklists": [...]}}).')
     entries: list[ChecklistEntry] = []
     seen: set[str] = set()
     for i, item in enumerate(data):
@@ -241,7 +241,17 @@ def _expected_ids(entries: list[ChecklistEntry]) -> set[str]:
 # --- DB writes (server-side) ------------------------------------------------------------
 
 
-async def _upsert(db, ds_id: str, kind: str, title: str | None, source_note: str | None, data: bytes, content_type: str, storage_dir: str, suffix: str) -> None:
+async def _upsert(
+    db,
+    ds_id: str,
+    kind: str,
+    title: str | None,
+    source_note: str | None,
+    data: bytes,
+    content_type: str,
+    storage_dir: str,
+    suffix: str,
+) -> None:
     key = storage.new_key(storage_dir, suffix)
     storage.put_bytes(key, data)
     ds = (await db.execute(select(ReferenceDataset).where(ReferenceDataset.id == ds_id))).scalar_one_or_none()
@@ -269,19 +279,35 @@ async def _load(manifest_path: Path, entries: list[ChecklistEntry]) -> tuple[int
         for idx, e in enumerate(entries):
             src = _resolve(manifest_path, e.file)
             await _upsert(
-                db, f"checklists:{e.id}", "checklists", e.title, e.sourceNote,
-                _template_bytes(src, e.order if e.order is not None else idx), "application/json", "reference", f"-checklists_{e.id}.json",
+                db,
+                f"checklists:{e.id}",
+                "checklists",
+                e.title,
+                e.sourceNote,
+                _template_bytes(src, e.order if e.order is not None else idx),
+                "application/json",
+                "reference",
+                f"-checklists_{e.id}.json",
             )
             for a in e.assets:
                 asrc = _resolve(manifest_path, a.file)
                 await _upsert(
-                    db, f"checklists:{e.id}:p{a.page}", "checklists", None, None,
-                    asrc.read_bytes(), _content_type(asrc), "reference", f"-checklists_{e.id}_p{a.page}{asrc.suffix}",
+                    db,
+                    f"checklists:{e.id}:p{a.page}",
+                    "checklists",
+                    None,
+                    None,
+                    asrc.read_bytes(),
+                    _content_type(asrc),
+                    "reference",
+                    f"-checklists_{e.id}_p{a.page}{asrc.suffix}",
                 )
                 n_assets += 1
         # prune ghosts: a renamed/removed template must not linger (the frontend would still fetch it)
         expected = _expected_ids(entries)
-        stale = (await db.execute(select(ReferenceDataset).where(ReferenceDataset.id.like("checklists:%")))).scalars().all()
+        stale = (
+            (await db.execute(select(ReferenceDataset).where(ReferenceDataset.id.like("checklists:%")))).scalars().all()
+        )
         n_pruned = 0
         for ds in stale:
             if ds.id not in expected:
@@ -293,7 +319,9 @@ async def _load(manifest_path: Path, entries: list[ChecklistEntry]) -> tuple[int
     return len(entries), n_assets, n_pruned
 
 
-def _push(manifest_path: Path, entries: list[ChecklistEntry], base: str, admin_secret: str, dry_run: bool) -> tuple[int, int]:
+def _push(
+    manifest_path: Path, entries: list[ChecklistEntry], base: str, admin_secret: str, dry_run: bool
+) -> tuple[int, int]:
     """Push templates + their assets to a RUNNING deployment over its HTTP API. Each is PUT to
     /api/reference/<id> (the server writes its OWN volume). Authenticates with the deployment
     ADMIN_SECRET (not an editor PIN). Returns (templates, assets) written."""
@@ -319,7 +347,13 @@ def _push(manifest_path: Path, entries: list[ChecklistEntry], base: str, admin_s
                 form["source_note"] = e.sourceNote
             rt = c.put(
                 f"/api/reference/checklists:{e.id}",
-                files={"file": (src.name, _template_bytes(src, e.order if e.order is not None else idx), "application/json")},
+                files={
+                    "file": (
+                        src.name,
+                        _template_bytes(src, e.order if e.order is not None else idx),
+                        "application/json",
+                    )
+                },
                 data=form,
             )
             if rt.status_code != 200:
@@ -350,9 +384,7 @@ async def _show() -> list[dict[str, Any]]:
         rows = list(
             (
                 await db.execute(
-                    select(ReferenceDataset)
-                    .where(ReferenceDataset.kind == "checklists")
-                    .order_by(ReferenceDataset.id)
+                    select(ReferenceDataset).where(ReferenceDataset.kind == "checklists").order_by(ReferenceDataset.id)
                 )
             ).scalars()
         )
@@ -364,7 +396,12 @@ async def _show() -> list[dict[str, Any]]:
             if ":" in rest:
                 assets[rest.split(":", 1)[0]] = assets.get(rest.split(":", 1)[0], 0) + 1
         return [
-            {"id": r.id, "title": r.title, "assets": assets.get(r.id[len("checklists:") :], 0), "version": r.current_version}
+            {
+                "id": r.id,
+                "title": r.title,
+                "assets": assets.get(r.id[len("checklists:") :], 0),
+                "version": r.current_version,
+            }
             for r in rows
             if ":" not in r.id[len("checklists:") :]
         ]
@@ -389,7 +426,11 @@ async def _amain(argv: list[str]) -> int:
     p_push = sub.add_parser("push", help="upload templates + assets to a RUNNING deployment via its API")
     p_push.add_argument("manifest")
     p_push.add_argument("--base", default=os.environ.get("KP_BASE_URL"), help="deployment base URL (env KP_BASE_URL)")
-    p_push.add_argument("--admin-secret", default=os.environ.get("KP_ADMIN_SECRET"), help="deployment ADMIN_SECRET (env KP_ADMIN_SECRET)")
+    p_push.add_argument(
+        "--admin-secret",
+        default=os.environ.get("KP_ADMIN_SECRET"),
+        help="deployment ADMIN_SECRET (env KP_ADMIN_SECRET)",
+    )
     p_push.add_argument("--dry-run", action="store_true", help="authenticate + report only, do not upload/write")
     sub.add_parser("show", help="print the stored checklist templates + asset counts")
 

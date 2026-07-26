@@ -141,8 +141,8 @@ class Settings(BaseSettings):
     # --- Request body size caps (reject early with 413; protect the single instance) ---
     # Must stay above the media endpoint's per-file cap (media.py MAX_UPLOAD_BYTES, 100 MB)
     # plus multipart overhead, or imported voice memos die in the middleware instead.
-    max_upload_mb: int = 110     # multipart file uploads (media, plans, reference data)
-    max_json_body_mb: int = 8    # JSON bodies (workspace blob, details, etc.)
+    max_upload_mb: int = 110  # multipart file uploads (media, plans, reference data)
+    max_json_body_mb: int = 8  # JSON bodies (workspace blob, details, etc.)
 
     # --- Divera (Phase 3) ---
     divera_access_key: str = ""

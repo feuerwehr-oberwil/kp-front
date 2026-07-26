@@ -134,9 +134,7 @@ async def broadcast(db: AsyncSession, *, title: str, body: str, tag: str, target
     payload = json.dumps({"title": title, "body": body, "tag": tag, "target": target})
     dead: list[str] = []
     for s in subs:
-        ok = await asyncio.to_thread(
-            _send_one, {"endpoint": s.endpoint, "p256dh": s.p256dh, "auth": s.auth}, payload
-        )
+        ok = await asyncio.to_thread(_send_one, {"endpoint": s.endpoint, "p256dh": s.p256dh, "auth": s.auth}, payload)
         if not ok:
             dead.append(s.endpoint)
     if dead:
@@ -184,15 +182,11 @@ def _should_send(key: str, now_ms: float) -> bool:
 async def check_and_push(db: AsyncSession, now_ms: float | None = None) -> int:
     """One due-ness sweep over all open incidents. Returns alerts sent."""
     now_ms = now_ms if now_ms is not None else datetime.now(UTC).timestamp() * 1000
-    doctrine_row = (
-        await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))
-    ).scalar_one_or_none()
+    doctrine_row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     doctrine = ((doctrine_row.config_json if doctrine_row else {}) or {}).get("doctrine") or {}
 
     sent = 0
-    incidents = list(
-        (await db.execute(select(Incident).where(Incident.is_archived.is_(False)))).scalars()
-    )
+    incidents = list((await db.execute(select(Incident).where(Incident.is_archived.is_(False)))).scalars())
     for inc in incidents:
         ws = inc.map_workspace_json or {}
         for t in due_trupps(ws, doctrine, now_ms):
@@ -210,9 +204,7 @@ async def check_and_push(db: AsyncSession, now_ms: float | None = None) -> int:
             r.row_json
             for r in (
                 await db.execute(
-                    select(JournalEntry)
-                    .where(JournalEntry.incident_id == inc.id)
-                    .order_by(JournalEntry.seq.asc())
+                    select(JournalEntry).where(JournalEntry.incident_id == inc.id).order_by(JournalEntry.seq.asc())
                 )
             ).scalars()
         ]

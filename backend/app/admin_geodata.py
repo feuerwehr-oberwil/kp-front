@@ -148,7 +148,7 @@ def _read_manifest(path: Path) -> list[GeodataManifestEntry]:
     if isinstance(data, dict) and isinstance(data.get("layers"), list):
         data = data["layers"]
     if not isinstance(data, list):
-        _fail(f"ERROR: {path} must be a JSON list of layers (or {{\"layers\": [...]}}).")
+        _fail(f'ERROR: {path} must be a JSON list of layers (or {{"layers": [...]}}).')
     entries: list[GeodataManifestEntry] = []
     seen: set[str] = set()
     for i, item in enumerate(data):
@@ -178,7 +178,11 @@ def _validate_geojson_wgs84(path: Path) -> int:
         _fail(f"ERROR: cannot read GeoJSON {path}: {e}")
     except json.JSONDecodeError as e:
         _fail(f"ERROR: {path} is not valid JSON: {e}")
-    if not isinstance(data, dict) or data.get("type") != "FeatureCollection" or not isinstance(data.get("features"), list):
+    if (
+        not isinstance(data, dict)
+        or data.get("type") != "FeatureCollection"
+        or not isinstance(data.get("features"), list)
+    ):
         _fail(f"ERROR: {path} is not a GeoJSON FeatureCollection.")
     # Sample the first coordinate pair to catch the classic mistake — LV95 E/N (millions of
     # metres) shipped where WGS84 lon/lat is expected. Any |value| > 180 can't be lon/lat.
@@ -265,7 +269,9 @@ async def _write_config(db, ref_layers: list[dict[str, Any]]) -> None:
         row.config_json = normalized
 
 
-async def _load(manifest_path: Path, entries: list[GeodataManifestEntry], feature_counts: dict[str, int]) -> tuple[int, int]:
+async def _load(
+    manifest_path: Path, entries: list[GeodataManifestEntry], feature_counts: dict[str, int]
+) -> tuple[int, int]:
     """Upload file-backed GeoJSON into the store and write referenceLayers into the config.
 
     Returns (datasets_written, layers_written).
@@ -281,7 +287,9 @@ async def _load(manifest_path: Path, entries: list[GeodataManifestEntry], featur
             data = src.read_bytes()
             key = storage.new_key("reference", "-" + ds_id.replace(":", "_"))
             storage.put_bytes(key, data)
-            existing = (await db.execute(select(ReferenceDataset).where(ReferenceDataset.id == ds_id))).scalar_one_or_none()
+            existing = (
+                await db.execute(select(ReferenceDataset).where(ReferenceDataset.id == ds_id))
+            ).scalar_one_or_none()
             if existing is None:
                 existing = ReferenceDataset(id=ds_id, kind="geojson", current_version=1)
                 db.add(existing)
@@ -331,7 +339,9 @@ def _push(
             cfg = c.get("/api/config")
             if cfg.status_code != 200:
                 _fail(f"ERROR: GET /api/config failed ({cfg.status_code}): {cfg.text[:200]}")
-            print(f"OK (dry-run): authenticated to {base}; would upload {len(files)} file(s) and write {len(entries)} layer(s). Nothing written.")
+            print(
+                f"OK (dry-run): authenticated to {base}; would upload {len(files)} file(s) and write {len(entries)} layer(s). Nothing written."
+            )
             return 0, 0
         uploaded = 0
         for e in files:
@@ -401,7 +411,11 @@ async def _amain(argv: list[str]) -> int:
     p_push = sub.add_parser("push", help="upload GeoJSON + config to a RUNNING deployment via its API")
     p_push.add_argument("manifest")
     p_push.add_argument("--base", default=os.environ.get("KP_BASE_URL"), help="deployment base URL (env KP_BASE_URL)")
-    p_push.add_argument("--admin-secret", default=os.environ.get("KP_ADMIN_SECRET"), help="deployment ADMIN_SECRET (env KP_ADMIN_SECRET)")
+    p_push.add_argument(
+        "--admin-secret",
+        default=os.environ.get("KP_ADMIN_SECRET"),
+        help="deployment ADMIN_SECRET (env KP_ADMIN_SECRET)",
+    )
     p_push.add_argument("--dry-run", action="store_true", help="authenticate + report only, do not upload/write")
     sub.add_parser("show", help="print the stored referenceLayers")
 
@@ -431,7 +445,9 @@ async def _amain(argv: list[str]) -> int:
             print(f"OK: wrote {layers} referenceLayer(s) into deployment_config id=1 (config-only; files untouched).")
             return 0
         ds, layers = await _load(path, entries, counts)
-        print(f"OK: wrote {ds} dataset(s) to the reference store and {layers} referenceLayer(s) into deployment_config id=1.")
+        print(
+            f"OK: wrote {ds} dataset(s) to the reference store and {layers} referenceLayer(s) into deployment_config id=1."
+        )
         return 0
     if args.cmd == "push":
         if not args.base or not args.admin_secret:

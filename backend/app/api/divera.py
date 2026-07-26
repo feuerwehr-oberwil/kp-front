@@ -51,7 +51,10 @@ async def webhook(
     if em is not None:
         inc = await divera_svc.maybe_auto_open(db, em)
         await notify_new_alarm(
-            db, tag=f"divera-{payload.id}", title=payload.title, address=payload.address,
+            db,
+            tag=f"divera-{payload.id}",
+            title=payload.title,
+            address=payload.address,
             target=None if inc else "divera",
         )
     return {"ok": True, "new": em is not None, "incident_id": str(inc.id) if inc else None}
@@ -86,9 +89,7 @@ async def take(
 ) -> Incident:
     if await is_demo_deployment(db):
         raise HTTPException(status_code=403, detail="In der Demo können keine neuen Einsätze übernommen werden.")
-    em = (
-        await db.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == divera_id))
-    ).scalar_one_or_none()
+    em = (await db.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == divera_id))).scalar_one_or_none()
     if em is None:
         raise HTTPException(status_code=404, detail="Alarm nicht im Pool")
     if em.is_taken:
@@ -139,11 +140,19 @@ async def take(
     em.taken_incident_id = inc.id
 
     await audit.append_event(
-        db, incident_id=inc.id, op_type="incident.create", source="status", user_id=user.id,
+        db,
+        incident_id=inc.id,
+        op_type="incident.create",
+        source="status",
+        user_id=user.id,
         payload={"title": inc.title, "source": "divera"},
     )
     await audit.append_event(
-        db, incident_id=inc.id, op_type="divera.update", source="divera", user_id=user.id,
+        db,
+        incident_id=inc.id,
+        op_type="divera.update",
+        source="divera",
+        user_id=user.id,
         payload={"divera_id": em.divera_id, "geocoded": geocoded},
     )
     from ..webhooks import notify_incident_created
@@ -169,9 +178,7 @@ async def attach(
     routing (`/api/alarms/milestones`) follows it there via `taken_incident_id`.
     The incident's own title/address/coords are deliberately NOT touched — the
     alarm's Meldung lands as a Verlauf row instead."""
-    em = (
-        await db.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == divera_id))
-    ).scalar_one_or_none()
+    em = (await db.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == divera_id))).scalar_one_or_none()
     if em is None:
         raise HTTPException(status_code=404, detail="Alarm nicht im Pool")
     if em.is_taken:
@@ -197,7 +204,11 @@ async def attach(
 
     await append_system_row(db, inc.id, icon="bell", text=text)
     await audit.append_event(
-        db, incident_id=inc.id, op_type="divera.update", source="divera", user_id=user.id,
+        db,
+        incident_id=inc.id,
+        op_type="divera.update",
+        source="divera",
+        user_id=user.id,
         payload={"divera_id": em.divera_id, "attached": True},
     )
     return {"ok": True, "incident_id": str(inc.id)}
@@ -205,9 +216,7 @@ async def attach(
 
 @router.delete("/pool/{divera_id}", status_code=200)
 async def archive(divera_id: int, _user: CurrentEditor, db: AsyncSession = Depends(get_db)) -> dict:
-    em = (
-        await db.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == divera_id))
-    ).scalar_one_or_none()
+    em = (await db.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == divera_id))).scalar_one_or_none()
     if em is None:
         raise HTTPException(status_code=404, detail="Alarm nicht im Pool")
     em.is_archived = True

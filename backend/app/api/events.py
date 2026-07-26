@@ -57,8 +57,13 @@ async def ingest_events(
     out = []
     for e in body.events:
         ev = await audit.append_event(
-            db, incident_id=incident_id, op_type=e.op_type, source="client",
-            payload=e.payload, user_id=user.id, occurred_at=e.occurred_at,
+            db,
+            incident_id=incident_id,
+            op_type=e.op_type,
+            source="client",
+            payload=e.payload,
+            user_id=user.id,
+            occurred_at=e.occurred_at,
         )
         out.append(ev)
     return out

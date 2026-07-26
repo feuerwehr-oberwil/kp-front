@@ -57,7 +57,8 @@ def _validate_checklist_template(data: bytes) -> None:
     has_entries = isinstance(tpl.get("entries"), list) and tpl["entries"]
     if bool(has_phases) == bool(has_entries):
         raise HTTPException(
-            status_code=422, detail="Checkliste braucht genau eines von 'phases' (action/rapport) oder 'entries' (reference)"
+            status_code=422,
+            detail="Checkliste braucht genau eines von 'phases' (action/rapport) oder 'entries' (reference)",
         )
 
 
@@ -156,7 +157,9 @@ async def replace_reference(
                 status_code=415,
                 detail=f"Dateityp {content_type!r} nicht erlaubt (Checklisten-Diagramm erwartet ein Bild)",
             )
-    elif content_type not in _ALLOWED_REFERENCE_TYPES and not (content_type == "application/octet-stream" and is_json_slot):
+    elif content_type not in _ALLOWED_REFERENCE_TYPES and not (
+        content_type == "application/octet-stream" and is_json_slot
+    ):
         raise HTTPException(
             status_code=415,
             detail=f"Dateityp {content_type!r} nicht erlaubt (erwartet: PDF oder GeoJSON/JSON)",

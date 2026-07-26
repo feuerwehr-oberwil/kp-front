@@ -31,8 +31,12 @@ async def stats_secret(db_session):
 
 WS = {
     "attendance": {
-        "p1": {"status": "left", "checkedInAt": "2026-03-01T14:00:00Z", "leftAt": "2026-03-01T16:30:00Z",
-               "displayNameSnapshot": "Meier Anna"},
+        "p1": {
+            "status": "left",
+            "checkedInAt": "2026-03-01T14:00:00Z",
+            "leftAt": "2026-03-01T16:30:00Z",
+            "displayNameSnapshot": "Meier Anna",
+        },
         "p2": {"status": "present", "checkedInAt": "2026-03-01T14:05:00Z", "displayNameSnapshot": "Huber Beat"},
     },
     # append-only running totals: the LATER Ölbinder entry wins; the zeroed line drops out
@@ -43,8 +47,11 @@ WS = {
         {"id": "m4", "label": "Handlöscher", "unit": "Stk", "menge": 0, "at": "2026-03-01T15:30:00Z"},
     ],
     "reportMeta": {
-        "endedAt": "2026-03-01T16:45:00Z", "ausgeruecktAt": "2026-03-01T14:03:00Z",
-        "einsatzleiter": "Maj Muster", "kontaktperson": "Frau Beispiel", "summary": "Öl gebunden.",
+        "endedAt": "2026-03-01T16:45:00Z",
+        "ausgeruecktAt": "2026-03-01T14:03:00Z",
+        "einsatzleiter": "Maj Muster",
+        "kontaktperson": "Frau Beispiel",
+        "summary": "Öl gebunden.",
         "partnerContacts": [{"org": "Polizei", "name": "Wm Graf"}],
     },
     "entities": [{"id": "e1"}],  # operational blob content must never leak into the export
@@ -69,8 +76,12 @@ async def test_stats_rejects_wrong_token(client, stats_secret):
 
 
 async def test_stats_record_shape(client, stats_secret, db_session):
-    inc = _incident(started_at=datetime(2026, 3, 1, 13, 55, tzinfo=UTC), map_workspace_json=WS,
-                    address="Hauptstrasse 1", type="Elementarereignisse")
+    inc = _incident(
+        started_at=datetime(2026, 3, 1, 13, 55, tzinfo=UTC),
+        map_workspace_json=WS,
+        address="Hauptstrasse 1",
+        type="Elementarereignisse",
+    )
     db_session.add(inc)
     await db_session.commit()
 

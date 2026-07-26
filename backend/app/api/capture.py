@@ -56,9 +56,7 @@ router = APIRouter(prefix="/capture", tags=["capture"], dependencies=[Depends(_r
 
 
 async def _config_row(db: AsyncSession) -> DeploymentConfig:
-    row = (
-        await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))
-    ).scalar_one_or_none()
+    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     if row is None:
         row = DeploymentConfig(id=1, config_json=None)
         db.add(row)
@@ -93,9 +91,7 @@ async def disable_capture(_admin: CurrentAdmin, db: AsyncSession = Depends(get_d
 
 
 async def _check_token(db: AsyncSession, request: Request, header_token: str | None) -> None:
-    row = (
-        await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))
-    ).scalar_one_or_none()
+    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     expected = row.capture_secret if row else None
     if not expected:
         # Fail CLOSED: no poster secret configured → the whole capture surface is off.
@@ -154,9 +150,7 @@ async def capture_roster(
     """Active Mannschaft for the attendance checklist + «Wer erfasst?» attribution picker."""
     await _check_token(db, request, x_capture_token)
     rows = (
-        await db.execute(
-            select(Personnel).where(Personnel.is_active.is_(True)).order_by(Personnel.display_name)
-        )
+        await db.execute(select(Personnel).where(Personnel.is_active.is_(True)).order_by(Personnel.display_name))
     ).scalars()
     return list(rows)
 
@@ -353,9 +347,7 @@ async def capture_read_journal(
 
     rows = (
         await db.execute(
-            sa_select(JournalEntry)
-            .where(JournalEntry.incident_id == incident_id)
-            .order_by(JournalEntry.seq.asc())
+            sa_select(JournalEntry).where(JournalEntry.incident_id == incident_id).order_by(JournalEntry.seq.asc())
         )
     ).scalars()
     entries = [{"seq": r.seq, "row": r.row_json} for r in rows]
@@ -387,8 +379,6 @@ async def capture_append_journal(
         latest = accepted[-1]["seq"]
     else:
         latest = (
-            await db.execute(
-                select(sa_func.max(JournalEntry.seq)).where(JournalEntry.incident_id == incident_id)
-            )
+            await db.execute(select(sa_func.max(JournalEntry.seq)).where(JournalEntry.incident_id == incident_id))
         ).scalar_one() or 0
     return JournalPage(entries=accepted, latest_seq=latest)

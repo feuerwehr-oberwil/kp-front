@@ -75,8 +75,11 @@ async def intake(
         started_at=payload.started_at,
     )
     await notify_new_alarm(
-        db, tag=f"alarm-{payload.source}-{payload.source_id}", title=inc.title,
-        address=inc.address, target=None,
+        db,
+        tag=f"alarm-{payload.source}-{payload.source_id}",
+        title=inc.title,
+        address=inc.address,
+        target=None,
     )
     return AlarmOut(incident_id=inc.id, created=True)
 
@@ -168,9 +171,7 @@ async def milestones(
     if payload.divera_id is not None:
         inc = (
             await db.execute(
-                select(Incident).where(
-                    Incident.source == "divera", Incident.source_ref == str(payload.divera_id)
-                )
+                select(Incident).where(Incident.source == "divera", Incident.source_ref == str(payload.divera_id))
             )
         ).scalar_one_or_none()
         if inc is None:  # compatibility with incidents created before the provenance migration
@@ -183,9 +184,7 @@ async def milestones(
             # dispatch's milestones land where the crew actually works (2026-07-15: PIO's
             # times went to a duplicate incident because each Divera alarm routed itself).
             em = (
-                await db.execute(
-                    select(DiveraEmergency).where(DiveraEmergency.divera_id == payload.divera_id)
-                )
+                await db.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == payload.divera_id))
             ).scalar_one_or_none()
             if em is not None and em.taken_incident_id is not None:
                 inc = await db.get(Incident, em.taken_incident_id)
@@ -202,7 +201,9 @@ async def milestones(
 
     new_ws, changed, journal_texts = apply_milestones(
         inc.map_workspace_json if isinstance(inc.map_workspace_json, dict) else None,
-        payload, group_labels, vehicle_labels,
+        payload,
+        group_labels,
+        vehicle_labels,
     )
     if changed:
         # Server-side blob write: bump the rev so polling clients pick it up and merge.

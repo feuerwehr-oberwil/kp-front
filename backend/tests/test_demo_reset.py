@@ -14,8 +14,11 @@ NOW = datetime(2026, 7, 19, 12, 0, 0, tzinfo=UTC)
 SCENE = {
     "entities": [{"id": "brand", "kind": "symbol", "coord": [7.57, 47.52]}],
     "drawings": [{"id": "d1", "kind": "line", "coords": [[7.57, 47.52]]}],
-    "board": {"gebaeude": [{"id": "r1", "t": "16:24", "truppId": "trupp1",
-                            "trail": [{"t": "16:24", "x": 0.4, "y": 0.5, "floor": 1}]}]},
+    "board": {
+        "gebaeude": [
+            {"id": "r1", "t": "16:24", "truppId": "trupp1", "trail": [{"t": "16:24", "x": 0.4, "y": 0.5, "floor": 1}]}
+        ]
+    },
 }
 
 
@@ -103,18 +106,20 @@ async def test_reset_seeds_resolvable_attendance(session_factory, monkeypatch):
     await dr.reset()
     async with session_factory() as db:
         pids = set((await db.execute(text("select cast(id as text) from personnel"))).scalars().all())
-        ws = (await db.execute(text(
-            "select map_workspace_json from incidents order by started_at desc limit 1"
-        ))).scalar_one()
+        ws = (
+            await db.execute(text("select map_workspace_json from incidents order by started_at desc limit 1"))
+        ).scalar_one()
     if isinstance(ws, str):  # sqlite (test default) returns JSONB as text via raw SQL; pg gives a dict
         ws = json.loads(ws)
     att = ws["attendance"]
     assert "None" not in att
     assert len(att) == 10
+
     # every present person resolves to a real roster row (normalize UUID text: sqlite's raw-SQL
     # cast can drop hyphens vs Python's str(uuid), so compare hyphen-insensitively)
     def _norm(s: str) -> str:
         return s.replace("-", "").lower()
+
     assert {_norm(k) for k in att} <= {_norm(p) for p in pids}
 
 
@@ -127,8 +132,11 @@ async def test_reset_keeps_objects_when_not_wiping(session_factory, monkeypatch)
 
     monkeypatch.setattr(dr, "async_session_maker", session_factory)
     async with session_factory() as db:
-        db.add(ObjectSite(name="Schloss Bottmingen", address="Schlossgasse 9, 4103 Bottmingen",
-                          lat=47.5237186, lng=7.5703454))
+        db.add(
+            ObjectSite(
+                name="Schloss Bottmingen", address="Schlossgasse 9, 4103 Bottmingen", lat=47.5237186, lng=7.5703454
+            )
+        )
         await db.commit()
 
     # in-process cadence: incident/roster reseeded, objects retained

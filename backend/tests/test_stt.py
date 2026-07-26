@@ -30,6 +30,7 @@ def stt_configured(monkeypatch, session_factory):
     monkeypatch.setattr(settings, "stt_base_url", "https://stt.example")
     # the background job opens its own session — point it at the test loop's factory
     import app.database as database_mod
+
     monkeypatch.setattr(database_mod, "async_session_maker", session_factory)
 
 
@@ -76,6 +77,7 @@ async def test_transcribe_roundtrip_and_confirm(client, editor, stt_configured, 
             {"start": 240.0, "end": 251.0, "text": "Trupp 1 an Front: Zimmerbrand Küche."},
             {"start": 900.0, "end": 905.5, "text": "Front an Ambulanz: Übergabe Patientin."},
         ]
+
     monkeypatch.setattr(audio_mod, "transcribe", fake_transcribe)
     await _login(client, editor)
     media_id = await _upload_audio(client)
@@ -95,8 +97,11 @@ async def test_transcribe_roundtrip_and_confirm(client, editor, stt_configured, 
     assert p.status_code == 200
     body = (await client.get(f"/api/media/{media_id}/transcription")).json()
     assert body["segments"][0] == {
-        "start": 240.0, "end": 251.0, "text": "Trupp 1 an Front: Zimmerbrand Küche.",
-        "status": "confirmed", "rowId": "e123-p0",
+        "start": 240.0,
+        "end": 251.0,
+        "text": "Trupp 1 an Front: Zimmerbrand Küche.",
+        "status": "confirmed",
+        "rowId": "e123-p0",
     }
     # post-confirm text correction stays possible and syncs to the segment
     p = await client.patch(
@@ -108,20 +113,17 @@ async def test_transcribe_roundtrip_and_confirm(client, editor, stt_configured, 
     assert body["segments"][0]["text"].endswith("korrigiert.")
     assert body["segments"][0]["rowId"] == "e123-p0"  # earlier rowId survives
     # dismiss the second
-    p = await client.patch(
-        f"/api/media/{media_id}/transcription/segments/1", json={"status": "dismissed"}
-    )
+    p = await client.patch(f"/api/media/{media_id}/transcription/segments/1", json={"status": "dismissed"})
     assert p.status_code == 200
     # out of range → 404
-    p = await client.patch(
-        f"/api/media/{media_id}/transcription/segments/2", json={"status": "dismissed"}
-    )
+    p = await client.patch(f"/api/media/{media_id}/transcription/segments/2", json={"status": "dismissed"})
     assert p.status_code == 404
 
 
 async def test_engine_failure_lands_as_failed(client, editor, stt_configured, monkeypatch):
     async def boom(_path):
         raise audio_mod.SttError("STT-Server: HTTP 500")
+
     monkeypatch.setattr(audio_mod, "transcribe", boom)
     await _login(client, editor)
     media_id = await _upload_audio(client)
@@ -129,9 +131,11 @@ async def test_engine_failure_lands_as_failed(client, editor, stt_configured, mo
     body = await _poll_done(client, media_id)
     assert body["status"] == "failed"
     assert "HTTP 500" in body["error"]
+
     # a re-run replaces the failed job
     async def ok(_path):
         return [{"start": 0.0, "end": 1.0, "text": "Neu."}]
+
     monkeypatch.setattr(audio_mod, "transcribe", ok)
     assert (await client.post(f"/api/media/{media_id}/transcribe")).status_code == 202
     body = await _poll_done(client, media_id)
@@ -141,6 +145,7 @@ async def test_engine_failure_lands_as_failed(client, editor, stt_configured, mo
 async def test_viewer_reads_but_cannot_trigger_or_patch(client, editor, viewer, stt_configured, monkeypatch):
     async def fake(_path):
         return [{"start": 0.0, "end": 1.0, "text": "x"}]
+
     monkeypatch.setattr(audio_mod, "transcribe", fake)
     await _login(client, editor)
     media_id = await _upload_audio(client)
@@ -150,16 +155,16 @@ async def test_viewer_reads_but_cannot_trigger_or_patch(client, editor, viewer, 
     await _login(client, viewer)
     assert (await client.get(f"/api/media/{media_id}/transcription")).status_code == 200
     assert (await client.post(f"/api/media/{media_id}/transcribe")).status_code == 403
-    r = await client.patch(
-        f"/api/media/{media_id}/transcription/segments/0", json={"status": "confirmed"}
-    )
+    r = await client.patch(f"/api/media/{media_id}/transcription/segments/0", json={"status": "confirmed"})
     assert r.status_code == 403
 
 
 async def test_orphaned_running_job_reports_failed(client, editor, stt_configured, monkeypatch):
     """Status 'running' in the DB but no in-process task = server restarted mid-job."""
+
     async def fake(_path):
         return [{"start": 0.0, "end": 1.0, "text": "x"}]
+
     monkeypatch.setattr(audio_mod, "transcribe", fake)
     await _login(client, editor)
     media_id = await _upload_audio(client)
@@ -190,6 +195,7 @@ async def test_repeat_transcribe_represents_without_engine_rerun(client, editor,
     (200, POST → cache-immune), re-opens dismissed ones, keeps confirmed ones confirmed,
     and does NOT call the engine again."""
     calls = 0
+
     async def fake(_path):
         nonlocal calls
         calls += 1
@@ -197,22 +203,23 @@ async def test_repeat_transcribe_represents_without_engine_rerun(client, editor,
             {"start": 1.0, "end": 2.0, "text": "eins"},
             {"start": 3.0, "end": 4.0, "text": "zwei"},
         ]
+
     monkeypatch.setattr(audio_mod, "transcribe", fake)
     await _login(client, editor)
     media_id = await _upload_audio(client)
     assert (await client.post(f"/api/media/{media_id}/transcribe")).status_code == 202
     await _poll_done(client, media_id)
-    await client.patch(f"/api/media/{media_id}/transcription/segments/0",
-                       json={"status": "confirmed", "rowId": "e1-p0"})
-    await client.patch(f"/api/media/{media_id}/transcription/segments/1",
-                       json={"status": "dismissed"})
+    await client.patch(
+        f"/api/media/{media_id}/transcription/segments/0", json={"status": "confirmed", "rowId": "e1-p0"}
+    )
+    await client.patch(f"/api/media/{media_id}/transcription/segments/1", json={"status": "dismissed"})
 
     r = await client.post(f"/api/media/{media_id}/transcribe")
     assert r.status_code == 200
     body = r.json()
     assert body["status"] == "done"
-    assert body["segments"][0]["status"] == "confirmed"   # never re-opened (dupe guard)
-    assert body["segments"][1]["status"] == "open"        # dismissed → suggested again
+    assert body["segments"][0]["status"] == "confirmed"  # never re-opened (dupe guard)
+    assert body["segments"][1]["status"] == "open"  # dismissed → suggested again
     assert calls == 1  # the engine ran exactly once
 
 
@@ -230,6 +237,7 @@ async def test_api_json_is_no_store_but_media_stays_cacheable(client, editor):
 async def test_delete_transcription_resets_to_none(client, editor, viewer, stt_configured, monkeypatch):
     async def fake(_path):
         return [{"start": 0.0, "end": 1.0, "text": "x"}]
+
     monkeypatch.setattr(audio_mod, "transcribe", fake)
     await _login(client, editor)
     media_id = await _upload_audio(client)
@@ -261,20 +269,29 @@ async def test_transcribe_adapter_parses_verbose_json(monkeypatch, tmp_path):
     async def fake_reencode(_src, dst):
         with open(dst, "wb") as fh:
             fh.write(b"ogg")
+
     monkeypatch.setattr(audio_mod, "reencode_for_stt", fake_reencode)
 
     class FakeResponse:
         status_code = 200
+
         def json(self):
-            return {"text": "alles", "segments": [
-                {"start": 1.0, "end": 2.0, "text": "  Hallo.  "},
-                {"start": 2.0, "end": 3.0, "text": "   "},
-            ]}
+            return {
+                "text": "alles",
+                "segments": [
+                    {"start": 1.0, "end": 2.0, "text": "  Hallo.  "},
+                    {"start": 2.0, "end": 3.0, "text": "   "},
+                ],
+            }
 
     class FakeClient:
         def __init__(self, **_kw): ...
-        async def __aenter__(self): return self
-        async def __aexit__(self, *_a): return False
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_a):
+            return False
+
         async def post(self, url, **kw):
             assert url == "https://stt.example/v1/audio/transcriptions"
             assert kw["headers"]["Authorization"] == "Bearer k"
@@ -282,6 +299,7 @@ async def test_transcribe_adapter_parses_verbose_json(monkeypatch, tmp_path):
             return FakeResponse()
 
     import httpx
+
     monkeypatch.setattr(httpx, "AsyncClient", FakeClient)
     src = tmp_path / "in.m4a"
     src.write_bytes(b"x")

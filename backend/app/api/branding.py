@@ -50,9 +50,7 @@ def _ext_for(filename: str | None, content_type: str) -> str:
 
 
 async def _load_row(db: AsyncSession) -> DeploymentConfig:
-    row = (
-        await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))
-    ).scalar_one_or_none()
+    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     if row is None:
         row = DeploymentConfig(id=1, config_json={})
         db.add(row)
@@ -90,8 +88,7 @@ async def upload_branding(
     if content_type not in _ALLOWED:
         raise HTTPException(
             status_code=415,
-            detail=f"Dateityp {content_type or 'unbekannt'!r} nicht erlaubt "
-            f"(erlaubt: {', '.join(sorted(_ALLOWED))})",
+            detail=f"Dateityp {content_type or 'unbekannt'!r} nicht erlaubt (erlaubt: {', '.join(sorted(_ALLOWED))})",
         )
     data = await file.read()
     if len(data) > settings.max_upload_mb * 1024 * 1024:

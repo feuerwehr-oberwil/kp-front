@@ -23,9 +23,7 @@ logger = logging.getLogger(__name__)
 
 async def get_config_model(db: AsyncSession) -> DeploymentConfigIn:
     """The full validated deployment config; safe defaults on a missing/corrupt row."""
-    row = (
-        await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))
-    ).scalar_one_or_none()
+    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     raw = row.config_json if (row and row.config_json) else {}
     try:
         return DeploymentConfigIn.model_validate(raw)
@@ -60,9 +58,7 @@ def passes_auto_open_filter(cfg: AlarmsConfig, *, title: str, text: str | None, 
 
 async def find_by_source_ref(db: AsyncSession, source: str, source_ref: str) -> Incident | None:
     return (
-        await db.execute(
-            select(Incident).where(Incident.source == source, Incident.source_ref == source_ref)
-        )
+        await db.execute(select(Incident).where(Incident.source == source, Incident.source_ref == source_ref))
     ).scalar_one_or_none()
 
 
@@ -120,7 +116,11 @@ async def create_incident_from_alarm(
     db.add(inc)
     await db.flush()
     await audit.append_event(
-        db, incident_id=inc.id, op_type="incident.create", source="status", user_id=None,
+        db,
+        incident_id=inc.id,
+        op_type="incident.create",
+        source="status",
+        user_id=None,
         payload={"title": inc.title, "source": inc.source, "auto": True},
     )
     from .webhooks import notify_incident_created  # lazy — avoids an import cycle
@@ -157,11 +157,13 @@ async def auto_archive_sweep(db: AsyncSession) -> int:
         if inc.closed_at is None:
             inc.closed_at = datetime.now(UTC)
         await audit.append_event(
-            db, incident_id=inc.id, op_type="status.change", source="status", user_id=None,
+            db,
+            incident_id=inc.id,
+            op_type="status.change",
+            source="status",
+            user_id=None,
             payload={"archived": True, "auto": True},
         )
-        await append_system_row(
-            db, inc.id, icon="flag", text="Einsatz automatisch archiviert (nicht verwendet)"
-        )
+        await append_system_row(db, inc.id, icon="flag", text="Einsatz automatisch archiviert (nicht verwendet)")
     logger.info("Auto-archive sweep: %d untouched incident(s) archived", len(rows))
     return len(rows)

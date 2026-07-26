@@ -157,7 +157,9 @@ async def get_editor_or_admin(
                 # a kiosk viewer with an admin session unlocked still counts as admin
                 if await _admin_session_valid(admin_session):
                     return None
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Bearbeiter-Berechtigung erforderlich")
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN, detail="Bearbeiter-Berechtigung erforderlich"
+                )
             return user
     if await _admin_session_valid(admin_session):
         return None

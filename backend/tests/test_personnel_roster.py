@@ -73,11 +73,7 @@ async def test_patch_missing_404(client, editor):
 
 async def test_import_csv_happy_path(client, editor):
     await _login(client, editor)
-    csv_text = (
-        "name,divera_id\n"
-        "Meier Hans,1001\n"
-        "Müller Anna,\n"
-    )
+    csv_text = "name,divera_id\nMeier Hans,1001\nMüller Anna,\n"
     files = {"file": ("roster.csv", csv_text.encode("utf-8"), "text/csv")}
     r = await client.post("/api/personnel/import-csv", files=files)
     assert r.status_code == 200, r.text
@@ -123,7 +119,8 @@ async def test_import_csv_accepts_opaque_provider_identity(client, editor):
     r = await client.post("/api/personnel/import-csv", files=files)
     assert r.status_code == 200, r.text
     matching = [
-        p for p in (await client.get("/api/personnel")).json()
+        p
+        for p in (await client.get("/api/personnel")).json()
         if any(i["external_id"] == "crew-7a" for i in p["external_identities"])
     ]
     assert len(matching) == 1
@@ -135,7 +132,7 @@ async def test_import_csv_bad_row(client, editor):
     csv_text = (
         "name,divera_id\n"
         "Gut Gustav,5\n"
-        ",9\n"               # missing name → skipped
+        ",9\n"  # missing name → skipped
         "Falsch Franz,abc\n"  # non-int divera_id → skipped
     )
     files = {"file": ("roster.csv", csv_text.encode("utf-8"), "text/csv")}
@@ -150,12 +147,7 @@ async def test_import_csv_bad_row(client, editor):
 async def test_import_csv_with_rank_column(client, editor):
     await _login(client, editor)
     # rank given by label / abbr / key — all map to the config rank key; unknown → null + note
-    csv_text = (
-        "name,divera_id,rank\n"
-        "Meier Hans,1001,Hauptmann\n"
-        "Müller Anna,,Fwm\n"
-        "Weber Urs,,Admiral\n"
-    )
+    csv_text = "name,divera_id,rank\nMeier Hans,1001,Hauptmann\nMüller Anna,,Fwm\nWeber Urs,,Admiral\n"
     files = {"file": ("roster.csv", csv_text.encode("utf-8"), "text/csv")}
     r = await client.post("/api/personnel/import-csv", files=files)
     assert r.status_code == 200, r.text

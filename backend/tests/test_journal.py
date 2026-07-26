@@ -107,9 +107,7 @@ async def test_validation_and_404(client, editor):
 
     missing = uuid.uuid4()
     assert (await client.get(f"/api/incidents/{missing}/journal")).status_code == 404
-    assert (
-        await client.post(f"/api/incidents/{missing}/journal", json={"entries": _rows(1)})
-    ).status_code == 404
+    assert (await client.post(f"/api/incidents/{missing}/journal", json={"entries": _rows(1)})).status_code == 404
 
 
 async def test_archive_stamps_einsatzende_and_documents_the_boundary(client, editor):

@@ -9,6 +9,7 @@ admin-validated config so an admin push never wipes it.
 
 GET is public (viewers measure too, and it must be offline-cacheable at boot); PUT is editor-only.
 """
+
 import logging
 
 from fastapi import APIRouter, Depends
@@ -43,9 +44,7 @@ class PlanScales(BaseModel):
 
 
 async def _row(db: AsyncSession) -> DeploymentConfig | None:
-    return (
-        await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))
-    ).scalar_one_or_none()
+    return (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
 
 
 @router.get("", response_model=PlanScales)

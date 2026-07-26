@@ -62,9 +62,7 @@ async def get_config(db: AsyncSession = Depends(get_db)) -> DeploymentConfigOut:
     Last-good fallback: if the persisted ``config_json`` is missing or fails validation
     (e.g. a hand-edited bad row), serve a safe empty config and log a warning. Never raises.
     """
-    row = (
-        await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))
-    ).scalar_one_or_none()
+    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     raw = row.config_json if (row and row.config_json) else {}
     try:
         doc = DeploymentConfigIn.model_validate(raw)
@@ -82,16 +80,12 @@ async def get_config_meta(
     """Admin-only audit metadata for the singleton config row: when it was last saved
     and who saved it (resolved display name). Returns plain nulls on a fresh / unstamped row.
     """
-    row = (
-        await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))
-    ).scalar_one_or_none()
+    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     if row is None:
         return {"updated_at": None, "updated_by_name": None}
     name: str | None = None
     if row.updated_by is not None:
-        name = (
-            await db.execute(select(User.display_name).where(User.id == row.updated_by))
-        ).scalar_one_or_none()
+        name = (await db.execute(select(User.display_name).where(User.id == row.updated_by))).scalar_one_or_none()
     updated_at = row.updated_at.isoformat() if row.updated_at else None
     return {"updated_at": updated_at, "updated_by_name": name}
 
@@ -107,9 +101,7 @@ async def put_config(
     singleton row, stamps ``updated_by`` (the admin's user when driving the UI, NULL for
     a CLI push), and returns the same projection as GET.
     """
-    row = (
-        await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))
-    ).scalar_one_or_none()
+    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     # Persist the normalized document (defaults filled in) so GET round-trips consistently.
     doc_json = body.model_dump(mode="json")
     actor_id = actor.id if actor else None

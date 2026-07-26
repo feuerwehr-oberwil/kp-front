@@ -34,8 +34,7 @@ _MEDIA_URL = re.compile(r"^/api/media/([0-9a-fA-F-]{36})$")
 _REFERENCE_URL = re.compile(r"^/api/reference/([^/?#]+)$")
 
 
-async def resolve_report_assets(db: AsyncSession, data: ReportPayload,
-                                figs: dict[str, bytes]) -> dict[str, bytes]:
+async def resolve_report_assets(db: AsyncSession, data: ReportPayload, figs: dict[str, bytes]) -> dict[str, bytes]:
     """Load the server-owned assets the composer needs: journal photos from the media
     store (keyed `photo:<url>` into `figs`) and plan PDFs from the reference store
     (returned as url→bytes). Missing/foreign assets are skipped — the rapport ships
@@ -71,14 +70,17 @@ async def resolve_report_assets(db: AsyncSession, data: ReportPayload,
     return plan_pdfs
 
 
-async def compose_report_from_payload(db: AsyncSession, payload: str,
-                                      figs: dict[str, bytes] | None = None) -> tuple[bytes, ReportPayload]:
+async def compose_report_from_payload(
+    db: AsyncSession, payload: str, figs: dict[str, bytes] | None = None
+) -> tuple[bytes, ReportPayload]:
     """Validate the JSON `payload` and compose the Rapport-PDF — the one path shared by
     the download endpoints (editor + capture) and the print-relay enqueue endpoints."""
     try:
         data = ReportPayload.model_validate_json(payload)
     except ValidationError as e:
-        raise HTTPException(status_code=422, detail=f"Ungültige Rapport-Daten: {e.errors(include_url=False)[:5]}") from e
+        raise HTTPException(
+            status_code=422, detail=f"Ungültige Rapport-Daten: {e.errors(include_url=False)[:5]}"
+        ) from e
     figs = figs if figs is not None else {}
     plan_pdfs = await resolve_report_assets(db, data, figs)
     try:

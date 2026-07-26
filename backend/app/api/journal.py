@@ -73,9 +73,7 @@ async def append_rows(db: AsyncSession, incident_id: uuid.UUID, entries: list[di
     )
     next_seq = (
         (
-            await db.execute(
-                select(func.max(JournalEntry.seq)).where(JournalEntry.incident_id == incident_id)
-            )
+            await db.execute(select(func.max(JournalEntry.seq)).where(JournalEntry.incident_id == incident_id))
         ).scalar_one()
         or 0
     ) + 1
@@ -120,8 +118,6 @@ async def append_journal(
         latest = accepted[-1]["seq"]
     else:
         latest = (
-            await db.execute(
-                select(func.max(JournalEntry.seq)).where(JournalEntry.incident_id == incident_id)
-            )
+            await db.execute(select(func.max(JournalEntry.seq)).where(JournalEntry.incident_id == incident_id))
         ).scalar_one() or 0
     return JournalPage(entries=accepted, latest_seq=latest)

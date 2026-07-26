@@ -57,9 +57,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         from .models import DeploymentConfig
 
         async with async_session_maker() as db:
-            row = (
-                await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))
-            ).scalar_one_or_none()
+            row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
         cfg = (row.config_json if (row and row.config_json) else {}) or {}
         identity = cfg.get("identity") or {}
         set_locale(identity.get("locale"))

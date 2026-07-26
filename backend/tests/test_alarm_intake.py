@@ -107,15 +107,12 @@ async def test_intake_zero_coordinate_falls_back_to_geocoder(client, alarm_secre
 
     async def fake_geocode(_addr):
         return (47.524, 7.570)
+
     monkeypatch.setattr(alarms_mod, "geocode", fake_geocode)
     payload = {**PAYLOAD, "source_id": "E-2026-0999", "lat": 0.0, "lng": 0.0, "address": "Bachweg 17, Musterdorf"}
     r = await client.post("/api/alarms?secret=alarm-secret-123", json=payload)
     assert r.status_code == 201
-    inc = (
-        await db_session.execute(
-            select(Incident).where(Incident.source_ref == "E-2026-0999")
-        )
-    ).scalar_one()
+    inc = (await db_session.execute(select(Incident).where(Incident.source_ref == "E-2026-0999"))).scalar_one()
     assert float(inc.lat) == 47.524
     assert float(inc.lng) == 7.570
 
@@ -125,9 +122,7 @@ async def test_intake_rejects_reserved_sources(client, alarm_secret):
     # RESERVED_ALARM_SOURCES. "intake", "operator" and "training" are Rück's; rejecting them
     # here is what makes one dispatch integration portable between the two apps.
     for source in ("manual", "migrated", "divera", "intake", "operator", "training"):
-        r = await client.post(
-            "/api/alarms?secret=alarm-secret-123", json={**PAYLOAD, "source": source}
-        )
+        r = await client.post("/api/alarms?secret=alarm-secret-123", json={**PAYLOAD, "source": source})
         assert r.status_code == 422
 
 
@@ -143,22 +138,16 @@ def webhook_secret(monkeypatch):
 
 async def test_divera_webhook_auto_opens_when_configured(client, webhook_secret, db_session):
     await _set_alarms_config(db_session, {"autoOpen": True})
-    r = await client.post(
-        "/api/divera/webhook", json=DIVERA_PAYLOAD, headers={"X-Webhook-Secret": "hook-secret-123"}
-    )
+    r = await client.post("/api/divera/webhook", json=DIVERA_PAYLOAD, headers={"X-Webhook-Secret": "hook-secret-123"})
     assert r.status_code == 200
     body = r.json()
     assert body["new"] is True
     assert body["incident_id"] is not None
 
-    inc = (
-        await db_session.execute(select(Incident).where(Incident.divera_id == 4712))
-    ).scalar_one()
+    inc = (await db_session.execute(select(Incident).where(Incident.divera_id == 4712))).scalar_one()
     assert inc.auto_opened is True
     assert inc.source == "divera"
-    em = (
-        await db_session.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == 4712))
-    ).scalar_one()
+    em = (await db_session.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == 4712))).scalar_one()
     assert em.is_taken is True
     assert em.taken_incident_id == inc.id
 
@@ -173,9 +162,7 @@ async def test_divera_auto_open_respects_filters(client, webhook_secret, db_sess
     )
     assert r.status_code == 200
     assert r.json()["incident_id"] is None
-    em = (
-        await db_session.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == 4713))
-    ).scalar_one()
+    em = (await db_session.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == 4713))).scalar_one()
     assert em.is_taken is False
 
 
@@ -183,8 +170,12 @@ async def test_divera_auto_open_suppressed_while_incident_running(client, webhoo
     """Split-dispatch guard: with an Einsatz running, a new alarm pools instead of
     auto-opening a duplicate (real split dispatch, 2026-07-15) — take/attach is the human's call."""
     await _set_alarms_config(db_session, {"autoOpen": True})
-    running = Incident(title="Verunreinigung Bachweg", source="divera", status="offen",
-                       started_at=datetime.now(UTC) - timedelta(minutes=10))
+    running = Incident(
+        title="Verunreinigung Bachweg",
+        source="divera",
+        status="offen",
+        started_at=datetime.now(UTC) - timedelta(minutes=10),
+    )
     db_session.add(running)
     await db_session.commit()
 
@@ -195,9 +186,7 @@ async def test_divera_auto_open_suppressed_while_incident_running(client, webhoo
     )
     assert r.status_code == 200
     assert r.json()["incident_id"] is None  # pooled, not opened
-    em = (
-        await db_session.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == 4714))
-    ).scalar_one()
+    em = (await db_session.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == 4714))).scalar_one()
     assert em.is_taken is False
 
 
@@ -205,22 +194,19 @@ async def test_divera_auto_open_ignores_stale_open_incident(client, webhook_secr
     """An open incident older than the 4h running window (unfinished rapport) must not
     suppress auto-open for a genuinely new alarm."""
     await _set_alarms_config(db_session, {"autoOpen": True})
-    stale = Incident(title="Alter Einsatz", source="manual", status="offen",
-                     started_at=datetime.now(UTC) - timedelta(hours=6))
+    stale = Incident(
+        title="Alter Einsatz", source="manual", status="offen", started_at=datetime.now(UTC) - timedelta(hours=6)
+    )
     db_session.add(stale)
     await db_session.commit()
 
-    r = await client.post(
-        "/api/divera/webhook", json=DIVERA_PAYLOAD, headers={"X-Webhook-Secret": "hook-secret-123"}
-    )
+    r = await client.post("/api/divera/webhook", json=DIVERA_PAYLOAD, headers={"X-Webhook-Secret": "hook-secret-123"})
     assert r.status_code == 200
     assert r.json()["incident_id"] is not None
 
 
 async def test_divera_auto_open_off_by_default(client, webhook_secret, db_session):
-    r = await client.post(
-        "/api/divera/webhook", json=DIVERA_PAYLOAD, headers={"X-Webhook-Secret": "hook-secret-123"}
-    )
+    r = await client.post("/api/divera/webhook", json=DIVERA_PAYLOAD, headers={"X-Webhook-Secret": "hook-secret-123"})
     assert r.status_code == 200
     assert r.json()["incident_id"] is None
     n = (await db_session.execute(select(Incident))).scalars().all()
