@@ -70,6 +70,23 @@ def relock() -> None:
     print("  backend/uv.lock       re-locked")
 
 
+def regenerate_openapi() -> None:
+    """The committed contract stamps the version, so a bump drifts it — and
+    backend/tests/test_openapi_committed.py would then fail on the release's own CI run,
+    after the tag is already pushed. Regenerate here rather than leaving it as a step to
+    remember on the one day a year anybody cuts a release."""
+    if not shutil.which("uv"):
+        print("  docs/openapi.json     SKIPPED (uv not on PATH – run `just openapi` yourself)")
+        return
+    subprocess.run(
+        ["uv", "run", "python", "-m", "app.dump_openapi", "../docs/openapi.json"],
+        cwd=ROOT / "backend",
+        check=True,
+        stdout=subprocess.DEVNULL,
+    )
+    print("  docs/openapi.json     regenerated")
+
+
 def bump_changelog(version: str, previous: str) -> None:
     text = CHANGELOG.read_text()
 
@@ -127,6 +144,7 @@ def main() -> None:
     sub_once(CONFIG_PY, r'(?m)^(\s*version: str = )"[^"]+"', rf'\g<1>"{version}"')
     print(f"  backend/app/config.py {previous} → {version}")
     relock()
+    regenerate_openapi()
 
     bump_changelog(version, previous)
 

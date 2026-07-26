@@ -112,10 +112,12 @@ browser. Everything below has been running in production at Feuerwehr Oberwil.
   > already uses are read unchanged. When you do migrate, **stop the old agent first** — two
   > agents polling one queue both claim jobs, so each job prints once, from whichever asked
   > first. See [`tools/PRINT-AGENT.md`](tools/PRINT-AGENT.md).
-- **[`docs/RUNNING-BOTH.md`](docs/RUNNING-BOTH.md)** for stations running both systems on one
-  host: the places two independent stacks collide (ports, variable names that mean different
-  things, alarm secrets), plus a mapping table for the variables the two projects name
-  differently. Kept identical in both repositories.
+- **[`RUNNING-BOTH.md`](https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RUNNING-BOTH.md)**
+  for stations running both systems on one host: the places two independent stacks collide
+  (ports, variable names that mean different things, alarm secrets), plus a mapping table for
+  the variables the two projects name differently. It lives in the kp-rueck repository as a
+  single copy and is linked from here — a second copy drifted within a day, and half-right
+  instructions about a silent port collision are worse than none.
 - **The generic alarm intake reserves the same `source` slugs as KP Rück.** Both now reject the
   union of the two lists, so a station feeding one dispatch system into both apps can't pick a
   name that one accepts and the other rejects.

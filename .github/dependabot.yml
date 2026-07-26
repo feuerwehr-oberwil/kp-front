@@ -26,3 +26,15 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
+
+  # Base images. Added after Node 20 sat three months past its 2026-04-30 end-of-life in the
+  # Dockerfile's build stage without anything proposing the bump: npm, pip and actions were
+  # all watched, and the one dependency a station actually RUNS was not.
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
