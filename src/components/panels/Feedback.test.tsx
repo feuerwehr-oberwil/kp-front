@@ -6,6 +6,7 @@ import { FeedbackSheet } from './FeedbackSheet'
 import { appConfig } from '../../config/appConfig'
 import { readTrouble, type TroubleEvent } from '../../lib/trouble'
 import { submitReport } from '../../lib/feedbackSubmit'
+import { MAX_MESSAGE, readDraft, writeDraft } from '../../lib/feedbackDraft'
 
 // The guarantees worth pinning, because breaking any of them turns a helpful prompt into the
 // thing the 3am tenet forbids:
@@ -74,13 +75,38 @@ describe('FeedbackSheet', () => {
   it('sends nothing on its own — every exit needs a deliberate tap', () => {
     render(<FeedbackSheet onClose={() => {}} />)
     // The invariant is NOT "there is no send button" any more; it is that opening, typing
-    // and reading never transmit. Four exits (close / copy / mail / send), all of them a tap.
-    const labels = [...document.querySelectorAll('.fb-actions button')].map((b) => b.textContent?.trim())
+    // and reading never transmit. Four exits (close / copy / mail / send), all of them a tap —
+    // split across two rows now, so count both.
+    const labels = [...document.querySelectorAll('.fb-alt button, .fb-actions button')]
+      .map((b) => b.textContent?.trim())
     expect(labels).toHaveLength(4)
     expect(labels.join(' ')).toContain(cp.copy)
     expect(labels.join(' ')).toContain(cp.mail)
     expect(labels.join(' ')).toContain(cp.send)
     expect(submitReport).not.toHaveBeenCalled()
+  })
+
+  it('shows what would be sent without needing a tap to reveal it', () => {
+    render(<FeedbackSheet trouble={trouble} onClose={() => {}} />)
+    // Open by default: behind a summary the claim is unread at the moment it matters.
+    expect(document.querySelector('details.fb-tech')?.hasAttribute('open')).toBe(true)
+  })
+
+  it('stops typing at the server cap rather than letting the POST 422', () => {
+    render(<FeedbackSheet onClose={() => {}} />)
+    const input = document.querySelector('.fb-input') as HTMLTextAreaElement
+    // Without this the report is rejected and the operator is told they are offline.
+    expect(input.maxLength).toBe(MAX_MESSAGE)
+  })
+
+  it('will not send an empty report that carries no trouble either', () => {
+    render(<FeedbackSheet onClose={() => {}} />)
+    const send = screen.getByText(cp.send).closest('button') as HTMLButtonElement
+    expect(send.disabled).toBe(true)
+    // ...but a trouble makes even a wordless "yes, this happened to me" worth a row.
+    cleanup()
+    render(<FeedbackSheet trouble={trouble} onClose={() => {}} />)
+    expect((screen.getByText(cp.send).closest('button') as HTMLButtonElement).disabled).toBe(false)
   })
 
   it('does not send while the operator is typing', () => {
@@ -120,6 +146,7 @@ describe('FeedbackSheet — direct send', () => {
   it('shows what the SERVER says it queued, not what the client hoped it sent', async () => {
     mockSubmit.mockResolvedValue({ ok: true, sent: { tags: { install: 'abc-123' } } })
     render(<FeedbackSheet onClose={() => {}} />)
+    fireEvent.change(document.querySelector('.fb-input')!, { target: { value: 'kurz gefragt' } })
     fireEvent.click(screen.getByText(cp.send))
 
     // The echo is the check: a preview written by the sender proves nothing, one returned by
@@ -154,9 +181,45 @@ describe('FeedbackSheet — direct send', () => {
   it('explains a deployment that has outbound switched off, rather than calling it an error', async () => {
     mockSubmit.mockResolvedValue({ ok: false, reason: 'disabled' })
     render(<FeedbackSheet onClose={() => {}} />)
+    fireEvent.change(document.querySelector('.fb-input')!, { target: { value: 'geht nicht' } })
     fireEvent.click(screen.getByText(cp.send))
 
     await waitFor(() => expect(screen.getByText(cp.sendDisabled)).toBeTruthy())
     expect(screen.queryByText(cp.sendFailed)).toBeNull()
+  })
+})
+
+// A stray tap on the backdrop must not cost the operator their words. It still counts as asked
+// — that is the cooldown's job and it is right — but the two behaviours are separable and only
+// one of them should be destructive.
+describe('FeedbackSheet — the draft', () => {
+  it('keeps what was typed when the sheet is closed without sending', () => {
+    render(<FeedbackSheet trouble={trouble} onClose={() => {}} />)
+    fireEvent.change(document.querySelector('.fb-input')!, { target: { value: 'halber Satz' } })
+    fireEvent.click(screen.getByText(cp.close))
+    expect(readDraft()).toBe('halber Satz')
+  })
+
+  it('restores it the next time the sheet opens', () => {
+    writeDraft('halber Satz')
+    render(<FeedbackSheet onClose={() => {}} />)
+    expect((document.querySelector('.fb-input') as HTMLTextAreaElement).value).toBe('halber Satz')
+  })
+
+  it('drops it once the text has actually gone somewhere', async () => {
+    render(<FeedbackSheet trouble={trouble} onClose={() => {}} />)
+    fireEvent.change(document.querySelector('.fb-input')!, { target: { value: 'ist raus' } })
+    fireEvent.click(screen.getByText(cp.send))
+    await waitFor(() => expect(screen.getByText(cp.sentTitle)).toBeTruthy())
+    expect(readDraft()).toBe('')
+  })
+
+  it('keeps it when sending failed — that is exactly when it matters most', async () => {
+    mockSubmit.mockResolvedValue({ ok: false, reason: 'failed' })
+    render(<FeedbackSheet onClose={() => {}} />)
+    fireEvent.change(document.querySelector('.fb-input')!, { target: { value: 'wichtiger Text' } })
+    fireEvent.click(screen.getByText(cp.send))
+    await waitFor(() => expect(screen.getByText(cp.sendFailed)).toBeTruthy())
+    expect(readDraft()).toBe('wichtiger Text')
   })
 })
