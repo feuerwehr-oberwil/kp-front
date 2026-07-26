@@ -2133,6 +2133,11 @@ export const de = {
     editTime: 'Zeit anpassen',
     rankFilterLabel: 'Nach Grad filtern',
     rankAll: 'Alle',
+    // Rückkehr: der dritte Tipp löscht (frei), darum bekommt die Rückkehr einen eigenen Knopf.
+    // Er öffnet einen NEUEN Anwesenheitsblock; der erste behält sein von–bis.
+    backAgain: 'Wieder da',
+    backAgainHint: '{name} ist zurück – neuer Block ab jetzt',
+    blockCount: '{n} Blöcke',
   },
   // Mittel surface (MittelView) — manuelle Materialerfassung für Rapport / Nachschub
   mittel: {

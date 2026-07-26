@@ -7,6 +7,7 @@
 import type { AttendanceEntry, MittelEntry, TimelineEvent } from '../types'
 import type { ReportMeta } from './workspace'
 import type { IncidentMeta, Workspace } from './incidents'
+import { closePresence, currentIntervalIndex, isPresent, openPresence, setIntervalTime } from './attendanceIntervals'
 import { currentLineFor } from './mittel'
 
 // --- pure mutations -------------------------------------------------------------------
@@ -14,18 +15,22 @@ import { currentLineFor } from './mittel'
 export type CaptureAction =
   | { kind: 'cycleAttendance'; personId: string; name: string; vonIso?: string }
   | { kind: 'restoreAttendance'; personId: string; entry: AttendanceEntry }
-  | { kind: 'setTimes'; personId: string; checkedInAt?: string; leftAt?: string }
+  /** correct ONE presence block's von/bis (`index`, default the current one) — not the derived
+   *  checkedInAt/leftAt summary, which is recomputed from the blocks */
+  | { kind: 'setTimes'; personId: string; index?: number; from?: string; to?: string }
   | { kind: 'setMeta'; patch: Partial<ReportMeta> }
   | { kind: 'setMittel'; materialId?: string; label: string; unit: string; sourceId?: string; sourceLabel?: string; menge: number; by: string }
 
 /** frei → anwesend → gegangen → frei. «von» defaults to the ALARM time (`vonIso`, the
  *  field-classification's «Vorschlag ab Alarmzeit») — retro capture at the magazine would
- *  otherwise stamp everyone's arrival near the incident END. «bis» stays the tap moment. */
+ *  otherwise stamp everyone's arrival near the incident END. «bis» stays the tap moment.
+ *  Writes presence BLOCKS like the tablet does; the narrow poster sheet deliberately keeps the
+ *  three-step cycle, so a return is ticked on the tablet (which has the Zeitplan for it). */
 export function cycleAttendance(
   cur: AttendanceEntry | undefined, name: string, nowIso: string, vonIso?: string,
 ): AttendanceEntry | undefined {
-  if (!cur) return { status: 'present', checkedInAt: vonIso ?? nowIso, displayNameSnapshot: name }
-  if (cur.status === 'present') return { ...cur, status: 'left', leftAt: nowIso, displayNameSnapshot: name }
+  if (!cur) return openPresence(undefined, vonIso ?? nowIso, name)
+  if (isPresent(cur)) return closePresence(cur, nowIso, name)
   return undefined // gegangen → frei (entry removed, same as the app's third tap)
 }
 
@@ -55,11 +60,11 @@ export function applyAction(ws: Workspace | null, action: CaptureAction, nowIso:
     const attendance = { ...((base.attendance as Record<string, AttendanceEntry> | undefined) ?? {}) }
     const cur = attendance[action.personId]
     if (!cur) return base // times only refine an existing entry, never create one
-    attendance[action.personId] = {
-      ...cur,
-      ...(action.checkedInAt !== undefined ? { checkedInAt: action.checkedInAt } : {}),
-      ...(action.leftAt !== undefined ? { leftAt: action.leftAt } : {}),
-    }
+    const index = action.index ?? currentIntervalIndex(cur)
+    attendance[action.personId] = setIntervalTime(cur, index, {
+      ...(action.from !== undefined ? { from: action.from } : {}),
+      ...(action.to !== undefined ? { to: action.to } : {}),
+    })
     base.attendance = attendance
     return base
   }

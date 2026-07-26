@@ -19,6 +19,7 @@ import { Icon, IconSprite } from '../lib/icons'
 import { Splash } from '../components/Splash'
 import { currentLineFor, visibleMittel } from '../lib/mittel'
 import { applyTimeToIso } from '../lib/abschluss'
+import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
 import { Overlays, toast } from '../lib/ui'
 import { capturePrintTransport, enqueuePrint, fetchPrintStatus, type PrintRelayStatus } from '../lib/printRelay'
 import { trackPrintJob } from '../lib/printJobToast'
@@ -689,8 +690,14 @@ export default function CaptureApp() {
               <div className="cv-people">
                 {filteredRoster.map((p) => {
                   const a = attendance[p.id]
-                  const state = a?.status === 'present' ? 'on' : a?.status === 'left' ? 'left' : ''
-                  const vonBase = a?.checkedInAt ?? incident.started_at
+                  const here = isPresent(a)
+                  const state = a ? (here ? 'on' : 'left') : ''
+                  // the poster edits the CURRENT presence block (it keeps the narrow three-step
+                  // cycle; returns are ticked on the tablet, which has the Zeitplan for them)
+                  const blocks = intervalsOf(a)
+                  const bi = blocks.length - 1
+                  const cur = blocks[bi]
+                  const vonBase = cur?.from ?? incident.started_at
                   return (
                     <div key={p.id} className="cv-person-row">
                       <button className={`cv-person ${state}`} disabled={busy}
@@ -700,29 +707,29 @@ export default function CaptureApp() {
                             aria-label and in the ⓘ help; the von/bis tag disambiguates */}
                         {a && (
                           <span className="cv-person-state" role="img"
-                            aria-label={a.status === 'left' ? C.stateLeft : C.statePresent}>
-                            <Icon id={a.status === 'left' ? 'arrow' : 'check'} />
+                            aria-label={here ? C.statePresent : C.stateLeft}>
+                            <Icon id={here ? 'check' : 'arrow'} />
                           </span>
                         )}
                       </button>
                       {/* ONE inline time, same model as the Anwesenheit view: arrival while
                           anwesend, leave time once gegangen — the flipping meaning is SAID
                           with a von/bis tag, not implied (feedback 2026-07-18) */}
-                      {a && <span className="cv-time-tag">{a.status === 'left' ? C.bis : C.von}</span>}
+                      {a && <span className="cv-time-tag">{here ? C.von : C.bis}</span>}
                       {a && (
                         <TimeField
                           className="cv-person-time"
-                          ariaLabel={a.status === 'left' ? C.bis : C.von}
-                          value={toTime(a.status === 'left' ? a.leftAt : a.checkedInAt)}
+                          ariaLabel={here ? C.von : C.bis}
+                          value={toTime(here ? cur?.from : cur?.to)}
                           disabled={busy}
                           onCommit={(hhmm) => {
                             if (!hhmm) return
-                            if (a.status === 'left') {
-                              const iso = applyTimeToIso(a.leftAt ?? vonBase, hhmm, { nextDayIfBefore: a.checkedInAt ?? undefined })
-                              if (iso) void run({ kind: 'setTimes', personId: p.id, leftAt: iso }).then((ok) => { if (ok) savedToast() })
+                            if (!here) {
+                              const iso = applyTimeToIso(cur?.to ?? vonBase, hhmm, { nextDayIfBefore: cur?.from })
+                              if (iso) void run({ kind: 'setTimes', personId: p.id, index: bi, to: iso }).then((ok) => { if (ok) savedToast() })
                             } else {
                               const iso = applyTimeToIso(vonBase, hhmm)
-                              if (iso) void run({ kind: 'setTimes', personId: p.id, checkedInAt: iso }).then((ok) => { if (ok) savedToast() })
+                              if (iso) void run({ kind: 'setTimes', personId: p.id, index: bi, from: iso }).then((ok) => { if (ok) savedToast() })
                             }
                           }}
                         />

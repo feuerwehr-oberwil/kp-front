@@ -4,6 +4,7 @@ import { appConfig } from '../config/appConfig'
 import { fmtDistance } from './geo'
 import { fillTemplate, hhmm } from './format'
 import { fahrzeugRows, gruppenRows } from './alarmzeiten'
+import { intervalsOf } from './attendanceIntervals'
 import { getDeploymentConfig } from './deploymentConfig'
 import { mittelReportRows } from './mittel'
 
@@ -285,7 +286,10 @@ export function metaExtrasForPdf(meta: ReportMeta): {
  *  rows (recorded people get a printed tick + their recorded clocks, the rest stays blank
  *  for the pen — the printed rapport is a pre-filled Erfassungsblatt, decided 2026-07-17),
  *  then guests recorded outside the roster, then two blank write-in rows. Stunden are
- *  deliberately absent: WinFAP computes them from von–bis. */
+ *  deliberately absent: WinFAP computes them from von–bis.
+ *
+ *  Someone who left and came back gets ONE ROW PER BLOCK (same name, own von–bis) rather than
+ *  an outer span that would silently bill the hours they were away. */
 export function personalForPdf(
   roster: { id: string; name: string }[],
   attendance: AttendanceState,
@@ -296,17 +300,20 @@ export function personalForPdf(
     if (!Number.isFinite(d.getTime())) return undefined
     return hhmm(d)
   }
-  const row = (name: string, a?: AttendanceState[string]) => ({
-    name, erfasst: !!a, von: clock(a?.checkedInAt), bis: clock(a?.leftAt),
-  })
+  const rows = (name: string, a?: AttendanceState[string]) => {
+    const blocks = intervalsOf(a)
+    if (!blocks.length) return [{ name, erfasst: !!a, von: undefined, bis: undefined }]
+    return blocks.map((iv) => ({ name, erfasst: true, von: clock(iv.from), bis: clock(iv.to) }))
+  }
   const rosterIds = new Set(roster.map((p) => p.id))
   const guests = Object.entries(attendance)
     .filter(([id]) => !rosterIds.has(id))
-    .map(([, a]) => row(a.displayNameSnapshot, a))
-    .sort((a, b) => a.name.localeCompare(b.name, 'de'))
+    .map(([, a]) => ({ name: a.displayNameSnapshot, a }))
+    .sort((x, y) => x.name.localeCompare(y.name, 'de'))
+    .flatMap(({ name, a }) => rows(name, a))
   return {
     personal: [
-      ...roster.map((p) => row(p.name, attendance[p.id])),
+      ...roster.flatMap((p) => rows(p.name, attendance[p.id])),
       ...guests,
       { name: '', erfasst: false }, { name: '', erfasst: false },
     ],

@@ -1580,6 +1580,9 @@ export const en: Localizable<Copy> = {
     notInDivera: 'No longer in Divera',
     weg: 'gone',
     editTime: 'Adjust time',
+    backAgain: 'Back again',
+    backAgainHint: '{name} is back – new block from now',
+    blockCount: '{n} blocks',
   },
   mittel: {
     title: 'Resources',

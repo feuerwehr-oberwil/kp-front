@@ -43,6 +43,22 @@ describe('personalForPdf (Personal-/Soldblatt rows)', () => {
     expect(personal).toHaveLength(4) // roster + 2 write-in rows
     expect(personal.every((p) => !p.erfasst)).toBe(true)
   })
+
+  it('gives someone who left and came back one row per block, not an inflated span', () => {
+    const { personal } = personalForPdf(roster, {
+      p1: {
+        status: 'left', displayNameSnapshot: 'Meier Anna',
+        checkedInAt: '2026-06-23T09:00:00', leftAt: '2026-06-23T14:00:00',
+        intervals: [
+          { from: '2026-06-23T09:00:00', to: '2026-06-23T11:00:00' },
+          { from: '2026-06-23T13:00:00', to: '2026-06-23T14:00:00' },
+        ],
+      },
+    })
+    expect(personal.map((p) => p.name)).toEqual(['Meier Anna', 'Meier Anna', 'Müller Hans', '', ''])
+    expect(personal[0]).toEqual({ name: 'Meier Anna', erfasst: true, von: '09:00', bis: '11:00' })
+    expect(personal[1]).toEqual({ name: 'Meier Anna', erfasst: true, von: '13:00', bis: '14:00' })
+  })
 })
 
 describe('report plan selection', () => {

@@ -105,6 +105,43 @@ async def test_stats_record_shape(client, stats_secret, db_session):
     assert "entities" not in rec and "map_workspace_json" not in rec
 
 
+async def test_stats_attendance_is_one_row_per_presence_block(client, stats_secret, db_session):
+    """Someone who left and came back must not be exported as one inflated span.
+
+    Blocks fan out to a row each; an entry from before blocks existed carries no ``intervals``
+    and projects its checkedInAt/leftAt pair, so both shapes reach fwo-stats identically.
+    """
+    ws = {
+        "attendance": {
+            "p1": {
+                "status": "left",
+                "checkedInAt": "2026-03-01T14:00:00Z",
+                "leftAt": "2026-03-01T20:00:00Z",
+                "displayNameSnapshot": "Rueck Kehr",
+                "intervals": [
+                    {"from": "2026-03-01T14:00:00Z", "to": "2026-03-01T16:00:00Z"},
+                    {"from": "2026-03-01T19:00:00Z", "to": "2026-03-01T20:00:00Z"},
+                ],
+            },
+            # legacy entry, no intervals — must still export exactly one row
+            "p2": {
+                "status": "present",
+                "checkedInAt": "2026-03-01T14:05:00Z",
+                "displayNameSnapshot": "Alt Bestand",
+            },
+        }
+    }
+    db_session.add(_incident(started_at=datetime(2026, 3, 1, 13, 55, tzinfo=UTC), map_workspace_json=ws))
+    await db_session.commit()
+
+    rec = (await client.get(f"/api/stats/incidents?t={TOKEN}")).json()[0]
+    assert [(a["name"], a["von"], a["bis"]) for a in rec["attendance"]] == [
+        ("Alt Bestand", "2026-03-01T14:05:00Z", None),
+        ("Rueck Kehr", "2026-03-01T14:00:00Z", "2026-03-01T16:00:00Z"),
+        ("Rueck Kehr", "2026-03-01T19:00:00Z", "2026-03-01T20:00:00Z"),
+    ]
+
+
 async def test_stats_rapport_state_done_vs_changed(client, stats_secret, db_session):
     now = datetime.now(UTC)
     done = _incident(title="Done", started_at=now, report_done_at=now)

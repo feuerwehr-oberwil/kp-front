@@ -6,6 +6,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { applyTimeToIso } from '../lib/abschluss'
 import { rankAbbr, rankLabel, rankOrder } from '../lib/rank'
+import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import { Segmented } from './Segmented'
 import { EmptyState } from './EmptyState'
@@ -45,8 +46,9 @@ export function AnwesenheitView({
   onJumpToTrupp: () => void
   onReload: () => void
   /** correct a wrong auto-stamped time via the row's time chip (e.g. "gegangen" marked
-   *  after the person already left) — same handler as the Rapport Stunden editor */
-  onSetTimes?: (personId: string, patch: { checkedInAt?: string; leftAt?: string }) => void
+   *  after the person already left) — same handler as the Rapport Stunden editor. Patches the
+   *  CURRENT presence block; `index` targets an earlier one. */
+  onSetTimes?: (personId: string, patch: { from?: string; to?: string }, index?: number) => void
   /** QR self-reporting in use — «QR: N Einträge · zuletzt HH:MM» chip (informational) */
   captureUsage?: CaptureUsage | null
 }) {
@@ -150,12 +152,16 @@ export function AnwesenheitView({
         <div className={s.grid}>
           {rows.map((p) => {
             const a = attendance[p.id]
-            const present = a?.status === 'present'
-            const left = a?.status === 'left'
+            const present = isPresent(a)
+            const left = !!a && !present
             const locked = present && blockedIds.has(p.id)
-            // the time this row shows: arrival while anwesend, departure once gegangen —
-            // tap the chip to correct a wrong auto-stamped time in place
-            const timeIso = left ? a?.leftAt : present ? a?.checkedInAt : undefined
+            // the time this row shows belongs to the CURRENT block: its arrival while anwesend,
+            // its departure once gegangen — tap the chip to correct a wrong auto-stamped time.
+            // Someone who came back is on their second block, so the chip follows them there.
+            const blocks = intervalsOf(a)
+            const bi = blocks.length - 1
+            const cur = blocks[bi]
+            const timeIso = left ? cur?.to : present ? cur?.from : undefined
             return (
               <div key={p.id} className={cx(s.person, present && s.isPresent, left && s.isLeft)}>
                 <button
@@ -179,9 +185,9 @@ export function AnwesenheitView({
                     aria-label={A.editTime}
                     onChange={(e) => {
                       const iso = e.target.value
-                        ? applyTimeToIso(timeIso, e.target.value, left ? { nextDayIfBefore: a?.checkedInAt } : undefined)
+                        ? applyTimeToIso(timeIso, e.target.value, left ? { nextDayIfBefore: cur?.from } : undefined)
                         : null
-                      if (iso) onSetTimes(p.id, left ? { leftAt: iso } : { checkedInAt: iso })
+                      if (iso) onSetTimes(p.id, left ? { to: iso } : { from: iso }, bi)
                     }}
                     onBlur={() => setEditing(null)}
                     onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
@@ -198,6 +204,27 @@ export function AnwesenheitView({
                     {left ? `${A.weg} ${toHM(timeIso)}` : toHM(timeIso)}
                   </button>
                 ))}
+                {/* Rückkehr — the tap cycle's third step CLEARS the row (frei), and it must keep
+                    doing that (it is the only way back from a mis-tick). So coming back gets its
+                    own control: it opens a NEW block instead of reopening the closed one. */}
+                {left && canEdit && (
+                  <button
+                    type="button"
+                    className={s.backBtn}
+                    title={fillTemplate(A.backAgainHint, { name: p.displayName })}
+                    aria-label={`${A.backAgain} – ${p.displayName}`}
+                    onClick={() => onMarkPresent(p)}
+                  >
+                    <Icon id="plus" />
+                  </button>
+                )}
+                {/* someone with more than one block: say so, else the single chip reads as the
+                    whole story when it is only the latest block */}
+                {blocks.length > 1 && (
+                  <span className={s.blocks} title={fillTemplate(A.blockCount, { n: blocks.length })}>
+                    {blocks.length}×
+                  </span>
+                )}
               </div>
             )
           })}
