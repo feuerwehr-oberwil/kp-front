@@ -178,17 +178,27 @@ export function useTruppActions(deps: Deps) {
   // advance a Trupp's lifecycle phase: angemeldet → aktiv (eingerückt, starts the contact clock +
   // logs the entry reading) → rueckzug → raus (sets exitTime, ends monitoring), and the reverse
   // rueckzug → aktiv (the Rückzug was called off). Logs the matching Verlauf line.
+  //
+  // Rückzug and Fortsetzen COUNT AS A FUNKKONTAKT and reset the contact clock. Neither happens
+  // spontaneously: a Rückzug is ordered by the EL or the Truppüberwacher, or reported by the
+  // Trupp, and a Fortsetzen means the Trupp was reached and sent back in. Leaving the clock
+  // running afterwards showed «überfällig» on a Trupp somebody had just spoken to, which trains
+  // the Überwacher to ignore red. Same rule a Druckmeldung already follows (recordPressure).
   const setTruppStatus = (id: string, status: Trupp['status']) => {
     const tr = trupps.find((t) => t.id === id)
     const az = appConfig.copy.atemschutz
     const now = new Date().toISOString()
     const isResume = status === 'aktiv' && !!tr?.entryTime // back into the field after a Rückzug
+    const impliesContact = status === 'rueckzug' || isResume
     setTrupps((ts) => ts.map((t) => {
       if (t.id !== id) return t
       if (status === 'aktiv' && !t.entryTime) {
         return { ...t, status, entryTime: now, lastContactTime: now, readings: [...(t.readings ?? []), { t: now, bar: t.entryPressureBar, kind: 'entry' }] }
       }
       if (status === 'raus') return { ...t, status, exitTime: now }
+      if (impliesContact) {
+        return { ...t, status, lastContactTime: now, readings: [...(t.readings ?? []), { t: now, bar: t.lastPressureBar ?? t.entryPressureBar, kind: 'contact' }] }
+      }
       return { ...t, status }
     }))
     const tpl = status === 'aktiv' ? (isResume ? az.logContinue : az.logEntry) : status === 'rueckzug' ? az.logRueckzug : status === 'raus' ? az.logExit : null

@@ -115,3 +115,47 @@ describe('useTruppActions placement (one place per Trupp)', () => {
     expect(LAGE_TARGET).toBe('lage')
   })
 })
+
+// A Rückzug is ordered by the EL / Truppüberwacher or reported by the Trupp, and a Fortsetzen
+// means the Trupp was reached and sent back in. Both are radio contacts, so both must reset the
+// contact clock — otherwise the card keeps showing «überfällig» for a Trupp somebody just spoke to.
+describe('useTruppActions — Rückzug / Fortsetzen count as a Funkkontakt', () => {
+  const stale = { lastContactTime: '2026-07-06T10:00:00Z', readings: [{ t: '2026-07-06T10:00:00Z', bar: 300, kind: 'entry' as const }] }
+
+  it('Rückzug resets the contact clock and appends a contact reading', () => {
+    const { actions, state } = harness(baseTrupp({ status: 'aktiv', lastPressureBar: 140, ...stale }))
+    actions.setTruppStatus('T1', 'rueckzug')
+    const t = state.trupps[0]
+    expect(t.status).toBe('rueckzug')
+    expect(t.lastContactTime).not.toBe(stale.lastContactTime)
+    expect(t.readings).toHaveLength(2)
+    expect(t.readings?.[t.readings.length - 1]).toMatchObject({ kind: 'contact', bar: 140 }) // carries the last known Druck
+  })
+
+  it('Fortsetzen out of a Rückzug does the same', () => {
+    const { actions, state } = harness(baseTrupp({ status: 'rueckzug', ...stale }))
+    actions.setTruppStatus('T1', 'aktiv')
+    const t = state.trupps[0]
+    expect(t.status).toBe('aktiv')
+    expect(t.lastContactTime).not.toBe(stale.lastContactTime)
+    expect(t.readings?.[t.readings.length - 1]).toMatchObject({ kind: 'contact', bar: 300 }) // no reading yet → entry pressure
+  })
+
+  it('keeps the entry path intact: the FIRST «Eingerückt» still stamps entryTime and an entry reading', () => {
+    const { actions, state } = harness(baseTrupp({ status: 'angemeldet', entryTime: '', lastContactTime: '', readings: [] }))
+    actions.setTruppStatus('T1', 'aktiv')
+    const t = state.trupps[0]
+    expect(t.entryTime).toBeTruthy()
+    expect(t.lastContactTime).toBe(t.entryTime)
+    expect(t.readings).toEqual([{ t: t.entryTime, bar: 300, kind: 'entry' }])
+  })
+
+  it('«Raus» ends monitoring and does NOT fake a contact', () => {
+    const { actions, state } = harness(baseTrupp({ status: 'rueckzug', ...stale }))
+    actions.setTruppStatus('T1', 'raus')
+    const t = state.trupps[0]
+    expect(t.exitTime).toBeTruthy()
+    expect(t.lastContactTime).toBe(stale.lastContactTime) // clock untouched — the Trupp is out
+    expect(t.readings).toHaveLength(1)
+  })
+})

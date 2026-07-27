@@ -1003,8 +1003,10 @@ export const de = {
     logEntry: 'Trupp {name} eingerückt',
     logContact: 'Trupp {name}: Kontakt bestätigt',
     logPressure: 'Trupp {name}: Druck {bar} bar',
-    logRueckzug: 'Trupp {name}: Rückzug',
-    logContinue: 'Trupp {name}: Einsatz fortgesetzt',
+    // Rückzug und Fortsetzen setzen die Kontaktuhr zurück; das muss im Verlauf stehen, sonst
+    // springt die Uhr im Protokoll ohne erkennbaren Grund.
+    logRueckzug: 'Trupp {name}: Rückzug – gilt als Funkkontakt',
+    logContinue: 'Trupp {name}: Einsatz fortgesetzt – gilt als Funkkontakt',
     logEdit: 'Trupp {name}: Auftrag angepasst',
     logExit: 'Trupp {name} draussen',
     logReenter: 'Trupp {name} wieder eingerückt',
