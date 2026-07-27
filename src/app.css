@@ -950,8 +950,12 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
    a FIXED slot (visibility toggles, with a gap before it) so the + button never
    shifts under the finger between taps and never sits where clear will appear. */
 .step { display: inline-flex; align-items: center; gap: 6px; }
+/* font-family: inherit — the same <button> default that put «Höhenprofil» in the browser's face.
+   Invisible in practice, because the glyphs are only «−» and «+», but four of these steppers sit
+   inside the drawing detail column, and a panel that is font-consistent everywhere except its two
+   steppers is a trap for the next person who measures it. */
 .step-btn { width: 44px; height: 44px; flex: none; border-radius: var(--r-sm); border: 1px solid var(--border);
-  background: var(--surface-2); color: var(--ink); font-size: 19px; font-weight: 700; line-height: 1; cursor: pointer;
+  background: var(--surface-2); color: var(--ink); font-family: inherit; font-size: 19px; font-weight: 700; line-height: 1; cursor: pointer;
   display: grid; place-items: center; padding: 0; }
 .step-btn:hover:not(:disabled) { background: var(--surface); border-color: var(--border); }
 .step-btn:active:not(:disabled) { background: color-mix(in srgb, var(--blue) 12%, transparent); border-color: var(--blue); }
@@ -3309,6 +3313,15 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 }
 @media (min-width: 861px) {
   .mode-map .topbar { max-width: calc(100vw - 250px); }
+  /* 250px is a comfortable reservation, not a measured one: at 861px the right-hand utilities
+     start 158px past the bar's edge, so ~90px of that is slack. Slack is the right default — but
+     not when an überfällig chip is in the bar. Then the clamp is what breaks it: at 861px the bar
+     wants 617px and is handed 609px, the chip has already given everything it can give (the name
+     is at its floor, the countdown never truncates), and the last 8px come out through the pill's
+     right edge. 861–875px is a narrow band, and it is also the width an iPad in landscape with a
+     split view lands on. Hand back 50px of the slack while the chip is there and the band closes
+     with room to spare; the utilities still keep ~108px of clear air at the tightest width. */
+  .mode-map .topbar:has(.tb-az) { max-width: calc(100vw - 200px); }
 }
 
 @media (max-width: 600px) {
@@ -3452,6 +3465,15 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
   .tb-az-name { display: none; }
   .tb-az { gap: 5px; padding: 6px 9px; }
   .topbar:has(.tb-az) :is(.tb-act-history, .tb-vr-history) { display: none; }
+}
+/* Below ~355px even the freed 88px is not enough for the countdown, and the clock starts punching
+   out again (32px outside the bar at 320px). So there the chip really does fall back to the bare
+   pulsing gauge — which is what every phone used to get, and is still better than a number that
+   is half on the map. 360px is the cut: every phone in service (390/393/402/430) keeps its
+   countdown, and only the 320–355px class — an SE 1st gen, or a split view squeezed that far —
+   drops to the icon. */
+@media (max-width: 359px) {
+  .tb-az-clock { display: none; }
 
   /* ── NavRail → bottom bar on a phone ── the SAME surface items, re-laid-out as a
      horizontally-scrollable row in the thumb zone (Karte · M1 M2 … · Checkliste ·
