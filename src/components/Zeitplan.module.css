@@ -232,11 +232,18 @@
 }
 .handleFrom { left: -12px; }
 .handleTo { right: -12px; }
+/* The grip is INVISIBLE at rest. It used to be a small blue pill centred on the bar's edge, which
+   means it sat half inside and half outside the outline — at a glance that is not a grip, it is a
+   bar that failed to render. The grab zone is unchanged and does not need to be seen: on a desktop
+   the ew-resize cursor announces the edge on approach, and on a touch screen a painted 3px pill
+   was never the thing being aimed at anyway. It fades in on hover, where it can still teach. */
 .handle::after {
-  content: ''; width: 3px; height: 14px; border-radius: 2px;
-  background: color-mix(in srgb, var(--st-planned) 70%, transparent);
+  content: ''; width: 2px; height: 16px; border-radius: 1px;
+  background: color-mix(in srgb, var(--ink) 45%, transparent);
+  opacity: 0; transition: opacity .12s var(--ease);
 }
-.plannedBar:hover .handle::after { background: var(--st-planned); }
+.plannedBar:hover .handle::after { opacity: 1; }
+.handle:hover::after { opacity: 1; background: var(--ink); }
 /* Three states, three LAYERS, in the order a shift lives through them — nested, not stacked, so
    the everyday pair «verfügbar 17:30–21:00, eingeteilt 18:30–20:00» reads as one sentence:
      verfügbar — dashed GREY band over the whole lane: offered, nothing committed
