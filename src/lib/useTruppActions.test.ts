@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Dispatch, SetStateAction } from 'react'
 import { useTruppActions, LAGE_TARGET } from './useTruppActions'
 import type { BoardDoc, Entity, Trupp } from '../types'
+import { anyTruppInField } from './atemschutz'
 import type { Doc } from './workspace'
 
 // useTruppActions has no React hooks inside — it's a closure factory over injected setters,
@@ -147,6 +148,44 @@ describe('useTruppActions — Rückzug / Fortsetzen count as a Funkkontakt', () 
     const t = state.trupps[0]
     expect(t.entryTime).toBeTruthy()
     expect(t.lastContactTime).toBe(t.entryTime)
+    expect(t.readings).toEqual([{ t: t.entryTime, bar: 300, kind: 'entry' }])
+  })
+
+  it('re-deploy as Reserve keeps the Trupp out of the field: no entryTime, no running clock', () => {
+    const out = baseTrupp({ status: 'raus', exitTime: '2026-07-06T10:30:00Z', lastPressureBar: 40, lowestBar: 40 })
+    const { actions, state } = harness(out)
+    actions.reactivateTrupp('T1', { name: 'Keller Anna', pressure: 300 }, true)
+    const t = state.trupps[0]
+    expect(t.status).toBe('angemeldet')
+    expect(t.entryTime).toBe('')
+    expect(t.lastContactTime).toBe('')
+    expect(t.exitTime).toBeUndefined()
+    expect(t.readings).toEqual([]) // fresh cylinder, fresh record — the entry row comes on «Eingerückt»
+    expect(t.entryPressureBar).toBe(300)
+    expect(t.lowestBar).toBe(300) // the old 40 bar must not follow the new bottle
+    // and the standby Trupp is genuinely off the contact clock
+    expect(anyTruppInField(state.trupps)).toBe(false)
+  })
+
+  it('re-deploy without standby still goes straight into the field (unchanged path)', () => {
+    const out = baseTrupp({ status: 'raus', exitTime: '2026-07-06T10:30:00Z' })
+    const { actions, state } = harness(out)
+    actions.reactivateTrupp('T1', { name: 'Keller Anna', pressure: 300 })
+    const t = state.trupps[0]
+    expect(t.status).toBe('aktiv')
+    expect(t.entryTime).toBeTruthy()
+    expect(t.lastContactTime).toBe(t.entryTime)
+    expect(t.readings).toEqual([{ t: t.entryTime, bar: 300, kind: 'entry' }])
+  })
+
+  it('a Trupp put on standby starts its clock only on the later «Eingerückt»', () => {
+    const out = baseTrupp({ status: 'raus', exitTime: '2026-07-06T10:30:00Z' })
+    const { actions, state } = harness(out)
+    actions.reactivateTrupp('T1', { name: 'Keller Anna', pressure: 300 }, true)
+    actions.setTruppStatus('T1', 'aktiv')
+    const t = state.trupps[0]
+    expect(t.status).toBe('aktiv')
+    expect(t.entryTime).toBeTruthy()
     expect(t.readings).toEqual([{ t: t.entryTime, bar: 300, kind: 'entry' }])
   })
 

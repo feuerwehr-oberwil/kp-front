@@ -249,6 +249,15 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 .formSection:first-child { border-top: none; padding-top: 0; margin-top: 0; }
 .field { display: flex; flex-direction: column; gap: 5px; }
 .field > span { font-size: 12px; font-weight: 700; color: var(--ink-dim); }
+/* label row for a REMOVABLE slot (AdF n): the ✕ sits beside the label, not inside the field,
+   so it stays clearly apart from the in-field ✕ that only clears the chosen name. */
+.fieldLabelRow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.slotRemove { flex: none; display: grid; place-items: center; width: 26px; height: 26px; margin: -4px -4px -4px 0;
+  border: none; background: transparent; color: var(--ink-faint); cursor: pointer; border-radius: var(--r-xs); position: relative; }
+/* 44px touch pad behind the 26px visible target — gloved-finger sized without bloating the row */
+.slotRemove::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
+.slotRemove :global(.i) { width: 14px; height: 14px; }
+.slotRemove:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
 .field input { border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); padding: 11px 12px;
   background: var(--surface); font-family: var(--body); font-size: 15px; color: var(--ink); outline: none; }
 .field input:focus { border-color: var(--ink); }
@@ -270,6 +279,12 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
   font-family: var(--body); font-size: 14px; font-weight: 700; padding: 11px 20px; border-radius: var(--r-ctl); }
 .primaryBtn:hover:not(:disabled) { filter: brightness(1.12); }
 .primaryBtn:disabled { opacity: .45; cursor: default; }
+/* second, equally valid submit (Wieder einrücken → «Bereitstellen»): outlined rather than ghost,
+   because it commits the form just like the primary does – a ghost would read as «abbrechen». */
+.secondaryBtn { border: 1.5px solid var(--glass-edge); cursor: pointer; background: var(--surface); color: var(--ink);
+  font-family: var(--body); font-size: 14px; font-weight: 700; padding: 10px 18px; border-radius: var(--r-ctl); }
+.secondaryBtn:hover:not(:disabled) { border-color: var(--ink-faint); background: var(--fill-soft); }
+.secondaryBtn:disabled { opacity: .45; cursor: default; }
 
 /* angemeldet (registered, not yet entered): neutral blue banner, no alarm */
 .st-angemeldet { border-top-color: var(--blue); }

@@ -227,19 +227,27 @@ export function useTruppActions(deps: Deps) {
   }
   // re-deploy an exited Trupp (refilled bottle, going back inside): a fresh start — new pressure +
   // reset clocks/log — while letting the EL adjust the Auftrag/team on the way back in.
-  const reactivateTrupp = (id: string, f: TruppFields) => {
+  //
+  // `standby` decides WHERE the fresh start lands. A re-equipped Trupp is very often held back as
+  // Sicherungstrupp rather than sent straight in, and forcing it to 'aktiv' started a contact
+  // clock on a crew standing at the vehicle — a clock that goes überfällig on somebody who is
+  // not under PA. Standby mirrors the create path exactly (angemeldet, no entryTime, empty log),
+  // so the later «Eingerückt» stamps the entry the same way it does for a brand-new Trupp.
+  const reactivateTrupp = (id: string, f: TruppFields, standby = false) => {
     const tr = trupps.find((t) => t.id === id)
     const now = new Date().toISOString()
     setTrupps((ts) => ts.map((t) => (t.id === id
       ? { ...t, name: f.name, members: f.members, auftrag: f.auftrag, ziel: f.ziel, lineNumber: f.lineNumber, funkkanal: f.funkkanal,
           leaderPersonId: f.leaderPersonId, memberPersonIds: f.memberPersonIds,
-          status: 'aktiv', entryTime: now, lastContactTime: now, exitTime: undefined,
+          status: standby ? 'angemeldet' : 'aktiv',
+          entryTime: standby ? '' : now, lastContactTime: standby ? '' : now, exitTime: undefined,
           entryPressureBar: f.pressure, lastPressureBar: undefined, lastPressureTime: undefined, lowestBar: f.pressure,
-          readings: [{ t: now, bar: f.pressure, kind: 'entry' }] }
+          readings: standby ? [] : [{ t: now, bar: f.pressure, kind: 'entry' }] }
       : t)))
     if (tr && f.name !== tr.name) syncPlacementLabel(tr, f.name)
-    log('flag', fillTemplate(appConfig.copy.atemschutz.logReenter, { name: f.name }), 'team')
-    emit('atemschutz.status', { id, status: 'aktiv' })
+    const az = appConfig.copy.atemschutz
+    log('flag', fillTemplate(standby ? az.logStandby : az.logReenter, { name: f.name }), 'team')
+    emit('atemschutz.status', { id, status: standby ? 'angemeldet' : 'aktiv' })
   }
   // an escalation crossed into warn/critical — record it once in the Verlauf
   const logTruppAlarm = (id: string, status: Trupp['status']) => {

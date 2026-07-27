@@ -916,6 +916,7 @@ export const de = {
     memberLabel: 'AdF',
     memberPlaceholder: 'Name (optional)',
     addMember: 'AdF hinzufügen',
+    removeMember: 'AdF {n} entfernen',
     lineNumberLabel: 'Leitung / Schlauch-Nr.',
     lineNumberPlaceholder: 'z. B. 1',
     pressureLabel: 'Eingangsdruck (bar)',
@@ -934,6 +935,10 @@ export const de = {
     save: 'Speichern',
     start: 'Trupp anmelden',
     reenterSubmit: 'Einrücken',
+    // Zweiter Weg beim Wiedereinrücken: neue Flasche, neuer Auftrag, aber noch nicht unter PA –
+    // der Trupp wartet als Sicherungstrupp und wird später mit «Eingerückt» gestartet.
+    reenterStandby: 'Bereitstellen',
+    reenterStandbyHint: 'Trupp als Reserve anmelden – die Kontaktuhr startet erst mit «Eingerückt».',
     // board card
     sinceContact: 'Seit letztem Kontakt',
     elapsed: 'Einsatzzeit',
@@ -1010,6 +1015,7 @@ export const de = {
     logEdit: 'Trupp {name}: Auftrag angepasst',
     logExit: 'Trupp {name} draussen',
     logReenter: 'Trupp {name} wieder eingerückt',
+    logStandby: 'Trupp {name} bereitgestellt – noch nicht eingerückt',
     logAlarm: 'Atemschutz-Alarm: Trupp {name} – {status}',
   },
   // FKS hose-line device-letter labels (line decoration editor + tooltips)

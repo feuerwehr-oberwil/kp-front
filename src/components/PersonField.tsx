@@ -13,13 +13,18 @@ export type Slot = { name: string; personId?: string }
 // already-assigned flagged) OR just type a name (guests, mutual aid, Divera outage). Selecting
 // a person links the id; typing leaves it a manual snapshot. Replaces the old chip list.
 export function PersonField({
-  label, placeholder, value, onChange, personnel, legacyRoster, presentIds, assignedIds, usedIds, usedNames,
+  label, placeholder, value, onChange, onRemove, removeLabel, personnel, legacyRoster, presentIds, assignedIds, usedIds, usedNames,
   rankFirst = false, officerFilter = false,
 }: {
   label: string
   placeholder: string
   value: Slot
   onChange: (slot: Slot) => void
+  /** drop the whole SLOT (not just its name) — renders a ✕ next to the label. The ✕ inside the
+   *  field only clears the chosen name and leaves the empty row behind, which is a dead end for
+   *  a row that was added by mistake. Omit for fixed slots (Gruppenführer, Einsatzleiter). */
+  onRemove?: () => void
+  removeLabel?: string
   personnel: Person[]
   legacyRoster: string[]
   presentIds: Set<string>
@@ -110,7 +115,16 @@ export function PersonField({
 
   return (
     <div className={s.field}>
-      <span>{label}</span>
+      {onRemove ? (
+        <span className={s.fieldLabelRow}>
+          <span>{label}</span>
+          <button type="button" className={s.slotRemove} onClick={onRemove} title={removeLabel} aria-label={removeLabel}>
+            <Icon id="close" />
+          </button>
+        </span>
+      ) : (
+        <span>{label}</span>
+      )}
       <div className={s.combo} ref={rootRef}>
         {typing ? (
           <input

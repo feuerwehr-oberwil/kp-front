@@ -69,7 +69,8 @@ export function AtemschutzView({
   recordPressure: (id: string, bar: number) => void
   setTruppStatus: (id: string, status: Trupp['status']) => void
   editTrupp: (id: string, f: TruppFields) => void
-  reactivateTrupp: (id: string, f: TruppFields) => void
+  /** `standby` re-registers the Trupp as Reserve (angemeldet) instead of sending it straight in */
+  reactivateTrupp: (id: string, f: TruppFields, standby?: boolean) => void
   deleteTrupp: (id: string) => void
   /** undo for deleteTrupp — re-adds the captured Trupp (minus its removed placement) */
   restoreTrupp: (t: Trupp) => void
@@ -133,7 +134,7 @@ export function AtemschutzView({
   // überfällig alert can both sound and reach the tray when the app is backgrounded.
   const openForm = (mode: FormMode, trupp?: Trupp) => { unlockAlarm(); void ensureNotifyPermission(); setForm({ mode, trupp }) }
 
-  const submitForm = (f: TruppFields) => {
+  const submitForm = (f: TruppFields, standby = false) => {
     if (!form) return
     if (form.mode === 'create') {
       createTrupp({
@@ -146,7 +147,7 @@ export function AtemschutzView({
     } else if (form.mode === 'edit' && form.trupp) {
       editTrupp(form.trupp.id, f)
     } else if (form.mode === 'redeploy' && form.trupp) {
-      reactivateTrupp(form.trupp.id, f)
+      reactivateTrupp(form.trupp.id, f, standby)
     }
     setForm(null)
   }
@@ -566,7 +567,8 @@ function TruppForm({
   presentIds: Set<string>
   assignedIds: Set<string>
   onCancel: () => void
-  onSubmit: (f: TruppFields) => void
+  /** `standby` (re-deploy only) parks the Trupp as Reserve instead of sending it straight in */
+  onSubmit: (f: TruppFields, standby?: boolean) => void
 }) {
   const az = appConfig.copy.atemschutz // read per-render so the resolved locale applies
   const [auftrag, setAuftrag] = useState<Trupp['auftrag'] | null>(initial?.auftrag ?? null)
@@ -609,7 +611,7 @@ function TruppForm({
   const usedNames = new Set([leader.name.trim(), ...members.map((m) => m.name.trim())].filter(Boolean))
   const usedIds = new Set([leader.personId, ...members.map((m) => m.personId)].filter(Boolean) as string[])
 
-  const submit = () => {
+  const submit = (standby = false) => {
     if (!canSubmit) return
     const cleanMembers = members.filter((m) => m.name.trim())
     const memberPersonIds = cleanMembers.map((m) => m.personId).filter(Boolean) as string[]
@@ -623,7 +625,7 @@ function TruppForm({
       pressure,
       leaderPersonId: leader.name.trim() ? leader.personId : undefined,
       memberPersonIds: memberPersonIds.length ? memberPersonIds : undefined,
-    })
+    }, standby)
   }
 
   const title = mode === 'edit' ? az.formEditTitle : mode === 'redeploy' ? az.formRedeployTitle : az.formCreateTitle
@@ -671,10 +673,16 @@ function TruppForm({
               personnel={personnel} legacyRoster={roster} presentIds={presentIds} assignedIds={assignedIds}
               usedIds={usedIds} usedNames={usedNames}
             />
+            {/* Every AdF row is removable, including the two the form starts with. A Trupp needs
+                exactly one name to be valid — the Gruppenführer — so a two-person Trupp, a
+                four-person Trupp and a row added by mistake are all reachable from here.
+                Removing by INDEX (not by value) so identical empty rows can't collapse together. */}
             {members.map((m, i) => (
               <PersonField
                 key={i} label={`${az.memberLabel} ${i + 1}`} placeholder={az.memberPlaceholder}
                 value={m} onChange={(slot) => setMembers((ms) => ms.map((x, j) => (j === i ? slot : x)))}
+                onRemove={() => setMembers((ms) => ms.filter((_, j) => j !== i))}
+                removeLabel={fillTemplate(az.removeMember, { n: i + 1 })}
                 personnel={personnel} legacyRoster={roster} presentIds={presentIds} assignedIds={assignedIds}
                 usedIds={usedIds} usedNames={usedNames}
               />
@@ -709,7 +717,15 @@ function TruppForm({
 
       <div className={s.modalFoot}>
         <button className={s.ghostBtn} onClick={onCancel}>{az.cancel}</button>
-        <button className={s.primaryBtn} disabled={!canSubmit} onClick={submit}>{submitLabel}</button>
+        {/* Re-deploy forks here: a re-equipped Trupp is just as often held back as Sicherungstrupp
+            as it is sent straight in. Both buttons take the same filled-in form, so the choice
+            costs nothing — and «Bereitstellen» is the one that must NOT start a contact clock. */}
+        {mode === 'redeploy' && (
+          <button className={s.secondaryBtn} disabled={!canSubmit} onClick={() => submit(true)} title={az.reenterStandbyHint}>
+            {az.reenterStandby}
+          </button>
+        )}
+        <button className={s.primaryBtn} disabled={!canSubmit} onClick={() => submit()}>{submitLabel}</button>
       </div>
     </Overlay>
   )
