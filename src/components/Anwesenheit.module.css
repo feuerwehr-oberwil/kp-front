@@ -129,9 +129,14 @@
   .headActions :global(.btn) span { display: none; }
   .headActions :global(.btn) { padding: 0; width: var(--tap); height: var(--tap); justify-content: center; }
   /* the Zeitraum control shares the search line rather than owning a row of its own */
-  .controls { gap: 10px; padding: 10px 14px; }
-  .horizon { flex: 1 0 auto; justify-content: flex-end; }
+  .controls { gap: 8px; padding: 10px 14px; }
+  /* the search yields so the Zeitraum can share its line — on its own row it cost ~56px of the
+     little vertical space a phone has for the grid itself */
+  .search { flex: 1 1 120px; }
+  .horizon { flex: 0 1 auto; gap: 4px; }
   .horizonLabel { display: none; }
+  .horizonValue { min-width: 2.6rem; }
+  .horizonEnd { display: none; }
 
   .controls { padding: 10px 14px; gap: 10px; }
   .rankRow { padding: 0 14px 10px; }

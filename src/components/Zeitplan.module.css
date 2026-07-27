@@ -242,15 +242,15 @@
   .legend { gap: 5px 8px; }
   /* clear the bottom bar + the Eintrag FAB so the legend is never underneath them */
   .zeitplan { padding-bottom: calc(16px + var(--rail-h)); }
-  /* the sticky column would eat a phone screen, so the row stacks: name + controls on top, the
-     lane full-width underneath, and the track scrolls on its own */
-  .row { flex-wrap: wrap; }
-  .who {
-    position: static; width: 100%; border-right: 1px solid var(--glass-edge);
-    border-radius: var(--r-ctl) var(--r-ctl) 0 0;
-  }
-  .whoHead, .whoFoot { border: none; }
-  .track { width: 100%; min-width: var(--track-w); }
+  /* ONE line per person, as on the desktop — just a narrower name column. Stacking the name
+     above its lane doubled the row height and left barely two and a half people on a 390px
+     screen, which is not a Mannschaft overview. 132px holds a full «Anna Meier» plus the pencil
+     — «Anna Me…» is not an identification at 3am — and still leaves ~230px of lane, enough for
+     the whole 12 h window without scrolling. */
+  .who { width: 132px; padding: 2px 2px 2px 8px; gap: 4px; }
+  .name { font-size: 12.5px; }
+  .editBtn { min-width: 26px; min-height: 26px; }
+  .editBtn svg { width: 12px; height: 12px; }
   /* min-height, NOT height: a fixed 26px overrode the 44px floor on the one device class that
      needs it most, and left the 18px drag handles in a lane barely taller than themselves */
   .lane { border-left: 1px solid var(--glass-edge); border-radius: 0 0 var(--r-ctl) var(--r-ctl); }
