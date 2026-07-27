@@ -86,6 +86,14 @@ function PresenceSheet({ person, blocks, canEdit, startedAt, onSetTimes, onRemov
         onFromStart: canEdit && onSetTimes && startedAt && i === 0 && iv.from !== startedAt
           && (!iv.to || Date.parse(startedAt) < Date.parse(iv.to))
           ? () => onSetTimes(person.id, { from: startedAt }, i) : undefined,
+        fromStartValue: startedAt ? toHM(startedAt) : undefined,
+        // «noch da» — emptying the end says the person never left, which is the way back from a
+        // mis-tapped «gegangen». LAST row only, and only while nothing follows it: reopening an
+        // older, long-closed row would make it run to NOW, and an open row feeds isPresent, the
+        // Atemschutz lock, the coverage curve and the Rapport hours. Hours would quietly grow back
+        // on a stretch that ended yesterday.
+        onReopen: canEdit && onSetTimes && !!iv.to && i === blocks.length - 1
+          ? () => onSetTimes(person.id, { to: undefined }, i) : undefined,
         onRemove: canEdit && onRemoveBlock ? () => onRemoveBlock(person.id, i) : undefined,
         onTo: canEdit && onSetTimes && iv.to ? (v) => { const iso = applyTimeToIso(iv.to!, v, { nextDayIfBefore: iv.from }); if (iso) onSetTimes(person.id, { to: iso }, i) } : undefined,
       }))}

@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
+import w from './WheelPicker.module.css'
 
 const ITEM_H = 44 // px, one wheel row — a full ≥44px tap target; must match .wheel-item/.wheel-pad/.wheelpop-band in app.css
 
@@ -56,7 +57,7 @@ const MINUTES = Array.from({ length: 60 }, (_, i) => pad2(i))
 export interface WheelValue { y: number; mo: number; d: number; h: number; mi: number }
 
 /** The popover itself. `withDate` adds day/month/year wheels (year: prev/this/next). */
-export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onClear }: {
+export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onClear, shortcut, clearLabel }: {
   anchor: DOMRect
   initial: Date
   withDate?: boolean
@@ -64,6 +65,12 @@ export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onC
   onClose: () => void
   /** offered as «Löschen» when set (clears the underlying value) */
   onClear?: () => void
+  /** A one-tap answer above the wheels — «ab Einsatzbeginn 07:29». It belongs here rather than
+   *  beside the field because it answers the question the picker asks. */
+  shortcut?: { label: string; value?: string; tone?: 'blue' | 'green'; onPick: () => void }
+  /** names the clear action instead of showing a bin — «noch da», which is what emptying a «bis»
+   *  actually means. A bin glyph said «destroy» for an action that records presence. */
+  clearLabel?: string
 }) {
   const C = appConfig.copy.wheel
   const [v, setV] = useState<WheelValue>({
@@ -109,7 +116,8 @@ export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onC
   // below the anchor when there's room, else above; clamped into the viewport laterally
   const height = 300 // ≈ padding + 5×44px wheel + actions row (keep in sync with app.css)
   const up = window.innerHeight - anchor.bottom < height + 16
-  const width = withDate ? 316 : 196
+  // a shortcut or a named clear needs its sentence on one line; the bare wheels do not
+  const width = withDate ? 316 : (shortcut || clearLabel ? 236 : 196)
   const left = Math.max(8, Math.min(anchor.left, window.innerWidth - width - 8))
   const style: React.CSSProperties = {
     position: 'fixed', left, width,
@@ -118,6 +126,13 @@ export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onC
 
   return createPortal(
     <div className="wheelpop" style={style} ref={ref} role="dialog" aria-modal="true">
+      {shortcut && (
+        <button type="button" className={`${w.shortcut}${shortcut.tone === 'green' ? ` ${w.green}` : ''}`}
+          onClick={shortcut.onPick}>
+          {shortcut.label}
+          {shortcut.value && <span className={w.value}>{shortcut.value}</span>}
+        </button>
+      )}
       <div className="wheelpop-cols">
         {withDate && (
           <>
@@ -135,11 +150,13 @@ export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onC
         <div className="wheelpop-band" aria-hidden />
       </div>
       <div className="wheelpop-actions">
-        {onClear && (
+        {onClear && (clearLabel ? (
+          <button type="button" className={`wheelpop-btn ${w.clearNamed}`} onClick={onClear}>{clearLabel}</button>
+        ) : (
           <button type="button" className="wheelpop-btn clear" onClick={onClear} title={C.clear} aria-label={C.clear}>
             <Icon id="trash" />
           </button>
-        )}
+        ))}
         <button type="button" className="wheelpop-btn" onClick={stampNow}>{C.now}</button>
         <button type="button" className="wheelpop-btn primary" onClick={() => onCommit(v)}>{C.ok}</button>
       </div>

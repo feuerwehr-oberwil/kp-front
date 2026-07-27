@@ -105,6 +105,9 @@ function PersonSheet({ person, shifts, blocks, canEdit, startedAt, conflicts, on
         onFromStart: canEdit && startedAt && shifts[0]?.id === sh.id && sh.from !== startedAt
           && Date.parse(startedAt) < Date.parse(sh.to)
           ? () => onSetTime(sh.id, { from: startedAt }) : undefined,
+        fromStartValue: startedAt ? clock(startedAt) : undefined,
+        // no «noch da» here on purpose: a shift always has an end. Only a person's presence can be
+        // open, and that lives in the Anwesenheit.
         trailing: (
           <button type="button" className={cx(s.sheetState, sh.confirmed && s.sheetStateOn)}
             disabled={!canEdit} onClick={() => onToggle(sh)} aria-pressed={!!sh.confirmed}

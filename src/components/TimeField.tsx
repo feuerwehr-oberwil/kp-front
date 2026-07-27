@@ -61,7 +61,7 @@ function TextCommitInput({ value, display, commit, disabled, ariaLabel, placehol
   )
 }
 
-export function TimeField({ value, onCommit, disabled, ariaLabel, nowLabel, className }: {
+export function TimeField({ value, onCommit, disabled, ariaLabel, nowLabel, className, shortcut, clearLabel }: {
   /** current value as 'HH:MM' ('' = unset) */
   value: string
   /** 'HH:MM' from wheels/typing/«Jetzt»; null when cleared */
@@ -71,6 +71,10 @@ export function TimeField({ value, onCommit, disabled, ariaLabel, nowLabel, clas
   /** render an inline «Jetzt» button with this label (fast path) */
   nowLabel?: string
   className?: string
+  /** a one-tap answer offered inside the picker — «ab Einsatzbeginn 07:29» */
+  shortcut?: { label: string; value?: string; tone?: 'blue' | 'green'; onPick: () => void }
+  /** names the clear action in the picker instead of the bin glyph — «noch da» */
+  clearLabel?: string
 }) {
   const [open, setOpen] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
@@ -116,7 +120,11 @@ export function TimeField({ value, onCommit, disabled, ariaLabel, nowLabel, clas
           initial={initial}
           onClose={() => setOpen(false)}
           onCommit={(v: WheelValue) => { setOpen(false); onCommit(`${pad2(v.h)}:${pad2(v.mi)}`) }}
-          onClear={value ? () => { setOpen(false); onCommit(null) } : undefined}
+          // a named clear is offered even on an empty field: «noch da» is a state to SET, not a
+          // value to erase, so it must not vanish once the field is already empty
+          onClear={value || clearLabel ? () => { setOpen(false); onCommit(null) } : undefined}
+          clearLabel={clearLabel}
+          shortcut={shortcut && { ...shortcut, onPick: () => { setOpen(false); shortcut.onPick() } }}
         />
       )}
     </span>

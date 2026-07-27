@@ -1,0 +1,35 @@
+/* Additions to the wheel popover that belong to ONE field's meaning rather than to the wheels
+   themselves — see app.css for the popover frame, the wheels and the actions row.
+   Kept in a module of its own so the shared frame stays where it is. */
+
+/* The shortcut row: a one-tap answer to «which time?», offered above the wheels.
+   «ab Einsatzbeginn» and «noch da» used to be buttons sitting NEXT to the fields, where they were
+   two more shapes in a row that already had too many. They are answers to the question the picker
+   asks, so they belong inside it — and the row is then the same shape for every field that has
+   one, instead of every row in the sheet being a different width. */
+.shortcut {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px;
+  margin: 0 0 8px; padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--blue) 38%, transparent);
+  border-radius: var(--r-xs);
+  background: color-mix(in srgb, var(--blue) 10%, transparent);
+  color: var(--blue-strong); font: 700 12.5px var(--body); cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.shortcut:hover { background: color-mix(in srgb, var(--blue) 18%, transparent); }
+/* the time the shortcut would set. «ab Beginn» without a number is a promise you cannot check
+   before you tap it. */
+.value { margin-left: auto; font: 700 12.5px var(--mono); opacity: .85; }
+
+/* «noch da» is green because it produces presence, not because it clears a field — it is the same
+   green the grid draws an open stretch in. */
+.green {
+  border-color: color-mix(in srgb, var(--green) 42%, transparent);
+  background: color-mix(in srgb, var(--green) 12%, transparent);
+  color: var(--green-strong);
+}
+.green:hover { background: color-mix(in srgb, var(--green) 20%, transparent); }
+
+/* A NAMED clear, replacing the bin glyph. Emptying a «bis» does not delete anything — it says the
+   person is still here — and a bin said the opposite of what it did. */
+.clearNamed { flex: 1.2; white-space: nowrap; }

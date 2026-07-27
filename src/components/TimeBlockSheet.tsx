@@ -24,8 +24,17 @@ export interface TimeBlock {
   /** date beside «bis» when the end falls on a different day than the start — a 22:00→06:00
    *  block otherwise reads as eight hours backwards */
   toDayLabel?: string
-  /** «ab Einsatzbeginn»: set this block's start to the incident start in one tap */
+  /** «ab Einsatzbeginn»: set this block's start to the incident start in one tap. Offered INSIDE
+   *  the «von» picker — it answers the question that picker asks, and beside the field it was one
+   *  more shape in a row that already had too many. */
   onFromStart?: () => void
+  /** the time «ab Beginn» would set, as HH:MM — shown in the shortcut, because a shortcut without
+   *  its number is a promise you cannot check before tapping it */
+  fromStartValue?: string
+  /** «noch da»: empty this block's end, which says the person never left. Offered inside the «bis»
+   *  picker, where it replaces the bin glyph — emptying a «bis» records presence, it destroys
+   *  nothing, and a bin said the opposite of what it did. */
+  onReopen?: () => void
   /** right-hand control: the planned/fix toggle in the Zeitplan, nothing in the Anwesenheit */
   trailing?: ReactNode
   onFrom?: (hhmm: string) => void
@@ -58,7 +67,7 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
   /** an additional read-only section under the blocks (the Zeitplan's «tatsächlich anwesend») */
   extra?: ReactNode
   onClose: () => void
-  labels: { from: string; to: string; done: string; remove: string; fromStart: string; fromStartHint: string }
+  labels: { from: string; to: string; done: string; remove: string; fromStart: string; reopen: string }
 }) {
   return (
     <Sheet open onClose={onClose} fit sheetClassName={s.sheet} title={title}
@@ -83,14 +92,18 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
               <span className={s.field}>
                 <span className={s.label}>{labels.from}</span>
                 <TimeField className={s.time} ariaLabel={`${labels.from} – ${subject}`} value={b.from}
-                  disabled={!b.onFrom} onCommit={(v) => { if (v) b.onFrom?.(v) }} />
+                  disabled={!b.onFrom} onCommit={(v) => { if (v) b.onFrom?.(v) }}
+                  shortcut={b.onFromStart && {
+                    label: labels.fromStart, value: b.fromStartValue, onPick: b.onFromStart,
+                  }} />
               </span>
               <span className={s.field}>
                 <span className={s.label}>{labels.to}</span>
                 {b.to != null ? (
                   <span className={s.toWrap}>
                     <TimeField className={s.time} ariaLabel={`${labels.to} – ${subject}`} value={b.to}
-                      disabled={!b.onTo} onCommit={(v) => { if (v) b.onTo?.(v) }} />
+                      disabled={!b.onTo} onCommit={(v) => { if (v == null) b.onReopen?.(); else b.onTo?.(v) }}
+                      clearLabel={b.onReopen ? labels.reopen : undefined} />
                     {b.toDayLabel && <em className={s.nextDay}>{b.toDayLabel}</em>}
                   </span>
                 ) : (
@@ -105,21 +118,6 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
                   <button type="button" className={s.del} title={labels.remove} aria-label={`${labels.remove} – ${subject}`}
                     onClick={b.onRemove}><Icon id="close" /></button>
                 )}
-              </span>
-            )}
-            {/* LAST, and on its own full-width line by design. Sharing the row with von/bis and the
-                state chip is what made this block a different shape from the one below it — the
-                shortcut is offered on the first shift only, so wherever it squeezed in, exactly one
-                row came out different. Given its own line it is an addition to a row that is
-                otherwise identical to every other, and it now sits under «von», which is the field
-                it actually sets. Last in the DOM too, so it is also last in the tab order — it is
-                the least-used control here, and the reading order matches the visual one. */}
-            {b.onFromStart && (
-              <span className={s.fromStartLine}>
-                <button type="button" className={s.fromStart} onClick={b.onFromStart}
-                  title={labels.fromStartHint} aria-label={`${labels.fromStart} – ${subject}`}>
-                  {labels.fromStart}
-                </button>
               </span>
             )}
           </div>

@@ -11,5 +11,7 @@ export const timeBlockLabels = (remove: string) => ({
   done: appConfig.copy.anwesenheit.done,
   remove,
   fromStart: appConfig.copy.zeitplan.fromStart,
-  fromStartHint: appConfig.copy.zeitplan.fromStartHint,
+  // «noch da» — the named clear inside a «bis» picker. Only the Anwesenheit ever offers it: a
+  // shift always has an end, a person's presence does not.
+  reopen: appConfig.copy.anwesenheit.stillHere,
 })
