@@ -258,7 +258,11 @@ export function ZeitplanView({
   )
   const conflicts = useMemo(() => conflictingShiftIds(shifts), [shifts])
   const slots = useMemo(() => coverage(shifts, attendance, span, nowMs), [shifts, attendance, span, nowMs])
-  const peakCover = Math.max(1, ...slots.map((c) => Math.max(c.planned, c.actual)))
+  const peakCover = Math.max(1, ...slots.map((c) => Math.max(c.available, c.planned, c.actual)))
+  // The strip shows shape; these show the NUMBER. «Wie viele sind jetzt da, wie viele sind für
+  // die nächsten Stunden eingeteilt, wie viele haben sich gemeldet» is the question the surface
+  // exists for, and bars alone never answered it.
+  const nowSlot = slots.find((c) => nowMs >= c.at && nowMs < c.at + SLOT_MS) ?? slots[0]
 
   // hour ticks across the head; the grid itself is half-hourly (SLOT_MS) but labelling every
   // half hour is unreadable on a tablet
@@ -366,6 +370,15 @@ export function ZeitplanView({
           is teaching, not reference: it ran three lines deep and cost ~60px of the little height a
           phone has for the Mannschaft itself. It shows itself while nothing is planned (when it
           is the whole point) and folds behind the ⓘ once there is. */}
+      {/* the counts at this moment — the bars give the shape, this gives the number */}
+      {nowSlot && (
+        <p className={s.nowCounts}>
+          <span className={s.nowAt}>{fillTemplate(Z.nowAt, { t: hhmm(new Date(nowMs)) })}</span>
+          <span><b>{nowSlot.actual}</b> {Z.actual}</span>
+          <span><b>{nowSlot.planned}</b> {Z.confirmed}</span>
+          <span><b>{nowSlot.available}</b> {Z.available}</span>
+        </p>
+      )}
       <p className={s.legend}>
         <span className={cx(s.swatch, s.plannedBar)} /> {Z.available}
         <span className={cx(s.swatch, s.plannedBar, s.confirmedBar)} /> {Z.confirmed}

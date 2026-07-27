@@ -115,7 +115,15 @@ export function conflictingShiftIds(shifts: Shift[]): Set<string> {
   return out
 }
 
-export interface CoverageSlot { at: number; planned: number; actual: number }
+export interface CoverageSlot {
+  at: number
+  /** offered but not yet assigned */
+  available: number
+  /** assigned (a confirmed shift) */
+  planned: number
+  /** actually on site, per the attendance record; 0 in the future — nobody knows yet */
+  actual: number
+}
 
 /**
  * How many people are planned — and how many are actually there — in each slot of the window.
@@ -126,7 +134,11 @@ export interface CoverageSlot { at: number; planned: number; actual: number }
  */
 export function coverage(shifts: Shift[], attendance: AttendanceState, span: Span, nowMs: number): CoverageSlot[] {
   const slots: CoverageSlot[] = []
-  const planned = shifts.map(shiftSpan).filter((s): s is Span => !!s)
+  const spanOf = (list: Shift[]) => list.map(shiftSpan).filter((s): s is Span => !!s)
+  // the three states counted apart: «wie viele sind eingeteilt» and «wie viele haben sich
+  // gemeldet» are different questions, and a strip that merged them answered neither
+  const planned = spanOf(shifts.filter((x) => x.confirmed))
+  const available = spanOf(shifts.filter((x) => !x.confirmed))
   const actual: Span[] = []
   for (const e of Object.values(attendance)) {
     for (const iv of intervalsOf(e)) {
@@ -136,10 +148,12 @@ export function coverage(shifts: Shift[], attendance: AttendanceState, span: Spa
   }
   for (let at = span.from; at < span.to; at += SLOT_MS) {
     const mid = at + SLOT_MS / 2
+    const covering = (list: Span[]) => list.filter((s) => s.from <= mid && mid < s.to).length
     slots.push({
       at,
-      planned: planned.filter((s) => s.from <= mid && mid < s.to).length,
-      actual: mid <= nowMs ? actual.filter((s) => s.from <= mid && mid < s.to).length : 0,
+      available: covering(available),
+      planned: covering(planned),
+      actual: mid <= nowMs ? covering(actual) : 0,
     })
   }
   return slots

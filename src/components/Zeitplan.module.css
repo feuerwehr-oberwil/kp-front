@@ -7,6 +7,10 @@
    the horizon control's right edge line up with the search field above them */
 /* --name-w is shared by the sticky «Wer» cell and the grid's own width, so the two can never
    disagree — see .grid */
+/* Rows are square. A rounded sticky name cell cannot work here: the lane scrolls UNDERNEATH it,
+   and a corner arc is transparent, so bars peeked through it — and the page backdrop is a
+   gradient, so no local fill can mask the corner convincingly. A dense data grid reads perfectly
+   well with square rows, and the whole class of artefact disappears. */
 .zeitplan {
   --name-w: 210px;
   flex: 1 1 auto; min-height: 0; min-width: 0; max-width: 100%;
@@ -49,16 +53,10 @@
   width: var(--name-w); display: flex; align-items: center; gap: 6px; padding: 2px 6px 2px 12px;
   min-height: var(--tap); text-align: left; cursor: pointer;
   border: 1px solid var(--glass-edge); border-right: none;
-  border-radius: var(--r-ctl) 0 0 var(--r-ctl);
   background: var(--surface); font: 700 13.5px var(--body); color: var(--ink);
   -webkit-tap-highlight-color: transparent;
 }
-/* The lane slides UNDERNEATH this cell as the axis scrolls, and a rounded corner is transparent —
-   so bars kept peeking through the two left arcs. This paints the cell's full rectangle in the
-   surface colour first; the rounded, bordered cell then sits on top of it. */
-.who::before {
-  content: ''; position: absolute; inset: 0; z-index: -1; background: var(--app-bg);
-}
+
 .who:hover { background: color-mix(in srgb, var(--ink) 4%, var(--surface)); }
 .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rank {
@@ -74,7 +72,7 @@
    so the hour ticks line up with the lanes they belong to. Opaque, not transparent: while the
    axis is scrolled the ticks and the coverage bars slid straight through it. */
 .whoHead, .whoFoot {
-  border: none; background: var(--app-bg); align-items: center; padding-bottom: 3px;
+  border: none; background: var(--surface); align-items: center; padding-bottom: 3px;
   font: 700 10.5px var(--mono); color: var(--ink-faint); letter-spacing: .08em; text-transform: uppercase;
 }
 .whoFoot { align-items: center; padding-bottom: 4px; }
@@ -84,7 +82,9 @@
 /* grow to fill when the chosen Zeitraum is narrower than the screen, never shrink below the
    width its hours deserve — that is what makes 6 h fill the row and 48 h scroll */
 .track { position: relative; flex: 1 0 var(--track-w); width: var(--track-w); }
-.headRow { position: sticky; top: 0; z-index: 4; background: var(--app-bg); }
+/* opaque, and a SOLID token: --app-bg is a page-sized radial gradient, so painting it here drew
+   a different shade than the page behind and let rows show through while scrolling */
+.headRow { position: sticky; top: 0; z-index: 4; background: var(--surface); }
 .headRow .who { z-index: 5; }
 .headRow .track { height: 22px; border-bottom: 1px solid var(--border); }
 /* clamped at the edges: a label centred on the first or last rule hangs half outside the track —
@@ -101,7 +101,7 @@
 
 .lane {
   display: flex; align-items: center; min-height: var(--tap);
-  border: 1px solid var(--glass-edge); border-left: none; border-radius: 0 var(--r-ctl) var(--r-ctl) 0;
+  border: 1px solid var(--glass-edge); border-left: none;
   background: color-mix(in srgb, var(--ink) 4%, var(--surface));
   /* The BROWSER owns the horizontal drag here: the lane spans the entire scrollable track, so
      claiming it meant a long axis could not be panned by finger at all — at 96 h roughly four
@@ -177,10 +177,18 @@
 }
 
 /* coverage strip: two bars per half-hour slot — planned above, actually there below */
-.coverageRow { margin-top: 4px; }
+/* pinned to the bottom of the scroll, as the clock is pinned to the top: with a full Mannschaft
+   the strip sat below twelve rows and was never on screen — which is how «the Deckung row isn't
+   available on mobile» happens even though it renders. */
+.coverageRow {
+  position: sticky; bottom: 0; z-index: 4; margin-top: 4px;
+  background: var(--surface); box-shadow: 0 -6px 10px -8px color-mix(in srgb, var(--ink) 45%, transparent);
+}
+.coverageRow .who { z-index: 5; }
 .coverage { height: 34px; border-top: 1px solid var(--border); }
 .cov { position: absolute; top: 4px; bottom: 0; display: flex; align-items: flex-end; gap: 1px; }
 .cov em { flex: 1 1 0; min-height: 1px; border-radius: 1px; }
+.covAvailable { background: color-mix(in srgb, var(--ink) 30%, transparent); }
 .covPlanned { background: color-mix(in srgb, var(--blue) 60%, transparent); }
 .covActual { background: color-mix(in srgb, var(--green) 70%, transparent); }
 
@@ -217,6 +225,15 @@
 /* legend + the one line that teaches the lane gestures. MUST wrap: three swatches plus a
    ~120-character hint never fit one line, and without wrapping the hint was crushed into a
    narrow column that ran ten lines deep over the Eintrag FAB. */
+/* the counts at this moment, in numbers — the strip above shows the shape */
+.nowCounts {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0; padding-top: 4px;
+  font: 500 12.5px var(--body); color: var(--ink-dim);
+}
+.nowCounts b { font: 700 14px var(--mono); color: var(--ink); margin-right: 3px; }
+.nowAt { font: 700 11px var(--mono); color: var(--ink-faint); letter-spacing: .06em; text-transform: uppercase; }
+.peak { font: 700 10px var(--mono); color: var(--ink-faint); }
+
 .legend {
   display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0;
   font: 500 12.5px var(--body); color: var(--ink-faint);
@@ -282,8 +299,6 @@
      the lane sat BELOW its name and therefore closed off at the bottom. Now the lane sits to the
      right of the name as it does everywhere else, so a left border and bottom-corner radii drew a
      stray seam and a rounded end in the middle of the row. The base rule is already correct. */
-  /* the hour ticks STAY: without them the lane is coloured bars floating in unlabelled space, and
-     every time reading lives in a title= that touch never shows. Only the coverage strip folds
-     away — it is a summary, not the clock. */
-  .coverageRow { display: none; }
+  /* the coverage strip STAYS on a phone too — «wie viele sind jetzt da» is the question the
+     surface exists for, and hiding it left the phone with bars and no answer. It is 34px. */
 }

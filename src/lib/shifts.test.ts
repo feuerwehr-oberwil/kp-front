@@ -111,11 +111,16 @@ describe('coverage — the hole at 02:00 a wall of bars hides', () => {
   const span = { from: ms(T(12)), to: ms(T(16)) }
   const at = (slots: ReturnType<typeof coverage>, iso: string) => slots.find((c) => c.at === ms(iso))!
 
-  it('counts planned people per slot', () => {
-    const list = [shift('a', 'p1', T(12), T(14)), shift('b', 'p2', T(12), T(16))]
+  it('counts the three states apart, per slot', () => {
+    const list = [
+      { ...shift('a', 'p1', T(12), T(14)), confirmed: true },
+      shift('b', 'p2', T(12), T(16)),              // offered, not assigned
+    ]
     const slots = coverage(list, {}, span, ms(T(16)))
-    expect(at(slots, T(13)).planned).toBe(2)
-    expect(at(slots, T(15)).planned).toBe(1) // p1's shift ended — the gap is visible
+    expect(at(slots, T(13)).planned).toBe(1)     // only the confirmed one
+    expect(at(slots, T(13)).available).toBe(1)
+    expect(at(slots, T(15)).planned).toBe(0)     // p1's shift ended — the gap is visible
+    expect(at(slots, T(15)).available).toBe(1)
   })
 
   it('counts who is actually there, from the presence blocks', () => {
