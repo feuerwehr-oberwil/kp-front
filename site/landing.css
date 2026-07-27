@@ -372,7 +372,6 @@ section[id] { scroll-margin-top: 76px; } /* anchor targets clear the sticky head
 .change td { font-size: .97rem; }
 .change td:first-child { color: var(--ink-faint); width: 44%; }
 .change td:last-child { color: var(--ink); font-weight: 600; }
-.change-note { margin-top: 16px; font-size: .9rem; color: var(--ink-faint); max-width: 68ch; }
 
 /* ---------- FAQ ---------- */
 .faq-list { max-width: 720px; margin-top: 6px; }
