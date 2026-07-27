@@ -1133,7 +1133,12 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 /* grouped sections: a divider BETWEEN groups, not between every row (cleaner, shorter) */
 .draw-editor .de-group { padding: 6px 0; }
 .draw-editor .de-group + .de-group { border-top: 1px solid var(--border-soft); }
-.draw-editor .de-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; font-size: 13px; color: var(--ink-dim); font-weight: 500; }
+/* wrap: a row is a label plus its control, and several controls (the Abschluss glyph trio, the
+   Inhalt letters, a ± stepper) are wider than half a narrow panel. Without wrapping they ran into
+   their own label. The control drops onto its own line instead. */
+.draw-editor .de-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 4px 10px; padding: 7px 0; font-size: 13px; color: var(--ink-dim); font-weight: 500; }
+.draw-editor .de-row > span:first-child { flex: 0 1 auto; min-width: 0; }
 /* a clean, always-present thin scrollbar so the panel reads as scrollable */
 .draw-editor .ctx-body { scrollbar-width: thin; scrollbar-color: var(--border) transparent; scroll-padding-bottom: 8px; }
 .draw-editor .ctx-body::-webkit-scrollbar { width: 8px; }
@@ -2077,10 +2082,21 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 /* Messung — length + Schläuche of an already-drawn line, and the collapsible Höhenprofil. The
    chart itself keeps MeasurePanel's .mp-* classes (see components/ProfileChart), which are sized
    off width:100% and so fit the narrower ctx dock unchanged. */
-.draw-editor .de-measure-v { font-family: var(--mono); font-size: 14px; font-weight: 700; color: var(--ink); letter-spacing: -.2px; }
+/* A read-only value sits where every other row in this panel has a CONTROL, so it needs to read
+   as data rather than as a disabled button: a quiet chip, aligned to the same right edge. */
+.draw-editor .de-measure-v {
+  flex: none; padding: 4px 10px; border-radius: var(--r-xs);
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  font: 700 13.5px var(--mono); color: var(--ink); letter-spacing: -.2px;
+}
+/* the Höhenprofil discloser keeps the rows' rhythm — same label colour and left edge — and gains
+   a real hover/expanded state so it reads as something you can open */
 .draw-editor .de-prof-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%;
-  min-height: var(--tap); padding: 7px 0; border: 0; background: transparent; color: var(--ink-dim);
+  min-height: var(--tap); padding: 7px 8px 7px 0; margin-top: 2px; border: 0; border-radius: var(--r-xs);
+  background: transparent; color: var(--ink-dim); cursor: pointer;
   font-size: 13px; font-weight: 500; -webkit-tap-highlight-color: transparent; }
+.draw-editor .de-prof-toggle:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 5%, transparent); }
+.draw-editor .de-prof-toggle.on { color: var(--ink); }
 .draw-editor .de-prof-toggle .i { width: 16px; height: 16px; transition: transform .18s var(--ease); }
 .draw-editor .de-prof-toggle.on { color: var(--ink); }
 .draw-editor .de-prof-toggle.on .i { transform: rotate(180deg); }
@@ -3201,7 +3217,11 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
   /* narrow the map panels but let layers keep tracking the rail (--rail-w) */
   .layers-card { width: 240px; }
   .history-card { width: 240px; left: 78px; }
-  .ctx { width: 300px; right: 96px; }
+  /* 300px was below what the drawing editor's own rows need: «Abschluss» and «Inhalt» carry
+     control groups 200px+ wide, so at 300px the label and its buttons collided. Scale with the
+     viewport instead of pinning a number — on a 768px tablet this lands at 340px and still leaves
+     the map its centre. */
+  .ctx { width: clamp(300px, calc(100vw - 420px), 360px); right: 96px; }
   .topbar { gap: 10px; }
   .eaddr { max-width: 26vw; }
 }
