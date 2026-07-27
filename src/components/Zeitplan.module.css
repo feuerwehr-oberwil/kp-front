@@ -5,7 +5,10 @@
 
 /* padding matches the surface's own .controls/.grid (22px) so the name column's left edge and
    the horizon control's right edge line up with the search field above them */
+/* --name-w is shared by the sticky «Wer» cell and the grid's own width, so the two can never
+   disagree — see .grid */
 .zeitplan {
+  --name-w: 210px;
   flex: 1 1 auto; min-height: 0; min-width: 0; max-width: 100%;
   display: flex; flex-direction: column; gap: 10px; padding: 2px 22px 16px;
 }
@@ -18,7 +21,9 @@
 /* both axes: time runs off to the right, a full Mannschaft off the bottom. The scrollbars are
    deliberately ALWAYS visible — a track that silently continued past the edge was read as an axis
    that had dropped its labels, rather than one that simply carries on. */
-.scroll { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+/* overscroll-behavior: none — no rubber-band at either end. The axis is a fixed span of time;
+   letting it bounce past its own edges made a deliberate instrument feel loose. */
+.scroll { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: none; scrollbar-gutter: stable; }
 .scroll::-webkit-scrollbar { width: 10px; height: 10px; }
 .scroll::-webkit-scrollbar-track { background: transparent; }
 .scroll::-webkit-scrollbar-thumb {
@@ -26,15 +31,22 @@
   background-color: color-mix(in srgb, var(--ink) 28%, transparent);
 }
 .scroll::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--ink) 45%, transparent); }
-.grid { display: flex; flex-direction: column; gap: 3px; width: max-content; min-width: 100%; }
+/* The width is stated, not derived. `max-content` on the grid silently broke the sticky name
+   column (it scrolled away with the track — the one thing a «Wer» column must never do), and
+   `max-content` on the row didn't pick up the track's flex-basis, so rows ended mid-axis with a
+   stray rounded corner floating in the middle of the timeline. */
+.grid {
+  display: flex; flex-direction: column; gap: 3px;
+  width: calc(var(--name-w) + var(--track-w)); min-width: 100%;
+}
 
-.row { display: flex; align-items: stretch; gap: 0; }
+.row { display: flex; align-items: stretch; gap: 0; width: 100%; }
 
 /* ---- the «Wer» column: sticky, so it stays readable while the axis scrolls into the night ---- */
 
 .who {
   position: sticky; left: 0; z-index: 3; flex: none;
-  width: 210px; display: flex; align-items: center; gap: 6px; padding: 2px 6px 2px 12px;
+  width: var(--name-w); display: flex; align-items: center; gap: 6px; padding: 2px 6px 2px 12px;
   min-height: var(--tap); text-align: left; cursor: pointer;
   border: 1px solid var(--glass-edge); border-right: none;
   border-radius: var(--r-ctl) 0 0 var(--r-ctl);
@@ -203,8 +215,12 @@
   display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0;
   font: 500 12.5px var(--body); color: var(--ink-faint);
 }
-.legendHint { flex: 1 1 100%; margin: 2px 0 0; color: var(--ink-faint); }
+/* only shown while nothing is planned — the teaching moment. Once there are bars it lives behind
+   the ⓘ in the legend, which is worth ~60px of grid height on a phone. */
+.legendHint { display: block; margin: 4px 0 0; font: 500 12.5px var(--body); color: var(--ink-faint); }
 .swatch { width: 16px; height: 9px; border-radius: 2px; flex: none; }
+/* the ⓘ rides at the end of the legend line rather than wrapping onto one of its own */
+.legendInfo { margin-left: auto; display: inline-flex; align-items: center; }
 .legend .swatch:not(:first-child) { margin-left: 8px; }
 
 /* ---- the per-person sheet ------------------------------------------------------------ */
@@ -240,21 +256,26 @@
   /* the hint was being squeezed into a ~5rem column beside the swatches and ran 10 lines deep
      over the entry FAB — it takes its own full-width line under them */
   .legend { gap: 5px 8px; }
-  /* clear the bottom bar + the Eintrag FAB so the legend is never underneath them */
-  .zeitplan { padding-bottom: calc(16px + var(--rail-h)); }
+  /* The surface already insets itself for the bottom bar (.surface in Anwesenheit.module.css),
+     so reserving another --rail-h here counted it twice and left a dead band the height of the
+     nav bar under the legend. Only the FAB needs clearing, and only where it actually sits:
+     bottom-right, over the end of the legend line — so the legend keeps a lane clear for it and
+     the grid takes back the rest. */
+  .legend { padding-right: 64px; }
   /* ONE line per person, as on the desktop — just a narrower name column. Stacking the name
      above its lane doubled the row height and left barely two and a half people on a 390px
      screen, which is not a Mannschaft overview. 132px holds a full «Anna Meier» plus the pencil
      — «Anna Me…» is not an identification at 3am — and still leaves ~230px of lane, enough for
      the whole 12 h window without scrolling. */
-  .who { width: 132px; padding: 2px 2px 2px 8px; gap: 4px; }
+  .zeitplan { --name-w: 132px; }
+  .who { padding: 2px 2px 2px 8px; gap: 4px; }
   .name { font-size: 12.5px; }
   .editBtn { min-width: 26px; min-height: 26px; }
   .editBtn svg { width: 12px; height: 12px; }
-  /* min-height, NOT height: a fixed 26px overrode the 44px floor on the one device class that
-     needs it most, and left the 18px drag handles in a lane barely taller than themselves */
-  .lane { border-left: 1px solid var(--glass-edge); border-radius: 0 0 var(--r-ctl) var(--r-ctl); }
-  .grid { width: 100%; }
+  /* NO lane override here any more. These were written for the old stacked phone layout, where
+     the lane sat BELOW its name and therefore closed off at the bottom. Now the lane sits to the
+     right of the name as it does everywhere else, so a left border and bottom-corner radii drew a
+     stray seam and a rounded end in the middle of the row. The base rule is already correct. */
   /* the hour ticks STAY: without them the lane is coloured bars floating in unlabelled space, and
      every time reading lives in a title= that touch never shows. Only the coverage strip folds
      away — it is a summary, not the clock. */

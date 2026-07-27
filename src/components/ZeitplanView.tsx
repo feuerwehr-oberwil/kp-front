@@ -13,6 +13,7 @@ import {
 } from '../lib/shifts'
 import type { AttendanceState, Person, PresenceInterval, Shift } from '../types'
 import type { Span } from '../lib/shifts'
+import { DockInfo } from './DockInfo'
 import { TimeBlockReadOnly, TimeBlockSheet } from './TimeBlockSheet'
 import { timeBlockLabels } from '../lib/timeBlockLabels'
 import s from './Zeitplan.module.css'
@@ -361,12 +362,17 @@ export function ZeitplanView({
       {/* three states, in the order they happen: what somebody OFFERS, what we ASSIGNED from it,
           and what actually HAPPENED. The first two flip on a bar tap; the third comes from the
           Anwesenheit and is never written here. */}
+      {/* The three states stay on screen — they are the key to reading the grid. The gesture hint
+          is teaching, not reference: it ran three lines deep and cost ~60px of the little height a
+          phone has for the Mannschaft itself. It shows itself while nothing is planned (when it
+          is the whole point) and folds behind the ⓘ once there is. */}
       <p className={s.legend}>
         <span className={cx(s.swatch, s.plannedBar)} /> {Z.available}
         <span className={cx(s.swatch, s.plannedBar, s.confirmedBar)} /> {Z.confirmed}
         <span className={cx(s.swatch, s.actual)} /> {Z.actual}
-        <span className={s.legendHint}>{Z.laneHint}</span>
+        {!nothingPlanned && <span className={s.legendInfo}><DockInfo text={Z.laneHint} inline /></span>}
       </p>
+      {nothingPlanned && <span className={s.legendHint}>{Z.laneHint}</span>}
 
       {person && (
         <PersonSheet
