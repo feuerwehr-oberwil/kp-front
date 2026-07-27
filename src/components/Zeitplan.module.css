@@ -7,12 +7,34 @@
    the horizon control's right edge line up with the search field above them */
 /* --name-w is shared by the sticky «Wer» cell and the grid's own width, so the two can never
    disagree — see .grid */
-/* Rows are square. A rounded sticky name cell cannot work here: the lane scrolls UNDERNEATH it,
-   and a corner arc is transparent, so bars peeked through it — and the page backdrop is a
-   gradient, so no local fill can mask the corner convincingly. A dense data grid reads perfectly
-   well with square rows, and the whole class of artefact disappears. */
+/* Rows ARE rounded again, but only because the backdrop stopped being a gradient. The first
+   attempt failed for a findable reason: the lane scrolls UNDERNEATH the sticky name cell, a
+   corner arc is transparent, so bars peeked through the two left arcs — and the mask that was
+   supposed to hide them was filled with --app-bg, a PAGE-SIZED radial gradient, which renders a
+   different shade inside a 210px cell than it does behind it. The fix is to stop trying to match
+   a gradient: the scroll box paints a FLAT board (--canvas-bg, the same token the Plan stage
+   uses), and every row sits on it as a card. The gaps between rows, the square mask behind the
+   name cell (.who::before) and the space past the end of the axis are then all literally the same
+   colour, so an arc has nothing left to give away. */
 .zeitplan {
   --name-w: 210px;
+  /* the flat board behind the rows. Named here rather than used inline so the row mask and the
+     scroll backdrop can never drift to two different colours — that drift IS the bug. */
+  --board: var(--canvas-bg);
+  /* THE three state colours, declared once. Every place a state is drawn — the bar on a lane, the
+     step line in the Deckung strip, its key swatch, its numbers — reads them from here, so the
+     grey/blue/green mapping cannot drift between two surfaces that mean the same thing. They are
+     the ONLY colours on this grid that carry meaning: everything else is surface, edge or ink.
+       verfügbar — grey: somebody offered this time, nothing is committed yet
+       geplant   — blue: we assigned it (deliberately not --accent; a station's accent is its
+                   brand colour, in Oberwil alarm red, and a plan must not read as an alarm)
+       anwesend  — green: it actually happened, and it comes from the attendance record */
+  --st-available: color-mix(in srgb, var(--ink) 45%, transparent);
+  --st-planned: var(--blue);
+  --st-actual: var(--green);
+  /* one hairline for the whole grid — row edge, clock rule and Deckung rule were three different
+     tokens for the same job, which is what made the surface read as several tables stacked up */
+  --edge: var(--glass-edge);
   flex: 1 1 auto; min-height: 0; min-width: 0; max-width: 100%;
   display: flex; flex-direction: column; gap: 10px; padding: 2px 22px 16px;
 }
@@ -27,7 +49,16 @@
    that had dropped its labels, rather than one that simply carries on. */
 /* overscroll-behavior: none — no rubber-band at either end. The axis is a fixed span of time;
    letting it bounce past its own edges made a deliberate instrument feel loose. */
-.scroll { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: none; scrollbar-gutter: stable; }
+/* the flat board: opaque and a SOLID token, never --app-bg. It is what shows in the 3px gaps
+   between rows, behind the name column's corner arcs and past the end of a short axis — one
+   colour for all three, which is the whole reason the rounded rows can exist. */
+/* a size container, so anything sticky INSIDE the track can be measured against the visible port
+   instead of guessing at it from 100vw — see .covKeys, which is what that guess kept cutting off */
+.scroll {
+  flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: none; scrollbar-gutter: stable;
+  background: var(--board); border-radius: var(--r-sm);
+  container-type: inline-size;
+}
 .scroll::-webkit-scrollbar { width: 10px; height: 10px; }
 .scroll::-webkit-scrollbar-track { background: transparent; }
 .scroll::-webkit-scrollbar-thumb {
@@ -48,24 +79,41 @@
 
 /* ---- the «Wer» column: sticky, so it stays readable while the axis scrolls into the night ---- */
 
+/* TWO layers, and the order is the whole trick.
+   The ELEMENT is square and opaque and painted in the board colour: that is the MASK. The lane
+   scrolls underneath the name column, so whatever is square and opaque here is what stops a bar
+   from appearing where the card's corner is cut away.
+   The rounded card — fill, hairline, corner — is drawn by ::before on top of it.
+   Not the other way round: a `z-index: -1` pseudo does NOT go behind its parent's background once
+   the parent forms a stacking context (z-index: 3 does), it goes *between* that background and
+   the parent's text. Painting the mask there simply erased the cell. Painting the CARD there puts
+   the board underneath, the card over it and the name over that — which is exactly the order a
+   card on a board needs. */
 .who {
   position: sticky; left: 0; z-index: 3; flex: none;
-  width: var(--name-w); display: flex; align-items: center; gap: 6px; padding: 2px 6px 2px 12px;
+  width: var(--name-w); display: flex; align-items: center; gap: 6px; padding: 3px 6px 3px 13px;
   min-height: var(--tap); text-align: left; cursor: pointer;
-  border: 1px solid var(--glass-edge); border-right: none;
-  background: var(--surface); font: 700 13.5px var(--body); color: var(--ink);
+  border: none; background: var(--board);
+  font: 700 13.5px var(--body); color: var(--ink);
   -webkit-tap-highlight-color: transparent;
 }
+.who::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  border: 1px solid var(--edge); border-right: none;
+  border-radius: var(--r-ctl) 0 0 var(--r-ctl);
+  background: var(--surface);
+}
 
-.who:hover { background: color-mix(in srgb, var(--ink) 4%, var(--surface)); }
+.who:hover::before { background: color-mix(in srgb, var(--ink) 5%, var(--surface)); }
 .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rank {
   flex: none; padding: 1px 5px; border-radius: var(--r-xs);
   background: color-mix(in srgb, var(--ink) 8%, transparent);
   font: 700 10px var(--mono); color: var(--ink-dim); text-transform: uppercase;
 }
-/* a row that carries a plan reads as "done", like .isPresent does in the Anwesenheit list */
-.rowPlanned .who { border-color: color-mix(in srgb, var(--blue) 45%, var(--glass-edge)); }
+/* a row that carries a plan reads as "done", like .isPresent does in the Anwesenheit list.
+   The hairline lives on ::before now — that is where the card is drawn. */
+.rowPlanned .who::before { border-color: color-mix(in srgb, var(--st-planned) 45%, var(--edge)); }
 
 /* head + coverage label cells are chrome, not rows — no card frame */
 /* the head cell carries no «Wer» label any more — the names below say it. It stays as a spacer
@@ -74,11 +122,14 @@
 /* min-height: 0 — the head cell inherited the rows' 44px tap floor, so the sticky header was
    twice its own axis strip and the extra 22px clipped the first row's name in half. It holds no
    control, so it needs no tap target. */
+/* square, and both layers take the row colour: head and foot are CHROME spanning the full width,
+   not cards on the board, so a board-coloured mask would cut a dark notch into the strip */
 .whoHead, .whoFoot {
-  min-height: 0; border: none; background: var(--surface); align-items: center; padding-bottom: 3px;
+  min-height: 0; background: var(--surface);
+  align-items: center; padding-bottom: 4px;
   font: 700 10.5px var(--mono); color: var(--ink-faint); letter-spacing: .08em; text-transform: uppercase;
 }
-.whoFoot { align-items: center; padding-bottom: 4px; }
+.whoHead::before, .whoFoot::before { border: none; border-radius: 0; background: var(--surface); }
 
 /* ---- the time track ---------------------------------------------------------------- */
 
@@ -87,9 +138,20 @@
 .track { position: relative; flex: 1 0 var(--track-w); width: var(--track-w); }
 /* opaque, and a SOLID token: --app-bg is a page-sized radial gradient, so painting it here drew
    a different shade than the page behind and let rows show through while scrolling */
-.headRow { position: sticky; top: 0; z-index: 4; background: var(--surface); }
+/* the hairline and the soft shadow belong to the ROW, not to the clock half of it: the rule used
+   to stop where the name column began, and the header now shares the rows' surface colour, so a
+   row scrolled half under it read as bleeding out of the top edge rather than passing behind it.
+   It is the mirror of the Deckung row's shadow at the other end. */
+.headRow {
+  position: sticky; top: 0; z-index: 4; background: var(--surface);
+  border-bottom: 1px solid var(--edge);
+  box-shadow: 0 6px 10px -8px color-mix(in srgb, var(--ink) 45%, transparent);
+}
 .headRow .who { z-index: 5; }
-.headRow .track { height: 22px; border-bottom: 1px solid var(--border); }
+/* the track carries the fill itself as well as the row, so the mask never depends on the row box
+   and the track box agreeing — they are laid out by two different mechanisms (flex basis vs
+   width) and only one of them has to be off for a lane to show through the clock */
+.headRow .track { height: 22px; background: var(--surface); }
 /* clamped at the edges: a label centred on the first or last rule hangs half outside the track —
    and at a window opening exactly at midnight that is the one label carrying the DATE */
 .tickStart { transform: translateX(0); }
@@ -104,8 +166,14 @@
 
 .lane {
   display: flex; align-items: center; min-height: var(--tap);
-  border: 1px solid var(--glass-edge); border-left: none;
-  background: color-mix(in srgb, var(--ink) 4%, var(--surface));
+  border: 1px solid var(--edge); border-left: none;
+  /* the other half of the card. Its arcs sit at the very END of the axis, where nothing scrolls
+     underneath — the board shows through them, which is what a card corner should show. */
+  border-radius: 0 var(--r-ctl) var(--r-ctl) 0;
+  /* the SAME fill as the name half (.who::before). They were surface vs ink-4%-on-surface, which
+     drew a seam down the middle of every row and made the grid read as two tables side by side.
+     The lane reads as a track because the board around it is darker, not because it is tinted. */
+  background: var(--surface);
   /* The BROWSER owns the horizontal drag here: the lane spans the entire scrollable track, so
      claiming it meant a long axis could not be panned by finger at all — at 96 h roughly four
      fifths of it was unreachable. Bars and handles still claim their own gesture (they are small
@@ -113,8 +181,10 @@
   touch-action: auto; -webkit-tap-highlight-color: transparent;
 }
 .laneEditable { cursor: crosshair; }
-.laneEditable:hover { background: color-mix(in srgb, var(--blue) 5%, var(--surface)); }
-.rowPlanned .lane { border-color: color-mix(in srgb, var(--blue) 45%, var(--glass-edge)); }
+/* neutral, and identical to the name half's hover: blue is «geplant» here, and a hover that
+   borrowed a state colour said the lane was already planned. */
+.laneEditable:hover { background: color-mix(in srgb, var(--ink) 5%, var(--surface)); }
+.rowPlanned .lane { border-color: color-mix(in srgb, var(--st-planned) 45%, var(--edge)); }
 
 /* bars sit ON the lane and are dragged directly, so they take nearly its full height — a gloved
    finger aiming at a 28px stripe inside a 44px row missed more often than it hit */
@@ -122,7 +192,7 @@
 .plannedBar { cursor: grab; touch-action: none; }
 /* the stretch under the finger, before it becomes a shift */
 .drawing { border-style: dashed; opacity: .75; pointer-events: none; }
-.dragging { cursor: grabbing; opacity: .9; box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue) 45%, transparent); }
+.dragging { cursor: grabbing; opacity: .9; box-shadow: 0 0 0 2px color-mix(in srgb, var(--st-planned) 45%, transparent); }
 /* end handles: a wide invisible grab zone over a thin visible grip, so a fat finger still gets
    the edge instead of moving the whole bar */
 .handle {
@@ -133,9 +203,9 @@
 .handleTo { right: -9px; }
 .handle::after {
   content: ''; width: 3px; height: 14px; border-radius: 2px;
-  background: color-mix(in srgb, var(--blue) 70%, transparent);
+  background: color-mix(in srgb, var(--st-planned) 70%, transparent);
 }
-.plannedBar:hover .handle::after { background: var(--blue); }
+.plannedBar:hover .handle::after { background: var(--st-planned); }
 /* Three states, three weights, in the order a shift lives through them. They must stay in THIS
    order in the file: they are all single-class selectors, so the later rule wins — `.confirmedBar`
    sitting above `.plannedBar` is what once made every «geplant» bar render grey.
@@ -148,15 +218,15 @@
   /* the PLAN owns the upper track and stops short of the attendance strip below — sharing the
      lane's full height meant a solid «geplant» bar covered the green to within a pixel */
   bottom: 14px;
-  border: 1.5px solid color-mix(in srgb, var(--ink) 45%, transparent);
+  border: 1.5px solid var(--st-available);
   background: color-mix(in srgb, var(--ink) 10%, transparent);
 }
-.confirmedBar { background: var(--blue); border-color: var(--blue); }
+.confirmedBar { background: var(--st-planned); border-color: var(--st-planned); }
 .actual {
   /* its own strip along the bottom: sharing the box with the planned bar meant a solid «geplant»
      covered the green exactly where the plan was FULFILLED — the one comparison this surface is
      for. Green now always shows under the plan. */
-  top: auto; height: 8px; bottom: 3px; background: var(--green); opacity: .95;
+  top: auto; height: 8px; bottom: 3px; background: var(--st-actual); opacity: .95;
 }
 /* an open block runs to «now» and keeps growing; the soft right edge says it is unfinished */
 .open { border-radius: var(--r-xs) 0 0 var(--r-xs); mask-image: linear-gradient(to right, #000 80%, color-mix(in srgb, #000 35%, transparent)); }
@@ -185,17 +255,107 @@
    available on mobile» happens even though it renders. */
 .coverageRow {
   position: sticky; bottom: 0; z-index: 4; margin-top: 4px;
-  background: var(--surface); box-shadow: 0 -6px 10px -8px color-mix(in srgb, var(--ink) 45%, transparent);
+  background: var(--surface); border-top: 1px solid var(--edge);
+  box-shadow: 0 -6px 10px -8px color-mix(in srgb, var(--ink) 45%, transparent);
 }
 .coverageRow .who { z-index: 5; }
-.coverage { height: 34px; border-top: 1px solid var(--border); }
+/* min-height, not height: the row grows when the numbers are folded out, and it stays pinned to
+   the bottom while it does. The track paints the row colour itself for the same reason the head
+   track does — the mask must not depend on the row box and the track box agreeing. */
+/* the 3px gap is shared with .whoFoot below, so the label of a state and its row of numbers stay
+   on the same line across the whole width — they are laid out by two separate flex columns */
+.coverage {
+  min-height: var(--tap); background: var(--surface);
+  display: flex; flex-direction: column; gap: 3px;
+}
+/* the curve keeps its own band whether the numbers are out or not, so opening the row adds lines
+   UNDER the chart instead of stretching it into something you have to re-read. It also absorbs
+   the slack when the key beside it wraps to a second line, so the number rows stay flush with the
+   bottom of the row in both columns. */
+.covChart { position: relative; flex: 1 1 auto; min-height: var(--tap); }
 /* three step lines, drawn as one SVG stretched across the track. vector-effect keeps the stroke
    at a real pixel width however hard the viewBox is squeezed horizontally. */
-.covSvg { position: absolute; inset: 4px 0 2px; width: 100%; height: calc(100% - 6px); overflow: visible; }
+/* symmetric insets: the baseline used to sit 2px off the bottom of the scroll box, where the
+   container's own rounded corner clipped it */
+.covSvg { position: absolute; inset: 5px 0 5px; width: 100%; height: calc(100% - 10px); overflow: visible; }
 .covSvg polyline { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
-.lineAvailable { stroke: color-mix(in srgb, var(--ink) 45%, transparent); }
-.linePlanned { stroke: var(--blue); }
-.lineActual { stroke: var(--green); }
+.lineAvailable { stroke: var(--st-available); }
+.linePlanned { stroke: var(--st-planned); }
+.lineActual { stroke: var(--st-actual); }
+
+/* ---- Deckung, folded out ---------------------------------------------------------------- */
+
+/* The curve says WHERE the hole is; it never said how many. The row folds out to the numbers —
+   collapsed by default, because the shape is the thing you read at a glance and twelve rows of
+   Mannschaft matter more than three rows of digits. The whole cell is the control, so the target
+   is the full 44px band and not a chevron. */
+.whoFoot {
+  flex-direction: column; align-items: stretch; justify-content: flex-start;
+  gap: 3px; padding: 4px 8px 5px 12px; cursor: pointer;
+}
+.covHead {
+  display: flex; align-items: center; gap: 6px; flex: none; min-height: 17px;
+  font-size: 12.5px; color: var(--ink-faint);
+}
+.covHead svg { width: 14px; height: 14px; margin-left: auto; flex: none; }
+.whoFoot:hover .covHead, .whoFoot:focus-visible .covHead { color: var(--ink); }
+/* the key, in the track and pinned to the right edge of the name column: it is the ONE piece of
+   this surface that must never scroll out of reach, because without it the three colours mean
+   nothing. `align-self: flex-start` keeps the sticky box to its own width instead of the whole
+   axis, so it slides rather than dragging a full-width band along with it. */
+.covKeys {
+  position: sticky; left: var(--name-w); z-index: 1; align-self: flex-start;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 1px 7px; flex: none;
+  /* it is inside a track far wider than the screen, so nothing would ever make it wrap on its own
+     — it would simply run off the right edge with «anwesend» beyond the fold. Capped, it wraps to
+     a second line instead, which is a key you can still read.
+     Capped against the SCROLL PORT (100cqw), not against 100vw. The viewport is not the box this
+     sits in: 100vw counts the surface's own inset and the scrollbar gutter as usable width, so the
+     cap came out 11–15px too generous and «anwesend» was cut off at the screen edge — no wrap, no
+     ellipsis, just gone. It also sat within a pixel of the natural text width at 360–372px, i.e.
+     one hair from clipping for anyone whose font metrics or locale run a shade wider. The port
+     knows its own width; ask it. */
+  max-width: calc(100cqw - var(--name-w) - 8px);
+  margin: 0; padding: 0 4px; letter-spacing: 0; text-transform: none;
+}
+/* 11px and --ink-dim rather than 12.5px and --ink-faint: the three German words plus their
+   swatches measure 243px at 12.5px and the visible track on a 390px phone is 218px, so the key
+   wrapped to a second line — which put the row's height straight back where it was before the
+   legend moved in here. Smaller AND a step brighter reads better than bigger and wrapped. It is a
+   read-out, not a control, so it sits with the hour ticks (10.5px) rather than under the 12.5px
+   floor that applies to anything you press. */
+.covKey {
+  display: inline-flex; align-items: center; gap: 3px;
+  font: 600 11px var(--body); color: var(--ink-dim); white-space: nowrap;
+}
+.covDot { width: 8px; height: 3px; border-radius: 2px; flex: none; }
+.dotAvailable { background: var(--st-available); }
+.dotPlanned { background: var(--st-planned); }
+.dotActual { background: var(--st-actual); }
+/* the count at «jetzt» rides in the key itself, in ink rather than in its state colour: it is the
+   number you read first at 3am, and the swatch two characters to its left already says which
+   state it belongs to */
+.covNow { font: 800 12px var(--mono); color: var(--ink); }
+/* one row of numbers per state, in the state's own colour and in the key's order */
+.covRow { position: relative; flex: none; height: 16px; min-height: 0; }
+/* a number only where the count CHANGES: it is a step function, the value holds until the next
+   one, and 192 identical digits in a row is not a read-out — it is noise */
+.covNum { position: absolute; top: 0; padding-left: 3px; font: 700 11px var(--mono); line-height: 16px; }
+/* the numbers take the state colours too, except «verfügbar»: 45%-ink over the surface lands at
+   about 3:1 against it, which is not a digit you read at 3am. --ink-dim is the neutral text tone
+   the grey line already stands for, so the mapping still holds. */
+.numAvailable { color: var(--ink-dim); }
+.numPlanned { color: var(--st-planned); }
+.numActual { color: var(--st-actual); }
+
+/* the one-line teaching note under an empty grid. It lived only in the markup until now — the
+   rule was never in THIS stylesheet, so `s.emptyNote` resolved to undefined and it rendered
+   as raw unstyled body text with a full-size icon beside it. */
+.emptyNote {
+  display: flex; align-items: center; gap: 6px; margin: 4px 0 0;
+  font: 500 12.5px var(--body); color: var(--ink-faint);
+}
+.emptyNote svg { width: 14px; height: 14px; flex: none; }
 
 /* ---- per-row controls ---------------------------------------------------------------- */
 
@@ -225,22 +385,11 @@
 
 /* ---- foot ---------------------------------------------------------------------------- */
 
-.foot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding-top: 2px; }
-.footActions { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
-/* legend + the one line that teaches the lane gestures. MUST wrap: three swatches plus a
-   ~120-character hint never fit one line, and without wrapping the hint was crushed into a
-   narrow column that ran ten lines deep over the Eintrag FAB. */
-.legend {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0;
-  font: 500 12.5px var(--body); color: var(--ink-faint);
-}
-/* only shown while nothing is planned — the teaching moment. Once there are bars it lives behind
-   the ⓘ in the legend, which is worth ~60px of grid height on a phone. */
-.legendHint { display: block; margin: 4px 0 0; font: 500 12.5px var(--body); color: var(--ink-faint); }
-.swatch { width: 16px; height: 9px; border-radius: 2px; flex: none; }
-/* the ⓘ rides at the end of the legend line rather than wrapping onto one of its own */
-.legendInfo { margin-left: auto; display: inline-flex; align-items: center; }
-.legend .swatch:not(:first-child) { margin-left: 8px; }
+/* The colour legend that used to live here is GONE — it moved into the Deckung row, beside the
+   three lines it names (see .covKeys). What is left is the one line that teaches the lane
+   gestures, and it shows only while nothing is planned: once there are bars the whole footer
+   disappears and the grid takes the height back, which on a phone is one more person on screen. */
+.legendHint { display: block; margin: 2px 0 0; font: 500 12.5px var(--body); color: var(--ink-faint); }
 
 /* ---- the per-person sheet ------------------------------------------------------------ */
 
@@ -258,8 +407,8 @@
   font: 700 12.5px var(--body); color: var(--ink-dim); text-transform: uppercase; letter-spacing: .04em;
   -webkit-tap-highlight-color: transparent;
 }
-.sheetState:hover { border-color: var(--blue); color: var(--ink); }
-.sheetStateOn { border-color: var(--blue); background: color-mix(in srgb, var(--blue) 18%, transparent); color: var(--ink); }
+.sheetState:hover { border-color: color-mix(in srgb, var(--ink) 55%, transparent); color: var(--ink); }
+.sheetStateOn { border-color: var(--st-planned); background: color-mix(in srgb, var(--st-planned) 18%, transparent); color: var(--ink); }
 
 /* the pencil that opens this sheet from a row — a visible way in, not only press-and-hold */
 .editBtn {
@@ -268,19 +417,17 @@
   cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
 .editBtn svg { width: 14px; height: 14px; }
-.editBtn:hover { color: var(--blue); background: color-mix(in srgb, var(--blue) 12%, transparent); }
+/* neutral: blue means «geplant» on this grid, and a pencil that turned blue on hover read as a
+   state change rather than as a way in */
+.editBtn:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 10%, transparent); }
 
 @media (max-width: 700px) {
   .zeitplan { padding: 2px 12px 12px; }
-  /* the hint was being squeezed into a ~5rem column beside the swatches and ran 10 lines deep
-     over the entry FAB — it takes its own full-width line under them */
-  .legend { gap: 5px 8px; }
-  /* The surface already insets itself for the bottom bar (.surface in Anwesenheit.module.css),
-     so reserving another --rail-h here counted it twice and left a dead band the height of the
-     nav bar under the legend. Only the FAB needs clearing, and only where it actually sits:
-     bottom-right, over the end of the legend line — so the legend keeps a lane clear for it and
-     the grid takes back the rest. */
-  .legend { padding-right: 64px; }
+  /* The surface already insets itself for the bottom bar (.surface in Anwesenheit.module.css), so
+     reserving another --rail-h here counted it twice and left a dead band the height of the nav
+     bar. Only the Eintrag FAB needs clearing, and only where it sits: bottom-right, over the end
+     of this line — so the hint keeps a lane clear for it and the grid takes back the rest. */
+  .legendHint { padding-right: var(--fab-safe, 66px); }
   /* ONE line per person, as on the desktop — just a narrower name column. Stacking the name
      above its lane doubled the row height and left barely two and a half people on a 390px
      screen, which is not a Mannschaft overview. 132px holds a full «Anna Meier» plus the pencil

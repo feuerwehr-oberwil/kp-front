@@ -2173,7 +2173,11 @@ export const de = {
     now: 'jetzt',
     coveragePeak: ' · max {n}',
     coverage: 'Deckung',
-    coverageHint: 'Links geplant, rechts tatsächlich anwesend – die Lücke zeigt, wo niemand eingeteilt ist.',
+    coverageHint: 'Drei Linien: grau verfügbar, blau geplant, grün tatsächlich anwesend – wo die grüne Linie einbricht, ist die Lücke.',
+    // Die Deckungszeile klappt auf: die Kurve sagt WO die Lücke ist, die Zahlen sagen WIE VIELE.
+    // Zugeklappt als Standard – die Form liest man auf einen Blick, die Ziffern kosten drei Zeilen.
+    coverageExpand: 'Zahlen zeigen – wie viele verfügbar, geplant und anwesend sind',
+    coverageCollapse: 'Zahlen ausblenden',
     planned: 'verfügbar',
     actual: 'anwesend',
     emptyTitle: 'Noch keine Schicht geplant.',

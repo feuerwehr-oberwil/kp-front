@@ -14,7 +14,6 @@ import {
 import type { AttendanceState, Person, PresenceInterval, Shift } from '../types'
 import type { CoverageSlot } from '../lib/shifts'
 import type { Span } from '../lib/shifts'
-import { DockInfo } from './DockInfo'
 import { TimeBlockReadOnly, TimeBlockSheet } from './TimeBlockSheet'
 import { timeBlockLabels } from '../lib/timeBlockLabels'
 import s from './Zeitplan.module.css'
@@ -29,13 +28,23 @@ const PX_PER_HOUR = 46
 const LABEL_PX = 90
 
 
+/** The three states the coverage strip counts, in the order they happen. */
+type CoverageKey = 'available' | 'planned' | 'actual'
+
 /** A step polyline through the coverage slots for one state, in viewBox units (x = slot index,
  *  y = count, flipped so 0 sits on the baseline). Stepped, not smoothed: a headcount changes at a
  *  slot boundary, and a curve between two integers would imply people arriving gradually. */
-function stepPoints(slots: CoverageSlot[], key: 'available' | 'planned' | 'actual', peak: number): string {
+function stepPoints(slots: CoverageSlot[], key: CoverageKey, peak: number): string {
   const pts: string[] = []
   slots.forEach((c, i) => { const y = peak - c[key]; pts.push(`${i},${y}`, `${i + 1},${y}`) })
   return pts.join(' ')
+}
+
+/** The slots where a count actually CHANGES. The curve is a step function, so a number holds
+ *  until the next step — printing one at every half hour would put up to 192 identical digits in
+ *  a row, which is a wall, not a read-out. A number therefore marks the moment it becomes true. */
+function changePoints(slots: CoverageSlot[], key: CoverageKey): { at: number; n: number }[] {
+  return slots.filter((c, i) => i === 0 || slots[i - 1][key] !== c[key]).map((c) => ({ at: c.at, n: c[key] }))
 }
 
 const clock = (iso?: string): string => {
@@ -261,6 +270,9 @@ export function ZeitplanView({
 }) {
   const Z = appConfig.copy.zeitplan // read per-render so the resolved locale applies
   const [openPerson, setOpenPerson] = useState<string | null>(null)
+  /* the Deckung numbers are folded away by default: the SHAPE of the three lines is what you read
+     at a glance, and three extra rows of digits cost a phone two people off the Mannschaft */
+  const [covOpen, setCovOpen] = useState(false)
 
   const span = useMemo(
     () => timelineSpan(startedAt, shifts, attendance, nowMs, horizonH),
@@ -269,6 +281,16 @@ export function ZeitplanView({
   const conflicts = useMemo(() => conflictingShiftIds(shifts), [shifts])
   const slots = useMemo(() => coverage(shifts, attendance, span, nowMs), [shifts, attendance, span, nowMs])
   const peakCover = Math.max(1, ...slots.map((c) => Math.max(c.available, c.planned, c.actual)))
+  /* the slot «jetzt» falls into — the count the folded-out row leads with, because «wie viele
+     sind gerade da» is asked far more often than «wie viele waren um 04:00 da» */
+  const nowSlot = slots.find((c) => nowMs >= c.at && nowMs < c.at + SLOT_MS)
+  /* one row of the read-out per state, in the order a shift lives through them. Line, dot and
+     number share a colour per state so the folded-out digits belong to a curve you can see. */
+  const covStates: { key: CoverageKey; label: string; line: string; dot: string; num: string }[] = [
+    { key: 'available', label: Z.available, line: s.lineAvailable, dot: s.dotAvailable, num: s.numAvailable },
+    { key: 'planned', label: Z.confirmed, line: s.linePlanned, dot: s.dotPlanned, num: s.numPlanned },
+    { key: 'actual', label: Z.actual, line: s.lineActual, dot: s.dotActual, num: s.numActual },
+  ]
 
 
   // hour ticks across the head; the grid itself is half-hourly (SLOT_MS) but labelling every
@@ -348,18 +370,50 @@ export function ZeitplanView({
             />
           ))}
 
-          {/* coverage: planned above, actually there below — the future half of the lower strip
-              stays empty on purpose, nobody knows yet who will turn up */}
+          {/* coverage: the three lines answer WHERE the hole is; the label folds out to say how
+              MANY — at «jetzt» beside each state, and on the axis wherever the count steps. The
+              future half of the anwesend line stays on the baseline on purpose, nobody knows yet
+              who will turn up. */}
           <div className={cx(s.row, s.coverageRow)}>
-            <div className={cx(s.who, s.whoFoot)} title={Z.coverageHint}>{Z.coverage}</div>
-            <div className={cx(s.track, s.coverage)}>
-              {/* three step lines, one per state, in their own colours — a bar chart merged the
-                  question «who offered» with «who is assigned» and answered neither at a glance */}
-              <svg className={s.covSvg} viewBox={`0 0 ${slots.length} ${peakCover}`} preserveAspectRatio="none" aria-hidden>
-                {([['actual', s.lineActual], ['planned', s.linePlanned], ['available', s.lineAvailable]] as const).map(([key, cls]) => (
-                  <polyline key={key} className={cls} points={stepPoints(slots, key, peakCover)} />
+            <button type="button" className={cx(s.who, s.whoFoot)}
+              onClick={() => setCovOpen((v) => !v)} aria-expanded={covOpen}
+              title={covOpen ? Z.coverageCollapse : Z.coverageExpand}>
+              <span className={s.covHead}>{Z.coverage}<Icon id={covOpen ? 'chevron-down' : 'chevron-up'} /></span>
+            </button>
+            <div className={cx(s.track, s.coverage)} title={Z.coverageHint}>
+              {/* The colour key, which used to be a legend line of its own under the grid: the same
+                  three colours, now directly above the three lines that use them — and folding the
+                  row out drops each state's count at «jetzt» straight into it.
+                  It lives in the TRACK, not in the «Deckung» cell: a 132px name column on a phone
+                  puts «verfügbar/geplant/anwesend» on three separate lines, and the key alone was
+                  then taller than the chart. It sticks to the right edge of the name column, so
+                  scrolling into the night never leaves the colours behind. */}
+              <p className={s.covKeys}>
+                {covStates.map((st) => (
+                  <span key={st.key} className={s.covKey}>
+                    <span className={cx(s.covDot, st.dot)} aria-hidden />
+                    {st.label}
+                    {covOpen && nowSlot && <b className={s.covNow} title={Z.now}>{nowSlot[st.key]}</b>}
+                  </span>
                 ))}
-              </svg>
+              </p>
+              {/* three step lines, one per state, in their own colours — a bar chart merged the
+                  question «who offered» with «who is assigned» and answered neither at a glance.
+                  Painted back to front, so «verfügbar» stays legible over the other two. */}
+              <div className={s.covChart}>
+                <svg className={s.covSvg} viewBox={`0 0 ${slots.length} ${peakCover}`} preserveAspectRatio="none" aria-hidden>
+                  {[...covStates].reverse().map((st) => (
+                    <polyline key={st.key} className={st.line} points={stepPoints(slots, st.key, peakCover)} />
+                  ))}
+                </svg>
+              </div>
+              {covOpen && covStates.map((st) => (
+                <div key={st.key} className={s.covRow}>
+                  {changePoints(slots, st.key).map((c) => (
+                    <span key={c.at} className={cx(s.covNum, st.num)} style={{ left: pct(c.at) }}>{c.n}</span>
+                  ))}
+                </div>
+              ))}
               {nowLine}
             </div>
           </div>
@@ -370,19 +424,11 @@ export function ZeitplanView({
           is not empty, it is a ready-to-use form. One line under it says the same thing. */}
       {nothingPlanned && <p className={s.emptyNote}><Icon id="clock" />{Z.emptyTitle}</p>}
 
-      {/* three states, in the order they happen: what somebody OFFERS, what we ASSIGNED from it,
-          and what actually HAPPENED. The first two flip on a bar tap; the third comes from the
-          Anwesenheit and is never written here. */}
-      {/* The three states stay on screen — they are the key to reading the grid. The gesture hint
-          is teaching, not reference: it ran three lines deep and cost ~60px of the little height a
-          phone has for the Mannschaft itself. It shows itself while nothing is planned (when it
-          is the whole point) and folds behind the ⓘ once there is. */}
-      <p className={s.legend}>
-        <span className={cx(s.swatch, s.plannedBar)} /> {Z.available}
-        <span className={cx(s.swatch, s.plannedBar, s.confirmedBar)} /> {Z.confirmed}
-        <span className={cx(s.swatch, s.actual)} /> {Z.actual}
-        {!nothingPlanned && <span className={s.legendInfo}><DockInfo text={Z.laneHint} inline /></span>}
-      </p>
+      {/* The three-state colour key used to sit here on a line of its own. It moved into the
+          Deckung row, which draws those very three colours — so the key is now beside the thing it
+          explains instead of twelve rows below it, and the footer costs nothing once the grid is
+          in use. What stays is the gesture hint, and only while nothing is planned: that is when
+          it teaches. Once there are bars it has done its job and the grid takes the height back. */}
       {nothingPlanned && <span className={s.legendHint}>{Z.laneHint}</span>}
 
       {person && (

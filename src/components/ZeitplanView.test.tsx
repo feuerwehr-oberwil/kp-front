@@ -208,6 +208,36 @@ describe('ZeitplanView', () => {
     expect(screen.getAllByTitle(new RegExp(`^${Z.actual}:`))).toHaveLength(1)
   })
 
+  // the curve says WHERE the hole is and never how many — the row folds out to the numbers, and
+  // it stays folded until asked, because three rows of digits cost a phone two people of Mannschaft
+  it('keeps the Deckung numbers folded away until the row is pressed', () => {
+    const shifts: Shift[] = [{ id: 'sh1', personId: 'p1', from: T(14), to: T(18), confirmed: true }]
+    const attendance: AttendanceState = {
+      p1: { status: 'present', displayNameSnapshot: 'Meier Anna', intervals: [{ from: T(14) }] },
+    }
+    render(<ZeitplanView {...base} attendance={attendance} shifts={shifts} />)
+    const row = screen.getByTitle(Z.coverageExpand)
+    expect(row.tagName).toBe('BUTTON') // keyboard-reachable, not a div with a click handler
+    expect(row.getAttribute('aria-expanded')).toBe('false')
+    expect(row.textContent).toBe(Z.coverage)
+    // the colour key moved into this row from its own legend line under the grid, and it STAYS —
+    // only the counts fold away
+    for (const label of [Z.available, Z.confirmed, Z.actual]) expect(screen.getByText(label)).toBeTruthy()
+    expect(screen.queryAllByTitle(Z.now)).toHaveLength(0)
+
+    fireEvent.click(row)
+    const open = screen.getByTitle(Z.coverageCollapse)
+    expect(open.getAttribute('aria-expanded')).toBe('true')
+    // each state carries its own count at «jetzt»: nobody merely available, one assigned — and
+    // anwesend is 0 because the slot «jetzt» falls into runs past now, and this surface never
+    // claims to know the future
+    expect(screen.getAllByTitle(Z.now).map((n) => n.textContent)).toEqual(['0', '1', '0'])
+
+    fireEvent.click(open)
+    expect(screen.getByTitle(Z.coverageExpand).getAttribute('aria-expanded')).toBe('false')
+    expect(screen.queryAllByTitle(Z.now)).toHaveLength(0)
+  })
+
   it('never claims to know the future: the anwesend line drops to the baseline past now', () => {
     const attendance: AttendanceState = {
       p1: { status: 'present', displayNameSnapshot: 'Meier Anna', intervals: [{ from: T(12) }] },
