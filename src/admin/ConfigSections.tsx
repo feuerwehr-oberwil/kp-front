@@ -205,6 +205,9 @@ export function DoctrineSection() {
       <h3 className="adm-fieldgroup">{C.groupPressure}</h3>
       <div className="adm-row-2">
         {numField(C.defaultPressure, C.defaultPressureTip, ['doctrine', 'defaultPressureBar'])}
+        {numField(C.rueckzugBar, C.rueckzugBarTip, ['doctrine', 'rueckzugBar'])}
+      </div>
+      <div className="adm-row-2">
         {numField(C.mindestBar, C.mindestBarTip, ['doctrine', 'mindestBar'])}
       </div>
       <div className="adm-row-2">

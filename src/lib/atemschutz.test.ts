@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { anyTruppInField, contactSeverity, deriveTruppLive, estimatePressure, fmtClock, peakAtemschutzAlarm, truppInField } from './atemschutz'
+import { anyTruppInField, contactSeverity, deriveTruppLive, estimatePressure, fmtClock, peakAtemschutzAlarm, pressureSeverity, truppInField } from './atemschutz'
 import type { Trupp } from '../types'
 
 // A Trupp that entered at a fixed reference time; its contact clock starts at entry.
@@ -187,6 +187,29 @@ describe('contactSeverity', () => {
     expect(contactSeverity(359, 5, 60)).toBe(1) // 5:59 — still amber
     expect(contactSeverity(360, 5, 60)).toBe(2) // 6:00 — überfällig alarm
     expect(contactSeverity(null, 5, 60)).toBe(0) // not in the field
+  })
+})
+
+describe('pressureSeverity (Rückzugsgrenze / Mindestdruck)', () => {
+  it('is silent above the Rückzugsgrenze, amber at or below it, red at or below the Mindestdruck', () => {
+    expect(pressureSeverity(300, 100, 60)).toBe(0)
+    expect(pressureSeverity(101, 100, 60)).toBe(0) // one bar above – still silent
+    expect(pressureSeverity(100, 100, 60)).toBe(1) // exactly the Rückzugsgrenze
+    expect(pressureSeverity(98, 100, 60)).toBe(1) // the reported case: the Schätzung crossed it
+    expect(pressureSeverity(61, 100, 60)).toBe(1)
+    expect(pressureSeverity(60, 100, 60)).toBe(2) // exactly the Mindestdruck
+    expect(pressureSeverity(0, 100, 60)).toBe(2)
+  })
+
+  it('treats an unknown or non-finite pressure as silent rather than as empty', () => {
+    expect(pressureSeverity(null, 100, 60)).toBe(0)
+    expect(pressureSeverity(Number.NaN, 100, 60)).toBe(0)
+  })
+
+  it('lets a station switch either threshold off with 0 (config-as-code, no special case)', () => {
+    expect(pressureSeverity(50, 0, 60)).toBe(2) // no Rückzugsgrenze, Mindestdruck still bites
+    expect(pressureSeverity(50, 100, 0)).toBe(1) // no Mindestdruck – never escalates past amber
+    expect(pressureSeverity(50, 0, 0)).toBe(0)
   })
 })
 

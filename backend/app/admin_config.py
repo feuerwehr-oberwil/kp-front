@@ -150,6 +150,7 @@ EXAMPLE_CONFIG: dict[str, Any] = {
         "defaultFunkkanal": 1,
         "contactIntervalMin": 5,
         "contactGraceSec": 60,
+        "rueckzugBar": 100,
         "mindestBar": 60,
     },
     "roster": {

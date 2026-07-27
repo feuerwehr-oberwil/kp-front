@@ -110,6 +110,22 @@
 .metaEstimate { align-items: flex-start; }
 .metaEstimateValue { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: right; }
 .metaEstimateValue small { max-width: 190px; font-size: 10.5px; line-height: 1.25; color: var(--ink-faint); }
+/* Rückzugsgrenze (amber) / Mindestdruck (red) on a pressure value. Declared AFTER .metaEst so
+   they win over its dimmed !important when the Schätzung itself has crossed a threshold. */
+.metaWarn { color: var(--amber-strong) !important; }
+.metaEst.metaWarn, .metaEst.metaAlarm { font-weight: 700 !important; }
+
+/* The turn-back banner, directly under the contact clock: the Trupp is at (amber) or past (red)
+   its air threshold. Colour is never the only signal – the row always spells out WHICH limit and
+   whether it came from a reading or the Schätzung, so it survives night mode and colourblindness. */
+.airNote { display: flex; align-items: center; gap: 8px; margin: 0 14px; padding: 9px 11px;
+  border-radius: var(--r-sm); font-size: 12.5px; font-weight: 700; color: var(--amber-strong);
+  background: color-mix(in srgb, var(--amber) 13%, transparent);
+  border: 1px solid color-mix(in srgb, var(--amber) 42%, transparent); }
+.airNote :global(.i) { width: 17px; height: 17px; flex: none; color: var(--amber); }
+.airNoteCrit { color: var(--red-strong); background: color-mix(in srgb, var(--red) 13%, transparent);
+  border-color: color-mix(in srgb, var(--red) 45%, transparent); }
+.airNoteCrit :global(.i) { color: var(--red); }
 
 /* INLINE Druck control on a live card — ± adjust a PENDING value; nothing commits until the
    explicit Bestätigen, so a misclick never logs a reading or resets the contact clock. Kept quiet

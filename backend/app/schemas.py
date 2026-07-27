@@ -645,6 +645,7 @@ class DoctrineConfig(BaseModel):
     defaultFunkkanal: int | None = None
     funkkanalMin: int | None = None
     funkkanalMax: int | None = None
+    rueckzugBar: int | None = None
     mindestBar: int | None = None
     contactIntervalMin: int | None = None
     contactGraceSec: int | None = None

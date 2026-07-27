@@ -405,17 +405,21 @@ const base = {
   },
   // Atemschutzüberwachung (SCBA breathing-apparatus monitoring) defaults — Swiss FKS/CSSP
   // contact-timer model. The 5-min contact interval (+1 min Nachfrist before the hard alarm)
-  // was confirmed as the standard 2026-07-02; mindestBar still needs firefighter / AdF
-  // sign-off before being treated as doctrine. (A `rueckzugBar` turn-back reminder was
-  // removed 2026-07-03 pending that same sign-off — re-add together with its card/dialog
-  // display once the value is confirmed.) Deployment-overridable numbers resolve through
-  // `atemschutzDoctrine()` in lib/deploymentConfig — don't read them from here directly.
+  // was confirmed as the standard 2026-07-02; `rueckzugBar` (100) was confirmed 2026-07-27 by
+  // the Atemschutz-Verantwortlicher and re-added with its card display – `mindestBar` still
+  // needs the same firefighter / AdF sign-off before being treated as doctrine.
+  // Deployment-overridable numbers resolve through `atemschutzDoctrine()` in
+  // lib/deploymentConfig – don't read them from here directly.
   atemschutz: {
     /** pressure stepper: ± step and ceiling (320 allows an overfull cylinder) */
     pressureStep: 10,
     pressureMax: 320,
     /** Eingangsdruck the wizard starts on (6.8 L / 300 bar cylinder in service) */
     defaultPressureBar: 300,
+    /** Rückzugsgrenze (bar) – at or below it the Trupp turns back. The card warns amber from
+     *  here (on the logged Druck AND on the expected-pressure Schätzung). A reminder only: it
+     *  never touches the contact-clock alarm, which stays the single audible signal. */
+    rueckzugBar: 100,
     /** critical minimum pressure (bar) — the card/Druck readout highlights at or below this */
     mindestBar: 60,
     /** contact interval (min): amber "Kontakt fällig" from this mark (FKS-Standard: 5) */

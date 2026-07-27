@@ -8794,6 +8794,17 @@
             ],
             "title": "Funkkanalmax"
           },
+          "rueckzugBar": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rueckzugbar"
+          },
           "mindestBar": {
             "anyOf": [
               {

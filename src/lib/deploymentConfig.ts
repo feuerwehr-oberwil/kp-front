@@ -134,6 +134,7 @@ export interface DeploymentDoctrine {
   defaultFunkkanal?: number | null
   funkkanalMin?: number | null
   funkkanalMax?: number | null
+  rueckzugBar?: number | null
   mindestBar?: number | null
   contactIntervalMin?: number | null
   contactGraceSec?: number | null
@@ -379,6 +380,7 @@ export function atemschutzDoctrine() {
     pressureStep: d.pressureStep ?? a.pressureStep,
     pressureMax: d.pressureMax ?? a.pressureMax,
     defaultPressureBar: d.defaultPressureBar ?? a.defaultPressureBar,
+    rueckzugBar: d.rueckzugBar ?? a.rueckzugBar,
     mindestBar: d.mindestBar ?? a.mindestBar,
     contactIntervalMin: d.contactIntervalMin ?? a.contactIntervalMin,
     contactGraceSec: d.contactGraceSec ?? a.contactGraceSec,

@@ -944,6 +944,13 @@ export const de = {
     estimatedSourceFallback: '{rate} L/min angenommen · Stand {time}',
     currentPressure: 'Druck',
     lowestPressure: 'Tiefster',
+    // Rückzugsgrenze / Mindestdruck auf der Truppkarte. Die «Schätzung»-Varianten greifen, wenn
+    // nur die Hochrechnung die Grenze erreicht hat – eine Schätzung darf nie wie eine gemeldete
+    // Druckmeldung klingen.
+    rueckzugNote: 'Rückzugsgrenze {bar} bar erreicht',
+    rueckzugNoteEst: 'Rückzugsgrenze {bar} bar – laut Schätzung erreicht',
+    mindestNote: 'Mindestdruck {bar} bar unterschritten',
+    mindestNoteEst: 'Mindestdruck {bar} bar – laut Schätzung unterschritten',
     lineField: 'Leitung',
     edit: 'Bearbeiten',
     pressureDown: '10 bar weniger',
@@ -2490,6 +2497,8 @@ export const de = {
       contactIntervalTip: 'AGT-Kontaktintervall; nach Ablauf gilt der Kontakt als fällig (amber).',
       contactGrace: 'Nachfrist (s)',
       contactGraceTip: 'Sekunden nach dem fälligen Kontakt, bis der überfällig-Alarm auslöst.',
+      rueckzugBar: 'Rückzugsgrenze (bar)',
+      rueckzugBarTip: 'Druck, ab dem der Trupp zurückgeht; die Truppkarte warnt ab diesem Wert amber – auch wenn erst die Schätzung ihn erreicht.',
       mindestBar: 'Mindestdruck (bar)',
       mindestBarTip: 'Kritischer Mindestdruck; ab diesem Wert wird der Druck auf der Truppkarte rot hervorgehoben.',
       defaultPressure: 'Eingangsdruck (bar)',

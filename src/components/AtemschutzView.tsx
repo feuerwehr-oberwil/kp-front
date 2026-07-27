@@ -6,7 +6,7 @@ import { toast } from '../lib/ui'
 import { cx } from '../lib/cx'
 import { Segmented } from './Segmented'
 import { Overlay } from '../lib/overlays'
-import { contactSeverity, deriveTruppLive, estimatePressure, fmtClock, type TruppLive } from '../lib/atemschutz'
+import { contactSeverity, deriveTruppLive, estimatePressure, fmtClock, pressureSeverity, type TruppLive } from '../lib/atemschutz'
 import type { AttendanceState, Person, Trupp, TruppFields } from '../types'
 import { assignedPersonIds } from '../lib/personnel'
 import { PersonField, type Slot } from './PersonField'
@@ -289,7 +289,9 @@ function PressureInline({ value, onCommit }: { value: number; onCommit: (bar: nu
   const dec = useHoldRepeat(() => bump(-dz.pressureStep))
   const inc = useHoldRepeat(() => bump(dz.pressureStep))
   const edit = useTapToType({ min: 0, max: dz.pressureMax, onCommit: (v) => setBar(snapBar(v)), clamp: snapBar })
-  const low = bar <= dz.mindestBar
+  // colour the PENDING value too, so the Überwacher sees «that reading is at the Rückzugsgrenze»
+  // while dialling it in – before committing, not after
+  const sev = pressureSeverity(bar, dz.rueckzugBar, dz.mindestBar)
   return (
     <div className={s.pressureBlock}>
       <div className={s.pressureRow}>
@@ -299,9 +301,9 @@ function PressureInline({ value, onCommit }: { value: number; onCommit: (bar: nu
             <Icon id="minus" />
           </button>
           {edit.editing ? (
-            <span className={cx(s.pVal, dirty && s.pPending, low && s.metaAlarm)}><input className={s.pInput} {...edit.inputProps} /><span>bar</span></span>
+            <span className={cx(s.pVal, dirty && s.pPending, sev === 1 && s.metaWarn, sev >= 2 && s.metaAlarm)}><input className={s.pInput} {...edit.inputProps} /><span>bar</span></span>
           ) : (
-            <button type="button" className={cx(s.pVal, s.pValBtn, dirty && s.pPending, low && s.metaAlarm)} onClick={() => edit.start(bar)} title={appConfig.copy.stepper.typeToEnter}>{bar}<span>bar</span></button>
+            <button type="button" className={cx(s.pVal, s.pValBtn, dirty && s.pPending, sev === 1 && s.metaWarn, sev >= 2 && s.metaAlarm)} onClick={() => edit.start(bar)} title={appConfig.copy.stepper.typeToEnter}>{bar}<span>bar</span></button>
           )}
           <button type="button" className={s.pBtn} aria-label={az.pressureUp} {...inc}>
             <Icon id="plus" />
@@ -351,11 +353,26 @@ function TruppCard({
   // signal survives colourblindness / a muted alarm (not colour alone)
   const clockState = sev >= 2 ? az.clockOverdue : sev === 1 ? az.clockWarn : az.clockOk
   const dz = atemschutzDoctrine()
-  const lowPressure = live.currentBar <= dz.mindestBar
   // Planungshilfe: measured consumption history wins; the configured assumption is used only
   // until enough confirmed Druck values exist. It never replaces a reading or drives an alarm.
   const estimate = inField ? estimatePressure(t, now, dz.cylinderLiters, dz.estConsumptionLPerMin) : null
   const readings = t.readings ?? []
+  // Rückzugsgrenze / Mindestdruck – the LOUDER of the logged Druck and the expected-pressure
+  // Schätzung wins. Air burns down between radio checks, so a reading that still looked fine at
+  // the last Kontakt is exactly how a Trupp slips past its turn-back pressure unnoticed. Visual
+  // only: the contact clock stays the single audible alarm (see lib/atemschutz).
+  const pressureSev = pressureSeverity(live.currentBar, dz.rueckzugBar, dz.mindestBar)
+  const estimateSev = pressureSeverity(estimate?.bar ?? null, dz.rueckzugBar, dz.mindestBar)
+  const airSev = inField ? (Math.max(pressureSev, estimateSev) as 0 | 1 | 2) : 0
+  // name the source when only the projection has crossed – an estimate must never read as a
+  // logged measurement (same rule the Schätzung row itself follows)
+  const airFromEstimate = estimateSev > pressureSev
+  const airNote = airSev === 0 ? null : fillTemplate(
+    airSev >= 2
+      ? (airFromEstimate ? az.mindestNoteEst : az.mindestNote)
+      : (airFromEstimate ? az.rueckzugNoteEst : az.rueckzugNote),
+    { bar: airSev >= 2 ? dz.mindestBar : dz.rueckzugBar },
+  )
 
   // «Raus» happens immediately with a Rückgängig toast (house rule: confirm-with-undo, no
   // blocking dialog). The undo lives in the action (setTruppStatus) so it restores the full
@@ -434,6 +451,12 @@ function TruppCard({
         </div>
       )}
 
+      {airNote && (
+        <div className={cx(s.airNote, airSev >= 2 && s.airNoteCrit)} role="status" aria-live="polite">
+          <Icon id="warn" /><span>{airNote}</span>
+        </div>
+      )}
+
       <div className={s.meta}>
         {t.entryTime && (
           <div className={s.metaRow}>
@@ -447,7 +470,7 @@ function TruppCard({
             : fillTemplate(az.estimatedHint, { liters: dz.cylinderLiters, rate: dz.estConsumptionLPerMin })}>
             <span>{az.estimated}</span>
             <span className={s.metaEstimateValue}>
-              <b className={s.metaEst}>≈ {estimate.bar} bar</b>
+              <b className={cx(s.metaEst, estimateSev === 1 && s.metaWarn, estimateSev >= 2 && s.metaAlarm)}>≈ {estimate.bar} bar</b>
               <small>{estimate.source === 'history'
                 ? fillTemplate(az.estimatedSourceHistory, { count: estimate.sampleCount, time: fmtTime(estimate.basedAt) })
                 : fillTemplate(az.estimatedSourceFallback, { rate: dz.estConsumptionLPerMin, time: fmtTime(estimate.basedAt) })}</small>
@@ -459,7 +482,7 @@ function TruppCard({
         ) : (
           <div className={s.metaRow}>
             <span>{az.currentPressure}</span>
-            <b className={cx(lowPressure && s.metaAlarm)}>{live.currentBar} bar</b>
+            <b className={cx(pressureSev === 1 && s.metaWarn, pressureSev >= 2 && s.metaAlarm)}>{live.currentBar} bar</b>
           </div>
         )}
         {live.lowestBar < live.currentBar && (

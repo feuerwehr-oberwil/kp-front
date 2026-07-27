@@ -97,6 +97,22 @@ export function contactSeverity(sinceContactSec: number | null, contactIntervalM
   return 0
 }
 
+/**
+ * Pressure tier for the card readout: 0 fine · 1 Rückzugsgrenze reached · 2 below Mindestdruck.
+ *
+ * DELIBERATELY separate from `contactSeverity` and never folded into `peakAtemschutzAlarm`: the
+ * contact clock stays the only thing that raises the audible alarm (air is the wearer's own
+ * responsibility – see the module header). This is the Atemschutzüberwacher's visual reminder
+ * that the Trupp is at or past its turn-back pressure, which is exactly when the EL wants to
+ * hear from them. Applied to both the logged Druck and the expected-pressure Schätzung.
+ */
+export function pressureSeverity(bar: number | null, rueckzugBar: number, mindestBar: number): 0 | 1 | 2 {
+  if (bar == null || !Number.isFinite(bar)) return 0
+  if (mindestBar > 0 && bar <= mindestBar) return 2
+  if (rueckzugBar > 0 && bar <= rueckzugBar) return 1
+  return 0
+}
+
 /** The most-urgent Trupp for the cross-surface badge/chip, plus the loudest tier overall. */
 export interface AtemschutzAlarmState {
   /** loudest contact-clock tier across all in-field Trupps: 0 silent · 1 fällig · 2 überfällig */
