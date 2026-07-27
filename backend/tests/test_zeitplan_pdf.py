@@ -65,7 +65,9 @@ def test_window_stretches_to_reach_a_block_planned_into_the_small_hours():
     p = ZeitplanPayload(
         incidentTitle="X",
         startedAt=T0,
-        rows=[{"name": "A", "blocks": [{"from": _iso(T0 + timedelta(hours=20)), "to": _iso(T0 + timedelta(hours=26))}]}],
+        rows=[
+            {"name": "A", "blocks": [{"from": _iso(T0 + timedelta(hours=20)), "to": _iso(T0 + timedelta(hours=26))}]}
+        ],
     )
     _, end = _window(p)
     assert end >= T0 + timedelta(hours=26)
