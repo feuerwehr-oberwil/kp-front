@@ -180,6 +180,11 @@
 .sheetAdd { margin-top: 10px; gap: 6px; }
 .sheetNote { margin: 10px 0 0; font: 500 12px var(--body); color: var(--ink-faint); }
 
+/* The Zeitplan-only actions stay in the layout in both views and merely go invisible, so the
+   view toggle keeps its position instead of sliding across when you switch tabs. */
+.planActions { display: inline-flex; align-items: center; gap: 8px; }
+.planActionsHidden { visibility: hidden; pointer-events: none; }
+
 /* Zeitraum control — sits at the end of the search row, beside the thing it scopes */
 .horizon { flex: none; display: flex; align-items: center; gap: 6px; }
 .horizonLabel { font: 600 10.5px var(--mono); color: var(--ink-faint); letter-spacing: .06em; text-transform: uppercase; }

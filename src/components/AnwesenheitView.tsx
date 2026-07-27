@@ -210,19 +210,25 @@ export function AnwesenheitView({
         </div>
         <div className={s.headActions}>
           <CaptureUsageChip usage={captureUsage} />
-          {/* the Zeitplan's paper output belongs with the other surface actions, not buried under
-              the grid — same place the Mittel view keeps its own controls */}
-          {showPlan && onPrintZeitplan && (
-            <button className="btn" onClick={() => onPrintZeitplan(rows)}
-              title={zeitplanPrintOnline ? appConfig.copy.printRelay.online : appConfig.copy.printRelay.offline}>
-              <span className={`dot print-relay-dot${zeitplanPrintOnline ? ' online' : ''}`} aria-hidden />
-              <span>{appConfig.copy.printRelay.send}</span>
-            </button>
-          )}
-          {showPlan && onDownloadZeitplan && (
-            <button className="btn ghost" onClick={() => onDownloadZeitplan(rows)}>
-              <Icon id="doc" /><span>{appConfig.copy.zeitplan.pdf}</span>
-            </button>
+          {/* The Zeitplan's paper output. Kept MOUNTED in both views and merely hidden in the
+              list — mounting it only for the Zeitplan made the view toggle jump sideways every
+              time you switched tabs, because the actions row is right-aligned and one more button
+              pushes everything along. Reserving the width keeps the toggle under your thumb. */}
+          {planAvailable && (
+            <span className={cx(s.planActions, !showPlan && s.planActionsHidden)} aria-hidden={!showPlan}>
+              {onPrintZeitplan && (
+                <button className="btn" onClick={() => onPrintZeitplan(rows)} tabIndex={showPlan ? undefined : -1}
+                  title={zeitplanPrintOnline ? appConfig.copy.printRelay.online : appConfig.copy.printRelay.offline}>
+                  <span className={`dot print-relay-dot${zeitplanPrintOnline ? ' online' : ''}`} aria-hidden />
+                  <span>{appConfig.copy.printRelay.send}</span>
+                </button>
+              )}
+              {onDownloadZeitplan && (
+                <button className="btn ghost" onClick={() => onDownloadZeitplan(rows)} tabIndex={showPlan ? undefined : -1}>
+                  <Icon id="doc" /><span>{appConfig.copy.zeitplan.pdf}</span>
+                </button>
+              )}
+            </span>
           )}
           {/* the two readings of this Mannschaft. Only offered where a Zeitplan can actually be
               edited/read — the surface is inert without the shift slice wired up. */}
