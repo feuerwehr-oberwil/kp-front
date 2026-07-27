@@ -1,11 +1,13 @@
-import type { BoardAnno, BoardPoint, BoardTool } from '../types'
+import type { BoardAnno, BoardPoint, BoardTool, NoteSize } from '../types'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { LINE_DASH_SVG } from '../lib/draw'
+import { isNoteBox, NOTE_WN } from '../lib/notes'
 import { ToolDock } from './ToolDock'
 import { useLongPress } from '../lib/useLongPress'
 
 const COLORS = appConfig.drawing.colors
+const NOTES = appConfig.copy.notes
 const TEAM_COLORS = appConfig.drawing.teamColors // distinct accent per team (cycled)
 
 interface InkProps {
@@ -168,6 +170,15 @@ interface DocksProps {
   measCount: number
   onMeasClear: () => void
   onMeasClose: () => void
+  /** the note currently being typed into — its settings replace the armed-tool hint dock, so
+   *  Form/Grösse/Darstellung/Farbe are reachable at the moment you are writing, not only later
+   *  from the detail panel. Absent ⇒ no note dock. */
+  noteEditing?: BoardAnno
+  onNoteWidth: (w: number | null) => void
+  onNoteSize: (s: NoteSize) => void
+  onNotePlain: (p: boolean) => void
+  onNoteColor: (c: string) => void
+  onNoteDone: () => void
 }
 
 /**
@@ -177,7 +188,7 @@ interface DocksProps {
  * Freihand↔Punkte input toggle, and the line style (Freihand/Messpfeil/Rettungsachse) is chosen in
  * the post-draw editor, not here.
  */
-export function WbToolDocks({ tool, lineMode, color, width, dashed, draftActive, selResource, setTool, setLineMode, setColor, setWidth, setDashed, onFinish, onCancelDraft, recolorTeam, trailsShown, onToggleTrails, measMode, setMeasMode, measCount, onMeasClear, onMeasClose }: DocksProps) {
+export function WbToolDocks({ tool, lineMode, color, width, dashed, draftActive, selResource, setTool, setLineMode, setColor, setWidth, setDashed, onFinish, onCancelDraft, recolorTeam, trailsShown, onToggleTrails, measMode, setMeasMode, measCount, onMeasClear, onMeasClose, noteEditing, onNoteWidth, onNoteSize, onNotePlain, onNoteColor, onNoteDone }: DocksProps) {
   const closeDraft = () => { onCancelDraft(); setTool('pan') }
   return (
     <>
@@ -222,8 +233,26 @@ export function WbToolDocks({ tool, lineMode, color, width, dashed, draftActive,
         ]} />
       )}
 
+      {/* a note being written — the same settings its detail panel carries, in reach while the
+          keyboard is up. Placement flips the tool straight to 'pan' (see the text branch of the
+          tap handler), so this is keyed on the note being EDITED, not on the armed tool. */}
+      {noteEditing && (
+        <ToolDock groups={[
+          [{ type: 'go', onClick: onNoteDone, title: NOTES.done }],
+          [{ type: 'toggle', text: NOTES.formBox, label: isNoteBox(noteEditing.wN) ? NOTES.toLine : NOTES.toBox, on: isNoteBox(noteEditing.wN), onClick: () => onNoteWidth(isNoteBox(noteEditing.wN) ? null : NOTE_WN.def) }],
+          [
+            { type: 'toggle', text: 'S', label: NOTES.sizeS, on: noteEditing.noteSize === 's', onClick: () => onNoteSize('s') },
+            { type: 'toggle', text: 'M', label: NOTES.sizeM, on: (noteEditing.noteSize ?? 'm') === 'm', onClick: () => onNoteSize('m') },
+            { type: 'toggle', text: 'L', label: NOTES.sizeL, on: noteEditing.noteSize === 'l', onClick: () => onNoteSize('l') },
+          ],
+          [{ type: 'toggle', text: NOTES.lookPlain, label: NOTES.look, on: !!noteEditing.notePlain, onClick: () => onNotePlain(!noteEditing.notePlain) }],
+          [{ type: 'colors', value: noteEditing.color ?? '', onChange: onNoteColor }],
+          [{ type: 'info', text: appConfig.copy.whiteboard.dockHints.text }],
+        ]} />
+      )}
+
       {/* text / team armed-tool — clean (×) cancel + info */}
-      {(tool === 'text' || tool === 'resource') && (
+      {!noteEditing && (tool === 'text' || tool === 'resource') && (
         <ToolDock groups={[
           [{ type: 'close', onClick: () => setTool('pan') }],
           [{ type: 'info', text: tool === 'text' ? appConfig.copy.whiteboard.dockHints.text : appConfig.copy.whiteboard.dockHints.resource }],

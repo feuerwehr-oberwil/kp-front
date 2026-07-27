@@ -28,6 +28,11 @@ export interface KrokiEntityOut {
   caption?: string
   sizeM?: number
   color?: string
+  // note styling — noteW is what makes a note a wrapping text box, so the sheet breaks the
+  // lines where the screen did. Absent on every other kind, and absent on legacy notes.
+  noteW?: number
+  noteSize?: Entity['noteSize']
+  notePlain?: boolean
 }
 
 export interface KrokiPayloadOut {
@@ -69,7 +74,11 @@ export function krokiEntity(e: Entity, byName: Record<string, string>): KrokiEnt
     count: e.count, spread: e.spread,
   }
   if (e.kind === 'team') return { ...base, caption: e.label || undefined, color: e.color || undefined }
-  if (e.kind === 'note') return e.label?.trim() ? { ...base, caption: e.label } : null
+  if (e.kind === 'note') {
+    return e.label?.trim()
+      ? { ...base, caption: e.label, color: e.color || undefined, noteW: e.noteW, noteSize: e.noteSize, notePlain: e.notePlain }
+      : null
+  }
   if (e.kind === 'shape') {
     const kind = e.shape ?? 'square'
     const color = e.color ?? SHAPE_DEFS[kind].defaultColor

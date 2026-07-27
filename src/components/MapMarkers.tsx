@@ -9,6 +9,7 @@ import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
 import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom } from '../lib/symbolRender'
 import { symbolCaptionText } from '../lib/symbols'
+import { noteScale, isNoteBox, clampNoteWPx } from '../lib/notes'
 import { pxPerM, symPx, shapePx, isRotatableSym, isVehicleSym } from '../lib/mapView'
 
 // A transform handle (rotate / resize) whose drag is bound with NATIVE pointer listeners that
@@ -62,6 +63,14 @@ function TransformHandle({ className, icon, title, onStart, onMove, onEnd }: {
 // actually starts following — so a tremble while holding (or holding a beat too long) can't nudge it
 const DRAG_DEADZONE_PX = 6
 
+/** Size a note's textarea to its content, so the editable box is exactly as tall as the note it
+ *  replaces. Height must be reset first — scrollHeight never shrinks while a height is still set. */
+function autoGrow(el: HTMLTextAreaElement | null) {
+  if (!el) return
+  el.style.height = 'auto'
+  el.style.height = `${el.scrollHeight}px`
+}
+
 interface Props {
   entities: Entity[]
   byName: Record<string, string>
@@ -103,6 +112,12 @@ interface Props {
   onNoteCommit?: (id: string, text: string) => void
   /** enter inline edit on a note (double-click; placement enters edit via editNoteId) */
   onNoteEdit?: (id: string) => void
+  /** open a note's detail panel (the ⚙ handle). Absent ⇒ no ⚙ — selecting a note never opens
+   *  the panel on its own, unlike a symbol; see the handle block below. */
+  onNotePanel?: (id: string) => void
+  /** drag the note text box's width (screen px). 'start'/'end' carry no width — they only
+   *  bracket the gesture so it folds into one undo step. */
+  onNoteWidth?: (id: string, w: number | undefined, phase: 'start' | 'move' | 'end') => void
   // --- kind 'team' (Trupp markers — the map mirror of the plan board's resource chips) ---
   /** monitored Trupps, for the «raus» dim/strike on a linked team marker */
   trupps?: Trupp[]
@@ -124,7 +139,7 @@ interface Props {
  * vehicle) plus its selection affordances — delete, rotor (live vehicles), and the
  * shape/symbol transform handles. Owns the rotor/transform pointer-drag refs.
  */
-export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, trupps, onShowTrupp, onTeamMark, onTeamClearTrail, hiddenTrails, onToggleTrail }: Props) {
+export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, onShowTrupp, onTeamMark, onTeamClearTrail, hiddenTrails, onToggleTrail }: Props) {
   // captions declutter out below a zoom threshold (glyphs are tiny there); the Plan has no zoom
   const captionsVisible = zoom >= appConfig.symbols.captionMinZoom
   // when the note input mounted — onBlur uses this to tell a real "done editing" click-away
@@ -134,7 +149,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
   const noteForceCommit = useRef(false)
   // focus the note input when it mounts. MUST be stable (useCallback) — an inline ref callback
   // re-fires every render, which would re-focus/select on each keystroke (one-key-at-a-time).
-  const focusNote = useCallback((el: HTMLInputElement | null) => {
+  const focusNote = useCallback((el: HTMLTextAreaElement | null) => {
     if (!el) return
     noteEditStart.current = Date.now()
     // The note input is portaled into the MapLibre Marker element, whose constructor adds a
@@ -148,6 +163,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
     // appears). Focus is then stolen by MapLibre's canvas (and/or a panel mounting on select),
     // but the onBlur guard below re-grabs it instead of letting that steal commit the note.
     el.focus(); el.select?.()
+    autoGrow(el)
   }, [])
   const rotateRef = useRef<{ id: string; cx: number; cy: number } | null>(null)
   const shapeRef = useRef<{ id: string; cx: number; cy: number; lat: number; mode: 'rotate' | 'resize' | 'rotate2' | 'cage' } | null>(null)
@@ -220,6 +236,25 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
     }
   }
   const shapeUp = () => { const st = shapeRef.current; if (!st) return; shapeRef.current = null; onShapeTransform?.(st.id, {}, 'end') }
+
+  // drag the right-edge grip of a note text box. The pill is centred on its coord, so the
+  // pointer's distance from the centre is HALF the width. Screen px, not metres: a map note is
+  // pinned to a constant screen size, so a ground-scaled width would shrink as you zoom out.
+  // A 'start'/'end' pair folds the whole drag into one undo step, like the shape handles.
+  const noteWRef = useRef<{ id: string; cx: number } | null>(null)
+  const noteWDown = (clientX: number, clientY: number, el: HTMLElement, id: string) => {
+    hold.cancel()
+    const pill = el.closest('.marker')?.querySelector('.note-pill') as HTMLElement | null
+    if (!pill) return
+    const r = pill.getBoundingClientRect()
+    noteWRef.current = { id, cx: r.left + r.width / 2 }
+    onNoteWidth?.(id, undefined, 'start')
+  }
+  const noteWMove = (clientX: number) => {
+    const st = noteWRef.current; if (!st) return
+    onNoteWidth?.(st.id, clampNoteWPx(2 * Math.abs(clientX - st.cx)), 'move')
+  }
+  const noteWUp = () => { const st = noteWRef.current; if (!st) return; noteWRef.current = null; onNoteWidth?.(st.id, undefined, 'end') }
 
   // entity markers — guard against malformed entities (e.g. a server workspace
   // missing a coord) so one bad row can't white-screen the whole map
@@ -322,15 +357,22 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
               >
                 <ShapeGlyph kind={e.shape ?? 'square'} color={e.color ?? '#1f6feb'} />
               </div>
-            ) : e.kind === 'note' ? (
-              editNoteId === e.id ? (
-                <input
-                  className="note-pill note-pill-input"
+            ) : e.kind === 'note' ? (() => {
+              // a note is a one-line pill until it carries a width (noteW); then it wraps and
+              // grows downwards. Font size = the fixed 12px base × the S/M/L step.
+              const box = isNoteBox(e.noteW)
+              const cls = (base: string) => `${base}${box ? ' box' : ''}${e.notePlain ? ' plain' : ''}`
+              const nStyle = { fontSize: 12 * noteScale(e.noteSize), ...(box ? { width: e.noteW! } : null), ...(e.notePlain && e.color ? { color: e.color } : null) }
+              return editNoteId === e.id ? (
+                <textarea
+                  className={cls('note-pill note-pill-input')}
                   ref={focusNote}
+                  rows={1}
+                  style={nStyle}
                   value={e.label ?? ''}
                   placeholder={appConfig.copy.whiteboard.textPlaceholder}
                   onPointerDown={(ev) => ev.stopPropagation()}
-                  onChange={(ev) => onNoteText?.(e.id, ev.target.value)}
+                  onChange={(ev) => { onNoteText?.(e.id, ev.target.value); autoGrow(ev.currentTarget) }}
                   onBlur={(ev) => {
                     // A blur in the first moment after placement is NOT the user leaving the
                     // field — it's MapLibre focusing its canvas (and/or a select-panel mount)
@@ -343,14 +385,22 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                     noteForceCommit.current = false
                     onNoteCommit?.(e.id, ev.target.value)
                   }}
-                  onKeyDown={(ev) => { if (ev.key === 'Enter') { noteForceCommit.current = true; (ev.target as HTMLInputElement).blur() } }}
+                  // Enter finishes a ONE-LINER (the muscle memory this had before boxes existed)
+                  // but inserts a newline in a box — where the ✓ / Esc / click-away are the way
+                  // out. Esc always finishes, on both. `noteForceCommit` tells the blur that this
+                  // is a deliberate commit, so the 350ms steal-guard above lets it through.
+                  onKeyDown={(ev) => {
+                    if (ev.key === 'Escape' || (ev.key === 'Enter' && !box)) {
+                      ev.preventDefault(); noteForceCommit.current = true; (ev.target as HTMLTextAreaElement).blur()
+                    }
+                  }}
                 />
               ) : (
-                <div className="note-pill" onDoubleClick={(ev) => { ev.stopPropagation(); onNoteEdit?.(e.id) }}>
+                <div className={cls('note-pill')} style={nStyle} onDoubleClick={(ev) => { ev.stopPropagation(); onNoteEdit?.(e.id) }}>
                   {e.label || <span className="note-pill-ph">{appConfig.copy.whiteboard.text}</span>}
                 </div>
               )
-            ) : e.kind === 'photo' ? (
+            })() : e.kind === 'photo' ? (
               <div className="ts photo"><img src={e.photoUrl} alt="" /></div>
             ) : (() => {
               // the generic vehicle bakes its name + heading into the glyph (text stays
@@ -397,10 +447,11 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                 </>
               )
             })()}
-            {/* Inline delete is kept ONLY for notes — they have no ContextPanel ("dashboard") to
-                delete from, and a note with text already asks before deleting (no accidental loss).
-                Symbols / shapes / photos drop the field ✕ (too many accidental deletes) and are
-                deleted from their dashboard panel instead. */}
+            {/* Inline delete is kept ONLY for notes — a note's detail panel opens from the ⚙
+                rather than from selection (it is placed mid-sentence; a panel on every tap would
+                be in the way), so the ✕ stays its everyday delete. A note with text asks before
+                deleting. Symbols / shapes / photos drop the field ✕ (too many accidental deletes)
+                and are deleted from their dashboard panel instead. */}
             {selectedId === e.id && !e.live && e.kind === 'note' && (
               <>
                 {/* double-tap is unreliable on iOS, so a selected note also gets an explicit
@@ -416,6 +467,32 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                     <Icon id="pen" />
                   </button>
                 )}
+                {/* ⚙ — only once the note HAS text: on a freshly placed note there is nothing to
+                    style, and the pen is the only thing you want in reach. */}
+                {editNoteId !== e.id && onNotePanel && !!e.label?.trim() && (
+                  <button
+                    className="handle marker-gear"
+                    title={appConfig.copy.notes.settings}
+                    aria-label={appConfig.copy.notes.settings}
+                    onPointerDown={(ev) => ev.stopPropagation()}
+                    onClick={(ev) => { ev.stopPropagation(); onNotePanel(e.id) }}
+                  >
+                    <Icon id="gear" />
+                  </button>
+                )}
+                {/* right-edge width grip — a text box only. A one-line note has nothing to drag;
+                    its width IS its text. Native listeners (TransformHandle) so the drag beats
+                    react-map-gl's marker drag, same as the shape handles. */}
+                {isNoteBox(e.noteW) && onNoteWidth && (
+                  <TransformHandle
+                    className="note-wgrip"
+                    icon="resize"
+                    title={appConfig.copy.notes.resizeHint}
+                    onStart={(x, y, el) => noteWDown(x, y, el, e.id)}
+                    onMove={(x) => noteWMove(x)}
+                    onEnd={noteWUp}
+                  />
+                )}
                 <button
                   className="handle marker-del"
                   title={appConfig.copy.delete}
@@ -426,6 +503,18 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                   <Icon id="close" />
                 </button>
               </>
+            )}
+            {/* ✓ Fertig — box mode only, where Enter no longer commits */}
+            {e.kind === 'note' && editNoteId === e.id && isNoteBox(e.noteW) && (
+              <button
+                className="note-done"
+                title={appConfig.copy.notes.done}
+                aria-label={appConfig.copy.notes.done}
+                // pointerdown, not click: the textarea's blur unmounts this button first
+                onPointerDown={(ev) => { ev.preventDefault(); ev.stopPropagation(); noteForceCommit.current = true; onNoteCommit?.(e.id, e.label ?? '') }}
+              >
+                <Icon id="check" />
+              </button>
             )}
             {/* selected team — the same action bar as the plan chip: show on Atemschutz board,
                 mark position, show/hide trails, delete (locked while a recorded trail exists;

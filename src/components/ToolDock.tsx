@@ -15,7 +15,9 @@ const WIDTHS = appConfig.drawing.widths
  */
 export type DockItem =
   | { type: 'close'; onClick: () => void; title?: string }
-  | { type: 'toggle'; icon: string; label: string; on: boolean; onClick: () => void; disabled?: boolean }
+  /** `text` renders a short word/letter instead of a glyph — for options that have no honest
+   *  icon (the note's S/M/L size steps, Zettel↔Klartext). Exactly one of icon/text is used. */
+  | { type: 'toggle'; icon?: string; text?: string; label: string; on: boolean; onClick: () => void; disabled?: boolean }
   | { type: 'go'; onClick: () => void; disabled?: boolean; title?: string }
   | { type: 'glyph'; node: ReactNode }
   | { type: 'action'; icon: string; label: string; onClick: () => void; disabled?: boolean; cls?: string }
@@ -30,7 +32,7 @@ function renderItem(item: DockItem, key: string): ReactNode {
     case 'close':
       return <button key={key} className="wb-dock-x" title={item.title ?? appConfig.copy.cancel} aria-label={item.title ?? appConfig.copy.cancel} onClick={item.onClick}><Icon id="close" /></button>
     case 'toggle':
-      return <button key={key} className={`wb-dock-tog ${item.on ? 'on' : ''}`} title={item.label} aria-label={item.label} aria-pressed={item.on} disabled={item.disabled} onClick={item.onClick}><Icon id={item.icon} /></button>
+      return <button key={key} className={`wb-dock-tog ${item.text ? 'wb-dock-txt ' : ''}${item.on ? 'on' : ''}`} title={item.label} aria-label={item.label} aria-pressed={item.on} disabled={item.disabled} onClick={item.onClick}>{item.text ?? <Icon id={item.icon ?? ''} />}</button>
     case 'go':
       return <button key={key} className="wb-dock-go" disabled={item.disabled} title={item.title ?? appConfig.copy.done} aria-label={item.title ?? appConfig.copy.done} onClick={item.onClick}><Icon id="check" /></button>
     case 'glyph':

@@ -112,6 +112,7 @@ import type { Item } from './lib/checklists'
 import { ReportPreflight } from './components/ReportPreflight'
 import { annotatedPlans } from './lib/report'
 import { mittelLineCount } from './lib/mittel'
+import { NOTE_W_PX, isNoteBox } from './lib/notes'
 
 const prefs = loadPrefs()
 // The manually-picked Einsatzobjekt moved from this device cookie into the synced workspace blob
@@ -618,6 +619,17 @@ export function IncidentWorkspace({
     else patchEntity(id, { label: v })
     setEditNoteId(null)
   }
+  // which note has its detail panel open. NOT derived from selectedId: unlike a symbol, selecting
+  // a note stays quiet — it is placed mid-sentence and a panel sliding in on every tap would be
+  // in the way. Only the ⚙ handle sets this.
+  const [notePanelId, setNotePanelId] = useState<string | null>(null)
+  // width drag on a note text box (screen px) — the 'start'/'end' phases bracket the gesture so
+  // the whole drag folds into one undo step, exactly like the shape transform handles.
+  const noteWidthDrag = (id: string, w: number | undefined, phase: 'start' | 'move' | 'end') => {
+    if (phase === 'start') { beginDrag(); return }
+    if (phase === 'end') { endDrag(); emit('entity.edit', { id, patch: { noteW: doc.entities.find((e) => e.id === id)?.noteW } }); return }
+    setDocRaw((d) => ({ ...d, entities: d.entities.map((e) => (e.id === id ? { ...e, noteW: w } : e)) }))
+  }
   const [view, setView] = useState<{ bearing: number; center: LngLat; zoom: number }>({ bearing: 0, center: incidentView.center, zoom: getDeploymentConfig().map?.defaultView?.zoom ?? 17.6 })
   // coordinate picker (one-shot crosshair + LV95/WGS84 readout) — extracted to useCoordPicker.
   const coord = useCoordPicker(false, view.center)
@@ -748,11 +760,13 @@ export function IncidentWorkspace({
       if (e.key !== 'Escape') return
       if (pending || pendingShape) { setPending(null); setPendingShape(null); setTool('select') }
       else if (panel || viewsOpen) { setPanel(null); setViewsOpen(false) }
+      // the note panel closes BEFORE the selection does — Escape backs out one layer at a time
+      else if (notePanelId) setNotePanelId(null)
       else if (selectedId || selectedDrawingId || selectedDrawIds.length || selectedEntityIds.length) { setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [pending, pendingShape, panel, viewsOpen, selectedId, selectedDrawingId, selectedDrawIds, selectedEntityIds])
+  }, [pending, pendingShape, panel, viewsOpen, notePanelId, selectedId, selectedDrawingId, selectedDrawIds, selectedEntityIds])
 
   // Selecting something opens its details (ContextPanel) — so the moment a NEW selection lands, drop
   // every other transient bit of map chrome that would sit over it or the tool rail: the Ebenen dock,
@@ -1298,6 +1312,10 @@ export function IncidentWorkspace({
   } })
 
   const selected = entities.find((e) => e.id === selectedId) ?? null
+  // the note whose ⚙ was tapped — a deleted note simply drops out here and the panel unmounts
+  const noteEntity = entities.find((e) => e.id === notePanelId && e.kind === 'note') ?? null
+  // the note being typed into — drives the note dock (settings within reach while the keyboard is up)
+  const editNote = entities.find((e) => e.id === editNoteId && e.kind === 'note') ?? null
 
   // keep the tapped symbol visible: the ContextPanel overlay covers the right band of the
   // map — when the selection (incl. its halo/handles) lands under it, ease the camera just
@@ -1670,6 +1688,8 @@ export function IncidentWorkspace({
           onNoteText={noteTextLive}
           onNoteCommit={noteTextCommit}
           onNoteEdit={(id) => { setSelectedId(id); setSelectedDrawingId(null); setEditNoteId(id) }}
+          onNotePanel={readOnly ? undefined : setNotePanelId}
+          onNoteWidth={readOnly ? undefined : noteWidthDrag}
           trupps={trupps}
           onShowTrupp={() => { setMode('atemschutz'); setPanel(null) }}
           onTeamMark={tacticalLocked ? undefined : markTeamPosition}
@@ -2044,6 +2064,30 @@ export function IncidentWorkspace({
         />
       )}
 
+      {/* note detail panel — the same ContextPanel, but opened from the ⚙ handle rather than by
+          selecting (see notePanelId above). The note's TEXT is its title, so the panel's title
+          field edits the note itself. */}
+      {mapUI && !journalOpen && !tacticalLocked && noteEntity && (
+        <ContextPanel
+          key={noteEntity.id}
+          entity={noteEntity}
+          onClose={() => setNotePanelId(null)}
+          onTitleLive={(v) => noteTextLive(noteEntity.id, v)}
+          onTitle={(v) => {
+            if (titleLiveRef.current) { titleLiveRef.current = false; endDrag(); emit('entity.edit', { id: noteEntity.id, patch: { label: v } }) }
+            else patchEntity(noteEntity.id, { label: v })
+          }}
+          onFields={(fields) => patchEntity(noteEntity.id, { fields })}
+          noteWidth={noteEntity.noteW}
+          onNoteWidth={(w) => patchEntity(noteEntity.id, { noteW: w ?? undefined })}
+          noteWidthDefault={NOTE_W_PX.def}
+          onNoteSize={(s) => patchEntity(noteEntity.id, { noteSize: s })}
+          onNotePlain={(p) => patchEntity(noteEntity.id, { notePlain: p || undefined })}
+          onColor={(c) => patchEntity(noteEntity.id, { color: c || undefined })}
+          onDelete={() => { setNotePanelId(null); deleteEntity(noteEntity.id) }}
+        />
+      )}
+
       {mapUI && !tacticalLocked && !journalOpen && selectedDrawing && (
         <DrawEditor
           drawing={selectedDrawing}
@@ -2144,7 +2188,24 @@ export function IncidentWorkspace({
           [{ type: 'info', text: appConfig.copy.dockHints.area }],
         ]} />
       )}
-      {mapUI && tool === 'note' && (
+      {/* a note being written — the same settings its detail panel carries, in reach while the
+          keyboard is up. Placement flips the tool straight to 'select', so this is keyed on the
+          note being EDITED, not on the armed tool (which is the branch below). */}
+      {mapUI && editNote && (
+        <ToolDock groups={[
+          [{ type: 'go', onClick: () => noteTextCommit(editNote.id, editNote.label ?? ''), title: appConfig.copy.notes.done }],
+          [{ type: 'toggle', text: appConfig.copy.notes.formBox, label: isNoteBox(editNote.noteW) ? appConfig.copy.notes.toLine : appConfig.copy.notes.toBox, on: isNoteBox(editNote.noteW), onClick: () => patchEntity(editNote.id, { noteW: isNoteBox(editNote.noteW) ? undefined : NOTE_W_PX.def }) }],
+          [
+            { type: 'toggle', text: 'S', label: appConfig.copy.notes.sizeS, on: editNote.noteSize === 's', onClick: () => patchEntity(editNote.id, { noteSize: 's' }) },
+            { type: 'toggle', text: 'M', label: appConfig.copy.notes.sizeM, on: (editNote.noteSize ?? 'm') === 'm', onClick: () => patchEntity(editNote.id, { noteSize: 'm' }) },
+            { type: 'toggle', text: 'L', label: appConfig.copy.notes.sizeL, on: editNote.noteSize === 'l', onClick: () => patchEntity(editNote.id, { noteSize: 'l' }) },
+          ],
+          [{ type: 'toggle', text: appConfig.copy.notes.lookPlain, label: appConfig.copy.notes.look, on: !!editNote.notePlain, onClick: () => patchEntity(editNote.id, { notePlain: !editNote.notePlain || undefined }) }],
+          [{ type: 'colors', value: editNote.color ?? '', onChange: (c) => patchEntity(editNote.id, { color: c || undefined }) }],
+          [{ type: 'info', text: appConfig.copy.dockHints.note }],
+        ]} />
+      )}
+      {mapUI && !editNote && tool === 'note' && (
         <ToolDock groups={[
           [{ type: 'close', onClick: () => setTool('select') }],
           [{ type: 'info', text: appConfig.copy.dockHints.note }],

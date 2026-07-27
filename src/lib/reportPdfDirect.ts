@@ -32,6 +32,9 @@ export function planAnnosForPdf(annos: BoardAnno[], _byName: Record<string, stri
     const out: Record<string, unknown> = {
       kind: a.kind, x: a.x, y: a.y, pts: a.pts, color: a.color, width: a.width,
       dashed: a.dashed, fillOpacity: a.fillOpacity, label: a.label, text: a.text, rotation: a.rotation,
+      // note styling: wN is what makes it a wrapping box, so the sheet breaks the lines exactly
+      // where the screen did. Absent on every other kind, and absent on legacy notes.
+      wN: a.wN, noteSize: a.noteSize, notePlain: a.notePlain,
     }
     if (a.kind === 'symbol') {
       const veh = a.symbol === appConfig.symbols.vehicleName

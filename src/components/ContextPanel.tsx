@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import type { CaptionMode, Spread, SymbolControl, SymbolProps } from '../types'
+import type { CaptionMode, NoteSize, Spread, SymbolControl, SymbolProps } from '../types'
 import { Icon } from '../lib/icons'
 import { SheetGrip } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
+import { confirmDialog } from '../lib/ui'
 import { lookupUN, decodeKemler, type UnHazardEntry } from '../lib/unHazard'
 import { ERG_VERSION, lookupErg } from '../lib/erg'
 import { Combo } from './Combo'
@@ -15,6 +16,8 @@ import { compositeSpec } from '../lib/symbolRender'
 // fields keep a "Name eingeben …" free-text escape. Keep this generous so small doctrine lists
 // (e.g. the Offizier Funktion) stay one-tap rather than hiding behind a dropdown.
 const OPTION_TABS_MAX = 6
+// note ink colours = the drawing palette, so a red warning note matches a red line
+const NOTE_COLORS = appConfig.drawing.colors
 const ROSTER_FIELDS = new Set<string>(appConfig.symbols.rosterFields)
 // leadership glyphs whose roster picker gets the officer-first sort + "nur Offiziere" toggle
 const OFFICER_ROSTER_SYMBOLS = new Set<string>(appConfig.symbols.officerRosterSymbols)
@@ -143,6 +146,21 @@ interface Props {
   onResetGps?: () => void
   connectedLines?: { id: string; label: string }[]
   onFocusLine?: (id: string) => void
+  // --- free-text note (Lage 'note' / Plan 'text') -------------------------------------------
+  // Wiring ANY of these turns the panel into a note editor: the Notiz section appears and the
+  // symbol-only chrome (steppers, hazard readout) stays hidden. The width is what makes a note
+  // a wrapping box, but its UNIT differs per surface (plan fraction vs. screen px), so the
+  // caller passes it through opaquely and only the surface interprets it.
+  /** current box width, or undefined for the legacy one-line pill. */
+  noteWidth?: number
+  /** set (box) or clear (one-liner) the width. Called with `noteWidthDefault` on conversion. */
+  onNoteWidth?: (w: number | null) => void
+  /** width to seed when converting a one-liner into a box (surface units). */
+  noteWidthDefault?: number
+  onNoteSize?: (size: NoteSize) => void
+  onNotePlain?: (plain: boolean) => void
+  /** note ink colour ('' clears back to the default note ink). */
+  onColor?: (color: string) => void
 }
 
 // signed storey label for the badge / stepper readout: +2, -1, 0 (EG)
@@ -165,9 +183,10 @@ function LabeledStepper({ label, ...rest }: { label: string } & React.ComponentP
   )
 }
 
-export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, readOnly, hasOverride, onResetGps, connectedLines = [], onFocusLine }: Props) {
+export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, readOnly, hasOverride, onResetGps, connectedLines = [], onFocusLine, noteWidth, onNoteWidth, noteWidthDefault, onNoteSize, onNotePlain, onColor }: Props) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
+  const N = appConfig.copy.notes
   // leadership glyph → its roster picker offers the officer-first sort + "nur Offiziere" filter
   const officerSym = !!entity.symbol && OFFICER_ROSTER_SYMBOLS.has(entity.symbol)
   const rankOf = officerSym && rosterRank ? (n: string) => rosterRank[n] : undefined
@@ -269,7 +288,12 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
   const unLookupHref = C.unLookupUrl
     .replace('{un}', encodeURIComponent(unValue))
     .replace('{name}', encodeURIComponent(unHit?.name_de ?? ''))
-  const showDetails = showFloor || showFloorRange || showCount || showRotate || showSpread || showAirflow || onNotes || rows.length > 0 || showUnHazard || !readOnly
+  // A note reuses this panel, but none of the symbol chrome applies to it: it has no glyph to
+  // rotate, no preset fields, and its own text already IS the free-text field — a second
+  // "Notizen" box inside a note would be a riddle. So the details block is suppressed outright
+  // and the Notiz section below is all a note gets.
+  const isNote = !!(onNoteWidth || onNoteSize || onNotePlain)
+  const showDetails = !isNote && (showFloor || showFloorRange || showCount || showRotate || showSpread || showAirflow || onNotes || rows.length > 0 || showUnHazard || !readOnly)
 
   /* on-canvas caption override for THIS symbol — small + de-emphasised down by the actions
      (the field values matter first; visibility is a rare tweak). Standard follows the device
@@ -343,6 +367,70 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
       {entity.photoUrl && <div className="ctx-photo"><img src={entity.photoUrl} alt="" /></div>}
 
       <div className="ctx-body">
+        {/* ── Notiz ── the same three settings the armed-tool dock offers while writing, plus the
+            one that changes the note's state: Form. Deliberately short — every extra control here
+            is one more thing to reason about at 3am, and each would have to be carried through
+            both print paths as well. */}
+        {isNote && !readOnly && (
+          <div className="ctx-note">
+            {onNoteWidth && (
+              <div className="field">
+                <span>{N.form}</span>
+                <Segmented
+                  ariaLabel={N.form}
+                  options={[{ value: 'line', label: N.formLine }, { value: 'box', label: N.formBox }]}
+                  value={noteWidth ? 'box' : 'line'}
+                  onChange={(v) => {
+                    // → box seeds the surface's default width; → line clears it. Going back
+                    // reflows the text onto one line, so any typed breaks are lost: ask first,
+                    // and only when there is actually a break to lose.
+                    if (v === 'box') { onNoteWidth(noteWidthDefault ?? null); return }
+                    if (!(entity.label ?? '').includes('\n')) { onNoteWidth(null); return }
+                    void confirmDialog({ title: N.toLine, message: N.toLineConfirm, confirmLabel: N.toLine, cancelLabel: appConfig.copy.cancel })
+                      .then((ok) => { if (ok) onNoteWidth(null) })
+                  }}
+                />
+              </div>
+            )}
+            {onNoteSize && (
+              <div className="field">
+                <span>{N.size}</span>
+                <Segmented
+                  ariaLabel={N.size}
+                  options={[{ value: 's', label: N.sizeS }, { value: 'm', label: N.sizeM }, { value: 'l', label: N.sizeL }]}
+                  value={entity.noteSize ?? 'm'}
+                  onChange={(v) => onNoteSize(v as NoteSize)}
+                />
+              </div>
+            )}
+            {onNotePlain && (
+              <div className="field">
+                <span>{N.look}</span>
+                <Segmented
+                  ariaLabel={N.look}
+                  options={[{ value: false, label: N.lookPill }, { value: true, label: N.lookPlain }]}
+                  value={!!entity.notePlain}
+                  onChange={(v) => onNotePlain(v)}
+                />
+              </div>
+            )}
+            {onColor && (
+              <div className="field">
+                <span>{N.color}</span>
+                {/* the drawing palette, plus a "default note ink" swatch first — same colours as
+                    every other coloured thing on the surface, so there is no second palette */}
+                <div className="ctx-note-colors">
+                  <button className={`dh-color note-ink${entity.color ? '' : ' on'}`} title={N.color} aria-label={N.color}
+                    aria-pressed={!entity.color} onClick={() => onColor('')} />
+                  {NOTE_COLORS.map((c) => (
+                    <button key={c} className={`dh-color${entity.color === c ? ' on' : ''}`} style={{ background: c }}
+                      aria-pressed={entity.color === c} aria-label={c} onClick={() => onColor(c)} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         {showDetails && <>
           {/* the glyph-affecting steppers — grouped, only the ones this symbol declares.
               View state: no stepper chrome at all (a disabled ± row still reads as editable);

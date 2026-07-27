@@ -86,6 +86,10 @@
   --note-border-sel: #caa83a;
   --note-ink: #5a4b12;
   --note-ring: rgba(184, 150, 40, .6);
+  /* halo behind a background-less "Klartext" note, so bare text stays legible over an aerial
+     photo or a busy plan. It is the SHEET colour, not a frozen white — night re-declares it,
+     otherwise light-on-light text disappears exactly where it matters. */
+  --note-halo: #fff;
   /* VKF hazard-placard yellow (Gefahrentafel) — a fixed doctrinal semaphore colour,
      intentionally the same in both themes so the placard reads true */
   --hazard-yellow: #d4b106;
@@ -148,6 +152,9 @@
   --note-border-sel: #c9aa4c;
   --note-ink: #f1e3a6;
   --note-ring: rgba(214, 184, 92, .6);
+  /* dark halo at night: the ink is light, so the outline that separates it from the map has
+     to be dark. A frozen white here would smear the text into an unreadable glow. */
+  --note-halo: #0d1118;
 }
 * { box-sizing: border-box; }
 html, body, #root { margin: 0; height: 100%; }
@@ -272,6 +279,10 @@ input[type='number'] { -moz-appearance: textfield; appearance: textfield; }
 .marker-note .marker-edit { left: 0; right: auto; top: 0; transform: translate(-50%, -50%); }
 .marker-rotate { background: var(--ink-fill); cursor: grab; touch-action: none; }
 .marker-rotate:active { cursor: grabbing; }
+/* ⚙ (note detail panel) — BOTTOM-left, the free corner: the pencil holds top-left and the
+   delete top-right. Neutral fill, since it opens something rather than changing anything. */
+.marker-gear { background: var(--ink-fill); cursor: pointer; }
+.marker-note .marker-gear { left: 0; right: auto; top: auto; bottom: 0; transform: translate(-50%, 50%); }
 .ts { position: relative; line-height: 0; border-radius: var(--r-xs); transition: transform .14s var(--ease), box-shadow .14s var(--ease); }
 /* storey badge — signed floor (+2, -1) in the symbol's own colour, on a white chip
    so light icon colours (yellow) stay legible; sits at the icon's top-right corner */
@@ -618,6 +629,13 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 /* the glyph-affecting steppers (Geschoss / Anzahl / Drehung) sit in one group;
    the section header below — not a hairline — separates them from the details */
 .ctx-steps .field:last-child { border-bottom: none; }
+/* note settings (Form / Grösse / Darstellung / Farbe) — the whole body of a note's panel, so
+   the last row carries no hairline (nothing follows it) */
+.ctx-note .field:last-child { border-bottom: none; }
+.ctx-note-colors { display: flex; align-items: center; gap: 9px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
+/* "default note ink" swatch — shows the actual sticky-note colours rather than a generic
+   neutral, so it reads as "back to a normal note" instead of "no colour" */
+.dh-color.note-ink { background: var(--note-bg); box-shadow: inset 0 0 0 1px var(--note-border); }
 /* a labelled group inside the panel body (Details, Notizen) */
 .ctx-section { margin-top: 16px; }
 .ctx-section-label { display: block; font-size: 11px; font-weight: 700; letter-spacing: .08em;
@@ -1123,6 +1141,39 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 /* selected/editing note: an on-theme gold ring (NOT the blue marker halo, which we suppress
    for notes) — covers both the pill and the editable input (both carry .note-pill) */
 .marker.sel .note-pill { border-color: var(--note-border-sel); box-shadow: 0 0 0 2px var(--note-ring), 0 4px 10px rgba(30, 45, 70, .2); }
+/* map text BOX: an explicit width (px — map notes don't scale with zoom) replaces the 180px
+   auto-cap and lets the pill wrap + grow downwards. Mirrors .wb-text-label.box on the plan. */
+.note-pill.box { max-width: none; white-space: pre-wrap; overflow-wrap: break-word; line-height: 1.35; }
+textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-height: 1.35; }
+
+/* ── "Klartext": a note with no paper. Shared by both surfaces, because a heading on a blank
+   sheet should not look like a sticker. The HALO is not optional decoration — bare text over
+   an aerial photo is unreadable in patches without it, so it is part of the mode, and it reads
+   from --note-halo (sheet-coloured) rather than a frozen white so night mode inverts it too. */
+.note-pill.plain, .wb-text-label.plain, .wb-text-input.plain, .note-pill-input.plain {
+  background: transparent; border-color: transparent; box-shadow: none;
+  text-shadow: 0 0 3px var(--note-halo), 0 0 3px var(--note-halo), 0 0 6px var(--note-halo); }
+/* while selected/editing, a plain note still needs an edge to grab — a faint wash of its own
+   paper colour, enough to see the box without turning it back into a sticker */
+.marker.sel .note-pill.plain, .wb-anno.sel .wb-text-label.plain,
+.wb-text-input.plain, .note-pill-input.plain {
+  background: color-mix(in srgb, var(--note-bg) 22%, transparent); border-color: var(--note-border-sel); }
+
+/* right-edge width grip on a text box. Sits OUTSIDE the box so it never covers the text, and
+   is a full 30px tall for a gloved drag even when the box itself is one small line. */
+.note-wgrip { position: absolute; right: -9px; top: 50%; transform: translateY(-50%);
+  width: 16px; height: 32px; padding: 0; border-radius: 5px; background: var(--surface);
+  border: 1px solid var(--note-border-sel); color: var(--ink-dim); cursor: ew-resize;
+  display: grid; place-items: center; touch-action: none; z-index: 2;
+  box-shadow: 0 2px 6px rgba(30, 45, 70, .25); }
+.note-wgrip .i { width: 12px; height: 12px; }
+/* ✓ "Fertig" on a text box being edited: in box mode Enter makes a newline, so touch needs a
+   visible way out (tap-away and Esc work too, but neither is discoverable with gloves on). */
+.note-done { position: absolute; right: -12px; bottom: -12px; width: 32px; height: 32px;
+  padding: 0; border-radius: 50%; border: none; background: var(--green); color: #fff;
+  display: grid; place-items: center; cursor: pointer; z-index: 3;
+  box-shadow: 0 3px 9px rgba(30, 45, 70, .3); }
+.note-done .i { width: 16px; height: 16px; stroke-width: 2.4; }
 .ph img { width: 100%; height: 100%; object-fit: cover; border-radius: var(--r-ctl); }
 .ctx-photo { padding: 0 18px 10px; }
 .ctx-photo img { width: 100%; border-radius: var(--r-ctl); display: block; }
@@ -1373,6 +1424,16 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .wb-text-label, .wb-text-input { font-family: var(--body); font-weight: 600; color: var(--note-ink);
   background: var(--note-bg); border: 1px solid var(--note-border); border-radius: 0.6em; padding: 0.38em 0.7em; box-shadow: 0 4px 10px rgba(30, 45, 70, .2); white-space: nowrap; }
 .wb-text-input { outline: none; min-width: 7em; }
+/* text BOX (a note with a width): wraps and grows downwards. The width is set inline in px
+   (wN × plan width), so it scales with the plan exactly like the font-size does. `pre-wrap`
+   keeps typed line breaks; `break-word` stops a long unbroken token widening the box. */
+.wb-text-label.box, .wb-text-input.box { white-space: pre-wrap; overflow-wrap: break-word;
+  text-align: left; min-width: 0; }
+/* the editable box is a textarea — kill the browser chrome so it looks identical to the
+   rendered note underneath it (no resizer, no scrollbar; the height is set from scrollHeight) */
+textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-size: inherit;
+  line-height: 1.35; }
+.wb-text-label.box { line-height: 1.35; }
 /* team pill — colour lives in the --team custom prop (set inline per team), so the
    accent cap, time badge and selection ring all read from one source */
 .wb-resource-pill { --team: var(--blue); display: inline-flex; align-items: center; gap: 8px; background: var(--surface);
@@ -1477,6 +1538,13 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
   background: var(--blue); color: var(--on-accent-ink); display: grid; place-items: center; cursor: pointer; box-shadow: 0 2px 6px rgba(30, 45, 70, .3); padding: 0; }
 .wb-edit::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .wb-edit .i { width: 13px; height: 13px; stroke-width: 2.2; }
+/* ⚙ (note detail panel) — the BOTTOM-left corner, so it can't be mistaken for the pencil above
+   it or crowd the delete orb opposite. Neutral surface colour: it opens something, it changes
+   nothing on its own. */
+.wb-gear { position: absolute; bottom: -11px; left: -11px; width: 28px; height: 28px; border-radius: 50%; border: 2px solid #fff;
+  background: var(--ink-fill); color: var(--on-accent-ink); display: grid; place-items: center; cursor: pointer; box-shadow: 0 2px 6px rgba(30, 45, 70, .3); padding: 0; }
+.wb-gear::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
+.wb-gear .i { width: 14px; height: 14px; stroke-width: 2; }
 
 /* draw style picker (floats over canvas bottom) */
 .wb-style-sep { width: 1px; height: 22px; background: rgba(255, 255, 255, .2); }
@@ -1533,6 +1601,9 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
   border: none; border-radius: var(--r-xs); cursor: pointer; color: var(--on-accent-ink); padding: 0; }
 .wb-dock-tog .i { width: 17px; height: 17px; }
 .wb-dock-tog.on { background: var(--blue); color: #fff; } /* active mode: blue accent, not stark white */
+/* word/letter toggles (note size steps, Zettel↔Klartext) — the dock is narrow, so the label
+   shrinks to fit rather than widening the whole column */
+.wb-dock-txt { font: 700 11px var(--body); letter-spacing: .01em; padding: 0 5px; white-space: nowrap; }
 /* shape-placement glyph preview in the dock */
 .wb-dock-shape { width: 26px; height: 26px; }
 .wb-dock-shape svg { width: 100%; height: 100%; display: block; }

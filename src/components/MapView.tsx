@@ -90,6 +90,10 @@ interface Props {
   onNoteText?: (id: string, text: string) => void
   onNoteCommit?: (id: string, text: string) => void
   onNoteEdit?: (id: string) => void
+  /** open a note's detail panel (the ⚙ handle) — see MapMarkers */
+  onNotePanel?: (id: string) => void
+  /** drag a note text box's width in screen px — see MapMarkers */
+  onNoteWidth?: (id: string, w: number | undefined, phase: 'start' | 'move' | 'end') => void
   /** team markers (Trupp tracking on the map) — see MapMarkers */
   trupps?: Trupp[]
   onShowTrupp?: (truppId: string) => void
@@ -174,7 +178,7 @@ interface Props {
 }
 
 export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
-  const { entities, layers, byName, symMul = 1, captionMode = 'off', initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, trupps, onShowTrupp, onTeamMark, onTeamClearTrail,
+  const { entities, layers, byName, symMul = 1, captionMode = 'off', initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, onShowTrupp, onTeamMark, onTeamClearTrail,
     drawings: storedDrawings, drawingsVisible, draft, draftKind, placing, onDraftDrag, onDraftInsert, onDraftDelete, onDraftPointAttachment, draggable, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onRotate, onShapeTransform,
     onView, picking, onCursor, onPick, pickedPoint, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, onSelectDrawing, onUnlockDrawing, onDelete, measureLabels = [], measurePoints = [], measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingDelete, onDrawingAttachment, onLabelMove,
@@ -1292,6 +1296,8 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         onNoteText={onNoteText}
         onNoteCommit={onNoteCommit}
         onNoteEdit={onNoteEdit}
+        onNotePanel={onNotePanel}
+        onNoteWidth={onNoteWidth}
         trupps={trupps}
         onShowTrupp={onShowTrupp}
         onTeamMark={onTeamMark}

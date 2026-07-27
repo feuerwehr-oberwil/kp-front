@@ -21,6 +21,7 @@ import { ContextPanel } from './ContextPanel'
 import { DrawEditor } from './DrawEditor'
 import { ShapeEditor } from './ShapeEditor'
 import { ShapeGlyph, SHAPE_DEFS } from '../lib/shapes'
+import { noteScale, clampNoteWN, isNoteBox, NOTE_WN } from '../lib/notes'
 import { planUrl, TILE_AR, TOP_INSET, STACK_VPAD, clamp01, floorLabel, floorGeometry } from '../lib/whiteboard'
 import { advanceDwell, applyRouting, boundaryPoint, EMPTY_DWELL, forkPortPoint, incomingAttachments, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 import { calibrate, pathMetres, polyAreaM2, isStale, type PlanScale } from '../lib/planScale'
@@ -38,6 +39,15 @@ import { ToolDock } from './ToolDock'
 import { ToolRail } from './ToolRail'
 
 const COLORS = appConfig.drawing.colors
+
+/** Size a note's textarea to its content, so the editable box is exactly as tall as the note it
+ *  replaces (no scrollbar, no jump between "editing" and "done"). Height must be reset first —
+ *  scrollHeight never shrinks while an explicit height is still set. */
+function autoGrow(el: HTMLInputElement | HTMLTextAreaElement | null) {
+  if (!el || el.tagName !== 'TEXTAREA') return
+  el.style.height = 'auto'
+  el.style.height = `${el.scrollHeight}px`
+}
 const TEAM_COLORS = appConfig.drawing.teamColors // distinct accent per team (cycled)
 // parity with the Lage map: directional symbols that support drag-to-rotate (set
 // derived from the symbol presets, lib/symbols · ROTATABLE), and the generic
@@ -133,6 +143,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // set from the single selId (which still drives the symbol editor / team actions).
   const [selIds, setSelIds] = useState<string[]>([])
   const [editId, setEditId] = useState<string | null>(null)
+  // which note has its detail panel open. NOT derived from selId: selecting a note stays quiet
+  // (see selNote below) — only the ⚙ handle sets this.
+  const [notePanelId, setNotePanelId] = useState<string | null>(null)
   // a pending team placement awaiting a Trupp pick (x/y/floor of the tapped point)
   const [truppPick, setTruppPick] = useState<{ x: number; y: number; floor: number } | null>(null)
   const [color, setColor] = useState<string>(appConfig.drawing.defaultColor)
@@ -207,7 +220,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // each keystroke live into the anno — like the Lage note title)
   const textEditId = useRef<string | null>(null)
   // drag-to-rotate a selected directional symbol — mirrors the map's rotor handle
-  const rotate = useRef<{ id: string; cx: number; cy: number; moved: boolean; mode: 'rotate' | 'rotate2' | 'resize' | 'cage' } | null>(null)
+  const rotate = useRef<{ id: string; cx: number; cy: number; moved: boolean; mode: 'rotate' | 'rotate2' | 'resize' | 'cage' | 'width' } | null>(null)
   // the group-move drag origin (start client point and the original board-space geometry of
   // every selected anno). Pan/pinch/marquee refs live in useBoardGestures.
   const groupMove = useRef<{ sx: number; sy: number } | null>(null)
@@ -276,11 +289,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
       if (draft) { setDraft(null); lastTap.current = null }
+      // the note panel closes BEFORE the selection does — Escape backs out one layer at a time
+      else if (notePanelId) setNotePanelId(null)
       else if (selId) setSelId(null)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [draft, selId])
+  }, [draft, selId, notePanelId])
 
   // Stable ref callback that focuses a freshly-mounted text/resource input. The focus is
   // DEFERRED past the current placement tap: focusing synchronously on mount gets immediately
@@ -289,9 +304,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // Focus synchronously when the input mounts — a deferred (setTimeout) focus drops out of the
   // tap's gesture context, so iPadOS refuses to open the on-screen keyboard for a freshly
   // placed Notiz. Focusing in the ref callback keeps it as close to the gesture as React allows.
-  const focusOnce = useCallback((el: HTMLInputElement | null) => {
+  const focusOnce = useCallback((el: HTMLInputElement | HTMLTextAreaElement | null) => {
     if (!el) return
     el.focus(); el.select?.()
+    autoGrow(el)
   }, [])
 
   // measure viewport so the board can be sized to "contain" the plan exactly — keyed to the
@@ -987,7 +1003,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // --- drag-to-rotate a selected directional symbol (rotor handle) ---
   // angle from the glyph centre to the pointer becomes the rotation (+90° so the
   // top knob leads); the whole gesture is one undo step (checkpoint on first move).
-  const rotDown = (e: React.PointerEvent, id: string, mode: 'rotate' | 'rotate2' | 'resize' | 'cage' = 'rotate') => {
+  const rotDown = (e: React.PointerEvent, id: string, mode: 'rotate' | 'rotate2' | 'resize' | 'cage' | 'width' = 'rotate') => {
     if (tool !== 'pan' || readOnly) return
     e.stopPropagation()
     const anno = (e.currentTarget as HTMLElement).closest('.wb-anno')
@@ -1005,6 +1021,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       // (scaled) plan width — same maths as the map's shape resize, in plan space
       const dist = Math.hypot(e.clientX - st.cx, e.clientY - st.cy)
       patch(st.id, { sizeN: Math.max(0.03, Math.min(0.9, (dist * Math.SQRT2) / sW)) })
+      return
+    }
+    if (st.mode === 'width') {
+      // note text box: the grip sits on the RIGHT edge of a centre-anchored box, so the pointer
+      // distance from the centre is half the width. Normalized against the (scaled) plan width
+      // so the box keeps its proportion at every zoom — and prints at that same proportion.
+      patch(st.id, { wN: clampNoteWN((2 * Math.abs(e.clientX - st.cx)) / sW) })
       return
     }
     if (st.mode === 'cage') {
@@ -1026,6 +1049,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const a = annos.find((x) => x.id === st.id)
     if (!a) return
     const patchOut = st.mode === 'resize' ? { sizeN: a.sizeN }
+      : st.mode === 'width' ? { wN: a.wN }
       : st.mode === 'cage' ? { rotation2: a.rotation2, reachN: a.reachN }
       : st.mode === 'rotate2' ? { rotation2: a.rotation2 } : { rotation: a.rotation }
     emit('board.edit', { id: st.id, patch: patchOut, planId: activeId })
@@ -1247,6 +1271,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // a selected plan symbol gets the SAME editor as the map (label / fields / notes /
   // count / rotation) — floor is omitted because on the plan it's the tile, not a badge
   const selSymbol = annos.find((a) => a.id === selId && a.kind === 'symbol')
+  // A note reaches the SAME ContextPanel, but NOT on plain selection the way a symbol does —
+  // a note is placed mid-sentence and a panel sliding in on every tap would be in the way. It
+  // opens from the ⚙ handle instead, so `notePanelId` is deliberately separate from `selId`.
+  const selNote = annos.find((a) => a.id === notePanelId && a.kind === 'text')
+  // the note being typed into — drives the note dock (settings within reach while the keyboard is up)
+  const editNote = annos.find((a) => a.id === editId && a.kind === 'text')
   // a selected stroke / Linie / Fläche — drives the shared DrawEditor (style + presets) panel
   const selDraw = annos.find((a) => a.id === selId && (a.kind === 'draw' || a.kind === 'area'))
   // Explicit detach for a plan line endpoint (the × chip on the canvas + the Verbindung lösen button
@@ -1689,18 +1719,33 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                     <ShapeGlyph kind={a.shape ?? 'square'} color={a.color ?? '#1f6feb'} />
                   </div>
                 )}
-                {a.kind === 'text' && (
-                  editId === a.id
-                    ? <input className="wb-text-input" ref={focusOnce} value={a.text} placeholder={appConfig.copy.whiteboard.textPlaceholder} style={{ fontSize: txtBase * scale }}
+                {a.kind === 'text' && (() => {
+                  // a note is a one-line pill until it carries a width (wN); then it wraps and
+                  // grows downwards. Font size = plan-scaled base × the S/M/L step.
+                  const box = isNoteBox(a.wN)
+                  const cls = (base: string) => `${base}${box ? ' box' : ''}${a.notePlain ? ' plain' : ''}`
+                  const style = { fontSize: txtBase * scale * noteScale(a.noteSize), ...(box ? { width: a.wN! * sW } : null), ...(a.notePlain && a.color ? { color: a.color } : null) }
+                  return editId === a.id
+                    ? <textarea className={cls('wb-text-input')} ref={focusOnce} value={a.text} placeholder={appConfig.copy.whiteboard.textPlaceholder} rows={1} style={style}
                         onPointerDown={(e) => e.stopPropagation()}
                         // stream each keystroke live into the note (silent — checkpoint once on the
                         // first edit), so the text shows as you type and the note never vanishes
-                        onChange={(e) => { if (textEditId.current !== a.id) { textEditId.current = a.id; pushPast() } patch(a.id, { text: e.target.value }) }}
+                        onChange={(e) => { if (textEditId.current !== a.id) { textEditId.current = a.id; pushPast() } patch(a.id, { text: e.target.value }); autoGrow(e.currentTarget) }}
                         // finalise on blur: keep the note even if empty (a placed note must persist,
                         // mirroring the Lage map) and record one audit edit for the whole session
                         onBlur={(e) => { setEditId(null); if (textEditId.current === a.id) { textEditId.current = null; emit('board.edit', { id: a.id, patch: { text: e.target.value }, planId: activeId }) } }}
-                        onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} />
-                    : <span className="wb-text-label" style={{ fontSize: txtBase * scale }}>{a.text || appConfig.copy.whiteboard.text}</span>
+                        // Enter finishes a ONE-LINER (the muscle memory this had before boxes
+                        // existed) but inserts a newline in a box — where the ✓ / Esc / tap-away
+                        // are the way out. Esc always finishes, on both.
+                        onKeyDown={(e) => { if (e.key === 'Escape' || (e.key === 'Enter' && !box)) { e.preventDefault(); (e.target as HTMLTextAreaElement).blur() } }} />
+                    : <span className={cls('wb-text-label')} style={style}>{a.text || appConfig.copy.whiteboard.text}</span>
+                })()}
+                {/* ✓ Fertig — only in box mode, where Enter no longer commits and a gloved hand
+                    needs a visible way out (tap-away works but isn't discoverable) */}
+                {a.kind === 'text' && editId === a.id && isNoteBox(a.wN) && (
+                  <button className="note-done" title={appConfig.copy.notes.done} aria-label={appConfig.copy.notes.done}
+                    // pointerdown (not click): the textarea's blur would unmount this button first
+                    onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); setEditId(null) }}><Icon id="check" /></button>
                 )}
                 {a.kind === 'resource' && (() => {
                   // a chip linked to a Trupp that's been marked «raus» (Atemschutz board)
@@ -1773,6 +1818,20 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 {/* selected text note: explicit edit handle so touch can re-enter editing */}
                 {a.kind === 'text' && editId !== a.id && selId === a.id && tool === 'pan' && !readOnly && (
                   <button className="wb-edit" title={appConfig.copy.edit} aria-label={appConfig.copy.edit} onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); setEditId(a.id) }}><Icon id="pen" /></button>
+                )}
+                {/* ⚙ — the way into the detail panel. Only once the note HAS text: on a freshly
+                    placed note there is nothing to style yet, and the pen is the only thing you
+                    want in reach. (Deleting an empty note stays on the ✕, as before.) */}
+                {a.kind === 'text' && editId !== a.id && selId === a.id && tool === 'pan' && !readOnly && !!a.text?.trim() && (
+                  <button className="wb-gear" title={appConfig.copy.notes.settings} aria-label={appConfig.copy.notes.settings}
+                    onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); setNotePanelId(a.id) }}><Icon id="gear" /></button>
+                )}
+                {/* right-edge width grip — a text box only. A one-line note has nothing to drag:
+                    its width IS its text, and the box shape is what «Zu Textfeld» hands out. */}
+                {a.kind === 'text' && selId === a.id && tool === 'pan' && !readOnly && isNoteBox(a.wN) && (
+                  <button className="note-wgrip" title={appConfig.copy.notes.resizeHint} aria-label={appConfig.copy.notes.resizeHint}
+                    onPointerDown={(e) => rotDown(e, a.id, 'width')} onPointerMove={rotMove} onPointerUp={rotUp} onPointerCancel={rotUp}
+                    onClick={(e) => e.stopPropagation()}><Icon id="resize" /></button>
                 )}
                 {/* generic shape: tethered rotor knob + corner resize grip, identical to the
                     Lage map — both rotate with the shape so the handles stay attached */}
@@ -1920,6 +1979,14 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           measCount={measPath.length}
           onMeasClear={() => setMeasPath(() => [])}
           onMeasClose={() => { measReset(); setTool('pan') }}
+          noteEditing={editNote}
+          /* patch (not patchCommit): the note is mid-edit and its text edit already holds the
+             checkpoint, so a style tweak folds into the same undo step rather than fragmenting it */
+          onNoteWidth={(w) => { if (editNote) patch(editNote.id, { wN: w ?? undefined }) }}
+          onNoteSize={(s) => { if (editNote) patch(editNote.id, { noteSize: s }) }}
+          onNotePlain={(p) => { if (editNote) patch(editNote.id, { notePlain: p || undefined }) }}
+          onNoteColor={(c) => { if (editNote) patch(editNote.id, { color: c || undefined }) }}
+          onNoteDone={() => setEditId(null)}
         />}
       </div>
 
@@ -2027,6 +2094,29 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           connectedLines={annos.filter((a) => [a.startAttachment, a.endAttachment].some((rel) => rel?.target.kind === 'object' && rel.target.id === selSymbol.id)).map((a) => ({ id: a.id, label: lineLabel(a) }))}
           onFocusLine={(id) => setSelId(id)}
           onDelete={() => void removeWithConnections(selSymbol)}
+        />
+      )}
+
+      {/* note detail panel — the same ContextPanel, opened from the ⚙ handle rather than by
+          selecting (see notePanelId). The note's TEXT is its title, so the panel's title field
+          edits the note itself; `noteWidth` drives the Form row + the "Zu Textfeld" default. */}
+      {selNote && tool === 'pan' && (
+        <ContextPanel
+          key={selNote.id}
+          entity={{ ...selNote, label: selNote.text, subtitle: appConfig.copy.notes.section }}
+          readOnly={readOnly}
+          onClose={() => setNotePanelId(null)}
+          onTitle={(v) => patchCommit(selNote.id, { text: v })}
+          onTitleLive={(v) => patch(selNote.id, { text: v })}
+          onFields={(fields) => patchCommit(selNote.id, { fields })}
+          onNotes={(v) => patchCommit(selNote.id, { notes: v || undefined })}
+          noteWidth={selNote.wN}
+          onNoteWidth={(w) => patchCommit(selNote.id, { wN: w ?? undefined })}
+          noteWidthDefault={NOTE_WN.def}
+          onNoteSize={(s) => patchCommit(selNote.id, { noteSize: s })}
+          onNotePlain={(p) => patchCommit(selNote.id, { notePlain: p || undefined })}
+          onColor={(c) => patchCommit(selNote.id, { color: c || undefined })}
+          onDelete={() => { setNotePanelId(null); void removeWithConnections(selNote) }}
         />
       )}
 

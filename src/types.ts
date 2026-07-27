@@ -101,7 +101,21 @@ export interface SymbolProps {
    *  it, 'auto' shows the one discriminating value (e.g. a Kleinlöscher's Typ), 'all' shows
    *  every filled detail. Value-only — the glyph already conveys the key. See lib/symbols. */
   caption?: CaptionMode
+  // --- free-text note styling (Lage `Entity` kind 'note' / Plan `BoardAnno` kind 'text') ---
+  // A note grows from a one-line pill into a wrapping text box; these describe how it LOOKS,
+  // while the box WIDTH lives per-surface (Entity.noteW in screen px, BoardAnno.wN as a
+  // fraction of the plan width) because the two surfaces scale differently. Absent
+  // everywhere = the original one-line pill, so stored incidents render unchanged.
+  /** relative text size: 's' ×0.8, 'm' ×1 (absent = 'm'), 'l' ×1.45. */
+  noteSize?: NoteSize
+  /** drop the yellow Zettel background + border and render bare text (a heading on a blank
+   *  sheet). The renderers add a `--note-halo` outline so bare text stays legible over an
+   *  aerial / a dark plan — never a background-less plain colour. */
+  notePlain?: boolean
 }
+
+/** Relative note text size. Absent = 'm'; see `NOTE_SIZE_SCALE` in lib/notes. */
+export type NoteSize = 's' | 'm' | 'l'
 
 /** How much of a symbol's metadata is printed under its glyph on the map / plan:
  *  'off' none, 'auto' the single discriminating value, 'all' every filled detail. */
@@ -121,6 +135,11 @@ export interface Entity extends SymbolProps {
   floor?: number
   badge?: string        // short text shown in the context panel avatar
   photoUrl?: string     // for kind 'photo'
+  /** kind 'note': box width in SCREEN px — map notes are pinned to a constant screen size
+   *  (they don't scale with zoom, see symPx), so a ground-metre width would be wrong here.
+   *  The Plan analogue is `BoardAnno.wN`. ABSENT = the legacy auto-width pill (capped by CSS
+   *  at 180px, no wrapping); its presence is what makes a note a text box. */
+  noteW?: number
   /** externally sourced (e.g. live GPS) — read-only: not draggable, editable or persisted */
   live?: boolean
   // --- kind 'shape' ---
@@ -410,6 +429,11 @@ export interface BoardAnno extends SymbolProps {
   x?: number                 // text / symbol / shape / resource: anchor
   y?: number
   text?: string              // text label / resource name
+  /** kind 'text': box width as a fraction of the plan width (0..1) — the plan-space analogue
+   *  of `Entity.noteW`. Same unit as `sizeN`, so the box keeps its proportions across zoom and
+   *  prints 1:1. ABSENT = the legacy auto-width one-liner (no wrapping, no width grip); its
+   *  presence is what makes a note a text box. See `NOTE_W` in lib/notes for the clamps. */
+  wN?: number
   // --- kind 'shape' (Pfeil / Rauch / Rechteck — the plan mirror of Entity kind 'shape') ---
   shape?: ShapeKind
   /** shape size as a fraction of the plan width (0..1) — the plan-space analogue of Entity.sizeM */

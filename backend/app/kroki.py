@@ -513,34 +513,115 @@ def _marker_points(pts: list[tuple[float, float]], spacing: float) -> list[tuple
     return out
 
 
-def _halo_text(draw: ImageDraw.ImageDraw, xy: tuple[float, float], text: str, fs: int, color: str) -> None:
-    """Bold letter with a white halo — the marker letters must read on any base map."""
+def _halo_text(
+    draw: ImageDraw.ImageDraw,
+    xy: tuple[float, float],
+    text: str,
+    fs: int,
+    color: str,
+    anchor: str = "mm",
+) -> None:
+    """Bold letter with a white halo — the marker letters must read on any base map.
+
+    Also carries a background-less "Klartext" note, which needs the same treatment for the same
+    reason; those lines are left-anchored ("lm"), hence the parameter.
+    """
     f = _font(fs)
     r = max(1, fs // 7)
     for dx in (-r, 0, r):
         for dy in (-r, 0, r):
             if dx or dy:
-                draw.text((xy[0] + dx, xy[1] + dy), text, font=f, fill="white", anchor="mm")
-    draw.text(xy, text, font=f, fill=color, anchor="mm")
+                draw.text((xy[0] + dx, xy[1] + dy), text, font=f, fill="white", anchor=anchor)
+    draw.text(xy, text, font=f, fill=color, anchor=anchor)
 
 
-def _label_box(draw: ImageDraw.ImageDraw, xy: tuple[float, float], lines: list[str], fs: int) -> None:
-    """White label chip; multiple lines stack (distance line + free label, like the map)."""
+# Note text sizes — MUST match NOTE_SIZE_SCALE in src/lib/notes.ts, or a note that reads as a
+# heading on screen prints as body text.
+NOTE_SIZE_SCALE = {"s": 0.8, "m": 1.0, "l": 1.45}
+
+
+def _note_scale(size: str | None) -> float:
+    return NOTE_SIZE_SCALE.get(size or "m", 1.0)
+
+
+def _wrap_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont, max_w: float) -> list[str]:
+    """Greedy word wrap to a pixel width, honouring the writer's own line breaks first.
+
+    A word longer than the box (a hydrant code, a chemical name) is NOT broken — it overhangs
+    instead. Splitting mid-token would make an already-hard word unreadable on paper, and the
+    on-screen box does the same thing (`overflow-wrap: break-word` only breaks when it must).
+    """
+    out: list[str] = []
+    for para in text.split("\n"):
+        if not para:
+            out.append("")
+            continue
+        line = ""
+        for word in para.split(" "):
+            probe = f"{line} {word}" if line else word
+            if line and draw.textlength(probe, font=font) > max_w:
+                out.append(line)
+                line = word
+            else:
+                line = probe
+        out.append(line)
+    return out
+
+
+def _note_lines(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    font: ImageFont.FreeTypeFont,
+    box_w: float | None,
+) -> list[str]:
+    """The note's laid-out lines: wrapped to `box_w` when it is a text box, else a single line.
+
+    A note with no width is the legacy one-line pill and must stay exactly that — this is the
+    same discriminator as `isNoteBox` on the client.
+    """
+    if box_w and box_w > 0:
+        return _wrap_text(draw, text, font, box_w)
+    return [text.replace("\n", " ")]
+
+
+def _label_box(
+    draw: ImageDraw.ImageDraw,
+    xy: tuple[float, float],
+    lines: list[str],
+    fs: int,
+    plain: bool = False,
+    color: str | None = None,
+    box_w: float = 0,
+) -> None:
+    """White label chip; multiple lines stack (distance line + free label, like the map).
+
+    A map note reuses this: `box_w` makes it a fixed-width, left-aligned paragraph rather than a
+    chip hugging its longest line, and `plain` drops the chip entirely for a "Klartext" note —
+    which then gets the halo, because bare text over an aerial is unreadable without it.
+    """
     f = _font(fs)
     lh = fs * 1.25
     widths = [draw.textlength(t, font=f) for t in lines]
-    bw, bh = max(widths), lh * len(lines)
+    bw, bh = (box_w if box_w else max(widths)), lh * len(lines)
     pad = fs * 0.4
     x, y = xy
-    draw.rounded_rectangle(
-        [x - bw / 2 - pad, y - bh / 2 - pad, x + bw / 2 + pad, y + bh / 2 + pad],
-        radius=max(2, fs // 4),
-        fill=(255, 255, 255, 238),
-        outline="#d4dae3",
-        width=1,
-    )
+    ink = color or "#1b2330"
+    if not plain:
+        draw.rounded_rectangle(
+            [x - bw / 2 - pad, y - bh / 2 - pad, x + bw / 2 + pad, y + bh / 2 + pad],
+            radius=max(2, fs // 4),
+            fill=(255, 255, 255, 238),
+            outline="#d4dae3",
+            width=1,
+        )
+    tx = (x - bw / 2) if box_w else x
+    anchor = "lm" if box_w else "mm"
     for i, t in enumerate(lines):
-        draw.text((x, y - bh / 2 + lh * (i + 0.5)), t, font=f, fill="#1b2330", anchor="mm")
+        ty = y - bh / 2 + lh * (i + 0.5)
+        if plain:
+            _halo_text(draw, (tx, ty), t, fs, ink, anchor)
+        else:
+            draw.text((tx, ty), t, font=f, fill=ink, anchor=anchor)
 
 
 def _fmt_distance(m: float) -> str:
@@ -725,7 +806,19 @@ def render_kroki(
                 )
                 _caption(draw, (x0_, y0_ + r + 2 * u * ss), [str(e["caption"])], int(11.5 * u * ss))
             elif e.get("kind") == "note" and e.get("caption"):
-                _label_box(draw, (x0_, y0_), [str(e["caption"])], int(12 * u * ss))
+                # a map note carries its box width in SCREEN px (noteW) — scale it into sheet px
+                # with the same u·ss factor as the font, so the paper wraps where the screen did
+                nfs = int(12 * u * ss * _note_scale(e.get("noteSize")))
+                nbox = (e.get("noteW") or 0) * u * ss
+                _label_box(
+                    draw,
+                    (x0_, y0_),
+                    _note_lines(draw, str(e["caption"]), _font(nfs), nbox),
+                    nfs,
+                    plain=bool(e.get("notePlain")),
+                    color=e.get("color"),
+                    box_w=nbox,
+                )
             continue
         # shapes are sized in real-world metres (client shapePx); symbols use the band
         if e.get("sizeM"):
@@ -872,23 +965,42 @@ def _overlay_board_annos(
             overlay.alpha_composite(glyph, (int(x - glyph.width / 2), int(y - glyph.height / 2)))
         elif kind in ("text", "resource") and (a.get("text") or "").strip():
             x, y = pp(a.get("x") or 0, a.get("y") or 0)
-            fs = int(12 * u * ss)
-            f = _font(fs)
-            t = a["text"]
-            tw_ = draw.textlength(t, font=f)
-            pad = fs * 0.45
-            # keep the pill on the sheet: an anchor near the edge must not clip the text
-            half = tw_ / 2 + pad
-            x = max(half + 2, min(w - half - 2, x))
             dark = kind == "resource"  # resource chips are ink-on-dark like the app
-            draw.rounded_rectangle(
-                [x - half, y - fs * 0.9, x + half, y + fs * 0.9],
-                radius=max(2, fs // 4),
-                fill="#1b2330" if dark else (255, 255, 255, 240),
-                outline=None if dark else "#d4dae3",
-                width=1,
-            )
-            draw.text((x, y), t, font=f, fill="white" if dark else "#1b2330", anchor="mm")
+            # A note carries its size step and, once it is a text box, a width as a fraction of
+            # the plan width (wN) — the same fraction the screen uses, so the paper breaks the
+            # lines in the same places. A team chip is always the one-line pill it was.
+            fs = int(12 * u * ss * (1.0 if dark else _note_scale(a.get("noteSize"))))
+            f = _font(fs)
+            box_w = (a.get("wN") or 0) * w if not dark else 0
+            lines = _note_lines(draw, a["text"], f, box_w)
+            lh = fs * 1.35
+            pad = fs * 0.45
+            half_w = (box_w / 2 + pad) if box_w else (max(draw.textlength(t, font=f) for t in lines) / 2 + pad)
+            half_h = lh * len(lines) / 2 + pad * 0.55
+            # keep the note on the sheet: an anchor near the edge must not clip the text
+            x = max(half_w + 2, min(w - half_w - 2, x))
+            plain = bool(a.get("notePlain")) and not dark
+            ink = "white" if dark else (a.get("color") or "#1b2330")
+            if not plain:
+                draw.rounded_rectangle(
+                    [x - half_w, y - half_h, x + half_w, y + half_h],
+                    radius=max(2, fs // 4),
+                    fill="#1b2330" if dark else (255, 255, 255, 240),
+                    outline=None if dark else "#d4dae3",
+                    width=1,
+                )
+            # a box is left-aligned (it is a paragraph); the one-line pill stays centred on its
+            # anchor, exactly as both have always rendered on screen
+            tx = (x - half_w + pad) if box_w else x
+            anchor = "lm" if box_w else "mm"
+            for i, t in enumerate(lines):
+                ty = y - half_h + pad * 0.55 + lh * (i + 0.5)
+                # "Klartext" has no paper behind it, so on a busy plan it needs the same halo the
+                # screen gives it — otherwise it vanishes over hatching and thick outlines.
+                if plain:
+                    _halo_text(draw, (tx, ty), t, fs, ink, anchor)
+                else:
+                    draw.text((tx, ty), t, font=f, fill=ink, anchor=anchor)
     for xy, lines, fs in labels:
         _label_box(draw, xy, lines, int(fs))
 

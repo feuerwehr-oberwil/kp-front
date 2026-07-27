@@ -247,3 +247,86 @@ def test_composer_embeds_server_rendered_kroki_and_plan():
     pdf = compose_report_pdf(p, {}, {"/api/reference/plan:x:modul1": buf.getvalue()})
     assert pdf[:5] == b"%PDF-"
     assert len(pdf) > 8_000  # embedded kroki + plan bitmaps (offline grey base compresses well)
+
+
+# --- free-text notes: one-line pill vs. wrapping text box ---------------------------------
+# The client decides a note is a BOX purely by whether it carries a width (isNoteBox in
+# src/lib/notes.ts). The sheet must agree, or a note reads correctly on screen and wrong on
+# paper — which for a rapport is worse than not having the feature.
+
+
+def _draw():
+    return kk.ImageDraw.Draw(Image.new("RGBA", (400, 200)))
+
+
+def test_note_without_width_stays_one_line():
+    d = _draw()
+    f = kk._font(12)
+    text = "Achtung Gasflaschen im UG - Zugang nur ueber Treppenhaus Ost"
+    assert kk._note_lines(d, text, f, 0) == [text]
+
+
+def test_note_with_width_wraps_to_that_width():
+    d = _draw()
+    f = kk._font(12)
+    text = "Achtung Gasflaschen im UG - Zugang nur ueber Treppenhaus Ost"
+    lines = kk._note_lines(d, text, f, 90)
+    assert len(lines) > 1
+    # every line fits the box (the greedy wrap never overshoots on multi-word text)
+    assert all(d.textlength(line, font=f) <= 90 for line in lines)
+    # and nothing was dropped or duplicated on the way
+    assert " ".join(lines).split() == text.split()
+
+
+def test_note_keeps_typed_line_breaks():
+    d = _draw()
+    f = kk._font(12)
+    assert kk._note_lines(d, "Zeile A\nZeile B", f, 400) == ["Zeile A", "Zeile B"]
+
+
+def test_one_line_note_flattens_a_typed_break():
+    # a note that lost its width (back to «Einzeiler») must not print a stray newline
+    d = _draw()
+    f = kk._font(12)
+    assert kk._note_lines(d, "Zeile A\nZeile B", f, 0) == ["Zeile A Zeile B"]
+
+
+def test_overlong_word_overhangs_rather_than_being_split():
+    # splitting a chemical name / hydrant code mid-token makes a hard word unreadable; the
+    # on-screen box does the same (overflow-wrap only breaks when it must)
+    d = _draw()
+    f = kk._font(12)
+    assert kk._note_lines(d, "Dichlordiphenyltrichlorethan", f, 20) == ["Dichlordiphenyltrichlorethan"]
+
+
+def test_note_size_steps_match_the_client():
+    # mirrors NOTE_SIZE_SCALE in src/lib/notes.ts — drift here means a heading prints as body
+    assert kk.NOTE_SIZE_SCALE == {"s": 0.8, "m": 1.0, "l": 1.45}
+    assert kk._note_scale(None) == 1.0
+    assert kk._note_scale("nonsense") == 1.0
+
+
+def test_plan_page_renders_a_wrapped_note_box(tmp_path):
+    # end-to-end: a boxed note on a plan page must still produce a complete sheet
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=landscape(A4))
+    c.drawString(80, 300, "PLAN")
+    c.showPage()
+    c.save()
+    img = kk.render_plan_page(
+        buf.getvalue(),
+        [
+            {
+                "kind": "text",
+                "x": 0.4,
+                "y": 0.4,
+                "text": "Achtung Gasflaschen im UG - Zugang nur ueber Treppenhaus Ost",
+                "wN": 0.2,
+                "noteSize": "l",
+                "notePlain": True,
+            }
+        ],
+        PACK,
+        width=800,
+    )
+    assert img.width > 0 and img.height > 0

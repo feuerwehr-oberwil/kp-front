@@ -114,7 +114,12 @@ class KrokiEntityIn(BaseModel):
     spread: dict | None = None  # {h: 'E'|'W', hBounded, up, down, vBounded}
     caption: str | None = None
     sizeM: float | None = None  # generic shapes: ground size in metres (client shapePx)
-    color: str | None = None  # team dot colour
+    color: str | None = None  # team dot colour / note ink
+    # free-text note styling. noteW (SCREEN px, since map notes don't scale with zoom) is what
+    # makes a note a wrapping text box; absent = the legacy one-line pill.
+    noteW: float | None = None
+    noteSize: str | None = None  # 's' | 'm' | 'l'
+    notePlain: bool = False
 
 
 class KrokiDrawingIn(BaseModel):
@@ -173,6 +178,11 @@ class PlanAnnoIn(BaseModel):
     # generic shapes (Pfeil/Rauch/Rechteck) arrive as kind 'symbol' with a client-resolved
     # svg + their size as a fraction of the plan width (overrides the fixed symbol size)
     sizeN: float | None = None
+    # free-text note styling. wN (a fraction of the plan width, like sizeN) is what makes a note
+    # a wrapping text box; absent = the legacy one-line pill.
+    wN: float | None = None
+    noteSize: str | None = None  # 's' | 'm' | 'l'
+    notePlain: bool = False
 
 
 class PlanPageIn(BaseModel):
