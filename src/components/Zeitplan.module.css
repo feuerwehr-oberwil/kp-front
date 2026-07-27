@@ -401,8 +401,14 @@
   letter-spacing: .08em; text-transform: uppercase;
 }
 /* the planning state, changed right here as well as by tapping the bar on the grid */
+/* align-self: flex-end like every other control in the row (the sheet's .row aligns on the bottom
+   edge, which is the one edge a 59px field and a 44px button can share) — centred, it floated 8px
+   off the line the fields sat on. No margin-left: auto either: the row groups its actions now and
+   pushes THAT block right, so the chip can no longer set its own left edge and land at a different
+   x in every row. min-width: the two words are 20px apart in length, and a toggle that resizes
+   under your thumb is a toggle you have to re-find — «GEPLANT» now fills the box «VERFÜGBAR» left. */
 .sheetState {
-  align-self: center; margin-left: auto; min-height: var(--tap); padding: 3px 12px; border-radius: var(--r-xs);
+  align-self: flex-end; flex: none; min-width: 118px; min-height: var(--tap); padding: 3px 12px; border-radius: var(--r-xs);
   border: 1px solid color-mix(in srgb, var(--ink) 30%, transparent); background: none; cursor: pointer;
   font: 700 12.5px var(--body); color: var(--ink-dim); text-transform: uppercase; letter-spacing: .04em;
   -webkit-tap-highlight-color: transparent;
@@ -444,4 +450,9 @@
      stray seam and a rounded end in the middle of the row. The base rule is already correct. */
   /* the coverage strip STAYS on a phone too — «wie viele sind jetzt da» is the question the
      surface exists for, and hiding it left the phone with bars and no answer. It is 34px. */
+  /* The Eintrag FAB is ALLOWED to overlap the Deckung strip here — decided, not overlooked.
+     Clearing it with the usual --fab-safe inset works, but it lifts the whole scroll port and so
+     costs the lane list about a row and a half on a 390px screen, and it buys back only the last
+     hour of an axis that scrolls anyway: you can always pull the curve out from under the button.
+     Two fewer people on a Mannschaft overview is the more expensive of the two. */
 }

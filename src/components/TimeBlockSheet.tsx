@@ -71,35 +71,56 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
           // A reversed block renders as NOTHING on the grid (shiftSpan/barGeometry both bail) and
           // counts as zero minutes on the Rapport — it must never look normal here, which is the
           // only place it is visible at all.
+          // Two zones, always in this order: the TIMES on the left, the ACTIONS on the right.
+          // They are real groups rather than six loose flex children, because loose children wrap
+          // one at a time: a row offering «ab Beginn» pushed its state chip onto a second line
+          // while the row below it kept the chip inline and sent only the ✕ down — two rows of the
+          // same kind in two different shapes, with the ✕ landing left on one and right on the
+          // other. Grouped, the actions wrap as one block or not at all.
           <div key={b.key} className={cx(s.row, b.warn && s.rowWarn)}>
             {b.dayLabel && <span className={s.day}>{b.dayLabel}</span>}
-            <span className={s.field}>
-              <span className={s.label}>{labels.from}</span>
-              <TimeField className={s.time} ariaLabel={`${labels.from} – ${subject}`} value={b.from}
-                disabled={!b.onFrom} onCommit={(v) => { if (v) b.onFrom?.(v) }} />
+            <span className={s.times}>
+              <span className={s.field}>
+                <span className={s.label}>{labels.from}</span>
+                <TimeField className={s.time} ariaLabel={`${labels.from} – ${subject}`} value={b.from}
+                  disabled={!b.onFrom} onCommit={(v) => { if (v) b.onFrom?.(v) }} />
+              </span>
+              <span className={s.field}>
+                <span className={s.label}>{labels.to}</span>
+                {b.to != null ? (
+                  <span className={s.toWrap}>
+                    <TimeField className={s.time} ariaLabel={`${labels.to} – ${subject}`} value={b.to}
+                      disabled={!b.onTo} onCommit={(v) => { if (v) b.onTo?.(v) }} />
+                    {b.toDayLabel && <em className={s.nextDay}>{b.toDayLabel}</em>}
+                  </span>
+                ) : (
+                  <em className={s.open}>{b.openLabel}</em>
+                )}
+              </span>
             </span>
-            <span className={s.field}>
-              <span className={s.label}>{labels.to}</span>
-              {b.to != null ? (
-                <span className={s.toWrap}>
-                  <TimeField className={s.time} ariaLabel={`${labels.to} – ${subject}`} value={b.to}
-                    disabled={!b.onTo} onCommit={(v) => { if (v) b.onTo?.(v) }} />
-                  {b.toDayLabel && <em className={s.nextDay}>{b.toDayLabel}</em>}
-                </span>
-              ) : (
-                <em className={s.open}>{b.openLabel}</em>
-              )}
-            </span>
-            {b.onFromStart && (
-              <button type="button" className={s.fromStart} onClick={b.onFromStart}
-                title={labels.fromStartHint} aria-label={`${labels.fromStart} – ${subject}`}>
-                {labels.fromStart}
-              </button>
+            {(b.trailing || b.onRemove) && (
+              <span className={s.actions}>
+                {b.trailing}
+                {b.onRemove && (
+                  <button type="button" className={s.del} title={labels.remove} aria-label={`${labels.remove} – ${subject}`}
+                    onClick={b.onRemove}><Icon id="close" /></button>
+                )}
+              </span>
             )}
-            {b.trailing}
-            {b.onRemove && (
-              <button type="button" className={s.del} title={labels.remove} aria-label={`${labels.remove} – ${subject}`}
-                onClick={b.onRemove}><Icon id="close" /></button>
+            {/* LAST, and on its own full-width line by design. Sharing the row with von/bis and the
+                state chip is what made this block a different shape from the one below it — the
+                shortcut is offered on the first shift only, so wherever it squeezed in, exactly one
+                row came out different. Given its own line it is an addition to a row that is
+                otherwise identical to every other, and it now sits under «von», which is the field
+                it actually sets. Last in the DOM too, so it is also last in the tab order — it is
+                the least-used control here, and the reading order matches the visual one. */}
+            {b.onFromStart && (
+              <span className={s.fromStartLine}>
+                <button type="button" className={s.fromStart} onClick={b.onFromStart}
+                  title={labels.fromStartHint} aria-label={`${labels.fromStart} – ${subject}`}>
+                  {labels.fromStart}
+                </button>
+              </span>
             )}
           </div>
         ))}

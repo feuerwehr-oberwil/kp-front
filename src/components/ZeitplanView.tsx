@@ -320,6 +320,18 @@ export function ZeitplanView({
     return out
   }, [span])
 
+  /** True where the «JETZT» flag would land on this hour label. The flag starts 3px right of the
+   *  line and runs ~34px; a tick is centred on its own position and ~32px wide — so the two touch
+   *  from about 20px left of now to about 52px right of it. Midnight keeps its label (it is a date,
+   *  not an hour). */
+  const hideTick = (h: { at: number; midnight: boolean }) => {
+    if (!nowInside || h.midnight) return false
+    const span_ = span.to - span.from
+    if (span_ <= 0) return false
+    const dx = ((h.at - nowMs) / span_) * trackW
+    return dx > -20 && dx < 52
+  }
+
   const pct = (t: number) => `${(((t - span.from) / Math.max(1, span.to - span.from)) * 100).toFixed(3)}%`
   const nowInside = nowMs >= span.from && nowMs <= span.to
   const trackW = Math.max(320, ((span.to - span.from) / HOUR) * PX_PER_HOUR)
@@ -345,9 +357,16 @@ export function ZeitplanView({
             <div className={cx(s.who, s.whoHead)} aria-hidden />
             <div className={s.track}>
               {hours.map((h) => (
-              <span key={h.at} style={{ left: pct(h.at) }}
-                className={cx(s.tick, h.midnight && s.tickDay,
-                  h.at <= span.from && s.tickStart, h.at >= span.to - HOUR && s.tickEnd)}>{h.label}</span>
+              // The «JETZT» flag is opaque so it stays readable wherever it lands, which means an
+              // hour tick it covers does not disappear — only its ends stick out, and «JETZT )» at
+              // the top of the axis reads as a glyph that failed to render. Drop the label instead
+              // where the flag would sit on it. Midnight is exempt: that tick carries the DATE, and
+              // on a three-day Einsatz losing which night this is costs more than a stray edge.
+              hideTick(h) ? null : (
+                <span key={h.at} style={{ left: pct(h.at) }}
+                  className={cx(s.tick, h.midnight && s.tickDay,
+                    h.at <= span.from && s.tickStart, h.at >= span.to - HOUR && s.tickEnd)}>{h.label}</span>
+              )
             ))}
               {nowInside && <span className={cx(s.nowLine, s.nowLineHead)} style={{ left: pct(nowMs) }}><em>{Z.now}</em></span>}
             </div>

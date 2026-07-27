@@ -3,7 +3,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { ZeitplanView } from './ZeitplanView'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate } from '../lib/format'
+import { fillTemplate, hhmm } from '../lib/format'
 import type { AttendanceState, Person, Shift } from '../types'
 
 afterEach(cleanup)
@@ -250,5 +250,16 @@ describe('ZeitplanView', () => {
     const ys = line.getAttribute('points')!.split(' ').map((pt) => Number(pt.split(',')[1]))
     expect(ys.some((y) => y < peak)).toBe(true)          // somebody IS present, before now
     expect(ys[ys.length - 1]).toBe(peak)                 // …and nobody is claimed after it
+  })
+
+  it('drops the hour label the JETZT flag would sit on, and keeps the rest of the clock', () => {
+    const { container } = render(<ZeitplanView {...base} attendance={{}} shifts={[]} />)
+    const ticks = [...container.querySelectorAll('[class*="tick"]')].map((t) => t.textContent)
+    // The flag is opaque, so a label underneath it does not vanish — its ends stick out and read
+    // as a broken glyph beside «JETZT». The label at now goes; its neighbours two hours out stay,
+    // because an axis that quietly drops its clock is the other failure this surface can have.
+    expect(ticks).not.toContain(hhmm(new Date(NOW)))
+    expect(ticks).toContain(hhmm(new Date(NOW + 2 * 3_600_000)))
+    expect(ticks).toContain(hhmm(new Date(NOW - 2 * 3_600_000)))
   })
 })
