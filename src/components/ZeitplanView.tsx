@@ -12,6 +12,7 @@ import {
   SLOT_MS, barGeometry, conflictingShiftIds, coverage, intervalSpan, shiftSpan, shiftsFor, timelineSpan,
 } from '../lib/shifts'
 import type { AttendanceState, Person, PresenceInterval, Shift } from '../types'
+import type { CoverageSlot } from '../lib/shifts'
 import type { Span } from '../lib/shifts'
 import { DockInfo } from './DockInfo'
 import { TimeBlockReadOnly, TimeBlockSheet } from './TimeBlockSheet'
@@ -27,6 +28,15 @@ const PX_PER_HOUR = 46
 /** An hour label needs about this much room before its neighbour crowds it. */
 const LABEL_PX = 90
 
+
+/** A step polyline through the coverage slots for one state, in viewBox units (x = slot index,
+ *  y = count, flipped so 0 sits on the baseline). Stepped, not smoothed: a headcount changes at a
+ *  slot boundary, and a curve between two integers would imply people arriving gradually. */
+function stepPoints(slots: CoverageSlot[], key: 'available' | 'planned' | 'actual', peak: number): string {
+  const pts: string[] = []
+  slots.forEach((c, i) => { const y = peak - c[key]; pts.push(`${i},${y}`, `${i + 1},${y}`) })
+  return pts.join(' ')
+}
 
 const clock = (iso?: string): string => {
   if (!iso) return ''
@@ -259,10 +269,7 @@ export function ZeitplanView({
   const conflicts = useMemo(() => conflictingShiftIds(shifts), [shifts])
   const slots = useMemo(() => coverage(shifts, attendance, span, nowMs), [shifts, attendance, span, nowMs])
   const peakCover = Math.max(1, ...slots.map((c) => Math.max(c.available, c.planned, c.actual)))
-  // The strip shows shape; these show the NUMBER. «Wie viele sind jetzt da, wie viele sind für
-  // die nächsten Stunden eingeteilt, wie viele haben sich gemeldet» is the question the surface
-  // exists for, and bars alone never answered it.
-  const nowSlot = slots.find((c) => nowMs >= c.at && nowMs < c.at + SLOT_MS) ?? slots[0]
+
 
   // hour ticks across the head; the grid itself is half-hourly (SLOT_MS) but labelling every
   // half hour is unreadable on a tablet
@@ -346,13 +353,13 @@ export function ZeitplanView({
           <div className={cx(s.row, s.coverageRow)}>
             <div className={cx(s.who, s.whoFoot)} title={Z.coverageHint}>{Z.coverage}</div>
             <div className={cx(s.track, s.coverage)}>
-              {slots.map((c) => (
-                <span key={c.at} className={s.cov} style={{ left: pct(c.at), width: `${((SLOT_MS / (span.to - span.from)) * 100).toFixed(3)}%` }}>
-                  <em className={s.covPlanned} style={{ height: `${(c.planned / peakCover) * 100}%` }} />
-                  <em className={s.covActual} style={{ height: `${(c.actual / peakCover) * 100}%` }} />
-                </span>
-              ))}
-              {dayLines}
+              {/* three step lines, one per state, in their own colours — a bar chart merged the
+                  question «who offered» with «who is assigned» and answered neither at a glance */}
+              <svg className={s.covSvg} viewBox={`0 0 ${slots.length} ${peakCover}`} preserveAspectRatio="none" aria-hidden>
+                {([['actual', s.lineActual], ['planned', s.linePlanned], ['available', s.lineAvailable]] as const).map(([key, cls]) => (
+                  <polyline key={key} className={cls} points={stepPoints(slots, key, peakCover)} />
+                ))}
+              </svg>
               {nowLine}
             </div>
           </div>
@@ -370,15 +377,6 @@ export function ZeitplanView({
           is teaching, not reference: it ran three lines deep and cost ~60px of the little height a
           phone has for the Mannschaft itself. It shows itself while nothing is planned (when it
           is the whole point) and folds behind the ⓘ once there is. */}
-      {/* the counts at this moment — the bars give the shape, this gives the number */}
-      {nowSlot && (
-        <p className={s.nowCounts}>
-          <span className={s.nowAt}>{fillTemplate(Z.nowAt, { t: hhmm(new Date(nowMs)) })}</span>
-          <span><b>{nowSlot.actual}</b> {Z.actual}</span>
-          <span><b>{nowSlot.planned}</b> {Z.confirmed}</span>
-          <span><b>{nowSlot.available}</b> {Z.available}</span>
-        </p>
-      )}
       <p className={s.legend}>
         <span className={cx(s.swatch, s.plannedBar)} /> {Z.available}
         <span className={cx(s.swatch, s.plannedBar, s.confirmedBar)} /> {Z.confirmed}

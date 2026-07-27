@@ -208,14 +208,17 @@ describe('ZeitplanView', () => {
     expect(screen.getAllByTitle(new RegExp(`^${Z.actual}:`))).toHaveLength(1)
   })
 
-  it('never claims to know the future: coverage past now counts nobody present', () => {
+  it('never claims to know the future: the anwesend line drops to the baseline past now', () => {
     const attendance: AttendanceState = {
       p1: { status: 'present', displayNameSnapshot: 'Meier Anna', intervals: [{ from: T(12) }] },
     }
     const { container } = render(<ZeitplanView {...base} attendance={attendance} shifts={[]} />)
-    const actualBars = Array.from(container.querySelectorAll('[class*="covActual"]')) as HTMLElement[]
-    expect(actualBars.length).toBeGreaterThan(0)
-    // the last slot lies past `nowMs` → zero height
-    expect(actualBars[actualBars.length - 1].style.height).toBe('0%')
+    const svg = container.querySelector('[class*="covSvg"]') as SVGSVGElement
+    const line = container.querySelector('[class*="lineActual"]') as SVGPolylineElement
+    // viewBox is "0 0 <slots> <peak>" and y is flipped, so y === peak means a count of zero
+    const peak = Number(svg.getAttribute('viewBox')!.split(' ')[3])
+    const ys = line.getAttribute('points')!.split(' ').map((pt) => Number(pt.split(',')[1]))
+    expect(ys.some((y) => y < peak)).toBe(true)          // somebody IS present, before now
+    expect(ys[ys.length - 1]).toBe(peak)                 // …and nobody is claimed after it
   })
 })

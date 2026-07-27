@@ -2172,7 +2172,6 @@ export const de = {
     conflict: 'Überschneidet sich mit einer anderen Schicht',
     now: 'jetzt',
     coveragePeak: ' · max {n}',
-    nowAt: 'Jetzt {t}',
     coverage: 'Deckung',
     coverageHint: 'Links geplant, rechts tatsächlich anwesend – die Lücke zeigt, wo niemand eingeteilt ist.',
     planned: 'verfügbar',

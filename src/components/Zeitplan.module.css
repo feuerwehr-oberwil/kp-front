@@ -71,8 +71,11 @@
 /* the head cell carries no «Wer» label any more — the names below say it. It stays as a spacer
    so the hour ticks line up with the lanes they belong to. Opaque, not transparent: while the
    axis is scrolled the ticks and the coverage bars slid straight through it. */
+/* min-height: 0 — the head cell inherited the rows' 44px tap floor, so the sticky header was
+   twice its own axis strip and the extra 22px clipped the first row's name in half. It holds no
+   control, so it needs no tap target. */
 .whoHead, .whoFoot {
-  border: none; background: var(--surface); align-items: center; padding-bottom: 3px;
+  min-height: 0; border: none; background: var(--surface); align-items: center; padding-bottom: 3px;
   font: 700 10.5px var(--mono); color: var(--ink-faint); letter-spacing: .08em; text-transform: uppercase;
 }
 .whoFoot { align-items: center; padding-bottom: 4px; }
@@ -186,11 +189,13 @@
 }
 .coverageRow .who { z-index: 5; }
 .coverage { height: 34px; border-top: 1px solid var(--border); }
-.cov { position: absolute; top: 4px; bottom: 0; display: flex; align-items: flex-end; gap: 1px; }
-.cov em { flex: 1 1 0; min-height: 1px; border-radius: 1px; }
-.covAvailable { background: color-mix(in srgb, var(--ink) 30%, transparent); }
-.covPlanned { background: color-mix(in srgb, var(--blue) 60%, transparent); }
-.covActual { background: color-mix(in srgb, var(--green) 70%, transparent); }
+/* three step lines, drawn as one SVG stretched across the track. vector-effect keeps the stroke
+   at a real pixel width however hard the viewBox is squeezed horizontally. */
+.covSvg { position: absolute; inset: 4px 0 2px; width: 100%; height: calc(100% - 6px); overflow: visible; }
+.covSvg polyline { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.lineAvailable { stroke: color-mix(in srgb, var(--ink) 45%, transparent); }
+.linePlanned { stroke: var(--blue); }
+.lineActual { stroke: var(--green); }
 
 /* ---- per-row controls ---------------------------------------------------------------- */
 
@@ -225,15 +230,6 @@
 /* legend + the one line that teaches the lane gestures. MUST wrap: three swatches plus a
    ~120-character hint never fit one line, and without wrapping the hint was crushed into a
    narrow column that ran ten lines deep over the Eintrag FAB. */
-/* the counts at this moment, in numbers — the strip above shows the shape */
-.nowCounts {
-  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0; padding-top: 4px;
-  font: 500 12.5px var(--body); color: var(--ink-dim);
-}
-.nowCounts b { font: 700 14px var(--mono); color: var(--ink); margin-right: 3px; }
-.nowAt { font: 700 11px var(--mono); color: var(--ink-faint); letter-spacing: .06em; text-transform: uppercase; }
-.peak { font: 700 10px var(--mono); color: var(--ink-faint); }
-
 .legend {
   display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0;
   font: 500 12.5px var(--body); color: var(--ink-faint);

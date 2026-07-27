@@ -1615,7 +1615,6 @@ export const en: Localizable<Copy> = {
     conflict: 'Overlaps another shift',
     now: 'now',
     coveragePeak: ' · max {n}',
-    nowAt: 'Now {t}',
     coverage: 'Cover',
     coverageHint: 'Scheduled left, actually present right – the gap shows where nobody is assigned.',
     planned: 'available',
