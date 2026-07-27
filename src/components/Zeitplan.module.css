@@ -53,6 +53,12 @@
   background: var(--surface); font: 700 13.5px var(--body); color: var(--ink);
   -webkit-tap-highlight-color: transparent;
 }
+/* The lane slides UNDERNEATH this cell as the axis scrolls, and a rounded corner is transparent —
+   so bars kept peeking through the two left arcs. This paints the cell's full rectangle in the
+   surface colour first; the rounded, bordered cell then sits on top of it. */
+.who::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; background: var(--app-bg);
+}
 .who:hover { background: color-mix(in srgb, var(--ink) 4%, var(--surface)); }
 .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rank {
