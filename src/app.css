@@ -3205,6 +3205,15 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
    `tacticalLocked`), and an editor gets a thumb-reachable "+ Eintrag" to add a
    journal note / photo / voice memo from the field.
    ============================================================ */
+/* THE corner the FAB owns, declared once. Every surface that scrolls content under it reads this
+   instead of inventing its own number — the old scattered 64/72/80/86px guesses each covered the
+   place somebody remembered and missed the rest, and a hit-test found the circle sitting on the
+   Atemschutz «Austritt» button, on Anwesenheit person rows, on a Mittel row and on the Checkliste
+   rail. 66px = the 58px circle plus 8px of air; it is the same in both axes because the FAB's
+   16/18px offsets and the surfaces' 8/18px insets cancel out to the same figure.
+   0 unless the FAB is actually on screen (viewer, composer, open panel, tool dock → no reserve). */
+.app { --fab-safe: 0px; }
+.app:has(.fab-entry) { --fab-safe: 66px; }
 .fab-entry { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: calc(18px + env(safe-area-inset-bottom)); z-index: 55;
   display: inline-flex; align-items: center; gap: 8px; padding: 14px 20px 14px 16px;
   border: none; border-radius: 30px; background: var(--blue); color: var(--on-accent-ink);
@@ -3218,6 +3227,13 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 /* recording: the FAB turns red + shows the running timer, same as the TopBar Eintrag */
 .fab-entry.rec { background: var(--red); animation: recPulse 1.4s ease-in-out infinite; }
 .fab-entry.rec span { font-family: var(--mono); }
+/* while something underneath is being scrolled the circle steps back — smaller, half-transparent,
+   so the row or the curve it sits on can be READ during the gesture. It never moves and never
+   disappears (it is the only way to log from the field on a phone), and it is back at full size
+   ~400ms after the finger stops, so nothing about where it is has to be remembered. A recording
+   FAB stays loud: a running voice memo is not something to make quiet. */
+.fab-entry.quiet:not(.rec) { transform: scale(.82); opacity: .5; box-shadow: none; }
+@media (prefers-reduced-motion: reduce) { .fab-entry { transition: none; } }
 
 /* ---- Tablet (the primary device, ~768–1024px): the desktop layout's fixed-width side
    panels occlude the map. Narrow + tuck them so the centre stays usable. Phone rules

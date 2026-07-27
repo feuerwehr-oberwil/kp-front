@@ -206,7 +206,11 @@
     border-bottom: 1px solid var(--glass-edge); padding: 8px; gap: 8px; }
   /* #4: list-only mode (nothing opened yet) — the list owns the whole surface instead of
      being capped at 44vh with a preview beneath it */
-  .cl-rail.cl-rail-full { max-height: none; flex: 1 1 auto; border-bottom: none; }
+  /* while the list owns the whole surface it is the thing the FAB lands on — .cl-main got its
+     clearance long ago, the rail never did, so the last checklist in the picker sat under the
+     circle. Same shared reserve, 0 for a viewer. */
+  .cl-rail.cl-rail-full { max-height: none; flex: 1 1 auto; border-bottom: none;
+    padding-bottom: calc(8px + var(--fab-safe, 0px)); }
   /* collapsed state: one slim row — current selection + chevron — reopens the list; the
      checklist/playbook below gets the full remaining height (the «fullsize text» ask) */
   .cl-rail-toggle { display: flex; align-items: center; gap: 9px; flex: none; width: 100%;
@@ -220,7 +224,7 @@
   .cl-rail-item { padding: 8px 10px; }
   .cl-rail-entry { padding: 6px 10px; }
   /* lift the main pane clear of the Eintrag FAB (bottom-right, z55) + tighten padding */
-  .cl-main { padding: 14px 14px; padding-bottom: 80px; }
+  .cl-main { padding: 14px 14px; padding-bottom: calc(14px + var(--fab-safe, 0px)); }
   /* shrink the runner head so the actual phase list leads sooner */
   .cl-runner-head { padding-bottom: 12px; margin-bottom: 14px; gap: 10px; }
   .cl-runner-titles h2 { font-size: 18px; }

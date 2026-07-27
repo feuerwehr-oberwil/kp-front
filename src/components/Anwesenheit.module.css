@@ -142,7 +142,9 @@
   .rankRow { padding: 0 14px 10px; }
   /* one full-width column: two columns truncated most names («Binggeli Mic…») on a phone —
      a readable name beats density here (field feedback 2026-07-08) */
-  .grid { padding: 2px 14px 16px; grid-template-columns: 1fr; gap: 6px; }
+  /* the last person row clears the Eintrag FAB — the circle sat on a row's presence toggle and on
+     its time chip, i.e. on the two controls this list exists for. --fab-safe is 0 without a FAB. */
+  .grid { padding: 2px 14px calc(16px + var(--fab-safe, 0px)); grid-template-columns: 1fr; gap: 6px; }
   .person { min-height: 44px; font-size: 14px; }
   .personMain { padding: 7px 12px; gap: 8px; }
 }

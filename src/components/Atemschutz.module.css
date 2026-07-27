@@ -366,7 +366,11 @@ button.stepVal:hover { border-color: var(--blue); }
      the header sat glued under it); the bottom inset clears the NavRail bottom bar */
   .surface { inset: calc(78px + env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
     calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
-  .body { padding: 14px; padding-bottom: 80px; }
+  /* the last card clears the Eintrag FAB — it used to sit on the «Austritt» button. The reserve
+     is the shared --fab-safe now, so it is 0 for a viewer (no FAB, no dead space) and one number
+     to change for everyone. Mid-scroll a card can still pass under the circle; that is what the
+     FAB's step-back on scroll is for. */
+  .body { padding: 14px; padding-bottom: calc(14px + var(--fab-safe, 0px)); }
   .grid { grid-template-columns: 1fr; }
   /* header: tighter, the title truncates instead of running under the create button, and
      the button shrinks to an icon-only circle so the two never collide on a narrow screen */
