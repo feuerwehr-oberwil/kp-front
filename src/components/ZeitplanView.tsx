@@ -149,7 +149,8 @@ function PersonRow({ person, shifts, blocks, span, nowMs, canEdit, conflicts, no
   conflicts: Set<string>
   nowLine: React.ReactNode
   onAddSpan: (p: Person, from: number, to: number) => void
-  onReplace: (sh: Shift) => void
+  /** `undoName` asks for the confirm-with-undo toast — passed on a drag, withheld on a toggle */
+  onReplace: (sh: Shift, undoName?: string) => void
   onOpen: () => void
 }) {
   const Z = appConfig.copy.zeitplan
@@ -158,7 +159,8 @@ function PersonRow({ person, shifts, blocks, span, nowMs, canEdit, conflicts, no
     canEdit,
     onCreate: (from, to) => onAddSpan(person, from, to),
     onToggle: (sh) => onReplace({ ...sh, confirmed: !sh.confirmed }),
-    onCommit: onReplace,
+    // a drag that moved or stretched a bar is undoable; the toggle above is not (tap again)
+    onCommit: (sh) => onReplace(sh, person.displayName),
     onHold: onOpen,
     // findLast, not find: overlapping bars are painted in order, so the LAST one is the one on
     // top and the one the finger actually pointed at
@@ -261,8 +263,9 @@ export function ZeitplanView({
   onAdd: (p: Person) => void
   /** plan exactly the stretch swept out on the grid */
   onAddSpan: (p: Person, from: number, to: number) => void
-  /** a whole shift replaced — after a drag, or when its planned/fix state flips */
-  onReplace: (sh: Shift) => void
+  /** a whole shift replaced — after a drag, or when its planned/fix state flips. A drag passes
+   *  the person's name to ask for the undo toast; a flip stays quiet. */
+  onReplace: (sh: Shift, undoName?: string) => void
   onSetTime: (id: string, patch: { from?: string; to?: string }) => void
   onRemove: (id: string, personName: string) => void
   /** how many hours the axis shows at once (the Zeitraum control lives in the surface header) */

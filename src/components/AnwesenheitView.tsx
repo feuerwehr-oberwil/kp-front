@@ -132,7 +132,7 @@ export function AnwesenheitView({
   /** plan exactly the stretch swept out on the grid */
   onAddShiftSpan?: (p: Person, from: number, to: number) => void
   /** a whole shift replaced after a drag */
-  onReplaceShift?: (sh: Shift) => void
+  onReplaceShift?: (sh: Shift, undoName?: string) => void
   onSetShiftTime?: (id: string, patch: { from?: string; to?: string }) => void
   onRemoveShift?: (id: string, personName: string) => void
   /** print / download the Zeitplan-Führungsformular (rendered server-side) */

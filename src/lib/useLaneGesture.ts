@@ -77,10 +77,18 @@ export function useLaneGesture(opts: {
       shift: sh, edge, startX: e.clientX, startAt: timeAt(e.clientX, rect), rect, moved: false, held: false,
     }
     clearHold()
-    holdTimer.current = window.setTimeout(() => {
-      const d = drag.current
-      if (d && !d.moved) { d.held = true; setPreview(null); setDraw(null); opts.onHold() }
-    }, HOLD_MS)
+    // FINGER ONLY. The hold timer fires after 450ms of near-stillness, and a stylus is more
+    // precise than a finger, not less: setting the pen down deliberately to start a sweep on the
+    // half hour stays inside DRAG_PX far more easily than a thumb does. The sheet then opens
+    // mid-gesture and the sweep is dead (onPointerMove bails once `held`), so the more carefully
+    // somebody aimed, the more likely they were interrupted. Pen and mouse already have a visible
+    // way into the sheet — the name cell — so they lose nothing by giving up the shortcut.
+    if (e.pointerType === 'touch') {
+      holdTimer.current = window.setTimeout(() => {
+        const d = drag.current
+        if (d && !d.moved) { d.held = true; setPreview(null); setDraw(null); opts.onHold() }
+      }, HOLD_MS)
+    }
   }
 
   const onPointerMove = (e: React.PointerEvent<HTMLElement>) => {

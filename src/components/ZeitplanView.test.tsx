@@ -106,6 +106,22 @@ describe('ZeitplanView', () => {
       expect(screen.getByText(fillTemplate(Z.editTitle, { name: 'Meier Anna' }))).toBeTruthy()
     })
 
+    // A stylus is MORE precise than a finger, so a deliberate slow start stays inside DRAG_PX
+    // for the whole 450ms and used to open the sheet on top of the sweep somebody was aiming at.
+    // Pen and mouse keep the name cell as their visible way in, so they lose nothing.
+    it('does not open the sheet on a hold from a pen or a mouse', () => {
+      const onAddSpan = vi.fn()
+      render(<ZeitplanView {...base} attendance={{}} shifts={[]} onAddSpan={onAddSpan} />)
+      const lane = screen.getByLabelText(fillTemplate(Z.planAt, { name: 'Meier Anna' }))
+      sizeLane(lane, 1200)
+      ptr(lane, 'pointerdown', 200)
+      hold()
+      ptr(lane, 'pointermove', 500)
+      ptr(lane, 'pointerup', 500)
+      expect(screen.queryByText(fillTemplate(Z.editTitle, { name: 'Meier Anna' }))).toBeNull()
+      expect(onAddSpan).toHaveBeenCalledTimes(1)
+    })
+
     it('a sweep that started before the hold landed still draws, and never opens the sheet', () => {
       const onAddSpan = vi.fn()
       render(<ZeitplanView {...base} attendance={{}} shifts={[]} onAddSpan={onAddSpan} />)

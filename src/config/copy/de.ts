@@ -2181,6 +2181,10 @@ export const de = {
     to: 'bis',
     remove: 'Schicht löschen',
     removed: 'Schicht {name} gelöscht',
+    // Wisch und Zug lösen so leicht aus wie ein Fehltipp – also bekommen sie denselben Rückzug
+    // wie das Löschen. Der Umschalter geplant⇄fix nicht: der ist mit einem zweiten Tipp zurück.
+    added: 'Schicht für {name} geplant',
+    moved: 'Schicht von {name} verschoben',
     conflict: 'Überschneidet sich mit einer anderen Schicht',
     now: 'jetzt',
     coveragePeak: ' · max {n}',

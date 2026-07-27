@@ -432,7 +432,10 @@
    state change rather than as a way in */
 .editBtn:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 10%, transparent); }
 
-@media (max-width: 700px) {
+/* 600px, not 700: that is the house phone breakpoint (19 other surfaces use it). At 700 the band
+   from 601 to 700 ran the PHONE grid — 132px name column, 12.5px type — underneath the surface's
+   own DESKTOP header, which is one layout wearing another's head. */
+@media (max-width: 600px) {
   .zeitplan { padding: 2px 12px 12px; }
   /* The surface already insets itself for the bottom bar (.surface in Anwesenheit.module.css), so
      reserving another --rail-h here counted it twice and left a dead band the height of the nav
