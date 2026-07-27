@@ -18,6 +18,11 @@ export interface TimeBlock {
   /** flagged as a problem — e.g. a shift overlapping another. A REVERSED block (bis before von)
    *  is flagged automatically, whatever the caller says. */
   warn?: boolean
+  /** date shown above the row when the block is not on the incident's opening day — on a
+   *  multi-day Einsatz «07:29» alone never said which day it belonged to */
+  dayLabel?: string
+  /** «ab Einsatzbeginn»: set this block's start to the incident start in one tap */
+  onFromStart?: () => void
   /** right-hand control: the planned/fix toggle in the Zeitplan, nothing in the Anwesenheit */
   trailing?: ReactNode
   onFrom?: (hhmm: string) => void
@@ -50,7 +55,7 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
   /** an additional read-only section under the blocks (the Zeitplan's «tatsächlich anwesend») */
   extra?: ReactNode
   onClose: () => void
-  labels: { from: string; to: string; done: string; remove: string }
+  labels: { from: string; to: string; done: string; remove: string; fromStart: string; fromStartHint: string }
 }) {
   return (
     <Sheet open onClose={onClose} fit sheetClassName={s.sheet} title={title}
@@ -64,6 +69,7 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
           // counts as zero minutes on the Rapport — it must never look normal here, which is the
           // only place it is visible at all.
           <div key={b.key} className={cx(s.row, (b.warn || reversed(b)) && s.rowWarn)}>
+            {b.dayLabel && <span className={s.day}>{b.dayLabel}</span>}
             <span className={s.field}>
               <span className={s.label}>{labels.from}</span>
               <TimeField className={s.time} ariaLabel={`${labels.from} – ${subject}`} value={b.from}
@@ -78,6 +84,12 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
                 <em className={s.open}>{b.openLabel}</em>
               )}
             </span>
+            {b.onFromStart && (
+              <button type="button" className={s.fromStart} onClick={b.onFromStart}
+                title={labels.fromStartHint} aria-label={`${labels.fromStart} – ${subject}`}>
+                {labels.fromStart}
+              </button>
+            )}
             {b.trailing}
             {b.onRemove && (
               <button type="button" className={s.del} title={labels.remove} aria-label={`${labels.remove} – ${subject}`}

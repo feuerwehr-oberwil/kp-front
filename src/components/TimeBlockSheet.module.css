@@ -1,7 +1,11 @@
 /* The shared per-person time sheet — used by BOTH the Anwesenheit's recorded blocks and the
    Zeitplan's planned shifts, so the two cannot drift apart again. */
 
-.sheet { max-width: 500px; }
+.sheet { max-width: 520px; }
+/* the «Fertig» row sat hard against the frame's corner. The shared .ip-actions has no padding of
+   its own (each surface sets its own frame), so this sheet states it. */
+.sheet :global(.ip-actions) { padding: 4px 4px 6px; }
+.sheet :global(.ip-body) { padding-bottom: 4px; }
 
 .group { padding: 2px 0 6px; }
 .groupSecond { border-top: 1px solid var(--border-soft); margin-top: 12px; padding-top: 12px; }
@@ -19,6 +23,11 @@
 .row + .row { margin-top: 6px; }
 .rowWarn { border-color: var(--red); background: color-mix(in srgb, var(--red) 8%, var(--surface)); }
 
+/* the day this block falls on, when that is not the incident's opening day */
+.day {
+  flex: 1 0 100%; margin: -2px 0 2px;
+  font: 700 10.5px var(--mono); color: var(--ink-dim); letter-spacing: .04em;
+}
 .field { display: flex; flex-direction: column; gap: 3px; }
 .label { font: 600 10.5px var(--mono); color: var(--ink-faint); letter-spacing: .06em; text-transform: uppercase; }
 .time { flex: none; }

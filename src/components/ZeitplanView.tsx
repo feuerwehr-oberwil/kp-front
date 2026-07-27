@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, hhmm } from '../lib/format'
+import { fmtDayShort, isOtherDay } from '../lib/zeitplanFormat'
 import { applyTimeToIso } from '../lib/abschluss'
 import { cx } from '../lib/cx'
 import { rankAbbr, rankLabel } from '../lib/rank'
@@ -17,13 +18,14 @@ import { timeBlockLabels } from '../lib/timeBlockLabels'
 import s from './Zeitplan.module.css'
 
 const HOUR = 3_600_000
-/** Minimum width an hour is allowed to shrink to. A wider Zeitraum COMPRESSES the axis rather
- *  than growing it — the point of asking for 48 h is to see 48 h, not to scroll through it — and
- *  the track then flexes to fill whatever width the surface has. At this floor a half-hour block
- *  is still ~11px, so the shortest possible shift stays a visible bar. */
-const MIN_PX_PER_HOUR = 22
-/** roughly how many hour labels fit across without colliding */
-const MAX_TICKS = 12
+/** Width of one hour of axis. CONSTANT on purpose: a longer Zeitraum makes the track longer and
+ *  scrollable rather than squeezing more hours into the same space. Scrolling is fine — losing
+ *  resolution is not, and the earlier by-total-hours thinning made a wide window look like it had
+ *  quietly dropped its clock. The track still flexes UP to fill a wider surface. */
+const PX_PER_HOUR = 46
+/** An hour label needs about this much room before its neighbour crowds it. */
+const LABEL_PX = 90
+
 
 const clock = (iso?: string): string => {
   if (!iso) return ''
@@ -38,11 +40,13 @@ const clock = (iso?: string): string => {
  *
  * Built on the SAME sheet the Anwesenheit uses, so the two never drift apart again.
  */
-function PersonSheet({ person, shifts, blocks, canEdit, conflicts, onAdd, onSetTime, onToggle, onRemove, onClose }: {
+function PersonSheet({ person, shifts, blocks, canEdit, startedAt, conflicts, onAdd, onSetTime, onToggle, onRemove, onClose }: {
   person: Person
   shifts: Shift[]
   blocks: PresenceInterval[]
   canEdit: boolean
+  /** incident alarm time — drives the day labels and the «ab Beginn» shortcut */
+  startedAt: string | null
   conflicts: Set<string>
   onAdd: (p: Person) => void
   onSetTime: (id: string, patch: { from?: string; to?: string }) => void
@@ -74,6 +78,10 @@ function PersonSheet({ person, shifts, blocks, canEdit, conflicts, onAdd, onSetT
         // a bis before the von means the shift runs past midnight, not backwards
         onTo: canEdit ? (v) => { const iso = applyTimeToIso(sh.to, v, { nextDayIfBefore: sh.from }); if (iso) onSetTime(sh.id, { to: iso }) } : undefined,
         onRemove: canEdit ? () => onRemove(sh.id, person.displayName) : undefined,
+        // on a multi-day Einsatz the clock alone does not say which day this shift belongs to
+        dayLabel: startedAt && isOtherDay(new Date(sh.from), new Date(startedAt)) ? fmtDayShort(new Date(sh.from)) : undefined,
+        onFromStart: canEdit && startedAt && sh.from !== startedAt
+          ? () => onSetTime(sh.id, { from: startedAt }) : undefined,
         trailing: (
           <button type="button" className={cx(s.sheetState, sh.confirmed && s.sheetStateOn)}
             disabled={!canEdit} onClick={() => onToggle(sh)} aria-pressed={!!sh.confirmed}
@@ -251,26 +259,37 @@ export function ZeitplanView({
 
   // hour ticks across the head; the grid itself is half-hourly (SLOT_MS) but labelling every
   // half hour is unreadable on a tablet
-  // Label every nth hour, not every one: at 24 h the numbers ran into each other, and thinning
-  // them is what lets the axis compress instead of scrolling.
+  // The label step comes from how much ROOM an hour has, not from how many hours there are — the
+  // old by-total thinning meant a wider Zeitraum showed fewer and fewer labels, which reads as the
+  // axis losing its clock rather than simply being longer. At a fixed px-per-hour the density is
+  // now identical at 6 h and at 96 h. Midnight is always labelled: across several days «03:00»
+  // alone never said WHICH night, so it carries the date instead.
   const hours = useMemo(() => {
-    const totalH = Math.max(1, Math.round((span.to - span.from) / HOUR))
-    const step = Math.max(1, Math.ceil(totalH / MAX_TICKS))
-    const out: { at: number; label: string }[] = []
+    const step = Math.max(1, Math.ceil(LABEL_PX / PX_PER_HOUR))
+    const out: { at: number; label: string; midnight: boolean }[] = []
     const first = Math.ceil(span.from / HOUR) * HOUR
     for (let at = first; at < span.to; at += HOUR) {
-      if (new Date(at).getHours() % step === 0) out.push({ at, label: hhmm(new Date(at)) })
+      const d = new Date(at)
+      const midnight = d.getHours() === 0
+      if (midnight || d.getHours() % step === 0) {
+        out.push({ at, label: midnight ? fmtDayShort(d) : hhmm(d), midnight })
+      }
     }
     return out
   }, [span])
 
   const pct = (t: number) => `${(((t - span.from) / Math.max(1, span.to - span.from)) * 100).toFixed(3)}%`
   const nowInside = nowMs >= span.from && nowMs <= span.to
-  const trackW = Math.max(320, ((span.to - span.from) / HOUR) * MIN_PX_PER_HOUR)
+  const trackW = Math.max(320, ((span.to - span.from) / HOUR) * PX_PER_HOUR)
   const nothingPlanned = shifts.length === 0
   // the «now» line repeats per lane rather than spanning the whole grid: with a sticky name column
   // a single full-height rule would slide out from under its own coordinates while scrolling
   const nowLine = nowInside ? <span className={s.nowLine} style={{ left: pct(nowMs) }} aria-hidden /> : null
+  // a dashed rule at every midnight: over several days a bar otherwise floats with nothing saying
+  // which day it belongs to, and «Tag 2, 03:00» is a different decision from «heute, 03:00»
+  const dayLines = hours.filter((h) => h.midnight).map((h) => (
+    <span key={`d${h.at}`} className={s.dayLine} style={{ left: pct(h.at) }} aria-hidden />
+  ))
 
   const person = people.find((p) => p.id === openPerson)
 
@@ -283,7 +302,9 @@ export function ZeitplanView({
           <div className={cx(s.row, s.headRow)}>
             <div className={cx(s.who, s.whoHead)} aria-hidden />
             <div className={s.track}>
-              {hours.map((h) => <span key={h.at} className={s.tick} style={{ left: pct(h.at) }}>{h.label}</span>)}
+              {hours.map((h) => (
+              <span key={h.at} className={cx(s.tick, h.midnight && s.tickDay)} style={{ left: pct(h.at) }}>{h.label}</span>
+            ))}
               {nowInside && <span className={cx(s.nowLine, s.nowLineHead)} style={{ left: pct(nowMs) }}><em>{Z.now}</em></span>}
             </div>
           </div>
@@ -298,7 +319,7 @@ export function ZeitplanView({
               nowMs={nowMs}
               canEdit={canEdit}
               conflicts={conflicts}
-              nowLine={nowLine}
+              nowLine={<>{dayLines}{nowLine}</>}
               onAddSpan={onAddSpan}
               onReplace={onReplace}
               onOpen={() => setOpenPerson(p.id)}
@@ -316,6 +337,7 @@ export function ZeitplanView({
                   <em className={s.covActual} style={{ height: `${(c.actual / peakCover) * 100}%` }} />
                 </span>
               ))}
+              {dayLines}
               {nowLine}
             </div>
           </div>
@@ -342,6 +364,7 @@ export function ZeitplanView({
           shifts={shiftsFor(shifts, person.id)}
           blocks={intervalsOf(attendance[person.id])}
           canEdit={canEdit}
+          startedAt={startedAt}
           conflicts={conflicts}
           onAdd={onAdd}
           onSetTime={onSetTime}

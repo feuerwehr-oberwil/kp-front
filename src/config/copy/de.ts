@@ -2141,6 +2141,7 @@ export const de = {
     // Anwesenheitsblätter: dieselbe Form wie die Schichten-Ansicht, damit beide gleich zu lesen sind
     von: 'von',
     bis: 'bis',
+    addBlock: 'Weiterer Block',
     blockRemove: 'Block entfernen',
     blocksTitle: 'Anwesenheit – {name}',
     blocksSection: 'Erfasste Blöcke',
@@ -2192,6 +2193,8 @@ export const de = {
     stillHere: 'noch da',
     done: 'Fertig',
     // Direktbedienung auf dem Raster – wie das Papierformular, das man ausfüllt
+    fromStart: 'ab Beginn',
+    fromStartHint: 'Setzt den Beginn auf die Alarmzeit des Einsatzes.',
     sheetHint: 'Zeiten hier anpassen · Zustand rechts umschalten · gelöscht wird nur hier.',
     laneHint: 'Ziehen trägt Verfügbarkeit ein · Balken tippen macht daraus einen Plan · ziehen verschiebt · gedrückt halten öffnet die Schichten',
     // Drei Zustände einer Zeile: was jemand ANBIETET, was daraus EINGETEILT wurde, und was

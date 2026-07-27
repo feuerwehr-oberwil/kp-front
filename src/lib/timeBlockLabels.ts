@@ -10,4 +10,6 @@ export const timeBlockLabels = (remove: string) => ({
   to: appConfig.copy.anwesenheit.bis,
   done: appConfig.copy.anwesenheit.done,
   remove,
+  fromStart: appConfig.copy.zeitplan.fromStart,
+  fromStartHint: appConfig.copy.zeitplan.fromStartHint,
 })

@@ -25,7 +25,15 @@ interface AttendanceActionsDeps {
  */
 export function useAttendanceActions({ attendance, setAttendance, blockedAttendanceIds, startedAt, reportDoneAt, log }: AttendanceActionsDeps) {
   const markPresent = (p: Person) => {
-    if (isPresent(attendance[p.id])) return
+    // Adding a block while one is still running is a relief in place: close the current one at
+    // this moment and open the next. Without this the sheet's «Weiterer Block» would leave two
+    // open blocks, and `isPresent` reads only the last — the earlier one would never close.
+    if (isPresent(attendance[p.id])) {
+      const now = new Date().toISOString()
+      setAttendance((cur) => (cur[p.id] ? { ...cur, [p.id]: openPresence(closePresence(cur[p.id], now, p.displayName), now, p.displayName) } : cur))
+      log('people', `${p.displayName} neuer Block`, 'team')
+      return
+    }
     // First tick: «von» defaults to the alarm time (Vorschlag ab Alarmzeit) — ticking often
     // happens long after arrival, and now() would print an end-of-incident «von» on the rapport.
     // A RETURN opens a fresh block at the real clock instead; the alarm time would be nonsense

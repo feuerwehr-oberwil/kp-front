@@ -7,6 +7,7 @@ import { fillTemplate } from '../lib/format'
 import { applyTimeToIso } from '../lib/abschluss'
 import { rankAbbr, rankLabel, rankOrder } from '../lib/rank'
 import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
+import { fmtDayShort, isOtherDay } from '../lib/zeitplanFormat'
 import { loadPrefs, savePrefs } from '../lib/prefs'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import { Segmented } from './Segmented'
@@ -39,10 +40,12 @@ function toHM(iso: string): string {
  * a return is opened. Built on the SAME sheet the Zeitplan's Schichten use, so the two stay
  * identical rather than drifting apart.
  */
-function PresenceSheet({ person, blocks, canEdit, onSetTimes, onBack, onClose }: {
+function PresenceSheet({ person, blocks, canEdit, startedAt, onSetTimes, onBack, onClose }: {
   person: Person
   blocks: PresenceInterval[]
   canEdit: boolean
+  /** incident alarm time — drives the day labels and the «ab Beginn» shortcut */
+  startedAt?: string | null
   onSetTimes?: (personId: string, patch: { from?: string; to?: string }, index?: number) => void
   onBack: () => void
   onClose: () => void
@@ -56,9 +59,11 @@ function PresenceSheet({ person, blocks, canEdit, onSetTimes, onBack, onClose }:
       sectionTitle={A.blocksSection}
       emptyLabel={A.blocksNone}
       note={A.blocksHint}
-      // a block is only opened while nobody is on site — you cannot come back before leaving
-      addLabel={canEdit && !open ? A.backAgain : undefined}
-      onAdd={canEdit && !open ? onBack : undefined}
+      // Always offered. While a block is still running, adding one closes it at this moment and
+      // opens the next — that is a relief in place, and waiting for the row to be cycled to
+      // «gegangen» first made the common case take two surfaces.
+      addLabel={canEdit ? (open ? A.addBlock : A.backAgain) : undefined}
+      onAdd={canEdit ? onBack : undefined}
       onClose={onClose}
       labels={timeBlockLabels(A.blockRemove)}
       blocks={blocks.map((iv, i) => ({
@@ -68,6 +73,10 @@ function PresenceSheet({ person, blocks, canEdit, onSetTimes, onBack, onClose }:
         openLabel: A.stillHere,
         // mirror of onTo: a von typed after the bis means the block STARTED the previous day
         onFrom: canEdit && onSetTimes ? (v) => { const iso = applyTimeToIso(iv.from, v, { prevDayIfAfter: iv.to }); if (iso) onSetTimes(person.id, { from: iso }, i) } : undefined,
+        // on a multi-day Einsatz the clock alone does not say which day this block belongs to
+        dayLabel: startedAt && isOtherDay(new Date(iv.from), new Date(startedAt)) ? fmtDayShort(new Date(iv.from)) : undefined,
+        onFromStart: canEdit && onSetTimes && startedAt && iv.from !== startedAt
+          ? () => onSetTimes(person.id, { from: startedAt }, i) : undefined,
         onTo: canEdit && onSetTimes && iv.to ? (v) => { const iso = applyTimeToIso(iv.to!, v, { nextDayIfBefore: iv.from }); if (iso) onSetTimes(person.id, { to: iso }, i) } : undefined,
       }))}
     />
@@ -383,6 +392,7 @@ export function AnwesenheitView({
           person={blocksPerson}
           blocks={intervalsOf(attendance[blocksPerson.id])}
           canEdit={canEdit}
+          startedAt={startedAt}
           onSetTimes={onSetTimes}
           /* stays open: the new block appears in the list you are looking at, so a mis-tap is
              seen and can be corrected on the spot */
