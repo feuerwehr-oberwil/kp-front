@@ -3465,15 +3465,6 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
   .tb-az-name { display: none; }
   .tb-az { gap: 5px; padding: 6px 9px; }
   .topbar:has(.tb-az) :is(.tb-act-history, .tb-vr-history) { display: none; }
-}
-/* Below ~355px even the freed 88px is not enough for the countdown, and the clock starts punching
-   out again (32px outside the bar at 320px). So there the chip really does fall back to the bare
-   pulsing gauge — which is what every phone used to get, and is still better than a number that
-   is half on the map. 360px is the cut: every phone in service (390/393/402/430) keeps its
-   countdown, and only the 320–355px class — an SE 1st gen, or a split view squeezed that far —
-   drops to the icon. */
-@media (max-width: 359px) {
-  .tb-az-clock { display: none; }
 
   /* ── NavRail → bottom bar on a phone ── the SAME surface items, re-laid-out as a
      horizontally-scrollable row in the thumb zone (Karte · M1 M2 … · Checkliste ·
@@ -3623,6 +3614,20 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
      together on the row below — not sometimes-beside, sometimes-under (landing feedback) */
   .ip-hist-name { flex: 1 1 100%; white-space: normal; }
   .ip-hist > .ip-btn { margin-left: auto; }
+}
+
+/* Below ~355px even the 88px freed by dropping undo/redo is not enough for the Atemschutz
+   countdown, and the clock starts punching out of the bar again (32px outside it at 320px). Only
+   there does the chip fall back to the bare pulsing gauge — which is what every phone used to get,
+   and is still better than a number that is half on the map. 360px is the cut: every phone in
+   service (390/393/402/430) and the common Android 360 keep their countdown; only the 320–355px
+   class (an SE 1st gen, or a split view squeezed that far) drops to the icon.
+   ⚠️ This lives AFTER the phone block, on purpose. Written INSIDE it, it needed its own @media —
+   which meant closing the phone block early, and that silently re-parented everything below it
+   (the whole NavRail → bottom bar section included) into this 359px query. The nav rail then
+   stayed a vertical sidebar on every phone. A media query in the middle of a block is a scissor. */
+@media (max-width: 359px) {
+  .tb-az-clock { display: none; }
 }
 
 
