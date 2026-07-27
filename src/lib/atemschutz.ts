@@ -98,19 +98,23 @@ export function contactSeverity(sinceContactSec: number | null, contactIntervalM
 }
 
 /**
- * Pressure tier for the card readout: 0 fine · 1 Rückzugsgrenze reached · 2 below Mindestdruck.
+ * Has the Trupp reached its Alarmdruck – the one pressure at which it turns back?
+ *
+ * ONE threshold on purpose. A second, lower «Mindestdruck» tier was tried and dropped
+ * (2026-07-27, Atemschutz-Verantwortlicher): by the time a Trupp is below its turn-back
+ * pressure it is already on the way out, so a second colour further down says nothing new
+ * and only teaches the Überwacher that the first one was survivable.
  *
  * DELIBERATELY separate from `contactSeverity` and never folded into `peakAtemschutzAlarm`: the
- * contact clock stays the only thing that raises the audible alarm (air is the wearer's own
- * responsibility – see the module header). This is the Atemschutzüberwacher's visual reminder
- * that the Trupp is at or past its turn-back pressure, which is exactly when the EL wants to
- * hear from them. Applied to both the logged Druck and the expected-pressure Schätzung.
+ * contact clock stays the only thing that raises the AUDIBLE alarm (air is the wearer's own
+ * responsibility – see the module header). This is the visual reminder on the card, applied to
+ * the logged Druck and to the expected-pressure Schätzung alike.
+ *
+ * A configured 0 switches the threshold off without the caller needing a special case.
  */
-export function pressureSeverity(bar: number | null, rueckzugBar: number, mindestBar: number): 0 | 1 | 2 {
-  if (bar == null || !Number.isFinite(bar)) return 0
-  if (mindestBar > 0 && bar <= mindestBar) return 2
-  if (rueckzugBar > 0 && bar <= rueckzugBar) return 1
-  return 0
+export function pressureAlarm(bar: number | null, alarmBar: number): boolean {
+  if (bar == null || !Number.isFinite(bar)) return false
+  return alarmBar > 0 && bar <= alarmBar
 }
 
 /** The most-urgent Trupp for the cross-surface badge/chip, plus the loudest tier overall. */

@@ -405,9 +405,9 @@ const base = {
   },
   // Atemschutzüberwachung (SCBA breathing-apparatus monitoring) defaults — Swiss FKS/CSSP
   // contact-timer model. The 5-min contact interval (+1 min Nachfrist before the hard alarm)
-  // was confirmed as the standard 2026-07-02; `rueckzugBar` (100) was confirmed 2026-07-27 by
-  // the Atemschutz-Verantwortlicher and re-added with its card display – `mindestBar` still
-  // needs the same firefighter / AdF sign-off before being treated as doctrine.
+  // was confirmed as the standard 2026-07-02; `alarmBar` (100) was confirmed 2026-07-27 by the
+  // Atemschutz-Verantwortlicher, together with the decision that ONE pressure threshold is
+  // enough – the older second «Mindestdruck» tier (60) was dropped in the same pass.
   // Deployment-overridable numbers resolve through `atemschutzDoctrine()` in
   // lib/deploymentConfig – don't read them from here directly.
   atemschutz: {
@@ -416,12 +416,11 @@ const base = {
     pressureMax: 320,
     /** Eingangsdruck the wizard starts on (6.8 L / 300 bar cylinder in service) */
     defaultPressureBar: 300,
-    /** Rückzugsgrenze (bar) – at or below it the Trupp turns back. The card warns amber from
-     *  here (on the logged Druck AND on the expected-pressure Schätzung). A reminder only: it
-     *  never touches the contact-clock alarm, which stays the single audible signal. */
-    rueckzugBar: 100,
-    /** critical minimum pressure (bar) — the card/Druck readout highlights at or below this */
-    mindestBar: 60,
+    /** Alarmdruck (bar) – at or below it the Trupp turns back, and the card says so on the
+     *  logged Druck AND on the expected-pressure Schätzung. The single pressure threshold there
+     *  is; 0 switches it off. Visual only: it never touches the contact-clock alarm, which
+     *  stays the one audible signal. */
+    alarmBar: 100,
     /** contact interval (min): amber "Kontakt fällig" from this mark (FKS-Standard: 5) */
     contactIntervalMin: 5,
     /** Nachfrist (sec) on top of the interval before the hard überfällig alarm fires */

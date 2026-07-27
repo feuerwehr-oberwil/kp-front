@@ -8794,7 +8794,7 @@
             ],
             "title": "Funkkanalmax"
           },
-          "rueckzugBar": {
+          "alarmBar": {
             "anyOf": [
               {
                 "type": "integer"
@@ -8803,18 +8803,7 @@
                 "type": "null"
               }
             ],
-            "title": "Rueckzugbar"
-          },
-          "mindestBar": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Mindestbar"
+            "title": "Alarmbar"
           },
           "contactIntervalMin": {
             "anyOf": [

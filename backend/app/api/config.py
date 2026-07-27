@@ -21,7 +21,7 @@ Response contract (both GET and PUT return the SAME projection ``DeploymentConfi
                  "partner": {"feuerwehr": [], "sanitaet": [], "polizei": [],
                              "chemiewehr": [], "zivilschutz": []} },
       "doctrine": { "defaultFunkkanal": null, "funkkanalMin": null, "funkkanalMax": null,
-                    "rueckzugBar": null, "mindestBar": null, "contactIntervalMin": null,
+                    "alarmBar": null, "contactIntervalMin": null,
                     "contactGraceSec": null, "defaultPressureBar": null,
                     "pressureStep": null, "pressureMax": null },
       "roster": { "source": "manual"|"divera"|null },
