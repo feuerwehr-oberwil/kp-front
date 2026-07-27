@@ -140,9 +140,13 @@ export function TopBar({ incident, startedAt, recording, recStartedAt, journalOp
         )}
         {showHistory && (
           <>
-            <button className="tb-act icon" title={appConfig.copy.undo} aria-label={appConfig.copy.undo} disabled={!canUndo} onClick={onUndo}><Icon id="undo" /></button>
-            <button className="tb-act icon" title={appConfig.copy.redo} aria-label={appConfig.copy.redo} disabled={!canRedo} onClick={onRedo}><Icon id="redo" /></button>
-            <span className="tb-vr" />
+            {/* tb-act-history / tb-vr-history: a name the stylesheet can aim at. On a phone with an
+                überfällig chip in the bar these two are what steps aside — see app.css. Positional
+                selectors would have picked the wrong buttons, because the mapNav action ahead of
+                them is a .tb-act.icon too and comes and goes with the surface. */}
+            <button className="tb-act icon tb-act-history" title={appConfig.copy.undo} aria-label={appConfig.copy.undo} disabled={!canUndo} onClick={onUndo}><Icon id="undo" /></button>
+            <button className="tb-act icon tb-act-history" title={appConfig.copy.redo} aria-label={appConfig.copy.redo} disabled={!canRedo} onClick={onRedo}><Icon id="redo" /></button>
+            <span className="tb-vr tb-vr-history" />
           </>
         )}
         <button className={`tb-act ${journalOpen ? 'on' : ''}`} aria-pressed={journalOpen} onClick={onToggleJournal} title={reminderCount > 0 ? appConfig.copy.journal.openCount.replace('{n}', String(reminderCount)) : appConfig.copy.journal.open}>

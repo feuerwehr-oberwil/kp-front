@@ -101,11 +101,6 @@
 }
 .backBtn svg { width: 16px; height: 16px; }
 .backBtn:hover { background: color-mix(in srgb, var(--green) 14%, transparent); }
-/* «2×» — this row's chip shows only the LATEST block, so say when there are more */
-.blocks {
-  flex: none; align-self: center; padding: 0 8px 0 2px;
-  font: 700 10.5px var(--mono); color: var(--ink-faint);
-}
 .timeInput {
   flex: none; align-self: center; width: 86px; margin: 0 6px; padding: 4px 6px; min-height: 44px;
   border: 1px solid var(--accent); border-radius: var(--r-sm); background: var(--surface);
@@ -125,11 +120,82 @@
   .headActions { gap: 6px; }
   .reload { padding: 0; width: var(--tap); height: var(--tap); justify-content: center; }
   .reloadLabel { display: none; }
+  /* The header ran out of width the moment the Zeitplan added its own buttons: the title sat
+     UNDER «Als PDF» and the count line collapsed to «8.». Let the row wrap — the title keeps a
+     full line, the actions take the next one — and drop the PDF label to its icon. */
+  .head { flex-wrap: wrap; }
+  .headTitles { flex: 1 0 100%; }
+  .headActions { flex: 1 0 100%; justify-content: flex-start; }
+  .headActions :global(.btn) span { display: none; }
+  .headActions :global(.btn) { padding: 0; width: var(--tap); height: var(--tap); justify-content: center; }
+  /* the Zeitraum control shares the search line rather than owning a row of its own */
+  .controls { gap: 8px; padding: 10px 14px; }
+  /* the search yields so the Zeitraum can share its line — on its own row it cost ~56px of the
+     little vertical space a phone has for the grid itself */
+  .search { flex: 1 1 120px; }
+  .horizon { flex: 0 1 auto; gap: 4px; }
+  .horizonLabel { display: none; }
+  .horizonValue { min-width: 2.6rem; }
+  .horizonEnd { display: none; }
+
   .controls { padding: 10px 14px; gap: 10px; }
   .rankRow { padding: 0 14px 10px; }
   /* one full-width column: two columns truncated most names («Binggeli Mic…») on a phone —
      a readable name beats density here (field feedback 2026-07-08) */
-  .grid { padding: 2px 14px 16px; grid-template-columns: 1fr; gap: 6px; }
+  /* the last person row clears the Eintrag FAB — the circle sat on a row's presence toggle and on
+     its time chip, i.e. on the two controls this list exists for. --fab-safe is 0 without a FAB. */
+  .grid { padding: 2px 14px calc(16px + var(--fab-safe, 0px)); grid-template-columns: 1fr; gap: 6px; }
   .person { min-height: 44px; font-size: 14px; }
   .personMain { padding: 7px 12px; gap: 8px; }
 }
+
+/* per-person presence sheet — same shape as the Zeitplan's Schichten sheet so both read alike */
+.sheet { max-width: 480px; }
+.sheetGroup { padding: 4px 0 8px; }
+.sheetTitle {
+  margin: 0 0 8px; font: 700 11px var(--mono); color: var(--ink-dim);
+  letter-spacing: .08em; text-transform: uppercase;
+}
+/* one recorded block per framed row, each field SAID (von / bis) — two bare clocks side by side
+   never told you which was the arrival */
+.sheetBlock {
+  display: flex; align-items: flex-end; gap: 12px; padding: 10px 12px;
+  border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface);
+}
+.sheetBlock + .sheetBlock { margin-top: 6px; }
+.sheetIndex {
+  align-self: center; flex: none; min-width: 20px; height: 20px; display: grid; place-items: center;
+  border-radius: 50%; background: color-mix(in srgb, var(--ink) 10%, transparent);
+  font: 700 10.5px var(--mono); color: var(--ink-dim);
+}
+.sheetField { display: flex; flex-direction: column; gap: 3px; }
+.sheetLabel { font: 600 10.5px var(--mono); color: var(--ink-faint); letter-spacing: .06em; text-transform: uppercase; }
+.sheetTime { flex: none; }
+.sheetOpen {
+  align-self: flex-start; padding: 0 10px; min-height: var(--tap); display: inline-flex; align-items: center;
+  border-radius: var(--r-ctl); background: color-mix(in srgb, var(--green) 16%, transparent);
+  font: 700 12px var(--body); font-style: normal; color: var(--green);
+}
+.sheetAdd { margin-top: 10px; gap: 6px; }
+.sheetNote { margin: 10px 0 0; font: 500 12px var(--body); color: var(--ink-faint); }
+
+/* The Zeitplan-only actions stay in the layout in both views and merely go invisible, so the
+   view toggle keeps its position instead of sliding across when you switch tabs. */
+.planActions { display: inline-flex; align-items: center; gap: 8px; }
+.planActionsHidden { visibility: hidden; pointer-events: none; }
+
+/* Zeitraum control — sits at the end of the search row, beside the thing it scopes */
+.horizon { flex: none; display: flex; align-items: center; gap: 6px; }
+.horizonLabel { font: 600 10.5px var(--mono); color: var(--ink-faint); letter-spacing: .06em; text-transform: uppercase; }
+.horizonValue { min-width: 3.4rem; text-align: center; font: 700 12.5px var(--mono); color: var(--ink); }
+/* «bis 18:01» — at a constant px-per-hour a wider window is pixel-identical, so this is the only
+   visible answer to what widening it bought you */
+.horizonEnd { font: 600 11.5px var(--mono); color: var(--ink-faint); white-space: nowrap; }
+.zoomBtn {
+  display: inline-grid; place-items: center; min-width: var(--tap); min-height: var(--tap);
+  border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface);
+  color: var(--ink-dim); cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.zoomBtn svg { width: 14px; height: 14px; }
+.zoomBtn:hover:not(:disabled) { color: var(--ink); border-color: var(--ink-faint); }
+.zoomBtn:disabled { opacity: .4; cursor: default; }

@@ -56,3 +56,29 @@ describe('applyTimeToIso', () => {
     expect(applyTimeToIso('not-a-date', '04:30')).toBeNull()
   })
 })
+
+
+describe('applyTimeToIso — prevDayIfAfter (the «von» mirror)', () => {
+  const iso = (s: string) => new Date(s).toISOString()
+
+  it('pulls a start typed after its own end back to the previous day', () => {
+    // block 00:15 → 01:30; the operator corrects «von» to 23:45, meaning the night before
+    const out = applyTimeToIso(iso('2026-07-27T00:15:00'), '23:45', { prevDayIfAfter: iso('2026-07-27T01:30:00') })
+    expect(new Date(out!).getDate()).toBe(26)
+  })
+
+  it('does NOT invent a 25-hour block when correcting inside an already-overnight one', () => {
+    // block 26th 22:00 → 27th 01:30. Correcting «von» to 00:30 means the 27th — one hour.
+    // Stepping back unconditionally produced 25 hours, which looks normal and reaches the Rapport.
+    const to = iso('2026-07-27T01:30:00')
+    const out = applyTimeToIso(iso('2026-07-26T22:00:00'), '00:30', { prevDayIfAfter: to })
+    const mins = (Date.parse(to) - Date.parse(out!)) / 60_000
+    expect(mins).toBe(60)
+  })
+
+  it('leaves a plain same-day correction alone', () => {
+    const out = applyTimeToIso(iso('2026-07-27T14:00:00'), '13:00', { prevDayIfAfter: iso('2026-07-27T18:00:00') })
+    expect(new Date(out!).getDate()).toBe(27)
+    expect(new Date(out!).getHours()).toBe(13)
+  })
+})

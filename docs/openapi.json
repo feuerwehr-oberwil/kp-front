@@ -6556,6 +6556,74 @@
         }
       }
     },
+    "/api/incidents/{incident_id}/zeitplan/pdf": {
+      "post": {
+        "tags": [
+          "report"
+        ],
+        "summary": "Zeitplan Pdf",
+        "description": "The Schichtenplanung as the printable «Zeitplan» Führungsformular (A4 quer).\n\nRead-only output like the rapport, so CurrentUser rather than CurrentEditor: a viewer\ncoming to relieve the shift may print the sheet they are walking into.",
+        "operationId": "zeitplan_pdf_api_incidents__incident_id__zeitplan_pdf_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_zeitplan_pdf_api_incidents__incident_id__zeitplan_pdf_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/print/status": {
       "get": {
         "tags": [
@@ -6662,6 +6730,78 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Report Print Api Incidents  Incident Id  Report Print Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incidents/{incident_id}/zeitplan/print": {
+      "post": {
+        "tags": [
+          "print-relay"
+        ],
+        "summary": "Zeitplan Print",
+        "description": "Queue the Führungsformular «Zeitplan» for the station printer — the sheet you hang at the\nfront. Always monochrome: it is rules and bars, and a colour cartridge is a consumable.",
+        "operationId": "zeitplan_print_api_incidents__incident_id__zeitplan_print_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_zeitplan_print_api_incidents__incident_id__zeitplan_print_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Zeitplan Print Api Incidents  Incident Id  Zeitplan Print Post"
                 }
               }
             }
@@ -8079,6 +8219,32 @@
           "file"
         ],
         "title": "Body_upload_plan_api_objects__object_id__plans__module__put"
+      },
+      "Body_zeitplan_pdf_api_incidents__incident_id__zeitplan_pdf_post": {
+        "properties": {
+          "payload": {
+            "type": "string",
+            "title": "Payload"
+          }
+        },
+        "type": "object",
+        "required": [
+          "payload"
+        ],
+        "title": "Body_zeitplan_pdf_api_incidents__incident_id__zeitplan_pdf_post"
+      },
+      "Body_zeitplan_print_api_incidents__incident_id__zeitplan_print_post": {
+        "properties": {
+          "payload": {
+            "type": "string",
+            "title": "Payload"
+          }
+        },
+        "type": "object",
+        "required": [
+          "payload"
+        ],
+        "title": "Body_zeitplan_print_api_incidents__incident_id__zeitplan_print_post"
       },
       "ClientError": {
         "properties": {

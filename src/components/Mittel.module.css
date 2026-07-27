@@ -141,7 +141,8 @@
   .composerActions { flex: 1 1 100%; margin-left: 0; }
   .composerActions :global(.ip-btn) { flex: 1 1 auto; min-height: 48px; }
   .composerActions :global(.ip-btn.primary) { flex: 2 1 auto; }
-  .list { padding: 8px 14px 18px; }
+  /* the last Mittel row clears the Eintrag FAB (it sat on a row's ±stepper) */
+  .list { padding: 8px 14px calc(18px + var(--fab-safe, 0px)); }
   /* the ±stepper leaves ~130px for the label on a phone — let the name wrap to a second
      line instead of truncating to «Ölsaug–/Wassers…» (recognition over recall).
      overflow-wrap: compound tokens like «Ölsaug-/Wassersauger» get a break instead of

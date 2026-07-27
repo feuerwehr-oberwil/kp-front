@@ -2,11 +2,12 @@
 # This brings up JUST the database the backend dev server (uv run uvicorn ...) connects to,
 # matching the defaults in backend/.env.example (localhost:5434, kpfront/kpfront/kpfront).
 #
-#   just db            # start it (docker compose -f docker-compose.dev.yml up -d)
+#   just dev           # starts it, then the backend and frontend (the everyday command)
+#   just db            # start it on its own (docker compose -f docker-compose.dev.yml up -d --wait)
 #   just db-stop       # stop it
 #   just db-reset      # wipe the volume and restart (fresh schema on next migrate)
 #
-# The frontend dev server needs none of this — it runs against seed/demo data standalone.
+# The frontend dev server needs none of this — plain 'pnpm dev' runs against demo data standalone.
 
 name: kp-front-dev
 

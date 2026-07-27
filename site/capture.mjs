@@ -29,6 +29,9 @@ const arg = (name) => {
 }
 const base = (arg('base') || DEFAULT_BASE).replace(/\/$/, '')
 const only = arg('only')?.split(',').map((s) => s.trim()).filter(Boolean)
+// Die öffentliche Demo lässt ohne Anmeldung herein. Eine lokale Instanz nicht – dort braucht es
+// eine Rolle und einen PIN, sonst steht der Browser vor dem Anmeldeschirm und läuft in den Timeout.
+const pin = arg('pin')
 
 /** Ein Shot = eine Ansicht aus der linken Navigationsleiste, plus Einschwingzeit.
  *  `prep` öffnet vorher noch etwas (Sheet, Menü); `nav` darf dann fehlen. */
@@ -38,6 +41,31 @@ const shots = [
   { name: 'gebaeude', nav: 'Gebäude', settle: 1500 },
   { name: 'atemschutz', nav: 'Atemschutz', settle: 1200 },
   { name: 'anwesenheit', nav: 'Anwesenheit', settle: 1500 },
+  {
+    name: 'zeitplan',
+    nav: 'Anwesenheit',
+    settle: 1500,
+    note: 'Zweite Ansicht derselben Mannschaft: Schichten über der Zeit',
+    prep: async (page) => {
+      await page.getByRole('button', { name: 'Zeitplan', exact: true }).click()
+      await page.waitForTimeout(1500)
+      // Der Standard-Zeitraum ist auf ein Bild hin zu weit: die Balken der Demo liegen in den
+      // ersten Stunden, der Rest der Achse wäre leere Fläche. Enger stellen, bis die Mannschaft
+      // die Breite auch füllt – und ans Ende scrollen, damit die Deckungszeile unter der letzten
+      // Zeile sitzt statt halb über ihr.
+      const narrower = page.getByRole('button', { name: 'Zeitraum enger' }).first()
+      for (let i = 0; i < 2 && await narrower.count(); i++) {
+        await narrower.click()
+        await page.waitForTimeout(400)
+      }
+      await page.evaluate(() => {
+        const box = [...document.querySelectorAll('[class]')]
+          .find((el) => [...el.classList].some((c) => c.includes('_scroll_')))
+        if (box) box.scrollTop = box.scrollHeight
+      })
+      await page.waitForTimeout(600)
+    },
+  },
   { name: 'mittel', nav: 'Mittel', settle: 1200 },
   { name: 'checkliste', nav: 'Checkliste', settle: 1500 },
   {
@@ -115,6 +143,21 @@ const run = async () => {
 
   console.log(`→ ${base}`)
   await page.goto(base, { waitUntil: 'domcontentloaded' })
+  if (pin) {
+    const role = page.getByRole('button', { name: /Führungsunterstützung/ }).first()
+    await role.waitFor({ timeout: 30000 })
+    await role.click()
+    for (const digit of pin) {
+      await page.keyboard.press(digit)
+      await page.waitForTimeout(80)
+    }
+    await page.waitForTimeout(2500)
+    // Erstbesuch-Dialoge, die es auf der Demo dank kp.demo.welcomed nicht gibt.
+    for (const label of [/Los geht/i, /Verstanden/i]) {
+      const btn = page.getByRole('button', { name: label })
+      if (await btn.count()) await btn.first().click().catch(() => {})
+    }
+  }
   await page.locator('.nav-item').first().waitFor({ timeout: 45000 })
   await page.addStyleTag({ content: HIDE_CSS })
   await page.waitForLoadState('networkidle').catch(() => {})

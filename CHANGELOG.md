@@ -58,6 +58,30 @@ browser. Everything below has been running in production at Feuerwehr Oberwil.
 - **arm64 images.** The published image builds for `linux/arm64` as well as `linux/amd64`, so an
   ARM host (Hetzner CAX, Oracle Ampere, a Raspberry Pi) can run it. The Vite stage builds on the
   native build platform, so the multi-arch build doesn't emulate the slow part.
+- **Zeitplan – the Schichtenplanung, as a second view of the Anwesenheit.** A long incident is not
+  a staffing problem you can hold in your head at 04:00, and the question it asks – *who is still
+  going to be here at six, and how many is that?* – had no surface. The Anwesenheit answers *who is
+  here now*; this answers *who will be*, on the same list of people, one tap away on the same
+  screen.
+
+  It is a grid of who × when: one row per person, one lane of time each, worked directly the way
+  the paper Führungsformular is filled in. A shift carries one of three states, and the distinction
+  is the whole point of the surface: **verfügbar** (they said they could), **eingeteilt** (you are
+  counting on them), and **anwesend** – which is not a plan at all but the recorded attendance,
+  drawn in from the Anwesenheit and read-only here. **The Zeitplan never writes attendance.** You
+  can plan a shift for somebody who never turns up, and the record will keep saying so; ticking
+  people in and out stays exactly where it was.
+
+  Underneath runs the **Deckung**: three step lines counting available, planned and actually
+  present across the whole span, so a gap is something you see the shape of rather than something
+  you work out. It folds open to the numbers, because the curve says *where* and only a digit says
+  *how many*. Multi-day incidents get day boundaries and dates on the axis – past midnight, «07:29»
+  alone never said which morning.
+
+  It prints as the **Führungsformular «Zeitplan»** (A4 landscape, monochrome – it is rules and bars,
+  and a colour cartridge is a consumable), rendered server-side like the rapport, and a viewer may
+  print it: somebody arriving to take over the shift should be able to print the sheet they are
+  walking into without an editor PIN.
 
 ### Fixed
 - **No more states that only an app restart could clear.** A sweep across every state and

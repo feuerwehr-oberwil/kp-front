@@ -565,6 +565,22 @@ export interface AttendanceEntry {
 }
 export type AttendanceState = Record<string, AttendanceEntry>
 
+/** One planned availability block of the Schichtenplanung (see lib/shifts). A PLAN — it never
+ *  writes attendance; executing it is the ordinary Anwesenheit tick, which stamps the real time. */
+export interface Shift {
+  /** `'sh'+Date.now()` — prefixed timestamp, like every other id here */
+  id: string
+  personId: string
+  /** ISO start of the planned availability */
+  from: string
+  /** ISO end */
+  to: string
+  /** agreed with the person (drawn solid) rather than still a proposal (drawn hollow). Tapping
+   *  the bar flips it — the one thing about a shift that changes constantly while planning. */
+  confirmed?: boolean
+  note?: string
+}
+
 /** One append-only Mittel (material-use) event: the running TOTAL used for a material+unit, from
  *  an optional source, at the moment it was saved. The current picture is derived as the latest
  *  event per `material + unit + source` key (see lib/mittel). `menge === 0` hides the line but

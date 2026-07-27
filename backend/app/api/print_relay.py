@@ -28,7 +28,13 @@ from ..config import settings
 from ..database import execute_dml, get_db
 from ..models import Incident, PrintJob
 from ..report_pdf import ReportPayload
-from .report import compose_report_from_payload, report_filename, warm_report_from_payload
+from .report import (
+    compose_report_from_payload,
+    compose_zeitplan_from_payload,
+    report_filename,
+    warm_report_from_payload,
+    zeitplan_filename,
+)
 
 router = APIRouter(tags=["print-relay"])
 
@@ -183,6 +189,36 @@ async def report_print(
     if inc is None:
         raise HTTPException(status_code=404, detail="Einsatz nicht gefunden")
     job = await enqueue_print_job(db, inc, payload, kind="report", requested_by=user.id)
+    return {"job_id": str(job.id), "status": job.status}
+
+
+@router.post("/incidents/{incident_id}/zeitplan/print")
+async def zeitplan_print(
+    incident_id: uuid.UUID,
+    user: CurrentUser,
+    payload: str = Form(...),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Queue the Führungsformular «Zeitplan» for the station printer — the sheet you hang at the
+    front. Always monochrome: it is rules and bars, and a colour cartridge is a consumable."""
+    if not relay_available():
+        raise HTTPException(status_code=403, detail="Stationsdrucker nicht konfiguriert")
+    inc = (await db.execute(select(Incident).where(Incident.id == incident_id))).scalar_one_or_none()
+    if inc is None:
+        raise HTTPException(status_code=404, detail="Einsatz nicht gefunden")
+    pdf, _ = compose_zeitplan_from_payload(payload)
+    job = PrintJob(
+        incident_id=inc.id,
+        kind="zeitplan",
+        filename=zeitplan_filename(inc.title),
+        pdf=pdf,
+        status="queued",
+        color=False,
+        requested_by=user.id,
+    )
+    db.add(job)
+    await db.flush()
+    _job_event().set()
     return {"job_id": str(job.id), "status": job.status}
 
 

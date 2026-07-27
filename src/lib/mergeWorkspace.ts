@@ -23,6 +23,7 @@ interface WsShape {
   timeline?: HasId[]
   trupps?: HasId[]
   mittel?: HasId[] // append-only material-use events — merge by event id like timeline
+  shifts?: HasId[] // Schichtenplanung: planned availability blocks, merged by shift id
   cameraViews?: HasId[]
   board?: Record<string, HasId[]>
   vehicleOverrides?: Record<string, unknown>
@@ -186,6 +187,7 @@ export function mergeWorkspace(
     timeline: mergeById(b.timeline ?? [], m.timeline ?? [], t.timeline ?? []),
     trupps: mergeById(b.trupps ?? [], m.trupps ?? [], t.trupps ?? []),
     mittel: mergeById(b.mittel ?? [], m.mittel ?? [], t.mittel ?? []),
+    shifts: mergeById(b.shifts ?? [], m.shifts ?? [], t.shifts ?? []),
     cameraViews: mergeById(b.cameraViews ?? [], m.cameraViews ?? [], t.cameraViews ?? []),
     board: mergeBoard(b.board ?? {}, m.board ?? {}, t.board ?? {}),
     vehicleOverrides: mergeRecord(b.vehicleOverrides ?? {}, m.vehicleOverrides ?? {}, t.vehicleOverrides ?? {}),

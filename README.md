@@ -50,6 +50,8 @@ station, one incident, one operator**, not scaled down from dispatch-center soft
 - **Einsatz-Intake:** Guided incident creation from Divera, an address, an object, or the map.
 - **Atemschutz:** Trupp setup, pressure and return estimates, alarms, map links, and logging.
 - **Mannschaft:** Divera or manual attendance, roster, and assignments.
+- **Zeitplan:** Shift planning for long incidents – availability and assignment per person, a
+  coverage curve across the span, printable as the «Zeitplan» Führungsformular.
 - **Reference data:** ADR lookup, wind, hydrants, utility lines, and Traccar vehicle positions.
 - **Resilience:** Undo/redo, append-only records, sync status, offline readiness, and day/night UI.
 
@@ -75,23 +77,17 @@ Interested in using or contributing to KP Front? Start a
 Recipes use [`just`](https://github.com/casey/just) (`brew install just`). See the
 [`justfile`](justfile) for the underlying commands.
 
-### Frontend only
-
-Run the interface with built-in demo data:
+### Development stack
 
 ```bash
-just install && just dev        # http://localhost:5188
+just setup       # install dependencies (once)
+just demo-load   # load the optional Musterdorf dataset (starts nothing; migrates first)
+just dev         # PostgreSQL + API (:8001) + frontend (:5188), Ctrl+C stops all
 ```
 
-### Full development stack
-
-```bash
-just setup       # install dependencies
-just db          # start PostgreSQL on localhost:5434
-just demo-load   # load the optional Musterdorf dataset
-just api         # start the API on localhost:8000
-just dev         # start the frontend on localhost:5188
-```
+`just dev` is the only command you need day to day – it starts the database, waits for it,
+migrates, and runs both servers in one terminal. For the frontend alone (no database, no
+backend, built-in demo data): `pnpm dev`.
 
 Log in with the seeded default editor – user `fu` (Führungsunterstützung), PIN `000000`
 (from `backend/app/seed_users.json`; change it after first login).
@@ -102,7 +98,8 @@ Run `just` without an argument to list every recipe.
 
 | Recipe | Purpose |
 | --- | --- |
-| `just dev` / `just api` | frontend / backend dev servers |
+| `just dev` | the whole stack: database + backend + frontend |
+| `just db-stop` / `just db-reset` | stop the dev database / wipe its volume |
 | `just lint` / `just test` | lint / test both stacks |
 | `just build` | type-check + production build |
 | `just config-example` | print a starting deployment config (copy & edit) |

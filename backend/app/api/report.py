@@ -23,6 +23,7 @@ from ..auth.dependencies import CurrentUser
 from ..database import get_db
 from ..models import Incident, Media, ReferenceDataset
 from ..report_pdf import ReportPayload, compose_report_pdf
+from ..zeitplan_pdf import ZeitplanPayload, compose_zeitplan_pdf
 
 router = APIRouter(tags=["report"])
 
@@ -136,4 +137,42 @@ async def report_pdf(
         content=pdf,
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{report_filename(inc.title)}"'},
+    )
+
+
+def zeitplan_filename(title: str) -> str:
+    safe = "".join(c for c in title if c.isalnum() or c in " -_").strip().replace(" ", "_")[:60] or "Zeitplan"
+    return f"Zeitplan_{safe}.pdf"
+
+
+def compose_zeitplan_from_payload(payload: str) -> tuple[bytes, ZeitplanPayload]:
+    """Parse + render the Führungsformular. Its own path: no map tiles, no plan PDFs, no media —
+    a Zeitplan is names and times, so it needs none of the rapport's asset resolution."""
+    try:
+        data = ZeitplanPayload.model_validate_json(payload)
+    except ValidationError as e:
+        raise HTTPException(status_code=422, detail=e.errors(include_url=False)) from e
+    return compose_zeitplan_pdf(data), data
+
+
+@router.post("/incidents/{incident_id}/zeitplan/pdf")
+async def zeitplan_pdf(
+    incident_id: uuid.UUID,
+    _user: CurrentUser,
+    payload: str = Form(...),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    """The Schichtenplanung as the printable «Zeitplan» Führungsformular (A4 quer).
+
+    Read-only output like the rapport, so CurrentUser rather than CurrentEditor: a viewer
+    coming to relieve the shift may print the sheet they are walking into.
+    """
+    inc = (await db.execute(select(Incident).where(Incident.id == incident_id))).scalar_one_or_none()
+    if inc is None:
+        raise HTTPException(status_code=404, detail="Einsatz nicht gefunden")
+    pdf, _ = await anyio.to_thread.run_sync(compose_zeitplan_from_payload, payload)
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{zeitplan_filename(inc.title)}"'},
     )

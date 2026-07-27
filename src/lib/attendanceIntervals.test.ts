@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  closePresence, currentIntervalIndex, intervalsOf, isPresent, openPresence, setIntervalTime, totalMinutes,
+  closePresence, currentIntervalIndex, intervalsOf, isPresent, openPresence, setIntervalTime, totalMinutes, withIntervals,
 } from './attendanceIntervals'
 import type { AttendanceEntry } from '../types'
 
@@ -23,6 +23,27 @@ describe('legacy entries (written before blocks existed)', () => {
   it('has no block at all when it never carried a time', () => {
     expect(intervalsOf({ status: 'left', displayNameSnapshot: 'Meier' })).toEqual([])
     expect(intervalsOf(undefined)).toEqual([])
+  })
+
+  // real rows on prod: a second «anwesend» used to keep the earlier leftAt, so the person was
+  // marked present AND carried a departure. Status is the operational truth — they are here.
+  it('keeps the old half-state (present WITH a stale leftAt) on the board', () => {
+    const halfState: AttendanceEntry = { status: 'present', checkedInAt: T(14), leftAt: T(18), displayNameSnapshot: 'Meier' }
+    expect(isPresent(halfState)).toBe(true)
+    expect(intervalsOf(halfState)).toEqual([{ from: T(14) }]) // stale departure dropped
+  })
+
+  it('does not put a legacy «gegangen» row without a leftAt back on the board', () => {
+    const noEnd: AttendanceEntry = { status: 'left', checkedInAt: T(14), displayNameSnapshot: 'Meier' }
+    expect(isPresent(noEnd)).toBe(false)
+  })
+
+  it('lets the blocks decide once an entry has them, whatever status says', () => {
+    const stale: AttendanceEntry = {
+      status: 'left', displayNameSnapshot: 'Meier', checkedInAt: T(14),
+      intervals: [{ from: T(14), to: T(18) }, { from: T(22) }],
+    }
+    expect(isPresent(stale)).toBe(true)
   })
 })
 
@@ -120,5 +141,18 @@ describe('minutes actually served', () => {
 
   it('never counts a corrected-backwards block as negative time', () => {
     expect(totalMinutes([{ from: T(18), to: T(14) }], opts)).toBe(0)
+  })
+})
+
+describe('removing one recorded block (the sheet\'s delete)', () => {
+  it('re-derives the summary around whatever is left', () => {
+    const two = openPresence(closePresence(openPresence(undefined, T(14), 'M'), T(18)), T(22), 'M')
+    const first = withIntervals(two, intervalsOf(two).slice(1))   // drop block 1
+    expect(first.checkedInAt).toBe(T(22))
+    expect(first.status).toBe('present')
+    const second = withIntervals(two, intervalsOf(two).slice(0, 1)) // drop block 2
+    expect(second.checkedInAt).toBe(T(14))
+    expect(second.leftAt).toBe(T(18))
+    expect(second.status).toBe('left')
   })
 })

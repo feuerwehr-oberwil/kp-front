@@ -1,4 +1,4 @@
-import type { AttendanceState, BoardAnno, BoardDoc, BuildingDoc, CameraView, Drawing, Entity, LayerDef, LayerId, MittelEntry, TimelineEvent, Trupp, WeatherData } from '../types'
+import type { AttendanceState, BoardAnno, BoardDoc, BuildingDoc, CameraView, Drawing, Entity, LayerDef, LayerId, MittelEntry, Shift, TimelineEvent, Trupp, WeatherData } from '../types'
 import { appConfig } from '../config/appConfig'
 import { layers as initialLayers, planDocuments } from '../data/demoIncident'
 import { referenceLayersFromConfig } from './deploymentConfig'
@@ -113,6 +113,8 @@ export interface Saved {
   attendance?: AttendanceState
   /** per-incident Mittel (material-use) — append-only event log; current state derived */
   mittel?: MittelEntry[]
+  /** Schichtenplanung: planned availability per person (a PLAN, never the attendance record) */
+  shifts?: Shift[]
   /** saved map views (camera bookmarks): position + zoom + rotation, shared with the team */
   cameraViews?: CameraView[]
   /** Einsatzrapport metadata: supplemental bookkeeping text, not tactical state. */
@@ -234,6 +236,7 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
     trupps: arr<Trupp>(raw.trupps, hasId),
     attendance: rec<AttendanceState>(raw.attendance),
     mittel: arr<MittelEntry>(raw.mittel, hasId),
+    shifts: arr<Shift>(raw.shifts, hasId),
     cameraViews: arr<CameraView>(raw.cameraViews, hasId),
     reportMeta: rec<ReportMeta>(raw.reportMeta),
     settings: rec<IncidentSettings>(raw.settings),
@@ -249,6 +252,7 @@ export interface InitialState {
   trupps: Trupp[]
   attendance: AttendanceState
   mittel: MittelEntry[]
+  shifts: Shift[]
   cameraViews: CameraView[]
   planScale: PlanScales
   reportMeta: ReportMeta
@@ -354,6 +358,7 @@ export function deriveInitial(
     trupps: ws?.trupps ?? [],
     attendance: ws?.attendance ?? {},
     mittel: ws?.mittel ?? [],
+    shifts: ws?.shifts ?? [],
     cameraViews: ws?.cameraViews ?? [],
     planScale: ws?.planScale ?? {},
     reportMeta: ws?.reportMeta ?? {},

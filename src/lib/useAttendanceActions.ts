@@ -3,7 +3,10 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
 import { toast } from './ui'
 import type { AttendanceState, Person, TimelineEvent } from '../types'
-import { closePresence, currentIntervalIndex, intervalsOf, isPresent, openPresence, setIntervalTime } from './attendanceIntervals'
+import { closePresence, currentIntervalIndex, intervalsOf, isPresent, openPresence, setIntervalTime, withIntervals } from './attendanceIntervals'
+
+/** A freshly opened block cannot be split again this soon — that is a double tap, not a relief. */
+const MIN_BLOCK_MS = 60_000
 
 interface AttendanceActionsDeps {
   attendance: AttendanceState
@@ -25,7 +28,27 @@ interface AttendanceActionsDeps {
  */
 export function useAttendanceActions({ attendance, setAttendance, blockedAttendanceIds, startedAt, reportDoneAt, log }: AttendanceActionsDeps) {
   const markPresent = (p: Person) => {
-    if (isPresent(attendance[p.id])) return
+    // Adding a block while one is still running is a relief in place: close the current one at
+    // this moment and open the next. Without this the sheet's «Weiterer Block» would leave two
+    // open blocks, and `isPresent` reads only the last — the earlier one would never close.
+    if (isPresent(attendance[p.id])) {
+      const prev = attendance[p.id]
+      const open = intervalsOf(prev).slice(-1)[0]
+      // A second impatient tap would otherwise split the block again a fraction of a second later
+      // and leave a zero-length row — the very fragmentation `openPresence` guards against, which
+      // this branch bypasses by closing first.
+      if (open?.from && Date.now() - Date.parse(open.from) < MIN_BLOCK_MS) return
+      const now = new Date().toISOString()
+      setAttendance((cur) => (cur[p.id] ? { ...cur, [p.id]: openPresence(closePresence(cur[p.id], now, p.displayName), now, p.displayName) } : cur))
+      log('people', fillTemplate(appConfig.copy.anwesenheit.blockSplit, { name: p.displayName }), 'team')
+      // splitting a running block is destructive in the sense that matters here — the earlier
+      // block gets an end it never had — so it takes the house confirm-with-undo toast
+      toast(fillTemplate(appConfig.copy.anwesenheit.blockSplit, { name: p.displayName }), {
+        icon: 'undo',
+        action: { label: appConfig.copy.undo, onClick: () => setAttendance((cur) => ({ ...cur, [p.id]: prev })) },
+      })
+      return
+    }
     // First tick: «von» defaults to the alarm time (Vorschlag ab Alarmzeit) — ticking often
     // happens long after arrival, and now() would print an end-of-incident «von» on the rapport.
     // A RETURN opens a fresh block at the real clock instead; the alarm time would be nonsense
@@ -65,5 +88,23 @@ export function useAttendanceActions({ attendance, setAttendance, blockedAttenda
       log('people', fillTemplate(appConfig.copy.abschluss.corrected, { name: e.displayNameSnapshot }), 'team')
     }
   }
-  return { markPresent, markLeft, clearAttendance, setAttendanceTimes }
+  /** Remove ONE recorded block. Removing the last one leaves the person with nothing recorded,
+   *  which is «frei» — so the whole entry goes, exactly as the row's third tap would do it. Undo
+   *  restores the entry verbatim either way. */
+  const removeAttendanceBlock = (personId: string, index: number) => {
+    const prev = attendance[personId]
+    const list = intervalsOf(prev)
+    if (!prev || index < 0 || index >= list.length) return
+    const rest = list.filter((_, i) => i !== index)
+    setAttendance((cur) => {
+      if (!cur[personId]) return cur
+      if (!rest.length) { const next = { ...cur }; delete next[personId]; return next }
+      return { ...cur, [personId]: withIntervals(cur[personId], rest) }
+    })
+    toast(fillTemplate(appConfig.copy.anwesenheit.blockRemoved, { name: prev.displayNameSnapshot }), {
+      icon: 'undo',
+      action: { label: appConfig.copy.undo, onClick: () => setAttendance((cur) => ({ ...cur, [personId]: prev })) },
+    })
+  }
+  return { markPresent, markLeft, clearAttendance, setAttendanceTimes, removeAttendanceBlock }
 }
