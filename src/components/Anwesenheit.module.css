@@ -128,6 +128,19 @@
   .headActions { gap: 6px; }
   .reload { padding: 0; width: var(--tap); height: var(--tap); justify-content: center; }
   .reloadLabel { display: none; }
+  /* The header ran out of width the moment the Zeitplan added its own buttons: the title sat
+     UNDER «Als PDF» and the count line collapsed to «8.». Let the row wrap — the title keeps a
+     full line, the actions take the next one — and drop the PDF label to its icon. */
+  .head { flex-wrap: wrap; }
+  .headTitles { flex: 1 0 100%; }
+  .headActions { flex: 1 0 100%; justify-content: flex-start; }
+  .headActions :global(.btn) span { display: none; }
+  .headActions :global(.btn) { padding: 0; width: var(--tap); height: var(--tap); justify-content: center; }
+  /* the Zeitraum control shares the search line rather than owning a row of its own */
+  .controls { gap: 10px; padding: 10px 14px; }
+  .horizon { flex: 1 0 auto; justify-content: flex-end; }
+  .horizonLabel { display: none; }
+
   .controls { padding: 10px 14px; gap: 10px; }
   .rankRow { padding: 0 14px 10px; }
   /* one full-width column: two columns truncated most names («Binggeli Mic…») on a phone —

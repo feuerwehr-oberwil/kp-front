@@ -216,12 +216,12 @@ export function AnwesenheitView({
             <button className="btn" onClick={() => onPrintZeitplan(rows)}
               title={zeitplanPrintOnline ? appConfig.copy.printRelay.online : appConfig.copy.printRelay.offline}>
               <span className={`dot print-relay-dot${zeitplanPrintOnline ? ' online' : ''}`} aria-hidden />
-              {appConfig.copy.printRelay.send}
+              <span>{appConfig.copy.printRelay.send}</span>
             </button>
           )}
           {showPlan && onDownloadZeitplan && (
             <button className="btn ghost" onClick={() => onDownloadZeitplan(rows)}>
-              <Icon id="doc" />{appConfig.copy.zeitplan.pdf}
+              <Icon id="doc" /><span>{appConfig.copy.zeitplan.pdf}</span>
             </button>
           )}
           {/* the two readings of this Mannschaft. Only offered where a Zeitplan can actually be

@@ -196,10 +196,14 @@
 
 .foot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding-top: 2px; }
 .footActions { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
+/* legend + the one line that teaches the lane gestures. MUST wrap: three swatches plus a
+   ~120-character hint never fit one line, and without wrapping the hint was crushed into a
+   narrow column that ran ten lines deep over the Eintrag FAB. */
 .legend {
-  display: flex; align-items: center; gap: 6px; margin: 0;
-  font: 500 11.5px var(--body); color: var(--ink-faint);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0;
+  font: 500 12.5px var(--body); color: var(--ink-faint);
 }
+.legendHint { flex: 1 1 100%; margin: 2px 0 0; color: var(--ink-faint); }
 .swatch { width: 16px; height: 9px; border-radius: 2px; flex: none; }
 .legend .swatch:not(:first-child) { margin-left: 8px; }
 
@@ -262,6 +266,11 @@
 
 @media (max-width: 700px) {
   .zeitplan { padding: 2px 12px 12px; }
+  /* the hint was being squeezed into a ~5rem column beside the swatches and ran 10 lines deep
+     over the entry FAB — it takes its own full-width line under them */
+  .legend { gap: 5px 8px; }
+  /* clear the bottom bar + the Eintrag FAB so the legend is never underneath them */
+  .zeitplan { padding-bottom: calc(16px + var(--rail-h)); }
   /* the sticky column would eat a phone screen, so the row stacks: name + controls on top, the
      lane full-width underneath, and the track scrolls on its own */
   .row { flex-wrap: wrap; }
@@ -269,7 +278,6 @@
     position: static; width: 100%; border-right: 1px solid var(--glass-edge);
     border-radius: var(--r-ctl) var(--r-ctl) 0 0;
   }
-  .legendHint { margin-left: 0; }
   .whoHead, .whoFoot { border: none; }
   .track { width: 100%; min-width: var(--track-w); }
   /* min-height, NOT height: a fixed 26px overrode the 44px floor on the one device class that
