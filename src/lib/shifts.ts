@@ -63,13 +63,23 @@ export function timelineSpan(
 }
 
 /** Where a block sits in the window, as fractions 0..1 — null when it lies entirely outside. */
-export function barGeometry(from: number, to: number, span: Span): { left: number; width: number } | null {
+export function barGeometry(
+  from: number, to: number, span: Span,
+): { left: number; width: number; clipFrom: boolean; clipTo: boolean } | null {
   const total = span.to - span.from
   if (total <= 0) return null
   const a = Math.max(from, span.from)
   const b = Math.min(to, span.to)
   if (b <= a) return null
-  return { left: (a - span.from) / total, width: (b - a) / total }
+  // clipFrom/clipTo say the bar runs on past the edge of the window. Without them a shift that
+  // began before the visible stretch drew a clean vertical end exactly on the border and read as
+  // if it STARTED there — a 06:00–14:00 shift looked like it started at 08:00 on an 08:00 window.
+  return {
+    left: (a - span.from) / total,
+    width: (b - a) / total,
+    clipFrom: from < span.from,
+    clipTo: to > span.to,
+  }
 }
 
 /** A planned shift as milliseconds; null when either end is unreadable. */

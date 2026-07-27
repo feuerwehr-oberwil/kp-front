@@ -273,6 +273,39 @@
    get here (see conflictingShiftIds), so this is always a genuine double booking. */
 .conflict::before { border: 1.5px solid var(--red); box-shadow: 0 0 0 1px var(--red) inset; }
 
+/* The conflict sign, sitting inside the assigned bar it belongs to. The red outline alone was
+   colour-only, and its explanation lived in a `title` — which a touch screen never shows. */
+.conflict > svg {
+  position: absolute; left: 5px; top: 12px; width: 12px; height: 12px;
+  color: var(--red); pointer-events: none; z-index: 2;
+}
+
+/* A reversed shift (bis before von) has no span, so barGeometry draws nothing and the row went
+   quiet about it. This mark stands where its «von» is and opens the sheet, which is the only
+   place the times can be put right. */
+.brokenBar {
+  width: 22px; min-width: 22px; transform: translateX(-11px);
+  border: none; background: none; padding: 0; cursor: pointer; z-index: 3;
+  display: grid; place-items: center; -webkit-tap-highlight-color: transparent;
+}
+.brokenBar svg { width: 15px; height: 15px; color: var(--red); }
+
+/* An end that runs on past the window frays. A clean vertical edge exactly on the border read as
+   if the shift STARTED there — a 06:00–14:00 shift looked like it began at 08:00 on an 08:00
+   window. Same idea as `.open` on an unfinished attendance block, applied to whichever side is
+   actually cut. The both-sides rule needs its own selector: one mask-image replaces the other. */
+.clipFrom::before { mask-image: linear-gradient(to right, color-mix(in srgb, #000 25%, transparent) 0, #000 16px); }
+.clipTo::before { mask-image: linear-gradient(to left, color-mix(in srgb, #000 25%, transparent) 0, #000 16px); }
+.clipFrom.clipTo::before {
+  mask-image: linear-gradient(to right, color-mix(in srgb, #000 25%, transparent) 0, #000 16px,
+    #000 calc(100% - 16px), color-mix(in srgb, #000 25%, transparent) 100%);
+}
+
+/* the conflict sign repeated in the name cell: while the axis is scrolled away from the clash you
+   can still see WHICH person it belongs to */
+.whoWarn { flex: none; color: var(--red); display: grid; place-items: center; }
+.whoWarn svg { width: 13px; height: 13px; }
+
 /* the day boundary: dashed, quiet, behind everything — it separates, it does not compete with
    the bars or with «jetzt» */
 .dayLine {
@@ -481,11 +514,17 @@
      screen, which is not a Mannschaft overview. 132px holds a full «Anna Meier» plus the pencil
      — «Anna Me…» is not an identification at 3am — and still leaves ~230px of lane, enough for
      the whole 12 h window without scrolling. */
-  .zeitplan { --name-w: 132px; }
+  /* 168px, not 132. At 132 the name got ~58px once the rank badge and the pencil had taken their
+     share — about nine characters, so «Binggeli Michael» became «Binggeli…» and two people could
+     read alike. That is the exact trade the Anwesenheit list refused after the field feedback of
+     2026-07-08, and the two views should not disagree about the same person's name.
+     The pencil pays for most of it: on a phone the hold gesture still opens the sheet (it is
+     touch-only now), and the whole name cell opens it too, so the visible cue is not the only way
+     in here the way it is on a desktop. The lane loses ~36px of a track that scrolls anyway. */
+  .zeitplan { --name-w: 168px; }
   .who { padding: 2px 2px 2px 8px; gap: 4px; }
   .name { font-size: 12.5px; }
-  .editBtn { min-width: 26px; min-height: 26px; }
-  .editBtn svg { width: 12px; height: 12px; }
+  .editBtn { display: none; }
   /* the chip shares its line with «ab Beginn» here, so the width that keeps «GEPLANT» and
      «VERFÜGBAR» the same size on a desktop is more than a phone line can spare */
   /* wide enough for the longest state word («VERFÜGBAR») so the chip is sized by ITSELF and every

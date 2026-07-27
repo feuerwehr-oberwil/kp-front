@@ -174,6 +174,11 @@ function PersonRow({ person, shifts, blocks, span, nowMs, canEdit, conflicts, no
     const b = barGeometry(from, to, span)
     return b ? { left: `${b.left * 100}%`, width: `${b.width * 100}%` } : null
   }
+  /** the clipped ends of a bar, so a stretch that runs on past the window says so */
+  const clipOf = (from: number, to: number) => {
+    const b = barGeometry(from, to, span)
+    return { from: !!b?.clipFrom, to: !!b?.clipTo }
+  }
   // while a bar is being dragged it is drawn from the live preview instead of the stored value,
   // so it follows the finger without a workspace write per pointer event
   const shown = shifts.map((sh) => (g.preview?.id === sh.id ? g.preview : sh))
@@ -187,6 +192,11 @@ function PersonRow({ person, shifts, blocks, span, nowMs, canEdit, conflicts, no
         title={fillTemplate(Z.openFor, { name: person.displayName })}>
         {person.rank && <span className={s.rank} title={rankLabel(person.rank)}>{rankAbbr(person.rank)}</span>}
         <span className={s.name}>{person.displayName}</span>
+        {/* the clash may be scrolled off the visible axis; the name cell is sticky, so this is
+            where you can still see WHOSE plan has one */}
+        {shifts.some((sh) => conflicts.has(sh.id)) && (
+          <span className={s.whoWarn} title={Z.conflict} aria-label={Z.conflict}><Icon id="warn" /></span>
+        )}
         {/* press-and-hold on the lane opens the same sheet, but a gesture nobody was told about is
             not a way in — this is the one you can see */}
         {canEdit && <span className={s.editBtn} aria-hidden><Icon id="pen" /></span>}
@@ -210,15 +220,34 @@ function PersonRow({ person, shifts, blocks, span, nowMs, canEdit, conflicts, no
         })}
         {shown.map((sh) => {
           const sp = shiftSpan(sh)
-          const st = sp && barStyle(sp.from, sp.to)
+          // A reversed shift (bis before von) has no span at all, so it used to render as NOTHING
+          // — invisible on the grid, zero minutes on the Rapport, and only findable by opening the
+          // person's sheet. A mark at its «von» says the row has something wrong with it and opens
+          // the one place it can be repaired.
+          if (!sp) {
+            const at = Date.parse(sh.from)
+            const mark = Number.isFinite(at) && barStyle(at, at + SLOT_MS)
+            return mark ? (
+              <button key={sh.id} type="button" className={cx(s.bar, s.brokenBar)} style={{ left: mark.left }}
+                onClick={onOpen} title={Z.brokenShift} aria-label={Z.brokenShift}>
+                <Icon id="warn" />
+              </button>
+            ) : null
+          }
+          const st = barStyle(sp.from, sp.to)
           if (!st) return null
+          const clip = clipOf(sp.from, sp.to)
           const bad = conflicts.has(sh.id)
           const next = sh.confirmed ? Z.available : Z.confirmed
           return (
-            <span key={sh.id} className={cx(s.bar, s.plannedBar, sh.confirmed && s.confirmedBar, bad && s.conflict, g.preview?.id === sh.id && s.dragging)}
+            <span key={sh.id} className={cx(s.bar, s.plannedBar, sh.confirmed && s.confirmedBar, bad && s.conflict,
+              clip.from && s.clipFrom, clip.to && s.clipTo, g.preview?.id === sh.id && s.dragging)}
               style={st} {...(canEdit ? g.barProps(sh, 'move') : {})}
               title={bad ? Z.conflict
                 : `${sh.confirmed ? Z.confirmed : Z.available}: ${clock(sh.from)}–${clock(sh.to)} · ${fillTemplate(Z.toggleHint, { state: next })}`}>
+              {/* a conflict was an outline and a hover title — neither survives a touch screen, and
+                  the outline alone is colour-only. The sign says it without being asked. */}
+              {bad && <Icon id="warn" />}
               {canEdit && (
                 <>
                   <em className={cx(s.handle, s.handleFrom)} title={Z.dragFrom} {...g.barProps(sh, 'from')} />

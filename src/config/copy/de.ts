@@ -2185,7 +2185,10 @@ export const de = {
     // wie das Löschen. Der Umschalter geplant⇄fix nicht: der ist mit einem zweiten Tipp zurück.
     added: 'Schicht für {name} geplant',
     moved: 'Schicht von {name} verschoben',
-    conflict: 'Überschneidet sich mit einer anderen Schicht',
+    conflict: 'Doppelt eingeteilt – zwei Schichten zur selben Zeit',
+    // Eine Schicht, deren «bis» vor ihrem «von» liegt, wird gar nicht gezeichnet. Diese Marke
+    // steht an ihrer Stelle, damit die Zeile nicht schweigt.
+    brokenShift: 'Diese Schicht endet vor ihrem Anfang – zum Korrigieren antippen',
     now: 'jetzt',
     coveragePeak: ' · max {n}',
     coverage: 'Deckung',

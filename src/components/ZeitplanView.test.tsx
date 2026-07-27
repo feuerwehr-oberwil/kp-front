@@ -230,7 +230,20 @@ describe('ZeitplanView', () => {
       { id: 'sh2', personId: 'p1', from: T(18), to: T(22), confirmed: true },
     ]
     render(<ZeitplanView {...base} attendance={{}} shifts={shifts} />)
-    expect(screen.getAllByTitle(Z.conflict).length).toBe(2) // both bars flagged, neither refused
+    // both bars flagged, neither refused — plus the sign in the sticky name cell, so the person
+    // is identifiable while the clash itself is scrolled off the axis
+    expect(screen.getAllByTitle(Z.conflict).length).toBe(3)
+  })
+
+  // A reversed shift has no span, so barGeometry drew nothing at all: invisible on the grid, zero
+  // minutes on the Rapport, findable only by opening the person's sheet on a hunch.
+  it('marks a shift whose end is before its start instead of drawing nothing', () => {
+    const shifts: Shift[] = [{ id: 'sh1', personId: 'p1', from: T(19), to: T(14) }]
+    render(<ZeitplanView {...base} attendance={{}} shifts={shifts} />)
+    const mark = screen.getByTitle(Z.brokenShift)
+    expect(mark).toBeTruthy()
+    fireEvent.click(mark)
+    expect(screen.getByText(fillTemplate(Z.editTitle, { name: 'Meier Anna' }))).toBeTruthy()
   })
 
   // The normal shape of the form: a window is offered, part of it is assigned. Flagging that as a
