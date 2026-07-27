@@ -831,8 +831,11 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .vrail-nav { flex: none; display: flex; flex-direction: column; gap: 4px; }
 /* footer buttons ARE tool buttons: same ink, height, glyph column and expanded label —
    no brighter/heavier treatment, no different alignment */
+/* font: inherit, exactly as on the left rail's .nav-item and on .vrail-exp below — a <button> does
+   not inherit the page font, so once the rail is expanded «Ebenen» and «Ansichten» came out in the
+   browser's own face while «Einklappen» directly beneath them, and the whole left rail, did not. */
 .vrail-nbtn { display: flex; flex-direction: row-reverse; align-items: center; gap: 10px; height: 46px; flex: none; border: none; background: transparent;
-  border-radius: var(--r-ctl); color: var(--ink); cursor: pointer; transition: background .14s var(--ease), color .14s var(--ease); }
+  border-radius: var(--r-ctl); color: var(--ink); cursor: pointer; font: inherit; transition: background .14s var(--ease), color .14s var(--ease); }
 .vrail:not(.expanded) .vrail-nbtn, .vrail.dragging .vrail-nbtn { justify-content: center; }
 .vrail-nbtn:not(.on):hover:not(:disabled) { background: var(--hover); color: var(--ink); }
 .vrail-nbtn.on { background: var(--ink-fill); color: var(--on-accent-ink); }
@@ -856,7 +859,7 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 /* tool buttons mirror the left rail's nav-item: a fixed right-edge glyph column + a
    label that shows only in the committed expanded state (never mid-drag, so it can't clip) */
 .vrail-tool { display: flex; flex-direction: row-reverse; align-items: center; gap: 10px; height: 46px; flex: none;
-  border: none; background: transparent; border-radius: var(--r-ctl); color: var(--ink); cursor: pointer; padding: 0; width: 100%;
+  border: none; background: transparent; border-radius: var(--r-ctl); color: var(--ink); cursor: pointer; font: inherit; padding: 0; width: 100%;
   transition: background .14s var(--ease), color .14s var(--ease); }
 .vrail:not(.expanded) .vrail-tool, .vrail.dragging .vrail-tool { justify-content: center; }
 .vrail-glyph { width: 46px; min-width: 46px; height: 46px; display: grid; place-items: center; }
@@ -1136,8 +1139,16 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 /* wrap: a row is a label plus its control, and several controls (the Abschluss glyph trio, the
    Inhalt letters, a ± stepper) are wider than half a narrow panel. Without wrapping they ran into
    their own label. The control drops onto its own line instead. */
+/* ONE row height for the whole column. Every row carried the same 7px padding, but the controls
+   inside them did not agree on a height — a swatch strip is 30px, a preset pair 34px, the Abschluss
+   glyphs 40px, a ± stepper 44px, and a row that is only a label and a value is 17px. That put
+   fourteen rows at heights from 31px to 58px in a single narrow column, so the labels down the left
+   edge landed on no rhythm at all. min-height sets the rhythm and the padding drops to 2px so the
+   tallest control (the 44px stepper) still fits inside it: nothing shrank, nothing lost its tap
+   target, and every label now sits 48px below the one above it. Rows that WRAP (a control wider
+   than half the panel drops under its own label) grow past it — min-height, not height. */
 .draw-editor .de-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
-  gap: 4px 10px; padding: 7px 0; font-size: 13px; color: var(--ink-dim); font-weight: 500; }
+  gap: 4px 10px; min-height: 48px; padding: 2px 0; font-size: 13px; color: var(--ink-dim); font-weight: 500; }
 .draw-editor .de-row > span:first-child { flex: 0 1 auto; min-width: 0; }
 /* a clean, always-present thin scrollbar so the panel reads as scrollable */
 .draw-editor .ctx-body { scrollbar-width: thin; scrollbar-color: var(--border) transparent; scroll-padding-bottom: 8px; }
@@ -1695,6 +1706,25 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 /* An ÜBERFÄLLIGER Trupp outranks the weather readout for the width. The chip only exists while
    somebody is overdue, so this trade only happens exactly when it should. */
 .topbar:has(.tb-az) .tb-weather-wrap { display: none; }
+/* …and below 1100px it outranks the incident TITLE as well, for the same reason and by the same
+   mechanism the phone layout already uses (glyph in, words out — the full title stays one tap away
+   in the dropdown). Without this the bar ran out of road: the chip is allowed to shrink, but not
+   past a readable name and never into the countdown, so once those two floors were reached it had
+   nowhere left to go and painted straight out through the pill's right edge. Worst at 861–1000px,
+   where `.mode-map .topbar` also hands 250px back to the zoom/locate cluster — 900px wide put 78px
+   of «Peter Schmid 615:41» outside the bar, i.e. the one thing on screen that must be legible was
+   the one thing sitting on the map. The title is what a crowded bar can most afford to lose: you
+   know which incident you are standing in; you do not know how long the Trupp has been inside. */
+@media (max-width: 1100px) {
+  .topbar:has(.tb-az) .ip-switch-title { display: none; }
+  .topbar:has(.tb-az) .ip-switch-glyph { display: grid; }
+  /* «Verlauf» loses its word too, the same trade the bar already makes for everyone below 860px.
+     Not «Eintrag»: that one stays labelled, because writing the journal entry is the thing an
+     officer does WHILE the alarm is running. :not(.tb-rem-count) so the reminder badge — a count,
+     not a label — survives; hiding it would drop a number the bar exists to show. */
+  .topbar:has(.tb-az) .tb-act:not(.tb-act-add) span:not(.tb-rem-count) { display: none; }
+  .topbar:has(.tb-az) .tb-act:not(.tb-act-add) { padding: 8px; }
+}
 .tb-az.warn { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); }
 .tb-az.warn:hover { background: color-mix(in srgb, var(--amber) 26%, transparent); }
 .tb-az.crit { background: color-mix(in srgb, var(--red) 15%, transparent); color: var(--red-strong); animation: tb-az-pulse 1.6s infinite; }
@@ -2100,10 +2130,19 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 }
 /* the Höhenprofil discloser keeps the rows' rhythm — same label colour and left edge — and gains
    a real hover/expanded state so it reads as something you can open */
+/* font-family: inherit, and it is not optional. This is a <button>, and a button does NOT inherit
+   the page font on its own — it falls back to the browser's own UI face. Every other line in this
+   panel is a <span> inside .de-row, so «Höhenprofil» was the one label in the Messung block set in
+   a different typeface than the rows above and below it. Everything else here (13px/500/--ink-dim)
+   already matched .de-row exactly, which is what made the odd one out so hard to place. */
+/* it IS a row — same 48px rhythm, same 2px padding, same flush-right edge as every control above
+   it. The old 8px of right padding pushed its chevron 8px inside the line the controls hold, and
+   the 2px margin-top nudged it off the rhythm by exactly enough to notice without being able to
+   say why. */
 .draw-editor .de-prof-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%;
-  min-height: var(--tap); padding: 7px 8px 7px 0; margin-top: 2px; border: 0; border-radius: var(--r-xs);
+  min-height: 48px; padding: 2px 0; border: 0; border-radius: var(--r-xs);
   background: transparent; color: var(--ink-dim); cursor: pointer;
-  font-size: 13px; font-weight: 500; -webkit-tap-highlight-color: transparent; }
+  font-family: inherit; font-size: 13px; font-weight: 500; -webkit-tap-highlight-color: transparent; }
 .draw-editor .de-prof-toggle:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 5%, transparent); }
 .draw-editor .de-prof-toggle.on { color: var(--ink); }
 .draw-editor .de-prof-toggle .i { width: 16px; height: 16px; transition: transform .18s var(--ease); }
@@ -2115,22 +2154,27 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
    FKS group, not a separate widget. Only the target value, the note line and the detach get styling. */
 .draw-editor .de-conn-title { padding: 4px 0 2px; font-size: 11px; font-weight: 700; letter-spacing: .08em;
   text-transform: uppercase; color: var(--ink-dim); }
+/* the same font-family: inherit as .de-prof-toggle above, for the same reason — these three are
+   buttons sitting among .de-row labels, and a button that does not ask for the page font gets the
+   browser's instead. */
 .draw-editor .de-conn-name { display: inline-flex; align-items: center; gap: 3px; max-width: 60%; padding: 0; border: 0;
-  background: none; color: var(--ink); font-size: 13px; font-weight: 600; }
+  background: none; color: var(--ink); font-family: inherit; font-size: 13px; font-weight: 600; }
 .draw-editor .de-conn-name > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .draw-editor .de-conn-name:disabled { color: var(--ink-dim); }
 .draw-editor .de-conn-go { flex: none; color: var(--ink-faint); font-size: 16px; line-height: 1; }
 .draw-editor .de-conn-note { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 0 6px; font-size: 12px; color: var(--ink-dim); }
 .draw-editor .de-conn-note.warn { color: var(--red); font-weight: 600; }
-.draw-editor .de-conn-reveal { color: var(--blue); font-size: 12px; font-weight: 600; text-decoration: underline; }
-.draw-editor .de-conn-detach { display: inline-flex; margin: 2px 0 4px; min-height: 28px; padding: 2px 4px;
-  border: 0; background: transparent; color: var(--red); font-size: 12.5px; font-weight: 600; }
+.draw-editor .de-conn-reveal { color: var(--blue); font-family: inherit; font-size: 12px; font-weight: 600; text-decoration: underline; }
+/* also a row: the 28px height and the 2px/4px margins made the last line of the panel sit tighter
+   than everything above it, and its text started 4px in from the left edge the labels hold. */
+.draw-editor .de-conn-detach { display: inline-flex; align-items: center; margin: 0; min-height: 48px; padding: 2px 0;
+  border: 0; background: transparent; color: var(--red); font-family: inherit; font-size: 12.5px; font-weight: 600; }
 .draw-editor .de-conn-detach:hover { text-decoration: underline; }
 /* Verbundene Linien — flat rows in the sidebar idiom (hairline separators, chevron affordance),
    not floating cards; the row label uses the friendly line name, not the raw id. */
 .ctx-connections button { width: 100%; min-height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 8px;
   padding: 8px 0; border: 0; border-top: 1px solid var(--border-soft); background: none; color: var(--ink);
-  font-size: 13px; font-weight: 500; text-align: left; }
+  font-family: inherit; font-size: 13px; font-weight: 500; text-align: left; }
 .ctx-connections button:first-of-type { border-top: 0; }
 .ctx-connections button > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ctx-conn-go { flex: none; color: var(--ink-faint); font-size: 16px; line-height: 1; }
@@ -3370,9 +3414,17 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
   .ip-switch-title { display: none; }
   .ip-switch-glyph { display: grid; }
   .tb-act-add { display: none; }                    /* Eintrag handled by the FAB on phones */
-  .tb-act:not(.tb-act-add) span { display: none; }  /* Verlauf goes icon-only */
+  /* Verlauf goes icon-only. :not(.tb-rem-count) — the bare `span` selector also caught the
+     reminder-count badge, so the number of due reminders vanished on exactly the device most
+     likely to be carrying them. */
+  .tb-act:not(.tb-act-add) span:not(.tb-rem-count) { display: none; }
   /* icon-only bar actions need a gloved 44px hit area without inflating the glyph */
   .tb-act:not(.tb-act-add) { padding: 8px; min-width: var(--tap); min-height: var(--tap); justify-content: center; }
+  /* the Atemschutz chip is the last thing in the bar, so its own trailing margin is what tips it
+     over the edge on a 390px phone — and the name floor that keeps it readable on a tablet is
+     wider than a phone can spare. Both give here; the countdown still never truncates. */
+  .tb-az { margin-right: 0; }
+  .tb-az-name { min-width: 3.5rem; }
   /* tighten the right cluster (wind · locate/fit · Verlauf) so it reads as one group —
      the vertical separators are dropped entirely: on a bar this narrow they read as
      clutter, and the grouping is clear from the icons alone */
@@ -3386,12 +3438,20 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
   /* the weather pop anchors near the top bar; reserve the two bottom bars so a tall readout
      scrolls internally instead of spilling over them (matches the compass/views menu) */
   .tb-weather-pop { max-height: calc(100dvh - 90px - var(--rail-h) * 2 - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
-  /* Atemschutz überfällig-chip: on a phone the bar is too narrow for the name OR the clock — even
-     with just the clock it still overflowed the header. Show ONLY the pulsing red gauge (crit
-     already blinks); a compact icon-only chip that can't overflow. The exact overdue time lives on
-     the AS board, one tap away. (The mapNav center button is also dropped on the phone map — App.tsx.) */
-  .tb-az-name, .tb-az-clock { display: none; }
-  .tb-az { gap: 0; padding: 7px; }
+  /* Atemschutz überfällig-chip on a phone. The name goes — «wie lange schon» is the number you act
+     on, and the Trupp is one tap away on the AS board. The CLOCK stays.
+     It used to go too, because the chip still overflowed the bar with only the clock in it. That
+     diagnosis was off by one step: the chip was not too wide, it was the only thing in the row
+     ALLOWED to get narrower. Undo, redo and Verlauf each hold a hard 44px gloved tap target, so
+     the flex algorithm took every missing pixel out of the one item with room to give — squashing
+     the chip to 14px and pushing its own 15px gauge out through the pill's right edge. Icon-only
+     did not fix that; it just made the thing that overflowed smaller.
+     So undo/redo step aside instead, and buy back 88px. That is the honest trade at 3am on a
+     390px screen: an overdue Trupp outranks two edit-history buttons, and the Verlauf beside them
+     still holds the history anyway. */
+  .tb-az-name { display: none; }
+  .tb-az { gap: 5px; padding: 6px 9px; }
+  .topbar:has(.tb-az) :is(.tb-act-history, .tb-vr-history) { display: none; }
 
   /* ── NavRail → bottom bar on a phone ── the SAME surface items, re-laid-out as a
      horizontally-scrollable row in the thumb zone (Karte · M1 M2 … · Checkliste ·
