@@ -71,7 +71,7 @@ function PersonSheet({ person, shifts, blocks, canEdit, startedAt, conflicts, on
         key: sh.id,
         from: clock(sh.from),
         to: clock(sh.to),
-        warn: conflicts.has(sh.id),
+        warn: conflicts.has(sh.id) || Date.parse(sh.to) <= Date.parse(sh.from),
         // mirror of onTo: a von typed after the bis means the shift STARTED the previous day,
         // not that it runs backwards — a reversed shift renders as nothing at all
         onFrom: canEdit ? (v) => { const iso = applyTimeToIso(sh.from, v, { prevDayIfAfter: sh.to }); if (iso) onSetTime(sh.id, { from: iso }) } : undefined,
@@ -80,7 +80,10 @@ function PersonSheet({ person, shifts, blocks, canEdit, startedAt, conflicts, on
         onRemove: canEdit ? () => onRemove(sh.id, person.displayName) : undefined,
         // on a multi-day Einsatz the clock alone does not say which day this shift belongs to
         dayLabel: startedAt && isOtherDay(new Date(sh.from), new Date(startedAt)) ? fmtDayShort(new Date(sh.from)) : undefined,
-        onFromStart: canEdit && startedAt && sh.from !== startedAt
+        toDayLabel: isOtherDay(new Date(sh.to), new Date(sh.from)) ? fmtDayShort(new Date(sh.to)) : undefined,
+        // see the Anwesenheit twin: first shift only, and never when it would invert the block
+        onFromStart: canEdit && startedAt && shifts[0]?.id === sh.id && sh.from !== startedAt
+          && Date.parse(startedAt) < Date.parse(sh.to)
           ? () => onSetTime(sh.id, { from: startedAt }) : undefined,
         trailing: (
           <button type="button" className={cx(s.sheetState, sh.confirmed && s.sheetStateOn)}
@@ -94,7 +97,11 @@ function PersonSheet({ person, shifts, blocks, canEdit, startedAt, conflicts, on
       extra={
         <TimeBlockReadOnly
           title={Z.actualSection}
-          blocks={blocks.map((iv) => ({ from: clock(iv.from), to: iv.to ? clock(iv.to) : undefined }))}
+          blocks={blocks.map((iv) => ({
+            from: clock(iv.from), to: iv.to ? clock(iv.to) : undefined,
+            // the editable list above carries dates; this one sat beside it undated
+            dayLabel: startedAt && isOtherDay(new Date(iv.from), new Date(startedAt)) ? fmtDayShort(new Date(iv.from)) : undefined,
+          }))}
           emptyLabel={Z.actualNone}
           note={Z.actualHint}
           openLabel={A.stillHere}
@@ -158,11 +165,6 @@ function PersonRow({ person, shifts, blocks, span, nowMs, canEdit, conflicts, no
         title={fillTemplate(Z.openFor, { name: person.displayName })}>
         {person.rank && <span className={s.rank} title={rankLabel(person.rank)}>{rankAbbr(person.rank)}</span>}
         <span className={s.name}>{person.displayName}</span>
-        {shifts.length > 0 && (
-          <span className={cx(s.count, shifts.some((x) => conflicts.has(x.id)) && s.countConflict)}>
-            {shifts.length}
-          </span>
-        )}
         {/* press-and-hold on the lane opens the same sheet, but a gesture nobody was told about is
             not a way in — this is the one you can see */}
         {canEdit && <span className={s.editBtn} aria-hidden><Icon id="pen" /></span>}
@@ -267,13 +269,19 @@ export function ZeitplanView({
   const hours = useMemo(() => {
     const step = Math.max(1, Math.ceil(LABEL_PX / PX_PER_HOUR))
     const out: { at: number; label: string; midnight: boolean }[] = []
-    const first = Math.ceil(span.from / HOUR) * HOUR
-    for (let at = first; at < span.to; at += HOUR) {
-      const d = new Date(at)
+    // step through LOCAL hours, not by adding an hour of milliseconds: the old UTC snapping put
+    // every tick on :30 in a half-hour-offset timezone, where `getHours() === 0` is then never
+    // true and the date labels vanished without a trace. Walking local hours is also the
+    // DST-correct way to advance.
+    const d = new Date(span.from)
+    d.setMinutes(0, 0, 0)
+    if (d.getTime() < span.from) d.setHours(d.getHours() + 1)
+    while (d.getTime() < span.to) {
       const midnight = d.getHours() === 0
       if (midnight || d.getHours() % step === 0) {
-        out.push({ at, label: midnight ? fmtDayShort(d) : hhmm(d), midnight })
+        out.push({ at: d.getTime(), label: midnight ? fmtDayShort(d) : hhmm(d), midnight })
       }
+      d.setHours(d.getHours() + 1)
     }
     return out
   }, [span])
@@ -287,7 +295,7 @@ export function ZeitplanView({
   const nowLine = nowInside ? <span className={s.nowLine} style={{ left: pct(nowMs) }} aria-hidden /> : null
   // a dashed rule at every midnight: over several days a bar otherwise floats with nothing saying
   // which day it belongs to, and «Tag 2, 03:00» is a different decision from «heute, 03:00»
-  const dayLines = hours.filter((h) => h.midnight).map((h) => (
+  const dayLines = hours.filter((h) => h.midnight && h.at > span.from).map((h) => (
     <span key={`d${h.at}`} className={s.dayLine} style={{ left: pct(h.at) }} aria-hidden />
   ))
 
@@ -303,7 +311,9 @@ export function ZeitplanView({
             <div className={cx(s.who, s.whoHead)} aria-hidden />
             <div className={s.track}>
               {hours.map((h) => (
-              <span key={h.at} className={cx(s.tick, h.midnight && s.tickDay)} style={{ left: pct(h.at) }}>{h.label}</span>
+              <span key={h.at} style={{ left: pct(h.at) }}
+                className={cx(s.tick, h.midnight && s.tickDay,
+                  h.at <= span.from && s.tickStart, h.at >= span.to - HOUR && s.tickEnd)}>{h.label}</span>
             ))}
               {nowInside && <span className={cx(s.nowLine, s.nowLineHead)} style={{ left: pct(nowMs) }}><em>{Z.now}</em></span>}
             </div>

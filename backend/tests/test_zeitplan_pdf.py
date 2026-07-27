@@ -157,3 +157,26 @@ async def test_zeitplan_print_fails_closed_without_a_station_printer(client, edi
     inc = await _create_incident(client)
     r = await client.post(f"/api/incidents/{inc}/zeitplan/print", data={"payload": json.dumps(_payload())})
     assert r.status_code == 403
+
+
+def test_sheet_prints_the_station_clock_not_utc():
+    """The client sends UTC (`toISOString()`); the sheet must print Europe/Zurich.
+
+    Rendering the aware datetime straight put the whole Führungsformular two hours out in summer
+    — on the paper you hang at the front, where nobody can tell it is wrong.
+    """
+    from app.zeitplan_pdf import ZeitplanPayload
+
+    p = ZeitplanPayload.model_validate(
+        {
+            "incidentTitle": "X",
+            "startedAt": "2026-07-27T04:00:00.000Z",  # 06:00 CEST
+            "rows": [{"name": "A", "blocks": [{"from": "2026-07-27T04:00:00.000Z", "to": "2026-07-27T12:00:00.000Z"}]}],
+        }
+    )
+    assert p.startedAt.strftime("%H:%M") == "06:00"
+    assert p.rows[0].blocks[0].start.strftime("%H:%M") == "06:00"
+    assert p.rows[0].blocks[0].end.strftime("%H:%M") == "14:00"
+    # and in winter, one hour
+    w = ZeitplanPayload.model_validate({"incidentTitle": "X", "startedAt": "2026-01-15T04:00:00.000Z"})
+    assert w.startedAt.strftime("%H:%M") == "05:00"

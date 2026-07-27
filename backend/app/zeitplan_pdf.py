@@ -17,15 +17,29 @@ where the pen goes.
 from __future__ import annotations
 
 import io
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.units import mm
 from reportlab.platypus import BaseDocTemplate, Flowable, Frame, PageBreak, PageTemplate, Paragraph, Spacer
 
 from .report_pdf import _esc, _NumberedCanvas, _styles
+
+#: The station's wall clock. The client sends UTC ISO stamps (`toISOString()`), so every label
+#: on this sheet has to be converted before it is printed — rendering the aware datetime directly
+#: put the whole Führungsformular two hours out in summer, one in winter.
+TZ = ZoneInfo("Europe/Zurich")
+
+
+def _local(dt: datetime | None) -> datetime | None:
+    """Into the station's wall clock. Naive input is assumed to be local already."""
+    if dt is None:
+        return None
+    return dt.astimezone(TZ) if dt.tzinfo else dt
+
 
 SLOT_MIN = 30
 #: rows per sheet — as many lanes as fit under the heading at a height you can still write in
@@ -48,6 +62,11 @@ class ZeitplanBlock(BaseModel):
 
     model_config = {"populate_by_name": True}
 
+    @field_validator("start", "end")
+    @classmethod
+    def _to_local(cls, v: datetime | None) -> datetime | None:
+        return _local(v)
+
 
 class ZeitplanRow(BaseModel):
     name: str
@@ -62,13 +81,18 @@ class ZeitplanPayload(BaseModel):
     printedAt: datetime | None = None
     rows: list[ZeitplanRow] = []
 
+    @field_validator("startedAt", "printedAt")
+    @classmethod
+    def _to_local(cls, v: datetime | None) -> datetime | None:
+        return _local(v)
+
 
 def _window(payload: ZeitplanPayload) -> tuple[datetime, datetime]:
     """The stretch of time the axis covers: from the incident start (floored to the hour) up to
     the last block, at least ``DEFAULT_WINDOW_H`` wide so a fresh plan is not a sliver."""
     stamps = [b.start for r in payload.rows for b in r.blocks]
     stamps += [b.end for r in payload.rows for b in r.blocks if b.end]
-    anchor = payload.startedAt or payload.printedAt or (min(stamps) if stamps else datetime.now(UTC))
+    anchor = payload.startedAt or payload.printedAt or (min(stamps) if stamps else datetime.now(TZ))
     start = anchor.replace(minute=0, second=0, microsecond=0)
     end = start + timedelta(hours=DEFAULT_WINDOW_H)
     for s in stamps:
@@ -119,11 +143,23 @@ class _Grid(Flowable):
             c.setLineWidth(0.7 if on_hour else 0.3)
             c.line(x, 0, x, top - self.HEAD_H)
             if on_hour:
+                # midnight carries the DATE, like the screen — on a multi-day sheet the hour alone
+                # never said which night, and a dashed rule marks the day boundary
+                midnight = t.hour == 0
+                if midnight and t > self.start:
+                    c.setStrokeColor(_RULE)
+                    c.setLineWidth(0.7)
+                    c.setDash(2, 2)
+                    c.line(x, 0, x, top - self.HEAD_H)
+                    c.setDash()
                 c.setFillColor(_DIM)
+                c.setFont("Helvetica-Bold" if midnight else "Helvetica", 6.5)
+                label = t.strftime("%a %d.%m.") if midnight else t.strftime("%H:%M")
                 # nudge the outermost labels inside the frame — centred on the very first/last
                 # rule they are sliced in half by the grid border
-                lx = min(max(x, grid_left + 5 * mm), grid_right - 5 * mm)
-                c.drawCentredString(lx, top - self.HEAD_H + 2 * mm, t.strftime("%H:%M"))
+                lx = min(max(x, grid_left + 9 * mm), grid_right - 9 * mm)
+                c.drawCentredString(lx, top - self.HEAD_H + 2 * mm, label)
+                c.setFont("Helvetica", 6.5)
             t += timedelta(minutes=SLOT_MIN)
 
         # ---- one lane per person
@@ -189,7 +225,7 @@ def compose_zeitplan_pdf(payload: ZeitplanPayload) -> bytes:
     inner_w = lw - 2 * margin
 
     start, end = _window(payload)
-    printed = payload.printedAt or datetime.now(UTC)
+    printed = payload.printedAt or datetime.now(TZ)
     subtitle = " · ".join(
         x
         for x in (

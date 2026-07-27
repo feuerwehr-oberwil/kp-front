@@ -49,11 +49,18 @@ export function applyTimeToIso(baseIso: string, hhmm: string, opts?: { nextDayIf
     const floor = new Date(opts.nextDayIfBefore)
     if (Number.isFinite(floor.getTime()) && d.getTime() < floor.getTime()) d.setDate(d.getDate() + 1)
   }
-  // the mirror: a START typed after its own end belongs to the previous day (a night shift), not
-  // backwards in time — a reversed block renders as nothing and counts as zero minutes
+  // The mirror of nextDayIfBefore: a START typed after its own end belongs to the previous day (a
+  // night shift), not backwards in time — a reversed block renders as nothing and counts as zero
+  // minutes. Pick whichever neighbouring day puts the start CLOSEST below the end: stepping back
+  // unconditionally turned a correction inside an already-overnight block into a 25-hour one,
+  // which is worse than the reversed block this guard exists to prevent, because it looks normal
+  // and reaches the Rapport as 25 hours.
   if (opts?.prevDayIfAfter) {
-    const ceil = new Date(opts.prevDayIfAfter)
-    if (Number.isFinite(ceil.getTime()) && d.getTime() > ceil.getTime()) d.setDate(d.getDate() - 1)
+    const ceil = new Date(opts.prevDayIfAfter).getTime()
+    if (Number.isFinite(ceil)) {
+      if (d.getTime() > ceil) d.setDate(d.getDate() - 1)
+      else if (ceil - d.getTime() > 24 * 60 * 60 * 1000) d.setDate(d.getDate() + 1)
+    }
   }
   return d.toISOString()
 }

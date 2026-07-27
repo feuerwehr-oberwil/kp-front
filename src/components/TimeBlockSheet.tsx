@@ -5,8 +5,6 @@ import { Sheet } from '../lib/overlays'
 import { TimeField } from './TimeField'
 import s from './TimeBlockSheet.module.css'
 
-/** bis strictly before von — the block would silently disappear everywhere else. */
-const reversed = (b: { from: string; to?: string }) => !!b.to && b.to < b.from
 
 /** One von–bis row. `to` absent = still running, drawn as a state chip instead of a second field. */
 export interface TimeBlock {
@@ -15,12 +13,17 @@ export interface TimeBlock {
   to?: string
   /** shown in place of the «bis» field while the block is open (e.g. «noch da») */
   openLabel?: string
-  /** flagged as a problem — e.g. a shift overlapping another. A REVERSED block (bis before von)
-   *  is flagged automatically, whatever the caller says. */
+  /** flagged as a problem — a shift overlapping another, or a block whose end is not after its
+   *  start. The caller decides, because only it holds the INSTANTS: `from`/`to` here are HH:MM
+   *  labels, and comparing those called every 22:00→06:00 night shift reversed while missing a
+   *  genuinely inverted cross-day block. */
   warn?: boolean
   /** date shown above the row when the block is not on the incident's opening day — on a
    *  multi-day Einsatz «07:29» alone never said which day it belonged to */
   dayLabel?: string
+  /** date beside «bis» when the end falls on a different day than the start — a 22:00→06:00
+   *  block otherwise reads as eight hours backwards */
+  toDayLabel?: string
   /** «ab Einsatzbeginn»: set this block's start to the incident start in one tap */
   onFromStart?: () => void
   /** right-hand control: the planned/fix toggle in the Zeitplan, nothing in the Anwesenheit */
@@ -68,7 +71,7 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
           // A reversed block renders as NOTHING on the grid (shiftSpan/barGeometry both bail) and
           // counts as zero minutes on the Rapport — it must never look normal here, which is the
           // only place it is visible at all.
-          <div key={b.key} className={cx(s.row, (b.warn || reversed(b)) && s.rowWarn)}>
+          <div key={b.key} className={cx(s.row, b.warn && s.rowWarn)}>
             {b.dayLabel && <span className={s.day}>{b.dayLabel}</span>}
             <span className={s.field}>
               <span className={s.label}>{labels.from}</span>
@@ -78,8 +81,11 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
             <span className={s.field}>
               <span className={s.label}>{labels.to}</span>
               {b.to != null ? (
-                <TimeField className={s.time} ariaLabel={`${labels.to} – ${subject}`} value={b.to}
-                  disabled={!b.onTo} onCommit={(v) => { if (v) b.onTo?.(v) }} />
+                <span className={s.toWrap}>
+                  <TimeField className={s.time} ariaLabel={`${labels.to} – ${subject}`} value={b.to}
+                    disabled={!b.onTo} onCommit={(v) => { if (v) b.onTo?.(v) }} />
+                  {b.toDayLabel && <em className={s.nextDay}>{b.toDayLabel}</em>}
+                </span>
               ) : (
                 <em className={s.open}>{b.openLabel}</em>
               )}
@@ -112,7 +118,7 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
 /** The read-only «this is what actually happened» section — same frame, no controls. */
 export function TimeBlockReadOnly({ title, blocks, emptyLabel, note, openLabel }: {
   title: string
-  blocks: { from: string; to?: string }[]
+  blocks: { from: string; to?: string; dayLabel?: string }[]
   emptyLabel: string
   note: string
   openLabel: string
@@ -126,6 +132,7 @@ export function TimeBlockReadOnly({ title, blocks, emptyLabel, note, openLabel }
         <ul className={s.readOnly}>
           {blocks.map((b, i) => (
             <li key={i}>
+              {b.dayLabel && <em className={s.day}>{b.dayLabel}</em>}
               <b>{b.from} – {b.to ?? ''}</b>
               {b.to == null && <em className={s.open}>{openLabel}</em>}
             </li>

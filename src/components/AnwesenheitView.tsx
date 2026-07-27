@@ -3,7 +3,7 @@ import { Icon } from '../lib/icons'
 import type { AttendanceState, Person, PresenceInterval, Shift } from '../types'
 import { cx } from '../lib/cx'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate } from '../lib/format'
+import { fillTemplate, hhmm } from '../lib/format'
 import { applyTimeToIso } from '../lib/abschluss'
 import { rankAbbr, rankLabel, rankOrder } from '../lib/rank'
 import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
@@ -40,13 +40,16 @@ function toHM(iso: string): string {
  * a return is opened. Built on the SAME sheet the Zeitplan's Schichten use, so the two stay
  * identical rather than drifting apart.
  */
-function PresenceSheet({ person, blocks, canEdit, startedAt, onSetTimes, onBack, onClose }: {
+function PresenceSheet({ person, blocks, canEdit, startedAt, onSetTimes, onRemoveBlock, onBack, onClose }: {
   person: Person
   blocks: PresenceInterval[]
   canEdit: boolean
   /** incident alarm time — drives the day labels and the «ab Beginn» shortcut */
   startedAt?: string | null
   onSetTimes?: (personId: string, patch: { from?: string; to?: string }, index?: number) => void
+  /** drop one recorded block — the sheet was the only place it was visible and the only place it
+   *  could not be removed, so a mis-tapped «Weiterer Block» was permanent */
+  onRemoveBlock?: (personId: string, index: number) => void
   onBack: () => void
   onClose: () => void
 }) {
@@ -75,8 +78,15 @@ function PresenceSheet({ person, blocks, canEdit, startedAt, onSetTimes, onBack,
         onFrom: canEdit && onSetTimes ? (v) => { const iso = applyTimeToIso(iv.from, v, { prevDayIfAfter: iv.to }); if (iso) onSetTimes(person.id, { from: iso }, i) } : undefined,
         // on a multi-day Einsatz the clock alone does not say which day this block belongs to
         dayLabel: startedAt && isOtherDay(new Date(iv.from), new Date(startedAt)) ? fmtDayShort(new Date(iv.from)) : undefined,
-        onFromStart: canEdit && onSetTimes && startedAt && iv.from !== startedAt
+        toDayLabel: iv.to && isOtherDay(new Date(iv.to), new Date(iv.from)) ? fmtDayShort(new Date(iv.to)) : undefined,
+        warn: !!iv.to && Date.parse(iv.to) <= Date.parse(iv.from),
+        // FIRST block only, and never when it would swallow this block's own end: pulling a
+        // LATER block back to the alarm time made it span every earlier block, and totalMinutes
+        // simply sums — a 2 h return became 38 h on the Rapport, counting block 1 twice.
+        onFromStart: canEdit && onSetTimes && startedAt && i === 0 && iv.from !== startedAt
+          && (!iv.to || Date.parse(startedAt) < Date.parse(iv.to))
           ? () => onSetTimes(person.id, { from: startedAt }, i) : undefined,
+        onRemove: canEdit && onRemoveBlock ? () => onRemoveBlock(person.id, i) : undefined,
         onTo: canEdit && onSetTimes && iv.to ? (v) => { const iso = applyTimeToIso(iv.to!, v, { nextDayIfBefore: iv.from }); if (iso) onSetTimes(person.id, { to: iso }, i) } : undefined,
       }))}
     />
@@ -91,7 +101,7 @@ function PresenceSheet({ person, blocks, canEdit, startedAt, onSetTimes, onBack,
 // under your finger while you tap.
 export function AnwesenheitView({
   people, attendance, canEdit, loading, error, blockedIds,
-  onMarkPresent, onMarkLeft, onClear, onJumpToTrupp, onReload, onSetTimes, captureUsage,
+  onMarkPresent, onMarkLeft, onClear, onJumpToTrupp, onReload, onSetTimes, onRemoveBlock, captureUsage,
   shifts, startedAt, onAddShift, onAddShiftSpan, onReplaceShift, onSetShiftTime, onRemoveShift,
   onPrintZeitplan, onDownloadZeitplan, zeitplanPrintOnline,
 }: {
@@ -111,6 +121,8 @@ export function AnwesenheitView({
    *  after the person already left) — same handler as the Rapport Stunden editor. Patches the
    *  CURRENT presence block; `index` targets an earlier one. */
   onSetTimes?: (personId: string, patch: { from?: string; to?: string }, index?: number) => void
+  /** drop one recorded presence block (never the last one — that is what «frei» is for) */
+  onRemoveBlock?: (personId: string, index: number) => void
   /** QR self-reporting in use — «QR: N Einträge · zuletzt HH:MM» chip (informational) */
   captureUsage?: CaptureUsage | null
   /** Schichtenplanung — the second view of this same Mannschaft (see ZeitplanView) */
@@ -196,6 +208,14 @@ export function AnwesenheitView({
     }
   }
 
+  // where the axis reaches, in words — mirrors timelineSpan's own anchoring
+  const horizonEndLabel = useMemo(() => {
+    const startMs = startedAt ? Date.parse(startedAt) : nowMs
+    const from = Math.max(Number.isFinite(startMs) ? startMs : nowMs, nowMs - 2 * 3_600_000)
+    const end = new Date(from + horizonH * 3_600_000)
+    return `${isOtherDay(end, new Date(from)) ? `${fmtDayShort(end)} ` : ''}${hhmm(end)}`
+  }, [startedAt, nowMs, horizonH])
+
   const blocksPerson = people.find((p) => p.id === blocksFor)
   const empty = !people.length
   const planAvailable = !!shifts && !!onAddShift && !!onAddShiftSpan && !!onReplaceShift && !!onSetShiftTime && !!onRemoveShift
@@ -264,6 +284,10 @@ export function AnwesenheitView({
               <button type="button" className={s.zoomBtn} onClick={() => stepHorizon(-1)}
                 disabled={horizonH <= HORIZONS[0]} aria-label={appConfig.copy.zeitplan.zoomIn}><Icon id="minus" /></button>
               <b className={s.horizonValue}>{horizonH} h</b>
+              {/* At a constant px-per-hour the view is pixel-identical when you widen the window —
+                  only this number moved, and the scrollbar that would have hinted at more axis is
+                  ignored by iPadOS. Naming the end makes the control answer its own question. */}
+              <span className={s.horizonEnd}>{fillTemplate(appConfig.copy.zeitplan.horizonUntil, { t: horizonEndLabel })}</span>
               <button type="button" className={s.zoomBtn} onClick={() => stepHorizon(1)}
                 disabled={horizonH >= HORIZONS[HORIZONS.length - 1]} aria-label={appConfig.copy.zeitplan.zoomOut}><Icon id="plus" /></button>
             </div>
@@ -365,9 +389,10 @@ export function AnwesenheitView({
                     doing that (it is the only way back from a mis-tick). So coming back gets its
                     own control: it opens a NEW block instead of reopening the closed one. */}
                 {canEdit && blocks.length > 0 && (
-                  /* opens the person's blocks. Gated on `left` before, which locked out exactly
-                     the person this sheet was built for — somebody who came BACK is present, and
-                     their earlier blocks were then unreachable. */
+                  /* One clock, always the same glyph: it opens the person's blocks, where the
+                     times, the return and the delete all live. Gated on `left` before, which
+                     locked out exactly the person the sheet was built for — somebody who came
+                     BACK is present, and their earlier blocks were then unreachable. */
                   <button
                     type="button"
                     className={s.backBtn}
@@ -375,16 +400,7 @@ export function AnwesenheitView({
                     aria-label={fillTemplate(A.openBlocks, { name: p.displayName })}
                     onClick={() => setBlocksFor(p.id)}
                   >
-                    <Icon id={left ? 'plus' : 'clock'} />
-                  </button>
-                )}
-                {/* someone with more than one block: say so, else the single chip reads as the
-                    whole story when it is only the latest block */}
-                {blocks.length > 1 && (
-                  <button type="button" className={s.blocks} onClick={() => setBlocksFor(p.id)}
-                    title={fillTemplate(A.blockCount, { n: blocks.length })}
-                    aria-label={fillTemplate(A.openBlocks, { name: p.displayName })}>
-                    {blocks.length}×
+                    <Icon id="clock" />
                   </button>
                 )}
               </div>
@@ -400,6 +416,7 @@ export function AnwesenheitView({
           canEdit={canEdit}
           startedAt={startedAt}
           onSetTimes={onSetTimes}
+          onRemoveBlock={onRemoveBlock}
           /* stays open: the new block appears in the list you are looking at, so a mis-tap is
              seen and can be corrected on the spot */
           onBack={() => onMarkPresent(blocksPerson)}

@@ -53,9 +53,10 @@
 
 /* head + coverage label cells are chrome, not rows — no card frame */
 /* the head cell carries no «Wer» label any more — the names below say it. It stays as a spacer
-   so the hour ticks line up with the lanes they belong to. */
+   so the hour ticks line up with the lanes they belong to. Opaque, not transparent: while the
+   axis is scrolled the ticks and the coverage bars slid straight through it. */
 .whoHead, .whoFoot {
-  border: none; background: transparent; align-items: center; padding-bottom: 3px;
+  border: none; background: var(--app-bg); align-items: center; padding-bottom: 3px;
   font: 700 10.5px var(--mono); color: var(--ink-faint); letter-spacing: .08em; text-transform: uppercase;
 }
 .whoFoot { align-items: center; padding-bottom: 4px; }
@@ -65,9 +66,13 @@
 /* grow to fill when the chosen Zeitraum is narrower than the screen, never shrink below the
    width its hours deserve — that is what makes 6 h fill the row and 48 h scroll */
 .track { position: relative; flex: 1 0 var(--track-w); width: var(--track-w); }
-.headRow { position: sticky; top: 0; z-index: 4; background: var(--panel, var(--surface)); }
+.headRow { position: sticky; top: 0; z-index: 4; background: var(--app-bg); }
 .headRow .who { z-index: 5; }
 .headRow .track { height: 22px; border-bottom: 1px solid var(--border); }
+/* clamped at the edges: a label centred on the first or last rule hangs half outside the track —
+   and at a window opening exactly at midnight that is the one label carrying the DATE */
+.tickStart { transform: translateX(0); }
+.tickEnd { transform: translateX(-100%); }
 .tick {
   position: absolute; top: 2px; transform: translateX(-50%);
   font: 600 10.5px var(--mono); color: var(--ink-faint); white-space: nowrap;
@@ -80,9 +85,11 @@
   display: flex; align-items: center; min-height: var(--tap);
   border: 1px solid var(--glass-edge); border-left: none; border-radius: 0 var(--r-ctl) var(--r-ctl) 0;
   background: color-mix(in srgb, var(--ink) 4%, var(--surface));
-  /* the lane owns the horizontal gesture: without this the browser claims the drag for scrolling
-     and a bar never moves on a touch device */
-  touch-action: pan-y; -webkit-tap-highlight-color: transparent;
+  /* The BROWSER owns the horizontal drag here: the lane spans the entire scrollable track, so
+     claiming it meant a long axis could not be panned by finger at all — at 96 h roughly four
+     fifths of it was unreachable. Bars and handles still claim their own gesture (they are small
+     and deliberate); an empty-lane sweep starts only after the press-and-hold. */
+  touch-action: auto; -webkit-tap-highlight-color: transparent;
 }
 .laneEditable { cursor: crosshair; }
 .laneEditable:hover { background: color-mix(in srgb, var(--blue) 5%, var(--surface)); }
@@ -91,14 +98,14 @@
 /* bars sit ON the lane and are dragged directly, so they take nearly its full height — a gloved
    finger aiming at a 28px stripe inside a 44px row missed more often than it hit */
 .bar { position: absolute; top: 4px; bottom: 4px; border-radius: var(--r-xs); min-width: 10px; }
-.plannedBar { cursor: grab; touch-action: pan-y; }
+.plannedBar { cursor: grab; touch-action: none; }
 /* the stretch under the finger, before it becomes a shift */
 .drawing { border-style: dashed; opacity: .75; pointer-events: none; }
 .dragging { cursor: grabbing; opacity: .9; box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue) 45%, transparent); }
 /* end handles: a wide invisible grab zone over a thin visible grip, so a fat finger still gets
    the edge instead of moving the whole bar */
 .handle {
-  position: absolute; top: -4px; bottom: -4px; width: 18px; cursor: ew-resize; touch-action: pan-y;
+  position: absolute; top: -4px; bottom: -4px; width: 18px; cursor: ew-resize; touch-action: none;
   display: grid; place-items: center;
 }
 .handleFrom { left: -9px; }
@@ -175,13 +182,6 @@
 .chipPair :global(.timefield-input) { width: 62px; padding: 4px 4px; font-size: 13.5px; }
 .chipPair :global(.timefield-trigger) { min-width: 62px; padding: 4px 6px; font-size: 13.5px; }
 
-/* how many shifts this person carries — a quiet badge, since the bars already say when */
-.count {
-  flex: none; min-width: 19px; padding: 1px 5px; border-radius: 9px; text-align: center;
-  background: color-mix(in srgb, var(--blue) 22%, transparent);
-  font: 700 10.5px var(--mono); color: var(--ink);
-}
-.countConflict { background: color-mix(in srgb, var(--red) 28%, transparent); }
 
 /* only the sheet still has a delete button — the grid drops a shift by tapping its bar */
 .del {
@@ -216,16 +216,6 @@
   margin: 0 0 8px; font: 700 11px var(--mono); color: var(--ink-dim);
   letter-spacing: .08em; text-transform: uppercase;
 }
-/* one shift per framed row, each field SAID (von / bis) — two bare clocks side by side never
-   told you which was the start */
-.sheetRow {
-  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; padding: 8px 10px;
-  border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface);
-}
-.sheetRow + .sheetRow { margin-top: 6px; }
-.sheetRowBad { border-color: var(--red); background: color-mix(in srgb, var(--red) 8%, var(--surface)); }
-.sheetField { display: flex; flex-direction: column; gap: 3px; }
-.sheetLabel { font: 600 10.5px var(--mono); color: var(--ink-faint); letter-spacing: .06em; text-transform: uppercase; }
 /* the planning state, changed right here as well as by tapping the bar on the grid */
 .sheetState {
   align-self: center; margin-left: auto; min-height: var(--tap); padding: 3px 12px; border-radius: var(--r-xs);
@@ -235,15 +225,6 @@
 }
 .sheetState:hover { border-color: var(--blue); color: var(--ink); }
 .sheetStateOn { border-color: var(--blue); background: color-mix(in srgb, var(--blue) 18%, transparent); color: var(--ink); }
-/* «ab Beginn» — one tap instead of typing the alarm time from memory on day three. Bottom-aligned
-   so it sits on the same baseline as the time fields it belongs to, not floating between them. */
-.fromStart {
-  align-self: flex-end; flex: none; min-height: var(--tap); padding: 0 12px; border-radius: var(--r-sm);
-  border: 1px dashed color-mix(in srgb, var(--blue) 45%, transparent); background: none;
-  color: var(--blue); font: 600 12.5px var(--body); cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.fromStart:hover { background: color-mix(in srgb, var(--blue) 12%, transparent); }
 
 /* the pencil that opens this sheet from a row — a visible way in, not only press-and-hold */
 .editBtn {
@@ -253,16 +234,6 @@
 }
 .editBtn svg { width: 14px; height: 14px; }
 .editBtn:hover { color: var(--blue); background: color-mix(in srgb, var(--blue) 12%, transparent); }
-.sheetAdd { margin-top: 8px; gap: 6px; }
-.sheetNote { margin: 6px 0 0; font: 500 12px var(--body); color: var(--ink-faint); }
-.sheetActual { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
-.sheetActual li { display: flex; align-items: center; gap: 8px; }
-.sheetActual b { font: 700 13px var(--mono); color: var(--ink); }
-.sheetActual em {
-  font-style: normal; padding: 1px 6px; border-radius: var(--r-xs);
-  background: color-mix(in srgb, var(--green) 18%, transparent);
-  font: 700 10.5px var(--body); color: var(--green);
-}
 
 @media (max-width: 700px) {
   .zeitplan { padding: 2px 12px 12px; }

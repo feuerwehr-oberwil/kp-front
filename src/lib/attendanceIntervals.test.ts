@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  closePresence, currentIntervalIndex, intervalsOf, isPresent, openPresence, setIntervalTime, totalMinutes,
+  closePresence, currentIntervalIndex, intervalsOf, isPresent, openPresence, setIntervalTime, totalMinutes, withIntervals,
 } from './attendanceIntervals'
 import type { AttendanceEntry } from '../types'
 
@@ -141,5 +141,18 @@ describe('minutes actually served', () => {
 
   it('never counts a corrected-backwards block as negative time', () => {
     expect(totalMinutes([{ from: T(18), to: T(14) }], opts)).toBe(0)
+  })
+})
+
+describe('removing one recorded block (the sheet\'s delete)', () => {
+  it('re-derives the summary around whatever is left', () => {
+    const two = openPresence(closePresence(openPresence(undefined, T(14), 'M'), T(18)), T(22), 'M')
+    const first = withIntervals(two, intervalsOf(two).slice(1))   // drop block 1
+    expect(first.checkedInAt).toBe(T(22))
+    expect(first.status).toBe('present')
+    const second = withIntervals(two, intervalsOf(two).slice(0, 1)) // drop block 2
+    expect(second.checkedInAt).toBe(T(14))
+    expect(second.leftAt).toBe(T(18))
+    expect(second.status).toBe('left')
   })
 })
