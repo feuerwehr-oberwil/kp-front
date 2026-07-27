@@ -6,6 +6,7 @@
 
 import type { AttendanceState, Person, Shift } from '../types'
 import { shiftsFor } from './shifts'
+import { intervalsOf } from './attendanceIntervals'
 import { editorPrintTransport, enqueuePrint } from './printRelay'
 
 const BASE = import.meta.env.VITE_KP_RUECK_URL ?? ''
@@ -15,16 +16,25 @@ export interface ZeitplanPrintPayload {
   incidentAddress?: string
   startedAt?: string
   printedAt: string
-  rows: { name: string; rank?: string; blocks: { from: string; to?: string; confirmed: boolean }[] }[]
+  rows: {
+    name: string
+    rank?: string
+    blocks: { from: string; to?: string; confirmed: boolean }[]
+    /** recorded attendance — the thin rule under the plan on the sheet */
+    actual: { from: string; to?: string }[]
+  }[]
 }
 
 /**
- * The sheet's data: one row per person in the order the surface shows them, carrying the PLAN
- * only — availability offered (hollow) and what was assigned from it (solid).
+ * The sheet's data: one row per person in the order the surface shows them, carrying BOTH halves
+ * of that person's time — the plan (availability offered, and what was assigned from it) and the
+ * attendance actually recorded.
  *
- * Recorded attendance is deliberately left off the paper. The sheet is a planning aid you hang at
- * the front and write on; what actually happened is the record, and it belongs in the Rapport,
- * not in a form that will be corrected by hand over the next six hours.
+ * The attendance used to be left off deliberately, on the grounds that the sheet is a planning aid
+ * and the record belongs in the Rapport. That was the wrong cut for the person holding it: the
+ * sheet is read while deciding who to send home and who to call in, and a plan without the record
+ * beside it cannot answer whether the plan held. The Rapport is still the record; this is a
+ * working copy of it, and it is marked as one.
  *
  * Everyone gets a row, planned or not: a Führungsformular is written on, and an empty lane is
  * where the pen goes.
@@ -45,6 +55,9 @@ export function buildZeitplanPayload(
       name: p.displayName,
       ...(p.rank ? { rank: p.rank } : {}),
       blocks: shiftsFor(shifts, p.id).map((s) => ({ from: s.from, to: s.to, confirmed: !!s.confirmed })),
+      // `to` omitted while somebody is still here — the sheet draws an open block up to the
+      // moment it was printed, which is the only honest end for one
+      actual: intervalsOf(attendance[p.id]).map((iv) => (iv.to ? { from: iv.from, to: iv.to } : { from: iv.from })),
     })),
   }
 }

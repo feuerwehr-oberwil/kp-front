@@ -8,10 +8,12 @@ rapport's styles and its page-number canvas are borrowed so both look like the s
 The layout follows the KKO BS / KFS BL sheet: a ``Wer × Zeit`` grid, names down the left, a
 time axis across the top with a heavier rule every full hour. Planned availability is drawn
 hollow and assigned time filled — the same language the on-screen Zeitplan uses, so the paper
-reads like the tablet. Recorded attendance is deliberately NOT on the sheet: this is a planning
-aid you hang at the front and write on, and what actually happened belongs in the Rapport. Rows
-without a plan still print — a Führungsformular is meant to be written on, and an empty row is
-where the pen goes.
+reads like the tablet. Under each lane runs a thin ink rule for the attendance actually recorded:
+the sheet is read by somebody deciding who to send home and who to call in, and «what was planned»
+without «what happened» leaves out the half that says whether the plan held. It stays visually
+subordinate — plan in accent above, record in ink below — so the page is still a planning form
+first. (The Rapport remains the RECORD; this is the working copy of it.) Rows without a plan still
+print — a Führungsformular is meant to be written on, and an empty row is where the pen goes.
 """
 
 from __future__ import annotations
@@ -72,6 +74,10 @@ class ZeitplanRow(BaseModel):
     name: str
     rank: str | None = None
     blocks: list[ZeitplanBlock] = []
+    #: what actually HAPPENED — the recorded attendance for this person, drawn as a thin rule
+    #: along the foot of the lane. Defaulted to empty so an older client that never sends the
+    #: field still renders a valid (plan-only) sheet.
+    actual: list[ZeitplanBlock] = []
 
 
 class ZeitplanPayload(BaseModel):
@@ -90,8 +96,10 @@ class ZeitplanPayload(BaseModel):
 def _window(payload: ZeitplanPayload) -> tuple[datetime, datetime]:
     """The stretch of time the axis covers: from the incident start (floored to the hour) up to
     the last block, at least ``DEFAULT_WINDOW_H`` wide so a fresh plan is not a sliver."""
-    stamps = [b.start for r in payload.rows for b in r.blocks]
-    stamps += [b.end for r in payload.rows for b in r.blocks if b.end]
+    # both halves count: a sheet whose axis stopped at the last PLANNED block would cut the
+    # attendance that ran past it, which is exactly the overrun worth seeing
+    stamps = [b.start for r in payload.rows for b in (*r.blocks, *r.actual)]
+    stamps += [b.end for r in payload.rows for b in (*r.blocks, *r.actual) if b.end]
     anchor = payload.startedAt or payload.printedAt or (min(stamps) if stamps else datetime.now(TZ))
     start = anchor.replace(minute=0, second=0, microsecond=0)
     end = start + timedelta(hours=DEFAULT_WINDOW_H)
@@ -112,11 +120,15 @@ class _Grid(Flowable):
     HEAD_H = 7 * mm
     ROW_H = 8.2 * mm
 
-    def __init__(self, rows: list[ZeitplanRow], start: datetime, end: datetime, width: float):
+    def __init__(self, rows: list[ZeitplanRow], start: datetime, end: datetime, width: float, now: datetime):
         super().__init__()
         self.rows = rows
         self.start = start
         self.end = end
+        #: where an still-open attendance block stops. The PRINT time, not the wall clock: the
+        #: sheet is a statement about the moment it left the printer, and it must say the same
+        #: thing every time the same payload is rendered.
+        self.now = now
         self.width = width
         self.height = self.HEAD_H + self.ROW_H * len(rows)
 
@@ -191,6 +203,21 @@ class _Grid(Flowable):
                     c.setLineWidth(0.8)
                     c.rect(x0, y + 1.6 * mm, x1 - x0, self.ROW_H - 3.2 * mm, stroke=1, fill=0)
 
+            # ---- what actually happened, as a heavy rule along the foot of the lane.
+            # Under the plan rather than mixed into it, and in ink rather than in the plan's
+            # accent, so the sheet still reads plan-first at a glance while the comparison the
+            # relief actually makes — «was this covered or not?» — is one glance down the row.
+            # An open block (nobody has left yet) runs to the edge of the window like on screen.
+            for b in row.actual:
+                end = b.end or min(self.end, self.now)
+                if end <= self.start or b.start >= self.end:
+                    continue
+                x0, x1 = self._x(b.start), self._x(end)
+                if x1 - x0 < 0.6:
+                    x1 = x0 + 0.6
+                c.setFillColor(_INK)
+                c.rect(x0, y + 0.9 * mm, x1 - x0, 0.9 * mm, stroke=0, fill=1)
+
         # ---- frame + the head/name separators
         c.setStrokeColor(_RULE)
         c.setLineWidth(0.7)
@@ -252,13 +279,13 @@ def compose_zeitplan_pdf(payload: ZeitplanPayload) -> bytes:
         if i:
             story.append(PageBreak())
         padded = list(page_rows) + [ZeitplanRow(name="") for _ in range(MAX_ROWS - len(page_rows))]
-        story.append(_Grid(padded, start, end, inner_w))
+        story.append(_Grid(padded, start, end, inner_w, printed))
 
     story.append(Spacer(1, 3 * mm))
     story.append(
         Paragraph(
-            "Ausgezogen = verfügbar · ausgefüllt = eingeteilt. Planungshilfe – die tatsächliche "
-            "Anwesenheit steht im Einsatzrapport, nicht auf diesem Blatt.",
+            "Ausgezogen = verfügbar · ausgefüllt = eingeteilt · schmaler Balken unten = "
+            "tatsächlich anwesend. Planungshilfe – massgebend bleibt der Einsatzrapport.",
             st["muted"],
         )
     )

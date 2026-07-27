@@ -100,10 +100,49 @@ def test_compose_renders_a_pdf_and_pads_the_form_out_to_full_pages():
     assert len(big) > len(small)  # spilled onto a second sheet
 
 
+def test_window_reaches_past_the_plan_to_cover_the_attendance():
+    """Somebody stayed three hours longer than anyone planned for. An axis that stopped at the
+    last PLANNED block would crop exactly the overrun the sheet is read to find."""
+    p = _payload()
+    p["rows"] = [
+        {
+            "name": "A",
+            "blocks": [{"from": _iso(T0), "to": _iso(T0 + timedelta(hours=2))}],
+            "actual": [{"from": _iso(T0), "to": _iso(T0 + timedelta(hours=20))}],
+        }
+    ]
+    _, end = _window(ZeitplanPayload.model_validate(p))
+    assert end >= T0 + timedelta(hours=20)
+
+
+def test_attendance_is_drawn_on_the_sheet():
+    """The recorded attendance reaches the paper. It was deliberately left off once; the sheet is
+    read while deciding who to send home, and the plan alone cannot say whether it held."""
+    plan_only = _payload()
+    plan_only["rows"] = [{"name": "A", "blocks": [{"from": _iso(T0), "to": _iso(T0 + timedelta(hours=2))}]}]
+    with_actual = json.loads(json.dumps(plan_only))
+    with_actual["rows"][0]["actual"] = [{"from": _iso(T0), "to": _iso(T0 + timedelta(hours=2))}]
+
+    a = compose_zeitplan_pdf(ZeitplanPayload.model_validate(plan_only))
+    b = compose_zeitplan_pdf(ZeitplanPayload.model_validate(with_actual))
+    assert a[:5] == b"%PDF-" and b[:5] == b"%PDF-"
+    # same window, same rows, one extra rule drawn — the page cannot be byte-identical
+    assert a != b
+
+
+def test_an_older_client_that_sends_no_attendance_still_prints():
+    """`actual` is defaulted, so a payload from a tab that has not reloaded yet is still valid."""
+    p = _payload()
+    for row in p["rows"]:
+        row.pop("actual", None)
+    assert compose_zeitplan_pdf(ZeitplanPayload.model_validate(p))[:5] == b"%PDF-"
+
+
 def test_compose_survives_an_open_block_and_an_empty_plan():
     """A block with no end yet, and a plan with no rows at all."""
     p = _payload()
     p["rows"][0]["blocks"] = [{"from": _iso(T0)}]  # no `to`
+    p["rows"][0]["actual"] = [{"from": _iso(T0)}]  # still here — runs to the print time
     assert compose_zeitplan_pdf(ZeitplanPayload.model_validate(p))[:5] == b"%PDF-"
     assert compose_zeitplan_pdf(ZeitplanPayload(incidentTitle="Leer"))[:5] == b"%PDF-"
 

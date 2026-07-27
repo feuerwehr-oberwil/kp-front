@@ -938,6 +938,7 @@ export default function CaptureApp() {
         {printStatus?.available && (
           <button className={`cv-btn${kpActive ? ' cv-quiet' : ''}`} disabled={busy || printBusy} onClick={() => openWho('print')}
             title={printStatus.online ? R.online : R.offline}>
+            <Icon id="printer" />
             <span className={`dot print-relay-dot${printStatus.online ? ' online' : ''}`} aria-hidden />
             {printBusy ? R.sending : R.send}
           </button>

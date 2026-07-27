@@ -222,7 +222,13 @@ export function AnwesenheitView({
   const showPlan = planAvailable && view === 'plan'
 
   return (
-    <div className={s.surface}>
+    // data-noswipe while the Zeitplan is showing: this surface is a grid you WORK on, and paging
+    // away from it by accident is the opposite of what a horizontal drag here means. Planning a
+    // shift IS a horizontal drag, and the two cannot share a finger — so the pager gives way, and
+    // it gives way for the whole surface rather than just the lanes, because a swipe that pages
+    // from the header but not from the row underneath it is worse than one that never pages.
+    // The bottom bar and the nav rail still switch surfaces; only the gesture is gone.
+    <div className={s.surface} {...(showPlan ? { 'data-noswipe': true } : {})}>
       <header className={s.head}>
         <div className={s.headTitles}>
           <h2>{A.title}</h2>
@@ -239,6 +245,7 @@ export function AnwesenheitView({
               {onPrintZeitplan && (
                 <button className="btn" onClick={() => onPrintZeitplan(rows)} tabIndex={showPlan ? undefined : -1}
                   title={zeitplanPrintOnline ? appConfig.copy.printRelay.online : appConfig.copy.printRelay.offline}>
+                  <Icon id="printer" />
                   <span className={`dot print-relay-dot${zeitplanPrintOnline ? ' online' : ''}`} aria-hidden />
                   <span>{appConfig.copy.printRelay.send}</span>
                 </button>

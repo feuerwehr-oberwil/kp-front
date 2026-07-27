@@ -174,19 +174,18 @@
      drew a seam down the middle of every row and made the grid read as two tables side by side.
      The lane reads as a track because the board around it is darker, not because it is tinted. */
   background: var(--surface);
-  /* The BROWSER owns the horizontal drag here: the lane spans the entire scrollable track, so
-     claiming it meant a long axis could not be panned by finger at all — at 96 h roughly four
-     fifths of it was unreachable. Bars and handles still claim their own gesture (they are small
-     and deliberate); an empty-lane sweep starts only after the press-and-hold. */
-  touch-action: auto; -webkit-tap-highlight-color: transparent;
+  /* pan-y: a vertical drag still scrolls the Mannschaft, a HORIZONTAL one belongs to this row.
+     It used to be `auto`, which handed sideways drags to the browser so the axis could be pushed
+     along — but that is also what made «drag to plan» do nothing on a phone, which is the whole
+     point of the surface. The axis did not lose its pan: the ruler at the top and the Deckung
+     strip at the bottom span the same track and still carry `touch-action: auto`, so pushing the
+     time window along is a drag on either of those instead of on somebody's row. */
+  touch-action: pan-y; -webkit-tap-highlight-color: transparent;
 }
 .laneEditable { cursor: crosshair; }
-/* the hold landed: this lane has the finger, and the next thing it does draws. Blue because that
-   is «geplant» on this grid and a sweep is about to make one — the cue and the outcome agree. */
-.laneArmed {
-  background: color-mix(in srgb, var(--st-planned) 14%, var(--surface));
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--st-planned) 55%, transparent);
-}
+/* the two rows that still pan the axis by finger — see the note on .lane. They are chrome, not
+   somebody's row, so a sideways drag on them cannot be mistaken for planning. */
+.headRow .track, .coverageRow .track { touch-action: auto; }
 /* neutral, and identical to the name half's hover: blue is «geplant» here, and a hover that
    borrowed a state colour said the lane was already planned. */
 .laneEditable:hover { background: color-mix(in srgb, var(--ink) 5%, var(--surface)); }
@@ -396,12 +395,6 @@
    gestures, and it shows only while nothing is planned: once there are bars the whole footer
    disappears and the grid takes the height back, which on a phone is one more person on screen. */
 .legendHint { display: block; margin: 2px 0 0; font: 500 12.5px var(--body); color: var(--ink-faint); }
-/* exactly one of the two is ever shown — see the note at the render site */
-.hintCoarse { display: none; }
-@media (pointer: coarse) {
-  .hintFine { display: none; }
-  .hintCoarse { display: block; }
-}
 
 /* ---- the per-person sheet ------------------------------------------------------------ */
 

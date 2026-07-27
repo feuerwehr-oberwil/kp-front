@@ -1642,7 +1642,6 @@ export const en: Localizable<Copy> = {
     fromStartHint: 'Sets the start to the incident alarm time.',
     sheetHint: 'Adjust the times here · switch the state on the right · deleting only happens here.',
     laneHint: 'Drag to record availability · tap a bar to turn it into a plan · drag to move · press and hold for all shifts',
-    laneHintTouch: 'Press and hold, then drag, to record availability · tap a bar to turn it into a plan · drag to move',
     available: 'available',
     confirmed: 'scheduled',
     tentative: 'available',

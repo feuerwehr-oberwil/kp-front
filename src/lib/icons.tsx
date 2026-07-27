@@ -23,6 +23,11 @@ export function IconSprite() {
       <symbol id="sat" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c3.2 3 3.2 15 0 18M12 3c-3.2 3-3.2 15 0 18" /></symbol>
       <symbol id="map" viewBox="0 0 24 24"><path d="M9 4 3 6.5v14L9 18l6 2.5 6-2.5v-14L15 6.5z" /><path d="M9 4v14M15 6.5v14" /></symbol>
       <symbol id="doc" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z" /><path d="M14 3v4h4M9 12.5h6M9 16h6" /></symbol>
+      {/* «An Stationsdrucker»: paper going in at the top, paper coming out at the bottom. The
+          relay buttons carried a bare status dot and no glyph at all, so they read as a stray
+          label beside every sibling action that HAS one. The dot stays — it says whether the
+          agent in the Magazin is reachable, which the printer itself cannot say. */}
+      <symbol id="printer" viewBox="0 0 24 24"><path d="M7 9V3.5h10V9" /><path d="M7 17.5H5a2 2 0 0 1-2-2V11a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4.5a2 2 0 0 1-2 2h-2" /><path d="M7 14.5h10v6H7z" /></symbol>
       <symbol id="truck" viewBox="0 0 24 24"><path d="M3 6h11v10H3zM14 9h4l3 3v4h-7z" /><circle cx="7" cy="18" r="1.7" /><circle cx="17" cy="18" r="1.7" /></symbol>
       <symbol id="box" viewBox="0 0 24 24"><path d="M12 3 4 7v10l8 4 8-4V7z" /><path d="M4 7l8 4 8-4M12 11v10" /></symbol>
       <symbol id="warn" viewBox="0 0 24 24"><path d="M12 3.5 22 20.5H2z" /><path d="M12 10v4.5" /><circle cx="12" cy="17.7" r=".4" /></symbol>
