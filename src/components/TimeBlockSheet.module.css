@@ -70,9 +70,12 @@
    dashed shortcut across the whole sheet, giving it more weight than the state chip it sits under.)
    See the note in the component for why it left the main row. */
 .fromStartLine { flex: 1 0 100%; display: flex; }
+/* A quiet text action, not a framed one. It is a SHORTCUT for one field on one block — the dashed
+   blue box gave it a boundary as strong as the state control's, so the first block read as though
+   it carried two equal controls while every block below carried one. */
 .fromStart {
-  flex: none; min-height: var(--tap); padding: 0 12px; border-radius: var(--r-sm);
-  border: 1px dashed color-mix(in srgb, var(--blue) 45%, transparent); background: none;
+  flex: none; min-height: var(--tap); padding: 0 8px; border-radius: var(--r-sm);
+  border: none; background: none;
   color: var(--blue); font: 600 12.5px var(--body); cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
@@ -86,18 +89,21 @@
    single shift ate a third of the screen and no two blocks looked alike down the left edge.
    Same three parts, laid out deliberately instead of by whatever happened to fit:
      line 1   von / bis, with the ✕ lifted out of the flow into the corner it belongs in
-     line 2   the state chip, filling the width it has, and «ab Beginn» beside it
+     line 2   the state chip at a FIXED width, «ab Beginn» after it
+   The state chip must not stretch. Letting it fill the leftover space sized it by its neighbour
+   rather than by itself, so «GEPLANT» on a block that offers «ab Beginn» came out narrower than
+   «VERFÜGBAR» on the block below — two controls that do the same thing, in two widths, one above
+   the other. Fixed, every block is the same shape and the eye can run down the column.
    The ✕ goes to the corner because it is the one control here that destroys something: away from
    the thumb's path along the fields, and in the same place on every block. */
 @media (max-width: 560px) {
-  .row { position: relative; padding: 8px 8px 8px 10px; padding-right: 44px; gap: 6px 8px; }
+  .row { position: relative; padding: 7px 8px 7px 10px; padding-right: 42px; gap: 4px 8px; }
   .del { position: absolute; top: 5px; right: 2px; min-width: 38px; min-height: 38px; }
   .times { flex: 1 0 100%; }
   /* margin-left: auto would strand the chip against the right edge on its own line */
-  .actions { flex: 1 1 auto; margin-left: 0; }
-  .actions > * { flex: 1 1 auto; }
-  .fromStartLine { flex: 0 1 auto; }
-  .fromStart { padding: 0 10px; }
+  .actions { flex: 0 0 auto; margin-left: 0; }
+  .actions > * { flex: 0 0 auto; }
+  .fromStartLine { flex: 1 1 auto; }
 }
 
 /* the read-only half: the record, shown but not editable here */

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   SLOT_MS, barGeometry, ceilSlot, conflictingShiftIds, coverage, draftShift, dragShift, floorSlot,
-  intervalSpan, overlaps, plannedPersonCount, shiftAt, shiftSpan, shiftsFor, timeAtFraction, timelineSpan,
+  intervalSpan, mergeOverlappingShifts, overlaps, plannedPersonCount, shiftAt, shiftSpan, shiftsFor,
+  timeAtFraction, timelineSpan,
 } from './shifts'
 import type { AttendanceState, Shift } from '../types'
 
@@ -104,6 +105,70 @@ describe('overlap flagging', () => {
   it('never confuses two different people', () => {
     const list = [shift('a', 'p1', T(14), T(19)), shift('b', 'p2', T(14), T(19))]
     expect(conflictingShiftIds(list).size).toBe(0)
+  })
+})
+
+describe('mergeOverlappingShifts — one person, one set of times', () => {
+  it('folds an overlap into a single span', () => {
+    const out = mergeOverlappingShifts([shift('a', 'p1', T(14), T(19)), shift('b', 'p1', T(18), T(22))])
+    expect(out).toHaveLength(1)
+    expect(out[0]).toMatchObject({ id: 'a', from: T(14), to: T(22) })
+  })
+
+  it('swallows a shift contained entirely inside another (the reported case)', () => {
+    // 17:30–21:00 «geplant» with 18:30–20:00 «verfügbar» sitting inside it
+    const out = mergeOverlappingShifts([
+      { ...shift('a', 'p1', T(17, 30), T(21)), confirmed: true },
+      shift('b', 'p1', T(18, 30), T(20)),
+    ])
+    expect(out).toHaveLength(1)
+    expect(out[0]).toMatchObject({ id: 'a', from: T(17, 30), to: T(21), confirmed: true })
+  })
+
+  it('keeps «eingeteilt» when only the swallowed part carried it — merging must never un-assign', () => {
+    const out = mergeOverlappingShifts([
+      shift('a', 'p1', T(14), T(19)),
+      { ...shift('b', 'p1', T(18), T(22)), confirmed: true },
+    ])
+    expect(out[0].confirmed).toBe(true)
+  })
+
+  it('leaves back-to-back shifts alone — a shared edge is two shifts, not one', () => {
+    const list = [shift('a', 'p1', T(14), T(18)), shift('b', 'p1', T(18), T(22))]
+    expect(mergeOverlappingShifts(list)).toBe(list) // reference-stable: nothing to do
+  })
+
+  it('never merges across people', () => {
+    const list = [shift('a', 'p1', T(14), T(19)), shift('b', 'p2', T(14), T(19))]
+    expect(mergeOverlappingShifts(list)).toBe(list)
+  })
+
+  it('chains three overlapping blocks into one', () => {
+    const out = mergeOverlappingShifts([
+      shift('a', 'p1', T(14), T(16)), shift('b', 'p1', T(15), T(18)), shift('c', 'p1', T(17), T(23)),
+    ])
+    expect(out).toHaveLength(1)
+    expect(out[0]).toMatchObject({ from: T(14), to: T(23) })
+  })
+
+  it('merges regardless of array order and keeps the earliest block as the survivor', () => {
+    const out = mergeOverlappingShifts([shift('late', 'p1', T(18), T(22)), shift('early', 'p1', T(14), T(19))])
+    expect(out).toHaveLength(1)
+    expect(out[0]).toMatchObject({ id: 'early', from: T(14), to: T(22) })
+  })
+
+  it('leaves a reversed block strictly alone — a typo must stay visible, not be quietly repaired', () => {
+    const list = [shift('bad', 'p1', T(20), T(9)), shift('ok', 'p1', T(14), T(19))]
+    expect(mergeOverlappingShifts(list)).toBe(list)
+  })
+
+  it('leaves other people untouched while merging one', () => {
+    const out = mergeOverlappingShifts([
+      shift('a', 'p1', T(14), T(19)), shift('x', 'p2', T(14), T(19)), shift('b', 'p1', T(18), T(22)),
+    ])
+    expect(out).toHaveLength(2)
+    expect(out.map((s) => s.id)).toEqual(['a', 'x'])
+    expect(conflictingShiftIds(out).size).toBe(0)
   })
 })
 

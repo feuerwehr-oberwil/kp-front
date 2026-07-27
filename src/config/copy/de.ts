@@ -2184,6 +2184,9 @@ export const de = {
     to: 'bis',
     remove: 'Schicht löschen',
     removed: 'Schicht {name} gelöscht',
+    // Zwei Schichten derselben Person, die sich überschneiden, sind eine – sonst zählt die
+    // Deckung dieselbe Person doppelt. Zusammengelegt wird angesagt, nicht stillschweigend.
+    mergedOverlap: 'Überschneidende Schichten zusammengelegt',
     conflict: 'Überschneidet sich mit einer anderen Schicht',
     now: 'jetzt',
     coveragePeak: ' · max {n}',

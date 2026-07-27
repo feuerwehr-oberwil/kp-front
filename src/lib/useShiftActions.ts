@@ -3,7 +3,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
 import { toast } from './ui'
 import type { Person, Shift } from '../types'
-import { SLOT_MS, draftShift } from './shifts'
+import { SLOT_MS, draftShift, mergeOverlappingShifts } from './shifts'
 
 interface ShiftActionsDeps {
   shifts: Shift[]
@@ -21,26 +21,47 @@ interface ShiftActionsDeps {
  * Deleting is the one destructive step, so it gets the house confirm-with-undo toast.
  */
 export function useShiftActions({ shifts, setShifts, startedAt }: ShiftActionsDeps) {
+  // Every write goes through here so a person's availability stays ONE set of times. Nobody is
+  // available twice over the same minute, so an edit that would overlap folds into the block it
+  // touches instead of stacking a second bar on it (and double-counting them in the Deckung).
+  //
+  // The merge is announced, never silent: a row that vanishes under the finger without a word is
+  // worse than the overlap was. Undo restores the exact pre-merge list — the merge is lossy
+  // (two blocks become one), so it must be reversible in a single tap.
+  const commit = (next: (cur: Shift[]) => Shift[]) => {
+    const before = shifts
+    setShifts((cur) => mergeOverlappingShifts(next(cur)))
+    // decided from the snapshot rather than inside the updater: a toast is a side effect and the
+    // updater must stay pure (React invokes it twice in StrictMode)
+    const merged = mergeOverlappingShifts(next(before))
+    if (merged.length < next(before).length) {
+      toast(appConfig.copy.zeitplan.mergedOverlap, {
+        icon: 'undo',
+        action: { label: appConfig.copy.undo, onClick: () => setShifts(before) },
+      })
+    }
+  }
+
   const addShift = (p: Person) => {
     const hours = appConfig.shifts.defaultHours
-    setShifts((cur) => [...cur, draftShift(p.id, Date.now(), startedAt, hours)])
+    commit((cur) => [...cur, draftShift(p.id, Date.now(), startedAt, hours)])
   }
   /** The grid sweep — exactly the stretch drawn, snapped to the half hour, never shorter than one
    *  slot: a quick flick of the finger should still produce a usable 30-minute block rather than
    *  a zero-length shift that renders as nothing. */
   const addShiftSpan = (p: Person, from: number, to: number) => {
     const end = Math.max(to, from + SLOT_MS)
-    setShifts((cur) => [...cur, {
+    commit((cur) => [...cur, {
       id: `sh${Date.now()}`, personId: p.id,
       from: new Date(from).toISOString(), to: new Date(end).toISOString(),
     }])
   }
   /** a drag committed: the whole shift replaces its stored self, so one gesture is one undo step */
   const replaceShift = (sh: Shift) => {
-    setShifts((cur) => cur.map((x) => (x.id === sh.id ? sh : x)))
+    commit((cur) => cur.map((x) => (x.id === sh.id ? sh : x)))
   }
   const setShiftTime = (id: string, patch: { from?: string; to?: string }) => {
-    setShifts((cur) => cur.map((s) => (s.id === id ? { ...s, ...patch } : s)))
+    commit((cur) => cur.map((s) => (s.id === id ? { ...s, ...patch } : s)))
   }
   const removeShift = (id: string, personName: string) => {
     const prev = shifts.find((s) => s.id === id)

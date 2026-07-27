@@ -451,7 +451,9 @@
   .editBtn svg { width: 12px; height: 12px; }
   /* the chip shares its line with «ab Beginn» here, so the width that keeps «GEPLANT» and
      «VERFÜGBAR» the same size on a desktop is more than a phone line can spare */
-  .sheetState { min-width: 100px; }
+  /* wide enough for the longest state word («VERFÜGBAR») so the chip is sized by ITSELF and every
+     block in the sheet ends up the same shape — see the note in TimeBlockSheet.module.css */
+  .sheetState { min-width: 116px; }
   /* NO lane override here any more. These were written for the old stacked phone layout, where
      the lane sat BELOW its name and therefore closed off at the bottom. Now the lane sits to the
      right of the name as it does everywhere else, so a left border and bottom-corner radii drew a

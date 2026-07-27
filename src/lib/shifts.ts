@@ -96,8 +96,81 @@ export function overlaps(a: Shift, b: Shift): boolean {
   return x.from < y.to && y.from < x.to
 }
 
-/** Ids of shifts that collide with another shift for the same person — flagged, never refused:
- *  at 3am a double entry is a hint to look, not a reason to block the plan. */
+/**
+ * Fold a person's overlapping shifts into one span.
+ *
+ * Availability is a SET OF TIMES, not a list of claims: «17:30–21:00» plus «18:30–20:00» for the
+ * same person is not two facts, it is one — they are there from 17:30 to 21:00. Two bars stacked
+ * on the same minute made the lane unreadable and let the Deckung count one person twice, which
+ * is the single number the whole surface exists to get right.
+ *
+ * Touching ends (14–18, 18–22) stay separate. Those are genuinely two shifts and the grid draws
+ * them as such — same rule `overlaps` already uses.
+ *
+ * `confirmed` survives if ANY merged part carried it: eingeteilt implies verfügbar, so dropping
+ * it would silently un-assign somebody. The merged block keeps the id of the EARLIEST part, so a
+ * drag that swallows a neighbour still ends on the bar the finger is holding.
+ *
+ * Reversed blocks (to <= from) are left strictly alone — they render as nothing and are flagged
+ * in the sheet; quietly folding them would hide a typo instead of showing it.
+ */
+export function mergeOverlappingShifts(shifts: Shift[]): Shift[] {
+  const spans = new Map<string, Span>()
+  for (const s of shifts) {
+    const sp = shiftSpan(s)
+    if (sp) spans.set(s.id, sp)
+  }
+  const byPerson = new Map<string, Shift[]>()
+  for (const s of shifts) {
+    if (!spans.has(s.id)) continue
+    const list = byPerson.get(s.personId)
+    if (list) list.push(s); else byPerson.set(s.personId, [s])
+  }
+
+  const absorbed = new Set<string>()
+  const patched = new Map<string, Shift>()
+  for (const list of byPerson.values()) {
+    const sorted = [...list].sort((a, b) => spans.get(a.id)!.from - spans.get(b.id)!.from)
+    let head: Shift | null = null
+    let from = 0
+    let to = 0
+    let confirmed = false
+    let grew = false
+    const flush = () => {
+      if (head && grew) {
+        patched.set(head.id, {
+          ...head, from: new Date(from).toISOString(), to: new Date(to).toISOString(),
+          confirmed: confirmed || undefined,
+        })
+      }
+    }
+    for (const s of sorted) {
+      const sp = spans.get(s.id)!
+      if (head && sp.from < to) { // strict «<»: a shared edge is not an overlap
+        to = Math.max(to, sp.to)
+        confirmed = confirmed || !!s.confirmed
+        absorbed.add(s.id)
+        grew = true
+        continue
+      }
+      flush()
+      head = s; from = sp.from; to = sp.to; confirmed = !!s.confirmed; grew = false
+    }
+    flush()
+  }
+
+  if (!absorbed.size) return shifts // reference-stable in the common case: nothing overlapped
+  return shifts.filter((s) => !absorbed.has(s.id)).map((s) => patched.get(s.id) ?? s)
+}
+
+/**
+ * Ids of shifts that collide with another shift for the same person.
+ *
+ * Still needed even though `mergeOverlappingShifts` now prevents overlaps at the point of entry:
+ * this workspace syncs per object with last-writer-wins, so two devices can each add a
+ * non-overlapping shift and the MERGED result overlaps although neither device ever created it.
+ * That one arrives as data, not as an edit, so it can only be flagged.
+ */
 export function conflictingShiftIds(shifts: Shift[]): Set<string> {
   const out = new Set<string>()
   const byPerson = new Map<string, Shift[]>()

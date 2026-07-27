@@ -1620,6 +1620,7 @@ export const en: Localizable<Copy> = {
     to: 'to',
     remove: 'Delete shift',
     removed: 'Shift {name} deleted',
+    mergedOverlap: 'Overlapping shifts merged',
     conflict: 'Overlaps another shift',
     now: 'now',
     coveragePeak: ' · max {n}',
