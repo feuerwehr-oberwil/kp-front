@@ -96,13 +96,34 @@ describe('overlap flagging', () => {
     expect(overlaps(shift('a', 'p1', T(14), T(18)), shift('b', 'p1', T(18), T(22)))).toBe(false)
   })
 
-  it('flags both sides of a real overlap', () => {
-    const list = [shift('a', 'p1', T(14), T(19)), shift('b', 'p1', T(18), T(22))]
+  it('flags both sides of a real overlap — two ASSIGNED shifts at the same time', () => {
+    const list = [
+      { ...shift('a', 'p1', T(14), T(19)), confirmed: true },
+      { ...shift('b', 'p1', T(18), T(22)), confirmed: true },
+    ]
     expect(conflictingShiftIds(list)).toEqual(new Set(['a', 'b']))
   })
 
+  // The everyday pair the sheet exists to show: a window is offered, part of it is assigned.
+  // Testing raw time overlap painted this red, which taught people to ignore the colour.
+  it('leaves an assignment sitting inside its own availability alone', () => {
+    const list = [
+      shift('a', 'p1', T(17, 30), T(21)),
+      { ...shift('b', 'p1', T(18, 30), T(20)), confirmed: true },
+    ]
+    expect(conflictingShiftIds(list).size).toBe(0)
+  })
+
+  it('does not flag two overlapping offers either — nothing is committed yet', () => {
+    const list = [shift('a', 'p1', T(14), T(19)), shift('b', 'p1', T(18), T(22))]
+    expect(conflictingShiftIds(list).size).toBe(0)
+  })
+
   it('never confuses two different people', () => {
-    const list = [shift('a', 'p1', T(14), T(19)), shift('b', 'p2', T(14), T(19))]
+    const list = [
+      { ...shift('a', 'p1', T(14), T(19)), confirmed: true },
+      { ...shift('b', 'p2', T(14), T(19)), confirmed: true },
+    ]
     expect(conflictingShiftIds(list).size).toBe(0)
   })
 })

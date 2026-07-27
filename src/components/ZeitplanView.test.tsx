@@ -226,11 +226,23 @@ describe('ZeitplanView', () => {
 
   it('marks a person double-booked without refusing the plan', () => {
     const shifts: Shift[] = [
-      { id: 'sh1', personId: 'p1', from: T(14), to: T(19) },
-      { id: 'sh2', personId: 'p1', from: T(18), to: T(22) },
+      { id: 'sh1', personId: 'p1', from: T(14), to: T(19), confirmed: true },
+      { id: 'sh2', personId: 'p1', from: T(18), to: T(22), confirmed: true },
     ]
     render(<ZeitplanView {...base} attendance={{}} shifts={shifts} />)
     expect(screen.getAllByTitle(Z.conflict).length).toBe(2) // both bars flagged, neither refused
+  })
+
+  // The normal shape of the form: a window is offered, part of it is assigned. Flagging that as a
+  // conflict — which raw time-overlap did — put red on the everyday case and taught people to
+  // ignore it, leaving the genuine double booking above indistinguishable.
+  it('does not call an assignment inside its own availability a conflict', () => {
+    const shifts: Shift[] = [
+      { id: 'sh1', personId: 'p1', from: T(14), to: T(20) },
+      { id: 'sh2', personId: 'p1', from: T(15), to: T(18), confirmed: true },
+    ]
+    render(<ZeitplanView {...base} attendance={{}} shifts={shifts} />)
+    expect(screen.queryAllByTitle(Z.conflict).length).toBe(0)
   })
 
   // Two von–bis pairs beside a name turn the row into a puzzle, so from the second shift on the

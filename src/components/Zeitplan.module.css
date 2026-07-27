@@ -193,51 +193,85 @@
 
 /* bars sit ON the lane and are dragged directly, so they take nearly its full height — a gloved
    finger aiming at a 28px stripe inside a 44px row missed more often than it hit */
-.bar { position: absolute; top: 4px; bottom: 4px; border-radius: var(--r-xs); min-width: 10px; }
-.plannedBar { cursor: grab; touch-action: none; }
-/* the stretch under the finger, before it becomes a shift */
-.drawing { border-style: dashed; opacity: .75; pointer-events: none; }
-.dragging { cursor: grabbing; opacity: .9; box-shadow: 0 0 0 2px color-mix(in srgb, var(--st-planned) 45%, transparent); }
-/* end handles: a wide invisible grab zone over a thin visible grip, so a fat finger still gets
-   the edge instead of moving the whole bar */
-.handle {
-  position: absolute; top: -4px; bottom: -4px; width: 18px; cursor: ew-resize; touch-action: none;
-  display: grid; place-items: center;
+/* THE ELEMENT IS THE GRAB BOX, ::before IS THE PICTURE. They are not the same rectangle on
+   purpose. The picture has to leave the bottom of the lane free for the green attendance strip —
+   that separation is the whole point of the surface. But a grab box that stopped where the
+   picture stops left ~18px of the 44px row (the green strip plus the top margin) falling THROUGH
+   to the lane, where a drag means «sweep a new shift». So a finger reaching for the green strip
+   to move the bar above it planned a second, overlapping one instead. The box now spans the full
+   row height; only the drawing is inset. */
+.bar { position: absolute; top: 0; bottom: 0; border-radius: var(--r-xs); min-width: 10px; }
+.plannedBar { cursor: grab; touch-action: none; background: none; border: none; }
+/* verfügbar — a dashed BAND over the full lane: somebody offered this stretch, and an assignment
+   is drawn INSIDE it rather than on top of it, so «how much of the offer is taken» is readable
+   at a glance instead of hidden under a solid bar. */
+/* The 44px row, top to bottom: 4 margin · 4–31 the band · 33–41 the green strip · 3 margin.
+   The band stops ABOVE the strip on purpose — at inset:4px 0 its dashed bottom edge ran straight
+   through the green, and two lines of different meaning crossing each other is not a diagram. */
+.plannedBar::before {
+  content: ''; position: absolute; inset: 4px 0 13px; border-radius: var(--r-xs);
+  border: 1.5px dashed var(--st-available);
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
 }
-.handleFrom { left: -9px; }
-.handleTo { right: -9px; }
+/* the stretch under the finger, before it becomes a shift (the dashes come from .plannedBar::before) */
+.drawing { opacity: .75; pointer-events: none; }
+/* the glow belongs on the PICTURE, not on the grab box — on the box it drew a halo the full
+   height of the row, around a bar that is visibly shorter than that */
+.dragging { cursor: grabbing; opacity: .9; }
+.dragging::before { box-shadow: 0 0 0 2px color-mix(in srgb, var(--st-planned) 45%, transparent); }
+/* End handles: an invisible grab zone over a thin visible grip, so a fat finger gets the edge
+   instead of moving the whole bar. Full lane height now (the bar is), which roughly doubles the
+   target without touching its width.
+   24px WIDE, not the 44px a tap target normally wants: two shifts that hand over (14–18, 18–22)
+   share one boundary, so the «to» handle of the first and the «from» handle of the second sit on
+   the same spot. At 44 they overlap by 44px and which one you grabbed is a coin toss; at 24 they
+   overlap by 24 and each still clears the 24px WCAG floor. Height is where the room was. */
+.handle {
+  position: absolute; top: 0; bottom: 0; width: 24px; cursor: ew-resize; touch-action: none;
+  display: grid; place-items: center; z-index: 2;
+}
+.handleFrom { left: -12px; }
+.handleTo { right: -12px; }
 .handle::after {
   content: ''; width: 3px; height: 14px; border-radius: 2px;
   background: color-mix(in srgb, var(--st-planned) 70%, transparent);
 }
 .plannedBar:hover .handle::after { background: var(--st-planned); }
-/* Three states, three weights, in the order a shift lives through them. They must stay in THIS
-   order in the file: they are all single-class selectors, so the later rule wins — `.confirmedBar`
-   sitting above `.plannedBar` is what once made every «geplant» bar render grey.
-     verfügbar — GREY outline: somebody offered this time, nothing is committed yet
-     geplant   — solid BLUE: we assigned it (deliberately not var(--accent); a station's accent is
-                 its brand colour, and in Oberwil that is alarm red — a plan must not read as an
-                 alarm at 3am. Red stays reserved for a conflict.)
-     anwesend  — solid GREEN: it actually happened, and that one comes from the attendance record */
-.plannedBar {
-  /* the PLAN owns the upper track and stops short of the attendance strip below — sharing the
-     lane's full height meant a solid «geplant» bar covered the green to within a pixel */
-  bottom: 14px;
-  border: 1.5px solid var(--st-available);
-  background: color-mix(in srgb, var(--ink) 10%, transparent);
+/* Three states, three LAYERS, in the order a shift lives through them — nested, not stacked, so
+   the everyday pair «verfügbar 17:30–21:00, eingeteilt 18:30–20:00» reads as one sentence:
+     verfügbar — dashed GREY band over the whole lane: offered, nothing committed
+     eingeteilt — solid BLUE bar inset WITHIN that band: assigned (deliberately not var(--accent);
+                 a station's accent is its brand colour, in Oberwil alarm red, and a plan must not
+                 read as an alarm at 3am. Red stays reserved for a genuine double booking.)
+     anwesend  — solid GREEN strip along the bottom, from the attendance record
+   They must stay in THIS order in the file: all single-class selectors, so the later rule wins. */
+/* eingeteilt — a SOLID bar, inset so it sits inside the availability band it was cut from and
+   still clears the green strip below. Same single-class specificity game as before: this rule
+   must stay BELOW .plannedBar::before or the dashed band wins and every assignment renders grey. */
+.confirmedBar::before {
+  /* 5px in from the band on both sides, so an assignment reads as sitting INSIDE the availability
+     it was cut from rather than lying across it */
+  inset: 9px 0 18px; border: none; border-radius: 5px;
+  background: var(--st-planned);
 }
-.confirmedBar { background: var(--st-planned); border-color: var(--st-planned); }
 .actual {
   /* its own strip along the bottom: sharing the box with the planned bar meant a solid «geplant»
      covered the green exactly where the plan was FULFILLED — the one comparison this surface is
      for. Green now always shows under the plan. */
+  /* pointer-events: none — the record is not a control. It sits along the bottom of the SAME lane
+     a planned bar is dragged in, and while it was hit-testable a finger landing on it stole the
+     press from the bar above and handed it to the lane, which reads a drag as «sweep a new
+     shift». Nothing here is draggable, so nothing here should catch a pointer. */
   top: auto; height: 8px; bottom: 3px; background: var(--st-actual); opacity: .95;
+  pointer-events: none;
 }
 /* an open block runs to «now» and keeps growing; the soft right edge says it is unfinished */
 .open { border-radius: var(--r-xs) 0 0 var(--r-xs); mask-image: linear-gradient(to right, #000 80%, color-mix(in srgb, #000 35%, transparent)); }
-/* a conflict is an OUTLINE, not a fill: filling it red erased whether the shift was verfügbar or
-   geplant — the very thing you need in order to resolve the overlap */
-.conflict { border-color: var(--red); box-shadow: 0 0 0 1px var(--red) inset; }
+/* A conflict is an OUTLINE, not a fill: filling it red erased whether the shift was verfügbar or
+   geplant — the very thing you need in order to resolve the overlap. Drawn on ::before with the
+   rest of the picture, since that is where the shape now lives. Only two CONFIRMED shifts ever
+   get here (see conflictingShiftIds), so this is always a genuine double booking. */
+.conflict::before { border: 1.5px solid var(--red); box-shadow: 0 0 0 1px var(--red) inset; }
 
 /* the day boundary: dashed, quiet, behind everything — it separates, it does not compete with
    the bars or with «jetzt» */

@@ -96,11 +96,17 @@ export function overlaps(a: Shift, b: Shift): boolean {
   return x.from < y.to && y.from < x.to
 }
 
-/** Ids of shifts that collide with another shift for the same person — flagged, never refused:
- *  at 3am a double entry is a hint to look, not a reason to block the plan. Overlapping shifts
- *  are ALLOWED: a person can legitimately be looked at under more than one shift at a time, and
- *  what that should mean is not decided yet (an auto-merge was tried on 2026-07-27 and pulled
- *  the same day — it threw away «verfügbar 17:30–21:00, eingeteilt 18:30–20:00»). */
+/**
+ * Ids of shifts that genuinely collide — flagged, never refused: at 3am a double entry is a hint
+ * to look, not a reason to block the plan.
+ *
+ * ONLY two CONFIRMED shifts count. An overlap between states is the form working as intended:
+ * «verfügbar 17:30–21:00, eingeteilt 18:30–20:00» is one person offering a window and being put
+ * on part of it, which is the very relationship the sheet exists to show. Testing raw time
+ * overlap painted that everyday case red — and an auto-merge tried on 2026-07-27 was pulled the
+ * same day for throwing exactly that pair away. Being assigned twice at once is the real fault,
+ * and now it is the only one wearing the colour.
+ */
 export function conflictingShiftIds(shifts: Shift[]): Set<string> {
   const out = new Set<string>()
   const byPerson = new Map<string, Shift[]>()
@@ -111,7 +117,9 @@ export function conflictingShiftIds(shifts: Shift[]): Set<string> {
   for (const list of byPerson.values()) {
     for (let i = 0; i < list.length; i++) {
       for (let j = i + 1; j < list.length; j++) {
-        if (overlaps(list[i], list[j])) { out.add(list[i].id); out.add(list[j].id) }
+        if (list[i].confirmed && list[j].confirmed && overlaps(list[i], list[j])) {
+          out.add(list[i].id); out.add(list[j].id)
+        }
       }
     }
   }
