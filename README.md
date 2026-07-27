@@ -50,6 +50,8 @@ station, one incident, one operator**, not scaled down from dispatch-center soft
 - **Einsatz-Intake:** Guided incident creation from Divera, an address, an object, or the map.
 - **Atemschutz:** Trupp setup, pressure and return estimates, alarms, map links, and logging.
 - **Mannschaft:** Divera or manual attendance, roster, and assignments.
+- **Zeitplan:** Shift planning for long incidents – availability and assignment per person, a
+  coverage curve across the span, printable as the «Zeitplan» Führungsformular.
 - **Reference data:** ADR lookup, wind, hydrants, utility lines, and Traccar vehicle positions.
 - **Resilience:** Undo/redo, append-only records, sync status, offline readiness, and day/night UI.
 
