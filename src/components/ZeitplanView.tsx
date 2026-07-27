@@ -189,7 +189,9 @@ function PersonRow({ person, shifts, blocks, span, nowMs, canEdit, conflicts, no
             not a way in — this is the one you can see */}
         {canEdit && <span className={s.editBtn} aria-hidden><Icon id="pen" /></span>}
       </button>
-      <div className={cx(s.track, s.lane, canEdit && s.laneEditable)}
+      {/* laneArmed: the hold landed and this lane now owns the finger. A gesture that costs 450ms
+          of holding still must SAY it worked, or the only feedback is a sweep that draws nothing. */}
+      <div className={cx(s.track, s.lane, canEdit && s.laneEditable, g.armed && s.laneArmed)}
         aria-label={fillTemplate(Z.planAt, { name: person.displayName })}
         {...g.laneProps(canEdit)}>
         {/* the stretch currently being swept out, so the sweep is visible while it happens */}
@@ -448,7 +450,16 @@ export function ZeitplanView({
           explains instead of twelve rows below it, and the footer costs nothing once the grid is
           in use. What stays is the gesture hint, and only while nothing is planned: that is when
           it teaches. Once there are bars it has done its job and the grid takes the height back. */}
-      {nothingPlanned && <span className={s.legendHint}>{Z.laneHint}</span>}
+      {/* Two hints, one gesture each, swapped by POINTER rather than by width: a tablet with a
+          keyboard is wide and still a touchscreen, and the sweep is a plain drag with a mouse but
+          hold-then-drag with a finger. Told the wrong one, you try the gesture that is already
+          spoken for and the surface pages away under you. */}
+      {nothingPlanned && (
+        <>
+          <span className={cx(s.legendHint, s.hintFine)}>{Z.laneHint}</span>
+          <span className={cx(s.legendHint, s.hintCoarse)}>{Z.laneHintTouch}</span>
+        </>
+      )}
 
       {person && (
         <PersonSheet

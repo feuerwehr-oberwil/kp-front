@@ -79,6 +79,27 @@
 .fromStart:hover { background: color-mix(in srgb, var(--blue) 12%, transparent); }
 .note { margin: 10px 0 0; font: 500 12px var(--body); color: var(--ink-faint); }
 
+/* ---- phone: two lines per block, not three -------------------------------------------- */
+
+/* On a wide sheet a block is one line. On a phone the same markup wrapped into three ragged ones
+   — times, then the state chip pushed right with the ✕ beside it, then «ab Beginn» alone — so a
+   single shift ate a third of the screen and no two blocks looked alike down the left edge.
+   Same three parts, laid out deliberately instead of by whatever happened to fit:
+     line 1   von / bis, with the ✕ lifted out of the flow into the corner it belongs in
+     line 2   the state chip, filling the width it has, and «ab Beginn» beside it
+   The ✕ goes to the corner because it is the one control here that destroys something: away from
+   the thumb's path along the fields, and in the same place on every block. */
+@media (max-width: 560px) {
+  .row { position: relative; padding: 8px 8px 8px 10px; padding-right: 44px; gap: 6px 8px; }
+  .del { position: absolute; top: 5px; right: 2px; min-width: 38px; min-height: 38px; }
+  .times { flex: 1 0 100%; }
+  /* margin-left: auto would strand the chip against the right edge on its own line */
+  .actions { flex: 1 1 auto; margin-left: 0; }
+  .actions > * { flex: 1 1 auto; }
+  .fromStartLine { flex: 0 1 auto; }
+  .fromStart { padding: 0 10px; }
+}
+
 /* the read-only half: the record, shown but not editable here */
 .readOnly { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 5px; }
 .readOnly li { display: flex; align-items: center; gap: 8px; }

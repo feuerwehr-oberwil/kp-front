@@ -2204,6 +2204,10 @@ export const de = {
     fromStartHint: 'Setzt den Beginn auf die Alarmzeit des Einsatzes.',
     sheetHint: 'Zeiten hier anpassen · Zustand rechts umschalten · gelöscht wird nur hier.',
     laneHint: 'Ziehen trägt Verfügbarkeit ein · Balken tippen macht daraus einen Plan · ziehen verschiebt · gedrückt halten öffnet die Schichten',
+    // Am Finger ist Ziehen schon vergeben – es schiebt die Zeitachse und blättert zur nächsten
+    // Fläche. Erst das Halten übergibt die Geste dieser Zeile, also muss der Hinweis das auch
+    // sagen: eine Geste, von der niemand weiss, ist kein Weg hinein.
+    laneHintTouch: 'Gedrückt halten und ziehen trägt Verfügbarkeit ein · Balken tippen macht daraus einen Plan · ziehen verschiebt',
     // Drei Zustände einer Zeile: was jemand ANBIETET, was daraus EINGETEILT wurde, und was
     // tatsächlich passiert ist. Die ersten zwei schaltet ein Balken-Tipp um, der dritte kommt
     // aus der Anwesenheit und wird hier nie geschrieben.

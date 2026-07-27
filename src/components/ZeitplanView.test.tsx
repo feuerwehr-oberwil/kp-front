@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { ZeitplanView } from './ZeitplanView'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, hhmm } from '../lib/format'
@@ -24,6 +24,15 @@ beforeAll(() => {
 // coordinates and React routes purely on the event type.
 const ptr = (el: Element, type: string, clientX: number) =>
   fireEvent(el, new MouseEvent(type, { bubbles: true, cancelable: true, clientX }))
+/** the same, but from a FINGER — the lane treats the two differently, because on touch the browser
+ *  and the section pager are both competing for a horizontal drag and a mouse has no such rivals */
+const touch = (el: Element, type: string, clientX: number) => {
+  const ev = new MouseEvent(type, { bubbles: true, cancelable: true, clientX })
+  Object.defineProperty(ev, 'pointerType', { value: 'touch' })
+  fireEvent(el, ev)
+}
+/** hold still for longer than the lane's arming delay */
+const hold = () => act(() => { vi.advanceTimersByTime(500) })
 /** jsdom lays nothing out, so the lane must be told how wide it is for a fraction to mean anything */
 const sizeLane = (el: Element, width = 1200) => {
   el.getBoundingClientRect = () => ({ left: 0, width, right: width, top: 0, bottom: 40, height: 40, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect
@@ -62,6 +71,65 @@ describe('ZeitplanView', () => {
     const [p, from, to] = onAddSpan.mock.calls[0]
     expect(p.id).toBe('p1')
     expect(to - from).toBe(3 * 3_600_000) // the three hours actually drawn
+  })
+
+  // On a phone a horizontal drag across a lane is wanted by three things at once: the browser
+  // (pan the axis), the section pager (page to the next surface) and this grid (draw a shift).
+  // The browser and the pager win a plain drag, so planning by finger did nothing and usually
+  // navigated away instead. The hold is what hands the gesture to the lane.
+  describe('on touch, an empty-lane sweep is hold-then-drag', () => {
+    beforeEach(() => { vi.useFakeTimers() })
+    afterEach(() => { vi.useRealTimers() })
+
+    it('ignores a plain drag — that one still pans the axis and pages the surface', () => {
+      const onAddSpan = vi.fn()
+      render(<ZeitplanView {...base} attendance={{}} shifts={[]} onAddSpan={onAddSpan} />)
+      const lane = screen.getByLabelText(fillTemplate(Z.planAt, { name: 'Meier Anna' }))
+      sizeLane(lane, 1200)
+      touch(lane, 'pointerdown', 200)
+      touch(lane, 'pointermove', 500)
+      touch(lane, 'pointerup', 500)
+      expect(onAddSpan).not.toHaveBeenCalled()
+    })
+
+    it('plans the swept stretch once the hold has armed the lane', () => {
+      const onAddSpan = vi.fn()
+      render(<ZeitplanView {...base} attendance={{}} shifts={[]} onAddSpan={onAddSpan} />)
+      const lane = screen.getByLabelText(fillTemplate(Z.planAt, { name: 'Meier Anna' }))
+      sizeLane(lane, 1200)
+      touch(lane, 'pointerdown', 200)
+      hold()
+      touch(lane, 'pointermove', 500)
+      touch(lane, 'pointerup', 500)
+      expect(onAddSpan).toHaveBeenCalledTimes(1)
+      const [, from, to] = onAddSpan.mock.calls[0]
+      expect(to - from).toBe(3 * 3_600_000)
+    })
+
+    it('still opens the sheet when the hold is lifted without drawing', () => {
+      const onAddSpan = vi.fn()
+      render(<ZeitplanView {...base} attendance={{}} shifts={[]} onAddSpan={onAddSpan} />)
+      const lane = screen.getByLabelText(fillTemplate(Z.planAt, { name: 'Meier Anna' }))
+      sizeLane(lane, 1200)
+      touch(lane, 'pointerdown', 500)
+      hold()
+      touch(lane, 'pointerup', 500)
+      expect(onAddSpan).not.toHaveBeenCalled()
+      expect(screen.getByText(fillTemplate(Z.editTitle, { name: 'Meier Anna' }))).toBeTruthy()
+    })
+
+    it('a drag that starts before the hold lands never arms mid-pan', () => {
+      const onAddSpan = vi.fn()
+      render(<ZeitplanView {...base} attendance={{}} shifts={[]} onAddSpan={onAddSpan} />)
+      const lane = screen.getByLabelText(fillTemplate(Z.planAt, { name: 'Meier Anna' }))
+      sizeLane(lane, 1200)
+      touch(lane, 'pointerdown', 200)
+      touch(lane, 'pointermove', 300) // the finger left before 450ms — this is a pan
+      hold()                          // …so the timer must already be dead
+      touch(lane, 'pointermove', 500)
+      touch(lane, 'pointerup', 500)
+      expect(onAddSpan).not.toHaveBeenCalled()
+    })
   })
 
   it('does nothing when empty lane is merely tapped — planning is a sweep', () => {
