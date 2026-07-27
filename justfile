@@ -106,13 +106,28 @@ scenario file=demo_alarm:
 demo-reset:
     bash scripts/demo-reset.sh
 
-# --- Code quality  (run 'just lint && just test' before pushing) --------------
+# --- Code quality  (run 'just ci' before pushing) -----------------------------
 
+# (Mirrors .github/workflows/ci.yml. It exists because «lint + test» was NOT that set: a ruff
+# FORMAT violation once passed locally and turned main red, because nothing here ran
+# `ruff format --check`. Not covered — both need Docker: the gitleaks scan and the image build.)
+# Run everything CI would fail you on, before you push.
+[group('Quality')]
+ci: check
+    pnpm test
+    cd backend && uv run ruff format --check .
+    cd backend && uv run ruff check .
+    cd backend && uv run pytest -q
+    pnpm lint
+
+# (Scope is CI's: `.`, not `app tests` — alembic/ is lint-clean too, and code CI checks but you
+# don't is code that breaks on push rather than on save. Includes the format check.)
 # Lint both stacks (eslint + ruff).
 [group('Quality')]
 lint:
     pnpm lint
-    cd backend && uv run ruff check app tests
+    cd backend && uv run ruff format --check .
+    cd backend && uv run ruff check .
 
 # Test both stacks (vitest + pytest).
 [group('Quality')]
