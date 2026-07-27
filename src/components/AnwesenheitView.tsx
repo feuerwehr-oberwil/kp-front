@@ -382,7 +382,9 @@ export function AnwesenheitView({
                     aria-label={`${A.editTime} – ${p.displayName}`}
                     onClick={() => setEditing(p.id)}
                   >
-                    {left ? `${A.weg} ${toHM(timeIso)}` : toHM(timeIso)}
+                    {/* no «weg» prefix: the legend above already names the states, and the chip's
+                        own amber tint says which one this is — the word only cost width */}
+                    {toHM(timeIso)}
                   </button>
                 ))}
                 {/* Rückkehr — the tap cycle's third step CLEARS the row (frei), and it must keep

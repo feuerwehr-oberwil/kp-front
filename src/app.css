@@ -1667,7 +1667,10 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
    ============================================================================ */
 
 /* TopBar global actions — sit at the right, just before the Lage/Plan switch */
-.tb-actions { display: flex; align-items: center; gap: 4px; margin-left: auto; flex: none; }
+/* shrinkable: with `flex: none` the action cluster never gave way, so once the Atemschutz chip
+   carried a long name AND a four-digit clock it pushed itself out past the bar's own rounded
+   edge and floated over the map. The title/address yield first, then this. */
+.tb-actions { display: flex; align-items: center; gap: 4px; margin-left: auto; flex: 0 1 auto; min-width: 0; }
 .tb-act { position: relative; display: flex; align-items: center; justify-content: center; gap: 6px; border: none; cursor: pointer;
   background: var(--fill-soft); color: var(--ink-dim); border-radius: var(--r-ctl); padding: 7px 11px; min-height: 42px; font-size: 12px;
   font-weight: 600; font-family: inherit; transition: background .14s var(--ease), color .14s var(--ease); }
@@ -1682,10 +1685,16 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
    A compact pill, not a banner, so it's an ambient cue rather than an interruption. */
 .tb-az { display: inline-flex; align-items: center; gap: 6px; border: none; cursor: pointer; border-radius: var(--r-pill);
   font-family: var(--body); font-size: 12.5px; font-weight: 700; padding: 5px 11px 5px 9px; margin-right: 2px;
-  transition: background .14s var(--ease); }
+  flex: 0 1 auto; min-width: 0; transition: background .14s var(--ease); }
 .tb-az .i { width: 15px; height: 15px; flex: none; }
-.tb-az-name { max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* the name yields before the clock does — «wie lange schon» is the number you act on — but it
+   never vanishes: a bare timer that names nobody is useless when two Trupps are inside */
+.tb-az-name { flex: 0 1 auto; min-width: 4.5rem; max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tb-az-clock { flex: none; }
 .tb-az-clock { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+/* An ÜBERFÄLLIGER Trupp outranks the weather readout for the width. The chip only exists while
+   somebody is overdue, so this trade only happens exactly when it should. */
+.topbar:has(.tb-az) .tb-weather-wrap { display: none; }
 .tb-az.warn { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); }
 .tb-az.warn:hover { background: color-mix(in srgb, var(--amber) 26%, transparent); }
 .tb-az.crit { background: color-mix(in srgb, var(--red) 15%, transparent); color: var(--red-strong); animation: tb-az-pulse 1.6s infinite; }
