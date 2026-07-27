@@ -56,10 +56,18 @@ export function applyTimeToIso(baseIso: string, hhmm: string, opts?: { nextDayIf
   // which is worse than the reversed block this guard exists to prevent, because it looks normal
   // and reaches the Rapport as 25 hours.
   if (opts?.prevDayIfAfter) {
+    const DAY = 24 * 60 * 60 * 1000
     const ceil = new Date(opts.prevDayIfAfter).getTime()
+    // Was this span ALREADY longer than a day before the edit? Then it is a multi-day stretch, not
+    // a night shift, and the pull-forward below must keep its hands off it. Without this guard a
+    // correction inside a 58-hour presence (Di 08:00 → Do 18:00, «von» nudged to 09:00) snapped
+    // the start to within 24h of the end and silently moved it to the Wednesday — a whole day, ~24
+    // hours off the Rapport, with nothing said. The 24h assumption only ever held for one night.
+    const spanned = new Date(baseIso).getTime()
+    const wasMultiDay = Number.isFinite(ceil) && Number.isFinite(spanned) && ceil - spanned > DAY
     if (Number.isFinite(ceil)) {
       if (d.getTime() > ceil) d.setDate(d.getDate() - 1)
-      else if (ceil - d.getTime() > 24 * 60 * 60 * 1000) d.setDate(d.getDate() + 1)
+      else if (!wasMultiDay && ceil - d.getTime() > DAY) d.setDate(d.getDate() + 1)
     }
   }
   return d.toISOString()

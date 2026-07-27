@@ -81,4 +81,23 @@ describe('applyTimeToIso — prevDayIfAfter (the «von» mirror)', () => {
     expect(new Date(out!).getDate()).toBe(27)
     expect(new Date(out!).getHours()).toBe(13)
   })
+
+  // The pull-forward above keeps a start within 24h of its end, which is right for ONE night and
+  // wrong for anything longer. On an Elementarereignis a 58-hour presence lost a whole day to it:
+  // the correction looked like it worked and the Rapport was ~24 hours short, with no warning.
+  it('does not swallow a day when correcting inside a multi-day stretch', () => {
+    const from = iso('2026-07-28T08:00:00')
+    const to = iso('2026-07-30T18:00:00')
+    const out = applyTimeToIso(from, '09:00', { prevDayIfAfter: to })
+    expect(new Date(out!).getDate()).toBe(28)
+    expect(new Date(out!).getHours()).toBe(9)
+  })
+
+  it('still pulls a start back inside a multi-day stretch when it is typed past the end', () => {
+    // the reversed-block guard has to keep working even on a long span
+    const from = iso('2026-07-28T08:00:00')
+    const to = iso('2026-07-30T18:00:00')
+    const out = applyTimeToIso(from, '19:00', { prevDayIfAfter: to })
+    expect(Date.parse(out!)).toBeLessThan(Date.parse(to))
+  })
 })
