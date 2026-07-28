@@ -331,7 +331,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // placed Notiz. Focusing in the ref callback keeps it as close to the gesture as React allows.
   const focusOnce = useCallback((el: HTMLInputElement | HTMLTextAreaElement | null) => {
     if (!el) return
-    el.focus(); el.select?.()
+    // caret AFTER the text, not a full selection: re-opening a note is almost always "add a
+    // line", and selecting everything means the next keystroke silently wipes what was written
+    el.focus(); el.setSelectionRange?.(el.value.length, el.value.length)
     // size AFTER layout — at ref time scrollHeight is still 0 (see autoGrow). Focus stays
     // synchronous above for the iPadOS keyboard, as the comment block above explains.
     requestAnimationFrame(() => autoGrow(el))

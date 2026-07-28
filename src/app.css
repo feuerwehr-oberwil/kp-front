@@ -1158,8 +1158,13 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 /* note pill + photo markers */
 /* shape/padding kept identical to the Plan note (.wb-text-label) so a Notiz reads the same on
    map and plan — only the font-size is fixed here (map pills don't scale with zoom) */
+/* `overflow-wrap` is not optional here: the pill is capped at 180px, so a long unbroken token
+   (a hydrant code, a chemical name, a pasted id) ran straight out of the paper and sat on the
+   map as bare letters. `pre-wrap` keeps line breaks typed in the detail panel, so the note on
+   the map reads the same as the text in the field that wrote it. */
 .note-pill { background: var(--note-bg); border: 1px solid var(--note-border); color: var(--note-ink); font-size: 12px; font-weight: 600;
-  padding: 0.38em 0.7em; border-radius: 0.6em; box-shadow: 0 4px 10px rgba(30, 45, 70, .2); max-width: 180px; }
+  padding: 0.38em 0.7em; border-radius: 0.6em; box-shadow: 0 4px 10px rgba(30, 45, 70, .2); max-width: 180px;
+  white-space: pre-wrap; overflow-wrap: break-word; }
 /* empty note shows a muted placeholder so it stays visible + tappable (like the Plan note) */
 .note-pill-ph { opacity: .5; font-style: italic; }
 /* raw inline text entry on the map note — same yellow pill, just editable (mirrors the Plan) */
@@ -1449,8 +1454,11 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 .wb-anno.sel .ts-plan, .wb-anno.sel .shape-glyph { position: relative; z-index: 1; }
 /* text scales with the plan: font-size is set inline (13px × zoom); padding +
    radius use em so the bubble stays proportional at any zoom */
+/* a plan one-liner has NO width cap (it grows with the plan), so `nowrap` can't spill outside
+   its own paper the way the map's 180px-capped pill could — it just gets wide, which is what
+   «Einzeilig» means. `break-word` still guards the box variant below. */
 .wb-text-label, .wb-text-input { font-family: var(--body); font-weight: 600; color: var(--note-ink);
-  background: var(--note-bg); border: 1px solid var(--note-border); border-radius: 0.6em; padding: 0.38em 0.7em; box-shadow: 0 4px 10px rgba(30, 45, 70, .2); white-space: nowrap; }
+  background: var(--note-bg); border: 1px solid var(--note-border); border-radius: 0.6em; padding: 0.38em 0.7em; box-shadow: 0 4px 10px rgba(30, 45, 70, .2); white-space: nowrap; overflow-wrap: break-word; }
 .wb-text-input { outline: none; min-width: 7em; }
 /* text BOX (a note with a width): wraps and grows downwards. The width is set inline in px
    (wN × plan width), so it scales with the plan exactly like the font-size does. `pre-wrap`

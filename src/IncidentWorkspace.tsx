@@ -2219,13 +2219,17 @@ export function IncidentWorkspace({
       {mapUI && tool === 'note' && (
         <ToolDock groups={[
           [{ type: 'close', onClick: () => setTool('select') }],
-          [{ type: 'toggle', text: appConfig.copy.notes.formBox, label: noteDefaults.box ? appConfig.copy.notes.toLine : appConfig.copy.notes.toBox, on: noteDefaults.box, onClick: () => setNoteDefaults((d) => ({ ...d, box: !d.box })) }],
+          [
+            // glyphs, not words: the German labels stretched the whole dock column wide.
+            // A page = a block of text, a bare T = text without its paper.
+            { type: 'toggle', icon: 'doc', label: noteDefaults.box ? appConfig.copy.notes.toLine : appConfig.copy.notes.toBox, on: noteDefaults.box, onClick: () => setNoteDefaults((d) => ({ ...d, box: !d.box })) },
+            { type: 'toggle', icon: 'type', label: appConfig.copy.notes.lookPlain, on: noteDefaults.plain, onClick: () => setNoteDefaults((d) => ({ ...d, plain: !d.plain })) },
+          ],
           [
             { type: 'toggle', text: 'S', label: appConfig.copy.notes.sizeS, on: noteDefaults.size === 's', onClick: () => setNoteDefaults((d) => ({ ...d, size: 's' })) },
             { type: 'toggle', text: 'M', label: appConfig.copy.notes.sizeM, on: noteDefaults.size === 'm', onClick: () => setNoteDefaults((d) => ({ ...d, size: 'm' })) },
             { type: 'toggle', text: 'L', label: appConfig.copy.notes.sizeL, on: noteDefaults.size === 'l', onClick: () => setNoteDefaults((d) => ({ ...d, size: 'l' })) },
           ],
-          [{ type: 'toggle', text: appConfig.copy.notes.lookPlain, label: appConfig.copy.notes.look, on: noteDefaults.plain, onClick: () => setNoteDefaults((d) => ({ ...d, plain: !d.plain })) }],
           [{ type: 'colors', value: noteDefaults.color, onChange: (c) => setNoteDefaults((d) => ({ ...d, color: c })) }],
           [{ type: 'info', text: appConfig.copy.dockHints.note }],
         ]} />

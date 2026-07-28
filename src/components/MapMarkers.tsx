@@ -70,6 +70,14 @@ const DRAG_DEADZONE_PX = 6
  *  scrollHeight reads 0. Writing `height: 0px` collapses the textarea, and a collapsed element
  *  DROPS FOCUS — which showed up as "the note is placed but I can't type into it", with the
  *  keystrokes falling through to the global hotkeys instead. */
+/** Park the caret AFTER the existing text instead of selecting all of it. Re-opening a note is
+ *  almost always "add a line", and a full selection means the next keystroke silently wipes
+ *  what was already written — the worst possible default with gloves on. */
+function caretToEnd(el: HTMLTextAreaElement) {
+  const n = el.value.length
+  el.setSelectionRange?.(n, n)
+}
+
 function autoGrow(el: HTMLTextAreaElement | null) {
   if (!el) return
   el.style.height = 'auto'
@@ -177,7 +185,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
     // opens the on-screen keyboard (a deferred focus drops the gesture and the keyboard never
     // appears). Focus is then stolen by MapLibre's canvas (and/or a panel mounting on select),
     // but the onBlur guard below re-grabs it instead of letting that steal commit the note.
-    el.focus(); el.select?.()
+    el.focus(); caretToEnd(el)
     // …but that call is a SILENT NO-OP when it lands early: react-map-gl builds the Marker's
     // div and only then inserts it into the map container, so at ref time the node can still be
     // detached — and focusing a detached node does nothing at all, with no error. That is why a
@@ -186,7 +194,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
     // take. The synchronous attempt above is kept because when it DOES work it stays inside the
     // tap's gesture context, which is what makes iPadOS open the on-screen keyboard.
     requestAnimationFrame(() => {
-      if (document.activeElement !== el) { el.focus(); el.select?.() }
+      if (document.activeElement !== el) { el.focus(); caretToEnd(el) }
       // size only after layout too — scrollHeight reads 0 before it (see autoGrow)
       autoGrow(el)
     })

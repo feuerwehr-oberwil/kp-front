@@ -234,13 +234,17 @@ export function WbToolDocks({ tool, lineMode, color, width, dashed, draftActive,
       {tool === 'text' && (
         <ToolDock groups={[
           [{ type: 'close', onClick: () => setTool('pan') }],
-          [{ type: 'toggle', text: NOTES.formBox, label: noteDefaults.box ? NOTES.toLine : NOTES.toBox, on: noteDefaults.box, onClick: () => setNoteDefaults({ box: !noteDefaults.box }) }],
+          [
+            // glyphs, not words: the German labels («Textfeld», «Klartext») stretched the whole
+            // dock column wide. A page = a block of text, a bare T = text without its paper.
+            { type: 'toggle', icon: 'doc', label: noteDefaults.box ? NOTES.toLine : NOTES.toBox, on: noteDefaults.box, onClick: () => setNoteDefaults({ box: !noteDefaults.box }) },
+            { type: 'toggle', icon: 'type', label: NOTES.lookPlain, on: noteDefaults.plain, onClick: () => setNoteDefaults({ plain: !noteDefaults.plain }) },
+          ],
           [
             { type: 'toggle', text: 'S', label: NOTES.sizeS, on: noteDefaults.size === 's', onClick: () => setNoteDefaults({ size: 's' }) },
             { type: 'toggle', text: 'M', label: NOTES.sizeM, on: noteDefaults.size === 'm', onClick: () => setNoteDefaults({ size: 'm' }) },
             { type: 'toggle', text: 'L', label: NOTES.sizeL, on: noteDefaults.size === 'l', onClick: () => setNoteDefaults({ size: 'l' }) },
           ],
-          [{ type: 'toggle', text: NOTES.lookPlain, label: NOTES.look, on: noteDefaults.plain, onClick: () => setNoteDefaults({ plain: !noteDefaults.plain }) }],
           [{ type: 'colors', value: noteDefaults.color, onChange: (c) => setNoteDefaults({ color: c }) }],
           [{ type: 'info', text: appConfig.copy.whiteboard.dockHints.text }],
         ]} />
