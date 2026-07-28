@@ -7,7 +7,7 @@
   position: absolute; right: max(16px, env(safe-area-inset-right)); bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 40;
   display: flex; align-items: center; gap: 10px;
   background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
-  border: 1px solid var(--glass-line); border-radius: var(--r-btn);
+  border: 1px solid var(--glass-line); border-radius: var(--r-sm);
   padding: 8px 12px; box-shadow: var(--shadow); color: var(--ink);
   white-space: nowrap; font-variant-numeric: tabular-nums;
   font: inherit; cursor: pointer; text-align: left;
@@ -18,7 +18,7 @@
 .lifted { bottom: 150px; }
 .badge:hover:not(:disabled) { background: var(--hover-strong); }
 .badge:active:not(:disabled) { transform: scale(.97); }
-.badge:disabled { cursor: default; }
+.badge:disabled { cursor: default; opacity: var(--disabled); }
 
 /* single present-weather glyph (clear / cloud / rain / snow / fog / storm) */
 .cond { flex: none; display: grid; place-items: center; color: var(--ink); }

@@ -22,8 +22,8 @@
 /* Only the CONTROLS — the QR read-out chip beside them is a read-out, and a 44px pill would read
    as a fourth button. .iconBtn and .reload already carry --tap; the switcher is the one that did
    not (34px buttons inside 3px padding = 40px). */
-.headActions :global(.useg), .headTabs :global(.useg) { border-radius: var(--r-ctl); }
-.headActions :global(.useg-btn), .headTabs :global(.useg-btn) { min-height: calc(var(--tap) - 6px); }
+/* nothing to override any more: this geometry (option = --tap - 6px inside a 3px --r-ctl track,
+   so the control measures a full 44px) became the one segmented spec in app.css. */
 /* the view tabs, in a slot of their own so a phone can put them on a line of their own without
    the action cluster coming with them. On a desk screen they sit inline, between the title and
    the tools, and claim only their own width. */
@@ -35,10 +35,10 @@
   flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
   cursor: pointer; min-height: var(--tap);
   border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink-dim);
-  border-radius: var(--r-ctl); padding: 0 13px; font: 700 13px var(--body);
+  border-radius: var(--r-sm); padding: 0 13px; font: 700 12.5px var(--body);
 }
 .reload:hover { color: var(--ink); border-color: var(--ink-faint); }
-.reload:disabled { opacity: .55; cursor: default; }
+.reload:disabled { opacity: var(--disabled); cursor: default; }
 /* it only appears when something failed, so it says so rather than looking like a spare control */
 .reloadFailed { border-color: color-mix(in srgb, var(--amber-strong) 45%, var(--glass-edge)); color: var(--amber-strong); }
 .reloadFailed:hover { color: var(--amber-strong); border-color: var(--amber-strong); }
@@ -203,7 +203,7 @@
 .iconBtn {
   position: relative; flex: none; display: inline-grid; place-items: center;
   min-width: var(--tap); min-height: var(--tap); padding: 0 8px;
-  border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface);
+  border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface);
   color: var(--ink-dim); cursor: pointer; -webkit-tap-highlight-color: transparent;
   grid-auto-flow: column; gap: 6px;
 }
@@ -252,4 +252,4 @@
 }
 .zoomBtn svg { width: 14px; height: 14px; }
 .zoomBtn:hover:not(:disabled) { color: var(--ink); border-color: var(--ink-faint); }
-.zoomBtn:disabled { opacity: .4; cursor: default; }
+.zoomBtn:disabled { opacity: var(--disabled); cursor: default; }

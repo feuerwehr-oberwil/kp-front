@@ -80,7 +80,7 @@
 .cl-check :global(.i) { width: 18px; height: 18px; }
 .cl-check:hover:not(:disabled) { border-color: var(--green); }
 .cl-item.done .cl-check { background: var(--green); border-color: var(--green); }
-.cl-check:disabled { cursor: default; opacity: .5; }
+.cl-check:disabled { cursor: default; opacity: var(--disabled); }
 /* gloved field use: ticking is THE action on this surface — full 44px checkbox on touch */
 @media (pointer: coarse) { .cl-check { width: 44px; height: 44px; } }
 .cl-item-body { flex: 1 1 auto; min-width: 0; }
@@ -114,7 +114,7 @@
 .cl-search input { border: none; outline: none; background: transparent; font-family: var(--body);
   font-size: 13.5px; color: var(--ink); width: 100%; }
 .cl-automatch { display: flex; align-items: center; gap: 9px; border: none; cursor: pointer; text-align: left;
-  background: color-mix(in srgb, var(--red) 8%, transparent); color: var(--red-strong); border-radius: var(--r-ctl); padding: 10px 12px; }
+  background: color-mix(in srgb, var(--red) 8%, transparent); color: var(--red-strong); border-radius: var(--r-sm); padding: 10px 12px; }
 .cl-automatch :global(.i) { width: 15px; height: 15px; flex: none; }
 .cl-automatch > div { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
 .cl-automatch-lbl { font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; opacity: .8; }

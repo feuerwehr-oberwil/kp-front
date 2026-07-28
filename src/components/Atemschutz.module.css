@@ -15,12 +15,12 @@
 .headTitles p { margin: 3px 0 0; font-size: 12.5px; color: var(--ink-dim); }
 .newBtn { display: inline-flex; align-items: center; gap: 8px; border: none; cursor: pointer;
   background: var(--ink-fill); color: var(--on-accent-ink); font-family: var(--body); font-size: 14px; font-weight: 700;
-  padding: 11px 16px; border-radius: var(--r-ctl); }
+  padding: 11px 16px; border-radius: var(--r-sm); }
 .newBtn :global(.i) { width: 16px; height: 16px; }
 .newBtn:hover { filter: brightness(1.12); }
 /* per-device alarm-sound toggle (visual alarm + wake-lock stay on either way) */
 .muteBtn { flex: none; display: grid; place-items: center; width: 44px; height: 44px; cursor: pointer;
-  border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink-dim); border-radius: var(--r-ctl); }
+  border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink-dim); border-radius: var(--r-sm); }
 .muteBtn :global(.i) { width: 18px; height: 18px; }
 .muteBtn:hover { color: var(--ink); border-color: var(--ink-faint); }
 .muteOn { color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 35%, var(--glass-edge)); }
@@ -38,10 +38,12 @@
 .empty p { margin: 0; font-size: 15px; font-weight: 700; color: var(--ink-dim); }
 .empty span { font-size: 13px; }
 
-/* align-items:start so a shorter card (e.g. angemeldet) keeps its natural height instead of
-   stretching to the tallest sibling and leaving dead space under its last action */
+/* Cards stretch to a common height per row. Ragged bottoms made the wall of Trupps read as a wavy
+   line you had to re-scan for each card's action bar; now every bar in a row sits on the same
+   baseline. The slack lands inside .meta (below the numbers, above the actions), never as a gap
+   under the last button — see .meta's flex-grow. */
 /* minmax 270px so a normal landscape tablet fits 3 Trupp cards per row (was 300px → only 2) */
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 16px; align-items: start; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 16px; align-items: stretch; }
 .sep { grid-column: 1 / -1; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
   color: var(--ink-faint); padding: 10px 2px 2px; border-top: 1px solid var(--glass-edge); margin-top: 6px; }
 
@@ -49,18 +51,27 @@
 .card { background: var(--surface); border-radius: var(--r-surface); overflow: hidden;
   box-shadow: 0 0 0 1px var(--border-soft), var(--shadow-sm); display: flex; flex-direction: column;
   border-top: 5px solid var(--ink-faint); }
-.cardBanner { display: flex; align-items: center; gap: 9px; padding: 9px 14px;
+.cardBanner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px;
   background: var(--fill-soft); border-bottom: 1px solid var(--glass-edge); }
 .statusDot { width: 11px; height: 11px; border-radius: 50%; background: var(--ink-faint); flex: none; }
-.statusLabel { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+/* «ÜBERFÄLLIG» is the word you scan a wall of cards for, so it NEVER shrinks and never ellipses —
+   three 44px icon buttons used to squeeze it down to «ÜBERFÄ…» at every card width. It stays whole
+   and the action group wraps below it instead, which in practice never happens above ~250px. */
+.statusLabel { flex: 1 0 auto; white-space: nowrap;
   font-size: 12px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim); }
+.cardActs { flex: none; display: flex; align-items: center; gap: 8px; margin-left: auto; }
 .iconBtn { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border: none; cursor: pointer;
-  background: transparent; color: var(--ink-faint); border-radius: var(--r-xs); padding: 0; }
+  background: transparent; color: var(--ink-faint); border-radius: var(--r-sm); padding: 0; }
 .iconBtn :global(.i) { width: 17px; height: 17px; }
+/* In the banner the buttons shrink to 38px visible but keep a full 44px invisible hit pad — the
+   pads stay 8px apart, so no two gloved targets overlap (the trash sits beside a place button). */
+.cardBanner .iconBtn { width: 38px; height: 38px; position: relative; }
+.cardBanner .iconBtn::after { content: ''; position: absolute; left: 50%; top: 50%;
+  width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .iconBtn:hover { background: var(--fill-soft); color: var(--ink); }
 /* destructive variant (delete card) — extra separation + red hover so it never reads like the
    neutral place/show actions beside it (avoids a mis-tapped delete during a stressful incident) */
-.iconBtn.danger { margin-left: 10px; }
+.iconBtn.danger { margin-left: 6px; }
 .iconBtn.danger:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
 
 .cardName { padding: 12px 14px 4px; }
@@ -87,7 +98,7 @@
 /* the big primary action — reset the contact clock on Funkkontakt. Filled + ringed so it reads
    as THE button before hover; takes on the warn/crit colour so the fix-it action self-announces */
 .kontaktBtn { display: inline-flex; align-items: center; justify-content: center; gap: 9px; border: none; cursor: pointer;
-  background: color-mix(in srgb, var(--green) 7%, var(--surface)); font-family: var(--body); font-size: 15px; font-weight: 800;
+  background: color-mix(in srgb, var(--green) 7%, var(--surface)); font-family: var(--body); font-size: 14px; font-weight: 800;
   color: var(--green-strong); padding: 14px 10px; min-height: 50px;
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--green) 26%, transparent); }
 .kontaktBtn :global(.i) { width: 19px; height: 19px; }
@@ -99,7 +110,9 @@
   box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--red) 46%, transparent); }
 .kontaktCrit:hover { background: color-mix(in srgb, var(--red) 24%, var(--surface)); }
 
-.meta { display: flex; flex-direction: column; gap: 7px; padding: 12px 14px; }
+/* flex:1 — the block that absorbs a stretched card's slack, so the action bar lands on the row's
+   shared bottom edge instead of leaving a hole beneath it */
+.meta { flex: 1 1 auto; display: flex; flex-direction: column; gap: 7px; padding: 12px 14px; }
 .metaRow { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: 12.5px;
   color: var(--ink-dim); }
 .metaRow b { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--ink); }
@@ -107,9 +120,13 @@
 /* the expected-pressure Schätzung: mono for alignment with the real Druck, but dimmed + lighter
    so it reads as a subordinate estimate, never mistaken for a logged reading. */
 .metaEst { color: var(--ink-dim) !important; font-weight: 500 !important; }
-.metaEstimate { align-items: flex-start; }
-.metaEstimateValue { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: right; }
-.metaEstimateValue small { max-width: 190px; font-size: 10.5px; line-height: 1.25; color: var(--ink-faint); }
+/* Two clean lines, not a four-line staircase: label + value hold ONE row (the label never wraps),
+   and the provenance line the 3am tenet demands on every Schätzung sits full-width beneath them,
+   right-aligned under the value it explains. */
+.metaEstimate { display: grid; grid-template-columns: 1fr auto; align-items: baseline; column-gap: 10px; row-gap: 1px; }
+.metaEstLabel { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.metaEstSource { grid-column: 1 / -1; justify-self: end; text-align: right;
+  font-size: 10.5px; line-height: 1.25; color: var(--ink-faint); }
 /* Alarmdruck on a pressure value. Declared AFTER .metaEst so it wins over that rule's dimmed
    !important when the Schätzung itself has crossed the threshold. */
 .metaEst.metaAlarm { font-weight: 700 !important; }
@@ -134,14 +151,14 @@
 .pressureLbl { font-size: 12.5px; font-weight: 700; color: var(--ink-dim); }
 .pressureCtl { display: grid; grid-template-columns: 44px 70px 44px; align-items: center; gap: 6px; }
 .pBtn { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--glass-edge);
-  background: var(--surface); border-radius: var(--r-ctl); cursor: pointer; color: var(--ink-dim); }
+  background: var(--surface); border-radius: var(--r-sm); cursor: pointer; color: var(--ink-dim); }
 .pBtn :global(.i) { width: 16px; height: 16px; }
 .pBtn:hover { border-color: var(--blue); color: var(--blue); }
 .pVal { display: inline-flex; align-items: baseline; gap: 4px; justify-content: center;
   font: 800 19px/1 var(--mono); color: var(--ink); }
 .pVal span { font-size: 11px; font-weight: 700; color: var(--ink-faint); }
 /* tap-to-type: the value as a button (reset native chrome) + the inline numeric input */
-button.pValBtn { border: none; background: transparent; cursor: pointer; padding: 2px 4px; border-radius: var(--r-xs); }
+button.pValBtn { border: none; background: transparent; cursor: pointer; padding: 2px 4px; border-radius: var(--r-sm); }
 button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 .pInput { width: 44px; box-sizing: border-box; text-align: center; border: none; background: transparent; outline: none;
   font: 800 19px/1 var(--mono); color: var(--blue); padding: 0; }
@@ -151,18 +168,18 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 /* explicit confirm row, shown only while a pending change is open */
 .pressureConfirm { display: grid; grid-template-columns: 1fr 44px; gap: 8px; }
 .pConfirm { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: none; cursor: pointer;
-  background: var(--green); color: var(--on-accent-ink); font: 800 14px var(--body); min-height: 44px; border-radius: var(--r-ctl); }
+  background: var(--green); color: var(--on-accent-ink); font: 800 14px var(--body); min-height: 44px; border-radius: var(--r-sm); }
 .pConfirm :global(.i) { width: 17px; height: 17px; }
 .pConfirm:hover { background: var(--green-solid-hover); }
 .pCancel { display: grid; place-items: center; border: 1px solid var(--glass-edge); background: var(--surface);
-  color: var(--ink-dim); border-radius: var(--r-ctl); cursor: pointer; min-height: 44px; }
+  color: var(--ink-dim); border-radius: var(--r-sm); cursor: pointer; min-height: 44px; }
 .pCancel :global(.i) { width: 16px; height: 16px; }
 .pCancel:hover { color: var(--ink); border-color: var(--ink-faint); }
 
 /* expandable per-Trupp contact/pressure log (collapsed by default) */
 .log { border-top: 1px solid var(--glass-edge); margin-top: 2px; padding-top: 7px; }
 .logToggle { display: inline-flex; align-items: center; gap: 7px; border: none; cursor: pointer; background: transparent;
-  color: var(--ink-dim); font: 700 12px var(--body); padding: 3px 2px; }
+  color: var(--ink-dim); font: 700 12.5px var(--body); padding: 3px 2px; }
 .logToggle :global(.i) { width: 14px; height: 14px; }
 .logChev { color: var(--ink-faint); }
 .logList { list-style: none; margin: 6px 0 0; padding: 0; max-height: 168px; overflow-y: auto; scrollbar-gutter: stable; }
@@ -177,7 +194,7 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 .actions { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 1px; background: var(--glass-edge);
   border-top: 1px solid var(--glass-edge); }
 .actBtn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: none; cursor: pointer;
-  background: var(--surface); font-family: var(--body); font-size: 13.5px; font-weight: 700; color: var(--ink);
+  background: var(--surface); font-family: var(--body); font-size: 14px; font-weight: 700; color: var(--ink);
   padding: 14px 10px; min-height: 48px; }
 .actBtn :global(.i) { width: 16px; height: 16px; }
 .actEnter { color: var(--on-accent-ink); background: var(--green); }
@@ -251,7 +268,7 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
    so it stays clearly apart from the in-field ✕ that only clears the chosen name. */
 .fieldLabelRow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .slotRemove { flex: none; display: grid; place-items: center; width: 26px; height: 26px; margin: -4px -4px -4px 0;
-  border: none; background: transparent; color: var(--ink-faint); cursor: pointer; border-radius: var(--r-xs); position: relative; }
+  border: none; background: transparent; color: var(--ink-faint); cursor: pointer; border-radius: var(--r-sm); position: relative; }
 /* 44px touch pad behind the 26px visible target — gloved-finger sized without bloating the row */
 .slotRemove::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .slotRemove :global(.i) { width: 14px; height: 14px; }
@@ -262,27 +279,29 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 /* Auftrag picker uses the shared <Segmented>, but with gloved-size tap targets in the wizard
    (the canonical .useg-btn is 34px; here we keep the ≥46px 2-up grid the wizard had). */
 .field :global(.useg) { display: flex; flex-wrap: wrap; width: 100%; }
-.field :global(.useg-btn) { flex: 1 0 40%; min-height: 46px; font-weight: 700; }
+/* only the WRAP behaviour is local — a four-option Auftrag set needs two rows in this form.
+   Height and radius come from the one segmented spec. */
+.field :global(.useg-btn) { flex: 1 0 40%; font-weight: 700; }
 
 .linkBtn { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; border: none; cursor: pointer;
-  background: transparent; color: var(--blue-strong); font-family: var(--body); font-size: 13px; font-weight: 700; padding: 4px 2px; }
+  background: transparent; color: var(--blue-strong); font-family: var(--body); font-size: 12.5px; font-weight: 700; padding: 4px 2px; }
 .linkBtn :global(.i) { width: 14px; height: 14px; }
 
 .modalFoot { display: flex; gap: 10px; justify-content: flex-end; padding: 14px 18px; border-top: 1px solid var(--glass-edge);
   position: sticky; bottom: 0; background: var(--surface); }
 .ghostBtn { border: none; cursor: pointer; background: transparent; color: var(--ink-dim);
-  font-family: var(--body); font-size: 14px; font-weight: 700; padding: 11px 16px; border-radius: var(--r-ctl); }
+  font-family: var(--body); font-size: 14px; font-weight: 700; padding: 11px 16px; border-radius: var(--r-sm); }
 .ghostBtn:hover { background: var(--fill-soft); color: var(--ink); }
-.primaryBtn { border: none; cursor: pointer; background: var(--ink-fill); color: var(--on-accent-ink);
-  font-family: var(--body); font-size: 14px; font-weight: 700; padding: 11px 20px; border-radius: var(--r-ctl); }
-.primaryBtn:hover:not(:disabled) { filter: brightness(1.12); }
-.primaryBtn:disabled { opacity: .45; cursor: default; }
+.primaryBtn { border: none; cursor: pointer; background: var(--btn-primary); color: var(--on-btn-primary);
+  font-family: var(--body); font-size: 14px; font-weight: 800; padding: 11px 20px; border-radius: var(--r-sm); }
+.primaryBtn:hover:not(:disabled) { background: var(--btn-primary-hover); }
+.primaryBtn:disabled { opacity: var(--disabled); cursor: default; }
 /* second, equally valid submit (Wieder einrücken → «Bereitstellen»): outlined rather than ghost,
    because it commits the form just like the primary does – a ghost would read as «abbrechen». */
 .secondaryBtn { border: 1.5px solid var(--glass-edge); cursor: pointer; background: var(--surface); color: var(--ink);
-  font-family: var(--body); font-size: 14px; font-weight: 700; padding: 10px 18px; border-radius: var(--r-ctl); }
+  font-family: var(--body); font-size: 14px; font-weight: 700; padding: 10px 18px; border-radius: var(--r-sm); }
 .secondaryBtn:hover:not(:disabled) { border-color: var(--ink-faint); background: var(--fill-soft); }
-.secondaryBtn:disabled { opacity: .45; cursor: default; }
+.secondaryBtn:disabled { opacity: var(--disabled); cursor: default; }
 
 /* angemeldet (registered, not yet entered): neutral blue banner, no alarm */
 .st-angemeldet { border-top-color: var(--blue); }
@@ -305,7 +324,7 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 /* gloved ±pressure stepper (wizard + Druck-aktualisieren modal) */
 .stepper { display: grid; grid-template-columns: 64px 1fr 64px; align-items: stretch; gap: 10px; }
 .stepBtn { display: grid; place-items: center; border: 2px solid var(--glass-edge); background: var(--surface);
-  border-radius: var(--r-ctl); cursor: pointer; color: var(--ink); min-height: 64px; }
+  border-radius: var(--r-sm); cursor: pointer; color: var(--ink); min-height: 64px; }
 .stepBtn:hover { border-color: var(--blue); color: var(--blue); }
 .stepBtn :global(.i) { width: 22px; height: 22px; }
 .stepVal { display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -336,7 +355,7 @@ button.stepVal:hover { border-color: var(--blue); }
 .combo input { padding-right: 40px; }
 .comboClear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); display: grid; place-items: center;
   width: 30px; height: 30px; border: none; background: transparent; color: var(--ink-faint); cursor: pointer;
-  border-radius: var(--r-xs); }
+  border-radius: var(--r-sm); }
 /* centred transparent pad — 30px visible ✕, 44px touch target */
 .comboClear::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .comboClear:hover { background: var(--fill-soft); color: var(--ink); }

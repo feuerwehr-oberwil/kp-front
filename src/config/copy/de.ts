@@ -1971,8 +1971,6 @@ export const de = {
     speed: 'Geschwindigkeit',
     timepoint: 'Zeitpunkt',
     now: 'Jetzt',
-    noVehicleData: 'keine Fahrzeugdaten · taktische Lage + Status werden wiedergegeben',
-    noVehicleTitle: 'Die Traccar→Sample-Erfassung ist noch nicht verdrahtet',
     // scrubber track marker labels (deriveMarkers)
     markerSymbol: 'Symbol gesetzt',
     markerDraw: 'Zeichnung',

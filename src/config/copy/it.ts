@@ -1359,8 +1359,6 @@ export const it: Localizable<Copy> = {
     speed: 'Velocità',
     timepoint: 'Momento',
     now: 'Ora',
-    noVehicleData: 'nessun dato dei veicoli · vengono riprodotti la situazione tattica + lo stato',
-    noVehicleTitle: 'L’acquisizione Traccar→campione non è ancora collegata',
     markerSymbol: 'Simbolo posizionato',
     markerDraw: 'Disegno',
     markerStatus: 'Stato',

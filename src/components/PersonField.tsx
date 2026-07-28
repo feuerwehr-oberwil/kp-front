@@ -130,6 +130,9 @@ export function PersonField({
           <input
             ref={inputRef}
             value={value.name} placeholder={placeholder}
+            // a hand-typed name (guest crew, someone not in Divera) is capped so it can't blow out
+            // the Trupp card's one-line name row; every real roster name is far inside this
+            maxLength={40}
             onChange={(e) => onChange({ name: e.target.value })}
             onBlur={() => window.setTimeout(() => { setTyping(false); setOpen(false) }, 120)}
           />

@@ -150,6 +150,24 @@ to prod.
   the generator, never the JSON, and re-run `python3 tools/gen_symbols.py emit` (a `review`
   mode renders a sign-off grid). Names/categories are compatibility keys referenced across
   appConfig/copy/backend config; keep them stable.
+- **Buttons follow one spec – don't invent a per-surface variant.** Decided 2026-07-28 after a
+  sweep found 12 label type combos, 6 disabled opacities and 8 stray radii for one role.
+  - *Radius:* **every** button is `var(--r-sm)`, whatever its size, border or icon-only-ness.
+    Rows, list items, option cells, tiles and field triggers are **not** buttons and keep
+    `--r-ctl`; on-canvas furniture (handles, vertices, pins, trail marks, colour swatches, the
+    badges attached to a map object), dots, legends and avatars stay round – roundness is what
+    tells map furniture apart from chrome.
+  - *Type:* two sizes, two weights. `12.5px/700` compact (toolbars, docks, dense rows, chips),
+    `14px/700` standard (sheet footers, form + page actions), and `800` **only** on the single
+    action of a surface (Kontakt, Speichern, Senden). Nothing else.
+  - *Height is a separate axis* – `--tap` (44px) by default, 48–50px for a card's main action.
+    The 12 type combos happened because people enlarged the *label* when they wanted a bigger
+    *target*; raise the height, not the font.
+  - *Colour:* the primary fill is `var(--btn-primary)` (+ `--btn-primary-hover` /
+    `--on-btn-primary`), never `--ink-fill`/`--blue`/`--accent` directly. **Red never fills an
+    action** – it means danger/delete only. Amber = warning but not critical; red = danger,
+    broken, act now; blue/grey = normal status and in-progress.
+  - *Disabled:* `opacity: var(--disabled)` + `cursor: default`. Never inline the number.
 - **Time-based alerts** (Atemschutz clock, reminders) go through the shared `src/lib/alarm.ts`
   layer, not ad-hoc timers. Delivery: foreground tone/wake-lock + service-worker notification,
   plus – once the deployment sets VAPID keys (`app.gen_vapid`) – server-side Web Push for

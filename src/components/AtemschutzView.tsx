@@ -390,25 +390,29 @@ function TruppCard({
       <div className={s.cardBanner}>
         <span className={s.statusDot} />
         <span className={s.statusLabel}>{statusLabel}</span>
-        {canEdit && status !== 'raus' && (
-          <button className={s.iconBtn} aria-label={az.edit} title={az.edit} onClick={onEdit}>
-            <Icon id="pen" />
-          </button>
-        )}
-        {(t.annoId || t.entityId) ? (
-          <button className={s.iconBtn} aria-label={t.entityId ? az.showOnMap : az.showOnPlan} title={t.entityId ? az.showOnMap : az.showOnPlan} onClick={() => onShowPlan(t.id)}>
-            <Icon id={t.entityId ? 'map' : 'doc'} />
-          </button>
-        ) : canEdit && status !== 'raus' && (
-          <button className={s.iconBtn} aria-label={az.place} title={az.place} onClick={() => onPlace(t.id)}>
-            <Icon id="footprint" />
-          </button>
-        )}
-        {canEdit && (
-          <button className={`${s.iconBtn} ${s.danger}`} aria-label={az.remove} title={az.remove} onClick={doDelete}>
-            <Icon id="trash" />
-          </button>
-        )}
+        {/* The actions ride in their own group so they wrap as a block if a card ever gets narrow
+            enough — the status word must never be the thing that gets abbreviated. */}
+        <div className={s.cardActs}>
+          {canEdit && status !== 'raus' && (
+            <button className={s.iconBtn} aria-label={az.edit} title={az.edit} onClick={onEdit}>
+              <Icon id="pen" />
+            </button>
+          )}
+          {(t.annoId || t.entityId) ? (
+            <button className={s.iconBtn} aria-label={t.entityId ? az.showOnMap : az.showOnPlan} title={t.entityId ? az.showOnMap : az.showOnPlan} onClick={() => onShowPlan(t.id)}>
+              <Icon id={t.entityId ? 'map' : 'doc'} />
+            </button>
+          ) : canEdit && status !== 'raus' && (
+            <button className={s.iconBtn} aria-label={az.place} title={az.place} onClick={() => onPlace(t.id)}>
+              <Icon id="footprint" />
+            </button>
+          )}
+          {canEdit && (
+            <button className={`${s.iconBtn} ${s.danger}`} aria-label={az.remove} title={az.remove} onClick={doDelete}>
+              <Icon id="trash" />
+            </button>
+          )}
+        </div>
       </div>
 
       <div className={s.cardName}>
@@ -464,13 +468,11 @@ function TruppCard({
           <div className={cx(s.metaRow, s.metaEstimate)} title={estimate.source === 'history'
             ? az.estimatedHintHistory
             : fillTemplate(az.estimatedHint, { liters: dz.cylinderLiters, rate: dz.estConsumptionLPerMin })}>
-            <span>{az.estimated}</span>
-            <span className={s.metaEstimateValue}>
-              <b className={cx(s.metaEst, estimateLow && s.metaAlarm)}>≈ {estimate.bar} bar</b>
-              <small>{estimate.source === 'history'
-                ? fillTemplate(az.estimatedSourceHistory, { count: estimate.sampleCount, time: fmtTime(estimate.basedAt) })
-                : fillTemplate(az.estimatedSourceFallback, { rate: dz.estConsumptionLPerMin, time: fmtTime(estimate.basedAt) })}</small>
-            </span>
+            <span className={s.metaEstLabel}>{az.estimated}</span>
+            <b className={cx(s.metaEst, estimateLow && s.metaAlarm)}>≈ {estimate.bar} bar</b>
+            <small className={s.metaEstSource}>{estimate.source === 'history'
+              ? fillTemplate(az.estimatedSourceHistory, { count: estimate.sampleCount, time: fmtTime(estimate.basedAt) })
+              : fillTemplate(az.estimatedSourceFallback, { rate: dz.estConsumptionLPerMin, time: fmtTime(estimate.basedAt) })}</small>
           </div>
         )}
         {canEdit && inField ? (
@@ -651,12 +653,15 @@ function TruppForm({
               <span>{az.zielLabel}</span>
               <input
                 value={ziel} placeholder={isAnderes ? az.zielOtherPlaceholder : az.zielPlaceholder}
+                // caps chosen so the card's one-line Ziel and the Leitung chip can't be blown out:
+                // «2. OG Wohnung Nord, 2 Personen vermisst» is 39 chars, a Leitung is «1»–«12»
+                maxLength={60}
                 onChange={(e) => setZiel(e.target.value)}
               />
             </label>
             <label className={s.field}>
               <span>{az.lineNumberLabel}</span>
-              <input value={lineNumber} placeholder={az.lineNumberPlaceholder} onChange={(e) => setLineNumber(e.target.value)} />
+              <input value={lineNumber} placeholder={az.lineNumberPlaceholder} maxLength={4} onChange={(e) => setLineNumber(e.target.value)} />
             </label>
           </div>
 

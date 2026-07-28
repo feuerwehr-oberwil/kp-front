@@ -50,7 +50,7 @@
   display: none;
   flex: 0 0 auto; place-items: center;
   width: var(--tap); height: var(--tap); padding: 0;
-  border: 1px solid var(--border); border-radius: var(--r-ctl);
+  border: 1px solid var(--border); border-radius: var(--r-sm);
   background: var(--fill-soft); color: var(--ink-dim); cursor: pointer;
 }
 .adm-navtoggle .i { width: 20px; height: 20px; }
@@ -516,7 +516,7 @@
      background fades — restate it here so the whole hover animates as one clean motion */
   transition: background .16s var(--ease), border-color .16s var(--ease), transform .12s var(--ease);
 }
-.adm-int-btn:disabled { opacity: .5; cursor: default; }
+.adm-int-btn:disabled { opacity: var(--disabled); cursor: default; }
 
 .adm-save-btn {
   flex: 0 0 auto; min-height: var(--tap); padding: 9px 18px; font-size: 12.5px;
@@ -684,7 +684,7 @@
   position: absolute; left: 10px; bottom: 10px; z-index: 2;
   display: inline-flex; align-items: center; gap: 6px;
   min-height: 40px;
-  padding: 7px 12px; border-radius: var(--r-ctl);
+  padding: 7px 12px; border-radius: var(--r-sm);
   border: 1px solid var(--border); background: var(--surface); color: var(--ink);
   font-size: 12px; font-weight: 600; cursor: pointer; box-shadow: var(--shadow-sm);
   transition: background .12s var(--ease);
@@ -761,7 +761,7 @@
 .adm-members-actions-col { width: 1%; white-space: nowrap; }
 .adm-members-actions { display: flex; flex-wrap: wrap; gap: 7px; }
 /* compact look, but keep a real touch target — four of these sit side by side per row */
-.adm-members-actions .adm-int-btn { padding: 7px 12px; font-size: 12px; min-height: 36px; }
+.adm-members-actions .adm-int-btn { padding: 7px 12px; min-height: 36px; }
 .adm-members-rowerr { padding: 8px 0 0; text-align: left; }
 
 .adm-members-editrow td { background: var(--fill-soft); }
@@ -880,7 +880,7 @@
 /* disabled is visibly distinct from "enabled but idle" */
 .adm-int-btn:disabled,
 .adm-save-btn:disabled {
-  opacity: .45; cursor: not-allowed;
+  opacity: var(--disabled); cursor: not-allowed;
 }
 
 /* ── Mitglieder: row hover + clearer status/role badges ───────────────────── */
@@ -1108,7 +1108,7 @@
 .adm-menu-btn {
   display: grid; place-items: center;
   width: 36px; height: 36px; padding: 0;
-  border: 1px solid var(--border); border-radius: var(--r-ctl);
+  border: 1px solid var(--border); border-radius: var(--r-sm);
   background: var(--fill-soft); color: var(--ink-dim); cursor: pointer;
   transition: background .14s var(--ease), border-color .14s var(--ease), color .14s var(--ease);
 }
@@ -1116,7 +1116,7 @@
 /* open trigger: Base UI sets [data-popup-open] on the trigger (the old .adm-menu.open class
    is gone with the hand-rolled menu) */
 .adm-menu-btn[data-popup-open] { background: var(--surface); color: var(--ink); border-color: var(--blue); }
-.adm-menu-btn:disabled { opacity: .45; cursor: not-allowed; }
+.adm-menu-btn:disabled { opacity: var(--disabled); cursor: not-allowed; }
 .adm-menu-btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 .adm-menu-ic { width: 18px; height: 18px; }
 

@@ -1115,7 +1115,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const teamLocked = (a: BoardAnno) => a.kind === 'resource' && (a.trail?.length ?? 0) > 0
 
   const removeWithConnections = async (target: BoardAnno) => {
-    if (teamLocked(target)) { toast(appConfig.copy.whiteboard.deleteLocked, { icon: 'lock', tone: 'warn' }); return }
+    if (teamLocked(target)) { toast(appConfig.copy.whiteboard.deleteLocked, { icon: 'warn', tone: 'warn' }); return }
     const affected = annos.flatMap((a) => (['start', 'end'] as const).flatMap((endpoint) => {
       const rel = endpoint === 'start' ? a.startAttachment : a.endAttachment
       return rel && ((rel.target.kind === 'object' && rel.target.id === target.id) || (rel.target.kind === 'line' && rel.target.id === target.id)) ? [{ a, endpoint, rel }] : []
@@ -1840,7 +1840,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                       )
                     })()}
                     {teamLocked(a)
-                      ? <button className="wb-pa wb-pa-lock" title={appConfig.copy.whiteboard.deleteLocked} aria-label={appConfig.copy.whiteboard.deleteLocked} onClick={() => void clearTrail()}><Icon id="lock" /></button>
+                      ? <button className="wb-pa wb-pa-del-off" title={appConfig.copy.whiteboard.deleteLocked} aria-label={appConfig.copy.whiteboard.deleteLocked} onClick={() => void clearTrail()}><Icon id="trash" /></button>
                       : <button className="wb-pa wb-pa-del" title={appConfig.copy.delete} aria-label={appConfig.copy.delete} onClick={() => void removeWithConnections(a)}><Icon id="trash" /></button>}
                   </div>
                 )}

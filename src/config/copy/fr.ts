@@ -1360,8 +1360,6 @@ export const fr: Localizable<Copy> = {
     speed: 'Vitesse',
     timepoint: 'Instant',
     now: 'Maintenant',
-    noVehicleData: 'aucune donnée de véhicule · la situation tactique + le statut sont rejoués',
-    noVehicleTitle: 'La capture Traccar→échantillon n’est pas encore branchée',
     markerSymbol: 'Symbole posé',
     markerDraw: 'Dessin',
     markerStatus: 'Statut',

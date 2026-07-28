@@ -5,7 +5,7 @@
    other help copy. Used by the compass/views popover, which a floating tip would collide with. */
 .wb-dock-info-inline { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; width: 100%; }
 .wb-dock-tip-inline { margin: 0; width: 100%; text-align: left; font-size: 12.5px; line-height: 1.4; color: rgba(255, 255, 255, .72); }
-.wb-dock-ibtn { width: 34px; height: 34px; border-radius: 50%; border: none; background: rgba(255, 255, 255, .14);
+.wb-dock-ibtn { width: 34px; height: 34px; border-radius: var(--r-sm); border: none; background: rgba(255, 255, 255, .14);
   color: var(--on-accent-ink); display: grid; place-items: center; cursor: pointer; padding: 0; }
 .wb-dock-ibtn:hover, .wb-dock-ibtn.on { background: rgba(255, 255, 255, .28); }
 @media (pointer: coarse) { .wb-dock-ibtn { width: 40px; height: 40px; } }

@@ -499,6 +499,15 @@
    state change rather than as a way in */
 .editBtn:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 10%, transparent); }
 
+/* The other end of the same argument as the phone override below: 210px was picked as the width a
+   TABLET can spare, and a desk screen is not a tablet. Once the rank badge, the pencil and the
+   padding have taken their share, 210px leaves ~150px of name — «Christoph Wiedersheim» does not
+   fit, and two people whose names both end in «…» read alike. The track pays for it and loses
+   nothing: it scrolls anyway. Same two steps in BandGrid.module.css, so the two readings of the
+   same Mannschaft keep identical name columns. */
+@media (min-width: 1200px) { .zeitplan { --name-w: 270px; } }
+@media (min-width: 1600px) { .zeitplan { --name-w: 320px; } }
+
 /* 600px, not 700: that is the house phone breakpoint (19 other surfaces use it). At 700 the band
    from 601 to 700 ran the PHONE grid — 132px name column, 12.5px type — underneath the surface's
    own DESKTOP header, which is one layout wearing another's head. */

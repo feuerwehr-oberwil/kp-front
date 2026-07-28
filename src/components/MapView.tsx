@@ -17,6 +17,7 @@ import { MapLayers } from './MapLayers'
 // move threshold lives in MapMarkers with the entity-drag logic.
 import { useLongPress } from '../lib/useLongPress'
 import { useGlRecovery } from '../lib/useGlRecovery'
+import { useNightTheme } from '../lib/useNightTheme'
 import { reportClientError } from '../lib/reportError'
 import { QuietAttributionControl } from './MapAttribution'
 import { advanceDwell, boundaryPoint, EMPTY_DWELL, forkPortPoint, gpsGuard, incomingAttachments, moveLineBody, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
@@ -206,6 +207,13 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   const suppressClick = useRef(false)
   const deleteVertexKeepSelection = (id: string, i: number) => { suppressClick.current = true; onDrawingVertexDelete?.(id, i) }
   const [mapReady, setMapReady] = useState(false)
+  // MapLibre paint specs can't read CSS vars, so the two TRANSIENT overlays drawn in the UI blue —
+  // the draft shape and the measure path — pick their literal here instead of freezing the day
+  // value into the paint spec, where they stayed dark-on-dark over a night basemap. These mirror
+  // --blue / --blue's night override in app.css. A drawing's OWN colour is data and never flips:
+  // its `d.color || '#1f6feb'` fallbacks below are deliberately left alone.
+  const night = useNightTheme()
+  const uiBlue = night ? '#5aa0ff' : '#1f6feb'
   // WebGL context recovery: iPadOS drops the context under memory pressure / after a long
   // background spell, and MapLibre stays blank without rebuilding. `gl.generation` keys the
   // <Map> below so recovery is a fresh instance; `viewRef` carries the CURRENT view across that
@@ -958,8 +966,8 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       {/* live draft (area/line tool) — vertices are draggable handles (rendered below),
           so the in-progress shape edits exactly like the measure path */}
       <Source id="s-draft" type="geojson" data={draftFC}>
-        <Layer id="l-draft-fill" type="fill" filter={['==', ['geometry-type'], 'Polygon']} paint={{ 'fill-color': '#1f6feb', 'fill-opacity': 0.08 }} />
-        <Layer id="l-draft-line" type="line" paint={{ 'line-color': '#1f6feb', 'line-width': 2, 'line-dasharray': [1.5, 1] }} />
+        <Layer id="l-draft-fill" type="fill" filter={['==', ['geometry-type'], 'Polygon']} paint={{ 'fill-color': uiBlue, 'fill-opacity': 0.08 }} />
+        <Layer id="l-draft-line" type="line" paint={{ 'line-color': uiBlue, 'line-width': 2, 'line-dasharray': [1.5, 1] }} />
         {/* fat transparent hit line so segment clicks (insert vertex) are easy to land */}
         <Layer id="l-draft-hit" type="line" paint={{ 'line-color': '#000', 'line-opacity': 0, 'line-width': 18 }} />
       </Source>
@@ -987,8 +995,8 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
 
       {/* measurement path (line / polygon) — vertices rendered as draggable handles below */}
       <Source id="s-measure" type="geojson" data={measureFC}>
-        <Layer id="l-measure-fill" type="fill" paint={{ 'fill-color': '#1f6feb', 'fill-opacity': 0.1 }} />
-        <Layer id="l-measure-line" type="line" paint={{ 'line-color': '#1f6feb', 'line-width': 2.5, 'line-dasharray': [2, 1.2] }} layout={{ 'line-cap': 'round', 'line-join': 'round' }} />
+        <Layer id="l-measure-fill" type="fill" paint={{ 'fill-color': uiBlue, 'fill-opacity': 0.1 }} />
+        <Layer id="l-measure-line" type="line" paint={{ 'line-color': uiBlue, 'line-width': 2.5, 'line-dasharray': [2, 1.2] }} layout={{ 'line-cap': 'round', 'line-join': 'round' }} />
         {/* fat transparent hit line so segment clicks (insert vertex) are easy to land */}
         <Layer id="l-measure-hit" type="line" paint={{ 'line-color': '#000', 'line-opacity': 0, 'line-width': 18 }} />
       </Source>

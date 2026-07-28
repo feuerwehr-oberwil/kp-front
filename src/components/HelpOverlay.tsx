@@ -34,12 +34,8 @@ export function HelpOverlay({ onClose }: { onClose: () => void }) {
   const [active, setActive] = useState(sections[0].id)
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // Esc closes
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  // No Esc listener here: the <Overlay> this renders into already closes on Escape. The duplicate
+  // window listener fired onClose a second time on the same key press.
 
   // scroll-spy — highlight the TOC entry of the section nearest the top of the scroller
   useEffect(() => {

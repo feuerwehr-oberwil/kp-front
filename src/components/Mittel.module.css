@@ -84,7 +84,7 @@
 .rowMulti { flex-direction: column; align-items: stretch; gap: 0; padding: 0; }
 .rowExpand { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 6px 12px;
   border: none; background: none; cursor: pointer; text-align: left; font: inherit; color: inherit;
-  border-radius: var(--r-ctl); }
+  border-radius: var(--r-sm); }
 .rowExpand svg { width: 14px; height: 14px; flex: none; color: var(--ink-faint); }
 .subRow { display: flex; flex-direction: column; gap: 4px; padding: 5px 12px 5px 34px;
   border-top: 1px solid var(--glass-edge); }
@@ -94,7 +94,7 @@
 /* trailing «Anderes Mittel» row — the composer path for free-typed entries */
 .addCustom { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%;
   min-height: 48px; margin-top: 12px; cursor: pointer; border: 1px dashed var(--glass-edge);
-  background: none; border-radius: var(--r-ctl); color: var(--ink-dim); font: 700 13px var(--body); }
+  background: none; border-radius: var(--r-sm); color: var(--ink-dim); font: 700 13px var(--body); }
 .addCustom:hover { color: var(--ink); border-color: var(--ink-faint); }
 .addCustom svg { width: 15px; height: 15px; }
 
@@ -110,7 +110,8 @@
 /* gloved field use: the three Retablierung pills are a dense picker — enlarge directly */
 @media (pointer: coarse) { .statusChip { min-height: 44px; } }
 .statusChip:hover:not(:disabled) { color: var(--ink-dim); border-color: color-mix(in srgb, var(--ink) 22%, var(--glass-edge)); }
-.statusChip:disabled { cursor: default; }
+/* dim as well as inert — it read as tappable while doing nothing */
+.statusChip:disabled { cursor: default; opacity: var(--disabled); }
 .statusOn { border-color: color-mix(in srgb, var(--green) 55%, var(--glass-edge));
   background: color-mix(in srgb, var(--green) 14%, var(--surface)); color: var(--ink); }
 .statusOn.statusVorOrt { border-color: color-mix(in srgb, var(--amber-strong) 55%, var(--glass-edge));

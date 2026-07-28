@@ -20,7 +20,7 @@
 
 .head { display: flex; align-items: center; justify-content: flex-end; padding: 0 0 6px; }
 /* round close button — mirrors the ToolDock's .wb-dock-x */
-.close { flex: none; width: 34px; height: 34px; border-radius: 50%; border: none; background: rgba(255, 255, 255, .14);
+.close { flex: none; width: 34px; height: 34px; border-radius: var(--r-sm); border: none; background: rgba(255, 255, 255, .14);
   color: var(--on-accent-ink); display: grid; place-items: center; cursor: pointer; padding: 0;
   transition: background .14s var(--ease); }
 .close:hover { background: rgba(255, 255, 255, .28); }

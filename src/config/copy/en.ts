@@ -1419,8 +1419,6 @@ export const en: Localizable<Copy> = {
     speed: 'Speed',
     timepoint: 'Point in time',
     now: 'Now',
-    noVehicleData: 'no vehicle data · tactical situation + status are replayed',
-    noVehicleTitle: 'The Traccar→sample capture is not yet wired up',
     markerSymbol: 'Symbol placed',
     markerDraw: 'Drawing',
     markerStatus: 'Status',

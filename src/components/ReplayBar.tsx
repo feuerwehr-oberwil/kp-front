@@ -116,7 +116,12 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit }
   const frac = bundle && bundle.endMs > bundle.startMs
     ? (tMs - bundle.startMs) / (bundle.endMs - bundle.startMs)
     : 1
-  const noVehicleData = !!bundle && bundle.samples.length === 0
+  // Deliberately NO "keine Fahrzeugdaten" note. It used to render whenever bundle.samples was
+  // empty — which is every replay, on every station, because the Traccar→sample capture job was
+  // never wired (see replay.ts). So it announced the absence of something nobody asked for and
+  // then reassured that the Lage and the statuses replay, which they always do. An operator can
+  // act on none of that. When vehicle capture actually exists, an incident that HAD vehicles but
+  // no trace is worth saying — until then this line is noise.
 
   return (
     <div className={s.replay} role="region" aria-label={rp.region}>
@@ -203,12 +208,6 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit }
               <span>{rp.now} · {fmtClock(bundle.endMs)}</span>
             </div>
           </div>
-        </div>
-      )}
-
-      {noVehicleData && (
-        <div className={s['replay-note']} title={rp.noVehicleTitle}>
-          {rp.noVehicleData}
         </div>
       )}
     </div>

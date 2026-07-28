@@ -531,8 +531,8 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
               </button>
             )}
             {/* selected team — the same action bar as the plan chip: show on Atemschutz board,
-                mark position, show/hide trails, delete (locked while a recorded trail exists;
-                tapping the lock offers the confirmed trail clear, which unlocks). */}
+                mark position, show/hide trails, delete (greyed out while a recorded trail exists;
+                tapping the greyed trash offers the confirmed trail clear, which frees it). */}
             {selectedId === e.id && e.kind === 'team' && draggable && (
               <div className="wb-pill-acts" onPointerDown={(ev) => ev.stopPropagation()}>
                 {e.truppId && onShowTrupp && (
@@ -552,8 +552,8 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                   )
                 })()}
                 {(e.trail?.length ?? 0) > 0
-                  ? <button className="wb-pa wb-pa-lock" title={appConfig.copy.whiteboard.deleteLocked} aria-label={appConfig.copy.whiteboard.deleteLocked}
-                      onClick={() => onTeamClearTrail?.(e.id)}><Icon id="lock" /></button>
+                  ? <button className="wb-pa wb-pa-del-off" title={appConfig.copy.whiteboard.deleteLocked} aria-label={appConfig.copy.whiteboard.deleteLocked}
+                      onClick={() => onTeamClearTrail?.(e.id)}><Icon id="trash" /></button>
                   : <button className="wb-pa wb-pa-del" title={appConfig.copy.delete} aria-label={appConfig.copy.delete} onClick={() => onDelete(e.id)}><Icon id="trash" /></button>}
               </div>
             )}
