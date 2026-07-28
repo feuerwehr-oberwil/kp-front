@@ -158,7 +158,10 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
                   days={days}
                   token={b.fromIsStart ? { label: labels.fromStart, tone: 'start' as const } : undefined}
                   shortcut={b.onFromStart && {
-                    label: labels.fromStart, value: b.fromStartValue, onPick: b.onFromStart,
+                    label: labels.fromStart, value: b.fromStartValue,
+                    // stays visible while it IS the value, drawn as pressed — otherwise the tab
+                    // vanished exactly when you needed it to get back to that state
+                    active: b.fromIsStart, onPick: b.onFromStart,
                   }} />
                 {b.dayLabel && <span className={s.day}>{b.dayLabel}</span>}
               </span>
@@ -172,7 +175,8 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
                   ariaLabel={`${labels.to} – ${subject}`} value={b.to ?? ''}
                   token={b.to == null && b.openLabel ? { label: b.openLabel, tone: 'open' as const } : undefined}
                   disabled={!b.onTo} onCommit={(v, day) => { if (v == null) b.onReopen?.(); else b.onTo?.(v, day) }}
-                  clearLabel={b.onReopen ? labels.reopen : undefined} days={days} />
+                  clearLabel={b.onReopen ? labels.reopen : undefined}
+                  clearActive={b.to == null} days={days} />
                 {/* both ends carry a day or neither does — one dated field beside an undated one
                     reads as though only that end were known */}
                 {(b.toDayLabel ?? b.dayLabel) && <span className={s.day}>{b.toDayLabel ?? b.dayLabel}</span>}

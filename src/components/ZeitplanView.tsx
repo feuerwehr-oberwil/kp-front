@@ -107,7 +107,7 @@ function PersonSheet({ person, shifts, blocks, canEdit, startedAt, conflicts, on
         dayLabel: startedAt && isOtherDay(new Date(sh.from), new Date(startedAt)) ? fmtDayShort(new Date(sh.from)) : undefined,
         toDayLabel: isOtherDay(new Date(sh.to), new Date(sh.from)) ? fmtDayShort(new Date(sh.to)) : undefined,
         // see the Anwesenheit twin: first shift only, and never when it would invert the block
-        onFromStart: canEdit && startedAt && shifts[0]?.id === sh.id && sh.from !== startedAt
+        onFromStart: canEdit && startedAt && shifts[0]?.id === sh.id
           && Date.parse(startedAt) < Date.parse(sh.to)
           ? () => onSetTime(sh.id, { from: startedAt }) : undefined,
         fromStartValue: startedAt ? fmtStartValue(startedAt, planDays) : undefined,

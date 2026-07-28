@@ -61,7 +61,7 @@ function TextCommitInput({ value, display, commit, disabled, ariaLabel, placehol
   )
 }
 
-export function TimeField({ value, onCommit, disabled, ariaLabel, nowLabel, className, shortcut, clearLabel, days, placeholder, token }: {
+export function TimeField({ value, onCommit, disabled, ariaLabel, nowLabel, className, shortcut, clearLabel, clearActive, days, placeholder, token }: {
   /** current value as 'HH:MM' ('' = unset) */
   value: string
   /** 'HH:MM' from wheels/typing/«Jetzt»; null when cleared. `day` comes back only when the picker
@@ -74,9 +74,11 @@ export function TimeField({ value, onCommit, disabled, ariaLabel, nowLabel, clas
   nowLabel?: string
   className?: string
   /** a one-tap answer offered inside the picker — «ab Einsatzbeginn 07:29» */
-  shortcut?: { label: string; value?: string; tone?: 'blue' | 'green'; onPick: () => void }
+  shortcut?: { label: string; value?: string; tone?: 'blue' | 'green'; active?: boolean; onPick: () => void }
   /** names the clear action in the picker instead of the bin glyph — «noch da» */
   clearLabel?: string
+  /** «noch da» is the current state — the tab stays, drawn as pressed */
+  clearActive?: boolean
   /** the incident's own days — a bounded day wheel, shown only when the incident spans more than
    *  one. On a single-day incident nothing changes. */
   days?: Date[]
@@ -135,6 +137,7 @@ export function TimeField({ value, onCommit, disabled, ariaLabel, nowLabel, clas
           // value to erase, so it must not vanish once the field is already empty
           onClear={value || clearLabel ? () => { setOpen(false); onCommit(null) } : undefined}
           clearLabel={clearLabel}
+          clearActive={clearActive}
           shortcut={shortcut && { ...shortcut, onPick: () => { setOpen(false); shortcut.onPick() } }}
         />
       )}

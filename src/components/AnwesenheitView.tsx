@@ -99,7 +99,12 @@ function PresenceSheet({ person, blocks, canEdit, startedAt, onSetTimes, onRemov
         // FIRST block only, and never when it would swallow this block's own end: pulling a
         // LATER block back to the alarm time made it span every earlier block, and totalMinutes
         // simply sums — a 2 h return became 38 h on the Rapport, counting block 1 twice.
-        onFromStart: canEdit && onSetTimes && startedAt && i === 0 && iv.from !== startedAt
+        // Offered even when the start ALREADY is the alarm time — the tab then shows as pressed
+        // and says so, instead of disappearing at the one moment you might want to return to it.
+        // Still the FIRST stretch only: pulling a later one back to the alarm time makes it span
+        // every earlier one, and totalMinutes simply sums — a 2 h return once reached the Rapport
+        // as 38 h that way.
+        onFromStart: canEdit && onSetTimes && startedAt && i === 0
           && (!iv.to || Date.parse(startedAt) < Date.parse(iv.to))
           ? () => onSetTimes(person.id, { from: startedAt }, i) : undefined,
         fromStartValue: startedAt ? fmtStartValue(startedAt, incidentDays(startedAt, openedAt)) : undefined,
@@ -108,7 +113,7 @@ function PresenceSheet({ person, blocks, canEdit, startedAt, onSetTimes, onRemov
         // stretch runs to the Einsatzende for the Rapport (attendanceIntervals.totalMinutes).
         // ⚠ It is deliberately NOT restricted to the last row any more — see the note in the
         // handover: opening an earlier stretch while a later one exists double-counts those hours.
-        onReopen: canEdit && onSetTimes && !!iv.to
+        onReopen: canEdit && onSetTimes
           ? () => onSetTimes(person.id, { to: undefined }, i) : undefined,
         onRemove: canEdit && onRemoveBlock ? () => onRemoveBlock(person.id, i) : undefined,
         // also offered while the stretch is still OPEN — that is how it gets closed from here.
