@@ -85,6 +85,49 @@ browser. Everything below has been running in production at Feuerwehr Oberwil.
   and a colour cartridge is a consumable), rendered server-side like the rapport, and a viewer may
   print it: somebody arriving to take over the shift should be able to print the sheet they are
   walking into without an editor PIN.
+- **Anwesenheit: somebody who leaves and comes back is two times, not one contradiction.** The
+  record carried a single `checkedInAt`/`leftAt` pair, so a second «anwesend» kept the first
+  arrival *and* the old departure – the person stood there as present and signed off at once, and
+  the second stretch existed nowhere at all. Times are a **list** now; first arrival and last
+  departure stay derived from it (the latter simply missing while somebody is back, because they
+  are not gone), so Rapport, statistics export and the QR sheet read on unchanged and an entry
+  written before this projects its old pair. Nothing to migrate, both shapes stay readable
+  forever.
+
+  The words followed the data: «Block» was workshop language that had slipped into the surface –
+  on the Platz nobody thinks in blocks – so it is «Erfasste Zeiten», and «Neue Zeit ab jetzt»
+  says what the button actually does, which is end the running one and open the next. And the
+  time left the row: a tile that read «ab Beginn» took most of the width and squeezed the name to
+  «B…», the one thing that list may never do. The row answers *who is here*, the sheet answers
+  *since when* – and the sheet can show **all** of a person's times, which the tile never could.
+- **One time picker on every device, and it knows which days the incident touches.** `TimeField`
+  had two personalities: a wheel popover under a finger, a bare text input at the desk. Everything
+  added in recent rounds lived only in the popover branch, so for three rounds one of the two
+  implementations was being fixed while the other was the one being tested. The trigger now opens
+  the same popover everywhere, and typing is not gone but **pulled into it**: a text field sits
+  above the wheels and carries them as you type, so a keyboard stays a keyboard and gets the same
+  days and the same shortcuts as the finger.
+
+  Those days are a third wheel listing only the days the incident actually touches – deliberately
+  not a date picker: no month, no year, no 31 rows, and no wheel at all for an incident that ends
+  the same evening, so the normal case pays nothing. Before this, which day a `HH:MM` meant was
+  inferred from the old timestamp, and «put this row on Wednesday» could only be said by deleting
+  the row and writing a new one. **«ab Einsatzbeginn»** now carries the time it would set – a
+  shortcut without its number is a promise you cannot check before tapping it – and **«noch da»**
+  replaces the wastebasket on «bis», which said the opposite of what it did: emptying a «bis»
+  means the person never left, and it is also the way back out of a mistyped «gegangen».
+- **Atemschutz: «Wieder einrücken» has a second exit – «Bereitstellen».** It knew only one way
+  back, which was straight in. The reported case is the other one: fresh cylinder, new order, and
+  the Trupp waits as Sicherungstrupp. It used to stand in the incident immediately with the
+  contact clock running on a crew that is standing next to the vehicle – a clock that inevitably
+  goes overdue without anything having happened. «Bereitstellen» puts the Trupp exactly where a
+  freshly registered one lies: angemeldet, no clock. AdF rows can be removed again as well.
+- **A line that is already drawn can be measured.** Length and Schläuche were reachable only by
+  tracing the line a second time with the measuring tool, and the elevation profile not at all –
+  it lived solely in the transient measuring path. The line editor carries a **«Messung»** group:
+  length and Schläuche stand there at once, the profile folds open and only then fetches
+  swisstopo, so a tap on a line stays silent offline. Plan does the same in its calibrated metres,
+  minus the profile – a building plan carries no elevation data.
 
 ### Fixed
 - **A Modul-5 sub-sheet's label fits the plan rail again.** The rail read
@@ -139,8 +182,63 @@ browser. Everything below has been running in production at Feuerwehr Oberwil.
   exist stops the installation dead. The clone step now resolves the newest tag itself
   (`git tag -l 'v*' --sort=-v:refname | head -n1`), and the pinning table talks in `X.Y.Z` / `X.Y`
   and links to the releases page for the actual numbers.
+- **Rückzug and Fortsetzen are radio contacts, and the clock now knows it.** Press Rückzug and the
+  card stayed red: «seit letztem Kontakt» counted stubbornly on, although somebody had just spoken
+  to the Trupp. Neither button is ever pressed spontaneously – a Rückzug is ordered by the EL or
+  the Truppüberwacher or reported by the Trupp, and Fortsetzen means you reached them and sent
+  them back in. Both are a radio contact by definition. The damage was never the wrong number, it
+  was the habit: a board that shows «überfällig» right after a reported contact trains its watcher
+  to click red away.
+- **«HTTP 502» is not an error message.** That was the entire text on the launcher, above a
+  «Erneut versuchen» button. It names the plumbing – not whether the tablet, the line or the
+  server is at fault, not whether waiting helps, and not whether the incident data is still there,
+  which at 3am is all that counts. The raw form had a cause: a 502/504 comes from the reverse
+  proxy as an HTML page, so there is no `{detail}` to display, and `statusText` is an English
+  protocol phrase that is empty over HTTP/2 – leaving exactly «HTTP 502».
+- **«Eintrag» opens on the tablet again (#70).** The composer is opened from the `pointerup` of
+  the tap/hold gesture; iPadOS delivers that same tap's compatibility click *afterwards*, when the
+  dialog already stands. Every sheet renders a backdrop, so Base UI's dismissal runs in
+  «intentional» mode where exactly one `click` closes it, and its suppression only covers a press
+  that began *inside* the popup – impossible here. The tap closed its own sheet immediately: on
+  the tablet the button looked dead. An outside press within 400 ms of opening is now discarded –
+  nobody opens a sheet and deliberately taps it away in four tenths of a second – centrally in
+  Sheet and Overlay, so no other surface walks into the same trap.
+- **A parked vehicle points where it stands (#70).** `lastCourse` lives for the session only and
+  was filled exclusively from positions with movement – but the normal case at an incident is the
+  opposite: the tablet is opened when the vehicles have long been standing. Nobody drove under our
+  eyes, so after every reload every vehicle pointed neutrally east. The reported course is now
+  taken on first sight of a device: Traccar keeps the last position's course, and that *is* the
+  direction the vehicle stands in. Driving still wins afterwards, and a device that never reports
+  a course stays neutral, without a direction arrow.
+- **Phone and top-bar chrome, the round that keeps the frame from overflowing.** The update notice
+  took half the screen because its OK button wrapped to its own line (a flex row wraps by basis
+  widths, so a content-width text column pushes the button down before it shrinks itself); the
+  bottom bar shows again where you are after a reload; the navigation had silently become a
+  sidebar on the phone, from an `@media` in the middle of a block; the top bar's gap at
+  861–875px that the previous attempt left open is closed; the Atemschutz alarm no longer swells
+  out of the bar; the «Eintrag» FAB sat on other buttons and now has one corner to itself; and the
+  draw editor's detail column fits on smaller tablets.
 
 ### Changed
+- **A note has one form: it is a text field.** There used to be two, and the choice was asked at
+  the moment you want to write rather than after there is a word on the paper – «which shape?»,
+  before anything exists to shape. The one-liner was also the half that kept coming back every
+  round: on the map it ran out of its own paper (a word without spaces – a substance name, a
+  hydrant number – simply left the Zettel and stood bare on the map), and it never agreed with the
+  panel about line breaks. So the form choice in the panel and the toggle in the toolbar are gone,
+  together with the confirm-question when converting back. Enter makes a new line everywhere,
+  ✓/Esc/tapping beside it finish. A saved note without a width – from the one-liner era or from
+  before it – falls back to the default width on both surfaces and in print: there is nothing to
+  migrate.
+
+  What changed with it is where the settings sit. While the note tool is armed they are in the
+  **toolbar**, where no text field exists yet for them to steal focus from, and whatever you pick
+  there (form, size, Zettel or Klartext, colour) the next note brings along. Afterwards the same
+  settings live only in the detail panel, which opens **at the gear** rather than on placing, and
+  closes when the note is deselected – it should not stand there longer than the thing it
+  describes. The gear is always visible: letting it appear once text was in was meant as restraint
+  and read as a bug. Typing still happens on the surface itself (double-tap); the panel is for
+  when you need room.
 - **Atemschutz has one pressure threshold, not two: the Alarmdruck (100 bar).** There were briefly
   two — amber from the Rückzugsgrenze, red from a Mindestdruck — and the lower one was never
   agreed doctrine anyway. The reason for dropping it isn't thrift: someone below their turn-back
@@ -183,6 +281,19 @@ browser. Everything below has been running in production at Feuerwehr Oberwil.
   board, [`SUPPORT.md`](SUPPORT.md) says plainly what may be expected from a one-person project
   and what 1.0 will mean, and [`docs/ALARM-INTEGRATIONS.md`](docs/ALARM-INTEGRATIONS.md) now
   carries a stability promise for the intake contract plus the real differences to KP Rück.
+- **More of the gate that stands behind a published image.** The build stage had been on **Node 20
+  for three months after its end of life** – every Node vulnerability disclosed since then was one
+  nobody would ever patch for that line. It runs on Node 24 (Active LTS, security support into
+  2028) now, and the reason it went unnoticed was the more interesting half: dependabot watched
+  npm, pip and GitHub Actions but had no `docker` ecosystem, so base images were the one
+  dependency class that never produced a pull request – and the one a station actually runs. That
+  is watched now. **mypy is a blocking gate** across the whole backend tree at zero findings (from
+  70, with no `ignore` as a shortcut); deliberately not `strict`, whose core switch produces
+  several hundred hits of the «write `-> None` on a route handler» kind – annotation debt, not
+  defects. And **`just ci`** runs what CI runs, in CI's order: the section used to recommend
+  `just lint && just test` before a push, which ran `ruff check app tests` while CI runs
+  `ruff check .` *and* `ruff format --check .` – so the recommended routine could not find the
+  thing that turned main red.
 - **Managed hosting is no longer implied.** The deployment docs promised something that isn't on
   offer; they now give the honest answer instead.
 - `docs/openapi.json` had drifted **31 endpoints** behind the code. It is current, and a test
