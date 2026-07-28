@@ -168,8 +168,9 @@ describe('the grid', () => {
     ] })
     fireEvent.click(cellsOf('Meier A.')[0])
     const sheet = screen.getByText(appConfig.copy.schichten.resolveTitle).closest('div')!.parentElement!
+    // the states holding in this window, hours first (the split preview repeats some of them)
     expect(within(sheet).getByText('09:00–10:00')).toBeTruthy() // verfügbar
-    expect(within(sheet).getByText('10:00–12:00')).toBeTruthy() // geplant
+    expect(within(sheet).getAllByText('10:00–12:00').length).toBeGreaterThan(0) // geplant
   })
 
   it('leaves the cell exactly as it was when the question is cancelled', () => {
@@ -278,5 +279,30 @@ describe('the band sheet', () => {
     expect(screen.getByText(S.removeBandHint)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: S.removeBand }))
     expect(props.onRemoveBand).toHaveBeenCalledWith('bd1')
+  })
+})
+
+describe('a change that would reach past the watch', () => {
+  it('asks first, and names the pieces it would cut', () => {
+    const S = appConfig.copy.schichten
+    // geplant 10:00–20:00 crosses both edges of Spät 12:00–17:00 — the window is NOT mixed, so the
+    // sheet must not describe it as such
+    const props = mount({ shifts: [{ id: 'w', personId: 'p2', from: T(10), to: T(20), confirmed: true }] })
+    fireEvent.click(cellsOf('Meier A.')[1])
+    expect(props.onCycleCell).not.toHaveBeenCalled()
+    expect(screen.getByText(S.crossTitle)).toBeTruthy()
+    expect(screen.queryByText(S.resolveTitle)).toBeNull()
+    const sheet = screen.getByText(S.crossTitle).closest('div')!.parentElement!
+    expect(within(sheet).getByText(S.splitTitle)).toBeTruthy()
+    expect(within(sheet).getByText('10:00–12:00')).toBeTruthy() // stays geplant
+    expect(within(sheet).getByText('17:00–20:00')).toBeTruthy() // stays geplant
+    expect(within(sheet).getByText(S.splitChanges)).toBeTruthy()
+  })
+
+  it('still cycles straight through where nothing outside the column would move', () => {
+    const props = mount({ shifts: [{ id: 'i', personId: 'p2', from: T(13), to: T(15), bandId: 'bd2', confirmed: true }] })
+    fireEvent.click(cellsOf('Meier A.')[1])
+    expect(props.onCycleCell).toHaveBeenCalled()
+    expect(screen.queryByText(appConfig.copy.schichten.crossTitle)).toBeNull()
   })
 })

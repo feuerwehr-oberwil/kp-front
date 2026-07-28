@@ -2390,7 +2390,14 @@ export const de = {
     resolveMsg: '{name} ist in {band} teilweise eingeteilt und teilweise nur verfügbar. Was soll für dieses Fenster gelten?',
     // ⚠ Eine Schicht hat EINEN Zustand: reicht sie über die Wache hinaus, zieht die Änderung mit.
     resolveGap: 'Der Rest der Schicht ist von dieser Person nicht abgedeckt – das bleibt so.',
-    resolveNote: 'Zeiten, die über die Schicht hinausreichen, ändern sich mit – eine Zeit hat einen Zustand.',
+    // Aus einer gezogenen Strecke werden drei Objekte – das erfährt man vorher, nicht nachher.
+    splitTitle: 'Wird geteilt',
+    splitChanges: 'ändert sich',
+    splitKeeps: 'bleibt {state}',
+    // Nur das mittlere Stück ändert sich – das ist der Sinn des Schneidens.
+    splitNote: 'Nur das Stück innerhalb der Schicht ändert sich; ausserhalb bleibt alles, wie es ist.',
+    crossTitle: 'Reicht über die Schicht hinaus',
+    crossMsg: 'Diese Zeit von {name} läuft über {band} hinaus. Was soll für dieses Fenster gelten?',
     resolveAvailable: 'Alles auf verfügbar',
     resolveConfirmed: 'Alles auf geplant',
     resolveCancel: 'Abbrechen',

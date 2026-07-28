@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  SLOT_MS, bandAssignWindow, bandCell, bandCellSegments, bandCellWindow, bandCounts,
+  SLOT_MS, bandAssignWindow, bandCell, bandCellNeedsResolve, bandCellSegments, bandCellWindow,
+  bandCounts, bandSplitPlan, mergePersonShifts, splitShiftAtBand,
   bandCoverFraction, barGeometry,
   ceilSlot, unshownShifts,
   conflictingShiftIds, coverage, draftBand, draftShift, dragShift, floorSlot, freehandShifts,
@@ -523,5 +524,73 @@ describe('bandCellSegments — what a window actually holds', () => {
     ]
     expect(bandCounts(list, früh)).toMatchObject({ confirmed: 2, confirmedPartial: true })
     expect(bandCounts([list[0]], früh)).toMatchObject({ confirmed: 1, confirmedPartial: false })
+  })
+})
+
+describe('splitting at a band edge', () => {
+  const spät = band('bd2', T(12), T(17), 'Spät')
+  const wide: Shift = { id: 'w', personId: 'p1', from: T(10), to: T(20), confirmed: true }
+
+  it('asks before a tap would change time outside its own column', () => {
+    // the invariant: a tap never reaches past the watch it sits in
+    expect(bandCellNeedsResolve(bandCell([wide], 'p1', spät), spät)).toBe(true)
+    // …but adding an assignment INSIDE somebody's offer touches nothing beyond it
+    const offer = shift('o', 'p1', T(10), T(20))
+    expect(bandCellNeedsResolve(bandCell([offer], 'p1', spät), spät)).toBe(false)
+    // …and a stretch lying wholly inside the watch has nothing outside to protect
+    const inside: Shift = { id: 'i', personId: 'p1', from: T(13), to: T(15), bandId: 'bd2', confirmed: true }
+    expect(bandCellNeedsResolve(bandCell([inside], 'p1', spät), spät)).toBe(false)
+  })
+
+  it('names the pieces a cut would make, before anything moves', () => {
+    expect(bandSplitPlan([wide], 'p1', spät)).toEqual([{
+      shift: wide,
+      pieces: [
+        { from: ms(T(10)), to: ms(T(12)), inside: false },
+        { from: ms(T(12)), to: ms(T(17)), inside: true },
+        { from: ms(T(17)), to: ms(T(20)), inside: false },
+      ],
+    }])
+    // nothing to say about a stretch that needs no cut
+    expect(bandSplitPlan([{ ...wide, from: T(13), to: T(15) }], 'p1', spät)).toEqual([])
+  })
+
+  it('cuts so the change stops at the column, and keeps the first id for the sync', () => {
+    const out = splitShiftAtBand(wide, spät, false, (n) => `new${n}`)
+    expect(out.map((x) => [x.id, x.from, x.to, !!x.confirmed])).toEqual([
+      ['w', T(10), T(12), true],      // the original id survives — see mergeWorkspace
+      ['new1', T(12), T(17), false],  // only this piece changed
+      ['new2', T(17), T(20), true],
+    ])
+  })
+
+  it('drops a band membership from pieces that no longer touch that band', () => {
+    const member: Shift = { id: 'm', personId: 'p1', from: T(10), to: T(20), bandId: 'bd2', confirmed: true }
+    const out = splitShiftAtBand(member, spät, false, (n) => `new${n}`)
+    expect(out.map((x) => x.bandId)).toEqual([undefined, 'bd2', undefined])
+  })
+
+  it('grows same-state neighbours back together so flipping cannot shred a stretch', () => {
+    const list: Shift[] = [
+      { id: 'a', personId: 'p1', from: T(10), to: T(12), confirmed: true },
+      { id: 'b', personId: 'p1', from: T(12), to: T(17), confirmed: true },
+      { id: 'c', personId: 'p1', from: T(17), to: T(20), confirmed: true },
+    ]
+    const out = mergePersonShifts(list, 'p1')
+    expect(out).toHaveLength(1)
+    expect(out[0]).toMatchObject({ id: 'a', from: T(10), to: T(20) })
+  })
+
+  it('never merges across a difference — two facts stay two', () => {
+    const list: Shift[] = [
+      { id: 'a', personId: 'p1', from: T(10), to: T(12), confirmed: true },
+      { id: 'b', personId: 'p1', from: T(12), to: T(17) }, // verfügbar
+    ]
+    expect(mergePersonShifts(list, 'p1')).toHaveLength(2)
+    const banded: Shift[] = [
+      { id: 'a', personId: 'p1', from: T(10), to: T(12), bandId: 'bd1', confirmed: true },
+      { id: 'b', personId: 'p1', from: T(12), to: T(17), bandId: 'bd2', confirmed: true },
+    ]
+    expect(mergePersonShifts(banded, 'p1')).toHaveLength(2)
   })
 })

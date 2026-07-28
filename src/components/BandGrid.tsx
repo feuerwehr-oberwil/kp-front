@@ -7,11 +7,11 @@ import { cx } from '../lib/cx'
 import { rankAbbr, rankLabel } from '../lib/rank'
 import { fmtDayShort, incidentDays, isOtherDay } from '../lib/zeitplanFormat'
 import {
-  bandCell, bandCellWindow, bandCounts, conflictingShiftIds, draftBand, isAssignedCell, shiftsFor,
-  sortBands, unshownShifts,
+  bandCell, bandCellNeedsResolve, bandCellWindow, bandCounts, bandSplitPlan, conflictingShiftIds,
+  draftBand, isAssignedCell, shiftsFor, sortBands, unshownShifts,
 } from '../lib/shifts'
 import type { AttendanceState, Person, Shift, ShiftBand } from '../types'
-import type { BandCell } from '../lib/shifts'
+import type { BandCell, BandSplitPlan } from '../lib/shifts'
 import { intervalsOf } from '../lib/attendanceIntervals'
 import { PersonShiftSheet } from './PersonShiftSheet'
 import { Sheet } from '../lib/overlays'
@@ -47,17 +47,25 @@ function fmtRange(from: string, to: string): string {
  * Three ways out and no fourth. «Abbrechen» matters as much as the other two — the cell is not
  * broken, and somebody who opened this by mistake must be able to leave it exactly as it was.
  */
-function ResolveSheet({ person, band, bandTitle: title, cell, onPick, onClose }: {
+function ResolveSheet({ person, band, bandTitle: title, cell, split, onPick, onClose }: {
   person: Person
   band: ShiftBand
   bandTitle: string
   cell: BandCell
+  /** stretches that run past the watch and will be CUT at its edges — shown before anything moves */
+  split: BandSplitPlan[]
   onPick: (state: 'available' | 'confirmed') => void
   onClose: () => void
 }) {
+  const iso = (ms: number) => new Date(ms).toISOString()
   const S = appConfig.copy.schichten
+  // TWO reasons to be here, and they are not the same question. Either the window genuinely holds
+  // both states, or it holds one — but the stretch carrying it runs past the watch, so changing it
+  // from this column would reach outside. Saying «teils verfügbar, teils geplant» over a cell that
+  // is wholly geplant is the sheet describing a different problem than the one you tapped.
+  const mixed = cell.state === 'mixed'
   return (
-    <Sheet open onClose={onClose} fit sheetClassName={s.sheet} title={S.resolveTitle}
+    <Sheet open onClose={onClose} fit sheetClassName={s.sheet} title={mixed ? S.resolveTitle : S.crossTitle}
       footer={
         <>
           <button type="button" className="ip-btn" onClick={onClose}>{S.resolveCancel}</button>
@@ -70,7 +78,9 @@ function ResolveSheet({ person, band, bandTitle: title, cell, onPick, onClose }:
         </>
       }
     >
-      <p className={s.resolveMsg}>{fillTemplate(S.resolveMsg, { name: person.displayName, band: title })}</p>
+      <p className={s.resolveMsg}>
+        {fillTemplate(mixed ? S.resolveMsg : S.crossMsg, { name: person.displayName, band: title })}
+      </p>
       {/* WHICH hours are which. «teilweise eingeteilt und teilweise nur verfügbar» describes the
           shape of the problem without saying where it is, and the answer here overwrites both —
           nobody should have to close this sheet and read the strip to find out what they are
@@ -87,7 +97,34 @@ function ResolveSheet({ person, band, bandTitle: title, cell, onPick, onClose }:
         {/* the hole is a fact about this watch too, and «alles auf geplant» does NOT fill it */}
         {cell.partial && <li className={s.resolveGap}>{S.resolveGap}</li>}
       </ul>
-      <p className={s.note}>{S.resolveNote}</p>
+      {/* What the answer will CUT. Turning one stretch somebody drew into three is not a thing to
+          discover afterwards, so the pieces are named before the press — and which of them stay
+          exactly as they are. */}
+      {split.length > 0 && (
+        <div className={s.splitBox}>
+          <h4>{S.splitTitle}</h4>
+          {split.map((plan) => (
+            <div key={plan.shift.id} className={s.splitItem}>
+              <b>{fmtRange(plan.shift.from, plan.shift.to)}</b>
+              <ul>
+                {plan.pieces.map((piece) => (
+                  <li key={piece.from}>
+                    <span className={s.splitRange}>{fmtRange(iso(piece.from), iso(piece.to))}</span>
+                    <span className={piece.inside ? s.splitChanges : s.splitKeeps}>
+                      {piece.inside
+                        ? S.splitChanges
+                        : fillTemplate(S.splitKeeps, { state: plan.shift.confirmed ? S.confirmed : S.available })}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
+      {/* only where something is actually cut — and it says what the cut protects, which is the
+          opposite of what this line used to promise */}
+      {split.length > 0 && <p className={s.note}>{S.splitNote}</p>}
     </Sheet>
   )
 }
@@ -406,7 +443,9 @@ export function BandGrid({
                         assigned && s.cellConfirmed,
                         (deviating || cell.state === 'mixed') && s.cellDeviating,
                         cell.state === 'mixed' && s.cellMixed, bad && s.cellConflict)}
-                      onClick={() => (cell.state === 'mixed' ? setResolve({ person: p, band: b }) : onCycleCell(b, p))}
+                      onClick={() => (bandCellNeedsResolve(cell, b)
+                        ? setResolve({ person: p, band: b })
+                        : onCycleCell(b, p))}
                       title={bad ? S.conflict
                         : deviating && sh
                           ? fillTemplate(S.deviating, {
@@ -455,6 +494,7 @@ export function BandGrid({
       {resolve && (
         <ResolveSheet person={resolve.person} band={resolve.band} bandTitle={bandTitle(resolve.band)}
           cell={bandCell(shifts, resolve.person.id, resolve.band)}
+          split={bandSplitPlan(shifts, resolve.person.id, resolve.band)}
           onPick={(state) => onSetCellState(resolve.band, resolve.person, state)}
           onClose={() => setResolve(null)} />
       )}

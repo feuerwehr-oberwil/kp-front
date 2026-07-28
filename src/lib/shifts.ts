@@ -553,6 +553,118 @@ export function unshownShifts(shifts: Shift[], personId: string, bands: ShiftBan
   return shiftsFor(shifts, personId).filter((s) => !shown.has(s.id))
 }
 
+/** Does this stretch lie wholly inside the band? Then changing it changes nothing outside the
+ *  column that is asking. */
+export function shiftInsideBand(sh: Shift, band: ShiftBand): boolean {
+  const b = windowOf(band.from, band.to)
+  const s = windowOf(sh.from, sh.to)
+  return !!b && !!s && s.from >= b.from && s.to <= b.to
+}
+
+/**
+ * Would a plain tap on this cell change time OUTSIDE its own column?
+ *
+ * That is the invariant the grid holds: a tap never reaches past the watch it sits in. Adding a
+ * band-scoped assignment inside somebody's offer never does — which is why assigning has always
+ * worked. Flipping the state of a stretch that runs on past the band does, and there is no
+ * «negative assignment» to write instead, so those taps ask first (see `bandSplitPlan`).
+ */
+export function bandCellNeedsResolve(cell: BandCell, band: ShiftBand): boolean {
+  if (cell.state === 'mixed') return true
+  const sh = cell.shift
+  if (!sh || cell.state === 'empty') return false
+  // a tap that only ADDS an assignment inside the window touches nothing beyond it
+  if (cell.derived && !sh.confirmed) return false
+  return !shiftInsideBand(sh, band)
+}
+
+/** One shift that crosses a band edge, cut into the pieces a band-scoped change would make. */
+export interface BandSplitPiece { from: number; to: number; inside: boolean }
+export interface BandSplitPlan { shift: Shift; pieces: BandSplitPiece[] }
+
+/**
+ * What a band-scoped change would have to cut, and where — the sheet shows this BEFORE anything
+ * happens, because turning one stretch somebody drew into three is not a thing to discover
+ * afterwards.
+ *
+ * Only shifts that actually cross an edge appear: one lying wholly inside the window needs no cut,
+ * and one lying wholly outside is none of this column's business.
+ */
+export function bandSplitPlan(shifts: Shift[], personId: string, band: ShiftBand): BandSplitPlan[] {
+  const b = windowOf(band.from, band.to)
+  if (!b) return []
+  const out: BandSplitPlan[] = []
+  for (const sh of shiftsFor(shifts, personId)) {
+    const s = windowOf(sh.from, sh.to)
+    if (!s || Math.min(s.to, b.to) <= Math.max(s.from, b.from)) continue
+    if (shiftInsideBand(sh, band)) continue
+    const cuts = [
+      { from: s.from, to: Math.max(s.from, b.from), inside: false },
+      { from: Math.max(s.from, b.from), to: Math.min(s.to, b.to), inside: true },
+      { from: Math.min(s.to, b.to), to: s.to, inside: false },
+    ].filter((p) => p.to > p.from)
+    if (cuts.length > 1) out.push({ shift: sh, pieces: cuts })
+  }
+  return out
+}
+
+/**
+ * Cut one shift at the band's edges and give the INSIDE piece the new state.
+ *
+ * The piece that starts where the original started keeps its id. That is a sync decision, not a
+ * cosmetic one: as a delete-plus-three-additions a concurrent edit on the other device would lose
+ * to «delete beats edit» and vanish, whereas an edit-in-place plus additions leaves the ordinary
+ * last-writer-wins to settle it (see mergeWorkspace).
+ *
+ * `bandId` rides only on pieces that still overlap the band — the others are no longer part of
+ * that column in any sense, and a membership pointing at a window it does not touch is exactly
+ * the state that once printed «20:30–21» inside a 12:00–17:00 watch.
+ */
+export function splitShiftAtBand(sh: Shift, band: ShiftBand, confirmed: boolean, id: (n: number) => string): Shift[] {
+  const plan = bandSplitPlan([sh], sh.personId, band)[0]
+  if (!plan) return [{ ...sh, confirmed }]
+  return plan.pieces.map((p, i) => {
+    const piece: Shift = {
+      ...sh,
+      id: i === 0 ? sh.id : id(i),
+      from: new Date(p.from).toISOString(),
+      to: new Date(p.to).toISOString(),
+      confirmed: p.inside ? confirmed : !!sh.confirmed,
+    }
+    if (!p.inside && piece.bandId === band.id) delete piece.bandId
+    if (!piece.confirmed) delete piece.confirmed
+    return piece
+  })
+}
+
+/**
+ * Grow a person's shifts back together where a cut left neighbours saying the same thing.
+ *
+ * Without it, flipping a cell back and forth would shred one stretch into more pieces every time.
+ * Only same-state, same-band neighbours merge: two stretches that differ in either are two facts,
+ * and joining them would invent a plan nobody made.
+ */
+export function mergePersonShifts(shifts: Shift[], personId: string): Shift[] {
+  const mine = shiftsFor(shifts, personId)
+  const drop = new Set<string>()
+  const grown = new Map<string, Shift>()
+  const key = (s: Shift) => `${s.bandId ?? ''}|${s.confirmed ? 1 : 0}`
+  const open = new Map<string, Shift>()
+  for (const s of mine) {
+    const k = key(s)
+    const cur = open.get(k)
+    if (cur && Date.parse(s.from) <= Date.parse(cur.to)) {
+      const merged: Shift = { ...cur, to: Date.parse(s.to) > Date.parse(cur.to) ? s.to : cur.to }
+      open.set(k, merged)
+      grown.set(merged.id, merged)
+      drop.add(s.id)
+    } else {
+      open.set(k, s)
+    }
+  }
+  return shifts.filter((s) => !drop.has(s.id)).map((s) => grown.get(s.id) ?? s)
+}
+
 /** Bands in the order the grid puts them up: by start, then by end, then by creation. Stable, so
  *  a column never swaps places under a finger that is halfway down it. */
 export function sortBands(bands: ShiftBand[]): ShiftBand[] {

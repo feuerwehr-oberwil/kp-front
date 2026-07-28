@@ -3,7 +3,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
 import { confirmDialog, toast } from './ui'
 import type { Person, Shift, ShiftBand } from '../types'
-import { bandAssignWindow, bandCell } from './shifts'
+import { bandAssignWindow, bandCell, mergePersonShifts, splitShiftAtBand } from './shifts'
 
 interface BandActionsDeps {
   bands: ShiftBand[]
@@ -162,15 +162,17 @@ export function useBandActions({ bands, setBands, shifts, setShifts }: BandActio
    * tap would flip one of them and neither state would ever hold for the whole window. So the
    * surface asks, and this applies the answer to every shift of theirs that reaches into the band.
    *
-   * ⚠ A shift has ONE state, so one reaching past the watch changes past it too — «geplant
-   * 10:00–20:00» set to verfügbar is verfügbar for all ten hours. Splitting it at the band edge
-   * would keep the change inside the column, at the price of quietly turning one stretch somebody
-   * drew into two. The sheet says which of the two is happening; the Zeitplan stays the surface
-   * that owns continuous time.
+   * The change stops at the column that asked for it: a stretch running past the watch is CUT at
+   * its edges and only the middle piece changes, so «geplant 10:00–20:00» set to verfügbar inside
+   * a 12:00–17:00 watch stays geplant either side of it. Turning one stretch somebody drew into
+   * three is not a thing to discover afterwards, so the sheet lists the pieces first
+   * (`bandSplitPlan`), and this only ever runs after that press.
    *
-   * Setting «geplant» MERGES the resulting overlaps: two confirmed stretches of one person at the
-   * same time is precisely what `conflictingShiftIds` calls a double booking, and answering a
-   * question must not manufacture the fault it was asked to resolve.
+   * Afterwards neighbours that now say the same thing grow back together — otherwise flipping a
+   * cell back and forth would shred one stretch into more pieces every time. That also settles
+   * what «alles auf geplant» used to have to solve by hand: two confirmed stretches of one person
+   * at the same time is precisely what `conflictingShiftIds` calls a double booking, and an answer
+   * must not manufacture the fault it was asked to resolve.
    */
   const setCellState = (band: ShiftBand, person: Person, next: 'available' | 'confirmed') => {
     const bandFrom = Date.parse(band.from)
@@ -181,26 +183,16 @@ export function useBandActions({ bands, setBands, shifts, setShifts }: BandActio
       return s.personId === person.id && Number.isFinite(f) && Number.isFinite(t2)
         && Math.min(t2, bandTo) > Math.max(f, bandFrom)
     }
+    const stamp = Date.now()
     setShifts((list) => {
-      const flipped = list.map((s) => (touches(s) ? { ...s, confirmed: next === 'confirmed' } : s))
-      if (next !== 'confirmed') return flipped
-      // merge this person's now-overlapping assignments, oldest id first so the survivor is stable
-      const mine = flipped.filter((s) => s.personId === person.id && s.confirmed)
-        .sort((a, b) => a.from.localeCompare(b.from))
-      const drop = new Set<string>()
-      const grown = new Map<string, Shift>()
-      let cur: Shift | undefined
-      for (const s of mine) {
-        if (cur && Date.parse(s.from) <= Date.parse(cur.to)) {
-          const merged: Shift = { ...cur, to: Date.parse(s.to) > Date.parse(cur.to) ? s.to : cur.to }
-          cur = merged
-          grown.set(merged.id, merged)
-          drop.add(s.id)
-        } else {
-          cur = s
-        }
+      const out: Shift[] = []
+      for (const s of list) {
+        if (!touches(s)) { out.push(s); continue }
+        // wholly inside the window → nothing to cut. Crossing an edge → cut there, so the change
+        // stops at the column that asked for it. The sheet showed these pieces before the press.
+        out.push(...splitShiftAtBand(s, band, next === 'confirmed', (n) => `sh${stamp}${n}`))
       }
-      return flipped.filter((s) => !drop.has(s.id)).map((s) => grown.get(s.id) ?? s)
+      return mergePersonShifts(out, person.id)
     })
   }
 

@@ -173,3 +173,47 @@ describe('the cell cycle', () => {
     expect(result.current.shifts.map((s) => s.bandId)).toEqual(['bd1', 'bd2'])
   })
 })
+
+describe('a band-scoped answer stops at the band', () => {
+  const spät: ShiftBand = { id: 'bd2', label: 'Spät', from: T(12), to: T(17) }
+  const p1 = person('p1')
+
+  it('cuts a wide assignment instead of flipping all of it', () => {
+    // reported 28.07.: geplant 10:00–20:00 set to verfügbar for a 12:00–17:00 watch turned all ten
+    // hours verfügbar. The change now stops at the edges the column actually owns.
+    const wide: Shift = { id: 'w', personId: 'p1', from: T(10), to: T(20), confirmed: true }
+    const { result } = renderHook(() => useHarness([spät], [wide]))
+    act(() => { result.current.setCellState(spät, p1, 'available') })
+    expect(result.current.shifts.map((s) => [s.from, s.to, !!s.confirmed])).toEqual([
+      [T(10), T(12), true],
+      [T(12), T(17), false],
+      [T(17), T(20), true],
+    ])
+  })
+
+  it('grows the pieces back together when the answer puts them in the same state again', () => {
+    const wide: Shift = { id: 'w', personId: 'p1', from: T(10), to: T(20), confirmed: true }
+    const { result } = renderHook(() => useHarness([spät], [wide]))
+    act(() => { result.current.setCellState(spät, p1, 'available') })
+    act(() => { result.current.setCellState(spät, p1, 'confirmed') })
+    // …back to ONE stretch, not three: flipping a cell must not shred what somebody drew
+    expect(result.current.shifts).toHaveLength(1)
+    expect(result.current.shifts[0]).toMatchObject({ id: 'w', from: T(10), to: T(20), confirmed: true })
+  })
+
+  it('leaves a stretch lying wholly inside the watch uncut', () => {
+    const inside: Shift = { id: 'i', personId: 'p1', from: T(13), to: T(15), confirmed: true }
+    const { result } = renderHook(() => useHarness([spät], [inside]))
+    act(() => { result.current.setCellState(spät, p1, 'available') })
+    expect(result.current.shifts).toHaveLength(1)
+    expect(result.current.shifts[0]).toMatchObject({ from: T(13), to: T(15) })
+    expect(result.current.shifts[0].confirmed).toBeFalsy()
+  })
+
+  it('touches nothing of somebody whose times never reach the watch', () => {
+    const away: Shift = { id: 'a', personId: 'p1', from: T(6), to: T(9), confirmed: true }
+    const { result } = renderHook(() => useHarness([spät], [away]))
+    act(() => { result.current.setCellState(spät, p1, 'available') })
+    expect(result.current.shifts).toEqual([away])
+  })
+})
