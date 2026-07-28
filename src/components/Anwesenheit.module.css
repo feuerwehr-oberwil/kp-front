@@ -27,6 +27,9 @@
 }
 .reload:hover { color: var(--ink); border-color: var(--ink-faint); }
 .reload:disabled { opacity: .55; cursor: default; }
+/* it only appears when something failed, so it says so rather than looking like a spare control */
+.reloadFailed { border-color: color-mix(in srgb, var(--amber-strong) 45%, var(--glass-edge)); color: var(--amber-strong); }
+.reloadFailed:hover { color: var(--amber-strong); border-color: var(--amber-strong); }
 .reload svg { width: 15px; height: 15px; }
 
 .controls { display: flex; align-items: center; gap: 16px; padding: 12px 22px; flex-wrap: wrap; }

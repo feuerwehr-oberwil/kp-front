@@ -385,9 +385,19 @@ export function AnwesenheitView({
               ]}
             />
           )}
-          <button className={s.reload} onClick={onReload} disabled={loading} aria-label={A.reload}>
-            <Icon id="rotate" /><span className={s.reloadLabel}>{loading ? A.loading : A.refresh}</span>
-          </button>
+          {/* Only when a fetch actually FAILED. It used to sit here permanently as
+              «Aktualisieren», which said the wrong thing twice: the attendance never needed it
+              (the workspace blob follows live), and the roster it really refreshed cannot change
+              during an incident — only an admin's Divera sync moves it, and usePersonnel now picks
+              that up in the background. What is left means what it says: that did not load, try
+              again. */}
+          {error && (
+            <button className={cx(s.reload, s.reloadFailed)} onClick={onReload} disabled={loading}
+              aria-label={A.reload} title={A.loadFailedHint}>
+              <Icon id={loading ? 'rotate' : 'warn'} />
+              <span className={s.reloadLabel}>{loading ? A.loading : A.retry}</span>
+            </button>
+          )}
         </div>
         {/* The three readings of this Mannschaft, in a slot of their OWN rather than inside the
             action cluster. Only offered where a Zeitplan can actually be edited/read — the surface

@@ -887,6 +887,7 @@ export const en: Localizable<Copy> = {
     removeField: 'Remove field',
     fieldKeyPlaceholder: 'Label',
     fieldValuePlaceholder: 'Value',
+    duplicateField: '«{key}» already exists – only the last value is kept.',
     // unField/stoffField are intentionally NOT translated — they are the detail-row DATA keys
     // the UN→substance lookup matches against the (language-independent) preset fields
     // ['UN-Nr','Stoff']; translating them would break the autofill. They fall back to German.
@@ -1583,7 +1584,6 @@ export const en: Localizable<Copy> = {
     summary: '{present} present · {left} left · {total} crew',
     reload: 'Reload crew',
     loading: 'Loading …',
-    refresh: 'Refresh',
     searchPlaceholder: 'Search name',
     clearSearch: 'Clear search',
     legendFrei: 'not present',

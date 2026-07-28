@@ -1226,6 +1226,8 @@ export const de = {
     removeField: 'Feld entfernen',
     fieldKeyPlaceholder: 'Bezeichnung',
     fieldValuePlaceholder: 'Wert',
+    // zwei Felder mit derselben Bezeichnung fallen beim Speichern zusammen – {key} = die Bezeichnung
+    duplicateField: '«{key}» gibt es schon – nur der letzte Wert bleibt erhalten.',
     // UN-Nr → Stoff auto-fill (Gefahrentafel). unField/stoffField are the detail-row
     // keys the lookup reads/writes (must match the preset's `fields`). The summary is
     // read-only and always carries the "ungeprüft" caveat (dataset not expert-reviewed).
@@ -2166,7 +2168,6 @@ export const de = {
     summary: '{present} anwesend · {left} gegangen · {total} Mannschaft',
     reload: 'Mannschaft neu laden',
     loading: 'Lädt …',
-    refresh: 'Aktualisieren',
     searchPlaceholder: 'Suchen',
     clearSearch: 'Suche löschen',
     legendFrei: 'nicht anwesend',
