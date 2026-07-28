@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { clampRailWidth, snapExpanded, planGlyph, moduleNumbers } from './navRail'
+import { clampRailWidth, snapExpanded, planGlyph, moduleNumbers, moduleTileLabel } from './navRail'
 import type { PlanDocument } from '../types'
 
 // a minimal PlanDocument factory — only the fields planGlyph reads matter
@@ -37,4 +37,40 @@ describe('moduleNumbers — the digit(s) a plan doc answers to', () => {
   it('a sub-slot (PV) carries no number', () => expect(moduleNumbers(doc({ id: 'modul5-pv', code: 'PV' }))).toEqual([]))
   it('the Umgebung / a generic plan carries no number', () => expect(moduleNumbers(doc({ id: 'osm', icon: 'map' }))).toEqual([]))
   it('the Gebäude floor-stack carries no number', () => expect(moduleNumbers(doc({ id: 'gebaeude', floorStack: true }))).toEqual([]))
+})
+
+describe('moduleTileLabel — the rail is 216px wide, the label has to fit', () => {
+  it('takes a sub-sheet name the station actually gave us', () =>
+    expect(moduleTileLabel('modul5-wasser', 'Wasser')).toBe('Wasser'))
+
+  // The live Oberwil files are named after the object plus the raw module key. Using that as
+  // the label ran the rail item straight off its edge ("Migros – modul5-rwa…").
+  it('refuses a filename that only echoes the module key back', () =>
+    expect(moduleTileLabel('modul5-rwa', 'Migros – modul5-rwa')).toBe('RWA'))
+
+  it('refuses any long title, however descriptive', () =>
+    expect(moduleTileLabel('modul5-pv', 'Photovoltaik-Anlage Dach Nord')).toBe('PV'))
+
+  it('keeps an acronym upper-case', () => expect(moduleTileLabel('modul5-rwa')).toBe('RWA'))
+  it('capitalises a word instead of shouting it', () => expect(moduleTileLabel('modul5-wasser')).toBe('Wasser'))
+  it('is unfazed by an empty or missing title', () => {
+    expect(moduleTileLabel('modul5-pv', '')).toBe('PV')
+    expect(moduleTileLabel('modul5-pv', '   ')).toBe('PV')
+  })
+
+  it('a bare module keeps «Modul N»', () => {
+    expect(moduleTileLabel('modul4')).toBe('Modul 4')
+    expect(moduleTileLabel('modul4', 'Migros – modul4')).toBe('Modul 4')
+  })
+})
+
+describe('the label and the chip agree', () => {
+  // planGlyph takes doc.code when it is short — so the fix has to leave the collapsed rail
+  // showing the same monogram it always did, not just tidy the expanded one.
+  it('a sub-slot shows its acronym in the chip', () =>
+    expect(planGlyph(doc({ id: 'modul5-rwa', code: moduleTileLabel('modul5-rwa', 'Migros – modul5-rwa') })))
+      .toEqual({ mono: 'RWA' }))
+  it('a longer sub-sheet name still shortens to a monogram', () =>
+    expect(planGlyph(doc({ id: 'modul5-wasser', code: moduleTileLabel('modul5-wasser') })))
+      .toEqual({ mono: 'WAS' }))
 })

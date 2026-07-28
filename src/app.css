@@ -505,7 +505,11 @@ input[type='number'] { -moz-appearance: textfield; appearance: textfield; }
 .nav-item.on .nav-mono-chip { border-color: color-mix(in srgb, var(--on-accent-ink) 45%, transparent); }
 /* labels render ONLY in the committed expanded state and never during a drag, so they
    can't clip mid-resize — they fade in once the rail snaps open */
-.nav-label { display: none; white-space: nowrap; font-size: 13.5px; font-weight: 600; }
+/* …and they never push past the rail's edge. The label is data in the plan tiles (a station's
+   own sub-sheet names), so "it fits today" is not a property we control — a long one truncates
+   with an ellipsis instead of being sliced off mid-word by the rail's overflow. */
+.nav-label { display: none; min-width: 0; flex: 1 1 auto; padding-right: 8px; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; font-size: 13.5px; font-weight: 600; }
 .navrail.expanded:not(.dragging) .nav-label { display: block; }
 .nav-live { position: absolute; top: 6px; right: 6px; width: 9px; height: 9px; border-radius: 50%; background: var(--green); border: 2px solid #fff; }
 .nav-item.on .nav-live { border-color: var(--ink-fill); }

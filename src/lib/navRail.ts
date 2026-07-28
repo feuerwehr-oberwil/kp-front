@@ -14,6 +14,26 @@ export function snapExpanded(width: number, snap = 138): boolean {
   return width > snap
 }
 
+/** The SHORT label a synthesized module tile carries in the rail.
+ *
+ *  Modul 4 and the Modul-5 sub-sheets have no fixed tile in the catalog, so their label has to
+ *  come from the data. A station whose PDFs are named after the sub-sheet ("Wasser.pdf") hands
+ *  us the right word; Oberwil's carry the object name and the raw module key
+ *  ("Migros – modul5-rwa"), which is neither short nor a name — and the rail is 216px wide, so
+ *  that label ran straight off its edge.
+ *
+ *  So the dataset title is used only when it LOOKS like a sub-sheet name; otherwise the sub-slot
+ *  key out of the id, which is the structural part and always clean:
+ *  "modul5-rwa" → "RWA" (an acronym stays upper), "modul5-wasser" → "Wasser". */
+export function moduleTileLabel(id: string, title?: string): string {
+  const sub = /^modul\d+-([a-z0-9]+)/i.exec(id)?.[1]
+  if (!sub) return `Modul ${/^modul(\d+)/i.exec(id)?.[1] ?? '?'}`
+  const label = (title ?? '').trim()
+  // Short, and not just the module key echoed back at us.
+  if (label && label.length <= 16 && !/modul/i.test(label)) return label
+  return sub.length <= 3 ? sub.toUpperCase() : sub[0].toUpperCase() + sub.slice(1).toLowerCase()
+}
+
 /** the glyph a plan item renders: a monogram (1…/2/3) for modules + the floor-stack,
  *  otherwise an icon (the doc's own, falling back to pen for the blank Tafel / doc). */
 export function planGlyph(doc: PlanDocument): { mono: string } | { icon: string } {

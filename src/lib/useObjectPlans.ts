@@ -5,6 +5,7 @@ import { toast } from './ui'
 import { fillTemplate } from './format'
 import { appConfig } from '../config/appConfig'
 import { modulesFromConfig, moduleViewer } from './deploymentConfig'
+import { moduleTileLabel } from './navRail'
 import type { LngLat, PlanDocument } from '../types'
 
 // The station's plan catalog, split so ordering stays MAP → modules → Umrisse/Tafel:
@@ -59,9 +60,10 @@ function normModule(m: string): string {
 function extraModuleDoc(id: string, url: string, title?: string): PlanDocument {
   const num = /^modul(\d+)/.exec(id)?.[1] ?? '?'
   const label = (title || '').trim()
-  // a sub-slot (modul5-wasser) uses the sub-sheet name as its label so the rail reads "Wasser",
-  // not "Modul 5"; a bare module keeps "Modul N".
-  const code = /^modul\d+-/.test(id) && label ? label : `Modul ${num}`
+  // a sub-slot (modul5-wasser) reads "Wasser" in the rail, not "Modul 5"; a bare module keeps
+  // "Modul N". moduleTileLabel owns the rule — it also keeps the label short enough for the
+  // rail when the source filename is anything but (see there).
+  const code = moduleTileLabel(id, label)
   return { id, code, title: label || `Modul ${num}`, subtitle: '', imageUrl: url, orientation: 'landscape' }
 }
 
