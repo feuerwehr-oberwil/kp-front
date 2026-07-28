@@ -111,8 +111,11 @@ function PersonSheet({ person, shifts, blocks, canEdit, startedAt, conflicts, on
           && Date.parse(startedAt) < Date.parse(sh.to)
           ? () => onSetTime(sh.id, { from: startedAt }) : undefined,
         fromStartValue: startedAt ? fmtStartValue(startedAt, planDays) : undefined,
-        // no «noch da» here on purpose: a shift always has an end. Only a person's presence can be
-        // open, and that lives in the Anwesenheit.
+        fromIsStart: !!startedAt && sh.from === startedAt,
+        // No «noch da» here, decided: a shift is PLANNED into the future and always has an end.
+        // It is also what the grid needs — shiftSpan returns null without one, so an open shift
+        // would draw as nothing, count zero in the Deckung and vanish from the printed sheet.
+        // Only a person's presence can be open, and that lives in the Anwesenheit.
         // the head IS the state: colour, word, and the whole width as the switch
         head: {
           label: sh.confirmed ? Z.confirmed : Z.available,

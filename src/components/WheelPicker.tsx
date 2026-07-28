@@ -57,6 +57,19 @@ const MINUTES = Array.from({ length: 60 }, (_, i) => pad2(i))
 
 export interface WheelValue { y: number; mo: number; d: number; h: number; mi: number }
 
+const isCoarse = () =>
+  typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
+
+/** '9', '930', '9:30', '09.30' → [h, mi]; null while it is still being typed or out of range. */
+function parseTyped(raw: string): [number, number] | null {
+  const t = raw.trim().replace(/[.\s]/g, ':')
+  const m = /^(\d{1,2}):?(\d{2})$/.exec(t)
+  if (!m) return null
+  const h = Number(m[1])
+  const mi = Number(m[2])
+  return h <= 23 && mi <= 59 ? [h, mi] : null
+}
+
 /** The popover itself. `withDate` adds day/month/year wheels (year: prev/this/next). */
 export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onClear, shortcut, clearLabel, days }: {
   anchor: DOMRect
@@ -84,6 +97,7 @@ export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onC
   days?: Date[]
 }) {
   const C = appConfig.copy.wheel
+  const coarse = isCoarse()
   const [v, setV] = useState<WheelValue>({
     y: initial.getFullYear(), mo: initial.getMonth() + 1, d: initial.getDate(),
     h: initial.getHours(), mi: initial.getMinutes(),
@@ -106,6 +120,9 @@ export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onC
   const daysInMonth = new Date(v.y, v.mo, 0).getDate()
   const monthDays = Array.from({ length: daysInMonth }, (_, i) => pad2(i + 1))
   const months = Array.from({ length: 12 }, (_, i) => pad2(i + 1))
+
+  // what the keyboard is holding right now; the wheels follow as soon as it parses
+  const [typed, setTyped] = useState(() => `${pad2(initial.getHours())}:${pad2(initial.getMinutes())}`)
 
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -140,7 +157,7 @@ export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onC
   // the popover grew past it, so «OK» ended up under the bottom edge of the screen with no way to
   // reach it. Measured: 9px padding ×2 + 5×44px of wheel + 40px actions + its 8px gap, plus the
   // shortcut row when there is one.
-  const height = 18 + 220 + 48 + (shortcut ? 48 : 0)
+  const height = 18 + 220 + 48 + (shortcut || (onClear && clearLabel) ? 48 : 0) + (coarse ? 0 : 46)
   const up = window.innerHeight - anchor.bottom < height + 16
   // a shortcut or a named clear needs its sentence on one line; the bare wheels do not
   const dayWheel = dayList.length > 1 ? 76 : 0
@@ -154,12 +171,38 @@ export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onC
 
   return createPortal(
     <div className="wheelpop" style={style} ref={ref} role="dialog" aria-modal="true">
-      {shortcut && (
-        <button type="button" className={`${w.shortcut}${shortcut.tone === 'green' ? ` ${w.green}` : ''}`}
-          onClick={shortcut.onPick}>
-          {shortcut.label}
-          {shortcut.value && <span className={w.value}>{shortcut.value}</span>}
-        </button>
+      {/* KEYBOARD ENTRY, wherever there is a keyboard. The wheels used to be replaced wholesale by
+          a bare text input on a fine pointer — which is why every feature added to this popover
+          (day wheel, ab Start, noch da) simply did not exist at a desk. Now the popover is the one
+          surface everywhere, and typing is an extra way INTO it rather than a second version of
+          it. Partial input stays local until it parses, so «1» on the way to «14» is not rejected. */}
+      {!coarse && (
+        <input
+          className={w.typed} value={typed} inputMode="numeric" enterKeyHint="done"
+          aria-label={`${C.hour} / ${C.minute}`} placeholder="--:--"
+          onChange={(e) => {
+            setTyped(e.target.value)
+            const hhmm = parseTyped(e.target.value)
+            if (hhmm) setV((p) => ({ ...p, h: hhmm[0], mi: hhmm[1] }))
+          }}
+          onKeyDown={(e) => { if (e.key === 'Enter') onCommit(v) }}
+        />
+      )}
+      {/* THE TABS: answers that are not a clock reading. «ab Start» and «noch da» replace the time
+          rather than set one, so they stand apart from the wheels and from OK. */}
+      {(shortcut || (onClear && clearLabel)) && (
+        <div className={w.tabs}>
+          {shortcut && (
+            <button type="button" className={`${w.tab}${shortcut.tone === 'green' ? ` ${w.green}` : ''}`}
+              onClick={shortcut.onPick}>
+              {shortcut.label}
+              {shortcut.value && <span className={w.value}>{shortcut.value}</span>}
+            </button>
+          )}
+          {onClear && clearLabel && (
+            <button type="button" className={`${w.tab} ${w.green}`} onClick={onClear}>{clearLabel}</button>
+          )}
+        </div>
       )}
       <div className="wheelpop-cols">
         {withDate && (
@@ -185,13 +228,8 @@ export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onC
         <div className="wheelpop-band" aria-hidden />
       </div>
       <div className="wheelpop-actions">
-        {onClear && (clearLabel ? (
-          <button type="button" className={`wheelpop-btn ${w.clearNamed}`} onClick={onClear}>{clearLabel}</button>
-        ) : (
-          <button type="button" className="wheelpop-btn clear" onClick={onClear} title={C.clear} aria-label={C.clear}>
-            <Icon id="trash" />
-          </button>
-        ))}
+        {/* «Jetzt» sits with OK because it, too, produces a clock reading — the tabs above produce
+            something that is NOT a clock reading, which is the whole distinction. */}
         <button type="button" className="wheelpop-btn" onClick={stampNow}>{C.now}</button>
         <button type="button" className="wheelpop-btn primary" onClick={() => onCommit(v)}>{C.ok}</button>
       </div>

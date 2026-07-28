@@ -56,6 +56,9 @@ export interface TimeBlock {
   /** the time «ab Beginn» would set, as HH:MM — shown in the shortcut, because a shortcut without
    *  its number is a promise you cannot check before tapping it */
   fromStartValue?: string
+  /** this start IS the incident start — the field then reads «ab Beginn» instead of a clock, since
+   *  that is what it means. The instant is still stored in full, date included. */
+  fromIsStart?: boolean
   /** «noch da»: empty this block's end, which says the person never left. Offered inside the «bis»
    *  picker, where it replaces the bin glyph — emptying a «bis» records presence, it destroys
    *  nothing, and a bin said the opposite of what it did. */
@@ -153,6 +156,7 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
                 <TimeField className={s.time} ariaLabel={`${labels.from} – ${subject}`} value={b.from}
                   disabled={!b.onFrom} onCommit={(v, day) => { if (v) b.onFrom?.(v, day) }}
                   days={days}
+                  token={b.fromIsStart ? { label: labels.fromStart, tone: 'start' as const } : undefined}
                   shortcut={b.onFromStart && {
                     label: labels.fromStart, value: b.fromStartValue, onPick: b.onFromStart,
                   }} />
@@ -166,7 +170,7 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
                     all — the one place its times are edited. */}
                 <TimeField className={cx(s.time, b.to == null && s.timeOpen)}
                   ariaLabel={`${labels.to} – ${subject}`} value={b.to ?? ''}
-                  placeholder={b.to == null ? b.openLabel : undefined}
+                  token={b.to == null && b.openLabel ? { label: b.openLabel, tone: 'open' as const } : undefined}
                   disabled={!b.onTo} onCommit={(v, day) => { if (v == null) b.onReopen?.(); else b.onTo?.(v, day) }}
                   clearLabel={b.onReopen ? labels.reopen : undefined} days={days} />
                 {/* both ends carry a day or neither does — one dated field beside an undated one

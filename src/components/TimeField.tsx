@@ -61,7 +61,7 @@ function TextCommitInput({ value, display, commit, disabled, ariaLabel, placehol
   )
 }
 
-export function TimeField({ value, onCommit, disabled, ariaLabel, nowLabel, className, shortcut, clearLabel, days, placeholder }: {
+export function TimeField({ value, onCommit, disabled, ariaLabel, nowLabel, className, shortcut, clearLabel, days, placeholder, token }: {
   /** current value as 'HH:MM' ('' = unset) */
   value: string
   /** 'HH:MM' from wheels/typing/«Jetzt»; null when cleared. `day` comes back only when the picker
@@ -84,10 +84,13 @@ export function TimeField({ value, onCommit, disabled, ariaLabel, nowLabel, clas
    *  It stays a real field, so the end can be set from here; it was a plain <em> before, which
    *  looked like a value and could not be tapped. */
   placeholder?: string
+  /** Shown INSTEAD of the clock, because the value is not really a clock reading: «ab Start» for a
+   *  beginning tied to the alarm, «noch da» for an end that has not happened. The instant behind
+   *  it is still stored in full (date included) — this is how it reads, not what it is. */
+  token?: { label: string; tone: 'start' | 'open' }
 }) {
   const [open, setOpen] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
-  const coarse = isCoarse()
 
   const initial = (() => {
     const m = /^(\d{2}):(\d{2})$/.exec(value)
@@ -102,24 +105,18 @@ export function TimeField({ value, onCommit, disabled, ariaLabel, nowLabel, clas
 
   return (
     <span className={`timefield${className ? ` ${className}` : ''}`}>
-      {coarse ? (
-        <button
-          type="button" ref={btnRef} className={`timefield-trigger${value ? '' : ' empty'}`}
-          disabled={disabled} aria-label={ariaLabel} onClick={() => setOpen(true)}
-        >
-          {value || placeholder || '--:--'}
-        </button>
-      ) : (
-        <TextCommitInput
-          value={value} display={value} disabled={disabled} ariaLabel={ariaLabel} placeholder="--:--"
-          commit={(raw) => {
-            const hhmm = parseHHMM(raw)
-            if (hhmm) onCommit(hhmm)
-            else if (!raw.trim()) onCommit(null)
-            // gibberish → TextCommitInput re-syncs to the last good display
-          }}
-        />
-      )}
+      {/* ONE way in, on every device. The desktop used to get a bare text input instead of this,
+          which is why the day wheel, «ab Start» and «noch da» were unreachable with a mouse —
+          three rounds of fixes landed in a branch half the users never saw. Typing did not go
+          away: it moved INSIDE the popover, where it sits beside those same choices. */}
+      <button
+        type="button" ref={btnRef}
+        className={`timefield-trigger${value || token ? '' : ' empty'}${token ? ` tok-${token.tone}` : ''}`}
+        disabled={disabled} aria-label={token ? `${ariaLabel}: ${token.label}` : ariaLabel}
+        onClick={() => setOpen(true)}
+      >
+        {token ? token.label : (value || placeholder || '--:--')}
+      </button>
       {nowLabel && (
         <button type="button" className="timefield-now" disabled={disabled} onClick={stampNow}>{nowLabel}</button>
       )}

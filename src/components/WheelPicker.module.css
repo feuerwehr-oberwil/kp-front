@@ -2,6 +2,29 @@
    themselves — see app.css for the popover frame, the wheels and the actions row.
    Kept in a module of its own so the shared frame stays where it is. */
 
+/* Keyboard entry, on any device that has one. It does not REPLACE the wheels — it sits above them
+   and moves them, so «ab Start», «noch da» and the day wheel are reachable with a mouse too. That
+   split (wheels on touch, a bare text box at the desk) is why three rounds of features existed on
+   only half the devices. */
+.typed {
+  width: 100%; min-height: 40px; margin: 0 0 8px; padding: 0 10px; text-align: center;
+  border: 1px solid var(--glass-edge); border-radius: var(--r-xs); background: var(--fill-soft);
+  color: var(--ink); font: 700 16px var(--mono); font-variant-numeric: tabular-nums;
+}
+.typed:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 22%, transparent); }
+
+/* The tabs: answers that are not a clock reading at all. Side by side, equal weight, above the
+   wheels they replace. */
+.tabs { display: flex; gap: 6px; margin: 0 0 8px; }
+.tab {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 40px;
+  padding: 0 10px; border-radius: var(--r-xs); cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--blue) 38%, transparent);
+  background: color-mix(in srgb, var(--blue) 10%, transparent);
+  color: var(--blue-strong); font: 700 12.5px var(--body); white-space: nowrap;
+}
+.tab:hover { background: color-mix(in srgb, var(--blue) 18%, transparent); }
+
 /* The shortcut row: a one-tap answer to «which time?», offered above the wheels.
    «ab Einsatzbeginn» and «noch da» used to be buttons sitting NEXT to the fields, where they were
    two more shapes in a row that already had too many. They are answers to the question the picker

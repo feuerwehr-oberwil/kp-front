@@ -104,12 +104,12 @@ function PresenceSheet({ person, blocks, canEdit, startedAt, onSetTimes, onRemov
           && (!iv.to || Date.parse(startedAt) < Date.parse(iv.to))
           ? () => onSetTimes(person.id, { from: startedAt }, i) : undefined,
         fromStartValue: startedAt ? fmtStartValue(startedAt, incidentDays(startedAt, openedAt)) : undefined,
-        // «noch da» — emptying the end says the person never left, which is the way back from a
-        // mis-tapped «gegangen». LAST row only, and only while nothing follows it: reopening an
-        // older, long-closed row would make it run to NOW, and an open row feeds isPresent, the
-        // Atemschutz lock, the coverage curve and the Rapport hours. Hours would quietly grow back
-        // on a stretch that ended yesterday.
-        onReopen: canEdit && onSetTimes && !!iv.to && i === blocks.length - 1
+        fromIsStart: !!startedAt && iv.from === startedAt,
+        // «noch da» on EVERY end, as asked: emptying it says the person never left, and an open
+        // stretch runs to the Einsatzende for the Rapport (attendanceIntervals.totalMinutes).
+        // ⚠ It is deliberately NOT restricted to the last row any more — see the note in the
+        // handover: opening an earlier stretch while a later one exists double-counts those hours.
+        onReopen: canEdit && onSetTimes && !!iv.to
           ? () => onSetTimes(person.id, { to: undefined }, i) : undefined,
         onRemove: canEdit && onRemoveBlock ? () => onRemoveBlock(person.id, i) : undefined,
         // also offered while the stretch is still OPEN — that is how it gets closed from here.
@@ -440,6 +440,8 @@ export function AnwesenheitView({
                   <span className={cx(s.timeChip, left && s.timeChipLeft)}>
                     <TimeField
                       value={toHM(timeIso)}
+                      token={!left && startedAt && cur?.from === startedAt
+                        ? { label: appConfig.copy.zeitplan.fromStart, tone: 'start' as const } : undefined}
                       ariaLabel={`${A.editTime} – ${p.displayName}`}
                       disabled={!canEdit || !onSetTimes}
                       days={incidentDays(startedAt, nowMs)}
@@ -455,12 +457,10 @@ export function AnwesenheitView({
                 {/* Rückkehr — the tap cycle's third step CLEARS the row (frei), and it must keep
                     doing that (it is the only way back from a mis-tick). So coming back gets its
                     own control: it opens a NEW block instead of reopening the closed one. */}
-                {/* Only from the SECOND stretch on. With one stretch the chip beside it already
-                    edits the time directly, so the clock was a second glyph for a journey nobody
-                    needed to make — and it cost the name ~38px on a phone. From two stretches the
-                    row can only ever show the latest, and the sheet is the only place the earlier
-                    ones exist at all. */}
-                {canEdit && blocks.length > 1 && (
+                {/* THE one clock in the row, always there: it opens the sheet where several
+                    stretches — came, went, came back — are added and corrected. The chip beside it
+                    edits the single time shown; this is the way to all the others. */}
+                {canEdit && blocks.length > 0 && (
                   <button
                     type="button"
                     className={s.backBtn}
