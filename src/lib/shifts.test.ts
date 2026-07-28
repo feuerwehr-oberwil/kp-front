@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  SLOT_MS, bandAssignWindow, bandCell, bandCounts, bandCoverFraction, barGeometry, ceilSlot,
+  SLOT_MS, bandAssignWindow, bandCell, bandCellWindow, bandCounts, bandCoverFraction, barGeometry, ceilSlot,
   conflictingShiftIds, coverage, draftBand, draftShift, dragShift, floorSlot, freehandShifts,
   intervalSpan, overlaps, plannedPersonCount, shiftAt, shiftInBand, shiftSpan, shiftsFor, sortBands,
   timeAtFraction, timelineSpan,
@@ -323,6 +323,28 @@ describe('bandCell — availability is derived, assignment is stored', () => {
   })
 })
 
+describe('bandCellWindow — a cell shows only its own column', () => {
+  const früh = band('bd1', T(7), T(12), 'Früh')
+
+  it('clamps a longer offer to the band', () => {
+    // reported 28.07.: verfügbar 05–08 in a watch ending at 06:00 must read 05–06 — the rest of
+    // that stretch is a fact about the Zeitplan axis, not about this column
+    const cell = bandCell([shift('a', 'p1', T(5), T(8))], 'p1', band('bd9', T(4), T(6)))
+    expect(bandCellWindow(cell, band('bd9', T(4), T(6)))).toEqual({ from: T(5), to: T(6) })
+  })
+
+  it('clamps a member whose times drifted past the band end', () => {
+    const cell = bandCell([inBand('a', 'p1', T(9), T(14), 'bd1', true)], 'p1', früh)
+    expect(bandCellWindow(cell, früh)).toEqual({ from: T(9), to: T(12) })
+  })
+
+  it('keeps the real hours when a member has been dragged clear of its band', () => {
+    // nothing left to clamp to, and showing nothing would hide the drift worth seeing
+    const cell = bandCell([inBand('a', 'p1', T(14), T(18), 'bd1', true)], 'p1', früh)
+    expect(bandCellWindow(cell, früh)).toEqual({ from: T(14), to: T(18) })
+  })
+})
+
 describe('bandAssignWindow — a tap assigns only what was offered', () => {
   const früh = band('bd1', T(7), T(12), 'Früh')
 
@@ -346,7 +368,7 @@ describe('bandAssignWindow — a tap assigns only what was offered', () => {
   })
 })
 
-describe('bandCounts — per person, deviating pro rata', () => {
+describe('bandCounts — whole people, one cell one count', () => {
   const früh = band('bd1', T(7), T(12), 'Früh') // five hours
 
   it('counts a member on the band as a whole one, in its own state', () => {
@@ -358,9 +380,11 @@ describe('bandCounts — per person, deviating pro rata', () => {
     expect(bandCounts([shift('a', 'p1', T(6), T(13))], früh)).toEqual({ available: 1, confirmed: 0 })
   })
 
-  it('counts 09–14 against 07–12 as the three hours it actually covers', () => {
+  it('counts a partly covering person as ONE person, not as a fraction of one', () => {
+    // «0,8» is not a headcount. The head is now exactly what you get by counting the cells below
+    // it — the nuance lives in the cell, which prints the hours it actually covers.
     expect(bandCoverFraction(inBand('a', 'p1', T(9), T(14), 'bd1', true), früh)).toBeCloseTo(0.6)
-    expect(bandCounts([inBand('a', 'p1', T(9), T(14), 'bd1', true)], früh).confirmed).toBeCloseTo(0.6)
+    expect(bandCounts([inBand('a', 'p1', T(9), T(14), 'bd1', true)], früh)).toEqual({ available: 0, confirmed: 1 })
   })
 
   it('counts one person ONCE, even holding both a member shift and a wider offer', () => {

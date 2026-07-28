@@ -56,31 +56,41 @@ export function ShiftConflictNotice({ shifts, people, className }: {
   // half (who, and when); the names and the resolving gesture are one tap away. Not hidden: a
   // fault you cannot see is the thing this notice exists to prevent, so the line itself always
   // shows and always says «doppelt eingeteilt».
-  const collapsible = isPhone && !open
+  const collapsed = isPhone && !open
+  const detail = (
+    <>
+      {/* the exact stretch, because «Meier ist doppelt eingeteilt» still leaves you hunting for
+          where on a 96 h axis */}
+      <p className={s.who}>
+        {items.slice(0, 4).map((c) => <span key={c.name}>{who(c)}</span>)}
+        {items.length > 4 && <span>{fillTemplate(Z.conflictMore, { n: items.length - 4 })}</span>}
+      </p>
+      <p className={s.fix}>{Z.conflictFix}</p>
+    </>
+  )
   return (
-    <div className={`${s.notice}${collapsible ? ` ${s.collapsed}` : ''}${className ? ` ${className}` : ''}`} role="status">
+    <div className={`${s.notice}${collapsed ? ` ${s.collapsed}` : ''}${className ? ` ${className}` : ''}`} role="status">
       <Icon id="warn" />
-      {collapsible ? (
-        <button type="button" className={s.summary} onClick={() => setOpen(true)} aria-expanded={false}>
-          {/* the NAME is what truncates. «Degen André · 13:00–18…» cut the one thing a clock is
-              for; the hours are one tap away, and «doppelt eingeteilt» is the fact that has to
-              survive at any width. */}
-          <b>{items.length === 1 ? items[0].name : title}</b>
-          {items.length === 1 && <span className={s.short}>{Z.conflictShort}</span>}
-          <Icon id="chevron-down" />
-        </button>
-      ) : (
-        <div className={s.body}>
+      <div className={s.body}>
+        {isPhone ? (
+          // A TOGGLE, both ways. It opened and would not close again, which turns a notice you
+          // cannot dismiss into a notice that eats a third of the screen for the rest of the
+          // Einsatz. The chevron says which way the next tap goes.
+          <button type="button" className={s.summary} onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+            {/* the NAME is what truncates. «Degen André · 13:00–18…» cut the one thing a clock is
+                for; «doppelt eingeteilt» is the fact that has to survive at any width. */}
+            <b>{items.length === 1 ? items[0].name : title}</b>
+            {items.length === 1 && <span className={s.short}>{Z.conflictShort}</span>}
+            <Icon id={open ? 'chevron-up' : 'chevron-down'} />
+          </button>
+        ) : (
           <b>{title}</b>
-          {/* the exact stretch, because «Meier ist doppelt eingeteilt» still leaves you hunting for
-              where on a 96 h axis */}
-          <p className={s.who}>
-            {items.slice(0, 4).map((c) => <span key={c.name}>{who(c)}</span>)}
-            {items.length > 4 && <span>{fillTemplate(Z.conflictMore, { n: items.length - 4 })}</span>}
-          </p>
-          <p className={s.fix}>{Z.conflictFix}</p>
-        </div>
-      )}
+        )}
+        {/* The advisory is NOT what folds away. Collapsed, the notice still says which gesture
+            resolves it — a warning that names a fault and then leaves you to guess is the reason
+            the old red outline was useless. What the tap adds is WHO and WHEN, in full. */}
+        {collapsed ? <p className={s.fix}>{Z.conflictFix}</p> : detail}
+      </div>
     </div>
   )
 }

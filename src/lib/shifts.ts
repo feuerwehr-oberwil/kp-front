@@ -333,11 +333,17 @@ export interface BandCounts {
 }
 
 /**
- * The two numbers in a column's head, counted per PERSON via `bandCell` rather than per shift.
+ * The two numbers in a column's head: HOW MANY PEOPLE, as whole people.
  *
- * Per person is what makes them agree with the grid underneath: somebody with both a member shift
- * and a wider freihändige offer has ONE cell, and one cell is one count. Partial cover counts pro
- * rata, so both totals can be fractional — the surface formats them, this only counts.
+ * They were counted pro rata once — somebody covering three of five hours counted 0.6 — on the
+ * argument that the head should answer «how much cover do I have» rather than «how many ticks can
+ * I see». In use that argument loses: a column head reading «0,8  0,8» is not a headcount, it is
+ * an arithmetic puzzle at 3am, and nobody has 0.8 of a person.
+ *
+ * So one cell is one whole count, and the head is now exactly what you get by counting the cells
+ * below it. That is the strongest property a number on a form can have — you can check it by
+ * looking. The nuance did not disappear: a cell that covers only part of the window says so, in
+ * its own hours, right there in the column.
  */
 export function bandCounts(shifts: Shift[], band: ShiftBand): BandCounts {
   let available = 0
@@ -345,14 +351,37 @@ export function bandCounts(shifts: Shift[], band: ShiftBand): BandCounts {
   for (const personId of new Set(shifts.map((s) => s.personId))) {
     const cell = bandCell(shifts, personId, band)
     if (!cell.shift) continue
-    const f = bandCoverFraction(cell.shift, band)
-    if (cell.state === 'confirmed' || (cell.state === 'deviating' && cell.shift.confirmed && !cell.derived)) {
-      confirmed += f
-    } else {
-      available += f
-    }
+    if (isAssignedCell(cell)) confirmed++
+    else available++
   }
   return { available, confirmed }
+}
+
+/** Is this cell an ASSIGNMENT? Only a stored member that is confirmed — a covering offer is an
+ *  availability however confirmed it happens to be somewhere else. */
+export function isAssignedCell(cell: BandCell): boolean {
+  return !cell.derived && !!cell.shift?.confirmed
+}
+
+/**
+ * The hours a cell prints — CLAMPED to its own column.
+ *
+ * A cell is a statement about this window, so «verfügbar 05:00–08:00» in a watch that ends at
+ * 06:00 is answering a question nobody asked: what matters here is the 05:00–06:00 of it. The full
+ * stretch is on the Zeitplan axis, which is the surface that owns continuous time.
+ *
+ * The one exception is a stored member whose times have been dragged clear of its band altogether:
+ * there is no overlap left to show, and printing nothing would hide the very drift worth seeing.
+ */
+export function bandCellWindow(cell: BandCell, band: ShiftBand): { from: string; to: string } | null {
+  if (!cell.shift) return null
+  const b = windowOf(band.from, band.to)
+  const s = windowOf(cell.shift.from, cell.shift.to)
+  if (!b || !s) return { from: cell.shift.from, to: cell.shift.to }
+  const from = Math.max(b.from, s.from)
+  const to = Math.min(b.to, s.to)
+  if (to <= from) return { from: cell.shift.from, to: cell.shift.to }
+  return { from: new Date(from).toISOString(), to: new Date(to).toISOString() }
 }
 
 /**
@@ -360,16 +389,12 @@ export function bandCounts(shifts: Shift[], band: ShiftBand): BandCounts {
  *
  * For an empty cell that is the whole band. For a derived one it is the OVERLAP: confirming
  * somebody who offered 10:00–20:00 into a 07:00–12:00 watch must assign 10:00–12:00, not the full
- * window they never offered.
+ * window they never offered. It is the same clamp the cell PRINTS (`bandCellWindow`), which is
+ * what makes the surface honest: what you tap is what it said.
  */
 export function bandAssignWindow(cell: BandCell, band: ShiftBand): { from: string; to: string } {
-  const b = windowOf(band.from, band.to)
-  const s = cell.derived && cell.shift ? windowOf(cell.shift.from, cell.shift.to) : null
-  if (!b || !s) return { from: band.from, to: band.to }
-  const from = Math.max(b.from, s.from)
-  const to = Math.min(b.to, s.to)
-  if (to <= from) return { from: band.from, to: band.to }
-  return { from: new Date(from).toISOString(), to: new Date(to).toISOString() }
+  if (!cell.derived || !cell.shift) return { from: band.from, to: band.to }
+  return bandCellWindow(cell, band) ?? { from: band.from, to: band.to }
 }
 
 /**

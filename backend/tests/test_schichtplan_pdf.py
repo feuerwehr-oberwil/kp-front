@@ -78,16 +78,22 @@ def test_the_two_on_band_states_get_the_two_marks():
     assert _cell(p.rows[1], p.bands[0]) == _MARK_AVAILABLE
 
 
-def test_a_drifted_shift_prints_its_real_time_instead_of_a_mark():
-    # the same thing the on-screen cell shows, so paper and tablet read alike
+def test_a_partly_covering_shift_prints_its_hours_clamped_to_the_column():
+    # Früh runs 09–14 (station clock); the person offered 11–16, so this column is about 11–14 —
+    # printing «11–16» answers a question this column did not ask
     p = _payload([_row("Aebischer", [{"from": _h(2), "to": _h(7), "confirmed": True, "bandId": "bd1"}])])
-    assert _cell(p.rows[0], p.bands[0]) == "11–16"  # station clock, not UTC — see test_zeitplan_pdf
+    assert _cell(p.rows[0], p.bands[0]) == "11–14"
 
 
-def test_deckung_counts_only_the_assigned_and_drifted_ones_pro_rata():
-    # ONE number: this sheet lists only assigned people, so a «verfügbar» figure beside it would
-    # count names that are deliberately not on the page. Aebischer covers three of Früh's five
-    # hours, so 1 + 0.6.
+def test_a_member_dragged_clear_of_its_band_still_prints_its_own_hours():
+    # no overlap left to clamp to, and printing nothing would hide the very drift worth seeing
+    p = _payload([_row("Weg", [{"from": _h(6), "to": _h(9), "confirmed": True, "bandId": "bd1"}])])
+    assert _cell(p.rows[0], p.bands[0]) == "15–18"
+
+
+def test_deckung_counts_whole_people_and_only_the_assigned():
+    # ONE number, and a WHOLE one: «1,6» is not a headcount, and this line has to be checkable by
+    # counting the marks in the column above it.
     p = _payload(
         [
             _row("Fix", [{"from": _h(0), "to": _h(5), "confirmed": True, "bandId": "bd1"}]),
@@ -95,7 +101,7 @@ def test_deckung_counts_only_the_assigned_and_drifted_ones_pro_rata():
             _row("Frei", [{"from": _h(0), "to": _h(5), "confirmed": False, "bandId": "bd1"}]),
         ]
     )
-    assert _deckung(p.rows, p.bands[0]) == "1,6"
+    assert _deckung(p.rows, p.bands[0]) == "2"
 
 
 def test_deckung_ignores_an_offer_filed_elsewhere_however_confirmed_it_was_there():

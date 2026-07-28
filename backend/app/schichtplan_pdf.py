@@ -119,14 +119,19 @@ def _cell_block(row: ZeitplanRow, band: ZeitplanBand) -> tuple[ZeitplanBlock | N
 
 
 def _cell(row: ZeitplanRow, band: ZeitplanBand) -> str:
-    """What one cell prints: a mark where the window is wholly covered, the person's REAL hours
-    where it is only partly covered — «verfügbar» there would promise time nobody offered."""
+    """What one cell prints: a mark where the window is wholly covered, otherwise the hours —
+    CLAMPED to this column, exactly as on the screen. «05–08» in a watch that ends at 06:00 is
+    05–06 as far as this column is concerned; the full stretch belongs on «Verfügbarkeiten»."""
     block, member = _cell_block(row, band)
     if block is None:
         return ""
     exact = member and block.end is not None and block.start == band.start and block.end == band.end
     if not exact and _cover_fraction(block.start, block.end, band) < 1:
-        return _range(block.start, block.end or band.end)
+        start = max(block.start, band.start)
+        end = min(block.end or band.end, band.end)
+        # a member dragged clear of its own band has no overlap left to show; printing nothing
+        # would hide the very drift worth seeing
+        return _range(start, end) if end > start else _range(block.start, block.end or band.end)
     # assignment is never derived — an offer filed under another band is still only an offer here
     return _MARK_CONFIRMED if (member and block.confirmed) else _MARK_AVAILABLE
 
@@ -138,15 +143,21 @@ def _is_assigned(row: ZeitplanRow) -> bool:
 
 
 def _deckung(rows: list[ZeitplanRow], band: ZeitplanBand) -> str:
-    """How many are ON this watch. One number, not «verfügbar / eingeteilt»: this sheet lists only
-    the people who were assigned, so a second figure counting the available ones would point at
-    names that are deliberately not on the page. Partial cover counts pro rata."""
-    confirmed = 0.0
-    for row in rows:
-        block, member = _cell_block(row, band)
-        if block is not None and member and block.confirmed:
-            confirmed += _cover_fraction(block.start, block.end, band)
-    return _fmt_count(confirmed)
+    """How many are ON this watch, as WHOLE people. One number, not «verfügbar / eingeteilt»: this
+    sheet lists only the people who were assigned, so a second figure counting the available ones
+    would point at names that are deliberately not on the page.
+
+    Whole, not pro rata: «0,8» is not a headcount, and this line has to be checkable by counting
+    the marks in the column above it — which is the only thing that makes a printed figure
+    trustworthy once the tablet is out of battery."""
+    return str(
+        sum(
+            1
+            for row in rows
+            for block, member in [_cell_block(row, band)]
+            if block is not None and member and block.confirmed
+        )
+    )
 
 
 def _page(rows: list[ZeitplanRow], bands: list[ZeitplanBand], width: float, with_deckung: bool) -> Table:

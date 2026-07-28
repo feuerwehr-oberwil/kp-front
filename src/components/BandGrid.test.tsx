@@ -78,9 +78,10 @@ describe('the grid', () => {
     expect(cellsOf('Steiner T.')[1].textContent).toBe(S.confirmed)
   })
 
-  it('shows a drifted shift in its band, with its REAL time', () => {
+  it('shows a drifted shift in its band, clamped to that band\'s own hours', () => {
+    // Früh ends at 12:00, so «09–14» in that column is 09–12 as far as it is concerned
     mount({ shifts: [{ id: 'sh1', personId: 'p2', from: T(9), to: T(14), bandId: 'bd1', confirmed: true }] })
-    expect(cellsOf('Meier A.')[0].textContent).toBe('09–14')
+    expect(cellsOf('Meier A.')[0].textContent).toBe('09–12')
   })
 
   it('shows somebody as available when their own offer covers a band, without a second tap', () => {
@@ -94,8 +95,8 @@ describe('the grid', () => {
   it('shows the real hours where an offer covers only part of a band', () => {
     // «frei» there would promise hours nobody offered
     mount({ shifts: [{ id: 'sh1', personId: 'p2', from: T(10), to: T(20) }] })
-    // Früh 07–12 is covered only from 10:00, so the cell says what they actually offered…
-    expect(cellsOf('Meier A.')[0].textContent).toBe('10–20')
+    // Früh 07–12 is covered only from 10:00, so the cell says exactly that stretch of it…
+    expect(cellsOf('Meier A.')[0].textContent).toBe('10–12')
     // …while Spät 12–17 lies wholly inside 10–20, which is plainly «frei»
     expect(cellsOf('Meier A.')[1].textContent).toBe(appConfig.copy.schichten.available)
   })
@@ -127,7 +128,7 @@ describe('the grid', () => {
     mount({ shifts: [{ id: 'sh1', personId: 'p2', from: T(9), to: T(14) }] })
     const row = screen.getByText('Meier A.').closest('div')!
     expect(within(row).queryByText('09–14')).toBeNull()
-    expect(cellsOf('Meier A.')[0].textContent).toBe('09–14')
+    expect(cellsOf('Meier A.')[0].textContent).toBe('09–12')
   })
 
   it('hands a cell tap straight to the cycle, band and person named', () => {
@@ -144,16 +145,16 @@ describe('the grid', () => {
 })
 
 describe('the column heads', () => {
-  it('counts verfügbar and eingeteilt apart, with drifted shifts pro rata', () => {
-    // Aebischer covers three of Früh's five hours, so Früh has 1 + 0.6 = 1,6 assigned
+  it('counts WHOLE people, verfügbar and eingeteilt apart — countable against the cells below', () => {
     mount({ shifts: [
       { id: 'sh1', personId: 'p1', from: T(7), to: T(12), bandId: 'bd1', confirmed: true },
       { id: 'sh2', personId: 'p2', from: T(9), to: T(14), bandId: 'bd1', confirmed: true },
       { id: 'sh3', personId: 'p3', from: T(7), to: T(12), bandId: 'bd1' },
     ] })
     const head = screen.getByText('Früh').closest('button')!
-    expect(within(head).getByText('1')).toBeTruthy()   // verfügbar
-    expect(within(head).getByText('1,6')).toBeTruthy() // eingeteilt, three of five hours counted
+    expect(within(head).getByText('1')).toBeTruthy() // verfügbar
+    // two assigned, one of them only partly covering — still two PEOPLE, and «1,6» never was one
+    expect(within(head).getByText('2')).toBeTruthy()
   })
 
   it('opens the band on its head, and creating one goes through the ＋', () => {

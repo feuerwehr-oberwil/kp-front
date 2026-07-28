@@ -23,7 +23,8 @@
 
 /* Collapsed on a phone: one line, the whole box tappable, opening to the full text. The icon and
    the wording stay — what folds away is the detail, not the alarm. */
-.collapsed { align-items: center; padding: 7px 10px; }
+.collapsed { padding: 7px 10px; }
+.collapsed .fix { margin-top: 1px; }
 .summary {
   flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 6px;
   border: none; background: none; padding: 0; cursor: pointer; text-align: left; color: inherit;

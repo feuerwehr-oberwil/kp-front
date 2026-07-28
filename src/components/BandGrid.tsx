@@ -5,9 +5,10 @@ import { fillTemplate, hhmm } from '../lib/format'
 import { applyTimeToIso, isoOnDay } from '../lib/abschluss'
 import { cx } from '../lib/cx'
 import { rankAbbr, rankLabel } from '../lib/rank'
-import { fmtCount, fmtDayShort, incidentDays, isOtherDay } from '../lib/zeitplanFormat'
+import { fmtDayShort, incidentDays, isOtherDay } from '../lib/zeitplanFormat'
 import {
-  bandCell, bandCounts, conflictingShiftIds, draftBand, freehandShifts, sortBands,
+  bandCell, bandCellWindow, bandCounts, conflictingShiftIds, draftBand, freehandShifts,
+  isAssignedCell, sortBands,
 } from '../lib/shifts'
 import type { Person, Shift, ShiftBand } from '../types'
 import { Sheet } from '../lib/overlays'
@@ -220,7 +221,7 @@ export function BandGrid({
               return (
                 <button key={b.id} type="button" className={s.band} disabled={!canEdit}
                   onClick={() => setSheet(b)} title={bandTitle(b)}
-                  aria-label={`${bandTitle(b)} · ${fillTemplate(S.countsAria, { available: fmtCount(c.available), planned: fmtCount(c.confirmed) })}`}>
+                  aria-label={`${bandTitle(b)} · ${fillTemplate(S.countsAria, { available: c.available, planned: c.confirmed })}`}>
                   <b>{bandTitle(b)}</b>
                   {/* only when the label is a real name — otherwise the head would say its own
                       hours twice */}
@@ -229,8 +230,8 @@ export function BandGrid({
                       deliberately no target beside them: a Soll/Ist column invites filling a
                       number rather than asking who can actually come. */}
                   <span className={s.counts}>
-                    <span className={s.cntAvailable}>{fmtCount(c.available)}</span>
-                    <span className={s.cntConfirmed}>{fmtCount(c.confirmed)}</span>
+                    <span className={s.cntAvailable}>{c.available}</span>
+                    <span className={s.cntConfirmed}>{c.confirmed}</span>
                   </span>
                 </button>
               )
@@ -279,7 +280,10 @@ export function BandGrid({
                   const bad = !!sh && conflicts.has(sh.id)
                   const deviating = cell.state === 'deviating'
                   // a derived cell is never «eingeteilt» — assignment is always stored
-                  const assigned = !cell.derived && !!sh?.confirmed
+                  const assigned = isAssignedCell(cell)
+                  // the hours this cell shows, clamped to its own column: «05–08» in a watch that
+                  // ends at 06:00 is 05–06 as far as this column is concerned
+                  const win = bandCellWindow(cell, b)
                   return (
                     <button key={b.id} type="button" disabled={!canEdit}
                       className={cx(s.cell,
@@ -301,8 +305,8 @@ export function BandGrid({
                           whole information it carries. One that covers all of it has nothing to add
                           beyond its state, so it says the state — the words the Zeitplan uses for
                           the same two things. */}
-                      {deviating && sh
-                        ? fmtRange(sh.from, sh.to)
+                      {deviating && win
+                        ? fmtRange(win.from, win.to)
                         : assigned ? S.confirmed : cell.state !== 'empty' ? S.available : ''}
                     </button>
                   )

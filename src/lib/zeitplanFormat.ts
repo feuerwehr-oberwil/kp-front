@@ -36,20 +36,6 @@ export function incidentDays(startedAt: string | null | undefined, until: number
 }
 
 /**
- * A head count that may not be whole — «8», «7,6».
- *
- * The Schichten grid counts a deviating shift pro rata (see shifts.bandCoverFraction), so its
- * column totals land between the integers. Rounding to «8» would state something the grid cannot
- * back up; one decimal, with the German comma, says what it is. One decimal and no more: the
- * question is «roughly how many do I have in this window», and a second digit is spurious
- * precision on a plan that changes with the next phone call.
- */
-export function fmtCount(n: number): string {
-  const r = Math.round(n * 10) / 10
-  return Number.isInteger(r) ? String(r) : r.toFixed(1).replace('.', ',')
-}
-
-/**
  * What the «ab Einsatzbeginn» shortcut shows as its value.
  *
  * The clock alone — «ab Beginn 10:56» — is a promise you cannot check on day three of an
