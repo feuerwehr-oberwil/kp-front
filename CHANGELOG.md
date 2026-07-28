@@ -84,6 +84,17 @@ browser. Everything below has been running in production at Feuerwehr Oberwil.
   walking into without an editor PIN.
 
 ### Fixed
+- **A Modul-5 sub-sheet's label fits the plan rail again.** The rail read
+  «RWA · Migros – modul5-rwa» and ran straight off its 216px edge. Modul 4 and the Modul-5
+  sub-sheets have no fixed tile in the catalog, so their label comes from the data — the PDF's
+  filename. A station that names its file `Wasser.pdf` hands over exactly the right word; ours
+  carry the object name plus the raw module key, which is neither short nor a name. The filename
+  is now taken only when it *looks* like a sub-sheet name, and otherwise the sub-slot key out of
+  the id is used, which is the structural part and always clean: `modul5-rwa` → «RWA»,
+  `modul5-wasser` → «Wasser». The monogram in the chip is unchanged, so the collapsed rail still
+  reads as before. A long label additionally truncates with an ellipsis instead of being sliced
+  off mid-word — what stands in that tile is station data, and "it fits today" is not a property
+  we control.
 - **No more states that only an app restart could clear.** A sweep across every state and
   transition that could strand the app turned up three classes, none of which offered a way out
   on screen:
@@ -121,6 +132,19 @@ browser. Everything below has been running in production at Feuerwehr Oberwil.
 - **Replay no longer throws on a long incident.** A `RangeError` could end the scrub.
 
 ### Changed
+- **Atemschutz has one pressure threshold, not two: the Alarmdruck (100 bar).** There were briefly
+  two — amber from the Rückzugsgrenze, red from a Mindestdruck — and the lower one was never
+  agreed doctrine anyway. The reason for dropping it isn't thrift: someone below their turn-back
+  pressure is already on the way out, so a second colour further down says nothing new and only
+  teaches that the first one was survivable. One threshold, and it is the loud one.
+
+  `rueckzugBar` + `mindestBar` become a single **`alarmBar`**, surfaced in the admin area as
+  «Alarmdruck (bar)»; **`0` switches it off**. The louder of the logged Druck and the projection
+  counts, and when only the projection has crossed, the card says so. Still silent — the contact
+  clock remains the one audible alarm.
+
+  > **No action required.** An older config carrying `mindestBar` / `rueckzugBar` is ignored
+  > rather than rejected, so there is nothing to migrate; set `alarmBar` if 100 isn't your number.
 - **The station print agent moved, and now serves both KP systems.** `tools/print_agent.py` is
   retired; the agent lives in kp-rueck at
   [`tools/print-agent/`](https://github.com/feuerwehr-oberwil/kp-rueck/tree/main/tools/print-agent)
