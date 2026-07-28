@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import type { CaptionMode, NoteSize, Spread, SymbolControl, SymbolProps } from '../types'
 import { Icon } from '../lib/icons'
 import { SheetGrip } from './SheetGrip'
@@ -267,6 +267,21 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
   const setRowValue = (i: number, v: string) => commitRows(rows.map((r, j) => (j === i ? { ...r, v } : r)))
   const addRow = () => setRows((rs) => [...rs, { k: '', v: '' }])
   const removeRow = (i: number) => commitRows(rows.filter((_, j) => j !== i))
+
+  // Details are stored as a key→value MAP, so two rows sharing a Bezeichnung silently collapse
+  // into one — the last row wins and the earlier value is gone at the next reload. We neither
+  // block nor auto-rename (the operator may be mid-word); the later row simply says so, in red,
+  // so nothing is ever lost without being told. Flags every occurrence after the first.
+  const dupRow = (() => {
+    const seen = new Set<string>()
+    return rows.map((r) => {
+      const k = r.k.trim()
+      if (!k) return false
+      if (seen.has(k)) return true
+      seen.add(k)
+      return false
+    })
+  })()
 
   const showFloor = onFloor && allow('floor')
   const showFloorRange = (onFloorFrom || onFloorTo) && allow('floorRange')
@@ -557,13 +572,21 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
                     {readOnly ? <b className="kv-val-ro">{r.v}</b> : field}
                   </div>
                 ) : (
-                  <div className="kv-row" key={i}>
-                    <input className="kv-key" value={r.k} placeholder={C.fieldKeyPlaceholder}
-                      onChange={(e) => setRow(i, { k: e.target.value })} onBlur={() => commitRows(rows)}
-                      onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} />
-                    {field}
-                    <button className="kv-x" title={C.removeField} aria-label={C.removeField} onClick={() => removeRow(i)}><Icon id="close" /></button>
-                  </div>
+                  <Fragment key={i}>
+                    <div className={`kv-row${dupRow[i] ? ' dup' : ''}`}>
+                      <input className="kv-key" value={r.k} placeholder={C.fieldKeyPlaceholder}
+                        aria-invalid={dupRow[i] || undefined}
+                        onChange={(e) => setRow(i, { k: e.target.value })} onBlur={() => commitRows(rows)}
+                        onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} />
+                      {field}
+                      <button className="kv-x" title={C.removeField} aria-label={C.removeField} onClick={() => removeRow(i)}><Icon id="close" /></button>
+                    </div>
+                    {dupRow[i] && (
+                      <p className="kv-dup-hint" role="alert">
+                        <Icon id="warn" />{C.duplicateField.replace('{key}', r.k.trim())}
+                      </p>
+                    )}
+                  </Fragment>
                 )
               })}
 

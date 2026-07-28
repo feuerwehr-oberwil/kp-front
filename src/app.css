@@ -692,6 +692,15 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .kv-key { flex: 0 0 38%; font-weight: 600; color: var(--ink-dim); }
 .kv-val { flex: 1; font-family: var(--mono); }
 .kv-key:focus, .kv-val:focus { outline: none; background: color-mix(in srgb, var(--blue) 10%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--blue) 35%, transparent); }
+/* two rows can't share a Bezeichnung — details are stored as a key→value map, so the later row
+   would silently swallow the earlier one. The row keeps its red key box (it stays red while
+   focused, hence the higher specificity than :focus) and hands its border to the hint below. */
+.kv-row.dup { border-bottom: none; padding-bottom: 2px; }
+.kv-row.dup .kv-key { color: var(--red); background: color-mix(in srgb, var(--red) 10%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--red) 40%, transparent); }
+.kv-dup-hint { display: flex; align-items: flex-start; gap: 6px; margin: 0; padding: 0 0 8px;
+  border-bottom: 1px solid var(--border-soft); font-size: 12px; line-height: 1.35; color: var(--red); }
+.kv-dup-hint .i { width: 13px; height: 13px; flex: none; margin-top: 1px; }
 /* shared custom dropdown (Combo) — styled like the Atemschutz Trupp picker, no native chrome */
 .combo { position: relative; flex: 1; min-width: 0; }
 .combo-pick { width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 6px; text-align: left;

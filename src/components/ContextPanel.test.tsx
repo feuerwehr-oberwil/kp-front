@@ -151,3 +151,36 @@ describe('ContextPanel — live title editing', () => {
     expect(onTitle).toHaveBeenCalledWith('Hi')
   })
 })
+
+// Details are stored as a key→value map, so two rows sharing a Bezeichnung collapse into one
+// (last wins). The panel doesn't block or rename — it just says so on the later row.
+describe('ContextPanel — duplicate custom field names', () => {
+  const hint = (key: string) =>
+    screen.queryByText(`«${key}» gibt es schon – nur der letzte Wert bleibt erhalten.`)
+
+  it('stays quiet while every Bezeichnung is unique', () => {
+    setup({ entity: { id: 's1', symbol: 'VKF Feuer', fields: { Test: 'a', 'Test 2': 'b' } } })
+    expect(hint('Test')).toBeNull()
+    expect(hint('Test 2')).toBeNull()
+  })
+
+  it('flags the SECOND row once a key is typed twice, and clears once it is made unique', () => {
+    setup({ entity: { id: 's1', symbol: 'VKF Feuer', fields: { Test: 'a', Andere: 'b' } } })
+    const key2 = screen.getByDisplayValue('Andere') as HTMLInputElement
+    fireEvent.change(key2, { target: { value: 'Test' } })
+    expect(hint('Test')).not.toBeNull()
+    // exactly one warning — the first occurrence keeps its plain row
+    expect(screen.getAllByRole('alert')).toHaveLength(1)
+    fireEvent.change(key2, { target: { value: 'Test 3' } })
+    expect(hint('Test')).toBeNull()
+  })
+
+  it('warns but still commits — nothing is blocked or silently renamed', () => {
+    const onFields = vi.fn()
+    setup({ entity: { id: 's1', symbol: 'VKF Feuer', fields: { Test: 'a', Andere: 'b' } }, onFields })
+    const key2 = screen.getByDisplayValue('Andere') as HTMLInputElement
+    fireEvent.change(key2, { target: { value: 'Test' } })
+    fireEvent.blur(key2)
+    expect(onFields).toHaveBeenCalledWith({ Test: 'b' })
+  })
+})
