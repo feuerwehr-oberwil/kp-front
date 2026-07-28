@@ -29,9 +29,13 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ## [Unreleased]
 
-A recovery release. The app was already hard to crash; the gap was **getting back out** – a
-handful of states could only be cleared by restarting the app, or in one case by resetting the
-browser. Everything below has been running in production at Feuerwehr Oberwil.
+## [0.3.0] – 2026-07-28
+
+The **Zeitplan** release: a long incident is a staffing question, and it finally has a surface.
+Around it, a release about *getting back out* – the app was already hard to crash, but a handful of
+states could only be cleared by restarting it, or in one case by resetting the browser – and about
+the app looking like one app rather than a dozen surfaces that each decided for themselves.
+Everything below has been running in production at Feuerwehr Oberwil.
 
 ### Added
 - **Rückmeldung – the app asks after a mishap, and can now send it.** After a crash the launcher
@@ -218,8 +222,54 @@ browser. Everything below has been running in production at Feuerwehr Oberwil.
   861–875px that the previous attempt left open is closed; the Atemschutz alarm no longer swells
   out of the bar; the «Eintrag» FAB sat on other buttons and now has one corner to itself; and the
   draw editor's detail column fits on smaller tablets.
+- **The detail panel let go when you reached for a tool.** Selecting a symbol and then picking
+  Linie, Fläche, Notiz or Team left its panel open – and the panel is drawn straight over that
+  tool's own bar, over its ✓/✕ and its colours, so the tool you had just chosen could not be used
+  until you thought of Escape. On a phone the panel is a half-height sheet and covered the toolbar
+  outright. The cause was that there was no single place to clear up: six callers each wrote their
+  own reset list and the lists had drifted apart. Falling out with it: the symbol picker opening
+  over a live panel, a lasso selection surviving every placement and drawing its rings over
+  unrelated objects, switching surface freezing an armed tool and a half-drawn line and restoring
+  them minutes later, and replay starting with a «Welcher Trupp?» picker over the past.
+- **Trupp cards stand on one line, and say their state in full.** Three 44px buttons squeezed the
+  status word down to «ÜBERFÄ…» at every card width; it no longer shrinks at all, and the actions
+  wrap below it instead. Cards in a row now share a height – the ragged bottoms made a wall of
+  Trupps something you had to re-scan for each card's action bar – and the pressure estimate fits
+  on two clean lines instead of a four-line staircase. Ziel, Leitung and a hand-typed name have a
+  maximum length at last, so a long one cannot blow the card open.
+- **Dialogs stopped sliding in from off-centre.** The opening animation set `transform`, which
+  replaced the `translate` that centres the journal composer and the confirm card – so both
+  started half their own width off-centre and slid into place. That slide was the «janky» open; it
+  was never the timing. Three cards also carried a `backdrop-filter` over an opaque surface: it
+  painted nothing and made the map behind them re-blur on every frame. The object picker and Help
+  now open with the same animation as everything else instead of appearing instantly.
+- **Night mode is night mode again in four more places.** `--warn` and `--muted` were never
+  declared, so a stale-scale chip, a feedback warning and two PDF labels rendered the day colour
+  after dark; draft and measure lines on the map did the same. Two disabled controls were not
+  dimmed at all and looked tappable while doing nothing.
+- **«keine Fahrzeugdaten» is gone from the replay bar.** It appeared on every replay at every
+  station, because the Traccar sample capture was never wired up – so it announced the absence of
+  something nobody had asked for and then reassured you that the tactical picture replays, which
+  it always does. There is nothing an operator can do with either half.
 
 ### Changed
+- **One look for every button.** A sweep found twelve combinations of size and weight for the one
+  role «button label», six opacities for «disabled» and eight radii off the scale. None of that was
+  a decision; all of it was drift. Now: every button `--r-sm`, two type sizes (12.5/700 compact,
+  14/700 standard) and weight 800 only for the single action of a surface. Height is a separate
+  axis – the twelve combinations happened because people enlarged the *label* when they wanted a
+  bigger *target*. Rows, list items, tiles and field triggers are not buttons; what lies on the map
+  – handles, vertices, pins, colour swatches – stays round, because that is how map furniture is
+  told apart from controls.
+
+  **Red no longer fills an action**; it means danger and delete, nothing else. Every primary button
+  reads one token, and in night mode it inverts – the label was never the problem there (11.6:1),
+  the button was: dark-on-dark measured 1.14:1 against the sheet it sat on, so the one action of a
+  form had no visible edge. And each colour carries one meaning again: amber warns without being
+  critical, red means broken or act now, blue and grey are ordinary status. A failed transcription
+  turns red, «in progress» and the print queue turn blue as the Zeitplan already had them, and the
+  replay banner goes neutral – it is a mode, and it had been sitting in the same colour as an
+  Atemschutz warning, competing for the same glance. The rules are written down in `AGENTS.md`.
 - **A note has one form: it is a text field.** There used to be two, and the choice was asked at
   the moment you want to write rather than after there is a word on the paper – «which shape?»,
   before anything exists to shape. The one-liner was also the half that kept coming back every
@@ -486,6 +536,7 @@ toolchain on the VPS. Everything else here has been running in production since 
 - A render error on the login screen, landing list, or admin surface now shows the recoverable
   error card instead of a white screen (root-level error boundary + guarded boot init).
 
-[Unreleased]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/feuerwehr-oberwil/kp-front/releases/tag/v0.1.0

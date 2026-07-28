@@ -5,7 +5,7 @@
 #   docker compose up -d    # pulls the published image, runs migrations on boot
 #
 # Updating:  docker compose pull && docker compose up -d
-# Pinning:   set KP_FRONT_TAG=0.2.0 in .env (default: latest). Rollback = pin the older tag.
+# Pinning:   set KP_FRONT_TAG=0.3.0 in .env (default: latest). Rollback = pin the older tag.
 #
 # Serves plain HTTP on ${APP_PORT:-8000}. For automatic HTTPS on a domain, add Caddy:
 #   docker compose --profile tls up -d              # set DOMAIN in .env, see deploy/Caddyfile
@@ -41,7 +41,7 @@ services:
 
   app:
     # Published on every git tag by .github/workflows/release.yml (linux/amd64).
-    # KP_FRONT_TAG pins a version: 0.2.0 | 0.2 | latest.
+    # KP_FRONT_TAG pins a version: 0.3.0 | 0.3 | latest.
     image: ghcr.io/feuerwehr-oberwil/kp-front:${KP_FRONT_TAG:-latest}
     # Build from source instead: comment out `image:` above, uncomment this, and run
     # `docker compose up -d --build`.
