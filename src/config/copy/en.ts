@@ -1659,6 +1659,7 @@ export const en: Localizable<Copy> = {
     partialHint: 'Not all of them cover the whole shift.',
     resolveTitle: 'Partly available, partly assigned',
     resolveMsg: '{name} is partly assigned and partly only available in {band}. What should hold for this window?',
+    resolveGap: 'The rest of the shift is not covered by this person \u2013 that stays.',
     resolveNote: 'Times reaching beyond the shift change with it \u2013 one time has one state.',
     resolveAvailable: 'All to available',
     resolveConfirmed: 'All to assigned',

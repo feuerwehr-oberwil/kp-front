@@ -2385,6 +2385,7 @@ export const de = {
     resolveTitle: 'Teils verfügbar, teils geplant',
     resolveMsg: '{name} ist in {band} teilweise eingeteilt und teilweise nur verfügbar. Was soll für dieses Fenster gelten?',
     // ⚠ Eine Schicht hat EINEN Zustand: reicht sie über die Wache hinaus, zieht die Änderung mit.
+    resolveGap: 'Der Rest der Schicht ist von dieser Person nicht abgedeckt – das bleibt so.',
     resolveNote: 'Zeiten, die über die Schicht hinausreichen, ändern sich mit – eine Zeit hat einen Zustand.',
     resolveAvailable: 'Alles auf verfügbar',
     resolveConfirmed: 'Alles auf geplant',

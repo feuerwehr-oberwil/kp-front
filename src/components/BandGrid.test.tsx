@@ -156,6 +156,17 @@ describe('the grid', () => {
     expect(props.onSetCellState).toHaveBeenCalledWith(früh, PEOPLE[1], 'confirmed')
   })
 
+  it('names the hours the question is about, not just its shape', () => {
+    mount({ shifts: [
+      { id: 'sh1', personId: 'p2', from: T(9), to: T(11) },
+      { id: 'sh2', personId: 'p2', from: T(10), to: T(20), confirmed: true },
+    ] })
+    fireEvent.click(cellsOf('Meier A.')[0])
+    const sheet = screen.getByText(appConfig.copy.schichten.resolveTitle).closest('div')!.parentElement!
+    expect(within(sheet).getByText('09–10')).toBeTruthy() // verfügbar
+    expect(within(sheet).getByText('10–12')).toBeTruthy() // geplant
+  })
+
   it('leaves the cell exactly as it was when the question is cancelled', () => {
     const S = appConfig.copy.schichten
     const props = mount({ shifts: [

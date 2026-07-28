@@ -384,6 +384,15 @@ describe('bandAssignWindow — a tap assigns only what was offered', () => {
     expect(bandAssignWindow(cell, früh)).toEqual({ from: T(10), to: T(12) })
   })
 
+  it('assigns the whole covered stretch, not one shift\'s share of it', () => {
+    // reported 28.07.: «verfügbar 09–12», made of a 09–11 and a 10–20 offer, assigned only 09–11
+    // and left 11–12 offered — so a tap on a settled cell put it straight back to «teilweise»
+    const list = [shift('a', 'p1', T(9), T(11)), shift('b', 'p1', T(10), T(20))]
+    const cell = bandCell(list, 'p1', früh)
+    expect(cell.segments).toHaveLength(1)
+    expect(bandAssignWindow(cell, früh)).toEqual({ from: T(9), to: T(12) })
+  })
+
   it('assigns the BAND when the offer covers all of it, never the offer', () => {
     // reported 28.07.: Schicht 12–17, Verfügbarkeit 10–18 — tapping must plan 12–17 and must not
     // stretch the watch out to somebody's whole day

@@ -41,10 +41,11 @@ function fmtRange(from: string, to: string): string {
  * Three ways out and no fourth. «Abbrechen» matters as much as the other two — the cell is not
  * broken, and somebody who opened this by mistake must be able to leave it exactly as it was.
  */
-function ResolveSheet({ person, band, bandTitle: title, onPick, onClose }: {
+function ResolveSheet({ person, band, bandTitle: title, cell, onPick, onClose }: {
   person: Person
   band: ShiftBand
   bandTitle: string
+  cell: BandCell
   onPick: (state: 'available' | 'confirmed') => void
   onClose: () => void
 }) {
@@ -64,6 +65,22 @@ function ResolveSheet({ person, band, bandTitle: title, onPick, onClose }: {
       }
     >
       <p className={s.resolveMsg}>{fillTemplate(S.resolveMsg, { name: person.displayName, band: title })}</p>
+      {/* WHICH hours are which. «teilweise eingeteilt und teilweise nur verfügbar» describes the
+          shape of the problem without saying where it is, and the answer here overwrites both —
+          nobody should have to close this sheet and read the strip to find out what they are
+          about to change. */}
+      <ul className={s.resolveList}>
+        {cell.segments.map((seg) => (
+          <li key={seg.from}>
+            <b>{fmtRange(new Date(seg.from).toISOString(), new Date(seg.to).toISOString())}</b>
+            <span className={seg.state === 'confirmed' ? s.segWordConfirmed : s.segWordAvailable}>
+              {seg.state === 'confirmed' ? S.confirmed : S.available}
+            </span>
+          </li>
+        ))}
+        {/* the hole is a fact about this watch too, and «alles auf geplant» does NOT fill it */}
+        {cell.partial && <li className={s.resolveGap}>{S.resolveGap}</li>}
+      </ul>
       <p className={s.note}>{S.resolveNote}</p>
     </Sheet>
   )
@@ -420,6 +437,7 @@ export function BandGrid({
 
       {resolve && (
         <ResolveSheet person={resolve.person} band={resolve.band} bandTitle={bandTitle(resolve.band)}
+          cell={bandCell(shifts, resolve.person.id, resolve.band)}
           onPick={(state) => onSetCellState(resolve.band, resolve.person, state)}
           onClose={() => setResolve(null)} />
       )}

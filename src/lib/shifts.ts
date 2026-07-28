@@ -505,16 +505,24 @@ export function bandCellWindow(cell: BandCell, band: ShiftBand): { from: string;
 }
 
 /**
- * The window a tap on this cell should assign — the part of the band the person actually offered.
+ * The window a tap on this cell should assign — everything of this watch the person has covered.
  *
- * For an empty cell that is the whole band. For a derived one it is the OVERLAP: confirming
- * somebody who offered 10:00–20:00 into a 07:00–12:00 watch must assign 10:00–12:00, not the full
- * window they never offered. It is the same clamp the cell PRINTS (`bandCellWindow`), which is
- * what makes the surface honest: what you tap is what it said.
+ * For an empty cell that is the whole band. For a derived one it is the cell's own COVERED stretch:
+ * confirming somebody who offered 10:00–20:00 into a 07:00–12:00 watch assigns 10:00–12:00, not
+ * the full window they never offered.
+ *
+ * The stretch, not one shift's share of it. Reading a single shift meant that «verfügbar 09–12»,
+ * made of a 09–11 and a 10–20 offer, assigned 09–11 and left 11–12 merely offered — so a tap on a
+ * settled cell put it straight back to «teilweise», and the surface looked like it was arguing
+ * with itself. A cell showing one stretch is one thing; tapping it acts on that one thing.
+ *
+ * Only ever called for a single-segment cell: coverage in two pieces is `mixed`, and mixed asks
+ * rather than cycling — so these bounds never span a gap the person did not offer.
  */
 export function bandAssignWindow(cell: BandCell, band: ShiftBand): { from: string; to: string } {
-  if (!cell.derived || !cell.shift) return { from: band.from, to: band.to }
-  return bandCellWindow(cell, band) ?? { from: band.from, to: band.to }
+  const seg = cell.derived ? cell.segments[0] : undefined
+  if (!seg || cell.segments.length !== 1) return { from: band.from, to: band.to }
+  return { from: new Date(seg.from).toISOString(), to: new Date(seg.to).toISOString() }
 }
 
 /**

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import { useState } from 'react'
 import { useBandActions } from './useBandActions'
+import { bandCell } from './shifts'
 import type { Person, Shift, ShiftBand } from '../types'
 
 const T = (h: number, m = 0) => `2026-07-26T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00.000Z`
@@ -71,6 +72,28 @@ describe('re-timing a band', () => {
   it('counts only the followers a move would actually drag — that is the number the question names', () => {
     const { result } = shifted()
     expect(result.current.bandFollowerCount('bd1', T(7), T(12))).toBe(1)
+  })
+})
+
+describe('the reported sequence settles into one predictable toggle', () => {
+  it('never bounces back to «teilweise» once a cell has been settled', () => {
+    // 28.07.: «alles auf verfügbar» gave a clean «09–12», the next tap assigned only 09–11 and
+    // left 11–12 offered — so the cell went straight back to «teilweise» and the surface looked
+    // like it was arguing with itself.
+    const { result } = renderHook(() => useHarness([früh], [
+      { id: 'a', personId: 'p1', from: T(9), to: T(11) },
+      { id: 'b', personId: 'p1', from: T(10), to: T(20), confirmed: true },
+    ]))
+    const cell = () => bandCell(result.current.shifts, 'p1', früh)
+    expect(cell().state).toBe('mixed')
+    act(() => { result.current.setCellState(früh, person('p1'), 'available') })
+    expect(cell().state).toBe('deviating')
+    expect(cell().segments).toEqual([{ from: Date.parse(T(9)), to: Date.parse(T(12)), state: 'available' }])
+    act(() => { result.current.cycleCell(früh, person('p1')) })
+    expect(cell().state).toBe('deviating') // …and NOT «mixed»
+    expect(cell().segments).toEqual([{ from: Date.parse(T(9)), to: Date.parse(T(12)), state: 'confirmed' }])
+    act(() => { result.current.cycleCell(früh, person('p1')) })
+    expect(cell().segments[0].state).toBe('available') // a plain two-way toggle from here on
   })
 })
 
