@@ -882,7 +882,32 @@ export const de = {
     // network failures, both with ApiError status 0 — the app falls back to its offline caches
     // either way; the wording only tells the operator WHICH kind of dead line they have.
     serverUnreachable: 'Netzwerkfehler – Server nicht erreichbar',
+    serverUnreachableHint: 'Kein Netz, oder der Server ist unter dieser Adresse nicht da. Gespeicherte Einsätze bleiben offline verfügbar.',
     serverTimeout: 'Server antwortet nicht – Zeitüberschreitung',
+    serverTimeoutHint: 'Die Verbindung steht, es kommt nur nichts zurück – typisch für ein sterbendes WLAN. Gespeicherte Einsätze bleiben offline verfügbar.',
+    // What an HTTP status MEANS, for when the server sent no message of its own (a 502 from the
+    // reverse proxy is an HTML page, not our JSON). «HTTP 502» names the plumbing; it doesn't say
+    // whether the tablet, the link or the server is at fault, whether waiting helps, or whether
+    // the Einsatz data is safe — which is all the operator actually needs at 3am.
+    httpUnauthorized: 'Anmeldung abgelaufen',
+    httpUnauthorizedHint: 'Bitte neu anmelden.',
+    httpForbidden: 'Keine Berechtigung',
+    httpForbiddenHint: 'Dieses Konto darf das nicht. Mit einem Konto mit Bearbeitungsrecht anmelden.',
+    httpNotFound: 'Vom Server nicht gefunden',
+    httpNotFoundHint: 'Diese Adresse kennt der Server nicht. Möglicherweise läuft dort eine andere Version.',
+    httpTooLarge: 'Datei zu gross',
+    httpTooLargeHint: 'Der Server nimmt Dateien dieser Grösse nicht an.',
+    httpTooMany: 'Zu viele Versuche',
+    httpTooManyHint: 'Kurz warten, dann nochmals versuchen.',
+    httpRejected: 'Anfrage abgelehnt',
+    httpRejectedHint: 'Der Server hat die Anfrage zurückgewiesen.',
+    httpGateway: 'Server nicht erreichbar',
+    httpGatewayHint: 'Der Server antwortet nicht – vermutlich startet er gerade neu. Gleich nochmals versuchen; gespeicherte Einsätze bleiben offline verfügbar.',
+    httpServerError: 'Fehler auf dem Server',
+    httpServerErrorHint: 'Die Anfrage kam an, der Server kam damit nicht zurecht. Nochmals versuchen – bleibt es dabei, liegt es nicht am Gerät.',
+    /** the raw status, kept visible in small print: useless in the moment, decisive on the phone
+     *  to whoever runs the server */
+    httpCode: 'Fehlercode {code}',
   },
   atemschutz: {
     title: 'Atemschutzüberwachung',

@@ -2358,10 +2358,14 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   color: var(--ink-faint); margin-bottom: -6px; }
 .login-state { display: flex; align-items: center; justify-content: center; gap: 8px;
   padding: 30px 0; font-size: 13.5px; font-weight: 500; color: var(--ink-faint); text-align: center; }
-/* the roster-failed state carries a retry action: keep icon + message on the first line and
-   drop the button onto its own full-width row (a dead-end error line is what this replaces) */
-.login-state-err { color: var(--red); flex-wrap: wrap; }
-.login-state-err .ip-btn { flex-basis: 100%; justify-content: center; margin-top: 6px; }
+/* the roster-failed state carries a retry action: the headline reads in red, the instruction
+   underneath in normal ink (it is advice, not alarm), the raw status in small print for the call
+   to whoever runs the server — and the button on its own full-width row */
+.login-state-err { color: var(--red); flex-direction: column; align-items: stretch; gap: 0; }
+.login-err-head { display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; }
+.login-err-hint { margin: 8px 0 0; font-size: 12.5px; font-weight: 500; line-height: 1.45; color: var(--ink-dim); }
+.login-err-code { margin: 6px 0 0; font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+.login-state-err .ip-btn { justify-content: center; margin-top: 12px; }
 .login-state .i { width: 18px; height: 18px; flex: none; }
 
 /* roster — large tappable tiles (2-up grid for many; one prominent row for a single user) */

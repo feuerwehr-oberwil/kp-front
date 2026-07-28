@@ -4,7 +4,7 @@ import { useAuth, type RosterEntry } from '../lib/auth'
 import { Brand } from './Brand'
 import { demoNote } from '../lib/deploymentConfig'
 import { IconSprite, Icon } from '../lib/icons'
-import { initials, roleLabel } from '../lib/format'
+import { fillTemplate, initials, roleLabel } from '../lib/format'
 import { appConfig } from '../config/appConfig'
 
 const PIN_LENGTH = 6
@@ -16,7 +16,9 @@ const NEUTRAL_COLOR = '#6c7686' // --ink-faint, for roster tiles without an assi
 export function LoginScreen() {
   const { login } = useAuth()
   const [roster, setRoster] = useState<RosterEntry[] | null>(null)
-  const [rosterError, setRosterError] = useState<string | null>(null)
+  // The whole error, not just its headline: what happened, what to do about it, and the raw
+  // status for whoever ends up on the phone to the person running the server.
+  const [rosterError, setRosterError] = useState<RosterError | null>(null)
   const [selected, setSelected] = useState<RosterEntry | null>(null)
   // Retry nonce: the roster fetch is the very first thing the operator depends on, and on a
   // flaky fireground link it can simply fail. Without a retry the login screen was a dead end —
@@ -31,7 +33,11 @@ export function LoginScreen() {
       .then((r) => { if (alive) setRoster(r) })
       .catch((e: unknown) => {
         if (!alive) return
-        setRosterError(e instanceof ApiError ? e.detail : appConfig.copy.login.connectionFailed)
+        setRosterError(e instanceof ApiError
+          // status 0 is the offline path and has no HTTP code to quote — showing "Fehlercode 0"
+          // would invent a server answer that never came.
+          ? { detail: e.detail, hint: e.hint, code: e.status > 0 ? e.status : undefined }
+          : { detail: appConfig.copy.login.connectionFailed })
       })
     return () => { alive = false }
   }, [attempt])
@@ -52,17 +58,31 @@ export function LoginScreen() {
   )
 }
 
+/** A failed roster load, as much of it as we can put on screen. */
+interface RosterError {
+  detail: string
+  hint?: string
+  /** HTTP status, when there was one — absent for a network failure. */
+  code?: number
+}
+
 function Roster({ roster, error, onPick, onRetry }: {
   roster: RosterEntry[] | null
-  error: string | null
+  error: RosterError | null
   onPick: (r: RosterEntry) => void
   onRetry: () => void
 }) {
   if (error) {
     return (
       <div className="login-state login-state-err">
-        <Icon id="warn" />
-        <span>{error}</span>
+        <div className="login-err-head">
+          <Icon id="warn" />
+          <span>{error.detail}</span>
+        </div>
+        {error.hint && <p className="login-err-hint">{error.hint}</p>}
+        {error.code !== undefined && (
+          <p className="login-err-code">{fillTemplate(appConfig.copy.errors.httpCode, { code: error.code })}</p>
+        )}
         <button type="button" className="ip-btn" onClick={onRetry}>{appConfig.copy.login.retry}</button>
       </div>
     )

@@ -39,12 +39,42 @@ const isTimeout = (e: unknown): boolean =>
 
 function networkError(e: unknown): ApiError {
   const c = appConfig.copy.errors
-  return new ApiError(0, isTimeout(e) ? c.serverTimeout : c.serverUnreachable)
+  const timeout = isTimeout(e)
+  const err = new ApiError(0, timeout ? c.serverTimeout : c.serverUnreachable)
+  err.hint = timeout ? c.serverTimeoutHint : c.serverUnreachableHint
+  return err
+}
+
+/**
+ * What an HTTP status MEANS to the operator — used only when the server sent no message of its
+ * own. That is the common case for exactly the failures that matter: a 502/504 comes from the
+ * reverse proxy as an HTML page, so there is no `{detail}` to show and the screen fell back to a
+ * bare «HTTP 502». That names the plumbing. It does not say whether the tablet, the link or the
+ * server is at fault, whether waiting helps, or whether the Einsatz data is safe.
+ *
+ * `statusText` is no better: it is an English protocol phrase ("Bad Gateway"), and over HTTP/2
+ * it is empty, which is why the screenshot said «HTTP 502» rather than anything at all.
+ */
+function statusMessage(status: number): { detail: string; hint?: string } | null {
+  const c = appConfig.copy.errors
+  if (status === 401) return { detail: c.httpUnauthorized, hint: c.httpUnauthorizedHint }
+  if (status === 403) return { detail: c.httpForbidden, hint: c.httpForbiddenHint }
+  if (status === 404) return { detail: c.httpNotFound, hint: c.httpNotFoundHint }
+  if (status === 413) return { detail: c.httpTooLarge, hint: c.httpTooLargeHint }
+  if (status === 429) return { detail: c.httpTooMany, hint: c.httpTooManyHint }
+  // 502/503/504: the server is down or restarting — the one case where waiting genuinely helps.
+  if (status === 502 || status === 503 || status === 504) return { detail: c.httpGateway, hint: c.httpGatewayHint }
+  if (status >= 500) return { detail: c.httpServerError, hint: c.httpServerErrorHint }
+  if (status >= 400) return { detail: c.httpRejected, hint: c.httpRejectedHint }
+  return null
 }
 
 export class ApiError extends Error {
   status: number
   detail: string
+  /** One line on what to do about it, when we can say something useful. The `detail` alone is a
+   *  diagnosis; the hint is the instruction, and at 3am the instruction is the point. */
+  hint?: string
   /** seconds to wait, parsed from the Retry-After header when the server sends one (429) */
   retryAfter?: number
   constructor(status: number, detail: string, retryAfter?: number) {
@@ -111,20 +141,29 @@ async function request<T>(path: string, init?: RequestInit, timeoutMs = DEFAULT_
   }
 
   if (!res.ok) {
-    let detail = res.statusText || `HTTP ${res.status}`
+    // Our own backend speaks German and knows the situation, so its {detail} always wins. Only
+    // when it said nothing (a proxy error page, an empty body) do we explain the status
+    // ourselves — and the bare "HTTP n" is the last resort, not the first.
+    const mapped = statusMessage(res.status)
+    let detail = mapped?.detail ?? res.statusText ?? ''
+    let hint = mapped?.hint
     try {
       const body = await res.json()
-      if (body && typeof body.detail === 'string') detail = body.detail
+      if (body && typeof body.detail === 'string') { detail = body.detail; hint = undefined }
       else if (Array.isArray(body?.detail)) {
         detail = body.detail.map((item: { loc?: unknown[]; msg?: string }) => {
           const field = Array.isArray(item.loc) ? item.loc.filter((part) => part !== 'body').join('.') : ''
           return `${field ? `${field}: ` : ''}${item.msg ?? 'Ungültiger Wert'}`
         }).join(' · ')
+        hint = undefined
       }
-    } catch { /* non-JSON error body — keep the status text */ }
+    } catch { /* non-JSON error body (the usual proxy HTML) — the mapped wording stands */ }
+    if (!detail) detail = `HTTP ${res.status}`
     const ra = res.headers.get('Retry-After')
     const retryAfter = ra != null && ra !== '' ? Number(ra) : undefined
-    throw new ApiError(res.status, detail, Number.isFinite(retryAfter) ? retryAfter : undefined)
+    const err = new ApiError(res.status, detail, Number.isFinite(retryAfter) ? retryAfter : undefined)
+    err.hint = hint
+    throw err
   }
 
   // 204 / empty bodies: don't try to parse

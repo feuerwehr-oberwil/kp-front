@@ -48,9 +48,48 @@ describe('request — error mapping', () => {
     await expect(apiGet('/api/x')).rejects.toMatchObject({ status: 403, detail: 'PIN gesperrt' })
   })
 
-  it('falls back to status text when the error body is not JSON', async () => {
+  // A 502/504 comes from the reverse proxy as an HTML page, so there is no {detail} to show —
+  // and statusText is an English protocol phrase, empty over HTTP/2. The screen used to end up
+  // with a bare "HTTP 502", which names the plumbing and answers nothing.
+  it('explains a proxy 502 instead of quoting the protocol at the operator', async () => {
     fetchMock.mockResolvedValueOnce(new Response('<html>502</html>', { status: 502, statusText: 'Bad Gateway' }))
-    await expect(apiGet('/api/x')).rejects.toMatchObject({ status: 502, detail: 'Bad Gateway' })
+    await expect(apiGet('/api/x')).rejects.toMatchObject({
+      status: 502,
+      detail: 'Server nicht erreichbar',
+      hint: expect.stringContaining('startet er gerade neu'),
+    })
+  })
+
+  it('says the same for 503/504 — down or restarting is one situation to the operator', async () => {
+    for (const status of [503, 504]) {
+      fetchMock.mockResolvedValueOnce(new Response('', { status }))
+      await expect(apiGet('/api/x')).rejects.toMatchObject({ status, detail: 'Server nicht erreichbar' })
+    }
+  })
+
+  it('separates a 500 from a gateway error — waiting does not help there', async () => {
+    fetchMock.mockResolvedValueOnce(new Response('', { status: 500 }))
+    await expect(apiGet('/api/x')).rejects.toMatchObject({ status: 500, detail: 'Fehler auf dem Server' })
+  })
+
+  it('names the common client statuses', async () => {
+    const cases: [number, string][] = [[403, 'Keine Berechtigung'], [404, 'Vom Server nicht gefunden'], [413, 'Datei zu gross']]
+    for (const [status, detail] of cases) {
+      fetchMock.mockResolvedValueOnce(new Response('', { status }))
+      await expect(apiGet('/api/x')).rejects.toMatchObject({ status, detail })
+    }
+  })
+
+  // The backend speaks German and knows the actual situation — «PIN gesperrt» beats any
+  // generic reading of a 403, and it must not be trailed by a hint that contradicts it.
+  it("the server's own message still wins, and drops the generic hint", async () => {
+    fetchMock.mockResolvedValueOnce(json({ detail: 'PIN gesperrt' }, { status: 403 }))
+    await expect(apiGet('/api/x')).rejects.toMatchObject({ status: 403, detail: 'PIN gesperrt', hint: undefined })
+  })
+
+  it('falls back to the bare status for something we have no reading of', async () => {
+    fetchMock.mockResolvedValueOnce(new Response('', { status: 399, statusText: '' }))
+    await expect(apiGet('/api/x')).rejects.toMatchObject({ status: 399, detail: 'HTTP 399' })
   })
 
   it('parses Retry-After (seconds) on a 429 cooldown', async () => {
@@ -127,6 +166,14 @@ describe('request — timeouts (half-open connections)', () => {
     expect(err).toBeInstanceOf(ApiError)
     expect((err as ApiError).status).toBe(0) // offline fallbacks key off this
     expect((err as ApiError).detail).toMatch(/Zeitüberschreitung/)
+  })
+
+  it('carries a hint on the offline path too — cached Einsätze are still there', async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    await expect(apiGet('/api/x')).rejects.toMatchObject({
+      status: 0,
+      hint: expect.stringContaining('offline verfügbar'),
+    })
   })
 
   it('distinguishes a hard network failure from a timeout in the message', async () => {
