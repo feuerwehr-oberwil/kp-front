@@ -55,8 +55,9 @@ services – no credentials.
 Everything ships in the repo root: `docker-compose.yml`, `.env.example`, `deploy/Caddyfile`.
 
 ```bash
-# 1. Get the compose file + templates (a tagged release is the safe choice)
-git clone <repo> && cd kp-front && git checkout v0.2.0
+# 1. Get the compose file + templates (a tagged release is the safe choice, not main)
+git clone <repo> && cd kp-front
+git checkout "$(git tag -l 'v*' --sort=-v:refname | head -n1)"   # newest release; pick an older tag if you prefer
 
 # 2. Configure secrets – 'just init-env' writes .env with all three generated for you:
 just init-env               # POSTGRES_PASSWORD + SECRET_KEY + ADMIN_SECRET (note the ADMIN_SECRET it prints)
@@ -92,9 +93,12 @@ Pick what `KP_FRONT_TAG` follows, in `.env`:
 
 | Value | Follows | For |
 | --- | --- | --- |
-| `0.2.0` | nothing – exactly this build | production stations that update deliberately |
-| `0.2` | patch releases in the 0.2 series | stations that want fixes but not features |
+| `X.Y.Z` (a full version) | nothing – exactly this build | production stations that update deliberately |
+| `X.Y` (a series) | patch releases in that series | stations that want fixes but not features |
 | `latest` (default) | every release | evaluation, demo instances |
+
+Which versions exist is the [releases page](https://github.com/feuerwehr-oberwil/kp-front/releases);
+`latest` is the newest *release*, never `main`.
 
 **To build from source instead** (contributors, or a patched fork): comment out the `image:`
 line in the `app` service, uncomment the `build:` block below it, and use
@@ -143,7 +147,7 @@ is fixes only and always safe; a **MINOR** bump adds features and migrates autom
   Migrations are kept backward-safe within a minor series, so the prior image runs against the
   migrated schema.
 - **Which build am I running?** `/admin` → System shows the version, commit and environment;
-  the app menu carries the same stamp (`v0.2.0 · <sha> · <date>`) on the tablet itself.
+  the app menu carries the same stamp (`vX.Y.Z · <sha> · <date>`) on the tablet itself.
 - **Postgres major upgrades** (e.g. 16→17) are *not* automatic – a 16 data volume won't be
   read by a 17 server. Stay on `postgres:16` for the life of the volume; to move majors, take a
   `pg_dump` (see §6), start a fresh volume on the new major, and restore.

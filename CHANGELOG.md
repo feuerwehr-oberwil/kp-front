@@ -130,6 +130,12 @@ browser. Everything below has been running in production at Feuerwehr Oberwil.
   «Alles für offline laden» checks first and offers **«Reduziert laden»** if the download won't
   fit.
 - **Replay no longer throws on a long incident.** A `RangeError` could end the scrub.
+- **The setup and deployment guides no longer name a version.** They walked a new station through
+  `git checkout` of one specific tag and pinned `KP_FRONT_TAG` to one specific number – both of
+  which go stale the moment the next release lands, and a doc that names a tag which does not
+  exist stops the installation dead. The clone step now resolves the newest tag itself
+  (`git tag -l 'v*' --sort=-v:refname | head -n1`), and the pinning table talks in `X.Y.Z` / `X.Y`
+  and links to the releases page for the actual numbers.
 
 ### Changed
 - **Atemschutz has one pressure threshold, not two: the Alarmdruck (100 bar).** There were briefly

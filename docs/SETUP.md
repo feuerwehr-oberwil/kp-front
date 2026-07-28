@@ -35,7 +35,7 @@ with a switch.
 ```bash
 git clone https://github.com/feuerwehr-oberwil/kp-front.git
 cd kp-front
-git checkout v0.2.0          # a tagged release, not main – see §6
+git checkout "$(git tag -l 'v*' --sort=-v:refname | head -n1)"   # newest release, not main – see §6
 just init-env                # generates POSTGRES_PASSWORD, SECRET_KEY and ADMIN_SECRET into .env
 ```
 
@@ -153,9 +153,11 @@ mismatched volume leaves media rows pointing at blobs that aren't there.
 **Do one restore into a fresh stack before you go live.** An incident record is only provably
 recoverable once you have actually recovered it. Details in [`DEPLOYMENT.md` §6](DEPLOYMENT.md).
 
-Pin your version while you are here. `KP_FRONT_TAG=0.2.0` follows nothing, `0.2` follows patch
-fixes, `latest` follows everything. A station that updates deliberately wants one of the first
-two. What a version bump costs you is the table at the top of [`CHANGELOG.md`](../CHANGELOG.md).
+Pin your version while you are here. A full version (`KP_FRONT_TAG=X.Y.Z`) follows nothing, the
+series (`X.Y`) follows patch fixes, `latest` follows everything. A station that updates
+deliberately wants one of the first two; which versions exist is the
+[releases page](https://github.com/feuerwehr-oberwil/kp-front/releases). What a version bump
+costs you is the table at the top of [`CHANGELOG.md`](../CHANGELOG.md).
 
 ---
 
