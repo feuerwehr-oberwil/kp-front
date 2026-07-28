@@ -11,6 +11,7 @@ import {
   sortBands, unshownShifts,
 } from '../lib/shifts'
 import type { AttendanceState, Person, Shift, ShiftBand } from '../types'
+import type { BandCell } from '../lib/shifts'
 import { intervalsOf } from '../lib/attendanceIntervals'
 import { PersonShiftSheet } from './PersonShiftSheet'
 import { Sheet } from '../lib/overlays'
@@ -31,6 +32,65 @@ function fmtRange(from: string, to: string): string {
   if (!Number.isFinite(a.getTime()) || !Number.isFinite(b.getTime())) return ''
   const short = (d: Date) => (d.getMinutes() === 0 ? String(d.getHours()).padStart(2, '0') : hhmm(d))
   return `${short(a)}–${short(b)}`
+}
+
+/**
+ * The one question the cycle cannot answer: this person is assigned for part of this watch and
+ * merely offered for another part, so no single next state follows from a tap.
+ *
+ * Three ways out and no fourth. «Abbrechen» matters as much as the other two — the cell is not
+ * broken, and somebody who opened this by mistake must be able to leave it exactly as it was.
+ */
+function ResolveSheet({ person, band, bandTitle: title, onPick, onClose }: {
+  person: Person
+  band: ShiftBand
+  bandTitle: string
+  onPick: (state: 'available' | 'confirmed') => void
+  onClose: () => void
+}) {
+  const S = appConfig.copy.schichten
+  return (
+    <Sheet open onClose={onClose} fit sheetClassName={s.sheet} title={S.resolveTitle}
+      footer={
+        <>
+          <button type="button" className="ip-btn" onClick={onClose}>{S.resolveCancel}</button>
+          <button type="button" className="ip-btn" onClick={() => { onPick('available'); onClose() }}>
+            {S.resolveAvailable}
+          </button>
+          <button type="button" className="ip-btn primary" onClick={() => { onPick('confirmed'); onClose() }}>
+            {S.resolveConfirmed}
+          </button>
+        </>
+      }
+    >
+      <p className={s.resolveMsg}>{fillTemplate(S.resolveMsg, { name: person.displayName, band: title })}</p>
+      <p className={s.note}>{S.resolveNote}</p>
+    </Sheet>
+  )
+}
+
+/** Where an instant sits inside a band, as a percentage — the strip's own coordinates. */
+function pctOf(at: number, band: ShiftBand): number {
+  const from = Date.parse(band.from)
+  const to = Date.parse(band.to)
+  if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return 0
+  return Math.max(0, Math.min(100, ((at - from) / (to - from)) * 100))
+}
+
+/**
+ * The one line a cell can carry.
+ *
+ * A word only fits a window that holds ONE state end to end. One state over part of it can still
+ * name its hours. Anything else — two states, or two separate stretches — has no true word, so it
+ * says «teilweise» and hands the detail to the strip below it.
+ */
+function cellText(cell: BandCell, win: { from: string; to: string } | null,
+  S: typeof appConfig.copy.schichten): string {
+  if (cell.state === 'empty') return ''
+  if (cell.state === 'confirmed') return S.confirmed
+  if (cell.state === 'available') return S.available
+  if (cell.state === 'deviating' && cell.segments.length === 1 && win) return fmtRange(win.from, win.to)
+  return S.partial
 }
 
 /** What a column is called. The label is optional on purpose — a band you named «Früh» reads as
@@ -151,7 +211,7 @@ function BandSheet({ band, bands, startedAt, onCreate, onSave, onRemove, onClose
 export function BandGrid({
   people, shifts, bands, canEdit, startedAt, attendance,
   onAddShift, onSetShiftTime, onReplaceShift, onRemoveShift,
-  onCreateBand, onSaveBand, onRemoveBand, onCycleCell,
+  onCreateBand, onSaveBand, onRemoveBand, onCycleCell, onSetCellState,
 }: {
   /** already filtered + ordered by the shared Anwesenheit header, so all three views read alike */
   people: Person[]
@@ -171,12 +231,16 @@ export function BandGrid({
   onSaveBand: (id: string, label: string, from: string, to: string) => void
   onRemoveBand: (id: string) => void
   onCycleCell: (band: ShiftBand, person: Person) => void
+  /** settle a window that holds BOTH states for one person — «alles auf verfügbar / geplant» */
+  onSetCellState: (band: ShiftBand, person: Person, state: 'available' | 'confirmed') => void
 }) {
   const S = appConfig.copy.schichten
   /** null = closed · 'new' = the create sheet · a band = its edit sheet */
   const [sheet, setSheet] = useState<'new' | ShiftBand | null>(null)
   /** whose own times are open — the SAME sheet the Zeitplan opens from a name */
   const [openPerson, setOpenPerson] = useState<string | null>(null)
+  /** the cell whose window holds both states and has to be settled by hand */
+  const [resolve, setResolve] = useState<{ person: Person; band: ShiftBand } | null>(null)
   const cols = useMemo(() => sortBands(bands), [bands])
   const conflicts = useMemo(() => conflictingShiftIds(shifts), [shifts])
   const person = people.find((p) => p.id === openPerson)
@@ -244,8 +308,11 @@ export function BandGrid({
                       deliberately no target beside them: a Soll/Ist column invites filling a
                       number rather than asking who can actually come. */}
                   <span className={s.counts}>
-                    <span className={s.cntAvailable}>{c.available}</span>
-                    <span className={s.cntConfirmed}>{c.confirmed}</span>
+                    {/* «2·» — two people, but not all of them across the whole watch. Without it
+                        the head said two where 07:00 has one, and staffing off that number leaves
+                        the first hours short. */}
+                    <span className={s.cntAvailable}>{c.available}{c.availablePartial && <i title={S.partialHint}>·</i>}</span>
+                    <span className={s.cntConfirmed}>{c.confirmed}{c.confirmedPartial && <i title={S.partialHint}>·</i>}</span>
                   </span>
                 </button>
               )
@@ -294,7 +361,7 @@ export function BandGrid({
                   const cell = cells[i]
                   const sh = cell.shift
                   const bad = !!sh && conflicts.has(sh.id)
-                  const deviating = cell.state === 'deviating'
+                  const deviating = cell.state === 'deviating' || cell.state === 'mixed'
                   // a derived cell is never «eingeteilt» — assignment is always stored
                   const assigned = isAssignedCell(cell)
                   // the hours this cell shows, clamped to its own column: «05–08» in a watch that
@@ -305,8 +372,9 @@ export function BandGrid({
                       className={cx(s.cell,
                         cell.state !== 'empty' && !assigned && s.cellAvailable,
                         assigned && s.cellConfirmed,
-                        deviating && s.cellDeviating, bad && s.cellConflict)}
-                      onClick={() => onCycleCell(b, p)}
+                        (deviating || cell.state === 'mixed') && s.cellDeviating,
+                        cell.state === 'mixed' && s.cellMixed, bad && s.cellConflict)}
+                      onClick={() => (cell.state === 'mixed' ? setResolve({ person: p, band: b }) : onCycleCell(b, p))}
                       title={bad ? S.conflict
                         : deviating && sh
                           ? fillTemplate(S.deviating, {
@@ -316,14 +384,23 @@ export function BandGrid({
                           : fillTemplate(S.cellAria, { name: p.displayName, band: bandTitle(b) })}
                       aria-label={fillTemplate(S.cellAria, { name: p.displayName, band: bandTitle(b) })}
                       aria-pressed={cell.state !== 'empty'}>
-                      {bad && <Icon id="warn" />}
-                      {/* A cell that covers only PART of the window says its own hours: that is the
-                          whole information it carries. One that covers all of it has nothing to add
-                          beyond its state, so it says the state — the words the Zeitplan uses for
-                          the same two things. */}
-                      {deviating && win
-                        ? fmtRange(win.from, win.to)
-                        : assigned ? S.confirmed : cell.state !== 'empty' ? S.available : ''}
+                      <span className={s.cellLabel}>
+                        {bad && <Icon id="warn" />}
+                        {cellText(cell, win, S)}
+                      </span>
+                      {/* The strip: the whole window, drawn. A word can only be true of a window
+                          that holds ONE state, and «verfügbar 09–11 · geplant 10–20» inside a
+                          07–12 watch holds three (nothing, offered, assigned). Same colours as the
+                          Zeitplan lane, transposed — no new vocabulary, and it reads at a glance
+                          where a second line of text would not fit at all. */}
+                      {cell.segments.length > 0 && cell.state !== 'available' && cell.state !== 'confirmed' && (
+                        <span className={s.strip} aria-hidden>
+                          {cell.segments.map((seg) => (
+                            <i key={seg.from} className={seg.state === 'confirmed' ? s.segConfirmed : s.segAvailable}
+                              style={{ left: `${pctOf(seg.from, b)}%`, width: `${pctOf(seg.to, b) - pctOf(seg.from, b)}%` }} />
+                          ))}
+                        </span>
+                      )}
                     </button>
                   )
                 })}
@@ -339,6 +416,12 @@ export function BandGrid({
         <BandSheet band={sheet === 'new' ? null : sheet} bands={bands} startedAt={startedAt}
           onCreate={onCreateBand} onSave={onSaveBand} onRemove={onRemoveBand}
           onClose={() => setSheet(null)} />
+      )}
+
+      {resolve && (
+        <ResolveSheet person={resolve.person} band={resolve.band} bandTitle={bandTitle(resolve.band)}
+          onPick={(state) => onSetCellState(resolve.band, resolve.person, state)}
+          onClose={() => setResolve(null)} />
       )}
 
       {/* The SAME sheet the Zeitplan opens from a name. Adding somebody's own hours — «kann erst ab

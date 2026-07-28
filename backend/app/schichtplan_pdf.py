@@ -160,10 +160,20 @@ def _deckung(rows: list[ZeitplanRow], band: ZeitplanBand) -> str:
 
     Whole, not pro rata: «0,8» is not a headcount, and this line has to be checkable by counting
     the marks in the column above it — which is the only thing that makes a printed figure
-    trustworthy once the tablet is out of battery."""
-    return str(
-        sum(1 for row in rows for block, _member in [_cell_block(row, band)] if block is not None and block.confirmed)
-    )
+    trustworthy once the tablet is out of battery.
+
+    A «·» is appended when at least one of them does NOT cover the watch end to end: «2» alone
+    would say two people are on it, when the first hours may have one."""
+    n = 0
+    partial = False
+    for row in rows:
+        block, _member = _cell_block(row, band)
+        if block is None or not block.confirmed:
+            continue
+        n += 1
+        if _cover_fraction(block.start, block.end, band) < 1:
+            partial = True
+    return f"{n}·" if partial else str(n)
 
 
 def _page(rows: list[ZeitplanRow], bands: list[ZeitplanBand], width: float, with_deckung: bool) -> Table:

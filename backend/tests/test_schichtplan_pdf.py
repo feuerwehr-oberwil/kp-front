@@ -106,7 +106,9 @@ def test_deckung_counts_whole_people_and_only_the_assigned():
             _row("Frei", [{"from": _h(0), "to": _h(5), "confirmed": False, "bandId": "bd1"}]),
         ]
     )
-    assert _deckung(p.rows, p.bands[0]) == "2"
+    # …and the «·»: Aebischer covers only three of the five hours, so «2» alone would say two
+    # people are on this watch when the first hours have one
+    assert _deckung(p.rows, p.bands[0]) == "2·"
 
 
 def test_deckung_counts_an_assignment_that_covers_this_window_wherever_it_is_filed():

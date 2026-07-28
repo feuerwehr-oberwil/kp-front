@@ -2513,6 +2513,7 @@ export function IncidentWorkspace({
           } : undefined}
           onRemoveBand={canEditIncident ? bandActions.removeBand : undefined}
           onCycleCell={canEditIncident ? bandActions.cycleCell : undefined}
+          onSetCellState={canEditIncident ? bandActions.setCellState : undefined}
           startedAt={incidentMeta.started_at}
           onAddShift={canEditIncident ? addShift : undefined}
           onAddShiftSpan={canEditIncident ? addShiftSpan : undefined}

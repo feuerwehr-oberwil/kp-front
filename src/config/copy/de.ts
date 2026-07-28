@@ -2374,6 +2374,21 @@ export const de = {
     // und wird nie durch Antippen gelöscht – dahinter steckt von Hand gezogene Planung.
     deviating: '{name}: {from}–{to} statt {bandFrom}–{bandTo}',
     cellAria: '{name} in {band}',
+    // Ein Wort passt nur auf ein Fenster, in dem EIN Zustand durchgehend gilt. «Verfügbar 09–11»
+    // und «geplant 10–20» in einer Wache 07–12 sind drei Zustände (nichts, angeboten, eingeteilt);
+    // dafür gibt es kein wahres Wort, also sagt die Zelle «teilweise» und der Streifen darunter
+    // zeigt, wo was liegt.
+    partial: 'teilweise',
+    partialHint: 'Nicht alle davon decken die ganze Schicht ab.',
+    // Ein Tipp auf eine gemischte Zelle hat keine eindeutige Fortsetzung – sonst schaltete er
+    // zwischen zwei Zuständen hin und her, ohne dass je einer für das ganze Fenster gilt.
+    resolveTitle: 'Teils verfügbar, teils geplant',
+    resolveMsg: '{name} ist in {band} teilweise eingeteilt und teilweise nur verfügbar. Was soll für dieses Fenster gelten?',
+    // ⚠ Eine Schicht hat EINEN Zustand: reicht sie über die Wache hinaus, zieht die Änderung mit.
+    resolveNote: 'Zeiten, die über die Schicht hinausreichen, ändern sich mit – eine Zeit hat einen Zustand.',
+    resolveAvailable: 'Alles auf verfügbar',
+    resolveConfirmed: 'Alles auf geplant',
+    resolveCancel: 'Abbrechen',
     conflict: 'Doppelt eingeteilt – zwei Schichten zur selben Zeit',
     scrollHint: 'Waagrecht rollen für weitere Schichten',
   },

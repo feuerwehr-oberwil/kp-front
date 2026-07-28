@@ -187,7 +187,7 @@ function PaperSheet({ sheet, people, bands, printOnline, onPrint, onDownload, on
 export function AnwesenheitView({
   people, attendance, canEdit, loading, error, blockedIds,
   onMarkPresent, onMarkLeft, onClear, onJumpToTrupp, onReload, onSetTimes, onRemoveBlock, captureUsage,
-  shifts, bands, onCreateBand, onSaveBand, onRemoveBand, onCycleCell,
+  shifts, bands, onCreateBand, onSaveBand, onRemoveBand, onCycleCell, onSetCellState,
   startedAt, onAddShift, onAddShiftSpan, onReplaceShift, onSetShiftTime, onRemoveShift,
   onPrintZeitplan, onDownloadZeitplan, zeitplanPrintOnline,
 }: {
@@ -221,6 +221,8 @@ export function AnwesenheitView({
   onRemoveBand?: (id: string) => void
   /** one cell tap: leer → verfügbar → eingeteilt → leer */
   onCycleCell?: (band: ShiftBand, person: Person) => void
+  /** settle a window that holds BOTH states for one person */
+  onSetCellState?: (band: ShiftBand, person: Person, state: 'available' | 'confirmed') => void
   startedAt?: string | null
   onAddShift?: (p: Person) => void
   /** plan exactly the stretch swept out on the grid */
@@ -319,7 +321,7 @@ export function AnwesenheitView({
   // the Schichten grid is a reading of the same shift slice, so it rides the same availability
   // gate; without the band actions wired up it can only ever be a read-only picture, and a grid
   // whose cells do not answer a tap is worse than no third tab
-  const bandsAvailable = planAvailable && !!bands && !!onCreateBand && !!onSaveBand && !!onRemoveBand && !!onCycleCell
+  const bandsAvailable = planAvailable && !!bands && !!onCreateBand && !!onSaveBand && !!onRemoveBand && !!onCycleCell && !!onSetCellState
   const showBands = bandsAvailable && view === 'bands'
 
   return (
@@ -501,6 +503,7 @@ export function AnwesenheitView({
           onSaveBand={onSaveBand!}
           onRemoveBand={onRemoveBand!}
           onCycleCell={onCycleCell!}
+          onSetCellState={onSetCellState!}
         />
       ) : showPlan ? (
         <ZeitplanView

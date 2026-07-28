@@ -275,3 +275,31 @@
      freihändig, and an uneven card on the board reads better than a truncated name. */
   .ownTimes { margin-left: 0; align-self: flex-start; }
 }
+
+/* ---- a cell that holds more than one state -------------------------------------------- */
+
+/* the text sits above the strip now, so it needs its own line box */
+.cellLabel { display: inline-flex; align-items: center; gap: 4px; }
+/* THE strip: the band's own five hours, drawn across the bottom of the cell. A word is only ever
+   true of a window holding ONE state end to end; this draws the rest — where nothing is offered,
+   where somebody is merely available, and where they are actually assigned. Same two colours as
+   the Zeitplan lane, so the two surfaces keep teaching one vocabulary. */
+/* Three levels have to be told apart in 4px, and the cell they sit on is sometimes blue and
+   sometimes grey — so they are steps of the cell's OWN ink rather than the two state colours,
+   which would make the blue segment vanish on a blue cell. Far enough apart to read at arm's
+   length: the gap is the hole, the pale bar is offered, the solid bar is assigned. */
+.strip {
+  position: absolute; left: 5px; right: 5px; bottom: 3.5px; height: 4px;
+  border-radius: 2px; background: color-mix(in srgb, currentColor 14%, transparent);
+}
+.strip i { position: absolute; top: 0; bottom: 0; border-radius: 2px; }
+.segAvailable { background: color-mix(in srgb, currentColor 45%, transparent); }
+.segConfirmed { background: currentColor; }
+/* the cell has to be a positioning context for the strip, and leave it room under the text */
+.cell { position: relative; }
+.cellDeviating .cellLabel, .cellMixed .cellLabel { margin-bottom: 5px; }
+
+/* «2·» — two people, not all of them across the whole watch */
+.counts i { font-style: normal; }
+
+.resolveMsg { margin: 0; font: 600 14px var(--body); color: var(--ink); }

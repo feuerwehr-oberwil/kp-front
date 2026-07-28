@@ -154,6 +154,56 @@ export function useBandActions({ bands, setBands, shifts, setShifts }: BandActio
     setShifts((list) => list.filter((s) => s.id !== cur.id))
   }
 
+  /**
+   * Settle a window that holds BOTH states for one person — «alles auf verfügbar» / «alles auf
+   * geplant».
+   *
+   * A cycle cannot answer this: with an offer and an assignment overlapping the same watch, each
+   * tap would flip one of them and neither state would ever hold for the whole window. So the
+   * surface asks, and this applies the answer to every shift of theirs that reaches into the band.
+   *
+   * ⚠ A shift has ONE state, so one reaching past the watch changes past it too — «geplant
+   * 10:00–20:00» set to verfügbar is verfügbar for all ten hours. Splitting it at the band edge
+   * would keep the change inside the column, at the price of quietly turning one stretch somebody
+   * drew into two. The sheet says which of the two is happening; the Zeitplan stays the surface
+   * that owns continuous time.
+   *
+   * Setting «geplant» MERGES the resulting overlaps: two confirmed stretches of one person at the
+   * same time is precisely what `conflictingShiftIds` calls a double booking, and answering a
+   * question must not manufacture the fault it was asked to resolve.
+   */
+  const setCellState = (band: ShiftBand, person: Person, next: 'available' | 'confirmed') => {
+    const bandFrom = Date.parse(band.from)
+    const bandTo = Date.parse(band.to)
+    const touches = (s: Shift) => {
+      const f = Date.parse(s.from)
+      const t2 = Date.parse(s.to)
+      return s.personId === person.id && Number.isFinite(f) && Number.isFinite(t2)
+        && Math.min(t2, bandTo) > Math.max(f, bandFrom)
+    }
+    setShifts((list) => {
+      const flipped = list.map((s) => (touches(s) ? { ...s, confirmed: next === 'confirmed' } : s))
+      if (next !== 'confirmed') return flipped
+      // merge this person's now-overlapping assignments, oldest id first so the survivor is stable
+      const mine = flipped.filter((s) => s.personId === person.id && s.confirmed)
+        .sort((a, b) => a.from.localeCompare(b.from))
+      const drop = new Set<string>()
+      const grown = new Map<string, Shift>()
+      let cur: Shift | undefined
+      for (const s of mine) {
+        if (cur && Date.parse(s.from) <= Date.parse(cur.to)) {
+          const merged: Shift = { ...cur, to: Date.parse(s.to) > Date.parse(cur.to) ? s.to : cur.to }
+          cur = merged
+          grown.set(merged.id, merged)
+          drop.add(s.id)
+        } else {
+          cur = s
+        }
+      }
+      return flipped.filter((s) => !drop.has(s.id)).map((s) => grown.get(s.id) ?? s)
+    })
+  }
+
   /** The «Zeiten mitziehen?» question, asked only when a move would actually drag somebody. */
   const askAndSetBandTimes = async (id: string, from: string, to: string) => {
     const prev = bands.find((b) => b.id === id)
@@ -170,5 +220,5 @@ export function useBandActions({ bands, setBands, shifts, setShifts }: BandActio
     setBandTimes(id, from, to, move)
   }
 
-  return { addBand, renameBand, setBandTimes, askAndSetBandTimes, bandFollowerCount, removeBand, cycleCell }
+  return { addBand, renameBand, setBandTimes, askAndSetBandTimes, bandFollowerCount, removeBand, cycleCell, setCellState }
 }

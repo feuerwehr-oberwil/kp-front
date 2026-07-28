@@ -36,6 +36,7 @@ const mount = (over: Partial<Parameters<typeof BandGrid>[0]> = {}) => {
     attendance: {}, onAddShift: vi.fn(), onSetShiftTime: vi.fn(), onReplaceShift: vi.fn(),
     onRemoveShift: vi.fn(),
     onCreateBand: vi.fn(), onSaveBand: vi.fn(), onRemoveBand: vi.fn(), onCycleCell: vi.fn(),
+    onSetCellState: vi.fn(),
     ...over,
   }
   render(<BandGrid {...props} />)
@@ -137,6 +138,43 @@ describe('the grid', () => {
     const props = mount()
     fireEvent.click(cellsOf('Meier A.')[1])
     expect(props.onCycleCell).toHaveBeenCalledWith(spät, PEOPLE[1])
+  })
+
+  it('says «teilweise» where a window holds both states, and asks instead of cycling', () => {
+    const S = appConfig.copy.schichten
+    const props = mount({ shifts: [
+      { id: 'sh1', personId: 'p2', from: T(9), to: T(11) },
+      { id: 'sh2', personId: 'p2', from: T(10), to: T(20), confirmed: true },
+    ] })
+    // Früh 07–12: nothing until 09, offered until 10, assigned from 10 — no single word is true
+    expect(cellsOf('Meier A.')[0].textContent).toContain(S.partial)
+    fireEvent.click(cellsOf('Meier A.')[0])
+    // …and a tap asks rather than flipping one of the two back and forth
+    expect(props.onCycleCell).not.toHaveBeenCalled()
+    expect(screen.getByText(S.resolveTitle)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: S.resolveConfirmed }))
+    expect(props.onSetCellState).toHaveBeenCalledWith(früh, PEOPLE[1], 'confirmed')
+  })
+
+  it('leaves the cell exactly as it was when the question is cancelled', () => {
+    const S = appConfig.copy.schichten
+    const props = mount({ shifts: [
+      { id: 'sh1', personId: 'p2', from: T(9), to: T(11) },
+      { id: 'sh2', personId: 'p2', from: T(10), to: T(20), confirmed: true },
+    ] })
+    fireEvent.click(cellsOf('Meier A.')[0])
+    fireEvent.click(screen.getByRole('button', { name: S.resolveCancel }))
+    expect(props.onSetCellState).not.toHaveBeenCalled()
+    expect(props.onCycleCell).not.toHaveBeenCalled()
+  })
+
+  it('marks a head number whose people do not all cover the whole watch', () => {
+    mount({ shifts: [
+      { id: 'sh1', personId: 'p1', from: T(7), to: T(12), bandId: 'bd1', confirmed: true },
+      { id: 'sh2', personId: 'p2', from: T(10), to: T(12), bandId: 'bd1', confirmed: true },
+    ] })
+    const head = screen.getByText('Früh').closest('button')!
+    expect(within(head).getByText('2').textContent).toBe('2·')
   })
 
   it('opens that person\'s own times from their name — no tab change to add «kann erst ab 14:00»', () => {

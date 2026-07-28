@@ -265,18 +265,92 @@ export function bandCoverFraction(sh: Shift, band: ShiftBand): number {
   return Math.min(1, overlapMs(s.from, s.to, b.from, b.to) / (b.to - b.from))
 }
 
-/** What one cell shows. `deviating` is drawn hatched and carries the shift's OWN times — the
- *  person covers only part of the window, which is a fact worth seeing rather than one worth
- *  normalising away. Read `shift.confirmed` alongside it for the colour. */
-export type BandCellState = 'empty' | 'available' | 'confirmed' | 'deviating'
+/** What one cell shows.
+ *  - `deviating` — one state, but only over part of the window; the cell names those hours.
+ *  - `mixed` — BOTH states inside the same window (assigned for part of it, merely offered for
+ *    another part). No single word is true of it, so the cell says «teilweise» and the strip under
+ *    the text draws where each state actually lies. */
+export type BandCellState = 'empty' | 'available' | 'confirmed' | 'deviating' | 'mixed'
+
+/** One stretch of the band and what holds over it. Only covered stretches appear — a gap is drawn
+ *  by the strip's own background, which is what «nobody at all» looks like. */
+export interface BandCellSegment {
+  from: number
+  to: number
+  state: 'available' | 'confirmed'
+}
 
 export interface BandCell {
   state: BandCellState
-  /** the shift the cell is showing — absent only when the cell is empty */
+  /** the coverage over THIS band, clipped to it, confirmed winning wherever it reaches */
+  segments: BandCellSegment[]
+  /** the band is not covered end to end — what the head's «·» mark counts */
+  partial: boolean
+  /** the ONE shift the cell is about, when it is about one: a stored member first, else the
+   *  strongest shift covering the window. The tap acts on this; a `mixed` cell has no single
+   *  answer and asks instead. */
   shift?: Shift
-  /** the shift is NOT a member of this band: it is a freihändige offer that happens to cover the
-   *  window. Availability is derived, assignment never is — see `bandCell`. */
+  /** the shift is not a member of this band, it merely covers the window */
   derived: boolean
+}
+
+/** Merge overlapping/touching spans into the fewest that cover the same time. */
+function mergeSpans(list: Span[]): Span[] {
+  const out: Span[] = []
+  for (const x of [...list].sort((a, b) => a.from - b.from)) {
+    const last = out[out.length - 1]
+    if (last && x.from <= last.to) last.to = Math.max(last.to, x.to)
+    else out.push({ ...x })
+  }
+  return out
+}
+
+/** What is left of `spans` once every stretch of `minus` is taken out of them. */
+function subtractSpans(spans: Span[], minus: Span[]): Span[] {
+  let cur = spans
+  for (const m of minus) {
+    const next: Span[] = []
+    for (const c of cur) {
+      if (m.to <= c.from || m.from >= c.to) { next.push(c); continue }
+      if (c.from < m.from) next.push({ from: c.from, to: m.from })
+      if (m.to < c.to) next.push({ from: m.to, to: c.to })
+    }
+    cur = next
+  }
+  return cur
+}
+
+/**
+ * How this person's time lies across THIS band, hour by hour.
+ *
+ * A cell is one box and a watch is five hours, so a single word is often a half-truth: somebody
+ * offered 09:00–11:00 and assigned 10:00–20:00 is, inside a 07:00–12:00 watch, nothing until 09,
+ * merely available until 10, and assigned from 10. «geplant» describes the last two hours of that
+ * and quietly drops the rest.
+ *
+ * Assigned wins wherever it reaches — being put on a watch is the stronger fact, and time that is
+ * both offered and assigned is simply assigned. What is left of the offers fills the gaps, and
+ * whatever neither covers stays out of the list: that is the hole.
+ */
+export function bandCellSegments(shifts: Shift[], personId: string, band: ShiftBand): BandCellSegment[] {
+  const b = windowOf(band.from, band.to)
+  if (!b) return []
+  const confirmed: Span[] = []
+  const offered: Span[] = []
+  for (const s of shifts) {
+    if (s.personId !== personId) continue
+    const w = windowOf(s.from, s.to)
+    if (!w) continue
+    const from = Math.max(w.from, b.from)
+    const to = Math.min(w.to, b.to)
+    if (to <= from) continue
+    ;(s.confirmed ? confirmed : offered).push({ from, to })
+  }
+  const conf = mergeSpans(confirmed)
+  return [
+    ...conf.map((x) => ({ ...x, state: 'confirmed' as const })),
+    ...subtractSpans(mergeSpans(offered), conf).map((x) => ({ ...x, state: 'available' as const })),
+  ].sort((a, b2) => a.from - b2.from)
 }
 
 /**
@@ -313,10 +387,21 @@ export function bandCell(shifts: Shift[], personId: string, band: ShiftBand): Ba
   // is empty. The `bandId` is left alone, so moving the band back restores the cell, and the row
   // still names those hours in its «eigene Zeiten» mark — nothing is hidden, it is just not
   // claiming to be part of a watch it does not overlap.
+  const segments = bandCellSegments(shifts, personId, band)
+  const b = windowOf(band.from, band.to)
+  const covered = segments.reduce((n, x) => n + (x.to - x.from), 0)
+  const partial = !!b && covered < b.to - b.from
+  const both = segments.some((x) => x.state === 'confirmed') && segments.some((x) => x.state === 'available')
+  /** what the WHOLE window looks like, once every shift of theirs has had its say */
+  const overall = (single: BandCellState): BandCellState =>
+    (both || segments.length > 1 ? 'mixed' : partial ? 'deviating' : single)
+
   if (member && bandCoverFraction(member, band) > 0) {
     const exact = member.from === band.from && member.to === band.to
     return {
-      state: exact ? (member.confirmed ? 'confirmed' : 'available') : 'deviating',
+      state: overall(exact ? (member.confirmed ? 'confirmed' : 'available') : 'deviating'),
+      segments,
+      partial,
       shift: member,
       derived: false,
     }
@@ -335,11 +420,14 @@ export function bandCell(shifts: Shift[], personId: string, band: ShiftBand): Ba
       best = s; bestCover = cover; bestAssigned = assigned
     }
   }
-  if (!best) return { state: 'empty', derived: false }
+  if (!best) return { state: 'empty', segments: [], partial: true, derived: false }
   // covers the whole window → plainly «verfügbar»/«geplant»; covers part of it → hatched, with the
-  // real hours, so the column never promises more than the person actually said
+  // real hours; two states or two stretches inside one window → «teilweise», and the strip says
+  // where each of them lies
   return {
-    state: bestCover >= 1 ? (best.confirmed ? 'confirmed' : 'available') : 'deviating',
+    state: overall(bestCover >= 1 ? (best.confirmed ? 'confirmed' : 'available') : 'deviating'),
+    segments,
+    partial,
     shift: best,
     derived: true,
   }
@@ -350,6 +438,10 @@ export interface BandCounts {
   available: number
   /** assigned (always stored) */
   confirmed: number
+  /** at least one of the people counted above does NOT cover the window end to end. The head
+   *  wears this as a «·»: «2» would say two people are on this watch, when at 07:00 there is one. */
+  availablePartial: boolean
+  confirmedPartial: boolean
 }
 
 /**
@@ -368,20 +460,27 @@ export interface BandCounts {
 export function bandCounts(shifts: Shift[], band: ShiftBand): BandCounts {
   let available = 0
   let confirmed = 0
+  let availablePartial = false
+  let confirmedPartial = false
   for (const personId of new Set(shifts.map((s) => s.personId))) {
     const cell = bandCell(shifts, personId, band)
     if (!cell.shift) continue
-    if (isAssignedCell(cell)) confirmed++
-    else available++
+    if (isAssignedCell(cell)) {
+      confirmed++
+      if (cell.partial) confirmedPartial = true
+    } else {
+      available++
+      if (cell.partial) availablePartial = true
+    }
   }
-  return { available, confirmed }
+  return { available, confirmed, availablePartial, confirmedPartial }
 }
 
 /** Is this cell an ASSIGNMENT? Whether the shift is filed under this band or merely covers it,
  *  `confirmed` is the shift's own state: somebody geplant 10:00–20:00 is geplant for every watch
  *  those hours reach, and a column that called them «verfügbar» would be reading past the plan. */
 export function isAssignedCell(cell: BandCell): boolean {
-  return !!cell.shift?.confirmed
+  return cell.segments.some((x) => x.state === 'confirmed')
 }
 
 /**
