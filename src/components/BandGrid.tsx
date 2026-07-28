@@ -7,10 +7,12 @@ import { cx } from '../lib/cx'
 import { rankAbbr, rankLabel } from '../lib/rank'
 import { fmtDayShort, incidentDays, isOtherDay } from '../lib/zeitplanFormat'
 import {
-  bandCell, bandCellWindow, bandCounts, conflictingShiftIds, draftBand, freehandShifts,
-  isAssignedCell, sortBands,
+  bandCell, bandCellWindow, bandCounts, conflictingShiftIds, draftBand, isAssignedCell, shiftsFor,
+  sortBands, unshownShifts,
 } from '../lib/shifts'
-import type { Person, Shift, ShiftBand } from '../types'
+import type { AttendanceState, Person, Shift, ShiftBand } from '../types'
+import { intervalsOf } from '../lib/attendanceIntervals'
+import { PersonShiftSheet } from './PersonShiftSheet'
 import { Sheet } from '../lib/overlays'
 import { TimeField } from './TimeField'
 import { EmptyState } from './EmptyState'
@@ -147,7 +149,9 @@ function BandSheet({ band, bands, startedAt, onCreate, onSave, onRemove, onClose
  * hours instead of a promise, and deleting a band leaves every one of its shifts standing.
  */
 export function BandGrid({
-  people, shifts, bands, canEdit, startedAt, onCreateBand, onSaveBand, onRemoveBand, onCycleCell,
+  people, shifts, bands, canEdit, startedAt, attendance,
+  onAddShift, onSetShiftTime, onReplaceShift, onRemoveShift,
+  onCreateBand, onSaveBand, onRemoveBand, onCycleCell,
 }: {
   /** already filtered + ordered by the shared Anwesenheit header, so all three views read alike */
   people: Person[]
@@ -155,6 +159,13 @@ export function BandGrid({
   bands: ShiftBand[]
   canEdit: boolean
   startedAt: string | null
+  /** read-only «tatsächlich anwesend» half of the person sheet */
+  attendance: AttendanceState
+  /** the same four shift actions the Zeitplan hands its sheet — one surface, one editor */
+  onAddShift: (p: Person) => void
+  onSetShiftTime: (id: string, patch: { from?: string; to?: string }) => void
+  onReplaceShift: (sh: Shift) => void
+  onRemoveShift: (id: string, personName: string) => void
   onCreateBand: (label: string, from: string, to: string) => void
   /** rename + re-time in one commit; the re-time asks about dragging assigned people along */
   onSaveBand: (id: string, label: string, from: string, to: string) => void
@@ -164,8 +175,11 @@ export function BandGrid({
   const S = appConfig.copy.schichten
   /** null = closed · 'new' = the create sheet · a band = its edit sheet */
   const [sheet, setSheet] = useState<'new' | ShiftBand | null>(null)
+  /** whose own times are open — the SAME sheet the Zeitplan opens from a name */
+  const [openPerson, setOpenPerson] = useState<string | null>(null)
   const cols = useMemo(() => sortBands(bands), [bands])
   const conflicts = useMemo(() => conflictingShiftIds(shifts), [shifts])
+  const person = people.find((p) => p.id === openPerson)
 
   if (!cols.length) {
     return (
@@ -248,13 +262,15 @@ export function BandGrid({
 
           {people.map((p) => {
             const cells = cols.map((b) => bandCell(shifts, p.id, b))
-            // The mark earns its place only where the columns are SILENT about this person. Once a
-            // cell picks their offer up — «frei», or their real hours hatched — repeating those
-            // hours in the name column prints the same fact three times across one row.
-            const own = cells.every((c) => c.state === 'empty') ? freehandShifts(shifts, p.id) : []
+            // The mark carries exactly what the columns are SILENT about — band-less times, and
+            // times that drifted out of the band they belong to. Once a cell picks hours up,
+            // repeating them in the name column prints the same fact twice across one row.
+            const own = unshownShifts(shifts, p.id, cols)
             return (
               <div key={p.id} className={s.row}>
-                <div className={s.who}>
+                <button type="button" className={s.who} onClick={() => setOpenPerson(p.id)}
+                  aria-label={fillTemplate(appConfig.copy.zeitplan.openFor, { name: p.displayName })}
+                  title={fillTemplate(appConfig.copy.zeitplan.openFor, { name: p.displayName })}>
                   {/* rank + name are ONE line, always: they identify the same person, and on a
                       112px phone column a bare wrap put the badge above the name and made that
                       row a head taller than its neighbours for no information at all */}
@@ -273,7 +289,7 @@ export function BandGrid({
                         : fmtRange(own[0].from, own[0].to)}
                     </span>
                   )}
-                </div>
+                </button>
                 {cols.map((b, i) => {
                   const cell = cells[i]
                   const sh = cell.shift
@@ -323,6 +339,25 @@ export function BandGrid({
         <BandSheet band={sheet === 'new' ? null : sheet} bands={bands} startedAt={startedAt}
           onCreate={onCreateBand} onSave={onSaveBand} onRemove={onRemoveBand}
           onClose={() => setSheet(null)} />
+      )}
+
+      {/* The SAME sheet the Zeitplan opens from a name. Adding somebody's own hours — «kann erst ab
+          14:00» — is the one thing this grid cannot express in a cell, and having to change tab for
+          it made a two-second correction a four-step detour. */}
+      {person && (
+        <PersonShiftSheet
+          person={person}
+          shifts={shiftsFor(shifts, person.id)}
+          blocks={intervalsOf(attendance[person.id])}
+          canEdit={canEdit}
+          startedAt={startedAt}
+          conflicts={conflicts}
+          onAdd={onAddShift}
+          onSetTime={onSetShiftTime}
+          onToggle={(sh) => onReplaceShift({ ...sh, confirmed: !sh.confirmed })}
+          onRemove={onRemoveShift}
+          onClose={() => setOpenPerson(null)}
+        />
       )}
     </div>
   )

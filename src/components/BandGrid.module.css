@@ -69,7 +69,12 @@
   width: var(--name-w); display: flex; align-items: center; gap: 6px; padding: 3px 8px 3px 13px;
   min-height: var(--tap); text-align: left;
   background: var(--board); font: 700 13.5px var(--body); color: var(--ink);
+  /* the whole name cell opens that person's own times, exactly as on the Zeitplan */
+  border: none; cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
+.who:hover::before { background: color-mix(in srgb, var(--ink) 5%, var(--surface)); }
+.whoHead { cursor: default; }
+.whoHead:hover::before { background: var(--board); }
 /* rank + name are ONE line, always — they identify the same person */
 .whoMain { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1 1 auto; }
 .who::before {

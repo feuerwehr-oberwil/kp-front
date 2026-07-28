@@ -302,7 +302,15 @@ export interface BandCell {
  */
 export function bandCell(shifts: Shift[], personId: string, band: ShiftBand): BandCell {
   const member = shiftInBand(shifts, personId, band.id)
-  if (member) {
+  // …but only while it still TOUCHES the window. A member can end up entirely outside its own
+  // band two ways — the band was re-timed and the answer was «nur die Schicht», or the bar was
+  // dragged away on the Zeitplan axis — and it then printed hours that contradicted the column
+  // heading above them: «20:30–21» sitting in a 12–17 watch, counted as one assigned person who
+  // covers none of it. Membership says «in this window»; once the window has moved on, the cell
+  // is empty. The `bandId` is left alone, so moving the band back restores the cell, and the row
+  // still names those hours in its «eigene Zeiten» mark — nothing is hidden, it is just not
+  // claiming to be part of a watch it does not overlap.
+  if (member && bandCoverFraction(member, band) > 0) {
     const exact = member.from === band.from && member.to === band.to
     return {
       state: exact ? (member.confirmed ? 'confirmed' : 'available') : 'deviating',
@@ -370,8 +378,8 @@ export function isAssignedCell(cell: BandCell): boolean {
  * 06:00 is answering a question nobody asked: what matters here is the 05:00–06:00 of it. The full
  * stretch is on the Zeitplan axis, which is the surface that owns continuous time.
  *
- * The one exception is a stored member whose times have been dragged clear of its band altogether:
- * there is no overlap left to show, and printing nothing would hide the very drift worth seeing.
+ * Every cell overlaps its band by construction (`bandCell` drops a member that no longer does), so
+ * there is always a slice to show; the fallbacks below are for unreadable stamps only.
  */
 export function bandCellWindow(cell: BandCell, band: ShiftBand): { from: string; to: string } | null {
   if (!cell.shift) return null
@@ -406,6 +414,23 @@ export function bandAssignWindow(cell: BandCell, band: ShiftBand): { from: strin
  */
 export function freehandShifts(shifts: Shift[], personId: string): Shift[] {
   return shiftsFor(shifts, personId).filter((s) => !s.bandId)
+}
+
+/**
+ * One person's shifts that NO column of this grid is showing — what the «eigene Zeiten» mark is for.
+ *
+ * Wider than «has no bandId»: a shift can also fall out of every column by drifting clear of the
+ * band it belongs to. Asking which shifts the cells actually display, rather than which ones look
+ * band-less, keeps the mark exactly as honest as the grid beside it — and keeps it quiet the
+ * moment a column picks those hours up.
+ */
+export function unshownShifts(shifts: Shift[], personId: string, bands: ShiftBand[]): Shift[] {
+  const shown = new Set<string>()
+  for (const band of bands) {
+    const cell = bandCell(shifts, personId, band)
+    if (cell.shift) shown.add(cell.shift.id)
+  }
+  return shiftsFor(shifts, personId).filter((s) => !shown.has(s.id))
 }
 
 /** Bands in the order the grid puts them up: by start, then by end, then by creation. Stable, so

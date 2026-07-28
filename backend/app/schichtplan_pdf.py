@@ -107,7 +107,11 @@ def _cell_block(row: ZeitplanRow, band: ZeitplanBand) -> tuple[ZeitplanBlock | N
     A stored member always wins the cell; failing that, the offer covering most of the window does.
     """
     for b in row.blocks:
-        if b.band_id == band.id:
+        # …but only while it still TOUCHES the window. A member can end up wholly outside its own
+        # band (the band was re-timed and nobody was dragged along, or the bar was moved on the
+        # axis), and it then printed hours contradicting the column heading above them — «20:30–21»
+        # inside a 12–17 watch, counted as one assigned person covering none of it.
+        if b.band_id == band.id and _cover_fraction(b.start, b.end, band) > 0:
             return b, True
     best: ZeitplanBlock | None = None
     best_cover = 0.0
@@ -129,8 +133,8 @@ def _cell(row: ZeitplanRow, band: ZeitplanBand) -> str:
     if not exact and _cover_fraction(block.start, block.end, band) < 1:
         start = max(block.start, band.start)
         end = min(block.end or band.end, band.end)
-        # a member dragged clear of its own band has no overlap left to show; printing nothing
-        # would hide the very drift worth seeing
+        # every cell overlaps its band by construction (_cell_block drops one that no longer
+        # does), so there is always a slice; the fallback is for unreadable stamps only
         return _range(start, end) if end > start else _range(block.start, block.end or band.end)
     # assignment is never derived — an offer filed under another band is still only an offer here
     return _MARK_CONFIRMED if (member and block.confirmed) else _MARK_AVAILABLE

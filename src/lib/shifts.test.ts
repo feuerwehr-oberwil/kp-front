@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  SLOT_MS, bandAssignWindow, bandCell, bandCellWindow, bandCounts, bandCoverFraction, barGeometry, ceilSlot,
+  SLOT_MS, bandAssignWindow, bandCell, bandCellWindow, bandCounts, bandCoverFraction, barGeometry,
+  ceilSlot, unshownShifts,
   conflictingShiftIds, coverage, draftBand, draftShift, dragShift, floorSlot, freehandShifts,
   intervalSpan, overlaps, plannedPersonCount, shiftAt, shiftInBand, shiftSpan, shiftsFor, sortBands,
   timeAtFraction, timelineSpan,
@@ -338,10 +339,22 @@ describe('bandCellWindow — a cell shows only its own column', () => {
     expect(bandCellWindow(cell, früh)).toEqual({ from: T(9), to: T(12) })
   })
 
-  it('keeps the real hours when a member has been dragged clear of its band', () => {
-    // nothing left to clamp to, and showing nothing would hide the drift worth seeing
+  it('has no cell at all once a member has been dragged clear of its band', () => {
+    // reported 28.07.: «20:30–21» printed inside a 12–17 watch, counted as one assigned person who
+    // covers none of it. Membership means «in this window»; once the window has moved on, the
+    // column is silent and the row's «eigene Zeiten» mark carries those hours instead.
     const cell = bandCell([inBand('a', 'p1', T(14), T(18), 'bd1', true)], 'p1', früh)
-    expect(bandCellWindow(cell, früh)).toEqual({ from: T(14), to: T(18) })
+    expect(cell).toEqual({ state: 'empty', derived: false })
+    expect(bandCellWindow(cell, früh)).toBeNull()
+    expect(bandCounts([inBand('a', 'p1', T(14), T(18), 'bd1', true)], früh)).toEqual({ available: 0, confirmed: 0 })
+  })
+
+  it('lists a drifted-out member under the times no column is showing', () => {
+    const drifted = inBand('a', 'p1', T(14), T(18), 'bd1', true)
+    expect(unshownShifts([drifted], 'p1', [früh]).map((x) => x.id)).toEqual(['a'])
+    // …and stays quiet the moment a column does pick those hours up
+    const spät = band('bd2', T(13), T(19), 'Spät')
+    expect(unshownShifts([drifted], 'p1', [früh, spät])).toEqual([])
   })
 })
 

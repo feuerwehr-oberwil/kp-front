@@ -492,6 +492,11 @@ export function AnwesenheitView({
           bands={bands!}
           canEdit={canEdit}
           startedAt={startedAt ?? null}
+          attendance={attendance}
+          onAddShift={onAddShift!}
+          onSetShiftTime={onSetShiftTime!}
+          onReplaceShift={onReplaceShift!}
+          onRemoveShift={onRemoveShift!}
           onCreateBand={onCreateBand!}
           onSaveBand={onSaveBand!}
           onRemoveBand={onRemoveBand!}

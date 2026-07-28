@@ -3,6 +3,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { BandGrid } from './BandGrid'
 import { appConfig } from '../config/appConfig'
+import { fillTemplate } from '../lib/format'
 import type { Person, Shift, ShiftBand } from '../types'
 
 afterEach(cleanup)
@@ -32,6 +33,8 @@ const PEOPLE = [person('p1', 'Steiner T.'), person('p2', 'Meier A.'), person('p3
 const mount = (over: Partial<Parameters<typeof BandGrid>[0]> = {}) => {
   const props = {
     people: PEOPLE, shifts: [] as Shift[], bands: [früh, spät], canEdit: true, startedAt: T(7),
+    attendance: {}, onAddShift: vi.fn(), onSetShiftTime: vi.fn(), onReplaceShift: vi.fn(),
+    onRemoveShift: vi.fn(),
     onCreateBand: vi.fn(), onSaveBand: vi.fn(), onRemoveBand: vi.fn(), onCycleCell: vi.fn(),
     ...over,
   }
@@ -39,11 +42,10 @@ const mount = (over: Partial<Parameters<typeof BandGrid>[0]> = {}) => {
   return props
 }
 
-/** the cells of one person's row, left to right */
-const cellsOf = (name: string) => {
-  const row = screen.getByText(name).closest('div')!.parentElement!
-  return within(row).getAllByRole('button')
-}
+/** one person's row — the name cell is a button now, so the nearest div IS the row */
+const rowOf = (name: string) => screen.getByText(name).closest('div')!
+/** the band cells of that row, left to right; [0] is the name cell, which opens the person sheet */
+const cellsOf = (name: string) => within(rowOf(name)).getAllByRole('button').slice(1)
 
 describe('the empty state', () => {
   it('carries the big button — the only state where creating a band is the sole sensible action', () => {
@@ -110,7 +112,7 @@ describe('the grid', () => {
     // 18–20 misses Früh 07–12 and Spät 12–17 entirely, so every cell is empty and only the mark
     // can say this person has told us something
     mount({ shifts: [{ id: 'sh1', personId: 'p2', from: T(18), to: T(20) }] })
-    const row = screen.getByText('Meier A.').closest('div')!
+    const row = rowOf('Meier A.')
     expect(within(row).getByText('18–20')).toBeTruthy()
   })
 
@@ -119,14 +121,14 @@ describe('the grid', () => {
       { id: 'sh1', personId: 'p2', from: T(18), to: T(20) },
       { id: 'sh2', personId: 'p2', from: T(21), to: T(23) },
     ] })
-    const row = screen.getByText('Meier A.').closest('div')!
+    const row = rowOf('Meier A.')
     expect(within(row).getByText('18–20 +1')).toBeTruthy()
   })
 
   it('drops the mark once a column already carries those hours', () => {
     // the badge plus two cells printed the same 09–14 three times across one row
     mount({ shifts: [{ id: 'sh1', personId: 'p2', from: T(9), to: T(14) }] })
-    const row = screen.getByText('Meier A.').closest('div')!
+    const row = rowOf('Meier A.')
     expect(within(row).queryByText('09–14')).toBeNull()
     expect(cellsOf('Meier A.')[0].textContent).toBe('09–12')
   })
@@ -135,6 +137,21 @@ describe('the grid', () => {
     const props = mount()
     fireEvent.click(cellsOf('Meier A.')[1])
     expect(props.onCycleCell).toHaveBeenCalledWith(spät, PEOPLE[1])
+  })
+
+  it('opens that person\'s own times from their name — no tab change to add «kann erst ab 14:00»', () => {
+    mount({ shifts: [{ id: 'sh1', personId: 'p2', from: T(9), to: T(14) }] })
+    fireEvent.click(within(rowOf('Meier A.')).getAllByRole('button')[0])
+    expect(screen.getByText(fillTemplate(appConfig.copy.zeitplan.editTitle, { name: 'Meier A.' }))).toBeTruthy()
+    // the same sheet the Zeitplan opens: the plan above, what actually happened below
+    expect(screen.getByText(appConfig.copy.zeitplan.actualSection)).toBeTruthy()
+  })
+
+  it('names hours no column is showing, drifted-out members included', () => {
+    // a member of Früh dragged to 20:30–21 belongs to no visible column any more
+    mount({ shifts: [{ id: 'sh1', personId: 'p2', from: T(20, 30), to: T(21), bandId: 'bd1', confirmed: true }] })
+    expect(cellsOf('Meier A.')[0].textContent).toBe('')
+    expect(within(rowOf('Meier A.')).getByText('20:30–21')).toBeTruthy()
   })
 
   it('freezes every control without edit rights, and the grid still reads', () => {

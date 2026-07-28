@@ -85,10 +85,13 @@ def test_a_partly_covering_shift_prints_its_hours_clamped_to_the_column():
     assert _cell(p.rows[0], p.bands[0]) == "11–14"
 
 
-def test_a_member_dragged_clear_of_its_band_still_prints_its_own_hours():
-    # no overlap left to clamp to, and printing nothing would hide the very drift worth seeing
+def test_a_member_dragged_clear_of_its_band_leaves_its_column_empty():
+    # reported 28.07.: «20:30–21» printed inside a 12–17 watch and counted as one assigned person
+    # covering none of it. Membership means «in this window»; once the window moved on, so did the
+    # cell — and the count with it.
     p = _payload([_row("Weg", [{"from": _h(6), "to": _h(9), "confirmed": True, "bandId": "bd1"}])])
-    assert _cell(p.rows[0], p.bands[0]) == "15–18"
+    assert _cell(p.rows[0], p.bands[0]) == ""
+    assert _deckung(p.rows, p.bands[0]) == "0"
 
 
 def test_deckung_counts_whole_people_and_only_the_assigned():
