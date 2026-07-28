@@ -61,7 +61,7 @@ function TextCommitInput({ value, display, commit, disabled, ariaLabel, placehol
   )
 }
 
-export function TimeField({ value, onCommit, disabled, ariaLabel, nowLabel, className, shortcut, clearLabel, days }: {
+export function TimeField({ value, onCommit, disabled, ariaLabel, nowLabel, className, shortcut, clearLabel, days, placeholder }: {
   /** current value as 'HH:MM' ('' = unset) */
   value: string
   /** 'HH:MM' from wheels/typing/«Jetzt»; null when cleared. `day` comes back only when the picker
@@ -80,6 +80,10 @@ export function TimeField({ value, onCommit, disabled, ariaLabel, nowLabel, clas
   /** the incident's own days — a bounded day wheel, shown only when the incident spans more than
    *  one. On a single-day incident nothing changes. */
   days?: Date[]
+  /** what an EMPTY field reads instead of «--:--» — «noch da» for a stretch that has not ended.
+   *  It stays a real field, so the end can be set from here; it was a plain <em> before, which
+   *  looked like a value and could not be tapped. */
+  placeholder?: string
 }) {
   const [open, setOpen] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
@@ -103,7 +107,7 @@ export function TimeField({ value, onCommit, disabled, ariaLabel, nowLabel, clas
           type="button" ref={btnRef} className={`timefield-trigger${value ? '' : ' empty'}`}
           disabled={disabled} aria-label={ariaLabel} onClick={() => setOpen(true)}
         >
-          {value || '--:--'}
+          {value || placeholder || '--:--'}
         </button>
       ) : (
         <TextCommitInput

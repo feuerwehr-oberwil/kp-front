@@ -2151,7 +2151,7 @@ export const de = {
     reload: 'Mannschaft neu laden',
     loading: 'Lädt …',
     refresh: 'Aktualisieren',
-    searchPlaceholder: 'Name suchen',
+    searchPlaceholder: 'Suchen',
     clearSearch: 'Suche löschen',
     legendFrei: 'nicht anwesend',
     legendPresent: 'anwesend',

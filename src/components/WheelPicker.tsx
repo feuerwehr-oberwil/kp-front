@@ -135,17 +135,22 @@ export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onC
     onCommit({ y: n.getFullYear(), mo: n.getMonth() + 1, d: n.getDate(), h: n.getHours(), mi: n.getMinutes() })
   }
 
-  // below the anchor when there's room, else above; clamped into the viewport laterally
-  const height = 300 // ≈ padding + 5×44px wheel + actions row (keep in sync with app.css)
+  // Below the anchor when there's room, else above — and then CLAMPED into the viewport either
+  // way. The old estimate was a flat 300px and only chose a side; once the shortcut row was added
+  // the popover grew past it, so «OK» ended up under the bottom edge of the screen with no way to
+  // reach it. Measured: 9px padding ×2 + 5×44px of wheel + 40px actions + its 8px gap, plus the
+  // shortcut row when there is one.
+  const height = 18 + 220 + 48 + (shortcut ? 48 : 0)
   const up = window.innerHeight - anchor.bottom < height + 16
   // a shortcut or a named clear needs its sentence on one line; the bare wheels do not
   const dayWheel = dayList.length > 1 ? 76 : 0
   const width = withDate ? 316 : (shortcut || clearLabel ? 236 : 196) + dayWheel
   const left = Math.max(8, Math.min(anchor.left, window.innerWidth - width - 8))
-  const style: React.CSSProperties = {
-    position: 'fixed', left, width,
-    ...(up ? { bottom: window.innerHeight - anchor.top + 6 } : { top: anchor.bottom + 6 }),
-  }
+  // Always positioned by `top`, so one clamp covers both directions: a popover that would hang off
+  // either edge slides back in rather than putting its actions out of reach.
+  const wanted = up ? anchor.top - 6 - height : anchor.bottom + 6
+  const top = Math.max(8, Math.min(wanted, window.innerHeight - height - 8))
+  const style: React.CSSProperties = { position: 'fixed', left, width, top }
 
   return createPortal(
     <div className="wheelpop" style={style} ref={ref} role="dialog" aria-modal="true">

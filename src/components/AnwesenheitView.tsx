@@ -7,13 +7,14 @@ import { fillTemplate, fmtSpanShort, hhmm } from '../lib/format'
 import { applyTimeToIso, isoOnDay } from '../lib/abschluss'
 import { rankAbbr, rankLabel, rankOrder } from '../lib/rank'
 import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
-import { fmtDayShort, incidentDays, isOtherDay } from '../lib/zeitplanFormat'
+import { fmtDayShort, fmtStartValue, incidentDays, isOtherDay } from '../lib/zeitplanFormat'
 import { loadPrefs, savePrefs } from '../lib/prefs'
 import { useIsPhone } from '../lib/useIsPhone'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import { Segmented } from './Segmented'
 import { Menu } from '../lib/overlays'
 import { TimeBlockSheet } from './TimeBlockSheet'
+import { TimeField } from './TimeField'
 import { timeBlockLabels } from '../lib/timeBlockLabels'
 import { EmptyState } from './EmptyState'
 import { ZeitplanView } from './ZeitplanView'
@@ -102,7 +103,7 @@ function PresenceSheet({ person, blocks, canEdit, startedAt, onSetTimes, onRemov
         onFromStart: canEdit && onSetTimes && startedAt && i === 0 && iv.from !== startedAt
           && (!iv.to || Date.parse(startedAt) < Date.parse(iv.to))
           ? () => onSetTimes(person.id, { from: startedAt }, i) : undefined,
-        fromStartValue: startedAt ? toHM(startedAt) : undefined,
+        fromStartValue: startedAt ? fmtStartValue(startedAt, incidentDays(startedAt, openedAt)) : undefined,
         // «noch da» — emptying the end says the person never left, which is the way back from a
         // mis-tapped «gegangen». LAST row only, and only while nothing follows it: reopening an
         // older, long-closed row would make it run to NOW, and an open row feeds isPresent, the
@@ -111,7 +112,9 @@ function PresenceSheet({ person, blocks, canEdit, startedAt, onSetTimes, onRemov
         onReopen: canEdit && onSetTimes && !!iv.to && i === blocks.length - 1
           ? () => onSetTimes(person.id, { to: undefined }, i) : undefined,
         onRemove: canEdit && onRemoveBlock ? () => onRemoveBlock(person.id, i) : undefined,
-        onTo: canEdit && onSetTimes && iv.to ? (v, day) => { const iso = day ? isoOnDay(day, v) : applyTimeToIso(iv.to!, v, { nextDayIfBefore: iv.from }); if (iso) onSetTimes(person.id, { to: iso }, i) } : undefined,
+        // also offered while the stretch is still OPEN — that is how it gets closed from here.
+        // With no end yet, the start is the base the clock is written onto.
+        onTo: canEdit && onSetTimes ? (v, day) => { const iso = day ? isoOnDay(day, v) : applyTimeToIso(iv.to ?? iv.from, v, { nextDayIfBefore: iv.from }); if (iso) onSetTimes(person.id, { to: iso }, i) } : undefined,
       }))}
     />
   )
@@ -190,8 +193,6 @@ export function AnwesenheitView({
     const t = setInterval(() => setNowMs(Date.now()), 30_000)
     return () => clearInterval(t)
   }, [view])
-  // person whose time chip is open as an inline <input type="time">
-  const [editing, setEditing] = useState<string | null>(null)
   const A = appConfig.copy.anwesenheit
 
   // Distinct ranks present in the roster, most senior first — drives the quick-filter chips.
@@ -430,44 +431,36 @@ export function AnwesenheitView({
                   <span className={s.name}>{p.displayName}</span>
                   {locked && <Icon id="gauge" />}
                 </button>
-                {timeIso && (editing === p.id && onSetTimes ? (
-                  <input
-                    type="time"
-                    className={s.timeInput}
-                    autoFocus
-                    value={toHM(timeIso)}
-                    aria-label={A.editTime}
-                    onChange={(e) => {
-                      const iso = e.target.value
-                        ? applyTimeToIso(timeIso, e.target.value, left ? { nextDayIfBefore: cur?.from } : undefined)
-                        : null
-                      if (iso) onSetTimes(p.id, left ? { to: iso } : { from: iso }, bi)
-                    }}
-                    onBlur={() => setEditing(null)}
-                    onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-                  />
-                ) : (
-                  <button
-                    type="button"
-                    className={cx(s.timeChip, left && s.timeChipLeft)}
-                    disabled={!canEdit || !onSetTimes}
-                    title={A.editTime}
-                    aria-label={`${A.editTime} – ${p.displayName}`}
-                    onClick={() => setEditing(p.id)}
-                  >
-                    {/* no «weg» prefix: the legend above already names the states, and the chip's
-                        own amber tint says which one this is — the word only cost width */}
-                    {toHM(timeIso)}
-                  </button>
-                ))}
+                {/* The chip IS the editor. It used to open a native <input type="time"> — the one
+                    surface still doing that, against the app's own rule (TimeField: native pickers
+                    render AM/PM on an English device), and it swapped a stretched chip for a
+                    centred 86px box, so the row reflowed under the finger at the moment of aiming.
+                    Now it is the house field: same wheels, guaranteed 24h, no reflow. */}
+                {timeIso && (
+                  <span className={cx(s.timeChip, left && s.timeChipLeft)}>
+                    <TimeField
+                      value={toHM(timeIso)}
+                      ariaLabel={`${A.editTime} – ${p.displayName}`}
+                      disabled={!canEdit || !onSetTimes}
+                      days={incidentDays(startedAt, nowMs)}
+                      onCommit={(v, day) => {
+                        if (!v || !onSetTimes) return
+                        const iso = day ? isoOnDay(day, v)
+                          : applyTimeToIso(timeIso, v, left ? { nextDayIfBefore: cur?.from } : undefined)
+                        if (iso) onSetTimes(p.id, left ? { to: iso } : { from: iso }, bi)
+                      }}
+                    />
+                  </span>
+                )}
                 {/* Rückkehr — the tap cycle's third step CLEARS the row (frei), and it must keep
                     doing that (it is the only way back from a mis-tick). So coming back gets its
                     own control: it opens a NEW block instead of reopening the closed one. */}
-                {canEdit && blocks.length > 0 && (
-                  /* One clock, always the same glyph: it opens the person's blocks, where the
-                     times, the return and the delete all live. Gated on `left` before, which
-                     locked out exactly the person the sheet was built for — somebody who came
-                     BACK is present, and their earlier blocks were then unreachable. */
+                {/* Only from the SECOND stretch on. With one stretch the chip beside it already
+                    edits the time directly, so the clock was a second glyph for a journey nobody
+                    needed to make — and it cost the name ~38px on a phone. From two stretches the
+                    row can only ever show the latest, and the sheet is the only place the earlier
+                    ones exist at all. */}
+                {canEdit && blocks.length > 1 && (
                   <button
                     type="button"
                     className={s.backBtn}

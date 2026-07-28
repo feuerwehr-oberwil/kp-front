@@ -1305,7 +1305,7 @@ export const en: Localizable<Copy> = {
     title: 'Incidents',
     empty: 'No incidents yet.',
     noLocation: 'no location',
-    searchPlaceholder: 'Search incidents …',
+    searchPlaceholder: 'Search',
     noMatches: 'No matches.',
     groupOpen: 'Open',
     groupToday: 'Today',

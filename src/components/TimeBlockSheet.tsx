@@ -161,14 +161,17 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
               <span className={s.sep} aria-hidden>–</span>
               <span className={s.field}>
                 <span className={s.label}>{labels.to}</span>
-                {b.to != null ? (
-                  <TimeField className={s.time} ariaLabel={`${labels.to} – ${subject}`} value={b.to}
-                    disabled={!b.onTo} onCommit={(v, day) => { if (v == null) b.onReopen?.(); else b.onTo?.(v, day) }}
-                    clearLabel={b.onReopen ? labels.reopen : undefined} days={days} />
-                ) : (
-                  <em className={s.open}>{b.openLabel}</em>
-                )}
-                {b.toDayLabel && <span className={s.day}>{b.toDayLabel}</span>}
+                {/* An open stretch keeps a real field, reading «noch da». It used to be an <em>:
+                    it looked like a value, and there was no way to close the stretch from here at
+                    all — the one place its times are edited. */}
+                <TimeField className={cx(s.time, b.to == null && s.timeOpen)}
+                  ariaLabel={`${labels.to} – ${subject}`} value={b.to ?? ''}
+                  placeholder={b.to == null ? b.openLabel : undefined}
+                  disabled={!b.onTo} onCommit={(v, day) => { if (v == null) b.onReopen?.(); else b.onTo?.(v, day) }}
+                  clearLabel={b.onReopen ? labels.reopen : undefined} days={days} />
+                {/* both ends carry a day or neither does — one dated field beside an undated one
+                    reads as though only that end were known */}
+                {(b.toDayLabel ?? b.dayLabel) && <span className={s.day}>{b.toDayLabel ?? b.dayLabel}</span>}
               </span>
             </span>
           </div>

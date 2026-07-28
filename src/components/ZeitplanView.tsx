@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, fmtSpanShort, hhmm } from '../lib/format'
-import { fmtDayShort, incidentDays, isOtherDay } from '../lib/zeitplanFormat'
+import { fmtDayShort, fmtStartValue, incidentDays, isOtherDay } from '../lib/zeitplanFormat'
 import { applyTimeToIso, isoOnDay } from '../lib/abschluss'
 import { cx } from '../lib/cx'
 import { rankAbbr, rankLabel } from '../lib/rank'
@@ -76,6 +76,10 @@ function PersonSheet({ person, shifts, blocks, canEdit, startedAt, conflicts, on
 }) {
   const Z = appConfig.copy.zeitplan
   const A = appConfig.copy.anwesenheit
+  // the days this plan touches — start to the last planned end; feeds both the day wheel and
+  // the «ab Beginn» value, so the two can never name different days
+  const planDays = incidentDays(startedAt, Math.max(
+    ...shifts.map((x) => Date.parse(x.to)).filter(Number.isFinite), Date.parse(startedAt ?? '') || 0))
   return (
     <TimeBlockSheet
       title={fillTemplate(Z.editTitle, { name: person.displayName })}
@@ -87,7 +91,7 @@ function PersonSheet({ person, shifts, blocks, canEdit, startedAt, conflicts, on
       onAdd={canEdit ? () => onAdd(person) : undefined}
       onClose={onClose}
       labels={timeBlockLabels(Z.remove)}
-      days={incidentDays(startedAt, Math.max(...shifts.map((x) => Date.parse(x.to)).filter(Number.isFinite), Date.parse(startedAt ?? '') || 0))}
+      days={planDays}
       blocks={shifts.map((sh) => ({
         key: sh.id,
         from: clock(sh.from),
@@ -106,7 +110,7 @@ function PersonSheet({ person, shifts, blocks, canEdit, startedAt, conflicts, on
         onFromStart: canEdit && startedAt && shifts[0]?.id === sh.id && sh.from !== startedAt
           && Date.parse(startedAt) < Date.parse(sh.to)
           ? () => onSetTime(sh.id, { from: startedAt }) : undefined,
-        fromStartValue: startedAt ? clock(startedAt) : undefined,
+        fromStartValue: startedAt ? fmtStartValue(startedAt, planDays) : undefined,
         // no «noch da» here on purpose: a shift always has an end. Only a person's presence can be
         // open, and that lives in the Anwesenheit.
         // the head IS the state: colour, word, and the whole width as the switch

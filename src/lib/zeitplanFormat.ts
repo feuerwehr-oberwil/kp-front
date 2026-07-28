@@ -34,3 +34,17 @@ export function incidentDays(startedAt: string | null | undefined, until: number
   }
   return out
 }
+
+/**
+ * What the «ab Einsatzbeginn» shortcut shows as its value.
+ *
+ * The clock alone — «ab Beginn 10:56» — is a promise you cannot check on day three of an
+ * Elementarereignis: 10:56 of WHICH morning. When the incident spans more than one day the weekday
+ * comes with it; on a single-day incident it would be noise, so it stays off.
+ */
+export function fmtStartValue(startedAt: string, days: Date[]): string {
+  const d = new Date(startedAt)
+  if (!Number.isFinite(d.getTime())) return ''
+  const t = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  return days.length > 1 ? `${fmtDayShort(d)} ${t}` : t
+}
