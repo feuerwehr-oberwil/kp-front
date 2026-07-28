@@ -303,6 +303,9 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
   // "Notizen" box inside a note would be a riddle. So the details block is suppressed outright
   // and the Notiz section below is all a note gets.
   const isNote = !!(onNoteWidth || onNoteSize || onNotePlain)
+  // a note is a wrapping box only once it carries a width — the same discriminator the
+  // surfaces use (lib/notes isNoteBox), so this field behaves like the note it edits
+  const noteIsBox = !!noteWidth && noteWidth > 0
   const showDetails = !isNote && (showFloor || showFloorRange || showCount || showRotate || showSpread || showAirflow || onNotes || rows.length > 0 || showUnHazard || !readOnly)
 
   /* on-canvas caption override for THIS symbol — small + de-emphasised down by the actions
@@ -398,11 +401,19 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
                 rows={3}
                 value={title}
                 placeholder={appConfig.copy.whiteboard.textPlaceholder}
-                onChange={(e) => changeTitle(e.target.value)}
+                // «Einzeilig» means one line, full stop: a break pasted or typed in here is
+                // flattened to a space rather than quietly stored and rendered differently on
+                // the surface than in this field. Room for paragraphs is what «Textfeld» is.
+                onChange={(e) => changeTitle(noteIsBox ? e.target.value : e.target.value.replace(/\s*\n\s*/g, ' '))}
                 onBlur={blurTitle}
-                // Enter makes a paragraph here — this field has room, and Esc / tapping away
-                // is the way out (unlike the one-line pill on the surface)
-                onKeyDown={(e) => { if (e.key === 'Escape') (e.target as HTMLTextAreaElement).blur() }}
+                // Enter makes a paragraph in a box (this field has room; Esc or tapping away is
+                // the way out). On a one-liner it is simply swallowed — NOT a blur: blurring
+                // here also closed the whole panel, so a key pressed to "finish the word" made
+                // the settings vanish. Esc is the deliberate way out on both.
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !noteIsBox) { e.preventDefault(); return }
+                  if (e.key === 'Escape') { e.preventDefault(); (e.target as HTMLTextAreaElement).blur() }
+                }}
               />
             </div>
             {onNoteWidth && (
@@ -414,12 +425,18 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
                   value={noteWidth ? 'box' : 'line'}
                   onChange={(v) => {
                     // → box seeds the surface's default width; → line clears it. Going back
-                    // reflows the text onto one line, so any typed breaks are lost: ask first,
-                    // and only when there is actually a break to lose.
+                    // really does DROP the breaks (they are flattened, not just hidden by CSS —
+                    // otherwise they would linger in the data and reappear in print), so ask
+                    // first, and only when there is actually a break to lose.
                     if (v === 'box') { onNoteWidth(noteWidthDefault ?? null); return }
+                    const flatten = () => {
+                      const flat = (entity.label ?? '').replace(/\s*\n\s*/g, ' ')
+                      if (flat !== (entity.label ?? '')) { setTitle(flat); onTitle(flat) }
+                      onNoteWidth(null)
+                    }
                     if (!(entity.label ?? '').includes('\n')) { onNoteWidth(null); return }
                     void confirmDialog({ title: N.toLine, message: N.toLineConfirm, confirmLabel: N.toLine, cancelLabel: appConfig.copy.cancel })
-                      .then((ok) => { if (ok) onNoteWidth(null) })
+                      .then((ok) => { if (ok) flatten() })
                   }}
                 />
               </div>

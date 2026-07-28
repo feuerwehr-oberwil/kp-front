@@ -163,7 +163,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const [notePanelId, setNotePanelId] = useState<string | null>(null)
   // style the NEXT note carries, chosen in the armed-tool dock before anything is placed
   const [noteDefaults, setNoteDefaults] = useState<{ box: boolean; size: NoteSize; plain: boolean; color: string }>(
-    { box: false, size: 'm', plain: false, color: '' },
+    // Textfeld by default: a note that wraps is the safe shape — a one-liner that outgrows its
+    // room is the case that looked broken. «Einzeilig» stays one tap away in the dock.
+    { box: true, size: 'm', plain: false, color: '' },
   )
   // a pending team placement awaiting a Trupp pick (x/y/floor of the tapped point)
   const [truppPick, setTruppPick] = useState<{ x: number; y: number; floor: number } | null>(null)
@@ -1322,6 +1324,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // the panel belongs to the SELECTED note: deselecting (empty canvas, Esc, picking something
   // else) closes it too, so a stray panel can never outlive the thing it describes
   useEffect(() => { if (notePanelId && selId !== notePanelId) setNotePanelId(null) }, [selId, notePanelId])
+  // reaching for a tool means you are done reading this note — the panel should not sit there
+  // while you place the next thing (selection alone doesn't change until that thing lands)
+  useEffect(() => { if (tool !== 'pan') setNotePanelId(null) }, [tool])
   // a selected stroke / Linie / Fläche — drives the shared DrawEditor (style + presets) panel
   const selDraw = annos.find((a) => a.id === selId && (a.kind === 'draw' || a.kind === 'area'))
   // Explicit detach for a plan line endpoint (the × chip on the canvas + the Verbindung lösen button

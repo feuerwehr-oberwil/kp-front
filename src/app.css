@@ -1160,11 +1160,11 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
    map and plan — only the font-size is fixed here (map pills don't scale with zoom) */
 /* `overflow-wrap` is not optional here: the pill is capped at 180px, so a long unbroken token
    (a hydrant code, a chemical name, a pasted id) ran straight out of the paper and sat on the
-   map as bare letters. `pre-wrap` keeps line breaks typed in the detail panel, so the note on
-   the map reads the same as the text in the field that wrote it. */
+   map as bare letters. White-space stays `normal` — «Einzeilig» is ONE line that simply runs
+   out of room at 180px, not a place to compose paragraphs; that is what «Textfeld» is for. */
 .note-pill { background: var(--note-bg); border: 1px solid var(--note-border); color: var(--note-ink); font-size: 12px; font-weight: 600;
   padding: 0.38em 0.7em; border-radius: 0.6em; box-shadow: 0 4px 10px rgba(30, 45, 70, .2); max-width: 180px;
-  white-space: pre-wrap; overflow-wrap: break-word; }
+  overflow-wrap: break-word; }
 /* empty note shows a muted placeholder so it stays visible + tappable (like the Plan note) */
 .note-pill-ph { opacity: .5; font-style: italic; }
 /* raw inline text entry on the map note — same yellow pill, just editable (mirrors the Plan) */

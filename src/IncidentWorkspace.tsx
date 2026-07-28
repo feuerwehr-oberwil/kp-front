@@ -626,7 +626,9 @@ export function IncidentWorkspace({
   const [notePanelId, setNotePanelId] = useState<string | null>(null)
   // style the NEXT note carries, chosen in the armed-tool dock before anything is placed
   const [noteDefaults, setNoteDefaults] = useState<{ box: boolean; size: NoteSize; plain: boolean; color: string }>(
-    { box: false, size: 'm', plain: false, color: '' },
+    // Textfeld by default: a note that wraps is the safe shape — a one-liner that outgrows its
+    // room is the case that looked broken. «Einzeilig» stays one tap away in the dock.
+    { box: true, size: 'm', plain: false, color: '' },
   )
   // width drag on a note text box (screen px) — the 'start'/'end' phases bracket the gesture so
   // the whole drag folds into one undo step, exactly like the shape transform handles.
@@ -1328,6 +1330,9 @@ export function IncidentWorkspace({
   // the panel belongs to the SELECTED note: deselecting (empty map, Esc, picking something
   // else) closes it too, so a stray panel can never outlive the thing it describes
   useEffect(() => { if (notePanelId && selectedId !== notePanelId) setNotePanelId(null) }, [selectedId, notePanelId])
+  // reaching for a tool means you are done reading this note — the panel should not sit there
+  // while you place the next thing (selection alone doesn't change until that thing lands)
+  useEffect(() => { if (tool !== 'select') setNotePanelId(null) }, [tool])
 
   // keep the tapped symbol visible: the ContextPanel overlay covers the right band of the
   // map — when the selection (incl. its halo/handles) lands under it, ease the camera just
