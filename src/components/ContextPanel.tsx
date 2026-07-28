@@ -227,6 +227,13 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
   const [notes, setNotes] = useState(entity.notes ?? '')
   const titleRef = useRef<HTMLInputElement>(null)
   useEffect(() => { if (autoFocusTitle) { titleRef.current?.focus(); titleRef.current?.select() } }, [autoFocusTitle])
+  // Follow the title when it changes OUTSIDE this input. A note is the case that needs it: its
+  // panel opens the moment it is placed and the operator then types on the canvas, so without
+  // this the panel keeps showing an empty title — and the next edit here would wipe what they
+  // wrote. Skipped while this input has focus, so it can never clobber live typing.
+  useEffect(() => {
+    if (document.activeElement !== titleRef.current) setTitle(entity.label ?? '')
+  }, [entity.label])
 
   // live-title editing: stream each keystroke to onTitleLive (silent surface update) and
   // finalise on blur via onTitle (one undo step + audit). Without onTitleLive we fall back
@@ -346,7 +353,7 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
             className="ctx-title-input"
             autoFocus={autoFocusTitle}
             value={title}
-            placeholder={C.titlePlaceholder}
+            placeholder={isNote ? appConfig.copy.whiteboard.textPlaceholder : C.titlePlaceholder}
             onChange={(e) => changeTitle(e.target.value)}
             onBlur={blurTitle}
             onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}

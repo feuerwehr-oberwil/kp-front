@@ -639,7 +639,10 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 /* note settings (Form / Grösse / Darstellung / Farbe) — the whole body of a note's panel, so
    the last row carries no hairline (nothing follows it) */
 .ctx-note .field:last-child { border-bottom: none; }
-.ctx-note-colors { display: flex; align-items: center; gap: 9px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
+/* seven swatches (default note ink + the six drawing colours) have to sit on ONE line next to
+   their label — at the full 30px they wrapped a single lonely circle onto a second row */
+.ctx-note-colors { display: flex; align-items: center; gap: 7px; margin-left: auto; justify-content: flex-end; }
+.ctx-note-colors .dh-color { width: 26px; height: 26px; }
 /* "default note ink" swatch — shows the actual sticky-note colours rather than a generic
    neutral, so it reads as "back to a normal note" instead of "no colour" */
 .dh-color.note-ink { background: var(--note-bg); box-shadow: inset 0 0 0 1px var(--note-border); }
@@ -1433,9 +1436,12 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 .wb-text-input { outline: none; min-width: 7em; }
 /* text BOX (a note with a width): wraps and grows downwards. The width is set inline in px
    (wN × plan width), so it scales with the plan exactly like the font-size does. `pre-wrap`
-   keeps typed line breaks; `break-word` stops a long unbroken token widening the box. */
-.wb-text-label.box, .wb-text-input.box { white-space: pre-wrap; overflow-wrap: break-word;
-  text-align: left; min-width: 0; }
+   keeps typed line breaks; `break-word` stops a long unbroken token widening the box.
+   `inline-block` is NOT cosmetic: .wb-text-label is a <span>, and CSS `width` is ignored on an
+   inline box — the note then rendered at its full text width with the paper only partly under
+   it, and dragging the width grip changed the stored wN with no visible effect at all. */
+.wb-text-label.box, .wb-text-input.box { display: inline-block; white-space: pre-wrap;
+  overflow-wrap: break-word; text-align: left; min-width: 0; }
 /* the editable box is a textarea — kill the browser chrome so it looks identical to the
    rendered note underneath it (no resizer, no scrollbar; the height is set from scrollHeight) */
 textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-size: inherit;
