@@ -263,11 +263,7 @@ export function IncidentWorkspace({
   } = useWorkspaceDoc(init)
 
   // --- time-travel replay (read-only past view) — state/reconstruction owned by useReplay ---
-  // Enter replay WITHOUT forcing a surface: one timeline drives both the Lagekarte and the
-  // Plan, so the user can toggle Lage/Plan during playback to inspect each surface at the
-  // scrubbed instant. Editing stays locked (replayActive feeds readOnly/tacticalLocked); here
-  // we just clear any in-progress tactical gesture so nothing is mid-edit on entry.
-  const enterReplay = useCallback(() => { setReplayActive(true); setPanel(null); setSelectedId(null); setSelectedDrawingId(null); setTool('select'); setPending(null); setPendingShape(null); setDraft([]) }, [])
+  // enterReplay lives further down, next to clearMapUi, whose reset list it shares.
 
   // map entities/drawings: the live doc + GPS, or the reconstructed past blob during replay.
   const entities = useMemo(
@@ -551,7 +547,11 @@ export function IncidentWorkspace({
     const cur = navList.findIndex((n) => n.mode === mode && (n.mode !== 'plans' || n.planId === activePlanId))
     const next = cur >= 0 ? navList[cur + dir] : undefined
     if (!next) return
-    if (next.mode === 'plans') { setMode('plans'); setActivePlanId(next.planId); setPanel(null) }
+    // swiping/stepping to the next section leaves the map exactly as the nav rail does — see
+    // clearMapUi. (Defined further down; this only ever runs from a swipe or a key, never at
+    // render time, same as enterReplay.)
+    if (next.mode !== mode) clearMapUi()
+    if (next.mode === 'plans') { setMode('plans'); setActivePlanId(next.planId) }
     else setMode(next.mode)
   }
   useSectionSwipe(sectionPagerRef, {
@@ -991,12 +991,43 @@ export function IncidentWorkspace({
     })
   }
   const setOpacity = (id: LayerId, v: number) => setLayers((ls) => ls.map((l) => (l.id === id ? { ...l, opacity: v } : l)))
+
+  /**
+   * The ONE place that drops the Lage map's transient UI. Six call sites — pick, togglePanel,
+   * toggleViews, NavRail's onMode, goToModule, enterReplay — each used to hand-write its own
+   * subset of this list, and the subsets had drifted apart. That drift was the bug: reaching for
+   * Linie / Fläche / Notiz / Team while a symbol was selected left its ContextPanel open, and the
+   * panel is drawn straight over the tool's own dock (the ✓/✕ and the colour/width controls), so
+   * the tool you had just picked was unusable until you guessed to press Esc. On a phone the panel
+   * is a 46dvh bottom sheet and buries the tool bar outright. The Plan surface never had this —
+   * Whiteboard gates all four of its editors on `tool === 'pan'`; this is the Lage catching up.
+   *
+   * `keep: 'selection'` is for the two chrome toggles (Ebenen, Kartenansichten). Those are drawn
+   * ABOVE the detail panel, not over a tool dock, so nothing becomes unreachable and throwing away
+   * what you had tapped just to look at a layer would be its own surprise.
+   */
+  const clearMapUi = (keep?: 'selection') => {
+    setTool('select'); setPending(null); setPendingShape(null); setDraft([]); setTeamPick(null)
+    // the palette IS the arming UI for the symbol tool, so it goes with the tool it arms —
+    // otherwise leaving the map with it open silently re-opened it on the way back
+    setPanel(null); setViewsOpen(false); setPaletteOpen(false)
+    if (keep === 'selection') return
+    setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([])
+    setNotePanelId(null); setEditNoteId(null)
+  }
+
+  // Enter replay WITHOUT forcing a surface: one timeline drives both the Lagekarte and the Plan,
+  // so the user can toggle Lage/Plan during playback to inspect each surface at the scrubbed
+  // instant. Editing stays locked (replayActive feeds readOnly/tacticalLocked); clearMapUi makes
+  // sure nothing is mid-edit on entry — including the lasso halos and the «Welcher Trupp?» picker,
+  // which its old hand-written list missed and which then sat over a read-only past.
+  const enterReplay = () => { clearMapUi(); setReplayActive(true) }
+
   // Ebenen shares the dock slot with the views popover and the tool docks — opening it
   // drops the active tool and closes the views menu (mirror of toggleViews below).
   const togglePanel = (name: 'layers') => {
     if (panel === name) { setPanel(null); return }
-    setTool('select'); setPending(null); setPendingShape(null); setDraft([])
-    setViewsOpen(false)
+    clearMapUi('selection')
     setPanel(name)
   }
 
@@ -1117,19 +1148,19 @@ export function IncidentWorkspace({
   })
   const startVoiceMemo = () => { voiceStartCtx.current = { onPlan: mode === 'plans', planId: activePlanId }; void voice.start() }
 
+  // Every path through here ends the "I am reading this object" state — reaching for a tool means
+  // you are done with the detail panel, exactly as it has always worked for a note (see the
+  // notePanelId effect). Symbol goes through it too: it opens the palette without setting `tool`,
+  // so dismissing the palette without picking used to reveal the stale panel again.
   const pick = (id: string) => {
-    if (id === 'symbol') { setPaletteOpen(true); return }
+    if (id === 'symbol') { clearMapUi(); setPaletteOpen(true); return }
     // Auswahl (select) is the default navigate state: one finger pans the map, a tap
     // selects, a drag on an object moves it. There is no separate pan mode any more —
     // panning is always available — so tapping Auswahl while active just clears any
     // current selection rather than toggling into a hidden mode.
-    if (id === 'select' && tool === 'select') {
-      setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([])
-      return
-    }
     // tapping the already-active tool again exits it → back to Auswahl (closes its option dock)
-    if (id === tool) { setTool('select'); setPending(null); setPendingShape(null); setDraft([]); return }
-    setTool(id); setPending(null); setPendingShape(null); setDraft([])
+    if (id === tool) { clearMapUi(); return }
+    clearMapUi(); setTool(id)
   }
 
   const pickShape = (kind: ShapeKind) => { setTool('shape'); setPending(null); setPendingShape(kind); setPaletteOpen(false) }
@@ -1145,6 +1176,9 @@ export function IncidentWorkspace({
       // unlocked: place once, then drop back to select with the new shape active so
       // its edit handles are immediately usable. locked: stay in place-mode (no
       // selection so the editor doesn't interrupt) to drop several in a row.
+      // Both branches drop a lasso group too — it used to survive every placement and keep
+      // painting halos over unrelated objects.
+      setSelectedDrawIds([]); setSelectedEntityIds([])
       if (placeLock) { setSelectedId(null); setSelectedDrawingId(null) }
       else { setPendingShape(null); setTool('select'); setSelectedId(id); setSelectedDrawingId(null) }
       log('area', fillTemplate(appConfig.copy.log.shapePlaced, { name }), 'symbol', undefined, id)
@@ -1156,6 +1190,7 @@ export function IncidentWorkspace({
       const entity: Entity = { id, kind: 'symbol', layer: appConfig.defaults.operationalLayerId, coord: c, ...seedSymbolProps(s, sym.symbols) }
       commit((d) => ({ ...d, entities: [...d.entities, entity] }))
       addRecent(s)
+      setSelectedDrawIds([]); setSelectedEntityIds([])
       if (placeLock) { setSelectedId(null); setSelectedDrawingId(null) }
       else { setPending(null); setTool('select'); setSelectedId(id); setSelectedDrawingId(null) }
       log('hex', fillTemplate(appConfig.copy.log.symbolPlaced, { name: entity.label || formatSymbolName(s) }), 'symbol', undefined, id)
@@ -1237,7 +1272,7 @@ export function IncidentWorkspace({
   // panel (only one of {views popover, Ebenen, tool dock} occupies the dock slot).
   // Activating a tool closes both back (the effect below), so no two are ever open together.
   const toggleViews = (open: boolean) => {
-    if (open) { setTool('select'); setPending(null); setPendingShape(null); setDraft([]); setPanel(null) }
+    if (open) clearMapUi('selection')
     setViewsOpen(open)
   }
 
@@ -1274,7 +1309,8 @@ export function IncidentWorkspace({
   const goToModule = (n: number) => {
     const doc = planDocs.find((p) => moduleNumbers(p).includes(n))
     if (!doc) return
-    setMode('plans'); setActivePlanId(doc.id); setPanel(null)
+    if (mode !== 'plans') clearMapUi()
+    setMode('plans'); setActivePlanId(doc.id)
   }
 
   // Reassigned every render (effect, no deps) so the mount-once listener (above) always sees
@@ -1288,7 +1324,7 @@ export function IncidentWorkspace({
     const onMap = mode === 'map', onPlan = mode === 'plans', drawing = onMap || onPlan
     switch (cmd.type) {
       case 'module': e.preventDefault(); goToModule(cmd.n); break
-      case 'surface': e.preventDefault(); if (cmd.surface === 'map') setPanel(null); setMode(cmd.surface); break
+      case 'surface': e.preventDefault(); if (cmd.surface !== mode) clearMapUi(); setMode(cmd.surface); break
       case 'nav': e.preventDefault(); goToNav(cmd.dir); break
       case 'fit':
         e.preventDefault()
@@ -1490,7 +1526,7 @@ export function IncidentWorkspace({
   const deleteEntity = async (id: string) => {
     const ent = entities.find((e) => e.id === id)
     // a trail-carrying team stays: clear the trail deliberately first (plan-board parity)
-    if (teamEntityLocked(ent)) { toast(appConfig.copy.whiteboard.deleteLocked, { icon: 'lock', tone: 'warn' }); return }
+    if (teamEntityLocked(ent)) { toast(appConfig.copy.whiteboard.deleteLocked, { icon: 'warn', tone: 'warn' }); return }
     const connected = drawings.filter((d) => [d.startAttachment, d.endAttachment].some((a) => a?.target.kind === 'object' && a.target.id === id))
     // Written notes and any indirectly detached lines ask once before the structural change.
     if ((ent?.kind === 'note' && (ent.label ?? '').trim()) || connected.length) {
@@ -1943,10 +1979,13 @@ export function IncidentWorkspace({
       {/* single left navigation rail — all surfaces; switches Karte / object Pläne / Checkliste */}
       <NavRail
         mode={mode}
-        onMode={(m) => { setMode(m); if (m !== 'map') setPanel(null) }}
+        // leaving the map ends whatever was in progress on it. Without this the whole tactical
+        // state was merely hidden and restored verbatim — you came back to an armed tool, a
+        // half-drawn line and a re-opening symbol palette from minutes ago.
+        onMode={(m) => { if (m !== mode) clearMapUi(); setMode(m) }}
         planDocs={planDocs}
         activePlanId={activePlanId}
-        onSelectPlan={(id) => { setMode('plans'); setActivePlanId(id); setPanel(null) }}
+        onSelectPlan={(id) => { if (mode !== 'plans') clearMapUi(); setMode('plans'); setActivePlanId(id) }}
         azSeverity={azAlarm.peak}
         mapControls={mapUI && isPhone ? (
           // PHONE ONLY: the bottom surface bar keeps the Ebenen launcher (the right tool
@@ -2029,7 +2068,11 @@ export function IncidentWorkspace({
         />
       )}
 
-      {mapUI && !tacticalLocked && !journalOpen && selected && selected.kind === 'shape' && (
+      {/* `tool === 'select'`, matching the Plan (Whiteboard gates all four of its editors on
+          `tool === 'pan'`): a detail editor belongs to Auswahl and nothing else. clearMapUi already
+          drops the selection on every tool pick, so this is the backstop for any path that sets a
+          tool without going through pick(). */}
+      {mapUI && !tacticalLocked && !journalOpen && tool === 'select' && selected && selected.kind === 'shape' && (
         <ShapeEditor
           key={selected.id}
           entity={selected}
@@ -2044,7 +2087,7 @@ export function IncidentWorkspace({
       {/* rendered even when tactical editing is locked (viewer / EL view — NOT phones, where
           the .ctx overlay is CSS-hidden): tapping a symbol always shows its details; the
           forced readOnly strips every edit affordance inside the panel. */}
-      {mapUI && !journalOpen && selected && selected.kind !== 'shape' && selected.kind !== 'note' && selected.kind !== 'team' && tool !== 'symbol' && (
+      {mapUI && !journalOpen && tool === 'select' && selected && selected.kind !== 'shape' && selected.kind !== 'note' && selected.kind !== 'team' && (
         <ContextPanel
           key={selected.id}
           entity={selected}
@@ -2111,7 +2154,7 @@ export function IncidentWorkspace({
         />
       )}
 
-      {mapUI && !tacticalLocked && !journalOpen && selectedDrawing && (
+      {mapUI && !tacticalLocked && !journalOpen && tool === 'select' && selectedDrawing && (
         <DrawEditor
           drawing={selectedDrawing}
           pointCount={selectedDrawing.coords.length}
