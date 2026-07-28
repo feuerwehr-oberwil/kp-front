@@ -114,7 +114,10 @@
      full line, the actions take the next one — and drop the PDF label to its icon. */
   .head { flex-wrap: wrap; }
   .headTitles { flex: 1 0 100%; }
-  .headActions { flex: 1 0 100%; justify-content: flex-start; }
+  /* right-aligned, like every other width: the print button only exists in the Zeitplan, so
+     left-aligning made the whole row shift sideways on every view change. Anchored right, the
+     reload keeps its place and the new button grows inward instead of shoving its neighbours. */
+  .headActions { flex: 1 0 100%; justify-content: flex-end; }
   /* the Zeitraum control shares the search line rather than owning a row of its own */
   .controls { gap: 8px; padding: 10px 14px; }
   /* the search yields so the Zeitraum can share its line — on its own row it cost ~56px of the
