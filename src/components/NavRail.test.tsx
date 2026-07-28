@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { NavRail } from './NavRail'
 import type { PlanDocument } from '../types'
@@ -12,13 +12,26 @@ const docs: PlanDocument[] = [
   { id: 'tafel', code: 'Tafel', title: 'Leeres Blatt', subtitle: '', imageUrl: '', orientation: 'landscape', icon: 'pen' },
 ]
 
-function setup(over: Partial<React.ComponentProps<typeof NavRail>> = {}) {
-  const props = {
+function props(over: Partial<React.ComponentProps<typeof NavRail>> = {}) {
+  return {
     mode: 'map' as const, onMode: vi.fn(), planDocs: docs, activePlanId: 'modul1',
     onSelectPlan: vi.fn(), ...over,
   }
-  render(<NavRail {...props} />)
-  return props
+}
+
+function setup(over: Partial<React.ComponentProps<typeof NavRail>> = {}) {
+  const p = props(over)
+  render(<NavRail {...p} />)
+  return p
+}
+
+/** setup() that can re-render with new props — for the async arrival of the plan tiles. */
+function renderRail(over: Partial<React.ComponentProps<typeof NavRail>> = {}) {
+  const view = render(<NavRail {...props(over)} />)
+  return {
+    rerender: (next: Partial<React.ComponentProps<typeof NavRail>>) =>
+      view.rerender(<NavRail {...props(next)} />),
+  }
 }
 
 describe('NavRail', () => {
@@ -75,5 +88,31 @@ describe('monogram chip sizing', () => {
     setup()
     const modul1 = screen.getByRole('button', { name: 'Modul 1' })
     expect(modul1.querySelector('.nav-glyph.mono')?.getAttribute('data-mono-len')).toBe('1')
+  })
+})
+
+// A reload restores the surface from prefs, but the plan tiles are fetched afterwards — so on the
+// first pass the active item is often not in the DOM yet, and once it arrives it lands in the
+// middle of the list. The reveal effect therefore has to run again when planDocs change, or the
+// bar stays parked at its start with the active item off screen.
+describe('revealing the active surface', () => {
+  const scrollIntoView = vi.fn()
+
+  beforeEach(() => {
+    scrollIntoView.mockClear()
+    // jsdom has no scrollIntoView at all
+    Element.prototype.scrollIntoView = scrollIntoView
+  })
+
+  it('reveals the active item on mount, without animating it', () => {
+    setup({ mode: 'mittel' })
+    expect(scrollIntoView).toHaveBeenCalledWith(expect.objectContaining({ behavior: 'auto' }))
+  })
+
+  it('looks again when the plan tiles arrive after boot', () => {
+    const { rerender } = renderRail({ mode: 'plans', activePlanId: 'modul1', planDocs: [] })
+    scrollIntoView.mockClear()
+    rerender({ mode: 'plans', activePlanId: 'modul1', planDocs: docs })
+    expect(scrollIntoView).toHaveBeenCalled()
   })
 })

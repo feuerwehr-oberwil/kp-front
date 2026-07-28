@@ -24,7 +24,9 @@ export function UpdateBanner() {
   const C = appConfig.copy.update
   if (!available || dismissed) return null
   return (
-    <div className="update-banner" role="status">
+    // ub-compact: the least urgent banner there is, and the only one with a single short action —
+    // so on a phone it shrinks and keeps its OK beside the text instead of growing a second row.
+    <div className="update-banner ub-compact" role="status">
       <Icon id="info" />
       <div className="ub-text">
         <span className="ub-title">{C.available}</span>

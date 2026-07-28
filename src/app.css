@@ -2107,6 +2107,18 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
      (Update/Install/TabLock/Archived) — the alarm .dv-banner gets the same below. */
   .update-banner { flex-wrap: wrap; justify-content: flex-end; }
   .update-banner .ub-text { flex: 1 1 auto; }
+  /* …except the announce-only update banner, which opts out via .ub-compact. It is the least
+     urgent thing on screen and the only one of these with a single short action, so on a phone
+     it stays ONE row: tighter box, and OK beside the text instead of below it.
+     The zero flex-basis is what stops the wrap — a flex line breaks on base sizes, so a
+     content-wide text column pushes the button onto its own row before it ever shrinks. It can
+     still shrink and wrap its own text, so nothing spills out of the fixed banner (which is what
+     the rule above exists to prevent). The 44px tap target is untouched. */
+  .update-banner.ub-compact { width: min(300px, calc(100vw - 96px)); gap: 8px; padding: 7px 9px; flex-wrap: nowrap; }
+  .update-banner.ub-compact .ub-text { flex: 1 1 0; }
+  .update-banner.ub-compact .ub-title { font-size: 12px; }
+  .update-banner.ub-compact .ub-hint { font-size: 11px; line-height: 1.35; }
+  .update-banner.ub-compact .ub-btn { padding: 7px 10px; font-size: 12.5px; }
 }
 /* install guide (InstallGuide) — platform-detected steps in the standard ip-sheet */
 .ig-why { margin: 0 0 16px; font-size: 14px; line-height: 1.45; color: var(--ink-dim); }

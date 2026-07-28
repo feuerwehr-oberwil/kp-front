@@ -72,9 +72,33 @@ export function NavRail(p: Props) {
   // and after a switch via deep link — or a thumb-scroll that drifted — the highlighted item
   // could sit outside the visible strip, leaving no "you are here". `nearest` never moves an
   // already-visible item. (Optional call: jsdom has no scrollIntoView.)
+  //
+  // On a RELOAD this used to leave the bar parked at its start with the restored surface off
+  // screen. Two reasons, both fixed here:
+  //  - the plan tiles are fetched after boot, so on the first pass the restored surface often
+  //    isn't in the DOM yet — and once it arrives it lands in the MIDDLE of the list, shifting
+  //    everything after it. `mode`/`activePlanId` don't change when that happens, so without
+  //    planDocs in the deps the effect looked once, found nothing, and never looked again.
+  //  - first-frame measurements aren't final (fonts, safe-area insets, the bar's own wrap), so
+  //    the one synchronous attempt could compute against a stale width.
+  const revealedRef = useRef(false)
   useEffect(() => {
-    scrollRef.current?.querySelector('.nav-item.on')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest', behavior: 'smooth' })
-  }, [p.mode, p.activePlanId])
+    const box = scrollRef.current
+    if (!box) return
+    const reveal = () => {
+      const el = box.querySelector('.nav-item.on')
+      if (!el) return
+      // The first reveal after a reload is a jump, not a journey: there is nothing for the eye to
+      // follow yet, and a smooth scroll begun during mount gets cut short by the next layout.
+      const behavior: ScrollBehavior = revealedRef.current ? 'smooth' : 'auto'
+      el.scrollIntoView?.({ block: 'nearest', inline: 'nearest', behavior })
+      revealedRef.current = true
+    }
+    reveal()
+    if (typeof requestAnimationFrame !== 'function') return
+    const raf = requestAnimationFrame(reveal) // once more after layout settles
+    return () => cancelAnimationFrame(raf)
+  }, [p.mode, p.activePlanId, p.planDocs.length])
 
   // write the live width so the map-control overlays can follow the rail via calc()
   const setRailVar = (px: number) => document.documentElement.style.setProperty('--rail-w', `${px}px`)
