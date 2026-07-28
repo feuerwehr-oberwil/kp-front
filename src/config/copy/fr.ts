@@ -730,6 +730,7 @@ export const fr: Localizable<Copy> = {
   },
   notes: {
     section: 'Note',
+    content: 'Texte',
     form: 'Forme',
     formLine: 'Une ligne',
     formBox: 'Zone de texte',

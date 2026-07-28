@@ -109,10 +109,11 @@ import { MittelView } from './components/MittelView'
 import { usePersonnel } from './lib/usePersonnel'
 import { assignedPersonIds } from './lib/personnel'
 import type { Item } from './lib/checklists'
+import type { NoteSize } from './types'
 import { ReportPreflight } from './components/ReportPreflight'
 import { annotatedPlans } from './lib/report'
 import { mittelLineCount } from './lib/mittel'
-import { NOTE_W_PX, isNoteBox } from './lib/notes'
+import { NOTE_W_PX } from './lib/notes'
 
 const prefs = loadPrefs()
 // The manually-picked Einsatzobjekt moved from this device cookie into the synced workspace blob
@@ -623,6 +624,10 @@ export function IncidentWorkspace({
   // a note stays quiet — it is placed mid-sentence and a panel sliding in on every tap would be
   // in the way. Only the ⚙ handle sets this.
   const [notePanelId, setNotePanelId] = useState<string | null>(null)
+  // style the NEXT note carries, chosen in the armed-tool dock before anything is placed
+  const [noteDefaults, setNoteDefaults] = useState<{ box: boolean; size: NoteSize; plain: boolean; color: string }>(
+    { box: false, size: 'm', plain: false, color: '' },
+  )
   // width drag on a note text box (screen px) — the 'start'/'end' phases bracket the gesture so
   // the whole drag folds into one undo step, exactly like the shape transform handles.
   const noteWidthDrag = (id: string, w: number | undefined, phase: 'start' | 'move' | 'end') => {
@@ -758,6 +763,11 @@ export function IncidentWorkspace({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
+      // typing in a field? Escape leaves the FIELD and nothing more — one key press must never
+      // both finish the text and drop the selection. Read the event TARGET, not activeElement:
+      // the field's own handler has already blurred by the time this bubbles up.
+      const el = e.target as HTMLElement | null
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
       if (pending || pendingShape) { setPending(null); setPendingShape(null); setTool('select') }
       else if (panel || viewsOpen) { setPanel(null); setViewsOpen(false) }
       // the note panel closes BEFORE the selection does — Escape backs out one layer at a time
@@ -1151,14 +1161,10 @@ export function IncidentWorkspace({
       offerMittelCapture(s)
     } else if (tool === 'note') {
       const id = `n${Date.now()}`
-      commit((d) => ({ ...d, entities: [...d.entities, { id, kind: 'note', layer: appConfig.defaults.drawingLayerId, coord: c, label: '', subtitle: appConfig.copy.entities.noteSubtitle }] }))
-      // a freshly placed note opens its detail panel straight away, exactly like a placed symbol
-      // does. The settings can NOT live in the right-edge dock: tapping a dock button blurs the
-      // textarea, which commits and clears editNoteId — the dock then vanished under the finger
-      // that was reaching for it. A panel is not tied to the edit session, so it survives the
-      // blur and the note stays styleable while you write.
-      setSelectedId(id); setSelectedDrawingId(null); setEditNoteId(id); setNotePanelId(id); setTool('select'); log('type', appConfig.copy.log.notePlaced, 'note', undefined, id)
-      emit('entity.add', { id, kind: 'note', entity: { id, kind: 'note', layer: appConfig.defaults.drawingLayerId, coord: c, label: '', subtitle: appConfig.copy.entities.noteSubtitle } })
+      commit((d) => ({ ...d, entities: [...d.entities, { id, kind: 'note', layer: appConfig.defaults.drawingLayerId, coord: c, label: '', subtitle: appConfig.copy.entities.noteSubtitle, noteW: noteDefaults.box ? NOTE_W_PX.def : undefined, noteSize: noteDefaults.size === 'm' ? undefined : noteDefaults.size, notePlain: noteDefaults.plain || undefined, color: noteDefaults.color || undefined }] }))
+      // straight into typing on the surface; the detail panel waits for the ⚙
+      setSelectedId(id); setSelectedDrawingId(null); setEditNoteId(id); setTool('select'); log('type', appConfig.copy.log.notePlaced, 'note', undefined, id)
+      emit('entity.add', { id, kind: 'note', entity: { id, kind: 'note', layer: appConfig.defaults.drawingLayerId, coord: c, label: '', subtitle: appConfig.copy.entities.noteSubtitle, noteW: noteDefaults.box ? NOTE_W_PX.def : undefined, noteSize: noteDefaults.size === 'm' ? undefined : noteDefaults.size, notePlain: noteDefaults.plain || undefined, color: noteDefaults.color || undefined } })
     } else if (tool === 'team') {
       setTeamPick(c) // which Trupp? — picker over the tapped spot (mirrors the plan's Team tool)
     } else if (tool === 'area') {
@@ -1319,6 +1325,9 @@ export function IncidentWorkspace({
   const selected = entities.find((e) => e.id === selectedId) ?? null
   // the note whose ⚙ was tapped — a deleted note simply drops out here and the panel unmounts
   const noteEntity = entities.find((e) => e.id === notePanelId && e.kind === 'note') ?? null
+  // the panel belongs to the SELECTED note: deselecting (empty map, Esc, picking something
+  // else) closes it too, so a stray panel can never outlive the thing it describes
+  useEffect(() => { if (notePanelId && selectedId !== notePanelId) setNotePanelId(null) }, [selectedId, notePanelId])
 
   // keep the tapped symbol visible: the ContextPanel overlay covers the right band of the
   // map — when the selection (incl. its halo/handles) lands under it, ease the camera just
@@ -1343,7 +1352,7 @@ export function IncidentWorkspace({
     })
     return () => cancelAnimationFrame(raf)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId, mode])
+  }, [selectedId, mode, notePanelId])
   // same courtesy for a tapped or just-finished drawing: the DrawEditor is the same .ctx
   // overlay, but a line/area/circle occupies an extent — so its whole projected bbox
   // (circle = centre ± radius) is brought clear, capped by panelNudgeBox so an extent
@@ -2205,9 +2214,19 @@ export function IncidentWorkspace({
           [{ type: 'info', text: appConfig.copy.dockHints.area }],
         ]} />
       )}
+      {/* Notiz armed — the quick actions for the note about to be placed. Safe here (nothing has
+          focus yet); after placement they live in the note's detail panel instead. */}
       {mapUI && tool === 'note' && (
         <ToolDock groups={[
           [{ type: 'close', onClick: () => setTool('select') }],
+          [{ type: 'toggle', text: appConfig.copy.notes.formBox, label: noteDefaults.box ? appConfig.copy.notes.toLine : appConfig.copy.notes.toBox, on: noteDefaults.box, onClick: () => setNoteDefaults((d) => ({ ...d, box: !d.box })) }],
+          [
+            { type: 'toggle', text: 'S', label: appConfig.copy.notes.sizeS, on: noteDefaults.size === 's', onClick: () => setNoteDefaults((d) => ({ ...d, size: 's' })) },
+            { type: 'toggle', text: 'M', label: appConfig.copy.notes.sizeM, on: noteDefaults.size === 'm', onClick: () => setNoteDefaults((d) => ({ ...d, size: 'm' })) },
+            { type: 'toggle', text: 'L', label: appConfig.copy.notes.sizeL, on: noteDefaults.size === 'l', onClick: () => setNoteDefaults((d) => ({ ...d, size: 'l' })) },
+          ],
+          [{ type: 'toggle', text: appConfig.copy.notes.lookPlain, label: appConfig.copy.notes.look, on: noteDefaults.plain, onClick: () => setNoteDefaults((d) => ({ ...d, plain: !d.plain })) }],
+          [{ type: 'colors', value: noteDefaults.color, onChange: (c) => setNoteDefaults((d) => ({ ...d, color: c })) }],
           [{ type: 'info', text: appConfig.copy.dockHints.note }],
         ]} />
       )}

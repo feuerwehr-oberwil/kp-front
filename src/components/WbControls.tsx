@@ -1,4 +1,4 @@
-import type { BoardAnno, BoardPoint, BoardTool } from '../types'
+import type { BoardAnno, BoardPoint, BoardTool, NoteSize } from '../types'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { LINE_DASH_SVG } from '../lib/draw'
@@ -6,6 +6,7 @@ import { ToolDock } from './ToolDock'
 import { useLongPress } from '../lib/useLongPress'
 
 const COLORS = appConfig.drawing.colors
+const NOTES = appConfig.copy.notes
 const TEAM_COLORS = appConfig.drawing.teamColors // distinct accent per team (cycled)
 
 interface InkProps {
@@ -168,6 +169,12 @@ interface DocksProps {
   measCount: number
   onMeasClear: () => void
   onMeasClose: () => void
+  /** Defaults for the NEXT note, set while the Notiz tool is armed. They live here — before a
+   *  note exists — rather than during editing on purpose: a dock button tapped mid-edit blurs
+   *  the note's textarea, which commits and unmounts the dock under the finger reaching for it.
+   *  Once a note is placed, the same settings live in its detail panel. */
+  noteDefaults: { box: boolean; size: NoteSize; plain: boolean; color: string }
+  setNoteDefaults: (patch: Partial<{ box: boolean; size: NoteSize; plain: boolean; color: string }>) => void
 }
 
 /**
@@ -177,7 +184,7 @@ interface DocksProps {
  * Freihand↔Punkte input toggle, and the line style (Freihand/Messpfeil/Rettungsachse) is chosen in
  * the post-draw editor, not here.
  */
-export function WbToolDocks({ tool, lineMode, color, width, dashed, draftActive, selResource, setTool, setLineMode, setColor, setWidth, setDashed, onFinish, onCancelDraft, recolorTeam, trailsShown, onToggleTrails, measMode, setMeasMode, measCount, onMeasClear, onMeasClose }: DocksProps) {
+export function WbToolDocks({ tool, lineMode, color, width, dashed, draftActive, selResource, setTool, setLineMode, setColor, setWidth, setDashed, onFinish, onCancelDraft, recolorTeam, trailsShown, onToggleTrails, measMode, setMeasMode, measCount, onMeasClear, onMeasClose, noteDefaults, setNoteDefaults }: DocksProps) {
   const closeDraft = () => { onCancelDraft(); setTool('pan') }
   return (
     <>
@@ -222,11 +229,28 @@ export function WbToolDocks({ tool, lineMode, color, width, dashed, draftActive,
         ]} />
       )}
 
-      {/* text / team armed-tool — clean (×) cancel + info */}
-      {(tool === 'text' || tool === 'resource') && (
+      {/* Notiz armed — the quick actions for the note about to be placed. Safe here (nothing has
+          focus yet); after placement they live in the note's detail panel instead. */}
+      {tool === 'text' && (
         <ToolDock groups={[
           [{ type: 'close', onClick: () => setTool('pan') }],
-          [{ type: 'info', text: tool === 'text' ? appConfig.copy.whiteboard.dockHints.text : appConfig.copy.whiteboard.dockHints.resource }],
+          [{ type: 'toggle', text: NOTES.formBox, label: noteDefaults.box ? NOTES.toLine : NOTES.toBox, on: noteDefaults.box, onClick: () => setNoteDefaults({ box: !noteDefaults.box }) }],
+          [
+            { type: 'toggle', text: 'S', label: NOTES.sizeS, on: noteDefaults.size === 's', onClick: () => setNoteDefaults({ size: 's' }) },
+            { type: 'toggle', text: 'M', label: NOTES.sizeM, on: noteDefaults.size === 'm', onClick: () => setNoteDefaults({ size: 'm' }) },
+            { type: 'toggle', text: 'L', label: NOTES.sizeL, on: noteDefaults.size === 'l', onClick: () => setNoteDefaults({ size: 'l' }) },
+          ],
+          [{ type: 'toggle', text: NOTES.lookPlain, label: NOTES.look, on: noteDefaults.plain, onClick: () => setNoteDefaults({ plain: !noteDefaults.plain }) }],
+          [{ type: 'colors', value: noteDefaults.color, onChange: (c) => setNoteDefaults({ color: c }) }],
+          [{ type: 'info', text: appConfig.copy.whiteboard.dockHints.text }],
+        ]} />
+      )}
+
+      {/* team armed-tool — clean (×) cancel + info */}
+      {tool === 'resource' && (
+        <ToolDock groups={[
+          [{ type: 'close', onClick: () => setTool('pan') }],
+          [{ type: 'info', text: appConfig.copy.whiteboard.dockHints.resource }],
         ]} />
       )}
 

@@ -643,6 +643,13 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 /* note settings (Form / Grösse / Darstellung / Farbe) — the whole body of a note's panel, so
    the last row carries no hairline (nothing follows it) */
 .ctx-note .field:last-child { border-bottom: none; }
+/* the note's content field — full width, its own label above (not a right-aligned .field row):
+   a sentence needs the whole panel, not the value column */
+.ctx-note-text { padding: 12px 0 10px; border-bottom: 1px solid var(--border-soft); }
+.ctx-note-input { display: block; width: 100%; resize: vertical; min-height: 76px;
+  font: 500 14px/1.45 var(--body); color: var(--ink); background: var(--fill-soft);
+  border: 1px solid var(--border-soft); border-radius: var(--r-ctl); padding: 10px 12px; }
+.ctx-note-input:focus { outline: none; border-color: var(--blue); background: var(--surface); }
 /* seven swatches (default note ink + the six drawing colours) have to sit on ONE line next to
    their label — at the full 30px they wrapped a single lonely circle onto a second row */
 .ctx-note-colors { display: flex; align-items: center; gap: 7px; margin-left: auto; justify-content: flex-end; }

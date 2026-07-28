@@ -745,6 +745,7 @@ export const en: Localizable<Copy> = {
     deleteTitle: 'Remove note?',
     deleteMsg: 'This note contains text. Really remove it?',
     section: 'Note',
+    content: 'Text',
     form: 'Form',
     formLine: 'Single line',
     formBox: 'Text box',

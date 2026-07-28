@@ -76,6 +76,14 @@ function autoGrow(el: HTMLTextAreaElement | null) {
   const h = el.scrollHeight
   if (h > 0) el.style.height = `${h}px`
   else el.style.removeProperty('height')
+  // A one-liner has no set width, and a textarea does NOT grow sideways on its own — it would
+  // sit at its default column count while the text scrolled inside it, so the editable note no
+  // longer matched the note it replaces. A BOX gets its width from React (noteW), so leave it be.
+  if (!el.classList.contains('box')) {
+    el.style.width = 'auto'
+    const w = el.scrollWidth
+    if (w > 0) el.style.width = `${w}px`
+  }
 }
 
 interface Props {

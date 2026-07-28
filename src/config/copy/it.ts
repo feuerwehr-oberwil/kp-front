@@ -729,6 +729,7 @@ export const it: Localizable<Copy> = {
   },
   notes: {
     section: 'Nota',
+    content: 'Testo',
     form: 'Forma',
     formLine: 'Una riga',
     formBox: 'Casella di testo',

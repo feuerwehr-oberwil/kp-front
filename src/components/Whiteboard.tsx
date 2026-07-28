@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { BoardAnno, BoardPoint, BoardTool, BuildingDoc, CaptionMode, LineAttachment, LineEndpoint, PlanDocument, ShapeKind, Trupp } from '../types'
+import type { BoardAnno, BoardPoint, BoardTool, BuildingDoc, CaptionMode, LineAttachment, LineEndpoint, NoteSize, PlanDocument, ShapeKind, Trupp } from '../types'
 import type { SymbolsApi } from '../lib/useSymbols'
 import { Icon } from '../lib/icons'
 import { Palette } from './Palette'
@@ -54,6 +54,14 @@ function autoGrow(el: HTMLInputElement | HTMLTextAreaElement | null) {
   const h = el.scrollHeight
   if (h > 0) el.style.height = `${h}px`
   else el.style.removeProperty('height')
+  // A one-liner has no set width, and a textarea does NOT grow sideways on its own — it would
+  // sit at its default column count while the text scrolled inside it, so the editable note no
+  // longer matched the note it replaces. A BOX gets its width from React (wN), so leave it be.
+  if (!el.classList.contains('box')) {
+    el.style.width = 'auto'
+    const w = el.scrollWidth
+    if (w > 0) el.style.width = `${w}px`
+  }
 }
 const TEAM_COLORS = appConfig.drawing.teamColors // distinct accent per team (cycled)
 // parity with the Lage map: directional symbols that support drag-to-rotate (set
@@ -153,6 +161,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // which note has its detail panel open. NOT derived from selId: selecting a note stays quiet
   // (see selNote below) — only the ⚙ handle sets this.
   const [notePanelId, setNotePanelId] = useState<string | null>(null)
+  // style the NEXT note carries, chosen in the armed-tool dock before anything is placed
+  const [noteDefaults, setNoteDefaults] = useState<{ box: boolean; size: NoteSize; plain: boolean; color: string }>(
+    { box: false, size: 'm', plain: false, color: '' },
+  )
   // a pending team placement awaiting a Trupp pick (x/y/floor of the tapped point)
   const [truppPick, setTruppPick] = useState<{ x: number; y: number; floor: number } | null>(null)
   const [color, setColor] = useState<string>(appConfig.drawing.defaultColor)
@@ -295,6 +307,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
+      // typing in a field? Escape leaves the FIELD and nothing more, so one key press never
+      // both finishes the text and drops the selection (which would take the handles with it).
+      // Read the event TARGET, not activeElement: the field's own handler has already blurred
+      // by the time this bubbles up, so activeElement is <body> and the guard would miss.
+      const el = e.target as HTMLElement | null
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
       if (draft) { setDraft(null); lastTap.current = null }
       // the note panel closes BEFORE the selection does — Escape backs out one layer at a time
       else if (notePanelId) setNotePanelId(null)
@@ -619,13 +637,17 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     }
     if (tool === 'text') {
       const id = `t${Date.now()}`
-      add({ id, kind: 'text', x, y, floor, text: '' })
-      // a freshly placed note opens its detail panel straight away, exactly like a placed
-      // symbol does. The settings can NOT live in the right-edge dock: tapping a dock button
-      // blurs the textarea, which commits and clears editId — the dock then vanished under
-      // the finger that was reaching for it. A panel is not tied to the edit session, so it
-      // survives the blur and the note stays styleable while you write.
-      setSelId(id); setEditId(id); setNotePanelId(id); setTool('pan'); log('type', appConfig.copy.whiteboard.placeText)
+      // carries whatever was chosen in the armed dock; the 'm'/off/no-colour defaults stay
+      // ABSENT rather than written out, so an untouched note is byte-identical to a legacy one
+      add({
+        id, kind: 'text', x, y, floor, text: '',
+        wN: noteDefaults.box ? NOTE_WN.def : undefined,
+        noteSize: noteDefaults.size === 'm' ? undefined : noteDefaults.size,
+        notePlain: noteDefaults.plain || undefined,
+        color: noteDefaults.color || undefined,
+      })
+      // straight into typing on the surface; the detail panel waits for the ⚙
+      setSelId(id); setEditId(id); setTool('pan'); log('type', appConfig.copy.whiteboard.placeText)
       return
     }
     if (tool === 'symbol') {
@@ -1247,6 +1269,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         minX: Math.min(...pts.map((p) => p.x)), maxX: Math.max(...pts.map((p) => p.x)),
         minY: Math.min(...pts.map((p) => p.y)), maxY: Math.max(...pts.map((p) => p.y)),
       }
+      // a note text box is anchored at its CENTRE but occupies a real width — nudging on the
+      // anchor alone would leave the long half of a wide note sitting under the panel
+      if (a.kind === 'text' && isNoteBox(a.wN)) {
+        const half = (a.wN! * rect.width) / 2
+        box.minX -= half; box.maxX += half
+      }
       // phone bottom sheet → nudge up; desktop/tablet side panel → nudge left
       const nudge = isBottomSheet(r.width, window.innerWidth)
         ? panelNudgeBoxUp(box, { top: r.top })
@@ -1255,7 +1283,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     })
     return () => cancelAnimationFrame(raf)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selId])
+  }, [selId, notePanelId])
 
   // report the current view centre (tile-local x/y + floor) upward so the journal
   // composer can pin an entry to "here" on the plan. Cheap — just a ref write.
@@ -1289,6 +1317,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // a note is placed mid-sentence and a panel sliding in on every tap would be in the way. It
   // opens from the ⚙ handle instead, so `notePanelId` is deliberately separate from `selId`.
   const selNote = annos.find((a) => a.id === notePanelId && a.kind === 'text')
+  // the panel belongs to the SELECTED note: deselecting (empty canvas, Esc, picking something
+  // else) closes it too, so a stray panel can never outlive the thing it describes
+  useEffect(() => { if (notePanelId && selId !== notePanelId) setNotePanelId(null) }, [selId, notePanelId])
   // a selected stroke / Linie / Fläche — drives the shared DrawEditor (style + presets) panel
   const selDraw = annos.find((a) => a.id === selId && (a.kind === 'draw' || a.kind === 'area'))
   // Explicit detach for a plan line endpoint (the × chip on the canvas + the Verbindung lösen button
@@ -1997,6 +2028,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           measCount={measPath.length}
           onMeasClear={() => setMeasPath(() => [])}
           onMeasClose={() => { measReset(); setTool('pan') }}
+          noteDefaults={noteDefaults}
+          setNoteDefaults={(p) => setNoteDefaults((d) => ({ ...d, ...p }))}
         />}
       </div>
 

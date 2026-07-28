@@ -226,13 +226,16 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
   })
   const [notes, setNotes] = useState(entity.notes ?? '')
   const titleRef = useRef<HTMLInputElement>(null)
+  // a note edits its content in a textarea instead of the title input (see the header)
+  const noteTextRef = useRef<HTMLTextAreaElement>(null)
   useEffect(() => { if (autoFocusTitle) { titleRef.current?.focus(); titleRef.current?.select() } }, [autoFocusTitle])
   // Follow the title when it changes OUTSIDE this input. A note is the case that needs it: its
   // panel opens the moment it is placed and the operator then types on the canvas, so without
   // this the panel keeps showing an empty title — and the next edit here would wipe what they
   // wrote. Skipped while this input has focus, so it can never clobber live typing.
   useEffect(() => {
-    if (document.activeElement !== titleRef.current) setTitle(entity.label ?? '')
+    const el = document.activeElement
+    if (el !== titleRef.current && el !== noteTextRef.current) setTitle(entity.label ?? '')
   }, [entity.label])
 
   // live-title editing: stream each keystroke to onTitleLive (silent surface update) and
@@ -343,9 +346,12 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
             : (entity.badge ?? <Icon id="type" />)}
         </div>
         <div className="ctx-titlewrap">
-          {/* view state renders static text — a readOnly input still takes focus (cursor /
-              phone keyboard), which reads as editable when it isn't */}
-          {readOnly ? (
+          {/* A note has no NAME — its text IS its content, and a sentence does not belong in a
+              one-line title field. So the header just says «Notiz» and the text lives in the
+              textarea below, where it can breathe. */}
+          {isNote ? (
+            <span className="ctx-title-input ctx-title-ro">{N.section}</span>
+          ) : readOnly ? (
             <span className="ctx-title-input ctx-title-ro">{title || C.titlePlaceholder}</span>
           ) : (
           <input
@@ -366,7 +372,8 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
                 onChange={(v) => { if (v) { changeTitle(v); onTitle(v) } }} />
             </div>
           ) : null}
-          {entity.subtitle && <p>{entity.subtitle}</p>}
+          {/* a note's subtitle IS «Notiz», which the title above already says — one word is enough */}
+          {entity.subtitle && !isNote && <p>{entity.subtitle}</p>}
         </div>
         <button className="ctx-x" onClick={onClose} title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
       </div>
@@ -380,6 +387,24 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
             both print paths as well. */}
         {isNote && !readOnly && (
           <div className="ctx-note">
+            {/* the note's actual content — a real textarea, because a Notiz is a sentence or
+                three, not a label. Editing straight on the surface (double-tap / the ✎ handle)
+                stays the fast path; this is for when you want room. */}
+            <div className="ctx-note-text">
+              <span className="ctx-section-label">{N.content}</span>
+              <textarea
+                ref={noteTextRef}
+                className="ctx-note-input"
+                rows={3}
+                value={title}
+                placeholder={appConfig.copy.whiteboard.textPlaceholder}
+                onChange={(e) => changeTitle(e.target.value)}
+                onBlur={blurTitle}
+                // Enter makes a paragraph here — this field has room, and Esc / tapping away
+                // is the way out (unlike the one-line pill on the surface)
+                onKeyDown={(e) => { if (e.key === 'Escape') (e.target as HTMLTextAreaElement).blur() }}
+              />
+            </div>
             {onNoteWidth && (
               <div className="field">
                 <span>{N.form}</span>

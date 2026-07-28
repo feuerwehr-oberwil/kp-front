@@ -1041,6 +1041,7 @@ export const de = {
     // note styling — shared by the Lage map and the Plan whiteboard (same controls in the
     // armed-tool dock while writing and in the detail panel afterwards)
     section: 'Notiz',
+    content: 'Text',
     form: 'Form',
     formLine: 'Einzeilig',
     formBox: 'Textfeld',
