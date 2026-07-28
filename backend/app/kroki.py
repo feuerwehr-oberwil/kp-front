@@ -538,6 +538,11 @@ def _halo_text(
 # Note text sizes — MUST match NOTE_SIZE_SCALE in src/lib/notes.ts, or a note that reads as a
 # heading on screen prints as body text.
 NOTE_SIZE_SCALE = {"s": 0.8, "m": 1.0, "l": 1.45}
+# Default note widths — MUST match NOTE_WN.def / NOTE_W_PX.def in src/lib/notes.ts. A note stored
+# before notes had a width falls back to these, exactly as the client does, so an old note prints
+# the same wrapped box the operator now sees on screen.
+NOTE_WN_DEFAULT = 0.2
+NOTE_W_PX_DEFAULT = 220
 
 
 def _note_scale(size: str | None) -> float:
@@ -574,10 +579,12 @@ def _note_lines(
     font: ImageFont.FreeTypeFont,
     box_w: float | None,
 ) -> list[str]:
-    """The note's laid-out lines: wrapped to `box_w` when it is a text box, else a single line.
+    """The note's laid-out lines, wrapped to `box_w`.
 
-    A note with no width is the legacy one-line pill and must stay exactly that — this is the
-    same discriminator as `isNoteBox` on the client.
+    EVERY note is a wrapping box (there used to be a one-line variant; see src/lib/notes.ts).
+    A caller passing no width means a stored note that predates the width — it has already
+    substituted the surface default, so a falsy width here can only be a team chip, which is
+    a single line by nature.
     """
     if box_w and box_w > 0:
         return _wrap_text(draw, text, font, box_w)
@@ -809,7 +816,7 @@ def render_kroki(
                 # a map note carries its box width in SCREEN px (noteW) — scale it into sheet px
                 # with the same u·ss factor as the font, so the paper wraps where the screen did
                 nfs = int(12 * u * ss * _note_scale(e.get("noteSize")))
-                nbox = (e.get("noteW") or 0) * u * ss
+                nbox = (e.get("noteW") or NOTE_W_PX_DEFAULT) * u * ss
                 _label_box(
                     draw,
                     (x0_, y0_),
@@ -971,7 +978,7 @@ def _overlay_board_annos(
             # lines in the same places. A team chip is always the one-line pill it was.
             fs = int(12 * u * ss * (1.0 if dark else _note_scale(a.get("noteSize"))))
             f = _font(fs)
-            box_w = (a.get("wN") or 0) * w if not dark else 0
+            box_w = (a.get("wN") or NOTE_WN_DEFAULT) * w if not dark else 0
             lines = _note_lines(draw, a["text"], f, box_w)
             lh = fs * 1.35
             pad = fs * 0.45

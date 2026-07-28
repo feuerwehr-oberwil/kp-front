@@ -9,7 +9,7 @@ import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
 import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom } from '../lib/symbolRender'
 import { symbolCaptionText } from '../lib/symbols'
-import { noteScale, isNoteBox, clampNoteWPx } from '../lib/notes'
+import { noteScale, noteWPx, clampNoteWPx } from '../lib/notes'
 import { pxPerM, symPx, shapePx, isRotatableSym, isVehicleSym } from '../lib/mapView'
 
 // A transform handle (rotate / resize) whose drag is bound with NATIVE pointer listeners that
@@ -63,13 +63,6 @@ function TransformHandle({ className, icon, title, onStart, onMove, onEnd }: {
 // actually starts following — so a tremble while holding (or holding a beat too long) can't nudge it
 const DRAG_DEADZONE_PX = 6
 
-/** Size a note's textarea to its content, so the editable box is exactly as tall as the note it
- *  replaces. Height must be reset first — scrollHeight never shrinks while a height is still set.
- *
- *  The `> 0` guard is load-bearing: at mount the element has not been laid out yet and
- *  scrollHeight reads 0. Writing `height: 0px` collapses the textarea, and a collapsed element
- *  DROPS FOCUS — which showed up as "the note is placed but I can't type into it", with the
- *  keystrokes falling through to the global hotkeys instead. */
 /** Park the caret AFTER the existing text instead of selecting all of it. Re-opening a note is
  *  almost always "add a line", and a full selection means the next keystroke silently wipes
  *  what was already written — the worst possible default with gloves on. */
@@ -78,20 +71,20 @@ function caretToEnd(el: HTMLTextAreaElement) {
   el.setSelectionRange?.(n, n)
 }
 
+/** Grow a note's textarea to its content, so the editable box is exactly as tall as the note it
+ *  replaces. Height must be reset first — scrollHeight never shrinks while a height is still set.
+ *  (Width comes from React: every note carries one.)
+ *
+ *  The `> 0` guard is load-bearing: at mount the element has not been laid out yet and
+ *  scrollHeight reads 0. Writing `height: 0px` collapses the textarea, and a collapsed element
+ *  DROPS FOCUS — which showed up as "the note is placed but I can't type into it", with the
+ *  keystrokes falling through to the global hotkeys instead. */
 function autoGrow(el: HTMLTextAreaElement | null) {
   if (!el) return
   el.style.height = 'auto'
   const h = el.scrollHeight
   if (h > 0) el.style.height = `${h}px`
   else el.style.removeProperty('height')
-  // A one-liner has no set width, and a textarea does NOT grow sideways on its own — it would
-  // sit at its default column count while the text scrolled inside it, so the editable note no
-  // longer matched the note it replaces. A BOX gets its width from React (noteW), so leave it be.
-  if (!el.classList.contains('box')) {
-    el.style.width = 'auto'
-    const w = el.scrollWidth
-    if (w > 0) el.style.width = `${w}px`
-  }
 }
 
 interface Props {
@@ -392,11 +385,10 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                 <ShapeGlyph kind={e.shape ?? 'square'} color={e.color ?? '#1f6feb'} />
               </div>
             ) : e.kind === 'note' ? (() => {
-              // a note is a one-line pill until it carries a width (noteW); then it wraps and
-              // grows downwards. Font size = the fixed 12px base × the S/M/L step.
-              const box = isNoteBox(e.noteW)
-              const cls = (base: string) => `${base}${box ? ' box' : ''}${e.notePlain ? ' plain' : ''}`
-              const nStyle = { fontSize: 12 * noteScale(e.noteSize), ...(box ? { width: e.noteW! } : null), ...(e.notePlain && e.color ? { color: e.color } : null) }
+              // every note is a wrapping box; a stored note with no width falls back to the
+              // default. Font size = the fixed 12px base × the S/M/L step.
+              const cls = (base: string) => `${base} box${e.notePlain ? ' plain' : ''}`
+              const nStyle = { fontSize: 12 * noteScale(e.noteSize), width: noteWPx(e.noteW), ...(e.notePlain && e.color ? { color: e.color } : null) }
               return editNoteId === e.id ? (
                 <textarea
                   className={cls('note-pill note-pill-input')}
@@ -419,12 +411,11 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                     noteForceCommit.current = false
                     onNoteCommit?.(e.id, ev.target.value)
                   }}
-                  // Enter finishes a ONE-LINER (the muscle memory this had before boxes existed)
-                  // but inserts a newline in a box — where the ✓ / Esc / click-away are the way
-                  // out. Esc always finishes, on both. `noteForceCommit` tells the blur that this
-                  // is a deliberate commit, so the 350ms steal-guard above lets it through.
+                  // Enter makes a new line — the ✓, Esc and clicking away are the way out.
+                  // `noteForceCommit` tells the blur this is a deliberate commit, so the 350ms
+                  // focus-steal guard above lets it through instead of bouncing focus back.
                   onKeyDown={(ev) => {
-                    if (ev.key === 'Escape' || (ev.key === 'Enter' && !box)) {
+                    if (ev.key === 'Escape') {
                       ev.preventDefault(); noteForceCommit.current = true; (ev.target as HTMLTextAreaElement).blur()
                     }
                   }}
@@ -499,9 +490,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                       onClick={(ev) => { ev.stopPropagation(); onNoteEdit?.(e.id) }}>
                       <Icon id="pen" />
                     </button>
-                    {/* ⚙ only once the note HAS text: on a freshly placed one there is nothing to
-                        style, and its panel is open anyway (placement opens it). */}
-                    {onNotePanel && !!e.label?.trim() && (
+                    {onNotePanel && (
                       <button className="note-grip ng-gear" title={appConfig.copy.notes.settings} aria-label={appConfig.copy.notes.settings}
                         onClick={(ev) => { ev.stopPropagation(); onNotePanel(e.id) }}>
                         <Icon id="gear" />
@@ -516,7 +505,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                 {/* right-edge width grip — a text box only. A one-line note has nothing to drag;
                     its width IS its text. Native listeners (TransformHandle) so the drag beats
                     react-map-gl's marker drag, same as the shape handles. */}
-                {isNoteBox(e.noteW) && onNoteWidth && (
+                {onNoteWidth && (
                   <TransformHandle
                     className="note-wgrip"
                     icon="resize"
@@ -529,7 +518,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
               </>
             )}
             {/* ✓ Fertig — box mode only, where Enter no longer commits */}
-            {e.kind === 'note' && editNoteId === e.id && isNoteBox(e.noteW) && (
+            {e.kind === 'note' && editNoteId === e.id && (
               <button
                 className="note-done"
                 title={appConfig.copy.notes.done}

@@ -625,10 +625,8 @@ export function IncidentWorkspace({
   // in the way. Only the ⚙ handle sets this.
   const [notePanelId, setNotePanelId] = useState<string | null>(null)
   // style the NEXT note carries, chosen in the armed-tool dock before anything is placed
-  const [noteDefaults, setNoteDefaults] = useState<{ box: boolean; size: NoteSize; plain: boolean; color: string }>(
-    // Textfeld by default: a note that wraps is the safe shape — a one-liner that outgrows its
-    // room is the case that looked broken. «Einzeilig» stays one tap away in the dock.
-    { box: true, size: 'm', plain: false, color: '' },
+  const [noteDefaults, setNoteDefaults] = useState<{ size: NoteSize; plain: boolean; color: string }>(
+    { size: 'm', plain: false, color: '' },
   )
   // width drag on a note text box (screen px) — the 'start'/'end' phases bracket the gesture so
   // the whole drag folds into one undo step, exactly like the shape transform handles.
@@ -1163,10 +1161,10 @@ export function IncidentWorkspace({
       offerMittelCapture(s)
     } else if (tool === 'note') {
       const id = `n${Date.now()}`
-      commit((d) => ({ ...d, entities: [...d.entities, { id, kind: 'note', layer: appConfig.defaults.drawingLayerId, coord: c, label: '', subtitle: appConfig.copy.entities.noteSubtitle, noteW: noteDefaults.box ? NOTE_W_PX.def : undefined, noteSize: noteDefaults.size === 'm' ? undefined : noteDefaults.size, notePlain: noteDefaults.plain || undefined, color: noteDefaults.color || undefined }] }))
+      commit((d) => ({ ...d, entities: [...d.entities, { id, kind: 'note', layer: appConfig.defaults.drawingLayerId, coord: c, label: '', subtitle: appConfig.copy.entities.noteSubtitle, noteW: NOTE_W_PX.def, noteSize: noteDefaults.size === 'm' ? undefined : noteDefaults.size, notePlain: noteDefaults.plain || undefined, color: noteDefaults.color || undefined }] }))
       // straight into typing on the surface; the detail panel waits for the ⚙
       setSelectedId(id); setSelectedDrawingId(null); setEditNoteId(id); setTool('select'); log('type', appConfig.copy.log.notePlaced, 'note', undefined, id)
-      emit('entity.add', { id, kind: 'note', entity: { id, kind: 'note', layer: appConfig.defaults.drawingLayerId, coord: c, label: '', subtitle: appConfig.copy.entities.noteSubtitle, noteW: noteDefaults.box ? NOTE_W_PX.def : undefined, noteSize: noteDefaults.size === 'm' ? undefined : noteDefaults.size, notePlain: noteDefaults.plain || undefined, color: noteDefaults.color || undefined } })
+      emit('entity.add', { id, kind: 'note', entity: { id, kind: 'note', layer: appConfig.defaults.drawingLayerId, coord: c, label: '', subtitle: appConfig.copy.entities.noteSubtitle, noteW: NOTE_W_PX.def, noteSize: noteDefaults.size === 'm' ? undefined : noteDefaults.size, notePlain: noteDefaults.plain || undefined, color: noteDefaults.color || undefined } })
     } else if (tool === 'team') {
       setTeamPick(c) // which Trupp? — picker over the tapped spot (mirrors the plan's Team tool)
     } else if (tool === 'area') {
@@ -2109,9 +2107,7 @@ export function IncidentWorkspace({
             else patchEntity(noteEntity.id, { label: v })
           }}
           onFields={(fields) => patchEntity(noteEntity.id, { fields })}
-          noteWidth={noteEntity.noteW}
           onNoteWidth={(w) => patchEntity(noteEntity.id, { noteW: w ?? undefined })}
-          noteWidthDefault={NOTE_W_PX.def}
           onNoteSize={(s) => patchEntity(noteEntity.id, { noteSize: s })}
           onNotePlain={(p) => patchEntity(noteEntity.id, { notePlain: p || undefined })}
           onColor={(c) => patchEntity(noteEntity.id, { color: c || undefined })}
@@ -2224,12 +2220,9 @@ export function IncidentWorkspace({
       {mapUI && tool === 'note' && (
         <ToolDock groups={[
           [{ type: 'close', onClick: () => setTool('select') }],
-          [
-            // glyphs, not words: the German labels stretched the whole dock column wide.
-            // A page = a block of text, a bare T = text without its paper.
-            { type: 'toggle', icon: 'doc', label: noteDefaults.box ? appConfig.copy.notes.toLine : appConfig.copy.notes.toBox, on: noteDefaults.box, onClick: () => setNoteDefaults((d) => ({ ...d, box: !d.box })) },
-            { type: 'toggle', icon: 'type', label: appConfig.copy.notes.lookPlain, on: noteDefaults.plain, onClick: () => setNoteDefaults((d) => ({ ...d, plain: !d.plain })) },
-          ],
+          // glyph, not a word: «Klartext» stretched the whole dock column wide. A bare T reads
+          // as text without its paper; the word stays as the tooltip.
+          [{ type: 'toggle', icon: 'type', label: appConfig.copy.notes.lookPlain, on: noteDefaults.plain, onClick: () => setNoteDefaults((d) => ({ ...d, plain: !d.plain })) }],
           [
             { type: 'toggle', text: 'S', label: appConfig.copy.notes.sizeS, on: noteDefaults.size === 's', onClick: () => setNoteDefaults((d) => ({ ...d, size: 's' })) },
             { type: 'toggle', text: 'M', label: appConfig.copy.notes.sizeM, on: noteDefaults.size === 'm', onClick: () => setNoteDefaults((d) => ({ ...d, size: 'm' })) },

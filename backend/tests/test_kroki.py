@@ -259,11 +259,11 @@ def _draw():
     return kk.ImageDraw.Draw(Image.new("RGBA", (400, 200)))
 
 
-def test_note_without_width_stays_one_line():
-    d = _draw()
-    f = kk._font(12)
-    text = "Achtung Gasflaschen im UG - Zugang nur ueber Treppenhaus Ost"
-    assert kk._note_lines(d, text, f, 0) == [text]
+def test_note_defaults_match_the_client():
+    # mirrors NOTE_WN.def / NOTE_W_PX.def in src/lib/notes.ts — a note stored before notes had
+    # a width falls back to these on BOTH sides, so old notes print the box they now show
+    assert kk.NOTE_WN_DEFAULT == 0.2
+    assert kk.NOTE_W_PX_DEFAULT == 220
 
 
 def test_note_with_width_wraps_to_that_width():
@@ -284,8 +284,8 @@ def test_note_keeps_typed_line_breaks():
     assert kk._note_lines(d, "Zeile A\nZeile B", f, 400) == ["Zeile A", "Zeile B"]
 
 
-def test_one_line_note_flattens_a_typed_break():
-    # a note that lost its width (back to «Einzeiler») must not print a stray newline
+def test_widthless_caller_flattens_a_typed_break():
+    # the only width-less caller left is a team chip, which is one line by nature
     d = _draw()
     f = kk._font(12)
     assert kk._note_lines(d, "Zeile A\nZeile B", f, 0) == ["Zeile A Zeile B"]

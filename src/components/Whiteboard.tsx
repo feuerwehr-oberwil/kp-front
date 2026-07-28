@@ -21,7 +21,7 @@ import { ContextPanel } from './ContextPanel'
 import { DrawEditor } from './DrawEditor'
 import { ShapeEditor } from './ShapeEditor'
 import { ShapeGlyph, SHAPE_DEFS } from '../lib/shapes'
-import { noteScale, clampNoteWN, isNoteBox, NOTE_WN } from '../lib/notes'
+import { noteScale, clampNoteWN, noteWN, NOTE_WN } from '../lib/notes'
 import { planUrl, TILE_AR, TOP_INSET, STACK_VPAD, clamp01, floorLabel, floorGeometry } from '../lib/whiteboard'
 import { advanceDwell, applyRouting, boundaryPoint, EMPTY_DWELL, forkPortPoint, incomingAttachments, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 import { calibrate, pathMetres, polyAreaM2, isStale, type PlanScale } from '../lib/planScale'
@@ -54,14 +54,7 @@ function autoGrow(el: HTMLInputElement | HTMLTextAreaElement | null) {
   const h = el.scrollHeight
   if (h > 0) el.style.height = `${h}px`
   else el.style.removeProperty('height')
-  // A one-liner has no set width, and a textarea does NOT grow sideways on its own — it would
-  // sit at its default column count while the text scrolled inside it, so the editable note no
-  // longer matched the note it replaces. A BOX gets its width from React (wN), so leave it be.
-  if (!el.classList.contains('box')) {
-    el.style.width = 'auto'
-    const w = el.scrollWidth
-    if (w > 0) el.style.width = `${w}px`
-  }
+  // Width comes from React (wN) — every note carries one.
 }
 const TEAM_COLORS = appConfig.drawing.teamColors // distinct accent per team (cycled)
 // parity with the Lage map: directional symbols that support drag-to-rotate (set
@@ -162,10 +155,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // (see selNote below) — only the ⚙ handle sets this.
   const [notePanelId, setNotePanelId] = useState<string | null>(null)
   // style the NEXT note carries, chosen in the armed-tool dock before anything is placed
-  const [noteDefaults, setNoteDefaults] = useState<{ box: boolean; size: NoteSize; plain: boolean; color: string }>(
-    // Textfeld by default: a note that wraps is the safe shape — a one-liner that outgrows its
-    // room is the case that looked broken. «Einzeilig» stays one tap away in the dock.
-    { box: true, size: 'm', plain: false, color: '' },
+  const [noteDefaults, setNoteDefaults] = useState<{ size: NoteSize; plain: boolean; color: string }>(
+    { size: 'm', plain: false, color: '' },
   )
   // a pending team placement awaiting a Trupp pick (x/y/floor of the tapped point)
   const [truppPick, setTruppPick] = useState<{ x: number; y: number; floor: number } | null>(null)
@@ -645,7 +636,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       // ABSENT rather than written out, so an untouched note is byte-identical to a legacy one
       add({
         id, kind: 'text', x, y, floor, text: '',
-        wN: noteDefaults.box ? NOTE_WN.def : undefined,
+        wN: NOTE_WN.def,
         noteSize: noteDefaults.size === 'm' ? undefined : noteDefaults.size,
         notePlain: noteDefaults.plain || undefined,
         color: noteDefaults.color || undefined,
@@ -1275,8 +1266,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       }
       // a note text box is anchored at its CENTRE but occupies a real width — nudging on the
       // anchor alone would leave the long half of a wide note sitting under the panel
-      if (a.kind === 'text' && isNoteBox(a.wN)) {
-        const half = (a.wN! * rect.width) / 2
+      if (a.kind === 'text') {
+        const half = (noteWN(a.wN) * rect.width) / 2
         box.minX -= half; box.maxX += half
       }
       // phone bottom sheet → nudge up; desktop/tablet side panel → nudge left
@@ -1770,11 +1761,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                   </div>
                 )}
                 {a.kind === 'text' && (() => {
-                  // a note is a one-line pill until it carries a width (wN); then it wraps and
-                  // grows downwards. Font size = plan-scaled base × the S/M/L step.
-                  const box = isNoteBox(a.wN)
-                  const cls = (base: string) => `${base}${box ? ' box' : ''}${a.notePlain ? ' plain' : ''}`
-                  const style = { fontSize: txtBase * scale * noteScale(a.noteSize), ...(box ? { width: a.wN! * sW } : null), ...(a.notePlain && a.color ? { color: a.color } : null) }
+                  // every note is a wrapping box; a stored note with no width falls back to the
+                  // default. Font size = plan-scaled base × the S/M/L step.
+                  const cls = (base: string) => `${base} box${a.notePlain ? ' plain' : ''}`
+                  const style = { fontSize: txtBase * scale * noteScale(a.noteSize), width: noteWN(a.wN) * sW, ...(a.notePlain && a.color ? { color: a.color } : null) }
                   return editId === a.id
                     ? <textarea className={cls('wb-text-input')} ref={focusOnce} value={a.text} placeholder={appConfig.copy.whiteboard.textPlaceholder} rows={1} style={style}
                         onPointerDown={(e) => e.stopPropagation()}
@@ -1784,15 +1774,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                         // finalise on blur: keep the note even if empty (a placed note must persist,
                         // mirroring the Lage map) and record one audit edit for the whole session
                         onBlur={(e) => { setEditId(null); if (textEditId.current === a.id) { textEditId.current = null; emit('board.edit', { id: a.id, patch: { text: e.target.value }, planId: activeId }) } }}
-                        // Enter finishes a ONE-LINER (the muscle memory this had before boxes
-                        // existed) but inserts a newline in a box — where the ✓ / Esc / tap-away
-                        // are the way out. Esc always finishes, on both.
-                        onKeyDown={(e) => { if (e.key === 'Escape' || (e.key === 'Enter' && !box)) { e.preventDefault(); (e.target as HTMLTextAreaElement).blur() } }} />
+                        // Enter makes a new line — the ✓, Esc and tapping away are the way out
+                        onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); (e.target as HTMLTextAreaElement).blur() } }} />
                     : <span className={cls('wb-text-label')} style={style}>{a.text || appConfig.copy.whiteboard.text}</span>
                 })()}
-                {/* ✓ Fertig — only in box mode, where Enter no longer commits and a gloved hand
-                    needs a visible way out (tap-away works but isn't discoverable) */}
-                {a.kind === 'text' && editId === a.id && isNoteBox(a.wN) && (
+                {/* ✓ Fertig — Enter makes a new line, so a gloved hand needs a visible way out
+                    (tap-away works but isn't discoverable) */}
+                {a.kind === 'text' && editId === a.id && (
                   <button className="note-done" title={appConfig.copy.notes.done} aria-label={appConfig.copy.notes.done}
                     // pointerdown (not click): the textarea's blur would unmount this button first
                     onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); setEditId(null) }}><Icon id="check" /></button>
@@ -1872,19 +1860,15 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                   <div className="note-grips" onPointerDown={(e) => e.stopPropagation()}>
                     <button className="note-grip ng-edit" title={appConfig.copy.edit} aria-label={appConfig.copy.edit}
                       onClick={(e) => { e.stopPropagation(); setEditId(a.id) }}><Icon id="pen" /></button>
-                    {/* ⚙ only once the note HAS text: on a freshly placed one there is nothing to
-                        style, and its panel is open anyway (placement opens it). */}
-                    {!!a.text?.trim() && (
-                      <button className="note-grip ng-gear" title={appConfig.copy.notes.settings} aria-label={appConfig.copy.notes.settings}
-                        onClick={(e) => { e.stopPropagation(); setNotePanelId(a.id) }}><Icon id="gear" /></button>
-                    )}
+                    <button className="note-grip ng-gear" title={appConfig.copy.notes.settings} aria-label={appConfig.copy.notes.settings}
+                      onClick={(e) => { e.stopPropagation(); setNotePanelId(a.id) }}><Icon id="gear" /></button>
                     <button className="note-grip ng-del" title={appConfig.copy.delete} aria-label={appConfig.copy.delete}
                       onClick={(e) => { e.stopPropagation(); void removeWithConnections(a) }}><Icon id="close" /></button>
                   </div>
                 )}
                 {/* right-edge width grip — a text box only. A one-line note has nothing to drag:
                     its width IS its text, and the box shape is what «Zu Textfeld» hands out. */}
-                {a.kind === 'text' && selId === a.id && tool === 'pan' && !readOnly && isNoteBox(a.wN) && (
+                {a.kind === 'text' && selId === a.id && tool === 'pan' && !readOnly && (
                   <button className="note-wgrip" title={appConfig.copy.notes.resizeHint} aria-label={appConfig.copy.notes.resizeHint}
                     onPointerDown={(e) => rotDown(e, a.id, 'width')} onPointerMove={rotMove} onPointerUp={rotUp} onPointerCancel={rotUp}
                     onClick={(e) => e.stopPropagation()}><Icon id="resize" /></button>
@@ -2160,9 +2144,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           onTitleLive={(v) => patch(selNote.id, { text: v })}
           onFields={(fields) => patchCommit(selNote.id, { fields })}
           onNotes={(v) => patchCommit(selNote.id, { notes: v || undefined })}
-          noteWidth={selNote.wN}
           onNoteWidth={(w) => patchCommit(selNote.id, { wN: w ?? undefined })}
-          noteWidthDefault={NOTE_WN.def}
           onNoteSize={(s) => patchCommit(selNote.id, { noteSize: s })}
           onNotePlain={(p) => patchCommit(selNote.id, { notePlain: p || undefined })}
           onColor={(c) => patchCommit(selNote.id, { color: c || undefined })}

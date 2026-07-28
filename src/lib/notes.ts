@@ -32,8 +32,17 @@ export const clampNoteWN = (w: number) => clamp(w, NOTE_WN.min, NOTE_WN.max)
 export const clampNoteWPx = (w: number) => Math.round(clamp(w, NOTE_W_PX.min, NOTE_W_PX.max))
 
 /**
- * Is this note a wrapping text box (rather than the legacy one-line pill)? The width is the
- * ONLY discriminator — a note with no width renders exactly as it did before this existed,
- * which is what keeps stored incidents and report fixtures valid without a migration.
+ * EVERY note is a wrapping text box. There used to be a second "Einzeilig" shape that grew
+ * sideways forever, and it was a steady source of trouble: it ran out of its own paper on the
+ * map, it disagreed with the panel about line breaks, and it made "which mode am I in?" a
+ * question you had to answer before typing. One shape, one behaviour.
+ *
+ * A stored note from before this (or from the Einzeilig era) simply has no width — it falls
+ * back to the surface default here rather than needing a migration.
  */
-export const isNoteBox = (width?: number) => typeof width === 'number' && width > 0
+export const noteWidth = (width: number | undefined, def: number) =>
+  typeof width === 'number' && width > 0 ? width : def
+/** Plan-space width of a note, falling back to the default. */
+export const noteWN = (wN?: number) => noteWidth(wN, NOTE_WN.def)
+/** Map-space (screen px) width of a note, falling back to the default. */
+export const noteWPx = (w?: number) => noteWidth(w, NOTE_W_PX.def)

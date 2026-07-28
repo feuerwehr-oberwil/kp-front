@@ -1064,14 +1064,9 @@ export const de = {
     deleteTitle: 'Notiz entfernen?',
     deleteMsg: 'Diese Notiz enthält Text. Wirklich entfernen?',
     // note styling — shared by the Lage map and the Plan whiteboard (same controls in the
-    // armed-tool dock while writing and in the detail panel afterwards)
+    // armed-tool dock before placing and in the detail panel afterwards)
     section: 'Notiz',
     content: 'Text',
-    form: 'Form',
-    formLine: 'Einzeilig',
-    formBox: 'Textfeld',
-    toBox: 'Zu Textfeld',
-    toLine: 'Zu Einzeiler',
     size: 'Grösse',
     sizeS: 'Klein',
     sizeM: 'Normal',
@@ -1083,11 +1078,6 @@ export const de = {
     resizeHint: 'Breite ziehen',
     settings: 'Notiz einstellen',
     done: 'Fertig',
-    // subtitle under the detail-panel title, e.g. «Textfeld · 3 Zeilen»
-    boxLines: '{kind} · {n} Zeilen',
-    boxOneLine: '{kind} · 1 Zeile',
-    // losing the wrapped layout is the one destructive part of «Zu Einzeiler»
-    toLineConfirm: 'Die Notiz wird wieder einzeilig. Zeilenumbrüche gehen dabei verloren.',
   },
   whiteboard: {
     documentListTitle: 'Planunterlagen',

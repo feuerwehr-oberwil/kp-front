@@ -173,8 +173,8 @@ interface DocksProps {
    *  note exists — rather than during editing on purpose: a dock button tapped mid-edit blurs
    *  the note's textarea, which commits and unmounts the dock under the finger reaching for it.
    *  Once a note is placed, the same settings live in its detail panel. */
-  noteDefaults: { box: boolean; size: NoteSize; plain: boolean; color: string }
-  setNoteDefaults: (patch: Partial<{ box: boolean; size: NoteSize; plain: boolean; color: string }>) => void
+  noteDefaults: { size: NoteSize; plain: boolean; color: string }
+  setNoteDefaults: (patch: Partial<{ size: NoteSize; plain: boolean; color: string }>) => void
 }
 
 /**
@@ -234,12 +234,9 @@ export function WbToolDocks({ tool, lineMode, color, width, dashed, draftActive,
       {tool === 'text' && (
         <ToolDock groups={[
           [{ type: 'close', onClick: () => setTool('pan') }],
-          [
-            // glyphs, not words: the German labels («Textfeld», «Klartext») stretched the whole
-            // dock column wide. A page = a block of text, a bare T = text without its paper.
-            { type: 'toggle', icon: 'doc', label: noteDefaults.box ? NOTES.toLine : NOTES.toBox, on: noteDefaults.box, onClick: () => setNoteDefaults({ box: !noteDefaults.box }) },
-            { type: 'toggle', icon: 'type', label: NOTES.lookPlain, on: noteDefaults.plain, onClick: () => setNoteDefaults({ plain: !noteDefaults.plain }) },
-          ],
+          // glyph, not a word: «Klartext» stretched the whole dock column wide. A bare T reads
+          // as text without its paper; the word stays as the tooltip.
+          [{ type: 'toggle', icon: 'type', label: NOTES.lookPlain, on: noteDefaults.plain, onClick: () => setNoteDefaults({ plain: !noteDefaults.plain }) }],
           [
             { type: 'toggle', text: 'S', label: NOTES.sizeS, on: noteDefaults.size === 's', onClick: () => setNoteDefaults({ size: 's' }) },
             { type: 'toggle', text: 'M', label: NOTES.sizeM, on: noteDefaults.size === 'm', onClick: () => setNoteDefaults({ size: 'm' }) },

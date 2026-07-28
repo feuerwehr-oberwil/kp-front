@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { NOTE_SIZE_SCALE, NOTE_WN, NOTE_W_PX, clampNoteWN, clampNoteWPx, isNoteBox, noteScale } from './notes'
+import { NOTE_SIZE_SCALE, NOTE_WN, NOTE_W_PX, clampNoteWN, clampNoteWPx, noteScale, noteWN, noteWPx } from './notes'
 
 describe('note sizing', () => {
   it('treats an absent size as normal', () => {
@@ -19,17 +19,19 @@ describe('note sizing', () => {
   })
 })
 
-describe('isNoteBox', () => {
-  // this is the whole back-compat hinge: every note stored before text boxes existed has no
-  // width, and must keep rendering as the one-line pill it was
-  it('is false without a width, so a legacy note stays a one-liner', () => {
-    expect(isNoteBox(undefined)).toBe(false)
-    expect(isNoteBox(0)).toBe(false)
+describe('note width fallback', () => {
+  // every note is a wrapping box; one stored before notes had a width (or from the retired
+  // «Einzeilig» shape) must still land on a sane box rather than rendering width-less
+  it('falls back to the surface default when no width is stored', () => {
+    expect(noteWN(undefined)).toBe(NOTE_WN.def)
+    expect(noteWN(0)).toBe(NOTE_WN.def)
+    expect(noteWPx(undefined)).toBe(NOTE_W_PX.def)
+    expect(noteWPx(0)).toBe(NOTE_W_PX.def)
   })
 
-  it('is true once a width is set', () => {
-    expect(isNoteBox(0.2)).toBe(true)
-    expect(isNoteBox(220)).toBe(true)
+  it('keeps a stored width', () => {
+    expect(noteWN(0.35)).toBe(0.35)
+    expect(noteWPx(300)).toBe(300)
   })
 })
 
@@ -46,7 +48,7 @@ describe('width clamps', () => {
     expect(clampNoteWPx(220.4)).toBe(220)
   })
 
-  it('seeds a conversion default that survives its own clamp', () => {
+  it('seeds a default that survives its own clamp', () => {
     expect(clampNoteWN(NOTE_WN.def)).toBe(NOTE_WN.def)
     expect(clampNoteWPx(NOTE_W_PX.def)).toBe(NOTE_W_PX.def)
   })

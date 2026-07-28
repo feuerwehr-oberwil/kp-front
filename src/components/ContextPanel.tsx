@@ -3,7 +3,6 @@ import type { CaptionMode, NoteSize, Spread, SymbolControl, SymbolProps } from '
 import { Icon } from '../lib/icons'
 import { SheetGrip } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
-import { confirmDialog } from '../lib/ui'
 import { lookupUN, decodeKemler, type UnHazardEntry } from '../lib/unHazard'
 import { ERG_VERSION, lookupErg } from '../lib/erg'
 import { Combo } from './Combo'
@@ -151,12 +150,8 @@ interface Props {
   // symbol-only chrome (steppers, hazard readout) stays hidden. The width is what makes a note
   // a wrapping box, but its UNIT differs per surface (plan fraction vs. screen px), so the
   // caller passes it through opaquely and only the surface interprets it.
-  /** current box width, or undefined for the legacy one-line pill. */
-  noteWidth?: number
-  /** set (box) or clear (one-liner) the width. Called with `noteWidthDefault` on conversion. */
+  /** marks this entity as a note (the width itself lives on the surface, which owns the grip). */
   onNoteWidth?: (w: number | null) => void
-  /** width to seed when converting a one-liner into a box (surface units). */
-  noteWidthDefault?: number
   onNoteSize?: (size: NoteSize) => void
   onNotePlain?: (plain: boolean) => void
   /** note ink colour ('' clears back to the default note ink). */
@@ -183,7 +178,7 @@ function LabeledStepper({ label, ...rest }: { label: string } & React.ComponentP
   )
 }
 
-export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, readOnly, hasOverride, onResetGps, connectedLines = [], onFocusLine, noteWidth, onNoteWidth, noteWidthDefault, onNoteSize, onNotePlain, onColor }: Props) {
+export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, readOnly, hasOverride, onResetGps, connectedLines = [], onFocusLine, onNoteWidth, onNoteSize, onNotePlain, onColor }: Props) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
   const N = appConfig.copy.notes
@@ -303,9 +298,6 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
   // "Notizen" box inside a note would be a riddle. So the details block is suppressed outright
   // and the Notiz section below is all a note gets.
   const isNote = !!(onNoteWidth || onNoteSize || onNotePlain)
-  // a note is a wrapping box only once it carries a width — the same discriminator the
-  // surfaces use (lib/notes isNoteBox), so this field behaves like the note it edits
-  const noteIsBox = !!noteWidth && noteWidth > 0
   const showDetails = !isNote && (showFloor || showFloorRange || showCount || showRotate || showSpread || showAirflow || onNotes || rows.length > 0 || showUnHazard || !readOnly)
 
   /* on-canvas caption override for THIS symbol — small + de-emphasised down by the actions
@@ -404,43 +396,14 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
                 // «Einzeilig» means one line, full stop: a break pasted or typed in here is
                 // flattened to a space rather than quietly stored and rendered differently on
                 // the surface than in this field. Room for paragraphs is what «Textfeld» is.
-                onChange={(e) => changeTitle(noteIsBox ? e.target.value : e.target.value.replace(/\s*\n\s*/g, ' '))}
+                onChange={(e) => changeTitle(e.target.value)}
                 onBlur={blurTitle}
-                // Enter makes a paragraph in a box (this field has room; Esc or tapping away is
-                // the way out). On a one-liner it is simply swallowed — NOT a blur: blurring
-                // here also closed the whole panel, so a key pressed to "finish the word" made
-                // the settings vanish. Esc is the deliberate way out on both.
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !noteIsBox) { e.preventDefault(); return }
-                  if (e.key === 'Escape') { e.preventDefault(); (e.target as HTMLTextAreaElement).blur() }
-                }}
+                // Enter makes a paragraph — this field has room. Esc is the deliberate way out
+                // (a blur on Enter also closed the whole panel, so finishing a word made the
+                // settings vanish).
+                onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); (e.target as HTMLTextAreaElement).blur() } }}
               />
             </div>
-            {onNoteWidth && (
-              <div className="field">
-                <span>{N.form}</span>
-                <Segmented
-                  ariaLabel={N.form}
-                  options={[{ value: 'line', label: N.formLine }, { value: 'box', label: N.formBox }]}
-                  value={noteWidth ? 'box' : 'line'}
-                  onChange={(v) => {
-                    // → box seeds the surface's default width; → line clears it. Going back
-                    // really does DROP the breaks (they are flattened, not just hidden by CSS —
-                    // otherwise they would linger in the data and reappear in print), so ask
-                    // first, and only when there is actually a break to lose.
-                    if (v === 'box') { onNoteWidth(noteWidthDefault ?? null); return }
-                    const flatten = () => {
-                      const flat = (entity.label ?? '').replace(/\s*\n\s*/g, ' ')
-                      if (flat !== (entity.label ?? '')) { setTitle(flat); onTitle(flat) }
-                      onNoteWidth(null)
-                    }
-                    if (!(entity.label ?? '').includes('\n')) { onNoteWidth(null); return }
-                    void confirmDialog({ title: N.toLine, message: N.toLineConfirm, confirmLabel: N.toLine, cancelLabel: appConfig.copy.cancel })
-                      .then((ok) => { if (ok) flatten() })
-                  }}
-                />
-              </div>
-            )}
             {onNoteSize && (
               <div className="field">
                 <span>{N.size}</span>
