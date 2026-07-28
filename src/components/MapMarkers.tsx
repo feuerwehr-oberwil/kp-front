@@ -64,11 +64,18 @@ function TransformHandle({ className, icon, title, onStart, onMove, onEnd }: {
 const DRAG_DEADZONE_PX = 6
 
 /** Size a note's textarea to its content, so the editable box is exactly as tall as the note it
- *  replaces. Height must be reset first — scrollHeight never shrinks while a height is still set. */
+ *  replaces. Height must be reset first — scrollHeight never shrinks while a height is still set.
+ *
+ *  The `> 0` guard is load-bearing: at mount the element has not been laid out yet and
+ *  scrollHeight reads 0. Writing `height: 0px` collapses the textarea, and a collapsed element
+ *  DROPS FOCUS — which showed up as "the note is placed but I can't type into it", with the
+ *  keystrokes falling through to the global hotkeys instead. */
 function autoGrow(el: HTMLTextAreaElement | null) {
   if (!el) return
   el.style.height = 'auto'
-  el.style.height = `${el.scrollHeight}px`
+  const h = el.scrollHeight
+  if (h > 0) el.style.height = `${h}px`
+  else el.style.removeProperty('height')
 }
 
 interface Props {
@@ -163,7 +170,18 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
     // appears). Focus is then stolen by MapLibre's canvas (and/or a panel mounting on select),
     // but the onBlur guard below re-grabs it instead of letting that steal commit the note.
     el.focus(); el.select?.()
-    autoGrow(el)
+    // …but that call is a SILENT NO-OP when it lands early: react-map-gl builds the Marker's
+    // div and only then inserts it into the map container, so at ref time the node can still be
+    // detached — and focusing a detached node does nothing at all, with no error. That is why a
+    // freshly placed note could not be typed into: focus stayed on the MapLibre canvas and the
+    // keystrokes fell through to the global hotkeys. Re-assert on the next frame if it did not
+    // take. The synchronous attempt above is kept because when it DOES work it stays inside the
+    // tap's gesture context, which is what makes iPadOS open the on-screen keyboard.
+    requestAnimationFrame(() => {
+      if (document.activeElement !== el) { el.focus(); el.select?.() }
+      // size only after layout too — scrollHeight reads 0 before it (see autoGrow)
+      autoGrow(el)
+    })
   }, [])
   const rotateRef = useRef<{ id: string; cx: number; cy: number } | null>(null)
   const shapeRef = useRef<{ id: string; cx: number; cy: number; lat: number; mode: 'rotate' | 'resize' | 'rotate2' | 'cage' } | null>(null)
@@ -454,31 +472,30 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                 and are deleted from their dashboard panel instead. */}
             {selectedId === e.id && !e.live && e.kind === 'note' && (
               <>
-                {/* double-tap is unreliable on iOS, so a selected note also gets an explicit
-                    edit handle — dblclick stays as the desktop shortcut */}
+                {/* one tidy row ABOVE the note rather than orbs pinned to its corners: a note's
+                    pill is short and often narrow, so corner orbs sat on top of the very text
+                    they belong to — unreadable, and a mis-tap away from deleting. */}
                 {editNoteId !== e.id && (
-                  <button
-                    className="handle marker-edit"
-                    title={appConfig.copy.edit}
-                    aria-label={appConfig.copy.edit}
-                    onPointerDown={(ev) => ev.stopPropagation()}
-                    onClick={(ev) => { ev.stopPropagation(); onNoteEdit?.(e.id) }}
-                  >
-                    <Icon id="pen" />
-                  </button>
-                )}
-                {/* ⚙ — only once the note HAS text: on a freshly placed note there is nothing to
-                    style, and the pen is the only thing you want in reach. */}
-                {editNoteId !== e.id && onNotePanel && !!e.label?.trim() && (
-                  <button
-                    className="handle marker-gear"
-                    title={appConfig.copy.notes.settings}
-                    aria-label={appConfig.copy.notes.settings}
-                    onPointerDown={(ev) => ev.stopPropagation()}
-                    onClick={(ev) => { ev.stopPropagation(); onNotePanel(e.id) }}
-                  >
-                    <Icon id="gear" />
-                  </button>
+                  <div className="note-grips" onPointerDown={(ev) => ev.stopPropagation()}>
+                    {/* double-tap is unreliable on iOS, so a selected note keeps an explicit
+                        edit handle — dblclick stays as the desktop shortcut */}
+                    <button className="note-grip ng-edit" title={appConfig.copy.edit} aria-label={appConfig.copy.edit}
+                      onClick={(ev) => { ev.stopPropagation(); onNoteEdit?.(e.id) }}>
+                      <Icon id="pen" />
+                    </button>
+                    {/* ⚙ only once the note HAS text: on a freshly placed one there is nothing to
+                        style, and its panel is open anyway (placement opens it). */}
+                    {onNotePanel && !!e.label?.trim() && (
+                      <button className="note-grip ng-gear" title={appConfig.copy.notes.settings} aria-label={appConfig.copy.notes.settings}
+                        onClick={(ev) => { ev.stopPropagation(); onNotePanel(e.id) }}>
+                        <Icon id="gear" />
+                      </button>
+                    )}
+                    <button className="note-grip ng-del" title={appConfig.copy.delete} aria-label={appConfig.copy.delete}
+                      onClick={(ev) => { ev.stopPropagation(); onDelete(e.id) }}>
+                      <Icon id="close" />
+                    </button>
+                  </div>
                 )}
                 {/* right-edge width grip — a text box only. A one-line note has nothing to drag;
                     its width IS its text. Native listeners (TransformHandle) so the drag beats
@@ -493,15 +510,6 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                     onEnd={noteWUp}
                   />
                 )}
-                <button
-                  className="handle marker-del"
-                  title={appConfig.copy.delete}
-                  aria-label={appConfig.copy.delete}
-                  onPointerDown={(ev) => ev.stopPropagation()}
-                  onClick={(ev) => { ev.stopPropagation(); onDelete(e.id) }}
-                >
-                  <Icon id="close" />
-                </button>
               </>
             )}
             {/* ✓ Fertig — box mode only, where Enter no longer commits */}

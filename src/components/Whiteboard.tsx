@@ -42,11 +42,18 @@ const COLORS = appConfig.drawing.colors
 
 /** Size a note's textarea to its content, so the editable box is exactly as tall as the note it
  *  replaces (no scrollbar, no jump between "editing" and "done"). Height must be reset first —
- *  scrollHeight never shrinks while an explicit height is still set. */
+ *  scrollHeight never shrinks while an explicit height is still set.
+ *
+ *  The `> 0` guard is load-bearing: at mount the element has not been laid out yet and
+ *  scrollHeight reads 0. Writing `height: 0px` collapses the textarea, and a collapsed element
+ *  DROPS FOCUS — which showed up as "the note is placed but I can't type into it", with the
+ *  keystrokes falling through to the global hotkeys instead. */
 function autoGrow(el: HTMLInputElement | HTMLTextAreaElement | null) {
   if (!el || el.tagName !== 'TEXTAREA') return
   el.style.height = 'auto'
-  el.style.height = `${el.scrollHeight}px`
+  const h = el.scrollHeight
+  if (h > 0) el.style.height = `${h}px`
+  else el.style.removeProperty('height')
 }
 const TEAM_COLORS = appConfig.drawing.teamColors // distinct accent per team (cycled)
 // parity with the Lage map: directional symbols that support drag-to-rotate (set
@@ -307,7 +314,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const focusOnce = useCallback((el: HTMLInputElement | HTMLTextAreaElement | null) => {
     if (!el) return
     el.focus(); el.select?.()
-    autoGrow(el)
+    // size AFTER layout — at ref time scrollHeight is still 0 (see autoGrow). Focus stays
+    // synchronous above for the iPadOS keyboard, as the comment block above explains.
+    requestAnimationFrame(() => autoGrow(el))
   }, [])
 
   // measure viewport so the board can be sized to "contain" the plan exactly — keyed to the
@@ -611,7 +620,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     if (tool === 'text') {
       const id = `t${Date.now()}`
       add({ id, kind: 'text', x, y, floor, text: '' })
-      setSelId(id); setEditId(id); setTool('pan'); log('type', appConfig.copy.whiteboard.placeText)
+      // a freshly placed note opens its detail panel straight away, exactly like a placed
+      // symbol does. The settings can NOT live in the right-edge dock: tapping a dock button
+      // blurs the textarea, which commits and clears editId — the dock then vanished under
+      // the finger that was reaching for it. A panel is not tied to the edit session, so it
+      // survives the blur and the note stays styleable while you write.
+      setSelId(id); setEditId(id); setNotePanelId(id); setTool('pan'); log('type', appConfig.copy.whiteboard.placeText)
       return
     }
     if (tool === 'symbol') {
@@ -1275,8 +1289,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // a note is placed mid-sentence and a panel sliding in on every tap would be in the way. It
   // opens from the ⚙ handle instead, so `notePanelId` is deliberately separate from `selId`.
   const selNote = annos.find((a) => a.id === notePanelId && a.kind === 'text')
-  // the note being typed into — drives the note dock (settings within reach while the keyboard is up)
-  const editNote = annos.find((a) => a.id === editId && a.kind === 'text')
   // a selected stroke / Linie / Fläche — drives the shared DrawEditor (style + presets) panel
   const selDraw = annos.find((a) => a.id === selId && (a.kind === 'draw' || a.kind === 'area'))
   // Explicit detach for a plan line endpoint (the × chip on the canvas + the Verbindung lösen button
@@ -1812,19 +1824,25 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                     {connected.map((line) => <button key={line.id} onClick={() => setSelId(line.id)}><span>{lineLabel(line)}</span><span className="ctx-conn-go" aria-hidden>›</span></button>)}
                   </div> : null
                 })()}
-                {a.kind !== 'resource' && selId === a.id && tool === 'pan' && !readOnly && (
+                {a.kind !== 'resource' && a.kind !== 'text' && selId === a.id && tool === 'pan' && !readOnly && (
                   <button className="wb-del" title={appConfig.copy.delete} aria-label={appConfig.copy.delete} onPointerDown={(e) => e.stopPropagation()} onClick={() => void removeWithConnections(a)}><Icon id="close" /></button>
                 )}
-                {/* selected text note: explicit edit handle so touch can re-enter editing */}
+                {/* selected note: one tidy row ABOVE the note rather than orbs pinned to its
+                    corners. A note's box is short and often narrow, so corner orbs sat on top of
+                    the very text they belong to — unreadable, and a mis-tap away from deleting. */}
                 {a.kind === 'text' && editId !== a.id && selId === a.id && tool === 'pan' && !readOnly && (
-                  <button className="wb-edit" title={appConfig.copy.edit} aria-label={appConfig.copy.edit} onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); setEditId(a.id) }}><Icon id="pen" /></button>
-                )}
-                {/* ⚙ — the way into the detail panel. Only once the note HAS text: on a freshly
-                    placed note there is nothing to style yet, and the pen is the only thing you
-                    want in reach. (Deleting an empty note stays on the ✕, as before.) */}
-                {a.kind === 'text' && editId !== a.id && selId === a.id && tool === 'pan' && !readOnly && !!a.text?.trim() && (
-                  <button className="wb-gear" title={appConfig.copy.notes.settings} aria-label={appConfig.copy.notes.settings}
-                    onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); setNotePanelId(a.id) }}><Icon id="gear" /></button>
+                  <div className="note-grips" onPointerDown={(e) => e.stopPropagation()}>
+                    <button className="note-grip ng-edit" title={appConfig.copy.edit} aria-label={appConfig.copy.edit}
+                      onClick={(e) => { e.stopPropagation(); setEditId(a.id) }}><Icon id="pen" /></button>
+                    {/* ⚙ only once the note HAS text: on a freshly placed one there is nothing to
+                        style, and its panel is open anyway (placement opens it). */}
+                    {!!a.text?.trim() && (
+                      <button className="note-grip ng-gear" title={appConfig.copy.notes.settings} aria-label={appConfig.copy.notes.settings}
+                        onClick={(e) => { e.stopPropagation(); setNotePanelId(a.id) }}><Icon id="gear" /></button>
+                    )}
+                    <button className="note-grip ng-del" title={appConfig.copy.delete} aria-label={appConfig.copy.delete}
+                      onClick={(e) => { e.stopPropagation(); void removeWithConnections(a) }}><Icon id="close" /></button>
+                  </div>
                 )}
                 {/* right-edge width grip — a text box only. A one-line note has nothing to drag:
                     its width IS its text, and the box shape is what «Zu Textfeld» hands out. */}
@@ -1979,14 +1997,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           measCount={measPath.length}
           onMeasClear={() => setMeasPath(() => [])}
           onMeasClose={() => { measReset(); setTool('pan') }}
-          noteEditing={editNote}
-          /* patch (not patchCommit): the note is mid-edit and its text edit already holds the
-             checkpoint, so a style tweak folds into the same undo step rather than fragmenting it */
-          onNoteWidth={(w) => { if (editNote) patch(editNote.id, { wN: w ?? undefined }) }}
-          onNoteSize={(s) => { if (editNote) patch(editNote.id, { noteSize: s }) }}
-          onNotePlain={(p) => { if (editNote) patch(editNote.id, { notePlain: p || undefined }) }}
-          onNoteColor={(c) => { if (editNote) patch(editNote.id, { color: c || undefined }) }}
-          onNoteDone={() => setEditId(null)}
         />}
       </div>
 
