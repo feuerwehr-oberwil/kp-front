@@ -6,6 +6,31 @@ import { TimeField } from './TimeField'
 import s from './TimeBlockSheet.module.css'
 
 
+/**
+ * The card's head: what this stretch IS, in one word and one colour.
+ *
+ * It carries the state instead of a control sitting next to the times, because a button labelled
+ * with a state cannot say whether the word is the current value or what tapping will do — at 3am
+ * that is a coin flip. As a head it is simply what the card is, and where a second state exists
+ * (the Zeitplan's verfügbar ⇄ eingeteilt) the whole head is the switch: a full-width target
+ * instead of a 118px slab competing with the times for attention.
+ */
+export interface TimeBlockHead {
+  label: string
+  /** the grid's own colours, so the sheet and the grid teach one vocabulary rather than two */
+  tone: 'available' | 'planned' | 'open' | 'done'
+  /** present = the head is a switch; absent = it is a read-out (an attendance stretch has no
+   *  second state — it is either running or finished, and that is decided elsewhere) */
+  onToggle?: () => void
+  toggleHint?: string
+}
+
+/** Stated, not interpolated: `s[tone]` would silently resolve to undefined if a tone were ever
+ *  renamed, and «open» is already taken in this stylesheet by the «noch da» chip. */
+const TONE: Record<TimeBlockHead['tone'], string> = {
+  available: s.toneAvailable, planned: s.tonePlanned, open: s.toneOpen, done: s.toneDone,
+}
+
 /** One von–bis row. `to` absent = still running, drawn as a state chip instead of a second field. */
 export interface TimeBlock {
   key: string
@@ -35,8 +60,10 @@ export interface TimeBlock {
    *  picker, where it replaces the bin glyph — emptying a «bis» records presence, it destroys
    *  nothing, and a bin said the opposite of what it did. */
   onReopen?: () => void
-  /** right-hand control: the planned/fix toggle in the Zeitplan, nothing in the Anwesenheit */
-  trailing?: ReactNode
+  /** what this stretch is — drawn as the card's head */
+  head: TimeBlockHead
+  /** how long it lasts, already formatted (fmtSpanShort) — «4 h 00», «seit 29 min» */
+  duration?: string
   onFrom?: (hhmm: string) => void
   onTo?: (hhmm: string) => void
   onRemove?: () => void
@@ -67,7 +94,7 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
   /** an additional read-only section under the blocks (the Zeitplan's «tatsächlich anwesend») */
   extra?: ReactNode
   onClose: () => void
-  labels: { from: string; to: string; done: string; remove: string; fromStart: string; reopen: string }
+  labels: { from: string; to: string; done: string; remove: string; fromStart: string; reopen: string; flip: string }
 }) {
   return (
     <Sheet open onClose={onClose} fit sheetClassName={s.sheet} title={title}
@@ -86,8 +113,38 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
           // while the row below it kept the chip inline and sent only the ✕ down — two rows of the
           // same kind in two different shapes, with the ✕ landing left on one and right on the
           // other. Grouped, the actions wrap as one block or not at all.
-          <div key={b.key} className={cx(s.row, b.warn && s.rowWarn)}>
-            {b.dayLabel && <span className={s.day}>{b.dayLabel}</span>}
+          <div key={b.key} className={cx(s.card, b.warn && s.cardWarn)}>
+            {/* THE HEAD. A container, not one big button: the ✕ cannot nest inside the toggle, so
+                the toggle takes the room it can and the delete sits beside it, aligned — instead
+                of floating in the block's top-right corner on no line with anything. */}
+            <div className={cx(s.head, TONE[b.head.tone])}>
+              {b.head.onToggle ? (
+                <button type="button" className={s.headMain} onClick={b.head.onToggle}
+                  title={b.head.toggleHint} aria-label={`${b.head.label} – ${subject}`}>
+                  <span className={s.swatch} aria-hidden />
+                  <b>{b.head.label}</b>
+                  {/* the head looks like a heading, so on a desktop it says once, on approach,
+                      that it is a switch. On a touch screen the colour and the word do that. */}
+                  <span className={s.flip}>{labels.flip}</span>
+                </button>
+              ) : (
+                <span className={s.headMain}>
+                  <span className={s.swatch} aria-hidden />
+                  <b>{b.head.label}</b>
+                </span>
+              )}
+              {b.duration && <span className={s.duration}>{b.duration}</span>}
+              {b.onRemove && (
+                <button type="button" className={s.del} title={labels.remove}
+                  aria-label={`${labels.remove} – ${subject}`} onClick={b.onRemove}>
+                  <Icon id="close" />
+                </button>
+              )}
+            </div>
+            {/* THE BODY: nothing but the two times, read as one pair. The date hangs under the
+                field it dates — as a sibling of the fields it wrapped onto a line of its own and
+                orphaned, and that also lost which end it belonged to. Over midnight each side
+                carries its own day. */}
             <span className={s.times}>
               <span className={s.field}>
                 <span className={s.label}>{labels.from}</span>
@@ -96,30 +153,21 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
                   shortcut={b.onFromStart && {
                     label: labels.fromStart, value: b.fromStartValue, onPick: b.onFromStart,
                   }} />
+                {b.dayLabel && <span className={s.day}>{b.dayLabel}</span>}
               </span>
+              <span className={s.sep} aria-hidden>–</span>
               <span className={s.field}>
                 <span className={s.label}>{labels.to}</span>
                 {b.to != null ? (
-                  <span className={s.toWrap}>
-                    <TimeField className={s.time} ariaLabel={`${labels.to} – ${subject}`} value={b.to}
-                      disabled={!b.onTo} onCommit={(v) => { if (v == null) b.onReopen?.(); else b.onTo?.(v) }}
-                      clearLabel={b.onReopen ? labels.reopen : undefined} />
-                    {b.toDayLabel && <em className={s.nextDay}>{b.toDayLabel}</em>}
-                  </span>
+                  <TimeField className={s.time} ariaLabel={`${labels.to} – ${subject}`} value={b.to}
+                    disabled={!b.onTo} onCommit={(v) => { if (v == null) b.onReopen?.(); else b.onTo?.(v) }}
+                    clearLabel={b.onReopen ? labels.reopen : undefined} />
                 ) : (
                   <em className={s.open}>{b.openLabel}</em>
                 )}
+                {b.toDayLabel && <span className={s.day}>{b.toDayLabel}</span>}
               </span>
             </span>
-            {(b.trailing || b.onRemove) && (
-              <span className={s.actions}>
-                {b.trailing}
-                {b.onRemove && (
-                  <button type="button" className={s.del} title={labels.remove} aria-label={`${labels.remove} – ${subject}`}
-                    onClick={b.onRemove}><Icon id="close" /></button>
-                )}
-              </span>
-            )}
           </div>
         ))}
         {addLabel && onAdd && (

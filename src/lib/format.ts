@@ -64,6 +64,15 @@ export function fmtElapsedHM(ms: number): string {
   return `${Math.floor(mins / 60)}:${String(mins % 60).padStart(2, '0')}`
 }
 
+/** How long a stretch lasts, for a card head: «29 min» under the hour, else «4 h 00». Hours are
+ *  uncapped — a three-day availability reads «58 h 07», not «10 h 07». This is the number the
+ *  operator worked out in their head before deciding who to send home. */
+export function fmtSpanShort(ms: number): string {
+  const mins = Math.max(0, Math.round(ms / 60_000))
+  if (mins < 60) return `${mins} min`
+  return `${Math.floor(mins / 60)} h ${String(mins % 60).padStart(2, '0')}`
+}
+
 /** Zero-pad a number to two digits: 7 → "07". */
 export const pad2 = (n: number) => String(n).padStart(2, '0')
 

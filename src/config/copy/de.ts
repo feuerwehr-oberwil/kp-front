@@ -2188,6 +2188,12 @@ export const de = {
     blocksHint: 'Jede Zeile ist eine tatsächliche Anwesenheit dieser Person. Hier korrigieren, wenn eine Stempelung daneben liegt.',
     openBlocks: 'Anwesenheit von {name} öffnen',
     stillHere: 'noch da',
+    // Kopf der Zeit-Karte: was diese Zeile IST. Kein Schalter – eine Anwesenheit läuft oder ist
+    // beendet, und das entscheidet die Liste, nicht dieses Blatt.
+    running: 'läuft',
+    ended: 'beendet',
+    // auf dem Kopf der Zeitplan-Karte, beim Überfahren: er sieht aus wie eine Überschrift
+    flip: 'umschalten',
     done: 'Fertig',
     // Umschalter zwischen der Anwesenheitsliste und dem Zeitplan (gleiche Mannschaft, zwei Blicke)
     viewList: 'Anwesenheit',
@@ -2242,6 +2248,12 @@ export const de = {
     plannedNone: 'Noch keine Verfügbarkeit erfasst.',
     addShift: 'Schicht hinzufügen',
     stillHere: 'noch da',
+    // Kopf der Zeit-Karte: was diese Zeile IST. Kein Schalter – eine Anwesenheit läuft oder ist
+    // beendet, und das entscheidet die Liste, nicht dieses Blatt.
+    running: 'läuft',
+    ended: 'beendet',
+    // auf dem Kopf der Zeitplan-Karte, beim Überfahren: er sieht aus wie eine Überschrift
+    flip: 'umschalten',
     done: 'Fertig',
     // Direktbedienung auf dem Raster – wie das Papierformular, das man ausfüllt
     fromStart: 'ab Beginn',

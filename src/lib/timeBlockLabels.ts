@@ -14,4 +14,5 @@ export const timeBlockLabels = (remove: string) => ({
   // «noch da» — the named clear inside a «bis» picker. Only the Anwesenheit ever offers it: a
   // shift always has an end, a person's presence does not.
   reopen: appConfig.copy.anwesenheit.stillHere,
+  flip: appConfig.copy.anwesenheit.flip,
 })

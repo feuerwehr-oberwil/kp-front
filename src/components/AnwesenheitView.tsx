@@ -3,7 +3,7 @@ import { Icon } from '../lib/icons'
 import type { AttendanceState, Person, PresenceInterval, Shift } from '../types'
 import { cx } from '../lib/cx'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate, hhmm } from '../lib/format'
+import { fillTemplate, fmtSpanShort, hhmm } from '../lib/format'
 import { applyTimeToIso } from '../lib/abschluss'
 import { rankAbbr, rankLabel, rankOrder } from '../lib/rank'
 import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
@@ -55,6 +55,12 @@ function PresenceSheet({ person, blocks, canEdit, startedAt, onSetTimes, onRemov
 }) {
   const A = appConfig.copy.anwesenheit
   const open = blocks.length > 0 && !blocks[blocks.length - 1].to
+  // One clock, read once when the sheet opens, for «seit 29 min» on a running stretch. A lazy
+  // initialiser rather than a bare Date.now() in the body: reading the wall clock during render is
+  // impure and re-runs on every keystroke in a time field. The number then stands still while the
+  // sheet is open, which is the right trade — this surface is transient, and a ticking hook here
+  // is exactly the shape that once cost the phone its battery.
+  const [openedAt] = useState(() => Date.now())
   return (
     <TimeBlockSheet
       title={fillTemplate(A.blocksTitle, { name: person.displayName })}
@@ -74,6 +80,13 @@ function PresenceSheet({ person, blocks, canEdit, startedAt, onSetTimes, onRemov
         from: toHM(iv.from),
         to: iv.to ? toHM(iv.to) : undefined,
         openLabel: A.stillHere,
+        // Same card as the Zeitplan, but the head is a READ-OUT here: a stretch of presence has no
+        // second state to flip into — it is running or it is finished, and that is decided by the
+        // row in the list, not in this sheet. So no switch, and no «umschalten» on hover.
+        head: iv.to
+          ? { label: A.ended, tone: 'done' as const }
+          : { label: A.running, tone: 'open' as const },
+        duration: fmtSpanShort((iv.to ? Date.parse(iv.to) : openedAt) - Date.parse(iv.from)),
         // mirror of onTo: a von typed after the bis means the block STARTED the previous day
         onFrom: canEdit && onSetTimes ? (v) => { const iso = applyTimeToIso(iv.from, v, { prevDayIfAfter: iv.to }); if (iso) onSetTimes(person.id, { from: iso }, i) } : undefined,
         // on a multi-day Einsatz the clock alone does not say which day this block belongs to

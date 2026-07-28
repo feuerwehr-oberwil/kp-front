@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate, hhmm } from '../lib/format'
+import { fillTemplate, fmtSpanShort, hhmm } from '../lib/format'
 import { fmtDayShort, isOtherDay } from '../lib/zeitplanFormat'
 import { applyTimeToIso } from '../lib/abschluss'
 import { cx } from '../lib/cx'
@@ -108,14 +108,16 @@ function PersonSheet({ person, shifts, blocks, canEdit, startedAt, conflicts, on
         fromStartValue: startedAt ? clock(startedAt) : undefined,
         // no «noch da» here on purpose: a shift always has an end. Only a person's presence can be
         // open, and that lives in the Anwesenheit.
-        trailing: (
-          <button type="button" className={cx(s.sheetState, sh.confirmed && s.sheetStateOn)}
-            disabled={!canEdit} onClick={() => onToggle(sh)} aria-pressed={!!sh.confirmed}
-            aria-label={`${person.displayName}: ${fillTemplate(Z.toggleHint, { state: sh.confirmed ? Z.available : Z.confirmed })}`}
-            title={fillTemplate(Z.toggleHint, { state: sh.confirmed ? Z.available : Z.confirmed })}>
-            {sh.confirmed ? Z.confirmed : Z.available}
-          </button>
-        ),
+        // the head IS the state: colour, word, and the whole width as the switch
+        head: {
+          label: sh.confirmed ? Z.confirmed : Z.available,
+          tone: sh.confirmed ? 'planned' : 'available',
+          ...(canEdit ? {
+            onToggle: () => onToggle(sh),
+            toggleHint: fillTemplate(Z.toggleHint, { state: sh.confirmed ? Z.available : Z.confirmed }),
+          } : {}),
+        },
+        duration: fmtSpanShort(Date.parse(sh.to) - Date.parse(sh.from)),
       }))}
       extra={
         <TimeBlockReadOnly

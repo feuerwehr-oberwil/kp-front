@@ -1626,6 +1626,9 @@ export const en: Localizable<Copy> = {
     blocksHint: 'Each line is one real turn on site. Correct a time here when a stamp landed wrong.',
     openBlocks: 'Open attendance for {name}',
     stillHere: 'still here',
+    running: 'running',
+    ended: 'finished',
+    flip: 'switch',
     done: 'Done',
   },
   zeitplan: {

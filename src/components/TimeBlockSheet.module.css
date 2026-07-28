@@ -14,38 +14,57 @@
   letter-spacing: .08em; text-transform: uppercase;
 }
 
-/* one block per framed row, each field SAID (von / bis) — two bare clocks side by side never
-   told you which was the start */
-/* align-items: flex-end, and every child of this row ends at the same baseline: the fields are
-   59px (a 10.5px label over a 44px control) and every button is exactly 44px, so «bottom» is the
-   ONE edge they can all share. An earlier mix of align-self: center on the state chip and flex-end
-   on «ab Beginn» made two 44px buttons in the same row sit 8px apart vertically. */
-.row {
-  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 10px; padding: 8px 10px;
+/* ONE STRETCH = ONE CARD: a head that says what it IS, a body that says when.
+   The old shape put six controls of six different sizes on one line — two framed time fields, a
+   day chip that looked tappable and was not, a 118px uppercase state slab, a blue text link and a
+   bare ✕ floating in the corner. Nothing shared a shape, a height or an edge, so it read as a
+   random assortment. Now the state owns the head, the times own the body, and every card is the
+   same shape whether or not it offers a shortcut. */
+.card {
   border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface);
+  overflow: hidden;
 }
-.row + .row { margin-top: 6px; }
-/* the two zones. `.times` may wrap inside itself; `.actions` is pushed to the right edge and moves
-   as one piece, so the state chip and the ✕ are never separated. */
-.times { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 10px; min-width: 0; }
-.actions { display: flex; align-items: flex-end; gap: 4px; margin-left: auto; }
-.rowWarn { border-color: var(--red); background: color-mix(in srgb, var(--red) 8%, var(--surface)); }
+.card + .card { margin-top: 8px; }
+.cardWarn { border-color: var(--red); }
 
-/* the day this block falls on, when that is not the incident's opening day */
-.day {
-  flex: 1 0 100%; margin: -2px 0 2px;
-  font: 700 12px var(--mono); color: var(--ink); letter-spacing: .04em;
+/* the head — colour, word, duration, delete. `overflow: hidden` on the card clips its tint to the
+   card's own corners, so no inner radius has to be kept in sync. */
+.head { display: flex; align-items: center; gap: 8px; padding: 0 4px 0 10px; min-height: 40px; }
+.headMain {
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px;
+  border: none; background: none; padding: 0; min-height: 40px; font: inherit; text-align: left;
+  color: inherit; -webkit-tap-highlight-color: transparent;
 }
-.field { display: flex; flex-direction: column; gap: 3px; }
-.label { font: 600 10.5px var(--mono); color: var(--ink-faint); letter-spacing: .06em; text-transform: uppercase; }
+button.headMain { cursor: pointer; }
+.head b { font: 800 11.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.swatch { width: 4px; height: 18px; border-radius: 2px; flex: none; background: currentColor; }
+/* THE THREE STATES, in the grid's own colours — the sheet and the lane teach one vocabulary
+   instead of two. Set on the head so the swatch inherits it via currentColor. */
+.toneAvailable { background: color-mix(in srgb, var(--ink) 8%, transparent); color: var(--ink-dim); }
+.tonePlanned { background: color-mix(in srgb, var(--blue) 18%, transparent); color: var(--blue-strong); }
+.toneOpen { background: color-mix(in srgb, var(--green) 16%, transparent); color: var(--green-strong); }
+.toneDone { background: color-mix(in srgb, var(--ink) 6%, transparent); color: var(--ink-dim); }
+.cardWarn .head { background: color-mix(in srgb, var(--red) 14%, transparent); color: var(--red); }
+/* a head reads as a heading, so on a pointer device it says once, on approach, that it is also a
+   switch. A touch screen has no hover and does not get told — there the colour and the word do it. */
+.flip {
+  margin-left: auto; font: 700 9.5px var(--mono); letter-spacing: .07em; text-transform: uppercase;
+  color: var(--ink-faint); opacity: 0; transition: opacity .12s var(--ease);
+}
+button.headMain:hover .flip, button.headMain:focus-visible .flip { opacity: 1; }
+/* the number the operator used to work out in their head before sending somebody home */
+.duration { flex: none; font: 700 12.5px var(--mono); color: var(--ink-dim); }
+
+/* the body: the two times as one pair, nothing else */
+.times { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 10px; padding: 11px 12px; }
+.sep { align-self: center; padding-top: 14px; color: var(--ink-faint); font: 600 14px var(--mono); }
+/* the day this end falls on. A CAPTION under its own field, not a chip beside the row: as a
+   sibling of the fields it wrapped to its own line and orphaned, and it no longer said which end
+   it dated. Over midnight both sides carry one. */
+.day { font: 600 10.5px var(--mono); color: var(--ink-faint); white-space: nowrap; }
+.field { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.label { font: 600 9.5px var(--mono); color: var(--ink-faint); letter-spacing: .06em; text-transform: uppercase; }
 .time { flex: none; }
-.toWrap { display: inline-flex; align-items: center; gap: 6px; }
-/* «+1 Tag» beside the end — a night block reads as backwards without it */
-.nextDay {
-  font-style: normal; padding: 2px 7px; border-radius: var(--r-xs);
-  background: color-mix(in srgb, var(--ink) 10%, transparent);
-  font: 700 11px var(--mono); color: var(--ink-dim); white-space: nowrap;
-}
 .open {
   display: inline-flex; align-items: center; min-height: var(--tap); padding: 0 10px;
   border-radius: var(--r-ctl); background: color-mix(in srgb, var(--green) 16%, transparent);
@@ -53,57 +72,26 @@
 }
 
 .del {
-  flex: none; align-self: flex-end; display: inline-grid; place-items: center;
-  min-width: var(--tap); min-height: var(--tap); border: none; border-radius: var(--r-sm); background: none;
-  color: var(--ink-faint); cursor: pointer; -webkit-tap-highlight-color: transparent;
+  flex: none; display: inline-grid; place-items: center;
+  min-width: 34px; min-height: 34px; border: none; border-radius: var(--r-sm); background: none;
+  color: inherit; opacity: .65; cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
 .del svg { width: 15px; height: 15px; }
-.del:hover { color: var(--red); background: color-mix(in srgb, var(--red) 10%, transparent); }
+.del:hover { opacity: 1; color: var(--red); background: color-mix(in srgb, var(--red) 12%, transparent); }
 
 .add { margin-top: 8px; gap: 6px; }
 
-/* «ab Beginn» — one tap instead of typing the alarm time from memory on day three. It lives HERE,
-   in the stylesheet its own component imports: written into Zeitplan.module.css it resolved to
-   `undefined` and rendered as a bare 21px browser button in the middle of the sheet. */
-/* the line it gets to itself — a wrapper, so the LINE is full width while the BUTTON keeps its own
-   width and sits left, under «von». (flex-basis: 100% on the button itself would have stretched a
-   dashed shortcut across the whole sheet, giving it more weight than the state chip it sits under.)
-   See the note in the component for why it left the main row. */
-.fromStartLine { flex: 1 0 100%; display: flex; }
-/* A quiet text action, not a framed one. It is a SHORTCUT for one field on one block — the dashed
-   blue box gave it a boundary as strong as the state control's, so the first block read as though
-   it carried two equal controls while every block below carried one. */
-.fromStart {
-  flex: none; min-height: var(--tap); padding: 0 8px; border-radius: var(--r-sm);
-  border: none; background: none;
-  color: var(--blue); font: 600 12.5px var(--body); cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.fromStart:hover { background: color-mix(in srgb, var(--blue) 12%, transparent); }
 .note { margin: 10px 0 0; font: 500 12px var(--body); color: var(--ink-faint); }
 
-/* ---- phone: two lines per block, not three -------------------------------------------- */
+/* ---- phone ---------------------------------------------------------------------------- */
 
-/* On a wide sheet a block is one line. On a phone the same markup wrapped into three ragged ones
-   — times, then the state chip pushed right with the ✕ beside it, then «ab Beginn» alone — so a
-   single shift ate a third of the screen and no two blocks looked alike down the left edge.
-   Same three parts, laid out deliberately instead of by whatever happened to fit:
-     line 1   von / bis, with the ✕ lifted out of the flow into the corner it belongs in
-     line 2   the state chip at a FIXED width, «ab Beginn» after it
-   The state chip must not stretch. Letting it fill the leftover space sized it by its neighbour
-   rather than by itself, so «GEPLANT» on a block that offers «ab Beginn» came out narrower than
-   «VERFÜGBAR» on the block below — two controls that do the same thing, in two widths, one above
-   the other. Fixed, every block is the same shape and the eye can run down the column.
-   The ✕ goes to the corner because it is the one control here that destroys something: away from
-   the thumb's path along the fields, and in the same place on every block. */
+/* The card needs no separate phone layout: the head is one line whatever the width, and the body
+   is two fields plus a dash. All that changes is the breathing room. The three-line scramble the
+   old row produced here — times, then a state chip pushed right with the ✕ beside it, then «ab
+   Beginn» alone — is gone with the row itself. */
 @media (max-width: 560px) {
-  .row { position: relative; padding: 7px 8px 7px 10px; padding-right: 42px; gap: 4px 8px; }
-  .del { position: absolute; top: 5px; right: 2px; min-width: 38px; min-height: 38px; }
-  .times { flex: 1 0 100%; }
-  /* margin-left: auto would strand the chip against the right edge on its own line */
-  .actions { flex: 0 0 auto; margin-left: 0; }
-  .actions > * { flex: 0 0 auto; }
-  .fromStartLine { flex: 1 1 auto; }
+  .times { padding: 10px; gap: 6px 8px; }
+  .head { padding-left: 9px; }
 }
 
 /* the read-only half: the record, shown but not editable here */
