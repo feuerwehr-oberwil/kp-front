@@ -3,7 +3,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
 import { confirmDialog, toast } from './ui'
 import type { Person, Shift, ShiftBand } from '../types'
-import { bandCellState, shiftInBand } from './shifts'
+import { bandAssignWindow, bandCell } from './shifts'
 
 interface BandActionsDeps {
   bands: ShiftBand[]
@@ -15,8 +15,9 @@ interface BandActionsDeps {
 /**
  * Schichtbänder — the columns of the Schichten grid, and the cell taps that fill them.
  *
- * The one rule everything here follows: **membership is stored, never derived.** A shift belongs to
- * a band because it carries that band's `bandId`, not because its clock happens to match. So:
+ * The one rule everything here follows: **assignment is stored, never derived** (availability is
+ * the other way round — see `bandCell`). Somebody is IN a band because a person put them there,
+ * not because their clock happened to match. So:
  *
  *  - creating a band writes ONE row and touches no shift, not even for people who already hold
  *    exactly those hours freihändig (see types.ShiftBand for why that is a sync argument too);
@@ -101,25 +102,41 @@ export function useBandActions({ bands, setBands, shifts, setShifts }: BandActio
   /**
    * One cell tap: leer → verfügbar → eingeteilt → leer, the same direction as the Anwesenheit row.
    *
-   * A cell whose shift has DRIFTED off the band's times (drawn hatched, showing its real hours)
-   * cycles verfügbar ⇄ eingeteilt only. Dropping it back to leer would delete a stretch somebody
-   * dragged by hand on the Zeitplan axis, and the grid must not be a place where that happens on
-   * the third tap of a fifty-tap sweep.
+   * Two cells never reach «leer», and both for the same reason — there is real planning behind
+   * them that this grid must not be able to delete:
+   *
+   *  - a cell whose MEMBER shift has drifted off the band's times (hatched, showing its real
+   *    hours) cycles verfügbar ⇄ eingeteilt. Dropping it would delete a stretch somebody dragged
+   *    by hand on the axis, on the third tap of a fifty-tap sweep;
+   *  - a DERIVED cell — the person is available because a freihändige offer of theirs covers the
+   *    window — falls back to that offer instead. Un-assigning somebody does not withdraw what
+   *    they said they could do.
+   *
+   * Confirming a derived cell writes a NEW member shift over the part of the band they actually
+   * offered (`bandAssignWindow`) and leaves their own offer alone. On the Zeitplan that reads as
+   * the everyday pair the axis was built for: a wide hollow offer with a solid assignment inside.
    */
   const cycleCell = (band: ShiftBand, person: Person) => {
-    const cur = shiftInBand(shifts, person.id, band.id)
-    if (!cur) {
+    const cell = bandCell(shifts, person.id, band)
+    if (cell.state === 'empty') {
       setShifts((list) => [...list, {
         id: `sh${Date.now()}`, personId: person.id, bandId: band.id, from: band.from, to: band.to,
       }])
       return
     }
-    const state = bandCellState(cur, band)
+    if (cell.derived) {
+      const win = bandAssignWindow(cell, band)
+      setShifts((list) => [...list, {
+        id: `sh${Date.now()}`, personId: person.id, bandId: band.id, ...win, confirmed: true,
+      }])
+      return
+    }
+    const cur = cell.shift!
     if (!cur.confirmed) {
       setShifts((list) => list.map((s) => (s.id === cur.id ? { ...s, confirmed: true } : s)))
       return
     }
-    if (state === 'deviating') {
+    if (cell.state === 'deviating') {
       setShifts((list) => list.map((s) => (s.id === cur.id ? { ...s, confirmed: false } : s)))
       return
     }

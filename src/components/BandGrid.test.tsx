@@ -83,25 +83,51 @@ describe('the grid', () => {
     expect(cellsOf('Meier A.')[0].textContent).toBe('09–14')
   })
 
-  it('leaves every cell empty for a shift that matches a band but belongs to none', () => {
-    // membership is stored, not guessed: this person's 07–12 was drawn on the axis
-    mount({ shifts: [{ id: 'sh1', personId: 'p2', from: T(7), to: T(12) }] })
+  it('shows somebody as available when their own offer covers a band, without a second tap', () => {
+    // they drew 06–13 on the axis, so they ARE free for 07–12 — the grid does not ask again
+    mount({ shifts: [{ id: 'sh1', personId: 'p2', from: T(6), to: T(13) }] })
+    expect(cellsOf('Meier A.')[0].textContent).toBe(appConfig.copy.schichten.available)
+    // …and it is only an AVAILABILITY: assignment is never derived
+    expect(cellsOf('Meier A.')[0].getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('shows the real hours where an offer covers only part of a band', () => {
+    // «frei» there would promise hours nobody offered
+    mount({ shifts: [{ id: 'sh1', personId: 'p2', from: T(10), to: T(20) }] })
+    // Früh 07–12 is covered only from 10:00, so the cell says what they actually offered…
+    expect(cellsOf('Meier A.')[0].textContent).toBe('10–20')
+    // …while Spät 12–17 lies wholly inside 10–20, which is plainly «frei»
+    expect(cellsOf('Meier A.')[1].textContent).toBe(appConfig.copy.schichten.available)
+  })
+
+  it('leaves the cells empty for somebody whose times never reach the band', () => {
+    mount({ shifts: [{ id: 'sh1', personId: 'p2', from: T(20), to: T(23) }] })
     expect(cellsOf('Meier A.')[0].textContent).toBe('')
   })
 
-  it('marks a person\'s own times so an empty row cannot read as «has offered nothing»', () => {
-    mount({ shifts: [{ id: 'sh1', personId: 'p2', from: T(9), to: T(14) }] })
+  it('marks own times that reach NO column, so that row cannot read as «has offered nothing»', () => {
+    // 18–20 misses Früh 07–12 and Spät 12–17 entirely, so every cell is empty and only the mark
+    // can say this person has told us something
+    mount({ shifts: [{ id: 'sh1', personId: 'p2', from: T(18), to: T(20) }] })
     const row = screen.getByText('Meier A.').closest('div')!
-    expect(within(row).getByText('09–14')).toBeTruthy()
+    expect(within(row).getByText('18–20')).toBeTruthy()
   })
 
   it('names the further times rather than listing them all in a 112px column', () => {
     mount({ shifts: [
-      { id: 'sh1', personId: 'p2', from: T(9), to: T(14) },
-      { id: 'sh2', personId: 'p2', from: T(18), to: T(22) },
+      { id: 'sh1', personId: 'p2', from: T(18), to: T(20) },
+      { id: 'sh2', personId: 'p2', from: T(21), to: T(23) },
     ] })
     const row = screen.getByText('Meier A.').closest('div')!
-    expect(within(row).getByText('09–14 +1')).toBeTruthy()
+    expect(within(row).getByText('18–20 +1')).toBeTruthy()
+  })
+
+  it('drops the mark once a column already carries those hours', () => {
+    // the badge plus two cells printed the same 09–14 three times across one row
+    mount({ shifts: [{ id: 'sh1', personId: 'p2', from: T(9), to: T(14) }] })
+    const row = screen.getByText('Meier A.').closest('div')!
+    expect(within(row).queryByText('09–14')).toBeNull()
+    expect(cellsOf('Meier A.')[0].textContent).toBe('09–14')
   })
 
   it('hands a cell tap straight to the cycle, band and person named', () => {

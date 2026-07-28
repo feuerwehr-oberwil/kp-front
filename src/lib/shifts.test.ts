@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
-  SLOT_MS, bandCellState, bandCounts, bandCoverFraction, barGeometry, ceilSlot, conflictingShiftIds,
-  coverage, draftBand, draftShift, dragShift, floorSlot, freehandShifts, intervalSpan, overlaps,
-  plannedPersonCount, shiftAt, shiftInBand, shiftSpan, shiftsFor, sortBands, timeAtFraction,
-  timelineSpan,
+  SLOT_MS, bandAssignWindow, bandCell, bandCounts, bandCoverFraction, barGeometry, ceilSlot,
+  conflictingShiftIds, coverage, draftBand, draftShift, dragShift, floorSlot, freehandShifts,
+  intervalSpan, overlaps, plannedPersonCount, shiftAt, shiftInBand, shiftSpan, shiftsFor, sortBands,
+  timeAtFraction, timelineSpan,
 } from './shifts'
 import type { AttendanceState, Shift, ShiftBand } from '../types'
 
@@ -264,59 +264,120 @@ const band = (id: string, from: string, to: string, label = ''): ShiftBand => ({
 const inBand = (id: string, personId: string, from: string, to: string, bandId: string, confirmed?: boolean): Shift =>
   ({ id, personId, from, to, bandId, ...(confirmed ? { confirmed } : {}) })
 
-describe('band membership is STORED, never derived', () => {
+describe('bandCell — availability is derived, assignment is stored', () => {
   const früh = band('bd1', T(7), T(12), 'Früh')
 
-  it('ignores a shift whose times match the band exactly but carries no bandId', () => {
-    // this is the whole design in one assertion: a new band is empty for EVERYBODY, including the
-    // people who already hold precisely its hours freihändig
-    const free = shift('a', 'p1', T(7), T(12))
-    expect(shiftInBand([free], 'p1', 'bd1')).toBeUndefined()
-    expect(bandCellState(shiftInBand([free], 'p1', 'bd1'), früh)).toBe('empty')
+  it('shows somebody as available when their own offer covers the whole window', () => {
+    // THE point: they drew 06–13 on the axis, so they ARE free for 07–12. Asking them to tap a
+    // cell to say so a second time is the surface asking a question it already has the answer to.
+    const own = shift('a', 'p1', T(6), T(13))
+    expect(bandCell([own], 'p1', früh)).toEqual({ state: 'available', shift: own, derived: true })
   })
 
-  it('keeps a shift in its band after its times were dragged away, hatched', () => {
+  it('shows the REAL hours when the offer covers only part of the window', () => {
+    // «frei» here would promise five hours somebody never offered
+    const own = shift('a', 'p1', T(10), T(20))
+    expect(bandCell([own], 'p1', früh)).toMatchObject({ state: 'deviating', derived: true })
+  })
+
+  it('never derives «eingeteilt» — a confirmed offer elsewhere is still only an availability', () => {
+    const own: Shift = { id: 'a', personId: 'p1', from: T(6), to: T(13), confirmed: true }
+    expect(bandCell([own], 'p1', früh).state).toBe('available')
+  })
+
+  it('lets a STORED member win the cell over any other offer that also overlaps', () => {
+    const member = inBand('m', 'p1', T(7), T(12), 'bd1', true)
+    const own = shift('a', 'p1', T(6), T(13))
+    expect(bandCell([own, member], 'p1', früh)).toEqual({ state: 'confirmed', shift: member, derived: false })
+  })
+
+  it('keeps a member in its band after its times were dragged away, hatched', () => {
     // nobody falls out of a column because somebody nudged the band by five minutes
     const drifted = inBand('a', 'p1', T(9), T(14), 'bd1', true)
-    expect(bandCellState(drifted, früh)).toBe('deviating')
+    expect(bandCell([drifted], 'p1', früh)).toEqual({ state: 'deviating', shift: drifted, derived: false })
   })
 
-  it('reads the plain two states off an on-band shift', () => {
-    expect(bandCellState(inBand('a', 'p1', T(7), T(12), 'bd1'), früh)).toBe('available')
-    expect(bandCellState(inBand('a', 'p1', T(7), T(12), 'bd1', true), früh)).toBe('confirmed')
+  it('picks the offer that covers MOST of the window when several overlap', () => {
+    const little = shift('a', 'p1', T(11), T(12))
+    const lots = shift('b', 'p1', T(8), T(12))
+    expect(bandCell([little, lots], 'p1', früh).shift?.id).toBe('b')
+  })
+
+  it('is empty for somebody who has offered nothing that reaches the window', () => {
+    expect(bandCell([shift('a', 'p1', T(14), T(18))], 'p1', früh)).toEqual({ state: 'empty', derived: false })
+    expect(bandCell([], 'p1', früh).state).toBe('empty')
+  })
+
+  it('reads the plain two states off a member sitting exactly on the band', () => {
+    expect(bandCell([inBand('a', 'p1', T(7), T(12), 'bd1')], 'p1', früh).state).toBe('available')
+    expect(bandCell([inBand('a', 'p1', T(7), T(12), 'bd1', true)], 'p1', früh).state).toBe('confirmed')
   })
 
   it('lists only the shifts belonging to no band as a person\'s own times', () => {
     const list = [inBand('a', 'p1', T(7), T(12), 'bd1'), shift('b', 'p1', T(9), T(14)), shift('c', 'p2', T(9), T(14))]
     expect(freehandShifts(list, 'p1').map((x) => x.id)).toEqual(['b'])
   })
+
+  it('finds the stored member by bandId and never by matching clocks', () => {
+    expect(shiftInBand([shift('a', 'p1', T(7), T(12))], 'p1', 'bd1')).toBeUndefined()
+  })
 })
 
-describe('bandCounts — deviating shifts count pro rata', () => {
+describe('bandAssignWindow — a tap assigns only what was offered', () => {
+  const früh = band('bd1', T(7), T(12), 'Früh')
+
+  it('assigns the whole window for an empty cell', () => {
+    expect(bandAssignWindow({ state: 'empty', derived: false }, früh)).toEqual({ from: T(7), to: T(12) })
+  })
+
+  it('assigns the OVERLAP for somebody whose offer only reaches into the window', () => {
+    // confirming a 10–20 offer into a 07–12 watch must assign 10–12, not five hours they never
+    // said they could do
+    const cell = bandCell([shift('a', 'p1', T(10), T(20))], 'p1', früh)
+    expect(bandAssignWindow(cell, früh)).toEqual({ from: T(10), to: T(12) })
+  })
+
+  it('assigns the whole window when the offer covers all of it', () => {
+    const cell = bandCell([shift('a', 'p1', T(6), T(13))], 'p1', früh)
+    expect(bandAssignWindow(cell, früh)).toEqual({ from: T(7), to: T(12) })
+  })
+})
+
+describe('bandCounts — per person, deviating pro rata', () => {
   const früh = band('bd1', T(7), T(12), 'Früh') // five hours
 
-  it('counts an on-band shift as a whole one, in its own state', () => {
+  it('counts a member on the band as a whole one, in its own state', () => {
     const list = [inBand('a', 'p1', T(7), T(12), 'bd1'), inBand('b', 'p2', T(7), T(12), 'bd1', true)]
     expect(bandCounts(list, früh)).toEqual({ available: 1, confirmed: 1 })
   })
 
-  it('counts 09–14 inside 07–12 as the three hours it actually covers', () => {
-    // «wie viele habe ich in diesem Fenster», not «wie viele Häkchen sehe ich»: three of five hours
+  it('counts a derived availability too — the head must agree with the cells below it', () => {
+    expect(bandCounts([shift('a', 'p1', T(6), T(13))], früh)).toEqual({ available: 1, confirmed: 0 })
+  })
+
+  it('counts 09–14 against 07–12 as the three hours it actually covers', () => {
     expect(bandCoverFraction(inBand('a', 'p1', T(9), T(14), 'bd1', true), früh)).toBeCloseTo(0.6)
     expect(bandCounts([inBand('a', 'p1', T(9), T(14), 'bd1', true)], früh).confirmed).toBeCloseTo(0.6)
+  })
+
+  it('counts one person ONCE, even holding both a member shift and a wider offer', () => {
+    // one cell is one count — otherwise the head says two where the grid shows one
+    const list = [shift('a', 'p1', T(6), T(13)), inBand('m', 'p1', T(7), T(12), 'bd1', true)]
+    expect(bandCounts(list, früh)).toEqual({ available: 0, confirmed: 1 })
   })
 
   it('never counts more than one for a shift that swallows the whole band', () => {
     expect(bandCoverFraction(inBand('a', 'p1', T(0), T(23), 'bd1'), früh)).toBe(1)
   })
 
-  it('counts nothing for a shift dragged clear of its band, and does not go negative', () => {
+  it('counts nothing for a shift clear of the band, and does not go negative', () => {
     expect(bandCoverFraction(inBand('a', 'p1', T(14), T(18), 'bd1'), früh)).toBe(0)
+    expect(bandCounts([shift('a', 'p1', T(14), T(18))], früh)).toEqual({ available: 0, confirmed: 0 })
   })
 
-  it('ignores every shift belonging to another band or to none', () => {
-    const list = [inBand('a', 'p1', T(7), T(12), 'bd2'), shift('b', 'p2', T(7), T(12))]
-    expect(bandCounts(list, früh)).toEqual({ available: 0, confirmed: 0 })
+  it('counts a shift stored into ANOTHER band as the availability it also is', () => {
+    // it covers this window too, so the person is free for it — they are simply not assigned here
+    expect(bandCounts([inBand('a', 'p1', T(7), T(12), 'bd2', true)], früh)).toEqual({ available: 1, confirmed: 0 })
   })
 })
 

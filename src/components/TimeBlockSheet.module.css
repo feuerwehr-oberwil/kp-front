@@ -2,9 +2,7 @@
    Zeitplan's planned shifts, so the two cannot drift apart again. */
 
 .sheet { max-width: 520px; }
-/* the «Fertig» row sat hard against the frame's corner. The shared .ip-actions has no padding of
-   its own (each surface sets its own frame), so this sheet states it. */
-.sheet :global(.ip-actions) { padding: 8px 20px 16px; }
+/* the footer row's padding is now a house rule (.ip-sheet > .ip-actions in app.css) */
 .sheet :global(.ip-body) { padding-bottom: 8px; }
 
 .group { padding: 2px 0 6px; }

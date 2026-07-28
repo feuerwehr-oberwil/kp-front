@@ -91,9 +91,13 @@
 }
 
 /* head + the ＋ are chrome spanning the full width, not cards on the board. It paints the board
-   colour itself: without it the 3px gaps between the column heads are transparent, and a row
-   scrolled up underneath shows through them in slices. */
-.headRow { position: sticky; top: 0; z-index: 4; background: var(--board); }
+   colour itself and closes off below with a soft shadow: without both, a row scrolled up
+   underneath showed through the 3px gaps between the column heads, in slices. Same pair as the
+   Zeitplan's sticky clock row. */
+.headRow {
+  position: sticky; top: 0; z-index: 4; background: var(--board);
+  padding-bottom: 3px; box-shadow: 0 6px 10px -8px color-mix(in srgb, var(--ink) 45%, transparent);
+}
 .whoHead {
   min-height: 0; align-items: flex-end; padding-bottom: 6px;
   font: 700 10.5px var(--mono); color: var(--ink-faint); letter-spacing: .08em; text-transform: uppercase;
@@ -122,17 +126,24 @@
 .cntAvailable { color: var(--ink-dim); }
 .cntConfirmed { color: var(--st-planned); }
 
-/* the ONE way in, standing in the row it creates. Dashed and tinted: it is an invitation, not a
-   column — nothing is counted in it and nothing can be tapped into it. */
+/* the ONE way in, standing in the row it creates.
+   It is NOT drawn as a column. Given the same dashed frame and rounded top as the band heads
+   beside it, it read as a fourth, half-finished watch — a tombstone at the end of the row. It is a
+   control, so it is shaped like one: a quiet round button on the board, centred against the heads,
+   claiming only the width it needs. */
 .addBand {
-  flex: none; width: var(--add-w); display: grid; place-items: center;
-  border: 1px dashed color-mix(in srgb, var(--blue) 45%, transparent); border-bottom: none;
-  border-radius: var(--r-ctl) var(--r-ctl) 0 0;
-  background: color-mix(in srgb, var(--blue) 8%, transparent); color: var(--blue);
+  position: relative; flex: none; width: var(--add-w); display: grid; place-items: center;
+  border: none; background: none; padding: 0;
   cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
-.addBand:hover { background: color-mix(in srgb, var(--blue) 16%, transparent); }
-.addBand svg { width: 18px; height: 18px; }
+.addBand::before {
+  content: ''; position: absolute; width: 30px; height: 30px; border-radius: 50%;
+  background: color-mix(in srgb, var(--blue) 12%, transparent);
+  transition: background .12s var(--ease);
+}
+.addBand svg { width: 17px; height: 17px; color: var(--blue); position: relative; }
+.addBand:hover::before { background: color-mix(in srgb, var(--blue) 24%, transparent); }
+.addBand:focus-visible::before { box-shadow: 0 0 0 2px var(--blue); }
 /* under the ＋, in every person's row: the rows must all end at the same x or the right edge of
    the grid becomes a staircase */
 .pad { flex: none; width: var(--add-w); }
@@ -150,6 +161,10 @@
   font: 700 10.5px var(--mono); color: var(--ink-faint);
 }
 .cell:disabled { cursor: default; }
+/* Hover DARKENS whatever the cell already is; it never repaints it. A single flat hover colour sat
+   above every state rule here (`.cell:hover` outranks `.cellConfirmed`), so hovering a filled blue
+   cell turned it pale grey while its text stayed white — the one word on it became unreadable at
+   exactly the moment you were pointing at it. Each state now dims its own fill. */
 .cell:not(:disabled):hover { background: color-mix(in srgb, var(--ink) 5%, var(--surface)); }
 
 /* verfügbar — dashed, like the availability band on the Zeitplan lane: offered, nothing committed */
@@ -162,6 +177,9 @@
 .cellConfirmed {
   background: var(--st-planned); border: 1px solid var(--st-planned); color: #fff;
 }
+/* …and their own hover, stated AFTER the base hover so they win it back */
+.cellAvailable:not(:disabled):hover { background: color-mix(in srgb, var(--ink) 12%, var(--surface)); }
+.cellConfirmed:not(:disabled):hover { background: color-mix(in srgb, #000 14%, var(--st-planned)); }
 /* abweichend — in the band, not keeping to it. Hatched in its OWN state's colour and carrying the
    real hours: the person said something specific about themselves and the grid repeats it rather
    than normalising it away. Tapping such a cell never empties it (see useBandActions.cycleCell) —

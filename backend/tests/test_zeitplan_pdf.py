@@ -11,7 +11,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from app.zeitplan_pdf import MAX_ROWS, ZeitplanPayload, _window, compose_zeitplan_pdf
+from app.zeitplan_pdf import MAX_ROWS, MAX_SPAN_H, ZeitplanPayload, _window, compose_zeitplan_pdf
 
 T0 = datetime(2026, 7, 26, 12, 0, tzinfo=UTC)
 
@@ -56,15 +56,44 @@ async def _create_incident(client) -> str:
 
 def test_window_opens_a_full_shift_even_for_an_empty_plan():
     """A fresh plan must not render as a sliver of axis."""
-    start, end = _window(ZeitplanPayload(incidentTitle="X", startedAt=T0))
+    # printedAt given explicitly: the axis is anchored near the PRINT time now, so leaving it to
+    # the wall clock would make this test say something different every day
+    start, end = _window(ZeitplanPayload(incidentTitle="X", startedAt=T0, printedAt=T0))
     assert start == T0
     assert (end - start) >= timedelta(hours=12)
+
+
+def test_window_starts_at_the_alarm_while_the_incident_is_still_young():
+    # an incident an hour old is nearer than the look-back, so the sheet still opens at its start
+    start, _ = _window(ZeitplanPayload(incidentTitle="X", startedAt=T0, printedAt=T0 + timedelta(hours=1)))
+    assert start == T0
+
+
+def test_window_follows_the_print_time_on_a_deployment_days_old():
+    """Day eight of an Elementarereignis: the sheet is about the hours being planned, not about a
+    week nobody is planning any more."""
+    printed = T0 + timedelta(days=8)
+    start, _ = _window(ZeitplanPayload(incidentTitle="X", startedAt=T0, printedAt=printed))
+    assert start == (printed - timedelta(hours=2)).replace(minute=0, second=0, microsecond=0)
+
+
+def test_window_is_capped_so_one_sheet_never_carries_a_week():
+    # uncapped, an eight-day span put 384 half-hour rules 0.7mm apart under 192 overlapping labels
+    p = ZeitplanPayload(
+        incidentTitle="X",
+        startedAt=T0,
+        printedAt=T0,
+        rows=[{"name": "A", "blocks": [{"from": _iso(T0), "to": _iso(T0 + timedelta(days=8))}]}],
+    )
+    start, end = _window(p)
+    assert (end - start) == timedelta(hours=MAX_SPAN_H)
 
 
 def test_window_stretches_to_reach_a_block_planned_into_the_small_hours():
     p = ZeitplanPayload(
         incidentTitle="X",
         startedAt=T0,
+        printedAt=T0,
         rows=[
             {"name": "A", "blocks": [{"from": _iso(T0 + timedelta(hours=20)), "to": _iso(T0 + timedelta(hours=26))}]}
         ],
@@ -77,6 +106,7 @@ def test_window_ends_on_a_whole_hour_so_the_last_column_is_not_a_stub():
     p = ZeitplanPayload(
         incidentTitle="X",
         startedAt=T0,
+        printedAt=T0,
         rows=[{"name": "A", "blocks": [{"from": _iso(T0), "to": _iso(T0 + timedelta(hours=13, minutes=17))}]}],
     )
     _, end = _window(p)
@@ -84,7 +114,9 @@ def test_window_ends_on_a_whole_hour_so_the_last_column_is_not_a_stub():
 
 
 def test_window_anchors_on_the_hour_even_from_a_ragged_start():
-    start, _ = _window(ZeitplanPayload(incidentTitle="X", startedAt=T0 + timedelta(minutes=43)))
+    start, _ = _window(
+        ZeitplanPayload(incidentTitle="X", startedAt=T0 + timedelta(minutes=43), printedAt=T0 + timedelta(minutes=43))
+    )
     assert start.minute == 0
 
 

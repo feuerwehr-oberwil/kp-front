@@ -19,6 +19,7 @@ print — a Führungsformular is meant to be written on, and an empty row is whe
 from __future__ import annotations
 
 import io
+import math
 from datetime import datetime, timedelta
 from typing import Literal
 from zoneinfo import ZoneInfo
@@ -49,6 +50,21 @@ SLOT_MIN = 30
 MAX_ROWS = 16
 #: how far the axis runs when nothing says otherwise
 DEFAULT_WINDOW_H = 12
+#: how far BACK the axis reaches from the print time — enough to see the watch that is ending.
+#: Mirrors ``LOOKBACK_HOURS`` on the screen.
+LOOKBACK_H = 2
+#: hard ceiling on the axis. Four days is already 1.4mm per hour on a landscape A4; a week of
+#: Elementarereignis on one sheet is a grey smear, not a Führungsformular. Mirrors the screen's
+#: ``MAX_SPAN_HOURS``.
+MAX_SPAN_H = 96
+#: German weekday abbreviations, indexed by ``date.weekday()``. NOT ``strftime("%a")``: that reads
+#: the process locale, which on a server is «C» — so a multi-day sheet in a German app came out of
+#: the printer saying «Wed 29.07.». A three-letter table cannot be misconfigured.
+WEEKDAYS = ("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
+
+#: an hour label needs about this much room before its neighbour crowds it (a «07:00» at 6.5pt is
+#: ~9mm wide). Mirrors ``LABEL_PX`` on the screen, in the unit paper is measured in.
+LABEL_MM = 13
 
 _INK = colors.HexColor("#1b2330")
 _DIM = colors.HexColor("#8a94a3")
@@ -122,13 +138,26 @@ class ZeitplanPayload(BaseModel):
 
 
 def _window(payload: ZeitplanPayload) -> tuple[datetime, datetime]:
-    """The stretch of time the axis covers: from the incident start (floored to the hour) up to
-    the last block, at least ``DEFAULT_WINDOW_H`` wide so a fresh plan is not a sliver."""
+    """The stretch of time the axis covers — and, just as importantly, the stretch it REFUSES.
+
+    Anchored the way the on-screen axis is (``shifts.timelineSpan``): near the print time, not at
+    the incident start. On day eight of an Elementarereignis those are a week apart, and a sheet
+    that began at the alarm spent seven-eighths of its width on a past nobody is planning any more
+    — while the hours that matter were squeezed into the last centimetre. A YOUNG incident still
+    starts at its own beginning, because that is nearer than the look-back.
+
+    Then it is CAPPED. Without a ceiling one long deployment put 192 hours on one landscape sheet:
+    384 half-hour rules 0.7mm apart (a solid grey band) under 192 hour labels printed on top of one
+    another. The axis now stops at ``MAX_SPAN_H`` and the sheet says so in its footnote rather than
+    pretending to show a week.
+    """
     # both halves count: a sheet whose axis stopped at the last PLANNED block would cut the
     # attendance that ran past it, which is exactly the overrun worth seeing
     stamps = [b.start for r in payload.rows for b in (*r.blocks, *r.actual)]
     stamps += [b.end for r in payload.rows for b in (*r.blocks, *r.actual) if b.end]
-    anchor = payload.startedAt or payload.printedAt or (min(stamps) if stamps else datetime.now(TZ))
+    printed = payload.printedAt or datetime.now(TZ)
+    began = payload.startedAt or (min(stamps) if stamps else printed)
+    anchor = max(began, printed - timedelta(hours=LOOKBACK_H))
     start = anchor.replace(minute=0, second=0, microsecond=0)
     end = start + timedelta(hours=DEFAULT_WINDOW_H)
     for s in stamps:
@@ -137,7 +166,7 @@ def _window(payload: ZeitplanPayload) -> tuple[datetime, datetime]:
     # round the tail up to a full hour so the last column is a whole one
     if end.minute or end.second:
         end = end.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
-    return start, end
+    return start, min(end, start + timedelta(hours=MAX_SPAN_H))
 
 
 class _Grid(Flowable):
@@ -173,32 +202,67 @@ class _Grid(Flowable):
         top = self.height
         grid_left, grid_right = self.NAME_W, self.width
 
-        # ---- vertical rules: light every half hour, firm on the hour, with the label above
+        # ---- vertical rules and their labels, THINNED to the room they actually have.
+        # How often a rule or a label appears is decided by millimetres per hour, never by the
+        # clock: at 12h an hour gets 22mm and every half hour can have its own hairline, at 96h it
+        # gets 2.8mm and even hourly rules would merge into a grey band. Drawing all of them anyway
+        # is how one long deployment produced 384 rules 0.7mm apart under 192 labels printed on top
+        # of one another. Same reasoning as the screen's `hours` memo, in the unit paper uses.
+        hours = max(1.0, (self.end - self.start).total_seconds() / 3600)
+        mm_per_hour = (self.width - self.NAME_W) / hours / mm
+        label_step = max(1, math.ceil(LABEL_MM / mm_per_hour)) if mm_per_hour > 0 else 24
+        # a rule per label at the very least; finer where there is room for it
+        rule_min = 1 if mm_per_hour >= 3 else label_step
+        half_hours = mm_per_hour >= 12
+
+        # Which hours get a LABEL is settled before anything is drawn, because it is a question
+        # about neighbours: a label is only placeable if the one before it left room. Deciding that
+        # inside the drawing loop is how «23:00» and «Mi 29.07.» came out overprinted as
+        # «23:0Mo0d 29.07.», and how a clamped edge label landed on top of the next hour.
+        labels: list[tuple[datetime, float, bool]] = []  # (t, x already clamped, midnight)
+        t = self.start
+        while t <= self.end:
+            midnight = t.hour == 0
+            if midnight or t.hour % label_step == 0:
+                # nudge the outermost labels inside the frame — centred on the very first/last
+                # rule they are sliced in half by the grid border
+                lx = min(max(self._x(t), grid_left + 9 * mm), grid_right - 9 * mm)
+                # MIDNIGHT WINS a collision: it carries the date, and on a multi-day sheet losing
+                # which night this is costs more than losing one «23:00».
+                while labels and lx - labels[-1][1] < LABEL_MM * mm:
+                    if not midnight:
+                        break
+                    labels.pop()
+                else:
+                    labels.append((t, lx, midnight))
+            t += timedelta(hours=1)
+        label_x = {lt: lx for lt, lx, _ in labels}
+
         c.setFont("Helvetica", 6.5)
         t = self.start
         while t <= self.end:
-            x = self._x(t)
             on_hour = t.minute == 0
-            c.setStrokeColor(_RULE if on_hour else colors.HexColor("#e7eaef"))
-            c.setLineWidth(0.7 if on_hour else 0.3)
-            c.line(x, 0, x, top - self.HEAD_H)
-            if on_hour:
-                # midnight carries the DATE, like the screen — on a multi-day sheet the hour alone
-                # never said which night, and a dashed rule marks the day boundary
-                midnight = t.hour == 0
-                if midnight and t > self.start:
-                    c.setStrokeColor(_RULE)
-                    c.setLineWidth(0.7)
-                    c.setDash(2, 2)
-                    c.line(x, 0, x, top - self.HEAD_H)
-                    c.setDash()
+            if not on_hour and not half_hours:
+                t += timedelta(minutes=SLOT_MIN)
+                continue
+            x = self._x(t)
+            midnight = on_hour and t.hour == 0
+            if not on_hour or t in label_x or t.hour % rule_min == 0:
+                c.setStrokeColor(_RULE if on_hour else colors.HexColor("#e7eaef"))
+                c.setLineWidth(0.7 if on_hour else 0.3)
+                c.line(x, 0, x, top - self.HEAD_H)
+            if midnight and t > self.start:
+                # the day boundary, dashed — it separates, it does not compete with the bars
+                c.setStrokeColor(_RULE)
+                c.setLineWidth(0.7)
+                c.setDash(2, 2)
+                c.line(x, 0, x, top - self.HEAD_H)
+                c.setDash()
+            if on_hour and t in label_x:
                 c.setFillColor(_DIM)
                 c.setFont("Helvetica-Bold" if midnight else "Helvetica", 6.5)
-                label = t.strftime("%a %d.%m.") if midnight else t.strftime("%H:%M")
-                # nudge the outermost labels inside the frame — centred on the very first/last
-                # rule they are sliced in half by the grid border
-                lx = min(max(x, grid_left + 9 * mm), grid_right - 9 * mm)
-                c.drawCentredString(lx, top - self.HEAD_H + 2 * mm, label)
+                label = f"{WEEKDAYS[t.weekday()]} {t.strftime('%d.%m.')}" if midnight else t.strftime("%H:%M")
+                c.drawCentredString(label_x[t], top - self.HEAD_H + 2 * mm, label)
                 c.setFont("Helvetica", 6.5)
             t += timedelta(minutes=SLOT_MIN)
 
@@ -281,12 +345,17 @@ def compose_zeitplan_pdf(payload: ZeitplanPayload) -> bytes:
 
     start, end = _window(payload)
     printed = payload.printedAt or datetime.now(TZ)
+    # The axis is anchored near the print time and capped (see _window), so on a long deployment
+    # it does NOT begin at the alarm. The heading has to say which stretch is on the paper, or the
+    # sheet quietly implies it shows the whole Einsatz.
+    span_label = f"{start.strftime('%d.%m. %H:%M')} – {end.strftime('%d.%m. %H:%M')}"
     subtitle = " · ".join(
         x
         for x in (
             payload.incidentAddress,
             f"Einsatzbeginn {payload.startedAt.strftime('%d.%m.%Y %H:%M')}" if payload.startedAt else None,
             f"gedruckt {printed.strftime('%d.%m.%Y %H:%M')}",
+            f"Zeitraum {span_label}",
         )
         if x
     )

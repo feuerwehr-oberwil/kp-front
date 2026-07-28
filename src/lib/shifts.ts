@@ -188,31 +188,14 @@ export function shiftsFor(shifts: Shift[], personId: string): Shift[] {
 // ---------------------------------------------------------------- Schichtbänder (the columns)
 
 /**
- * The shift that fills one cell of the Schichten grid — this person, this band.
+ * The shift a person has stored INTO a band — the one that carries the assignment.
  *
- * Looked up by STORED membership (`bandId`), never by matching clocks. That is the whole design:
- * nobody lands in a column because their times happen to fit it, and nobody drops out of one
- * because somebody nudged the band by five minutes. It also means a shift dragged off the band's
- * hours on the Zeitplan axis is still this cell's shift — it just draws hatched, with its real
- * time (see `bandCellState`).
- *
- * `find`, not `filter`: one cell is one shift. Two shifts on the same band for the same person can
- * only come from two devices tapping the same empty cell at the same moment; the earlier one wins
- * the cell and the other is left to the Zeitplan, where every shift is always visible.
+ * `find`, not `filter`: one cell is one member. Two members on the same band for the same person
+ * can only come from two devices tapping the same empty cell at the same moment; the earlier one
+ * wins the cell and the other is left to the Zeitplan, where every shift is always visible.
  */
 export function shiftInBand(shifts: Shift[], personId: string, bandId: string): Shift | undefined {
   return shifts.find((s) => s.personId === personId && s.bandId === bandId)
-}
-
-/** What one cell shows. `deviating` is drawn hatched and carries the shift's OWN times — the
- *  person is in the band and is not keeping to it, which is a fact worth seeing rather than one
- *  worth normalising away. Read `shift.confirmed` alongside it for the colour. */
-export type BandCellState = 'empty' | 'available' | 'confirmed' | 'deviating'
-
-export function bandCellState(sh: Shift | undefined, band: ShiftBand): BandCellState {
-  if (!sh) return 'empty'
-  if (sh.from !== band.from || sh.to !== band.to) return 'deviating'
-  return sh.confirmed ? 'confirmed' : 'available'
 }
 
 /** Milliseconds two windows share; 0 when they merely touch. */
@@ -220,44 +203,133 @@ function overlapMs(aFrom: number, aTo: number, bFrom: number, bTo: number): numb
   return Math.max(0, Math.min(aTo, bTo) - Math.max(aFrom, bFrom))
 }
 
+/** A window as milliseconds; null when either end is unreadable or the pair is inverted. */
+function windowOf(from: string, to: string): Span | null {
+  const f = Date.parse(from)
+  const t = Date.parse(to)
+  return Number.isFinite(f) && Number.isFinite(t) && t > f ? { from: f, to: t } : null
+}
+
 /**
  * How much of one shift falls inside a band, as 0..1 of the BAND's length.
  *
- * A shift sitting exactly on the band counts 1. A hatched 09:00–14:00 inside a 07:00–12:00 band
+ * A shift sitting exactly on the band counts 1. A 09:00–14:00 offer against a 07:00–12:00 band
  * covers three of its five hours and counts 0.6. That is deliberate: the head numbers answer «how
- * many do I have in this window», not «how many ticks can I see» — and a person who is there for
- * three of the five hours is not one whole shift's worth of cover.
+ * many do I have in this window», not «how many ticks can I see» — and somebody there for three of
+ * the five hours is not one whole shift's worth of cover.
  */
 export function bandCoverFraction(sh: Shift, band: ShiftBand): number {
-  const bf = Date.parse(band.from)
-  const bt = Date.parse(band.to)
-  const sf = Date.parse(sh.from)
-  const stt = Date.parse(sh.to)
-  const len = bt - bf
-  if (!Number.isFinite(len) || len <= 0) return 0
-  if (!Number.isFinite(sf) || !Number.isFinite(stt) || stt <= sf) return 0
-  return Math.min(1, overlapMs(sf, stt, bf, bt) / len)
+  const b = windowOf(band.from, band.to)
+  const s = windowOf(sh.from, sh.to)
+  if (!b || !s) return 0
+  return Math.min(1, overlapMs(s.from, s.to, b.from, b.to) / (b.to - b.from))
+}
+
+/** What one cell shows. `deviating` is drawn hatched and carries the shift's OWN times — the
+ *  person covers only part of the window, which is a fact worth seeing rather than one worth
+ *  normalising away. Read `shift.confirmed` alongside it for the colour. */
+export type BandCellState = 'empty' | 'available' | 'confirmed' | 'deviating'
+
+export interface BandCell {
+  state: BandCellState
+  /** the shift the cell is showing — absent only when the cell is empty */
+  shift?: Shift
+  /** the shift is NOT a member of this band: it is a freihändige offer that happens to cover the
+   *  window. Availability is derived, assignment never is — see `bandCell`. */
+  derived: boolean
+}
+
+/**
+ * What this person's cell in this band shows.
+ *
+ * THE distinction the whole grid turns on: **availability is a fact about time, assignment is a
+ * decision.**
+ *
+ * Somebody who drew 10:00–20:00 on the Zeitplan axis IS available for a 12:00–17:00 watch. Making
+ * them tap a second time to say so again would be the surface asking a question it already has the
+ * answer to. So `available` is DERIVED — from any shift of theirs that reaches into the window,
+ * band or no band.
+ *
+ * `confirmed` is never derived. Assigning somebody is a decision a person made, and it is stored
+ * (`bandId` + `confirmed`) so that it cannot appear because a clock happened to line up, nor
+ * vanish because somebody nudged the band by five minutes. A derived availability dropping out
+ * when the band moves is correct — the offer genuinely no longer covers the window. A derived
+ * ASSIGNMENT doing the same would be losing real planning, which is what decision 5 of the plan
+ * exists to prevent.
+ *
+ * A stored member always wins the cell: once somebody has been put into this band, that is what
+ * the cell is about, even if some other offer of theirs also overlaps.
+ */
+export function bandCell(shifts: Shift[], personId: string, band: ShiftBand): BandCell {
+  const member = shiftInBand(shifts, personId, band.id)
+  if (member) {
+    const exact = member.from === band.from && member.to === band.to
+    return {
+      state: exact ? (member.confirmed ? 'confirmed' : 'available') : 'deviating',
+      shift: member,
+      derived: false,
+    }
+  }
+  // no member — does any other offer of theirs reach into this window? The one covering MOST of it
+  // wins, so a row with several offers shows the one that actually answers the question.
+  let best: Shift | undefined
+  let bestCover = 0
+  for (const s of shifts) {
+    if (s.personId !== personId || s.bandId === band.id) continue
+    const cover = bandCoverFraction(s, band)
+    if (cover > bestCover) { best = s; bestCover = cover }
+  }
+  if (!best) return { state: 'empty', derived: false }
+  // covers the whole window → plainly «frei»; covers part of it → hatched, with the real time, so
+  // the grid never promises more than the person offered
+  return { state: bestCover >= 1 ? 'available' : 'deviating', shift: best, derived: true }
 }
 
 export interface BandCounts {
-  /** offered into this window but not yet assigned */
+  /** offered into this window — stored into the band or simply covering it */
   available: number
-  /** assigned */
+  /** assigned (always stored) */
   confirmed: number
 }
 
-/** The two numbers in a column's head. Deviating shifts count pro rata (see bandCoverFraction),
- *  so both totals can be fractional — the surface formats them, this only counts. */
+/**
+ * The two numbers in a column's head, counted per PERSON via `bandCell` rather than per shift.
+ *
+ * Per person is what makes them agree with the grid underneath: somebody with both a member shift
+ * and a wider freihändige offer has ONE cell, and one cell is one count. Partial cover counts pro
+ * rata, so both totals can be fractional — the surface formats them, this only counts.
+ */
 export function bandCounts(shifts: Shift[], band: ShiftBand): BandCounts {
   let available = 0
   let confirmed = 0
-  for (const s of shifts) {
-    if (s.bandId !== band.id) continue
-    const f = bandCoverFraction(s, band)
-    if (s.confirmed) confirmed += f
-    else available += f
+  for (const personId of new Set(shifts.map((s) => s.personId))) {
+    const cell = bandCell(shifts, personId, band)
+    if (!cell.shift) continue
+    const f = bandCoverFraction(cell.shift, band)
+    if (cell.state === 'confirmed' || (cell.state === 'deviating' && cell.shift.confirmed && !cell.derived)) {
+      confirmed += f
+    } else {
+      available += f
+    }
   }
   return { available, confirmed }
+}
+
+/**
+ * The window a tap on this cell should assign — the part of the band the person actually offered.
+ *
+ * For an empty cell that is the whole band. For a derived one it is the OVERLAP: confirming
+ * somebody who offered 10:00–20:00 into a 07:00–12:00 watch must assign 10:00–12:00, not the full
+ * window they never offered.
+ */
+export function bandAssignWindow(cell: BandCell, band: ShiftBand): { from: string; to: string } {
+  const b = windowOf(band.from, band.to)
+  const s = cell.derived && cell.shift ? windowOf(cell.shift.from, cell.shift.to) : null
+  if (!b || !s) return { from: band.from, to: band.to }
+  const from = Math.max(b.from, s.from)
+  const to = Math.min(b.to, s.to)
+  if (to <= from) return { from: band.from, to: band.to }
+  return { from: new Date(from).toISOString(), to: new Date(to).toISOString() }
 }
 
 /**

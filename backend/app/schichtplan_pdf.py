@@ -32,7 +32,7 @@ from reportlab.lib.units import mm
 from reportlab.platypus import BaseDocTemplate, Frame, PageBreak, PageTemplate, Paragraph, Spacer, Table, TableStyle
 
 from .report_pdf import _esc, _NumberedCanvas, _styles
-from .zeitplan_pdf import TZ, ZeitplanBand, ZeitplanPayload, ZeitplanRow
+from .zeitplan_pdf import TZ, ZeitplanBand, ZeitplanBlock, ZeitplanPayload, ZeitplanRow
 
 #: rows per sheet — as many names as fit UNDER the heading and ABOVE the Deckung line at a height
 #: you can still write in. Measured, not guessed: 297mm less the margins, the title block and the
@@ -96,32 +96,55 @@ def _fmt_count(n: float) -> str:
     return str(int(r)) if r == int(r) else f"{r:.1f}".replace(".", ",")
 
 
-def _cell(row: ZeitplanRow, band: ZeitplanBand) -> str:
-    """What one cell prints. Membership is STORED, so this looks for the band's id and never for
-    matching clocks — nobody is ticked into a column because their times happened to fit it."""
+def _cell_block(row: ZeitplanRow, band: ZeitplanBand) -> tuple[ZeitplanBlock | None, bool]:
+    """The block one cell is about, and whether it is a stored MEMBER of this band.
+
+    Mirrors ``bandCell`` in the frontend, and for the same reason the screen has it: **availability
+    is a fact about time, assignment is a decision.** Somebody who drew 10:00–20:00 on the axis is
+    available for a 12:00–17:00 watch whether or not anybody has filed them under it, so the sheet
+    says so. Being ASSIGNED is only ever what somebody stored (``bandId`` + ``confirmed``).
+
+    A stored member always wins the cell; failing that, the offer covering most of the window does.
+    """
     for b in row.blocks:
-        if b.band_id != band.id:
-            continue
-        if b.end is not None and (b.start != band.start or b.end != band.end):
-            # drifted off the band: print what the person actually said about themselves
-            return _range(b.start, b.end)
-        return _MARK_CONFIRMED if b.confirmed else _MARK_AVAILABLE
-    return ""
+        if b.band_id == band.id:
+            return b, True
+    best: ZeitplanBlock | None = None
+    best_cover = 0.0
+    for b in row.blocks:
+        cover = _cover_fraction(b.start, b.end, band)
+        if cover > best_cover:
+            best, best_cover = b, cover
+    return best, False
+
+
+def _cell(row: ZeitplanRow, band: ZeitplanBand) -> str:
+    """What one cell prints: a mark where the window is wholly covered, the person's REAL hours
+    where it is only partly covered — «verfügbar» there would promise time nobody offered."""
+    block, member = _cell_block(row, band)
+    if block is None:
+        return ""
+    exact = member and block.end is not None and block.start == band.start and block.end == band.end
+    if not exact and _cover_fraction(block.start, block.end, band) < 1:
+        return _range(block.start, block.end or band.end)
+    # assignment is never derived — an offer filed under another band is still only an offer here
+    return _MARK_CONFIRMED if (member and block.confirmed) else _MARK_AVAILABLE
 
 
 def _deckung(rows: list[ZeitplanRow], band: ZeitplanBand) -> str:
-    """«8 / 5» — verfügbar over eingeteilt, drifted shifts counted pro rata."""
+    """«8 / 5» — verfügbar over eingeteilt, counted per PERSON (one cell is one count, exactly as on
+    the screen) with partial cover pro rata."""
     available = 0.0
     confirmed = 0.0
     for row in rows:
-        for b in row.blocks:
-            if b.band_id != band.id:
-                continue
-            f = _cover_fraction(b.start, b.end, band)
-            if b.confirmed:
-                confirmed += f
-            else:
-                available += f
+        block, member = _cell_block(row, band)
+        if block is None:
+            continue
+        f = _cover_fraction(block.start, block.end, band)
+        if member and block.confirmed:
+            confirmed += f
+        else:
+            available += f
     return f"{_fmt_count(available)} / {_fmt_count(confirmed)}"
 
 

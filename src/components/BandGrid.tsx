@@ -7,7 +7,7 @@ import { cx } from '../lib/cx'
 import { rankAbbr, rankLabel } from '../lib/rank'
 import { fmtCount, fmtDayShort, incidentDays, isOtherDay } from '../lib/zeitplanFormat'
 import {
-  bandCellState, bandCounts, conflictingShiftIds, draftBand, freehandShifts, shiftInBand, sortBands,
+  bandCell, bandCounts, conflictingShiftIds, draftBand, freehandShifts, sortBands,
 } from '../lib/shifts'
 import type { Person, Shift, ShiftBand } from '../types'
 import { Sheet } from '../lib/overlays'
@@ -137,11 +137,12 @@ function BandSheet({ band, bands, startedAt, onCreate, onSave, onRemove, onClose
  * five-hour band on a 12h axis is 230px wide inside a ~190px track, which means you would never
  * see two bands side by side — which is the only thing this reading is for.
  *
- * Membership is STORED (Shift.bandId), never derived from matching times. Everything that reads
- * odd about this grid follows from that one rule: a new band is empty for everybody, including
- * people who already hold exactly its hours freihändig; a shift dragged off the band's times on
- * the axis stays in its column, hatched, showing its real hours; and deleting a band leaves every
- * one of its shifts standing.
+ * The cells split the two halves of a shift (see `bandCell`): **availability is derived**, because
+ * somebody who drew 10:00–20:00 on the axis IS available for a 12:00–17:00 watch and should not
+ * have to say so twice; **assignment is stored**, because putting somebody on a watch is a
+ * decision, and it must not appear because a clock lined up nor vanish because a band moved five
+ * minutes. Everything else follows from that: a cell covering only part of a window shows its real
+ * hours instead of a promise, and deleting a band leaves every one of its shifts standing.
  */
 export function BandGrid({
   people, shifts, bands, canEdit, startedAt, onCreateBand, onSaveBand, onRemoveBand, onCycleCell,
@@ -231,7 +232,11 @@ export function BandGrid({
           </div>
 
           {people.map((p) => {
-            const own = freehandShifts(shifts, p.id)
+            const cells = cols.map((b) => bandCell(shifts, p.id, b))
+            // The mark earns its place only where the columns are SILENT about this person. Once a
+            // cell picks their offer up — «frei», or their real hours hatched — repeating those
+            // hours in the name column prints the same fact three times across one row.
+            const own = cells.every((c) => c.state === 'empty') ? freehandShifts(shifts, p.id) : []
             return (
               <div key={p.id} className={s.row}>
                 <div className={s.who}>
@@ -242,9 +247,9 @@ export function BandGrid({
                     {p.rank && <span className={s.rank} title={rankLabel(p.rank)}>{rankAbbr(p.rank)}</span>}
                     <span className={s.name}>{p.displayName}</span>
                   </span>
-                  {/* Somebody who drew 09–14 on the axis belongs to no column, so every cell of
-                      theirs is empty — indistinguishable from somebody who has offered nothing at
-                      all. The mark carries the real time, so the grid never claims they are free. */}
+                  {/* Somebody whose own times reach no column at all sits empty everywhere —
+                      indistinguishable from somebody who has offered nothing. The mark carries
+                      their real hours, so the grid never claims they are free. */}
                   {own.length > 0 && (
                     <span className={s.ownTimes}
                       title={fillTemplate(S.ownTimes, { times: own.map((x) => fmtRange(x.from, x.to)).join(' · ') })}>
@@ -254,16 +259,18 @@ export function BandGrid({
                     </span>
                   )}
                 </div>
-                {cols.map((b) => {
-                  const sh = shiftInBand(shifts, p.id, b.id)
-                  const state = bandCellState(sh, b)
+                {cols.map((b, i) => {
+                  const cell = cells[i]
+                  const sh = cell.shift
                   const bad = !!sh && conflicts.has(sh.id)
-                  const deviating = state === 'deviating'
+                  const deviating = cell.state === 'deviating'
+                  // a derived cell is never «eingeteilt» — assignment is always stored
+                  const assigned = !cell.derived && !!sh?.confirmed
                   return (
                     <button key={b.id} type="button" disabled={!canEdit}
                       className={cx(s.cell,
-                        (state === 'available' || (deviating && !sh?.confirmed)) && s.cellAvailable,
-                        (state === 'confirmed' || (deviating && sh?.confirmed)) && s.cellConfirmed,
+                        cell.state !== 'empty' && !assigned && s.cellAvailable,
+                        assigned && s.cellConfirmed,
                         deviating && s.cellDeviating, bad && s.cellConflict)}
                       onClick={() => onCycleCell(b, p)}
                       title={bad ? S.conflict
@@ -274,14 +281,15 @@ export function BandGrid({
                           })
                           : fillTemplate(S.cellAria, { name: p.displayName, band: bandTitle(b) })}
                       aria-label={fillTemplate(S.cellAria, { name: p.displayName, band: bandTitle(b) })}
-                      aria-pressed={state !== 'empty'}>
+                      aria-pressed={cell.state !== 'empty'}>
                       {bad && <Icon id="warn" />}
-                      {/* A deviating cell says its OWN hours: that is the whole information it
-                          carries. An on-band cell has nothing to add beyond its state, so it says
-                          the state — the words the Zeitplan uses for the same two things. */}
+                      {/* A cell that covers only PART of the window says its own hours: that is the
+                          whole information it carries. One that covers all of it has nothing to add
+                          beyond its state, so it says the state — the words the Zeitplan uses for
+                          the same two things. */}
                       {deviating && sh
                         ? fmtRange(sh.from, sh.to)
-                        : state === 'confirmed' ? S.confirmed : state === 'available' ? S.available : ''}
+                        : assigned ? S.confirmed : cell.state !== 'empty' ? S.available : ''}
                     </button>
                   )
                 })}

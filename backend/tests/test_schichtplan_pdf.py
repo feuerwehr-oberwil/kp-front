@@ -55,10 +55,15 @@ def _row(name: str, blocks: list[dict], rank: str | None = None) -> dict:
     return {"name": name, "blocks": blocks, "actual": [], **({"rank": rank} if rank else {})}
 
 
-def test_a_cell_is_filled_by_stored_membership_and_never_by_matching_clocks():
-    # the whole design in one assertion: this person's times are EXACTLY the band's, but the shift
-    # was drawn freihändig on the axis and carries no bandId — so the column stays empty
+def test_availability_is_read_off_the_clock_but_assignment_never_is():
+    # this person drew the band's exact hours freihändig on the axis, so they ARE available for it
+    # — and being available is not being assigned, however confirmed that offer was elsewhere
     p = _payload([_row("Meier Anna", [{"from": _h(0), "to": _h(5), "confirmed": True}])])
+    assert _cell(p.rows[0], p.bands[0]) == _MARK_AVAILABLE
+
+
+def test_a_cell_is_empty_only_when_nothing_reaches_the_window():
+    p = _payload([_row("Meier Anna", [{"from": _h(6), "to": _h(9), "confirmed": True}])])
     assert _cell(p.rows[0], p.bands[0]) == ""
 
 
@@ -91,14 +96,31 @@ def test_deckung_counts_the_two_states_apart_and_drifted_shifts_pro_rata():
     assert _deckung(p.rows, p.bands[0]) == "1 / 1,6"
 
 
-def test_deckung_ignores_shifts_of_another_band_and_of_none():
+def test_deckung_counts_an_offer_filed_elsewhere_as_the_availability_it_still_is():
+    # both cover this window, so both people are free for it — neither is ASSIGNED to it
     p = _payload(
         [
             _row("A", [{"from": _h(0), "to": _h(5), "confirmed": True, "bandId": "bd2"}]),
             _row("B", [{"from": _h(0), "to": _h(5), "confirmed": True}]),
         ]
     )
-    assert _deckung(p.rows, p.bands[0]) == "0 / 0"
+    assert _deckung(p.rows, p.bands[0]) == "2 / 0"
+
+
+def test_deckung_counts_one_person_once_however_many_offers_they_hold():
+    # one cell is one count — otherwise the line says two where the sheet shows one
+    p = _payload(
+        [
+            _row(
+                "A",
+                [
+                    {"from": _h(0), "to": _h(5), "confirmed": True, "bandId": "bd1"},
+                    {"from": _h(-1), "to": _h(6), "confirmed": False},
+                ],
+            )
+        ]
+    )
+    assert _deckung(p.rows, p.bands[0]) == "0 / 1"
 
 
 def test_an_unnamed_band_is_titled_by_its_own_hours():

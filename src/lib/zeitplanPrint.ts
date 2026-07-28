@@ -6,6 +6,7 @@
 
 import type { AttendanceState, Person, Shift, ShiftBand } from '../types'
 import { shiftsFor, sortBands } from './shifts'
+import { rankAbbr, rankLabel } from './rank'
 import { intervalsOf } from './attendanceIntervals'
 import { editorPrintTransport, enqueuePrint } from './printRelay'
 
@@ -78,7 +79,10 @@ export function buildZeitplanPayload(
     bands: sortBands(bands).map((b) => ({ id: b.id, label: b.label, from: b.from, to: b.to })),
     rows: people.map((p) => ({
       name: p.displayName,
-      ...(p.rank ? { rank: p.rank } : {}),
+      // the ABBREVIATION, not the key. The sheet used to print «gruppenfuehrer Amstad Manuel»,
+      // because `rank` is a config key and only the client holds the station's rank table — the
+      // backend has no way to turn it into «Grf».
+      ...(rankAbbr(p.rank) || rankLabel(p.rank) ? { rank: rankAbbr(p.rank) || rankLabel(p.rank) } : {}),
       blocks: shiftsFor(shifts, p.id).map((s) => ({
         from: s.from, to: s.to, confirmed: !!s.confirmed, ...(s.bandId ? { bandId: s.bandId } : {}),
       })),

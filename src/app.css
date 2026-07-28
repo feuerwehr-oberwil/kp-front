@@ -2706,6 +2706,12 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .ip-check { display: flex; align-items: center; gap: 8px; font: 500 13px var(--body); color: var(--ink-dim); }
 
 .ip-actions, .ip-row-actions { display: flex; gap: 10px; justify-content: flex-end; align-items: center; }
+/* The footer row of a SHEET pays for its own breathing room. It used to have none, so every new
+   sheet put its primary button hard into the frame's bottom-right corner — found once on the
+   TimeBlockSheet and patched there locally, then found again on the two Schichten sheets. A trap
+   that catches every author is a missing rule, not a missing patch. Scoped to a direct child of
+   .ip-sheet, so .ip-row-actions and any inline action row are untouched. */
+.ip-sheet > .ip-actions { padding: 8px 20px 16px; }
 /* demo: "opening is disabled" note above the wizard's action row */
 .ip-demo-block { display: flex; align-items: center; gap: 7px; margin: 0 0 10px; padding: 9px 12px;
   border-radius: var(--r-sm); background: var(--fill-soft); color: var(--ink-dim); font: 600 12.5px var(--body); }

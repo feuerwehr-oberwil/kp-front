@@ -88,10 +88,35 @@ describe('the cell cycle', () => {
     expect(result.current.shifts).toEqual([])
   })
 
-  it('never empties a hatched cell — it flips the state and keeps the hand-drawn time', () => {
+  it('assigns a derived availability without touching the offer it came from', () => {
+    // they drew 06–13 on the axis; one tap puts them ON 07–12 and leaves their own offer standing
+    const own: Shift = { id: 'own', personId: 'p1', from: T(6), to: T(13) }
+    const { result } = renderHook(() => useHarness([früh], [own]))
+    act(() => { result.current.cycleCell(früh, p1) })
+    expect(result.current.shifts).toHaveLength(2)
+    expect(result.current.shifts[0]).toEqual(own)
+    expect(result.current.shifts[1]).toMatchObject({ bandId: 'bd1', from: T(7), to: T(12), confirmed: true })
+  })
+
+  it('assigns only the part of the window a partial offer actually covers', () => {
+    const own: Shift = { id: 'own', personId: 'p1', from: T(10), to: T(20) }
+    const { result } = renderHook(() => useHarness([früh], [own]))
+    act(() => { result.current.cycleCell(früh, p1) })
+    expect(result.current.shifts[1]).toMatchObject({ from: T(10), to: T(12), confirmed: true })
+  })
+
+  it('falls back to the offer instead of to «leer» when un-assigning', () => {
+    // un-assigning somebody does not withdraw what they said they could do
+    const own: Shift = { id: 'own', personId: 'p1', from: T(6), to: T(13) }
+    const { result } = renderHook(() => useHarness([früh], [own]))
+    act(() => { result.current.cycleCell(früh, p1) })
+    act(() => { result.current.cycleCell(früh, p1) })
+    expect(result.current.shifts).toEqual([own])
+  })
+
+  it('never empties a hatched member — it flips the state and keeps the hand-drawn time', () => {
     // decided 2026-07-28: the third tap of a fifty-tap sweep must not delete a stretch somebody
-    // dragged by hand on the Zeitplan axis. That is the same planning Entscheid 12 protects when
-    // a band is deleted, and it deserves the same protection here.
+    // dragged by hand on the Zeitplan axis.
     const { result } = renderHook(() => useHarness([früh], [
       { id: 'sh1', personId: 'p1', from: T(9), to: T(14), bandId: 'bd1', confirmed: true },
     ]))
@@ -99,7 +124,6 @@ describe('the cell cycle', () => {
     expect(result.current.shifts[0]).toMatchObject({ from: T(9), to: T(14), confirmed: false })
     act(() => { result.current.cycleCell(früh, p1) })
     expect(result.current.shifts[0].confirmed).toBe(true)
-    // round and round, never gone
     expect(result.current.shifts).toHaveLength(1)
   })
 
