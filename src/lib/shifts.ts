@@ -282,23 +282,26 @@ export interface BandCell {
 /**
  * What this person's cell in this band shows.
  *
- * THE distinction the whole grid turns on: **availability is a fact about time, assignment is a
- * decision.**
+ * Membership in a band is stored (`bandId`) and never guessed. What the cell READS off a shift —
+ * its hours and its state — is read wherever that shift happens to lie, because those are facts
+ * about the shift, not about the column.
  *
- * Somebody who drew 10:00–20:00 on the Zeitplan axis IS available for a 12:00–17:00 watch. Making
- * them tap a second time to say so again would be the surface asking a question it already has the
- * answer to. So `available` is DERIVED — from any shift of theirs that reaches into the window,
- * band or no band.
+ * Somebody who drew 10:00–20:00 on the Zeitplan axis is available for a 12:00–17:00 watch, and if
+ * they marked that stretch «geplant» then they are ASSIGNED across it. Making them say either
+ * again, in a column, would be the surface asking a question it already has the answer to. So both
+ * states are read from whichever shift of theirs reaches into the window.
  *
- * `confirmed` is never derived. Assigning somebody is a decision a person made, and it is stored
- * (`bandId` + `confirmed`) so that it cannot appear because a clock happened to line up, nor
- * vanish because somebody nudged the band by five minutes. A derived availability dropping out
- * when the band moves is correct — the offer genuinely no longer covers the window. A derived
- * ASSIGNMENT doing the same would be losing real planning, which is what decision 5 of the plan
- * exists to prevent.
+ * That is not the same as inventing an assignment out of matching clocks, which is what decision 5
+ * of the plan forbids: nothing here writes a `confirmed` flag, and nothing files anybody into a
+ * band. A cell dropping out when the band moves is correct — the shift genuinely no longer covers
+ * the window — because no decision was stored against that band in the first place.
  *
- * A stored member always wins the cell: once somebody has been put into this band, that is what
- * the cell is about, even if some other offer of theirs also overlaps.
+ * Two preferences settle which shift a cell is about:
+ *  - a stored MEMBER of this band always wins. Once somebody has been put into this column, that
+ *    is what the column is about, even if another shift of theirs also overlaps.
+ *  - failing that, an ASSIGNMENT beats a mere availability, and only then does the wider overlap
+ *    win. «Verfügbar 09–11» and «geplant 10–20» cover a 07–12 watch equally; the one that says
+ *    where the person is actually going is the one the column has to show.
  */
 export function bandCell(shifts: Shift[], personId: string, band: ShiftBand): BandCell {
   const member = shiftInBand(shifts, personId, band.id)
@@ -318,19 +321,28 @@ export function bandCell(shifts: Shift[], personId: string, band: ShiftBand): Ba
       derived: false,
     }
   }
-  // no member — does any other offer of theirs reach into this window? The one covering MOST of it
-  // wins, so a row with several offers shows the one that actually answers the question.
+  // no member — does any other shift of theirs reach into this window? An assignment outranks an
+  // availability; between two of a kind, the wider overlap wins.
   let best: Shift | undefined
   let bestCover = 0
+  let bestAssigned = false
   for (const s of shifts) {
     if (s.personId !== personId || s.bandId === band.id) continue
     const cover = bandCoverFraction(s, band)
-    if (cover > bestCover) { best = s; bestCover = cover }
+    if (cover <= 0) continue
+    const assigned = !!s.confirmed
+    if (!best || (assigned && !bestAssigned) || (assigned === bestAssigned && cover > bestCover)) {
+      best = s; bestCover = cover; bestAssigned = assigned
+    }
   }
   if (!best) return { state: 'empty', derived: false }
-  // covers the whole window → plainly «frei»; covers part of it → hatched, with the real time, so
-  // the grid never promises more than the person offered
-  return { state: bestCover >= 1 ? 'available' : 'deviating', shift: best, derived: true }
+  // covers the whole window → plainly «verfügbar»/«geplant»; covers part of it → hatched, with the
+  // real hours, so the column never promises more than the person actually said
+  return {
+    state: bestCover >= 1 ? (best.confirmed ? 'confirmed' : 'available') : 'deviating',
+    shift: best,
+    derived: true,
+  }
 }
 
 export interface BandCounts {
@@ -365,10 +377,11 @@ export function bandCounts(shifts: Shift[], band: ShiftBand): BandCounts {
   return { available, confirmed }
 }
 
-/** Is this cell an ASSIGNMENT? Only a stored member that is confirmed — a covering offer is an
- *  availability however confirmed it happens to be somewhere else. */
+/** Is this cell an ASSIGNMENT? Whether the shift is filed under this band or merely covers it,
+ *  `confirmed` is the shift's own state: somebody geplant 10:00–20:00 is geplant for every watch
+ *  those hours reach, and a column that called them «verfügbar» would be reading past the plan. */
 export function isAssignedCell(cell: BandCell): boolean {
-  return !cell.derived && !!cell.shift?.confirmed
+  return !!cell.shift?.confirmed
 }
 
 /**

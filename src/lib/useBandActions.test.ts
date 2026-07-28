@@ -105,6 +105,20 @@ describe('the cell cycle', () => {
     expect(result.current.shifts[1]).toMatchObject({ from: T(10), to: T(12), confirmed: true })
   })
 
+  it('un-assigns the covering shift instead of booking the person a second time', () => {
+    // reported 28.07.: geplant 10:00–20:00 covers a 12–17 watch. Writing a second assignment for
+    // the same hours would double-book somebody who did nothing wrong, so the tap continues the
+    // cycle on the shift that is actually there — geplant → verfügbar, as on the Zeitplan.
+    const planned: Shift = { id: 'own', personId: 'p1', from: T(6), to: T(13), confirmed: true }
+    const { result } = renderHook(() => useHarness([früh], [planned]))
+    act(() => { result.current.cycleCell(früh, p1) })
+    expect(result.current.shifts).toEqual([{ ...planned, confirmed: false }])
+    // …and tapping again files them into THIS band, over the part it covers
+    act(() => { result.current.cycleCell(früh, p1) })
+    expect(result.current.shifts).toHaveLength(2)
+    expect(result.current.shifts[1]).toMatchObject({ bandId: 'bd1', from: T(7), to: T(12), confirmed: true })
+  })
+
   it('falls back to the offer instead of to «leer» when un-assigning', () => {
     // un-assigning somebody does not withdraw what they said they could do
     const own: Shift = { id: 'own', personId: 'p1', from: T(6), to: T(13) }

@@ -265,7 +265,7 @@ const band = (id: string, from: string, to: string, label = ''): ShiftBand => ({
 const inBand = (id: string, personId: string, from: string, to: string, bandId: string, confirmed?: boolean): Shift =>
   ({ id, personId, from, to, bandId, ...(confirmed ? { confirmed } : {}) })
 
-describe('bandCell — availability is derived, assignment is stored', () => {
+describe('bandCell — a column reads the shift that covers it, state and all', () => {
   const früh = band('bd1', T(7), T(12), 'Früh')
 
   it('shows somebody as available when their own offer covers the whole window', () => {
@@ -281,9 +281,20 @@ describe('bandCell — availability is derived, assignment is stored', () => {
     expect(bandCell([own], 'p1', früh)).toMatchObject({ state: 'deviating', derived: true })
   })
 
-  it('never derives «eingeteilt» — a confirmed offer elsewhere is still only an availability', () => {
+  it('shows somebody geplant across the window as GEPLANT, filed under the band or not', () => {
+    // reported 28.07.: geplant 10:00–20:00 read «verfügbar» in both watches it covers. `confirmed`
+    // is the shift's own state — refusing to read it is not caution, it is the column disagreeing
+    // with the plan.
     const own: Shift = { id: 'a', personId: 'p1', from: T(6), to: T(13), confirmed: true }
-    expect(bandCell([own], 'p1', früh).state).toBe('available')
+    expect(bandCell([own], 'p1', früh).state).toBe('confirmed')
+  })
+
+  it('prefers the assignment over an availability that covers just as much', () => {
+    // «verfügbar 09–11» and «geplant 10–20» each cover two of Früh's five hours; the one that says
+    // where the person is actually going is the one the column has to show
+    const frei = shift('frei', 'p1', T(9), T(11))
+    const plan: Shift = { id: 'plan', personId: 'p1', from: T(10), to: T(20), confirmed: true }
+    expect(bandCell([frei, plan], 'p1', früh).shift?.id).toBe('plan')
   })
 
   it('lets a STORED member win the cell over any other offer that also overlaps', () => {
@@ -415,9 +426,10 @@ describe('bandCounts — whole people, one cell one count', () => {
     expect(bandCounts([shift('a', 'p1', T(14), T(18))], früh)).toEqual({ available: 0, confirmed: 0 })
   })
 
-  it('counts a shift stored into ANOTHER band as the availability it also is', () => {
-    // it covers this window too, so the person is free for it — they are simply not assigned here
-    expect(bandCounts([inBand('a', 'p1', T(7), T(12), 'bd2', true)], früh)).toEqual({ available: 1, confirmed: 0 })
+  it('counts a shift filed under ANOTHER band by the state that shift carries', () => {
+    // confirmed there means the person is on those hours, and these are the same hours
+    expect(bandCounts([inBand('a', 'p1', T(7), T(12), 'bd2', true)], früh)).toEqual({ available: 0, confirmed: 1 })
+    expect(bandCounts([inBand('a', 'p1', T(7), T(12), 'bd2')], früh)).toEqual({ available: 1, confirmed: 0 })
   })
 })
 

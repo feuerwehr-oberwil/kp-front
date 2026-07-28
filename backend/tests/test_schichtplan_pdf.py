@@ -55,11 +55,13 @@ def _row(name: str, blocks: list[dict], rank: str | None = None) -> dict:
     return {"name": name, "blocks": blocks, "actual": [], **({"rank": rank} if rank else {})}
 
 
-def test_availability_is_read_off_the_clock_but_assignment_never_is():
-    # this person drew the band's exact hours freihändig on the axis, so they ARE available for it
-    # — and being available is not being assigned, however confirmed that offer was elsewhere
+def test_a_column_reads_the_state_of_the_shift_that_covers_it():
+    # geplant across this window, filed under no band — still geplant. Reported 28.07.: it printed
+    # as «verfügbar», which is the sheet disagreeing with the plan.
     p = _payload([_row("Meier Anna", [{"from": _h(0), "to": _h(5), "confirmed": True}])])
-    assert _cell(p.rows[0], p.bands[0]) == _MARK_AVAILABLE
+    assert _cell(p.rows[0], p.bands[0]) == _MARK_CONFIRMED
+    q = _payload([_row("Meier Anna", [{"from": _h(0), "to": _h(5), "confirmed": False}])])
+    assert _cell(q.rows[0], q.bands[0]) == _MARK_AVAILABLE
 
 
 def test_a_cell_is_empty_only_when_nothing_reaches_the_window():
@@ -107,16 +109,15 @@ def test_deckung_counts_whole_people_and_only_the_assigned():
     assert _deckung(p.rows, p.bands[0]) == "2"
 
 
-def test_deckung_ignores_an_offer_filed_elsewhere_however_confirmed_it_was_there():
-    # it covers this window, so the person is free for it — free is not assigned, and this line
-    # counts assignments
+def test_deckung_counts_an_assignment_that_covers_this_window_wherever_it_is_filed():
     p = _payload(
         [
             _row("A", [{"from": _h(0), "to": _h(5), "confirmed": True, "bandId": "bd2"}]),
             _row("B", [{"from": _h(0), "to": _h(5), "confirmed": True}]),
+            _row("C", [{"from": _h(0), "to": _h(5), "confirmed": False}]),  # only available
         ]
     )
-    assert _deckung(p.rows, p.bands[0]) == "0"
+    assert _deckung(p.rows, p.bands[0]) == "2"
 
 
 def test_deckung_counts_one_person_once_however_many_offers_they_hold():
@@ -140,9 +141,10 @@ def test_the_sheet_lists_only_the_people_who_were_actually_assigned():
 
     assigned = _row("Fix", [{"from": _h(0), "to": _h(5), "confirmed": True, "bandId": "bd1"}])
     offered = _row("Frei", [{"from": _h(0), "to": _h(5), "confirmed": False, "bandId": "bd1"}])
+    # geplant across the window, filed under no band — on the watch all the same
     covering = _row("Deckt", [{"from": _h(-1), "to": _h(6), "confirmed": True}])
     p = _payload([assigned, offered, covering])
-    assert [_is_assigned(r) for r in p.rows] == [True, False, False]
+    assert [_is_assigned(r, p.bands) for r in p.rows] == [True, False, True]
     # …and the sheet still composes, now as a shorter one
     assert compose_schichtplan_pdf(p).startswith(b"%PDF")
 
@@ -152,7 +154,7 @@ def test_a_sheet_with_nobody_assigned_yet_still_carries_the_crew_to_write_on():
     from app.schichtplan_pdf import _is_assigned
 
     p = _payload([_row("Frei", [{"from": _h(0), "to": _h(5), "confirmed": False, "bandId": "bd1"}])])
-    assert not any(_is_assigned(r) for r in p.rows)
+    assert not any(_is_assigned(r, p.bands) for r in p.rows)
     assert compose_schichtplan_pdf(p).startswith(b"%PDF")
 
 

@@ -113,12 +113,16 @@ def _cell_block(row: ZeitplanRow, band: ZeitplanBand) -> tuple[ZeitplanBlock | N
         # inside a 12–17 watch, counted as one assigned person covering none of it.
         if b.band_id == band.id and _cover_fraction(b.start, b.end, band) > 0:
             return b, True
+    # failing that: an assignment outranks an availability, and only then the wider overlap wins
     best: ZeitplanBlock | None = None
-    best_cover = 0.0
+    best_key = (0, 0.0)
     for b in row.blocks:
         cover = _cover_fraction(b.start, b.end, band)
-        if cover > best_cover:
-            best, best_cover = b, cover
+        if cover <= 0:
+            continue
+        key = (1 if b.confirmed else 0, cover)
+        if best is None or key > best_key:
+            best, best_key = b, key
     return best, False
 
 
@@ -136,14 +140,17 @@ def _cell(row: ZeitplanRow, band: ZeitplanBand) -> str:
         # every cell overlaps its band by construction (_cell_block drops one that no longer
         # does), so there is always a slice; the fallback is for unreadable stamps only
         return _range(start, end) if end > start else _range(block.start, block.end or band.end)
-    # assignment is never derived — an offer filed under another band is still only an offer here
-    return _MARK_CONFIRMED if (member and block.confirmed) else _MARK_AVAILABLE
+    # `confirmed` is the SHIFT's own state, read wherever the shift lies: somebody geplant
+    # 10:00–20:00 is geplant for every watch those hours reach, filed under one or not
+    return _MARK_CONFIRMED if block.confirmed else _MARK_AVAILABLE
 
 
-def _is_assigned(row: ZeitplanRow) -> bool:
-    """Has this person been put ON a watch — anywhere? Only a STORED member counts; an offer that
-    merely covers a window is an availability, and availabilities are the other sheet's subject."""
-    return any(b.band_id and b.confirmed for b in row.blocks)
+def _is_assigned(row: ZeitplanRow, bands: list[ZeitplanBand]) -> bool:
+    """Is this person ON one of these watches? Asked through the cells, so the answer is exactly
+    what the sheet would show: somebody geplant 10:00–20:00 is on the 12:00–17:00 watch whether or
+    not anybody filed them under it. Merely being available is not, and belongs on the other
+    sheet."""
+    return any((b := _cell_block(row, band))[0] is not None and b[0].confirmed for band in bands)
 
 
 def _deckung(rows: list[ZeitplanRow], band: ZeitplanBand) -> str:
@@ -155,12 +162,7 @@ def _deckung(rows: list[ZeitplanRow], band: ZeitplanBand) -> str:
     the marks in the column above it — which is the only thing that makes a printed figure
     trustworthy once the tablet is out of battery."""
     return str(
-        sum(
-            1
-            for row in rows
-            for block, member in [_cell_block(row, band)]
-            if block is not None and member and block.confirmed
-        )
+        sum(1 for row in rows for block, _member in [_cell_block(row, band)] if block is not None and block.confirmed)
     )
 
 
@@ -241,7 +243,7 @@ def compose_schichtplan_pdf(payload: ZeitplanPayload) -> bytes:
     # is on which watch; somebody merely available is not an answer to that question, and sixty
     # names with two ticks between them is a sheet nobody reads. Everyone's times — assigned or not
     # — are on «Verfügbarkeiten», which exists for exactly that.
-    assigned = [r for r in (payload.rows or []) if _is_assigned(r)]
+    assigned = [r for r in (payload.rows or []) if _is_assigned(r, bands)]
     # …unless NOBODY is assigned yet. Then this is a blank form somebody is about to fill in by
     # hand, and a blank form still needs its names: an empty page helps no one.
     rows = assigned or (payload.rows or [])

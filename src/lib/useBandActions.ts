@@ -125,6 +125,17 @@ export function useBandActions({ bands, setBands, shifts, setShifts }: BandActio
       return
     }
     if (cell.derived) {
+      const src = cell.shift!
+      // Already «geplant» across this window from a shift of their own — they are on it, they are
+      // simply not filed under this column. Writing a SECOND assignment for the same hours would
+      // book them twice and light up the conflict notice for something nobody did wrong. So the
+      // tap continues the cycle on the shift that is actually there: geplant → verfügbar, exactly
+      // as tapping that bar on the Zeitplan does. It is one shift with one state, so a column it
+      // also covers moves with it — which is the truth about that shift, not a side effect.
+      if (src.confirmed) {
+        setShifts((list) => list.map((s) => (s.id === src.id ? { ...s, confirmed: false } : s)))
+        return
+      }
       const win = bandAssignWindow(cell, band)
       setShifts((list) => [...list, {
         id: `sh${Date.now()}`, personId: person.id, bandId: band.id, ...win, confirmed: true,
