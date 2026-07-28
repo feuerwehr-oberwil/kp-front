@@ -4,7 +4,7 @@ import type { InitialState } from './workspace'
 /** The per-incident SYNCED workspace slices — the operational data that rides the workspace
  *  blob (offline cache + three-way merge sync): the synced per-incident settings (Atemschutz
  *  interval …), the plan board, checklist tick-state, Atemschutz trupps, attendance, Mittel
- *  (material-use log), the Schichtenplanung, saved camera views, per-plan scale calibration, Einsatzrapport metadata,
+ *  (material-use log), the Schichtenplanung and its bands, saved camera views, per-plan scale calibration, Einsatzrapport metadata,
  *  the Gebäude document, the active plan id, and the manually-picked Einsatzobjekt.
  *
  *  Seeded once from deriveInitial() (the component is keyed by incident id, so this runs
@@ -20,6 +20,7 @@ export function useWorkspaceDoc(init: InitialState) {
   const [attendance, setAttendance] = useState(init.attendance)
   const [mittel, setMittel] = useState(init.mittel)
   const [shifts, setShifts] = useState(init.shifts)
+  const [bands, setBands] = useState(init.bands)
   const [cameraViews, setCameraViews] = useState(init.cameraViews)
   const [planScale, setPlanScale] = useState(init.planScale)
   const [reportMeta, setReportMeta] = useState(init.reportMeta)
@@ -34,6 +35,7 @@ export function useWorkspaceDoc(init: InitialState) {
     attendance, setAttendance,
     mittel, setMittel,
     shifts, setShifts,
+    bands, setBands,
     cameraViews, setCameraViews,
     planScale, setPlanScale,
     reportMeta, setReportMeta,

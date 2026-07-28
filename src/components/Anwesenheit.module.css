@@ -207,6 +207,13 @@
 }
 .menuItem[data-highlighted] { background: color-mix(in srgb, var(--ink) 8%, transparent); }
 
+/* the picked paper sheet, naming itself before it goes anywhere. The content line is the load-
+   bearing one — it is both the confirmation (paper does not undo) and the check on whether the
+   search + rank filter above are set the way you meant — so it is the size of a value, not of a
+   caption. */
+.paperContent { margin: 0; font: 700 15px var(--body); color: var(--ink); }
+.paperHint { margin: 8px 0 0; font: 500 12.5px var(--body); color: var(--ink-faint); }
+
 /* Zeitraum control — sits at the end of the search row, beside the thing it scopes */
 .horizon { flex: none; display: flex; align-items: center; gap: 6px; }
 .horizonLabel { font: 600 10.5px var(--mono); color: var(--ink-faint); letter-spacing: .06em; text-transform: uppercase; }

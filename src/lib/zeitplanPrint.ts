@@ -4,22 +4,41 @@
 // out, the same pair the Einsatzrapport offers: download the file, or queue it on the station
 // printer for the sheet you hang at the front.
 
-import type { AttendanceState, Person, Shift } from '../types'
-import { shiftsFor } from './shifts'
+import type { AttendanceState, Person, Shift, ShiftBand } from '../types'
+import { shiftsFor, sortBands } from './shifts'
 import { intervalsOf } from './attendanceIntervals'
 import { editorPrintTransport, enqueuePrint } from './printRelay'
 
 const BASE = import.meta.env.VITE_KP_RUECK_URL ?? ''
 
+/**
+ * The two sheets, chosen separately because they answer different questions — so the surface asks
+ * which one rather than guessing (see the paper menu).
+ *
+ * `verfuegbarkeiten` — who can do what, from when to when, band or no band. Everyone's times,
+ *   including the freihändig ones that belong to no column at all, and the only sheet on which
+ *   those appear. This is the sheet that exists with or without bands.
+ * `schichtplan` — the watches across the top, the names down the side, ticks in between: the
+ *   Führungsformular the crew knows. Meaningless without bands, so it is only ever offered
+ *   once one exists.
+ */
+export type ZeitplanSheet = 'verfuegbarkeiten' | 'schichtplan'
+
 export interface ZeitplanPrintPayload {
+  /** which of the two sheets to compose. Absent on an older client = the availability sheet, the
+   *  only one that existed then. */
+  sheet: ZeitplanSheet
   incidentTitle: string
   incidentAddress?: string
   startedAt?: string
   printedAt: string
+  /** the named windows, in the grid's own order. Empty on the availability sheet, which knows
+   *  nothing about columns. */
+  bands: { id: string; label: string; from: string; to: string }[]
   rows: {
     name: string
     rank?: string
-    blocks: { from: string; to?: string; confirmed: boolean }[]
+    blocks: { from: string; to?: string; confirmed: boolean; bandId?: string }[]
     /** recorded attendance — the thin rule under the plan on the sheet */
     actual: { from: string; to?: string }[]
   }[]
@@ -45,16 +64,24 @@ export function buildZeitplanPayload(
   shifts: Shift[],
   incident: { title: string; address?: string | null; startedAt?: string | null },
   nowIso: string,
+  sheet: ZeitplanSheet = 'verfuegbarkeiten',
+  bands: ShiftBand[] = [],
 ): ZeitplanPrintPayload {
   return {
+    sheet,
     incidentTitle: incident.title,
     ...(incident.address ? { incidentAddress: incident.address } : {}),
     ...(incident.startedAt ? { startedAt: incident.startedAt } : {}),
     printedAt: nowIso,
+    // one shape on the wire for both sheets: the Schichtplan groups the blocks by their bandId,
+    // the availability sheet ignores both fields and prints every block it is given
+    bands: sortBands(bands).map((b) => ({ id: b.id, label: b.label, from: b.from, to: b.to })),
     rows: people.map((p) => ({
       name: p.displayName,
       ...(p.rank ? { rank: p.rank } : {}),
-      blocks: shiftsFor(shifts, p.id).map((s) => ({ from: s.from, to: s.to, confirmed: !!s.confirmed })),
+      blocks: shiftsFor(shifts, p.id).map((s) => ({
+        from: s.from, to: s.to, confirmed: !!s.confirmed, ...(s.bandId ? { bandId: s.bandId } : {}),
+      })),
       // `to` omitted while somebody is still here — the sheet draws an open block up to the
       // moment it was printed, which is the only honest end for one
       actual: intervalsOf(attendance[p.id]).map((iv) => (iv.to ? { from: iv.from, to: iv.to } : { from: iv.from })),
@@ -76,7 +103,9 @@ export async function downloadZeitplanPdf(incidentId: string, payload: ZeitplanP
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = 'Zeitplan.pdf'
+  // named after the SHEET: two downloads on one name means the second silently replaces the
+  // first in a Downloads folder somebody is about to print from
+  a.download = payload.sheet === 'schichtplan' ? 'Schichtplan.pdf' : 'Verfuegbarkeiten.pdf'
   document.body.appendChild(a)
   a.click()
   a.remove()

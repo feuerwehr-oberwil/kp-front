@@ -24,6 +24,12 @@ interface WsShape {
   trupps?: HasId[]
   mittel?: HasId[] // append-only material-use events — merge by event id like timeline
   shifts?: HasId[] // Schichtenplanung: planned availability blocks, merged by shift id
+  // the Schichten grid's columns. They merge by id like any other collection, which gives exactly
+  // the semantics the surface needs for free: a band the AdFU creates at the desk appears on the
+  // EL's phone seconds later, two devices each creating one keep both, and a delete beats a
+  // concurrent rename. Creating a band writes NO shifts (see types.ShiftBand), so the one
+  // resolution this merge can never be asked for is 66 duplicated shifts per device.
+  bands?: HasId[]
   cameraViews?: HasId[]
   board?: Record<string, HasId[]>
   vehicleOverrides?: Record<string, unknown>
@@ -188,6 +194,7 @@ export function mergeWorkspace(
     trupps: mergeById(b.trupps ?? [], m.trupps ?? [], t.trupps ?? []),
     mittel: mergeById(b.mittel ?? [], m.mittel ?? [], t.mittel ?? []),
     shifts: mergeById(b.shifts ?? [], m.shifts ?? [], t.shifts ?? []),
+    bands: mergeById(b.bands ?? [], m.bands ?? [], t.bands ?? []),
     cameraViews: mergeById(b.cameraViews ?? [], m.cameraViews ?? [], t.cameraViews ?? []),
     board: mergeBoard(b.board ?? {}, m.board ?? {}, t.board ?? {}),
     vehicleOverrides: mergeRecord(b.vehicleOverrides ?? {}, m.vehicleOverrides ?? {}, t.vehicleOverrides ?? {}),

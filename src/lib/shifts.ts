@@ -1,4 +1,4 @@
-import type { AttendanceState, PresenceInterval, Shift } from '../types'
+import type { AttendanceState, PresenceInterval, Shift, ShiftBand } from '../types'
 import { intervalsOf } from './attendanceIntervals'
 
 /**
@@ -183,6 +183,122 @@ export function coverage(shifts: Shift[], attendance: AttendanceState, span: Spa
 /** Shifts of one person, earliest first — the row's own bars. */
 export function shiftsFor(shifts: Shift[], personId: string): Shift[] {
   return shifts.filter((s) => s.personId === personId).sort((a, b) => a.from.localeCompare(b.from))
+}
+
+// ---------------------------------------------------------------- Schichtbänder (the columns)
+
+/**
+ * The shift that fills one cell of the Schichten grid — this person, this band.
+ *
+ * Looked up by STORED membership (`bandId`), never by matching clocks. That is the whole design:
+ * nobody lands in a column because their times happen to fit it, and nobody drops out of one
+ * because somebody nudged the band by five minutes. It also means a shift dragged off the band's
+ * hours on the Zeitplan axis is still this cell's shift — it just draws hatched, with its real
+ * time (see `bandCellState`).
+ *
+ * `find`, not `filter`: one cell is one shift. Two shifts on the same band for the same person can
+ * only come from two devices tapping the same empty cell at the same moment; the earlier one wins
+ * the cell and the other is left to the Zeitplan, where every shift is always visible.
+ */
+export function shiftInBand(shifts: Shift[], personId: string, bandId: string): Shift | undefined {
+  return shifts.find((s) => s.personId === personId && s.bandId === bandId)
+}
+
+/** What one cell shows. `deviating` is drawn hatched and carries the shift's OWN times — the
+ *  person is in the band and is not keeping to it, which is a fact worth seeing rather than one
+ *  worth normalising away. Read `shift.confirmed` alongside it for the colour. */
+export type BandCellState = 'empty' | 'available' | 'confirmed' | 'deviating'
+
+export function bandCellState(sh: Shift | undefined, band: ShiftBand): BandCellState {
+  if (!sh) return 'empty'
+  if (sh.from !== band.from || sh.to !== band.to) return 'deviating'
+  return sh.confirmed ? 'confirmed' : 'available'
+}
+
+/** Milliseconds two windows share; 0 when they merely touch. */
+function overlapMs(aFrom: number, aTo: number, bFrom: number, bTo: number): number {
+  return Math.max(0, Math.min(aTo, bTo) - Math.max(aFrom, bFrom))
+}
+
+/**
+ * How much of one shift falls inside a band, as 0..1 of the BAND's length.
+ *
+ * A shift sitting exactly on the band counts 1. A hatched 09:00–14:00 inside a 07:00–12:00 band
+ * covers three of its five hours and counts 0.6. That is deliberate: the head numbers answer «how
+ * many do I have in this window», not «how many ticks can I see» — and a person who is there for
+ * three of the five hours is not one whole shift's worth of cover.
+ */
+export function bandCoverFraction(sh: Shift, band: ShiftBand): number {
+  const bf = Date.parse(band.from)
+  const bt = Date.parse(band.to)
+  const sf = Date.parse(sh.from)
+  const stt = Date.parse(sh.to)
+  const len = bt - bf
+  if (!Number.isFinite(len) || len <= 0) return 0
+  if (!Number.isFinite(sf) || !Number.isFinite(stt) || stt <= sf) return 0
+  return Math.min(1, overlapMs(sf, stt, bf, bt) / len)
+}
+
+export interface BandCounts {
+  /** offered into this window but not yet assigned */
+  available: number
+  /** assigned */
+  confirmed: number
+}
+
+/** The two numbers in a column's head. Deviating shifts count pro rata (see bandCoverFraction),
+ *  so both totals can be fractional — the surface formats them, this only counts. */
+export function bandCounts(shifts: Shift[], band: ShiftBand): BandCounts {
+  let available = 0
+  let confirmed = 0
+  for (const s of shifts) {
+    if (s.bandId !== band.id) continue
+    const f = bandCoverFraction(s, band)
+    if (s.confirmed) confirmed += f
+    else available += f
+  }
+  return { available, confirmed }
+}
+
+/**
+ * One person's shifts that belong to NO band, earliest first.
+ *
+ * The Schichten grid can only show band membership, so somebody who drew 09:00–14:00 freihändig on
+ * the axis sits empty in every column — indistinguishable from somebody who has offered nothing at
+ * all. Their row carries these times as a mark instead, so the grid never claims they are free.
+ */
+export function freehandShifts(shifts: Shift[], personId: string): Shift[] {
+  return shiftsFor(shifts, personId).filter((s) => !s.bandId)
+}
+
+/** Bands in the order the grid puts them up: by start, then by end, then by creation. Stable, so
+ *  a column never swaps places under a finger that is halfway down it. */
+export function sortBands(bands: ShiftBand[]): ShiftBand[] {
+  return [...bands].sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to) || a.id.localeCompare(b.id))
+}
+
+/**
+ * The times a new band's sheet opens on.
+ *
+ * The SECOND band starts where the last one ended and runs just as long, because that is the
+ * sentence this surface exists for: «wir fahren 07–12 und 12–17». Typing 12:00 again to say
+ * «and then the next one» is the sort of re-entry the whole grid was built to remove. The FIRST
+ * band has nothing to follow, so it anchors like a drafted shift does — the next half-hour
+ * boundary, or the incident start while that is still ahead.
+ */
+export function draftBand(bands: ShiftBand[], nowMs: number, startedAt: string | null, hours: number): { from: string; to: string } {
+  const sorted = sortBands(bands)
+  const last = sorted[sorted.length - 1]
+  if (last) {
+    const from = Date.parse(last.from)
+    const to = Date.parse(last.to)
+    if (Number.isFinite(from) && Number.isFinite(to) && to > from) {
+      return { from: last.to, to: new Date(to + (to - from)).toISOString() }
+    }
+  }
+  const startMs = ms(startedAt)
+  const base = ceilSlot(startMs != null && startMs > nowMs ? startMs : nowMs)
+  return { from: new Date(base).toISOString(), to: new Date(base + hours * HOUR).toISOString() }
 }
 
 /** How many people carry at least one planned shift — the surface's summary line. */

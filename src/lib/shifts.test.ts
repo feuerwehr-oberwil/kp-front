@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
-  SLOT_MS, barGeometry, ceilSlot, conflictingShiftIds, coverage, draftShift, dragShift, floorSlot,
-  intervalSpan, overlaps, plannedPersonCount, shiftAt, shiftSpan, shiftsFor, timeAtFraction, timelineSpan,
+  SLOT_MS, bandCellState, bandCounts, bandCoverFraction, barGeometry, ceilSlot, conflictingShiftIds,
+  coverage, draftBand, draftShift, dragShift, floorSlot, freehandShifts, intervalSpan, overlaps,
+  plannedPersonCount, shiftAt, shiftInBand, shiftSpan, shiftsFor, sortBands, timeAtFraction,
+  timelineSpan,
 } from './shifts'
-import type { AttendanceState, Shift } from '../types'
+import type { AttendanceState, Shift, ShiftBand } from '../types'
 
 const T = (h: number, m = 0) => `2026-07-26T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00.000Z`
 const ms = (iso: string) => Date.parse(iso)
@@ -253,5 +255,108 @@ describe('direct manipulation on the grid', () => {
   it('leaves a shift alone when the drag distance is not a number', () => {
     const sh = shift('a', 'p1', T(14), T(18))
     expect(dragShift(sh, 'move', NaN, span)).toBe(sh)
+  })
+})
+
+// ---------------------------------------------------------------- Schichtbänder (the columns)
+
+const band = (id: string, from: string, to: string, label = ''): ShiftBand => ({ id, label, from, to })
+const inBand = (id: string, personId: string, from: string, to: string, bandId: string, confirmed?: boolean): Shift =>
+  ({ id, personId, from, to, bandId, ...(confirmed ? { confirmed } : {}) })
+
+describe('band membership is STORED, never derived', () => {
+  const früh = band('bd1', T(7), T(12), 'Früh')
+
+  it('ignores a shift whose times match the band exactly but carries no bandId', () => {
+    // this is the whole design in one assertion: a new band is empty for EVERYBODY, including the
+    // people who already hold precisely its hours freihändig
+    const free = shift('a', 'p1', T(7), T(12))
+    expect(shiftInBand([free], 'p1', 'bd1')).toBeUndefined()
+    expect(bandCellState(shiftInBand([free], 'p1', 'bd1'), früh)).toBe('empty')
+  })
+
+  it('keeps a shift in its band after its times were dragged away, hatched', () => {
+    // nobody falls out of a column because somebody nudged the band by five minutes
+    const drifted = inBand('a', 'p1', T(9), T(14), 'bd1', true)
+    expect(bandCellState(drifted, früh)).toBe('deviating')
+  })
+
+  it('reads the plain two states off an on-band shift', () => {
+    expect(bandCellState(inBand('a', 'p1', T(7), T(12), 'bd1'), früh)).toBe('available')
+    expect(bandCellState(inBand('a', 'p1', T(7), T(12), 'bd1', true), früh)).toBe('confirmed')
+  })
+
+  it('lists only the shifts belonging to no band as a person\'s own times', () => {
+    const list = [inBand('a', 'p1', T(7), T(12), 'bd1'), shift('b', 'p1', T(9), T(14)), shift('c', 'p2', T(9), T(14))]
+    expect(freehandShifts(list, 'p1').map((x) => x.id)).toEqual(['b'])
+  })
+})
+
+describe('bandCounts — deviating shifts count pro rata', () => {
+  const früh = band('bd1', T(7), T(12), 'Früh') // five hours
+
+  it('counts an on-band shift as a whole one, in its own state', () => {
+    const list = [inBand('a', 'p1', T(7), T(12), 'bd1'), inBand('b', 'p2', T(7), T(12), 'bd1', true)]
+    expect(bandCounts(list, früh)).toEqual({ available: 1, confirmed: 1 })
+  })
+
+  it('counts 09–14 inside 07–12 as the three hours it actually covers', () => {
+    // «wie viele habe ich in diesem Fenster», not «wie viele Häkchen sehe ich»: three of five hours
+    expect(bandCoverFraction(inBand('a', 'p1', T(9), T(14), 'bd1', true), früh)).toBeCloseTo(0.6)
+    expect(bandCounts([inBand('a', 'p1', T(9), T(14), 'bd1', true)], früh).confirmed).toBeCloseTo(0.6)
+  })
+
+  it('never counts more than one for a shift that swallows the whole band', () => {
+    expect(bandCoverFraction(inBand('a', 'p1', T(0), T(23), 'bd1'), früh)).toBe(1)
+  })
+
+  it('counts nothing for a shift dragged clear of its band, and does not go negative', () => {
+    expect(bandCoverFraction(inBand('a', 'p1', T(14), T(18), 'bd1'), früh)).toBe(0)
+  })
+
+  it('ignores every shift belonging to another band or to none', () => {
+    const list = [inBand('a', 'p1', T(7), T(12), 'bd2'), shift('b', 'p2', T(7), T(12))]
+    expect(bandCounts(list, früh)).toEqual({ available: 0, confirmed: 0 })
+  })
+})
+
+describe('draftBand — what the sheet opens on', () => {
+  it('starts the second band where the last one ended, running just as long', () => {
+    // «wir fahren 07–12 und 12–17» is one sentence; typing 12:00 twice is the re-entry the whole
+    // grid exists to remove
+    const d = draftBand([band('bd1', T(7), T(12))], ms(T(9)), null, 4)
+    expect(d.from).toBe(T(12))
+    expect(d.to).toBe(T(17))
+  })
+
+  it('anchors the first band on the next half hour when the incident is already running', () => {
+    const d = draftBand([], ms(T(9, 10)), T(7), 5)
+    expect(d.from).toBe(T(9, 30))
+    expect(d.to).toBe(T(14, 30))
+  })
+
+  it('anchors the first band on the incident start while that is still ahead', () => {
+    const d = draftBand([], ms(T(6)), T(7), 5)
+    expect(d.from).toBe(T(7))
+  })
+})
+
+describe('sortBands', () => {
+  it('orders by start, then end, then id — stable, so a column never swaps under a finger', () => {
+    const list = [band('b', T(12), T(17)), band('c', T(7), T(14)), band('a', T(7), T(12))]
+    expect(sortBands(list).map((x) => x.id)).toEqual(['a', 'c', 'b'])
+    expect(list.map((x) => x.id)).toEqual(['b', 'c', 'a']) // input untouched
+  })
+})
+
+describe('conflicts inside bands', () => {
+  it('flags one person assigned in two overlapping bands, and leaves offers alone', () => {
+    // «Überlappende Bänder erlaubt»: leer/verfügbar may overlap freely — only two CONFIRMED
+    // shifts of the same person are a genuine double booking, and even then it is reported,
+    // never refused
+    const offers = [inBand('a', 'p1', T(7), T(12), 'bd1'), inBand('b', 'p1', T(10), T(15), 'bd2')]
+    expect(conflictingShiftIds(offers).size).toBe(0)
+    const booked = [inBand('a', 'p1', T(7), T(12), 'bd1', true), inBand('b', 'p1', T(10), T(15), 'bd2', true)]
+    expect([...conflictingShiftIds(booked)].sort()).toEqual(['a', 'b'])
   })
 })

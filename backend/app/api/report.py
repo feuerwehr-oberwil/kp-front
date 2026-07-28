@@ -23,6 +23,7 @@ from ..auth.dependencies import CurrentUser
 from ..database import get_db
 from ..models import Incident, Media, ReferenceDataset
 from ..report_pdf import ReportPayload, compose_report_pdf
+from ..schichtplan_pdf import compose_schichtplan_pdf
 from ..zeitplan_pdf import ZeitplanPayload, compose_zeitplan_pdf
 
 router = APIRouter(tags=["report"])
@@ -140,19 +141,30 @@ async def report_pdf(
     )
 
 
-def zeitplan_filename(title: str) -> str:
-    safe = "".join(c for c in title if c.isalnum() or c in " -_").strip().replace(" ", "_")[:60] or "Zeitplan"
-    return f"Zeitplan_{safe}.pdf"
+def zeitplan_filename(title: str, sheet: str = "verfuegbarkeiten") -> str:
+    """Named after the SHEET, not after the endpoint. The two must differ: they answer different
+    questions, and two downloads landing on one name means the second silently replaces the first
+    in a Downloads folder somebody is about to print from."""
+    safe = "".join(c for c in title if c.isalnum() or c in " -_").strip().replace(" ", "_")[:60] or "Einsatz"
+    stem = "Schichtplan" if sheet == "schichtplan" else "Verfuegbarkeiten"
+    return f"{stem}_{safe}.pdf"
 
 
 def compose_zeitplan_from_payload(payload: str) -> tuple[bytes, ZeitplanPayload]:
-    """Parse + render the Führungsformular. Its own path: no map tiles, no plan PDFs, no media —
-    a Zeitplan is names and times, so it needs none of the rapport's asset resolution."""
+    """Parse + render one of the two Schichtenplanung sheets. Its own path: no map tiles, no plan
+    PDFs, no media — either sheet is names and times, so neither needs the rapport's asset
+    resolution.
+
+    The two composers are separate modules and neither carries a switch: they are different
+    questions with different shapes (Wer × Zeit over continuous time vs Wer × Schicht over discrete
+    time). All that is shared is the wire payload, so the surface can ask which sheet it wants.
+    """
     try:
         data = ZeitplanPayload.model_validate_json(payload)
     except ValidationError as e:
         raise HTTPException(status_code=422, detail=e.errors(include_url=False)) from e
-    return compose_zeitplan_pdf(data), data
+    compose = compose_schichtplan_pdf if data.sheet == "schichtplan" else compose_zeitplan_pdf
+    return compose(data), data
 
 
 @router.post("/incidents/{incident_id}/zeitplan/pdf")
@@ -170,9 +182,9 @@ async def zeitplan_pdf(
     inc = (await db.execute(select(Incident).where(Incident.id == incident_id))).scalar_one_or_none()
     if inc is None:
         raise HTTPException(status_code=404, detail="Einsatz nicht gefunden")
-    pdf, _ = await anyio.to_thread.run_sync(compose_zeitplan_from_payload, payload)
+    pdf, data = await anyio.to_thread.run_sync(compose_zeitplan_from_payload, payload)
     return Response(
         content=pdf,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{zeitplan_filename(inc.title)}"'},
+        headers={"Content-Disposition": f'attachment; filename="{zeitplan_filename(inc.title, data.sheet)}"'},
     )

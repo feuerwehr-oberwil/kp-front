@@ -6753,7 +6753,7 @@
           "print-relay"
         ],
         "summary": "Zeitplan Print",
-        "description": "Queue the Führungsformular «Zeitplan» for the station printer — the sheet you hang at the\nfront. Always monochrome: it is rules and bars, and a colour cartridge is a consumable.",
+        "description": "Queue one of the two Schichtenplanung sheets for the station printer — «Verfügbarkeiten»\nor «Schichtplan», whichever the payload names. The sheet you hang at the front. Always\nmonochrome: it is rules, marks and bars, and a colour cartridge is a consumable.",
         "operationId": "zeitplan_print_api_incidents__incident_id__zeitplan_print_post",
         "parameters": [
           {

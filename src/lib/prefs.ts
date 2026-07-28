@@ -27,9 +27,9 @@ export interface Prefs {
    *  (Saved.pickedObjectId), per incident + shared across devices. Kept only so deriveInitial
    *  can one-time import an in-flight cookie pick on upgrade; cleared at boot afterwards. */
   pickedObject?: { incidentId: string; objectId: string }
-  /** which reading of the Anwesenheit surface was open last — the list or the Zeitplan. A reload
-   *  mid-incident must come back to the tab you were working in. */
-  anwesenheitView?: 'list' | 'plan'
+  /** which reading of the Anwesenheit surface was open last — the list, the Zeitplan axis or the
+   *  Schichten grid. A reload mid-incident must come back to the tab you were working in. */
+  anwesenheitView?: 'list' | 'plan' | 'bands'
   /** hours of axis the Zeitplan shows at once (the Zeitraum control) */
   zeitplanHorizonH?: number
   /** UI colour scheme — see ThemeMode. Default 'auto' (daylight-driven). */

@@ -1,0 +1,222 @@
+/* Schichtbänder — the Zeitplan transposed: the COLUMNS are named windows, not hours.
+   Same board-and-cards vocabulary as Zeitplan.module.css (flat --canvas-bg board, sticky name
+   column, rows as cards) so the two readings of the same Mannschaft look like one surface. What is
+   NOT shared is the renderer: nothing here is positioned by time, so a lane, a bar geometry and a
+   px-per-hour track would all be dead weight. */
+
+.bandgrid {
+  --name-w: 210px;
+  /* the thumb floor for a cell. Below ~65px a gloved finger on a 390px phone cannot pick a column
+     reliably, so the grid stops squeezing and starts scrolling instead — see .grid. */
+  --cell-min: 65px;
+  /* the other end of the same decision — see .grid */
+  --cell-max: 260px;
+  /* the ＋ column, and the spacer under it that keeps every row the same width */
+  --add-w: 40px;
+  --board: var(--canvas-bg);
+  /* THE state colours, read from the same mapping the Zeitplan declares — grey «verfügbar», blue
+     «eingeteilt». Green is deliberately absent: on the Zeitplan green means ANWESEND, which comes
+     from the attendance record, and this surface never shows the record. A hatched cell is drawn
+     in its own state's colour for that reason — hatching says «not keeping to the band», it does
+     not introduce a fourth meaning. */
+  --st-available: color-mix(in srgb, var(--ink) 45%, transparent);
+  --st-planned: var(--blue);
+  --edge: var(--glass-edge);
+  flex: 1 1 auto; min-height: 0; min-width: 0; max-width: 100%;
+  display: flex; flex-direction: column; gap: 6px; padding: 2px 22px 16px;
+}
+
+.scroll {
+  flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: none; scrollbar-gutter: stable;
+  background: var(--board); border-radius: var(--r-sm);
+}
+.scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+.scroll::-webkit-scrollbar-track { background: transparent; }
+.scroll::-webkit-scrollbar-thumb {
+  border-radius: 5px; border: 2px solid transparent; background-clip: content-box;
+  background-color: color-mix(in srgb, var(--ink) 28%, transparent);
+}
+.scroll::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--ink) 45%, transparent); }
+
+/* The width is the whole layout decision, in one line — the columns' own floor, the port, and
+   the columns' own ceiling, in that order.
+   FLOOR: with up to three bands the port is the larger term, the grid is exactly as wide as the
+   screen and the cells flex to share it out. From the fourth band the floor wins, the grid is
+   wider than the port, and the surface scrolls sideways — instead of shrinking cells to 48px,
+   which is under the thumb floor and the reason «just fit more columns» was not the answer.
+   CEILING: with a SINGLE band the port would give that one column ~1000px on a desk screen, with
+   the word «fix» adrift in the middle of a tap target the size of a table. Past --cell-max the
+   grid simply stops and the board shows to its right, which reads as «the table is this wide». */
+.grid {
+  display: flex; flex-direction: column; gap: 3px;
+  width: clamp(
+    calc(var(--name-w) + var(--add-w) + var(--bands) * var(--cell-min)),
+    100%,
+    calc(var(--name-w) + var(--add-w) + var(--bands) * var(--cell-max))
+  );
+}
+.row { display: flex; align-items: stretch; gap: 3px; width: 100%; }
+
+/* ---- the «Wer» column: sticky, so the name stays put while the columns scroll ---- */
+
+/* Same two-layer trick as the Zeitplan's: the ELEMENT is square and painted in the board colour
+   (the mask the cells scroll under), the rounded card is drawn by ::before on top of it. A
+   transparent corner arc here would let a cell peek through while scrolling. */
+.who {
+  position: sticky; left: 0; z-index: 3; flex: none;
+  width: var(--name-w); display: flex; align-items: center; gap: 6px; padding: 3px 8px 3px 13px;
+  min-height: var(--tap); text-align: left;
+  background: var(--board); font: 700 13.5px var(--body); color: var(--ink);
+}
+/* rank + name are ONE line, always — they identify the same person */
+.whoMain { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1 1 auto; }
+.who::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  border: 1px solid var(--edge); border-radius: var(--r-ctl); background: var(--surface);
+}
+.name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rank {
+  flex: none; padding: 1px 5px; border-radius: var(--r-xs);
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  font: 700 10px var(--mono); color: var(--ink-dim); text-transform: uppercase;
+}
+/* «eigene Zeiten»: this person planned on the axis and belongs to no column, so all their cells
+   are empty — the mark carries their real hours so the grid cannot read as «has offered nothing».
+   margin-left: auto — it rides the right edge of the name cell, against the first column, where
+   the eye is already travelling. Quiet: it is context for the empty cells beside it, not a state. */
+.ownTimes {
+  flex: none; margin-left: auto; padding: 1px 5px; border-radius: var(--r-xs);
+  border: 1px dashed color-mix(in srgb, var(--ink) 25%, transparent);
+  font: 600 10px var(--mono); color: var(--ink-faint); white-space: nowrap;
+}
+
+/* head + the ＋ are chrome spanning the full width, not cards on the board. It paints the board
+   colour itself: without it the 3px gaps between the column heads are transparent, and a row
+   scrolled up underneath shows through them in slices. */
+.headRow { position: sticky; top: 0; z-index: 4; background: var(--board); }
+.whoHead {
+  min-height: 0; align-items: flex-end; padding-bottom: 6px;
+  font: 700 10.5px var(--mono); color: var(--ink-faint); letter-spacing: .08em; text-transform: uppercase;
+}
+.whoHead::before { border: none; border-radius: 0; background: var(--board); }
+.headRow .who { z-index: 5; }
+
+/* ---- a column head ---------------------------------------------------------------- */
+
+.band {
+  flex: 1 1 0; min-width: var(--cell-min); display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 1px; padding: 6px 6px 7px;
+  border: 1px solid var(--edge); border-bottom: none;
+  border-radius: var(--r-ctl) var(--r-ctl) 0 0; background: var(--surface);
+  cursor: pointer; -webkit-tap-highlight-color: transparent; text-align: center;
+}
+.band:disabled { cursor: default; }
+.band:not(:disabled):hover { background: color-mix(in srgb, var(--ink) 5%, var(--surface)); }
+.band b { font: 800 12px var(--body); color: var(--ink); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.band i { font: 600 10px var(--mono); font-style: normal; color: var(--ink-faint); }
+/* verfügbar / eingeteilt — the two numbers the Deckung curve exists for once time is continuous.
+   They are the only figures on this grid, so they carry the state colours the cells below use. */
+.counts { display: inline-flex; gap: 6px; margin-top: 2px; font: 700 11px var(--mono); }
+/* --ink-dim, not --st-available: 45%-ink over the surface lands at about 3:1, which is not a digit
+   read at 3am. The same call the Zeitplan's Deckung numbers made. */
+.cntAvailable { color: var(--ink-dim); }
+.cntConfirmed { color: var(--st-planned); }
+
+/* the ONE way in, standing in the row it creates. Dashed and tinted: it is an invitation, not a
+   column — nothing is counted in it and nothing can be tapped into it. */
+.addBand {
+  flex: none; width: var(--add-w); display: grid; place-items: center;
+  border: 1px dashed color-mix(in srgb, var(--blue) 45%, transparent); border-bottom: none;
+  border-radius: var(--r-ctl) var(--r-ctl) 0 0;
+  background: color-mix(in srgb, var(--blue) 8%, transparent); color: var(--blue);
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.addBand:hover { background: color-mix(in srgb, var(--blue) 16%, transparent); }
+.addBand svg { width: 18px; height: 18px; }
+/* under the ＋, in every person's row: the rows must all end at the same x or the right edge of
+   the grid becomes a staircase */
+.pad { flex: none; width: var(--add-w); }
+
+/* ---- a cell ------------------------------------------------------------------------ */
+
+/* justify-content: center — with two children (the conflict sign and the drifted time) the two
+   auto tracks otherwise stretch to the cell's full width, which on a 260px column threw the sign
+   against the left edge and the time against the right, reading as two separate marks */
+.cell {
+  flex: 1 1 0; min-width: var(--cell-min); min-height: var(--tap);
+  display: grid; place-items: center; justify-content: center; gap: 4px; grid-auto-flow: column;
+  border: 1px solid var(--edge); border-radius: var(--r-xs);
+  background: var(--surface); cursor: pointer; -webkit-tap-highlight-color: transparent;
+  font: 700 10.5px var(--mono); color: var(--ink-faint);
+}
+.cell:disabled { cursor: default; }
+.cell:not(:disabled):hover { background: color-mix(in srgb, var(--ink) 5%, var(--surface)); }
+
+/* verfügbar — dashed, like the availability band on the Zeitplan lane: offered, nothing committed */
+.cellAvailable {
+  background: color-mix(in srgb, var(--ink) 6%, var(--surface));
+  border: 1.5px dashed var(--st-available); color: var(--ink-dim);
+}
+/* eingeteilt — solid blue, like the assigned bar. Deliberately not var(--accent): a station's
+   accent is its brand colour (in Oberwil alarm red) and a plan must not read as an alarm. */
+.cellConfirmed {
+  background: var(--st-planned); border: 1px solid var(--st-planned); color: #fff;
+}
+/* abweichend — in the band, not keeping to it. Hatched in its OWN state's colour and carrying the
+   real hours: the person said something specific about themselves and the grid repeats it rather
+   than normalising it away. Tapping such a cell never empties it (see useBandActions.cycleCell) —
+   behind it is a stretch somebody dragged by hand on the axis. */
+.cellDeviating {
+  background-image: repeating-linear-gradient(45deg,
+    color-mix(in srgb, currentColor 30%, transparent) 0 5px, transparent 5px 10px);
+  font-size: 10px;
+}
+.cellAvailable.cellDeviating { border-style: dashed; }
+/* red is reserved for a genuine double booking — two CONFIRMED shifts of the same person at the
+   same time (conflictingShiftIds). Reported, never refused: at 3am that is a hint to look, not a
+   reason to block the plan. An outline, not a fill, so the cell still says which state it is in. */
+.cellConflict { border: 1.5px solid var(--red); box-shadow: 0 0 0 1px var(--red) inset; }
+.cellConflict svg { width: 12px; height: 12px; color: var(--red); flex: none; }
+.cellConfirmed.cellConflict svg { color: #fff; }
+
+/* only from the fourth column, where the grid genuinely runs off the edge */
+.scrollHint { margin: 0; font: 500 12px var(--body); color: var(--ink-faint); }
+/* the empty state's own column. `.empty-state-act` is a row, which put the hint beside the button
+   and folded «Erste Schicht definieren» onto three lines. */
+.emptyAct { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.emptyAct .ip-btn, .emptyAct :global(.ip-btn) { flex: none; }
+.emptyAxis { margin: 0; font: 500 12px var(--body); color: var(--ink-faint); text-align: center; }
+
+/* ---- the band sheet ---------------------------------------------------------------- */
+
+.sheet { max-width: 460px; }
+.field { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
+.fieldLabel { font: 600 9.5px var(--mono); color: var(--ink-faint); letter-spacing: .06em; text-transform: uppercase; }
+.text {
+  min-height: var(--tap); padding: 0 12px; border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--surface); color: var(--ink); font: 600 15px var(--body);
+}
+.text:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+/* The same three rules as the TimeBlockSheet's von/bis pair, deliberately: align on the TOP, so a
+   day caption hanging under one end cannot lift that field above its twin — which is what
+   `flex-end` did the moment a band ran past midnight. */
+.times { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 10px; margin-top: 16px; }
+.sep { align-self: center; padding-top: 14px; color: var(--ink-faint); font: 600 14px var(--mono); }
+.day { font: 600 10.5px var(--mono); color: var(--ink-faint); white-space: nowrap; }
+.note { margin: 14px 0 0; font: 500 12.5px var(--body); color: var(--ink-faint); }
+
+/* 600px is the house phone breakpoint (the Zeitplan and 19 other surfaces use it). */
+@media (max-width: 600px) {
+  /* 112px, not the Zeitplan's 168. There the name column can afford width because the track
+     beside it scrolls anyway; here three columns plus the ＋ have to FIT beside it on 390px, and
+     the cells have a thumb floor they may not go under. 112px still holds ~12 characters. */
+  .bandgrid { padding: 2px 12px 12px; --name-w: 112px; }
+  .who { padding: 3px 4px 3px 8px; gap: 2px; flex-direction: column; align-items: stretch; justify-content: center; }
+  .whoMain { flex: none; gap: 4px; }
+  .name { font-size: 12.5px; }
+  /* The mark takes its own line UNDER the name here: inline it would leave the name ~30px, i.e.
+     four characters, and «Bing…» is not an identification at 3am. The cost is honest — that
+     person's row is one line taller than the rest. It is paid only by the few who planned
+     freihändig, and an uneven card on the board reads better than a truncated name. */
+  .ownTimes { margin-left: 0; align-self: flex-start; }
+}

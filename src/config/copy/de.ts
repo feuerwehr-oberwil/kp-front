@@ -2211,9 +2211,14 @@ export const de = {
     // auf dem Kopf der Zeitplan-Karte, beim Überfahren: er sieht aus wie eine Überschrift
     flip: 'umschalten',
     done: 'Fertig',
-    // Umschalter zwischen der Anwesenheitsliste und dem Zeitplan (gleiche Mannschaft, zwei Blicke)
-    viewList: 'Anwesenheit',
+    // Umschalter über derselben Mannschaft, drei Blicke: wer ist DA, wer kann WANN (stetige Zeit,
+    // personen-major), und wer besetzt WELCHES Fenster (diskrete Zeit, schicht-major).
+    // «Anwes.» und nicht «Anwesenheit»: erst gekürzt passen drei Segmente auf 390 px
+    // (~278 px verfügbar, ~250 gebraucht). Das dritte gehört hierher und nicht ins ⋯-Menü –
+    // eine ganze Arbeitsweise steht nicht hinter drei Punkten.
+    viewList: 'Anwes.',
     viewPlan: 'Zeitplan',
+    viewBands: 'Schichten',
     viewLabel: 'Ansicht',
   },
   // Schichtenplanung – das Führungsformular «Zeitplan» (Wer × Zeit), rein planend:
@@ -2250,11 +2255,21 @@ export const de = {
     emptyHint: 'Plane pro Person, von wann bis wann sie verfügbar ist. Der Plan verändert die Anwesenheit nicht – abgehakt wird sie weiterhin in der Anwesenheitsliste.',
     legendHint: 'Hohl = verfügbar · gefüllt = eingeteilt · grün = tatsächlich anwesend',
     print: 'Zeitplan drucken',
-    // Der Druckerknopf steht offen in der Kopfzeile, einen Daumen neben dem Ansichtsumschalter,
-    // und Papier kommt aus der Maschine, bevor ein Toast verklungen ist. Also wird gefragt – und
-    // die Frage nennt die Zahl, die zugleich prüft, ob der Filter oben so steht wie gemeint.
-    printConfirmTitle: 'Zeitplan an den Stationsdrucker?',
-    printConfirmMsg: 'Das Blatt geht mit {n} Personen an den Drucker in der Station.',
+    // ZWEI Blätter, getrennt gewählt – sie beantworten verschiedene Fragen, also wird gefragt
+    // statt geraten, welches gemeint war. Erst das Blatt wählen, dann den Weg: das Blatt nennt
+    // seinen Inhalt und bietet Drucker und PDF an. So bleibt die Bestätigung vor dem Druck
+    // erhalten (Papier kommt aus der Maschine, bevor ein Toast verklungen ist), ohne dass vier
+    // Menüeinträge nötig wären.
+    sheetSchichtplan: 'Schichtplan …',
+    sheetVerfuegbarkeiten: 'Verfügbarkeiten …',
+    sheetSchichtplanTitle: 'Schichtplan',
+    sheetVerfuegbarkeitenTitle: 'Verfügbarkeiten',
+    // «66 Personen · 2 Schichten · Stand 09:14» – die Zahl prüft zugleich, ob der Filter oben so
+    // steht wie gemeint
+    sheetContent: '{people} Personen · Stand {t}',
+    sheetContentBands: '{people} Personen · {bands} Schichten · Stand {t}',
+    sheetSchichtplanHint: 'Die Wachen quer, die Namen längs, Häkchen dazwischen – das Führungsformular, wie es die Mannschaft kennt.',
+    sheetVerfuegbarkeitenHint: 'Wer von wann bis wann kann, unabhängig von jeder Schicht – auch alle, die in keiner stehen.',
     pdf: 'Als PDF',
     paperMenu: 'Aufs Papier',
     printFailed: 'Zeitplan konnte nicht gedruckt werden.',
@@ -2298,6 +2313,55 @@ export const de = {
     dragMove: 'Verschieben',
     dragFrom: 'Beginn ziehen',
     dragTo: 'Ende ziehen',
+  },
+  // Schichtbänder (BandGrid) — die Transponierte des Zeitplans. Der Zeitplan ist personen-major
+  // über stetige Zeit («eine Person wählen, zeichnen wann»); hier ist die Spalte ein benanntes
+  // Zeitfenster und man entscheidet pro Person nur noch WER. Damit entfällt die Zeiteingabe ganz:
+  // ein Tipp pro Zelle statt Blatt öffnen · von wählen · bis wählen · schliessen.
+  schichten: {
+    title: 'Schichten',
+    // Kopf der Namensspalte, wie auf dem gedruckten Führungsformular
+    who: 'Wer',
+    // Der EINE Weg hinein: kein Vorschlag, kein Übernehmen aus einem Balken, kein Einsammeln.
+    addBand: 'Schicht definieren',
+    addBandFirst: 'Erste Schicht definieren',
+    emptyTitle: 'Noch keine Schicht.',
+    emptyHint: 'Legen Sie die Zeitfenster an, die Sie besetzen wollen – danach wird pro Person nur noch angetippt.',
+    emptyAxisHint: 'Oder im Zeitplan pro Person frei einzeichnen.',
+    // Das Band-Blatt: anlegen und bearbeiten teilen sich eine Fläche
+    sheetAddTitle: 'Schicht anlegen',
+    sheetEditTitle: 'Schicht bearbeiten',
+    labelField: 'Name',
+    labelPlaceholder: 'Früh',
+    // Die Beruhigung, die den ganzen Entwurf trägt: anlegen teilt niemanden ein.
+    sheetHint: 'Die Schicht wird für die ganze Mannschaft angelegt. Jede Zelle beginnt leer.',
+    create: 'Anlegen',
+    save: 'Sichern',
+    removeBand: 'Schicht löschen',
+    // Gelöscht wird das BAND, nicht die Planung: die Schichten bleiben als freihändige stehen.
+    // Das ist der einzige Weg, auf dem echte Planung sonst still verschwinden würde.
+    removeBandHint: 'Löschen entfernt nur die Spalte – die eingeteilten Zeiten bleiben als freihändige im Zeitplan stehen.',
+    removedBand: 'Schicht «{label}» gelöscht',
+    // Beim Verschieben eines Bandes: kein stiller Zusammenhang in die eine oder andere Richtung.
+    moveTitle: 'Zeiten mitziehen?',
+    moveMsg: '{n} Personen sind auf die alten Zeiten eingeteilt. Sollen ihre Zeiten mitziehen?',
+    moveYes: 'Mitziehen',
+    moveNo: 'Nur die Schicht',
+    // Kopfzahlen einer Spalte. Abweichende zählen ANTEILIG mit – die Zahl beantwortet «wie viele
+    // habe ich in diesem Fenster», nicht «wie viele Häkchen sehe ich».
+    countsAria: '{available} verfügbar, {planned} eingeteilt',
+    available: 'frei',
+    confirmed: 'fix',
+    // Wer freihändige Zeiten ohne Band hat, stünde sonst überall leer – wie jemand, der nichts
+    // angeboten hat. Die Marke nennt die echte Zeit, damit das Raster das nicht behauptet.
+    ownTimes: 'eigene Zeiten ausserhalb jeder Schicht: {times}',
+    ownTimesMore: '{first} +{n}',
+    // Zelle: eine Schicht mit bandId, deren Zeiten vom Band abweichen. Sie zeigt ihre echte Zeit
+    // und wird nie durch Antippen gelöscht – dahinter steckt von Hand gezogene Planung.
+    deviating: '{name}: {from}–{to} statt {bandFrom}–{bandTo}',
+    cellAria: '{name} in {band}',
+    conflict: 'Doppelt eingeteilt – zwei Schichten zur selben Zeit',
+    scrollHint: 'Waagrecht rollen für weitere Schichten',
   },
   // Mittel surface (MittelView) — manuelle Materialerfassung für Rapport / Nachschub
   mittel: {

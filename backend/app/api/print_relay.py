@@ -199,18 +199,19 @@ async def zeitplan_print(
     payload: str = Form(...),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Queue the Führungsformular «Zeitplan» for the station printer — the sheet you hang at the
-    front. Always monochrome: it is rules and bars, and a colour cartridge is a consumable."""
+    """Queue one of the two Schichtenplanung sheets for the station printer — «Verfügbarkeiten»
+    or «Schichtplan», whichever the payload names. The sheet you hang at the front. Always
+    monochrome: it is rules, marks and bars, and a colour cartridge is a consumable."""
     if not relay_available():
         raise HTTPException(status_code=403, detail="Stationsdrucker nicht konfiguriert")
     inc = (await db.execute(select(Incident).where(Incident.id == incident_id))).scalar_one_or_none()
     if inc is None:
         raise HTTPException(status_code=404, detail="Einsatz nicht gefunden")
-    pdf, _ = compose_zeitplan_from_payload(payload)
+    pdf, data = compose_zeitplan_from_payload(payload)
     job = PrintJob(
         incident_id=inc.id,
         kind="zeitplan",
-        filename=zeitplan_filename(inc.title),
+        filename=zeitplan_filename(inc.title, data.sheet),
         pdf=pdf,
         status="queued",
         color=False,

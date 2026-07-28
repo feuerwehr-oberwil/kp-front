@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Icon } from '../lib/icons'
-import type { AttendanceState, Person, PresenceInterval, Shift } from '../types'
+import type { AttendanceState, Person, PresenceInterval, Shift, ShiftBand } from '../types'
+import type { ZeitplanSheet } from '../lib/zeitplanPrint'
 import { cx } from '../lib/cx'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, fmtSpanShort, hhmm } from '../lib/format'
@@ -12,11 +13,12 @@ import { loadPrefs, savePrefs } from '../lib/prefs'
 import { useIsPhone } from '../lib/useIsPhone'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import { Segmented } from './Segmented'
-import { Menu } from '../lib/overlays'
+import { Menu, Sheet } from '../lib/overlays'
 import { TimeBlockSheet } from './TimeBlockSheet'
 import { timeBlockLabels } from '../lib/timeBlockLabels'
 import { EmptyState } from './EmptyState'
 import { ZeitplanView } from './ZeitplanView'
+import { BandGrid } from './BandGrid'
 import s from './Anwesenheit.module.css'
 
 /** Zeitraum stops for the Zeitplan axis, in hours — from one watch to a four-day deployment. */
@@ -24,6 +26,11 @@ const HORIZONS = [3, 6, 9, 12, 18, 24, 36, 48, 72, 96]
 
 /** sentinel value for the «Alle» segment of the rank filter (no real rank uses it) */
 const RANK_ALL = '__all__'
+
+/** The three readings of this surface. `bands` is the Schichten grid — shift-major over discrete
+ *  time, the transpose of the Zeitplan (see BandGrid). It is a TAB and not an entry in the ⋯ menu
+ *  on purpose: a whole way of working does not belong behind three dots. */
+type AnwesenheitTab = 'list' | 'plan' | 'bands'
 
 // HH:MM of an ISO stamp — the tappable time chip / the <input type="time"> value
 function toHM(iso: string): string {
@@ -124,6 +131,53 @@ function PresenceSheet({ person, blocks, canEdit, startedAt, onSetTimes, onRemov
   )
 }
 
+/**
+ * The chosen sheet, before it goes anywhere.
+ *
+ * Two menu entries and two ways out would be four entries; this is the fold. The sheet names what
+ * it is about to produce — how many people, how many bands, as of when — which is both the
+ * confirmation (paper is out of the machine before a toast has faded, and it does not undo) and
+ * the sanity check on whether the search + rank filter above are set the way you meant.
+ */
+function PaperSheet({ sheet, people, bands, printOnline, onPrint, onDownload, onClose }: {
+  sheet: ZeitplanSheet
+  people: Person[]
+  bands: number
+  printOnline?: boolean
+  onPrint?: () => void
+  onDownload?: () => void
+  onClose: () => void
+}) {
+  const Z = appConfig.copy.zeitplan
+  const schicht = sheet === 'schichtplan'
+  // read once, as the sheet opens: this is «Stand», the moment the sheet was asked for
+  const [openedAt] = useState(() => new Date())
+  return (
+    <Sheet open onClose={onClose} fit title={schicht ? Z.sheetSchichtplanTitle : Z.sheetVerfuegbarkeitenTitle}
+      footer={
+        <>
+          {onDownload && (
+            <button type="button" className="ip-btn" onClick={() => { onDownload(); onClose() }}>{Z.pdf}</button>
+          )}
+          {onPrint && (
+            <button type="button" className="ip-btn primary" onClick={() => { onPrint(); onClose() }}>
+              <Icon id="printer" />{appConfig.copy.printRelay.send}
+              <span className={`dot print-relay-dot${printOnline ? ' online' : ''}`} aria-hidden />
+            </button>
+          )}
+        </>
+      }
+    >
+      <p className={s.paperContent}>
+        {schicht
+          ? fillTemplate(Z.sheetContentBands, { people: people.length, bands, t: hhmm(openedAt) })
+          : fillTemplate(Z.sheetContent, { people: people.length, t: hhmm(openedAt) })}
+      </p>
+      <p className={s.paperHint}>{schicht ? Z.sheetSchichtplanHint : Z.sheetVerfuegbarkeitenHint}</p>
+    </Sheet>
+  )
+}
+
 // The Anwesenheit surface: one unified, compact grid of the whole Mannschaft. Each name is a
 // button whose tap cycles its state — frei → anwesend → gegangen → frei — so a single view
 // both shows and edits attendance with no mode switching (3am tenet: recognition over recall).
@@ -133,7 +187,8 @@ function PresenceSheet({ person, blocks, canEdit, startedAt, onSetTimes, onRemov
 export function AnwesenheitView({
   people, attendance, canEdit, loading, error, blockedIds,
   onMarkPresent, onMarkLeft, onClear, onJumpToTrupp, onReload, onSetTimes, onRemoveBlock, captureUsage,
-  shifts, startedAt, onAddShift, onAddShiftSpan, onReplaceShift, onSetShiftTime, onRemoveShift,
+  shifts, bands, onCreateBand, onSaveBand, onRemoveBand, onCycleCell,
+  startedAt, onAddShift, onAddShiftSpan, onReplaceShift, onSetShiftTime, onRemoveShift,
   onPrintZeitplan, onDownloadZeitplan, zeitplanPrintOnline,
 }: {
   people: Person[]
@@ -158,6 +213,14 @@ export function AnwesenheitView({
   captureUsage?: CaptureUsage | null
   /** Schichtenplanung — the second view of this same Mannschaft (see ZeitplanView) */
   shifts?: Shift[]
+  /** …and the third: the named windows the Schichten grid puts up as columns (see BandGrid) */
+  bands?: ShiftBand[]
+  onCreateBand?: (label: string, from: string, to: string) => void
+  /** rename + re-time in one commit; a re-time asks whether to drag the assigned people along */
+  onSaveBand?: (id: string, label: string, from: string, to: string) => void
+  onRemoveBand?: (id: string) => void
+  /** one cell tap: leer → verfügbar → eingeteilt → leer */
+  onCycleCell?: (band: ShiftBand, person: Person) => void
   startedAt?: string | null
   onAddShift?: (p: Person) => void
   /** plan exactly the stretch swept out on the grid */
@@ -166,18 +229,19 @@ export function AnwesenheitView({
   onReplaceShift?: (sh: Shift, undoName?: string) => void
   onSetShiftTime?: (id: string, patch: { from?: string; to?: string }) => void
   onRemoveShift?: (id: string, personName: string) => void
-  /** print / download the Zeitplan-Führungsformular (rendered server-side) */
-  onPrintZeitplan?: (people: Person[]) => void
-  onDownloadZeitplan?: (people: Person[]) => void
+  /** print / download one of the two Schichtenplanung sheets (rendered server-side) */
+  onPrintZeitplan?: (people: Person[], sheet: ZeitplanSheet) => void
+  onDownloadZeitplan?: (people: Person[], sheet: ZeitplanSheet) => void
   zeitplanPrintOnline?: boolean
 }) {
   const isPhone = useIsPhone()
   const [q, setQ] = useState('')
   const [rankFilter, setRankFilter] = useState<string | null>(null)
-  // Anwesenheit and Zeitplan are two readings of the SAME filtered, ordered Mannschaft — the
-  // search + rank filter above apply to both, so a name sits in the same place in either view.
-  const [view, setView] = useState<'list' | 'plan'>(() => loadPrefs().anwesenheitView ?? 'list')
-  const pickView = (v: 'list' | 'plan') => { setView(v); savePrefs({ ...loadPrefs(), anwesenheitView: v }) }
+  // Anwesenheit, Zeitplan and Schichten are three readings of the SAME filtered, ordered
+  // Mannschaft — the search + rank filter above apply to all of them, so a name sits in the same
+  // place whichever one is open.
+  const [view, setView] = useState<AnwesenheitTab>(() => loadPrefs().anwesenheitView ?? 'list')
+  const pickView = (v: AnwesenheitTab) => { setView(v); savePrefs({ ...loadPrefs(), anwesenheitView: v }) }
   // one clock for the whole surface: it drives the «jetzt» line and the growing open bar. Only
   // ticks while the Zeitplan is on screen — the attendance list has nothing that moves.
   const [nowMs, setNowMs] = useState(() => Date.now())
@@ -192,6 +256,8 @@ export function AnwesenheitView({
   }
   // person whose recorded presence blocks are open in a sheet
   const [blocksFor, setBlocksFor] = useState<string | null>(null)
+  // which paper sheet was picked from the printer menu, and is now naming itself before it goes
+  const [paper, setPaper] = useState<ZeitplanSheet | null>(null)
   useEffect(() => {
     if (view !== 'plan') return
     const t = setInterval(() => setNowMs(Date.now()), 30_000)
@@ -250,6 +316,11 @@ export function AnwesenheitView({
   const empty = !people.length
   const planAvailable = !!shifts && !!onAddShift && !!onAddShiftSpan && !!onReplaceShift && !!onSetShiftTime && !!onRemoveShift
   const showPlan = planAvailable && view === 'plan'
+  // the Schichten grid is a reading of the same shift slice, so it rides the same availability
+  // gate; without the band actions wired up it can only ever be a read-only picture, and a grid
+  // whose cells do not answer a tap is worse than no third tab
+  const bandsAvailable = planAvailable && !!bands && !!onCreateBand && !!onSaveBand && !!onRemoveBand && !!onCycleCell
+  const showBands = bandsAvailable && view === 'bands'
 
   return (
     // data-noswipe while the Zeitplan is showing: this surface is a grid you WORK on, and paging
@@ -258,7 +329,10 @@ export function AnwesenheitView({
     // it gives way for the whole surface rather than just the lanes, because a swipe that pages
     // from the header but not from the row underneath it is worse than one that never pages.
     // The bottom bar and the nav rail still switch surfaces; only the gesture is gone.
-    <div className={s.surface} {...(showPlan ? { 'data-noswipe': true } : {})}>
+    // …and while the Schichten grid is showing, for the same reason: from the fourth band it
+    // scrolls sideways, and a horizontal drag there means «show me the next column», not «page to
+    // the next surface».
+    <div className={s.surface} {...(showPlan || showBands ? { 'data-noswipe': true } : {})}>
       <header className={s.head}>
         <div className={s.headTitles}>
           <h2>{A.title}</h2>
@@ -276,7 +350,14 @@ export function AnwesenheitView({
               on an iPad held upright. One trigger instead of two also ends the old trick of
               keeping the pair mounted-but-invisible in the list view just to stop the toggle
               sliding sideways. */}
-          {showPlan && (onPrintZeitplan || onDownloadZeitplan) && (
+          {/* TWO sheets, chosen separately — they answer different questions, so the menu names
+              both instead of guessing which was meant. «Schichtplan» only exists once there are
+              bands to put across the top; «Verfügbarkeiten» is the one that exists regardless, and
+              the only one on which a freihändige Zeit appears at all. Picking one opens a sheet
+              that names its own contents and offers PDF and printer — which keeps the
+              confirmation before paper starts moving, without four menu entries.
+              Offered on the Zeitplan AND the Schichten tab: one surface, one way to paper. */}
+          {(showPlan || showBands) && (onPrintZeitplan || onDownloadZeitplan) && (
             <Menu
               trigger={
                 <button className={s.iconBtn} aria-label={appConfig.copy.zeitplan.paperMenu}
@@ -290,22 +371,26 @@ export function AnwesenheitView({
               popupClassName={s.menuPop}
               itemClassName={() => s.menuItem}
               items={[
-                ...(onPrintZeitplan ? [{
-                  label: appConfig.copy.printRelay.send,
-                  onClick: () => onPrintZeitplan(rows),
+                ...(bands?.length ? [{
+                  label: appConfig.copy.zeitplan.sheetSchichtplan,
+                  onClick: () => setPaper('schichtplan'),
                 }] : []),
-                ...(onDownloadZeitplan ? [{
-                  label: appConfig.copy.zeitplan.pdf,
-                  onClick: () => onDownloadZeitplan(rows),
-                }] : []),
+                {
+                  label: appConfig.copy.zeitplan.sheetVerfuegbarkeiten,
+                  onClick: () => setPaper('verfuegbarkeiten'),
+                },
               ]}
             />
           )}
           {/* the two readings of this Mannschaft. Only offered where a Zeitplan can actually be
               edited/read — the surface is inert without the shift slice wired up. */}
           {!empty && planAvailable && (
-            <Segmented<'list' | 'plan'> ariaLabel={A.viewLabel} value={view} onChange={pickView}
-              options={[{ value: 'list', label: A.viewList }, { value: 'plan', label: A.viewPlan }]} />
+            <Segmented<AnwesenheitTab> ariaLabel={A.viewLabel} value={view} onChange={pickView}
+              options={[
+                { value: 'list', label: A.viewList },
+                { value: 'plan', label: A.viewPlan },
+                ...(bandsAvailable ? [{ value: 'bands' as const, label: A.viewBands }] : []),
+              ]} />
           )}
           <button className={s.reload} onClick={onReload} disabled={loading} aria-label={A.reload}>
             <Icon id="rotate" /><span className={s.reloadLabel}>{loading ? A.loading : A.refresh}</span>
@@ -392,6 +477,18 @@ export function AnwesenheitView({
           action={<button type="button" className="ip-btn" onClick={onReload} disabled={loading}><Icon id="rotate" /> {A.retry}</button>} />
       ) : !rows.length ? (
         <div className="ip-ac-note ip-ac-note-center">{A.noMatches}</div>
+      ) : showBands ? (
+        <BandGrid
+          people={rows}
+          shifts={shifts!}
+          bands={bands!}
+          canEdit={canEdit}
+          startedAt={startedAt ?? null}
+          onCreateBand={onCreateBand!}
+          onSaveBand={onSaveBand!}
+          onRemoveBand={onRemoveBand!}
+          onCycleCell={onCycleCell!}
+        />
       ) : showPlan ? (
         <ZeitplanView
           people={rows}
@@ -456,6 +553,18 @@ export function AnwesenheitView({
             )
           })}
         </div>
+      )}
+
+      {paper && (
+        <PaperSheet
+          sheet={paper}
+          people={rows}
+          bands={bands?.length ?? 0}
+          printOnline={zeitplanPrintOnline}
+          onPrint={onPrintZeitplan ? () => onPrintZeitplan(rows, paper) : undefined}
+          onDownload={onDownloadZeitplan ? () => onDownloadZeitplan(rows, paper) : undefined}
+          onClose={() => setPaper(null)}
+        />
       )}
 
       {blocksPerson && (

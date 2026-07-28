@@ -602,7 +602,34 @@ export interface Shift {
   /** agreed with the person (drawn solid) rather than still a proposal (drawn hollow). Tapping
    *  the bar flips it — the one thing about a shift that changes constantly while planning. */
   confirmed?: boolean
+  /** the ShiftBand this shift was entered into (see the Schichten grid). ABSENT = freihändig: the
+   *  shift was drawn on the Zeitplan axis and belongs to no column at all.
+   *
+   *  Membership is STORED, never derived from matching times. Nobody lands in a band because their
+   *  clock happens to fit, and nobody drops out because somebody nudged the band by five minutes —
+   *  which also means a shift whose times were since dragged away still shows in its column,
+   *  hatched, carrying its real time. */
+  bandId?: string
   note?: string
+}
+
+/** A named time window of the Schichtenplanung — one column of the Schichten grid («Früh 07–12»).
+ *
+ *  A band is INERT: creating one writes this single row and nothing else. It assigns nobody, reads
+ *  no existing times and proposes nothing; every one of its cells starts empty, including for
+ *  people who already hold exactly these hours freihändig. That is a sync argument as much as a UX
+ *  one — if creating a band wrote shifts, two devices creating the same band would each produce a
+ *  full set for 66 people, and mergeById would have to resolve duplicates of something that should
+ *  never have existed. An inert row cannot collide. */
+export interface ShiftBand {
+  /** `'bd'+Date.now()` — prefixed timestamp, like every other id here */
+  id: string
+  /** what the crew calls this watch — «Früh», «Nacht» */
+  label: string
+  /** ISO start of the window */
+  from: string
+  /** ISO end */
+  to: string
 }
 
 /** One append-only Mittel (material-use) event: the running TOTAL used for a material+unit, from

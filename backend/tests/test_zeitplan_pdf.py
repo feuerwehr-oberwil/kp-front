@@ -158,7 +158,8 @@ async def test_zeitplan_pdf_endpoint(client, editor):
     assert r.status_code == 200, r.text
     assert r.headers["content-type"] == "application/pdf"
     assert r.content[:5] == b"%PDF-"
-    assert "Zeitplan_" in r.headers.get("content-disposition", "")
+    # named after the SHEET — see zeitplan_filename; the two must not collide in Downloads
+    assert "Verfuegbarkeiten_" in r.headers.get("content-disposition", "")
 
 
 @pytest.mark.asyncio

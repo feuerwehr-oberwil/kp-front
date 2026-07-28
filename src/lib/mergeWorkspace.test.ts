@@ -187,6 +187,29 @@ describe('mergeWorkspace — task-scoped cross-domain merges (no clobbering)', (
     expect(merged.settings.contactIntervalMin).toBe(30)
   })
 
+  // Schichtbänder: the columns of the Schichten grid. They ride the blob as a plain id-keyed
+  // collection, which is the entire reason creating one must write no shifts — see below.
+  it('two devices each defining a shift band keep both', () => {
+    const base = { bands: [] as { id: string }[] }
+    const theirs = { bands: [o('bd1', { label: 'Früh', from: '2026-07-28T05:00:00Z', to: '2026-07-28T10:00:00Z' })] }
+    const mine = { bands: [o('bd2', { label: 'Spät', from: '2026-07-28T10:00:00Z', to: '2026-07-28T15:00:00Z' })] }
+    const merged = mergeWorkspace(base, mine, theirs) as { bands: { id: string; label: string }[] }
+    expect(merged.bands.map((b) => b.label)).toEqual(['Früh', 'Spät'])
+  })
+
+  it('deleting a band beats a concurrent rename, and its shifts are untouched by the merge', () => {
+    // «Band löschen lässt seine Schichten stehen» is enforced by useBandActions (it strips
+    // bandId); the merge only has to not resurrect the band and not lose the shifts.
+    const sh = o('sh1', { personId: 'p1', from: 'a', to: 'b' })
+    const base = { bands: [o('bd1', { label: 'Früh' })], shifts: [o('sh1', { personId: 'p1', from: 'a', to: 'b', bandId: 'bd1' })] }
+    const theirs = { bands: [o('bd1', { label: 'Frühschicht' })], shifts: base.shifts }
+    const mine = { bands: [] as { id: string }[], shifts: [sh] } // I deleted the band; the shift stayed, freihändig
+    const merged = mergeWorkspace(base, mine, theirs) as { bands: unknown[]; shifts: Record<string, unknown>[] }
+    expect(merged.bands).toEqual([])
+    expect(merged.shifts).toEqual([sh])
+    expect(merged.shifts[0].bandId).toBeUndefined()
+  })
+
   it('still keeps local view state (activePlanId) on the resolver side', () => {
     const merged = mergeWorkspace({ activePlanId: 'p1' }, { activePlanId: 'p2' }, { activePlanId: 'p3' })
     expect(merged.activePlanId).toBe('p2') // my view is never yanked by a merge

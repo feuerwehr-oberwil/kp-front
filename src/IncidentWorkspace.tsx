@@ -19,9 +19,10 @@ import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions
 import { circlePolygon, fmtLV95, fmtWGS, haversineM, pathLengthM } from './lib/geo'
 import { intervalsOf, isPresent, openPresence } from './lib/attendanceIntervals'
 import { useShiftActions } from './lib/useShiftActions'
+import { useBandActions } from './lib/useBandActions'
 import { editorPrintTransport, fetchPrintStatus, type PrintRelayStatus } from './lib/printRelay'
 import { trackPrintJob } from './lib/printJobToast'
-import { buildZeitplanPayload, downloadZeitplanPdf, printZeitplan } from './lib/zeitplanPrint'
+import { buildZeitplanPayload, downloadZeitplanPdf, printZeitplan, type ZeitplanSheet } from './lib/zeitplanPrint'
 import { lineLabel } from './lib/lineDecor'
 import { panelNudge, panelNudgeUp, panelNudgeBox, panelNudgeBoxUp, isBottomSheet } from './lib/panelNudge'
 import { useMeasure } from './lib/useMeasure'
@@ -256,7 +257,7 @@ export function IncidentWorkspace({
   // below and read these. layers/recent stay in the component (own derivation/effects).
   const {
     incidentSettings, setIncidentSettings, board, setBoard, checklists, setChecklists,
-    trupps, setTrupps, attendance, setAttendance, mittel, setMittel, shifts, setShifts, cameraViews, setCameraViews,
+    trupps, setTrupps, attendance, setAttendance, mittel, setMittel, shifts, setShifts, bands, setBands, cameraViews, setCameraViews,
     planScale, setPlanScale, reportMeta, setReportMeta, building, setBuilding,
     activePlanId, setActivePlanId, pickedObjectId, setPickedObjectId,
   } = useWorkspaceDoc(init)
@@ -516,6 +517,7 @@ export function IncidentWorkspace({
   const effTrupps = replayActive ? (replayWs?.trupps ?? []) : trupps
   const effAttendance = replayActive ? (replayWs?.attendance ?? {}) : attendance
   const effShifts = replayActive ? (replayWs?.shifts ?? []) : shifts
+  const effBands = replayActive ? (replayWs?.bands ?? []) : bands
   // during replay the Mittel log is reconstructed from the scrubbed-instant workspace blob
   const effMittel = replayActive ? ((replayWs?.mittel as MittelEntry[] | undefined) ?? []) : mittel
   const planDocs = useMemo(() => {
@@ -683,7 +685,7 @@ export function IncidentWorkspace({
     // remote/merged state — undoing into it would resurrect remotely-deleted content).
     replaceDoc(next.doc); setLayers(next.layers); journal.ingestLegacy(next.timeline)
     setRecent(next.recent); setBoard(next.board); setBuilding(next.building)
-    setVehicleOverrides(next.vehicleOverrides); setChecklists(next.checklists); setTrupps(next.trupps); setAttendance(next.attendance); setShifts(next.shifts); setCameraViews(next.cameraViews); setPlanScale(next.planScale); setReportMeta(next.reportMeta); setIncidentSettings(next.settings); setPickedObjectId(next.pickedObjectId)
+    setVehicleOverrides(next.vehicleOverrides); setChecklists(next.checklists); setTrupps(next.trupps); setAttendance(next.attendance); setShifts(next.shifts); setBands(next.bands); setCameraViews(next.cameraViews); setPlanScale(next.planScale); setReportMeta(next.reportMeta); setIncidentSettings(next.settings); setPickedObjectId(next.pickedObjectId)
     // Drop any selection pointing at an entity/drawing that no longer exists after the merge.
     setSelectedId((id) => (id && next.doc.entities.some((e) => e.id === id) ? id : null))
     setSelectedDrawingId((id) => (id && next.doc.drawings.some((d) => d.id === id) ? id : null))
@@ -696,13 +698,13 @@ export function IncidentWorkspace({
   // useIncidentSync (replacing the old slice-keyed persistence effect's dependency array).
   const buildPayload = useCallback((): Saved => ({
     entities: doc.entities.filter((e) => e.kind !== 'photo'),
-    drawings: doc.drawings, recent, board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, trupps, attendance, mittel, shifts, cameraViews, planScale, reportMeta, settings: incidentSettings,
+    drawings: doc.drawings, recent, board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, trupps, attendance, mittel, shifts, bands, cameraViews, planScale, reportMeta, settings: incidentSettings,
     layerState: layers.map((l) => ({ id: l.id, visible: l.visible, opacity: l.opacity })),
     // Verlauf rows live in the journal store now; the blob echoes an older incident's legacy
     // rows only until they're safely on the server, then ships empty forever (see JournalStore).
     timeline: journal.blobTimeline,
     schemaVersion: WORKSPACE_SCHEMA_VERSION,
-  }), [doc, layers, journal.blobTimeline, recent, board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, trupps, attendance, mittel, shifts, cameraViews, planScale, reportMeta, incidentSettings])
+  }), [doc, layers, journal.blobTimeline, recent, board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, trupps, attendance, mittel, shifts, bands, cameraViews, planScale, reportMeta, incidentSettings])
 
   // persistence, teardown beacons, live-follow poll (with the tablet sync-race guard),
   // in-place auto-merge apply, and the reactive sync-status badge all live in useIncidentSync.
@@ -1606,6 +1608,9 @@ export function IncidentWorkspace({
   const { saveMittel, offerMittelCapture } = useMittelActions({ mittel, setMittel, authorName: user?.display_name, log })
   // Schichtenplanung — a PLAN over the same Mannschaft; it never writes the attendance record
   const { addShift, addShiftSpan, replaceShift, setShiftTime, removeShift } = useShiftActions({ shifts, setShifts, startedAt: incidentMeta.started_at })
+  // …and the Schichten reading of it: the same shifts, grouped into named windows. Creating a band
+  // writes no shift, deleting one deletes no shift — see useBandActions.
+  const bandActions = useBandActions({ bands, setBands, shifts, setShifts })
   // The Zeitplan-Führungsformular on paper. The relay status is fetched once per incident and
   // fail-closed (null → no printer button at all); the PDF download needs no relay.
   const [zeitplanRelay, setZeitplanRelay] = useState<PrintRelayStatus | null>(null)
@@ -1614,33 +1619,24 @@ export function IncidentWorkspace({
     void fetchPrintStatus(editorPrintTransport()).then((st) => { if (alive) setZeitplanRelay(st) })
     return () => { alive = false }
   }, [])
-  const zeitplanPayload = (rowPeople: Person[]) => buildZeitplanPayload(
+  const zeitplanPayload = (rowPeople: Person[], sheet: ZeitplanSheet) => buildZeitplanPayload(
     rowPeople, attendance, shifts,
     { title: incidentMeta.title, address: incidentMeta.address, startedAt: incidentMeta.started_at },
     new Date().toISOString(),
+    sheet, bands,
   )
-  const onDownloadZeitplan = (rowPeople: Person[]) => {
-    void downloadZeitplanPdf(incidentMeta.id, zeitplanPayload(rowPeople))
+  const onDownloadZeitplan = (rowPeople: Person[], sheet: ZeitplanSheet) => {
+    void downloadZeitplanPdf(incidentMeta.id, zeitplanPayload(rowPeople, sheet))
       .catch(() => toast(appConfig.copy.zeitplan.printFailed, { icon: 'warn', tone: 'warn' }))
   }
-  // Ask first. The printer button sits in the open on the surface header, one tap from the view
-  // toggle, and it does not undo — paper is out of the machine before the toast has faded. Nobody
-  // wants the station printer running a Mannschaftsliste every time a thumb lands short. The
-  // question names how many people are on the sheet, which is also the sanity check for whether
-  // the filter above is set the way you meant.
-  const onPrintZeitplan = (rowPeople: Person[]) => {
-    const R = appConfig.copy.printRelay
-    const Z = appConfig.copy.zeitplan
-    void confirmDialog({
-      title: Z.printConfirmTitle,
-      message: fillTemplate(Z.printConfirmMsg, { n: rowPeople.length }),
-      confirmLabel: R.send,
-    }).then((ok) => {
-      if (!ok) return
-      return printZeitplan(incidentMeta.id, zeitplanPayload(rowPeople))
-        .then((jobId) => trackPrintJob(editorPrintTransport(), jobId))
-        .catch(() => toast(appConfig.copy.zeitplan.printFailed, { icon: 'warn', tone: 'warn' }))
-    })
+  // No confirmDialog here any more: the sheet picked from the printer menu IS the confirmation.
+  // It names the sheet, how many people are on it and as of when, and offers PDF and printer side
+  // by side — so paper still never starts moving on one stray thumb, and choosing WHICH sheet did
+  // not cost four menu entries and a second dialog on top of them.
+  const onPrintZeitplan = (rowPeople: Person[], sheet: ZeitplanSheet) => {
+    void printZeitplan(incidentMeta.id, zeitplanPayload(rowPeople, sheet))
+      .then((jobId) => trackPrintJob(editorPrintTransport(), jobId))
+      .catch(() => toast(appConfig.copy.zeitplan.printFailed, { icon: 'warn', tone: 'warn' }))
   }
   // assigning someone to a Trupp implies they're on scene — mark every roster-linked member
   // present (even at "angemeldet"). Only the newly-present are logged, so re-edits don't spam.
@@ -2509,6 +2505,14 @@ export function IncidentWorkspace({
           onRemoveBlock={canEditIncident ? removeAttendanceBlock : undefined}
           captureUsage={captureUsage}
           shifts={effShifts}
+          bands={effBands}
+          onCreateBand={canEditIncident ? (label, from, to) => { bandActions.addBand(label, from, to) } : undefined}
+          onSaveBand={canEditIncident ? (id, label, from, to) => {
+            bandActions.renameBand(id, label)
+            void bandActions.askAndSetBandTimes(id, from, to)
+          } : undefined}
+          onRemoveBand={canEditIncident ? bandActions.removeBand : undefined}
+          onCycleCell={canEditIncident ? bandActions.cycleCell : undefined}
           startedAt={incidentMeta.started_at}
           onAddShift={canEditIncident ? addShift : undefined}
           onAddShiftSpan={canEditIncident ? addShiftSpan : undefined}

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import io
 from datetime import datetime, timedelta
+from typing import Literal
 from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, Field, field_validator
@@ -61,6 +62,10 @@ class ZeitplanBlock(BaseModel):
     start: datetime = Field(alias="from")
     end: datetime | None = Field(default=None, alias="to")
     confirmed: bool = False
+    #: the Schichtband this block was entered into, when it was entered into one at all. Only the
+    #: «Schichtplan» sheet reads it; this sheet prints every block regardless, which is the whole
+    #: reason it is the one that exists without bands.
+    band_id: str | None = Field(default=None, alias="bandId")
 
     model_config = {"populate_by_name": True}
 
@@ -68,6 +73,22 @@ class ZeitplanBlock(BaseModel):
     @classmethod
     def _to_local(cls, v: datetime | None) -> datetime | None:
         return _local(v)
+
+
+class ZeitplanBand(BaseModel):
+    """One named window — a column of the «Schichtplan» sheet."""
+
+    id: str
+    label: str = ""
+    start: datetime = Field(alias="from")
+    end: datetime = Field(alias="to")
+
+    model_config = {"populate_by_name": True}
+
+    @field_validator("start", "end")
+    @classmethod
+    def _to_local(cls, v: datetime) -> datetime:
+        return _local(v)  # type: ignore[return-value]
 
 
 class ZeitplanRow(BaseModel):
@@ -81,10 +102,17 @@ class ZeitplanRow(BaseModel):
 
 
 class ZeitplanPayload(BaseModel):
+    #: which of the two sheets to compose — «Verfügbarkeiten» (this module) or «Schichtplan»
+    #: (schichtplan_pdf). They answer different questions, so the surface asks which one rather
+    #: than guessing; the endpoint simply dispatches. Defaulted for a client from before the
+    #: split, which only ever meant this one.
+    sheet: Literal["verfuegbarkeiten", "schichtplan"] = "verfuegbarkeiten"
     incidentTitle: str
     incidentAddress: str | None = None
     startedAt: datetime | None = None
     printedAt: datetime | None = None
+    #: the named windows, in the grid's own order. Empty on the availability sheet.
+    bands: list[ZeitplanBand] = []
     rows: list[ZeitplanRow] = []
 
     @field_validator("startedAt", "printedAt")
@@ -244,7 +272,7 @@ def compose_zeitplan_pdf(payload: ZeitplanPayload) -> bytes:
         rightMargin=margin,
         topMargin=margin,
         bottomMargin=margin,
-        title=f"Zeitplan — {payload.incidentTitle}",
+        title=f"Verfügbarkeiten — {payload.incidentTitle}",
         author="KP Front",
     )
     frame = Frame(margin, margin, lw - 2 * margin, lh - 2 * margin, id="z", leftPadding=0, rightPadding=0)
@@ -264,7 +292,10 @@ def compose_zeitplan_pdf(payload: ZeitplanPayload) -> bytes:
     )
 
     story: list = [
-        Paragraph("ZEITPLAN", st["title"]),
+        # «VERFÜGBARKEITEN», not «ZEITPLAN»: the paper menu offers the two sheets by name, and a
+        # page headed differently from the entry that produced it is the first thing that makes
+        # somebody wonder whether they printed the wrong one.
+        Paragraph("VERFÜGBARKEITEN", st["title"]),
         Paragraph(_esc(payload.incidentTitle), st["eyebrow"]),
         Paragraph(_esc(subtitle), st["muted"]),
         Spacer(1, 4 * mm),

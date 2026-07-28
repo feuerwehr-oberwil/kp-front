@@ -1,4 +1,4 @@
-import type { AttendanceState, BoardAnno, BoardDoc, BuildingDoc, CameraView, Drawing, Entity, LayerDef, LayerId, MittelEntry, Shift, TimelineEvent, Trupp, WeatherData } from '../types'
+import type { AttendanceState, BoardAnno, BoardDoc, BuildingDoc, CameraView, Drawing, Entity, LayerDef, LayerId, MittelEntry, Shift, ShiftBand, TimelineEvent, Trupp, WeatherData } from '../types'
 import { appConfig } from '../config/appConfig'
 import { layers as initialLayers, planDocuments } from '../data/demoIncident'
 import { referenceLayersFromConfig } from './deploymentConfig'
@@ -115,6 +115,9 @@ export interface Saved {
   mittel?: MittelEntry[]
   /** Schichtenplanung: planned availability per person (a PLAN, never the attendance record) */
   shifts?: Shift[]
+  /** Schichtenplanung: the named time windows the Schichten grid puts up as columns. Inert —
+   *  a band assigns nobody; a shift joins one by carrying its `bandId`. */
+  bands?: ShiftBand[]
   /** saved map views (camera bookmarks): position + zoom + rotation, shared with the team */
   cameraViews?: CameraView[]
   /** Einsatzrapport metadata: supplemental bookkeeping text, not tactical state. */
@@ -237,6 +240,7 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
     attendance: rec<AttendanceState>(raw.attendance),
     mittel: arr<MittelEntry>(raw.mittel, hasId),
     shifts: arr<Shift>(raw.shifts, hasId),
+    bands: arr<ShiftBand>(raw.bands, hasId),
     cameraViews: arr<CameraView>(raw.cameraViews, hasId),
     reportMeta: rec<ReportMeta>(raw.reportMeta),
     settings: rec<IncidentSettings>(raw.settings),
@@ -253,6 +257,7 @@ export interface InitialState {
   attendance: AttendanceState
   mittel: MittelEntry[]
   shifts: Shift[]
+  bands: ShiftBand[]
   cameraViews: CameraView[]
   planScale: PlanScales
   reportMeta: ReportMeta
@@ -359,6 +364,7 @@ export function deriveInitial(
     attendance: ws?.attendance ?? {},
     mittel: ws?.mittel ?? [],
     shifts: ws?.shifts ?? [],
+    bands: ws?.bands ?? [],
     cameraViews: ws?.cameraViews ?? [],
     planScale: ws?.planScale ?? {},
     reportMeta: ws?.reportMeta ?? {},
