@@ -84,7 +84,7 @@ def test_a_partly_covering_shift_prints_its_hours_clamped_to_the_column():
     # Früh runs 09–14 (station clock); the person offered 11–16, so this column is about 11–14 —
     # printing «11–16» answers a question this column did not ask
     p = _payload([_row("Aebischer", [{"from": _h(2), "to": _h(7), "confirmed": True, "bandId": "bd1"}])])
-    assert _cell(p.rows[0], p.bands[0]) == "11–14"
+    assert _cell(p.rows[0], p.bands[0]) == "11:00–14:00"
 
 
 def test_a_member_dragged_clear_of_its_band_leaves_its_column_empty():
@@ -164,7 +164,7 @@ def test_an_unnamed_band_is_titled_by_its_own_hours():
     # the label is optional on the surface — creating a band is never blocked by an empty field
     p = _payload([])
     assert _band_title(p.bands[0]) == "Früh"
-    assert _band_title(p.bands[1]) == "14–19"
+    assert _band_title(p.bands[1]) == "14:00–19:00"
 
 
 def test_compose_renders_a_pdf_and_pads_the_sheet_out_to_full_pages():

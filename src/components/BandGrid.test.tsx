@@ -81,10 +81,15 @@ describe('the grid', () => {
     expect(cellsOf('Steiner T.')[1].textContent).toBe(S.confirmed)
   })
 
-  it('shows a drifted shift in its band, clamped to that band\'s own hours', () => {
-    // Früh ends at 12:00, so «09–14» in that column is 09–12 as far as it is concerned
+  it('names a drifted shift AGAINST its column, not in absolute hours', () => {
+    // Früh ends at 12:00 and so does this stretch, so the only news is where it starts
     mount({ shifts: [{ id: 'sh1', personId: 'p2', from: T(9), to: T(14), bandId: 'bd1', confirmed: true }] })
-    expect(cellsOf('Meier A.')[0].textContent).toBe('09–12')
+    expect(cellsOf('Meier A.')[0].textContent).toBe('ab 09:00')
+  })
+
+  it('takes a full range, on two lines, when BOTH ends differ from the column', () => {
+    mount({ shifts: [{ id: 'sh1', personId: 'p2', from: T(8), to: T(10), bandId: 'bd1' }] })
+    expect(cellsOf('Meier A.')[0].textContent).toBe('08:00–10:00')
   })
 
   it('shows somebody as available when their own offer covers a band, without a second tap', () => {
@@ -98,8 +103,8 @@ describe('the grid', () => {
   it('shows the real hours where an offer covers only part of a band', () => {
     // «frei» there would promise hours nobody offered
     mount({ shifts: [{ id: 'sh1', personId: 'p2', from: T(10), to: T(20) }] })
-    // Früh 07–12 is covered only from 10:00, so the cell says exactly that stretch of it…
-    expect(cellsOf('Meier A.')[0].textContent).toBe('10–12')
+    // Früh 07–12 is covered only from 10:00, and runs to its end — so «ab 10:00» is the whole news
+    expect(cellsOf('Meier A.')[0].textContent).toBe('ab 10:00')
     // …while Spät 12–17 lies wholly inside 10–20, which is plainly «frei»
     expect(cellsOf('Meier A.')[1].textContent).toBe(appConfig.copy.schichten.available)
   })
@@ -114,7 +119,7 @@ describe('the grid', () => {
     // can say this person has told us something
     mount({ shifts: [{ id: 'sh1', personId: 'p2', from: T(18), to: T(20) }] })
     const row = rowOf('Meier A.')
-    expect(within(row).getByText('18–20')).toBeTruthy()
+    expect(within(row).getByText('18:00–20:00')).toBeTruthy()
   })
 
   it('names the further times rather than listing them all in a 112px column', () => {
@@ -123,15 +128,15 @@ describe('the grid', () => {
       { id: 'sh2', personId: 'p2', from: T(21), to: T(23) },
     ] })
     const row = rowOf('Meier A.')
-    expect(within(row).getByText('18–20 +1')).toBeTruthy()
+    expect(within(row).getByText('18:00–20:00 +1')).toBeTruthy()
   })
 
   it('drops the mark once a column already carries those hours', () => {
     // the badge plus two cells printed the same 09–14 three times across one row
     mount({ shifts: [{ id: 'sh1', personId: 'p2', from: T(9), to: T(14) }] })
     const row = rowOf('Meier A.')
-    expect(within(row).queryByText('09–14')).toBeNull()
-    expect(cellsOf('Meier A.')[0].textContent).toBe('09–12')
+    expect(within(row).queryByText('09:00–14:00')).toBeNull()
+    expect(cellsOf('Meier A.')[0].textContent).toBe('ab 09:00')
   })
 
   it('hands a cell tap straight to the cycle, band and person named', () => {
@@ -163,8 +168,8 @@ describe('the grid', () => {
     ] })
     fireEvent.click(cellsOf('Meier A.')[0])
     const sheet = screen.getByText(appConfig.copy.schichten.resolveTitle).closest('div')!.parentElement!
-    expect(within(sheet).getByText('09–10')).toBeTruthy() // verfügbar
-    expect(within(sheet).getByText('10–12')).toBeTruthy() // geplant
+    expect(within(sheet).getByText('09:00–10:00')).toBeTruthy() // verfügbar
+    expect(within(sheet).getByText('10:00–12:00')).toBeTruthy() // geplant
   })
 
   it('leaves the cell exactly as it was when the question is cancelled', () => {
@@ -200,7 +205,7 @@ describe('the grid', () => {
     // a member of Früh dragged to 20:30–21 belongs to no visible column any more
     mount({ shifts: [{ id: 'sh1', personId: 'p2', from: T(20, 30), to: T(21), bandId: 'bd1', confirmed: true }] })
     expect(cellsOf('Meier A.')[0].textContent).toBe('')
-    expect(within(rowOf('Meier A.')).getByText('20:30–21')).toBeTruthy()
+    expect(within(rowOf('Meier A.')).getByText('20:30–21:00')).toBeTruthy()
   })
 
   it('freezes every control without edit rights, and the grid still reads', () => {
@@ -235,7 +240,7 @@ describe('the column heads', () => {
 
   it('falls back to the hours when a band was never named — creating one is never blocked', () => {
     mount({ bands: [{ id: 'bd3', label: '', from: T(22), to: T(6) }] })
-    expect(screen.getByText('22–06')).toBeTruthy()
+    expect(screen.getByText('22:00–06:00')).toBeTruthy()
   })
 
   it('says the grid scrolls only once it actually does — from the fourth column', () => {

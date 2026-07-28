@@ -62,13 +62,11 @@ def _hhmm(dt: datetime) -> str:
     return dt.strftime("%H:%M")
 
 
-def _short(dt: datetime) -> str:
-    """«07» on the hour, «07:30» otherwise — a column head has room for one line."""
-    return dt.strftime("%H") if dt.minute == 0 else _hhmm(dt)
-
-
 def _range(a: datetime, b: datetime) -> str:
-    return f"{_short(a)}–{_short(b)}"
+    """«07:00–12:00» — always the full clock on both ends, as on the screen. The bare hour read
+    fine until one end carried minutes and the other did not: «20:30–21» is two notations in one
+    range, and on paper there is nobody to ask."""
+    return f"{_hhmm(a)}–{_hhmm(b)}"
 
 
 def _band_title(b: ZeitplanBand) -> str:

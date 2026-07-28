@@ -1655,6 +1655,8 @@ export const en: Localizable<Copy> = {
     ownTimesMore: '{first} +{n}',
     deviating: '{name}: {from}\u2013{to} instead of {bandFrom}\u2013{bandTo}',
     cellAria: '{name} in {band}',
+    cellFrom: 'from {t}',
+    cellUntil: 'until {t}',
     partial: 'partly',
     partialHint: 'Not all of them cover the whole shift.',
     resolveTitle: 'Partly available, partly assigned',

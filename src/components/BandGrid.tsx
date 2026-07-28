@@ -25,13 +25,19 @@ const clock = (iso: string): string => {
   return Number.isFinite(d.getTime()) ? hhmm(d) : ''
 }
 
-/** «07:00–12:00» → «07–12» where both ends sit on the hour; the grid head has room for one line. */
+/**
+ * «07:00–12:00». Always the full clock, on both ends.
+ *
+ * The hour alone used to stand in for a whole hour, which read fine until one end had minutes and
+ * the other did not: «20:30–21» is two different notations in one range, and the eye has to stop
+ * and work out that the second one is a time at all. A clock on a Führungsformular is five
+ * characters; it costs a little width and never has to be decoded.
+ */
 function fmtRange(from: string, to: string): string {
   const a = new Date(from)
   const b = new Date(to)
   if (!Number.isFinite(a.getTime()) || !Number.isFinite(b.getTime())) return ''
-  const short = (d: Date) => (d.getMinutes() === 0 ? String(d.getHours()).padStart(2, '0') : hhmm(d))
-  return `${short(a)}–${short(b)}`
+  return `${hhmm(a)}–${hhmm(b)}`
 }
 
 /**
@@ -95,19 +101,28 @@ function pctOf(at: number, band: ShiftBand): number {
 }
 
 /**
- * The one line a cell can carry.
+ * The one line a cell can carry, as the parts it is built from (one part = one line).
  *
- * A word only fits a window that holds ONE state end to end. One state over part of it can still
- * name its hours. Anything else — two states, or two separate stretches — has no true word, so it
- * says «teilweise» and hands the detail to the strip below it.
+ * A word only fits a window that holds ONE state end to end. One state over part of it names its
+ * hours instead — and names them AGAINST the column, because that is what the cell is about: a
+ * stretch that runs to the watch's own end is «ab 09:00», one that starts with it is «bis 20:00».
+ * Only when both ends differ does it take a full range, and that one goes on two lines rather than
+ * running out of a 56px cell.
+ *
+ * Anything else — two states, or two separate stretches — has no true word, so it says «teilweise»
+ * and hands the detail to the strip below it.
  */
-function cellText(cell: BandCell, win: { from: string; to: string } | null,
-  S: typeof appConfig.copy.schichten): string {
-  if (cell.state === 'empty') return ''
-  if (cell.state === 'confirmed') return S.confirmed
-  if (cell.state === 'available') return S.available
-  if (cell.state === 'deviating' && cell.segments.length === 1 && win) return fmtRange(win.from, win.to)
-  return S.partial
+function cellText(cell: BandCell, win: { from: string; to: string } | null, band: ShiftBand,
+  S: typeof appConfig.copy.schichten): string[] {
+  if (cell.state === 'empty') return []
+  if (cell.state === 'confirmed') return [S.confirmed]
+  if (cell.state === 'available') return [S.available]
+  if (cell.state === 'deviating' && cell.segments.length === 1 && win) {
+    if (win.from === band.from) return [fillTemplate(S.cellUntil, { t: clock(win.to) })]
+    if (win.to === band.to) return [fillTemplate(S.cellFrom, { t: clock(win.from) })]
+    return [`${clock(win.from)}–`, clock(win.to)]
+  }
+  return [S.partial]
 }
 
 /** What a column is called. The label is optional on purpose — a band you named «Früh» reads as
@@ -403,7 +418,9 @@ export function BandGrid({
                       aria-pressed={cell.state !== 'empty'}>
                       <span className={s.cellLabel}>
                         {bad && <Icon id="warn" />}
-                        {cellText(cell, win, S)}
+                        <span className={s.cellLines}>
+                          {cellText(cell, win, b, S).map((line) => <span key={line}>{line}</span>)}
+                        </span>
                       </span>
                       {/* The strip: the whole window, drawn. A word can only be true of a window
                           that holds ONE state, and «verfügbar 09–11 · geplant 10–20» inside a

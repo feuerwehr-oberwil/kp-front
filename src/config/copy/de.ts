@@ -2378,6 +2378,10 @@ export const de = {
     // und «geplant 10–20» in einer Wache 07–12 sind drei Zustände (nichts, angeboten, eingeteilt);
     // dafür gibt es kein wahres Wort, also sagt die Zelle «teilweise» und der Streifen darunter
     // zeigt, wo was liegt.
+    // Eine Zelle spricht über IHRE Spalte: läuft die Zeit bis ans Wachenende, ist die einzige
+    // Neuigkeit ihr Anfang – und umgekehrt. Kürzer als ein voller Bereich und genauer.
+    cellFrom: 'ab {t}',
+    cellUntil: 'bis {t}',
     partial: 'teilweise',
     partialHint: 'Nicht alle davon decken die ganze Schicht ab.',
     // Ein Tipp auf eine gemischte Zelle hat keine eindeutige Fortsetzung – sonst schaltete er
