@@ -83,17 +83,11 @@
 
 .name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* trailing time segment — full row height so it stays a gloved tap target */
-.timeChip {
-  flex: none; align-self: stretch; display: inline-flex; align-items: center; padding: 0 11px;
-  border: none; border-left: 1px solid var(--glass-edge); background: none; cursor: pointer;
-  font: 600 12px var(--mono); color: var(--ink-dim); white-space: nowrap;
-}
-.timeChip:hover:not(:disabled) { background: color-mix(in srgb, var(--ink) 6%, transparent); color: var(--ink); }
-.timeChip:disabled { cursor: default; }
-.timeChipLeft { font-weight: 800; font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--amber-strong); }
-/* Rückkehr: same trailing-segment rhythm as the time chip, tinted like «anwesend» because that
-   is what it produces — a new open block, not a correction of the closed one */
+/* THE one trailing segment: the clock that opens the person's sheet. The time itself used to sit
+   here as a full editor — and once a start on the alarm time read «ab Beginn», that word took most
+   of the row and crushed the name to «B…», which is the one thing this list may never do. The row
+   answers «who is here»; the sheet answers «since when, exactly», and it can show ALL of somebody's
+   stretches instead of only the latest. */
 .backBtn {
   flex: none; align-self: stretch; display: inline-flex; align-items: center; padding: 0 11px;
   border: none; border-left: 1px solid var(--glass-edge); background: none; cursor: pointer;

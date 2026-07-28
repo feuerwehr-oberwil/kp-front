@@ -14,7 +14,6 @@ import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import { Segmented } from './Segmented'
 import { Menu } from '../lib/overlays'
 import { TimeBlockSheet } from './TimeBlockSheet'
-import { TimeField } from './TimeField'
 import { timeBlockLabels } from '../lib/timeBlockLabels'
 import { EmptyState } from './EmptyState'
 import { ZeitplanView } from './ZeitplanView'
@@ -410,13 +409,7 @@ export function AnwesenheitView({
             const present = isPresent(a)
             const left = !!a && !present
             const locked = present && blockedIds.has(p.id)
-            // the time this row shows belongs to the CURRENT block: its arrival while anwesend,
-            // its departure once gegangen — tap the chip to correct a wrong auto-stamped time.
-            // Someone who came back is on their second block, so the chip follows them there.
             const blocks = intervalsOf(a)
-            const bi = blocks.length - 1
-            const cur = blocks[bi]
-            const timeIso = left ? cur?.to : present ? cur?.from : undefined
             return (
               <div key={p.id} className={cx(s.person, present && s.isPresent, left && s.isLeft)}>
                 <button
@@ -431,29 +424,12 @@ export function AnwesenheitView({
                   <span className={s.name}>{p.displayName}</span>
                   {locked && <Icon id="gauge" />}
                 </button>
-                {/* The chip IS the editor. It used to open a native <input type="time"> — the one
-                    surface still doing that, against the app's own rule (TimeField: native pickers
-                    render AM/PM on an English device), and it swapped a stretched chip for a
-                    centred 86px box, so the row reflowed under the finger at the moment of aiming.
-                    Now it is the house field: same wheels, guaranteed 24h, no reflow. */}
-                {timeIso && (
-                  <span className={cx(s.timeChip, left && s.timeChipLeft)}>
-                    <TimeField
-                      value={toHM(timeIso)}
-                      token={!left && startedAt && cur?.from === startedAt
-                        ? { label: appConfig.copy.zeitplan.fromStart, tone: 'start' as const } : undefined}
-                      ariaLabel={`${A.editTime} – ${p.displayName}`}
-                      disabled={!canEdit || !onSetTimes}
-                      days={incidentDays(startedAt, nowMs)}
-                      onCommit={(v, day) => {
-                        if (!v || !onSetTimes) return
-                        const iso = day ? isoOnDay(day, v)
-                          : applyTimeToIso(timeIso, v, left ? { nextDayIfBefore: cur?.from } : undefined)
-                        if (iso) onSetTimes(p.id, left ? { to: iso } : { from: iso }, bi)
-                      }}
-                    />
-                  </span>
-                )}
+                {/* NO time on the row. It carried a whole editor — and once a start sitting on the
+                    alarm time read «ab Beginn», that word alone took most of the width and crushed
+                    the name to «B…», which is the one thing this list must never do. The times
+                    belong to the sheet, where a person's several stretches are all visible at once
+                    instead of just the latest. The row answers «who is here», the sheet «since
+                    when, exactly». */}
                 {/* Rückkehr — the tap cycle's third step CLEARS the row (frei), and it must keep
                     doing that (it is the only way back from a mis-tick). So coming back gets its
                     own control: it opens a NEW block instead of reopening the closed one. */}
