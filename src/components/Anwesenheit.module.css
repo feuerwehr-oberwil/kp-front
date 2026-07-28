@@ -13,6 +13,10 @@
 }
 .headTitles { flex: 1 1 auto; min-width: 0; }
 .headActions { flex: none; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+/* the view tabs, in a slot of their own so a phone can put them on a line of their own without
+   the action cluster coming with them. On a desk screen they sit inline, between the title and
+   the tools, and claim only their own width. */
+.headTabs { flex: none; order: 2; }
 .headTitles h2 { margin: 0; font-size: 19px; font-weight: 800; color: var(--ink); }
 .headTitles p { margin: 3px 0 0; font-size: 12.5px; color: var(--ink-dim); }
 
@@ -111,15 +115,19 @@
   .headActions { gap: 6px; }
   .reload { padding: 0; width: var(--tap); height: var(--tap); justify-content: center; }
   .reloadLabel { display: none; }
-  /* The header ran out of width the moment the Zeitplan added its own buttons: the title sat
-     UNDER «Als PDF» and the count line collapsed to «8.». Let the row wrap — the title keeps a
-     full line, the actions take the next one — and drop the PDF label to its icon. */
+  /* TWO rows, not three. The title used to claim a full line of its own and the actions the next
+     one — which, once the tabs no longer fit beside the icons, left a whole row carrying a single
+     right-aligned reload button. The icons are small and the title line has room for them, so:
+     row 1 = title + summary | printer + reload, row 2 = the tabs, full width. That is ~60px of a
+     390px screen handed back to the grid, on every one of the three tabs. */
   .head { flex-wrap: wrap; }
-  .headTitles { flex: 1 0 100%; }
-  /* right-aligned, like every other width: the print button only exists in the Zeitplan, so
-     left-aligning made the whole row shift sideways on every view change. Anchored right, the
-     reload keeps its place and the new button grows inward instead of shoving its neighbours. */
-  .headActions { flex: 1 0 100%; justify-content: flex-end; }
+  .headTitles { flex: 1 1 120px; }
+  .headActions { flex: none; }
+  /* full width and each segment sharing it equally — «Anwes. · Zeitplan · Schichten» measured
+     ~280px against a ~250px slot when it sat in the cluster, which is what pushed it to wrap */
+  .headTabs { flex: 1 0 100%; order: 3; }
+  .headTabs :global(.useg) { display: flex; width: 100%; }
+  .headTabs :global(.useg-btn) { flex: 1; padding: 6px 4px; }
   /* the Zeitraum control shares the search line rather than owning a row of its own */
   .controls { gap: 8px; padding: 10px 14px; }
   /* the search yields so the Zeitraum can share its line — on its own row it cost ~56px of the

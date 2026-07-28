@@ -6,13 +6,15 @@
 
 .bandgrid {
   --name-w: 210px;
-  /* the thumb floor for a cell. Below ~65px a gloved finger on a 390px phone cannot pick a column
-     reliably, so the grid stops squeezing and starts scrolling instead — see .grid. */
-  --cell-min: 65px;
+  /* A cell is as wide as its widest word («verfügbar») and no wider. It was 65px on a thumb-floor
+     argument, but the cell is 44px TALL — the WCAG target is already met by the row — and every
+     pixel a column does not use goes to the name beside it, which is the thing you actually read.
+     Below this the label would start truncating, and a cell reading «verfü…» answers nothing. */
+  --cell-min: 56px;
   /* the other end of the same decision — see .grid */
   --cell-max: 260px;
   /* the ＋ column, and the spacer under it that keeps every row the same width */
-  --add-w: 40px;
+  --add-w: 38px;
   --board: var(--canvas-bg);
   /* THE state colours, read from the same mapping the Zeitplan declares — grey «verfügbar», blue
      «eingeteilt». Green is deliberately absent: on the Zeitplan green means ANWESEND, which comes
@@ -241,10 +243,24 @@
 
 /* 600px is the house phone breakpoint (the Zeitplan and 19 other surfaces use it). */
 @media (max-width: 600px) {
-  /* 112px, not the Zeitplan's 168. There the name column can afford width because the track
-     beside it scrolls anyway; here three columns plus the ＋ have to FIT beside it on 390px, and
-     the cells have a thumb floor they may not go under. 112px still holds ~12 characters. */
-  .bandgrid { padding: 2px 12px 12px; --name-w: 112px; }
+  /* Every pixel the columns give back lands here. At 56px cells and a 32px ＋ the name column
+     takes 140px on a 390px screen — «Binggeli Michael» instead of «Binggeli …». The Zeitplan can
+     afford 168px because the track beside it scrolls anyway; here three columns plus the ＋ have
+     to FIT, so this is the whole budget, spent on the one thing you read every time. */
+  .bandgrid { padding: 2px 12px 12px; --name-w: 112px; --add-w: 32px; --cell-max: 78px; }
+  /* THE slack goes to the NAME. A column wider than its own longest word buys nothing — the word
+     is «verfügbar» either way — while every pixel it hands back turns «Hauptma…» into «Hauptmann
+     Paul». So the cells take a ceiling, the name cell becomes the flexible one (--name-w is its
+     floor), and the GRID keeps the full width: capping the grid instead simply left a band of
+     empty board on the right and gave the name nothing. */
+  .grid { width: max(100%, calc(var(--name-w) + var(--add-w) + var(--bands) * var(--cell-min))); }
+  .cell, .band { max-width: var(--cell-max); }
+  .who { flex: 1 1 var(--name-w); min-width: var(--name-w); width: auto; }
+  /* 10px: «verfügbar» is the longest word a cell carries and it has to sit inside 56px */
+  .cell { font-size: 10px; }
+  .cellDeviating { font-size: 9.5px; }
+  /* a clock reading is one token — «13–18» broken over two lines is not a time */
+  .cell { white-space: nowrap; }
   .who { padding: 3px 4px 3px 8px; gap: 2px; flex-direction: column; align-items: stretch; justify-content: center; }
   .whoMain { flex: none; gap: 4px; }
   .name { font-size: 12.5px; }

@@ -2247,6 +2247,7 @@ export const de = {
     conflictWho: '{name} · {from}–{to}',
     conflictMore: '… und {n} weitere',
     conflictFix: 'Eine der beiden Einteilungen antippen – sie wird wieder «verfügbar», die Zeit bleibt stehen.',
+    conflictShort: 'doppelt eingeteilt',
     // Eine Schicht, deren «bis» vor ihrem «von» liegt, wird gar nicht gezeichnet. Diese Marke
     // steht an ihrer Stelle, damit die Zeile nicht schweigt.
     brokenShift: 'Diese Schicht endet vor ihrem Anfang – zum Korrigieren antippen',

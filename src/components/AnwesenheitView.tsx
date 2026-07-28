@@ -382,20 +382,28 @@ export function AnwesenheitView({
               ]}
             />
           )}
-          {/* the two readings of this Mannschaft. Only offered where a Zeitplan can actually be
-              edited/read — the surface is inert without the shift slice wired up. */}
-          {!empty && planAvailable && (
+          <button className={s.reload} onClick={onReload} disabled={loading} aria-label={A.reload}>
+            <Icon id="rotate" /><span className={s.reloadLabel}>{loading ? A.loading : A.refresh}</span>
+          </button>
+        </div>
+        {/* The three readings of this Mannschaft, in a slot of their OWN rather than inside the
+            action cluster. Only offered where a Zeitplan can actually be edited/read — the surface
+            is inert without the shift slice wired up.
+            On a phone the cluster and the tabs together no longer fit one line (printer + three
+            segments + reload ≈ 380px against ~362px of room), so they wrapped — and because the
+            titles already claimed a full row, the header spent THREE rows before the search: a
+            title, a row holding one right-aligned reload button, and the tabs. It is its own slot
+            now: the icons ride up beside the title and the tabs take a full-width line under it. */}
+        {!empty && planAvailable && (
+          <div className={s.headTabs}>
             <Segmented<AnwesenheitTab> ariaLabel={A.viewLabel} value={view} onChange={pickView}
               options={[
                 { value: 'list', label: A.viewList },
                 { value: 'plan', label: A.viewPlan },
                 ...(bandsAvailable ? [{ value: 'bands' as const, label: A.viewBands }] : []),
               ]} />
-          )}
-          <button className={s.reload} onClick={onReload} disabled={loading} aria-label={A.reload}>
-            <Icon id="rotate" /><span className={s.reloadLabel}>{loading ? A.loading : A.refresh}</span>
-          </button>
-        </div>
+          </div>
+        )}
       </header>
 
       {!empty && (
