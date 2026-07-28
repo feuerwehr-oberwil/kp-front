@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, hhmm } from '../lib/format'
-import { applyTimeToIso, isoOnDay } from '../lib/abschluss'
+import { applyTimeToIso, isoOnDay, keepEndAfterStart, keepStartBeforeEnd } from '../lib/abschluss'
 import { cx } from '../lib/cx'
 import { rankAbbr, rankLabel } from '../lib/rank'
 import { fmtDayShort, incidentDays, isOtherDay } from '../lib/zeitplanFormat'
@@ -103,23 +103,37 @@ function ResolveSheet({ person, band, bandTitle: title, cell, split, onPick, onC
       {split.length > 0 && (
         <div className={s.splitBox}>
           <h4>{S.splitTitle}</h4>
-          {split.map((plan) => (
-            <div key={plan.shift.id} className={s.splitItem}>
-              <b>{fmtRange(plan.shift.from, plan.shift.to)}</b>
-              <ul>
-                {plan.pieces.map((piece) => (
-                  <li key={piece.from}>
-                    <span className={s.splitRange}>{fmtRange(iso(piece.from), iso(piece.to))}</span>
-                    <span className={piece.inside ? s.splitChanges : s.splitKeeps}>
-                      {piece.inside
-                        ? S.splitChanges
-                        : fillTemplate(S.splitKeeps, { state: plan.shift.confirmed ? S.confirmed : S.available })}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          {split.map((plan) => {
+            const span = plan.pieces[plan.pieces.length - 1].to - plan.pieces[0].from
+            return (
+              <div key={plan.shift.id} className={s.splitItem}>
+                <b>{fmtRange(plan.shift.from, plan.shift.to)}</b>
+                {/* The cut, drawn. Three lines of clock readings made you rebuild the picture in
+                    your head at the one moment being wrong is expensive — this IS the picture: one
+                    stretch, the watch's window inside it, the middle piece marked as the part that
+                    moves. Each piece keeps a minimum width so its own boundary time fits under it;
+                    where that no longer fits the box, the box scrolls rather than squeezing the
+                    clock into something unreadable. */}
+                <div className={s.splitBarBox}>
+                  <div className={s.splitBar}>
+                    {plan.pieces.map((piece) => (
+                      <span key={piece.from} className={piece.inside ? s.pieceInside : s.pieceKeeps}
+                        style={{ flexGrow: (piece.to - piece.from) / Math.max(1, span) }}>
+                        <em>{clock(iso(piece.from))}</em>
+                      </span>
+                    ))}
+                    {/* the far end has no piece of its own to hang under */}
+                    <span className={s.pieceEnd}><em>{clock(iso(plan.pieces[plan.pieces.length - 1].to))}</em></span>
+                  </div>
+                </div>
+                <p className={s.splitLegend}>
+                  <i className={s.pieceInside} aria-hidden />{S.splitChanges}
+                  <i className={s.pieceKeeps} aria-hidden />
+                  {fillTemplate(S.splitKeeps, { state: plan.shift.confirmed ? S.confirmed : S.available })}
+                </p>
+              </div>
+            )
+          })}
         </div>
       )}
       {/* only where something is actually cut — and it says what the cut protects, which is the
@@ -233,11 +247,13 @@ function BandSheet({ band, bands, startedAt, onCreate, onSave, onRemove, onClose
               // a von typed after the bis means this band STARTED the previous day, exactly as on
               // the Zeitplan card — a reversed band renders as a column of nothing
               const iso = day ? isoOnDay(day, v) : applyTimeToIso(from, v, { prevDayIfAfter: to })
-              if (iso) setFrom(iso)
+              // …and never past its own end, however the day was chosen
+              if (iso) setFrom(keepStartBeforeEnd(iso, to))
             }} />
-          {startedAt && isOtherDay(new Date(from), new Date(startedAt)) && (
-            <span className={s.day}>{fmtDayShort(new Date(from))}</span>
-          )}
+          {/* the date is ALWAYS there, not only when it differs from the incident's first day.
+              «07:00» on day three of an Elementarereignis is a question, not an answer — and it is
+              what makes the overnight roll above visible instead of silent. */}
+          <span className={s.day}>{fmtDayShort(new Date(from))}</span>
         </span>
         <span className={s.sep} aria-hidden>–</span>
         <span className={s.field}>
@@ -247,9 +263,9 @@ function BandSheet({ band, bands, startedAt, onCreate, onSave, onRemove, onClose
               if (!v) return
               // «Nacht 22–06»: a bis before the von runs past midnight, it does not run backwards
               const iso = day ? isoOnDay(day, v) : applyTimeToIso(to, v, { nextDayIfBefore: from })
-              if (iso) setTo(iso)
+              if (iso) setTo(keepEndAfterStart(from, iso))
             }} />
-          {isOtherDay(new Date(to), new Date(from)) && <span className={s.day}>{fmtDayShort(new Date(to))}</span>}
+          <span className={s.day}>{fmtDayShort(new Date(to))}</span>
         </span>
       </div>
       <p className={s.note}>{band ? S.removeBandHint : S.sheetHint}</p>

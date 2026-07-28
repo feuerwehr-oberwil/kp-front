@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ABSCHLUSS_STEPS, applyTimeToIso, isoOnDay, missingSteps, stepDone, type AbschlussFacts } from './abschluss'
+import { ABSCHLUSS_STEPS, applyTimeToIso, isoOnDay, missingSteps, stepDone, type AbschlussFacts, keepEndAfterStart, keepStartBeforeEnd } from './abschluss'
 
 const facts = (over: Partial<AbschlussFacts> = {}): AbschlussFacts => ({
   reportMeta: {},
@@ -116,5 +116,42 @@ describe('isoOnDay — a time placed on a day the operator chose', () => {
   it('refuses gibberish rather than inventing a time', () => {
     expect(isoOnDay(new Date(2026, 6, 30), '99:99')).toBeNull()
     expect(isoOnDay(new Date(NaN), '09:00')).toBeNull()
+  })
+})
+
+describe('an end can never land before its start', () => {
+  const iso = (d: string) => new Date(d).toISOString()
+
+  it('steps the DAY forward and keeps the clock the operator picked', () => {
+    // the day wheel bypassed applyTimeToIso's overnight roll: «bis» could be set a day BEFORE
+    // «von», and a reversed stretch draws as nothing, counts zero minutes and hides in the sheet
+    const from = iso('2026-07-28T20:00')
+    const to = iso('2026-07-27T06:00') // a day too early
+    const fixed = new Date(keepEndAfterStart(from, to))
+    expect(fixed.getHours()).toBe(6)          // the clock is untouched
+    expect(fixed.getDate()).toBe(29)          // only the day moved, and only as far as it had to
+  })
+
+  it('leaves an end that is already after its start alone', () => {
+    const from = iso('2026-07-28T07:00')
+    const to = iso('2026-07-28T12:00')
+    expect(keepEndAfterStart(from, to)).toBe(to)
+  })
+
+  it('rolls a same-clock end to the next day rather than making it zero minutes', () => {
+    const from = iso('2026-07-28T07:00')
+    expect(new Date(keepEndAfterStart(from, from)).getDate()).toBe(29)
+  })
+
+  it('steps a start BACK when it was set after its own end', () => {
+    const from = iso('2026-07-29T22:00')
+    const to = iso('2026-07-29T06:00')
+    const fixed = new Date(keepStartBeforeEnd(from, to))
+    expect(fixed.getHours()).toBe(22)
+    expect(fixed.getDate()).toBe(28)
+  })
+
+  it('gives an unreadable stamp back unchanged rather than inventing one', () => {
+    expect(keepEndAfterStart('nonsense', 'also nonsense')).toBe('also nonsense')
   })
 })

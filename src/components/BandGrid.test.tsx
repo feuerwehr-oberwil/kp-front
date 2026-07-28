@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { BandGrid } from './BandGrid'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
+import { fmtDayShort } from '../lib/zeitplanFormat'
 import type { Person, Shift, ShiftBand } from '../types'
 
 afterEach(cleanup)
@@ -272,6 +273,14 @@ describe('the band sheet', () => {
     expect(props.onCreateBand).toHaveBeenCalledWith('Nacht', T(17), T(22))
   })
 
+  it('always shows the date on both ends, not only when it differs', () => {
+    // «07:00» on day three of an Elementarereignis is a question, not an answer
+    mount()
+    fireEvent.click(screen.getByText('Früh').closest('button')!)
+    const sheet = screen.getByText(appConfig.copy.schichten.sheetEditTitle).closest('div')!.parentElement!
+    expect(within(sheet).getAllByText(fmtDayShort(new Date(T(7)))).length).toBe(2)
+  })
+
   it('offers deleting only on an existing band, and says what survives it', () => {
     const S = appConfig.copy.schichten
     const props = mount()
@@ -294,9 +303,13 @@ describe('a change that would reach past the watch', () => {
     expect(screen.queryByText(S.resolveTitle)).toBeNull()
     const sheet = screen.getByText(S.crossTitle).closest('div')!.parentElement!
     expect(within(sheet).getByText(S.splitTitle)).toBeTruthy()
-    expect(within(sheet).getByText('10:00–12:00')).toBeTruthy() // stays geplant
-    expect(within(sheet).getByText('17:00–20:00')).toBeTruthy() // stays geplant
-    expect(within(sheet).getByText(S.splitChanges)).toBeTruthy()
+    // the stretch, then the bar's own cut edges beneath it
+    expect(within(sheet).getByText('10:00–20:00')).toBeTruthy()
+    for (const edge of ['10:00', '12:00', '17:00', '20:00']) {
+      expect(within(sheet).getAllByText(edge).length).toBeGreaterThan(0)
+    }
+    // the legend sits beside its swatches, so the words are split across nodes
+    expect(sheet.textContent).toContain(S.splitChanges)
   })
 
   it('still cycles straight through where nothing outside the column would move', () => {

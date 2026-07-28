@@ -1689,7 +1689,7 @@ export const en: Localizable<Copy> = {
     conflictTitleMany: '{n} people are assigned twice.',
     conflictWho: '{name} \u00b7 {from}\u2013{to}',
     conflictMore: '\u2026 and {n} more',
-    conflictFix: 'Tap one of the two assignments \u2013 it goes back to \u00abavailable\u00bb and keeps its time.',
+    conflictFix: 'Tap one of the two assignments and set it to \u00abavailable\u00bb \u2013 the time itself stays.',
     conflictShort: 'assigned twice',
     now: 'now',
     coveragePeak: ' · max {n}',

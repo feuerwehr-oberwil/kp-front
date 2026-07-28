@@ -99,9 +99,10 @@ function PresenceSheet({ person, blocks, canEdit, startedAt, onSetTimes, onRemov
         duration: fmtSpanShort((iv.to ? Date.parse(iv.to) : openedAt) - Date.parse(iv.from)),
         // mirror of onTo: a von typed after the bis means the block STARTED the previous day
         onFrom: canEdit && onSetTimes ? (v, day) => { const iso = day ? isoOnDay(day, v) : applyTimeToIso(iv.from, v, { prevDayIfAfter: iv.to }); if (iso) onSetTimes(person.id, { from: iso }, i) } : undefined,
-        // on a multi-day Einsatz the clock alone does not say which day this block belongs to
-        dayLabel: startedAt && isOtherDay(new Date(iv.from), new Date(startedAt)) ? fmtDayShort(new Date(iv.from)) : undefined,
-        toDayLabel: iv.to && isOtherDay(new Date(iv.to), new Date(iv.from)) ? fmtDayShort(new Date(iv.to)) : undefined,
+        // ALWAYS, not only on a multi-day Einsatz: the clock alone never says which day, and a
+        // recorded time is the half of this surface that ends up on the Rapport.
+        dayLabel: fmtDayShort(new Date(iv.from)),
+        toDayLabel: iv.to ? fmtDayShort(new Date(iv.to)) : undefined,
         warn: !!iv.to && Date.parse(iv.to) <= Date.parse(iv.from),
         // FIRST block only, and never when it would swallow this block's own end: pulling a
         // LATER block back to the alarm time made it span every earlier block, and totalMinutes

@@ -39,7 +39,7 @@ export const de = {
     contents: 'Inhalt',
     close: 'Schliessen',
     // Fallback-Einleitung wenn die Station keine eigene helpIntro konfiguriert hat.
-    introFallback: 'KP Front ist die digitale Lage- und Einsatzführung Ihrer Feuerwehr: taktische Lagekarte, Objektpläne, Atemschutzüberwachung und ein gemeinsames Verlaufsprotokoll – alles live auf mehreren Geräten gleichzeitig.',
+    introFallback: 'KP Front ist die digitale Lage- und Einsatzführung deiner Feuerwehr: taktische Lagekarte, Objektpläne, Atemschutzüberwachung und ein gemeinsames Verlaufsprotokoll – alles live auf mehreren Geräten gleichzeitig.',
     // Inhalt der Hilfe-Sektionen. Inline-Auszeichnung: **fett** für Hervorhebungen,
     // [[Taste]] für Tastatur-Chips. blocks: lead/sub/list/note werden in HelpOverlay gerendert.
     sections: [
@@ -1377,7 +1377,7 @@ export const de = {
       ],
       knowTitle: 'Gut zu wissen',
       know: [
-        'Ihr bearbeitet alle denselben Einsatz gleichzeitig – bitte nichts von anderen löschen, was du nicht selbst gesetzt hast.',
+        'Ihr bearbeitet alle denselben Einsatz gleichzeitig – bitte nichts von anderen löschen, was ihr nicht selbst gesetzt habt.',
         'Jede Nacht um Mitternacht wird die Demo auf den Ausgangszustand zurückgesetzt.',
         'Einen neuen Einsatz kannst du in der Demo nicht eröffnen – aber den laufenden frei bearbeiten.',
         'KP Front ist eine installierbare App (PWA): am Einsatzort läuft sie im Vollbild, offline-fähig und mit eigenem Symbol.',
@@ -2246,7 +2246,10 @@ export const de = {
     conflictTitleMany: '{n} Personen sind doppelt eingeteilt.',
     conflictWho: '{name} · {from}–{to}',
     conflictMore: '… und {n} weitere',
-    conflictFix: 'Eine der beiden Einteilungen antippen – sie wird wieder «verfügbar», die Zeit bleibt stehen.',
+    // Der Weg unterscheidet sich je nach Fläche: auf der Zeitachse schaltet der Tipp direkt um,
+    // im Bänderraster fragt er zuerst, wenn die Zeit über die Wache hinausreicht. Der Satz nennt
+    // darum das ZIEL, nicht die Mechanik – sonst stimmt er auf einer der beiden nicht.
+    conflictFix: 'Eine der beiden Einteilungen antippen und auf «verfügbar» setzen – die Zeit selbst bleibt stehen.',
     conflictShort: 'doppelt eingeteilt',
     // Eine Schicht, deren «bis» vor ihrem «von» liegt, wird gar nicht gezeichnet. Diese Marke
     // steht an ihrer Stelle, damit die Zeile nicht schweigt.
@@ -2336,7 +2339,7 @@ export const de = {
     addBand: 'Schicht definieren',
     addBandFirst: 'Erste Schicht definieren',
     emptyTitle: 'Noch keine Schicht.',
-    emptyHint: 'Legen Sie die Zeitfenster an, die Sie besetzen wollen – danach wird pro Person nur noch angetippt.',
+    emptyHint: 'Leg die Zeitfenster an, die du besetzen willst – danach wird pro Person nur noch angetippt.',
     emptyAxisHint: 'Oder im Zeitplan pro Person frei einzeichnen.',
     // Das Band-Blatt: anlegen und bearbeiten teilen sich eine Fläche
     sheetAddTitle: 'Schicht anlegen',
@@ -2795,11 +2798,11 @@ export const de = {
       deactivate: 'Deaktivieren',
       reactivate: 'Reaktivieren',
       resetPin: 'PIN zurücksetzen',
-      guardSelf: 'Sie können Ihr eigenes Konto nicht ändern oder deaktivieren.',
+      guardSelf: 'Du kannst dein eigenes Konto nicht ändern oder deaktivieren.',
       guardLastCmd: 'Das letzte aktive Bearbeiter-Konto kann nicht deaktiviert oder herabgestuft werden.',
-      guardSelfRole: 'Sie können Ihre eigene Rolle nicht ändern.',
+      guardSelfRole: 'Du kannst deine eigene Rolle nicht ändern.',
       guardLastCmdRole: 'Das letzte aktive Bearbeiter-Konto kann nicht herabgestuft werden.',
-      guardSelfDeactivate: 'Sie können Ihr eigenes Konto nicht deaktivieren.',
+      guardSelfDeactivate: 'Du kannst dein eigenes Konto nicht deaktivieren.',
       guardLastCmdDeactivate: 'Das letzte aktive Bearbeiter-Konto kann nicht deaktiviert werden.',
       guardLabel: 'Geschützte Aktionen für {name}',
       newPinPrompt: 'Neue PIN für {name} ({n} Ziffern):',

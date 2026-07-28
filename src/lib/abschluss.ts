@@ -75,6 +75,36 @@ export function applyTimeToIso(baseIso: string, hhmm: string, opts?: { nextDayIf
 
 /** An 'HH:MM' placed on a KNOWN calendar day — used when the picker's day wheel said which one,
  *  so nothing has to be inferred from the previous stamp. */
+/**
+ * Keep an END after its START — by moving the DAY, never the clock.
+ *
+ * The time-only path already rolls an end past midnight (`applyTimeToIso`'s `nextDayIfBefore`),
+ * but picking an explicit day from the wheel bypassed that: «bis» could be set to the day before
+ * «von», and a reversed stretch renders as nothing on the grid, counts zero minutes on the Rapport
+ * and is findable only by opening the sheet again.
+ *
+ * The clock the operator chose is kept exactly; only the calendar day steps forward until the
+ * stretch runs the right way. That is the half they were choosing, and because both ends now
+ * always show their date, the correction is visible rather than silent.
+ */
+export function keepEndAfterStart(fromIso: string, toIso: string): string {
+  const from = new Date(fromIso)
+  const to = new Date(toIso)
+  if (!Number.isFinite(from.getTime()) || !Number.isFinite(to.getTime())) return toIso
+  // one day at a time, and bounded: a start years in the past must not spin this forever
+  for (let i = 0; i < 400 && to.getTime() <= from.getTime(); i++) to.setDate(to.getDate() + 1)
+  return to.toISOString()
+}
+
+/** The mirror: a START set on or after its own end steps BACK a day at a time. */
+export function keepStartBeforeEnd(fromIso: string, toIso: string): string {
+  const from = new Date(fromIso)
+  const to = new Date(toIso)
+  if (!Number.isFinite(from.getTime()) || !Number.isFinite(to.getTime())) return fromIso
+  for (let i = 0; i < 400 && from.getTime() >= to.getTime(); i++) from.setDate(from.getDate() - 1)
+  return from.toISOString()
+}
+
 export function isoOnDay(day: Date, hhmm: string): string | null {
   const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm)
   if (!m || !Number.isFinite(day.getTime())) return null

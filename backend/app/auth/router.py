@@ -200,7 +200,7 @@ async def update_user(
         verb = "deaktivieren" if deactivating else "zum Betrachter herabstufen"
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Sie können Ihr eigenes Konto nicht {verb}.",
+            detail=f"Du kannst dein eigenes Konto nicht {verb}.",
         )
 
     # Last-active-editor guard: never let the count of active editors reach 0.
