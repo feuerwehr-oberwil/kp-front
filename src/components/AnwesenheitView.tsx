@@ -427,6 +427,18 @@ export function AnwesenheitView({
               ]}
             />
           )}
+          {/* the rank filter on a desk screen: on the SAME line as the search it narrows, not on a
+              band of its own underneath it. Two stacked rows of chrome over a Mannschaft list is
+              44px of vertical space spent saying «here are the controls». It wraps when the line
+              genuinely runs out, so nothing is ever cut off. */}
+          {ranksPresent.length > 1 && !isPhone && (
+            <Segmented<string> ariaLabel={A.rankFilterLabel} value={rankFilter ?? RANK_ALL}
+              onChange={(v) => setRankFilter(v === RANK_ALL || v === rankFilter ? null : v)}
+              options={[
+                { value: RANK_ALL, label: A.rankAll },
+                ...ranksPresent.map((r) => ({ value: r, label: rankAbbr(r) || rankLabel(r), title: rankLabel(r) })),
+              ]} />
+          )}
           {view === 'list' && !isPhone && (
             <div className={s.legend} aria-hidden>
               <span><i className={s.dotFrei} />{A.legendFrei}</span>
@@ -453,23 +465,11 @@ export function AnwesenheitView({
         </div>
       )}
 
-      {/* On a desktop the ranks are a row of chips — they fit, and seeing them all is faster than
-          opening anything. On a PHONE that row was a band of its own, ~44px of the little vertical
-          space there is, permanently spent on a control that is used once a shift. It becomes one
-          button that carries its own state: neutral for «Alle», tinted and naming the rank while a
-          filter is on, so a filtered list can never look like the whole Mannschaft. */}
-      {!empty && ranksPresent.length > 1 && !isPhone && (
-        <div className={s.rankRow}>
-          {/* rank filter — the shared <Segmented>; «Alle» (sentinel) clears the filter, and re-tapping
-              the active rank clears it too (parent decides the toggle-off). */}
-          <Segmented<string> ariaLabel={A.rankFilterLabel} value={rankFilter ?? RANK_ALL}
-            onChange={(v) => setRankFilter(v === RANK_ALL || v === rankFilter ? null : v)}
-            options={[
-              { value: RANK_ALL, label: A.rankAll },
-              ...ranksPresent.map((r) => ({ value: r, label: rankAbbr(r) || rankLabel(r), title: rankLabel(r) })),
-            ]} />
-        </div>
-      )}
+      {/* The ranks used to have a row of their own here. They now sit inline with the search (see
+          .controls above) — on a desk screen seeing them all is faster than opening anything, but
+          not at the price of a second band of chrome. On a PHONE they stay one button that carries
+          its own state: neutral for «Alle», tinted and naming the rank while a filter is on, so a
+          filtered list can never look like the whole Mannschaft. */}
 
       {empty ? (
         <EmptyState className="empty-fill" icon={error ? 'warn' : 'people'}

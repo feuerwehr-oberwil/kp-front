@@ -136,6 +136,46 @@ export function conflictingShiftIds(shifts: Shift[]): Set<string> {
   return out
 }
 
+/** One genuine double booking: this person, and the stretch the two assignments share. */
+export interface ShiftConflict {
+  personId: string
+  ids: [string, string]
+  /** the OVERLAP, not either shift — that is the stretch somebody has to resolve */
+  from: number
+  to: number
+}
+
+/**
+ * The double bookings, spelled out — who, and for which stretch.
+ *
+ * `conflictingShiftIds` answers «is this bar red», which is all a bar needs. It is not enough to
+ * SAY anything: a red outline and a hover title are not a sentence, and on a touch screen the
+ * title never appears at all. This returns what a notice can read out loud, so the surface can
+ * name the person and the hours instead of hoping somebody spots a 12px sign on a blue bar.
+ */
+export function shiftConflicts(shifts: Shift[]): ShiftConflict[] {
+  const out: ShiftConflict[] = []
+  const byPerson = new Map<string, Shift[]>()
+  for (const s of shifts) {
+    if (!s.confirmed) continue
+    const list = byPerson.get(s.personId)
+    if (list) list.push(s); else byPerson.set(s.personId, [s])
+  }
+  for (const [personId, list] of byPerson) {
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        const a = shiftSpan(list[i])
+        const b = shiftSpan(list[j])
+        if (!a || !b) continue
+        const from = Math.max(a.from, b.from)
+        const to = Math.min(a.to, b.to)
+        if (to > from) out.push({ personId, ids: [list[i].id, list[j].id], from, to })
+      }
+    }
+  }
+  return out
+}
+
 export interface CoverageSlot {
   at: number
   /** offered but not yet assigned */

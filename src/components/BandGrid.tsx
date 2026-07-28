@@ -13,6 +13,7 @@ import type { Person, Shift, ShiftBand } from '../types'
 import { Sheet } from '../lib/overlays'
 import { TimeField } from './TimeField'
 import { EmptyState } from './EmptyState'
+import { ShiftConflictNotice } from './ShiftConflictNotice'
 import s from './BandGrid.module.css'
 
 const clock = (iso: string): string => {
@@ -194,13 +195,26 @@ export function BandGrid({
 
   return (
     <div className={s.bandgrid}>
+      {/* the same notice the Zeitplan carries — one wording for one fault, on both readings */}
+      <ShiftConflictNotice shifts={shifts} people={people} className={s.conflictNotice} />
       <div className={s.scroll}>
         {/* --bands drives the grid's own width: at three columns it is exactly the port and the
             cells share it out; from the fourth the minimum cell width wins and the surface scrolls
             sideways instead of squeezing cells under the thumb floor. */}
         <div className={s.grid} style={{ ['--bands' as string]: cols.length }}>
           <div className={cx(s.row, s.headRow)}>
-            <div className={cx(s.who, s.whoHead)}>{S.who}</div>
+            {/* «0  8» said nothing about which number was which. The key names them ONCE, here,
+                for every column at the same time — labelling each head twice would not fit in a
+                65px column and would repeat the same two words across the whole row. Same two
+                words and the same two colours as the Zeitplan's Deckung curve. */}
+            <div className={cx(s.who, s.whoHead)}>
+              <span className={s.headKey}>
+                <span className={cx(s.keyDot, s.dotAvailable)} aria-hidden />{S.available}
+              </span>
+              <span className={s.headKey}>
+                <span className={cx(s.keyDot, s.dotConfirmed)} aria-hidden />{S.confirmed}
+              </span>
+            </div>
             {cols.map((b) => {
               const c = bandCounts(shifts, b)
               return (

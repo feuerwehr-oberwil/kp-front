@@ -84,8 +84,10 @@ def test_a_drifted_shift_prints_its_real_time_instead_of_a_mark():
     assert _cell(p.rows[0], p.bands[0]) == "11–16"  # station clock, not UTC — see test_zeitplan_pdf
 
 
-def test_deckung_counts_the_two_states_apart_and_drifted_shifts_pro_rata():
-    # Aebischer covers three of Früh's five hours → 1 + 0.6 assigned, and one offer beside it
+def test_deckung_counts_only_the_assigned_and_drifted_ones_pro_rata():
+    # ONE number: this sheet lists only assigned people, so a «verfügbar» figure beside it would
+    # count names that are deliberately not on the page. Aebischer covers three of Früh's five
+    # hours, so 1 + 0.6.
     p = _payload(
         [
             _row("Fix", [{"from": _h(0), "to": _h(5), "confirmed": True, "bandId": "bd1"}]),
@@ -93,18 +95,19 @@ def test_deckung_counts_the_two_states_apart_and_drifted_shifts_pro_rata():
             _row("Frei", [{"from": _h(0), "to": _h(5), "confirmed": False, "bandId": "bd1"}]),
         ]
     )
-    assert _deckung(p.rows, p.bands[0]) == "1 / 1,6"
+    assert _deckung(p.rows, p.bands[0]) == "1,6"
 
 
-def test_deckung_counts_an_offer_filed_elsewhere_as_the_availability_it_still_is():
-    # both cover this window, so both people are free for it — neither is ASSIGNED to it
+def test_deckung_ignores_an_offer_filed_elsewhere_however_confirmed_it_was_there():
+    # it covers this window, so the person is free for it — free is not assigned, and this line
+    # counts assignments
     p = _payload(
         [
             _row("A", [{"from": _h(0), "to": _h(5), "confirmed": True, "bandId": "bd2"}]),
             _row("B", [{"from": _h(0), "to": _h(5), "confirmed": True}]),
         ]
     )
-    assert _deckung(p.rows, p.bands[0]) == "2 / 0"
+    assert _deckung(p.rows, p.bands[0]) == "0"
 
 
 def test_deckung_counts_one_person_once_however_many_offers_they_hold():
@@ -120,7 +123,28 @@ def test_deckung_counts_one_person_once_however_many_offers_they_hold():
             )
         ]
     )
-    assert _deckung(p.rows, p.bands[0]) == "0 / 1"
+    assert _deckung(p.rows, p.bands[0]) == "1"
+
+
+def test_the_sheet_lists_only_the_people_who_were_actually_assigned():
+    from app.schichtplan_pdf import _is_assigned
+
+    assigned = _row("Fix", [{"from": _h(0), "to": _h(5), "confirmed": True, "bandId": "bd1"}])
+    offered = _row("Frei", [{"from": _h(0), "to": _h(5), "confirmed": False, "bandId": "bd1"}])
+    covering = _row("Deckt", [{"from": _h(-1), "to": _h(6), "confirmed": True}])
+    p = _payload([assigned, offered, covering])
+    assert [_is_assigned(r) for r in p.rows] == [True, False, False]
+    # …and the sheet still composes, now as a shorter one
+    assert compose_schichtplan_pdf(p).startswith(b"%PDF")
+
+
+def test_a_sheet_with_nobody_assigned_yet_still_carries_the_crew_to_write_on():
+    # an empty page helps no one: before the first assignment this is a blank form
+    from app.schichtplan_pdf import _is_assigned
+
+    p = _payload([_row("Frei", [{"from": _h(0), "to": _h(5), "confirmed": False, "bandId": "bd1"}])])
+    assert not any(_is_assigned(r) for r in p.rows)
+    assert compose_schichtplan_pdf(p).startswith(b"%PDF")
 
 
 def test_an_unnamed_band_is_titled_by_its_own_hours():

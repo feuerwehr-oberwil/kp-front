@@ -2238,6 +2238,15 @@ export const de = {
     added: 'Schicht für {name} geplant',
     moved: 'Schicht von {name} verschoben',
     conflict: 'Doppelt eingeteilt – zwei Schichten zur selben Zeit',
+    // Der eine Fehler, den dieses Formular finden soll – also wird er ausgesprochen, statt als
+    // 12px-Zeichen auf einem gefüllten Balken zu sitzen, wo er den geringsten Kontrast der ganzen
+    // Fläche hat (und dessen Erklärung in einem `title` steckte, den ein Touchscreen nie zeigt).
+    // Gemeldet, nicht verweigert: um 3 Uhr ist ein Doppeleintrag ein Hinweis zum Hinschauen.
+    conflictTitleOne: 'Eine Person ist doppelt eingeteilt.',
+    conflictTitleMany: '{n} Personen sind doppelt eingeteilt.',
+    conflictWho: '{name} · {from}–{to}',
+    conflictMore: '… und {n} weitere',
+    conflictFix: 'Eine der beiden Einteilungen antippen – sie wird wieder «verfügbar», die Zeit bleibt stehen.',
     // Eine Schicht, deren «bis» vor ihrem «von» liegt, wird gar nicht gezeichnet. Diese Marke
     // steht an ihrer Stelle, damit die Zeile nicht schweigt.
     brokenShift: 'Diese Schicht endet vor ihrem Anfang – zum Korrigieren antippen',
@@ -2347,11 +2356,15 @@ export const de = {
     moveMsg: '{n} Personen sind auf die alten Zeiten eingeteilt. Sollen ihre Zeiten mitziehen?',
     moveYes: 'Mitziehen',
     moveNo: 'Nur die Schicht',
-    // Kopfzahlen einer Spalte. Abweichende zählen ANTEILIG mit – die Zahl beantwortet «wie viele
-    // habe ich in diesem Fenster», nicht «wie viele Häkchen sehe ich».
-    countsAria: '{available} verfügbar, {planned} eingeteilt',
-    available: 'frei',
-    confirmed: 'fix',
+    // Kopfzahlen einer Spalte. Zwei nackte Ziffern nebeneinander («0  8») sagen nicht, welche
+    // welche ist – die Legende in der WER-Spalte benennt sie einmal für alle Spalten, statt jede
+    // Spalte zweimal zu beschriften. Anteilig gezählt: die Zahl beantwortet «wie viele habe ich in
+    // diesem Fenster», nicht «wie viele Häkchen sehe ich».
+    countsAria: '{available} verfügbar, {planned} geplant',
+    // Dieselben zwei Wörter wie die Deckungskurve im Zeitplan – eine Fläche, ein Vokabular.
+    // Vorher stand hier «frei» und «fix», was zwei Namen für dieselben zwei Zustände waren.
+    available: 'verfügbar',
+    confirmed: 'geplant',
     // Wer freihändige Zeiten ohne Band hat, stünde sonst überall leer – wie jemand, der nichts
     // angeboten hat. Die Marke nennt die echte Zeit, damit das Raster das nicht behauptet.
     ownTimes: 'eigene Zeiten ausserhalb jeder Schicht: {times}',

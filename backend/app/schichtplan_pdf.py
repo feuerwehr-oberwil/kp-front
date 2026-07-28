@@ -131,21 +131,22 @@ def _cell(row: ZeitplanRow, band: ZeitplanBand) -> str:
     return _MARK_CONFIRMED if (member and block.confirmed) else _MARK_AVAILABLE
 
 
+def _is_assigned(row: ZeitplanRow) -> bool:
+    """Has this person been put ON a watch — anywhere? Only a STORED member counts; an offer that
+    merely covers a window is an availability, and availabilities are the other sheet's subject."""
+    return any(b.band_id and b.confirmed for b in row.blocks)
+
+
 def _deckung(rows: list[ZeitplanRow], band: ZeitplanBand) -> str:
-    """«8 / 5» — verfügbar over eingeteilt, counted per PERSON (one cell is one count, exactly as on
-    the screen) with partial cover pro rata."""
-    available = 0.0
+    """How many are ON this watch. One number, not «verfügbar / eingeteilt»: this sheet lists only
+    the people who were assigned, so a second figure counting the available ones would point at
+    names that are deliberately not on the page. Partial cover counts pro rata."""
     confirmed = 0.0
     for row in rows:
         block, member = _cell_block(row, band)
-        if block is None:
-            continue
-        f = _cover_fraction(block.start, block.end, band)
-        if member and block.confirmed:
-            confirmed += f
-        else:
-            available += f
-    return f"{_fmt_count(available)} / {_fmt_count(confirmed)}"
+        if block is not None and member and block.confirmed:
+            confirmed += _cover_fraction(block.start, block.end, band)
+    return _fmt_count(confirmed)
 
 
 def _page(rows: list[ZeitplanRow], bands: list[ZeitplanBand], width: float, with_deckung: bool) -> Table:
@@ -159,7 +160,7 @@ def _page(rows: list[ZeitplanRow], bands: list[ZeitplanBand], width: float, with
         label = f"{row.rank} {row.name}".strip() if row.rank else row.name
         data.append([label[:34]] + [_cell(row, b) for b in bands])
     if with_deckung:
-        data.append(["DECKUNG"] + [_deckung(rows, b) for b in bands])
+        data.append(["EINGETEILT"] + [_deckung(rows, b) for b in bands])
 
     name_w = 62 * mm
     cell_w = (width - name_w) / max(1, len(bands))
@@ -221,7 +222,20 @@ def compose_schichtplan_pdf(payload: ZeitplanPayload) -> bytes:
     )
 
     bands = payload.bands[:MAX_BANDS]
-    rows = payload.rows or []
+    # ONLY the people who were actually assigned. This is the sheet that goes on the wall to say who
+    # is on which watch; somebody merely available is not an answer to that question, and sixty
+    # names with two ticks between them is a sheet nobody reads. Everyone's times — assigned or not
+    # — are on «Verfügbarkeiten», which exists for exactly that.
+    assigned = [r for r in (payload.rows or []) if _is_assigned(r)]
+    # …unless NOBODY is assigned yet. Then this is a blank form somebody is about to fill in by
+    # hand, and a blank form still needs its names: an empty page helps no one.
+    rows = assigned or (payload.rows or [])
+    # the sheet says whose names are on it, so «where is everybody else» has an answer on the page
+    footnote_scope = (
+        "Aufgeführt sind nur eingeteilte Personen; alle Zeiten stehen auf dem Blatt «Verfügbarkeiten»."
+        if assigned
+        else "Noch niemand eingeteilt – die ganze Mannschaft steht zum Ausfüllen von Hand."
+    )
     story: list = [
         Paragraph("SCHICHTPLAN", st["title"]),
         Paragraph(_esc(payload.incidentTitle), st["eyebrow"]),
@@ -236,7 +250,7 @@ def compose_schichtplan_pdf(payload: ZeitplanPayload) -> bytes:
         doc.build(story, canvasmaker=_NumberedCanvas)
         return buf.getvalue()
 
-    # a page per ~34 names, every one padded out to full height: the sheet is meant to be written
+    # a page per ~28 names, every one padded out to full height: the sheet is meant to be written
     # on, and an empty row is where the pen goes
     pages = [rows[i : i + MAX_ROWS] for i in range(0, max(len(rows), 1), MAX_ROWS)] or [[]]
     for i, page_rows in enumerate(pages):
@@ -251,9 +265,8 @@ def compose_schichtplan_pdf(payload: ZeitplanPayload) -> bytes:
             story.append(
                 Paragraph(
                     f"{_MARK_CONFIRMED} eingeteilt · {_MARK_AVAILABLE} verfügbar · eine Uhrzeit = "
-                    "in der Schicht, hält sie aber nicht ein · leere Zellen zum Nachtragen von Hand. "
-                    "Wer eigene Zeiten ausserhalb jeder Schicht hat, steht auf dem Blatt "
-                    "«Verfügbarkeiten». Planungshilfe – massgebend bleibt der Einsatzrapport.",
+                    "deckt die Schicht nur teilweise · leere Zellen zum Nachtragen von Hand. "
+                    f"{footnote_scope} Planungshilfe – massgebend bleibt der Einsatzrapport.",
                     ParagraphStyle("schichtfoot", parent=st["muted"], leading=9),
                 )
             )

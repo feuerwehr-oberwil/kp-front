@@ -15,6 +15,7 @@ import type { AttendanceState, Person, PresenceInterval, Shift } from '../types'
 import type { CoverageSlot } from '../lib/shifts'
 import type { Span } from '../lib/shifts'
 import { TimeBlockReadOnly, TimeBlockSheet } from './TimeBlockSheet'
+import { ShiftConflictNotice } from './ShiftConflictNotice'
 import { timeBlockLabels } from '../lib/timeBlockLabels'
 import s from './Zeitplan.module.css'
 
@@ -395,6 +396,9 @@ export function ZeitplanView({
 
   return (
     <div className={s.zeitplan}>
+      {/* said in words, ABOVE the grid. The red outline and the sign on the bar point at where;
+          they cannot say what or what to do, and on a touch screen their `title` never appears. */}
+      <ShiftConflictNotice shifts={shifts} people={people} className={s.conflictNotice} />
       <div className={s.scroll}>
         <div className={s.grid} style={{ ['--track-w' as string]: `${trackW}px` }}>
           {/* head — «Wer» over the name column, the clock over the track, exactly as on paper */}
