@@ -58,6 +58,9 @@ browser. Everything below has been running in production at Feuerwehr Oberwil.
 - **arm64 images.** The published image builds for `linux/arm64` as well as `linux/amd64`, so an
   ARM host (Hetzner CAX, Oracle Ampere, a Raspberry Pi) can run it. The Vite stage builds on the
   native build platform, so the multi-arch build doesn't emulate the slow part.
+  [`DEPLOYMENT.md`](docs/DEPLOYMENT.md) said `linux/amd64` for one release longer than that was
+  true; it now names both, and says what an older release looks like when you try it on an ARM
+  machine (`no matching manifest for linux/arm64/v8`) and how to run one anyway.
 - **Zeitplan – the Schichtenplanung, as a second view of the Anwesenheit.** A long incident is not
   a staffing problem you can hold in your head at 04:00, and the question it asks – *who is still
   going to be here at six, and how many is that?* – had no surface. The Anwesenheit answers *who is
