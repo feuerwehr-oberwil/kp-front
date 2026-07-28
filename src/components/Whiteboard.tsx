@@ -1744,8 +1744,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                         floorTo={a.floorTo}
                         spread={a.spread}
                         count={a.count}
-                        // vehicles bake their name into the glyph already, so they get no caption
-                        caption={!veh ? symbolCaptionText(a, captionMode) : null}
+                        // a vehicle's NAME is already in the glyph — symbolCaptionText drops it and
+                        // keeps the rest (Fahrer, eigene Felder, Notizen), which only 'Alle' prints
+                        caption={symbolCaptionText(a, captionMode)}
                         className="ts-plan"
                       />
                       {/* boom AFTER the body → paints on top (mounted on the turntable / roof) */}

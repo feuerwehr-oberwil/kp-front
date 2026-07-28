@@ -464,8 +464,9 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                     floorTo={e.floorTo}
                     spread={e.spread}
                     count={e.count}
-                    // vehicles bake their name into the glyph already, so they get no caption
-                    caption={captionsVisible && !veh ? symbolCaptionText(e, captionMode) : null}
+                    // a vehicle's NAME is already in the glyph — symbolCaptionText drops it and
+                    // keeps the rest (Fahrer, eigene Felder, Notizen), which only 'Alle' prints
+                    caption={captionsVisible ? symbolCaptionText(e, captionMode) : null}
                   />
                   {/* boom AFTER the body → paints on top (mounted on the turntable / roof) */}
                   {hub && <HubretterBoom lengthPx={boomPx} deg={(e.rotation2 ?? 0) - bearing} />}

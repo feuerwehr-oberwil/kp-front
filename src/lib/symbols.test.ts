@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { symbolCaptionText, symbolControls, symbolFieldOptions } from './symbols'
 import type { SymbolControl } from '../types'
+import { appConfig } from '../config/appConfig'
 
 // Sorted set → array for order-independent comparison.
 const got = (s: Set<SymbolControl>) => [...s].sort()
@@ -134,5 +135,26 @@ describe('symbolCaptionText — metadata printed under a symbol glyph', () => {
 
   it('returns null when there is no field value and no custom label', () => {
     expect(symbolCaptionText({ symbol: 'SI Ueberflurhydrant' }, 'auto')).toBeNull()
+  })
+
+  it('a vehicle stays silent in auto — its name is drawn inside the glyph', () => {
+    expect(symbolCaptionText({
+      symbol: appConfig.symbols.vehicleName, label: 'TLF 1', fields: { Fahrer: 'Céline Widmer' },
+    }, 'auto')).toBeNull()
+  })
+
+  it('all mode gives a vehicle everything EXCEPT its name (Fahrer, custom fields, notes)', () => {
+    expect(symbolCaptionText({
+      symbol: appConfig.symbols.vehicleName,
+      label: 'TLF 1',
+      fields: { Fahrer: 'Céline Widmer', Test: 'Test', 'Test 2': 'Test 2' },
+      notes: 'Tank halb',
+    }, 'all')).toBe('Céline Widmer\nTest\nTest 2\nTank halb')
+  })
+
+  it('an off override still silences a vehicle in the all default', () => {
+    expect(symbolCaptionText({
+      symbol: appConfig.symbols.vehicleName, label: 'TLF 1', fields: { Fahrer: 'Céline Widmer' }, caption: 'off',
+    }, 'all')).toBeNull()
   })
 })

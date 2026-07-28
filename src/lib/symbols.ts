@@ -141,10 +141,17 @@ function customLabel(props: SymbolProps): string | undefined {
 export function symbolCaptionText(props: SymbolProps, globalMode: CaptionMode): string | null {
   const mode = props.caption ?? globalMode
   if (mode === 'off') return null
+  // The generic vehicle draws its own name INSIDE the glyph. So it stays silent in 'auto' (the
+  // glyph already says everything that discriminates it), and in 'all' it prints everything the
+  // operator typed EXCEPT that name — otherwise "TLF 1" would sit twice on the same marker.
+  // Without this, a vehicle showed nothing at all in 'all': its Fahrer, its custom Bezeichnungen
+  // and its Notizen were unreachable on the map.
+  const vehicle = props.symbol === appConfig.symbols.vehicleName
+  if (vehicle && mode !== 'all') return null
   const fields = props.fields ?? {}
   const order = (props.symbol ? presets.byName[props.symbol]?.fields : undefined) ?? Object.keys(fields)
   const filled = order.map((k) => fields[k]?.trim()).filter((v): v is string => !!v)
-  const label = customLabel(props)
+  const label = vehicle ? undefined : customLabel(props)
   if (mode === 'all') {
     // 'all' = EVERYTHING the operator typed on this symbol: the preset detail fields (in canonical
     // order) PLUS any custom key/value rows they added PLUS the free-text notes — not just the
