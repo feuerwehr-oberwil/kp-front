@@ -126,8 +126,6 @@
   .head { flex-wrap: wrap; }
   .headTitles { flex: 1 0 100%; }
   .headActions { flex: 1 0 100%; justify-content: flex-start; }
-  .headActions :global(.btn) span { display: none; }
-  .headActions :global(.btn) { padding: 0; width: var(--tap); height: var(--tap); justify-content: center; }
   /* the Zeitraum control shares the search line rather than owning a row of its own */
   .controls { gap: 8px; padding: 10px 14px; }
   /* the search yields so the Zeitraum can share its line — on its own row it cost ~56px of the
@@ -179,10 +177,43 @@
 .sheetAdd { margin-top: 10px; gap: 6px; }
 .sheetNote { margin: 10px 0 0; font: 500 12px var(--body); color: var(--ink-faint); }
 
-/* The Zeitplan-only actions stay in the layout in both views and merely go invisible, so the
-   view toggle keeps its position instead of sliding across when you switch tabs. */
-.planActions { display: inline-flex; align-items: center; gap: 8px; }
-.planActionsHidden { visibility: hidden; pointer-events: none; }
+/* The paper actions are ONE menu trigger now, so the old trick of keeping two buttons mounted
+   but invisible in the list view — purely to stop the view toggle sliding sideways — is gone with
+   them. A single 44px button appearing and disappearing moves the row by 44px, which the header
+   absorbs; two buttons plus their labels moved it by ~200px, which it did not. */
+
+/* A square icon action in the header or the search row — the shared shape for the paper menu and
+   the rank filter, so two controls that behave alike also look alike. */
+.iconBtn {
+  position: relative; flex: none; display: inline-grid; place-items: center;
+  min-width: var(--tap); min-height: var(--tap); padding: 0 8px;
+  border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface);
+  color: var(--ink-dim); cursor: pointer; -webkit-tap-highlight-color: transparent;
+  grid-auto-flow: column; gap: 6px;
+}
+.iconBtn:hover { color: var(--ink); border-color: var(--ink-faint); }
+.iconBtn svg { width: 16px; height: 16px; }
+/* a filter that is ON must never look like a filter that is off: the list underneath is a SUBSET
+   of the Mannschaft, and mistaking it for the whole thing is the one costly error here */
+.iconBtnOn {
+  border-color: color-mix(in srgb, var(--blue) 50%, transparent);
+  background: color-mix(in srgb, var(--blue) 14%, transparent);
+  color: var(--blue-strong);
+}
+.filterOn { font: 800 11px var(--mono); letter-spacing: .03em; }
+
+/* the shared dropdown for both header menus */
+.menuPop {
+  min-width: 190px; padding: 6px; border-radius: var(--r-ctl);
+  background: var(--surface); box-shadow: var(--shadow); border: 1px solid var(--glass-edge);
+  z-index: 60;
+}
+.menuItem {
+  display: flex; align-items: center; gap: 9px; width: 100%; min-height: var(--tap);
+  padding: 0 11px; border-radius: var(--r-sm); cursor: pointer;
+  font: 600 13.5px var(--body); color: var(--ink); outline: none;
+}
+.menuItem[data-highlighted] { background: color-mix(in srgb, var(--ink) 8%, transparent); }
 
 /* Zeitraum control — sits at the end of the search row, beside the thing it scopes */
 .horizon { flex: none; display: flex; align-items: center; gap: 6px; }

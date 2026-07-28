@@ -2234,7 +2234,13 @@ export const de = {
     emptyHint: 'Plane pro Person, von wann bis wann sie verfügbar ist. Der Plan verändert die Anwesenheit nicht – abgehakt wird sie weiterhin in der Anwesenheitsliste.',
     legendHint: 'Hohl = verfügbar · gefüllt = eingeteilt · grün = tatsächlich anwesend',
     print: 'Zeitplan drucken',
+    // Der Druckerknopf steht offen in der Kopfzeile, einen Daumen neben dem Ansichtsumschalter,
+    // und Papier kommt aus der Maschine, bevor ein Toast verklungen ist. Also wird gefragt – und
+    // die Frage nennt die Zahl, die zugleich prüft, ob der Filter oben so steht wie gemeint.
+    printConfirmTitle: 'Zeitplan an den Stationsdrucker?',
+    printConfirmMsg: 'Das Blatt geht mit {n} Personen an den Drucker in der Station.',
     pdf: 'Als PDF',
+    paperMenu: 'Aufs Papier',
     printFailed: 'Zeitplan konnte nicht gedruckt werden.',
     // Kopf der Namensspalte – wie auf dem gedruckten Formular
     who: 'Wer',

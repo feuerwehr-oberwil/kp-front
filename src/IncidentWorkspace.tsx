@@ -1152,7 +1152,12 @@ export function IncidentWorkspace({
     } else if (tool === 'note') {
       const id = `n${Date.now()}`
       commit((d) => ({ ...d, entities: [...d.entities, { id, kind: 'note', layer: appConfig.defaults.drawingLayerId, coord: c, label: '', subtitle: appConfig.copy.entities.noteSubtitle }] }))
-      setSelectedId(id); setSelectedDrawingId(null); setEditNoteId(id); setTool('select'); log('type', appConfig.copy.log.notePlaced, 'note', undefined, id)
+      // a freshly placed note opens its detail panel straight away, exactly like a placed symbol
+      // does. The settings can NOT live in the right-edge dock: tapping a dock button blurs the
+      // textarea, which commits and clears editNoteId — the dock then vanished under the finger
+      // that was reaching for it. A panel is not tied to the edit session, so it survives the
+      // blur and the note stays styleable while you write.
+      setSelectedId(id); setSelectedDrawingId(null); setEditNoteId(id); setNotePanelId(id); setTool('select'); log('type', appConfig.copy.log.notePlaced, 'note', undefined, id)
       emit('entity.add', { id, kind: 'note', entity: { id, kind: 'note', layer: appConfig.defaults.drawingLayerId, coord: c, label: '', subtitle: appConfig.copy.entities.noteSubtitle } })
     } else if (tool === 'team') {
       setTeamPick(c) // which Trupp? — picker over the tapped spot (mirrors the plan's Team tool)
@@ -1314,8 +1319,6 @@ export function IncidentWorkspace({
   const selected = entities.find((e) => e.id === selectedId) ?? null
   // the note whose ⚙ was tapped — a deleted note simply drops out here and the panel unmounts
   const noteEntity = entities.find((e) => e.id === notePanelId && e.kind === 'note') ?? null
-  // the note being typed into — drives the note dock (settings within reach while the keyboard is up)
-  const editNote = entities.find((e) => e.id === editNoteId && e.kind === 'note') ?? null
 
   // keep the tapped symbol visible: the ContextPanel overlay covers the right band of the
   // map — when the selection (incl. its halo/handles) lands under it, ease the camera just
@@ -1608,10 +1611,24 @@ export function IncidentWorkspace({
     void downloadZeitplanPdf(incidentMeta.id, zeitplanPayload(rowPeople))
       .catch(() => toast(appConfig.copy.zeitplan.printFailed, { icon: 'warn', tone: 'warn' }))
   }
+  // Ask first. The printer button sits in the open on the surface header, one tap from the view
+  // toggle, and it does not undo — paper is out of the machine before the toast has faded. Nobody
+  // wants the station printer running a Mannschaftsliste every time a thumb lands short. The
+  // question names how many people are on the sheet, which is also the sanity check for whether
+  // the filter above is set the way you meant.
   const onPrintZeitplan = (rowPeople: Person[]) => {
-    void printZeitplan(incidentMeta.id, zeitplanPayload(rowPeople))
-      .then((jobId) => trackPrintJob(editorPrintTransport(), jobId))
-      .catch(() => toast(appConfig.copy.zeitplan.printFailed, { icon: 'warn', tone: 'warn' }))
+    const R = appConfig.copy.printRelay
+    const Z = appConfig.copy.zeitplan
+    void confirmDialog({
+      title: Z.printConfirmTitle,
+      message: fillTemplate(Z.printConfirmMsg, { n: rowPeople.length }),
+      confirmLabel: R.send,
+    }).then((ok) => {
+      if (!ok) return
+      return printZeitplan(incidentMeta.id, zeitplanPayload(rowPeople))
+        .then((jobId) => trackPrintJob(editorPrintTransport(), jobId))
+        .catch(() => toast(appConfig.copy.zeitplan.printFailed, { icon: 'warn', tone: 'warn' }))
+    })
   }
   // assigning someone to a Trupp implies they're on scene — mark every roster-linked member
   // present (even at "angemeldet"). Only the newly-present are logged, so re-edits don't spam.
@@ -2188,24 +2205,7 @@ export function IncidentWorkspace({
           [{ type: 'info', text: appConfig.copy.dockHints.area }],
         ]} />
       )}
-      {/* a note being written — the same settings its detail panel carries, in reach while the
-          keyboard is up. Placement flips the tool straight to 'select', so this is keyed on the
-          note being EDITED, not on the armed tool (which is the branch below). */}
-      {mapUI && editNote && (
-        <ToolDock groups={[
-          [{ type: 'go', onClick: () => noteTextCommit(editNote.id, editNote.label ?? ''), title: appConfig.copy.notes.done }],
-          [{ type: 'toggle', text: appConfig.copy.notes.formBox, label: isNoteBox(editNote.noteW) ? appConfig.copy.notes.toLine : appConfig.copy.notes.toBox, on: isNoteBox(editNote.noteW), onClick: () => patchEntity(editNote.id, { noteW: isNoteBox(editNote.noteW) ? undefined : NOTE_W_PX.def }) }],
-          [
-            { type: 'toggle', text: 'S', label: appConfig.copy.notes.sizeS, on: editNote.noteSize === 's', onClick: () => patchEntity(editNote.id, { noteSize: 's' }) },
-            { type: 'toggle', text: 'M', label: appConfig.copy.notes.sizeM, on: (editNote.noteSize ?? 'm') === 'm', onClick: () => patchEntity(editNote.id, { noteSize: 'm' }) },
-            { type: 'toggle', text: 'L', label: appConfig.copy.notes.sizeL, on: editNote.noteSize === 'l', onClick: () => patchEntity(editNote.id, { noteSize: 'l' }) },
-          ],
-          [{ type: 'toggle', text: appConfig.copy.notes.lookPlain, label: appConfig.copy.notes.look, on: !!editNote.notePlain, onClick: () => patchEntity(editNote.id, { notePlain: !editNote.notePlain || undefined }) }],
-          [{ type: 'colors', value: editNote.color ?? '', onChange: (c) => patchEntity(editNote.id, { color: c || undefined }) }],
-          [{ type: 'info', text: appConfig.copy.dockHints.note }],
-        ]} />
-      )}
-      {mapUI && !editNote && tool === 'note' && (
+      {mapUI && tool === 'note' && (
         <ToolDock groups={[
           [{ type: 'close', onClick: () => setTool('select') }],
           [{ type: 'info', text: appConfig.copy.dockHints.note }],

@@ -9,8 +9,10 @@ import { rankAbbr, rankLabel, rankOrder } from '../lib/rank'
 import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
 import { fmtDayShort, isOtherDay } from '../lib/zeitplanFormat'
 import { loadPrefs, savePrefs } from '../lib/prefs'
+import { useIsPhone } from '../lib/useIsPhone'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import { Segmented } from './Segmented'
+import { Menu } from '../lib/overlays'
 import { TimeBlockSheet } from './TimeBlockSheet'
 import { timeBlockLabels } from '../lib/timeBlockLabels'
 import { EmptyState } from './EmptyState'
@@ -161,6 +163,7 @@ export function AnwesenheitView({
   onDownloadZeitplan?: (people: Person[]) => void
   zeitplanPrintOnline?: boolean
 }) {
+  const isPhone = useIsPhone()
   const [q, setQ] = useState('')
   const [rankFilter, setRankFilter] = useState<string | null>(null)
   // Anwesenheit and Zeitplan are two readings of the SAME filtered, ordered Mannschaft — the
@@ -261,22 +264,36 @@ export function AnwesenheitView({
               list — mounting it only for the Zeitplan made the view toggle jump sideways every
               time you switched tabs, because the actions row is right-aligned and one more button
               pushes everything along. Reserving the width keeps the toggle under your thumb. */}
-          {planAvailable && (
-            <span className={cx(s.planActions, !showPlan && s.planActionsHidden)} aria-hidden={!showPlan}>
-              {onPrintZeitplan && (
-                <button className="btn" onClick={() => onPrintZeitplan(rows)} tabIndex={showPlan ? undefined : -1}
-                  title={zeitplanPrintOnline ? appConfig.copy.printRelay.online : appConfig.copy.printRelay.offline}>
+          {/* Paper lives in a menu. Two more buttons on this line is what pushed the header past
+              its own width between 601 and ~850px — where `.headActions` is flex:none, so nothing
+              shrank and `overflow: hidden` simply cut the end off, taking «Aktualisieren» with it
+              on an iPad held upright. One trigger instead of two also ends the old trick of
+              keeping the pair mounted-but-invisible in the list view just to stop the toggle
+              sliding sideways. */}
+          {showPlan && (onPrintZeitplan || onDownloadZeitplan) && (
+            <Menu
+              trigger={
+                <button className={s.iconBtn} aria-label={appConfig.copy.zeitplan.paperMenu}
+                  title={appConfig.copy.zeitplan.paperMenu}>
                   <Icon id="printer" />
-                  <span className={`dot print-relay-dot${zeitplanPrintOnline ? ' online' : ''}`} aria-hidden />
-                  <span>{appConfig.copy.printRelay.send}</span>
+                  {onPrintZeitplan && (
+                    <span className={`dot print-relay-dot${zeitplanPrintOnline ? ' online' : ''}`} aria-hidden />
+                  )}
                 </button>
-              )}
-              {onDownloadZeitplan && (
-                <button className="btn ghost" onClick={() => onDownloadZeitplan(rows)} tabIndex={showPlan ? undefined : -1}>
-                  <Icon id="doc" /><span>{appConfig.copy.zeitplan.pdf}</span>
-                </button>
-              )}
-            </span>
+              }
+              popupClassName={s.menuPop}
+              itemClassName={() => s.menuItem}
+              items={[
+                ...(onPrintZeitplan ? [{
+                  label: appConfig.copy.printRelay.send,
+                  onClick: () => onPrintZeitplan(rows),
+                }] : []),
+                ...(onDownloadZeitplan ? [{
+                  label: appConfig.copy.zeitplan.pdf,
+                  onClick: () => onDownloadZeitplan(rows),
+                }] : []),
+              ]}
+            />
           )}
           {/* the two readings of this Mannschaft. Only offered where a Zeitplan can actually be
               edited/read — the surface is inert without the shift slice wired up. */}
@@ -297,7 +314,29 @@ export function AnwesenheitView({
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={A.searchPlaceholder} inputMode="search" />
             {q && <button className={s.searchClear} onClick={() => setQ('')} aria-label={A.clearSearch}><Icon id="close" /></button>}
           </label>
-          {view === 'list' && (
+          {ranksPresent.length > 1 && isPhone && (
+            <Menu
+              trigger={
+                <button className={cx(s.iconBtn, rankFilter && s.iconBtnOn)}
+                  aria-label={A.rankFilterLabel} title={A.rankFilterLabel}>
+                  <Icon id="filter" />
+                  {/* the active rank rides ON the button: a filtered list that looks like the whole
+                      Mannschaft is the one way this control can mislead */}
+                  {rankFilter && <span className={s.filterOn}>{rankAbbr(rankFilter) || rankLabel(rankFilter)}</span>}
+                </button>
+              }
+              popupClassName={s.menuPop}
+              itemClassName={() => s.menuItem}
+              items={[
+                { label: A.rankAll, onClick: () => setRankFilter(null) },
+                ...ranksPresent.map((r) => ({
+                  label: rankLabel(r),
+                  onClick: () => setRankFilter(r === rankFilter ? null : r),
+                })),
+              ]}
+            />
+          )}
+          {view === 'list' && !isPhone && (
             <div className={s.legend} aria-hidden>
               <span><i className={s.dotFrei} />{A.legendFrei}</span>
               <span><i className={s.dotPresent} />{A.legendPresent}</span>
@@ -323,7 +362,12 @@ export function AnwesenheitView({
         </div>
       )}
 
-      {!empty && ranksPresent.length > 1 && (
+      {/* On a desktop the ranks are a row of chips — they fit, and seeing them all is faster than
+          opening anything. On a PHONE that row was a band of its own, ~44px of the little vertical
+          space there is, permanently spent on a control that is used once a shift. It becomes one
+          button that carries its own state: neutral for «Alle», tinted and naming the rank while a
+          filter is on, so a filtered list can never look like the whole Mannschaft. */}
+      {!empty && ranksPresent.length > 1 && !isPhone && (
         <div className={s.rankRow}>
           {/* rank filter — the shared <Segmented>; «Alle» (sentinel) clears the filter, and re-tapping
               the active rank clears it too (parent decides the toggle-off). */}
