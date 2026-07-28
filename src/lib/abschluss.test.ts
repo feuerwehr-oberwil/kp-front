@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ABSCHLUSS_STEPS, applyTimeToIso, missingSteps, stepDone, type AbschlussFacts } from './abschluss'
+import { ABSCHLUSS_STEPS, applyTimeToIso, isoOnDay, missingSteps, stepDone, type AbschlussFacts } from './abschluss'
 
 const facts = (over: Partial<AbschlussFacts> = {}): AbschlussFacts => ({
   reportMeta: {},
@@ -99,5 +99,22 @@ describe('applyTimeToIso — prevDayIfAfter (the «von» mirror)', () => {
     const to = iso('2026-07-30T18:00:00')
     const out = applyTimeToIso(from, '19:00', { prevDayIfAfter: to })
     expect(Date.parse(out!)).toBeLessThan(Date.parse(to))
+  })
+})
+
+// Once the picker can SAY which day, nothing has to be inferred — this is the path that makes the
+// multi-day case exact rather than merely non-destructive.
+describe('isoOnDay — a time placed on a day the operator chose', () => {
+  it('puts the clock on that calendar day, ignoring any earlier stamp', () => {
+    const out = isoOnDay(new Date(2026, 6, 30), '09:00')
+    const d = new Date(out!)
+    expect(d.getDate()).toBe(30)
+    expect(d.getMonth()).toBe(6)
+    expect(d.getHours()).toBe(9)
+  })
+
+  it('refuses gibberish rather than inventing a time', () => {
+    expect(isoOnDay(new Date(2026, 6, 30), '99:99')).toBeNull()
+    expect(isoOnDay(new Date(NaN), '09:00')).toBeNull()
   })
 })

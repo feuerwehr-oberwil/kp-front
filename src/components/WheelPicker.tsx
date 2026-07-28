@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
+import { fmtDayShort } from '../lib/zeitplanFormat'
 import w from './WheelPicker.module.css'
 
 const ITEM_H = 44 // px, one wheel row — a full ≥44px tap target; must match .wheel-item/.wheel-pad/.wheelpop-band in app.css
@@ -57,7 +58,7 @@ const MINUTES = Array.from({ length: 60 }, (_, i) => pad2(i))
 export interface WheelValue { y: number; mo: number; d: number; h: number; mi: number }
 
 /** The popover itself. `withDate` adds day/month/year wheels (year: prev/this/next). */
-export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onClear, shortcut, clearLabel }: {
+export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onClear, shortcut, clearLabel, days }: {
   anchor: DOMRect
   initial: Date
   withDate?: boolean
@@ -71,6 +72,16 @@ export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onC
   /** names the clear action instead of showing a bin — «noch da», which is what emptying a «bis»
    *  actually means. A bin glyph said «destroy» for an action that records presence. */
   clearLabel?: string
+  /**
+   * The days this value may fall on — the incident's own days, NOT a date picker.
+   *
+   * Times carry HH:MM only, and which day was meant used to be inferred from the old stamp. That
+   * holds for one night and breaks past it: on a multi-day Einsatz there was no way to say «this
+   * stretch belongs to the Wednesday» at all. A bounded wheel says it in one gesture and needs no
+   * month or year — an incident touches a handful of days, and they are all known. Omitted or
+   * single-day: no wheel appears, so the everyday case pays nothing.
+   */
+  days?: Date[]
 }) {
   const C = appConfig.copy.wheel
   const [v, setV] = useState<WheelValue>({
@@ -81,8 +92,19 @@ export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onC
     const base = new Date().getFullYear()
     return [base - 1, base, base + 1]
   }, [])
+  // the incident's days, de-duplicated to midnight so «same day» is a stable key
+  const dayList = useMemo(() => {
+    const seen = new Map<number, Date>()
+    for (const d of days ?? []) {
+      const k = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+      if (Number.isFinite(k.getTime())) seen.set(k.getTime(), k)
+    }
+    return [...seen.values()].sort((a, b) => a.getTime() - b.getTime())
+  }, [days])
+  const dayIndex = dayList.findIndex((d) =>
+    d.getFullYear() === v.y && d.getMonth() + 1 === v.mo && d.getDate() === v.d)
   const daysInMonth = new Date(v.y, v.mo, 0).getDate()
-  const days = Array.from({ length: daysInMonth }, (_, i) => pad2(i + 1))
+  const monthDays = Array.from({ length: daysInMonth }, (_, i) => pad2(i + 1))
   const months = Array.from({ length: 12 }, (_, i) => pad2(i + 1))
 
   const ref = useRef<HTMLDivElement>(null)
@@ -117,7 +139,8 @@ export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onC
   const height = 300 // ≈ padding + 5×44px wheel + actions row (keep in sync with app.css)
   const up = window.innerHeight - anchor.bottom < height + 16
   // a shortcut or a named clear needs its sentence on one line; the bare wheels do not
-  const width = withDate ? 316 : (shortcut || clearLabel ? 236 : 196)
+  const dayWheel = dayList.length > 1 ? 76 : 0
+  const width = withDate ? 316 : (shortcut || clearLabel ? 236 : 196) + dayWheel
   const left = Math.max(8, Math.min(anchor.left, window.innerWidth - width - 8))
   const style: React.CSSProperties = {
     position: 'fixed', left, width,
@@ -136,7 +159,7 @@ export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onC
       <div className="wheelpop-cols">
         {withDate && (
           <>
-            <Wheel ariaLabel={C.day} items={days} index={Math.min(v.d, daysInMonth) - 1}
+            <Wheel ariaLabel={C.day} items={monthDays} index={Math.min(v.d, daysInMonth) - 1}
               onIndex={(i) => setV((p) => ({ ...p, d: i + 1 }))} />
             <Wheel ariaLabel={C.month} items={months} index={v.mo - 1}
               onIndex={(i) => setV((p) => ({ ...p, mo: i + 1, d: Math.min(p.d, new Date(p.y, i + 1, 0).getDate()) }))} />
@@ -144,6 +167,13 @@ export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onC
               onIndex={(i) => setV((p) => ({ ...p, y: years[i] }))} />
             <span className="wheelpop-sep" aria-hidden />
           </>
+        )}
+        {dayList.length > 1 && (
+          <Wheel ariaLabel={C.day} items={dayList.map(fmtDayShort)} index={Math.max(0, dayIndex)}
+            onIndex={(i) => {
+              const d = dayList[i]
+              if (d) setV((p) => ({ ...p, y: d.getFullYear(), mo: d.getMonth() + 1, d: d.getDate() }))
+            }} />
         )}
         <Wheel ariaLabel={C.hour} items={HOURS} index={v.h} onIndex={(i) => setV((p) => ({ ...p, h: i }))} />
         <Wheel ariaLabel={C.minute} items={MINUTES} index={v.mi} onIndex={(i) => setV((p) => ({ ...p, mi: i }))} />

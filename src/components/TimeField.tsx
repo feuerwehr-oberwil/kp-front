@@ -61,11 +61,13 @@ function TextCommitInput({ value, display, commit, disabled, ariaLabel, placehol
   )
 }
 
-export function TimeField({ value, onCommit, disabled, ariaLabel, nowLabel, className, shortcut, clearLabel }: {
+export function TimeField({ value, onCommit, disabled, ariaLabel, nowLabel, className, shortcut, clearLabel, days }: {
   /** current value as 'HH:MM' ('' = unset) */
   value: string
-  /** 'HH:MM' from wheels/typing/«Jetzt»; null when cleared */
-  onCommit: (hhmm: string | null) => void
+  /** 'HH:MM' from wheels/typing/«Jetzt»; null when cleared. `day` comes back only when the picker
+   *  offered a day wheel and the operator moved it — the caller then knows the calendar day for
+   *  certain and does not have to infer it from the old stamp. */
+  onCommit: (hhmm: string | null, day?: Date) => void
   disabled?: boolean
   ariaLabel: string
   /** render an inline «Jetzt» button with this label (fast path) */
@@ -75,6 +77,9 @@ export function TimeField({ value, onCommit, disabled, ariaLabel, nowLabel, clas
   shortcut?: { label: string; value?: string; tone?: 'blue' | 'green'; onPick: () => void }
   /** names the clear action in the picker instead of the bin glyph — «noch da» */
   clearLabel?: string
+  /** the incident's own days — a bounded day wheel, shown only when the incident spans more than
+   *  one. On a single-day incident nothing changes. */
+  days?: Date[]
 }) {
   const [open, setOpen] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
@@ -119,7 +124,12 @@ export function TimeField({ value, onCommit, disabled, ariaLabel, nowLabel, clas
           anchor={btnRef.current.getBoundingClientRect()}
           initial={initial}
           onClose={() => setOpen(false)}
-          onCommit={(v: WheelValue) => { setOpen(false); onCommit(`${pad2(v.h)}:${pad2(v.mi)}`) }}
+          onCommit={(v: WheelValue) => {
+            setOpen(false)
+            onCommit(`${pad2(v.h)}:${pad2(v.mi)}`,
+              days && days.length > 1 ? new Date(v.y, v.mo - 1, v.d) : undefined)
+          }}
+          days={days}
           // a named clear is offered even on an empty field: «noch da» is a state to SET, not a
           // value to erase, so it must not vanish once the field is already empty
           onClear={value || clearLabel ? () => { setOpen(false); onCommit(null) } : undefined}

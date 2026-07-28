@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, fmtSpanShort, hhmm } from '../lib/format'
-import { fmtDayShort, isOtherDay } from '../lib/zeitplanFormat'
-import { applyTimeToIso } from '../lib/abschluss'
+import { fmtDayShort, incidentDays, isOtherDay } from '../lib/zeitplanFormat'
+import { applyTimeToIso, isoOnDay } from '../lib/abschluss'
 import { cx } from '../lib/cx'
 import { rankAbbr, rankLabel } from '../lib/rank'
 import { intervalsOf } from '../lib/attendanceIntervals'
@@ -87,6 +87,7 @@ function PersonSheet({ person, shifts, blocks, canEdit, startedAt, conflicts, on
       onAdd={canEdit ? () => onAdd(person) : undefined}
       onClose={onClose}
       labels={timeBlockLabels(Z.remove)}
+      days={incidentDays(startedAt, Math.max(...shifts.map((x) => Date.parse(x.to)).filter(Number.isFinite), Date.parse(startedAt ?? '') || 0))}
       blocks={shifts.map((sh) => ({
         key: sh.id,
         from: clock(sh.from),
@@ -94,9 +95,9 @@ function PersonSheet({ person, shifts, blocks, canEdit, startedAt, conflicts, on
         warn: conflicts.has(sh.id) || Date.parse(sh.to) <= Date.parse(sh.from),
         // mirror of onTo: a von typed after the bis means the shift STARTED the previous day,
         // not that it runs backwards — a reversed shift renders as nothing at all
-        onFrom: canEdit ? (v) => { const iso = applyTimeToIso(sh.from, v, { prevDayIfAfter: sh.to }); if (iso) onSetTime(sh.id, { from: iso }) } : undefined,
+        onFrom: canEdit ? (v, day) => { const iso = day ? isoOnDay(day, v) : applyTimeToIso(sh.from, v, { prevDayIfAfter: sh.to }); if (iso) onSetTime(sh.id, { from: iso }) } : undefined,
         // a bis before the von means the shift runs past midnight, not backwards
-        onTo: canEdit ? (v) => { const iso = applyTimeToIso(sh.to, v, { nextDayIfBefore: sh.from }); if (iso) onSetTime(sh.id, { to: iso }) } : undefined,
+        onTo: canEdit ? (v, day) => { const iso = day ? isoOnDay(day, v) : applyTimeToIso(sh.to, v, { nextDayIfBefore: sh.from }); if (iso) onSetTime(sh.id, { to: iso }) } : undefined,
         onRemove: canEdit ? () => onRemove(sh.id, person.displayName) : undefined,
         // on a multi-day Einsatz the clock alone does not say which day this shift belongs to
         dayLabel: startedAt && isOtherDay(new Date(sh.from), new Date(startedAt)) ? fmtDayShort(new Date(sh.from)) : undefined,

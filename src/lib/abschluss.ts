@@ -72,3 +72,18 @@ export function applyTimeToIso(baseIso: string, hhmm: string, opts?: { nextDayIf
   }
   return d.toISOString()
 }
+
+/** An 'HH:MM' placed on a KNOWN calendar day — used when the picker's day wheel said which one,
+ *  so nothing has to be inferred from the previous stamp. */
+export function isoOnDay(day: Date, hhmm: string): string | null {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm)
+  if (!m || !Number.isFinite(day.getTime())) return null
+  const h = Number(m[1])
+  const mi = Number(m[2])
+  // The RANGE has to be checked, not just the shape: «99:99» matches the pattern, and the Date
+  // constructor rolls the overflow silently into the following days rather than refusing it — so
+  // a typo would land four days out with no complaint.
+  if (h > 23 || mi > 59) return null
+  const d = new Date(day.getFullYear(), day.getMonth(), day.getDate(), h, mi, 0, 0)
+  return Number.isFinite(d.getTime()) ? d.toISOString() : null
+}

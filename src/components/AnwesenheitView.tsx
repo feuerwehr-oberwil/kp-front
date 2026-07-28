@@ -4,10 +4,10 @@ import type { AttendanceState, Person, PresenceInterval, Shift } from '../types'
 import { cx } from '../lib/cx'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, fmtSpanShort, hhmm } from '../lib/format'
-import { applyTimeToIso } from '../lib/abschluss'
+import { applyTimeToIso, isoOnDay } from '../lib/abschluss'
 import { rankAbbr, rankLabel, rankOrder } from '../lib/rank'
 import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
-import { fmtDayShort, isOtherDay } from '../lib/zeitplanFormat'
+import { fmtDayShort, incidentDays, isOtherDay } from '../lib/zeitplanFormat'
 import { loadPrefs, savePrefs } from '../lib/prefs'
 import { useIsPhone } from '../lib/useIsPhone'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
@@ -77,6 +77,7 @@ function PresenceSheet({ person, blocks, canEdit, startedAt, onSetTimes, onRemov
       onAdd={canEdit ? onBack : undefined}
       onClose={onClose}
       labels={timeBlockLabels(A.blockRemove)}
+      days={incidentDays(startedAt, openedAt)}
       blocks={blocks.map((iv, i) => ({
         key: String(i),
         from: toHM(iv.from),
@@ -90,7 +91,7 @@ function PresenceSheet({ person, blocks, canEdit, startedAt, onSetTimes, onRemov
           : { label: A.running, tone: 'open' as const },
         duration: fmtSpanShort((iv.to ? Date.parse(iv.to) : openedAt) - Date.parse(iv.from)),
         // mirror of onTo: a von typed after the bis means the block STARTED the previous day
-        onFrom: canEdit && onSetTimes ? (v) => { const iso = applyTimeToIso(iv.from, v, { prevDayIfAfter: iv.to }); if (iso) onSetTimes(person.id, { from: iso }, i) } : undefined,
+        onFrom: canEdit && onSetTimes ? (v, day) => { const iso = day ? isoOnDay(day, v) : applyTimeToIso(iv.from, v, { prevDayIfAfter: iv.to }); if (iso) onSetTimes(person.id, { from: iso }, i) } : undefined,
         // on a multi-day Einsatz the clock alone does not say which day this block belongs to
         dayLabel: startedAt && isOtherDay(new Date(iv.from), new Date(startedAt)) ? fmtDayShort(new Date(iv.from)) : undefined,
         toDayLabel: iv.to && isOtherDay(new Date(iv.to), new Date(iv.from)) ? fmtDayShort(new Date(iv.to)) : undefined,
@@ -110,7 +111,7 @@ function PresenceSheet({ person, blocks, canEdit, startedAt, onSetTimes, onRemov
         onReopen: canEdit && onSetTimes && !!iv.to && i === blocks.length - 1
           ? () => onSetTimes(person.id, { to: undefined }, i) : undefined,
         onRemove: canEdit && onRemoveBlock ? () => onRemoveBlock(person.id, i) : undefined,
-        onTo: canEdit && onSetTimes && iv.to ? (v) => { const iso = applyTimeToIso(iv.to!, v, { nextDayIfBefore: iv.from }); if (iso) onSetTimes(person.id, { to: iso }, i) } : undefined,
+        onTo: canEdit && onSetTimes && iv.to ? (v, day) => { const iso = day ? isoOnDay(day, v) : applyTimeToIso(iv.to!, v, { nextDayIfBefore: iv.from }); if (iso) onSetTimes(person.id, { to: iso }, i) } : undefined,
       }))}
     />
   )

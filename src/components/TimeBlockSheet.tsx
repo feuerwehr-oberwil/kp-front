@@ -64,8 +64,8 @@ export interface TimeBlock {
   head: TimeBlockHead
   /** how long it lasts, already formatted (fmtSpanShort) — «4 h 00», «seit 29 min» */
   duration?: string
-  onFrom?: (hhmm: string) => void
-  onTo?: (hhmm: string) => void
+  onFrom?: (hhmm: string, day?: Date) => void
+  onTo?: (hhmm: string, day?: Date) => void
   onRemove?: () => void
 }
 
@@ -79,7 +79,7 @@ export interface TimeBlock {
  * different paddings, one with labels and one without — and at 3am two surfaces that look almost
  * alike are worse than either.
  */
-export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabel, addLabel, onAdd, note, extra, onClose, labels }: {
+export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabel, addLabel, onAdd, note, extra, onClose, labels, days }: {
   title: string
   /** who this sheet is about — field labels read «von – Meier Anna», not «von – Schichten – …» */
   subject: string
@@ -95,6 +95,8 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
   extra?: ReactNode
   onClose: () => void
   labels: { from: string; to: string; done: string; remove: string; fromStart: string; reopen: string; flip: string }
+  /** the incident's own days — the picker shows a day wheel only when there is more than one */
+  days?: Date[]
 }) {
   return (
     <Sheet open onClose={onClose} fit sheetClassName={s.sheet} title={title}
@@ -149,7 +151,8 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
               <span className={s.field}>
                 <span className={s.label}>{labels.from}</span>
                 <TimeField className={s.time} ariaLabel={`${labels.from} – ${subject}`} value={b.from}
-                  disabled={!b.onFrom} onCommit={(v) => { if (v) b.onFrom?.(v) }}
+                  disabled={!b.onFrom} onCommit={(v, day) => { if (v) b.onFrom?.(v, day) }}
+                  days={days}
                   shortcut={b.onFromStart && {
                     label: labels.fromStart, value: b.fromStartValue, onPick: b.onFromStart,
                   }} />
@@ -160,8 +163,8 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
                 <span className={s.label}>{labels.to}</span>
                 {b.to != null ? (
                   <TimeField className={s.time} ariaLabel={`${labels.to} – ${subject}`} value={b.to}
-                    disabled={!b.onTo} onCommit={(v) => { if (v == null) b.onReopen?.(); else b.onTo?.(v) }}
-                    clearLabel={b.onReopen ? labels.reopen : undefined} />
+                    disabled={!b.onTo} onCommit={(v, day) => { if (v == null) b.onReopen?.(); else b.onTo?.(v, day) }}
+                    clearLabel={b.onReopen ? labels.reopen : undefined} days={days} />
                 ) : (
                   <em className={s.open}>{b.openLabel}</em>
                 )}
