@@ -400,7 +400,9 @@
 .adm-badge.off .adm-badge-dot { background: var(--ink-faint); }
 .adm-badge.off .adm-badge-state { color: var(--ink-faint); }
 .adm-badge.warn .adm-badge-dot { background: var(--amber); }
-.adm-badge.warn .adm-badge-state { color: var(--amber); }
+/* the -strong variant exists for exactly this role — legible text on a faint tint. Raw --amber
+   is 2.5:1 on the light chrome; the «on» row two rules up already reaches for it. */
+.adm-badge.warn .adm-badge-state { color: var(--amber-strong); }
 .adm-badge.err .adm-badge-dot { background: var(--red); }
 .adm-badge.err .adm-badge-state { color: var(--red); }
 
@@ -518,7 +520,7 @@
 
 .adm-save-btn {
   flex: 0 0 auto; min-height: var(--tap); padding: 9px 18px; font-size: 12.5px;
-  color: var(--on-accent-ink); background: var(--blue); border: 1px solid var(--blue);
+  color: var(--on-fill); background: var(--blue); border: 1px solid var(--blue);
   transition: background .16s var(--ease), border-color .16s var(--ease), transform .12s var(--ease);
 }
 .adm-save-btn:not(:disabled):hover { background: var(--blue-strong); border-color: var(--blue-strong); }
@@ -651,7 +653,7 @@
   position: relative;
   display: grid; place-items: center; width: 28px; height: 28px; padding: 0;
   border: 2px solid var(--surface); border-radius: 50%;
-  background: var(--blue); color: #fff; cursor: pointer;
+  background: var(--blue); color: var(--on-fill); cursor: pointer;
   box-shadow: var(--shadow-sm); transition: transform .12s var(--ease), background .12s var(--ease);
 }
 /* invisible hit pad — a 28px map pin is too fiddly for touch */

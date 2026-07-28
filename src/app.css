@@ -50,7 +50,14 @@
   --border: rgba(0, 0, 0, .1);           /* recurring hairline on light chrome */
   --border-soft: rgba(0, 0, 0, .06);     /* faintest separator hairline */
   --fill-soft: rgba(0, 0, 0, .045);      /* inset field / search backgrounds */
-  --on-accent-ink: #fff;      /* text/marks on --red/--blue/--green/--amber/--ink */
+  --on-accent-ink: #fff;      /* text/marks on --ink-fill and on the station's own --accent */
+  /* Ink on a SATURATED fill (--blue/--green/--red/--amber). It is a second token because those
+     four flip bright for the dark theme while --ink-fill stays dark: near-white on the night blue
+     is 2.5:1, on the night green 2.3:1 — unreadable exactly where a primary button, a segmented
+     option or a toast puts its one word. Dark ink on those same fills is 6–8:1.
+     NOT used on --accent: that one is set per station at runtime (deploymentConfig), so nobody
+     here knows whether it is light or dark, and those sites keep --on-accent-ink. */
+  --on-fill: #fff;
   --ink-fill: #1b2330;        /* dark "active pill" / tool-dock surface (= day --ink) */
   --ink-fill-hover: #0f1722;  /* hover on dark ink-fill buttons/docks (darker in day) */
   /* "strong" accent variants: a darker shade used as a hover background on an accent
@@ -130,6 +137,7 @@
   --fill-soft: rgba(255, 255, 255, .06);
   /* white-on-accent text stays near-white but warmed a touch off pure #fff */
   --on-accent-ink: #f5f8fc;
+  --on-fill: #0d1118;         /* see the day block — 7.1:1 on the night blue, 8.1:1 on the green */
   /* "active/selected" dark pills + tool docks stay a raised dark surface in night
      (NOT the now-light --ink), so their light content keeps contrast */
   --ink-fill: #2b3545;
@@ -641,7 +649,7 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
   font: 600 12.5px var(--body); color: var(--ink-dim); cursor: pointer; white-space: nowrap; transition: background .12s, color .12s; }
 .useg-btn .i { width: 15px; height: 15px; }
 .useg-btn:hover:not(.on):not(:disabled) { color: var(--ink); }
-.useg-btn.on { background: var(--blue); color: var(--on-accent-ink); box-shadow: 0 1px 2px rgba(20, 40, 80, .22); }
+.useg-btn.on { background: var(--blue); color: var(--on-fill); box-shadow: 0 1px 2px rgba(20, 40, 80, .22); }
 .useg-btn:disabled { opacity: .4; cursor: default; }
 
 /* the glyph-affecting steppers (Geschoss / Anzahl / Drehung) sit in one group;
@@ -737,7 +745,7 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .un-haz-k { flex: 0 0 44%; color: var(--ink-dim); font-weight: 600; }
 .un-haz-v { flex: 1; color: var(--ink); font-family: var(--mono); }
 .un-haz-water { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; padding: 7px 9px; border-radius: var(--r-xs);
-  background: var(--red); color: var(--on-accent-ink, #fff); font-size: 12.5px; font-weight: 700; }
+  background: var(--red); color: var(--on-fill); font-size: 12.5px; font-weight: 700; }
 .un-haz-water svg { width: 15px; height: 15px; flex: none; }
 .un-haz-list { margin: 0 0 8px; padding-left: 18px; }
 .un-haz-list li { font-size: 12.5px; color: var(--ink); padding: 2px 0; }
@@ -750,7 +758,7 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
   background: var(--fill-soft); color: var(--ink-faint); }
 .kv-x:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
 .kv-x .i { width: 13px; height: 13px; }
-.kv-add { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; border: 1px dashed rgba(30, 45, 70, .22);
+.kv-add { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; border: 1px dashed var(--glass-edge);
   background: none; color: var(--ink-dim); border-radius: var(--r-ctl); padding: 8px 12px; font-size: 12.5px; font-weight: 600;
   font-family: var(--body); cursor: pointer; transition: background .14s var(--ease), color .14s var(--ease), border-color .14s var(--ease); }
 .kv-add:hover { background: color-mix(in srgb, var(--blue) 7%, transparent); border-color: var(--blue); color: var(--blue); }
@@ -765,7 +773,7 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
   cursor: pointer; display: grid; place-items: center; transition: background .14s var(--ease), color .14s var(--ease), border-color .14s var(--ease); }
 .spread-btn.wide { font-family: var(--body); font-size: 11.5px; font-weight: 600; letter-spacing: .02em; }
 .spread-btn:hover:not(:disabled):not(.on) { background: var(--surface); border-color: var(--border); }
-.spread-btn.on { background: var(--blue); border-color: var(--blue); color: var(--on-accent-ink); }
+.spread-btn.on { background: var(--blue); border-color: var(--blue); color: var(--on-fill); }
 .spread-btn:disabled { opacity: .35; cursor: default; }
 
 /* general free-text notes */
@@ -813,7 +821,7 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .hist-ev .ic { position: relative; width: 26px; height: 26px; border-radius: 50%; background: var(--surface-2);
   border: 1px solid var(--border-soft); color: var(--ink-dim); font-size: 13px; display: grid; place-items: center; flex: none; }
 .hist-ev .ic::after { content: ''; position: absolute; top: calc(100% + 1px); left: 50%; transform: translateX(-50%);
-  width: 2px; height: 16px; background: rgba(30, 45, 70, .12); }
+  width: 2px; height: 16px; background: var(--border); }
 .hist-ev:last-child .ic::after { display: none; }
 .hist-ev .tx { flex: 1; }
 
@@ -830,7 +838,7 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .jr-rem-due { white-space: nowrap; }
 .jr-rem.overdue { color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 55%, var(--glass-edge)); }
 .jr-rem.done { color: var(--ink-faint); border-color: var(--border-soft); }
-.jr-rem.done .jr-rem-box { background: var(--green); border-color: var(--green); color: var(--on-accent-ink); }
+.jr-rem.done .jr-rem-box { background: var(--green); border-color: var(--green); color: var(--on-fill); }
 .jr-rem.done .jr-rem-box .i { opacity: 1; }
 
 /* ============================================================
@@ -934,7 +942,7 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
    (faint resting fill + hairline), visually distinct from the flat, sticky modal
    tools above — so "press to do X" is never confused with "select a mode" */
 /* audio is the only action that holds state — it goes red while recording */
-.vrail-tool.is-action.on, .vrail-tool.is-action.on:hover:not(:disabled) { background: var(--red); color: var(--on-accent-ink); box-shadow: none; }
+.vrail-tool.is-action.on, .vrail-tool.is-action.on:hover:not(:disabled) { background: var(--red); color: var(--on-fill); box-shadow: none; }
 /* drag grip on the LEFT edge — pull it to resize the rail (mirror of the nav-grip) */
 .vrail-grip { position: absolute; top: 0; left: -7px; width: 20px; height: 100%; border: 0; background: transparent; padding: 0;
   cursor: ew-resize; z-index: 3; display: flex; align-items: center; justify-content: center; touch-action: none; }
@@ -1059,7 +1067,7 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 /* Demo deployments: a fixed diagonal "DEMO" ribbon across the top-left corner. Non-interactive
    (taps pass through), so it never blocks a control; amber to read as "not a real incident". */
 .demo-ribbon { position: fixed; top: calc(15px + env(safe-area-inset-top)); left: -36px; width: 132px; z-index: 150; pointer-events: none;
-  transform: rotate(-45deg); background: var(--amber); color: var(--on-accent-ink);
+  transform: rotate(-45deg); background: var(--amber); color: var(--on-fill);
   text-align: center; padding: 3px 0; font-size: 11px; font-weight: 800; letter-spacing: 2px;
   box-shadow: 0 1px 5px rgba(20, 28, 40, .35); }
 /* First-visit demo welcome modal (own scrim above the DEMO ribbon so it owns the screen). */
@@ -1073,7 +1081,7 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
   border: none; background: var(--fill-soft); color: var(--ink-dim); display: grid; place-items: center; cursor: pointer; }
 .dw-x .i { width: 16px; height: 16px; }
 .dw-head { display: flex; align-items: center; gap: 10px; margin: 0 40px 12px 0; }
-.dw-badge { flex: none; background: var(--amber); color: var(--on-accent-ink); font-size: 10px; font-weight: 800;
+.dw-badge { flex: none; background: var(--amber); color: var(--on-fill); font-size: 10px; font-weight: 800;
   letter-spacing: 1.5px; padding: 3px 8px; border-radius: var(--r-pill); }
 .dw-title { margin: 0; font-size: 19px; font-weight: 800; color: var(--ink); }
 .dw-intro { margin: 0 0 14px; font-size: 13.5px; line-height: 1.5; color: var(--ink-dim); font-weight: 500; }
@@ -1116,8 +1124,10 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .toast-action { pointer-events: auto; flex: none; align-self: center; margin-left: 4px; padding: 6px 14px; min-height: 44px;
   font-size: 12.5px; font-weight: 700; color: var(--on-accent-ink); border: none; border-radius: var(--r-btn);
   background: color-mix(in srgb, var(--on-accent-ink) 18%, transparent); cursor: pointer; }
-.toast-success { background: var(--green); }
-.toast-warn { background: var(--red); }
+/* the fill is overridden, so the ink has to be too — .toast sits on --ink-fill and keeps its
+   near-white, which lands at 2.2:1 once the fill turns green */
+.toast-success { background: var(--green); color: var(--on-fill); }
+.toast-warn { background: var(--red); color: var(--on-fill); }
 @keyframes toastIn { from { opacity: 0; transform: translateY(10px) scale(.96); } }
 
 .confirm-backdrop { z-index: 95; }
@@ -1134,7 +1144,7 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .confirm-actions .btn { flex: 0 0 auto; min-width: 96px; padding: 11px 16px; font-size: 13px; }
 .btn.primary { background: var(--ink-fill); border-color: var(--ink-fill); color: var(--on-accent-ink); }
 .btn.primary:hover { background: var(--ink-fill-hover); border-color: var(--ink-fill-hover); }
-.btn.warn-solid { background: var(--red); border-color: var(--red); color: var(--on-accent-ink); }
+.btn.warn-solid { background: var(--red); border-color: var(--red); color: var(--on-fill); }
 .btn.warn-solid:hover { background: var(--red-solid-hover); border-color: var(--red-solid-hover); }
 
 
@@ -1203,7 +1213,7 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 /* ✓ "Fertig" on a text box being edited: in box mode Enter makes a newline, so touch needs a
    visible way out (tap-away and Esc work too, but neither is discoverable with gloves on). */
 .note-done { position: absolute; right: -12px; bottom: -12px; width: 32px; height: 32px;
-  padding: 0; border-radius: 50%; border: none; background: var(--green); color: #fff;
+  padding: 0; border-radius: 50%; border: none; background: var(--green); color: var(--on-fill);
   display: grid; place-items: center; cursor: pointer; z-index: 3;
   box-shadow: 0 3px 9px rgba(30, 45, 70, .3); }
 .note-done .i { width: 16px; height: 16px; stroke-width: 2.4; }
@@ -1215,7 +1225,10 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 .dh-swatches, .dh-widths { display: flex; align-items: center; gap: 9px; }
 .dh-color { width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .5); cursor: pointer; padding: 0;
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .12); } /* inner edge so a white/light swatch stays visible */
-.dh-color.on { border-color: var(--on-accent-ink); box-shadow: 0 0 0 2px rgba(255, 255, 255, .6); }
+/* .draw-editor already overrides this pair (see below) because a white ring on a light panel is
+   invisible — but the ContextPanel renders the same swatches outside .draw-editor, where the ring
+   sat at ~1.1:1 in day and the selected colour was indistinguishable from the rest. */
+.dh-color.on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--ink-tint-strong); }
 .dh-width { width: 38px; height: 34px; display: grid; place-items: center; background: rgba(255, 255, 255, .12); border: none; border-radius: var(--r-xs); cursor: pointer; }
 .dh-width.on { background: rgba(255, 255, 255, .3); }
 .dh-width span { display: block; width: 18px; background: var(--on-accent-ink); border-radius: 4px; }
@@ -1259,12 +1272,12 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 .draw-editor .de-numrow .de-input-short { width: 52px; }
 .draw-editor .de-toggle { padding: 4px 12px; border: 1px solid var(--border); border-radius: var(--r-xs);
   font-size: 12px; font-weight: 600; color: var(--ink-dim); background: var(--fill-soft); cursor: pointer; }
-.draw-editor .de-toggle.on { background: var(--blue); border-color: var(--blue); color: var(--on-accent-ink); }
+.draw-editor .de-toggle.on { background: var(--blue); border-color: var(--blue); color: var(--on-fill); }
 /* line-preset chips (Freihand · Messpfeil · Rettungsachse) — post-pick style switcher */
 .draw-editor .de-presets { display: inline-flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
 .draw-editor .de-preset { padding: 4px 10px; border: 1px solid var(--border); border-radius: var(--r-xs);
   font-size: 12px; font-weight: 600; color: var(--ink-dim); background: var(--fill-soft); cursor: pointer; }
-.draw-editor .de-preset.on { background: var(--blue); border-color: var(--blue); color: var(--on-accent-ink); }
+.draw-editor .de-preset.on { background: var(--blue); border-color: var(--blue); color: var(--on-fill); }
 /* line-ending glyph picker (plain · arrow · Teilstück fork) uses the shared <Segmented> */
 
 /* shape editor — size / rotation range rows */
@@ -1281,7 +1294,7 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 .shape-ph .shape-svg { width: 100%; height: 100%; }
 
 /* timeline audio play */
-.tl-play { background: var(--green); color: var(--on-accent-ink); border: none; border-radius: 50%; width: 26px; height: 26px;
+.tl-play { background: var(--green); color: var(--on-fill); border: none; border-radius: 50%; width: 26px; height: 26px;
   cursor: pointer; display: grid; place-items: center; flex: none; transition: transform .12s var(--ease); }
 .tl-play:active { transform: scale(.9); }
 /* while a voice memo is sounding, the button turns blue and pulses so it's obvious */
@@ -1561,14 +1574,14 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-resource-input { border: none; outline: none; background: color-mix(in srgb, var(--blue) 8%, transparent); border-radius: var(--r-xs); font-family: var(--body);
   font-size: 12.5px; font-weight: 700; color: var(--ink); width: 76px; padding: 2px 5px; }
 .wb-del { position: absolute; top: -11px; right: -11px; width: 28px; height: 28px; border-radius: 50%; border: 2px solid #fff;
-  background: var(--red); color: var(--on-accent-ink); display: grid; place-items: center; cursor: pointer; box-shadow: 0 2px 6px rgba(30, 45, 70, .3); }
+  background: var(--red); color: var(--on-fill); display: grid; place-items: center; cursor: pointer; box-shadow: 0 2px 6px rgba(30, 45, 70, .3); }
 /* 44px touch pad (parity with the Lage map orbs + .wb-mark) so the 28px delete orb is still
    gloved-finger sized on a plan */
 .wb-del::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .wb-del .i { width: 12px; height: 12px; stroke-width: 2.4; }
 /* mark-position — mirrors .wb-del at the top-left; blue (a log action, not destructive) */
 .wb-mark { position: absolute; top: -11px; left: -11px; width: 28px; height: 28px; border-radius: 50%; border: 2px solid #fff;
-  background: var(--blue); color: var(--on-accent-ink); display: grid; place-items: center; cursor: pointer; box-shadow: 0 2px 6px rgba(30, 45, 70, .3); padding: 0; }
+  background: var(--blue); color: var(--on-fill); display: grid; place-items: center; cursor: pointer; box-shadow: 0 2px 6px rgba(30, 45, 70, .3); padding: 0; }
 .wb-mark::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .wb-mark .i { width: 14px; height: 14px; stroke-width: 2.2; }
 /* (the selected note's pencil / gear / delete now sit in one row above it — see .note-grips) */
@@ -1627,7 +1640,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-dock-tog { width: 38px; height: 34px; display: grid; place-items: center; background: rgba(255, 255, 255, .12);
   border: none; border-radius: var(--r-xs); cursor: pointer; color: var(--on-accent-ink); padding: 0; }
 .wb-dock-tog .i { width: 17px; height: 17px; }
-.wb-dock-tog.on { background: var(--blue); color: #fff; } /* active mode: blue accent, not stark white */
+.wb-dock-tog.on { background: var(--blue); color: var(--on-fill); } /* active mode: blue accent, not stark white */
 /* word/letter toggles (note size steps, Zettel↔Klartext) — the dock is narrow, so the label
    shrinks to fit rather than widening the whole column */
 .wb-dock-txt { font: 700 11px var(--body); letter-spacing: .01em; padding: 0 5px; white-space: nowrap; }
@@ -1719,7 +1732,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-cal-chip { flex: 1; border: 1px solid var(--glass-edge); background: var(--surface-2, #fff); border-radius: var(--r-ctl);
   padding: 9px 0; font: 700 14px var(--body); color: var(--ink); cursor: pointer; }
 .wb-cal-chip:hover { border-color: var(--blue); }
-.wb-cal-chip.on { border-color: var(--blue); background: var(--blue); color: var(--on-accent-ink); }
+.wb-cal-chip.on { border-color: var(--blue); background: var(--blue); color: var(--on-fill); }
 
 /* clean −/+ stepper for the real-length entry */
 .wb-cal-stepper { display: flex; align-items: stretch; gap: 8px; }
@@ -1770,7 +1783,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-vertex::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .wb-vertex:active { cursor: grabbing; }
 .wb-vins { position: absolute; z-index: 7; width: 18px; height: 18px; border-radius: 50%; padding: 0; display: grid; place-items: center;
-  background: var(--blue); border: 2px solid var(--surface); color: var(--on-accent-ink); cursor: pointer; touch-action: none; opacity: .55; }
+  background: var(--blue); border: 2px solid var(--surface); color: var(--on-fill); cursor: pointer; touch-action: none; opacity: .55; }
 .wb-vins::after { content: ''; position: absolute; left: 50%; top: 50%; width: 34px; height: 34px; transform: translate(-50%, -50%); }
 .wb-vins:hover { opacity: 1; }
 .wb-vins .i { width: 11px; height: 11px; stroke-width: 2.6; }
@@ -1880,7 +1893,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   color: var(--blue); font: 700 12.5px var(--body); cursor: pointer; }
 .wx-pop-link:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); border-color: color-mix(in srgb, var(--blue) 35%, var(--border)); }
 .wx-pop-link svg { width: 16px; height: 16px; }
-.tb-act-add { position: relative; overflow: hidden; background: var(--blue); color: var(--on-accent-ink); touch-action: none; user-select: none; min-width: 96px; }
+.tb-act-add { position: relative; overflow: hidden; background: var(--blue); color: var(--on-fill); touch-action: none; user-select: none; min-width: 96px; }
 .tb-act-add:hover { background: var(--blue-strong); color: var(--on-accent-ink); }
 .tb-act-add .i, .tb-act-add span { position: relative; z-index: 1; }
 /* press-and-hold "charging" cue: a bar fills across the button over the hold
@@ -1912,7 +1925,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .journal-title .i { width: 17px; height: 17px; }
 .journal-replay { position: relative; margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
   height: 28px; padding: 0 11px; border: none; border-radius: var(--r-ctl); cursor: pointer;
-  background: var(--amber); color: var(--on-accent-ink); font-family: var(--body); font-weight: 700; font-size: 12px; }
+  background: var(--amber); color: var(--on-fill); font-family: var(--body); font-weight: 700; font-size: 12px; }
 /* full-height transparent pad — visually compact chip, finger-sized target */
 .journal-replay::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
 .journal-replay:hover { filter: brightness(.96); }
@@ -1962,7 +1975,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   font-family: inherit; }
 .jc-rec .i { width: 15px; height: 15px; }
 .jc-rec:hover { color: var(--ink); }
-.jc-rec.on { background: var(--red); border-color: var(--red); color: var(--on-accent-ink); animation: recPulse 1.4s ease-in-out infinite; }
+.jc-rec.on { background: var(--red); border-color: var(--red); color: var(--on-fill); animation: recPulse 1.4s ease-in-out infinite; }
 @keyframes recPulse { 50% { opacity: .72; } }
 .jc-clip { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-dim); font-weight: 600; }
 .jc-clip-len { font-family: var(--mono); }
@@ -1988,7 +2001,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .jc-pin:hover { color: var(--ink); }
 .jc-pin.on { background: color-mix(in srgb, var(--blue) 12%, transparent); border-color: color-mix(in srgb, var(--blue) 50%, transparent); color: var(--blue-strong); }
 .jc-send { margin-left: auto; display: flex; align-items: center; gap: 7px; border: none; cursor: pointer;
-  background: var(--blue); color: var(--on-accent-ink); border-radius: var(--r-ctl); padding: 9px 16px; min-height: var(--tap); font-size: 13px; font-weight: 700;
+  background: var(--blue); color: var(--on-fill); border-radius: var(--r-ctl); padding: 9px 16px; min-height: var(--tap); font-size: 13px; font-weight: 700;
   font-family: inherit; }
 .jc-send .i { width: 15px; height: 15px; }
 .jc-send:hover { background: var(--blue-strong); }
@@ -2034,7 +2047,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 
 /* open-reminders count badge on the Verlauf button */
 .tb-rem-count { position: absolute; top: -5px; right: -5px; min-width: 17px; height: 17px; padding: 0 4px; box-sizing: border-box;
-  border-radius: var(--r-sm); background: var(--amber); color: var(--on-accent-ink); line-height: 17px; text-align: center;
+  border-radius: var(--r-sm); background: var(--amber); color: var(--on-fill); line-height: 17px; text-align: center;
   font-size: 11px; font-weight: 800; letter-spacing: -.2px; }
 
 /* due-reminder banner — persistent until handled */
@@ -2054,8 +2067,8 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   min-height: 42px; white-space: nowrap; }
 .rb-btn .i { width: 15px; height: 15px; flex: none; }
 .rb-btn:hover { color: var(--ink); border-color: color-mix(in srgb, var(--ink) 22%, var(--glass-edge)); background: var(--surface); }
-.rb-done { flex: 1.25; background: var(--green); border-color: var(--green); color: var(--on-accent-ink); }
-.rb-done:hover { color: var(--on-accent-ink); border-color: var(--green); background: var(--green); filter: brightness(1.06); }
+.rb-done { flex: 1.25; background: var(--green); border-color: var(--green); color: var(--on-fill); }
+.rb-done:hover { color: var(--on-fill); border-color: var(--green); background: var(--green); filter: brightness(1.06); }
 
 /* PWA update prompt (UpdateBanner) — low-urgency, so it sits at the BOTTOM and below the
    safety banners' z-index, never competing with a due-reminder alert at the top. Calm accent
@@ -2166,7 +2179,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .measure-label { padding: 2px 7px; border-radius: var(--r-xs); font-size: 11px; font-weight: 700;
   font-family: var(--mono); white-space: nowrap; background: var(--label-bg); color: var(--ink);
   box-shadow: 0 1px 2px rgba(15, 22, 34, .3), 0 2px 6px rgba(30, 45, 70, .22); pointer-events: none; }
-.measure-label.strong { background: var(--blue); color: var(--on-accent-ink); }
+.measure-label.strong { background: var(--blue); color: var(--on-fill); }
 .measure-label.draw-label { text-align: center; line-height: 1.25; }
 /* a line's distance/text label is draggable (nudge it off overlapping ink), so it must
    accept pointer events again and hint the move cursor */
@@ -2296,7 +2309,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 /* selected-drawing edit handles (reshape vertices + move grip + delete) — each gets a
    transparent hit pad; kept below 44px because move/delete/rotate cluster around the
    drawing centre and full-size pads would overlap onto the destructive ✕ */
-.draw-move { position: relative; width: 30px; height: 30px; border-radius: 50%; background: var(--blue); color: var(--on-accent-ink);
+.draw-move { position: relative; width: 30px; height: 30px; border-radius: 50%; background: var(--blue); color: var(--on-fill);
   display: grid; place-items: center; cursor: grab; box-shadow: 0 2px 6px rgba(30, 45, 70, .4); border: 2px solid #fff; }
 .draw-move::after { content: ''; position: absolute; inset: -5px; }
 .draw-move:active { cursor: grabbing; }
@@ -2313,7 +2326,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .draw-rotor button { pointer-events: auto; }
 .draw-stem { position: absolute; left: 0; bottom: 0; width: 2px; height: 24px; transform: translateX(-50%); background: var(--blue); }
 .draw-rotate { position: absolute; left: 0; bottom: 24px; transform: translateX(-50%);
-  width: 28px; height: 28px; border-radius: 50%; background: var(--blue); color: var(--on-accent-ink); border: 2px solid #fff;
+  width: 28px; height: 28px; border-radius: 50%; background: var(--blue); color: var(--on-fill); border: 2px solid #fff;
   display: grid; place-items: center; cursor: grab; box-shadow: 0 2px 6px rgba(30, 45, 70, .4); padding: 0; }
 .draw-rotate:active { cursor: grabbing; }
 .draw-rotate::after { content: ''; position: absolute; inset: -6px; }
@@ -2428,9 +2441,12 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 
 .pin-dots { display: flex; gap: 15px; padding: 6px 0 2px; }
 .pin-dots.err { animation: pinShake .35s var(--ease); }
-.pin-dot { width: 13px; height: 13px; border-radius: 50%; background: rgba(30, 45, 70, .14);
-  box-shadow: inset 0 0 0 1px rgba(30, 45, 70, .12); transition: background .14s var(--ease), transform .14s var(--ease), box-shadow .14s var(--ease); }
-.pin-dot.on { background: var(--ink-fill); transform: scale(1.14); box-shadow: 0 0 0 4px rgba(30, 45, 70, .1); }
+/* --ink is the MARK token and flips with the theme; --ink-fill is a dark SURFACE that stays dark
+   in both, so on the night login card the filled dot sat at 1.4:1 — you typed a PIN and the screen
+   showed nothing back. Day is unchanged: --ink is byte-identical to the old --ink-fill there. */
+.pin-dot { width: 13px; height: 13px; border-radius: 50%; background: var(--ink-tint);
+  box-shadow: inset 0 0 0 1px var(--ink-tint); transition: background .14s var(--ease), transform .14s var(--ease), box-shadow .14s var(--ease); }
+.pin-dot.on { background: var(--ink); transform: scale(1.14); box-shadow: 0 0 0 4px var(--ink-tint); }
 .pin-dots.err .pin-dot.on { background: var(--red); box-shadow: 0 0 0 4px color-mix(in srgb, var(--red) 18%, transparent); }
 @keyframes pinShake { 10%, 90% { transform: translateX(-2px); } 30%, 70% { transform: translateX(5px); } 50% { transform: translateX(-6px); } }
 
@@ -2675,7 +2691,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .ip-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 8px; }
 .ip-head h2 { margin: 0; font: 700 19px var(--body); color: var(--ink); }
 .ip-x { border: none; background: none; cursor: pointer; color: var(--ink-dim); padding: 6px; border-radius: var(--r-sm); }
-.ip-x:hover { background: rgba(30,45,70,.07); }
+.ip-x:hover { background: var(--hover); }
 .ip-x svg { width: 18px; height: 18px; }
 .ip-body { padding: 6px 20px 20px; display: flex; flex-direction: column; gap: 12px; }
 .ip-sub { margin: 8px 0 2px; font: 700 12px var(--body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-faint); }
@@ -2702,7 +2718,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   flex: 1; padding: 10px; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
   background: var(--surface); cursor: pointer; font: 600 14px var(--body); color: var(--ink-dim);
 }
-.ip-seg button.on { background: var(--blue); color: var(--on-accent-ink); border-color: var(--blue); }
+.ip-seg button.on { background: var(--blue); color: var(--on-fill); border-color: var(--blue); }
 .ip-check { display: flex; align-items: center; gap: 8px; font: 500 13px var(--body); color: var(--ink-dim); }
 
 .ip-actions, .ip-row-actions { display: flex; gap: 10px; justify-content: flex-end; align-items: center; }
@@ -2724,7 +2740,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 }
 .ip-btn:hover { background: var(--hover-strong); }
 .ip-btn svg { width: 16px; height: 16px; }
-.ip-btn.primary { background: var(--blue); color: var(--on-accent-ink); border-color: var(--blue); }
+.ip-btn.primary { background: var(--blue); color: var(--on-fill); border-color: var(--blue); }
 .ip-btn.primary:hover { filter: brightness(1.05); }
 .ip-btn.primary:disabled { opacity: .5; cursor: default; }
 /* delete (Übungen in «Alle Einsätze») — red-tinted outline, never a solid destructive button */
@@ -2759,7 +2775,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .ip-badge { font: 700 10px var(--body); letter-spacing: .03em; text-transform: uppercase; padding: 2px 7px; border-radius: var(--r-xs); flex: none; white-space: nowrap; }
 .ip-badge-open { background: color-mix(in srgb, var(--blue) 12%, transparent); color: var(--blue); }
 .ip-badge-work { background: color-mix(in srgb, var(--red) 13%, transparent); color: var(--red); }
-.ip-badge-arch { background: rgba(30,45,70,.08); color: var(--ink-faint); }
+.ip-badge-arch { background: var(--fill-soft); color: var(--ink-dim); }
 /* Übung — amber so a training is never mistaken for a real Einsatz (switcher + lists) */
 .ip-badge-exercise { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); }
 .ip-menu-headtitle .ip-badge, .ip-menu-title .ip-badge { margin-left: 6px; vertical-align: 1px; }
@@ -2955,7 +2971,9 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wheel-pad { height: 88px; flex: none; }
 .wheel-item { display: grid; place-items: center; width: 100%; height: 44px;
   scroll-snap-align: center; border: none; background: none; cursor: pointer;
-  font: 600 15px var(--body); color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+  /* --ink-dim, not --ink-faint: at night the faint tone is 3.64:1, and reading the numbers you are
+     NOT on yet is the entire job of this popover. */
+  font: 600 15px var(--body); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
 .wheel-item.on { color: var(--ink); font-weight: 750; }
 .wheelpop-sep { width: 1px; background: var(--glass-line); margin: 28px 2px; }
 .wheelpop-band { position: absolute; left: 0; right: 0; top: 88px; height: 44px;
@@ -3113,7 +3131,7 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .ip-ix-methods { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .ip-ix-methods .ip-btn { justify-content: center; min-width: 0; }
 .ip-ix-methods .ip-btn:first-child { grid-column: 1 / -1; }
-.ip-btn.on { background: var(--blue); color: var(--on-accent-ink); border-color: var(--blue); }
+.ip-btn.on { background: var(--blue); color: var(--on-fill); border-color: var(--blue); }
 
 /* address autocomplete */
 .ip-ac { position: relative; }
@@ -3159,7 +3177,7 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .ip-chip { padding: 8px 12px; border: 1px solid var(--glass-edge); border-radius: var(--r-pill); background: var(--surface);
   cursor: pointer; font: 600 13px var(--body); color: var(--ink-dim); }
 .ip-chip:hover { background: var(--hover-strong); }
-.ip-chip.on { background: var(--blue); color: var(--on-accent-ink); border-color: var(--blue); }
+.ip-chip.on { background: var(--blue); color: var(--on-fill); border-color: var(--blue); }
 
 .ip-textarea { padding: 11px 12px; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
   background: var(--surface); font: 500 15px var(--body); color: var(--ink); resize: vertical; }
@@ -3384,7 +3402,7 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .app:has(.fab-entry) { --fab-safe: 66px; }
 .fab-entry { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: calc(18px + env(safe-area-inset-bottom)); z-index: 55;
   display: inline-flex; align-items: center; gap: 8px; padding: 14px 20px 14px 16px;
-  border: none; border-radius: 30px; background: var(--blue); color: var(--on-accent-ink);
+  border: none; border-radius: 30px; background: var(--blue); color: var(--on-fill);
   font: 700 15px var(--body); cursor: pointer; overflow: hidden; touch-action: none; user-select: none;
   box-shadow: 0 4px 14px color-mix(in srgb, var(--blue) 42%, transparent), var(--shadow-sm);
   animation: pop .2s var(--ease); transition: transform .12s var(--ease), filter .14s var(--ease); }
@@ -3948,7 +3966,7 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
   background: color-mix(in srgb, var(--amber) 10%, transparent); border-radius: var(--r-ctl); padding: 9px 12px; }
 .report-pre-warn .i { color: var(--amber-strong); }
 .report-pre-warn span { flex: 1 1 auto; min-width: 0; }
-.report-pre-fix { flex: none; border: none; cursor: pointer; background: var(--amber); color: var(--on-accent-ink);
+.report-pre-fix { flex: none; border: none; cursor: pointer; background: var(--amber); color: var(--on-fill);
   font: 700 12.5px var(--body); padding: 7px 12px; border-radius: var(--r-ctl); }
 .report-pre-fix:hover { filter: brightness(.96); }
 

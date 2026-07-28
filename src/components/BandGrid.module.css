@@ -195,7 +195,7 @@
 /* eingeteilt — solid blue, like the assigned bar. Deliberately not var(--accent): a station's
    accent is its brand colour (in Oberwil alarm red) and a plan must not read as an alarm. */
 .cellConfirmed {
-  background: var(--st-planned); border: 1px solid var(--st-planned); color: #fff;
+  background: var(--st-planned); border: 1px solid var(--st-planned); color: var(--on-fill);
 }
 /* …and their own hover, stated AFTER the base hover so they win it back */
 .cellAvailable:not(:disabled):hover { background: color-mix(in srgb, var(--ink) 12%, var(--surface)); }
@@ -216,7 +216,7 @@
    reason to block the plan. An outline, not a fill, so the cell still says which state it is in. */
 .cellConflict { border: 1.5px solid var(--red); box-shadow: 0 0 0 1px var(--red) inset; }
 .cellConflict svg { width: 12px; height: 12px; color: var(--red); flex: none; }
-.cellConfirmed.cellConflict svg { color: #fff; }
+.cellConfirmed.cellConflict svg { color: var(--on-fill); }
 
 /* only from the fourth column, where the grid genuinely runs off the edge */
 /* the conflict notice already sits inside this surface's own padding */
