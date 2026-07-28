@@ -84,10 +84,16 @@ docker compose --profile tls up -d
 
 ### Published images vs. building from source
 The compose file **pulls a published image** –
-`ghcr.io/feuerwehr-oberwil/kp-front:${KP_FRONT_TAG:-latest}` (linux/amd64) – so a station VPS
-needs nothing but Docker: no Node, no uv, no build step. Every `v*` tag is built, booted and
-smoke-tested by CI before it is pushed (`.github/workflows/release.yml`), and the same gate runs
-on every commit to `main`, so a Dockerfile regression can't reach a release.
+`ghcr.io/feuerwehr-oberwil/kp-front:${KP_FRONT_TAG:-latest}` (`linux/amd64` and `linux/arm64`,
+so an ARM host is a real option) – so a station VPS needs nothing but Docker: no Node, no uv, no
+build step. Every `v*` tag is built, booted and smoke-tested by CI before it is pushed
+(`.github/workflows/release.yml`), and the same gate runs on every commit to `main`, so a
+Dockerfile regression can't reach a release.
+
+> Releases predating the arm64 build are **amd64 only** – see the `Added` entry in
+> [`CHANGELOG.md`](../CHANGELOG.md). On an ARM machine those pull with
+> `no matching manifest for linux/arm64/v8`; run them with
+> `DOCKER_DEFAULT_PLATFORM=linux/amd64` under emulation, or take a newer release.
 
 Pick what `KP_FRONT_TAG` follows, in `.env`:
 
