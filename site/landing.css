@@ -20,7 +20,9 @@
   --bg: #f7f5f0;
   --ink: #14171b;
   --ink-dim: #454c55;
-  --ink-faint: #6e7681;
+  /* 4.60:1 on --bg (was 4.22 at #6e7681 — below AA for normal text, and this token carries
+     the small print: .cta-note, .fit-note, captions, the footer, placeholders). */
+  --ink-faint: #68707b;
   --red: #e30613;
   --red-deep: #b30510;
   --ok: #38c172;
