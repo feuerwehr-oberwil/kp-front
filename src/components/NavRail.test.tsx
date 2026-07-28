@@ -8,6 +8,7 @@ afterEach(cleanup)
 
 const docs: PlanDocument[] = [
   { id: 'modul1', code: 'Modul 1', title: 'Übersicht', subtitle: '', imageUrl: '', orientation: 'portrait' },
+  { id: 'modul5-rwa', code: 'RWA', title: 'RWA', subtitle: '', imageUrl: '', orientation: 'landscape' },
   { id: 'tafel', code: 'Tafel', title: 'Leeres Blatt', subtitle: '', imageUrl: '', orientation: 'landscape', icon: 'pen' },
 ]
 
@@ -57,5 +58,22 @@ describe('NavRail', () => {
     expect(nav.className).not.toContain('expanded')
     fireEvent.click(screen.getByRole('button', { name: 'Ausklappen' }))
     expect(nav.className).toContain('expanded')
+  })
+})
+
+// The chip lives in a 46px column and must fit inside it WITH its border — a three-letter
+// acronym at the single-digit size pushed its own border off the rail. CSS can't count
+// characters, so the letter count is stamped on the glyph and picks the size from there.
+describe('monogram chip sizing', () => {
+  it('stamps the letter count so the stylesheet can shrink a long monogram', () => {
+    setup()
+    const rwa = screen.getByRole('button', { name: 'RWA' })
+    expect(rwa.querySelector('.nav-glyph.mono')?.getAttribute('data-mono-len')).toBe('3')
+  })
+
+  it('leaves a single-digit module at its full size', () => {
+    setup()
+    const modul1 = screen.getByRole('button', { name: 'Modul 1' })
+    expect(modul1.querySelector('.nav-glyph.mono')?.getAttribute('data-mono-len')).toBe('1')
   })
 })

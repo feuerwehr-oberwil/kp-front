@@ -501,7 +501,14 @@ input[type='number'] { -moz-appearance: textfield; appearance: textfield; }
 /* module/floor monograms sit in a bordered chip so they read as document tabs rather than bare
    tool glyphs; the chip hugs its content (1 / 2 / 6 / RWA / ⅔) and inverts on the active pill */
 .nav-mono-chip { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
-  min-width: 30px; min-height: 30px; padding: 1px 6px; border: 1.5px solid var(--border); border-radius: 8px; line-height: 1; }
+  min-width: 30px; min-height: 30px; max-width: 100%; padding: 1px 6px; border: 1.5px solid var(--border); border-radius: 8px; line-height: 1; }
+/* The chip has to fit inside the 46px glyph column WITH its border — a clipped border reads as a
+   rendering fault, not as a tight fit. A single digit sits at the inherited 15px; a two- or
+   three-letter sub-slot acronym ("PV", "RWA") gets the room it needs by shrinking the text
+   instead of the box, so every chip keeps the same footprint down the rail. */
+.nav-glyph.mono[data-mono-len="2"] .nav-mono-chip { font-size: 12.5px; }
+.nav-glyph.mono[data-mono-len="3"] .nav-mono-chip { font-size: 10.5px; padding: 1px 4px; letter-spacing: -.01em; }
+.nav-glyph.mono[data-mono-len="4"] .nav-mono-chip { font-size: 9px; padding: 1px 3px; letter-spacing: -.02em; }
 .nav-item.on .nav-mono-chip { border-color: color-mix(in srgb, var(--on-accent-ink) 45%, transparent); }
 /* labels render ONLY in the committed expanded state and never during a drag, so they
    can't clip mid-resize — they fade in once the rail snaps open */

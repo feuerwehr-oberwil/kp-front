@@ -146,7 +146,13 @@ export function NavRail(p: Props) {
                     </span></span>
                   )
                 ) : (
-                  <span className="nav-glyph mono"><span className="nav-mono-chip">{g.mono}</span></span>
+                  // The glyph column is 46px wide and the chip has to fit INSIDE it, border and
+                  // all. A single digit does at 15px; a three-letter sub-slot acronym ("RWA")
+                  // does not — it pushed its own border past the rail edge. The letter count
+                  // picks the size (see .nav-mono-chip), because CSS can't count characters.
+                  <span className="nav-glyph mono" data-mono-len={g.mono.length}>
+                    <span className="nav-mono-chip">{g.mono}</span>
+                  </span>
                 )
               ) : (
                 <span className="nav-glyph"><Icon id={g.icon} /></span>
