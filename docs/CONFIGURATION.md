@@ -83,8 +83,10 @@ One JSON document, stored as the single `deployment_config` row, returned by `GE
 
   "doctrine": {                                  // FKS defaults shown; override per corps
     "defaultFunkkanal": 11,                       // null = no preset (national default)
-    "funkkanalMin": 1, "funkkanalMax": 99,
-    "mindestBar": 60,                             // critical minimum – low-pressure highlight
+    "funkkanalMin": 1, "funkkanalMax": 9999,
+    "alarmBar": 100,                              // pressure alarm threshold (bar). ONE tier
+                                                  // by design – the older 60-bar «Mindestdruck»
+                                                  // second tier was dropped 2026-07-27
     "contactIntervalMin": 5,                      // SCBA contact interval – "Kontakt fällig" (amber)
     "contactGraceSec": 60,                        // Nachfrist after the interval before the überfällig alarm
     "defaultPressureBar": 300, "pressureStep": 10, "pressureMax": 320
@@ -337,6 +339,7 @@ Set at deploy time; never editable from the UI, never in the repo.
 | `MAX_UPLOAD_MB` | request-body cap for multipart uploads (default 110 – must stay above the media endpoint's 100 MB per-file cap) |
 | `GEOCODER_URL` | address-autocomplete endpoint (default the swisstopo SearchServer – see the caveat below) |
 | `SEED_DATABASE`, `DEV_CREATE_ALL` | dev seeding / auto-create tables (prod uses Alembic) |
+| `SEED_PIN` | **Required in production** when `SEED_DATABASE` is on: the six-digit PIN the seeded account gets. The seed file's own PIN is public, so the backend refuses to boot without this rather than create a login anyone knows. |
 
 Weather (MeteoSwiss/Open-Meteo) and the swisstopo geocoder need **no** credentials – public
 endpoints, national, work everywhere *in Switzerland*. One honest limitation: the geocoder

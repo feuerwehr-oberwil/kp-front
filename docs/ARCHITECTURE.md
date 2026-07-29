@@ -16,7 +16,7 @@ flowchart TB
   subgraph CLIENT["Browser – installable PWA (one tablet per command point)"]
     UI["Lage (map) · Plan (whiteboard)<br/>React + TypeScript + MapLibre GL"]
     SW["Service worker (Workbox)<br/>app-shell precache · runtime cache · offline"]
-    LS[("localStorage<br/>incident doc · device prefs")]
+    LS[("IndexedDB<br/>incident doc · media queue<br/>+ localStorage for device prefs")]
     UI --- SW
     UI --- LS
   end
@@ -60,7 +60,7 @@ flowchart TB
 | Alarm + roster | Divera 24/7 | backend proxy `/api/divera`, `/api/personnel` | roster cached |
 | Live vehicle GPS | Traccar | backend proxy `/api/traccar` | ✗ live only |
 | Reference geodata (hydrants, Leitungskataster, canton WMS) | the station's own (often private) data repo | `admin_geodata` → reference store + `config.referenceLayers` (see [`geodata-architecture.md`](geodata-architecture.md)) | ✅ GeoJSON cached (WMS tiles online) |
-| Incident state · Verlauf · exports | **the operator (this app)** | workspace sync + append-only event log in Postgres | ✅ localStorage + queued sync |
+| Incident state · Verlauf · exports | **the operator (this app)** | workspace sync + append-only event log in Postgres | ✅ IndexedDB + queued sync |
 
 Three classes: **bundled** (offline, ships in the app), **backend-proxied** (cached, one
 SSRF-guarded client per service), and **browser-direct** (raster tiles only). No station data
@@ -145,7 +145,8 @@ sequenceDiagram
   Note over API,DB: /api/incidents/{id}/verify re-walks the chain (tamper check)
 ```
 
-The browser also keeps the incident in `localStorage` and queues writes while offline, so the
+The browser also keeps the incident in **IndexedDB** (`src/lib/idb.ts`; localStorage is only a
+fallback for small device preferences) and queues writes while offline, so the
 app keeps working without connectivity and reconciles on reconnect.
 
 ## Deployment

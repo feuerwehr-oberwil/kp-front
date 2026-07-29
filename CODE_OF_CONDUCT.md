@@ -50,8 +50,8 @@ officially representing the community in public spaces.
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the
 community leaders responsible for enforcement via a **GitHub private report** (repository
-Security → Report a vulnerability, or a direct message to the maintainer). A stable contact
-address will be published here and in the README when the repository is made public.
+Security → Report a vulnerability, or a direct message to the maintainer) or by email to
+**bastian@eichenbergers.ch**.
 
 All complaints will be reviewed and investigated promptly and fairly. All community leaders are
 obligated to respect the privacy and security of the reporter of any incident.

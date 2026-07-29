@@ -12,6 +12,24 @@ several of the tests in this repository exist to prove it stays true.
 Separately, and unrelated to any installation, the project's public website has a contact form.
 That is a website, not the app — see [The project website](#the-project-website) at the end.
 
+## Map and address services are a separate matter
+
+Nothing above is about the **map**. Drawing a map means asking somebody for map data, and three
+of those requests carry a location:
+
+| Service | What leaves | Who it goes to | Turn it off |
+|---|---|---|---|
+| Basemap tiles | the map tiles you are looking at, i.e. roughly where you are working | the configured tile provider, **from the browser** (so it can cache them) | choose a different `map.bases` entry, or self-host tiles |
+| Building outlines («Umrisse») | a bounding box around the incident | public [Overpass](https://wiki.openstreetmap.org/wiki/Overpass_API) mirrors, **from the server** | `OVERPASS_MIRRORS=` (empty disables the surface) or point it at your own Overpass |
+| Address search / geocoding | the text you type, or a clicked coordinate | the configured geocoder (swisstopo by default), **from the server** | `GEOCODER_URL` |
+
+These are ordinary third-party services, not a channel to the maintainer, and none of them
+receives names, roster, attendance or journal text — only a location. The shipped Overpass
+mirror list includes one host in Russia (`maps.mail.ru`, a long-standing public mirror); a
+station that would rather not use it sets `OVERPASS_MIRRORS` to the other two.
+
+Everything below is about the maintainer channels.
+
 ## The short version
 
 | | Manual report | Background error reports |

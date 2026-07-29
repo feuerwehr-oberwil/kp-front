@@ -1,7 +1,8 @@
 """Station print relay (`/api/print/*`, `/api/print-agent/*`).
 
 One tap «An Stationsdrucker» queues the server-composed Einsatzrapport-PDF; a tiny on-site
-agent (`tools/print_agent.py`) polls the claim endpoint over plain HTTPS and prints via
+agent (kp-rueck's `tools/print-agent/`, see tools/PRINT-AGENT.md) polls the claim endpoint
+over plain HTTPS and prints via
 CUPS. Pull-based on purpose: the backend never needs to reach the station LAN.
 
 Fail-closed: without ``PRINT_AGENT_SECRET`` the agent endpoints answer 403, ``/print/status``

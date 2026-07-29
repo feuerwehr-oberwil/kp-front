@@ -29,8 +29,13 @@ further and seeds a pre-filled *running* incident plus the two demo login accoun
 
 ```bash
 just demo-load   # config + water layers + objects + checklists + crew (starts the DB, migrates)
+just demo-off    # REQUIRED: the dataset sets demoMode, which blocks creating incidents (403)
 just dev         # database + backend (:8001) + frontend (:5188)
 ```
+
+`config.json` ships `demoMode: true` because this is also the dataset behind the public demo,
+where creating incidents must be refused. Locally that guard just looks like a broken app, so
+`just demo-off` clears it — re-run it after every `just demo-load`.
 
 Then log in (default editor `fu`, PIN `000000`, from `backend/app/seed_users.json`) and open an
 incident at Schloss Musterdorf; the water mains, hydrants, synthetic object plans, and demo

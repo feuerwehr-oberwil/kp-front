@@ -39,6 +39,7 @@ argument lists every recipe):
 ```bash
 just setup          # install frontend + backend deps
 just demo-load      # optional: synthetic Musterdorf data + crew (no incident)
+just demo-off       # required after demo-load — the dataset's demoMode blocks new incidents
 just dev            # dev Postgres (Docker, :5434) + backend (:8001) + frontend (:5188)
                     # open http://localhost:5188 — an http:// origin, not file://
 just lint && just test   # both stacks – run before pushing

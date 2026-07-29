@@ -150,9 +150,13 @@ async def incident_created(req: Request):
     p = await req.json()
     inc, url = p["incident"], p.get("capture_url")
     label = f"{inc['title']}\n{inc.get('address') or ''}\nAlarm: {inc['started_at'][11:16]}"
-    async with httpx.AsyncClient() as c:   # add kp-rueck auth as configured there
-        await c.post(f"{KP_RUECK}/api/print/qr-code",
-                     json={"content": url or inc["id"], "label": label})
+    # kp-rueck's endpoint has a TRAILING SLASH, requires `title`, calls the payload field
+    # `qr_content`, and is editor-gated — so the receiver needs a logged-in kp-rueck session
+    # cookie (or a master token), not just network reachability.
+    async with httpx.AsyncClient(cookies=KP_RUECK_SESSION) as c:
+        await c.post(f"{KP_RUECK}/api/print/qr-code/",
+                     json={"qr_content": url or inc["id"], "title": inc["title"],
+                           "subtitle": label})
     return {"ok": True}
 ```
 
@@ -171,5 +175,9 @@ turn the surface off (fail-closed).
   the poster token (capture), `ADMIN_SECRET` (administration).
 - Outbound webhook URLs are admin-set config, pinned to `http(s)`; the payload contains the
   capture URL (a capability) – point webhooks only at receivers you trust.
-- The capture surface can only touch open incidents inside the window, and only
-  attendance/material/journal/Einsatzende – no map, no admin, no history.
+- The capture surface reaches unarchived incidents without a completed Rapport at **any**
+  age (the open backlog), plus anything inside `alarms.captureWindowHours` regardless of
+  report state — and only attendance/material/journal/Einsatzende. The workspace endpoints
+  are key-scoped to `attendance`, `mittel` and `reportMeta` (`CAPTURE_WORKSPACE_KEYS` in
+  `backend/app/api/capture.py`): the tactical map is neither readable nor writable with a
+  poster token, and a capture save merges over the server's copy so it cannot clobber it.

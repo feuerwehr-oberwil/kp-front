@@ -29,6 +29,57 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ## [Unreleased]
 
+A review pass before publishing the repository more widely: every claim in the documentation was
+checked against the code, and three of them turned out to be promises the code did not keep.
+
+### Fixed
+- **The telemetry veto in `PRIVACY.md` did nothing — twice over.** The page tells an operator to
+  put `KP_TELEMETRY_ENABLED=0` in their compose file and promises it "outranks the admin switch".
+  `Settings` has no `env_prefix`, so the field bound to `TELEMETRY_ENABLED` and the documented
+  `KP_` spelling matched nothing; and `docker-compose.yml` passed no telemetry variable into the
+  container at all, so even the correct name in `.env` would have done nothing — compose's `.env`
+  is interpolation-only. Consent still defaults to off in the database, so nothing was ever
+  transmitted, but a station that had *enforced* the ban per the documentation had enforced
+  nothing. Both halves are fixed and pinned by tests, including one that fails if the compose
+  fallbacks ever become blank — blank means "off" to this app, so an innocent-looking
+  `${KP_TELEMETRY_ENABLED:-}` would silently disable telemetry for every deployment.
+- **The browser no longer calls Overpass directly.** `README.md` promised "every external service
+  is proxied by the backend (the browser never calls a third party)". The «Umrisse» surface
+  POSTed the incident's bounding box straight from the browser to three public Overpass mirrors,
+  one of them hosted in Russia — and it is prefetched on every incident open, so this was the
+  normal path, not an edge case. It now goes through `/api/overpass/buildings`; the mirror race
+  and its timeouts moved server-side unchanged. `OVERPASS_MIRRORS` makes the list configurable,
+  so a station can point it at its own Overpass or switch the surface off. A test scans the
+  frontend for direct third-party `fetch()` calls so the README claim cannot quietly lapse again.
+- **The capture poster could read and rewrite the tactical map.** `ALARM-INTEGRATIONS.md`
+  promised the poster token reaches "attendance/material/journal/Einsatzende – no map, no admin,
+  no history". Both workspace endpoints handed out and accepted the whole `map_workspace_json`.
+  They are now scoped to the three keys the capture form actually uses; reads are projected and
+  writes merge over the server's copy, so a capture save cannot drop what it cannot see. This is
+  a token that goes to people outside the command post, so the narrow reading is the right one.
+
+### Changed
+- **`SEED_PIN` is now required in production when seeding is on.** The bundled seed file is user
+  `fu` with PIN `000000` and role `editor`, and `SEED_DATABASE` defaults to true — so
+  `docker compose --profile tls up -d` on a public domain produced an internet-facing editor
+  account whose PIN is printed in the README. The backend now refuses to boot rather than create
+  it. **Existing deployments are unaffected:** the PIN is only demanded when an account would
+  actually be created, so a station whose users already exist upgrades untouched.
+
+### Documentation
+- The demo resets nightly, not every two hours; `ARCHITECTURE.md` said the incident document
+  lives in `localStorage` when it has been IndexedDB since 0.3.0; `CONFIGURATION.md` documented an
+  Atemschutz `mindestBar` key that does not exist (the real one is `alarmBar`, and the second
+  60-bar tier was deliberately dropped) — a station setting it got no error and kept the default;
+  the cross-repo print example was wrong in four ways; and `just demo-off` — without which the
+  documented evaluation path leaves you unable to create an incident — appeared in no document at
+  all. `PRIVACY.md` now also names the three services that receive a location (tiles, Overpass,
+  geocoding), which are ordinary third parties rather than a channel to the maintainer.
+- Wiedergabe, Statistik-Export and Rückmeldung were missing from the README despite shipping;
+  the last one matters because the Integrations table claims to enumerate everything that leaves
+  the deployment.
+
+
 ## [0.3.0] – 2026-07-28
 
 The **Zeitplan** release: a long incident is a staffing question, and it finally has a surface.

@@ -9,7 +9,10 @@
 set -uo pipefail
 
 OWNER="${GHCR_OWNER:-feuerwehr-oberwil}"
-PACKAGES=(kp-front kp-rueck-backend kp-rueck-frontend kp-rueck-tileserver kp-rueck-print-agent)
+# kp-print-agent is the current name; kp-rueck-print-agent is the deprecated alias
+# kp-rueck still dual-publishes for one more release. Check both until it goes away,
+# otherwise this script goes blind on the real package the moment the alias is dropped.
+PACKAGES=(kp-front kp-rueck-backend kp-rueck-frontend kp-rueck-tileserver kp-print-agent kp-rueck-print-agent)
 
 fail=0
 for pkg in "${PACKAGES[@]}"; do

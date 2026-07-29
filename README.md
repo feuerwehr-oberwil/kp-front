@@ -15,7 +15,7 @@ exports; integrations add data but are not required to operate it.
 
 The [public demo](https://demo.kp-front.ch) contains a running Zimmerbrand at the
 Schloss in fictional Musterdorf. Credentials are shown on the login screen, and the demo resets
-every two hours.
+nightly (00:00 Europe/Zurich) – edits made during the day persist until then.
 
 The repository includes the same synthetic station dataset in
 [`examples/demo-data/`](examples/demo-data/). No real station data is bundled.
@@ -53,6 +53,10 @@ station, one incident, one operator**, not scaled down from dispatch-center soft
 - **Zeitplan:** Shift planning for long incidents – availability and assignment per person, a
   coverage curve across the span, printable as the «Zeitplan» Führungsformular.
 - **Reference data:** ADR lookup, wind, hydrants, utility lines, and Traccar vehicle positions.
+- **Wiedergabe:** Scrub back through an incident as it unfolded – the map, the Verlauf and the
+  attendance at any point in time, from the same append-only record the Rapport is built from.
+- **Statistik-Export:** Aggregate incident data for the annual report, with WinFAP matching –
+  see [`docs/STATS-EXPORT.md`](docs/STATS-EXPORT.md).
 - **Resilience:** Undo/redo, append-only records, sync status, offline readiness, and day/night UI.
 
 See [`CHANGELOG.md`](CHANGELOG.md) for the feature history. Planned work lives in
@@ -81,9 +85,15 @@ Recipes use [`just`](https://github.com/casey/just) (`brew install just`). See t
 
 ```bash
 just setup       # install dependencies (once)
-just demo-load   # load the optional Musterdorf dataset (starts nothing; migrates first)
+just demo-load   # load the optional Musterdorf dataset (starts the DB; migrates first)
+just demo-off    # ← run this after demo-load, or you cannot create incidents (see below)
 just dev         # PostgreSQL + API (:8001) + frontend (:5188), Ctrl+C stops all
 ```
+
+> **`just demo-off` is not optional after `just demo-load`.** The demo dataset sets
+> `demoMode: true`, which makes `POST /api/incidents` answer **403** — the guard that keeps the
+> public demo read-only. On your own machine that just looks like a broken app, so turn it off
+> once the data is loaded. Re-run it after every `just demo-load`.
 
 `just dev` is the only command you need day to day – it starts the database, waits for it,
 migrates, and runs both servers in one terminal. For the frontend alone (no database, no
@@ -104,7 +114,8 @@ Run `just` without an argument to list every recipe.
 | `just build` | type-check + production build |
 | `just config-example` | print a starting deployment config (copy & edit) |
 | `just config-validate <file>` / `just config-load <file>` | validate / apply a config |
-| `just demo-load` | load the synthetic Musterdorf demo dataset |
+| `just demo-load` | load the synthetic Musterdorf demo dataset (then run `just demo-off`) |
+| `just demo-off` | clear `demoMode`, so incidents can be created locally |
 
 The React frontend can run alone. The FastAPI backend adds authentication, workspace sync,
 history, integrations, and reference data. Deployment configuration is managed as code; see
@@ -202,7 +213,9 @@ configuration, nothing that can't be undone.
 
 ## Integrations
 
-Every external service is proxied by the backend (the browser never calls a third party) and is
+Every external service is proxied by the backend – the one deliberate exception is basemap
+tiles, which the browser fetches directly so it can cache them (shown in the architecture
+diagram). Each connector is
 **optional** – the app runs fully without any of them, and each one is fail-closed: no
 credential configured means the feature is off, not degraded. Secrets are environment-only; the
 database stores selection and behaviour, never credentials.
@@ -210,7 +223,7 @@ database stores selection and behaviour, never credentials.
 | Connector | Direction | Works with today | Adding another |
 |-----------|-----------|------------------|----------------|
 | **Alarm intake** | in | **Any** alerting system via the open `POST /api/alarms` webhook (idempotent on source + id, auto-opens an incident); a native [Divera 24/7](https://www.divera247.com/) adapter | Already open – POST the documented JSON, no code needed. See [docs/ALARM-INTEGRATIONS.md](docs/ALARM-INTEGRATIONS.md) |
-| **Incident relay** | out | Any endpoint that accepts the incident JSON – KP Rück's `/api/alarms` is one consumer, a pager or chat bot is another | Point a URL at it; the core knows nothing about the receiver |
+| **Incident relay** | out | Any endpoint that accepts the incident JSON. The payload is a nested envelope sent without an auth header, so feeding KP Rück's `/api/alarms` needs a short adapter – it is not drop-in | Point a URL at it; the core knows nothing about the receiver |
 | **Personnel roster** | in | Divera 24/7, including Qualifikationen mapped to Dienstgrad | Synced identities are stored provider-neutrally (`personnel_external_identities`), so a second source can be added |
 | **Vehicle GPS** | in | [Traccar](https://www.traccar.org/) | Currently Traccar-specific – no abstraction yet. It can be generalised the same way as the alarm connectors |
 | **Maps & geocoding** | in | swisstopo (search, LV95), OpenStreetMap, cantonal WMS layers | `GEOCODER_URL` plus config-driven reference layers – see [docs/geodata-architecture.md](docs/geodata-architecture.md) |
@@ -219,6 +232,7 @@ database stores selection and behaviour, never credentials.
 | **Push notifications** | out | Web Push (VAPID) for Atemschutz and reminder alerts when the app is killed | Unset keys disable the sweep entirely |
 | **Printing** | out | Station printer via a pull-based relay agent | Point a custom agent at the relay endpoints |
 | **Station data** | in | Reference geodata, object plans, and checklists loaded from a private data repo via `admin_geodata` / `admin_objects` / `admin_checklists` | GeoJSON must be WGS84. See [docs/STATION-DATA.md](docs/STATION-DATA.md) |
+| **Rückmeldung (Telemetrie)** | out | Crash reports and, separately, an optional feature ping to the maintainer's GlitchTip. **Off by default** – consent is stored in the database and the deployer can veto it outright with `KP_TELEMETRY_ENABLED=0` | Point `KP_TELEMETRY_DSN` at your own GlitchTip, or blank it to disable. Full detail in [PRIVACY.md](PRIVACY.md) |
 
 New connectors are welcome contributions – the alarm seam is the model to copy.
 
@@ -272,8 +286,11 @@ tracking personnel, vehicles, materials, and incidents – see its companion
 ([live demo](https://demo.kp-rueck.ch)).
 
 The two grew out of the same brigade and share a design language, but they are **completely
-independent** codebases and deployments – neither requires the other. They can *optionally* hand
-alarms to each other through the same generic `POST /api/alarms` webhook, and nothing more.
+independent** codebases and deployments – neither requires the other. Both expose a generic `POST /api/alarms` webhook, but they are not plug-compatible: the
+payloads and auth differ, so KP Front can feed KP Rück through a short adapter you write,
+and KP Rück has no outbound webhook to push the other way. Nothing else connects them –
+separate databases, separate auth, separate deployments. See
+[`docs/ALARM-INTEGRATIONS.md`](docs/ALARM-INTEGRATIONS.md).
 
 **Running both on one host?** Read
 [`RUNNING-BOTH.md`](https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RUNNING-BOTH.md) first. Independent
