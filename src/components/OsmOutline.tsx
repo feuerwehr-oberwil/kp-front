@@ -6,6 +6,7 @@ import { fillTemplate } from '../lib/format'
 import { cx } from '../lib/cx'
 import { principalAngleDeg } from '../lib/footprint'
 import { idbGet, idbSet } from '../lib/idb'
+import { apiPost } from '../lib/api'
 import s from './OsmOutline.module.css'
 
 // A building footprint as a normalized 0..1 ring in board space (north-up).
@@ -29,28 +30,31 @@ function bboxKey(center: LngLat, radiusM: number) {
   return { key: `${south.toFixed(6)},${west.toFixed(6)},${north.toFixed(6)},${east.toFixed(6)}`, south, west, north, east }
 }
 
-// Several Overpass mirrors — we race them so the fastest healthy server wins (the public
-// overpass-api.de alone is often slow/queued). Kumi is usually the quickest.
-const OVERPASS_MIRRORS = [
-  'https://overpass.kumi.systems/api/interpreter',
-  'https://overpass-api.de/api/interpreter',
-  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
-]
 const CACHE_PREFIX = 'kp.osm.bld.' // persistent (IndexedDB) outline cache, keyed by bbox
-const FETCH_TIMEOUT_MS = 20_000 // per-mirror stall guard; all mirrors timing out → error state
 const RETRY_AFTER_MS = 5_000    // show «Erneut laden» once a load has been pending this long
 
-// Race the mirrors; the first one to return wins, the slower requests are harmless. Each
-// request carries an abort timeout so a hung mirror can't pin the loader forever — when
-// every mirror stalls/fails the race rejects and the hint flips to the retryable error.
-function fetchOverpass(query: string): Promise<{ elements?: any[] }> {
-  return Promise.any(OVERPASS_MIRRORS.map((url) => {
-    const ctrl = new AbortController()
-    const t = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS)
-    return fetch(url, { method: 'POST', body: `data=${encodeURIComponent(query)}`, signal: ctrl.signal })
-      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() })
-      .finally(() => clearTimeout(t))
-  }))
+// Ask our OWN backend, which races the Overpass mirrors on our behalf (app/overpass.py).
+//
+// This used to POST straight to three public Overpass servers from the browser — one of them
+// hosted in Russia — which made README's "the browser never calls a third party" false and
+// sent the incident's bounding box somewhere PRIVACY.md never mentioned. The surface is
+// prefetched on every incident open, so it was the rule rather than the exception.
+//
+// The mirror race, its per-mirror timeout and the response shape all moved server-side
+// unchanged, so everything below this function still works on Overpass' own JSON.
+// Only the parts of Overpass' JSON this component reads. A `way` carries its own geometry;
+// a `relation` carries member ways, of which the `outer` ones form the footprint.
+type OverpassNode = { lat: number; lon: number }
+type OverpassElement = {
+  type?: string
+  geometry?: OverpassNode[]
+  members?: { type?: string; role?: string; geometry?: OverpassNode[] }[]
+}
+
+function fetchOverpass(
+  south: number, west: number, north: number, east: number,
+): Promise<{ elements?: OverpassElement[] }> {
+  return apiPost<{ elements?: OverpassElement[] }>('/overpass/buildings', { south, west, north, east })
 }
 
 // Fetch building footprints in a square bbox (±radiusM around center) from the
@@ -65,15 +69,12 @@ function loadBuildings(center: LngLat, radiusM: number): Promise<Ring[]> {
   const project = (lon: number, lat: number): [number, number] =>
     [(lon - west) / (east - west), (north - lat) / (north - south)]
 
-  const bbox = `${south},${west},${north},${east}`
-  const query = `[out:json][timeout:25];(way["building"](${bbox});relation["building"](${bbox}););out geom;`
-
   // persistent cache (IndexedDB): a previous fetch (this session or an earlier one) makes the
   // outlines instant on reload, so the Overpass round-trip only happens once per location.
   const cacheKey = CACHE_PREFIX + key
   const p = idbGet<Ring[]>(cacheKey).then((stored) => {
     if (stored) return stored
-    return fetchOverpass(query).then((data) => {
+    return fetchOverpass(south, west, north, east).then((data) => {
       const rings: Ring[] = []
       const toRing = (geom: { lat: number; lon: number }[]) => {
         if (geom && geom.length >= 3) rings.push(geom.map((g) => project(g.lon, g.lat)))

@@ -3265,7 +3265,7 @@
           "capture"
         ],
         "summary": "Capture Put Workspace",
-        "description": "Same optimistic-concurrency save as the editor endpoint (shared helper), so capture\nedits merge with a live KP tablet exactly like a second editor would.",
+        "description": "Same optimistic-concurrency save as the editor endpoint (shared helper), so capture\nedits merge with a live KP tablet exactly like a second editor would — but only across\nCAPTURE_WORKSPACE_KEYS. Everything else is carried over from the server's own copy.\n\nThe read-then-conditional-update is not a race: apply_workspace_put bumps the rev only if\nit still equals base_rev, so a tablet that saved in between makes this a 409 rather than\na silent overwrite of the map with a stale snapshot.",
         "operationId": "capture_put_workspace_api_capture_incidents__incident_id__workspace_put",
         "parameters": [
           {
@@ -4907,6 +4907,68 @@
                     }
                   ],
                   "title": "Response Geocode Reverse Api Geocode Reverse Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/overpass/buildings": {
+      "post": {
+        "tags": [
+          "overpass"
+        ],
+        "summary": "Buildings",
+        "description": "Building footprints inside the bbox, in Overpass' own JSON shape.\n\nThe response is passed through unchanged so the client-side projection code did not have\nto change when this moved server-side.",
+        "operationId": "buildings_api_overpass_buildings_post",
+        "parameters": [
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BuildingsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Buildings Api Overpass Buildings Post"
                 }
               }
             }
@@ -8245,6 +8307,43 @@
           "payload"
         ],
         "title": "Body_zeitplan_print_api_incidents__incident_id__zeitplan_print_post"
+      },
+      "BuildingsRequest": {
+        "properties": {
+          "south": {
+            "type": "number",
+            "maximum": 90.0,
+            "minimum": -90.0,
+            "title": "South"
+          },
+          "west": {
+            "type": "number",
+            "maximum": 180.0,
+            "minimum": -180.0,
+            "title": "West"
+          },
+          "north": {
+            "type": "number",
+            "maximum": 90.0,
+            "minimum": -90.0,
+            "title": "North"
+          },
+          "east": {
+            "type": "number",
+            "maximum": 180.0,
+            "minimum": -180.0,
+            "title": "East"
+          }
+        },
+        "type": "object",
+        "required": [
+          "south",
+          "west",
+          "north",
+          "east"
+        ],
+        "title": "BuildingsRequest",
+        "description": "A WGS84 bounding box. Ordering matches Overpass: south, west, north, east."
       },
       "ClientError": {
         "properties": {
