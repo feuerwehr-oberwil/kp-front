@@ -17,6 +17,10 @@ import { dirname, join } from 'node:path'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SHOTS = join(HERE, 'shots')
+// Die README-Bilder entstehen aus denselben Seitenzuständen wie die Landingpage-Shots.
+// Vorher wurden sie separat von Hand geschossen und liefen dadurch auseinander — ein Shot
+// mit `docs:` schreibt jetzt beides in einem Durchgang.
+const DOCS_SHOTS = join(HERE, '..', 'docs', 'screenshots')
 
 const DEFAULT_BASE = 'https://demo.kp-front.ch'
 const VIEWPORT = { width: 1500, height: 937 } // 1.6:1 – dieselbe Kachelform für alle Shots
@@ -29,6 +33,13 @@ const arg = (name) => {
 }
 const base = (arg('base') || DEFAULT_BASE).replace(/\/$/, '')
 const only = arg('only')?.split(',').map((s) => s.trim()).filter(Boolean)
+// Nur die README-Bilder neu schreiben und die Landingpage-JPEGs in Ruhe lassen. Nötig,
+// weil beide Ausgaben aus derselben Aufnahme stammen, aber nicht dieselbe Auflösung
+// wollen: die Landingpage bindet inline ein (1x), die README-Bilder werden auf GitHub
+// vergrössert (2x). Also: erst der normale Lauf, dann `--scale 2 --docs-only`.
+const docsOnly = argv.includes('--docs-only')
+// Aufnahme-Auflösung: 1 für die Landingpage, 2 für die README-Bilder (siehe oben).
+const scale = Number(arg('scale') || 1)
 // Die öffentliche Demo lässt ohne Anmeldung herein. Eine lokale Instanz nicht – dort braucht es
 // eine Rolle und einen PIN, sonst steht der Browser vor dem Anmeldeschirm und läuft in den Timeout.
 const pin = arg('pin')
@@ -36,10 +47,10 @@ const pin = arg('pin')
 /** Ein Shot = eine Ansicht aus der linken Navigationsleiste, plus Einschwingzeit.
  *  `prep` öffnet vorher noch etwas (Sheet, Menü); `nav` darf dann fehlen. */
 const shots = [
-  { name: 'lage', nav: 'Karte', settle: 3500, note: 'Hero: taktische Karte' },
+  { name: 'lage', nav: 'Karte', settle: 3500, note: 'Hero: taktische Karte', docs: 'lage' },
   { name: 'plan', nav: 'Modul 1', settle: 4000, note: 'Objektplan als Whiteboard' },
-  { name: 'gebaeude', nav: 'Gebäude', settle: 1500 },
-  { name: 'atemschutz', nav: 'Atemschutz', settle: 1200 },
+  { name: 'gebaeude', nav: 'Gebäude', settle: 1500, docs: 'gebaeude' },
+  { name: 'atemschutz', nav: 'Atemschutz', settle: 1200, docs: 'atemschutz' },
   { name: 'anwesenheit', nav: 'Anwesenheit', settle: 1500 },
   {
     name: 'zeitplan',
@@ -66,7 +77,7 @@ const shots = [
       await page.waitForTimeout(600)
     },
   },
-  { name: 'mittel', nav: 'Mittel', settle: 1200 },
+  { name: 'mittel', nav: 'Mittel', settle: 1200, docs: 'mittel' },
   { name: 'checkliste', nav: 'Checkliste', settle: 1500 },
   {
     name: 'verlauf',
@@ -115,7 +126,7 @@ const run = async () => {
   const browser = await chromium.launch()
   const ctx = await browser.newContext({
     viewport: VIEWPORT,
-    deviceScaleFactor: 1,
+    deviceScaleFactor: scale,
     locale: 'de-CH',
     timezoneId: 'Europe/Zurich',
     colorScheme: 'light',
@@ -166,18 +177,38 @@ const run = async () => {
   if (!wanted.length) throw new Error(`--only passt auf keinen Shot (${shots.map((s) => s.name).join(', ')})`)
 
   for (const shot of wanted) {
+    // Ein Shot darf ein Sheet offen lassen (der Verlauf tut das). Dessen Scrim liegt danach
+    // über der Navigation und fängt jeden Klick ab — der nächste Shot lief in den Timeout,
+    // statt aufzunehmen. Escape schliesst dieses Sheet nicht, also wird neu geladen, und zwar
+    // nur dann, wenn wirklich ein Scrim im Weg ist: auf dem normalen Weg kostet das nichts.
+    if (await page.locator('.journal-scrim, [data-base-ui-portal] [role="presentation"]').count()) {
+      await page.goto(base, { waitUntil: 'domcontentloaded' })
+      await page.locator('.nav-item').first().waitFor({ timeout: 45000 })
+      await page.addStyleTag({ content: HIDE_CSS })
+      await page.waitForLoadState('networkidle').catch(() => {})
+    }
     const item = page.locator('.nav-item').filter({ hasText: shot.nav }).first()
     await item.click()
     await page.waitForLoadState('networkidle').catch(() => {})
     await page.waitForTimeout(shot.settle)
     if (shot.prep) await shot.prep(page)
-    const path = join(SHOTS, `${shot.name}.jpg`)
-    await page.screenshot({ path, type: 'jpeg', quality: QUALITY })
-    console.log(`  ✓ ${shot.name}.jpg  (${shot.nav})`)
+    if (!docsOnly) {
+      const path = join(SHOTS, `${shot.name}.jpg`)
+      await page.screenshot({ path, type: 'jpeg', quality: QUALITY })
+      console.log(`  ✓ ${shot.name}.jpg  (${shot.nav})`)
+    }
+    // Derselbe Seitenzustand, zweite Ausgabe: das README-Bild. PNG, weil README-Bilder auf
+    // GitHub oft vergrössert betrachtet werden und Text dort verlustfrei bleiben soll.
+    if (shot.docs) {
+      const docsPath = join(DOCS_SHOTS, `${shot.docs}.png`)
+      await page.screenshot({ path: docsPath, type: 'png' })
+      console.log(`  ✓ docs/screenshots/${shot.docs}.png`)
+    }
   }
 
   await browser.close()
   console.log('Fertig. Danach: node site/build.mjs')
+  console.log('README-Bilder (docs/screenshots/) wurden mitgeschrieben, wo ein Shot `docs:` trägt.')
 }
 
 run().catch((err) => {

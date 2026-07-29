@@ -19,6 +19,7 @@ site/
 node site/capture.mjs                        # gegen https://demo.kp-front.ch
 node site/capture.mjs --base http://localhost:5188
 node site/capture.mjs --only lage,mittel     # nur einzelne Bilder
+node site/capture.mjs --scale 2 --docs-only  # README-Bilder in 2x nachziehen
 node site/build.mjs                          # danach die Ein-Datei-Variante neu bauen
 ```
 
@@ -56,3 +57,18 @@ unterscheidet sich: Inhalt, Bilder und die gegenseitige Verlinkung
 `site/` ist direkt ausrollbar (statische Dateien, keine Server-Logik). `dist/index.html` aus
 `build.mjs` ist dieselbe Seite als eine einzige Datei mit eingebetteten Schriften und Bildern –
 zum Weitergeben oder für einen Host, der nur eine Datei annimmt.
+
+### README-Bilder
+
+Shots mit `docs:` schreiben denselben Seitenzustand zusätzlich als PNG nach `docs/screenshots/` —
+das ist der Grund, warum die README-Bilder früher ein halbes Jahr älter waren als die
+Landingpage. Beide Ausgaben entstehen aus einer Aufnahme, wollen aber nicht dieselbe
+Auflösung: die Landingpage bindet die Bilder inline ein (1x, Seitengewicht zählt), die
+README-Bilder werden auf GitHub vergrössert betrachtet.
+
+```bash
+node site/capture.mjs                    # Landingpage-JPEGs (1x) + README-PNGs
+node site/capture.mjs --scale 2 --docs-only --only lage,gebaeude,atemschutz,mittel
+```
+
+`--docs-only` lässt die JPEGs unangetastet. Aktuell liegen die README-Bilder bei 3000 px Breite.
