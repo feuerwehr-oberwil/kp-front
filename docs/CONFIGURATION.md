@@ -460,6 +460,43 @@ removed lists don't linger. Like `admin_objects`, `load` writes the local storag
 it server-side); `push` goes through a running server's HTTP API (`ADMIN_SECRET`) so the
 server writes its own volume – the way to refresh a remote deployment from a workstation.
 
+## 9e. Wartungswerkzeuge (`reset_roster`, `demo_export`)
+
+Zwei weitere CLIs, die keiner Station begegnen, aber jemandem, der ein Deployment betreut.
+Sie standen bisher nur in ihren eigenen Docstrings, was sie beim Aufräumen zweimal fast das
+Leben gekostet hat — ein Modul, das nichts importiert und kein Dokument erwähnt, sieht wie
+toter Code aus.
+
+**`reset_roster` — die Benutzerliste auf die Seed-Datei zurücksetzen.**
+Anders als `seed.py`, das nur fehlende Benutzer anlegt und bestehende PINs nie anfasst, setzt
+dieses Werkzeug *durch*: es aktualisiert jeden Benutzer aus der Seed-Datei (Anzeigename, Rolle,
+Farbe **und** PIN) und deaktiviert jeden, der nicht darin steht. Deaktiviert, nicht gelöscht —
+Fremdschlüssel auf Einsätze, Notizen und Medien bleiben heil, und die Mannschaftsliste zeigt
+trotzdem nur die geseedeten.
+
+```bash
+# from backend/ — mit SECRET_KEY (dem PIN-Pfeffer) und DATABASE_URL der ZIELumgebung
+SECRET_KEY=<ziel> DATABASE_URL=<ziel-public> uv run python -m app.reset_roster
+```
+
+Der `SECRET_KEY` ist nicht optional: er pfeffert die PIN-Hashes. Mit dem falschen kommt eine
+Liste heraus, in die sich niemand einloggen kann.
+
+**`demo_export` — die Demo-Szene zurück in die Seed-Datei schreiben.**
+Die öffentliche Demo behält Änderungen über den Tag. Wer die vorplatzierten Symbole,
+Schlauchleitungen oder das Gebäude neu anordnen will, tut das live in der App und bäckt das
+Ergebnis anschliessend in `examples/demo-data/incident.workspace.json`:
+
+```bash
+DATABASE_URL=<demo Postgres public URL> uv run python -m app.demo_export
+```
+
+Liest nur; das Einzige, was geschrieben wird, ist die Repo-Datei. Behalten werden die von Hand
+gesetzten Schlüssel (`entities`, `drawings`, `building`, `board`, `layerState`, `recent`) — die
+Sammlungen, die der nächtliche Reset ohnehin neu anlegt (`trupps`, `mittel`, `attendance` …),
+fallen weg, damit sie nicht in den Seed einfrieren. Ergebnis committen, der nächtliche Reset
+zieht daraus.
+
 ## 9. Out of scope for this doc
 - **Device preferences** (theme day/night/auto, symbol size) – per-device cookie, not synced.
 - **Per-incident settings** (`IncidentSettings`: `contactIntervalMin`, `contactGraceSec`,
