@@ -42,13 +42,50 @@ services – no credentials.
 
 ## 2. Requirements
 
-- A host that can run Docker + Docker Compose (a small VPS – 1 vCPU / 1 GB RAM – is enough
-  for one station; disk grows with uploaded plans + incident history, budget a few GB).
-- For HTTPS: a domain pointed at the host. The bundled **`tls` profile runs Caddy** and gets
-  a certificate automatically (Let's Encrypt / ZeroSSL) – no manual cert work. Or front it
-  with your own reverse proxy / Traefik.
-- Postgres: **bundled in the compose file** (the `db` service), or point `DATABASE_URL` at a
-  managed Postgres and drop the `db` service.
+### What machine
+
+One station, one box. The stack is two containers – the app image (the SPA and its API in one
+process) plus Postgres – with Caddy as an optional third.
+
+| | Minimum | Recommended |
+| --- | --- | --- |
+| CPU | 1 core, x86-64 or arm64 | 2 cores |
+| RAM | **1 GB** | **2 GB** |
+| Disk | 20 GB **SSD** | 64 GB SSD, more if you upload many plans |
+| OS | anything with Docker Engine + Compose v2 | Debian 12/13 |
+
+**Both architectures are published:** the image is built for `linux/amd64` and `linux/arm64`,
+so a small VPS, a mini PC, a retired laptop or a Raspberry Pi 5 all work. 32-bit ARM (armv7 –
+a Raspberry Pi 3, or a Pi 4 running a 32-bit OS) is **not** built and will not run; on a Pi,
+install a 64-bit OS.
+
+The app process and an idle Postgres together sit comfortably under 500 MB, which is why 1 GB
+is a genuine minimum. What grows is **uploaded plans and incident media** in the `storage`
+volume – size the disk from that, not from the application.
+
+**Use an SSD, and do not run this from a microSD card or a USB stick.** Postgres writes
+continuously even when nobody is using the app, and cheap flash fails by silent corruption
+rather than by stopping. If the box lives in the Gerätehaus, put it on a UPS.
+
+### HTTPS is not optional here
+
+For HTTPS: a domain pointed at the host. The bundled **`tls` profile runs Caddy** and gets a
+certificate automatically (Let's Encrypt / ZeroSSL) – no manual cert work. Or front it with
+your own reverse proxy / Traefik.
+
+Plain HTTP over the LAN is **not** an equivalent fallback for this application. KP Front is a
+PWA, and four of its features exist only in a browser "secure context": the **service worker**
+(offline cache), **web push** (alerts when the app is closed), **geolocation**, and
+**microphone access** for voice memos. Deploy it on `http://10.x.x.x` and all four are gone
+silently – on the application whose whole purpose is bad connectivity. If the host has no
+public address, use a DNS-01 certificate for an internal name, or Caddy's `tls internal` and
+install the root certificate on every device (on iOS that is two steps: install the profile,
+*then* enable it under General → About → Certificate Trust Settings).
+
+### Database
+
+Postgres: **bundled in the compose file** (the `db` service), or point `DATABASE_URL` at a
+managed Postgres and drop the `db` service.
 
 ## 3. Quick start (self-host)
 
