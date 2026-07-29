@@ -443,10 +443,17 @@ input[type='number'] { -moz-appearance: textfield; appearance: textfield; }
 .dot { width: 8px; height: 8px; border-radius: 50%; }
 .dot.r { background: var(--red); animation: p 1.4s infinite; }
 @keyframes p { 50% { opacity: .3; } }
-/* station print relay: heartbeat dot on «An Stationsdrucker» (preflight + capture) */
-/* queued = in progress, not a warning */
-.print-relay-dot { flex: none; background: var(--blue); }
+/* Station print relay: heartbeat dot on «An Stationsdrucker» (preflight + capture). Green and
+   silent while the relay answers — only the abnormal state gets words, because the title= it used
+   to rely on does not exist on a tablet. */
+.print-relay-dot { flex: none; background: var(--amber); }
 .print-relay-dot.online { background: var(--green); }
+.print-send.offline { flex-direction: column; align-items: flex-start; gap: 1px; padding-top: 6px; padding-bottom: 6px; }
+.print-send-main { display: inline-flex; align-items: center; gap: 8px; }
+.print-send-off { font: 600 11px var(--body); color: var(--amber-strong); padding-left: 23px; }
+/* the capture poster's buttons are centred, so the second line centres with them */
+.cv-btn.print-send.offline { align-items: center; }
+.cv-btn .print-send-off { padding-left: 0; }
 
 .rbtn { width: 54px; height: 54px; border-radius: var(--r-sm); background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
   border: 1px solid var(--glass-line); box-shadow: var(--shadow); display: grid; place-items: center; font-size: 21px;
@@ -1156,13 +1163,43 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 /* pinned to both edges (NOT left:50% + translate: an auto-width fixed box only gets the
    space right of the 50% mark as shrink-to-fit width, so long undo toasts collapsed to a
    half-viewport pill with per-character wrapping); pills center themselves inside */
+/* off-screen but announced — a visual chain (the print stages) needs a plain sentence next to it */
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap; border: 0; }
 .toaster { position: fixed; left: 16px; right: 16px; bottom: 28px; z-index: 90;
   display: flex; flex-direction: column-reverse; align-items: center; gap: 8px; pointer-events: none; }
 .toaster > * { max-width: 100%; }
+/* The pill lands ON the dark primary button of a sheet footer (Rapport: «Einsatzrapport (PDF)»)
+   and on the night map — both as dark as --ink-fill, and --shadow's own hairline is dark, so the
+   edge dissolved and toast + button read as one block. A light inner edge gives the pill its own
+   contour on any base; --on-accent-ink is near-white in both themes, so it also holds on the
+   red/green tone fills below. */
 .toast { display: flex; align-items: center; gap: 9px; background: var(--ink-fill); color: var(--on-accent-ink); font-size: 13px; font-weight: 600;
-  padding: 10px 16px; border-radius: var(--r-btn); box-shadow: var(--shadow); white-space: nowrap;
+  padding: 10px 16px; border-radius: var(--r-btn); white-space: nowrap;
+  box-shadow: var(--shadow), inset 0 0 0 1px color-mix(in srgb, var(--on-accent-ink) 24%, transparent);
   animation: toastIn .22s var(--ease); }
 .toast .i { width: 16px; height: 16px; flex: none; }
+/* live job as a chain of stages (printJobToast): reached ones keep their tick and step back, the
+   running one carries the label, unreached ones stay visible as pips — «what still has to
+   happen» is readable without opening anything. */
+.toast-steps { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.toast-step { display: flex; align-items: center; gap: 5px; white-space: nowrap; opacity: .4;
+  transition: opacity .25s var(--ease); }
+.toast-step.done { opacity: .6; }
+.toast-step.now, .toast-step.fail { opacity: 1; }
+.toast-step .i, .toast-step .print-feed { width: 14px; height: 14px; }
+.toast-chev { display: flex; flex: none; opacity: .28; }
+.toast-chev .i { width: 12px; height: 12px; }
+.toast-pip { width: 7px; height: 7px; border-radius: 50%; flex: none;
+  background: color-mix(in srgb, var(--on-accent-ink) 45%, transparent); }
+/* the sheet feeding out of the printer — a rotating dial (the usual busy glyph) reads wrong on a
+   printer. The global prefers-reduced-motion rule stills it; the stages stay readable. */
+.print-feed-paper { animation: printFeed 2s var(--ease) infinite; }
+@keyframes printFeed {
+  0%, 8% { transform: translateY(4px); opacity: 0; }
+  30% { opacity: 1; }
+  60%, 100% { transform: translateY(0); opacity: 1; }
+}
 /* the text is the shrinkable part — long messages wrap INSIDE the pill instead of
    ballooning past the action button (undo toast on the capture modal, 2026-07-18) */
 .toast > span { min-width: 0; white-space: normal; overflow-wrap: anywhere; text-align: left; line-height: 1.3; }
@@ -3755,6 +3792,11 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
   /* long toast texts wrap on phones instead of nowrap-overflowing the fixed toaster
      (same layout-viewport-widening failure mode as the banners) */
   .toast { white-space: normal; }
+  /* the stage chain needs ~360px plus the undo button — more than a phone has, and it ran under
+     «Rückgängig». Only the running stage keeps its label here: tick › printer «Wird gedruckt» ›
+     pip. Same chain, same order as on the tablet, one line. */
+  .toast-step:not(.now) .toast-step-label { display: none; }
+  .toast-step:not(.now) { gap: 0; }
   /* the nav rail stays compact on a phone; drag-to-resize is a desktop affordance and
      would fight map gestures along the rail edge, so hide the grip (chevron still expands) */
   .nav-grip { display: none; }

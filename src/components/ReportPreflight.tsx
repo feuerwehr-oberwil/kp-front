@@ -647,12 +647,17 @@ export function ReportPreflight({
             {onComplete && (
               <button className="ip-btn" onClick={() => void complete()}><Icon id="check" />{A.complete}</button>
             )}
+            {/* the relay's state is quiet while it answers (green dot, nothing to read) and only
+                speaks up when it does not — the title= alone was invisible on the tablet */}
             {printStatus?.available && (
-              <button className="ip-btn" disabled={printBusy} onClick={() => startOutput('print')}
-                title={printStatus.online ? R.online : R.offline}>
-                <Icon id="printer" />
-                <span className={`dot print-relay-dot${printStatus.online ? ' online' : ''}`} aria-hidden />
-                {printBusy ? R.sending : R.send}
+              <button className={`ip-btn print-send${printStatus.online ? '' : ' offline'}`} disabled={printBusy}
+                onClick={() => startOutput('print')} title={printStatus.online ? R.online : R.offline}>
+                <span className="print-send-main">
+                  <Icon id="printer" />
+                  <span className={`dot print-relay-dot${printStatus.online ? ' online' : ''}`} aria-hidden />
+                  {printBusy ? R.sending : R.send}
+                </span>
+                {!printStatus.online && <span className="print-send-off">{R.offline}</span>}
               </button>
             )}
             <button className="ip-btn primary" disabled={pdfBusy} onClick={() => startOutput('pdf')}>

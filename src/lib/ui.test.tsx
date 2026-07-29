@@ -76,7 +76,7 @@ describe('sticky/updatable toast (live print status)', () => {
     act(() => vi.advanceTimersByTime(10_000)) // no auto-dismiss while sticky
     expect(screen.getByText('An Stationsdrucker gesendet')).toBeTruthy()
 
-    act(() => updateToast(id, 'Wird gedruckt …', { icon: 'print' }))
+    act(() => updateToast(id, 'Wird gedruckt …', { icon: 'printer' }))
     expect(screen.queryByText('An Stationsdrucker gesendet')).toBeNull()
     expect(screen.getByText('Wird gedruckt …')).toBeTruthy()
 
@@ -84,6 +84,36 @@ describe('sticky/updatable toast (live print status)', () => {
     expect(screen.getByText('Gedruckt')).toBeTruthy()
     act(() => vi.advanceTimersByTime(4001)) // terminal state auto-dismisses
     expect(screen.queryByText('Gedruckt')).toBeNull()
+  })
+
+  it('a step chain renders every stage and keeps the plain sentence for screen readers', () => {
+    render(<Overlays />)
+    let id!: number
+    act(() => {
+      id = toast('An Stationsdrucker gesendet', {
+        sticky: true,
+        steps: [
+          { label: 'Gesendet', state: 'now', icon: 'check' },
+          { label: 'Wird gedruckt', state: 'future' },
+          { label: 'Gedruckt', state: 'future' },
+        ],
+      })
+    })
+    // the chain shows where the job is AND what is still to come...
+    expect(screen.getByText('Gesendet')).toBeTruthy()
+    expect(screen.getByText('Wird gedruckt')).toBeTruthy()
+    expect(screen.getByText('Gedruckt')).toBeTruthy()
+    // ...while the announcement stays a sentence — three stage names read aloud say nothing
+    expect(screen.getByText('An Stationsdrucker gesendet')).toBeTruthy()
+
+    act(() => updateToast(id, 'Wird gedruckt …', {
+      steps: [
+        { label: 'Gesendet', state: 'done', icon: 'check' },
+        { label: 'Wird gedruckt', state: 'now', icon: 'printer' },
+        { label: 'Gedruckt', state: 'future' },
+      ],
+    }))
+    expect(document.querySelector('.toast-step.now .print-feed')).toBeTruthy()
   })
 
   it('dismissToast removes a sticky toast and updateToast on an unknown id is a no-op', () => {

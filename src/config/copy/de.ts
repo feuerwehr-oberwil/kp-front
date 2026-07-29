@@ -2146,6 +2146,10 @@ export const de = {
     printing: 'Wird gedruckt …',
     printed: 'Gedruckt',
     printFailed: 'Druck fehlgeschlagen – Drucker prüfen',
+    // the same three stages as a chain INSIDE that toast — short, they stand next to each other
+    stepSent: 'Gesendet',
+    stepPrinting: 'Wird gedruckt',
+    stepPrinted: 'Gedruckt',
     // every print goes through a confirm modal — no accidental paper (2026-07-18)
     confirmTitle: 'Ausdrucken',
     confirmMsg: 'Einsatzrapport an den Stationsdrucker senden?',

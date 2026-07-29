@@ -607,9 +607,12 @@ export default function CaptureApp() {
     </p>
   ) : null
 
+  // <Overlays/> rides along on EVERY branch, not just the capture screen: a print job keeps
+  // running when the Erfasser taps «zurück» to the incident list, and a toast host that
+  // unmounts takes the live «wird gedruckt → gedruckt» status with it while the job prints on.
   if (error) {
     return (
-      <div className="cv-shell"><IconSprite /><div className="cv-card cv-center">
+      <div className="cv-shell"><IconSprite /><Overlays /><div className="cv-card cv-center">
         <Icon id="warn" /><p>{error}</p>
         <button type="button" className="cv-btn" onClick={() => { setError(null); void load() }}>{C.retry}</button>
       </div></div>
@@ -617,12 +620,12 @@ export default function CaptureApp() {
   }
   // data still loading (incidents + roster): keep the SAME branded splash the chunk load
   // shows, so scan → chunk → data reads as one continuous boot, never an empty shell
-  if (incidents === null || opening) return <Splash />
+  if (incidents === null || opening) return <><Splash /><Overlays /></>
 
   // --- screen 1: incident picker ---
   if (!incident) {
     return (
-      <div className="cv-shell"><IconSprite />
+      <div className="cv-shell"><IconSprite /><Overlays />
         <header className="cv-head"><h1>{C.title}</h1></header>
         {skewLine}
         {incidents.length === 0 && (
@@ -936,11 +939,15 @@ export default function CaptureApp() {
           <Icon id="doc" /> {pdfBusy ? R.sending : C.rapportPdf}
         </button>
         {printStatus?.available && (
-          <button className={`cv-btn${kpActive ? ' cv-quiet' : ''}`} disabled={busy || printBusy} onClick={() => openWho('print')}
+          <button className={`cv-btn print-send${kpActive ? ' cv-quiet' : ''}${printStatus.online ? '' : ' offline'}`}
+            disabled={busy || printBusy} onClick={() => openWho('print')}
             title={printStatus.online ? R.online : R.offline}>
-            <Icon id="printer" />
-            <span className={`dot print-relay-dot${printStatus.online ? ' online' : ''}`} aria-hidden />
-            {printBusy ? R.sending : R.send}
+            <span className="print-send-main">
+              <Icon id="printer" />
+              <span className={`dot print-relay-dot${printStatus.online ? ' online' : ''}`} aria-hidden />
+              {printBusy ? R.sending : R.send}
+            </span>
+            {!printStatus.online && <span className="print-send-off">{R.offline}</span>}
           </button>
         )}
         {pdfMissing.length > 0 && (

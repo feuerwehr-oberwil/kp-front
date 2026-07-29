@@ -102,3 +102,16 @@ export function Icon({ id, className }: { id: string; className?: string }) {
     <svg className={`i ${className ?? ''}`}><use href={`#${id}`} /></svg>
   )
 }
+
+/** The «wird gedruckt» glyph: the sheet feeds out of the printer. Written out instead of
+ * referencing the #printer symbol because a CSS animation on a path inside a <use> shadow tree
+ * is not reliably applied — and a spinning printer (the usual busy dial) looks wrong. */
+export function PrinterFeedIcon({ className }: { className?: string }) {
+  return (
+    <svg className={`i print-feed ${className ?? ''}`} viewBox="0 0 24 24" aria-hidden>
+      <path d="M7 9V3.5h10V9" />
+      <path d="M7 17.5H5a2 2 0 0 1-2-2V11a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4.5a2 2 0 0 1-2 2h-2" />
+      <path className="print-feed-paper" d="M7 14.5h10v6H7z" />
+    </svg>
+  )
+}

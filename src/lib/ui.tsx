@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Icon } from './icons'
+import { Fragment, useEffect, useState } from 'react'
+import { Icon, PrinterFeedIcon } from './icons'
 import { appConfig } from '../config/appConfig'
 import { ConfirmCard } from './overlays/ConfirmCard'
 
@@ -10,7 +10,14 @@ import { ConfirmCard } from './overlays/ConfirmCard'
 
 type Tone = 'default' | 'warn' | 'success'
 interface ToastAction { label: string; onClick: () => void }
-interface Toast { id: number; text: string; icon?: string; tone: Tone; action?: ToastAction }
+/** One stage of a multi-step toast (the live print job). `icon` omitted = an unreached step,
+ * drawn as a dim pip; `printer` is the animated «paper coming out» glyph. */
+export interface ToastStep {
+  label: string
+  state: 'done' | 'now' | 'future' | 'fail'
+  icon?: 'check' | 'warn' | 'printer'
+}
+interface Toast { id: number; text: string; icon?: string; tone: Tone; action?: ToastAction; steps?: ToastStep[] }
 interface ConfirmReq {
   id: number
   title?: string
@@ -43,9 +50,9 @@ export function dismissToast(id: number) {
   emit()
 }
 
-export function toast(text: string, opts?: { icon?: string; tone?: Tone; duration?: number; action?: ToastAction; sticky?: boolean }): number {
+export function toast(text: string, opts?: { icon?: string; tone?: Tone; duration?: number; action?: ToastAction; sticky?: boolean; steps?: ToastStep[] }): number {
   const id = seq++
-  toasts = [...toasts, { id, text, icon: opts?.icon, tone: opts?.tone ?? 'default', action: opts?.action }]
+  toasts = [...toasts, { id, text, icon: opts?.icon, tone: opts?.tone ?? 'default', action: opts?.action, steps: opts?.steps }]
   emit()
   // sticky toasts stay until updateToast/dismissToast decides (live status). Otherwise an
   // action (e.g. confirm-with-undo) needs time to be seen and tapped.
@@ -55,10 +62,10 @@ export function toast(text: string, opts?: { icon?: string; tone?: Tone; duratio
 
 /** Patch a live toast in place (text/icon/tone/action). Pass `duration` to auto-dismiss it
  * (e.g. once the job reaches done/failed); omit to keep it sticky. Unknown id = no-op. */
-export function updateToast(id: number, text: string, opts?: { icon?: string; tone?: Tone; duration?: number; action?: ToastAction | null }) {
+export function updateToast(id: number, text: string, opts?: { icon?: string; tone?: Tone; duration?: number; action?: ToastAction | null; steps?: ToastStep[] | null }) {
   if (!toasts.some((t) => t.id === id)) return
   toasts = toasts.map((t) => t.id === id
-    ? { ...t, text, icon: opts?.icon, tone: opts?.tone ?? 'default', action: opts?.action ?? undefined }
+    ? { ...t, text, icon: opts?.icon, tone: opts?.tone ?? 'default', action: opts?.action ?? undefined, steps: opts?.steps ?? undefined }
     : t)
   emit()
   if (opts?.duration) scheduleDismiss(id, opts.duration)
@@ -96,6 +103,31 @@ function useForceUpdate() {
   }, [])
 }
 
+/** The step chain of a live job: done steps keep their tick and step back, the running one
+ * carries the label, the unreached ones stay visible as pips so «what still has to happen» is
+ * readable at a glance. Below 520px the labels of everything but the running step drop away
+ * (app.css) — the chain then still fits one line on a phone.
+ * `text` is the plain sentence: it stays as the screen-reader announcement, because reading a
+ * chain of three stage names out loud says nothing about which one is current. */
+function ToastSteps({ steps, text }: { steps: ToastStep[]; text: string }) {
+  return (
+    <>
+      <span className="sr-only">{text}</span>
+      <span className="toast-steps" aria-hidden>
+        {steps.map((s, i) => (
+          <Fragment key={s.label}>
+            {i > 0 && <span className="toast-chev"><Icon id="chevron" /></span>}
+            <span className={`toast-step ${s.state}`}>
+              {s.icon === 'printer' ? <PrinterFeedIcon /> : s.icon ? <Icon id={s.icon} /> : <span className="toast-pip" />}
+              <span className="toast-step-label">{s.label}</span>
+            </span>
+          </Fragment>
+        ))}
+      </span>
+    </>
+  )
+}
+
 export function Overlays() {
   useForceUpdate()
   const req = confirmReq
@@ -112,8 +144,12 @@ export function Overlays() {
       <div className="toaster" aria-live="polite" aria-atomic="false">
         {toasts.map((t) => (
           <div key={t.id} className={`toast toast-${t.tone}`} role="status">
-            {t.icon && <Icon id={t.icon} />}
-            <span>{t.text}</span>
+            {t.steps ? <ToastSteps steps={t.steps} text={t.text} /> : (
+              <>
+                {t.icon && <Icon id={t.icon} />}
+                <span>{t.text}</span>
+              </>
+            )}
             {t.action && (
               <button
                 className="btn toast-action"
