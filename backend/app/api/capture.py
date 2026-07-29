@@ -6,8 +6,16 @@ possession of the poster inside the fire station, the same as the clipboard it r
 Reachable incidents (decided 2026-07-11): everything not yet archived and without a
 completed Rapport — the backlog the station still owes paperwork for — plus anything opened
 within `alarms.captureWindowHours` (default 12) regardless of report state. Deliberately
-narrow: list those incidents, read roster, read/save the workspace, append journal rows.
-No create/delete/meta/admin, nothing when no secret is set (fail-closed).
+narrow: list those incidents, read roster, read/save the ATTENDANCE PART of the workspace,
+append journal rows. No create/delete/meta/admin, nothing when no secret is set (fail-closed).
+
+The workspace endpoints are key-scoped (`CAPTURE_WORKSPACE_KEYS`). They used to hand out and
+overwrite the whole `map_workspace_json` blob, which meant a poster token could read and
+rewrite the tactical map — while ALARM-INTEGRATIONS.md promised "attendance/material/
+journal/Einsatzende – no map, no admin, no history". The token goes to people outside the
+command post, so the narrow reading is the right one and the code now matches the promise:
+reads are projected down to the capture keys, and writes are merged over the server's copy
+so a capture save cannot drop or alter anything it cannot see.
 """
 
 import secrets
@@ -32,6 +40,46 @@ from ..schemas import (
     WorkspaceOut,
     WorkspacePut,
 )
+
+# The only workspace keys the Erfassungs-Poster may see or change. Everything else in the
+# blob — entities, drawings, board, building, planScale, timeline, trupps, shifts, bands,
+# cameraViews, checklists, layerState, settings — is the tactical picture and stays with the
+# logged-in editors.
+#
+# Derived from what src/capture/CaptureApp.tsx actually touches: it reads ws.attendance,
+# ws.mittel and ws.reportMeta and nothing else, and its five save actions (cycleAttendance,
+# restoreAttendance, setTimes, setMittel, setMeta) write only those three. If the capture UI
+# ever needs another key, widening this set is a deliberate decision with a doc change
+# attached — which is exactly the review step that was missing before.
+CAPTURE_WORKSPACE_KEYS = frozenset({"attendance", "mittel", "reportMeta"})
+
+
+def _capture_view(workspace: dict | None) -> dict | None:
+    """Project a stored workspace down to the keys the poster is allowed to see.
+
+    ``None`` stays ``None``: "this incident has no workspace yet" and "it has one, but
+    nothing in it concerns you" are different answers, and the form already distinguishes
+    them.
+    """
+    if workspace is None:
+        return None
+    return {k: v for k, v in workspace.items() if k in CAPTURE_WORKSPACE_KEYS}
+
+
+def _merge_capture_keys(stored: dict | None, submitted: dict | None) -> dict:
+    """Server's workspace with only the capture keys replaced by the client's.
+
+    Merging rather than overwriting is what makes the read restriction hold up: the poster
+    never receives the map, so it could not send it back even in good faith, and a naive
+    write of what it holds would erase it.
+    """
+    merged = dict(stored or {})
+    for key in CAPTURE_WORKSPACE_KEYS:
+        # A key absent from the payload means "no change", not "delete" — the poster form
+        # only ever sends back the sections it loaded.
+        if submitted and key in submitted:
+            merged[key] = submitted[key]
+    return merged
 
 
 def _client_ip(request: Request) -> str:
@@ -206,7 +254,8 @@ async def capture_get_workspace(
 ) -> WorkspaceOut:
     await _check_token(db, request, x_capture_token)
     inc = await _get_in_window(db, incident_id)
-    return WorkspaceOut(workspace=inc.map_workspace_json, workspace_rev=inc.workspace_rev)
+    # Projected, not the whole blob — the tactical map is not the poster's business.
+    return WorkspaceOut(workspace=_capture_view(inc.map_workspace_json), workspace_rev=inc.workspace_rev)
 
 
 @router.put("/incidents/{incident_id}/workspace", response_model=WorkspaceOut)
@@ -218,14 +267,25 @@ async def capture_put_workspace(
     db: AsyncSession = Depends(get_db),
 ) -> WorkspaceOut:
     """Same optimistic-concurrency save as the editor endpoint (shared helper), so capture
-    edits merge with a live KP tablet exactly like a second editor would."""
+    edits merge with a live KP tablet exactly like a second editor would — but only across
+    CAPTURE_WORKSPACE_KEYS. Everything else is carried over from the server's own copy.
+
+    The read-then-conditional-update is not a race: apply_workspace_put bumps the rev only if
+    it still equals base_rev, so a tablet that saved in between makes this a 409 rather than
+    a silent overwrite of the map with a stale snapshot.
+    """
     await _check_token(db, request, x_capture_token)
-    await _get_in_window(db, incident_id)
+    inc = await _get_in_window(db, incident_id)
     from .incidents import apply_workspace_put
 
-    saved = await apply_workspace_put(db, incident_id, body, user_id=None, source="capture")
+    scoped = WorkspacePut(
+        workspace=_merge_capture_keys(inc.map_workspace_json, body.workspace),
+        base_rev=body.base_rev,
+    )
+    saved = await apply_workspace_put(db, incident_id, scoped, user_id=None, source="capture")
     await _bump_capture_usage(db, incident_id)  # only after an ACCEPTED save (409 raises above)
-    return saved
+    # Hand back the projection, not the merged blob the editor endpoint would return.
+    return WorkspaceOut(workspace=_capture_view(saved.workspace), workspace_rev=saved.workspace_rev)
 
 
 @router.get("/incidents/{incident_id}/verify")

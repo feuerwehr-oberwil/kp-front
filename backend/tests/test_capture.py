@@ -320,3 +320,83 @@ async def test_capture_responses_carry_server_time(client, capture_secret):
     # …but not sprayed on non-capture API responses
     r = await client.get("/health")
     assert "X-Server-Time" not in r.headers
+
+
+# --- workspace scoping: the poster token is not an editor session ----------------------
+#
+# ALARM-INTEGRATIONS.md promises the capture surface reaches "attendance/material/journal/
+# Einsatzende – no map, no admin, no history". It used to hand out and overwrite the entire
+# map_workspace_json, so the promise was false in both directions. These pin the fix.
+
+_MAP_KEYS = {
+    "entities": [{"id": "e1", "kind": "symbol"}],
+    "drawings": [{"id": "d1", "points": [[0, 0], [1, 1]]}],
+    "board": {"doc1": [{"id": "a1"}]},
+    "building": {"floors": 3},
+    "trupps": [{"id": "t1", "name": "AT 1"}],
+    "timeline": [{"id": "tl1", "text": "Angriff eingeleitet"}],
+    "settings": {"grid": True},
+}
+
+
+async def test_capture_get_never_returns_the_tactical_map(client, capture_secret, db_session):
+    """A poster scan must not be a way to read the Lagekarte off the board."""
+    inc = _incident(map_workspace_json={**_MAP_KEYS, "attendance": {"p1": {"status": "present"}}})
+    db_session.add(inc)
+    await db_session.commit()
+
+    r = await client.get(f"/api/capture/incidents/{inc.id}/workspace?t={TOKEN}")
+    assert r.status_code == 200
+    returned = r.json()["workspace"]
+
+    assert set(returned) <= {"attendance", "mittel", "reportMeta"}
+    for hidden in _MAP_KEYS:
+        assert hidden not in returned, f"capture leaked '{hidden}'"
+    assert returned["attendance"] == {"p1": {"status": "present"}}
+
+
+async def test_capture_put_cannot_overwrite_the_tactical_map(client, capture_secret, db_session):
+    """Even a save that explicitly carries map keys leaves the stored map untouched."""
+    inc = _incident(map_workspace_json={**_MAP_KEYS, "attendance": {}})
+    db_session.add(inc)
+    await db_session.commit()
+    incident_id = inc.id
+
+    hostile = {
+        "attendance": {"p1": {"status": "present"}},
+        "entities": [],  # would wipe every symbol
+        "drawings": [],  # would wipe every drawing
+        "building": None,  # would drop the building model
+        "trupps": [],  # would clear the Atemschutz teams
+    }
+    r = await client.put(
+        f"/api/capture/incidents/{incident_id}/workspace?t={TOKEN}",
+        json={"workspace": hostile, "base_rev": 0},
+    )
+    assert r.status_code == 200
+
+    db_session.expire_all()
+    stored = (await db_session.execute(select(Incident).where(Incident.id == incident_id))).scalar_one()
+    for key, original in _MAP_KEYS.items():
+        assert stored.map_workspace_json[key] == original, f"capture write clobbered '{key}'"
+    # ...while the part it IS allowed to write did land.
+    assert stored.map_workspace_json["attendance"] == {"p1": {"status": "present"}}
+
+
+async def test_capture_put_preserves_unsent_capture_keys(client, capture_secret, db_session):
+    """Absent means "no change" — the form only sends back sections it loaded."""
+    inc = _incident(map_workspace_json={"attendance": {"p1": {"status": "present"}}, "mittel": [{"id": "m1"}]})
+    db_session.add(inc)
+    await db_session.commit()
+    incident_id = inc.id
+
+    r = await client.put(
+        f"/api/capture/incidents/{incident_id}/workspace?t={TOKEN}",
+        json={"workspace": {"mittel": [{"id": "m1"}, {"id": "m2"}]}, "base_rev": 0},
+    )
+    assert r.status_code == 200
+
+    db_session.expire_all()
+    stored = (await db_session.execute(select(Incident).where(Incident.id == incident_id))).scalar_one()
+    assert stored.map_workspace_json["attendance"] == {"p1": {"status": "present"}}
+    assert len(stored.map_workspace_json["mittel"]) == 2
