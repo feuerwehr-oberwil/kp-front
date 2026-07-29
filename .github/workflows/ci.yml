@@ -160,6 +160,13 @@ jobs:
   image:
     name: Image (hadolint + build + smoke)
     runs-on: ubuntu-latest
+    env:
+      # compose hardcodes ENVIRONMENT=production, and since 23a4441 seeding refuses to run
+      # there without an explicit PIN (the seed file's own is in the README). Without this the
+      # stack still boots — seeding only logs — and the smoke then reads an EMPTY roster and
+      # dies on an IndexError, which says nothing about the actual cause. Six digits, none of
+      # the well-known ones (backend/app/seed.py rejects those); both smokes log in with it.
+      SEED_PIN: '194731'
     steps:
       - uses: actions/checkout@v7
 
@@ -176,6 +183,7 @@ jobs:
             echo "SECRET_KEY=$(openssl rand -hex 32)"
             echo "APP_PORT=8000"
             echo "COOKIE_SECURE=false"
+            echo "SEED_PIN=$SEED_PIN"
             # compose pulls ghcr.io/…:${KP_FRONT_TAG:-latest}; point it at the image built
             # below so the stack boots THIS commit instead of the last published release.
             echo "KP_FRONT_TAG=ci"
@@ -207,12 +215,16 @@ jobs:
           set -euo pipefail
           curl -fsS http://localhost:8000/health
           curl -fsS http://localhost:8000/ready   # DB + storage readiness in the real container
-          # Roster proves seeding ran; login proves auth + DB write + cookie issuance.
-          USERID=$(curl -fsS http://localhost:8000/api/auth/roster \
-            | python3 -c 'import sys,json; print(json.load(sys.stdin)[0]["id"])')
-          # PIN is the committed dev seed (backend/app/seed_users.json) — update if that changes.
+          # Roster proves seeding ran; login proves auth + DB write + cookie issuance. An empty
+          # roster means seeding was skipped or raised — say so here instead of letting python
+          # fail on [0] with an IndexError that names nothing.
+          ROSTER=$(curl -fsS http://localhost:8000/api/auth/roster)
+          test "$(printf '%s' "$ROSTER" | python3 -c 'import sys,json; print(len(json.load(sys.stdin)))')" != "0" \
+            || { echo "roster is empty — seeding did not run; see the container logs below"; exit 1; }
+          USERID=$(printf '%s' "$ROSTER" | python3 -c 'import sys,json; print(json.load(sys.stdin)[0]["id"])')
+          # In production the seeded PIN is SEED_PIN, never the seed file's own (see seed.py).
           code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:8000/api/auth/login \
-            -H 'Content-Type: application/json' -d "{\"user_id\":\"$USERID\",\"pin\":\"000000\"}")
+            -H 'Content-Type: application/json' -d "{\"user_id\":\"$USERID\",\"pin\":\"$SEED_PIN\"}")
           test "$code" = "200" || { echo "login smoke failed: HTTP $code"; exit 1; }
           echo "image smoke OK"
 
@@ -237,6 +249,7 @@ jobs:
       - name: E2E smoke (browser → running container)
         env:
           E2E_BASE_URL: http://localhost:8000
+          E2E_PIN: ${{ env.SEED_PIN }}  # the browser login needs the same PIN the seed used
         run: pnpm exec playwright test
 
       - name: Upload Playwright report (on failure)
