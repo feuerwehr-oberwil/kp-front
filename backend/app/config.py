@@ -7,7 +7,7 @@ the SPA), so there is no CORS config and cookies are SameSite=Lax.
 import os
 import secrets
 
-from pydantic import field_validator
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from .telemetry.dsn import UPSTREAM_DSN
@@ -129,6 +129,12 @@ class Settings(BaseSettings):
     # --- Seeding ---
     seed_database: bool = True
     seed_users_file: str = "app/seed_users.json"
+    # PIN for the seeded accounts. MANDATORY in production: the shipped seed file carries
+    # `fu` / 000000 / role editor, and SEED_DATABASE defaults to true, so without this a
+    # public deployment came up with an internet-facing editor whose PIN is printed in the
+    # README. Same rule as kp-rueck's ADMIN_SEED_PASSWORD — boot fails loudly rather than
+    # quietly creating a weak account. In development the seed file's own PIN is used.
+    seed_pin: str = ""
     # In dev, create tables from models on startup (prod relies on Alembic migrations).
     dev_create_all: bool = True
 
@@ -168,7 +174,8 @@ class Settings(BaseSettings):
     auto_archive_check_seconds: int = 3600
 
     # --- Station print relay ---
-    # Shared secret for the on-site print agent (`tools/print_agent.py`) that polls
+    # Shared secret for the on-site print agent (kp-rueck's `tools/print-agent/`,
+    # published as `kp-print-agent`; see tools/PRINT-AGENT.md) that polls
     # /api/print-agent/* and prints queued Einsatzrapport-PDFs on the station printer.
     # Fail-closed: unset → agent endpoints answer 403 and the app never shows the
     # «An Stationsdrucker» button. Generate with `openssl rand -hex 24`.
@@ -252,19 +259,52 @@ class Settings(BaseSettings):
     # LV95 (EPSG:2056) bbox "minE,minN,maxE,maxN" used to rank local results first.
     geocoder_bbox_lv95: str = ""
 
+    # --- Overpass (OSM building outlines behind the «Umrisse» surface) ---
+    # Comma-separated, https only, raced fastest-first. These are PUBLIC mirrors: the query
+    # is a bounding box around the incident, so it leaves the station. Point this at your own
+    # Overpass instance to keep it in-house, or set it empty to switch the surface off.
+    # Called by the backend, never by the browser — see app/overpass.py for why that matters.
+    # The default list is the one the browser used to race, unchanged — moving it behind the
+    # proxy is one change, trimming the mirror set is another. The third mirror is hosted in
+    # Russia; a station that would rather not send incident bounding boxes there overrides
+    # this with the first two, and now can, in one place.
+    overpass_mirrors: str = ",".join(
+        (
+            "https://overpass.kumi.systems/api/interpreter",
+            "https://overpass-api.de/api/interpreter",
+            "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+        )
+    )
+
     # --- Telemetry (opt-in; see app/telemetry/) ---
     # The DEPLOYER's half of the switch, above whatever an admin later clicks in the UI:
     # KP_TELEMETRY_ENABLED=0 (or a blank DSN) compiles the forwarder out of this process, so
     # a station whose IT policy forbids outbound traffic can enforce that in the compose file
     # rather than trusting that nobody ticks a box. Consent is the SECOND gate, not the first.
-    telemetry_enabled: bool = True
+    # These three are the ONLY settings read under a KP_ prefix. Settings has no env_prefix,
+    # so every other field binds to its bare upper-cased name; without the explicit alias
+    # below, KP_TELEMETRY_ENABLED would bind to nothing at all and the deployer veto that
+    # PRIVACY.md promises would silently do nothing. The bare names stay accepted so any
+    # existing .env keeps working. docker-compose.yml must ALSO pass the variable into the
+    # container — compose's own .env is interpolation-only and does not reach the process.
+    # test_telemetry_env_veto.py pins both spellings — do not collapse these to plain fields.
+    telemetry_enabled: bool = Field(
+        default=True,
+        validation_alias=AliasChoices("KP_TELEMETRY_ENABLED", "TELEMETRY_ENABLED"),
+    )
     # Points at our ingest by default (a public, write-only key — read app/telemetry/dsn.py
     # before assuming that's a mistake). Override to aim the same machinery at your own
     # GlitchTip and upstream never hears from you.
-    telemetry_dsn: str = UPSTREAM_DSN
+    telemetry_dsn: str = Field(
+        default=UPSTREAM_DSN,
+        validation_alias=AliasChoices("KP_TELEMETRY_DSN", "TELEMETRY_DSN"),
+    )
     # Minutes between flush attempts. Nothing waits on this; it exists so an offline station
     # drains its queue eventually, not so a crash reaches us quickly.
-    telemetry_flush_minutes: int = 5
+    telemetry_flush_minutes: int = Field(
+        default=5,
+        validation_alias=AliasChoices("KP_TELEMETRY_FLUSH_MINUTES", "TELEMETRY_FLUSH_MINUTES"),
+    )
 
     @field_validator("telemetry_enabled", mode="before")
     @classmethod

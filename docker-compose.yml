@@ -67,6 +67,26 @@ services:
       COOKIE_SECURE: ${COOKIE_SECURE:-}
       MEDIA_STORAGE_DIR: /data/storage
       SEED_DATABASE: ${SEED_DATABASE:-true}
+      # Required whenever SEED_DATABASE is on in production — the seed file's PIN is public.
+      # Boot fails with an explanation if it is missing, rather than creating an editor
+      # account anyone who read the README can log into. Six digits, not a well-known one.
+      SEED_PIN: ${SEED_PIN:-}
+      # The deployer's telemetry veto (PRIVACY.md). It has to be named here to work at all:
+      # compose's .env is interpolation-only, so a KP_TELEMETRY_ENABLED=0 sitting in .env
+      # never reaches the process unless it is passed through like this.
+      #
+      # The fallbacks deliberately repeat the application defaults rather than being blank.
+      # Blank is not "unset" to this app — a blank flag AND a blank DSN each mean "off", so
+      # `${KP_TELEMETRY_ENABLED:-}` would quietly disable telemetry for every compose
+      # deployment instead of merely forwarding the operator's choice.
+      KP_TELEMETRY_ENABLED: ${KP_TELEMETRY_ENABLED:-1}
+      # Aim the same machinery at your own GlitchTip instead of ours; set it blank to switch
+      # the forwarder off entirely. Default MUST match UPSTREAM_DSN in app/telemetry/dsn.py.
+      KP_TELEMETRY_DSN: ${KP_TELEMETRY_DSN-https://f8ac2e518d46448d80037de2b4499141@ingest.kp-front.ch/1}
+      # Overpass mirrors for the building-outline surface (PRIVACY.md). Same blank-is-not-unset
+      # trap as the telemetry pair above: an empty value switches the surface off, so the
+      # fallback repeats the application default from app/config.py.
+      OVERPASS_MIRRORS: ${OVERPASS_MIRRORS-https://overpass.kumi.systems/api/interpreter,https://overpass-api.de/api/interpreter,https://maps.mail.ru/osm/tools/overpass/api/interpreter}
       # Optional integrations — leave blank to disable. See .env.example.
       DIVERA_ACCESS_KEY: ${DIVERA_ACCESS_KEY:-}
       DIVERA_WEBHOOK_SECRET: ${DIVERA_WEBHOOK_SECRET:-}
