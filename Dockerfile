@@ -30,12 +30,23 @@ FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 WORKDIR /app/backend
 
 # pg_dump for the pre-migration safety dump in start.sh (and manual in-container dumps).
+# It comes from PGDG, not from Debian: bookworm ships client 15, the documented stack runs
+# postgres:16-alpine, and pg_dump refuses to dump a server NEWER than itself. So every
+# migration logged «pre-migration dump failed — continuing, but fix your backups» and then
+# migrated with no backup at all — on CI and on every self-hosted box following SETUP.md.
+# ⚠️ pg_dump must be >= the server: bump this together with the db image in
+# docker-compose.yml (a newer client can dump an older server, never the reverse).
+# The key is fetched by the builder itself (no curl/gnupg in the image); apt reads an
+# ASCII-armored keyring directly as long as it is named .asc.
+ADD --chmod=644 https://www.postgresql.org/media/keys/ACCC4CF8.asc /etc/apt/keyrings/pgdg.asc
 # ffmpeg decodes uploaded voice memos server-side: waveform peaks + the STT re-encode
 # (docs/planning/audio-player-markers.md). Missing ffmpeg degrades to a flat seek bar.
 # fonts-dejavu-core: the server-side Kroki/plan renderer (app/kroki.py) needs a real
 # sans font — PIL labels AND resvg's <text> letters in the tactical-symbol pack; without
 # it the symbol letters (F/W/…) silently vanish from the rendered glyphs.
-RUN apt-get update && apt-get install -y --no-install-recommends postgresql-client ffmpeg fonts-dejavu-core \
+RUN echo "deb [signed-by=/etc/apt/keyrings/pgdg.asc] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" \
+      > /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update && apt-get install -y --no-install-recommends postgresql-client-16 ffmpeg fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python deps first from the lockfile alone, so editing backend code doesn't
