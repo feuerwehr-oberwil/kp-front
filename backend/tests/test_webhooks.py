@@ -54,6 +54,22 @@ def test_payload_includes_capture_url_only_when_composable(monkeypatch):
     assert webhooks.build_incident_payload(inc, None)["capture_url"] is None
 
 
+def test_payload_carries_source_ref_so_receivers_can_match_the_alarm():
+    """The upstream's own alarm id has to ride along.
+
+    The alarm pipeline holds milestones for an alarm that kp-front hasn't opened yet; this
+    event is its signal to deliver them NOW. `source` alone says "a Divera incident opened",
+    not which one — so without source_ref the flush can only guess.
+    """
+    inc = Incident(
+        title="Feueralarm", source="divera", source_ref="36591264", status="offen", started_at=datetime.now(UTC)
+    )
+    assert webhooks.build_incident_payload(inc, None)["incident"]["source_ref"] == "36591264"
+    # Manually created incidents have no upstream alarm — the key is present, just null.
+    manual = Incident(title="Von Hand", source="manual", status="offen", started_at=datetime.now(UTC))
+    assert webhooks.build_incident_payload(manual, None)["incident"]["source_ref"] is None
+
+
 async def test_generic_intake_schedules_webhooks(client, db_session, monkeypatch, capture_deliveries):
     import asyncio
 

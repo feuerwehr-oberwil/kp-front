@@ -44,6 +44,12 @@ def build_incident_payload(inc: Incident, capture_token: str | None) -> dict:
             "lat": float(inc.lat) if inc.lat is not None else None,
             "lng": float(inc.lng) if inc.lng is not None else None,
             "source": inc.source,
+            # The upstream's OWN id for this alarm (Divera alarm id, pager ref, …). Without
+            # it a receiver can see that an incident opened but not WHICH of its alarms it
+            # is, so anything it holds pending for that alarm can only be matched by
+            # guessing. The alarm pipeline uses it to flush queued milestones the instant
+            # the incident exists, instead of waiting out its retry cadence.
+            "source_ref": inc.source_ref,
             "started_at": inc.started_at.isoformat() if inc.started_at else None,
             "auto_opened": inc.auto_opened,
         },

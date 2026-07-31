@@ -121,7 +121,8 @@ delaying intake:
     "type": "BMA / unechte Alarme", "priority": "HIGH",
     "address": "Industriestrasse 5, 4104 Oberwil",
     "lat": 47.514, "lng": 7.558,
-    "source": "leitstelle", "started_at": "2026-07-08T14:32:00+00:00",
+    "source": "leitstelle", "source_ref": "X-1",
+    "started_at": "2026-07-08T14:32:00+00:00",
     "auto_opened": true
   },
   "capture_url": "https://front.example.org/e/<token>"   // null unless PUBLIC_URL is set
@@ -130,6 +131,13 @@ delaying intake:
 ```
 
 Set `PUBLIC_URL` (env) to the deployment's public origin so `capture_url` can be composed.
+
+`source_ref` is the **upstream's own id** for the alarm (the `source_id` a generic intake
+sent, or the Divera alarm id) – `null` for manually created incidents. It is what lets a
+sender correlate this event with an alarm it is still holding something for: the milestone
+pipeline (§1, `POST /api/alarms/milestones`) answers 404 until the incident exists, so it
+subscribes to this webhook and delivers its queued times the moment one opens, instead of
+waiting out its retry cadence.
 
 ### Example adapter: kp-rueck thermal QR slip
 
