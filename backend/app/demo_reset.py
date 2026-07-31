@@ -11,8 +11,9 @@ Reference config/geodata/objects are reloaded separately by the CLIs — see
 
     DATABASE_URL=<demo db> uv run python -m app.demo_reset
 
-DEMO ONLY. Refuses to run unless KP_DEMO_RESET=1 is set, so it can never be pointed at a
-real station's database by accident.
+DEMO ONLY. ``reset()`` itself refuses to run unless KP_DEMO_RESET=1 is set, so it can never be
+pointed at a real station's database by accident — including from the in-process scheduler,
+which imports and awaits it directly and therefore used to bypass the check entirely.
 """
 
 import asyncio
@@ -247,6 +248,28 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
     return ws
 
 
+class NotADemoDatabaseError(RuntimeError):
+    """Raised when the demo reset is aimed at a database that has not confirmed it is a demo."""
+
+
+def assert_demo_database() -> None:
+    """Refuse to wipe unless KP_DEMO_RESET=1 says this is a demo database.
+
+    This check used to live in the ``__main__`` block below, which meant it only covered the
+    CLI. ``scheduler.py`` imports ``reset`` and awaits it directly, so the in-process job —
+    the one that runs unattended, on a timer — walked straight past it, and its victim was
+    whatever DATABASE_URL named. The module docstring claimed the opposite.
+
+    Checked HERE, in the function that does the deleting, so every caller is covered by
+    construction rather than by remembering.
+    """
+    if os.getenv("KP_DEMO_RESET") != "1":
+        raise NotADemoDatabaseError(
+            "Refusing to wipe: set KP_DEMO_RESET=1 to confirm this is a DEMO database. "
+            "This deletes every incident, its journal and the roster."
+        )
+
+
 async def reset(wipe_objects: bool = True) -> None:
     """Wipe + reseed the demo's mutable state. ``wipe_objects`` controls whether the reference
     Einsatzobjekte (+ their Module PDFs) are cleared too:
@@ -257,6 +280,8 @@ async def reset(wipe_objects: bool = True) -> None:
         incident/roster and never reloads objects, so wiping them here would strip the Schloss's
         Modul 1 / 2-3 / 6 plans until the next GitHub reload — the demo's plan rail would sit empty
         (Umrisse + Tafel only) for most of each cycle."""
+    assert_demo_database()
+
     async with async_session_maker() as db:
         # Deleting incidents cascades to all incident-scoped tables (ON DELETE CASCADE).
         await db.execute(delete(Incident))
@@ -365,6 +390,10 @@ async def reset(wipe_objects: bool = True) -> None:
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    if os.getenv("KP_DEMO_RESET") != "1":
-        raise SystemExit("Refusing to run: set KP_DEMO_RESET=1 to confirm this is a DEMO database.")
+    # The guard lives in reset() itself now, so this path and the scheduler's are covered by
+    # the same check. Translated to a clean exit message rather than a traceback.
+    try:
+        assert_demo_database()
+    except NotADemoDatabaseError as exc:
+        raise SystemExit(str(exc)) from None
     asyncio.run(reset())

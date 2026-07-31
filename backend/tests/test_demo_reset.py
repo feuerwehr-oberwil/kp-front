@@ -102,6 +102,7 @@ async def test_reset_seeds_resolvable_attendance(session_factory, monkeypatch):
     """Regression: Personnel.id is a uuid4 COLUMN default, assigned at flush — reading it before
     flush yielded None, so Anwesenheit was keyed "None" (one ghost entry). reset() must flush
     first so every attendance key is a real Personnel id."""
+    monkeypatch.setenv("KP_DEMO_RESET", "1")  # this is the throwaway test database
     monkeypatch.setattr(dr, "async_session_maker", session_factory)
     await dr.reset()
     async with session_factory() as db:
@@ -130,6 +131,7 @@ async def test_reset_keeps_objects_when_not_wiping(session_factory, monkeypatch)
     does) stripped the Schloss's Modul plans from the demo's plan rail for most of each cycle."""
     from app.models import ObjectSite
 
+    monkeypatch.setenv("KP_DEMO_RESET", "1")  # this is the throwaway test database
     monkeypatch.setattr(dr, "async_session_maker", session_factory)
     async with session_factory() as db:
         db.add(
@@ -150,3 +152,43 @@ async def test_reset_keeps_objects_when_not_wiping(session_factory, monkeypatch)
     async with session_factory() as db:
         cleared = (await db.execute(text("select count(*) from objects"))).scalar_one()
     assert cleared == 0, "CLI reset clears objects (the reset script reloads them next step)"
+
+
+class TestTheDemoGuardCoversEveryCaller:
+    """`reset()` deletes every incident, its journal and the roster.
+
+    The KP_DEMO_RESET check used to sit in the module's `__main__` block, so it only covered
+    the CLI. `scheduler.py` imports `reset` and awaits it directly — the unattended, timed
+    path — and therefore bypassed the guard entirely, on whatever DATABASE_URL named. The
+    module docstring claimed it "can never be pointed at a real station's database".
+    """
+
+    @pytest.mark.asyncio
+    async def test_reset_refuses_without_the_confirmation_variable(self, monkeypatch):
+        monkeypatch.delenv("KP_DEMO_RESET", raising=False)
+        with pytest.raises(dr.NotADemoDatabaseError, match="KP_DEMO_RESET"):
+            await dr.reset()
+
+    @pytest.mark.asyncio
+    async def test_reset_refuses_when_the_variable_is_not_exactly_one(self, monkeypatch):
+        monkeypatch.setenv("KP_DEMO_RESET", "true")
+        with pytest.raises(dr.NotADemoDatabaseError):
+            await dr.reset()
+
+    @pytest.mark.asyncio
+    async def test_the_guard_runs_before_anything_is_deleted(self, monkeypatch):
+        """It must refuse without ever opening a session, let alone issuing a DELETE."""
+        monkeypatch.delenv("KP_DEMO_RESET", raising=False)
+
+        def _explode():  # pragma: no cover - reaching this is the failure
+            raise AssertionError("reset() opened a database session before checking the guard")
+
+        monkeypatch.setattr(dr, "async_session_maker", _explode)
+        with pytest.raises(dr.NotADemoDatabaseError):
+            await dr.reset()
+
+    def test_the_guard_is_importable_by_the_scheduler_path(self):
+        """The scheduler awaits `reset` directly, so the check has to be inside it."""
+        import inspect
+
+        assert "assert_demo_database()" in inspect.getsource(dr.reset)
