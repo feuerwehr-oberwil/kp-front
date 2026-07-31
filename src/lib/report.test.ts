@@ -1,5 +1,13 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { BoardDoc, Drawing, Entity, MittelEntry, PlanDocument, TimelineEvent, Trupp } from '../types'
+
+// The Zeiten grid is built from the deployment's Gruppen/Fahrzeuge, so the rows have to come
+// from a config. Oberwil's shape in miniature: two groups (one with a colour), two vehicles.
+const deployment = {
+  alarms: { groups: [{ id: 'g1', label: 'Gr. 1', color: 'Rot' }, { id: 'tgp', label: 'Gr. 9' }] },
+  fleet: { vehicles: [{ id: 'tlf', label: 'TLF' }, { id: 'pio', label: 'Pio' }] },
+}
+vi.mock('./deploymentConfig', () => ({ getDeploymentConfig: () => deployment }))
 import {
   annotatedPlans,
   eventIso,
@@ -144,6 +152,35 @@ describe('server-PDF payload extras', () => {
     const empty = metaExtrasForPdf({})
     expect(empty.gerettete).toBeUndefined()
     expect(empty.rueckmeldungElz).toBeUndefined()
+  })
+
+  // 31.07.2026: a fully automatic alarm (both groups and both vehicles delivered by the
+  // milestone integration) printed a rapport with NO Alarm-/Ausrückzeiten at all — the old
+  // rule dropped the whole section as soon as anything had been recorded digitally. The
+  // grid must always print: recorded values as times, the rest as stubs for the pen.
+  it('prints the Zeiten grid whether or not the times were recorded digitally', () => {
+    const recorded = metaExtrasForPdf({
+      gruppen: [
+        { id: 'g1', alarmedAt: '2026-07-31T10:39:40Z' },
+        { id: 'tgp', alarmedAt: '2026-07-31T10:40:48Z' },
+      ],
+      fahrzeuge: [
+        { id: 'tlf', ausgerueckt: '2026-07-31T10:43:46Z', vorOrt: '2026-07-31T10:44:03Z' },
+        // Pio was alarmed but its Ausrückzeit never arrived — a stub, not a missing row.
+        { id: 'pio', vorOrt: '2026-07-31T10:46:29Z' },
+      ],
+    })
+    expect(recorded.zeiten).toEqual([
+      ['Gr. 1 (Rot)', '12:39'],
+      ['Gr. 9', '12:40'],
+      ['TLF', '12:43'],
+      ['Pio', ''],
+    ])
+
+    // Nothing recorded: the same rows, all stubs — the paper is then the capture medium.
+    expect(metaExtrasForPdf({}).zeiten).toEqual([
+      ['Gr. 1 (Rot)', ''], ['Gr. 9', ''], ['TLF', ''], ['Pio', ''],
+    ])
   })
 
   it('builds the Material worksheet: full catalogue with stubs, recorded amounts filled', () => {

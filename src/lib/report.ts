@@ -239,10 +239,13 @@ export function describeDrawing(d: Drawing): string {
 
 /** Pre-formatted meta extras for the SERVER-rendered PDF (facts rows are placed, not
  *  computed, by the composer): Gerettete, Rückmeldung ELZ
- *  and the Alarmierungs-/Ausrückzeiten grid as [label, value] pairs. Zeiten follow the
- *  field-classification decision (2026-07-17): digitally recorded times stay digital-only
- *  (no grid on the signed rapport); only when NOTHING was recorded does the grid print as
- *  `__:__` stubs, because the paper is then the capture medium. */
+ *  and the Alarmierungs-/Ausrückzeiten grid as [label, value] pairs. The grid ALWAYS
+ *  prints (revised 2026-07-31, superseding Beschluss A of the field-classification):
+ *  recorded times print as times, missing ones as `__:__` stubs for the pen. The old rule
+ *  suppressed the whole section as soon as anything had been captured digitally, so a
+ *  fully automatic alarm — the case the milestone integration exists for — produced a
+ *  signed rapport with no Alarm- or Ausrückzeiten on it at all. Per-vehicle Vor-Ort- and
+ *  Zurück-Zeiten stay digital-only; they are not fields on the paper form. */
 export function metaExtrasForPdf(meta: ReportMeta): {
   gerettete?: string
   rueckmeldungElz?: string
@@ -269,13 +272,12 @@ export function metaExtrasForPdf(meta: ReportMeta): {
   const cfg = getDeploymentConfig()
   const gRows = gruppenRows(cfg.alarms?.groups ?? [], meta.gruppen)
   const vRows = fahrzeugRows(cfg.fleet?.vehicles ?? [], meta.fahrzeuge)
-  const anyRecorded = gRows.some(({ value: v }) => v?.alarmedAt) || vRows.some(({ value: v }) => v?.ausgerueckt)
-  const zeiten: [string, string][] = anyRecorded
-    ? []
-    : [
-        ...gRows.map(({ config: c }): [string, string] => [c.color ? `${c.label} (${c.color})` : c.label, '']),
-        ...vRows.map(({ config: c }): [string, string] => [c.label, '']),
-      ]
+  const zeiten: [string, string][] = [
+    ...gRows.map(({ config: c, value: v }): [string, string] => [
+      c.color ? `${c.label} (${c.color})` : c.label, clock(v?.alarmedAt),
+    ]),
+    ...vRows.map(({ config: c, value: v }): [string, string] => [c.label, clock(v?.ausgerueckt)]),
+  ]
   return {
     gerettete, rueckmeldungElz, zeiten,
     erfasser: meta.erfasser || undefined,

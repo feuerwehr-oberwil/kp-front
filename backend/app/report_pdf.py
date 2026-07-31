@@ -75,9 +75,9 @@ class ReportMetaIn(BaseModel):
     partnerContacts: list[PartnerContact] = []
     gerettete: str | None = None  # pre-formatted, e.g. "2 Personen · 1 Tier"
     rueckmeldungElz: str | None = None  # pre-formatted, e.g. "Muster Hans · 17:15"
-    # Alarmierungs-/Ausrückzeiten grid rows, pre-formatted [label, value] pairs — only sent
-    # when the paper must double as the capture medium (no digital times recorded yet);
-    # digitally recorded times stay digital-only (field-classification decision A).
+    # Alarmierungs-/Ausrückzeiten grid rows, pre-formatted [label, value] pairs — one row
+    # per configured Gruppe/Fahrzeug, value empty where nothing was recorded (the composer
+    # prints `__:__` there for the pen). See metaExtrasForPdf in src/lib/report.ts.
     zeiten: list[list[str]] = []
     erfasser: str | None = None  # who recorded via the capture view (comma-joined)
 
@@ -687,8 +687,9 @@ def compose_report_pdf(
     else:
         story.append(write_lines(4))
 
-    # Zeiten-stub grid: ONLY when nothing was recorded digitally — then the paper is the
-    # capture medium (otherwise the times stay digital-only and never print).
+    # Alarmierungs-/Ausrückzeiten: always printed when the deployment configures groups or
+    # vehicles — recorded times as times, the rest as `__:__` for the pen. Empty only when
+    # the config declares neither.
     if m.zeiten:
         story.extend(head(L["zeiten"]))
         zrows = [

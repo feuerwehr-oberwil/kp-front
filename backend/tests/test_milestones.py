@@ -156,3 +156,61 @@ async def test_resolve_by_source_ref(client, db_session):
         headers={"X-Webhook-Secret": SECRET},
     )
     assert r.status_code == 200 and r.json()["applied"] == 1
+
+
+async def test_concurrent_milestone_is_not_lost(client, db_session, session_factory, monkeypatch):
+    """A second milestone landing between our read and our write must not be clobbered.
+
+    2026-07-31: PIO «ausgerückt» and «vor Ort» arrived 5 ms apart; the plain
+    read-modify-write dropped one of them (the Verlauf row survived, the Ausrückzeit did
+    not). The write is a compare-and-swap now — a lost race re-reads and re-applies.
+    """
+    from sqlalchemy import update as sa_update
+
+    from app.api import alarms as alarms_api
+
+    inc = await _incident(db_session)
+
+    async def _competing_write() -> None:
+        """Someone else's milestone lands (and bumps the rev) while we hold a stale read."""
+        async with session_factory() as other:
+            await other.execute(
+                sa_update(Incident)
+                .where(Incident.id == inc.id)
+                .values(
+                    map_workspace_json={
+                        "reportMeta": {"fahrzeuge": [{"id": "pio", "vorOrt": "2026-07-13T01:18:00+00:00"}]}
+                    },
+                    workspace_rev=Incident.workspace_rev + 1,
+                )
+            )
+            await other.commit()
+
+    # Land the race in the instant between the read and the write: the first CAS attempt
+    # goes out against a rev that no longer exists, misses, and the retry has to re-read and
+    # merge onto the winner's value instead of overwriting it.
+    orig_execute_dml = alarms_api.execute_dml
+    attempts = {"n": 0}
+
+    async def _dml(db, stmt):
+        attempts["n"] += 1
+        if attempts["n"] == 1:
+            await _competing_write()
+        return await orig_execute_dml(db, stmt)
+
+    monkeypatch.setattr(alarms_api, "execute_dml", _dml)
+
+    r = await client.post(
+        "/api/alarms/milestones",
+        json={"divera_id": 4711, "vehicles": [{"id": "pio", "ausgerueckt": "2026-07-13T01:16:00Z"}]},
+        headers={"X-Webhook-Secret": SECRET},
+    )
+    assert r.status_code == 200 and r.json()["applied"] == 1
+    assert attempts["n"] == 2, "the first CAS must miss and the handler must retry"
+
+    async with session_factory() as check:
+        fresh = (await check.execute(select(Incident).where(Incident.id == inc.id))).scalar_one()
+    pio = next(v for v in fresh.map_workspace_json["reportMeta"]["fahrzeuge"] if v["id"] == "pio")
+    # BOTH survive: the racer's «vor Ort» and our «ausgerückt».
+    assert pio["vorOrt"] == "2026-07-13T01:18:00+00:00"
+    assert pio["ausgerueckt"] == "2026-07-13T01:16:00+00:00"

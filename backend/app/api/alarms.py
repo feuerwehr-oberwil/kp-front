@@ -8,16 +8,17 @@ the existing incident. Fail-closed like the Divera webhook: no ALARM_WEBHOOK_SEC
 """
 
 import secrets
+import uuid
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..alarms import create_incident_from_alarm, find_by_source_ref, get_config_model
 from ..config import settings
-from ..database import get_db
+from ..database import execute_dml, get_db
 from ..models import DiveraEmergency, Incident
 from ..push import notify_new_alarm
 from ..schemas import RESERVED_ALARM_SOURCES, AlarmIn, AlarmOut, MilestonesIn, MilestonesOut
@@ -156,6 +157,54 @@ def apply_milestones(
     return base, changed, journal
 
 
+# Two milestones routinely land milliseconds apart — one vehicle crossing the geofence and
+# reaching the scene fires both in the same breath. A plain read-modify-write on the blob
+# then loses one of them (2026-07-31: PIO «ausgerückt» and «vor Ort» arrived 5 ms apart, the
+# Verlauf kept both rows but the Ausrückzeit was gone from the record). So the write is a
+# compare-and-swap on workspace_rev, exactly like the client save path in incidents.py:
+# bump only if nobody moved the rev underneath us, else re-read and re-apply on top.
+_CAS_ATTEMPTS = 5
+
+
+async def _apply_and_store(
+    db: AsyncSession,
+    incident_id: uuid.UUID,
+    payload: MilestonesIn,
+    group_labels: dict[str, str],
+    vehicle_labels: dict[str, str],
+) -> tuple[int, list[str]]:
+    """Upsert the milestone values into the incident's workspace blob. Returns
+    (changed_count, journal_texts) — both empty when the values were already there."""
+    for _ in range(_CAS_ATTEMPTS):
+        # populate_existing: a losing round has to see the winner's blob, not the copy the
+        # identity map still holds from before their UPDATE landed.
+        inc = (
+            await db.execute(
+                select(Incident).where(Incident.id == incident_id).execution_options(populate_existing=True)
+            )
+        ).scalar_one()
+        base_rev = inc.workspace_rev or 0
+        new_ws, changed, journal_texts = apply_milestones(
+            inc.map_workspace_json if isinstance(inc.map_workspace_json, dict) else None,
+            payload,
+            group_labels,
+            vehicle_labels,
+        )
+        if not changed:
+            return 0, []
+        result = await execute_dml(
+            db,
+            update(Incident)
+            .where(Incident.id == incident_id, Incident.workspace_rev == base_rev)
+            .values(map_workspace_json=new_ws, workspace_rev=base_rev + 1),
+        )
+        if result.rowcount:
+            return changed, journal_texts
+    # Someone rewrote the blob under us five times running. The sender retries with backoff
+    # and the upsert is idempotent, so a 503 costs a delay, never a milestone.
+    raise HTTPException(status_code=503, detail="Workspace zu stark umkämpft — später erneut versuchen")
+
+
 @router.post("/milestones", response_model=MilestonesOut)
 async def milestones(
     payload: MilestonesIn,
@@ -199,17 +248,10 @@ async def milestones(
     group_labels = {g.id: g.label for g in cfg.alarms.groups}
     vehicle_labels = {v.id: v.label for v in cfg.fleet.vehicles}
 
-    new_ws, changed, journal_texts = apply_milestones(
-        inc.map_workspace_json if isinstance(inc.map_workspace_json, dict) else None,
-        payload,
-        group_labels,
-        vehicle_labels,
-    )
+    # Server-side blob write: bumps the rev so polling clients pick it up and merge.
+    # A racing client PUT can win LWW on these keys; the next milestone heals it.
+    changed, journal_texts = await _apply_and_store(db, inc.id, payload, group_labels, vehicle_labels)
     if changed:
-        # Server-side blob write: bump the rev so polling clients pick it up and merge.
-        # A racing client PUT can win LWW on these keys; the next milestone heals it.
-        inc.map_workspace_json = new_ws
-        inc.workspace_rev = (inc.workspace_rev or 0) + 1
         from .journal import append_system_row
 
         for text in journal_texts:
