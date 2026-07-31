@@ -101,6 +101,13 @@ def due_reminders(rows: list[dict], now_ms: float, closed_at: str | None) -> lis
 # ---------------------------------------------------------------------------------------
 
 
+#: Per-endpoint push timeout. pywebpush hands this to requests; without it the default is
+#: None, i.e. wait forever. That matters because `notify_new_alarm` is awaited INLINE in the
+#: Divera webhook and the generic intake — one unreachable FCM/Mozilla endpoint could hang
+#: the alarm itself, and an alarm that never lands is the worst failure this system has.
+PUSH_TIMEOUT_SECONDS = 10
+
+
 def _send_one(sub: dict, payload: str) -> bool:
     """Blocking pywebpush send; returns False when the subscription should be pruned
     (endpoint gone per the push service, or the stored keys are unusable)."""
@@ -113,6 +120,7 @@ def _send_one(sub: dict, payload: str) -> bool:
             vapid_private_key=settings.vapid_private_key,
             vapid_claims={"sub": settings.vapid_subject},
             ttl=120,
+            timeout=PUSH_TIMEOUT_SECONDS,
         )
         return True
     except WebPushException as e:
@@ -132,9 +140,27 @@ async def broadcast(db: AsyncSession, *, title: str, body: str, tag: str, target
     if not subs:
         return 0
     payload = json.dumps({"title": title, "body": body, "tag": tag, "target": target})
+
+    # Concurrently, not one after another. Sequentially the worst case was
+    # len(subs) x PUSH_TIMEOUT_SECONDS — twenty subscribed devices with one dead push service
+    # meant minutes of hanging, and this is awaited inline in the alarm intake path. Fanned
+    # out, the whole sweep costs one timeout regardless of how many endpoints are unreachable.
+    results = await asyncio.gather(
+        *(
+            asyncio.to_thread(_send_one, {"endpoint": s.endpoint, "p256dh": s.p256dh, "auth": s.auth}, payload)
+            for s in subs
+        ),
+        return_exceptions=True,
+    )
+
     dead: list[str] = []
-    for s in subs:
-        ok = await asyncio.to_thread(_send_one, {"endpoint": s.endpoint, "p256dh": s.p256dh, "auth": s.auth}, payload)
+    for s, ok in zip(subs, results, strict=True):
+        if isinstance(ok, BaseException):
+            # _send_one already swallows everything it knows about; anything arriving here is
+            # unexpected. Log it and KEEP the subscription — pruning on an unknown fault would
+            # silently unsubscribe a working device.
+            logger.warning("Web push raised unexpectedly for %s: %s", s.endpoint[:60], ok)
+            continue
         if not ok:
             dead.append(s.endpoint)
     if dead:

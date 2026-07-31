@@ -167,6 +167,57 @@ class TestBroadcast:
         # the 410 endpoint is deleted, the live one kept
         assert await _endpoints(db_session) == ["https://push.example/ok"]
 
+    async def test_a_hung_endpoint_gets_a_timeout_and_does_not_stall_the_others(self, db_session, monkeypatch):
+        """
+        The alarm path awaits this inline (api/alarms.py, api/divera.py), so a push service
+        that accepts the connection and then never answers used to hang the ALARM — pywebpush
+        passes timeout=None to requests by default, i.e. wait forever.
+        """
+        import pywebpush
+
+        from app.push import PUSH_TIMEOUT_SECONDS, broadcast
+
+        _add_sub(db_session, "https://push.example/a")
+        await db_session.commit()
+
+        seen: list[float | None] = []
+
+        def fake_webpush(subscription_info, **kw):
+            seen.append(kw.get("timeout"))
+
+        monkeypatch.setattr(pywebpush, "webpush", fake_webpush)
+        await broadcast(db_session, title="T", body="B", tag="t", target="")
+        assert seen == [PUSH_TIMEOUT_SECONDS], "every send must carry a finite timeout"
+
+    async def test_slow_endpoints_are_sent_concurrently(self, db_session, monkeypatch):
+        """
+        Sequentially, N unreachable endpoints cost N x the timeout — twenty devices and one
+        dead push service meant minutes of hanging on the alarm-intake path. Fanned out, the
+        sweep costs one timeout no matter how many are unreachable.
+        """
+        import time
+
+        import pywebpush
+
+        from app.push import broadcast
+
+        for i in range(5):
+            _add_sub(db_session, f"https://push.example/slow{i}")
+        await db_session.commit()
+
+        def fake_webpush(subscription_info, **_kw):
+            time.sleep(0.2)  # stands in for a push service that is slow to answer
+
+        monkeypatch.setattr(pywebpush, "webpush", fake_webpush)
+        started = time.monotonic()
+        await broadcast(db_session, title="T", body="B", tag="t", target="")
+        elapsed = time.monotonic() - started
+
+        # Sequential would be ~1.0s; concurrent is ~0.2s. The bound is deliberately loose —
+        # this asserts "not serialised", not a performance number.
+        assert elapsed < 0.7, f"sends look serialised ({elapsed:.2f}s for 5 x 0.2s)"
+        assert await _endpoints(db_session) == [f"https://push.example/slow{i}" for i in range(5)]
+
     async def test_transient_failure_keeps_the_subscription(self, db_session, monkeypatch):
         import pywebpush
 
