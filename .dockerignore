@@ -3,9 +3,22 @@ dist
 .git
 **/__pycache__
 backend/.venv
-backend/.env
 backend/data
 .vite
 *.log
 .DS_Store
 docs/design-concepts
+
+# Secrets must not enter the build context. `Dockerfile` does `COPY . .`, and the ROOT `.env`
+# is the file docker-compose.yml and docs/DEPLOYMENT.md tell every operator to create
+# (`cp .env.example .env`) — it holds SECRET_KEY, POSTGRES_PASSWORD, ADMIN_SECRET,
+# DIVERA_ACCESS_KEY, TRACCAR_PASSWORD, VAPID_PRIVATE_KEY and STT_API_KEY. Only `backend/.env`
+# was listed here, so a source build baked the real one into an image layer and into any
+# exported build cache. The pattern now covers both, and `.env.example` is explicitly kept
+# because it is documentation and carries no values.
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
