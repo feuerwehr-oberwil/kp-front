@@ -159,15 +159,17 @@ describe('server-PDF payload extras', () => {
   // rule dropped the whole section as soon as anything had been recorded digitally. The
   // grid must always print: recorded values as times, the rest as stubs for the pen.
   it('prints the Zeiten grid whether or not the times were recorded digitally', () => {
+    // Timezone-naive stamps on purpose: they parse as LOCAL time, so the expected clocks
+    // hold on a CEST laptop and a UTC CI runner alike (same trick as the ELZ test above).
     const recorded = metaExtrasForPdf({
       gruppen: [
-        { id: 'g1', alarmedAt: '2026-07-31T10:39:40Z' },
-        { id: 'tgp', alarmedAt: '2026-07-31T10:40:48Z' },
+        { id: 'g1', alarmedAt: '2026-07-31T12:39:40' },
+        { id: 'tgp', alarmedAt: '2026-07-31T12:40:48' },
       ],
       fahrzeuge: [
-        { id: 'tlf', ausgerueckt: '2026-07-31T10:43:46Z', vorOrt: '2026-07-31T10:44:03Z' },
+        { id: 'tlf', ausgerueckt: '2026-07-31T12:43:46', vorOrt: '2026-07-31T12:44:03' },
         // Pio was alarmed but its Ausrückzeit never arrived — a stub, not a missing row.
-        { id: 'pio', vorOrt: '2026-07-31T10:46:29Z' },
+        { id: 'pio', vorOrt: '2026-07-31T12:46:29' },
       ],
     })
     expect(recorded.zeiten).toEqual([
