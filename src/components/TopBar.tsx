@@ -56,6 +56,10 @@ interface Props {
   /** app-wide Atemschutz alarm state — drives the conditional chip (only shown when a Trupp is
    *  fällig/überfällig, so it never crowds the bar in the normal case) */
   azAlarm?: AtemschutzAlarmState
+  /** Live GPS feed has gone silent — the vehicles on the map are frozen. */
+  gpsStale?: boolean
+  /** Age of the last successful GPS poll, for the chip's readout. */
+  gpsAgeMs?: number | null
   /** jump to the Atemschutz surface (chip tap) */
   onOpenAtemschutz?: () => void
 }
@@ -63,7 +67,7 @@ interface Props {
 // Single-line top bar: incident identity + clock on the left, global journal +
 // undo/redo on the right (the surface switch moved to the left NavRail). The clock
 // interval lives here so the per-second tick re-renders only the bar, not the map below.
-export function TopBar({ incident, startedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, titleSlot, onUndo, onRedo, canUndo, canRedo, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, onOpenAtemschutz }: Props) {
+export function TopBar({ incident, startedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, titleSlot, onUndo, onRedo, canUndo, canRedo, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, onOpenAtemschutz, gpsStale, gpsAgeMs }: Props) {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000)
@@ -164,6 +168,23 @@ export function TopBar({ incident, startedAt, recording, recStartedAt, journalOp
             : <><Icon id="plus" /><span>{appConfig.copy.journal.add}</span></>}
         </button>
         {hasWind && <WeatherBadge weather={weather!} onOpenMeteo={onOpenWeather} bearing={bearing} />}
+        {/* GPS-Feed-Chip. Die Fahrzeuge bleiben absichtlich auf der Karte, wenn der Feed
+            stirbt — sie verschwinden zu lassen läse sich als «abgerückt» statt als «Feed
+            weg». Genau deshalb braucht das Einfrieren einen sichtbaren Vorbehalt: ohne ihn
+            sehen stundenalte Positionen exakt so verbindlich aus wie eine Minute alte. */}
+        {gpsStale && (
+          <span
+            className="tb-gps"
+            title="Der Live-GPS-Feed antwortet nicht. Die Fahrzeuge stehen auf ihrer zuletzt bekannten Position."
+            role="status"
+          >
+            <Icon id="gauge" />
+            <span>GPS eingefroren</span>
+            {gpsAgeMs != null && (
+              <span className="tb-gps-age">{Math.round(gpsAgeMs / 60_000)} min</span>
+            )}
+          </span>
+        )}
         {/* Atemschutz alarm chip — pinned at the far right so it never shifts the other controls.
             Only present once a Trupp is ÜBERFÄLLIG (red); the amber "fällig" lead stays on the
             board only. Taps through to the Atemschutz surface. */}

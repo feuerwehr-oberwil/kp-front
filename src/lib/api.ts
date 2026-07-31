@@ -169,7 +169,17 @@ async function request<T>(path: string, init?: RequestInit, timeoutMs = DEFAULT_
   // 204 / empty bodies: don't try to parse
   if (res.status === 204 || res.headers.get('Content-Length') === '0') return undefined as T
   const text = await res.text()
-  return (text ? JSON.parse(text) : undefined) as T
+  try {
+    return (text ? JSON.parse(text) : undefined) as T
+  } catch {
+    // A 200 whose body is not JSON is a captive portal or an interception proxy answering
+    // for the backend — the coffee-shop/hotel WLAN case, and one a fire station hits on any
+    // guest network. Raw, this threw a SyntaxError instead of an ApiError, so the callers'
+    // `status === 0` offline branches never ran: `listIncidentsResilient` gave up its cached
+    // list and AuthProvider dropped the user at the login screen, with a perfectly good
+    // offline cache sitting untouched behind it. Reported as unreachable, which is the truth.
+    throw new ApiError(0, 'Server nicht erreichbar (unerwartete Antwort)')
+  }
 }
 
 export function apiGet<T>(path: string): Promise<T> {

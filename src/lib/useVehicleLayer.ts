@@ -18,6 +18,14 @@ export interface VehicleLayer {
   /** per-vehicle operator overrides — persisted in the workspace blob */
   overrides: VehicleOverrides
   setOverrides: Dispatch<SetStateAction<VehicleOverrides>>
+  /**
+   * The live feed has gone silent and the vehicles on screen are frozen at their last
+   * known positions. Previously `gps.error` was dropped here entirely, so a dead Traccar
+   * feed was indistinguishable from a stationary fleet — the symbols just stopped moving.
+   */
+  gpsStale: boolean
+  /** Age of the last successful GPS poll in ms; null before the first one. */
+  gpsAgeMs: number | null
 }
 
 export function useVehicleLayer(initOverrides: VehicleOverrides): VehicleLayer {
@@ -37,5 +45,13 @@ export function useVehicleLayer(initOverrides: VehicleOverrides): VehicleLayer {
   }), [gps.vehicles, overrides])
   const liveIds = useMemo(() => new Set(gps.vehicles.map((v) => v.id)), [gps.vehicles])
 
-  return { gpsVehicles: gps.vehicles, liveVehicles, liveIds, overrides, setOverrides }
+  return {
+    gpsVehicles: gps.vehicles,
+    liveVehicles,
+    liveIds,
+    overrides,
+    setOverrides,
+    gpsStale: gps.stale,
+    gpsAgeMs: gps.ageMs,
+  }
 }

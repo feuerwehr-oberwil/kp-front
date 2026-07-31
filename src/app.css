@@ -1932,6 +1932,17 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .tb-az.warn:hover { background: color-mix(in srgb, var(--amber) 26%, transparent); }
 .tb-az.crit { background: color-mix(in srgb, var(--red) 15%, transparent); color: var(--red-strong); animation: tb-az-pulse 1.6s infinite; }
 .tb-az.crit:hover { background: color-mix(in srgb, var(--red) 26%, transparent); }
+
+/* GPS-Feed-Chip — erscheint nur, wenn der Live-Feed schweigt. Die Fahrzeuge bleiben auf der
+   Karte stehen (Verschwinden liest sich als «ist weggefahren», nicht als «Feed weg»), also
+   muss das Einfrieren hier sichtbar werden. Bernstein, nicht Rot: eine eingefrorene Position
+   ist ein Vorbehalt, kein Alarm — und Rot gehört dem überfälligen Trupp. */
+.tb-gps { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: var(--r-pill);
+  font-family: var(--body); font-size: 12.5px; font-weight: 700; padding: 5px 11px 5px 9px; margin-right: 2px;
+  flex: none; cursor: default;
+  background: color-mix(in srgb, var(--amber, #b45309) 16%, transparent); color: var(--amber-strong, #b45309); }
+.tb-gps .i { width: 15px; height: 15px; flex: none; }
+.tb-gps-age { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 @keyframes tb-az-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .68; } }
 /* compact wind readout folded into the bar on a phone — downwind arrow + speed, no temp */
 .tb-wind { display: inline-flex; align-items: center; gap: 4px; border: none; cursor: pointer; background: transparent;
