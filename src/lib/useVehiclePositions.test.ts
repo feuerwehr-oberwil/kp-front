@@ -156,3 +156,119 @@ describe('autoRotation / isMoving (unchanged helpers, kept covered)', () => {
     expect(isMoving(null, null)).toBe(false)
   })
 })
+
+describe('GPS staleness (frozen positions must not look live)', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
+
+  it('is not stale while the feed answers', async () => {
+    // A FRESH Response per call: a single shared Response has its body consumed by the first
+    // .json(), so every later poll throws 'Body is unusable' and the feed only *looks* dead.
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify([gpsPos(1)]), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const { result, unmount } = renderHook(() => useVehiclePositions())
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    expect(result.current.stale).toBe(false)
+    // several healthy poll cycles later it is still not stale
+    await act(async () => { await vi.advanceTimersByTimeAsync(90_000) })
+    expect(result.current.stale).toBe(false)
+    expect(result.current.vehicles[0].subtitle).toBe('GPS · Online')
+    unmount()
+  })
+
+  it('goes stale once the feed stops answering, without dropping the vehicles', async () => {
+    let down = false
+    const fetchMock = vi.fn(async () => {
+      if (down) throw new Error('Network down')
+      return new Response(JSON.stringify([gpsPos(1)]), { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const { result, unmount } = renderHook(() => useVehiclePositions())
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    expect(result.current.stale).toBe(false)
+
+    down = true // the feed dies with a good fix already on screen
+
+    // One missed poll must NOT cry wolf — a single dropped request on field LTE is normal.
+    await act(async () => { await vi.advanceTimersByTimeAsync(15_000) })
+    expect(result.current.stale).toBe(false)
+
+    // Past three missed polls the picture is frozen and has to say so.
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000) })
+    expect(result.current.stale).toBe(true)
+    // The vehicle is still on the map — vanishing would read as "it drove off".
+    expect(result.current.vehicles).toHaveLength(1)
+    expect(result.current.vehicles[0].subtitle).toContain('veraltet')
+    expect(result.current.vehicles[0].fields?.['GPS-Feed']).toContain('keine Daten')
+    // `live` must stay true: it means "externally sourced, not editable" and guards drag /
+    // rotate. Flipping it would make frozen vehicles draggable — a worse bug than the one
+    // being fixed.
+    expect(result.current.vehicles[0].live).toBe(true)
+    unmount()
+  })
+
+  it('never reports stale on a deployment that has no Traccar at all', async () => {
+    // 503 stops polling for good. There has never been a successful poll, so there is no
+    // frozen picture to warn about — the chip must stay away rather than accuse a feed that
+    // was never configured.
+    const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 503 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const { result, unmount } = renderHook(() => useVehiclePositions())
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(300_000) })
+    expect(result.current.stale).toBe(false)
+    expect(result.current.ageMs).toBeNull()
+    unmount()
+  })
+
+  it('recovers when the feed comes back', async () => {
+    // Toggled explicitly rather than by a fixed mock sequence: the poll and the staleness
+    // ticker share the 15 s cadence, so counting `mockResolvedValueOnce` calls made the
+    // recovery land on the very tick the assertion checked.
+    let down = false
+    const fetchMock = vi.fn(async () => {
+      if (down) throw new Error('Network down')
+      return new Response(JSON.stringify([gpsPos(1)]), { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const { result, unmount } = renderHook(() => useVehiclePositions())
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    expect(result.current.stale).toBe(false)
+
+    down = true
+    await act(async () => { await vi.advanceTimersByTimeAsync(90_000) })
+    expect(result.current.stale).toBe(true)
+
+    down = false
+    await act(async () => { await vi.advanceTimersByTimeAsync(30_000) })
+    expect(result.current.stale).toBe(false)
+    expect(result.current.vehicles[0].subtitle).toBe('GPS · Online')
+    unmount()
+  })
+
+  it('does not re-render the map every poll while the fleet sits parked', async () => {
+    // The whole point of vehiclesSignature: a parked fleet reports identical positions every
+    // 15 s and must NOT churn the map overlay tree. An early version of the staleness work
+    // wrote the last-success timestamp into state on every poll and silently undid that.
+    // A FRESH Response per call: a single shared Response has its body consumed by the first
+    // .json(), so every later poll throws 'Body is unusable' and the feed only *looks* dead.
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify([gpsPos(1)]), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    let renders = 0
+    const { unmount } = renderHook(() => { renders++; return useVehiclePositions() })
+    await act(async () => { await vi.advanceTimersByTimeAsync(20_000) })
+    const settled = renders
+    // Eight minutes of polling a fleet that never moves.
+    await act(async () => { await vi.advanceTimersByTimeAsync(480_000) })
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(30)
+    // The number that matters is that renders do NOT scale with polls: 30+ polls cost at
+    // most one settling render. (Verified against 60/120/240/480 s windows — the delta stays
+    // 1 while the poll count grows 6 → 34.) Writing the last-success timestamp into state
+    // instead of a ref made this grow linearly, re-rendering the whole map every 15 s.
+    expect(renders - settled).toBeLessThanOrEqual(1)
+    unmount()
+  })
+})

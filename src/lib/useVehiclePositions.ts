@@ -87,7 +87,26 @@ export interface VehiclePositionsApi {
   vehicles: Entity[]
   /** last fetch error message, if any (e.g. backend down, Traccar not configured) */
   error: string | null
+  /**
+   * True once the feed has been silent for longer than `GPS_STALE_AFTER_MS`.
+   *
+   * A vehicle is never removed from the map when the feed dies — that is deliberate and
+   * right, absence would read as "it left" rather than "we lost the feed". But it means the
+   * symbols keep sitting there looking exactly as authoritative as they did a minute ago,
+   * and the FU makes positioning decisions off them. This is what lets the UI say the
+   * picture is frozen while still showing it.
+   */
+  stale: boolean
+  /** Age of the last SUCCESSFUL poll in ms; null before the first one lands. */
+  ageMs: number | null
 }
+
+/**
+ * Three missed polls (pollMs = 15s). Long enough that one dropped request on a flaky field
+ * LTE link doesn't cry wolf, short enough that a dead feed is called out while the position
+ * still resembles reality.
+ */
+export const GPS_STALE_AFTER_MS = 60_000
 
 /**
  * A signature of only the map-relevant state of the fleet — id, position and rotation per vehicle.
@@ -116,6 +135,16 @@ export function vehiclesSignature(entities: Entity[]): string {
 export function useVehiclePositions(): VehiclePositionsApi {
   const [vehicles, setVehicles] = useState<Entity[]>([])
   const [error, setError] = useState<string | null>(null)
+  // Timestamp of the last poll that actually returned data. A REF, not state, on purpose:
+  // writing it on every successful poll would re-render the whole map overlay tree every
+  // 15 s for a parked fleet — precisely what `vehiclesSignature` above exists to prevent.
+  const lastOkRef = useRef<number | null>(null)
+  // The staleness verdict is the only part that is state, and it is written so that a
+  // healthy feed produces no state change at all (see the evaluator below).
+  const [gpsAge, setGpsAge] = useState<{ stale: boolean; ageMs: number | null }>({
+    stale: false,
+    ageMs: null,
+  })
   const timer = useRef<number | null>(null)
   // Last-known position per device, keyed by entity id. A vehicle is never
   // removed once seen — offline devices stay on the map at their latest position,
@@ -175,6 +204,7 @@ export function useVehiclePositions(): VehiclePositionsApi {
           setVehicles(list)
         }
         setError(null)
+        lastOkRef.current = Date.now()
       } catch (e) {
         if (!alive) return
         setError(e instanceof Error ? e.message : 'GPS nicht erreichbar')
@@ -189,5 +219,42 @@ export function useVehiclePositions(): VehiclePositionsApi {
     }
   }, [])
 
-  return useMemo(() => ({ vehicles, error }), [vehicles, error])
+  // Re-evaluate staleness on the poll cadence. A dead feed produces NO state changes on its
+  // own — `setError` with an identical message re-renders nothing — so without this the map
+  // would never notice it had frozen. Written to be a no-op while healthy: returning `prev`
+  // unchanged makes React bail out, so an idle map stays genuinely idle.
+  useEffect(() => {
+    const evaluate = () => {
+      const last = lastOkRef.current
+      const ageMs = last == null ? null : Date.now() - last
+      const stale = ageMs != null && ageMs > GPS_STALE_AFTER_MS
+      setGpsAge((prev) => {
+        if (!stale && !prev.stale) return prev // healthy: no state change, no re-render
+        // While stale, only re-render when the displayed whole minute actually changes.
+        if (stale && prev.stale && Math.floor((prev.ageMs ?? 0) / 60_000) === Math.floor((ageMs ?? 0) / 60_000)) return prev
+        return { stale, ageMs }
+      })
+    }
+    const id = window.setInterval(evaluate, cfg.pollMs)
+    return () => window.clearInterval(id)
+  }, [])
+
+  return useMemo(() => {
+    const { stale, ageMs } = gpsAge
+
+    // Degrade the symbols in place rather than removing them. `live` deliberately stays
+    // true: it means "externally sourced, not editable" and drives drag/rotate guards —
+    // flipping it would quietly make frozen vehicles draggable, which is a worse bug than
+    // the one being fixed. Only what the operator READS changes.
+    const mins = Math.floor((ageMs ?? 0) / 60_000)
+    const shown = stale
+      ? vehicles.map((v) => ({
+          ...v,
+          subtitle: `GPS · veraltet (${mins} min)`,
+          fields: { ...v.fields, 'GPS-Feed': `seit ${mins} min keine Daten` },
+        }))
+      : vehicles
+
+    return { vehicles: shown, error, stale, ageMs }
+  }, [vehicles, error, gpsAge])
 }

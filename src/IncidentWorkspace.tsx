@@ -244,7 +244,7 @@ export function IncidentWorkspace({
   // they auto-update and never get persisted. The operator can drag a vehicle to
   // reposition it and drag its handle to orient it; those overrides live here
   // (persisted) and win over the GPS value until reset via the "GPS" button.
-  const { liveVehicles, liveIds, overrides: vehicleOverrides, setOverrides: setVehicleOverrides } = useVehicleLayer(init.vehicleOverrides)
+  const { liveVehicles, liveIds, overrides: vehicleOverrides, setOverrides: setVehicleOverrides, gpsStale, gpsAgeMs } = useVehicleLayer(init.vehicleOverrides)
 
   // Session-only tactical editing state (active tool, place gesture, selection) — see
   // useTacticalSelection. Declared before enterReplay (which clears it) so its setters are in
@@ -1876,6 +1876,11 @@ export function IncidentWorkspace({
         bearing={view.bearing}
         azAlarm={azAlarm}
         onOpenAtemschutz={() => { setMode('atemschutz'); setPanel(null) }}
+        // Only on the map surface: the chip is a caveat about what the MAP is showing, and on
+        // Plan/Atemschutz there are no vehicle symbols for it to qualify. During replay the
+        // positions are historical by definition, so a staleness warning would be nonsense.
+        gpsStale={mapUI && !replayActive && gpsStale}
+        gpsAgeMs={gpsAgeMs}
         // On the phone map surface the floating compass cluster already carries Einpassen
         // (== centerIncident) + Mein Standort, so a top-bar center button here would just
         // duplicate it AND crowd the narrow bar off its right edge (clipping the Atemschutz
