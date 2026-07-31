@@ -52,3 +52,9 @@ than the [CHANGELOG](../CHANGELOG.md), the
 
 Per-station data (config, rosters, reference geodata, object plans, checklists) is never in this
 repository either – see [`STATION-DATA.md`](STATION-DATA.md).
+
+**Running KP Front and KP Rück at the same station** is documented once, in the sibling project:
+[`RUNNING-BOTH.md`](https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RUNNING-BOTH.md).
+One copy on purpose – nothing in it is specific to either repository, and two copies of a document
+about two moving systems is two documents to keep true. The two applications stay completely
+independent deployments; that guide is only about not doing the shared setup work twice.
