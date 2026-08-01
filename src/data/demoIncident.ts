@@ -47,6 +47,9 @@ export const layers: LayerDef[] = [
   // Wind/Wetter is always shown via the corner WindBadge (no toggle).
   { id: 'taktisch', group: 'Lage', label: 'Taktische Zeichen', icon: 'hex', visible: true },
   { id: 'fahrzeuge', group: 'Lage', label: 'Fahrzeuge', icon: 'truck', visible: true },
+  // Off by default on purpose: the tracks answer "where did it come from?", which is an
+  // occasional question, and drawn permanently they compete with the tactical symbols.
+  { id: 'fahrzeugspuren', group: 'Lage', label: 'Fahrzeugspuren', icon: 'truck', visible: false },
   { id: 'markup', group: 'Lage', label: 'Skizzen & Notizen', icon: 'area', visible: true },
 
   // Per-station REFERENCE layers (hydrants, Leitungskataster, canton WMS, …) are NOT bundled

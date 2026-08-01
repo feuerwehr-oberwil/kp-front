@@ -10,6 +10,7 @@ import { markerParamsAlong, lerpPoint, MAX_VERTEX_HANDLES } from '../lib/lineSty
 import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, resumeViewState, snapNorth, shapePx, symPx } from '../lib/mapView'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
 import { pathLengthM, fmtDistance, hoseLengthHint, circlePolygon } from '../lib/geo'
+import { useVehicleTrails } from '../lib/useVehicleTrails'
 import { useMapCanvasGestures } from './useMapCanvasGestures'
 import { MapMarkers } from './MapMarkers'
 import { MapLayers } from './MapLayers'
@@ -857,6 +858,10 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   const trailFC = fc(entities
     .filter((e) => e.kind === 'team' && isVisible(e.layer) && (e.trail?.length ?? 0) >= 2 && !hiddenTrails.has(e.id))
     .map((e) => lineFeat((e.trail ?? []).map((p) => p.coord), { color: e.color || appConfig.drawing.teamColors[0] })))
+  // Vehicle tracks from Traccar — their own layer, off by default, and only polled while it is
+  // switched on. Distinct from the Trupp trails above: those are positions the operator recorded
+  // by hand, these are recorded by the vehicles themselves.
+  const vehicleTrailFC = useVehicleTrails(isVisible(appConfig.gps.trailsLayerId))
 
   return (
    <>
@@ -962,6 +967,13 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       <Source id="s-team-trails" type="geojson" data={trailFC}>
         <Layer id="l-team-trails" type="line" layout={{ 'line-join': 'round' }}
           paint={{ 'line-color': ['get', 'color'], 'line-width': 2, 'line-dasharray': [2.5, 2.5], 'line-opacity': 0.85 } as any} />
+      </Source>
+      {/* vehicle tracks (Traccar) — solid, thin and deliberately quiet: this is context behind
+          the fleet, not a tactical statement, so it must not read like a drawn hose line. The
+          hook returns an empty collection whenever the layer is off, so this costs nothing then. */}
+      <Source id="s-vehicle-trails" type="geojson" data={vehicleTrailFC}>
+        <Layer id="l-vehicle-trails" type="line" layout={{ 'line-join': 'round', 'line-cap': 'round' }}
+          paint={{ 'line-color': '#00a0ff', 'line-width': 2, 'line-opacity': 0.5 }} />
       </Source>
       {/* live draft (area/line tool) — vertices are draggable handles (rendered below),
           so the in-progress shape edits exactly like the measure path */}

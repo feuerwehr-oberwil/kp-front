@@ -97,6 +97,14 @@ const base = {
     positionsPath: '/api/traccar/positions',
     layerId: 'fahrzeuge' as LayerId,
     pollMs: 15_000,
+    // Breadcrumbs behind each vehicle. Own layer and OFF by default: on a busy Lage the tracks
+    // compete with the tactical symbols, and the question they answer ("where did it come
+    // from?") is one you ask occasionally, not continuously. Polled only while the layer is
+    // actually visible — an unopened layer costs nothing.
+    trailsPath: '/api/traccar/trails',
+    trailsLayerId: 'fahrzeugspuren' as LayerId,
+    trailMinutes: 30,
+    trailsPollMs: 30_000,
     // each live vehicle renders a generic vehicle glyph with its name + heading
     // baked in (see lib/useVehiclePositions.ts · vehicleSymbolSvg); no per-name
     // symbol mapping needed.
