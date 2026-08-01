@@ -10,7 +10,16 @@ const { loadReplay, deriveMarkers, stateAt, vehiclesAt } = vi.hoisted(() => ({
   stateAt: vi.fn(async () => null),
   vehiclesAt: vi.fn(() => []),
 }))
-vi.mock('../lib/replay', () => ({ loadReplay, deriveMarkers, stateAt, vehiclesAt }))
+// Only the IO-shaped exports are stubbed. The gap/step helpers are pure, so the real ones are
+// kept via importOriginal — stubbing them would let the component drift away from the logic
+// that actually ships, which is the whole thing this test is meant to catch.
+vi.mock('../lib/replay', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/replay')>()),
+  loadReplay,
+  deriveMarkers,
+  stateAt,
+  vehiclesAt,
+}))
 
 import { ReplayBar } from './ReplayBar'
 

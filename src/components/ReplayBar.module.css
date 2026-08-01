@@ -56,6 +56,16 @@
   content: ''; position: absolute; left: 0; right: 0; height: 5px; border-radius: var(--r-pill);
   background: var(--border); }
 .replay-fill { position: absolute; left: 0; height: 5px; border-radius: var(--r-pill); background: var(--blue); pointer-events: none; }
+/* An empty stretch: hatched rather than tinted, so it reads as "nothing recorded here" instead
+   of as another coloured phase competing with the fill. Sits under the markers and takes no
+   pointer events — the track underneath must stay draggable straight through it. */
+.replay-gap {
+  position: absolute; top: 50%; height: 5px; transform: translateY(-50%); pointer-events: none;
+  border-radius: var(--r-pill); opacity: .55;
+  background: repeating-linear-gradient(
+    -45deg,
+    color-mix(in srgb, var(--ink-faint) 55%, transparent) 0 3px,
+    transparent 3px 6px); }
 .replay-marker {
   position: absolute; top: 50%; width: 8px; height: 8px; border-radius: 50%; padding: 0;
   border: 1.5px solid #fff; transform: translate(-50%, -50%); cursor: pointer; opacity: .85;
@@ -72,6 +82,11 @@
 .replay-range { display: flex; justify-content: space-between; gap: 8px;
   font-family: var(--mono); font-size: 9.5px; color: var(--ink-faint); line-height: 1.2; padding: 0 1px; }
 .replay-range span:last-child { text-align: right; }
+/* Einsatzuhr, centred between the two absolute times. Brighter than its neighbours because it
+   is the figure that gets read out in a debrief, not reference furniture. */
+.replay-elapsed { flex: 1; text-align: center; color: var(--ink); font-weight: 700; }
+/* «übersprungen 2 h 14», riding inside the time bubble so it cannot collide with the track */
+.replay-skipnote { margin-left: 6px; font-weight: 500; opacity: .8; }
 
 @media (max-width: 600px) {
   /* replay scrubber → full-width, lifted above the NavRail bottom bar (still lets you

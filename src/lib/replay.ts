@@ -129,6 +129,85 @@ export function activeReplayRange(
   return { startMs, endMs }
 }
 
+/**
+ * A stretch of the timeline where nothing was recorded.
+ *
+ * `fromMs`/`toMs` are the real moments on either side, so the gap is what lies strictly
+ * between them — jumping to `toMs` lands on the next thing that actually happened.
+ */
+export interface ReplayGap {
+  fromMs: number
+  toMs: number
+}
+
+/**
+ * How much silence has to pass before playback stops sitting through it.
+ *
+ * Two minutes is roughly the point where even 32× stops being watchable (3.7 s of staring at
+ * an unchanging map), while anything shorter is plausibly a pause in the work rather than a
+ * hole in the record — and skipping those would misrepresent the pace of the incident.
+ */
+export const GAP_SKIP_MS = 120_000
+
+/**
+ * The timestamps of everything that counts as activity, for gap detection.
+ *
+ * Deliberately events only — **not** vehicle samples. GPS ticks whether or not anything is
+ * happening: a fleet parked at the depot overnight still reports every ~30 s, so folding
+ * samples in here would mean no gap is ever detected and the whole feature quietly does
+ * nothing. `incident.create` is excluded for the same reason `activeReplayRange` excludes it:
+ * it is structural, not activity.
+ */
+export function activityMoments(events: { occurred_at: string; op_type: string }[]): number[] {
+  const out: number[] = []
+  for (const e of events) {
+    if (IDLE_OP_TYPES.has(e.op_type)) continue
+    const t = ms(e.occurred_at)
+    if (Number.isFinite(t)) out.push(t)
+  }
+  return out
+}
+
+/**
+ * The empty stretches between consecutive moments, plus the head and tail of the range.
+ *
+ * The tail is the one that matters most in practice: an incident nobody closed leaves hours of
+ * nothing between the last real entry and «Jetzt», and that is exactly the stretch an operator
+ * should never have to scrub through.
+ */
+export function findGaps(moments: number[], startMs: number, endMs: number, minGapMs = GAP_SKIP_MS): ReplayGap[] {
+  const inRange = moments.filter((t) => Number.isFinite(t) && t >= startMs && t <= endMs).sort((a, b) => a - b)
+  const edges = [startMs, ...inRange, endMs]
+  const gaps: ReplayGap[] = []
+  for (let i = 1; i < edges.length; i++) {
+    const fromMs = edges[i - 1]
+    const toMs = edges[i]
+    if (toMs - fromMs > minGapMs) gaps.push({ fromMs, toMs })
+  }
+  return gaps
+}
+
+/** The gap the playhead is inside, or null. Endpoints are real moments, so they are excluded. */
+export function gapAt(gaps: ReplayGap[], tMs: number): ReplayGap | null {
+  for (const g of gaps) if (tMs > g.fromMs && tMs < g.toMs) return g
+  return null
+}
+
+/**
+ * The next moment strictly after (`dir: 1`) or before (`dir: -1`) the playhead, or null at
+ * either end. This is what the transport buttons step by — «the next thing that happened»
+ * rather than a fixed number of seconds, which on a sparse timeline lands on nothing.
+ */
+export function stepMoment(moments: number[], tMs: number, dir: 1 | -1): number | null {
+  let best: number | null = null
+  for (const t of moments) {
+    if (!Number.isFinite(t)) continue
+    if (dir === 1 ? t <= tMs : t >= tMs) continue
+    if (best === null || (dir === 1 ? t < best : t > best)) best = t
+  }
+  return best
+}
+
 /** Pick the events worth showing as track markers (skip noisy move/edit/toggle). */
 export function deriveMarkers(events: ReplayEvent[]): ReplayMarker[] {
   const copy = appConfig.copy.replay

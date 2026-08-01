@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activeReplayRange, deriveMarkers, stateAt, vehiclesAt } from './replay'
+import { activeReplayRange, activityMoments, deriveMarkers, findGaps, gapAt, stateAt, stepMoment, vehiclesAt } from './replay'
 import type { ReplayBundle, ReplayEvent, VehicleSampleRow } from './replay'
 import type { Saved } from './workspace'
 
@@ -295,5 +295,102 @@ describe('vehiclesAt — interpolated sample paths', () => {
     const [v] = vehiclesAt(samples, 500)
     expect(v.coord).toEqual([7, 47])
     expect(v.course).toBe(12)
+  })
+})
+
+describe('activityMoments', () => {
+  it('drops incident.create — structural, not activity', () => {
+    // Same exclusion activeReplayRange makes. Counting it would anchor the first "moment" at
+    // the incident being opened, which is often long before anyone did anything.
+    const moments = activityMoments([
+      { occurred_at: iso(1_000), op_type: 'incident.create' },
+      { occurred_at: iso(5_000), op_type: 'workspace.save' },
+    ])
+    expect(moments).toEqual([5_000])
+  })
+
+  it('keeps workspace.save — a burst of saves is somebody drawing', () => {
+    // deriveMarkers drops these as too dense to render; gap detection must NOT, or a stretch
+    // of continuous drawing would be classified as silence and skipped over.
+    expect(activityMoments([{ occurred_at: iso(7_000), op_type: 'workspace.save' }])).toEqual([7_000])
+  })
+
+  it('ignores unparseable timestamps rather than emitting NaN', () => {
+    expect(activityMoments([{ occurred_at: 'not-a-date', op_type: 'other' }])).toEqual([])
+  })
+})
+
+describe('findGaps', () => {
+  const MIN = 60_000
+
+  it('finds the stretch between two distant moments', () => {
+    const gaps = findGaps([0, 10 * MIN], 0, 10 * MIN, 2 * MIN)
+    expect(gaps).toEqual([{ fromMs: 0, toMs: 10 * MIN }])
+  })
+
+  it('leaves closely-spaced moments alone', () => {
+    // A pause in the work is not a hole in the record; skipping it would misrepresent the pace.
+    expect(findGaps([0, MIN, 2 * MIN], 0, 2 * MIN, 5 * MIN)).toEqual([])
+  })
+
+  it('catches the trailing gap — the forgotten-close case', () => {
+    // Two entries a minute apart, then the incident sits open until 10 h. Only the tail is a
+    // gap — this is the stretch the whole feature exists for.
+    const gaps = findGaps([0, MIN], 0, 600 * MIN, 2 * MIN)
+    expect(gaps).toEqual([{ fromMs: MIN, toMs: 600 * MIN }])
+  })
+
+  it('catches a leading gap before the first activity', () => {
+    const gaps = findGaps([30 * MIN], 0, 30 * MIN, 2 * MIN)
+    expect(gaps).toEqual([{ fromMs: 0, toMs: 30 * MIN }])
+  })
+
+  it('sorts unordered input before pairing', () => {
+    const gaps = findGaps([10 * MIN, 0], 0, 10 * MIN, 2 * MIN)
+    expect(gaps).toEqual([{ fromMs: 0, toMs: 10 * MIN }])
+  })
+
+  it('ignores moments outside the range', () => {
+    expect(findGaps([-99 * MIN, 5 * MIN, 999 * MIN], 0, 5 * MIN, 2 * MIN)).toEqual([
+      { fromMs: 0, toMs: 5 * MIN },
+    ])
+  })
+})
+
+describe('gapAt', () => {
+  const gaps = [{ fromMs: 100, toMs: 900 }]
+
+  it('reports the gap the playhead is inside', () => {
+    expect(gapAt(gaps, 500)).toEqual(gaps[0])
+  })
+
+  it('excludes the endpoints — those are real moments', () => {
+    // Landing exactly on toMs after a jump must not re-trigger the same skip forever.
+    expect(gapAt(gaps, 100)).toBeNull()
+    expect(gapAt(gaps, 900)).toBeNull()
+  })
+})
+
+describe('stepMoment', () => {
+  const moments = [0, 5_000, 9_000]
+
+  it('steps to the next moment strictly after the playhead', () => {
+    expect(stepMoment(moments, 0, 1)).toBe(5_000)
+    expect(stepMoment(moments, 4_999, 1)).toBe(5_000)
+    expect(stepMoment(moments, 5_000, 1)).toBe(9_000)
+  })
+
+  it('steps backwards strictly before the playhead', () => {
+    expect(stepMoment(moments, 9_000, -1)).toBe(5_000)
+    expect(stepMoment(moments, 5_001, -1)).toBe(5_000)
+  })
+
+  it('returns null at either end so the caller can clamp', () => {
+    expect(stepMoment(moments, 9_000, 1)).toBeNull()
+    expect(stepMoment(moments, 0, -1)).toBeNull()
+  })
+
+  it('copes with unsorted input', () => {
+    expect(stepMoment([9_000, 0, 5_000], 1_000, 1)).toBe(5_000)
   })
 })

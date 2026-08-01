@@ -8,12 +8,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../lib/icons'
-import { formatTime } from '../lib/format'
+import { fillTemplate, fmtElapsedHM, fmtSpanShort, formatTime } from '../lib/format'
 import { appConfig } from '../config/appConfig'
 import { Segmented } from './Segmented'
 import s from './ReplayBar.module.css'
 import {
-  deriveMarkers, loadReplay, stateAt, vehiclesAt,
+  activityMoments, deriveMarkers, findGaps, gapAt, loadReplay, stateAt, stepMoment, vehiclesAt,
   type ReplayBundle, type ReplayMarker, type VehicleAt,
 } from '../lib/replay'
 import type { Saved } from '../lib/workspace'
@@ -32,8 +32,9 @@ interface Props {
 
 const SPEEDS = [1, 4, 16, 32] as const
 const TICK_MS = 250 // playback frame cadence
-const SKIP_BACK_MS = 10_000 // −10 s nudge
-const SKIP_FWD_MS = 30_000 // +30 s nudge
+/** How long the «übersprungen …» note stays up after a jump — long enough to read at a glance,
+ *  short enough that it is gone before the next one is due. */
+const SKIP_NOTICE_MS = 2500
 
 const fmtClock = (ms: number) => formatTime(new Date(ms), true)
 const MARKER_COLOR: Record<ReplayMarker['kind'], string> = {
@@ -48,6 +49,8 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit }
   const [tMs, setTMs] = useState<number>(() => Date.now())
   const [playing, setPlaying] = useState(false)
   const [speed, setSpeed] = useState<(typeof SPEEDS)[number]>(4)
+  /** «übersprungen 2 h 14» — set when playback jumps a gap, cleared on a timer. */
+  const [skipNotice, setSkipNotice] = useState<string | null>(null)
   const trackRef = useRef<HTMLDivElement>(null)
 
   // Load the event range + samples once; default the playhead to the very end (= the
@@ -65,6 +68,13 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit }
   // sits before the first real change would otherwise render off the left edge.
   const markers = useMemo(() => (bundle ? deriveMarkers(bundle.events).filter((m) => m.ms >= bundle.startMs && m.ms <= bundle.endMs) : []), [bundle])
 
+  // Every recorded activity — the basis for both the empty stretches and the «next event» step.
+  // Wider than `markers`, deliberately: markers drop workspace.save as too dense to draw, but a
+  // burst of saves IS activity, and treating it as silence would skip over someone drawing.
+  const moments = useMemo(() => (bundle ? activityMoments(bundle.events) : []), [bundle])
+  const gaps = useMemo(() => (bundle ? findGaps(moments, bundle.startMs, bundle.endMs) : []), [moments, bundle])
+  const alarmMs = useMemo(() => new Date(startedAt || 0).getTime(), [startedAt])
+
   // Reconstruct + push state whenever the playhead (or bundle) changes. Folds locally —
   // no per-frame server call; snapshots are memoised inside the bundle.
   useEffect(() => {
@@ -75,18 +85,34 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit }
     return () => { alive = false }
   }, [bundle, tMs, onState, onVehicles])
 
-  // Playback clock: advance the playhead in wall-clock-scaled steps; stop at the end.
+  // Playback clock: advance the playhead in wall-clock-scaled steps, but jump the stretches
+  // where nothing was recorded. Time stays proportional WHILE things happen — a burst still
+  // reads as a burst — and only the silence is cut, which is the part nobody can learn
+  // anything from. An incident nobody closed used to mean sitting through hours of it.
   useEffect(() => {
     if (!playing || !bundle) return
     const id = window.setInterval(() => {
       setTMs((t) => {
         const next = t + TICK_MS * speed
         if (next >= bundle.endMs) { setPlaying(false); return bundle.endMs }
-        return next
+        const gap = gapAt(gaps, next)
+        if (!gap) return next
+        // Land on the far edge — the next thing that actually happened — and say what was
+        // skipped, so the jump is visible rather than a mysterious lurch of the clock.
+        setSkipNotice(fmtSpanShort(gap.toMs - gap.fromMs))
+        return gap.toMs
       })
     }, TICK_MS)
     return () => window.clearInterval(id)
-  }, [playing, speed, bundle])
+  }, [playing, speed, bundle, gaps])
+
+  // Clear the skip note on a timer rather than on the next tick (which is 250 ms away and would
+  // make it unreadable). Re-arms whenever a new jump replaces it.
+  useEffect(() => {
+    if (!skipNotice) return
+    const id = window.setTimeout(() => setSkipNotice(null), SKIP_NOTICE_MS)
+    return () => window.clearTimeout(id)
+  }, [skipNotice])
 
   const seekToFraction = useCallback((f: number) => {
     if (!bundle) return
@@ -94,12 +120,14 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit }
     setTMs(bundle.startMs + clamped * (bundle.endMs - bundle.startMs))
   }, [bundle])
 
-  // step the playhead by a fixed offset, clamped to [start, now]; pausing on a manual nudge
-  const skip = useCallback((deltaMs: number) => {
+  // Step to the next/previous thing that HAPPENED, rather than by a fixed number of seconds.
+  // On a sparse timeline a ±10 s nudge usually lands on nothing at all; «next event» is the
+  // move an operator actually wants, and the markers stay clickable for a precise seek.
+  const stepEvent = useCallback((dir: 1 | -1) => {
     if (!bundle) return
     setPlaying(false)
-    setTMs((t) => Math.max(bundle.startMs, Math.min(bundle.endMs, t + deltaMs)))
-  }, [bundle])
+    setTMs((t) => stepMoment(moments, t, dir) ?? (dir === 1 ? bundle.endMs : bundle.startMs))
+  }, [bundle, moments])
 
   const onTrackPointer = (e: React.PointerEvent) => {
     const el = trackRef.current
@@ -116,6 +144,9 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit }
   const frac = bundle && bundle.endMs > bundle.startMs
     ? (tMs - bundle.startMs) / (bundle.endMs - bundle.startMs)
     : 1
+  const toFrac = (t: number) => (bundle && bundle.endMs > bundle.startMs
+    ? Math.max(0, Math.min(1, (t - bundle.startMs) / (bundle.endMs - bundle.startMs)))
+    : 0)
   // Deliberately NO "keine Fahrzeugdaten" note. It used to render whenever bundle.samples was
   // empty — which is every replay, on every station, because the Traccar→sample capture job was
   // never wired (see replay.ts). So it announced the absence of something nobody asked for and
@@ -144,11 +175,11 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit }
           <div className={s['replay-transport']} role="group" aria-label={rp.transport}>
             <button
               className={s['replay-skip']}
-              onClick={() => skip(-SKIP_BACK_MS)}
+              onClick={() => stepEvent(-1)}
               title={rp.skipBack}
               aria-label={rp.skipBack}
             >
-              <Icon id="skipback" /><span>10</span>
+              <Icon id="skipback" />
             </button>
             <button
               className={s['replay-play']}
@@ -160,11 +191,11 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit }
             </button>
             <button
               className={s['replay-skip']}
-              onClick={() => skip(SKIP_FWD_MS)}
+              onClick={() => stepEvent(1)}
               title={rp.skipFwd}
               aria-label={rp.skipFwd}
             >
-              <span>30</span><Icon id="skipfwd" />
+              <Icon id="skipfwd" />
             </button>
           </div>
 
@@ -174,7 +205,10 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit }
           {/* the track + its end labels share a column; the current time rides ABOVE the
               handle as a bubble so it never crowds the track or the start label */}
           <div className={s['replay-scrub']}>
-            <div className={s['replay-time']} style={{ left: `${Math.max(7, Math.min(93, frac * 100))}%` }}>{fmtClock(tMs)}</div>
+            <div className={s['replay-time']} style={{ left: `${Math.max(7, Math.min(93, frac * 100))}%` }}>
+              {fmtClock(tMs)}
+              {skipNotice && <span className={s['replay-skipnote']}>{fillTemplate(rp.skipped, { span: skipNotice })}</span>}
+            </div>
             <div
               ref={trackRef}
               className={s['replay-track']}
@@ -187,6 +221,21 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit }
               aria-valuenow={Math.round(frac * 100)}
             >
               <div className={s['replay-fill']} style={{ width: `${frac * 100}%` }} />
+              {/* the empty stretches, drawn UNDER the markers: the operator can see where the
+                  record goes quiet before pressing play, instead of discovering it by scrubbing */}
+              {gaps.map((g, i) => {
+                const a = toFrac(g.fromMs)
+                const b = toFrac(g.toMs)
+                if (b <= a) return null
+                return (
+                  <div
+                    key={`gap-${i}`}
+                    className={s['replay-gap']}
+                    style={{ left: `${a * 100}%`, width: `${(b - a) * 100}%` }}
+                    title={fillTemplate(rp.gapTitle, { span: fmtSpanShort(g.toMs - g.fromMs) })}
+                  />
+                )
+              })}
               {markers.map((m, i) => {
                 const mf = bundle.endMs > bundle.startMs ? (m.ms - bundle.startMs) / (bundle.endMs - bundle.startMs) : 0
                 if (mf < 0 || mf > 1) return null
@@ -205,6 +254,11 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit }
             </div>
             <div className={s['replay-range']}>
               <span>{fmtClock(bundle.startMs)}</span>
+              {/* Einsatzuhr at the playhead: the absolute time answers «when», this answers
+                  «how far in», which is the number that gets said out loud in a debrief. */}
+              {Number.isFinite(alarmMs) && alarmMs > 0 && tMs >= alarmMs && (
+                <span className={s['replay-elapsed']}>{fillTemplate(rp.sinceAlarm, { span: fmtElapsedHM(tMs - alarmMs) })}</span>
+              )}
               <span>{rp.now} · {fmtClock(bundle.endMs)}</span>
             </div>
           </div>
