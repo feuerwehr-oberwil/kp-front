@@ -35,6 +35,10 @@ const TICK_MS = 250 // playback frame cadence
 /** How long the «übersprungen …» note stays up after a jump — long enough to read at a glance,
  *  short enough that it is gone before the next one is due. */
 const SKIP_NOTICE_MS = 2500
+/** Below this share of the track a gap band is too narrow to hold «2 h 14» without clipping it,
+ *  so it keeps the tooltip and nothing else. Measured against the fraction rather than pixels
+ *  because the bar is full-width on a phone and ~520 px on the desktop dock. */
+const GAP_LABEL_MIN_FRAC = 0.13
 
 const fmtClock = (ms: number) => formatTime(new Date(ms), true)
 const MARKER_COLOR: Record<ReplayMarker['kind'], string> = {
@@ -218,19 +222,23 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit }
               aria-valuenow={Math.round(frac * 100)}
             >
               <div className={s['replay-fill']} style={{ width: `${frac * 100}%` }} />
-              {/* the empty stretches, drawn UNDER the markers: the operator can see where the
-                  record goes quiet before pressing play, instead of discovering it by scrubbing */}
+              {/* The empty stretches, under the markers: blue track means something happened,
+                  pale band means nothing did — so the shape of the incident is readable before
+                  pressing play, rather than discovered by scrubbing into it. */}
               {gaps.map((g, i) => {
                 const a = toFrac(g.fromMs)
                 const b = toFrac(g.toMs)
                 if (b <= a) return null
+                const span = fmtSpanShort(g.toMs - g.fromMs)
                 return (
                   <div
                     key={`gap-${i}`}
                     className={s['replay-gap']}
                     style={{ left: `${a * 100}%`, width: `${(b - a) * 100}%` }}
-                    title={fillTemplate(rp.gapTitle, { span: fmtSpanShort(g.toMs - g.fromMs) })}
-                  />
+                    title={fillTemplate(rp.gapTitle, { span })}
+                  >
+                    {b - a >= GAP_LABEL_MIN_FRAC && <span className={s['replay-gap-label']}>{span}</span>}
+                  </div>
                 )
               })}
               {markers.map((m, i) => {
