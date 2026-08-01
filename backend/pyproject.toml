@@ -11,14 +11,19 @@ dependencies = [
     "sqlalchemy[asyncio]>=2.0.36",
     "asyncpg>=0.30.0",
     "pydantic>=2.10.0",
-    "pydantic-settings>=2.6.0",
+    "pydantic-settings>=2.14.2",
     "alembic>=1.13.0",
     "bcrypt>=4.2.0",
     "python-jose[cryptography]>=3.5.0",
+    # Not imported directly — a floor on a python-jose transitive. 0.6.3 carries
+    # PYSEC-2026-3455/3456/3457; 0.6.4 fixes all three. Goes away with python-jose itself:
+    # only HS256 is used (app/auth/security.py), so pyjwt would drop this and `ecdsa`
+    # (PYSEC-2026-1325, unfixed upstream) at the same time. kp-rueck did that in ec754a2.
+    "pyasn1>=0.6.4",
     "python-multipart>=0.0.20",
     "httpx>=0.28.1",
     "apscheduler>=3.10.4",
-    "pillow>=11.0.0",
+    "pillow>=12.3.0",
     "reportlab>=4.2.0",
     "pywebpush>=2.3.0",
     "resvg-py>=0.3.3",
