@@ -205,10 +205,7 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit }
           {/* the track + its end labels share a column; the current time rides ABOVE the
               handle as a bubble so it never crowds the track or the start label */}
           <div className={s['replay-scrub']}>
-            <div className={s['replay-time']} style={{ left: `${Math.max(7, Math.min(93, frac * 100))}%` }}>
-              {fmtClock(tMs)}
-              {skipNotice && <span className={s['replay-skipnote']}>{fillTemplate(rp.skipped, { span: skipNotice })}</span>}
-            </div>
+            <div className={s['replay-time']} style={{ left: `${Math.max(7, Math.min(93, frac * 100))}%` }}>{fmtClock(tMs)}</div>
             <div
               ref={trackRef}
               className={s['replay-track']}
@@ -252,13 +249,20 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit }
               })}
               <div className={s['replay-handle']} style={{ left: `${frac * 100}%` }} />
             </div>
+            {/* The middle slot carries the Einsatzuhr, and the skip note takes it over while a
+                jump is being announced. Deliberately NOT in the time bubble above: that bubble
+                is pinned to the handle (up to 93%), so a variable-width note rides off the right
+                edge exactly when the playhead is near the end — which is where a forgotten-close
+                gap always sits. Here it is fixed, centred, and cannot collide with anything. */}
             <div className={s['replay-range']}>
               <span>{fmtClock(bundle.startMs)}</span>
-              {/* Einsatzuhr at the playhead: the absolute time answers «when», this answers
-                  «how far in», which is the number that gets said out loud in a debrief. */}
-              {Number.isFinite(alarmMs) && alarmMs > 0 && tMs >= alarmMs && (
+              {skipNotice ? (
+                <span className={s['replay-skipnote']}>{fillTemplate(rp.skipped, { span: skipNotice })}</span>
+              ) : Number.isFinite(alarmMs) && alarmMs > 0 && tMs >= alarmMs ? (
+                // «how far in», the number that gets said out loud in a debrief — the absolute
+                // times on either side answer «when».
                 <span className={s['replay-elapsed']}>{fillTemplate(rp.sinceAlarm, { span: fmtElapsedHM(tMs - alarmMs) })}</span>
-              )}
+              ) : <span className={s['replay-elapsed']} />}
               <span>{rp.now} · {fmtClock(bundle.endMs)}</span>
             </div>
           </div>
