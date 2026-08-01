@@ -1,6 +1,7 @@
 # KP Front
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![CI](https://github.com/feuerwehr-oberwil/kp-front/actions/workflows/ci.yml/badge.svg)](https://github.com/feuerwehr-oberwil/kp-front/actions/workflows/ci.yml)
 [![Live Demo](https://img.shields.io/badge/Demo-live-brightgreen)](https://demo.kp-front.ch)
 
 **Einsatzführungs-app for frontline fire-service command.** KP Front replaces the physical
