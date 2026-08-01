@@ -16,7 +16,7 @@ exports; integrations add data but are not required to operate it.
 
 The [public demo](https://demo.kp-front.ch) contains a running Zimmerbrand at the
 Schloss in fictional Musterdorf. Credentials are shown on the login screen, and the demo resets
-nightly (00:00 Europe/Zurich) – edits made during the day persist until then.
+every twelve hours (00:00 and 12:00 Europe/Zurich) – edits persist until the next reset.
 
 The repository includes the same synthetic station dataset in
 [`examples/demo-data/`](examples/demo-data/). No real station data is bundled.
