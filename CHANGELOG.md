@@ -29,10 +29,96 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ## [Unreleased]
 
-A review pass before publishing the repository more widely: every claim in the documentation was
-checked against the code, and three of them turned out to be promises the code did not keep.
+## [0.4.0] – 2026-08-01
+
+Two threads. A review pass before publishing the repository more widely – every claim in the
+documentation checked against the code, three of them promises the code did not keep. And a run of
+operational fixes that only a real incident could have produced: the call of 31 July is the reason
+several of the entries below exist.
+
+### Added
+- **`incident.created` now names the alarm it came from.** The webhook said "a Divera incident was
+  opened" without saying which one, so a receiver holding something back for one particular alarm
+  could only guess. The milestone chain is exactly that case: it holds group and vehicle times that
+  KP Front rejects with a 404 until the incident is open there. With `source_ref` – the Divera alarm
+  id it files them under anyway – it can listen for this event and deliver in the same moment
+  instead of waiting out its own interval. For a manually opened incident there is no source alarm;
+  the field is then null, but present.
 
 ### Fixed
+- **The Rapport for the 31 July incident printed without its alarm times.** Groups and vehicles had
+  been alerted and the times were complete everywhere they should be – journal, workspace,
+  database – and the time grid on the paper was still empty. Two independent causes. The first was
+  the rule itself: the field-classification decision made the whole grid disappear as soon as
+  anything had been captured digitally, which meant the better the automatic capture worked, the
+  less stood on the signed report. The fully automated incident the milestone integration was built
+  for produced a sheet with no alarm or dispatch times at all. That decision is reversed – the grid
+  always prints, captured values as times, missing ones as `__:__` to be completed by hand. The
+  second was a lost write: a vehicle that leaves the geofence and reaches the scene moments later
+  fires two milestones in one breath, and on 31 July the Pikett officer's "ausgerückt" and "vor Ort"
+  were five milliseconds apart. Both journal lines were written, but the second write had read the
+  workspace before the first and overwrote it afterwards. That write is now a compare-and-set on
+  `workspace_rev` with a re-read. **The Pikett dispatch time from that incident stays missing in
+  production** – editing a real operational record by hand was deliberately not part of the fix.
+- **A hanging push notification could block alarm intake.** `pywebpush` passes `timeout` through to
+  `requests`; unset it is `None`, meaning unbounded. And `notify_new_alarm` is awaited inline in
+  both the Divera webhook and the generic alarm intake, so a push service that accepted the
+  connection and then went quiet hung the *alarm* – and an alarm that does not arrive is the worst
+  failure this system has. Delivery was also serial, so twenty registered devices against a dead
+  service cost minutes on the alarm path. Now 10 s per endpoint, fanned out concurrently: one
+  timeout in total however many endpoints are dead. Unexpected errors are logged and the
+  subscription is *kept* – unsubscribing on an unknown error would silently retire a working device.
+- **A captive portal logged the operator out instead of reporting "unreachable".** A 200 with a
+  non-JSON body is a hotel or guest wifi answering on the backend's behalf. The unguarded
+  `JSON.parse` raised a `SyntaxError` rather than an `ApiError`, so the callers' `status === 0`
+  offline branches never ran: the incident list discarded its cache, and `AuthProvider` put the user
+  back at the login screen with an intact offline cache sitting right behind it.
+- **A frozen GPS feed looked exactly like a stationary fleet.** `useVehicleLayer` discarded
+  `gps.error`. When the Traccar feed fails the vehicles correctly stay at their last known position
+  – a vehicle that vanishes reads as "abgerückt", not as "feed gone" – but the symbols then looked
+  precisely as authoritative as they had a minute earlier, and the FU makes positioning decisions on
+  them. After three missed polls (60 s at `pollMs=15s`) the vehicles carry "GPS · veraltet (n min)"
+  and an amber "GPS eingefroren" chip appears in the top bar. Amber rather than red: a frozen
+  position is a caveat, red belongs to the overdue Trupp. Vehicles stay non-draggable throughout –
+  making them movable would have been a worse bug than the one being fixed.
+- **The pre-migration backup had never run – on any instance.** The image pulled
+  `postgresql-client` from bookworm, so version 15, while the documented stack runs
+  `postgres:16-alpine`, and pg_dump refuses to dump a server newer than itself. `start.sh` caught
+  the failure, printed one warning line nobody read, and migrated anyway. The first fix pinned the
+  client to 16 and repaired the self-hosted path while leaving the more important one open: Railway
+  production runs Postgres 18.4. The client is now pinned to the highest server the image will ever
+  face (`ARG PG_CLIENT_MAJOR`), `start.sh` compares client against server at runtime, and – the
+  change that matters – **a pending migration with no usable dump now aborts the start** instead of
+  warning past it. A safety net that fails silently is worse than none, because you plan around it.
+  A plain restart with no pending migration never enters the block; deliberate override is
+  `ALLOW_MIGRATION_WITHOUT_BACKUP=1`. Dumps are written to `.part` and renamed only after `gzip -t`,
+  so a directory of fragments can no longer rotate away the last good backup.
+- **The demo-reset guard sat in the CLI; the scheduler did the deleting.** `reset()` drops every
+  incident – journal and hash chain with it, through `ON DELETE CASCADE` – and all personnel. The
+  `KP_DEMO_RESET=1` check lived in the `if __name__ == "__main__"` block, so it covered the command
+  line only, while `scheduler.py` imports `reset` and awaits it directly. The unattended path, the
+  one running on a timer, went straight past the check onto whatever database `DATABASE_URL` named
+  at that moment. The module docstring meanwhile stated it could "never be pointed at a real
+  station's database by accident". The check now sits inside `reset()` itself, so every caller is
+  covered by construction rather than by remembering.
+- **A build from source baked the root `.env` into the image.** `.dockerignore` listed
+  `backend/.env`, but the `Dockerfile` does `COPY . .` and both `docker-compose.yml` and
+  `DEPLOYMENT.md` tell an operator to put `.env` in the repository root. `SECRET_KEY`,
+  `POSTGRES_PASSWORD`, `ADMIN_SECRET`, `DIVERA_ACCESS_KEY`, `TRACCAR_PASSWORD`, `VAPID_PRIVATE_KEY`
+  and `STT_API_KEY` therefore landed in an image layer, and in any exported build cache.
+  Demonstrated rather than assumed: with the old file the `.env` is present in the built image, with
+  the new one it is gone. **Only building from source was affected – pulling the published images
+  never was.**
+- **"Wird gedruckt" now shows where the job actually stands.** The station-printer toast said "Wird
+  gedruckt …" and nothing else, blended visually into the button it sat on, and disappeared
+  mid-job. The missing icon was a typo – `printJobToast` sent `icon: 'print'` while the sprite only
+  knows `printer`, so the running stage of all things rendered as bare text. The three stages are
+  now a chain: completed keeps its tick and steps back, the running one carries the icon, the
+  pending one stays visible as a dot. Below 600 px every stage except the running one drops its
+  label. The failure case deliberately keeps a sentence rather than the chain, because "Druck
+  fehlgeschlagen – Drucker prüfen" is the instruction. The toast also survives navigation now:
+  `<Overlays/>` hung in only one of the capture poster's three return branches, so tapping "back"
+  during printing lost the display while the job carried on unseen.
 - **The telemetry veto in `PRIVACY.md` did nothing — twice over.** The page tells an operator to
   put `KP_TELEMETRY_ENABLED=0` in their compose file and promises it "outranks the admin switch".
   `Settings` has no `env_prefix`, so the field bound to `TELEMETRY_ENABLED` and the documented
@@ -78,6 +164,19 @@ checked against the code, and three of them turned out to be promises the code d
 - Wiedergabe, Statistik-Export and Rückmeldung were missing from the README despite shipping;
   the last one matters because the Integrations table claims to enumerate everything that leaves
   the deployment.
+- **Plain HTTP on the LAN is not an equivalent fallback, and `DEPLOYMENT.md` now says so.** KP Front
+  is a PWA: service worker, web push, geolocation and microphone exist only in a secure context. An
+  operator who follows the guide and runs the box on `http://10.x.x.x` loses all four, silently, on
+  the one application whose entire purpose is a bad network. Both ways out (DNS-01, `tls internal`)
+  are documented, including the second iOS step everyone forgets. §2 also gained a real system-
+  requirements table, the fact that images are built for amd64 *and* arm64 – so a Pi needs a 64-bit
+  OS – and the rule against microSD or a USB stick as the system disk.
+- `reset_roster` and `demo_export` are documented rather than dead. Both turned up in a hunt for
+  dead code: no module imports them and no document mentioned them, because they are deliberate
+  maintenance tools invoked by hand as `python -m app.X`, which an import analysis cannot see.
+- Screenshots were retaken, and the harness that produces them now covers the README images too.
+- The README points at `RUNNING-BOTH.md` in the kp-rueck repository for running both apps on one
+  box, rather than duplicating a document that would drift.
 
 
 ## [0.3.0] – 2026-07-28
@@ -587,7 +686,8 @@ toolchain on the VPS. Everything else here has been running in production since 
 - A render error on the login screen, landing list, or admin surface now shows the recoverable
   error card instead of a white screen (root-level error boundary + guarded boot init).
 
-[Unreleased]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/feuerwehr-oberwil/kp-front/releases/tag/v0.1.0
