@@ -52,26 +52,28 @@
 .replay-track {
   position: relative; height: 24px; cursor: pointer; touch-action: none;
   display: flex; align-items: center; }
-.replay-track::before {
-  content: ''; position: absolute; left: 0; right: 0; height: 5px; border-radius: var(--r-pill);
-  background: var(--border); }
-.replay-fill { position: absolute; left: 0; height: 5px; border-radius: var(--r-pill); background: var(--blue); pointer-events: none; }
-/* An empty stretch, read purely by colour: the track carries blue where something happened and
-   pale where nothing did, so the shape of the incident is legible before pressing play. Pale
-   rather than another hue — a second colour would look like a third kind of phase. Uses
-   --on-accent-ink because it is near-white in BOTH themes, so the band stays "empty-looking" on
-   the night map too. No pointer events: the track underneath must stay draggable straight
-   through it. */
-.replay-gap {
-  position: absolute; top: 50%; height: 5px; transform: translateY(-50%); pointer-events: none;
-  border-radius: var(--r-pill); z-index: 1;
-  background: color-mix(in srgb, var(--on-accent-ink) 62%, transparent);
-  display: flex; align-items: center; justify-content: center; overflow: hidden; }
-/* The duration written into the band, but only where there is room for it (see GAP_LABEL_MIN_FRAC
-   in ReplayBar.tsx) — a clipped «2 h…» is worse than the tooltip alone. */
-.replay-gap-label {
-  font-family: var(--mono); font-size: 8px; font-weight: 700; line-height: 1;
-  color: var(--ink); opacity: .75; white-space: nowrap; }
+/* No continuous baseline and no single fill any more: each segment brings its own rail and its
+   own played portion. A full-width line here would bridge the breaks and undo the point of them. */
+/* One rail per activity segment. Drawn per segment rather than once across the whole width, so
+   the breaks between them are genuinely empty — the bar is visibly interrupted rather than
+   continuous-with-a-texture. */
+.replay-seg {
+  position: absolute; top: 50%; height: 5px; transform: translateY(-50%); z-index: 1;
+  border-radius: var(--r-pill); background: var(--border); overflow: hidden; pointer-events: none; }
+.replay-segfill { height: 100%; border-radius: var(--r-pill); background: var(--blue); }
+/* The break: no rail at all, just two end caps and a dotted span, so the eye reads «the bar
+   stops here and starts again». The axis is non-linear by construction and that has to be
+   obvious rather than deduced from a texture. */
+.replay-break {
+  position: absolute; top: 50%; height: 9px; transform: translateY(-50%); z-index: 1;
+  pointer-events: none; opacity: .8;
+  background-image:
+    linear-gradient(var(--ink-faint), var(--ink-faint)),
+    linear-gradient(var(--ink-faint), var(--ink-faint)),
+    radial-gradient(circle, var(--ink-faint) 1px, transparent 1px);
+  background-size: 1.5px 9px, 1.5px 9px, 5px 9px;
+  background-position: left center, right center, center center;
+  background-repeat: no-repeat, no-repeat, repeat-x; }
 .replay-marker {
   position: absolute; top: 50%; width: 8px; height: 8px; border-radius: 50%; padding: 0;
   border: 1.5px solid #fff; transform: translate(-50%, -50%); cursor: pointer; opacity: .85;
@@ -95,6 +97,12 @@
    has a fixed position and a fixed width budget instead of riding the handle off the edge. */
 .replay-skipnote { flex: 1; text-align: center; color: var(--blue); font-weight: 700;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Break durations live off the rail, in their own row, centred under the break they describe —
+   so a long label can never squeeze the thing it is describing. */
+.replay-breaks { position: relative; height: 11px; }
+.replay-breaklabel {
+  position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap;
+  font-family: var(--mono); font-size: 9px; font-weight: 700; color: var(--ink-faint); }
 
 @media (max-width: 600px) {
   /* replay scrubber → full-width, lifted above the NavRail bottom bar (still lets you

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activeReplayRange, activityMoments, deriveMarkers, findGaps, gapAt, stateAt, stepMoment, vehiclesAt } from './replay'
+import { activeReplayRange, activityMoments, deriveMarkers, findGaps, fractionAtTime, gapAt, layoutTrack, segmentsFromGaps, stateAt, stepMoment, timeAtFraction, vehiclesAt } from './replay'
 import type { ReplayBundle, ReplayEvent, VehicleSampleRow } from './replay'
 import type { Saved } from './workspace'
 
@@ -299,24 +299,105 @@ describe('vehiclesAt — interpolated sample paths', () => {
 })
 
 describe('activityMoments', () => {
-  it('drops incident.create — structural, not activity', () => {
-    // Same exclusion activeReplayRange makes. Counting it would anchor the first "moment" at
-    // the incident being opened, which is often long before anyone did anything.
-    const moments = activityMoments([
-      { occurred_at: iso(1_000), op_type: 'incident.create' },
-      { occurred_at: iso(5_000), op_type: 'workspace.save' },
-    ])
-    expect(moments).toEqual([5_000])
+  it('ignores workspace.save — a save is not evidence anybody did anything', () => {
+    // THE central rule. The workspace is one blob of twenty-odd fields, so a save fires when a
+    // layer is toggled or the operator switches Lage→Plan, and its payload is only {rev: N}.
+    // Counting saves painted the bar blue across stretches where nothing had happened.
+    expect(activityMoments([{ occurred_at: iso(5_000), op_type: 'workspace.save' }])).toEqual([])
   })
 
-  it('keeps workspace.save — a burst of saves is somebody drawing', () => {
-    // deriveMarkers drops these as too dense to render; gap detection must NOT, or a stretch
-    // of continuous drawing would be classified as silence and skipped over.
-    expect(activityMoments([{ occurred_at: iso(7_000), op_type: 'workspace.save' }])).toEqual([7_000])
+  it('drops incident.create — structural, and long before the work', () => {
+    expect(activityMoments([{ occurred_at: iso(1_000), op_type: 'incident.create' }])).toEqual([])
+  })
+
+  it('counts status, Divera and Einsatzdaten changes', () => {
+    const moments = activityMoments([
+      { occurred_at: iso(1_000), op_type: 'status.change' },
+      { occurred_at: iso(2_000), op_type: 'divera.update' },
+      { occurred_at: iso(3_000), op_type: 'meta.change' },
+    ])
+    expect(moments.sort((a, b) => a - b)).toEqual([1_000, 2_000, 3_000])
+  })
+
+  it('counts journal entries — that is what an operator means by «etwas ist passiert»', () => {
+    expect(activityMoments([], [{ at: iso(8_000) }])).toEqual([8_000])
+  })
+
+  it('skips legacy journal rows that carry only HH:MM', () => {
+    // Guessing a calendar day onto them would silently close a gap that is really there.
+    expect(activityMoments([], [{}, { at: iso(4_000) }])).toEqual([4_000])
   })
 
   it('ignores unparseable timestamps rather than emitting NaN', () => {
-    expect(activityMoments([{ occurred_at: 'not-a-date', op_type: 'other' }])).toEqual([])
+    expect(activityMoments([{ occurred_at: 'not-a-date', op_type: 'status.change' }])).toEqual([])
+    expect(activityMoments([], [{ at: 'not-a-date' }])).toEqual([])
+  })
+})
+
+describe('segmentsFromGaps', () => {
+  it('returns the stretches between the gaps', () => {
+    const segs = segmentsFromGaps([{ fromMs: 200, toMs: 800 }], 0, 1000)
+    expect(segs).toEqual([{ fromMs: 0, toMs: 200 }, { fromMs: 800, toMs: 1000 }])
+  })
+
+  it('drops a leading segment when the gap starts at the very beginning', () => {
+    expect(segmentsFromGaps([{ fromMs: 0, toMs: 800 }], 0, 1000)).toEqual([{ fromMs: 800, toMs: 1000 }])
+  })
+
+  it('falls back to the whole range when there are no gaps', () => {
+    expect(segmentsFromGaps([], 0, 1000)).toEqual([{ fromMs: 0, toMs: 1000 }])
+  })
+})
+
+describe('layoutTrack', () => {
+  const segs = [{ fromMs: 0, toMs: 1000 }, { fromMs: 9000, toMs: 10_000 }]
+  const gaps = [{ fromMs: 1000, toMs: 9000 }]
+
+  it('gives the break a fixed slice and splits the rest by real duration', () => {
+    const pieces = layoutTrack(segs, gaps, 0.1)
+    expect(pieces.map((p) => p.kind)).toEqual(['segment', 'gap', 'segment'])
+    // the 8 s of silence gets 10 %; the two equal 1 s segments split the remaining 90 %
+    expect(pieces[1].widthFrac).toBeCloseTo(0.1)
+    expect(pieces[0].widthFrac).toBeCloseTo(0.45)
+    expect(pieces[2].widthFrac).toBeCloseTo(0.45)
+  })
+
+  it('never lets breaks take more than half the bar', () => {
+    // Ten gaps at 10 % each would leave nothing for the work this exists to make room for.
+    const manyGaps = Array.from({ length: 10 }, (_, i) => ({ fromMs: i * 100 + 50, toMs: i * 100 + 90 }))
+    const pieces = layoutTrack([{ fromMs: 0, toMs: 50 }], manyGaps, 0.1)
+    const gapTotal = pieces.filter((p) => p.kind === 'gap').reduce((n, p) => n + p.widthFrac, 0)
+    expect(gapTotal).toBeLessThanOrEqual(0.5 + 1e-9)
+  })
+
+  it('lays the pieces out end to end, filling the width', () => {
+    const pieces = layoutTrack(segs, gaps, 0.1)
+    const last = pieces[pieces.length - 1]
+    expect(last.leftFrac + last.widthFrac).toBeCloseTo(1)
+  })
+})
+
+describe('timeAtFraction / fractionAtTime', () => {
+  const segs = [{ fromMs: 0, toMs: 1000 }, { fromMs: 9000, toMs: 10_000 }]
+  const gaps = [{ fromMs: 1000, toMs: 9000 }]
+  const pieces = layoutTrack(segs, gaps, 0.1)
+
+  it('maps within a segment linearly', () => {
+    expect(timeAtFraction(pieces, 0)).toBeCloseTo(0)
+    expect(timeAtFraction(pieces, 0.225)).toBeCloseTo(500, -1)
+  })
+
+  it('clicking a break lands on the moment it ends, never inside the silence', () => {
+    expect(timeAtFraction(pieces, 0.5)).toBe(9000)
+  })
+
+  it('round-trips a time through the layout and back', () => {
+    const t = 9500
+    expect(timeAtFraction(pieces, fractionAtTime(pieces, t))).toBeCloseTo(t, -1)
+  })
+
+  it('places a moment inside a break at the left edge of that break', () => {
+    expect(fractionAtTime(pieces, 5000)).toBeCloseTo(pieces[1].leftFrac)
   })
 })
 

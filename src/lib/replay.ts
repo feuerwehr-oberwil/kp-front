@@ -150,22 +150,145 @@ export interface ReplayGap {
 export const GAP_SKIP_MS = 120_000
 
 /**
+ * Op types that mean somebody DID something, as opposed to the document being written.
+ *
+ * `workspace.save` is deliberately absent, and that is the whole point. The workspace is one
+ * blob of twenty-odd fields (see `Saved`), so a save fires when the layer panel is toggled,
+ * when the operator switches from Lage to Plan (`activeModule`), when the recently-used symbol
+ * list reorders. Its payload is `{rev: N}` and nothing more, so nothing downstream can tell a
+ * tab switch from a symbol being placed. Treating saves as activity painted the replay bar blue
+ * across stretches where the operator had done nothing but look around.
+ *
+ * `meta.change` IS here: editing the Einsatzdaten is a person changing the record, which is
+ * activity by any reading. `incident.create` is not — it is structural, and it fires long
+ * before the work starts.
+ */
+const ACTION_OP_TYPES = new Set(['status.change', 'divera.update', 'meta.change'])
+
+/**
  * The timestamps of everything that counts as activity, for gap detection.
  *
- * Deliberately events only — **not** vehicle samples. GPS ticks whether or not anything is
+ * Journal entries first — the Verlauf is the record of what happened, and it is what an
+ * operator means by «da ist etwas passiert». Legacy rows carry only `t` ('HH:MM') with no date;
+ * those are skipped rather than guessed onto a calendar day, because a misplaced moment would
+ * silently close a gap that is really there.
+ *
+ * Vehicle samples are deliberately NOT included. GPS ticks whether or not anything is
  * happening: a fleet parked at the depot overnight still reports every ~30 s, so folding
- * samples in here would mean no gap is ever detected and the whole feature quietly does
- * nothing. `incident.create` is excluded for the same reason `activeReplayRange` excludes it:
- * it is structural, not activity.
+ * samples in would mean no gap is ever detected and the feature quietly does nothing.
  */
-export function activityMoments(events: { occurred_at: string; op_type: string }[]): number[] {
+export function activityMoments(
+  events: { occurred_at: string; op_type: string }[],
+  journal: { at?: string }[] = [],
+): number[] {
   const out: number[] = []
+  for (const j of journal) {
+    if (!j.at) continue
+    const t = ms(j.at)
+    if (Number.isFinite(t)) out.push(t)
+  }
   for (const e of events) {
-    if (IDLE_OP_TYPES.has(e.op_type)) continue
+    if (!ACTION_OP_TYPES.has(e.op_type)) continue
     const t = ms(e.occurred_at)
     if (Number.isFinite(t)) out.push(t)
   }
   return out
+}
+
+/** A stretch that DOES contain activity — the complement of the gaps, and what the track
+ *  renders at real proportion. */
+export interface ReplaySegment {
+  fromMs: number
+  toMs: number
+}
+
+/** Invert the gaps into the stretches worth showing. */
+export function segmentsFromGaps(gaps: ReplayGap[], startMs: number, endMs: number): ReplaySegment[] {
+  const out: ReplaySegment[] = []
+  let cursor = startMs
+  for (const g of [...gaps].sort((a, b) => a.fromMs - b.fromMs)) {
+    if (g.fromMs > cursor) out.push({ fromMs: cursor, toMs: g.fromMs })
+    cursor = Math.max(cursor, g.toMs)
+  }
+  if (cursor < endMs) out.push({ fromMs: cursor, toMs: endMs })
+  return out.length ? out : [{ fromMs: startMs, toMs: endMs }]
+}
+
+/** A segment or a break, placed on the track as fractions of its width. */
+export interface TrackPiece {
+  kind: 'segment' | 'gap'
+  fromMs: number
+  toMs: number
+  leftFrac: number
+  widthFrac: number
+}
+
+/**
+ * Lay the track out: activity segments share the space in proportion to their real duration,
+ * every break gets the SAME fixed slice regardless of how long it lasted.
+ *
+ * This is the trade the whole design rests on. A linear axis is honest and useless — on an
+ * incident closed the next morning, the silence is 96 % of the elapsed time and therefore 96 %
+ * of the bar, leaving the half hour of actual work as a sliver nobody can hit. Giving breaks a
+ * fixed width makes the axis non-linear, which is why the break is drawn as a visible
+ * interruption rather than a texture: the distortion has to be obvious, not inferred.
+ */
+export function layoutTrack(
+  segments: ReplaySegment[],
+  gaps: ReplayGap[],
+  gapFrac: number,
+): TrackPiece[] {
+  const pieces = [
+    ...segments.map((s) => ({ kind: 'segment' as const, ...s })),
+    ...gaps.map((g) => ({ kind: 'gap' as const, fromMs: g.fromMs, toMs: g.toMs })),
+  ].sort((a, b) => a.fromMs - b.fromMs)
+
+  const gapCount = pieces.filter((p) => p.kind === 'gap').length
+  // Breaks never take more than half the bar: with many short gaps the fixed slices would
+  // otherwise crowd out the very thing they exist to make room for.
+  const perGap = gapCount ? Math.min(gapFrac, 0.5 / gapCount) : 0
+  const activeTotal = segments.reduce((n, s) => n + Math.max(0, s.toMs - s.fromMs), 0)
+  const activeFrac = 1 - perGap * gapCount
+
+  const out: TrackPiece[] = []
+  let left = 0
+  for (const p of pieces) {
+    const widthFrac = p.kind === 'gap'
+      ? perGap
+      : activeTotal > 0 ? activeFrac * ((p.toMs - p.fromMs) / activeTotal) : activeFrac
+    out.push({ ...p, leftFrac: left, widthFrac })
+    left += widthFrac
+  }
+  return out
+}
+
+/** Track fraction → timestamp, honouring the non-linear layout. Inside a break it returns the
+ *  break's END: dropping the playhead into a stretch where nothing happened is never what the
+ *  operator meant, so a click there lands on the next real moment. */
+export function timeAtFraction(pieces: TrackPiece[], f: number): number | null {
+  if (!pieces.length) return null
+  const clamped = Math.max(0, Math.min(1, f))
+  for (const p of pieces) {
+    if (clamped > p.leftFrac + p.widthFrac) continue
+    if (p.kind === 'gap') return p.toMs
+    const within = p.widthFrac > 0 ? (clamped - p.leftFrac) / p.widthFrac : 0
+    return p.fromMs + Math.max(0, Math.min(1, within)) * (p.toMs - p.fromMs)
+  }
+  const last = pieces[pieces.length - 1]
+  return last.toMs
+}
+
+/** Timestamp → track fraction. A moment inside a break sits at the break's left edge. */
+export function fractionAtTime(pieces: TrackPiece[], tMs: number): number {
+  if (!pieces.length) return 0
+  for (const p of pieces) {
+    if (tMs > p.toMs) continue
+    if (p.kind === 'gap') return p.leftFrac
+    const span = p.toMs - p.fromMs
+    const within = span > 0 ? (tMs - p.fromMs) / span : 0
+    return p.leftFrac + Math.max(0, Math.min(1, within)) * p.widthFrac
+  }
+  return 1
 }
 
 /**

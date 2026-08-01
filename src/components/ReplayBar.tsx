@@ -13,7 +13,8 @@ import { appConfig } from '../config/appConfig'
 import { Segmented } from './Segmented'
 import s from './ReplayBar.module.css'
 import {
-  activityMoments, deriveMarkers, findGaps, gapAt, loadReplay, stateAt, stepMoment, vehiclesAt,
+  activityMoments, deriveMarkers, findGaps, fractionAtTime, gapAt, layoutTrack, loadReplay,
+  segmentsFromGaps, stateAt, stepMoment, timeAtFraction, vehiclesAt,
   type ReplayBundle, type ReplayMarker, type VehicleAt,
 } from '../lib/replay'
 import type { Saved } from '../lib/workspace'
@@ -35,10 +36,9 @@ const TICK_MS = 250 // playback frame cadence
 /** How long the «übersprungen …» note stays up after a jump — long enough to read at a glance,
  *  short enough that it is gone before the next one is due. */
 const SKIP_NOTICE_MS = 2500
-/** Below this share of the track a gap band is too narrow to hold «2 h 14» without clipping it,
- *  so it keeps the tooltip and nothing else. Measured against the fraction rather than pixels
- *  because the bar is full-width on a phone and ~520 px on the desktop dock. */
-const GAP_LABEL_MIN_FRAC = 0.13
+/** The slice of the track each break gets, whatever its real duration. Wide enough to read as
+ *  an interruption and to hold a hit target, narrow enough that the work keeps the bar. */
+const GAP_FRAC = 0.07
 
 const fmtClock = (ms: number) => formatTime(new Date(ms), true)
 const MARKER_COLOR: Record<ReplayMarker['kind'], string> = {
@@ -55,6 +55,8 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit }
   const [speed, setSpeed] = useState<(typeof SPEEDS)[number]>(4)
   /** «übersprungen 2 h 14» — set when playback jumps a gap, cleared on a timer. */
   const [skipNotice, setSkipNotice] = useState<string | null>(null)
+  /** the incident's finished Verlauf — the activity signal (see the effect below) */
+  const [journal, setJournal] = useState<{ at?: string }[]>([])
   const trackRef = useRef<HTMLDivElement>(null)
 
   // Load the event range + samples once; default the playhead to the very end (= the
@@ -72,11 +74,20 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit }
   // sits before the first real change would otherwise render off the left edge.
   const markers = useMemo(() => (bundle ? deriveMarkers(bundle.events).filter((m) => m.ms >= bundle.startMs && m.ms <= bundle.endMs) : []), [bundle])
 
-  // Every recorded activity — the basis for both the empty stretches and the «next event» step.
-  // Wider than `markers`, deliberately: markers drop workspace.save as too dense to draw, but a
-  // burst of saves IS activity, and treating it as silence would skip over someone drawing.
-  const moments = useMemo(() => (bundle ? activityMoments(bundle.events) : []), [bundle])
+  // The finished Verlauf, read once from the state at the end of the incident. It is what
+  // decides where the bar shows activity — see `activityMoments` for why a workspace.save is
+  // not evidence that anybody did anything.
+  useEffect(() => {
+    if (!bundle) return
+    let alive = true
+    void stateAt(bundle, bundle.endMs).then((ws) => { if (alive) setJournal(ws?.timeline ?? []) })
+    return () => { alive = false }
+  }, [bundle])
+
+  const moments = useMemo(() => (bundle ? activityMoments(bundle.events, journal) : []), [bundle, journal])
   const gaps = useMemo(() => (bundle ? findGaps(moments, bundle.startMs, bundle.endMs) : []), [moments, bundle])
+  const segments = useMemo(() => (bundle ? segmentsFromGaps(gaps, bundle.startMs, bundle.endMs) : []), [gaps, bundle])
+  const pieces = useMemo(() => layoutTrack(segments, gaps, GAP_FRAC), [segments, gaps])
   const alarmMs = useMemo(() => new Date(startedAt || 0).getTime(), [startedAt])
 
   // Reconstruct + push state whenever the playhead (or bundle) changes. Folds locally —
@@ -118,11 +129,13 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit }
     return () => window.clearTimeout(id)
   }, [skipNotice])
 
+  // Fraction → time goes through the layout, not the raw range: the axis is only linear
+  // INSIDE a segment. Dropping the handle on a break lands on the moment it ends.
   const seekToFraction = useCallback((f: number) => {
     if (!bundle) return
-    const clamped = Math.max(0, Math.min(1, f))
-    setTMs(bundle.startMs + clamped * (bundle.endMs - bundle.startMs))
-  }, [bundle])
+    const t = timeAtFraction(pieces, f)
+    if (t != null) setTMs(t)
+  }, [bundle, pieces])
 
   // Step to the next/previous thing that HAPPENED, rather than by a fixed number of seconds.
   // On a sparse timeline a ±10 s nudge usually lands on nothing at all; «next event» is the
@@ -145,12 +158,7 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit }
     onTrackPointer(e)
   }
 
-  const frac = bundle && bundle.endMs > bundle.startMs
-    ? (tMs - bundle.startMs) / (bundle.endMs - bundle.startMs)
-    : 1
-  const toFrac = (t: number) => (bundle && bundle.endMs > bundle.startMs
-    ? Math.max(0, Math.min(1, (t - bundle.startMs) / (bundle.endMs - bundle.startMs)))
-    : 0)
+  const frac = bundle ? fractionAtTime(pieces, tMs) : 1
   // Deliberately NO "keine Fahrzeugdaten" note. It used to render whenever bundle.samples was
   // empty — which is every replay, on every station, because the Traccar→sample capture job was
   // never wired (see replay.ts). So it announced the absence of something nobody asked for and
@@ -221,28 +229,36 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit }
               aria-valuemax={100}
               aria-valuenow={Math.round(frac * 100)}
             >
-              <div className={s['replay-fill']} style={{ width: `${frac * 100}%` }} />
-              {/* The empty stretches, under the markers: blue track means something happened,
-                  pale band means nothing did — so the shape of the incident is readable before
-                  pressing play, rather than discovered by scrubbing into it. */}
-              {gaps.map((g, i) => {
-                const a = toFrac(g.fromMs)
-                const b = toFrac(g.toMs)
-                if (b <= a) return null
-                const span = fmtSpanShort(g.toMs - g.fromMs)
-                return (
+              {/* Abschnitte: one rail per stretch that HAS activity, sized by its real duration,
+                  with a fixed narrow break between them. The bar is therefore linear inside a
+                  segment and broken between them — drawn as a real interruption rather than a
+                  texture, because a distorted axis has to be obvious rather than deduced. */}
+              {pieces.map((p, i) => (
+                p.kind === 'gap' ? (
                   <div
-                    key={`gap-${i}`}
-                    className={s['replay-gap']}
-                    style={{ left: `${a * 100}%`, width: `${(b - a) * 100}%` }}
-                    title={fillTemplate(rp.gapTitle, { span })}
+                    key={`p-${i}`}
+                    className={s['replay-break']}
+                    style={{ left: `${p.leftFrac * 100}%`, width: `${p.widthFrac * 100}%` }}
+                    title={fillTemplate(rp.gapTitle, { span: fmtSpanShort(p.toMs - p.fromMs) })}
+                  />
+                ) : (
+                  <div
+                    key={`p-${i}`}
+                    className={s['replay-seg']}
+                    style={{ left: `${p.leftFrac * 100}%`, width: `${p.widthFrac * 100}%` }}
                   >
-                    {b - a >= GAP_LABEL_MIN_FRAC && <span className={s['replay-gap-label']}>{span}</span>}
+                    {/* played portion of THIS segment */}
+                    <div
+                      className={s['replay-segfill']}
+                      style={{ width: `${Math.max(0, Math.min(1, (tMs - p.fromMs) / Math.max(1, p.toMs - p.fromMs))) * 100}%` }}
+                    />
                   </div>
                 )
-              })}
+              ))}
               {markers.map((m, i) => {
-                const mf = bundle.endMs > bundle.startMs ? (m.ms - bundle.startMs) / (bundle.endMs - bundle.startMs) : 0
+                // Through the layout, not the raw range: on a segmented axis the linear
+                // position is simply wrong — a marker would drift away from the moment it marks.
+                const mf = fractionAtTime(pieces, m.ms)
                 if (mf < 0 || mf > 1) return null
                 return (
                   <button
@@ -256,6 +272,20 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit }
                 )
               })}
               <div className={s['replay-handle']} style={{ left: `${frac * 100}%` }} />
+            </div>
+            {/* The break durations live OFF the rail, in their own row underneath: the track
+                stays purely graphical, and a long label can never squeeze the thing it
+                describes. Each sits centred under its own break. */}
+            <div className={s['replay-breaks']} aria-hidden="true">
+              {pieces.filter((p) => p.kind === 'gap').map((p, i) => (
+                <span
+                  key={`bl-${i}`}
+                  className={s['replay-breaklabel']}
+                  style={{ left: `${(p.leftFrac + p.widthFrac / 2) * 100}%` }}
+                >
+                  {fmtSpanShort(p.toMs - p.fromMs)}
+                </span>
+              ))}
             </div>
             {/* The middle slot carries the Einsatzuhr, and the skip note takes it over while a
                 jump is being announced. Deliberately NOT in the time bubble above: that bubble
