@@ -107,6 +107,14 @@ so this file – not the log – is the record of what shipped up to that point.
   neither behaviour is unambiguously right, so it is recorded as a known divergence rather than
   decided unilaterally on the alerting path.
 
+  A station's own vocabulary is **not** echoed by the public `GET /api/config`. That endpoint is
+  public so the login screen can brand itself, and the vocabulary turns out to be the one section
+  with no unauthenticated reader — matching is entirely server-side and nothing in the frontend
+  reads the words. An admin session still receives the full block, which matters more than it
+  sounds: the admin UI does a full-document `PUT`, so a section the admin never received is one
+  the next unrelated edit would silently delete. The `alarmVocabulary` summary — source, schema
+  version and counts, never the words — stays public, so "is my override live?" needs no session.
+
 ### Added
 - **The roster-snapshot contract is published — the schema, not yet the feature.** A station whose
   personnel list lives somewhere else entirely (a municipal HR system, a cantonal register, a
