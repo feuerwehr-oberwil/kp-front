@@ -344,7 +344,10 @@ Stored in the configured asset store (local volume by default; S3 optional). Lim
 
 ### 4a. `"divera"` – auto-sync
 - Requires a Divera access key in env (§6). The backend syncs Divera personnel → `Person`.
-- No file needed; the admin UI shows the synced roster read-only.
+- No file needed. The admin UI shows the synced roster and offers preview-then-execute sync; it
+  is **not** locked – hand entry and CSV import keep working, and a sync never wipes a rank an
+  admin set. Synced people carry a `divera` external identity, which is what the sync reconciles
+  on; people you added by hand have none and are left alone.
 
 ### 4b. `"manual"` – CSV import + hand entry
 - Admin imports a CSV and/or adds people in the UI. **CSV columns:**
