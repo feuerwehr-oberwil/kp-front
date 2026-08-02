@@ -13,11 +13,13 @@ Regenerate with `just roster-schema` in the same change that touches the models.
 **2. Cross-repo drift.** kp-rück holds byte-identical copies of both schema files, pinned by
 the same checksums. Neither repository may import the other (`docs/RUNNING-BOTH.md`), so the
 copies stay copies and a hash holds them together — exactly the arrangement
-`test_divera_keywords.py` and `test_telemetry_vendored.py` already use. **What this cannot
+`test_alarm_keywords.py` and `test_telemetry_vendored.py` already use. **What this cannot
 catch, stated plainly:** editing the schema here and updating only this repository's hash
 leaves both suites green while the two copies diverge. Only a job that checks out both
-repositories actually compares them; until this pair is added to kp-rück's cross-repo diff job,
-"copy it across and update both hashes in one change" is a habit, not a guarantee.
+repositories actually compares them, and **this pair is in no such job yet** — kp-rück's
+`alarm-keyword-drift` and `telemetry-drift` are the two that exist, and adding a third for a
+contract nothing implements was left out of the change that published it. Until then, "copy it
+across and update both hashes in one change" is a habit, not a guarantee.
 
 **3. A medical field.** D30 of the estate architecture says the exclusion is a property of the
 payload, "enforced by a schema test that fails on any medical-shaped key, not by doctrine:
