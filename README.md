@@ -142,7 +142,10 @@ two doors, and it is worth knowing which is which:
   not alternatives to "the JSON files" – *the manifest is what the CLI reads*. All of them write
   through one code path, so the browser and the CLI mint the same dataset ids and cannot drift.
 - **A scheduled pull from an S3-compatible bucket** – the only option where no other system needs
-  a credential for this one.
+  a credential for this one. ⚠️ Covers **object plans only**; geodata and checklists are CLI or UI.
+
+Both doors are built in – the pull is a first-class feature reading any S3-compatible bucket with a
+documented index, not a bridge to some particular product.
 
 Either way the bytes land in **your** deployment's storage and are served from there; a bucket is a
 source, not a runtime dependency. WMS layers store nothing at all – the browser fetches cantonal
