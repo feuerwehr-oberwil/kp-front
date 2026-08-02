@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { describe, it, expect, afterEach } from 'vitest'
 import { applyLocale, getCopy, getLocaleId, AVAILABLE_LOCALES } from './index'
 
@@ -78,5 +79,37 @@ describe('French / Italian (full translations)', () => {
 describe('admin picker registry', () => {
   it('offers exactly the four supported languages', () => {
     expect(AVAILABLE_LOCALES.map((l) => l.id)).toEqual(['de-CH', 'en', 'fr', 'it'])
+  })
+})
+
+describe('intake.kategorieGuess mirrors the shared Divera keyword file', () => {
+  // The wizard guesses a category client-side (EinsatzWizard.tsx) so the operator sees a
+  // sensible default before the server answers. That means the keyword list exists TWICE in
+  // this repo — here, and in backend/app/data/divera_keywords.json, which is itself vendored
+  // into kp-rueck. Its comment has said "keep in sync if that map changes" for a long time
+  // and nothing ever checked. This is the check.
+  //
+  // Read from disk rather than imported: the JSON belongs to the backend package and must not
+  // become a frontend build input — that would be exactly the coupling the file avoids.
+  const shared = JSON.parse(
+    readFileSync(
+      new URL('../../../backend/app/data/divera_keywords.json', import.meta.url),
+      'utf-8',
+    ),
+  ) as { keyword_to_category: { pairs: [string, string][] } }
+
+  it('carries the same keywords, in the same order (first hit wins on both sides)', () => {
+    applyLocale('de-CH')
+    const frontend = getCopy().intake.kategorieGuess.map(([keyword]) => keyword)
+    const backend = shared.keyword_to_category.pairs.map(([keyword]) => keyword)
+    expect(frontend).toEqual(backend)
+  })
+
+  it('only guesses categories the picker actually offers', () => {
+    applyLocale('de-CH')
+    const kategorien = new Set(getCopy().intake.kategorien)
+    for (const [keyword, label] of getCopy().intake.kategorieGuess) {
+      expect(kategorien, `«${keyword}» guesses «${label}», which is not a selectable category`).toContain(label)
+    }
   })
 })
