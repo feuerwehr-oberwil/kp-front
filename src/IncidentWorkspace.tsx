@@ -1346,10 +1346,10 @@ export function IncidentWorkspace({
       case 'panel':
         switch (cmd.panel) {
           case 'journal': e.preventDefault(); setJournalOpen((v) => !v); break
-          case 'composer': if (!readOnly) { e.preventDefault(); setComposerOpen(true) } break
+          case 'composer': if (!readOnly && !linkScoped) { e.preventDefault(); setComposerOpen(true) } break
           case 'layers': if (onMap) { e.preventDefault(); togglePanel('layers') } break
-          case 'picker': e.preventDefault(); setPickerOpen(true); break
-          case 'settings': e.preventDefault(); setSettingsOpen(true); break
+          case 'picker': if (!linkScoped) { e.preventDefault(); setPickerOpen(true) } break
+          case 'settings': if (!linkScoped) { e.preventDefault(); setSettingsOpen(true) } break
           case 'help': e.preventDefault(); setHelpOpen(true); break
         }
         break
@@ -1867,9 +1867,9 @@ export function IncidentWorkspace({
         journalOpen={journalOpen}
         onToggleJournal={() => setJournalOpen((v) => !v)}
         reminderCount={reminders.openCount}
-        onAddEntry={() => setComposerOpen(true)}
-        onHoldStart={startVoiceMemo}
-        onHoldEnd={voice.stop}
+        onAddEntry={linkScoped ? undefined : () => setComposerOpen(true)}
+        onHoldStart={linkScoped ? undefined : startVoiceMemo}
+        onHoldEnd={linkScoped ? undefined : voice.stop}
         onUndo={mode === 'plans' ? () => planHist.current?.undo() : undo}
         onRedo={mode === 'plans' ? () => planHist.current?.redo() : redo}
         canUndo={mode === 'plans' ? planCan.canUndo : canUndo}
@@ -1902,7 +1902,7 @@ export function IncidentWorkspace({
             syncStatus={syncStatus}
             lastSyncedAt={lastSyncedAt}
             user={{ display_name: user?.display_name ?? '', color: user?.color ?? null, role: user?.role ?? 'viewer' }}
-            onSettings={() => setSettingsOpen(true)}
+            onSettings={linkScoped ? undefined : () => setSettingsOpen(true)}
             onSwitch={onSwitchIncident}
             onHistory={linkScoped ? undefined : onOpenHistory}
             onDivera={onOpenDivera}
@@ -1920,7 +1920,7 @@ export function IncidentWorkspace({
             onLogout={linkScoped ? undefined : () => { void logout() }}
             navKey={`${mode}|${journalOpen ? 'journal' : ''}`}
             objectName={activeObjectName}
-            onObjectSwitch={() => setPickerOpen(true)}
+            onObjectSwitch={linkScoped ? undefined : () => setPickerOpen(true)}
           />
         }
       />
@@ -2734,7 +2734,7 @@ export function IncidentWorkspace({
       {/* phone field-capture: a editor can't draw tactical symbols on a phone, but can
           always add a journal entry / photo / voice memo from the field — tap to compose,
           hold to record a voice memo (same gesture as the desktop TopBar Eintrag) */}
-      {isPhone && !readOnly && !composerOpen && !panel && (
+      {isPhone && !readOnly && !linkScoped && !composerOpen && !panel && (
         <FabEntry
           recording={voice.recording}
           recStartedAt={voice.recStartedAt}

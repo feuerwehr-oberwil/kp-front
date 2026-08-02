@@ -27,7 +27,9 @@ export function IncidentSwitcher({
   lastSyncedAt: number | null
   user: { display_name: string; color: string | null; role: string }
   /** open the Einstellungen sheet (device prefs + synced incident settings) */
-  onSettings: () => void
+  /** Omitted hides the Einstellungen row — an Einsatz-Link has no device or incident
+      settings to change, and every write behind them is refused anyway. */
+  onSettings?: () => void
   onSwitch: (i: IncidentMeta) => void
   /** «Alle Einsätze» — absent for an Einsatz-Link session, which may only ever see its own */
   onHistory?: () => void
@@ -205,7 +207,7 @@ export function IncidentSwitcher({
           {isEditor && <button className="ip-menu-act" onClick={() => { onDivera(); setOpen(false) }}><Icon id="plus" /> {appConfig.copy.intake.titleNew}</button>}
           {onHistory && <button className="ip-menu-act" onClick={() => openSheet(onHistory)}><Icon id="history" /> {cp.allIncidents}</button>}
           <div className="ip-menu-sep" />
-          <button className="ip-menu-act" onClick={() => openSheet(onSettings)}><Icon id="gear" /> {appConfig.copy.settings.title}</button>
+          {onSettings && <button className="ip-menu-act" onClick={() => openSheet(onSettings)}><Icon id="gear" /> {appConfig.copy.settings.title}</button>}
           {active && <button className="ip-menu-act" onClick={() => openSheet(onOfflineReadiness)}><Icon id="snapshot" /> {appConfig.copy.offline.title}</button>}
           <button className="ip-menu-act" onClick={() => openSheet(onHelp)}><Icon id="info" /> {appConfig.copy.help.menu}</button>
           {onInstall && <button className="ip-menu-act" onClick={() => openSheet(onInstall)}><Icon id="share-ios" /> {appConfig.copy.install.menu}</button>}
