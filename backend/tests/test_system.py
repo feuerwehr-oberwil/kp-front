@@ -75,8 +75,12 @@ async def test_system_shape_as_admin(client, editor, admin_login):
         ("divera", "personnel"),
         ("divera", "alarms"),
         ("traccar", "vehicles"),
+        # Published contract, no ingestion — listed so it is discoverable, `implemented: False`
+        # so the registry does not imply it works (docs/CONFIGURATION.md §4c).
+        ("snapshot", "personnel"),
     }
     assert all(isinstance(p["capabilities"], list) for p in registrations)
+    assert all(isinstance(p["implemented"], bool) for p in registrations)
 
     # Connectors — every consumer/producer listed read-only, one row each.
     connectors = {c["id"]: c for c in body["connectors"]}

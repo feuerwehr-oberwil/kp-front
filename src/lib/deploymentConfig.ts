@@ -154,7 +154,10 @@ export interface RankConfig {
 }
 
 export interface DeploymentRoster {
-  source?: 'manual' | 'divera' | null
+  /** Where people come from. `'snapshot'` = a roster file another system publishes, to the
+   *  contract in docs/CONFIGURATION.md §4c — accepted and served today, not yet ingested, so a
+   *  station on it behaves like `'manual'`. Nothing in the UI branches on this value. */
+  source?: 'manual' | 'divera' | 'snapshot' | null
   /** Ordered ranks, most senior first. Empty/absent → the in-code Swiss default in rank.ts. */
   ranks?: RankConfig[]
 }

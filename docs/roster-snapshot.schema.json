@@ -1,0 +1,158 @@
+{
+  "$defs": {
+    "ExternalIdentity": {
+      "additionalProperties": false,
+      "description": "One `(provider, external_id)` pair, exactly as `personnel_external_identities` stores it.\n\nThis is how a snapshot says \"the person the alerting system calls 4711 is the person this\nfile calls p-0007\" without either product growing a column named after a vendor.",
+      "properties": {
+        "provider": {
+          "maxLength": 32,
+          "pattern": "^[a-z][a-z0-9_-]{1,31}$",
+          "title": "Provider",
+          "type": "string"
+        },
+        "external_id": {
+          "maxLength": 255,
+          "minLength": 1,
+          "title": "External Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "provider",
+        "external_id"
+      ],
+      "title": "ExternalIdentity",
+      "type": "object"
+    },
+    "PersonEntry": {
+      "additionalProperties": false,
+      "description": "One person in a roster snapshot.\n\n`external_id` is the publisher's own stable key and the only thing a consumer is entitled\nto match on without guessing. Names change (marriage, a corrected spelling, a rank folded\ninto the display name); the key must not.",
+      "properties": {
+        "external_id": {
+          "maxLength": 255,
+          "minLength": 1,
+          "title": "External Id",
+          "type": "string"
+        },
+        "display_name": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Display Name",
+          "type": "string"
+        },
+        "first_name": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "First Name"
+        },
+        "last_name": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Name"
+        },
+        "rank": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z0-9_-]{1,32}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rank"
+        },
+        "active": {
+          "default": true,
+          "title": "Active",
+          "type": "boolean"
+        },
+        "identities": {
+          "items": {
+            "$ref": "#/$defs/ExternalIdentity"
+          },
+          "maxItems": 8,
+          "title": "Identities",
+          "type": "array"
+        }
+      },
+      "required": [
+        "external_id",
+        "display_name"
+      ],
+      "title": "PersonEntry",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A published roster file, whole.\n\n`complete` is the load-bearing flag. A complete snapshot is a statement about everyone, so\na local person carrying this provider's identity and absent from the file has left, and a\nconsumer may deactivate them. A partial snapshot says nothing about absence and a consumer\nmust not act on it. Getting this wrong in the safe direction costs a stale name in a picker;\ngetting it wrong in the other direction empties a station's roster from a truncated file.",
+  "properties": {
+    "schema": {
+      "const": "roster-snapshot/1",
+      "title": "Schema",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "provider": {
+      "maxLength": 32,
+      "pattern": "^[a-z][a-z0-9_-]{1,31}$",
+      "title": "Provider",
+      "type": "string"
+    },
+    "complete": {
+      "title": "Complete",
+      "type": "boolean"
+    },
+    "count": {
+      "minimum": 1,
+      "title": "Count",
+      "type": "integer"
+    },
+    "people": {
+      "items": {
+        "$ref": "#/$defs/PersonEntry"
+      },
+      "minItems": 1,
+      "title": "People",
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema",
+    "generated_at",
+    "provider",
+    "complete",
+    "count",
+    "people"
+  ],
+  "title": "RosterSnapshot",
+  "type": "object",
+  "$id": "roster-snapshot/1"
+}

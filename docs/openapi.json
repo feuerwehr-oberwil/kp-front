@@ -12080,6 +12080,11 @@
             },
             "type": "array",
             "title": "Capabilities"
+          },
+          "implemented": {
+            "type": "boolean",
+            "title": "Implemented",
+            "default": true
           }
         },
         "type": "object",
@@ -12089,7 +12094,8 @@
           "configured",
           "active"
         ],
-        "title": "ProviderRegistration"
+        "title": "ProviderRegistration",
+        "description": "One provider this build knows about, whether or not this station uses it.\n\nThe list is what makes personnel/alarms/vehicles a *choice* rather than a vendor: a\nstation reads it to see what it could point at. ``implemented`` is false for a provider\nwhose contract is published but whose ingestion is not built yet — an entry that is\ndiscoverable and honest about being inert, rather than a registry that quietly implies\neverything listed works."
       },
       "RankConfig": {
         "properties": {
@@ -12459,7 +12465,8 @@
                 "type": "string",
                 "enum": [
                   "manual",
-                  "divera"
+                  "divera",
+                  "snapshot"
                 ]
               },
               {

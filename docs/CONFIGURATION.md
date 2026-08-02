@@ -93,7 +93,8 @@ One JSON document, stored as the single `deployment_config` row, returned by `GE
   },
 
   "roster": {
-    "source": "manual"                            // "divera" | "manual" (CSV/hand) – see §4
+    "source": "manual"                            // "divera" | "manual" (CSV/hand) |
+                                                  // "snapshot" (a published roster file) – see §4
   },
 
   "mittel": {                                    // material-use sheet (Mittel): billing/report + "brauchen wir mehr?"
@@ -349,15 +350,111 @@ Stored in the configured asset store (local volume by default; S3 optional). Lim
 - Admin imports a CSV and/or adds people in the UI. **CSV columns:**
   | column | required | meaning |
   |--------|----------|---------|
-  | `name` | ✅ | display name ("Hptm Meier") |
-  | `funktion` | – | role/Funktion (Einsatzleiter, Maschinist, …) |
-  | `einheit` | – | unit/Zug/Gruppe |
-  | `default_funkkanal` | – | integer |
-  | `divera_id` | – | for later reconciliation if they adopt Divera |
-- Encoding UTF-8, comma-separated, header row required. Extra columns ignored.
+  | `name` | ✅ | display name ("Meier Anna") |
+  | `rank` | – | Dienstgrad, matched case/accent-insensitively against `roster.ranks` `key`/`label`/`abbr`; an unknown value imports the person **without** a rank and is reported back in the import result rather than failing the row |
+  | `provider` | – | provider key an external identity is filed under (`personnel_external_identities.provider`) |
+  | `external_id` | – | that provider's id for this person; required whenever `provider` is given |
+  | `divera_id` | – | legacy spelling of `provider=divera` + `external_id`, accepted during the compatibility window – prefer the two columns above |
+- Encoding UTF-8, comma-separated, header row required. Extra columns ignored. A row carrying a
+  `provider`/`external_id` pair already known **updates** that person; everything else is added.
+- The admin UI's «Beispiel-CSV herunterladen» button writes the minimal form (`name,rank`).
 
-> Either way, the **app stays usable with an empty roster** – every person picker (Einsatzleiter,
-> Fahrer, Trupp names) offers free-typing, so a station can run before importing anyone (§8).
+### 4c. `"snapshot"` – a roster file somebody else publishes
+
+> **Status: contract only.** The schema, the example and the validator below are shipped and
+> versioned; **the ingestion is not built.** A deployment set to `"snapshot"` today behaves
+> exactly like `"manual"` – CSV and hand entry work, nothing is fetched, nothing is synced. The
+> contract is published first on purpose, so that what stations produce is designed rather than
+> whatever the first importer happened to need.
+
+Some stations keep their personnel list somewhere else entirely – a municipal HR system, a
+cantonal register, a sibling application, a nightly script. `"snapshot"` is for exactly that
+case: **that system publishes a JSON file to a URL, and this deployment reads it.** It is one
+personnel provider among several. It is selectable, it is disconnectable, and it is never
+required – disconnecting it leaves every local person exactly where they were, because local
+personnel are canonical and a provider only attaches identity and provenance.
+
+Nothing about a particular publisher is built into the app: any URL a deployment can read
+works, and the schema names no vendor.
+
+- **Contract:** [`roster-snapshot.schema.json`](roster-snapshot.schema.json) (JSON Schema).
+- **Worked example:** `backend/roster.snapshot.example.json`.
+- **Validate a file you produced** – no database, no network, no deployment needed:
+  ```bash
+  cd backend && uv run python -m app.roster_snapshot validate my-roster.json
+  # OK: complete snapshot from 'musterdorf-personalstamm', 4 people (3 active), …
+  ```
+  `schema`, `outcome-schema` and `example` print the contract and a starting point.
+
+**The document:**
+
+| field | required | meaning |
+|-------|----------|---------|
+| `schema` | ✅ | `"roster-snapshot/1"` – the contract this file is written to |
+| `schema_version` | ✅ | `1`. A consumer that does not know the version refuses the file rather than guessing |
+| `generated_at` | ✅ | RFC 3339 **with offset**, when the publisher built the file. A consumer shows the age and warns when it stops moving – a feed that silently froze is the failure a puller cannot see from the inside |
+| `provider` | ✅ | the key identities from this file are filed under (`^[a-z][a-z0-9_-]{1,31}$`, ≤32 chars). One station may read two snapshots; this is what keeps them apart |
+| `complete` | ✅ | `true` = a statement about **everyone**, so a local person carrying this provider's identity and absent from the file has left and may be **deactivated** (never deleted – old Einsätze keep resolving the name). `false` = says nothing about absence, and a consumer must not act on it |
+| `count` | ✅ | restated by the publisher and checked against `people`. A truncated upload must never read as "most of the brigade left" |
+| `people` | ✅ | at least one. A file listing nobody is a broken publish, not an empty brigade |
+
+**One person:**
+
+| field | required | meaning |
+|-------|----------|---------|
+| `external_id` | ✅ | the publisher's own stable key, ≤255 chars. The only thing a consumer may match on without guessing – names change, keys must not |
+| `display_name` | ✅ | how the person appears in a picker ("Meier Anna") |
+| `first_name`, `last_name` | – | when the publisher holds them split |
+| `rank` | – | a **key** from this station's `roster.ranks` (§1), never a label – the publisher does not have to know how you spell "Wachtmeister". A key you do not define imports the person without a rank and is reported |
+| `active` | – | default `true`. `false` = on file, no longer operational |
+| `identities` | – | up to 8 `{ "provider": …, "external_id": … }` pairs – the same person's id in *other* systems, landing in `personnel_external_identities` |
+
+`identities` is how a snapshot says "the person this file calls `pers-0001` is the one your
+alerting system calls 4711" **without either product growing a column named after a vendor**.
+There is deliberately no `divera_id`-shaped field: vendor columns are deprecated here and in
+KP Rück, and a contract that named one alerting system would be wrong for every station using a
+different one.
+
+#### 🔴 No medical fields, ever
+
+A personnel file is where Arztuntersuchungs-Termine, Tauglichkeiten, Impfungen and absences
+live in most fire-service systems. **None of them may appear in a roster snapshot**, and that
+is not a request: `parse_snapshot` scans every key of an incoming document and **refuses the
+whole file** – naming the key and the reason – if one looks medical, in German, English, French
+or Italian. The same check runs over the schema itself in CI, so the guarantee survives future
+edits of the contract rather than depending on whoever reviews them.
+
+That is also why the document carries **no free-form `metadata` map and no `qualifications`
+list**. A string map's keys are data, so no schema can see inside it, and a raw qualification
+list is precisely where "Atemschutz-Tauglichkeit bis 2027" would arrive wearing a name no check
+can object to. `rank` is the derived, non-medical projection the app actually uses.
+
+Honest limit: the check reads *names*. Nothing stops a publisher writing medical information
+into `display_name`. Do not.
+
+#### What a consumer has to be able to say afterwards
+
+A roster that quietly loses people corrupts every attendance figure derived from it, invisibly.
+So the shape of the answer is fixed before anything implements the question:
+[`roster-snapshot-outcome.schema.json`](roster-snapshot-outcome.schema.json) is the report one
+ingestion run must be able to produce – `matched` / `created` / `updated` / `deactivated`,
+every person it **could not place** with the reason (`no_identity_match`, `ambiguous_name`,
+`conflicting_identity`, `absent_from_snapshot`, `inactive_in_snapshot`), every `rank` key it did
+not recognise, and `refused` for "I changed nothing, and here is why". **Unmapped people are
+counted and flagged, never silently dropped.**
+
+#### Versioning
+
+`schema` and `schema_version` are bumped only when the *shape* changes. The two schema files are
+generated from `backend/app/roster_snapshot.py` by `just roster-schema`; a test fails when the
+committed copies drift from the code (the same arrangement [`openapi.json`](openapi.json) has),
+and a second test pins their checksums because KP Rück holds byte-identical copies – editing the
+contract is a two-repository change.
+
+> Whichever source is set, the **app stays usable with an empty roster** – every person picker
+> (Einsatzleiter, Fahrer, Trupp names) offers free-typing, so a station can run before importing
+> anyone (§8). And `roster.source` is a *preference*, not a lock: CSV import and hand entry
+> remain available on every setting.
 
 ---
 

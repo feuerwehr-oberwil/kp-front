@@ -1,0 +1,56 @@
+{
+  "schema": "roster-snapshot/1",
+  "schema_version": 1,
+  "generated_at": "2026-08-02T04:00:00+00:00",
+  "provider": "musterdorf-personalstamm",
+  "complete": true,
+  "count": 4,
+  "people": [
+    {
+      "external_id": "pers-0001",
+      "display_name": "Muster Hans",
+      "first_name": "Hans",
+      "last_name": "Muster",
+      "rank": "maj",
+      "active": true,
+      "identities": [
+        {
+          "provider": "alarmierung",
+          "external_id": "4711"
+        }
+      ]
+    },
+    {
+      "external_id": "pers-0002",
+      "display_name": "Beispiel Anna",
+      "first_name": "Anna",
+      "last_name": "Beispiel",
+      "rank": "wm",
+      "active": true,
+      "identities": [
+        {
+          "provider": "alarmierung",
+          "external_id": "4712"
+        }
+      ]
+    },
+    {
+      "external_id": "pers-0003",
+      "display_name": "Dorfmatt Peter",
+      "first_name": "Peter",
+      "last_name": "Dorfmatt",
+      "rank": "fw",
+      "active": true,
+      "identities": []
+    },
+    {
+      "external_id": "pers-0004",
+      "display_name": "Musterhalde Rita",
+      "first_name": "Rita",
+      "last_name": "Musterhalde",
+      "rank": "fw",
+      "active": false,
+      "identities": []
+    }
+  ]
+}
