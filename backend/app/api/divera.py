@@ -128,8 +128,9 @@ async def take(
     title = o.title or em.title
     text = o.text if o.text is not None else em.text
     address = o.address if o.address is not None else em.address
-    type_ = o.type or divera_svc.detect_type(title)
-    priority = o.priority or divera_svc.infer_priority(title, text)
+    vocab = await divera_svc.active_vocabulary()
+    type_ = o.type or divera_svc.detect_type(title, vocab=vocab)
+    priority = o.priority or divera_svc.infer_priority(title, text, vocab=vocab)
 
     # Explicit coord override (pin moved / object picked) wins; else use the alarm's, and
     # geocode the (possibly corrected) address only when no coordinate is available at all.

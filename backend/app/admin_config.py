@@ -32,6 +32,11 @@ Behaviour:
   round-trips consistently. Idempotent; ``updated_by`` is left NULL (out-of-band admin load,
   not a logged-in editor PUT).
 - ``schema``/``example``/``validate``/``diff`` against a file need NO database connection.
+- ``alarmKeywords`` — the station's own alarm vocabulary — is the one block that replaces a
+  shipped default rather than filling in a blank, so validate/diff/load each print a line
+  naming which vocabulary the file puts in charge. It is NOT in ``example``: the shipped
+  ``app/data/alarm_keywords.json`` is the right answer for nearly every station, and a
+  station that needs its own starts from a copy of that file (see docs/CONFIGURATION.md §1a).
 """
 
 import argparse
@@ -279,6 +284,30 @@ def _summary(doc_json: dict[str, Any]) -> str:
     return ", ".join(set_keys) if set_keys else "(none — empty config)"
 
 
+def _vocabulary_line(doc_json: dict[str, Any]) -> str:
+    """One line naming the alarm vocabulary this file puts in charge.
+
+    Printed by validate/load/diff because the block is long, replaces the shipped words
+    WHOLESALE, and decides how every alarm is classified — «19 keywords became 4» is the kind
+    of thing that must be visible in the terminal, not only in the JSON.
+    """
+    from .alarm_keywords import SHIPPED
+
+    block = doc_json.get("alarmKeywords")
+    if not block:
+        return (
+            f"alarm vocabulary: the shipped default "
+            f"({len(SHIPPED.keyword_to_category)} title keywords, "
+            f"{len(SHIPPED.high_priority_keywords)} high-priority) — app/data/alarm_keywords.json"
+        )
+    pairs = (block.get("keyword_to_category") or {}).get("pairs") or []
+    high = sum(len(g.get("keywords") or []) for g in (block.get("high_priority_keywords") or {}).get("groups") or [])
+    return (
+        f"alarm vocabulary: THIS DEPLOYMENT'S OWN ({len(pairs)} title keywords, {high} high-priority, "
+        f"fallback «{block.get('fallback_category')}») — it REPLACES the shipped file wholesale"
+    )
+
+
 async def _show() -> dict[str, Any] | None:
     async with async_session_maker() as db:
         row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
@@ -334,6 +363,7 @@ async def _amain(argv: list[str]) -> int:
     if args.cmd == "validate":
         doc_json = _read_and_validate(Path(args.file))
         print(f"OK: {args.file} is valid. Top-level keys set: {_summary(doc_json)}")
+        print(f"    {_vocabulary_line(doc_json)}")
         return 0
     if args.cmd == "diff":
         doc_json = _read_and_validate(Path(args.file))
@@ -344,15 +374,18 @@ async def _amain(argv: list[str]) -> int:
         else:
             print(f"{len(changes)} change(s) vs stored config:")
             print("\n".join(changes))
+        print(_vocabulary_line(doc_json))
         return 0
     if args.cmd == "load":
         doc_json = _read_and_validate(Path(args.file))
         if args.dry_run:
             print(f"OK (dry-run): {args.file} is valid; not written. Keys: {_summary(doc_json)}")
+            print(f"    {_vocabulary_line(doc_json)}")
             return 0
         await _load(doc_json)
         print(f"OK: loaded {args.file} into deployment_config id=1.")
         print(f"    top-level keys set: {_summary(doc_json)}")
+        print(f"    {_vocabulary_line(doc_json)}")
         return 0
     # show
     stored = await _show()

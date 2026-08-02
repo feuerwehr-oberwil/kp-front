@@ -26,7 +26,9 @@ attends is kept out of the statistics afterwards (`editor_opened_at`,
   Fail-closed: unset → 403 for everyone. Setting it is the opt-in.
 - **Idempotent:** one incident per `(source, source_id)` – a retried delivery returns the
   existing incident (`200`, `"created": false`) instead of duplicating it.
-- `type`/`priority` fall back to the same keyword inference the Divera path uses.
+- `type`/`priority` fall back to the same keyword inference the Divera path uses – the alarm
+  keyword vocabulary is not vendor-specific, and a station whose dispatch words differ replaces
+  it from its deployment config (`alarmKeywords`, [`CONFIGURATION.md §1a`](CONFIGURATION.md)).
 - **Send `started_at`** – the moment the alarm went out, not the moment you POST. It becomes
   the incident's Alarmierungszeit, and it is what the Rapport prints and the statistics
   export joins on. Omit it and the incident falls back to the time the request arrived, which

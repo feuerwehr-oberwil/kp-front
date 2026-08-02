@@ -8,7 +8,7 @@
 // Two groups are deliberately NOT translated and fall back to German on purpose:
 //   • intake.kategorien / intake.kategorieGuess — these mirror the backend's VKF
 //     Schadenkategorien (app/divera.py CATEGORY_LABELS, with the keyword half coming
-//     from the shared backend/app/data/divera_keywords.json) and match against German Divera keyword
+//     from the shared backend/app/data/alarm_keywords.json) and match against German alarm keyword
 //     text; translating them would desync category derivation.
 //   • contextPanel.unField / contextPanel.stoffField — the UN→substance lookup matches against
 //     the language-independent preset fields; translating them would break the autofill.

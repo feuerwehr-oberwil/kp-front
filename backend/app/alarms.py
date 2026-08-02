@@ -149,9 +149,13 @@ async def create_incident_from_alarm(
     the server default — the insert time — and the provenance stays NULL to say so, because
     the alternative is publishing «when the webhook arrived» as an alarm time.
     """
-    from .divera import detect_type, infer_priority  # lazy — avoids an import cycle
+    from .divera import active_vocabulary, detect_type, infer_priority  # lazy — avoids an import cycle
 
     title = title or "(ohne Titel)"
+    # The deployment's own alarm words if it set any, else the shipped default. Resolved once
+    # per incident, not per field — the two inferences below must never disagree about which
+    # vocabulary they are reading.
+    vocab = await active_vocabulary()
     # 0/0 is "no location", never a real coordinate (Divera's convention; also guards any
     # generic-intake sender) — clearing it lets the address geocoder below take over.
     if lat is not None and lng is not None and abs(lat) < 1e-6 and abs(lng) < 1e-6:
@@ -168,8 +172,8 @@ async def create_incident_from_alarm(
         source=source,
         source_ref=source_ref,
         title=title,
-        type=type_ or detect_type(title),
-        priority=priority or infer_priority(title, text),
+        type=type_ or detect_type(title, vocab=vocab),
+        priority=priority or infer_priority(title, text, vocab=vocab),
         text=text,
         address=address,
         lat=lat,

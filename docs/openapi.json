@@ -8094,6 +8094,19 @@
         "title": "AlarmGroup",
         "description": "One station alarm group for the Alarmierungs-/Ausrückzeiten grid. `id` must match\nwhat the milestone sender uses; `tagespikett` marks the day-duty group."
       },
+      "AlarmHighPriorityKeywords": {
+        "properties": {
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/AlarmKeywordGroup"
+            },
+            "type": "array",
+            "title": "Groups"
+          }
+        },
+        "type": "object",
+        "title": "AlarmHighPriorityKeywords"
+      },
       "AlarmIn": {
         "properties": {
           "source": {
@@ -8206,6 +8219,109 @@
         "title": "AlarmIn",
         "description": "Generic alarm-intake payload (`POST /api/alarms`) for non-Divera alerting systems.\n\n`source` names the sender (a short slug, one per upstream system); `source_id` is the\nsender's alarm id — together they dedupe, so a retried webhook returns the existing\nincident instead of duplicating it. `type`/`priority` fall back to the same keyword\ninference the Divera path uses."
       },
+      "AlarmKeywordCategories": {
+        "properties": {
+          "pairs": {
+            "items": {
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "type": "array",
+              "maxItems": 2,
+              "minItems": 2
+            },
+            "type": "array",
+            "title": "Pairs"
+          }
+        },
+        "type": "object",
+        "title": "AlarmKeywordCategories",
+        "description": "`pairs` is ordered: the first keyword found in an uppercased title wins."
+      },
+      "AlarmKeywordGroup": {
+        "properties": {
+          "group": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "keywords": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Keywords"
+          }
+        },
+        "type": "object",
+        "title": "AlarmKeywordGroup",
+        "description": "One reader-facing grouping of high-priority keywords. `group`/`note` are documentation\n— priority inference is an any-match, so the grouping carries no meaning at runtime."
+      },
+      "AlarmKeywordsConfig": {
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "title": "Schema Version"
+          },
+          "keyword_to_category": {
+            "$ref": "#/components/schemas/AlarmKeywordCategories"
+          },
+          "fallback_category": {
+            "type": "string",
+            "title": "Fallback Category"
+          },
+          "high_priority_keywords": {
+            "$ref": "#/components/schemas/AlarmHighPriorityKeywords"
+          },
+          "known_matcher_divergence": {
+            "$ref": "#/components/schemas/AlarmMatcherDivergence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "schema_version",
+          "keyword_to_category",
+          "fallback_category"
+        ],
+        "title": "AlarmKeywordsConfig",
+        "description": "A station's own alarm vocabulary — it REPLACES the shipped one wholesale.\n\nThe shape is `backend/app/data/alarm_keywords.json` verbatim, so a station starts by\ncopying that file (the documented way to add a single keyword) and pastes it under\n`alarmKeywords`. Hence the snake_case field names in here, unlike the rest of this\ndocument: they are the file's key names, not new ones. `_readme` and `schema` are accepted\nand dropped — they document the shipped file, not this deployment's row.\n\nValidity is decided ONCE, by `alarm_keywords.parse()`, the same rule the shipped file\npasses at import. There is no second schema to keep in step. On top of it, one kp-front\nrule the shared file cannot state: every category must be one this app has a German label\nfor, because a vocabulary routing to an unknown category would file those alarms under\n«Diverse Einsätze» and never say why."
+      },
+      "AlarmMatcherDivergence": {
+        "properties": {
+          "kp_rueck_word_bounded": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Kp Rueck Word Bounded"
+          }
+        },
+        "type": "object",
+        "title": "AlarmMatcherDivergence",
+        "description": "Documentation of the kp-front/kp-rueck matcher difference; carried so a station can copy\nthe shipped file verbatim. kp-front's matcher does not read it."
+      },
       "AlarmOut": {
         "properties": {
           "incident_id": {
@@ -8224,6 +8340,42 @@
           "created"
         ],
         "title": "AlarmOut"
+      },
+      "AlarmVocabularyStatus": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "shipped",
+              "deployment"
+            ],
+            "title": "Source",
+            "default": "shipped"
+          },
+          "schemaVersion": {
+            "type": "integer",
+            "title": "Schemaversion",
+            "default": 1
+          },
+          "titleKeywords": {
+            "type": "integer",
+            "title": "Titlekeywords",
+            "default": 0
+          },
+          "highPriorityKeywords": {
+            "type": "integer",
+            "title": "Highprioritykeywords",
+            "default": 0
+          },
+          "fallbackCategory": {
+            "type": "string",
+            "title": "Fallbackcategory",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "AlarmVocabularyStatus",
+        "description": "Which vocabulary is running, on the public GET — so «what classifies our alarms» is\nanswerable with one request instead of a database session."
       },
       "AlarmsConfig": {
         "properties": {
@@ -8711,6 +8863,16 @@
           "alarms": {
             "$ref": "#/components/schemas/AlarmsConfig"
           },
+          "alarmKeywords": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AlarmKeywordsConfig"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "report": {
             "$ref": "#/components/schemas/ReportConfig"
           }
@@ -8759,11 +8921,24 @@
           "alarms": {
             "$ref": "#/components/schemas/AlarmsConfig"
           },
+          "alarmKeywords": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AlarmKeywordsConfig"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "report": {
             "$ref": "#/components/schemas/ReportConfig"
           },
           "integrations": {
             "$ref": "#/components/schemas/ConfigIntegrations"
+          },
+          "alarmVocabulary": {
+            "$ref": "#/components/schemas/AlarmVocabularyStatus"
           }
         },
         "type": "object",

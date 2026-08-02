@@ -60,20 +60,44 @@ so this file – not the log – is the record of what shipped up to that point.
   `POST /api/divera/pool/{id}/take` keeps working, as an open-**or-correct** call that applies the
   EL's corrections to the incident the alarm already has instead of minting a second one.
 
-- **The Divera keyword list existed twice in the estate and nothing compared the copies.** The map
-  from an alert's Stichwort to an incident category, and the keyword list deciding which alerts are
-  high priority, were written independently here and in KP Rück – the same 19 title keywords, same
-  order, same casing, arrived at twice – and had already begun to drift: one side knew `GASLECK`,
-  the other did not. A third copy sat in this app's German UI strings under a comment asking
-  whoever edited the map to keep it in sync, enforced by nothing. All three now read one
-  checked-in data file, `backend/app/data/divera_keywords.json`, vendored byte-for-byte into both
-  products with a checksum pinned on each side and a CI job that diffs this repo against KP Rück –
-  the same mechanism the telemetry sanitiser already uses, and chosen over a shared package
-  because both products promise self-hosters separate images, separate releases and no runtime
-  coupling. A test that catches drift is worth more here than a library that removes it.
+- **The alarm keyword list existed twice in the estate, nothing compared the copies, and it was
+  named after somebody else's alerting provider.** The map from an alert's Stichwort to an incident
+  category, and the keyword list deciding which alerts are high priority, were written
+  independently here and in KP Rück – the same 19 title keywords, same order, same casing, arrived
+  at twice – and had already begun to drift: one side knew `GASLECK`, the other did not. A third
+  copy sat in this app's German UI strings under a comment asking whoever edited the map to keep it
+  in sync, enforced by nothing. All three now read one checked-in data file,
+  `backend/app/data/alarm_keywords.json`, vendored byte-for-byte into both products with a checksum
+  pinned on each side and a CI job that diffs this repo against KP Rück – the same mechanism the
+  telemetry sanitiser already uses, and chosen over a shared package because both products promise
+  self-hosters separate images, separate releases and no runtime coupling. A test that catches
+  drift is worth more here than a library that removes it.
 
-  **Behaviour is unchanged.** The resulting maps are character-for-character what they were, order
-  included; the one keyword this side was missing is a no-op under its matcher. Two things
+  **Nothing in that file is Divera's**, which is why it is not called `divera_keywords.json` any
+  more: the keywords are German fire-service words and the categories are the FKS
+  Schadenkategorien. Divera is how those words reach *this* station – the delivery, not the
+  definition – and naming the shared vocabulary after one deployment's provider made it look like
+  a Divera feature to every other station. Same reasoning that retired `divera_id` in favour of
+  `source`/`source_ref`. The Divera client, its access key and its poller keep their names,
+  because those genuinely are the Divera attachment.
+
+  **A station can now bring its own vocabulary.** Until now the words were a constant compiled into
+  the app: a brigade alerting in French, or with a different Stichwort set, or off a different
+  system entirely, had no setting at all – it had to patch a file that is checksum-pinned in two
+  repositories, and its own build went red the moment it did. `alarmKeywords` in the deployment
+  config now replaces the shipped vocabulary **wholesale** for that deployment –
+  no per-keyword merging, because two half-lists that combine somewhere are unreadable at 3am and
+  «which keywords are running» must have one answer in one place. To add a single keyword, copy
+  the shipped file and add your line to the copy (`docs/CONFIGURATION.md §1a`). An invalid block –
+  a lowercase keyword that would never fire, a duplicate that makes the later one unreachable, a
+  category the app has no label for – **fails the config load and writes nothing**, rather than
+  being dropped quietly, because a vocabulary that is silently ignored classifies alarms wrongly
+  and says nothing about it. `GET /api/config` answers `alarmVocabulary` – shipped or ours, and
+  how many words – so the question is answerable with one request instead of a database session.
+
+  **Behaviour is unchanged for a station that sets nothing**, which is every station today. The
+  resulting maps are character-for-character what they were, order included, and a test pins them
+  that way; the one keyword this side was missing is a no-op under its matcher. Two things
   deliberately stayed out of the shared file and are named in it rather than quietly unified: the
   **display labels**, because this app stores German strings in the database while KP Rück stores
   keys and the two disagree on a capital letter – migrating a stored value in a released product

@@ -703,6 +703,92 @@ class AlarmsConfig(BaseModel):
     groups: list[AlarmGroup] = Field(default_factory=list)
 
 
+class AlarmKeywordGroup(BaseModel):
+    """One reader-facing grouping of high-priority keywords. `group`/`note` are documentation
+    — priority inference is an any-match, so the grouping carries no meaning at runtime."""
+
+    model_config = ConfigDict(extra="ignore")
+    group: str | None = None
+    note: str | None = None
+    keywords: list[str] = Field(default_factory=list)
+
+
+class AlarmHighPriorityKeywords(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    groups: list[AlarmKeywordGroup] = Field(default_factory=list)
+
+
+class AlarmKeywordCategories(BaseModel):
+    """`pairs` is ordered: the first keyword found in an uppercased title wins."""
+
+    model_config = ConfigDict(extra="ignore")
+    pairs: list[tuple[str, str]] = Field(default_factory=list)
+
+
+class AlarmMatcherDivergence(BaseModel):
+    """Documentation of the kp-front/kp-rueck matcher difference; carried so a station can copy
+    the shipped file verbatim. kp-front's matcher does not read it."""
+
+    model_config = ConfigDict(extra="ignore")
+    kp_rueck_word_bounded: list[str] = Field(default_factory=list)
+
+
+class AlarmKeywordsConfig(BaseModel):
+    """A station's own alarm vocabulary — it REPLACES the shipped one wholesale.
+
+    The shape is `backend/app/data/alarm_keywords.json` verbatim, so a station starts by
+    copying that file (the documented way to add a single keyword) and pastes it under
+    `alarmKeywords`. Hence the snake_case field names in here, unlike the rest of this
+    document: they are the file's key names, not new ones. `_readme` and `schema` are accepted
+    and dropped — they document the shipped file, not this deployment's row.
+
+    Validity is decided ONCE, by `alarm_keywords.parse()`, the same rule the shipped file
+    passes at import. There is no second schema to keep in step. On top of it, one kp-front
+    rule the shared file cannot state: every category must be one this app has a German label
+    for, because a vocabulary routing to an unknown category would file those alarms under
+    «Diverse Einsätze» and never say why.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+    schema_version: int
+    keyword_to_category: AlarmKeywordCategories
+    fallback_category: str
+    high_priority_keywords: AlarmHighPriorityKeywords = Field(default_factory=AlarmHighPriorityKeywords)
+    known_matcher_divergence: AlarmMatcherDivergence = Field(default_factory=AlarmMatcherDivergence)
+
+    @model_validator(mode="after")
+    def _must_parse_and_stay_labelled(self) -> "AlarmKeywordsConfig":
+        # Imported here, not at module scope: both modules import this one.
+        from .alarm_keywords import InvalidVocabularyError, parse
+
+        try:
+            vocab = parse(self.model_dump(mode="json"))
+        except InvalidVocabularyError as e:
+            raise ValueError(str(e)) from e
+
+        from .divera import CATEGORY_LABELS
+
+        unknown = sorted(vocab.category_keys - set(CATEGORY_LABELS))
+        if unknown:
+            raise ValueError(
+                f"routes to categories this app has no label for: {unknown}. "
+                f"Known categories: {sorted(CATEGORY_LABELS)}"
+            )
+        return self
+
+
+class AlarmVocabularyStatus(BaseModel):
+    """Which vocabulary is running, on the public GET — so «what classifies our alarms» is
+    answerable with one request instead of a database session."""
+
+    model_config = ConfigDict(extra="ignore")
+    source: Literal["shipped", "deployment"] = "shipped"
+    schemaVersion: int = 1
+    titleKeywords: int = 0
+    highPriorityKeywords: int = 0
+    fallbackCategory: str = ""
+
+
 class JournalConfig(BaseModel):
     """Journal composer configuration: the station's Textbausteine (quick phrases) —
     tappable chips that pre-fill the entry text. Empty = the app's national defaults."""
@@ -829,6 +915,10 @@ class DeploymentConfigIn(BaseModel):
     mittel: MittelConfig = Field(default_factory=MittelConfig)
     journal: JournalConfig = Field(default_factory=lambda: JournalConfig())
     alarms: AlarmsConfig = Field(default_factory=AlarmsConfig)
+    # Unset (the normal case) = the vocabulary shipped in app/data/alarm_keywords.json. Set =
+    # that file replaced wholesale for this deployment; there is no merging (§1 of
+    # docs/CONFIGURATION.md says why, and says to copy the shipped file to add one keyword).
+    alarmKeywords: AlarmKeywordsConfig | None = None
     report: ReportConfig = Field(default_factory=ReportConfig)
     # Accepted on input but not authoritative (kept loose; not echoed from the document).
     # Future asset-upload slice: validate that identity.assets.* reference existing entries in
@@ -875,3 +965,6 @@ class DeploymentConfigOut(DeploymentConfigIn):
     """
 
     integrations: ConfigIntegrations = Field(default_factory=ConfigIntegrations)
+    # Derived from the document, not stored: a one-glance answer to "shipped or ours?" that
+    # does not require reading (or understanding) the whole `alarmKeywords` block above.
+    alarmVocabulary: AlarmVocabularyStatus = Field(default_factory=AlarmVocabularyStatus)

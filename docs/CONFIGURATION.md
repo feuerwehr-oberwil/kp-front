@@ -137,6 +137,10 @@ One JSON document, stored as the single `deployment_config` row, returned by `GE
                                                   //   "winfapAlias": "2", "tagespikett": false }
   },
 
+  "alarmKeywords": null,                         // the station's OWN alarm vocabulary – see §1a.
+                                                  // null / omitted (normal) = the vocabulary shipped
+                                                  // in backend/app/data/alarm_keywords.json
+
   "report": {                                    // Einsatzrapport form presets
     "partnerOrgs": []                             // Partnerorganisationen checkbox row (paper + form);
                                                   // empty = no preset row, free text stays possible
@@ -152,6 +156,77 @@ One JSON document, stored as the single `deployment_config` row, returned by `GE
 > **Validation:** the CLI/backend reject malformed config and CRS ambiguity (both `center` and
 > `centerLv95` set). Asset-reference validation is tied to the asset-upload path; until then,
 > config review should verify referenced files exist in the deployment store.
+
+---
+
+## 1a. `alarmKeywords` – the station's own alarm vocabulary
+
+Incoming alarms are classified from the words in their title: a **damage category** (the FKS
+Schadenkategorie stored on the incident) and a **priority** (`HIGH` wakes everyone; everything
+else is `LOW`). The words that do that are German fire-service words – `FEUER`, `VU`,
+`MED USTÜ` – and they ship with the app in
+[`backend/app/data/alarm_keywords.json`](../backend/app/data/alarm_keywords.json). **Nearly
+every station should leave this alone.** The file is not vendor-specific: it is what a Swiss
+brigade's dispatch text looks like, whoever delivers it.
+
+Set `alarmKeywords` when that is not what *your* dispatch text looks like – another language,
+another Stichwort set, another alerting system.
+
+**It replaces the shipped vocabulary wholesale.** There is no per-keyword merging: the moment
+you set it, your block is the entire vocabulary and the shipped words are gone for this
+deployment. That is deliberate. Two half-vocabularies that combine somewhere are impossible to
+read at 3am, and «which keywords are running» has to have one answer in one place. **So to add
+a single keyword, copy the shipped file, add your line to the copy, and paste the whole thing
+in** – the file is the starting point, not a base to patch.
+
+```jsonc
+"alarmKeywords": {
+  "schema_version": 1,                            // the shape this block was written against
+  "keyword_to_category": {
+    "pairs": [                                    // ORDERED: first keyword found in the
+      ["INCENDIE", "brandbekaempfung"],           // uppercased title wins. Keywords must be
+      ["ACCIDENT", "strassenrettung"]             // UPPERCASE – matching uppercases the title
+    ]
+  },
+  "fallback_category": "diverse_einsaetze",       // used when nothing matches
+  "high_priority_keywords": {
+    "groups": [                                   // any match in title+text ⇒ HIGH. The grouping
+      { "group": "Feu",                           // is for the reader; order means nothing here.
+        "keywords": ["INCENDIE", "FUMÉE"] }       // Only life-threatening words belong here.
+    ]
+  }
+}
+```
+
+Categories are **keys, not labels**: they must be ones the app has a German label for –
+`brandbekaempfung`, `elementarereignis`, `strassenrettung`, `technische_hilfeleistung`,
+`oelwehr`, `chemiewehr`, `strahlenwehr`, `einsatz_bahnanlagen`, `bma_unechte_alarme`,
+`dienstleistungen`, `gerettete_tiere`, `diverse_einsaetze`. A vocabulary routing anywhere else
+is rejected, because those alarms would silently file under «Diverse Einsätze».
+
+> **An invalid block fails the load; it is never ignored.** `admin_config validate|load` and
+> `PUT /api/config` refuse the whole document and write nothing – a lowercase keyword (dead
+> data that would never fire), a duplicate keyword (the later one unreachable), an empty list,
+> an unknown category, a `schema_version` this build does not understand. A vocabulary that was
+> quietly dropped would classify alarms wrongly and say nothing, and you would find out from an
+> alarm that did not wake anybody.
+
+**Checking which vocabulary is running**, without opening the database:
+
+```bash
+curl -s http://localhost:8001/api/config | jq .alarmVocabulary
+# { "source": "shipped", "schemaVersion": 1, "titleKeywords": 19,
+#   "highPriorityKeywords": 41, "fallbackCategory": "diverse_einsaetze" }
+```
+
+`source` is `"shipped"` or `"deployment"`. `validate`, `diff` and `load` print the same line.
+A saved change is live on the next alarm (the resolved vocabulary is cached for at most a
+minute, and a `PUT` clears the cache immediately).
+
+Two things this does **not** reach: the *matcher* (kp-front matches every keyword as a plain
+substring – the shipped file records where kp-rueck differs) and the German category **labels**,
+which are the app's, not the station's. And `alarmKeywords` is deployment data: unlike the
+shipped file it is never checksummed and never compared against kp-rueck.
 
 ---
 
@@ -387,6 +462,9 @@ Nominatim/Google/etc.
   by `tools/gen_symbols.py`) + presets + display names. **Not station-editable** – keeps
   stations interoperable.
 - **Weather/wind, geocoder:** national public services.
+- **Alarm keyword vocabulary:** the German fire-service words that turn an alarm title into a
+  category and a priority (`backend/app/data/alarm_keywords.json`). Station-overridable, but
+  only if your dispatch text is genuinely different – see §1a.
 
 ## 8. Empty state (a brand-new deployment)
 
