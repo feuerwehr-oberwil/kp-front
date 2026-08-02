@@ -136,6 +136,19 @@ def parse_alarms_response(data: dict) -> list[DiveraWebhookPayload]:
     return out
 
 
+async def _incident_is_confirmed(db: AsyncSession, incident_id) -> bool:
+    """True once an authenticated editor has actually opened the Einsatz.
+
+    The line between «an incident exists» and «the station worked it». Nothing here may be
+    overwritten by a late alerting-system edit after that point; before it, the pool row is
+    just a mirror.
+    """
+    if incident_id is None:
+        return False
+    inc = await db.get(Incident, incident_id)
+    return bool(inc and inc.editor_opened_at is not None)
+
+
 async def upsert_emergency(db: AsyncSession, payload: DiveraWebhookPayload) -> DiveraEmergency | None:
     """Insert a new pool alarm or refresh an existing one if ts_update advanced.
 
@@ -147,7 +160,15 @@ async def upsert_emergency(db: AsyncSession, payload: DiveraWebhookPayload) -> D
     ).scalar_one_or_none()
 
     if existing is not None:
-        if payload.ts_update and (existing.ts_update or 0) < payload.ts_update and not existing.is_taken:
+        # `is_taken` used to mean «a human decided to work this», which is why a taken row
+        # was frozen against later Divera edits. Since alarms auto-open on arrival
+        # (2026-08-02) every row is taken within seconds, and freezing on it would mean a
+        # pool row could never be refreshed again — a corrected address from the dispatch
+        # centre would simply never arrive. The question the guard actually wants to ask is
+        # whether a person has worked the Einsatz, and `editor_opened_at` is what answers
+        # that now. Until someone has, the mirror keeps mirroring.
+        worked = await _incident_is_confirmed(db, existing.taken_incident_id)
+        if payload.ts_update and (existing.ts_update or 0) < payload.ts_update and not worked:
             existing.title = payload.title or existing.title
             existing.text = payload.text
             existing.address = payload.address

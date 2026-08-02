@@ -28,7 +28,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "e3f4a5b6c7d8"
-down_revision: str | None = "d2e3f4a5b6c7"
+down_revision: str | None = "f4a5b6c7d8e9"  # rebased onto #75's alarm-time migration
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

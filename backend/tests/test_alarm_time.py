@@ -105,7 +105,8 @@ async def test_pool_take_uses_the_alarm_time(client, db_session, editor, webhook
 
     await _login(client, editor)
     r = await client.post(f"/api/divera/pool/{WEBHOOK_PAYLOAD['id']}/take", json={})
-    assert r.status_code == 201, r.text
+    assert r.status_code == 200, r.text  # 200, not 201: the poller auto-opens the alarm on
+    # arrival (2026-08-02), so `take` corrects that incident instead of creating a second one.
     assert r.json()["started_at"].startswith("2026-03-01T14:00:00")
 
     inc = await _one_incident(db_session)
@@ -171,7 +172,8 @@ async def test_a_correction_upgrades_an_unknown_alarm_time(client, db_session, e
     assert (await client.post("/api/divera/webhook?secret=hook-secret-123", json=payload)).status_code == 200
     await _login(client, editor)
     r = await client.post(f"/api/divera/pool/{payload['id']}/take", json={})
-    assert r.status_code == 201, r.text
+    assert r.status_code == 200, r.text  # 200, not 201: the poller auto-opens the alarm on
+    # arrival (2026-08-02), so `take` corrects that incident instead of creating a second one.
     incident_id = r.json()["id"]
 
     inc = await _one_incident(db_session)
@@ -216,6 +218,10 @@ async def test_export_publishes_a_known_alarm_time_as_alarmiert_at(client, db_se
             source="divera",
             status="offen",
             started_at=ALARM_AT,
+            # Confirmed: an editor worked this Einsatz. Since 2026-08-02 the stats export
+            # omits incidents with `editor_opened_at IS NULL`, so that alarms nobody
+            # attended (test alarms, Nachbarhilfe) never reach the canton figures.
+            editor_opened_at=ALARM_AT,
             started_at_source="alarm",
         )
     )
@@ -231,7 +237,15 @@ async def test_export_leaves_alarmiert_at_null_when_no_alarm_time_is_known(clien
     """An honest null beats a plausible guess. With NULL provenance ``started_at`` is the
     record-open time; publishing it as the alarm time is exactly what put street-matched
     pairs 12827 minutes apart against WinFAP."""
-    db_session.add(Incident(title="Ohne Alarmzeit", source="manual", status="offen", started_at=ALARM_AT))
+    db_session.add(
+        Incident(
+            title="Ohne Alarmzeit",
+            source="manual",
+            status="offen",
+            started_at=ALARM_AT,
+            editor_opened_at=ALARM_AT,  # confirmed — see the export filter note above
+        )
+    )
     await db_session.commit()
 
     rec = (await _export(client))[0]
@@ -250,6 +264,10 @@ async def test_export_prefers_an_explicit_report_meta_override(client, db_sessio
             source="manual",
             status="offen",
             started_at=ALARM_AT,
+            # Confirmed: an editor worked this Einsatz. Since 2026-08-02 the stats export
+            # omits incidents with `editor_opened_at IS NULL`, so that alarms nobody
+            # attended (test alarms, Nachbarhilfe) never reach the canton figures.
+            editor_opened_at=ALARM_AT,
             map_workspace_json={"reportMeta": {"alarmiertAt": "2026-03-01T13:45:00+00:00"}},
         )
     )
