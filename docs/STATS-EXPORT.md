@@ -61,6 +61,8 @@ last-active tracker.
 | `priority` | `"HIGH"` \| `"LOW"` \| null | |
 | `address`, `lat`, `lng` | string/number \| null | |
 | `source` | string | `divera` \| `manual` \| intake slug \| `migrated` |
+| `source_ref` | string \| null | the alerting system's own id for the **alarm** – what the intake deduplicates on. Not an incident id, and not a printed reference: for a Divera deployment it is a bare integer |
+| `alarm_ref` | string \| null | the reference the alerting system **printed on the alarm** – the string that reaches the paper report and can be transcribed into a record system's case-number field. Null when nothing stated one. **Not unique per incident** – see below |
 | `is_archived` | bool | |
 | `is_exercise` | bool | Übung – only present when `include_exercises=1` asked for them |
 | `confirmed_at` | ISO datetime \| null | first editor open (`editor_opened_at`); null = nobody at the station ever had this incident open |
@@ -93,6 +95,30 @@ Notes for consumers:
   fix. **Skip rows with `started_at_source: null` when the join keys on time** – their
   `started_at` is a record-open time, and the export refuses to launder it by publishing it
   as `alarmiertAt`. They are still real incidents and still count.
-- Matching against WinFAP exports: no shared id – match on `alarmiertAt` (not `started_at`)
-  within a ±3 h window, and report ambiguous/unmatched rows rather than picking the nearest
-  (reference consumer: fwo-stats `kpfront_service.py`).
+- **Matching against a record system (WinFAP and friends).** There is no shared id, so the
+  baseline is `alarmiertAt` (not `started_at`) within a ±3 h window plus the address — and
+  that baseline was *measured* over five closed years at **73%**, because a third of the
+  incidents both systems hold disagree on one of those two fields. Free-text places are the
+  reason: one side names a landmark, the other the nearest street, and no amount of
+  normalisation bridges that. Report ambiguous and unmatched rows rather than picking the
+  nearest one. Reference consumer: fwo-stats `kpfront_service.py`.
+
+- **`alarm_ref` is how a station beats that**, and it costs no code here: print it on the
+  paper report and type it into the record system's free case-number field, then join on it.
+  Two properties of the field decide how a consumer must use it, and both are easy to get
+  wrong:
+
+  - **It is byte-for-byte the string the alerting system stated.** The export never trims,
+    re-cases or reformats it, because the whole point is that the value printed on paper,
+    the value here and the value typed into the record system are the same bytes.
+  - **It is not an incident id.** Oberwil's is `fwo-sms-<12 hex>` derived from the *address*
+    alone, so two incidents at the same place carry the same reference — measured at **52.9%**
+    of Einsätze over eight years, with recurring false fire alarms the largest group. Match
+    `alarm_ref` **inside the time window**, exactly like the fallback, and treat a repeated
+    reference as ambiguous. Only 8 same-reference pairs in eight years fell within ±3 h, so
+    the gate costs essentially nothing. What the reference removes is the *address*
+    disagreement, not the need for a window.
+
+  A consumer should also count how many rows it joined by `alarm_ref` versus by the time +
+  address fallback. `alarm_ref` is null wherever no alerting system stated one, and a join
+  that quietly falls back reports the same shape as one that works.

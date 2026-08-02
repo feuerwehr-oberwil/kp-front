@@ -12,9 +12,18 @@ read-only — no workspace blobs, no mutation endpoints on this token.
 Two default exclusions keep the reported figures honest: Übungen, and incidents no editor
 ever opened (`editor_opened_at IS NULL`). See `stats_incidents` for the second one — it is
 what stops auto-opened alarms nobody attended being counted as Einsätze.
+
+JOIN KEYS. The record has no shared identifier with a station's record system, so a consumer
+matches on Alarmierungszeit + address and eats the error rate that comes with free-text
+places. Three neutral fields exist to do better where a deployment can: `source` and
+`source_ref` (whose alarm this was, as the alerting system named it) and `alarm_ref` — the
+reference the alerting system printed on the alarm, which is what a station can transcribe
+into its record system's free case-number field and join on exactly. None of them is a vendor
+identifier and none of them is required; `alarm_ref` is simply null where nothing states one.
 """
 
 import secrets
+import uuid
 from datetime import UTC, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -25,7 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth.dependencies import CurrentAdmin
 from ..database import get_db
-from ..models import DeploymentConfig, Incident
+from ..models import DeploymentConfig, DiveraEmergency, Incident
 
 router = APIRouter(prefix="/stats", tags=["stats"])
 
@@ -180,7 +189,34 @@ def _alarmiert_at(inc: Incident, rm: dict) -> str | None:
     return _iso(inc.started_at) if inc.started_at_source else None
 
 
-def _record(inc: Incident) -> dict:
+async def _alarm_refs(db: AsyncSession) -> dict[uuid.UUID, str]:
+    """incident id → the reference the alerting system printed on the alarm.
+
+    Kept as its own lookup rather than an OUTER JOIN on purpose: an incident can absorb a
+    SECOND pool alarm (the split-dispatch attach path in ``alarms.open_pooled_alarm``), so a
+    join would silently emit that incident twice and double it in the consumer's figures.
+    Earliest arrival wins — the merged re-dispatch carries the same reference anyway, and if
+    it does not, the first alarm is the one whose slip was printed.
+
+    Source-agnostic by intent. The pool is the only place an alerting system currently states
+    an alarm reference, so today Divera's is the only branch; a second intake with a reference
+    of its own adds its lookup here and the exported field keeps its meaning.
+    """
+    rows = (
+        await db.execute(
+            select(DiveraEmergency.taken_incident_id, DiveraEmergency.divera_number)
+            .where(DiveraEmergency.taken_incident_id.is_not(None))
+            .where(DiveraEmergency.divera_number.is_not(None))
+            .order_by(DiveraEmergency.received_at.asc())
+        )
+    ).all()
+    out: dict[uuid.UUID, str] = {}
+    for incident_id, ref in rows:
+        out.setdefault(incident_id, ref)
+    return out
+
+
+def _record(inc: Incident, alarm_ref: str | None = None) -> dict:
     ws = inc.map_workspace_json if isinstance(inc.map_workspace_json, dict) else {}
     # Bind before the isinstance so the narrowing sticks (and so reportMeta is looked up once).
     raw_rm = ws.get("reportMeta")
@@ -204,6 +240,16 @@ def _record(inc: Incident) -> dict:
         "lat": inc.lat,
         "lng": inc.lng,
         "source": inc.source,
+        # The neutral provenance pair. `source_ref` is the alerting system's own id for the
+        # alarm and is what the intake deduplicates on — it identifies the ALARM, not the
+        # incident, and for a Divera deployment it is a bare integer.
+        "source_ref": inc.source_ref,
+        # The reference the alerting system printed on the alarm — the string that ends up on
+        # the Einsatz slip and therefore in the paper report's free field. Null when no
+        # alerting system stated one. ⚠️ It is not unique per incident: Oberwil's is derived
+        # from the address alone, so incidents at the same place repeat it (measured 52.9%).
+        # Match it INSIDE a time window; a repeated reference is ambiguous, not a pair.
+        "alarm_ref": alarm_ref,
         "is_archived": inc.is_archived,
         "is_exercise": inc.is_exercise,
         "confirmed_at": _iso(inc.editor_opened_at),
@@ -262,6 +308,7 @@ async def stats_incidents(
     if not include_unconfirmed:
         q = q.where(Incident.editor_opened_at.is_not(None))
     rows = (await db.execute(q)).scalars()
+    alarm_refs = await _alarm_refs(db)
     out = []
     for inc in rows:
         if year is not None:
@@ -272,5 +319,5 @@ async def stats_incidents(
                 started = started.replace(tzinfo=UTC)
             if started.astimezone(TZ).year != year:
                 continue
-        out.append(_record(inc))
+        out.append(_record(inc, alarm_refs.get(inc.id)))
     return out
