@@ -60,6 +60,29 @@ so this file – not the log – is the record of what shipped up to that point.
   `POST /api/divera/pool/{id}/take` keeps working, as an open-**or-correct** call that applies the
   EL's corrections to the incident the alarm already has instead of minting a second one.
 
+- **The Divera keyword list existed twice in the estate and nothing compared the copies.** The map
+  from an alert's Stichwort to an incident category, and the keyword list deciding which alerts are
+  high priority, were written independently here and in KP Rück – the same 19 title keywords, same
+  order, same casing, arrived at twice – and had already begun to drift: one side knew `GASLECK`,
+  the other did not. A third copy sat in this app's German UI strings under a comment asking
+  whoever edited the map to keep it in sync, enforced by nothing. All three now read one
+  checked-in data file, `backend/app/data/divera_keywords.json`, vendored byte-for-byte into both
+  products with a checksum pinned on each side and a CI job that diffs this repo against KP Rück –
+  the same mechanism the telemetry sanitiser already uses, and chosen over a shared package
+  because both products promise self-hosters separate images, separate releases and no runtime
+  coupling. A test that catches drift is worth more here than a library that removes it.
+
+  **Behaviour is unchanged.** The resulting maps are character-for-character what they were, order
+  included; the one keyword this side was missing is a no-op under its matcher. Two things
+  deliberately stayed out of the shared file and are named in it rather than quietly unified: the
+  **display labels**, because this app stores German strings in the database while KP Rück stores
+  keys and the two disagree on a capital letter – migrating a stored value in a released product
+  over that is not warranted – and the **matching rule**, because KP Rück requires word boundaries
+  on short keywords like `GAS` where this app matches substrings. That second one changes which
+  alerts come out high priority (`GAS` fires on *Gasflasche* here, and on *Gasse* there), and
+  neither behaviour is unambiguously right, so it is recorded as a known divergence rather than
+  decided unilaterally on the alerting path.
+
 ### Added
 - **Objektpläne can now be fetched by the deployment instead of pushed into it.** Keeping a plan
   library current meant handing the system that maintains it this deployment's `ADMIN_SECRET` –
@@ -94,6 +117,30 @@ so this file – not the log – is the record of what shipped up to that point.
   operator to do. The key is generated, rotated and switched off under Daten › Einsatz-Link in
   the admin UI; rotating it invalidates every link already sent out, the way rotating the
   Erfassungs-Poster token stops every printed poster at once.
+
+- **The statistics export now carries the reference the alerting system printed on the alarm.**
+  A fire department's authoritative record lives in its administrative system, not here – this app
+  is the runtime tool. Matching one to the other without a shared key means date, time and address,
+  and measured over five closed years of one department's data that lands at **73%**. The misses
+  are not spelling variance a fuzzy matcher could absorb: they are the two systems recording a
+  *different place*, the dispatcher naming a landmark or a stretch of road where the runtime tool
+  names the nearest street. Widening the time window and fuzzy-matching the street buys 0.3
+  points, so there is no tuning that rescues it. The alerting system already prints a stable
+  reference on the paper report; carrying that reference through makes the match exact for
+  anything entered from it.
+
+  `GET /api/stats/incidents` therefore ships **two** fields, and they are not the same thing:
+  `source_ref` is the alarm's own id in the alerting system – provenance – while **`alarm_ref`** is
+  the reference that was printed. Nothing vendor-specific enters the contract; a second alerting
+  integration fills the same field. Three caveats consumers need, all in `docs/STATS-EXPORT.md`:
+  the printed reference is derived from the **address** on at least one alerting system, so it
+  repeats – across eight years it repeated for 52.9% of incidents – which means it must be matched
+  **inside a time window** and a repeat reported as ambiguous, never as a match; an incident can
+  absorb a second alarm, so the field is looked up rather than joined, because a join would emit
+  that incident twice and duplicate an Einsatz in an official total; and an export where the field
+  is empty everywhere is **not a failure** – it means nobody has transcribed one yet, which is a
+  habit at the station rather than a fault in the software. Count matches by reference against
+  matches by date+time+address and the difference tells you which.
 
 ### Fixed
 - **The Alarmierungszeit was the time somebody picked up the tablet.** Measured against a fire
