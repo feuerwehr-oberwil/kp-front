@@ -202,8 +202,17 @@ export interface ReplaySegment {
   toMs: number
 }
 
-/** Invert the gaps into the stretches worth showing. */
+/**
+ * Invert the gaps into the stretches worth showing.
+ *
+ * Returns an EMPTY list when the gaps cover everything, and that is deliberate. An earlier
+ * version fell back to "the whole range is one segment", which is a contradiction: the same
+ * span then existed as both a segment and a gap, and the track drew a full-width blue bar with
+ * a stub break tacked onto the end. If nothing happened anywhere, the honest answer is that
+ * there are no activity segments — the caller decides what to draw instead.
+ */
 export function segmentsFromGaps(gaps: ReplayGap[], startMs: number, endMs: number): ReplaySegment[] {
+  if (!gaps.length) return endMs > startMs ? [{ fromMs: startMs, toMs: endMs }] : []
   const out: ReplaySegment[] = []
   let cursor = startMs
   for (const g of [...gaps].sort((a, b) => a.fromMs - b.fromMs)) {
@@ -211,7 +220,7 @@ export function segmentsFromGaps(gaps: ReplayGap[], startMs: number, endMs: numb
     cursor = Math.max(cursor, g.toMs)
   }
   if (cursor < endMs) out.push({ fromMs: cursor, toMs: endMs })
-  return out.length ? out : [{ fromMs: startMs, toMs: endMs }]
+  return out
 }
 
 /** A segment or a break, placed on the track as fractions of its width. */

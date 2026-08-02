@@ -85,7 +85,15 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit }
   }, [bundle])
 
   const moments = useMemo(() => (bundle ? activityMoments(bundle.events, journal) : []), [bundle, journal])
-  const gaps = useMemo(() => (bundle ? findGaps(moments, bundle.startMs, bundle.endMs) : []), [moments, bundle])
+  // No recorded activity → no claims about where the silence is. That happens while the Verlauf
+  // is still loading, and for real on an incident whose journal rows carry no absolute date, and
+  // the honest answer in both cases is a plain linear track. Asserting "the whole incident is one
+  // gap" produced a full-width bar with a stub break glued to the end, labelled with the entire
+  // elapsed time — technically derivable, and useless.
+  const gaps = useMemo(
+    () => (bundle && moments.length ? findGaps(moments, bundle.startMs, bundle.endMs) : []),
+    [moments, bundle],
+  )
   const segments = useMemo(() => (bundle ? segmentsFromGaps(gaps, bundle.startMs, bundle.endMs) : []), [gaps, bundle])
   const pieces = useMemo(() => layoutTrack(segments, gaps, GAP_FRAC), [segments, gaps])
   const alarmMs = useMemo(() => new Date(startedAt || 0).getTime(), [startedAt])

@@ -347,6 +347,17 @@ describe('segmentsFromGaps', () => {
   it('falls back to the whole range when there are no gaps', () => {
     expect(segmentsFromGaps([], 0, 1000)).toEqual([{ fromMs: 0, toMs: 1000 }])
   })
+
+  it('returns NOTHING when the gaps cover the whole range', () => {
+    // Regression: the old fallback returned the full range as a segment even here, so the same
+    // span was both a segment and a gap. The track then drew a full-width blue bar with a stub
+    // break at the end, labelled with the entire elapsed time.
+    expect(segmentsFromGaps([{ fromMs: 0, toMs: 1000 }], 0, 1000)).toEqual([])
+  })
+
+  it('returns nothing for a zero-width range', () => {
+    expect(segmentsFromGaps([], 500, 500)).toEqual([])
+  })
 })
 
 describe('layoutTrack', () => {
