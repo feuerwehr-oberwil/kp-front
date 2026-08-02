@@ -131,13 +131,20 @@ actually differs is where the command runs and where the bytes end up:
 | `admin_* load <manifest>` | Writes **this machine's** database and storage directory. | You are on the server, or loading a local dev database. |
 | `admin_* push <manifest>` | Uploads through a **running deployment's** API, so the server writes its own volume. | Refreshing a remote station from your workstation. |
 | **Admin UI upload** | One file at a time, in the browser. | The baseline. A station can run its whole life this way and never touch a CLI. |
-| **Scheduled pull** | The deployment fetches from an **S3-compatible bucket** on a timer. | You already publish a plan library somewhere and would rather not hand anyone your `KP_ADMIN_SECRET`. |
+| **Scheduled pull** – ⚠️ **object plans only** | The deployment fetches from an **S3-compatible bucket** on a timer. | You already publish a plan library somewhere and would rather not hand anyone your `KP_ADMIN_SECRET`. |
 
 The first three are the same door – all three write `source_type = "uploaded"` through one code
 path, deliberately, so both the CLI and the browser mint the same dataset id and cannot drift
 apart. The pull is the genuinely different one (`source_type = "snapshot"`); it is described in
 [`objektplaene-architecture.md`](objektplaene-architecture.md) and is the only option that
 removes the need for any other system to hold a credential for this one.
+
+⚠️ **The pull covers object plans and nothing else.** There is one scheduled job, `plan_pull`, and
+it only ever writes `plan:<object>:<module>` datasets. **Geodata, checklists and the deployment
+config have no pull path at all** – for those it is the CLI or the admin UI, and a station that
+wants them refreshed on a timer has to run `admin_geodata push` / `admin_checklists push` from its
+own scheduler. That is a real limitation, not an omission from this page: plans are the data that
+actually churns, so they got the mechanism first.
 
 **You do not have to pick one and stay there.** Both doors write the same rows, so a station can
 upload by hand for a year and switch to a pull later without re-identifying anything.
