@@ -1,0 +1,143 @@
+{
+  "schema": "divera-keywords/1",
+  "schema_version": 1,
+  "_readme": [
+    "The Divera keyword vocabulary, shared VERBATIM by kp-front and kp-rueck.",
+    "",
+    "WHY A FILE. Both products read the same dispatch system and had independently grown the",
+    "same two tables: 19 title keywords routed to the same eleven damage categories, and 40",
+    "priority keywords in the same order. Two hand-maintained copies of one vocabulary, and",
+    "nothing compared them - a keyword added on one side simply did not exist on the other.",
+    "",
+    "WHY NOT A LIBRARY. kp-front and kp-rueck ship separate databases, separate images and",
+    "separate releases, and docs/RUNNING-BOTH.md promises self-hosters no shared library and no",
+    "runtime coupling. Neither may import the other. So the copies stay copies and a test",
+    "compares them: this file is vendored byte-for-byte into both repositories and pinned by",
+    "checksum, exactly like app/telemetry/. Editing it is a two-repository change.",
+    "",
+    "MATCHING IS NOT IN HERE, ON PURPOSE. This file is a vocabulary, not an algorithm. Each",
+    "product keeps its own matcher and they are NOT identical today: kp-rueck requires letter",
+    "boundaries for GAS, VU and LIFT so 'GAS' does not fire on 'GASSE', while kp-front matches",
+    "every keyword as a plain substring. That difference is real, it changes which alarms come",
+    "out HIGH, and converging it is a product decision about the alarm path rather than a",
+    "housekeeping one - so it is recorded here as a known divergence instead of being quietly",
+    "settled by whoever edited this file last.",
+    "",
+    "LABELS ARE NOT IN HERE EITHER. The categories below are stable keys. What an operator",
+    "reads is each product's own vocabulary: kp-front stores a German display string on the",
+    "incident, kp-rueck stores the key and translates in the frontend. They also disagree -",
+    "'BMA / unechte Alarme' vs 'BMA / Unechte Alarme'. One of those is a stored value in a",
+    "released product, so the disagreement is left alone and named rather than migrated.",
+    "",
+    "NOT IN SCOPE. Vehicle, group and RIC aliases are deliberately absent. They are not shared",
+    "between these two products - kp-front reads its fleet and groups from the deployment",
+    "config, kp-rueck's vehicle rows are development fixtures - and the real alias problem",
+    "spans WinFAP, Traccar and Divera, which are not these repositories. When the stable slot",
+    "key lands, it should EXTEND this file rather than replace it: same mechanism, same test."
+  ],
+  "keyword_to_category": {
+    "_readme": [
+      "Divera alarm title keyword -> damage category key. ORDER MATTERS: the matcher walks this",
+      "list and the first keyword found in the uppercased title wins. Keys are uppercase and",
+      "compared against an uppercased title. Nothing matched falls through to fallback_category."
+    ],
+    "pairs": [
+      ["FEUER", "brandbekaempfung"],
+      ["BRAND", "brandbekaempfung"],
+      ["HOCHWASSER", "elementarereignis"],
+      ["UNWETTER", "elementarereignis"],
+      ["STURM", "elementarereignis"],
+      ["VU", "strassenrettung"],
+      ["VERKEHR", "strassenrettung"],
+      ["UNFALL", "strassenrettung"],
+      ["THL", "technische_hilfeleistung"],
+      ["TECH", "technische_hilfeleistung"],
+      ["ÖL", "oelwehr"],
+      ["OELWEHR", "oelwehr"],
+      ["CHEMIE", "chemiewehr"],
+      ["STRAHLEN", "strahlenwehr"],
+      ["BAHN", "einsatz_bahnanlagen"],
+      ["BMA", "bma_unechte_alarme"],
+      ["FEHLALARM", "bma_unechte_alarme"],
+      ["DIENST", "dienstleistungen"],
+      ["TIER", "gerettete_tiere"]
+    ]
+  },
+  "fallback_category": "diverse_einsaetze",
+  "high_priority_keywords": {
+    "_readme": [
+      "Any match anywhere in title + text makes the alarm HIGH; everything else is LOW. Order is",
+      "irrelevant here (it is an any-match, not a first-hit), so the grouping below is for the",
+      "reader. Only life-threatening situations belong in this list - it is not a severity",
+      "ranking, it is the answer to 'wake everyone up'."
+    ],
+    "groups": [
+      {
+        "group": "Brand",
+        "keywords": ["BRAND", "FEUER", "FEUERALARM", "VOLLBRAND", "RAUCH", "FLAMMEN"]
+      },
+      {
+        "group": "Brandmeldeanlagen",
+        "keywords": ["BMA", "BRANDMELDEANLAGE", "BRANDMELDER", "RAUCHMELDER"]
+      },
+      {
+        "group": "Person in Gefahr / Rettung",
+        "note": "Specific phrases, not the bare word 'PERSON': 'PERSON IN' covers Person in Lift and Person in Gefahr, 'PERSON IM' covers Person im Wasser. 'ABSTURZ' covers Person abgestürzt.",
+        "keywords": [
+          "PERSON IN",
+          "PERSON IM",
+          "EINGEKLEMMT",
+          "EINGESCHLOSSEN",
+          "ABSTURZ",
+          "VERMISST",
+          "BEWUSSTLOS",
+          "VERLETZT"
+        ]
+      },
+      {
+        "group": "Verkehrsunfall",
+        "keywords": ["VU", "VERKEHRSUNFALL"]
+      },
+      {
+        "group": "Gas und Chemie",
+        "note": "GASLECK is listed even though it contains GAS, because a matcher that requires letter boundaries for GAS would otherwise miss it.",
+        "keywords": [
+          "GAS",
+          "GASGERUCH",
+          "GASAUSTRITT",
+          "GASLECK",
+          "CHEMIE",
+          "CHEMIKALIEN",
+          "GEFAHRGUT",
+          "GEFAHRSTOFF"
+        ]
+      },
+      {
+        "group": "Medizinisch",
+        "note": "'MED USTÜ' is Medizinische Unterstützung, 'MED.' is Med. Notfall - the trailing dot keeps it off words starting with 'med'.",
+        "keywords": ["MED USTÜ", "MED.", "MEDIZINISCH", "REANIMATION", "NOTARZT", "RETTUNGSDIENST"]
+      },
+      {
+        "group": "Explosion",
+        "keywords": ["EXPLOSION", "DETONATION"]
+      },
+      {
+        "group": "Einsturz",
+        "keywords": ["EINSTURZ", "EINGESTÜRZT"]
+      },
+      {
+        "group": "Lift",
+        "keywords": ["LIFT", "AUFZUG", "FAHRSTUHL"]
+      }
+    ]
+  },
+  "known_matcher_divergence": {
+    "_readme": [
+      "Recorded so it stays a decision. kp-rueck matches these three with letter boundaries",
+      "((?<![A-ZÄÖÜ])KW(?![A-ZÄÖÜ])); kp-front matches them as plain substrings. Neither is",
+      "unambiguously right: boundaries stop 'GAS' firing on 'GASSE', and also stop it firing on",
+      "'GASFLASCHE'. Listed as data so a future convergence has something to point at."
+    ],
+    "kp_rueck_word_bounded": ["GAS", "VU", "LIFT"]
+  }
+}

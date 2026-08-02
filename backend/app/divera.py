@@ -1,9 +1,17 @@
 """Divera 24/7 intake logic: keyword maps, alarm parsing, pool upsert.
 
-Keyword maps are lifted from kp-rueck. The title→type map yields a German *display
-label* (kp-front carries `type` as a string, not an enum); the HIGH/LOW priority map is
-verbatim. Improvement over kp-rueck: an existing pool alarm whose `ts_update` advanced
-gets its fields refreshed.
+The keyword vocabulary is no longer a literal here. It lives in `data/divera_keywords.json`,
+vendored byte-for-byte into kp-rueck and pinned by checksum in both — the same mechanism as
+`app/telemetry/`, and for the same reason: the two products may not share a library
+(`RUNNING-BOTH.md`), so the copies stay copies and a test compares them. It used to be two
+hand-maintained tables that nobody compared, and they had already drifted.
+
+What stays local is what is genuinely ours: the German labels (kp-front carries `type` as a
+display string, not an enum) and the matcher. kp-rueck's matcher is not identical to this one
+— see the JSON's `known_matcher_divergence`.
+
+Improvement over kp-rueck: an existing pool alarm whose `ts_update` advanced gets its fields
+refreshed.
 """
 
 import logging
@@ -16,77 +24,52 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import audit
 from .config import settings
+from .divera_keywords import FALLBACK_CATEGORY, HIGH_PRIORITY_KEYWORDS, KEYWORD_TO_CATEGORY
 from .models import DiveraEmergency, Incident
 from .push import notify_new_alarm
 from .schemas import DiveraWebhookPayload
 
 logger = logging.getLogger(__name__)
 
-# Title keyword → display label (order matters; first hit wins).
-TYPE_LABELS: dict[str, str] = {
-    "FEUER": "Brandbekämpfung",
-    "BRAND": "Brandbekämpfung",
-    "HOCHWASSER": "Elementarereignis",
-    "UNWETTER": "Elementarereignis",
-    "STURM": "Elementarereignis",
-    "VU": "Strassenrettung",
-    "VERKEHR": "Strassenrettung",
-    "UNFALL": "Strassenrettung",
-    "THL": "Technische Hilfeleistung",
-    "TECH": "Technische Hilfeleistung",
-    "ÖL": "Ölwehr",
-    "OELWEHR": "Ölwehr",
-    "CHEMIE": "Chemiewehr",
-    "STRAHLEN": "Strahlenwehr",
-    "BAHN": "Einsatz Bahnanlagen",
-    "BMA": "BMA / unechte Alarme",
-    "FEHLALARM": "BMA / unechte Alarme",
-    "DIENST": "Dienstleistungen",
-    "TIER": "Gerettete Tiere",
+# Category key → the German string kp-front stores on the incident and shows the operator.
+# This half is OURS: `incidents.type` is a display string here, the values are already in the
+# database of every running station, and kp-rueck spells one of them differently
+# ("BMA / Unechte Alarme"). Migrating a stored value to settle a capital letter is not worth
+# it, so the disagreement is named in the JSON and the labels stay local.
+#
+# Mirrored for the operator-facing wizard in src/config/copy/de.ts (`intake.kategorien`),
+# which copy.test.ts checks against the shared keyword file.
+CATEGORY_LABELS: dict[str, str] = {
+    "brandbekaempfung": "Brandbekämpfung",
+    "elementarereignis": "Elementarereignis",
+    "strassenrettung": "Strassenrettung",
+    "technische_hilfeleistung": "Technische Hilfeleistung",
+    "oelwehr": "Ölwehr",
+    "chemiewehr": "Chemiewehr",
+    "strahlenwehr": "Strahlenwehr",
+    "einsatz_bahnanlagen": "Einsatz Bahnanlagen",
+    "bma_unechte_alarme": "BMA / unechte Alarme",
+    "dienstleistungen": "Dienstleistungen",
+    "gerettete_tiere": "Gerettete Tiere",
+    "diverse_einsaetze": "Diverse Einsätze",
 }
 
-HIGH_PRIORITY_KEYWORDS = [
-    "BRAND",
-    "FEUER",
-    "FEUERALARM",
-    "VOLLBRAND",
-    "RAUCH",
-    "FLAMMEN",
-    "BMA",
-    "BRANDMELDEANLAGE",
-    "BRANDMELDER",
-    "RAUCHMELDER",
-    "PERSON IN",
-    "PERSON IM",
-    "EINGEKLEMMT",
-    "EINGESCHLOSSEN",
-    "ABSTURZ",
-    "VERMISST",
-    "BEWUSSTLOS",
-    "VERLETZT",
-    "VU",
-    "VERKEHRSUNFALL",
-    "GAS",
-    "GASGERUCH",
-    "GASAUSTRITT",
-    "CHEMIE",
-    "CHEMIKALIEN",
-    "GEFAHRGUT",
-    "GEFAHRSTOFF",
-    "MED USTÜ",
-    "MED.",
-    "MEDIZINISCH",
-    "REANIMATION",
-    "NOTARZT",
-    "RETTUNGSDIENST",
-    "EXPLOSION",
-    "DETONATION",
-    "EINSTURZ",
-    "EINGESTÜRZT",
-    "LIFT",
-    "AUFZUG",
-    "FAHRSTUHL",
-]
+
+def category_label(category: str) -> str:
+    """German label for a shared category key, degrading to the fallback label if it is new.
+
+    A category kp-rueck adds to the shared file before kp-front has a label for it must not
+    stop this app from booting: it sits on the alarm intake path, and refusing to start is a
+    far worse answer than filing one rare alarm under «Diverse Einsätze». The *loud* half of
+    that trade lives in tests/test_divera_keywords.py, which fails the build on exactly this
+    condition — so the gap is caught before it ships, and survivable if it ever ships anyway.
+    """
+    return CATEGORY_LABELS.get(category) or CATEGORY_LABELS[FALLBACK_CATEGORY]
+
+
+# Title keyword → display label (order matters; first hit wins). Derived, not typed: the
+# keyword half comes from the shared file so it cannot drift from kp-rueck's copy unnoticed.
+TYPE_LABELS: dict[str, str] = {keyword: category_label(category) for keyword, category in KEYWORD_TO_CATEGORY}
 
 
 def detect_type(title: str) -> str:
@@ -94,7 +77,7 @@ def detect_type(title: str) -> str:
     for keyword, label in TYPE_LABELS.items():
         if keyword in up:
             return label
-    return "Diverse Einsätze"
+    return category_label(FALLBACK_CATEGORY)
 
 
 def infer_priority(title: str, text: str | None = None) -> str:
