@@ -820,7 +820,11 @@ class RankConfig(BaseModel):
 
 class RosterConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
-    source: Literal["manual", "divera"] | None = None
+    # "snapshot" = a roster file somebody else publishes, to the contract in
+    # docs/CONFIGURATION.md §4c (schema: docs/roster-snapshot.schema.json). The value is
+    # accepted and served; the ingestion that reads such a file is NOT built yet, so today a
+    # station on "snapshot" behaves exactly like "manual" — CSV and hand entry, nothing synced.
+    source: Literal["manual", "divera", "snapshot"] | None = None
     # Ordered rank list (most senior first). Empty → the frontend falls back to its in-code
     # Swiss default (see src/lib/rank.ts). Ranks reference these keys.
     ranks: list[RankConfig] = Field(default_factory=list)
@@ -932,11 +936,21 @@ class ProviderCapability(BaseModel):
 
 
 class ProviderRegistration(BaseModel):
+    """One provider this build knows about, whether or not this station uses it.
+
+    The list is what makes personnel/alarms/vehicles a *choice* rather than a vendor: a
+    station reads it to see what it could point at. ``implemented`` is false for a provider
+    whose contract is published but whose ingestion is not built yet — an entry that is
+    discoverable and honest about being inert, rather than a registry that quietly implies
+    everything listed works.
+    """
+
     provider: str
     domain: Literal["personnel", "alarms", "vehicles"]
     configured: bool
     active: bool
     capabilities: list[str] = Field(default_factory=list)
+    implemented: bool = True
 
 
 class ConfigIntegrations(BaseModel):

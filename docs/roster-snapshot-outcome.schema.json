@@ -1,0 +1,128 @@
+{
+  "$defs": {
+    "UnmatchedEntry": {
+      "additionalProperties": false,
+      "description": "One person a run could not resolve, with the reason it could not.",
+      "properties": {
+        "external_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "External Id"
+        },
+        "display_name": {
+          "title": "Display Name",
+          "type": "string"
+        },
+        "reason": {
+          "enum": [
+            "no_identity_match",
+            "ambiguous_name",
+            "conflicting_identity",
+            "absent_from_snapshot",
+            "inactive_in_snapshot"
+          ],
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "display_name",
+        "reason"
+      ],
+      "title": "UnmatchedEntry",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The report one ingestion run must be able to produce.\n\nUnmapped people are **counted and flagged, never silently dropped** — a roster that quietly\nloses people corrupts every attendance figure derived from it afterwards, and does so\ninvisibly. The contract therefore fixes the shape of the answer before anything implements\nthe question: whatever a consumer's matching strategy turns out to be, it has to be able to\nfill this in, and `refused` exists so \"I changed nothing, and here is why\" is a first-class\nresult rather than an empty run that looks successful.",
+  "properties": {
+    "schema": {
+      "const": "roster-snapshot-outcome/1",
+      "title": "Schema",
+      "type": "string"
+    },
+    "provider": {
+      "maxLength": 32,
+      "pattern": "^[a-z][a-z0-9_-]{1,31}$",
+      "title": "Provider",
+      "type": "string"
+    },
+    "snapshot_generated_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Snapshot Generated At"
+    },
+    "refused": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Refused"
+    },
+    "matched": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Matched",
+      "type": "integer"
+    },
+    "created": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Created",
+      "type": "integer"
+    },
+    "updated": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Updated",
+      "type": "integer"
+    },
+    "deactivated": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Deactivated",
+      "type": "integer"
+    },
+    "unmatched": {
+      "items": {
+        "$ref": "#/$defs/UnmatchedEntry"
+      },
+      "title": "Unmatched",
+      "type": "array"
+    },
+    "unknown_ranks": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Unknown Ranks",
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema",
+    "provider"
+  ],
+  "title": "RosterOutcome",
+  "type": "object",
+  "$id": "roster-snapshot-outcome/1"
+}

@@ -48,5 +48,17 @@ def integrations() -> ConfigIntegrations:
                 active=traccar,
                 capabilities=["positions", "status"],
             ),
+            # Published contract, no ingestion yet — `implemented=False` says so out loud
+            # rather than letting a registry entry imply a working feature. A station
+            # selects it with `roster.source: "snapshot"`; the file it would read is
+            # specified in docs/CONFIGURATION.md §4c and docs/roster-snapshot.schema.json.
+            ProviderRegistration(
+                provider="snapshot",
+                domain="personnel",
+                configured=False,
+                active=False,
+                capabilities=["contract"],
+                implemented=False,
+            ),
         ],
     )

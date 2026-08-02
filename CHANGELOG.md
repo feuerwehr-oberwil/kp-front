@@ -108,6 +108,33 @@ so this file – not the log – is the record of what shipped up to that point.
   decided unilaterally on the alerting path.
 
 ### Added
+- **The roster-snapshot contract is published — the schema, not yet the feature.** A station whose
+  personnel list lives somewhere else entirely (a municipal HR system, a cantonal register, a
+  nightly script) has had two options: retype it, or export a CSV by hand every time somebody
+  joins. `roster.source` gains a third value, **`"snapshot"`**, for the case where that system
+  publishes a JSON file and this deployment reads it — documented in
+  [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) §4c beside the CSV contract it is a sibling of,
+  with a versioned JSON Schema ([`docs/roster-snapshot.schema.json`](docs/roster-snapshot.schema.json)),
+  a worked example (`backend/roster.snapshot.example.json`) and an offline validator
+  (`uv run python -m app.roster_snapshot validate my-roster.json`) so a producer can prove a file
+  conforms without a deployment to try it against.
+
+  **Nothing fetches such a file yet.** The value is accepted and served, the provider is listed in
+  the capability registry as `implemented: false`, and a station set to `"snapshot"` behaves exactly
+  like `"manual"`. The schema ships first on purpose: it is a contract other people's systems write
+  to, and a contract that emerges from whatever the first importer happened to need is one nobody
+  else can implement.
+
+  What it carries is short and deliberate — a stable `external_id`, a display name, an optional
+  Dienstgrad **key**, `active`, and `identities`, a list of `(provider, external_id)` pairs that
+  says "the person this file calls `pers-0001` is the one your alerting system calls 4711" without
+  either product growing a column named after a vendor. What it does **not** carry is the point:
+  no medical fields, ever — no Untersuchung, no Tauglichkeit, no Impfung — and that is held by a
+  test that fails on any medically *shaped* key in German, English, French or Italian rather than
+  by a sentence in a document. A file carrying one is refused whole, with the key named. There is
+  no free-form `metadata` map and no raw `qualifications` list for the same reason: a string map's
+  keys are data, so nothing can see inside it.
+
 - **Objektpläne can now be fetched by the deployment instead of pushed into it.** Keeping a plan
   library current meant handing the system that maintains it this deployment's `ADMIN_SECRET` –
   the key to the entire admin API, config, branding and user accounts included – so that a nightly

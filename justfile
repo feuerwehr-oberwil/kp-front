@@ -152,6 +152,16 @@ build:
 openapi:
     cd backend && uv run python -m app.dump_openapi ../docs/openapi.json
 
+# Regenerate the committed roster-snapshot contract (schemas + example). Run it in the same
+# change that touches app/roster_snapshot.py, then update the checksums recorded in
+# tests/test_roster_snapshot_contract.py AND in the kp-rueck copy. See docs/CONFIGURATION.md §4c.
+[group('Release')]
+roster-schema:
+    cd backend && uv run python -m app.roster_snapshot schema > ../docs/roster-snapshot.schema.json
+    cd backend && uv run python -m app.roster_snapshot outcome-schema > ../docs/roster-snapshot-outcome.schema.json
+    cd backend && uv run python -m app.roster_snapshot example > roster.snapshot.example.json
+    @shasum -a 256 docs/roster-snapshot.schema.json docs/roster-snapshot-outcome.schema.json
+
 # (Needs no install — uvx fetches git-cliff. Add --tag vX.Y.Z to head it with a version.)
 # Draft release notes from the commits since the last tag — a STARTING POINT: curate into CHANGELOG.md.
 [group('Release')]
