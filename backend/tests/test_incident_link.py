@@ -363,6 +363,37 @@ async def test_admin_rotate_invalidates_links_already_sent_out(client, admin_log
     assert r.status_code == 403  # fail-closed again
 
 
+async def test_a_dead_session_can_still_redeem_the_next_link(client, db_session, link_key, incident):
+    """The trap this pins: the exchange is the recovery path, so it must not be gated on the
+    liveness of the cookie it is about to replace.
+
+    Real sequence, not a corner case — it is the SECOND alarm of the day. A responder opens
+    the link for Einsatz A. A is closed, which correctly kills that session. The next alarm
+    arrives and they tap its link on the same phone, still carrying A's now-dead cookie. If
+    the guard checks that cookie before letting the exchange run, the tap is refused and the
+    only way out is clearing browser cookies — which nobody does at 3am, and which would
+    make the feature fail permanently on every phone that ever used it once."""
+    assert (await client.post("/api/incident-link/session", json={"token": _mint()})).status_code == 200
+
+    incident.status = "abgeschlossen"
+    incident.closed_at = datetime.now(UTC)
+    await db_session.commit()
+    # the session is dead, as designed
+    assert (await client.get(f"/api/incidents/{incident.id}")).status_code == 403
+
+    nxt = _incident(title="Oelwehr Bahnhofstrasse 12", source_ref="alarm-the-next-one")
+    db_session.add(nxt)
+    await db_session.commit()
+    await db_session.refresh(nxt)
+
+    # …and the link to the NEW Einsatz still opens, on that same phone.
+    r = await client.post("/api/incident-link/session", json={"token": _mint(ref="alarm-the-next-one")})
+    assert r.status_code == 200, r.text
+    assert r.json()["incident_id"] == str(nxt.id)
+    assert (await client.get(f"/api/incidents/{nxt.id}")).status_code == 200
+    _forget_link(client)
+
+
 async def test_rotating_ends_sessions_that_are_already_open(client, db_session, link_key, incident):
     """Rotation has to reach the phone that already tapped the link, not just the ones that
     haven't. The session cookie is signed with the app's own secret, so nothing about

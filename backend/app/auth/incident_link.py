@@ -63,8 +63,26 @@ LINK_COOKIE = "link_session"
 #: check so redeeming a link and holding one already open agree on what "closed" means.
 INCIDENT_OPEN_STATUS = "offen"
 
-#: The SPA fallback route in spa.py. Allowlisted, but exempt from the liveness check below.
+#: The SPA fallback route in spa.py.
 _SPA_FALLBACK = "/{full_path:path}"
+
+#: Allowlisted AND exempt from the liveness checks — the two surfaces that have to work
+#: while the caller's link session is stale, expired or bound to a finished Einsatz.
+#:
+#: The exchange is here because it is the *recovery* path: it authenticates on the mint
+#: token's own signature, so an old cookie is irrelevant to whether it should run. Gating it
+#: on that cookie's liveness produced a trap — after one Einsatz closed, the same phone was
+#: refused the link to the NEXT alarm, and the only way out was clearing cookies. The
+#: response replaces the cookie wholesale, so nothing is inherited from the stale one.
+#:
+#: The SPA shell is here so a responder whose link really has died gets the app's own
+#: explanation instead of a bare JSON 403 where the HTML should be.
+_LIVENESS_EXEMPT: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("GET", _SPA_FALLBACK),
+        ("POST", "/api/incident-link/session"),
+    }
+)
 
 #: JWT ``type`` claim for both the inbound mint token and the session cookie. Distinct from
 #: "access"/"refresh"/"admin" so a link credential can never be mistaken for a real session.
@@ -278,7 +296,7 @@ async def enforce_link_scope(request: Request, db: AsyncSession = Depends(get_db
     # link to it, immediately. Skipped for the SPA shell itself so a responder whose link
     # just died gets the app's own "nicht mehr verfügbar" screen rather than a bare JSON 403
     # in place of the HTML.
-    if path == _SPA_FALLBACK:
+    if (request.method.upper(), path) in _LIVENESS_EXEMPT:
         return
     if not await _minting_key_unchanged(db, claims.get("kf")):
         raise _Denied()
