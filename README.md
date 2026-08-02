@@ -134,6 +134,25 @@ just init-env
 docker compose up -d          # ghcr.io/feuerwehr-oberwil/kp-front:${KP_FRONT_TAG:-latest}
 ```
 
+**Getting your data in.** A fresh deployment is meant to be run empty – swisstopo base map, no
+layers, no plans, no roster, and nothing errors – then filled in whichever way suits you. There are
+two doors, and it is worth knowing which is which:
+
+- **Manifest + `admin_*` CLI, or the same thing one file at a time in the admin UI.** These are
+  not alternatives to "the JSON files" – *the manifest is what the CLI reads*. All of them write
+  through one code path, so the browser and the CLI mint the same dataset ids and cannot drift.
+- **A scheduled pull from an S3-compatible bucket** – the only option where no other system needs
+  a credential for this one.
+
+Either way the bytes land in **your** deployment's storage and are served from there; a bucket is a
+source, not a runtime dependency. WMS layers store nothing at all – the browser fetches cantonal
+tiles directly. Roster and incidents are a separate axis, covered by the integrations below.
+
+Oberwil regenerates its manifests nightly from a plan library, but **that pipeline is not part of
+this product** – `admin_objects schema` and `admin_objects example` give you the contract, and four
+PDFs uploaded by hand once a year is a complete answer. The full walkthrough is
+[`docs/SETUP.md` §4](docs/SETUP.md).
+
 Updating is `docker compose pull && docker compose up -d`; migrations run on boot. Pin a
 version with `KP_FRONT_TAG` in `.env` and follow the
 [releases](https://github.com/feuerwehr-oberwil/kp-front/releases) –
