@@ -89,6 +89,22 @@ HIGH_PRIORITY_KEYWORDS = [
 ]
 
 
+def alarm_time(ts_create: int | None) -> datetime | None:
+    """Divera's ``ts_create`` (unix seconds, UTC) as an aware datetime — the Alarmierungszeit.
+
+    ``None`` for a missing or non-positive stamp: an incident opened from such an alarm keeps
+    the server default and is marked as having no known alarm time, rather than inheriting
+    epoch 0 or the moment the tablet was picked up.
+    """
+    if not ts_create or ts_create <= 0:
+        return None
+    try:
+        return datetime.fromtimestamp(ts_create, tz=UTC)
+    except (OverflowError, OSError, ValueError):
+        logger.warning("Divera ts_create out of range: %r", ts_create)
+        return None
+
+
 def detect_type(title: str) -> str:
     up = (title or "").upper()
     for keyword, label in TYPE_LABELS.items():
@@ -154,6 +170,9 @@ async def upsert_emergency(db: AsyncSession, payload: DiveraWebhookPayload) -> D
             existing.address = payload.address
             existing.lat = payload.lat
             existing.lng = payload.lng
+            # ts_create is the alarm's birth time — an update never moves it, it only fills
+            # it in for a row that arrived before the sender started sending it.
+            existing.ts_create = existing.ts_create or payload.ts_create
             existing.ts_update = payload.ts_update
             existing.raw_payload_json = payload.model_dump()
         return None
@@ -166,6 +185,7 @@ async def upsert_emergency(db: AsyncSession, payload: DiveraWebhookPayload) -> D
         address=payload.address,
         lat=payload.lat,
         lng=payload.lng,
+        ts_create=payload.ts_create,
         ts_update=payload.ts_update,
         raw_payload_json=payload.model_dump(),
     )
@@ -221,6 +241,10 @@ async def maybe_auto_open(db: AsyncSession, em: DiveraEmergency) -> Incident | N
         lat=float(em.lat) if em.lat is not None else None,
         lng=float(em.lng) if em.lng is not None else None,
         priority=priority,
+        # The alarm's own time, not this moment: auto-open can trail the alarm by a poll
+        # interval, and the pool row may have been waiting far longer than that.
+        started_at=alarm_time(em.ts_create),
+        started_at_source="alarm",
     )
     em.is_taken = True
     em.taken_incident_id = inc.id

@@ -69,6 +69,15 @@ class RevokedToken(Base):
     revoked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
+# Provenance of ``Incident.started_at``. Part VIII of the estate architecture asks for
+# marking at FIELD level rather than row level: the incident is real either way, but the
+# alarm-time column is only externally sourced on some of them.
+#   "alarm"  — the alerting system stamped it (Divera ``ts_create``, generic intake payload)
+#   "manual" — a human typed or confirmed it (Einsatz-Wizard, Einsatzdaten correction)
+#   NULL     — nobody supplied one; ``started_at`` is the row's insert time (record opened)
+ALARM_TIME_SOURCES = ("alarm", "manual")
+
+
 class Incident(Base):
     __tablename__ = "incidents"
 
@@ -89,7 +98,16 @@ class Incident(Base):
     # are eligible for the untouched-auto-archive sweep.
     # NB: plain-string server_default — `text` here is the Text column above, not sqlalchemy.text
     auto_opened: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="false")
+    # Alarmierungszeit — the moment the alarm went out, NOT the moment somebody opened the
+    # record. Every surface (Rapport-PDF, Einsatzdaten-Panel, Statistik-Export) reads it as
+    # the alarm time, so an intake path that leaves the server default standing is silently
+    # publishing «when the tablet was picked up» under that name.
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # Where started_at came from — see ALARM_TIME_SOURCES. NULL means nothing supplied an
+    # alarm time and the server default stands, i.e. the value is the record-open time and
+    # must NOT be read as an Alarmierungszeit. Honest null beats a plausible guess: a
+    # downstream join keying on a fabricated alarm time is worse than one that skips the row.
+    started_at_source: Mapped[str | None] = mapped_column(String(8), nullable=True)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     # Übung — orthogonal to the VKF `type` (an exercise still has a category). Exercises are
@@ -178,6 +196,10 @@ class DiveraEmergency(Base):
     lat: Mapped[float | None] = mapped_column(Numeric(10, 7), nullable=True)
     lng: Mapped[float | None] = mapped_column(Numeric(10, 7), nullable=True)
     raw_payload_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # Divera's own creation stamp for the alarm (unix seconds) — the ALARM time, as opposed
+    # to ``received_at`` (when we heard about it) and ``ts_update`` (last edit upstream).
+    # It is what an incident opened from this alarm inherits as its Alarmierungszeit.
+    ts_create: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     ts_update: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
     is_taken: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

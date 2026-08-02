@@ -83,7 +83,11 @@ async def create_incident(body: IncidentCreate, user: CurrentEditor, db: AsyncSe
         created_by=user.id,
     )
     if body.started_at:
+        # The wizard sends the Alarmierungszeit field on every manual create (prefilled with
+        # «now», backdated when an analog Einsatz is nachgetragen) — either way a human saw
+        # and accepted it, which is what makes it an alarm time rather than an insert time.
         inc.started_at = body.started_at
+        inc.started_at_source = "manual"
     db.add(inc)
     await db.flush()
     await audit.append_event(
@@ -217,6 +221,11 @@ async def patch_incident(
     report_done_before = inc.report_done_at
     for k, v in data.items():
         setattr(inc, k, v)
+    if data.get("started_at") is not None:
+        # A correction in the Einsatzdaten panel is a human asserting the Alarmierungszeit —
+        # it overrides whatever the alerting system said, and it upgrades an unknown
+        # (server-default) time to a known one.
+        inc.started_at_source = "manual"
     if "is_exercise" in data and data["is_exercise"] != exercise_before:
         await audit.append_event(
             db,

@@ -27,7 +27,9 @@ Response: JSON array, **oldest first**. Archived incidents are included (`is_arc
 | Field | Type | Source / semantics |
 |---|---|---|
 | `id` | string (UUID) | incident id |
-| `started_at` | ISO datetime | Alarmierungszeit (Divera-stamped or backdated manual entry) |
+| `started_at` | ISO datetime | Alarmierungszeit – **read `started_at_source` before trusting it as one** |
+| `started_at_source` | `"alarm"` \| `"manual"` \| null | provenance of `started_at`: stamped by the alerting system, asserted by a human, or **null = nobody supplied an alarm time and the value is the record-open time** |
+| `created_at` | ISO datetime | when the record was opened in the app (`started_at → created_at` is the pick-up-the-tablet delay) |
 | `closed_at` | ISO datetime \| null | stamped on first archive |
 | `title`, `text` | string | Stichwort, Alarmmeldung |
 | `kategorie` | string \| null | VKF Schadenkategorie (`incident.type`) |
@@ -37,7 +39,8 @@ Response: JSON array, **oldest first**. Archived incidents are included (`is_arc
 | `is_archived` | bool | |
 | `rapport` | `open` \| `done` \| `changed` | derived: `changed` = anything moved after Rapport completion |
 | `report_done_at` | ISO datetime \| null | |
-| `alarmiertAt`, `ausgeruecktAt`, `endedAt` | ISO datetime \| null | Rapport times (`ausgeruecktAt` = first physical departure once vehicle milestones exist) |
+| `alarmiertAt` | ISO datetime \| null | the **effective** Alarmierungszeit: the Rapport's own value if edited, else `started_at` when its provenance is known. Null when this record does not know one – see below |
+| `ausgeruecktAt`, `endedAt` | ISO datetime \| null | Rapport times (`ausgeruecktAt` = first physical departure once vehicle milestones exist) |
 | `einsatzleiter`, `kontaktperson`, `summary` | string \| null | Rapport fields |
 | `eigentuemer` | string \| null | Eigentümer / Verursacher |
 | `gerettete` | `{personen?, tiere?}` \| null | rescued counts (absent ≠ 0) |
@@ -54,5 +57,15 @@ Notes for consumers:
 - `gruppen`/`fahrzeuge` are prefilled by the alarm pipeline's milestone webhook
   (`docs/ALARM-INTEGRATIONS.md` §1) and human-correctable – `manual: true` marks operator
   entries. Unknown ids are passed through verbatim.
-- Matching against WinFAP exports: no shared id – match on `started_at` within a ±3 h
-  window (reference consumer: fwo-stats `kpfront_service.py`).
+- **The alarm time is the one field to check before joining on it.** Until 2026-08-02 only
+  the generic `POST /api/alarms` intake ever recorded one: the Divera webhook, the poller's
+  auto-open and the pool take all left `started_at` at its database default, so it held the
+  moment the record was opened – off by minutes on a good day and by days on a bad one – and
+  `alarmiertAt` was null on every record that had never been hand-edited. Both are fixed;
+  `started_at_source` is how a consumer tells a repaired record from one that predates the
+  fix. **Skip rows with `started_at_source: null` when the join keys on time** – their
+  `started_at` is a record-open time, and the export refuses to launder it by publishing it
+  as `alarmiertAt`. They are still real incidents and still count.
+- Matching against WinFAP exports: no shared id – match on `alarmiertAt` (not `started_at`)
+  within a ±3 h window, and report ambiguous/unmatched rows rather than picking the nearest
+  (reference consumer: fwo-stats `kpfront_service.py`).

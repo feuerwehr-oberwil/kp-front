@@ -76,11 +76,16 @@ async def create_incident_from_alarm(
     source_ref: str | None = None,
     divera_id: int | None = None,
     started_at: datetime | None = None,
+    started_at_source: str = "alarm",
 ) -> Incident:
     """Create an auto-opened incident from an alarm (no human in the loop).
 
     Mirrors the pool-take path: type/priority inferred from the title keywords when the
     sender didn't provide them, address geocoded only when no coordinate is available.
+
+    ``started_at`` is the Alarmierungszeit as the sender stated it. Senders that omit it get
+    the server default — the insert time — and the provenance stays NULL to say so, because
+    the alternative is publishing «when the webhook arrived» as an alarm time.
     """
     from .divera import detect_type, infer_priority  # lazy — avoids an import cycle
 
@@ -113,6 +118,7 @@ async def create_incident_from_alarm(
     )
     if started_at:
         inc.started_at = started_at
+        inc.started_at_source = started_at_source
     db.add(inc)
     await db.flush()
     await audit.append_event(
