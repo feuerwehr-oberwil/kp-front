@@ -18,6 +18,12 @@ export interface AuthUser {
   last_login: string | null
   /** start this login in the Einsatzleiter view (frontend default; device pref overrides) */
   el_view_default?: boolean
+  /** this is an Einsatz-Link session (/l/<token>), not a login: a viewer narrowed to ONE
+   *  incident, whose backend surface is an allowlist of reads (see incidentLink.ts). Surfaces
+   *  gate on it to hide what would 403 — reports, printing, alarms, and every write. */
+  link_scoped?: boolean
+  /** the one incident that session may see — the app opens it directly instead of listing */
+  link_incident_id?: string
 }
 
 // One tappable roster tile from GET /api/auth/roster (no PIN / username here —
@@ -43,12 +49,20 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 // with a network error (not a 401), the httpOnly cookie is still present in the browser
 // but unverifiable, so we optimistically restore the cached identity instead of bouncing
 // to the login screen. A real 401 (online, session gone) clears it.
+// A link session is deliberately NEVER cached (and landing on one CLEARS the cache): the
+// offline restore above is a promise that the httpOnly cookie is still good — true for a
+// station tablet whose 8h/7d session simply can't be verified right now, false for an
+// Einsatz-Link, which stops being valid the moment the Einsatz is closed or the link expires,
+// with nothing on the device able to notice. Cached, a responder's phone would keep re-opening
+// a read-only Einsatz view long after that Einsatz ended, and no online probe would ever come
+// to correct it. It is also not the case the cache exists for: a personal phone opening a link
+// from an alert isn't the installed PWA that must survive a cellar with no signal.
 const USER_CACHE = 'kp-front-user'
 function readCachedUser(): Promise<AuthUser | null> {
   return idbGet<AuthUser>(USER_CACHE)
 }
 function writeCachedUser(u: AuthUser | null) {
-  void (u ? idbSet(USER_CACHE, u) : idbDel(USER_CACHE))
+  void (u && !u.link_scoped ? idbSet(USER_CACHE, u) : idbDel(USER_CACHE))
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {

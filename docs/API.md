@@ -50,6 +50,7 @@ PIN-kiosk flow issuing JWTs as **httpOnly cookies** (single-origin, so no tokens
 | `/api/personnel/*`, `/api/divera/*`, `/api/traccar/*` | roster, alarm/roster pull, vehicle GPS | editor |
 | `/api/weather`, `/api/geocode` | wind badge, address search (backend-proxied) | auth |
 | `/api/report/*` | report data (read-only output) | auth |
+| `/api/incident-link/*` | exchange an alerting system's link token for a read-only session on one incident (`/l/<token>`); key management | station `incident_link_key` (session) · admin (key) · fail-closed |
 | `/api/diag/client-error` | client error sink (bounded, logged at WARNING) | none |
 
 The exact request/response shapes are in [`openapi.json`](openapi.json) / the live `/docs`.

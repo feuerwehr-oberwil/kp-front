@@ -9,7 +9,8 @@ vi.mock('./api', async () => {
   const actual = await vi.importActual<typeof import('./api')>('./api')
   return { ...actual, apiGet, apiPost }
 })
-vi.mock('./idb', () => ({ idbGet: vi.fn().mockResolvedValue(null), idbSet: vi.fn(), idbDel: vi.fn() }))
+const { idbSet, idbDel } = vi.hoisted(() => ({ idbSet: vi.fn(), idbDel: vi.fn() }))
+vi.mock('./idb', () => ({ idbGet: vi.fn().mockResolvedValue(null), idbSet, idbDel }))
 
 import { ApiError } from './api'
 import * as deploymentConfig from './deploymentConfig'
@@ -21,8 +22,36 @@ const EDITOR_USER = { id: 'ed-1', username: 'fu', display_name: 'FU', role: 'edi
 
 const wrapper = ({ children }: { children: ReactNode }) => <AuthProvider>{children}</AuthProvider>
 
-beforeEach(() => { apiGet.mockReset(); apiPost.mockReset() })
+const LINK_USER = {
+  id: 'lk-1', username: 'link', display_name: 'Einsatz-Link', role: 'viewer', color: null,
+  last_login: null, link_scoped: true, link_incident_id: 'inc-1',
+}
+
+beforeEach(() => { apiGet.mockReset(); apiPost.mockReset(); idbSet.mockReset(); idbDel.mockReset() })
 afterEach(() => vi.restoreAllMocks())
+
+describe('AuthProvider — offline user cache', () => {
+  it('caches a real login (that is what keeps the PWA usable with no signal)', async () => {
+    vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
+    apiGet.mockResolvedValue(EDITOR_USER)
+
+    const { result } = renderHook(() => useAuth(), { wrapper })
+    await waitFor(() => expect(result.current.user).toEqual(EDITOR_USER))
+    expect(idbSet).toHaveBeenCalledWith('kp-front-user', EDITOR_USER)
+  })
+
+  it('never caches an Einsatz-Link session, and clears whatever was cached', async () => {
+    // the cache means "the cookie is still good, we just can't verify it right now" — untrue
+    // for a link, which dies with the Einsatz and would otherwise resurrect offline forever
+    vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
+    apiGet.mockResolvedValue(LINK_USER)
+
+    const { result } = renderHook(() => useAuth(), { wrapper })
+    await waitFor(() => expect(result.current.user).toEqual(LINK_USER))
+    expect(idbSet).not.toHaveBeenCalled()
+    expect(idbDel).toHaveBeenCalledWith('kp-front-user')
+  })
+})
 
 describe('AuthProvider — demo auto-login', () => {
   it('signs in as the demo editor when there is no session (demo instance → no login screen)', async () => {

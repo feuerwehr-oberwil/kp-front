@@ -163,6 +163,11 @@ export function IncidentWorkspace({
   const { user, logout } = useAuth()
   const baseReadOnly = user?.role !== 'editor' || forceReadOnly || tabLockLost
   const isEditor = user?.role === 'editor'
+  // Einsatz-Link session (/l/<token>): a viewer narrowed to ONE incident. Read-only is not
+  // enough here — a plain viewer may still generate the Rapport/Zeitplan PDFs and drive the
+  // station printer, and all of that is refused for a link (backend/app/auth/incident_link.py).
+  // Same rule as everywhere else: never show a control that will fail.
+  const linkScoped = !!user?.link_scoped
   // Phones are a live viewer + field-capture device: lock all TACTICAL editing (tools,
   // map drawing/placing, plan annotation) even for a editor — but keep journal capture
   // + sync alive (those hang off `readOnly`, which stays false for a editor). Tablets
@@ -1651,10 +1656,11 @@ export function IncidentWorkspace({
   // fail-closed (null → no printer button at all); the PDF download needs no relay.
   const [zeitplanRelay, setZeitplanRelay] = useState<PrintRelayStatus | null>(null)
   useEffect(() => {
+    if (linkScoped) return // the relay is refused for a link session — don't even ask
     let alive = true
     void fetchPrintStatus(editorPrintTransport()).then((st) => { if (alive) setZeitplanRelay(st) })
     return () => { alive = false }
-  }, [])
+  }, [linkScoped])
   const zeitplanPayload = (rowPeople: Person[], sheet: ZeitplanSheet) => buildZeitplanPayload(
     rowPeople, attendance, shifts,
     { title: incidentMeta.title, address: incidentMeta.address, startedAt: incidentMeta.started_at },
@@ -1898,16 +1904,20 @@ export function IncidentWorkspace({
             user={{ display_name: user?.display_name ?? '', color: user?.color ?? null, role: user?.role ?? 'viewer' }}
             onSettings={() => setSettingsOpen(true)}
             onSwitch={onSwitchIncident}
-            onHistory={onOpenHistory}
+            onHistory={linkScoped ? undefined : onOpenHistory}
             onDivera={onOpenDivera}
             onDatenquellen={onOpenDatenquellen}
-            onReportPrint={() => setReportPreflightOpen(true)}
+            // Einsatzrapport (PDF + Drucken) and «Alle Einsätze» are both refused for a link
+            // session — one generates a document with everyone's names, the other lists the
+            // Einsätze this link has nothing to do with.
+            onReportPrint={linkScoped ? undefined : () => setReportPreflightOpen(true)}
             onArchive={canEditIncident && !readOnly ? onArchiveActive : undefined}
             onHelp={() => setHelpOpen(true)}
             onInstall={isStandalone() || !installOffered(getInstallPlatform()) ? undefined : () => setInstallGuideOpen(true)}
             onOfflineReadiness={() => setOfflineReadyOpen(true)}
             onSyncNow={syncNow}
-            onLogout={() => { void logout() }}
+            // a link session has no login to leave (and no way back in) — see App's landing card
+            onLogout={linkScoped ? undefined : () => { void logout() }}
             navKey={`${mode}|${journalOpen ? 'journal' : ''}`}
             objectName={activeObjectName}
             onObjectSwitch={() => setPickerOpen(true)}
@@ -2568,8 +2578,10 @@ export function IncidentWorkspace({
           onReplaceShift={canEditIncident ? replaceShift : undefined}
           onSetShiftTime={canEditIncident ? setShiftTime : undefined}
           onRemoveShift={canEditIncident ? removeShift : undefined}
-          onPrintZeitplan={zeitplanRelay?.available ? onPrintZeitplan : undefined}
-          onDownloadZeitplan={onDownloadZeitplan}
+          // Zeitplan-PDF and Zeitplan-Druck are both refused for a link session (the sheet
+          // carries the crew's names) — without either prop the block hides itself
+          onPrintZeitplan={!linkScoped && zeitplanRelay?.available ? onPrintZeitplan : undefined}
+          onDownloadZeitplan={linkScoped ? undefined : onDownloadZeitplan}
           zeitplanPrintOnline={!!zeitplanRelay?.online}
         />
       )}
@@ -2711,7 +2723,8 @@ export function IncidentWorkspace({
           canEdit={canEditIncident}
           elView={elView}
           onElView={isEditor ? setElView : undefined}
-          onFeedback={() => { setSettingsOpen(false); setFeedbackOpen(true) }}
+          // Rückmeldung posts a diagnostic report — refused for a link session, so don't offer it
+          onFeedback={linkScoped ? undefined : () => { setSettingsOpen(false); setFeedbackOpen(true) }}
         />
       )}
       {/* Rückmeldung, opened deliberately from Einstellungen. Nothing ever PUSHES this at the

@@ -57,6 +57,12 @@ const AdminApp = lazy(() => import('./admin/AdminApp'))
 // against /api/capture — no login, no auth provider, none of the field-app bundle.
 const CaptureApp = lazy(() => import('./capture/CaptureApp'))
 
+// Einsatz-Link (/l/<token>, the URL an external alerting system puts into the alert): its own
+// lazy chunk like the capture view, token-exchanged against /api/incident-link/session — no
+// login. Unlike capture it hands off to the normal field app afterwards, so it brings its own
+// AuthProvider (mounted only once the session cookie exists — see LinkApp).
+const LinkApp = lazy(() => import('./link/LinkApp'))
+
 // Auth gate: hold the boot Splash while the /me probe settles, then show the
 // kiosk login until someone is authenticated, then the app. The brand pulse +
 // wordmark instead of a blank colour flash, so the launch feels continuous with
@@ -113,6 +119,7 @@ void (async () => {
   // else is the unchanged field app. Both stay inside <AuthProvider>.
   const isAdmin = window.location.pathname.startsWith('/admin')
   const isCapture = window.location.pathname.startsWith('/e/')
+  const isLink = window.location.pathname.startsWith('/l/')
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       {/* Root boundary: login, landing list, overlays, and the admin app used to sit
@@ -121,6 +128,8 @@ void (async () => {
       <ErrorBoundary>
         {isCapture ? (
           <Suspense fallback={<Splash />}><CaptureApp /></Suspense>
+        ) : isLink ? (
+          <Suspense fallback={<Splash />}><LinkApp /></Suspense>
         ) : (
           <AuthProvider>
             {isAdmin

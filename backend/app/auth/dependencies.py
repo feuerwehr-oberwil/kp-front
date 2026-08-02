@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..config import settings
 from ..database import get_db
 from ..models import User
+from .incident_link import read_link_session
 from .security import decode_token
 from .token_blocklist import token_blocklist
 
@@ -35,12 +36,53 @@ _admin_auth_exc = HTTPException(
 )
 
 
+#: Identity of a logged-out incident-link visitor. A fixed sentinel rather than a real row:
+#: there is no account behind a link, and inventing one would put a fake person into the
+#: roster, the audit trail and every `created_by` a future writer might stamp.
+LINK_GUEST_ID = uuid.UUID("00000000-0000-0000-0000-00000000110c")
+
+
+def _link_guest(incident_id: str) -> User:
+    """A transient `viewer` principal for an incident-link session.
+
+    Never added to the session and never flushed — it exists so the ~25 allowlisted read
+    endpoints can keep taking `CurrentUser` unchanged instead of growing a second auth
+    shape each. What stops it doing more than a viewer is `enforce_link_scope`, not this
+    object; `role="viewer"` here is belt to that braces (it also fails `CurrentEditor`).
+    """
+    guest = User(
+        id=LINK_GUEST_ID,
+        username="einsatz-link",
+        display_name="Einsatz-Link",
+        role="viewer",
+        is_active=True,
+        # Column defaults are applied on flush, and this object is deliberately never
+        # flushed — so every column the response schema reads has to be set by hand here.
+        # Left implicit it stays None, and `UserOut.el_view_default: bool` rejects None
+        # (a field default fills a MISSING attribute, not a present-but-None one), which
+        # turns /api/auth/me into a 500 for exactly one kind of visitor.
+        el_view_default=False,
+        color=None,
+        last_login=None,
+    )
+    guest.link_scoped = True  # read by /api/auth/me so the client can hide what would 403
+    guest.link_incident_id = incident_id
+    return guest
+
+
 async def get_current_user(
     request: Request,
     access_token: Annotated[str | None, Cookie()] = None,
     db: AsyncSession = Depends(get_db),
 ) -> User:
     if not access_token:
+        # No real session: fall back to an incident-link session if one is present. The
+        # link cookie is only ever consulted here, after a genuine login has been ruled out.
+        claims = read_link_session(request)
+        if claims and claims.get("inc"):
+            guest = _link_guest(str(claims["inc"]))
+            request.state.user = guest
+            return guest
         raise _credentials_exc
     try:
         payload = decode_token(access_token)
@@ -136,6 +178,13 @@ async def get_user_or_admin(
             pass
     if await _admin_session_valid(admin_session):
         return None
+    # Roster, objects, reference and Traccar status sit behind this dependency and are all
+    # on the incident-link allowlist — the map is unreadable without them.
+    claims = read_link_session(request)
+    if claims and claims.get("inc"):
+        guest = _link_guest(str(claims["inc"]))
+        request.state.user = guest
+        return guest
     raise _credentials_exc
 
 

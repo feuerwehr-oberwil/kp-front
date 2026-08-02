@@ -332,6 +332,17 @@ Set at deploy time; never editable from the UI, never in the repo.
 > Zeiten, Anwesenheit von–bis, Mittel totals, Rapport status) for external analytics – auth via
 > `X-Stats-Token` header or `?t=`. Fail-closed: no token → 403. Full field reference:
 > `docs/STATS-EXPORT.md`. |
+
+> **Einsatz-Link (read-only link into one incident):** also not an env var – the station's
+> `incident_link_key` lives in the DB and is managed in the admin UI: show it, rotate it, delete
+> it. Copy it into the alerting system, which signs a token with it and puts `/l/<token>` into
+> the alert it sends out; a responder taps that on a personal phone and sees **one** incident
+> the way a `viewer` does – no login, nothing that writes, prints or costs money – for as long
+> as the Einsatz is running: closing or archiving it revokes every open link at once (12 h is
+> the backstop for the one nobody closes). Fail-closed: no key → the link surface answers 403
+> and nothing exists, which is also what every existing deployment gets from the migration.
+> Rotation or deletion invalidates every link already sent out and requires reconfiguring the
+> alerting system. Trust model and reachable surface: `docs/ALARM-INTEGRATIONS.md` §4. |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Web Push for killed-app alarms + new-alarm push (generate once: `cd backend && uv run python -m app.gen_vapid`; empty = push disabled, fail-closed) |
 | `PRINT_AGENT_SECRET` | station print relay: «An Stationsdrucker» queues the Einsatzrapport-PDF for an on-site agent (any always-on box with a CUPS queue). The agent now serves KP Front *and* KP Rück from one install – see [`tools/PRINT-AGENT.md`](../tools/PRINT-AGENT.md); the endpoint contract below is unchanged. Empty = agent endpoints 403 and the button never renders, fail-closed. |
 | `TRACCAR_URL`, `TRACCAR_EMAIL`, `TRACCAR_PASSWORD` | if `traccarEnabled` |

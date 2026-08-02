@@ -1797,6 +1797,30 @@ export const de = {
     usageChip: 'QR: {n} Einträge · zuletzt {t}',
     usageChipOne: 'QR: 1 Eintrag · zuletzt {t}',
   },
+  // Einsatz-Link (/l/<token>) — die Ansicht, die aus der Alarmmeldung heraus geöffnet wird:
+  // kein Login, ein Einsatz, nur lesen. Wer das liest, steht nachts irgendwo im Dunkeln und
+  // hat genau diesen einen Bildschirm – jede Meldung sagt darum, was jetzt zu tun ist.
+  incidentLink: {
+    opening: 'Einsatz wird geöffnet …',
+    // 404 kann ein Rennen sein: die Alarmierung ist schneller auf dem Handy als der Einsatz
+    // in kp-front. Das ist der einzige Zustand, der sich von selbst auflöst.
+    pendingTitle: 'Einsatz noch nicht verfügbar',
+    pendingHint: 'Der Alarm ist eben erst eingetroffen. Wird automatisch nochmals versucht …',
+    notReadyTitle: 'Dieser Einsatz ist nicht abrufbar.',
+    notReadyHint: 'Der Link gilt nur, solange der Einsatz läuft. Falls der Alarm eben erst kam: nochmals versuchen. Sonst bei der Einsatzleitung melden.',
+    invalidTitle: 'Dieser Link gilt nicht mehr.',
+    invalidHint: 'Öffne den Link direkt aus der aktuellen Alarmmeldung.',
+    disabledTitle: 'Einsatz-Links sind bei dieser Feuerwehr nicht freigeschaltet.',
+    disabledHint: 'Die Einsatzleitung kann sie in der Konfiguration aktivieren.',
+    offlineTitle: 'Kein Empfang',
+    offlineHint: 'Ohne Verbindung lässt sich der Einsatz nicht öffnen. Sobald du wieder Empfang hast: nochmals versuchen.',
+    errorTitle: 'Der Server antwortet nicht.',
+    errorHint: 'Bitte nochmals versuchen. Bleibt es dabei: bei der Einsatzleitung melden.',
+    retry: 'Nochmals versuchen',
+    // der Einsatz liess sich nach dem Öffnen des Links nicht laden (Empfang weg) – die
+    // Startseite sagt das, statt eine leere Einsatzliste zu zeigen
+    unavailable: 'Dieser Einsatz ist gerade nicht abrufbar. Seite neu laden, sobald du wieder Empfang hast.',
+  },
   // TopBar incident switcher dropdown
   incidentSwitcher: {
     noIncident: 'Kein Einsatz',
@@ -2555,6 +2579,11 @@ export const de = {
         title: 'Statistik-Export',
         lede: 'Read-only-Datenfeed aller Einsätze für externe Auswertungen (z. B. Jahresstatistik).',
       },
+      einsatzlink: {
+        label: 'Einsatz-Link',
+        title: 'Einsatz-Link',
+        lede: 'Der Schlüssel, mit dem die Alarmierung Links erzeugt, die genau einen Einsatz schreibgeschützt öffnen – ohne Anmeldung.',
+      },
       objekte: {
         label: 'Objekte & Pläne',
         title: 'Objekte & Pläne',
@@ -2631,6 +2660,24 @@ export const de = {
       exampleLabel: 'Abfrage-Beispiel',
       tokenLabel: 'Token',
       hint: 'Token geheim halten – er gewährt Lesezugriff auf alle Einsatzdaten inkl. Namen. Übergabe an das Auswertungs-Tool als Header X-Stats-Token (oder ?t=).',
+    },
+    einsatzlink: {
+      body: 'Die Alarmierung hängt einen Link an den Alarm; wer ihn auf dem privaten Handy antippt, sieht genau diesen einen Einsatz – Lage, Pläne, Hydranten, Checklisten, Verlauf – schreibgeschützt und ohne Anmeldung. Vertrauensmodell: Wer den Alarm erhalten hat, darf den Einsatz sehen, bis er abgeschlossen ist.',
+      stateLabel: 'Einsatz-Links',
+      stateOn: 'aktiv',
+      stateOff: 'deaktiviert',
+      enableBtn: 'Aktivieren & Schlüssel erzeugen',
+      rotateBtn: 'Schlüssel rotieren',
+      rotateMsg: 'Neuen Schlüssel erzeugen? Alle bereits verschickten Links werden sofort ungültig.',
+      rotated: 'Neuer Schlüssel erzeugt – sofort in der Alarmierung hinterlegen, sonst funktioniert kein Link mehr.',
+      disableBtn: 'Deaktivieren',
+      disableMsg: 'Einsatz-Links deaktivieren? Alle verschickten Links funktionieren danach nicht mehr.',
+      disabled: 'Einsatz-Links deaktiviert.',
+      failed: 'Aktion fehlgeschlagen',
+      keyLabel: 'Schlüssel',
+      exampleLabel: 'Link-Muster (die Alarmierung setzt ihren signierten Token ein)',
+      docsLink: 'Integrations-Doku',
+      hint: 'Der Schlüssel wird hier erzeugt und in die Alarmierung kopiert – KP Front nimmt keinen fremden Schlüssel entgegen und wird beim Alarmieren nie aufgerufen: Die Alarmierung signiert die Links selbst. Schlüssel geheim halten, er öffnet Lesezugriff auf jeden laufenden Einsatz. Ohne Schlüssel gibt es keine Einsatz-Links – «Deaktivieren» schaltet die Funktion ganz ab.',
     },
     incidentHistory: {
       loading: 'Einsätze werden geladen…', error: 'Einsätze konnten nicht geladen werden.', search: 'Titel, Adresse oder Herkunft suchen…',
