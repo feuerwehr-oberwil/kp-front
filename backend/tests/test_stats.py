@@ -178,6 +178,105 @@ async def test_stats_year_filter_uses_local_year(client, stats_secret, db_sessio
     assert [rec["title"] for rec in r.json()] == ["Sommer"]
 
 
+# --- the join keys --------------------------------------------------------------------
+# The feed shares no id with a station's record system, so a consumer joins on time+address
+# and pays for it. `source`/`source_ref`/`alarm_ref` are the neutral way out — and the trap
+# they close is that the two look interchangeable and are not: `source_ref` is the alerting
+# system's id for the ALARM (a bare integer for a Divera deployment), while `alarm_ref` is the
+# reference PRINTED on the alarm, which is the string a human transcribes into the record
+# system. Exporting only the first would look like the path is open while it stays dark.
+
+
+async def test_stats_exports_the_neutral_source_pair(client, stats_secret, db_session):
+    db_session.add(_incident(title="Vom Intake", source="leitstelle", source_ref="E-2026-0815"))
+    await db_session.commit()
+
+    rec = (await client.get(f"/api/stats/incidents?t={TOKEN}")).json()[0]
+    assert (rec["source"], rec["source_ref"]) == ("leitstelle", "E-2026-0815")
+    # nothing stated a printed reference for this alarm — null, not the source id laundered
+    assert rec["alarm_ref"] is None
+
+
+async def test_stats_exports_the_printed_alarm_reference(client, stats_secret, db_session):
+    """The reference the alerting system printed on the alarm reaches the consumer VERBATIM.
+
+    Byte-identity is the entire value of the field: the same string is printed on the Einsatz
+    slip and typed into the record system's case-number field, so the join is a byte
+    comparison. Anything that trims, cases or prettifies it here breaks that silently.
+    """
+    from app.models import DiveraEmergency
+
+    inc = _incident(title="Aus dem Pool", source="divera", source_ref="4711")
+    db_session.add(inc)
+    await db_session.commit()
+    await db_session.refresh(inc)
+    db_session.add(
+        DiveraEmergency(
+            divera_id=4711,
+            divera_number="fwo-sms-761610d931ac",
+            title="Aus dem Pool",
+            is_taken=True,
+            taken_incident_id=inc.id,
+        )
+    )
+    await db_session.commit()
+
+    rec = (await client.get(f"/api/stats/incidents?t={TOKEN}")).json()[0]
+    assert rec["alarm_ref"] == "fwo-sms-761610d931ac"
+    # …and the alarm's own id stays where it is. Publishing it AS the printed reference is the
+    # failure this test exists to catch: it joins to nothing and looks like it works.
+    assert rec["source_ref"] == "4711"
+
+
+async def test_a_second_pool_alarm_on_one_incident_does_not_duplicate_the_record(client, stats_secret, db_session):
+    """Split dispatch: a re-dispatched group's alarm is attached to the Einsatz already
+    running, so two pool rows point at one incident. Looking the reference up with a join
+    would emit that incident twice and double it in the canton's figures."""
+    from app.models import DiveraEmergency
+
+    inc = _incident(title="Nachalarm", source="divera", source_ref="4712")
+    db_session.add(inc)
+    await db_session.commit()
+    await db_session.refresh(inc)
+    db_session.add_all(
+        [
+            DiveraEmergency(
+                divera_id=4712,
+                divera_number="fwo-sms-aaaaaaaaaaaa",
+                title="Erstalarm",
+                received_at=datetime(2026, 3, 1, 14, 0, tzinfo=UTC),
+                is_taken=True,
+                taken_incident_id=inc.id,
+            ),
+            DiveraEmergency(
+                divera_id=4713,
+                divera_number="fwo-sms-bbbbbbbbbbbb",
+                title="Nachalarm",
+                received_at=datetime(2026, 3, 1, 14, 20, tzinfo=UTC),
+                is_taken=True,
+                taken_incident_id=inc.id,
+            ),
+        ]
+    )
+    await db_session.commit()
+
+    recs = (await client.get(f"/api/stats/incidents?t={TOKEN}")).json()
+    assert len(recs) == 1
+    # the first alarm's reference — the one whose slip was printed
+    assert recs[0]["alarm_ref"] == "fwo-sms-aaaaaaaaaaaa"
+
+
+async def test_an_untaken_pool_alarm_lends_its_reference_to_nobody(client, stats_secret, db_session):
+    from app.models import DiveraEmergency
+
+    db_session.add(_incident(title="Unabhängig", source="manual"))
+    db_session.add(DiveraEmergency(divera_id=9999, divera_number="fwo-sms-cccccccccccc", title="Im Pool"))
+    await db_session.commit()
+
+    rec = (await client.get(f"/api/stats/incidents?t={TOKEN}")).json()[0]
+    assert rec["alarm_ref"] is None
+
+
 # --- the confirmed/unconfirmed line ---------------------------------------------------
 
 
