@@ -258,6 +258,45 @@ belong in the plan library, not in the deployment.
 immediately – same index, same validation, same write path, so the button is the mechanism
 rather than a shortcut around it.
 
+## How you know it ran — and today, mostly you don't
+
+⚠️ **Known limitation, stated because a scheduled job that fails quietly is worse than one that
+never existed.**
+
+`pull_plans()` returns everything you would want:
+
+```python
+{"status": "disabled" | "unreachable" | "refused" | ok,
+ "updated": n, "unchanged": n, "skipped": n}
+```
+
+The scheduler discards it. It logs only when `updated` is non-zero and never inspects `status`
+at all, so:
+
+| What happened | What you can observe |
+| --- | --- |
+| Ran, nothing changed — **the normal case** | Nothing |
+| Bucket or index unreachable | A `WARNING` in the container log, and otherwise identical to the row above |
+| Index invalid, whole run refused | An `ERROR` in the container log |
+| Ran, plans updated | One `INFO` line |
+| Every plan skipped because no objects are loaded | A log line per plan, and a deployment that simply shows no plans |
+
+Nothing is persisted: there is no job-run record, no `last_pull_at`, no API field and no admin
+UI surface. **So the honest answer to "are my plans being loaded?" is: read the container
+logs** — and the healthy state is silent, which means a pull that quietly stopped working looks
+exactly like one that ran and found nothing new.
+
+Two things partly compensate, and neither is a substitute. The failure direction is safe by
+construction: a refused or unreachable run leaves the deployment exactly as it was, so yesterday's
+plan still opens. And the per-plan state *is* in the database if you go looking —
+`reference_datasets` carries `source_type = 'snapshot'`, the upstream `source_digest` and
+`updated_at` for every plan the pull wrote.
+
+Until this is fixed, a station that relies on the pull should treat it as **needing an external
+check** — the same treatment any unattended job deserves: assert that the newest
+`updated_at` among `source_type = 'snapshot'` rows is younger than a couple of pull intervals,
+and alert if it is not.
+
 ## Configurable module catalog (types · labels · parsing)
 
 The module set is **not hardcoded** – one config in `deployment_config.modules` declares each

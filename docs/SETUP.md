@@ -139,6 +139,14 @@ apart. The pull is the genuinely different one (`source_type = "snapshot"`); it 
 [`objektplaene-architecture.md`](objektplaene-architecture.md) and is the only option that
 removes the need for any other system to hold a credential for this one.
 
+⚠️ **The pull attaches plans to objects; it never creates them.** An Einsatzobjekt — the site,
+its name, address and coordinates — comes from `admin_objects` or the admin UI, always. The pull
+index carries an address but no name and no coordinates, so a plan whose `object_id` matches no
+object is **skipped, counted and logged**, and the run otherwise looks normal. Adopting the pull
+therefore changes *how often* you run `admin_objects`, not *whether* you need it: with no objects
+loaded, every plan in the bucket is skipped and the deployment shows none of them. Full rules in
+[`objektplaene-architecture.md`](objektplaene-architecture.md).
+
 ⚠️ **The pull covers object plans and nothing else.** There is one scheduled job, `plan_pull`, and
 it only ever writes `plan:<object>:<module>` datasets. **Geodata, checklists and the deployment
 config have no pull path at all** – for those it is the CLI or the admin UI, and a station that
