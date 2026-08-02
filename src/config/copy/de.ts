@@ -659,11 +659,13 @@ export const de = {
     locationSet: 'Standort gesetzt',
     noLocationOnMap: 'Kein Standort – auf Karte setzen',
     ok: 'Passt',
-    // VKF Schadenkategorien — mirrors the labels Divera derives server-side (see
+    // VKF Schadenkategorien — mirrors the labels the backend derives server-side (see
     // backend app/divera.py CATEGORY_LABELS). The keyword half below comes from
-    // backend/app/data/divera_keywords.json, the file kp-front and kp-rueck share;
+    // backend/app/data/alarm_keywords.json, the file kp-front and kp-rueck share;
     // copy.test.ts fails when this list and that file disagree, so "keep in sync"
-    // is now checked rather than remembered.
+    // is now checked rather than remembered. Note it mirrors the SHIPPED vocabulary:
+    // a station that sets its own `alarmKeywords` changes what the server classifies,
+    // not this list.
     kategorien: [
       'Brandbekämpfung',
       'Strassenrettung',

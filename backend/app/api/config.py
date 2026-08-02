@@ -25,7 +25,11 @@ Response contract (both GET and PUT return the SAME projection ``DeploymentConfi
                     "contactGraceSec": null, "defaultPressureBar": null,
                     "pressureStep": null, "pressureMax": null },
       "roster": { "source": "manual"|"divera"|null },
-      "integrations": { "diveraConfigured": bool, "traccarConfigured": bool }   # env-derived
+      "alarmKeywords": null | { … the deployment's own alarm vocabulary … },
+      "integrations": { "diveraConfigured": bool, "traccarConfigured": bool },  # env-derived
+      "alarmVocabulary": { "source": "shipped"|"deployment", "schemaVersion": int,
+                           "titleKeywords": int, "highPriorityKeywords": int,
+                           "fallbackCategory": str }                            # derived
     }
 
 Never exposes ``updated_by``, raw secrets, or API keys. On a fresh / empty / corrupt DB
@@ -38,21 +42,51 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..alarm_keywords import SHIPPED
 from ..auth.dependencies import CurrentAdmin, OptionalUser
 from ..database import get_db
 from ..i18n import set_locale
 from ..models import DeploymentConfig, User
 from ..providers import integrations
-from ..schemas import DeploymentConfigIn, DeploymentConfigOut
+from ..schemas import AlarmVocabularyStatus, DeploymentConfigIn, DeploymentConfigOut
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/config", tags=["config"])
 
 
+def _alarm_vocabulary(doc: DeploymentConfigIn) -> AlarmVocabularyStatus:
+    """Which alarm vocabulary this deployment classifies with, in five fields.
+
+    The full block is already in the document, but «are we on the shipped words or our own»
+    should not require reading 40 keywords to answer — least of all at 3am, when the question
+    is usually «why was that alarm not HIGH».
+    """
+    if doc.alarmKeywords is None:
+        return AlarmVocabularyStatus(
+            source="shipped",
+            schemaVersion=SHIPPED.schema_version,
+            titleKeywords=len(SHIPPED.keyword_to_category),
+            highPriorityKeywords=len(SHIPPED.high_priority_keywords),
+            fallbackCategory=SHIPPED.fallback_category,
+        )
+    block = doc.alarmKeywords
+    return AlarmVocabularyStatus(
+        source="deployment",
+        schemaVersion=block.schema_version,
+        titleKeywords=len(block.keyword_to_category.pairs),
+        highPriorityKeywords=sum(len(g.keywords) for g in block.high_priority_keywords.groups),
+        fallbackCategory=block.fallback_category,
+    )
+
+
 def _projection(doc: DeploymentConfigIn) -> DeploymentConfigOut:
     """Validated document + env-derived integration flags → the public projection."""
-    return DeploymentConfigOut(**doc.model_dump(), integrations=integrations())
+    return DeploymentConfigOut(
+        **doc.model_dump(),
+        integrations=integrations(),
+        alarmVocabulary=_alarm_vocabulary(doc),
+    )
 
 
 @router.get("", response_model=DeploymentConfigOut)
@@ -114,4 +148,9 @@ async def put_config(
     await db.flush()
     # Refresh the cached locale used for error-detail i18n.
     set_locale(body.identity.locale if body.identity else None)
+    # …and the cached alarm vocabulary, so a saved keyword list is live on the next alarm
+    # rather than up to a TTL later. Lazy import: divera pulls in the intake graph.
+    from ..divera import reset_vocabulary_cache
+
+    reset_vocabulary_cache()
     return _projection(body)

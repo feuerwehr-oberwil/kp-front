@@ -82,18 +82,22 @@ describe('admin picker registry', () => {
   })
 })
 
-describe('intake.kategorieGuess mirrors the shared Divera keyword file', () => {
+describe('intake.kategorieGuess mirrors the shared alarm keyword file', () => {
   // The wizard guesses a category client-side (EinsatzWizard.tsx) so the operator sees a
   // sensible default before the server answers. That means the keyword list exists TWICE in
-  // this repo — here, and in backend/app/data/divera_keywords.json, which is itself vendored
+  // this repo — here, and in backend/app/data/alarm_keywords.json, which is itself vendored
   // into kp-rueck. Its comment has said "keep in sync if that map changes" for a long time
   // and nothing ever checked. This is the check.
+  //
+  // It pins this list against the SHIPPED vocabulary, which is the default every deployment
+  // gets. A station that brings its own (`alarmKeywords` in the deployment config) replaces
+  // what the SERVER classifies with; this bundled guess is not per-station and never was.
   //
   // Read from disk rather than imported: the JSON belongs to the backend package and must not
   // become a frontend build input — that would be exactly the coupling the file avoids.
   const shared = JSON.parse(
     readFileSync(
-      new URL('../../../backend/app/data/divera_keywords.json', import.meta.url),
+      new URL('../../../backend/app/data/alarm_keywords.json', import.meta.url),
       'utf-8',
     ),
   ) as { keyword_to_category: { pairs: [string, string][] } }

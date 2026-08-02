@@ -1,21 +1,30 @@
-"""Divera 24/7 intake logic: keyword maps, alarm parsing, pool upsert.
+"""Divera 24/7 intake logic: alarm classification, alarm parsing, pool upsert.
 
-The keyword vocabulary is no longer a literal here. It lives in `data/divera_keywords.json`,
-vendored byte-for-byte into kp-rueck and pinned by checksum in both — the same mechanism as
-`app/telemetry/`, and for the same reason: the two products may not share a library
-(`RUNNING-BOTH.md`), so the copies stay copies and a test compares them. It used to be two
-hand-maintained tables that nobody compared, and they had already drifted.
+The keyword vocabulary is not a literal here. The shipped default lives in
+`data/alarm_keywords.json`, vendored byte-for-byte into kp-rueck and pinned by checksum in
+both — the same mechanism as `app/telemetry/`, and for the same reason: the two products may
+not share a library (`RUNNING-BOTH.md`), so the copies stay copies and a test compares them.
+It used to be two hand-maintained tables that nobody compared, and they had already drifted.
+A station whose alarm words differ replaces the whole vocabulary from its deployment config
+(`alarmKeywords`, docs/CONFIGURATION.md §1a) — see `active_vocabulary()` below.
 
 What stays local is what is genuinely ours: the German labels (kp-front carries `type` as a
 display string, not an enum) and the matcher. kp-rueck's matcher is not identical to this one
 — see the JSON's `known_matcher_divergence`.
+
+NOTE ON THIS MODULE'S NAME. `detect_type` / `infer_priority` and the vocabulary they read are
+NOT Divera-specific — the generic `POST /api/alarms` intake calls them too. They live here for
+history, not for a reason; only the HTTP client below is genuinely the Divera attachment.
+Moving the matcher out is a separate change, and a noisier one than it looks.
 
 Improvement over kp-rueck: an existing pool alarm whose `ts_update` advanced gets its fields
 refreshed.
 """
 
 import logging
+import time
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from urllib.parse import urlsplit
 
 import httpx
@@ -23,8 +32,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import audit
+from .alarm_keywords import SHIPPED, InvalidVocabularyError, Vocabulary, parse
 from .config import settings
-from .divera_keywords import FALLBACK_CATEGORY, HIGH_PRIORITY_KEYWORDS, KEYWORD_TO_CATEGORY
 from .models import DiveraEmergency, Incident
 from .push import notify_new_alarm
 from .schemas import DiveraWebhookPayload
@@ -61,15 +70,70 @@ def category_label(category: str) -> str:
     A category kp-rueck adds to the shared file before kp-front has a label for it must not
     stop this app from booting: it sits on the alarm intake path, and refusing to start is a
     far worse answer than filing one rare alarm under «Diverse Einsätze». The *loud* half of
-    that trade lives in tests/test_divera_keywords.py, which fails the build on exactly this
+    that trade lives in tests/test_alarm_keywords.py, which fails the build on exactly this
     condition — so the gap is caught before it ships, and survivable if it ever ships anyway.
+    A deployment's OWN vocabulary cannot reach here with an unlabelled category at all: config
+    validation rejects one that routes anywhere this map has no label for.
     """
-    return CATEGORY_LABELS.get(category) or CATEGORY_LABELS[FALLBACK_CATEGORY]
+    return CATEGORY_LABELS.get(category) or CATEGORY_LABELS[SHIPPED.fallback_category]
 
 
-# Title keyword → display label (order matters; first hit wins). Derived, not typed: the
-# keyword half comes from the shared file so it cannot drift from kp-rueck's copy unnoticed.
-TYPE_LABELS: dict[str, str] = {keyword: category_label(category) for keyword, category in KEYWORD_TO_CATEGORY}
+# How long the resolved vocabulary is reused before the config row is read again. Same TTL,
+# same reasoning as the geocoder bias (geocode._resolve_bias): an admin edit takes effect
+# within a minute without a restart, and an alarm storm doesn't re-query per alarm.
+_VOCAB_TTL_SECONDS = 60.0
+_vocab_cache: tuple[float, Vocabulary] | None = None
+
+
+def reset_vocabulary_cache() -> None:
+    """Forget the cached vocabulary — for tests and for anything that just wrote the config."""
+    global _vocab_cache
+    _vocab_cache = None
+
+
+async def active_vocabulary() -> Vocabulary:
+    """The vocabulary this deployment actually classifies with. Never raises.
+
+    `alarmKeywords` in the deployment config REPLACES the shipped default wholesale — no
+    per-keyword merging, because at 3am «which keywords are running» must have one answer in
+    one place (docs/CONFIGURATION.md §1a). Unset (the normal case) → the shipped file, and the
+    result is character-for-character what this app has always produced.
+
+    A stored block that no longer parses degrades to the shipped vocabulary with an ERROR in
+    the log rather than taking the alarm intake down. That is not a soft acceptance of bad
+    config: the loud half is at the door — `admin_config load` and `PUT /api/config` refuse an
+    invalid block outright — so reaching here means the row was edited around them.
+    """
+    global _vocab_cache
+    now = time.monotonic()
+    if _vocab_cache is not None and now - _vocab_cache[0] < _VOCAB_TTL_SECONDS:
+        return _vocab_cache[1]
+
+    vocab = SHIPPED
+    try:
+        # Imported lazily to avoid a circular import at module load and to keep this module
+        # importable in contexts without a configured DB.
+        from .database import async_session_maker
+        from .models import DeploymentConfig
+
+        async with async_session_maker() as db:
+            row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+        cfg: Any = (row.config_json or {}) if row else {}
+        block = cfg.get("alarmKeywords") if isinstance(cfg, dict) else None
+        if block:
+            try:
+                vocab = parse(block)
+            except InvalidVocabularyError as e:
+                logger.error(
+                    "deployment config alarmKeywords is invalid (%s) — classifying with the "
+                    "shipped vocabulary instead. Fix it with `python -m app.admin_config load`.",
+                    e,
+                )
+    except Exception as e:  # noqa: BLE001 — never let a config lookup break alarm intake
+        logger.warning("Alarm vocabulary config lookup failed; using the shipped default: %s", e)
+
+    _vocab_cache = (now, vocab)
+    return vocab
 
 
 def alarm_time(ts_create: int | None) -> datetime | None:
@@ -88,17 +152,23 @@ def alarm_time(ts_create: int | None) -> datetime | None:
         return None
 
 
-def detect_type(title: str) -> str:
+def detect_type(title: str, *, vocab: Vocabulary) -> str:
+    """German display label for an alarm title. First keyword found in the title wins.
+
+    `vocab` is required rather than defaulted: a call site that forgot to resolve it would
+    classify against the shipped words while the station runs its own, and nothing would say
+    so. `await active_vocabulary()` is the one way to get it.
+    """
     up = (title or "").upper()
-    for keyword, label in TYPE_LABELS.items():
+    for keyword, category in vocab.keyword_to_category:
         if keyword in up:
-            return label
-    return category_label(FALLBACK_CATEGORY)
+            return category_label(category)
+    return category_label(vocab.fallback_category)
 
 
-def infer_priority(title: str, text: str | None = None) -> str:
+def infer_priority(title: str, text: str | None = None, *, vocab: Vocabulary) -> str:
     combined = f"{title} {text or ''}".upper()
-    for keyword in HIGH_PRIORITY_KEYWORDS:
+    for keyword in vocab.high_priority_keywords:
         if keyword in combined:
             return "HIGH"
     return "LOW"
@@ -218,7 +288,7 @@ async def open_emergency(db: AsyncSession, em: DiveraEmergency) -> Incident:
         address=em.address,
         lat=float(em.lat) if em.lat is not None else None,
         lng=float(em.lng) if em.lng is not None else None,
-        priority=infer_priority(em.title, em.text),
+        priority=infer_priority(em.title, em.text, vocab=await active_vocabulary()),
         # The alarm's own time, not this moment: auto-open can trail the alarm by a poll
         # interval, and the pool row may have been waiting far longer than that. (#75)
         started_at=alarm_time(em.ts_create),

@@ -7,6 +7,6 @@ __pycache__/
 .ruff_cache/
 # Runtime object storage only — `media_storage_dir` defaults to backend/data/storage.
 # ANCHORED on purpose: an unanchored `data/` also swallowed backend/app/data/, which holds
-# checked-in package data (the shared Divera keyword vocabulary). That failed silently — the
+# checked-in package data (the shared alarm keyword vocabulary). That failed silently — the
 # file simply never appeared in `git status`.
 /data/
