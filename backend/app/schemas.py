@@ -33,6 +33,11 @@ class UserOut(BaseModel):
     last_login: datetime | None = None
     # frontend default for the Einsatzleiter view (see models.User.el_view_default)
     el_view_default: bool = False
+    # Present only on an incident-link session (auth/incident_link.py). The client reads
+    # these to hide every control that would 403, so a link holder never meets a dead
+    # button — a real account has neither attribute and both fall back to the defaults.
+    link_scoped: bool = False
+    link_incident_id: uuid.UUID | None = None
 
 
 # --- User administration (Slice 2 — Members & access) -------------------------------

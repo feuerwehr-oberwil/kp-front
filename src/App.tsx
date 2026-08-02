@@ -49,7 +49,7 @@ import { HelpOverlay } from './components/HelpOverlay'
 /** Einstellungen opened from the landing card (no incident): device prefs only. Owns the
  *  pref state itself (mounted only while open, reads/writes the prefs cookie directly);
  *  the synced per-incident section is hidden by omitting settings/onSettings. */
-function LandingSettings({ onClose, onFeedback }: { onClose: () => void; onFeedback: () => void }) {
+function LandingSettings({ onClose, onFeedback }: { onClose: () => void; onFeedback?: () => void }) {
   const { symbolSize, setSymbolSize, symbolCaptions, setSymbolCaptions, offlineRadiusM, setOfflineRadiusM, keepScreenOn, setKeepScreenOn } = useDevicePrefs()
   useEffect(() => {
     savePrefs({ ...loadPrefs(), symbolSize, symbolCaptions, offlineRadiusM, keepScreenOn })
@@ -75,10 +75,18 @@ function LandingSettings({ onClose, onFeedback }: { onClose: () => void; onFeedb
 export default function App() {
   const { user, logout } = useAuth()
   const isEditor = user?.role === 'editor'
+  // Einsatz-Link session (/l/<token>): a viewer narrowed to ONE incident. The backend answers
+  // 403 for everything outside a read allowlist — reports, printing, push, the incident LIST —
+  // so the rule here is the same as for `isEditor`: a link holder must never see a control
+  // that will fail. `linkIncidentId` is the incident the token names; the app opens it
+  // directly, because listing incidents is exactly what a link may not do.
+  const linkScoped = !!user?.link_scoped
+  const linkIncidentId = (linkScoped && user?.link_incident_id) || null
 
   // register this browser for server push once per session (no-op unless notification
   // permission is already granted AND the deployment has VAPID keys) — killed-app alarms.
-  useEffect(() => { void ensurePushSubscription() }, [])
+  // Never on a link session: /api/push/subscriptions writes rows tied to a user and 403s.
+  useEffect(() => { if (!linkScoped) void ensurePushSubscription() }, [linkScoped])
 
   const [incidents, setIncidents] = useState<IncidentMeta[] | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -119,7 +127,9 @@ export default function App() {
   const onWatchList = useCallback((list: IncidentMeta[]) => {
     setIncidents((prev) => (sameIncidentList(prev, list) ? prev : list))
   }, [])
-  const { fresh: freshIncident, dismiss: dismissFreshIncident } = useIncidentWatch(!!user, activeId, onWatchList)
+  // (off for a link session: the list endpoint isn't on its allowlist — it would leak every
+  // other Einsatz — so the watch would just 403 every 30 s)
+  const { fresh: freshIncident, dismiss: dismissFreshIncident } = useIncidentWatch(!!user && !linkScoped, activeId, onWatchList)
 
   // A tapped «Neuer Einsatz» push routes here (target 'divera'): re-poll the pool
   // immediately so the alarm is on screen (landing card / mid-incident banner) — not just
@@ -211,6 +221,15 @@ export default function App() {
   // from the WorkspaceSync cache — with an honest one-shot toast that the list is cached.
   useEffect(() => {
     void (async () => {
+      // Link session: there is exactly one incident and no list to pick from — fetch it by id
+      // and open it. (GET /api/incidents is not on the link allowlist, so listing here would
+      // 403 and land a responder on an empty launcher instead of the Einsatz they were sent.)
+      if (linkIncidentId) {
+        const inc = await getIncident(linkIncidentId).catch(() => null)
+        setIncidents(inc ? [inc as IncidentMeta] : [])
+        if (inc) await selectIncident(inc.id, { meta: inc as IncidentMeta }).catch(() => {})
+        return
+      }
       let { list, offline } = await listIncidentsResilient().catch(() => ({ list: [] as IncidentMeta[], offline: false }))
       if (list.length === 0 && !offline) {
         await migrateLegacyWorkspace([appConfig.storage.key, ...appConfig.storage.legacyKeys]).catch(() => null)
@@ -223,7 +242,7 @@ export default function App() {
       const pick = pickBootIncident(list, loadPrefs().incidentId)
       if (pick) await selectIncident(pick.id, { meta: pick }).catch(() => {})
     })()
-  }, [selectIncident])
+  }, [selectIncident, linkIncidentId])
 
   // An incident that has rendered for this long without throwing is healthy — forget the crash
   // streak so an unrelated crash weeks later starts from one, and the destructive recovery stays
@@ -478,7 +497,7 @@ export default function App() {
           <IconSprite />
           <div className="ip-emptyapp-card">
             <Brand className="ip-emptyapp-brand" sub={appConfig.copy.login.subtitle} />
-            {trouble && (
+            {trouble && !linkScoped && (
               <FeedbackPrompt
                 trouble={trouble}
                 onOpen={() => { setFeedbackFor(trouble); setTrouble(null) }}
@@ -522,8 +541,11 @@ export default function App() {
               </div>
             ) : (
               // archived Einsätze deliberately do NOT surface here (they live in the
-              // Verlauf, one tap below) — with nothing open the intro sentence is enough
-              <p className="ip-emptyapp-none">{isEditor ? appConfig.copy.emptyApp.bodyEditor : appConfig.copy.emptyApp.bodyViewer}</p>
+              // Verlauf, one tap below) — with nothing open the intro sentence is enough.
+              // A link session only ever lands here when ITS incident couldn't be fetched
+              // (signal lost between the link and the incident) — say that instead of an
+              // "eröffne einen Einsatz" it can't act on.
+              <p className="ip-emptyapp-none">{linkScoped ? appConfig.copy.incidentLink.unavailable : isEditor ? appConfig.copy.emptyApp.bodyEditor : appConfig.copy.emptyApp.bodyViewer}</p>
             )}
             <div className="ip-emptyapp-actions">
               {isEditor && (
@@ -531,9 +553,13 @@ export default function App() {
                   <Icon id="plus" />{appConfig.copy.intake.manualIncident}
                 </button>
               )}
-              <div className="ip-emptyapp-secondary">
-                <button className="ip-btn" onClick={() => setOverlay('history')}>{appConfig.copy.emptyApp.history}</button>
-              </div>
+              {/* Verlauf lists OTHER incidents — not on the link allowlist, and not this
+                  responder's business either */}
+              {!linkScoped && (
+                <div className="ip-emptyapp-secondary">
+                  <button className="ip-btn" onClick={() => setOverlay('history')}>{appConfig.copy.emptyApp.history}</button>
+                </div>
+              )}
             </div>
             {/* footer: who is signed in (same identity card as the in-incident menu) plus the
                 app-level utilities that exist without an incident — settings, help, install */}
@@ -544,7 +570,9 @@ export default function App() {
                   <span className="ip-menu-username">{user?.display_name ?? ''}</span>
                   <span className="ip-menu-userrole">{roleLabel(user?.role ?? 'viewer')}</span>
                 </span>
-                <button className="ip-foot-logout" onClick={() => void logout()}><Icon id="logout" />{appConfig.copy.incidentSwitcher.logout}</button>
+                {/* no Abmelden on a link session: there is no login to leave, /api/auth/logout
+                    is refused, and tapping it would strand a responder with no way back in */}
+                {!linkScoped && <button className="ip-foot-logout" onClick={() => void logout()}><Icon id="logout" />{appConfig.copy.incidentSwitcher.logout}</button>}
               </div>
               <div className="ip-emptyapp-utils">
                 <button className="ip-foot-util" onClick={() => setLandingSheet('settings')}><Icon id="gear" />{appConfig.copy.settings.title}</button>
@@ -559,7 +587,8 @@ export default function App() {
           {landingSheet === 'settings' && (
             <LandingSettings
               onClose={() => setLandingSheet(null)}
-              onFeedback={() => { setLandingSheet(null); setFeedbackFor('plain') }}
+              // Rückmeldung posts a diagnostic report — refused for a link session
+              onFeedback={linkScoped ? undefined : () => { setLandingSheet(null); setFeedbackFor('plain') }}
             />
           )}
           {landingSheet === 'help' && <HelpOverlay onClose={() => setLandingSheet(null)} />}

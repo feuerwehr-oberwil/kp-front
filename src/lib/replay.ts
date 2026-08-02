@@ -253,10 +253,13 @@ export function layoutTrack(
   ].sort((a, b) => a.fromMs - b.fromMs)
 
   const gapCount = pieces.filter((p) => p.kind === 'gap').length
-  // Breaks never take more than half the bar: with many short gaps the fixed slices would
-  // otherwise crowd out the very thing they exist to make room for.
-  const perGap = gapCount ? Math.min(gapFrac, 0.5 / gapCount) : 0
   const activeTotal = segments.reduce((n, s) => n + Math.max(0, s.toMs - s.fromMs), 0)
+  // With no activity segments there is nothing to make room FOR, so the breaks share the whole
+  // width instead of taking their fixed slice each. Without this the track renders a couple of
+  // stubs and leaves most of itself blank — a bar that is 86 % nothing.
+  const perGap = gapCount ? (segments.length ? Math.min(gapFrac, 0.5 / gapCount) : 1 / gapCount) : 0
+  // Breaks never take more than half the bar otherwise: with many short gaps the fixed slices
+  // would crowd out the very thing they exist to make room for.
   const activeFrac = 1 - perGap * gapCount
 
   const out: TrackPiece[] = []

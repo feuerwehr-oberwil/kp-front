@@ -371,6 +371,12 @@ class DeploymentConfig(Base):
     # Statistics-export token (read-only GET /api/stats/*, consumer e.g. fwo-stats).
     # Same rules as capture_secret: never in config_json, NULL = disabled (fail-closed).
     stats_secret: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Minting key for incident view links (app/auth/incident_link.py): the alerting system
+    # holds a copy and signs the link token it puts into an alert, offline. Deliberately NOT
+    # settings.SECRET_KEY — that one peppers PINs and mints admin sessions, so anyone holding
+    # it could issue themselves deployment-admin access. Same rules as the two above: never in
+    # config_json, NULL = disabled (fail-closed); rotating invalidates every link already sent.
+    incident_link_key: Mapped[str | None] = mapped_column(Text, nullable=True)
     # --- Telemetry (opt-in, see app/telemetry/) --------------------------------------
     # Consent for the BACKGROUND channel only: 'off' (or NULL) | 'errors'. NULL is the
     # column default and the value every existing and every fresh install starts at, which

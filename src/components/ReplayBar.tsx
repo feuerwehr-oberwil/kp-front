@@ -95,7 +95,17 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit }
     [moments, bundle],
   )
   const segments = useMemo(() => (bundle ? segmentsFromGaps(gaps, bundle.startMs, bundle.endMs) : []), [gaps, bundle])
-  const pieces = useMemo(() => layoutTrack(segments, gaps, GAP_FRAC), [segments, gaps])
+  // The segmented layout only earns its keep when there is at least one stretch of activity to
+  // give the room to. An incident with a single recorded moment in two days produces gaps and no
+  // segments, and laying THAT out means a bar made entirely of breaks — nothing to scrub, nothing
+  // to read. Fall back to one plain linear rail, which is at least a usable scrubber.
+  const pieces = useMemo(() => (
+    bundle && segments.length
+      ? layoutTrack(segments, gaps, GAP_FRAC)
+      : bundle
+        ? layoutTrack([{ fromMs: bundle.startMs, toMs: bundle.endMs }], [], GAP_FRAC)
+        : []
+  ), [segments, gaps, bundle])
   const alarmMs = useMemo(() => new Date(startedAt || 0).getTime(), [startedAt])
 
   // Reconstruct + push state whenever the playhead (or bundle) changes. Folds locally —

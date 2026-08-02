@@ -386,6 +386,17 @@ describe('layoutTrack', () => {
     const last = pieces[pieces.length - 1]
     expect(last.leftFrac + last.widthFrac).toBeCloseTo(1)
   })
+
+  it('fills the width with the breaks when there are no segments at all', () => {
+    // Regression: an incident with a single recorded moment in two days yields gaps and no
+    // segments. Giving each gap its fixed slice then drew two stubs and left ~86 % of the bar
+    // blank — nothing to scrub and nothing to read.
+    const pieces = layoutTrack([], [{ fromMs: 0, toMs: 400 }, { fromMs: 600, toMs: 1000 }], 0.07)
+    const total = pieces.reduce((n, p) => n + p.widthFrac, 0)
+    expect(total).toBeCloseTo(1)
+    const last = pieces[pieces.length - 1]
+    expect(last.leftFrac + last.widthFrac).toBeCloseTo(1)
+  })
 })
 
 describe('timeAtFraction / fractionAtTime', () => {

@@ -27,12 +27,13 @@ interface Props {
   onToggleJournal: () => void
   /** count of open Wiedervorlagen — shown as a small badge on the Verlauf button */
   reminderCount?: number
-  /** quick tap on "Eintrag" — open the composer */
-  onAddEntry: () => void
+  /** quick tap on "Eintrag" — open the composer. Omitted hides the button entirely: a
+      session that may not write the Verlauf (an Einsatz-Link) must not be offered it. */
+  onAddEntry?: () => void
   /** press-and-hold "Eintrag" — start recording a voice memo (latches on release) */
-  onHoldStart: () => void
+  onHoldStart?: () => void
   /** tap the recording button — stop + save the voice memo */
-  onHoldEnd: () => void
+  onHoldEnd?: () => void
   /** replaces the static incident title/address (e.g. the incident switcher) */
   titleSlot?: React.ReactNode
   /** global undo/redo — re-homed here from the old left Rail so both surfaces reach it */
@@ -91,8 +92,16 @@ export function TopBar({ incident, startedAt, recording, recStartedAt, journalOp
   const pickClock = (m: ClockMode) => { setClockMode(m); savePrefs({ ...loadPrefs(), clockMode: m }) }
   const clockText = startedAt ? clockValue(clockMode) : ''
 
-  // Eintrag gesture (shared with the mobile FAB so they behave identically).
-  const { pressing, handlers } = useHoldEntry({ recording, onTap: onAddEntry, onHoldStart, onHoldStop: onHoldEnd })
+  // Eintrag gesture (shared with the mobile FAB so they behave identically). The hook runs
+  // unconditionally — hooks can't be skipped — but with the button unrendered nothing ever
+  // reaches these handlers, so the no-op fallbacks are only there to satisfy the signature.
+  const noop = () => {}
+  const { pressing, handlers } = useHoldEntry({
+    recording,
+    onTap: onAddEntry ?? noop,
+    onHoldStart: onHoldStart ?? noop,
+    onHoldStop: onHoldEnd ?? noop,
+  })
 
   return (
     <div className="topbar">
@@ -157,16 +166,18 @@ export function TopBar({ incident, startedAt, recording, recStartedAt, journalOp
           <Icon id="history" /><span>{appConfig.copy.journal.open}</span>
           {reminderCount > 0 && <span className="tb-rem-count" aria-label={appConfig.copy.journal.openCount.replace('{n}', String(reminderCount))}>{reminderCount}</span>}
         </button>
-        <button
-          className={`tb-act tb-act-add ${recording ? 'rec' : ''}`}
-          title={recording ? appConfig.copy.journal.recordStop : appConfig.copy.journal.addHint}
-          {...handlers}
-        >
-          {pressing && !recording && <span className="tb-hold" />}
-          {recording
-            ? <><span className="tb-stop" /><span>{fmtMMSS(recSec)}</span></>
-            : <><Icon id="plus" /><span>{appConfig.copy.journal.add}</span></>}
-        </button>
+        {onAddEntry && (
+          <button
+            className={`tb-act tb-act-add ${recording ? 'rec' : ''}`}
+            title={recording ? appConfig.copy.journal.recordStop : appConfig.copy.journal.addHint}
+            {...handlers}
+          >
+            {pressing && !recording && <span className="tb-hold" />}
+            {recording
+              ? <><span className="tb-stop" /><span>{fmtMMSS(recSec)}</span></>
+              : <><Icon id="plus" /><span>{appConfig.copy.journal.add}</span></>}
+          </button>
+        )}
         {hasWind && <WeatherBadge weather={weather!} onOpenMeteo={onOpenWeather} bearing={bearing} />}
         {/* GPS-Feed-Chip. Die Fahrzeuge bleiben absichtlich auf der Karte, wenn der Feed
             stirbt — sie verschwinden zu lassen läse sich als «abgerückt» statt als «Feed

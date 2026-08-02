@@ -6,6 +6,7 @@ the SPA), so there is no CORS config and cookies are SameSite=Lax.
 
 import os
 import secrets
+from datetime import timedelta
 
 from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -100,6 +101,14 @@ class Settings(BaseSettings):
     # long-lived poster token gets throttled. Never permanent (refills by itself).
     capture_rate_burst: int = 120
     capture_rate_per_minute: int = 120
+
+    # --- Incident view links (logged-out read-only session; app/auth/incident_link.py) ---
+    # Lifetime of the SESSION cookie minted in exchange for a link token. A backstop only:
+    # the real rule is "valid until the incident is closed", which is enforced per request
+    # against the incident itself — this just bounds a tab left open after that, and bounds
+    # the damage if a phone with a live session is lost. The station's MINTING key is not a
+    # setting: it lives on the deployment_config row (incident_link_key), admin-rotatable.
+    incident_link_session_ttl: timedelta = timedelta(hours=12)
 
     # --- Deployment-admin auth (separate from the incident editor role) ---
     # A shared secret unlocks the /admin UI and the admin-write API/CLI (config,

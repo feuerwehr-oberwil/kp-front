@@ -29,6 +29,22 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ## [Unreleased]
 
+### Added
+- **The alarm can now carry a link into the incident.** A responder on the way in has the alert
+  text and nothing else: the Lage the FU is building exists, but reaching it means being a user of
+  this app on a device the station handed out, which most of the people driving in are not. The
+  alerting system – any of them, the URL is composed by the sender, not requested from KP Front –
+  can now put a link in the alert that opens that one incident read-only on a personal phone: the
+  map, plans, hydrants, Personen and Verlauf a `viewer` sees, and nothing that writes, prints,
+  generates a PDF or calls a paid service. It is signed with a station key held by the alerting
+  system and deliberately not with the app's own `SECRET_KEY`, the reachable API is an allowlist
+  rather than a blocklist so routes added later are not granted by default, and closing the
+  Einsatz revokes every link to it on the spot. Opt-in and fail-closed – no key set, no
+  surface – and the new column is nullable, so the migration runs on boot with nothing for the
+  operator to do. The key is generated, rotated and switched off under Daten › Einsatz-Link in
+  the admin UI; rotating it invalidates every link already sent out, the way rotating the
+  Erfassungs-Poster token stops every printed poster at once.
+
 ## [0.4.0] – 2026-08-01
 
 Two threads. A review pass before publishing the repository more widely – every claim in the

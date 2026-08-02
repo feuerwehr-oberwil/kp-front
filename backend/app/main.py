@@ -17,10 +17,11 @@ logger = logging.getLogger(__name__)
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from .auth.incident_link import enforce_link_scope
 from .auth.router import router as auth_router
 from .auth.token_blocklist import token_blocklist
 from .config import settings
@@ -90,6 +91,11 @@ app = FastAPI(
     title=settings.project_name,
     version=settings.version,
     lifespan=lifespan,
+    # Incident-link containment, applied at the app level so it covers EVERY route —
+    # including ones added long after auth/incident_link.py was written. A per-router
+    # opt-in would make the safe case the one someone has to remember. No-ops unless the
+    # caller holds a link session. See auth/incident_link.py for why it is default-deny.
+    dependencies=[Depends(enforce_link_scope)],
     docs_url="/docs" if settings.api_docs_enabled else None,
     redoc_url="/redoc" if settings.api_docs_enabled else None,
     openapi_url="/openapi.json" if settings.api_docs_enabled else None,
@@ -236,6 +242,7 @@ def _register_optional_routers() -> None:
         ("app.api.divera", "router"),
         ("app.api.alarms", "router"),
         ("app.api.capture", "router"),
+        ("app.api.incident_link", "router"),
         ("app.api.personnel", "router"),
         ("app.api.traccar", "router"),
         ("app.api.weather", "router"),

@@ -18,6 +18,7 @@ import { MembersView } from './MembersView'
 import { RosterView } from './RosterView'
 import { CaptureAdminView } from './CaptureAdminView'
 import { StatsAdminView } from './StatsAdminView'
+import { IncidentLinkAdminView } from './IncidentLinkAdminView'
 import { AlarmProviderView, VehicleProviderView } from './DataView'
 import { SystemView } from './SystemView'
 import { BackupView } from './BackupView'
@@ -30,7 +31,7 @@ import { IncidentHistoryView } from './IncidentHistoryView'
 type SectionId =
   | 'identitaet' | 'doktrin' | 'journal' | 'fahrzeuge' | 'ebenen' | 'objektplaene'
   | 'mitglieder' | 'mannschaft' | 'erfassung'
-  | 'einsaetze' | 'divera' | 'traccar' | 'statistik'
+  | 'einsaetze' | 'divera' | 'traccar' | 'statistik' | 'einsatzlink'
   | 'system' | 'sicherung'
 
 // Nav copy (label/title/lede/[tip]) lives in appConfig.copy.admin.nav.<id>; entries carry
@@ -73,6 +74,7 @@ const NAV: NavGroup[] = [
       { id: 'divera', icon: 'radio' },
       { id: 'traccar', icon: 'truck' },
       { id: 'statistik', icon: 'gauge' },
+      { id: 'einsatzlink', icon: 'eye' },
     ],
   },
   {
@@ -124,6 +126,7 @@ function renderSection(id: SectionId, _navigate: (id: SectionId) => void) {
     case 'divera': return <AlarmProviderView />
     case 'traccar': return <VehicleProviderView />
     case 'statistik': return <StatsAdminView />
+    case 'einsatzlink': return <IncidentLinkAdminView />
     case 'system': return <SystemView />
     case 'sicherung': return <BackupView />
   }

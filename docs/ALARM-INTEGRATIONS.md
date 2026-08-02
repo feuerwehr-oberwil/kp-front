@@ -9,8 +9,9 @@ pagers). KP Front core stays printer- and vendor-agnostic; everything here is co
 ```
 alerting system ──POST /api/alarms──► KP Front ──alarms.webhooks──► your adapter (printer/bot/…)
       (or Divera webhook/poll)           │
-                                         └── auto-opens the incident; the Erfassungs-Poster
-                                             (/e/<token>) reaches it for captureWindowHours
+      │                                  └── auto-opens the incident; the Erfassungs-Poster
+      │                                      (/e/<token>) reaches it for captureWindowHours
+      └── puts /l/<token> in the alert ──► responder's phone: that one incident, read-only
 ```
 
 ## 1. Inbound: generic alarm intake – `POST /api/alarms`
@@ -177,10 +178,150 @@ no login. Trust model: access to the station = permission, like the clipboard it
 Rotate the token in the admin UI to invalidate every printed poster at once; delete it to
 turn the surface off (fail-closed).
 
+## 4. The Einsatz-Link (read-only link into one incident)
+
+The poster's sibling, for the people who are not at the Magazin: the alerting system puts a
+**URL into the alert it sends out**. A responder taps it on a personal phone and sees *that one
+incident* the way a `viewer` account sees it – Lage map, Pläne, Hydranten, Checklisten, Verlauf.
+No login, and nothing that writes, prints, costs money or leaves the building. Any alerting
+system can do this; Divera is only the common case.
+
+```
+alert text …  https://front.example.org/l/<token>
+                       │  responder taps it
+                       ▼
+       POST /api/incident-link/session  { token }   → sets the link_session cookie
+                       │
+                       ▼
+       the app opens on that incident, read-only
+```
+
+`/l/<token>` mirrors the poster's `/e/<token>`. The token is minted **by the alerting system,
+offline** – KP Front is never called to issue it. That is a requirement, not a convenience: the
+alerting system sits on the life-critical path and must not acquire a runtime dependency on this
+app being reachable.
+
+### Minting the token
+
+A JWT signed **HS256 with the station's `incident_link_key`**, naming the incident the way the
+sender already knows it:
+
+| Claim | Value |
+| --- | --- |
+| `type` | `"incident-link"` – nothing else is accepted, so a credential minted for another purpose can never become a link session |
+| `src` | the same `source` slug the sender uses for `POST /api/alarms` (`leitstelle`, `divera`, …) |
+| `ref` | the sender's own alarm id – the `source_id` from the intake, or the Divera alarm id |
+| `exp` | standard JWT expiry; checked on exchange |
+
+`src` + `ref` are exactly the pair the intake deduplicates on (`Incident.source` /
+`source_ref`), and that is what keeps this provider-neutral: **an alerting system never has to
+learn KP Front's incident UUIDs** – it links to the alarm it already sent. The flip side: the
+incident has to exist here by the time someone taps, so send the intake (§1) before or with the
+alert, not after. A link tapped ahead of its incident answers the same «nicht (mehr) verfügbar»
+as a closed one, and works on the next tap.
+
+```python
+# in the alerting system, at alarm time — no call to KP Front
+import jwt, time
+token = jwt.encode(
+    {"type": "incident-link", "src": "leitstelle", "ref": "E-2026-0815",
+     "exp": int(time.time()) + 12 * 3600},
+    INCIDENT_LINK_KEY, algorithm="HS256",
+)
+alert_text += f"\nLage: https://front.example.org/l/{token}"
+```
+
+### Two keys, deliberately
+
+| Key | Held by | Signs | Managed |
+| --- | --- | --- | --- |
+| `incident_link_key` | the station **and** its alerting system | the inbound link token | DB row, admin UI (read / rotate / delete) |
+| `SECRET_KEY` | KP Front alone – it never leaves the app | the resulting `link_session` cookie | env var, deploy time |
+
+The station key can do exactly one thing: ask for a link session. It is deliberately **not**
+`SECRET_KEY`, and that separation is the point – `SECRET_KEY` peppers every PIN and mints admin
+sessions, so an alerting system holding it could issue itself deployment-admin access without
+ever knowing `ADMIN_SECRET`.
+
+KP Front generates the key; the admin copies it into the alerting system (admin UI: Daten ›
+Einsatz-Link – enable/rotate/delete). Three admin endpoints
+(`ADMIN_SECRET` session, not the editor role – handing this key out grants read sessions on every
+incident the station will ever have): `GET /api/incident-link/secret` shows the current one,
+`POST /api/incident-link/secret/rotate` mints a fresh one, `DELETE /api/incident-link/secret`
+turns the surface off.
+
+**Fail-closed:** no `incident_link_key` configured → `POST /api/incident-link/session` answers
+`403` and there is no link surface at all. Minting the key is the opt-in – an upgrade adds the
+column as `NULL` and therefore changes nothing until a station acts. Rotating or deleting it
+invalidates every link already sent out, so a rotation and reconfiguring the alerting system are
+one operation, not two.
+
+### What the link reaches – and what it deliberately cannot do
+
+The reachable surface is an **allowlist**, not a blocklist. There are roughly 40 routes a
+`viewer` may call today; a blocklist would silently grant every route added after this control
+was written, and surviving future edits is the one thing it has to do.
+
+On the list – the incident itself (Stammdaten, workspace/Lage + Plan, Personen, Notizen,
+Verlauf, Ereignisse, Snapshot, Status), the station reference data without which the map is
+useless (Objekte und Objektpläne, Referenz-Layer wie Hydranten, Personal, Medien), the
+deployment config and branding, and two pieces of **live display data**: vehicle positions and
+trails, and weather. Those two are the only outbound calls allowed, and they are in on purpose –
+they carry no personal data, and leaving them out would make the link visibly poorer than the
+`viewer` account it is meant to mirror.
+
+Off the list, each for a stated reason:
+
+| Refused | Why |
+| --- | --- |
+| Einsatzrapport / Zeitplan **PDF** | generates a document carrying attendance and names |
+| Rapport / Zeitplan **print**, print-job cancel | makes the station's printer print, or kills someone else's job, from a forwarded URL |
+| Push subscriptions | writes rows tied to a user |
+| Geocoding, Overpass | billable third-party calls, and an open proxy |
+| `media/*/peaks`, `media/*/transcription` | `GET`s that are not reads – they write a file or mutate a job row |
+| Diagnostics report | enqueues outbound telemetry |
+| Everything that writes | a link is a read surface, full stop |
+
+**Scope is enforced twice.** Being allowlisted is not enough: a route that names an incident
+must name *the* incident the token was minted for, or a link to one Einsatz reads every other
+one. There is no incident list and no roster login behind a link.
+
+**Every refusal looks the same.** Inside a link session, every route that is not allowed is one
+`403` with one message – a link holder must not be able to tell "that route exists but you may
+not have it" from "no such route", because the difference is a map of the API drawn by probing.
+The exchange answers the same way: any unusable token is `401` (bad signature, wrong type,
+missing claims and expiry are all just "this link doesn't work"), and unknown, closed and
+archived incidents are one `404`, so a link cannot be used to find out which Einsätze the
+station has.
+
+A **real login always wins**: if the person tapping the link is also a logged-in user, the
+access cookie takes precedence and a stale link cookie can never narrow what they may do.
+`GET /api/auth/me` reports `link_scoped` and `link_incident_id` for a link session, so the app
+can hide the controls that would 403 instead of showing dead buttons.
+
+**Lifetime: until the Einsatz is closed, and at most 12 h.** The incident is re-checked on
+*every* request a link session makes, not only at exchange – so closing or archiving the Einsatz
+revokes every link to it immediately, on the phones that already have it open, with no admin
+action needed. `incident_link_session_ttl` (12 h by default) is only the backstop for the
+incident nobody ever closes. That is also why the key rotation above is for *revoking early*,
+not for routine hygiene.
+
+The one exemption is the SPA fallback route: the app shell keeps being served after the link
+dies, so a responder gets KP Front's own "nicht mehr verfügbar" screen instead of a bare JSON
+`403` where the HTML should be.
+
+Trust model: **the URL is the credential** – possession of the alert, the same authority as
+knowing the Einsatz happened at all. It travels to personal phones and can be forwarded, so read
+it as "everyone who receives the alert may see this Einsatz until it is closed", including the
+station roster, who is on the Einsatz and what the Verlauf says. Weigh that where a station's
+data-protection notes live ([`PRIVACY.md`](../PRIVACY.md)); if it does not hold for a
+deployment, leave `incident_link_key` unset and the surface does not exist.
+
 ## Security notes
 
-- All three secrets are independent and fail-closed: `ALARM_WEBHOOK_SECRET` (inbound),
-  the poster token (capture), `ADMIN_SECRET` (administration).
+- All four secrets are independent and fail-closed: `ALARM_WEBHOOK_SECRET` (inbound),
+  the poster token (capture), `incident_link_key` (Einsatz-Link), `ADMIN_SECRET`
+  (administration).
 - Outbound webhook URLs are admin-set config, pinned to `http(s)`; the payload contains the
   capture URL (a capability) – point webhooks only at receivers you trust.
 - The capture surface reaches unarchived incidents without a completed Rapport at **any**
@@ -189,3 +330,13 @@ turn the surface off (fail-closed).
   are key-scoped to `attendance`, `mittel` and `reportMeta` (`CAPTURE_WORKSPACE_KEYS` in
   `backend/app/api/capture.py`): the tactical map is neither readable nor writable with a
   poster token, and a capture save merges over the server's copy so it cannot clobber it.
+- A link token exposes **one incident, read-only, for as long as that incident is open**: map,
+  Pläne, Referenz-Layer, Personen, Verlauf and the live vehicle/weather display — what a
+  `viewer` sees on screen, and nothing that writes, prints, generates a PDF or calls a paid
+  service. The reachable routes are an allowlist (`LINK_ALLOWED` in
+  `backend/app/auth/incident_link.py`), and every one of them that names an incident is
+  additionally checked against the token's own incident, so a link to one Einsatz cannot read
+  another. It lasts **until the Einsatz is closed, and at most 12 h**: the incident's state is
+  re-checked on every request, so closing or archiving it revokes the link on phones that
+  already have it open, and `incident_link_session_ttl` is only the backstop for an Einsatz
+  nobody closes. Rotating `incident_link_key` invalidates every outstanding link at once.

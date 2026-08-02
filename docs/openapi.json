@@ -3831,6 +3831,202 @@
         }
       }
     },
+    "/api/incident-link/secret": {
+      "get": {
+        "tags": [
+          "incident-link"
+        ],
+        "summary": "Get Link Key",
+        "operationId": "get_link_key_api_incident_link_secret_get",
+        "parameters": [
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Link Key Api Incident Link Secret Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "incident-link"
+        ],
+        "summary": "Disable Link",
+        "operationId": "disable_link_api_incident_link_secret_delete",
+        "parameters": [
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Disable Link Api Incident Link Secret Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incident-link/secret/rotate": {
+      "post": {
+        "tags": [
+          "incident-link"
+        ],
+        "summary": "Rotate Link Key",
+        "description": "Mint a fresh minting key — every link already sent out stops working at once, so the\nalerting system has to be reconfigured with the new one in the same breath.",
+        "operationId": "rotate_link_key_api_incident_link_secret_rotate_post",
+        "parameters": [
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Rotate Link Key Api Incident Link Secret Rotate Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incident-link/session": {
+      "post": {
+        "tags": [
+          "incident-link"
+        ],
+        "summary": "Open Link Session",
+        "description": "Trade a link token minted by the alerting system for a link-session cookie.\n\nThe token names its incident the way the alerting system knows it — `src`/`ref`, which\nmirror `Incident.source` / `Incident.source_ref`, the same pair the intake deduplicates\non. That is what keeps this provider-neutral: nothing here knows what Divera is, and an\nalerting system never has to learn our incident UUIDs to link to one.",
+        "operationId": "open_link_session_api_incident_link_session_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkTokenIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Open Link Session Api Incident Link Session Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/personnel": {
       "get": {
         "tags": [
@@ -10251,6 +10447,19 @@
         ],
         "title": "JournalPage"
       },
+      "LinkTokenIn": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "title": "LinkTokenIn"
+      },
       "LoginRequest": {
         "properties": {
           "user_id": {
@@ -12411,6 +12620,23 @@
             "type": "boolean",
             "title": "El View Default",
             "default": false
+          },
+          "link_scoped": {
+            "type": "boolean",
+            "title": "Link Scoped",
+            "default": false
+          },
+          "link_incident_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link Incident Id"
           }
         },
         "type": "object",

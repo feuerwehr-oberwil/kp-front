@@ -27,12 +27,17 @@ export function IncidentSwitcher({
   lastSyncedAt: number | null
   user: { display_name: string; color: string | null; role: string }
   /** open the Einstellungen sheet (device prefs + synced incident settings) */
-  onSettings: () => void
+  /** Omitted hides the Einstellungen row — an Einsatz-Link has no device or incident
+      settings to change, and every write behind them is refused anyway. */
+  onSettings?: () => void
   onSwitch: (i: IncidentMeta) => void
-  onHistory: () => void
+  /** «Alle Einsätze» — absent for an Einsatz-Link session, which may only ever see its own */
+  onHistory?: () => void
   onDivera: () => void
   onDatenquellen: () => void
-  onReportPrint: () => void
+  /** Einsatzrapport (PDF / Drucken) — absent for an Einsatz-Link session, which may not
+   *  generate documents or reach the station printer */
+  onReportPrint?: () => void
   /** archive the ACTIVE incident (behind the caller's «wirklich abschliessen?» confirm);
    *  absent for viewers / read-only views / an already-archived incident */
   onArchive?: () => void
@@ -42,7 +47,8 @@ export function IncidentSwitcher({
   onOfflineReadiness: () => void
   /** push edits queued while offline (also auto-fires on reconnect) */
   onSyncNow: () => void
-  onLogout: () => void
+  /** absent for an Einsatz-Link session — there is no login to leave and no way back in */
+  onLogout?: () => void
   /** changes whenever the app navigates to another surface — closes a menu that was left
    *  open under a sheet (e.g. Rapport → Anwesenheit must not land back in the menu) */
   navKey?: string
@@ -97,6 +103,8 @@ export function IncidentSwitcher({
     : syncStatus === 'error' || syncStatus === 'storage'
       ? <Icon id="warn" />
       : <span className="ip-status-dot" />
+  const otherIncidents = incidents.filter((i) => i.id !== active?.id)
+  const showIncidents = otherIncidents.length > 0 || isEditor || !!onHistory || (incidents.length === 0 && !active)
   return (
     <div className="ip-switch" ref={ref}>
       <button className="ip-switch-btn" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
@@ -166,7 +174,7 @@ export function IncidentSwitcher({
               </div>
               {/* Einsatzdaten editing lives inside the Einsatzrapport (its "Bearbeiten" link),
                   not as a second menu entry — see ReportPreflight. */}
-              <button className="ip-menu-act" onClick={() => openSheet(onReportPrint)}><Icon id="doc" /> {cp.report}</button>
+              {onReportPrint && <button className="ip-menu-act" onClick={() => openSheet(onReportPrint)}><Icon id="doc" /> {cp.report}</button>}
               {/* Einsatzobjekt row — shows WHICH object's plans are loaded and opens the
                   PlanPicker (replaces the old NavRail footer swap item, 2026-07-14) */}
               {onObjectSwitch && (
@@ -185,23 +193,32 @@ export function IncidentSwitcher({
               <div className="ip-menu-sep" />
             </>
           )}
-          <div className="ip-menu-label">{cp.incidents}</div>
-          {incidents.length === 0 && !active && <div className="ip-menu-empty">{cp.noOpenIncidents}</div>}
-          {incidents.filter((i) => i.id !== active?.id).map((i) => (
-            <div key={i.id} className="ip-menu-row">
-              <button className="ip-menu-rowmain" onClick={() => { onSwitch(i); setOpen(false) }}>
-                <span className="ip-menu-title">
-                  {i.title}
-                  {i.is_exercise && <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>}
-                </span>
-                <span className="ip-menu-sub">{shortAddress(i.address) ?? i.status}</span>
-              </button>
-            </div>
-          ))}
-          {isEditor && <button className="ip-menu-act" onClick={() => { onDivera(); setOpen(false) }}><Icon id="plus" /> {appConfig.copy.intake.titleNew}</button>}
-          <button className="ip-menu-act" onClick={() => openSheet(onHistory)}><Icon id="history" /> {cp.allIncidents}</button>
-          <div className="ip-menu-sep" />
-          <button className="ip-menu-act" onClick={() => openSheet(onSettings)}><Icon id="gear" /> {appConfig.copy.settings.title}</button>
+          {/* The Einsätze group is about moving BETWEEN Einsätze. When nothing in it can
+              render — no other incident, no «Neuer Einsatz», no «Alle Einsätze» — the label
+              would head an empty list, which is what an Einsatz-Link sees: it is bound to
+              one Einsatz and switching is neither offered nor permitted. Derived rather
+              than passed, so the menu never has to know why the rows are missing. */}
+          {showIncidents && (
+            <>
+              <div className="ip-menu-label">{cp.incidents}</div>
+              {incidents.length === 0 && !active && <div className="ip-menu-empty">{cp.noOpenIncidents}</div>}
+              {otherIncidents.map((i) => (
+                <div key={i.id} className="ip-menu-row">
+                  <button className="ip-menu-rowmain" onClick={() => { onSwitch(i); setOpen(false) }}>
+                    <span className="ip-menu-title">
+                      {i.title}
+                      {i.is_exercise && <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>}
+                    </span>
+                    <span className="ip-menu-sub">{shortAddress(i.address) ?? i.status}</span>
+                  </button>
+                </div>
+              ))}
+              {isEditor && <button className="ip-menu-act" onClick={() => { onDivera(); setOpen(false) }}><Icon id="plus" /> {appConfig.copy.intake.titleNew}</button>}
+              {onHistory && <button className="ip-menu-act" onClick={() => openSheet(onHistory)}><Icon id="history" /> {cp.allIncidents}</button>}
+              <div className="ip-menu-sep" />
+            </>
+          )}
+          {onSettings && <button className="ip-menu-act" onClick={() => openSheet(onSettings)}><Icon id="gear" /> {appConfig.copy.settings.title}</button>}
           {active && <button className="ip-menu-act" onClick={() => openSheet(onOfflineReadiness)}><Icon id="snapshot" /> {appConfig.copy.offline.title}</button>}
           <button className="ip-menu-act" onClick={() => openSheet(onHelp)}><Icon id="info" /> {appConfig.copy.help.menu}</button>
           {onInstall && <button className="ip-menu-act" onClick={() => openSheet(onInstall)}><Icon id="share-ios" /> {appConfig.copy.install.menu}</button>}
@@ -212,7 +229,7 @@ export function IncidentSwitcher({
               <span className="ip-menu-username">{user.display_name}</span>
               <span className="ip-menu-userrole">{roleLabel(user.role)}</span>
             </span>
-            <button className="ip-menu-logout" onClick={() => { onLogout(); setOpen(false) }}><Icon id="logout" /> {cp.logout}</button>
+            {onLogout && <button className="ip-menu-logout" onClick={() => { onLogout(); setOpen(false) }}><Icon id="logout" /> {cp.logout}</button>}
           </div>
           <div className="ip-menu-foot">
             {/* No manual "check for updates" — a fresh deploy surfaces itself via the automatic

@@ -6,6 +6,7 @@ from fastapi import Response
 from jose import JWTError
 
 from ..config import settings
+from .incident_link import LINK_COOKIE
 from .security import decode_token
 from .token_blocklist import token_blocklist
 
@@ -46,6 +47,12 @@ def set_admin_cookie(response: Response, token: str) -> None:
 
 def clear_admin_cookie(response: Response) -> None:
     response.delete_cookie(ADMIN_COOKIE, path="/")
+
+
+def set_link_cookie(response: Response, token: str) -> None:
+    """The logged-out incident-link session (app/auth/incident_link.py) — same flags as every
+    other session cookie here; only its lifetime differs."""
+    _set_session_cookie(response, LINK_COOKIE, token, int(settings.incident_link_session_ttl.total_seconds()))
 
 
 async def revoke_token(token: str | None) -> None:
