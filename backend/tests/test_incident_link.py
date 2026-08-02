@@ -363,6 +363,46 @@ async def test_admin_rotate_invalidates_links_already_sent_out(client, admin_log
     assert r.status_code == 403  # fail-closed again
 
 
+async def test_a_link_works_on_a_browser_that_also_has_an_admin_session(client, admin_login, link_key, incident):
+    """The operator's own browser. They unlock /admin to set the key up, then tap a link to
+    see what a responder sees — on the same browser, so both cookies are present.
+
+    Two things have to hold at once, and they pull in opposite directions. The link must
+    still resolve an identity: an admin cookie authorises the admin surface but resolves to
+    NO user, so treating it as a session leaves the link holder with nothing and every read
+    401s. And the admin surface must stay reachable: gating it behind the link's allowlist
+    would lock the operator out of /admin — including the key rotation that is their remedy
+    if a link goes somewhere it shouldn't."""
+    await admin_login(client)
+    assert (await client.post("/api/incident-link/session", json={"token": _mint()})).status_code == 200
+
+    # the link still reads, with the admin cookie sitting alongside it
+    me = await client.get("/api/auth/me")
+    assert me.status_code == 200, me.text
+    assert me.json()["link_scoped"] is True
+    assert (await client.get(f"/api/incidents/{incident.id}")).status_code == 200
+
+    # …and /admin is not narrowed by the link cookie
+    assert (await client.get("/api/incident-link/secret")).status_code == 200
+    assert (await client.get("/api/personnel")).status_code == 200
+    _forget_link(client)
+
+
+async def test_a_garbage_admin_cookie_does_not_lift_the_allowlist(client, link_key, incident):
+    """The admin bypass above is granted on a VALIDATED session, never on a cookie merely
+    being present — otherwise any link holder appends `admin_session=x` and walks past the
+    allowlist into the report and print routes."""
+    await _open_link(client)
+    client.cookies.set("admin_session", "not-a-real-token")
+
+    denied = await client.post(f"/api/incidents/{incident.id}/report/pdf")
+    assert denied.status_code == 403, denied.text
+    assert denied.json()["detail"] == DENIED_DETAIL
+    # and the real admin surface stays shut
+    assert (await client.get("/api/incident-link/secret")).status_code in (401, 403)
+    _forget_link(client)
+
+
 async def test_a_dead_session_can_still_redeem_the_next_link(client, db_session, link_key, incident):
     """The trap this pins: the exchange is the recovery path, so it must not be gated on the
     liveness of the cookie it is about to replace.

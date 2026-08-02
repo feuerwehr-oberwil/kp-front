@@ -175,19 +175,17 @@ _INCIDENT_PARAMS = ("incident_id",)
 def read_link_session(request: Request) -> dict | None:
     """The link session's claims, or None when this request isn't one.
 
-    A real credential always wins: when an access or admin cookie is present, a leftover
-    link cookie must not narrow what its holder can do. Without this, one tap on a link
-    locks that phone out of both signing in and the /admin surface until someone clears
-    cookies — and the operator who most wants to rotate the key is exactly the person who
-    just tapped a link to see why it worried them.
-
-    Standing aside here cannot grant anything: it only drops the link session's own
-    privileges. A forged admin cookie gets the caller past this line and is then rejected by
-    ``get_current_admin``, leaving them with less access than the link alone, never more.
+    This answers *who the caller is*, not *what they may reach* — the second question is
+    ``enforce_link_scope``'s, and conflating them broke the feature on the one browser that
+    matters most. Only a real user session wins here, because only that is an identity
+    ``get_current_user`` can resolve. An admin cookie is deliberately NOT consulted: admin
+    endpoints authorise on the secret and resolve to no user at all, so treating one as an
+    identity leaves a link holder with none — every read 401s, on the operator's own
+    browser, for as long as their admin session lasts.
     """
-    from .cookies import ACCESS_COOKIE, ADMIN_COOKIE
+    from .cookies import ACCESS_COOKIE
 
-    if request.cookies.get(ACCESS_COOKIE) or request.cookies.get(ADMIN_COOKIE):
+    if request.cookies.get(ACCESS_COOKIE):
         return None
     raw = request.cookies.get(LINK_COOKIE)
     if not raw:
@@ -276,6 +274,20 @@ async def enforce_link_scope(request: Request, db: AsyncSession = Depends(get_db
     """
     claims = read_link_session(request)
     if claims is None:
+        return
+
+    # A live admin session must not be narrowed by a leftover link cookie: the operator who
+    # taps a link to see what responders see would otherwise be locked out of /admin on that
+    # browser, including the key rotation that is their remedy. Validated, never merely
+    # present — skipping the allowlist on an unverified cookie would let anyone holding a
+    # link and a scrap of garbage walk straight past it. Someone with a real admin session
+    # already outranks every route this guard protects.
+    # Both imported lazily: `cookies` imports LINK_COOKIE from this module, and
+    # `dependencies` imports read_link_session, so either at module level is a cycle.
+    from .cookies import ADMIN_COOKIE
+    from .dependencies import _admin_session_valid
+
+    if await _admin_session_valid(request.cookies.get(ADMIN_COOKIE)):
         return
 
     path = _effective_path(request)
