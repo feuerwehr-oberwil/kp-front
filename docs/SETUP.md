@@ -120,6 +120,69 @@ there is no fallback to another station's data. Each has a CLI keyed off `KP_ADM
 from, starting from the synthetic Musterdorf example. Its **Definition of ready** section is the
 checklist for this step.
 
+### There are two doors, and one of them is not what it looks like
+
+The CLIs above are not an alternative to "the JSON files" – **the manifest is what the CLI
+reads**. There is no bulk import that is not a manifest, and no manifest that loads itself. What
+actually differs is where the command runs and where the bytes end up:
+
+| | What it does | When it suits you |
+| --- | --- | --- |
+| `admin_* load <manifest>` | Writes **this machine's** database and storage directory. | You are on the server, or loading a local dev database. |
+| `admin_* push <manifest>` | Uploads through a **running deployment's** API, so the server writes its own volume. | Refreshing a remote station from your workstation. |
+| **Admin UI upload** | One file at a time, in the browser. | The baseline. A station can run its whole life this way and never touch a CLI. |
+| **Scheduled pull** | The deployment fetches from an **S3-compatible bucket** on a timer. | You already publish a plan library somewhere and would rather not hand anyone your `KP_ADMIN_SECRET`. |
+
+The first three are the same door – all three write `source_type = "uploaded"` through one code
+path, deliberately, so both the CLI and the browser mint the same dataset id and cannot drift
+apart. The pull is the genuinely different one (`source_type = "snapshot"`); it is described in
+[`objektplaene-architecture.md`](objektplaene-architecture.md) and is the only option that
+removes the need for any other system to hold a credential for this one.
+
+**You do not have to pick one and stay there.** Both doors write the same rows, so a station can
+upload by hand for a year and switch to a pull later without re-identifying anything.
+
+### Where the files actually live
+
+Manifests carry **metadata**; the bytes travel separately and always land in **your** deployment's
+storage – a directory on its own volume ([`app/storage.py`](../backend/app/storage.py)), served
+back through `/api/reference/<id>`. That holds even for the scheduled pull: it downloads into
+local storage and the bucket is never touched while an incident is running. A bucket is a
+*source*, not a runtime dependency, and losing access to it costs you tomorrow's update, not
+today's Einsatz.
+
+| What you load | Bytes stored? |
+| --- | --- |
+| Object plan PDFs | Yes – one blob per `plan:<object>:<module>` |
+| GeoJSON layers (hydrants, cadastre) | Yes |
+| Checklist templates, and their per-page images | Yes |
+| **WMS layers (cantonal services)** | **No.** The manifest holds a tile URL template and the browser fetches tiles directly – no storage, nothing to re-import when the canton updates. |
+
+So budget disk for plans and GeoJSON, and nothing for WMS. If you are unsure how much, the plan
+PDFs dominate and you already have them on disk – `du -sh` the folder your manifest points at. (The
+*pull* index additionally records each plan's `size` and `sha256`, which is what lets a scheduled
+run skip everything that has not changed; the manifest the CLI reads carries neither.)
+
+### Nobody has to build a pipeline
+
+Feuerwehr Oberwil regenerates its manifests nightly from a plan library and publishes them to a
+bucket. **That pipeline is not part of this product and you do not inherit it.** The generator
+lives in Oberwil's own private station-data repository, because every station's plan library is
+shaped differently – theirs happens to be OneDrive, and `admin_objects` knows nothing about that
+by design.
+
+What you get is the **contract and the doors**: `admin_objects schema` prints the manifest's JSON
+Schema, `admin_objects example` prints a filled-in one you can edit. Writing a generator is
+optional and most stations will not need one – four PDFs uploaded by hand once a year is a
+complete and supported answer.
+
+### What this section is *not* about
+
+Roster and incidents are a different axis and are handled in §5. `roster.source` decides where
+**people** come from (`divera`, or `manual` for CSV plus hand entry); alarms arrive by webhook,
+poller, or `POST /api/alarms` from anything at all. None of that touches the objects, plans,
+geodata or checklists above, so an integration is never a substitute for this step.
+
 ## 5. Connect what you have (all optional)
 
 Every integration is fail-closed: no credential means the feature is off, not broken. Add them to
