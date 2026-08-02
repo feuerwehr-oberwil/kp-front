@@ -139,6 +139,7 @@ One JSON document, stored as the single `deployment_config` row, returned by `GE
   },
 
   "alarmKeywords": null,                         // the station's OWN alarm vocabulary – see §1a.
+                                                 // admin sessions only; withheld from anonymous GET.
                                                   // null / omitted (normal) = the vocabulary shipped
                                                   // in backend/app/data/alarm_keywords.json
 
@@ -228,6 +229,19 @@ Two things this does **not** reach: the *matcher* (kp-front matches every keywor
 substring – the shipped file records where kp-rueck differs) and the German category **labels**,
 which are the app's, not the station's. And `alarmKeywords` is deployment data: unlike the
 shipped file it is never checksummed and never compared against kp-rueck.
+
+**Who can read it back.** `GET /api/config` is public – the login screen needs branding before
+anyone can log in – and `alarmKeywords` is the one section withheld from anonymous callers. The
+words are not secret (the shipped vocabulary is on GitHub), but nothing in the frontend reads
+them: matching is entirely server-side, so publishing a station's wording pre-login would be
+surface for nothing. An **admin session gets the full block**, which is not a detail: the admin
+UI does a full-document `PUT`, so a section the admin never received is a section the next
+unrelated edit would silently delete.
+
+What stays public either way is the `alarmVocabulary` **summary** – `source`
+(`shipped` | `deployment`), `schemaVersion` and counts, never the words – so "is my override
+live?" is answerable without a session. The CLI is unaffected: `admin_config` reads the
+database directly rather than through the API.
 
 ---
 

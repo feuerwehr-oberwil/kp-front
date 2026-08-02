@@ -692,8 +692,26 @@
           "config"
         ],
         "summary": "Get Config",
-        "description": "PUBLIC (no auth) — the login screen needs branding before login.\n\nLast-good fallback: if the persisted ``config_json`` is missing or fails validation\n(e.g. a hand-edited bad row), serve a safe empty config and log a warning. Never raises.",
+        "description": "PUBLIC (no auth) — the login screen needs branding before login.\n\nOne section is withheld from anonymous callers: ``alarmKeywords``. See ``_projection``.\nAn admin session gets the full document, because the admin UI round-trips it.\n\nLast-good fallback: if the persisted ``config_json`` is missing or fails validation\n(e.g. a hand-edited bad row), serve a safe empty config and log a warning. Never raises.",
         "operationId": "get_config_api_config_get",
+        "parameters": [
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -701,6 +719,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DeploymentConfigOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
