@@ -3,6 +3,7 @@
 import json
 
 import anyio
+import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy import select
@@ -12,6 +13,7 @@ from .. import storage
 from ..auth.dependencies import CurrentAdmin, CurrentUser, OptionalUser, UserOrAdmin
 from ..database import get_db
 from ..models import ReferenceDataset
+from ..plans import TooLargeError, plans_pull_enabled, pull_one_plan
 from ..schemas import ReferenceDatasetOut
 
 router = APIRouter(prefix="/reference", tags=["reference"])
@@ -227,10 +229,28 @@ async def prune_checklists(keep: list[str], _admin: CurrentAdmin, db: AsyncSessi
 
 @router.post("/{dataset_id}/fetch")
 async def fetch_reference(dataset_id: str, _admin: CurrentAdmin, db: AsyncSession = Depends(get_db)) -> dict:
-    """Trigger an auto-fetch (SharePoint/Graph sync) — designed-for-later, not wired yet."""
+    """Fetch this dataset from its configured source, now, instead of waiting for the schedule.
+
+    Live for `plan:<obj>:<module>` when a snapshot store is configured (`PLANS_S3_*`): it reads
+    the same index and takes the same write path as the scheduled pull, so the button is the
+    mechanism rather than a shortcut around it. Everything else still answers 501 — no other
+    dataset kind has an auto-fetch source yet.
+    """
+    if dataset_id.startswith("plan:") and plans_pull_enabled():
+        try:
+            result = await pull_one_plan(db, dataset_id)
+        except ValueError as e:  # malformed index — refuse, exactly like the scheduled run
+            raise HTTPException(status_code=502, detail=f"Objektplan-Index unbrauchbar: {e}") from e
+        except (httpx.HTTPError, TooLargeError) as e:
+            raise HTTPException(status_code=502, detail=f"Objektplan-Speicher nicht erreichbar: {e}") from e
+        if result["status"] == "absent":
+            raise HTTPException(status_code=404, detail="Dieser Plan steht nicht im Objektplan-Index")
+        if result["status"] == "unknown_object":
+            raise HTTPException(status_code=409, detail="Zu diesem Plan gibt es kein Einsatzobjekt")
+        return result
     ds = (await db.execute(select(ReferenceDataset).where(ReferenceDataset.id == dataset_id))).scalar_one_or_none()
     if ds is None:
         raise HTTPException(status_code=404, detail="Datensatz nicht gefunden")
     if not ds.fetch_url:
         raise HTTPException(status_code=501, detail="Kein Auto-Fetch konfiguriert (manueller Upload)")
-    raise HTTPException(status_code=501, detail="Auto-Fetch (SharePoint/Graph) ist noch nicht aktiv")
+    raise HTTPException(status_code=501, detail="Auto-Fetch für diesen Datensatz ist nicht aktiv")

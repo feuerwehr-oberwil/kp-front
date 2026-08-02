@@ -5480,7 +5480,7 @@
           "reference"
         ],
         "summary": "Fetch Reference",
-        "description": "Trigger an auto-fetch (SharePoint/Graph sync) — designed-for-later, not wired yet.",
+        "description": "Fetch this dataset from its configured source, now, instead of waiting for the schedule.\n\nLive for `plan:<obj>:<module>` when a snapshot store is configured (`PLANS_S3_*`): it reads\nthe same index and takes the same write path as the scheduled pull, so the button is the\nmechanism rather than a shortcut around it. Everything else still answers 501 — no other\ndataset kind has an auto-fetch source yet.",
         "operationId": "fetch_reference_api_reference__dataset_id__fetch_post",
         "parameters": [
           {

@@ -114,6 +114,17 @@ services:
       STT_API_KEY: ${STT_API_KEY:-}
       STT_MODEL: ${STT_MODEL:-whisper-large-v3-turbo}
       STT_LANGUAGE: ${STT_LANGUAGE:-de}
+      # Objektplan-Pull: fetch Modul-PDFs from an S3-compatible snapshot store instead of
+      # having them pushed in. Any provider (MinIO, B2, a hosted bucket, AWS); a read-only
+      # key is enough. Blank endpoint = no pull job is scheduled (fail-closed).
+      PLANS_S3_ENDPOINT: ${PLANS_S3_ENDPOINT:-}
+      PLANS_S3_BUCKET: ${PLANS_S3_BUCKET:-}
+      PLANS_S3_PREFIX: ${PLANS_S3_PREFIX:-}
+      PLANS_S3_REGION: ${PLANS_S3_REGION:-us-east-1}
+      PLANS_S3_ACCESS_KEY_ID: ${PLANS_S3_ACCESS_KEY_ID:-}
+      PLANS_S3_SECRET_ACCESS_KEY: ${PLANS_S3_SECRET_ACCESS_KEY:-}
+      # (Numeric default here on purpose: an empty value would break int parsing.)
+      PLANS_PULL_INTERVAL_MINUTES: ${PLANS_PULL_INTERVAL_MINUTES:-60}
       # Multipart upload cap in MB — keep above the media endpoint's 100 MB per-file cap.
       # (Numeric default here on purpose: an empty value would break int parsing.)
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-110}

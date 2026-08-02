@@ -65,8 +65,15 @@ def _link_guest(incident_id: str) -> User:
         color=None,
         last_login=None,
     )
-    guest.link_scoped = True  # read by /api/auth/me so the client can hide what would 403
-    guest.link_incident_id = incident_id
+    # Attached to the instance, deliberately not declared on the model: they exist only
+    # on this transient principal, and a `Mapped[...]` column would put two columns on
+    # every real user row to describe a session that has no row at all. `UserOut` reads
+    # them by attribute and falls back to its own defaults for a real user, where they
+    # are simply absent. SQLAlchemy 2.0 rejects non-`Mapped` annotations on a declarative
+    # class (MappedAnnotationError), so there is no way to declare them for the type
+    # checker either — hence the narrow ignores rather than a model change.
+    guest.link_scoped = True  # type: ignore[attr-defined]  # read by /api/auth/me
+    guest.link_incident_id = incident_id  # type: ignore[attr-defined]
     return guest
 
 

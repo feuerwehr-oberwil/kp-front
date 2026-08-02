@@ -339,6 +339,11 @@ class ReferenceDataset(Base):
     current_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     fetch_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     fetch_interval: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Checksum the SOURCE declared for the bytes currently stored here (sha256 hex, lowercase).
+    # Set by the snapshot pull (app/plans.py) so a scheduled run can tell "unchanged" from
+    # "changed" without downloading anything. NULL for hand-uploaded datasets — the upload path
+    # has no upstream checksum to record, and NULL simply means "compare nothing, fetch it".
+    source_digest: Mapped[str | None] = mapped_column(String(64), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

@@ -343,10 +343,26 @@ Set at deploy time; never editable from the UI, never in the repo.
 > and nothing exists, which is also what every existing deployment gets from the migration.
 > Rotation or deletion invalidates every link already sent out and requires reconfiguring the
 > alerting system. Trust model and reachable surface: `docs/ALARM-INTEGRATIONS.md` §4. |
+
+> **Objektplan-Pull (fetch Modul-PDFs instead of having them pushed in):** a station whose plan
+> library is maintained elsewhere can publish it to an **S3-compatible bucket** and let the
+> deployment fetch from there on a schedule, instead of giving that system an `ADMIN_SECRET` –
+> a credential for the entire admin API – so it can push. The bucket holds
+> `plans/index.json` (object id, module, filename, size, **sha256**, address – metadata, never
+> bytes) and `plans/<object-id>/<module>.pdf`; only a checksum that actually changed is
+> downloaded, and it lands as the same `plan:<obj>:<module>` dataset a manual upload writes.
+> Any S3-compatible store works – MinIO, Backblaze B2, a hosted bucket, AWS – and a **read-only**
+> key is enough; nothing about a provider is built into the app. `PLANS_S3_PREFIX` is optional,
+> `PLANS_S3_REGION` is whatever your provider's docs say verbatim. Existing plans are **never
+> deleted** by a pull, and a malformed or incomplete index refuses the whole run rather than
+> ingesting half of it. Fail-closed: no endpoint/bucket/key/secret → no job is scheduled, nothing
+> is fetched, and plans stay exactly as they were loaded. Index format and the reasoning:
+> `docs/objektplaene-architecture.md`. |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Web Push for killed-app alarms + new-alarm push (generate once: `cd backend && uv run python -m app.gen_vapid`; empty = push disabled, fail-closed) |
 | `PRINT_AGENT_SECRET` | station print relay: «An Stationsdrucker» queues the Einsatzrapport-PDF for an on-site agent (any always-on box with a CUPS queue). The agent now serves KP Front *and* KP Rück from one install – see [`tools/PRINT-AGENT.md`](../tools/PRINT-AGENT.md); the endpoint contract below is unchanged. Empty = agent endpoints 403 and the button never renders, fail-closed. |
 | `TRACCAR_URL`, `TRACCAR_EMAIL`, `TRACCAR_PASSWORD` | if `traccarEnabled` |
 | `STT_BASE_URL`, `STT_API_KEY`, `STT_MODEL`, `STT_LANGUAGE` | speech-to-text for the audio player's Transkribieren (OpenAI-compatible `/v1/audio/transcriptions`; base URL without `/v1` – Groq: `https://api.groq.com/openai`, OpenAI: `https://api.openai.com`, or a self-hosted faster-whisper server). Empty base URL = off, fail-closed. **Audio is sent to that server** – prefer self-hosted for sensitive deployments. |
+| `PLANS_S3_ENDPOINT`, `PLANS_S3_BUCKET`, `PLANS_S3_PREFIX`, `PLANS_S3_REGION`, `PLANS_S3_ACCESS_KEY_ID`, `PLANS_S3_SECRET_ACCESS_KEY`, `PLANS_PULL_INTERVAL_MINUTES` | Objektplan-Pull – see the Objektplan-Pull callout in this section (empty endpoint = no pull, fail-closed) |
 | `MAX_UPLOAD_MB` | request-body cap for multipart uploads (default 110 – must stay above the media endpoint's 100 MB per-file cap) |
 | `GEOCODER_URL` | address-autocomplete endpoint (default the swisstopo SearchServer – see the caveat below) |
 | `SEED_DATABASE`, `DEV_CREATE_ALL` | dev seeding / auto-create tables (prod uses Alembic) |

@@ -30,6 +30,25 @@ so this file – not the log – is the record of what shipped up to that point.
 ## [Unreleased]
 
 ### Added
+- **Objektpläne can now be fetched by the deployment instead of pushed into it.** Keeping a plan
+  library current meant handing the system that maintains it this deployment's `ADMIN_SECRET` –
+  the key to the entire admin API, config, branding and user accounts included – so that a nightly
+  job could upload PDFs. The credential outlived the task, sat in someone else's environment, and
+  could not be revoked without revoking the operator's own admin access. A station can now point
+  the deployment at an **S3-compatible bucket** its plan library publishes to, and it fetches for
+  itself with a read-only key nobody else holds: `plans/index.json` states each plan's object,
+  module, size and **sha256** – metadata, never bytes – so a run over an unchanged library is one
+  small request and only a checksum that actually moved is downloaded. What arrives goes through
+  the very same code path a manual upload takes, so both doors write the same
+  `plan:<obj>:<module>` dataset and there is no second set of rules to drift. A malformed or
+  incomplete index refuses the whole run rather than ingesting half of it, a plan that vanishes
+  from an index is never deleted, and the upload size cap holds for the pull too. Provider-neutral
+  by construction – endpoint, bucket, prefix, region and keys are all environment, so MinIO, a
+  hosted bucket or anything else S3-compatible works. Opt-in and fail-closed: no store configured,
+  no job scheduled, nothing changed – and the existing push path keeps working exactly as before,
+  so a station can run both while it gains confidence. Details in
+  `docs/objektplaene-architecture.md`; the new column is nullable, so the migration runs on boot
+  with nothing for the operator to do.
 - **The alarm can now carry a link into the incident.** A responder on the way in has the alert
   text and nothing else: the Lage the FU is building exists, but reaching it means being a user of
   this app on a device the station handed out, which most of the people driving in are not. The

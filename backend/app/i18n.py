@@ -29,10 +29,10 @@ DETAIL_TRANSLATIONS: dict[str, dict[str, str]] = {
         "fr": "Alarme absente du pool",
         "it": "Allarme non presente nel pool",
     },
-    "Auto-Fetch (SharePoint/Graph) ist noch nicht aktiv": {
-        "en": "Auto-fetch (SharePoint/Graph) is not active yet",
-        "fr": "La récupération automatique (SharePoint/Graph) n'est pas encore active",
-        "it": "Il recupero automatico (SharePoint/Graph) non è ancora attivo",
+    "Auto-Fetch für diesen Datensatz ist nicht aktiv": {
+        "en": "Auto-fetch is not active for this dataset",
+        "fr": "La récupération automatique n'est pas active pour ce jeu de données",
+        "it": "Il recupero automatico non è attivo per questo set di dati",
     },
     "Benutzer inaktiv": {
         "en": "User inactive",

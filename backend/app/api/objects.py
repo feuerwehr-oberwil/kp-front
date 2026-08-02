@@ -8,11 +8,11 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .. import storage
 from ..auth.dependencies import CurrentAdmin, CurrentUser, OptionalUser, UserOrAdmin
 from ..database import get_db
 from ..geo_util import haversine_m
 from ..models import Incident, ObjectSite, ReferenceDataset
+from ..plans import store_plan
 from ..schemas import ObjectIn, ObjectOut, ObjectWithPlans, ReferenceDatasetOut
 
 router = APIRouter(prefix="/objects", tags=["objects"])
@@ -140,27 +140,19 @@ async def upload_plan(
     if content_type not in _ALLOWED_PLAN_TYPES:
         raise HTTPException(status_code=415, detail=f"Plan muss ein PDF sein (erhalten: {content_type!r})")
 
-    ds_id = f"plan:{object_id}:{module}"
-    ds = (await db.execute(select(ReferenceDataset).where(ReferenceDataset.id == ds_id))).scalar_one_or_none()
-    data = await file.read()
-    key = storage.new_key(f"plans/{object_id}", f"-{module}.pdf")
-    storage.put_bytes(key, data)
-
-    if ds is None:
-        ds = ReferenceDataset(id=ds_id, object_id=object_id, module=module, kind="pdf")
-        db.add(ds)
-    else:
-        ds.current_version += 1
-    ds.title = title or ds.title or f"{o.name} – {module}"
-    ds.source_note = source_note if source_note is not None else ds.source_note
-    ds.source_type = "uploaded"
-    ds.storage_key = key
-    ds.content_type = content_type
-    ds.size_bytes = len(data)
-    ds.updated_by = actor.id if actor else None
-    await db.flush()
-    await db.refresh(ds)
-    return ds
+    # The plan write itself lives in app/plans.py, because it is not only this endpoint's:
+    # the snapshot pull writes the same datasets, and the id rule, storage key and version
+    # bump have to be decided once for both doors (see that module's docstring).
+    return await store_plan(
+        db,
+        o,
+        module,
+        await file.read(),
+        content_type=content_type,
+        title=title,
+        source_note=source_note,
+        actor_id=actor.id if actor else None,
+    )
 
 
 # Auto-surface the nearest object's plans on an incident.

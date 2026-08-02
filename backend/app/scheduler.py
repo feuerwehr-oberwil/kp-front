@@ -61,6 +61,20 @@ async def _auto_archive_sweep() -> None:
             logger.exception("Auto-archive sweep failed")
 
 
+async def _plan_pull() -> None:
+    from .plans import pull_plans
+
+    async with async_session_maker() as db:
+        try:
+            res = await pull_plans(db)
+            await db.commit()
+            if res.get("updated"):
+                logger.info("Objektplan-Pull: %s plan(s) updated", res["updated"])
+        except Exception:
+            await db.rollback()
+            logger.exception("Objektplan-Pull failed")
+
+
 PRINT_JOB_RETENTION_DAYS = 7  # the paper is the artefact — the queue is transient
 PRINT_JOB_SWEEP_SECONDS = 3600
 
@@ -135,6 +149,7 @@ async def _telemetry_flush() -> None:
 
 async def start_scheduler(app: FastAPI) -> None:
     global _scheduler
+    from .plans import plans_pull_enabled
     from .push import push_enabled
 
     jobs: list[str] = []
@@ -163,6 +178,18 @@ async def start_scheduler(app: FastAPI) -> None:
         jobs.append(f"push sweep ({settings.push_check_seconds}s)")
     else:
         logger.info("Web push disabled (no VAPID keys)")
+    if plans_pull_enabled():
+        _scheduler.add_job(
+            _plan_pull,
+            "interval",
+            minutes=max(1, settings.plans_pull_interval_minutes),
+            id="plan_pull",
+            max_instances=1,
+            coalesce=True,
+        )
+        jobs.append(f"Objektplan-Pull ({settings.plans_pull_interval_minutes}min)")
+    else:
+        logger.info("Objektplan-Pull disabled (no PLANS_S3_* store configured)")
     if settings.print_agent_secret:
         _scheduler.add_job(
             _print_jobs_sweep,

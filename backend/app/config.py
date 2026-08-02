@@ -159,6 +159,26 @@ class Settings(BaseSettings):
     max_upload_mb: int = 110  # multipart file uploads (media, plans, reference data)
     max_json_body_mb: int = 8  # JSON bodies (workspace blob, details, etc.)
 
+    # --- Objektplan-Pull (optional: fetch Modul-PDFs from a snapshot store) ---
+    # The deployment PULLS its object plans from an S3-compatible bucket instead of having
+    # them pushed in with the deployment ADMIN_SECRET, so the system that maintains the plan
+    # library never holds a credential for this one. Any S3-compatible store works (MinIO,
+    # Backblaze B2, a hosted bucket, AWS itself) — endpoint, bucket and prefix are all env,
+    # nothing about a provider is compiled in. Path-style addressing (`<endpoint>/<bucket>/<key>`),
+    # which every S3-compatible implementation accepts. Read-only credentials are enough.
+    # Fail-closed: any of endpoint/bucket/key/secret empty → no job is scheduled and the
+    # pull never runs. See app/plans.py and docs/objektplaene-architecture.md.
+    plans_s3_endpoint: str = ""  # e.g. https://s3.example.org (scheme + host, no bucket)
+    plans_s3_bucket: str = ""
+    plans_s3_prefix: str = ""  # optional key prefix inside the bucket, e.g. "kp-front/"
+    # Signing region. S3-compatible services differ: some want a real region, some a fixed
+    # literal, some ignore it. Whatever your provider documents goes here verbatim.
+    plans_s3_region: str = "us-east-1"
+    plans_s3_access_key_id: str = ""
+    plans_s3_secret_access_key: str = ""
+    # How often to re-read the index. Cheap: one small GET unless a checksum actually changed.
+    plans_pull_interval_minutes: int = 60
+
     # --- Divera (Phase 3) ---
     divera_access_key: str = ""
     # Optional second accesskey used ONLY for the personnel/Mannschaft pull. It must belong to a

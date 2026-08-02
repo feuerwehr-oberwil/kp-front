@@ -77,7 +77,9 @@ the manifest with authoritative ones from the FireGIS amtliche Vermessung regist
 
 Every path writes the same three things – an `ObjectSite` row, a `ReferenceDataset` per Modul
 (`plan:<obj>:<module>`), and the PDF blob in object storage. The deterministic `uuid5` keys
-everything, so reruns upsert in place rather than duplicating.
+everything, so reruns upsert in place rather than duplicating. (A third way in – the deployment
+fetching plans for itself, «Pull» below – writes through the same function, not a second copy of
+these rules.)
 
 ```mermaid
 flowchart TD
@@ -159,8 +161,102 @@ Objektpläne change as the brigade updates its Einsatzplan library. To refresh a
 3. **`admin_objects push`** (or `just push-objects` in the data repo) to upload the updated set to
    the live deployment via its API.
 
-There is no live remote `pull` (the source is OneDrive on a workstation, not a server-reachable
-URL) – refresh is import-on-workstation → push-to-prod, mirroring geodata's `just push`.
+That is refresh by **push**: import-on-workstation → push-to-prod, mirroring geodata's `just
+push`. A deployment whose plan library is maintained by another system can also **pull** –
+next section.
+
+## Pull – fetch plans instead of being pushed them
+
+**The problem with push.** Everything above needs the deployment's `ADMIN_SECRET` at the far
+end. That secret unlocks the *entire* admin API – config, branding, users, geodata, objects –
+so a nightly job whose only business is uploading PDFs ends up holding a credential for
+everything. For a person at a workstation that is a fair trade. For a permanently running
+system somewhere else it is not: the credential outlives the task, it lives in that system's
+environment, and revoking it means revoking the operator's own admin access too.
+
+**Inverted:** the plan library publishes to an **S3-compatible bucket**, and the deployment
+reads it on a schedule with a **read-only key of its own**. Nothing outside the deployment
+holds a credential for it. Any S3-compatible store works – MinIO, Backblaze B2, a hosted
+bucket, AWS – because endpoint, bucket, prefix, region and keys are all environment
+(`PLANS_S3_*`, [`CONFIGURATION.md`](CONFIGURATION.md) §6) and path-style addressing is all the
+app assumes. Nothing about a provider is in the code.
+
+```mermaid
+flowchart LR
+  subgraph PUB["publisher (private, per station)"]
+    LIB["plan library"] --> UP["publish: PDFs + index"]
+  end
+  subgraph BKT["S3-compatible bucket (any provider)"]
+    IDX["plans/index.json<br/>id · module · filename · size · sha256 · address"]
+    PDF["plans/&lt;object-id&gt;/&lt;module&gt;.pdf"]
+  end
+  subgraph DEP["deployment"]
+    JOB["scheduler job<br/>(PLANS_PULL_INTERVAL_MINUTES)"]
+    SP["store_plan()<br/>the shared write path"]
+    RDS[("reference_datasets<br/>plan:&lt;obj&gt;:&lt;module&gt;")]
+    STORE[("object storage")]
+  end
+  UP --> IDX
+  UP --> PDF
+  IDX -->|"read every run"| JOB
+  JOB -->|"only changed sha256"| PDF
+  JOB --> SP --> RDS
+  SP --> STORE
+```
+
+### What the bucket must contain
+
+```text
+plans/index.json                  metadata for every plan — never bytes
+plans/<object-id>/<module>.pdf    the PDF itself
+```
+
+```json
+{
+  "generated_at": "2026-08-02T05:00:00Z",
+  "plans": [
+    {
+      "object_id": "3f2a…-…-…",
+      "module": "modul1",
+      "filename": "modul1.pdf",
+      "size": 4812345,
+      "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "address_full": "Musterstrasse 1, 4104 Musterdorf"
+    }
+  ]
+}
+```
+
+`object_id` is the **Einsatzobjekt's id in this deployment** – the same deterministic `uuid5`
+the manifest and `admin_objects` use – because that is what makes the dataset id
+`plan:<obj>:<module>` come out identical whichever door the plan arrives through. `module` is a
+slug from the module catalog (`modul1`, `modul5-wasser`, …). `address_full` is not used to match
+anything; it is there so a log line about a skipped plan names an object a human recognises.
+
+### The rules the pull holds itself to
+
+| Rule | Why |
+| --- | --- |
+| **One write path.** The pull calls the same `store_plan()` (`backend/app/plans.py`) as `PUT /api/objects/{id}/plans/{module}`. | Two doors, one ID rule. A second copy of "what is this dataset called" is how the two ends drift apart. |
+| **The checksum decides.** A plan whose `sha256` matches what is stored is not downloaded at all. | A run over an unchanged library is one small GET. |
+| **A bad index refuses the whole run.** Malformed JSON, a missing checksum, a duplicate entry – nothing is touched. | Ingesting the good half of a broken publish produces a half-current plan library, which is the failure nobody sees until 3am. |
+| **Nothing is ever deleted.** A plan that disappears from the index stays. | The likeliest reason a plan vanishes from an index is a broken publish, not a decision. Removing a plan stays a deliberate act. |
+| **The upload cap applies** (`MAX_UPLOAD_MB`), checked against the index *and* the bytes arriving. | A plan the admin UI would have rejected must not enter through the back door; a lying index must not be able to fill the disk. |
+| **Only PDFs, only matching bytes.** The download must hash to what the index promised and start with `%PDF-`, or it is skipped and the existing plan kept. | An error page served with HTTP 200 is a real failure mode of object stores behind proxies. |
+| **Objects are not invented.** A plan for an unknown `object_id` is skipped and logged. | The index carries an address, not a name or coordinates; objects come from the object path. |
+
+**Fail-closed:** with no `PLANS_S3_ENDPOINT` / bucket / key / secret the job is never scheduled
+and none of this code runs – the deployment behaves exactly as it did before, and the push path
+is untouched. Turning the pull on does not turn the push off; both write the same datasets, so a
+station can run the two side by side while it gains confidence, then stop pushing.
+
+**The store wins.** A plan the bucket also publishes is a plan the pull maintains: hand-upload a
+correction in the admin UI and the next run replaces it with the bucket's version. Corrections
+belong in the plan library, not in the deployment.
+
+**On demand:** `POST /api/reference/plan:<obj>:<module>/fetch` (admin) pulls a single plan
+immediately – same index, same validation, same write path, so the button is the mechanism
+rather than a shortcut around it.
 
 ## Configurable module catalog (types · labels · parsing)
 
