@@ -157,6 +157,25 @@ def _iso(dt: datetime | None) -> str | None:
     return dt.isoformat() if dt else None
 
 
+def _alarmiert_at(inc: Incident, rm: dict) -> str | None:
+    """The effective Alarmierungszeit, or null when this record does not know one.
+
+    Precedence mirrors every other surface (ReportPreflight, the Rapport-PDF, the capture
+    app): an explicit ``reportMeta.alarmiertAt`` first, else ``started_at`` — which is the
+    Alarmierungszeit column. The export used to read only the override, so it published null
+    on every incident whose alarm time was never hand-edited, i.e. nearly all of them.
+
+    The one thing it must NOT do is fall back to a ``started_at`` that nobody set: on those
+    rows the column still holds the insert time, and handing that to a join keyed on alarm
+    time produces confident nonsense. No provenance → null, and ``started_at`` plus
+    ``started_at_source`` are right there for a consumer that wants to see the raw value.
+    """
+    override = rm.get("alarmiertAt")
+    if override:
+        return override
+    return _iso(inc.started_at) if inc.started_at_source else None
+
+
 def _record(inc: Incident) -> dict:
     ws = inc.map_workspace_json if isinstance(inc.map_workspace_json, dict) else {}
     # Bind before the isinstance so the narrowing sticks (and so reportMeta is looked up once).
@@ -165,6 +184,13 @@ def _record(inc: Incident) -> dict:
     return {
         "id": str(inc.id),
         "started_at": _iso(inc.started_at),
+        # Where started_at came from: 'alarm' | 'manual' | null. NULL says the value is the
+        # record-open time — the incident is real, one column just isn't an alarm time.
+        "started_at_source": inc.started_at_source,
+        # When the record was opened in the app. Kept as its own field so «how long after the
+        # alarm did somebody reach the tablet» stays measurable instead of being smuggled
+        # into started_at, which is what it used to be.
+        "created_at": _iso(inc.created_at),
         "closed_at": _iso(inc.closed_at),
         "title": inc.title,
         "text": inc.text,
@@ -179,7 +205,7 @@ def _record(inc: Incident) -> dict:
         "rapport": _rapport_state(inc.report_done_at, inc.updated_at),
         "report_done_at": _iso(inc.report_done_at),
         # reportMeta slices (ISO strings maintained by the app; passed through verbatim)
-        "alarmiertAt": rm.get("alarmiertAt"),
+        "alarmiertAt": _alarmiert_at(inc, rm),
         "ausgeruecktAt": rm.get("ausgeruecktAt"),
         "endedAt": rm.get("endedAt"),
         "einsatzleiter": rm.get("einsatzleiter"),

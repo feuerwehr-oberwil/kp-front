@@ -133,6 +133,14 @@ async def take(
         status="offen",
         created_by=user.id,
     )
+    # Alarmierungszeit = the alarm's own stamp. A take happens whenever somebody reaches the
+    # tablet — the intake wizard hides the time field on this path precisely because it
+    # promises «Divera take keeps the alarm's own time» (EinsatzWizard.tsx). Without this it
+    # kept the INSERT time instead, and the Rapport printed the wrong Alarmierung.
+    alarmed = divera_svc.alarm_time(em.ts_create)
+    if alarmed:
+        inc.started_at = alarmed
+        inc.started_at_source = "alarm"
     db.add(inc)
     await db.flush()
 

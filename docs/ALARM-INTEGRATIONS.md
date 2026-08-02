@@ -25,6 +25,12 @@ for third parties, so it is not gated by `alarms.autoOpen`.
 - **Idempotent:** one incident per `(source, source_id)` – a retried delivery returns the
   existing incident (`200`, `"created": false`) instead of duplicating it.
 - `type`/`priority` fall back to the same keyword inference the Divera path uses.
+- **Send `started_at`** – the moment the alarm went out, not the moment you POST. It becomes
+  the incident's Alarmierungszeit, and it is what the Rapport prints and the statistics
+  export joins on. Omit it and the incident falls back to the time the request arrived, which
+  is recorded as having *unknown* provenance (`started_at_source: null` in the export) so no
+  downstream consumer mistakes your delivery time for an alarm time. The Divera integration
+  does the same thing with the alarm's own `ts_create`.
 - `source` is a short slug naming the upstream (`leitstelle`, `pager`, …). Reserved, and
   rejected with `422`: `divera`, `intake`, `manual`, `migrated`, `operator`, `training` — the
   union with KP Rück's list, so one sender can address both systems (see below).
@@ -38,7 +44,8 @@ curl -X POST "https://front.example.org/api/alarms?secret=$ALARM_WEBHOOK_SECRET"
     "title": "BMA Alarm Industriestrasse",
     "address": "Industriestrasse 5, 4104 Oberwil",
     "lat": 47.514, "lng": 7.558,
-    "priority": "HIGH"
+    "priority": "HIGH",
+    "started_at": "2026-07-08T14:32:00+00:00"
   }'
 # → 201 {"incident_id": "…", "created": true}
 ```

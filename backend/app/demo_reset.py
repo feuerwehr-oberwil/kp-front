@@ -333,6 +333,7 @@ async def reset(wipe_objects: bool = True) -> None:
             divera_id=DEMO_INCIDENT["divera_id"],
             auto_opened=False,
             started_at=started,
+            started_at_source="alarm",
             editor_opened_at=started,
             is_archived=False,
             map_workspace_json=workspace,

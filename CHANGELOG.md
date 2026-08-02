@@ -64,6 +64,38 @@ so this file – not the log – is the record of what shipped up to that point.
   the admin UI; rotating it invalidates every link already sent out, the way rotating the
   Erfassungs-Poster token stops every printed poster at once.
 
+### Fixed
+- **The Alarmierungszeit was the time somebody picked up the tablet.** Measured against a fire
+  department's own paper records: on 36 of 36 incidents the statistics export published
+  `alarmiertAt: null`, and `started_at` — the field documented as the Alarmierungszeit, printed
+  on the Rapport under «Alarmierung», and the only thing an external statistics system can join
+  on — was the moment the record was created in the database. Street-matched pairs were between
+  three hours and nine *days* apart. The cause was not one bug but a field nobody ever wrote:
+  Divera sends the alarm's own timestamp, KP Front parsed it, and then dropped it — the webhook,
+  the poller's auto-open and the pool take all let the database's «now» stand instead, even
+  though the intake wizard hides its own time field on the take path specifically because it
+  promises the alarm's time is kept. Now every intake path records the time the alarm actually
+  went out (Divera's `ts_create`, or a `started_at` from a generic sender), and the two human
+  paths — opening an Einsatz by hand, and correcting the time in the Einsatzdaten panel — mark
+  it as human-asserted. The export's `alarmiertAt` is no longer null on anything that knows its
+  alarm time: it now resolves the same way the Rapport-PDF and the Erfassung already did.
+- **…and where it is still unknown, it says so instead of guessing.** Every incident now records
+  *where* its alarm time came from (`started_at_source`: from the alerting system, from a human,
+  or unknown), because the honest answer for a record that never had one is «this is the
+  record-open time», not a plausible timestamp that a statistics join will happily believe. The
+  export publishes that provenance, publishes `created_at` alongside it so the pick-up-the-tablet
+  delay stays measurable in its own right, and returns `alarmiertAt: null` rather than passing an
+  insert time off as an alarm time. **Existing incidents are repaired where the evidence still
+  exists and left alone where it does not:** an alarm whose Divera timestamp survives in the
+  stored payload gets its real time back, a time a human had already entered by hand is
+  recognised as theirs and never overwritten, and everything else keeps the value it has with the
+  provenance left empty — a deployment whose alerts never carried a timestamp will see nulls, and
+  that is the true answer rather than a fabricated one. Correcting the time in the Einsatzdaten
+  panel upgrades any such record. Consumers of `GET /api/stats/incidents`: `started_at_source`
+  and `created_at` are new fields, `alarmiertAt` is populated far more often than before, and
+  rows with no known alarm time should be skipped by a time-based join rather than matched —
+  see `docs/STATS-EXPORT.md`.
+
 ## [0.4.0] – 2026-08-01
 
 Two threads. A review pass before publishing the repository more widely – every claim in the
