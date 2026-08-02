@@ -16,6 +16,12 @@ Fail-closed twice over: no key configured → 403, and a link only opens a sessi
 incident is still running (not archived, not closed). A closed Einsatz answers the same 404
 as one that never existed — a link holder must not be able to enumerate the station's
 incidents by watching which refusals differ.
+
+The exchange also *opens* an alarm that is still waiting in an intake pool (2026-08-02): the
+link used to be dead until an editor had taken the alarm on a tablet, which put a colleague
+between the responder and the Lage. Opening grants nothing extra — the session that follows
+is the same read-only viewer — and the incident stays unconfirmed (`editor_opened_at` NULL),
+so a link nobody at the station ever worked never reaches the statistics.
 """
 
 import secrets
@@ -26,6 +32,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..alarms import open_pooled_alarm
 from ..auth.cookies import set_link_cookie
 from ..auth.dependencies import CurrentAdmin
 from ..auth.incident_link import LINK_TOKEN_TYPE, create_link_session_token
@@ -135,8 +142,16 @@ async def open_link_session(body: LinkTokenIn, response: Response, db: AsyncSess
     inc = (
         await db.execute(select(Incident).where(Incident.source == src, Incident.source_ref == str(ref)))
     ).scalar_one_or_none()
+    if inc is None:
+        # No incident under that (src, ref) — but the alarm may still be waiting in an intake
+        # pool, in which case the responder holding this link is the reason to open it. This
+        # is the whole point of the exchange: the link must not depend on someone else having
+        # picked the alarm up on a tablet first (production, 2026-08-02). The lookup is
+        # source-agnostic and lives in `alarms`, so nothing here learns what Divera is.
+        inc = await open_pooled_alarm(db, source=src, ref=str(ref))
     if inc is None or inc.is_archived or inc.status != OPEN_STATUS or inc.closed_at is not None:
-        # Unknown, archived, or already closed — one answer for all three (no probing).
+        # Unknown, archived, or already closed — one answer for all three (no probing). An
+        # alarm that no pool knows either falls in here, indistinguishable from the rest.
         raise HTTPException(status_code=404, detail="Einsatz nicht (mehr) verfügbar")
 
     # The session records which minting key it was born from, so rotating that key ends

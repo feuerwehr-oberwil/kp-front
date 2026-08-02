@@ -1979,8 +1979,10 @@ export function IncidentWorkspace({
           missing tools read as policy, not breakage; editors get the deliberate exit */}
       {incidentMeta.is_archived && <ArchivedBanner onBack={onBackFromArchive} onReactivate={onReactivateActive} />}
 
-      {/* correct-in-place: a one-tap Divera take lands here operational immediately; the
-          banner lets the EL fix category inline or open the edit panel for address/location */}
+      {/* correct-in-place: an alarm opens its Einsatz by itself, so the EL lands here
+          operational immediately and with the dispatch's guesses unchecked. The banner fixes
+          the category inline and opens the edit panel for Stichwort/Priorität/Ort — no wizard
+          between the crew and the Lage, which is the whole point (2026-08-02). */}
       {needsReview && !readOnly && (
         <ReviewBanner
           meta={incidentMeta}

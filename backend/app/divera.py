@@ -176,43 +176,17 @@ async def upsert_emergency(db: AsyncSession, payload: DiveraWebhookPayload) -> D
     return em
 
 
-async def maybe_auto_open(db: AsyncSession, em: DiveraEmergency) -> Incident | None:
-    """Auto-take a NEW pool alarm into an incident when `alarms.autoOpen` says so.
+async def open_emergency(db: AsyncSession, em: DiveraEmergency) -> Incident:
+    """Turn a pool alarm into its incident and mark the row taken. No guards, no config.
 
-    The pool row stays (marked taken, like a manual take) so the intake UI history is
-    unchanged; with the flag off — or a filter miss — the alarm simply waits in the pool
-    for the manual take, exactly as before.
+    The single place a `DiveraEmergency` becomes an `Incident` without a human: the poller
+    (via `maybe_auto_open`) and the Einsatz-Link exchange (via `alarms.open_pooled_alarm`)
+    both land here, so an alarm opened down either path is byte-identical. The pool row is
+    kept and marked taken — the intake history still shows every alarm that ever arrived.
+    Callers own the *decision* to open (guards, dedupe); this function only executes it.
     """
-    from .alarms import create_incident_from_alarm, get_alarms_config, passes_auto_open_filter
+    from .alarms import create_incident_from_alarm
 
-    cfg = await get_alarms_config(db)
-    if not cfg.autoOpen:
-        return None
-    priority = infer_priority(em.title, em.text)
-    if not passes_auto_open_filter(cfg, title=em.title, text=em.text, priority=priority):
-        return None
-    # Split-dispatch guard: while an Einsatz is RUNNING (open incident started within the
-    # last few hours), a new alarm is far more likely a re-dispatch of the same Einsatz
-    # (Nachalarm, reworded group SMS — 2026-07-15 Grenzweg 1) than a concurrent second
-    # incident. Auto-opening would create the duplicate with no human in the loop; hold
-    # it in the pool instead — the incoming-alarm banner offers both take AND attach.
-    # The 4h window matches the dispatch pipeline's active-alarm timeout; an older open
-    # incident (unfinished rapport, days later) must not suppress a genuinely new alarm.
-    cutoff = datetime.now(UTC) - timedelta(hours=4)
-    running = (
-        await db.execute(
-            select(func.count())
-            .select_from(Incident)
-            .where(Incident.is_archived.is_(False), Incident.started_at > cutoff)
-        )
-    ).scalar_one()
-    if running:
-        logger.info(
-            "Auto-open suppressed for Divera %s: %d running incident(s) — pooled for take/attach",
-            em.divera_id,
-            running,
-        )
-        return None
     inc = await create_incident_from_alarm(
         db,
         source="divera",
@@ -223,9 +197,9 @@ async def maybe_auto_open(db: AsyncSession, em: DiveraEmergency) -> Incident | N
         address=em.address,
         lat=float(em.lat) if em.lat is not None else None,
         lng=float(em.lng) if em.lng is not None else None,
-        priority=priority,
+        priority=infer_priority(em.title, em.text),
         # The alarm's own time, not this moment: auto-open can trail the alarm by a poll
-        # interval, and the pool row may have been waiting far longer than that.
+        # interval, and the pool row may have been waiting far longer than that. (#75)
         started_at=alarm_time(em.ts_create),
         started_at_source="alarm",
     )
@@ -240,6 +214,44 @@ async def maybe_auto_open(db: AsyncSession, em: DiveraEmergency) -> Incident | N
         payload={"divera_id": em.divera_id, "auto": True},
     )
     return inc
+
+
+async def maybe_auto_open(db: AsyncSession, em: DiveraEmergency) -> Incident | None:
+    """Open a NEW pool alarm into an incident. Unconditional — the split guard is the one no.
+
+    An alarm becomes an Einsatz on arrival (decided 2026-08-02): a wizard between the crew
+    and the Lage optimises for the record at the expense of the Einsatz, and it left every
+    Einsatz-Link holder staring at «Einsatz nicht (mehr) verfügbar» until someone opened
+    the alarm on a tablet. Correcting type/priority/position afterwards costs seconds.
+    Incidents nobody attended are not silently counted: `editor_opened_at` stays NULL until
+    an authenticated editor opens the workspace, and the stats export drops those.
+    """
+    # Split-dispatch guard — with the human take gone, this is now the ONLY thing standing
+    # between a Nachalarm and a duplicate Einsatz. While an Einsatz is RUNNING (unarchived
+    # incident started within the last few hours), a new alarm is far more likely a
+    # re-dispatch of the same Einsatz (Nachalarm, reworded group SMS — 2026-07-15 Grenzweg 1)
+    # than a concurrent second incident. Opening it would split the operational picture in
+    # two and misroute the re-dispatch's GPS milestones (which follow `taken_incident_id`)
+    # into a duplicate nobody has open. Hold it in the pool instead — the incoming-alarm
+    # banner offers both open AND attach, and attach is what keeps the milestones together.
+    # The 4h window matches the dispatch pipeline's active-alarm timeout; an older open
+    # incident (unfinished rapport, days later) must not suppress a genuinely new alarm.
+    cutoff = datetime.now(UTC) - timedelta(hours=4)
+    running = (
+        await db.execute(
+            select(func.count())
+            .select_from(Incident)
+            .where(Incident.is_archived.is_(False), Incident.started_at > cutoff)
+        )
+    ).scalar_one()
+    if running:
+        logger.info(
+            "Auto-open suppressed for Divera %s: %d running incident(s) — pooled for open/attach",
+            em.divera_id,
+            running,
+        )
+        return None
+    return await open_emergency(db, em)
 
 
 async def fetch_and_upsert(db: AsyncSession) -> int:

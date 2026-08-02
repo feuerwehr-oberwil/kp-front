@@ -29,6 +29,37 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ## [Unreleased]
 
+### Changed
+- **An alarm now opens its Einsatz by itself; the take-wizard is gone.** The link in the alert
+  reached the responder before the Einsatz existed here. An alarm landed in a pool and only became
+  an incident when somebody at the Magazin took it through an intake wizard – so every responder
+  who tapped their Einsatz-Link on the way in was told *«Einsatz nicht (mehr) verfügbar»* until a
+  colleague got to a tablet, and the people furthest from the station waited longest for the Lage
+  they most needed. The wizard was buying a clean record at the price of the Einsatz, which is the
+  wrong trade at 3am: correcting a dropdown afterwards costs seconds. Every intake path now opens
+  the incident on arrival – the Divera poll and webhook, the generic `POST /api/alarms`, and the
+  link exchange itself, which opens an alarm still sitting in the pool rather than answering a dead
+  end. The expert corrects Stichwort, Kategorie, **Priorität** and Ort afterwards, from the review
+  banner on the running Lage or the Einsatzdaten panel one tap behind it.
+
+  What keeps the figures honest is not the wizard but `editor_opened_at`, a latch that has always
+  been stamped the first time an **editor** opens an incident's workspace and never for a viewer or
+  a link guest. An incident now exists for every alarm that ever arrived – test alarms,
+  Nachbarhilfe, re-dispatches – so the statistics export drops the ones no editor ever opened
+  (`?include_unconfirmed=1` returns them, for a consumer that wants alarm volume rather than the
+  Einsatz count). Incidents from before the latch existed are backfilled from the evidence that a
+  human was in the loop, so a station's reported history does not move when it upgrades.
+
+  The split-dispatch guard is untouched and now carries more weight than it did: while an Einsatz is
+  running, a new alarm still waits in the pool, because it is far more likely a Nachalarm of the
+  same Einsatz than a second one – and with no human take left, that guard is the only thing between
+  a re-dispatch and a duplicate. The EL opens or attaches it from the incoming-alarm banner as
+  before. `alarms.autoOpen` and its keyword/priority filters are retired: they defaulted to off, so
+  the stations that never opted in were exactly the ones whose links were dead. Existing config
+  files keep validating – the keys are accepted and ignored – and
+  `POST /api/divera/pool/{id}/take` keeps working, as an open-**or-correct** call that applies the
+  EL's corrections to the incident the alarm already has instead of minting a second one.
+
 ### Added
 - **Objektpläne can now be fetched by the deployment instead of pushed into it.** Keeping a plan
   library current meant handing the system that maintains it this deployment's `ADMIN_SECRET` –

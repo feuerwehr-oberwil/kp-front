@@ -87,3 +87,44 @@ export function saveDismissedIncident(id: string): void {
     /* private mode */
   }
 }
+
+// --- intake review (what the take wizard used to be) ---------------------------------
+// An alarm opens its own Einsatz now, so the dispatch's guesses — Stichwort, Kategorie,
+// Priorität, Ort — reach the live map uncorrected. The review banner is where the EL fixes
+// them: on the surface they are already looking at, with the Lage running behind it, rather
+// than in a wizard that has to be got through before anyone can work. Tapping «Passt» (or
+// saving a correction) retires it PER DEVICE, like every other banner in this file — an
+// unreviewed incident must nag once, not on every reload.
+const REVIEWED_KEY = 'kp.incident.reviewed'
+
+export function loadReviewedIncidents(): Set<string> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(REVIEWED_KEY) ?? '[]') as string[])
+  } catch {
+    return new Set()
+  }
+}
+
+export function saveReviewedIncident(id: string): void {
+  try {
+    const ids = [...loadReviewedIncidents().add(id)].slice(-DISMISS_CAP)
+    localStorage.setItem(REVIEWED_KEY, JSON.stringify(ids))
+  } catch {
+    /* private mode */
+  }
+}
+
+/**
+ * Should the correct-in-place review banner show for this incident? Only for an EDITOR (a
+ * viewer can't correct anything), only for an incident an alarm opened by itself
+ * (`auto_opened` — a human-created one was already reviewed while it was typed), only while
+ * it is fresh, and only until it has been reviewed on this device.
+ */
+export function needsIntakeReview(
+  inc: IncidentMeta | null | undefined,
+  opts: { isEditor: boolean; reviewed: ReadonlySet<string>; now: number },
+): boolean {
+  if (!inc || !opts.isEditor || !inc.auto_opened || inc.is_archived) return false
+  if (opts.reviewed.has(inc.id)) return false
+  return opts.now - ts(inc.started_at) < INCIDENT_ALERT_MAX_AGE_MS
+}

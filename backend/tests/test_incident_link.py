@@ -165,6 +165,118 @@ async def test_exchange_opens_a_session(client, link_key, incident):
     assert r.cookies.get(LINK_COOKIE)
 
 
+# --- the exchange opens a still-pooled alarm ---------------------------------------------
+# The bug this closes, verified in production 2026-08-02: an alarm landed in the pool and the
+# incident only came into being when an editor took it on a tablet. Until then every responder
+# holding the link — the people furthest from the Magazin, who need it most — got «Einsatz
+# nicht (mehr) verfügbar». The exchange now opens the alarm it names.
+
+DIVERA_REF = 4711
+
+
+@pytest.fixture
+async def pooled_alarm(db_session):
+    """A Divera alarm sitting in the pool, with no incident of its own yet."""
+    from app.models import DiveraEmergency
+
+    em = DiveraEmergency(divera_id=DIVERA_REF, title="Brand Dachstock", address="Teststrasse 2")
+    db_session.add(em)
+    await db_session.commit()
+    await db_session.refresh(em)
+    return em
+
+
+def _mint_divera(**overrides) -> str:
+    return _mint(src="divera", ref=DIVERA_REF, **overrides)
+
+
+async def _incidents(db) -> list[Incident]:
+    return list((await db.execute(select(Incident))).scalars())
+
+
+async def test_exchange_opens_a_pooled_alarm(client, link_key, pooled_alarm, db_session):
+    """One tap, one incident — carrying the alarm's own data, and marked auto-opened."""
+    r = await client.post("/api/incident-link/session", json={"token": _mint_divera()})
+    assert r.status_code == 200, r.text
+
+    rows = await _incidents(db_session)
+    assert len(rows) == 1
+    inc = rows[0]
+    assert r.json() == {"incident_id": str(inc.id)}
+    assert (inc.source, inc.source_ref) == ("divera", str(DIVERA_REF))
+    assert inc.title == "Brand Dachstock"
+    assert inc.auto_opened is True
+    # …and the pool row knows where the alarm went, so milestones follow it
+    await db_session.refresh(pooled_alarm)
+    assert pooled_alarm.is_taken is True
+    assert pooled_alarm.taken_incident_id == inc.id
+    _forget_link(client)
+
+
+async def test_a_second_exchange_does_not_open_a_second_incident(client, link_key, pooled_alarm, db_session):
+    """Twenty responders tap the same link. The alerting system sends one alarm, so the
+    station gets one Einsatz — every tap after the first resolves to it."""
+    first = await _open_link(client, _mint_divera())
+    for _ in range(3):
+        assert await _open_link(client, _mint_divera()) == first
+
+    rows = await _incidents(db_session)
+    assert len(rows) == 1 and str(rows[0].id) == first
+    _forget_link(client)
+
+
+async def test_the_opened_incident_stays_unconfirmed(client, link_key, pooled_alarm, db_session):
+    """A link opening an Einsatz must not make it a counted one. The responder is a viewer,
+    the latch is editor-only, and the stats export drops what the latch never stamped —
+    otherwise a link tapped for a turnout that never happened lands in the canton's figures."""
+    await _open_link(client, _mint_divera())
+    assert (await client.get(f"/api/incidents/{(await _incidents(db_session))[0].id}")).status_code == 200
+
+    inc = (await _incidents(db_session))[0]
+    await db_session.refresh(inc)
+    assert inc.editor_opened_at is None
+    _forget_link(client)
+
+
+async def test_an_attached_alarm_resolves_to_the_einsatz_that_absorbed_it(client, link_key, db_session, incident):
+    """Split dispatch: the EL attached the Nachalarm to the running Einsatz, so the Nachalarm's
+    own (src, ref) names no incident at all — only the pool row knows where it went. Sending
+    that responder to a dead end is the same bug wearing a different hat."""
+    from app.models import DiveraEmergency
+
+    em = DiveraEmergency(divera_id=DIVERA_REF, title="Nachalarm", is_taken=True, taken_incident_id=incident.id)
+    db_session.add(em)
+    await db_session.commit()
+
+    r = await client.post("/api/incident-link/session", json={"token": _mint_divera()})
+    assert r.status_code == 200, r.text
+    assert r.json() == {"incident_id": str(incident.id)}
+    assert len(await _incidents(db_session)) == 1  # nothing new was created
+    _forget_link(client)
+
+
+async def test_an_archived_pool_alarm_is_not_opened(client, link_key, db_session):
+    """An alarm the station threw out of the pool is not a live dispatch — the same 404 as
+    anything else the app doesn't know, so a link still can't probe."""
+    from app.models import DiveraEmergency
+
+    db_session.add(DiveraEmergency(divera_id=DIVERA_REF, title="Fehlalarm", is_archived=True))
+    await db_session.commit()
+
+    r = await client.post("/api/incident-link/session", json={"token": _mint_divera()})
+    assert r.status_code == 404
+    assert r.json()["detail"] == NOT_AVAILABLE_DETAIL
+    assert await _incidents(db_session) == []
+
+
+async def test_an_unknown_alarm_still_answers_the_one_404(client, link_key, db_session):
+    """No incident, no pool row: indistinguishable from archived and from closed."""
+    r = await client.post("/api/incident-link/session", json={"token": _mint(src="divera", ref=999999)})
+    assert r.status_code == 404
+    assert r.json()["detail"] == NOT_AVAILABLE_DETAIL
+    assert await _incidents(db_session) == []
+
+
 async def test_me_reports_a_link_scoped_viewer(client, link_key, incident):
     """The client needs to know it is link-scoped so it can hide what would 403."""
     await _open_link(client)
@@ -470,3 +582,31 @@ async def test_deleting_the_key_ends_sessions_that_are_already_open(client, db_s
     after = await client.get(f"/api/incidents/{incident.id}")
     assert after.status_code == 403, after.text
     _forget_link(client)
+
+
+async def test_a_link_during_a_running_einsatz_joins_it_instead_of_forking(client, link_key, pooled_alarm, db_session):
+    """The interaction between auto-open and the split-dispatch guard.
+
+    A Nachalarm to a second group is parked in the pool on purpose: an Einsatz is already
+    running and a second incident for it would split the Lage, the Zeiten and the GPS
+    milestones in two. The guard covers the poller — but the link bypasses it, and the link
+    is the likeliest way to trip it, because the re-dispatched group taps it within seconds
+    while the EL is still working the first alarm.
+
+    Joining the running Einsatz is not a lesser answer than opening one: a Nachalarm wants
+    that Einsatz's Lage, not a fresh empty one. The pool row is deliberately left alone so
+    the EL can still attach it properly afterwards.
+    """
+    running = Incident(title="Zimmerbrand", source="divera", source_ref="999000", status="offen")
+    db_session.add(running)
+    await db_session.commit()
+    await db_session.refresh(running)
+
+    before = len(await _incidents(db_session))
+    r = await client.post("/api/incident-link/session", json={"token": _mint_divera()})
+    assert r.status_code == 200, r.text
+    assert r.json()["incident_id"] == str(running.id), "the link must land on the running Einsatz"
+
+    assert len(await _incidents(db_session)) == before, "no second Einsatz may be created"
+    await db_session.refresh(pooled_alarm)
+    assert pooled_alarm.is_taken is False, "the pool row stays, so the EL can still attach it"

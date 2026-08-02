@@ -19,8 +19,33 @@ curl -H "X-Stats-Token: <token>" "https://<host>/api/stats/incidents?year=2026"
 | Param | Meaning |
 |---|---|
 | `year` (optional) | filter to one calendar year of `started_at`, evaluated in **Europe/Zurich** local time (a 31.12. 23:30 UTC incident counts in the new local year) |
+| `include_exercises=1` | also export Übungen (excluded by default; each record carries `is_exercise`) |
+| `include_unconfirmed=1` | also export incidents no editor ever opened (excluded by default – see below) |
 
 Response: JSON array, **oldest first**. Archived incidents are included (`is_archived`).
+
+## What is *not* in the feed, and why
+
+Since alarms started opening themselves (2026-08-02) an incident exists for **every alarm that
+ever arrived** – test alarms, Nachbarhilfe, re-dispatches, an Einsatz-Link someone tapped for a
+turnout the station never made. Those are not Einsätze, and this feed is what the canton's
+figures are built from, so they must not be counted.
+
+The line is `editor_opened_at` (exported as `confirmed_at`): stamped the first time an
+authenticated **editor** opens the incident's workspace – «a KP tablet had this Einsatz».
+Viewers and Einsatz-Link guests never stamp it, and it never advances, so it is a latch, not a
+last-active tracker.
+
+- **Confirmed** (`confirmed_at` set) → exported. Someone at the station worked the incident.
+- **Unconfirmed** (`confirmed_at` null) → omitted, unless `include_unconfirmed=1`. Ask for them
+  when you want the *alarm volume*; the Einsatz count is the default.
+
+Übungen are excluded on the same principle (`include_exercises=1` to get them).
+
+> **Upgrading:** the latch column landed on 2026-07-18 and older incidents never had one.
+> The migration that introduced this filter backfills them from the evidence that a human was
+> in the loop (human-created, or a synced workspace, or a completed Rapport), so a station's
+> reported history does not change when it upgrades.
 
 ## Record fields
 
@@ -37,6 +62,8 @@ Response: JSON array, **oldest first**. Archived incidents are included (`is_arc
 | `address`, `lat`, `lng` | string/number \| null | |
 | `source` | string | `divera` \| `manual` \| intake slug \| `migrated` |
 | `is_archived` | bool | |
+| `is_exercise` | bool | Übung – only present when `include_exercises=1` asked for them |
+| `confirmed_at` | ISO datetime \| null | first editor open (`editor_opened_at`); null = nobody at the station ever had this incident open |
 | `rapport` | `open` \| `done` \| `changed` | derived: `changed` = anything moved after Rapport completion |
 | `report_done_at` | ISO datetime \| null | |
 | `alarmiertAt` | ISO datetime \| null | the **effective** Alarmierungszeit: the Rapport's own value if edited, else `started_at` when its provenance is known. Null when this record does not know one – see below |

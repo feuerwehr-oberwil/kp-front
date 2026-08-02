@@ -2561,6 +2561,7 @@
           "divera"
         ],
         "summary": "Take",
+        "description": "Open a pooled alarm — or, if it is already open, apply the EL's corrections to it.\n\nThe intake wizard this endpoint was built for is gone (2026-08-02): an alarm becomes an\nEinsatz on arrival and the expert corrects it afterwards from the incident view. The\nendpoint stays, for two reasons that outlive the wizard. (1) The split-dispatch guard\nstill parks alarms in the pool while an Einsatz is running, and this is how the EL opens\none of those on purpose. (2) It is a published API surface — a client that still calls it\nwith corrections gets them applied instead of a 409, which is the friendlier failure and\nkeeps the EL's corrections working either way.\n\nWhat it must never do again is create a SECOND incident for an alarm that already has\none; `taken_incident_id` is checked first, so a repeat call corrects rather than\nduplicates and answers `200` instead of `201`.",
         "operationId": "take_api_divera_pool__divera_id__take_post",
         "parameters": [
           {
@@ -7603,7 +7604,7 @@
           "stats"
         ],
         "summary": "Stats Incidents",
-        "description": "All incidents (optionally one local calendar year), oldest first, flat records.\n\nÜbungen are excluded by default — they must not land in the WinFAP/fwo-stats numbers;\n?include_exercises=1 exports them too (each record carries is_exercise).",
+        "description": "All confirmed incidents (optionally one local calendar year), oldest first, flat records.\n\nÜbungen are excluded by default — they must not land in the WinFAP/fwo-stats numbers;\n?include_exercises=1 exports them too (each record carries is_exercise).\n\nSo are UNCONFIRMED incidents, and that filter is the one doing real work since alarms\nstarted opening themselves (2026-08-02). An incident now exists for every alarm that ever\narrived — test alarms, Nachbarhilfe, re-dispatches, an Einsatz-Link tapped for something\nthe station never turned out for. The line between «an alarm arrived» and «we attended an\nEinsatz» is `editor_opened_at`: stamped the first time an authenticated *editor* opens the\nworkspace, never for a viewer or a link guest. NULL means nobody at the station ever had\nthis incident on a tablet, and such a row must not reach the canton's figures.\n?include_unconfirmed=1 exports them too (each record carries `confirmed_at`), for a\nconsumer that wants the alarm volume rather than the Einsatz count.",
         "operationId": "stats_incidents_api_stats_incidents_get",
         "parameters": [
           {
@@ -7632,6 +7633,16 @@
               "type": "boolean",
               "default": false,
               "title": "Include Exercises"
+            }
+          },
+          {
+            "name": "include_unconfirmed",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Unconfirmed"
             }
           },
           {
@@ -8283,7 +8294,7 @@
         },
         "type": "object",
         "title": "AlarmsConfig",
-        "description": "Alarm handling: auto-open incidents from incoming alarms + auto-archive of untouched\nauto-opened ones. `autoOpen` gates the Divera pool path (the generic `/api/alarms`\nintake always creates — configuring its secret is the opt-in). Filters are None =\naccept all; keywords match as case-insensitive substrings of title+text."
+        "description": "Alarm handling: auto-open incidents from incoming alarms + auto-archive of untouched\nauto-opened ones."
       },
       "Body_capture_report_pdf_api_capture_incidents__incident_id__report_pdf_post": {
         "properties": {

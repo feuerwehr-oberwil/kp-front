@@ -313,8 +313,6 @@ export const it: Localizable<Copy> = {
   },
   intake: {
     titleNew: 'Apri intervento',
-    titleDivera: 'Rileva allarme',
-    diveraHint: 'Importato dalla fonte di allarme – verifica e correggi se necessario.',
     locationHead: 'Posizione',
     addressLabel: 'Indirizzo',
     addressPlaceholder: 'Via n., NPA località',
@@ -334,6 +332,9 @@ export const it: Localizable<Copy> = {
     titleLabel: 'Parola chiave / titolo',
     titlePlaceholder: 'es. Incendio edificio scuola',
     categoryLabel: 'Categoria',
+    priorityLabel: 'Priorità',
+    priorityHigh: 'Urgente',
+    priorityLow: 'Normale',
     detailsLabel: 'Testo della segnalazione (facoltativo)',
     detailsPlaceholder: 'Indicazioni aggiuntive sulla segnalazione',
     open: 'Apri intervento',

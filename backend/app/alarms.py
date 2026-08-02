@@ -1,10 +1,15 @@
 """Alarm auto-open + auto-archive: the source-agnostic half of alarm intake.
 
 `create_incident_from_alarm` is the one place an alarm becomes an Incident without a human
-(generic `/api/alarms` intake and the Divera `alarms.autoOpen` path both land here); the
-manual paths (wizard, pool take) keep their own endpoints. Auto-opened incidents are
-marked `auto_opened` so the sweep can archive the untouched ones (`workspace_rev == 0`,
-nobody ever synced a workspace) after `alarms.autoArchiveDays`.
+(generic `/api/alarms` intake, the Divera poller and the Einsatz-Link's rescue path all land
+here); manual creation keeps its own endpoint. Auto-opened incidents are marked `auto_opened`
+so the sweep can archive the untouched ones (`workspace_rev == 0`, nobody ever synced a
+workspace) after `alarms.autoArchiveDays`.
+
+An alarm opens on arrival, with no human in the loop — so «an incident exists» no longer
+means «the station attended an Einsatz». That line is `Incident.editor_opened_at`: stamped on
+the first authenticated *editor* workspace read/write, deliberately never for a viewer (an
+Einsatz-Link responder is one). Unconfirmed incidents stay out of the stats export.
 """
 
 import logging
@@ -45,15 +50,72 @@ async def is_demo_deployment(db: AsyncSession) -> bool:
     return bool(identity and identity.demoMode)
 
 
-def passes_auto_open_filter(cfg: AlarmsConfig, *, title: str, text: str | None, priority: str) -> bool:
-    """None filters accept everything; keywords are case-insensitive substrings of title+text."""
-    if cfg.autoOpenPriorities is not None and priority not in cfg.autoOpenPriorities:
-        return False
-    if cfg.autoOpenKeywords is not None:
-        combined = f"{title} {text or ''}".upper()
-        if not any(k.upper() in combined for k in cfg.autoOpenKeywords if k):
-            return False
-    return True
+async def open_pooled_alarm(db: AsyncSession, *, source: str, ref: str) -> Incident | None:
+    """Resolve an alarm still sitting in an intake pool to its incident, opening it if nobody
+    has yet. Returns None when no pool row matches — the caller decides what that means.
+
+    This is the Einsatz-Link's rescue path. A link names the alarm (`src`/`ref`), never our
+    incident UUID, so a responder could tap it before the alarm had become an Einsatz here and
+    get «Einsatz nicht (mehr) verfügbar» until an editor took it on a tablet — verified in
+    production 2026-08-02. Opening it here grants no new trust: possession of the alarm is the
+    same authority the link session already runs on, and the incident stays UNCONFIRMED
+    (`editor_opened_at` NULL — a link principal is a viewer) until an editor works it.
+
+    Source-agnostic by signature. Divera's is the only intake pool that exists today, so it is
+    the only branch; a second alerting system with a pool adds its lookup beside it.
+    """
+    if source != "divera":
+        return None
+    try:
+        divera_id = int(ref)
+    except (TypeError, ValueError):
+        return None
+
+    from .divera import open_emergency  # lazy — avoids an import cycle
+    from .models import DiveraEmergency
+
+    em = (await db.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == divera_id))).scalar_one_or_none()
+    if em is None or em.is_archived:
+        return None
+    if em.taken_incident_id is not None:
+        # Already open — or ATTACHED to a running Einsatz (split dispatch), in which case the
+        # alarm's own (source, ref) names no incident at all and the pool row is the only
+        # thing that knows where the alarm went. Send the responder to the Einsatz that
+        # absorbed it rather than to a dead end.
+        return await db.get(Incident, em.taken_incident_id)
+    if em.is_taken or await is_demo_deployment(db):
+        return None
+
+    # The alarm is still pooled, and there are two reasons for that: nobody has got to it
+    # yet, or the split-dispatch guard parked it because an Einsatz is already running.
+    # Opening it blindly would recreate exactly the duplicate that guard exists to prevent
+    # — and a link is the likeliest way to trip it, because a re-dispatched group taps it
+    # within seconds while the EL is still working the first alarm.
+    #
+    # Sending the responder to the running Einsatz is not a compromise, it is the better
+    # answer: a Nachalarm for the same incident wants that incident's Lage, not a fresh
+    # empty one. The EL can still attach the pool row properly afterwards; this only
+    # decides what the responder sees in the meantime.
+    running = (
+        await db.execute(
+            select(Incident)
+            .where(
+                Incident.is_archived.is_(False),
+                Incident.started_at > datetime.now(UTC) - timedelta(hours=4),
+            )
+            .order_by(Incident.started_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if running is not None:
+        logger.info(
+            "Einsatz-Link für Divera %s: laufender Einsatz %s statt zweitem Einsatz",
+            em.divera_id,
+            running.id,
+        )
+        return running
+
+    return await open_emergency(db, em)
 
 
 async def find_by_source_ref(db: AsyncSession, source: str, source_ref: str) -> Incident | None:

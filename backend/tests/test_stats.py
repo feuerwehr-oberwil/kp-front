@@ -5,6 +5,9 @@ Contract under test:
 - the record is FLAT and complete: incident metadata + reportMeta slices + derived
   attendance / current-Mittel / rapport state — never the raw workspace blob;
 - `year` filters on the LOCAL (Europe/Zurich) calendar year of started_at;
+- UNCONFIRMED incidents (no editor ever opened them) are omitted by default and returned by
+  ?include_unconfirmed=1 — the guard that keeps auto-opened alarms nobody attended out of the
+  figures reported to the canton;
 - the admin endpoints (ADMIN_SECRET session) rotate/disable the token.
 """
 
@@ -59,7 +62,14 @@ WS = {
 
 
 def _incident(**kw) -> Incident:
-    base = {"title": "Ölspur Hauptstrasse", "source": "manual", "status": "offen"}
+    """A CONFIRMED incident by default — an editor had it open, so it counts. The unconfirmed
+    case is the subject of its own tests below, never an accident of a fixture."""
+    base = {
+        "title": "Ölspur Hauptstrasse",
+        "source": "manual",
+        "status": "offen",
+        "editor_opened_at": datetime(2026, 3, 1, 14, 0, tzinfo=UTC),
+    }
     return Incident(**{**base, **kw})
 
 
@@ -166,6 +176,74 @@ async def test_stats_year_filter_uses_local_year(client, stats_secret, db_sessio
     assert [rec["title"] for rec in r.json()] == ["Silvester"]
     r = await client.get(f"/api/stats/incidents?t={TOKEN}&year=2025")
     assert [rec["title"] for rec in r.json()] == ["Sommer"]
+
+
+# --- the confirmed/unconfirmed line ---------------------------------------------------
+
+
+async def test_stats_omits_incidents_no_editor_ever_opened(client, stats_secret, db_session):
+    """The honesty guard. Since alarms open themselves, an incident exists for every alarm that
+    ever arrived — a test alarm, a Nachbarhilfe dispatch, an Einsatz-Link tapped for a turnout
+    that never happened. None of those are Einsätze, and this feed is what the canton's figures
+    are built from."""
+    now = datetime.now(UTC)
+    worked = _incident(title="Gearbeitet", started_at=now)
+    untouched = _incident(title="Nie geöffnet", started_at=now, editor_opened_at=None, auto_opened=True)
+    db_session.add_all([worked, untouched])
+    await db_session.commit()
+
+    recs = (await client.get(f"/api/stats/incidents?t={TOKEN}")).json()
+    assert [r["title"] for r in recs] == ["Gearbeitet"]
+    assert recs[0]["confirmed_at"] is not None
+
+
+async def test_stats_counts_an_auto_opened_incident_once_an_editor_opens_it(client, stats_secret, db_session, editor):
+    """The other half: the latch is stamped by an ordinary editor workspace read, so an alarm
+    the station DID turn out to lands in the figures without anyone doing bookkeeping for it."""
+    inc = _incident(title="Auto-eröffnet", source="divera", source_ref="4711", auto_opened=True, editor_opened_at=None)
+    db_session.add(inc)
+    await db_session.commit()
+    await db_session.refresh(inc)
+    assert (await client.get(f"/api/stats/incidents?t={TOKEN}")).json() == []
+
+    r = await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": "135790"})
+    assert r.status_code == 200
+    assert (await client.get(f"/api/incidents/{inc.id}/workspace")).status_code == 200
+
+    recs = (await client.get(f"/api/stats/incidents?t={TOKEN}")).json()
+    assert [r["title"] for r in recs] == ["Auto-eröffnet"]
+    assert recs[0]["confirmed_at"] is not None
+
+
+async def test_stats_include_unconfirmed_returns_the_alarm_volume(client, stats_secret, db_session):
+    """A consumer that wants «how many alarms arrived» rather than «how many Einsätze» asks."""
+    now = datetime.now(UTC)
+    db_session.add_all(
+        [
+            _incident(title="Gearbeitet", started_at=now),
+            _incident(title="Nie geöffnet", started_at=now, editor_opened_at=None, auto_opened=True),
+        ]
+    )
+    await db_session.commit()
+
+    recs = (await client.get(f"/api/stats/incidents?t={TOKEN}&include_unconfirmed=1")).json()
+    assert sorted(r["title"] for r in recs) == ["Gearbeitet", "Nie geöffnet"]
+    assert {r["title"]: r["confirmed_at"] is None for r in recs} == {"Gearbeitet": False, "Nie geöffnet": True}
+
+
+async def test_a_viewer_open_does_not_confirm_an_incident(client, stats_secret, db_session, viewer):
+    """A viewer — the EL-Ansicht, and every Einsatz-Link responder — reads the workspace without
+    latching. If it did, a single tap on a link would count the Einsatz for the station."""
+    inc = _incident(title="Nur gelesen", editor_opened_at=None, auto_opened=True)
+    db_session.add(inc)
+    await db_session.commit()
+    await db_session.refresh(inc)
+
+    r = await client.post("/api/auth/login", json={"user_id": str(viewer.id), "pin": "135790"})
+    assert r.status_code == 200
+    assert (await client.get(f"/api/incidents/{inc.id}/workspace")).status_code == 200
+
+    assert (await client.get(f"/api/stats/incidents?t={TOKEN}")).json() == []
 
 
 async def test_admin_rotate_and_disable(client, admin_login, db_session):

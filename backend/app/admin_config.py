@@ -197,13 +197,10 @@ EXAMPLE_CONFIG: dict[str, Any] = {
         "units": ["Stk", "l", "m", "Sack", "Flasche", "kg"],
     },
     "alarms": {
-        # Auto-open: a NEW Divera alarm becomes an incident with no human in the loop (the
-        # generic POST /api/alarms intake always creates — its env secret is the opt-in).
-        # Filters (None/absent = accept all): priorities against the inferred HIGH/LOW,
-        # keywords as case-insensitive substrings of title+text.
-        "autoOpen": False,
-        "autoOpenPriorities": None,
-        "autoOpenKeywords": None,
+        # Auto-open is no longer configurable: every alarm becomes an Einsatz on arrival, on
+        # every path. `autoOpen` / `autoOpenPriorities` / `autoOpenKeywords` are still accepted
+        # in existing config files and ignored; incidents nobody attended are kept out of the
+        # statistics by `editor_opened_at`, not by a keyword filter (docs/STATS-EXPORT.md).
         # Untouched auto-opened incidents (never any workspace sync) archive after N days;
         # 0 disables the sweep. Archived incidents stay visible in the Verlauf/history.
         "autoArchiveDays": 7,

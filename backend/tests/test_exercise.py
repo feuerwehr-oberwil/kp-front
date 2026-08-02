@@ -29,6 +29,9 @@ async def _create(client, title: str, *, exercise: bool = False) -> str:
     assert r.status_code == 201, r.text
     body = r.json()
     assert body["is_exercise"] is exercise
+    # Opening the workspace is what the app does next, and it stamps editor_opened_at — the
+    # stats export omits incidents no editor ever opened, so a bare POST would be invisible.
+    assert (await client.get(f"/api/incidents/{body['id']}/workspace")).status_code == 200
     return body["id"]
 
 

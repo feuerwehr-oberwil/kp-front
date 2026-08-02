@@ -6,9 +6,10 @@ fail-closed contract mirrors the Divera webhook:
 - configured + wrong/missing secret → 401;
 - configured + correct secret → an auto-opened incident, idempotent on (source, source_id).
 
-Divera auto-open is deployment config (`alarms.autoOpen` + filters): a NEW pool alarm is
-taken into an incident with no human in the loop; the pool row is marked taken like a
-manual take. The sweep archives only auto-opened incidents nobody ever touched.
+Divera auto-open is no longer configurable (2026-08-02): a NEW pool alarm becomes an
+incident with no human in the loop, always, and the pool row is marked taken. The one
+remaining «no» is the split-dispatch guard. The sweep archives only auto-opened incidents
+nobody ever touched.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -136,8 +137,8 @@ def webhook_secret(monkeypatch):
     monkeypatch.setattr(settings, "divera_webhook_secret", "hook-secret-123")
 
 
-async def test_divera_webhook_auto_opens_when_configured(client, webhook_secret, db_session):
-    await _set_alarms_config(db_session, {"autoOpen": True})
+async def test_divera_webhook_opens_the_incident(client, webhook_secret, db_session):
+    """No config, no flag: the alarm arrives and the Einsatz exists."""
     r = await client.post("/api/divera/webhook", json=DIVERA_PAYLOAD, headers={"X-Webhook-Secret": "hook-secret-123"})
     assert r.status_code == 200
     body = r.json()
@@ -147,29 +148,34 @@ async def test_divera_webhook_auto_opens_when_configured(client, webhook_secret,
     inc = (await db_session.execute(select(Incident).where(Incident.divera_id == 4712))).scalar_one()
     assert inc.auto_opened is True
     assert inc.source == "divera"
+    # …and it is UNCONFIRMED until an editor opens it — nobody has attended anything yet
+    assert inc.editor_opened_at is None
     em = (await db_session.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == 4712))).scalar_one()
     assert em.is_taken is True
     assert em.taken_incident_id == inc.id
 
 
-async def test_divera_auto_open_respects_filters(client, webhook_secret, db_session):
-    await _set_alarms_config(db_session, {"autoOpen": True, "autoOpenPriorities": ["HIGH"]})
-    # "Dienstleistung" infers LOW → filtered: pooled, not opened
+async def test_divera_auto_open_ignores_the_retired_config_flags(client, webhook_secret, db_session):
+    """`autoOpen: false` and the keyword/priority filters are accepted and ignored. A station
+    that never opted in must not keep its Einsatz-Link holders staring at «nicht verfügbar»
+    after the upgrade — that is the failure this change exists to end."""
+    await _set_alarms_config(db_session, {"autoOpen": False, "autoOpenPriorities": ["HIGH"]})
+    # "Dienstleistung" infers LOW — under the old filter this pooled and waited for a human
     r = await client.post(
         "/api/divera/webhook",
         json={"id": 4713, "title": "Dienstleistung Verkehrsdienst"},
         headers={"X-Webhook-Secret": "hook-secret-123"},
     )
     assert r.status_code == 200
-    assert r.json()["incident_id"] is None
+    assert r.json()["incident_id"] is not None
     em = (await db_session.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == 4713))).scalar_one()
-    assert em.is_taken is False
+    assert em.is_taken is True
 
 
 async def test_divera_auto_open_suppressed_while_incident_running(client, webhook_secret, db_session):
     """Split-dispatch guard: with an Einsatz running, a new alarm pools instead of
-    auto-opening a duplicate (real split dispatch, 2026-07-15) — take/attach is the human's call."""
-    await _set_alarms_config(db_session, {"autoOpen": True})
+    auto-opening a duplicate (real split dispatch, 2026-07-15). With the take gone this is
+    the ONLY thing left between a Nachalarm and a second incident — the EL attaches it."""
     running = Incident(
         title="Verunreinigung Bachweg",
         source="divera",
@@ -188,12 +194,13 @@ async def test_divera_auto_open_suppressed_while_incident_running(client, webhoo
     assert r.json()["incident_id"] is None  # pooled, not opened
     em = (await db_session.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == 4714))).scalar_one()
     assert em.is_taken is False
+    # the point of the guard: still ONE Einsatz, not the running one plus a Nachalarm twin
+    assert [i.title for i in (await db_session.execute(select(Incident))).scalars()] == ["Verunreinigung Bachweg"]
 
 
 async def test_divera_auto_open_ignores_stale_open_incident(client, webhook_secret, db_session):
     """An open incident older than the 4h running window (unfinished rapport) must not
     suppress auto-open for a genuinely new alarm."""
-    await _set_alarms_config(db_session, {"autoOpen": True})
     stale = Incident(
         title="Alter Einsatz", source="manual", status="offen", started_at=datetime.now(UTC) - timedelta(hours=6)
     )
@@ -203,14 +210,6 @@ async def test_divera_auto_open_ignores_stale_open_incident(client, webhook_secr
     r = await client.post("/api/divera/webhook", json=DIVERA_PAYLOAD, headers={"X-Webhook-Secret": "hook-secret-123"})
     assert r.status_code == 200
     assert r.json()["incident_id"] is not None
-
-
-async def test_divera_auto_open_off_by_default(client, webhook_secret, db_session):
-    r = await client.post("/api/divera/webhook", json=DIVERA_PAYLOAD, headers={"X-Webhook-Secret": "hook-secret-123"})
-    assert r.status_code == 200
-    assert r.json()["incident_id"] is None
-    n = (await db_session.execute(select(Incident))).scalars().all()
-    assert n == []
 
 
 # --- report_done_at (Abschluss-Assistent completion bookmark) --------------------------

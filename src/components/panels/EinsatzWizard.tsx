@@ -16,8 +16,6 @@ import {
   getIncident,
   listObjects,
   patchIncident,
-  takeDiveraAlarm,
-  type DiveraAlarm,
   type GeoHit,
   type IncidentFull,
   type IncidentMeta,
@@ -25,27 +23,20 @@ import {
 } from '../../lib/incidents'
 import { Modal, realCoord } from './_shared'
 
-// --- Einsatz eröffnen (intake wizard, Phase 4) --------------------------------------
+// --- Einsatz eröffnen / Einsatzdaten korrigieren -------------------------------------
 // `ix` (appConfig.copy.intake) is read inside each function below rather than captured at
 // module-load, so the locale resolved at boot (config/copy) applies.
+//
+// Two jobs, one panel: a blank MANUAL create (three location methods — object library ·
+// address autocomplete · map-pick), and correcting an EXISTING incident in place. There is
+// no third «take the alarm» mode any more: an alarm opens its Einsatz on arrival (2026-08-02),
+// so this panel is where the expert fixes what the dispatch got wrong — Stichwort, Kategorie,
+// Priorität, Ort — with the crew already on the map instead of waiting behind a wizard.
 
-/** Pre-select a VKF category from a Divera Stichwort (first keyword hit wins). */
-function guessKategorie(title: string): string | null {
-  const up = (title || '').toUpperCase()
-  // kategorieGuess is NOT localized (it mirrors the backend's German keyword map), so the
-  // value is the same in any locale — but read through the getter for consistency.
-  for (const [kw, label] of appConfig.copy.intake.kategorieGuess) if (up.includes(kw)) return label
-  return null
-}
-
-// Single guided panel used for both intake paths: a Divera alarm pre-fills every field
-// (EL reviews/corrects), or a blank manual create with three location methods (object
-// library · address autocomplete · map-pick). 3am tenet: nothing hidden, nothing to
-// memorise, everything correctable before the incident is born.
-export function EinsatzWizard({ seed, edit, nearCoord, onClose, onCreated }: {
-  /** Divera alarm to review/override; null = manual create */
-  seed: DiveraAlarm | null
-  /** existing incident to correct in place (PATCH) instead of creating; null = create/take */
+// Single guided panel — see the note above. 3am tenet: nothing hidden, nothing to memorise,
+// everything correctable, before or after the incident is born.
+export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
+  /** existing incident to correct in place (PATCH) instead of creating; null = manual create */
   edit?: IncidentMeta | null
   /** current incident coord, used to rank the object library by proximity */
   nearCoord?: [number, number] | null
@@ -53,31 +44,30 @@ export function EinsatzWizard({ seed, edit, nearCoord, onClose, onCreated }: {
   onCreated: (inc: IncidentFull) => void
 }) {
   const ix = appConfig.copy.intake // read per-render so the resolved locale applies
-  const [title, setTitle] = useState(seed?.title ?? edit?.title ?? '')
-  const [address, setAddress] = useState(seed?.address ?? edit?.address ?? '')
-  // Alarmmeldung (= incident.text). On create/take it comes from the alarm; on edit it's
-  // fetched from the incident below (IncidentMeta carries no text). `textReady` guards the
-  // PATCH so a save before the fetch lands can't blank an existing Meldungstext.
-  const [text, setText] = useState(seed?.text ?? '')
+  const [title, setTitle] = useState(edit?.title ?? '')
+  const [address, setAddress] = useState(edit?.address ?? '')
+  // Alarmmeldung (= incident.text). On edit it's fetched from the incident below
+  // (IncidentMeta carries no text). `textReady` guards the PATCH so a save before the fetch
+  // lands can't blank an existing Meldungstext.
+  const [text, setText] = useState('')
   const [textReady, setTextReady] = useState(!edit)
   // Alarmierungszeit (= incident.started_at): correctable in edit mode, and settable on
   // MANUAL create so a fully analog incident (no Divera) can be nachgetragen days later
   // with its real alarm time — that timestamp is what a website/statistics feed reads.
-  // Defaults to now, so live creation needs no interaction. Divera take keeps the alarm's
-  // own time (field hidden, nothing sent).
+  // Defaults to now, so live creation needs no interaction.
   const [alarmiertAt, setAlarmiertAt] = useState(
-    dtLocalValue(edit ? edit.started_at : seed ? null : new Date().toISOString()),
+    dtLocalValue(edit ? edit.started_at : new Date().toISOString()),
   )
   // category defaults to the first VKF type (Brandbekämpfung) so the dropdown is never empty
-  const [kategorie, setKategorie] = useState<string | null>(
-    seed ? (guessKategorie(seed.title) ?? ix.kategorien[0]) : (edit?.type ?? ix.kategorien[0]),
-  )
-  // [lng, lat] resolved location (Divera coord / object / address hit / map-pick)
-  const [coord, setCoord] = useState<[number, number] | null>(
-    realCoord(seed?.lng, seed?.lat) ?? realCoord(edit?.lng, edit?.lat),
-  )
-  // Übung — stats-excluded + deletable. Manual create & edit only; a Divera take is a real
-  // alarm (a taken Probealarm gets retro-tagged via the Einsatzdaten editor).
+  const [kategorie, setKategorie] = useState<string | null>(edit?.type ?? ix.kategorien[0])
+  // Priorität — inferred from the alarm keywords when an incident opens itself, so it is
+  // sometimes wrong and has to be correctable here: it drives how the Einsatz reads to
+  // everyone who sees it and it goes out with the statistics. Two values, same as the
+  // backend's HIGH/LOW; anything unexpected on an existing incident falls back to normal.
+  const [priority, setPriority] = useState<'HIGH' | 'LOW'>(edit?.priority === 'HIGH' ? 'HIGH' : 'LOW')
+  // [lng, lat] resolved location (object / address hit / map-pick / the alarm's own coord)
+  const [coord, setCoord] = useState<[number, number] | null>(realCoord(edit?.lng, edit?.lat))
+  // Übung — stats-excluded + deletable. A Probealarm that opened itself gets retro-tagged here.
   const [isExercise, setIsExercise] = useState(!!edit?.is_exercise)
   const [busy, setBusy] = useState(false)
 
@@ -174,35 +164,29 @@ export function EinsatzWizard({ seed, edit, nearCoord, onClose, onCreated }: {
     (address.trim() ? shortAddress(address.trim()) ?? '' : '') ||
     (ix.kategorienLabels[kategorie ?? ix.kategorien[0]] ?? kategorie ?? ix.kategorien[0])
   // Demo: a visitor may explore the whole wizard, but actually opening a new Einsatz is blocked
-  // (it would write to the shared backend). Edit / Divera-take stay allowed; only manual create.
-  const demoBlocked = isDemoMode() && !edit && !seed
+  // (it would write to the shared backend). Editing the demo incident stays fully open.
+  const demoBlocked = isDemoMode() && !edit
   const submit = async () => {
     if (!effectiveTitle || busy || demoBlocked) return
     setBusy(true)
-    // Meldungstext/Alarmmeldung is sent on create/take, and on edit once the existing text
-    // has been fetched (textReady) so a quick save can't blank it. Alarmierungszeit
-    // (started_at) goes with edit and manual create (nachtragen); a Divera take keeps the
-    // alarm's own time.
+    // Meldungstext/Alarmmeldung is sent on create, and on edit once the existing text has
+    // been fetched (textReady) so a quick save can't blank it.
     const body = {
       title: effectiveTitle,
       type: kategorie,
+      priority,
       address: address.trim() || null,
       ...(textReady ? { text: text.trim() || null } : {}),
-      ...(!seed && dtLocalToIso(alarmiertAt) ? { started_at: dtLocalToIso(alarmiertAt) } : {}),
-      ...(!seed ? { is_exercise: isExercise } : {}),
+      ...(dtLocalToIso(alarmiertAt) ? { started_at: dtLocalToIso(alarmiertAt) } : {}),
+      is_exercise: isExercise,
       ...(coord ? { lng: coord[0], lat: coord[1] } : {}),
     }
     try {
-      const inc = edit
-        ? await patchIncident(edit.id, body)
-        : seed
-        ? await takeDiveraAlarm(seed.divera_id, body)
-        : await createIncident(body)
-      toast(edit ? ix.updated : seed ? ix.taken : ix.created, { icon: 'check', tone: 'success' })
+      const inc = edit ? await patchIncident(edit.id, body) : await createIncident(body)
+      toast(edit ? ix.updated : ix.created, { icon: 'check', tone: 'success' })
       onCreated(inc)
     } catch (e) {
-      const fallback = edit ? ix.errorUpdate : seed ? ix.errorTake : ix.errorCreate
-      toast(e instanceof ApiError ? e.detail : fallback, { icon: 'warn', tone: 'warn' })
+      toast(e instanceof ApiError ? e.detail : edit ? ix.errorUpdate : ix.errorCreate, { icon: 'warn', tone: 'warn' })
       setBusy(false)
     }
   }
@@ -224,9 +208,7 @@ export function EinsatzWizard({ seed, edit, nearCoord, onClose, onCreated }: {
   return (
     <>
     {mapOpen && <MapPicker initial={coord} onCancel={() => setMapOpen(false)} onConfirm={applyPicked} />}
-    <Modal title={edit ? ix.editTitle : seed ? ix.titleDivera : ix.titleNew} onClose={onClose}>
-      {seed && <div className="ip-divera-hint"><Icon id="truck" /> {ix.diveraHint}</div>}
-
+    <Modal title={edit ? ix.editTitle : ix.titleNew} onClose={onClose}>
       {/* --- Standort --- */}
       <div className="ip-ix-head">{ix.locationHead}</div>
       <div className="ip-field ip-ac">
@@ -307,13 +289,22 @@ export function EinsatzWizard({ seed, edit, nearCoord, onClose, onCreated }: {
           }}
         />
       </div>
-      {!seed && (
-        <label className="ip-check">
-          <input type="checkbox" checked={isExercise} onChange={(e) => setIsExercise(e.target.checked)} />
-          <span>{ix.exerciseToggle}</span>
-        </label>
-      )}
-      {/* create/take: free-text Meldungstext stays under the keyword section */}
+      <div className="ip-field"><span>{ix.priorityLabel}</span>
+        {/* two values, same Combo as the Kategorie above — the stored value is the backend's
+            HIGH/LOW, the option is the word an EL uses */}
+        <Combo
+          value={priority === 'HIGH' ? ix.priorityHigh : ix.priorityLow}
+          options={[ix.priorityHigh, ix.priorityLow]}
+          placeholder={ix.priorityLabel}
+          clearable={false}
+          onChange={(label) => setPriority(label === ix.priorityHigh ? 'HIGH' : 'LOW')}
+        />
+      </div>
+      <label className="ip-check">
+        <input type="checkbox" checked={isExercise} onChange={(e) => setIsExercise(e.target.checked)} />
+        <span>{ix.exerciseToggle}</span>
+      </label>
+      {/* create: free-text Meldungstext stays under the keyword section */}
       {!edit && (
         <label className="ip-field"><span>{ix.detailsLabel}</span>
           <textarea className="ip-textarea" rows={2} value={text} onChange={(e) => setText(e.target.value)} placeholder={ix.detailsPlaceholder} />
@@ -321,8 +312,8 @@ export function EinsatzWizard({ seed, edit, nearCoord, onClose, onCreated }: {
       )}
       {/* manual create: Alarmierungszeit, prefilled with now — leave it for a live incident,
           set it back to nachtragen an analog one (paper report keeps the bookkeeping; this
-          row is what puts the right date into the catalogue). Divera take: alarm's time. */}
-      {!edit && !seed && (
+          row is what puts the right date into the catalogue). */}
+      {!edit && (
         <label className="ip-field"><span>{ix.alarmTime}</span>
           <DateTimeField ariaLabel={ix.alarmTime} value={dtLocalToIso(alarmiertAt)}
             onCommit={(iso) => setAlarmiertAt(dtLocalValue(iso))} />
@@ -346,8 +337,8 @@ export function EinsatzWizard({ seed, edit, nearCoord, onClose, onCreated }: {
 
       {demoBlocked && <p className="ip-demo-block"><Icon id="info" /> {ix.demoBlocked}</p>}
       <div className="ip-actions">
-        {/* manual create is reached from the intake pool — "Zurück" signals it returns there */}
-        <button className="ip-btn" onClick={onClose}>{!seed && !edit ? ix.back : ix.cancel}</button>
+        {/* manual create is reached from the landing — "Zurück" signals it returns there */}
+        <button className="ip-btn" onClick={onClose}>{edit ? ix.cancel : ix.back}</button>
         <button className="ip-btn primary" disabled={!effectiveTitle || busy || demoBlocked} onClick={submit}>
           {busy ? <><Icon id="rotate" className="spin" /> {edit ? ix.saving : ix.opening}</> : edit ? ix.save : ix.open}
         </button>

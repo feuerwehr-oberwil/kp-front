@@ -314,8 +314,6 @@ export const fr: Localizable<Copy> = {
   },
   intake: {
     titleNew: 'Ouvrir une intervention',
-    titleDivera: 'Reprendre l’alarme',
-    diveraHint: 'Reprise depuis la source d’alarme – vérifier et corriger si nécessaire.',
     locationHead: 'Lieu',
     addressLabel: 'Adresse',
     addressPlaceholder: 'Rue n°, NPA localité',
@@ -335,6 +333,9 @@ export const fr: Localizable<Copy> = {
     titleLabel: 'Mot-clé / titre',
     titlePlaceholder: 'p. ex. Incendie de bâtiment, école',
     categoryLabel: 'Catégorie',
+    priorityLabel: 'Priorité',
+    priorityHigh: 'Urgent',
+    priorityLow: 'Normal',
     detailsLabel: 'Texte du message (optionnel)',
     detailsPlaceholder: 'Indications supplémentaires sur le message',
     open: 'Ouvrir l’intervention',

@@ -3223,10 +3223,6 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .ip-ds-compact .ip-ds-title { font-size: 13.5px; }
 .ip-ds-dist { color: var(--blue); font-weight: 600; }
 /* --- Einsatz eröffnen wizard --- */
-.ip-divera-hint { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: var(--r-ctl);
-  background: color-mix(in srgb, var(--blue) 10%, transparent); color: var(--ink-dim);
-  font: 600 12.5px var(--body); }
-.ip-divera-hint svg { width: 16px; height: 16px; flex: none; color: var(--blue); }
 .ip-ix-head { margin: 4px 0 -2px; font: 700 11px var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
 /* «Hier» (GPS) is the primary method on its own full-width row; the two fallbacks share
    the row below — three-in-a-row clipped «Objekt aus Feuerwehrplänen» and wrapped «Auf

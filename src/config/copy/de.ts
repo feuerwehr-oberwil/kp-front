@@ -582,13 +582,12 @@ export const de = {
     glLostHint: 'Das Gerät hat die Grafikanzeige der Karte freigegeben. Deine Einträge sind gespeichert.',
     glLostAction: 'Karte neu aufbauen',
   },
-  // "Einsatz eröffnen" intake wizard. The primary path is a Divera alarm that
-  // pre-fills everything (the EL just reviews/corrects); manual create uses the same
-  // panel empty, with the three location methods (Objekt · Adresse · Karte).
+  // "Einsatz eröffnen" / "Einsatzdaten bearbeiten". An alarm opens its Einsatz by itself,
+  // so this panel is for the two remaining jobs: a manual create (fully analog Einsatz,
+  // three location methods — Objekt · Adresse · Karte) and correcting what the dispatch
+  // got wrong on an incident that is already running.
   intake: {
     titleNew: 'Einsatz eröffnen',
-    titleDivera: 'Alarm übernehmen',
-    diveraHint: 'Aus der Alarmquelle übernommen – prüfen und bei Bedarf korrigieren.',
     // --- Standort section ---
     locationHead: 'Standort',
     addressLabel: 'Adresse',
@@ -612,6 +611,10 @@ export const de = {
     titleLabel: 'Stichwort / Titel',
     titlePlaceholder: 'z. B. Gebäudebrand Schulhaus',
     categoryLabel: 'Kategorie',
+    // Priorität: aus den Stichwörtern des Alarms geraten, darum hier korrigierbar
+    priorityLabel: 'Priorität',
+    priorityHigh: 'Dringend',
+    priorityLow: 'Normal',
     // Übungen bleiben voll bedienbar, fliessen aber nicht in die Statistik ein und sind
     // als einzige löschbar (Alle Einsätze)
     exerciseToggle: 'Übung – zählt nicht zur Einsatzstatistik',

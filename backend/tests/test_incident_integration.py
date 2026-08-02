@@ -101,7 +101,7 @@ async def _seed_alarm(db_session, **kw) -> int:
 
 
 async def test_divera_take_applies_el_overrides(client, editor, db_session):
-    """The wizard's reviewed fields win over the mirrored alarm; coords skip geocoding."""
+    """The EL's corrections win over the mirrored alarm; coords skip geocoding."""
     divera_id = await _seed_alarm(db_session, divera_id=5001, lat=None, lng=None)
     await _login(client, editor)
 
@@ -124,9 +124,19 @@ async def test_divera_take_applies_el_overrides(client, editor, db_session):
     assert inc["source"] == "divera"
     assert inc["divera_id"] == divera_id
 
-    # Alarm is consumed → a second take is rejected.
-    r2 = await client.post(f"/api/divera/pool/{divera_id}/take", json={})
-    assert r2.status_code == 409
+    # The alarm already has its Einsatz → a second call CORRECTS it, and answers 200 instead
+    # of 201 to say so. It must never mint a second incident for the same alarm.
+    r2 = await client.post(f"/api/divera/pool/{divera_id}/take", json={"type": "Ölwehr"})
+    assert r2.status_code == 200, r2.text
+    assert r2.json()["id"] == inc["id"]
+    assert r2.json()["type"] == "Ölwehr"
+    assert r2.json()["title"] == "Wohnungsbrand Schulstrasse"  # untouched fields stay put
+    from sqlalchemy import select
+
+    from app.models import Incident
+
+    rows = (await db_session.execute(select(Incident).where(Incident.divera_id == divera_id))).scalars().all()
+    assert len(rows) == 1
 
 
 async def test_divera_take_verbatim_uses_alarm_fields(client, editor, db_session):

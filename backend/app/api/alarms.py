@@ -1,10 +1,11 @@
 """Generic alarm intake: `POST /api/alarms` for non-Divera alerting systems.
 
 Any upstream (canton dispatch, pager gateway, a curl script) POSTs an alarm and gets an
-auto-opened incident back — this endpoint IS the auto-open for third-party sources, so it
-is not gated by `alarms.autoOpen` (that flag covers the Divera pool path, which has a
-manual-take UX to preserve). Idempotent on (source, source_id): a retried webhook returns
-the existing incident. Fail-closed like the Divera webhook: no ALARM_WEBHOOK_SECRET → 403.
+auto-opened incident back. That is now what every intake path does — the Divera poll and
+webhook opened theirs behind a config flag and a human take until 2026-08-02, and this
+endpoint's unconditional behaviour is the one the others were moved to, not the exception.
+Idempotent on (source, source_id): a retried webhook returns the existing incident.
+Fail-closed like the Divera webhook: no ALARM_WEBHOOK_SECRET → 403.
 """
 
 import secrets

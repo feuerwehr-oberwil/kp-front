@@ -672,11 +672,18 @@ class AlarmGroup(BaseModel):
 
 class AlarmsConfig(BaseModel):
     """Alarm handling: auto-open incidents from incoming alarms + auto-archive of untouched
-    auto-opened ones. `autoOpen` gates the Divera pool path (the generic `/api/alarms`
-    intake always creates — configuring its secret is the opt-in). Filters are None =
-    accept all; keywords match as case-insensitive substrings of title+text."""
+    auto-opened ones."""
 
     model_config = ConfigDict(extra="ignore")
+    # DEPRECATED 2026-08-02, accepted and ignored. Auto-open is no longer a setting: every
+    # alarm opens its Einsatz on arrival, on every path. The flag defaulted to off, so any
+    # station that had not opted in left every Einsatz-Link holder on «Einsatz nicht (mehr)
+    # verfügbar» until an editor took the alarm on a tablet — a config default is the wrong
+    # place for that decision. What the filters bought (test alarms, Nachbarhilfe and BMA
+    # runs not becoming counted Einsätze) is now bought by `Incident.editor_opened_at`
+    # instead, which measures whether anyone ATTENDED rather than guessing from the keyword.
+    # Kept in the schema so existing config files and the admin round-trip keep validating;
+    # they will be dropped in the next MAJOR.
     autoOpen: bool = False
     autoOpenPriorities: list[Literal["HIGH", "LOW"]] | None = None
     autoOpenKeywords: list[str] | None = None

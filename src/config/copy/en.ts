@@ -313,8 +313,6 @@ export const en: Localizable<Copy> = {
   },
   intake: {
     titleNew: 'Open incident',
-    titleDivera: 'Take over alarm',
-    diveraHint: 'Imported from the alarm source – review and correct if needed.',
     locationHead: 'Location',
     addressLabel: 'Address',
     addressPlaceholder: 'Street no, ZIP city',
@@ -336,6 +334,9 @@ export const en: Localizable<Copy> = {
     titleLabel: 'Keyword / title',
     titlePlaceholder: 'e.g. Building fire, school',
     categoryLabel: 'Category',
+    priorityLabel: 'Priority',
+    priorityHigh: 'Urgent',
+    priorityLow: 'Normal',
     exerciseToggle: 'Exercise – not counted in incident statistics',
     detailsLabel: 'Message text (optional)',
     detailsPlaceholder: 'Additional details for the report',

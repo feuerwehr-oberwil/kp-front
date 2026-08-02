@@ -116,12 +116,14 @@ One JSON document, stored as the single `deployment_config` row, returned by `GE
     "units": ["Stk", "l", "Sack", "Flasche", "Dose"]  // unit suggestions for custom entries; free text always ok
   },
 
-  "alarms": {                                    // alarm auto-open + auto-archive
-    "autoOpen": false,                            // NEW Divera alarm → incident, no human in the loop
-                                                  // (generic POST /api/alarms always creates – its env
-                                                  // secret ALARM_WEBHOOK_SECRET is the opt-in, §6)
-    "autoOpenPriorities": null,                   // e.g. ["HIGH"]; null = all
-    "autoOpenKeywords": null,                     // case-insensitive substrings of title+text; null = all
+  "alarms": {                                    // alarm auto-archive + intake extras
+                                                  // NOTE: auto-open is no longer a setting – every alarm
+                                                  // opens its Einsatz on arrival, on every path. The old
+                                                  // "autoOpen"/"autoOpenPriorities"/"autoOpenKeywords"
+                                                  // keys are still ACCEPTED and IGNORED (dropped in the
+                                                  // next MAJOR); what they used to buy – test alarms and
+                                                  // Nachbarhilfe not being counted – is now the stats
+                                                  // export's editor_opened_at filter, docs/STATS-EXPORT.md
     "autoArchiveDays": 7,                         // archive untouched auto-opened incidents (never any
                                                   // workspace sync) after N days; 0 = sweep off
     "captureWindowHours": 12,                     // how long the Erfassungs-Poster link (below) reaches

@@ -51,6 +51,15 @@ export default defineConfig(({ mode }) => {
           lang: 'de-CH',
           display: 'standalone',
           orientation: 'any',
+          // An Einsatz-Link (/l/<token>) is in scope, so an installed app should open it
+          // instead of a browser tab — the responder already has the map tiles cached.
+          // Chromium honours both fields; iOS home-screen web apps do NOT capture links
+          // and will open Safari regardless. Half the crew lands in a browser either way,
+          // which is fine: the link surface works there too.
+          handle_links: 'preferred',
+          // A second dispatch group for the same Einsatz must focus the running app, not
+          // stack another window on top of the Lage someone is already working in.
+          launch_handler: { client_mode: 'focus-existing' },
           start_url: '/',
           scope: '/',
           theme_color: '#1b2330',

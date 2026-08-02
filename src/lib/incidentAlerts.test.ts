@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { freshAlarmCandidate, pickBootIncident, sameIncidentList } from './incidentAlerts'
+import { freshAlarmCandidate, needsIntakeReview, pickBootIncident, sameIncidentList } from './incidentAlerts'
 import type { IncidentMeta } from './incidents'
 
 const NOW = new Date('2026-07-08T12:00:00Z').getTime()
@@ -100,5 +100,32 @@ describe('sameIncidentList', () => {
   it('a QR capture write (counter only, pinned updated_at) still counts as a change', () => {
     const a = inc({ id: 'a' })
     expect(sameIncidentList([a], [inc({ id: 'a', capture_writes: 1 })])).toBe(false)
+  })
+})
+
+describe('needsIntakeReview', () => {
+  const base = { isEditor: true, reviewed: new Set<string>(), now: NOW }
+  const auto = inc({ id: 'a', source: 'divera', auto_opened: true })
+
+  it('offers the review on an Einsatz that opened itself — nobody checked the dispatch', () => {
+    expect(needsIntakeReview(auto, base)).toBe(true)
+  })
+
+  it('stays quiet for a human-created incident: it was reviewed while it was typed', () => {
+    expect(needsIntakeReview(inc({ id: 'm' }), base)).toBe(false)
+  })
+
+  it('stays quiet for a viewer — a read-only follower has nothing to correct', () => {
+    expect(needsIntakeReview(auto, { ...base, isEditor: false })).toBe(false)
+  })
+
+  it('nags once per device, not on every reload', () => {
+    expect(needsIntakeReview(auto, { ...base, reviewed: new Set(['a']) })).toBe(false)
+  })
+
+  it('lets go of stale and archived incidents', () => {
+    expect(needsIntakeReview(inc({ ...auto, started_at: '2026-07-08T08:00:00Z' }), base)).toBe(false)
+    expect(needsIntakeReview(inc({ ...auto, is_archived: true }), base)).toBe(false)
+    expect(needsIntakeReview(null, base)).toBe(false)
   })
 })

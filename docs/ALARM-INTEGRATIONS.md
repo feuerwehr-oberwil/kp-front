@@ -17,8 +17,10 @@ alerting system ──POST /api/alarms──► KP Front ──alarms.webhooks�
 ## 1. Inbound: generic alarm intake – `POST /api/alarms`
 
 For stations **not** on Divera (which has its own integration), or for scripts/dispatch
-systems. Every accepted alarm **auto-opens an incident** – this endpoint *is* the auto-open
-for third parties, so it is not gated by `alarms.autoOpen`.
+systems. Every accepted alarm **auto-opens an incident** – as does every other intake path
+since 2026-08-02. Auto-open is no longer configurable and no longer filtered: an alarm nobody
+attends is kept out of the statistics afterwards (`editor_opened_at`,
+[`STATS-EXPORT.md`](STATS-EXPORT.md)), not kept out of the app beforehand.
 
 - **Auth:** `ALARM_WEBHOOK_SECRET` env var, sent as `?secret=` or `X-Webhook-Secret`.
   Fail-closed: unset → 403 for everyone. Setting it is the opt-in.
@@ -222,10 +224,16 @@ sender already knows it:
 
 `src` + `ref` are exactly the pair the intake deduplicates on (`Incident.source` /
 `source_ref`), and that is what keeps this provider-neutral: **an alerting system never has to
-learn KP Front's incident UUIDs** – it links to the alarm it already sent. The flip side: the
-incident has to exist here by the time someone taps, so send the intake (§1) before or with the
-alert, not after. A link tapped ahead of its incident answers the same «nicht (mehr) verfügbar»
-as a closed one, and works on the next tap.
+learn KP Front's incident UUIDs** – it links to the alarm it already sent.
+
+A link whose alarm is still sitting in an intake pool **opens it** (2026-08-02). Before that,
+the responder holding the link waited on a colleague opening the alarm on a tablet and saw
+«Einsatz nicht (mehr) verfügbar» until they did – the link was only as fast as the slowest
+person at the Magazin. Opening grants nothing extra: the session that follows is the same
+read-only viewer, and the incident stays *unconfirmed* until an editor works it, so a link
+tapped for a turnout that never happened never reaches the statistics. Still send the intake
+(§1) before or with the alert: an alarm neither the incident table nor any pool knows answers
+«nicht (mehr) verfügbar», and works on the next tap.
 
 ```python
 # in the alerting system, at alarm time — no call to KP Front

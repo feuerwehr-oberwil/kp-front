@@ -34,7 +34,7 @@ import { ApiError } from './lib/api'
 import { useDiveraWatch } from './lib/useDiveraWatch'
 import { dismissAlarm, loadDismissedAlarms } from './lib/diveraDismiss'
 import { useIncidentWatch } from './lib/useIncidentWatch'
-import { pickBootIncident, sameIncidentList } from './lib/incidentAlerts'
+import { loadReviewedIncidents, needsIntakeReview, pickBootIncident, sameIncidentList, saveReviewedIncident } from './lib/incidentAlerts'
 import { EinsatzWizard, DatenquellenPanel, FeedbackPrompt, FeedbackSheet, HistoryPanel, IncomingAlarmBanner, NewIncidentBanner, SettingsSheet } from './components/panels'
 import { pickTrouble, readTrouble, recordTrouble, type TroubleEvent } from './lib/trouble'
 import { onStorageDegraded } from './lib/idb'
@@ -112,8 +112,6 @@ export default function App() {
   // localStorage write with ANOTHER localStorage write is both futile and a side effect on the
   // one path that must stay minimal. App is mounted for the whole session, so nothing is missed.
   useEffect(() => onStorageDegraded((d) => { if (d) recordTrouble('storageFull') }), [])
-  // Divera alarm handed to the intake wizard for review/override (null = manual create)
-  const [wizardSeed, setWizardSeed] = useState<DiveraAlarm | null>(null)
   // existing incident opened in the wizard for in-place correction (PATCH, not create)
   const [editMeta, setEditMeta] = useState<IncidentMeta | null>(null)
   // always-on Divera watch: surfaces fresh alarms wherever the EL is (editor only)
@@ -150,8 +148,17 @@ export default function App() {
     return () => sw.removeEventListener('message', onMsg)
   }, [isEditor, refreshPool])
   const [taking, setTaking] = useState<number | null>(null) // divera_id mid-take
-  // incident just taken one-tap → show the correct-in-place review banner until confirmed
+  // incident just opened one-tap → show the correct-in-place review banner until confirmed
   const [reviewPendingId, setReviewPendingId] = useState<string | null>(null)
+  // …and the same banner for an Einsatz that opened ITSELF: nobody reviewed the dispatch's
+  // guesses on the way in any more, so the first editor to look at it gets the offer once
+  // (per device, kp.incident.reviewed).
+  const [reviewedIncidents, setReviewedIncidents] = useState<Set<string>>(loadReviewedIncidents)
+  const markReviewed = useCallback((id: string) => {
+    saveReviewedIncident(id)
+    setReviewedIncidents(loadReviewedIncidents())
+    setReviewPendingId(null)
+  }, [])
   const syncRef = useRef<WorkspaceSync | null>(null)
   const selectReq = useRef(0) // guards against interleaved incident switches (fast double-taps)
   // where «Zurück» from an archived read-only view lands: the editable incident that was
@@ -480,14 +487,17 @@ export default function App() {
           // «Einsatz eröffnen» goes straight to the manual wizard — the pool sheet is gone
           // (testing feedback 2026-07-18): incoming alarms are taken via the landing card or
           // the mid-incident banner, never via a separate pool screen.
-          onOpenDivera={() => { setWizardSeed(null); setOverlay('create') }}
+          onOpenDivera={() => setOverlay('create')}
           onOpenDatenquellen={() => setOverlay('daten')}
           onCompleteRapport={() => void completeRapport(activeMeta.id)}
           onArchiveActive={isEditor && !activeMeta.is_archived ? () => void archiveById(activeMeta.id) : undefined}
           onReactivateActive={isEditor && activeMeta.is_archived ? () => void reactivateById(activeMeta.id) : undefined}
           onBackFromArchive={activeMeta.is_archived ? () => void backFromArchive() : undefined}
-          needsReview={reviewPendingId != null && reviewPendingId === activeMeta.id}
-          onReviewDone={() => setReviewPendingId(null)}
+          needsReview={
+            reviewPendingId === activeMeta.id ||
+            needsIntakeReview(activeMeta, { isEditor, reviewed: reviewedIncidents, now: Date.now() })
+          }
+          onReviewDone={() => markReviewed(activeMeta.id)}
           onEditMeta={() => setEditMeta(activeMeta)}
           onPatchMeta={(patch) => void patchActiveMeta(patch)}
         />
@@ -549,7 +559,7 @@ export default function App() {
             )}
             <div className="ip-emptyapp-actions">
               {isEditor && (
-                <button className="ip-btn primary block" onClick={() => { setWizardSeed(null); setOverlay('create') }}>
+                <button className="ip-btn primary block" onClick={() => setOverlay('create')}>
                   <Icon id="plus" />{appConfig.copy.intake.manualIncident}
                 </button>
               )}
@@ -631,11 +641,10 @@ export default function App() {
 
       {(overlay === 'create' || editMeta) && (
         <EinsatzWizard
-          seed={editMeta ? null : wizardSeed}
           edit={editMeta}
           nearCoord={activeMeta?.lng != null && activeMeta?.lat != null ? [activeMeta.lng, activeMeta.lat] : null}
-          onClose={() => { setWizardSeed(null); setOverlay(null); setEditMeta(null) }}
-          onCreated={(inc) => { setWizardSeed(null); setEditMeta(null); setReviewPendingId(null); void openCreated(inc) }}
+          onClose={() => { setOverlay(null); setEditMeta(null) }}
+          onCreated={(inc) => { setEditMeta(null); markReviewed(inc.id); void openCreated(inc) }}
         />
       )}
       {overlay === 'history' && (

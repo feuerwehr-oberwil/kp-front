@@ -35,19 +35,21 @@ async def test_webhook_rejects_missing_or_wrong_secret(client, webhook_secret):
     assert r.status_code == 401
 
 
-async def test_webhook_accepts_correct_secret_and_pools_alarm(client, webhook_secret, editor):
+async def test_webhook_accepts_correct_secret_and_opens_the_incident(client, webhook_secret, editor):
     r = await client.post("/api/divera/webhook", json=PAYLOAD, headers={"X-Webhook-Secret": "hook-secret-123"})
     assert r.status_code == 200
-    # incident_id stays None: alarms.autoOpen is off by default, the alarm only pools
-    assert r.json() == {"ok": True, "new": True, "incident_id": None}
-    # duplicate delivery stays 200 but is not "new"
+    body = r.json()
+    # the alarm opens its Einsatz on arrival — no take, nobody in the way of the Lage
+    assert body["ok"] is True and body["new"] is True
+    assert body["incident_id"] is not None
+    # duplicate delivery stays 200 but is not "new" (and opens nothing further)
     r = await client.post("/api/divera/webhook?secret=hook-secret-123", json=PAYLOAD)
     assert r.status_code == 200
-    assert r.json()["new"] is False
+    assert r.json() == {"ok": True, "new": False, "incident_id": None}
 
-    # the alarm is visible in the editor's pool
+    # the alarm is out of the editor's pool: it is an Einsatz now, not a pending decision
     lr = await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": "135790"})
     assert lr.status_code == 200
     pool = await client.get("/api/divera/pool")
     assert pool.status_code == 200
-    assert any(a["title"] == "Zimmerbrand" for a in pool.json())
+    assert not any(a["title"] == "Zimmerbrand" for a in pool.json())

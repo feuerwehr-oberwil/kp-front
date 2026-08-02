@@ -33,7 +33,7 @@ export type { ClientEvent } from './api/events'
 export { uploadMedia } from './api/media'
 
 export { getDiveraPool, refreshDiveraPool, takeDiveraAlarm, attachDiveraAlarm } from './api/divera'
-export type { DiveraAlarm, DiveraTakeOverrides } from './api/divera'
+export type { DiveraAlarm } from './api/divera'
 
 export { listPersonnel, personnelSyncPreview, personnelSyncExecute } from './api/personnel'
 export type { PersonnelSyncPreview, PersonnelSyncResult } from './api/personnel'

@@ -1,11 +1,11 @@
-"""Divera endpoints: webhook intake, pool list/refresh, take → incident, attach, archive."""
+"""Divera endpoints: webhook intake, pool list/refresh, open-or-correct, attach, archive."""
 
 import secrets
 import uuid
 from datetime import UTC
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -84,20 +84,47 @@ async def refresh(_user: EditorOrAdmin, db: AsyncSession = Depends(get_db)) -> d
 async def take(
     divera_id: int,
     user: CurrentEditor,
+    response: Response,
     overrides: DiveraTakeBody | None = None,
     db: AsyncSession = Depends(get_db),
 ) -> Incident:
-    if await is_demo_deployment(db):
-        raise HTTPException(status_code=403, detail="In der Demo können keine neuen Einsätze übernommen werden.")
+    """Open a pooled alarm — or, if it is already open, apply the EL's corrections to it.
+
+    The intake wizard this endpoint was built for is gone (2026-08-02): an alarm becomes an
+    Einsatz on arrival and the expert corrects it afterwards from the incident view. The
+    endpoint stays, for two reasons that outlive the wizard. (1) The split-dispatch guard
+    still parks alarms in the pool while an Einsatz is running, and this is how the EL opens
+    one of those on purpose. (2) It is a published API surface — a client that still calls it
+    with corrections gets them applied instead of a 409, which is the friendlier failure and
+    keeps the EL's corrections working either way.
+
+    What it must never do again is create a SECOND incident for an alarm that already has
+    one; `taken_incident_id` is checked first, so a repeat call corrects rather than
+    duplicates and answers `200` instead of `201`.
+    """
     em = (await db.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == divera_id))).scalar_one_or_none()
     if em is None:
         raise HTTPException(status_code=404, detail="Alarm nicht im Pool")
-    if em.is_taken:
-        raise HTTPException(status_code=409, detail="Alarm bereits übernommen")
 
-    # EL corrections from the intake wizard win over the mirrored Divera fields; anything
-    # left unset falls back to the alarm. An empty/absent body = take verbatim (legacy).
+    # EL corrections win over the mirrored Divera fields; anything left unset falls back to
+    # the alarm (empty/absent body = the alarm verbatim).
     o = overrides or DiveraTakeBody()
+
+    existing = await db.get(Incident, em.taken_incident_id) if em.taken_incident_id else None
+    if existing is not None:
+        if existing.is_archived:
+            raise HTTPException(status_code=409, detail="Einsatz ist archiviert")
+        await _apply_corrections(db, existing, o, user_id=user.id, divera_id=em.divera_id)
+        response.status_code = status.HTTP_200_OK
+        await db.refresh(existing)
+        return existing
+    if em.is_taken:
+        # Taken but the incident is gone (hard-deleted Übung, or a legacy row) — nothing left
+        # to open or correct, and re-creating it would resurrect a record someone removed.
+        raise HTTPException(status_code=409, detail="Alarm bereits übernommen")
+    if await is_demo_deployment(db):
+        raise HTTPException(status_code=403, detail="In der Demo können keine neuen Einsätze übernommen werden.")
+
     title = o.title or em.title
     text = o.text if o.text is not None else em.text
     address = o.address if o.address is not None else em.address
@@ -168,6 +195,38 @@ async def take(
     await notify_incident_created(db, inc)
     await db.refresh(inc)
     return inc
+
+
+async def _apply_corrections(
+    db: AsyncSession,
+    inc: Incident,
+    o: DiveraTakeBody,
+    *,
+    user_id: uuid.UUID | None,
+    divera_id: int,
+) -> None:
+    """Write the EL's corrections onto an already-open incident. Only fields the caller
+    actually sent are touched — an empty body is a no-op, not a reset to the alarm."""
+    changed: dict[str, object] = {}
+    for field in ("title", "type", "priority", "text", "address"):
+        value = getattr(o, field)
+        if value is not None and value != getattr(inc, field):
+            setattr(inc, field, value)
+            changed[field] = value
+    if o.lat is not None and o.lng is not None:
+        inc.lat, inc.lng = o.lat, o.lng
+        changed["coord"] = [o.lng, o.lat]
+    if not changed:
+        return
+    await db.flush()
+    await audit.append_event(
+        db,
+        incident_id=inc.id,
+        op_type="divera.update",
+        source="divera",
+        user_id=user_id,
+        payload={"divera_id": divera_id, "corrected": sorted(changed)},
+    )
 
 
 @router.post("/pool/{divera_id}/attach/{incident_id}", status_code=200)

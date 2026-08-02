@@ -8,6 +8,10 @@ operational API.
 Auth is a station-level, admin-rotatable token (`stats_secret`, same pattern as the
 capture poster secret): NULL → the whole surface answers 403 (fail-closed). Strictly
 read-only — no workspace blobs, no mutation endpoints on this token.
+
+Two default exclusions keep the reported figures honest: Übungen, and incidents no editor
+ever opened (`editor_opened_at IS NULL`). See `stats_incidents` for the second one — it is
+what stops auto-opened alarms nobody attended being counted as Einsätze.
 """
 
 import secrets
@@ -202,6 +206,7 @@ def _record(inc: Incident) -> dict:
         "source": inc.source,
         "is_archived": inc.is_archived,
         "is_exercise": inc.is_exercise,
+        "confirmed_at": _iso(inc.editor_opened_at),
         "rapport": _rapport_state(inc.report_done_at, inc.updated_at),
         "report_done_at": _iso(inc.report_done_at),
         # reportMeta slices (ISO strings maintained by the app; passed through verbatim)
@@ -232,17 +237,30 @@ async def stats_incidents(
     request: Request,
     year: int | None = Query(default=None, ge=2000, le=2100),
     include_exercises: bool = Query(default=False),
+    include_unconfirmed: bool = Query(default=False),
     x_stats_token: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> list[dict]:
-    """All incidents (optionally one local calendar year), oldest first, flat records.
+    """All confirmed incidents (optionally one local calendar year), oldest first, flat records.
 
     Übungen are excluded by default — they must not land in the WinFAP/fwo-stats numbers;
-    ?include_exercises=1 exports them too (each record carries is_exercise)."""
+    ?include_exercises=1 exports them too (each record carries is_exercise).
+
+    So are UNCONFIRMED incidents, and that filter is the one doing real work since alarms
+    started opening themselves (2026-08-02). An incident now exists for every alarm that ever
+    arrived — test alarms, Nachbarhilfe, re-dispatches, an Einsatz-Link tapped for something
+    the station never turned out for. The line between «an alarm arrived» and «we attended an
+    Einsatz» is `editor_opened_at`: stamped the first time an authenticated *editor* opens the
+    workspace, never for a viewer or a link guest. NULL means nobody at the station ever had
+    this incident on a tablet, and such a row must not reach the canton's figures.
+    ?include_unconfirmed=1 exports them too (each record carries `confirmed_at`), for a
+    consumer that wants the alarm volume rather than the Einsatz count."""
     await _check_token(db, request, x_stats_token)
     q = select(Incident).order_by(Incident.started_at.asc())
     if not include_exercises:
         q = q.where(Incident.is_exercise.is_(False))
+    if not include_unconfirmed:
+        q = q.where(Incident.editor_opened_at.is_not(None))
     rows = (await db.execute(q)).scalars()
     out = []
     for inc in rows:
