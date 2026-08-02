@@ -263,7 +263,12 @@ export const DEFAULT_MODULES: DeploymentModule[] = [
   // Modul 6 = Geschosspläne: a reference PDF you SCROLL, not annotate (building annotation lives on
   // the interactive Gebäude floor-stack) — so it opens in the plain multi-page viewer by default.
   { id: 'modul6', code: 'M6', title: 'Gebäudepläne', order: 6, orientation: 'portrait', viewer: true, match: String.raw`modul\s*6` },
-  { id: 'modul5', code: 'M5', title: 'Spezialpläne', order: 5, family: true, match: String.raw`modul\s*5(?:\s*[-–—]\s*([0-9A-Za-zÄÖÜäöü]+))?` },
+  // The sub-slot capture takes a trailing number, so «Modul 5 - Wasser 1» and
+  // «Modul 5 - Wasser 2» are two plans rather than one overwriting the other. Must stay
+  // identical to MODULE_RULES in fwo-schlühü's backend/tools/hub_client.py — the two
+  // decide what a plan is CALLED, and a divergence puts the same sheet under two ids
+  // with no error anywhere.
+  { id: 'modul5', code: 'M5', title: 'Spezialpläne', order: 5, family: true, match: String.raw`modul\s*5(?:\s*[-–—]\s*([0-9A-Za-zÄÖÜäöü]+(?:\s+\d+)?))?` },
   { id: 'modul4', code: 'M4', title: 'Spezialplan', order: 7, match: String.raw`modul\s*4` },
 ]
 
