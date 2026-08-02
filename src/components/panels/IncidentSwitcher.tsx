@@ -103,6 +103,8 @@ export function IncidentSwitcher({
     : syncStatus === 'error' || syncStatus === 'storage'
       ? <Icon id="warn" />
       : <span className="ip-status-dot" />
+  const otherIncidents = incidents.filter((i) => i.id !== active?.id)
+  const showIncidents = otherIncidents.length > 0 || isEditor || !!onHistory || (incidents.length === 0 && !active)
   return (
     <div className="ip-switch" ref={ref}>
       <button className="ip-switch-btn" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
@@ -191,22 +193,31 @@ export function IncidentSwitcher({
               <div className="ip-menu-sep" />
             </>
           )}
-          <div className="ip-menu-label">{cp.incidents}</div>
-          {incidents.length === 0 && !active && <div className="ip-menu-empty">{cp.noOpenIncidents}</div>}
-          {incidents.filter((i) => i.id !== active?.id).map((i) => (
-            <div key={i.id} className="ip-menu-row">
-              <button className="ip-menu-rowmain" onClick={() => { onSwitch(i); setOpen(false) }}>
-                <span className="ip-menu-title">
-                  {i.title}
-                  {i.is_exercise && <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>}
-                </span>
-                <span className="ip-menu-sub">{shortAddress(i.address) ?? i.status}</span>
-              </button>
-            </div>
-          ))}
-          {isEditor && <button className="ip-menu-act" onClick={() => { onDivera(); setOpen(false) }}><Icon id="plus" /> {appConfig.copy.intake.titleNew}</button>}
-          {onHistory && <button className="ip-menu-act" onClick={() => openSheet(onHistory)}><Icon id="history" /> {cp.allIncidents}</button>}
-          <div className="ip-menu-sep" />
+          {/* The Einsätze group is about moving BETWEEN Einsätze. When nothing in it can
+              render — no other incident, no «Neuer Einsatz», no «Alle Einsätze» — the label
+              would head an empty list, which is what an Einsatz-Link sees: it is bound to
+              one Einsatz and switching is neither offered nor permitted. Derived rather
+              than passed, so the menu never has to know why the rows are missing. */}
+          {showIncidents && (
+            <>
+              <div className="ip-menu-label">{cp.incidents}</div>
+              {incidents.length === 0 && !active && <div className="ip-menu-empty">{cp.noOpenIncidents}</div>}
+              {otherIncidents.map((i) => (
+                <div key={i.id} className="ip-menu-row">
+                  <button className="ip-menu-rowmain" onClick={() => { onSwitch(i); setOpen(false) }}>
+                    <span className="ip-menu-title">
+                      {i.title}
+                      {i.is_exercise && <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>}
+                    </span>
+                    <span className="ip-menu-sub">{shortAddress(i.address) ?? i.status}</span>
+                  </button>
+                </div>
+              ))}
+              {isEditor && <button className="ip-menu-act" onClick={() => { onDivera(); setOpen(false) }}><Icon id="plus" /> {appConfig.copy.intake.titleNew}</button>}
+              {onHistory && <button className="ip-menu-act" onClick={() => openSheet(onHistory)}><Icon id="history" /> {cp.allIncidents}</button>}
+              <div className="ip-menu-sep" />
+            </>
+          )}
           {onSettings && <button className="ip-menu-act" onClick={() => openSheet(onSettings)}><Icon id="gear" /> {appConfig.copy.settings.title}</button>}
           {active && <button className="ip-menu-act" onClick={() => openSheet(onOfflineReadiness)}><Icon id="snapshot" /> {appConfig.copy.offline.title}</button>}
           <button className="ip-menu-act" onClick={() => openSheet(onHelp)}><Icon id="info" /> {appConfig.copy.help.menu}</button>
