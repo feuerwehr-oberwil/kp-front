@@ -54,7 +54,7 @@ type OverpassElement = {
 function fetchOverpass(
   south: number, west: number, north: number, east: number,
 ): Promise<{ elements?: OverpassElement[] }> {
-  return apiPost<{ elements?: OverpassElement[] }>('/overpass/buildings', { south, west, north, east })
+  return apiPost<{ elements?: OverpassElement[] }>('/api/overpass/buildings', { south, west, north, east })
 }
 
 // Fetch building footprints in a square bbox (±radiusM around center) from the
