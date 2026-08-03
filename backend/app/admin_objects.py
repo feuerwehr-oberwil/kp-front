@@ -81,6 +81,9 @@ class ObjectEntry(BaseModel):
     address: str | None = None
     lat: float | None = None
     lng: float | None = None
+    #: The station's stable key for this object (e.g. the source folder name). Optional.
+    #: Set it if a scheduled pull should be able to match plans to this object.
+    sourceKey: str | None = None
     sourceNote: str | None = None
     plans: list[PlanEntry] = []
 
@@ -204,6 +207,7 @@ async def _load(manifest_path: Path, objects: list[ObjectEntry]) -> tuple[int, i
             existing.address = o.address
             existing.lat = o.lat
             existing.lng = o.lng
+            existing.source_key = o.sourceKey
             existing.source_note = o.sourceNote
 
             for p in o.plans:
@@ -264,6 +268,7 @@ def _push(
                     "address": o.address,
                     "lat": o.lat,
                     "lng": o.lng,
+                    "source_key": o.sourceKey,
                     "source_note": o.sourceNote,
                 },
             )

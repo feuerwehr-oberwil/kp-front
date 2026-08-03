@@ -133,7 +133,13 @@ def plan_max_bytes() -> int:
 class PlanEntry:
     """One validated row of `plans/index.json`."""
 
+    #: The PUBLISHER's object id. Used for one thing only — locating the bytes in the
+    #: store, whose layout it defines. It is NOT this deployment's object id and must
+    #: never be matched against one: the two id spaces overlap by zero.
     object_id: uuid.UUID
+    #: The station's own stable key for the object (the index's ``folder``). This is what
+    #: resolves the row to a local `ObjectSite`, via `ObjectSite.source_key`.
+    source_key: str
     module: str
     filename: str
     size: int
@@ -144,9 +150,16 @@ class PlanEntry:
     def path(self) -> str:
         return f"plans/{self.object_id}/{self.filename}"
 
-    @property
-    def dataset_id(self) -> str:
-        return f"plan:{self.object_id}:{self.module}"
+    def dataset_id_for(self, local_object_id: uuid.UUID) -> str:
+        """The dataset id in THIS deployment's id space.
+
+        Built from the local object, never from `object_id`. Both front doors have to
+        mint the same id for the same plan — `admin_objects` writes
+        ``plan:<local id>:<module>`` — and an id derived from the publisher's UUID would
+        make the upload door and the pull door create two datasets for one plan, which is
+        the duplicate-on-switchover failure the manual/pull split was designed to avoid.
+        """
+        return f"plan:{local_object_id}:{self.module}"
 
 
 def parse_index(raw: bytes) -> list[PlanEntry]:
@@ -178,6 +191,14 @@ def parse_index(raw: bytes) -> list[PlanEntry]:
             object_id = uuid.UUID(str(row.get("object_id")))
         except (ValueError, AttributeError, TypeError) as e:
             raise ValueError(f"{where}: object_id {row.get('object_id')!r} is not a UUID") from e
+        source_key = row.get("folder")
+        if not isinstance(source_key, str) or not source_key.strip():
+            raise ValueError(
+                f"{where}: 'folder' is missing or empty. It is the station key this plan is "
+                f"matched on (ObjectSite.source_key); without it the row can only be resolved "
+                f"by re-deriving the publisher's UUID, which is what this field replaced."
+            )
+        source_key = source_key.strip()
         module = row.get("module")
         if not isinstance(module, str) or not _MODULE_RE.match(module):
             raise ValueError(f"{where}: module {module!r} is missing or not a plain slug")
@@ -195,10 +216,14 @@ def parse_index(raw: bytes) -> list[PlanEntry]:
         address_full = row.get("address_full")
         if address_full is not None and not isinstance(address_full, str):
             raise ValueError(f"{where}: address_full must be a string when present")
-        entry = PlanEntry(object_id, module, filename, size, sha256, address_full)
-        if entry.dataset_id in seen:
-            raise ValueError(f"{where}: {entry.dataset_id} appears twice")
-        seen.add(entry.dataset_id)
+        entry = PlanEntry(object_id, source_key, module, filename, size, sha256, address_full)
+        # Dedupe on (station key, module) — the identity the row actually asserts. The
+        # dataset id cannot be used here: it is not knowable until the row is resolved to
+        # a local object, which happens later and may not happen at all.
+        marker = f"{source_key}\x00{module}"
+        if marker in seen:
+            raise ValueError(f"{where}: folder {source_key!r} module {module!r} appears twice")
+        seen.add(marker)
         entries.append(entry)
     return entries
 
@@ -265,9 +290,8 @@ async def get_object(client: httpx.AsyncClient, path: str, *, max_bytes: int) ->
 
 async def _ingest(db: AsyncSession, client: httpx.AsyncClient, entry: PlanEntry, obj: ObjectSite) -> str:
     """Bring one index entry into the deployment. Returns 'unchanged' | 'updated' | 'skipped'."""
-    ds = (
-        await db.execute(select(ReferenceDataset).where(ReferenceDataset.id == entry.dataset_id))
-    ).scalar_one_or_none()
+    dataset_id = entry.dataset_id_for(obj.id)
+    ds = (await db.execute(select(ReferenceDataset).where(ReferenceDataset.id == dataset_id))).scalar_one_or_none()
     # Already have exactly these bytes? Then no download — that is the whole point of the
     # index carrying checksums. `storage.exists` keeps a lost blob from staying lost.
     if ds is not None and ds.source_digest == entry.sha256 and ds.storage_key and storage.exists(ds.storage_key):
@@ -276,7 +300,7 @@ async def _ingest(db: AsyncSession, client: httpx.AsyncClient, entry: PlanEntry,
     if entry.size > plan_max_bytes():
         logger.warning(
             "Objektplan-Pull: %s (%s) is %.1f MB, over the %d MB upload cap — skipped, not fetched",
-            entry.dataset_id,
+            dataset_id,
             entry.address_full or "?",
             entry.size / (1024 * 1024),
             settings.max_upload_mb,
@@ -288,7 +312,7 @@ async def _ingest(db: AsyncSession, client: httpx.AsyncClient, entry: PlanEntry,
     except TooLargeError:
         logger.warning(
             "Objektplan-Pull: %s exceeded the %d MB cap while downloading (the index understated it) — skipped",
-            entry.dataset_id,
+            dataset_id,
             settings.max_upload_mb,
         )
         return "skipped"
@@ -300,13 +324,13 @@ async def _ingest(db: AsyncSession, client: httpx.AsyncClient, entry: PlanEntry,
     if got != entry.sha256:
         logger.warning(
             "Objektplan-Pull: %s checksum mismatch (index %s, got %s) — skipped, keeping what we have",
-            entry.dataset_id,
+            dataset_id,
             entry.sha256[:12],
             got[:12],
         )
         return "skipped"
     if not data.startswith(b"%PDF-"):
-        logger.warning("Objektplan-Pull: %s is not a PDF — skipped", entry.dataset_id)
+        logger.warning("Objektplan-Pull: %s is not a PDF — skipped", dataset_id)
         return "skipped"
 
     await store_plan(
@@ -343,27 +367,46 @@ async def pull_plans(db: AsyncSession) -> dict[str, int | str]:
             return {"status": "refused"}
 
         objs = {
-            o.id: o
+            o.source_key: o
             for o in (
-                await db.execute(select(ObjectSite).where(ObjectSite.id.in_([e.object_id for e in entries])))
+                await db.execute(select(ObjectSite).where(ObjectSite.source_key.in_([e.source_key for e in entries])))
             ).scalars()
         }
         for entry in entries:
-            obj = objs.get(entry.object_id)
+            obj = objs.get(entry.source_key)
             if obj is None:
                 # Objects are not created here: the index carries an address, not a name or
-                # coordinates. An unknown object means the object side has not been loaded yet.
+                # coordinates. An unknown key means the object side has not been loaded yet —
+                # or the importer has not set `source_key` on it. Both are operator-visible
+                # states, which is the point of matching on a recorded key rather than a
+                # derived id: this line names the key that did not match.
                 logger.warning(
-                    "Objektplan-Pull: no Einsatzobjekt %s (%s) — %s skipped",
-                    entry.object_id,
+                    "Objektplan-Pull: no Einsatzobjekt with source_key %r (%s) — %s skipped",
+                    entry.source_key,
                     entry.address_full or "address unknown",
-                    entry.dataset_id,
+                    entry.module,
                 )
                 counts["skipped"] += 1
                 continue
             counts[await _ingest(db, client, entry, obj)] += 1
     # Deliberately no deletion pass: see the module docstring.
     return {"status": "ok", **counts}
+
+
+def _object_of(dataset_id: str) -> uuid.UUID | None:
+    """The local object id inside `plan:<object>:<module>`, or None if it isn't one."""
+    parts = dataset_id.split(":")
+    if len(parts) != 3 or parts[0] != "plan":
+        return None
+    try:
+        return uuid.UUID(parts[1])
+    except ValueError:
+        return None
+
+
+def _module_of(dataset_id: str) -> str:
+    parts = dataset_id.split(":")
+    return parts[2] if len(parts) == 3 else ""
 
 
 async def pull_one_plan(db: AsyncSession, dataset_id: str) -> dict[str, str]:
@@ -374,10 +417,24 @@ async def pull_one_plan(db: AsyncSession, dataset_id: str) -> dict[str, str]:
     """
     async with httpx.AsyncClient(timeout=120.0) as client:
         entries = parse_index(await get_object(client, INDEX_PATH, max_bytes=INDEX_MAX_BYTES))
-        entry = next((e for e in entries if e.dataset_id == dataset_id), None)
+        # `dataset_id` is `plan:<local object>:<module>`, so the local object is known here
+        # and its `source_key` is what identifies the row in the index.
+        local = (
+            await db.execute(select(ObjectSite).where(ObjectSite.id == _object_of(dataset_id)))
+        ).scalar_one_or_none()
+        entry = (
+            None
+            if local is None or not local.source_key
+            else next(
+                (e for e in entries if e.source_key == local.source_key and e.module == _module_of(dataset_id)),
+                None,
+            )
+        )
         if entry is None:
             return {"status": "absent", "dataset_id": dataset_id}
-        obj = (await db.execute(select(ObjectSite).where(ObjectSite.id == entry.object_id))).scalar_one_or_none()
+        obj = (
+            await db.execute(select(ObjectSite).where(ObjectSite.source_key == entry.source_key))
+        ).scalar_one_or_none()
         if obj is None:
             return {"status": "unknown_object", "dataset_id": dataset_id}
         return {"status": await _ingest(db, client, entry, obj), "dataset_id": dataset_id}
