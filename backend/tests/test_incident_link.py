@@ -34,9 +34,10 @@ import pytest
 from jose import jwt
 from sqlalchemy import select
 
+from app import storage
 from app.auth.cookies import ACCESS_COOKIE
 from app.auth.incident_link import LINK_ALLOWED, LINK_COOKIE, LINK_TOKEN_TYPE
-from app.models import DeploymentConfig, Incident
+from app.models import DeploymentConfig, Incident, Media
 
 MINT_KEY = "link-mint-key-0123456789"  # gitleaks:allow
 SRC, REF = "divera", "alarm-4711"
@@ -317,15 +318,49 @@ async def test_explicitly_excluded_routes_are_refused(client, link_key, incident
 
 
 def _openapi_pairs() -> set[tuple[str, str]]:
+    """Route templates exactly as ``_effective_path`` builds them at request time.
+
+    NOT the OpenAPI paths, which is what this helper used to return. OpenAPI renders a
+    converter away — ``/file/{key:path}`` is published as ``/file/{key}`` — so an allowlist
+    entry written in the OpenAPI form matched the schema while matching no route at runtime.
+    That is exactly how ``("GET", "/api/branding/file/{key}")`` sat on the list looking
+    enforced while link sessions were refused the logo, and the integrity test below could
+    not see it: it was comparing the list against the same converter-stripped rendering that
+    produced the mistake.
+
+    Every API router is mounted with ``prefix=settings.api_prefix``; only ``/health`` and
+    ``/ready`` sit at the root. FastAPI 0.137 leaves an ``_IncludedRouter`` in ``app.routes``
+    rather than flattening, so the templates come from its ``original_router``.
+    """
+    from fastapi.routing import APIRoute
+
+    from app.config import settings
     from app.main import app
 
-    spec = app.openapi()
-    return {(method.upper(), path) for path, ops in spec["paths"].items() for method in ops}
+    pairs: set[tuple[str, str]] = set()
+
+    def add(route: object, base: str) -> None:
+        if not isinstance(route, APIRoute) or not route.include_in_schema:
+            return
+        for method in (route.methods or set()) - {"HEAD", "OPTIONS"}:
+            pairs.add((method.upper(), f"{base}{route.path}"))
+
+    for r in app.routes:
+        inner = getattr(r, "original_router", None)
+        if inner is not None:
+            for sub in inner.routes:
+                add(sub, settings.api_prefix)
+        else:
+            add(r, "")
+    return pairs
 
 
 async def test_allowlist_entries_all_name_a_real_route():
     """Integrity of the list itself: a typo'd or renamed entry enforces nothing and reads like
-    it does. The SPA fallback is allowlisted but `include_in_schema=False`, so it is exempt."""
+    it does. The SPA fallback is allowlisted but `include_in_schema=False`, so it is exempt.
+
+    Compared against the *route templates*, converters included — see `_openapi_pairs`.
+    """
     stale = LINK_ALLOWED - _openapi_pairs() - {SPA_FALLBACK}
     assert stale == set(), f"LINK_ALLOWED entries matching no mounted route: {sorted(stale)}"
 
@@ -610,3 +645,50 @@ async def test_a_link_during_a_running_einsatz_joins_it_instead_of_forking(clien
     assert len(await _incidents(db_session)) == before, "no second Einsatz may be created"
     await db_session.refresh(pooled_alarm)
     assert pooled_alarm.is_taken is False, "the pool row stays, so the EL can still attach it"
+
+
+# --- scope on routes that cannot express it -----------------------------------------------
+#
+# `enforce_link_scope` binds an allowlisted route to the token's incident by matching an
+# `incident_id` PATH PARAMETER. `/api/media/{media_id}` is on the allowlist and carries no
+# such parameter, so for that route the scope check had nothing to bind to and every media
+# row was readable from any link. Media ids are UUID4 so nothing was enumerable, but D57
+# promises an *incident-scoped* token, and these pin that promise where the mechanism that
+# normally keeps it cannot reach.
+
+
+async def _media_on(db, incident_id, *, kind: str = "photo") -> Media:
+    """A media row whose bytes really exist — otherwise `get_media` 404s on the missing file
+    and a scope test would pass without ever exercising the scope check."""
+    key = storage.new_key("media", ".bin")
+    storage.put_bytes(key, b"not-a-real-photo")
+    m = Media(incident_id=incident_id, kind=kind, storage_key=key, content_type="image/jpeg")
+    db.add(m)
+    await db.commit()
+    await db.refresh(m)
+    return m
+
+
+async def test_a_link_reads_media_from_its_own_incident(client, link_key, incident, db_session):
+    mine = await _media_on(db_session, incident.id)
+    await _open_link(client)
+    r = await client.get(f"/api/media/{mine.id}")
+    assert r.status_code == 200, f"a link must still see its own Einsatz's media: {r.text}"
+
+
+async def test_a_link_cannot_read_media_from_another_incident(client, link_key, incident, db_session):
+    """The regression. Before the fix this returned 200 with the other Einsatz's bytes."""
+    other = Incident(title="Anderer Einsatz", source="manual", status="offen")
+    db_session.add(other)
+    await db_session.commit()
+    await db_session.refresh(other)
+    theirs = await _media_on(db_session, other.id)
+
+    await _open_link(client)
+    r = await client.get(f"/api/media/{theirs.id}")
+    assert r.status_code == 404, (
+        "a link scoped to one Einsatz served another Einsatz's media — /api/media/{media_id} "
+        "carries no incident_id for enforce_link_scope to bind to, so the handler must narrow "
+        "it itself"
+    )
+    assert b"not-a-real-photo" not in r.content

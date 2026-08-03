@@ -12,7 +12,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Literal
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import audio, database, storage
 from ..auth.dependencies import CurrentEditor, CurrentUser
+from ..auth.incident_link import link_session_incident
 from ..config import settings
 from ..database import get_db
 from ..models import Incident, Media, SttJob
@@ -110,11 +111,34 @@ async def upload_media(
     return {"id": str(media.id), "url": f"/api/media/{media.id}", "kind": kind, "content_type": content_type}
 
 
+def _deny_media_outside_link_scope(request: Request, media: Media) -> None:
+    """A link session may only read media belonging to the incident it was minted for.
+
+    ``enforce_link_scope`` binds an allowlisted route to the token's incident by matching an
+    ``incident_id`` PATH PARAMETER (``_INCIDENT_PARAMS``). ``/api/media/{media_id}`` carries
+    none, so that check has nothing to bind to: the allowlist let the request through and the
+    query never mentioned the incident, which made every media row reachable from any link.
+
+    Media ids are UUID4, so this was a broken guarantee rather than an open door — but D57
+    says the token is *incident-scoped*, and a route that cannot express its scope has to
+    enforce it here instead. 404 rather than 403: a link holder must not learn that a media
+    id exists on some other Einsatz.
+
+    A full user session is unaffected — ``link_session_incident`` returns None for it.
+    """
+    scoped = link_session_incident(request)
+    if scoped is not None and str(media.incident_id) != str(scoped):
+        raise HTTPException(status_code=404, detail="Medium nicht gefunden")
+
+
 @router.get("/media/{media_id}")
-async def get_media(media_id: uuid.UUID, _user: CurrentUser, db: AsyncSession = Depends(get_db)) -> FileResponse:
+async def get_media(
+    media_id: uuid.UUID, request: Request, _user: CurrentUser, db: AsyncSession = Depends(get_db)
+) -> FileResponse:
     media = (await db.execute(select(Media).where(Media.id == media_id))).scalar_one_or_none()
     if media is None or not storage.exists(media.storage_key):
         raise HTTPException(status_code=404, detail="Medium nicht gefunden")
+    _deny_media_outside_link_scope(request, media)
     return FileResponse(storage.local_path(media.storage_key), media_type=media.content_type or None)
 
 
@@ -125,10 +149,15 @@ _peaks_jobs: dict[str, asyncio.Task] = {}
 
 
 @router.get("/media/{media_id}/peaks")
-async def get_peaks(media_id: uuid.UUID, _user: CurrentUser, db: AsyncSession = Depends(get_db)) -> JSONResponse:
+async def get_peaks(
+    media_id: uuid.UUID, request: Request, _user: CurrentUser, db: AsyncSession = Depends(get_db)
+) -> JSONResponse:
     media = (await db.execute(select(Media).where(Media.id == media_id))).scalar_one_or_none()
     if media is None or media.kind != "audio" or not storage.exists(media.storage_key):
         raise HTTPException(status_code=404, detail="Medium nicht gefunden")
+    # Not on LINK_ALLOWED today, so a link session never reaches here — guarded anyway, so
+    # that allowlisting it later cannot silently reopen what the route above just closed.
+    _deny_media_outside_link_scope(request, media)
     pkey = audio.peaks_key(media.storage_key)
     if storage.exists(pkey):
         return JSONResponse(json.loads(storage.get_bytes(pkey)))

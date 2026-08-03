@@ -139,7 +139,9 @@ LINK_ALLOWED: frozenset[tuple[str, str]] = frozenset(
         ("GET", "/api/auth/me"),
         ("GET", "/api/config"),
         ("GET", "/api/plan-scales"),
-        ("GET", "/api/branding/file/{key}"),
+        # `{key:path}` — the converter is part of the route's path as FastAPI records it, so
+        # the plain `{key}` form matched no route and link sessions were refused the logo.
+        ("GET", "/api/branding/file/{key:path}"),
         # the incident itself
         ("GET", "/api/incidents/{incident_id}"),
         ("GET", "/api/incidents/{incident_id}/workspace"),
