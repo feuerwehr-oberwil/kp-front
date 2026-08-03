@@ -3,17 +3,15 @@
 WHY
 ---
 A scheduled plan pull reads an index published by whatever produces the station's plans.
-Each row has to name the object it belongs to. Until now the only thing kp-front could
-match on was ``objects.id`` — its own UUID — so the publisher had to somehow already know
-it. At Oberwil it appeared to: the private importer mints object ids as
-``uuid5(namespace, folder)``, and the publisher emits ``folder``, so the two *could* be
-reconciled by re-deriving the UUID.
+Each row has to name the object it belongs to. Until now the only thing this app could
+match on was ``objects.id`` — its own UUID — which meant the publisher had to already know
+an id it has no way of knowing. Publishers emit their own object UUID, the two id spaces
+overlap by zero, and the pull therefore skipped every plan as "unknown object" — silently,
+because skipping is the safe branch.
 
-They were not. The publisher emitted its own object UUID instead, the two id spaces
-overlap by zero, and the pull skipped every plan as "unknown object" — silently, because
-skipping is the safe branch. Measured in production 2026-08-03: **582 reference datasets,
-all ``uploaded``, zero ``snapshot``.** The job had been running hourly since it shipped and
-had never stored a single plan.
+Observed on a production deployment 2026-08-03: **582 reference datasets, all ``uploaded``,
+zero ``snapshot``**, after the job had run hourly since it shipped without ever storing a
+plan. Nothing looked wrong, because the manual upload path was still feeding the same rows.
 
 WHY NOT JUST RE-DERIVE THE UUID
 -------------------------------
@@ -23,9 +21,9 @@ alarm-number derivation, the ported geo_resolver, a hardcoded log-leak list, an 
 test measuring the wrong path form). The geo_resolver copy drifted within 24 hours of
 being made. Recording the identity beats re-deriving it.
 
-It also keeps the namespace out of this product entirely: ``source_key`` is opaque here
-and never parsed. The station's importer owns its own key format, which is where that
-knowledge already lives.
+It also keeps any id-derivation scheme out of this product entirely: ``source_key`` is
+opaque here and never parsed. A station's own importer owns its key format, which is where
+that knowledge belongs — a deployment that uploads plans by hand needs no key at all.
 
 NULLABLE, AND UNIQUE
 --------------------
@@ -43,7 +41,7 @@ the change removes. The importer sets them on its next run; it is idempotent and
 by id, so re-running it IS the backfill. Until then ``source_key`` is NULL and the pull
 matches nothing — exactly what it already does, so nothing regresses.
 
-Revision ID: a1b2c3d4e5f6
+Revision ID: c7d8e9f0a1b2
 Revises: e3f4a5b6c7d8
 Create Date: 2026-08-03 00:00:00.000000
 """
@@ -53,7 +51,7 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "a1b2c3d4e5f6"
+revision: str = "c7d8e9f0a1b2"
 down_revision: str | None = "e3f4a5b6c7d8"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
