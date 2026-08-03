@@ -6,8 +6,14 @@ import type { ReportMeta } from './workspace'
 
 // 'verlauf' was dropped 2026-07-08: system rows make the journal non-empty on every real
 // incident, so the check was always-green noise on the closing list.
-export type AbschlussStep = 'zeiten' | 'anwesenheit' | 'mittel' | 'abschluss'
-export const ABSCHLUSS_STEPS: AbschlussStep[] = ['zeiten', 'anwesenheit', 'mittel', 'abschluss']
+//
+// 'einsatzleiter' was added 2026-08-03: the four Mindestangaben for the digital close are
+// Einsatzende, Einsatzleiter, Kurzbericht and at least one person — but only three of them
+// were ever checked, so a rapport could close with nobody named as having led the incident.
+// Printing is deliberately unaffected: it never blocks, a missing field prints as an empty
+// line to fill in by hand (form model 2026-07-17).
+export type AbschlussStep = 'zeiten' | 'anwesenheit' | 'mittel' | 'einsatzleiter' | 'abschluss'
+export const ABSCHLUSS_STEPS: AbschlussStep[] = ['zeiten', 'anwesenheit', 'mittel', 'einsatzleiter', 'abschluss']
 
 export interface AbschlussFacts {
   reportMeta: ReportMeta
@@ -24,6 +30,8 @@ export function stepDone(step: AbschlussStep, f: AbschlussFacts): boolean {
     case 'mittel':
       // zero entries is a legitimate rapport — but only when someone SAID so
       return f.mittelCount > 0 || !!f.reportMeta.mittelConfirmedNone
+    case 'einsatzleiter':
+      return !!f.reportMeta.einsatzleiter?.trim()
     case 'abschluss':
       return !!f.reportMeta.summary?.trim()
   }

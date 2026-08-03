@@ -1904,6 +1904,7 @@ export const de = {
       zeiten: 'Zeiten',
       anwesenheit: 'Anwesenheit',
       mittel: 'Mittel',
+      einsatzleiter: 'Einsatzleiter',
       abschluss: 'Abschluss',
     },
     ausgerueckt: 'Ausgerückt',

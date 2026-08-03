@@ -1283,6 +1283,7 @@ export const it: Localizable<Copy> = {
       zeiten: 'Orari',
       anwesenheit: 'Presenze',
       mittel: 'Mezzi',
+      einsatzleiter: 'Capo intervento',
       abschluss: 'Chiusura',
     },
     ausgerueckt: 'Partenza',

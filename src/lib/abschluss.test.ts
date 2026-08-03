@@ -25,13 +25,34 @@ describe('stepDone', () => {
     expect(stepDone('abschluss', facts({ reportMeta: { summary: 'BMA, Fehlalarm.' } }))).toBe(true)
   })
 
+  // One of the four Mindestangaben, and the one that went unchecked until 2026-08-03: a
+  // rapport could close with nobody named as having led the incident.
+  it('einsatzleiter needs a non-blank name', () => {
+    expect(stepDone('einsatzleiter', facts())).toBe(false)
+    expect(stepDone('einsatzleiter', facts({ reportMeta: { einsatzleiter: '  ' } }))).toBe(false)
+    expect(stepDone('einsatzleiter', facts({ reportMeta: { einsatzleiter: 'Hptm Meier' } }))).toBe(true)
+  })
+
   it('missingSteps lists everything open, in step order', () => {
     expect(missingSteps(facts())).toEqual(ABSCHLUSS_STEPS)
     const done = facts({
-      reportMeta: { endedAt: '2026-07-08T05:00:00Z', summary: 'ok', mittelConfirmedNone: true },
+      reportMeta: {
+        endedAt: '2026-07-08T05:00:00Z', summary: 'ok', mittelConfirmedNone: true,
+        einsatzleiter: 'Hptm Meier',
+      },
       attendanceCount: 3,
     })
     expect(missingSteps(done)).toEqual([])
+  })
+
+  // The Mindestangaben are a closing gate, not a printing gate: the sheet's own rule is that
+  // whatever is still empty prints as a blank line to fill in by hand.
+  it('a rapport missing only the Einsatzleiter names exactly that', () => {
+    const m = missingSteps(facts({
+      reportMeta: { endedAt: '2026-07-08T05:00:00Z', summary: 'ok', mittelConfirmedNone: true },
+      attendanceCount: 3,
+    }))
+    expect(m).toEqual(['einsatzleiter'])
   })
 })
 

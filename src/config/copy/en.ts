@@ -1343,6 +1343,7 @@ export const en: Localizable<Copy> = {
       zeiten: 'Times',
       anwesenheit: 'Attendance',
       mittel: 'Materials',
+      einsatzleiter: 'Incident commander',
       abschluss: 'Wrap-up',
     },
     ausgerueckt: 'Turned out',

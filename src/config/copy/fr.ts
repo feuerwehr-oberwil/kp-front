@@ -1284,6 +1284,7 @@ export const fr: Localizable<Copy> = {
       zeiten: 'Horaires',
       anwesenheit: 'Présences',
       mittel: 'Moyens',
+      einsatzleiter: 'Chef d’intervention',
       abschluss: 'Clôture',
     },
     ausgerueckt: 'Départ',
