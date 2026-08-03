@@ -338,6 +338,16 @@ class ObjectSite(Base):
     address: Mapped[str | None] = mapped_column(Text, nullable=True)
     lat: Mapped[float | None] = mapped_column(Numeric(10, 7), nullable=True)
     lng: Mapped[float | None] = mapped_column(Numeric(10, 7), nullable=True)
+    #: The station's own stable key for this object — whatever its pipeline calls the thing
+    #: (a folder name, an Objekt-Nr, a row id). Optional and opaque: this app never parses it.
+    #:
+    #: It exists so an external producer can say "this plan belongs to that object" WITHOUT
+    #: either side re-deriving the other's UUID. Before it, the scheduled plan pull compared
+    #: the publisher's own object UUID against ours; the two id spaces overlap by zero, so it
+    #: skipped every plan as unknown and fetched nothing — silently, because skipping is the
+    #: safe branch. A station whose importer sets this gets a pull that matches; one that
+    #: does not keeps uploading by hand, unaffected.
+    source_key: Mapped[str | None] = mapped_column(Text, nullable=True, unique=True, index=True)
     source_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

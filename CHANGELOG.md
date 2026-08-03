@@ -29,6 +29,33 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The scheduled Objektplan-Pull matched nothing and said nothing.** `plans/index.json` names,
+  per row, the **publisher's** object id. A deployment's own object ids are unrelated — the two
+  id spaces overlap by zero — but the pull compared them directly, so every row resolved to
+  "unknown object" and was skipped. It fails safe (no deletions, no wrong writes) and the
+  scheduler only logs when something changed, so a run that stored nothing and a run that had
+  nothing to do produced identical output. Observed on a production deployment: **582 reference
+  datasets, all `uploaded`, zero `snapshot`**, after the job had run hourly since it shipped.
+
+  Objects gain **`source_key`** — the station's own stable key for the object, whatever its
+  pipeline calls it (a folder name, an Objekt-Nr, a row id). Publishers already emit it; the
+  pull now matches on it. It is **opaque**: this app stores and compares it, never parses it,
+  and no id-derivation scheme lives here.
+
+  Also fixed in passing: the dataset id was built from the publisher's UUID, so the upload door
+  and the pull door would have created **two datasets for one plan**. It is now built from the
+  local object, matching what `admin_objects` writes.
+
+  **For a deployment that uploads plans by hand: nothing changes and no key is needed.** For one
+  that runs a scheduled pull, set `sourceKey` on each object in the objects manifest (your
+  importer already knows it) and re-run the import — it upserts by id, so that is also the
+  backfill. Until a key is set the pull skips, exactly as before, but the log now names the
+  `source_key` that found no object instead of an id nobody can look up.
+
+  Migration `c7d8e9f0a1b2` adds the column: additive, nullable, partial-unique on non-NULL.
+
 ### Changed
 - **An alarm now opens its Einsatz by itself; the take-wizard is gone.** The link in the alert
   reached the responder before the Einsatz existed here. An alarm landed in a pool and only became

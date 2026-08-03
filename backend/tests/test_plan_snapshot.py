@@ -37,9 +37,17 @@ INDEX_URL_PATH = f"/{BUCKET}/plans/index.json"
 PDF_URL_PATH = f"/{BUCKET}/plans/{OBJ_ID}/modul1.pdf"
 
 
+#: The station key the publisher emits and `ObjectSite.source_key` is matched on.
+#: Deliberately NOT derived from OBJ_ID: the whole point of the change these tests cover
+#: is that the publisher's object id and this deployment's are unrelated.
+FOLDER = "Schulhaus Musterdorf"
+OTHER_FOLDER = "Werkhof"
+
+
 def entry(**over) -> dict:
     row = {
         "object_id": str(OBJ_ID),
+        "folder": FOLDER,
         "module": "modul1",
         "filename": "modul1.pdf",
         "size": len(PDF),
@@ -100,7 +108,7 @@ def store(monkeypatch, isolated_storage):
 
 @pytest.fixture
 async def obj(db_session):
-    o = ObjectSite(id=OBJ_ID, name="Schulhaus", address="Musterstrasse 1")
+    o = ObjectSite(id=OBJ_ID, name="Schulhaus", address="Musterstrasse 1", source_key=FOLDER)
     db_session.add(o)
     await db_session.commit()
     return o
@@ -283,6 +291,8 @@ async def test_body_that_contradicts_the_index_is_not_stored(db_session, obj, st
         pytest.param(index(entry(sha256=None)), id="no-checksum"),
         pytest.param(index(entry(sha256="nothex")), id="bad-checksum"),
         pytest.param(index(entry(object_id="not-a-uuid")), id="bad-object-id"),
+        pytest.param(index(entry(folder="")), id="empty-folder"),
+        pytest.param(index(entry(folder=None)), id="missing-folder"),
         pytest.param(index(entry(module="")), id="no-module"),
         pytest.param(index(entry(filename="../../etc/passwd")), id="path-in-filename"),
         pytest.param(index(entry(filename="modul1.exe")), id="not-a-pdf"),
@@ -307,12 +317,12 @@ async def test_partial_index_never_deletes_a_plan(db_session, obj, store):
     assert await _dataset(db_session, ds_id) is not None
 
     # Next publish is broken and lists a different object's plan only — ours must survive.
-    other = ObjectSite(id=OTHER_ID, name="Werkhof")
+    other = ObjectSite(id=OTHER_ID, name="Werkhof", source_key=OTHER_FOLDER)
     db_session.add(other)
     await db_session.commit()
     store(
         {
-            INDEX_URL_PATH: index(entry(object_id=str(OTHER_ID))),
+            INDEX_URL_PATH: index(entry(object_id=str(OTHER_ID), folder=OTHER_FOLDER)),
             f"/{BUCKET}/plans/{OTHER_ID}/modul1.pdf": PDF,
         }
     )
@@ -438,3 +448,53 @@ async def test_fetch_endpoint_is_501_without_a_store(client, admin_login, db_ses
     r = await client.post(f"/api/reference/plan:{OBJ_ID}:modul1/fetch")
 
     assert r.status_code in (404, 501)  # no store configured → no auto-fetch, nothing invented
+
+
+async def test_the_publisher_object_id_is_never_matched_against_ours(db_session, store, caplog):
+    """The regression this whole change exists for.
+
+    The publisher emits its OWN object UUID. This deployment's object UUIDs are unrelated —
+    the two id spaces overlap by zero. Until 2026-08-03 `plans.py` compared them directly,
+    so every plan was skipped as "unknown object": measured in production, 582 datasets, all
+    `uploaded`, **zero `snapshot`**, after the job had run hourly since it shipped. It failed
+    safe and looked exactly like a job with nothing to do.
+
+    Here the index row's `object_id` is a UUID that exists nowhere in this database, while
+    its `folder` matches the object's `source_key`. Matching on the key must succeed
+    *because* of the key, and in spite of the id.
+    """
+    o = ObjectSite(id=OBJ_ID, name="Schulhaus", address="Musterstrasse 1", source_key=FOLDER)
+    db_session.add(o)
+    await db_session.commit()
+
+    alien = uuid.uuid4()  # the publisher's id for the same building
+    assert alien != OBJ_ID
+    store(
+        {
+            INDEX_URL_PATH: index(entry(object_id=str(alien))),
+            f"/{BUCKET}/plans/{alien}/modul1.pdf": PDF,
+        }
+    )
+
+    res = await pull_plans(db_session)
+    assert res == {"status": "ok", "updated": 1, "unchanged": 0, "skipped": 0}
+
+    # …and the dataset id is minted in OUR id space, not the publisher's. Both front doors
+    # must agree, or the upload door and the pull door create two datasets for one plan.
+    assert await _dataset(db_session, f"plan:{OBJ_ID}:modul1") is not None
+    assert await _dataset(db_session, f"plan:{alien}:modul1") is None
+
+
+async def test_an_object_without_a_source_key_is_skipped_and_named(db_session, store, caplog):
+    """A station that has not set the key yet must be told which key did not match, rather
+    than left reading an empty log."""
+    o = ObjectSite(id=OBJ_ID, name="Schulhaus", address="Musterstrasse 1")  # no source_key
+    db_session.add(o)
+    await db_session.commit()
+    store({INDEX_URL_PATH: index(entry()), PDF_URL_PATH: PDF})
+
+    with caplog.at_level("WARNING"):
+        res = await pull_plans(db_session)
+
+    assert res == {"status": "ok", "updated": 0, "unchanged": 0, "skipped": 1}
+    assert FOLDER in caplog.text, "the log must name the source_key that found no object"
