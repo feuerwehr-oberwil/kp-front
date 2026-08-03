@@ -114,8 +114,12 @@ export default function App() {
   useEffect(() => onStorageDegraded((d) => { if (d) recordTrouble('storageFull') }), [])
   // existing incident opened in the wizard for in-place correction (PATCH, not create)
   const [editMeta, setEditMeta] = useState<IncidentMeta | null>(null)
-  // always-on Divera watch: surfaces fresh alarms wherever the EL is (editor only)
-  const { alarms: poolAlarms, refresh: refreshPool } = useDiveraWatch(isEditor)
+  // always-on Divera watch: surfaces fresh alarms wherever the EL is (editor only).
+  // Off in the demo: taking an alarm opens a NEW Einsatz, which the demo blocks server-side
+  // («In der Demo können keine neuen Einsätze übernommen werden»), so both take surfaces —
+  // the mid-incident banner and the landing take-card — would only offer a dead end. The
+  // demo's story is the one running Einsatz; a leftover pool row must not compete with it.
+  const { alarms: poolAlarms, refresh: refreshPool } = useDiveraWatch(isEditor && !isDemoMode())
   // per-device dismiss of pool alarms (kp.divera.dismissed) — «×» hides a dispatch on THIS
   // tablet only; it never archives it for the crew. Shared store with the incoming-alarm banner.
   const [dismissedAlarms, setDismissedAlarms] = useState<Set<number>>(loadDismissedAlarms)
