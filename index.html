@@ -13,9 +13,45 @@
     <meta name="apple-mobile-web-app-title" content="KP Front" />
     <title>KP Front — Lagekarte</title>
     <!-- Fonts are self-hosted (see src/fonts.css) so they precache for offline cold-start. -->
+    <!--
+      Colour scheme BEFORE first paint. `html { background: var(--app-bg) }` resolves to the
+      day value until main.tsx runs applyTheme(), so a night launch used to show a light screen
+      for as long as the bundle took to parse — the one moment an operator is holding the tablet
+      in the dark. The app records the scheme it last resolved (prefs.applyTheme), so this reads
+      a decision rather than making one; with nothing recorded yet it asks the OS. Inline and
+      synchronous on purpose: an external script would paint first and correct afterwards.
+    -->
+    <script>
+      try {
+        var t = localStorage.getItem('kp.theme.boot')
+        if (t !== 'day' && t !== 'night') {
+          t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'night' : 'day'
+        }
+        if (t === 'night') document.documentElement.dataset.theme = 'night'
+        var m = document.querySelector('meta[name=theme-color]')
+        if (m) m.setAttribute('content', t === 'night' ? '#0d1118' : '#eef3f7')
+      } catch (e) { /* private mode / storage disabled — day default stands */ }
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <!--
+      Static boot splash. React's <Splash> cannot cover this window: it only exists once the
+      bundle has parsed AND main.tsx's two budgeted awaits have settled (up to 4s each), and
+      until then #root is empty — a blank screen with nothing to look at and nothing to tap.
+      Reported from the field 2026-08-03 as "it looked broken for a few seconds".
+
+      Same markup and classes as <Splash>, so React replacing this on mount is invisible; the
+      stylesheet is a <link> in <head>, so it is styled at first paint without waiting for JS.
+      No station wordmark here — that name comes from the deployment config, which is exactly
+      what has not loaded yet, and a placeholder that changes would be worse than none.
+    -->
+    <div id="root">
+      <div class="login splash boot-splash">
+        <div class="loading-card">
+          <div class="ping"><span></span><span></span><span class="core"></span></div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

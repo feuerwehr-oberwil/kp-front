@@ -1234,6 +1234,11 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 
 .loading { position: fixed; inset: 0; display: grid; place-items: center; z-index: 60; }
 .loading-card { display: flex; flex-direction: column; align-items: center; gap: 18px; animation: fade .3s var(--ease); }
+/* Static pre-React boot splash (markup in index.html). Held back briefly: a warm launch mounts
+   React well inside this delay, so the ordinary case still goes straight to the login screen
+   with no flicker, and only a start slow enough to look broken ever shows a pulse. `both` keeps
+   it fully transparent during the delay rather than painting and then fading. */
+.boot-splash { animation: fade .3s var(--ease) .4s both; }
 .ping { position: relative; width: 72px; height: 72px; display: grid; place-items: center; }
 .ping span { position: absolute; border-radius: 50%; }
 .ping span:not(.core) { width: 100%; height: 100%; border: 2px solid var(--accent); animation: ping 1.8s var(--ease) infinite; }

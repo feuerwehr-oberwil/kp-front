@@ -99,6 +99,12 @@ export function applyTheme(theme: 'day' | 'night') {
   if (theme === 'night') document.documentElement.dataset.theme = 'night'
   else delete document.documentElement.dataset.theme // 'day' is the default :root
   document.querySelector('meta[name=theme-color]')?.setAttribute('content', THEME_COLOR[theme])
+  // Leave the resolved scheme where the next cold start can read it synchronously: the inline
+  // boot script in index.html paints the splash before any of this module exists, and 'auto'
+  // (the default) needs a daylight computation it cannot do. localStorage, not the prefs cookie,
+  // because this is a derived boot hint rather than a user preference — and because the boot
+  // script must read it without parsing JSON. Best-effort: private mode may refuse.
+  try { localStorage.setItem('kp.theme.boot', theme) } catch { /* boot falls back to the OS */ }
 }
 
 /** Resolve a ThemeMode to the concrete scheme to apply: explicit modes pass through,
