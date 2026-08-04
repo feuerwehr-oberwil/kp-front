@@ -794,6 +794,8 @@ export const de = {
     discardAudio: 'Aufnahme verwerfen',
     // external voice-memo import
     audioUpload: 'Audio hochladen',
+    // Kurzform für die Telefon-Zeile, wo die drei Medienknöpfe je ein Drittel der Breite haben
+    audioUploadShort: 'Audio',
     audioImportLabel: 'Externe Audioaufnahme',
     audioStartLabel: 'Aufnahme begann',
     audioStartHint: 'Startzeit anhand der Sprachmemo kontrollieren.',

@@ -531,6 +531,7 @@ export const it: Localizable<Copy> = {
     dictateListening: 'In ascolto …',
     discardAudio: 'Scarta registrazione',
     audioUpload: 'Carica audio',
+    audioUploadShort: 'Audio',
     audioImportLabel: 'Registrazione audio esterna',
     audioStartLabel: 'Inizio registrazione',
     audioStartHint: 'Verificare l’ora di inizio con il memo vocale.',

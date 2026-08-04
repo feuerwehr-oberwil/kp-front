@@ -2104,10 +2104,19 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .jc-text { width: 100%; min-height: 92px; resize: vertical; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
   padding: 10px 12px; font-family: inherit; font-size: 14px; color: var(--ink); background: var(--surface-2); }
 .jc-text:focus { outline: none; border-color: color-mix(in srgb, var(--blue) 50%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 12%, transparent); }
-.jc-audio { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.jc-rec { display: flex; align-items: center; gap: 7px; border: 1px solid var(--glass-edge); background: var(--surface-2);
-  color: var(--ink-dim); border-radius: var(--r-sm); padding: 8px 12px; min-height: var(--tap); font-size: 12.5px; font-weight: 700; cursor: pointer;
-  font-family: inherit; }
+/* ---- one rhythm for every control in the composer ----
+   The two modes are the same dialog, so they should be the same shape: a fixed grid of
+   equal-height rows instead of buttons that wrap wherever they happen to run out of room. It
+   used to wrap 2+1 (Aufnehmen · Audio / Foto) and 4+2 (chips), and the pin button was 50px
+   next to a 44px Erfassen because its label took two lines — three different heights in one
+   dialog, and a sheet that changed height when you switched mode. */
+.jc-audio { display: grid; grid-template-columns: repeat(3, 1fr); align-items: center; gap: 8px; }
+/* the recorded-clip readout is a full-width row under the three buttons, not a fourth column */
+.jc-audio .jc-clip { grid-column: 1 / -1; }
+.jc-rec { display: flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid var(--glass-edge); background: var(--surface-2);
+  color: var(--ink-dim); border-radius: var(--r-sm); padding: 8px 10px; height: var(--tap); min-width: 0; font-size: 12.5px; font-weight: 700; cursor: pointer;
+  font-family: inherit; white-space: nowrap; }
+.jc-rec .i { flex: none; }
 .jc-rec .i { width: 15px; height: 15px; }
 .jc-rec:hover { color: var(--ink); }
 .jc-rec.on { background: var(--red); border-color: var(--red); color: var(--on-fill); animation: recPulse 1.4s ease-in-out infinite; }
@@ -2128,16 +2137,22 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jc-import-start { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .jc-import-hint { margin: 0; font-size: 12.5px; color: var(--ink-dim); }
-.jc-foot { display: flex; align-items: center; gap: 10px; }
-.jc-pin { display: flex; align-items: center; gap: 7px; border: 1px solid var(--glass-edge); background: var(--surface-2);
-  color: var(--ink-dim); border-radius: var(--r-sm); padding: 8px 12px; min-height: var(--tap); font-size: 12.5px; font-weight: 700; cursor: pointer;
-  font-family: inherit; }
-.jc-pin .i { width: 15px; height: 15px; }
+/* the last two rows of the same grid: the pin, then the send. Not a flex row with the send
+   pushed right – at 44px that wastes the row it sits in, and it left Eintrag two rows deep
+   while Erinnerung was four, so the dialog changed height when you switched mode. */
+.jc-foot { display: grid; grid-template-columns: 1fr; gap: 8px; }
+/* reminder mode has no pin — its spacer must not leave an empty row behind */
+.jc-pin-spacer { display: none; }
+.jc-pin { display: flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid var(--glass-edge); background: var(--surface-2);
+  color: var(--ink-dim); border-radius: var(--r-sm); padding: 8px 12px; height: var(--tap); font-size: 12.5px; font-weight: 700; cursor: pointer;
+  font-family: inherit; white-space: nowrap; }
+.jc-pin { width: 100%; }
+.jc-pin .i { width: 15px; height: 15px; flex: none; }
 .jc-pin:hover { color: var(--ink); }
 .jc-pin.on { background: color-mix(in srgb, var(--blue) 12%, transparent); border-color: color-mix(in srgb, var(--blue) 50%, transparent); color: var(--blue-strong); }
-.jc-send { margin-left: auto; display: flex; align-items: center; gap: 7px; border: none; cursor: pointer;
-  background: var(--blue); color: var(--on-fill); border-radius: var(--r-sm); padding: 9px 16px; min-height: var(--tap); font-size: 12.5px; font-weight: 800;
-  font-family: inherit; }
+.jc-send { width: 100%; display: flex; align-items: center; justify-content: center; gap: 7px; border: none; cursor: pointer;
+  background: var(--blue); color: var(--on-fill); border-radius: var(--r-sm); padding: 9px 16px; height: var(--tap); font-size: 12.5px; font-weight: 800;
+  font-family: inherit; white-space: nowrap; }
 .jc-send .i { width: 15px; height: 15px; }
 .jc-send:hover { background: var(--blue-strong); }
 .jc-send:disabled { opacity: var(--disabled); cursor: default; }
@@ -2149,12 +2164,18 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 
 /* Erinnerung due-time picker */
 .jc-due { display: flex; flex-direction: column; gap: 8px; }
-.jc-due-label { font-size: 12px; font-weight: 600; color: var(--ink-dim); }
-.jc-due-chips { display: flex; flex-wrap: wrap; gap: 7px; }
-.jc-due-chip { display: flex; align-items: center; gap: 6px; border: 1px solid var(--glass-edge); background: var(--surface-2);
-  color: var(--ink); border-radius: var(--r-sm); padding: 9px 13px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
-  min-height: var(--tap); }
-.jc-due-chip .i { width: 14px; height: 14px; }
+/* «Fällig in» was the one label the reminder mode had that the entry mode did not — the 23px
+   that made the dialog resize on a mode switch. It is also the one label its chips do not need:
+   «+5 min» already reads as when, and it was never true of «Uhrzeit», which is absolute. The
+   mode segment directly above says «Erinnerung». */
+.jc-due-label { display: none; }
+/* six chips → two rows of three, always. Wrapping put four on one row and two on the next,
+   which read as «these four belong together» when they do not. */
+.jc-due-chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.jc-due-chip { display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--glass-edge); background: var(--surface-2);
+  color: var(--ink); border-radius: var(--r-sm); padding: 9px 10px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
+  height: var(--tap); min-width: 0; white-space: nowrap; }
+.jc-due-chip .i { width: 14px; height: 14px; flex: none; }
 .jc-due-chip:hover { border-color: color-mix(in srgb, var(--blue) 40%, var(--glass-edge)); }
 .jc-due-chip.on { background: color-mix(in srgb, var(--blue) 12%, transparent); border-color: color-mix(in srgb, var(--blue) 50%, transparent); color: var(--blue-strong); }
 /* custom HH:MM stepper (replaces the native time spinner) */
@@ -3632,6 +3653,15 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
   .tool-rail .vrail-nav { flex: none; flex-direction: row; align-items: center; gap: 2px; }
   .tool-rail .vrail-nav > :not(.vrail-layers) { display: none; }
   .tool-rail .vrail-layers { width: 50px; min-width: 50px; flex: 0 0 auto; }
+  /* …and on a READ-ONLY surface the compass joins it. The slim rail carries two tools where an
+     editor's carries nine (101px of 374px used), and the floating .phone-compass exists only
+     because the footer is hidden here — with the room, the compass belongs in the rail, where
+     it sits on every other form factor. */
+  .slim-tools .tool-rail .vrail-nav > .vrail-views { display: flex; }
+  .slim-tools .tool-rail .vrail-views { width: 50px; min-width: 50px; flex: 0 0 auto; }
+  /* the weather goes back into the top bar for the same reason: a read-only bar carries no
+     undo/redo and no Eintrag, which measures 96px free against the readout's 83px. */
+  .slim-tools .topbar .tb-weather-wrap { display: inline-flex; }
   .tool-rail .vrail-sep-foot { width: 1px; height: 26px; margin: 0 4px; flex: none; align-self: center; }
   :is(.tool-rail, .wb-tools) .vrail-scroll-wrap { flex: 1 1 auto; min-width: 0; }
   :is(.tool-rail, .wb-tools) .vrail-scroll {

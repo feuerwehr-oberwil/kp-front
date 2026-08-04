@@ -532,6 +532,7 @@ export const fr: Localizable<Copy> = {
     dictateListening: 'À l’écoute …',
     discardAudio: 'Abandonner l’enregistrement',
     audioUpload: 'Téléverser un audio',
+    audioUploadShort: 'Audio',
     audioImportLabel: 'Enregistrement audio externe',
     audioStartLabel: 'Début de l’enregistrement',
     audioStartHint: 'Vérifier l’heure de début à l’aide du mémo vocal.',

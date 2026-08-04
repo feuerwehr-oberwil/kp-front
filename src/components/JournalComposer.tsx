@@ -409,7 +409,12 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
             <button className={`jc-rec ${recording ? 'on' : ''}`} onClick={toggleRecord} title={recording ? C.recordStop : C.record}>
               <Icon id="mic" />{recording ? `${C.recordStop} · ${elapsed}s` : C.record}
             </button>
-            <button className="jc-rec" onClick={() => audioFileRef.current?.click()} title={C.audioUpload}><Icon id="upload" />{C.audioUpload}</button>
+            {/* the three media buttons share one row at a third of the width each — not even a
+                desktop third fits «Audio hochladen», so the short form labels the button and the
+                full one stays as its tooltip. The upload arrow carries the rest. */}
+            <button className="jc-rec" onClick={() => audioFileRef.current?.click()} title={C.audioUpload}>
+              <Icon id="upload" />{C.audioUploadShort}
+            </button>
             <button className="jc-rec" onClick={() => fileRef.current?.click()} title={C.photo}><Icon id="cam" />{C.photo}</button>
             {clip && (
               <span className="jc-clip">

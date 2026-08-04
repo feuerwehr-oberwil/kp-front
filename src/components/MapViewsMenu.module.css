@@ -12,6 +12,12 @@
 /* phone: the trigger is the floating .phone-compass under the top bar, so the popover
    anchors right below it (top-right) and stays clear of the bottom bars + Eintrag FAB */
 @media (max-width: 600px) {
+  /* …unless the surface is read-only: there the trigger is the compass in the bottom tool rail,
+     so the popover opens above the bars, next to the thumb that pressed it, instead of jumping
+     to the far top corner. */
+  :global(html.slim-tools) .dock { top: auto; right: max(10px, env(safe-area-inset-right));
+    bottom: calc(var(--rail-h) * 2 + 26px + env(safe-area-inset-bottom)); transform: none;
+    max-height: calc(100dvh - 220px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
   .dock { right: max(10px, env(safe-area-inset-right)); top: calc(118px + env(safe-area-inset-top)); transform: none;
     /* overlay the two bottom docks (tool + section bar) instead of stopping above them, so the
        list rarely needs to scroll — the popover is z-201, above the z-35/40 bars. */

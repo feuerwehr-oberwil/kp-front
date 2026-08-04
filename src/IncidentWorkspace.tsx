@@ -547,6 +547,15 @@ export function IncidentWorkspace({
   // tool rail during replay. It is the ONLY thing the TopBar has to keep clear of on a wide
   // screen — `.map-util` lets the CSS reserve that width exactly when the cluster is there.
   const mapUtility = mode === 'map' && replayActive && !isPhone
+  // the slim (read-only) tool rail is showing — on a phone that frees the top bar and the rail
+  // footer, so the compass and the weather move back into them (see `.slim-tools` in app.css).
+  const slimRail = tacticalLocked && !replayActive
+  // published on <html>, not on the app div: the saved-views popover is portalled to <body>, so
+  // a class inside the app cannot reach it (same reason the rail publishes --vrail-w up here).
+  useEffect(() => {
+    document.documentElement.classList.toggle('slim-tools', slimRail)
+    return () => document.documentElement.classList.remove('slim-tools')
+  }, [slimRail])
 
   // #10: the flat nav order (matches NavRail) — map, EACH plan doc, then the four sections. A swipe
   // steps one destination at a time, so it walks through the modules individually instead of
@@ -2070,8 +2079,11 @@ export function IncidentWorkspace({
           {/* phone: the rail-footer compass is CSS-hidden in the bottom tool bar, which left
               a rotated map with NO way back to north — so the same multi-purpose views button
               (live bearing · Nach Norden · Einpassen · Standort · saved framings) floats
-              top-right under the bar instead, for editors and viewers alike. */}
-          {isPhone && (
+              top-right under the bar instead. NOT on a read-only surface: there the slim rail
+              has room for the compass in its footer and the top bar has room for the weather
+              (measured: 96px free with no undo/redo/Eintrag), so both go back where they
+              belong on every other form factor and the floating cluster disappears. */}
+          {isPhone && !slimRail && (
             <div className="phone-compass">
               <MapViewsButton api={viewsApi} bearing={view.bearing} readOnly={readOnly} variant="util" btnClassName="pc-btn" activeClassName="on" glyphClassName="pc-glyph" open={viewsOpen} onOpenChange={toggleViews} coordsOn={coord.mode !== 'off'} onToggleCoords={coord.cycle} />
               {/* wind rides with the compass on phones — in the bar it clipped at the screen
@@ -2388,7 +2400,7 @@ export function IncidentWorkspace({
                 {/* multi-purpose compass: always shown, rotates to the live bearing, and opens the
                     saved-views menu (Nach Norden · Einpassen · Standort · Koordinaten · saved
                     framings · Ansicht speichern). */}
-                <MapViewsButton api={viewsApi} bearing={view.bearing} readOnly={readOnly} variant="rail" btnClassName="vrail-nbtn" activeClassName="on" glyphClassName="vrail-compass" label={appConfig.copy.mapViews.title} open={viewsOpen} onOpenChange={toggleViews} coordsOn={coord.mode !== 'off'} onToggleCoords={coord.cycle} />
+                <MapViewsButton api={viewsApi} bearing={view.bearing} readOnly={readOnly} variant="rail" btnClassName="vrail-nbtn vrail-views" activeClassName="on" glyphClassName="vrail-compass" label={appConfig.copy.mapViews.title} open={viewsOpen} onOpenChange={toggleViews} coordsOn={coord.mode !== 'off'} onToggleCoords={coord.cycle} />
                 <button className="vrail-nbtn" title={c.zoomOut} aria-label={c.zoomOut} onClick={() => mapRef.current?.zoomOut()}><span className="vrail-glyph"><Icon id="minus" /></span><span className="vrail-label">{c.zoomOut}</span></button>
                 <button className="vrail-nbtn" title={c.zoomIn} aria-label={c.zoomIn} onClick={() => mapRef.current?.zoomIn()}><span className="vrail-glyph"><Icon id="plus" /></span><span className="vrail-label">{c.zoomIn}</span></button>
               </>
