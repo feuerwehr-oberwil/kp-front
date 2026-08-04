@@ -794,6 +794,7 @@ export const en: Localizable<Copy> = {
       stale: 'Plan changed – recheck the scale',
       saved: 'Scale calibrated ({m} m reference)',
       needsCalibration: 'Set scale: tap the two ends of the scale bar',
+      needsCalibrationViewer: 'Measuring needs a calibrated scale first',
     },
     finishShape: 'Done',
     cancelShape: 'Cancel',

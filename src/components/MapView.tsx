@@ -101,6 +101,12 @@ interface Props {
   onShowTrupp?: (truppId: string) => void
   onTeamMark?: (id: string) => void
   onTeamClearTrail?: (id: string) => void
+  /** tactical editing is locked (viewer role, Einsatzleiter-Ansicht, replay). Everything
+   *  stays readable — panning, selecting, the ephemeral Messen path — but no affordance that
+   *  would mutate the document is rendered: no vertex/move handles on a selected drawing, no
+   *  lock chip, no note edit/delete grips. The app-level callbacks are no-ops in this state,
+   *  so a handle here would be a control that responds and changes nothing. */
+  readOnly?: boolean
   drawings: Drawing[]
   drawingsVisible: boolean
   draft: LngLat[]
@@ -181,7 +187,7 @@ interface Props {
 
 export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   const { entities, layers, byName, symMul = 1, captionMode = 'off', initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, onShowTrupp, onTeamMark, onTeamClearTrail,
-    drawings: storedDrawings, drawingsVisible, draft, draftKind, placing, onDraftDrag, onDraftInsert, onDraftDelete, onDraftPointAttachment, draggable, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onRotate, onShapeTransform,
+    readOnly = false, drawings: storedDrawings, drawingsVisible, draft, draftKind, placing, onDraftDrag, onDraftInsert, onDraftDelete, onDraftPointAttachment, draggable, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onRotate, onShapeTransform,
     onView, picking, onCursor, onPick, pickedPoint, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, onSelectDrawing, onUnlockDrawing, onDelete, measureLabels = [], measurePoints = [], measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingDelete, onDrawingAttachment, onLabelMove,
     marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupMove, onGroupDelete, selectedEntityIds = [], circleEnabled = false, onCircle } = props
@@ -687,7 +693,9 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // editing a selected drawing: show draggable vertex handles + a move handle. Vertex
   // handles are hidden for big freehand strokes (too many points to grab) — those can
   // still be moved/deleted as a whole. The fat hit-line lets a click insert a vertex.
-  const editDraw = !picking && !freehand && !draftKind && !measureKind && resolvedSelectedDrawing && Array.isArray(resolvedSelectedDrawing.coords) && resolvedSelectedDrawing.coords.length > 0 ? resolvedSelectedDrawing : null
+  // read-only never gets handles: the app's edit callbacks are no-ops there, so grabbable-looking
+  // vertices would move under the finger and snap back — the worst kind of 3am lie.
+  const editDraw = !readOnly && !picking && !freehand && !draftKind && !measureKind && resolvedSelectedDrawing && Array.isArray(resolvedSelectedDrawing.coords) && resolvedSelectedDrawing.coords.length > 0 ? resolvedSelectedDrawing : null
   const editCircle = !!editDraw && editDraw.kind === 'circle'
   const editArea = !!editDraw && editDraw.kind === 'area' && editDraw.coords.length >= 3
   // circle: no per-vertex handles (it's centre + radius, not a polyline) — the centre
@@ -1115,8 +1123,9 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       ))}
 
       {/* lock chip on every locked drawing — the click-through shape's only tap target;
-          tapping it unlocks + selects the shape (Figma/Miro-style lock affordance) */}
-      {drawingsVisible && onUnlockDrawing && lockChips.map((c) => (
+          tapping it unlocks + selects the shape (Figma/Miro-style lock affordance). Its only
+          job is unlocking, so it stays away when editing is locked anyway. */}
+      {drawingsVisible && !readOnly && onUnlockDrawing && lockChips.map((c) => (
         <Marker key={`lk${c.id}`} longitude={c.coord[0]} latitude={c.coord[1]} anchor="center">
           <LockChip onUnlock={() => onUnlockDrawing(c.id)} />
         </Marker>
@@ -1301,6 +1310,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         bearing={bearing}
         symMul={symMul}
         captionMode={captionMode}
+        readOnly={readOnly}
         draggable={draggable}
         project={(c) => mapInst.current?.project(c as [number, number])}
         unproject={(p) => { const m = mapInst.current; if (!m) return undefined; const ll = m.unproject([p.x, p.y]); return [ll.lng, ll.lat] }}

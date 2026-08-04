@@ -40,7 +40,7 @@ export const layers: LayerDef[] = [
   // long radio list made the Ebenen panel unnavigable. A workspace that had a removed base
   // selected falls back to Carto in deriveInitial (workspace.ts).
   { id: 'base-carto', group: 'Basis', label: 'Carto', icon: 'map', base: true, visible: true, opacity: 100, tiles: carto('rastertiles/voyager'), nightTiles: CARTO_DARK, maxzoom: 20, attribution: '© CARTO, © OpenStreetMap-Mitwirkende' },
-  { id: 'base-osm', group: 'Basis', label: 'OpenStreetMap', icon: 'map', base: true, visible: false, opacity: 100, tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], maxzoom: 19, attribution: '© OpenStreetMap-Mitwirkende' },
+  { id: 'base-osm', group: 'Basis', label: 'OpenStreetMap', shortLabel: 'OSM', icon: 'map', base: true, visible: false, opacity: 100, tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], maxzoom: 19, attribution: '© OpenStreetMap-Mitwirkende' },
   { id: 'base-air', group: 'Basis', label: 'Satellit', icon: 'sat', base: true, visible: false, opacity: 100, tiles: [wmts('ch.swisstopo.swissimage')], maxzoom: 19, attribution: '© swisstopo' },
 
   // Operational layers: symbols → taktisch, vehicles → fahrzeuge, drawings/notes → markup.

@@ -71,3 +71,36 @@ describe('Messung on an already drawn line', () => {
     expect(screen.queryByRole('button', { name: appConfig.copy.measure.profile })).toBeNull()
   })
 })
+
+// The Einsatzleiter must be able to ask how long the Leitung is without being able to move it:
+// read-only keeps every number and drops every control.
+describe('read-only (viewer / Einsatzleiter-Ansicht)', () => {
+  const D = appConfig.copy.drawingEditor
+
+  it('keeps the numbers a locked surface is opened FOR', () => {
+    render(<DrawEditor {...base} readOnly drawing={{ kind: 'line' }} lengthM={412} profileCoords={[[7.5, 47.5], [7.51, 47.51]]} />)
+    expect(screen.getByText(D.measurement)).toBeTruthy()
+    expect(screen.getByText('412 m')).toBeTruthy()
+    expect(screen.getByRole('button', { name: appConfig.copy.measure.profile })).toBeTruthy()
+  })
+
+  it('drops every control that would change the shape', () => {
+    render(<DrawEditor {...base} readOnly drawing={{ kind: 'line', label: 'Angriff Ost' }} lengthM={412}
+      onToggleLock={noop} onEnding={noop} onContent={noop} />)
+    expect(screen.queryByText(D.color)).toBeNull()
+    expect(screen.queryByText(D.width)).toBeNull()
+    expect(screen.queryByText(D.ending)).toBeNull()
+    expect(screen.queryByText(D.showOnMap)).toBeNull() // «Auf Karte» writes to the drawing
+    expect(screen.queryByRole('button', { name: new RegExp(appConfig.copy.delete) })).toBeNull()
+    expect(screen.queryByRole('button', { name: new RegExp(D.lock) })).toBeNull()
+    expect(document.querySelector('input')).toBeNull() // Text/Marker are read, not typed
+    expect(screen.getByText('Angriff Ost')).toBeTruthy() // …but the shape's own name still reads
+  })
+
+  it('states what an Absperrkreis covers, not just its radius', () => {
+    render(<DrawEditor {...base} readOnly drawing={{ kind: 'circle', radiusM: 100 }} areaM2={31416} perimeterM={628} />)
+    expect(screen.getByText(appConfig.copy.measure.area)).toBeTruthy()
+    expect(screen.getByText(appConfig.copy.measure.perimeter)).toBeTruthy()
+    expect(screen.getByText('628 m')).toBeTruthy()
+  })
+})

@@ -6,6 +6,9 @@ export interface LayerDef {
   id: LayerId
   group: string
   label: string
+  /** compact name for the Basiskarte tile row, where a full name has ~70px to live in
+   *  («OpenStreetMap» → «OSM»). Falls back to `label`. */
+  shortLabel?: string
   icon: string          // sprite id in the inline UI icon set
   locked?: boolean
   base?: boolean        // part of the radio base-layer group

@@ -27,6 +27,8 @@ import { advanceDwell, applyRouting, boundaryPoint, EMPTY_DWELL, forkPortPoint, 
 import { calibrate, pathMetres, polyAreaM2, isStale, type PlanScale } from '../lib/planScale'
 import { resolvePlanScale, saveStationDefault, saveStationPlanOverride } from '../lib/stationPlanScale'
 import { MeasurePanel } from './MeasurePanel'
+import { slimTools, PLAN_READONLY_TOOLS } from '../lib/readOnlyTools'
+import { useIsPhone } from '../lib/useIsPhone'
 import type { PlanScales } from '../lib/workspace'
 import { fmtDistance, fmtArea, hoseLengthHint } from '../lib/geo'
 import { useLongPress } from '../lib/useLongPress'
@@ -85,6 +87,10 @@ interface Props {
   onReorient?: (next: BuildingDoc) => void
   /** viewers can pan/inspect but not mutate plan structure (floors, building) */
   readOnly?: boolean
+  /** while read-only, still render the slim tool rail (Auswahl · Messen) — the tools that
+   *  change nothing. Off for replay (its scrubber owns the bottom band) and for the phone's
+   *  Verlauf sheet, where the plan is parked behind a full-width overlay. */
+  slimTools?: boolean
   sym: SymbolsApi
   /** active Mannschaft names feeding the symbol detail comboboxes (Einsatzleiter / Fahrer …) */
   rosterNames?: string[]
@@ -132,11 +138,16 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', onChange, building, onSelectBuilding, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRecent, log, onSymbolPlaced, emit = () => {}, historyRef, onHistoryState, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, planScale = {}, onCalibrate }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', onChange, building, onSelectBuilding, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRecent, log, onSymbolPlaced, emit = () => {}, historyRef, onHistoryState, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, planScale = {}, onCalibrate, slimTools: slimToolsProp = false }: Props) {
   const active = plans.find((p) => p.id === activeId) ?? plans[0]
   // A viewer-only plan (e.g. PV/documentation PDF) is read-only regardless of role: plain
   // pan/zoom, no drawing tools or annotation surface. Folds into the existing readOnly gates.
   const readOnly = readOnlyProp || active?.viewer === true
+  // The slim read-only rail (Auswahl · Messen) — never on a viewer-only document, which has no
+  // tool rail for ANYONE, so a locked editor and a viewer keep seeing the same surface.
+  const slimRail = readOnly && slimToolsProp && active?.viewer !== true
+  const slimPlanTools = useMemo(() => slimTools(appConfig.copy.planTools, PLAN_READONLY_TOOLS), [])
+  const isPhone = useIsPhone()
 
   const [tool, setTool] = useState<BoardTool>('pan')
   const [pending, setPending] = useState<string | null>(null)
@@ -607,7 +618,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       // Messen: each tap drops a measurement node (mirrors the Lage map's measure tool). But on an
       // UNCALIBRATED plan the first segment IS the calibration — the two reference taps open the
       // metre popover directly, so the user never has to find a separate Maßstab step first.
+      // …but calibration is a WRITE (it persists to the workspace and the station default), so a
+      // locked surface just can't measure until someone with edit rights has set the scale — the
+      // panel says exactly that instead of offering a button that would fail.
       if (!calibrated) {
+        if (readOnly) return
         const next: [number, number][] = [...measPath, n]
         if (next.length >= 2) { setCalPrompt({ a: next[0], b: next[1] }); setRefMInput(String(lastRefM)); setMeasLine([]); setMeasArea([]) }
         else setMeasPath(() => next)
@@ -1984,9 +1999,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             )}
           </div>
 
-          {/* floating zoom — only when the tool rail is hidden (viewers / phone); with the
-              rail present, zoom/fit lives in its pinned footer (mirrors the map's ToolRail) */}
-          {readOnly && (
+          {/* floating zoom — only when the tool rail is hidden (viewer-only documents, replay);
+              with the rail present, zoom/fit lives in its pinned footer (mirrors the map's
+              ToolRail). The phone keeps it either way: there the rail is a bottom bar whose
+              footer cluster is CSS-hidden, so this is the plan's only zoom control. */}
+          {readOnly && (!slimRail || isPhone) && (
             <div className="wb-zoom wb-zoom-float" onPointerDown={(e) => e.stopPropagation()}>
               <button onClick={() => zoom(1 / 1.3)} disabled={scale <= 1} title={appConfig.copy.nav.zoomOut} aria-label={appConfig.copy.nav.zoomOut}><Icon id="minus" /></button>
               <span>{Math.round(scale * 100)}%</span>
@@ -1997,7 +2014,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
 
         </div>
 
-        {!readOnly && <WbToolDocks
+        {/* on a locked surface the rail can only arm Messen, so the only dock this can render
+            there is the Messen one (its ✕ / Strecke↔Fläche / Zurücksetzen — all ephemeral) */}
+        {(!readOnly || tool === 'measure') && <WbToolDocks
           tool={tool}
           lineMode={lineMode}
           color={color}
@@ -2038,14 +2057,14 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         />
       )}
 
-      {/* tool rail — the SAME shared <ToolRail> the Lage map renders; hidden for viewers
-          and on phones (read-only plan view), mirroring the map's gating. Undo/redo and
-          Leeren are gone: history is global (TopBar), bulk-remove is Mehrfach + delete. */}
-      {!readOnly && (
+      {/* tool rail — the SAME shared <ToolRail> the Lage map renders, and the same rule: a
+          locked surface keeps the rail with the slim tool set instead of losing it. Undo/redo
+          and Leeren are gone: history is global (TopBar), bulk-remove is Mehrfach + delete. */}
+      {(!readOnly || slimRail) && (
         <ToolRail
           className="wb-tools"
           primary={{ id: 'symbol', icon: appConfig.copy.primarySymbol.icon, label: appConfig.copy.whiteboard.symbol }}
-          tools={appConfig.copy.planTools}
+          tools={readOnly ? slimPlanTools : appConfig.copy.planTools}
           active={tool}
           toolRefs={toolBtn}
           onPick={(id) => {
@@ -2252,8 +2271,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           showProfile={false}
           metrics={{ lengthM: measLenM, areaM2: measAreaM2, perimeterM: measPerimM }}
           blocked={!calibrated}
-          hint={appConfig.copy.whiteboard.scale.needsCalibration}
-          onCalibrate={() => setTool('scale')}
+          hint={readOnly ? appConfig.copy.whiteboard.scale.needsCalibrationViewer : appConfig.copy.whiteboard.scale.needsCalibration}
+          onCalibrate={readOnly ? undefined : () => setTool('scale')}
           calibrateLabel={appConfig.copy.whiteboard.scale.calibrate}
           recalibrateLabel={appConfig.copy.whiteboard.scale.recalibrate}
         />
@@ -2295,11 +2314,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
 
       {/* Maßstab — trust chip: shows whether the active plan is calibrated; tap to (re)calibrate.
           Never a hidden assumption — a plan with no scale says so. Hidden for the OSM live outline /
-          blank sheet (no printed reference to measure against) and for read-only viewers. */}
-      {!readOnly && !osm && !blank && (
+          blank sheet (no printed reference to measure against). A locked surface keeps the chip
+          READING (its metres are only as good as the calibration behind them) but can't arm it. */}
+      {(!readOnly || slimRail) && !osm && !blank && (
         <button
           className={`wb-scale-chip ${calibrated ? 'on' : ''} ${scaleStale ? 'stale' : ''} ${tool === 'scale' ? 'arm' : ''}`}
-          title={appConfig.copy.whiteboard.scale.recalibrate}
+          title={readOnly ? undefined : appConfig.copy.whiteboard.scale.recalibrate}
+          disabled={readOnly}
           onClick={() => setTool(tool === 'scale' ? 'pan' : 'scale')}
         >
           <Icon id="measure" />

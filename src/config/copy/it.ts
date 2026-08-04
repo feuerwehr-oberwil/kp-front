@@ -780,6 +780,7 @@ export const it: Localizable<Copy> = {
       stale: 'Piano modificato – ricontrolla la scala',
       saved: 'Scala calibrata ({m} m di riferimento)',
       needsCalibration: 'Imposta la scala: tocca i due estremi della barra di scala',
+      needsCalibrationViewer: 'Per misurare serve prima una scala calibrata',
     },
     finishShape: 'Fatto',
     cancelShape: 'Annulla',

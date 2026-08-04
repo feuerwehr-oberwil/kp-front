@@ -781,6 +781,7 @@ export const fr: Localizable<Copy> = {
       stale: 'Plan modifié – revérifier l’échelle',
       saved: 'Échelle calibrée (référence {m} m)',
       needsCalibration: 'Définir l’échelle : touchez les deux extrémités de la barre d’échelle',
+      needsCalibrationViewer: 'La mesure exige d’abord une échelle calibrée',
     },
     finishShape: 'Terminé',
     cancelShape: 'Annuler',

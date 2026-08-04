@@ -83,6 +83,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
   // sticky line preset. EVERY finished line one-shots to Select with the new line active, so
   // its detail editor opens right away for post-draw tweaks — no extra click needed.
   const createLine = (coords: LngLat[], attachments?: { startAttachment?: LineAttachment; endAttachment?: LineAttachment }) => {
+    if (tacticalLocked) return // the funnel every finished line goes through — same guard as the edit handlers
     const id = `d${Date.now()}`
     // styled presets (Messpfeil/Rettungsachse) carry their own arrow/marker/dash; Freihand falls
     // back to the dock's dash. A new line inherits the last-used preset (post-pick + sticky) — the
@@ -114,10 +115,19 @@ export function useMapDrawing(deps: MapDrawingDeps) {
   }
 
   const selectedDrawing = drawings.find((d) => d.id === selectedDrawingId) ?? null
-  const patchDrawing = (patch: Partial<Drawing>) => { emit('draw.edit', { id: selectedDrawingId, patch }); commit((d) => ({ ...d, drawings: d.drawings.map((dr) => (dr.id === selectedDrawingId ? { ...dr, ...patch } : dr)) })) }
+  // Both patch paths carry the same `tacticalLocked` guard as the coord/vertex handlers below:
+  // `commit` alone only stops a VIEWER (readOnly) — in the Einsatzleiter-Ansicht it writes, and
+  // the emit above it reached the audit stream even when the commit was dropped.
+  const patchDrawing = (patch: Partial<Drawing>) => {
+    if (tacticalLocked) return
+    emit('draw.edit', { id: selectedDrawingId, patch }); commit((d) => ({ ...d, drawings: d.drawings.map((dr) => (dr.id === selectedDrawingId ? { ...dr, ...patch } : dr)) }))
+  }
   // patch a specific drawing by id (e.g. unlock from the on-map lock chip, where the locked
   // shape isn't the selected one)
-  const patchDrawingById = (id: string, patch: Partial<Drawing>) => { emit('draw.edit', { id, patch }); commit((d) => ({ ...d, drawings: d.drawings.map((dr) => (dr.id === id ? { ...dr, ...patch } : dr)) })) }
+  const patchDrawingById = (id: string, patch: Partial<Drawing>) => {
+    if (tacticalLocked) return
+    emit('draw.edit', { id, patch }); commit((d) => ({ ...d, drawings: d.drawings.map((dr) => (dr.id === id ? { ...dr, ...patch } : dr)) }))
+  }
 
   // --- direct manipulation of a selected drawing (move body / reshape vertices / delete) ---
   // The move handle and vertex handles both stream new coords continuously, so the whole

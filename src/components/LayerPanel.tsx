@@ -34,26 +34,32 @@ export function LayerPanel({ layers, onToggle, onOpacity, onDownloadOffline, off
         {onClose && <button type="button" className="lc-x" aria-label={appConfig.copy.closeDialog} onClick={onClose}><Icon id="close" /></button>}
       </div>
 
-      {/* Basiskarte as the panel's first group (radio rows) — the base IS a layer; this
-          replaced the separate BaseSwitcher popover so one pinned button covers all of it */}
+      {/* Basiskarte as the panel's first group — the base IS a layer; this replaced the separate
+          BaseSwitcher popover so one pinned button covers all of it. A ONE-OF-N choice between
+          three named maps reads as a row of tiles, not as three full-width rows: it says «pick
+          one» at a glance and hands ~90px of sheet height back to the layers below it, which
+          matters most on the phone, where the sheet is the whole screen. The grid auto-fits, so
+          a deployment with two or four bases still lays out. */}
       {bases.length > 0 && (
         <>
           <div className="lgroup">{appConfig.copy.baseMap}</div>
-          {bases.map((b) => (
-            <button
-              key={b.id}
-              type="button"
-              className={`lrow ${b.visible ? '' : 'off'}`}
-              style={{ appearance: 'none', WebkitAppearance: 'none', border: 'none', width: '100%', textAlign: 'left', font: 'inherit', color: 'inherit' }}
-              role="radio"
-              aria-checked={b.visible}
-              onClick={() => onToggle(b.id)}
-            >
-              <span className="ic"><Icon id={b.icon} /></span>
-              <span className="name">{b.label}</span>
-              {b.visible && <span className="eye"><Icon id="check" /></span>}
-            </button>
-          ))}
+          <div className="lbases" role="radiogroup" aria-label={appConfig.copy.baseMap}>
+            {bases.map((b) => (
+              <button
+                key={b.id}
+                type="button"
+                className={`lbase ${b.visible ? 'on' : ''}`}
+                role="radio"
+                aria-checked={b.visible}
+                /* the full name stays reachable for anyone who doesn't know the short one */
+                title={b.label}
+                onClick={() => onToggle(b.id)}
+              >
+                <span className="lbase-ic"><Icon id={b.icon} /></span>
+                <span className="lbase-t">{b.shortLabel ?? b.label}</span>
+              </button>
+            ))}
+          </div>
         </>
       )}
 

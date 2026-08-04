@@ -3,7 +3,7 @@ import { Icon } from '../lib/icons'
 import { SheetGrip } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
 import { LineStylePicker } from '../lib/draw'
-import { fmtDistance, hoseCount } from '../lib/geo'
+import { fmtDistance, fmtArea, hoseCount } from '../lib/geo'
 import { CONTENT_LABELS } from '../lib/lineDecor'
 import { floorBadge } from '../lib/symbolRender'
 import { useLineProfile } from '../lib/useLineProfile'
@@ -59,6 +59,15 @@ interface Props {
   drawing: DrawStyle
   /** how many vertices the shape has, for the header subtitle (circle uses its radius instead) */
   pointCount: number
+  /** read-only surface (viewer role, Einsatzleiter-Ansicht, replay): keep everything that
+   *  ANSWERS a question — Messung, Höhenprofil, Verbindungen, «springe zu» — and drop every
+   *  control that would change the shape. The EL must be able to ask how long the Leitung is
+   *  without being able to move it. */
+  readOnly?: boolean
+  /** area + perimeter of an area/circle, so the Messung section states what the shape covers
+   *  (a line uses `lengthM` instead). Absent → the rows are omitted. */
+  areaM2?: number | null
+  perimeterM?: number | null
   /** offer the geodesic distance toggle — Lage only (a Plan has no metric scale) */
   supportsDistance?: boolean
   /** measured length of the selected line, so the Messung section can state it without the
@@ -101,7 +110,7 @@ interface Props {
 
 const FILL_OPACITIES = appConfig.drawing.fillOpacities
 
-export function DrawEditor({ drawing, pointCount, supportsDistance = false, lengthM, profileCoords, onColor, onWidth, onDashed, onLabel, onMarker, onArrow, onEnding, onContent, onLineNo, onFloorTag, onShowDistance, onRadius, onFillOpacity, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment }: Props) {
+export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, perimeterM, supportsDistance = false, lengthM, profileCoords, onColor, onWidth, onDashed, onLabel, onMarker, onArrow, onEnding, onContent, onLineNo, onFloorTag, onShowDistance, onRadius, onFillOpacity, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment }: Props) {
   const color = drawing.color ?? '#1f6feb'
   const width = drawing.width ?? 4
   const dashed = !!drawing.dashed
@@ -124,7 +133,7 @@ export function DrawEditor({ drawing, pointCount, supportsDistance = false, leng
   const { profile, loading: profileLoading } = useLineProfile(profileCoords ?? [], hasProfileCoords && profileOpen)
   // rendered twice: pinned at the sheet bottom on desktop/tablet, and again inside the
   // scrolling body for phones (.ctx-footer-inline) — CSS shows exactly one copy
-  const actions = (
+  const actions = readOnly ? null : (
     <div className="ctx-actions">
       {onToggleLock && (
         <button className="btn" onClick={onToggleLock} title={appConfig.copy.drawingEditor.lockHint} aria-pressed={!!locked}>
@@ -144,7 +153,7 @@ export function DrawEditor({ drawing, pointCount, supportsDistance = false, leng
       </div>
       <div className="ctx-body">
         {/* shape group — radius (circle) + fill (circle/area) */}
-        {(isCircle || isArea) && (
+        {!readOnly && (isCircle || isArea) && (
           <div className="de-group">
             {isCircle && (
               <div className="de-row"><span>{appConfig.copy.drawingEditor.radius}</span>
@@ -166,7 +175,7 @@ export function DrawEditor({ drawing, pointCount, supportsDistance = false, leng
         )}
 
         {/* style group — Farbe · Stärke · Linie */}
-        <div className="de-group">
+        {!readOnly && <div className="de-group">
           <div className="de-row"><span>{appConfig.copy.drawingEditor.color}</span>
             <span className="dh-swatches">
               {COLORS.map((c) => <button key={c} className={`dh-color ${color === c ? 'on' : ''}`} style={{ background: c }} onClick={() => onColor(c)} />)}
@@ -184,10 +193,20 @@ export function DrawEditor({ drawing, pointCount, supportsDistance = false, leng
               </span>
             </div>
           )}
-        </div>
+        </div>}
+
+        {/* read-only: the shape's own text is the one style field worth stating — it names the
+            thing («Sektor A»), and on a small marker the map label can be hard to read. */}
+        {readOnly && (drawing.label ?? '').trim() && (
+          <div className="de-group">
+            <div className="de-row"><span>{appConfig.copy.drawingEditor.label}</span>
+              <b className="de-measure-v">{drawing.label}</b>
+            </div>
+          </div>
+        )}
 
         {/* text group — Text · Marker */}
-        {(isLine || isArea) && (
+        {!readOnly && (isLine || isArea) && (
           <div className="de-group">
             <div className="de-row"><span>{appConfig.copy.drawingEditor.label}</span>
               <input className="de-input" value={drawing.label ?? ''} placeholder={isArea ? appConfig.copy.drawingEditor.areaLabelPlaceholder : appConfig.copy.drawingEditor.labelPlaceholder} onChange={(e) => onLabel(e.target.value)} />
@@ -201,7 +220,7 @@ export function DrawEditor({ drawing, pointCount, supportsDistance = false, leng
         )}
 
         {/* FKS line group — Abschluss · Inhalt · Leitung-Nr · Stockwerk · Länge */}
-        {isLine && (
+        {!readOnly && isLine && (
           <div className="de-group">
             {onEnding ? (
               <div className="de-row"><span>{appConfig.copy.drawingEditor.ending}</span>
@@ -252,10 +271,10 @@ export function DrawEditor({ drawing, pointCount, supportsDistance = false, leng
         {/* Messung — the numbers of a line that is already on the map. Before this, length was
             only reachable by re-drawing the line with the Messen tool, and the Höhenprofil not at
             all; the old An/Aus toggle lives on here as «Auf Karte», which is what it always did. */}
-        {isLine && (lengthM != null || supportsDistance) && (
+        {(isLine ? lengthM != null || supportsDistance : areaM2 != null) && (
           <div className="de-group">
             <div className="de-conn-title">{appConfig.copy.drawingEditor.measurement}</div>
-            {lengthM != null && (
+            {isLine && lengthM != null && (
               <>
                 <div className="de-row"><span>{appConfig.copy.drawingEditor.distance}</span>
                   <b className="de-measure-v">{fmtDistance(lengthM)}</b>
@@ -265,7 +284,21 @@ export function DrawEditor({ drawing, pointCount, supportsDistance = false, leng
                 </div>
               </>
             )}
-            {supportsDistance && (
+            {/* an Absperrkreis / Fläche measures itself: what it covers, and how far around it —
+                the same two numbers the Messen tool would give for the same outline */}
+            {!isLine && areaM2 != null && (
+              <>
+                <div className="de-row"><span>{appConfig.copy.measure.area}</span>
+                  <b className="de-measure-v">{fmtArea(areaM2)}</b>
+                </div>
+                {perimeterM != null && (
+                  <div className="de-row"><span>{appConfig.copy.measure.perimeter}</span>
+                    <b className="de-measure-v">{fmtDistance(perimeterM)}</b>
+                  </div>
+                )}
+              </>
+            )}
+            {isLine && supportsDistance && !readOnly && (
               <div className="de-row"><span>{appConfig.copy.drawingEditor.showOnMap}</span>
                 <span className="dh-widths">
                   <button className={`de-toggle ${drawing.showDistance ? 'on' : ''}`} aria-pressed={!!drawing.showDistance} onClick={() => onShowDistance(!drawing.showDistance)}>{drawing.showDistance ? appConfig.copy.drawingEditor.on : appConfig.copy.drawingEditor.off}</button>
@@ -329,7 +362,7 @@ export function DrawEditor({ drawing, pointCount, supportsDistance = false, leng
             })}
           </div>
         )}
-        <div className="ctx-footer-inline">{actions}</div>
+        {actions && <div className="ctx-footer-inline">{actions}</div>}
       </div>
       {actions}
     </div>

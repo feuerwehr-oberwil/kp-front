@@ -20,11 +20,7 @@ interface Props {
   /** Atemschutz contact-clock alarm tier (0 silent · 1 fällig · 2 überfällig) — drives a
    *  cross-surface dot on the Atemschutz item so a due Trupp is visible from any surface */
   azSeverity?: 0 | 1 | 2
-  /** PHONE-ONLY map controls (Ebenen / Karte) pinned after the surface list — desktop and
-   *  tablet render these in the right ToolRail extras / MapUtility instead, so this rail
-   *  stays identical on every surface. Only passed in map mode on phones. */
-  mapControls?: ReactNode
-  /** trailing slot after the map controls — the phone's 🔧 Bearbeiten toggle lives here
+  /** trailing slot after the surface list — the phone's 🔧 Bearbeiten toggle lives here
    *  (bar swap: tapping it replaces this surface bar with the tool rail) */
   trailing?: ReactNode
 }
@@ -212,8 +208,6 @@ export function NavRail(p: Props) {
       </div>
       </div>
 
-      {/* map-only controls pinned at the bottom — Ebenen / Karte, always visible */}
-      {p.mapControls && <div className="nav-mapctl">{p.mapControls}</div>}
       {p.trailing}
 
       {/* drag GRIP — aria-label only (a native `title` would pop the OS tooltip box) */}

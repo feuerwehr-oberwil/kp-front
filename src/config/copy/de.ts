@@ -1128,6 +1128,9 @@ export const de = {
       savedAll: 'Als Standard-Massstab gespeichert',
       savedThis: 'Massstab für diesen Plan gespeichert',
       needsCalibration: 'Massstab festlegen: die zwei Enden des Massstabs antippen',
+      // read-only (Einsatzleiter-Ansicht / Viewer): messen geht erst, wenn jemand mit
+      // Schreibrechten den Massstab gesetzt hat – nie einen Knopf zeigen, der scheitern würde
+      needsCalibrationViewer: 'Messen erst möglich, wenn der Massstab kalibriert ist',
     },
     finishShape: 'Fertig',
     cancelShape: 'Abbrechen',

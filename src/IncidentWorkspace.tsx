@@ -16,7 +16,7 @@ import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDem
 import { fillTemplate, formatSymbolName, formatTime } from './lib/format'
 import { formatAudioDuration } from './lib/audioImport'
 import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys } from './lib/symbols'
-import { circlePolygon, fmtLV95, fmtWGS, haversineM, pathLengthM } from './lib/geo'
+import { circlePolygon, fmtLV95, fmtWGS, haversineM, pathLengthM, polygonAreaM2 } from './lib/geo'
 import { intervalsOf, isPresent, openPresence } from './lib/attendanceIntervals'
 import { useShiftActions } from './lib/useShiftActions'
 import { useBandActions } from './lib/useBandActions'
@@ -55,6 +55,7 @@ import { MapUtility } from './components/MapUtility'
 import { MapViewsButton, type ViewsApi } from './components/MapViewsMenu'
 import { LayerPanel } from './components/LayerPanel'
 import { ToolRail } from './components/ToolRail'
+import { slimTools, isMapReadOnlyTool, MAP_READONLY_TOOLS } from './lib/readOnlyTools'
 import { Palette } from './components/Palette'
 import { ContextPanel } from './components/ContextPanel'
 import { DrawEditor } from './components/DrawEditor'
@@ -242,6 +243,8 @@ export function IncidentWorkspace({
 
   const sym = useSymbols()
   const mapRef = useRef<MapRef>(null)
+  // the locked surface's tool set — see lib/readOnlyTools for why only these two qualify
+  const slimMapTools = useMemo(() => slimTools(appConfig.copy.mapTools, MAP_READONLY_TOOLS), [])
 
   // --- document (undoable) — doc + history funnel extracted to useUndoableDoc ---
   const { doc, setDocRaw, commit, beginDrag, endDrag, undo: undoDoc, redo: redoDoc, canUndo, canRedo, replace: replaceDoc } = useUndoableDoc<Doc>(init.doc, readOnly)
@@ -297,7 +300,10 @@ export function IncidentWorkspace({
   // one place that edits a single map entity: a discrete undo step + the audit
   // emit, so every field edit (label/fields/notes/floor/count/rotation) is recorded
   // identically — previously notes/floor/count silently skipped the audit stream.
+  // `commit` alone only stops a VIEWER: in the Einsatzleiter-Ansicht readOnly is false, so every
+  // entity write needs the tactical lock too (the panels hide their controls, this is the floor).
   const patchEntity = (id: string, patch: Partial<Entity>) => {
+    if (tacticalLocked) return
     commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === id ? { ...e, ...patch } : e)) }))
     emit('entity.edit', { id, patch })
   }
@@ -534,7 +540,13 @@ export function IncidentWorkspace({
   // (e.g. Modul 6 Gebäudepläne) renders no tool bar, so it gets ONE bar of clearance, not two —
   // otherwise the empty tool-bar lane blocks the PDF from scrolling to the bottom nav.
   const activePlanViewer = mode === 'plans' && planDocs.find((p) => p.id === activePlanId)?.viewer === true
-  const phoneTools = isPhone && !tacticalLocked && (mode === 'map' || (mode === 'plans' && !activePlanViewer))
+  // a LOCKED surface now carries a bar too (the slim Auswahl · Messen rail), so it reserves the
+  // same two lanes as an editor's — only replay, which renders no rail at all, gets one.
+  const phoneTools = isPhone && !replayActive && (mode === 'map' || (mode === 'plans' && !activePlanViewer))
+  // the floating top-right map-utility cluster (zoom · compass · Ebenen), which stands in for the
+  // tool rail during replay. It is the ONLY thing the TopBar has to keep clear of on a wide
+  // screen — `.map-util` lets the CSS reserve that width exactly when the cluster is there.
+  const mapUtility = mode === 'map' && replayActive && !isPhone
 
   // #10: the flat nav order (matches NavRail) — map, EACH plan doc, then the four sections. A swipe
   // steps one destination at a time, so it walks through the modules individually instead of
@@ -619,10 +631,12 @@ export function IncidentWorkspace({
   // stream a note's raw text live (silent — snapshot once for undo), then fold the whole
   // edit into one undo step + a single audit event on blur. Mirrors the title editor.
   const noteTextLive = (id: string, v: string) => {
+    if (tacticalLocked) return // setDocRaw bypasses commit's readOnly gate — a viewer must not type here
     if (!titleLiveRef.current) { titleLiveRef.current = true; beginDrag() }
     setDocRaw((d) => ({ ...d, entities: d.entities.map((e) => (e.id === id ? { ...e, label: v } : e)) }))
   }
   const noteTextCommit = (id: string, v: string) => {
+    if (tacticalLocked) { setEditNoteId(null); return }
     if (titleLiveRef.current) { titleLiveRef.current = false; endDrag(); emit('entity.edit', { id, patch: { label: v } }) }
     else patchEntity(id, { label: v })
     setEditNoteId(null)
@@ -638,6 +652,7 @@ export function IncidentWorkspace({
   // width drag on a note text box (screen px) — the 'start'/'end' phases bracket the gesture so
   // the whole drag folds into one undo step, exactly like the shape transform handles.
   const noteWidthDrag = (id: string, w: number | undefined, phase: 'start' | 'move' | 'end') => {
+    if (tacticalLocked) return
     if (phase === 'start') { beginDrag(); return }
     if (phase === 'end') { endDrag(); emit('entity.edit', { id, patch: { noteW: doc.entities.find((e) => e.id === id)?.noteW } }); return }
     setDocRaw((d) => ({ ...d, entities: d.entities.map((e) => (e.id === id ? { ...e, noteW: w } : e)) }))
@@ -1021,6 +1036,16 @@ export function IncidentWorkspace({
     setNotePanelId(null); setEditNoteId(null)
   }
 
+  // Locking the surface mid-draw (Einsatzleiter-Ansicht toggled on, tab lock lost, replay entered)
+  // must not leave a create tool armed behind a dock that is no longer rendered — disarm down to
+  // the tool set the locked rail actually offers. Messen and Auswahl survive untouched.
+  useEffect(() => {
+    if (!tacticalLocked || isMapReadOnlyTool(tool)) return
+    setTool('select'); setPending(null); setPendingShape(null); setDraft([]); setTeamPick(null)
+    setPaletteOpen(false); setEditNoteId(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tacticalLocked, tool])
+
   // Enter replay WITHOUT forcing a surface: one timeline drives both the Lagekarte and the Plan,
   // so the user can toggle Lage/Plan during playback to inspect each surface at the scrubbed
   // instant. Editing stays locked (replayActive feeds readOnly/tacticalLocked); clearMapUi makes
@@ -1174,6 +1199,13 @@ export function IncidentWorkspace({
     // a map tap dismisses an open Ebenen panel first (parity with the phone backdrop) —
     // the panel is map chrome, so tapping the map behind it should just close it
     if (panel !== null) { setPanel(null); return }
+    // read-only surfaces: Messen is the one tool whose taps mean anything (its path is ephemeral —
+    // see lib/useMeasure). Everything else falls through to "deselect", so a stale armed tool can
+    // never keep collecting draft points behind a hidden dock.
+    if (tacticalLocked && tool !== 'measure') {
+      setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([])
+      return
+    }
     if (tool === 'shape' && pendingShape) {
       const id = `sh${Date.now()}`; const def = SHAPE_DEFS[pendingShape]
       const name = appConfig.copy.shapes.names[pendingShape]
@@ -1287,8 +1319,10 @@ export function IncidentWorkspace({
   // copied. Multi-select duplicate isn't wired (rare; would need per-item id remap).
   const DUP_OFFSET = 0.00008 // ~6–9 m in WGS84 at Swiss latitudes
   const duplicateSelection = () => {
-    if (readOnly) return
-    if (selectedId && !tacticalLocked) {
+    // tacticalLocked, not readOnly: the drawing branch below used to duplicate for real in the
+    // Einsatzleiter-Ansicht, where readOnly is false.
+    if (tacticalLocked) return
+    if (selectedId) {
       const src = doc.entities.find((e) => e.id === selectedId)
       if (!src || src.live || !Array.isArray(src.coord)) return
       const id = `p${Date.now()}`
@@ -1339,7 +1373,8 @@ export function IncidentWorkspace({
       case 'redo': e.preventDefault(); if (onPlan) planHist.current?.redo(); else redo(); break
       case 'duplicate': if (onMap) { e.preventDefault(); duplicateSelection() } break
       case 'tool':
-        if (!drawing || readOnly || tacticalLocked) break
+        // a locked surface keeps the keys for the tools it still shows (D = Messen, V = Auswahl)
+        if (!drawing || (tacticalLocked && !isMapReadOnlyTool(cmd.tool)) || replayActive) break
         e.preventDefault()
         if (onMap) pick(cmd.tool); else planKeys.current?.pickTool(cmd.tool)
         break
@@ -1529,6 +1564,7 @@ export function IncidentWorkspace({
     setSelectedDrawingId(id); setSelectedId(null); mapRef.current?.flyTo({ center: d.coords[0], zoom: 17.8 })
   }
   const deleteEntity = async (id: string) => {
+    if (tacticalLocked) return
     const ent = entities.find((e) => e.id === id)
     // a trail-carrying team stays: clear the trail deliberately first (plan-board parity)
     if (teamEntityLocked(ent)) { toast(appConfig.copy.whiteboard.deleteLocked, { icon: 'warn', tone: 'warn' }); return }
@@ -1731,7 +1767,7 @@ export function IncidentWorkspace({
   const annotatedPlanCount = useMemo(() => annotatedPlans(planDocs, board, false).length, [planDocs, board])
 
   return (
-    <div className={`app mode-${mode}${phoneTools ? ' phone-tools' : ''} ${(tool === 'symbol' && pending) || (tool === 'shape' && pendingShape) ? 'placing' : ''}`}>
+    <div className={`app mode-${mode}${phoneTools ? ' phone-tools' : ''}${mapUtility ? ' map-util' : ''} ${(tool === 'symbol' && pending) || (tool === 'shape' && pendingShape) ? 'placing' : ''}`}>
       <IconSprite />
       {/* #10 phase 2: phone-only edge-swipe strips over the map/plan canvas — swipe inward from a
           screen edge to change section (the canvas keeps its pan/zoom everywhere else). */}
@@ -1744,6 +1780,7 @@ export function IncidentWorkspace({
         <MapView
           ref={mapRef}
           entities={entities}
+          readOnly={tacticalLocked}
           layers={mapLayers}
           byName={sym.byName}
           symMul={symMul}
@@ -1754,9 +1791,11 @@ export function IncidentWorkspace({
           editNoteId={editNoteId}
           onNoteText={noteTextLive}
           onNoteCommit={noteTextCommit}
-          onNoteEdit={(id) => { setSelectedId(id); setSelectedDrawingId(null); setEditNoteId(id) }}
-          onNotePanel={readOnly ? undefined : setNotePanelId}
-          onNoteWidth={readOnly ? undefined : noteWidthDrag}
+          onNoteEdit={tacticalLocked ? undefined : (id) => { setSelectedId(id); setSelectedDrawingId(null); setEditNoteId(id) }}
+          // the ⚙ stays on a locked surface — it opens the note READ-ONLY (a long note is
+          // truncated on the map, and reading it is not editing it)
+          onNotePanel={setNotePanelId}
+          onNoteWidth={tacticalLocked ? undefined : noteWidthDrag}
           trupps={trupps}
           onShowTrupp={() => { setMode('atemschutz'); setPanel(null) }}
           onTeamMark={tacticalLocked ? undefined : markTeamPosition}
@@ -1839,7 +1878,7 @@ export function IncidentWorkspace({
           drawDashed={drawDashed}
           selectedDrawingId={selectedDrawingId}
           onSelectDrawing={(id) => { setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null) }}
-          onUnlockDrawing={(id) => { patchDrawingById(id, { locked: undefined }); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null) }}
+          onUnlockDrawing={tacticalLocked ? undefined : (id) => { patchDrawingById(id, { locked: undefined }); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null) }}
           onDelete={deleteEntity}
           selectedDrawing={selectedDrawing}
           onDrawingEdit={editDrawingCoords}
@@ -2004,27 +2043,15 @@ export function IncidentWorkspace({
         activePlanId={activePlanId}
         onSelectPlan={(id) => { if (mode !== 'plans') clearMapUi(); setMode('plans'); setActivePlanId(id) }}
         azSeverity={azAlarm.peak}
-        mapControls={mapUI && isPhone ? (
-          // PHONE ONLY: the bottom surface bar keeps the Ebenen launcher (the right tool
-          // rail's footer is CSS-hidden in the phone bar); desktop/tablet pin it in the
-          // right ToolRail footer / MapUtility instead, so the left rail is identical on
-          // every surface. Basiskarte selection lives INSIDE the Ebenen panel everywhere.
-          <>
-            <div className="nav-sep" />
-            <button className={`nav-item${panel === 'layers' ? ' on' : ''}`} aria-pressed={panel === 'layers'} aria-label={appConfig.copy.panels.layers} onClick={() => togglePanel('layers')}>
-              <span className="nav-glyph"><Icon id="layers" /></span><span className="nav-label">{appConfig.copy.panels.layers}</span>
-            </button>
-          </>
-        ) : undefined}
       />
 
       {mapUI && (
         <>
           {/* zoom + locate — normally folded into the right ToolRail footer; floats
-              top-right only on desktop where the rail is gone (read-only / replay). On a
-              phone, the floating .phone-compass cluster below carries Einpassen · Standort ·
-              wind, so this cluster isn't rendered there at all. */}
-          {tacticalLocked && !isPhone && (
+              top-right only on desktop where the rail is gone (replay, whose scrubber the rail's
+              Messen readout would collide with). On a phone, the floating .phone-compass cluster
+              below carries Einpassen · Standort · wind, so this cluster isn't rendered there. */}
+          {mapUtility && (
             <MapUtility
               onZoomIn={() => mapRef.current?.zoomIn()}
               onZoomOut={() => mapRef.current?.zoomOut()}
@@ -2152,10 +2179,13 @@ export function IncidentWorkspace({
       {/* note detail panel — the same ContextPanel, but opened from the ⚙ handle rather than by
           selecting (see notePanelId above). The note's TEXT is its title, so the panel's title
           field edits the note itself. */}
-      {mapUI && !journalOpen && !tacticalLocked && noteEntity && (
+      {mapUI && !journalOpen && noteEntity && (
         <ContextPanel
           key={noteEntity.id}
           entity={noteEntity}
+          // locked surfaces open the same panel with every edit affordance stripped — the note's
+          // full text is exactly the kind of thing an Einsatzleiter needs to read off the map
+          readOnly={tacticalLocked}
           onClose={() => setNotePanelId(null)}
           onTitleLive={(v) => noteTextLive(noteEntity.id, v)}
           onTitle={(v) => {
@@ -2171,10 +2201,18 @@ export function IncidentWorkspace({
         />
       )}
 
-      {mapUI && !tacticalLocked && !journalOpen && tool === 'select' && selectedDrawing && (
+      {mapUI && !journalOpen && tool === 'select' && selectedDrawing && (
         <DrawEditor
           drawing={selectedDrawing}
           pointCount={selectedDrawing.coords.length}
+          // locked: the panel keeps the numbers (Länge, Höhenprofil, Fläche) and the
+          // Verbindungen, and drops every control that would change the shape
+          readOnly={tacticalLocked}
+          areaM2={selectedDrawing.kind === 'circle' ? Math.PI * (selectedDrawing.radiusM ?? 0) ** 2
+            : selectedDrawing.kind === 'area' && selectedDrawing.coords.length >= 3 ? polygonAreaM2(selectedDrawing.coords) : null}
+          perimeterM={selectedDrawing.kind === 'circle' ? 2 * Math.PI * (selectedDrawing.radiusM ?? 0)
+            : selectedDrawing.kind === 'area' && selectedDrawing.coords.length >= 3
+              ? pathLengthM([...selectedDrawing.coords, selectedDrawing.coords[0]]) : null}
           supportsDistance
           /* Messung on a line that is already drawn — geodesic length here, and the coords feed
              the collapsible swisstopo Höhenprofil (fetched only once it is opened) */
@@ -2201,8 +2239,8 @@ export function IncidentWorkspace({
             const label = a.target.kind === 'object' ? entities.find((e) => e.id === a.target.id)?.label ?? a.target.id : targetLine ? lineLabel(targetLine) : appConfig.copy.drawingEditor.line
             return [[endpoint, label]]
           }))}
-          onRouting={(endpoint, routing) => setGpsRouting(selectedDrawing, endpoint, routing)}
-          onDetach={(endpoint) => {
+          onRouting={tacticalLocked ? undefined : (endpoint, routing) => setGpsRouting(selectedDrawing, endpoint, routing)}
+          onDetach={tacticalLocked ? undefined : (endpoint) => {
             const a = endpoint === 'start' ? selectedDrawing.startAttachment : selectedDrawing.endAttachment
             if (!a) return
             const fallback: LngLat = a.target.kind === 'object'
@@ -2226,7 +2264,7 @@ export function IncidentWorkspace({
             if (target && !isVisible(target.layer)) toggleLayer(target.layer)
           }}
           locked={!!selectedDrawing.locked}
-          onToggleLock={() => { patchDrawing({ locked: selectedDrawing.locked ? undefined : true }); if (!selectedDrawing.locked) setSelectedDrawingId(null) }}
+          onToggleLock={tacticalLocked ? undefined : () => { patchDrawing({ locked: selectedDrawing.locked ? undefined : true }); if (!selectedDrawing.locked) setSelectedDrawingId(null) }}
           onDelete={() => selectedDrawingId && deleteDrawing(selectedDrawingId)}
           onClose={() => setSelectedDrawingId(null)}
         />
@@ -2328,11 +2366,14 @@ export function IncidentWorkspace({
       {/* the Verlauf drawer now docks INBOARD of this rail (see .journal-drawer /
           .journal-scrim), so the rail — and its pinned zoom/fit footer — stays put
           instead of being buried + replaced by a floating cluster. */}
-      {mapUI && !tacticalLocked && (
+      {/* the rail is the SAME object for everyone — a locked surface just gets the slim tool set
+          (Auswahl · Messen), in the same place, with the same footer. Replay is the exception:
+          its scrubber owns the bottom band that the Messen readout would land in. */}
+      {mapUI && !replayActive && (
         <ToolRail
           className="tool-rail"
           primary={appConfig.copy.primarySymbol}
-          tools={appConfig.copy.mapTools}
+          tools={tacticalLocked ? slimMapTools : appConfig.copy.mapTools}
           active={voice.recording ? 'audio' : tool}
           onPick={pick}
           footer={(() => {
@@ -2343,7 +2384,7 @@ export function IncidentWorkspace({
                     Basiskarte choice lives inside its panel (the BaseSwitcher popover and
                     the standalone Koordinaten button are folded away — coords is a row in
                     the compass menu now, testing feedback 2026-07-14) */}
-                <button className={`vrail-nbtn ${panel === 'layers' ? 'on' : ''}`} title={appConfig.copy.panels.layers} aria-label={appConfig.copy.panels.layers} aria-pressed={panel === 'layers'} onClick={() => togglePanel('layers')}><span className="vrail-glyph"><Icon id="layers" /></span><span className="vrail-label">{appConfig.copy.panels.layers}</span></button>
+                <button className={`vrail-nbtn vrail-layers ${panel === 'layers' ? 'on' : ''}`} title={appConfig.copy.panels.layers} aria-label={appConfig.copy.panels.layers} aria-pressed={panel === 'layers'} onClick={() => togglePanel('layers')}><span className="vrail-glyph"><Icon id="layers" /></span><span className="vrail-label">{appConfig.copy.panels.layers}</span></button>
                 {/* multi-purpose compass: always shown, rotates to the live bearing, and opens the
                     saved-views menu (Nach Norden · Einpassen · Standort · Koordinaten · saved
                     framings · Ansicht speichern). */}
@@ -2397,6 +2438,10 @@ export function IncidentWorkspace({
           // map), so the rail + its zoom/fit footer stay live. Only a phone still parks
           // the plan read-only while Verlauf is open (there it's a full-width bottom sheet).
           readOnly={tacticalLocked || (isPhone && journalOpen)}
+          // …but a locked plan still offers the tools that change nothing (Auswahl · Messen),
+          // exactly like the map. Not during replay (the scrubber owns the bottom band) and not
+          // behind the phone's Verlauf sheet, which parks the plan entirely.
+          slimTools={!replayActive && !(isPhone && journalOpen)}
           activeId={activePlanId}
           symMul={symMul}
           captionMode={symbolCaptions}

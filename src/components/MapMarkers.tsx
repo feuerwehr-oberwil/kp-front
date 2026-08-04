@@ -106,6 +106,9 @@ interface Props {
   /** device default for on-canvas symbol captions; a symbol's own `caption` overrides it.
    *  Captions are additionally hidden below appConfig.symbols.captionMinZoom (declutter). */
   captionMode?: CaptionMode
+  /** tactical editing is locked (viewer / Einsatzleiter-Ansicht / replay): a tap still selects
+   *  so the read-only detail panel opens, but no mutating grip is rendered (see MapView). */
+  readOnly?: boolean
   draggable: boolean
   /** project lng/lat → container px (snapshots a symbol's start position for a hold-drag) */
   project: (c: LngLat) => { x: number; y: number } | undefined
@@ -155,7 +158,7 @@ interface Props {
  * vehicle) plus its selection affordances — delete, rotor (live vehicles), and the
  * shape/symbol transform handles. Owns the rotor/transform pointer-drag refs.
  */
-export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, onShowTrupp, onTeamMark, onTeamClearTrail, hiddenTrails, onToggleTrail }: Props) {
+export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', readOnly = false, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, onShowTrupp, onTeamMark, onTeamClearTrail, hiddenTrails, onToggleTrail }: Props) {
   // captions declutter out below a zoom threshold (glyphs are tiny there); the Plan has no zoom
   const captionsVisible = zoom >= appConfig.symbols.captionMinZoom
   // when the note input mounted — onBlur uses this to tell a real "done editing" click-away
@@ -486,21 +489,26 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                 {editNoteId !== e.id && (
                   <div className="note-grips" onPointerDown={(ev) => ev.stopPropagation()}>
                     {/* double-tap is unreliable on iOS, so a selected note keeps an explicit
-                        edit handle — dblclick stays as the desktop shortcut */}
-                    <button className="note-grip ng-edit" title={appConfig.copy.edit} aria-label={appConfig.copy.edit}
-                      onClick={(ev) => { ev.stopPropagation(); onNoteEdit?.(e.id) }}>
-                      <Icon id="pen" />
-                    </button>
+                        edit handle — dblclick stays as the desktop shortcut. Absent when the
+                        surface is read-only: ⚙ then opens the note read-only instead. */}
+                    {onNoteEdit && (
+                      <button className="note-grip ng-edit" title={appConfig.copy.edit} aria-label={appConfig.copy.edit}
+                        onClick={(ev) => { ev.stopPropagation(); onNoteEdit(e.id) }}>
+                        <Icon id="pen" />
+                      </button>
+                    )}
                     {onNotePanel && (
                       <button className="note-grip ng-gear" title={appConfig.copy.notes.settings} aria-label={appConfig.copy.notes.settings}
                         onClick={(ev) => { ev.stopPropagation(); onNotePanel(e.id) }}>
                         <Icon id="gear" />
                       </button>
                     )}
-                    <button className="note-grip ng-del" title={appConfig.copy.delete} aria-label={appConfig.copy.delete}
-                      onClick={(ev) => { ev.stopPropagation(); onDelete(e.id) }}>
-                      <Icon id="close" />
-                    </button>
+                    {!readOnly && (
+                      <button className="note-grip ng-del" title={appConfig.copy.delete} aria-label={appConfig.copy.delete}
+                        onClick={(ev) => { ev.stopPropagation(); onDelete(e.id) }}>
+                        <Icon id="close" />
+                      </button>
+                    )}
                   </div>
                 )}
                 {/* right-edge width grip — a text box only. A one-line note has nothing to drag;

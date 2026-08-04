@@ -500,7 +500,6 @@ input[type='number'] { -moz-appearance: textfield; appearance: textfield; }
   mask-image: linear-gradient(180deg, transparent, #000 22px); }
 .nav-scroll.more-top.more-bottom { -webkit-mask-image: linear-gradient(180deg, transparent, #000 22px, #000 calc(100% - 22px), transparent);
   mask-image: linear-gradient(180deg, transparent, #000 22px, #000 calc(100% - 22px), transparent); }
-.nav-mapctl { flex: none; display: flex; flex-direction: column; gap: 4px; }
 /* width is driven by --rail-w so the rail AND the overlays that track it move as one.
    apply() sets it to 60/216 on toggle; the grip sets it live per-pixel during a drag. */
 .navrail.dragging { transition: none; }   /* live-resize follows the pointer without easing lag */
@@ -610,8 +609,14 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
   width: 264px; max-width: calc(100vw - 16px); max-height: calc(100dvh - 32px); overflow-y: auto;
   background: var(--ink-fill); color: var(--on-accent-ink); border-radius: var(--r-surface);
   padding: 10px; z-index: 201; box-shadow: var(--shadow); }
-.lc-title { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: rgba(255, 255, 255, .65);
-  padding: 4px 8px 4px 8px; display: flex; align-items: center; gap: 7px; }
+/* the title row STICKS while the list scrolls: it carries the ✕, and a long layer list (or a
+   short phone viewport) scrolled the only way out of the sheet off the top. `-10px` cancels the
+   card's own padding so the sticky strip spans the full width and nothing shows through beside
+   it; the matching padding is added back inside. */
+.lc-title { position: sticky; top: -10px; z-index: 1; margin: -10px -10px 0; padding: 14px 18px 8px;
+  background: var(--ink-fill); border-radius: var(--r-surface) var(--r-surface) 0 0;
+  font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: rgba(255, 255, 255, .65);
+  display: flex; align-items: center; gap: 7px; }
 /* round close button at the title's right end — mirrors the views popover / .wb-dock-x */
 .lc-x { flex: none; margin-left: auto; width: 34px; height: 34px; border-radius: var(--r-sm); border: none;
   background: rgba(255, 255, 255, .14); color: var(--on-accent-ink); display: grid; place-items: center;
@@ -619,6 +624,22 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .lc-x:hover { background: rgba(255, 255, 255, .28); }
 .lc-x .i { width: 16px; height: 16px; }
 .lgroup { font-size: 11px; font-weight: 700; color: rgba(255, 255, 255, .7); padding: 13px 8px 5px; }
+/* Basiskarte tiles — one row for a one-of-three choice. auto-fit so a deployment with a
+   different number of bases still lays out; 70px is the floor a glyph + short name needs. */
+.lbases { display: grid; grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); gap: 6px; padding: 0 4px 2px; }
+.lbase { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  min-height: 62px; padding: 8px 4px; cursor: pointer; font: inherit; color: var(--on-accent-ink);
+  background: rgba(255, 255, 255, .07); border: 1px solid transparent; border-radius: var(--r-sm);
+  transition: background .14s var(--ease), border-color .14s var(--ease); }
+.lbase:hover { background: rgba(255, 255, 255, .16); }
+/* selected: the same accent wash the saved-views rows use on this surface (token + color-mix,
+   so day/night both stay right) */
+.lbase.on { background: color-mix(in srgb, var(--blue) 34%, transparent); border-color: color-mix(in srgb, var(--blue) 62%, transparent); }
+.lbase-ic { display: grid; place-items: center; color: rgba(255, 255, 255, .8); }
+.lbase.on .lbase-ic { color: var(--on-accent-ink); }
+.lbase-ic .i { width: 20px; height: 20px; }
+.lbase-t { font-size: 11px; font-weight: 700; line-height: 1.15; text-align: center;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 /* clean list rows — transparent, no per-row box; visible vs hidden shown by the blue eye +
    opacity, with the dock's white hover highlight */
 .lrow { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 8px; border: none; background: transparent;
@@ -1889,7 +1910,13 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 /* shrinkable: with `flex: none` the action cluster never gave way, so once the Atemschutz chip
    carried a long name AND a four-digit clock it pushed itself out past the bar's own rounded
    edge and floated over the map. The title/address yield first, then this. */
-.tb-actions { display: flex; align-items: center; gap: 4px; margin-left: auto; flex: 0 1 auto; min-width: 0; }
+/* flex: NONE, not `0 1 auto`. The cluster is buttons and a weather readout — every child is
+   nowrap, so there is nothing inside it that shrinking can actually reclaim. Allowed to shrink,
+   it was squeezed below its own content and its children painted straight out through the bar's
+   right edge (no clip on .topbar): 177px of «5 km/h» sitting on the map at 861px, and again in
+   the 601–740px band. The bar already has a member whose whole job is to yield — the incident
+   title ellipsises (.ip-switch-title, min-width:0) — so let the width come from there. */
+.tb-actions { display: flex; align-items: center; gap: 4px; margin-left: auto; flex: none; min-width: 0; }
 .tb-act { position: relative; display: flex; align-items: center; justify-content: center; gap: 6px; border: none; cursor: pointer;
   background: var(--fill-soft); color: var(--ink-dim); border-radius: var(--r-sm); padding: 7px 11px; min-height: 42px; font-size: 12.5px;
   font-weight: 700; font-family: inherit; transition: background .14s var(--ease), color .14s var(--ease); }
@@ -1968,6 +1995,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .tb-weather-cond { display: grid; place-items: center; flex: none; color: var(--ink); }
 .tb-weather-cond svg { width: 18px; height: 18px; display: block; }
 .tb-weather-temp { padding-right: 8px; border-right: 1px solid var(--border); }
+
 
 /* weather detail popover (tap the bar readout) */
 .tb-weather-wrap { position: relative; display: inline-flex; }
@@ -3561,8 +3589,13 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
   .tb-actions .tb-act { padding: 8px; }  /* icon + labeled buttons share one rhythm once labels hide */
   .tb-act-add { min-width: 0; }
 }
+/* …and the reservation is only owed while that cluster EXISTS. It floats top-right solely as the
+   tool rail's stand-in during replay (`.map-util`); every other map — editor, Viewer, Einsatz-
+   leiter-Ansicht — has an empty top-right corner, and paying 250px of rent for it is what pushed
+   the weather readout out through the bar's right edge from 1100px down (177px of «5 km/h»
+   painting on the map at 861px). Reserve it when it is there, hand it back when it is not. */
 @media (min-width: 861px) {
-  .mode-map .topbar { max-width: calc(100vw - 250px); }
+  .mode-map.map-util .topbar { max-width: calc(100vw - 250px); }
   /* 250px is a comfortable reservation, not a measured one: at 861px the right-hand utilities
      start 158px past the bar's edge, so ~90px of that is slack. Slack is the right default — but
      not when an überfällig chip is in the bar. Then the clamp is what breaks it: at 861px the bar
@@ -3571,7 +3604,7 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
      right edge. 861–875px is a narrow band, and it is also the width an iPad in landscape with a
      split view lands on. Hand back 50px of the slack while the chip is there and the band closes
      with room to spare; the utilities still keep ~108px of clear air at the tightest width. */
-  .mode-map .topbar:has(.tb-az) { max-width: calc(100vw - 200px); }
+  .mode-map.map-util .topbar:has(.tb-az) { max-width: calc(100vw - 200px); }
 }
 
 @media (max-width: 600px) {
@@ -3588,7 +3621,18 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
     margin-block: 0; flex-direction: row; align-items: center; gap: 2px; max-height: none; padding: 6px 8px; }
   /* rail chrome that has no meaning in a bar: expand/collapse, resize grip, the pinned
      nav footer (pinch zooms; locate/fit live in the TopBar mapNav on phones) */
-  :is(.tool-rail, .wb-tools) :is(.vrail-exp, .vrail-grip, .vrail-nav, .vrail-sep-foot, .vrail-more, .vrail-label) { display: none; }
+  :is(.tool-rail, .wb-tools) :is(.vrail-exp, .vrail-grip, .vrail-more, .vrail-label) { display: none; }
+  .wb-tools :is(.vrail-nav, .vrail-sep-foot) { display: none; }
+  /* …with ONE exception: Ebenen. It used to sit in the bottom surface bar, which made that rail
+     part navigation and part map control; it belongs to the map, so it lives in the tool rail on
+     every form factor. Kept in the FOOTER rather than the scrolling strip for the same reason as
+     on a short iPad — with 9 tools beside it, an Ebenen that scrolls away is an Ebenen you hunt
+     for. The rest of the footer (compass, zoom) stays hidden: pinch zooms, and the floating
+     .phone-compass carries Nach Norden · Einpassen · Standort. */
+  .tool-rail .vrail-nav { flex: none; flex-direction: row; align-items: center; gap: 2px; }
+  .tool-rail .vrail-nav > :not(.vrail-layers) { display: none; }
+  .tool-rail .vrail-layers { width: 50px; min-width: 50px; flex: 0 0 auto; }
+  .tool-rail .vrail-sep-foot { width: 1px; height: 26px; margin: 0 4px; flex: none; align-self: center; }
   :is(.tool-rail, .wb-tools) .vrail-scroll-wrap { flex: 1 1 auto; min-width: 0; }
   :is(.tool-rail, .wb-tools) .vrail-scroll {
     flex-direction: row; align-items: center; overflow-x: auto; overflow-y: hidden; gap: 2px;
@@ -3730,16 +3774,20 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
   .nav-item { width: 50px; min-width: 50px; flex: 0 0 auto; }
   .nav-foot { margin-top: 0; }
   .nav-sep { width: 1px; height: 26px; margin: 0 4px; flex: none; }   /* vertical divider in a row */
-  .nav-mapctl { flex-direction: row; align-items: center; flex: none; gap: 2px; }
 
   /* zoom controls reposition (.toputil) migrated → MapUtility.module.css */
 
-  /* layers/history: the Ebenen launcher now lives in the bottom bar, so the sheet opens
-     ABOVE the bar (full width, scrolls, capped to the viewport) instead of beside the rail */
+  /* layers/history: the sheet opens ABOVE the bars (full width, scrolls, capped to the
+     viewport) instead of beside the rail */
   .layers-card, .history-card {
     left: max(10px, env(safe-area-inset-left)); right: max(10px, env(safe-area-inset-right)); width: auto; max-width: none;
     top: calc(76px + env(safe-area-inset-top)); bottom: calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)); transform: none;
     max-height: none; overflow-y: auto; overscroll-behavior: contain; }
+  /* …and where the tool bar is the SECOND bar, it clears both — the sheet used to start over
+     the tool rail, hiding the very Ebenen button that opened it (same clearance the measure
+     panel takes above) */
+  .phone-tools :is(.layers-card, .history-card) {
+    bottom: calc(var(--rail-h) * 2 + 26px + env(safe-area-inset-bottom)); }
 
   /* coordinate readout sits above the bottom bar + home indicator */
   .coord-read { bottom: calc(var(--rail-h) + 24px + env(safe-area-inset-bottom)); max-width: calc(100vw - 24px); }
