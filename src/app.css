@@ -3890,6 +3890,18 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
     border-radius: var(--r-btn); padding: 4px; box-shadow: var(--shadow); }
   /* the bar's own weather readout is phone-hidden — it lives in this cluster instead */
   .topbar .tb-weather-wrap { display: none; }
+  /* …and the GPS caveat leaves the bar for the same reason the weather did: there is no room
+     for it. At 390px the bar's action cluster is already full at 132px of a 134px budget
+     (undo · redo · Verlauf), so the chip — 198px with its age — simply painted off the right
+     edge. It is a caveat about the vehicles on the MAP, so it floats over the map instead:
+     out of flow (the bar fits again), pinned under the bar on the left, at the same 76px the
+     compass cluster uses on the right so the two read as one row. Its text is the whole point,
+     so it keeps it. */
+  .tb-gps { position: fixed; top: calc(76px + env(safe-area-inset-top));
+    left: max(10px, env(safe-area-inset-left)); max-width: calc(100vw - 90px); margin-right: 0;
+    background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
+    border: 1px solid color-mix(in srgb, var(--amber, #b45309) 30%, transparent);
+    box-shadow: var(--shadow); }
   .phone-compass .tb-weather { min-height: 40px; }
   .pc-btn { width: 44px; height: 44px; border: none; background: transparent; border-radius: var(--r-sm);
     display: grid; place-items: center; color: var(--ink); cursor: pointer; }

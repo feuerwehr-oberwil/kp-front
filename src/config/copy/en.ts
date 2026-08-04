@@ -959,6 +959,8 @@ export const en: Localizable<Copy> = {
     offline: 'Offline',
     tiles: 'Tiles',
     recording: 'REC',
+    gpsFrozen: 'GPS frozen',
+    gpsFrozenHint: 'The live GPS feed is not responding. Vehicles are shown at their last known position.',
   },
   stepper: {
     less: 'less',

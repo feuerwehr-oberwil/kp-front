@@ -938,6 +938,8 @@ export const fr: Localizable<Copy> = {
     offline: 'Hors ligne',
     tiles: 'Tuiles',
     recording: 'REC',
+    gpsFrozen: 'GPS figé',
+    gpsFrozenHint: 'Le flux GPS en direct ne répond plus. Les véhicules restent à leur dernière position connue.',
   },
   stepper: {
     less: 'moins',

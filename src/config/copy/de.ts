@@ -1354,6 +1354,11 @@ export const de = {
     offline: 'Offline',
     tiles: 'Tiles',
     recording: 'REC',
+    // Vorbehalt am stehengebliebenen GPS-Bild: die Fahrzeuge verschwinden bewusst NICHT,
+    // also muss das Einfrieren beschriftet sein – sonst sehen stundenalte Positionen so
+    // verbindlich aus wie eine Minute alte.
+    gpsFrozen: 'GPS eingefroren',
+    gpsFrozenHint: 'Der Live-GPS-Feed antwortet nicht. Die Fahrzeuge stehen auf ihrer zuletzt bekannten Position.',
   },
   // shared compact ±stepper chrome (Stepper.tsx — used everywhere incl. the Einstellungen sheet)
   stepper: {

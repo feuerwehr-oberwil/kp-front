@@ -186,11 +186,13 @@ export function TopBar({ incident, startedAt, recording, recStartedAt, journalOp
         {gpsStale && (
           <span
             className="tb-gps"
-            title="Der Live-GPS-Feed antwortet nicht. Die Fahrzeuge stehen auf ihrer zuletzt bekannten Position."
+            title={appConfig.copy.topBar.gpsFrozenHint}
             role="status"
           >
-            <Icon id="gauge" />
-            <span>GPS eingefroren</span>
+            {/* the app's own position glyph — a speedometer (`gauge`) named nothing about a
+                silent position feed. The amber pill carries the caveat; the icon says WHAT. */}
+            <Icon id="locate" />
+            <span>{appConfig.copy.topBar.gpsFrozen}</span>
             {gpsAgeMs != null && (
               <span className="tb-gps-age">{Math.round(gpsAgeMs / 60_000)} min</span>
             )}

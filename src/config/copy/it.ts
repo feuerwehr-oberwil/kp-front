@@ -937,6 +937,8 @@ export const it: Localizable<Copy> = {
     offline: 'Offline',
     tiles: 'Tasselli',
     recording: 'REC',
+    gpsFrozen: 'GPS congelato',
+    gpsFrozenHint: 'Il feed GPS in tempo reale non risponde. I veicoli restano sull’ultima posizione nota.',
   },
   stepper: {
     less: 'meno',
