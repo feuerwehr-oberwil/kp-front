@@ -2471,7 +2471,15 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 /* justify-items centres horizontally; align-items uses `safe center` so a card taller
    than the viewport (tall pinpad + demo banner) falls back to top-aligned and stays
    fully scrollable instead of clipping the bottom 0/⌫ row past the scroll start edge. */
-.login { position: fixed; inset: 0; z-index: 200; display: grid; justify-items: center; align-items: safe center;
+/* `minmax(0, 1fr)` is load-bearing, not tidying: an `auto` grid track refuses to shrink below
+   its item's min-content, so ONE unbreakable word inside the card set a floor for the whole
+   screen. A long German rank/function ("Führungsunterstützung", 175px on its own) pushed the
+   card to 359px — wider than a 320px phone — and `overflow: auto` here quietly turned that
+   into a sideways-scrolling login instead of an error anyone would notice. The card's own
+   `width: min(408px, 100%)` could not help: the TRACK had already grown, so 100% was 359px.
+   Explicitly minmax(0, …) lets the track shrink and hands the constraint back to the card. */
+.login { position: fixed; inset: 0; z-index: 200; display: grid; grid-template-columns: minmax(0, 1fr);
+  justify-items: center; align-items: safe center;
   background: var(--app-bg);
   color: var(--ink); overflow: auto; padding: 24px; }
 .login-card { width: min(408px, 100%); display: flex; flex-direction: column; gap: 24px;
