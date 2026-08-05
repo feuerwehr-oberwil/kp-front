@@ -33,13 +33,21 @@ export function Combo({ value, options, groups, placeholder, allowCustom, custom
   const [officersOnly, setOfficersOnly] = useState(false)
   const [typing, setTyping] = useState(false)
 
+  // A filter that can only ever empty the list is worse than no filter: without Dienstgrade
+  // (no personnel source, or a roster that carries none) «nur Offiziere» offered a toggle
+  // whose single outcome was «keine Einträge». Offer it only where it can select something.
+  const hasOfficers = useMemo(
+    () => !!officerFilter && !!rankOf && !groups && options.some((o) => isOfficer(rankOf(o))),
+    [options, officerFilter, rankOf, groups],
+  )
   // rank-aware view of the flat options: officers first (rank asc), then alpha; optional filter
-  // to officers only. Only used when officerFilter is set (leadership symbols) and not grouped.
+  // to officers only. A stale `officersOnly` from a roster that HAD officers is ignored once
+  // they are gone — otherwise the list empties with the un-filter toggle no longer rendered.
   const shown = useMemo(() => {
     if (!officerFilter || !rankOf) return options
-    const list = officersOnly ? options.filter((o) => isOfficer(rankOf(o))) : options
+    const list = officersOnly && hasOfficers ? options.filter((o) => isOfficer(rankOf(o))) : options
     return [...list].sort((a, b) => rankOrder(rankOf(a)) - rankOrder(rankOf(b)) || a.localeCompare(b, 'de'))
-  }, [options, officerFilter, rankOf, officersOnly])
+  }, [options, officerFilter, rankOf, officersOnly, hasOfficers])
   const [pos, setPos] = useState<{ left: number; top: number; width: number; maxH: number; up: boolean } | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
   const pickRef = useRef<HTMLButtonElement>(null)
@@ -104,7 +112,7 @@ export function Combo({ value, options, groups, placeholder, allowCustom, custom
           // stretched the menu into a 0-height sliver OFF-screen whenever the trigger sat
           // low (the phone bottom sheet — "the dropdown does nothing")
           style={{ left: pos.left, width: pos.width, maxHeight: pos.maxH, ...(pos.up ? { top: 'auto', bottom: window.innerHeight - pos.top + 4 } : { top: pos.top + 4 }) }}>
-          {officerFilter && rankOf && !groups && (
+          {hasOfficers && (
             <li>
               <button type="button" className={`combo-opt combo-toggle${officersOnly ? ' on' : ''}`}
                 aria-pressed={officersOnly} onMouseDown={(e) => e.preventDefault()}
