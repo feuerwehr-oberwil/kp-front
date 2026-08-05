@@ -685,7 +685,11 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
    on desktop/tablet the panel floats beside the rail and the grip stays hidden */
 .sheet-grip { display: none; }
 /* view-state (readOnly) static variants — same metrics as their editable twins, no focus */
-.ctx-title-ro { display: block; cursor: default; }
+/* A read-only title must not LOOK editable. It shares .ctx-title-input for metrics, which also
+   handed it the resting underline and the hover highlight — so «Notiz» (whose text is the
+   content, edited in the textarea below, never in the header) invited a click that does
+   nothing, and a viewer's title did the same. Same size, no affordance. */
+.ctx-title-ro { display: block; cursor: default; border-bottom-color: transparent; }
 .ctx-notes-ro { margin: 0; font-size: 13.5px; line-height: 1.45; color: var(--ink); white-space: pre-wrap; }
 .kv-val-ro { font-weight: 500; }
 /* inset to the left of the right-edge tool rail (rail 88 + 16 margin + 12 gap) */
@@ -1091,7 +1095,7 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
   color: var(--ink); padding: 2px 5px; margin: -2px -5px; border-radius: var(--r-xs) var(--r-xs) 0 0; outline: none;
   border-bottom: 1.5px solid rgba(30, 45, 70, .16); }
 .ctx-title-input::placeholder { color: var(--ink-faint); font-weight: 600; }
-.ctx-title-input:hover { background: var(--fill-soft); border-bottom-color: rgba(30, 45, 70, .3); }
+.ctx-title-input:not(.ctx-title-ro):hover { background: var(--fill-soft); border-bottom-color: rgba(30, 45, 70, .3); }
 .ctx-title-input:focus { background: color-mix(in srgb, var(--blue) 9%, transparent); border-bottom-color: var(--blue); }
 /* keyboard-free stepper (− value +), used for Geschoss + Anzahl. The clear ✕ keeps
    a FIXED slot (visibility toggles, with a gap before it) so the + button never
