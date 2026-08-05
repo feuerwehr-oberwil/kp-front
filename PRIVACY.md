@@ -28,6 +28,30 @@ receives names, roster, attendance or journal text — only a location. The ship
 mirror list includes one host in Russia (`maps.mail.ru`, a long-standing public mirror); a
 station that would rather not use it sets `OVERPASS_MIRRORS` to the other two.
 
+## Sharing your own location during an Einsatz
+
+One feature has a person's phone report where that person is: **Standort teilen**. It exists so
+the command post can see where the crew is working — someone sent on a Wassertransport or a
+Zubringerleitung is kilometres away on purpose, and the alternative is phoning around to find
+out. It is not attendance control, and nothing in the app flags, warns about or scores distance.
+
+It stays on your own server: the position goes to the same backend that serves the app and
+nowhere else. Beyond that, the rules are deliberately narrow.
+
+| | |
+|---|---|
+| Who decides | The person holding the phone. Nobody can switch it on for somebody else. |
+| How | Asked once per device — agree, pick your own name from the roster, and it resumes automatically at later Einsätze until you switch it off. Declining is remembered too. |
+| When | Only while an Einsatz is open, and only while the app is actually in the foreground. A locked phone reports nothing; the last position simply ages, and the command post sees how old it is. |
+| Who sees it | Signed-in editor and viewer accounts — the command post. Someone who merely tapped the Einsatz-Link on their own phone can *send* their position and can read **nobody else's**. This is enforced server-side, not in the UI. |
+| What is stored | One row per person per Einsatz: name, coordinates, accuracy, time. It is overwritten on every update, so no track of anyone's movements is ever built. |
+| How long | Until the Einsatz is closed, which deletes it. A position that goes untouched is swept anyway (`POSITION_TTL_HOURS`, default 6). Stopping deletes it at once. |
+| Where it does *not* appear | The Verlauf, the audit trail, the Einsatzrapport, the statistics export. It is display data, not part of the record. |
+| Public demo | Off entirely. |
+
+Turning off sharing on the phone removes the position immediately — it does not merely stop
+updating it.
+
 Everything below is about the maintainer channels.
 
 ## The short version

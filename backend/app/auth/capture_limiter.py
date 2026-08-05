@@ -1,4 +1,4 @@
-"""Availability-safe per-IP throttle for the public capture surface (NOT a lockout).
+"""Availability-safe per-IP throttles for the login-less surfaces (NOT lockouts).
 
 The Erfassungs-Poster token is long-lived and travels in the URL, so `/api/capture/*`
 needs a brake against scripted abuse. But the overriding requirement is the operator:
@@ -6,22 +6,32 @@ someone ticking off attendance FAST fires bursts of ~2–3 requests/second (ever
 tap is a save) and must NEVER be throttled. Token bucket per client IP, sized far above
 any human pace (see the sizing comment in config.py) — only sustained scripted traffic
 trips it, and it recovers by itself. In-memory per process, like the PIN limiter.
+
+The same bucket serves `/api/incidents/{id}/positions`, which an Einsatz-Link session may
+write to. Its own sizing lives in `settings.position_rate_*`: that surface has a *known*
+cadence (one POST per ~20 s per phone) rather than a human tapping as fast as they can, so
+it can sit far tighter without ever coming near a real responder.
 """
 
 import time
+from collections.abc import Callable
 
 from ..config import settings
 
 
 class CaptureLimiter:
-    def __init__(self) -> None:
+    """Per-IP token bucket. `sizing` is read on every call, not captured at construction,
+    so a settings override in a test (or at boot) takes effect without rebuilding the
+    limiter — which is how the existing capture tests drive it."""
+
+    def __init__(self, sizing: Callable[[], tuple[float, float]] | None = None) -> None:
         # ip -> (tokens_remaining, last_seen_monotonic)
         self._state: dict[str, tuple[float, float]] = {}
+        self._sizing = sizing or (lambda: (float(settings.capture_rate_burst), settings.capture_rate_per_minute / 60.0))
 
     def check(self, ip: str) -> int:
         """Consume one token; return 0 if allowed, else whole seconds until the next one."""
-        burst = float(settings.capture_rate_burst)
-        rate = settings.capture_rate_per_minute / 60.0
+        burst, rate = self._sizing()
         now = time.monotonic()
         tokens, last = self._state.get(ip, (burst, now))
         tokens = min(burst, tokens + (now - last) * rate)
@@ -44,3 +54,9 @@ class CaptureLimiter:
 
 
 capture_limiter = CaptureLimiter()
+
+#: Separate bucket (and separate sizing) for the live-position surface — a burst of capture
+#: saves must not eat the allowance a responder's phone needs to keep reporting where it is.
+position_limiter = CaptureLimiter(
+    lambda: (float(settings.position_rate_burst), settings.position_rate_per_minute / 60.0)
+)

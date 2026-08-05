@@ -548,6 +548,48 @@ class VehicleSample(Base):
     __table_args__ = (Index("ix_vehicle_samples_incident_device_ts", "incident_id", "device_id", "ts"),)
 
 
+class PersonPosition(Base):
+    """Where one person currently is, self-reported from their own phone.
+
+    Deliberately NOT a history table — unlike ``VehicleSample`` above there is one row per
+    person per incident, overwritten on every update. The feature answers "where is the crew
+    working right now" (someone on a Wassertransport is kilometres away *on purpose*, and the
+    FU wants to see that), not "where has this person been", and a track of a named human's
+    movements is a record this app has no reason to keep.
+
+    Everything about the row is ephemeral: it is deleted when the Einsatz is closed, swept
+    when it goes untouched, and cascades with the incident. It is outside the hash chain, does
+    not appear in Verlauf, and never reaches the Rapport.
+
+    ``person_id`` is a *claim*: the sharer picked their own name out of the roster on their
+    phone. ``device_id`` is what makes that claim traceable to one device, so a second phone
+    claiming the same person is detectable rather than silently overwriting.
+    """
+
+    __tablename__ = "person_positions"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    incident_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    person_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("personnel.id", ondelete="CASCADE"), nullable=False)
+    #: Opaque random id generated on the sharing device (never a fingerprint of it).
+    device_id: Mapped[str] = mapped_column(Text, nullable=False)
+    #: Name snapshot, same reasoning as AttendanceEntry.displayNameSnapshot — the map keeps
+    #: reading right after a roster rename mid-Einsatz.
+    display_name: Mapped[str] = mapped_column(Text, nullable=False)
+    lat: Mapped[float] = mapped_column(Numeric(10, 7), nullable=False)
+    lng: Mapped[float] = mapped_column(Numeric(10, 7), nullable=False)
+    accuracy_m: Mapped[float | None] = mapped_column(Numeric(8, 1), nullable=True)
+    #: The device's own fix time — what the operator reads as "vor 3 min".
+    ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    __table_args__ = (UniqueConstraint("incident_id", "person_id", name="uq_person_positions_incident_person"),)
+
+
 # --- Telemetry outbox -----------------------------------------------------------------
 
 

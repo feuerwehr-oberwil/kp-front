@@ -98,6 +98,34 @@ async def _print_jobs_sweep() -> None:
             logger.exception("Print-job sweep failed")
 
 
+POSITION_SWEEP_SECONDS = 3600
+
+
+async def _positions_sweep() -> None:
+    """Drop self-reported crew positions that have gone quiet (`position_ttl_hours`).
+
+    Closing the Einsatz already deletes them; this is the backstop for the one nobody ever
+    closes, so a name-and-coordinate pair can't sit in the database for days after the phone
+    that reported it went home. The row is the only copy — there is no history to keep.
+    """
+    from datetime import UTC, datetime, timedelta
+
+    from sqlalchemy import delete
+
+    from .models import PersonPosition
+
+    async with async_session_maker() as db:
+        try:
+            cutoff = datetime.now(UTC) - timedelta(hours=settings.position_ttl_hours)
+            res = await execute_dml(db, delete(PersonPosition).where(PersonPosition.updated_at < cutoff))
+            await db.commit()
+            if res.rowcount:
+                logger.info("Position sweep: %d stale position(s) removed", res.rowcount)
+        except Exception:
+            await db.rollback()
+            logger.exception("Position sweep failed")
+
+
 async def _demo_reset() -> None:
     """DEMO ONLY: wipe + reseed the synthetic Musterdorf incident/roster (see demo_reset.reset).
     Runs in-process so the public demo self-cleans on an exact cadence, instead of relying on the
@@ -210,6 +238,17 @@ async def start_scheduler(app: FastAPI) -> None:
         coalesce=True,
     )
     jobs.append(f"auto-archive sweep ({settings.auto_archive_check_seconds}s)")
+    # Always on: a cheap no-op unless somebody is sharing their position. Not optional — this
+    # is the deletion half of a privacy promise, so it must not hang off a feature flag.
+    _scheduler.add_job(
+        _positions_sweep,
+        "interval",
+        seconds=POSITION_SWEEP_SECONDS,
+        id="positions_sweep",
+        max_instances=1,
+        coalesce=True,
+    )
+    jobs.append(f"position sweep ({POSITION_SWEEP_SECONDS}s)")
     if settings.healthcheck_ping_url:
         _scheduler.add_job(_heartbeat, "interval", seconds=60, id="heartbeat", max_instances=1, coalesce=True)
         jobs.append("heartbeat (60s)")

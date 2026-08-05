@@ -285,6 +285,17 @@ async def patch_incident(
             await append_system_row(db, inc.id, icon="flag", text="Einsatz abgeschlossen")
         else:
             await append_system_row(db, inc.id, icon="undo", text="Einsatz wiedereröffnet (Nachtrag)")
+    # Self-reported crew positions live exactly as long as the Einsatz does — the promise
+    # made on the phone when someone opted in. The link session that fed them is already
+    # dead at this point (`_incident_still_open`), so the rows would only sit there going
+    # stale; drop them the moment the Einsatz stops being open, by any of the three routes
+    # that end it. Reopening a closed Einsatz does NOT resurrect them: the phones start
+    # reporting again on their own, and inventing positions nobody currently vouches for
+    # would be worse than an empty layer.
+    if not inc.is_open:
+        from ..models import PersonPosition
+
+        await execute_dml(db, delete(PersonPosition).where(PersonPosition.incident_id == inc.id))
     await db.flush()
     await db.refresh(inc)
     return inc

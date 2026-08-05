@@ -428,6 +428,94 @@ async def test_allowlisted_reads_work(client, link_key, incident):
         assert r.status_code == 200, f"GET {url} answered {r.status_code}: {r.text[:200]}"
 
 
+# --- the one write, and the read it does NOT come with -----------------------------------
+
+
+async def test_link_may_report_its_own_position(client, link_key, incident, db_session):
+    """The single write on the allowlist: a responder who opted in on their own phone tells
+    the command post where they are (see «THE ONE WRITE» in auth/incident_link.py)."""
+    from app.models import Personnel
+
+    person = Personnel(display_name="Meier Hans", is_active=True)
+    db_session.add(person)
+    await db_session.commit()
+    await db_session.refresh(person)
+
+    await _open_link(client)
+    body = {
+        "person_id": str(person.id),
+        "display_name": "Meier Hans",
+        "device_id": "dev-aaaaaaaaaaaa",
+        "lat": 47.5163,
+        "lng": 7.5617,
+        "ts": datetime.now(UTC).isoformat(),
+    }
+    r = await client.post(f"/api/incidents/{incident.id}/positions", json=body)
+    assert r.status_code == 204, r.text
+
+    r = await client.request("DELETE", f"/api/incidents/{incident.id}/positions/{person.id}?device=dev-aaaaaaaaaaaa")
+    assert r.status_code == 204, r.text
+
+
+async def test_link_cannot_read_anybody_positions(client, link_key, incident):
+    """The asymmetry IS the privacy model: whoever tapped the alarm link may send their own
+    position and may read nobody's. That picture belongs to the command post.
+
+    (The systemic walk above already refuses this route as a not-on-the-list one; this test
+    exists so the reason is written down next to the behaviour, and so deliberately adding
+    the GET to `LINK_ALLOWED` fails loudly rather than quietly widening the feature.)
+    """
+    await _open_link(client)
+    r = await client.get(f"/api/incidents/{incident.id}/positions")
+    assert r.status_code == 403, r.text
+    assert r.json()["detail"] == DENIED_DETAIL
+
+
+async def test_closing_the_einsatz_stops_a_link_reporting(client, link_key, incident, db_session):
+    """Sharing was promised to last exactly as long as the Einsatz."""
+    await _open_link(client)
+    incident.status = "geschlossen"
+    incident.closed_at = datetime.now(UTC)
+    await db_session.commit()
+
+    r = await client.post(
+        f"/api/incidents/{incident.id}/positions",
+        json={
+            "person_id": str(uuid.uuid4()),
+            "display_name": "Meier Hans",
+            "device_id": "dev-aaaaaaaaaaaa",
+            "lat": 47.5,
+            "lng": 7.5,
+            "ts": datetime.now(UTC).isoformat(),
+        },
+    )
+    assert r.status_code == 403, r.text
+    assert r.json()["detail"] == DENIED_DETAIL
+
+
+async def test_link_cannot_report_into_another_incident(client, link_key, incident, db_session):
+    """The scope check covers the write too — a link to A must not put a dot on B's map."""
+    other = _incident(title="Anderer Einsatz", source_ref="alarm-other-pos")
+    db_session.add(other)
+    await db_session.commit()
+    await db_session.refresh(other)
+
+    await _open_link(client)
+    r = await client.post(
+        f"/api/incidents/{other.id}/positions",
+        json={
+            "person_id": str(uuid.uuid4()),
+            "display_name": "Meier Hans",
+            "device_id": "dev-aaaaaaaaaaaa",
+            "lat": 47.5,
+            "lng": 7.5,
+            "ts": datetime.now(UTC).isoformat(),
+        },
+    )
+    assert r.status_code == 403, r.text
+    assert r.json()["detail"] == DENIED_DETAIL
+
+
 async def test_link_cannot_read_another_incident(client, link_key, incident, db_session):
     """Being on the allowlist is not enough — a link to A must not read B."""
     other = _incident(title="Anderer Einsatz", source_ref="alarm-other")

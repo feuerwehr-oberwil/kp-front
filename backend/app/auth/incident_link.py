@@ -23,6 +23,21 @@ The alerting system mints offline, with no call to kp-front. That is required, n
 convenient: the alerting system is on the life-critical path and must not acquire a runtime
 dependency on this app being reachable.
 
+THE ONE WRITE, AND WHY IT IS ONE
+--------------------------------
+``POST /api/incidents/{id}/positions`` and its DELETE are the only writes on this list. A
+responder who has opted in on their own phone reports where they are, so the command post
+can see that the crew sent on the Wassertransport really is at the Weiher.
+
+They earn the exception because of what they cannot do: each touches exactly one ephemeral
+row — the caller's own self-reported position — mutates no incident state, appends to no
+record, spawns no job and makes no outbound call. Nothing they write survives the Einsatz.
+
+The matching ``GET`` is deliberately absent, and that asymmetry is the privacy model, not an
+oversight: a phone holding a link may *send* its position and may read *nobody's*. Whoever
+tapped the alarm link does not thereby get a live map of where their colleagues are; that
+picture belongs to the command post. Do not add the GET.
+
 WHY DEFAULT-DENY
 ----------------
 ``viewer`` is not "read-only" in the sense a shared URL needs. A viewer may generate the
@@ -150,6 +165,10 @@ LINK_ALLOWED: frozenset[tuple[str, str]] = frozenset(
         ("GET", "/api/incidents/{incident_id}/state"),
         ("GET", "/api/incidents/{incident_id}/verify"),
         ("GET", "/api/incidents/{incident_id}/objects"),
+        # The one write — see "THE ONE WRITE" above. The caller's own live position, in and
+        # out. The GET on the same path is NOT here and must not be added.
+        ("POST", "/api/incidents/{incident_id}/positions"),
+        ("DELETE", "/api/incidents/{incident_id}/positions/{person_id}"),
         # station reference data — the map is useless without it
         ("GET", "/api/objects"),
         ("GET", "/api/objects/{object_id}"),

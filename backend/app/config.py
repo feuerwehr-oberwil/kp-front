@@ -102,6 +102,18 @@ class Settings(BaseSettings):
     capture_rate_burst: int = 120
     capture_rate_per_minute: int = 120
 
+    # Live-position throttle (same token bucket, own bucket + own sizing). This surface has a
+    # known machine cadence — one POST per ~20 s per phone, plus a burst when a fix arrives
+    # after a move — so it does not need capture's human-tapping headroom. 30-deep burst plus
+    # 30/min sustained still leaves room for several phones behind one NAT/LTE egress IP,
+    # which is the normal case at an Einsatz, while a scripted flood trips in seconds.
+    position_rate_burst: int = 30
+    position_rate_per_minute: int = 30
+
+    # How long a self-reported position survives without an update before the hourly sweep
+    # deletes it. Backstop for the Einsatz nobody closes — closing deletes the rows outright.
+    position_ttl_hours: int = 6
+
     # --- Incident view links (logged-out read-only session; app/auth/incident_link.py) ---
     # Lifetime of the SESSION cookie minted in exchange for a link token. A backstop only:
     # the real rule is "valid until the incident is closed", which is enforced per request
