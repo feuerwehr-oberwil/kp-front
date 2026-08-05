@@ -3786,17 +3786,16 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
      every form factor. Kept in the FOOTER rather than the scrolling strip for the same reason as
      on a short iPad — with 9 tools beside it, an Ebenen that scrolls away is an Ebenen you hunt
      for. The rest of the footer (compass, zoom) stays hidden: pinch zooms, and the floating
-     .phone-compass carries Nach Norden · Einpassen · Standort. */
+     the compass sits in the footer beside Ebenen. */
   .tool-rail .vrail-nav { flex: none; flex-direction: row; align-items: center; gap: 2px; }
-  .tool-rail .vrail-nav > :not(.vrail-layers) { display: none; }
-  .tool-rail .vrail-layers { width: 50px; min-width: 50px; flex: 0 0 auto; }
-  /* …and on a READ-ONLY surface the compass joins it. The slim rail carries two tools where an
-     editor's carries nine (101px of 374px used), and the floating .phone-compass exists only
-     because the footer is hidden here — with the room, the compass belongs in the rail, where
-     it sits on every other form factor. */
-  .slim-tools .tool-rail .vrail-nav > .vrail-views { display: flex; }
-  .slim-tools .tool-rail .vrail-views { width: 50px; min-width: 50px; flex: 0 0 auto; }
-  /* the weather goes back into the top bar for the same reason: a read-only bar carries no
+  .tool-rail .vrail-nav > :not(.vrail-layers):not(.vrail-views) { display: none; }
+  /* Ebenen and the compass, pinned side by side at the right end of the tool bar — the same
+     two controls a read-only session has always had there. The editor used to get the compass
+     as a floating cluster over the map instead, which meant the map's two navigation controls
+     lived in two different places depending on who you were logged in as. One place now:
+     they are map controls, and the tool bar is where the map's controls are. */
+  .tool-rail :is(.vrail-layers, .vrail-views) { width: 50px; min-width: 50px; flex: 0 0 auto; }
+  /* the weather goes back into the top bar on a read-only surface: that bar carries no
      undo/redo and no Eintrag, which measures 96px free against the readout's 83px. */
   .slim-tools .topbar .tb-weather-wrap { display: inline-flex; }
   .tool-rail .vrail-sep-foot { width: 1px; height: 26px; margin: 0 4px; flex: none; align-self: center; }
@@ -4051,8 +4050,10 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
      rail-footer compass is hidden in the bottom tool bar, and the wind readout moved out
      of the top bar (it clipped at the screen edge on 375–393px). Sits BELOW the bar
      (74px clears the 10px offset + ~58px bar), mirroring the desktop .toputil placement. */
-  .phone-compass { position: absolute; top: calc(76px + env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); z-index: 40;
-    display: flex; flex-direction: column; align-items: center; gap: 2px;
+  /* Wind, floating top-right. It used to share this box with the compass; the compass moved
+     to the tool bar, the wind stayed — it is a READ-OUT, and the bar has no room for it. */
+  .phone-wx { position: absolute; top: calc(76px + env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); z-index: 40;
+    display: flex; align-items: center;
     background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
     border-radius: var(--r-btn); padding: 4px; box-shadow: var(--shadow); }
   /* the bar's own weather readout is phone-hidden — it lives in this cluster instead */
@@ -4062,19 +4063,14 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
      (undo · redo · Verlauf), so the chip — 198px with its age — simply painted off the right
      edge. It is a caveat about the vehicles on the MAP, so it floats over the map instead:
      out of flow (the bar fits again), pinned under the bar on the left, at the same 76px the
-     compass cluster uses on the right so the two read as one row. Its text is the whole point,
+     wind read-out uses on the right so the two read as one row. Its text is the whole point,
      so it keeps it. */
   .tb-gps { position: fixed; top: calc(76px + env(safe-area-inset-top));
     left: max(10px, env(safe-area-inset-left)); max-width: calc(100vw - 90px); margin-right: 0;
     background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
     border: 1px solid color-mix(in srgb, var(--amber, #b45309) 30%, transparent);
     box-shadow: var(--shadow); }
-  .phone-compass .tb-weather { min-height: 40px; }
-  .pc-btn { width: 44px; height: 44px; border: none; background: transparent; border-radius: var(--r-sm);
-    display: grid; place-items: center; color: var(--ink); cursor: pointer; }
-  .pc-btn.on { background: var(--ink-fill); color: var(--on-accent-ink); }
-  .pc-glyph { display: grid; place-items: center; transition: transform .15s ease; }
-  .pc-glyph .i { width: 19px; height: 19px; }
+  .phone-wx .tb-weather { min-height: 40px; }
 
   /* Einstellungen rows: the 3-segment controls (Farbschema, Beschriftungen) are wider than
      a phone row leaves next to the label — let the control wrap onto its own right-aligned

@@ -9,7 +9,7 @@
    right tool rail, and tracking its width (--vrail-w) — see .wb-dock-map */
 .dock { position: fixed; right: calc(var(--vrail-w, 60px) + 42px); top: 50%; transform: translateY(-50%); }
 
-/* phone: the trigger is the floating .phone-compass under the top bar, so the popover
+/* phone: the trigger sits in the tool bar beside Ebenen, so the popover
    anchors right below it (top-right) and stays clear of the bottom bars + Eintrag FAB */
 @media (max-width: 600px) {
   /* …unless the surface is read-only: there the trigger is the compass in the bottom tool rail,

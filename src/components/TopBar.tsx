@@ -227,7 +227,7 @@ export function TopBar({ incident, startedAt, recording, recStartedAt, journalOp
 }
 
 /** The tappable wind/weather readout + its detail popover. Lives in the TopBar on
- *  desktop/tablet; on phones App floats it in the top-right .phone-compass cluster
+ *  desktop/tablet; on phones App floats it in the top-right .phone-wx read-out
  *  instead (the bar is too narrow — it clipped at the screen edge). */
 export function WeatherBadge({ weather, onOpenMeteo, bearing = 0 }: { weather: WeatherData; onOpenMeteo?: () => void; bearing?: number }) {
   const cond = condition(weather.weather_code)

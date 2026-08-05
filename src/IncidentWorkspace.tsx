@@ -2157,8 +2157,8 @@ export function IncidentWorkspace({
         <>
           {/* zoom + locate — normally folded into the right ToolRail footer; floats
               top-right only on desktop where the rail is gone (replay, whose scrubber the rail's
-              Messen readout would collide with). On a phone, the floating .phone-compass cluster
-              below carries Einpassen · Standort · wind, so this cluster isn't rendered there. */}
+              Messen readout would collide with). On a phone the tool bar's footer carries
+              Ebenen + the compass, so this cluster isn't rendered there. */}
           {mapUtility && (
             <MapUtility
               onZoomIn={() => mapRef.current?.zoomIn()}
@@ -2182,12 +2182,12 @@ export function IncidentWorkspace({
               has room for the compass in its footer and the top bar has room for the weather
               (measured: 96px free with no undo/redo/Eintrag), so both go back where they
               belong on every other form factor and the floating cluster disappears. */}
-          {isPhone && !slimRail && (
-            <div className="phone-compass">
-              <MapViewsButton api={viewsApi} bearing={view.bearing} readOnly={readOnly} variant="util" btnClassName="pc-btn" activeClassName="on" glyphClassName="pc-glyph" open={viewsOpen} onOpenChange={toggleViews} coordsOn={coord.mode !== 'off'} onToggleCoords={coord.cycle} />
-              {/* wind rides with the compass on phones — in the bar it clipped at the screen
-                  edge (the bar already carries switcher · Einsatzuhr · locate · undo/redo · Verlauf) */}
-              {displayWeather?.wind_dir_deg != null && <WeatherBadge weather={displayWeather} onOpenMeteo={openWeatherDetails} bearing={view.bearing} />}
+          {isPhone && !slimRail && displayWeather?.wind_dir_deg != null && (
+            <div className="phone-wx">
+              {/* Wind stays up here. In the top bar it clipped at the screen edge (that bar
+                  already carries switcher · Einsatzuhr · undo/redo · Verlauf), and the
+                  compass leaving for the tool bar does not free that width. */}
+              <WeatherBadge weather={displayWeather} onOpenMeteo={openWeatherDetails} bearing={view.bearing} />
             </div>
           )}
 
