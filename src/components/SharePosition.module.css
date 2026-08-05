@@ -1,0 +1,93 @@
+/* Standort teilen — the consent card, the name picker and the running indicator.
+   Tokens only (no frozen rgba of the accent) so day/night and per-station accents hold. */
+
+/* --- the one-time question / the running-state card ------------------------------------ */
+
+.ask { display: flex; flex-direction: column; gap: 14px; padding: 4px 2px 2px; }
+
+.lead { margin: 0; font: 500 15px/1.45 var(--body); color: var(--ink); }
+.note { margin: 0; font: 500 13px/1.4 var(--body); color: var(--ink-dim); }
+
+/* The three facts somebody needs BEFORE tapping Ja: who sees it, how long, and what a locked
+   phone does. Listed, not prose — this is read once, under stress, on a small screen. */
+.facts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.facts li { display: flex; gap: 10px; align-items: flex-start; font: 500 13.5px/1.4 var(--body); color: var(--ink-dim); }
+.facts svg { flex: none; width: 18px; height: 18px; margin-top: 1px; color: var(--ink-faint); }
+
+.actions { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+
+/* `font:` with the token, never a bare font-size: <button>/<input> do NOT inherit the app
+   font, so a size-only rule silently drops them to the browser's default face next to Sora
+   everywhere else. */
+.primary,
+.ghost,
+.danger {
+  min-height: var(--tap); padding: 0 18px; border-radius: var(--r-ctl);
+  font: 600 15px var(--body); cursor: pointer;
+}
+
+/* The app's own primary token, NOT --accent: a station's accent is its own colour (red here),
+   so an accent-filled button turns every affirmative action into what reads as an alarm. */
+.primary { border: 1px solid var(--btn-primary); background: var(--btn-primary); color: var(--on-btn-primary); }
+.primary:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); }
+
+.ghost { border: 1px solid var(--glass-edge); background: transparent; color: var(--ink-dim); }
+.ghost:hover { color: var(--ink); }
+
+/* «Standort nicht mehr teilen». Red-tinted OUTLINE, never a solid fill — the house rule for
+   this kind of action (see .ip-btn-danger in app.css). It also must not be the loudest thing
+   on a card that is mostly a read-out: on the «kommt nicht an» state the honest advice is to
+   wait, so a full-bleed red bar was telling people to do the opposite. */
+.danger { background: transparent; color: var(--red); border: 1px solid color-mix(in srgb, var(--red) 35%, transparent); }
+.danger:hover { background: color-mix(in srgb, var(--red) 10%, transparent); }
+
+/* --- the name picker -------------------------------------------------------------------- */
+
+.pick { display: flex; flex-direction: column; gap: 12px; min-height: 0; height: 100%; }
+
+.search {
+  flex: none; min-height: var(--tap); padding: 0 14px;
+  border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
+  background: var(--surface); color: var(--ink); font: 500 15px var(--body);
+}
+
+.roster { flex: 1 1 auto; min-height: 0; overflow-y: auto; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+
+.person {
+  width: 100%; min-height: var(--tap); padding: 0 14px;
+  display: flex; align-items: center; gap: 10px;
+  border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
+  background: var(--surface); color: var(--ink); font: 600 15px var(--body); text-align: left; cursor: pointer;
+}
+.person:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--glass-edge)); }
+
+.rank { flex: none; font: 800 11px var(--body); letter-spacing: .02em; color: var(--ink-faint); min-width: 34px; }
+.name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* --- the pill --------------------------------------------------------------------------- */
+
+/* Icon only, at every width. The German state names run long and an inline label in the top
+   bar either truncates to something meaningless or crowds out the incident title — so the
+   tone below is what reads at a glance, and the words live in the tooltip and the sheet. */
+.pill {
+  flex: none; display: inline-grid; place-items: center;
+  width: var(--tap); height: var(--tap);
+  border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
+  background: var(--surface); cursor: pointer;
+}
+.pill svg { width: 19px; height: 19px; }
+
+/* Reporting. Tinted, not shouting: this is a normal running state, not an alert.
+   The `-strong` tone is the one that carries text on the app background in both schemes. */
+.live { color: var(--green-strong); border-color: color-mix(in srgb, var(--green) 45%, var(--glass-edge)); }
+.live svg { animation: sp-pulse 2.4s ease-in-out infinite; }
+/* Waiting for a fix, or paused because the phone is in a pocket — true but not current. */
+.wait { color: var(--ink-dim); }
+/* Denied by the OS, or the name is taken: the holder has to do something. */
+.warn { color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 55%, var(--glass-edge)); }
+
+@keyframes sp-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .live svg { animation: none; }
+}

@@ -1839,6 +1839,59 @@ export const de = {
     // Startseite sagt das, statt eine leere Einsatzliste zu zeigen
     unavailable: 'Dieser Einsatz ist gerade nicht abrufbar. Seite neu laden, sobald du wieder Empfang hast.',
   },
+  // Standort teilen — die Frage ans eigene Handy und was die Pille danach sagt. Bewusst
+  // ohne Werbetext: Wer wann was sieht, steht vollständig da, weil genau das die Frage ist,
+  // die sich jemand um 3 Uhr stellt, bevor er auf «Ja» tippt.
+  sharePosition: {
+    askTitle: 'Standort teilen?',
+    askBody: 'Der Kommandoposten sieht dann auf der Lagekarte, wo du bist – damit klar ist, wer wo arbeitet (z. B. beim Wassertransport) und wer erreichbar ist.',
+    askWho: 'Sichtbar nur für den Kommandoposten. Andere, die den Einsatz-Link haben, sehen deinen Standort nicht.',
+    askHowLong: 'Nur solange dieser Einsatz läuft. Beim Abschluss wird der Standort gelöscht.',
+    askBackground: 'Wenn du das Handy sperrst, wird nichts mehr übermittelt – die letzte Position bleibt mit Zeitangabe stehen.',
+    // Kein «du wirst nur einmal gefragt» mehr: die Erlaubnis bleibt, das Teilen selbst muss bei
+    // jedem Einsatz bewusst eingeschaltet werden (Kompass-Menü).
+    askAgain: 'Bei jedem Einsatz musst du das Teilen selbst einschalten – es startet nie von allein.',
+    pickTitle: 'Wer bist du?',
+    pickHint: 'Damit dein Punkt auf der Karte einen Namen hat.',
+    search: 'Name suchen',
+    yes: 'Ja, Standort teilen',
+    no: 'Nein, danke',
+    // Kompass-Menü: die eine Zeile, die das Teilen ein- und ausschaltet
+    menuOff: 'Standort teilen',
+    menuOn: 'Standort teilen – ein',
+    // Pille in der Kopfzeile
+    on: 'Standort geteilt',
+    starting: 'Standort wird gesucht …',
+    paused: 'Standort pausiert',
+    pausedHint: 'Das Handy übermittelt nichts, solange die App im Hintergrund oder das Display gesperrt ist. App wieder öffnen, dann läuft es weiter.',
+    denied: 'Standort gesperrt',
+    deniedHint: 'Die Standortfreigabe ist für diese Seite blockiert. Das lässt sich nur in den Browser-Einstellungen wieder erlauben.',
+    taken: 'Name bereits vergeben',
+    takenHint: 'Ein anderes Gerät teilt gerade unter diesem Namen. Wähle deinen Namen neu oder warte kurz.',
+    failing: 'Standort kommt nicht an',
+    failingHint: 'Das Handy findet deinen Standort, aber der Server nimmt ihn nicht entgegen – meist fehlender Empfang. Es wird weiter versucht.',
+    // Grund fürs Suchen, nicht eigener Zustand: drinnen/im Keller meldet ein Handy gerne eine
+    // Genauigkeit von mehreren hundert Metern, und ein solcher Punkt auf der Karte wäre gelogen.
+    impreciseHint: 'Der Empfang ist noch zu ungenau für einen Punkt auf der Karte. Draussen wird es meist innert Sekunden besser.',
+    lastAt: 'Zuletzt {t}',
+    stop: 'Standort nicht mehr teilen',
+    change: 'Namen ändern',
+    // Einstellungen: NUR die Erlaubnis, nicht das Teilen selbst. Eingeschaltet wird im
+    // Kompass-Menü auf der Karte, bei jedem Einsatz neu.
+    settingsLabel: 'Standort verwenden',
+    settingsHint: 'Erlaubt diesem Gerät, deinen Standort zu verwenden. Geteilt wird erst, wenn du es auf der Karte einschaltest.',
+    settingsAs: 'Als {name}',
+    settingsOn: 'Erlaubt',
+    settingsOff: 'Aus',
+  },
+  // Anwesenheitsliste: Live-Standort neben dem Namen. Bewusst neutral – weit weg ist der
+  // Normalfall (Wassertransport), keine Warnung.
+  livePosition: {
+    chip: '{d} · vor {n} min',
+    chipNow: '{d} · jetzt',
+    atScene: 'Am Einsatzort',
+    tapHint: 'Auf der Karte zeigen',
+  },
   // TopBar incident switcher dropdown
   incidentSwitcher: {
     noIncident: 'Kein Einsatz',

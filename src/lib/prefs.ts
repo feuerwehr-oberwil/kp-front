@@ -55,6 +55,28 @@ export interface Prefs {
   elView?: boolean
   /** what the top Einsatzuhr shows — tap it to cycle. Default 'elapsed' (running duration). */
   clockMode?: 'elapsed' | 'now' | 'start'
+  /** Standort teilen — this device's standing PERMISSION to use its position for it, plus
+   *  who it reports as. A DEVICE preference by design: it is the phone's owner deciding about
+   *  their own phone, so it must not ride the synced workspace where another editor could
+   *  flip it.
+   *
+   *  Deliberately NOT "currently sharing". Sharing is an act, switched on per Einsatz from the
+   *  compass menu and off again when that Einsatz ends — so nobody's phone starts broadcasting
+   *  because of something they agreed to months ago. */
+  sharePosition?: SharePositionPref
+}
+
+export interface SharePositionPref {
+  /** the device may use its position for this. false = revoked (or never granted). */
+  allowed: boolean
+  /** roster person id this device reports as — the name its holder picked */
+  personId?: string
+  /** display name at the time of picking; shown in the UI so the control can say who you would
+   *  be sharing as without waiting for the roster to load */
+  displayName?: string
+  /** opaque random id for this device, so the backend can tell two phones apart (and refuse
+   *  a second one claiming a name that is actively sharing). Never a device fingerprint. */
+  deviceId?: string
 }
 
 /** The multiplier the S/M/L preference applies to every tactical symbol's size on

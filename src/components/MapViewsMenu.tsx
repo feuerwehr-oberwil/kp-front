@@ -20,6 +20,15 @@ export interface ViewsApi {
   onFit: () => void
   /** take a single GPS fix and fly to it (the on-demand «Mein Standort» blue dot) */
   onLocate: () => void
+  /**
+   * «Standort teilen» — reporting your own position to the command post for this Einsatz.
+   *
+   * It lives here, one row under «Mein Standort», because it is the same subject (where am I)
+   * and because it has to be an ACT: switched on deliberately per Einsatz and off again by the
+   * same tap. Omitted entirely when there is nothing to report into — a finished Einsatz, the
+   * public demo — so the row is never present-but-dead.
+   */
+  share?: { on: boolean; label: string; onToggle: () => void }
 }
 
 // Is the live camera (roughly) sitting on a saved view? Lets us highlight the one we're on so
@@ -66,6 +75,22 @@ function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose }: {
           <span className={s.ico}><Icon id="locate" /></span>
           <span className={s.name}>{cp.locate}</span>
         </button>
+        {/* Standort teilen, directly under «Mein Standort» — same subject, and the one control
+            that turns reporting on and off. Closes the menu like every other ACTION row here
+            (the coords row below stays open because it is a display toggle you read in place):
+            once you have switched sharing on you want the map back, the confirmation is the
+            indicator in the top bar, and when the tap opens the name sheet instead this dock
+            must be out of the way rather than sitting behind it. */}
+        {api.share && (
+          <button
+            className={cx(s.row, s.north, api.share.on && s.on)}
+            aria-pressed={api.share.on}
+            onClick={() => { api.share!.onToggle(); onClose() }}
+          >
+            <span className={s.ico}><Icon id="locate" /></span>
+            <span className={s.name}>{api.share.label}</span>
+          </button>
+        )}
         {/* coordinate readout toggle — lives here instead of as its own rail-footer button
             (rarely used; freed the slot for Ebenen). Stays open so the state flip is visible. */}
         {onToggleCoords && (

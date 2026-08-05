@@ -3,6 +3,7 @@ import { Icon } from '../../lib/icons'
 import { toast } from '../../lib/ui'
 import { loadPrefs, savePrefs, applyTheme, resolveTheme, type ThemeMode, type SymbolSize } from '../../lib/prefs'
 import { appConfig } from '../../config/appConfig'
+import { fillTemplate } from '../../lib/format'
 import type { IncidentSettings } from '../../lib/workspace'
 import type { CaptionMode } from '../../types'
 import { atemschutzDoctrine, getDeploymentConfig } from '../../lib/deploymentConfig'
@@ -19,6 +20,7 @@ import { Stepper } from '../Stepper'
  *  synced section disappears (device prefs need no workspace). */
 export function SettingsSheet({
   onClose, symbolSize, onSymbolSize, symbolCaptions, onSymbolCaptions, offlineRadiusM, onOfflineRadius, keepScreenOn, onKeepScreenOn, themeCoord, settings, onSettings, canEdit, elView, onElView, onFeedback,
+  shareAs, onSharePosition,
 }: {
   onClose: () => void
   symbolSize: SymbolSize
@@ -46,6 +48,11 @@ export function SettingsSheet({
   /** open the Rückmeldung composer (the caller closes this sheet first — two stacked modals is
    *  not a thing we do). Omitted → the row is hidden. */
   onFeedback?: () => void
+  /** Standort teilen: the name this device currently reports as, or null when it is not
+   *  sharing. Omitting `onSharePosition` hides the row (no open incident to report into). */
+  shareAs?: string | null
+  /** true → open the name picker; false → stop sharing and delete the reported position */
+  onSharePosition?: (on: boolean) => void
 }) {
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => loadPrefs().theme ?? 'auto')
   const setTheme = (m: ThemeMode) => {
@@ -53,6 +60,7 @@ export function SettingsSheet({
     savePrefs({ ...loadPrefs(), theme: m })
     applyTheme(resolveTheme(m, themeCoord, new Date()))
   }
+  const sp = appConfig.copy.sharePosition
   const az = atemschutzDoctrine() // deployment override → appConfig defaults
   const intervalMin = settings?.contactIntervalMin ?? az.contactIntervalMin
   const graceSec = settings?.contactGraceSec ?? az.contactGraceSec
@@ -140,6 +148,20 @@ export function SettingsSheet({
                 <span className="set-row-l">{cp.elView}<small>{cp.elViewSub}</small></span>
                 <Segmented<boolean> ariaLabel={cp.elView} value={elView} onChange={onElView}
                   options={[{ value: true, label: cp.elViewOn }, { value: false, label: cp.elViewOff }]} />
+              </div>
+            )}
+            {/* Standort verwenden — the standing PERMISSION only, never the act of sharing:
+                that is switched on per Einsatz from the compass menu on the map. A device
+                preference, so it belongs in this group and NOT in the synced incident settings,
+                where a second editor could grant it on somebody else's behalf. */}
+            {onSharePosition && (
+              <div className="set-row">
+                <span className="set-row-l">
+                  {sp.settingsLabel}
+                  <small>{shareAs ? fillTemplate(sp.settingsAs, { name: shareAs }) : sp.settingsHint}</small>
+                </span>
+                <Segmented<boolean> ariaLabel={sp.settingsLabel} value={!!shareAs} onChange={onSharePosition}
+                  options={[{ value: true, label: sp.settingsOn }, { value: false, label: sp.settingsOff }]} />
               </div>
             )}
           </div>
