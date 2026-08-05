@@ -5,6 +5,9 @@ import { IconSprite, Icon } from './lib/icons'
 import { useSymbols } from './lib/useSymbols'
 import { vehicleSymbolSvg } from './lib/useVehiclePositions'
 import { useVehicleLayer } from './lib/useVehicleLayer'
+import { usePersonPositions } from './lib/usePersonPositions'
+import { useShareMyPosition } from './lib/useShareMyPosition'
+import { SharePositionPill, SharePositionSheet } from './components/SharePosition'
 import { autoActivateLayers, deriveInitial, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type Saved, type WorkspaceGate } from './lib/workspace'
 import { useReplay } from './lib/useReplay'
 import { resolveHotkey, isTypingTarget } from './lib/hotkeys'
@@ -253,6 +256,21 @@ export function IncidentWorkspace({
   // reposition it and drag its handle to orient it; those overrides live here
   // (persisted) and win over the GPS value until reset via the "GPS" button.
   const { liveVehicles, liveIds, overrides: vehicleOverrides, setOverrides: setVehicleOverrides, gpsStale, gpsAgeMs } = useVehicleLayer(init.vehicleOverrides)
+  // Standort teilen. Two halves that deliberately do not meet: this device REPORTS where its
+  // holder is (`share`, available to every session including a link-scoped phone), and the
+  // command post READS the crew picture (`livePeople`, refused to a link session server-side,
+  // so it isn't even polled for one). Both die with the incident.
+  // Same three things the backend calls "still running" (models.Incident.is_open) — a phone
+  // must not keep reporting into an Einsatz that is over, and finding out via a 404 would
+  // leave a green pill on the screen in the meantime.
+  const incidentOpen = !incidentMeta.is_archived && !incidentMeta.closed_at && incidentMeta.status === 'offen'
+  const share = useShareMyPosition(incidentMeta.id, incidentOpen)
+  const livePeople = usePersonPositions(incidentMeta.id, !linkScoped && !replayActive)
+  // null = closed · 'ask' = permission + name · 'pick' = the roster alone (changing the name).
+  // NOTHING opens this on its own: sharing somebody's location is never proposed by the app,
+  // only reached by tapping «Standort teilen» in the compass menu. That is also why there is no
+  // «nicht jetzt» state to remember — nobody is being asked in the first place.
+  const [sharePick, setSharePick] = useState<null | 'ask' | 'pick'>(null)
 
   // Session-only tactical editing state (active tool, place gesture, selection) — see
   // useTacticalSelection. Declared before enterReplay (which clears it) so its setters are in
@@ -274,9 +292,11 @@ export function IncidentWorkspace({
   // enterReplay lives further down, next to clearMapUi, whose reset list it shares.
 
   // map entities/drawings: the live doc + GPS, or the reconstructed past blob during replay.
+  // Live crew positions join the vehicles: derived from the backend, never persisted, never
+  // in the replay (they are the present by definition and no history of them is kept).
   const entities = useMemo(
-    () => (replayActive ? replayEntities : [...doc.entities, ...liveVehicles]),
-    [replayActive, replayEntities, doc.entities, liveVehicles],
+    () => (replayActive ? replayEntities : [...doc.entities, ...liveVehicles, ...livePeople.people]),
+    [replayActive, replayEntities, doc.entities, liveVehicles, livePeople.people],
   )
   const drawings = replayActive ? (replayWs?.drawings ?? []) : doc.drawings
   const resolvedMapDrawings = useMemo(() => resolveMapDrawings(drawings, entities), [drawings, entities])
@@ -1301,6 +1321,20 @@ export function IncidentWorkspace({
     onResetNorth: () => mapRef.current?.resetNorth(),
     onFit: centerIncident,
     onLocate: () => setLocateReq((n) => n + 1),
+    // Standort teilen — the act, one row under «Mein Standort». Absent (not disabled) when
+    // there is nothing to report into: a finished Einsatz or the demo. One tap once the device
+    // has permission and a name; otherwise the sheet asks for both first.
+    share: incidentOpen && !isDemoMode()
+      ? {
+        on: share.state !== 'off',
+        label: share.state !== 'off' ? appConfig.copy.sharePosition.menuOn : appConfig.copy.sharePosition.menuOff,
+        onToggle: () => {
+          if (share.state !== 'off') share.stop()
+          else if (share.ready) share.start()
+          else setSharePick('ask')
+        },
+      }
+      : undefined,
     onSave: () => {
       const n = cameraViews.length + 1
       const v: CameraView = { id: 'v' + Date.now(), name: fillTemplate(appConfig.copy.mapViews.defaultName, { n }), center: view.center, zoom: view.zoom, bearing: view.bearing }
@@ -1935,6 +1969,9 @@ export function IncidentWorkspace({
         // positions are historical by definition, so a staleness warning would be nonsense.
         gpsStale={mapUI && !replayActive && gpsStale}
         gpsAgeMs={gpsAgeMs}
+        // On EVERY surface, unlike the GPS caveat above: this says what the device in your hand
+        // is doing, which does not stop being true because you switched to the Plan.
+        shareSlot={<SharePositionPill share={share} onChangeName={() => setSharePick('pick')} />}
         // On the phone map surface the floating compass cluster already carries Einpassen
         // (== centerIncident) + Mein Standort, so a top-bar center button here would just
         // duplicate it AND crowd the narrow bar off its right edge (clipping the Atemschutz
@@ -2642,6 +2679,11 @@ export function IncidentWorkspace({
           onPrintZeitplan={!linkScoped && zeitplanRelay?.available ? onPrintZeitplan : undefined}
           onDownloadZeitplan={linkScoped ? undefined : onDownloadZeitplan}
           zeitplanPrintOnline={!!zeitplanRelay?.online}
+          // Live crew positions, read next to the name — this is where somebody looks when
+          // they want to know where a person is, and where they would pick up the phone.
+          livePositions={livePeople.byPerson}
+          incidentCenter={incidentView.center}
+          onShowOnMap={(personId) => { setMode('map'); setPanel(null); focusEntity(`pos-${personId}`) }}
         />
       )}
 
@@ -2745,6 +2787,14 @@ export function IncidentWorkspace({
           uploadAudio={(blob, filename) => uploadMedia(incidentMeta.id, blob, 'audio', filename)}
         />
       )}
+      {sharePick && (
+        <SharePositionSheet
+          roster={personnel}
+          pickOnly={sharePick === 'pick'}
+          onPick={(id, displayName) => { share.start({ id, displayName }); setSharePick(null) }}
+          onClose={() => setSharePick(null)}
+        />
+      )}
       {helpOpen && <HelpOverlay onClose={() => setHelpOpen(false)} />}
       {installGuideOpen && <InstallGuide onClose={() => setInstallGuideOpen(false)} />}
       {offlineReadyOpen && (
@@ -2784,6 +2834,17 @@ export function IncidentWorkspace({
           onElView={isEditor ? setElView : undefined}
           // Rückmeldung posts a diagnostic report — refused for a link session, so don't offer it
           onFeedback={linkScoped ? undefined : () => { setSettingsOpen(false); setFeedbackOpen(true) }}
+          // Einstellungen holds the PERMISSION only — «dieses Gerät darf meinen Standort
+          // verwenden» — never the act. Switching it on opens the sheet (the device has to know
+          // whose position it would be reporting); switching it off revokes and stops.
+          shareAs={share.ready ? (share.pref?.displayName ?? null) : null}
+          onSharePosition={!isDemoMode()
+            ? (on) => {
+              setSettingsOpen(false)
+              if (on) setSharePick('ask')
+              else share.revoke()
+            }
+            : undefined}
         />
       )}
       {/* Rückmeldung, opened deliberately from Einstellungen. Nothing ever PUSHES this at the

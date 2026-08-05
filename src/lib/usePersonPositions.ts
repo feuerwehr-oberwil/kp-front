@@ -1,0 +1,218 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { Entity, LngLat } from '../types'
+import { appConfig } from '../config/appConfig'
+import { isDemoMode } from './deploymentConfig'
+import { formatTime } from './format'
+
+const cfg = appConfig.personGps
+
+/** One self-reported position as the backend serves it. */
+export interface PersonPositionDto {
+  person_id: string
+  display_name: string
+  lat: number
+  lng: number
+  accuracy_m?: number | null
+  ts: string
+}
+
+/** What the Anwesenheit list reads — position plus how old it is. */
+export interface LivePerson {
+  personId: string
+  displayName: string
+  coord: LngLat
+  /** device fix time (ms epoch) */
+  at: number
+  accuracyM: number | null
+}
+
+const xmlEscape = (s: string) =>
+  s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
+
+/** Up to two initials from a display name — «Meier Hans» → «MH», «Meier» → «M». */
+export function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (!parts.length) return '?'
+  const first = parts[0]![0] ?? ''
+  const last = parts.length > 1 ? (parts[parts.length - 1]![0] ?? '') : ''
+  return (first + last).toUpperCase()
+}
+
+/**
+ * The glyph for a person who is sharing their position.
+ *
+ * Deliberately NOT a tactical symbol: a VKF glyph on the Lage means "this unit is deployed
+ * here" — a command decision somebody made. This means "a phone told us where its owner is",
+ * which is a different kind of fact and must not be mistaken for the first at a glance. So:
+ * a plain ringed dot with initials, no VKF vocabulary, in its own colour.
+ *
+ * `dimmed` renders the same glyph for a position that has stopped updating (see
+ * PERSON_STALE_AFTER_MS) — recognisably the same person, visibly not current.
+ */
+export function personSymbolSvg(name: string, dimmed = false): string {
+  const label = xmlEscape(initialsOf(name))
+  const c = dimmed ? '#8b9199' : '#ffb020'
+  return (
+    `<svg viewBox="-1.3 -1.3 2.6 2.6" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">` +
+    `<circle cx="0" cy="0" r="0.92" fill="none" stroke="${c}" stroke-width="0.12"/>` +
+    `<circle cx="0" cy="0" r="0.62" fill="${c}" fill-opacity="${dimmed ? 0.1 : 0.18}"/>` +
+    `<text x="0" y="0" dy="0.33em" font-size="0.72" fill="${c}" text-anchor="middle" font-family="Arial,sans-serif" font-weight="bold">${label}</text>` +
+    `</svg>`
+  )
+}
+
+/**
+ * When a position stops counting as current. Phones only report while the app is in the
+ * foreground, so a locked phone goes quiet within seconds — which is normal, not a fault.
+ * Five minutes is long enough that pocketing the phone between two radio calls doesn't grey
+ * everyone out, short enough that "he's at the Weiher" isn't asserted off a half-hour-old fix.
+ */
+export const PERSON_STALE_AFTER_MS = 5 * 60_000
+
+/** How old a fix reads as, in whole minutes ("vor 12 min"); 0 = just now. */
+export const ageMinutes = (at: number, now: number): number => Math.max(0, Math.floor((now - at) / 60_000))
+
+function toEntity(p: LivePerson, now: number): Entity {
+  const stale = now - p.at > PERSON_STALE_AFTER_MS
+  const mins = ageMinutes(p.at, now)
+  const fields: Record<string, string> = {}
+  const fixed = new Date(p.at)
+  if (!Number.isNaN(fixed.getTime())) fields[cfg.copyFields.lastFix] = formatTime(fixed, true)
+  if (p.accuracyM != null) fields[cfg.copyFields.accuracy] = `±${Math.round(p.accuracyM)} m`
+  return {
+    id: `pos-${p.personId}`,
+    kind: 'person',
+    layer: cfg.layerId,
+    coord: p.coord,
+    symbolSvg: personSymbolSvg(p.displayName, stale),
+    label: p.displayName,
+    // Always says where it came from. A dot on the Lage that looks placed but wasn't is the
+    // one misreading worth spending a subtitle on.
+    subtitle: stale ? `${cfg.selfReported} · vor ${mins} min` : cfg.selfReported,
+    live: true,
+    fields,
+  }
+}
+
+export interface PersonPositionsApi {
+  /** map entities for the `personen` layer */
+  people: Entity[]
+  /** keyed by roster person id — what the Anwesenheit rows read */
+  byPerson: Map<string, LivePerson>
+  error: string | null
+}
+
+/**
+ * A signature of only what the map draws — id and coordinates per person. Two polls with the
+ * same signature render identically, so the whole map/overlay tree can be left alone between
+ * them. Ages are deliberately NOT in it: a crew standing still would otherwise re-render every
+ * poll for a minute counter, which is the exact shape of the battery bug this app already paid
+ * for once. Staleness is recomputed on the `now` tick instead, which advances once a minute.
+ */
+export function positionsSignature(people: LivePerson[]): string {
+  return people.map((p) => `${p.personId}@${p.coord[0]},${p.coord[1]}`).join('|')
+}
+
+/**
+ * Polls the backend for the crew positions of one incident.
+ *
+ * Command post only. A link-scoped session (a responder's phone) is refused this endpoint
+ * server-side — it may report its own position and read nobody else's — so the poll is not
+ * even started for one, rather than hammering a 403 every 15 s.
+ *
+ * Like the vehicle feed, the list is fully derived from the backend each poll and is
+ * deliberately NOT part of the editable document: these entities cannot be moved, edited or
+ * deleted, and they update on their own.
+ */
+export function usePersonPositions(incidentId: string | null, enabled: boolean): PersonPositionsApi {
+  const [people, setPeople] = useState<LivePerson[]>([])
+  const [error, setError] = useState<string | null>(null)
+  // Minute-resolution clock for the age labels. Advanced from two callbacks — never from an
+  // effect body (the cascading-render pattern this app has already paid a battery bug for):
+  // the minute interval below, and every poll that brings data, so the clock is fresh exactly
+  // when there is something new to date.
+  const [now, setNow] = useState(() => Date.now())
+  const timer = useRef<number | null>(null)
+  const lastSig = useRef<string>('')
+
+  const active = enabled && !!incidentId && !isDemoMode()
+
+  useEffect(() => {
+    if (!active) {
+      // Nothing to tear down and nothing to clear: what callers SEE is derived from `active`
+      // below, so switching off empties the picture without writing state from an effect. The
+      // signature is reset so a later reactivation re-publishes rather than dedupes itself away.
+      lastSig.current = ''
+      return
+    }
+    let alive = true
+    const url = `/api/incidents/${incidentId}/positions`
+    const stop = () => {
+      if (timer.current != null) {
+        window.clearInterval(timer.current)
+        timer.current = null
+      }
+    }
+
+    const poll = async () => {
+      try {
+        const res = await fetch(url, { headers: { Accept: 'application/json' } })
+        // 403/404 = this session may not look, or the route isn't there (older backend).
+        // Stop for good rather than retry on a cadence: neither answer changes by asking again.
+        if (res.status === 403 || res.status === 404) {
+          stop()
+          return
+        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const data: PersonPositionDto[] = await res.json()
+        if (!alive) return
+        const list: LivePerson[] = data.map((p) => ({
+          personId: p.person_id,
+          displayName: p.display_name,
+          coord: [p.lng, p.lat] as LngLat,
+          at: new Date(p.ts).getTime(),
+          accuracyM: p.accuracy_m ?? null,
+        }))
+        const sig = positionsSignature(list)
+        if (sig !== lastSig.current) {
+          lastSig.current = sig
+          setPeople(list)
+          // A poll that changed nothing must NOT touch the clock: a parked crew reports the
+          // same coordinates every 15 s, and re-dating them would re-render the whole map
+          // overlay tree for a minute counter nobody is watching.
+          setNow(Date.now())
+        }
+        setError(null)
+      } catch (e) {
+        if (!alive) return
+        setError(e instanceof Error ? e.message : 'Standorte nicht erreichbar')
+      }
+    }
+
+    void poll()
+    timer.current = window.setInterval(poll, cfg.pollMs)
+    return () => {
+      alive = false
+      stop()
+    }
+  }, [active, incidentId])
+
+  // Re-render once a minute so the ages advance — only while somebody is sharing, so an empty
+  // layer costs nothing at all.
+  useEffect(() => {
+    if (!people.length) return
+    const id = window.setInterval(() => setNow(Date.now()), 60_000)
+    return () => window.clearInterval(id)
+  }, [people.length])
+
+  return useMemo(() => {
+    // Leaving the incident (or losing the right to look) empties the picture rather than
+    // freezing it on screen — a dot nobody is refreshing is worse than no dot.
+    const shown = active ? people : []
+    return {
+      people: shown.map((p) => toEntity(p, now)),
+      byPerson: new Map(shown.map((p) => [p.personId, p])),
+      error: active ? error : null,
+    }
+  }, [active, people, now, error])
+}

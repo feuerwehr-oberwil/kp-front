@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Icon } from '../lib/icons'
-import type { AttendanceState, Person, PresenceInterval, Shift, ShiftBand } from '../types'
+import type { AttendanceState, LngLat, Person, PresenceInterval, Shift, ShiftBand } from '../types'
+import { ageMinutes, type LivePerson } from '../lib/usePersonPositions'
+import { fmtDistance, haversineM } from '../lib/geo'
 import type { ZeitplanSheet } from '../lib/zeitplanPrint'
 import { cx } from '../lib/cx'
 import { appConfig } from '../config/appConfig'
@@ -183,6 +185,47 @@ function PaperSheet({ sheet, people, bands, printOnline, onPrint, onDownload, on
 // button whose tap cycles its state — frei → anwesend → gegangen → frei — so a single view
 // both shows and edits attendance with no mode switching (3am tenet: recognition over recall).
 // A member in an active Atemschutz-Trupp is locked: tapping jumps to the Trupp instead of
+/**
+ * Where a person is, next to their name.
+ *
+ * This is the surface the whole live-position feature exists for: the FU is looking at the
+ * crew list and wants to know that the two sent on the Wassertransport really are at the
+ * Weiher — and how to reach them if not. So the chip is deliberately **neutral**: distance is
+ * information, never a warning. Somebody 3 km out is doing what they were told, and colouring
+ * that amber would turn a working picture into an accusation.
+ *
+ * Renders nothing at all when that person is not sharing — an empty slot says "no data",
+ * which is honest, where a dash or a «kein Standort» label would imply something is missing.
+ */
+function LivePositionChip({ live, center, onShow }: {
+  live: LivePerson | undefined
+  center?: LngLat
+  onShow?: () => void
+}) {
+  const L = appConfig.copy.livePosition
+  if (!live) return null
+  const mins = ageMinutes(live.at, Date.now())
+  const dist = center ? fmtDistance(haversineM(center, live.coord)) : ''
+  // Under the GPS noise floor there is no meaningful distance to state — «12 m» would be a
+  // precision the fix does not have. At the Einsatzort is the useful reading anyway.
+  const atScene = center ? haversineM(center, live.coord) < 60 : false
+  const text = atScene
+    ? L.atScene
+    : fillTemplate(mins === 0 ? L.chipNow : L.chip, { d: dist, n: String(mins) })
+  return (
+    <button
+      type="button"
+      className={s.livePos}
+      onClick={onShow}
+      disabled={!onShow}
+      title={onShow ? L.tapHint : undefined}
+    >
+      <Icon id="locate" />
+      <span>{text}</span>
+    </button>
+  )
+}
+
 // marking them gone (the checkout rule). Order is stable alphabetical so chips don't reflow
 // under your finger while you tap.
 export function AnwesenheitView({
@@ -191,6 +234,7 @@ export function AnwesenheitView({
   shifts, bands, onCreateBand, onSaveBand, onRemoveBand, onCycleCell, onSetCellState,
   startedAt, onAddShift, onAddShiftSpan, onReplaceShift, onSetShiftTime, onRemoveShift,
   onPrintZeitplan, onDownloadZeitplan, zeitplanPrintOnline,
+  livePositions, incidentCenter, onShowOnMap,
 }: {
   people: Person[]
   attendance: AttendanceState
@@ -236,6 +280,13 @@ export function AnwesenheitView({
   onPrintZeitplan?: (people: Person[], sheet: ZeitplanSheet) => void
   onDownloadZeitplan?: (people: Person[], sheet: ZeitplanSheet) => void
   zeitplanPrintOnline?: boolean
+  /** Self-reported live positions, keyed by person id (see lib/usePersonPositions). Absent for
+   *  a session that may not read them — a link-scoped phone gets no crew picture at all. */
+  livePositions?: Map<string, LivePerson>
+  /** Einsatzort, to measure the distance from */
+  incidentCenter?: LngLat
+  /** jump to that person's dot on the Lage — the reason the chip is tappable */
+  onShowOnMap?: (personId: string) => void
 }) {
   const isPhone = useIsPhone()
   const [q, setQ] = useState('')
@@ -576,6 +627,11 @@ export function AnwesenheitView({
                     <Icon id="clock" />
                   </button>
                 )}
+                <LivePositionChip
+                  live={livePositions?.get(p.id)}
+                  center={incidentCenter}
+                  onShow={onShowOnMap ? () => onShowOnMap(p.id) : undefined}
+                />
               </div>
             )
           })}

@@ -63,12 +63,17 @@ interface Props {
   gpsAgeMs?: number | null
   /** jump to the Atemschutz surface (chip tap) */
   onOpenAtemschutz?: () => void
+  /** «Standort teilen» indicator, when THIS device is reporting its holder's position. It
+   *  belongs in the bar rather than behind a menu: a device sharing somebody's location has to
+   *  say so on the screen they are already looking at, and it is the only such control a
+   *  link-scoped session gets (Einstellungen is hidden for those). */
+  shareSlot?: React.ReactNode
 }
 
 // Single-line top bar: incident identity + clock on the left, global journal +
 // undo/redo on the right (the surface switch moved to the left NavRail). The clock
 // interval lives here so the per-second tick re-renders only the bar, not the map below.
-export function TopBar({ incident, startedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, titleSlot, onUndo, onRedo, canUndo, canRedo, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, onOpenAtemschutz, gpsStale, gpsAgeMs }: Props) {
+export function TopBar({ incident, startedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, titleSlot, onUndo, onRedo, canUndo, canRedo, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, onOpenAtemschutz, gpsStale, gpsAgeMs, shareSlot }: Props) {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000)
@@ -178,6 +183,7 @@ export function TopBar({ incident, startedAt, recording, recStartedAt, journalOp
               : <><Icon id="plus" /><span>{appConfig.copy.journal.add}</span></>}
           </button>
         )}
+        {shareSlot}
         {hasWind && <WeatherBadge weather={weather!} onOpenMeteo={onOpenWeather} bearing={bearing} />}
         {/* GPS-Feed-Chip. Die Fahrzeuge bleiben absichtlich auf der Karte, wenn der Feed
             stirbt — sie verschwinden zu lassen läse sich als «abgerückt» statt als «Feed

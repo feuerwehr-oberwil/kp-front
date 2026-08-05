@@ -349,7 +349,11 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                     // An already-selected symbol (panel open) drags INSTANTLY like a mouse — move
                     // on the first travel, no hold delay. Unselected touch still needs the deliberate
                     // hold so a pan/flick starting on a symbol doesn't grab it.
-                  }, { mode: selectedId === e.id || ev.pointerType === 'mouse' ? 'mouse' : 'touch', canDrag: draggable })
+                    // A self-reported crew position is the one marker nobody may drag. A live
+                    // VEHICLE can be nudged — that override is a deliberate feature — but moving
+                    // a person's dot would have the operator assert where somebody is, which is
+                    // a different and unbacked claim from the one the dot makes.
+                  }, { mode: selectedId === e.id || ev.pointerType === 'mouse' ? 'mouse' : 'touch', canDrag: draggable && e.kind !== 'person' })
                 }
               : undefined}
           >
@@ -565,7 +569,10 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                   : <button className="wb-pa wb-pa-del" title={appConfig.copy.delete} aria-label={appConfig.copy.delete} onClick={() => onDelete(e.id)}><Icon id="trash" /></button>}
               </div>
             )}
-            {selectedId === e.id && e.live && onRotate && (
+            {/* Rotation is for live VEHICLES (a truck faces somewhere). A person dot carries no
+                heading, so a rotate handle on it would invite orienting a fact that has no
+                orientation. */}
+            {selectedId === e.id && e.live && e.kind !== 'person' && onRotate && (
               <TransformHandle
                 className="handle marker-rotate"
                 icon="rotate"

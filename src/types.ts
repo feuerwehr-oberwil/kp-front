@@ -27,7 +27,9 @@ export interface LayerDef {
   autoActivate?: string[]       // Einsatz categories (kategorien values) that auto-show this layer
 }
 
-export type EntityKind = 'symbol' | 'vehicle' | 'note' | 'photo' | 'shape' | 'team'
+/** `person` = a crew member's self-reported live position (Standort teilen). Always `live`,
+ *  never placed by an operator and never persisted — see lib/usePersonPositions. */
+export type EntityKind = 'symbol' | 'vehicle' | 'note' | 'photo' | 'shape' | 'team' | 'person'
 
 /** editable generic shapes (not tactical symbols) — placed, then reshaped via
  *  colour / size / rotation. e.g. an arrow for direction, a cloud for smoke. */

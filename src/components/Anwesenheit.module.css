@@ -117,6 +117,21 @@
 .backBtn svg { width: 16px; height: 16px; }
 .backBtn:hover { background: color-mix(in srgb, var(--green) 14%, transparent); }
 
+/* Live-Standort: «2.8 km · vor 3 min» beside the name. Deliberately in the muted ink and NOT
+   in a status colour — distance here means "he is at the Weiher like we sent him", so the
+   moment it reads as amber it stops being information and starts being an accusation. */
+.livePos {
+  flex: none; align-self: stretch; display: inline-flex; align-items: center; gap: 5px;
+  padding: 0 10px; max-width: 40%;
+  border: none; border-left: 1px solid var(--glass-edge); background: none;
+  color: var(--ink-dim); font: 600 12px var(--body); white-space: nowrap;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.livePos svg { flex: none; width: 14px; height: 14px; color: var(--ink-faint); }
+.livePos span { overflow: hidden; text-overflow: ellipsis; }
+.livePos:hover:not(:disabled) { color: var(--ink); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.livePos:disabled { cursor: default; }
+
 @media (max-width: 600px) {
   /* full width below the top bar (78px clears the floating bar with a visible gap — at 64px
      the header sat glued under it); the bottom inset clears the bottom bar */

@@ -110,6 +110,26 @@ const base = {
     // symbol mapping needed.
     status: { online: 'Online', offline: 'Offline', unknown: 'Unbekannt' } as Record<string, string>,
   },
+  // Standort teilen — crew members reporting their own position from their own phones, so the
+  // command post can see where people are working (the Wassertransport several kilometres out
+  // is the case this exists for). Own-backend, same-origin, one row per person, gone when the
+  // Einsatz closes. Nothing here alerts on distance: being far away is normal and useful.
+  personGps: {
+    layerId: 'personen' as LayerId,
+    /** how often the command post asks for the picture */
+    pollMs: 15_000,
+    /** how often a sharing phone reports, at most (a fix that hasn't moved still refreshes
+     *  the age, which is what tells the FU the picture is current) */
+    sendMs: 20_000,
+    /** report immediately when the phone has moved at least this far since the last send —
+     *  someone driving to the Weiher shouldn't crawl across the map in 20 s steps */
+    minMoveM: 25,
+    /** GPS fixes worse than this are dropped rather than drawn: a 2 km circle rendered as a
+     *  dot is a lie, and indoors/underground that is exactly what a phone reports */
+    maxAccuracyM: 500,
+    selfReported: 'Selbstauskunft',
+    copyFields: { lastFix: 'Letzte Position', accuracy: 'Genauigkeit' },
+  },
   // Multi-device live sync (HTTP, no WebSocket — the backend is last-write-wins on the
   // full workspace blob, polled with a `since`-rev conditional GET that 304s when nothing
   // changed). Two knobs set how fast an edit on one device appears on another:

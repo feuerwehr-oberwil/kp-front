@@ -50,6 +50,10 @@ export const layers: LayerDef[] = [
   // Off by default on purpose: the tracks answer "where did it come from?", which is an
   // occasional question, and drawn permanently they compete with the tactical symbols.
   { id: 'fahrzeugspuren', group: 'Lage', label: 'Fahrzeugspuren', icon: 'truck', visible: false },
+  // Crew members who are sharing their own position (Standort teilen). Visible by default —
+  // it stays empty until somebody actually opts in on their phone, and the whole point is to
+  // notice the Wassertransport without going looking for a layer toggle first.
+  { id: 'personen', group: 'Lage', label: 'Personen (live)', icon: 'people', visible: true },
   { id: 'markup', group: 'Lage', label: 'Skizzen & Notizen', icon: 'area', visible: true },
 
   // Per-station REFERENCE layers (hydrants, Leitungskataster, canton WMS, …) are NOT bundled
