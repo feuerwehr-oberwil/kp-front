@@ -546,7 +546,7 @@ export const de = {
     fit: 'Einpassen',
     locate: 'Mein Standort',
     save: 'Ansicht speichern',
-    hint: 'Eine Ansicht speichert die Karte wie sie gerade ist – Position, Zoom und Drehung. Tippe eine gespeicherte Ansicht an, um dorthin zu springen (z.B. zwischen Nordübersicht und der Karte gedreht wie du stehst).',
+    hint: 'Eine Ansicht speichert die Karte wie sie gerade ist – Position, Zoom und Drehung. Tippe eine gespeicherte Ansicht an, um dorthin zu springen (z.B. zwischen Nordübersicht und der Karte gedreht wie du stehst). Kompass lange drücken: direkt einpassen.',
     empty: 'Noch keine Ansichten. Speichere die aktuelle Karte – Position, Zoom und Drehung – um mit einem Tipp dorthin zurückzukehren.',
     rename: 'Umbenennen',
     delete: 'Löschen',
