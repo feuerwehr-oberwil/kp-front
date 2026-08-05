@@ -193,19 +193,6 @@ html, body, #root { margin: 0; height: 100%; }
 /* paint the themed backdrop on html too: iOS over-scroll and the safe-area bands around
    standalone/browser chrome show html's background — without this they render white */
 html { background: var(--app-bg); }
-
-/* Legibility scrim for the iOS status bar (see the black-translucent tag in index.html).
-   In that mode iOS paints the clock, signal and battery in white with no way to request dark,
-   and they sit directly on the map — over a day-mode basemap that is white-on-white. A gradient
-   the exact height of the inset restores contrast without reintroducing an opaque bar.
-   Costs nothing anywhere else: off iOS (and in a browser tab) the inset is 0, so the element has
-   zero height. Above every other layer on purpose — a modal or a light sheet reaching the top
-   edge must not be able to slide under the status bar and swallow the clock. */
-.safe-top-scrim {
-  position: fixed; top: 0; left: 0; right: 0; height: env(safe-area-inset-top);
-  z-index: 2000; pointer-events: none;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, .55), rgba(0, 0, 0, .12));
-}
 body {
   font-family: var(--body); color: var(--ink); overflow: hidden;
   -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
@@ -462,9 +449,10 @@ input[type='number'] { -moz-appearance: textfield; appearance: textfield; }
 .ts.photo img { width: 100%; height: 100%; object-fit: cover; border-radius: var(--r-xs); display: block; }
 
 /* top bar — single line, left-aligned (utilities live top-right) */
-/* top offsets carry the safe-area inset because the map now runs under the iOS status bar
-   (index.html, black-translucent). The phone rules further down already did this; the base
-   rules did not, which on iPad — no phone media query — put this bar under the clock. */
+/* top offset carries the safe-area inset, matching the phone rules further down (the base rule
+   did not, so on iPad — no phone media query — nothing here cleared a notch). Inert on iOS, where
+   the status bar insets the web view itself and the inset is always 0 (see index.html); kept so
+   the base rules do not have to be rediscovered if any platform ever does report one. */
 .topbar { position: absolute; top: calc(16px + env(safe-area-inset-top)); left: 16px; display: flex; align-items: center;
   gap: 14px; background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
   border-radius: var(--r-hero); padding: 8px 8px 8px 18px; z-index: 56; box-shadow: var(--shadow); max-width: calc(100vw - 32px); }
