@@ -2524,6 +2524,12 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .ctx-connections button:first-of-type { border-top: 0; }
 .ctx-connections button > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ctx-conn-go { flex: none; color: var(--ink-faint); font-size: 16px; line-height: 1; }
+/* «Trupp … zeigen» on a hose that carries an Atemschutz-Trupp — the same flat row idiom as the
+   Verbundene Linien above, so both jumps out of this panel look and behave alike */
+.draw-editor .de-jump { width: 100%; min-height: 44px; display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; padding: 8px 0; border: 0; border-top: 1px solid var(--border-soft); background: none; color: var(--ink);
+  font-family: inherit; font-size: 12.5px; font-weight: 700; text-align: left; cursor: pointer; }
+.draw-editor .de-jump:hover { color: var(--accent); }
 
 /* selected-drawing edit handles (reshape vertices + move grip + delete) — each gets a
    transparent hit pad; kept below 44px because move/delete/rotate cluster around the
@@ -2755,6 +2761,27 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   color: var(--blue-strong); cursor: pointer; }
 .ip-menu-resync:hover { background: color-mix(in srgb, var(--blue) 15%, var(--surface)); }
 .ip-menu-resync svg { width: 15px; height: 15px; }
+.ip-menu-resync:disabled { cursor: default; }
+/* Spinner → tick, as ONE circle rather than two icons swapped: r=9 ⇒ circumference ≈ 56.5, and
+   every dash length below is cut to that. Busy draws a ~quarter arc and rotates it; done closes
+   the arc to a full ring and strokes the tick through it, so the eye follows the same shape from
+   «working» to «erledigt» and no words are needed for the most boring outcome there is. */
+.sync-glyph { display: block; overflow: visible; fill: none; stroke: currentColor;
+  stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.sync-ring { stroke-dasharray: 14 43; transform-origin: 50% 50%; animation: spin .75s linear infinite; }
+.sync-tick { stroke-dasharray: 14; stroke-dashoffset: 14; }
+/* done: the ring completes (no longer spinning) and the tick draws in just behind it */
+.sync-glyph.on { color: var(--green); }
+.sync-glyph.on .sync-ring { animation: none; stroke-dasharray: 57 57; stroke-dashoffset: 0;
+  transition: stroke-dasharray .26s var(--ease); }
+.sync-glyph.on .sync-tick { stroke-dashoffset: 0; transition: stroke-dashoffset .3s var(--ease) .14s; }
+.ip-menu-resync.sync-done { border-color: color-mix(in srgb, var(--green) 45%, var(--border));
+  background: color-mix(in srgb, var(--green) 10%, var(--surface)); }
+/* reduced motion: keep the STATES (arc → closed ring + tick), drop the spin and the draw-on */
+@media (prefers-reduced-motion: reduce) {
+  .sync-ring { animation: none; }
+  .sync-glyph.on .sync-ring, .sync-glyph.on .sync-tick { transition: none; }
+}
 /* small-caps section label inside the dropdown (e.g. "Dieser Einsatz") — same idiom as .set-group-t */
 .ip-menu-label { padding: 4px 12px 2px; font: 700 11px var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
 

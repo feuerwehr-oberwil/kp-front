@@ -98,6 +98,11 @@ interface Props {
   onTrupp?: (truppId: string | undefined) => void
   /** Trupps offerable in that picker (the ones still in — a Trupp that is out gets no new line) */
   trupps?: { id: string; name: string }[]
+  /** the Trupp actually ON this Leitung (anchor OR number), for the «zeigen» jump. Separate from
+   *  `drawing.truppId`: a Trupp matched by number alone is just as real a link. */
+  truppOnLine?: string
+  /** jump to the Atemschutz board for that Trupp */
+  onShowTrupp?: () => void
   /** Leitung numbers already taken on THIS surface, so a duplicate can be flagged as it happens */
   usedLineNos?: number[]
   onShowDistance: (showDistance: boolean) => void
@@ -119,7 +124,7 @@ interface Props {
 
 const FILL_OPACITIES = appConfig.drawing.fillOpacities
 
-export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, perimeterM, supportsDistance = false, lengthM, profileCoords, onColor, onWidth, onDashed, onLabel, onMarker, onArrow, onEnding, onContent, onLineNo, onFloorTag, onTrupp, trupps = [], usedLineNos = [], onShowDistance, onRadius, onFillOpacity, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment }: Props) {
+export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, perimeterM, supportsDistance = false, lengthM, profileCoords, onColor, onWidth, onDashed, onLabel, onMarker, onArrow, onEnding, onContent, onLineNo, onFloorTag, onTrupp, trupps = [], truppOnLine, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onFillOpacity, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment }: Props) {
   const color = drawing.color ?? '#1f6feb'
   const width = drawing.width ?? 4
   const dashed = !!drawing.dashed
@@ -288,6 +293,14 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, peri
                   {trupps.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                 </select>
               </div>
+            )}
+            {/* the way back to the board — the same jump the Verbindungen rows offer, so a hose
+                and its Trupp are one tap apart in BOTH directions */}
+            {onShowTrupp && truppOnLine && (
+              <button className="de-jump" onClick={onShowTrupp}>
+                <span>{fillTemplate(appConfig.copy.drawingEditor.truppShow, { name: truppOnLine })}</span>
+                <span className="ctx-conn-go" aria-hidden>›</span>
+              </button>
             )}
             {onFloorTag && (
               <div className="de-row"><span>{appConfig.copy.drawingEditor.floorTag}</span>

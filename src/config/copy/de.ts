@@ -962,6 +962,9 @@ export const de = {
     // Trupp und Schlauchlinie, ohne dass jemand etwas doppelt tippt.
     lineNoLabel: 'Leitung Nr.',
     lineLegacyNote: 'Früher erfasst: «{value}»',
+    lineOptsLabel: 'Gezeichnet:',
+    lineOptTaken: 'Trupp {name} ist auf dieser Leitung',
+    lineShow: 'Leitung auf der Karte zeigen',
     linePick: 'Leitung wählen',
     linePickHint: 'Leitung auf der Lage oder im Plan antippen',
     linePickCancel: 'Auswahl abbrechen',
@@ -1332,6 +1335,7 @@ export const de = {
     // woran die Atemschutzüberwachung ihre Leitung erkennt.
     lineNoDuplicate: 'Leitung {n} gibt es hier schon',
     trupp: 'Gehört zu Trupp',
+    truppShow: 'Trupp {name} zeigen',
     truppNone: 'Kein Trupp',
     floorTag: 'Stockwerk',
     distance: 'Länge',

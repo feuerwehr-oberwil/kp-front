@@ -2245,6 +2245,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           onTrupp={onLinkLineTrupp ? (truppId) => onLinkLineTrupp(selDraw.id, truppId) : undefined}
           trupps={trupps.filter((t) => t.status !== 'raus').map((t) => ({ id: t.id, name: t.name }))}
           usedLineNos={annos.filter((a) => a.kind === 'draw' && a.id !== selDraw.id && a.lineNo != null).map((a) => a.lineNo!)}
+          truppOnLine={truppForLine(selDraw, trupps)?.name}
+          onShowTrupp={onShowTrupp && truppForLine(selDraw, trupps) ? () => onShowTrupp(truppForLine(selDraw, trupps)!.id) : undefined}
           onShowDistance={(showDistance) => patchCommit(selDraw.id, { showDistance: showDistance || undefined })}
           onRadius={() => {}}
           onFillOpacity={(fillOpacity) => patchCommit(selDraw.id, { fillOpacity })}

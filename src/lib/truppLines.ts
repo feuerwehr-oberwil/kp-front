@@ -87,6 +87,44 @@ export function usedLineNos(lines: LinkableLine[], exceptId?: string): Set<numbe
   return new Set(lines.filter((l) => l.id !== exceptId && l.lineNo != null).map((l) => l.lineNo!))
 }
 
+/** One Leitung that actually EXISTS on a surface, for the Trupp form's picker: which number, and
+ *  who is already on it. Offering these is what stops the number from being a blind guess — a
+ *  Leitung is drawn long before anyone types its number into a Trupp. */
+export interface LeitungOption {
+  no: number
+  /** the Trupp already working it (still in) — the option stays pickable, but says so */
+  takenBy?: string
+  /** drawn on a Plan rather than on the Lage — worth saying, the operator drew it somewhere */
+  onPlan: boolean
+}
+
+/**
+ * The drawn Leitungen offered in the Trupp form, lowest number first: every numbered line on
+ * either surface, with the Trupp on it (if any). `exceptTruppId` is the Trupp being edited, so
+ * its own Leitung never reads as «taken» by itself.
+ *
+ * One entry per NUMBER, not per drawing: the same Leitung drawn on the Lage and on a floor plan
+ * is one hose (see the module header), so it must not appear twice.
+ */
+export function leitungOptions(
+  mapLines: LinkableLine[], planLines: LinkableLine[], trupps: Trupp[], exceptTruppId?: string,
+): LeitungOption[] {
+  const byNo = new globalThis.Map<number, LeitungOption>()
+  const add = (l: LinkableLine, onPlan: boolean) => {
+    if (l.lineNo == null) return
+    const prev = byNo.get(l.lineNo)
+    // a number drawn on both surfaces counts as the Lage one (that is where it reads as placed)
+    byNo.set(l.lineNo, { no: l.lineNo, onPlan: prev ? prev.onPlan && onPlan : onPlan })
+  }
+  mapLines.forEach((l) => add(l, false))
+  planLines.forEach((l) => add(l, true))
+  for (const opt of byNo.values()) {
+    const holder = trupps.find((t) => t.id !== exceptTruppId && !isOut(t) && truppLineNo(t) === opt.no)
+    if (holder) opt.takenBy = holder.name
+  }
+  return [...byNo.values()].sort((a, b) => a.no - b.no)
+}
+
 /**
  * The number BOTH sides end up carrying when a Trupp is explicitly linked to a drawn line.
  *

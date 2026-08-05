@@ -40,6 +40,8 @@ interface Deps {
   mapCenter: () => LngLat
   /** jump to + select a map entity (setMode('map') + select; fly=false skips the camera move) */
   focusMapEntity: (entityId: string, coord?: LngLat, fly?: boolean) => void
+  /** jump to + select a Lage DRAWING (the hose a Trupp works on) */
+  focusMapDrawing: (drawingId: string) => void
 }
 
 /**
@@ -50,7 +52,7 @@ interface Deps {
  * persistence blob + hydrate + multiple components) and are passed in.
  */
 export function useTruppActions(deps: Deps) {
-  const { trupps, drawings, entities, setTrupps, board, setBoard, setDocRaw, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus, mapCenter, focusMapEntity } = deps
+  const { trupps, drawings, entities, setTrupps, board, setBoard, setDocRaw, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus, mapCenter, focusMapEntity, focusMapDrawing } = deps
 
   // the hose lines of each surface, in the shape the link resolution needs
   const docLines = (): LinkableLine[] => drawings.filter((d) => d.kind === 'line')
@@ -161,6 +163,38 @@ export function useTruppActions(deps: Deps) {
     const anno = (board[tr.planId] ?? []).find((a) => a.id === tr.annoId)
     setPlanFocus({ x: anno?.x ?? 0.5, y: anno?.y ?? 0.5, floor: anno?.floor ?? 0, annoId: tr.annoId, nonce: Date.now() })
   }
+  /**
+   * Show the Leitung this Trupp works on — the counterpart of «auf Plan zeigen» for the hose.
+   * Looks on the Lage first (that is where a Druckleitung is usually drawn), then across the
+   * plans; resolution is the normal one, so a Trupp matched by NUMBER alone jumps just as well as
+   * one that was explicitly picked. Returns false when nothing is drawn yet, so the caller can
+   * keep the affordance off rather than offering a dead button.
+   */
+  const showTruppLine = (id: string): boolean => {
+    const tr = trupps.find((t) => t.id === id)
+    if (!tr) return false
+    const onMap = drawings.find((d) => d.kind === 'line' && truppForLine(d, [tr])?.id === tr.id)
+    if (onMap) { setMode('map'); setPanel(null); focusMapDrawing(onMap.id); return true }
+    for (const [planId, annos] of Object.entries(board)) {
+      const anno = annos.find((a) => a.kind === 'draw' && truppForLine(a, [tr])?.id === tr.id)
+      if (!anno) continue
+      const [x, y, floor] = anno.pts?.[0] ?? [0.5, 0.5, anno.floor ?? 0]
+      setMode('plans'); setActivePlanId(planId); setPanel(null)
+      setPlanFocus({ x, y, floor: floor ?? anno.floor ?? 0, annoId: anno.id, nonce: Date.now() })
+      return true
+    }
+    return false
+  }
+
+  /** Which Trupps have a drawn Leitung to jump to — drives the card chip's affordance, so it is
+   *  a button exactly when there is somewhere to go. */
+  const truppsWithLine = (): Set<string> => {
+    const lines = [...docLines(), ...Object.values(board).flat().filter((a) => a.kind === 'draw')]
+    const out = new Set<string>()
+    for (const t of trupps) if (lines.some((l) => truppForLine(l, [t])?.id === t.id)) out.add(t.id)
+    return out
+  }
+
   // record a Funkkontakt: resets the contact clock (the core FKS safety signal) and appends a
   // log row carrying the current pressure (so the Verlauf shows the trend even at radio checks)
   const recordContact = (id: string) => {
@@ -359,5 +393,5 @@ export function useTruppActions(deps: Deps) {
     emit('atemschutz.restore', { id: t.id })
   }
 
-  return { createTrupp, updateTrupp, placeTruppOnPlan, placeTruppOnMap, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine }
+  return { createTrupp, updateTrupp, placeTruppOnPlan, placeTruppOnMap, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, showTruppLine, truppsWithLine }
 }

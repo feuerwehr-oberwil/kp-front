@@ -36,6 +36,7 @@ function harness(trupp: Trupp, seed?: { board?: BoardDoc; entities?: Entity[]; d
     setMode: () => {}, setActivePlanId: () => {}, setPanel: () => {}, setPlanFocus: () => {},
     mapCenter: () => [7.53, 47.41],
     focusMapEntity: () => {},
+    focusMapDrawing: () => {},
   })
   return { actions, state }
 }

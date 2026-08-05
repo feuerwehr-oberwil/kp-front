@@ -9,7 +9,8 @@ import { Stepper } from './Stepper'
 import { Overlay } from '../lib/overlays'
 import { contactSeverity, deriveTruppLive, estimatePressure, fmtClock, pressureAlarm, type TruppLive } from '../lib/atemschutz'
 import type { AttendanceState, Person, Trupp, TruppFields } from '../types'
-import { assignedPersonIds } from '../lib/personnel'
+import { abbreviateName, assignedPersonIds } from '../lib/personnel'
+import type { LeitungOption } from '../lib/truppLines'
 import { PersonField, type Slot } from './PersonField'
 import { ensureNotifyPermission, unlockAlarm } from '../lib/alarm'
 import { atemschutzDoctrine } from '../lib/deploymentConfig'
@@ -42,7 +43,7 @@ function snapBar(v: number): number {
 // large "Kontakt" reset, and a contact-clock alarm (amber nudge → red überfällig). Pressure is
 // set inline and logged. Purely presentational + local UI state — data + mutations via props.
 export function AtemschutzView({
-  trupps, canEdit, personnel, attendance, muted, onToggleMuted, createTrupp, placeTrupp, placeTargets, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, pickTruppLine, unlinkTruppLine,
+  trupps, canEdit, personnel, attendance, muted, onToggleMuted, createTrupp, placeTrupp, placeTargets, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, leitungOptions, showTruppLine, truppsWithLine, pickTruppLine, unlinkTruppLine,
   intervalMin = atemschutzDoctrine().contactIntervalMin, graceSec = atemschutzDoctrine().contactGraceSec,
   defaultFunkkanal = atemschutzDoctrine().defaultFunkkanal,
 }: {
@@ -75,6 +76,12 @@ export function AtemschutzView({
   deleteTrupp: (id: string) => void
   /** undo for deleteTrupp — re-adds the captured Trupp (minus its removed placement) */
   restoreTrupp: (t: Trupp) => void
+  /** the drawn Leitungen offered in the form, excluding the edited Trupp's own from «taken» */
+  leitungOptions: (exceptTruppId?: string) => LeitungOption[]
+  /** jump to the Leitung a Trupp works on (Lage or Plan) */
+  showTruppLine: (id: string) => void
+  /** ids of Trupps whose Leitung is actually drawn somewhere */
+  truppsWithLine: ReadonlySet<string>
   /** arm «Leitung wählen»: the next tap on a hose line (Lage or Plan) links it to this Trupp */
   pickTruppLine: (id: string) => void
   /** let go of the Leitung — anchor on both sides plus the Trupp's number, so the auto-match
@@ -165,6 +172,7 @@ export function AtemschutzView({
       onEdit={() => openForm('edit', t)} onReenter={() => openForm('redeploy', t)}
       onDelete={deleteTrupp} onRestore={restoreTrupp} onPlace={handlePlace} onShowPlan={focusTruppOnPlan}
       onPickLine={pickTruppLine} onUnlinkLine={unlinkTruppLine}
+      onShowLine={showTruppLine} hasLine={truppsWithLine.has(t.id)}
     />
   ))
 
@@ -214,6 +222,7 @@ export function AtemschutzView({
           mode={form.mode} initial={form.trupp} roster={roster} defaultFunkkanal={defaultFunkkanal}
           personnel={personnel} presentIds={presentIds}
           assignedIds={assignedPersonIds(trupps.filter((t) => t.id !== form.trupp?.id))}
+          leitungOptions={leitungOptions(form.trupp?.id)}
           onCancel={() => setForm(null)} onSubmit={submitForm}
         />
       )}
@@ -336,7 +345,7 @@ function PressureInline({ value, onCommit }: { value: number; onCommit: (bar: nu
 // Funkkontakt) with a large Kontakt reset; the inline Druck control + an expandable Verlauf log
 // sit below, and the lifecycle actions run along the bottom.
 function TruppCard({
-  t, live, now, canEdit, intervalMin, graceSec, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onRestore, onPlace, onShowPlan, onPickLine, onUnlinkLine,
+  t, live, now, canEdit, intervalMin, graceSec, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onRestore, onPlace, onShowPlan, onPickLine, onUnlinkLine, onShowLine, hasLine,
 }: {
   t: Trupp; live: TruppLive; now: number; canEdit: boolean
   intervalMin: number; graceSec: number
@@ -354,6 +363,11 @@ function TruppCard({
   /** drop the link: the anchor on both sides AND the Trupp's Leitung number, so the auto-match
    *  doesn't just re-attach it on the next render. The drawn line keeps its number. */
   onUnlinkLine: (id: string) => void
+  /** jump to the drawn Leitung (Lage or Plan) — the counterpart of «auf Plan zeigen» */
+  onShowLine: (id: string) => void
+  /** is there actually a hose drawn for this Trupp? Decides whether the chip is a jump or plain
+   *  text — a button that goes nowhere is worse than no button. */
+  hasLine: boolean
 }) {
   const az = appConfig.copy.atemschutz // read per-render so the resolved locale applies
   const status = live.status
@@ -453,7 +467,13 @@ function TruppCard({
             {auftrag && <span className={cx(s.tag, s.tagAuftrag)}>{auftrag}</span>}
             {t.ziel && <span className={s.tagZiel}>{t.ziel}</span>}
             {/* the numeric Leitung, else the free text an older record still carries verbatim */}
-            {lineTag && <span className={s.tag}>{az.lineField} {lineTag}</span>}
+            {lineTag && (hasLine ? (
+              <button type="button" className={cx(s.tag, s.tagGo)} title={az.lineShow} onClick={() => onShowLine(t.id)}>
+                {az.lineField} {lineTag}<Icon id="chevron" />
+              </button>
+            ) : (
+              <span className={s.tag}>{az.lineField} {lineTag}</span>
+            ))}
             {t.funkkanal != null && <span className={s.tag}>Kanal {t.funkkanal}</span>}
           </div>
         )}
@@ -583,7 +603,7 @@ function TruppCard({
 // Kontakt), then the Trupp; the Druck section shows only when a fresh cylinder is involved
 // (create + re-deploy), never on a plain edit where the live pressure must not be disturbed.
 function TruppForm({
-  mode, initial, roster, defaultFunkkanal, personnel, presentIds, assignedIds, onCancel, onSubmit,
+  mode, initial, roster, defaultFunkkanal, personnel, presentIds, assignedIds, leitungOptions, onCancel, onSubmit,
 }: {
   mode: FormMode
   initial?: Trupp
@@ -593,6 +613,9 @@ function TruppForm({
   presentIds: Set<string>
   assignedIds: Set<string>
   onCancel: () => void
+  /** the Leitungen drawn on either surface (lib/truppLines · leitungOptions) — offered as
+   *  quick-picks so the number is chosen from what exists, not typed blind */
+  leitungOptions: LeitungOption[]
   /** `standby` (re-deploy only) parks the Trupp as Reserve instead of sending it straight in */
   onSubmit: (f: TruppFields, standby?: boolean) => void
 }) {
@@ -703,6 +726,25 @@ function TruppForm({
                 onChange={setLineNo} onClear={() => setLineNo(null)} canClear={lineNo != null}
                 ariaLabel={az.lineNoLabel}
               />
+              {/* The Leitungen that are actually DRAWN. Typing a number blind is how the two sides
+                  end up disagreeing — the hose usually exists long before anyone registers the
+                  Trupp. A number someone else is on stays pickable (real incidents need
+                  corrections) but says whose it is. */}
+              {leitungOptions.length > 0 && (
+                <div className={s.lineOpts}>
+                  <span className={s.lineOptsLabel}>{az.lineOptsLabel}</span>
+                  {leitungOptions.map((o) => (
+                    <button
+                      key={o.no} type="button"
+                      className={cx(s.lineOpt, lineNo === o.no && s.on, !!o.takenBy && s.taken)}
+                      title={o.takenBy ? fillTemplate(az.lineOptTaken, { name: o.takenBy }) : undefined}
+                      onClick={() => setLineNo(o.no)}
+                    >
+                      {o.no}{o.onPlan ? ' ·\u00a0P' : ''}{o.takenBy ? ` · ${abbreviateName(o.takenBy)}` : ''}
+                    </button>
+                  ))}
+                </div>
+              )}
               {legacyLine && <p className={s.fieldNote}>{fillTemplate(az.lineLegacyNote, { value: legacyLine })}</p>}
             </div>
           </div>

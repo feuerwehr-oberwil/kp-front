@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Trupp } from '../types'
-import { nextFreeLineNo, resolveLinkNumber, truppForLine, truppLineNo, truppLineTone, truppTagText, usedLineNos } from './truppLines'
+import { leitungOptions, nextFreeLineNo, resolveLinkNumber, truppForLine, truppLineNo, truppLineTone, truppTagText, usedLineNos } from './truppLines'
 
 const trupp = (id: string, over: Partial<Trupp> = {}): Trupp => ({
   id, name: `Leader ${id}`, entryPressureBar: 300, entryTime: '2026-08-05T10:00:00Z',
@@ -123,5 +123,32 @@ describe('the demo scene resolves to the tag an operator will see', () => {
     expect(`Ltg ${angriff.lineNo} · ${truppTagText(truppForLine(angriff, [t])!)}`).toBe('Ltg 1 · Hans M.')
     // the hydrant feed carries no Trupp — the link never spreads along the chain
     expect(truppForLine(scene.drawings.find((d: { id: string }) => d.id === 'd1784735505412'), [t])).toBeUndefined()
+  })
+})
+
+describe('leitungOptions (what the Trupp form offers)', () => {
+  it('lists the drawn numbers lowest first and names who is already on one', () => {
+    const map = [{ id: 'a', lineNo: 2 }, { id: 'b', lineNo: 1 }, { id: 'c' }]
+    const plan = [{ id: 'p', lineNo: 5 }]
+    const trupps = [trupp('t1', { name: 'Peter Schmid', lineNo: 2 })]
+    expect(leitungOptions(map, plan, trupps)).toEqual([
+      { no: 1, onPlan: false, takenBy: undefined },
+      { no: 2, onPlan: false, takenBy: 'Peter Schmid' },
+      { no: 5, onPlan: true, takenBy: undefined },
+    ])
+  })
+
+  it('never reads a Trupp’s own Leitung as taken, and ignores one that is out', () => {
+    const map = [{ id: 'a', lineNo: 1 }]
+    const mine = trupp('me', { name: 'Hans Müller', lineNo: 1 })
+    expect(leitungOptions(map, [], [mine], 'me')[0].takenBy).toBeUndefined()
+    const gone = trupp('old', { name: 'Alt', lineNo: 1, status: 'raus' })
+    expect(leitungOptions(map, [], [gone])[0].takenBy).toBeUndefined()
+  })
+
+  it('collapses one Leitung drawn on BOTH surfaces into a single option', () => {
+    expect(leitungOptions([{ id: 'm', lineNo: 1 }], [{ id: 'p', lineNo: 1 }], [])).toEqual([
+      { no: 1, onPlan: false, takenBy: undefined },
+    ])
   })
 })

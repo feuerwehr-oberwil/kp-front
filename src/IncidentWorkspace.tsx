@@ -98,6 +98,7 @@ import {
 import { useAuditEvents } from './lib/useAuditEvents'
 import { useMapDrawing } from './lib/useMapDrawing'
 import { applyRouting, moveLineBody, resolveMapDrawings, resolvePlanAnnos } from './lib/lineAttachments'
+import { leitungOptions, truppForLine } from './lib/truppLines'
 import { useIncidentSync } from './lib/useIncidentSync'
 import { useTruppActions, LAGE_TARGET } from './lib/useTruppActions'
 import { useObjectPlans } from './lib/useObjectPlans'
@@ -1667,7 +1668,7 @@ export function IncidentWorkspace({
   // a generic (untracked) team marker — the map twin of the plan's placeTeamChip
   const { placeGenericTeam, renameTeam, markTeamPosition, clearTeamTrail } = useTeamMarkerActions({ entities, commit, log, emit, setSelectedId, setSelectedDrawingId })
   // --- Atemschutzüberwachung (SCBA monitoring): Trupp mutations live in useTruppActions ---
-  const { createTrupp, updateTrupp, placeTruppOnPlan, placeTruppOnMap, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine } =
+  const { createTrupp, updateTrupp, placeTruppOnPlan, placeTruppOnMap, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, showTruppLine, truppsWithLine } =
     useTruppActions({
       trupps, drawings, entities, setTrupps, board, setBoard, setDocRaw, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus,
       // a new map marker lands at the current map centre (the operator drags it to position);
@@ -1679,6 +1680,8 @@ export function IncidentWorkspace({
       // jump-to for a team marker: coord is passed on placement (state not yet committed);
       // later focuses look the entity up like a Verlauf row does. fly=false selects without
       // moving the camera (tap-placed markers are already in view).
+      // the hose a Trupp works on — «Leitung zeigen» on the Atemschutz card
+      focusMapDrawing: (drawingId) => { setSelectedDrawIds([]); setSelectedEntityIds([]); focusDrawing(drawingId) },
       focusMapEntity: (entityId, coord, fly = true) => {
         setMode('map')
         if (!fly) { setSelectedId(entityId); setSelectedDrawingId(null); return }
@@ -1700,6 +1703,13 @@ export function IncidentWorkspace({
   // one placement dispatcher for the AtemschutzView picker: Lage target → map, else plan
   const placeTrupp = (id: string, targetId?: string) =>
     targetId === LAGE_TARGET ? placeTruppOnMap(id) : placeTruppOnPlan(id, targetId)
+  // The Leitungen that exist on either surface, for the Trupp form's quick-picks. A function
+  // rather than a memo: the «taken by» read has to ignore the Trupp currently being edited.
+  const truppLeitungOptions = (exceptTruppId?: string) => leitungOptions(
+    drawings.filter((d) => d.kind === 'line'),
+    Object.values(board).flat().filter((a) => a.kind === 'draw'),
+    effTrupps, exceptTruppId,
+  )
   // «Leitung wählen»: arm the pick and leave the Atemschutz board for the Lage — there is nothing
   // to tap on the board itself. The arming survives a surface switch, so a hose drawn on a plan is
   // just as reachable. The toast carries the way out (no modal, no trapped state).
@@ -2334,6 +2344,8 @@ export function IncidentWorkspace({
           onTrupp={(truppId) => (truppId ? linkTruppLine(truppId, selectedDrawing.id) : unlinkLine(selectedDrawing.id))}
           trupps={effTrupps.filter((t) => t.status !== 'raus').map((t) => ({ id: t.id, name: t.name }))}
           usedLineNos={drawings.filter((d) => d.kind === 'line' && d.id !== selectedDrawing.id && d.lineNo != null).map((d) => d.lineNo!)}
+          truppOnLine={truppForLine(selectedDrawing, effTrupps)?.name}
+          onShowTrupp={() => { setSelectedDrawingId(null); setMode('atemschutz'); setPanel(null) }}
           onShowDistance={(showDistance) => patchDrawing({ showDistance })}
           onRadius={(radiusM) => patchDrawing({ radiusM })}
           onFillOpacity={(fillOpacity) => patchDrawing({ fillOpacity })}
@@ -2679,6 +2691,8 @@ export function IncidentWorkspace({
       {mode === 'atemschutz' && (
         <AtemschutzView
           trupps={effTrupps}
+          leitungOptions={truppLeitungOptions}
+          showTruppLine={showTruppLine} truppsWithLine={truppsWithLine()}
           pickTruppLine={pickTruppLine} unlinkTruppLine={unlinkTruppLine}
           canEdit={canEditIncident}
           personnel={personnel}
