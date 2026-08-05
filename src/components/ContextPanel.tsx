@@ -340,6 +340,11 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
   const actions = (
     <div className="ctx-actions">
       {onCenter && <button className="btn" onClick={onCenter}><Icon id="cross" />{C.center}</button>}
+      {/* «GPS» (reset a vehicle's manual override) and «Löschen» are alternatives — and a live
+          entity gets NEITHER unless it is a vehicle, because `readOnly` is already true for
+          anything externally sourced (see the prop). A self-reported crew position is
+          re-derived every poll, so a delete here would remove a row that reappears seconds
+          later; the way to make that dot go is the phone's own «nicht mehr teilen». */}
       {onResetGps
         ? <button className="btn" disabled={!hasOverride} onClick={onResetGps} title={C.resetGpsTitle}><Icon id="compass" />{C.resetGps}</button>
         : !readOnly && <button className="btn warn" onClick={onDelete}><Icon id="close" />{appConfig.copy.delete}</button>}

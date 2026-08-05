@@ -51,12 +51,17 @@ export function initialsOf(name: string): string {
  */
 export function personSymbolSvg(name: string, dimmed = false): string {
   const label = xmlEscape(initialsOf(name))
-  const c = dimmed ? '#8b9199' : '#ffb020'
+  // SOLID fill, white initials. The first version drew thin amber strokes on a light-amber
+  // wash, which measured about 1.9:1 against the marker's white chip — legible on a monitor
+  // at rest, and gone on a phone held at arm's length over a pale basemap. A filled disc
+  // carries its own contrast whatever the map does underneath, and the white ring keeps it
+  // separated from dark tiles and from a symbol it happens to overlap.
+  const fill = dimmed ? '#6b7280' : '#b45309'
   return (
     `<svg viewBox="-1.3 -1.3 2.6 2.6" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">` +
-    `<circle cx="0" cy="0" r="0.92" fill="none" stroke="${c}" stroke-width="0.12"/>` +
-    `<circle cx="0" cy="0" r="0.62" fill="${c}" fill-opacity="${dimmed ? 0.1 : 0.18}"/>` +
-    `<text x="0" y="0" dy="0.33em" font-size="0.72" fill="${c}" text-anchor="middle" font-family="Arial,sans-serif" font-weight="bold">${label}</text>` +
+    `<circle cx="0" cy="0" r="1.02" fill="#fff" fill-opacity="0.92"/>` +
+    `<circle cx="0" cy="0" r="0.92" fill="${fill}"/>` +
+    `<text x="0" y="0" dy="0.34em" font-size="0.78" fill="#fff" text-anchor="middle" font-family="Arial,sans-serif" font-weight="bold">${label}</text>` +
     `</svg>`
   )
 }
