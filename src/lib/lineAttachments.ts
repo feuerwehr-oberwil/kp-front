@@ -23,6 +23,18 @@ export const MAGNET_DWELL_MS = 350
 export const DETACH_RADIUS_PX = 44
 export const GPS_GUARD_METRES = 20
 
+/** How far INSIDE the target glyph an attached endpoint is placed (screen px).
+ *
+ *  The endpoint used to sit a few px OUTSIDE the glyph box, which read as "almost, but not
+ *  quite joined" — the classic hose that stops short of the vehicle. It ends under the glyph
+ *  instead: the symbol chip is a DOM element painted above the line on both surfaces (map
+ *  markers over the GL canvas, whiteboard symbols after the strokes), so the overlap is
+ *  invisible and the coupling reads as closed.
+ *
+ *  Half the stroke covers the ROUND CAP, which juts half a stroke past the endpoint; the
+ *  extra 2 px swallow the chip's soft shadow. */
+export const attachInsetPx = (strokeWidth = 4) => strokeWidth / 2 + 2
+
 export const distance = (a: Point, b: Point) => Math.hypot(b[0] - a[0], b[1] - a[1])
 
 /** Teilstück fork geometry — single source of truth shared by the drawn fork glyph
@@ -172,7 +184,9 @@ export function relationshipNetwork<P extends Coordinate>(lines: AttachableLine<
 
 export interface ResolveContext<P extends Coordinate = Point> {
   lines: AttachableLine<P>[]
-  objectPoint: (id: string, toward: P, attachment: LineAttachment) => P | null
+  /** `source` is the line being resolved — its stroke width decides how far the endpoint
+   *  tucks under the glyph (see attachInsetPx). */
+  objectPoint: (id: string, toward: P, attachment: LineAttachment, source: AttachableLine<P>) => P | null
   linePoint?: (target: AttachableLine<P>, endpoint: LineEndpoint, attachment: LineAttachment, resolved: P, toward: P) => P
 }
 
@@ -188,7 +202,7 @@ export function resolveLinePoints<P extends Coordinate>(line: AttachableLine<P>,
     const idx = ep === 'start' ? 0 : points.length - 1
     const neighbor = points[ep === 'start' ? 1 : points.length - 2]
     let resolved: P | null = null
-    if (a.target.kind === 'object') resolved = ctx.objectPoint(a.target.id, neighbor, a)
+    if (a.target.kind === 'object') resolved = ctx.objectPoint(a.target.id, neighbor, a, line)
     else {
       const target = ctx.lines.find((l) => l.id === a.target.id)
       if (target && !nextStack.has(target.id)) {
@@ -254,7 +268,9 @@ export function resolveMapDrawings(drawings: Drawing[], entities: Entity[], radi
     }
     const cos = Math.cos(center[1] * Math.PI / 180) || 1e-6
     const localToward: Point = [(toward[0] - center[0]) * 111320 * cos, (center[1] - toward[1]) * 110540]
-    const p = boundaryPoint({ shape: 'rect', center: [0, 0], width: radiusM * 2.4, height: radiusM * 2, rotation: e.rotation }, localToward, 1)
+    // negative padding for the same reason as on screen: the glyph paints over the line, so an
+    // endpoint slightly inside it reads as coupled, one slightly outside as "not quite joined"
+    const p = boundaryPoint({ shape: 'rect', center: [0, 0], width: radiusM * 2.4, height: radiusM * 2, rotation: e.rotation }, localToward, -1)
     return [center[0] + p[0] / (111320 * cos), center[1] - p[1] / 110540]
   }
   const linePoint = (target: AttachableLine<LngLat>, endpoint: LineEndpoint, attachment: LineAttachment, resolved: LngLat): LngLat => {
@@ -278,7 +294,7 @@ export function resolvePlanAnnos(annos: BoardAnno[]): BoardAnno[] {
   const objectPoint = (id: string, toward: BoardPoint): BoardPoint | null => {
     const a = annos.find((x) => x.id === id && (x.kind === 'symbol' || x.kind === 'resource'))
     if (!a || a.x == null || a.y == null) return null
-    const p = boundaryPoint({ shape: 'rect', center: [a.x, a.y], width: a.kind === 'resource' ? 0.15 : 0.08, height: a.kind === 'resource' ? 0.07 : 0.08, rotation: a.rotation }, [toward[0], toward[1]], 0.006)
+    const p = boundaryPoint({ shape: 'rect', center: [a.x, a.y], width: a.kind === 'resource' ? 0.15 : 0.08, height: a.kind === 'resource' ? 0.07 : 0.08, rotation: a.rotation }, [toward[0], toward[1]], -0.006)
     return [p[0], p[1], a.floor ?? 0]
   }
   const linePoint = (target: AttachableLine<BoardPoint>, endpoint: LineEndpoint, attachment: LineAttachment, resolved: BoardPoint): BoardPoint => {

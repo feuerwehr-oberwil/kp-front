@@ -23,7 +23,7 @@ import { ShapeEditor } from './ShapeEditor'
 import { ShapeGlyph, SHAPE_DEFS } from '../lib/shapes'
 import { noteScale, clampNoteWN, noteWN, NOTE_WN } from '../lib/notes'
 import { planUrl, TILE_AR, TOP_INSET, STACK_VPAD, clamp01, floorLabel, floorGeometry } from '../lib/whiteboard'
-import { advanceDwell, applyRouting, boundaryPoint, EMPTY_DWELL, forkPortPoint, incomingAttachments, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
+import { advanceDwell, applyRouting, attachInsetPx, boundaryPoint, EMPTY_DWELL, forkPortPoint, incomingAttachments, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 import { calibrate, pathMetres, polyAreaM2, isStale, type PlanScale } from '../lib/planScale'
 import { resolvePlanScale, saveStationDefault, saveStationPlanOverride } from '../lib/stationPlanScale'
 import { MeasurePanel } from './MeasurePanel'
@@ -471,13 +471,15 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       }
     })
   const resolvedPts = new Map<string, BoardPoint[]>()
-  const objectPoint = (id: string, toward: BoardPoint): BoardPoint | null => {
+  const objectPoint = (id: string, toward: BoardPoint, _a: LineAttachment, source: AttachableLine<BoardPoint>): BoardPoint | null => {
     const target = annos.find((a) => a.id === id && (a.kind === 'symbol' || a.kind === 'resource'))
     if (!target || target.x == null || target.y == null || !sW || !sH) return null
     const floor = target.floor ?? 0
     const center: [number, number] = [target.x * sW, mapY(floor, target.y) * sH]
     const tp: [number, number] = [toward[0] * sW, mapY(toward[2] ?? floor, toward[1]) * sH]
-    const p = boundaryPoint({ shape: 'rect', center, width: target.kind === 'resource' ? 76 : symBase, height: target.kind === 'resource' ? 44 : symBase, rotation: target.rotation }, tp)
+    // negative padding = the endpoint lands just INSIDE the glyph, so the stroke disappears
+    // under the symbol instead of stopping short of it (see attachInsetPx)
+    const p = boundaryPoint({ shape: 'rect', center, width: target.kind === 'resource' ? 76 : symBase, height: target.kind === 'resource' ? 44 : symBase, rotation: target.rotation }, tp, -attachInsetPx(source.width))
     return [p[0] / sW, localY(p[1] / sH, floor), floor]
   }
   const linePoint = (target: AttachableLine<BoardPoint>, endpoint: LineEndpoint, attachment: LineAttachment, resolved: BoardPoint): BoardPoint => {

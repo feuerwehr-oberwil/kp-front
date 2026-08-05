@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { LineAttachment } from '../types'
 import {
-  advanceDwell, applyRouting, boundaryPoint, endpointCapacity,
+  advanceDwell, applyRouting, attachInsetPx, boundaryPoint, endpointCapacity,
   forkDims, forkPortPoint, gpsGuard, incomingAttachments, materializeEndpoint, moveLineBody,
   nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget,
   wouldCreateCycle, type AttachableLine, type MagneticTarget,
@@ -51,6 +51,14 @@ describe('object boundaries', () => {
     expect(boundaryPoint({ shape: 'circle', center: [10, 10], radius: 5 }, [20, 10], 2)).toEqual([17, 10])
     const p = boundaryPoint({ shape: 'rect', center: [0, 0], width: 20, height: 10, rotation: 90 }, [0, 20], 0)
     expect(p[0]).toBeCloseTo(0); expect(p[1]).toBeCloseTo(10)
+  })
+
+  it('tucks an attached endpoint UNDER the glyph — the round cap must not stick out', () => {
+    // a 32 px symbol at the origin, hose coming in from the right with an 8 px stroke
+    const edge = 16
+    const p = boundaryPoint({ shape: 'rect', center: [0, 0], width: 32, height: 32 }, [100, 0], -attachInsetPx(8))
+    expect(p[0]).toBeLessThan(edge)              // endpoint sits inside the glyph box
+    expect(p[0] + 8 / 2).toBeLessThanOrEqual(edge) // …and so does the round cap's tip
   })
 })
 

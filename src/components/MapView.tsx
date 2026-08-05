@@ -21,7 +21,7 @@ import { useGlRecovery } from '../lib/useGlRecovery'
 import { useNightTheme } from '../lib/useNightTheme'
 import { reportClientError } from '../lib/reportError'
 import { QuietAttributionControl } from './MapAttribution'
-import { advanceDwell, boundaryPoint, EMPTY_DWELL, forkPortPoint, gpsGuard, incomingAttachments, moveLineBody, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
+import { advanceDwell, attachInsetPx, boundaryPoint, EMPTY_DWELL, forkPortPoint, gpsGuard, incomingAttachments, moveLineBody, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 
 // Lock chip on a locked drawing: a SHORT HOLD (not a tap) unlocks it, with a filling ring as
 // the progress indicator (Miro-style) so a stray tap never unlocks instantly.
@@ -261,7 +261,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       }
     })
   const resolvedCoords = new globalThis.Map<string, LngLat[]>()
-  const objectPoint = (id: string, toward: LngLat, attachment: import('../types').LineAttachment): LngLat | null => {
+  const objectPoint = (id: string, toward: LngLat, attachment: import('../types').LineAttachment, source: AttachableLine<LngLat>): LngLat | null => {
     const e = entities.find((x) => x.id === id)
     const map = mapInst.current
     if (!e || !map || !Array.isArray(e.coord)) return attachment.gps?.lastSafe ?? null
@@ -274,7 +274,9 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     const c = map.project(center), t = map.project(toward)
     const size = e.kind === 'shape' ? shapePx(e.sizeM, e.coord[1], zoom)
       : e.kind === 'team' ? 56 : e.kind === 'note' || e.kind === 'photo' ? 56 : symPx(e.kind, e.coord[1], zoom, symMul)
-    const p = boundaryPoint({ shape: 'rect', center: [c.x, c.y], width: size, height: e.kind === 'vehicle' ? size * 0.7 : size, rotation: (e.rotation ?? 0) - bearing }, [t.x, t.y])
+    // negative padding = the endpoint lands just INSIDE the glyph, so the stroke disappears
+    // under the marker instead of stopping short of it (see attachInsetPx)
+    const p = boundaryPoint({ shape: 'rect', center: [c.x, c.y], width: size, height: e.kind === 'vehicle' ? size * 0.7 : size, rotation: (e.rotation ?? 0) - bearing }, [t.x, t.y], -attachInsetPx(source.width))
     const ll = map.unproject(p)
     return [ll.lng, ll.lat]
   }
