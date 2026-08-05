@@ -29,7 +29,7 @@ def _ws():
 def test_adds_live_collections():
     ws = _ws()
     assert len(ws["trupps"]) == 3
-    assert len(ws["mittel"]) == 4
+    assert len(ws["mittel"]) == 5
     # two in the field (aktiv), one Sicherheitstrupp angemeldet with no clock running
     assert [t["status"] for t in ws["trupps"]] == ["aktiv", "aktiv", "angemeldet"]
     assert ws["trupps"][2]["entryTime"] == "" and ws["trupps"][2]["lastContactTime"] == ""
@@ -57,7 +57,14 @@ def test_attendance_keyed_by_person_id():
 
 def test_mittel_key_to_catalogue_ids():
     ws = _ws()
-    assert {m["materialId"] for m in ws["mittel"]} == {"schaummittel", "schlauch-c", "oelbindemittel", "luefter"}
+    # no "oelbindemittel": the demo incident is a Zimmerbrand, and the Umwelt group belongs to a spill
+    assert {m["materialId"] for m in ws["mittel"]} == {
+        "schaummittel",
+        "schlauch-c",
+        "schlauch-b",
+        "luefter",
+        "leitkegel",
+    }
     assert all(m["menge"] > 0 and m["at"].endswith("Z") for m in ws["mittel"])
 
 
@@ -114,7 +121,7 @@ async def test_reset_seeds_resolvable_attendance(session_factory, monkeypatch):
         ws = json.loads(ws)
     att = ws["attendance"]
     assert "None" not in att
-    assert len(att) == 10
+    assert len(att) == len(dr.DEMO_PRESENT)
 
     # every present person resolves to a real roster row (normalize UUID text: sqlite's raw-SQL
     # cast can drop hyphens vs Python's str(uuid), so compare hyphen-insensitively)

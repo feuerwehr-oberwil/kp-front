@@ -62,7 +62,10 @@ DEMO_INCIDENT = {
 # number, and inside the mixed-value dict its type is just `object`.
 DEMO_ELAPSED_MIN = 14
 
-# Dummy roster so Anwesenheit / Atemschutz person-assignment have people to work with.
+# Dummy roster so Anwesenheit / Atemschutz person-assignment have people to work with. Sized like
+# a real village Feuerwehr (not a dozen): the Anwesenheit list, the person pickers and the
+# Personalblatt only look like the real thing when picking a name means scrolling past the ones
+# who stayed home. Order is the roster order; who is actually on scene is DEMO_PRESENT below.
 DEMO_PEOPLE = [
     ("Hans", "Müller"),
     ("Anna", "Meier"),
@@ -76,6 +79,22 @@ DEMO_PEOPLE = [
     ("Céline", "Widmer"),
     ("Stefan", "Graf"),
     ("Petra", "Roth"),
+    ("Daniel", "Wyss"),
+    ("Sandra", "Lüthi"),
+    ("Reto", "Bachmann"),
+    ("Fabienne", "Steiner"),
+    ("Martin", "Zbinden"),
+    ("Simon", "Hofer"),
+    ("Andrea", "Kunz"),
+    ("Lukas", "Bieri"),
+    ("Jonas", "Rüegg"),
+    ("Melanie", "Schneider"),
+    ("Patrick", "Amrein"),
+    ("Corinne", "Studer"),
+    ("Beat", "Lehmann"),
+    ("Tobias", "Vogel"),
+    ("Silvia", "Marti"),
+    ("Roger", "Egger"),
 ]
 
 # A pre-filled Verlauf (journal) so the demo lands with a worked incident's log instead of the
@@ -91,7 +110,9 @@ DEMO_JOURNAL = [
     (2, "Brand unter Kontrolle, Nachlöscharbeiten laufen."),
 ]
 
-# Who is physically present (Anwesenheit) — all nine Trupp members plus the Einsatzleiter.
+# Who is physically present (Anwesenheit) — the nine Trupp members, the Einsatzleiter, and the
+# crew around them (Maschinist, Wasserversorgung, Verkehrsdienst, Reserve). Deliberately a SUBSET
+# of the roster: the demo has to show the "who came?" question, not a fire brigade at 100 %.
 DEMO_PRESENT = {
     "Hans Müller",
     "Anna Meier",
@@ -103,6 +124,13 @@ DEMO_PRESENT = {
     "Sarah Huber",
     "Michael Baumann",  # Trupp 3
     "Céline Widmer",  # Einsatzleiter
+    "Stefan Graf",  # Maschinist TLF
+    "Petra Roth",
+    "Daniel Wyss",  # Wasserversorgung
+    "Sandra Lüthi",
+    "Reto Bachmann",  # Verkehrsdienst
+    "Fabienne Steiner",
+    "Martin Zbinden",  # Reserve / Bereitstellung
 }
 
 
@@ -185,7 +213,9 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
     ]
 
     # A few logged Mittel, keyed to the demo catalogue ids so each lands in the right group and
-    # shows a stock ring ("noch N").
+    # shows a stock ring ("noch N"). All of them belong to THIS incident — a Zimmerbrand: lines,
+    # a fan, cones. No Ölbindemittel; the Umwelt group is a spill's material, and a demo that logs
+    # it on a fire teaches the wrong reflex.
     ws["mittel"] = [
         {
             "id": "md-1",
@@ -211,12 +241,12 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
         },
         {
             "id": "md-3",
-            "materialId": "oelbindemittel",
-            "label": "Ölbindemittel",
-            "unit": "Sack",
-            "sourceId": "depot",
-            "sourceLabel": "Depot",
-            "menge": 2,
+            "materialId": "schlauch-b",
+            "label": "Schlauch 75er",
+            "unit": "Stk",
+            "sourceId": "tlf",
+            "sourceLabel": "TLF",
+            "menge": 4,
             "at": _iso(now - timedelta(minutes=5)),
             "by": "Führungsunterstützung",
         },
@@ -231,6 +261,17 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
             "at": _iso(now - timedelta(minutes=4)),
             "by": "Führungsunterstützung",
             "status": "vorOrt",
+        },
+        {
+            "id": "md-5",
+            "materialId": "leitkegel",
+            "label": "Verkehrsleitkegel",
+            "unit": "Stk",
+            "sourceId": "mtf",
+            "sourceLabel": "MTF",
+            "menge": 6,
+            "at": _iso(now - timedelta(minutes=3)),
+            "by": "Führungsunterstützung",
         },
     ]
 
