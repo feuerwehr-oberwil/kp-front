@@ -50,7 +50,9 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit }
   const rp = appConfig.copy.replay
   const [bundle, setBundle] = useState<ReplayBundle | null>(null)
   const [loadError, setLoadError] = useState(false)
-  const [tMs, setTMs] = useState<number>(() => Date.now())
+  // start of the incident, not "now" — otherwise the first frame before the bundle loads is
+  // the live picture and the playhead visibly jumps left the moment it arrives
+  const [tMs, setTMs] = useState<number>(() => new Date(startedAt || Date.now()).getTime())
   const [playing, setPlaying] = useState(false)
   const [speed, setSpeed] = useState<(typeof SPEEDS)[number]>(4)
   /** «übersprungen 2 h 14» — set when playback jumps a gap, cleared on a timer. */
@@ -59,13 +61,15 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit }
   const [journal, setJournal] = useState<{ at?: string }[]>([])
   const trackRef = useRef<HTMLDivElement>(null)
 
-  // Load the event range + samples once; default the playhead to the very end (= the
-  // live picture) so entering replay shows "now" before the user scrubs back.
+  // Load the event range + samples once, and park the playhead at the START of the incident.
+  // It used to open at the end — the live picture — which is the one frame the operator has
+  // just been looking at, and made «Abspielen» a button that did nothing until you first
+  // dragged the handle all the way left. This is a Wiedergabe: it begins at the beginning.
   useEffect(() => {
     let alive = true
     const startMs = new Date(startedAt || Date.now()).getTime()
     loadReplay(incidentId, startMs, Date.now())
-      .then((b) => { if (alive) { setBundle(b); setTMs(b.endMs) } })
+      .then((b) => { if (alive) { setBundle(b); setTMs(b.startMs) } })
       .catch(() => { if (alive) setLoadError(true) })
     return () => { alive = false }
   }, [incidentId, startedAt])
