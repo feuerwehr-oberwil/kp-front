@@ -100,6 +100,8 @@ interface Props {
   trupps?: Trupp[]
   onShowTrupp?: (truppId: string) => void
   onTeamMark?: (id: string) => void
+  /** rename an untracked team marker (absent = locked, or a Trupp-bound marker) */
+  onTeamRename?: (id: string, name: string) => void
   onTeamClearTrail?: (id: string) => void
   /** tactical editing is locked (viewer role, Einsatzleiter-Ansicht, replay). Everything
    *  stays readable — panning, selecting, the ephemeral Messen path — but no affordance that
@@ -186,7 +188,7 @@ interface Props {
 }
 
 export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
-  const { entities, layers, byName, symMul = 1, captionMode = 'off', initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, onShowTrupp, onTeamMark, onTeamClearTrail,
+  const { entities, layers, byName, symMul = 1, captionMode = 'off', initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, onShowTrupp, onTeamMark, onTeamRename, onTeamClearTrail,
     readOnly = false, drawings: storedDrawings, drawingsVisible, draft, draftKind, placing, onDraftDrag, onDraftInsert, onDraftDelete, onDraftPointAttachment, draggable, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onRotate, onShapeTransform,
     onView, picking, onCursor, onPick, pickedPoint, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, onSelectDrawing, onUnlockDrawing, onDelete, measureLabels = [], measurePoints = [], measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingDelete, onDrawingAttachment, onLabelMove,
@@ -1333,6 +1335,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         trupps={trupps}
         onShowTrupp={onShowTrupp}
         onTeamMark={onTeamMark}
+        onTeamRename={onTeamRename}
         onTeamClearTrail={onTeamClearTrail}
         hiddenTrails={hiddenTrails}
         onToggleTrail={toggleTrail}

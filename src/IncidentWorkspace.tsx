@@ -1388,11 +1388,14 @@ export function IncidentWorkspace({
   // Pläne cycles to the next plan document, so the whole nav is reachable from the keyboard.
   // a number key opens the plan module carrying that number (2 or 3 → the "2/3" sheet). No such
   // module → do nothing. Sub-slots / Umgebung / Gebäude have no number and are reached by stepping.
-  const goToModule = (n: number) => {
+  // Returns whether it landed, so callers that need a fallback (the checklist deep link) can
+  // tell "opened Modul n" from "this object has no such module".
+  const goToModule = (n: number): boolean => {
     const doc = planDocs.find((p) => moduleNumbers(p).includes(n))
-    if (!doc) return
+    if (!doc) return false
     if (mode !== 'plans') clearMapUi()
     setMode('plans'); setActivePlanId(doc.id)
+    return true
   }
 
   // Reassigned every render (effect, no deps) so the mount-once listener (above) always sees
@@ -1649,7 +1652,7 @@ export function IncidentWorkspace({
     })
   }
   // a generic (untracked) team marker — the map twin of the plan's placeTeamChip
-  const { placeGenericTeam, markTeamPosition, clearTeamTrail } = useTeamMarkerActions({ entities, commit, log, emit, setSelectedId, setSelectedDrawingId })
+  const { placeGenericTeam, renameTeam, markTeamPosition, clearTeamTrail } = useTeamMarkerActions({ entities, commit, log, emit, setSelectedId, setSelectedDrawingId })
   // --- Atemschutzüberwachung (SCBA monitoring): Trupp mutations live in useTruppActions ---
   const { createTrupp, updateTrupp, placeTruppOnPlan, placeTruppOnMap, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, deleteTrupp, restoreTrupp } =
     useTruppActions({
@@ -1801,7 +1804,15 @@ export function IncidentWorkspace({
   // existing setters). journal → open the composer; plan → Plan tab; draw → Lage + pen.
   const checklistAction = (_item: Item, a: NonNullable<Item['action']>) => {
     if (a === 'journal') setComposerOpen(true)
-    else if (a === 'plan') { setMode('plans'); setPanel(null) }
+    else if (a === 'plan') {
+      // «Objektplan bereitlegen» must land ON the Übersicht, not merely on the Pläne tab:
+      // activePlanId is remembered per device, so a bare setMode dropped a first-time user
+      // on whatever was open last (the OSM whiteboard on a fresh device) and left them to
+      // find the module themselves. Modul 1 is the FKS Übersicht — the sheet the item means.
+      // No Modul 1 on this object (or no object at all) → the tab, as before.
+      setPanel(null)
+      if (!goToModule(1)) setMode('plans')
+    }
     else if (a === 'draw') { setMode('map'); setTool('line') }
   }
 
@@ -1809,8 +1820,11 @@ export function IncidentWorkspace({
 
   const annotatedPlanCount = useMemo(() => annotatedPlans(planDocs, board, false).length, [planDocs, board])
 
+  // `maptool-<tool>` on the root drives the map cursor (see .maptool-* in app.css) the way the
+  // plan canvas's own `tool-<tool>` does. Gated on mapUI so an armed tool can never leak a
+  // crosshair onto Checkliste, Atemschutz or the plan.
   return (
-    <div className={`app mode-${mode}${phoneTools ? ' phone-tools' : ''}${mapUtility ? ' map-util' : ''} ${(tool === 'symbol' && pending) || (tool === 'shape' && pendingShape) ? 'placing' : ''}`}>
+    <div className={`app mode-${mode}${phoneTools ? ' phone-tools' : ''}${mapUtility ? ' map-util' : ''}${mapUI ? ` maptool-${tool}` : ''} ${(tool === 'symbol' && pending) || (tool === 'shape' && pendingShape) ? 'placing' : ''}`}>
       <IconSprite />
       {/* #10 phase 2: phone-only edge-swipe strips over the map/plan canvas — swipe inward from a
           screen edge to change section (the canvas keeps its pan/zoom everywhere else). */}
@@ -1842,6 +1856,7 @@ export function IncidentWorkspace({
           trupps={trupps}
           onShowTrupp={() => { setMode('atemschutz'); setPanel(null) }}
           onTeamMark={tacticalLocked ? undefined : markTeamPosition}
+          onTeamRename={tacticalLocked ? undefined : renameTeam}
           onTeamClearTrail={tacticalLocked ? undefined : clearTeamTrail}
           preparedOverlays={preparedOverlays}
           isVisible={isVisible}
@@ -2813,6 +2828,7 @@ export function IncidentWorkspace({
           onLoadAll={() => { void downloadOffline(); void reloadPersonnel() }}
           loading={offlineProgress != null}
           progress={offlineProgress}
+          onInstall={() => setInstallGuideOpen(true)}
         />
       )}
       {settingsOpen && (

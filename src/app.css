@@ -266,7 +266,21 @@ input[type='number'] { -moz-appearance: textfield; appearance: textfield; }
 /* map */
 #map { position: absolute; inset: 0; background: var(--map-bg); }
 .maplibregl-ctrl-attrib { font-size: 9px !important; }
-.placing #map, .placing .maplibregl-canvas { cursor: crosshair !important; }
+/* The Lage map's twin of the plan canvas's tool cursors (.wb-canvas.tool-* below). `.placing`
+   alone only covered a symbol/shape already picked from the palette — arming Linie, Fläche,
+   Messen, Notiz or Trupp left the plain grab hand, so an armed tool was indistinguishable from
+   none. !important because MapLibre writes its own cursor onto the canvas inline.
+   `maptool-` and not `tool-`: this class rides the app ROOT, and `tool-*` belongs to
+   .wb-canvas — one namespace per surface keeps a future rule from reaching across. */
+.placing #map, .placing .maplibregl-canvas,
+.maptool-line #map, .maptool-line .maplibregl-canvas,
+.maptool-area #map, .maptool-area .maplibregl-canvas,
+.maptool-circle #map, .maptool-circle .maplibregl-canvas,
+.maptool-measure #map, .maptool-measure .maplibregl-canvas,
+.maptool-note #map, .maptool-note .maplibregl-canvas,
+.maptool-team #map, .maptool-team .maplibregl-canvas,
+.maptool-lasso #map, .maptool-lasso .maplibregl-canvas,
+.maptool-scale #map, .maptool-scale .maplibregl-canvas { cursor: crosshair !important; }
 
 /* markers — bare tactical symbol, real-world scaled. White fill only for outline-with-text. */
 .marker { position: relative; display: flex; flex-direction: column; align-items: center; cursor: pointer; --gpx: 44px; }
@@ -1496,7 +1510,12 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
   background: var(--canvas-bg); display: grid; place-items: center; touch-action: none; }
 .wb-canvas.tool-pan { cursor: grab; }
 .wb-canvas.tool-pan:active { cursor: grabbing; }
-.wb-canvas.tool-draw, .wb-canvas.tool-text, .wb-canvas.tool-resource, .wb-canvas.placing { cursor: crosshair; }
+/* Every tool whose next step is "put the pointer somewhere on the surface" gets the crosshair.
+   line/area/lasso/scale/measure were missing, so arming them looked identical to plain panning
+   and the only way to find out whether a tool was live was to click and see. */
+.wb-canvas.tool-draw, .wb-canvas.tool-text, .wb-canvas.tool-resource,
+.wb-canvas.tool-line, .wb-canvas.tool-area, .wb-canvas.tool-lasso,
+.wb-canvas.tool-scale, .wb-canvas.tool-measure, .wb-canvas.placing { cursor: crosshair; }
 /* Zoom is done by LAYOUT (the board's box is sized fit × scale in Whiteboard),
    so content re-rasterizes crisply at each zoom level. The transform here is
    translate-only — will-change is safe and keeps panning a cheap GPU shift of a
@@ -2792,6 +2811,14 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .or-note.or-ready { color: var(--green-strong); }
 .or-note.or-online { color: var(--amber-strong); }
 .or-note.or-missing { color: var(--ink-dim); }
+/* browser-tab state: the readiness list is replaced by why it isn't one (see the component) */
+.or-browser { display: flex; gap: 11px; padding: 13px 14px; border-radius: var(--r-ctl);
+  background: var(--fill-soft); border: 1px solid var(--border); }
+.or-browser > .i { width: 17px; height: 17px; flex: none; color: var(--blue); margin-top: 2px; }
+.or-browser-t { margin: 0 0 5px; font: 700 13.5px var(--body); color: var(--ink); }
+.or-browser-b { margin: 0; font: 500 12.5px var(--body); line-height: 1.5; color: var(--ink-dim); }
+.or-browser-b + .or-browser-b { margin-top: 7px; }
+
 .or-load { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--tap);
   border: none; border-radius: var(--r-sm); background: var(--ink-fill); color: var(--on-accent-ink);
   font: 700 14px var(--body); cursor: pointer; }
@@ -3032,6 +3059,17 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .cv-item-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .cv-item-title { font: 700 15px var(--body); }
 .cv-item-sub { font: 500 12.5px var(--body); color: var(--ink-faint); }
+/* group divider — only rendered when the list actually mixes tonight's Einsatz with the
+   unreported backlog, so the common single-row list stays header-free */
+.cv-list-head { margin: 6px 2px 0; font: 800 11.5px var(--body); color: var(--ink-faint);
+  text-transform: uppercase; letter-spacing: .05em; }
+.cv-list + .cv-list { margin-top: 4px; }
+/* Übung — same amber as the tablet's .ip-badge-exercise: a drill or a test run must never
+   be mistaken for the real Einsatz, on the surface where untrained people tick names off */
+.cv-badge-exercise { display: inline-block; margin-left: 6px; padding: 1px 7px; vertical-align: 1px;
+  border-radius: 999px; font: 800 10.5px var(--body); text-transform: uppercase; letter-spacing: .04em;
+  white-space: nowrap; /* wraps to its own line on a narrow phone rather than splitting */
+  background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); }
 .cv-input { min-height: 44px; padding: 8px 12px; border-radius: var(--r-ctl); border: 1px solid var(--glass-line);
   background: var(--surface); color: var(--ink); font: 500 15px var(--body); width: 100%; }
 /* search + ⓘ: the tap-cycle explanation hides behind the info toggle (inline it crowded the card) */
@@ -3998,6 +4036,23 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
   background: var(--fill-soft); color: var(--ink-dim); display: grid; place-items: center; transition: background .14s var(--ease), color .14s var(--ease); }
 .help-x:hover { background: var(--hover-strong); color: var(--ink); }
 .help-x .i { width: 16px; height: 16px; }
+/* one search row spanning the full width under the header — it filters BOTH columns, so it
+   belongs to neither of them (and the TOC it would otherwise sit in is gone on a phone) */
+.help-search { display: flex; align-items: center; gap: 9px; flex: none; padding: 10px 20px;
+  border-bottom: 1px solid var(--border); }
+.help-search > .i { width: 16px; height: 16px; flex: none; color: var(--ink-faint); }
+.help-search input { flex: 1; min-width: 0; border: none; outline: none; background: transparent;
+  font: 600 13.5px var(--body); color: var(--ink); }
+.help-search input::placeholder { color: var(--ink-faint); font-weight: 500; }
+/* the native search clear is unstyled and inconsistent across browsers — ours is the button */
+.help-search input::-webkit-search-cancel-button { display: none; }
+.help-search-x { flex: none; width: 30px; height: 30px; display: grid; place-items: center; cursor: pointer;
+  border: none; border-radius: var(--r-sm); background: var(--fill-soft); color: var(--ink-dim); }
+.help-search-x:hover { background: var(--hover-strong); color: var(--ink); }
+.help-search-x .i { width: 14px; height: 14px; }
+.help-empty { padding: 26px 0 0; }
+.help-empty .help-sub { margin-top: 0; }
+
 .help-body { flex: 1 1 auto; min-height: 0; display: flex; }
 
 .help-toc { flex: none; width: 232px; border-right: 1px solid var(--border); overflow-y: auto; padding: 14px 10px; scrollbar-width: thin; }

@@ -144,6 +144,8 @@ interface Props {
   onShowTrupp?: (truppId: string) => void
   /** stamp the marker's current spot + time into its trail (the ONLY way positions are recorded) */
   onTeamMark?: (id: string) => void
+  /** rename an untracked team marker — the map twin of the plan chip's rename pen */
+  onTeamRename?: (id: string, name: string) => void
   /** clear a team marker's recorded trail (unlocks deletion) — reached via the lock button,
    *  behind a confirm; the everyday bar button only TOGGLES visibility */
   onTeamClearTrail?: (id: string) => void
@@ -158,7 +160,7 @@ interface Props {
  * vehicle) plus its selection affordances — delete, rotor (live vehicles), and the
  * shape/symbol transform handles. Owns the rotor/transform pointer-drag refs.
  */
-export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', readOnly = false, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, onShowTrupp, onTeamMark, onTeamClearTrail, hiddenTrails, onToggleTrail }: Props) {
+export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', readOnly = false, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, onShowTrupp, onTeamMark, onTeamRename, onTeamClearTrail, hiddenTrails, onToggleTrail }: Props) {
   // captions declutter out below a zoom threshold (glyphs are tiny there); the Plan has no zoom
   const captionsVisible = zoom >= appConfig.symbols.captionMinZoom
   // when the note input mounted — onBlur uses this to tell a real "done editing" click-away
@@ -195,6 +197,20 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
       autoGrow(el)
     })
   }, [])
+  // which team pill is in inline rename. Local, unlike editNoteId: a note enters edit straight
+  // from placement (the parent has to drive that), a team is only ever renamed from its own
+  // action bar, so nothing outside this component needs to know.
+  const [editTeamId, setEditTeamId] = useState<string | null>(null)
+  const focusTeam = useCallback((el: HTMLInputElement | null) => {
+    if (!el) return
+    // same MapLibre marker quirk as the note input: the Marker element preventDefaults
+    // mousedown ("prevent focusing on click"), which would kill focus-on-click here too
+    el.addEventListener('mousedown', (ev) => ev.stopPropagation())
+    el.focus(); el.select()
+    requestAnimationFrame(() => { if (document.activeElement !== el) { el.focus(); el.select() } })
+  }, [])
+  // a rename never survives selecting something else — leaving the pill IS the commit/abort
+  useEffect(() => { setEditTeamId((cur) => (cur && cur !== selectedId ? null : cur)) }, [selectedId])
   const rotateRef = useRef<{ id: string; cx: number; cy: number } | null>(null)
   const shapeRef = useRef<{ id: string; cx: number; cy: number; lat: number; mode: 'rotate' | 'resize' | 'rotate2' | 'cage' } | null>(null)
   // Press-and-hold to move a placed symbol. Markers are NOT react-map-gl-draggable (that would
@@ -377,7 +393,19 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                   <span className="wb-resource-cap" />
                   <span className="wb-resource-body">
                     <span className="wb-resource-name">
-                      <b>{e.label}</b>
+                      {/* identical markup to the plan board's resource chip (Whiteboard.tsx) —
+                          same class, same commit-on-blur/Enter, so a rename feels the same on
+                          both surfaces */}
+                      {editTeamId === e.id
+                        ? <input className="wb-resource-input" ref={focusTeam} defaultValue={e.label ?? ''}
+                            onPointerDown={(ev) => ev.stopPropagation()}
+                            onBlur={(ev) => { onTeamRename?.(e.id, ev.target.value); setEditTeamId(null) }}
+                            onKeyDown={(ev) => {
+                              if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur()
+                              // Esc abandons: blur would commit, so drop the edit first
+                              if (ev.key === 'Escape') { ev.stopPropagation(); setEditTeamId(null) }
+                            }} />
+                        : <b>{e.label}</b>}
                       {isRaus && <span className="wb-resource-raus">{appConfig.copy.atemschutz.status.raus}</span>}
                     </span>
                     {e.t && <i className="wb-resource-time">{e.t}</i>}
@@ -547,6 +575,13 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                 tapping the greyed trash offers the confirmed trail clear, which frees it). */}
             {selectedId === e.id && e.kind === 'team' && draggable && (
               <div className="wb-pill-acts" onPointerDown={(ev) => ev.stopPropagation()}>
+                {/* rename — the touch path (double-tap→dblclick is unreliable on iOS), same as
+                    the plan chip. A Trupp-bound marker is named by the Atemschutz board, so it
+                    gets no pen: renaming it here would fork the two names apart. */}
+                {!e.truppId && onTeamRename && (
+                  <button className="wb-pa" title={appConfig.copy.edit} aria-label={appConfig.copy.edit}
+                    onClick={() => setEditTeamId(e.id)}><Icon id="pen" /></button>
+                )}
                 {e.truppId && onShowTrupp && (
                   <button className="wb-pa wb-pa-show" title={appConfig.copy.whiteboard.showTrupp} aria-label={appConfig.copy.whiteboard.showTrupp} onClick={() => onShowTrupp(e.truppId!)}><Icon id="warn" /></button>
                 )}

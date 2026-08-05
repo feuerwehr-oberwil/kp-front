@@ -4,6 +4,8 @@ import { fillTemplate } from '../../lib/format'
 import { appConfig } from '../../config/appConfig'
 import type { SyncStatus } from '../../lib/incidents'
 import { isStorageDegraded, onStorageDegraded } from '../../lib/idb'
+import { getInstallPlatform, isStandalone } from '../../lib/installPrompt'
+import { installOffered } from '../../lib/installPolicy'
 import { estimateStorage, fmtBytes } from '../../lib/storageBudget'
 import { Modal } from './_shared'
 
@@ -48,7 +50,7 @@ function fmtAgo(ms: number | null): string {
 export function OfflineReadinessSheet({
   onClose, probeUrls, symbolsReady, planCount, objectLabel,
   weatherOk, weatherError, personnelCount, syncStatus, lastSyncedAt,
-  onSyncNow, onLoadAll, loading, progress,
+  onSyncNow, onLoadAll, loading, progress, onInstall,
 }: {
   onClose: () => void
   /** URLs probed against the SW Cache for real offline presence. tiles = the incident-centre
@@ -68,12 +70,20 @@ export function OfflineReadinessSheet({
   onLoadAll: () => void
   loading: boolean
   progress: { done: number; total: number } | null
+  /** open the install guide — the way out of the browser-tab state (mobile platforms only) */
+  onInstall: () => void
 }) {
+  // A browser TAB is not an offline state worth diagnosing: iOS evicts caches after days
+  // without use, and the tab has to still exist at the next Einsatz. Probing it and printing
+  // «bereit» is exactly the stale reassurance this sheet exists to remove — so outside the
+  // installed app it says what is missing and how to fix it, and nothing else.
+  const browserOnly = !isStandalone()
   // Probe the Cache Storage for the runtime-cached resources (tiles/plans/geojson). undefined
   // while probing → 'unknown'; re-run after a load via the nonce so the rows update live.
   const [probe, setProbe] = useState<{ tile?: boolean; plan?: boolean; geo?: { cached: number; total: number } }>({})
   const geoKey = probeUrls.geojsons.join(',')
   useEffect(() => {
+    if (browserOnly) return // no readiness list is rendered there — don't probe for it
     let alive = true
     const has = async (url: string | null): Promise<boolean | undefined> => {
       if (!url || typeof caches === 'undefined') return undefined
@@ -100,6 +110,7 @@ export function OfflineReadinessSheet({
   // the figure reflects what «Alles laden» just consumed.
   const [space, setSpace] = useState<{ free: number } | null | undefined>(undefined)
   useEffect(() => {
+    if (browserOnly) return
     let alive = true
     void estimateStorage().then((b) => { if (alive) setSpace(b) })
     return () => { alive = false }
@@ -142,15 +153,46 @@ export function OfflineReadinessSheet({
           ? o.storageFull // must NOT fall through to o.error: nothing failed to sync, the DEVICE is full
           : o.error
 
+  // The sync line stays in BOTH states: it answers «sind meine Einträge weg?», which is a
+  // live question in a browser tab too, and it carries the only manual resync there is.
+  const syncRow = (
+    <div className={`or-stand or-sync-${syncStatus}`}>
+      {/* always offered — a manual refresh must be reachable even when the badge claims
+          synced, e.g. when the operator suspects another device's edit hasn't landed yet */}
+      {syncMark}<span>{syncText}</span>
+      <button className="or-resync" onClick={onSyncNow}><Icon id="rotate" /> {o.syncNow}</button>
+    </div>
+  )
+
+  if (browserOnly) {
+    const canInstall = installOffered(getInstallPlatform())
+    return (
+      <Modal title={o.title} onClose={onClose} fit>
+        <div className="or-sheet">
+          {syncRow}
+          <div className="or-browser">
+            <Icon id="info" />
+            <div>
+              <p className="or-browser-t">{o.browserTitle}</p>
+              <p className="or-browser-b">{o.browserBody}</p>
+              {!canInstall && <p className="or-browser-b">{o.browserNoInstall}</p>}
+            </div>
+          </div>
+          {canInstall && (
+            <button className="or-load" onClick={() => { onClose(); onInstall() }}>
+              {/* same glyph the install banner and guide use — one install, one symbol */}
+              <Icon id="snapshot" /> {o.browserInstall}
+            </button>
+          )}
+        </div>
+      </Modal>
+    )
+  }
+
   return (
     <Modal title={o.title} onClose={onClose} fit>
       <div className="or-sheet">
-        <div className={`or-stand or-sync-${syncStatus}`}>
-          {/* always offered — a manual refresh must be reachable even when the badge claims
-              synced, e.g. when the operator suspects another device's edit hasn't landed yet */}
-          {syncMark}<span>{syncText}</span>
-          <button className="or-resync" onClick={onSyncNow}><Icon id="rotate" /> {o.syncNow}</button>
-        </div>
+        {syncRow}
 
         <div className="or-list">
           <ReadyRow label={o.rowSymbols} state={symbolsReady ? 'ready' : 'unknown'} note={symbolsReady ? o.ready : o.loading} />

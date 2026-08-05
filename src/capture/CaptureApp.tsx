@@ -31,8 +31,8 @@ import { TimeField } from '../components/TimeField'
 import { fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit } from '../lib/alarmzeiten'
 import type { IncidentMeta, Workspace } from '../lib/incidents'
 import {
-  CaptureError, autoOpenTarget, captureApi, isNetworkFailure, onServerTime, saveAction, withTimeout,
-  type CaptureAction, type CapturePerson,
+  CAPTURE_FRESH_MS, CaptureError, autoOpenTarget, captureApi, isNetworkFailure, onServerTime,
+  saveAction, withTimeout, type CaptureAction, type CapturePerson,
 } from '../lib/captureClient'
 import {
   clearDraft, makeDebouncedFlush, restoreDraft, saveDraft, serverSkewMinutes, type DebouncedFlush,
@@ -69,6 +69,11 @@ const RECORDER_KEY = (incidentId: string) => `kp.capture.recorder.${incidentId}`
 // latched for good), and skips hidden tabs — the common case needs zero polls (initial list)
 const KP_POLL_MS = 45_000
 type Section = 'personen' | 'material' | 'zeiten' | 'angaben'
+
+// «Übung» reaches the poster exactly like a real Einsatz — the badge is what keeps a drill
+// (or a test run before a rollout) from being ticked off as the real thing. Same amber
+// token as the tablet's switcher/history badge, so it reads the same on both surfaces.
+const ExerciseBadge = () => <span className="cv-badge-exercise">{appConfig.copy.exerciseBadge}</span>
 
 type MatProbe = { materialId?: string; label: string; unit: string; sourceId?: string; sourceLabel?: string }
 
@@ -599,6 +604,25 @@ export default function CaptureApp() {
     void run({ kind: 'setMeta', patch: { fahrzeuge: next.length ? next : undefined } }).then((ok) => { if (ok) savedToast() })
   }
 
+  // A section with nothing in it is a dead end: the header promises content and the body
+  // opens onto a bare strip. A station that configures no alarms.groups and no fleet.vehicles
+  // saw exactly that under «Zeiten». Availability comes from the DATA, never from the search
+  // filter — typing a name that matches nothing must not make the section vanish mid-tap.
+  const hasPersonen = roster.length > 0
+  const hasMaterial = catalogueGroups.length > 0 || extraLines.length > 0
+  const hasZeiten = gruppenRows(gruppenCfg, rm?.gruppen).length > 0 || fahrzeugRows(fahrzeugeCfg, rm?.fahrzeuge).length > 0
+  // «Angaben» is unconditional — its fields are the rapport's own, not station config — so
+  // the list is never empty and there is always something for the default to land on.
+  const sections: Section[] = [
+    ...(hasPersonen ? (['personen'] as const) : []),
+    ...(hasMaterial ? (['material'] as const) : []),
+    ...(hasZeiten ? (['zeiten'] as const) : []),
+    'angaben',
+  ]
+  // the first-action cue is Anwesenheit; where that section does not exist, fall through to
+  // the first one that does rather than opening the page onto nothing
+  const openSection = open === null || sections.includes(open) ? open : sections[0]
+
   // shown on both screens right under the header — wrong device time corrupts every
   // erfasste Zeit, so warn (non-blocking) while everything keeps working
   const skewLine = skewMin !== null ? (
@@ -634,17 +658,28 @@ export default function CaptureApp() {
             <p className="cv-hint">{C.noIncidentsHint}</p>
           </div>
         )}
-        <div className="cv-list">
-          {incidents.map((i) => (
-            <button key={i.id} className="cv-item" onClick={() => void openIncident(i)}>
-              <span className="cv-item-main">
-                <span className="cv-item-title">{i.title}</span>
-                <span className="cv-item-sub">{i.address ?? ''} · {fmtWhen(i.started_at)}</span>
-              </span>
-              <Icon id="chevron" />
-            </button>
-          ))}
-        </div>
+        {/* Two groups, not one flat list: the list carries the fresh Einsatz AND the whole
+            unreported backlog, so without a divider a three-week-old row sits directly under
+            tonight's — one mis-tap and the attendance lands on the wrong Einsatz. The header
+            only appears when a group actually has rows (the common case is one row, no
+            headers at all). */}
+        {([
+          [C.groupCurrent, incidents.filter((i) => Date.now() - Date.parse(i.started_at) < CAPTURE_FRESH_MS)],
+          [C.groupBacklog, incidents.filter((i) => Date.now() - Date.parse(i.started_at) >= CAPTURE_FRESH_MS)],
+        ] as const).map(([label, rows]) => rows.length === 0 ? null : (
+          <div key={label} className="cv-list">
+            {incidents.length > 1 && <div className="cv-list-head">{label}</div>}
+            {rows.map((i) => (
+              <button key={i.id} className="cv-item" onClick={() => void openIncident(i)}>
+                <span className="cv-item-main">
+                  <span className="cv-item-title">{i.title}{i.is_exercise && <ExerciseBadge />}</span>
+                  <span className="cv-item-sub">{i.address ?? ''} · {fmtWhen(i.started_at)}</span>
+                </span>
+                <Icon id="chevron" />
+              </button>
+            ))}
+          </div>
+        ))}
       </div>
     )
   }
@@ -655,7 +690,7 @@ export default function CaptureApp() {
       <header className="cv-head">
         <button className="cv-back" onClick={() => setIncident(null)} aria-label={C.back}><Icon id="chevron" /></button>
         <div className="cv-head-main">
-          <h1>{incident.title}</h1>
+          <h1>{incident.title}{incident.is_exercise && <ExerciseBadge />}</h1>
           <p>{incident.address ?? ''} · {fillTemplate(C.alarmedAt, { t: fmtWhen(incident.started_at) })}</p>
           {/* reassurance, not an alarm: the KP tablet has this incident — the full rapport
               (incl. Lageskizze) comes from there */}
@@ -679,9 +714,10 @@ export default function CaptureApp() {
       )}
 
       <div className="cv-acc">
+        {hasPersonen && (
         <section className="cv-card cv-acc-card" ref={(el) => { sectionRefs.current.personen = el }}>
-          <AccHead open={open === 'personen'} label={C.sectionPersonen} sub={fillTemplate(C.presentCount, { n: presentCount })} onToggle={() => toggleSection('personen')} />
-          {open === 'personen' && (
+          <AccHead open={openSection === 'personen'} label={C.sectionPersonen} sub={fillTemplate(C.presentCount, { n: presentCount })} onToggle={() => toggleSection('personen')} />
+          {openSection === 'personen' && (
             <div className="cv-acc-body">
               <div className="cv-search-row">
                 <input className="cv-input" placeholder={C.searchName} value={search} onChange={(e) => setSearch(e.target.value)}
@@ -744,10 +780,12 @@ export default function CaptureApp() {
             </div>
           )}
         </section>
+        )}
 
+        {hasMaterial && (
         <section className="cv-card cv-acc-card" ref={(el) => { sectionRefs.current.material = el }}>
-          <AccHead open={open === 'material'} label={C.sectionMaterial} sub={fillTemplate(C.mittelCount, { n: lines.length })} onToggle={() => toggleSection('material')} />
-          {open === 'material' && (
+          <AccHead open={openSection === 'material'} label={C.sectionMaterial} sub={fillTemplate(C.mittelCount, { n: lines.length })} onToggle={() => toggleSection('material')} />
+          {openSection === 'material' && (
             <div className="cv-acc-body">
               <input className="cv-input" placeholder={C.searchMaterial} value={matSearch} onChange={(e) => setMatSearch(e.target.value)}
                 autoCapitalize="none" autoCorrect="off" autoComplete="off" spellCheck={false} enterKeyHint="search" />
@@ -794,10 +832,12 @@ export default function CaptureApp() {
             </div>
           )}
         </section>
+        )}
 
+        {hasZeiten && (
         <section className="cv-card cv-acc-card" ref={(el) => { sectionRefs.current.zeiten = el }}>
-          <AccHead open={open === 'zeiten'} label={C.sectionZeiten} sub={fillTemplate(C.zeitenFilled, { n: (rm?.gruppen ?? []).filter((g) => g.alarmedAt).length + (rm?.fahrzeuge ?? []).filter((f) => f.ausgerueckt).length })} onToggle={() => toggleSection('zeiten')} />
-          {open === 'zeiten' && (
+          <AccHead open={openSection === 'zeiten'} label={C.sectionZeiten} sub={fillTemplate(C.zeitenFilled, { n: (rm?.gruppen ?? []).filter((g) => g.alarmedAt).length + (rm?.fahrzeuge ?? []).filter((f) => f.ausgerueckt).length })} onToggle={() => toggleSection('zeiten')} />
+          {openSection === 'zeiten' && (
             <div className="cv-acc-body">
               {gruppenRows(gruppenCfg, rm?.gruppen).length > 0 && (
                 <>
@@ -830,10 +870,11 @@ export default function CaptureApp() {
             </div>
           )}
         </section>
+        )}
 
         <section className="cv-card cv-acc-card" ref={(el) => { sectionRefs.current.angaben = el }}>
-          <AccHead open={open === 'angaben'} label={C.sectionAngaben} sub={rm?.einsatzleiter ?? '—'} onToggle={() => toggleSection('angaben')} />
-          {open === 'angaben' && (
+          <AccHead open={openSection === 'angaben'} label={C.sectionAngaben} sub={rm?.einsatzleiter ?? '—'} onToggle={() => toggleSection('angaben')} />
+          {openSection === 'angaben' && (
             <div className="cv-acc-body">
               <div className="cv-row">
                 <span>{C.einsatzleiter}</span>
@@ -964,6 +1005,11 @@ export default function CaptureApp() {
             {/* the KP-aktiv notice lives HERE, at the print/PDF decision — not in the bar */}
             {kpActive && (
               <p className="cv-modal-kp"><span className="cv-kp-dot" aria-hidden /> {C.kpActiveHint}</p>
+            )}
+            {/* an Übung produces a Rapport that looks exactly like a real one on paper — say
+                so at the one moment it can still be stopped, right before it is printed */}
+            {incident.is_exercise && (
+              <p className="cv-hint cv-modal-warn"><Icon id="warn" /> {C.exerciseHint}</p>
             )}
             <div className="cv-modal-who">
               <span>{C.whoTitle}</span>

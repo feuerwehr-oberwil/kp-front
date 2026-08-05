@@ -38,6 +38,13 @@ export const de = {
     subtitle: 'Alle Funktionen auf einen Blick – gebaut, um auch um 3 Uhr morgens ohne Übung bedienbar zu sein.',
     contents: 'Inhalt',
     close: 'Schliessen',
+    // Die Hilfe ist lang und wird im Einsatz mit einer konkreten Frage geöffnet, nicht zum
+    // Lesen — die Suche filtert Inhaltsverzeichnis UND Abschnitte (auf dem Handy gibt es
+    // kein Inhaltsverzeichnis, dort ist die Filterung der Abschnitte die ganze Suche).
+    search: 'Hilfe durchsuchen …',
+    searchClear: 'Suche löschen',
+    searchNone: 'Keine Treffer für «{q}».',
+    searchHint: 'Anderes Stichwort versuchen – gesucht wird in Überschriften und Text.',
     // Fallback-Einleitung wenn die Station keine eigene helpIntro konfiguriert hat.
     introFallback: 'KP Front ist die digitale Lage- und Einsatzführung deiner Feuerwehr: taktische Lagekarte, Objektpläne, Atemschutzüberwachung und ein gemeinsames Verlaufsprotokoll – alles live auf mehreren Geräten gleichzeitig.',
     // Inhalt der Hilfe-Sektionen. Inline-Auszeichnung: **fett** für Hervorhebungen,
@@ -1662,6 +1669,17 @@ export const de = {
   // Offline-Bereitschaft readiness diagnostics
   offline: {
     title: 'Offline-Bereitschaft',
+    // Im Browser-Tab statt der Bereitschaftsliste: ein Tab ist kein verlässlicher
+    // Offline-Zustand (iOS räumt Caches nach Tagen ohne Nutzung weg, und der Tab muss dann
+    // überhaupt noch offen sein). Statt eine Bereitschaft zu behaupten, die um 3 Uhr nicht
+    // hält, sagt die Karte was fehlt und führt zur Installation – oder sagt, dass es hier
+    // keine gibt.
+    browserTitle: 'Offline erst als installierte App',
+    browserBody: 'Im Browser-Tab ist nichts verlässlich gespeichert: Karten, Pläne und Leitungen können jederzeit weggeräumt werden, und der Tab muss beim nächsten Einsatz noch offen sein. Installiert läuft KP Front auch ohne Empfang.',
+    browserInstall: 'Als App installieren',
+    // Plattformen ohne Installationsweg (Desktop-Firefox …) — hier ehrlich sagen, dass es
+    // nichts zu installieren gibt, statt auf eine Anleitung zu zeigen, die es nicht gibt.
+    browserNoInstall: 'Dieses Gerät bietet keine Installation an. Für den Einsatz ohne Empfang KP Front auf dem Tablet oder Handy installieren.',
     syncNow: 'Jetzt synchronisieren',
     syncedAgo: 'Einsatzdaten {ago} synchronisiert',
     offline: 'Offline – lokal gespeichert',
@@ -1814,6 +1832,13 @@ export const de = {
     // tablet-side mirror: chip on the QR-writable surfaces (Anwesenheit, Mittel, Rapport)
     usageChip: 'QR: {n} Einträge · zuletzt {t}',
     usageChipOne: 'QR: 1 Eintrag · zuletzt {t}',
+    // Übung: das Poster erreicht Übungen wie echte Einsätze — wer erfasst, muss beides auf
+    // den ersten Blick unterscheiden können (Liste, Kopfzeile, und vor jedem Ausdruck).
+    exerciseHint: 'Übung – zählt nicht für die Einsatzstatistik.',
+    // Die Liste mischt den frischen Einsatz mit dem noch nicht rapportierten Rückstand;
+    // ohne Trennung sitzt ein drei Wochen alter Einsatz direkt unter dem von heute Nacht.
+    groupCurrent: 'Aktuell',
+    groupBacklog: 'Noch offen',
   },
   // Einsatz-Link (/l/<token>) — die Ansicht, die aus der Alarmmeldung heraus geöffnet wird:
   // kein Login, ein Einsatz, nur lesen. Wer das liest, steht nachts irgendwo im Dunkeln und
@@ -2686,9 +2711,14 @@ export const de = {
       disabled: 'Erfassung deaktiviert.',
       printBtn: 'Poster als PDF (A4)',
       posterHead: 'Einsatz erfassen',
-      posterStep1: 'QR-Code mit dem Handy scannen',
-      posterStep2: 'Einsatz antippen und den eigenen Namen wählen',
-      posterStep3: 'Anwesende abhaken, Material und Notizen eintragen',
+      // Die Schritte müssen dem entsprechen, was auf dem Handy wirklich passiert: der Name
+      // wird beim Abhaken angetippt, nicht vorher gewählt, und bei einem einzigen frischen
+      // Einsatz öffnet die Seite ihn direkt (autoOpenTarget) — darum «falls gefragt».
+      posterStep1: 'QR-Code mit der Handy-Kamera scannen',
+      posterStep2: 'Falls gefragt: den eigenen Einsatz antippen',
+      posterStep3: 'Eigenen Namen antippen – Häkchen heisst anwesend',
+      posterHint: 'Kein Login, keine App. Alles wird sofort gespeichert.',
+      posterFoot: 'Material, Zeiten und Kurzbericht trägt die Einsatzleitung nach.',
       failed: 'Aktion fehlgeschlagen',
       sheetBtn: 'Erfassungsblatt als PDF (A4)',
       sheetCardTitle: 'Erfassungsblatt (Papier)',
@@ -2715,6 +2745,11 @@ export const de = {
       sheetMaterial: 'Material (Menge eintragen)',
       sheetNotizen: 'Kurzbericht / durchgeführte Arbeiten',
       hint: 'Der Link gilt für laufende und noch nicht rapportierte Einsätze; rapportierte verschwinden nach wenigen Stunden (Standard 12 h, alarms.captureWindowHours). Kein Zugriff auf Karte, Verwaltung oder archivierte Einsätze.',
+      // Der Link IST das Geheimnis des Posters — wer ihn verschickt, verteilt den Zugang der
+      // ganzen Wache. Das steht hier, weil genau hier der Link zum Kopieren angeboten wird.
+      linkWarn: 'Dieser Link ist der Poster-Schlüssel: Wer ihn hat, kann erfassen. Nach dem Verschicken (Test, Schulung) Token rotieren und Poster neu drucken.',
+      testTitle: 'Vorher testen',
+      testBody: 'Einsatz mit Haken «Übung» eröffnen, den Link verschicken, erfassen lassen – die Übung ist in der Erfassung als solche angeschrieben und zählt nicht in die Statistik. Danach die Übung archivieren und den Token rotieren.',
     },
     statistik: {
       body: 'Read-only-Export aller Einsätze als flache JSON-Datensätze (Metadaten, Zeiten, Anwesenheit von–bis, Material, Rapportstatus) – für externe Auswertungen wie die Jahresstatistik. Keine Schreibrechte, kein Zugriff auf Karte oder Verwaltung.',

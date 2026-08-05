@@ -92,6 +92,9 @@ export function CaptureAdminView() {
           </div>
           {state.token && <CopyChip value={captureUrl(state.token)} />}
         </div>
+        {/* The copy button hands out the poster's whole secret. That is fine for a test or a
+            Schulung — but it has to be said next to the button, not in a doc nobody opens. */}
+        {state.token && <p className="adm-card-cap adm-cap-warn">{C.linkWarn}</p>}
         <div className="adm-actions adm-cap-actions">
           {state.configured ? (
             <>
@@ -105,6 +108,12 @@ export function CaptureAdminView() {
         </div>
         {result && <ResultChip tone={result.tone} onExpire={() => setResult(null)}>{result.text}</ResultChip>}
         <p className="adm-card-cap">{C.hint}</p>
+        {/* the rehearsal, spelled out where the poster is made — an Übung is the one incident
+            kind that is stats-excluded and may be deleted afterwards, which is what makes it
+            the safe thing to hand a colleague before the poster goes on the wall */}
+        {state.configured && (
+          <p className="adm-card-cap"><strong>{C.testTitle}:</strong> {C.testBody}</p>
+        )}
       </Card>
 
       <Card title={C.sheetCardTitle} caption={C.sheetCardBody}>

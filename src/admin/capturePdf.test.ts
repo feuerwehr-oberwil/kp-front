@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { jsPDF } from 'jspdf'
-import { downloadSheetPdf } from './capturePdf'
+import { downloadPosterPdf, downloadSheetPdf } from './capturePdf'
 
 const OBERWIL_LIKE = {
   stationName: 'Feuerwehr Musterdorf',
@@ -65,5 +65,31 @@ describe('downloadSheetPdf', () => {
     })
     expect(pages).toBeGreaterThanOrEqual(1)
     expect(pages).toBeLessThanOrEqual(2)
+  })
+})
+
+// The poster is the whole onboarding for everyone who never opens the app: hint, QR, three
+// steps and the division of labour have to fit ONE page — a second page is a poster whose
+// instructions are hanging on the back of the wall. Nothing else here is testable without
+// eyes, so this is a render smoke plus the page count (CAPTURE_PDF_OUT to eyeball it).
+describe('downloadPosterPdf', () => {
+  it('renders the Magazin poster on exactly one A4 page', async () => {
+    let pages = 0
+    const api = jsPDF.API as unknown as Record<string, unknown>
+    const orig = api.save
+    api.save = function (this: jsPDF, name: string) {
+      pages = this.getNumberOfPages()
+      const out = process.env.CAPTURE_PDF_OUT
+      if (out) {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        require('node:fs').writeFileSync(`${out}/${name}`, Buffer.from(this.output('arraybuffer')))
+      }
+    }
+    try {
+      await downloadPosterPdf('https://front.example.org/e/8Yq2rL4mZt7xVb1nKp3sWd', 'Feuerwehr Musterdorf')
+    } finally {
+      api.save = orig
+    }
+    expect(pages).toBe(1)
   })
 })

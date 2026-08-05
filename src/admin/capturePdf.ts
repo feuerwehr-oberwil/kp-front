@@ -21,16 +21,26 @@ export async function downloadPosterPdf(url: string, stationName: string): Promi
   doc.setFont('helvetica', 'bold').setFontSize(34).setTextColor(20)
   doc.text(C.posterHead, cx, 42, { align: 'center' })
 
-  const qrSize = 128
-  doc.addImage(qr, 'PNG', cx - qrSize / 2, 54, qrSize, qrSize)
+  // «kein Login, keine App» sits directly under the head, above the QR: the reluctance this
+  // poster has to overcome is "what will this thing want from me", and it has to be answered
+  // before the code is scanned, not in the steps below it.
+  doc.setFont('helvetica', 'normal').setFontSize(13).setTextColor(110)
+  doc.text(C.posterHint, cx, 51, { align: 'center' })
 
-  doc.setFont('helvetica', 'normal').setFontSize(15).setTextColor(20)
+  const qrSize = 120
+  doc.addImage(qr, 'PNG', cx - qrSize / 2, 58, qrSize, qrSize)
+
+  doc.setFontSize(15).setTextColor(20)
   const steps = [C.posterStep1, C.posterStep2, C.posterStep3]
   steps.forEach((s, i) => {
     const y = 200 + i * 12
     doc.setFont('helvetica', 'bold').text(`${i + 1}.`, M + 14, y)
     doc.setFont('helvetica', 'normal').text(s, M + 22, y, { maxWidth: A4.w - 2 * M - 30 })
   })
+
+  // the division of labour, so nobody scanning feels responsible for the whole rapport
+  doc.setFontSize(11).setTextColor(110)
+  doc.text(C.posterFoot, cx, 200 + steps.length * 12 + 8, { align: 'center', maxWidth: A4.w - 2 * M - 10 })
 
   doc.setFontSize(8).setTextColor(130)
   doc.text(url, cx, A4.h - 12, { align: 'center', maxWidth: A4.w - 2 * M })

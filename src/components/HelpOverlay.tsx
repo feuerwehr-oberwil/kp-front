@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { Overlay } from '../lib/overlays'
 import { appConfig } from '../config/appConfig'
+import { fillTemplate } from '../lib/format'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
 
 // In-app capabilities/help overlay reached from the incident menu ("Funktionen &
@@ -27,11 +28,38 @@ function renderInline(text: string): ReactNode[] {
   return out
 }
 
+// Everything in a section that a search should be able to hit: its heading plus every block's
+// text, with the inline markup stripped — searching «Ebenen» has to match «**Ebenen**», and a
+// keyboard chip's [[Esc]] has to match «esc».
+type HelpSection = (typeof appConfig.copy.help.sections)[number]
+function sectionHaystack(s: HelpSection, intro: string): string {
+  const parts: string[] = [s.title]
+  for (const b of s.blocks) {
+    if (b.kind === 'intro') parts.push(intro)
+    else if (b.kind === 'list') parts.push(...b.items)
+    else if ('text' in b) parts.push(b.text)
+  }
+  return parts.join(' ').replace(/\*\*|\[\[|\]\]/g, '').toLowerCase()
+}
+
 export function HelpOverlay({ onClose }: { onClose: () => void }) {
   const C = appConfig.copy.help
-  const sections = C.sections
+  const allSections = C.sections
   const intro = getDeploymentConfig().identity?.helpIntro ?? C.introFallback
-  const [active, setActive] = useState(sections[0].id)
+  const [query, setQuery] = useState('')
+  // The help is long and gets opened WITH a question, not to be read. The filter narrows the
+  // TOC and the sections themselves — on a phone the TOC is hidden (see .help-toc in app.css),
+  // so filtering the content is the entire search there.
+  const haystacks = useMemo(
+    () => new Map(allSections.map((s) => [s.id, sectionHaystack(s, intro)])),
+    [allSections, intro],
+  )
+  const q = query.trim().toLowerCase()
+  const sections = useMemo(
+    () => (q ? allSections.filter((s) => haystacks.get(s.id)?.includes(q)) : allSections),
+    [allSections, haystacks, q],
+  )
+  const [active, setActive] = useState(allSections[0].id)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // No Esc listener here: the <Overlay> this renders into already closes on Escape. The duplicate
@@ -52,6 +80,10 @@ export function HelpOverlay({ onClose }: { onClose: () => void }) {
     return () => obs.disconnect()
   }, [sections])
 
+  // a narrowed result set starts at ITS top — otherwise the scroller keeps the offset of the
+  // unfiltered list and the first hit sits somewhere above the fold
+  useEffect(() => { scrollRef.current?.scrollTo({ top: 0 }) }, [q])
+
   const go = (id: string) => document.getElementById(`help-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
   return (
@@ -64,9 +96,23 @@ export function HelpOverlay({ onClose }: { onClose: () => void }) {
           </div>
           <button className="help-x" onClick={onClose} aria-label={C.close}><Icon id="close" /></button>
         </div>
+        {/* the search lives in the HEADER, not above the TOC: the TOC is hidden on a phone,
+            and that is exactly where someone is standing with one question and no patience */}
+        <div className="help-search">
+          <Icon id="search" />
+          <input type="search" value={query} placeholder={C.search} aria-label={C.search}
+            autoCapitalize="none" autoCorrect="off" autoComplete="off" spellCheck={false} enterKeyHint="search"
+            onChange={(e) => setQuery(e.target.value)} />
+          {query && (
+            <button type="button" className="help-search-x" aria-label={C.searchClear} onClick={() => setQuery('')}>
+              <Icon id="close" />
+            </button>
+          )}
+        </div>
         <div className="help-body">
           <nav className="help-toc">
-            <div className="help-toc-h">{C.contents}</div>
+            {/* no heading over an empty list — a lone «Inhalt» label reads like a failed render */}
+            {sections.length > 0 && <div className="help-toc-h">{C.contents}</div>}
             {sections.map((s) => (
               <button key={s.id} className={`help-toc-i${active === s.id ? ' on' : ''}`} onClick={() => go(s.id)}>
                 <Icon id={s.icon} />{s.title}
@@ -74,6 +120,13 @@ export function HelpOverlay({ onClose }: { onClose: () => void }) {
             ))}
           </nav>
           <div className="help-content" ref={scrollRef}>
+            {sections.length === 0 && (
+              <div className="help-empty">
+                {/* the verdict first and loudest, the way out under it — not the other way round */}
+                <p className="help-sub">{fillTemplate(C.searchNone, { q: query.trim() })}</p>
+                <p className="help-lead">{C.searchHint}</p>
+              </div>
+            )}
             {sections.map((s) => (
               <section key={s.id} id={`help-${s.id}`} className="help-sec">
                 <h3><Icon id={s.icon} />{s.title}</h3>

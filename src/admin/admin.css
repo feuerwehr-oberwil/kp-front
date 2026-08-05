@@ -173,6 +173,8 @@
 .adm-card-head { margin-bottom: 16px; }
 .adm-card-title { font-size: 15px; font-weight: 700; letter-spacing: .01em; margin: 0; }
 .adm-card-cap { font-size: 12px; color: var(--ink-faint); margin: 5px 0 0; line-height: 1.45; }
+/* a caption that is a caveat, not background — sits right under the copyable capture link */
+.adm-cap-warn { color: var(--amber-strong); }
 .adm-card-body { display: flex; flex-direction: column; gap: 16px; }
 
 /* ── fields ───────────────────────────────────────────────────────────────── */

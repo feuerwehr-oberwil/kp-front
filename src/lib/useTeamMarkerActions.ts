@@ -31,6 +31,19 @@ export function useTeamMarkerActions({ entities, commit, log, emit, setSelectedI
     emit('entity.add', { id, kind: 'team', entity: marker })
     setSelectedId(id); setSelectedDrawingId(null)
   }
+  /** Rename an untracked team marker. «Team 1» is a placeholder, not a name — on the plan
+   *  board a resource chip has carried a rename pen the whole time, and the map's identical
+   *  pill did not, so a marker dropped via «Neues Team» was stuck with its counter forever.
+   *  Quiet like the board's patchCommit: a label correction is not a Verlauf event. A marker
+   *  bound to a Trupp takes its name from the Atemschutz board and is not renamed here. */
+  const renameTeam = (id: string, name: string) => {
+    const e = entities.find((x) => x.id === id)
+    if (!e || e.kind !== 'team' || e.truppId) return
+    const label = name.trim()
+    if (!label || label === e.label) return
+    commit((d) => ({ ...d, entities: d.entities.map((x) => (x.id === id ? { ...x, label } : x)) }))
+    emit('entity.edit', { id, patch: { label } })
+  }
   // Team-marker trail ops on the Lage map — mirrors the plan board's markPosition/clearTrail.
   // Marking is the ONLY way a position is recorded (moving a marker never breadcrumbs), so the
   // rule stays unambiguous: a dot exists exactly where someone chose to log one.
@@ -58,5 +71,5 @@ export function useTeamMarkerActions({ entities, commit, log, emit, setSelectedI
     log('cross', fillTemplate(appConfig.copy.whiteboard.trailCleared, { name: e.label ?? '' }))
     emit('entity.edit', { id, patch: { trail: 'clear' } })
   }
-  return { placeGenericTeam, markTeamPosition, clearTeamTrail }
+  return { placeGenericTeam, renameTeam, markTeamPosition, clearTeamTrail }
 }
