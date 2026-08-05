@@ -728,10 +728,10 @@ export const fr: Localizable<Copy> = {
     logAlarm: 'Alarme ARI : binôme {name} – {status}',
   },
   lineDecor: {
-    S: 'Lance à mousse',
-    W: 'Canon à eau',
+    W: 'Eau',
+    S: 'Mousse',
     H: 'Rideau d’eau',
-    P: 'Lance à poudre',
+    P: 'Poudre',
   } as Record<string, string>,
   incidents: {
     migratedTitle: 'État de travail migré',

@@ -727,10 +727,10 @@ export const it: Localizable<Copy> = {
     logAlarm: 'Allarme autoprotezione: squadra {name} – {status}',
   },
   lineDecor: {
-    S: 'Lancia da schiuma',
-    W: 'Monitore idrico',
+    W: 'Acqua',
+    S: 'Schiuma',
     H: 'Cortina d’acqua',
-    P: 'Lancia a polvere',
+    P: 'Polvere',
   } as Record<string, string>,
   incidents: {
     migratedTitle: 'Stato di lavoro migrato',

@@ -1074,10 +1074,10 @@ export const de = {
   },
   // FKS hose-line device-letter labels (line decoration editor + tooltips)
   lineDecor: {
-    S: 'Schaumrohr',
-    W: 'Wasserwerfer',
+    W: 'Wasser',
+    S: 'Schaum',
     H: 'Hydroschild',
-    P: 'Pulverpistole',
+    P: 'Pulver',
   } as Record<string, string>,
   // data-layer messages (lib/incidents): generated incident title + client-side GeoJSON checks
   incidents: {

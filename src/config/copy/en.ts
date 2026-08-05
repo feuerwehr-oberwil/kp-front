@@ -745,10 +745,10 @@ export const en: Localizable<Copy> = {
     logAlarm: 'SCBA alarm: team {name} – {status}',
   },
   lineDecor: {
-    S: 'Foam branch',
-    W: 'Water monitor',
+    W: 'Water',
+    S: 'Foam',
     H: 'Water curtain',
-    P: 'Powder gun',
+    P: 'Powder',
   } as Record<string, string>,
   incidents: {
     migratedTitle: 'Migrated working state',
