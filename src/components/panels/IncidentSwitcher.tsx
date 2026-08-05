@@ -17,6 +17,24 @@ function fmtClock(ms: number): string {
   }
 }
 
+/**
+ * The sync glyph: one SVG that spins as an open arc and then closes into a full ring with a
+ * tick drawn through it. Deliberately ONE element rather than a spinner swapped for a check —
+ * the ring is the same circle throughout, so the eye follows it from "working" to "done"
+ * instead of seeing two unrelated icons flash past.
+ *
+ * The circle is r=9 → circumference ≈ 56.5; the dash values in .sync-ring/.sync-tick are cut
+ * to that, so changing the radius means re-cutting them (see app.css).
+ */
+function SyncGlyph({ done, label }: { done: boolean; label: string }) {
+  return (
+    <svg className={`sync-glyph${done ? ' on' : ''}`} viewBox="0 0 24 24" role="img" aria-label={label}>
+      <circle className="sync-ring" cx="12" cy="12" r="9" />
+      <path className="sync-tick" d="M7.8 12.4l2.9 2.9 5.6-6.1" />
+    </svg>
+  )
+}
+
 // --- TopBar switcher ----------------------------------------------------------------
 export function IncidentSwitcher({
   active, incidents, isEditor, syncStatus, lastSyncedAt, user, onSettings, onSwitch, onHistory, onDivera, onReportPrint, onArchive, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey, objectName, onObjectSwitch,
@@ -60,19 +78,32 @@ export function IncidentSwitcher({
   onObjectSwitch?: () => void
 }) {
   const cp = appConfig.copy.incidentSwitcher
-  // «Jetzt synchronisieren» reports what it did: the glyph spins for the round trip and a toast
-  // states the outcome. Offline is its own answer — «alles synchronisiert» would be a lie.
-  const [resyncing, setResyncing] = useState(false)
+  // «Jetzt synchronisieren» reports what it did on the button itself: the ring spins for the
+  // round trip, then closes and draws a tick. Success needs no words — a toast for «alles
+  // synchronisiert» was a sentence to read for the most boring outcome there is. Offline and
+  // failure still get one, because those change what the operator should do next.
+  const [syncPhase, setSyncPhase] = useState<'idle' | 'busy' | 'done'>('idle')
+  const doneTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (doneTimer.current) clearTimeout(doneTimer.current) }, [])
   const runSyncNow = async () => {
-    if (resyncing) return
-    setResyncing(true)
+    if (syncPhase === 'busy') return
+    if (doneTimer.current) clearTimeout(doneTimer.current)
+    setSyncPhase('busy')
+    // a round trip on a fast connection can finish in ~50 ms; without a floor the ring would
+    // flick past too quickly to read as anything, and the tick would look like a glitch
+    const floor = new Promise((r) => setTimeout(r, 420))
     try {
-      await onSyncNow()
-      toast(navigator.onLine ? cp.syncDone : cp.syncOfflineToast,
-        navigator.onLine ? { icon: 'check', tone: 'success', duration: 1600 } : { icon: 'warn', tone: 'warn' })
+      await Promise.all([onSyncNow(), floor])
+      if (!navigator.onLine) { setSyncPhase('idle'); toast(cp.syncOfflineToast, { icon: 'warn', tone: 'warn' }); return }
+      setSyncPhase('done')
+      // 2.5s, not the ~1.5s that feels right when you already know it is coming: the tick is
+      // the only confirmation there is now, and someone who taps and then looks up must still
+      // find it there. It costs nothing to leave it — the button stays usable throughout.
+      doneTimer.current = setTimeout(() => setSyncPhase('idle'), 2500)
     } catch {
+      setSyncPhase('idle')
       toast(cp.syncFailedToast, { icon: 'warn', tone: 'warn' })
-    } finally { setResyncing(false) }
+    }
   }
   const badgeTitle: Record<Exclude<SyncStatus, 'synced'>, string> = {
     pending: cp.badgePending, offline: cp.badgeOffline, error: cp.badgeError, storage: cp.badgeStorage,
@@ -186,10 +217,13 @@ export function IncidentSwitcher({
                     pull, the "make everything fresh right now" action when things feel stale */}
                 {/* It has to LOOK like it ran. On an already-synced Einsatz — the normal case —
                     the status line above says «gerade eben synchronisiert» both before and after
-                    the tap, so without the spin and the toast the button read as broken. */}
-                <button className="ip-menu-resync" disabled={resyncing} aria-busy={resyncing}
-                  onClick={() => { void runSyncNow() }} aria-label={cp.syncNow} title={cp.syncNow}>
-                  <Icon id="rotate" className={resyncing ? 'spin' : undefined} />
+                    the tap, so without this the button read as broken. */}
+                <button className={`ip-menu-resync sync-${syncPhase}`} disabled={syncPhase === 'busy'}
+                  aria-busy={syncPhase === 'busy'} onClick={() => { void runSyncNow() }}
+                  aria-label={cp.syncNow} title={cp.syncNow}>
+                  {syncPhase === 'idle'
+                    ? <Icon id="rotate" />
+                    : <SyncGlyph done={syncPhase === 'done'} label={syncPhase === 'done' ? cp.syncDone : cp.syncNow} />}
                 </button>
               </div>
               {/* Einsatzdaten editing lives inside the Einsatzrapport (its "Bearbeiten" link),
