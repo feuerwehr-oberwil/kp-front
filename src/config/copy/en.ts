@@ -1331,10 +1331,10 @@ export const en: Localizable<Copy> = {
     desktop: {
       intro: 'In Chrome or Edge:',
       steps: [
-        'Click the install icon at the right of the address bar',
-        'Confirm with “Install”',
+        'Open the browser menu ⋮ at the top right',
+        'Choose “Install KP Front” and confirm',
       ],
-      note: 'Alternatively: browser menu ⋮ → “Install KP Front”.',
+      note: 'Depending on the version the menu lists it directly or under “Save and share”. If an install icon shows at the right of the address bar, that works too. If neither is there, KP Front is already installed on this device.',
     },
     macSafari: {
       intro: 'In Safari on the Mac:',

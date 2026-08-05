@@ -1262,10 +1262,10 @@ export const fr: Localizable<Copy> = {
     desktop: {
       intro: 'Dans Chrome ou Edge :',
       steps: [
-        'Cliquer sur l’icône d’installation à droite de la barre d’adresse',
-        'Confirmer avec « Installer »',
+        'Ouvrir le menu du navigateur ⋮ en haut à droite',
+        'Choisir « Installer KP Front » et confirmer',
       ],
-      note: 'Sinon : menu du navigateur ⋮ → « Installer KP Front ».',
+      note: 'Selon la version, l’entrée est directe ou sous « Enregistrer et partager ». Si une icône d’installation apparaît à droite de la barre d’adresse, elle fonctionne aussi. Si rien n’apparaît, KP Front est déjà installé sur cet appareil.',
     },
     macSafari: {
       intro: 'Dans Safari sur Mac :',

@@ -1517,11 +1517,15 @@ export const de = {
     },
     desktop: {
       intro: 'In Chrome oder Edge:',
+      // Das Menü zuerst, nicht das Symbol: das Installations-Symbol in der Adressleiste
+      // erscheint NUR, solange die Seite installierbar und noch nicht installiert ist, und
+      // Chrome hat es über die Versionen mehrfach verschoben. Wer danach sucht und es nicht
+      // findet, hält die Anleitung für falsch. Der Menüweg gibt es immer.
       steps: [
-        'Installations-Symbol rechts in der Adressleiste anklicken',
-        'Mit «Installieren» bestätigen',
+        'Browser-Menü ⋮ oben rechts öffnen',
+        '«KP Front installieren» wählen und bestätigen',
       ] as string[],
-      note: 'Alternativ: Browser-Menü ⋮ → «KP Front installieren».',
+      note: 'Das Menü führt den Eintrag je nach Version direkt oder unter «Speichern und teilen». Steht rechts in der Adressleiste ein Installations-Symbol, geht es auch damit. Fehlt beides, ist KP Front auf diesem Gerät bereits installiert.',
     },
     macSafari: {
       intro: 'In Safari auf dem Mac:',
