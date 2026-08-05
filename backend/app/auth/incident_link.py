@@ -59,10 +59,6 @@ from .security import decode_token
 
 LINK_COOKIE = "link_session"
 
-#: `Incident.status` value meaning "still running". Mirrors api/incident_link.py's exchange
-#: check so redeeming a link and holding one already open agree on what "closed" means.
-INCIDENT_OPEN_STATUS = "offen"
-
 #: The SPA fallback route in spa.py.
 _SPA_FALLBACK = "/{full_path:path}"
 
@@ -261,9 +257,7 @@ async def _incident_still_open(db: AsyncSession, incident_id: str) -> bool:
         return False
 
     row = (await db.execute(select(Incident).where(Incident.id == ident))).scalar_one_or_none()
-    if row is None or row.is_archived:
-        return False
-    return row.closed_at is None and row.status == INCIDENT_OPEN_STATUS
+    return row is not None and row.is_open
 
 
 async def enforce_link_scope(request: Request, db: AsyncSession = Depends(get_db)) -> None:

@@ -46,9 +46,6 @@ router = APIRouter(prefix="/incident-link", tags=["incident-link"])
 # effect of retuning kp-front's own tokens.
 LINK_ALGORITHM = "HS256"
 
-# Incident.status while the Einsatz is running (models.Incident default).
-OPEN_STATUS = "offen"
-
 
 class LinkTokenIn(BaseModel):
     token: str
@@ -149,7 +146,7 @@ async def open_link_session(body: LinkTokenIn, response: Response, db: AsyncSess
         # picked the alarm up on a tablet first (production, 2026-08-02). The lookup is
         # source-agnostic and lives in `alarms`, so nothing here learns what Divera is.
         inc = await open_pooled_alarm(db, source=src, ref=str(ref))
-    if inc is None or inc.is_archived or inc.status != OPEN_STATUS or inc.closed_at is not None:
+    if inc is None or not inc.is_open:
         # Unknown, archived, or already closed — one answer for all three (no probing). An
         # alarm that no pool knows either falls in here, indistinguishable from the rest.
         raise HTTPException(status_code=404, detail="Einsatz nicht (mehr) verfügbar")

@@ -34,6 +34,10 @@ def _uuid_pk() -> Mapped[uuid.UUID]:
     return mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
 
+#: ``Incident.status`` while the Einsatz is running (the column default). See `Incident.is_open`.
+INCIDENT_OPEN_STATUS = "offen"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -136,6 +140,18 @@ class Incident(Base):
     )
 
     __table_args__ = (Index("ix_incidents_archived_started", "is_archived", "started_at"),)
+
+    @property
+    def is_open(self) -> bool:
+        """Still running — the one definition of it.
+
+        Three separate things end an Einsatz (archiving it, stamping `closed_at`, moving
+        `status` off ``offen``) and several features hang off "is it still running": the
+        Einsatz-Link is revoked, self-reported crew positions are dropped, a phone may no
+        longer report into it. Those were three hand-written copies of the same condition,
+        which is exactly the kind of drift that ends with a link outliving its Einsatz.
+        """
+        return not self.is_archived and self.closed_at is None and self.status == INCIDENT_OPEN_STATUS
 
 
 # Partial-unique: only one incident per Divera alarm, but many manual incidents have
