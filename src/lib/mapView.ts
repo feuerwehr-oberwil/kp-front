@@ -1,8 +1,8 @@
 // Pure helpers extracted from MapView: world-scaled symbol/shape sizing, GeoJSON
 // feature builders, and the symbol-kind predicates. No React — safe to unit-test.
-import type { Entity, LngLat } from '../types'
+import type { Entity, LayerId, LngLat } from '../types'
 import { appConfig } from '../config/appConfig'
-import { ROTATABLE } from '../lib/symbols'
+import { ROTATABLE, VEHICLE_SYMBOLS } from '../lib/symbols'
 
 export const EMPTY_STYLE = { version: 8 as const, sources: {}, layers: [] }
 
@@ -28,6 +28,22 @@ export const shapePx = (sizeM: number | undefined, lat: number, z: number) => Ma
 export const isRotatableSym = (e: Entity) => e.kind === 'symbol' && !!e.symbol && ROTATABLE.has(e.symbol)
 // a placed generic vehicle — rendered like the live GPS glyph, with its typed name baked in
 export const isVehicleSym = (e: Entity) => e.kind === 'symbol' && e.symbol === appConfig.symbols.vehicleName
+
+/**
+ * The layer an entity actually belongs to. Vehicles answer «Fahrzeuge» whatever their stored
+ * layer says: only the live GPS glyphs were ever put on that layer, so a TLF someone placed by
+ * hand sat on «Taktische Zeichen» and could not be toggled away with the rest of the fleet —
+ * two kinds of the same thing on two different switches.
+ *
+ * Resolved at read time rather than migrated, so every Einsatz already in the database toggles
+ * correctly too, without rewriting a single stored workspace. New placements store the right
+ * layer anyway (see IncidentWorkspace · placeSymbol), so this is a compatibility shim for old
+ * data, not a permanent indirection.
+ */
+export const effectiveLayer = (e: Entity): LayerId =>
+  (e.kind === 'symbol' && e.symbol && VEHICLE_SYMBOLS.has(e.symbol)
+    ? appConfig.gps.layerId
+    : e.layer)
 // Accidental-rotation self-heal: a rotate gesture that ends ALMOST north (within ±threshold°)
 // snaps back to exactly 0 — the common case of a two-finger zoom that drags the bearing a few
 // degrees off heals itself, while deliberate rotation past the threshold sticks. Returns the

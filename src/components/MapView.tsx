@@ -7,7 +7,7 @@ import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
 import { LINE_DASH_ML } from '../lib/draw'
 import { markerParamsAlong, lerpPoint, MAX_VERTEX_HANDLES } from '../lib/lineStyle'
-import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, resumeViewState, snapNorth, shapePx, symPx } from '../lib/mapView'
+import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, resumeViewState, snapNorth, shapePx, symPx, effectiveLayer } from '../lib/mapView'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
 import { truppForLine, truppLineTone, truppTagText } from '../lib/truppLines'
 import { pathLengthM, fmtDistance, fmtArea, polygonAreaM2, hoseLengthHint, circlePolygon } from '../lib/geo'
@@ -306,7 +306,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   const hiddenAttachmentTargets = selectedDrawing ? [selectedDrawing.startAttachment, selectedDrawing.endAttachment].flatMap((a) => {
     if (a?.target.kind !== 'object') return []
     const e = entities.find((x) => x.id === a.target.id)
-    return e && !isVisible(e.layer) ? [e] : []
+    return e && !isVisible(effectiveLayer(e)) ? [e] : []
   }) : []
   const candidatesAt = (sourceId: string, at: LngLat): MagneticTarget[] => {
     const map = mapInst.current
@@ -884,7 +884,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // team trails: the dashed line through a Trupp's RECORDED positions (parity with the plan
   // board's ink polyline — the breadcrumb dots + timestamps stay DOM markers in MapMarkers)
   const trailFC = fc(entities
-    .filter((e) => e.kind === 'team' && isVisible(e.layer) && (e.trail?.length ?? 0) >= 2 && !hiddenTrails.has(e.id))
+    .filter((e) => e.kind === 'team' && isVisible(effectiveLayer(e)) && (e.trail?.length ?? 0) >= 2 && !hiddenTrails.has(e.id))
     .map((e) => lineFeat((e.trail ?? []).map((p) => p.coord), { color: e.color || appConfig.drawing.teamColors[0] })))
   // Vehicle tracks from Traccar — their own layer, off by default, and only polled while it is
   // switched on. Distinct from the Trupp trails above: those are positions the operator recorded

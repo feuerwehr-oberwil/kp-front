@@ -10,7 +10,7 @@ import { placardSvgForSymbol } from '../lib/placard'
 import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom } from '../lib/symbolRender'
 import { symbolCaptionText } from '../lib/symbols'
 import { noteScale, noteWPx, clampNoteWPx } from '../lib/notes'
-import { pxPerM, symPx, shapePx, isRotatableSym, isVehicleSym } from '../lib/mapView'
+import { pxPerM, symPx, shapePx, isRotatableSym, isVehicleSym, effectiveLayer } from '../lib/mapView'
 
 // A transform handle (rotate / resize) whose drag is bound with NATIVE pointer listeners that
 // stopPropagation, so react-map-gl's marker-drag (a listener on the parent that fires on the same
@@ -306,7 +306,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
   // missing a coord) so one bad row can't white-screen the whole map
   return (
     <>
-      {entities.filter((e) => isVisible(e.layer) && Array.isArray(e.coord)).map((e) => {
+      {entities.filter((e) => isVisible(effectiveLayer(e)) && Array.isArray(e.coord)).map((e) => {
         // the glyph's on-screen pixel size — drives the selection halo + handle ring so
         // they sit a fixed distance OUTSIDE the glyph at any zoom (small glyphs push the
         // handles out to a comfortable minimum via --hbox in CSS, big ones track the edge).
@@ -718,7 +718,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
       })}
       {/* team trail breadcrumbs (recorded via «Position markieren») — same dot + timestamp
           look as the plan board; pointer-transparent so they never block a map tap */}
-      {entities.filter((e) => e.kind === 'team' && isVisible(e.layer) && Array.isArray(e.coord) && e.trail?.length && !hiddenTrails?.has(e.id)).flatMap((e) =>
+      {entities.filter((e) => e.kind === 'team' && isVisible(effectiveLayer(e)) && Array.isArray(e.coord) && e.trail?.length && !hiddenTrails?.has(e.id)).flatMap((e) =>
         (e.trail ?? []).map((p, i) => (
           // style on the Marker itself: the WRAPPER div must be pointer-transparent too,
           // or a dot lying under the pill (marked without moving) swallows the pill's tap

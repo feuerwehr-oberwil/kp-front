@@ -9,11 +9,13 @@ import {
   pxPerM,
   resumeViewState,
   shapePx,
+  effectiveLayer,
   snapNorth,
   symPx,
   vis,
 } from './mapView'
 import { appConfig } from '../config/appConfig'
+import { VEHICLE_SYMBOLS } from './symbols'
 import type { Entity, LngLat } from '../types'
 
 const ent = (over: Partial<Entity>): Entity => ({
@@ -144,5 +146,28 @@ describe('resumeViewState — surviving a context-loss remount', () => {
   it('keeps a zeroed live view rather than falling back to the initial one', () => {
     const live = { center: [0, 0] as LngLat, zoom: 0, bearing: 0 }
     expect(resumeViewState(live, center, 17.6, 30)).toEqual({ longitude: 0, latitude: 0, zoom: 0, bearing: 0 })
+  })
+})
+
+// A hand-placed TLF and a live GPS TLF are the same thing to an operator; only the live ones
+// were ever put on the Fahrzeuge layer, so «Fahrzeuge» ausblenden left the placed ones on screen.
+describe('effectiveLayer', () => {
+  it('answers Fahrzeuge for a driven vehicle whatever its stored layer says', () => {
+    for (const name of ['VKF Fahrzeug', 'VKF Drehleiter', 'VKF Hubretter', 'FW Boot']) {
+      expect(effectiveLayer(ent({ symbol: name, layer: 'taktisch' }))).toBe(appConfig.gps.layerId)
+    }
+  })
+
+  it('leaves everything else on the layer it was stored on', () => {
+    expect(effectiveLayer(ent({ symbol: 'VKF Drohne', layer: 'taktisch' }))).toBe('taktisch')
+    expect(effectiveLayer(ent({ symbol: 'VKF Luefter mobil', layer: 'taktisch' }))).toBe('taktisch')
+    expect(effectiveLayer(ent({ kind: 'note', layer: 'markup' }))).toBe('markup')
+  })
+
+  it('derives the vehicle set from the presets, not a hand-kept list', () => {
+    // a vehicle is what carries a Fahrer — the config comment's "driven vehicles"
+    expect(VEHICLE_SYMBOLS.has('VKF Fahrzeug')).toBe(true)
+    expect(VEHICLE_SYMBOLS.has('Grosslüfter')).toBe(true)
+    expect(VEHICLE_SYMBOLS.has('VKF Drohne')).toBe(false)
   })
 })

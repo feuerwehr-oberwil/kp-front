@@ -39,6 +39,18 @@ export const ROTATABLE: Set<string> = new Set(
     .map(([name]) => name),
 )
 
+/** Names of every DRIVEN vehicle — derived, like ROTATABLE, from the presets rather than a
+ *  hand-kept list: a vehicle is a symbol that carries a «Fahrer». That is exactly the set the
+ *  config comment already calls the driven vehicles (Fahrzeug, Drehleiter, Hubretter,
+ *  Grosslüfter, Boot) and it deliberately excludes the mobile Lüfter and the Drohne, which
+ *  nobody drives. Used to put a placed vehicle on the Fahrzeuge layer so it toggles with the
+ *  live GPS ones instead of being stuck among the tactical symbols. */
+export const VEHICLE_SYMBOLS: Set<string> = new Set(
+  Object.entries(presets.byName)
+    .filter(([, p]) => p.fields?.includes('Fahrer'))
+    .map(([name]) => name),
+)
+
 /** Which of the three built-in steppers (rotation / count / floor) make sense for
  *  this symbol — the editor renders only these (intersected with what the surface
  *  supports). Unknown symbols fall back to all three (safe default). */

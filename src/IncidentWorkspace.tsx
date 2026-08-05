@@ -18,7 +18,7 @@ import { appConfig } from './config/appConfig'
 import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDemoMode } from './lib/deploymentConfig'
 import { fillTemplate, formatSymbolName, formatTime } from './lib/format'
 import { formatAudioDuration } from './lib/audioImport'
-import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys } from './lib/symbols'
+import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys, VEHICLE_SYMBOLS } from './lib/symbols'
 import { circlePolygon, fmtLV95, fmtWGS, haversineM, pathLengthM, polygonAreaM2 } from './lib/geo'
 import { intervalsOf, isPresent, openPresence } from './lib/attendanceIntervals'
 import { useShiftActions } from './lib/useShiftActions'
@@ -1260,7 +1260,11 @@ export function IncidentWorkspace({
       const id = `p${Date.now()}`; const s = pending
       // shared seeding (label / subtitle / fields / vehicle rotation) — identical to
       // the Plan placement path so a symbol carries the same structure on both surfaces
-      const entity: Entity = { id, kind: 'symbol', layer: appConfig.defaults.operationalLayerId, coord: c, ...seedSymbolProps(s, sym.symbols) }
+      // A driven vehicle is stored on the Fahrzeuge layer, so it toggles with the live GPS
+      // glyphs rather than sitting among the tactical symbols. (Old incidents are handled by
+      // effectiveLayer at read time — this just means new data needs no shim.)
+      const layer = VEHICLE_SYMBOLS.has(s) ? appConfig.gps.layerId : appConfig.defaults.operationalLayerId
+      const entity: Entity = { id, kind: 'symbol', layer, coord: c, ...seedSymbolProps(s, sym.symbols) }
       commit((d) => ({ ...d, entities: [...d.entities, entity] }))
       addRecent(s)
       setSelectedDrawIds([]); setSelectedEntityIds([])
