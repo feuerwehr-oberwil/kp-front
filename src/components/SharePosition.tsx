@@ -144,7 +144,9 @@ export function SharePositionPill({ share, onChangeName }: { share: ShareApi; on
         title={labelFor(state)}
         aria-label={labelFor(state)}
       >
-        <Icon id="locate" />
+        {/* same glyph as the row that switches it on (see MapViewsMenu) — the switch and its
+            indicator have to be recognisably the same thing */}
+        <Icon id="people" />
       </button>
       {open && (
         <Modal title={labelFor(state)} onClose={() => setOpen(false)} fit>

@@ -87,7 +87,11 @@ function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose }: {
             aria-pressed={api.share.on}
             onClick={() => { api.share!.onToggle(); onClose() }}
           >
-            <span className={s.ico}><Icon id="locate" /></span>
+            {/* NOT the «locate» crosshair: this row sits directly under «Mein Standort», and
+                giving two adjacent rows the same glyph is how an eye slides straight past the
+                one it is looking for. «people» also says what the row actually does — it puts
+                you on the Personen layer, which is the icon that layer carries. */}
+            <span className={s.ico}><Icon id="people" /></span>
             <span className={s.name}>{api.share.label}</span>
           </button>
         )}
