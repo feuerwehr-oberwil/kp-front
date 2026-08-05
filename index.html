@@ -11,6 +11,16 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="KP Front" />
+    <!--
+      Let the map run under the iOS status bar instead of below an opaque strip of theme-color.
+      This is what switches `env(safe-area-inset-*)` on: without black-translucent iOS insets the
+      web view beneath the status bar itself, every safe-area inset resolves to 0, and the ~50pt
+      at the top is dead space. The stylesheet has always been written for this (viewport-fit=cover
+      above, and the insets used throughout app.css) — only the tag was missing.
+      The cost: iOS then draws the clock and battery in WHITE and offers no way to ask for dark.
+      Over a day-mode basemap that is unreadable, so .safe-top-scrim in app.css puts a gradient
+      behind them. Removing one without the other breaks the pair.
+    -->
     <title>KP Front — Lagekarte</title>
     <!-- Fonts are self-hosted (see src/fonts.css) so they precache for offline cold-start. -->
     <!--
@@ -34,6 +44,10 @@
     </script>
   </head>
   <body>
+    <!-- Keeps the iOS status bar readable over the map — see .safe-top-scrim in app.css.
+         A sibling of #root, not a child: React owns #root and would drop it on mount, and it
+         must already be there for the boot splash below. Zero height off iOS. -->
+    <div class="safe-top-scrim" aria-hidden="true"></div>
     <!--
       Static boot splash. React's <Splash> cannot cover this window: it only exists once the
       bundle has parsed AND main.tsx's two budgeted awaits have settled (up to 4s each), and
