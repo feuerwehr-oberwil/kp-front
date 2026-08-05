@@ -1324,8 +1324,13 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
    note tokens rather than set flat, so it holds in day and night (the plain look colours the
    text instead — there is no paper to tint). One rule for the map pill and the plan label. */
 .note-pill.tinted, .wb-text-label.tinted, .note-pill-input.tinted, .wb-text-input.tinted {
-  background: color-mix(in srgb, var(--note-tint) 18%, var(--note-bg));
-  border-color: color-mix(in srgb, var(--note-tint) 60%, var(--note-border));
+  background: color-mix(in srgb, var(--note-tint) 22%, var(--note-bg));
+  border-color: color-mix(in srgb, var(--note-tint) 75%, var(--note-border));
+  /* the TEXT carries the colour too — a tinted border alone was a detail you had to go
+     looking for. Mixed toward the note's own dark ink rather than used raw: the raw swatch
+     (a mid-blue, a mid-green) on a pale tinted pill is thin at 12px with gloves on, while
+     70% colour over the ink stays unmistakably that colour and still reads at arm's length. */
+  color: color-mix(in srgb, var(--note-tint) 70%, var(--note-ink));
 }
 /* empty note shows a muted placeholder so it stays visible + tappable (like the Plan note) */
 .note-pill-ph { opacity: .5; font-style: italic; }
