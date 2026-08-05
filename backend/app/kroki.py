@@ -783,6 +783,10 @@ def render_kroki(
                 tag_parts.append(str(d["content"]))
             if d.get("floorTag") is not None:
                 tag_parts.append(floor_badge(d["floorTag"]))
+            # who worked this Leitung. No alarm tint on paper: a printed rapport is the record of
+            # an incident, not a live board — a red hose would freeze one moment as the outcome.
+            if d.get("trupp"):
+                tag_parts.append(str(d["trupp"]))
             if tag_parts:
                 _end_tag(draw, pts, tag_parts, color, int(12 * u * ss))
             # label chip at the midpoint VERTEX (like the map): distance line + free label stack

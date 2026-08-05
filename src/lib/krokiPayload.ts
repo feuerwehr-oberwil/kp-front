@@ -4,7 +4,7 @@
 // composite, generic shapes — are resolved to SVG strings HERE with the same pure helpers
 // the live map uses, so client and server render the identical artwork.
 
-import type { Drawing, Entity, LayerDef, LngLat, ShapeKind } from '../types'
+import type { Drawing, Entity, LayerDef, LngLat, ShapeKind, Trupp } from '../types'
 import { appConfig } from '../config/appConfig'
 import { isVehicleSym } from './mapView'
 import { placardSvgForSymbol } from './placard'
@@ -13,6 +13,7 @@ import { LUEFTER, LUEFTER_EXTRACT, compositeSpec, compositePartGlyph, composeCom
 import { SHAPE_DEFS } from './shapes'
 import { operationalExtentPoints, type KrokiView } from './report'
 import { resolveMapDrawings } from './lineAttachments'
+import { truppForLine, truppTagText } from './truppLines'
 
 export interface KrokiEntityOut {
   coord: LngLat
@@ -35,9 +36,13 @@ export interface KrokiEntityOut {
   notePlain?: boolean
 }
 
+/** A drawing as the SERVER needs it: the stored fields plus `trupp`, the Atemschutz leader
+ *  already resolved + abbreviated here (the compositor has no Trupp records of its own). */
+export type KrokiDrawingOut = Partial<Drawing> & { trupp?: string }
+
 export interface KrokiPayloadOut {
   entities: KrokiEntityOut[]
-  drawings: Partial<Drawing>[]
+  drawings: KrokiDrawingOut[]
   fitPoints: LngLat[]
   center?: LngLat
   zoom?: number
@@ -123,8 +128,10 @@ export function buildKrokiPayload(args: {
   center: LngLat
   currentView?: KrokiView | null
   includeLiveVehiclesInExtent?: boolean
+  /** monitored Trupps — a hose they work on prints its leader in the end tag */
+  trupps?: Trupp[]
 }): KrokiPayloadOut | null {
-  const { entities, drawings: storedDrawings, layers, byName, center } = args
+  const { entities, drawings: storedDrawings, layers, byName, center, trupps = [] } = args
   const drawings = resolveMapDrawings(storedDrawings, entities)
   const visible = (id: string) => layers.find((l) => l.id === id)?.visible ?? true
   const base = layers.find((l) => l.base && l.visible && l.tiles?.length) ?? layers.find((l) => l.base && l.tiles?.length)
@@ -133,12 +140,21 @@ export function buildKrokiPayload(args: {
     .filter((e) => visible(e.layer))
     .map((e) => krokiEntity(e, byName))
     .filter((e): e is KrokiEntityOut => e !== null)
+  const truppLabel = (d: Drawing): string | undefined => {
+    const t = truppForLine(d, trupps)
+    return t ? truppTagText(t) : undefined
+  }
   const drawingsVisible = visible(appConfig.defaults.drawingLayerId)
   const draws = (drawingsVisible ? drawings : []).map((d) => ({
     kind: d.kind, coords: d.coords, color: d.color, width: d.width, dashed: d.dashed,
     arrow: d.arrow, marker: d.marker, label: d.label, showDistance: d.showDistance,
     fillOpacity: d.fillOpacity, radiusM: d.radiusM,
     teilstueck: d.teilstueck, lineNo: d.lineNo, content: d.content, floorTag: d.floorTag,
+    // the Atemschutz-Trupp on this Leitung, already resolved + abbreviated: the server draws the
+    // Kroki from this payload alone and has no Trupp records to match against. Alarm TONES are
+    // deliberately not sent — paper has no live clock, and a red hose on a printed rapport would
+    // freeze a moment of the incident as if it were its outcome.
+    trupp: d.kind === 'line' ? truppLabel(d) : undefined,
   }))
   return {
     entities: ents,

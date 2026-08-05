@@ -103,3 +103,26 @@ describe('shapeSvgString', () => {
     expect(shapeSvgString('cloud', '#123456')).toContain('fill-opacity="0.5"')
   })
 })
+
+describe('kroki payload · Atemschutz on a hose line', () => {
+  it('sends the Trupp with the line, resolved and abbreviated for the server', () => {
+    const drawings: Drawing[] = [
+      { id: 'd1', kind: 'line', coords: [[7.55, 47.51], [7.56, 47.52]], lineNo: 1 },
+      { id: 'd2', kind: 'line', coords: [[7.55, 47.51], [7.57, 47.52]], lineNo: 2 },
+    ]
+    const trupps = [{
+      id: 't1', name: 'Hans Müller', lineNo: 1, entryPressureBar: 300,
+      entryTime: '2026-08-05T10:00:00Z', lastContactTime: '2026-08-05T10:03:00Z', status: 'aktiv' as const,
+    }]
+    const p = buildKrokiPayload({ entities: [], drawings, layers, byName: {}, center: [7.55, 47.51], trupps })
+    expect(p?.drawings[0]).toMatchObject({ lineNo: 1, trupp: 'Hans M.' })
+    // the other Leitung has nobody on it — no tag part, no invented link
+    expect(p?.drawings[1].trupp).toBeUndefined()
+  })
+
+  it('prints no Trupp when none is monitored (the common case)', () => {
+    const drawings: Drawing[] = [{ id: 'd1', kind: 'line', coords: [[7.55, 47.51], [7.56, 47.52]], lineNo: 1 }]
+    const p = buildKrokiPayload({ entities: [], drawings, layers, byName: {}, center: [7.55, 47.51] })
+    expect(p?.drawings[0].trupp).toBeUndefined()
+  })
+})

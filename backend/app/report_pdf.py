@@ -140,6 +140,9 @@ class KrokiDrawingIn(BaseModel):
     lineNo: int | None = None
     content: str | None = None
     floorTag: int | None = None
+    # the Atemschutz-Trupp working this Leitung, resolved + abbreviated by the client (the server
+    # has no Trupp records to match against). Printed as the last part of the end tag.
+    trupp: str | None = None
 
 
 class KrokiIn(BaseModel):

@@ -172,6 +172,8 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
         entities: scene.entities, drawings: scene.drawings, layers: scene.layers, byName: scene.byName,
         center: scene.center,
         currentView: draft.options.krokiView ?? null,
+        // so a hose on the printed Kroki names the Trupp that worked it
+        trupps,
       })
     : null
 
@@ -219,7 +221,8 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
     planPages,
     trupps: (draft.options.atemschutz ? trupps : []).map((t) => ({
       name: t.name, statusLabel: truppStatusLabel(t.status), members: t.members ?? [], auftrag: t.auftrag, ziel: t.ziel,
-      lineNumber: t.lineNumber != null ? String(t.lineNumber) : undefined,
+      // the numeric Leitung, else the free text an older record still carries verbatim
+      lineNumber: t.lineNo != null ? String(t.lineNo) : t.lineNumber?.trim() || undefined,
       entryTime: t.entryTime ? formatDateTime(t.entryTime) : undefined, exitTime: t.exitTime ? formatDateTime(t.exitTime) : undefined,
       readings: (t.readings ?? []).map((rr) => ({ t: formatDateTime(rr.t), kindLabel: readingKindLabel(rr.kind), bar: rr.bar != null ? String(rr.bar) : undefined })),
     })),
