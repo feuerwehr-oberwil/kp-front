@@ -23,6 +23,8 @@ function harness(trupp: Trupp, seed?: { board?: BoardDoc; entities?: Entity[] })
   // eslint-disable-next-line react-hooks/rules-of-hooks -- plain closure factory, no hooks inside
   const actions = useTruppActions({
     trupps: state.trupps,
+    // the live Lage entities the colour picker reads (see teamColors.ts)
+    entities: state.doc.entities,
     setTrupps: ((a) => { state.trupps = apply(state.trupps, a) }) as Dispatch<SetStateAction<Trupp[]>>,
     board: state.board,
     setBoard: ((a) => { state.board = apply(state.board, a) }) as Dispatch<SetStateAction<BoardDoc>>,

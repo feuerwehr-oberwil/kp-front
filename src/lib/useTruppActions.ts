@@ -6,6 +6,7 @@ import { fillTemplate, formatTime } from './format'
 import { toast } from './ui'
 import { gebaeudeDoc } from '../data/demoIncident'
 import { abbreviateName } from './personnel'
+import { pickTeamColor } from './teamColors'
 
 type Mode = 'map' | 'plans' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel'
 type PlanFocus = { x: number; y: number; floor: number; annoId?: string; nonce: number } | null
@@ -15,6 +16,8 @@ export const LAGE_TARGET = 'lage'
 
 interface Deps {
   trupps: Trupp[]
+  /** live Lage entities — read to see which team colours are already worn (pickTeamColor) */
+  entities: Entity[]
   setTrupps: Dispatch<SetStateAction<Trupp[]>>
   /** read-only board (to locate a Trupp's plan chip so «auf Plan zeigen» centres on it) */
   board: BoardDoc
@@ -43,7 +46,7 @@ interface Deps {
  * persistence blob + hydrate + multiple components) and are passed in.
  */
 export function useTruppActions(deps: Deps) {
-  const { trupps, setTrupps, board, setBoard, setDocRaw, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus, mapCenter, focusMapEntity } = deps
+  const { trupps, entities, setTrupps, board, setBoard, setDocRaw, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus, mapCenter, focusMapEntity } = deps
 
   // A Trupp is tracked at exactly ONE place — drop any prior placement (plan chip AND/OR
   // map marker) before adding a new one, so re-placing or a sync re-fire can't leave an
@@ -81,11 +84,21 @@ export function useTruppActions(deps: Deps) {
       setDocRaw((d) => ({ ...d, entities: d.entities.map((e) => (e.id === entityId ? { ...e, label: abbreviateName(name) } : e)) }))
     }
   }
-  // the team colour is stable per Trupp (index-cycled) so plan chip + map marker match
-  const teamColor = (id: string) => {
+  // The Trupp's own palette slot — its index in the list, so plan chip and map marker match and
+  // a Trupp keeps the colour people have got used to. Whether it actually GETS that colour is
+  // decided at placement by pickTeamColor, which steps aside if something already wears it.
+  const preferredColor = (id: string) => {
     const colors = appConfig.drawing.teamColors
     return colors[Math.max(0, trupps.findIndex((t) => t.id === id)) % colors.length]
   }
+  /** every colour currently worn by a placed marker or plan chip — what a new placement must
+   *  not duplicate. Reads the live doc/board rather than a counter, so deleting a Trupp frees
+   *  its colour again instead of shifting everyone else's. */
+  const colorsInUse = (exceptTruppId?: string): (string | undefined)[] => [
+    ...entities.filter((e) => e.kind === 'team' && e.truppId !== exceptTruppId).map((e) => e.color),
+    ...Object.values(board).flat().filter((a) => a.kind === 'resource' && a.truppId !== exceptTruppId).map((a) => a.color),
+  ]
+  const teamColor = (id: string) => pickTeamColor(preferredColor(id), colorsInUse(id))
   // Place a Trupp manually on the building plan (Gebäude floor-stack if a building exists, else
   // Modul 6) as a resource chip the EL can then drag to the team's position. NOT auto-created
   // on registration.

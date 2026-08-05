@@ -1,6 +1,7 @@
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatTime } from './format'
 import { toast, confirmDialog } from './ui'
+import { pickTeamColor } from './teamColors'
 import type { Doc } from './workspace'
 import type { Entity, LngLat, TimelineEvent } from '../types'
 
@@ -22,10 +23,13 @@ interface TeamMarkerActionsDeps {
  */
 export function useTeamMarkerActions({ entities, commit, log, emit, setSelectedId, setSelectedDrawingId }: TeamMarkerActionsDeps) {
   const placeGenericTeam = (c: LngLat) => {
-    const teams = entities.filter((e) => e.kind === 'team').length
-    const colors = appConfig.drawing.teamColors
+    const teams = entities.filter((e) => e.kind === 'team')
     const id = `trupp${Date.now()}`
-    const marker: Entity = { id, kind: 'team', layer: appConfig.defaults.operationalLayerId, coord: c, label: `${appConfig.copy.whiteboard.team} ${teams + 1}`, t: formatTime(new Date()), color: colors[teams % colors.length], trail: [] }
+    // No claim to any particular slot, so: the first colour nobody on the Lage is wearing.
+    // The old `colors[teams.length]` collided with an Atemschutz Trupp of the same index and
+    // repeated itself after a deletion (see teamColors.ts).
+    const color = pickTeamColor(undefined, teams.map((e) => e.color))
+    const marker: Entity = { id, kind: 'team', layer: appConfig.defaults.operationalLayerId, coord: c, label: `${appConfig.copy.whiteboard.team} ${teams.length + 1}`, t: formatTime(new Date()), color, trail: [] }
     commit((d) => ({ ...d, entities: [...d.entities, marker] }))
     log('flag', fillTemplate(appConfig.copy.log.teamPlaced, { name: marker.label! }), 'team', undefined, id)
     emit('entity.add', { id, kind: 'team', entity: marker })
