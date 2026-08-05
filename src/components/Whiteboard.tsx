@@ -1781,8 +1781,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 {a.kind === 'text' && (() => {
                   // every note is a wrapping box; a stored note with no width falls back to the
                   // default. Font size = plan-scaled base × the S/M/L step.
-                  const cls = (base: string) => `${base} box${a.notePlain ? ' plain' : ''}`
-                  const style = { fontSize: txtBase * scale * noteScale(a.noteSize), width: noteWN(a.wN) * sW, ...(a.notePlain && a.color ? { color: a.color } : null) }
+                  // colour applies in both looks — see the twin in MapMarkers for why it did not
+                  const tinted = !a.notePlain && !!a.color
+                  const cls = (base: string) => `${base} box${a.notePlain ? ' plain' : ''}${tinted ? ' tinted' : ''}`
+                  const style = {
+                    fontSize: txtBase * scale * noteScale(a.noteSize), width: noteWN(a.wN) * sW,
+                    ...(a.color ? (a.notePlain ? { color: a.color } : { '--note-tint': a.color }) : null),
+                  } as React.CSSProperties
                   return editId === a.id
                     ? <textarea className={cls('wb-text-input')} ref={focusOnce} value={a.text} placeholder={appConfig.copy.whiteboard.textPlaceholder} rows={1} style={style}
                         onPointerDown={(e) => e.stopPropagation()}

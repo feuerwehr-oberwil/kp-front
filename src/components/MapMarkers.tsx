@@ -422,8 +422,17 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
             ) : e.kind === 'note' ? (() => {
               // every note is a wrapping box; a stored note with no width falls back to the
               // default. Font size = the fixed 12px base × the S/M/L step.
-              const cls = (base: string) => `${base} box${e.notePlain ? ' plain' : ''}`
-              const nStyle = { fontSize: 12 * noteScale(e.noteSize), width: noteWPx(e.noteW), ...(e.notePlain && e.color ? { color: e.color } : null) }
+              // Colour applies in BOTH looks. It used to be `notePlain && color`, so on the
+              // default pill the whole colour row was decoration: you picked red, nothing
+              // changed, and the swatch stayed selected to prove it had been understood.
+              // Plain = coloured ink (there is nothing else to colour); pill = tinted paper,
+              // mixed in CSS so it holds up in day and night.
+              const tinted = !e.notePlain && !!e.color
+              const cls = (base: string) => `${base} box${e.notePlain ? ' plain' : ''}${tinted ? ' tinted' : ''}`
+              const nStyle = {
+                fontSize: 12 * noteScale(e.noteSize), width: noteWPx(e.noteW),
+                ...(e.color ? (e.notePlain ? { color: e.color } : { '--note-tint': e.color }) : null),
+              } as React.CSSProperties
               return editNoteId === e.id ? (
                 <textarea
                   className={cls('note-pill note-pill-input')}
