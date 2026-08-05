@@ -270,7 +270,9 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 /* the Leitung chip when there IS a drawn hose behind it — a tag that says «tap me» */
 .tagGo { display: inline-flex; align-items: center; gap: 2px; border: 0; cursor: pointer; font: inherit; }
 .tagGo svg { width: 13px; height: 13px; opacity: .7; }
-.tagGo:hover { color: var(--accent); }
+/* NOT --accent on hover: that token is this deployment's brand red, so the whole chip lit up
+   red — which reads as an error, not as "you can tap this". Blue is the app's interactive ink. */
+.tagGo:hover { color: var(--blue); background: color-mix(in srgb, var(--blue) 12%, transparent); }
 
 /* Leitung Nr.: stepper and the drawn Leitungen on ONE line, wrapping only when they must */
 .lineRow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
