@@ -9,19 +9,16 @@
    right tool rail, and tracking its width (--vrail-w) — see .wb-dock-map */
 .dock { position: fixed; right: calc(var(--vrail-w, 60px) + 42px); top: 50%; transform: translateY(-50%); }
 
-/* phone: the trigger sits in the tool bar beside Ebenen, so the popover
-   anchors right below it (top-right) and stays clear of the bottom bars + Eintrag FAB */
+/* Phone: the trigger is the compass in the bottom tool bar, so the dock opens ABOVE the bars,
+   next to the thumb that pressed it, rather than jumping to the far top corner.
+   Its bottom edge lands exactly where the Ebenen sheet's does (`--rail-h * 2 + 26px`, see
+   .layers-card in app.css) — the two open from the same bar and must line up. That also keeps
+   the Eintrag FAB, which floats just above the bar, from peeking out beside the dock's own ⓘ
+   button, where the two round controls read as a pair. */
 @media (max-width: 600px) {
-  /* …unless the surface is read-only: there the trigger is the compass in the bottom tool rail,
-     so the popover opens above the bars, next to the thumb that pressed it, instead of jumping
-     to the far top corner. */
-  :global(html.slim-tools) .dock { top: auto; right: max(10px, env(safe-area-inset-right));
+  .dock { top: auto; right: max(10px, env(safe-area-inset-right));
     bottom: calc(var(--rail-h) * 2 + 26px + env(safe-area-inset-bottom)); transform: none;
     max-height: calc(100dvh - 220px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
-  .dock { right: max(10px, env(safe-area-inset-right)); top: calc(118px + env(safe-area-inset-top)); transform: none;
-    /* overlay the two bottom docks (tool + section bar) instead of stopping above them, so the
-       list rarely needs to scroll — the popover is z-201, above the z-35/40 bars. */
-    max-height: calc(100dvh - 130px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
 }
 
 .head { display: flex; align-items: center; justify-content: flex-end; padding: 0 0 6px; }

@@ -3795,6 +3795,11 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
      lived in two different places depending on who you were logged in as. One place now:
      they are map controls, and the tool bar is where the map's controls are. */
   .tool-rail :is(.vrail-layers, .vrail-views) { width: 50px; min-width: 50px; flex: 0 0 auto; }
+  /* Ebenen stays the OUTERMOST control — it is the one reached most often, so it keeps the
+     corner the thumb finds without looking. `order` rather than a DOM swap: on every wider
+     form factor this footer is a vertical column where the existing order is right. */
+  .tool-rail .vrail-views { order: 1; }
+  .tool-rail .vrail-layers { order: 2; }
   /* the weather goes back into the top bar on a read-only surface: that bar carries no
      undo/redo and no Eintrag, which measures 96px free against the readout's 83px. */
   .slim-tools .topbar .tb-weather-wrap { display: inline-flex; }
