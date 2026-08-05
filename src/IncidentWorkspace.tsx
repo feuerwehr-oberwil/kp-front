@@ -94,6 +94,7 @@ import {
   WorkspaceSync, uploadMedia,
   referenceUrl,
   type IncidentMeta,
+  isIncidentRunning,
 } from './lib/incidents'
 import { useAuditEvents } from './lib/useAuditEvents'
 import { useMapDrawing } from './lib/useMapDrawing'
@@ -261,10 +262,12 @@ export function IncidentWorkspace({
   // holder is (`share`, available to every session including a link-scoped phone), and the
   // command post READS the crew picture (`livePeople`, refused to a link session server-side,
   // so it isn't even polled for one). Both die with the incident.
-  // Same three things the backend calls "still running" (models.Incident.is_open) — a phone
-  // must not keep reporting into an Einsatz that is over, and finding out via a 404 would
-  // leave a green pill on the screen in the meantime.
-  const incidentOpen = !incidentMeta.is_archived && !incidentMeta.closed_at && incidentMeta.status === 'offen'
+  // Exactly what the backend calls "still running" (models.Incident.is_open) — a phone must
+  // not keep reporting into an Einsatz that is over, and finding out via a 404 would leave a
+  // green pill on the screen in the meantime. Shared helper, not a hand-written copy: this
+  // check used to spell out `status === 'offen'` and so hid the whole feature on an Einsatz
+  // somebody had marked «In Arbeit».
+  const incidentOpen = isIncidentRunning(incidentMeta)
   const share = useShareMyPosition(incidentMeta.id, incidentOpen)
   const livePeople = usePersonPositions(incidentMeta.id, !linkScoped && !replayActive)
   // null = closed · 'ask' = permission + name · 'pick' = the roster alone (changing the name).

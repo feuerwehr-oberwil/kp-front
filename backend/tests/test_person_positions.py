@@ -214,6 +214,17 @@ async def test_closing_the_einsatz_deletes_every_position(client, editor, incide
     assert await _rows(db_session, incident) == []
 
 
+async def test_an_einsatz_marked_in_arbeit_is_still_running(client, editor, incident, person, db_session):
+    """«In Arbeit» is the state of an Einsatz somebody is WORKING — the one moment it is most
+    obviously not over. Treating only "offen" as running hid Standort teilen (and revoked the
+    Einsatz-Link) exactly then, reported from production 2026-08-05."""
+    incident.status = "in_arbeit"
+    await db_session.commit()
+    await _login(client, editor)
+    r = await client.post(f"/api/incidents/{incident.id}/positions", json=_body(person))
+    assert r.status_code == 204, r.text
+
+
 @pytest.mark.parametrize(
     "ends_it",
     [

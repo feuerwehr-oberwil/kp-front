@@ -7,6 +7,18 @@ import { appConfig } from '../../config/appConfig'
 import { putWorkspace, type Workspace } from './workspace'
 
 // --- Types (mirror backend schemas) -------------------------------------------------
+/** `Incident.status` values that mean the Einsatz is RUNNING — mirrors the backend's
+ *  `INCIDENT_ACTIVE_STATUSES`. "offen" is what every intake writes; "in_arbeit" is what an
+ *  editor sets once somebody is working it (shown as «In Arbeit» in the Einsatz list). */
+export const INCIDENT_ACTIVE_STATUSES = ['offen', 'in_arbeit']
+
+/** Is this Einsatz still running? The client-side twin of the backend's `Incident.is_open`,
+ *  and the one place to ask — a hand-written copy that drifts from the server's answer shows
+ *  affordances the API then refuses (or hides ones it would allow). */
+export function isIncidentRunning(i: Pick<IncidentMeta, 'is_archived' | 'closed_at' | 'status'>): boolean {
+  return !i.is_archived && !i.closed_at && INCIDENT_ACTIVE_STATUSES.includes(i.status)
+}
+
 export interface IncidentMeta {
   id: string
   divera_id: number | null

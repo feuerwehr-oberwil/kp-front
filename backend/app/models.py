@@ -34,7 +34,16 @@ def _uuid_pk() -> Mapped[uuid.UUID]:
     return mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
 
-#: ``Incident.status`` while the Einsatz is running (the column default). See `Incident.is_open`.
+#: ``Incident.status`` values that mean the Einsatz is RUNNING. See `Incident.is_open`.
+#:
+#: Two, not one. "offen" is the column default every intake writes; "in_arbeit" is what an
+#: editor sets once somebody is working it (PATCH /incidents/{id}, and the app labels it «In
+#: Arbeit» in the Einsatz list). Both are live. Treating only "offen" as running quietly
+#: revoked the Einsatz-Link — and hid Standort teilen — the moment an Einsatz was marked as
+#: being worked on, which is the one moment it is most obviously not over.
+INCIDENT_ACTIVE_STATUSES = ("offen", "in_arbeit")
+
+#: The column default, for the intake paths that stamp it.
 INCIDENT_OPEN_STATUS = "offen"
 
 
@@ -146,12 +155,12 @@ class Incident(Base):
         """Still running — the one definition of it.
 
         Three separate things end an Einsatz (archiving it, stamping `closed_at`, moving
-        `status` off ``offen``) and several features hang off "is it still running": the
+        `status` off an active one) and several features hang off "is it still running": the
         Einsatz-Link is revoked, self-reported crew positions are dropped, a phone may no
         longer report into it. Those were three hand-written copies of the same condition,
         which is exactly the kind of drift that ends with a link outliving its Einsatz.
         """
-        return not self.is_archived and self.closed_at is None and self.status == INCIDENT_OPEN_STATUS
+        return not self.is_archived and self.closed_at is None and self.status in INCIDENT_ACTIVE_STATUSES
 
 
 # Partial-unique: only one incident per Divera alarm, but many manual incidents have

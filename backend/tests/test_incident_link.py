@@ -530,6 +530,18 @@ async def test_link_cannot_read_another_incident(client, link_key, incident, db_
         assert r.json()["detail"] == DENIED_DETAIL
 
 
+async def test_an_einsatz_marked_in_arbeit_keeps_its_link(client, link_key, incident, db_session):
+    """«In Arbeit» means somebody is working the Einsatz — the responders holding its link are
+    exactly who should still reach it. Treating only "offen" as running revoked every link the
+    moment an editor marked it as being worked on."""
+    await _open_link(client)
+    incident.status = "in_arbeit"
+    await db_session.commit()
+
+    r = await client.get(f"/api/incidents/{incident.id}/journal")
+    assert r.status_code == 200, r.text
+
+
 async def test_closing_the_incident_revokes_a_live_link(client, link_key, incident, db_session):
     """«The link works until the Einsatz is closed» — checked per request, not once at
     exchange, or closing an Einsatz would do nothing for the rest of the cookie's 12 hours."""

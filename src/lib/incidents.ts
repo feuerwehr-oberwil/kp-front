@@ -20,6 +20,7 @@ export {
   deleteIncident, migrateLegacyWorkspace,
 } from './api/incidents'
 export type { IncidentMeta, IncidentFull, IncidentCreate } from './api/incidents'
+export { isIncidentRunning, INCIDENT_ACTIVE_STATUSES } from './api/incidents'
 
 export { getWorkspace, putWorkspace, putWorkspaceBeacon, pollWorkspaceSince } from './api/workspace'
 export type { Workspace } from './api/workspace'
