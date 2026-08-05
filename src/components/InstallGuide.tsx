@@ -19,7 +19,15 @@ function renderStep(step: string) {
     i === 0 ? [part] : [<Icon key={i} id="share-ios" />, part])
 }
 
-export function InstallGuide({ onClose }: { onClose: () => void }) {
+/**
+ * The guide's body on its own, so the Offline-Bereitschaft sheet can show the steps INLINE
+ * instead of sending the operator into a second modal to read four lines. One implementation,
+ * so the two places can never drift.
+ *
+ * `lead` carries the «why install» paragraph — the offline sheet has already said why in its
+ * own words and passes false, the standalone guide says it.
+ */
+export function InstallSteps({ lead = true }: { lead?: boolean }) {
   const [, bump] = useState(0)
   const [busy, setBusy] = useState(false)
   const [accepted, setAccepted] = useState(false)
@@ -40,35 +48,42 @@ export function InstallGuide({ onClose }: { onClose: () => void }) {
     } finally { setBusy(false) }
   }
 
+  if (isStandalone() || isInstalled() || accepted) {
+    return <div className="ig-done"><Icon id="check" /> {accepted || isInstalled() ? C.installed : C.alreadyStandalone}</div>
+  }
   return (
-    <Sheet open onClose={onClose} title={C.title}>
-          {isStandalone() || isInstalled() || accepted ? (
-            <div className="ig-done"><Icon id="check" /> {accepted || isInstalled() ? C.installed : C.alreadyStandalone}</div>
-          ) : (
+    <>
+      {lead && <p className="ig-why">{C.why}</p>}
+      {guide == null ? (
+        <p className="ig-note">{C.unsupported}</p>
+      ) : (
+        <>
+          {canPromptNative() && (
             <>
-              <p className="ig-why">{C.why}</p>
-              {guide == null ? (
-                <p className="ig-note">{C.unsupported}</p>
-              ) : (
-                <>
-                  {canPromptNative() && (
-                    <>
-                      <button className="ig-install" onClick={() => { void onNative() }} disabled={busy}>
-                        <Icon id="snapshot" /> {C.nativeButton}
-                      </button>
-                      <p className="ig-native-hint">{C.nativeHint}</p>
-                      <div className="ig-or">{C.manualIntro}</div>
-                    </>
-                  )}
-                  <p className="ig-intro">{guide.intro}</p>
-                  <ol className="ig-steps">
-                    {guide.steps.map((s, i) => <li key={i}><span className="ig-step-text">{renderStep(s)}</span></li>)}
-                  </ol>
-                  {guide.note && <p className="ig-note">{guide.note}</p>}
-                </>
-              )}
+              <button className="ig-install" onClick={() => { void onNative() }} disabled={busy}>
+                <Icon id="snapshot" /> {C.nativeButton}
+              </button>
+              <p className="ig-native-hint">{C.nativeHint}</p>
+              <div className="ig-or">{C.manualIntro}</div>
             </>
           )}
+          <p className="ig-intro">{guide.intro}</p>
+          <ol className="ig-steps">
+            {guide.steps.map((s, i) => <li key={i}><span className="ig-step-text">{renderStep(s)}</span></li>)}
+          </ol>
+          {guide.note && <p className="ig-note">{guide.note}</p>}
+        </>
+      )}
+    </>
+  )
+}
+
+export function InstallGuide({ onClose }: { onClose: () => void }) {
+  // `fit`: the guide is four short lines, and the standard sheet height (min(800px, 88dvh))
+  // wrapped them in a screenful of empty box.
+  return (
+    <Sheet open onClose={onClose} title={appConfig.copy.install.title} fit>
+      <InstallSteps />
     </Sheet>
   )
 }

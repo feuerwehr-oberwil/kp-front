@@ -4578,3 +4578,8 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .fb-alt-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .fb-alt-btn svg { width: 14px; height: 14px; flex: none; }
 .fb-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+
+/* install steps rendered INSIDE the Offline-Bereitschaft sheet (not behind a second modal):
+   the guide's own top margin would double up against the card above it */
+.or-install > :first-child { margin-top: 0; }
+.or-install .ig-steps { margin-top: 2px; }

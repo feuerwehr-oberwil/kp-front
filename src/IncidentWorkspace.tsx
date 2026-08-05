@@ -2887,7 +2887,6 @@ export function IncidentWorkspace({
           onLoadAll={() => { void downloadOffline(); void reloadPersonnel() }}
           loading={offlineProgress != null}
           progress={offlineProgress}
-          onInstall={() => setInstallGuideOpen(true)}
         />
       )}
       {settingsOpen && (

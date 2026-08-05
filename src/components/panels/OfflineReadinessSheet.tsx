@@ -8,6 +8,7 @@ import { getInstallPlatform, isStandalone } from '../../lib/installPrompt'
 import { installOffered } from '../../lib/installPolicy'
 import { estimateStorage, fmtBytes } from '../../lib/storageBudget'
 import { Modal } from './_shared'
+import { InstallSteps } from '../InstallGuide'
 
 // --- Offline-Bereitschaft (readiness diagnostics) ----------------------------------
 // A single glance, BEFORE losing coverage, at what field-critical data this device has
@@ -50,7 +51,7 @@ function fmtAgo(ms: number | null): string {
 export function OfflineReadinessSheet({
   onClose, probeUrls, symbolsReady, planCount, objectLabel,
   weatherOk, weatherError, personnelCount, syncStatus, lastSyncedAt,
-  onSyncNow, onLoadAll, loading, progress, onInstall,
+  onSyncNow, onLoadAll, loading, progress,
 }: {
   onClose: () => void
   /** URLs probed against the SW Cache for real offline presence. tiles = the incident-centre
@@ -70,8 +71,6 @@ export function OfflineReadinessSheet({
   onLoadAll: () => void
   loading: boolean
   progress: { done: number; total: number } | null
-  /** open the install guide — the way out of the browser-tab state (mobile platforms only) */
-  onInstall: () => void
 }) {
   // A browser TAB is not an offline state worth diagnosing: iOS evicts caches after days
   // without use, and the tab has to still exist at the next Einsatz. Probing it and printing
@@ -178,32 +177,13 @@ export function OfflineReadinessSheet({
               {!canInstall && <p className="or-browser-b">{o.browserNoInstall}</p>}
             </div>
           </div>
-          {canInstall && (
-            <button className="or-load" onClick={() => { onClose(); onInstall() }}>
-              {/* same glyph the install banner and guide use — one install, one symbol */}
-              <Icon id="snapshot" /> {o.browserInstall}
-            </button>
-          )}
-          {/* The download still works in a tab — the caveat above is about how long the cache
-              SURVIVES, not whether it can be filled. It has to stay reachable here because the
-              Ebenen panel now sends people to this sheet instead of running its own download;
-              removing it would have quietly deleted a working feature on every desktop KP. */}
-          {loading ? (
-            <div className="or-prog" role="progressbar"
-              aria-valuemin={0} aria-valuemax={progress?.total ?? 0} aria-valuenow={progress?.done ?? 0}>
-              <div className="or-prog-track">
-                <div className="or-prog-fill" style={{ width: `${progress && progress.total ? Math.round((progress.done / progress.total) * 100) : 0}%` }} />
-              </div>
-              <div className="or-prog-meta">
-                <span>{o.loadingForOffline}</span>
-                <span className="or-prog-pct">{progress && progress.total ? Math.round((progress.done / progress.total) * 100) : 0} %</span>
-              </div>
-            </div>
-          ) : (
-            <button className="or-load or-load-quiet" onClick={onLoadAll}>
-              <Icon id="map" /> {o.loadAll}
-            </button>
-          )}
+          {/* The steps stand here rather than behind a button into a second modal — this sheet
+              is already the answer to "how do I get offline", and four lines do not deserve
+              their own screen.
+              «Alles für offline laden» is deliberately NOT offered: the card directly above
+              says offline needs the installed app, and a download button under that sentence
+              contradicts it. It still runs in the installed sheet, where the claim holds. */}
+          {canInstall && <div className="or-install"><InstallSteps lead={false} /></div>}
         </div>
       </Modal>
     )
