@@ -23,20 +23,27 @@ export function detectInstallPlatform(ua: string, maxTouchPoints = 0): InstallPl
   return 'unsupported'
 }
 
-/** Install is offered on MOBILE platforms only (decided 2026-07-14): the app-ness matters
- *  on the tablet/phone in the field; on desktop the browser tab is the right form and the
- *  install nudge (banner AND menu entry) is just noise. */
+/** Can this device install at all — i.e. does InstallGuide have real steps for it? Every
+ *  platform above except 'unsupported' does, so this is simply "not unsupported".
+ *
+ *  Was mobile-only until 2026-08-05. That paired two different questions: whether to NAG
+ *  (noise on a desktop, still true — see shouldShowInstallBanner) and whether the capability
+ *  exists at all. Desktop Chromium and Safari 17+ install perfectly well, the guide has
+ *  carried their steps the whole time, and suppressing this made the Offline-Bereitschaft
+ *  sheet tell a desktop KP that its device "offers no installation" while the guide sat one
+ *  menu entry away with instructions. Offering ≠ pushing. */
 export function installOffered(platform: InstallPlatform): boolean {
-  return platform === 'ios' || platform === 'android'
+  return platform !== 'unsupported'
 }
 
-/** The proactive banner shows only where it can lead somewhere: in a plain browser tab, on a
- *  mobile platform (installOffered), and never again once dismissed (per device — the menu
- *  entry stays the permanent path, no re-nagging). */
+/** The proactive banner is a different question from the menu entry: it interrupts. It shows
+ *  only in a plain browser tab, on a MOBILE platform (where app-ness earns the interruption —
+ *  fullscreen and offline in the field), and never again once dismissed (per device — the menu
+ *  entry stays the permanent, unpushy path). The desktop half of the 2026-07-14 decision. */
 export function shouldShowInstallBanner(opts: {
   standalone: boolean
   dismissed: boolean
   platform: InstallPlatform
 }): boolean {
-  return !opts.standalone && !opts.dismissed && installOffered(opts.platform)
+  return !opts.standalone && !opts.dismissed && (opts.platform === 'ios' || opts.platform === 'android')
 }

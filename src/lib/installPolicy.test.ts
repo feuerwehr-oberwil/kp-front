@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { detectInstallPlatform, shouldShowInstallBanner } from './installPolicy'
+import { detectInstallPlatform, installOffered, shouldShowInstallBanner, type InstallPlatform } from './installPolicy'
 
 const UA = {
   iphoneSafari: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
@@ -43,6 +43,25 @@ describe('detectInstallPlatform', () => {
 
   it('desktop Firefox has no PWA install → unsupported', () => {
     expect(detectInstallPlatform(UA.winFirefox)).toBe('unsupported')
+  })
+})
+
+// «can install» and «should interrupt to say so» are two questions. They shared one rule until
+// 2026-08-05, which made the Offline-Bereitschaft sheet tell a desktop KP that its device
+// offers no installation while InstallGuide held working steps for it.
+describe('installOffered', () => {
+  it('is true for every platform InstallGuide has steps for', () => {
+    const withSteps: InstallPlatform[] = ['ios', 'android', 'desktop-chromium', 'mac-safari']
+    withSteps.forEach((p) => expect(installOffered(p)).toBe(true))
+  })
+
+  it('is false only where nothing can install', () => {
+    expect(installOffered('unsupported')).toBe(false)
+  })
+
+  it('is independent of the banner: desktop may install but is never nagged', () => {
+    expect(installOffered('desktop-chromium')).toBe(true)
+    expect(shouldShowInstallBanner({ standalone: false, dismissed: false, platform: 'desktop-chromium' })).toBe(false)
   })
 })
 
