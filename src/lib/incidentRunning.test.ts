@@ -21,10 +21,17 @@ describe('isIncidentRunning', () => {
     expect(isIncidentRunning(meta({ status: 'in_arbeit' }))).toBe(true)
   })
 
-  it('is over once archived, closed, or explicitly given a closed status', () => {
+  it('is over once archived, or explicitly given a closed status', () => {
     expect(isIncidentRunning(meta({ is_archived: true }))).toBe(false)
-    expect(isIncidentRunning(meta({ closed_at: '2026-08-05T12:00:00Z' }))).toBe(false)
     expect(isIncidentRunning(meta({ status: 'geschlossen' }))).toBe(false)
+  })
+
+  it('counts a REACTIVATED Einsatz — the operator said it is running again', () => {
+    // The production bug, 2026-08-05: this Einsatz had been archived once and reactivated,
+    // which keeps `closed_at` as the first Einsatzende (so later journal rows read as
+    // Nachträge). Reading that timestamp as a liveness flag left the Einsatz half-dead —
+    // its links refused and «Standort teilen» silently absent from the compass menu.
+    expect(isIncidentRunning(meta({ closed_at: '2026-08-03T15:51:19Z' }))).toBe(true)
   })
 
   it('does not treat an unknown status as running', () => {

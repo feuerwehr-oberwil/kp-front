@@ -14,9 +14,13 @@ export const INCIDENT_ACTIVE_STATUSES = ['offen', 'in_arbeit']
 
 /** Is this Einsatz still running? The client-side twin of the backend's `Incident.is_open`,
  *  and the one place to ask — a hand-written copy that drifts from the server's answer shows
- *  affordances the API then refuses (or hides ones it would allow). */
-export function isIncidentRunning(i: Pick<IncidentMeta, 'is_archived' | 'closed_at' | 'status'>): boolean {
-  return !i.is_archived && !i.closed_at && INCIDENT_ACTIVE_STATUSES.includes(i.status)
+ *  affordances the API then refuses (or hides ones it would allow).
+ *
+ *  `closed_at` is deliberately NOT consulted: it is the first Einsatzende as a TIMESTAMP, kept
+ *  across a reopen so later rows read as Nachträge (see lib/reminders, lib/report). Treating it
+ *  as a liveness flag left a reactivated Einsatz half-dead. `is_archived` is the state. */
+export function isIncidentRunning(i: Pick<IncidentMeta, 'is_archived' | 'status'>): boolean {
+  return !i.is_archived && INCIDENT_ACTIVE_STATUSES.includes(i.status)
 }
 
 export interface IncidentMeta {

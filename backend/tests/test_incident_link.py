@@ -146,17 +146,31 @@ async def test_exchange_hides_unknown_archived_and_closed_alike(client, link_key
     enumerate the station's Einsätze by watching which refusal comes back."""
     archived = _incident(title="Archiviert", source_ref="alarm-arch", is_archived=True)
     closed_status = _incident(title="Geschlossen", source_ref="alarm-closed", status="geschlossen")
-    closed_stamp = _incident(title="Abgeschlossen", source_ref="alarm-stamp", closed_at=datetime.now(UTC))
-    db_session.add_all([archived, closed_status, closed_stamp])
+    db_session.add_all([archived, closed_status])
     await db_session.commit()
 
     answers = []
-    for ref in ("alarm-does-not-exist", "alarm-arch", "alarm-closed", "alarm-stamp"):
+    for ref in ("alarm-does-not-exist", "alarm-arch", "alarm-closed"):
         r = await client.post("/api/incident-link/session", json={"token": _mint(ref=ref)})
         answers.append((r.status_code, r.json()["detail"]))
         assert LINK_COOKIE not in r.cookies
 
-    assert answers == [(404, NOT_AVAILABLE_DETAIL)] * 4, answers
+    assert answers == [(404, NOT_AVAILABLE_DETAIL)] * 3, answers
+
+
+async def test_a_reactivated_einsatz_opens_a_link_again(client, link_key, db_session):
+    """An Einsatz archived once and then REACTIVATED is running again — the operator said so.
+
+    Reactivating keeps `closed_at` (the first Einsatzende, so later journal rows read as
+    Nachträge), and reading that timestamp as a liveness flag left such an Einsatz permanently
+    unreachable by link. Found in production 2026-08-05. `is_archived` is the state.
+    """
+    inc = _incident(title="Wieder eröffnet", source_ref="alarm-reopened", closed_at=datetime.now(UTC))
+    db_session.add(inc)
+    await db_session.commit()
+
+    r = await client.post("/api/incident-link/session", json={"token": _mint(ref="alarm-reopened")})
+    assert r.status_code == 200, r.text
 
 
 async def test_exchange_opens_a_session(client, link_key, incident):

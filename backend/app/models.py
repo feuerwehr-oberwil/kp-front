@@ -154,13 +154,21 @@ class Incident(Base):
     def is_open(self) -> bool:
         """Still running — the one definition of it.
 
-        Three separate things end an Einsatz (archiving it, stamping `closed_at`, moving
-        `status` off an active one) and several features hang off "is it still running": the
-        Einsatz-Link is revoked, self-reported crew positions are dropped, a phone may no
-        longer report into it. Those were three hand-written copies of the same condition,
-        which is exactly the kind of drift that ends with a link outliving its Einsatz.
+        Several features hang off this: the Einsatz-Link is revoked, self-reported crew
+        positions are dropped, a phone may no longer report into it. They were hand-written
+        copies of the same condition, which is the kind of drift that ends with a link
+        outliving its Einsatz.
+
+        ``is_archived`` is the state; ``closed_at`` is deliberately NOT consulted. That column
+        is a TIMESTAMP — the first Einsatzende — kept across a reopen precisely so later
+        journal rows can be rendered as Nachträge (see api/incidents.patch_incident, and
+        lib/reminders + lib/report on the client, which read it as a moment in time). Reading
+        it as a liveness flag meant a REACTIVATED Einsatz — an operator explicitly saying «this
+        is running again» — stayed dead: its links refused, Standort teilen silently absent.
+        Verified against production 2026-08-05. Archiving it, or moving `status` off an active
+        one, still ends it immediately.
         """
-        return not self.is_archived and self.closed_at is None and self.status in INCIDENT_ACTIVE_STATUSES
+        return not self.is_archived and self.status in INCIDENT_ACTIVE_STATUSES
 
 
 # Partial-unique: only one incident per Divera alarm, but many manual incidents have

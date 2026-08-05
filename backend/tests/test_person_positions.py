@@ -8,7 +8,7 @@ then it is gone. So:
 - one row per person, overwritten — never a track;
 - a second phone cannot quietly take over a name that is actively sharing;
 - stopping deletes, it does not merely stale out;
-- closing the Einsatz deletes, by any of the three routes that end one;
+- closing the Einsatz deletes, by either route that ends one (archive · status);
 - the sweep is the backstop for the Einsatz nobody closes;
 - the public demo does not participate at all.
 
@@ -225,16 +225,26 @@ async def test_an_einsatz_marked_in_arbeit_is_still_running(client, editor, inci
     assert r.status_code == 204, r.text
 
 
+async def test_reporting_into_a_reactivated_einsatz_works(client, editor, incident, person, db_session):
+    """`closed_at` alone does not close an Einsatz: it is the first Einsatzende, kept across a
+    reopen so later journal rows read as Nachträge. An Einsatz an operator reactivated is
+    running, and its crew must be able to report again (production, 2026-08-05)."""
+    incident.closed_at = datetime(2026, 8, 3, 15, 51, tzinfo=UTC)
+    await db_session.commit()
+    await _login(client, editor)
+    r = await client.post(f"/api/incidents/{incident.id}/positions", json=_body(person))
+    assert r.status_code == 204, r.text
+
+
 @pytest.mark.parametrize(
     "ends_it",
     [
         pytest.param({"is_archived": True}, id="archived"),
         pytest.param({"status": "geschlossen"}, id="status"),
-        pytest.param({"closed_at": datetime(2026, 8, 5, 12, tzinfo=UTC)}, id="closed-at"),
     ],
 )
 async def test_reporting_into_a_closed_einsatz_is_refused(client, editor, incident, person, db_session, ends_it):
-    """All three things `Incident.is_open` reads, straight on the row."""
+    """Both things `Incident.is_open` reads, straight on the row."""
     for k, v in ends_it.items():
         setattr(incident, k, v)
     await db_session.commit()
