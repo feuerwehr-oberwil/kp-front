@@ -4592,3 +4592,9 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
    the guide's own top margin would double up against the card above it */
 .or-install > :first-child { margin-top: 0; }
 .or-install .ig-steps { margin-top: 2px; }
+
+/* search hits inside the help text. Deliberately a tint + weight rather than the browser's
+   default yellow block: the help renders in day and night, and a fixed yellow is unreadable
+   in one of them. Inline-block would break the line rhythm, so it only paints. */
+.help-hit { background: color-mix(in srgb, var(--blue) 22%, transparent); color: inherit;
+  border-radius: 3px; padding: 0 1px; font-weight: 700; }

@@ -10,21 +10,50 @@ import { getDeploymentConfig } from '../lib/deploymentConfig'
 // Content is authored as data in appConfig.copy.help.sections (no markdown dependency)
 // so it bundles offline; inline markup is **bold** + [[key]] keyboard chips.
 
+/**
+ * Wrap every occurrence of `q` in a plain string with <mark>. Case-insensitive and
+ * literal — a search box is not a regex prompt, so the query is escaped before use.
+ * Returns the string untouched when there is nothing to mark, so the common (unfiltered)
+ * render allocates nothing.
+ */
+function mark(text: string, q: string, keyBase: string): ReactNode {
+  if (!q) return text
+  const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')
+  const out: ReactNode[] = []
+  let last = 0
+  let m: RegExpExecArray | null
+  let i = 0
+  while ((m = re.exec(text))) {
+    // a zero-length match would spin forever; a query is trimmed but be safe
+    if (m[0] === '') { re.lastIndex += 1; continue }
+    if (m.index > last) out.push(text.slice(last, m.index))
+    out.push(<mark key={`${keyBase}-${i++}`} className="help-hit">{m[0]}</mark>)
+    last = re.lastIndex
+  }
+  if (!out.length) return text
+  if (last < text.length) out.push(text.slice(last))
+  return out
+}
+
 // Parse the lightweight inline markup of a help string into React nodes:
 //   **text** → bold, [[key]] → keyboard chip, everything else → plain text.
-function renderInline(text: string): ReactNode[] {
+// `q` (the active search) marks the hits in the plain runs AND inside the bold ones. The bold
+// runs are the feature names — «**Atemschutz**», «**Ebenen**» — so they are precisely what
+// someone searches for; skipping them left a search for "atemschutz" with almost nothing
+// marked in the body. Keyboard chips stay untouched: [[Esc]] is a key, not a word.
+function renderInline(text: string, q = ''): ReactNode[] {
   const out: ReactNode[] = []
   const re = /\*\*(.+?)\*\*|\[\[(.+?)\]\]/g
   let last = 0
   let m: RegExpExecArray | null
   let i = 0
   while ((m = re.exec(text))) {
-    if (m.index > last) out.push(text.slice(last, m.index))
-    if (m[1] !== undefined) out.push(<b key={i++}>{m[1]}</b>)
+    if (m.index > last) out.push(mark(text.slice(last, m.index), q, `p${i}`))
+    if (m[1] !== undefined) out.push(<b key={i++}>{mark(m[1], q, `b${i}`)}</b>)
     else out.push(<span key={i++} className="help-kbd">{m[2]}</span>)
     last = re.lastIndex
   }
-  if (last < text.length) out.push(text.slice(last))
+  if (last < text.length) out.push(mark(text.slice(last), q, `p${i}`))
   return out
 }
 
@@ -115,7 +144,7 @@ export function HelpOverlay({ onClose }: { onClose: () => void }) {
             {sections.length > 0 && <div className="help-toc-h">{C.contents}</div>}
             {sections.map((s) => (
               <button key={s.id} className={`help-toc-i${active === s.id ? ' on' : ''}`} onClick={() => go(s.id)}>
-                <Icon id={s.icon} />{s.title}
+                <Icon id={s.icon} />{mark(s.title, q, `t${s.id}`)}
               </button>
             ))}
           </nav>
@@ -129,21 +158,21 @@ export function HelpOverlay({ onClose }: { onClose: () => void }) {
             )}
             {sections.map((s) => (
               <section key={s.id} id={`help-${s.id}`} className="help-sec">
-                <h3><Icon id={s.icon} />{s.title}</h3>
+                <h3><Icon id={s.icon} />{mark(s.title, q, 'h')}</h3>
                 {s.blocks.map((b, i) => {
                   switch (b.kind) {
                     case 'intro':
-                      return <p key={i} className="help-lead">{intro}</p>
+                      return <p key={i} className="help-lead">{mark(intro, q, `i${i}`)}</p>
                     case 'lead':
-                      return <p key={i} className="help-lead">{renderInline(b.text)}</p>
+                      return <p key={i} className="help-lead">{renderInline(b.text, q)}</p>
                     case 'sub':
-                      return <p key={i} className="help-sub">{renderInline(b.text)}</p>
+                      return <p key={i} className="help-sub">{renderInline(b.text, q)}</p>
                     case 'note':
-                      return <div key={i} className="help-note"><Icon id="info" /><span>{renderInline(b.text)}</span></div>
+                      return <div key={i} className="help-note"><Icon id="info" /><span>{renderInline(b.text, q)}</span></div>
                     case 'list':
                       return (
                         <ul key={i} className="help-list">
-                          {b.items.map((it, j) => <li key={j}>{renderInline(it)}</li>)}
+                          {b.items.map((it, j) => <li key={j}>{renderInline(it, q)}</li>)}
                         </ul>
                       )
                     default:
