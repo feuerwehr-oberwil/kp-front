@@ -550,7 +550,6 @@ export const de = {
     empty: 'Noch keine Ansichten. Speichere die aktuelle Karte – Position, Zoom und Drehung – um mit einem Tipp dorthin zurückzukehren.',
     rename: 'Umbenennen',
     delete: 'Löschen',
-    defaultName: 'Ansicht {n}',
     saved: 'Ansicht gespeichert',
     deleteTitle: 'Ansicht löschen',
     deleteMsg: '«{name}» löschen?',

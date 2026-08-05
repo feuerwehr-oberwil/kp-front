@@ -1336,8 +1336,10 @@ export function IncidentWorkspace({
       }
       : undefined,
     onSave: () => {
-      const n = cameraViews.length + 1
-      const v: CameraView = { id: 'v' + Date.now(), name: fillTemplate(appConfig.copy.mapViews.defaultName, { n }), center: view.center, zoom: view.zoom, bearing: view.bearing }
+      // The time it was saved, not «Ansicht 3». A counter says nothing about which view it
+      // is; the clock at least anchors it to what was happening then, and the list is in
+      // save order anyway. Renaming stays one tap away for a view worth a real name.
+      const v: CameraView = { id: 'v' + Date.now(), name: formatTime(new Date()), center: view.center, zoom: view.zoom, bearing: view.bearing }
       setCameraViews((vs) => [...vs, v])
       toast(appConfig.copy.mapViews.saved, { icon: 'compass', tone: 'success' })
     },
