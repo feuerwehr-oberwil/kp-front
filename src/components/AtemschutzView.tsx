@@ -43,7 +43,7 @@ function snapBar(v: number): number {
 // large "Kontakt" reset, and a contact-clock alarm (amber nudge → red überfällig). Pressure is
 // set inline and logged. Purely presentational + local UI state — data + mutations via props.
 export function AtemschutzView({
-  trupps, canEdit, personnel, attendance, muted, onToggleMuted, createTrupp, placeTrupp, placeTargets, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, leitungOptions, showTruppLine, truppsWithLine, pickTruppLine, unlinkTruppLine,
+  trupps, canEdit, personnel, attendance, muted, onToggleMuted, createTrupp, placeTrupp, placeTargets, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, leitungOptions, showTruppLine, truppsWithLine, pickTruppLine,
   intervalMin = atemschutzDoctrine().contactIntervalMin, graceSec = atemschutzDoctrine().contactGraceSec,
   defaultFunkkanal = atemschutzDoctrine().defaultFunkkanal,
 }: {
@@ -84,9 +84,6 @@ export function AtemschutzView({
   truppsWithLine: ReadonlySet<string>
   /** arm «Leitung wählen»: the next tap on a hose line (Lage or Plan) links it to this Trupp */
   pickTruppLine: (id: string) => void
-  /** let go of the Leitung — anchor on both sides plus the Trupp's number, so the auto-match
-   *  can't silently re-attach it. The drawing keeps its Leitung number. */
-  unlinkTruppLine: (id: string) => void
 }) {
   const az = appConfig.copy.atemschutz // read per-render so the resolved locale applies
   // the shared create / edit / re-deploy form — null when closed
@@ -171,7 +168,7 @@ export function AtemschutzView({
       onContact={recordContact} onPressure={recordPressure} onStatus={setTruppStatus}
       onEdit={() => openForm('edit', t)} onReenter={() => openForm('redeploy', t)}
       onDelete={deleteTrupp} onRestore={restoreTrupp} onPlace={handlePlace} onShowPlan={focusTruppOnPlan}
-      onPickLine={pickTruppLine} onUnlinkLine={unlinkTruppLine}
+      onPickLine={pickTruppLine}
       onShowLine={showTruppLine} hasLine={truppsWithLine.has(t.id)}
     />
   ))
@@ -345,7 +342,7 @@ function PressureInline({ value, onCommit }: { value: number; onCommit: (bar: nu
 // Funkkontakt) with a large Kontakt reset; the inline Druck control + an expandable Verlauf log
 // sit below, and the lifecycle actions run along the bottom.
 function TruppCard({
-  t, live, now, canEdit, intervalMin, graceSec, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onRestore, onPlace, onShowPlan, onPickLine, onUnlinkLine, onShowLine, hasLine,
+  t, live, now, canEdit, intervalMin, graceSec, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onRestore, onPlace, onShowPlan, onPickLine, onShowLine, hasLine,
 }: {
   t: Trupp; live: TruppLive; now: number; canEdit: boolean
   intervalMin: number; graceSec: number
@@ -360,9 +357,6 @@ function TruppCard({
   onShowPlan: (id: string) => void
   /** start «Leitung wählen» — the next tap on a hose (Lage or Plan) links it to this Trupp */
   onPickLine: (id: string) => void
-  /** drop the link: the anchor on both sides AND the Trupp's Leitung number, so the auto-match
-   *  doesn't just re-attach it on the next render. The drawn line keeps its number. */
-  onUnlinkLine: (id: string) => void
   /** jump to the drawn Leitung (Lage or Plan) — the counterpart of «auf Plan zeigen» */
   onShowLine: (id: string) => void
   /** is there actually a hose drawn for this Trupp? Decides whether the chip is a jump or plain
@@ -399,7 +393,6 @@ function TruppCard({
   // The Leitung chip: the numeric field, else the free text an older record still carries. Shown
   // as typed either way — an incident is a legal record, so nothing rewrites what was entered.
   const lineTag = t.lineNo != null ? String(t.lineNo) : t.lineNumber?.trim()
-  const linked = !!t.lineId || t.lineNo != null
 
   // «Raus» happens immediately with a Rückgängig toast (house rule: confirm-with-undo, no
   // blocking dialog). The undo lives in the action (setTruppStatus) so it restores the full
@@ -438,14 +431,16 @@ function TruppCard({
               <Icon id="footprint" />
             </button>
           )}
-          {/* The Leitung this Trupp works on. Linked already ⇒ the button lets go of it; the
-              drawn hose keeps its number either way (see onUnlinkLine). */}
-          {canEdit && status !== 'raus' && (
-            <button
-              className={s.iconBtn}
-              aria-label={linked ? az.lineUnlink : az.linePick} title={linked ? az.lineUnlink : az.linePick}
-              onClick={() => (linked ? onUnlinkLine(t.id) : onPickLine(t.id))}
-            >
+          {/* The Leitung this Trupp works on — the same shape as the placement button above it:
+              nothing drawn yet ⇒ pick one, drawn ⇒ GO there. Letting go of a Leitung is not an
+              icon: it is clearing the number in the form (or «Kein Trupp» on the line itself),
+              which is where the operator already is when they change their mind. */}
+          {hasLine ? (
+            <button className={s.iconBtn} aria-label={az.lineShow} title={az.lineShow} onClick={() => onShowLine(t.id)}>
+              <Icon id="drop" />
+            </button>
+          ) : canEdit && status !== 'raus' && (
+            <button className={s.iconBtn} aria-label={az.linePick} title={az.linePick} onClick={() => onPickLine(t.id)}>
               <Icon id="drop" />
             </button>
           )}
@@ -719,32 +714,37 @@ function TruppForm({
                 what lets a Trupp and a drawn Leitung find each other without anyone re-typing
                 anything (lib/truppLines). A Trupp recorded before this was free text keeps its
                 text below; it is never rewritten. */}
-            <div className={s.field}>
+            <div className={cx(s.field, s.lineField)}>
               <span>{az.lineNoLabel}</span>
-              <Stepper
-                value={lineNo} min={1} max={99} placeholder="–"
-                onChange={setLineNo} onClear={() => setLineNo(null)} canClear={lineNo != null}
-                ariaLabel={az.lineNoLabel}
-              />
+              {/* stepper and the drawn Leitungen share ONE row: the stepper is for a number that
+                  isn't drawn yet, the chips are the common case, and stacking them cost three
+                  rows of a form that has to fit on a tablet in one glance */}
+              <div className={s.lineRow}>
+                <Stepper
+                  value={lineNo} min={1} max={99} placeholder="–"
+                  onChange={setLineNo} onClear={() => setLineNo(null)} canClear={lineNo != null}
+                  ariaLabel={az.lineNoLabel}
+                />
               {/* The Leitungen that are actually DRAWN. Typing a number blind is how the two sides
                   end up disagreeing — the hose usually exists long before anyone registers the
                   Trupp. A number someone else is on stays pickable (real incidents need
                   corrections) but says whose it is. */}
-              {leitungOptions.length > 0 && (
-                <div className={s.lineOpts}>
-                  <span className={s.lineOptsLabel}>{az.lineOptsLabel}</span>
-                  {leitungOptions.map((o) => (
-                    <button
-                      key={o.no} type="button"
-                      className={cx(s.lineOpt, lineNo === o.no && s.on, !!o.takenBy && s.taken)}
-                      title={o.takenBy ? fillTemplate(az.lineOptTaken, { name: o.takenBy }) : undefined}
-                      onClick={() => setLineNo(o.no)}
-                    >
-                      {o.no}{o.onPlan ? ' ·\u00a0P' : ''}{o.takenBy ? ` · ${abbreviateName(o.takenBy)}` : ''}
-                    </button>
-                  ))}
-                </div>
-              )}
+                {leitungOptions.length > 0 && (
+                  <div className={s.lineOpts}>
+                    <span className={s.lineOptsLabel}>{az.lineOptsLabel}</span>
+                    {leitungOptions.map((o) => (
+                      <button
+                        key={o.no} type="button"
+                        className={cx(s.lineOpt, lineNo === o.no && s.on, !!o.takenBy && s.taken)}
+                        title={o.takenBy ? fillTemplate(az.lineOptTaken, { name: o.takenBy }) : undefined}
+                        onClick={() => setLineNo(o.no)}
+                      >
+                        {o.no}{o.onPlan ? ' ·\u00a0P' : ''}{o.takenBy ? ` · ${abbreviateName(o.takenBy)}` : ''}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               {legacyLine && <p className={s.fieldNote}>{fillTemplate(az.lineLegacyNote, { value: legacyLine })}</p>}
             </div>
           </div>

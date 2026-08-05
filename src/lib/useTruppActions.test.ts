@@ -113,7 +113,7 @@ describe('useTruppActions placement (one place per Trupp)', () => {
   it('editTrupp keeps the map marker label in sync with the leader name', () => {
     const marker: Entity = { id: 'e1', kind: 'team', layer: 'einheiten', coord: [7.5, 47.4], truppId: 'T1', label: 'Keller A.' }
     const { actions, state } = harness(baseTrupp({ entityId: 'e1' }), { entities: [marker] })
-    actions.editTrupp('T1', { name: 'Muster Beat', pressure: 300 })
+    actions.editTrupp('T1', { name: 'Beat Muster', pressure: 300 })
     expect(state.doc.entities[0].label).toBe('Muster B.')
   })
 
@@ -276,5 +276,45 @@ describe('useTruppActions hose link — aiming and missing', () => {
     )
     actions.unlinkLine('d1')
     expect(state.trupps[0].lineNo).toBeUndefined()
+  })
+})
+
+describe('useTruppActions — the Leitung number IS the link', () => {
+  const hose2 = (over: Partial<Drawing> = {}): Drawing =>
+    ({ id: 'd1', kind: 'line', coords: [[7.5, 47.4], [7.51, 47.41]], ...over })
+
+  it('clearing the number in the form drops the anchor too', () => {
+    // otherwise the tag survives its own number: the Trupp still points at the hose it was
+    // picked for, and the operator's «weg damit» does nothing visible
+    const { actions, state } = harness(
+      baseTrupp({ lineNo: 1, lineId: 'd1' }),
+      { drawings: [hose2({ truppId: 'T1', lineNo: 1 })] },
+    )
+    actions.editTrupp('T1', { name: 'Keller Anna', pressure: 300 }) // no lineNo → cleared
+    expect(state.trupps[0].lineNo).toBeUndefined()
+    expect(state.trupps[0].lineId).toBeUndefined()
+    expect(state.doc.drawings[0].truppId).toBeUndefined()
+    expect(state.doc.drawings[0].lineNo).toBe(1) // the hose stays Leitung 1 in the picture
+  })
+
+  it('moving to another number drops the old anchor, so the tag follows the number', () => {
+    const { actions, state } = harness(
+      baseTrupp({ lineNo: 1, lineId: 'd1' }),
+      { drawings: [hose2({ truppId: 'T1', lineNo: 1 })] },
+    )
+    actions.editTrupp('T1', { name: 'Keller Anna', lineNo: 3, pressure: 300 })
+    expect(state.trupps[0].lineNo).toBe(3)
+    expect(state.trupps[0].lineId).toBeUndefined()
+    expect(state.doc.drawings[0].truppId).toBeUndefined()
+  })
+
+  it('leaves the anchor alone when the number is unchanged', () => {
+    const { actions, state } = harness(
+      baseTrupp({ lineNo: 1, lineId: 'd1' }),
+      { drawings: [hose2({ truppId: 'T1', lineNo: 1 })] },
+    )
+    actions.editTrupp('T1', { name: 'Keller Anna', lineNo: 1, pressure: 300 })
+    expect(state.trupps[0].lineId).toBe('d1')
+    expect(state.doc.drawings[0].truppId).toBe('T1')
   })
 })

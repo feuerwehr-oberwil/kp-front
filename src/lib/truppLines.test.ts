@@ -70,8 +70,8 @@ describe('tone and tag', () => {
     expect(truppLineTone(trupp('a', { exitTime: '2026-08-05T10:20:00Z' }), 0)).toBe('muted')
   })
 
-  it('abbreviates the leader the way the plan chip does', () => {
-    expect(truppTagText(trupp('a', { name: 'Hans Müller' }))).toBe('Hans M.')
+  it('abbreviates the leader the way the plan chip does — surname first', () => {
+    expect(truppTagText(trupp('a', { name: 'Hans Müller' }))).toBe('Müller H.')
   })
 })
 
@@ -115,12 +115,12 @@ describe('resolveLinkNumber (what an explicit pick stamps)', () => {
 // The shipped demo scene is what a first-time visitor sees — and the one place the whole chain
 // (scene file → resolution → tag) is exercised against real data rather than a fixture.
 describe('the demo scene resolves to the tag an operator will see', () => {
-  it('names Hans M. on Leitung 1 and leaves the feed line anonymous', async () => {
+  it('names Müller H. on Leitung 1 and leaves the feed line anonymous', async () => {
     const { readFileSync } = await import('node:fs')
     const scene = JSON.parse(readFileSync('examples/demo-data/incident.workspace.json', 'utf-8'))
     const t = trupp('trupp1', { name: 'Hans Müller', lineNo: 1, lineId: 'd1784735796244' })
     const angriff = scene.drawings.find((d: { id: string }) => d.id === 'd1784735796244')
-    expect(`Ltg ${angriff.lineNo} · ${truppTagText(truppForLine(angriff, [t])!)}`).toBe('Ltg 1 · Hans M.')
+    expect(`Ltg ${angriff.lineNo} · ${truppTagText(truppForLine(angriff, [t])!)}`).toBe('Ltg 1 · Müller H.')
     // the hydrant feed carries no Trupp — the link never spreads along the chain
     expect(truppForLine(scene.drawings.find((d: { id: string }) => d.id === 'd1784735505412'), [t])).toBeUndefined()
   })

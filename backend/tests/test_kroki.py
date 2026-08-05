@@ -129,7 +129,7 @@ def test_render_kroki_offline_still_produces_full_overlay():
                 "lineNo": 1,
                 "content": "S",
                 "floorTag": -1,
-                "trupp": "Hans M.",
+                "trupp": "Müller H.",
             },
             {"kind": "area", "coords": [[7.555, 47.513], [7.556, 47.513], [7.556, 47.5136]], "label": "Nord"},
         ],

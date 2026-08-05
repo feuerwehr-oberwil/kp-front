@@ -36,11 +36,14 @@ describe('assignedPersonIds', () => {
 })
 
 describe('abbreviateName', () => {
-  it('abbreviates the first name to an initial', () => {
-    expect(abbreviateName('Keller Andreas')).toBe('Keller A.')
+  // the roster stores «Vorname Nachname» (Divera display_name); the label reads surname-first,
+  // the way a Feuerwehr calls people
+  it('puts the surname first and the given name to an initial', () => {
+    expect(abbreviateName('Andreas Keller')).toBe('Keller A.')
+    expect(abbreviateName('Anna Meier')).toBe('Meier A.')
   })
   it('keeps a multi-word surname intact', () => {
-    expect(abbreviateName('Von Arx Beat')).toBe('Von Arx B.')
+    expect(abbreviateName('Beat Von Arx')).toBe('Von Arx B.')
   })
   it('passes a single token through unchanged', () => {
     expect(abbreviateName('Keller')).toBe('Keller')

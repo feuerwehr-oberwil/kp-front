@@ -282,25 +282,31 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, peri
             {/* «Gehört zu Trupp …» — the other direction of the Atemschutz link, for when the hose
                 is drawn AFTER the Trupp was registered. Picking one stamps the Leitung number too
                 (see useTruppActions · linkTruppLine), so the two sides always agree. */}
+            {/* ONE row: which Trupp is on this Leitung, and the way to it. The jump used to be a
+                separate full-width row under a hairline, which printed the same name twice —
+                three mentions of «Anna Meier» in four rows of a panel that is read at a glance. */}
             {onTrupp && trupps.length > 0 && (
               <div className="de-row"><span>{appConfig.copy.drawingEditor.trupp}</span>
-                <select
-                  className="de-select" value={drawing.truppId ?? ''}
-                  aria-label={appConfig.copy.drawingEditor.trupp}
-                  onChange={(e) => onTrupp(e.target.value || undefined)}
-                >
-                  <option value="">{appConfig.copy.drawingEditor.truppNone}</option>
-                  {trupps.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-                </select>
+                <span className="de-trupp">
+                  <select
+                    className="de-select" value={drawing.truppId ?? ''}
+                    aria-label={appConfig.copy.drawingEditor.trupp}
+                    onChange={(e) => onTrupp(e.target.value || undefined)}
+                  >
+                    <option value="">{appConfig.copy.drawingEditor.truppNone}</option>
+                    {trupps.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                  {onShowTrupp && truppOnLine && (
+                    <button
+                      className="de-trupp-go" onClick={onShowTrupp}
+                      aria-label={fillTemplate(appConfig.copy.drawingEditor.truppShow, { name: truppOnLine })}
+                      title={fillTemplate(appConfig.copy.drawingEditor.truppShow, { name: truppOnLine })}
+                    >
+                      <span className="ctx-conn-go" aria-hidden>›</span>
+                    </button>
+                  )}
+                </span>
               </div>
-            )}
-            {/* the way back to the board — the same jump the Verbindungen rows offer, so a hose
-                and its Trupp are one tap apart in BOTH directions */}
-            {onShowTrupp && truppOnLine && (
-              <button className="de-jump" onClick={onShowTrupp}>
-                <span>{fillTemplate(appConfig.copy.drawingEditor.truppShow, { name: truppOnLine })}</span>
-                <span className="ctx-conn-go" aria-hidden>›</span>
-              </button>
             )}
             {onFloorTag && (
               <div className="de-row"><span>{appConfig.copy.drawingEditor.floorTag}</span>

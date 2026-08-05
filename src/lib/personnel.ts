@@ -34,12 +34,16 @@ export function assignedPersonIds(trupps: Trupp[]): Set<string> {
 export const presentCount = (attendance: AttendanceState): number =>
   Object.values(attendance).filter((a) => a.status === 'present').length
 
-/** Compact label for the moving Trupp chip on the plan: full surname + first initial
- *  ("Keller Andreas" → "Keller A."). Names are stored surname-first, so the last token is
- *  the first name. Single-token or empty strings pass through unchanged. */
+/** Compact label for a Trupp wherever it is drawn — the plan chip, the map marker, the hose's
+ *  end tag: SURNAME first, given name as an initial ("Anna Meier" → "Meier A.").
+ *
+ *  Surname first because that is how a Feuerwehr calls people and how every list is sorted; the
+ *  initial is what fits in a chip. The roster stores names given-name-first (Divera's
+ *  display_name), so the FIRST token is the given name and everything after it is the surname —
+ *  which keeps Swiss multi-word surnames intact ("Beat Von Arx" → "Von Arx B."). Single-token or
+ *  empty strings pass through unchanged. */
 export function abbreviateName(full: string): string {
   const parts = full.trim().split(/\s+/)
-  if (parts.length < 2 || !parts[parts.length - 1]) return full.trim()
-  const surname = parts.slice(0, -1).join(' ')
-  return `${surname} ${parts[parts.length - 1][0].toUpperCase()}.`
+  if (parts.length < 2 || !parts[0]) return full.trim()
+  return `${parts.slice(1).join(' ')} ${parts[0][0].toUpperCase()}.`
 }

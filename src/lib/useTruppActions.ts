@@ -276,6 +276,10 @@ export function useTruppActions(deps: Deps) {
   const editTrupp = (id: string, f: TruppFields) => {
     const tr = trupps.find((t) => t.id === id)
     updateTrupp(id, { name: f.name, members: f.members, auftrag: f.auftrag, ziel: f.ziel, lineNo: f.lineNo, funkkanal: f.funkkanal, leaderPersonId: f.leaderPersonId, memberPersonIds: f.memberPersonIds })
+    // Clearing (or changing) the Leitung number in the form IS how a Trupp lets go of a hose —
+    // that is where the operator already is when they change their mind, so the card needs no
+    // «lösen» icon. The anchor goes with it, or the tag would survive its own number.
+    if (tr && f.lineNo !== tr.lineNo && tr.lineId) clearLineAnchor(id)
     if (tr && f.name !== tr.name) syncPlacementLabel(tr, f.name)
     log('pen', fillTemplate(appConfig.copy.atemschutz.logEdit, { name: f.name }), 'team')
     emit('atemschutz.edit', { id })
@@ -299,6 +303,7 @@ export function useTruppActions(deps: Deps) {
           entryPressureBar: f.pressure, lastPressureBar: undefined, lastPressureTime: undefined, lowestBar: f.pressure,
           readings: standby ? [] : [{ t: now, bar: f.pressure, kind: 'entry' }] }
       : t)))
+    if (tr && f.lineNo !== tr.lineNo && tr.lineId) clearLineAnchor(id)
     if (tr && f.name !== tr.name) syncPlacementLabel(tr, f.name)
     const az = appConfig.copy.atemschutz
     log('flag', fillTemplate(standby ? az.logStandby : az.logReenter, { name: f.name }), 'team')
@@ -342,6 +347,17 @@ export function useTruppActions(deps: Deps) {
     emit('atemschutz.line.link', { id: truppId, lineId, lineNo: no })
     toast(fillTemplate(az.lineLinkedToast, { n: no != null ? String(no) : '–', name: tr.name }), { icon: 'drop' })
     return true
+  }
+
+  /** Drop just the ANCHOR (both sides), keeping whatever number the Trupp carries. Used when the
+   *  number is edited: the anchor was stamped FROM a number, so it must not outlive it — a Trupp
+   *  moved from Leitung 1 to Leitung 3 would otherwise still point at the old hose. */
+  const clearLineAnchor = (truppId: string) => {
+    const drop = <T extends { truppId?: string }>(l: T): T => (l.truppId === truppId ? { ...l, truppId: undefined } : l)
+    setDocRaw((d) => ({ ...d, drawings: d.drawings.map((dr) => (dr.kind === 'line' ? drop(dr) : dr)) }))
+    setBoard((b) => Object.fromEntries(Object.entries(b).map(([pid, annos]) =>
+      [pid, annos.map((a) => (a.kind === 'draw' ? drop(a) : a))])))
+    updateTrupp(truppId, { lineId: undefined })
   }
 
   /**

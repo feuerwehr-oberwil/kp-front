@@ -115,7 +115,7 @@ describe('kroki payload · Atemschutz on a hose line', () => {
       entryTime: '2026-08-05T10:00:00Z', lastContactTime: '2026-08-05T10:03:00Z', status: 'aktiv' as const,
     }]
     const p = buildKrokiPayload({ entities: [], drawings, layers, byName: {}, center: [7.55, 47.51], trupps })
-    expect(p?.drawings[0]).toMatchObject({ lineNo: 1, trupp: 'Hans M.' })
+    expect(p?.drawings[0]).toMatchObject({ lineNo: 1, trupp: 'Müller H.' })
     // the other Leitung has nobody on it — no tag part, no invented link
     expect(p?.drawings[1].trupp).toBeUndefined()
   })

@@ -50,7 +50,7 @@ export function TeilstueckFork({ angleDeg, color, width = 5 }: { angleDeg: numbe
 
 /** One compact boxed tag at the line end combining the Druckleitung number, FKS content letter,
  *  storey badge and — when an Atemschutz-Trupp works this Leitung — its leader (e.g.
- *  "1 · S · +2 · Hans M."). Keeps the tip uncluttered. Null when empty.
+ *  "1 · S · +2 · Müller H."). Keeps the tip uncluttered. Null when empty.
  *
  *  `tone` colours the BOX, never the line: 'warn'/'crit' mirror the Atemschutz contact clock,
  *  'muted' is the record left behind by a Trupp that is out. The tone owns the box colour when
