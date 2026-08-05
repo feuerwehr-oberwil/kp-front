@@ -1915,6 +1915,10 @@ export const de = {
     // Kompass-Menü: die eine Zeile, die das Teilen ein- und ausschaltet
     menuOff: 'Standort teilen',
     menuOn: 'Standort teilen – ein',
+    // Gründe, warum die Zeile gerade nicht geht. Sie verschwindet NICHT — ein Bedienelement,
+    // das sich in Luft auflöst, ist von einer nie gebauten Funktion nicht zu unterscheiden.
+    menuClosed: 'Nur solange der Einsatz läuft',
+    menuDemo: 'In der Demo nicht verfügbar',
     // Pille in der Kopfzeile
     on: 'Standort geteilt',
     starting: 'Standort wird gesucht …',

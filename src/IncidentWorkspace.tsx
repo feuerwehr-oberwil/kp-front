@@ -1336,20 +1336,22 @@ export function IncidentWorkspace({
     onResetNorth: () => mapRef.current?.resetNorth(),
     onFit: centerIncident,
     onLocate: () => setLocateReq((n) => n + 1),
-    // Standort teilen — the act, one row under «Mein Standort». Absent (not disabled) when
-    // there is nothing to report into: a finished Einsatz or the demo. One tap once the device
-    // has permission and a name; otherwise the sheet asks for both first.
-    share: incidentOpen && !isDemoMode()
-      ? {
-        on: share.state !== 'off',
-        label: share.state !== 'off' ? appConfig.copy.sharePosition.menuOn : appConfig.copy.sharePosition.menuOff,
-        onToggle: () => {
-          if (share.state !== 'off') share.stop()
-          else if (share.ready) share.start()
-          else setSharePick('ask')
-        },
-      }
-      : undefined,
+    // Standort teilen — the act, one row under «Mein Standort». ALWAYS rendered: when there is
+    // nothing to report into (a finished Einsatz, the demo) it says so in place rather than
+    // vanishing, because an absent control and an unbuilt feature look identical. One tap once
+    // the device has permission and a name; otherwise the sheet asks for both first.
+    share: {
+      on: share.state !== 'off',
+      label: share.state !== 'off' ? appConfig.copy.sharePosition.menuOn : appConfig.copy.sharePosition.menuOff,
+      unavailable: isDemoMode() ? appConfig.copy.sharePosition.menuDemo
+        : !incidentOpen ? appConfig.copy.sharePosition.menuClosed
+          : null,
+      onToggle: () => {
+        if (share.state !== 'off') share.stop()
+        else if (share.ready) share.start()
+        else setSharePick('ask')
+      },
+    },
     onSave: () => {
       // The time it was saved, not «Ansicht 3». A counter says nothing about which view it
       // is; the clock at least anchors it to what was happening then, and the list is in
@@ -2283,7 +2285,12 @@ export function IncidentWorkspace({
           protectedKeys={selected.kind === 'symbol' ? new Set(symbolPresetFieldKeys(selected.symbol, sym.symbols.find((x) => x.name === selected.symbol)?.cat)) : undefined}
           onDelete={() => deleteEntity(selected.id)}
           hasOverride={vehicleOverrides[selected.id] != null}
-          onResetGps={selected.live ? () => setVehicleOverrides((m) => { const { [selected.id]: _drop, ...rest } = m; return rest }) : undefined}
+          // Vehicles only. «GPS» undoes an operator's drag/rotate of a live symbol — a person
+          // dot has neither (both are blocked in MapMarkers), so the button sat there
+          // permanently disabled, a dead control inviting «what does this do?».
+          onResetGps={selected.live && selected.kind !== 'person'
+            ? () => setVehicleOverrides((m) => { const { [selected.id]: _drop, ...rest } = m; return rest })
+            : undefined}
           connectedLines={drawings.filter((d) => [d.startAttachment, d.endAttachment].some((a) => a?.target.kind === 'object' && a.target.id === selected.id)).map((d) => ({ id: d.id, label: lineLabel(d) }))}
           onFocusLine={focusDrawing}
         />

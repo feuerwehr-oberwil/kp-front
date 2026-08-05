@@ -25,10 +25,15 @@ export interface ViewsApi {
    *
    * It lives here, one row under «Mein Standort», because it is the same subject (where am I)
    * and because it has to be an ACT: switched on deliberately per Einsatz and off again by the
-   * same tap. Omitted entirely when there is nothing to report into — a finished Einsatz, the
-   * public demo — so the row is never present-but-dead.
+   * same tap.
+   *
+   * `unavailable` is a REASON, not a flag: when the row cannot be used it stays put and says
+   * why. It used to be omitted instead, and a control that vanishes is indistinguishable from
+   * one that was never built — which is exactly how this feature read as missing for an hour
+   * of hunting in production (2026-08-05). An unusable control that explains itself costs one
+   * line; an absent one costs a support call.
    */
-  share?: { on: boolean; label: string; onToggle: () => void }
+  share?: { on: boolean; label: string; unavailable?: string | null; onToggle: () => void }
 }
 
 // Is the live camera (roughly) sitting on a saved view? Lets us highlight the one we're on so
@@ -83,8 +88,10 @@ function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose }: {
             must be out of the way rather than sitting behind it. */}
         {api.share && (
           <button
-            className={cx(s.row, s.north, api.share.on && s.on)}
+            type="button"
+            className={cx(s.row, s.north, api.share.on && s.on, api.share.unavailable && s.rowOff)}
             aria-pressed={api.share.on}
+            disabled={!!api.share.unavailable}
             onClick={() => { api.share!.onToggle(); onClose() }}
           >
             {/* NOT the «locate» crosshair: this row sits directly under «Mein Standort», and
@@ -92,7 +99,12 @@ function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose }: {
                 one it is looking for. «people» also says what the row actually does — it puts
                 you on the Personen layer, which is the icon that layer carries. */}
             <span className={s.ico}><Icon id="people" /></span>
-            <span className={s.name}>{api.share.label}</span>
+            <span className={s.name}>
+              {api.share.label}
+              {/* the reason rides UNDER the label rather than in a title=: this is a touch
+                  surface, and a tooltip nobody can hover is the same as no explanation */}
+              {api.share.unavailable && <small className={s.why}>{api.share.unavailable}</small>}
+            </span>
           </button>
         )}
         {/* coordinate readout toggle — lives here instead of as its own rail-footer button
