@@ -8,14 +8,15 @@ interface Props {
   layers: LayerDef[]
   onToggle: (id: LayerDef['id']) => void
   onOpacity: (id: LayerDef['id'], v: number) => void
-  /** pre-download the current map area + plans/symbols for offline use (PWA) */
-  onDownloadOffline?: () => void
-  offlineProgress?: { done: number; total: number } | null
+  /** open the Offline-Bereitschaft sheet — the one place that owns offline. The Ebenen panel
+   *  used to run its own download here, which meant two unrelated screens both claimed to
+   *  handle offline and neither showed what the other had already stored. */
+  onOfflineReadiness?: () => void
   /** round ✕ in the title row — dock chrome parity with the views popover / tool docks */
   onClose?: () => void
 }
 
-export function LayerPanel({ layers, onToggle, onOpacity, onDownloadOffline, offlineProgress, onClose }: Props) {
+export function LayerPanel({ layers, onToggle, onOpacity, onOfflineReadiness, onClose }: Props) {
   const bases = layers.filter((l) => l.base)
   const groups = layers.filter((l) => !l.base).reduce<Record<string, LayerDef[]>>((acc, l) => {
     (acc[l.group] ??= []).push(l)
@@ -97,24 +98,16 @@ export function LayerPanel({ layers, onToggle, onOpacity, onDownloadOffline, off
         </Fragment>
       ))}
 
-      {onDownloadOffline && (
+      {onOfflineReadiness && (
         <>
           <div className="lgroup">{appConfig.copy.offline.layerGroup}</div>
-          <button
-            className="offline-dl"
-            onClick={onDownloadOffline}
-            disabled={!!offlineProgress}
-          >
+          {/* a door, not a second engine: the download, what is already stored and how much
+              room is left all live in the Offline-Bereitschaft sheet */}
+          <button className="offline-dl" onClick={onOfflineReadiness}>
             <Icon id="map" />
-            {offlineProgress
-              ? fillTemplate(appConfig.copy.offline.loadingShort, { done: offlineProgress.done, total: offlineProgress.total })
-              : appConfig.copy.offline.loadMap}
+            {appConfig.copy.offline.title}
+            <Icon id="chevron" />
           </button>
-          {offlineProgress && (
-            <div className="offline-bar">
-              <span style={{ width: `${Math.round((offlineProgress.done / Math.max(1, offlineProgress.total)) * 100)}%` }} />
-            </div>
-          )}
         </>
       )}
     </div>

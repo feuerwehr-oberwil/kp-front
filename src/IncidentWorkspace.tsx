@@ -2207,8 +2207,7 @@ export function IncidentWorkspace({
           layers={layers}
           onToggle={toggleLayer}
           onOpacity={setOpacity}
-          onDownloadOffline={downloadOffline}
-          offlineProgress={offlineProgress}
+          onOfflineReadiness={() => { setPanel(null); setOfflineReadyOpen(true) }}
           onClose={() => setPanel(null)}
         />
       )}

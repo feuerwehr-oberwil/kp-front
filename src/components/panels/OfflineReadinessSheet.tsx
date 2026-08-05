@@ -184,6 +184,26 @@ export function OfflineReadinessSheet({
               <Icon id="snapshot" /> {o.browserInstall}
             </button>
           )}
+          {/* The download still works in a tab — the caveat above is about how long the cache
+              SURVIVES, not whether it can be filled. It has to stay reachable here because the
+              Ebenen panel now sends people to this sheet instead of running its own download;
+              removing it would have quietly deleted a working feature on every desktop KP. */}
+          {loading ? (
+            <div className="or-prog" role="progressbar"
+              aria-valuemin={0} aria-valuemax={progress?.total ?? 0} aria-valuenow={progress?.done ?? 0}>
+              <div className="or-prog-track">
+                <div className="or-prog-fill" style={{ width: `${progress && progress.total ? Math.round((progress.done / progress.total) * 100) : 0}%` }} />
+              </div>
+              <div className="or-prog-meta">
+                <span>{o.loadingForOffline}</span>
+                <span className="or-prog-pct">{progress && progress.total ? Math.round((progress.done / progress.total) * 100) : 0} %</span>
+              </div>
+            </div>
+          ) : (
+            <button className="or-load or-load-quiet" onClick={onLoadAll}>
+              <Icon id="map" /> {o.loadAll}
+            </button>
+          )}
         </div>
       </Modal>
     )
