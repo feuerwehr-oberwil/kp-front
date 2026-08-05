@@ -54,6 +54,9 @@ interface Deps {
 export function useTruppActions(deps: Deps) {
   const { trupps, drawings, entities, setTrupps, board, setBoard, setDocRaw, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus, mapCenter, focusMapEntity, focusMapDrawing } = deps
 
+  /** a Trupp that is already out keeps whatever it recorded — the takeover only touches the live ones */
+  const isOutTrupp = (t: Trupp) => t.status === 'raus' || !!t.exitTime
+
   // the hose lines of each surface, in the shape the link resolution needs
   const docLines = (): LinkableLine[] => drawings.filter((d) => d.kind === 'line')
   const planLines = (planId: string): LinkableLine[] => (board[planId] ?? []).filter((a) => a.kind === 'draw')
@@ -341,7 +344,14 @@ export function useTruppActions(deps: Deps) {
     setDocRaw((d) => ({ ...d, drawings: d.drawings.map((dr) => (dr.kind === 'line' ? patchLine(dr) : dr)) }))
     setBoard((b) => Object.fromEntries(Object.entries(b).map(([pid, annos]) =>
       [pid, annos.map((a) => (a.kind === 'draw' ? patchLine(a) : a))])))
-    updateTrupp(truppId, { lineId, ...(no != null ? { lineNo: no } : {}) })
+    // One Leitung, one Trupp: whoever else claims this number lets go of it, so picking a Trupp
+    // for a hose can't quietly produce two Trupps on one Leitung. Their NEW fields are cleared —
+    // a legacy free-text designation is never rewritten (an incident is a legal record).
+    setTrupps((ts) => ts.map((t) => {
+      if (t.id === truppId) return { ...t, lineId, ...(no != null ? { lineNo: no } : {}) }
+      const claims = (no != null && t.lineNo === no) || (t.lineId && t.lineId === lineId)
+      return claims && !isOutTrupp(t) ? { ...t, lineId: undefined, lineNo: undefined } : t
+    }))
 
     log('drop', fillTemplate(az.logLineLinked, { name: tr.name, n: no != null ? String(no) : '–' }), 'team')
     emit('atemschutz.line.link', { id: truppId, lineId, lineNo: no })

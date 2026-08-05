@@ -643,6 +643,10 @@ export const it: Localizable<Copy> = {
     lineNoLabel: 'Linea n.',
     lineLegacyNote: 'Registrato prima: «{value}»',
     lineOptsLabel: 'Disegnate:',
+    lineTakeTitle: 'La linea {n} è occupata',
+    lineTakeMsg: 'La squadra {from} è sulla linea {n}. Mettere la squadra {to}?',
+    lineTakeConfirm: 'Subentra',
+
     lineOptTaken: 'La squadra {name} è su questa linea',
     lineShow: 'Mostra la linea sulla mappa',
     linePick: 'Scegli linea',

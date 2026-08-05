@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
-import { toast } from '../lib/ui'
+import { confirmDialog, toast } from '../lib/ui'
 import { cx } from '../lib/cx'
 import { Segmented } from './Segmented'
 import { Stepper } from './Stepper'
@@ -10,7 +10,7 @@ import { Overlay } from '../lib/overlays'
 import { contactSeverity, deriveTruppLive, estimatePressure, fmtClock, pressureAlarm, type TruppLive } from '../lib/atemschutz'
 import type { AttendanceState, Person, Trupp, TruppFields } from '../types'
 import { abbreviateName, assignedPersonIds } from '../lib/personnel'
-import type { LeitungOption } from '../lib/truppLines'
+import { truppLineNo, type LeitungOption } from '../lib/truppLines'
 import { PersonField, type Slot } from './PersonField'
 import { ensureNotifyPermission, unlockAlarm } from '../lib/alarm'
 import { atemschutzDoctrine } from '../lib/deploymentConfig'
@@ -43,7 +43,7 @@ function snapBar(v: number): number {
 // large "Kontakt" reset, and a contact-clock alarm (amber nudge → red überfällig). Pressure is
 // set inline and logged. Purely presentational + local UI state — data + mutations via props.
 export function AtemschutzView({
-  trupps, canEdit, personnel, attendance, muted, onToggleMuted, createTrupp, placeTrupp, placeTargets, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, leitungOptions, showTruppLine, truppsWithLine, pickTruppLine,
+  trupps, canEdit, personnel, attendance, muted, onToggleMuted, createTrupp, placeTrupp, placeTargets, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, leitungOptions, showTruppLine, truppsWithLine, pickTruppLine, unlinkTruppLine,
   intervalMin = atemschutzDoctrine().contactIntervalMin, graceSec = atemschutzDoctrine().contactGraceSec,
   defaultFunkkanal = atemschutzDoctrine().defaultFunkkanal,
 }: {
@@ -84,6 +84,8 @@ export function AtemschutzView({
   truppsWithLine: ReadonlySet<string>
   /** arm «Leitung wählen»: the next tap on a hose line (Lage or Plan) links it to this Trupp */
   pickTruppLine: (id: string) => void
+  /** release a Trupp's Leitung — used when another Trupp takes it over (confirmed Ablösung) */
+  unlinkTruppLine: (id: string) => void
 }) {
   const az = appConfig.copy.atemschutz // read per-render so the resolved locale applies
   // the shared create / edit / re-deploy form — null when closed
@@ -144,8 +146,25 @@ export function AtemschutzView({
   // überfällig alert can both sound and reach the tray when the app is backgrounded.
   const openForm = (mode: FormMode, trupp?: Trupp) => { unlockAlarm(); void ensureNotifyPermission(); setForm({ mode, trupp }) }
 
-  const submitForm = (f: TruppFields, standby = false) => {
+  const submitForm = async (f: TruppFields, standby = false) => {
     if (!form) return
+    // One Leitung, one Trupp. Typing a number that someone else is already on used to save
+    // silently and leave two Trupps claiming one hose — the tag then picked one of them and the
+    // Überwacher had no way of knowing. Name both and let the operator decide: a takeover IS the
+    // normal case (Ablösung), it just has to be said out loud. Cancel returns to the form with
+    // everything still typed.
+    const clash = f.lineNo == null ? undefined
+      : trupps.find((t) => t.id !== form.trupp?.id && t.status !== 'raus' && truppLineNo(t) === f.lineNo)
+    if (clash) {
+      const ok = await confirmDialog({
+        title: fillTemplate(az.lineTakeTitle, { n: String(f.lineNo) }),
+        message: fillTemplate(az.lineTakeMsg, { n: String(f.lineNo), from: clash.name, to: f.name }),
+        confirmLabel: az.lineTakeConfirm,
+        cancelLabel: appConfig.copy.cancel,
+      })
+      if (!ok) return
+      unlinkTruppLine(clash.id) // the previous Trupp lets go — its Leitung is now this one's
+    }
     if (form.mode === 'create') {
       createTrupp({
         id: `tr${Date.now()}`,

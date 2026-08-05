@@ -318,3 +318,28 @@ describe('useTruppActions — the Leitung number IS the link', () => {
     expect(state.doc.drawings[0].truppId).toBe('T1')
   })
 })
+
+describe('useTruppActions — one Leitung, one Trupp', () => {
+  it('picking a Trupp for a hose takes the number off whoever else claimed it', () => {
+    const state = {
+      trupps: [baseTrupp({ id: 'T1', lineNo: 1 }), baseTrupp({ id: 'T2', name: 'Neu Nina' })],
+      board: {} as BoardDoc,
+      doc: { entities: [], drawings: [{ id: 'd1', kind: 'line', coords: [[7.5, 47.4], [7.51, 47.41]], lineNo: 1 }] } as Doc,
+    }
+    const apply = <T,>(cur: T, a: SetStateAction<T>): T => (typeof a === 'function' ? (a as (p: T) => T)(cur) : a)
+    // eslint-disable-next-line react-hooks/rules-of-hooks -- plain closure factory, no hooks inside
+    const actions = useTruppActions({
+      trupps: state.trupps, drawings: state.doc.drawings, entities: state.doc.entities,
+      setTrupps: ((a) => { state.trupps = apply(state.trupps, a) }) as Dispatch<SetStateAction<Trupp[]>>,
+      board: state.board,
+      setBoard: ((a) => { state.board = apply(state.board, a) }) as Dispatch<SetStateAction<BoardDoc>>,
+      setDocRaw: ((a) => { state.doc = apply(state.doc, a) }) as Dispatch<SetStateAction<Doc>>,
+      building: null, log: () => {}, logPlan: () => {}, emit: () => {},
+      setMode: () => {}, setActivePlanId: () => {}, setPanel: () => {}, setPlanFocus: () => {},
+      mapCenter: () => [7.53, 47.41], focusMapEntity: () => {}, focusMapDrawing: () => {},
+    })
+    actions.linkTruppLine('T2', 'd1')
+    expect(state.trupps[1].lineNo).toBe(1)      // the new Trupp is on it
+    expect(state.trupps[0].lineNo).toBeUndefined() // the old one let go
+  })
+})

@@ -644,6 +644,10 @@ export const fr: Localizable<Copy> = {
     lineNoLabel: 'Conduite n°',
     lineLegacyNote: 'Saisie précédente : « {value} »',
     lineOptsLabel: 'Dessinées :',
+    lineTakeTitle: 'La conduite {n} est occupée',
+    lineTakeMsg: 'L’équipe {from} est sur la conduite {n}. Y mettre l’équipe {to} ?',
+    lineTakeConfirm: 'Reprendre',
+
     lineOptTaken: 'L’équipe {name} est sur cette conduite',
     lineShow: 'Montrer la conduite sur la carte',
     linePick: 'Choisir la conduite',

@@ -963,6 +963,10 @@ export const de = {
     lineNoLabel: 'Leitung Nr.',
     lineLegacyNote: 'Früher erfasst: «{value}»',
     lineOptsLabel: 'Gezeichnet:',
+    lineTakeTitle: 'Leitung {n} ist vergeben',
+    lineTakeMsg: 'Auf Leitung {n} ist Trupp {from}. Neu Trupp {to} darauf?',
+    lineTakeConfirm: 'Übernehmen',
+
     lineOptTaken: 'Trupp {name} ist auf dieser Leitung',
     lineShow: 'Leitung auf der Karte zeigen',
     linePick: 'Leitung wählen',

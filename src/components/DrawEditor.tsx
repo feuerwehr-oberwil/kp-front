@@ -10,6 +10,7 @@ import { floorBadge } from '../lib/symbolRender'
 import { useLineProfile } from '../lib/useLineProfile'
 import { ProfileChart, ProfileStats } from './ProfileChart'
 import { Stepper } from './Stepper'
+import { Menu } from '../lib/overlays'
 import { Segmented } from './Segmented'
 import type { LineAttachment, LineEndpoint, LngLat, LineRoutingMode } from '../types'
 
@@ -123,6 +124,17 @@ interface Props {
 }
 
 const FILL_OPACITIES = appConfig.drawing.fillOpacities
+
+/** One menu row with a leading tick when it is the current pick (the native select drew one; the
+ *  app's menu has no built-in selected state). */
+function MenuPick({ label, on }: { label: string; on: boolean }) {
+  return (
+    <>
+      <span className={`de-menu-tick${on ? ' on' : ''}`} aria-hidden><Icon id="check" /></span>
+      <span>{label}</span>
+    </>
+  )
+}
 
 export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, perimeterM, supportsDistance = false, lengthM, profileCoords, onColor, onWidth, onDashed, onLabel, onMarker, onArrow, onEnding, onContent, onLineNo, onFloorTag, onTrupp, trupps = [], truppOnLine, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onFillOpacity, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment }: Props) {
   const color = drawing.color ?? '#1f6feb'
@@ -266,6 +278,13 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, peri
                 </span>
               </div>
             )}
+            {onFloorTag && (
+              <div className="de-row"><span>{appConfig.copy.drawingEditor.floorTag}</span>
+                <Stepper value={drawing.floorTag ?? null} min={-9} max={40} seed={0} format={floorBadge} placeholder="–"
+                  onChange={(v) => onFloorTag(v)} onClear={() => onFloorTag(undefined)} canClear={drawing.floorTag != null}
+                  ariaLabel={appConfig.copy.drawingEditor.floorTag} />
+              </div>
+            )}
             {onLineNo && (
               <div className="de-row"><span>{appConfig.copy.drawingEditor.lineNo}</span>
                 <Stepper value={drawing.lineNo ?? null} min={1} max={99} placeholder="–"
@@ -281,21 +300,32 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, peri
             )}
             {/* «Gehört zu Trupp …» — the other direction of the Atemschutz link, for when the hose
                 is drawn AFTER the Trupp was registered. Picking one stamps the Leitung number too
-                (see useTruppActions · linkTruppLine), so the two sides always agree. */}
-            {/* ONE row: which Trupp is on this Leitung, and the way to it. The jump used to be a
-                separate full-width row under a hairline, which printed the same name twice —
-                three mentions of «Anna Meier» in four rows of a panel that is read at a glance. */}
+                (see useTruppActions · linkTruppLine), so the two sides always agree. Picker AND
+                jump in one row: as two rows it printed the same name twice under a hairline.
+                Order of the three: Stockwerk (where), Leitung (which), Trupp (who). */}
             {onTrupp && trupps.length > 0 && (
               <div className="de-row"><span>{appConfig.copy.drawingEditor.trupp}</span>
                 <span className="de-trupp">
-                  <select
-                    className="de-select" value={drawing.truppId ?? ''}
-                    aria-label={appConfig.copy.drawingEditor.trupp}
-                    onChange={(e) => onTrupp(e.target.value || undefined)}
-                  >
-                    <option value="">{appConfig.copy.drawingEditor.truppNone}</option>
-                    {trupps.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-                  </select>
+                  {/* the app's own menu, not a native <select>: a system dropdown lands with macOS
+                      chrome in the middle of a panel that is otherwise all ours, and on a tablet it
+                      opens the OS picker sheet. Base UI gives us the keyboard nav + flip-up for free. */}
+                  <Menu
+                    trigger={
+                      <button className="de-menu-trigger" aria-label={appConfig.copy.drawingEditor.trupp}>
+                        <span>{truppOnLine ?? appConfig.copy.drawingEditor.truppNone}</span>
+                        <Icon id="chevron-down" />
+                      </button>
+                    }
+                    popupClassName="de-menu-pop"
+                    itemClassName={() => 'de-menu-item'}
+                    items={[
+                      { label: <MenuPick label={appConfig.copy.drawingEditor.truppNone} on={!truppOnLine} />, onClick: () => onTrupp(undefined) },
+                      ...trupps.map((t) => ({
+                        label: <MenuPick label={t.name} on={t.name === truppOnLine} />,
+                        onClick: () => onTrupp(t.id),
+                      })),
+                    ]}
+                  />
                   {onShowTrupp && truppOnLine && (
                     <button
                       className="de-trupp-go" onClick={onShowTrupp}
@@ -306,13 +336,6 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, peri
                     </button>
                   )}
                 </span>
-              </div>
-            )}
-            {onFloorTag && (
-              <div className="de-row"><span>{appConfig.copy.drawingEditor.floorTag}</span>
-                <Stepper value={drawing.floorTag ?? null} min={-9} max={40} seed={0} format={floorBadge} placeholder="–"
-                  onChange={(v) => onFloorTag(v)} onClear={() => onFloorTag(undefined)} canClear={drawing.floorTag != null}
-                  ariaLabel={appConfig.copy.drawingEditor.floorTag} />
               </div>
             )}
           </div>

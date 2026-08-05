@@ -2693,7 +2693,7 @@ export function IncidentWorkspace({
           trupps={effTrupps}
           leitungOptions={truppLeitungOptions}
           showTruppLine={showTruppLine} truppsWithLine={truppsWithLine()}
-          pickTruppLine={pickTruppLine}
+          pickTruppLine={pickTruppLine} unlinkTruppLine={unlinkTruppLine}
           canEdit={canEditIncident}
           personnel={personnel}
           attendance={effAttendance}

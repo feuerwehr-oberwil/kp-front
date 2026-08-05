@@ -1403,9 +1403,6 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 .draw-editor .de-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
   gap: 4px 10px; min-height: 48px; padding: 2px 0; font-size: 13px; color: var(--ink-dim); font-weight: 500; }
 .draw-editor .de-row > span:first-child { flex: 0 1 auto; min-width: 0; }
-/* Trupp picker («Gehört zu Trupp …») — a plain select, sized like the other row controls */
-.draw-editor .de-select { flex: 0 1 auto; max-width: 60%; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
-  padding: 8px 10px; background: var(--surface); color: var(--ink); font: 600 13px/1.2 var(--body); }
 /* duplicate-Leitung notice: a warning, never a block — a real incident sometimes needs the wrong
    thing typed for a moment, and the operator is told why it matters instead of being stopped */
 .draw-editor .de-warn { display: flex; align-items: center; gap: 6px; margin: 2px 0 6px; font-size: 12px;
@@ -2524,11 +2521,28 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .ctx-connections button:first-of-type { border-top: 0; }
 .ctx-connections button > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ctx-conn-go { flex: none; color: var(--ink-faint); font-size: 16px; line-height: 1; }
-/* Trupp picker + the jump to it, as ONE control group: the chevron sits against the select the
+/* Trupp picker + the jump to it, as ONE control group: the chevron sits against the picker the
    way a "go there" affordance does everywhere else in the panel, instead of repeating the name
    in a row of its own. */
-.draw-editor .de-trupp { display: inline-flex; align-items: center; gap: 4px; max-width: 62%; }
-.draw-editor .de-trupp .de-select { max-width: 100%; }
+.draw-editor .de-trupp { display: inline-flex; align-items: center; gap: 4px; max-width: 62%; min-width: 0; }
+/* the picker itself — our own button + Menu, sized and coloured like every other row control
+   (a native <select> dropped macOS chrome into the middle of the panel) */
+.draw-editor .de-menu-trigger { display: inline-flex; align-items: center; gap: 6px; min-width: 0; min-height: 38px;
+  padding: 8px 10px; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface);
+  color: var(--ink); font: 700 13px/1.2 var(--body); cursor: pointer; }
+.draw-editor .de-menu-trigger > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.draw-editor .de-menu-trigger svg { width: 14px; height: 14px; flex: none; opacity: .65; }
+.draw-editor .de-menu-trigger:hover,
+.draw-editor .de-menu-trigger[data-popup-open] { border-color: var(--ink-dim); }
+.de-menu-pop { min-width: 200px; padding: 6px; border-radius: var(--r-ctl); background: var(--surface);
+  box-shadow: var(--shadow); border: 1px solid var(--glass-edge); z-index: 60; }
+.de-menu-item { display: flex; align-items: center; gap: 9px; width: 100%; min-height: var(--tap);
+  padding: 0 11px; border-radius: var(--r-sm); cursor: pointer; font: 600 13.5px var(--body); color: var(--ink); outline: none; }
+.de-menu-item[data-highlighted] { background: color-mix(in srgb, var(--ink) 8%, transparent); }
+/* the tick marks the current pick; the empty slot keeps every label on the same left edge */
+.de-menu-tick { flex: none; width: 15px; height: 15px; visibility: hidden; color: var(--blue); }
+.de-menu-tick.on { visibility: visible; }
+.de-menu-tick svg { width: 100%; height: 100%; }
 .draw-editor .de-trupp-go { display: grid; place-items: center; width: 32px; min-height: 32px; padding: 0;
   border: 0; background: none; color: var(--ink-dim); cursor: pointer; }
 .draw-editor .de-trupp-go:hover { color: var(--accent); }

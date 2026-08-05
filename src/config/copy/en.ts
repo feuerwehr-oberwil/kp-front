@@ -654,6 +654,10 @@ export const en: Localizable<Copy> = {
     lineNoLabel: 'Line no.',
     lineLegacyNote: 'Previously recorded: “{value}”',
     lineOptsLabel: 'Drawn:',
+    lineTakeTitle: 'Line {n} is taken',
+    lineTakeMsg: 'Team {from} is on line {n}. Put team {to} on it instead?',
+    lineTakeConfirm: 'Take over',
+
     lineOptTaken: 'Team {name} is on this line',
     lineShow: 'Show line on the map',
     linePick: 'Pick line',
