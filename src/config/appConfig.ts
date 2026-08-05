@@ -146,6 +146,9 @@ const base = {
     // as a real plate with the Gefahrnummer (Kemler) over the UN number baked in (see
     // lib/placard · placardSvgForSymbol), the same way the vehicle bakes its name.
     placardName: 'FW Gefahr Tafel',
+    // the Einsatzleiter glyph. Its 'Name' field is the person in charge, so a Kroki that carries
+    // one pre-fills the Rapport's Einsatzleiter (lib/report · einsatzleiterFromScene).
+    einsatzleiterName: 'VKF Einsatzleiter',
     // NOTE: the old `rotatable` list is gone — a symbol is rotatable iff its preset
     // (below) lists 'rotation' in `controls`, so the drag-to-rotate handle and the
     // editor's Drehung stepper stay in sync from one source (see lib/symbols ·

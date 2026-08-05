@@ -10,6 +10,7 @@ const deployment = {
 vi.mock('./deploymentConfig', () => ({ getDeploymentConfig: () => deployment }))
 import {
   annotatedPlans,
+  einsatzleiterFromScene,
   eventIso,
   hasVisiblePlanAnnotation,
   journalRows,
@@ -223,5 +224,32 @@ describe('operational extent', () => {
     expect(operationalExtentPoints([6, 46], entities, [], false)).toEqual([[7.1, 47.1]])
     // nothing placed → the pin is the frame
     expect(operationalExtentPoints([6, 46], [], [], false)).toEqual([[6, 46]])
+  })
+})
+
+describe('einsatzleiterFromScene (Rapport pre-fill)', () => {
+  const sym = (id: string, symbol: string, extra: Partial<Entity> = {}): Entity =>
+    ({ id, kind: 'symbol', layer: 'taktisch', coord: [7, 47], symbol, ...extra })
+
+  it('reads the name off the Einsatzleiter glyph, its label as fallback', () => {
+    expect(einsatzleiterFromScene([sym('a', 'VKF Einsatzleiter', { fields: { Name: 'Céline Widmer' } })])).toBe('Céline Widmer')
+    expect(einsatzleiterFromScene([sym('a', 'VKF Einsatzleiter', { label: 'Hptm Meier' })])).toBe('Hptm Meier')
+  })
+
+  it('falls back to an Offizier with EL-Funktion, then to an «Einsatzleiter» field', () => {
+    expect(einsatzleiterFromScene([sym('o', 'FW Offizier', { fields: { Funktion: 'Einsatzleiter', Name: 'Peter Schmid' } })])).toBe('Peter Schmid')
+    expect(einsatzleiterFromScene([sym('k', 'VKF KP Front', { fields: { Einsatzleiter: 'Hptm Meier' } })])).toBe('Hptm Meier')
+  })
+
+  it('prefers the EL glyph over the other two, and stays undefined without a person', () => {
+    const scene = [
+      sym('k', 'VKF KP Front', { fields: { Einsatzleiter: 'Falsch' } }),
+      sym('a', 'VKF Einsatzleiter', { fields: { Name: 'Richtig', 'Stv.': 'Nebenrolle' } }),
+    ]
+    expect(einsatzleiterFromScene(scene)).toBe('Richtig')
+    // an empty glyph names nobody — the field stays blank rather than guessing
+    expect(einsatzleiterFromScene([sym('a', 'VKF Einsatzleiter', { fields: { Name: '  ' } })])).toBeUndefined()
+    expect(einsatzleiterFromScene([])).toBeUndefined()
+    expect(einsatzleiterFromScene()).toBeUndefined()
   })
 })

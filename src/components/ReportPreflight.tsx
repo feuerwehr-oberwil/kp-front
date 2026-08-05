@@ -14,7 +14,7 @@ import type { FahrzeugZeit, GruppeZeit, ReportMeta } from '../lib/workspace'
 import { deriveAusgerueckt, fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit } from '../lib/alarmzeiten'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
 import type { AuditProof, KrokiView, ReportDraft, ReportOptions } from '../lib/report'
-import { defaultReportOptions, formatDateTime, missingTranscriptCount, proofLabel } from '../lib/report'
+import { defaultReportOptions, einsatzleiterFromScene, formatDateTime, missingTranscriptCount, proofLabel } from '../lib/report'
 import { applyTimeToIso, missingSteps, stepDone, type AbschlussFacts } from '../lib/abschluss'
 import { hoursRows } from '../lib/attendanceHours'
 import type { AttendanceState, BoardDoc, BuildingDoc, Drawing, Entity, LayerDef, LngLat, MittelEntry, Person, PlanDocument, TimelineEvent, Trupp } from '../types'
@@ -151,7 +151,10 @@ export function ReportPreflight({
   // every change is persisted live (see persist) so nothing is lost if the sheet is closed.
   const [summary, setSummary] = useState(reportMeta.summary ?? '')
   const [kontaktperson, setKontaktperson] = useState(reportMeta.kontaktperson ?? '')
-  const [einsatzleiter, setEinsatzleiter] = useState(reportMeta.einsatzleiter ?? '')
+  // Seeded from the Kroki when the Rapport has none of its own: the EL was already named on the
+  // map (Einsatzleiter glyph / KP Front), so typing it a second time is pure duplication. A
+  // pre-fill only — the picker stays editable and the typed value wins from then on.
+  const [einsatzleiter, setEinsatzleiter] = useState(reportMeta.einsatzleiter ?? einsatzleiterFromScene(scene?.entities) ?? '')
   const [endedAt, setEndedAt] = useState(dtLocalValue(reportMeta.endedAt ?? incident.closed_at ?? undefined))
   const [ausgerueckt, setAusgerueckt] = useState(dtLocalValue(reportMeta.ausgeruecktAt))
   const [remarks, setRemarks] = useState(reportMeta.remarks ?? '')
@@ -230,6 +233,20 @@ export function ReportPreflight({
     ...editedMeta(),
     ...over,
   })
+
+  // Commit the Kroki-seeded Einsatzleiter to the blob once, so the Abschluss-Checkliste and a
+  // rapport printed from another device see the same name this field shows — a value that only
+  // lives in local state would leave the checklist nagging about an Einsatzleiter that is on
+  // screen. Fills a BLANK field only, never overwrites, and only while the sheet is mounted.
+  const seededEinsatzleiter = useRef(false)
+  useEffect(() => {
+    if (seededEinsatzleiter.current || reportMeta.einsatzleiter?.trim() || !einsatzleiter.trim()) return
+    seededEinsatzleiter.current = true
+    persist({ einsatzleiter: einsatzleiter.trim() })
+    // `persist` is re-created every render (it closes over the live field state); depending on it
+    // would re-run this on every keystroke — the ref guard is what makes it once-only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reportMeta.einsatzleiter, einsatzleiter])
 
   const meta: ReportMeta = {
     ...reportMeta,

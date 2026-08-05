@@ -237,6 +237,23 @@ export function describeDrawing(d: Drawing): string {
   return r.drawLine
 }
 
+/** The Einsatzleiter as drawn on the Lage, for pre-filling the Rapport field that would
+ *  otherwise be typed a second time. Read in doctrine order:
+ *    1. the Einsatzleiter glyph — its 'Name' (roster picker), else its own label,
+ *    2. an Offizier whose Funktion says Einsatzleiter (a rank-led picture without the EL glyph),
+ *    3. any symbol carrying a filled field literally named «Einsatzleiter» (KP Front, typically).
+ *  Returns undefined when nothing names a person — the field then stays empty rather than
+ *  guessing. Only a PRE-fill: whatever the operator types in the Rapport wins. */
+export function einsatzleiterFromScene(entities: Entity[] = []): string | undefined {
+  const syms = entities.filter((e) => e.kind === 'symbol')
+  const val = (e: Entity, key: string) => e.fields?.[key]?.trim() || undefined
+  const el = syms.find((e) => e.symbol === appConfig.symbols.einsatzleiterName && (val(e, 'Name') || e.label?.trim()))
+  if (el) return val(el, 'Name') ?? el.label?.trim()
+  const officer = syms.find((e) => /einsatzleit|^el$/i.test(e.fields?.Funktion?.trim() ?? '') && val(e, 'Name'))
+  if (officer) return val(officer, 'Name')
+  return syms.map((e) => val(e, 'Einsatzleiter')).find(Boolean)
+}
+
 /** Pre-formatted meta extras for the SERVER-rendered PDF (facts rows are placed, not
  *  computed, by the composer): Gerettete, Rückmeldung ELZ
  *  and the Alarmierungs-/Ausrückzeiten grid as [label, value] pairs. The grid ALWAYS
