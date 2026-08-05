@@ -256,8 +256,17 @@ export interface Drawing {
   /** FKS device/content letter at the line end: S=Schaumrohr, W=Wasserwerfer,
    *  H=Hydroschild, P=Pulverpistole. Wasser = plain line (unset). */
   content?: 'S' | 'W' | 'H' | 'P'
-  /** Druckleitung number shown in a small box on the line (e.g. 1. Druckleitung). */
+  /** Druckleitung number shown in a small box on the line (e.g. 1. Druckleitung). ALSO the
+   *  identity of the Leitung for the Atemschutz link: the same number on the Lage and on a Plan
+   *  is one hose drawn twice, and both carry the Trupp tag (see lib/truppLines). Unique per
+   *  surface. */
   lineNo?: number
+  /** Atemschutz link ANCHOR — the Trupp this line was explicitly picked for (mirrors
+   *  `Trupp.lineId`, the way a team chip's `truppId` mirrors `Trupp.annoId`). Display resolves by
+   *  anchor OR number, so neither an undo of the stamped number nor a merge that drops the anchor
+   *  can blank the tag. Never read by the contact clock: the drawing decorates the Atemschutz
+   *  record, it never feeds it. */
+  truppId?: string
   /** storey the line works on, shown as a signed badge (+2 / 0 / -1) by the number box. */
   floorTag?: number
   /** screen-space px offset of the FKS end-tag from its default spot (just before the line end),
@@ -458,14 +467,17 @@ export interface BoardAnno extends SymbolProps {
   // FKS hose-line annotations (draw/line only) — mirror Drawing's fields for cross-surface parity
   teilstueck?: boolean       // forward "E"-fork coupling at the line end (instead of an arrowhead)
   content?: 'S' | 'W' | 'H' | 'P' // FKS device letter at the end (Schaumrohr/Wasserwerfer/Hydroschild/Pulver)
-  lineNo?: number            // Druckleitung number in a small box on the line
+  lineNo?: number            // Druckleitung number in a small box on the line (= Leitung identity, see Drawing)
   floorTag?: number          // storey the line works on, signed badge (+2 / 0 / -1)
   endDx?: number             // draw: screen-space nudge of the FKS end-tag off other symbols
   endDy?: number
   fillOpacity?: number       // area: polygon fill opacity (0..1); absent = a sensible default
   t?: string                 // resource: HH:MM of last move
   trail?: TrailPoint[]       // resource: breadcrumb history, oldest → newest
-  truppId?: string           // resource: linked Atemschutz Trupp (this chip represents that team)
+  // resource: the linked Atemschutz Trupp this chip REPRESENTS (position tracking).
+  // draw/line: the Atemschutz link ANCHOR — the Trupp this hose was picked for (mirrors
+  // Trupp.lineId). Two meanings, one field, told apart by `kind`; both say "belongs to that Trupp".
+  truppId?: string
   /** floor-stack only: which storey TILE this anno belongs to (0 = EG). x/y (and
    *  pts/trail) are then normalized 0..1 WITHIN that tile, so floors stay
    *  independent when storeys are added/removed. Absent = floor 0. NOTE: this is a
@@ -494,7 +506,7 @@ export interface SymbolLibrary { order: string[]; symbols: SymbolMeta[] }
  *  is NOT extrapolated into a countdown. Status: angemeldet → aktiv → rueckzug → ueberfaellig
  *  (contact overdue), or `raus` once the team is out. */
 /** the editable descriptive fields of a Trupp, shared by the create / edit / re-deploy form */
-export type TruppFields = { name: string; members?: string[]; auftrag?: Trupp['auftrag']; ziel?: string; lineNumber?: string; funkkanal?: number; pressure: number; leaderPersonId?: string; memberPersonIds?: string[] }
+export type TruppFields = { name: string; members?: string[]; auftrag?: Trupp['auftrag']; ziel?: string; lineNo?: number; funkkanal?: number; pressure: number; leaderPersonId?: string; memberPersonIds?: string[] }
 
 /** One entry in a Trupp's contact/pressure log. `entry` = eingerückt (or re-deployed), `contact`
  *  = a radio check (pressure unchanged, carries the current reading), `pressure` = a new reading. */
@@ -515,7 +527,17 @@ export interface Trupp {
   /** the actual order + location in plain words ("2. OG Wohnung links, Person vermisst").
    *  Required when `auftrag === 'anderes'` (carries the custom order). */
   ziel?: string
-  /** hose / line designation the Trupp works on (e.g. "1", "Leitung 2") */
+  /** the Leitung this Trupp works on — the SAME 1–99 number the DrawEditor stamps on a hose
+   *  (`Drawing.lineNo` / `BoardAnno.lineNo`), which is what joins the two: one number, one
+   *  Leitung, on whichever surface it is drawn. */
+  lineNo?: number
+  /** the drawing explicitly picked for this Trupp (mirrors `Drawing.truppId`). The ANCHOR; the
+   *  number above is the identity. Either one alone renders the tag — see lib/truppLines. */
+  lineId?: string
+  /** @deprecated legacy free-text designation ("1", "Ltg 2", "Res"), replaced 2026-08-05 by the
+   *  numeric `lineNo` so it matches what is drawn. Still READ (rendered on the card as typed, and
+   *  parsed for the auto-match when it holds a plain number) but never written again — an incident
+   *  is a legal record, so old Trupps keep the text their Überwacher typed. */
   lineNumber?: string
   /** Funkkanal the Trupp is on; seeded from the synced default (FKS-Standard: 11) */
   funkkanal?: number

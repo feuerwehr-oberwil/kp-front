@@ -1397,6 +1397,14 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 .draw-editor .de-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
   gap: 4px 10px; min-height: 48px; padding: 2px 0; font-size: 13px; color: var(--ink-dim); font-weight: 500; }
 .draw-editor .de-row > span:first-child { flex: 0 1 auto; min-width: 0; }
+/* Trupp picker («Gehört zu Trupp …») — a plain select, sized like the other row controls */
+.draw-editor .de-select { flex: 0 1 auto; max-width: 60%; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
+  padding: 8px 10px; background: var(--surface); color: var(--ink); font: 600 13px/1.2 var(--body); }
+/* duplicate-Leitung notice: a warning, never a block — a real incident sometimes needs the wrong
+   thing typed for a moment, and the operator is told why it matters instead of being stopped */
+.draw-editor .de-warn { display: flex; align-items: center; gap: 6px; margin: 2px 0 6px; font-size: 12px;
+  font-weight: 600; color: var(--amber-strong, var(--amber)); }
+.draw-editor .de-warn svg { width: 15px; height: 15px; flex: none; }
 /* a clean, always-present thin scrollbar so the panel reads as scrollable */
 .draw-editor .ctx-body { scrollbar-width: thin; scrollbar-color: var(--border) transparent; scroll-padding-bottom: 8px; }
 .draw-editor .ctx-body::-webkit-scrollbar { width: 8px; }
@@ -1860,6 +1868,13 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .line-fork { display: block; }
 .line-end-tag { display: inline-grid; place-items: center; padding: 2px 6px; border: 1.5px solid currentColor;
   border-radius: 4px; background: var(--surface); font: 800 11.5px/1 var(--body); white-space: nowrap; }
+/* An Atemschutz-Trupp is on this Leitung and its contact clock has run out: the tag is tinted and
+   the box filled a little, so the state reads without decoding the colour of a thin line. NO
+   animation — a pulsing hose was tried and rejected: the Atemschutz board is the surface that
+   raises the alarm, this is the picture telling you WHERE those people are. */
+.line-end-tag.tone-warn { background: color-mix(in srgb, var(--amber) 14%, var(--surface)); }
+.line-end-tag.tone-crit { background: color-mix(in srgb, var(--red) 16%, var(--surface)); }
+.line-end-tag.tone-muted { border-style: dashed; }
 
 /* Plan-Maßstab + Messen overlays — match the Lage map's measure tool exactly: a dashed blue
    path (#1f6feb), 10 % blue fill, and white nodes with a 3 px blue ring. */

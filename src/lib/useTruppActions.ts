@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react'
-import type { BoardAnno, BoardDoc, BuildingDoc, Entity, LngLat, TimelineEvent, Trupp, TruppFields } from '../types'
+import type { BoardAnno, BoardDoc, BuildingDoc, Drawing, Entity, LngLat, TimelineEvent, Trupp, TruppFields } from '../types'
 import type { Doc } from './workspace'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatTime } from './format'
@@ -7,6 +7,7 @@ import { toast } from './ui'
 import { gebaeudeDoc } from '../data/demoIncident'
 import { abbreviateName } from './personnel'
 import { pickTeamColor } from './teamColors'
+import { resolveLinkNumber, truppForLine, type LinkableLine } from './truppLines'
 
 type Mode = 'map' | 'plans' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel'
 type PlanFocus = { x: number; y: number; floor: number; annoId?: string; nonce: number } | null
@@ -16,6 +17,9 @@ export const LAGE_TARGET = 'lage'
 
 interface Deps {
   trupps: Trupp[]
+  /** live Lage drawings — read to find the hose a Trupp was linked to (and which numbers are
+   *  already taken on that surface). Written through `setDocRaw`, like the placements. */
+  drawings: Drawing[]
   /** live Lage entities — read to see which team colours are already worn (pickTeamColor) */
   entities: Entity[]
   setTrupps: Dispatch<SetStateAction<Trupp[]>>
@@ -46,7 +50,11 @@ interface Deps {
  * persistence blob + hydrate + multiple components) and are passed in.
  */
 export function useTruppActions(deps: Deps) {
-  const { trupps, entities, setTrupps, board, setBoard, setDocRaw, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus, mapCenter, focusMapEntity } = deps
+  const { trupps, drawings, entities, setTrupps, board, setBoard, setDocRaw, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus, mapCenter, focusMapEntity } = deps
+
+  // the hose lines of each surface, in the shape the link resolution needs
+  const docLines = (): LinkableLine[] => drawings.filter((d) => d.kind === 'line')
+  const planLines = (planId: string): LinkableLine[] => (board[planId] ?? []).filter((a) => a.kind === 'draw')
 
   // A Trupp is tracked at exactly ONE place — drop any prior placement (plan chip AND/OR
   // map marker) before adding a new one, so re-placing or a sync re-fire can't leave an
@@ -233,7 +241,7 @@ export function useTruppActions(deps: Deps) {
   // only the descriptive fields — never the live clock/pressure. Keeps the plan chip label in sync.
   const editTrupp = (id: string, f: TruppFields) => {
     const tr = trupps.find((t) => t.id === id)
-    updateTrupp(id, { name: f.name, members: f.members, auftrag: f.auftrag, ziel: f.ziel, lineNumber: f.lineNumber, funkkanal: f.funkkanal, leaderPersonId: f.leaderPersonId, memberPersonIds: f.memberPersonIds })
+    updateTrupp(id, { name: f.name, members: f.members, auftrag: f.auftrag, ziel: f.ziel, lineNo: f.lineNo, funkkanal: f.funkkanal, leaderPersonId: f.leaderPersonId, memberPersonIds: f.memberPersonIds })
     if (tr && f.name !== tr.name) syncPlacementLabel(tr, f.name)
     log('pen', fillTemplate(appConfig.copy.atemschutz.logEdit, { name: f.name }), 'team')
     emit('atemschutz.edit', { id })
@@ -250,7 +258,7 @@ export function useTruppActions(deps: Deps) {
     const tr = trupps.find((t) => t.id === id)
     const now = new Date().toISOString()
     setTrupps((ts) => ts.map((t) => (t.id === id
-      ? { ...t, name: f.name, members: f.members, auftrag: f.auftrag, ziel: f.ziel, lineNumber: f.lineNumber, funkkanal: f.funkkanal,
+      ? { ...t, name: f.name, members: f.members, auftrag: f.auftrag, ziel: f.ziel, lineNo: f.lineNo, funkkanal: f.funkkanal,
           leaderPersonId: f.leaderPersonId, memberPersonIds: f.memberPersonIds,
           status: standby ? 'angemeldet' : 'aktiv',
           entryTime: standby ? '' : now, lastContactTime: standby ? '' : now, exitTime: undefined,
@@ -262,6 +270,74 @@ export function useTruppActions(deps: Deps) {
     log('flag', fillTemplate(standby ? az.logStandby : az.logReenter, { name: f.name }), 'team')
     emit('atemschutz.status', { id, status: standby ? 'angemeldet' : 'aktiv' })
   }
+  /**
+   * Link a Trupp to a drawn hose line — ONE action, because it writes two collections: the Trupp
+   * (anchor + number) and the drawing (mirror + the stamped number). Split across two call sites
+   * the halves would drift apart under sync; every other link in here (annoId/planId, entityId)
+   * follows the same rule.
+   *
+   * `lineId` may name a Lage drawing or a Plan annotation — the surface is inferred, so the
+   * caller just hands over what the operator tapped. Both writes go through the RAW setters, the
+   * way placements do: the link is bookkeeping, not a drawing edit, and it has no business
+   * sitting on the undo stack (Cmd-Z after linking would otherwise strip the stamped number and
+   * leave the Trupp pointing at a line that no longer says which Leitung it is).
+   */
+  const linkTruppLine = (truppId: string, lineId: string): boolean => {
+    const tr = trupps.find((t) => t.id === truppId)
+    if (!tr) return false
+    const az = appConfig.copy.atemschutz
+    const onMap = docLines().some((l) => l.id === lineId)
+    const planId = onMap ? null : Object.keys(board).find((pid) => (board[pid] ?? []).some((a) => a.id === lineId && a.kind === 'draw'))
+    // not a hose (an Absperrkreis, a Fläche, a freehand scribble) — nothing to link
+    if (!onMap && !planId) return false
+    const lines = onMap ? docLines() : planLines(planId!)
+    const line = lines.find((l) => l.id === lineId)!
+    const no = resolveLinkNumber(tr, line, lines, trupps)
+
+    // the drawing: mirror + number. Any OTHER line that claimed this Trupp lets go, so a Trupp
+    // is on exactly one Leitung (re-picking moves it instead of leaving two tagged hoses).
+    const patchLine = <T extends { id: string; truppId?: string; lineNo?: number }>(l: T): T =>
+      l.id === lineId ? { ...l, truppId, ...(no != null ? { lineNo: no } : {}) }
+        : l.truppId === truppId ? { ...l, truppId: undefined } : l
+    setDocRaw((d) => ({ ...d, drawings: d.drawings.map((dr) => (dr.kind === 'line' ? patchLine(dr) : dr)) }))
+    setBoard((b) => Object.fromEntries(Object.entries(b).map(([pid, annos]) =>
+      [pid, annos.map((a) => (a.kind === 'draw' ? patchLine(a) : a))])))
+    updateTrupp(truppId, { lineId, ...(no != null ? { lineNo: no } : {}) })
+
+    log('drop', fillTemplate(az.logLineLinked, { name: tr.name, n: no != null ? String(no) : '–' }), 'team')
+    emit('atemschutz.line.link', { id: truppId, lineId, lineNo: no })
+    toast(fillTemplate(az.lineLinkedToast, { n: no != null ? String(no) : '–', name: tr.name }), { icon: 'drop' })
+    return true
+  }
+
+  /**
+   * Let go of the Leitung. Clears the anchor on BOTH sides and the Trupp's own number — dropping
+   * only the anchor would leave the number match to re-attach the tag on the very next render,
+   * so «gelöst» would visibly do nothing. The drawn line keeps its number: the hose is still
+   * Leitung 1 in the picture, it just has nobody on it.
+   */
+  const unlinkTruppLine = (truppId: string) => {
+    const tr = trupps.find((t) => t.id === truppId)
+    if (!tr) return
+    const drop = <T extends { truppId?: string }>(l: T): T => (l.truppId === truppId ? { ...l, truppId: undefined } : l)
+    setDocRaw((d) => ({ ...d, drawings: d.drawings.map((dr) => (dr.kind === 'line' ? drop(dr) : dr)) }))
+    setBoard((b) => Object.fromEntries(Object.entries(b).map(([pid, annos]) =>
+      [pid, annos.map((a) => (a.kind === 'draw' ? drop(a) : a))])))
+    updateTrupp(truppId, { lineId: undefined, lineNo: undefined })
+    log('drop', fillTemplate(appConfig.copy.atemschutz.logLineUnlinked, { name: tr.name }), 'team')
+    emit('atemschutz.line.unlink', { id: truppId })
+  }
+
+  /** The same gesture from the LINE's side («Gehört zu Trupp …» → «Kein Trupp»): whoever is on
+   *  this hose lets go of it. Resolved through truppForLine so it also releases a Trupp that only
+   *  ever matched by number — otherwise the picker would show «Kein Trupp» while the tag stayed. */
+  const unlinkLine = (lineId: string) => {
+    const line = docLines().find((l) => l.id === lineId)
+      ?? Object.values(board).flat().find((a) => a.id === lineId && a.kind === 'draw')
+    const tr = line ? truppForLine(line, trupps) : undefined
+    if (tr) unlinkTruppLine(tr.id)
+  }
+
   // an escalation crossed into warn/critical — record it once in the Verlauf
   const logTruppAlarm = (id: string, status: Trupp['status']) => {
     const tr = trupps.find((t) => t.id === id)
@@ -283,5 +359,5 @@ export function useTruppActions(deps: Deps) {
     emit('atemschutz.restore', { id: t.id })
   }
 
-  return { createTrupp, updateTrupp, placeTruppOnPlan, placeTruppOnMap, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, deleteTrupp, restoreTrupp }
+  return { createTrupp, updateTrupp, placeTruppOnPlan, placeTruppOnMap, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine }
 }

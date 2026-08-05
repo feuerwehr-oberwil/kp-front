@@ -9,7 +9,8 @@ import { LINE_DASH_ML } from '../lib/draw'
 import { markerParamsAlong, lerpPoint, MAX_VERTEX_HANDLES } from '../lib/lineStyle'
 import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, resumeViewState, snapNorth, shapePx, symPx } from '../lib/mapView'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
-import { pathLengthM, fmtDistance, hoseLengthHint, circlePolygon } from '../lib/geo'
+import { truppForLine, truppLineTone, truppTagText } from '../lib/truppLines'
+import { pathLengthM, fmtDistance, fmtArea, polygonAreaM2, hoseLengthHint, circlePolygon } from '../lib/geo'
 import { useVehicleTrails } from '../lib/useVehicleTrails'
 import { useMapCanvasGestures } from './useMapCanvasGestures'
 import { MapMarkers } from './MapMarkers'
@@ -98,6 +99,10 @@ interface Props {
   onNoteWidth?: (id: string, w: number | undefined, phase: 'start' | 'move' | 'end') => void
   /** team markers (Trupp tracking on the map) — see MapMarkers */
   trupps?: Trupp[]
+  /** per-Trupp contact-clock tier (see atemschutz · AtemschutzAlarmState.severities) — tints the
+   *  end tag + halo of the Leitung that Trupp works on. Passed IN because the 1 Hz clock lives in
+   *  the alarm host: the map must not re-render every second (measured battery drain). */
+  truppSeverities?: Record<string, 1 | 2>
   onShowTrupp?: (truppId: string) => void
   onTeamMark?: (id: string) => void
   /** rename an untracked team marker (absent = locked, or a Trupp-bound marker) */
@@ -188,7 +193,7 @@ interface Props {
 }
 
 export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
-  const { entities, layers, byName, symMul = 1, captionMode = 'off', initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, onShowTrupp, onTeamMark, onTeamRename, onTeamClearTrail,
+  const { entities, layers, byName, symMul = 1, captionMode = 'off', initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, truppSeverities, onShowTrupp, onTeamMark, onTeamRename, onTeamClearTrail,
     readOnly = false, drawings: storedDrawings, drawingsVisible, draft, draftKind, placing, onDraftDrag, onDraftInsert, onDraftDelete, onDraftPointAttachment, draggable, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onRotate, onShapeTransform,
     onView, picking, onCursor, onPick, pickedPoint, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, onSelectDrawing, onUnlockDrawing, onDelete, measureLabels = [], measurePoints = [], measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingDelete, onDrawingAttachment, onLabelMove,
@@ -589,7 +594,11 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   }
 
   const drawFC = fc(drawings.filter((d) => Array.isArray(d.coords) && d.coords.length > 0).map((d) => {
-    const p = { id: d.id, color: d.color || '#1f6feb', width: d.width || 4, dashed: !!d.dashed, arrow: !!d.arrow, marker: d.marker || '', showDistance: !!d.showDistance, label: d.label || '', fillOpacity: d.fillOpacity ?? 0.14, networkDepth: relationship.depth.get(`line:${d.id}`) ?? -1 }
+    // `truppTone` drives the Atemschutz halo below: '' unless a Trupp on this Leitung is due
+    // or überfällig. Resolved here (not per frame) so the paint expression stays a plain lookup.
+    const linked = d.kind === 'line' ? truppForLine(d, trupps ?? []) : undefined
+    const tone = linked ? truppLineTone(linked, truppSeverities?.[linked.id] ?? 0) : 'idle'
+    const p = { id: d.id, color: d.color || '#1f6feb', width: d.width || 4, dashed: !!d.dashed, arrow: !!d.arrow, marker: d.marker || '', showDistance: !!d.showDistance, label: d.label || '', fillOpacity: d.fillOpacity ?? 0.14, networkDepth: relationship.depth.get(`line:${d.id}`) ?? -1, truppTone: tone === 'warn' || tone === 'crit' ? tone : '' }
     if (d.kind === 'circle') return polyFeat(circleRing(d), p)
     return d.kind === 'area' && d.coords.length >= 3 ? polyFeat(d.coords, p) : lineFeat(d.coords, p)
   }))
@@ -624,7 +633,11 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         ? [d.coords.reduce((s, p) => s + p[0], 0) / d.coords.length, d.coords.reduce((s, p) => s + p[1], 0) / d.coords.length]
         : d.coords[Math.floor((d.coords.length - 1) / 2)]
       const lines: string[] = []
+      // A line states its length (plus the hose hint); a Fläche states what it covers. Same
+      // toggle, same geodesic maths the Messen tool uses — the area used to be computed for
+      // the editor panel only and could never reach the map.
       if (d.showDistance && !isArea) { const len = pathLengthM(d.coords); lines.push(`${fmtDistance(len)} · ${hoseLengthHint(len)}`) }
+      if (d.showDistance && isArea) lines.push(fmtArea(polygonAreaM2(d.coords)))
       if (d.label) lines.push(d.label)
       // a dragged label is pinned to its georeferenced anchor; otherwise the midpoint/centroid
       return { id: d.id, coord: d.labelAt ?? base, lines }
@@ -685,7 +698,10 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         const pr = m.project(d.coords[n - 2] as [number, number])
         angleDeg = (Math.atan2(pe.y - pr.y, pe.x - pr.x) * 180) / Math.PI
       }
-      return { d, end, anchor, angleDeg, color: d.color || '#1f6feb', width: d.width || 4 }
+      // the Atemschutz-Trupp working this Leitung (anchor or number) + how it is doing right now
+      const trupp = truppForLine(d, trupps ?? [])
+      const tone = trupp ? truppLineTone(trupp, truppSeverities?.[trupp.id] ?? 0) : 'idle'
+      return { d, end, anchor, angleDeg, color: d.color || '#1f6feb', width: d.width || 4, trupp, tone }
     })
   // the draft outline/fill; its vertices render as draggable Markers (not circles) below
   const draftFC = fc(draft.length >= 2 ? [draftKind === 'area' && draft.length >= 3 ? polyFeat(draft) : lineFeat(draft)] : [])
@@ -949,6 +965,16 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
 
       {/* committed drawings (per-feature colour/width) — gated by the markup layer toggle */}
       <Source id="s-draw" type="geojson" data={drawFC}>
+        {/* Atemschutz halo: the Leitung a due/überfällig Trupp works on keeps its own colour and
+            gains a soft outline in the alarm tone — the picture says WHERE those people are,
+            while the Atemschutz board stays the surface that actually alarms. */}
+        <Layer id="l-draw-atemschutz" type="line" filter={['!=', ['get', 'truppTone'], ''] as any}
+          layout={{ 'line-cap': 'round', 'line-join': 'round', ...vis(drawingsVisible) }}
+          paint={{
+            'line-color': ['match', ['get', 'truppTone'], 'crit', appConfig.drawing.atemschutzTone.crit, appConfig.drawing.atemschutzTone.warn],
+            'line-width': ['+', ['get', 'width'], 8],
+            'line-opacity': 0.45,
+          } as any} />
         <Layer id="l-draw-network" type="line" filter={['>=', ['get', 'networkDepth'], 0] as any}
           layout={{ 'line-cap': 'round', 'line-join': 'round', ...vis(drawingsVisible) }}
           paint={{ 'line-color': appConfig.drawing.selectColor, 'line-width': ['+', ['get', 'width'], 9], 'line-opacity': ['interpolate', ['linear'], ['get', 'networkDepth'], 0, 0.34, 4, 0.08] } as any} />
@@ -1143,7 +1169,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
               <TeilstueckFork angleDeg={ld.angleDeg} color={ld.color} width={ld.width} />
             </Marker>
           )}
-          {(ld.d.content || ld.d.lineNo != null || ld.d.floorTag != null) && (
+          {(ld.d.content || ld.d.lineNo != null || ld.d.floorTag != null || ld.trupp) && (
             <Marker longitude={(ld.d.endLabelAt ?? ld.anchor)[0]} latitude={(ld.d.endLabelAt ?? ld.anchor)[1]} anchor="center" offset={[0, -14]}>
               {/* the -14 offset lifts the tag clear of the line end; dragging pins it to a georeferenced anchor */}
               <div className={`line-end-tag-wrap draggable${ld.d.id === selectedDrawingId ? ' sel' : ''}`}
@@ -1152,7 +1178,11 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
                 onPointerMove={onLabelMove ? labelMove : undefined}
                 onPointerUp={onLabelMove ? labelUp : undefined}
                 onPointerCancel={onLabelMove ? labelUp : undefined}>
-                <EndTag lineNo={ld.d.lineNo} content={ld.d.content} floorTag={ld.d.floorTag} color={ld.color} />
+                <EndTag
+                  lineNo={ld.d.lineNo} content={ld.d.content} floorTag={ld.d.floorTag}
+                  trupp={ld.trupp ? truppTagText(ld.trupp) : undefined} tone={ld.tone}
+                  color={ld.color}
+                />
               </div>
             </Marker>
           )}

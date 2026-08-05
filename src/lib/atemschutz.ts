@@ -125,6 +125,11 @@ export interface AtemschutzAlarmState {
    *  `contactAt` (ms epoch of the last contact) lets the chip tick its own clock, so this state
    *  object can stay REFERENCE-STABLE between transitions (the 1 Hz tick must not re-render App). */
   urgent: { id: string; name: string; sinceContactSec: number; contactAt: number; severity: 1 | 2 } | null
+  /** per-Trupp tier for the surfaces that draw a Trupp somewhere else — today the hose line its
+   *  Trupp works on (lib/truppLines). Only Trupps ABOVE 0 appear, so the object stays small and
+   *  changes rarely: the alarm host compares it by content and pushes to App only when a tier
+   *  actually flips, which is what keeps the 1 Hz tick out of the map (see AtemschutzAlarmHost). */
+  severities: Record<string, 1 | 2>
 }
 
 /**
@@ -137,6 +142,7 @@ export function peakAtemschutzAlarm(
 ): AtemschutzAlarmState {
   let peak: 0 | 1 | 2 = 0
   let urgent: AtemschutzAlarmState['urgent'] = null
+  const severities: Record<string, 1 | 2> = {}
   let bestRank = -1
   for (const t of trupps) {
     const { sinceContactSec } = deriveTruppLive(t, now, contactIntervalMin, contactGraceSec)
@@ -144,6 +150,7 @@ export function peakAtemschutzAlarm(
     const sev = contactSeverity(sinceContactSec, contactIntervalMin, contactGraceSec)
     if (sev > peak) peak = sev
     if (sev === 0) continue // narrows sev to 1 | 2 for the urgent record below
+    severities[t.id] = sev
     // rank by tier first, then by how long since contact — the worst, longest-waiting Trupp wins
     const rank = sev * 1_000_000 + sinceContactSec
     if (rank > bestRank) {
@@ -151,7 +158,7 @@ export function peakAtemschutzAlarm(
       urgent = { id: t.id, name: t.name, sinceContactSec, contactAt: now - sinceContactSec * 1000, severity: sev }
     }
   }
-  return { peak, urgent }
+  return { peak, urgent, severities }
 }
 
 export interface PressureEstimate {

@@ -2,6 +2,7 @@ import { Fragment, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { SheetGrip } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
+import { fillTemplate } from '../lib/format'
 import { LineStylePicker } from '../lib/draw'
 import { fmtDistance, fmtArea, hoseCount } from '../lib/geo'
 import { CONTENT_LABELS } from '../lib/lineDecor'
@@ -51,6 +52,8 @@ export interface DrawStyle {
   content?: 'S' | 'W' | 'H' | 'P'
   lineNo?: number
   floorTag?: number
+  /** the Atemschutz link anchor (Drawing/BoardAnno · truppId) */
+  truppId?: string
   startAttachment?: LineAttachment
   endAttachment?: LineAttachment
 }
@@ -91,6 +94,12 @@ interface Props {
   /** Druckleitung number + storey badge on the line (undefined clears) */
   onLineNo?: (lineNo: number | undefined) => void
   onFloorTag?: (floor: number | undefined) => void
+  /** link this hose to an Atemschutz-Trupp (undefined unlinks). Omitted ⇒ the row is hidden. */
+  onTrupp?: (truppId: string | undefined) => void
+  /** Trupps offerable in that picker (the ones still in — a Trupp that is out gets no new line) */
+  trupps?: { id: string; name: string }[]
+  /** Leitung numbers already taken on THIS surface, so a duplicate can be flagged as it happens */
+  usedLineNos?: number[]
   onShowDistance: (showDistance: boolean) => void
   onRadius: (radiusM: number) => void
   onFillOpacity: (fillOpacity: number) => void
@@ -110,7 +119,7 @@ interface Props {
 
 const FILL_OPACITIES = appConfig.drawing.fillOpacities
 
-export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, perimeterM, supportsDistance = false, lengthM, profileCoords, onColor, onWidth, onDashed, onLabel, onMarker, onArrow, onEnding, onContent, onLineNo, onFloorTag, onShowDistance, onRadius, onFillOpacity, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment }: Props) {
+export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, perimeterM, supportsDistance = false, lengthM, profileCoords, onColor, onWidth, onDashed, onLabel, onMarker, onArrow, onEnding, onContent, onLineNo, onFloorTag, onTrupp, trupps = [], usedLineNos = [], onShowDistance, onRadius, onFillOpacity, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment }: Props) {
   const color = drawing.color ?? '#1f6feb'
   const width = drawing.width ?? 4
   const dashed = !!drawing.dashed
@@ -259,6 +268,27 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, peri
                   ariaLabel={appConfig.copy.drawingEditor.lineNo} />
               </div>
             )}
+            {/* A second «Leitung 1» on the same surface makes the number ambiguous — and the number
+                is what an Atemschutz-Trupp is matched on. Warn rather than refuse: a real incident
+                sometimes needs the wrong thing typed for a moment. */}
+            {onLineNo && drawing.lineNo != null && usedLineNos.includes(drawing.lineNo) && (
+              <p className="de-warn"><Icon id="warn" /><span>{fillTemplate(appConfig.copy.drawingEditor.lineNoDuplicate, { n: String(drawing.lineNo) })}</span></p>
+            )}
+            {/* «Gehört zu Trupp …» — the other direction of the Atemschutz link, for when the hose
+                is drawn AFTER the Trupp was registered. Picking one stamps the Leitung number too
+                (see useTruppActions · linkTruppLine), so the two sides always agree. */}
+            {onTrupp && trupps.length > 0 && (
+              <div className="de-row"><span>{appConfig.copy.drawingEditor.trupp}</span>
+                <select
+                  className="de-select" value={drawing.truppId ?? ''}
+                  aria-label={appConfig.copy.drawingEditor.trupp}
+                  onChange={(e) => onTrupp(e.target.value || undefined)}
+                >
+                  <option value="">{appConfig.copy.drawingEditor.truppNone}</option>
+                  {trupps.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+              </div>
+            )}
             {onFloorTag && (
               <div className="de-row"><span>{appConfig.copy.drawingEditor.floorTag}</span>
                 <Stepper value={drawing.floorTag ?? null} min={-9} max={40} seed={0} format={floorBadge} placeholder="–"
@@ -298,7 +328,11 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, peri
                 )}
               </>
             )}
-            {isLine && supportsDistance && !readOnly && (
+            {/* «Auf Karte zeigen» was line-only, so a Fläche could work out its own size but had
+                no way to put it on the map — the number lived in this panel and vanished the
+                moment the panel closed. An Absperrkreis or Sektor whose area is the whole point
+                gets the same switch a hose line has. */}
+            {(isLine ? supportsDistance : areaM2 != null) && !readOnly && (
               <div className="de-row"><span>{appConfig.copy.drawingEditor.showOnMap}</span>
                 <span className="dh-widths">
                   <button className={`de-toggle ${drawing.showDistance ? 'on' : ''}`} aria-pressed={!!drawing.showDistance} onClick={() => onShowDistance(!drawing.showDistance)}>{drawing.showDistance ? appConfig.copy.drawingEditor.on : appConfig.copy.drawingEditor.off}</button>

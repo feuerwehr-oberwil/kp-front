@@ -429,6 +429,10 @@ export function IncidentWorkspace({
   const { muted: atemschutzMuted, toggle: toggleAtemschutzMuted } = useAtemschutzMute()
   // a Rapport checklist row navigated to Anwesenheit/Mittel → offer the one-tap way back
   const [rapportReturn, setRapportReturn] = useState(false)
+  // «Leitung wählen»: the Trupp waiting for a hose to be tapped. Ephemeral (never saved) and
+  // honoured by BOTH surfaces, so the operator can arm it here and tap the line on the Lage or on
+  // a plan — whichever is where they drew it.
+  const [linePickTrupp, setLinePickTrupp] = useState<string | null>(null)
   // the Verlauf drawer sits BELOW the Rapport sheet (z 61 vs 80), so opening it from the
   // checklist closes the sheet and reopens it when the Verlauf closes — a real round trip
   const [journalFromRapport, setJournalFromRapport] = useState(false)
@@ -541,6 +545,9 @@ export function IncidentWorkspace({
   const effBuilding = replayActive ? replayBuilding : building
   // during replay the Atemschutz/Anwesenheit surfaces show the RECONSTRUCTED past state (the
   // views are read-only then) so scrubbing moves Trupp status + attendance back in time too
+  // The replay-aware Trupp list. Every surface that DRAWS a Trupp (the Atemschutz board, and the
+  // hose tags on Lage + Plan) reads this one, so a replayed picture names who was on the line
+  // THEN — the live list would paint today's links onto a two-hour-old scene.
   const effTrupps = replayActive ? (replayWs?.trupps ?? []) : trupps
   const effAttendance = replayActive ? (replayWs?.attendance ?? {}) : attendance
   const effShifts = replayActive ? (replayWs?.shifts ?? []) : shifts
@@ -1656,9 +1663,9 @@ export function IncidentWorkspace({
   // a generic (untracked) team marker — the map twin of the plan's placeTeamChip
   const { placeGenericTeam, renameTeam, markTeamPosition, clearTeamTrail } = useTeamMarkerActions({ entities, commit, log, emit, setSelectedId, setSelectedDrawingId })
   // --- Atemschutzüberwachung (SCBA monitoring): Trupp mutations live in useTruppActions ---
-  const { createTrupp, updateTrupp, placeTruppOnPlan, placeTruppOnMap, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, deleteTrupp, restoreTrupp } =
+  const { createTrupp, updateTrupp, placeTruppOnPlan, placeTruppOnMap, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine } =
     useTruppActions({
-      trupps, entities, setTrupps, board, setBoard, setDocRaw, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus,
+      trupps, drawings, entities, setTrupps, board, setBoard, setDocRaw, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus,
       // a new map marker lands at the current map centre (the operator drags it to position);
       // fall back to the Einsatzort when the map hasn't been opened yet this session
       mapCenter: () => {
@@ -1689,11 +1696,30 @@ export function IncidentWorkspace({
   // one placement dispatcher for the AtemschutzView picker: Lage target → map, else plan
   const placeTrupp = (id: string, targetId?: string) =>
     targetId === LAGE_TARGET ? placeTruppOnMap(id) : placeTruppOnPlan(id, targetId)
+  // «Leitung wählen»: arm the pick and leave the Atemschutz board for the Lage — there is nothing
+  // to tap on the board itself. The arming survives a surface switch, so a hose drawn on a plan is
+  // just as reachable. The toast carries the way out (no modal, no trapped state).
+  const pickTruppLine = (id: string) => {
+    const az = appConfig.copy.atemschutz
+    setLinePickTrupp(id)
+    setMode('map')
+    // land in Auswahl: with a draw tool still active from earlier, the aiming tap would start a
+    // new line instead of picking the one that is already there
+    setTool('select'); setPending(null); setPendingShape(null); setDraft([])
+    toast(az.linePickHint, { icon: 'drop', action: { label: az.linePickCancel, onClick: () => setLinePickTrupp(null) } })
+  }
+  // A tap that did NOT land on a hose (a Fläche, the Absperrkreis, a freehand stroke) leaves the
+  // pick armed: the operator aimed and missed, and disarming here would look like the feature
+  // silently failed. The toast's «Abbrechen» is the way out.
+  const onLinePicked = (lineId: string) => {
+    if (!linePickTrupp) return
+    if (linkTruppLine(linePickTrupp, lineId)) setLinePickTrupp(null)
+  }
   // SCBA contact-clock alarm runs app-wide (not just on the Atemschutz surface) so an überfällig
   // Trupp alerts no matter which page is open. Paused during replay (read-only past view).
   // Hosted in a null-rendering child (see AtemschutzAlarmHost): its 1 Hz tick must NOT re-render
   // App — that repainted the whole tree every second a Trupp was in the field (battery drain).
-  const [azAlarm, setAzAlarm] = useState<AtemschutzAlarmState>({ peak: 0, urgent: null })
+  const [azAlarm, setAzAlarm] = useState<AtemschutzAlarmState>({ peak: 0, urgent: null, severities: {} })
 
   // --- Anwesenheit (attendance over the Divera Mannschaft) ---
   // Roster is session-loaded; attendance rides the per-incident workspace blob. Marking
@@ -1855,7 +1881,8 @@ export function IncidentWorkspace({
           // truncated on the map, and reading it is not editing it)
           onNotePanel={setNotePanelId}
           onNoteWidth={tacticalLocked ? undefined : noteWidthDrag}
-          trupps={trupps}
+          trupps={effTrupps}
+          truppSeverities={azAlarm.severities}
           onShowTrupp={() => { setMode('atemschutz'); setPanel(null) }}
           onTeamMark={tacticalLocked ? undefined : markTeamPosition}
           onTeamRename={tacticalLocked ? undefined : renameTeam}
@@ -1937,7 +1964,11 @@ export function IncidentWorkspace({
           drawWidth={drawWidth}
           drawDashed={drawDashed}
           selectedDrawingId={selectedDrawingId}
-          onSelectDrawing={(id) => { setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null) }}
+          onSelectDrawing={(id) => {
+            // «Leitung wählen» armed → this tap assigns the hose to the waiting Trupp
+            if (linePickTrupp) { onLinePicked(id); return }
+            setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null)
+          }}
           onUnlockDrawing={tacticalLocked ? undefined : (id) => { patchDrawingById(id, { locked: undefined }); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null) }}
           onDelete={deleteEntity}
           selectedDrawing={selectedDrawing}
@@ -2295,6 +2326,11 @@ export function IncidentWorkspace({
           onContent={(content) => patchDrawing({ content })}
           onLineNo={(lineNo) => patchDrawing({ lineNo })}
           onFloorTag={(floorTag) => patchDrawing({ floorTag })}
+          // «Gehört zu Trupp …»: linking from the LINE's side. Routed through the same action the
+          // Atemschutz board uses, so both directions write both collections identically.
+          onTrupp={(truppId) => (truppId ? linkTruppLine(truppId, selectedDrawing.id) : unlinkLine(selectedDrawing.id))}
+          trupps={effTrupps.filter((t) => t.status !== 'raus').map((t) => ({ id: t.id, name: t.name }))}
+          usedLineNos={drawings.filter((d) => d.kind === 'line' && d.id !== selectedDrawing.id && d.lineNo != null).map((d) => d.lineNo!)}
           onShowDistance={(showDistance) => patchDrawing({ showDistance })}
           onRadius={(radiusM) => patchDrawing({ radiusM })}
           onFillOpacity={(fillOpacity) => patchDrawing({ fillOpacity })}
@@ -2603,8 +2639,11 @@ export function IncidentWorkspace({
           keysRef={planKeys}
           focus={planFocus}
           onView={(c) => { planCenter.current = c }}
-          trupps={trupps}
+          trupps={effTrupps}
+          truppSeverities={azAlarm.severities}
           onLinkTrupp={(annoId, truppId) => updateTrupp(truppId, { annoId, planId: activePlanId })}
+          onPickLine={linePickTrupp ? onLinePicked : undefined}
+          onLinkLineTrupp={(annoId, truppId) => (truppId ? linkTruppLine(truppId, annoId) : unlinkLine(annoId))}
           onShowTrupp={() => { setMode('atemschutz'); setPanel(null) }}
           planScale={planScale}
           onCalibrate={(planId, sc) => { if (tacticalLocked) return; setPlanScale((m) => { if (!sc) { const { [planId]: _drop, ...rest } = m; return rest } return { ...m, [planId]: sc } }) }}
@@ -2637,6 +2676,7 @@ export function IncidentWorkspace({
       {mode === 'atemschutz' && (
         <AtemschutzView
           trupps={effTrupps}
+          pickTruppLine={pickTruppLine} unlinkTruppLine={unlinkTruppLine}
           canEdit={canEditIncident}
           personnel={personnel}
           attendance={effAttendance}

@@ -10,6 +10,7 @@ import { appConfig } from '../config/appConfig'
 import { resolveLinePreset, markerParamsAlong, lerpPoint, lookbackPoint, rdpIndices, FREEHAND_SIMPLIFY_PX, MAX_VERTEX_HANDLES } from '../lib/lineStyle'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { TeilstueckFork, EndTag, hasLineDecor, lineLabel } from '../lib/lineDecor'
+import { truppForLine, truppLineTone, truppTagText } from '../lib/truppLines'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { confirmDialog, toast } from '../lib/ui'
 import { panelNudgeBox, panelNudgeBoxUp, isBottomSheet } from '../lib/panelNudge'
@@ -124,6 +125,15 @@ interface Props {
   onLinkTrupp?: (annoId: string, truppId: string) => void
   /** jump to the Atemschutz board for a linked Trupp ("show the trupp"). */
   onShowTrupp?: (truppId: string) => void
+  /** «Leitung wählen» is armed: the next tap on a drawn line reports it here (and links it to the
+   *  waiting Trupp) instead of selecting it. Undefined = normal selection. */
+  onPickLine?: (annoId: string) => void
+  /** «Gehört zu Trupp …» in the line editor — undefined truppId unlinks. Omitted ⇒ row hidden. */
+  onLinkLineTrupp?: (annoId: string, truppId: string | undefined) => void
+  /** per-Trupp contact-clock tier (atemschutz · AtemschutzAlarmState.severities) — tints the tag
+   *  and halo of the Leitung that Trupp works on. Passed in so the 1 Hz clock never reaches this
+   *  component (see AtemschutzAlarmHost). */
+  truppSeverities?: Record<string, 1 | 2>
   /** per-plan distance calibration (planId → factor). A plan has no inherent scale; the user
    *  calibrates against a printed scale bar so line lengths read in metres. See lib/planScale. */
   planScale?: PlanScales
@@ -138,7 +148,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', onChange, building, onSelectBuilding, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRecent, log, onSymbolPlaced, emit = () => {}, historyRef, onHistoryState, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, planScale = {}, onCalibrate, slimTools: slimToolsProp = false }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', onChange, building, onSelectBuilding, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRecent, log, onSymbolPlaced, emit = () => {}, historyRef, onHistoryState, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onPickLine, onLinkLineTrupp, truppSeverities, planScale = {}, onCalibrate, slimTools: slimToolsProp = false }: Props) {
   const active = plans.find((p) => p.id === activeId) ?? plans[0]
   // A viewer-only plan (e.g. PV/documentation PDF) is read-only regardless of role: plain
   // pan/zoom, no drawing tools or annotation surface. Folds into the existing readOnly gates.
@@ -470,6 +480,20 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         endAttachment: drag.endpoint === 'end' ? undefined : a.endAttachment,
       }
     })
+  // Which drawn Leitungen carry a Trupp whose contact clock has run out — the halo map for the ink
+  // layer. Keyed by anno id; only warn/crit appear, so a quiet plan builds an empty object.
+  const truppTones = useMemo(() => {
+    const out: Record<string, 'warn' | 'crit'> = {}
+    for (const a of annos) {
+      if (a.kind !== 'draw') continue
+      const tr = truppForLine(a, trupps)
+      if (!tr) continue
+      const tone = truppLineTone(tr, truppSeverities?.[tr.id] ?? 0)
+      if (tone === 'warn' || tone === 'crit') out[a.id] = tone
+    }
+    return out
+  }, [annos, trupps, truppSeverities])
+
   const resolvedPts = new Map<string, BoardPoint[]>()
   const objectPoint = (id: string, toward: BoardPoint, _a: LineAttachment, source: AttachableLine<BoardPoint>): BoardPoint | null => {
     const target = annos.find((a) => a.id === id && (a.kind === 'symbol' || a.kind === 'resource'))
@@ -802,6 +826,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const drawDown = (id: string, e: React.PointerEvent) => {
     if (tool !== 'pan' || readOnly) return
     e.stopPropagation()
+    // «Leitung wählen» is armed on the Atemschutz board: this tap assigns the line to that Trupp
+    // instead of selecting it. Read-only surfaces never get here (the guard above), so a viewer
+    // can't link anything.
+    if (onPickLine) { onPickLine(id); return }
     ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
     setSelId(id); setSelIds([])
     const a = annos.find((x) => x.id === id); if (!a || (a.kind !== 'draw' && a.kind !== 'area')) return
@@ -1524,7 +1552,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
 
             {/* committed drawings */}
             <WbInkLayer annos={renderAnnos} draft={draft} draftFloor={draftFloor.current} draftClosed={tool === 'area'} color={color} width={width} dashed={dashed} hiddenTrails={hiddenTrails} mapY={mapY}
-              selId={selId} networkIds={[...relationship.lineIds]} onPickDraw={tool === 'pan' ? drawDown : undefined} />
+              selId={selId} networkIds={[...relationship.lineIds]} onPickDraw={tool === 'pan' ? drawDown : undefined}
+              truppTones={truppTones} />
             {/* snap ring that fills up while hovered (keyed to the target so it restarts on a new one);
                 attach commits on release. Cycle-forming targets are silently skipped, so no blocked
                 state. Detach is the explicit × chip beside the node, not a drag side effect. */}
@@ -1564,6 +1593,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 ? (() => { const ps = markerParamsAlong(bpx).map(({ seg, t }) => lerpPoint(bpx[seg], bpx[seg + 1], t)); return ps.length ? ps : [mid] })()
                 : []
               // distance read-out (calibrated plans only); falls back to a "calibrate first" nudge
+              // the Atemschutz-Trupp on this Leitung (anchor or number) and how it is doing
+              const lineTrupp = truppForLine(a, trupps)
+              const lineTone = lineTrupp ? truppLineTone(lineTrupp, truppSeverities?.[lineTrupp.id] ?? 0) : 'idle'
               const distM = a.showDistance ? planMetres(a.pts!.map(([x, y]) => [x, y])) : null
               const labelLines: string[] = []
               if (distM != null) labelLines.push(`${fmtDistance(distM)} · ${hoseLengthHint(distM)}`)
@@ -1590,7 +1622,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                   )}
                   {/* one combined FKS tag (Leitung-Nr · content · Stockwerk) — anchored just before
                       the tip and draggable (endDx/endDy, normalized) to clear other symbols */}
-                  {(a.content || a.lineNo != null || a.floorTag != null) && (() => {
+                  {(a.content || a.lineNo != null || a.floorTag != null || lineTrupp) && (() => {
                     const pe = bpx[bpx.length - 1]
                     const pp = bpx[bpx.length - 2] ?? pe
                     const ax = pp[0] + (pe[0] - pp[0]) * 0.72 + (a.endDx ?? 0) * sW
@@ -1601,7 +1633,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                         onPointerMove={tool === 'pan' ? labelMove : undefined}
                         onPointerUp={tool === 'pan' ? labelUp : undefined}
                         onPointerCancel={tool === 'pan' ? labelUp : undefined}>
-                        <EndTag lineNo={a.lineNo} content={a.content} floorTag={a.floorTag} color={color} />
+                        <EndTag
+                          lineNo={a.lineNo} content={a.content} floorTag={a.floorTag}
+                          trupp={lineTrupp ? truppTagText(lineTrupp) : undefined} tone={lineTone}
+                          color={color}
+                        />
                       </span>
                     )
                   })()}
@@ -2206,6 +2242,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           onContent={(content) => patchCommit(selDraw.id, { content })}
           onLineNo={(lineNo) => patchCommit(selDraw.id, { lineNo })}
           onFloorTag={(floorTag) => patchCommit(selDraw.id, { floorTag })}
+          onTrupp={onLinkLineTrupp ? (truppId) => onLinkLineTrupp(selDraw.id, truppId) : undefined}
+          trupps={trupps.filter((t) => t.status !== 'raus').map((t) => ({ id: t.id, name: t.name }))}
+          usedLineNos={annos.filter((a) => a.kind === 'draw' && a.id !== selDraw.id && a.lineNo != null).map((a) => a.lineNo!)}
           onShowDistance={(showDistance) => patchCommit(selDraw.id, { showDistance: showDistance || undefined })}
           onRadius={() => {}}
           onFillOpacity={(fillOpacity) => patchCommit(selDraw.id, { fillOpacity })}
@@ -2257,7 +2296,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 onClick={() => { placeTeamChip(truppPick.x, truppPick.y, truppPick.floor, t); setTruppPick(null) }}
               >
                 <span className="wb-trupp-cap" /><b>{t.name}</b>
-                {t.lineNumber && <i>Ltg {t.lineNumber}</i>}
+                {(t.lineNo != null || t.lineNumber) && <i>Ltg {t.lineNo ?? t.lineNumber}</i>}
               </button>
             ))}
             <button className="wb-trupp-opt wb-trupp-generic" onClick={() => { placeTeamChip(truppPick.x, truppPick.y, truppPick.floor); setTruppPick(null) }}>

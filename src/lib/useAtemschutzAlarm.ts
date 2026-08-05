@@ -5,7 +5,13 @@ import { Alarm, chime, notify } from './alarm'
 import { isDemoMode } from './deploymentConfig'
 import type { Trupp } from '../types'
 
-const SILENT: AtemschutzAlarmState = { peak: 0, urgent: null }
+const SILENT: AtemschutzAlarmState = { peak: 0, urgent: null, severities: {} }
+
+/** Content equality for the per-Trupp tier map (only non-zero tiers are in it, so it is tiny). */
+function sameSeverities(a: Record<string, number>, b: Record<string, number>): boolean {
+  const ka = Object.keys(a)
+  return ka.length === Object.keys(b).length && ka.every((k) => a[k] === b[k])
+}
 
 const cfg = appConfig.atemschutz
 // while a Trupp stays überfällig, re-post the OS notification on this cadence so a
@@ -133,7 +139,11 @@ export function AtemschutzAlarmHost({ onState, ...opts }: Parameters<typeof useA
   useEffect(() => {
     const prev = last.current
     if (state.peak !== prev.peak || state.urgent?.id !== prev.urgent?.id
-      || state.urgent?.severity !== prev.urgent?.severity || state.urgent?.name !== prev.urgent?.name) {
+      || state.urgent?.severity !== prev.urgent?.severity || state.urgent?.name !== prev.urgent?.name
+      // per-Trupp tiers drive the hose-line tone on the map/plan. Compared BY CONTENT: the fold
+      // builds a fresh object every tick, so a reference check would push a state update (and a
+      // full re-render, map included) once a second — exactly what this host exists to prevent.
+      || !sameSeverities(state.severities, prev.severities)) {
       last.current = state
       onState(state)
     }

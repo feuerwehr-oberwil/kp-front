@@ -1,6 +1,7 @@
 import { floorBadge } from './symbolRender'
 import { forkDims } from './lineAttachments'
 import { appConfig } from '../config/appConfig'
+import type { LineTone } from './truppLines'
 
 // FKS hose-line decorations shared by the Lage map (DOM markers over MapLibre) and the Plan
 // whiteboard (board-px overlay), so a Druckleitung reads the same on both surfaces.
@@ -21,9 +22,11 @@ export function lineLabel(a: { label?: string; lineNo?: number; content?: string
   return appConfig.copy.drawingEditor.line
 }
 
-/** A line carries any FKS decoration? (gates the per-line decoration render on both surfaces) */
-export function hasLineDecor(a: { teilstueck?: boolean; content?: string; lineNo?: number; floorTag?: number }): boolean {
-  return !!a.teilstueck || !!a.content || a.lineNo != null || a.floorTag != null
+/** A line carries any FKS decoration? (gates the per-line decoration render on both surfaces).
+ *  An Atemschutz link counts: a hose picked for a Trupp before it was numbered still has a tag
+ *  to show. */
+export function hasLineDecor(a: { teilstueck?: boolean; content?: string; lineNo?: number; floorTag?: number; truppId?: string }): boolean {
+  return !!a.teilstueck || !!a.content || a.lineNo != null || a.floorTag != null || !!a.truppId
 }
 
 /** The forward "E"-fork Teilstück coupling: a perpendicular spine at the line tip with three
@@ -45,13 +48,29 @@ export function TeilstueckFork({ angleDeg, color, width = 5 }: { angleDeg: numbe
   )
 }
 
-/** One compact boxed tag at the line end combining the Druckleitung number, FKS content
- *  letter and storey badge (e.g. "1 · S · +2") — keeps the tip uncluttered. Null when empty. */
-export function EndTag({ lineNo, content, floorTag, color }: { lineNo?: number; content?: string; floorTag?: number; color: string }) {
+/** One compact boxed tag at the line end combining the Druckleitung number, FKS content letter,
+ *  storey badge and — when an Atemschutz-Trupp works this Leitung — its leader (e.g.
+ *  "1 · S · +2 · Hans M."). Keeps the tip uncluttered. Null when empty.
+ *
+ *  `tone` colours the BOX, never the line: 'warn'/'crit' mirror the Atemschutz contact clock,
+ *  'muted' is the record left behind by a Trupp that is out. The tone owns the box colour when
+ *  set, so the alarm reads even on a line drawn in some arbitrary colour. */
+export function EndTag({ lineNo, content, floorTag, trupp, tone = 'idle', color }: {
+  lineNo?: number
+  content?: string
+  floorTag?: number
+  /** the Trupp on this Leitung, already abbreviated (lib/truppLines · truppTagText) */
+  trupp?: string
+  tone?: LineTone
+  color: string
+}) {
   const parts: string[] = []
   if (lineNo != null) parts.push(String(lineNo))
   if (content) parts.push(content)
   if (floorTag != null) parts.push(floorBadge(floorTag))
+  if (trupp) parts.push(trupp)
   if (!parts.length) return null
-  return <span className="line-end-tag" style={{ color, borderColor: color }}>{parts.join(' · ')}</span>
+  // tone colours come from the theme tokens (never a frozen rgba), so day/night both read right
+  const ink = tone === 'crit' ? 'var(--red)' : tone === 'warn' ? 'var(--amber)' : tone === 'muted' ? 'var(--ink-dim)' : color
+  return <span className={`line-end-tag tone-${tone}`} style={{ color: ink, borderColor: ink }}>{parts.join(' · ')}</span>
 }

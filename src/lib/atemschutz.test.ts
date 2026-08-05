@@ -228,8 +228,14 @@ describe('peakAtemschutzAlarm', () => {
   })
 
   it('is silent when no Trupp is near the interval', () => {
-    expect(peakAtemschutzAlarm([at(1)], REF, 5, 60)).toEqual({ peak: 0, urgent: null })
-    expect(peakAtemschutzAlarm([], REF, 5, 60)).toEqual({ peak: 0, urgent: null })
+    expect(peakAtemschutzAlarm([at(1)], REF, 5, 60)).toEqual({ peak: 0, urgent: null, severities: {} })
+    expect(peakAtemschutzAlarm([], REF, 5, 60)).toEqual({ peak: 0, urgent: null, severities: {} })
+  })
+
+  it('reports the per-Trupp tier for the surfaces that draw a Trupp elsewhere (hose lines)', () => {
+    const r = peakAtemschutzAlarm([{ ...at(1), id: 'quiet' }, { ...at(5), id: 'due' }, { ...at(7), id: 'over' }], REF, 5, 60)
+    // only non-zero tiers ride along, so the map re-renders on a real transition and not per tick
+    expect(r.severities).toEqual({ due: 1, over: 2 })
   })
 
   it('flags tier 1 (fällig) from the interval mark and names the Trupp', () => {
