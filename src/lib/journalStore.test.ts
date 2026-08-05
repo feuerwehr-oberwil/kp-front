@@ -298,4 +298,25 @@ describe('JournalStore — enrichment patches + session overlay', () => {
     expect(second.display().map((r) => r.id)).toEqual(['a'])
     expect(second.pendingCount).toBe(1)
   })
+  // The demo is a real deployment, not a sandbox: a visitor's Verlauf is pushed and survives a
+  // reload exactly as a station's does (the nightly demo_reset is what clears it, nothing else).
+  // Locked in because "demo = don't persist" is a tempting shortcut to add later, and it would
+  // silently make the public demo lie about what the Verlauf is.
+  it('persists on a demo deployment just like anywhere else', async () => {
+    const deploymentConfig = await import('./deploymentConfig')
+    vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(true)
+    fakeServer()
+    const s = new JournalStore(INC, false)
+    await s.init([])
+    s.append(row('a'))
+    await settle(); await settle()
+    expect(apiPost).toHaveBeenCalledWith(`/api/incidents/${INC}/journal`, { entries: [expect.objectContaining({ id: 'a' })] })
+    expect(s.pendingCount).toBe(0)
+
+    // …and a reload reads it straight back off the server
+    const second = new JournalStore(INC, false)
+    await second.init([])
+    await settle()
+    expect(second.display().map((r) => r.id)).toEqual(['a'])
+  })
 })
