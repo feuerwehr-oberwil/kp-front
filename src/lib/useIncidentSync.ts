@@ -109,9 +109,12 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
   // Manual "Jetzt synchronisieren": push pending edits AND snap the live-follow pull to now —
   // the "everything fresh right now" button for when things feel laggy. Viewers only pull.
   // startRef hands the poll loop's (re)start out of its effect so this callback can fire it.
+  // Awaitable so the caller can SHOW that it ran. It used to be fire-and-forget, which on an
+  // already-synced Einsatz — the normal case — was indistinguishable from a dead button: the
+  // status line already said «gerade eben synchronisiert» before the tap and still did after.
   const startRef = useRef<((delay: number) => void) | null>(null)
-  const syncNow = useCallback(() => {
-    if (!readOnly) { flushEvents(); void sync.flush() }
+  const syncNow = useCallback(async () => {
+    if (!readOnly) { flushEvents(); await sync.flush() }
     startRef.current?.(0)
   }, [readOnly, sync, flushEvents])
 

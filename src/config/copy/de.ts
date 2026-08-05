@@ -958,8 +958,17 @@ export const de = {
     memberPlaceholder: 'Name (optional)',
     addMember: 'AdF hinzufügen',
     removeMember: 'AdF {n} entfernen',
-    lineNumberLabel: 'Leitung / Schlauch-Nr.',
-    lineNumberPlaceholder: 'z. B. 1',
+    // Leitung: dieselbe Nummer wie auf der gezeichneten Leitung (Lage/Plan) — daran finden sich
+    // Trupp und Schlauchlinie, ohne dass jemand etwas doppelt tippt.
+    lineNoLabel: 'Leitung Nr.',
+    lineLegacyNote: 'Früher erfasst: «{value}»',
+    linePick: 'Leitung wählen',
+    linePickHint: 'Leitung auf der Lage oder im Plan antippen',
+    linePickCancel: 'Auswahl abbrechen',
+    lineUnlink: 'Leitung lösen',
+    lineLinkedToast: 'Leitung {n} mit {name} verknüpft',
+    logLineLinked: 'Trupp {name} auf Leitung {n}',
+    logLineUnlinked: 'Trupp {name}: Leitung gelöst',
     pressureLabel: 'Eingangsdruck (bar)',
     newPressureLabel: 'Neuer Eingangsdruck (bar)',
     funkkanalSection: 'Funkkanal',
@@ -1319,6 +1328,11 @@ export const de = {
     content: 'Inhalt',
     contentPlain: 'Wasser',
     lineNo: 'Leitung Nr.',
+    // Zwei Leitungen mit derselben Nummer machen die Nummer mehrdeutig — und die Nummer ist es,
+    // woran die Atemschutzüberwachung ihre Leitung erkennt.
+    lineNoDuplicate: 'Leitung {n} gibt es hier schon',
+    trupp: 'Gehört zu Trupp',
+    truppNone: 'Kein Trupp',
     floorTag: 'Stockwerk',
     distance: 'Länge',
     // Messung-Gruppe: die Zahlen einer bereits gezeichneten Linie (Länge, Schläuche, Höhenprofil)
@@ -1937,6 +1951,11 @@ export const de = {
     // Boot: die Einsatzliste kam aus dem Offline-Cache
     bootOffline: 'Offline – gespeicherte Daten werden angezeigt.',
     syncNow: 'Jetzt synchronisieren',
+    // Der Knopf lief bisher stumm: auf einem bereits synchronen Einsatz — dem Normalfall —
+    // sah ein Tipp genau gleich aus wie gar kein Tipp. Jetzt dreht das Symbol währenddessen
+    // und eine Meldung sagt, was herausgekommen ist.
+    syncDone: 'Alles synchronisiert',
+    syncFailedToast: 'Synchronisieren fehlgeschlagen – Änderungen bleiben lokal gespeichert.',
     incidents: 'Einsätze',
     allIncidents: 'Alle Einsätze',
     report: 'Einsatzrapport',

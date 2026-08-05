@@ -4,6 +4,7 @@ import { initials, roleLabel, fillTemplate, fmtElapsedHM } from '../../lib/forma
 import { buildLabel } from '../../lib/buildInfo'
 import { useIsPhone } from '../../lib/useIsPhone'
 import { appConfig } from '../../config/appConfig'
+import { toast } from '../../lib/ui'
 import { shortAddress } from '../../lib/deploymentConfig'
 import type { IncidentMeta, SyncStatus } from '../../lib/incidents'
 
@@ -46,7 +47,8 @@ export function IncidentSwitcher({
   onInstall?: () => void
   onOfflineReadiness: () => void
   /** push edits queued while offline (also auto-fires on reconnect) */
-  onSyncNow: () => void
+  /** awaited so the button can spin for the round trip and report the outcome */
+  onSyncNow: () => void | Promise<void>
   /** absent for an Einsatz-Link session — there is no login to leave and no way back in */
   onLogout?: () => void
   /** changes whenever the app navigates to another surface — closes a menu that was left
@@ -58,6 +60,20 @@ export function IncidentSwitcher({
   onObjectSwitch?: () => void
 }) {
   const cp = appConfig.copy.incidentSwitcher
+  // «Jetzt synchronisieren» reports what it did: the glyph spins for the round trip and a toast
+  // states the outcome. Offline is its own answer — «alles synchronisiert» would be a lie.
+  const [resyncing, setResyncing] = useState(false)
+  const runSyncNow = async () => {
+    if (resyncing) return
+    setResyncing(true)
+    try {
+      await onSyncNow()
+      toast(navigator.onLine ? cp.syncDone : cp.syncOfflineToast,
+        navigator.onLine ? { icon: 'check', tone: 'success', duration: 1600 } : { icon: 'warn', tone: 'warn' })
+    } catch {
+      toast(cp.syncFailedToast, { icon: 'warn', tone: 'warn' })
+    } finally { setResyncing(false) }
+  }
   const badgeTitle: Record<Exclude<SyncStatus, 'synced'>, string> = {
     pending: cp.badgePending, offline: cp.badgeOffline, error: cp.badgeError, storage: cp.badgeStorage,
   }
@@ -168,8 +184,12 @@ export function IncidentSwitcher({
                 </div>
                 {/* always offered (not only on offline/error): forces a push AND an immediate
                     pull, the "make everything fresh right now" action when things feel stale */}
-                <button className="ip-menu-resync" onClick={() => { onSyncNow(); }} aria-label={cp.syncNow} title={cp.syncNow}>
-                  <Icon id="rotate" />
+                {/* It has to LOOK like it ran. On an already-synced Einsatz — the normal case —
+                    the status line above says «gerade eben synchronisiert» both before and after
+                    the tap, so without the spin and the toast the button read as broken. */}
+                <button className="ip-menu-resync" disabled={resyncing} aria-busy={resyncing}
+                  onClick={() => { void runSyncNow() }} aria-label={cp.syncNow} title={cp.syncNow}>
+                  <Icon id="rotate" className={resyncing ? 'spin' : undefined} />
                 </button>
               </div>
               {/* Einsatzdaten editing lives inside the Einsatzrapport (its "Bearbeiten" link),
