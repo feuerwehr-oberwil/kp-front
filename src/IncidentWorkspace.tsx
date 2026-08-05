@@ -1340,18 +1340,25 @@ export function IncidentWorkspace({
     // nothing to report into (a finished Einsatz, the demo) it says so in place rather than
     // vanishing, because an absent control and an unbuilt feature look identical. One tap once
     // the device has permission and a name; otherwise the sheet asks for both first.
-    share: {
-      on: share.state !== 'off',
-      label: share.state !== 'off' ? appConfig.copy.sharePosition.menuOn : appConfig.copy.sharePosition.menuOff,
-      unavailable: isDemoMode() ? appConfig.copy.sharePosition.menuDemo
-        : !incidentOpen ? appConfig.copy.sharePosition.menuClosed
-          : null,
-      onToggle: () => {
-        if (share.state !== 'off') share.stop()
-        else if (share.ready) share.start()
-        else setSharePick('ask')
-      },
-    },
+    share: (() => {
+      const C = appConfig.copy.sharePosition
+      const blocked = isDemoMode() ? C.menuDemo : !incidentOpen ? C.menuClosed : null
+      const on = share.state !== 'off'
+      return {
+        on,
+        label: on ? C.menuOn : C.menuOff,
+        // While sharing, the sub-line names the way out. Turning it ON is one tap, so turning
+        // it OFF has to be one tap in the same place, and has to SAY so — a device that is
+        // broadcasting where somebody is must never make stopping the thing you go hunting for.
+        note: blocked ?? (on ? C.menuOnHint : null),
+        disabled: !!blocked,
+        onToggle: () => {
+          if (on) share.stop()
+          else if (share.ready) share.start()
+          else setSharePick('ask')
+        },
+      }
+    })(),
     onSave: () => {
       // The time it was saved, not «Ansicht 3». A counter says nothing about which view it
       // is; the clock at least anchors it to what was happening then, and the list is in

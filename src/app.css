@@ -4074,8 +4074,19 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
      out of flow (the bar fits again), pinned under the bar on the left, at the same 76px the
      wind read-out uses on the right so the two read as one row. Its text is the whole point,
      so it keeps it. */
+  /* While this device is broadcasting somebody's location, the stop has to be on screen on
+     EVERY surface — the map, the Anwesenheit, the Plan. But it cannot live in the bar here:
+     undo · redo · Verlauf already fill the same 134px budget that pushed the GPS caveat out,
+     and a fourth 44px control overflowed by 23px, hanging the pill half off the right edge —
+     i.e. the one control that must never be hard to reach was the one being clipped. So it
+     leaves the flow and floats under the bar on the left, at the same 76px the wind read-out
+     uses on the right, and the bar fits again. Still 44px, still tappable, still everywhere. */
+  .tb-share { position: fixed; top: calc(76px + env(safe-area-inset-top));
+    left: max(10px, env(safe-area-inset-left)); z-index: 41; }
+  /* …and the GPS caveat keeps clear of that slot, reserved or not: a chip that jumps sideways
+     when somebody starts sharing is worse than one that sits 52px in. */
   .tb-gps { position: fixed; top: calc(76px + env(safe-area-inset-top));
-    left: max(10px, env(safe-area-inset-left)); max-width: calc(100vw - 90px); margin-right: 0;
+    left: calc(max(10px, env(safe-area-inset-left)) + 52px); max-width: calc(100vw - 142px); margin-right: 0;
     background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
     border: 1px solid color-mix(in srgb, var(--amber, #b45309) 30%, transparent);
     box-shadow: var(--shadow); }

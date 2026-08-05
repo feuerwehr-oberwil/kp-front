@@ -1919,6 +1919,9 @@ export const de = {
     // das sich in Luft auflöst, ist von einer nie gebauten Funktion nicht zu unterscheiden.
     menuClosed: 'Nur solange der Einsatz läuft',
     menuDemo: 'In der Demo nicht verfügbar',
+    // Während geteilt wird: das Beenden muss genauso deutlich dastehen wie das Starten — ein
+    // Gerät, das den Standort einer Person sendet, darf das Aufhören nicht verstecken.
+    menuOnHint: 'Tippen zum Beenden',
     // Pille in der Kopfzeile
     on: 'Standort geteilt',
     starting: 'Standort wird gesucht …',

@@ -183,7 +183,9 @@ export function TopBar({ incident, startedAt, recording, recStartedAt, journalOp
               : <><Icon id="plus" /><span>{appConfig.copy.journal.add}</span></>}
           </button>
         )}
-        {shareSlot}
+        {/* wrapped in a stable class so the phone rule can lift it out of the bar — see
+            .tb-share in app.css. The bar's four 44px actions do not fit a 390px screen. */}
+        {shareSlot && <span className="tb-share">{shareSlot}</span>}
         {hasWind && <WeatherBadge weather={weather!} onOpenMeteo={onOpenWeather} bearing={bearing} />}
         {/* GPS-Feed-Chip. Die Fahrzeuge bleiben absichtlich auf der Karte, wenn der Feed
             stirbt — sie verschwinden zu lassen läse sich als «abgerückt» statt als «Feed

@@ -27,13 +27,22 @@ export interface ViewsApi {
    * and because it has to be an ACT: switched on deliberately per Einsatz and off again by the
    * same tap.
    *
-   * `unavailable` is a REASON, not a flag: when the row cannot be used it stays put and says
-   * why. It used to be omitted instead, and a control that vanishes is indistinguishable from
-   * one that was never built — which is exactly how this feature read as missing for an hour
-   * of hunting in production (2026-08-05). An unusable control that explains itself costs one
-   * line; an absent one costs a support call.
+   * The row always renders. `note` carries the sub-line — why it cannot be used, or, while it
+   * IS sharing, that tapping ends it. A control that vanishes is indistinguishable from one
+   * that was never built, which is exactly how this feature read as missing for an hour of
+   * hunting in production (2026-08-05); and a device broadcasting somebody's location must
+   * say how to stop as plainly as it said how to start.
    */
-  share?: { on: boolean; label: string; unavailable?: string | null; onToggle: () => void }
+  share?: {
+    on: boolean
+    label: string
+    /** sub-line under the label. Rendered, never a `title=`: this is a touch surface, and a
+     *  tooltip nobody can hover is the same as no explanation. */
+    note?: string | null
+    /** dimmed and inert, but still readable — see above */
+    disabled?: boolean
+    onToggle: () => void
+  }
 }
 
 // Is the live camera (roughly) sitting on a saved view? Lets us highlight the one we're on so
@@ -89,9 +98,9 @@ function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose }: {
         {api.share && (
           <button
             type="button"
-            className={cx(s.row, s.north, api.share.on && s.on, api.share.unavailable && s.rowOff)}
+            className={cx(s.row, s.north, api.share.on && s.on, api.share.disabled && s.rowOff)}
             aria-pressed={api.share.on}
-            disabled={!!api.share.unavailable}
+            disabled={!!api.share.disabled}
             onClick={() => { api.share!.onToggle(); onClose() }}
           >
             {/* NOT the «locate» crosshair: this row sits directly under «Mein Standort», and
@@ -101,9 +110,7 @@ function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose }: {
             <span className={s.ico}><Icon id="people" /></span>
             <span className={s.name}>
               {api.share.label}
-              {/* the reason rides UNDER the label rather than in a title=: this is a touch
-                  surface, and a tooltip nobody can hover is the same as no explanation */}
-              {api.share.unavailable && <small className={s.why}>{api.share.unavailable}</small>}
+              {api.share.note && <small className={s.why}>{api.share.note}</small>}
             </span>
           </button>
         )}
