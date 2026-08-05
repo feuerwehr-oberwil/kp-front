@@ -261,7 +261,8 @@
         ]
       ],
       "dashed": false,
-      "lineNo": 12,
+      "lineNo": 1,
+      "truppId": "trupp1",
       "floorTag": 2,
       "endLabelAt": [
         7.570414034928348,

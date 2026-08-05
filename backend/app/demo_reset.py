@@ -155,7 +155,8 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
             "members": ["Anna Meier", "Thomas Brunner"],
             "auftrag": "retten",
             "ziel": "2. OG Wohnung Nord, 2 Personen vermisst",
-            "lineNumber": "1",
+            "lineNo": 1,
+            "lineId": "d1784735796244",  # the Angriffsleitung drawn on the Lage (scene file)
             "funkkanal": 11,
             "entryPressureBar": 300,
             "entryTime": _iso(now - timedelta(minutes=14)),
@@ -182,7 +183,7 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
             "members": ["Laura Keller", "Nina Frei"],
             "auftrag": "loeschen",
             "ziel": "Brandbekämpfung 2. OG",
-            "lineNumber": "2",
+            "lineNo": 2,  # numbered but not drawn — the auto-match attaches as soon as it is
             "funkkanal": 11,
             "entryPressureBar": 300,
             "entryTime": _iso(now - timedelta(minutes=8)),
