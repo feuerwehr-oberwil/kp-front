@@ -1714,6 +1714,10 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-trupp-opt:hover { border-color: var(--blue); }
 .wb-trupp-opt b { flex: 1; }
 .wb-trupp-opt i { font-style: normal; font-size: 12px; font-weight: 600; color: var(--ink-faint); }
+/* already placed on this surface: visible (so you can see WHY it is not offered) but inert —
+   picking it would move the existing marker, not add a second one */
+.wb-trupp-opt.placed { opacity: var(--disabled); cursor: default; }
+.wb-trupp-opt.placed:hover { border-color: var(--glass-edge); }
 .wb-trupp-cap { width: 5px; height: 22px; border-radius: 3px; background: var(--blue); }
 .wb-trupp-generic { color: var(--ink-dim); font-weight: 600; }
 .wb-trupp-generic .i { width: 16px; height: 16px; }

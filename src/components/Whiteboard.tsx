@@ -2292,15 +2292,23 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         <div className="wb-trupp-scrim" onPointerDown={() => setTruppPick(null)}>
           <div className="wb-trupp-pick" onPointerDown={(e) => e.stopPropagation()}>
             <div className="wb-trupp-pick-head">{appConfig.copy.whiteboard.selectTrupp}</div>
-            {trupps.filter((t) => t.status !== 'raus').map((t) => (
-              <button
-                key={t.id} className="wb-trupp-opt"
-                onClick={() => { placeTeamChip(truppPick.x, truppPick.y, truppPick.floor, t); setTruppPick(null) }}
-              >
-                <span className="wb-trupp-cap" /><b>{t.name}</b>
-                {(t.lineNo != null || t.lineNumber) && <i>Ltg {t.lineNo ?? t.lineNumber}</i>}
-              </button>
-            ))}
+            {/* twin of the Lage picker (IncidentWorkspace): a Trupp already on THIS plan is
+                greyed out, because picking it would move its chip rather than add one. One on
+                the map or another plan stays selectable — that is a real move. */}
+            {trupps.filter((t) => t.status !== 'raus').map((t) => {
+              const here = !!t.annoId && t.planId === activeId
+              return (
+                <button
+                  key={t.id} className={`wb-trupp-opt${here ? ' placed' : ''}`} disabled={here}
+                  onClick={() => { placeTeamChip(truppPick.x, truppPick.y, truppPick.floor, t); setTruppPick(null) }}
+                >
+                  <span className="wb-trupp-cap" /><b>{t.name}</b>
+                  {here
+                    ? <i>{appConfig.copy.whiteboard.truppPlacedHere}</i>
+                    : (t.lineNo != null || t.lineNumber) ? <i>Ltg {t.lineNo ?? t.lineNumber}</i> : null}
+                </button>
+              )
+            })}
             <button className="wb-trupp-opt wb-trupp-generic" onClick={() => { placeTeamChip(truppPick.x, truppPick.y, truppPick.floor); setTruppPick(null) }}>
               <Icon id="plus" />{appConfig.copy.whiteboard.newTeam}
             </button>

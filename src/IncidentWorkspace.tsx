@@ -2531,15 +2531,25 @@ export function IncidentWorkspace({
         <div className="wb-trupp-scrim" onPointerDown={() => { setTeamPick(null); setTool('select') }}>
           <div className="wb-trupp-pick" onPointerDown={(e) => e.stopPropagation()}>
             <div className="wb-trupp-pick-head">{appConfig.copy.whiteboard.selectTrupp}</div>
-            {trupps.filter((t) => t.status !== 'raus').map((t) => (
-              <button
-                key={t.id} className="wb-trupp-opt"
-                onClick={() => { placeTruppOnMap(t.id, teamPick); setTeamPick(null); setTool('select') }}
-              >
-                <span className="wb-trupp-cap" /><b>{t.name}</b>
-                {t.lineNumber && <i>Ltg {t.lineNumber}</i>}
-              </button>
-            ))}
+            {/* A Trupp lives at exactly ONE place, so picking one that is already on the map
+                does not add a second marker — it MOVES the existing one, silently, and the
+                operator who wanted a second Trupp has just relocated the first. Placed ones
+                are greyed out and say where they are instead. A Trupp on a PLAN stays
+                selectable: moving it to the map is a real thing to want. */}
+            {trupps.filter((t) => t.status !== 'raus').map((t) => {
+              const here = !!t.entityId
+              return (
+                <button
+                  key={t.id} className={`wb-trupp-opt${here ? ' placed' : ''}`} disabled={here}
+                  onClick={() => { placeTruppOnMap(t.id, teamPick); setTeamPick(null); setTool('select') }}
+                >
+                  <span className="wb-trupp-cap" /><b>{t.name}</b>
+                  {here
+                    ? <i>{appConfig.copy.whiteboard.truppPlacedHere}</i>
+                    : t.lineNumber ? <i>Ltg {t.lineNumber}</i> : null}
+                </button>
+              )
+            })}
             <button className="wb-trupp-opt wb-trupp-generic" onClick={() => { placeGenericTeam(teamPick); setTeamPick(null); setTool('select') }}>
               <Icon id="plus" />{appConfig.copy.whiteboard.newTeam}
             </button>

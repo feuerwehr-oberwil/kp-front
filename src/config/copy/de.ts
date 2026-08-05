@@ -1168,6 +1168,12 @@ export const de = {
     placeTeam: '{name} auf Plan gesetzt',
     selectTrupp: 'Welcher Trupp?',
     newTeam: 'Neuer Trupp',
+    // Ein Trupp steht an genau EINEM Ort. Wer ihn in dieser Liste nochmals antippt, verschiebt
+    // ihn — gemeint war fast immer ein zweiter Trupp. Darum ausgegraut statt auswählbar.
+    truppPlacedHere: 'schon hier',
+    truppPlacedElsewhere: 'auf {where}',
+    truppOnMap: 'der Karte',
+    truppOnPlan: 'einem Plan',
     showTrupp: 'Im Atemschutz zeigen',
     markPosition: 'Position markieren',
     positionMarked: '{name}: Position markiert',
