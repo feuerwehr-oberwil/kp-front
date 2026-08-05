@@ -325,7 +325,9 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
           onClick={(ev) => ev.originalEvent.stopPropagation()}
         >
           <div
-            className={`marker${e.kind === 'note' ? ' marker-note' : ''}${networkEntityIds.includes(e.id) ? ' network' : ''} ${selectedId === e.id || groupSelectedIds.includes(e.id) || draggingId === e.id ? 'sel' : ''}`}
+            // `dragging` is its own class, not folded into `sel`: the two look the same but mean
+            // different things, and only the drag should change the cursor (see .marker.dragging).
+            className={`marker${e.kind === 'note' ? ' marker-note' : ''}${networkEntityIds.includes(e.id) ? ' network' : ''}${draggingId === e.id ? ' dragging' : ''} ${selectedId === e.id || groupSelectedIds.includes(e.id) || draggingId === e.id ? 'sel' : ''}`}
             style={{ ['--gpx' as string]: `${gpx}px` }}
             // Tap selects; press-and-hold (touch) / press-and-drag (mouse) moves. A quick flick stays
             // a map pan/zoom. Not while editing a note's text (the input owns the pointer).

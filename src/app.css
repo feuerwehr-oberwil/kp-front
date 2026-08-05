@@ -284,6 +284,12 @@ input[type='number'] { -moz-appearance: textfield; appearance: textfield; }
 
 /* markers — bare tactical symbol, real-world scaled. White fill only for outline-with-text. */
 .marker { position: relative; display: flex; flex-direction: column; align-items: center; cursor: pointer; --gpx: 44px; }
+/* Mid-move the pointer says so, the way the plan canvas already does for an annotation
+   (.wb-canvas.tool-pan .wb-anno:active). At REST the marker keeps `pointer`, deliberately: a
+   symbol is tap-to-select and hold-to-drag, so a resting `grab` would promise a drag that a
+   quick flick does not perform — it pans the map. !important and on the descendants too,
+   because the glyph, its halo and the hit pad each set their own cursor. */
+.marker.dragging, .marker.dragging * { cursor: grabbing !important; }
 /* Fat-finger touch slop: an invisible hit pad a little larger than the glyph, so a tap that
    lands just shy of the symbol still selects it. Because markers are DOM nodes ABOVE the map
    canvas, this pad also wins over any area/Absperrkreis drawn underneath (those live on the
