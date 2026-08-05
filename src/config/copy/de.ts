@@ -1339,7 +1339,7 @@ export const de = {
     endingArrow: 'Pfeil',
     endingTeilstueck: 'Teilstück',
     content: 'Inhalt',
-    contentPlain: 'Ohne',
+    contentPlain: 'Wasser',
     lineNo: 'Leitung Nr.',
     // Zwei Leitungen mit derselben Nummer machen die Nummer mehrdeutig — und die Nummer ist es,
     // woran die Atemschutzüberwachung ihre Leitung erkennt.

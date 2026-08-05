@@ -272,8 +272,9 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, peri
               <div className="de-row"><span>{appConfig.copy.drawingEditor.content}</span>
                 <span className="de-presets">
                   <button className={`de-preset ${!drawing.content ? 'on' : ''}`} title={appConfig.copy.drawingEditor.contentPlain} onClick={() => onContent(undefined)}>{appConfig.copy.drawingEditor.contentPlain}</button>
-                  {/* W (Wasserwerfer) first: the most common device, and it used to sit third
-                      behind a chip labelled «Wasser» — two different things reading as one. */}
+                  {/* W (Wasserwerfer) first — the most common device. The chip before it stays
+                      «Wasser»: a Druckleitung without a device letter IS a water line, and that is
+                      what the operator looks for. */}
                   {(['W', 'S', 'H', 'P'] as const).map((c) => (
                     <button key={c} className={`de-preset ${drawing.content === c ? 'on' : ''}`} title={CONTENT_LABELS[c]} onClick={() => onContent(c)}>{c}</button>
                   ))}

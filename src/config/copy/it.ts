@@ -932,7 +932,7 @@ export const it: Localizable<Copy> = {
     endingArrow: 'Freccia',
     endingTeilstueck: 'Tratto',
     content: 'Contenuto',
-    contentPlain: 'Nessuno',
+    contentPlain: 'Acqua',
     lineNo: 'Linea n.',
     lineNoDuplicate: 'La linea {n} esiste già qui',
     trupp: 'Appartiene alla squadra',
