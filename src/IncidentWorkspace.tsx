@@ -121,6 +121,7 @@ import { ReportPreflight } from './components/ReportPreflight'
 import { annotatedPlans } from './lib/report'
 import { mittelLineCount } from './lib/mittel'
 import { autoNoteWPx } from './lib/notes'
+import { prepareUploadImage } from './lib/imagePrep'
 
 const prefs = loadPrefs()
 // The manually-picked Einsatzobjekt moved from this device cookie into the synced workspace blob
@@ -193,7 +194,13 @@ export function IncidentWorkspace({
   const setElView = (v: boolean) => { setElViewPref(v); savePrefs({ ...loadPrefs(), elView: v }) }
   // «not edit anything» is broader than the tactical surfaces: EL view also locks the
   // Atemschutz / Mittel / checklist / dispatch actions that hang off this flag.
-  const canEditIncident = isEditor && !replayActive && !elView
+  //
+  // ⚠️ `readOnly`, not `replayActive`: this used to miss `forceReadOnly`, so an ARCHIVED Einsatz
+  // opened from «Alle Einsätze» — the view whose banner says «Nur ansehen – zum Bearbeiten
+  // reaktivieren» — still let an editor tick a checklist, mark someone present and log Mittel.
+  // The edits were saved and (correctly) badged as Nachträge, but nobody had asked for them:
+  // the unlock is «Reaktivieren», deliberately, once, with its own confirm.
+  const canEditIncident = isEditor && !readOnly && !elView
   // Phones edit like tablets — the tool bar is simply always there on the drawing surfaces
   // (stacked above the surface bar). Viewers and the EL-Ansicht stay hands-off; a brigade
   // that wants a view-only phone uses exactly those.
@@ -862,8 +869,13 @@ export function IncidentWorkspace({
     try {
       blob = await (await fetch(localUrl)).blob()
     } catch { return /* the blob: URL is already gone — nothing to persist */ }
+    // A photo is re-encoded BEFORE the first attempt (and therefore before it is queued): the
+    // server takes jpeg/png/webp only and a phone hands over a 4–12 MB HEIC, so the upload used
+    // to 4xx, retry forever from the offline queue, and the picture quietly never reached the
+    // printed Rapport. See lib/imagePrep.
+    if (kind === 'photo') blob = await prepareUploadImage(blob)
     try {
-      const { url } = await uploadMedia(incidentMeta.id, blob, kind)
+      const { url } = await uploadMedia(incidentMeta.id, blob, kind, `${kind}-${rowId}`)
       swapRowMedia(rowId, kind, url)
     } catch {
       // offline / server error — keep the blob for later instead of losing it this session
@@ -888,9 +900,17 @@ export function IncidentWorkspace({
       emit('report.attachment.add', { id })
       void (async () => {
         try {
-          const { url } = await uploadMedia(incidentMeta.id, file, 'photo')
+          // Re-encode first: the server takes jpeg/png/webp only and a phone hands over HEIC at
+          // 4–12 MB, so the raw file 4xx'd and the Beilage silently never printed (lib/imagePrep).
+          const blob = await prepareUploadImage(file)
+          const { url } = await uploadMedia(incidentMeta.id, blob, 'photo', file.name || 'beilage.jpg')
           setAttachments((list) => list.map((a) => (a.id === id ? { ...a, url } : a)))
-        } catch { /* stays a local blob: row — the preflight flags it as not uploaded */ }
+        } catch (e) {
+          // NOT silent: an upload that failed means this Beilage will not be on the paper, and
+          // the operator has to hear that while they can still do something about it.
+          toast(fillTemplate(appConfig.copy.preflight.attachmentsFailed, { name: file.name || '' }), { icon: 'warn', tone: 'warn' })
+          console.warn('Beilage upload failed', e)
+        }
       })()
     }
   }, [incidentMeta.id, readOnly, setAttachments, emit])
@@ -2134,6 +2154,9 @@ export function IncidentWorkspace({
       <TopBar
         incident={incidentView}
         startedAt={incidentMeta.started_at}
+        // the declared Einsatzende wins over the server's closure stamp: it is what the EL said
+        // the Einsatz ended, and it is what the Rapport prints
+        endedAt={reportMeta.endedAt ?? incidentMeta.closed_at}
         recording={voice.recording}
         recStartedAt={voice.recStartedAt}
         journalOpen={journalOpen}

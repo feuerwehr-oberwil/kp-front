@@ -841,6 +841,7 @@ export const de = {
     sttTaken: 'Eintrag übernommen',
     photo: 'Foto',
     photoNote: 'Foto',
+    photoOpen: 'Foto gross ansehen',
     discardPhoto: 'Foto verwerfen',
     // offline media upload queue — status chip on a Verlauf row whose photo/audio is not yet
     // on the server (captured offline; will upload automatically when reconnected)
@@ -1553,6 +1554,12 @@ export const de = {
     title: 'In einem anderen Tab geöffnet',
     hint: 'Dieser Tab ist nur zum Lesen – die Bearbeitung läuft im anderen Tab.',
     takeOver: 'Hier bearbeiten',
+  },
+  // full-size picture viewer (openPhoto) — a photo used to open in a new tab, which leaves the
+  // installed app on iOS
+  photoViewer: {
+    title: 'Foto',
+    download: 'Herunterladen',
   },
   // running incident clock in the TopBar
   einsatzuhr: {
@@ -2298,7 +2305,6 @@ export const de = {
     sectionsHead: 'Abschnitte',
     groupMap: 'Karte & Pläne',
     groupContents: 'Inhalte',
-    groupAdvanced: 'Erweitert',
     toggleKroki: 'Kroki',
     plansLabel: 'Pläne',
     plansAnnotated: 'Mit Anmerkungen ({n})',
@@ -2315,6 +2321,7 @@ export const de = {
     attachmentsAdd: 'Foto hinzufügen',
     attachmentsCaption: 'Bildlegende (z. B. «Ausweis Lenker»)',
     attachmentsPending: 'noch nicht hochgeladen',
+    attachmentsFailed: 'Beilage {name} konnte nicht hochgeladen werden – sie erscheint nicht im Druck.',
     toggleDetailedAudit: 'Detaillierter Prüfnachweis',
     // Kroki framing modal (WYSIWYG crop before PDF / Ausdrucken)
     framingTitle: 'Kroki-Ausschnitt wählen',

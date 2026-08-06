@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from 'react'
 import { Icon, PrinterFeedIcon } from './icons'
 import { appConfig } from '../config/appConfig'
 import { ConfirmCard } from './overlays/ConfirmCard'
+import { Overlay } from './overlays'
 
 // Lightweight app-wide toast + confirm host. Replaces native alert()/confirm()
 // so transient feedback and destructive confirmations stay inside the glass
@@ -28,8 +29,12 @@ interface ConfirmReq {
   resolve: (v: boolean) => void
 }
 
+/** The picture currently being looked at full-size (see openPhoto). */
+interface PhotoReq { url: string; filename: string; caption?: string }
+
 let toasts: Toast[] = []
 let confirmReq: ConfirmReq | null = null
+let photoReq: PhotoReq | null = null
 const listeners = new Set<() => void>()
 let seq = 1
 const emit = () => listeners.forEach((l) => l())
@@ -94,6 +99,22 @@ export function confirmDialog(opts: {
   })
 }
 
+/**
+ * Show one picture full-size, in the app.
+ *
+ * A photo used to open with `target="_blank"`. In a browser tab that is merely untidy; in the
+ * INSTALLED app it leaves the app — iOS hands the picture to Safari and the operator has to find
+ * their way back to a running Einsatz. So it opens here, over the surface, with the one thing the
+ * new tab was actually good for: a download.
+ *
+ * Imperative like toast()/confirmDialog(), so a thumbnail anywhere can call it without every
+ * surface in between having to carry a viewer prop.
+ */
+export function openPhoto(url: string, opts?: { filename?: string; caption?: string }) {
+  photoReq = { url, filename: opts?.filename || 'foto.jpg', caption: opts?.caption }
+  emit()
+}
+
 function useForceUpdate() {
   const [, setN] = useState(0)
   useEffect(() => {
@@ -131,6 +152,8 @@ function ToastSteps({ steps, text }: { steps: ToastStep[]; text: string }) {
 export function Overlays() {
   useForceUpdate()
   const req = confirmReq
+  const photo = photoReq
+  const closePhoto = () => { photoReq = null; emit() }
 
   const close = (v: boolean) => {
     const r = confirmReq
@@ -174,6 +197,23 @@ export function Overlays() {
         danger={req?.danger}
         onResolve={close}
       />
+
+      {/* full-size picture — see openPhoto */}
+      {photo && (
+        <Overlay open onClose={closePhoto} className="photo-view" ariaLabel={photo.caption || appConfig.copy.photoViewer.title}>
+          <div className="photo-view-head">
+            <span className="photo-view-cap">{photo.caption || appConfig.copy.photoViewer.title}</span>
+            {/* same-origin /api/media URL, so `download` really downloads instead of navigating */}
+            <a className="btn" href={photo.url} download={photo.filename}>
+              <Icon id="download" />{appConfig.copy.photoViewer.download}
+            </a>
+            <button className="ctx-x" onClick={closePhoto} aria-label={appConfig.copy.closeDialog} title={appConfig.copy.closeDialog}>
+              <Icon id="close" />
+            </button>
+          </div>
+          <img className="photo-view-img" src={photo.url} alt={photo.caption ?? ''} />
+        </Overlay>
+      )}
     </>
   )
 }

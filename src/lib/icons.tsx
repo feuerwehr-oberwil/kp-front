@@ -43,6 +43,8 @@ export function IconSprite() {
       <symbol id="photo" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="9" cy="10" r="2" /><path d="M3 17l5-4 4 3 3-2 6 5" /></symbol>
       <symbol id="snapshot" viewBox="0 0 24 24"><path d="M12 4v11M8 11l4 4 4-4M5 19h14" /></symbol>
       <symbol id="upload" viewBox="0 0 24 24"><path d="M12 15V4M8 8l4-4 4 4M5 19h14" /></symbol>
+      {/* arrow INTO a tray — «speichern», distinct from `snapshot`, whose bare arrow means «take one» */}
+      <symbol id="download" viewBox="0 0 24 24"><path d="M12 3.5v10M8 10l4 4 4-4M4 16v3a1.5 1.5 0 0 0 1.5 1.5h13A1.5 1.5 0 0 0 20 19v-3" /></symbol>
       <symbol id="wave" viewBox="0 0 24 24"><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2" /></symbol>
       <symbol id="sparkle" viewBox="0 0 24 24"><path d="M12 4l1.8 5.2L19 11l-5.2 1.8L12 18l-1.8-5.2L5 11l5.2-1.8z" /></symbol>
       <symbol id="skip-back-15" viewBox="0 0 24 24"><path d="M11 6 5 12l6 6M19 6l-6 6 6 6" /></symbol>

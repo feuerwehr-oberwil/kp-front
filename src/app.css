@@ -594,7 +594,14 @@ input[type='number'] { -moz-appearance: textfield; appearance: textfield; }
 .navrail.expanded:not(.dragging) .nav-item,
 .navrail.expanded:not(.dragging) .nav-exp { padding-inline: 12px; }
 .navrail.expanded:not(.dragging) .nav-glyph,
-.navrail.expanded:not(.dragging) .nav-exp-ic { width: 22px; min-width: 22px; }
+.navrail.expanded:not(.dragging) .nav-exp-ic { width: 26px; min-width: 26px; }
+/* ⚠️ the module monogram is a BOX, not a glyph: at min-width 30px it was wider than the 22px
+   column the expanded rail shrinks the glyph to, so it spilled over and pushed «Modul 1» /
+   «Modul 2/3» right — the module rows read as indented and unevenly spaced next to the icon
+   rows. Expanded, the chip is sized to the column (and the column to the chip), so every label
+   starts on the same edge. Collapsed keeps the big chip: there it IS the whole row. */
+.navrail.expanded:not(.dragging) .nav-mono-chip { min-width: 26px; min-height: 26px; padding: 1px 4px; }
+.navrail.expanded:not(.dragging) .nav-glyph.nav-frac { font-size: 20px; }
 .nav-live { position: absolute; top: 6px; right: 6px; width: 9px; height: 9px; border-radius: 50%; background: var(--green); border: 2px solid #fff; }
 .nav-item.on .nav-live { border-color: var(--ink-fill); }
 /* Atemschutz cross-surface alarm dot: amber when fällig, red + pulse when überfällig */
@@ -1411,8 +1418,18 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
   box-shadow: 0 3px 9px rgba(30, 45, 70, .3); }
 .note-done .i { width: 16px; height: 16px; stroke-width: 2.4; }
 .ph img { width: 100%; height: 100%; object-fit: cover; border-radius: var(--r-ctl); }
-.ctx-photo { padding: 0 18px 10px; }
+.ctx-photo { padding: 0 18px 10px; border: 0; background: none; width: 100%; cursor: pointer; }
 .ctx-photo img { width: 100%; border-radius: var(--r-ctl); display: block; }
+
+/* Full-size picture viewer (lib/ui · openPhoto). Sized to the picture, capped by the viewport:
+   a document photo is worth the whole screen, and nothing else on it competes. */
+.photo-view { display: flex; flex-direction: column; gap: 10px; max-width: min(96vw, 1200px);
+  max-height: 92dvh; padding: 12px; }
+.photo-view-head { display: flex; align-items: center; gap: 10px; }
+.photo-view-cap { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font: 700 13px var(--body); color: var(--ink); }
+.photo-view-head .btn { flex: none; }
+.photo-view-img { min-height: 0; max-width: 100%; object-fit: contain; border-radius: var(--r-ctl); background: var(--fill-soft); }
 
 /* swatch / width pickers — shared by the draw-style bar and the draw editor */
 .dh-swatches, .dh-widths { display: flex; align-items: center; gap: 9px; }
@@ -2433,7 +2450,8 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .jc-photo img { display: block; max-height: 160px; max-width: 100%; object-fit: cover; }
 .jc-photo .jc-clip-x { position: absolute; top: 6px; right: 6px; background: rgba(20, 28, 40, .6); color: var(--on-accent-ink); }
 .jc-photo .jc-clip-x:hover { background: rgba(20, 28, 40, .85); color: var(--on-accent-ink); }
-.jr-thumb { flex: none; width: 34px; height: 34px; border-radius: var(--r-xs); overflow: hidden; border: 1px solid var(--glass-edge); display: block; }
+/* a <button> now (it opens the in-app viewer, not a new tab) — reset the UA button chrome */
+.jr-thumb { flex: none; width: 34px; height: 34px; border-radius: var(--r-xs); overflow: hidden; border: 1px solid var(--glass-edge); display: block; padding: 0; background: none; cursor: pointer; }
 .jr-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 /* offline media-queue chip on a Verlauf row (photo/audio not yet on the server) */
 .jr-media-state { flex: none; display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 600;
@@ -4329,7 +4347,7 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 /* fixed tick slot so the labels do not shift sideways as the state changes */
 .ui-ctxmenu-tick { flex: none; width: 12px; color: var(--blue); font-weight: 800; }
 
-/* A folded Rapport section. Same chrome as .report-adv, one level up: the head stays a real
+/* A folded Rapport section: the head stays a real
    row (44px, chevron, title) and carries a summary on the right so the fold can be read
    without being opened — the only reason folding these is safe. */
 .report-fold { border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface); }
@@ -4432,24 +4450,19 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .report-att-add .i { width: 16px; height: 16px; }
 .report-att-add input { display: none; }
 
-.report-toggles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.report-toggles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
 /* Abschnitte grouping: «Karte & Pläne» / «Inhalte» sub-heads span both columns, the plans
    choice is one 3-way segment, and the two expert options fold behind «Erweitert» */
 .report-toggle-grouphead { grid-column: 1 / -1; margin: 4px 0 -2px; font: 700 11px var(--body);
   letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); }
 .report-toggles .report-toggle-grouphead:first-child { margin-top: 0; }
 .report-plans-row { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  min-height: var(--tap); border: 1px solid var(--border); border-radius: var(--r-ctl); background: var(--surface);
-  padding: 8px 10px; font-size: 13px; font-weight: 700; color: var(--ink); flex-wrap: wrap; }
-.report-adv { grid-column: 1 / -1; }
-.report-adv summary { display: inline-flex; align-items: center; gap: 6px; min-height: var(--tap); padding: 6px 4px;
-  cursor: pointer; list-style: none; font: 700 12px var(--body); color: var(--ink-dim); }
-.report-adv summary::-webkit-details-marker { display: none; }
-.report-adv summary svg { width: 14px; height: 14px; transition: transform .14s var(--ease); }
-.report-adv[open] summary svg { transform: rotate(180deg); }
-.report-adv-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 4px; }
-@media (max-width: 600px) { .report-adv-body { grid-template-columns: 1fr; } }
-.report-toggle { display: flex; align-items: center; gap: 10px; min-height: var(--tap); border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); padding: 8px 10px; font-size: 12.5px; font-weight: 700; color: var(--ink); cursor: pointer; }
+  border: 1px solid var(--border); border-radius: var(--r-ctl); background: var(--surface);
+  padding: 6px 10px; font-size: 13px; font-weight: 700; color: var(--ink); flex-wrap: wrap; }
+/* Row height follows the text, not a tap-target minimum: eleven of these stacked at 44px each
+   turned the section list into a page of its own, with more air than content. The 44px target is
+   kept as PADDING around a real 18px checkbox, which is what the finger actually hits. */
+.report-toggle { display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); padding: 7px 10px; font-size: 12.5px; font-weight: 700; color: var(--ink); cursor: pointer; }
 .report-toggle input { width: 18px; height: 18px; accent-color: var(--blue); }
 .report-toggle.disabled { opacity: .48; cursor: default; }
 .report-pre-hints p { display: flex; align-items: center; gap: 9px; margin: 7px 0; color: var(--ink-dim); font-size: 13px; }

@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import type { CaptionMode, NoteSize, Spread, SymbolControl, SymbolProps } from '../types'
 import { Icon } from '../lib/icons'
+import { openPhoto } from '../lib/ui'
 import { SheetGrip } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
 import { lookupUN, decodeKemler, type UnHazardEntry } from '../lib/unHazard'
@@ -396,7 +397,14 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
         <button className="ctx-x" onClick={onClose} title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
       </div>
 
-      {entity.photoUrl && <div className="ctx-photo"><img src={entity.photoUrl} alt="" /></div>}
+      {/* tap to see it full-size, in the app (lib/ui · openPhoto) — a photo marker's whole point
+          is the picture, and the panel can only show a thumbnail of it */}
+      {entity.photoUrl && (
+        <button type="button" className="ctx-photo" title={appConfig.copy.photoViewer.title}
+          onClick={() => openPhoto(entity.photoUrl!, { caption: entity.label, filename: 'foto.jpg' })}>
+          <img src={entity.photoUrl} alt="" />
+        </button>
+      )}
 
       <div className="ctx-body">
         {/* ── Notiz ── the same three settings the armed-tool dock offers while writing, plus the

@@ -744,12 +744,10 @@ export function ReportPreflight({
               <Toggle label={P.toggleJournal} checked={options.journal} onChange={(v) => patchOpt({ journal: v })} />
               <Toggle label={fillTemplate(P.toggleAttachments, { n: attachments.length })} checked={options.attachments && attachments.length > 0}
                 onChange={(v) => patchOpt({ attachments: v })} disabled={attachments.length === 0} />
-              <details className="report-adv">
-                <summary><Icon id="chevron-down" /> {P.groupAdvanced}</summary>
-                <div className="report-adv-body">
-                  <Toggle label={P.toggleDetailedAudit} checked={options.detailedAudit} onChange={(v) => patchOpt({ detailedAudit: v })} />
-                </div>
-              </details>
+              {/* «Erweitert» used to fold this one row away. The whole Abschnitte block is already
+                  behind a fold, so it was a second door in front of a door — and a checkbox nobody
+                  can see is a checkbox nobody knows about. It sits in the list like the rest. */}
+              <Toggle label={P.toggleDetailedAudit} checked={options.detailedAudit} onChange={(v) => patchOpt({ detailedAudit: v })} />
             </div>
           </details>
 

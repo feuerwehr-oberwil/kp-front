@@ -21,6 +21,9 @@ interface Props {
   incident: Incident
   /** ISO incident start — drives the running Einsatzuhr next to the wall clock */
   startedAt?: string | null
+  /** ISO end of the Einsatz (declared Einsatzende, else the server's closure). Present ⇒ the
+   *  Einsatzdauer is FINAL and stops there instead of counting on from `now`. */
+  endedAt?: string | null
   recording: boolean
   recStartedAt: number | null
   journalOpen: boolean
@@ -73,7 +76,7 @@ interface Props {
 // Single-line top bar: incident identity + clock on the left, global journal +
 // undo/redo on the right (the surface switch moved to the left NavRail). The clock
 // interval lives here so the per-second tick re-renders only the bar, not the map below.
-export function TopBar({ incident, startedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, titleSlot, onUndo, onRedo, canUndo, canRedo, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, onOpenAtemschutz, gpsStale, gpsAgeMs, shareSlot }: Props) {
+export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, titleSlot, onUndo, onRedo, canUndo, canRedo, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, onOpenAtemschutz, gpsStale, gpsAgeMs, shareSlot }: Props) {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000)
@@ -89,10 +92,15 @@ export function TopBar({ incident, startedAt, recording, recStartedAt, journalOp
   const [clockMode, setClockMode] = useState<ClockMode>(() => loadPrefs().clockMode ?? 'elapsed')
   const E = appConfig.copy.einsatzuhr
   const startMs = startedAt ? Date.parse(startedAt) : 0
+  // An Einsatz that is OVER has a duration, not a stopwatch. It used to keep counting from
+  // `now`, so an archived Einsatz opened from the Verlauf claimed «14:22» of Einsatzdauer for
+  // something that lasted 40 minutes last Tuesday — the one number on the bar, wrong by days.
+  const endMs = endedAt ? Date.parse(endedAt) : 0
+  const stoppedAt = Number.isFinite(endMs) && endMs > startMs ? endMs : 0
   const clockValue = (m: ClockMode) =>
     m === 'now' ? formatTime(new Date(now), true)
       : m === 'start' ? formatTime(new Date(startMs))
-        : fmtElapsedHM(now - startMs)
+        : fmtElapsedHM((stoppedAt || now) - startMs)
   const clockLabel: Record<ClockMode, string> = { elapsed: E.modeElapsed, now: E.modeNow, start: E.modeStart }
   const pickClock = (m: ClockMode) => { setClockMode(m); savePrefs({ ...loadPrefs(), clockMode: m }) }
   const clockText = startedAt ? clockValue(clockMode) : ''

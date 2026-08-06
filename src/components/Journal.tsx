@@ -3,6 +3,7 @@ import type { PlanDocument, TimelineEvent } from '../types'
 import { Icon } from '../lib/icons'
 import { EmptyState } from './EmptyState'
 import { Overlay } from '../lib/overlays'
+import { openPhoto } from '../lib/ui'
 import { appConfig } from '../config/appConfig'
 import { formatTime } from '../lib/format'
 import { groupByDay, isNachtrag, rowTime } from '../lib/verlauf'
@@ -158,10 +159,17 @@ export function Journal({ events, plans, closedAt, onSelect, onClose, onTranscri
                     </span>
                   </button>
                 )}
+                {/* opens IN the app (lib/ui · openPhoto): `target="_blank"` handed the picture to
+                    Safari on an installed iPad, which means leaving a running Einsatz to look at
+                    a photo of it. The viewer keeps the one thing the new tab was good for — a
+                    download. */}
                 {e.photoUrl && (
-                  <a className="jr-thumb" href={e.photoUrl} target="_blank" rel="noreferrer" onClick={(ev) => ev.stopPropagation()}>
+                  <button
+                    type="button" className="jr-thumb" title={C.photoOpen} aria-label={C.photoOpen}
+                    onClick={(ev) => { ev.stopPropagation(); openPhoto(e.photoUrl!, { caption: e.text, filename: `foto-${e.id}.jpg` }) }}
+                  >
                     <img src={e.photoUrl} alt="" />
-                  </a>
+                  </button>
                 )}
                 {!e.audioUrl && e.at && (onOpenPlayer || onEditText) && (() => {
                   // annotation of a recording → jump into the player at this moment,
