@@ -130,7 +130,7 @@ async def test_a_tracker_that_repeats_one_fix_is_recorded_once(db_session, incid
     Nothing new from the device means nothing to record. It also keeps «we stopped hearing
     from it» legible: the track stops, instead of filling with copies of its last position.
     """
-    fixed = datetime.now(UTC) - timedelta(hours=3)   # a fix far older than any heartbeat
+    fixed = datetime.now(UTC) - timedelta(hours=3)  # a fix far older than any heartbeat
     traccar.append(_pos(1, 47.5163, 7.5617, ts=fixed))
     for _ in range(40):
         await _sweep(db_session, monkeypatch)
@@ -154,8 +154,7 @@ async def test_a_stationary_vehicle_still_gets_a_heartbeat(db_session, incident,
     assert len(await _rows(db_session, incident)) == 1
 
     # …and now past it
-    traccar[0] = _pos(1, 47.5163, 7.5617,
-                      ts=t0 + timedelta(seconds=scheduler.VEHICLE_SAMPLE_HEARTBEAT_SECONDS + 30))
+    traccar[0] = _pos(1, 47.5163, 7.5617, ts=t0 + timedelta(seconds=scheduler.VEHICLE_SAMPLE_HEARTBEAT_SECONDS + 30))
     await _sweep(db_session, monkeypatch)
     assert len(await _rows(db_session, incident)) == 2
 
