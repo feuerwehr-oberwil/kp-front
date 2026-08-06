@@ -639,7 +639,10 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
    vertically centred just left of the right tool rail. Only one of {Ebenen, views popover,
    tool dock} is ever open (App wires the mutual exclusivity). Phones override this into a
    full-width sheet below. */
-.layers-card { position: fixed; right: calc(var(--vrail-w, 60px) + 42px); top: 50%; transform: translateY(-50%);
+/* +26 rather than +42: the rail itself sits 16px off the right edge, so this leaves a 10px
+   channel between dock and rail instead of 26px. They belong together — the dock is what the
+   rail button just opened — and the old gap read as two unrelated panels. */
+.layers-card { position: fixed; right: calc(var(--vrail-w, 60px) + 26px); top: 50%; transform: translateY(-50%);
   width: 264px; max-width: calc(100vw - 16px); max-height: calc(100dvh - 32px); overflow-y: auto;
   background: var(--ink-fill); color: var(--on-accent-ink); border-radius: var(--r-surface);
   padding: 10px; z-index: 201; box-shadow: var(--shadow); }
@@ -1837,7 +1840,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 /* sits just left of the right tool rail and tracks its width, so expanding the rail pushes
    the dock left instead of letting the rail overlap it. --vrail-w is published by ToolRail;
    16px rail inset + width + 26px gap. */
-.wb-dock-map { right: calc(var(--vrail-w, 60px) + 42px); top: 50%; transform: translateY(-50%); }
+.wb-dock-map { right: calc(var(--vrail-w, 60px) + 26px); top: 50%; transform: translateY(-50%); }
 
 /* touch devices: the dock's option buttons are finger-operated (on phones the dock floats
    above the bottom bars) — enlarge them directly per the house rule for dense clusters.

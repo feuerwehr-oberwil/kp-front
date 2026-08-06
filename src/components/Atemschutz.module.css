@@ -245,6 +245,11 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 .modalBody { padding: 16px 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px 22px; align-items: start; }
 .formCol { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .formColWide { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 12px; }
+/* The two ± steppers (Funkkanal · Eingangsdruck). Spans the modal, then splits itself: two
+   columns where they fit, one where they don't — and a single child fills the row rather than
+   sitting beside a gap. */
+.stepperPair { grid-column: 1 / -1; display: grid; gap: 12px 16px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
 @media (max-width: 560px) { .modalBody { grid-template-columns: 1fr; } }
 /* Gebäude / Modul-6 placement picker */
 .placeModal { width: min(360px, calc(100vw - 32px)); }

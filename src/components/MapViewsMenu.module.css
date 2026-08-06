@@ -7,7 +7,7 @@
   box-shadow: var(--shadow); padding: 10px; animation: popIn .15s var(--ease); }
 /* sits in the same place as the measure/draw ToolDock: vertically centred, just left of the
    right tool rail, and tracking its width (--vrail-w) — see .wb-dock-map */
-.dock { position: fixed; right: calc(var(--vrail-w, 60px) + 42px); top: 50%; transform: translateY(-50%); }
+.dock { position: fixed; right: calc(var(--vrail-w, 60px) + 26px); top: 50%; transform: translateY(-50%); }
 
 /* Phone: the trigger is the compass in the bottom tool bar, so the dock opens ABOVE the bars,
    next to the thumb that pressed it, rather than jumping to the far top corner.

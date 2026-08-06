@@ -801,21 +801,28 @@ function TruppForm({
             </p>
           )}
 
-          <div className={s.formColWide}>
-            <div className={s.formSection}>{az.funkkanalSection}</div>
-            <div className={s.field}>
-              <FunkkanalStepper value={funkkanal} onChange={setFunkkanal} />
-            </div>
-          </div>
-
-          {showPressure && (
-            <div className={s.formColWide}>
-              <div className={s.formSection}>{mode === 'redeploy' ? az.newPressureLabel : az.pressureLabel}</div>
+          {/* Kanal and Druck side by side where there is room. Each stepper is one short number
+              between two big buttons, so full-width rows made the modal scroll for two values
+              that fit next to each other — and pushed the confirm button off a laptop screen.
+              `auto-fit` rather than a fixed pair: with no Druck (a Trupp that carries none) the
+              Kanal simply fills the row instead of leaving a hole beside it. */}
+          <div className={s.stepperPair}>
+            <div className={s.formCol}>
+              <div className={s.formSection}>{az.funkkanalSection}</div>
               <div className={s.field}>
-                <PressureStepper value={pressure} onChange={setPressure} />
+                <FunkkanalStepper value={funkkanal} onChange={setFunkkanal} />
               </div>
             </div>
-          )}
+
+            {showPressure && (
+              <div className={s.formCol}>
+                <div className={s.formSection}>{mode === 'redeploy' ? az.newPressureLabel : az.pressureLabel}</div>
+                <div className={s.field}>
+                  <PressureStepper value={pressure} onChange={setPressure} />
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
       <div className={s.modalFoot}>
