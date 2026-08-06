@@ -4,6 +4,7 @@ Started/stopped from the FastAPI lifespan. No-op when no Divera access key is se
 """
 
 import logging
+from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -13,6 +14,7 @@ from fastapi import FastAPI
 
 from .config import settings
 from .database import async_session_maker, execute_dml
+from .models import INCIDENT_ACTIVE_STATUSES
 
 logger = logging.getLogger(__name__)
 
@@ -80,8 +82,6 @@ PRINT_JOB_SWEEP_SECONDS = 3600
 
 
 async def _print_jobs_sweep() -> None:
-    from datetime import UTC, datetime, timedelta
-
     from sqlalchemy import delete
 
     from .models import PrintJob
@@ -98,6 +98,103 @@ async def _print_jobs_sweep() -> None:
             logger.exception("Print-job sweep failed")
 
 
+#: How often the vehicle feed is sampled into the incident record. Not the 15 s the map polls
+#: at: this is a TRACK for the replay, and half-minute resolution draws the same route with a
+#: fraction of the rows.
+VEHICLE_SAMPLE_SECONDS = 30
+
+#: A vehicle that has not moved this far is not sampled again — a fleet parked at the Magazin
+#: would otherwise write a row per truck every 30 s for the whole Einsatz, and the replay would
+#: scrub through hours of nothing. Roughly GPS noise plus a truck length.
+VEHICLE_SAMPLE_MIN_MOVE_M = 20.0
+
+#: …but a stationary vehicle still gets one row this often, so a replay can tell «parked here
+#: the whole time» from «we stopped hearing from it».
+VEHICLE_SAMPLE_HEARTBEAT_SECONDS = 600
+
+
+async def _vehicle_samples_sweep() -> None:
+    """Record where the vehicles were, so the Verlauf can replay them.
+
+    This is the job `api/events.samples` has been reading an empty table for: the endpoint, the
+    schema and the client-side replay all shipped, and nothing ever wrote a row
+    (PLAN-audit-trail §4, Phase 6). Vehicles are station assets, not people — unlike the
+    self-reported crew positions this one IS a history, kept with the incident and cascading
+    with it.
+    """
+    from sqlalchemy import select
+
+    from .geo_util import haversine_m
+    from .models import Incident, VehicleSample
+    from .traccar import traccar_client
+
+    if not traccar_client.is_configured:
+        return
+    async with async_session_maker() as db:
+        try:
+            open_ids = list(
+                (
+                    await db.execute(
+                        select(Incident.id).where(
+                            Incident.is_archived.is_(False),
+                            Incident.status.in_(INCIDENT_ACTIVE_STATUSES),
+                        )
+                    )
+                ).scalars()
+            )
+            if not open_ids:
+                return
+            positions = await traccar_client.get_vehicle_positions()
+            if not positions:
+                return
+
+            now = datetime.now(UTC)
+            since = now - timedelta(seconds=VEHICLE_SAMPLE_HEARTBEAT_SECONDS * 2)
+            written = 0
+            for incident_id in open_ids:
+                # The recent tail for this incident, newest-per-device resolved in Python: a
+                # DISTINCT ON would be Postgres-only and the test suite runs on SQLite.
+                recent = list(
+                    (
+                        await db.execute(
+                            select(VehicleSample)
+                            .where(VehicleSample.incident_id == incident_id, VehicleSample.ts >= since)
+                            .order_by(VehicleSample.ts.asc())
+                        )
+                    ).scalars()
+                )
+                last: dict[int, VehicleSample] = {}
+                for row in recent:
+                    last[row.device_id] = row
+
+                for p in positions:
+                    prev = last.get(p.device_id)
+                    if prev is not None:
+                        prev_ts = prev.ts if prev.ts.tzinfo else prev.ts.replace(tzinfo=UTC)
+                        moved = haversine_m(float(prev.lat), float(prev.lng), p.latitude, p.longitude)
+                        stale = (now - prev_ts).total_seconds() >= VEHICLE_SAMPLE_HEARTBEAT_SECONDS
+                        if moved < VEHICLE_SAMPLE_MIN_MOVE_M and not stale:
+                            continue
+                    db.add(
+                        VehicleSample(
+                            incident_id=incident_id,
+                            device_id=p.device_id,
+                            ts=p.last_update,
+                            lat=p.latitude,
+                            lng=p.longitude,
+                            course=p.course,
+                            speed=p.speed,
+                        )
+                    )
+                    written += 1
+            await db.commit()
+            if written:
+                logger.info("Vehicle samples: %d row(s) recorded", written)
+        except Exception:
+            await db.rollback()
+            logger.exception("Vehicle sample sweep failed")
+
+
 POSITION_SWEEP_SECONDS = 3600
 
 
@@ -108,8 +205,6 @@ async def _positions_sweep() -> None:
     closes, so a name-and-coordinate pair can't sit in the database for days after the phone
     that reported it went home. The row is the only copy — there is no history to keep.
     """
-    from datetime import UTC, datetime, timedelta
-
     from sqlalchemy import delete
 
     from .models import PersonPosition
@@ -249,6 +344,20 @@ async def start_scheduler(app: FastAPI) -> None:
         coalesce=True,
     )
     jobs.append(f"position sweep ({POSITION_SWEEP_SECONDS}s)")
+    # Only where a fleet is actually tracked — the job no-ops without Traccar, but there is no
+    # point holding a timer for it.
+    from .traccar import traccar_client
+
+    if traccar_client.is_configured:
+        _scheduler.add_job(
+            _vehicle_samples_sweep,
+            "interval",
+            seconds=VEHICLE_SAMPLE_SECONDS,
+            id="vehicle_samples",
+            max_instances=1,
+            coalesce=True,
+        )
+        jobs.append(f"vehicle samples ({VEHICLE_SAMPLE_SECONDS}s)")
     if settings.healthcheck_ping_url:
         _scheduler.add_job(_heartbeat, "interval", seconds=60, id="heartbeat", max_instances=1, coalesce=True)
         jobs.append("heartbeat (60s)")
