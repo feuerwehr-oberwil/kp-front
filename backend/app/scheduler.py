@@ -109,8 +109,20 @@ VEHICLE_SAMPLE_SECONDS = 30
 VEHICLE_SAMPLE_MIN_MOVE_M = 20.0
 
 #: …but a stationary vehicle still gets one row this often, so a replay can tell «parked here
-#: the whole time» from «we stopped hearing from it».
+#: the whole time» from «we stopped hearing from it». Measured in DEVICE time, like the move
+#: threshold — see the note in the sweep.
 VEHICLE_SAMPLE_HEARTBEAT_SECONDS = 600
+
+#: What we last wrote per (incident, device): the device fix time and where it was.
+#:
+#: In memory rather than queried back, because the question is «what did WE last record for
+#: this device», and the table cannot answer it — `VehicleSample.ts` is the DEVICE's fix time,
+#: which for a parked tracker stops advancing and can be hours behind the wall clock. The first
+#: version asked the table with a `ts >= now - 20min` filter and compared against `ts`, so a
+#: parked vehicle matched nothing and looked permanently stale: it wrote a row on every single
+#: tick, 8 rows a minute across the fleet, every one at an identical position. A restart simply
+#: costs one extra row per vehicle, which is honest — it is where things stood when we came up.
+_last_sample: dict[tuple[str, int], tuple[datetime, float, float]] = {}
 
 
 async def _vehicle_samples_sweep() -> None:
@@ -148,44 +160,40 @@ async def _vehicle_samples_sweep() -> None:
             if not positions:
                 return
 
-            now = datetime.now(UTC)
-            since = now - timedelta(seconds=VEHICLE_SAMPLE_HEARTBEAT_SECONDS * 2)
+            live = {str(i) for i in open_ids}
+            for key in [k for k in _last_sample if k[0] not in live]:
+                del _last_sample[key]  # an Einsatz that ended takes its memo with it
+
             written = 0
             for incident_id in open_ids:
-                # The recent tail for this incident, newest-per-device resolved in Python: a
-                # DISTINCT ON would be Postgres-only and the test suite runs on SQLite.
-                recent = list(
-                    (
-                        await db.execute(
-                            select(VehicleSample)
-                            .where(VehicleSample.incident_id == incident_id, VehicleSample.ts >= since)
-                            .order_by(VehicleSample.ts.asc())
-                        )
-                    ).scalars()
-                )
-                last: dict[int, VehicleSample] = {}
-                for row in recent:
-                    last[row.device_id] = row
-
                 for p in positions:
-                    prev = last.get(p.device_id)
+                    key = (str(incident_id), p.device_id)
+                    ts = p.last_update if p.last_update.tzinfo else p.last_update.replace(tzinfo=UTC)
+                    prev = _last_sample.get(key)
                     if prev is not None:
-                        prev_ts = prev.ts if prev.ts.tzinfo else prev.ts.replace(tzinfo=UTC)
-                        moved = haversine_m(float(prev.lat), float(prev.lng), p.latitude, p.longitude)
-                        stale = (now - prev_ts).total_seconds() >= VEHICLE_SAMPLE_HEARTBEAT_SECONDS
-                        if moved < VEHICLE_SAMPLE_MIN_MOVE_M and not stale:
+                        prev_ts, prev_lat, prev_lng = prev
+                        # Nothing NEW from the device — Traccar re-serves the last fix on every
+                        # poll, and re-recording it would stamp the same instant again and again.
+                        # This is also what makes «we stopped hearing from it» legible: the track
+                        # simply stops, instead of filling with copies of its final position.
+                        if ts <= prev_ts:
+                            continue
+                        moved = haversine_m(prev_lat, prev_lng, p.latitude, p.longitude)
+                        elapsed = (ts - prev_ts).total_seconds()
+                        if moved < VEHICLE_SAMPLE_MIN_MOVE_M and elapsed < VEHICLE_SAMPLE_HEARTBEAT_SECONDS:
                             continue
                     db.add(
                         VehicleSample(
                             incident_id=incident_id,
                             device_id=p.device_id,
-                            ts=p.last_update,
+                            ts=ts,
                             lat=p.latitude,
                             lng=p.longitude,
                             course=p.course,
                             speed=p.speed,
                         )
                     )
+                    _last_sample[key] = (ts, p.latitude, p.longitude)
                     written += 1
             await db.commit()
             if written:

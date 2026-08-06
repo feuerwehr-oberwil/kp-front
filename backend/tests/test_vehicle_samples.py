@@ -72,6 +72,14 @@ async def incident(db_session):
     return inc
 
 
+@pytest.fixture(autouse=True)
+def _clean_memo():
+    """The sweep remembers what it last wrote per (incident, device) in module state."""
+    scheduler._last_sample.clear()
+    yield
+    scheduler._last_sample.clear()
+
+
 async def _sweep(db_session, monkeypatch) -> None:
     monkeypatch.setattr(scheduler, "async_session_maker", lambda: _SessionCtx(db_session))
     await scheduler._vehicle_samples_sweep()
@@ -92,12 +100,13 @@ async def _rows(db_session, incident) -> list[tuple]:
 
 
 async def test_a_moving_vehicle_is_recorded(db_session, incident, traccar, monkeypatch):
-    traccar.append(_pos(1, 47.5163, 7.5617))
+    t0 = datetime.now(UTC) - timedelta(minutes=5)
+    traccar.append(_pos(1, 47.5163, 7.5617, ts=t0))
     await _sweep(db_session, monkeypatch)
     assert len(await _rows(db_session, incident)) == 1
 
     # ~150 m east — a real move
-    traccar[0] = _pos(1, 47.5163, 7.5637)
+    traccar[0] = _pos(1, 47.5163, 7.5637, ts=t0 + timedelta(seconds=30))
     await _sweep(db_session, monkeypatch)
     assert len(await _rows(db_session, incident)) == 2
 
@@ -112,21 +121,41 @@ async def test_a_parked_vehicle_does_not_fill_the_table(db_session, incident, tr
     assert len(await _rows(db_session, incident)) == 1
 
 
+async def test_a_tracker_that_repeats_one_fix_is_recorded_once(db_session, incident, traccar, monkeypatch):
+    """THE production bug (2026-08-06). A parked tracker stops advancing its fix time and
+    Traccar re-serves that one fix forever. The first version measured the heartbeat against
+    that DEVICE time, so every vehicle looked permanently stale and got a row on every tick —
+    8 rows a minute across the fleet, every one at an identical position.
+
+    Nothing new from the device means nothing to record. It also keeps «we stopped hearing
+    from it» legible: the track stops, instead of filling with copies of its last position.
+    """
+    fixed = datetime.now(UTC) - timedelta(hours=3)   # a fix far older than any heartbeat
+    traccar.append(_pos(1, 47.5163, 7.5617, ts=fixed))
+    for _ in range(40):
+        await _sweep(db_session, monkeypatch)
+    assert len(await _rows(db_session, incident)) == 1
+
+
 async def test_a_stationary_vehicle_still_gets_a_heartbeat(db_session, incident, traccar, monkeypatch):
-    """«Parked here the whole time» has to be distinguishable from «we stopped hearing from it»."""
-    traccar.append(_pos(1, 47.5163, 7.5617))
+    """«Parked here the whole time» has to be distinguishable from «we stopped hearing from it».
+
+    A tracker that keeps REPORTING while standing still advances its fix time without moving,
+    and that earns a row once per heartbeat — enough to draw «still here» without a track made
+    of duplicates.
+    """
+    t0 = datetime.now(UTC) - timedelta(hours=1)
+    traccar.append(_pos(1, 47.5163, 7.5617, ts=t0))
     await _sweep(db_session, monkeypatch)
 
-    # the last sample ages past the heartbeat
-    from sqlalchemy import update
+    # same spot, fresher fix, but not yet a heartbeat later
+    traccar[0] = _pos(1, 47.5163, 7.5617, ts=t0 + timedelta(seconds=60))
+    await _sweep(db_session, monkeypatch)
+    assert len(await _rows(db_session, incident)) == 1
 
-    await db_session.execute(
-        update(VehicleSample).values(
-            ts=datetime.now(UTC) - timedelta(seconds=scheduler.VEHICLE_SAMPLE_HEARTBEAT_SECONDS + 60)
-        )
-    )
-    await db_session.commit()
-
+    # …and now past it
+    traccar[0] = _pos(1, 47.5163, 7.5617,
+                      ts=t0 + timedelta(seconds=scheduler.VEHICLE_SAMPLE_HEARTBEAT_SECONDS + 30))
     await _sweep(db_session, monkeypatch)
     assert len(await _rows(db_session, incident)) == 2
 
