@@ -4428,6 +4428,15 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
    header across the app reads identically (was a one-off 14px sentence-case here) */
 .report-pre-section h3 { margin: 0 0 12px; font: 700 11px var(--body); letter-spacing: .08em;
   text-transform: uppercase; color: var(--ink-dim); }
+/* Partnerorganisationen: one row per partner — Organisation · Person · Telefon · Bemerkung.
+   The remark gets the room (it is the reason the row exists); below 720px the row stacks so a
+   phone doesn't get four 60px fields side by side. */
+.report-partners { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.report-partner { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, .8fr) minmax(0, 1.4fr) auto;
+  gap: 6px; align-items: center; }
+@media (max-width: 720px) { .report-partner { grid-template-columns: minmax(0, 1fr) auto; }
+  .report-partner .report-partner-note { grid-column: 1 / -1; } }
+
 /* Beilagen: photos that belong to the RAPPORT (Ausweis, Schaden) rather than to the Verlauf.
    Thumbnail + caption per row, because the caption is what the plate prints underneath and the
    thumbnail is only there to say WHICH photo you are labelling. */

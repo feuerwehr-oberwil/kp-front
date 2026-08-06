@@ -315,7 +315,7 @@ export function metaExtrasForPdf(meta: ReportMeta): {
 export function personalForPdf(
   roster: { id: string; name: string }[],
   attendance: AttendanceState,
-): { personal: { name: string; erfasst: boolean; von?: string; bis?: string }[] } {
+): { personal: { name: string; erfasst: boolean; von?: string; bis?: string; note?: string }[] } {
   const clock = (iso?: string) => {
     if (!iso) return undefined
     const d = new Date(iso)
@@ -324,8 +324,10 @@ export function personalForPdf(
   }
   const rows = (name: string, a?: AttendanceState[string]) => {
     const blocks = intervalsOf(a)
-    if (!blocks.length) return [{ name, erfasst: !!a, von: undefined, bis: undefined }]
-    return blocks.map((iv) => ({ name, erfasst: true, von: clock(iv.from), bis: clock(iv.to) }))
+    // the remark rides on the FIRST row of a person: repeating it on every block of a crew that
+    // came back twice would print «Fahrer TLF» three times under one name
+    if (!blocks.length) return [{ name, erfasst: !!a, von: undefined, bis: undefined, note: a?.note }]
+    return blocks.map((iv, i) => ({ name, erfasst: true, von: clock(iv.from), bis: clock(iv.to), note: i === 0 ? a?.note : undefined }))
   }
   const rosterIds = new Set(roster.map((p) => p.id))
   const guests = Object.entries(attendance)
@@ -350,22 +352,26 @@ export function personalForPdf(
 export function mittelFormForPdf(
   mittel: MittelEntry[],
   catalogue: { id: string; label: string; unit?: string }[],
-): { mittelForm: { label: string; menge?: string; unit: string }[] } {
+): { mittelForm: { label: string; menge?: string; unit: string; note?: string }[] } {
   const noSource = appConfig.copy.mittel.noSource
   const recorded = mittelReportRows(mittel, noSource)
   const byKey = new Map(recorded.map((r) => [r.materialKey, r]))
-  const rows: { label: string; menge?: string; unit: string }[] = []
+  const rows: { label: string; menge?: string; unit: string; note?: string }[] = []
+  // the remarks written on the line(s) behind this material — «an Werkhof übergeben», «defekt».
+  // Joined because one material can be logged from two sources, each with its own note.
+  const noteOf = (r: (typeof recorded)[number] | undefined) =>
+    [...new Set((r?.items ?? []).map((i) => i.note?.trim()).filter(Boolean) as string[])].join(' · ') || undefined
   const sorted = [...catalogue].sort((a, b) => a.label.localeCompare(b.label, 'de-CH'))
   for (const c of sorted) {
     const unit = c.unit || 'Stk'
     const hit = byKey.get(`${c.id}|${unit.trim().toLowerCase()}`)
     if (hit) byKey.delete(hit.materialKey)
-    rows.push({ label: c.label, menge: hit && hit.total > 0 ? String(hit.total) : undefined, unit })
+    rows.push({ label: c.label, menge: hit && hit.total > 0 ? String(hit.total) : undefined, unit, note: noteOf(hit) })
   }
   for (const r of byKey.values()) {
     if (r.total <= 0) continue
     const sources = r.sources.filter((s) => s !== noSource)
-    rows.push({ label: sources.length ? `${r.label} · ${sources.join(', ')}` : r.label, menge: String(r.total), unit: r.unit })
+    rows.push({ label: sources.length ? `${r.label} · ${sources.join(', ')}` : r.label, menge: String(r.total), unit: r.unit, note: noteOf(r) })
   }
   return { mittelForm: rows }
 }

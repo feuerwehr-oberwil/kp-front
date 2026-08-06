@@ -12,7 +12,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate, hhmm, dtLocalValue, dtLocalToIso } from '../lib/format'
 import type { IncidentMeta } from '../lib/incidents'
 import { getIncident, verifyChain } from '../lib/incidents'
-import type { FahrzeugZeit, GruppeZeit, ReportMeta } from '../lib/workspace'
+import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from '../lib/workspace'
 import { deriveAusgerueckt, fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit } from '../lib/alarmzeiten'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
 import type { AuditProof, KrokiView, ReportDraft, ReportOptions } from '../lib/report'
@@ -150,6 +150,19 @@ export function ReportPreflight({
     annotatedPlans: annotatedPlanCount > 0,
     atemschutz: truppCount > 0,
   })
+  // Partnerorganisationen. The field existed in the model and PRINTED for months, but nothing
+  // ever wrote it — so every rapport fell back to the config's tick-off row and «Polizei war da»
+  // was all the paper ever said. The remark is the point of the block: which patrol, whose
+  // number, what they took over.
+  const [partners, setPartners] = useState<PartnerContact[]>(() => reportMeta.partnerContacts ?? [])
+  const savePartners = (next: PartnerContact[]) => {
+    setPartners(next)
+    // an all-empty row is nothing to record — dropped on the way to the blob, kept on screen
+    const clean = next.filter((p) => [p.org, p.name, p.phone, p.note].some((v) => v?.trim()))
+    persist({ partnerContacts: clean.length ? clean : undefined })
+  }
+  const patchPartner = (i: number, over: Partial<PartnerContact>) =>
+    savePartners(partners.map((p, j) => (j === i ? { ...p, ...over } : p)))
   const [proof, setProof] = useState<AuditProof>({ intact: null, checkedAt: new Date().toISOString(), offline: true })
   const [checking, setChecking] = useState(true)
   // the alarm text auto-fills from the incident's dispatch text when none was typed in the
@@ -599,6 +612,48 @@ export function ReportPreflight({
                 <TimeField ariaLabel={P.rueckmeldungZeit} value={rueckAt} nowLabel={P.now}
                   onCommit={(hhmm) => { setRueckAt(hhmm ?? ''); persist(rueckOver(rueckName, hhmm ?? '')) }} />
               </div>
+            </div>
+            {/* Partnerorganisationen: WHO was there, from whom, reachable how — and the remark,
+                which is the whole reason to write a partner down at all («Wm. Keller, übernimmt
+                Verkehr ab Kreisel»). The organisation is offered from the station's list and
+                stays free text, because the one that turns up is never the one on the list. */}
+            <div className="ip-field">
+              <span>{P.partnersLabel}</span>
+              {partners.length > 0 && (
+                <div className="report-partners">
+                  {partners.map((p, i) => (
+                    <div className="report-partner" key={i}>
+                      <input
+                        className="ip-input" list="rp-partner-orgs" value={p.org ?? ''} placeholder={P.partnerOrg}
+                        aria-label={P.partnerOrg} onChange={(e) => patchPartner(i, { org: e.target.value })}
+                      />
+                      <input
+                        className="ip-input" value={p.name ?? ''} placeholder={P.partnerName}
+                        aria-label={P.partnerName} onChange={(e) => patchPartner(i, { name: e.target.value })}
+                      />
+                      <input
+                        className="ip-input" type="tel" value={p.phone ?? ''} placeholder={P.partnerPhone}
+                        aria-label={P.partnerPhone} onChange={(e) => patchPartner(i, { phone: e.target.value })}
+                      />
+                      <input
+                        className="ip-input report-partner-note" value={p.note ?? ''} placeholder={P.partnerNote}
+                        aria-label={P.partnerNote} onChange={(e) => patchPartner(i, { note: e.target.value })}
+                      />
+                      <button
+                        type="button" className="report-att-x" aria-label={appConfig.copy.delete} title={appConfig.copy.delete}
+                        onClick={() => savePartners(partners.filter((_, j) => j !== i))}
+                      ><Icon id="trash" /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* the station's own list, as suggestions — typing something else is normal */}
+              <datalist id="rp-partner-orgs">
+                {(getDeploymentConfig().report?.partnerOrgs ?? []).map((o) => <option key={o} value={o} />)}
+              </datalist>
+              <button type="button" className="report-att-add" onClick={() => savePartners([...partners, { org: '' }])}>
+                <Icon id="plus" /><span>{P.partnerAdd}</span>
+              </button>
             </div>
           </section>
 

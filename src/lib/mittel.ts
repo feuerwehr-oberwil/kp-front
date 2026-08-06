@@ -30,6 +30,8 @@ export interface CurrentMittel {
   menge: number
   /** Retablierung state (equipment): zurück / vor Ort geblieben / defekt; undefined = im Einsatz */
   status?: MittelStatus
+  /** free remark on the line — the latest one written (see MittelEntry.note) */
+  note?: string
   at: string
   /** id of the latest event — the one a per-row edit appends a successor to */
   entryId: string
@@ -45,7 +47,7 @@ export function deriveCurrentMittel(entries: MittelEntry[]): Map<string, Current
     if (!prev || e.at >= prev.at) {
       out.set(key, {
         key, materialId: e.materialId, label: e.label, unit: e.unit,
-        sourceId: e.sourceId, sourceLabel: e.sourceLabel, menge: e.menge, status: e.status, at: e.at, entryId: e.id,
+        sourceId: e.sourceId, sourceLabel: e.sourceLabel, menge: e.menge, status: e.status, note: e.note, at: e.at, entryId: e.id,
       })
     }
   }

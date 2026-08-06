@@ -74,9 +74,12 @@ function toHM(iso: string): string {
  * a return is opened. Built on the SAME sheet the Zeitplan's Schichten use, so the two stay
  * identical rather than drifting apart.
  */
-function PresenceSheet({ person, blocks, canEdit, startedAt, onSetTimes, onRemoveBlock, onBack, onClose }: {
+function PresenceSheet({ person, blocks, note, canEdit, startedAt, onSetTimes, onRemoveBlock, onSetNote, onBack, onClose }: {
   person: Person
   blocks: PresenceInterval[]
+  /** free remark on this person for this incident («Fahrer TLF», «abgelöst 21:40») */
+  note?: string
+  onSetNote?: (personId: string, note: string) => void
   canEdit: boolean
   /** incident alarm time — drives the day labels and the «ab Beginn» shortcut */
   startedAt?: string | null
@@ -110,6 +113,21 @@ function PresenceSheet({ person, blocks, canEdit, startedAt, onSetTimes, onRemov
       onClose={onClose}
       labels={timeBlockLabels(A.blockRemove)}
       days={incidentDays(startedAt, openedAt)}
+      // The remark belongs to the person on THIS Einsatz, not to their roster entry: «Fahrer
+      // TLF», «abgelöst 21:40». It sits with the times because that is the one surface that is
+      // already about what this person did here, and it prints on the Personalblatt beside them.
+      extra={canEdit && onSetNote ? (
+        <label className="ip-field">
+          <span>{A.noteLabel}</span>
+          <input
+            className="ip-input" defaultValue={note ?? ''} placeholder={A.notePlaceholder}
+            onBlur={(e) => onSetNote(person.id, e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+          />
+        </label>
+      ) : note ? (
+        <div className="ip-field"><span>{A.noteLabel}</span><b>{note}</b></div>
+      ) : undefined}
       blocks={blocks.map((iv, i) => ({
         key: String(i),
         from: toHM(iv.from),
@@ -253,7 +271,7 @@ function LivePositionChip({ live, center, onShow }: {
 // under your finger while you tap.
 export function AnwesenheitView({
   people, attendance, canEdit, loading, error, blockedIds,
-  onMarkPresent, onMarkLeft, onClear, onJumpToTrupp, onReload, onSetTimes, onRemoveBlock, captureUsage,
+  onMarkPresent, onMarkLeft, onClear, onJumpToTrupp, onReload, onSetTimes, onRemoveBlock, onSetNote, captureUsage,
   shifts, bands, onCreateBand, onSaveBand, onRemoveBand, onCycleCell, onSetCellState, onPutCellState,
   startedAt, onAddShift, onAddShiftSpan, onReplaceShift, onSetShiftTime, onRemoveShift,
   onPrintZeitplan, onDownloadZeitplan, zeitplanPrintOnline,
@@ -277,6 +295,8 @@ export function AnwesenheitView({
   onSetTimes?: (personId: string, patch: { from?: string; to?: string }, index?: number) => void
   /** drop one recorded presence block (never the last one — that is what «frei» is for) */
   onRemoveBlock?: (personId: string, index: number) => void
+  /** write the free remark on a person's attendance row */
+  onSetNote?: (personId: string, note: string) => void
   /** QR self-reporting in use — «QR: N Einträge · zuletzt HH:MM» chip (informational) */
   captureUsage?: CaptureUsage | null
   /** Schichtenplanung — the second view of this same Mannschaft (see ZeitplanView) */
@@ -709,10 +729,12 @@ export function AnwesenheitView({
         <PresenceSheet
           person={blocksPerson}
           blocks={intervalsOf(attendance[blocksPerson.id])}
+          note={attendance[blocksPerson.id]?.note}
           canEdit={canEdit}
           startedAt={startedAt}
           onSetTimes={onSetTimes}
           onRemoveBlock={onRemoveBlock}
+          onSetNote={onSetNote}
           /* stays open: the new block appears in the list you are looking at, so a mis-tap is
              seen and can be corrected on the spot */
           onBack={() => onMarkPresent(blocksPerson)}

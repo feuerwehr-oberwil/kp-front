@@ -2316,6 +2316,12 @@ export const de = {
     toggleJournal: 'Einsatzjournal',
     toggleAttachments: 'Beilagen ({n})',
     // Beilagen: Fotos, die zum RAPPORT gehören (Ausweis, Schaden), nicht in den Verlauf.
+    partnersLabel: 'Partnerorganisationen',
+    partnerOrg: 'Organisation (z. B. Polizei)',
+    partnerName: 'Person vor Ort',
+    partnerPhone: 'Telefon',
+    partnerNote: 'Bemerkung (z. B. übernimmt Verkehr)',
+    partnerAdd: 'Partnerorganisation hinzufügen',
     attachmentsHead: 'Beilagen',
     attachmentsHint: 'Fotos, die zum Rapport gehören – Ausweise, Schäden, übergebene Formulare. Sie drucken am Schluss gross genug zum Lesen und stehen nicht im Verlauf.',
     attachmentsAdd: 'Foto hinzufügen',
@@ -2370,6 +2376,10 @@ export const de = {
   // Anwesenheit surface (AnwesenheitView)
   anwesenheit: {
     title: 'Anwesenheit',
+    // freie Bemerkung pro Person für DIESEN Einsatz («Fahrer TLF», «abgelöst 21:40»)
+    noteLabel: 'Bemerkung',
+    notePlaceholder: 'z. B. Fahrer TLF',
+    logNote: '{name} – Bemerkung: {note}',
     summary: '{present} anwesend · {left} gegangen · {total} Mannschaft',
     reload: 'Mannschaft neu laden',
     loading: 'Lädt …',
@@ -2660,6 +2670,9 @@ export const de = {
     // Verlauf-Zeilen
     logSet: '{label}: {menge} {unit}',
     logRemoved: '{label} entfernt',
+    logNote: '{label} – Bemerkung: {note}',
+    noteLabel: 'Bemerkung',
+    notePlaceholder: 'z. B. an Werkhof übergeben',
     // Symbol→Mittel: Toast-Angebot nach dem Platzieren eines passenden taktischen Zeichens
     captureOffer: '{label} als Mittel erfassen?',
     captureAction: 'Erfassen',

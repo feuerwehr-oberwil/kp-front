@@ -813,6 +813,16 @@ class ReportConfig(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
     partnerOrgs: list[str] = Field(default_factory=list)
+    #: Send the Rapport to the STATION PRINTER with its pages in reverse order.
+    #:
+    #: A printer that ejects face-up delivers a stack that is back-to-front, so the rapport has
+    #: to be re-sorted by hand every time — which is exactly the moment nobody has. Reversing the
+    #: document fixes the stack. Only the relay path is affected; a downloaded PDF is always in
+    #: reading order, because that one is read on a screen.
+    #:
+    #: Default on: the relay is deliberately configured per station (PRINT_AGENT_SECRET), so
+    #: whoever switches the printer on can switch this off if theirs ejects face-down.
+    reversePrintOrder: bool = True
 
 
 class RankConfig(BaseModel):

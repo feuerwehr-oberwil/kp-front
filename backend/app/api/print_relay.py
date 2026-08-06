@@ -15,6 +15,8 @@ The agent heartbeat is in-memory (module global): prod runs a single uvicorn wor
 
 import asyncio
 import contextlib
+import io
+import logging
 import secrets as pysecrets
 import uuid
 from datetime import UTC, datetime
@@ -24,6 +26,7 @@ from pydantic import BaseModel
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..alarms import get_config_model
 from ..auth.dependencies import CurrentUser
 from ..config import settings
 from ..database import execute_dml, get_db
@@ -36,6 +39,8 @@ from .report import (
     warm_report_from_payload,
     zeitplan_filename,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["print-relay"])
 
@@ -122,6 +127,39 @@ async def get_print_status(_user: CurrentUser) -> dict:
     return print_status()
 
 
+def reverse_pdf_pages(pdf: bytes) -> bytes:
+    """Return the same document with its pages in reverse order.
+
+    For the STATION PRINTER only. A printer that ejects face-up hands over a stack that is
+    back-to-front, and re-sorting a 12-page Rapport by hand is exactly the job nobody has time
+    for at 03:00. Reversing the document makes the stack come out in reading order.
+
+    Best-effort by construction: any failure returns the original bytes — a rapport in the wrong
+    order is a nuisance, a rapport that never prints is a problem.
+    """
+    try:
+        import pypdfium2 as pdfium
+
+        src = pdfium.PdfDocument(pdf)
+        n = len(src)
+        if n < 2:
+            return pdf
+        out = pdfium.PdfDocument.new()
+        out.import_pages(src, list(reversed(range(n))))
+        buf = io.BytesIO()
+        out.save(buf)
+        return buf.getvalue()
+    except Exception:  # noqa: BLE001 — see the docstring: never lose the print over the order
+        logger.warning("Reversing the Rapport pages failed; printing in reading order", exc_info=True)
+        return pdf
+
+
+async def wants_reverse_order(db: AsyncSession) -> bool:
+    """Station setting `report.reversePrintOrder` (default on) — see the schema for why."""
+    report = (await get_config_model(db)).report
+    return bool(report is None or report.reversePrintOrder)
+
+
 def payload_wants_color(data: ReportPayload) -> bool:
     """Colour only when the Kroki actually renders — everything else (forms, journal,
     plans) prints monochrome at the agent."""
@@ -135,6 +173,9 @@ async def enqueue_print_job(
     if not relay_available():
         raise HTTPException(status_code=403, detail="Stationsdrucker nicht konfiguriert")
     pdf, data = await compose_report_from_payload(db, payload)
+    # the PRINTER gets the stack it can deliver in order; the downloaded PDF stays as it reads
+    if await wants_reverse_order(db):
+        pdf = reverse_pdf_pages(pdf)
     job = PrintJob(
         incident_id=inc.id,
         kind=kind,

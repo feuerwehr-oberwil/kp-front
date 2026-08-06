@@ -29,6 +29,9 @@ export interface MittelDraft {
   /** Retablierung state: a value sets it, `null` clears it, omitted keeps the current one
    *  (so quantity edits and composer saves never wipe a set status). */
   status?: MittelStatus | null
+  /** free remark: same value / null / omitted semantics as `status`, so editing a quantity
+   *  never wipes a remark somebody wrote. */
+  note?: string | null
 }
 
 /** Remaining stock, glanceable: filled dots = still there, empty = used (≤8 total); larger
@@ -113,6 +116,11 @@ export function MittelView({ entries, canEdit, onSave, captureUsage }: {
   // per-row stepper change in the source view appends a new total for that exact line.
   // Stepping to 0 removes the line — same delete-now + undo toast, so a misclick on − at 1
   // is one tap away from restored instead of silently gone.
+  /** Write (or clear) a line's remark without touching its quantity. */
+  const noteRow = (c: CurrentMittel, note: string) => {
+    if ((c.note ?? '') === note.trim()) return
+    onSave({ materialId: c.materialId, label: c.label, unit: c.unit, sourceId: c.sourceId, sourceLabel: c.sourceLabel, menge: c.menge, note: note.trim() || null })
+  }
   const editRow = (c: CurrentMittel, menge: number) => {
     const draft: MittelDraft = { materialId: c.materialId, label: c.label, unit: c.unit, sourceId: c.sourceId, sourceLabel: c.sourceLabel, menge }
     onSave(draft)
@@ -194,6 +202,17 @@ export function MittelView({ entries, canEdit, onSave, captureUsage }: {
                         </>
                       )}
                     </div>
+                    {/* the remark: what a number alone can never say — «an Werkhof übergeben»,
+                        «Flasche defekt». Saved on blur as its own append-only event, so it never
+                        disturbs the quantity (lib/useMittelActions · saveMittel). */}
+                    {canEdit ? (
+                      <input
+                        className={s.rowNote} defaultValue={c.note ?? ''} placeholder={M.notePlaceholder}
+                        aria-label={`${c.label} – ${M.noteLabel}`}
+                        onBlur={(e) => noteRow(c, e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                      />
+                    ) : c.note ? <div className={s.rowNoteRo}>{c.note}</div> : null}
                   </div>
                 )
               })}

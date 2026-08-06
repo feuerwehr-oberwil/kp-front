@@ -272,3 +272,31 @@ async def test_capture_print_requires_token(client, editor, db_session, relay_se
         data={"payload": json.dumps(_payload(inc))},
     )
     assert r.status_code == 401
+
+
+def test_reverse_pdf_pages_turns_the_stack_around():
+    """The station printer ejects face-up, so the Rapport is composed in reading order and sent
+    reversed — the stack then comes out the right way round. Anything unreadable is returned
+    untouched: a rapport in the wrong order is a nuisance, one that never prints is a problem."""
+    import io as _io
+
+    import pypdfium2 as pdfium
+
+    from app.api.print_relay import reverse_pdf_pages
+
+    doc = pdfium.PdfDocument.new()
+    for _ in range(3):
+        doc.new_page(200, 200)
+    buf = _io.BytesIO()
+    doc.save(buf)
+
+    out = reverse_pdf_pages(buf.getvalue())
+    assert len(pdfium.PdfDocument(out)) == 3
+    # a one-page document has no order to reverse — same bytes back, no re-encode
+    one = pdfium.PdfDocument.new()
+    one.new_page(200, 200)
+    b1 = _io.BytesIO()
+    one.save(b1)
+    assert reverse_pdf_pages(b1.getvalue()) == b1.getvalue()
+    # garbage in → the original bytes out, never an exception
+    assert reverse_pdf_pages(b"not a pdf") == b"not a pdf"

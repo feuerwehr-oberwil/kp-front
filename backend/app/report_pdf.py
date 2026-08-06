@@ -226,6 +226,9 @@ class PersonalRowIn(BaseModel):
     erfasst: bool = False
     von: str | None = None
     bis: str | None = None
+    #: free remark on this person for this Einsatz («Fahrer TLF», «abgelöst 21:40») — printed
+    #: small under the name, on the first row of a person who was present more than once
+    note: str | None = None
 
 
 class PlanRef(BaseModel):
@@ -241,6 +244,9 @@ class MittelFormRowIn(BaseModel):
     label: str
     menge: str | None = None  # client-formatted "3" — None prints the write-in stub
     unit: str = "Stk"
+    #: free remark on the line («an Werkhof übergeben») — printed under the label, because a
+    #: quantity on its own has never explained what happened to the material
+    note: str | None = None
 
 
 class ReportOptionsIn(BaseModel):
@@ -992,9 +998,12 @@ def _personal_table(personal: list[PersonalRowIn], inner_w: float, st: dict[str,
         if p is None:
             return ["", "", ""]
         vonbis = f"{p.von or _TIME_STUB} – {p.bis or _TIME_STUB}"
+        name = _esc(p.name) if p.name else _LINE_STUB
+        if p.note:
+            name += f'<br/><font size="6.5" color="#5b6472">{_esc(p.note)}</font>'
         return [
             Paragraph("<b>X</b>" if p.erfasst else "", st["check"]),
-            Paragraph(_esc(p.name) if p.name else _LINE_STUB, st["rcell"]),
+            Paragraph(name, st["rcell"]),
             Paragraph(_esc(vonbis), st["rstub"] if not (p.von or p.bis) else st["rcell"]),
         ]
 
@@ -1040,7 +1049,12 @@ def _mittel_table(mittel: list[MittelFormRowIn], inner_w: float, st: dict[str, P
         if row is None:
             return ["", ""]
         amt = f"<b>{_esc(row.menge)}</b> {_esc(row.unit)}" if row.menge else f"______ {_esc(row.unit)}"
-        return [Paragraph(_esc(row.label), st["rcell"]), Paragraph(amt, st["rcell"] if row.menge else st["rstub"])]
+        # the remark rides UNDER the label, small: «3 Sack» says how much, «an Werkhof
+        # übergeben» says what happened to it, and only the second one is worth reading twice
+        label = _esc(row.label)
+        if row.note:
+            label += f'<br/><font size="6.5" color="#5b6472">{_esc(row.note)}</font>'
+        return [Paragraph(label, st["rcell"]), Paragraph(amt, st["rcell"] if row.menge else st["rstub"])]
 
     rows = []
     for r in range(half):

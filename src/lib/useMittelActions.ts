@@ -39,13 +39,18 @@ export function useMittelActions({ mittel, setMittel, authorName, log }: MittelA
     const menge = Math.max(0, Math.round(d.menge))
     const probe = { materialId: d.materialId, label, unit, sourceId: d.sourceId, sourceLabel }
     const cur = currentLineFor(mittelRef.current, probe)
-    if ((cur?.menge ?? 0) === menge) return // unchanged → no-op
+    // the remark follows `status`'s old semantics: a value sets, null clears, omitted keeps —
+    // so editing a quantity never wipes a remark, and a remark can be written without touching
+    // the quantity (which is the common case: the material was logged, the note comes later)
+    const note = d.note === undefined ? cur?.note : (d.note?.trim() || undefined)
+    if ((cur?.menge ?? 0) === menge && note === cur?.note) return // unchanged → no-op
     // (Retablierung status retired 2026-07-14 — old entries keep their stored status,
     // new events simply don't carry one; cleanup/defects live outside the system.)
     const at = new Date().toISOString()
-    setMittel((c) => [...c, { id: `m${Date.now()}-${c.length}`, ...probe, menge, at, by: authorName || undefined }])
+    setMittel((c) => [...c, { id: `m${Date.now()}-${c.length}`, ...probe, menge, note, at, by: authorName || undefined }])
     const where = sourceLabel ? ` · ${sourceLabel}` : ''
-    if (menge === 0) log('box', fillTemplate(M.logRemoved, { label }) + where, 'team')
+    if ((cur?.menge ?? 0) === menge) log('box', fillTemplate(M.logNote, { label, note: note ?? '–' }) + where, 'team')
+    else if (menge === 0) log('box', fillTemplate(M.logRemoved, { label }) + where, 'team')
     else log('box', fillTemplate(M.logSet, { label, menge, unit }) + where, 'team')
   }
   // Symbol→Mittel capture: placing a matching tactical symbol (Lage or Plan) offers logging the

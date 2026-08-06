@@ -106,5 +106,17 @@ export function useAttendanceActions({ attendance, setAttendance, blockedAttenda
       action: { label: appConfig.copy.undo, onClick: () => setAttendance((cur) => ({ ...cur, [personId]: prev })) },
     })
   }
-  return { markPresent, markLeft, clearAttendance, setAttendanceTimes, removeAttendanceBlock }
+  /** Write (or clear) the free remark on a person's attendance row. Not a presence change, so
+   *  it touches no interval and writes no «anwesend/gegangen» Verlauf line — but it IS part of
+   *  the record, so it is logged once as its own row. */
+  const setAttendanceNote = (personId: string, note: string) => {
+    const e = attendance[personId]
+    if (!e) return
+    const next = note.trim() || undefined
+    if ((e.note ?? undefined) === next) return
+    setAttendance((cur) => (cur[personId] ? { ...cur, [personId]: { ...cur[personId], note: next } } : cur))
+    log('people', fillTemplate(appConfig.copy.anwesenheit.logNote, { name: e.displayNameSnapshot, note: next ?? '–' }), 'team')
+  }
+
+  return { markPresent, markLeft, clearAttendance, setAttendanceTimes, removeAttendanceBlock, setAttendanceNote }
 }

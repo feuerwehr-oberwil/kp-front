@@ -657,6 +657,10 @@ export interface AttendanceEntry {
   /** DERIVED last departure; absent while the person came back. */
   leftAt?: string
   displayNameSnapshot: string
+  /** free remark on this person for THIS incident («Fahrer TLF», «verletzt, abgelöst 21:40»).
+   *  Printed with the row on the Personalblatt. Deliberately per incident, not on the roster:
+   *  it describes what somebody did here, not who they are. */
+  note?: string
   /** Every executed block, oldest first — the truth (see lib/attendanceIntervals). Absent on an
    *  entry written before blocks existed, which projects its checkedInAt/leftAt pair instead. */
   intervals?: PresenceInterval[]
@@ -729,6 +733,10 @@ export interface MittelEntry {
   /** Retablierung state of the line (equipment only): back in, left on site, or defective.
    *  Undefined = im Einsatz / not yet accounted. Rides the same append-only events. */
   status?: MittelStatus
+  /** free remark on this material line («2 Rollen an Werkhof übergeben», «Flasche defekt»).
+   *  Carried on the event like `menge`, so the current picture takes the latest one and the
+   *  history keeps what was written when. Printed with the line on the Rapport. */
+  note?: string
   /** ISO timestamp the event was saved */
   at: string
   /** author display name snapshot, when known */
