@@ -499,6 +499,13 @@ const base = {
   shifts: {
     /** length a freshly added availability block opens on — one watch, correctable in two taps */
     defaultHours: 8,
+    /** How far AHEAD the planning surfaces let you reach (Schicht anlegen, a person's
+     *  Verfügbarkeit, a Schichten column). Planning is about time that has not happened yet —
+     *  the day wheel used to stop at «now», or at whatever was already planned, so somebody
+     *  who is free the day after tomorrow simply could not be entered. Matches the Zeitplan's
+     *  longest Zeitraum (168 h), so what can be planned is what can be looked at.
+     *  Anwesenheit is deliberately NOT included: you cannot have arrived in the future. */
+    planAheadHours: 168,
   },
 } as const
 

@@ -2354,6 +2354,11 @@ export const de = {
     weg: 'weg',
     // time chip on anwesend/gegangen rows — tap to correct a wrong auto-stamped time
     editTime: 'Zeit anpassen',
+    // Zeitplan + Schichten: geplant wird mit denen, die da sind — die ganze Mannschaft auf
+    // der Achse begräbt die paar Anwesenden unter leeren Spuren. Umschaltbar, weil wer in
+    // zwei Stunden eintrifft trotzdem eingeplant werden können muss.
+    presentOnlyOn: 'Nur Anwesende – tippen für die ganze Mannschaft',
+    presentOnlyOff: 'Ganze Mannschaft – tippen für nur Anwesende',
     rankFilterLabel: 'Nach Grad filtern',
     rankAll: 'Alle',
     // Rückkehr: der dritte Tipp löscht (frei), darum bekommt die Rückkehr einen eigenen Knopf.

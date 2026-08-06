@@ -103,7 +103,11 @@
    Zeitplan's sticky clock row. */
 .headRow {
   position: sticky; top: 0; z-index: 4; background: var(--board);
-  padding-bottom: 3px; box-shadow: 0 6px 10px -8px color-mix(in srgb, var(--ink) 45%, transparent);
+  /* A hairline, not a drop shadow. The shadow read as a smudge running out from under the
+     column heads and dying somewhere near the ＋ — softest exactly where the eye wants the
+     edge. The board colour still closes off the 3px gaps between heads (the reason above);
+     the rule does the separating, the same way every other head in this app does it. */
+  padding-bottom: 3px; border-bottom: 1px solid var(--edge);
 }
 /* the «WER» head is now the KEY: it names the two numbers every column carries. It stays out of
    the way — a read-out, not a control — and wraps to two lines on a 112px phone column. */

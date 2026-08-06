@@ -37,8 +37,12 @@ export function PersonShiftSheet({ person, shifts, blocks, canEdit, startedAt, c
   const A = appConfig.copy.anwesenheit
   // the days this plan touches — start to the last planned end; feeds both the day wheel and
   // the «ab Beginn» value, so the two can never name different days
+  // …plus the planning horizon. Bounding this by the LAST ALREADY-PLANNED end made the wheel
+  // circular: you could only plan into a day that something was already planned into.
   const planDays = incidentDays(startedAt, Math.max(
-    ...shifts.map((x) => Date.parse(x.to)).filter(Number.isFinite), Date.parse(startedAt ?? '') || 0))
+    ...shifts.map((x) => Date.parse(x.to)).filter(Number.isFinite),
+    Date.parse(startedAt ?? '') || 0,
+    Date.now() + appConfig.shifts.planAheadHours * 3_600_000))
   return (
     <TimeBlockSheet
       title={fillTemplate(Z.editTitle, { name: person.displayName })}

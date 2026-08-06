@@ -19,6 +19,11 @@ export function IconSprite() {
       <symbol id="minus" viewBox="0 0 24 24"><path d="M5 12h14" /></symbol>
       <symbol id="cross" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" /><path d="M12 2v4M12 18v4M2 12h4M18 12h4" /></symbol>
       <symbol id="locate" viewBox="0 0 24 24"><circle cx="12" cy="12" r="6" /><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3" /><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none" /></symbol>
+      {/* Zeitraum on the Zeitplan is a ZOOM: «−» widens the window, so the hour count beside it
+          goes UP. A bare −/+ next to a number promises the opposite, which is why these carry
+          the magnifier. */}
+      <symbol id="zoom-out" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.4 15.4 21 21M7.5 10.5h6" /></symbol>
+      <symbol id="zoom-in" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.4 15.4 21 21M7.5 10.5h6M10.5 7.5v6" /></symbol>
       <symbol id="coords" viewBox="0 0 24 24"><path d="M5 9V5h4M15 5h4v4M19 15v4h-4M9 19H5v-4" /><circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none" /></symbol>
       <symbol id="sat" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c3.2 3 3.2 15 0 18M12 3c-3.2 3-3.2 15 0 18" /></symbol>
       <symbol id="map" viewBox="0 0 24 24"><path d="M9 4 3 6.5v14L9 18l6 2.5 6-2.5v-14L15 6.5z" /><path d="M9 4v14M15 6.5v14" /></symbol>

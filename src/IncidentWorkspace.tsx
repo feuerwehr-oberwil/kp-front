@@ -2782,6 +2782,7 @@ export function IncidentWorkspace({
           zeitplanPrintOnline={!!zeitplanRelay?.online}
           // Live crew positions, read next to the name — this is where somebody looks when
           // they want to know where a person is, and where they would pick up the phone.
+          incidentId={incidentMeta.id}
           livePositions={livePeople.byPerson}
           incidentCenter={incidentView.center}
           onShowOnMap={(personId) => { setMode('map'); setPanel(null); focusEntity(`pos-${personId}`) }}

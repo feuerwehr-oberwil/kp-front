@@ -209,7 +209,11 @@ function BandSheet({ band, bands, startedAt, onCreate, onSave, onRemove, onClose
   const [label, setLabel] = useState(band?.label ?? '')
   const [from, setFrom] = useState(draft.from)
   const [to, setTo] = useState(draft.to)
-  const days = incidentDays(startedAt, Math.max(openedAt, Date.parse(to) || 0))
+  // A Schicht is almost always in the future — «Nacht 22–06» is planned in the afternoon, and
+  // the second and third of them days ahead. Bounded at `openedAt`, the wheel offered today
+  // and nothing else.
+  const days = incidentDays(startedAt, Math.max(
+    openedAt + appConfig.shifts.planAheadHours * 3_600_000, Date.parse(to) || 0))
   const commit = () => {
     if (band) onSave(band.id, label.trim(), from, to)
     else onCreate(label.trim(), from, to)

@@ -23,8 +23,11 @@ import { ZeitplanView } from './ZeitplanView'
 import { BandGrid } from './BandGrid'
 import s from './Anwesenheit.module.css'
 
-/** Zeitraum stops for the Zeitplan axis, in hours — from one watch to a four-day deployment. */
-const HORIZONS = [3, 6, 9, 12, 18, 24, 36, 48, 72, 96]
+/** Zeitraum stops for the Zeitplan axis, in hours — from one watch to a WEEK. The long tail
+ *  (120 h, 168 h) is for the deployment that does not end on day four: an Elementarereignis
+ *  with a Pikett rota runs into a second week, and a plan that cannot show it is planned
+ *  somewhere else. */
+const HORIZONS = [3, 6, 9, 12, 18, 24, 36, 48, 72, 96, 120, 168]
 
 /** sentinel value for the «Alle» segment of the rank filter (no real rank uses it) */
 const RANK_ALL = '__all__'
@@ -33,6 +36,26 @@ const RANK_ALL = '__all__'
  *  time, the transpose of the Zeitplan (see BandGrid). It is a TAB and not an entry in the ⋯ menu
  *  on purpose: a whole way of working does not belong behind three dots. */
 type AnwesenheitTab = 'list' | 'plan' | 'bands'
+
+/** Which tab was open, remembered in `sessionStorage` and stamped with the incident.
+ *
+ *  Deliberately not the device cookie it used to be. Coming back to the tab you were working
+ *  in matters across a RELOAD mid-incident — that is what the memory is for — but a choice
+ *  made last week should not decide where a fresh launch lands, and it should certainly not
+ *  follow you into a different Einsatz. sessionStorage dies with the app; the incident stamp
+ *  covers switching. Anything else falls back to the crew list, which is what this surface is
+ *  for and the only one of the three that is useful before anyone has planned anything. */
+const TAB_KEY = 'kp-front-anwesenheit-tab'
+
+function rememberedTab(incidentId: string | undefined): AnwesenheitTab | null {
+  if (!incidentId) return null
+  try {
+    const raw = sessionStorage.getItem(TAB_KEY)
+    if (!raw) return null
+    const v = JSON.parse(raw) as { incidentId?: string; view?: AnwesenheitTab }
+    return v?.incidentId === incidentId && v.view ? v.view : null
+  } catch { return null }
+}
 
 // HH:MM of an ISO stamp — the tappable time chip / the <input type="time"> value
 function toHM(iso: string): string {
@@ -234,7 +257,7 @@ export function AnwesenheitView({
   shifts, bands, onCreateBand, onSaveBand, onRemoveBand, onCycleCell, onSetCellState,
   startedAt, onAddShift, onAddShiftSpan, onReplaceShift, onSetShiftTime, onRemoveShift,
   onPrintZeitplan, onDownloadZeitplan, zeitplanPrintOnline,
-  livePositions, incidentCenter, onShowOnMap,
+  livePositions, incidentCenter, onShowOnMap, incidentId,
 }: {
   people: Person[]
   attendance: AttendanceState
@@ -287,6 +310,8 @@ export function AnwesenheitView({
   incidentCenter?: LngLat
   /** jump to that person's dot on the Lage — the reason the chip is tappable */
   onShowOnMap?: (personId: string) => void
+  /** stamps the remembered tab, so switching Einsatz starts on the crew list again */
+  incidentId?: string
 }) {
   const isPhone = useIsPhone()
   const [q, setQ] = useState('')
@@ -294,8 +319,11 @@ export function AnwesenheitView({
   // Anwesenheit, Zeitplan and Schichten are three readings of the SAME filtered, ordered
   // Mannschaft — the search + rank filter above apply to all of them, so a name sits in the same
   // place whichever one is open.
-  const [view, setView] = useState<AnwesenheitTab>(() => loadPrefs().anwesenheitView ?? 'list')
-  const pickView = (v: AnwesenheitTab) => { setView(v); savePrefs({ ...loadPrefs(), anwesenheitView: v }) }
+  const [view, setView] = useState<AnwesenheitTab>(() => rememberedTab(incidentId) ?? 'list')
+  const pickView = (v: AnwesenheitTab) => {
+    setView(v)
+    try { sessionStorage.setItem(TAB_KEY, JSON.stringify({ incidentId, view: v })) } catch { /* private mode */ }
+  }
   // one clock for the whole surface: it drives the «jetzt» line and the growing open bar. Only
   // ticks while the Zeitplan is on screen — the attendance list has nothing that moves.
   const [nowMs, setNowMs] = useState(() => Date.now())
@@ -336,14 +364,22 @@ export function AnwesenheitView({
     return { present, left, total: people.length }
   }, [attendance, people])
 
+  // Planning is done with the people who are HERE. The whole Mannschaft on the axis buries the
+  // handful actually on scene under a dozen empty lanes, so both planning tabs start filtered
+  // to those present — and the toggle is right there, because somebody who arrives in two
+  // hours still has to be plannable. Never applied to the crew list itself: that IS the
+  // surface where people are marked present, and hiding the absent would hide the work.
+  const [presentOnly, setPresentOnly] = useState(true)
+  const planning = view !== 'list'
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase()
     return people
       .filter((p) => !needle || p.displayName.toLowerCase().includes(needle))
       .filter((p) => !rankFilter || p.rank === rankFilter)
+      .filter((p) => !(planning && presentOnly) || isPresent(attendance[p.id]))
       // grouped by seniority (most senior first), alpha within a rank
       .sort((a, b) => rankOrder(a.rank) - rankOrder(b.rank) || a.displayName.localeCompare(b.displayName, 'de'))
-  }, [people, q, rankFilter])
+  }, [people, q, rankFilter, planning, presentOnly, attendance])
 
   // frei → anwesend → gegangen → frei. A present+locked member jumps to the Trupp instead.
   const cycle = (p: Person) => {
@@ -477,6 +513,19 @@ export function AnwesenheitView({
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={A.searchPlaceholder} inputMode="search" />
             {q && <button className={s.searchClear} onClick={() => setQ('')} aria-label={A.clearSearch}><Icon id="close" /></button>}
           </label>
+          {/* Only on the planning tabs — see the `presentOnly` note above. */}
+          {planning && (
+            <button
+              type="button"
+              className={cx(s.iconBtn, presentOnly && s.iconBtnOn)}
+              aria-pressed={presentOnly}
+              title={presentOnly ? A.presentOnlyOn : A.presentOnlyOff}
+              aria-label={presentOnly ? A.presentOnlyOn : A.presentOnlyOff}
+              onClick={() => setPresentOnly((v) => !v)}
+            >
+              <Icon id="people" />
+            </button>
+          )}
           {ranksPresent.length > 1 && isPhone && (
             <Menu
               trigger={
@@ -523,15 +572,18 @@ export function AnwesenheitView({
           {showPlan && (
             <div className={s.horizon}>
               <span className={s.horizonLabel}>{appConfig.copy.zeitplan.horizon}</span>
-              <button type="button" className={s.zoomBtn} onClick={() => stepHorizon(-1)}
-                disabled={horizonH <= HORIZONS[0]} aria-label={appConfig.copy.zeitplan.zoomIn}><Icon id="minus" /></button>
+              {/* A ZOOM, not a stepper. «−» shows MORE time (the axis zooms out), which is why
+                  the number beside it grows — magnifier glyphs rather than −/+ so nobody reads
+                  it as «make this number smaller». */}
+              <button type="button" className={s.zoomBtn} onClick={() => stepHorizon(1)}
+                disabled={horizonH >= HORIZONS[HORIZONS.length - 1]} aria-label={appConfig.copy.zeitplan.zoomOut}><Icon id="zoom-out" /></button>
               <b className={s.horizonValue}>{horizonH} h</b>
               {/* At a constant px-per-hour the view is pixel-identical when you widen the window —
                   only this number moved, and the scrollbar that would have hinted at more axis is
                   ignored by iPadOS. Naming the end makes the control answer its own question. */}
               <span className={s.horizonEnd}>{fillTemplate(appConfig.copy.zeitplan.horizonUntil, { t: horizonEndLabel })}</span>
-              <button type="button" className={s.zoomBtn} onClick={() => stepHorizon(1)}
-                disabled={horizonH >= HORIZONS[HORIZONS.length - 1]} aria-label={appConfig.copy.zeitplan.zoomOut}><Icon id="plus" /></button>
+              <button type="button" className={s.zoomBtn} onClick={() => stepHorizon(-1)}
+                disabled={horizonH <= HORIZONS[0]} aria-label={appConfig.copy.zeitplan.zoomIn}><Icon id="zoom-in" /></button>
             </div>
           )}
         </div>
