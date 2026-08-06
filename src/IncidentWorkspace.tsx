@@ -2988,6 +2988,7 @@ export function IncidentWorkspace({
           onAddAttachments={canEditIncident && !readOnly ? addAttachments : undefined}
           onCaptionAttachment={canEditIncident && !readOnly ? captionAttachment : undefined}
           onRemoveAttachment={canEditIncident && !readOnly ? removeAttachment : undefined}
+          canEdit={canEditIncident && !readOnly}
           onSaveMeta={setReportMeta}
           onEditDispatch={canEditIncident && !readOnly ? onEditMeta : undefined}
           onOpenAnwesenheit={() => { setReportPreflightOpen(false); setMode('anwesenheit'); setRapportReturn(true) }}

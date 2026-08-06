@@ -77,7 +77,7 @@ function Toggle({ label, checked, onChange, disabled }: { label: string; checked
 const savedScroll: { current: { incidentId: string; top: number } | null } = { current: null }
 
 export function ReportPreflight({
-  incident, reportMeta, personnel = [], presentIds = NO_IDS, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], plans = [], scene, board, building, captureUsage, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onComplete, onClose, onFixTranscripts,
+  incident, reportMeta, personnel = [], presentIds = NO_IDS, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], plans = [], scene, board, building, captureUsage, canEdit = true, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onComplete, onClose, onFixTranscripts,
 }: {
   incident: IncidentMeta
   reportMeta: ReportMeta
@@ -125,6 +125,10 @@ export function ReportPreflight({
   onRemoveAttachment?: (id: string) => void
   /** persist the inline Rapportangaben edits (after-arrival fields) into the workspace */
   onSaveMeta: (next: ReportMeta) => void
+  /** may this session write the Rapportangaben? False for a viewer and for an ARCHIVED Einsatz
+   *  (which is «nur ansehen – zum Bearbeiten reaktivieren»): the fields render, filled in and
+   *  readable, but nothing in them can be changed. */
+  canEdit?: boolean
   /** Stunden editor: correct one person's von–bis; omit to render the table read-only */
   /** open the Einsatzdaten panel to correct the dispatch facts; omit to hide the link
    *  (e.g. viewers / read-only) */
@@ -250,7 +254,7 @@ export function ReportPreflight({
   // Write the after-arrival fields back to the blob, preserving everything else (the dispatch
   // facts alarmText/alarmiertAt stay sourced from the incident — never persisted here). `over`
   // carries the just-changed field so we don't read stale state mid-event.
-  const persist = (over: Partial<ReportMeta>) => onSaveMeta({
+  const persist = (over: Partial<ReportMeta>) => canEdit && onSaveMeta({
     ...reportMeta,
     ...editedMeta(),
     ...over,
@@ -416,6 +420,11 @@ export function ReportPreflight({
           <button className="ip-x" onClick={close} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
         </div>
         <div className="ip-body report-preflight-body" ref={bodyRef}>
+          {/* ONE disabled fieldset rather than a `readOnly` on twenty controls: a viewer, and an
+              archived Einsatz («nur ansehen – zum Bearbeiten reaktivieren»), can read every
+              recorded value here and change none of it. `persist` refuses too, so a stray
+              handler can't slip past the markup. */}
+          <fieldset className="report-fieldset" disabled={!canEdit}>
           <section className="report-pre-section report-pre-meta">
             <h3>{P.rapportHead}</h3>
             {/* dispatch facts — read-only here; the link jumps to Einsatzdaten where they live */}
@@ -651,7 +660,7 @@ export function ReportPreflight({
               <datalist id="rp-partner-orgs">
                 {(getDeploymentConfig().report?.partnerOrgs ?? []).map((o) => <option key={o} value={o} />)}
               </datalist>
-              <button type="button" className="report-att-add" onClick={() => savePartners([...partners, { org: '' }])}>
+              <button type="button" className="report-row-add" onClick={() => savePartners([...partners, { org: '' }])}>
                 <Icon id="plus" /><span>{P.partnerAdd}</span>
               </button>
             </div>
@@ -690,7 +699,7 @@ export function ReportPreflight({
               </ul>
             )}
             {onAddAttachments && (
-              <label className="report-att-add">
+              <label className="report-row-add report-att-add">
                 <Icon id="photo" /><span>{P.attachmentsAdd}</span>
                 {/* no `capture` attribute: on a phone the OS sheet offers the camera anyway, and
                     forcing it would take the file picker away from the tablet at the KP, where
@@ -704,6 +713,8 @@ export function ReportPreflight({
               </label>
             )}
           </section>
+
+          </fieldset>
 
           {/* the closing checklist: ONLY the two rows that navigate somewhere (Anwesenheit /
               Mittel). Zeiten + Zusammenfassung are ordinary fields above — the missing-steps

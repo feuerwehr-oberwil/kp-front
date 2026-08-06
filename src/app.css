@@ -4439,6 +4439,18 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
    header across the app reads identically (was a one-off 14px sentence-case here) */
 .report-pre-section h3 { margin: 0 0 12px; font: 700 11px var(--body); letter-spacing: .08em;
   text-transform: uppercase; color: var(--ink-dim); }
+/* the Rapportangaben + Beilagen live in a <fieldset> so one `disabled` covers every control in
+   them (viewer / archived Einsatz). Reset the UA fieldset chrome — it is a gate, not a box. */
+.report-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.report-fieldset:disabled .report-att-x, .report-fieldset:disabled .report-row-add { display: none; }
+
+/* «+ Zeile» under a repeating block (Beilage, Partnerorganisation) */
+.report-row-add { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; cursor: pointer;
+  border: 1px dashed var(--border); border-radius: var(--r-ctl); background: var(--surface); color: var(--ink);
+  font: 700 13px var(--body); }
+.report-row-add:hover { border-color: var(--ink-faint); }
+.report-row-add .i { width: 16px; height: 16px; }
+
 /* Partnerorganisationen: one row per partner — Organisation · Person · Telefon · Bemerkung.
    The remark gets the room (it is the reason the row exists); below 720px the row stacks so a
    phone doesn't get four 60px fields side by side. */
@@ -4462,12 +4474,7 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
   border: none; border-radius: var(--r-sm); background: transparent; color: var(--ink-faint); }
 .report-att-x:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
 .report-att-x .i { width: 16px; height: 16px; }
-/* the file input itself is invisible — the label IS the button (gloved-size, 44px tall) */
-.report-att-add { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; cursor: pointer;
-  border: 1px dashed var(--border); border-radius: var(--r-ctl); background: var(--surface); color: var(--ink);
-  font: 700 13px var(--body); }
-.report-att-add:hover { border-color: var(--ink-faint); }
-.report-att-add .i { width: 16px; height: 16px; }
+/* the file input itself is invisible — the label IS the button (see .report-row-add) */
 .report-att-add input { display: none; }
 
 .report-toggles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
