@@ -33,7 +33,8 @@ export interface JournalDraft {
   /** structured audio metadata; for an imported memo audioUrl is already the SERVER url
    *  (upload happened during save) and startedAt is the operator-confirmed recording start */
   audioMeta?: TimelineEvent['audioMeta']
-  photoUrl?: string
+  /** several: one damage is rarely one picture (see the composer's photos state) */
+  photoUrls?: string[]
   pin: boolean
   /** set in Wiedervorlage mode: ISO time this entry becomes due (makes it a reminder) */
   dueAt?: string
@@ -139,7 +140,9 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
   const [recording, setRecording] = useState(false)
   const [elapsed, setElapsed] = useState(0)
   const [clip, setClip] = useState<{ url: string; secs: number; startedAt: string } | null>(null)
-  const [photo, setPhoto] = useState<string | null>(null)
+  // SEVERAL photos per entry: one damage is rarely one picture, and the picker used to REPLACE
+  // what was already attached — the second pick silently threw the first away.
+  const [photos, setPhotos] = useState<string[]>([])
   // imported external voice memo (Voice Memos → Files → picker); mutually exclusive with `clip`
   const [imported, setImported] = useState<{
     file: File; url: string; name: string; durationSec: number | null; contentType: string
@@ -247,7 +250,7 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
     if (!audio && !image) return // plain text paste stays with the textarea
     e.preventDefault()
     if (audio) void importAudioFile(audio)
-    else if (image) { if (photo) URL.revokeObjectURL(photo); setPhoto(URL.createObjectURL(image)) }
+    else if (image) setPhotos((ps) => [...ps, URL.createObjectURL(image)])
   }
 
   // recording start resolved to the most recent past occurrence (no date picker by design)
@@ -273,7 +276,7 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
       const { url } = await uploadAudio(blob, imported.name)
       if (!alive.current) return // closed mid-upload — cancelled, no row
       onSubmit({
-        text: text.trim(), pin, photoUrl: photo ?? undefined,
+        text: text.trim(), pin, photoUrls: photos.length ? photos : undefined,
         audioUrl: url, secs: imported.durationSec ?? undefined,
         audioMeta: {
           source: 'imported', startedAt: startAt.toISOString(),
@@ -291,24 +294,27 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
   }
 
   const onPhotoPicked = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]; if (!f) return
-    if (photo) URL.revokeObjectURL(photo)
-    setPhoto(URL.createObjectURL(f)); e.target.value = ''
+    const files = [...(e.target.files ?? [])]
+    e.target.value = '' // the same file twice in a row must still fire
+    if (files.length) setPhotos((ps) => [...ps, ...files.map((f) => URL.createObjectURL(f))])
   }
-  const discardPhoto = () => { if (photo) URL.revokeObjectURL(photo); setPhoto(null) }
+  const discardPhoto = (url: string) => {
+    URL.revokeObjectURL(url)
+    setPhotos((ps) => ps.filter((p) => p !== url))
+  }
 
   const canSend = mode === 'reminder'
     ? text.trim().length > 0 && !!dueAt
     : imported != null
       // hard gate: an imported memo saves only with a confirmed, valid start time
       ? startConfirmed && importStartAt != null && !uploading
-      : text.trim().length > 0 || (mode === 'entry' && (clip != null || photo != null))
+      : text.trim().length > 0 || (mode === 'entry' && (clip != null || photos.length > 0))
   const submit = () => {
     if (!canSend || uploading) return
     if (mode === 'reminder') { onSubmit({ text: text.trim(), pin: false, dueAt: dueAt! }); return }
     if (imported) { void submitImported(); return }
     onSubmit({
-      text: text.trim(), audioUrl: clip?.url, secs: clip?.secs, photoUrl: photo ?? undefined, pin,
+      text: text.trim(), audioUrl: clip?.url, secs: clip?.secs, photoUrls: photos.length ? photos : undefined, pin,
       audioMeta: clip ? { source: 'recorded', startedAt: clip.startedAt, durationSec: clip.secs } : undefined,
     })
   }
@@ -403,7 +409,7 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
 
         {/* media: record a voice memo or attach a photo (entry mode only — a Wiedervorlage is text + due) */}
         {mode === 'entry' && (<>
-          <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden onChange={onPhotoPicked} />
+          <input ref={fileRef} type="file" accept="image/*" capture="environment" multiple hidden onChange={onPhotoPicked} />
           <input ref={audioFileRef} type="file" accept={AUDIO_IMPORT_ACCEPT} hidden onChange={(e) => void onAudioPicked(e)} />
           <div className="jc-audio">
             <button className={`jc-rec ${recording ? 'on' : ''}`} onClick={toggleRecord} title={recording ? C.recordStop : C.record}>
@@ -444,10 +450,14 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
               <p className="jc-import-hint">{C.audioStartHint}</p>
             </div>
           )}
-          {photo && (
-            <div className="jc-photo">
-              <img src={photo} alt="" />
-              <button className="jc-clip-x" title={C.discardPhoto} aria-label={C.discardPhoto} onClick={discardPhoto}><Icon id="close" /></button>
+          {photos.length > 0 && (
+            <div className="jc-photos">
+              {photos.map((url) => (
+                <div className="jc-photo" key={url}>
+                  <img src={url} alt="" />
+                  <button className="jc-clip-x" title={C.discardPhoto} aria-label={C.discardPhoto} onClick={() => discardPhoto(url)}><Icon id="close" /></button>
+                </div>
+              ))}
             </div>
           )}
         </>)}

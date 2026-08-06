@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { groupByDay, isNachtrag, rowTime } from './verlauf'
+import { groupByDay, isNachtrag, rowTime, rowPhotos, swapUrl } from './verlauf'
 import type { TimelineEvent } from '../types'
 
 const row = (id: string, at?: string): TimelineEvent =>
@@ -50,5 +50,26 @@ describe('rowTime', () => {
   })
   it('falls back to the baked t for legacy rows', () => {
     expect(rowTime(row('x'))).toBe('09:00')
+  })
+})
+
+// Several pictures on one row: attaching a second used to REPLACE the first. Rows written
+// before 2026-08-06 carry a single `photoUrl`, so every reader has to take both shapes.
+describe('rowPhotos / swapUrl', () => {
+  it('reads the new list, the old single field, and neither', () => {
+    expect(rowPhotos({ photoUrls: ['/a', '/b'] })).toEqual(['/a', '/b'])
+    expect(rowPhotos({ photoUrl: '/legacy' })).toEqual(['/legacy'])
+    expect(rowPhotos({})).toEqual([])
+    // a list wins over the legacy field (a patched row can carry both)
+    expect(rowPhotos({ photoUrl: '/legacy', photoUrls: ['/a'] })).toEqual(['/a'])
+  })
+
+  it('swaps ONE uploaded picture and leaves the others alone', () => {
+    expect(swapUrl(['blob:1', 'blob:2'], 'blob:2', '/api/media/2')).toEqual(['blob:1', '/api/media/2'])
+  })
+
+  it('appends when the local url is already gone (a late upload must not vanish)', () => {
+    expect(swapUrl(['/api/media/1'], 'blob:gone', '/api/media/2')).toEqual(['/api/media/1', '/api/media/2'])
+    expect(swapUrl(undefined, 'blob:gone', '/api/media/2')).toEqual(['/api/media/2'])
   })
 })

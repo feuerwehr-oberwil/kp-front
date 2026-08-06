@@ -396,6 +396,9 @@ export function IncidentWorkspace({
   // in the synced blob — the one unbounded domain no longer re-syncs wholesale on every edit.
   // `legacy` seeds display + migration from an older incident's in-blob timeline.
   const journal = useJournal({ incidentId: incidentMeta.id, readOnly, legacy: init.timeline })
+  // pulled out by name: `journal` itself is a fresh object every render, so a callback that
+  // depends on it either churns or (the bug this replaced) silently keeps a stale `rows`
+  const { swapPhoto, overlaySession: overlayRow, appendPatch: patchRow } = journal
   const timeline = journal.rows
   const rowSeq = useRef(0) // per-mount suffix so same-millisecond rows get distinct ids
   const [recent, setRecent] = useState<string[]>(init.recent)
@@ -847,14 +850,19 @@ export function IncidentWorkspace({
 
   // Offline media queue: reattaches queued captures to their rows after a reload, retries on
   // reconnect, and swaps a row's local blob: URL for the persistent server URL on success.
-  const swapRowMedia = useCallback((rowId: string, kind: 'photo' | 'audio', url: string) => {
-    const field = kind === 'audio' ? 'audioUrl' : 'photoUrl'
+  const swapRowMedia = useCallback((rowId: string, kind: 'photo' | 'audio', url: string, replaces?: string) => {
     // a persistent server URL becomes an appended enrichment patch (the record stays
     // append-only); a session blob: URL (queue restore) is a display-only overlay
-    if (url.startsWith('blob:')) journal.overlaySession(rowId, { [field]: url })
-    else journal.appendPatch(rowId, { [field]: url })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    if (kind === 'photo') {
+      // photos are a LIST: a queued upload that lands later must replace ITS OWN picture and
+      // leave the row's others alone. The store reads the current list itself — a copy taken
+      // here would be the one from whichever render created this callback (see swapPhoto).
+      swapPhoto(rowId, replaces ?? '', url)
+      return
+    }
+    if (url.startsWith('blob:')) overlayRow(rowId, { audioUrl: url })
+    else patchRow(rowId, { audioUrl: url })
+  }, [swapPhoto, overlayRow, patchRow])
   const media = useMediaQueue({
     incidentId: incidentMeta.id, readOnly,
     onUploaded: swapRowMedia, onRestore: swapRowMedia,
@@ -863,6 +871,29 @@ export function IncidentWorkspace({
   // upload a captured photo/audio blob and swap the timeline row's session blob: URL for the
   // persistent server URL (so history keeps the media). On failure the blob is persisted to the
   // offline queue so the capture survives a reload and re-uploads when connectivity returns.
+  /**
+   * Upload ONE picture of a row that may carry several, and swap that picture's local blob: URL
+   * for the server URL — by value, not by field: a row with three photos must not lose two of
+   * them because the third finished uploading. Failures keep the blob: entry, which the Rapport
+   * preflight already counts as pending media.
+   */
+  const uploadPhotoForRow = useCallback(async (rowId: string, localUrl: string) => {
+    if (readOnly) return
+    let blob: Blob
+    try {
+      blob = await (await fetch(localUrl)).blob()
+    } catch { return }
+    blob = await prepareUploadImage(blob)
+    try {
+      const { url } = await uploadMedia(incidentMeta.id, blob, 'photo', `photo-${rowId}`)
+      swapPhoto(rowId, localUrl, url)
+    } catch {
+      // queue THIS picture (keyed by its own blob: URL) — a row-wide key made each photo of a
+      // multi-photo row evict the previous one, losing every capture but the last while offline
+      await media.enqueue(rowId, 'photo', blob, `photo-${rowId}`, new Date().toISOString(), localUrl)
+    }
+  }, [incidentMeta.id, readOnly, media, swapPhoto])
+
   const uploadMediaForRow = useCallback(async (rowId: string, localUrl: string, kind: 'photo' | 'audio') => {
     if (readOnly) return
     let blob: Blob
@@ -876,10 +907,10 @@ export function IncidentWorkspace({
     if (kind === 'photo') blob = await prepareUploadImage(blob)
     try {
       const { url } = await uploadMedia(incidentMeta.id, blob, kind, `${kind}-${rowId}`)
-      swapRowMedia(rowId, kind, url)
+      swapRowMedia(rowId, kind, url, localUrl)
     } catch {
       // offline / server error — keep the blob for later instead of losing it this session
-      await media.enqueue(rowId, kind, blob, `${kind}-${rowId}`, new Date().toISOString())
+      await media.enqueue(rowId, kind, blob, `${kind}-${rowId}`, new Date().toISOString(), kind === 'photo' ? localUrl : undefined)
     }
   }, [incidentMeta.id, readOnly, media, swapRowMedia])
 
@@ -1256,21 +1287,23 @@ export function IncidentWorkspace({
       else { const c = mapRef.current?.getMap().getCenter(); if (c) coord = [c.lng, c.lat] }
     }
     const pinned = d.pin && (coord != null || px != null)
-    const icon = d.audioUrl ? 'mic' : d.photoUrl ? 'photo' : 'type'
-    const kind = d.audioUrl ? 'audio' : d.photoUrl ? 'photo' : 'journal'
+    const photoUrls = d.photoUrls ?? []
+    const icon = d.audioUrl ? 'mic' : photoUrls.length ? 'photo' : 'type'
+    const kind = d.audioUrl ? 'audio' : photoUrls.length ? 'photo' : 'journal'
     const imported = d.audioMeta?.source === 'imported'
     const body = d.text
       || (imported
         ? fillTemplate(appConfig.copy.journal.audioImportedNote, { duration: d.audioMeta?.durationSec != null ? formatAudioDuration(d.audioMeta.durationSec) : '–' })
-        : d.audioUrl ? `${appConfig.copy.log.audioNote}${d.secs ? ` (${d.secs}s)` : ''}` : d.photoUrl ? appConfig.copy.journal.photoNote : appConfig.copy.log.journalNote)
+        : d.audioUrl ? `${appConfig.copy.log.audioNote}${d.secs ? ` (${d.secs}s)` : ''}` : photoUrls.length ? appConfig.copy.journal.photoNote : appConfig.copy.log.journalNote)
     const rowId = `e${Date.now()}-j`
     pushEvent({
-      icon, text: body, kind, audioUrl: d.audioUrl, photoUrl: d.photoUrl, audioMeta: d.audioMeta,
+      icon, text: body, kind, audioUrl: d.audioUrl, photoUrls: photoUrls.length ? photoUrls : undefined, audioMeta: d.audioMeta,
       // an imported memo lands at its confirmed recording start; everything else at composer-open
       at: (imported ? d.audioMeta?.startedAt : undefined) ?? composerOpenedAt.current ?? undefined,
       surface: onPlan ? 'plan' : 'map', planId: onPlan ? activePlanId : undefined, coord, px, py, floor, pinned,
     }, rowId)
-    if (d.photoUrl) void uploadMediaForRow(rowId, d.photoUrl, 'photo')
+    // one upload per picture; each swaps ITS OWN blob: URL for the server URL when it lands
+    for (const url of photoUrls) void uploadPhotoForRow(rowId, url)
     // an imported memo's audioUrl is already the server URL (uploaded during save) — only a
     // session blob: URL (in-app recording) still needs the upload/queue path
     if (d.audioUrl?.startsWith('blob:')) void uploadMediaForRow(rowId, d.audioUrl, 'audio')
@@ -2162,7 +2195,18 @@ export function IncidentWorkspace({
         journalOpen={journalOpen}
         onToggleJournal={() => setJournalOpen((v) => !v)}
         reminderCount={reminders.openCount}
-        onAddEntry={linkScoped ? undefined : () => setComposerOpen(true)}
+        // NOT a composer on a read-only surface: it used to open, take the text, and have the
+        // journal store drop the row — «ich kann keine Einträge erfassen», with no reason given.
+        // A tab that merely LOST THE LOCK keeps the button though: making it vanish answers the
+        // question just as badly, so it says what is in the way and offers the one tap out of it
+        // (the same «Hier bearbeiten» the banner carries, for when the banner is scrolled away).
+        onAddEntry={linkScoped ? undefined
+          : !readOnly ? () => setComposerOpen(true)
+          : tabLockLost && isEditor ? () => toast(appConfig.copy.tabLock.hint, {
+              icon: 'info',
+              action: { label: appConfig.copy.tabLock.takeOver, onClick: onTakeOverTab },
+            })
+          : undefined}
         onHoldStart={linkScoped ? undefined : startVoiceMemo}
         onHoldEnd={linkScoped ? undefined : voice.stop}
         onUndo={mode === 'plans' ? () => planHist.current?.undo() : undo}

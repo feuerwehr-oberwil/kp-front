@@ -6,7 +6,7 @@ import { Overlay } from '../lib/overlays'
 import { openPhoto } from '../lib/ui'
 import { appConfig } from '../config/appConfig'
 import { formatTime } from '../lib/format'
-import { groupByDay, isNachtrag, rowTime } from '../lib/verlauf'
+import { groupByDay, isNachtrag, rowPhotos, rowTime } from '../lib/verlauf'
 import type { OpenReminder } from '../lib/reminders'
 
 // One <audio> for the whole drawer: play toggles, a second tap pauses, and the row that
@@ -163,14 +163,14 @@ export function Journal({ events, plans, closedAt, onSelect, onClose, onTranscri
                     Safari on an installed iPad, which means leaving a running Einsatz to look at
                     a photo of it. The viewer keeps the one thing the new tab was good for — a
                     download. */}
-                {e.photoUrl && (
+                {rowPhotos(e).map((url, i) => (
                   <button
-                    type="button" className="jr-thumb" title={C.photoOpen} aria-label={C.photoOpen}
-                    onClick={(ev) => { ev.stopPropagation(); openPhoto(e.photoUrl!, { caption: e.text, filename: `foto-${e.id}.jpg` }) }}
+                    key={url} type="button" className="jr-thumb" title={C.photoOpen} aria-label={C.photoOpen}
+                    onClick={(ev) => { ev.stopPropagation(); openPhoto(url, { caption: e.text, filename: `foto-${e.id}-${i + 1}.jpg` }) }}
                   >
-                    <img src={e.photoUrl} alt="" />
+                    <img src={url} alt="" />
                   </button>
-                )}
+                ))}
                 {!e.audioUrl && e.at && (onOpenPlayer || onEditText) && (() => {
                   // annotation of a recording → jump into the player at this moment,
                   // and (editors) correct its text via an append-only patch
@@ -206,7 +206,7 @@ export function Journal({ events, plans, closedAt, onSelect, onClose, onTranscri
                     onClick={(ev) => { ev.stopPropagation(); audio.toggle(e.id, e.audioUrl!) }}
                   ><Icon id={audio.playing === e.id ? 'pause' : 'play'} /></button>
                 )}
-                {(e.photoUrl || e.audioUrl) && mediaStatusOf?.(e.id) && (
+                {(rowPhotos(e).length > 0 || e.audioUrl) && mediaStatusOf?.(e.id) && (
                   <span className={`jr-media-state ${mediaStatusOf(e.id) === 'failed' ? 'failed' : 'pending'}`}
                     title={mediaStatusOf(e.id) === 'failed' ? C.mediaFailed : C.mediaPending}>
                     <Icon id={mediaStatusOf(e.id) === 'failed' ? 'warn' : 'rotate'} />

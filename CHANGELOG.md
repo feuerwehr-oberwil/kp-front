@@ -41,10 +41,17 @@ so this file – not the log – is the record of what shipped up to that point.
 
 - **Partnerorganisationen can be recorded.** The field had been in the model – and on the
   printed rapport – for months, but nothing ever wrote it, so every rapport fell back to the
-  tick-off row from the station config and «Polizei war da» was all the paper said. Now one row
-  per partner: **Organisation · Person vor Ort · Telefon · Bemerkung**, with the station's own
-  list offered as suggestions (the organisation that turns up is not always on it). The remark
-  is the point of the block – «Wm. Keller, übernimmt Verkehr ab Kreisel» – and it prints.
+  tick-off row from the station config and «Polizei war da» was all the paper said. It is now a
+  **checklist over the station's own list**: every organisation is on screen, ticked or not, and
+  ticking one reveals the single free line that is the point of the block – «Wm. Keller,
+  übernimmt Verkehr ab Kreisel». The one that turns up anyway can still be typed in. Screen and
+  paper ask it identically, in the rapport dialog and at the Erfassungs-Poster.
+
+- **The printed Partnerorganisationen are a real form.** Every configured organisation prints
+  with an **empty box**, not just the ones that were ticked on screen – a rapport gets corrected
+  on paper as often as on screen, and an organisation that turns out to have been there needs
+  somewhere to put the tick. A blank list of names could never say «die Polizei war NICHT da»,
+  which on paper is the whole point of the block.
 
 - **Remarks on Material and on people.** «3 Sack» says how much, «an Werkhof übergeben» says
   what happened to it; «Meier» says who was there, «Fahrer TLF, abgelöst 21:40» says what they
@@ -121,6 +128,104 @@ so this file – not the log – is the record of what shipped up to that point.
   delivers a reversed stack. The relay path now reverses the document
   (`report.reversePrintOrder`, switch it off for a printer that ejects face-down); the
   downloaded PDF stays in reading order, because that one is read on a screen.
+
+- **A Verlaufszeile with several photos kept only one of them.** Attaching three pictures to one
+  entry uploaded all three and recorded the last one. Each upload wrote the row's whole picture
+  list, and it read that list from the moment the callback was built rather than from the moment
+  the upload landed – so every one of them wrote a list of exactly one. The pictures were on the
+  server the whole time, with nothing pointing at them. The swap happens in the journal store
+  now, which reads the row as it is when the picture actually arrives.
+
+- **Offline, a Verlaufszeile with several photos lost all but the last.** The upload queue held
+  one entry per row, so the second picture of an entry evicted the first before either could be
+  sent – on the surface whose entire promise is that a capture survives no signal and a reload.
+  The queue keys on the picture now, and each entry remembers which one it stands for, so the
+  upload that lands later replaces its own picture instead of appending a duplicate.
+
+- **Session picture links were written into the append-only record.** A row's `blob:` URLs –
+  valid only inside the tab that made them – rode along into the journal on the server, where
+  they are permanent and meaningless: a broken thumbnail on every other device and after every
+  reload. Only real, uploaded pictures reach the record now; the pending ones stay on screen
+  until they land.
+
+- **A pasted paragraph made the whole Rapport unprintable.** A remark on a person or on a
+  Material line prints inside a fixed cell, and a cell cannot be split across pages – so past
+  about three thousand characters the composer failed and the rapport could not be printed at
+  all, with an error naming no field. A remark that long is truncated on paper instead: printing
+  must never be blocked by what somebody typed, and refusing to accept the text would only have
+  moved the failure somewhere the operator can do even less about it.
+
+- **Partnerorganisationen could be edited on a rapport that cannot be edited.** The block sits
+  below the read-only section, so on an archived Einsatz – and for a viewer – the tick-offs and
+  the free line stayed live: the edit was accepted on screen and silently never saved. Same
+  failure the read-only Rapportangaben fixed a day earlier, in the one place that had grown past
+  the guard.
+
+- **The Kroki could print a caption for a picture it wasn't showing.** While the reconstruction
+  for a chosen moment is still running – and after one fails – the sheet falls back to the
+  current Lage, but the caption still said «Stand 21:14». On a document that is a legal record,
+  no caption is the honest answer.
+
+- **Three of the new things could not be found.** The Kroki moment sat behind the sections
+  fold, the Partnerorganisationen behind a «+» at the bottom of a long section, and the Mittel
+  remark existed only in the «Quelle» view – not the default one, which is a plain bug. Now: the
+  Kroki «Stand» lives on the crop screen every print already goes through, the station's partner
+  list is offered as TICK-OFFS the way the paper form asks it (ticking reveals that partner's one
+  free line), and a Mittel line offers its remark wherever an amount was recorded. A person's remark also shows
+  in the Anwesenheit row – a remark nobody sees is a remark nobody keeps up to date.
+
+- **The printed rapport ejected a blank sheet.** Every Anhang section both *opens* with a page
+  break and *closes* by switching the page template back – so two adjacent sections put two
+  breaks in a row and produced a page carrying nothing but its footer (between the Kroki and the
+  Beilagen), and a rapport whose last section was the Kroki, the plans or the Beilagen ended on
+  one. Sections stay independent – each may legitimately be absent – so the breaks are collapsed
+  once, at the end.
+
+- **Personal and Partnerorganisationen drifted out of line, like Material did.** Both laid their
+  two halves out as shared table rows, so one person's remark set the height for whoever happened
+  to sit opposite them and from there down the columns no longer shared a baseline. Each half is
+  its own column now. It also **can't crash any more**: independent columns are indivisible
+  flowables, and a roster longer than a page took the whole rapport down with a layout error
+  (reproduced at 120 people) – they are laid out in page-sized chunks, measured rather than
+  guessed at, so the ordinary one-page case is still exactly two columns.
+
+- **The sections print in the order the app asks for them.** Anwesenheit → Material →
+  Partnerorganisationen: our own people, our own material, then everyone else – the same
+  sequence as the rapport dialog on screen, so filling in and checking the paper follow one
+  order. «Material (Menge eintragen)» is just **Material**; the amount stubs say that already.
+
+- **A Beilage no longer claims a whole page.** Four photos meant four sheets. The app is where
+  these are looked at – on paper they only have to be readable – so plates are capped and flow
+  two to three per page, image and caption sharing a left edge and never separated by a break.
+
+- **A picture opened underneath the surface that opened it.** The full-size viewer had no
+  layer of its own, so it shared the base scrim: opened from the Verlauf, from the rapport's
+  Beilagen or from the poster, it landed *behind* the sheet that launched it and read as «das
+  Bild öffnet nicht». It now sits above everything, and the picture **zooms** – wheel, pinch,
+  double-tap – because a document is usually photographed for one detail on it.
+
+- **The Mittel remark dialog was invisible.** It mounted, took the focus and swallowed the tap,
+  but `.ui-dialog` on its own positions nothing – every other dialog pairs it with a sheet class
+  that supplies the geometry, and this one did not. Same class of bug, twice in one afternoon:
+  the pencil now opens the standard sheet, beside the count it annotates rather than out at the
+  row's edge.
+
+- **The Kroki «Stand» slider reconstructed on every notch.** Dragging it fired one full
+  reconstruction per step, so the busy line blinked, the picture redrew mid-drag and the sheet
+  flickered. It now reconstructs when the thumb comes to rest, the busy slot keeps its space
+  instead of resizing the bar under the finger, and the readout carries the **date** as well as
+  the time – on a long Einsatz «21:14» does not say which day.
+
+- **The printed Material sheet drifted out of line.** The two columns shared table rows, so one
+  material with a four-line remark stretched the row on the *far* side too and from there down
+  nothing sat on the same baseline. Each half is its own column now and simply flows past the
+  other.
+
+- **The Erfassungs-Poster asked one section three different ways.** «Angaben» had grown two
+  blocks that each expand into a stack of their own, with a label stranded in the left gutter
+  next to them. **Partnerorganisationen** and **Beilagen** are now sections like Personen and
+  Material – every block on that page opens and closes the same way – and a section's header no
+  longer floats free of the body it belongs to.
 
 - Smaller things on screen: the left rail centred its labels instead of putting them next to
   their icons (the UA stylesheet centres text in a `<button>`), the module chips were wider

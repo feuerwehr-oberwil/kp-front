@@ -24,7 +24,7 @@ from __future__ import annotations
 import io
 import logging
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from reportlab.lib.pagesizes import A4, landscape
@@ -95,7 +95,9 @@ class JournalRowIn(BaseModel):
     text: str
     transcript: str | None = None
     photoKey: str | None = None  # legacy: figure key of a client-uploaded photo
-    photoUrl: str | None = None  # server-relative /api/media/<id> — resolved server-side
+    photoUrl: str | None = None  # single photo — the shape rows written before 2026-08-06 carry
+    #: several photos on one row (one damage is rarely one picture). Readers take both.
+    photoUrls: list[str] = []
 
 
 class KrokiEntityIn(BaseModel):
@@ -218,6 +220,20 @@ class TruppIn(BaseModel):
     readings: list[ReadingIn] = []
 
 
+#: A free remark rides inside a fixed-width table cell. ReportLab cannot split a cell across
+#: pages, so a long enough one raises LayoutError and the WHOLE Rapport fails to compose —
+#: a pasted paragraph made the report unprintable with an error naming no field. Printing must
+#: never be blocked by what someone typed, so an over-long remark is TRUNCATED, not rejected:
+#: rejecting would only move the failure to a 422, and the data is already in the workspace.
+_NOTE_MAX = 400
+
+
+def _clip_note(v: str | None) -> str | None:
+    if v is None or len(v) <= _NOTE_MAX:
+        return v
+    return v[: _NOTE_MAX - 1].rstrip() + "…"
+
+
 class PersonalRowIn(BaseModel):
     """One roster row on the Personal-/Soldblatt: printed tick when digitally recorded,
     blank checkbox + write-in stubs otherwise. Clocks are client-formatted HH:MM."""
@@ -229,6 +245,8 @@ class PersonalRowIn(BaseModel):
     #: free remark on this person for this Einsatz («Fahrer TLF», «abgelöst 21:40») — printed
     #: small under the name, on the first row of a person who was present more than once
     note: str | None = None
+
+    _clip = field_validator("note")(_clip_note)
 
 
 class PlanRef(BaseModel):
@@ -245,8 +263,12 @@ class MittelFormRowIn(BaseModel):
     menge: str | None = None  # client-formatted "3" — None prints the write-in stub
     unit: str = "Stk"
     #: free remark on the line («an Werkhof übergeben») — printed under the label, because a
-    #: quantity on its own has never explained what happened to the material
+    #: quantity on its own has never explained what happened to the material. The client JOINS
+    #: every source line's remark into this one string, so the cap matters more here than on a
+    #: single field (see _clip_note).
     note: str | None = None
+
+    _clip = field_validator("note")(_clip_note)
 
 
 class ReportOptionsIn(BaseModel):
@@ -334,7 +356,7 @@ L = {
     "sigOrtDatum": "Ort, Datum",
     "sigKommandant": "Kommandant",
     "generatedAt": "Erstellt",
-    "mittel": "Material (Menge eintragen)",
+    "mittel": "Material",
     "gerettete": "Gerettete (Personen / Tiere)",
     "rueckmeldungElz": "Rückmeldung ELZ",
     "zeiten": "Alarmierungs- / Ausrückzeiten",
@@ -372,6 +394,41 @@ class _NumberedCanvas(_canvas.Canvas):
             self.drawRightString(w - 14 * mm, 8 * mm, f"{self._pageNumber} / {total}")
             _canvas.Canvas.showPage(self)
         _canvas.Canvas.save(self)
+
+
+def _collapse_breaks(story: list) -> list:
+    """Drop the empty pages that fall out of composing the Anhang section by section.
+
+    ⚠️ Every Anhang section both OPENS with «switch template, break» and CLOSES by switching
+    back — so two adjacent sections put two page breaks in a row and eject a sheet carrying
+    nothing but the footer (observed between the Kroki and the Beilagen), and a rapport whose
+    last section is the Kroki, the plans or the Beilagen ends on one. Sections stay independent —
+    each may legitimately be absent — so the fix belongs here: keep at most ONE break per run,
+    with the last template switch that preceded it, and drop the run at the end entirely.
+    """
+    out: list = []
+    i, n = 0, len(story)
+    while i < n:
+        if not isinstance(story[i], (PageBreak, NextPageTemplate, Spacer)):
+            out.append(story[i])
+            i += 1
+            continue
+        j, tmpl, brk = i, None, False
+        while j < n and isinstance(story[j], (PageBreak, NextPageTemplate, Spacer)):
+            if isinstance(story[j], NextPageTemplate):
+                tmpl = story[j]
+            elif isinstance(story[j], PageBreak):
+                brk = True
+            j += 1
+        if j < n:  # a run in the MIDDLE: one template switch, one break
+            if tmpl is not None:
+                out.append(tmpl)
+            if brk:
+                out.append(PageBreak())
+            else:
+                out.extend(f for f in story[i:j] if isinstance(f, Spacer))
+        i = j
+    return out
 
 
 def _styles() -> dict[str, ParagraphStyle]:
@@ -744,36 +801,6 @@ def compose_report_pdf(
         )
         story.append(zt)
 
-    if m.partnerContacts:
-        story.extend(head(L["partnerOrgs"]))
-        prows = [
-            [
-                Paragraph(_esc(c.org), st["cell"]),
-                Paragraph(_esc(c.name), st["cell"]),
-                Paragraph(_esc(c.phone), st["mono"]),
-                Paragraph(_esc(c.note), st["cell"]),
-            ]
-            for c in m.partnerContacts
-        ]
-        pt = Table(prows, colWidths=[inner_w * x for x in (0.3, 0.25, 0.22, 0.23)])
-        pt.setStyle(
-            TableStyle(
-                [
-                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                    ("LINEBELOW", (0, 0), (-1, -1), 0.4, _GRID),
-                    ("TOPPADDING", (0, 0), (-1, -1), 3),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-                    ("LEFTPADDING", (0, 0), (0, -1), 0),
-                ]
-            )
-        )
-        story.append(pt)
-    elif payload.partnerPresets:
-        # nothing recorded → tick-off row like the Erfassungsblatt
-        story.extend(head(L["partnerOrgs"]))
-        items = [*payload.partnerPresets, f"{L['partnerOther']}: ______________"]
-        story.append(_check_grid(items, set(), inner_w, st, cols=3))
-
     # Bemerkungen only when digitally filled (2026-07-18): the Kurzbericht is the
     # hand-writing field — an extra empty ruled block just cost paper
     if m.remarks:
@@ -783,9 +810,10 @@ def compose_report_pdf(
         story.extend(head(L["lehren"]))
         story.append(Paragraph(_esc(m.lehren), st["body"]))
 
-    # --- Personal / Anwesenheit — flows right after the form fields (no forced page
-    # break: the roster table splits at row boundaries, so a small Einsatz stays on
-    # one sheet and a big roster continues on the next page) ------------------------------
+    # --- Anwesenheit · Material · Partnerorganisationen, in THAT order -------------------
+    # The same order the Rapport dialog asks for them on screen, so filling in and checking the
+    # paper follow one sequence: our own people, our own material, then everyone else. No forced
+    # page break — each table splits at a row boundary, so a small Einsatz stays on one sheet.
     if opt.attendance and payload.personal:
         story.extend(head(L["personal"]))
         story.append(Paragraph(_esc(L["personalHint"]), st["muted"]))
@@ -796,6 +824,18 @@ def compose_report_pdf(
     if opt.mittel and payload.mittelForm:
         story.extend(head(L["mittel"]))
         story.append(_mittel_table(payload.mittelForm, inner_w, st))
+
+    if m.partnerContacts or payload.partnerPresets:
+        # EVERY organisation the station works with is listed — ticked where it was involved,
+        # blank where it was not — the way the Personalblatt lists the whole Mannschaft. A list
+        # of only the ticked ones cannot say «die Polizei war NICHT da», and on paper that
+        # difference is the whole point of the block. Anything recorded beyond the station's own
+        # list (a neighbouring Wehr, a Werkhof) is appended.
+        story.extend(head(L["partnerOrgs"]))
+        by_org = {(c.org or "").strip().lower(): c for c in m.partnerContacts}
+        listed = [(org, by_org.pop(org.strip().lower(), None)) for org in payload.partnerPresets]
+        listed += [(c.org or "", c) for c in by_org.values()]
+        story.append(_partner_table(listed, inner_w, st))
 
     # Unterschriften close the SIGNED part (Haupt-Rapport + Personal + Material — one
     # unit, kantonale Vorlage 11-01-003): Einsatzleitung AND Kommandant, each with an own
@@ -823,13 +863,16 @@ def compose_report_pdf(
             entry_cells: list = [Paragraph(_esc(r.text), st["cell"])]
             if r.transcript:
                 entry_cells.append(Paragraph(f"<b>{_esc(L['transcript'])}:</b> {_esc(r.transcript)}", st["muted"]))
-            photo_bytes = (figures.get(r.photoKey) if r.photoKey else None) or (
-                figures.get(f"photo:{r.photoUrl}") if r.photoUrl else None
-            )
-            photo = _fit_image(photo_bytes, inner_w * 0.45, 45 * mm)
-            if photo:
-                entry_cells.append(Spacer(1, 2))
-                entry_cells.append(photo)
+            urls = r.photoUrls or ([r.photoUrl] if r.photoUrl else [])
+            shots = [figures.get(r.photoKey)] if r.photoKey else []
+            shots += [figures.get(f"photo:{u}") for u in urls]
+            for data in shots:
+                # each picture on its own line under the text, at the same width — a row with
+                # three photos prints three, which is why they were attached
+                photo = _fit_image(data, inner_w * 0.45, 45 * mm)
+                if photo:
+                    entry_cells.append(Spacer(1, 2))
+                    entry_cells.append(photo)
             body.append([Paragraph(_esc(r.timeLabel), st["cell"]), Paragraph(_esc(r.area), st["cell"]), entry_cells])
         # time column wide enough for the full "DD.MM.YYYY, HH:MM" label so it never wraps onto
         # a second line (which inflated every journal row).
@@ -928,25 +971,29 @@ def compose_report_pdf(
         story.append(NextPageTemplate("portrait"))
         story.append(PageBreak())
 
-    # Beilagen — document/damage photos, one per page-width plate with its caption underneath.
-    # Sized to the printable box rather than to a thumbnail column: the reason to photograph a
-    # driving licence is to be able to read it off the paper afterwards. Each starts on its own
-    # page so a portrait ID and a landscape damage shot don't fight over one.
-    att_imgs = [
-        (a, _fit_image(figures.get(f"photo:{a.url}"), inner_w, ph - 2 * margin - 30 * mm)) for a in payload.attachments
-    ]
+    # Beilagen — document/damage photos with their caption underneath. Big enough to READ a
+    # driving licence off the paper, and no bigger: the app is where these are looked at, and a
+    # full-page plate each turned four photos into four sheets. Capped, they flow two-to-three
+    # per page; image and caption stay together so a plate never ends up orphaned from its label.
+    att_imgs = [(a, _fit_image(figures.get(f"photo:{a.url}"), inner_w * 0.62, 92 * mm)) for a in payload.attachments]
     att_imgs = [(a, img) for a, img in att_imgs if img is not None]
-    for i, (att, img) in enumerate(att_imgs):
-        story.append(NextPageTemplate("portrait"))
-        story.append(PageBreak())
-        if i == 0:
-            story.extend(head(L["attachments"]))
-        story.append(img)
-        story.append(Spacer(1, 4))
-        story.append(Paragraph(_esc(att.caption or L["attachmentNoCaption"]), st["muted"]))
+    for _a, _img in att_imgs:
+        _img.hAlign = "LEFT"  # share a left edge with the caption underneath
     if att_imgs:
         story.append(NextPageTemplate("portrait"))
         story.append(PageBreak())
+        story.extend(head(L["attachments"]))
+        for att, img in att_imgs:
+            story.append(
+                KeepTogether(
+                    [
+                        img,
+                        Spacer(1, 3),
+                        Paragraph(_esc(att.caption or L["attachmentNoCaption"]), st["muted"]),
+                        Spacer(1, 10),
+                    ]
+                )
+            )
 
     # Atemschutzüberwachung closes the Anhang: protocol for reconstruction, not primary
     if opt.atemschutz and payload.trupps:
@@ -983,14 +1030,64 @@ def compose_report_pdf(
             story.append(tbl)
             story.append(Spacer(1, 6))
 
+    story = _collapse_breaks(story)
     doc.build(story, canvasmaker=_NumberedCanvas)
     return buf.getvalue()
+
+
+# Every two-up section (Personal · Material · Partner) hangs its two halves side by side with a
+# 3 mm gutter. Top-aligned and un-padded, so each column starts at the section's top edge and the
+# gutter is the only thing between them.
+_SPLIT_OUTER = [
+    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ("TOPPADDING", (0, 0), (-1, -1), 0),
+    ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+]
+# Below the usable frame height, with room for the section heading above the table.
+_SPLIT_BUDGET = 660
+
+
+def _two_up(items: list, make_column, col_w: float) -> Table:
+    """Lay `items` out in two independent columns that can still break across pages.
+
+    Each half gets its OWN sub-table, so a four-line remark on one side never sets the row
+    height on the other — the drift that made the printed sheet look broken. But a sub-table is
+    one indivisible flowable: put both halves in a single outer row and a roster longer than a
+    page raises a LayoutError and takes the whole rapport down with it (observed at 120 people).
+
+    So the outer table gets one row per PAGE-SIZED CHUNK. ReportLab splits between those rows,
+    each chunk is measured against the real frame rather than guessed at, and the usual case —
+    everything fits on one page — is a single row, i.e. exactly two independent columns.
+    """
+    half = -(-len(items) // 2)
+    left, right = items[:half], items[half:]
+    rows: list[list] = []
+    i = 0
+    while i < half:
+        # grow the chunk while BOTH halves still fit; always take at least one item so a single
+        # oversized row (a pasted essay in a remark) cannot spin here forever
+        k = 1
+        while i + k <= half:
+            lt, rt = make_column(left[i : i + k]), make_column(right[i : i + k])
+            tallest = max(lt.wrap(col_w, _SPLIT_BUDGET * 4)[1], rt.wrap(col_w, _SPLIT_BUDGET * 4)[1])
+            if tallest > _SPLIT_BUDGET and k > 1:
+                k -= 1
+                break
+            if tallest > _SPLIT_BUDGET:
+                break
+            k += 1
+        rows.append([make_column(left[i : i + k]), "", make_column(right[i : i + k])])
+        i += k
+    outer = Table(rows or [["", "", ""]], colWidths=[col_w, 3 * mm, col_w])
+    outer.setStyle(TableStyle(_SPLIT_OUTER))
+    return outer
 
 
 def _personal_table(personal: list[PersonalRowIn], inner_w: float, st: dict[str, ParagraphStyle]) -> Table:
     """Two-up roster: [☐|Name|von–bis] × 2 — recorded people get a printed tick + clocks,
     the rest stays blank for the pen. Long rosters flow onto the next page."""
-    half = -(-len(personal) // 2)
     check_w, time_w = 4 * mm, 30 * mm
     name_w = inner_w / 2 - check_w - time_w - 3 * mm
 
@@ -1007,41 +1104,79 @@ def _personal_table(personal: list[PersonalRowIn], inner_w: float, st: dict[str,
             Paragraph(_esc(vonbis), st["rstub"] if not (p.von or p.bis) else st["rcell"]),
         ]
 
-    rows = []
-    style: list[tuple] = [
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING", (0, 0), (-1, -1), 1.8),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 1.8),
-        ("LEFTPADDING", (0, 0), (-1, -1), 1),
-        # breathing room between the checkbox square and the name (jsPDF gap ~1.6mm);
-        # the check cells lose ALL side padding so the X centers in its square
-        ("LEFTPADDING", (1, 0), (1, -1), 5),
-        ("LEFTPADDING", (5, 0), (5, -1), 5),
-        ("LEFTPADDING", (0, 0), (0, -1), 0),
-        ("RIGHTPADDING", (0, 0), (0, -1), 0),
-        ("LEFTPADDING", (4, 0), (4, -1), 0),
-        ("RIGHTPADDING", (4, 0), (4, -1), 0),
-        ("FONTSIZE", (0, 0), (-1, -1), 8.5),
-    ]
-    for r in range(half):
-        left = personal[r]
-        right = personal[half + r] if half + r < len(personal) else None
-        rows.append([*cells(left), "", *cells(right)])
-        for base in (0, 4):
-            p = left if base == 0 else right
-            if p is None:
-                continue
-            style.append(("BOX", (base, r), (base, r), 0.5, _WRITE))  # the checkbox square
+    def column(people: list[PersonalRowIn]) -> Table:
+        style: list[tuple] = [
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("TOPPADDING", (0, 0), (-1, -1), 1.8),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 1.8),
+            ("LEFTPADDING", (0, 0), (-1, -1), 1),
+            # breathing room between the checkbox square and the name (jsPDF gap ~1.6mm);
+            # the check cells lose ALL side padding so the X centers in its square
+            ("LEFTPADDING", (1, 0), (1, -1), 5),
+            ("LEFTPADDING", (0, 0), (0, -1), 0),
+            ("RIGHTPADDING", (0, 0), (0, -1), 0),
+            ("FONTSIZE", (0, 0), (-1, -1), 8.5),
+        ]
+        for r, p in enumerate(people):
+            style.append(("BOX", (0, r), (0, r), 0.5, _WRITE))  # the checkbox square
             if not p.name:
-                style.append(("LINEBELOW", (base + 1, r), (base + 1, r), 0.5, _WRITE, 1, (0.8, 0.8)))  # guest write-in
-    return_t = Table(rows, colWidths=[check_w, name_w, time_w, 3 * mm, check_w, name_w, time_w])
-    return_t.setStyle(TableStyle(style))
-    return return_t
+                style.append(("LINEBELOW", (1, r), (1, r), 0.5, _WRITE, 1, (0.8, 0.8)))  # guest write-in
+        t = Table([cells(p) for p in people] or [["", "", ""]], colWidths=[check_w, name_w, time_w])
+        t.setStyle(TableStyle(style))
+        return t
+
+    # a shared row meant one person's remark set the height for whoever happened to sit opposite
+    # them, and from there down the two halves no longer shared a baseline
+    return _two_up(personal, column, check_w + name_w + time_w)
+
+
+def _partner_table(
+    listed: list[tuple[str, PartnerContact | None]], inner_w: float, st: dict[str, ParagraphStyle]
+) -> Table:
+    """Two-up Partnerliste: [☐|Organisation|Bemerkung] × 2, the same shape as the roster.
+
+    Box · Organisation · one free line — the same three things the app asks for. The old
+    Name/Telefon columns were almost always empty and pushed the remark to the far edge, where it
+    read as belonging to nothing; whatever is worth noting («Wm. Keller, Verkehr ab Kreisel») goes
+    in the one line and sits right next to its organisation.
+    """
+    check_w = 4 * mm
+    col_w = inner_w / 2 - 1.5 * mm
+    org_w = (col_w - check_w) * 0.42
+
+    def column(part: list[tuple[str, PartnerContact | None]]) -> Table:
+        rows = [
+            [
+                Paragraph(("<b>X</b>" if c else ""), st["check"]),
+                Paragraph(_esc(org), st["rcell"] if c else st["muted"]),
+                Paragraph(_esc(" · ".join(x for x in (c.name, c.phone, c.note) if x)) if c else "", st["rcell"]),
+            ]
+            for org, c in part
+        ]
+        style: list[tuple] = [
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("TOPPADDING", (0, 0), (-1, -1), 2.5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
+            ("LEFTPADDING", (0, 0), (-1, -1), 1),
+            ("LEFTPADDING", (1, 0), (1, -1), 5),
+            ("LEFTPADDING", (0, 0), (0, -1), 0),
+            ("RIGHTPADDING", (0, 0), (0, -1), 0),
+            ("FONTSIZE", (0, 0), (-1, -1), 8.5),
+            # An EMPTY SQUARE on every row, not just a printed X on the ticked ones: the rapport
+            # gets corrected on paper as often as on screen, and an organisation that turns out
+            # to have been there needs somewhere to put the tick.
+            *[("BOX", (0, r), (0, r), 0.5, _WRITE) for r in range(len(rows))],
+            *[("LINEBELOW", (0, r), (-1, r), 0.4, _GRID) for r in range(len(rows))],
+        ]
+        t = Table(rows or [["", "", ""]], colWidths=[check_w, org_w, col_w - check_w - org_w])
+        t.setStyle(TableStyle(style))
+        return t
+
+    return _two_up(listed, column, col_w)
 
 
 def _mittel_table(mittel: list[MittelFormRowIn], inner_w: float, st: dict[str, ParagraphStyle]) -> Table:
     """Two-up Material worksheet: label + «______ Stk» amount stub / bold recorded amount."""
-    half = -(-len(mittel) // 2)
     amt_w = 26 * mm
     label_w = inner_w / 2 - amt_w - 3 * mm
 
@@ -1056,22 +1191,26 @@ def _mittel_table(mittel: list[MittelFormRowIn], inner_w: float, st: dict[str, P
             label += f'<br/><font size="6.5" color="#5b6472">{_esc(row.note)}</font>'
         return [Paragraph(label, st["rcell"]), Paragraph(amt, st["rcell"] if row.menge else st["rstub"])]
 
-    rows = []
-    for r in range(half):
-        right = mittel[half + r] if half + r < len(mittel) else None
-        rows.append([*cells(mittel[r]), "", *cells(right)])
-    t = Table(rows, colWidths=[label_w, amt_w, 3 * mm, label_w, amt_w])
-    t.setStyle(
-        TableStyle(
-            [
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("TOPPADDING", (0, 0), (-1, -1), 1.8),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 1.8),
-                ("LEFTPADDING", (0, 0), (-1, -1), 0),
-            ]
+    def column(rows_in: list[MittelFormRowIn]) -> Table:
+        t = Table([cells(r) for r in rows_in] or [["", ""]], colWidths=[label_w, amt_w])
+        t.setStyle(
+            TableStyle(
+                [
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("TOPPADDING", (0, 0), (-1, -1), 1.8),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 1.8),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                ]
+            )
         )
-    )
-    return t
+        return t
+
+    # ⚠️ Each half is its OWN table inside one outer row. Sharing rows across the fold meant a
+    # material with a four-line remark stretched the row on the FAR side too, and from there
+    # down the two columns no longer sat on the same baselines — the sheet looked broken even
+    # though every value was right. Independent columns simply flow past each other.
+    return _two_up(mittel, column, label_w + amt_w)
 
 
 def _check_grid(

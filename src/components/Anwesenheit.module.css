@@ -103,6 +103,11 @@
 .dotLeft { background: var(--amber); opacity: 1; }
 
 .name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* «there is a remark on this person» — a dot on the clock that opens the sheet. The text
+   itself stays in the sheet: in the row it ate the name, which is what the row is for. */
+.hasNote { position: relative; }
+.hasNote::after { content: ''; position: absolute; top: 6px; right: 6px; width: 6px; height: 6px;
+  border-radius: 50%; background: var(--blue); }
 
 /* THE one trailing segment: the clock that opens the person's sheet. The time itself used to sit
    here as a full editor — and once a start on the alarm time read «ab Beginn», that word took most

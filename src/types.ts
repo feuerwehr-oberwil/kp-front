@@ -340,6 +340,10 @@ export interface TimelineEvent {
   }
   transcript?: string
   photoUrl?: string      // attached photo (journal entry) — session-only blob, stripped on save
+  /** SEVERAL photos on one row — one damage is rarely one picture, and attaching a second used
+   *  to REPLACE the first. `photoUrl` above is the single-photo shape every row written before
+   *  2026-08-06 carries; readers take both (see lib/verlauf · rowPhotos). */
+  photoUrls?: string[]
   /** which screen the event happened on — shown as a chip, drives the jump target */
   surface?: Surface
   // --- map jump target ---

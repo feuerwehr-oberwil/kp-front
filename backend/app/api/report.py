@@ -42,18 +42,20 @@ async def resolve_report_assets(db: AsyncSession, data: ReportPayload, figs: dic
     (returned as url→bytes). Missing/foreign assets are skipped — the rapport ships
     without that picture rather than failing."""
     for row in data.journal:
-        if not row.photoUrl or f"photo:{row.photoUrl}" in figs:
-            continue
-        m = _MEDIA_URL.match(row.photoUrl)
-        if not m:
-            continue
-        media = (await db.execute(select(Media).where(Media.id == uuid.UUID(m.group(1))))).scalar_one_or_none()
-        if media is None or not media.storage_key:
-            continue
-        try:
-            figs[f"photo:{row.photoUrl}"] = await storage.aget_bytes(media.storage_key)
-        except OSError:
-            continue
+        # a row may carry several pictures; the legacy single `photoUrl` is just the one-element case
+        for url in row.photoUrls or ([row.photoUrl] if row.photoUrl else []):
+            if f"photo:{url}" in figs:
+                continue
+            m = _MEDIA_URL.match(url)
+            if not m:
+                continue
+            media = (await db.execute(select(Media).where(Media.id == uuid.UUID(m.group(1))))).scalar_one_or_none()
+            if media is None or not media.storage_key:
+                continue
+            try:
+                figs[f"photo:{url}"] = await storage.aget_bytes(media.storage_key)
+            except OSError:
+                continue
 
     # Beilagen resolve exactly like a journal photo — same media store, same `photo:<url>` key,
     # so the composer needs one lookup path and a missing file drops that plate rather than the

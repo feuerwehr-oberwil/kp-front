@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { Icon, PrinterFeedIcon } from './icons'
 import { appConfig } from '../config/appConfig'
 import { ConfirmCard } from './overlays/ConfirmCard'
@@ -200,7 +200,13 @@ export function Overlays() {
 
       {/* full-size picture — see openPhoto */}
       {photo && (
-        <Overlay open onClose={closePhoto} className="photo-view" ariaLabel={photo.caption || appConfig.copy.photoViewer.title}>
+        // ⚠️ Its own scrim, above every sheet: this opens FROM the Verlauf drawer, from the
+        // Rapport's Beilagen, from the capture page — on the shared z-80 backdrop it landed
+        // underneath whichever surface launched it and read as «the picture doesn't open».
+        <Overlay
+          open onClose={closePhoto} className="photo-view ui-dialog" backdropClassName="photo-scrim"
+          ariaLabel={photo.caption || appConfig.copy.photoViewer.title}
+        >
           <div className="photo-view-head">
             <span className="photo-view-cap">{photo.caption || appConfig.copy.photoViewer.title}</span>
             {/* same-origin /api/media URL, so `download` really downloads instead of navigating */}
@@ -211,9 +217,91 @@ export function Overlays() {
               <Icon id="close" />
             </button>
           </div>
-          <img className="photo-view-img" src={photo.url} alt={photo.caption ?? ''} />
+          <PhotoZoom url={photo.url} alt={photo.caption ?? ''} key={photo.url} />
         </Overlay>
       )}
     </>
+  )
+}
+
+/**
+ * Pinch/wheel zoom on the full-size picture. A document photo is often read for a detail —
+ * a Kennzeichen, a Gefahrgutnummer, the small print on a Gasflasche — and «so gross wie der
+ * Bildschirm» is not always big enough. Wheel or pinch scales around the pointer, dragging
+ * pans while zoomed, double-tap toggles back to fit.
+ */
+function PhotoZoom({ url, alt }: { url: string; alt: string }) {
+  const [z, setZ] = useState({ k: 1, x: 0, y: 0 })
+  const boxRef = useRef<HTMLDivElement>(null)
+  // live pointers: two down = pinch. Keyed by pointerId so a lifted finger can't strand the gesture.
+  const pts = useRef(new Map<number, { x: number; y: number }>())
+  const pinch = useRef<{ dist: number; k: number } | null>(null)
+  const drag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null)
+
+  const clamp = (n: { k: number; x: number; y: number }) => {
+    const k = Math.min(8, Math.max(1, n.k))
+    const el = boxRef.current
+    if (!el || k === 1) return { k, x: 0, y: 0 }
+    // keep the picture over its own frame — panning it off-screen loses it with no way back
+    const mx = (el.clientWidth * (k - 1)) / 2
+    const my = (el.clientHeight * (k - 1)) / 2
+    return { k, x: Math.min(mx, Math.max(-mx, n.x)), y: Math.min(my, Math.max(-my, n.y)) }
+  }
+  /** scale about a viewport point, so the detail under the finger stays under the finger */
+  const zoomAt = (nk: number, cx: number, cy: number) => setZ((p) => {
+    const el = boxRef.current
+    if (!el) return p
+    const r = el.getBoundingClientRect()
+    const px = cx - (r.left + r.width / 2)
+    const py = cy - (r.top + r.height / 2)
+    const k = Math.min(8, Math.max(1, nk))
+    return clamp({ k, x: px - ((px - p.x) * k) / p.k, y: py - ((py - p.y) * k) / p.k })
+  })
+
+  const onWheel = (e: React.WheelEvent) => {
+    e.preventDefault()
+    zoomAt(z.k * (e.deltaY < 0 ? 1.15 : 1 / 1.15), e.clientX, e.clientY)
+  }
+  const onDown = (e: React.PointerEvent) => {
+    pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    if (pts.current.size === 2) {
+      const [a, b] = [...pts.current.values()]
+      pinch.current = { dist: Math.hypot(a.x - b.x, a.y - b.y), k: z.k }
+      drag.current = null
+    } else if (z.k > 1) {
+      drag.current = { x: e.clientX, y: e.clientY, ox: z.x, oy: z.y }
+    }
+  }
+  const onMove = (e: React.PointerEvent) => {
+    if (!pts.current.has(e.pointerId)) return
+    pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    if (pinch.current && pts.current.size >= 2) {
+      const [a, b] = [...pts.current.values()]
+      const d = Math.hypot(a.x - b.x, a.y - b.y)
+      zoomAt((pinch.current.k * d) / pinch.current.dist, (a.x + b.x) / 2, (a.y + b.y) / 2)
+      return
+    }
+    const d = drag.current
+    if (d) setZ((p) => clamp({ k: p.k, x: d.ox + (e.clientX - d.x), y: d.oy + (e.clientY - d.y) }))
+  }
+  const onUp = (e: React.PointerEvent) => {
+    pts.current.delete(e.pointerId)
+    if (pts.current.size < 2) pinch.current = null
+    if (pts.current.size === 0) drag.current = null
+  }
+
+  return (
+    <div
+      ref={boxRef} className="photo-view-zoom" onWheel={onWheel}
+      onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
+      onDoubleClick={(e) => (z.k > 1 ? setZ({ k: 1, x: 0, y: 0 }) : zoomAt(3, e.clientX, e.clientY))}
+      data-zoomed={z.k > 1 || undefined}
+    >
+      <img
+        className="photo-view-img" src={url} alt={alt} draggable={false}
+        style={{ transform: `translate(${z.x}px, ${z.y}px) scale(${z.k})` }}
+      />
+    </div>
   )
 }

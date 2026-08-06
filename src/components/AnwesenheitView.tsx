@@ -121,6 +121,9 @@ function PresenceSheet({ person, blocks, note, canEdit, startedAt, onSetTimes, o
           <span>{A.noteLabel}</span>
           <input
             className="ip-input" defaultValue={note ?? ''} placeholder={A.notePlaceholder}
+            // a remark is one line beside the name on the Personalblatt; an essay pasted in
+            // here used to make the whole Rapport fail to compose (report_pdf · _clip_note)
+            maxLength={240}
             onBlur={(e) => onSetNote(person.id, e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
           />
@@ -677,6 +680,10 @@ export function AnwesenheitView({
                   <span className={cx(s.dot, present && s.dotPresent, left && s.dotLeft, !present && !left && s.dotFrei)} />
                   {p.rank && <span className={s.rank} title={rankLabel(p.rank)}>{rankAbbr(p.rank)}</span>}
                   <span className={s.name}>{p.displayName}</span>
+                  {/* ⚠️ NO remark text in the row. It was shown here so it would not be
+                      forgotten — and it took the width away from the NAME («Anna Me…»), which is
+                      the one thing this list exists to show. The remark lives in the person's
+                      sheet; a dot on the clock button says there IS one. */}
                   {locked && <Icon id="gauge" />}
                 </button>
                 {/* NO time on the row. It carried a whole editor — and once a start sitting on the
@@ -694,7 +701,7 @@ export function AnwesenheitView({
                 {canEdit && blocks.length > 0 && (
                   <button
                     type="button"
-                    className={s.backBtn}
+                    className={cx(s.backBtn, attendance[p.id]?.note && s.hasNote)}
                     title={fillTemplate(A.openBlocks, { name: p.displayName })}
                     aria-label={fillTemplate(A.openBlocks, { name: p.displayName })}
                     onClick={() => setBlocksFor(p.id)}

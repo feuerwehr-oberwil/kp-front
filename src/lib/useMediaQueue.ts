@@ -17,10 +17,11 @@ import {
 interface Opts {
   incidentId: string
   readOnly: boolean
-  /** an upload succeeded — swap the row's local URL for the persistent server URL */
-  onUploaded: (rowId: string, kind: 'photo' | 'audio', url: string) => void
+  /** an upload succeeded — swap the row's local URL for the persistent server URL. `localUrl`
+   *  names WHICH picture settled: a row can carry several, and the others must survive. */
+  onUploaded: (rowId: string, kind: 'photo' | 'audio', url: string, localUrl?: string) => void
   /** a queued (not-yet-uploaded) capture was found — reattach it to its row for display */
-  onRestore: (rowId: string, kind: 'photo' | 'audio', localUrl: string) => void
+  onRestore: (rowId: string, kind: 'photo' | 'audio', localUrl: string, replaces?: string) => void
 }
 
 export interface MediaQueueApi {
@@ -29,7 +30,7 @@ export interface MediaQueueApi {
   /** number of captures not yet on the server (pending + failed) */
   pendingCount: number
   /** persist a blob whose direct upload just failed, so it survives reload and retries */
-  enqueue: (rowId: string, kind: 'photo' | 'audio', blob: Blob, filename: string, createdAt: string) => Promise<void>
+  enqueue: (rowId: string, kind: 'photo' | 'audio', blob: Blob, filename: string, createdAt: string, localUrl?: string) => Promise<void>
   /** attempt to upload everything queued for this incident (best-effort, never throws) */
   flush: () => Promise<void>
 }
@@ -56,8 +57,10 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
     if (readOnly) return
     const { uploaded } = await flushMediaQueue(incidentId, uploadMedia)
     for (const u of uploaded) {
-      cb.current.onUploaded(u.rowId, u.kind, u.url)
+      // after a reload the row shows the object URL we minted at restore, not the one the
+      // capture was queued with — that is the picture the server URL has to replace
       const old = restoredUrls.current.get(u.id)
+      cb.current.onUploaded(u.rowId, u.kind, u.url, old ?? u.localUrl)
       if (old) { URL.revokeObjectURL(old); restoredUrls.current.delete(u.id) }
     }
     await refresh()
@@ -72,7 +75,9 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
       for (const item of q) {
         const url = URL.createObjectURL(item.blob)
         restoredUrls.current.set(item.id, url)
-        cb.current.onRestore(item.rowId, item.kind, url)
+        // the queued-with URL died with the previous session; hand it over so the restore
+        // replaces that dead entry instead of appending a duplicate picture to the row
+        cb.current.onRestore(item.rowId, item.kind, url, item.localUrl)
       }
       setItems(q)
       void flush()
@@ -92,8 +97,8 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
     return () => window.removeEventListener('online', onOnline)
   }, [flush])
 
-  const enqueue = useCallback(async (rowId: string, kind: 'photo' | 'audio', blob: Blob, filename: string, createdAt: string) => {
-    await enqueueMedia(incidentId, rowId, kind, blob, filename, createdAt)
+  const enqueue = useCallback(async (rowId: string, kind: 'photo' | 'audio', blob: Blob, filename: string, createdAt: string, localUrl?: string) => {
+    await enqueueMedia(incidentId, rowId, kind, blob, filename, createdAt, localUrl)
     await refresh()
   }, [incidentId, refresh])
 

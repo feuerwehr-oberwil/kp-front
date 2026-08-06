@@ -150,3 +150,38 @@ async def test_report_pdf_prints_beilagen_from_the_media_store(client, editor):
     # …and the same rapport WITHOUT the Beilage is smaller: the plate really is in there
     bare = await client.post(f"/api/incidents/{inc}/report/pdf", data={"payload": json.dumps(_minimal_payload(inc))})
     assert len(r.content) > len(bare.content)
+
+
+async def test_report_pdf_survives_a_pasted_essay_in_a_remark(client, editor):
+    """A free remark rides in a fixed-width table cell, and ReportLab cannot split a cell
+    across pages: a long enough one raised LayoutError and the WHOLE compose 500'd with an
+    error naming no field — the rapport simply could not be printed any more.
+
+    Printing must never be blocked by what someone typed, so the remark is truncated. The
+    lengths here are past the measured failure points (~3.1k person / ~3.8k Mittel); the
+    Mittel one matters most because the client JOINS every source line's remark into one cell.
+    """
+    await _login(client, editor)
+    inc = await _create_incident(client)
+    payload = _minimal_payload(inc)
+    essay = "Lorem ipsum dolor sit amet, consetetur sadipscing elitr. " * 120  # ~6.7k chars
+    payload["personal"] = [{"name": "Meier A.", "erfasst": True, "note": essay}]
+    payload["mittelForm"] = [{"label": "Ölbindemittel", "menge": "3", "unit": "Sack", "note": essay}]
+
+    r = await client.post(f"/api/incidents/{inc}/report/pdf", data={"payload": json.dumps(payload)})
+    assert r.status_code == 200, r.text
+    assert r.content[:5] == b"%PDF-"
+
+
+async def test_over_long_remarks_are_truncated_not_rejected():
+    """Rejecting (422) would only move the failure — the text is already in the workspace and
+    the operator has no way to shorten it from the print sheet."""
+    from app.report_pdf import _NOTE_MAX, MittelFormRowIn, PersonalRowIn
+
+    long = "x" * (_NOTE_MAX + 500)
+    assert len(PersonalRowIn(name="A", note=long).note) == _NOTE_MAX
+    assert PersonalRowIn(name="A", note=long).note.endswith("…")
+    assert len(MittelFormRowIn(label="L", note=long).note) == _NOTE_MAX
+    # a remark that fits is left exactly as typed
+    assert PersonalRowIn(name="A", note="Fahrer TLF").note == "Fahrer TLF"
+    assert PersonalRowIn(name="A", note=None).note is None

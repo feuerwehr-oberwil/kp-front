@@ -25,7 +25,7 @@ import { prepareUploadImage } from '../lib/imagePrep'
 import { capturePrintTransport, enqueuePrint, fetchPrintStatus, type PrintRelayStatus } from '../lib/printRelay'
 import { trackPrintJob } from '../lib/printJobToast'
 import type { AttendanceEntry, MittelEntry } from '../types'
-import type { ReportMeta } from '../lib/workspace'
+import type { PartnerContact, ReportMeta } from '../lib/workspace'
 import { Combo } from '../components/Combo'
 import { Stepper } from '../components/Stepper'
 import { TimeField } from '../components/TimeField'
@@ -69,7 +69,7 @@ const RECORDER_KEY = (incidentId: string) => `kp.capture.recorder.${incidentId}`
 // cross-visibility poll cadence: only runs while the KP latch is still false (once true it's
 // latched for good), and skips hidden tabs — the common case needs zero polls (initial list)
 const KP_POLL_MS = 45_000
-type Section = 'personen' | 'material' | 'zeiten' | 'angaben'
+type Section = 'personen' | 'material' | 'zeiten' | 'angaben' | 'partner' | 'beilagen'
 
 // «Übung» reaches the poster exactly like a real Einsatz — the badge is what keeps a drill
 // (or a test run before a rollout) from being ticked off as the real thing. Same amber
@@ -334,6 +334,32 @@ export default function CaptureApp() {
   const attendance = (ws?.attendance as Record<string, AttendanceEntry> | undefined) ?? {}
   const mittel = (ws?.mittel as MittelEntry[] | undefined) ?? []
   const rm = (ws?.reportMeta as ReportMeta | undefined)
+
+  /** Partnerorganisationen on this incident, and the station's own list to pick from. Rides
+   *  `reportMeta.partnerContacts` — the same field the tablet writes and the Rapport prints. */
+  const partners: PartnerContact[] = rm?.partnerContacts ?? []
+  const partnerOrgs = getDeploymentConfig().report?.partnerOrgs ?? []
+  /** One row per organisation — the station's whole list, ticked or not, then anything recorded
+   *  that is not on it. Same model as the Rapport sheet, so the poster asks the same question. */
+  const partnerRows = useMemo(() => {
+    const key = (o?: string) => (o ?? '').trim().toLowerCase()
+    const rows: { org: string; i: number; custom: boolean }[] =
+      partnerOrgs.map((org) => ({ org, i: partners.findIndex((p) => key(p.org) === key(org)), custom: false }))
+    partners.forEach((p, i) => {
+      if (!partnerOrgs.some((o) => key(o) === key(p.org))) rows.push({ org: p.org ?? '', i, custom: true })
+    })
+    return rows
+  }, [partnerOrgs, partners])
+  const savePartner = (i: number, over: Partial<PartnerContact>) => {
+    const next = partners.map((p, j) => (j === i ? { ...p, ...over } : p))
+    if (JSON.stringify(next) === JSON.stringify(partners)) return
+    void run({ kind: 'setMeta', patch: { partnerContacts: next } }).then((ok) => { if (ok) savedToast() })
+  }
+  const removePartner = (i: number) => {
+    void run({ kind: 'setMeta', patch: { partnerContacts: partners.filter((_, j) => j !== i) } })
+      .then((ok) => { if (ok) savedToast() })
+  }
+
   const endedAt = rm?.endedAt
   const kontaktperson = rm?.kontaktperson
   const presentCount = Object.values(attendance).filter((a) => a.status === 'present').length
@@ -643,6 +669,8 @@ export default function CaptureApp() {
     ...(hasMaterial ? (['material'] as const) : []),
     ...(hasZeiten ? (['zeiten'] as const) : []),
     'angaben',
+    'partner',
+    'beilagen',
   ]
   // the first-action cue is Anwesenheit; where that section does not exist, fall through to
   // the first one that does rather than opening the page onto nothing
@@ -958,42 +986,110 @@ export default function CaptureApp() {
                     return ok
                   }} />
               </div>
-              {/* Beilagen: the photos that belong to the RAPPORT — an Ausweis, a Schaden. The
-                  poster is where the paperwork gets done, so this is where they are added; they
-                  print at the end of the Rapport, large enough to read (backend/report_pdf).
-                  Only photos, only this Einsatz — see the capture router's key set. */}
-              <div className="cv-row top">
-                <span>{C.beilagenHead}</span>
-                <div className="cv-beilagen">
-                  {attachments.length > 0 && (
-                    <ul className="cv-beilagen-list">
-                      {attachments.map((a) => (
-                        <li key={a.id}>
-                          <img src={a.url} alt="" />
-                          <input
-                            className="cv-input" defaultValue={a.caption ?? ''} placeholder={C.beilagenCaption}
-                            aria-label={C.beilagenCaption} disabled={busy}
-                            onBlur={(e) => {
-                              const caption = e.target.value.trim()
-                              if (caption === (a.caption ?? '')) return
-                              void run({ kind: 'addAttachment', id: a.id, url: a.url, caption: caption || undefined })
-                                .then((ok) => { if (ok) savedToast() })
-                            }}
-                          />
-                          <button type="button" className="cv-btn cv-btn-ghost" aria-label={C.beilagenRemove} title={C.beilagenRemove}
-                            disabled={busy} onClick={() => { void run({ kind: 'removeAttachment', id: a.id }).then((ok) => { if (ok) savedToast() }) }}>
-                            <Icon id="trash" />
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  <label className={`cv-btn cv-beilagen-add${uploading ? ' busy' : ''}`}>
-                    <Icon id="photo" /><span>{uploading ? C.beilagenBusy : C.beilagenAdd}</span>
-                    <input type="file" accept="image/*" disabled={busy || uploading}
-                      onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void addBeilage(f) }} />
-                  </label>
-                </div>
+            </div>
+          )}
+        </section>
+
+        {/* ⚠️ Partnerorganisationen and Beilagen used to be two rows INSIDE Angaben. Each grows
+            into a stack of its own, and a label sitting in the left gutter next to a three-row
+            block lines up with nothing — so they became sections like Personen and Material.
+            Every block on this page now opens and closes the same way. */}
+        <section className="cv-card cv-acc-card" ref={(el) => { sectionRefs.current.partner = el }}>
+          <AccHead open={openSection === 'partner'} label={C.partnersHead}
+            sub={partners.length ? fillTemplate(C.partnerCount, { n: partners.length }) : C.partnerNone}
+            onToggle={() => toggleSection('partner')} />
+          {/* the same two fields the tablet asks for: which organisation (the station's own
+              list, free text allowed) and one free line for whatever is worth saying. It rides
+              `reportMeta`, which the poster already reads and writes — nothing new is exposed. */}
+          {openSection === 'partner' && (
+            <div className="cv-acc-body">
+              <div className="cv-partners">
+                {partnerRows.map((r) => {
+                  const on = r.i >= 0
+                  return (
+                    <div className={`cv-partner${on ? ' on' : ''}`} key={r.custom ? `c${r.i}` : r.org}>
+                      {/* a free row names itself in its own field — see the Rapport sheet */}
+                      <button
+                        type="button" className={`cv-partner-tick${r.custom ? ' bare' : ''}`}
+                        role="checkbox" aria-checked={on} disabled={busy} aria-label={r.org || C.partnerOrg}
+                        onClick={() => (on
+                          ? removePartner(r.i)
+                          : void run({ kind: 'setMeta', patch: { partnerContacts: [...partners, { org: r.org }] } }))}
+                      >
+                        <span className="cv-partner-box">{on && <Icon id="check" />}</span>
+                        {!r.custom && <span className="cv-partner-org">{r.org}</span>}
+                      </button>
+                      {on && r.custom && (
+                        <input
+                          className="cv-input cv-partner-name" defaultValue={partners[r.i].org ?? ''}
+                          placeholder={C.partnerOrg} aria-label={C.partnerOrg} disabled={busy}
+                          onBlur={(e) => savePartner(r.i, { org: e.target.value.trim() })}
+                        />
+                      )}
+                      {on && (
+                        <input
+                          className="cv-input" defaultValue={partners[r.i].note ?? ''} placeholder={C.partnerNote}
+                          aria-label={`${r.org || C.partnerOrg} – ${C.partnerNote}`} disabled={busy}
+                          onBlur={(e) => savePartner(r.i, { note: e.target.value.trim() || undefined })}
+                        />
+                      )}
+                      {on && r.custom && (
+                        <button type="button" className="cv-btn cv-btn-ghost" aria-label={C.partnerRemove}
+                          title={C.partnerRemove} disabled={busy} onClick={() => removePartner(r.i)}>
+                          <Icon id="trash" />
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+                {/* the list covers the usual partners; the unexpected one still has to fit */}
+                <button type="button" className="cv-btn cv-btn-add" disabled={busy}
+                  onClick={() => { void run({ kind: 'setMeta', patch: { partnerContacts: [...partners, { org: '' }] } }) }}>
+                  <Icon id="plus" /><span>{C.partnerAdd}</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+        <section className="cv-card cv-acc-card" ref={(el) => { sectionRefs.current.beilagen = el }}>
+          <AccHead open={openSection === 'beilagen'} label={C.beilagenHead}
+            sub={attachments.length ? fillTemplate(C.beilagenCount, { n: attachments.length }) : C.beilagenNone}
+            onToggle={() => toggleSection('beilagen')} />
+          {/* the photos that belong to the RAPPORT — an Ausweis, a Schaden. The poster is where
+              the paperwork gets done, so this is where they are added; they print at the end of
+              the Rapport, large enough to read (backend/report_pdf). Only photos, only this
+              Einsatz — see the capture router's key set. */}
+          {openSection === 'beilagen' && (
+            <div className="cv-acc-body">
+              <div className="cv-beilagen">
+                {attachments.length > 0 && (
+                  <ul className="cv-beilagen-list">
+                    {attachments.map((a) => (
+                      <li key={a.id}>
+                        <img src={a.url} alt="" />
+                        <input
+                          className="cv-input" defaultValue={a.caption ?? ''} placeholder={C.beilagenCaption}
+                          aria-label={C.beilagenCaption} disabled={busy}
+                          onBlur={(e) => {
+                            const caption = e.target.value.trim()
+                            if (caption === (a.caption ?? '')) return
+                            void run({ kind: 'addAttachment', id: a.id, url: a.url, caption: caption || undefined })
+                              .then((ok) => { if (ok) savedToast() })
+                          }}
+                        />
+                        <button type="button" className="cv-btn cv-btn-ghost" aria-label={C.beilagenRemove} title={C.beilagenRemove}
+                          disabled={busy} onClick={() => { void run({ kind: 'removeAttachment', id: a.id }).then((ok) => { if (ok) savedToast() }) }}>
+                          <Icon id="trash" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <label className={`cv-btn cv-btn-add cv-beilagen-add${uploading ? ' busy' : ''}`}>
+                  <Icon id="photo" /><span>{uploading ? C.beilagenBusy : C.beilagenAdd}</span>
+                  <input type="file" accept="image/*" disabled={busy || uploading}
+                    onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void addBeilage(f) }} />
+                </label>
               </div>
             </div>
           )}

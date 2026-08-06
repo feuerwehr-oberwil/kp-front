@@ -193,6 +193,12 @@ html, body, #root { margin: 0; height: 100%; }
 /* paint the themed backdrop on html too: iOS over-scroll and the safe-area bands around
    standalone/browser chrome show html's background — without this they render white */
 html { background: var(--app-bg); }
+/* An ordinary scrolling PAGE rather than the app's fixed shell (the Erfassungs-Poster, see
+   main.tsx). Without this its content was trapped under `body { overflow: hidden }` and
+   everything past the viewport showed as an unpainted white band. */
+html.page-scroll, html.page-scroll body { height: auto; min-height: 100%; overflow: visible; }
+html.page-scroll body { background: var(--app-bg); }
+html.page-scroll #root { height: auto; min-height: 100%; background: var(--app-bg); }
 body {
   font-family: var(--body); color: var(--ink); overflow: hidden;
   -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
@@ -1317,6 +1323,9 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
    the card centres itself (the old .modal-backdrop grid parent is gone). Sits just above the
    confirm-backdrop (95). */
 .confirm-card.ui-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 96; }
+/* ⚠️ `.ui-dialog` alone positions NOTHING — every dialog pairs it with its own sheet class, and
+   one that forgets renders unstyled at the top of <body>: present in the DOM, invisible on
+   screen («der Stift öffnet nichts»). This is the Mittel remark's sheet. */
 .confirm-card { width: min(420px, 92vw); background: var(--surface);
   border: 1px solid var(--glass-line); border-radius: var(--r-hero); padding: 22px 22px 16px; box-shadow: 0 30px 80px rgba(20, 28, 40, .4);
   animation: pop .16s var(--ease); }
@@ -1423,13 +1432,23 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 
 /* Full-size picture viewer (lib/ui · openPhoto). Sized to the picture, capped by the viewport:
    a document photo is worth the whole screen, and nothing else on it competes. */
+.photo-scrim { position: fixed; inset: 0; z-index: 300; background: rgba(10, 14, 20, .72); backdrop-filter: blur(3px); }
+.photo-view.ui-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 301; }
 .photo-view { display: flex; flex-direction: column; gap: 10px; max-width: min(96vw, 1200px);
-  max-height: 92dvh; padding: 12px; }
+  max-height: 92dvh; padding: 12px; background: var(--glass); backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-line); border-radius: var(--r-hero); box-shadow: var(--shadow); }
 .photo-view-head { display: flex; align-items: center; gap: 10px; }
 .photo-view-cap { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font: 700 13px var(--body); color: var(--ink); }
-.photo-view-head .btn { flex: none; }
-.photo-view-img { min-height: 0; max-width: 100%; object-fit: contain; border-radius: var(--r-ctl); background: var(--fill-soft); }
+/* the download link is a BUTTON here — the global anchor underline made it read as body text */
+.photo-view-head .btn { flex: none; text-decoration: none; }
+/* the zoom frame clips; the image inside it is what moves (see lib/ui · PhotoZoom) */
+.photo-view-zoom { min-height: 0; display: flex; overflow: hidden; border-radius: var(--r-ctl);
+  background: var(--fill-soft); touch-action: none; cursor: zoom-in; }
+.photo-view-zoom[data-zoomed] { cursor: grab; }
+.photo-view-zoom[data-zoomed]:active { cursor: grabbing; }
+.photo-view-img { min-height: 0; max-width: 100%; object-fit: contain; transform-origin: center;
+  user-select: none; -webkit-user-drag: none; }
 
 /* swatch / width pickers — shared by the draw-style bar and the draw editor */
 .dh-swatches, .dh-widths { display: flex; align-items: center; gap: 9px; }
@@ -2159,7 +2178,11 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wx-pop-link:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); border-color: color-mix(in srgb, var(--blue) 35%, var(--border)); }
 .wx-pop-link svg { width: 16px; height: 16px; }
 .tb-act-add { position: relative; overflow: hidden; background: var(--blue); color: var(--on-fill); touch-action: none; user-select: none; min-width: 96px; }
-.tb-act-add:hover { background: var(--blue-strong); color: var(--on-accent-ink); }
+/* ⚠️ NOT `--blue-strong` on hover: that token flips LIGHTER in night mode (it is the tint-text
+   role), so a hover on the filled button washed it out to pale blue with barely-there ink —
+   the one button in the bar that has to look pressable. A hover deepens the fill in both
+   themes, and the ink stays the fill's own contrast colour. */
+.tb-act-add:hover { background: color-mix(in srgb, var(--blue) 88%, var(--ink)); color: var(--on-fill); }
 .tb-act-add .i, .tb-act-add span { position: relative; z-index: 1; }
 /* press-and-hold "charging" cue: a bar fills across the button over the hold
    window, then the button flips to red (recording) — so the hold reads as doing something */
@@ -2446,6 +2469,8 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .ig-done .i { width: 18px; height: 18px; flex: none; color: var(--green); }
 
 /* composer photo preview + Verlauf row thumbnail */
+/* several attached pictures, side by side — the row grows, nothing is replaced */
+.jc-photos { display: flex; flex-wrap: wrap; gap: 8px; }
 .jc-photo { position: relative; align-self: flex-start; border-radius: var(--r-ctl); overflow: hidden; border: 1px solid var(--glass-edge); }
 .jc-photo img { display: block; max-height: 160px; max-width: 100%; object-fit: cover; }
 .jc-photo .jc-clip-x { position: absolute; top: 6px; right: 6px; background: rgba(20, 28, 40, .6); color: var(--on-accent-ink); }
@@ -3059,13 +3084,16 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 
 .ip-field { display: flex; flex-direction: column; gap: 5px; }
 .ip-field > span { font: 600 12px var(--body); color: var(--ink-dim); }
-.ip-field input, .ip-field select {
+.ip-field input, .ip-field select, .ip-input {
   padding: 11px 12px; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
   background: var(--surface); font: 500 15px var(--body); color: var(--ink);
 }
+/* a standalone field OUTSIDE .ip-field (Beilagen caption, Partnerorganisationen, the
+   Anwesenheit remark) — same control, just not wrapped in a label block */
+.ip-input { width: 100%; min-width: 0; }
 /* One focus ring for every intake/wizard field — a visible blue halo so the EL always
    sees which control is live (gloved, 3am), instead of the browser default outline. */
-.ip-field input:focus, .ip-field select:focus, .ip-textarea:focus, .ip-search:focus {
+.ip-field input:focus, .ip-field select:focus, .ip-textarea:focus, .ip-search:focus, .ip-input:focus {
   outline: none; border-color: color-mix(in srgb, var(--blue) 50%, transparent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 12%, transparent);
 }
@@ -3156,7 +3184,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 /* --- Rapport closing checklist (inside the Einsatzrapport sheet) --------------------- */
 .rp-checks { display: flex; flex-direction: column; gap: 6px; }
 .rp-check { display: flex; flex-direction: column; border-radius: var(--r-ctl); background: var(--surface-veil); }
-.rp-check-main { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 6px 12px;
+.rp-check-main { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 5px 10px;
   border: none; background: none; text-align: left; color: var(--ink); cursor: pointer; width: 100%; }
 .rp-check-main:disabled { cursor: default; }
 .rp-check-dot { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
@@ -3248,6 +3276,30 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   border: 1px solid var(--glass-line); background: var(--surface); color: var(--ink-dim); border-radius: var(--r-sm); }
 .cv-info.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
 .cv-info svg { width: 18px; height: 18px; }
+/* Partnerorganisationen on the poster: organisation + one free line, same two fields the
+   tablet asks for. Stacks on a phone, which is what the poster is scanned with. */
+.cv-partners { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+/* A checklist, matching the Rapport sheet: tick + name are one target, the free line appears
+   only once the row is ticked. On a phone the line wraps under its own tick rather than
+   halving both — this page is filled in standing up, with one thumb. */
+.cv-partner { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.cv-partner-tick { flex: 1 1 auto; display: flex; align-items: center; gap: 10px; min-width: 160px;
+  min-height: 44px; padding: 0 8px 0 4px; border: none; border-radius: var(--r-sm);
+  background: none; color: var(--ink-dim); cursor: pointer; text-align: left; }
+.cv-partner-box { flex: none; display: grid; place-items: center; width: 24px; height: 24px;
+  border: 1.5px solid var(--glass-line); border-radius: var(--r-sm); color: var(--blue); }
+.cv-partner-box svg { width: 15px; height: 15px; }
+.cv-partner.on .cv-partner-tick { color: var(--ink); }
+.cv-partner.on .cv-partner-box { border-color: color-mix(in srgb, var(--blue) 55%, var(--glass-line)); }
+.cv-partner-org { font: 600 15px var(--body); }
+.cv-partner-tick.bare { flex: none; min-width: 0; padding-right: 0; }
+.cv-partner .cv-input { flex: 1 1 140px; min-width: 0; }
+.cv-partner-name { flex: 1 1 140px; }
+@media (max-width: 640px) {
+  .cv-partner-tick { flex: 1 1 100%; }
+  .cv-partner .cv-input { flex: 1 1 100%; }
+}
+
 /* Beilagen on the Erfassungs-Poster: thumbnail + caption per row, and one big «Foto
    hinzufügen» that IS the file input (a phone at the magazine door, one hand, gloves on). */
 .cv-beilagen { display: flex; flex-direction: column; gap: 8px; width: 100%; }
@@ -3264,6 +3316,13 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   border: none; border-radius: var(--r-sm); background: color-mix(in srgb, var(--accent) 16%, transparent);
   color: var(--ink); font: 700 14px var(--body); cursor: pointer; white-space: nowrap; }
 .cv-btn:disabled { opacity: var(--disabled); }
+/* ⚠️ `.cv-btn` is tinted with --accent, which IS this deployment's brand RED — right for the one
+   action a screen is about, wrong for «hinzufügen» rows, which came out looking like a warning.
+   Those use the neutral variant: a dashed outline that reads as «there is room for one more». */
+.cv-btn-add { background: none; border: 1px dashed var(--glass-edge); color: var(--ink); }
+.cv-btn-add:hover:not(:disabled) { border-color: var(--ink-faint); }
+.cv-btn-ghost { min-height: 40px; padding: 0 10px; background: none; color: var(--ink-faint); }
+.cv-btn-ghost:hover:not(:disabled) { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
 .cv-btn svg { width: 15px; height: 15px; }
 .cv-linkbtn { border: none; background: none; color: var(--accent); font: 700 12.5px var(--body); cursor: pointer; padding: 0; }
 .cv-ende { display: flex; align-items: center; justify-content: space-between; gap: 10px; font: 500 14.5px var(--body); color: var(--ink); }
@@ -3420,7 +3479,9 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .cv-acc { display: flex; flex-direction: column; gap: 10px; }
 /* ONE global scroll (no nested list scroll): the card must NOT clip (overflow kills
    position:sticky), so the card look lives on head+body instead of the section */
-.cv-acc-card { padding: 0; overflow: visible; background: none; }
+/* gap: 0 — the base .cv-card's 10px gutter pushed the head off its own body, so an open
+   section read as a floating title above an unrelated block instead of one card */
+.cv-acc-card { padding: 0; gap: 0; overflow: visible; background: none; }
 .cv-acc-head { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 56px; padding: 10px 14px;
   border: none; color: var(--ink); cursor: pointer; text-align: left; border-radius: var(--r-ctl);
   /* pins right under the page header while its (long) section is open — collapsing or
@@ -3428,7 +3489,10 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   position: sticky; top: calc(var(--cv-head-h, 64px) - 1px); z-index: 4;
   background: color-mix(in srgb, var(--surface) 88%, transparent);
   -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
-.cv-acc-head.on { border-bottom: 1px solid var(--glass-line); border-radius: var(--r-ctl) var(--r-ctl) 0 0; }
+/* open = the body's own surface, no seam: the head IS the top of the card it opened. The
+   opaque base stays under the veil so the sticky head never goes see-through mid-scroll. */
+.cv-acc-head.on { border-radius: var(--r-ctl) var(--r-ctl) 0 0;
+  background: linear-gradient(var(--surface-veil), var(--surface-veil)), var(--surface); }
 .cv-acc-label { font: 700 15.5px var(--body); flex: none; }
 .cv-acc-sub { flex: 1; min-width: 0; font: 500 13px var(--body); color: var(--ink-faint); text-align: right;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -3648,6 +3712,13 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
    18px gutter that .mp-ovl's padding used to provide. */
 .mp-backdrop { position: fixed; inset: 0; z-index: 120; background: rgba(10, 14, 20, .5); backdrop-filter: blur(2px); }
 .mp-sheet.ui-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 121; width: min(720px, calc(100vw - 36px)); }
+
+/* The Mittel remark opens OVER the Mittel sheet, so it borrows the map-picker's scrim/z-pair.
+   ⚠️ This MUST stay below `.ip-sheet.ui-dialog` in the file: both selectors weigh the same, so
+   the later one wins — declared further up, the sheet's own z-index 81 put the dialog UNDER the
+   120 scrim and it read as blurred and dead to the touch. */
+.mv-note-dialog.ui-dialog { z-index: 121; width: min(520px, 92vw); }
+.mv-note-dialog > .ip-actions { padding: 0 20px 18px; }
 .mp-sheet { display: flex; flex-direction: column; width: min(720px, 100%); height: min(560px, 90vh);
   background: var(--glass); border: 1px solid var(--glass-line); border-radius: var(--r-hero); overflow: hidden;
   box-shadow: 0 24px 60px rgba(0, 0, 0, .4); animation: pop .16s var(--ease); }
@@ -4374,7 +4445,19 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
    row (44px, chevron, title) and carries a summary on the right so the fold can be read
    without being opened — the only reason folding these is safe. */
 .report-fold { border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface); }
-.report-fold > summary { display: flex; align-items: center; gap: 8px; min-height: var(--tap);
+/* «Abschnitte» IS its own card (.report-pre-section.report-fold): the section supplies border,
+   radius and background, the summary/body supply the padding — otherwise both pad and the head
+   sits 22px in. «Alles bereit» is a fold INSIDE the hints card and gets no chrome of its own,
+   so the sheet reads as one card per block, exactly like Beilagen. */
+.report-pre-section.report-fold { padding: 0; }
+.report-pre-section > .report-fold { border: 0; border-radius: 0; background: none; }
+/* …and both heads are the same height: one fold IS its card (Abschnitte) and pads itself, the
+   other sits INSIDE one (Alles bereit) and inherits that card's padding — without this the two
+   summaries differ by the card's 10px and the sheet looks misaligned. */
+.report-pre-section > .report-fold > summary { padding-inline: 0; min-height: 20px; }
+.report-pre-section > .report-fold .report-fold-body { padding: 6px 0 0; }
+.report-pre-section.report-fold > summary { min-height: 40px; }
+.report-fold > summary { display: flex; align-items: center; gap: 8px; min-height: 40px;
   padding: 0 12px; cursor: pointer; list-style: none; font: 700 13px var(--body); color: var(--ink); }
 .report-fold > summary::-webkit-details-marker { display: none; }
 .report-fold > summary > .i:first-child { flex: none; width: 16px; height: 16px; color: var(--ink-faint);
@@ -4387,7 +4470,7 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 /* …and the summary of what prints: truncates rather than wrapping the head to two lines */
 .report-fold-sum { flex: 1 1 auto; min-width: 0; text-align: right; font: 500 12px var(--body);
   color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.report-fold-body, .report-fold > .report-toggles { padding: 4px 12px 12px; }
+.report-fold-body, .report-fold > .report-toggles { padding: 2px 10px 10px; }
 .report-fold-body p { margin: 0 0 6px; display: flex; align-items: flex-start; gap: 8px;
   font-size: 12.5px; line-height: 1.45; color: var(--ink-dim); }
 .report-fold-body p .i { flex: none; width: 15px; height: 15px; margin-top: 1px; }
@@ -4395,7 +4478,7 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
    they were arriving as pre-wrapped text with the generator's two-space indent baked in. */
 .report-meta-list { margin: 4px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; }
 .report-meta-list li { white-space: normal; }
-.report-meta-body, .report-preflight-body { display: flex; flex-direction: column; gap: 18px; }
+.report-meta-body, .report-preflight-body { display: flex; flex-direction: column; gap: 12px; }
 /* ALWAYS one column: the dialog is only ~600px wide, and two native datetime controls side by
    side overflow on every platform (the iOS/iPadOS one ignores width and shows its intrinsic
    size). One per row gives each the full width and they line up. */
@@ -4446,44 +4529,87 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
   background: transparent; color: var(--ink-dim); border-radius: var(--r-sm); padding: 8px 12px; font: 600 12.5px var(--body); cursor: pointer; }
 .rm-partner-add:hover { border-color: var(--blue); color: var(--blue); }
 .rm-partner-add svg { width: 15px; height: 15px; }
-.report-pre-section { border: 1px solid var(--border); border-radius: var(--r-ctl); padding: 14px; background: var(--surface-2); }
+.report-pre-section { border: 1px solid var(--border); border-radius: var(--r-ctl); padding: 10px 12px; background: var(--surface-2); }
 /* section header = the SAME uppercase eyebrow as the details modal (.ctx-section-label) so every
    header across the app reads identically (was a one-off 14px sentence-case here) */
 .report-pre-section h3 { margin: 0 0 12px; font: 700 11px var(--body); letter-spacing: .08em;
   text-transform: uppercase; color: var(--ink-dim); }
-/* «Kroki-Stand»: Jetzt / ein Zeitpunkt + the reconstruction hint, on the plans-row chrome */
-.report-krokiat { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-.report-krokiat-busy { font: 600 12px var(--body); color: var(--ink-dim); }
+/* «Stand» on the crop map: Jetzt / a time + the reconstruction hint. Top-left, opposite the
+   ± buttons, so neither sits where the framing itself needs to be read. */
+.kf-at { position: absolute; left: 12px; bottom: 12px; z-index: 2; display: flex; align-items: center; gap: 8px;
+  flex-wrap: wrap; max-width: calc(100% - 24px); padding: 7px 10px; border-radius: var(--r-ctl);
+  background: var(--glass); border: 1px solid var(--glass-line); box-shadow: 0 4px 14px rgba(0, 0, 0, .2); }
+.kf-at-label { font: 700 12px var(--body); color: var(--ink-dim); }
+/* fixed slot: the hint appearing and vanishing used to resize the whole bar under the finger */
+.kf-at-busy { min-width: 10.5em; font: 600 12px var(--body); color: var(--ink-dim); }
+/* the slider IS the control: wide enough to aim with a gloved thumb, and the reading sits
+   beside it so the value is never hidden under the finger */
+.kf-at-range { flex: 1 1 220px; min-width: 160px; max-width: 340px; accent-color: var(--blue); height: 28px; }
+.kf-at-val { flex: none; min-width: 8.5em; font: 800 13px var(--mono); color: var(--ink); }
 
 /* the Rapportangaben + Beilagen live in a <fieldset> so one `disabled` covers every control in
    them (viewer / archived Einsatz). Reset the UA fieldset chrome — it is a gate, not a box. */
-.report-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.report-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+/* the same read-only gate inside a checklist row, where the indent comes from .rp-check-extra */
+.rp-check-gate { align-self: stretch; gap: 6px; }
 .report-fieldset:disabled .report-att-x, .report-fieldset:disabled .report-row-add { display: none; }
 
 /* «+ Zeile» under a repeating block (Beilage, Partnerorganisation) */
-.report-row-add { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; cursor: pointer;
+.report-row-add { display: inline-flex; align-self: flex-start; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; cursor: pointer;
   border: 1px dashed var(--border); border-radius: var(--r-ctl); background: var(--surface); color: var(--ink);
   font: 700 13px var(--body); }
 .report-row-add:hover { border-color: var(--ink-faint); }
 .report-row-add .i { width: 16px; height: 16px; }
 
-/* Partnerorganisationen: one row per partner — Organisation · Person · Telefon · Bemerkung.
-   The remark gets the room (it is the reason the row exists); below 720px the row stacks so a
-   phone doesn't get four 60px fields side by side. */
-.report-partners { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
-.report-partner { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, .8fr) minmax(0, 1.4fr) auto;
-  gap: 6px; align-items: center; }
-@media (max-width: 720px) { .report-partner { grid-template-columns: minmax(0, 1fr) auto; }
-  .report-partner .report-partner-note { grid-column: 1 / -1; } }
+/* Partnerorganisationen, in the Anwesenheit/Mittel block: one row = the organisation (the
+   station's own list, free text allowed) + one free line for whatever is worth saying. Two
+   fields, because that is all this question has ever needed. */
+.report-partners { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; width: 100%; }
+/* organisation · remark · remove, on ONE baseline. The two controls come from different
+   components (Combo vs input), so their heights are pinned here — otherwise the row reads as
+   two fields that missed each other. */
+/* Checklist rows: the tick + the organisation name are ONE target (a 40px label is a miss
+   waiting to happen on a tablet), and the free line only appears once the row is ticked —
+   an empty field beside an unticked organisation reads as something still to fill in. */
+.report-partner { display: flex; align-items: center; gap: 8px; min-height: 40px; }
+.report-partner-tick { flex: none; display: flex; align-items: center; gap: 9px; min-width: 170px;
+  min-height: 38px; padding: 0 8px 0 4px; border: none; border-radius: var(--r-sm);
+  background: none; color: var(--ink-dim); cursor: pointer; text-align: left; }
+.report-partner-tick:hover { background: var(--hover); }
+.report-partner-box { flex: none; display: grid; place-items: center; width: 22px; height: 22px;
+  border: 1.5px solid var(--glass-line); border-radius: var(--r-sm); color: var(--blue); }
+.report-partner-box svg { width: 14px; height: 14px; }
+.report-partner.on .report-partner-tick { color: var(--ink); }
+.report-partner.on .report-partner-box { border-color: color-mix(in srgb, var(--blue) 55%, var(--glass-line)); }
+.report-partner-org { font: 600 13.5px var(--body); }
+.report-partner-tick.bare { min-width: 0; padding-right: 0; }
+.report-partner .ip-input { flex: 1 1 120px; min-width: 0; min-height: 38px; padding: 8px 10px; font-size: 13.5px; }
+.report-partner-name { flex: 1 1 140px; }
+.report-partner .report-att-x { flex: none; width: 38px; height: 38px; }
+@media (max-width: 640px) {
+  /* the free line drops under its own tick rather than squeezing both onto one line */
+  .report-partner { flex-wrap: wrap; }
+  .report-partner-tick { min-width: 0; flex: 1 1 100%; }
+}
 
 /* Beilagen: photos that belong to the RAPPORT (Ausweis, Schaden) rather than to the Verlauf.
    Thumbnail + caption per row, because the caption is what the plate prints underneath and the
    thumbnail is only there to say WHICH photo you are labelling. */
-.report-att-hint { margin: -6px 0 10px; font: 500 12px/1.45 var(--body); color: var(--ink-dim); }
-.report-att-list { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+/* ⚠️ `.rp-check-extra` is `align-items: flex-start`, so anything that must span the row has to
+   say so — without this the caption field sat at its intrinsic ~20-character width with the
+   delete button stranded beside it and half the card empty. Margins stay at 0: the container's
+   own gap sets the rhythm, and ad-hoc ones on top of it made the block look randomly spaced. */
+.report-att-hint, .report-att-list, .report-att { align-self: stretch; width: 100%; }
+.report-att-hint { margin: 0; font: 500 12px/1.45 var(--body); color: var(--ink-dim); }
+.report-att-list { list-style: none; margin: 2px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .report-att { display: flex; align-items: center; gap: 10px; }
-.report-att-thumb { flex: none; width: 56px; height: 56px; object-fit: cover; border-radius: var(--r-sm);
-  border: 1px solid var(--border); background: var(--fill-soft); }
+/* The thumb is a BUTTON now (it opens the picture full-size), so the image inside needs its own
+   size — `object-fit` on the button does nothing, and an unconstrained <img> rendered at its
+   natural resolution straight over the rest of the section. */
+.report-att-thumb { flex: none; width: 56px; height: 56px; padding: 0; overflow: hidden; cursor: pointer;
+  border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--fill-soft); }
+.report-att-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.report-att-thumb:hover { border-color: var(--ink-faint); }
 .report-att-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .report-att-pending { font: 600 11.5px var(--body); color: var(--amber-strong); }
 .report-att-x { flex: none; display: grid; place-items: center; width: 40px; height: 40px; padding: 0; cursor: pointer;

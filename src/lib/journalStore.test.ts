@@ -274,6 +274,54 @@ describe('JournalStore — enrichment patches + session overlay', () => {
     expect(s.display()[0].photoUrl).toBe('blob:session-123')
   })
 
+  it('a photo LIST keeps its blob: entries out of the record and on screen', async () => {
+    fakeServer()
+    const s = new JournalStore(INC, false)
+    await s.init([])
+    s.append(row('a', { kind: 'photo', photoUrls: ['blob:one', 'blob:two'] }))
+    await settle(); await settle()
+
+    const sent = apiPost.mock.calls[0][1].entries[0]
+    expect(sent.photoUrls).toBeUndefined()
+    expect(s.display()[0].photoUrls).toEqual(['blob:one', 'blob:two'])
+  })
+
+  it('a row of several photos keeps them all as they upload one by one', async () => {
+    fakeServer()
+    const s = new JournalStore(INC, false)
+    await s.init([])
+    s.append(row('a', { kind: 'photo', photoUrls: ['blob:one', 'blob:two', 'blob:three'] }))
+    await settle(); await settle()
+
+    // uploads land out of order, as they do in the field
+    s.swapPhoto('a', 'blob:two', '/api/media/2')
+    await settle(); await settle()
+    expect(s.display()[0].photoUrls).toEqual(['blob:one', '/api/media/2', 'blob:three'])
+
+    s.swapPhoto('a', 'blob:one', '/api/media/1')
+    s.swapPhoto('a', 'blob:three', '/api/media/3')
+    await settle(); await settle()
+    // all three survived — folding a one-element patch used to leave only the last upload
+    expect(s.display()[0].photoUrls).toEqual(['/api/media/1', '/api/media/2', '/api/media/3'])
+
+    // and the record carries only persistent URLs, never a session blob:
+    const persisted = apiPost.mock.calls.flatMap((c) => c[1].entries).flatMap((e: TimelineEvent) => e.photoUrls ?? [])
+    expect(persisted.some((u: string) => u.startsWith('blob:'))).toBe(false)
+  })
+
+  it('once every picture has uploaded the session overlay stops winning', async () => {
+    fakeServer()
+    const s = new JournalStore(INC, false)
+    await s.init([])
+    s.append(row('a', { kind: 'photo', photoUrls: ['blob:one'] }))
+    await settle(); await settle()
+    s.swapPhoto('a', 'blob:one', '/api/media/1')
+    await settle(); await settle()
+
+    // a stale overlay here would pin the dead blob: URL over the patch forever
+    expect(s.display()[0].photoUrls).toEqual(['/api/media/1'])
+  })
+
   it('flushKeepalive beacons the pending outbox at teardown', async () => {
     apiGet.mockRejectedValue(new ApiError(0, 'offline'))
     apiPost.mockRejectedValue(new ApiError(0, 'offline'))

@@ -5,13 +5,14 @@ import { getDeploymentConfig, type DeploymentMittelItem, type DeploymentMittelSo
 import { fillTemplate } from '../lib/format'
 import { cx } from '../lib/cx'
 import { toast } from '../lib/ui'
+import { Overlay } from '../lib/overlays'
 import { Combo } from './Combo'
 import { Stepper } from './Stepper'
 import { Segmented } from './Segmented'
 import { EmptyState } from './EmptyState'
 import type { MittelEntry, MittelStatus } from '../types'
 import {
-  visibleMittel, groupBySource, currentMengeFor, availableFor, mittelListGroups, groupCatalogue,
+  visibleMittel, groupBySource, currentLineFor, currentMengeFor, availableFor, mittelListGroups, groupCatalogue,
   type CurrentMittel, type MittelListCell, type MittelListRow,
 } from '../lib/mittel'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
@@ -98,6 +99,31 @@ export function MittelView({ entries, canEdit, onSave, captureUsage }: {
   // row stays — it IS the catalogue); zeroing a custom line removes it — immediately, with an
   // undo toast that re-appends the previous total (entries are append-only, so undo is just
   // another save). Replaces the old blocking confirm (house rule: confirm-with-undo).
+  type MatProbe = Pick<MittelEntry, 'materialId' | 'label' | 'unit' | 'sourceId' | 'sourceLabel'>
+  /** The remark of one recorded line, and the writer for it. Only offered where something was
+   *  actually logged: an input under every catalogue row would be a wall of empty fields, and
+   *  the sentence («an Werkhof übergeben») only exists once the material does. */
+  const noteOf = (probe: MatProbe) => currentLineFor(entries, probe)?.note ?? ''
+  const writeNote = (probe: MatProbe, menge: number, note: string) => {
+    if ((noteOf(probe) || '') === note.trim()) return
+    onSave({ ...probe, menge, note: note.trim() || null })
+  }
+  /** A PENCIL, not a field in the row: an input beside the ±stepper squeezed the material name
+   *  down to «Auff…», and the name is what the row is for. The pencil carries a dot when a
+   *  remark exists and opens a small dialog, where a sentence has room to be written. */
+  const noteField = (probe: MatProbe, menge: number, label: string) => {
+    const note = noteOf(probe)
+    if (!canEdit) return note ? <div className={s.rowNoteRo}>{note}</div> : null
+    return (
+      <button
+        type="button" className={cx(s.rowNoteBtn, note && s.hasNote)}
+        title={note || M.noteLabel} aria-label={`${label} – ${M.noteLabel}`}
+        onClick={() => setNoteFor({ probe, menge, label, note })}
+      ><Icon id="pen" /></button>
+    )
+  }
+
+  const [noteFor, setNoteFor] = useState<{ probe: MatProbe; menge: number; label: string; note: string } | null>(null)
   const saveCell = (row: MittelListRow, cell: MittelListCell, menge: number) => {
     const draft: MittelDraft = {
       materialId: row.materialId, label: row.label, unit: row.unit,
@@ -116,11 +142,6 @@ export function MittelView({ entries, canEdit, onSave, captureUsage }: {
   // per-row stepper change in the source view appends a new total for that exact line.
   // Stepping to 0 removes the line — same delete-now + undo toast, so a misclick on − at 1
   // is one tap away from restored instead of silently gone.
-  /** Write (or clear) a line's remark without touching its quantity. */
-  const noteRow = (c: CurrentMittel, note: string) => {
-    if ((c.note ?? '') === note.trim()) return
-    onSave({ materialId: c.materialId, label: c.label, unit: c.unit, sourceId: c.sourceId, sourceLabel: c.sourceLabel, menge: c.menge, note: note.trim() || null })
-  }
   const editRow = (c: CurrentMittel, menge: number) => {
     const draft: MittelDraft = { materialId: c.materialId, label: c.label, unit: c.unit, sourceId: c.sourceId, sourceLabel: c.sourceLabel, menge }
     onSave(draft)
@@ -188,6 +209,9 @@ export function MittelView({ entries, canEdit, onSave, captureUsage }: {
                   <div key={c.key} className={s.row}>
                     <div className={s.rowMain}>
                       <span className={s.rowLabel}>{c.label}</span>
+                      {/* the remark: what a number alone can never say — «an Werkhof übergeben»,
+                          «Flasche defekt». It rides beside the count, not out at the row's edge. */}
+                      {noteField({ materialId: c.materialId, label: c.label, unit: c.unit, sourceId: c.sourceId, sourceLabel: c.sourceLabel }, c.menge, c.label)}
                       {/* qty and unit read as one value («3 / 4 Stk») — unit trails the number */}
                       {canEdit ? (
                         <div className={s.rowEdit}>
@@ -202,17 +226,6 @@ export function MittelView({ entries, canEdit, onSave, captureUsage }: {
                         </>
                       )}
                     </div>
-                    {/* the remark: what a number alone can never say — «an Werkhof übergeben»,
-                        «Flasche defekt». Saved on blur as its own append-only event, so it never
-                        disturbs the quantity (lib/useMittelActions · saveMittel). */}
-                    {canEdit ? (
-                      <input
-                        className={s.rowNote} defaultValue={c.note ?? ''} placeholder={M.notePlaceholder}
-                        aria-label={`${c.label} – ${M.noteLabel}`}
-                        onBlur={(e) => noteRow(c, e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-                      />
-                    ) : c.note ? <div className={s.rowNoteRo}>{c.note}</div> : null}
                   </div>
                 )
               })}
@@ -237,6 +250,13 @@ export function MittelView({ entries, canEdit, onSave, captureUsage }: {
                         {/* remaining-stock indicator sits BEFORE the ±stepper so the counting
                             buttons line up on a consistent right edge across rows */}
                         {row.totalStock != null && <StockDots remaining={row.totalStock - row.totalUsed} total={row.totalStock} label={row.label} />}
+                        {/* the remark pencil travels WITH the count, not at the row's far edge —
+                            it annotates the number, and the eye is already there after a ±tap.
+                            Saved as its own append-only event (lib/useMittelActions · saveMittel). */}
+                        {cell.used > 0 && noteField(
+                          { materialId: row.materialId, label: row.label, unit: row.unit, sourceId: cell.sourceId, sourceLabel: cell.sourceLabel },
+                          cell.used, row.label,
+                        )}
                         {canEdit ? (
                           <div className={s.rowEdit}>
                             <Stepper value={cell.used} min={0} max={9999} over={over} ariaLabel={`${row.label} ${row.unit}`} onChange={(v) => saveCell(row, cell, v)} />
@@ -271,6 +291,10 @@ export function MittelView({ entries, canEdit, onSave, captureUsage }: {
                           <div className={s.rowMain}>
                             <span className={s.subLabel}>{cell.sourceLabel ?? M.noSource}</span>
                             {cell.stock != null && <StockDots remaining={cell.stock - cell.used} total={cell.stock} label={`${row.label} · ${cell.sourceLabel ?? ''}`} />}
+                            {cell.used > 0 && noteField(
+                              { materialId: row.materialId, label: row.label, unit: row.unit, sourceId: cell.sourceId, sourceLabel: cell.sourceLabel },
+                              cell.used, `${row.label} · ${cell.sourceLabel ?? M.noSource}`,
+                            )}
                             {canEdit ? (
                               <div className={s.rowEdit}>
                                 <Stepper value={cell.used} min={0} max={9999} over={cellOver} ariaLabel={`${row.label} · ${cell.sourceLabel ?? M.noSource}`} onChange={(v) => saveCell(row, cell, v)} />
@@ -295,6 +319,40 @@ export function MittelView({ entries, canEdit, onSave, captureUsage }: {
         </div>
       )}
       </div>
+
+      {/* the remark, with room to write it — «an Werkhof übergeben», «Flasche defekt» */}
+      {noteFor && (
+        // the standard sheet chrome (.ip-head/.ip-body/.ip-actions each bring their own gutter) —
+        // a hand-rolled padding on the popup stacked on top of theirs and the title sat further
+        // in than the field under it. `mp-backdrop` because this opens OVER the Mittel sheet.
+        <Overlay
+          open onClose={() => setNoteFor(null)} backdropClassName="mp-backdrop"
+          className="ip-sheet ip-fit ui-dialog mv-note-dialog" ariaLabel={M.noteLabel}
+        >
+          <div className="ip-head"><h2>{noteFor.label}</h2>
+            <button className="ip-x" onClick={() => setNoteFor(null)} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
+          </div>
+          <div className="ip-body">
+          <label className="ip-field">
+            <span>{M.noteLabel}</span>
+            <textarea
+              className="ip-textarea" autoFocus defaultValue={noteFor.note} placeholder={M.notePlaceholder}
+              // the Rapport joins every source line's remark into one cell, so keep each short —
+              // an over-long cell cannot be split across pages and used to fail the whole compose
+              maxLength={240}
+              onChange={(e) => { noteFor.note = e.target.value }}
+            />
+          </label>
+          </div>
+          <div className="ip-actions">
+            <button type="button" className="ip-btn" onClick={() => setNoteFor(null)}>{M.cancel}</button>
+            <button type="button" className="ip-btn primary" onClick={() => {
+              writeNote(noteFor.probe, noteFor.menge, noteFor.note)
+              setNoteFor(null)
+            }}>{M.save}</button>
+          </div>
+        </Overlay>
+      )}
     </>
   )
 }

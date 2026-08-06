@@ -1,8 +1,8 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { cx } from '../lib/cx'
 import { parseAlarmText } from '../lib/alarmText'
-import { confirmDialog, toast } from '../lib/ui'
+import { confirmDialog, openPhoto, toast } from '../lib/ui'
 import { buildDirectReportPayload, downloadDirectReportPdf } from '../lib/reportPdfDirect'
 import { KrokiFramingModal } from './KrokiFramingModal'
 import { Overlay } from '../lib/overlays'
@@ -26,6 +26,7 @@ import { visibleMittel } from '../lib/mittel'
 import { PersonField } from './PersonField'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import { DateTimeField, TimeField } from './TimeField'
+import { Combo } from './Combo'
 import { Segmented } from './Segmented'
 import { Stepper } from './Stepper'
 
@@ -162,6 +163,11 @@ export function ReportPreflight({
   // number, what they took over.
   const [partners, setPartners] = useState<PartnerContact[]>(() => reportMeta.partnerContacts ?? [])
   const savePartners = (next: PartnerContact[]) => {
+    // Bail BEFORE the local state: `persist` already refuses to write while read-only, so
+    // accepting the edit on screen would show a viewer (or a closed Einsatz) a partner that
+    // was never saved and vanishes on close — the silent-drop failure the read-only fieldset
+    // exists to prevent. This block sits outside that fieldset, so it guards itself.
+    if (!canEdit) return
     setPartners(next)
     // an all-empty row is nothing to record — dropped on the way to the blob, kept on screen
     const clean = next.filter((p) => [p.org, p.name, p.phone, p.note].some((v) => v?.trim()))
@@ -206,6 +212,19 @@ export function ReportPreflight({
   /** the Lage the printed Kroki is built from: the reconstructed one when a moment is chosen */
   const effScene = pastScene && scene ? { ...scene, entities: pastScene.entities, drawings: pastScene.drawings } : scene
 
+  const presetOrgs = getDeploymentConfig().report?.partnerOrgs ?? []
+  /** One row per organisation: the station's list (ticked or not), then any recorded org that is
+   *  not on it. Matching is case-insensitive on the name, so a list entry and a typed one are
+   *  the same organisation and can never appear twice. */
+  const partnerRows = useMemo(() => {
+    const key = (o?: string) => (o ?? '').trim().toLowerCase()
+    const rows: { org: string; i: number; custom: boolean }[] =
+      presetOrgs.map((org) => ({ org, i: partners.findIndex((p) => key(p.org) === key(org)), custom: false }))
+    partners.forEach((p, i) => {
+      if (!presetOrgs.some((o) => key(o) === key(p.org))) rows.push({ org: p.org ?? '', i, custom: true })
+    })
+    return rows
+  }, [presetOrgs, partners])
   const [proof, setProof] = useState<AuditProof>({ intact: null, checkedAt: new Date().toISOString(), offline: true })
   const [checking, setChecking] = useState(true)
   // the alarm text auto-fills from the incident's dispatch text when none was typed in the
@@ -331,7 +350,11 @@ export function ReportPreflight({
       meta, generatedAt,
       proof: { ...proof, checkedAt: proof.checkedAt || generatedAt },
       // krokiAt travels with the draft so the printed caption dates the PICTURE, not the print
-      options: { ...options, krokiView: krokiView ?? options.krokiView, krokiAt: krokiAt != null ? new Date(krokiAt).toISOString() : null },
+      // Stamp the chosen instant ONLY when the reconstruction for it is actually what prints.
+      // `effScene` falls back to the LIVE Lage while the reconstruction is in flight and after
+      // one fails, and a caption saying «Stand 21:14» over a picture of 23:00 is a false
+      // statement on a document that is a legal record. No caption is the honest fallback.
+      options: { ...options, krokiView: krokiView ?? options.krokiView, krokiAt: krokiAt != null && pastScene ? new Date(krokiAt).toISOString() : null },
     }
   }
   const [pdfBusy, setPdfBusy] = useState(false)
@@ -670,93 +693,8 @@ export function ReportPreflight({
                 which is the whole reason to write a partner down at all («Wm. Keller, übernimmt
                 Verkehr ab Kreisel»). The organisation is offered from the station's list and
                 stays free text, because the one that turns up is never the one on the list. */}
-            <div className="ip-field">
-              <span>{P.partnersLabel}</span>
-              {partners.length > 0 && (
-                <div className="report-partners">
-                  {partners.map((p, i) => (
-                    <div className="report-partner" key={i}>
-                      <input
-                        className="ip-input" list="rp-partner-orgs" value={p.org ?? ''} placeholder={P.partnerOrg}
-                        aria-label={P.partnerOrg} onChange={(e) => patchPartner(i, { org: e.target.value })}
-                      />
-                      <input
-                        className="ip-input" value={p.name ?? ''} placeholder={P.partnerName}
-                        aria-label={P.partnerName} onChange={(e) => patchPartner(i, { name: e.target.value })}
-                      />
-                      <input
-                        className="ip-input" type="tel" value={p.phone ?? ''} placeholder={P.partnerPhone}
-                        aria-label={P.partnerPhone} onChange={(e) => patchPartner(i, { phone: e.target.value })}
-                      />
-                      <input
-                        className="ip-input report-partner-note" value={p.note ?? ''} placeholder={P.partnerNote}
-                        aria-label={P.partnerNote} onChange={(e) => patchPartner(i, { note: e.target.value })}
-                      />
-                      <button
-                        type="button" className="report-att-x" aria-label={appConfig.copy.delete} title={appConfig.copy.delete}
-                        onClick={() => savePartners(partners.filter((_, j) => j !== i))}
-                      ><Icon id="trash" /></button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {/* the station's own list, as suggestions — typing something else is normal */}
-              <datalist id="rp-partner-orgs">
-                {(getDeploymentConfig().report?.partnerOrgs ?? []).map((o) => <option key={o} value={o} />)}
-              </datalist>
-              <button type="button" className="report-row-add" onClick={() => savePartners([...partners, { org: '' }])}>
-                <Icon id="plus" /><span>{P.partnerAdd}</span>
-              </button>
-            </div>
           </section>
 
-          {/* Beilagen — the photos that belong to the REPORT rather than to the Verlauf: an ID
-              document, a damage close-up, a handed-over form. They print at the end, one per row
-              and big enough to READ, which is the whole reason for photographing a document.
-              Kept out of the Verlauf deliberately: that is a timed record of what happened, and a
-              picture of somebody's licence is neither an observation nor a moment. */}
-          <section className="report-pre-section report-attachments">
-            <h3>{P.attachmentsHead}</h3>
-            <p className="report-att-hint">{P.attachmentsHint}</p>
-            {attachments.length > 0 && (
-              <ul className="report-att-list">
-                {attachments.map((a) => (
-                  <li key={a.id} className="report-att">
-                    <img className="report-att-thumb" src={a.url} alt="" />
-                    <div className="report-att-body">
-                      <input
-                        className="ip-input" value={a.caption ?? ''} placeholder={P.attachmentsCaption}
-                        aria-label={P.attachmentsCaption} disabled={!onCaptionAttachment}
-                        onChange={(e) => onCaptionAttachment?.(a.id, e.target.value)}
-                      />
-                      {/* an upload still in flight: the file is on THIS device only, so another
-                          device printing now would get a gap. Same honesty as the pending-media
-                          warning further down. */}
-                      {a.url.startsWith('blob:') && <span className="report-att-pending">{P.attachmentsPending}</span>}
-                    </div>
-                    {onRemoveAttachment && (
-                      <button type="button" className="report-att-x" aria-label={appConfig.copy.delete}
-                        title={appConfig.copy.delete} onClick={() => onRemoveAttachment(a.id)}><Icon id="trash" /></button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-            {onAddAttachments && (
-              <label className="report-row-add report-att-add">
-                <Icon id="photo" /><span>{P.attachmentsAdd}</span>
-                {/* no `capture` attribute: on a phone the OS sheet offers the camera anyway, and
-                    forcing it would take the file picker away from the tablet at the KP, where
-                    the photo usually already exists. */}
-                <input type="file" accept="image/*" multiple
-                  onChange={(e) => {
-                    const files = [...(e.target.files ?? [])]
-                    if (files.length) onAddAttachments(files)
-                    e.target.value = '' // same file twice in a row must still fire
-                  }} />
-              </label>
-            )}
-          </section>
 
           </fieldset>
 
@@ -811,6 +749,126 @@ export function ReportPreflight({
                 </div>
               )}
             </CheckRow>
+            {/* Partnerorganisationen sit with Anwesenheit and Mittel: all three answer «who and
+                what was here», and all three are the parts of the rapport that get filled in
+                after the fact. The station's own list is the choice (free text stays possible —
+                the one that turns up is not always on it), and one free line beside it carries
+                whatever is worth saying: «Wm. Keller, übernimmt Verkehr ab Kreisel». */}
+            <CheckRow
+              done={partners.length > 0}
+              label={P.partnersLabel}
+              sub={partners.length ? partners.map((p) => p.org).filter(Boolean).join(' · ') : P.partnersNone}
+            >
+              <div className="rp-check-extra">
+                {/* own gate: the sheet's main fieldset ends above the checklist, so a viewer or
+                    a closed Einsatz would otherwise get fully live controls here */}
+                <fieldset className="report-fieldset rp-check-gate" disabled={!canEdit}>
+                  {/* A CHECKLIST, not a picker: every organisation the station works with is
+                      already on the list, so the question is «war die da?» — one tap per row,
+                      nothing to search, and an unticked row still proves it was considered.
+                      Ticking reveals the one free line («Wm. Keller, Verkehr ab Kreisel»). */}
+                  <div className="report-partners">
+                    {partnerRows.map((r) => {
+                      const on = r.i >= 0
+                      return (
+                        <div className={cx('report-partner', on && 'on')} key={r.custom ? `c${r.i}` : r.org}>
+                          {/* a free row NAMES itself in its own field — repeating the label beside
+                              that field cost 170px the row did not have, and the delete button
+                              wrapped onto a line of its own */}
+                          <button
+                            type="button" className={cx('report-partner-tick', r.custom && 'bare')}
+                            role="checkbox" aria-checked={on} aria-label={r.org || P.partnerOrgShort}
+                            onClick={() => (on
+                              ? savePartners(partners.filter((_, j) => j !== r.i))
+                              : savePartners([...partners, { org: r.org }]))}
+                          >
+                            <span className="report-partner-box">{on && <Icon id="check" />}</span>
+                            {!r.custom && <span className="report-partner-org">{r.org}</span>}
+                          </button>
+                          {/* a free-typed organisation names itself; a listed one is already named */}
+                          {on && r.custom && (
+                            <input
+                              className="ip-input report-partner-name" value={partners[r.i].org ?? ''}
+                              placeholder={P.partnerOrgShort} aria-label={P.partnerOrgShort}
+                              onChange={(e) => patchPartner(r.i, { org: e.target.value })} maxLength={80}
+                            />
+                          )}
+                          {on && (
+                            <input
+                              className="ip-input" value={partners[r.i].note ?? ''} placeholder={P.partnerNote}
+                              aria-label={`${r.org || P.partnerOrgShort} – ${P.partnerNote}`}
+                              onChange={(e) => patchPartner(r.i, { note: e.target.value })} maxLength={240}
+                            />
+                          )}
+                          {on && r.custom && (
+                            <button
+                              type="button" className="report-att-x" aria-label={appConfig.copy.delete}
+                              title={appConfig.copy.delete}
+                              onClick={() => savePartners(partners.filter((_, j) => j !== r.i))}
+                            ><Icon id="trash" /></button>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                  {/* the list covers the usual partners; the one that turns up anyway still has
+                      to be recordable, so a free row stays available underneath it */}
+                  <button type="button" className="report-row-add" onClick={() => savePartners([...partners, { org: '' }])}>
+                    <Icon id="plus" /><span>{P.partnerAdd}</span>
+                  </button>
+                </fieldset>
+              </div>
+            </CheckRow>
+            {/* Beilagen sit right under Partnerorganisationen: same family, same question —
+                what else belongs to this rapport. Tapping a thumbnail opens the picture full-size
+                (lib/ui · openPhoto), because a 52px square is not something you can check. */}
+            <CheckRow
+              done={attachments.length > 0}
+              label={P.attachmentsHead}
+              sub={attachments.length ? fillTemplate(P.attachmentsCount, { n: attachments.length }) : P.attachmentsNone}
+            >
+              <div className="rp-check-extra">
+                <p className="report-att-hint">{P.attachmentsHint}</p>
+                {attachments.length > 0 && (
+                  <ul className="report-att-list">
+                    {attachments.map((a) => (
+                      <li key={a.id} className="report-att">
+                        <button
+                          type="button" className="report-att-thumb" title={P.attachmentsOpen}
+                          aria-label={P.attachmentsOpen}
+                          onClick={() => openPhoto(a.url, { caption: a.caption, filename: `beilage-${a.id}.jpg` })}
+                        >
+                          <img src={a.url} alt="" />
+                        </button>
+                        <div className="report-att-body">
+                          <input
+                            className="ip-input" value={a.caption ?? ''} placeholder={P.attachmentsCaption}
+                            aria-label={P.attachmentsCaption} disabled={!onCaptionAttachment}
+                            onChange={(e) => onCaptionAttachment?.(a.id, e.target.value)}
+                          />
+                          {a.url.startsWith('blob:') && <span className="report-att-pending">{P.attachmentsPending}</span>}
+                        </div>
+                        {onRemoveAttachment && (
+                          <button type="button" className="report-att-x" aria-label={appConfig.copy.delete}
+                            title={appConfig.copy.delete} onClick={() => onRemoveAttachment(a.id)}><Icon id="trash" /></button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {onAddAttachments && (
+                  <label className="report-row-add report-att-add">
+                    <Icon id="photo" /><span>{P.attachmentsAdd}</span>
+                    <input type="file" accept="image/*" multiple
+                      onChange={(e) => {
+                        const files = [...(e.target.files ?? [])]
+                        if (files.length) onAddAttachments(files)
+                        e.target.value = ''
+                      }} />
+                  </label>
+                )}
+              </div>
+            </CheckRow>
           </section>
 
           {/* Folded, because this is the block that ate most of the dialog's height while
@@ -833,38 +891,6 @@ export function ReportPreflight({
               {/* framing is chosen visually in the KrokiFramingModal right before PDF /
                   Ausdrucken — no «aktuelle Ansicht» / extent toggles needed anymore */}
               <Toggle label={P.toggleKroki} checked={options.kroki && mapContentCount > 0} onChange={(v) => patchOpt({ kroki: v })} disabled={mapContentCount === 0} />
-              {/* WHEN the Kroki shows. One picture is one Lage at one time — so rather than
-                  collaging everything that was ever placed into a situation that never existed,
-                  the sheet lets you name the moment and reconstructs it from the journal. That
-                  is also the honest answer to «die Rettung ist weg»: she is on the 21:14 Kroki,
-                  because at 21:14 she was there. */}
-              {options.kroki && mapContentCount > 0 && (
-                <div className="report-plans-row">
-                  <span>{P.krokiAtLabel}</span>
-                  <div className="report-krokiat">
-                    <Segmented<'now' | 'past'>
-                      ariaLabel={P.krokiAtLabel}
-                      value={krokiAt == null ? 'now' : 'past'}
-                      options={[{ value: 'now', label: P.krokiAtNow }, { value: 'past', label: P.krokiAtPast }]}
-                      onChange={(v) => setKrokiAt(v === 'now' ? null : Date.now())}
-                    />
-                    {krokiAt != null && (
-                      <TimeField
-                        ariaLabel={P.krokiAtLabel} value={hhmm(new Date(krokiAt))} nowLabel={P.krokiAtNowBtn}
-                        onCommit={(v) => {
-                          if (!v) { setKrokiAt(Date.now()); return }
-                          // the time lands on the day the Einsatz is running on, not on 1970
-                          const base = new Date(krokiAt)
-                          const [h, m] = v.split(':').map(Number)
-                          base.setHours(h, m, 0, 0)
-                          setKrokiAt(base.getTime())
-                        }}
-                      />
-                    )}
-                    {krokiAtBusy && <span className="report-krokiat-busy">{P.krokiAtBusy}</span>}
-                  </div>
-                </div>
-              )}
               <div className="report-plans-row">
                 <span>{P.plansLabel}</span>
                 <Segmented<'annotated' | 'all' | 'none'>
@@ -958,6 +984,14 @@ export function ReportPreflight({
         <KrokiFramingModal
           scene={effScene}
           initial={options.krokiView}
+          // WHEN the picture shows. It belongs HERE, on the screen that already asks «what does
+          // the printed Kroki show» — behind the sections fold nobody found it. One picture is
+          // one Lage at one time; naming the moment is the honest answer to «die Rettung ist
+          // weg», and the map below redraws as it is reconstructed.
+          atMs={krokiAt}
+          atBusy={krokiAtBusy}
+          onAtChange={setKrokiAt}
+          startedAtMs={Date.parse(meta.startedAt ?? incident.started_at) || null}
           onCancel={() => setFramingFor(null)}
           onConfirm={(v) => {
             patchOpt({ krokiView: v }) // remembered: reopening seeds with this crop

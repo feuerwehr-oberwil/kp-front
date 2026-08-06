@@ -21,6 +21,11 @@ export function useJournal({ incidentId, readOnly, legacy }: {
   const store = storeRef.current
 
   useEffect(() => {
+    // ⚠️ React StrictMode (dev) mounts this effect, tears it down and mounts it AGAIN. The store
+    // lives in a ref, so it survives that — but the first teardown disposed it, and a disposed
+    // store drops every `append` on the floor without a word. In dev that meant: the composer
+    // closed, the toast said «gespeichert», and no Verlaufszeile ever reached the server.
+    if (store.isDisposed) store.revive()
     store.onChange = () => setNonce((n) => n + 1)
     void store.init(legacy)
 
@@ -83,12 +88,15 @@ export function useJournal({ incidentId, readOnly, legacy }: {
 
   const append = useCallback((row: TimelineEvent) => store.append(row), [store])
   const appendPatch = useCallback(
-    (id: string, fields: Partial<Pick<TimelineEvent, 'transcript' | 'audioUrl' | 'photoUrl' | 'textEdit' | 'retracted'>>) =>
+    (id: string, fields: Partial<Pick<TimelineEvent, 'transcript' | 'audioUrl' | 'photoUrl' | 'photoUrls' | 'textEdit' | 'retracted'>>) =>
       store.appendPatch(id, fields),
     [store],
   )
   const overlaySession = useCallback((id: string, fields: Partial<TimelineEvent>) => store.overlaySession(id, fields), [store])
+  // stable identity: callers hang upload callbacks off this, and reading a row's photos from
+  // the store (not from a captured `rows`) is what keeps a multi-photo row intact
+  const swapPhoto = useCallback((id: string, from: string, to: string) => store.swapPhoto(id, from, to), [store])
   const ingestLegacy = useCallback((tl: TimelineEvent[]) => store.ingestLegacy(tl), [store])
 
-  return { rows, blobTimeline, append, appendPatch, overlaySession, ingestLegacy, pendingCount: store.pendingCount }
+  return { rows, blobTimeline, append, appendPatch, overlaySession, swapPhoto, ingestLegacy, pendingCount: store.pendingCount }
 }

@@ -7,6 +7,7 @@ import { fahrzeugRows, gruppenRows } from './alarmzeiten'
 import { intervalsOf } from './attendanceIntervals'
 import { getDeploymentConfig } from './deploymentConfig'
 import { mittelReportRows } from './mittel'
+import { rowPhotos } from './verlauf'
 
 export interface KrokiView {
   center: LngLat
@@ -122,7 +123,7 @@ export interface JournalPrintRow {
   area: string
   text: string
   kind?: TimelineEvent['kind']
-  photoUrl?: string
+  photoUrls?: string[]
   audioUrl?: string
   transcript?: string
   /** row was appended AFTER the Einsatzende (closed_at) — printed under «Nachträge» */
@@ -161,7 +162,7 @@ export function journalRows(
         area: journalArea(e, plans),
         text: e.text,
         kind: e.kind,
-        photoUrl: e.photoUrl,
+        photoUrls: rowPhotos(e),
         audioUrl: e.audioUrl,
         transcript: e.transcript,
         nachtrag: Number.isFinite(closedMs) && iso != null && Date.parse(iso) > closedMs,

@@ -4,6 +4,7 @@ import type { Map as MapLibreMap } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { Icon } from '../lib/icons'
 import { Overlay } from '../lib/overlays'
+import { hhmm } from '../lib/format'
 import { appConfig } from '../config/appConfig'
 import { operationalExtentPoints } from '../lib/report'
 import { circlePolygon } from '../lib/geo'
@@ -25,14 +26,37 @@ const CARTO_FALLBACK = 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/
 // complete decorated marker (not only its glyph) makes badges/spreads/shapes WYSIWYG here.
 const PRINT_REF_WIDTH = 1050
 
-export function KrokiFramingModal({ scene, initial, onCancel, onConfirm }: {
+export function KrokiFramingModal({ scene, initial, atMs = null, atBusy = false, onAtChange, startedAtMs = null, onCancel, onConfirm }: {
   scene: { entities: Entity[]; drawings: Drawing[]; layers: LayerDef[]; byName: Record<string, string>; center: LngLat }
   /** a previously chosen crop — reopens where the operator left it */
   initial: KrokiView | null
+  /** the instant the printed Kroki shows; null = the live picture. The scene above is already
+   *  the reconstructed one — this is only the control, so the choice sits on the screen that
+   *  asks what the picture shows rather than behind a fold two levels away. */
+  atMs?: number | null
+  atBusy?: boolean
+  onAtChange?: (ms: number | null) => void
+  /** the Einsatz's start — the slider's left end; its right end is «jetzt» */
+  startedAtMs?: number | null
   onCancel: () => void
   onConfirm: (view: KrokiView) => void
 }) {
   const P = appConfig.copy.preflight
+  // read once per open: a ticking «now» would move the slider's right end under the finger
+  const [nowMs] = useState(() => Date.now())
+  /** where the thumb is WHILE dragging — the reconstruction waits for it to stop */
+  const [dragMs, setDragMs] = useState<number | null>(null)
+  const commitDrag = () => {
+    if (dragMs == null) return
+    // the last notch IS the live picture: no reconstruction, and the caption stays «jetzt»
+    onAtChange?.(dragMs >= nowMs - 30_000 ? null : dragMs)
+    setDragMs(null)
+  }
+  /** Date AND time: on a long Einsatz «21:14» alone does not say which day, and the printed
+   *  caption carries the full stamp — the control must not say less than the paper. */
+  const atShown = dragMs ?? atMs
+  const label = atShown == null ? P.krokiAtNow
+    : new Date(atShown).toLocaleString(appConfig.locale, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
   const mapRef = useRef<MapRef>(null)
   const [previewZoom, setPreviewZoom] = useState(initial?.zoom ?? 16)
   const [previewWidth, setPreviewWidth] = useState(720)
@@ -158,6 +182,34 @@ export function KrokiFramingModal({ scene, initial, onCancel, onConfirm }: {
             ))}
           </Map>
           <div className="kf-hint">{P.framingHint}</div>
+          {/* «Stand» — one picture is one Lage at ONE time. «Jetzt» is the normal answer; a time
+              reconstructs the Lage as it stood then (the map redraws under the crop), which is
+              how a rapport can still show a Rettung that has long since left. */}
+          {onAtChange && startedAtMs != null && (
+            <div className="kf-at">
+              <span className="kf-at-label">{P.krokiAtLabel}</span>
+              {/* A SLIDER over the Einsatz, not a clock to type into: nobody knows what time the
+                  Rettung was still standing there — but everybody can drag until the picture
+                  shows it. The right end IS «jetzt», so the live picture stays one drag away and
+                  needs no separate switch. */}
+              {/* The DRAG is local; the reconstruction runs when the thumb comes to rest. Firing
+                  it on every notch meant a fetch per pixel — the busy line blinked, the map
+                  redrew mid-drag and the whole sheet flickered. */}
+              <input
+                className="kf-at-range" type="range"
+                min={startedAtMs} max={nowMs} step={30_000}
+                value={dragMs ?? atMs ?? nowMs}
+                aria-label={P.krokiAtLabel}
+                aria-valuetext={label}
+                onChange={(e) => setDragMs(Number(e.target.value))}
+                onPointerUp={() => commitDrag()}
+                onKeyUp={() => commitDrag()}
+                onBlur={() => commitDrag()}
+              />
+              <b className="kf-at-val">{label}</b>
+              <span className="kf-at-busy">{atBusy ? P.krokiAtBusy : ''}</span>
+            </div>
+          )}
           {/* ± on the map itself: with gloves on a tablet, pinching a crop into place is the
               fiddliest gesture the app asks for, and this is the one place where the exact
               framing is the whole point of the screen. */}

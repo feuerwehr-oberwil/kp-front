@@ -166,7 +166,8 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
   const journal = journalRows(events, plans, meta.startedAt ?? incident.started_at, incident.closed_at, { includeBookkeeping: draft.options.detailedAudit })
     .map((r) => ({
       timeLabel: r.timeLabel, area: r.area, text: r.text, transcript: r.transcript || undefined,
-      photoUrl: r.photoUrl?.startsWith('/') ? r.photoUrl : undefined,
+      // only pictures the SERVER can fetch — a blob: URL is one that never finished uploading
+      photoUrls: r.photoUrls?.filter((u) => u.startsWith('/')),
     }))
 
   const kroki = draft.options.kroki && scene

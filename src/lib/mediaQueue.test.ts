@@ -43,6 +43,35 @@ describe('mediaQueue', () => {
     expect(await q[0].blob.text()).toBe('new')
   })
 
+  it('several photos on ONE row all survive the queue', async () => {
+    // keying photos per row made each capture evict the previous one: three pictures taken
+    // offline left two of them destroyed, with no error anywhere
+    await enqueueMedia(INC, 'e1', 'photo', blob('one'), 'p', '2026-07-01T10:00:00Z', 'blob:one')
+    await enqueueMedia(INC, 'e1', 'photo', blob('two'), 'p', '2026-07-01T10:00:01Z', 'blob:two')
+    await enqueueMedia(INC, 'e1', 'photo', blob('three'), 'p', '2026-07-01T10:00:02Z', 'blob:three')
+
+    const q = await listMediaQueue(INC)
+    expect(q).toHaveLength(3)
+    expect(await Promise.all(q.map((i) => i.blob.text()))).toEqual(['one', 'two', 'three'])
+    // and each knows which picture of the row it stands for, so the upload swaps the right one
+    expect(q.map((i) => i.localUrl)).toEqual(['blob:one', 'blob:two', 'blob:three'])
+  })
+
+  it('a re-recorded voice memo still supersedes the old one', async () => {
+    await enqueueMedia(INC, 'e1', 'audio', blob('old'), 'a', '2026-07-01T10:00:00Z')
+    await enqueueMedia(INC, 'e1', 'audio', blob('new'), 'a', '2026-07-01T10:05:00Z')
+    const q = await listMediaQueue(INC)
+    expect(q).toHaveLength(1)
+    expect(await q[0].blob.text()).toBe('new')
+  })
+
+  it('flush reports which picture each upload replaces', async () => {
+    await enqueueMedia(INC, 'e1', 'photo', blob(), 'p', '2026-07-01T10:00:00Z', 'blob:one')
+    const upload: MediaUploader = vi.fn(async () => ({ url: 'https://srv/photo' }))
+    const out = await flushMediaQueue(INC, upload)
+    expect(out.uploaded[0].localUrl).toBe('blob:one')
+  })
+
   it('flush uploads pending items, removes them, and reports the server URLs', async () => {
     await enqueueMedia(INC, 'e1', 'photo', blob(), 'p', '2026-07-01T10:00:00Z')
     await enqueueMedia(INC, 'e2', 'audio', blob(), 'a', '2026-07-01T10:01:00Z')

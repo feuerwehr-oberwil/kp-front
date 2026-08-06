@@ -1,5 +1,6 @@
 import { ApiError, apiBeacon, apiGet, apiPost } from './api'
 import { idbGet, idbSet } from './idb'
+import { rowPhotos, swapUrl } from './verlauf'
 import type { TimelineEvent } from '../types'
 
 /**
@@ -32,13 +33,20 @@ interface Persisted { rows: ServerRow[]; latestSeq: number; outbox: TimelineEven
 const KEY = (incidentId: string) => `kp-journal-${incidentId}`
 const FLUSH_BATCH = 400
 
-/** blob: object URLs are session-local — never persist them (display via the overlay). */
+const isBlob = (u: string) => u.startsWith('blob:')
+
+/** blob: object URLs are session-local — never persist them (display via the overlay).
+ *  `photoUrls` is filtered ENTRY BY ENTRY: a row with one uploaded and one pending picture
+ *  must persist the uploaded one and leave the pending one to the overlay. Dropping the key
+ *  when nothing survives keeps a not-yet-uploaded row out of the append-only record. */
 function stripSessionUrls(row: TimelineEvent): TimelineEvent {
-  const { audioUrl, photoUrl, ...rest } = row
+  const { audioUrl, photoUrl, photoUrls, ...rest } = row
+  const keptPhotos = (photoUrls ?? []).filter((u) => !isBlob(u))
   return {
     ...rest,
-    ...(audioUrl && !audioUrl.startsWith('blob:') ? { audioUrl } : {}),
-    ...(photoUrl && !photoUrl.startsWith('blob:') ? { photoUrl } : {}),
+    ...(audioUrl && !isBlob(audioUrl) ? { audioUrl } : {}),
+    ...(photoUrl && !isBlob(photoUrl) ? { photoUrl } : {}),
+    ...(keptPhotos.length ? { photoUrls: keptPhotos } : {}),
   }
 }
 
@@ -120,6 +128,9 @@ export class JournalStore {
     if (this.disposed) return
     if (row.audioUrl?.startsWith('blob:')) this.overlaySession(row.id, { audioUrl: row.audioUrl })
     if (row.photoUrl?.startsWith('blob:')) this.overlaySession(row.id, { photoUrl: row.photoUrl })
+    // the overlay holds the FULL list (uploaded + pending) — it replaces the field wholesale
+    // in display(), so a partial list here would hide the row's already-uploaded pictures
+    if (row.photoUrls?.some(isBlob)) this.overlaySession(row.id, { photoUrls: row.photoUrls })
     this.state.outbox.push(stripSessionUrls(row))
     this.persist()
     this.emit()
@@ -129,7 +140,7 @@ export class JournalStore {
   /** Later-arriving enrichment (transcript, uploaded media URL) — a NEW row, never an edit.
    *  Clearing a field sends '' (never undefined: JSON.stringify drops undefined keys, and
    *  the clear would un-apply once the outbox copy is replaced by the server row). */
-  appendPatch(targetId: string, fields: Partial<Pick<TimelineEvent, 'transcript' | 'audioUrl' | 'photoUrl' | 'textEdit' | 'retracted'>>) {
+  appendPatch(targetId: string, fields: Partial<Pick<TimelineEvent, 'transcript' | 'audioUrl' | 'photoUrl' | 'photoUrls' | 'textEdit' | 'retracted'>>) {
     const at = new Date().toISOString()
     const clean = Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, v ?? '']))
     // seq suffix: two patches for one target can land in the same millisecond
@@ -140,6 +151,36 @@ export class JournalStore {
   overlaySession(id: string, fields: Partial<TimelineEvent>) {
     this.overlay.set(id, { ...this.overlay.get(id), ...fields })
     this.emit()
+  }
+
+  /**
+   * One picture of a row settled — an upload finished (`to` = server URL) or a queued capture
+   * was restored after a reload (`to` = fresh blob: URL). Replaces THAT url and keeps the row's
+   * other pictures.
+   *
+   * The row's current photos are read from the store HERE rather than passed in: between the
+   * capture and the upload landing, a caller-captured copy is stale (a React callback holds the
+   * rows array of whichever render created it), and folding a one-element list over the row is
+   * how a three-photo entry ends up printing one picture.
+   */
+  swapPhoto(targetId: string, from: string, to: string) {
+    const cur = this.display().find((r) => r.id === targetId)
+    const next = swapUrl(rowPhotos(cur ?? {}), from, to)
+    // pending pictures live in the overlay; once they have all uploaded it must go, or the
+    // stale session list would keep winning over the patch in display()
+    if (next.some(isBlob)) this.overlaySession(targetId, { photoUrls: next })
+    else this.dropOverlayPhotos(targetId)
+    const persistent = next.filter((u) => !isBlob(u))
+    if (persistent.length && !isBlob(to)) this.appendPatch(targetId, { photoUrls: persistent })
+    else this.emit()
+  }
+
+  private dropOverlayPhotos(id: string) {
+    const cur = this.overlay.get(id)
+    if (!cur || !('photoUrls' in cur)) return
+    const { photoUrls: _dropped, ...rest } = cur
+    if (Object.keys(rest).length) this.overlay.set(id, rest)
+    else this.overlay.delete(id)
   }
 
   async flush(): Promise<void> {
@@ -268,6 +309,19 @@ export class JournalStore {
 
   dispose() {
     this.disposed = true
+  }
+
+  /** Is this store shut down? React StrictMode mounts an effect, tears it down and mounts it
+   *  again — and the store lives in a ref that survives that, so the second mount would inherit
+   *  a DISPOSED store whose `append` silently drops every row. See `revive`. */
+  get isDisposed(): boolean {
+    return this.disposed
+  }
+
+  /** Bring a disposed store back for a re-mount of the same incident. Only the StrictMode
+   *  double-mount does this in practice; a real unmount is followed by a new store. */
+  revive() {
+    this.disposed = false
   }
 
   /** merge fetched/accepted rows into the local set — display state, no cursor movement */

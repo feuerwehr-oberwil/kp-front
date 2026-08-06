@@ -52,3 +52,17 @@ export function groupByDay(events: readonly TimelineEvent[], now: Date = new Dat
   }
   return groups
 }
+
+/** Every picture on a row, old shape and new: rows written before 2026-08-06 carry a single
+ *  `photoUrl`, newer ones a `photoUrls` list. Readers use THIS, never the fields. */
+export function rowPhotos(e: { photoUrl?: string; photoUrls?: string[] }): string[] {
+  return e.photoUrls?.length ? e.photoUrls : e.photoUrl ? [e.photoUrl] : []
+}
+
+/** Replace one URL in a row's photo list, keeping the others and the order. Used when one of
+ *  several attached pictures finishes uploading: the row's other photos (still local blob:
+ *  URLs, or already uploaded) must survive that patch untouched. */
+export function swapUrl(list: string[] | undefined, from: string, to: string): string[] {
+  const arr = list ?? []
+  return arr.includes(from) ? arr.map((u) => (u === from ? to : u)) : [...arr, to]
+}

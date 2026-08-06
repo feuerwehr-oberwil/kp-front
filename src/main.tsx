@@ -119,6 +119,12 @@ void (async () => {
   // else is the unchanged field app. Both stay inside <AuthProvider>.
   const isAdmin = window.location.pathname.startsWith('/admin')
   const isCapture = window.location.pathname.startsWith('/e/')
+  // The field app is a fixed-height, non-scrolling shell (the map fills the viewport), so
+  // `body` carries `overflow: hidden` and `height: 100%`. The capture poster is the opposite:
+  // an ordinary page that grows as sections open — and once it grew past the viewport, the part
+  // below could not scroll and the unpainted area under the shell showed through WHITE. Mark the
+  // document so the stylesheet can let this one page scroll and keep its background.
+  if (isCapture) document.documentElement.classList.add('page-scroll')
   const isLink = window.location.pathname.startsWith('/l/')
   createRoot(document.getElementById('root')!).render(
     <StrictMode>

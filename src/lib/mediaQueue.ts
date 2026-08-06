@@ -24,7 +24,7 @@ const keyFor = (incidentId: string) => `${PREFIX}${incidentId}`
 export type MediaStatus = 'pending' | 'failed'
 
 export interface MediaQueueItem {
-  id: string                     // queue id — one per (rowId, kind); a re-capture replaces it
+  id: string                     // queue id — see mediaQueueId
   incidentId: string
   rowId: string                  // timeline event id the media hangs off
   kind: 'photo' | 'audio'
@@ -34,13 +34,20 @@ export interface MediaQueueItem {
   attempts: number               // count of failed upload attempts (network drops don't count)
   status: MediaStatus
   lastError?: string
+  /** the row's blob: URL this capture stands for — the picture the server URL replaces once
+   *  it uploads. Absent on audio (a row has one voice memo) and on pre-2026-08 queue entries. */
+  localUrl?: string
 }
 
 /** After this many server-side (non-network) failures an item is surfaced as `failed`
  *  rather than an ever-pending upload the operator can't reason about. */
 const MAX_ATTEMPTS = 3
 
-export const mediaQueueId = (rowId: string, kind: 'photo' | 'audio') => `${rowId}:${kind}`
+/** Queue id. Audio is one per row — a re-recorded voice memo supersedes the old one. Photos are
+ *  a LIST, so they key on the individual picture: keying them per row made each queued photo
+ *  evict the previous one, and three photos taken offline left two of them destroyed. */
+export const mediaQueueId = (rowId: string, kind: 'photo' | 'audio', localUrl?: string) =>
+  kind === 'photo' && localUrl ? `${rowId}:photo:${localUrl}` : `${rowId}:${kind}`
 
 /** Same queue content (id + status per slot)? Lets the React binding keep the PREVIOUS state
  *  identity when a re-list changed nothing — setItems(new array) on every flush was the state
@@ -62,8 +69,9 @@ async function writeQueue(incidentId: string, items: MediaQueueItem[]): Promise<
   return withTileEviction(() => idbSet(keyFor(incidentId), items))
 }
 
-/** Persist a captured blob for later upload, replacing any prior entry for the same row+kind
- *  (a re-capture supersedes the old one). Resets it to `pending` for a fresh retry cycle. */
+/** Persist a captured blob for later upload, replacing any prior entry with the same queue id
+ *  (a re-recorded voice memo supersedes the old one; photos key per picture, so they stack).
+ *  Resets it to `pending` for a fresh retry cycle. */
 export async function enqueueMedia(
   incidentId: string,
   rowId: string,
@@ -71,11 +79,12 @@ export async function enqueueMedia(
   blob: Blob,
   filename: string,
   createdAt: string,
+  localUrl?: string,
 ): Promise<void> {
-  const id = mediaQueueId(rowId, kind)
+  const id = mediaQueueId(rowId, kind, localUrl)
   const items = await readQueue(incidentId)
   const next = items.filter((i) => i.id !== id)
-  next.push({ id, incidentId, rowId, kind, blob, filename, createdAt, attempts: 0, status: 'pending' })
+  next.push({ id, incidentId, rowId, kind, blob, filename, createdAt, attempts: 0, status: 'pending', ...(localUrl ? { localUrl } : {}) })
   await writeQueue(incidentId, next)
 }
 
@@ -92,7 +101,7 @@ export type MediaUploader = (
 ) => Promise<{ url: string }>
 
 export interface FlushOutcome {
-  uploaded: { id: string; rowId: string; kind: 'photo' | 'audio'; url: string }[]
+  uploaded: { id: string; rowId: string; kind: 'photo' | 'audio'; url: string; localUrl?: string }[]
   remaining: MediaQueueItem[]
 }
 
@@ -108,7 +117,7 @@ export async function flushMediaQueue(incidentId: string, upload: MediaUploader)
   for (const item of items) {
     try {
       const { url } = await upload(incidentId, item.blob, item.kind, item.filename)
-      uploaded.push({ id: item.id, rowId: item.rowId, kind: item.kind, url })
+      uploaded.push({ id: item.id, rowId: item.rowId, kind: item.kind, url, localUrl: item.localUrl })
     } catch (e) {
       // A network failure (offline / server unreachable) is not the item's fault — keep it
       // pending without burning an attempt. Only a reachable-but-rejecting server counts.
