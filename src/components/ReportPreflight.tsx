@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
+import { parseAlarmText } from '../lib/alarmText'
 import { confirmDialog, toast } from '../lib/ui'
 import { buildDirectReportPayload, downloadDirectReportPdf } from '../lib/reportPdfDirect'
 import { KrokiFramingModal } from './KrokiFramingModal'
@@ -255,6 +256,7 @@ export function ReportPreflight({
     // Alarmierung = the incident's start (= when we were alarmed); editable in Einsatzdaten
     alarmiertAt: reportMeta.alarmiertAt ?? incident.started_at,
   }
+  const alarm = parseAlarmText(meta.alarmText)
   const alarmiert = meta.alarmiertAt
   const missTx = missingTranscriptCount(events)
   // krokiView arrives fresh from the framing modal — options state is set in parallel,
@@ -386,7 +388,34 @@ export function ReportPreflight({
                 )}
               </div>
               <dl className="report-meta-readout">
-                <div><dt>{P.alarmMessage}</dt><dd>{meta.alarmText || <span className="report-meta-empty">{P.notRecorded}</span>}</dd></div>
+                {/* The gateway hands us one field holding four different things (see
+                    lib/alarmText). Shown verbatim it is mostly machinery — a marching order,
+                    an object's notes, and a 300-character link this app minted itself — under
+                    a heading that promises a MESSAGE. Split, each part lands where it belongs
+                    and «Alarmmeldung» says «nicht erfasst» when nobody wrote one, which is the
+                    honest answer and the common one. */}
+                <div>
+                  <dt>{P.alarmMessage}</dt>
+                  <dd>{alarm.message || <span className="report-meta-empty">{P.notRecorded}</span>}</dd>
+                </div>
+                {alarm.vehicleOrder && (
+                  <div><dt>{P.vehicleOrder}</dt><dd>{alarm.vehicleOrder}</dd></div>
+                )}
+                {alarm.plan && (
+                  <div>
+                    <dt>{P.einsatzplan}</dt>
+                    <dd>
+                      {alarm.plan.header}
+                      {/* Sofortmassnahmen are the safety-relevant half — they stay. The
+                          Bemerkungen belong to the Einsatzobjekt and are one tap away there. */}
+                      {alarm.plan.measures.length > 0 && (
+                        <ul className="report-meta-list">
+                          {alarm.plan.measures.map((m, i) => <li key={i}>{m}</li>)}
+                        </ul>
+                      )}
+                    </dd>
+                  </div>
+                )}
                 <div><dt>{P.alarmierung}</dt><dd>{alarmiert ? formatDateTime(alarmiert) : <span className="report-meta-empty">{P.notRecorded}</span>}</dd></div>
               </dl>
             </div>

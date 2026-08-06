@@ -2245,6 +2245,10 @@ export const de = {
     title: 'Einsatzrapport drucken',
     // Rapportangaben section
     rapportHead: 'Rapportangaben',
+    // …split out of the same field the Alarmmeldung arrives in (siehe lib/alarmText):
+    // der Meldungstext ist das Einzige daran, was ein Mensch geschrieben hat.
+    vehicleOrder: 'Ausrückeordnung',
+    einsatzplan: 'Einsatzplan',
     fromDispatch: 'Aus den Einsatzdaten',
     edit: 'Bearbeiten',
     alarmMessage: 'Alarmmeldung',
