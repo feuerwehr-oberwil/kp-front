@@ -158,6 +158,15 @@ export function KrokiFramingModal({ scene, initial, onCancel, onConfirm }: {
             ))}
           </Map>
           <div className="kf-hint">{P.framingHint}</div>
+          {/* ± on the map itself: with gloves on a tablet, pinching a crop into place is the
+              fiddliest gesture the app asks for, and this is the one place where the exact
+              framing is the whole point of the screen. */}
+          <div className="kf-zoom">
+            <button type="button" className="kf-zoom-btn" aria-label={appConfig.copy.nav.zoomIn}
+              onClick={() => mapRef.current?.getMap().zoomIn({ duration: 180 })}><Icon id="plus" /></button>
+            <button type="button" className="kf-zoom-btn" aria-label={appConfig.copy.nav.zoomOut}
+              onClick={() => mapRef.current?.getMap().zoomOut({ duration: 180 })}><Icon id="minus" /></button>
+          </div>
         </div>
         <div className="mp-act">
           <button className="ip-btn kf-fit" onClick={fit}><Icon id="cross" /> {P.framingFit}</button>
