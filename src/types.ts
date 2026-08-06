@@ -152,6 +152,11 @@ export interface Entity extends SymbolProps {
   noteW?: number
   /** externally sourced (e.g. live GPS) — read-only: not draggable, editable or persisted */
   live?: boolean
+  /** live vehicles only: the glyph shows a heading arrow (the vehicle has moved at some point).
+   *  False for one that has never moved, whose body is drawn neutral. Carried on the entity so a
+   *  renderer can REBUILD the glyph (e.g. to compensate the map bearing) without inventing a
+   *  direction the vehicle never reported — see lib/useVehiclePositions · vehicleSymbolSvg. */
+  directed?: boolean
   // --- kind 'shape' ---
   shape?: ShapeKind
   sizeM?: number        // shape size on the ground, in metres

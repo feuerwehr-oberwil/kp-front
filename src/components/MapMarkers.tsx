@@ -147,9 +147,10 @@ interface Props {
   onTeamMark?: (id: string) => void
   /** rename an untracked team marker — the map twin of the plan chip's rename pen */
   onTeamRename?: (id: string, name: string) => void
-  /** recolour a Trupp from its marker (null = back to automatic). Writes the TRUPP, so the board
-   *  card and a plan chip follow — see useTruppActions · setTruppColor. */
-  onTeamColor?: (truppId: string, color: string | null) => void
+  /** recolour a team marker (null = back to automatic). Takes the ENTITY, because the two cases
+   *  write different things: a marker bound to a Trupp recolours the TRUPP (board card and plan
+   *  chip follow), a loose one recolours just itself. */
+  onTeamColor?: (e: Entity, color: string | null) => void
   /** clear a team marker's recorded trail (unlocks deletion) — reached via the lock button,
    *  behind a confirm; the everyday bar button only TOGGLES visibility */
   onTeamClearTrail?: (id: string) => void
@@ -480,7 +481,11 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
             ) : (() => {
               // the generic vehicle bakes its name + heading into the glyph (text stays
               // upright); every other symbol uses its library/static svg
-              const veh = isVehicleSym(e)
+              // A live GPS vehicle is `kind: 'vehicle'` (not a placed 'symbol'), so isVehicleSym
+              // said no and it fell through to the generic branch: the chip rotated the ALREADY
+              // rotated glyph, which turned the body twice and tilted the baked-in name with it.
+              // It is a vehicle for rendering purposes — same treatment as the placed one.
+              const veh = isVehicleSym(e) || (e.kind === 'vehicle' && !!e.symbolSvg)
               const comp = compositeSpec(e.symbol)
               const hub = isHubretter(e.symbol)
               // ONLY directional symbols (a rotation handle, or a vehicle/live unit) stay pinned to
@@ -489,7 +494,9 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
               // The Hubretter body is rotatable (`rotation`), INDEPENDENT of the boom (`rotation2`).
               const directional = veh || !!e.live || isRotatableSym(e)
               const rot = (e.rotation ?? 0) - (directional ? bearing : 0)
-              const svg = veh ? vehicleSymbolSvg(e.label ?? '', rot)
+              // rebuilt at the bearing-compensated angle; `directed` so a vehicle that has never
+              // moved doesn't gain a heading arrow it never reported
+              const svg = veh ? vehicleSymbolSvg(e.label ?? '', rot, e.directed ?? true)
                 : comp ? (byName[comp.base] ?? '')
                 : hub ? (byName[appConfig.symbols.vehicleName] ?? '')   // plain body; the boom is drawn separately
                 : (placardSvgForSymbol(e.symbol, e.fields) ?? e.symbolSvg ?? (e.symbol ? byName[luefterVariant(e.symbol, e.extract)!] ?? byName[e.symbol] ?? '' : ''))
@@ -600,10 +607,12 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                 {e.truppId && onShowTrupp && (
                   <button className="wb-pa wb-pa-show" title={appConfig.copy.whiteboard.showTrupp} aria-label={appConfig.copy.whiteboard.showTrupp} onClick={() => onShowTrupp(e.truppId!)}><Icon id="warn" /></button>
                 )}
-                {/* Truppfarbe, where the Trupp is: the same palette the plan chip and the Trupp
-                    form offer, and the pick lands on the TRUPP, so card, chip and marker agree.
-                    A colour another Trupp already wears is allowed — «alle Löschtrupps rot». */}
-                {e.truppId && onTeamColor && (
+                {/* Farbe, where the Trupp is: the same palette the plan chip and the Trupp form
+                    offer. On a marker bound to a Trupp the pick lands on the TRUPP, so card, chip
+                    and marker agree; a loose team marker (placed with the Trupp tool, never
+                    registered on the board) recolours itself. A colour someone else already wears
+                    is allowed — «alle Löschtrupps rot». */}
+                {onTeamColor && (
                   <Popover
                     ariaLabel={appConfig.copy.atemschutz.colorLabel}
                     popupClassName="wb-pa-colors"
@@ -613,11 +622,11 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                       </button>
                     }
                   >
-                    <PopoverClose className={`ctx-team-auto${e.color ? '' : ' on'}`} onClick={() => onTeamColor(e.truppId!, null)}>
+                    <PopoverClose className={`ctx-team-auto${e.color ? '' : ' on'}`} onClick={() => onTeamColor(e, null)}>
                       {appConfig.copy.atemschutz.colorAuto}
                     </PopoverClose>
                     {appConfig.drawing.teamColors.map((c) => (
-                      <PopoverClose key={c} className={`dh-color${e.color === c ? ' on' : ''}`} onClick={() => onTeamColor(e.truppId!, c)}>
+                      <PopoverClose key={c} className={`dh-color${e.color === c ? ' on' : ''}`} onClick={() => onTeamColor(e, c)}>
                         <span style={{ background: c }} />
                       </PopoverClose>
                     ))}

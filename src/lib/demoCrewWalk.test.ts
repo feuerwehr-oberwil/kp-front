@@ -20,6 +20,8 @@ describe('seedWalkers', () => {
     const ws = seedWalkers(CENTER, crew(3), 70)
     expect(ws).toHaveLength(3)
     for (const w of ws) expect(dist(CENTER, w.coord)).toBeCloseTo(70, 0)
+    // …and the default keeps a walker close to its anchor (the leash is short on purpose)
+    for (const w of seedWalkers(CENTER, crew(2))) expect(dist(CENTER, w.coord)).toBeLessThan(60)
     // three distinct places, not one dot with two hidden underneath
     expect(new Set(ws.map((w) => w.coord.join(','))).size).toBe(3)
   })
@@ -41,7 +43,7 @@ describe('stepWalker', () => {
   it('turns back once it reaches the leash, so nobody walks off the Lage', () => {
     // start well outside the leash, heading further out
     const far: Walker = { personId: 'p', displayName: 'P', coord: [CENTER[0] + 0.006, CENTER[1]], heading: 90 }
-    expect(dist(CENTER, far.coord)).toBeGreaterThan(220)
+    expect(dist(CENTER, far.coord)).toBeGreaterThan(90)
     let w = far
     for (let i = 0; i < 40; i++) w = stepWalker(w, CENTER, 15_000, straight)
     expect(dist(CENTER, w.coord)).toBeLessThan(dist(CENTER, far.coord))

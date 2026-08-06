@@ -76,6 +76,7 @@ function toEntity(p: VehiclePosition, heading: number | null): Entity {
     coord: [p.longitude, p.latitude],
     symbolSvg: vehicleSymbolSvg(p.device_name, rotation, directed),
     rotation,
+    directed,
     label: p.device_name,
     subtitle: `GPS · ${status}`,
     live: true,

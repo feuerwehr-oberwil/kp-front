@@ -219,13 +219,18 @@
 
 /* explanatory line under a field group heading (why you would fill this in at all) */
 .adm-hint { margin: 6px 0 2px; font-size: 12px; line-height: 1.45; color: var(--ink-dim); max-width: 62ch; }
-/* Truppfarbe swatch row (Atemschutz doctrine): «Automatisch» + the ten team colours, wrapping */
-.adm-swatches { flex-wrap: wrap; gap: 7px; }
-.adm-swatch-auto { border: 1px solid var(--border-soft); border-radius: 999px; padding: 5px 10px;
-  background: var(--surface); color: var(--ink); font: 700 12px/1 var(--body); cursor: pointer; }
+/* Truppfarbe row (Atemschutz doctrine): «Automatisch» + the ten team colours in ONE scrolling
+   row per Auftrag — six wrapped rows of eleven swatches was a wall, not a setting. Its own class,
+   NOT .adm-swatches: that one is the read-only colour list in the Darstellung views. */
+.adm-colorrow { display: flex; align-items: center; gap: 7px; min-width: 0; overflow-x: auto;
+  overscroll-behavior-x: contain; padding-bottom: 4px; }
+.adm-colorrow > * { flex: none; }
+.adm-colorrow .dh-color { width: 24px; height: 24px; }
+.adm-colorrow .dh-color.on { box-shadow: 0 0 0 2.5px var(--blue); }
+.adm-swatch-auto { position: sticky; left: 0; z-index: 1; border: 1px solid var(--border-soft); border-radius: 999px;
+  padding: 5px 10px; background: var(--surface); color: var(--ink); font: 700 12px/1 var(--body); cursor: pointer;
+  box-shadow: 6px 0 6px -4px var(--surface); }
 .adm-swatch-auto.on { background: color-mix(in srgb, var(--blue) 18%, var(--surface)); border-color: var(--blue); color: var(--blue); }
-.adm-swatches .dh-color { width: 24px; height: 24px; }
-.adm-swatches .dh-color.on { box-shadow: 0 0 0 2.5px var(--blue); }
 
 /* a comfortably tall textarea (Journal Bausteine) — big enough to see the whole list */
 .adm-textarea-tall { min-height: 360px; max-height: 72vh; overflow-y: auto; }

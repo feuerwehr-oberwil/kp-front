@@ -25,8 +25,10 @@ export interface Walker {
 
 /** Walking pace and how far the crew wanders — a working fire ground, not a marathon. */
 const SPEED_M_PER_S = 1.3
-/** how far a walker may drift from the incident before it turns back */
-const LEASH_M = 220
+/** How far a walker may drift from its anchor before it turns back. Deliberately short: the demo
+ *  scene is a few hundred metres of synthetic village, and a dot that wanders far enough ends up
+ *  standing in the Weiher — which reads as a bug, not as a crew member. */
+const LEASH_M = 90
 /** degrees of heading wander per second — enough to look alive, little enough to read as walking */
 const TURN_DEG_PER_S = 14
 
@@ -53,7 +55,7 @@ function bearingTo(a: LngLat, b: LngLat): number {
  * than randomly, so the demo opens on a picture that reads as «crew deployed around the object»
  * instead of a clump that happens to look like a bug.
  */
-export function seedWalkers(center: LngLat, crew: { id: string; displayName: string }[], radiusM = 70): Walker[] {
+export function seedWalkers(center: LngLat, crew: { id: string; displayName: string }[], radiusM = 30): Walker[] {
   return crew.map((p, i) => {
     const angle = (i / Math.max(1, crew.length)) * 2 * Math.PI
     const dx = Math.sin(angle) * radiusM

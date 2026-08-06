@@ -230,7 +230,7 @@ export function DoctrineSection() {
         const value = getPath<string>(draft, ['doctrine', 'auftragColors', a.id])
         return (
           <Field key={a.id} label={appConfig.copy.atemschutz.auftragLabels[a.id] ?? a.label}>
-            <div className="adm-swatches">
+            <div className="adm-colorrow">
               <button
                 type="button" className={`adm-swatch-auto${value ? '' : ' on'}`} aria-pressed={!value}
                 onClick={() => set(['doctrine', 'auftragColors', a.id], null)}

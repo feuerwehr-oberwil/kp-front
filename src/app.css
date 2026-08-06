@@ -578,7 +578,11 @@ input[type='number'] { -moz-appearance: textfield; appearance: textfield; }
 /* …and they never push past the rail's edge. The label is data in the plan tiles (a station's
    own sub-sheet names), so "it fits today" is not a property we control — a long one truncates
    with an ellipsis instead of being sliced off mid-word by the rail's overflow. */
-.nav-label { display: none; min-width: 0; flex: 1 1 auto; padding-right: 8px; white-space: nowrap;
+/* ⚠️ `text-align: start` is load-bearing, not decoration: .nav-item is a <button>, and the UA
+   stylesheet centres a button's text. The label is a full-width flex child (it has to be, so a
+   long plan name truncates against the rail's edge rather than at its own), so it inherited that
+   centring and every label floated in the middle of the rail while its icon sat at the left. */
+.nav-label { display: none; min-width: 0; flex: 1 1 auto; padding-right: 8px; text-align: start; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis; font-size: 13.5px; font-weight: 600; }
 .navrail.expanded:not(.dragging) .nav-label { display: block; }
 /* Expanded: left-align the way the right .vrail already right-aligns. The 46px glyph column is
@@ -782,11 +786,14 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
    their label — at the full 30px they wrapped a single lonely circle onto a second row */
 .ctx-note-colors { display: flex; align-items: center; gap: 7px; margin-left: auto; justify-content: flex-end; }
 .ctx-note-colors .dh-color { width: 26px; height: 26px; }
-/* the Truppfarbe row wraps (11 targets: «Automatisch» + 10 colours) and starts at the left,
-   under its own section label — unlike the note row, which trails its inline field */
-.ctx-section > .ctx-note-colors { flex-wrap: wrap; margin-left: 0; justify-content: flex-start; }
-.ctx-team-auto { border: 1px solid var(--glass-edge); border-radius: 999px; padding: 6px 11px;
-  background: var(--surface); color: var(--ink); font: 700 12px/1 var(--body); cursor: pointer; }
+/* the Truppfarbe row is ONE scrolling row under its own section label (see the twin in
+   Atemschutz.module.css) — wrapped, eleven swatches read as a dump rather than as a choice */
+.ctx-section > .ctx-note-colors { margin-left: 0; justify-content: flex-start; overflow-x: auto;
+  overscroll-behavior-x: contain; scroll-snap-type: x proximity; padding-bottom: 4px; }
+.ctx-section > .ctx-note-colors > * { flex: none; scroll-snap-align: center; }
+.ctx-team-auto { position: sticky; left: 0; z-index: 1; border: 1px solid var(--glass-edge); border-radius: 999px;
+  padding: 6px 11px; background: var(--surface); color: var(--ink); font: 700 12px/1 var(--body); cursor: pointer;
+  box-shadow: 6px 0 6px -4px var(--surface); }
 .ctx-team-auto:hover { border-color: var(--ink-dim); }
 .ctx-team-auto.on { background: color-mix(in srgb, var(--blue) 18%, var(--surface)); border-color: var(--blue); color: var(--blue); }
 /* "default note ink" swatch — shows the actual sticky-note colours rather than a generic

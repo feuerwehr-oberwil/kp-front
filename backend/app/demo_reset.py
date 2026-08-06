@@ -131,6 +131,15 @@ DEMO_PRESENT = {
     "Reto Bachmann",  # Verkehrsdienst
     "Fabienne Steiner",
     "Martin Zbinden",  # Reserve / Bereitstellung
+    # A real Zimmerbrand pulls more of the Wehr than the people with a job on the board: the
+    # Bereitstellung, the second Ablösung, the ones who came and are waiting. Without them the
+    # Anwesenheit read as a half-empty list beside a fully worked incident.
+    "Simon Hofer",
+    "Andrea Kunz",
+    "Lukas Bieri",
+    "Jonas Rüegg",
+    "Melanie Schneider",
+    "Patrick Amrein",
 }
 
 

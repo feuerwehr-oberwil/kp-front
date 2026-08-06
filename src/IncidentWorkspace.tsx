@@ -276,12 +276,32 @@ export function IncidentWorkspace({
   // synthetic names as the rest of the scene.
   const demoCrew = useMemo(() => {
     if (!isDemoMode()) return undefined
-    const crew = init.trupps.slice(0, 3).map((t) => ({ id: t.leaderPersonId ?? t.id, displayName: t.name }))
+    // ONE dot, not a fleet: the demo is showing the concept — «ein AdF meldet, wo er ist» — and
+    // three of them just look like a feature demanding attention. Sharing on this device replaces
+    // it, so there is still exactly one.
     if (share.state === 'on' && share.pref?.personId) {
-      crew.push({ id: share.pref.personId, displayName: share.pref.displayName ?? '' })
+      return {
+        center: incidentView.center,
+        crew: [{ id: share.pref.personId, displayName: share.pref.displayName ?? '' }],
+      }
     }
-    return { center: incidentView.center, crew }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- init.trupps is the mount-time seed
+    // Somebody who is present but NOT in a Trupp — the Trupps are inside the building, and a dot
+    // walking around outside under a name the Atemschutz board says is on the 2nd floor is the
+    // kind of contradiction a demo must not show.
+    const deployed = new Set(init.trupps.flatMap((t) => [t.leaderPersonId, ...(t.memberPersonIds ?? [])].filter(Boolean) as string[]))
+    const free = Object.entries(init.attendance).find(([id, a]) => isPresent(a) && !deployed.has(id))
+    if (!free) return undefined
+    const [id, entry] = free
+    // Anchor on something an author PLACED (the Einsatzleiter, a vehicle): those sit on the road
+    // or the Areal by construction, whereas a blind offset from the incident can land the dot in
+    // the Weiher. The incident centre is the fallback.
+    const anchor = init.doc.entities.find((e) => e.kind === 'symbol'
+      && (e.symbol === appConfig.symbols.vehicleName || e.symbol?.includes('Fahrzeug') || e.symbol?.includes('Einsatzleiter')))
+    return {
+      center: anchor?.coord ?? incidentView.center,
+      crew: [{ id, displayName: entry.displayNameSnapshot ?? '' }],
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- init.* is the mount-time seed
   }, [share.state, share.pref?.personId, share.pref?.displayName, incidentView.center])
   const livePeople = usePersonPositions(incidentMeta.id, !linkScoped && !replayActive, demoCrew)
   // null = closed · 'ask' = permission + name · 'pick' = the roster alone (changing the name).
@@ -1992,8 +2012,12 @@ export function IncidentWorkspace({
           onShowTrupp={() => { setMode('atemschutz'); setPanel(null) }}
           onTeamMark={tacticalLocked ? undefined : markTeamPosition}
           onTeamRename={tacticalLocked ? undefined : renameTeam}
-          // recolouring a team marker paints the TRUPP (board card + plan chip follow)
-          onTeamColor={tacticalLocked ? undefined : setTruppColor}
+          // a marker bound to a Trupp paints the TRUPP (board card + plan chip follow); a loose
+          // team marker has no Trupp to write, so it just takes the colour itself
+          onTeamColor={tacticalLocked ? undefined : (e, c) => {
+            if (e.truppId) setTruppColor(e.truppId, c)
+            else patchEntity(e.id, { color: c ?? undefined })
+          }}
           onTeamClearTrail={tacticalLocked ? undefined : clearTeamTrail}
           preparedOverlays={preparedOverlays}
           isVisible={isVisible}

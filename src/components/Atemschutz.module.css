@@ -297,9 +297,18 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 .lineOpt.taken.on { color: var(--blue); }
 /* Truppfarbe: «Automatisch» + the team palette. Gloved-size dots (28px + a 44px pad), so the row
    is usable with the same finger that just typed the names. */
-.colorRow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.colorAuto { border: 1px solid var(--glass-edge); border-radius: 999px; padding: 6px 11px;
-  background: var(--surface); color: var(--ink); font: 700 12px/1 var(--body); cursor: pointer; }
+/* ONE row that scrolls, not a wrapped block: eleven targets wrapped into two rows read as a
+   dump of colours the operator has to search, and pushed the rest of the form down. «Automatisch»
+   is the common answer, so it sticks to the left edge while the dots slide under it. */
+.colorRow { display: flex; align-items: center; gap: 8px; overflow-x: auto; overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity; padding: 2px 0 6px; }
+.colorRow > * { flex: none; scroll-snap-align: center; }
+.colorRow::-webkit-scrollbar { height: 6px; }
+.colorRow::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.colorAuto { position: sticky; left: 0; z-index: 1; border: 1px solid var(--glass-edge); border-radius: 999px;
+  padding: 6px 11px; background: var(--surface); color: var(--ink); font: 700 12px/1 var(--body); cursor: pointer;
+  /* the dots scroll UNDER this chip, so it needs its own opaque edge rather than a hairline */
+  box-shadow: 6px 0 6px -4px var(--surface); }
 .colorAuto:hover { border-color: var(--ink-dim); }
 .colorAuto.on { background: color-mix(in srgb, var(--blue) 18%, var(--surface)); border-color: var(--blue); color: var(--blue); }
 .colorDot { position: relative; width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--surface);

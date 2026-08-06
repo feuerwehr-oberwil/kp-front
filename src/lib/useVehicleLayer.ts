@@ -41,6 +41,8 @@ export function useVehicleLayer(initOverrides: VehicleOverrides): VehicleLayer {
       coord: ov.coord ?? v.coord,
       rotation,
       symbolSvg: ov.rotation != null ? vehicleSymbolSvg(v.label ?? '', rotation ?? 0) : v.symbolSvg,
+      // aiming a vehicle by hand IS stating a direction — the rebuilt glyph gets the arrow
+      directed: ov.rotation != null ? true : v.directed,
     }
   }), [gps.vehicles, overrides])
   const liveIds = useMemo(() => new Set(gps.vehicles.map((v) => v.id)), [gps.vehicles])
