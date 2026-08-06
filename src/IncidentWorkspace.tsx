@@ -287,9 +287,18 @@ export function IncidentWorkspace({
     }
     // Somebody who is present but NOT in a Trupp — the Trupps are inside the building, and a dot
     // walking around outside under a name the Atemschutz board says is on the 2nd floor is the
-    // kind of contradiction a demo must not show.
-    const deployed = new Set(init.trupps.flatMap((t) => [t.leaderPersonId, ...(t.memberPersonIds ?? [])].filter(Boolean) as string[]))
-    const free = Object.entries(init.attendance).find(([id, a]) => isPresent(a) && !deployed.has(id))
+    // kind of contradiction a demo must not show. Matched by NAME as well as by roster id: the
+    // demo's Trupps are seeded with names only (backend/app/demo_reset), so an id-only check
+    // would have happily picked the Angriffstrupp's Truppführer.
+    const deployedIds = new Set(init.trupps.flatMap((t) => [t.leaderPersonId, ...(t.memberPersonIds ?? [])].filter(Boolean) as string[]))
+    const deployedNames = new Set(init.trupps.flatMap((t) => [t.name, ...(t.members ?? [])]).map((n) => n?.trim()).filter(Boolean))
+    // …and not the Einsatzleiter either: they are already ON the map as their own symbol, so a
+    // second, walking dot with the same name reads as two people.
+    const el = init.reportMeta.einsatzleiter?.trim()
+    const free = Object.entries(init.attendance).find(([id, a]) => isPresent(a)
+      && !deployedIds.has(id)
+      && !deployedNames.has(a.displayNameSnapshot?.trim())
+      && (!el || a.displayNameSnapshot?.trim() !== el))
     if (!free) return undefined
     const [id, entry] = free
     // Anchor on something an author PLACED (the Einsatzleiter, a vehicle): those sit on the road

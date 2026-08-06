@@ -113,6 +113,10 @@ DEMO_JOURNAL = [
 # Who is physically present (Anwesenheit) — the nine Trupp members, the Einsatzleiter, and the
 # crew around them (Maschinist, Wasserversorgung, Verkehrsdienst, Reserve). Deliberately a SUBSET
 # of the roster: the demo has to show the "who came?" question, not a fire brigade at 100 %.
+#: Who leads this demo incident — named on the Rapport and on the Anwesenheit list, so the
+#: «Einsatzleiter» symbol on the Lage belongs to somebody.
+DEMO_EINSATZLEITER = "Céline Widmer"
+
 DEMO_PRESENT = {
     "Hans Müller",
     "Anna Meier",
@@ -123,7 +127,7 @@ DEMO_PRESENT = {
     "Marco Weber",
     "Sarah Huber",
     "Michael Baumann",  # Trupp 3
-    "Céline Widmer",  # Einsatzleiter
+    DEMO_EINSATZLEITER,
     "Stefan Graf",  # Maschinist TLF
     "Petra Roth",
     "Daniel Wyss",  # Wasserversorgung
@@ -290,6 +294,11 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
         pid: {"status": "present", "checkedInAt": _iso(now - timedelta(minutes=20)), "displayNameSnapshot": name}
         for pid, name in present
     }
+
+    # Name the Einsatzleiter. The scene file leaves it empty, so the Rapport's most-asked field
+    # read «nicht erfasst» on a fully worked demo incident — and nothing tied the «Einsatzleiter»
+    # symbol on the map to a person on the Anwesenheit list.
+    ws["reportMeta"] = {**(ws.get("reportMeta") or {}), "einsatzleiter": DEMO_EINSATZLEITER}
 
     # Refresh the floor-stack chip's time labels so they read as fresh instead of a frozen 16:24.
     for res in ws.get("board", {}).get("gebaeude", []):
