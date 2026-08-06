@@ -11152,6 +11152,20 @@
             },
             "type": "array",
             "title": "Vehicles"
+          },
+          "origin": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 32,
+                "minLength": 1,
+                "pattern": "^[a-z0-9][a-z0-9_-]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin"
           }
         },
         "type": "object",

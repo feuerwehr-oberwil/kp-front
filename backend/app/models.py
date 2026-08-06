@@ -121,6 +121,21 @@ class Incident(Base):
     # must NOT be read as an Alarmierungszeit. Honest null beats a plausible guess: a
     # downstream join keying on a fabricated alarm time is worse than one that skips the row.
     started_at_source: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    # Where the alarm came IN from, as the alerting system knew it — e.g. "alarmzentrale"
+    # for a dispatch versus a member sending an SMS by hand. Both are legitimate alarms and
+    # both look identical here otherwise, which is why the distinction is worth recording:
+    # it is what lets a downstream consumer decide whether an Einsatz may reach a public
+    # surface. A slug, never a phone number.
+    #
+    # WRITE-ONCE. Set on the first milestone that carries it and never overwritten, for the
+    # same reason `editor_opened_at` is a latch: provenance is not an editable field, and a
+    # late edit from an alerting system must not be able to rewrite where an alarm came from.
+    #
+    # NULL is an ordinary answer, not a missing one. An unlabelled allowlist entry, an alarm
+    # the fallback relay handled during an outage (it cannot reach this app at all), and any
+    # deployment whose alerting system does not send origins all produce NULL — and none of
+    # them mean "not a real alarm". A consumer that treats NULL as suspicious is wrong.
+    alarm_origin: Mapped[str | None] = mapped_column(String(32), nullable=True)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     # Übung — orthogonal to the VKF `type` (an exercise still has a category). Exercises are

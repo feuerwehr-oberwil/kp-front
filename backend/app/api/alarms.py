@@ -252,6 +252,20 @@ async def milestones(
     # Server-side blob write: bumps the rev so polling clients pick it up and merge.
     # A racing client PUT can win LWW on these keys; the next milestone heals it.
     changed, journal_texts = await _apply_and_store(db, inc.id, payload, group_labels, vehicle_labels)
+
+    # Where the alarm came in from. WRITE-ONCE: stamped by whichever milestone carries it
+    # first and never rewritten, for the same reason `editor_opened_at` is a latch —
+    # provenance is not an editable field, and a late edit from an alerting system must not
+    # be able to change where an alarm came from. It deliberately does NOT count towards
+    # `applied` and writes no journal row: it is a property of the alarm, not a milestone
+    # someone reached, and the Verlauf is for what happened during the Einsatz.
+    #
+    # ⚠ Must come AFTER _apply_and_store, not before: that function re-selects the incident
+    # with populate_existing=True (so a losing CAS round sees the winner's blob), which
+    # overwrites this object's attributes from the database and would silently discard a
+    # pending assignment made above it.
+    if payload.origin and inc.alarm_origin is None:
+        inc.alarm_origin = payload.origin
     if changed:
         from .journal import append_system_row
 

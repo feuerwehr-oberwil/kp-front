@@ -105,11 +105,26 @@ curl -X POST "$BASE/api/alarms/milestones" \
   -H "X-Webhook-Secret: $ALARM_WEBHOOK_SECRET" -H "Content-Type: application/json" \
   -d '{
     "divera_id": 4711,
+    "origin":   "alarmzentrale",
     "groups":   [{ "id": "g2",  "alarmedAt":  "2026-07-13T01:12:00Z" }],
     "vehicles": [{ "id": "tlf", "ausgerueckt": "2026-07-13T01:16:40Z" }]
   }'
 # → 200 {"incident_id": "…", "applied": 2}   (replay → "applied": 0)
 ```
+
+**`origin` (optional)** – where the alarm came *in* from, as the alerting system knew it: a
+short lowercase slug such as `alarmzentrale`, **never a phone number**. It answers a question
+none of the other fields do — a dispatch and an alarm somebody raised by hand are usually
+both allowlisted and otherwise identical here — and it is what a consumer needs to decide
+whether an Einsatz may reach a public surface.
+
+It is recorded **write-once** on the incident (`alarm_origin`, exposed in the stats export):
+the first milestone carrying it wins and no later one rewrites it, for the same reason
+`confirmed_at` is a latch. It does **not** count towards `applied` and appends no journal row
+— it is a property of the alarm, not something that happened during the Einsatz.
+
+Omitting it is normal and means *unknown*, not *no*. Senders that cannot know the origin —
+notably a fallback relay running while the main service is unreachable — simply leave it out.
 
 ## 2. Outbound: incident-created webhooks – `alarms.webhooks`
 

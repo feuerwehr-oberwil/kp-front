@@ -250,6 +250,13 @@ def _record(inc: Incident, alarm_ref: str | None = None) -> dict:
         # from the address alone, so incidents at the same place repeat it (measured 52.9%).
         # Match it INSIDE a time window; a repeated reference is ambiguous, not a pair.
         "alarm_ref": alarm_ref,
+        # Where the alarm came IN from, as the alerting system knew it — e.g. a dispatch
+        # centre versus a member raising one by hand, both of which are legitimate alarms
+        # that otherwise look identical here. Recorded write-once at intake because it
+        # cannot be reconstructed afterwards. Null means the alerting system stated no
+        # origin, which is the normal case and is NOT a negative answer: read it as
+        # unknown, never as "not a dispatch".
+        "alarm_origin": inc.alarm_origin,
         "is_archived": inc.is_archived,
         "is_exercise": inc.is_exercise,
         "confirmed_at": _iso(inc.editor_opened_at),

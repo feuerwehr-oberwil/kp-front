@@ -63,6 +63,7 @@ last-active tracker.
 | `source` | string | `divera` \| `manual` \| intake slug \| `migrated` |
 | `source_ref` | string \| null | the alerting system's own id for the **alarm** – what the intake deduplicates on. Not an incident id, and not a printed reference: for a Divera deployment it is a bare integer |
 | `alarm_ref` | string \| null | the reference the alerting system **printed on the alarm** – the string that reaches the paper report and can be transcribed into a record system's case-number field. Null when nothing stated one. **Not unique per incident** – see below |
+| `alarm_origin` | string \| null | where the alarm came **in** from, as the alerting system knew it – a slug like `alarmzentrale`, never a phone number. Recorded write-once at intake. Null means no origin was stated, which is the normal case and reads as *unknown*, **not** as "not a dispatch" – see below |
 | `is_archived` | bool | |
 | `is_exercise` | bool | Übung – only present when `include_exercises=1` asked for them |
 | `confirmed_at` | ISO datetime \| null | first editor open (`editor_opened_at`); null = nobody at the station ever had this incident open |
@@ -122,3 +123,21 @@ Notes for consumers:
   A consumer should also count how many rows it joined by `alarm_ref` versus by the time +
   address fallback. `alarm_ref` is null wherever no alerting system stated one, and a join
   that quietly falls back reports the same shape as one that works.
+
+- **`alarm_origin` says where the alarm came *in* from**, which is a different question from
+  every other provenance field here. `source`/`source_ref`/`alarm_ref` all identify *which*
+  alarm; `alarm_origin` says *how it was raised*.
+
+  It matters because an alerting system's sender allowlist usually holds more than the
+  dispatch centre. At Oberwil it holds ten numbers – one landline and nine mobiles – so a
+  dispatch and an SMS an officer sent by hand are equally allowlisted and otherwise
+  indistinguishable once they arrive here. A consumer deciding whether an Einsatz may reach
+  a **public surface** needs exactly that distinction, and it cannot be reconstructed later,
+  which is why it is recorded at intake and never rewritten.
+
+  **Null is not a negative answer.** It is what an unlabelled allowlist entry produces, what
+  a fallback relay handling an alarm during an outage produces (it reaches the alerting
+  system but not this app), and what any deployment whose alerting system sends no origin
+  produces. Read it as *unknown*. A consumer that treats null as "not a dispatch" will drop
+  real Einsätze, and it will drop them hardest during an outage — exactly when the record
+  matters most.
