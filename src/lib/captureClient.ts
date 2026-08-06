@@ -20,6 +20,10 @@ export type CaptureAction =
   | { kind: 'setTimes'; personId: string; index?: number; from?: string; to?: string }
   | { kind: 'setMeta'; patch: Partial<ReportMeta> }
   | { kind: 'setMittel'; materialId?: string; label: string; unit: string; sourceId?: string; sourceLabel?: string; menge: number; by: string }
+  /** Rapport-Beilage: a photo that belongs to the report (an Ausweis, a damage close-up). The
+   *  bytes are already on the server (captureApi.uploadPhoto) — this only records the row. */
+  | { kind: 'addAttachment'; id: string; url: string; caption?: string }
+  | { kind: 'removeAttachment'; id: string }
 
 /** frei → anwesend → gegangen → frei. «von» defaults to the ALARM time (`vonIso`, the
  *  field-classification's «Vorschlag ab Alarmzeit») — retro capture at the magazine would
@@ -41,6 +45,14 @@ export function cycleAttendance(
  */
 export function applyAction(ws: Workspace | null, action: CaptureAction, nowIso: string): Workspace {
   const base: Record<string, unknown> = { ...(ws ?? {}) }
+  if (action.kind === 'addAttachment' || action.kind === 'removeAttachment') {
+    const list = [...((base.attachments as { id: string }[] | undefined) ?? [])]
+    base.attachments = action.kind === 'removeAttachment'
+      ? list.filter((a) => a.id !== action.id)
+      // append-then-dedupe by id: a retried save (409 → re-read → re-apply) must not add twice
+      : [...list.filter((a) => a.id !== action.id), { id: action.id, url: action.url, caption: action.caption, at: nowIso }]
+    return base
+  }
   if (action.kind === 'cycleAttendance') {
     const attendance = { ...((base.attendance as Record<string, AttendanceEntry> | undefined) ?? {}) }
     const next = cycleAttendance(attendance[action.personId], action.name, nowIso, action.vonIso)
@@ -170,6 +182,17 @@ export const captureApi = {
     req<{ intact: boolean; broken_at_seq: number | null; count: number; head?: string }>(token, `/incidents/${id}/verify`),
   journal: (token: string, id: string) =>
     req<{ entries: { seq: number; row: TimelineEvent }[]; latest_seq: number }>(token, `/incidents/${id}/journal`),
+  /** Upload one Beilage photo. Multipart, so it bypasses `req`'s JSON envelope; the capture
+   *  token still rides the same header, and the server keeps it to photos of ONE incident. */
+  uploadPhoto: async (token: string, id: string, blob: Blob, filename: string) => {
+    const form = new FormData()
+    form.append('file', blob, filename)
+    const res = await withTimeout(fetch(`/api/capture/incidents/${id}/media`, {
+      method: 'POST', headers: { 'X-Capture-Token': token }, body: form,
+    }), 60_000)
+    if (!res.ok) throw new CaptureError(res.status, `HTTP ${res.status}`)
+    return (await res.json()) as { id: string; url: string }
+  },
   appendJournal: (token: string, id: string, rows: TimelineEvent[]) =>
     req<{ latest_seq: number }>(token, `/incidents/${id}/journal`, {
       method: 'POST', body: JSON.stringify({ entries: rows }),

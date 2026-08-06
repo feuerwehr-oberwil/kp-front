@@ -358,10 +358,15 @@ deployment, leave `incident_link_key` unset and the surface does not exist.
   capture URL (a capability) – point webhooks only at receivers you trust.
 - The capture surface reaches unarchived incidents without a completed Rapport at **any**
   age (the open backlog), plus anything inside `alarms.captureWindowHours` regardless of
-  report state — and only attendance/material/journal/Einsatzende. The workspace endpoints
-  are key-scoped to `attendance`, `mittel` and `reportMeta` (`CAPTURE_WORKSPACE_KEYS` in
-  `backend/app/api/capture.py`): the tactical map is neither readable nor writable with a
-  poster token, and a capture save merges over the server's copy so it cannot clobber it.
+  report state — and only attendance/material/journal/Einsatzende/Beilagen. The workspace
+  endpoints are key-scoped to `attendance`, `mittel`, `reportMeta` and `attachments`
+  (`CAPTURE_WORKSPACE_KEYS` in `backend/app/api/capture.py`): the tactical map is neither
+  readable nor writable with a poster token, and a capture save merges over the server's copy
+  so it cannot clobber it. `attachments` (Rapport-Beilagen, added 2026-08-06) comes with one
+  write route for the bytes — `POST /api/capture/incidents/{id}/media`, **photos only**, one
+  reachable incident, the same content-type allowlist and size cap as the editor upload, behind
+  the same per-IP capture rate limit. A Beilage is report paperwork, which is what the poster
+  is for; audio is deliberately not offered there.
 - A link token exposes **one incident, read-only, for as long as that incident is open**: map,
   Pläne, Referenz-Layer, Personen, Verlauf and the live vehicle/weather display — what a
   `viewer` sees on screen, and nothing that writes, prints, generates a PDF or calls a paid

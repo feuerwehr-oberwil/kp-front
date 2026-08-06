@@ -7,7 +7,8 @@ Reachable incidents (decided 2026-07-11): everything not yet archived and withou
 completed Rapport — the backlog the station still owes paperwork for — plus anything opened
 within `alarms.captureWindowHours` (default 12) regardless of report state. Deliberately
 narrow: list those incidents, read roster, read/save the ATTENDANCE PART of the workspace,
-append journal rows. No create/delete/meta/admin, nothing when no secret is set (fail-closed).
+append journal rows, and upload a Rapport-Beilage (photo). No create/delete/meta/admin, nothing
+when no secret is set (fail-closed).
 
 The workspace endpoints are key-scoped (`CAPTURE_WORKSPACE_KEYS`). They used to hand out and
 overwrite the whole `map_workspace_json` blob, which meant a poster token could read and
@@ -18,19 +19,23 @@ reads are projected down to the capture keys, and writes are merged over the ser
 so a capture save cannot drop or alter anything it cannot see.
 """
 
+import mimetypes
 import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, Depends, Form, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Request, UploadFile, status
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .. import storage
 from ..alarms import get_alarms_config
+from ..api.media import _ALLOWED_PHOTO, MAX_UPLOAD_BYTES
+from ..api.media import _CHUNK as _MEDIA_CHUNK
 from ..auth.capture_limiter import capture_limiter
 from ..auth.dependencies import CurrentAdmin
 from ..database import get_db
-from ..models import DeploymentConfig, Incident, Personnel
+from ..models import DeploymentConfig, Incident, Media, Personnel
 from ..schemas import (
     IncidentMeta,
     JournalAppendIn,
@@ -51,7 +56,13 @@ from ..schemas import (
 # restoreAttendance, setTimes, setMittel, setMeta) write only those three. If the capture UI
 # ever needs another key, widening this set is a deliberate decision with a doc change
 # attached — which is exactly the review step that was missing before.
-CAPTURE_WORKSPACE_KEYS = frozenset({"attendance", "mittel", "reportMeta"})
+#
+# Widened 2026-08-06 by `attachments` (Rapport-Beilagen): the poster is where the paperwork is
+# done, and a photographed Ausweis or a damage close-up belongs to the same rapport the poster
+# already fills in. It is REPORT material, not the tactical picture — no map, no history — so it
+# is the same class of thing as attendance and Mittel. The photo bytes go through the capture
+# media route below, which is as narrow as this list (photo only, one incident, rate-limited).
+CAPTURE_WORKSPACE_KEYS = frozenset({"attendance", "mittel", "reportMeta", "attachments"})
 
 
 def _capture_view(workspace: dict | None) -> dict | None:
@@ -397,6 +408,58 @@ async def capture_print_cancel(
         raise HTTPException(status_code=404, detail="Druckauftrag nicht gefunden")
     await _get_in_window(db, job.incident_id)
     return await cancel_print_job(db, job_id)
+
+
+@router.post("/incidents/{incident_id}/media", status_code=201)
+async def capture_upload_media(
+    incident_id: uuid.UUID,
+    request: Request,
+    x_capture_token: str | None = Header(default=None),
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Upload one Rapport-Beilage (photo) from the poster.
+
+    PHOTOS ONLY, and only for an incident this token may reach — the poster records paperwork,
+    and a Beilage is paperwork. Everything else about the upload is the editor route's rules
+    (`api/media`): the same content-type allowlist, the same size cap, the same storage. No
+    `kind` parameter, because there is exactly one kind the poster may add: audio would be a
+    recording of people, which is not what the clipboard by the door is for.
+
+    The returned URL is what the caller writes into `attachments` on the workspace.
+    """
+    await _check_token(db, request, x_capture_token)
+    await _get_in_window(db, incident_id)
+
+    content_type = file.content_type or "application/octet-stream"
+    if content_type not in _ALLOWED_PHOTO:
+        raise HTTPException(
+            status_code=415,
+            detail=f"Dateityp {content_type!r} nicht erlaubt (erwartet: {', '.join(sorted(_ALLOWED_PHOTO))})",
+        )
+    ext = mimetypes.guess_extension(content_type) or ".jpg"
+    key = storage.new_key(f"media/{incident_id}", ext)
+
+    async def _chunks():
+        chunk = await file.read(_MEDIA_CHUNK)
+        while chunk:
+            yield chunk
+            chunk = await file.read(_MEDIA_CHUNK)
+
+    try:
+        await storage.put_astream(key, _chunks(), max_bytes=MAX_UPLOAD_BYTES)
+    except storage.TooLargeError:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Datei zu gross (Maximum {MAX_UPLOAD_BYTES // (1024 * 1024)} MB)",
+        ) from None
+
+    # created_by stays NULL: a poster upload has no user behind it, and inventing one would put
+    # a name on the record that nobody typed.
+    media = Media(incident_id=incident_id, kind="photo", storage_key=key, content_type=content_type)
+    db.add(media)
+    await db.flush()
+    return {"id": str(media.id), "url": f"/api/media/{media.id}", "kind": "photo"}
 
 
 @router.get("/incidents/{incident_id}/journal", response_model=JournalPage)

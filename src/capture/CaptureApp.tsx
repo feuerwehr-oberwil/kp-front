@@ -21,6 +21,7 @@ import { currentLineFor, visibleMittel } from '../lib/mittel'
 import { applyTimeToIso } from '../lib/abschluss'
 import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
 import { Overlays, toast } from '../lib/ui'
+import { prepareUploadImage } from '../lib/imagePrep'
 import { capturePrintTransport, enqueuePrint, fetchPrintStatus, type PrintRelayStatus } from '../lib/printRelay'
 import { trackPrintJob } from '../lib/printJobToast'
 import type { AttendanceEntry, MittelEntry } from '../types'
@@ -289,6 +290,30 @@ export default function CaptureApp() {
 
   // every mutation: fresh-read + apply + PUT (409-safe) via saveAction, then mirror locally.
   // Returns the saved blob so callers can toast the ACTUAL saved state, or null on failure.
+  /** Beilagen already on this incident (the poster sees them because `attachments` is one of
+   *  the capture keys — the same list the KP tablet shows). */
+  const attachments = (ws?.attachments as { id: string; url: string; caption?: string }[] | undefined) ?? []
+  const [uploading, setUploading] = useState(false)
+  /**
+   * Add one Beilage: re-encode (a phone hands over a 4–12 MB HEIC the server will not take),
+   * upload the bytes, then record the row on the workspace. The row is written only after the
+   * upload succeeded — a Beilage that exists but has no file behind it would print as a gap.
+   */
+  const addBeilage = async (file: File) => {
+    if (!token || !incident || uploading) return
+    setUploading(true)
+    try {
+      const blob = await prepareUploadImage(file)
+      const up = await captureApi.uploadPhoto(token, incident.id, blob, file.name || 'beilage.jpg')
+      const ok = await run({ kind: 'addAttachment', id: up.id, url: up.url })
+      if (ok) savedToast()
+    } catch {
+      toast(C.beilagenFailed, { icon: 'warn', tone: 'warn' })
+    } finally {
+      setUploading(false)
+    }
+  }
+
   const run = async (action: CaptureAction): Promise<Workspace | null> => {
     if (!token || !incident || busy) return null
     setBusy(true)
@@ -932,6 +957,43 @@ export default function CaptureApp() {
                     if (ok) savedToast()
                     return ok
                   }} />
+              </div>
+              {/* Beilagen: the photos that belong to the RAPPORT — an Ausweis, a Schaden. The
+                  poster is where the paperwork gets done, so this is where they are added; they
+                  print at the end of the Rapport, large enough to read (backend/report_pdf).
+                  Only photos, only this Einsatz — see the capture router's key set. */}
+              <div className="cv-row top">
+                <span>{C.beilagenHead}</span>
+                <div className="cv-beilagen">
+                  {attachments.length > 0 && (
+                    <ul className="cv-beilagen-list">
+                      {attachments.map((a) => (
+                        <li key={a.id}>
+                          <img src={a.url} alt="" />
+                          <input
+                            className="cv-input" defaultValue={a.caption ?? ''} placeholder={C.beilagenCaption}
+                            aria-label={C.beilagenCaption} disabled={busy}
+                            onBlur={(e) => {
+                              const caption = e.target.value.trim()
+                              if (caption === (a.caption ?? '')) return
+                              void run({ kind: 'addAttachment', id: a.id, url: a.url, caption: caption || undefined })
+                                .then((ok) => { if (ok) savedToast() })
+                            }}
+                          />
+                          <button type="button" className="cv-btn cv-btn-ghost" aria-label={C.beilagenRemove} title={C.beilagenRemove}
+                            disabled={busy} onClick={() => { void run({ kind: 'removeAttachment', id: a.id }).then((ok) => { if (ok) savedToast() }) }}>
+                            <Icon id="trash" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <label className={`cv-btn cv-beilagen-add${uploading ? ' busy' : ''}`}>
+                    <Icon id="photo" /><span>{uploading ? C.beilagenBusy : C.beilagenAdd}</span>
+                    <input type="file" accept="image/*" disabled={busy || uploading}
+                      onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void addBeilage(f) }} />
+                  </label>
+                </div>
               </div>
             </div>
           )}

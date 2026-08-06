@@ -3930,6 +3930,78 @@
         }
       }
     },
+    "/api/capture/incidents/{incident_id}/media": {
+      "post": {
+        "tags": [
+          "capture"
+        ],
+        "summary": "Capture Upload Media",
+        "description": "Upload one Rapport-Beilage (photo) from the poster.\n\nPHOTOS ONLY, and only for an incident this token may reach — the poster records paperwork,\nand a Beilage is paperwork. Everything else about the upload is the editor route's rules\n(`api/media`): the same content-type allowlist, the same size cap, the same storage. No\n`kind` parameter, because there is exactly one kind the poster may add: audio would be a\nrecording of people, which is not what the clipboard by the door is for.\n\nThe returned URL is what the caller writes into `attachments` on the workspace.",
+        "operationId": "capture_upload_media_api_capture_incidents__incident_id__media_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "x-capture-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Capture-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_capture_upload_media_api_capture_incidents__incident_id__media_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Capture Upload Media Api Capture Incidents  Incident Id  Media Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/capture/incidents/{incident_id}/journal": {
       "get": {
         "tags": [
@@ -8698,6 +8770,20 @@
           "payload"
         ],
         "title": "Body_capture_report_print_api_capture_incidents__incident_id__report_print_post"
+      },
+      "Body_capture_upload_media_api_capture_incidents__incident_id__media_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_capture_upload_media_api_capture_incidents__incident_id__media_post"
       },
       "Body_import_csv_api_personnel_import_csv_post": {
         "properties": {

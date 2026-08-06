@@ -1831,6 +1831,13 @@ export const de = {
     rueckZeit: 'Zeit',
     jetzt: 'Jetzt',
     kurzberichtHead: 'Kurzbericht',
+    // Beilagen am Erfassungs-Poster: Fotos, die zum Rapport gehören (Ausweis, Schaden)
+    beilagenHead: 'Beilagen',
+    beilagenAdd: 'Foto hinzufügen',
+    beilagenBusy: 'Wird hochgeladen …',
+    beilagenCaption: 'Bildlegende',
+    beilagenRemove: 'Beilage entfernen',
+    beilagenFailed: 'Foto konnte nicht hochgeladen werden.',
     kurzberichtPlaceholder: 'Was ist passiert, was wurde gemacht?',
     zeitenHead: 'Zeiten',
     gruppenHead: 'Alarmierung Gruppen',

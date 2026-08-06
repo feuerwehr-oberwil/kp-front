@@ -29,6 +29,107 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ## [Unreleased]
 
+### Added
+
+- **The Einsatzrapport takes Beilagen.** Photos that belong to the REPORT rather than to the
+  Verlauf – an ID document, a damage close-up, a handed-over form. They are captured in the
+  rapport dialog (or at the Erfassungs-Poster, below), carry a caption, and print at the end
+  **one plate per page, large enough to read** – which is the only reason to photograph a
+  document in the first place. Deliberately not a Verlauf row: the Verlauf is a timed record of
+  what happened, and a picture of somebody's licence is neither an observation nor a moment.
+  Beilagen live in the incident's media store like every other incident medium.
+
+- **Partnerorganisationen can be recorded.** The field had been in the model – and on the
+  printed rapport – for months, but nothing ever wrote it, so every rapport fell back to the
+  tick-off row from the station config and «Polizei war da» was all the paper said. Now one row
+  per partner: **Organisation · Person vor Ort · Telefon · Bemerkung**, with the station's own
+  list offered as suggestions (the organisation that turns up is not always on it). The remark
+  is the point of the block – «Wm. Keller, übernimmt Verkehr ab Kreisel» – and it prints.
+
+- **Remarks on Material and on people.** «3 Sack» says how much, «an Werkhof übergeben» says
+  what happened to it; «Meier» says who was there, «Fahrer TLF, abgelöst 21:40» says what they
+  did. Both print with their row. The Mittel remark rides the append-only log the way the
+  quantity does (a value sets, `null` clears, omitted keeps), so a remark never disturbs a
+  quantity and a quantity never wipes a remark.
+
+- **The Kroki can be printed as of a chosen moment.** «Die Rettung ist abgerückt, sie fehlt auf
+  dem Rapport» has an honest answer and a dishonest one. The dishonest one is a collage of
+  everything ever placed – a Lage that never existed, with two vehicles in one spot at
+  different times. The honest one is to name the moment: the Kroki row offers **«Jetzt» or a
+  time**, and a chosen time reconstructs the Lage from the event journal – the same fold the
+  Wiedergabe uses, so paper and replay can never disagree. Vehicles come from the recorded GPS
+  samples for that instant. The caption dates the PICTURE, not the printing.
+
+- **The Erfassungs-Poster (QR) can contribute Beilagen.** The poster is where the paperwork
+  gets done, so the photos that belong to the rapport belong there too. The token's key set was
+  **deliberately widened** by `attachments` (`CAPTURE_WORKSPACE_KEYS`), with exactly one new
+  write route for the bytes: `POST /api/capture/incidents/{id}/media`, **photos only**, one
+  reachable incident, the same content-type allowlist and size cap as the editor upload, behind
+  the same per-IP rate limit. No audio there – that would be a recording of people, and the
+  clipboard by the door is not for that. The tactical picture stays invisible to the token. See
+  `docs/ALARM-INTEGRATIONS.md`.
+
+- **Trupp colours.** Every Atemschutz-Trupp can be given one – in the Trupp form, on its map
+  marker, or on its plan chip; all three write the TRUPP, so board, Lage and plan agree. A
+  chosen colour is used as chosen, duplicates included: «alle Löschtrupps rot» is a legitimate
+  way to read a Lage. A station can seed one per Auftrag (`doctrine.auftragColors`, Admin ▸
+  Doktrin); empty keeps today's one-colour-per-Trupp.
+
+- **A break clock in the Atemschutzüberwachung.** The Einsatzzeit is finished at the «Raus» and
+  stands still; «Draussen seit» runs instead – the recovery time before that crew can go back
+  in.
+
+### Fixed
+
+- **Photos were missing from the printed Rapport.** The upload was the culprit, not the print:
+  the server takes jpeg/png/webp only, a phone hands over a 4–12 MB HEIC. The POST failed, the
+  row kept its local `blob:` URL, the offline queue retried something that could never succeed
+  – and the picture silently never reached the paper. Photos are now re-encoded **before the
+  first attempt** to a JPEG of at most 2200 px: a type the server takes, a size that fits under
+  any deployment's upload cap, and still far more than A4 can print. Applies to journal photos
+  and to Beilagen; a Beilage that still fails now says so instead of quietly not printing.
+
+- **The Einsatzdauer kept counting on a finished Einsatz.** An archived incident opened from
+  the Verlauf counted on from `now` and claimed days of Einsatzdauer for something that lasted
+  forty minutes last Tuesday. It stops at the Einsatzende.
+
+- **An archived Einsatz was only apparently read-only.** The banner has always said «Nur
+  ansehen – zum Bearbeiten reaktivieren», but the checklist, Anwesenheit, Mittel and the whole
+  rapport dialog could still be changed – and saved. The unlock is «Reaktivieren», once and
+  with its own confirm; edits after it stay badged as Nachträge, which is what that is for.
+
+- **A contact clock was allowed to jump backwards.** On the public demo the time offset was
+  re-derived on every page load, so a plain reload threw every contact clock back – a Trupp at
+  0:35 came back as 0:08. On a monitoring surface that is the one direction a clock must never
+  move: the time since the last Funkkontakt read shorter than it was. The offset is now
+  anchored once per incident and seed.
+
+- **«Bereitstellen» sent the Trupp in.** A wrapper swallowed the standby flag, so a re-equipped
+  Trupp started a contact clock while it was still standing at the vehicle – exactly the case
+  the fork exists to prevent.
+
+- **A GPS vehicle was rotated twice.** A live vehicle is `kind: 'vehicle'`, not a placed
+  symbol, so it fell out of the vehicle branch and the marker rotated the already-rotated glyph
+  again: the body turned twice and the baked-in name tilted with it. The name stays horizontal;
+  only the body rotates.
+
+- **A photo left the app.** Tapping a picture went through `target="_blank"`, which on an
+  installed iPad hands it to Safari – leaving a running Einsatz to look at a photo of it.
+  Pictures open in the app now, with a download.
+
+- **Prints came out of the station printer back-to-front.** A printer that ejects face-up
+  delivers a reversed stack. The relay path now reverses the document
+  (`report.reversePrintOrder`, switch it off for a printer that ejects face-down); the
+  downloaded PDF stays in reading order, because that one is read on a screen.
+
+- Smaller things on screen: the left rail centred its labels instead of putting them next to
+  their icons (the UA stylesheet centres text in a `<button>`), the module chips were wider
+  than their column and pushed the rows apart, the rapport's section list was more air than
+  content, «Erweitert» was a second door in front of a door, the Kroki crop now gets the screen
+  instead of a postcard (with ± on the map), the colour picker is one scrolling row instead of
+  a wall of swatches, and a freshly placed Notiz grows with its text instead of starting as a
+  paragraph-wide box.
+
 ### Fixed
 
 - **The scheduled Objektplan-Pull matched nothing and said nothing.** `plans/index.json` names,

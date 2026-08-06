@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { applyAction, autoOpenTarget, cycleAttendance } from './captureClient'
 import type { AttendanceEntry } from '../types'
+import type { Workspace } from './incidents'
 
 const NOW = '2026-07-08T14:00:00.000Z'
 
@@ -112,5 +113,39 @@ describe('autoOpenTarget', () => {
   })
   it('empty list → nothing to open', () => {
     expect(autoOpenTarget([], now)).toBeNull()
+  })
+})
+
+// Rapport-Beilagen from the poster: the photo bytes go through the capture media route, this
+// only records the row. The reducer has to be idempotent — `saveAction` re-applies the action
+// after a 409, and a Beilage added twice would print twice.
+describe('applyAction · Beilagen', () => {
+  const NOW = '2026-08-06T20:00:00.000Z'
+
+  it('records a Beilage without touching the rest of the blob', () => {
+    const ws = { attendance: { p1: {} }, entities: [{ id: 'e1' }] } as unknown as Workspace
+    const out = applyAction(ws, { kind: 'addAttachment', id: 'a1', url: '/api/media/1', caption: 'Ausweis' }, NOW)
+    expect(out.attachments).toEqual([{ id: 'a1', url: '/api/media/1', caption: 'Ausweis', at: NOW }])
+    expect((out as Record<string, unknown>).entities).toEqual([{ id: 'e1' }]) // tactical keys pass through
+    expect((out as Record<string, unknown>).attendance).toEqual({ p1: {} })
+  })
+
+  it('is idempotent — a retried save (409 → re-read → re-apply) adds it once', () => {
+    const first = applyAction(null, { kind: 'addAttachment', id: 'a1', url: '/api/media/1' }, NOW)
+    const again = applyAction(first, { kind: 'addAttachment', id: 'a1', url: '/api/media/1' }, NOW)
+    expect(again.attachments).toHaveLength(1)
+  })
+
+  it('re-adding with a caption edits the row rather than duplicating it', () => {
+    const first = applyAction(null, { kind: 'addAttachment', id: 'a1', url: '/api/media/1' }, NOW)
+    const named = applyAction(first, { kind: 'addAttachment', id: 'a1', url: '/api/media/1', caption: 'Ausweis Lenker' }, NOW)
+    expect(named.attachments).toEqual([{ id: 'a1', url: '/api/media/1', caption: 'Ausweis Lenker', at: NOW }])
+  })
+
+  it('removes one by id and leaves the others', () => {
+    let ws = applyAction(null, { kind: 'addAttachment', id: 'a1', url: '/api/media/1' }, NOW)
+    ws = applyAction(ws, { kind: 'addAttachment', id: 'a2', url: '/api/media/2' }, NOW)
+    const out = applyAction(ws, { kind: 'removeAttachment', id: 'a1' }, NOW)
+    expect((out.attachments as { id: string }[]).map((a) => a.id)).toEqual(['a2'])
   })
 })

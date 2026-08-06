@@ -400,3 +400,54 @@ async def test_capture_put_preserves_unsent_capture_keys(client, capture_secret,
     stored = (await db_session.execute(select(Incident).where(Incident.id == incident_id))).scalar_one()
     assert stored.map_workspace_json["attendance"] == {"p1": {"status": "present"}}
     assert len(stored.map_workspace_json["mittel"]) == 2
+
+
+async def test_capture_uploads_a_beilage_photo_but_refuses_audio(client, capture_secret, db_session):
+    """The poster may add a Rapport-Beilage (photo) to an incident it can reach — that is report
+    paperwork, which is what the poster is for. It may NOT upload anything else: audio would be a
+    recording of people, and the clipboard by the door is not for that."""
+    import io as _io
+
+    from PIL import Image as _Image
+
+    inc = _incident()
+    db_session.add(inc)
+    await db_session.commit()
+
+    buf = _io.BytesIO()
+    _Image.new("RGB", (40, 30), (200, 210, 220)).save(buf, "PNG")
+    r = await client.post(
+        f"/api/capture/incidents/{inc.id}/media?t={TOKEN}",
+        files={"file": ("beilage.png", buf.getvalue(), "image/png")},
+    )
+    assert r.status_code == 201, r.text
+    assert r.json()["url"].startswith("/api/media/")
+    assert r.json()["kind"] == "photo"
+
+    bad = await client.post(
+        f"/api/capture/incidents/{inc.id}/media?t={TOKEN}",
+        files={"file": ("memo.m4a", b"\x00\x00\x00\x18ftypM4A ", "audio/mp4")},
+    )
+    assert bad.status_code == 415
+
+    anon = await client.post(
+        f"/api/capture/incidents/{inc.id}/media",
+        files={"file": ("beilage.png", buf.getvalue(), "image/png")},
+    )
+    assert anon.status_code in (401, 403)
+
+
+async def test_capture_workspace_carries_beilagen(client, capture_secret, db_session):
+    """`attachments` is one of the capture keys, so a Beilage recorded at the poster is visible
+    to the poster on the next read — and everything outside the key set still stays invisible."""
+    inc = _incident(
+        map_workspace_json={"entities": [{"id": "e1"}], "attachments": [{"id": "a1", "url": "/api/media/1"}]}
+    )
+    db_session.add(inc)
+    await db_session.commit()
+
+    r = await client.get(f"/api/capture/incidents/{inc.id}/workspace?t={TOKEN}")
+    assert r.status_code == 200
+    ws = r.json()["workspace"]
+    assert ws["attachments"] == [{"id": "a1", "url": "/api/media/1"}]
+    assert "entities" not in ws  # the tactical picture is still none of the poster's business
