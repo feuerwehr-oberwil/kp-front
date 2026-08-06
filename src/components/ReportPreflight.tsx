@@ -15,6 +15,8 @@ import { getIncident, verifyChain } from '../lib/incidents'
 import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from '../lib/workspace'
 import { deriveAusgerueckt, fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit } from '../lib/alarmzeiten'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
+import { loadReplay, stateAt, vehiclesAt, type ReplayBundle } from '../lib/replay'
+import { autoRotation, vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import type { AuditProof, KrokiView, ReportDraft, ReportOptions } from '../lib/report'
 import { defaultReportOptions, einsatzleiterFromScene, formatDateTime, missingTranscriptCount, proofLabel } from '../lib/report'
 import { applyTimeToIso, missingSteps, stepDone, type AbschlussFacts } from '../lib/abschluss'
@@ -167,6 +169,43 @@ export function ReportPreflight({
   }
   const patchPartner = (i: number, over: Partial<PartnerContact>) =>
     savePartners(partners.map((p, j) => (j === i ? { ...p, ...over } : p)))
+  // WHEN the printed Kroki shows. The live picture is the default and the common case; a past
+  // instant is what makes a rapport able to show the Rettung that has since left, or the moment
+  // the Lage was at its worst. Reconstructed locally from the event journal (lib/replay), the
+  // same fold the Wiedergabe uses — so the paper and the replay can never disagree.
+  const [krokiAt, setKrokiAt] = useState<number | null>(null)
+  const [pastScene, setPastScene] = useState<{ entities: Entity[]; drawings: Drawing[] } | null>(null)
+  const [krokiAtBusy, setKrokiAtBusy] = useState(false)
+  const bundleRef = useRef<ReplayBundle | null>(null)
+  useEffect(() => {
+    if (krokiAt == null) { setPastScene(null); return }
+    let alive = true
+    setKrokiAtBusy(true)
+    void (async () => {
+      try {
+        const startMs = Date.parse(meta.startedAt ?? incident.started_at)
+        bundleRef.current ??= await loadReplay(incident.id, startMs, Date.now())
+        const ws = await stateAt(bundleRef.current, krokiAt)
+        if (!alive) return
+        // vehicles come from the recorded GPS samples, like the Wiedergabe draws them
+        const vehicles: Entity[] = vehiclesAt(bundleRef.current.samples, krokiAt).map((v) => ({
+          id: `replay-veh-${v.deviceId}`, kind: 'vehicle', layer: appConfig.gps.layerId,
+          coord: v.coord, symbolSvg: vehicleSymbolSvg(String(v.deviceId), autoRotation(v.course), v.course != null),
+          label: `Fahrzeug ${v.deviceId}`, live: true, directed: v.course != null,
+        }))
+        setPastScene({ entities: [...(ws?.entities ?? []), ...vehicles], drawings: ws?.drawings ?? [] })
+      } catch {
+        if (alive) { setPastScene(null); toast(P.krokiAtFailed, { icon: 'warn', tone: 'warn' }) }
+      } finally {
+        if (alive) setKrokiAtBusy(false)
+      }
+    })()
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- incident/meta are stable per sheet
+  }, [krokiAt])
+  /** the Lage the printed Kroki is built from: the reconstructed one when a moment is chosen */
+  const effScene = pastScene && scene ? { ...scene, entities: pastScene.entities, drawings: pastScene.drawings } : scene
+
   const [proof, setProof] = useState<AuditProof>({ intact: null, checkedAt: new Date().toISOString(), offline: true })
   const [checking, setChecking] = useState(true)
   // the alarm text auto-fills from the incident's dispatch text when none was typed in the
@@ -288,7 +327,12 @@ export function ReportPreflight({
   // so it's passed explicitly instead of read back (setState is async)
   const buildDraft = (krokiView?: KrokiView | null): ReportDraft => {
     const generatedAt = new Date().toISOString()
-    return { meta, generatedAt, proof: { ...proof, checkedAt: proof.checkedAt || generatedAt }, options: { ...options, krokiView: krokiView ?? options.krokiView } }
+    return {
+      meta, generatedAt,
+      proof: { ...proof, checkedAt: proof.checkedAt || generatedAt },
+      // krokiAt travels with the draft so the printed caption dates the PICTURE, not the print
+      options: { ...options, krokiView: krokiView ?? options.krokiView, krokiAt: krokiAt != null ? new Date(krokiAt).toISOString() : null },
+    }
   }
   const [pdfBusy, setPdfBusy] = useState(false)
   // ONE button (decided 2026-07-18): the server composes the complete rapport — map
@@ -298,7 +342,7 @@ export function ReportPreflight({
     setPdfBusy(true)
     try {
       await downloadDirectReportPdf({
-        incident, draft, trupps, attendance, events, plans, mittel, attachments, scene, board, building,
+        incident, draft, trupps, attendance, events, plans, mittel, attachments, scene: effScene, board, building,
         roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
       })
       // success needs no banner — the downloaded/opened PDF IS the feedback
@@ -325,7 +369,7 @@ export function ReportPreflight({
     if (warmedRef.current || !printStatus?.available || !options.kroki || mapContentCount === 0 || !scene) return
     warmedRef.current = true
     const payload = buildDirectReportPayload({
-      incident, draft: buildDraft(null), trupps, attendance, events, plans, mittel, attachments, scene, board, building,
+      incident, draft: buildDraft(null), trupps, attendance, events, plans, mittel, attachments, scene: effScene, board, building,
       roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
     })
     void prewarmPrint(editorPrintTransport(), incident.id, payload)
@@ -343,7 +387,7 @@ export function ReportPreflight({
     try {
       const t = editorPrintTransport()
       const payload = buildDirectReportPayload({
-        incident, draft: buildDraft(krokiView), trupps, attendance, events, plans, mittel, attachments, scene, board, building,
+        incident, draft: buildDraft(krokiView), trupps, attendance, events, plans, mittel, attachments, scene: effScene, board, building,
         roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
       })
       const jobId = await enqueuePrint(t, incident.id, payload)
@@ -789,6 +833,38 @@ export function ReportPreflight({
               {/* framing is chosen visually in the KrokiFramingModal right before PDF /
                   Ausdrucken — no «aktuelle Ansicht» / extent toggles needed anymore */}
               <Toggle label={P.toggleKroki} checked={options.kroki && mapContentCount > 0} onChange={(v) => patchOpt({ kroki: v })} disabled={mapContentCount === 0} />
+              {/* WHEN the Kroki shows. One picture is one Lage at one time — so rather than
+                  collaging everything that was ever placed into a situation that never existed,
+                  the sheet lets you name the moment and reconstructs it from the journal. That
+                  is also the honest answer to «die Rettung ist weg»: she is on the 21:14 Kroki,
+                  because at 21:14 she was there. */}
+              {options.kroki && mapContentCount > 0 && (
+                <div className="report-plans-row">
+                  <span>{P.krokiAtLabel}</span>
+                  <div className="report-krokiat">
+                    <Segmented<'now' | 'past'>
+                      ariaLabel={P.krokiAtLabel}
+                      value={krokiAt == null ? 'now' : 'past'}
+                      options={[{ value: 'now', label: P.krokiAtNow }, { value: 'past', label: P.krokiAtPast }]}
+                      onChange={(v) => setKrokiAt(v === 'now' ? null : Date.now())}
+                    />
+                    {krokiAt != null && (
+                      <TimeField
+                        ariaLabel={P.krokiAtLabel} value={hhmm(new Date(krokiAt))} nowLabel={P.krokiAtNowBtn}
+                        onCommit={(v) => {
+                          if (!v) { setKrokiAt(Date.now()); return }
+                          // the time lands on the day the Einsatz is running on, not on 1970
+                          const base = new Date(krokiAt)
+                          const [h, m] = v.split(':').map(Number)
+                          base.setHours(h, m, 0, 0)
+                          setKrokiAt(base.getTime())
+                        }}
+                      />
+                    )}
+                    {krokiAtBusy && <span className="report-krokiat-busy">{P.krokiAtBusy}</span>}
+                  </div>
+                </div>
+              )}
               <div className="report-plans-row">
                 <span>{P.plansLabel}</span>
                 <Segmented<'annotated' | 'all' | 'none'>
@@ -878,9 +954,9 @@ export function ReportPreflight({
         </div>
       </Overlay>
 
-      {framingFor && scene && (
+      {framingFor && effScene && (
         <KrokiFramingModal
-          scene={scene}
+          scene={effScene}
           initial={options.krokiView}
           onCancel={() => setFramingFor(null)}
           onConfirm={(v) => {

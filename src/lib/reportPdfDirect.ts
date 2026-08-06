@@ -198,7 +198,11 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
 
   const cfg = getDeploymentConfig()
   const catalogue = cfg.mittel?.catalogue ?? appConfig.mittel.catalogue
-  const krokiCaption = fillTemplate(appConfig.copy.report.krokiState, { title: incident.title, at: formatDateTime(draft.generatedAt) })
+  // The caption dates the PICTURE, not the printing: a Kroki reconstructed for 21:14 says 21:14.
+  const krokiCaption = fillTemplate(appConfig.copy.report.krokiState, {
+    title: incident.title,
+    at: formatDateTime(draft.options.krokiAt ?? draft.generatedAt),
+  })
   const payload = {
     incident: {
       title: incident.title, id: incident.id, type: incident.type ?? undefined, address: incident.address ?? undefined,

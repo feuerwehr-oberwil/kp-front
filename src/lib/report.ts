@@ -21,6 +21,11 @@ export interface ReportOptions {
   /** the framing chosen in the Kroki modal (WYSIWYG crop) — null until picked;
    *  the server auto-fits the annotations only as headless fallback */
   krokiView: KrokiView | null
+  /** WHEN the printed Kroki shows. Null = the live picture. An ISO instant reconstructs the
+   *  Lage as it stood then (lib/replay · stateAt), which is how a rapport can still show the
+   *  Rettung that has long since left — and the caption then names that moment, so the sheet
+   *  never claims to be «Stand jetzt» while showing something else. */
+  krokiAt: string | null
   annotatedPlans: boolean
   allPlans: boolean
   atemschutz: boolean
@@ -35,6 +40,7 @@ export interface ReportOptions {
 export const defaultReportOptions: ReportOptions = {
   kroki: true,
   krokiView: null,
+  krokiAt: null,
   annotatedPlans: true,
   allPlans: false,
   atemschutz: true,

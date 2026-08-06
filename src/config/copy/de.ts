@@ -2316,6 +2316,12 @@ export const de = {
     toggleJournal: 'Einsatzjournal',
     toggleAttachments: 'Beilagen ({n})',
     // Beilagen: Fotos, die zum RAPPORT gehören (Ausweis, Schaden), nicht in den Verlauf.
+    krokiAtLabel: 'Kroki-Stand',
+    krokiAtNow: 'Jetzt',
+    krokiAtPast: 'Zeitpunkt',
+    krokiAtNowBtn: 'Jetzt',
+    krokiAtBusy: 'Lage wird rekonstruiert …',
+    krokiAtFailed: 'Lage zu diesem Zeitpunkt konnte nicht rekonstruiert werden – gedruckt wird der aktuelle Stand.',
     partnersLabel: 'Partnerorganisationen',
     partnerOrg: 'Organisation (z. B. Polizei)',
     partnerName: 'Person vor Ort',
