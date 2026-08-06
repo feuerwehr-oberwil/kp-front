@@ -2511,6 +2511,8 @@ export const de = {
     planAt: 'Schicht für {name} planen',
     dragMove: 'Verschieben',
     dragFrom: 'Beginn ziehen',
+    // Rechtsklick-Menü auf einem Balken: Zustände beim Namen nennen statt weiterschalten
+    editEntry: 'Bearbeiten …',
     dragTo: 'Ende ziehen',
   },
   // Schichtbänder (BandGrid) — die Transponierte des Zeitplans. Der Zeitplan ist personen-major
@@ -2591,6 +2593,8 @@ export const de = {
     resolveConfirmed: 'Alles auf geplant',
     resolveCancel: 'Abbrechen',
     conflict: 'Doppelt eingeteilt – zwei Schichten zur selben Zeit',
+    // Rechtsklick auf eine Zelle: Zustände benennen statt weiterschalten
+    editEntry: 'Bearbeiten …',
     scrollHint: 'Waagrecht rollen für weitere Schichten',
   },
   // Mittel surface (MittelView) — manuelle Materialerfassung für Rapport / Nachschub

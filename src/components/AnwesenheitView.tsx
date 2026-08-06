@@ -254,7 +254,7 @@ function LivePositionChip({ live, center, onShow }: {
 export function AnwesenheitView({
   people, attendance, canEdit, loading, error, blockedIds,
   onMarkPresent, onMarkLeft, onClear, onJumpToTrupp, onReload, onSetTimes, onRemoveBlock, captureUsage,
-  shifts, bands, onCreateBand, onSaveBand, onRemoveBand, onCycleCell, onSetCellState,
+  shifts, bands, onCreateBand, onSaveBand, onRemoveBand, onCycleCell, onSetCellState, onPutCellState,
   startedAt, onAddShift, onAddShiftSpan, onReplaceShift, onSetShiftTime, onRemoveShift,
   onPrintZeitplan, onDownloadZeitplan, zeitplanPrintOnline,
   livePositions, incidentCenter, onShowOnMap, incidentId,
@@ -291,6 +291,8 @@ export function AnwesenheitView({
   onCycleCell?: (band: ShiftBand, person: Person) => void
   /** settle a window that holds BOTH states for one person */
   onSetCellState?: (band: ShiftBand, person: Person, state: 'available' | 'confirmed') => void
+  /** the right-click menu's explicit setter — like onSetCellState, but also fills an empty cell */
+  onPutCellState?: (band: ShiftBand, person: Person, state: 'available' | 'confirmed') => void
   startedAt?: string | null
   onAddShift?: (p: Person) => void
   /** plan exactly the stretch swept out on the grid */
@@ -618,6 +620,7 @@ export function AnwesenheitView({
           onRemoveBand={onRemoveBand!}
           onCycleCell={onCycleCell!}
           onSetCellState={onSetCellState!}
+          onPutCellState={onPutCellState ?? onSetCellState!}
         />
       ) : showPlan ? (
         <ZeitplanView

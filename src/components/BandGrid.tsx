@@ -4,6 +4,8 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate, hhmm } from '../lib/format'
 import { applyTimeToIso, isoOnDay, keepEndAfterStart, keepStartBeforeEnd } from '../lib/abschluss'
 import { cx } from '../lib/cx'
+import { ContextMenu } from '../lib/overlays'
+import { useIsPhone } from '../lib/useIsPhone'
 import { rankAbbr, rankLabel } from '../lib/rank'
 import { fmtDayShort, incidentDays, isOtherDay } from '../lib/zeitplanFormat'
 import {
@@ -300,7 +302,7 @@ function BandSheet({ band, bands, startedAt, onCreate, onSave, onRemove, onClose
 export function BandGrid({
   people, shifts, bands, canEdit, startedAt, attendance,
   onAddShift, onSetShiftTime, onReplaceShift, onRemoveShift,
-  onCreateBand, onSaveBand, onRemoveBand, onCycleCell, onSetCellState,
+  onCreateBand, onSaveBand, onRemoveBand, onCycleCell, onSetCellState, onPutCellState,
 }: {
   /** already filtered + ordered by the shared Anwesenheit header, so all three views read alike */
   people: Person[]
@@ -322,12 +324,15 @@ export function BandGrid({
   onCycleCell: (band: ShiftBand, person: Person) => void
   /** settle a window that holds BOTH states for one person — «alles auf verfügbar / geplant» */
   onSetCellState: (band: ShiftBand, person: Person, state: 'available' | 'confirmed') => void
+  /** the right-click menu's explicit setter — handles the empty cell too */
+  onPutCellState: (band: ShiftBand, person: Person, state: 'available' | 'confirmed') => void
 }) {
   const S = appConfig.copy.schichten
   /** null = closed · 'new' = the create sheet · a band = its edit sheet */
   const [sheet, setSheet] = useState<'new' | ShiftBand | null>(null)
   /** whose own times are open — the SAME sheet the Zeitplan opens from a name */
   const [openPerson, setOpenPerson] = useState<string | null>(null)
+  const isPhone = useIsPhone()
   /** the cell whose window holds both states and has to be settled by hand */
   const [resolve, setResolve] = useState<{ person: Person; band: ShiftBand } | null>(null)
   const cols = useMemo(() => sortBands(bands), [bands])
@@ -456,7 +461,11 @@ export function BandGrid({
                   // the hours this cell shows, clamped to its own column: «05–08» in a watch that
                   // ends at 06:00 is 05–06 as far as this column is concerned
                   const win = bandCellWindow(cell, b)
-                  return (
+                  // The tap cycles leer → verfügbar → eingeteilt; right-click NAMES the three
+                  // with the current one ticked. Same reason as the Zeitplan bars: a cycle is
+                  // right under a thumb and wrong at a desk, where landing on the state you
+                  // meant should not require knowing the order.
+                  const cellBtn = (
                     <button key={b.id} type="button" disabled={!canEdit}
                       className={cx(s.cell,
                         cell.state !== 'empty' && !assigned && s.cellAvailable,
@@ -495,6 +504,21 @@ export function BandGrid({
                         </span>
                       )}
                     </button>
+                  )
+                  return (
+                    <ContextMenu
+                      key={b.id}
+                      disabled={!canEdit || isPhone}
+                      trigger={cellBtn}
+                      items={[
+                        // «Leer» is not offered: getting back to empty is the tap cycle's job,
+                        // which protects a derived cell's own offer and hand-drawn deviating
+                        // times. See useBandActions.putCellState.
+                        { label: S.available, checked: cell.state === 'available', onClick: () => onPutCellState(b, p, 'available') },
+                        { label: S.confirmed, checked: cell.state === 'confirmed', onClick: () => onPutCellState(b, p, 'confirmed') },
+                        { label: S.editEntry, separatorBefore: true, onClick: () => setOpenPerson(p.id) },
+                      ]}
+                    />
                   )
                 })}
                 <span className={s.pad} aria-hidden />

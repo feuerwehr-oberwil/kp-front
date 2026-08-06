@@ -4,6 +4,8 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate, hhmm } from '../lib/format'
 import { fmtDayShort } from '../lib/zeitplanFormat'
 import { cx } from '../lib/cx'
+import { ContextMenu } from '../lib/overlays'
+import { useIsPhone } from '../lib/useIsPhone'
 import { rankAbbr, rankLabel } from '../lib/rank'
 import { intervalsOf } from '../lib/attendanceIntervals'
 import { useLaneGesture } from '../lib/useLaneGesture'
@@ -60,7 +62,7 @@ const clock = (iso?: string): string => {
  * sheet. That is why the row carries no «+» and no time chips: they crowded the name out and put
  * every edit two taps away from the thing it edits.
  */
-function PersonRow({ person, shifts, blocks, span, nowMs, canEdit, conflicts, nowLine, onAddSpan, onReplace, onOpen }: {
+function PersonRow({ person, shifts, blocks, span, nowMs, canEdit, conflicts, nowLine, onAddSpan, onReplace, onRemove, onOpen, noMenu }: {
   person: Person
   shifts: Shift[]
   blocks: PresenceInterval[]
@@ -72,6 +74,10 @@ function PersonRow({ person, shifts, blocks, span, nowMs, canEdit, conflicts, no
   onAddSpan: (p: Person, from: number, to: number) => void
   /** `undoName` asks for the confirm-with-undo toast — passed on a drag, withheld on a toggle */
   onReplace: (sh: Shift, undoName?: string) => void
+  onRemove: (id: string, personName: string) => void
+  /** touch: the tap cycle is the model there, and a long-press menu would fight the drag
+   *  gestures this lane already uses */
+  noMenu: boolean
   onOpen: () => void
 }) {
   const Z = appConfig.copy.zeitplan
@@ -160,7 +166,10 @@ function PersonRow({ person, shifts, blocks, span, nowMs, canEdit, conflicts, no
           const clip = clipOf(sp.from, sp.to)
           const bad = conflicts.has(sh.id)
           const next = sh.confirmed ? Z.available : Z.confirmed
-          return (
+          // Right-click NAMES every state with the current one ticked, instead of the tap's
+          // «advance to whatever is next» — which is right under a thumb at the scene and wrong
+          // at a desk, where you have to know the order to land where you meant to.
+          const bar = (
             <span key={sh.id} className={cx(s.bar, s.plannedBar, sh.confirmed && s.confirmedBar, bad && s.conflict,
               clip.from && s.clipFrom, clip.to && s.clipTo, g.preview?.id === sh.id && s.dragging)}
               style={st} {...(canEdit ? g.barProps(sh, 'move') : {})}
@@ -176,6 +185,19 @@ function PersonRow({ person, shifts, blocks, span, nowMs, canEdit, conflicts, no
                 </>
               )}
             </span>
+          )
+          return (
+            <ContextMenu
+              key={sh.id}
+              disabled={!canEdit || noMenu}
+              trigger={bar}
+              items={[
+                { label: Z.confirmed, checked: !!sh.confirmed, onClick: () => { if (!sh.confirmed) onReplace({ ...sh, confirmed: true }, person.displayName) } },
+                { label: Z.available, checked: !sh.confirmed, onClick: () => { if (sh.confirmed) onReplace({ ...sh, confirmed: false }, person.displayName) } },
+                { label: Z.editEntry, separatorBefore: true, onClick: onOpen },
+                { label: Z.remove, danger: true, onClick: () => onRemove(sh.id, person.displayName) },
+              ]}
+            />
           )
         })}
         {nowLine}
@@ -222,6 +244,7 @@ export function ZeitplanView({
   horizonH: number
 }) {
   const Z = appConfig.copy.zeitplan // read per-render so the resolved locale applies
+  const isPhone = useIsPhone()
   const [openPerson, setOpenPerson] = useState<string | null>(null)
   /* the Deckung numbers are folded away by default: the SHAPE of the three lines is what you read
      at a glance, and three extra rows of digits cost a phone two people off the Mannschaft */
@@ -341,7 +364,9 @@ export function ZeitplanView({
               nowLine={<>{dayLines}{nowLine}</>}
               onAddSpan={onAddSpan}
               onReplace={onReplace}
+              onRemove={onRemove}
               onOpen={() => setOpenPerson(p.id)}
+              noMenu={isPhone}
             />
           ))}
 

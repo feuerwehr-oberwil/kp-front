@@ -4279,6 +4279,26 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .report-meta-readout dd { margin: 0; font-size: 13px; line-height: 1.45; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
 .report-meta-empty { color: var(--ink-faint); }
 
+/* Right-click menu on the planning surfaces (lib/overlays/ContextMenu). Base UI's positioner
+   owns the placement, so this styles the popup only — same surface vocabulary as .ip-menu,
+   without its absolute anchoring. */
+.ui-ctxmenu-pos { z-index: 210; }
+.ui-ctxmenu { min-width: 208px; max-width: min(320px, 92vw); padding: 6px;
+  background: var(--surface); border: 1px solid var(--glass-edge); border-radius: var(--r-surface);
+  box-shadow: var(--shadow); outline: none; }
+.ui-ctxmenu-item { display: flex; align-items: center; gap: 8px; width: 100%;
+  min-height: 36px; padding: 0 10px; border: 0; border-radius: var(--r-ctl); background: none;
+  font: 600 13.5px var(--body); color: var(--ink); text-align: left; cursor: pointer; user-select: none; }
+.ui-ctxmenu-item[data-highlighted] { background: color-mix(in srgb, var(--blue) 10%, transparent); }
+.ui-ctxmenu-item[data-disabled] { opacity: var(--disabled); cursor: default; }
+.ui-ctxmenu-item.danger { color: var(--red); }
+.ui-ctxmenu-item.danger[data-highlighted] { background: color-mix(in srgb, var(--red) 10%, transparent); }
+/* a rule above, separating «which state is it» from «what can I do to it» */
+.ui-ctxmenu-item[data-sep] { margin-top: 5px; padding-top: 5px; border-top: 1px solid var(--glass-edge);
+  border-top-left-radius: 0; border-top-right-radius: 0; }
+/* fixed tick slot so the labels do not shift sideways as the state changes */
+.ui-ctxmenu-tick { flex: none; width: 12px; color: var(--blue); font-weight: 800; }
+
 /* A folded Rapport section. Same chrome as .report-adv, one level up: the head stays a real
    row (44px, chevron, title) and carries a summary on the right so the fold can be read
    without being opened — the only reason folding these is safe. */

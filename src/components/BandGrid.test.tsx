@@ -38,6 +38,7 @@ const mount = (over: Partial<Parameters<typeof BandGrid>[0]> = {}) => {
     onRemoveShift: vi.fn(),
     onCreateBand: vi.fn(), onSaveBand: vi.fn(), onRemoveBand: vi.fn(), onCycleCell: vi.fn(),
     onSetCellState: vi.fn(),
+    onPutCellState: vi.fn(),
     ...over,
   }
   render(<BandGrid {...props} />)

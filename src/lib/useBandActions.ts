@@ -196,6 +196,34 @@ export function useBandActions({ bands, setBands, shifts, setShifts }: BandActio
     })
   }
 
+  /**
+   * Put a cell into a NAMED state — what the right-click menu calls, as opposed to the tap that
+   * advances to whatever is next.
+   *
+   * Delegates to `setCellState` for everything that already exists, so all of its care about
+   * cutting at the band edges and merging afterwards still applies. The one thing it adds is the
+   * empty cell, which `setCellState` cannot answer at all: it only rewrites shifts that already
+   * overlap the window, and an empty cell has none — so «verfügbar» on an empty cell would have
+   * silently done nothing.
+   *
+   * Clearing a cell is deliberately NOT offered here. `cycleCell` earns its way back to empty
+   * through protections this path would have to duplicate: a derived cell falls back to the
+   * person's own freihändige offer rather than withdrawing it, and a deviating cell holds
+   * hand-drawn planning that is never removed by a tap. A menu entry that bypassed those would
+   * delete work somebody did on the axis.
+   */
+  const putCellState = (band: ShiftBand, person: Person, next: 'available' | 'confirmed') => {
+    const cell = bandCell(shifts, person.id, band)
+    if (cell.state === 'empty') {
+      setShifts((list) => [...list, {
+        id: `sh${Date.now()}`, personId: person.id, bandId: band.id,
+        from: band.from, to: band.to, confirmed: next === 'confirmed',
+      }])
+      return
+    }
+    setCellState(band, person, next)
+  }
+
   /** The «Zeiten mitziehen?» question, asked only when a move would actually drag somebody. */
   const askAndSetBandTimes = async (id: string, from: string, to: string) => {
     const prev = bands.find((b) => b.id === id)
@@ -212,5 +240,5 @@ export function useBandActions({ bands, setBands, shifts, setShifts }: BandActio
     setBandTimes(id, from, to, move)
   }
 
-  return { addBand, renameBand, setBandTimes, askAndSetBandTimes, bandFollowerCount, removeBand, cycleCell, setCellState }
+  return { addBand, renameBand, setBandTimes, askAndSetBandTimes, bandFollowerCount, removeBand, cycleCell, setCellState, putCellState }
 }
