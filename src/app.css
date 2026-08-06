@@ -646,6 +646,15 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
   width: 264px; max-width: calc(100vw - 16px); max-height: calc(100dvh - 32px); overflow-y: auto;
   background: var(--ink-fill); color: var(--on-accent-ink); border-radius: var(--r-surface);
   padding: 10px; z-index: 201; box-shadow: var(--shadow); }
+
+/* REPLAY (and any other view without the tool rail): both docks are positioned against
+   `--vrail-w` — a rail that is not on screen there. They were opening centred beside a phantom,
+   while the button that opened them floats top-right in .toputil. Anchor them under that
+   instead: same corner, same 10px channel, so the panel still belongs to its own button. */
+.map-util :is(.layers-card, .mv-dock) {
+  top: calc(16px + 42px + 10px); right: 16px; bottom: auto; transform: none;
+  max-height: calc(100dvh - 96px);
+}
 /* the title row STICKS while the list scrolls: it carries the ✕, and a long layer list (or a
    short phone viewport) scrolled the only way out of the sheet off the top. `-10px` cancels the
    card's own padding so the sticky strip spans the full width and nothing shows through beside

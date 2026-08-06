@@ -74,7 +74,7 @@ function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose }: {
     <>
       {/* same dark dock as the measure/draw ToolDock, in the same spot: centred just left of
           the right tool rail, ✕ on top, ⓘ at the bottom (see .wb-dock / .wb-dock-map). */}
-      <div className={cx(s.pop, s.dock)} role="dialog" aria-label={cp.title}>
+      <div className={cx(s.pop, s.dock, "mv-dock")} role="dialog" aria-label={cp.title}>
         <div className={s.head}>
           <button className={s.close} aria-label={appConfig.copy.closeDialog} onClick={onClose}><Icon id="close" /></button>
         </div>

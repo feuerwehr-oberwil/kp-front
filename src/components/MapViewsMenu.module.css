@@ -8,6 +8,9 @@
 /* sits in the same place as the measure/draw ToolDock: vertically centred, just left of the
    right tool rail, and tracking its width (--vrail-w) — see .wb-dock-map */
 .dock { position: fixed; right: calc(var(--vrail-w, 60px) + 26px); top: 50%; transform: translateY(-50%); }
+/* …see .map-util in app.css: with no tool rail on screen this dock has nothing to sit beside,
+   so app.css re-anchors it under the floating cluster. The global class is the handle for it. */
+.dock:global(.mv-dock) { }
 
 /* Phone: the trigger is the compass in the bottom tool bar, so the dock opens ABOVE the bars,
    next to the thumb that pressed it, rather than jumping to the far top corner.
