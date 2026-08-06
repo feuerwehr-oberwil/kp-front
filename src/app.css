@@ -782,6 +782,13 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
    their label — at the full 30px they wrapped a single lonely circle onto a second row */
 .ctx-note-colors { display: flex; align-items: center; gap: 7px; margin-left: auto; justify-content: flex-end; }
 .ctx-note-colors .dh-color { width: 26px; height: 26px; }
+/* the Truppfarbe row wraps (11 targets: «Automatisch» + 10 colours) and starts at the left,
+   under its own section label — unlike the note row, which trails its inline field */
+.ctx-section > .ctx-note-colors { flex-wrap: wrap; margin-left: 0; justify-content: flex-start; }
+.ctx-team-auto { border: 1px solid var(--glass-edge); border-radius: 999px; padding: 6px 11px;
+  background: var(--surface); color: var(--ink); font: 700 12px/1 var(--body); cursor: pointer; }
+.ctx-team-auto:hover { border-color: var(--ink-dim); }
+.ctx-team-auto.on { background: color-mix(in srgb, var(--blue) 18%, var(--surface)); border-color: var(--blue); color: var(--blue); }
 /* "default note ink" swatch — shows the actual sticky-note colours rather than a generic
    neutral, so it reads as "back to a normal note" instead of "no colour" */
 .dh-color.note-ink { background: var(--note-bg); box-shadow: inset 0 0 0 1px var(--note-border); }
@@ -1707,6 +1714,14 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   background: rgba(255, 255, 255, .14); display: grid; place-items: center; cursor: pointer; }
 .wb-pa:hover:not(:disabled) { background: rgba(255, 255, 255, .28); }
 .wb-pa .i { width: 16px; height: 16px; }
+/* Truppfarbe on a placed team marker: the trigger wears the current colour, the popup is the same
+   palette the Trupp form shows (gloved 30px targets, wrapped two rows). */
+.wb-pa-swatch { width: 18px; height: 18px; border-radius: 50%; box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .8); }
+.wb-pa-colors { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; max-width: 232px; padding: 10px;
+  border-radius: var(--r-ctl); background: var(--surface); border: 1px solid var(--glass-edge); box-shadow: var(--shadow); z-index: 60; }
+/* the swatch colour rides on an inner span (the popup's close-button takes no inline style) */
+.wb-pa-colors .dh-color { width: 30px; height: 30px; background: transparent; }
+.wb-pa-colors .dh-color > span { display: block; width: 100%; height: 100%; border-radius: 50%; }
 .wb-pa-mark { background: var(--blue); }
 .wb-pa-mark:hover { background: var(--blue); filter: brightness(1.08); }
 .wb-pa-del { background: var(--red); }
@@ -1908,7 +1923,11 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
    raises the alarm, this is the picture telling you WHERE those people are. */
 .line-end-tag.tone-warn { background: color-mix(in srgb, var(--amber) 14%, var(--surface)); }
 .line-end-tag.tone-crit { background: color-mix(in srgb, var(--red) 16%, var(--surface)); }
-.line-end-tag.tone-muted { border-style: dashed; }
+/* The Trupp is out. The tag stays (it is the record of who worked this Leitung until the next
+   Trupp takes it) but steps back to the same read as that Trupp's marker on the map: dashed box,
+   dimmed, name struck through. */
+.line-end-tag.tone-muted { border-style: dashed; opacity: .55; }
+.line-end-tag.tone-muted .line-end-trupp { text-decoration: line-through; }
 
 /* Plan-Maßstab + Messen overlays — match the Lage map's measure tool exactly: a dashed blue
    path (#1f6feb), 10 % blue fill, and white nodes with a 3 px blue ring. */
@@ -2563,6 +2582,10 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   color: var(--ink); font: 700 13px/1.2 var(--body); cursor: pointer; }
 .draw-editor .de-menu-trigger > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .draw-editor .de-menu-trigger svg { width: 14px; height: 14px; flex: none; opacity: .65; }
+/* the Trupp that laid this Leitung and is already out — same dim + strike as its map marker
+   (.team-dot.raus), so «wer war hier» stays readable without reading as «wer ist hier» */
+.draw-editor .de-menu-trigger .de-trupp-out { color: var(--ink-dim); text-decoration: line-through; }
+.draw-editor .de-menu-trigger .de-trupp-outnote { flex: none; color: var(--ink-dim); font: 600 11.5px/1 var(--body); font-style: normal; }
 .draw-editor .de-menu-trigger:hover,
 .draw-editor .de-menu-trigger[data-popup-open] { border-color: var(--ink-dim); }
 .de-menu-pop { min-width: 200px; padding: 6px; border-radius: var(--r-ctl); background: var(--surface);
@@ -4380,6 +4403,28 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
    header across the app reads identically (was a one-off 14px sentence-case here) */
 .report-pre-section h3 { margin: 0 0 12px; font: 700 11px var(--body); letter-spacing: .08em;
   text-transform: uppercase; color: var(--ink-dim); }
+/* Beilagen: photos that belong to the RAPPORT (Ausweis, Schaden) rather than to the Verlauf.
+   Thumbnail + caption per row, because the caption is what the plate prints underneath and the
+   thumbnail is only there to say WHICH photo you are labelling. */
+.report-att-hint { margin: -6px 0 10px; font: 500 12px/1.45 var(--body); color: var(--ink-dim); }
+.report-att-list { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.report-att { display: flex; align-items: center; gap: 10px; }
+.report-att-thumb { flex: none; width: 56px; height: 56px; object-fit: cover; border-radius: var(--r-sm);
+  border: 1px solid var(--border); background: var(--fill-soft); }
+.report-att-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.report-att-pending { font: 600 11.5px var(--body); color: var(--amber-strong); }
+.report-att-x { flex: none; display: grid; place-items: center; width: 40px; height: 40px; padding: 0; cursor: pointer;
+  border: none; border-radius: var(--r-sm); background: transparent; color: var(--ink-faint); }
+.report-att-x:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
+.report-att-x .i { width: 16px; height: 16px; }
+/* the file input itself is invisible — the label IS the button (gloved-size, 44px tall) */
+.report-att-add { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; cursor: pointer;
+  border: 1px dashed var(--border); border-radius: var(--r-ctl); background: var(--surface); color: var(--ink);
+  font: 700 13px var(--body); }
+.report-att-add:hover { border-color: var(--ink-faint); }
+.report-att-add .i { width: 16px; height: 16px; }
+.report-att-add input { display: none; }
+
 .report-toggles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 /* Abschnitte grouping: «Karte & Pläne» / «Inhalte» sub-heads span both columns, the plans
    choice is one 3-way segment, and the two expert options fold behind «Erweitert» */

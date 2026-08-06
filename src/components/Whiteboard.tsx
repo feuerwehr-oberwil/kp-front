@@ -10,7 +10,7 @@ import { appConfig } from '../config/appConfig'
 import { resolveLinePreset, markerParamsAlong, lerpPoint, lookbackPoint, rdpIndices, FREEHAND_SIMPLIFY_PX, MAX_VERTEX_HANDLES } from '../lib/lineStyle'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { TeilstueckFork, EndTag, hasLineDecor, lineLabel } from '../lib/lineDecor'
-import { truppForLine, truppLineTone, truppTagText } from '../lib/truppLines'
+import { truppForLine, truppIsOut, truppLineTone, truppTagText } from '../lib/truppLines'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { confirmDialog, toast } from '../lib/ui'
 import { panelNudgeBox, panelNudgeBoxUp, isBottomSheet } from '../lib/panelNudge'
@@ -22,7 +22,7 @@ import { ContextPanel } from './ContextPanel'
 import { DrawEditor } from './DrawEditor'
 import { ShapeEditor } from './ShapeEditor'
 import { ShapeGlyph, SHAPE_DEFS } from '../lib/shapes'
-import { noteScale, clampNoteWN, noteWN, NOTE_WN } from '../lib/notes'
+import { noteScale, autoNoteWN, clampNoteWN, noteWN } from '../lib/notes'
 import { planUrl, TILE_AR, TOP_INSET, STACK_VPAD, clamp01, floorLabel, floorGeometry } from '../lib/whiteboard'
 import { advanceDwell, applyRouting, attachInsetPx, boundaryPoint, EMPTY_DWELL, forkPortPoint, incomingAttachments, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 import { calibrate, pathMetres, polyAreaM2, isStale, type PlanScale } from '../lib/planScale'
@@ -116,7 +116,8 @@ interface Props {
    *  surface, keeping Lage↔Plan shortcut parity. Semantic tool ids map to Plan tools inside. */
   keysRef?: React.MutableRefObject<{ pickTool: (tool: string) => void; zoom: (f: number) => void } | null>
   /** a Verlauf row asked to revisit a plan point — center + select on arrival. */
-  focus: { x: number; y: number; floor: number; annoId?: string; nonce: number } | null
+  /** `flash` shows the anno (a few-second outline) instead of selecting it — see the focus effect */
+  focus: { x: number; y: number; floor: number; annoId?: string; flash?: boolean; nonce: number } | null
   /** report the current plan-view centre (tile-local) so a journal pin can anchor to it. */
   onView: (c: { x: number; y: number; floor: number }) => void
   /** currently monitored Atemschutz Trupps — offered when placing a team chip on the plan. */
@@ -125,6 +126,8 @@ interface Props {
   onLinkTrupp?: (annoId: string, truppId: string) => void
   /** jump to the Atemschutz board for a linked Trupp ("show the trupp"). */
   onShowTrupp?: (truppId: string) => void
+  /** recolouring a linked team chip writes the TRUPP's colour (see recolorTeam) */
+  onTruppColor?: (truppId: string, color: string) => void
   /** «Leitung wählen» is armed: the next tap on a drawn line reports it here (and links it to the
    *  waiting Trupp) instead of selecting it. Undefined = normal selection. */
   onPickLine?: (annoId: string) => void
@@ -148,7 +151,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', onChange, building, onSelectBuilding, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRecent, log, onSymbolPlaced, emit = () => {}, historyRef, onHistoryState, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onPickLine, onLinkLineTrupp, truppSeverities, planScale = {}, onCalibrate, slimTools: slimToolsProp = false }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', onChange, building, onSelectBuilding, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRecent, log, onSymbolPlaced, emit = () => {}, historyRef, onHistoryState, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTruppColor, onPickLine, onLinkLineTrupp, truppSeverities, planScale = {}, onCalibrate, slimTools: slimToolsProp = false }: Props) {
   const active = plans.find((p) => p.id === activeId) ?? plans[0]
   // A viewer-only plan (e.g. PV/documentation PDF) is read-only regardless of role: plain
   // pan/zoom, no drawing tools or annotation surface. Folds into the existing readOnly gates.
@@ -677,7 +680,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       // ABSENT rather than written out, so an untouched note is byte-identical to a legacy one
       add({
         id, kind: 'text', x, y, floor, text: '',
-        wN: NOTE_WN.def,
+        // a fresh note follows what gets typed into it (lib/notes · autoNoteWN); dragging the
+        // width grip later ends that and the dragged width stands
+        wN: autoNoteWN('', txtBase * scale * noteScale(noteDefaults.size), sW), noteAutoW: true,
         noteSize: noteDefaults.size === 'm' ? undefined : noteDefaults.size,
         notePlain: noteDefaults.plain || undefined,
         color: noteDefaults.color || undefined,
@@ -1103,7 +1108,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       // note text box: the grip sits on the RIGHT edge of a centre-anchored box, so the pointer
       // distance from the centre is half the width. Normalized against the (scaled) plan width
       // so the box keeps its proportion at every zoom — and prints at that same proportion.
-      patch(st.id, { wN: clampNoteWN((2 * Math.abs(e.clientX - st.cx)) / sW) })
+      patch(st.id, { wN: clampNoteWN((2 * Math.abs(e.clientX - st.cx)) / sW), noteAutoW: undefined })
       return
     }
     if (st.mode === 'cage') {
@@ -1153,7 +1158,16 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     patchCommit(a.id, { trail: [] })
     log('cross', fillTemplate(appConfig.copy.whiteboard.trailCleared, { name: a.text ?? '' }))
   }
-  const recolorTeam = (c: string) => { if (selId) patchCommit(selId, { color: c }) }
+  // Recolouring a team chip recolours the TRUPP, not just this chip: colour is the Trupp's
+  // identity (board card, Lage marker, plan chip all read it), so writing only the chip would
+  // leave two disagreeing answers to «which one is this?» — and the next re-placement would
+  // silently undo the change. onTruppColor is absent on surfaces with no Atemschutz board.
+  const recolorTeam = (c: string) => {
+    if (!selId) return
+    patchCommit(selId, { color: c })
+    const truppId = annos.find((a) => a.id === selId)?.truppId
+    if (truppId) onTruppColor?.(truppId, c)
+  }
 
   // a team that carries recorded positions is protected from deletion — its trail
   // is part of the incident record, so it must be cleared deliberately first
@@ -1340,12 +1354,24 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // fit deps re-run this once fit lands. Declared after the activeId reset effect
   // so it wins when both fire in the same render.
   const appliedFocus = useRef(0)
+  // `focus.flash` asks to SHOW an anno rather than open it: outlined for a few seconds, nothing
+  // selected. «Leitung zeigen» on an Atemschutz card uses it — the operator wants to know where
+  // the hose is, not to edit it, and a selected line puts draggable nodes under their finger.
+  const [flashId, setFlashId] = useState<string | null>(null)
   useEffect(() => {
     if (!focus || focus.nonce === appliedFocus.current || !fit.w || !fit.h) return
-    setTool('pan'); if (focus.annoId) setSelId(focus.annoId)
+    setTool('pan')
+    if (focus.annoId && focus.flash) setFlashId(focus.annoId)
+    else if (focus.annoId) setSelId(focus.annoId)
     centerOnPoint(focus.x, focus.y, focus.floor)
     appliedFocus.current = focus.nonce
   }, [focus, fit.w, fit.h]) // eslint-disable-line react-hooks/exhaustive-deps
+  // the outline fades out on its own — it is a pointing gesture, not a state
+  useEffect(() => {
+    if (!flashId) return
+    const t = setTimeout(() => setFlashId(null), appConfig.drawing.flashMs)
+    return () => clearTimeout(t)
+  }, [flashId])
 
   const pickSymbol = (name: string) => { setPending(name); setPendingShape(null); setTool('symbol'); setPaletteOpen(false); onRecent(name) }
   const pickShape = (kind: ShapeKind) => { setPendingShape(kind); setPending(null); setTool('shape'); setPaletteOpen(false) }
@@ -1552,7 +1578,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
 
             {/* committed drawings */}
             <WbInkLayer annos={renderAnnos} draft={draft} draftFloor={draftFloor.current} draftClosed={tool === 'area'} color={color} width={width} dashed={dashed} hiddenTrails={hiddenTrails} mapY={mapY}
-              selId={selId} networkIds={[...relationship.lineIds]} onPickDraw={tool === 'pan' ? drawDown : undefined}
+              selId={selId} flashId={flashId} networkIds={[...relationship.lineIds]} onPickDraw={tool === 'pan' ? drawDown : undefined}
               truppTones={truppTones} />
             {/* snap ring that fills up while hovered (keyed to the target so it restarts on a new one);
                 attach commits on release. Cycle-forming targets are silently skipped, so no blocked
@@ -1829,7 +1855,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                         onPointerDown={(e) => e.stopPropagation()}
                         // stream each keystroke live into the note (silent — checkpoint once on the
                         // first edit), so the text shows as you type and the note never vanishes
-                        onChange={(e) => { if (textEditId.current !== a.id) { textEditId.current = a.id; pushPast() } patch(a.id, { text: e.target.value }); autoGrow(e.currentTarget) }}
+                        onChange={(e) => {
+                          if (textEditId.current !== a.id) { textEditId.current = a.id; pushPast() }
+                          const v = e.target.value
+                          patch(a.id, { text: v, ...(a.noteAutoW ? { wN: autoNoteWN(v, txtBase * scale * noteScale(a.noteSize), sW) } : null) })
+                          autoGrow(e.currentTarget)
+                        }}
                         // finalise on blur: keep the note even if empty (a placed note must persist,
                         // mirroring the Lage map) and record one audit edit for the whole session
                         onBlur={(e) => { setEditId(null); if (textEditId.current === a.id) { textEditId.current = null; emit('board.edit', { id: a.id, patch: { text: e.target.value }, planId: activeId }) } }}
@@ -2207,8 +2238,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           onTitleLive={(v) => patch(selNote.id, { text: v })}
           onFields={(fields) => patchCommit(selNote.id, { fields })}
           onNotes={(v) => patchCommit(selNote.id, { notes: v || undefined })}
-          onNoteWidth={(w) => patchCommit(selNote.id, { wN: w ?? undefined })}
-          onNoteSize={(s) => patchCommit(selNote.id, { noteSize: s })}
+          // a width set by hand ends the auto-fit; the S/M/L step keeps it and re-measures
+          onNoteWidth={(w) => patchCommit(selNote.id, { wN: w ?? undefined, noteAutoW: undefined })}
+          onNoteSize={(s) => patchCommit(selNote.id, selNote.noteAutoW
+            ? { noteSize: s, wN: autoNoteWN(selNote.text ?? '', txtBase * scale * noteScale(s), sW) }
+            : { noteSize: s })}
           onNotePlain={(p) => patchCommit(selNote.id, { notePlain: p || undefined })}
           onColor={(c) => patchCommit(selNote.id, { color: c || undefined })}
           onDelete={() => { setNotePanelId(null); void removeWithConnections(selNote) }}
@@ -2246,6 +2280,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           trupps={trupps.filter((t) => t.status !== 'raus').map((t) => ({ id: t.id, name: t.name }))}
           usedLineNos={annos.filter((a) => a.kind === 'draw' && a.id !== selDraw.id && a.lineNo != null).map((a) => a.lineNo!)}
           truppOnLine={truppForLine(selDraw, trupps)?.name}
+          truppOnLineOut={truppIsOut(truppForLine(selDraw, trupps))}
           onShowTrupp={onShowTrupp && truppForLine(selDraw, trupps) ? () => onShowTrupp(truppForLine(selDraw, trupps)!.id) : undefined}
           onShowDistance={(showDistance) => patchCommit(selDraw.id, { showDistance: showDistance || undefined })}
           onRadius={() => {}}

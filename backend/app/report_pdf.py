@@ -251,6 +251,18 @@ class ReportOptionsIn(BaseModel):
     journal: bool = True
 
 
+class AttachmentIn(BaseModel):
+    """One Beilage: a photo that belongs to the REPORT — an ID document, a damage close-up.
+
+    Printed one per row at the end, as large as the page allows, because the reason to
+    photograph a document is to be able to READ it afterwards. That is the whole difference to a
+    journal photo, which rides small beside its text as an illustration of a timed entry.
+    """
+
+    url: str  # server-relative /api/media/<id> — resolved server-side, same as a journal photo
+    caption: str | None = None
+
+
 class ReportPayload(BaseModel):
     incident: IncidentFacts
     meta: ReportMetaIn = ReportMetaIn()
@@ -271,6 +283,7 @@ class ReportPayload(BaseModel):
     # Partnerorganisationen presets — tick-off row when none were recorded digitally
     partnerPresets: list[str] = []
     journal: list[JournalRowIn] = []
+    attachments: list[AttachmentIn] = []
 
 
 # ----------------------------------------------------------------------------- German labels
@@ -286,6 +299,8 @@ L = {
     "incidentEnd": "Einsatzende",
     "incidentId": "Einsatz-ID",
     "alarmMessage": "Alarmmeldung",
+    "attachments": "Beilagen",
+    "attachmentNoCaption": "ohne Bildlegende",
     "summary": "Kurzbericht / durchgeführte Arbeiten",
     "lehren": "Lehren / Sicherheit",
     "remarks": "Bemerkungen",
@@ -904,6 +919,26 @@ def compose_report_pdf(
             story.append(Spacer(1, 4))
             story.append(img)
     if plan_imgs:
+        story.append(NextPageTemplate("portrait"))
+        story.append(PageBreak())
+
+    # Beilagen — document/damage photos, one per page-width plate with its caption underneath.
+    # Sized to the printable box rather than to a thumbnail column: the reason to photograph a
+    # driving licence is to be able to read it off the paper afterwards. Each starts on its own
+    # page so a portrait ID and a landscape damage shot don't fight over one.
+    att_imgs = [
+        (a, _fit_image(figures.get(f"photo:{a.url}"), inner_w, ph - 2 * margin - 30 * mm)) for a in payload.attachments
+    ]
+    att_imgs = [(a, img) for a, img in att_imgs if img is not None]
+    for i, (att, img) in enumerate(att_imgs):
+        story.append(NextPageTemplate("portrait"))
+        story.append(PageBreak())
+        if i == 0:
+            story.extend(head(L["attachments"]))
+        story.append(img)
+        story.append(Spacer(1, 4))
+        story.append(Paragraph(_esc(att.caption or L["attachmentNoCaption"]), st["muted"]))
+    if att_imgs:
         story.append(NextPageTemplate("portrait"))
         story.append(PageBreak())
 

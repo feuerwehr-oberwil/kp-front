@@ -102,6 +102,11 @@ interface Props {
   /** the Trupp actually ON this Leitung (anchor OR number), for the «zeigen» jump. Separate from
    *  `drawing.truppId`: a Trupp matched by number alone is just as real a link. */
   truppOnLine?: string
+  /** that Trupp is already out. It STAYS named here — it is the record of who worked this
+   *  Leitung until someone takes it over — and reads as «draussen» rather than as the crew
+   *  currently on the hose. (It is deliberately absent from the picker list: a Trupp that is out
+   *  gets no new Leitung, so it can only be left as it is or replaced.) */
+  truppOnLineOut?: boolean
   /** jump to the Atemschutz board for that Trupp */
   onShowTrupp?: () => void
   /** Leitung numbers already taken on THIS surface, so a duplicate can be flagged as it happens */
@@ -136,7 +141,7 @@ function MenuPick({ label, on }: { label: string; on: boolean }) {
   )
 }
 
-export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, perimeterM, supportsDistance = false, lengthM, profileCoords, onColor, onWidth, onDashed, onLabel, onMarker, onArrow, onEnding, onContent, onLineNo, onFloorTag, onTrupp, trupps = [], truppOnLine, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onFillOpacity, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment }: Props) {
+export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, perimeterM, supportsDistance = false, lengthM, profileCoords, onColor, onWidth, onDashed, onLabel, onMarker, onArrow, onEnding, onContent, onLineNo, onFloorTag, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onFillOpacity, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment }: Props) {
   const color = drawing.color ?? '#1f6feb'
   const width = drawing.width ?? 4
   const dashed = !!drawing.dashed
@@ -315,7 +320,10 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, peri
                   <Menu
                     trigger={
                       <button className="de-menu-trigger" aria-label={appConfig.copy.drawingEditor.trupp}>
-                        <span>{truppOnLine ?? appConfig.copy.drawingEditor.truppNone}</span>
+                        {/* an out Trupp keeps its name here (it is who worked this Leitung) but is
+                            struck through + labelled, the same read as its dimmed marker on the map */}
+                        <span className={truppOnLineOut ? 'de-trupp-out' : undefined}>{truppOnLine ?? appConfig.copy.drawingEditor.truppNone}</span>
+                        {truppOnLine && truppOnLineOut && <em className="de-trupp-outnote">{appConfig.copy.drawingEditor.truppOut}</em>}
                         <Icon id="chevron-down" />
                       </button>
                     }

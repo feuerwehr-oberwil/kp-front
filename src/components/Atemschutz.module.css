@@ -75,6 +75,7 @@
 .iconBtn.danger:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
 
 .cardName { padding: 12px 14px 4px; }
+.nameRow { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .nameStatic { display: block; font-size: 19px; font-weight: 800; color: var(--ink); padding: 2px 4px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .members { font-size: 12.5px; color: var(--ink-dim); padding: 4px 4px 0; }
@@ -294,6 +295,19 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 /* already worn by another Trupp — still pickable (corrections happen), but it says so */
 .lineOpt.taken { color: var(--ink-dim); border-style: dashed; }
 .lineOpt.taken.on { color: var(--blue); }
+/* Truppfarbe: «Automatisch» + the team palette. Gloved-size dots (28px + a 44px pad), so the row
+   is usable with the same finger that just typed the names. */
+.colorRow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.colorAuto { border: 1px solid var(--glass-edge); border-radius: 999px; padding: 6px 11px;
+  background: var(--surface); color: var(--ink); font: 700 12px/1 var(--body); cursor: pointer; }
+.colorAuto:hover { border-color: var(--ink-dim); }
+.colorAuto.on { background: color-mix(in srgb, var(--blue) 18%, var(--surface)); border-color: var(--blue); color: var(--blue); }
+.colorDot { position: relative; width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--surface);
+  box-shadow: 0 0 0 1px var(--glass-edge); cursor: pointer; padding: 0; }
+.colorDot::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
+.colorDot.on { box-shadow: 0 0 0 2.5px var(--blue); }
+/* the colour a Trupp actually wears on the Lage / plan, beside its name on the card */
+.nameDot { flex: none; width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 0 1px var(--glass-edge); }
 /* label row for a REMOVABLE slot (AdF n): the ✕ sits beside the label, not inside the field,
    so it stays clearly apart from the in-field ✕ that only clears the chosen name. */
 .fieldLabelRow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }

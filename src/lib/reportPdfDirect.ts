@@ -8,7 +8,7 @@
 // stubs for everything not (yet) recorded digitally — printing never blocks on missing data.
 
 import { appConfig } from '../config/appConfig'
-import type { AttendanceState, BoardAnno, BoardDoc, BuildingDoc, Drawing, Entity, LayerDef, LngLat, MittelEntry, PlanDocument, TimelineEvent, Trupp } from '../types'
+import type { AttendanceState, BoardAnno, BoardDoc, BuildingDoc, Drawing, Entity, LayerDef, LngLat, MittelEntry, PlanDocument, ReportAttachment, TimelineEvent, Trupp } from '../types'
 import { TILE_AR, floorLabel } from './whiteboard'
 import { buildView, fpBoxFrac } from './footprint'
 import type { IncidentMeta } from './incidents'
@@ -135,6 +135,8 @@ export interface DirectReportArgs {
   mittel?: MittelEntry[]
   /** full roster for the Personal-/Soldblatt's tick-off rows (id + display name) */
   roster?: { id: string; name: string }[]
+  /** Rapport-Beilagen (document/damage photos) — printed as full-width plates at the end */
+  attachments?: ReportAttachment[]
   /** Kroki scene (omit → PDF without map, e.g. the capture view) */
   scene?: {
     entities: Entity[]
@@ -155,7 +157,7 @@ export interface DirectReportArgs {
 /** The ONE payload builder — shared by the PDF download and the station-printer enqueue
  *  (src/lib/printRelay.ts), so both always produce the identical document. */
 export function buildDirectReportPayload(args: DirectReportArgs): Record<string, unknown> {
-  const { incident, draft, trupps, attendance, events, plans, mittel = [], roster = [], scene, board, building } = args
+  const { incident, draft, trupps, attendance, events, plans, mittel = [], roster = [], attachments = [], scene, board, building } = args
   const meta = draft.meta
 
   // journal photos: send the server-relative media URL — the composer loads the bytes
@@ -212,6 +214,12 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
       partnerContacts: meta.partnerContacts,
     },
     options: { kroki: !!kroki, atemschutz: draft.options.atemschutz, attendance: draft.options.attendance, mittel: draft.options.mittel, journal: draft.options.journal },
+    // Beilagen: only the ones actually ON the server. A blob: URL is a photo that has not
+    // finished uploading, and the server cannot fetch it — printing would silently drop it, so
+    // it is left out here and the preflight says so beside the row.
+    attachments: draft.options.attachments
+      ? attachments.filter((a) => a.url.startsWith('/')).map((a) => ({ url: a.url, caption: a.caption || undefined }))
+      : [],
     ...mittelFormForPdf(mittel, catalogue),
     ...personalForPdf(roster, attendance),
     partnerPresets: cfg.report?.partnerOrgs ?? [],

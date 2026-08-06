@@ -27,6 +27,8 @@ export interface ReportOptions {
   attendance: boolean
   mittel: boolean
   journal: boolean
+  /** print the Rapport-Beilagen (document/damage photos) as full-width plates at the end */
+  attachments: boolean
   detailedAudit: boolean
 }
 
@@ -39,6 +41,7 @@ export const defaultReportOptions: ReportOptions = {
   attendance: true,
   mittel: true,
   journal: true,
+  attachments: true,
   detailedAudit: false,
 }
 

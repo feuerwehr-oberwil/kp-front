@@ -99,7 +99,7 @@ import {
 import { useAuditEvents } from './lib/useAuditEvents'
 import { useMapDrawing } from './lib/useMapDrawing'
 import { applyRouting, moveLineBody, resolveMapDrawings, resolvePlanAnnos } from './lib/lineAttachments'
-import { leitungOptions, truppForLine } from './lib/truppLines'
+import { leitungOptions, truppForLine, truppIsOut } from './lib/truppLines'
 import { useIncidentSync } from './lib/useIncidentSync'
 import { useTruppActions, LAGE_TARGET } from './lib/useTruppActions'
 import { useObjectPlans } from './lib/useObjectPlans'
@@ -120,7 +120,7 @@ import type { NoteSize } from './types'
 import { ReportPreflight } from './components/ReportPreflight'
 import { annotatedPlans } from './lib/report'
 import { mittelLineCount } from './lib/mittel'
-import { NOTE_W_PX } from './lib/notes'
+import { autoNoteWPx } from './lib/notes'
 
 const prefs = loadPrefs()
 // The manually-picked Einsatzobjekt moved from this device cookie into the synced workspace blob
@@ -269,7 +269,21 @@ export function IncidentWorkspace({
   // somebody had marked «In Arbeit».
   const incidentOpen = isIncidentRunning(incidentMeta)
   const share = useShareMyPosition(incidentMeta.id, incidentOpen)
-  const livePeople = usePersonPositions(incidentMeta.id, !linkScoped && !replayActive)
+  // DEMO ONLY: the crew picture is SIMULATED in this browser rather than polled — a public demo
+  // must not carry real people's coordinates, so the backend refuses every position route there
+  // and nothing is ever posted (lib/demoCrewWalk). The walkers are the incident's own Trupp
+  // leaders, plus whoever taps «Standort teilen» on this device, so the dots carry the same
+  // synthetic names as the rest of the scene.
+  const demoCrew = useMemo(() => {
+    if (!isDemoMode()) return undefined
+    const crew = init.trupps.slice(0, 3).map((t) => ({ id: t.leaderPersonId ?? t.id, displayName: t.name }))
+    if (share.state === 'on' && share.pref?.personId) {
+      crew.push({ id: share.pref.personId, displayName: share.pref.displayName ?? '' })
+    }
+    return { center: incidentView.center, crew }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- init.trupps is the mount-time seed
+  }, [share.state, share.pref?.personId, share.pref?.displayName, incidentView.center])
+  const livePeople = usePersonPositions(incidentMeta.id, !linkScoped && !replayActive, demoCrew)
   // null = closed · 'ask' = permission + name · 'pick' = the roster alone (changing the name).
   // NOTHING opens this on its own: sharing somebody's location is never proposed by the app,
   // only reached by tapping «Standort teilen» in the compass menu. That is also why there is no
@@ -287,7 +301,7 @@ export function IncidentWorkspace({
   // below and read these. layers/recent stay in the component (own derivation/effects).
   const {
     incidentSettings, setIncidentSettings, board, setBoard, checklists, setChecklists,
-    trupps, setTrupps, attendance, setAttendance, mittel, setMittel, shifts, setShifts, bands, setBands, cameraViews, setCameraViews,
+    trupps, setTrupps, attendance, setAttendance, mittel, setMittel, shifts, setShifts, bands, setBands, cameraViews, setCameraViews, attachments, setAttachments,
     planScale, setPlanScale, reportMeta, setReportMeta, building, setBuilding,
     activePlanId, setActivePlanId, pickedObjectId, setPickedObjectId,
   } = useWorkspaceDoc(init)
@@ -658,7 +672,15 @@ export function IncidentWorkspace({
   const composerOpenedAt = useRef<string | null>(null)
   useEffect(() => { if (composerOpen) composerOpenedAt.current = new Date().toISOString() }, [composerOpen])
   // a Verlauf row can ask the plan to revisit a point; nonce makes each request distinct
-  const [planFocus, setPlanFocus] = useState<{ x: number; y: number; floor: number; annoId?: string; nonce: number } | null>(null)
+  const [planFocus, setPlanFocus] = useState<{ x: number; y: number; floor: number; annoId?: string; flash?: boolean; nonce: number } | null>(null)
+  // «zeigen» on the Lage: the drawing gets an outline for a couple of seconds and is NOT selected
+  // (see MapView · flashDrawingId). Cleared on a timer — pointing is a gesture, not a state.
+  const [flashDrawingId, setFlashDrawingId] = useState<string | null>(null)
+  useEffect(() => {
+    if (!flashDrawingId) return
+    const t = setTimeout(() => setFlashDrawingId(null), appConfig.drawing.flashMs)
+    return () => clearTimeout(t)
+  }, [flashDrawingId])
   // last reported plan-view centre, so a journal pin on the plan anchors to "here"
   const planCenter = useRef<{ x: number; y: number; floor: number }>({ x: 0.5, y: 0.5, floor: 0 })
   const [autoFocusId, setAutoFocusId] = useState<string | null>(null)
@@ -673,7 +695,11 @@ export function IncidentWorkspace({
   const noteTextLive = (id: string, v: string) => {
     if (tacticalLocked) return // setDocRaw bypasses commit's readOnly gate — a viewer must not type here
     if (!titleLiveRef.current) { titleLiveRef.current = true; beginDrag() }
-    setDocRaw((d) => ({ ...d, entities: d.entities.map((e) => (e.id === id ? { ...e, label: v } : e)) }))
+    // a note that has never been resized by hand follows what is typed (lib/notes) — it grows
+    // out of the minimum and stops at the maximum, where it wraps as it always did
+    setDocRaw((d) => ({ ...d, entities: d.entities.map((e) => (e.id === id
+      ? { ...e, label: v, ...(e.noteAutoW ? { noteW: autoNoteWPx(v, e.noteSize) } : null) }
+      : e)) }))
   }
   const noteTextCommit = (id: string, v: string) => {
     if (tacticalLocked) { setEditNoteId(null); return }
@@ -695,7 +721,9 @@ export function IncidentWorkspace({
     if (tacticalLocked) return
     if (phase === 'start') { beginDrag(); return }
     if (phase === 'end') { endDrag(); emit('entity.edit', { id, patch: { noteW: doc.entities.find((e) => e.id === id)?.noteW } }); return }
-    setDocRaw((d) => ({ ...d, entities: d.entities.map((e) => (e.id === id ? { ...e, noteW: w } : e)) }))
+    // a hand-dragged width ends the auto-fit for good — the operator has decided how wide this
+    // note is, and nothing may resize it under them afterwards
+    setDocRaw((d) => ({ ...d, entities: d.entities.map((e) => (e.id === id ? { ...e, noteW: w, noteAutoW: undefined } : e)) }))
   }
   const [view, setView] = useState<{ bearing: number; center: LngLat; zoom: number }>({ bearing: 0, center: incidentView.center, zoom: getDeploymentConfig().map?.defaultView?.zoom ?? 17.6 })
   // coordinate picker (one-shot crosshair + LV95/WGS84 readout) — extracted to useCoordPicker.
@@ -745,7 +773,7 @@ export function IncidentWorkspace({
     // remote/merged state — undoing into it would resurrect remotely-deleted content).
     replaceDoc(next.doc); setLayers(next.layers); journal.ingestLegacy(next.timeline)
     setRecent(next.recent); setBoard(next.board); setBuilding(next.building)
-    setVehicleOverrides(next.vehicleOverrides); setChecklists(next.checklists); setTrupps(next.trupps); setAttendance(next.attendance); setShifts(next.shifts); setBands(next.bands); setCameraViews(next.cameraViews); setPlanScale(next.planScale); setReportMeta(next.reportMeta); setIncidentSettings(next.settings); setPickedObjectId(next.pickedObjectId)
+    setVehicleOverrides(next.vehicleOverrides); setChecklists(next.checklists); setTrupps(next.trupps); setAttendance(next.attendance); setShifts(next.shifts); setBands(next.bands); setCameraViews(next.cameraViews); setPlanScale(next.planScale); setReportMeta(next.reportMeta); setAttachments(next.attachments); setIncidentSettings(next.settings); setPickedObjectId(next.pickedObjectId)
     // Drop any selection pointing at an entity/drawing that no longer exists after the merge.
     setSelectedId((id) => (id && next.doc.entities.some((e) => e.id === id) ? id : null))
     setSelectedDrawingId((id) => (id && next.doc.drawings.some((d) => d.id === id) ? id : null))
@@ -758,13 +786,13 @@ export function IncidentWorkspace({
   // useIncidentSync (replacing the old slice-keyed persistence effect's dependency array).
   const buildPayload = useCallback((): Saved => ({
     entities: doc.entities.filter((e) => e.kind !== 'photo'),
-    drawings: doc.drawings, recent, board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, trupps, attendance, mittel, shifts, bands, cameraViews, planScale, reportMeta, settings: incidentSettings,
+    drawings: doc.drawings, recent, board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, trupps, attendance, mittel, shifts, bands, cameraViews, planScale, reportMeta, attachments, settings: incidentSettings,
     layerState: layers.map((l) => ({ id: l.id, visible: l.visible, opacity: l.opacity })),
     // Verlauf rows live in the journal store now; the blob echoes an older incident's legacy
     // rows only until they're safely on the server, then ships empty forever (see JournalStore).
     timeline: journal.blobTimeline,
     schemaVersion: WORKSPACE_SCHEMA_VERSION,
-  }), [doc, layers, journal.blobTimeline, recent, board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, trupps, attendance, mittel, shifts, bands, cameraViews, planScale, reportMeta, incidentSettings])
+  }), [doc, layers, journal.blobTimeline, recent, board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, trupps, attendance, mittel, shifts, bands, cameraViews, planScale, reportMeta, attachments, incidentSettings])
 
   // persistence, teardown beacons, live-follow poll (with the tablet sync-race guard),
   // in-place auto-merge apply, and the reactive sync-status badge all live in useIncidentSync.
@@ -813,6 +841,39 @@ export function IncidentWorkspace({
       await media.enqueue(rowId, kind, blob, `${kind}-${rowId}`, new Date().toISOString())
     }
   }, [incidentMeta.id, readOnly, media, swapRowMedia])
+
+  /**
+   * Rapport-Beilagen: add one or more photos that belong to the REPORT (an ID document, a damage
+   * close-up). The row appears immediately with a local blob: URL and swaps to the server URL when
+   * the upload lands — same shape as a journal photo, so an offline KP can still assemble the
+   * Rapport and the picture catches up. A failed upload leaves the blob: row, and the preflight
+   * says «noch nicht hochgeladen» beside it rather than pretending it will print.
+   */
+  const addAttachments = useCallback((files: File[]) => {
+    if (readOnly) return
+    const at = new Date().toISOString()
+    for (const file of files) {
+      const id = `att${Date.now()}${Math.random().toString(36).slice(2, 6)}`
+      const localUrl = URL.createObjectURL(file)
+      setAttachments((list) => [...list, { id, url: localUrl, at }])
+      emit('report.attachment.add', { id })
+      void (async () => {
+        try {
+          const { url } = await uploadMedia(incidentMeta.id, file, 'photo')
+          setAttachments((list) => list.map((a) => (a.id === id ? { ...a, url } : a)))
+        } catch { /* stays a local blob: row — the preflight flags it as not uploaded */ }
+      })()
+    }
+  }, [incidentMeta.id, readOnly, setAttachments, emit])
+  const captionAttachment = useCallback((id: string, caption: string) => {
+    if (readOnly) return
+    setAttachments((list) => list.map((a) => (a.id === id ? { ...a, caption: caption.trim() || undefined } : a)))
+  }, [readOnly, setAttachments])
+  const removeAttachment = useCallback((id: string) => {
+    if (readOnly) return
+    setAttachments((list) => list.filter((a) => a.id !== id))
+    emit('report.attachment.remove', { id })
+  }, [readOnly, setAttachments, emit])
 
   // When the workspace sync recovers (server reachable again), drain any queued media too —
   // a stronger signal than the browser's `online` event, which fires on link-up not reach.
@@ -1284,10 +1345,10 @@ export function IncidentWorkspace({
       offerMittelCapture(s)
     } else if (tool === 'note') {
       const id = `n${Date.now()}`
-      commit((d) => ({ ...d, entities: [...d.entities, { id, kind: 'note', layer: appConfig.defaults.drawingLayerId, coord: c, label: '', subtitle: appConfig.copy.entities.noteSubtitle, noteW: NOTE_W_PX.def, noteSize: noteDefaults.size === 'm' ? undefined : noteDefaults.size, notePlain: noteDefaults.plain || undefined, color: noteDefaults.color || undefined }] }))
+      commit((d) => ({ ...d, entities: [...d.entities, { id, kind: 'note', layer: appConfig.defaults.drawingLayerId, coord: c, label: '', subtitle: appConfig.copy.entities.noteSubtitle, noteW: autoNoteWPx('', noteDefaults.size === 'm' ? undefined : noteDefaults.size), noteAutoW: true, noteSize: noteDefaults.size === 'm' ? undefined : noteDefaults.size, notePlain: noteDefaults.plain || undefined, color: noteDefaults.color || undefined }] }))
       // straight into typing on the surface; the detail panel waits for the ⚙
       setSelectedId(id); setSelectedDrawingId(null); setEditNoteId(id); setTool('select'); log('type', appConfig.copy.log.notePlaced, 'note', undefined, id)
-      emit('entity.add', { id, kind: 'note', entity: { id, kind: 'note', layer: appConfig.defaults.drawingLayerId, coord: c, label: '', subtitle: appConfig.copy.entities.noteSubtitle, noteW: NOTE_W_PX.def, noteSize: noteDefaults.size === 'm' ? undefined : noteDefaults.size, notePlain: noteDefaults.plain || undefined, color: noteDefaults.color || undefined } })
+      emit('entity.add', { id, kind: 'note', entity: { id, kind: 'note', layer: appConfig.defaults.drawingLayerId, coord: c, label: '', subtitle: appConfig.copy.entities.noteSubtitle, noteW: autoNoteWPx('', noteDefaults.size === 'm' ? undefined : noteDefaults.size), noteAutoW: true, noteSize: noteDefaults.size === 'm' ? undefined : noteDefaults.size, notePlain: noteDefaults.plain || undefined, color: noteDefaults.color || undefined } })
     } else if (tool === 'team') {
       setTeamPick(c) // which Trupp? — picker over the tapped spot (mirrors the plan's Team tool)
     } else if (tool === 'area') {
@@ -1347,7 +1408,10 @@ export function IncidentWorkspace({
     // the device has permission and a name; otherwise the sheet asks for both first.
     share: (() => {
       const C = appConfig.copy.sharePosition
-      const blocked = isDemoMode() ? C.menuDemo : !incidentOpen ? C.menuClosed : null
+      // The demo no longer blocks this: sharing there is simulated — the control works, a dot
+      // walks, and no location is taken or sent (lib/demoCrewWalk). The sub-line says so, so
+      // nobody believes the demo is broadcasting their phone.
+      const blocked = !incidentOpen ? C.menuClosed : null
       const on = share.state !== 'off'
       return {
         on,
@@ -1355,7 +1419,7 @@ export function IncidentWorkspace({
         // While sharing, the sub-line names the way out. Turning it ON is one tap, so turning
         // it OFF has to be one tap in the same place, and has to SAY so — a device that is
         // broadcasting where somebody is must never make stopping the thing you go hunting for.
-        note: blocked ?? (on ? C.menuOnHint : null),
+        note: blocked ?? (isDemoMode() ? C.menuDemo : on ? C.menuOnHint : null),
         disabled: !!blocked,
         onToggle: () => {
           if (on) share.stop()
@@ -1685,7 +1749,7 @@ export function IncidentWorkspace({
   // a generic (untracked) team marker — the map twin of the plan's placeTeamChip
   const { placeGenericTeam, renameTeam, markTeamPosition, clearTeamTrail } = useTeamMarkerActions({ entities, commit, log, emit, setSelectedId, setSelectedDrawingId })
   // --- Atemschutzüberwachung (SCBA monitoring): Trupp mutations live in useTruppActions ---
-  const { createTrupp, updateTrupp, placeTruppOnPlan, placeTruppOnMap, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, showTruppLine, truppsWithLine } =
+  const { createTrupp, updateTrupp, placeTruppOnPlan, placeTruppOnMap, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, showTruppLine, truppsWithLine, truppColors, setTruppColor } =
     useTruppActions({
       trupps, drawings, entities, setTrupps, board, setBoard, setDocRaw, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus,
       // a new map marker lands at the current map centre (the operator drags it to position);
@@ -1698,7 +1762,15 @@ export function IncidentWorkspace({
       // later focuses look the entity up like a Verlauf row does. fly=false selects without
       // moving the camera (tap-placed markers are already in view).
       // the hose a Trupp works on — «Leitung zeigen» on the Atemschutz card
-      focusMapDrawing: (drawingId) => { setSelectedDrawIds([]); setSelectedEntityIds([]); focusDrawing(drawingId) },
+      // «Leitung zeigen» SHOWS the hose, it does not open it: fly there and outline it for a
+      // moment, with nothing selected — no vertex handles under the finger, no editor sheet over
+      // the map. Tapping the line is still how you edit it.
+      focusMapDrawing: (drawingId) => {
+        setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedDrawingId(null); setSelectedId(null)
+        const d = drawings.find((x) => x.id === drawingId)
+        if (d?.coords[0]) mapRef.current?.flyTo({ center: d.coords[0], zoom: 17.8 })
+        setFlashDrawingId(drawingId)
+      },
       focusMapEntity: (entityId, coord, fly = true) => {
         setMode('map')
         if (!fly) { setSelectedId(entityId); setSelectedDrawingId(null); return }
@@ -1851,7 +1923,10 @@ export function IncidentWorkspace({
   }
   const createTruppA = (t: Trupp) => { createTrupp(t); ensurePresentFromTrupp([t.leaderPersonId, ...(t.memberPersonIds ?? [])]) }
   const editTruppA = (id: string, f: TruppFields) => { editTrupp(id, f); ensurePresentFromTrupp([f.leaderPersonId, ...(f.memberPersonIds ?? [])]) }
-  const reactivateTruppA = (id: string, f: TruppFields) => { reactivateTrupp(id, f); ensurePresentFromTrupp([f.leaderPersonId, ...(f.memberPersonIds ?? [])]) }
+  // `standby` MUST be forwarded: this wrapper used to swallow it, so «Bereitstellen» ran the
+  // «Wieder einrücken» path — a crew standing at the vehicle with a running contact clock, which
+  // is exactly the case the standby fork exists to prevent (see useTruppActions · reactivateTrupp).
+  const reactivateTruppA = (id: string, f: TruppFields, standby?: boolean) => { reactivateTrupp(id, f, standby); ensurePresentFromTrupp([f.leaderPersonId, ...(f.memberPersonIds ?? [])]) }
 
   // --- checklists ---
   // Ticking is field documentation, not tactical editing, so it's gated by ROLE
@@ -1917,6 +1992,8 @@ export function IncidentWorkspace({
           onShowTrupp={() => { setMode('atemschutz'); setPanel(null) }}
           onTeamMark={tacticalLocked ? undefined : markTeamPosition}
           onTeamRename={tacticalLocked ? undefined : renameTeam}
+          // recolouring a team marker paints the TRUPP (board card + plan chip follow)
+          onTeamColor={tacticalLocked ? undefined : setTruppColor}
           onTeamClearTrail={tacticalLocked ? undefined : clearTeamTrail}
           preparedOverlays={preparedOverlays}
           isVisible={isVisible}
@@ -1995,6 +2072,7 @@ export function IncidentWorkspace({
           drawWidth={drawWidth}
           drawDashed={drawDashed}
           selectedDrawingId={selectedDrawingId}
+          flashDrawingId={flashDrawingId}
           onSelectDrawing={(id) => {
             // «Leitung wählen» armed → this tap assigns the hose to the waiting Trupp
             if (linePickTrupp) { onLinePicked(id); return }
@@ -2325,8 +2403,12 @@ export function IncidentWorkspace({
             else patchEntity(noteEntity.id, { label: v })
           }}
           onFields={(fields) => patchEntity(noteEntity.id, { fields })}
-          onNoteWidth={(w) => patchEntity(noteEntity.id, { noteW: w ?? undefined })}
-          onNoteSize={(s) => patchEntity(noteEntity.id, { noteSize: s })}
+          // setting a width in the panel is a hand-made decision too — it ends the auto-fit
+          onNoteWidth={(w) => patchEntity(noteEntity.id, { noteW: w ?? undefined, noteAutoW: undefined })}
+          // the S/M/L step keeps following the text, so it re-measures at the new font size
+          onNoteSize={(s) => patchEntity(noteEntity.id, noteEntity.noteAutoW
+            ? { noteSize: s, noteW: autoNoteWPx(noteEntity.label ?? '', s) }
+            : { noteSize: s })}
           onNotePlain={(p) => patchEntity(noteEntity.id, { notePlain: p || undefined })}
           onColor={(c) => patchEntity(noteEntity.id, { color: c || undefined })}
           onDelete={() => { setNotePanelId(null); deleteEntity(noteEntity.id) }}
@@ -2367,6 +2449,7 @@ export function IncidentWorkspace({
           trupps={effTrupps.filter((t) => t.status !== 'raus').map((t) => ({ id: t.id, name: t.name }))}
           usedLineNos={drawings.filter((d) => d.kind === 'line' && d.id !== selectedDrawing.id && d.lineNo != null).map((d) => d.lineNo!)}
           truppOnLine={truppForLine(selectedDrawing, effTrupps)?.name}
+          truppOnLineOut={truppIsOut(truppForLine(selectedDrawing, effTrupps))}
           onShowTrupp={() => { setSelectedDrawingId(null); setMode('atemschutz'); setPanel(null) }}
           onShowDistance={(showDistance) => patchDrawing({ showDistance })}
           onRadius={(radiusM) => patchDrawing({ radiusM })}
@@ -2692,6 +2775,8 @@ export function IncidentWorkspace({
           onPickLine={linePickTrupp ? onLinePicked : undefined}
           onLinkLineTrupp={(annoId, truppId) => (truppId ? linkTruppLine(truppId, annoId) : unlinkLine(annoId))}
           onShowTrupp={() => { setMode('atemschutz'); setPanel(null) }}
+          // the chip's colour grid paints the TRUPP, so its board card and its Lage marker follow
+          onTruppColor={tacticalLocked ? undefined : (truppId, c) => setTruppColor(truppId, c)}
           planScale={planScale}
           onCalibrate={(planId, sc) => { if (tacticalLocked) return; setPlanScale((m) => { if (!sc) { const { [planId]: _drop, ...rest } = m; return rest } return { ...m, [planId]: sc } }) }}
         />
@@ -2724,6 +2809,7 @@ export function IncidentWorkspace({
         <AtemschutzView
           trupps={effTrupps}
           leitungOptions={truppLeitungOptions}
+          truppColors={truppColors()}
           showTruppLine={showTruppLine} truppsWithLine={truppsWithLine()}
           pickTruppLine={pickTruppLine} unlinkTruppLine={unlinkTruppLine}
           canEdit={canEditIncident}
@@ -2841,6 +2927,10 @@ export function IncidentWorkspace({
           board={board}
           building={effBuilding}
           captureUsage={captureUsage}
+          attachments={attachments}
+          onAddAttachments={canEditIncident && !readOnly ? addAttachments : undefined}
+          onCaptionAttachment={canEditIncident && !readOnly ? captionAttachment : undefined}
+          onRemoveAttachment={canEditIncident && !readOnly ? removeAttachment : undefined}
           onSaveMeta={setReportMeta}
           onEditDispatch={canEditIncident && !readOnly ? onEditMeta : undefined}
           onOpenAnwesenheit={() => { setReportPreflightOpen(false); setMode('anwesenheit'); setRapportReturn(true) }}

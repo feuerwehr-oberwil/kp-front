@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { NOTE_SIZE_SCALE, NOTE_WN, NOTE_W_PX, clampNoteWN, clampNoteWPx, noteScale, noteWN, noteWPx } from './notes'
+import { NOTE_SIZE_SCALE, NOTE_WN, NOTE_W_PX, autoNoteWN, autoNoteWPx, clampNoteWN, clampNoteWPx, noteScale, noteWN, noteWPx } from './notes'
 
 describe('note sizing', () => {
   it('treats an absent size as normal', () => {
@@ -32,6 +32,38 @@ describe('note width fallback', () => {
   it('keeps a stored width', () => {
     expect(noteWN(0.35)).toBe(0.35)
     expect(noteWPx(300)).toBe(300)
+  })
+})
+
+// A freshly placed note follows its text instead of sitting at the surface default — «Dach offen»
+// is a small pill, a paragraph fills the box and wraps. Once dragged by hand it stops following
+// (that flag lives on the note; here we only check the measurement + the clamps).
+describe('auto width (a note that follows what is typed)', () => {
+  it('grows with the text and never leaves the surface range', () => {
+    const short = autoNoteWPx('Dach offen')
+    const long = autoNoteWPx('Dach offen, zweiter Trupp über die Aussentreppe, Nachbargebäude geräumt')
+    expect(short).toBeGreaterThanOrEqual(NOTE_W_PX.min)
+    expect(short).toBeLessThan(NOTE_W_PX.def) // the whole point: no paragraph box for two words
+    expect(long).toBeGreaterThan(short)
+    expect(long).toBeLessThanOrEqual(NOTE_W_PX.max) // …and then it wraps, as it always did
+  })
+
+  it('is measured per line, so a manual break does not stack up', () => {
+    expect(autoNoteWPx('Dach offen\nDach offen')).toBe(autoNoteWPx('Dach offen'))
+  })
+
+  it('follows the S/M/L step — the same text needs more room when set larger', () => {
+    expect(autoNoteWPx('Dach offen', 'l')).toBeGreaterThan(autoNoteWPx('Dach offen', 's'))
+  })
+
+  it('an empty note starts at the minimum, not at the default', () => {
+    expect(autoNoteWPx('')).toBe(NOTE_W_PX.min)
+  })
+
+  it('expresses the plan width as a fraction of the plan, clamped', () => {
+    expect(autoNoteWN('Dach offen', 10, 1000)).toBeLessThan(NOTE_WN.def)
+    expect(autoNoteWN('Dach offen', 10, 20)).toBe(NOTE_WN.max) // tiny plan → capped, not absurd
+    expect(autoNoteWN('Dach offen', 10, 0)).toBe(NOTE_WN.def) // unmeasured plan → the default
   })
 })
 

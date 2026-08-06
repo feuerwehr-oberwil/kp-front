@@ -429,6 +429,9 @@ const base = {
     ] as { id: string; label: string; defaults: { arrow?: boolean; marker?: string; showDistance?: boolean; dashed?: boolean; color?: string } }[],
     /** subtle ink casing under a selected drawing — markers/symbols instead pop on select */
     selectColor: '#1b2330',
+    /** how long a «zeigen» outline stays on the drawing it points at (ms). Long enough to find
+     *  after the camera settles, short enough that it can't be mistaken for a selection. */
+    flashMs: 2600,
     /** Halo colours for a hose line whose Atemschutz-Trupp is due / überfällig. MapLibre paint
      *  can't read CSS custom properties, so these mirror the --amber / --red tokens as literals
      *  (same values app.css defines); the DOM-side tag uses the tokens themselves. */

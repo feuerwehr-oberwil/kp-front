@@ -156,6 +156,9 @@ interface Props {
   onNotePlain?: (plain: boolean) => void
   /** note ink colour ('' clears back to the default note ink). */
   onColor?: (color: string) => void
+  /** recolour a placed Atemschutz-Trupp (null = back to automatic). Present only for a team
+   *  marker that is bound to a Trupp — it writes the TRUPP's colour, not just this marker. */
+  onTeamColor?: (color: string | null) => void
 }
 
 // signed storey label for the badge / stepper readout: +2, -1, 0 (EG)
@@ -178,7 +181,7 @@ function LabeledStepper({ label, ...rest }: { label: string } & React.ComponentP
   )
 }
 
-export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, readOnly, hasOverride, onResetGps, connectedLines = [], onFocusLine, onNoteWidth, onNoteSize, onNotePlain, onColor }: Props) {
+export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, readOnly, hasOverride, onResetGps, connectedLines = [], onFocusLine, onNoteWidth, onNoteSize, onNotePlain, onColor, onTeamColor }: Props) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
   const N = appConfig.copy.notes
@@ -688,6 +691,25 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
             </div>
           )}
         </>}
+        {/* Truppfarbe — a placed Atemschutz-Trupp is recoloured where the operator is looking, and
+            the pick lands on the TRUPP (board card, plan chip and this marker all wear it). Same
+            palette + «Automatisch» as the Trupp form; a colour two Trupps share is allowed, because
+            «alle Löschtrupps rot» is a legitimate way to read a Lage. */}
+        {onTeamColor && !readOnly && (
+          <div className="ctx-section">
+            <span className="ctx-section-label">{appConfig.copy.atemschutz.colorLabel}</span>
+            <div className="ctx-note-colors">
+              <button className={`ctx-team-auto${entity.color ? '' : ' on'}`} aria-pressed={!entity.color}
+                title={appConfig.copy.atemschutz.colorAutoHint} onClick={() => onTeamColor(null)}>
+                {appConfig.copy.atemschutz.colorAuto}
+              </button>
+              {appConfig.drawing.teamColors.map((c) => (
+                <button key={c} className={`dh-color${entity.color === c ? ' on' : ''}`} style={{ background: c }}
+                  aria-pressed={entity.color === c} aria-label={c} onClick={() => onTeamColor(c)} />
+              ))}
+            </div>
+          </div>
+        )}
         {connectedLines.length > 0 && <div className="ctx-section ctx-connections">
           <span className="ctx-section-label">{appConfig.copy.drawingEditor.connectedLines.replace('{n}', String(connectedLines.length))}</span>
           {connectedLines.map((line) => <button key={line.id} onClick={() => onFocusLine?.(line.id)}><span>{line.label}</span><span className="ctx-conn-go" aria-hidden>›</span></button>)}

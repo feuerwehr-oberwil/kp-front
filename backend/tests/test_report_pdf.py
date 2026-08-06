@@ -122,3 +122,31 @@ async def test_report_pdf_bad_payload_422(client, editor):
     inc = await _create_incident(client)
     r = await client.post(f"/api/incidents/{inc}/report/pdf", data={"payload": "{not json"})
     assert r.status_code == 422
+
+
+async def test_report_pdf_prints_beilagen_from_the_media_store(client, editor):
+    """A Rapport-Beilage (ID document, damage photo) is resolved from the media store and
+    printed as its own plate — the same server-side lookup a journal photo uses. A URL that
+    resolves to nothing must drop that plate, not the rapport."""
+    await _login(client, editor)
+    inc = await _create_incident(client)
+    up = await client.post(
+        f"/api/incidents/{inc}/media",
+        files={"file": ("ausweis.png", io.BytesIO(_png(60, 40)), "image/png")},
+        data={"kind": "photo"},
+    )
+    assert up.status_code in (200, 201), up.text
+    url = up.json()["url"]
+
+    payload = _minimal_payload(inc)
+    payload["attachments"] = [
+        {"url": url, "caption": "Ausweis Lenker"},
+        {"url": "/api/media/00000000-0000-0000-0000-000000000000"},  # gone → skipped, not fatal
+    ]
+    r = await client.post(f"/api/incidents/{inc}/report/pdf", data={"payload": json.dumps(payload)})
+    assert r.status_code == 200, r.text
+    assert r.content[:5] == b"%PDF-"
+
+    # …and the same rapport WITHOUT the Beilage is smaller: the plate really is in there
+    bare = await client.post(f"/api/incidents/{inc}/report/pdf", data={"payload": json.dumps(_minimal_payload(inc))})
+    assert len(r.content) > len(bare.content)

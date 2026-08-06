@@ -12,8 +12,14 @@
 import type { Trupp } from '../types'
 
 export interface TruppLive {
-  /** seconds elapsed since entry (entryTime → now) — the total Einsatzzeit */
+  /** seconds under PA: entryTime → exitTime, or → now while still in. A Trupp that is out has
+   *  FINISHED its Einsatzzeit — letting the number keep running past the exit made a crew that
+   *  had been standing at the vehicle for half an hour read as a 40-minute deployment, both on
+   *  the card and on anything that quotes it. */
   elapsedSec: number
+  /** seconds since the Trupp came out (exitTime → now); null while it is still in. The break
+   *  clock: how long this crew has been resting / re-equipping before it can go back in. */
+  outSec: number | null
   /** seconds since the last contact; null while not in the field (angemeldet / raus) */
   sinceContactSec: number | null
   /** the current pressure to display (last logged, or entry pressure until the first reading) */
@@ -47,7 +53,10 @@ export function deriveTruppLive(
   t: Trupp, now: number, contactIntervalMin: number, contactGraceSec: number,
 ): TruppLive {
   const entry = ms(t.entryTime)
-  const elapsedSec = entry ? Math.max(0, Math.round((now - entry) / SEC)) : 0
+  const exit = ms(t.exitTime)
+  // the Einsatzzeit stops at the exit — a Trupp that is out is no longer accumulating time
+  const elapsedSec = entry ? Math.max(0, Math.round(((exit || now) - entry) / SEC)) : 0
+  const outSec = exit ? Math.max(0, Math.round((now - exit) / SEC)) : null
   const currentBar = t.lastPressureBar ?? t.entryPressureBar
   const lowestBar = t.lowestBar ?? currentBar
 
@@ -65,7 +74,7 @@ export function deriveTruppLive(
   else if (t.status === 'rueckzug') status = 'rueckzug'
   else status = 'aktiv'
 
-  return { elapsedSec, sinceContactSec, currentBar, lowestBar, overdue, status }
+  return { elapsedSec, outSec, sinceContactSec, currentBar, lowestBar, overdue, status }
 }
 
 /**

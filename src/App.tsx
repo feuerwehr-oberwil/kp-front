@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import './app.css'
 import { IconSprite, Icon } from './lib/icons'
-import { rebaseDemoClocks, type Saved } from './lib/workspace'
+import { demoClockAnchor, latestTruppStamp, rebaseDemoClocks, type Saved } from './lib/workspace'
 import { appConfig } from './config/appConfig'
 import { shortAddress, isDemoMode } from './lib/deploymentConfig'
 import { fillTemplate, initials, roleLabel } from './lib/format'
@@ -49,6 +49,13 @@ import { HelpOverlay } from './components/HelpOverlay'
 /** Einstellungen opened from the landing card (no incident): device prefs only. Owns the
  *  pref state itself (mounted only while open, reads/writes the prefs cookie directly);
  *  the synced per-incident section is hidden by omitting settings/onSettings. */
+/** Demo only: the fetched workspace with its Atemschutz clocks pinned to when this tab first
+ *  opened this seed. A workspace with no Trupp clocks passes straight through. */
+function rebaseDemoSeed(ws: Saved, incidentId: string): Saved {
+  const stamp = latestTruppStamp(ws)
+  return stamp == null ? ws : rebaseDemoClocks(ws, demoClockAnchor(incidentId, stamp, Date.now()))
+}
+
 function LandingSettings({ onClose, onFeedback }: { onClose: () => void; onFeedback?: () => void }) {
   const { symbolSize, setSymbolSize, symbolCaptions, setSymbolCaptions, offlineRadiusM, setOfflineRadiusM, keepScreenOn, setKeepScreenOn } = useDevicePrefs()
   useEffect(() => {
@@ -217,9 +224,11 @@ export default function App() {
         return arr.some((i) => i.id === id) ? arr.map((i) => (i.id === id ? m : i)) : [m, ...arr]
       })
     }
-    // Demo: rebase the SCBA clocks to page-load so a late visitor doesn't land on an overdue
-    // alarm (the seed's clocks are as-of the last 2 h reset). Read-only fetch, display only.
-    const seed = ws ? (isDemoMode() ? rebaseDemoClocks(ws as unknown as Saved, Date.now()) : (ws as unknown as Saved)) : null
+    // Demo: rebase the SCBA clocks to the visitor's ARRIVAL so a late visitor doesn't land on an
+    // overdue alarm (the seed's clocks are as-of the last server reset). Read-only, display only.
+    // The anchor is remembered per tab + seed, so a refresh keeps the clocks running instead of
+    // shunting them backwards — see workspace · demoClockAnchor.
+    const seed = ws ? (isDemoMode() ? rebaseDemoSeed(ws as unknown as Saved, id) : (ws as unknown as Saved)) : null
     setWorkspace(seed)
     setForceReadOnly(!!opts.readOnly)
     setActiveId(id)

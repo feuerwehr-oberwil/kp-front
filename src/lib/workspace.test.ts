@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { autoActivateLayers, deriveInitial, normalizeBoard, rebaseDemoClocks, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Saved } from './workspace'
+import { autoActivateLayers, demoClockAnchor, deriveInitial, latestTruppStamp, normalizeBoard, rebaseDemoClocks, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Saved } from './workspace'
 import type { LayerDef } from '../types'
 
 // Inject one station reference layer with a category rule so the auto-activation path is
@@ -20,8 +20,9 @@ vi.mock('./deploymentConfig', () => ({
 // here; build minimal shapes and cast, like the sibling merge tests do.
 const ws = (partial: Partial<Saved>): Saved => partial as Saved
 
+const T = (min: number) => new Date(Date.UTC(2026, 0, 1, 12, min, 0)).toISOString()
+
 describe('rebaseDemoClocks — demo SCBA clocks slide to page-load', () => {
-  const T = (min: number) => new Date(Date.UTC(2026, 0, 1, 12, min, 0)).toISOString()
   it('shifts every Trupp timestamp so the newest contact lands at now, gaps preserved', () => {
     const blob = ws({ trupps: [
       { id: 'A', entryTime: T(0), lastContactTime: T(20), readings: [{ t: T(10) }, { t: T(20) }] },
@@ -38,6 +39,56 @@ describe('rebaseDemoClocks — demo SCBA clocks slide to page-load', () => {
   it('leaves a workspace with no valid Trupp clocks unchanged (same ref)', () => {
     const blob = ws({ trupps: [{ id: 'X', entryTime: '', lastContactTime: '' }] as unknown as Saved['trupps'] })
     expect(rebaseDemoClocks(blob, 123)).toBe(blob)
+  })
+})
+
+// A contact clock that jumps BACKWARDS is the one failure a monitoring surface must not have: it
+// makes the time since the last Funkkontakt look shorter than it is. Re-deriving the demo offset
+// on every page load did exactly that on refresh (0:35 → 0:08), so the anchor is now remembered.
+describe('demoClockAnchor — the rebase is pinned once, not on every load', () => {
+  const store = (): Storage => {
+    const m = new Map<string, string>()
+    return {
+      getItem: (k: string) => m.get(k) ?? null,
+      setItem: (k: string, v: string) => { m.set(k, v) },
+      removeItem: (k: string) => { m.delete(k) },
+      clear: () => m.clear(),
+      key: () => null,
+      get length() { return m.size },
+    } as unknown as Storage
+  }
+
+  it('returns the first instant again for the same incident + seed (a refresh keeps its clocks)', () => {
+    const s = store()
+    const first = demoClockAnchor('inc1', 1000, 5_000, s)
+    expect(first).toBe(5_000)
+    expect(demoClockAnchor('inc1', 1000, 5_000 + 27_000, s)).toBe(5_000) // 27 s later: unchanged
+  })
+
+  it('re-anchors when the server has reset the demo (a new seed stamp)', () => {
+    const s = store()
+    demoClockAnchor('inc1', 1000, 5_000, s)
+    expect(demoClockAnchor('inc1', 2000, 90_000, s)).toBe(90_000)
+  })
+
+  it('anchors each incident separately', () => {
+    const s = store()
+    demoClockAnchor('inc1', 1000, 5_000, s)
+    expect(demoClockAnchor('inc2', 1000, 90_000, s)).toBe(90_000)
+  })
+
+  it('falls back to now when storage is unavailable — an un-anchored demo still works', () => {
+    const broken = { getItem() { throw new Error('denied') }, setItem() { throw new Error('denied') } } as unknown as Storage
+    expect(demoClockAnchor('inc1', 1000, 7_000, broken)).toBe(7_000)
+  })
+
+  it('reads the seed stamp from the newest of all Trupp clocks', () => {
+    const blob = ws({ trupps: [
+      { id: 'A', entryTime: T(0), lastContactTime: T(20), readings: [{ t: T(10) }] },
+      { id: 'B', entryTime: T(5), lastContactTime: T(25), readings: [{ t: T(25) }] },
+    ] as unknown as Saved['trupps'] })
+    expect(latestTruppStamp(blob)).toBe(Date.parse(T(25)))
+    expect(latestTruppStamp(ws({ trupps: [] }))).toBeNull()
   })
 })
 

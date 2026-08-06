@@ -19,7 +19,7 @@ import type { AuditProof, KrokiView, ReportDraft, ReportOptions } from '../lib/r
 import { defaultReportOptions, einsatzleiterFromScene, formatDateTime, missingTranscriptCount, proofLabel } from '../lib/report'
 import { applyTimeToIso, missingSteps, stepDone, type AbschlussFacts } from '../lib/abschluss'
 import { hoursRows } from '../lib/attendanceHours'
-import type { AttendanceState, BoardDoc, BuildingDoc, Drawing, Entity, LayerDef, LngLat, MittelEntry, Person, PlanDocument, TimelineEvent, Trupp } from '../types'
+import type { AttendanceState, BoardDoc, BuildingDoc, Drawing, Entity, LayerDef, LngLat, MittelEntry, Person, PlanDocument, ReportAttachment, TimelineEvent, Trupp } from '../types'
 import { visibleMittel } from '../lib/mittel'
 import { PersonField } from './PersonField'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
@@ -77,7 +77,7 @@ function Toggle({ label, checked, onChange, disabled }: { label: string; checked
 const savedScroll: { current: { incidentId: string; top: number } | null } = { current: null }
 
 export function ReportPreflight({
-  incident, reportMeta, personnel = [], presentIds = NO_IDS, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], plans = [], scene, board, building, captureUsage, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onComplete, onClose, onFixTranscripts,
+  incident, reportMeta, personnel = [], presentIds = NO_IDS, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], plans = [], scene, board, building, captureUsage, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onComplete, onClose, onFixTranscripts,
 }: {
   incident: IncidentMeta
   reportMeta: ReportMeta
@@ -116,6 +116,13 @@ export function ReportPreflight({
   building?: BuildingDoc | null
   /** QR self-reporting in use — «QR: N Einträge · zuletzt HH:MM» chip (informational) */
   captureUsage?: CaptureUsage | null
+  /** Beilagen: photos that belong to the REPORT (an ID document, a damage close-up), printed
+   *  large enough to read at the end. Separate from Verlauf photos on purpose — see
+   *  types · ReportAttachment. Omit the handlers on a read-only surface and the block reads. */
+  attachments?: ReportAttachment[]
+  onAddAttachments?: (files: File[]) => void
+  onCaptionAttachment?: (id: string, caption: string) => void
+  onRemoveAttachment?: (id: string) => void
   /** persist the inline Rapportangaben edits (after-arrival fields) into the workspace */
   onSaveMeta: (next: ReportMeta) => void
   /** Stunden editor: correct one person's von–bis; omit to render the table read-only */
@@ -274,7 +281,7 @@ export function ReportPreflight({
     setPdfBusy(true)
     try {
       await downloadDirectReportPdf({
-        incident, draft, trupps, attendance, events, plans, mittel, scene, board, building,
+        incident, draft, trupps, attendance, events, plans, mittel, attachments, scene, board, building,
         roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
       })
       // success needs no banner — the downloaded/opened PDF IS the feedback
@@ -301,7 +308,7 @@ export function ReportPreflight({
     if (warmedRef.current || !printStatus?.available || !options.kroki || mapContentCount === 0 || !scene) return
     warmedRef.current = true
     const payload = buildDirectReportPayload({
-      incident, draft: buildDraft(null), trupps, attendance, events, plans, mittel, scene, board, building,
+      incident, draft: buildDraft(null), trupps, attendance, events, plans, mittel, attachments, scene, board, building,
       roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
     })
     void prewarmPrint(editorPrintTransport(), incident.id, payload)
@@ -319,7 +326,7 @@ export function ReportPreflight({
     try {
       const t = editorPrintTransport()
       const payload = buildDirectReportPayload({
-        incident, draft: buildDraft(krokiView), trupps, attendance, events, plans, mittel, scene, board, building,
+        incident, draft: buildDraft(krokiView), trupps, attendance, events, plans, mittel, attachments, scene, board, building,
         roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
       })
       const jobId = await enqueuePrint(t, incident.id, payload)
@@ -355,6 +362,7 @@ export function ReportPreflight({
     options.attendance ? P.summaryAttendance : null,
     options.mittel ? P.summaryMittel : null,
     options.journal ? P.summaryJournal : null,
+    options.attachments && attachments.length > 0 ? P.summaryAttachments : null,
   ].filter(Boolean).join(' · ')
 
   // «bereit» is a claim, so it is made only when nothing is outstanding — a fold that says all
@@ -594,6 +602,54 @@ export function ReportPreflight({
             </div>
           </section>
 
+          {/* Beilagen — the photos that belong to the REPORT rather than to the Verlauf: an ID
+              document, a damage close-up, a handed-over form. They print at the end, one per row
+              and big enough to READ, which is the whole reason for photographing a document.
+              Kept out of the Verlauf deliberately: that is a timed record of what happened, and a
+              picture of somebody's licence is neither an observation nor a moment. */}
+          <section className="report-pre-section report-attachments">
+            <h3>{P.attachmentsHead}</h3>
+            <p className="report-att-hint">{P.attachmentsHint}</p>
+            {attachments.length > 0 && (
+              <ul className="report-att-list">
+                {attachments.map((a) => (
+                  <li key={a.id} className="report-att">
+                    <img className="report-att-thumb" src={a.url} alt="" />
+                    <div className="report-att-body">
+                      <input
+                        className="ip-input" value={a.caption ?? ''} placeholder={P.attachmentsCaption}
+                        aria-label={P.attachmentsCaption} disabled={!onCaptionAttachment}
+                        onChange={(e) => onCaptionAttachment?.(a.id, e.target.value)}
+                      />
+                      {/* an upload still in flight: the file is on THIS device only, so another
+                          device printing now would get a gap. Same honesty as the pending-media
+                          warning further down. */}
+                      {a.url.startsWith('blob:') && <span className="report-att-pending">{P.attachmentsPending}</span>}
+                    </div>
+                    {onRemoveAttachment && (
+                      <button type="button" className="report-att-x" aria-label={appConfig.copy.delete}
+                        title={appConfig.copy.delete} onClick={() => onRemoveAttachment(a.id)}><Icon id="trash" /></button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {onAddAttachments && (
+              <label className="report-att-add">
+                <Icon id="photo" /><span>{P.attachmentsAdd}</span>
+                {/* no `capture` attribute: on a phone the OS sheet offers the camera anyway, and
+                    forcing it would take the file picker away from the tablet at the KP, where
+                    the photo usually already exists. */}
+                <input type="file" accept="image/*" multiple
+                  onChange={(e) => {
+                    const files = [...(e.target.files ?? [])]
+                    if (files.length) onAddAttachments(files)
+                    e.target.value = '' // same file twice in a row must still fire
+                  }} />
+              </label>
+            )}
+          </section>
+
           {/* the closing checklist: ONLY the two rows that navigate somewhere (Anwesenheit /
               Mittel). Zeiten + Zusammenfassung are ordinary fields above — the missing-steps
               confirm still guards them; Verlauf dropped (system rows made it always-green).
@@ -686,6 +742,8 @@ export function ReportPreflight({
               <Toggle label={fillTemplate(P.toggleAttendance, { n: attendanceCount })} checked={options.attendance} onChange={(v) => patchOpt({ attendance: v })} />
               <Toggle label={fillTemplate(P.toggleMittel, { n: mittelCount })} checked={options.mittel} onChange={(v) => patchOpt({ mittel: v })} />
               <Toggle label={P.toggleJournal} checked={options.journal} onChange={(v) => patchOpt({ journal: v })} />
+              <Toggle label={fillTemplate(P.toggleAttachments, { n: attachments.length })} checked={options.attachments && attachments.length > 0}
+                onChange={(v) => patchOpt({ attachments: v })} disabled={attachments.length === 0} />
               <details className="report-adv">
                 <summary><Icon id="chevron-down" /> {P.groupAdvanced}</summary>
                 <div className="report-adv-body">

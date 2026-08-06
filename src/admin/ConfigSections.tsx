@@ -217,6 +217,35 @@ export function DoctrineSection() {
         {numField(C.contactInterval, C.contactIntervalTip, ['doctrine', 'contactIntervalMin'])}
         {numField(C.contactGrace, C.contactGraceTip, ['doctrine', 'contactGraceSec'])}
       </div>
+
+      {/* Optional station colour per Auftrag. Empty = the default behaviour, where a Trupp's
+          colour means IDENTITY (every Trupp a different one from the palette). Filling a row in
+          says «read this Lage by role» — every Löschtrupp red — and the EL can still override any
+          single Trupp. Left as swatches, not a free colour input: these have to be the SAME ten
+          colours the Trupp form and the plan chip offer, or the picture stops agreeing with
+          itself. */}
+      <h3 className="adm-fieldgroup">{C.groupAuftragColors}</h3>
+      <p className="adm-hint">{C.auftragColorsTip}</p>
+      {appConfig.atemschutz.auftrag.map((a) => {
+        const value = getPath<string>(draft, ['doctrine', 'auftragColors', a.id])
+        return (
+          <Field key={a.id} label={appConfig.copy.atemschutz.auftragLabels[a.id] ?? a.label}>
+            <div className="adm-swatches">
+              <button
+                type="button" className={`adm-swatch-auto${value ? '' : ' on'}`} aria-pressed={!value}
+                onClick={() => set(['doctrine', 'auftragColors', a.id], null)}
+              >{appConfig.copy.atemschutz.colorAuto}</button>
+              {appConfig.drawing.teamColors.map((c) => (
+                <button
+                  key={c} type="button" className={`dh-color${value === c ? ' on' : ''}`} style={{ background: c }}
+                  aria-pressed={value === c} aria-label={c}
+                  onClick={() => set(['doctrine', 'auftragColors', a.id], value === c ? null : c)}
+                />
+              ))}
+            </div>
+          </Field>
+        )
+      })}
     </Card>
   )
 }

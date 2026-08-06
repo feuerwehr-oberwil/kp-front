@@ -55,6 +55,23 @@ async def resolve_report_assets(db: AsyncSession, data: ReportPayload, figs: dic
         except OSError:
             continue
 
+    # Beilagen resolve exactly like a journal photo — same media store, same `photo:<url>` key,
+    # so the composer needs one lookup path and a missing file drops that plate rather than the
+    # whole rapport.
+    for att in data.attachments:
+        if not att.url or f"photo:{att.url}" in figs:
+            continue
+        m = _MEDIA_URL.match(att.url)
+        if not m:
+            continue
+        media = (await db.execute(select(Media).where(Media.id == uuid.UUID(m.group(1))))).scalar_one_or_none()
+        if media is None or not media.storage_key:
+            continue
+        try:
+            figs[f"photo:{att.url}"] = await storage.aget_bytes(media.storage_key)
+        except OSError:
+            continue
+
     plan_pdfs: dict[str, bytes] = {}
     for pp in data.planPages:
         if not pp.url:

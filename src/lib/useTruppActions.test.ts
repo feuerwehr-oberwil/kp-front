@@ -114,7 +114,7 @@ describe('useTruppActions placement (one place per Trupp)', () => {
     const marker: Entity = { id: 'e1', kind: 'team', layer: 'einheiten', coord: [7.5, 47.4], truppId: 'T1', label: 'Keller A.' }
     const { actions, state } = harness(baseTrupp({ entityId: 'e1' }), { entities: [marker] })
     actions.editTrupp('T1', { name: 'Beat Muster', pressure: 300 })
-    expect(state.doc.entities[0].label).toBe('Muster B.')
+    expect(state.doc.entities[0].label).toBe('Beat Muster')
   })
 
   it('exports the Lage placement-target id the picker dispatches on', () => {
@@ -341,5 +341,63 @@ describe('useTruppActions — one Leitung, one Trupp', () => {
     actions.linkTruppLine('T2', 'd1')
     expect(state.trupps[1].lineNo).toBe(1)      // the new Trupp is on it
     expect(state.trupps[0].lineNo).toBeUndefined() // the old one let go
+  })
+})
+
+// Colour means IDENTITY by default (ten Trupps, ten colours) — but an EL who would rather read the
+// Lage by role must be able to say so, per Trupp or per Auftrag for the whole station. A picked
+// colour is therefore used verbatim, duplicates included; only the automatic one steps aside.
+describe('useTruppActions — Truppfarbe', () => {
+  it('places a Trupp in its own picked colour, even if another already wears it', () => {
+    const taken: Entity = {
+      id: 'e0', kind: 'team', layer: 'operational', coord: [7.5, 47.4], color: '#e8392b', truppId: 'T0',
+    } as unknown as Entity
+    const { actions, state } = harness(baseTrupp({ color: '#e8392b' }), { entities: [taken] })
+    actions.placeTruppOnMap('T1')
+    expect(state.doc.entities[1].color).toBe('#e8392b')
+  })
+
+  it('falls back to a free palette colour when nobody picked one', () => {
+    const { actions, state } = harness(baseTrupp({}))
+    actions.placeTruppOnMap('T1')
+    expect(state.doc.entities[0].color).toBeTruthy()
+  })
+
+  // an already-placed Trupp, the way the surfaces hand it to the actions on a later render
+  const placed = (over: Partial<Trupp> = {}) => {
+    const marker = { id: 'e1', kind: 'team', layer: 'operational', coord: [7.5, 47.4], color: '#1f6feb', truppId: 'T1' } as unknown as Entity
+    return harness(baseTrupp({ entityId: 'e1', ...over }), { entities: [marker] })
+  }
+
+  it('setTruppColor writes the Trupp AND repaints its placed marker', () => {
+    const { actions, state } = placed()
+    actions.setTruppColor('T1', '#8b5cf6')
+    expect(state.trupps[0].color).toBe('#8b5cf6')
+    expect(state.doc.entities[0].color).toBe('#8b5cf6')
+  })
+
+  it('setTruppColor(null) goes back to automatic — the field is gone, the marker repainted', () => {
+    const { actions, state } = placed({ color: '#8b5cf6' })
+    actions.setTruppColor('T1', null)
+    expect(state.trupps[0].color).toBeUndefined()
+    expect(state.doc.entities[0].color).not.toBe('#8b5cf6')
+  })
+
+  it('editing a Trupp repaints its marker when the colour changed', () => {
+    const { actions, state } = placed()
+    actions.editTrupp('T1', { name: 'Keller Anna', pressure: 300, color: '#65a30d' })
+    expect(state.trupps[0].color).toBe('#65a30d')
+    expect(state.doc.entities[0].color).toBe('#65a30d')
+  })
+
+  it('truppColors reports what a Trupp actually wears — placed marker first, then its own pick', () => {
+    expect(harness(baseTrupp({ color: '#0891b2' })).actions.truppColors()).toEqual({ T1: '#0891b2' })
+    // once placed, the marker on screen is the truth (it is what the operator is looking at)
+    expect(placed().actions.truppColors()).toEqual({ T1: '#1f6feb' })
+  })
+
+  it('says nothing about a Trupp that is neither placed nor coloured', () => {
+    const { actions } = harness(baseTrupp({}))
+    expect(actions.truppColors()).toEqual({})
   })
 })

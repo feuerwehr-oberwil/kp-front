@@ -9565,6 +9565,20 @@
               }
             ],
             "title": "Pressuremax"
+          },
+          "auftragColors": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auftragcolors"
           }
         },
         "type": "object",

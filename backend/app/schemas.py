@@ -656,6 +656,10 @@ class DoctrineConfig(BaseModel):
     defaultPressureBar: int | None = None
     pressureStep: int | None = None
     pressureMax: int | None = None
+    # Station colour per Atemschutz-Auftrag (auftrag id → CSS colour), e.g. {"loeschen": "#e8392b"}.
+    # The colour a Trupp with that order STARTS in; it stays overridable per Trupp. Absent/empty
+    # keeps the automatic behaviour (every Trupp a different colour from the palette).
+    auftragColors: dict[str, str] | None = None
 
 
 class AlarmGroup(BaseModel):

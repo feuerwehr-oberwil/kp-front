@@ -24,6 +24,7 @@ export function useWorkspaceDoc(init: InitialState) {
   const [cameraViews, setCameraViews] = useState(init.cameraViews)
   const [planScale, setPlanScale] = useState(init.planScale)
   const [reportMeta, setReportMeta] = useState(init.reportMeta)
+  const [attachments, setAttachments] = useState(init.attachments)
   const [building, setBuilding] = useState(init.building)
   const [activePlanId, setActivePlanId] = useState(init.activePlanId)
   const [pickedObjectId, setPickedObjectId] = useState(init.pickedObjectId)
@@ -39,6 +40,7 @@ export function useWorkspaceDoc(init: InitialState) {
     cameraViews, setCameraViews,
     planScale, setPlanScale,
     reportMeta, setReportMeta,
+    attachments, setAttachments,
     building, setBuilding,
     activePlanId, setActivePlanId,
     pickedObjectId, setPickedObjectId,

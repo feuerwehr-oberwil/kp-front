@@ -4,6 +4,7 @@ import type { CaptionMode, Entity, LngLat, Trupp } from '../types'
 import { appConfig } from '../config/appConfig'
 import { useHoldToDrag } from '../lib/useHoldToDrag'
 import { Icon } from '../lib/icons'
+import { Popover, PopoverClose } from '../lib/overlays'
 import { ShapeGlyph } from '../lib/shapes'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
@@ -146,6 +147,9 @@ interface Props {
   onTeamMark?: (id: string) => void
   /** rename an untracked team marker — the map twin of the plan chip's rename pen */
   onTeamRename?: (id: string, name: string) => void
+  /** recolour a Trupp from its marker (null = back to automatic). Writes the TRUPP, so the board
+   *  card and a plan chip follow — see useTruppActions · setTruppColor. */
+  onTeamColor?: (truppId: string, color: string | null) => void
   /** clear a team marker's recorded trail (unlocks deletion) — reached via the lock button,
    *  behind a confirm; the everyday bar button only TOGGLES visibility */
   onTeamClearTrail?: (id: string) => void
@@ -160,7 +164,7 @@ interface Props {
  * vehicle) plus its selection affordances — delete, rotor (live vehicles), and the
  * shape/symbol transform handles. Owns the rotor/transform pointer-drag refs.
  */
-export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', readOnly = false, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, onShowTrupp, onTeamMark, onTeamRename, onTeamClearTrail, hiddenTrails, onToggleTrail }: Props) {
+export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', readOnly = false, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, onShowTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail, hiddenTrails, onToggleTrail }: Props) {
   // captions declutter out below a zoom threshold (glyphs are tiny there); the Plan has no zoom
   const captionsVisible = zoom >= appConfig.symbols.captionMinZoom
   // when the note input mounted — onBlur uses this to tell a real "done editing" click-away
@@ -595,6 +599,29 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                 )}
                 {e.truppId && onShowTrupp && (
                   <button className="wb-pa wb-pa-show" title={appConfig.copy.whiteboard.showTrupp} aria-label={appConfig.copy.whiteboard.showTrupp} onClick={() => onShowTrupp(e.truppId!)}><Icon id="warn" /></button>
+                )}
+                {/* Truppfarbe, where the Trupp is: the same palette the plan chip and the Trupp
+                    form offer, and the pick lands on the TRUPP, so card, chip and marker agree.
+                    A colour another Trupp already wears is allowed — «alle Löschtrupps rot». */}
+                {e.truppId && onTeamColor && (
+                  <Popover
+                    ariaLabel={appConfig.copy.atemschutz.colorLabel}
+                    popupClassName="wb-pa-colors"
+                    trigger={
+                      <button className="wb-pa" title={appConfig.copy.atemschutz.colorLabel} aria-label={appConfig.copy.atemschutz.colorLabel}>
+                        <span className="wb-pa-swatch" style={{ background: e.color || 'transparent' }} />
+                      </button>
+                    }
+                  >
+                    <PopoverClose className={`ctx-team-auto${e.color ? '' : ' on'}`} onClick={() => onTeamColor(e.truppId!, null)}>
+                      {appConfig.copy.atemschutz.colorAuto}
+                    </PopoverClose>
+                    {appConfig.drawing.teamColors.map((c) => (
+                      <PopoverClose key={c} className={`dh-color${e.color === c ? ' on' : ''}`} onClick={() => onTeamColor(e.truppId!, c)}>
+                        <span style={{ background: c }} />
+                      </PopoverClose>
+                    ))}
+                  </Popover>
                 )}
                 {onTeamMark && (
                   <button className="wb-pa wb-pa-mark" title={appConfig.copy.whiteboard.markPosition} aria-label={appConfig.copy.whiteboard.markPosition} onClick={() => onTeamMark(e.id)}><Icon id="flag" /></button>

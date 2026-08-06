@@ -997,8 +997,15 @@ export const de = {
     reenterStandby: 'Bereitstellen',
     reenterStandbyHint: 'Trupp als Reserve anmelden – die Kontaktuhr startet erst mit «Eingerückt».',
     // board card
+    colorLabel: 'Farbe',
+    colorAuto: 'Automatisch',
+    colorAutoHint: 'Farbe der Wehr für diesen Auftrag, sonst die nächste freie – jeder Trupp eine andere.',
     sinceContact: 'Seit letztem Kontakt',
     elapsed: 'Einsatzzeit',
+    // Pausenuhr: wie lange der Trupp draussen ist. Die Einsatzzeit steht ab «Raus» still (sie ist
+    // fertig), diese läuft dafür – das ist die Zahl, die der Überwacher für die Erholungszeit
+    // vor dem nächsten Einsatz braucht.
+    outFor: 'Draussen seit',
     estimated: 'Erwartet (Schätzung)',
     estimatedHint: 'Planungshilfe – bis genügend Druckverlauf vorliegt, geschätzt mit {liters} L Flasche und {rate} L/min Verbrauch. Ersetzt keine Druckmeldung.',
     estimatedHintHistory: 'Planungshilfe – aus dem bestätigten Druckverbrauch dieses Trupps hochgerechnet. Ersetzt keine Druckmeldung.',
@@ -1347,6 +1354,9 @@ export const de = {
     trupp: 'Gehört zu Trupp',
     truppShow: 'Trupp {name} zeigen',
     truppNone: 'Kein Trupp',
+    // Der Trupp, der diese Leitung gelegt hat, ist wieder draussen. Er bleibt im Feld stehen –
+    // er ist der Eintrag, der sagt, wer an dieser Leitung war – nur eben als «draussen» markiert.
+    truppOut: 'draussen',
     floorTag: 'Stockwerk',
     distance: 'Länge',
     // Messung-Gruppe: die Zahlen einer bereits gezeichneten Linie (Länge, Schläuche, Höhenprofil)
@@ -1918,7 +1928,7 @@ export const de = {
     // Gründe, warum die Zeile gerade nicht geht. Sie verschwindet NICHT — ein Bedienelement,
     // das sich in Luft auflöst, ist von einer nie gebauten Funktion nicht zu unterscheiden.
     menuClosed: 'Nur solange der Einsatz läuft',
-    menuDemo: 'In der Demo nicht verfügbar',
+    menuDemo: 'Demo: simuliert – dein Standort wird nicht abgefragt',
     // Während geteilt wird: das Beenden muss genauso deutlich dastehen wie das Starten — ein
     // Gerät, das den Standort einer Person sendet, darf das Aufhören nicht verstecken.
     menuOnHint: 'Tippen zum Beenden',
@@ -2254,6 +2264,7 @@ export const de = {
     summaryAttendance: 'Personal',
     summaryMittel: 'Material',
     summaryJournal: 'Verlauf',
+    summaryAttachments: 'Beilagen',
     allReady: 'Alles bereit',
     fromDispatch: 'Aus den Einsatzdaten',
     edit: 'Bearbeiten',
@@ -2297,6 +2308,13 @@ export const de = {
     toggleAttendance: 'Anwesenheit ({n})',
     toggleMittel: 'Mittel ({n})',
     toggleJournal: 'Einsatzjournal',
+    toggleAttachments: 'Beilagen ({n})',
+    // Beilagen: Fotos, die zum RAPPORT gehören (Ausweis, Schaden), nicht in den Verlauf.
+    attachmentsHead: 'Beilagen',
+    attachmentsHint: 'Fotos, die zum Rapport gehören – Ausweise, Schäden, übergebene Formulare. Sie drucken am Schluss gross genug zum Lesen und stehen nicht im Verlauf.',
+    attachmentsAdd: 'Foto hinzufügen',
+    attachmentsCaption: 'Bildlegende (z. B. «Ausweis Lenker»)',
+    attachmentsPending: 'noch nicht hochgeladen',
     toggleDetailedAudit: 'Detaillierter Prüfnachweis',
     // Kroki framing modal (WYSIWYG crop before PDF / Ausdrucken)
     framingTitle: 'Kroki-Ausschnitt wählen',
@@ -2893,6 +2911,8 @@ export const de = {
       groupFunk: 'Funk',
       groupPressure: 'Atemschutz – Druck',
       groupContact: 'Atemschutz – Kontakt',
+      groupAuftragColors: 'Atemschutz – Truppfarben',
+      auftragColorsTip: 'Optional: Startfarbe je Auftrag. Leer lassen heisst «jeder Trupp eine eigene Farbe» (Identität). Wer die Lage lieber nach Rolle liest – alle Löschtrupps rot –, setzt hier eine Farbe; pro Trupp ist sie weiterhin änderbar.',
       defaultFunkkanal: 'Funkkanal (Standard)',
       defaultFunkkanalTip: 'Voreingestellter Funkkanal eines neuen Einsatzes.',
       contactInterval: 'Kontaktintervall (min)',

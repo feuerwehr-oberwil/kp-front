@@ -110,7 +110,12 @@ export function useShareMyPosition(incidentId: string | null, enabled: boolean):
 
   const ready = !!pref?.allowed && !!pref.personId
   const sharing = !!incidentId && sharingFor === incidentId
-  const active = enabled && sharing && ready && !isDemoMode()
+  // On the public demo sharing is SIMULATED: the control behaves exactly as it does for a real
+  // Wehr, but no fix is ever taken and nothing is posted — the dot is walked in the browser
+  // (lib/demoCrewWalk), and the backend goes on refusing every position route. A demo visitor
+  // gets to see what the feature does without their own location being involved at all.
+  const demo = isDemoMode()
+  const active = enabled && sharing && ready && !demo
 
   const persist = useCallback((next: SharePositionPref | null) => {
     const prefs = loadPrefs()
@@ -143,6 +148,8 @@ export function useShareMyPosition(incidentId: string | null, enabled: boolean):
    *  the Einsatz-Abschluss are the guarantees, this is the one that makes the dot go NOW. */
   const clearRow = useCallback(() => {
     const current = loadPrefs().sharePosition
+    // nothing was ever reported on the demo, so there is nothing to delete
+    if (isDemoMode()) return
     if (!incidentId || !current?.personId || !current.deviceId) return
     const url = `/api/incidents/${incidentId}/positions/${current.personId}?device=${encodeURIComponent(current.deviceId)}`
     void fetch(url, { method: 'DELETE' }).catch(() => {})
@@ -258,6 +265,10 @@ export function useShareMyPosition(incidentId: string | null, enabled: boolean):
     }
   }, [active, incidentId, pref])
 
-  const state: ShareState = !active ? 'off' : !hasGeolocation() ? 'denied' : watch
+  // The simulated share reports «on» from the moment it is switched on: there is no fix to wait
+  // for, and a permanent «suche Standort …» on a demo would read as a broken feature.
+  const state: ShareState = demo
+    ? (enabled && sharing && ready ? 'on' : 'off')
+    : !active ? 'off' : !hasGeolocation() ? 'denied' : watch
   return { state, ready, pref, lastAt, imprecise, start, stop, revoke }
 }

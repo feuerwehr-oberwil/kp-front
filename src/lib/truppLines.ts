@@ -39,6 +39,9 @@ export function truppLineNo(t: Trupp): number | undefined {
 
 /** Is this Trupp still working? (`raus` = out; the tag then goes muted rather than disappearing) */
 const isOut = (t: Trupp) => t.status === 'raus' || !!t.exitTime
+/** The same question for the surfaces that draw a linked Trupp somewhere else (the line editor's
+ *  «Gehört zu Trupp …»): out ⇒ named, but as the record of who WAS on this Leitung. */
+export const truppIsOut = (t?: Trupp): boolean => !!t && isOut(t)
 
 /**
  * The Trupp a drawn line belongs to — the anchor first, then the Leitung number.
@@ -62,8 +65,11 @@ function best(cands: Trupp[]): Trupp | undefined {
     || a.id.localeCompare(b.id))[0]
 }
 
-/** What the end tag says about the Trupp: the leader, abbreviated exactly like the plan chip and
- *  the map marker, so the same Trupp reads the same on every surface. */
+/** What the end tag says about the Trupp: the leader, ABBREVIATED («Meier A.»). The tag hangs off
+ *  the end of a hose in the middle of the picture — next to a Leitung number, a device letter and
+ *  a storey badge — so it is the one place the short form stays: a full name there grows sideways
+ *  across whatever the line runs over. The Trupp SYMBOL is the opposite case and spells the name
+ *  out (see useTruppActions · placeTruppOnMap/placeTruppOnPlan). */
 export function truppTagText(t: Trupp): string {
   return abbreviateName(t.name)
 }

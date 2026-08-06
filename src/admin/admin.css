@@ -217,6 +217,16 @@
 }
 .adm-fieldgroup:first-child { margin-top: 0; }
 
+/* explanatory line under a field group heading (why you would fill this in at all) */
+.adm-hint { margin: 6px 0 2px; font-size: 12px; line-height: 1.45; color: var(--ink-dim); max-width: 62ch; }
+/* Truppfarbe swatch row (Atemschutz doctrine): «Automatisch» + the ten team colours, wrapping */
+.adm-swatches { flex-wrap: wrap; gap: 7px; }
+.adm-swatch-auto { border: 1px solid var(--border-soft); border-radius: 999px; padding: 5px 10px;
+  background: var(--surface); color: var(--ink); font: 700 12px/1 var(--body); cursor: pointer; }
+.adm-swatch-auto.on { background: color-mix(in srgb, var(--blue) 18%, var(--surface)); border-color: var(--blue); color: var(--blue); }
+.adm-swatches .dh-color { width: 24px; height: 24px; }
+.adm-swatches .dh-color.on { box-shadow: 0 0 0 2.5px var(--blue); }
+
 /* a comfortably tall textarea (Journal Bausteine) — big enough to see the whole list */
 .adm-textarea-tall { min-height: 360px; max-height: 72vh; overflow-y: auto; }
 .adm-textarea-tall { background: var(--surface); border-color: color-mix(in srgb, var(--blue) 22%, var(--border)); }

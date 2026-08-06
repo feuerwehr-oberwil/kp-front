@@ -242,3 +242,24 @@ describe('mergeById — documented LWW data-loss (whole-object replacement)', ()
     expect(merged.entities[0].rotation).toBe(0)     // their concurrent rotation is lost (not 90)
   })
 })
+
+// Rapport-Beilagen merge like every other id-keyed collection. Worth its own case because the
+// Rapport is typically assembled on ONE device while the Lage is still being worked on another:
+// the two saves must not eat each other's photos.
+describe('mergeWorkspace — Rapport-Beilagen', () => {
+  it('keeps a Beilage each device added independently', () => {
+    const base = { attachments: [] }
+    const mine = { attachments: [{ id: 'a1', url: '/api/media/1' }] }
+    const theirs = { attachments: [{ id: 'a2', url: '/api/media/2' }] }
+    const out = mergeWorkspace(base, mine, theirs) as { attachments: { id: string }[] }
+    expect(out.attachments.map((a) => a.id).sort()).toEqual(['a1', 'a2'])
+  })
+
+  it('lets a delete beat a concurrent caption edit', () => {
+    const base = { attachments: [{ id: 'a1', url: '/api/media/1' }] }
+    const mine = { attachments: [] } // I removed it
+    const theirs = { attachments: [{ id: 'a1', url: '/api/media/1', caption: 'Ausweis' }] }
+    const out = mergeWorkspace(base, mine, theirs) as { attachments: unknown[] }
+    expect(out.attachments).toEqual([])
+  })
+})

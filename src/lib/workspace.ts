@@ -1,4 +1,4 @@
-import type { AttendanceState, BoardAnno, BoardDoc, BuildingDoc, CameraView, Drawing, Entity, LayerDef, LayerId, MittelEntry, Shift, ShiftBand, TimelineEvent, Trupp, WeatherData } from '../types'
+import type { AttendanceState, BoardAnno, BoardDoc, BuildingDoc, CameraView, Drawing, Entity, LayerDef, LayerId, MittelEntry, ReportAttachment, Shift, ShiftBand, TimelineEvent, Trupp, WeatherData } from '../types'
 import { appConfig } from '../config/appConfig'
 import { layers as initialLayers, planDocuments } from '../data/demoIncident'
 import { referenceLayersFromConfig } from './deploymentConfig'
@@ -122,6 +122,8 @@ export interface Saved {
   cameraViews?: CameraView[]
   /** Einsatzrapport metadata: supplemental bookkeeping text, not tactical state. */
   reportMeta?: ReportMeta
+  /** Beilagen: photos that belong to the Rapport (documents, damage) rather than to the Verlauf */
+  attachments?: ReportAttachment[]
   /** per-incident synced operational settings (see IncidentSettings) */
   settings?: IncidentSettings
   /** weather reading at the reconstructed instant — populated only by the replay fold
@@ -243,6 +245,7 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
     bands: arr<ShiftBand>(raw.bands, hasId),
     cameraViews: arr<CameraView>(raw.cameraViews, hasId),
     reportMeta: rec<ReportMeta>(raw.reportMeta),
+    attachments: arr<ReportAttachment>(raw.attachments, hasId),
     settings: rec<IncidentSettings>(raw.settings),
     schemaVersion: sv,
   }
@@ -259,6 +262,7 @@ export interface InitialState {
   shifts: Shift[]
   bands: ShiftBand[]
   cameraViews: CameraView[]
+  attachments: ReportAttachment[]
   planScale: PlanScales
   reportMeta: ReportMeta
   settings: IncidentSettings
@@ -282,26 +286,64 @@ export function autoActivateLayers(layers: LayerDef[], kategorie: string | null 
   return layers.map((l) => (!l.visible && l.autoActivate?.includes(kategorie) ? { ...l, visible: true } : l))
 }
 
-/**
- * Demo only: slide the Atemschutz (SCBA) Trupp clocks so the scene reads as fresh at PAGE-LOAD
- * instead of at the server's last 2 h reset. Otherwise a visitor landing late in the reset window
- * sees Trupps already überfällig and the alarm fires the moment they arrive. Every Trupp timestamp
- * is shifted by one offset so the most-recent contact lands at `now`, preserving the relative
- * timing (who's been in longest, contact gaps). Applied to the fetched seed at open, in demo mode.
- */
-export function rebaseDemoClocks(ws: Saved, now: number): Saved {
-  const trupps = ws.trupps
-  if (!trupps?.length) return ws
+/** The newest Atemschutz timestamp in a workspace (entry / contact / reading), or null if it has
+ *  no Trupp clocks at all. Identifies a demo SEED: the server's 12 h reset writes new stamps, an
+ *  operator's own edits move it forward, and everything else leaves it exactly where it was. */
+export function latestTruppStamp(ws: Saved): number | null {
   const stamps: number[] = []
-  for (const t of trupps) {
+  for (const t of ws.trupps ?? []) {
     for (const iso of [t.entryTime, t.lastContactTime]) {
       const ms = iso ? Date.parse(iso) : NaN
       if (!Number.isNaN(ms)) stamps.push(ms)
     }
     for (const r of t.readings ?? []) { const ms = Date.parse(r.t); if (!Number.isNaN(ms)) stamps.push(ms) }
   }
-  if (!stamps.length) return ws
-  const offset = now - Math.max(...stamps)
+  return stamps.length ? Math.max(...stamps) : null
+}
+
+/**
+ * The wall-clock instant a demo seed's newest Trupp timestamp is pinned to — REMEMBERED, per tab,
+ * for as long as the seed is the same one.
+ *
+ * Re-deriving it on every load (which is what happened until 2026-08-06) meant a plain browser
+ * refresh re-pinned the newest stamp to «now» and every contact clock jumped BACKWARDS — a Trupp
+ * at 0:35 came back at 0:08, and differently per Trupp depending on how it sat relative to the
+ * newest stamp. On a monitoring surface that is the one direction a clock must never move: it
+ * makes the time since the last Funkkontakt look shorter than it is. Anchoring once per (incident,
+ * seed) means the demo still opens un-alarmed, and from then on its clocks only run forward.
+ *
+ * Per TAB (sessionStorage), on purpose: a refresh keeps its anchor, a new visitor in a new tab
+ * gets a fresh, un-alarmed scene. A seed the server has since reset carries a different stamp and
+ * therefore a new anchor.
+ */
+export function demoClockAnchor(incidentId: string, seedStamp: number, now: number, store?: Storage): number {
+  const key = `kp.demoClock.${incidentId}.${seedStamp}`
+  try {
+    const s = store ?? (typeof sessionStorage === 'undefined' ? undefined : sessionStorage)
+    if (!s) return now
+    const stored = Number(s.getItem(key))
+    if (Number.isFinite(stored) && stored > 0) return stored
+    s.setItem(key, String(now))
+  } catch { /* private mode / disabled storage: an un-anchored demo is still a working demo */ }
+  return now
+}
+
+/**
+ * Demo only: slide the Atemschutz (SCBA) Trupp clocks so the scene reads as fresh when the visitor
+ * ARRIVES instead of at the server's last reset. Otherwise someone landing late in the reset window
+ * sees Trupps already überfällig and the alarm fires the moment they get there. Every Trupp
+ * timestamp is shifted by one offset so the most-recent contact lands at `at`, preserving the
+ * relative timing (who's been in longest, contact gaps).
+ *
+ * `at` is the ANCHOR, not the current time — see demoClockAnchor: it is fixed on the first open of
+ * a seed, so the clocks keep running afterwards instead of resetting on every refresh.
+ */
+export function rebaseDemoClocks(ws: Saved, at: number): Saved {
+  const trupps = ws.trupps
+  if (!trupps?.length) return ws
+  const newest = latestTruppStamp(ws)
+  if (newest == null) return ws
+  const offset = at - newest
   const shift = (iso: string): string => {
     const ms = iso ? Date.parse(iso) : NaN
     return Number.isNaN(ms) ? iso : new Date(ms + offset).toISOString()
@@ -366,6 +408,7 @@ export function deriveInitial(
     shifts: ws?.shifts ?? [],
     bands: ws?.bands ?? [],
     cameraViews: ws?.cameraViews ?? [],
+    attachments: ws?.attachments ?? [],
     planScale: ws?.planScale ?? {},
     reportMeta: ws?.reportMeta ?? {},
     settings: ws?.settings ?? {},

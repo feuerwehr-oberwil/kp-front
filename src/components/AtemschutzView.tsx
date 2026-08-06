@@ -43,11 +43,15 @@ function snapBar(v: number): number {
 // large "Kontakt" reset, and a contact-clock alarm (amber nudge → red überfällig). Pressure is
 // set inline and logged. Purely presentational + local UI state — data + mutations via props.
 export function AtemschutzView({
-  trupps, canEdit, personnel, attendance, muted, onToggleMuted, createTrupp, placeTrupp, placeTargets, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, leitungOptions, showTruppLine, truppsWithLine, pickTruppLine, unlinkTruppLine,
+  trupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, createTrupp, placeTrupp, placeTargets, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, leitungOptions, showTruppLine, truppsWithLine, pickTruppLine, unlinkTruppLine,
   intervalMin = atemschutzDoctrine().contactIntervalMin, graceSec = atemschutzDoctrine().contactGraceSec,
   defaultFunkkanal = atemschutzDoctrine().defaultFunkkanal,
 }: {
   trupps: Trupp[]
+  /** trupp id → the colour it wears on the Lage / plan (useTruppActions · truppColors). Missing
+   *  for a Trupp that is neither placed nor deliberately coloured — its automatic colour is only
+   *  settled at placement. */
+  truppColors: Record<string, string>
   canEdit: boolean
   /** per-incident Funkkontakt-Intervall (min) + Nachfrist (sec); default = appConfig doctrine */
   intervalMin?: number
@@ -183,7 +187,7 @@ export function AtemschutzView({
 
   const cards = (list: Trupp[]) => list.map((t) => (
     <TruppCard
-      key={t.id} t={t} live={live.get(t.id)!} now={now} canEdit={canEdit} intervalMin={intervalMin} graceSec={graceSec}
+      key={t.id} t={t} live={live.get(t.id)!} now={now} color={truppColors[t.id]} canEdit={canEdit} intervalMin={intervalMin} graceSec={graceSec}
       onContact={recordContact} onPressure={recordPressure} onStatus={setTruppStatus}
       onEdit={() => openForm('edit', t)} onReenter={() => openForm('redeploy', t)}
       onDelete={deleteTrupp} onRestore={restoreTrupp} onPlace={handlePlace} onShowPlan={focusTruppOnPlan}
@@ -361,9 +365,12 @@ function PressureInline({ value, onCommit }: { value: number; onCommit: (bar: nu
 // Funkkontakt) with a large Kontakt reset; the inline Druck control + an expandable Verlauf log
 // sit below, and the lifecycle actions run along the bottom.
 function TruppCard({
-  t, live, now, canEdit, intervalMin, graceSec, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onRestore, onPlace, onShowPlan, onPickLine, onShowLine, hasLine,
+  t, live, now, color, canEdit, intervalMin, graceSec, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onRestore, onPlace, onShowPlan, onPickLine, onShowLine, hasLine,
 }: {
   t: Trupp; live: TruppLive; now: number; canEdit: boolean
+  /** the colour this Trupp wears on the Lage / plan (useTruppActions · truppColors); absent while
+   *  it is neither placed nor deliberately coloured */
+  color?: string
   intervalMin: number; graceSec: number
   onContact: (id: string) => void
   onPressure: (id: string, bar: number) => void
@@ -472,7 +479,13 @@ function TruppCard({
       </div>
 
       <div className={s.cardName}>
-        <span className={s.nameStatic}>{t.name}</span>
+        {/* the colour this Trupp wears on the Lage / plan, so the card and the symbol out there
+            read as the same Trupp. Absent while the colour is still automatic AND unplaced —
+            that one is only settled at placement, and a guess here would change under them. */}
+        <div className={s.nameRow}>
+          {color && <span className={s.nameDot} style={{ background: color }} aria-hidden />}
+          <span className={s.nameStatic}>{t.name}</span>
+        </div>
         {!!t.members?.filter(Boolean).length && (
           <div className={s.members}>{t.members.filter(Boolean).join(' · ')}</div>
         )}
@@ -525,6 +538,15 @@ function TruppCard({
           <div className={s.metaRow}>
             <span>{az.elapsed}</span>
             <b>{fmtClock(live.elapsedSec)}</b>
+          </div>
+        )}
+        {/* The break clock. Once a Trupp is out its Einsatzzeit is finished and stands still —
+            what the Überwacher needs from then on is how long the crew has been resting before
+            it can be sent in again, so that is the number that keeps running. */}
+        {live.outSec != null && (
+          <div className={s.metaRow}>
+            <span>{az.outFor}</span>
+            <b>{fmtClock(live.outSec)}</b>
           </div>
         )}
         {estimate && (
@@ -642,6 +664,9 @@ function TruppForm({
   const [lineNo, setLineNo] = useState<number | null>(initial?.lineNo ?? null)
   const legacyLine = initial?.lineNo == null ? initial?.lineNumber?.trim() : undefined
   const [funkkanal, setFunkkanal] = useState<number>(initial?.funkkanal ?? defaultFunkkanal)
+  // null = automatic (the station colour for this Auftrag, else the next free palette colour).
+  // A picked colour is used as picked, duplicates included — see Trupp.color.
+  const [color, setColor] = useState<string | null>(initial?.color ?? null)
   const [leader, setLeader] = useState<Slot>({ name: initial?.name ?? '', personId: initial?.leaderPersonId })
   const [members, setMembers] = useState<Slot[]>(
     initial?.members?.length
@@ -692,6 +717,7 @@ function TruppForm({
       pressure,
       leaderPersonId: leader.name.trim() ? leader.personId : undefined,
       memberPersonIds: memberPersonIds.length ? memberPersonIds : undefined,
+      color, // null = automatic
     }, standby)
   }
 
@@ -793,6 +819,25 @@ function TruppForm({
             <button className={s.linkBtn} onClick={() => setMembers((ms) => [...ms, { name: '' }])}>
               <Icon id="plus" /><span>{az.addMember}</span>
             </button>
+            {/* The colour this Trupp wears on the Lage and on the plan. «Automatisch» is the
+                normal case (every Trupp a different one); picking is for when the EL would rather
+                read the picture by role — «alle Löschtrupps rot» — and a duplicate is then the
+                point, not a mistake, so nothing here refuses one. */}
+            <div className={s.field}>
+              <span>{az.colorLabel}</span>
+              <div className={s.colorRow}>
+                <button
+                  type="button" className={cx(s.colorAuto, color == null && s.on)} aria-pressed={color == null}
+                  title={az.colorAutoHint} onClick={() => setColor(null)}
+                >{az.colorAuto}</button>
+                {appConfig.drawing.teamColors.map((c) => (
+                  <button
+                    key={c} type="button" className={cx(s.colorDot, color === c && s.on)} style={{ background: c }}
+                    aria-label={c} aria-pressed={color === c} onClick={() => setColor(c)}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
 
           {assignedConflict && (

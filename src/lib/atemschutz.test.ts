@@ -68,6 +68,17 @@ describe('deriveTruppLive', () => {
     expect(live.sinceContactSec).toBeNull() // clock stops once out
   })
 
+  it('stops the Einsatzzeit at the exit and starts the break clock instead', () => {
+    const t: Trupp = { ...base, status: 'raus', exitTime: '2026-06-21T10:08:00Z' }
+    const live = deriveTruppLive(t, REF + 30 * 60_000, 5, 60)
+    expect(live.elapsedSec).toBe(8 * 60) // the deployment lasted 8 minutes — not 30
+    expect(live.outSec).toBe(22 * 60) // …and the crew has been out for 22
+  })
+
+  it('has no break clock while the Trupp is still in', () => {
+    expect(deriveTruppLive(base, REF + 3 * 60_000, 5, 60).outSec).toBeNull()
+  })
+
   it('falls back to entryTime when lastContactTime is empty — no dead clock for an in-field Trupp', () => {
     // an in-field Trupp that never got an explicit contact (or legacy data) must still be timed
     const t: Trupp = { ...base, lastContactTime: '' }

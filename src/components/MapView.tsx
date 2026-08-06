@@ -107,6 +107,8 @@ interface Props {
   onTeamMark?: (id: string) => void
   /** rename an untracked team marker (absent = locked, or a Trupp-bound marker) */
   onTeamRename?: (id: string, name: string) => void
+  /** recolour a Trupp from its marker (null = automatic) — see MapMarkers */
+  onTeamColor?: (truppId: string, color: string | null) => void
   onTeamClearTrail?: (id: string) => void
   /** tactical editing is locked (viewer role, Einsatzleiter-Ansicht, replay). Everything
    *  stays readable — panning, selecting, the ephemeral Messen path — but no affordance that
@@ -149,6 +151,10 @@ interface Props {
   drawWidth: number
   drawDashed: boolean
   selectedDrawingId: string | null
+  /** «schau hier»: one drawing outlined for a few seconds WITHOUT being selected — no vertex
+   *  handles, no editor sheet. What «Leitung zeigen» on an Atemschutz card does: it answers where
+   *  the hose is, and nothing on screen becomes draggable by answering it. Cleared by the caller. */
+  flashDrawingId?: string | null
   onSelectDrawing: (id: string) => void
   /** unlock a locked drawing (tap its centre lock chip) → unlocks + selects it */
   onUnlockDrawing?: (id: string) => void
@@ -193,9 +199,9 @@ interface Props {
 }
 
 export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
-  const { entities, layers, byName, symMul = 1, captionMode = 'off', initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, truppSeverities, onShowTrupp, onTeamMark, onTeamRename, onTeamClearTrail,
+  const { entities, layers, byName, symMul = 1, captionMode = 'off', initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, truppSeverities, onShowTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail,
     readOnly = false, drawings: storedDrawings, drawingsVisible, draft, draftKind, placing, onDraftDrag, onDraftInsert, onDraftDelete, onDraftPointAttachment, draggable, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onRotate, onShapeTransform,
-    onView, picking, onCursor, onPick, pickedPoint, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, onSelectDrawing, onUnlockDrawing, onDelete, measureLabels = [], measurePoints = [], measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
+    onView, picking, onCursor, onPick, pickedPoint, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onDelete, measureLabels = [], measurePoints = [], measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingDelete, onDrawingAttachment, onLabelMove,
     marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupMove, onGroupDelete, selectedEntityIds = [], circleEnabled = false, onCircle } = props
   const [zoom, setZoom] = useState(initialZoom)
@@ -787,6 +793,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     labelDrag.current = null
   }
   const selHighlight: (string | number)[] = selectedDrawIds.length ? selectedDrawIds : (selectedDrawingId ? [selectedDrawingId] : ['__none__'])
+  const flashHighlight: (string | number)[] = flashDrawingId ? [flashDrawingId] : ['__none__']
   // rotate the whole selected drawing around its centroid. The angle is measured in
   // screen space from the centroid; we rotate the coords in a local east/north frame
   // (lng scaled by cos(lat)) so the turn looks rigid, then bake it back into coords.
@@ -978,6 +985,12 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         <Layer id="l-draw-network" type="line" filter={['>=', ['get', 'networkDepth'], 0] as any}
           layout={{ 'line-cap': 'round', 'line-join': 'round', ...vis(drawingsVisible) }}
           paint={{ 'line-color': appConfig.drawing.selectColor, 'line-width': ['+', ['get', 'width'], 9], 'line-opacity': ['interpolate', ['linear'], ['get', 'networkDepth'], 0, 0.34, 4, 0.08] } as any} />
+        {/* «zeigen» outline: wider and softer than the selection halo, and it goes away by itself.
+            Deliberately NOT animated — a pulsing hose was tried and rejected on the Lage; the
+            camera has just moved here, so a steady ring is enough to say which line. */}
+        <Layer id="l-draw-flash" type="line" filter={['in', ['get', 'id'], ['literal', flashHighlight]] as any}
+          layout={{ 'line-cap': 'round', 'line-join': 'round', ...vis(drawingsVisible) }}
+          paint={{ 'line-color': appConfig.drawing.selectColor, 'line-width': ['+', ['get', 'width'], 14], 'line-opacity': 0.3 } as any} />
         <Layer id="l-draw-sel" type="line" filter={['in', ['get', 'id'], ['literal', selHighlight]] as any}
           layout={{ 'line-cap': 'round', 'line-join': 'round', ...vis(drawingsVisible) }}
           paint={{ 'line-color': appConfig.drawing.selectColor, 'line-width': ['+', ['get', 'width'], 6], 'line-opacity': 0.5 } as any} />
@@ -1366,6 +1379,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         onShowTrupp={onShowTrupp}
         onTeamMark={onTeamMark}
         onTeamRename={onTeamRename}
+        onTeamColor={onTeamColor}
         onTeamClearTrail={onTeamClearTrail}
         hiddenTrails={hiddenTrails}
         onToggleTrail={toggleTrail}

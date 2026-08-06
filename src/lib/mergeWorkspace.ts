@@ -31,6 +31,9 @@ interface WsShape {
   // resolution this merge can never be asked for is 66 duplicated shifts per device.
   bands?: HasId[]
   cameraViews?: HasId[]
+  // Rapport-Beilagen (document/damage photos) — merge by id like any other collection: two
+  // devices each adding one keeps both, and a delete beats a concurrent caption edit.
+  attachments?: HasId[]
   board?: Record<string, HasId[]>
   vehicleOverrides?: Record<string, unknown>
   checklists?: Record<string, unknown>
@@ -196,6 +199,7 @@ export function mergeWorkspace(
     shifts: mergeById(b.shifts ?? [], m.shifts ?? [], t.shifts ?? []),
     bands: mergeById(b.bands ?? [], m.bands ?? [], t.bands ?? []),
     cameraViews: mergeById(b.cameraViews ?? [], m.cameraViews ?? [], t.cameraViews ?? []),
+    attachments: mergeById(b.attachments ?? [], m.attachments ?? [], t.attachments ?? []),
     board: mergeBoard(b.board ?? {}, m.board ?? {}, t.board ?? {}),
     vehicleOverrides: mergeRecord(b.vehicleOverrides ?? {}, m.vehicleOverrides ?? {}, t.vehicleOverrides ?? {}),
     checklists: mergeRecord(

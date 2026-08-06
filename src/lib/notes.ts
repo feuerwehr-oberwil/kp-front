@@ -46,3 +46,54 @@ export const noteWidth = (width: number | undefined, def: number) =>
 export const noteWN = (wN?: number) => noteWidth(wN, NOTE_WN.def)
 /** Map-space (screen px) width of a note, falling back to the default. */
 export const noteWPx = (w?: number) => noteWidth(w, NOTE_W_PX.def)
+
+// --- auto width (a fresh note sizes itself to what is typed) ---------------------------------
+//
+// A note is placed mid-sentence and then TYPED. Seeding every one at the surface default meant a
+// three-word Notiz sat in a box wide enough for a paragraph, and the operator had to drag it
+// narrower to get the picture back — for the most common note there is. So a fresh note follows
+// its text: it grows from the minimum until it hits the maximum, at which point it wraps as
+// before. The moment the width is dragged by hand that decision stands (`noteAutoW` is cleared)
+// and nothing resizes under the operator again.
+//
+// The measured result is still STORED as a plain width. That is deliberate: the client PDF and
+// the server sheet (backend/app/kroki.py) lay a note out from its width, and neither can run a
+// browser text measurement — so «auto» has to collapse to a number here, at edit time, or paper
+// would stop matching the screen.
+
+/** The note box's own chrome: `padding: .38em .7em` + a 1 px border on each side (see app.css
+ *  `.note-pill` / `.wb-text-label`) — em-based, so it scales with the font like the text does. */
+const NOTE_PAD_EM = 0.7 * 2
+const NOTE_BORDER_PX = 2
+
+let measureCtx: CanvasRenderingContext2D | null | undefined
+let bodyFont: string | undefined
+
+/** Width in px of the widest line of `text` at `fontPx`, in the note's own font. Falls back to a
+ *  per-character estimate wherever there is no canvas (tests, SSR) — the caller clamps anyway. */
+export function measureNoteTextPx(text: string, fontPx: number): number {
+  const lines = text.split('\n')
+  if (measureCtx === undefined) {
+    measureCtx = typeof document === 'undefined' ? null : document.createElement('canvas').getContext('2d')
+    bodyFont = typeof document === 'undefined' ? undefined
+      : getComputedStyle(document.body).getPropertyValue('--body').trim() || undefined
+  }
+  if (!measureCtx) return Math.max(...lines.map((l) => l.length)) * fontPx * 0.55
+  measureCtx.font = `600 ${fontPx}px ${bodyFont || 'system-ui, sans-serif'}`
+  return Math.max(...lines.map((l) => measureCtx!.measureText(l).width))
+}
+
+/** Box width for a note that follows its text: the widest line + the box padding. Unclamped —
+ *  the surface helpers below apply their own range. */
+export function autoNoteBoxPx(text: string, fontPx: number): number {
+  return Math.ceil(measureNoteTextPx(text, fontPx) + NOTE_PAD_EM * fontPx + NOTE_BORDER_PX)
+}
+
+/** Map note (screen px): the width this text wants, clamped to the map range. */
+export const autoNoteWPx = (text: string, size?: NoteSize) =>
+  clampNoteWPx(autoNoteBoxPx(text, 12 * noteScale(size)))
+
+/** Plan note: the same, expressed as the fraction of the plan width the plan stores. `fontPx` and
+ *  `planWPx` are the CURRENT rendered values, so the zoom scale cancels out of the ratio. */
+export const autoNoteWN = (text: string, fontPx: number, planWPx: number) =>
+  planWPx > 0 ? clampNoteWN(autoNoteBoxPx(text, fontPx) / planWPx) : NOTE_WN.def

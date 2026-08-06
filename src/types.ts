@@ -113,6 +113,11 @@ export interface SymbolProps {
   // everywhere = the original one-line pill, so stored incidents render unchanged.
   /** relative text size: 's' ×0.8, 'm' ×1 (absent = 'm'), 'l' ×1.45. */
   noteSize?: NoteSize
+  /** the box width follows the typed text (see lib/notes · autoNoteWPx / autoNoteWN) instead of
+   *  sitting at the surface default. Set on a freshly placed note and cleared the moment the
+   *  width is dragged by hand — a width the operator chose is never recomputed. The width itself
+   *  is always stored as a number, so the PDF/print renderers need to know nothing about this. */
+  noteAutoW?: boolean
   /** drop the yellow Zettel background + border and render bare text (a heading on a blank
    *  sheet). The renderers add a `--note-halo` outline so bare text stays legible over an
    *  aerial / a dark plan — never a background-less plain colour. */
@@ -506,7 +511,33 @@ export interface SymbolLibrary { order: string[]; symbols: SymbolMeta[] }
  *  is NOT extrapolated into a countdown. Status: angemeldet → aktiv → rueckzug → ueberfaellig
  *  (contact overdue), or `raus` once the team is out. */
 /** the editable descriptive fields of a Trupp, shared by the create / edit / re-deploy form */
-export type TruppFields = { name: string; members?: string[]; auftrag?: Trupp['auftrag']; ziel?: string; lineNo?: number; funkkanal?: number; pressure: number; leaderPersonId?: string; memberPersonIds?: string[] }
+/** `color: null` from the form means «zurück auf automatisch» — distinct from `undefined`, which
+ *  is «this form doesn't carry a colour». See Trupp.color. */
+export type TruppFields = { name: string; members?: string[]; auftrag?: Trupp['auftrag']; ziel?: string; lineNo?: number; funkkanal?: number; pressure: number; leaderPersonId?: string; memberPersonIds?: string[]; color?: string | null }
+
+/**
+ * One Beilage to the Einsatzrapport — a photo that belongs to the REPORT rather than to the
+ * running picture: an ID document, a damage close-up, a handed-over form.
+ *
+ * Deliberately its own collection, not a Verlauf row with a flag. A Verlauf row is a timed
+ * observation in an append-only record of what happened; «Ausweis Herr Meier» is neither, and
+ * putting it there would both bury it among the tactical lines and force a document photo into
+ * the legal chronology. It also prints differently: journal photos ride small beside their text,
+ * a Beilage prints large enough to READ, which is the entire point of photographing a document.
+ *
+ * Stored like every other incident medium (the media store, the same upload path as a journal
+ * photo): it syncs to the devices on this Einsatz and goes with the incident.
+ */
+export interface ReportAttachment {
+  id: string
+  /** server-relative media URL (/api/media/<id>). A blob: URL means the upload is still running
+   *  — the Rapport preflight already warns about media that has not landed yet. */
+  url: string
+  /** what this shows, printed under the image («Ausweis Lenker», «Schaden Nordfassade») */
+  caption?: string
+  /** when it was added (ISO) — printed with the caption, so a set of photos has an order */
+  at: string
+}
 
 /** One entry in a Trupp's contact/pressure log. `entry` = eingerückt (or re-deployed), `contact`
  *  = a radio check (pressure unchanged, carries the current reading), `pressure` = a new reading. */
@@ -541,6 +572,17 @@ export interface Trupp {
   lineNumber?: string
   /** Funkkanal the Trupp is on; seeded from the synced default (FKS-Standard: 11) */
   funkkanal?: number
+  /**
+   * The Trupp's colour, wherever it is drawn: map marker, plan chip, its dot on the board.
+   *
+   * ABSENT = automatic, which is the normal case: the station's colour for this Auftrag if one is
+   * configured (deploymentConfig · atemschutzAuftragColors), else the next palette colour nobody
+   * else is wearing (lib/teamColors). A value here is a DELIBERATE pick — from the Trupp form or
+   * from the placed symbol — and is used exactly as chosen, including when another Trupp already
+   * wears it: «alle Löschtrupps rot» is a thing an EL is allowed to want. Colour still means
+   * IDENTITY by default (ten Trupps, ten colours); this is the override, not a new scheme.
+   */
+  color?: string
   /** pressure (bar) at entry — the baseline shown until the first contact reading */
   entryPressureBar: number
   /** ISO timestamp the team entered the field (Einsatzzeit clock starts). Empty while `angemeldet`. */

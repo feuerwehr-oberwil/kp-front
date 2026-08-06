@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Entity, LngLat } from '../types'
 import { appConfig } from '../config/appConfig'
 import { isDemoMode } from './deploymentConfig'
+import { stepWalkers, syncWalkers, type Walker } from './demoCrewWalk'
 import { formatTime } from './format'
 
 const cfg = appConfig.personGps
@@ -129,7 +130,17 @@ export function positionsSignature(people: LivePerson[]): string {
  * deliberately NOT part of the editable document: these entities cannot be moved, edited or
  * deleted, and they update on their own.
  */
-export function usePersonPositions(incidentId: string | null, enabled: boolean): PersonPositionsApi {
+/**
+ * DEMO ONLY: who should be walking around the incident, and where it is. Passing this in turns
+ * the poll into a browser-local simulation — see lib/demoCrewWalk for why the public demo may not
+ * carry real positions. Ignored off the demo.
+ */
+export interface DemoCrewSim {
+  center: LngLat
+  crew: { id: string; displayName: string }[]
+}
+
+export function usePersonPositions(incidentId: string | null, enabled: boolean, demo?: DemoCrewSim): PersonPositionsApi {
   const [people, setPeople] = useState<LivePerson[]>([])
   const [error, setError] = useState<string | null>(null)
   // Minute-resolution clock for the age labels. Advanced from two callbacks — never from an
@@ -140,10 +151,41 @@ export function usePersonPositions(incidentId: string | null, enabled: boolean):
   const timer = useRef<number | null>(null)
   const lastSig = useRef<string>('')
 
-  const active = enabled && !!incidentId && !isDemoMode()
+  // On the demo the same layer is fed by a local simulation instead of the backend (which
+  // refuses every position route there). `active` still gates BOTH, so «kein Einsatz offen» and
+  // «darf nicht schauen» empty the picture exactly as before.
+  const demoSim = isDemoMode() ? demo : undefined
+  /** the poll and the simulation are mutually exclusive; both effects gate on this */
+  const simulated = !!demoSim
+  const active = enabled && !!incidentId && (!isDemoMode() || !!demoSim)
+  const walkers = useRef<Walker[]>([])
+  // the simulated crew, as a stable string, so the walk re-syncs when somebody starts or stops
+  // sharing but NOT on every render that rebuilds the array
+  const demoKey = demoSim ? demoSim.crew.map((p) => `${p.id}:${p.displayName}`).join('|') : ''
+  const centerKey = demoSim ? `${demoSim.center[0]},${demoSim.center[1]}` : ''
 
   useEffect(() => {
-    if (!active) {
+    if (!active || !demoSim) { walkers.current = []; return }
+    const { center } = demoSim
+    walkers.current = syncWalkers(walkers.current, demoSim.crew, center)
+    const publish = () => {
+      setPeople(walkers.current.map((w) => ({
+        personId: w.personId, displayName: w.displayName, coord: w.coord,
+        at: Date.now(), accuracyM: 8,
+      })))
+      setNow(Date.now())
+    }
+    publish()
+    const id = window.setInterval(() => {
+      walkers.current = stepWalkers(walkers.current, center, cfg.pollMs)
+      publish()
+    }, cfg.pollMs)
+    return () => window.clearInterval(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- demoKey/centerKey stand in for demoSim
+  }, [active, simulated, demoKey, centerKey])
+
+  useEffect(() => {
+    if (!active || simulated) {
       // Nothing to tear down and nothing to clear: what callers SEE is derived from `active`
       // below, so switching off empties the picture without writing state from an effect. The
       // signature is reset so a later reactivation re-publishes rather than dedupes itself away.
@@ -200,7 +242,7 @@ export function usePersonPositions(incidentId: string | null, enabled: boolean):
       alive = false
       stop()
     }
-  }, [active, incidentId])
+  }, [active, incidentId, simulated])
 
   // Re-render once a minute so the ages advance — only while somebody is sharing, so an empty
   // layer costs nothing at all.

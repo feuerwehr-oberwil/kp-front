@@ -142,6 +142,9 @@ export interface DeploymentDoctrine {
   pressureMax?: number | null
   cylinderLiters?: number | null
   estConsumptionLPerMin?: number | null
+  /** station colour per Auftrag (auftrag id → CSS colour) — what a Trupp with that order starts
+   *  in, still overridable per Trupp. Absent/empty = the automatic one-colour-per-Trupp palette. */
+  auftragColors?: Record<string, string> | null
 }
 
 /** One Dienstgrad in the station's ordered rank list. Mirrors backend `RankConfig`. Position
@@ -396,6 +399,17 @@ export function atemschutzDoctrine() {
     cylinderLiters: d.cylinderLiters ?? a.cylinderLiters,
     estConsumptionLPerMin: d.estConsumptionLPerMin ?? a.estConsumptionLPerMin,
   }
+}
+
+/**
+ * The station's colour per Atemschutz-Auftrag (auftrag id → colour) — the colour a Trupp with
+ * that order starts in. Empty by default: out of the box a Trupp's colour means IDENTITY (each
+ * one different), and a station that would rather read the Lage by ROLE («alle Löschtrupps rot»)
+ * configures it here. Either way the per-Trupp pick still wins (see Trupp.color).
+ */
+export function atemschutzAuftragColors(): Record<string, string> {
+  const c = resolved.doctrine?.auftragColors
+  return c && typeof c === 'object' ? c : {}
 }
 
 /**

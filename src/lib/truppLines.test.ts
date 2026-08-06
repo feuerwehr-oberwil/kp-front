@@ -70,7 +70,7 @@ describe('tone and tag', () => {
     expect(truppLineTone(trupp('a', { exitTime: '2026-08-05T10:20:00Z' }), 0)).toBe('muted')
   })
 
-  it('abbreviates the leader the way the plan chip does — surname first', () => {
+  it('abbreviates the leader on the tag — the Trupp symbol is where the full name goes', () => {
     expect(truppTagText(trupp('a', { name: 'Hans Müller' }))).toBe('Müller H.')
   })
 })

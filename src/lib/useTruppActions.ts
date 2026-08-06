@@ -5,15 +5,26 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatTime } from './format'
 import { toast } from './ui'
 import { gebaeudeDoc } from '../data/demoIncident'
-import { abbreviateName } from './personnel'
 import { pickTeamColor } from './teamColors'
+import { atemschutzAuftragColors } from './deploymentConfig'
 import { resolveLinkNumber, truppForLine, type LinkableLine } from './truppLines'
 
 type Mode = 'map' | 'plans' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel'
-type PlanFocus = { x: number; y: number; floor: number; annoId?: string; nonce: number } | null
+type PlanFocus = { x: number; y: number; floor: number; annoId?: string; flash?: boolean; nonce: number } | null
 
 /** placement-target id for the Lage map in the «Wohin platzieren?» picker (vs. a plan id) */
 export const LAGE_TARGET = 'lage'
+
+/**
+ * What a placed Trupp is CALLED on the map/plan: the leader's name, in full, as recorded.
+ *
+ * It used to be abbreviated («Meier A.») to keep the chip small. On a Lage with three Trupps that
+ * costs the one thing the marker is there to answer — which of them is this? — and two Meiers in
+ * the same Wehr make the short form ambiguous outright. The symbol carries the name; the hose end
+ * tag, which sits in the middle of the picture next to a Leitung number, keeps the short form
+ * (lib/truppLines · truppTagText).
+ */
+const truppLabel = (name: string): string => name.trim()
 
 interface Deps {
   trupps: Trupp[]
@@ -86,15 +97,15 @@ export function useTruppActions(deps: Deps) {
   const updateTrupp = (id: string, patch: Partial<Trupp>) =>
     setTrupps((ts) => ts.map((t) => (t.id === id ? { ...t, ...patch } : t)))
   // keep the placed chip/marker label in sync when the leader changes (plan chip text ==
-  // map marker label == abbreviated leader name)
+  // map marker label == the leader's name as recorded)
   const syncPlacementLabel = (tr: Trupp, name: string) => {
     if (tr.annoId && tr.planId) {
       const { annoId, planId } = tr
-      setBoard((b) => ({ ...b, [planId]: (b[planId] ?? []).map((a) => (a.id === annoId ? { ...a, text: abbreviateName(name) } : a)) }))
+      setBoard((b) => ({ ...b, [planId]: (b[planId] ?? []).map((a) => (a.id === annoId ? { ...a, text: truppLabel(name) } : a)) }))
     }
     if (tr.entityId) {
       const { entityId } = tr
-      setDocRaw((d) => ({ ...d, entities: d.entities.map((e) => (e.id === entityId ? { ...e, label: abbreviateName(name) } : e)) }))
+      setDocRaw((d) => ({ ...d, entities: d.entities.map((e) => (e.id === entityId ? { ...e, label: truppLabel(name) } : e)) }))
     }
   }
   // The Trupp's own palette slot — its index in the list, so plan chip and map marker match and
@@ -104,6 +115,17 @@ export function useTruppActions(deps: Deps) {
     const colors = appConfig.drawing.teamColors
     return colors[Math.max(0, trupps.findIndex((t) => t.id === id)) % colors.length]
   }
+  /**
+   * A colour someone DECIDED on for this Trupp, in the order those decisions were made: the
+   * Trupp's own pick first, then the station's colour for its Auftrag. Undefined = nobody decided,
+   * so the automatic palette applies.
+   *
+   * A chosen colour is used verbatim — it deliberately does NOT go through pickTeamColor. That
+   * helper exists to keep automatic colours apart from one another; applying it here would quietly
+   * refuse «alle Löschtrupps rot», which is exactly what choosing a colour is for.
+   */
+  const chosenColor = (tr?: Trupp): string | undefined =>
+    tr?.color || (tr?.auftrag ? atemschutzAuftragColors()[tr.auftrag] : undefined) || undefined
   /** every colour currently worn by a placed marker or plan chip — what a new placement must
    *  not duplicate. Reads the live doc/board rather than a counter, so deleting a Trupp frees
    *  its colour again instead of shifting everyone else's. */
@@ -111,7 +133,44 @@ export function useTruppActions(deps: Deps) {
     ...entities.filter((e) => e.kind === 'team' && e.truppId !== exceptTruppId).map((e) => e.color),
     ...Object.values(board).flat().filter((a) => a.kind === 'resource' && a.truppId !== exceptTruppId).map((a) => a.color),
   ]
-  const teamColor = (id: string) => pickTeamColor(preferredColor(id), colorsInUse(id))
+  const teamColor = (id: string) =>
+    chosenColor(trupps.find((t) => t.id === id)) ?? pickTeamColor(preferredColor(id), colorsInUse(id))
+  /**
+   * Repaint a Trupp from wherever the operator is looking — the symbol's own colour control on the
+   * Lage / the plan. It writes the TRUPP, not just the symbol: colour is the Trupp's identity, so
+   * painting its marker blue and leaving the board card (and a later re-placement) on the old
+   * colour would just be a second, disagreeing answer to «which one is this?».
+   * `null` puts it back on automatic.
+   */
+  const setTruppColor = (id: string, color: string | null) => {
+    const tr = trupps.find((t) => t.id === id)
+    if (!tr) return
+    updateTrupp(id, { color: color ?? undefined })
+    recolorPlacement({ ...tr, color: color ?? undefined })
+    emit('atemschutz.edit', { id, color })
+  }
+  /** The form's colour as a Trupp patch. `null` = «zurück auf automatisch» (drop the field),
+   *  `undefined` = the form didn't carry one, so leave whatever the Trupp has. */
+  const colorPatch = (f: TruppFields): Partial<Trupp> =>
+    (f.color === undefined ? {} : { color: f.color ?? undefined })
+  /** Repaint a Trupp's placed marker / plan chip after its colour (or the Auftrag that decides it)
+   *  changed. No-op when it isn't placed. */
+  const recolorPlacement = (tr: Trupp) => {
+    if (!tr.annoId && !tr.entityId) return
+    syncPlacementColor(tr, chosenColor(tr) ?? pickTeamColor(preferredColor(tr.id), colorsInUse(tr.id)))
+  }
+  /** Repaint a Trupp's placed marker / plan chip — the twin of syncPlacementLabel, for when the
+   *  colour (or the Auftrag that decides it) changes on an already-placed Trupp. */
+  const syncPlacementColor = (tr: Trupp, color: string) => {
+    if (tr.annoId && tr.planId) {
+      const { annoId, planId } = tr
+      setBoard((b) => ({ ...b, [planId]: (b[planId] ?? []).map((a) => (a.id === annoId ? { ...a, color } : a)) }))
+    }
+    if (tr.entityId) {
+      const { entityId } = tr
+      setDocRaw((d) => ({ ...d, entities: d.entities.map((e) => (e.id === entityId ? { ...e, color } : e)) }))
+    }
+  }
   // Place a Trupp manually on the building plan (Gebäude floor-stack if a building exists, else
   // Modul 6) as a resource chip the EL can then drag to the team's position. NOT auto-created
   // on registration.
@@ -122,8 +181,7 @@ export function useTruppActions(deps: Deps) {
     // floor-stack when a building exists, otherwise Modul 6
     const planId = targetPlanId ?? (building ? gebaeudeDoc.id : 'modul6')
     const annoId = `trupp${Date.now()}`
-    // the moving plan chip uses the compact "Keller A." label; everywhere else keeps the full name
-    const chip: BoardAnno = { id: annoId, kind: 'resource', x: 0.5, y: 0.5, floor: 0, text: abbreviateName(tr.name), t: formatTime(new Date()), color: teamColor(id), trail: [], truppId: id }
+    const chip: BoardAnno = { id: annoId, kind: 'resource', x: 0.5, y: 0.5, floor: 0, text: truppLabel(tr.name), t: formatTime(new Date()), color: teamColor(id), trail: [], truppId: id }
     dropPlacements(tr)
     setBoard((b) => ({ ...b, [planId]: [...(b[planId] ?? []), chip] }))
     updateTrupp(id, { annoId, planId, entityId: undefined })
@@ -142,7 +200,7 @@ export function useTruppActions(deps: Deps) {
     const entityId = `trupp${Date.now()}`
     const marker: Entity = {
       id: entityId, kind: 'team', layer: appConfig.defaults.operationalLayerId,
-      coord: atCoord ?? mapCenter(), label: abbreviateName(tr.name), t: formatTime(new Date()),
+      coord: atCoord ?? mapCenter(), label: truppLabel(tr.name), t: formatTime(new Date()),
       color: teamColor(id), trail: [], truppId: id,
     }
     dropPlacements(tr)
@@ -183,7 +241,8 @@ export function useTruppActions(deps: Deps) {
       if (!anno) continue
       const [x, y, floor] = anno.pts?.[0] ?? [0.5, 0.5, anno.floor ?? 0]
       setMode('plans'); setActivePlanId(planId); setPanel(null)
-      setPlanFocus({ x, y, floor: floor ?? anno.floor ?? 0, annoId: anno.id, nonce: Date.now() })
+      // `flash`: outline it, don't select it — same rule as the Lage (see focusMapDrawing)
+      setPlanFocus({ x, y, floor: floor ?? anno.floor ?? 0, annoId: anno.id, flash: true, nonce: Date.now() })
       return true
     }
     return false
@@ -278,12 +337,15 @@ export function useTruppActions(deps: Deps) {
   // only the descriptive fields — never the live clock/pressure. Keeps the plan chip label in sync.
   const editTrupp = (id: string, f: TruppFields) => {
     const tr = trupps.find((t) => t.id === id)
-    updateTrupp(id, { name: f.name, members: f.members, auftrag: f.auftrag, ziel: f.ziel, lineNo: f.lineNo, funkkanal: f.funkkanal, leaderPersonId: f.leaderPersonId, memberPersonIds: f.memberPersonIds })
+    updateTrupp(id, { name: f.name, members: f.members, auftrag: f.auftrag, ziel: f.ziel, lineNo: f.lineNo, funkkanal: f.funkkanal, leaderPersonId: f.leaderPersonId, memberPersonIds: f.memberPersonIds, ...colorPatch(f) })
     // Clearing (or changing) the Leitung number in the form IS how a Trupp lets go of a hose —
     // that is where the operator already is when they change their mind, so the card needs no
     // «lösen» icon. The anchor goes with it, or the tag would survive its own number.
     if (tr && f.lineNo !== tr.lineNo && tr.lineId) clearLineAnchor(id)
     if (tr && f.name !== tr.name) syncPlacementLabel(tr, f.name)
+    // colour follows the Trupp, so a repaint (or a new Auftrag under a station colour rule) has
+    // to reach the already-placed marker/chip too — otherwise board and map disagree
+    if (tr) recolorPlacement({ ...tr, color: f.color === null ? undefined : f.color ?? tr.color, auftrag: f.auftrag })
     log('pen', fillTemplate(appConfig.copy.atemschutz.logEdit, { name: f.name }), 'team')
     emit('atemschutz.edit', { id })
   }
@@ -300,7 +362,7 @@ export function useTruppActions(deps: Deps) {
     const now = new Date().toISOString()
     setTrupps((ts) => ts.map((t) => (t.id === id
       ? { ...t, name: f.name, members: f.members, auftrag: f.auftrag, ziel: f.ziel, lineNo: f.lineNo, funkkanal: f.funkkanal,
-          leaderPersonId: f.leaderPersonId, memberPersonIds: f.memberPersonIds,
+          leaderPersonId: f.leaderPersonId, memberPersonIds: f.memberPersonIds, ...colorPatch(f),
           status: standby ? 'angemeldet' : 'aktiv',
           entryTime: standby ? '' : now, lastContactTime: standby ? '' : now, exitTime: undefined,
           entryPressureBar: f.pressure, lastPressureBar: undefined, lastPressureTime: undefined, lowestBar: f.pressure,
@@ -308,6 +370,7 @@ export function useTruppActions(deps: Deps) {
       : t)))
     if (tr && f.lineNo !== tr.lineNo && tr.lineId) clearLineAnchor(id)
     if (tr && f.name !== tr.name) syncPlacementLabel(tr, f.name)
+    if (tr) recolorPlacement({ ...tr, color: f.color === null ? undefined : f.color ?? tr.color, auftrag: f.auftrag })
     const az = appConfig.copy.atemschutz
     log('flag', fillTemplate(standby ? az.logStandby : az.logReenter, { name: f.name }), 'team')
     emit('atemschutz.status', { id, status: standby ? 'angemeldet' : 'aktiv' })
@@ -419,5 +482,25 @@ export function useTruppActions(deps: Deps) {
     emit('atemschutz.restore', { id: t.id })
   }
 
-  return { createTrupp, updateTrupp, placeTruppOnPlan, placeTruppOnMap, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, showTruppLine, truppsWithLine }
+  /**
+   * The colour each Trupp actually WEARS right now — for the Atemschutz board, so a card and its
+   * symbol on the Lage read as the same Trupp. The placed marker/chip is the truth where there is
+   * one (it is what the operator is looking at); otherwise a colour that has been decided (own
+   * pick / station colour for the Auftrag). A Trupp that is neither placed nor decided is absent:
+   * its automatic colour is only settled at placement, and printing a guess here that changes on
+   * placement would be worse than showing nothing.
+   */
+  const truppColors = (): Record<string, string> => {
+    const out: Record<string, string> = {}
+    for (const t of trupps) {
+      const placed = t.entityId ? entities.find((e) => e.id === t.entityId)?.color
+        : t.annoId && t.planId ? (board[t.planId] ?? []).find((a) => a.id === t.annoId)?.color
+        : undefined
+      const c = placed ?? chosenColor(t)
+      if (c) out[t.id] = c
+    }
+    return out
+  }
+
+  return { createTrupp, updateTrupp, placeTruppOnPlan, placeTruppOnMap, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, showTruppLine, truppsWithLine, truppColors, setTruppColor }
 }

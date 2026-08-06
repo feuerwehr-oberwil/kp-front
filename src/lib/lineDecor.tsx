@@ -59,7 +59,7 @@ export function EndTag({ lineNo, content, floorTag, trupp, tone = 'idle', color 
   lineNo?: number
   content?: string
   floorTag?: number
-  /** the Trupp on this Leitung, already abbreviated (lib/truppLines · truppTagText) */
+  /** the Trupp on this Leitung, as its tag text (lib/truppLines · truppTagText — the full name) */
   trupp?: string
   tone?: LineTone
   color: string
@@ -68,9 +68,17 @@ export function EndTag({ lineNo, content, floorTag, trupp, tone = 'idle', color 
   if (lineNo != null) parts.push(String(lineNo))
   if (content) parts.push(content)
   if (floorTag != null) parts.push(floorBadge(floorTag))
-  if (trupp) parts.push(trupp)
-  if (!parts.length) return null
+  if (!parts.length && !trupp) return null
   // tone colours come from the theme tokens (never a frozen rgba), so day/night both read right
   const ink = tone === 'crit' ? 'var(--red)' : tone === 'warn' ? 'var(--amber)' : tone === 'muted' ? 'var(--ink-dim)' : color
-  return <span className={`line-end-tag tone-${tone}`} style={{ color: ink, borderColor: ink }}>{parts.join(' · ')}</span>
+  // The Leitung's own facts (number, Inhalt, Stockwerk) stay as they are — the hose is still that
+  // hose. Only the NAME is the thing that stopped being true, so on 'muted' (the Trupp is out) it
+  // carries the dim + strike its map marker already wears (.team-dot.raus), instead of the whole
+  // tag going quiet and taking the Leitung number with it.
+  return (
+    <span className={`line-end-tag tone-${tone}`} style={{ color: ink, borderColor: ink }}>
+      {parts.join(' · ')}
+      {trupp && <>{parts.length ? ' · ' : ''}<span className="line-end-trupp">{trupp}</span></>}
+    </span>
+  )
 }

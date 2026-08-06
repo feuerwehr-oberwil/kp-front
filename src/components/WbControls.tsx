@@ -21,6 +21,9 @@ interface InkProps {
   hiddenTrails: ReadonlySet<string>
   mapY: (floor: number | undefined, ly: number) => number
   selId?: string | null
+  /** «schau hier»: one anno outlined for a few seconds without being SELECTED (no handles, no
+   *  editor sheet) — the plan twin of MapView's flashDrawingId. */
+  flashId?: string | null
   networkIds?: string[]
   /** select/drag a stroke / area by tapping it (pan mode only); omitted ⇒ not hittable */
   onPickDraw?: (id: string, e: React.PointerEvent) => void
@@ -36,7 +39,7 @@ interface InkProps {
  * non-interactive. (Line arrowheads + marker letters render OUTSIDE this layer, in board px, since
  * this SVG is stretched 1×1 and would distort them.)
  */
-export function WbInkLayer({ annos, draft, draftFloor, draftClosed, color, width, dashed, hiddenTrails, mapY, selId, networkIds = [], onPickDraw, truppTones = {} }: InkProps) {
+export function WbInkLayer({ annos, draft, draftFloor, draftClosed, color, width, dashed, hiddenTrails, mapY, selId, flashId, networkIds = [], onPickDraw, truppTones = {} }: InkProps) {
   const pointStr = (pts: BoardPoint[], floor: number | undefined) => pts.map((p) => `${p[0]},${mapY(p[2] ?? floor, p[1])}`).join(' ')
   return (
     <svg className="wb-ink-svg" viewBox="0 0 1 1" preserveAspectRatio="none">
@@ -64,6 +67,10 @@ export function WbInkLayer({ annos, draft, draftFloor, draftClosed, color, width
               strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
           )}
           {networkIds.includes(a.id) && <polyline points={pts} fill="none" stroke="var(--accent)" strokeWidth={(a.width || 5) + 9} strokeOpacity={selId === a.id ? 0.34 : 0.16} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />}
+          {flashId === a.id && (
+            <polyline points={pts} fill="none" stroke="var(--blue)" strokeWidth={(a.width || 5) + 14}
+              strokeOpacity={0.3} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+          )}
           {selId === a.id && (
             <polyline points={pts} fill="none" stroke="var(--blue)" strokeWidth={(a.width || 5) + 6}
               strokeOpacity={0.35} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
