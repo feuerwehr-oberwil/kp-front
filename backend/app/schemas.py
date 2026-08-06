@@ -387,6 +387,11 @@ class MilestonesIn(BaseModel):
     source_id: str | None = Field(default=None, min_length=1, max_length=128)
     groups: list[MilestoneGroup] = Field(default_factory=list)
     vehicles: list[MilestoneVehicle] = Field(default_factory=list)
+    #: Where the alarm came IN from, as the alerting system knew it — a slug like
+    #: ``"alarmzentrale"``, never a phone number. Recorded write-once on the incident
+    #: (``Incident.alarm_origin``); omitting it is normal and means «unknown», not «no».
+    #: Same charset rule as ``AlarmIn.source``: a short lowercase identifier.
+    origin: str | None = Field(default=None, min_length=1, max_length=32, pattern=r"^[a-z0-9][a-z0-9_-]*$")
 
 
 class MilestonesOut(BaseModel):
