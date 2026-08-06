@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
+import { cx } from '../lib/cx'
 import { parseAlarmText } from '../lib/alarmText'
 import { confirmDialog, toast } from '../lib/ui'
 import { buildDirectReportPayload, downloadDirectReportPdf } from '../lib/reportPdfDirect'
@@ -343,6 +344,23 @@ export function ReportPreflight({
 
   // Derived closing checklist (lib/abschluss): the sheet is the ONE closing surface — the
   // status is recomputed from the data on every render, never stored as visited-state.
+  // What the fold has to say without being opened: the sections that will actually print.
+  // Personal and Material are always in it and that is deliberate — the Rapport is a pre-filled
+  // FORM (field feedback 2026-07-17), so an incident with no records still wants the tick-off
+  // roster and the amount stubs on paper. Everything else follows its content.
+  const printedSummary = [
+    options.kroki && mapContentCount > 0 ? P.toggleKroki : null,
+    options.allPlans || (options.annotatedPlans && annotatedPlanCount > 0) ? P.plansLabel : null,
+    options.atemschutz && truppCount > 0 ? P.summaryAtemschutz : null,
+    options.attendance ? P.summaryAttendance : null,
+    options.mittel ? P.summaryMittel : null,
+    options.journal ? P.summaryJournal : null,
+  ].filter(Boolean).join(' · ')
+
+  // «bereit» is a claim, so it is made only when nothing is outstanding — a fold that says all
+  // is well while hiding a broken hash chain would be worse than no summary at all.
+  const controlOk = !checking && proof.intact !== false && missTx === 0 && pendingMediaCount === 0
+
   const facts: AbschlussFacts = { reportMeta: meta, attendanceCount, mittelCount }
   const rows = hoursRows(attendance, { alarmedAt: alarmiert ?? null, endedAt: meta.endedAt ?? null })
 
@@ -629,8 +647,17 @@ export function ReportPreflight({
             </CheckRow>
           </section>
 
-          <section className="report-pre-section">
-            <h3>{P.sectionsHead}</h3>
+          {/* Folded, because this is the block that ate most of the dialog's height while
+              usually showing the obvious answer — the defaults already follow the data (the
+              useState seed re-derives on every open, since this dialog mounts fresh). The
+              summary is what makes folding safe: you still read what is about to print
+              without expanding, which is the only reason to look here at all. */}
+          <details className="report-pre-section report-fold">
+            <summary>
+              <Icon id="chevron-down" />
+              <span className="report-fold-t">{P.sectionsHead}</span>
+              <span className="report-fold-sum">{printedSummary}</span>
+            </summary>
             {/* grouped, not one flat checkbox list: map material, then the data sections; the
                 two expert options fold behind «Erweitert» (field feedback 2026-07-09). The
                 plans choice is a 3-way segment mapping onto the annotatedPlans/allPlans pair
@@ -666,12 +693,12 @@ export function ReportPreflight({
                 </div>
               </details>
             </div>
-          </section>
+          </details>
 
+          {/* Kontrolle. Four lines of reassurance is three too many when the answer is yes —
+              but a PROBLEM must never be behind a fold, so the warnings sit outside it and the
+              tick only claims «bereit» when there are none. */}
           <section className="report-pre-section report-pre-hints">
-            <h3>{P.controlHead}</h3>
-            <p><Icon id={checking ? 'rotate' : proof.intact ? 'check' : 'warn'} /> {checking ? P.proofChecking : proofLabel(proof)}</p>
-            <p><Icon id="doc" /> {fillTemplate(P.annotatedDefault, { n: annotatedPlanCount })}</p>
             {missTx > 0 && (
               <p className="report-pre-warn">
                 <Icon id="warn" /> <span>{fillTemplate(P.missingTranscripts, { n: missTx })}</span>
@@ -683,7 +710,23 @@ export function ReportPreflight({
                 <Icon id="warn" /> <span>{fillTemplate(P.pendingMedia, { n: pendingMediaCount })}</span>
               </p>
             )}
-            <p><Icon id="snapshot" /> {fillTemplate(P.stateNote, { at: formatDateTime(new Date().toISOString()) })}</p>
+            {!checking && !proof.intact && (
+              <p className="report-pre-warn"><Icon id="warn" /> <span>{proofLabel(proof)}</span></p>
+            )}
+            <details className="report-fold">
+              <summary>
+                <Icon id="chevron-down" />
+                <span className={cx('report-fold-t', controlOk && 'report-ok')}>
+                  <Icon id={checking ? 'rotate' : controlOk ? 'check' : 'warn'} />
+                  {checking ? P.proofChecking : controlOk ? P.allReady : P.controlHead}
+                </span>
+              </summary>
+              <div className="report-fold-body">
+                <p><Icon id={proof.intact ? 'check' : 'warn'} /> {proofLabel(proof)}</p>
+                <p><Icon id="doc" /> {fillTemplate(P.annotatedDefault, { n: annotatedPlanCount })}</p>
+                <p><Icon id="snapshot" /> {fillTemplate(P.stateNote, { at: formatDateTime(new Date().toISOString()) })}</p>
+              </div>
+            </details>
           </section>
 
           <div className="ip-actions">

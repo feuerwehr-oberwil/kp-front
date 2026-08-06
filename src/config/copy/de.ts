@@ -2249,6 +2249,12 @@ export const de = {
     // der Meldungstext ist das Einzige daran, was ein Mensch geschrieben hat.
     vehicleOrder: 'Ausrückeordnung',
     einsatzplan: 'Einsatzplan',
+    // kurze Namen für die Zusammenfassung auf der zugeklappten «Inhalt»-Zeile
+    summaryAtemschutz: 'Atemschutz',
+    summaryAttendance: 'Personal',
+    summaryMittel: 'Material',
+    summaryJournal: 'Verlauf',
+    allReady: 'Alles bereit',
     fromDispatch: 'Aus den Einsatzdaten',
     edit: 'Bearbeiten',
     alarmMessage: 'Alarmmeldung',

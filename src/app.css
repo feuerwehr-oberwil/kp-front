@@ -4278,6 +4278,28 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .report-meta-readout dt { margin: 0; font: 600 12px var(--body); color: var(--ink-dim); }
 .report-meta-readout dd { margin: 0; font-size: 13px; line-height: 1.45; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
 .report-meta-empty { color: var(--ink-faint); }
+
+/* A folded Rapport section. Same chrome as .report-adv, one level up: the head stays a real
+   row (44px, chevron, title) and carries a summary on the right so the fold can be read
+   without being opened — the only reason folding these is safe. */
+.report-fold { border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface); }
+.report-fold > summary { display: flex; align-items: center; gap: 8px; min-height: var(--tap);
+  padding: 0 12px; cursor: pointer; list-style: none; font: 700 13px var(--body); color: var(--ink); }
+.report-fold > summary::-webkit-details-marker { display: none; }
+.report-fold > summary > .i:first-child { flex: none; width: 16px; height: 16px; color: var(--ink-faint);
+  transition: transform .15s var(--ease); }
+.report-fold[open] > summary > .i:first-child { transform: rotate(180deg); }
+.report-fold-t { flex: none; display: inline-flex; align-items: center; gap: 6px; }
+.report-fold-t .i { width: 15px; height: 15px; }
+/* the readiness tick — green only when it is actually claiming «bereit» */
+.report-ok { color: var(--green-strong); }
+/* …and the summary of what prints: truncates rather than wrapping the head to two lines */
+.report-fold-sum { flex: 1 1 auto; min-width: 0; text-align: right; font: 500 12px var(--body);
+  color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.report-fold-body, .report-fold > .report-toggles { padding: 4px 12px 12px; }
+.report-fold-body p { margin: 0 0 6px; display: flex; align-items: flex-start; gap: 8px;
+  font-size: 12.5px; line-height: 1.45; color: var(--ink-dim); }
+.report-fold-body p .i { flex: none; width: 15px; height: 15px; margin-top: 1px; }
 /* Sofortmassnahmen under the Einsatzplan row — a real list, since that is what they are, and
    they were arriving as pre-wrapped text with the generator's two-space indent baked in. */
 .report-meta-list { margin: 4px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; }
