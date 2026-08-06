@@ -159,6 +159,21 @@ async def test_a_stationary_vehicle_still_gets_a_heartbeat(db_session, incident,
     assert len(await _rows(db_session, incident)) == 2
 
 
+async def test_a_restart_does_not_duplicate_the_fix_it_comes_up_on(db_session, incident, traccar, monkeypatch):
+    """Every deploy restarts the process and empties the memo. Without seeding it from the
+    table, the first tick would re-record whatever fix the tracker is currently repeating —
+    one duplicate per vehicle per deploy, quietly, forever."""
+    fixed = datetime.now(UTC) - timedelta(hours=2)
+    traccar.append(_pos(1, 47.5163, 7.5617, ts=fixed))
+    await _sweep(db_session, monkeypatch)
+    assert len(await _rows(db_session, incident)) == 1
+
+    scheduler._last_sample.clear()  # ← the restart
+    await _sweep(db_session, monkeypatch)
+    await _sweep(db_session, monkeypatch)
+    assert len(await _rows(db_session, incident)) == 1
+
+
 async def test_nothing_is_recorded_for_a_finished_einsatz(db_session, incident, traccar, monkeypatch):
     incident.is_archived = True
     await db_session.commit()

@@ -170,6 +170,27 @@ async def _vehicle_samples_sweep() -> None:
                     key = (str(incident_id), p.device_id)
                     ts = p.last_update if p.last_update.tzinfo else p.last_update.replace(tzinfo=UTC)
                     prev = _last_sample.get(key)
+                    if prev is None:
+                        # Cold memo — a restart, or the first tick of a new Einsatz. Seed it from
+                        # the newest row we already have for this device, or the deploy would
+                        # re-record whatever fix the tracker is currently repeating and put a
+                        # duplicate of it in the track. No time filter: the whole point is that a
+                        # parked tracker's fix can be arbitrarily old.
+                        seed = (
+                            await db.execute(
+                                select(VehicleSample.ts, VehicleSample.lat, VehicleSample.lng)
+                                .where(
+                                    VehicleSample.incident_id == incident_id,
+                                    VehicleSample.device_id == p.device_id,
+                                )
+                                .order_by(VehicleSample.ts.desc())
+                                .limit(1)
+                            )
+                        ).first()
+                        if seed is not None:
+                            seed_ts = seed[0] if seed[0].tzinfo else seed[0].replace(tzinfo=UTC)
+                            prev = (seed_ts, float(seed[1]), float(seed[2]))
+                            _last_sample[key] = prev
                     if prev is not None:
                         prev_ts, prev_lat, prev_lng = prev
                         # Nothing NEW from the device — Traccar re-serves the last fix on every
