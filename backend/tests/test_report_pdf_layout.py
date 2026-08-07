@@ -114,3 +114,61 @@ def test_the_einsatz_category_is_labelled_as_one():
     text = _text(compose_report_pdf(payload, {}))
     assert "Kategorie" in text
     assert "Brand" in text
+
+
+def test_the_atemschutz_sheet_numbers_its_adf_the_way_the_form_does():
+    """The Trupp form numbers its crew «AdF 1», «AdF 2»; the sheet printed one «AdF: A, B» line.
+    Two names for the same three people, and a comma list gives nobody a position to point at
+    when the question is who the second man was. The Gruppenführer keeps no row: the heading
+    above the block IS his name."""
+    payload = ReportPayload.model_validate(
+        {
+            "incident": {"title": "Zimmerbrand", "id": "i"},
+            "generatedAt": "07.08.2026 09:00",
+            "proof": {"statusLabel": "intakt", "count": 1, "head": "0"},
+            "trupps": [
+                {
+                    "name": "Schmid Peter",
+                    "statusLabel": "im Einsatz",
+                    "members": ["Keller Laura", "Frei Nina"],
+                    "auftrag": "Löschen",
+                    "readings": [],
+                }
+            ],
+        }
+    )
+    text = _text(compose_report_pdf(payload, {}))
+    assert "AdF 1" in text and "Keller Laura" in text
+    assert "AdF 2" in text and "Frei Nina" in text
+    assert "Schmid Peter" in text  # the heading, and the only place the GF is named
+    assert "Gruppenführer" not in text
+
+
+def test_the_pressure_log_shares_the_trupps_left_edge():
+    """The readings table is narrower than the frame, so ReportLab's default CENTER floated it
+    into the middle of the page while the Trupp name and «Auftrag / Ziel» above it sat at the
+    margin. A protocol read down one edge, not scattered across the sheet."""
+    payload = ReportPayload.model_validate(
+        {
+            "incident": {"title": "Zimmerbrand", "id": "i"},
+            "generatedAt": "07.08.2026 09:00",
+            "proof": {"statusLabel": "intakt", "count": 1, "head": "0"},
+            "trupps": [
+                {
+                    "name": "Schmid Peter",
+                    "statusLabel": "im Einsatz",
+                    "members": [],
+                    "readings": [{"t": "09:05", "kindLabel": "Eintritt", "bar": "300"}],
+                }
+            ],
+        }
+    )
+    doc = pdfium.PdfDocument(compose_report_pdf(payload, {}))
+    page = doc[len(doc) - 1]
+    tp = page.get_textpage()
+    # left edge of the Trupp heading vs. left edge of the table's first column header
+    name_x = next(
+        tp.get_rect(i)[0] for i in range(tp.count_rects()) if "Schmid" in tp.get_text_bounded(*tp.get_rect(i))
+    )
+    zeit_x = next(tp.get_rect(i)[0] for i in range(tp.count_rects()) if "Zeit" in tp.get_text_bounded(*tp.get_rect(i)))
+    assert abs(zeit_x - name_x) < 6, f"table at x={zeit_x} is not aligned with the name at x={name_x}"

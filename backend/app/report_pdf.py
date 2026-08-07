@@ -377,7 +377,9 @@ L = {
     "partnerOther": "Weitere",
     "kroki": "Kroki",
     "atemschutz": "Atemschutzüberwachung",
-    "members": "AdF",  # the house term (copy · atemschutz.memberLabel); «Mitglieder» reads like a club
+    # the house term (copy · atemschutz.memberLabel); «Mitglieder» reads like a club. Numbered
+    # per row so the sheet names the Trupp exactly the way the form that filled it does.
+    "memberN": "AdF {n}",
     "auftrag": "Auftrag / Ziel",
     "line": "Leitung",
     "entry": "Eintritt",
@@ -1202,8 +1204,14 @@ def compose_report_pdf(
             # Einsatz states something that stopped being true before the sheet was printed.
             story.append(Paragraph(_esc(tr.name), st["h3"]))
             meta_bits = []
-            if tr.members:
-                meta_bits.append((L["members"], ", ".join(tr.members)))
+            # One row per AdF, numbered the way the Trupp form numbers them — «AdF 1», «AdF 2».
+            # A single «AdF: Laura Keller, Nina Frei» line made the sheet name the crew
+            # differently from the screen the operator filled in, and a comma list gives no
+            # position to point at when somebody asks who the second man was. The Gruppenführer
+            # gets no row of his own: the heading above IS his name.
+            for i, member in enumerate(tr.members, start=1):
+                if member.strip():
+                    meta_bits.append((L["memberN"].format(n=i), member))
             if tr.auftrag or tr.ziel:
                 meta_bits.append((L["auftrag"], " · ".join([x for x in (tr.auftrag, tr.ziel) if x])))
             if tr.lineNumber:
