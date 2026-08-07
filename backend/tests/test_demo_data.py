@@ -38,7 +38,11 @@ def test_demo_object_manifest_and_pdfs_are_valid() -> None:
         try:
             assert len(pdf) == expected_pages[plan.module]
             first_page_text = pdf[0].get_textpage().get_text_range()
-            assert "Schloss Bottmingen" in first_page_text
-            assert "synthetisch" in first_page_text
+            # Every demo sheet has to SAY on its face that it is demo material — a plan that
+            # looks like a real Einsatzplan and is not marked as one gets screenshotted, or
+            # forked into a station's own data. The generated sheets stamp «synthetisch»; the
+            # hand-drawn Modul 1 / 2-3 say it through Musterdorf and their own content
+            # («Hinter den 7 Bergen», Sofortmassnahme «Prinzessin befreien»).
+            assert "synthetisch" in first_page_text or "Musterdorf" in first_page_text
         finally:
             pdf.close()
