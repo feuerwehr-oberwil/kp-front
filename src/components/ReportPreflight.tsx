@@ -5,7 +5,6 @@ import { parseAlarmText } from '../lib/alarmText'
 import { confirmDialog, openPhoto, toast } from '../lib/ui'
 import { buildDirectReportPayload, downloadDirectReportPdf } from '../lib/reportPdfDirect'
 import { KrokiFramingModal } from './KrokiFramingModal'
-import { Overlay } from '../lib/overlays'
 import { editorPrintTransport, enqueuePrint, fetchPrintStatus, prewarmPrint, type PrintRelayStatus } from '../lib/printRelay'
 import { trackPrintJob } from '../lib/printJobToast'
 import { appConfig } from '../config/appConfig'
@@ -560,10 +559,16 @@ export function ReportPreflight({
 
   return (
     <>
-      <Overlay open onClose={close} className="ip-sheet ip-wide report-preflight ui-dialog" ariaLabel={P.title}>
+      {/* A SURFACE, not a dialog. The Rapport is filled in across a whole Einsatz — a sentence
+          here, a time there, jump to Anwesenheit because somebody arrived — and it wants the
+          width its Zeiten grid and its two-up roster ask for. As a sheet it also had the Kroki
+          framing modal opening on top of it, which put the operator two dialogs deep on the one
+          screen that has to stay legible at 3am. The head keeps a close button because the
+          surface is still something you LEAVE (back to the Lage), not a place to end up. */}
+      <div className="report-preflight report-preflight-surface">
         <div className="ip-head">
           <h2>{P.title}</h2>
-          <button className="ip-x" onClick={close} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
+          <button className="ip-x" onClick={close} aria-label={P.backToMap}><Icon id="close" /></button>
         </div>
         <div className="ip-body report-preflight-body" ref={bodyRef}>
           {/* ONE disabled fieldset rather than a `readOnly` on twenty controls: a viewer, and an
@@ -1087,7 +1092,7 @@ export function ReportPreflight({
             </button>
           </div>
         </div>
-      </Overlay>
+      </div>
 
       {framingFor && effScene && (
         <KrokiFramingModal

@@ -3563,6 +3563,22 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    the body — flex pinning like .ctx, not position:sticky (sticky inside the blurred sheet
    drifts on iOS) */
 .report-preflight { display: flex; flex-direction: column; overflow: hidden; }
+/* The Rapport as a SURFACE — same geometry every other full surface uses (Mittel, Anwesenheit,
+   Atemschutz), so the rail stays put and the page changes underneath it. It carries the
+   .report-preflight rules above by sharing the class, which is why those keep working. */
+.report-preflight-surface {
+  position: absolute; inset: 88px 16px 16px calc(var(--rail-w) + 28px); z-index: 20;
+  display: flex; flex-direction: column;
+  background: var(--app-bg); border-radius: var(--r-surface); overflow: hidden; box-shadow: var(--shadow);
+}
+.report-preflight-surface > .ip-head { flex: none; padding: 16px 20px 12px; border-bottom: 1px solid var(--border-soft); }
+.report-preflight-surface > .ip-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+/* (the action row lives INSIDE the body and scrolls with the form, as it did in the sheet —
+   the buttons belong at the end of something you fill in top to bottom) */
+@media (max-width: 720px) {
+  .report-preflight-surface { inset: calc(78px + env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
+    calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
+}
 .report-preflight > .ip-head { flex: none; padding-bottom: 12px; border-bottom: 1px solid var(--border-soft); }
 .report-preflight > .ip-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 

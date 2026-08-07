@@ -12,8 +12,8 @@ const FRAC_GLYPH: Record<string, string> = {
 }
 
 interface Props {
-  mode: 'map' | 'plans' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel'
-  onMode: (m: 'map' | 'plans' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel') => void
+  mode: 'map' | 'plans' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel' | 'rapport'
+  onMode: (m: 'map' | 'plans' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel' | 'rapport') => void
   planDocs: PlanDocument[]
   activePlanId: string
   onSelectPlan: (id: string) => void
@@ -202,6 +202,14 @@ export function NavRail(p: Props) {
           <span className="nav-glyph"><Icon id="box" /></span>
           <span className="nav-label">{appConfig.copy.modes.mittel}</span>
           <span className="nav-key" aria-hidden>{SURFACE_KEY.mittel}</span>
+        </button>
+        {/* The Rapport is a SURFACE, not a dialog: it is filled in across a whole Einsatz, it
+            wants the full width its Zeiten grid and roster need, and as a sheet it had the Kroki
+            framing modal opening on top of it — two dialogs deep. No key badge: every mnemonic
+            letter is taken (see lib/hotkeys), and this is a surface you open once per Einsatz. */}
+        <button className={`nav-item${p.mode === 'rapport' ? ' on' : ''}`} aria-pressed={p.mode === 'rapport'} aria-label={appConfig.copy.modes.rapport} onClick={() => p.onMode('rapport')}>
+          <span className="nav-glyph"><Icon id="doc" /></span>
+          <span className="nav-label">{appConfig.copy.modes.rapport}</span>
         </button>
 
         {/* (object switch moved to the incident dropdown's «Objekt: …» row, 2026-07-14) */}

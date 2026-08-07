@@ -19,7 +19,7 @@ export type ThemeMode = 'auto' | 'day' | 'night'
 export type SymbolSize = 'S' | 'M' | 'L'
 
 export interface Prefs {
-  mode?: 'map' | 'plans' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel'
+  mode?: 'map' | 'plans' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel' | 'rapport'
   activePlanId?: string
   /** last active incident id, so a reload reopens it */
   incidentId?: string

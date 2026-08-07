@@ -16,7 +16,6 @@ export function useSheets() {
   const [helpOpen, setHelpOpen] = useState(false)
   const [installGuideOpen, setInstallGuideOpen] = useState(false)
   const [offlineReadyOpen, setOfflineReadyOpen] = useState(false)
-  const [reportPreflightOpen, setReportPreflightOpen] = useState(false)
   return {
     viewsOpen, setViewsOpen,
     paletteOpen, setPaletteOpen,
@@ -25,6 +24,5 @@ export function useSheets() {
     helpOpen, setHelpOpen,
     installGuideOpen, setInstallGuideOpen,
     offlineReadyOpen, setOfflineReadyOpen,
-    reportPreflightOpen, setReportPreflightOpen,
   }
 }

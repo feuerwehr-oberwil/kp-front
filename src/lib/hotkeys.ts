@@ -8,6 +8,9 @@
 // module glyph — that badge IS the key): 1 → Modul 1, 2 or 3 → Modul 2/3, 4 → Modul 4, …
 // The non-module surfaces carry their own letter, shown as a rail badge (SURFACE_KEY):
 //   K Karte · H Checkliste · A Atemschutz · W Anwesenheit · I Mittel
+// The Rapport surface deliberately has NO letter: every mnemonic one is taken (R is «Norden
+// ausrichten»), and squatting q/u/x — or rebinding a key somebody's hands already know — costs
+// more than the shortcut is worth on a surface you open once per Einsatz.
 // Bare letters are also the tools/panels/view; Cmd/Ctrl is reserved for the doc-level ops
 // (undo/redo/duplicate) and the OS-conventional Einstellungen (Cmd+,). The cheatsheet lives in
 // appConfig.copy.help ("Tastaturkürzel") — keep the three (here, SURFACE_KEY, help) in sync.

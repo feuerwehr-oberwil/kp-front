@@ -409,7 +409,7 @@ export function IncidentWorkspace({
   // overlay / popover / sheet open-state (views popover, symbol palette, Einstellungen,
   // Objekt-Picker, Hilfe, Installations-Guide, Offline-Bereitschaft, Rapport-Preflight,
   // layers panel) — grouped in useSheets; switching to a tool closes the views popover + panel.
-  const { viewsOpen, setViewsOpen, paletteOpen, setPaletteOpen, settingsOpen, setSettingsOpen, pickerOpen, setPickerOpen, helpOpen, setHelpOpen, installGuideOpen, setInstallGuideOpen, offlineReadyOpen, setOfflineReadyOpen, reportPreflightOpen, setReportPreflightOpen } = useSheets()
+  const { viewsOpen, setViewsOpen, paletteOpen, setPaletteOpen, settingsOpen, setSettingsOpen, pickerOpen, setPickerOpen, helpOpen, setHelpOpen, installGuideOpen, setInstallGuideOpen, offlineReadyOpen, setOfflineReadyOpen } = useSheets()
   // Rückmeldung composer, reachable only from Einstellungen. Deliberately NOT in useSheets'
   // mutual-exclusion group: it is opened by that sheet closing itself, not by a tool switch.
   const [feedbackOpen, setFeedbackOpen] = useState(false)
@@ -422,7 +422,10 @@ export function IncidentWorkspace({
   // All ephemeral (never saved); gated on the measure tool being active.
   const measure = useMeasure(tool === 'measure')
   // surface + active plan are remembered across reloads via a cookie
-  const [mode, setMode] = useState<'map' | 'plans' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel'>(prefs.mode ?? 'map')
+  const [mode, setMode] = useState<'map' | 'plans' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel' | 'rapport'>(prefs.mode ?? 'map')
+  /** The Rapport is a surface now, so «open it» is «go there». Kept as a named helper because
+   *  half a dozen entry points say it (Abschluss-Assistent, the print action, the return chip). */
+  const openRapport = () => setMode('rapport')
   // `phoneTools` (the second, stacked tool bar → its extra bottom clearances) is computed below,
   // once `planDocs` is known: a viewer-only plan renders NO tool bar, so it must reserve one bar,
   // not two.
@@ -1094,8 +1097,8 @@ export function IncidentWorkspace({
     if (changedToSelection) { setPanel(null); setViewsOpen(false); setTool('select'); setPending(null); setPendingShape(null); setDraft([]) }
   }, [selKey]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (settingsOpen || paletteOpen || pickerOpen || helpOpen || installGuideOpen || offlineReadyOpen || reportPreflightOpen || composerOpen || journalOpen || teamPick) setPanel(null)
-  }, [settingsOpen, paletteOpen, pickerOpen, helpOpen, installGuideOpen, offlineReadyOpen, reportPreflightOpen, composerOpen, journalOpen, teamPick])
+    if (settingsOpen || paletteOpen || pickerOpen || helpOpen || installGuideOpen || offlineReadyOpen || composerOpen || journalOpen || teamPick) setPanel(null)
+  }, [settingsOpen, paletteOpen, pickerOpen, helpOpen, installGuideOpen, offlineReadyOpen, composerOpen, journalOpen, teamPick])
 
   // Delete / Backspace removes the current selection (drawing first, then entity) — but
   // never while typing in a field. `doc` is a dep so the delete closes over fresh state.
@@ -1679,7 +1682,7 @@ export function IncidentWorkspace({
   useEffect(() => { hotkeyRef.current = (e: KeyboardEvent) => {
     if (isTypingTarget(document.activeElement)) return
     // a modal sheet owns the screen — its own focus trap / Esc handle keys; stay inert behind it.
-    if (settingsOpen || paletteOpen || pickerOpen || helpOpen || installGuideOpen || offlineReadyOpen || reportPreflightOpen || composerOpen) return
+    if (settingsOpen || paletteOpen || pickerOpen || helpOpen || installGuideOpen || offlineReadyOpen || composerOpen) return
     const cmd = resolveHotkey(e)
     if (!cmd) return
     const onMap = mode === 'map', onPlan = mode === 'plans', drawing = onMap || onPlan
@@ -2450,7 +2453,7 @@ export function IncidentWorkspace({
             // Einsatzrapport (PDF + Drucken) and «Alle Einsätze» are both refused for a link
             // session — one generates a document with everyone's names, the other lists the
             // Einsätze this link has nothing to do with.
-            onReportPrint={linkScoped ? undefined : () => setReportPreflightOpen(true)}
+            onReportPrint={linkScoped ? undefined : openRapport}
             onArchive={canEditIncident && !readOnly ? onArchiveActive : undefined}
             onHelp={() => setHelpOpen(true)}
             onInstall={isStandalone() || !installOffered(getInstallPlatform()) ? undefined : () => setInstallGuideOpen(true)}
@@ -2487,11 +2490,11 @@ export function IncidentWorkspace({
 
       {/* one-tap way back after a Rapport checklist row navigated here — without it, the
           round trip went through the incident menu every time (feedback 2026-07-08) */}
-      {rapportReturn && !reportPreflightOpen && (mode === 'anwesenheit' || mode === 'mittel') && (
+      {rapportReturn && (mode === 'anwesenheit' || mode === 'mittel') && (
         <button
           type="button"
           className="rp-return"
-          onClick={() => { setRapportReturn(false); setReportPreflightOpen(true) }}
+          onClick={() => { setRapportReturn(false); openRapport() }}
         >
           <Icon id="doc" /> {appConfig.copy.abschluss.backToRapport}
         </button>
@@ -3233,7 +3236,7 @@ export function IncidentWorkspace({
         />
       )}
 
-      {reportPreflightOpen && (
+      {mode === 'rapport' && (
         /* onEditDispatch leaves the preflight open so the Einsatzdaten wizard stacks on top
            (later in DOM, same z-index) — canceling it reveals the rapport again instead of a
            dead end. (Saving still remounts the workspace and returns to the map.) */
@@ -3265,16 +3268,16 @@ export function IncidentWorkspace({
           onRolePicked={assignRole}
           onSaveMeta={saveReportMeta}
           onEditDispatch={canEditIncident && !readOnly ? onEditMeta : undefined}
-          onOpenAnwesenheit={() => { setReportPreflightOpen(false); setMode('anwesenheit'); setRapportReturn(true) }}
-          onOpenMittel={() => { setReportPreflightOpen(false); setMode('mittel'); setRapportReturn(true) }}
+          onOpenAnwesenheit={() => { setMode('anwesenheit'); setRapportReturn(true) }}
+          onOpenMittel={() => { setMode('mittel'); setRapportReturn(true) }}
           // Do NOT close the sheet here. On the real path the completion switches the active
           // Einsatz and this whole workspace unmounts, so closing it is redundant; on the demo
           // (and on any refusal) `completeRapport` returns early with a toast — and the sheet
           // had already been shut, so the operator lost their place for an action that never
           // happened. The «Abschliessen» confirm closes itself; that is the only thing that should.
           onComplete={canEditIncident && !readOnly ? () => onCompleteRapport() : undefined}
-          onClose={() => setReportPreflightOpen(false)}
-          onFixTranscripts={() => { setReportPreflightOpen(false); setJournalOpen(true); setJournalFromRapport(true) }}
+          onClose={() => setMode('map')}
+          onFixTranscripts={() => { setJournalOpen(true); setJournalFromRapport(true) }}
         />
       )}
       {/* unified Verlauf + quick-add — rendered app-level so both open over either surface,
@@ -3285,7 +3288,7 @@ export function IncidentWorkspace({
           closedAt={incidentMeta.closed_at}
           plans={planDocs}
           onSelect={focusEvent}
-          onClose={() => { setJournalOpen(false); if (journalFromRapport) { setJournalFromRapport(false); setReportPreflightOpen(true) } }}
+          onClose={() => { setJournalOpen(false); if (journalFromRapport) { setJournalFromRapport(false); openRapport() } }}
           onTranscript={!readOnly ? (id, transcript) => journal.appendPatch(id, { transcript: transcript.trim() }) : undefined}
           onReplay={!replayActive ? () => { setJournalOpen(false); enterReplay() } : undefined}
           openReminders={reminders.open}

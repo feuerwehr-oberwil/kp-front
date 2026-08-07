@@ -23,7 +23,7 @@ export interface HelpSection { id: string; title: string; icon: string; blocks: 
 
 export const de = {
   loadingSubtitle: 'Lade Karte & Symbolbibliothek ...',
-  modes: { map: 'Lage', plans: 'Plan', checklists: 'Checkliste', atemschutz: 'Atemschutz', anwesenheit: 'Anwesenheit', mittel: 'Mittel' },
+  modes: { map: 'Lage', plans: 'Plan', checklists: 'Checkliste', atemschutz: 'Atemschutz', anwesenheit: 'Anwesenheit', mittel: 'Mittel', rapport: 'Rapport' },
   // the left navigation rail (Karte · Pläne group · Checkliste · Atemschutz)
   navRail: { map: 'Karte', plansGroup: 'Pläne', objectSwitch: 'Objekt wählen', assign: 'Plan zuweisen', expand: 'Ausklappen', collapse: 'Einklappen', resize: 'Leiste anpassen', scrollMore: 'Weitere anzeigen' },
   panels: { layers: 'Ebenen', history: 'Verlauf' },
@@ -89,11 +89,11 @@ export const de = {
       {
         id: 'tastatur', title: 'Tastaturkürzel', icon: 'type',
         blocks: [
-          { kind: 'lead', text: 'Wer mit Tastatur arbeitet, erreicht alles ohne Maus. Kürzel wirken nicht, während in einem Textfeld getippt wird. Jedes Feld in der linken Leiste zeigt seine Taste.' },
+          { kind: 'lead', text: 'Wer mit Tastatur arbeitet, erreicht alles ohne Maus. Kürzel wirken nicht, während in einem Textfeld getippt wird. Wo ein Feld in der linken Leiste eine Taste hat, steht sie darauf.' },
           { kind: 'sub', text: 'Bereiche wechseln' },
           { kind: 'list', items: [
             'Zahlen öffnen das Plan-Modul mit dieser Nummer – welche es gibt, richtet sich nach den Modulen dieser Wehr: [[1]] Modul 1, [[2]] oder [[3]] das Modul «2/3», [[4]] Modul 4 …',
-            '[[K]] Karte · [[H]] Checkliste · [[A]] Atemschutz · [[W]] Anwesenheit · [[I]] Mittel.',
+            '[[K]] Karte · [[H]] Checkliste · [[A]] Atemschutz · [[W]] Anwesenheit · [[I]] Mittel. Der Rapport hat bewusst keine Taste – jeder passende Buchstabe ist vergeben, und er wird einmal pro Einsatz geöffnet.',
             '[[⌘]] [[[]] / [[⌘]] []]] blättert Schritt für Schritt durch alle Bereiche (auch Umgebung und Gebäude, die keine Nummer haben).',
           ] },
           { kind: 'sub', text: 'Werkzeuge (Lage & Plan gleich)' },
@@ -2444,6 +2444,9 @@ export const de = {
     attachmentsCaption: 'Bildlegende (z. B. «Ausweis Lenker»)',
     attachmentsPending: 'noch nicht hochgeladen',
     attachmentsFailed: 'Beilage {name} konnte nicht hochgeladen werden – sie erscheint nicht im Druck.',
+    // Der Rapport ist eine Fläche, keine Dialogbox – geschlossen wird er, indem man zurück
+    // auf die Lage geht.
+    backToMap: 'Zurück zur Lage',
     toggleDetailedAudit: 'Detaillierter Prüfnachweis',
     // «Detaillierter Prüfnachweis» sagt nicht, was angehakt wird – niemand hakt an, was er nicht
     // versteht. Es geht um die Buchungszeilen im gedruckten Verlauf (wer wann was geändert hat),

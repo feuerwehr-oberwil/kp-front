@@ -15,7 +15,7 @@ import type { Copy, Localizable } from './index'
 
 export const en: Localizable<Copy> = {
   loadingSubtitle: 'Loading map & symbol library …',
-  modes: { map: 'Situation', plans: 'Plan', checklists: 'Checklist', atemschutz: 'SCBA', anwesenheit: 'Attendance', mittel: 'Resources' },
+  modes: { map: 'Situation', plans: 'Plan', checklists: 'Checklist', atemschutz: 'SCBA', anwesenheit: 'Attendance', mittel: 'Resources', rapport: 'Report' },
   navRail: { map: 'Map', plansGroup: 'Plans', objectSwitch: 'Choose object', assign: 'Assign plan', expand: 'Expand', collapse: 'Collapse', resize: 'Resize bar' },
   panels: { layers: 'Layers', history: 'Log' },
   layerPanel: {

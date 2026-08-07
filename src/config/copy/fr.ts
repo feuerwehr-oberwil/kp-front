@@ -19,7 +19,7 @@ import type { Copy, Localizable } from './index'
 
 export const fr: Localizable<Copy> = {
   loadingSubtitle: 'Chargement de la carte et de la bibliothèque de symboles …',
-  modes: { map: 'Situation', plans: 'Plan', checklists: 'Checklist', atemschutz: 'ARI', anwesenheit: 'Présence' },
+  modes: { map: 'Situation', plans: 'Plan', checklists: 'Checklist', atemschutz: 'ARI', anwesenheit: 'Présence', rapport: 'Rapport' },
   navRail: { map: 'Carte', plansGroup: 'Plans', objectSwitch: 'Choisir l’objet', assign: 'Attribuer le plan', expand: 'Déplier', collapse: 'Replier', resize: 'Ajuster la barre' },
   panels: { layers: 'Couches', history: 'Journal' },
   layerPanel: {
