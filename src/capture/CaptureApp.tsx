@@ -806,7 +806,7 @@ export default function CaptureApp() {
           <AccHead open={openSection === 'personen'} label={C.sectionPersonen} sub={fillTemplate(C.presentCount, { n: presentCount })} onToggle={() => toggleSection('personen')} />
           {openSection === 'personen' && (
             <div className="cv-acc-body">
-              <div className="cv-search-row">
+              <div className="cv-search-row cv-sticky-search">
                 <input className="cv-input" placeholder={C.searchName} value={search} onChange={(e) => setSearch(e.target.value)}
                   autoCapitalize="none" autoCorrect="off" autoComplete="off" spellCheck={false} enterKeyHint="search" />
                 <button type="button" className={`cv-info${showTapHelp ? ' on' : ''}`} aria-label={C.tapHelp}
@@ -880,8 +880,10 @@ export default function CaptureApp() {
           <AccHead open={openSection === 'material'} label={C.sectionMaterial} sub={fillTemplate(C.mittelCount, { n: lines.length })} onToggle={() => toggleSection('material')} />
           {openSection === 'material' && (
             <div className="cv-acc-body">
-              <input className="cv-input" placeholder={C.searchMaterial} value={matSearch} onChange={(e) => setMatSearch(e.target.value)}
-                autoCapitalize="none" autoCorrect="off" autoComplete="off" spellCheck={false} enterKeyHint="search" />
+              <div className="cv-search-row cv-sticky-search">
+                <input className="cv-input" placeholder={C.searchMaterial} value={matSearch} onChange={(e) => setMatSearch(e.target.value)}
+                  autoCapitalize="none" autoCorrect="off" autoComplete="off" spellCheck={false} enterKeyHint="search" />
+              </div>
               {shownGroups.map(([cat, items]) => (
                 <div key={cat || '_'} className="cv-matgroup">
                   {cat && <div className="cv-matgroup-head">{cat}</div>}
