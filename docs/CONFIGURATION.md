@@ -92,7 +92,9 @@ One JSON document, stored as the single `deployment_config` row, returned by `GE
                                                   // second tier was dropped 2026-07-27
     "contactIntervalMin": 5,                      // SCBA contact interval – "Kontakt fällig" (amber)
     "contactGraceSec": 60,                        // Nachfrist after the interval before the überfällig alarm
-    "defaultPressureBar": 300, "pressureStep": 10, "pressureMax": 320
+    "defaultPressureBar": 300, "pressureStep": 10, "pressureMax": 320,
+    "cylinderLiters": 7,                          // the two numbers behind the air estimate
+    "estConsumptionLPerMin": 50                   // («noch ≈ N bar») on the Trupp card
   },
 
   "roster": {

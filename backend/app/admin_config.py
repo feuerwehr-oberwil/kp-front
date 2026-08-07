@@ -125,6 +125,12 @@ EXAMPLE_CONFIG: dict[str, Any] = {
             "title": "Gebäudepläne",
             "order": 6,
             "orientation": "portrait",
+            # Modul 6 = Geschosspläne: a reference PDF you SCROLL, not annotate — building
+            # annotation lives on the interactive Gebäude floor-stack. The frontend fallback
+            # (lib/deploymentConfig · DEFAULT_MODULES) has said `viewer: true` all along and the
+            # in-app help states it as a fact; this template did not, so a station seeded from
+            # HERE got a drawable Modul 6 and the help was wrong about it.
+            "viewer": True,
             "match": r"modul\s*6",
         },
         {

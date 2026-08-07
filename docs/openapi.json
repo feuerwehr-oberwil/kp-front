@@ -8081,7 +8081,7 @@
           "diag"
         ],
         "summary": "Submit Problem Report",
-        "description": "Queue a manual problem report. Pressing send IS the consent — see telemetry/consent.py.\n\nReturns the sanitised payload so the UI can show, after the fact, exactly what was\nqueued. That round trip is deliberate: the sheet shows a preview built client-side, and\nthis is the server confirming that the preview was honest.",
+        "description": "Queue a manual problem report. Pressing send IS the consent — see telemetry/consent.py.\n\nReturns the sanitised payload so the UI can show, after the fact, exactly what was\nqueued. That round trip is deliberate: the sheet shows a preview built client-side, and\nthis is the server confirming that the preview was honest. A photo is summarised rather\nthan repeated in that response — the only exception, argued in telemetry/photos.py.",
         "operationId": "submit_problem_report_api_diag_report_post",
         "parameters": [
           {
@@ -9651,6 +9651,32 @@
               }
             ],
             "title": "Pressuremax"
+          },
+          "cylinderLiters": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 30.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cylinderliters"
+          },
+          "estConsumptionLPerMin": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 200.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estconsumptionlpermin"
           },
           "auftragColors": {
             "anyOf": [
@@ -12494,6 +12520,15 @@
               }
             ],
             "title": "Troubleat"
+          },
+          "photos": {
+            "items": {
+              "type": "string",
+              "maxLength": 480000
+            },
+            "type": "array",
+            "maxItems": 2,
+            "title": "Photos"
           }
         },
         "type": "object",

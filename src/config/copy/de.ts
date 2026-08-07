@@ -1723,9 +1723,18 @@ export const de = {
     intro: 'Was ist passiert, und was hättest du erwartet? Ein, zwei Sätze genügen.',
     placeholder: 'z. B. «Trupp auf Rückweg gesetzt, dann war der Bildschirm weiss.»',
     techTitle: 'Das wird mitgeschickt',
-    techNote: 'Sonst nichts – keine Einsatzdaten, keine Adressen, keine Namen, kein Screenshot. '
-      + 'Beim Direktversand wird davon noch weniger übertragen: statt der vollen Browser-Kennung '
-      + 'nur die Geräteart, z. B. «iPad Safari».',
+    techNote: 'Sonst nichts – keine Einsatzdaten, keine Adressen, keine Namen. Die App macht '
+      + 'von sich aus keinen Screenshot; ein Bild geht nur mit, wenn du es unten von Hand '
+      + 'anhängst. Beim Direktversand wird davon noch weniger übertragen: statt der vollen '
+      + 'Browser-Kennung nur die Geräteart, z. B. «iPad Safari».',
+    // Foto anhängen – nur beim Direktversand, weil Kopie und E-Mail keine Datei tragen können.
+    photoAdd: 'Foto anhängen',
+    photoHint: 'Höchstens zwei, werden vorher verkleinert.',
+    photoRemove: 'Foto entfernen',
+    photoAlt: 'Angehängtes Foto',
+    photoTooBig: 'Dieses Bild lässt sich nicht klein genug rechnen – bitte ein anderes.',
+    photoOnlyDirect: 'Angehängte Fotos gehen nur beim Direktversand mit – nicht per Kopie oder '
+      + 'E-Mail.',
     privacy: 'Nichts wird automatisch gesendet. Du entscheidest, ob, wie und an wen.',
     copy: 'Text kopieren',
     copied: 'Kopiert – jetzt einfügen und senden.',
@@ -3064,6 +3073,15 @@ export const de = {
       groupFunk: 'Funk',
       groupPressure: 'Atemschutz – Druck',
       groupContact: 'Atemschutz – Kontakt',
+      // Luftvorrat-Schätzung: die Karte sagt «geschätzt mit 7 L Flasche und 50 L/min» – das las
+      // sich wie eine Stationseinstellung, war aber keine (das Backend hat beide Felder beim
+      // Speichern verworfen, und einzutippen gab es sie nirgends).
+      groupAir: 'Atemschutz – Luftvorrat',
+      airTip: 'Grundlage der Schätzung «noch ≈ N bar» auf der Truppkarte. Reine Planungshilfe – die Karte sagt dazu, worauf sie beruht, und ersetzt die Druckmeldung nicht.',
+      cylinderLiters: 'Flaschenvolumen (L)',
+      cylinderLitersTip: 'Volumen der im Dienst gefassten Pressluftflasche. 6 oder 6,8 L sind üblich, 9 L bei grösseren Geräten.',
+      estConsumption: 'Verbrauch (L/min)',
+      estConsumptionTip: 'Angenommener Atemluftverbrauch eines arbeitenden AdF. Höher ansetzen heisst früher warnen.',
       groupAuftragColors: 'Atemschutz – Truppfarben',
       auftragColorsTip: 'Optional: Startfarbe je Auftrag. Leer lassen heisst «jeder Trupp eine eigene Farbe» (Identität). Wer die Lage lieber nach Rolle liest – alle Löschtrupps rot –, setzt hier eine Farbe; pro Trupp ist sie weiterhin änderbar.',
       defaultFunkkanal: 'Funkkanal (Standard)',

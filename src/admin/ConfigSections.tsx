@@ -220,6 +220,17 @@ export function DoctrineSection() {
         {numField(C.contactGrace, C.contactGraceTip, ['doctrine', 'contactGraceSec'])}
       </div>
 
+      {/* The air estimate's two inputs. The app has read them from the config all along and the
+          card says «geschätzt mit 7 L Flasche und 50 L/min», which reads like a station setting —
+          it wasn't one, because the backend dropped both fields on save and there was nowhere to
+          type them. A 9-litre cylinder is an ordinary thing for a Wehr to own. */}
+      <h3 className="adm-fieldgroup">{C.groupAir}</h3>
+      <p className="adm-hint">{C.airTip}</p>
+      <div className="adm-row-2">
+        {numField(C.cylinderLiters, C.cylinderLitersTip, ['doctrine', 'cylinderLiters'])}
+        {numField(C.estConsumption, C.estConsumptionTip, ['doctrine', 'estConsumptionLPerMin'])}
+      </div>
+
       {/* Optional station colour per Auftrag. Empty = the default behaviour, where a Trupp's
           colour means IDENTITY (every Trupp a different one from the palette). Filling a row in
           says «read this Lage by role» — every Löschtrupp red — and the EL can still override any

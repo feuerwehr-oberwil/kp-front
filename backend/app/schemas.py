@@ -665,6 +665,14 @@ class DoctrineConfig(BaseModel):
     defaultPressureBar: int | None = None
     pressureStep: int | None = None
     pressureMax: int | None = None
+    #: The two numbers behind the Atemschutz air estimate («noch ≈ 246 bar»): the cylinder's
+    #: volume in litres and the litres/min a working AdF is reckoned to breathe. The frontend has
+    #: read these from the deployment config all along — but ``extra="ignore"`` meant the backend
+    #: silently DROPPED them on save, so the estimate looked like a station setting and was in
+    #: fact the shipped 7 L / 50 L·min⁻¹ everywhere. A 9-litre cylinder is an ordinary thing for a
+    #: Wehr to own, and the estimate is what an Überwacher plans a relief against.
+    cylinderLiters: float | None = Field(default=None, gt=0, le=30)
+    estConsumptionLPerMin: float | None = Field(default=None, gt=0, le=200)
     # Station colour per Atemschutz-Auftrag (auftrag id → CSS colour), e.g. {"loeschen": "#e8392b"}.
     # The colour a Trupp with that order STARTS in; it stays overridable per Trupp. Absent/empty
     # keeps the automatic behaviour (every Trupp a different colour from the palette).
