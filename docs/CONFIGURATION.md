@@ -54,6 +54,9 @@ One JSON document, stored as the single `deployment_config` row, returned by `GE
     },
     "geocoder": {
       "defaultLocality": "4104 Musterdorf BL",   // appended to bare street addresses; "" = none
+                                                 // (skipped once the operator types a locality
+                                                 //  themselves — a PLZ, or anything after a
+                                                 //  comma — and its town ranks hits first)
       "bboxLv95": "2598000,1252000,2625000,1270000"  // "minE,minN,maxE,maxN" to rank local hits; "" = national
     }
   },

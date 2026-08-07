@@ -91,10 +91,40 @@ async def _resolve_bias() -> tuple[str, str]:
 
 
 def _bias(text: str, default_locality: str) -> str:
-    """Append the home locality when the operator typed only a street (no postal code)."""
-    if default_locality and not _HAS_PLZ.search(text):
-        return f"{text} {default_locality}"
-    return text
+    """Append the home locality when the operator typed only a street.
+
+    ⚠️ Only when they have not started on a locality themselves. A postal code is four digits,
+    so a half-typed one («…, 410») did not match `_HAS_PLZ` and the home locality was appended
+    ANYWAY — the query became «storchenweg 8, 410 4103 Bottmingen», two localities at once, and
+    swisstopo answered by matching the numbers and dropping the street name entirely: six hits
+    in the wrong village, none of them a Storchenweg. Anything after a comma is the operator
+    writing the locality part themselves, so we leave the query alone and let the regional bbox
+    do the biasing (which resolves this exact query correctly on its own).
+    """
+    if not default_locality or _HAS_PLZ.search(text):
+        return text
+    if "," in text and text.rsplit(",", 1)[1].strip():
+        return text
+    return f"{text} {default_locality}"
+
+
+def _home_first(hits: list[GeoHit], default_locality: str) -> list[GeoHit]:
+    """Stable re-rank: addresses in the brigade's own town first.
+
+    The regional bbox biases to the REGION, which for a small brigade holds several villages —
+    so a street name that exists in two of them could answer with the neighbour's first. The
+    town we are standing in is the likelier answer to «where is it», and everything else keeps
+    swisstopo's own order behind it.
+    """
+    tokens = [t.strip().lower() for t in default_locality.split() if t.strip()]
+    if not tokens:
+        return hits
+
+    def home(h: GeoHit) -> bool:
+        label = h.label.lower()
+        return any(t in label for t in tokens)
+
+    return [h for h in hits if home(h)] + [h for h in hits if not home(h)]
 
 
 def _parse(results: list[dict]) -> list[GeoHit]:
@@ -144,7 +174,7 @@ async def search(address: str, limit: int = 6) -> list[GeoHit]:
     except (httpx.HTTPError, ValueError) as e:
         logger.warning("Geocode failed for %r: %s", address, e)
         return []
-    return _parse(results)
+    return _home_first(_parse(results), default_locality)
 
 
 async def geocode(address: str) -> tuple[float, float] | None:
