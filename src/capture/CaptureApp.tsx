@@ -1205,8 +1205,15 @@ export default function CaptureApp() {
             {!printStatus.online && <span className="print-send-off">{R.offline}</span>}
           </button>
         )}
+        {/* «Was noch leer ist» is the one thing on this row worth reading before printing — it
+            is the difference between a rapport and a rapport with holes in it. As plain grey text
+            beside a filled button it disappeared; it is a marked note now, on its own line so it
+            does not compete with the buttons for the row's width. */}
         {pdfMissing.length > 0 && (
-          <span className="cv-hint">{fillTemplate(C.pdfMissing, { fields: pdfMissing.join(', ') })}</span>
+          <p className="cv-missing">
+            <Icon id="warn" />
+            <span>{fillTemplate(C.pdfMissing, { fields: pdfMissing.join(', ') })}</span>
+          </p>
         )}
       </div>
 
