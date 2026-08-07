@@ -3798,6 +3798,9 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .kf-plain { display: block; padding: 4px 7px; border: 1px solid var(--glass-line); border-radius: var(--r-xs);
   background: var(--glass); color: var(--ink); font: 700 11px var(--body); white-space: nowrap; }
 .kf-plain.team { padding: 3px 6px; border-radius: var(--r-pill); }
+/* the drawing label chip stacks «Distanz · Schlauchhinweis» over the free label, like the print
+   composes it — `nowrap` above would otherwise run both onto one line */
+.kf-draw-label { white-space: pre-line; text-align: center; }
 /* phone: the three footer buttons don't fit one row (their labels wrapped inside cramped
    pills). Wrap instead — «Auf Einsatz zoomen» + «Abbrechen» share the top row, the primary
    «Ausschnitt übernehmen» drops to a full-width row of its own (thumb-friendly, prominent). */

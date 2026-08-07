@@ -146,6 +146,13 @@ so this file – not the log – is the record of what shipped up to that point.
   the same grid now; a page short of a storey leaves its lower band empty, which is what a stack
   with nothing above it looks like.
 
+- **Die Kroki-Vorschau zeigt, was gedruckt wird.** Sie zeichnete nackte Linien – der eine
+  Bildschirm, dessen ganze Aufgabe «so kommt es heraus» ist, zeigte weniger als das, was
+  herauskam: Teilstück-Gabel, Endetikett («Leitungsnummer · Inhalt · Stockwerk · Trupp»),
+  Distanz- und Beschriftungs-Chips fehlten, gestrichelte Linien erschienen durchgezogen und jede
+  Linie gleich dick. Jetzt dieselben Bausteine wie auf der Lagekarte, unter derselben
+  Beschriftungs-Einstellung wie der Export.
+
 - **Das Kroki trägt einen Nordpfeil.** Auf dem Bildschirm weiss man, wie man schaut; auf Papier
   nicht – und ein Kroki ohne Nordmarke lässt sich weder neben einen Plan legen noch gegen das
   Gelände lesen.

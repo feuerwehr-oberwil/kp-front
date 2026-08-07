@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { Fragment, useMemo, useRef, useState } from 'react'
 import Map, { Layer, Marker, Source, type MapRef } from 'react-map-gl/maplibre'
 import type { Map as MapLibreMap } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
@@ -11,10 +11,14 @@ import { operationalExtentPoints } from '../lib/report'
 import { circlePolygon } from '../lib/geo'
 import { TacticalSymbol } from '../lib/symbolRender'
 import { ShapeGlyph } from '../lib/shapes'
+import { EndTag, TeilstueckFork, hasLineDecor } from '../lib/lineDecor'
+import { truppForLine, truppTagText } from '../lib/truppLines'
+import { lerpPoint } from '../lib/lineStyle'
+import { fmtDistance, hoseLengthHint, pathLengthM } from '../lib/geo'
 import { Segmented } from './Segmented'
 import { krokiEntity, krokiSymbolMul } from '../lib/krokiPayload'
 import { shapePx, symPx } from '../lib/mapView'
-import type { Drawing, Entity, LayerDef, LngLat } from '../types'
+import type { CaptionMode, Drawing, Entity, LayerDef, LngLat, Trupp } from '../types'
 import type { KrokiView } from '../lib/report'
 
 // WYSIWYG framing step before PDF / Ausdrucken: the auto-fit (or the last chosen crop) is
@@ -28,7 +32,22 @@ const CARTO_FALLBACK = 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/
 // complete decorated marker (not only its glyph) makes badges/spreads/shapes WYSIWYG here.
 const PRINT_REF_WIDTH = 1050
 
-export function KrokiFramingModal({ scene, initial, atMs = null, atBusy = false, onAtChange, startedAtMs = null, landscape = true, onCancel, onConfirm }: {
+/** Web-Mercator northing, for a screen angle without asking the map to project. */
+const mercY = (lat: number) => Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360))
+
+/** Screen angle (deg) of a line's last segment, so the Teilstück fork pins to the tip the way
+ *  it does on the Lage map. The crop map is north-up (rotation is disabled on it), so the angle
+ *  follows from the geometry alone — no map instance, and nothing to recompute on a pan. */
+function forkAngle(coords: LngLat[]): number {
+  const n = coords.length
+  const [x1, y1] = coords[n - 2]
+  const [x2, y2] = coords[n - 1]
+  const dx = ((x2 - x1) * Math.PI) / 180
+  const dy = mercY(y2) - mercY(y1) // grows NORTHWARD; screen y grows downward
+  return (Math.atan2(-dy, dx) * 180) / Math.PI
+}
+
+export function KrokiFramingModal({ scene, initial, atMs = null, atBusy = false, onAtChange, startedAtMs = null, landscape = true, trupps = [], captionMode = 'auto', onCancel, onConfirm }: {
   scene: { entities: Entity[]; drawings: Drawing[]; layers: LayerDef[]; byName: Record<string, string>; center: LngLat }
   /** a previously chosen crop — reopens where the operator left it */
   initial: KrokiView | null
@@ -43,6 +62,10 @@ export function KrokiFramingModal({ scene, initial, atMs = null, atBusy = false,
   /** the page shape the Kroki prints on. The crop window IS the page here — WYSIWYG only holds
    *  if the preview has the sheet's proportions, so the choice lives on this screen. */
   landscape?: boolean
+  /** monitored Trupps — the end tag names the one working a Leitung, like the print does */
+  trupps?: Trupp[]
+  /** the map's Beschriftungen setting, so the preview labels what the sheet will label */
+  captionMode?: CaptionMode
   onCancel: () => void
   onConfirm: (view: KrokiView, landscape: boolean) => void
 }) {
@@ -92,7 +115,10 @@ export function KrokiFramingModal({ scene, initial, atMs = null, atBusy = false,
     type: 'FeatureCollection' as const,
     features: (drawingsVisible ? scene.drawings : []).filter((d) => Array.isArray(d.coords) && d.coords.length).map((d) => ({
       type: 'Feature' as const,
-      properties: { color: d.color ?? appConfig.drawing.defaultColor, area: d.kind !== 'line' },
+      properties: {
+        color: d.color ?? appConfig.drawing.defaultColor, area: d.kind !== 'line',
+        dashed: !!d.dashed, width: (d.width ?? 4) * 0.62,
+      },
       geometry: d.kind === 'circle' && d.radiusM
         ? { type: 'Polygon' as const, coordinates: circlePolygon(d.coords[0], d.radiusM) }
         : d.kind === 'area'
@@ -100,6 +126,37 @@ export function KrokiFramingModal({ scene, initial, atMs = null, atBusy = false,
           : { type: 'LineString' as const, coordinates: d.coords },
     })),
   }), [scene.drawings, drawingsVisible])
+
+  /**
+   * Everything the printed Kroki carries besides the bare geometry: the Teilstück fork, the end
+   * tag («Leitungsnummer · Inhalt · Stockwerk · Trupp») and the distance/label chip.
+   *
+   * The preview drew plain lines, so the one screen whose whole job is «this is what comes out»
+   * showed less than what came out — you could not see the «-E» you were framing around. Built
+   * from the same fields `buildKrokiPayload` sends and rendered with the same components the
+   * Lage map uses, so preview, screen and paper cannot drift into three different pictures.
+   */
+  const decor = useMemo(() => (drawingsVisible ? scene.drawings : [])
+    .filter((d) => d.kind === 'line' && Array.isArray(d.coords) && d.coords.length >= 2)
+    .map((d) => {
+      const n = d.coords.length
+      const end = d.coords[n - 1] as LngLat
+      const tagAt = (d.endLabelAt ?? lerpPoint(d.coords[n - 2], end, 0.72)) as LngLat
+      const trupp = truppForLine(d, trupps)
+      const lines: string[] = []
+      if (d.showDistance) {
+        const m = pathLengthM(d.coords)
+        lines.push(`${fmtDistance(m)} · ${hoseLengthHint(m)}`)
+      }
+      if (d.label) lines.push(d.label)
+      return {
+        d, end, tagAt, trupp, lines,
+        mid: d.coords[(n - 1) >> 1] as LngLat,
+        color: d.color || appConfig.drawing.defaultColor,
+        width: d.width || 4,
+        hasTag: hasLineDecor(d) || !!trupp,
+      }
+    }), [scene.drawings, drawingsVisible, trupps])
 
   const fit = () => mapRef.current?.getMap().fitBounds(bounds, { padding: 48, maxZoom: FIT_MAX_ZOOM })
   const syncView = (m: MapLibreMap) => {
@@ -161,12 +218,39 @@ export function KrokiFramingModal({ scene, initial, atMs = null, atBusy = false,
           >
             <Source id="draws" type="geojson" data={geojson}>
               <Layer id="draw-fill" type="fill" filter={['==', ['get', 'area'], true]} paint={{ 'fill-color': ['get', 'color'], 'fill-opacity': 0.14 }} />
-              <Layer id="draw-line" type="line" paint={{ 'line-color': ['get', 'color'], 'line-width': 2.5 }} />
+              {/* solid and dashed are separate layers: line-dasharray is not data-driven in
+                  MapLibre, and a Druckleitung drawn dashed printed solid in the preview */}
+              <Layer id="draw-line" type="line" filter={['!=', ['get', 'dashed'], true]}
+                paint={{ 'line-color': ['get', 'color'], 'line-width': ['get', 'width'] }} />
+              <Layer id="draw-line-dash" type="line" filter={['==', ['get', 'dashed'], true]}
+                paint={{ 'line-color': ['get', 'color'], 'line-width': ['get', 'width'], 'line-dasharray': [2.2, 1.6] }} />
             </Source>
+            {decor.map((ld) => (
+              <Fragment key={`kd${ld.d.id}`}>
+                {ld.d.teilstueck && (
+                  <Marker longitude={ld.end[0]} latitude={ld.end[1]} anchor="center">
+                    <TeilstueckFork angleDeg={forkAngle(ld.d.coords)} color={ld.color} width={ld.width} />
+                  </Marker>
+                )}
+                {ld.hasTag && (
+                  <Marker longitude={ld.tagAt[0]} latitude={ld.tagAt[1]} anchor="center" offset={[0, -14]}>
+                    {/* no alarm tint here, exactly as on paper: a printed Kroki is the record of
+                        an incident, not a live board (see krokiPayload · drawings) */}
+                    <EndTag lineNo={ld.d.lineNo} content={ld.d.content} floorTag={ld.d.floorTag}
+                      trupp={ld.trupp ? truppTagText(ld.trupp) : undefined} tone="idle" color={ld.color} />
+                  </Marker>
+                )}
+                {ld.lines.length > 0 && (
+                  <Marker longitude={ld.mid[0]} latitude={ld.mid[1]} anchor="center">
+                    <span className="kf-plain kf-draw-label">{ld.lines.join('\n')}</span>
+                  </Marker>
+                )}
+              </Fragment>
+            ))}
             {shown.map((e) => (
               <Marker key={e.id} longitude={e.coord[0]} latitude={e.coord[1]} anchor="center">
                 {(() => {
-                  const printable = krokiEntity(e, scene.byName)
+                  const printable = krokiEntity(e, scene.byName, captionMode)
                   if (!printable) return null
                   if (e.kind === 'shape') {
                     const size = shapePx(e.sizeM, e.coord[1], previewZoom)

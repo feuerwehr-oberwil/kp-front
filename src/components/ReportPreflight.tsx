@@ -1053,6 +1053,10 @@ export function ReportPreflight({
           // north–south opens upright without anyone asking for it. Once a framing has been
           // confirmed for this Einsatz, that choice wins — the app stops guessing.
           landscape={reportMeta.krokiPrint?.landscape ?? autoLandscape}
+          // the preview has to show what the sheet will show: the Trupp in a hose's end tag and
+          // the same Beschriftungen setting the export resolves captions under
+          trupps={trupps}
+          captionMode={scene?.captionMode ?? 'auto'}
           onCancel={() => setFramingFor(null)}
           onConfirm={(v, land) => {
             patchOpt({ krokiView: v, krokiLandscape: land })
