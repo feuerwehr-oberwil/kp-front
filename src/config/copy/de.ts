@@ -57,7 +57,7 @@ export const de = {
           { kind: 'sub', text: 'Die vier Arbeitsbereiche (linke Leiste)' },
           { kind: 'list', items: [
             '**Lage** – die taktische Karte mit Symbolen, Linien, Flächen und den Werkleitungs-Ebenen.',
-            '**Plan** – die Objektpläne (Module 1–6, Gebäudeumrisse) als Whiteboard, stockwerkweise.',
+            '**Plan** – die Objektpläne dieser Wehr (Module, Gebäudeumrisse) als Whiteboard, stockwerkweise.',
             '**Checkliste** – abarbeitbare Einsatz-Checklisten.',
             '**Atemschutz** – Überwachung der eingesetzten Trupps mit Zeit und Druck.',
           ] },
@@ -92,7 +92,7 @@ export const de = {
           { kind: 'lead', text: 'Wer mit Tastatur arbeitet, erreicht alles ohne Maus. Kürzel wirken nicht, während in einem Textfeld getippt wird. Jedes Feld in der linken Leiste zeigt seine Taste.' },
           { kind: 'sub', text: 'Bereiche wechseln' },
           { kind: 'list', items: [
-            'Zahlen öffnen das Plan-Modul mit dieser Nummer: [[1]] Modul 1, [[2]] oder [[3]] das Modul «2/3», [[4]] Modul 4 …',
+            'Zahlen öffnen das Plan-Modul mit dieser Nummer – welche es gibt, richtet sich nach den Modulen dieser Wehr: [[1]] Modul 1, [[2]] oder [[3]] das Modul «2/3», [[4]] Modul 4 …',
             '[[K]] Karte · [[H]] Checkliste · [[A]] Atemschutz · [[W]] Anwesenheit · [[I]] Mittel.',
             '[[⌘]] [[[]] / [[⌘]] []]] blättert Schritt für Schritt durch alle Bereiche (auch Umgebung und Gebäude, die keine Nummer haben).',
           ] },
@@ -130,7 +130,7 @@ export const de = {
           { kind: 'lead', text: 'Über **Ebenen** blendest du die Werkleitungs- und Gefahren-Daten ein – geordnet nach Typ.' },
           { kind: 'list', items: [
             '**Lage** – Taktische Zeichen, Fahrzeuge, Skizzen & Notizen.',
-            '**Wasser** – Hydranten, Leitungen, Schieber, Quellen.',
+            'Welche Ebenen es gibt, hängt an den Geodaten dieser Wehr – nichts davon ist mitgeliefert. Üblich sind:',
             '**Abwasser** – Schmutz/Misch, Regen/Rein, Schächte / Gully.',
             '**Gas** – Leitungen.',
             '**Strom** – Leitungen, PV-Anlagen.',
@@ -172,7 +172,7 @@ export const de = {
             '**Trupps** als farbige Marker; **Spuren** ein-/ausblenden zeigt ihren Weg. Trupp-Chips, deren Trupp „raus" ist, werden ausgegraut/durchgestrichen.',
             '**Massstab** – die zwei Endpunkte des gedruckten Massstabsbalken antippen und die reale Länge eingeben. Danach zeigen Linien mit «Länge» und das **Messen** echte Meter.',
           ] },
-          { kind: 'note', text: 'Die **Gebäudeumrisse** kommen live von OpenStreetMap; **Modul 6** (Geschosspläne) ist ein reiner Blätter-/Zoom-Betrachter – annotiert wird auf dem Gebäude-Stockwerkstapel, nicht auf dem Modul-6-PDF.' },
+          { kind: 'note', text: 'Die **Gebäudeumrisse** kommen live von OpenStreetMap. **Modul 6** (Geschosspläne) ist standardmässig ein reiner Blätter-/Zoom-Betrachter – annotiert wird auf dem Gebäude-Stockwerkstapel, nicht auf dem Modul-6-PDF. Ob ein Modul Betrachter ist, steht in der Modul-Konfiguration dieser Wehr.' },
         ],
       },
       {
@@ -186,7 +186,7 @@ export const de = {
           ] },
           { kind: 'sub', text: 'Überwachung pro Trupp' },
           { kind: 'list', items: [
-            'Gross die Uhr **Seit letztem Kontakt**: grün **Kontakt ok** → gelb **Kontakt fällig** → rot **Überfällig** (kein Kontakt innert ~5 Min.) mit Alarm.',
+            'Gross die Uhr **Seit letztem Kontakt**: grün **Kontakt ok** → nach {contactMin} min gelb **Kontakt fällig** → nach weiteren {graceSec} s rot **Überfällig** mit Alarm. Beide Werte gelten für diese Wehr und stehen in den Einsatz-Einstellungen ([[⌘]] [[,]]).',
             '**Kontakt** (grosser Knopf) bestätigt den Funkkontakt und stellt die Uhr zurück.',
             '**Druck** direkt mit ± einstellen und mit **Bestätigen** übernehmen – das zählt als Kontakt und wird protokolliert; ein Fehlklick ohne Bestätigen ändert nichts. Niedriger Druck wird rot.',
             'Status **Angemeldet → Im Einsatz → Rückzug → Draussen**. **Rückzug** lässt sich mit **Fortsetzen** widerrufen; ein draussener Trupp geht mit **Wieder einrücken** (neue Flasche) zurück in die Überwachung.',
@@ -250,7 +250,7 @@ export const de = {
       {
         id: 'erfassung', title: 'Erfassung per QR', icon: 'cam',
         blocks: [
-          { kind: 'lead', text: 'Ein **QR-Poster** im Magazin öffnet die Erfassungs-Ansicht – ohne Login, für alle ohne Tablet-Zugriff.' },
+          { kind: 'lead', text: 'Wo eine Wehr die Erfassung aktiviert hat (Verwaltung › Erfassung), öffnet ein **QR-Poster** im Magazin die Erfassungs-Ansicht – ohne Login, für alle ohne Tablet-Zugriff.' },
           { kind: 'list', items: [
             'Der laufende Einsatz wird gewählt; **Anwesenheit** und **Mittel** lassen sich am eigenen Handy erfassen.',
             'Die Angaben fliessen in **denselben Einsatz** wie am KP-Tablet und werden zusammengeführt (bei Abweichungen mit Hinweis zum Prüfen).',
@@ -1032,8 +1032,8 @@ export const de = {
     alarmNoteEst: 'Alarmdruck {bar} bar – laut Schätzung erreicht',
     lineField: 'Leitung',
     edit: 'Bearbeiten',
-    pressureDown: '10 bar weniger',
-    pressureUp: '10 bar mehr',
+    pressureDown: '{step} bar weniger',
+    pressureUp: '{step} bar mehr',
     pressureConfirm: 'Bestätigen',
     pressureConfirmHint: 'Neuen Druck bestätigen – zählt als Kontakt',
     // per-Trupp contact/pressure log (expandable on the card)
@@ -3319,8 +3319,10 @@ export const de = {
       colFeatures: 'Features',
       colSource: 'Quelle',
       justNow: 'gerade eben',
-      relMin: 'vor {n} Min.',
-      relHour: 'vor {n} Std.',
+      // Einheiten überall gleich abgekürzt: min · s · h (so schreiben es die Stepper und die
+      // Verlaufszeilen auch) – «Min.» und «Std.» daneben lasen sich wie eine andere Grösse.
+      relMin: 'vor {n} min',
+      relHour: 'vor {n} h',
     },
     objectsMap: {
       showAll: 'Alle zeigen',

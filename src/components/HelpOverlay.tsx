@@ -3,7 +3,8 @@ import { Icon } from '../lib/icons'
 import { Overlay } from '../lib/overlays'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
-import { getDeploymentConfig } from '../lib/deploymentConfig'
+import { atemschutzDoctrine, getDeploymentConfig } from '../lib/deploymentConfig'
+import { DEFAULT_HOURS_ROUNDING } from '../lib/attendanceHours'
 
 // In-app capabilities/help overlay reached from the incident menu ("Funktionen &
 // Hilfe"). One scrollable column of feature sections with a sticky TOC + scroll-spy.
@@ -41,8 +42,34 @@ function mark(text: string, q: string, keyBase: string): ReactNode {
 // runs are the feature names — «**Atemschutz**», «**Ebenen**» — so they are precisely what
 // someone searches for; skipping them left a search for "atemschutz" with almost nothing
 // marked in the body. Keyboard chips stay untouched: [[Esc]] is a key, not a word.
+/**
+ * The station's own numbers, for the help strings that would otherwise state a default as if it
+ * were the rule. «Überfällig nach ~5 Min.» was not merely generic — it was WRONG: red fires at
+ * Intervall + Nachfrist, which is 6 minutes on the shipped defaults and whatever a Wehr set
+ * otherwise. A help text that teaches the wrong safety threshold is worse than none.
+ *
+ * Read per call rather than at module load, so the boot-resolved deployment config applies.
+ */
+function helpVars(): Record<string, string | number> {
+  const az = atemschutzDoctrine()
+  const r = getDeploymentConfig().report?.hoursRounding
+  return {
+    contactMin: az.contactIntervalMin,
+    graceSec: az.contactGraceSec,
+    // what the operator actually watches for: the moment the card goes red
+    overdueMin: Math.round(((az.contactIntervalMin * 60 + az.contactGraceSec) / 60) * 10) / 10,
+    pressureStep: az.pressureStep,
+    alarmBar: az.alarmBar,
+    hoursStep: r?.stepMin ?? DEFAULT_HOURS_ROUNDING.stepMin,
+    hoursGrace: r?.graceMin ?? DEFAULT_HOURS_ROUNDING.graceMin,
+  }
+}
+
 function renderInline(text: string, q = ''): ReactNode[] {
   const out: ReactNode[] = []
+  // the station's live numbers land before the markup is parsed, so a placeholder inside a
+  // **bold** run works exactly like one outside it
+  text = fillTemplate(text, helpVars())
   const re = /\*\*(.+?)\*\*|\[\[(.+?)\]\]/g
   let last = 0
   let m: RegExpExecArray | null

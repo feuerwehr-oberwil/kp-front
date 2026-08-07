@@ -319,7 +319,7 @@ function PressureStepper({ value, onChange }: { value: number; onChange: (v: num
   const edit = useTapToType({ min: 0, max: dz.pressureMax, onCommit: (v) => onChange(snapBar(v)), clamp: snapBar })
   return (
     <div className={s.stepper}>
-      <button type="button" className={s.stepBtn} aria-label={az.pressureDown} {...dec}>
+      <button type="button" className={s.stepBtn} aria-label={fillTemplate(az.pressureDown, { step: dz.pressureStep })} {...dec}>
         <Icon id="minus" />
       </button>
       {edit.editing ? (
@@ -327,7 +327,7 @@ function PressureStepper({ value, onChange }: { value: number; onChange: (v: num
       ) : (
         <button type="button" className={s.stepVal} onClick={() => edit.start(value)} title={appConfig.copy.stepper.typeToEnter}><b>{value}</b><span>bar</span></button>
       )}
-      <button type="button" className={s.stepBtn} aria-label={az.pressureUp} {...inc}>
+      <button type="button" className={s.stepBtn} aria-label={fillTemplate(az.pressureUp, { step: dz.pressureStep })} {...inc}>
         <Icon id="plus" />
       </button>
     </div>
@@ -378,7 +378,7 @@ function PressureInline({ value, onCommit }: { value: number; onCommit: (bar: nu
       <div className={s.pressureRow}>
         <span className={s.pressureLbl}>{az.currentPressure}</span>
         <div className={s.pressureCtl}>
-          <button type="button" className={s.pBtn} aria-label={az.pressureDown} {...dec}>
+          <button type="button" className={s.pBtn} aria-label={fillTemplate(az.pressureDown, { step: dz.pressureStep })} {...dec}>
             <Icon id="minus" />
           </button>
           {edit.editing ? (
@@ -386,7 +386,7 @@ function PressureInline({ value, onCommit }: { value: number; onCommit: (bar: nu
           ) : (
             <button type="button" className={cx(s.pVal, s.pValBtn, dirty && s.pPending, low && s.metaAlarm)} onClick={() => edit.start(bar)} title={appConfig.copy.stepper.typeToEnter}>{bar}<span>bar</span></button>
           )}
-          <button type="button" className={s.pBtn} aria-label={az.pressureUp} {...inc}>
+          <button type="button" className={s.pBtn} aria-label={fillTemplate(az.pressureUp, { step: dz.pressureStep })} {...inc}>
             <Icon id="plus" />
           </button>
         </div>

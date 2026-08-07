@@ -1170,7 +1170,9 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .step-btn:hover:not(:disabled) { background: var(--surface); border-color: var(--border); }
 .step-btn:active:not(:disabled) { background: color-mix(in srgb, var(--blue) 12%, transparent); border-color: var(--blue); }
 .step-btn:disabled { opacity: var(--disabled); cursor: default; }
-.step-val { font-family: var(--mono); font-weight: 600; min-width: 30px; text-align: center; color: var(--ink); }
+.step-val { font-family: var(--mono); font-weight: 600; min-width: 30px; text-align: center; color: var(--ink);
+  /* digits must not change width as they change value, or the ± buttons twitch under the finger */
+  font-variant-numeric: tabular-nums; }
 /* tap the value to type a number directly */
 .step-val-btn { display: inline-grid; place-items: center; min-height: 44px; border: none; background: transparent; cursor: pointer; padding: 3px 5px; border-radius: var(--r-sm); }
 .step-val-btn:hover:not(:disabled) { background: var(--hover); }
@@ -2961,6 +2963,11 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .set-card { border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface-2); overflow: hidden; }
 .set-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 11px 14px; min-height: 56px; }
 .set-row + .set-row { border-top: 1px solid var(--glass-edge); }
+/* Three steppers stacked in one card, each formatting its value differently — «5 min», «60 s»,
+   «K 11». Sized to their own text, every row was a different width, so the − and + buttons sat
+   at three different x positions down a column you operate with a thumb. One width for the value
+   slot puts the buttons on a shared edge. */
+.set-row .step-val { min-width: 68px; }
 .set-row-l { display: flex; flex-direction: column; gap: 2px; font: 600 14.5px var(--body); color: var(--ink); }
 .set-row-l small { font: 500 12px var(--body); color: var(--ink-faint); }
 .set-group-foot { margin: 2px 4px 0; font: 500 12px var(--body); color: var(--ink-faint); line-height: 1.4; }
@@ -3352,6 +3359,9 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .cv-mittel li { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px;
   font: 500 14px var(--body); color: var(--ink); }
 .cv-mittel-label { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+/* same reason as .set-row .step-val: a column of steppers whose values carry different units
+   («3 Sack», «40 l», «6 Stk») put the ± buttons at a different x on every line */
+.cv-mittel .step-val { min-width: 62px; }
 /* Mittel lines + Gerettete counts use the shared <Stepper> (.step chrome); a wrong amount is
    fixable in place (0 removes, with undo) */
 .cv-count-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
