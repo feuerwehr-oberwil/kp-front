@@ -2464,7 +2464,7 @@ export const de = {
     // «Detaillierter Prüfnachweis» sagt nicht, was angehakt wird – niemand hakt an, was er nicht
     // versteht. Es geht um die Buchungszeilen im gedruckten Verlauf (wer wann was geändert hat),
     // die sonst herausgefiltert werden. Der Prüfnachweis-Status oben bleibt davon unberührt.
-    toggleDetailedAuditHint: 'Druckt zusätzlich die Buchungszeilen im Verlauf – wer wann was geändert hat. Für die Rekonstruktion eines Einsatzes; für das normale Rapport nicht nötig.',
+    toggleDetailedAuditHint: 'Druckt zusätzlich die Buchungszeilen im Verlauf – wer wann was geändert hat. Für die Rekonstruktion eines Einsatzes; für den normalen Rapport nicht nötig.',
     // Kroki-Ausschnitt: ein Feld auf der Rapport-Fläche (WYSIWYG), kein Dialog vor dem Druck
     // mehr – deshalb gibt es auch nichts mehr zu «übernehmen».
     krokiHead: 'Kroki-Ausschnitt',

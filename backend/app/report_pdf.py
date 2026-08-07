@@ -1457,7 +1457,9 @@ def _attachment_block(
         cols, cell_h = 2, 84 * mm
     else:
         cols, cell_h = 3, 62 * mm
-    gutter = 4 * mm
+    # 6, not 4: two photographs butted almost together read as one wide picture, and a contact
+    # sheet needs the eye to find the boundaries without looking for them.
+    gutter = 6 * mm
     cell_w = (inner_w - gutter * (cols - 1)) / cols
     img_w = cell_w if grid else inner_w * 0.62
 

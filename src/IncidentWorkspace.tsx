@@ -3277,7 +3277,6 @@ export function IncidentWorkspace({
           // had already been shut, so the operator lost their place for an action that never
           // happened. The «Abschliessen» confirm closes itself; that is the only thing that should.
           onComplete={canEditIncident && !readOnly ? () => onCompleteRapport() : undefined}
-          onClose={() => setMode('map')}
           onFixTranscripts={() => { setJournalOpen(true); setJournalFromRapport(true) }}
         />
       )}

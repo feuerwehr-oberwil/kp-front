@@ -26,7 +26,6 @@ import { visibleMittel } from '../lib/mittel'
 import { PersonField } from './PersonField'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import { DateTimeField, TimeField } from './TimeField'
-import { Combo } from './Combo'
 import { Segmented } from './Segmented'
 import { Stepper } from './Stepper'
 
@@ -102,7 +101,7 @@ const savedScroll: { current: { incidentId: string; top: number } | null } = { c
 const savedKrokiOpen: { current: { incidentId: string; open: boolean } | null } = { current: null }
 
 export function ReportPreflight({
-  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], plans = [], scene, board, building, captureUsage, canEdit = true, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onComplete, onClose, onFixTranscripts,
+  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], plans = [], scene, board, building, captureUsage, canEdit = true, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onComplete, onFixTranscripts,
 }: {
   incident: IncidentMeta
   reportMeta: ReportMeta
@@ -173,7 +172,6 @@ export function ReportPreflight({
   /** «Rapport abschliessen» — confirm already happened here; stamps report_done_at +
    *  archives. Omit for viewers / read-only. */
   onComplete?: () => void
-  onClose: () => void
   /** jump to the Verlauf to fill the still-missing audio transcripts */
   onFixTranscripts?: () => void
 }) {
@@ -607,7 +605,10 @@ export function ReportPreflight({
   }
 
   // Scroll keep-alive across the Anwesenheit/Mittel/Verlauf round trip (see savedScroll):
-  // restore before paint on mount, capture on unmount. Deliberate closes go through close().
+  // Restore before paint on mount, capture on unmount. There is no «close» any more: leaving is
+  // choosing another surface in the rail, which unmounts this one and captures the scroll — and
+  // «Einsatz abschliessen» clears the saved position itself, because coming back to a completed
+  // rapport should start at the top.
   const bodyRef = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     const el = bodyRef.current
@@ -615,7 +616,6 @@ export function ReportPreflight({
     return () => { if (el) savedScroll.current = { incidentId: incident.id, top: el.scrollTop } }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-  const close = () => { savedScroll.current = null; savedKrokiOpen.current = null; onClose() }
 
   return (
     /* A SURFACE, not a dialog. The Rapport is filled in across a whole Einsatz — a sentence
@@ -633,9 +633,9 @@ export function ReportPreflight({
       <div className="report-preflight report-preflight-surface">
         {/* The same head every other surface wears (Anwesenheit, Mittel): a title, and under it
             one line of what is actually recorded. It carried a bare title and an ✕ — dialog
-            chrome, which is what a page inherits when it used to be a sheet. The ✕ stays,
-            because unlike Anwesenheit this surface is also arrived at FROM the Lage and from the
-            Abschluss-Assistent, and «zurück zur Lage» should not require finding the rail. */}
+            chrome, which is what a page inherits when it used to be a sheet. No ✕ either: a
+            page is left by choosing another surface in the rail, exactly like Anwesenheit and
+            Mittel, and a close button on one of six surfaces asks «closed into what?». */}
         <header className="rp-head">
           <div className="rp-head-titles">
             <h2>{P.title}</h2>
@@ -676,37 +676,36 @@ export function ReportPreflight({
             <button className="ip-btn primary" disabled={pdfBusy} onClick={() => startOutput('pdf')}>
               <Icon id={pdfBusy ? 'rotate' : 'doc'} className={pdfBusy ? 'spin' : undefined} />{pdfBusy ? P.pdfBusy : P.pdfFull}
             </button>
-            <button className="ip-x" onClick={close} aria-label={P.backToMap} title={P.backToMap}><Icon id="close" /></button>
           </div>
-        </header>
-        {/* The Kontrolle detail hangs UNDER the head as a band, not inside the scrolling form:
-            it belongs to the state chip that opens it, and a warning that scrolls away is a
-            warning nobody read. Open whenever there is something wrong. */}
-        {(controlOpen || !controlOk) && !checking && (
-          <section className="rp-control">
-            {missTx > 0 && (
-              <p className="report-pre-warn">
-                <Icon id="warn" /> <span>{fillTemplate(P.missingTranscripts, { n: missTx })}</span>
-                {onFixTranscripts && <button type="button" className="report-pre-fix" onClick={onFixTranscripts}>{P.fixTranscripts}</button>}
-              </p>
-            )}
-            {pendingMediaCount > 0 && (
-              <p className="report-pre-warn">
-                <Icon id="warn" /> <span>{fillTemplate(P.pendingMedia, { n: pendingMediaCount })}</span>
-              </p>
-            )}
-            {!proof.intact && (
-              <p className="report-pre-warn"><Icon id="warn" /> <span>{proofLabel(proof)}</span></p>
-            )}
-            {controlOpen && (
+          {/* The Kontrolle detail is a POPOVER on the chip that opens it, not a band across the
+            page: it is a handful of lines about the record, and a full-width slab pushed the form
+            down every time anything was amiss. Anchored to the chip, so «what is wrong» and «the
+            thing that told me» are the same object. A warning still reaches the operator without
+            it — the chip itself is amber and counts them. */}
+        {controlOpen && (
+          <>
+            <div className="rp-control-scrim" onClick={() => setControlOpen(false)} aria-hidden />
+            <section className="rp-control" role="dialog" aria-label={P.controlHead}>
+              {missTx > 0 && (
+                <p className="report-pre-warn">
+                  <Icon id="warn" /> <span>{fillTemplate(P.missingTranscripts, { n: missTx })}</span>
+                  {onFixTranscripts && <button type="button" className="report-pre-fix" onClick={onFixTranscripts}>{P.fixTranscripts}</button>}
+                </p>
+              )}
+              {pendingMediaCount > 0 && (
+                <p className="report-pre-warn">
+                  <Icon id="warn" /> <span>{fillTemplate(P.pendingMedia, { n: pendingMediaCount })}</span>
+                </p>
+              )}
               <div className="report-fold-body">
                 <p><Icon id={proof.intact ? 'check' : 'warn'} /> {proofLabel(proof)}</p>
                 <p><Icon id="doc" /> {fillTemplate(P.annotatedDefault, { n: annotatedPlanCount })}</p>
                 <p><Icon id="snapshot" /> {fillTemplate(P.stateNote, { at: formatDateTime(new Date().toISOString()) })}</p>
               </div>
-            )}
-          </section>
+            </section>
+          </>
         )}
+        </header>
         <div className="ip-body report-preflight-body" ref={bodyRef}>
           {/* TWO columns on a wide screen (one below 1080px, see app.css), because the rapport is
               worked in two different ways and they interleave: the FORM is typed straight through
