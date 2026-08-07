@@ -65,6 +65,7 @@ Per-station config and reference data are **config-as-code**, applied with three
 | `python -m app.admin_config` | the `deployment_config` document (branding, map, fleet, doctrine, …) | `just config-example`, `just config-load <file>` |
 | `python -m app.admin_geodata` | reference geodata layers (hydrants, WMS) | `just geodata-load <manifest>` |
 | `python -m app.admin_objects` | object library + Modul-PDF plans | `just objects-load <manifest>` |
+| `python -m app.admin_branding` | branding assets (`logo`, `reportLogo`, `favicon`) | `push <slot> <file>`, `show` |
 
 Each supports `schema` / `example` / `validate` / `load` (local DB) / `show`; `admin_geodata`
 and `admin_objects` also support `push` (over a running deployment's HTTP API, authenticated

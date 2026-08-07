@@ -21,16 +21,21 @@ cd backend
 : "${KP_BASE_URL:?set KP_BASE_URL to the demo app URL}"
 : "${KP_ADMIN_SECRET:?set KP_ADMIN_SECRET to the demo admin secret}"
 
-echo "→ 1/4  wipe incidents + roster, re-ensure demo accounts"
+echo "→ 1/5  wipe incidents + roster, re-ensure demo accounts"
 KP_DEMO_RESET=1 uv run python -m app.demo_reset
 
-echo "→ 2/4  reload deployment config"
+echo "→ 2/5  reload deployment config"
 uv run python -m app.admin_config load "$ROOT/examples/demo-data/config.json"
 
-echo "→ 3/4  reload reference geodata (hydrants) via API push"
+echo "→ 3/5  reload reference geodata (hydrants) via API push"
 uv run python -m app.admin_geodata push "$ROOT/examples/demo-data/geodata.manifest.json"
 
-echo "→ 4/4  reload Einsatzobjekte via API push"
+echo "→ 4/5  reload Einsatzobjekte via API push"
 uv run python -m app.admin_objects push "$ROOT/examples/demo-data/objects.manifest.json"
+
+# AFTER admin_config load, never before: that step rewrites identity.assets wholesale, so a
+# logo pushed earlier would be wiped by the same reset that is supposed to install it.
+echo "→ 5/5  reload the Rapport-Logo"
+uv run python -m app.admin_branding push reportLogo "$ROOT/examples/demo-data/report-logo.png"
 
 echo "✓ Demo reset complete."

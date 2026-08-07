@@ -190,6 +190,20 @@ so this file – not the log – is the record of what shipped up to that point.
   entstand – dieselbe Handlung am Tablet schrieb immer eine. Jede Zeile trägt «(QR)», weil im
   Rechtsdokument sichtbar sein muss, dass sie nicht von einer angemeldeten Person stammt.
 
+- **Die Partnerorganisationen sahen aus wie drei verschiedene Listen.** Angekreuzte Zeilen in
+  Schwarz, nicht angekreuzte in Grau, die Schreibzeile leer – drei Schriftbilder und drei
+  Zeilenhöhen in einem Block, dessen ganzer Sinn die Vergleichbarkeit ist. Ein Kreuz sagt bereits
+  «die waren da»; die Typografie muss es nicht leiser ein zweites Mal sagen.
+
+- **Der Atemschutz-Anhang druckt keinen Status mehr.** «Im Einsatz» auf einem abgeschlossenen
+  Einsatz behauptet etwas, das schon nicht mehr stimmte, als das Blatt aus dem Drucker kam. Die
+  Drucktabelle ist ausserdem schmaler – eine Uhrzeit, ein Wort und eine Zahl brauchen keine
+  volle Seitenbreite – und aus «Mitglieder» wird **AdF**, der Begriff, den die App sonst benutzt.
+
+- **Das Rapport-Logo lässt sich auch per Befehl setzen.** `admin_branding push reportLogo <datei>`
+  – nötig für die Demo, deren nächtlicher Reset die Konfiguration neu lädt und ein von Hand
+  hochgeladenes Logo jedes Mal gelöscht hätte. Die Demo bringt ihr Logo jetzt selbst mit.
+
 - **«Einsatzstunden 0:00» bei vier Anwesenden.** Ein noch offener Anwesenheitsblock leiht sich
   das Einsatzende – war das unplausibel (etwa ein vertipptes Datum), ergab jede Person eine
   negative Dauer, die auf 0 gekappt wurde. Vier Leute, null Stunden, und nichts sagte warum. Ein

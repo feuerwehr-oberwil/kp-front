@@ -215,7 +215,10 @@ class ReadingIn(BaseModel):
 
 class TruppIn(BaseModel):
     name: str
-    statusLabel: str
+    #: Sent by the client, deliberately NOT printed: a rapport is written after the fact, and
+    #: «Im Einsatz» on a finished Einsatz asserts something that stopped being true before the
+    #: sheet came out of the printer. Optional so a client may stop sending it.
+    statusLabel: str = ""
     members: list[str] = []
     auftrag: str | None = None
     ziel: str | None = None
@@ -374,7 +377,7 @@ L = {
     "partnerOther": "Weitere",
     "kroki": "Kroki",
     "atemschutz": "Atemschutzüberwachung",
-    "members": "Mitglieder",
+    "members": "AdF",  # the house term (copy · atemschutz.memberLabel); «Mitglieder» reads like a club
     "auftrag": "Auftrag / Ziel",
     "line": "Leitung",
     "entry": "Eintritt",
@@ -1173,7 +1176,9 @@ def compose_report_pdf(
     if opt.atemschutz and payload.trupps:
         story.extend(head(L["atemschutz"]))
         for tr in payload.trupps:
-            story.append(Paragraph(f"{_esc(tr.name)} — {_esc(tr.statusLabel)}", st["h3"]))
+            # No status. A rapport is written after the fact, and «Im Einsatz» on a finished
+            # Einsatz states something that stopped being true before the sheet was printed.
+            story.append(Paragraph(_esc(tr.name), st["h3"]))
             meta_bits = []
             if tr.members:
                 meta_bits.append((L["members"], ", ".join(tr.members)))
@@ -1221,7 +1226,9 @@ def compose_report_pdf(
             ]
             if not body:
                 body = [[Paragraph(_esc(L["noPressureLog"]), st["muted"]), "", ""]]
-            tbl = Table([thead, *body], colWidths=[inner_w * x for x in (0.45, 0.35, 0.2)], repeatRows=1)
+            # A pressure log is three short values — a clock, one word and a number. At 45/35/20
+            # of the full width it read as a table of mostly empty space.
+            tbl = Table([thead, *body], colWidths=[inner_w * x for x in (0.26, 0.16, 0.12)], repeatRows=1)
             tbl.setStyle(_table_style())
             story.append(Spacer(1, 3))
             story.append(tbl)
@@ -1442,11 +1449,17 @@ def _partner_table(
     org_w = (col_w - check_w) * 0.42
 
     def column(part: list[tuple[str, PartnerContact | None]]) -> Table:
+        # ⚠️ ONE look for every row. Ticked organisations were ink, unticked ones muted grey and
+        # the write-in row empty — three type treatments and three row heights in a block whose
+        # whole point is that the entries are comparable. A tick says «this one was there»; the
+        # typography must not say it a second time, more quietly.
         rows = [
             [
                 Paragraph(("<b>X</b>" if c else ""), st["check"]),
-                Paragraph(_esc(org), st["rcell"] if c else st["muted"]),
-                Paragraph(_esc(" · ".join(x for x in (c.name, c.phone, c.note) if x)) if c else "", st["rcell"]),
+                Paragraph(_esc(org) if org else _LINE_STUB, st["rcell"]),
+                Paragraph(
+                    _esc(" · ".join(x for x in (c.name, c.phone, c.note) if x)) if c else _LINE_STUB, st["rcell"]
+                ),
             ]
             for org, c in part
         ]
