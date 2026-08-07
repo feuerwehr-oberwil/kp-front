@@ -2,7 +2,7 @@
 
 A real station's crew arrives via the Divera roster sync. Local dev has no Divera, so
 Anwesenheit, Schichtenplanung and the Atemschutz person-assignment would all face an empty
-list. This inserts the same twelve synthetic people the demo deployment shows — the list
+list. This inserts the same synthetic people the demo deployment shows — the list
 lives in ``demo_reset.DEMO_PEOPLE``, imported rather than copied so the two can't drift.
 
 Idempotent and purely additive: people already in the table (matched by display name) are

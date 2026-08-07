@@ -988,8 +988,16 @@ def compose_report_pdf(
     # driving licence off the paper, and no bigger: the app is where these are looked at, and a
     # full-page plate each turned four photos into four sheets. Capped, they flow two-to-three
     # per page; image and caption stay together so a plate never ends up orphaned from its label.
-    att_imgs = [(a, _fit_image(figures.get(f"photo:{a.url}"), inner_w * 0.62, 92 * mm)) for a in payload.attachments]
-    att_imgs = [(a, img) for a, img in att_imgs if img is not None]
+    # A Beilage whose bytes are gone drops its plate rather than the rapport — hence the filter
+    # into a NEW name: re-binding the same one keeps the `| None` in its type, and the .hAlign
+    # below is then an attribute access on something the checker still believes can be None.
+    att_imgs: list[tuple[AttachmentIn, Image]] = [
+        (a, img)
+        for a, img in (
+            (a, _fit_image(figures.get(f"photo:{a.url}"), inner_w * 0.62, 92 * mm)) for a in payload.attachments
+        )
+        if img is not None
+    ]
     for _a, _img in att_imgs:
         _img.hAlign = "LEFT"  # share a left edge with the caption underneath
     if att_imgs:

@@ -110,13 +110,16 @@ demo-reset:
 
 # (Mirrors .github/workflows/ci.yml. It exists because «lint + test» was NOT that set: a ruff
 # FORMAT violation once passed locally and turned main red, because nothing here ran
-# `ruff format --check`. Not covered — both need Docker: the gitleaks scan and the image build.)
+# `ruff format --check`. The same thing then happened with `mypy`, which CI runs and this did
+# not — so a fully green `just ci` still pushed a red main. Not covered — both need Docker:
+# the gitleaks scan and the image build.)
 # Run everything CI would fail you on, before you push.
 [group('Quality')]
 ci: check
     pnpm test
     cd backend && uv run ruff format --check .
     cd backend && uv run ruff check .
+    cd backend && uv run mypy app
     cd backend && uv run pytest -q
     pnpm lint
 
