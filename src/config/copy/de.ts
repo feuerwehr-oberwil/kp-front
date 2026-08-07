@@ -791,6 +791,8 @@ export const de = {
     surfaceMap: 'Lage',
     surfacePlan: 'Plan',
     replay: 'Wiedergabe starten',
+    // Aktivitätsstreifen über der Liste: WANN etwas passiert ist, als Position statt als Zeile
+    stripLabel: 'Zeitstrahl – tippen, um zur passenden Stelle zu springen',
     replayHint: 'Lage und Plan zu einem früheren Zeitpunkt abspielen',
     // composer
     composerTitle: 'Journaleintrag',

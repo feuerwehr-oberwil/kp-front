@@ -15,7 +15,7 @@ import { getIncident, verifyChain } from '../lib/incidents'
 import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from '../lib/workspace'
 import { deriveAusgerueckt, fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit, zeitFromClock, zeitIssues } from '../lib/alarmzeiten'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
-import { loadReplay, stateAt, vehiclesAt, type ReplayBundle } from '../lib/replay'
+import { activityMoments, loadReplay, stateAt, vehiclesAt, type ReplayBundle } from '../lib/replay'
 import { autoRotation, vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import type { AuditProof, KrokiView, ReportDraft, ReportOptions } from '../lib/report'
 import { defaultReportOptions, einsatzleiterFromScene, formatDateTime, missingTranscriptCount, operationalExtentPoints, proofLabel } from '../lib/report'
@@ -199,6 +199,10 @@ export function ReportPreflight({
   )
   const [pastScene, setPastScene] = useState<{ entities: Entity[]; drawings: Drawing[] } | null>(null)
   const [krokiAtBusy, setKrokiAtBusy] = useState(false)
+  // WHEN anything happened, for the Stand slider's tick marks. Derived from the SAME source the
+  // replay bar uses, so the two surfaces cannot disagree about where the Einsatz has substance:
+  // the recorded actions plus the Verlauf rows that carry an absolute time.
+  const [krokiMoments, setKrokiMoments] = useState<number[]>([])
   const bundleRef = useRef<ReplayBundle | null>(null)
   useEffect(() => {
     if (krokiAt == null) { setPastScene(null); return }
@@ -483,6 +487,23 @@ export function ReportPreflight({
   // Kroki in the output → ALWAYS pick the framing first (WYSIWYG modal, seeded with the
   // auto-fit or the last chosen crop); without a Kroki the action runs directly.
   const [framingFor, setFramingFor] = useState<null | 'pdf' | 'print'>(null)
+  // Loaded when the framing modal OPENS, not on the first drag: the ticks exist to aim that
+  // drag, so arriving after it would be arriving too late. Best-effort — a replay bundle that
+  // will not load costs the marks, never the picker.
+  useEffect(() => {
+    if (!framingFor) return
+    let alive = true
+    void (async () => {
+      try {
+        const startMs = Date.parse(meta.startedAt ?? incident.started_at)
+        bundleRef.current ??= await loadReplay(incident.id, startMs, Date.now())
+        const ws = await stateAt(bundleRef.current, bundleRef.current.endMs)
+        if (alive) setKrokiMoments(activityMoments(bundleRef.current.events, ws?.timeline ?? []))
+      } catch { /* no marks; the slider still works */ }
+    })()
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the modal opening
+  }, [framingFor, incident.id])
   const startOutput = (action: 'pdf' | 'print') => {
     if (options.kroki && mapContentCount > 0 && scene) { setFramingFor(action); return }
     if (action === 'pdf') void downloadPdf()
@@ -1079,6 +1100,7 @@ export function ReportPreflight({
           atMs={krokiAt}
           atBusy={krokiAtBusy}
           onAtChange={setKrokiAt}
+          moments={krokiMoments}
           startedAtMs={Date.parse(meta.startedAt ?? incident.started_at) || null}
           // Auto on first use: the operational extent decides the shape, so a Lage that runs
           // north–south opens upright without anyone asking for it. Once a framing has been

@@ -4612,7 +4612,14 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 /* the slider IS the control: wide enough to aim with a gloved thumb, and the reading sits
    beside it so the value is never hidden under the finger */
 .kf-at-track { position: relative; flex: 1 1 220px; min-width: 160px; max-width: 340px; display: flex; }
-.kf-at-range { flex: 1 1 auto; min-width: 0; accent-color: var(--blue); height: var(--tap); }
+.kf-at-range { flex: 1 1 auto; min-width: 0; accent-color: var(--blue); height: var(--tap); position: relative; z-index: 1; }
+/* WHEN anything happened, as hairlines under the Stand track. They MARK, they are not targets:
+   pointer-events stay off so the slider keeps every pixel of its own hit area, which is the one
+   thing a gloved drag cannot afford to lose. Inset by the thumb's radius so a tick at t=0 sits
+   under the thumb's centre rather than at the track's very edge. */
+.kf-at-marks { position: absolute; inset: 50% 9px auto 9px; height: 0; pointer-events: none; }
+.kf-at-marks i { position: absolute; top: 7px; width: 1.5px; height: 6px; margin-left: -0.75px;
+  border-radius: 1px; background: var(--ink-faint); opacity: .75; }
 /* «wird rekonstruiert» as MOTION on the track it belongs to, not a sentence beside it: a thin
    bar sweeping the slider says the same thing without a fixed text slot resizing the bar. */
 .kf-at-prog { position: absolute; left: 0; right: 0; top: 50%; margin-top: 9px; height: 2px; border-radius: 1px;
@@ -5029,3 +5036,23 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
    in one of them. Inline-block would break the line rhythm, so it only paints. */
 .help-hit { background: color-mix(in srgb, var(--blue) 22%, transparent); color: inherit;
   border-radius: 3px; padding: 0 1px; font-weight: 700; }
+
+/* Verlauf activity strip — WHEN the Einsatz has substance, as one line above the list. A long
+   Verlauf is a wall of rows in which «was war um halb zehn» means scrolling and reading; the
+   strip answers by POSITION, and a tap lands on the nearest row. The strip takes the tap as a
+   whole (a 44px-tall band), so the ticks themselves never need to be hit targets. */
+.jr-strip {
+  position: relative; flex: none; height: 26px; margin: 0 14px 6px; cursor: pointer;
+  border-radius: var(--r-sm); background: var(--fill-soft);
+  box-shadow: inset 0 0 0 1px var(--glass-edge);
+}
+.jr-strip::before { content: ''; position: absolute; inset: -9px 0; }  /* gloved hit band */
+.jr-strip:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.jr-strip i {
+  position: absolute; top: 5px; width: 1.5px; height: 16px; margin-left: -0.75px;
+  border-radius: 1px; background: var(--ink-faint); opacity: .7;
+}
+/* the row the strip just jumped to, briefly — otherwise a smooth scroll ends somewhere with no
+   sign of which line was meant */
+@keyframes jr-flash { from { background: color-mix(in srgb, var(--blue) 18%, transparent); } to { background: transparent; } }
+.hist-ev.jr-flash { animation: jr-flash .9s var(--ease); }

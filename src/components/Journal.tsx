@@ -104,6 +104,38 @@ export function Journal({ events, plans, closedAt, onSelect, onClose, onTranscri
       return { row: e, start, end: start + (e.audioMeta!.durationSec ?? 0) * 1000 }
     })
     .filter((w) => !Number.isNaN(w.start)), [events])
+
+  // The strip's own state: the incident's time span, one tick per dated row, and the jump.
+  // Rows WITHOUT an absolute time (legacy HH:MM-only entries) are simply not on it — a tick at a
+  // guessed position would send the operator to the wrong place, which is worse than no tick.
+  const listRef = useRef<HTMLDivElement>(null)
+  const strideRef = useRef(0)
+  const stripTicks = useMemo(
+    () => events.map((e) => (e.at ? Date.parse(e.at) : NaN)).filter((t) => Number.isFinite(t)).sort((a, b) => a - b),
+    [events],
+  )
+  const stripSpan = useMemo(() => {
+    if (stripTicks.length < 2) return null // one moment is not a timeline
+    const from = stripTicks[0]
+    const to = stripTicks[stripTicks.length - 1]
+    return to > from ? { from, to } : null
+  }, [stripTicks])
+  /** Scroll the list to the row nearest a moment on the strip. */
+  const jumpTo = (ms: number) => {
+    let best: string | null = null
+    let bestD = Infinity
+    for (const e of events) {
+      if (!e.at) continue
+      const d = Math.abs(Date.parse(e.at) - ms)
+      if (d < bestD) { bestD = d; best = e.id }
+    }
+    if (!best) return
+    const el = listRef.current?.querySelector(`[data-ev="${CSS.escape(best)}"]`)
+    el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    el?.classList.add('jr-flash')
+    window.setTimeout(() => el?.classList.remove('jr-flash'), 900)
+  }
+
   return (
     <Overlay open onClose={onClose} className="journal-drawer" backdropClassName="journal-scrim" ariaLabel={C.title} dismissEscape={false}>
         <div className="journal-head">
@@ -115,7 +147,32 @@ export function Journal({ events, plans, closedAt, onSelect, onClose, onTranscri
           )}
           <button className="journal-x" title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog} onClick={onClose}><Icon id="close" /></button>
         </div>
-        <div className="history-list">
+        {/* WHEN the Einsatz has substance, as one strip. A long Verlauf is a wall of rows in
+            which «was war um halb zehn» means scrolling and reading — the strip answers it by
+            position instead, and a tap on it lands on the nearest row. Ticks are not targets
+            (the strip takes the tap as a whole), so nothing here needs a gloved-finger hit box. */}
+        {stripSpan && (
+          <div
+            className="jr-strip" role="slider" tabIndex={0}
+            aria-label={C.stripLabel}
+            aria-valuemin={0} aria-valuemax={100} aria-valuenow={0}
+            onPointerDown={(ev) => {
+              const box = ev.currentTarget.getBoundingClientRect()
+              const frac = Math.min(1, Math.max(0, (ev.clientX - box.left) / box.width))
+              jumpTo(stripSpan.from + frac * (stripSpan.to - stripSpan.from))
+            }}
+            onKeyDown={(ev) => {
+              const step = (stripSpan.to - stripSpan.from) / 20
+              if (ev.key === 'ArrowRight') { ev.preventDefault(); jumpTo(stripSpan.from + step * ++strideRef.current) }
+              if (ev.key === 'ArrowLeft') { ev.preventDefault(); jumpTo(stripSpan.from + step * --strideRef.current) }
+            }}
+          >
+            {stripTicks.map((t, i) => (
+              <i key={i} style={{ left: `${((t - stripSpan.from) / (stripSpan.to - stripSpan.from)) * 100}%` }} />
+            ))}
+          </div>
+        )}
+        <div className="history-list" ref={listRef}>
           {events.length === 0 && <EmptyState icon="history" title={C.empty} />}
           {groupByDay(events).map((g, gi) => (
             <Fragment key={g.label ?? `today-${gi}`}>
@@ -133,6 +190,7 @@ export function Journal({ events, plans, closedAt, onSelect, onClose, onTranscri
               <div
                 className={`hist-ev ${clickable ? 'clickable' : ''}`}
                 key={e.id}
+                data-ev={e.id}
                 role={clickable ? 'button' : undefined}
                 tabIndex={clickable ? 0 : undefined}
                 onClick={clickable ? () => onSelect(e) : undefined}

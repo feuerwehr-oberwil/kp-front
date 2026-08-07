@@ -47,7 +47,7 @@ function forkAngle(coords: LngLat[]): number {
   return (Math.atan2(-dy, dx) * 180) / Math.PI
 }
 
-export function KrokiFramingModal({ scene, initial, atMs = null, atBusy = false, onAtChange, startedAtMs = null, landscape = true, trupps = [], captionMode = 'auto', onCancel, onConfirm }: {
+export function KrokiFramingModal({ scene, initial, atMs = null, atBusy = false, onAtChange, moments = [], startedAtMs = null, landscape = true, trupps = [], captionMode = 'auto', onCancel, onConfirm }: {
   scene: { entities: Entity[]; drawings: Drawing[]; layers: LayerDef[]; byName: Record<string, string>; center: LngLat }
   /** a previously chosen crop — reopens where the operator left it */
   initial: KrokiView | null
@@ -57,6 +57,9 @@ export function KrokiFramingModal({ scene, initial, atMs = null, atBusy = false,
   atMs?: number | null
   atBusy?: boolean
   onAtChange?: (ms: number | null) => void
+  /** epoch-ms of every moment something actually happened (lib/replay · activityMoments) —
+   *  drawn as hairlines on the Stand track so dragging is aimed rather than blind */
+  moments?: number[]
   /** the Einsatz's start — the slider's left end; its right end is «jetzt» */
   startedAtMs?: number | null
   /** the page shape the Kroki prints on. The crop window IS the page here — WYSIWYG only holds
@@ -313,7 +316,21 @@ export function KrokiFramingModal({ scene, initial, atMs = null, atBusy = false,
                   control, needed a fixed slot so its coming and going didn't resize the bar
                   under the finger, and still said in eleven words what the track can say by
                   moving. */}
+              {/* WHEN anything happened, as hairlines under the track. Without them «drag until
+                  the picture shows it» is a blind search across the whole Einsatz — and the
+                  moments worth stopping at are exactly the ones that left a Verlauf row or a
+                  recorded action. Ticks only: they mark, they are not targets, and the slider
+                  underneath keeps every pixel of its own hit area. */}
               <span className={cx('kf-at-track', atBusy && 'busy')}>
+                {moments.length > 0 && (
+                  <span className="kf-at-marks" aria-hidden="true">
+                    {moments.map((t, i) => {
+                      const span = nowMs - startedAtMs
+                      if (span <= 0 || t < startedAtMs || t > nowMs) return null
+                      return <i key={i} style={{ left: `${((t - startedAtMs) / span) * 100}%` }} />
+                    })}
+                  </span>
+                )}
                 <input
                   className="kf-at-range" type="range"
                   min={startedAtMs} max={nowMs} step={30_000}
