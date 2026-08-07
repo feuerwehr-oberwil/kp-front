@@ -2523,6 +2523,7 @@ export const de = {
     addGuestPlaceholder: 'z. B. Muster Felix (Nachbarwehr)',
     guestGroup: 'Weitere',
     guestBadge: 'Gast',
+    removeGuest: 'Person entfernen',
     // Wer eine Funktion übernimmt, ist auch anwesend – die Bemerkung wird dabei automatisch
     // gesetzt, aber nur wenn noch keine von Hand geschrieben wurde.
     // eine Zeile pro Person, nicht eine für die Anwesenheit und eine zweite für die Funktion

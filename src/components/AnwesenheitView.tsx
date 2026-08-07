@@ -75,12 +75,14 @@ function toHM(iso: string): string {
  * a return is opened. Built on the SAME sheet the Zeitplan's Schichten use, so the two stay
  * identical rather than drifting apart.
  */
-function PresenceSheet({ person, blocks, note, canEdit, startedAt, onSetTimes, onRemoveBlock, onSetNote, onBack, onClose }: {
+function PresenceSheet({ person, blocks, note, canEdit, startedAt, onSetTimes, onRemoveBlock, onSetNote, onRemoveGuest, onBack, onClose }: {
   person: Person
   blocks: PresenceInterval[]
   /** free remark on this person for this incident («Fahrer TLF», «abgelöst 21:40») */
   note?: string
   onSetNote?: (personId: string, note: string) => void
+  /** take a hand-added person off the sheet entirely — never offered for a roster row */
+  onRemoveGuest?: (p: Person) => void
   canEdit: boolean
   /** incident alarm time — drives the day labels and the «ab Beginn» shortcut */
   startedAt?: string | null
@@ -117,21 +119,35 @@ function PresenceSheet({ person, blocks, note, canEdit, startedAt, onSetTimes, o
       // The remark belongs to the person on THIS Einsatz, not to their roster entry: «Fahrer
       // TLF», «abgelöst 21:40». It sits with the times because that is the one surface that is
       // already about what this person did here, and it prints on the Personalblatt beside them.
-      extra={canEdit && onSetNote ? (
-        <label className="ip-field">
-          <span>{A.noteLabel}</span>
-          <input
-            className="ip-input" defaultValue={note ?? ''} placeholder={A.notePlaceholder}
-            // a remark is one line beside the name on the Personalblatt; an essay pasted in
-            // here used to make the whole Rapport fail to compose (report_pdf · _clip_note)
-            maxLength={240}
-            onBlur={(e) => onSetNote(person.id, e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-          />
-        </label>
-      ) : note ? (
-        <div className="ip-field"><span>{A.noteLabel}</span><b>{note}</b></div>
-      ) : undefined}
+      extra={(
+        <>
+          {canEdit && onSetNote ? (
+            <label className="ip-field">
+              <span>{A.noteLabel}</span>
+              <input
+                className="ip-input" defaultValue={note ?? ''} placeholder={A.notePlaceholder}
+                // a remark is one line beside the name on the Personalblatt; an essay pasted in
+                // here used to make the whole Rapport fail to compose (report_pdf · _clip_note)
+                maxLength={240}
+                onBlur={(e) => onSetNote(person.id, e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+              />
+            </label>
+          ) : note ? (
+            <div className="ip-field"><span>{A.noteLabel}</span><b>{note}</b></div>
+          ) : null}
+          {/* Only for somebody who is not on the Mannschaftsliste. A roster row cannot be
+              «removed» — it goes back to frei by tapping — but a hand-added person can be a
+              mistake, and then there has to be a way off the sheet. It lives HERE rather than on
+              the row, because the row's tap is the one gesture that must never delete anybody. */}
+          {canEdit && person.guest && onRemoveGuest && (
+            <button type="button" className="ip-btn ip-btn-danger" onClick={() => onRemoveGuest(person)}>
+              <Icon id="trash" /> {A.removeGuest}
+            </button>
+          )}
+        </>
+      )}
+
       blocks={blocks.map((iv, i) => ({
         key: String(i),
         from: toHM(iv.from),
@@ -463,7 +479,13 @@ export function AnwesenheitView({
       if (blockedIds.has(p.id)) { onJumpToTrupp(); return }
       onMarkLeft(p)
     } else if (status === 'left') {
-      onClear(p)
+      // A roster row cycles back to «frei» — it is still on the Mannschaftsliste either way.
+      // A guest's attendance entry IS the only record that they were ever here, so the same tap
+      // would delete the person. They cycle back to «anwesend» instead, and removing one is an
+      // explicit act in the Zeiten sheet — same rule as a hand-added Mittel, where 0 is a value
+      // and «gelöscht» is a decision.
+      if (p.guest) onMarkPresent(p)
+      else onClear(p)
     } else {
       onMarkPresent(p)
     }
@@ -809,6 +831,7 @@ export function AnwesenheitView({
           onSetTimes={onSetTimes}
           onRemoveBlock={onRemoveBlock}
           onSetNote={onSetNote}
+          onRemoveGuest={(p) => { setBlocksFor(null); onClear(p) }}
           /* stays open: the new block appears in the list you are looking at, so a mis-tap is
              seen and can be corrected on the spot */
           onBack={() => onMarkPresent(blocksPerson)}

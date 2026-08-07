@@ -56,3 +56,19 @@ describe('addGuest — somebody on scene who is not on the Mannschaftsliste', ()
     expect(Object.keys(state.attendance)).toHaveLength(2)
   })
 })
+
+describe('removing a guest on purpose', () => {
+  // The row's tap no longer reaches this for a guest (see AnwesenheitView · cycle): their
+  // attendance entry is the only record that they were ever here, so the third tap would delete
+  // the person. This is the explicit path behind «Person entfernen», and it still works.
+  const guest = { id: 'g1', displayName: 'Muster Felix', active: true, updatedAt: '', guest: true }
+
+  it('takes them off the sheet, with the usual undo', () => {
+    const { actions, state } = harness({
+      g1: { status: 'present', displayNameSnapshot: 'Muster Felix', intervals: [{ from: STARTED }] },
+    })
+    actions.clearAttendance(guest)
+    expect(state.attendance.g1).toBeUndefined()
+    expect(state.log.join(' ')).toContain('Muster Felix')
+  })
+})
