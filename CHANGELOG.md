@@ -129,6 +129,12 @@ so this file – not the log – is the record of what shipped up to that point.
   (`report.reversePrintOrder`, switch it off for a printer that ejects face-down); the
   downloaded PDF stays in reading order, because that one is read on a screen.
 
+- **Die Geschoss-Skizze kam halb hochkant und halb quer aus dem Drucker.** Each page was shaped
+  by the number of storeys that happened to land on it – two gave an upright sheet, one a wide
+  one – so a building with an odd number of floors printed in two orientations. Every page keeps
+  the same grid now; a page short of a storey leaves its lower band empty, which is what a stack
+  with nothing above it looks like.
+
 - **The station's logo prints on the Rapport.** The uploaded Logo (Admin → Branding) sits above
   the title as a letterhead – the rapport leaves the building, to the Gemeinde, the Versicherung
   or the GVB, and should say whose it is before it says what happened. Deliberately modest, and

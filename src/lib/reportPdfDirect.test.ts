@@ -31,7 +31,9 @@ describe('floorStackPages', () => {
     expect(pages[0].label).toBe('Gebäude · 1. OG – EG')
     expect(pages[0].blankAspect).toBeCloseTo(2 * TILE_AR)
     expect(pages[1].label).toBe('Gebäude · 1. UG')
-    expect(pages[1].blankAspect).toBeCloseTo(TILE_AR)
+    // every page is the SAME shape, whether it carries two storeys or one: a mixed stack came
+    // out of the printer half upright and half sideways
+    expect(pages[1].blankAspect).toBeCloseTo(2 * TILE_AR)
   })
 
   it('lifts tile-local annos into page space on the right page', () => {
@@ -42,7 +44,8 @@ describe('floorStackPages', () => {
     const pages = floorStackPages(plan, building, annos, {})
     const sym = pages[0].annos.find((x) => x.symbol === 'VKF Feuer')!
     expect(sym.y).toBeCloseTo((1 + 0.5) / 2) // second tile of a 2-tile page
-    expect(pages[1].annos.some((x) => x.kind === 'draw' && Array.isArray(x.pts) && (x.pts as number[][])[0][1] === 0.4)).toBe(true)
+    // the last page keeps the page's band grid, so its single storey sits in the TOP band
+    expect(pages[1].annos.some((x) => x.kind === 'draw' && Array.isArray(x.pts) && (x.pts as number[][])[0][1] === 0.2)).toBe(true)
     // an anno on a storey the building no longer has is dropped, not misplaced
     expect(floorStackPages(plan, building, [{ id: 'c', kind: 'text', x: 0.5, y: 0.5, floor: 4, text: 'x' }], {})
       .flatMap((p) => p.annos).some((x) => x.text === 'x')).toBe(false)

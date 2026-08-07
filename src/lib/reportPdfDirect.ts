@@ -89,7 +89,13 @@ export function floorStackPages(
   const chunks: number[][] = []
   for (let i = 0; i < floorsTTB.length; i += STACK_FLOORS_PER_PAGE) chunks.push(floorsTTB.slice(i, i + STACK_FLOORS_PER_PAGE))
   return chunks.map((chunk, ci) => {
-    const N = chunk.length
+    // ⚠️ The band grid is the PAGE's, not the chunk's. Dividing by the number of storeys that
+    // happen to land on a page made the last page of an odd building a different SHAPE from the
+    // ones before it — two storeys gave a tall page, one gave a wide one, and the Gebäude came
+    // out of the printer half portrait and half landscape. A constant grid keeps every page
+    // upright and every floor tile the same size; a page that is short of a storey simply
+    // leaves its lower band empty, which is what a stack with nothing above it looks like.
+    const N = STACK_FLOORS_PER_PAGE
     const { rw, rh } = fpBoxFrac(fp.aspect, 1, N * TILE_AR, N)
     const page: Record<string, unknown>[] = []
     chunk.forEach((f, idx) => {
@@ -103,7 +109,7 @@ export function floorStackPages(
       }
       page.push({ kind: 'text', x: 0.06, y: (idx + 0.06) / N, text: floorLabel(f) })
     })
-    if (ci === 0) page.push({ kind: 'symbol', x: 0.94, y: 0.045 / chunks[0].length, symbolSvg: northDialSvg(viewAngle), sizeN: 0.055 })
+    if (ci === 0) page.push({ kind: 'symbol', x: 0.94, y: 0.045 / N, symbolSvg: northDialSvg(viewAngle), sizeN: 0.055 })
     // board annos of these storeys, lifted tile-local → page space (x spans the full width)
     const lift = (a: BoardAnno, idx: number): BoardAnno => ({
       ...a,
