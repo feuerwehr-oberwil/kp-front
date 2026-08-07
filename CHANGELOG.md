@@ -129,6 +129,13 @@ so this file – not the log – is the record of what shipped up to that point.
   (`report.reversePrintOrder`, switch it off for a printer that ejects face-down); the
   downloaded PDF stays in reading order, because that one is read on a screen.
 
+- **The station's logo prints on the Rapport.** The uploaded Logo (Admin → Branding) sits above
+  the title as a letterhead – the rapport leaves the building, to the Gemeinde, the Versicherung
+  or the GVB, and should say whose it is before it says what happened. Deliberately modest, and
+  resolved on the server from the station's own configuration rather than sent along with the
+  print, so nothing else can put a picture at the top of a document that gets signed. An SVG is
+  rendered; a missing or unreadable file simply prints nothing.
+
 - **The Kroki crop window collapsed into a strip.** Centring the frame cancelled its stretch, so
   it fell back to a width of nothing and took its own height with it – the ± buttons and the
   hint ended up floating over the header and the footer. The frame is sized explicitly now.

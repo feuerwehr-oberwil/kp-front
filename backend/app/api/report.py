@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import storage
 from ..auth.dependencies import CurrentUser
 from ..database import get_db
+from ..models import DeploymentConfig as DeploymentConfigRow
 from ..models import Incident, Media, ReferenceDataset
 from ..report_pdf import ReportPayload, compose_report_pdf
 from ..schichtplan_pdf import compose_schichtplan_pdf
@@ -34,6 +35,27 @@ _ALLOWED_FIGURE_TYPES = {"image/png", "image/jpeg", "image/webp"}
 
 _MEDIA_URL = re.compile(r"^/api/media/([0-9a-fA-F-]{36})$")
 _REFERENCE_URL = re.compile(r"^/api/reference/([^/?#]+)$")
+_BRANDING_URL = re.compile(r"^/api/branding/file/([^/?#]+)$")
+
+#: The station's logo on the printed rapport, under the composer's `logo` figure key. Resolved
+#: HERE rather than uploaded by the client: the deployment config is the server's own record of
+#: which brigade this is, and a client-supplied logo would let a poster token print any picture
+#: it liked at the top of a document that gets signed.
+_LOGO_KEY = "logo"
+
+
+async def _resolve_logo(db: AsyncSession, figs: dict[str, bytes]) -> None:
+    row = (await db.execute(select(DeploymentConfigRow))).scalars().first()
+    url = ((row.config_json if row else None) or {}).get("identity", {}).get("assets", {}).get("logo")
+    if not isinstance(url, str):
+        return
+    m = _BRANDING_URL.match(url)
+    if not m:
+        return
+    try:
+        figs[_LOGO_KEY] = await storage.aget_bytes(m.group(1))
+    except OSError:
+        return  # the rapport prints without it — a missing logo is never worth failing over
 
 
 async def resolve_report_assets(db: AsyncSession, data: ReportPayload, figs: dict[str, bytes]) -> dict[str, bytes]:
@@ -41,6 +63,8 @@ async def resolve_report_assets(db: AsyncSession, data: ReportPayload, figs: dic
     store (keyed `photo:<url>` into `figs`) and plan PDFs from the reference store
     (returned as url→bytes). Missing/foreign assets are skipped — the rapport ships
     without that picture rather than failing."""
+    await _resolve_logo(db, figs)
+
     for row in data.journal:
         # a row may carry several pictures; the legacy single `photoUrl` is just the one-element case
         for url in row.photoUrls or ([row.photoUrl] if row.photoUrl else []):

@@ -650,6 +650,37 @@ class _FormRows(Flowable):
                 offset += w
 
 
+#: Letterhead size for the station logo — tall enough to be recognised, short enough that the
+#: incident title stays the first thing read on the page.
+_LOGO_H = 13 * mm
+_LOGO_MAX_W = 55 * mm
+
+
+def _logo_flowable(data: bytes | None) -> Image | None:
+    """The station logo as a left-hung letterhead, or None when there is nothing printable.
+
+    SVG is the default brandmark and ReportLab cannot read it, so it is rasterised through the
+    same renderer the Kroki symbols use. Anything that fails to decode is skipped silently.
+    """
+    if not data:
+        return None
+    if data[:5] in (b"<?xml", b"<svg ") or b"<svg" in data[:512]:
+        try:
+            from . import kroki as kk
+
+            img = kk.raster_svg(data.decode("utf-8", "replace"), 512)
+            b = io.BytesIO()
+            img.save(b, "PNG")
+            data = b.getvalue()
+        except Exception:  # noqa: BLE001 — a logo never fails a rapport
+            logger.warning("Logo konnte nicht gerendert werden — Rapport wird ohne Logo gedruckt.", exc_info=True)
+            return None
+    out = _fit_image(data, _LOGO_MAX_W, _LOGO_H)
+    if out is not None:
+        out.hAlign = "LEFT"
+    return out
+
+
 def _fit_image(data: bytes | None, max_w: float, max_h: float) -> Image | None:
     if not data:
         return None
@@ -782,6 +813,14 @@ def compose_report_pdf(
         return t
 
     # --- page 1: Haupt-Rapport ------------------------------------------------------------
+    # The station's own mark above the title — the rapport leaves the building (Gemeinde,
+    # Versicherung, GVB) and should say whose it is before it says what happened. Modest by
+    # design: a letterhead, not a banner. Missing, unreadable or SVG-without-a-renderer simply
+    # prints nothing — a logo is never worth failing a rapport over.
+    logo = _logo_flowable(figures.get("logo"))
+    if logo is not None:
+        story.append(logo)
+        story.append(Spacer(1, 6))
     story.append(Paragraph(_esc(payload.incident.title), st["title"]))
     iid = payload.incident.id
     short_id = f"{iid[:8]}…{iid[-4:]}" if len(iid) > 14 else iid

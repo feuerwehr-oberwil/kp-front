@@ -312,7 +312,7 @@ Stored in the configured asset store (local volume by default; S3 optional). Lim
 ### 3a. Branding
 | Asset | Format | Notes |
 |-------|--------|-------|
-| Logo | SVG (preferred) or PNG | shown in login/header; transparent background |
+| Logo | SVG (preferred) or PNG | shown in login/header **and above the title on the printed Einsatzrapport**; transparent background |
 | App icon | PNG **192×192** and **512×512** | PWA / home-screen |
 | Favicon | SVG or ICO | browser tab |
 
