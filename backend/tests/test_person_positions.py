@@ -345,3 +345,39 @@ async def test_unknown_person_is_rejected(client, editor, incident, db_session):
         },
     )
     assert r.status_code in (404, 422), r.text
+
+
+@pytest.mark.asyncio
+async def test_an_editor_clears_a_position_without_the_phone(client, editor, incident, person):
+    """Somebody drives home with sharing still on, or a phone dies holding its last fix — the dot
+    then claims a crew is somewhere they are not, and only that phone could remove it."""
+    await _login(client, editor)
+    await client.post(f"/api/incidents/{incident.id}/positions", json=_body(person))
+    assert len((await client.get(f"/api/incidents/{incident.id}/positions")).json()) == 1
+
+    # no `device`: the whole point is that the phone is not reachable
+    r = await client.delete(f"/api/incidents/{incident.id}/positions/{person.id}")
+    assert r.status_code == 204, r.text
+    assert (await client.get(f"/api/incidents/{incident.id}/positions")).json() == []
+
+
+@pytest.mark.asyncio
+async def test_a_viewer_may_not_clear_somebody_elses_position(client, viewer, editor, incident, person):
+    """Reading the Lage is not authority over what other people reported about themselves."""
+    await _login(client, editor)
+    await client.post(f"/api/incidents/{incident.id}/positions", json=_body(person))
+
+    await _login(client, viewer)
+    assert (await client.delete(f"/api/incidents/{incident.id}/positions/{person.id}")).status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_a_phone_still_only_switches_off_its_own(client, editor, incident, person):
+    """The device-scoped form is unchanged: one phone can never stop another's sharing."""
+    await _login(client, editor)
+    await client.post(f"/api/incidents/{incident.id}/positions", json=_body(person))
+
+    # a different device deletes nothing, and still answers 204 (never a prober oracle)
+    r = await client.delete(f"/api/incidents/{incident.id}/positions/{person.id}?device={OTHER_DEVICE}")
+    assert r.status_code == 204
+    assert len((await client.get(f"/api/incidents/{incident.id}/positions")).json()) == 1

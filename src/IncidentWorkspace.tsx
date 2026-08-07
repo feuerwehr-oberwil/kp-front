@@ -36,6 +36,7 @@ import { useUndoableDoc } from './lib/useUndoableDoc'
 import { useJournal } from './lib/useJournal'
 import { useWakeLock } from './lib/useWakeLock'
 import { toast, confirmDialog } from './lib/ui'
+import { apiDelete } from './lib/api'
 import { loadPrefs, savePrefs, symbolMul } from './lib/prefs'
 import { useAttendanceActions } from './lib/useAttendanceActions'
 import { useMittelActions } from './lib/useMittelActions'
@@ -2110,6 +2111,26 @@ export function IncidentWorkspace({
    * field whose placeholder has always advertised exactly this and which nothing ever wrote. Only
    * onto an EMPTY remark: what somebody typed there by hand outranks anything derived.
    */
+  /**
+   * Clear a crew member's self-reported position from the command post. The dot's entity id is
+   * `pos-<personId>` (lib/usePersonPositions), which is the only handle the panel has.
+   *
+   * No `device` on the request: that parameter scopes the delete to ONE phone, which is right
+   * for «nicht mehr teilen» pressed on that phone and useless here — the whole point is that the
+   * phone is not reachable (driven home, flat battery). The backend requires an editor for the
+   * device-less form.
+   */
+  const stopPersonSharing = async (entityId: string) => {
+    const personId = entityId.replace(/^pos-/, '')
+    try {
+      await apiDelete(`/api/incidents/${incidentMeta.id}/positions/${personId}`)
+      setSelectedId(null)
+      log('people', appConfig.copy.contextPanel.stopSharing, 'team')
+    } catch {
+      toast(appConfig.copy.contextPanel.stopSharingFailed, { icon: 'warn', tone: 'warn' })
+    }
+  }
+
   const ensurePresentForRole = (ids: (string | undefined)[], roleNote?: string) => {
     const wanted = [...new Set(ids.filter(Boolean) as string[])]
     const fresh = wanted.filter((id) => !isPresent(attendance[id]))
@@ -2655,6 +2676,11 @@ export function IncidentWorkspace({
           // Vehicles only. «GPS» undoes an operator's drag/rotate of a live symbol — a person
           // dot has neither (both are blocked in MapMarkers), so the button sat there
           // permanently disabled, a dead control inviting «what does this do?».
+          // A crew member's own dot: the command post may clear it (editor only). Never offered
+          // for a vehicle — that position comes from the fleet feed, not from a person.
+          onStopSharing={selected.live && selected.kind === 'person' && canEditIncident && !readOnly
+            ? () => { void stopPersonSharing(selected.id) }
+            : undefined}
           onResetGps={selected.live && selected.kind !== 'person'
             ? () => setVehicleOverrides((m) => { const { [selected.id]: _drop, ...rest } = m; return rest })
             : undefined}

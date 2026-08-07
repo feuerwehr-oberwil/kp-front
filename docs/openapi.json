@@ -2088,7 +2088,7 @@
           "positions"
         ],
         "summary": "Stop Sharing",
-        "description": "Stop sharing: delete the row outright so the dot disappears at once.\n\nAging out instead would leave a stale dot sitting where someone decided to stop being\nvisible, which is the opposite of what they asked for. `device` must match the row, so\none phone cannot switch off another's sharing. Always 204 — a row that is already gone\nis the state the caller wanted, and a 404 here would only tell a prober which names are\ncurrently sharing.",
+        "description": "Stop sharing: delete the row outright so the dot disappears at once.\n\nAging out instead would leave a stale dot sitting where someone decided to stop being\nvisible, which is the opposite of what they asked for. Always 204 — a row that is already\ngone is the state the caller wanted, and a 404 here would only tell a prober which names\nare currently sharing.\n\nTWO CALLERS, ONE ROUTE:\n\n* **The phone that is sharing** passes its own ``device``, and the delete is scoped to that\n  row — so one phone can never switch off another's sharing. This is the normal path and the\n  only one a link session can reach.\n* **The command post** (an EDITOR, logged in) passes no ``device`` and clears every row for\n  that person. Somebody drives home with sharing still on, or a phone dies holding its last\n  fix, and the dot sits on the Lage claiming a crew is somewhere they are not. Removing it is\n  the operator's job and there was no way to do it.\n\nAn editor deleting a position REMOVES data — it exposes nothing — so this is not a widening\nof who can see what. A viewer without a device gets 403: reading the Lage is not authority\nover what other people reported.",
         "operationId": "stop_sharing_api_incidents__incident_id__positions__person_id__delete",
         "parameters": [
           {
@@ -2114,9 +2114,16 @@
           {
             "name": "device",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "type": "string",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "Device"
             }
           },

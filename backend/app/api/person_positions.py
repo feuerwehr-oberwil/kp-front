@@ -190,28 +190,42 @@ async def put_position(
 async def stop_sharing(
     incident_id: uuid.UUID,
     person_id: uuid.UUID,
-    device: str,
-    _user: CurrentUser,
+    user: CurrentUser,
+    device: str | None = None,
     db: AsyncSession = Depends(get_db),
 ) -> Response:
     """Stop sharing: delete the row outright so the dot disappears at once.
 
     Aging out instead would leave a stale dot sitting where someone decided to stop being
-    visible, which is the opposite of what they asked for. `device` must match the row, so
-    one phone cannot switch off another's sharing. Always 204 — a row that is already gone
-    is the state the caller wanted, and a 404 here would only tell a prober which names are
-    currently sharing.
+    visible, which is the opposite of what they asked for. Always 204 — a row that is already
+    gone is the state the caller wanted, and a 404 here would only tell a prober which names
+    are currently sharing.
+
+    TWO CALLERS, ONE ROUTE:
+
+    * **The phone that is sharing** passes its own ``device``, and the delete is scoped to that
+      row — so one phone can never switch off another's sharing. This is the normal path and the
+      only one a link session can reach.
+    * **The command post** (an EDITOR, logged in) passes no ``device`` and clears every row for
+      that person. Somebody drives home with sharing still on, or a phone dies holding its last
+      fix, and the dot sits on the Lage claiming a crew is somewhere they are not. Removing it is
+      the operator's job and there was no way to do it.
+
+    An editor deleting a position REMOVES data — it exposes nothing — so this is not a widening
+    of who can see what. A viewer without a device gets 403: reading the Lage is not authority
+    over what other people reported.
     """
     if await is_demo_deployment(db):
         return Response(status_code=status.HTTP_204_NO_CONTENT)
-    await execute_dml(
-        db,
-        delete(PersonPosition).where(
-            PersonPosition.incident_id == incident_id,
-            PersonPosition.person_id == person_id,
-            PersonPosition.device_id == device,
-        ),
-    )
+    if device is None and user.role != "editor":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="editor-required")
+    where = [
+        PersonPosition.incident_id == incident_id,
+        PersonPosition.person_id == person_id,
+    ]
+    if device is not None:
+        where.append(PersonPosition.device_id == device)
+    await execute_dml(db, delete(PersonPosition).where(*where))
     await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

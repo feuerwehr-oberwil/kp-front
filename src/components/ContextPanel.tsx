@@ -138,6 +138,11 @@ interface Props {
   /** preset-seeded field keys — protected from row deletion (no ✕) so they aren't lost by a stray tap */
   protectedKeys?: Set<string>
   onDelete: () => void
+  /** Clear a crew member's self-reported position (Selbstauskunft) from the command post.
+   *  Editor-only, and offered ONLY on a live `person` dot: somebody drives home with sharing
+   *  still on, or a phone dies holding its last fix, and the dot then claims a crew is
+   *  somewhere they are not. Removing it takes data away and shows nothing new. */
+  onStopSharing?: () => void
   /** entity is externally sourced (live GPS) — title/fields are not editable and it can't be deleted */
   readOnly?: boolean
   /** true when the vehicle has a manual position/orientation override */
@@ -187,7 +192,7 @@ function LabeledStepper({ label, ...rest }: { label: string } & React.ComponentP
   )
 }
 
-export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, readOnly, hasOverride, onResetGps, driver, connectedLines = [], onFocusLine, onNoteWidth, onNoteSize, onNotePlain, onColor, onTeamColor }: Props) {
+export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onStopSharing, readOnly, hasOverride, onResetGps, driver, connectedLines = [], onFocusLine, onNoteWidth, onNoteSize, onNotePlain, onColor, onTeamColor }: Props) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
   const N = appConfig.copy.notes
@@ -349,14 +354,18 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
   const actions = (
     <div className="ctx-actions">
       {onCenter && <button className="btn" onClick={onCenter}><Icon id="cross" />{C.center}</button>}
-      {/* «GPS» (reset a vehicle's manual override) and «Löschen» are alternatives — and a live
-          entity gets NEITHER unless it is a vehicle, because `readOnly` is already true for
-          anything externally sourced (see the prop). A self-reported crew position is
-          re-derived every poll, so a delete here would remove a row that reappears seconds
-          later; the way to make that dot go is the phone's own «nicht mehr teilen». */}
+      {/* «GPS» (reset a vehicle's manual override) and «Löschen» are alternatives, and a live
+          entity gets neither — `readOnly` is already true for anything externally sourced.
+          A self-reported crew position is the exception: it is somebody's own row, and the
+          command post can clear it (see onStopSharing). */}
+      {onStopSharing && (
+        <button className="btn warn" onClick={onStopSharing} title={C.stopSharingTitle}>
+          <Icon id="close" />{C.stopSharing}
+        </button>
+      )}
       {onResetGps
         ? <button className="btn" disabled={!hasOverride} onClick={onResetGps} title={C.resetGpsTitle}><Icon id="compass" />{C.resetGps}</button>
-        : !readOnly && <button className="btn warn" onClick={onDelete}><Icon id="close" />{appConfig.copy.delete}</button>}
+        : !readOnly && !onStopSharing && <button className="btn warn" onClick={onDelete}><Icon id="close" />{appConfig.copy.delete}</button>}
     </div>
   )
 

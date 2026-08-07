@@ -1301,6 +1301,12 @@ export const de = {
     center: 'Zentrieren',
     resetGps: 'GPS',
     resetGpsTitle: 'Auf GPS-Position und -Kurs zurücksetzen',
+    // Selbstauskunft vom Kommandoposten aus entfernen: jemand fährt mit eingeschaltetem Teilen
+    // nach Hause, oder ein Handy stirbt auf seinem letzten Fix – der Punkt behauptet dann, eine
+    // Kraft sei irgendwo, wo sie nicht ist.
+    stopSharing: 'Selbstauskunft entfernen',
+    stopSharingTitle: 'Selbstgemeldete Position dieser Person entfernen. Sie kann danach jederzeit wieder teilen.',
+    stopSharingFailed: 'Selbstauskunft konnte nicht entfernt werden.',
     // Fahrer eines LIVE-Fahrzeugs: der GPS-Feed weiss wo, nie wer am Steuer sitzt.
     driverLabel: 'Fahrer',
     driverPlaceholder: 'Name aus der Mannschaft',
