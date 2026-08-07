@@ -62,7 +62,7 @@ Everything below is about the maintainer channels.
 | Default | Always available | **Off** |
 | Consent | Pressing the button | An admin switches it on in **System & Wartung** |
 | Can be disabled entirely | Yes, `KP_TELEMETRY_ENABLED=0` | Yes, same switch |
-| Content | The text they typed, plus the technical block they read first | A sanitised crash |
+| Content | The text they typed, plus the technical block they read first — and a photo, if they attached one by hand | A sanitised crash |
 
 ## What is sent
 
@@ -82,19 +82,43 @@ A manual report adds the operator's own text and which trouble prompted it. A ba
 report adds the exception type, a scrubbed message, a stack reduced to function names and module
 basenames, and the route shape.
 
+### The one exception: a photo you attach yourself
+
+A manual report — and only a manual report — can carry **up to two photos, and only ones you
+picked yourself** in the Rückmeldung sheet. This is the single place where something leaves that
+the sanitiser cannot read: there is no allow-list for pixels and no way to scrub a picture, so
+that job falls to you instead, which is why it works the way it does:
+
+- **The app never captures a screen.** There is no code path that takes a screenshot, and there
+  is no automatic capture anywhere in either channel. You open a file picker or the camera.
+- **You see it before you decide.** The photo is shown as a thumbnail directly under *«Das wird
+  mitgeschickt»*, above the send button, next to the technical block it belongs to.
+- **It travels on the direct-send route only.** *Kopieren* and *E-Mail* cannot carry a file and
+  say so; on a deployment with `KP_TELEMETRY_ENABLED=0` the option is not offered at all.
+- **It is shrunk in your browser first**, to at most 1600 px on the long edge and 360 kB, and
+  re-encoded — which also strips the EXIF block, so the GPS position a phone stamps into its
+  photos does not travel with it. A picture that cannot be made to fit is refused there and then,
+  not silently dropped later.
+- **It is in your log and your database like everything else** (see below): the photo rides
+  inside the payload, so the two copies you can inspect are complete.
+
+Removing a photo before sending removes it. Nothing about it is kept on the device.
+
 ## What is never sent
 
 Not "we try not to send" — these are constructed out of the payload and asserted by tests
 (`backend/tests/test_telemetry_scrub.py`):
 
 - **Incident data of any kind**: addresses, coordinates (WGS84 *and* LV95), incident IDs, object
-  names, journal text, drawings, photos, audio, plan files.
+  names, journal text, drawings, audio, plan files. No incident medium is ever read by this
+  code — the only picture that can travel is one you attached by hand, above.
 - **People**: roster names, functions, phone numbers, e-mail addresses, Divera identities, PINs.
 - **Your instance**: hostname, station name, deployment config, database contents, file paths,
   usernames, environment variables, tokens, secrets.
 - **Network identity**: no IP address is placed in the payload, and no `user` object exists for
   one to appear in later. See "The IP question" below for the part we cannot solve in code.
-- **Screenshots.** There is no code path that captures one.
+- **Screenshots.** There is no code path that captures one. A photo *you* pick in the
+  Rückmeldung sheet is a different thing, and it is the only thing of its kind — see above.
 
 The payload is built by an **allow-list**: every field is named in
 `backend/app/telemetry/scrub.py` and the caller's object is never forwarded, merged or spread.
@@ -112,7 +136,9 @@ You do not have to take any of the above on faith:
 3. **The admin screen.** *System & Wartung → Fehlerberichte* shows the same rows, newest first,
    as formatted JSON.
 4. **The manual report** shows you the technical block before you send, and — after sending —
-   what the server says it actually queued.
+   what the server says it actually queued. An attached photo appears there as its type and
+   size rather than as a page of base64: you have already seen the picture itself, in the
+   thumbnail, and the full bytes are in the two copies above.
 
 ## Where it goes
 

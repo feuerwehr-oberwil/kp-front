@@ -4962,6 +4962,35 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
   border-radius: var(--r-sm); background: var(--fill-soft); color: var(--ink-dim);
   font: 400 12px/1.6 var(--mono, ui-monospace, monospace); white-space: pre; }
 .fb-tech-note { margin: 6px 0 0; font: 400 12px var(--body); color: var(--ink-faint); }
+/* Foto anhängen — the one binary a Rückmeldung may carry, and the only part of the payload no
+   scrubber can read. It sits directly under «Das wird mitgeschickt» because that is what it is:
+   a thumbnail the operator can recognise before deciding, not a filename they have to trust. */
+.fb-photos { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: -4px 0 0; }
+.fb-photo { position: relative; margin: 0; width: 96px; height: 96px; overflow: hidden;
+  border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--fill-soft); }
+.fb-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+/* 44px target as everywhere else, but only the 24px chip inside it paints — a remove button
+   that covered a quarter of the thumbnail would hide the thing it is asking about. */
+.fb-photo-x { position: absolute; top: 0; right: 0; width: 44px; height: 44px; display: grid;
+  place-items: center; padding: 0; border: 0; background: none; cursor: pointer; color: var(--ink); }
+.fb-photo-x svg { width: 14px; height: 14px; padding: 5px; border-radius: 50%;
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  box-shadow: 0 1px 3px color-mix(in srgb, #000 28%, transparent); }
+.fb-photo-x:focus-visible { outline: 2px solid var(--blue); outline-offset: -6px; border-radius: var(--r-sm); }
+/* The label IS the button (same trick as .report-att-add) — the input only has to be reachable. */
+.fb-photo-add { position: relative; display: inline-flex; align-items: center; gap: 6px;
+  min-height: 44px; padding: 0 12px; cursor: pointer; border: 1px dashed var(--glass-edge);
+  border-radius: var(--r-sm); color: var(--ink-dim); font: 700 12.5px var(--body); }
+.fb-photo-add:hover { background: var(--fill-soft); color: var(--ink); }
+.fb-photo-add:focus-within { outline: 2px solid var(--blue); outline-offset: 1px; }
+.fb-photo-add svg { width: 14px; height: 14px; flex: none; }
+/* Off-screen rather than display:none, so the control keeps its place in the tab order. */
+.fb-photo-add input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.fb-photo-hint { font: 400 12px var(--body); color: var(--ink-faint); }
+/* Why Kopieren/E-Mail suddenly carry less than the send button does. A note, never a disabled
+   button: the text is still worth copying, and on a deployment with outbound off it is the
+   only exit there is. */
+.fb-photo-note { margin: -6px 0 0; font: 400 12px var(--body); color: var(--ink-faint); }
 .fb-privacy { display: flex; align-items: center; gap: 6px; margin: 0;
   font: 400 12.5px var(--body); color: var(--ink-faint); }
 .fb-privacy svg { width: 14px; height: 14px; flex: none; }

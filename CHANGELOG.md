@@ -31,6 +31,15 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
+- **A Rückmeldung can carry a photo.** Up to two, picked by hand in the sheet – "hier war der
+  Knopf" is often one picture and no sentences. It is the only thing that leaves this app which
+  the sanitiser cannot read, so it is fenced accordingly: the app still captures no screenshot
+  of its own, the picture is shown as a thumbnail under *«Das wird mitgeschickt»* before the
+  send button, it is downscaled and re-encoded in the browser (which also strips the phone's GPS
+  EXIF), and it travels on the direct-send route only – *Kopieren* and *E-Mail* say so rather
+  than dropping it quietly. On a deployment with outbound telemetry switched off, attaching is
+  not offered at all. See [`PRIVACY.md`](PRIVACY.md).
+
 - **The Einsatzrapport takes Beilagen.** Photos that belong to the REPORT rather than to the
   Verlauf – an ID document, a damage close-up, a handed-over form. They are captured in the
   rapport dialog (or at the Erfassungs-Poster, below), carry a caption, and print at the end

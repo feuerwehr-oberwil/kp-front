@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { appConfig } from '../../config/appConfig'
 import { buildLabel } from '../../lib/buildInfo'
 import { getDeploymentConfig } from '../../lib/deploymentConfig'
@@ -8,9 +8,15 @@ import {
   buildReport, buildSubject, buildTechBlock, mailtoUrl, readEnv, type ReportInput,
 } from '../../lib/feedbackReport'
 import { markTroubleAsked, type TroubleEvent } from '../../lib/trouble'
-import { submitReport } from '../../lib/feedbackSubmit'
+import { PHOTO_LIMIT, submitReport } from '../../lib/feedbackSubmit'
+import { prepareFeedbackPhoto } from '../../lib/imagePrep'
 import { clearDraft, MAX_MESSAGE, readDraft, writeDraft } from '../../lib/feedbackDraft'
 import { Modal } from './_shared'
+
+/** An attached photo, as the sheet holds it: the downscaled blob that will travel, plus an
+ *  object URL for the thumbnail. In memory only — unlike the typed text, a picture has no
+ *  business surviving a dismissed sheet in localStorage. */
+interface AttachedPhoto { id: string; blob: Blob; url: string }
 
 /** Rückmeldung composer. Opened either from Einstellungen (no `trouble`) or from the launcher
  *  prompt after something went wrong (`trouble` set, so the question can be specific).
@@ -23,7 +29,13 @@ import { Modal } from './_shared'
  *  exactly the reason it always was: «das wird mitgeschickt» is only credible if you can read
  *  it before you decide. After a direct send we additionally show what the SERVER says it
  *  queued — a preview written by the sender is a promise, one echoed by the receiver is a
- *  check. */
+ *  check.
+ *
+ *  A photo may be attached, and it is the one part of the payload that no scrubber can read.
+ *  That is why it is handled the way it is here: the operator picks the file (the app never
+ *  captures a screen), the picture is shown at thumbnail size right under the block it belongs
+ *  to — «das wird mitgeschickt» has to stay literally true once there is a picture in it — and
+ *  it rides the direct route only, because the clipboard and a mailto: URL hold text. */
 export function FeedbackSheet({ trouble, onClose }: {
   trouble?: TroubleEvent
   onClose: () => void
@@ -34,6 +46,46 @@ export function FeedbackSheet({ trouble, onClose }: {
   const [message, setMessage] = useState(readDraft)
   const [state, setState] = useState<'idle' | 'sending' | 'sent' | 'disabled' | 'failed'>('idle')
   const [echoed, setEchoed] = useState<string | null>(null)
+  const [photos, setPhotos] = useState<AttachedPhoto[]>([])
+
+  // Object URLs outlive the render that made them, so they are revoked from a ref rather than
+  // from the state a cleanup would close over stale.
+  const urls = useRef<string[]>([])
+  useEffect(() => () => { urls.current.forEach((u) => URL.revokeObjectURL(u)) }, [])
+
+  const dropPhotos = () => {
+    urls.current.forEach((u) => URL.revokeObjectURL(u))
+    urls.current = []
+    setPhotos([])
+  }
+
+  const addPhotos = async (files: File[]) => {
+    for (const file of files.slice(0, PHOTO_LIMIT)) {
+      // Downscaled here, in the browser, before the file has been anywhere: a 12-megapixel
+      // tablet photo is not a telemetry row, and the re-encode also drops the EXIF a phone
+      // stamps its GPS position into. `null` = it could not be made to fit, and saying so now
+      // is the whole point — the alternative is a send that reports success and a photo the
+      // server quietly refuses.
+      const blob = await prepareFeedbackPhoto(file)
+      if (!blob) { toast(cp.photoTooBig, { icon: 'warn', tone: 'warn' }); continue }
+      const url = URL.createObjectURL(blob)
+      urls.current.push(url)
+      setPhotos((prev) => (prev.length >= PHOTO_LIMIT
+        ? prev
+        : [...prev, { id: `fp${Date.now()}-${prev.length}`, blob, url }]))
+    }
+  }
+
+  const removePhoto = (id: string) => {
+    setPhotos((prev) => {
+      const gone = prev.find((p) => p.id === id)
+      if (gone) {
+        URL.revokeObjectURL(gone.url)
+        urls.current = urls.current.filter((u) => u !== gone.url)
+      }
+      return prev.filter((p) => p.id !== id)
+    })
+  }
 
   // Snapshot once on open: the report should describe the moment the operator started writing,
   // not shift under them if the network flaps mid-sentence.
@@ -56,8 +108,9 @@ export function FeedbackSheet({ trouble, onClose }: {
   // is about not destroying someone's words, and only one of those should survive a stray tap.
   const finish = () => { markTroubleAsked(); onClose() }
 
-  /** Exit after the text has actually gone somewhere — then, and only then, it stops being a draft. */
-  const finishSent = () => { clearDraft(); finish() }
+  /** Exit after the text has actually gone somewhere — then, and only then, it stops being a
+   *  draft. The photos go with it: they were attached to this report, not to the next one. */
+  const finishSent = () => { clearDraft(); dropPhotos(); finish() }
 
   const onMessage = (text: string) => { setMessage(text); writeDraft(text) }
 
@@ -84,6 +137,7 @@ export function FeedbackSheet({ trouble, onClose }: {
       viewport: env.viewport,
       online: env.online,
       ...(trouble ? { trouble } : {}),
+      ...(photos.length ? { photos: photos.map((p) => p.blob) } : {}),
     })
     if (outcome.ok) {
       setEchoed(JSON.stringify(outcome.sent, null, 2))
@@ -92,16 +146,26 @@ export function FeedbackSheet({ trouble, onClose }: {
       // told about doesn't come back on the next launch. The draft goes too: it has left.
       markTroubleAsked()
       clearDraft()
+      dropPhotos()
       return
     }
     // Both failure modes leave the sheet open on purpose: the operator has typed something,
     // and the fallbacks (copy / mail) are right there and need no server.
+    // 'disabled' additionally takes the attach control away below — offering to attach a photo
+    // to a route that cannot run is worse than not offering it.
     setState(outcome.reason === 'disabled' ? 'disabled' : 'failed')
   }
 
   // The sheet does not know whether the deployment has outbound enabled until it tries, so
   // the button is always offered and a 503 turns into an explanation rather than an error.
   const sendFailed = state === 'failed' || state === 'disabled'
+
+  // Attaching is offered until the server has said the direct route does not exist here. Not
+  // on 'failed' — that is offline, which is the normal state of a tablet at an Einsatz and the
+  // report will go later. Photos already attached stay visible either way: the note under
+  // Kopieren/E-Mail is what explains that they can only travel the direct way, and quietly
+  // deleting something the operator chose would be the worse answer.
+  const canAttach = state !== 'disabled'
 
   // An empty report with no trouble behind it is a blank row in someone's issue tracker. With
   // a trouble it still says «ja, das ist mir passiert», which is worth having. Copy and mail
@@ -164,6 +228,48 @@ export function FeedbackSheet({ trouble, onClose }: {
           <p className="fb-tech-note">{cp.techNote}</p>
         </details>
 
+        {/* Directly under the technical block, not behind it: a picture is part of «das wird
+            mitgeschickt», and the only part of it the app itself cannot read. So it is shown
+            the same way the JSON is — in front of the buttons, at a size you can recognise. */}
+        {(canAttach || photos.length > 0) && (
+          <div className="fb-photos">
+            {photos.map((p) => (
+              <figure key={p.id} className="fb-photo">
+                <img src={p.url} alt={cp.photoAlt} />
+                <button
+                  type="button"
+                  className="fb-photo-x"
+                  aria-label={cp.photoRemove}
+                  title={cp.photoRemove}
+                  onClick={() => removePhoto(p.id)}
+                >
+                  <Icon id="close" />
+                </button>
+              </figure>
+            ))}
+            {canAttach && photos.length < PHOTO_LIMIT && (
+              <label className="fb-photo-add">
+                <Icon id="photo" />
+                <span>{cp.photoAdd}</span>
+                {/* accept="image/*" and no `capture`: on a tablet this offers the camera AND
+                    the library, and which of the two is right is the operator's call — the
+                    photo they want is as often already on the device as still to be taken. */}
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => {
+                    const files = [...(e.target.files ?? [])]
+                    e.target.value = '' // so re-picking the same file fires onChange again
+                    if (files.length) void addPhotos(files)
+                  }}
+                />
+              </label>
+            )}
+            {photos.length === 0 && <span className="fb-photo-hint">{cp.photoHint}</span>}
+          </div>
+        )}
+
         <p className="fb-privacy"><Icon id="info" /> {cp.privacy}</p>
         {sendFailed && (
           <p className="fb-privacy fb-warn" role="status">
@@ -186,6 +292,13 @@ export function FeedbackSheet({ trouble, onClose }: {
             </button>
           )}
         </div>
+        {/* A note, not a disabled button. The clipboard and a mailto: URL genuinely cannot
+            carry a file, but the TEXT is still worth copying — and on a deployment with
+            outbound switched off it is the only way out at all. Saying so beats taking the
+            route away and leaving the operator to work out why. */}
+        {photos.length > 0 && (
+          <p className="fb-photo-note" role="status">{cp.photoOnlyDirect}</p>
+        )}
 
         <div className="fb-actions">
           <button type="button" className="ip-btn" onClick={finish}>{cp.close}</button>

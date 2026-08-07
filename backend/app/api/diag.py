@@ -14,7 +14,9 @@ purpose:
   it is capped per hour on top of the client's own per-session cap.
 * ``POST /report`` — the manual "Problem melden" form. Requires a logged-in user and is
   queued regardless of the background switch, because the operator saw the payload and
-  pressed send. Refused only when the DEPLOYER has disabled outbound entirely.
+  pressed send. Refused only when the DEPLOYER has disabled outbound entirely. It is also
+  the only route that may carry a photo, and only one the operator attached by hand — the
+  scrubber cannot read pixels, so that channel gets a human instead (``telemetry/photos.py``).
 
 The contract for all of it: never 500, never trust the payload. A diagnostics sink that
 becomes a source of errors is worse than no sink.
@@ -22,9 +24,10 @@ becomes a source of errors is worse than no sink.
 
 import logging
 from datetime import UTC, datetime, timedelta
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -34,6 +37,7 @@ from ..database import get_db
 from ..models import TelemetryOutbox
 from ..telemetry import consent as consent_mod
 from ..telemetry import outbox, scrub
+from ..telemetry import photos as photos_mod
 from ..telemetry.envelope import build_event
 
 logger = logging.getLogger("kpfront.clienterror")
@@ -61,6 +65,11 @@ class ClientError(BaseModel):
     build: str | None = Field(default=None, max_length=120)
 
 
+#: One base64 photo, length-capped so an oversized one is refused by validation rather than
+#: decoded first. See telemetry/photos.py for where the number comes from.
+Base64Photo = Annotated[str, StringConstraints(max_length=photos_mod.MAX_PHOTO_B64_CHARS)]
+
+
 class ProblemReport(BaseModel):
     """The manual channel. ``message`` is the whole point; the rest is context the sheet
     already showed the operator verbatim before they pressed send."""
@@ -72,6 +81,11 @@ class ProblemReport(BaseModel):
     online: bool | None = None
     trouble_kind: str | None = Field(default=None, max_length=40, alias="troubleKind")
     trouble_at: str | None = Field(default=None, max_length=40, alias="troubleAt")
+    # Photos the operator attached by hand — the one field in either channel that the scrubber
+    # cannot inspect, which is why it exists on this channel only and why the caps are hard.
+    # Absent for every report that carries none, so the payload of an ordinary Rückmeldung is
+    # unchanged. See telemetry/photos.py.
+    photos: list[Base64Photo] = Field(default_factory=list, max_length=photos_mod.MAX_PHOTOS)
 
 
 async def _queued_last_hour(db: AsyncSession) -> int:
@@ -150,7 +164,8 @@ async def submit_problem_report(
 
     Returns the sanitised payload so the UI can show, after the fact, exactly what was
     queued. That round trip is deliberate: the sheet shows a preview built client-side, and
-    this is the server confirming that the preview was honest.
+    this is the server confirming that the preview was honest. A photo is summarised rather
+    than repeated in that response — the only exception, argued in telemetry/photos.py.
     """
     if not consent_mod.env_allows_outbound():
         # The deployer switched outbound off. Not an error — the sheet falls back to
@@ -178,13 +193,16 @@ async def submit_problem_report(
                 trouble_at=payload.trouble_at,
             ),
         )
+        # After build_event, not inside it: that function assembles a payload every field of
+        # which came through the allow-list, and this adds the one field that did not.
+        photos_mod.attach(event, photos_mod.prepare_photos(payload.photos))
         await outbox.enqueue(db, channel="report", payload=event)
         await db.commit()
     except Exception:
         await db.rollback()
         logger.exception("problem report could not be queued")
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="queue-failed") from None
-    return {"queued": True, "sent": event}
+    return {"queued": True, "sent": photos_mod.summarise_for_echo(event)}
 
 
 # --- Admin surface --------------------------------------------------------------------

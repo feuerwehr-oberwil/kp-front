@@ -15,8 +15,13 @@ import { MAX_MESSAGE, readDraft, writeDraft } from '../../lib/feedbackDraft'
 //   3. When sending fails, the operator is not stranded: copy/mail still work and what they
 //      typed is still on screen.
 
-vi.mock('../../lib/feedbackSubmit', () => ({ submitReport: vi.fn() }))
+vi.mock('../../lib/feedbackSubmit', () => ({ submitReport: vi.fn(), PHOTO_LIMIT: 2 }))
 const mockSubmit = vi.mocked(submitReport)
+
+// The real downscaler needs a canvas jsdom does not have. What these tests are about is where
+// the result goes; whether the arithmetic that produced it is right is lib/imagePrep.test.ts.
+const prepared = new Blob([new Uint8Array(1234)], { type: 'image/jpeg' })
+vi.mock('../../lib/imagePrep', () => ({ prepareFeedbackPhoto: vi.fn(async () => prepared) }))
 
 const cp = appConfig.copy.feedback
 const trouble: TroubleEvent = { kind: 'crashLoop', at: 1_800_000_000_000 }
@@ -38,8 +43,22 @@ beforeEach(() => {
   installLocalStorage()
   mockSubmit.mockReset()
   mockSubmit.mockResolvedValue({ ok: true, sent: { tags: { channel: 'report' } } })
+  Object.defineProperty(URL, 'createObjectURL', { value: () => 'blob:photo', configurable: true })
+  Object.defineProperty(URL, 'revokeObjectURL', { value: () => {}, configurable: true })
 })
 afterEach(cleanup)
+
+/** Attach one photo the way the operator does: pick a file. */
+async function attachPhoto() {
+  const input = document.querySelector('.fb-photo-add input') as HTMLInputElement
+  const before = document.querySelectorAll('.fb-photo').length
+  Object.defineProperty(input, 'files', {
+    value: [new File([new Uint8Array(9)], 'lage.jpg', { type: 'image/jpeg' })],
+    configurable: true,
+  })
+  fireEvent.change(input)
+  await waitFor(() => expect(document.querySelectorAll('.fb-photo').length).toBe(before + 1))
+}
 
 describe('FeedbackPrompt', () => {
   it('asks about the specific thing that happened, not a generic "any feedback?"', () => {
@@ -221,5 +240,84 @@ describe('FeedbackSheet — the draft', () => {
     fireEvent.click(screen.getByText(cp.send))
     await waitFor(() => expect(screen.getByText(cp.sendFailed)).toBeTruthy())
     expect(readDraft()).toBe('wichtiger Text')
+  })
+})
+
+// The photo is the one thing that leaves this app which no scrubber can read, so the rules
+// around it are the feature. The failure being guarded against is not a crash but a silent one:
+// the sheet's three exits look interchangeable to the operator, two of them physically cannot
+// carry a file, and an attached photo that goes out by Kopieren is a picture nobody ever sees.
+describe('FeedbackSheet — the attached photo', () => {
+  it('shows it, at a size you can recognise, before anything is decided', async () => {
+    render(<FeedbackSheet onClose={() => {}} />)
+    await attachPhoto()
+    // «Das wird mitgeschickt» has to stay literally true once there is a picture in it.
+    expect(screen.getByAltText(cp.photoAlt)).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: cp.photoRemove }))
+    await waitFor(() => expect(screen.queryByAltText(cp.photoAlt)).toBeNull())
+  })
+
+  it('stops offering a third one', async () => {
+    render(<FeedbackSheet onClose={() => {}} />)
+    await attachPhoto()
+    await attachPhoto()
+    expect(screen.getAllByAltText(cp.photoAlt)).toHaveLength(2)
+    expect(document.querySelector('.fb-photo-add')).toBeNull()
+  })
+
+  it('travels on the direct route', async () => {
+    render(<FeedbackSheet onClose={() => {}} />)
+    await attachPhoto()
+    fireEvent.change(document.querySelector('.fb-input')!, { target: { value: 'so sah es aus' } })
+    fireEvent.click(screen.getByText(cp.send))
+
+    await waitFor(() => expect(mockSubmit).toHaveBeenCalledOnce())
+    expect(mockSubmit.mock.calls[0][0]).toMatchObject({ photos: [prepared] })
+  })
+
+  it('leaves the payload of an ordinary Rückmeldung alone', async () => {
+    // Nearly every report carries no photo, and those must put exactly the body on the wire
+    // they did before this existed — a feature almost nobody uses has no business showing up
+    // in everybody's queue row.
+    render(<FeedbackSheet onClose={() => {}} />)
+    fireEvent.change(document.querySelector('.fb-input')!, { target: { value: 'nur Text' } })
+    fireEvent.click(screen.getByText(cp.send))
+
+    await waitFor(() => expect(mockSubmit).toHaveBeenCalledOnce())
+    expect(mockSubmit.mock.calls[0][0]).not.toHaveProperty('photos')
+  })
+
+  it('says so next to the two routes that cannot take it', async () => {
+    render(<FeedbackSheet onClose={() => {}} />)
+    expect(screen.queryByText(cp.photoOnlyDirect)).toBeNull()
+    await attachPhoto()
+    // A note, never a disabled button: the TEXT is still worth copying, and on a deployment
+    // with outbound switched off Kopieren/E-Mail are the only exits there are.
+    expect(screen.getByText(cp.photoOnlyDirect)).toBeTruthy()
+    expect(screen.getByText(cp.copy)).toBeTruthy()
+  })
+
+  it('is not offered at all once the server has said the direct route is off', async () => {
+    mockSubmit.mockResolvedValue({ ok: false, reason: 'disabled' })
+    render(<FeedbackSheet onClose={() => {}} />)
+    expect(document.querySelector('.fb-photo-add')).toBeTruthy()
+
+    fireEvent.change(document.querySelector('.fb-input')!, { target: { value: 'geht nicht' } })
+    fireEvent.click(screen.getByText(cp.send))
+
+    await waitFor(() => expect(screen.getByText(cp.sendDisabled)).toBeTruthy())
+    // There is no route left that could carry a file, so the sheet stops implying there is.
+    expect(document.querySelector('.fb-photo-add')).toBeNull()
+  })
+
+  it('is still offered after a plain failure — that is offline, and offline is normal', async () => {
+    mockSubmit.mockResolvedValue({ ok: false, reason: 'failed' })
+    render(<FeedbackSheet onClose={() => {}} />)
+    fireEvent.change(document.querySelector('.fb-input')!, { target: { value: 'kaputt' } })
+    fireEvent.click(screen.getByText(cp.send))
+
+    await waitFor(() => expect(screen.getByText(cp.sendFailed)).toBeTruthy())
+    expect(document.querySelector('.fb-photo-add')).toBeTruthy()
   })
 })

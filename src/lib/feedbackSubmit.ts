@@ -15,6 +15,12 @@
 //
 // Failure is never fatal here: any error falls the sheet back to Kopieren/E-Mail, which need
 // no server at all.
+//
+// This is also the only exit that can carry a PHOTO, and that is a property of the transport
+// rather than a policy: a mailto: URL and the clipboard both hold text. The rule the sheet
+// keeps is unchanged — the picture is one the operator picked by hand and looked at, next to
+// the technical block, before pressing this button. See backend/app/telemetry/photos.py for
+// what happens to it on the other side, and why it is capped as hard as it is.
 
 import { apiPost, ApiError } from './api'
 import { APP_VERSION, GIT_SHA } from './buildInfo'
@@ -33,11 +39,36 @@ export interface SubmitInput {
   viewport: string
   online: boolean
   trouble?: TroubleEvent
+  /** Photos the operator attached, already downscaled by lib/imagePrep · prepareFeedbackPhoto.
+   *  Anything past PHOTO_LIMIT is dropped here rather than refused by the server. */
+  photos?: Blob[]
+}
+
+/** How many photos one Rückmeldung may carry. Mirrors backend/app/telemetry/photos.py ·
+ *  MAX_PHOTOS: one picture of the screen and one of the thing next to it is the realistic case,
+ *  and a third is someone using the wrong tool. */
+export const PHOTO_LIMIT = 2
+
+/** Blob → base64, in chunks so a several-hundred-kB photo doesn't blow the argument limit of
+ *  String.fromCharCode on the way. No `data:` prefix: the server sniffs the type from the bytes
+ *  rather than believing a label the client wrote. */
+async function toBase64(blob: Blob): Promise<string> {
+  const bytes = new Uint8Array(await blob.arrayBuffer())
+  let binary = ''
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
+  }
+  return btoa(binary)
 }
 
 /** POST the report. Resolves to an outcome; never rejects — the caller is a UI button. */
 export async function submitReport(input: SubmitInput): Promise<SubmitOutcome> {
   try {
+    // The key is omitted entirely when nothing is attached, so the ordinary Rückmeldung — which
+    // is nearly all of them — puts exactly the same body on the wire as it did before photos
+    // existed. A feature nobody used should not show up in everybody's payload.
+    const attached = input.photos?.slice(0, PHOTO_LIMIT) ?? []
+    const photos = attached.length ? await Promise.all(attached.map(toBase64)) : undefined
     const sent = await apiPost<{ queued: boolean; sent: unknown }>('/api/diag/report', {
       message: input.message,
       build: `v${APP_VERSION}+${GIT_SHA}`,
@@ -46,6 +77,7 @@ export async function submitReport(input: SubmitInput): Promise<SubmitOutcome> {
       online: input.online,
       troubleKind: input.trouble?.kind,
       troubleAt: input.trouble ? new Date(input.trouble.at).toISOString() : undefined,
+      ...(photos ? { photos } : {}),
     })
     return { ok: true, sent: sent.sent }
   } catch (e) {
