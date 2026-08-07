@@ -31,6 +31,7 @@ from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
+from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfgen import canvas as _canvas
 from reportlab.platypus import (
     BaseDocTemplate,
@@ -242,6 +243,11 @@ class PersonalRowIn(BaseModel):
     erfasst: bool = False
     von: str | None = None
     bis: str | None = None
+    #: this clock was DERIVED from the incident's bounds, not recorded by anybody — printed grey
+    #: so a signed sheet says which times were measured and which the app worked out. A line that
+    #: is grey on both ends is one nobody has to check.
+    vonDerived: bool = False
+    bisDerived: bool = False
     #: free remark on this person for this Einsatz («Fahrer TLF», «abgelöst 21:40») — printed
     #: small under the name, on the first row of a person who was present more than once
     note: str | None = None
@@ -273,6 +279,10 @@ class MittelFormRowIn(BaseModel):
 
 class ReportOptionsIn(BaseModel):
     kroki: bool = True
+    #: Kroki page orientation. A tall Lage (a Hochhaus, a street running north) wasted half a
+    #: landscape sheet and printed the map postage-stamp small; the operator picks the shape in
+    #: the crop window and the page follows it. Default landscape = the historical behaviour.
+    krokiLandscape: bool = True
     atemschutz: bool = True
     attendance: bool = True
     mittel: bool = True
@@ -357,7 +367,7 @@ L = {
     "sigKommandant": "Kommandant",
     "generatedAt": "Erstellt",
     "mittel": "Material",
-    "gerettete": "Gerettete (Personen / Tiere)",
+    "gerettete": "Gerettete",
     "rueckmeldungElz": "Rückmeldung ELZ",
     "zeiten": "Alarmierungs- / Ausrückzeiten",
     "erfasser": "Erfasst durch",
@@ -464,7 +474,7 @@ def _styles() -> dict[str, ParagraphStyle]:
         "h2": ParagraphStyle(
             "rp_h2",
             parent=base["Heading2"],
-            fontSize=11.5,
+            fontSize=12.5,
             leading=14,
             textColor=ink,
             spaceBefore=16,
@@ -475,8 +485,8 @@ def _styles() -> dict[str, ParagraphStyle]:
         "h3": ParagraphStyle(
             "rp_h3",
             parent=base["Heading3"],
-            fontSize=12,
-            leading=15,
+            fontSize=10.5,
+            leading=13,
             textColor=ink,
             spaceBefore=6,
             spaceAfter=3,
@@ -535,12 +545,20 @@ def _styles() -> dict[str, ParagraphStyle]:
 _GRID = colors.HexColor("#d7dde5")
 _PANEL = colors.HexColor("#eef2f7")
 _WRITE = colors.HexColor("#969696")  # write-in dotted leaders/stubs (jsPDF gray 150)
+#: a clock the app derived rather than one somebody recorded — same grey as a write-in stub,
+#: because both mean «this is not a measured value»
+_DERIVED = "#969696"
 _INK = colors.HexColor("#141414")  # form ink (jsPDF gray 20)
 _LABEL = colors.HexColor("#3c3c3c")  # field labels (jsPDF gray 60)
 
 
 def _esc(s: str | None) -> str:
     return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _str_w(text: str, font: str, size: float) -> float:
+    """Text width without a canvas — for sizing a column before there is anything to draw on."""
+    return pdfmetrics.stringWidth(text, font, size)
 
 
 def _fit_text(c, text: str, max_w: float, font: str = "Helvetica", size: float = 9) -> str:
@@ -570,6 +588,22 @@ class _FormRows(Flowable):
     def wrap(self, availWidth: float, availHeight: float):  # noqa: N803 — ReportLab API
         return self.width, self.height
 
+    def _tab_stops(self, c, inner: float) -> dict[float, float]:
+        """One value column per label column: the widest label at a given x sets where every
+        value at that x starts. Measuring each label on its own put «Stichwort: Brand» and
+        «Adresse / Objekt: Schlossgasse 9» at different indents in the same box, so nothing in
+        it lined up vertically. Keyed by the field's own x offset, so a full-width row and the
+        left half of a split row share a stop and the right half gets its own."""
+        stops: dict[float, float] = {}
+        for row in self.rows:
+            x = 0.0
+            for f in row:
+                key = round(x, 3)
+                w = c.stringWidth(f"{f['label']}:", "Helvetica", 9.5)
+                stops[key] = max(stops.get(key, 0.0), w)
+                x += inner * f["w"]
+        return stops
+
     def draw(self):
         c = self.canv
         if self.boxed:
@@ -577,34 +611,43 @@ class _FormRows(Flowable):
             c.setLineWidth(1.1)
             c.rect(0, 0, self.width, self.height)
         inner = self.width - 2 * self.pad
+        stops = self._tab_stops(c, inner)
         for i, row in enumerate(self.rows):
             y = self.height - self.pad - (i + 1) * self.pitch + 2.4 * mm  # text baseline
             x = self.pad
+            offset = 0.0
             for f in row:
                 w = inner * f["w"]
                 label = f"{f['label']}:"
                 c.setFont("Helvetica", 9.5)
                 c.setFillColor(_LABEL)
                 c.drawString(x, y, label)
-                lx = x + c.stringWidth(label, "Helvetica", 9.5) + 2 * mm
+                lx = x + stops[round(offset, 3)] + 2 * mm
                 value = f.get("value") or ""
                 if f.get("time"):
                     c.setFont("Helvetica", 9.5)
                     c.setFillColor(_INK if value else _WRITE)
                     c.drawString(lx, y, value or _TIME_STUB)
                 else:
-                    # dotted leader to the field end; the value (if any) prints on the line
-                    c.saveState()
-                    c.setStrokeColor(_WRITE)
-                    c.setLineWidth(0.5)
-                    c.setDash(0.8, 0.8)
-                    c.line(lx, y - 0.6 * mm, x + w - 2 * mm, y - 0.6 * mm)
-                    c.restoreState()
+                    # A leader is an invitation to write. It is drawn where there is nothing to
+                    # read — an empty Kontaktperson still gets its line — and omitted under a
+                    # value that is already printed, unless the field is one that gets signed
+                    # ON the line even when the name above it is known (`line=True`).
+                    if not value or f.get("line"):
+                        c.saveState()
+                        c.setStrokeColor(_WRITE)
+                        c.setLineWidth(0.5)
+                        c.setDash(0.8, 0.8)
+                        c.line(lx, y - 0.6 * mm, x + w - 2 * mm, y - 0.6 * mm)
+                        c.restoreState()
                     if value:
                         c.setFont("Helvetica", 9)
                         c.setFillColor(_INK)
-                        c.drawString(lx + 1 * mm, y, _fit_text(c, value, w - (lx - x) - 4 * mm))
+                        c.drawString(
+                            lx + (1 * mm if f.get("line") else 0), y, _fit_text(c, value, w - (lx - x) - 4 * mm)
+                        )
                 x += w
+                offset += w
 
 
 def _fit_image(data: bytes | None, max_w: float, max_h: float) -> Image | None:
@@ -625,6 +668,9 @@ def _fit_image(data: bytes | None, max_w: float, max_h: float) -> Image | None:
 # Print Kroki canvas size — the composer and the tile prewarm share it so both derive the
 # same View and hit identical tile-cache keys.
 _KROKI_PX = (1600, 940)
+#: the same crop turned upright — a portrait Kroki page gets a portrait render, so the picture
+#: fills the sheet instead of being letterboxed into a landscape frame
+_KROKI_PX_PORTRAIT = (1000, 1400)
 
 
 def _kroki_view(pk, kw: int, kh: int):
@@ -654,7 +700,7 @@ def warm_report_tiles(payload: ReportPayload) -> None:
     try:
         from . import kroki as kk
 
-        view = _kroki_view(payload.kroki, *_KROKI_PX)
+        view = _kroki_view(payload.kroki, *(_KROKI_PX if opt.krokiLandscape else _KROKI_PX_PORTRAIT))
         kk.render_base(view, payload.kroki.tiles, cache=kk.get_tile_cache(), max_tile_z=payload.kroki.maxTileZoom or 19)
     except Exception:  # noqa: BLE001 — a cold cache must not fail the rapport
         # Was a silent `pass`. A failed prewarm is recoverable (the real render refetches),
@@ -854,13 +900,22 @@ def compose_report_pdf(
     # unit, kantonale Vorlage 11-01-003): Einsatzleitung AND Kommandant, each with an own
     # Ort/Datum leader — same Visum look as the Erfassungsblatt. The signed paper is the
     # record — no digital proof section replaces it (field-classification decision E).
-    el = L["einsatzleiter"] + (f" · {m.einsatzleiter}" if m.einsatzleiter else "")
-    kdt = L["sigKommandant"] + (f" · {m.kommandant}" if m.kommandant else "")
+    # «Einsatzleiter: Céline Widmer ______», not «Einsatzleiter · Céline Widmer: ______». The
+    # name belongs to the ROLE that is signing, so it reads as a value of that label; glued into
+    # the label it made the colon land after the name and the signature line start past it.
+    # `line` keeps the rule under a filled field here — unlike the Details box, this one is
+    # signed on the line whether or not the name above it is already known.
     sig = _FormRows(
         inner_w,
         [
-            [{"label": L["sigOrtDatum"], "w": 0.4}, {"label": el, "w": 0.6}],
-            [{"label": L["sigOrtDatum"], "w": 0.4}, {"label": kdt, "w": 0.6}],
+            [
+                {"label": L["sigOrtDatum"], "w": 0.4, "line": True},
+                {"label": L["einsatzleiter"], "w": 0.6, "value": m.einsatzleiter, "line": True},
+            ],
+            [
+                {"label": L["sigOrtDatum"], "w": 0.4, "line": True},
+                {"label": L["sigKommandant"], "w": 0.6, "value": m.kommandant, "line": True},
+            ],
         ],
         pitch=9.5 * mm,
     )
@@ -903,7 +958,7 @@ def compose_report_pdf(
 
         pack = kk.get_pack()
         if pack is not None and payload.kroki.tiles:
-            kw, kh = _KROKI_PX
+            kw, kh = _KROKI_PX if opt.krokiLandscape else _KROKI_PX_PORTRAIT
             scene = kk.KrokiScene(
                 entities=[e.model_dump() for e in payload.kroki.entities],
                 drawings=[d.model_dump() for d in payload.kroki.drawings],
@@ -957,12 +1012,15 @@ def compose_report_pdf(
             plan_imgs.append((p.label, data, p.landscape))
 
     if kroki_png:
-        story.append(NextPageTemplate("landscape"))
+        k_land = opt.krokiLandscape
+        story.append(NextPageTemplate("landscape" if k_land else "portrait"))
         story.append(PageBreak())
         story.extend(head(L["kroki"]))
         if payload.krokiCaption:
             story.append(Paragraph(_esc(payload.krokiCaption), st["muted"]))
-        img = _fit_image(kroki_png, land_inner_w, land_inner_h - 22 * mm)
+        k_w = land_inner_w if k_land else inner_w
+        k_h = (land_inner_h if k_land else (ph - 2 * margin)) - 22 * mm
+        img = _fit_image(kroki_png, k_w, k_h)
         if img:
             story.append(Spacer(1, 4))
             story.append(img)
@@ -1032,8 +1090,31 @@ def compose_report_pdf(
                 meta_bits.append((L["entry"], tr.entryTime))
             if tr.exitTime:
                 meta_bits.append((L["exit"], tr.exitTime))
-            for k, v in meta_bits:
-                story.append(Paragraph(f"<b>{_esc(k)}:</b> {_esc(v)}", st["cell"]))
+            # A TABLE, not one Paragraph per line: as free lines each value started right after
+            # its own label, so «Mitglieder:», «Auftrag / Ziel:» and «Eintritt:» put their values
+            # at three different indents and nothing under the Trupp name lined up. One label
+            # column, sized to the widest label, gives every value the same tab stop.
+            if meta_bits:
+                label_w = max(_str_w(f"{k}:", "Helvetica-Bold", 9) for k, _ in meta_bits) + 3 * mm
+                meta_tbl = Table(
+                    [
+                        [Paragraph(f"<b>{_esc(k)}:</b>", st["cell"]), Paragraph(_esc(v), st["cell"])]
+                        for k, v in meta_bits
+                    ],
+                    colWidths=[label_w, inner_w - label_w],
+                )
+                meta_tbl.setStyle(
+                    TableStyle(
+                        [
+                            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                            ("TOPPADDING", (0, 0), (-1, -1), 0.5),
+                            ("BOTTOMPADDING", (0, 0), (-1, -1), 0.5),
+                            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                        ]
+                    )
+                )
+                story.append(meta_tbl)
             thead = [Paragraph(_esc(L[c]), st["cellhead"]) for c in ("colTime", "colKind", "colPressure")]
             body = [
                 [
@@ -1115,14 +1196,22 @@ def _personal_table(personal: list[PersonalRowIn], inner_w: float, st: dict[str,
     def cells(p: PersonalRowIn | None) -> list:
         if p is None:
             return ["", "", ""]
-        vonbis = f"{p.von or _TIME_STUB} – {p.bis or _TIME_STUB}"
+
+        # each end is coloured on its own: a recorded arrival next to a derived departure has
+        # to read as exactly that, so the two are not one string in one colour any more
+        def stamp(v: str | None, derived: bool) -> str:
+            if not v:
+                return f'<font color="{_DERIVED}">{_TIME_STUB}</font>'
+            return f'<font color="{_DERIVED}">{_esc(v)}</font>' if derived else _esc(v)
+
+        vonbis = f'{stamp(p.von, p.vonDerived)} <font color="{_DERIVED}">–</font> {stamp(p.bis, p.bisDerived)}'
         name = _esc(p.name) if p.name else _LINE_STUB
         if p.note:
             name += f'<br/><font size="6.5" color="#5b6472">{_esc(p.note)}</font>'
         return [
             Paragraph("<b>X</b>" if p.erfasst else "", st["check"]),
             Paragraph(name, st["rcell"]),
-            Paragraph(_esc(vonbis), st["rstub"] if not (p.von or p.bis) else st["rcell"]),
+            Paragraph(vonbis, st["rcell"]),
         ]
 
     def column(people: list[PersonalRowIn]) -> Table:
@@ -1204,7 +1293,7 @@ def _mittel_table(mittel: list[MittelFormRowIn], inner_w: float, st: dict[str, P
     def cells(row: MittelFormRowIn | None) -> list:
         if row is None:
             return ["", ""]
-        amt = f"<b>{_esc(row.menge)}</b> {_esc(row.unit)}" if row.menge else f"______ {_esc(row.unit)}"
+        amt = f"{_esc(row.menge)} {_esc(row.unit)}" if row.menge else f"______ {_esc(row.unit)}"
         # the remark rides UNDER the label, small: «3 Sack» says how much, «an Werkhof
         # übergeben» says what happened to it, and only the second one is worth reading twice
         label = _esc(row.label)

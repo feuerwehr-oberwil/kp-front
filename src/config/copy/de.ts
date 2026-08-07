@@ -2338,6 +2338,9 @@ export const de = {
     toggleAttachments: 'Beilagen ({n})',
     // Beilagen: Fotos, die zum RAPPORT gehören (Ausweis, Schaden), nicht in den Verlauf.
     krokiAtLabel: 'Kroki-Stand',
+    krokiOrientation: 'Ausrichtung',
+    krokiPortrait: 'Hoch',
+    krokiLandscape: 'Quer',
     krokiAtNow: 'Jetzt',
     krokiAtFailed: 'Lage zu diesem Zeitpunkt konnte nicht rekonstruiert werden – gedruckt wird der aktuelle Stand.',
     partnersLabel: 'Partnerorganisationen',

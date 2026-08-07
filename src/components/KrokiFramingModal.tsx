@@ -11,6 +11,7 @@ import { operationalExtentPoints } from '../lib/report'
 import { circlePolygon } from '../lib/geo'
 import { TacticalSymbol } from '../lib/symbolRender'
 import { ShapeGlyph } from '../lib/shapes'
+import { Segmented } from './Segmented'
 import { krokiEntity, krokiSymbolMul } from '../lib/krokiPayload'
 import { shapePx, symPx } from '../lib/mapView'
 import type { Drawing, Entity, LayerDef, LngLat } from '../types'
@@ -27,7 +28,7 @@ const CARTO_FALLBACK = 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/
 // complete decorated marker (not only its glyph) makes badges/spreads/shapes WYSIWYG here.
 const PRINT_REF_WIDTH = 1050
 
-export function KrokiFramingModal({ scene, initial, atMs = null, atBusy = false, onAtChange, startedAtMs = null, onCancel, onConfirm }: {
+export function KrokiFramingModal({ scene, initial, atMs = null, atBusy = false, onAtChange, startedAtMs = null, landscape = true, onCancel, onConfirm }: {
   scene: { entities: Entity[]; drawings: Drawing[]; layers: LayerDef[]; byName: Record<string, string>; center: LngLat }
   /** a previously chosen crop — reopens where the operator left it */
   initial: KrokiView | null
@@ -39,8 +40,11 @@ export function KrokiFramingModal({ scene, initial, atMs = null, atBusy = false,
   onAtChange?: (ms: number | null) => void
   /** the Einsatz's start — the slider's left end; its right end is «jetzt» */
   startedAtMs?: number | null
+  /** the page shape the Kroki prints on. The crop window IS the page here — WYSIWYG only holds
+   *  if the preview has the sheet's proportions, so the choice lives on this screen. */
+  landscape?: boolean
   onCancel: () => void
-  onConfirm: (view: KrokiView) => void
+  onConfirm: (view: KrokiView, landscape: boolean) => void
 }) {
   const P = appConfig.copy.preflight
   // read once per open: a ticking «now» would move the slider's right end under the finger
@@ -58,6 +62,9 @@ export function KrokiFramingModal({ scene, initial, atMs = null, atBusy = false,
   const atShown = dragMs ?? atMs
   const label = atShown == null ? P.krokiAtNow
     : new Date(atShown).toLocaleString(appConfig.locale, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+  // local until «Ausschnitt übernehmen»: flipping the shape reframes the preview, and a
+  // half-decided orientation must not leak into the sheet behind the modal
+  const [land, setLand] = useState(landscape)
   const mapRef = useRef<MapRef>(null)
   const [previewZoom, setPreviewZoom] = useState(initial?.zoom ?? 16)
   const [previewWidth, setPreviewWidth] = useState(720)
@@ -108,7 +115,7 @@ export function KrokiFramingModal({ scene, initial, atMs = null, atBusy = false,
       center: [c.lng, c.lat],
       zoom: m.getZoom(),
       bounds: [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()],
-    })
+    }, land)
   }
 
   return (
@@ -120,9 +127,24 @@ export function KrokiFramingModal({ scene, initial, atMs = null, atBusy = false,
     <Overlay open onClose={onCancel} className="mp-sheet kf-sheet ui-dialog" backdropClassName="mp-backdrop" ariaLabel={P.framingTitle} modal>
         <div className="mp-head">
           <span>{P.framingTitle}</span>
+          {/* Hoch · Quer sits in the HEAD, not on the map: it changes the shape of the frame
+              below it, so a control inside that frame would jump under the finger that just
+              pressed it. Seeded from the crop's own aspect — the app's guess is the default,
+              and one tap overrules it. */}
+          <span className="kf-orient">
+          <Segmented
+            ariaLabel={P.krokiOrientation}
+            value={land ? 'land' : 'port'}
+            onChange={(v) => setLand(v === 'land')}
+            options={[
+              { value: 'port', label: P.krokiPortrait },
+              { value: 'land', label: P.krokiLandscape },
+            ]}
+          />
+          </span>
           <button className="ip-x" onClick={onCancel} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
         </div>
-        <div className="mp-map kf-map">
+        <div className={cx('mp-map', 'kf-map', !land && 'portrait')}>
           <Map
             ref={mapRef}
             initialViewState={initial

@@ -18,7 +18,7 @@ import { getDeploymentConfig } from '../lib/deploymentConfig'
 import { loadReplay, stateAt, vehiclesAt, type ReplayBundle } from '../lib/replay'
 import { autoRotation, vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import type { AuditProof, KrokiView, ReportDraft, ReportOptions } from '../lib/report'
-import { defaultReportOptions, einsatzleiterFromScene, formatDateTime, missingTranscriptCount, proofLabel } from '../lib/report'
+import { defaultReportOptions, einsatzleiterFromScene, formatDateTime, missingTranscriptCount, operationalExtentPoints, proofLabel } from '../lib/report'
 import { applyTimeToIso, isoOnDay, missingSteps, stepDone, type AbschlussFacts } from '../lib/abschluss'
 import { hoursRows } from '../lib/attendanceHours'
 import { incidentDays } from '../lib/zeitplanFormat'
@@ -160,6 +160,9 @@ export function ReportPreflight({
     kroki: mapContentCount > 0,
     annotatedPlans: annotatedPlanCount > 0,
     atemschutz: truppCount > 0,
+    // the framing chosen for the LAST print of this Einsatz — see the modal's onConfirm
+    krokiView: reportMeta.krokiPrint?.view ?? null,
+    krokiLandscape: reportMeta.krokiPrint?.landscape ?? defaultReportOptions.krokiLandscape,
   })
   // Partnerorganisationen. The field existed in the model and PRINTED for months, but nothing
   // ever wrote it — so every rapport fell back to the config's tick-off row and «Polizei war da»
@@ -184,7 +187,9 @@ export function ReportPreflight({
   // the Lage was at its worst. Reconstructed locally from the event journal (lib/replay), the
   // same fold the Wiedergabe uses — so the paper and the replay can never disagree.
   const [nowRef] = useState(() => Date.now())
-  const [krokiAt, setKrokiAt] = useState<number | null>(null)
+  const [krokiAt, setKrokiAt] = useState<number | null>(
+    () => (reportMeta.krokiPrint?.at ? Date.parse(reportMeta.krokiPrint.at) || null : null),
+  )
   const [pastScene, setPastScene] = useState<{ entities: Entity[]; drawings: Drawing[] } | null>(null)
   const [krokiAtBusy, setKrokiAtBusy] = useState(false)
   const bundleRef = useRef<ReplayBundle | null>(null)
@@ -214,6 +219,20 @@ export function ReportPreflight({
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- incident/meta are stable per sheet
   }, [krokiAt])
+  // Shape of the operational extent — wider than tall means a landscape sheet. Latitude is
+  // scaled by cos(lat) so the comparison is in metres, not degrees: at 47° a degree of longitude
+  // is only ~68 km against 111 km, and the raw numbers would call almost every Lage «hoch».
+  const autoLandscape = useMemo(() => {
+    if (!scene) return true
+    const pts = operationalExtentPoints(scene.center, scene.entities, scene.drawings, false)
+    if (pts.length < 2) return true
+    const lngs = pts.map((p) => p[0]), lats = pts.map((p) => p[1])
+    const midLat = (Math.min(...lats) + Math.max(...lats)) / 2
+    const w = (Math.max(...lngs) - Math.min(...lngs)) * Math.cos((midLat * Math.PI) / 180)
+    const h = Math.max(...lats) - Math.min(...lats)
+    return w >= h
+  }, [scene])
+
   /** the Lage the printed Kroki is built from: the reconstructed one when a moment is chosen */
   const effScene = pastScene && scene ? { ...scene, entities: pastScene.entities, drawings: pastScene.drawings } : scene
 
@@ -753,7 +772,10 @@ export function ReportPreflight({
                     {rows.map((r) => (
                       <span key={r.personId} className="rp-person">
                         {r.name}
-                        {r.to && <em>{fillTemplate(A.leftEarly, { t: dtLocalValue(r.to).slice(11) })}</em>}
+                        {/* only somebody who actually LEFT gets a time. hoursRows fills an open
+                            block with the Einsatzende, which put «· bis 09:00» behind every name
+                            on the list — the exception it exists to flag then read as the rule. */}
+                        {r.leftEarly && <em>{fillTemplate(A.leftEarly, { t: dtLocalValue(r.to!).slice(11) })}</em>}
                       </span>
                     ))}
                   </div>
@@ -1027,9 +1049,25 @@ export function ReportPreflight({
           atBusy={krokiAtBusy}
           onAtChange={setKrokiAt}
           startedAtMs={Date.parse(meta.startedAt ?? incident.started_at) || null}
+          // Auto on first use: the operational extent decides the shape, so a Lage that runs
+          // north–south opens upright without anyone asking for it. Once a framing has been
+          // confirmed for this Einsatz, that choice wins — the app stops guessing.
+          landscape={reportMeta.krokiPrint?.landscape ?? autoLandscape}
           onCancel={() => setFramingFor(null)}
-          onConfirm={(v) => {
-            patchOpt({ krokiView: v }) // remembered: reopening seeds with this crop
+          onConfirm={(v, land) => {
+            patchOpt({ krokiView: v, krokiLandscape: land })
+            // Persisted, not just held in state: reprinting a rapport used to mean setting the
+            // crop, the moment and now the shape all over again — the sheet remounts on every
+            // trip to Anwesenheit, and the whole framing died with it. It rides the workspace
+            // blob, so the second print comes out of the same window as the first, from any
+            // device. Cleared for a read-only surface by `persist` itself.
+            persist({
+              krokiPrint: {
+                view: v,
+                at: krokiAt != null && pastScene ? new Date(krokiAt).toISOString() : undefined,
+                landscape: land,
+              },
+            })
             const action = framingFor
             setFramingFor(null)
             if (action === 'pdf') void downloadPdf(v)

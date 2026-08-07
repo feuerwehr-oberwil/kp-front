@@ -3751,7 +3751,13 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
    screen has (the aspect ratio stays the printed one — this is WYSIWYG). */
 .kf-sheet { height: auto; max-height: 94dvh; }
 .mp-sheet.kf-sheet, .mp-sheet.kf-sheet.ui-dialog { width: min(1400px, calc(100vw - 32px)); }
-.kf-map { flex: none; aspect-ratio: 1600 / 940; max-height: 78dvh; }
+/* the crop window IS the sheet: same proportions as the printed page, so what is framed is
+   what comes out. max-width keeps a tall window from being WIDER than the page it stands for
+   on a short screen, which would show more than gets printed. */
+.kf-map { flex: none; aspect-ratio: 1600 / 940; max-height: 78dvh; max-width: calc(78dvh * 1600 / 940); margin-inline: auto; }
+.kf-map.portrait { aspect-ratio: 1000 / 1400; max-width: calc(78dvh * 1000 / 1400); }
+.kf-orient { margin-left: auto; }
+.kf-orient .useg-btn { font-size: 12px; padding-inline: 10px; }
 .kf-hint { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 2; pointer-events: none;
   max-width: calc(100% - 24px); text-align: center; padding: 7px 13px; border-radius: var(--r-pill); background: var(--glass);
   border: 1px solid var(--glass-line); font: 600 12.5px var(--body); color: var(--ink-dim); box-shadow: 0 4px 14px rgba(0, 0, 0, .2); }

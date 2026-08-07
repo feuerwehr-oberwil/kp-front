@@ -27,6 +27,9 @@ export interface ReportOptions {
    *  Rettung that has long since left — and the caption then names that moment, so the sheet
    *  never claims to be «Stand jetzt» while showing something else. */
   krokiAt: string | null
+  /** Kroki page shape. A tall Lage in a landscape frame prints postage-stamp small with white
+   *  down both sides; seeded from the crop's own aspect and overridable in the framing modal. */
+  krokiLandscape: boolean
   annotatedPlans: boolean
   allPlans: boolean
   atemschutz: boolean
@@ -42,6 +45,7 @@ export const defaultReportOptions: ReportOptions = {
   kroki: true,
   krokiView: null,
   krokiAt: null,
+  krokiLandscape: true,
   annotatedPlans: true,
   allPlans: false,
   atemschutz: true,
@@ -203,6 +207,16 @@ export function truppStatusLabel(status: Trupp['status']): string {
   return appConfig.copy.atemschutz.status[status] ?? status
 }
 
+/** The Auftrag TYPE as it reads, not as it is stored. The stored value is the config id
+ *  (`loeschen`, `retten`), and the print sent it straight through — so the Atemschutz sheet
+ *  said «loeschen», umlaut and capital and all. Same resolution the Atemschutz view uses. */
+export function truppAuftragLabel(auftrag?: string): string | undefined {
+  if (!auftrag) return undefined
+  return appConfig.copy.atemschutz.auftragLabels[auftrag]
+    ?? appConfig.atemschutz.auftrag.find((a) => a.id === auftrag)?.label
+    ?? auftrag
+}
+
 export function readingKindLabel(kind: 'entry' | 'contact' | 'pressure'): string {
   const r = appConfig.copy.report
   return kind === 'entry' ? r.truppEntry : kind === 'contact' ? appConfig.copy.atemschutz.readingKind.contact : appConfig.copy.atemschutz.readingKind.pressure
@@ -319,22 +333,67 @@ export function metaExtrasForPdf(meta: ReportMeta): {
  *
  *  Someone who left and came back gets ONE ROW PER BLOCK (same name, own von–bis) rather than
  *  an outer span that would silently bill the hours they were away. */
+/** One printed roster line. `vonDerived`/`bisDerived` mark a time the app worked out from the
+ *  incident's own bounds rather than one somebody recorded — the sheet prints those grey. */
+export interface PersonalPdfRow {
+  name: string
+  erfasst: boolean
+  von?: string
+  bis?: string
+  vonDerived?: boolean
+  bisDerived?: boolean
+  note?: string
+}
+
+/** «07.08.» — the day in front of a clock reading, for an Einsatz that runs past midnight. */
+const dayShort = (d: Date) => `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.`
+
 export function personalForPdf(
   roster: { id: string; name: string }[],
   attendance: AttendanceState,
-): { personal: { name: string; erfasst: boolean; von?: string; bis?: string; note?: string }[] } {
-  const clock = (iso?: string) => {
+  /** the incident's own bounds. They fill in what was never recorded: somebody ticked present
+   *  with no check-in was there from the alarm, and somebody still present when the rapport is
+   *  printed was there to the end. Both are DERIVED, and print grey so the paper says which
+   *  times were measured and which the app worked out — a signed sheet must not blur the two. */
+  bounds: { alarmedAt?: string | null; endedAt?: string | null } = {},
+): { personal: PersonalPdfRow[] } {
+  // Bare HH:MM is a lie on an Einsatz over midnight: «08:23 – 09:00» reads as 37 minutes when
+  // it was 25 hours. The date rides along only when the incident actually spans days, so the
+  // ordinary one-day sheet stays as narrow as it is now.
+  const spansDays = (() => {
+    const a = bounds.alarmedAt ? new Date(bounds.alarmedAt) : null
+    const e = bounds.endedAt ? new Date(bounds.endedAt) : null
+    if (!a || !e || !Number.isFinite(a.getTime()) || !Number.isFinite(e.getTime())) return false
+    return a.toDateString() !== e.toDateString()
+  })()
+  const clock = (iso?: string | null) => {
     if (!iso) return undefined
     const d = new Date(iso)
     if (!Number.isFinite(d.getTime())) return undefined
-    return hhmm(d)
+    return spansDays ? `${dayShort(d)} ${hhmm(d)}` : hhmm(d)
   }
-  const rows = (name: string, a?: AttendanceState[string]) => {
+  const rows = (name: string, a?: AttendanceState[string]): PersonalPdfRow[] => {
     const blocks = intervalsOf(a)
     // the remark rides on the FIRST row of a person: repeating it on every block of a crew that
     // came back twice would print «Fahrer TLF» three times under one name
-    if (!blocks.length) return [{ name, erfasst: !!a, von: undefined, bis: undefined, note: a?.note }]
-    return blocks.map((iv, i) => ({ name, erfasst: true, von: clock(iv.from), bis: clock(iv.to), note: i === 0 ? a?.note : undefined }))
+    if (!blocks.length) {
+      const von = a ? clock(bounds.alarmedAt) : undefined
+      const bis = a ? clock(bounds.endedAt) : undefined
+      return [{ name, erfasst: !!a, von, bis, vonDerived: !!von, bisDerived: !!bis, note: a?.note }]
+    }
+    return blocks.map((iv, i) => {
+      const open = !iv.to
+      const bis = open ? clock(bounds.endedAt) : clock(iv.to)
+      return {
+        name, erfasst: true, von: clock(iv.from), bis,
+        // a recorded check-in is a measured time, always — only the far end can be derived
+        vonDerived: false,
+        // only the LAST open block inherits the incident's end — an earlier open block would
+        // mean a missing check-out mid-incident, and filling that in would invent hours
+        bisDerived: open && !!bis,
+        note: i === 0 ? a?.note : undefined,
+      }
+    })
   }
   const rosterIds = new Set(roster.map((p) => p.id))
   const guests = Object.entries(attendance)

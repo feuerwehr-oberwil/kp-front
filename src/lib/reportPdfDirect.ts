@@ -14,7 +14,7 @@ import { buildView, fpBoxFrac } from './footprint'
 import type { IncidentMeta } from './incidents'
 import type { ReportDraft } from './report'
 import {
-  annotatedPlans, formatDateTime, journalRows, metaExtrasForPdf, mittelFormForPdf, personalForPdf, readingKindLabel, truppStatusLabel,
+  annotatedPlans, formatDateTime, journalRows, metaExtrasForPdf, mittelFormForPdf, personalForPdf, readingKindLabel, truppAuftragLabel, truppStatusLabel,
 } from './report'
 import { getDeploymentConfig } from './deploymentConfig'
 import { fillTemplate } from './format'
@@ -222,7 +222,7 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
       endedAt: meta.endedAt ? formatDateTime(meta.endedAt) : undefined,
       partnerContacts: meta.partnerContacts,
     },
-    options: { kroki: !!kroki, atemschutz: draft.options.atemschutz, attendance: draft.options.attendance, mittel: draft.options.mittel, journal: draft.options.journal },
+    options: { kroki: !!kroki, atemschutz: draft.options.atemschutz, attendance: draft.options.attendance, mittel: draft.options.mittel, journal: draft.options.journal, krokiLandscape: draft.options.krokiLandscape },
     // Beilagen: only the ones actually ON the server. A blob: URL is a photo that has not
     // finished uploading, and the server cannot fetch it — printing would silently drop it, so
     // it is left out here and the preflight says so beside the row.
@@ -230,14 +230,14 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
       ? attachments.filter((a) => a.url.startsWith('/')).map((a) => ({ url: a.url, caption: a.caption || undefined }))
       : [],
     ...mittelFormForPdf(mittel, catalogue),
-    ...personalForPdf(roster, attendance),
+    ...personalForPdf(roster, attendance, { alarmedAt: meta.alarmiertAt ?? incident.started_at, endedAt: meta.endedAt ?? incident.closed_at }),
     partnerPresets: cfg.report?.partnerOrgs ?? [],
     generatedAt: formatDateTime(draft.generatedAt),
     kroki: kroki ?? undefined,
     krokiCaption: kroki ? krokiCaption : undefined,
     planPages,
     trupps: (draft.options.atemschutz ? trupps : []).map((t) => ({
-      name: t.name, statusLabel: truppStatusLabel(t.status), members: t.members ?? [], auftrag: t.auftrag, ziel: t.ziel,
+      name: t.name, statusLabel: truppStatusLabel(t.status), members: t.members ?? [], auftrag: truppAuftragLabel(t.auftrag), ziel: t.ziel,
       // the numeric Leitung, else the free text an older record still carries verbatim
       lineNumber: t.lineNo != null ? String(t.lineNo) : t.lineNumber?.trim() || undefined,
       entryTime: t.entryTime ? formatDateTime(t.entryTime) : undefined, exitTime: t.exitTime ? formatDateTime(t.exitTime) : undefined,

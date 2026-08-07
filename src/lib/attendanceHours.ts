@@ -18,6 +18,10 @@ export interface HoursRow {
   minutes: number | null
   /** every executed block, so a surface can show «14:00–18:00, 22:00–02:00» instead of a span */
   intervals: PresenceInterval[]
+  /** this person really went home — their last block has a recorded end. False when `to` only
+   *  holds the Einsatzende fallback, i.e. they were still there. A surface that flags early
+   *  leavers must read THIS, not `to`, or it flags everybody. */
+  leftEarly: boolean
 }
 
 /**
@@ -38,6 +42,7 @@ export function hoursRows(
         name: e.displayNameSnapshot,
         from: intervals[0]?.from ?? opts.alarmedAt ?? null,
         to: last?.to ?? opts.endedAt ?? null,
+        leftEarly: !!last?.to,
         minutes: totalMinutes(intervals, opts),
         intervals,
       }

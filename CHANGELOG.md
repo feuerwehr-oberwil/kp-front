@@ -129,6 +129,44 @@ so this file – not the log – is the record of what shipped up to that point.
   (`report.reversePrintOrder`, switch it off for a printer that ejects face-down); the
   downloaded PDF stays in reading order, because that one is read on a screen.
 
+- **The Rapport says which times were measured and which it worked out.** Somebody still on
+  scene when the rapport prints had no Bis-Zeit at all, so the sheet WinFAP reads the hours off
+  said nothing about them. The incident's own end fills that in now – and prints **grey**,
+  along with a start derived from the alarm, so a line that is grey on both ends is one nobody
+  has to check and a black one is a time somebody actually recorded. On an Einsatz past
+  midnight the clocks carry their **date**: «08:23 – 09:00» reads as 37 minutes when it was 25
+  hours.
+
+- **The Anwesenheits-Übersicht flagged everybody as having left.** «· bis 09:00» stood behind
+  every name, because an open block was filled with the Einsatzende before being displayed –
+  so the one thing the line exists to show, who went home early, was the one thing invisible in
+  it. Only a recorded departure gets a time; for everyone else the ticked name is the statement.
+
+- **The Kroki remembers how it was framed.** Crop, moment and orientation are kept with the
+  Einsatz, so a second copy – a correction, one for the Gemeinde – comes out of the same window
+  instead of being set up from scratch each time, on any device.
+
+- **The Kroki can print upright.** A Lage that runs north–south was letterboxed into a
+  landscape sheet with white down both sides. **Hoch · Quer** sits in the crop window, starts on
+  whichever fits the Lage, and the page follows it – the crop window has the proportions of the
+  sheet, so what is framed is what comes out.
+
+- **The Atemschutz-Beilage printed «loeschen».** The Auftrag was sent to the printer as the
+  value it is STORED as instead of the one it reads as. It also lays its lines out on one tab
+  stop now – Mitglieder, Auftrag / Ziel, Leitung, Eintritt each started wherever their own label
+  ended – and the section heading is no longer smaller than the Trupp names underneath it.
+
+- **The Details box was mostly dotted lines under things that were already filled in.** A line
+  is an invitation to write, so it is drawn where there is nothing to read – an empty
+  Kontaktperson still gets one – and the values share one tab stop per column instead of each
+  starting after its own label. «Gerettete (Personen / Tiere)» is just **Gerettete**; the value
+  on the line says which.
+
+- **The Unterschriften read «Einsatzleiter · Céline Widmer: ____».** The name belongs to the
+  role that signs, so it is a value now – «Einsatzleiter: Céline Widmer ____» – and the line to
+  sign on stays whether or not the name above it is known. The demo fills a Kommandant, so both
+  lines show what a station's own configuration does.
+
 - **The printed Kroki lost every label on it.** A symbol carries what was typed onto it – the
   Einsatzleiter's name, a Fahrer, a Bezeichnung – and the map has always shown it. Only Trupps
   and Notizen ever sent theirs to the print, so a Kroki that read perfectly on screen came out

@@ -3,6 +3,7 @@ import { appConfig } from '../config/appConfig'
 import { layers as initialLayers, planDocuments } from '../data/demoIncident'
 import { referenceLayersFromConfig } from './deploymentConfig'
 import type { ChecklistState } from './checklists'
+import type { KrokiView } from './report'
 import type { PlanScale } from './planScale'
 import type { VehicleOverrides } from './useVehicleLayer'
 
@@ -46,6 +47,10 @@ export interface ReportMeta {
    *  `fleet.vehicles`; same prefill/manual semantics as `gruppen`. The header
    *  Ausgerückt is DERIVED from these once any exist (deriveAusgerueckt). */
   fahrzeuge?: FahrzeugZeit[]
+  /** How the Kroki was framed for the LAST print of this Einsatz — the crop, the moment it
+   *  shows, and the page shape. Remembered so a reprint (a correction, a second copy for the
+   *  Gemeinde) comes out of the same window instead of being framed from scratch. */
+  krokiPrint?: { view?: KrokiView; at?: string; landscape?: boolean }
   /** Gerettete Personen / Tiere (counts; absent ≠ 0 — absent means not recorded) */
   gerettete?: { personen?: number; tiere?: number }
   /** Wer über die Erfassung (/e/) erfasst hat — kommagetrennt, jede Person einmal */
