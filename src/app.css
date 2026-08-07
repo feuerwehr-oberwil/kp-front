@@ -3572,6 +3572,7 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 /* The Rapport as a SURFACE — same geometry every other full surface uses (Mittel, Anwesenheit,
    Atemschutz), so the rail stays put and the page changes underneath it. It carries the
    .report-preflight rules above by sharing the class, which is why those keep working. */
+.rp-backdrop { position: fixed; inset: 0; background: var(--app-bg); z-index: 19; }
 .report-preflight-surface {
   position: absolute; inset: 88px 16px 16px calc(var(--rail-w) + 28px); z-index: 20;
   display: flex; flex-direction: column;
@@ -3591,22 +3592,34 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    name four things on an Einsatz nobody has written up yet */
 .rp-head-titles p { margin: 3px 0 0; font-size: 12.5px; color: var(--ink-dim);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rp-head-actions { flex: none; display: flex; align-items: center; gap: 8px; }
+.rp-head-actions { flex: none; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+/* ONE height and ONE corner for every control on this row — the same rule the Anwesenheit head
+   states: --tap is the floor a finger needs, so nothing shrinks to meet its neighbours. */
+.rp-head-actions > .ip-btn, .rp-head-actions > .rp-state {
+  min-height: var(--tap); border-radius: var(--r-sm);
+}
+/* The readiness chip. It OPENS the detail band rather than being decoration, so it is a button,
+   and it counts what is wrong instead of saying «Kontrolle» — «2 Hinweise» is actionable, a
+   section name is not. Amber, never --accent: --accent is the brand red and must not mean state. */
+.rp-state { display: inline-flex; align-items: center; gap: 7px; padding: 0 12px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface-2); color: var(--ink-dim);
+  font: 700 12.5px var(--body); }
+.rp-state svg { width: 15px; height: 15px; }
+.rp-state.ok { color: var(--green-strong); border-color: color-mix(in srgb, var(--green) 35%, transparent); }
+.rp-state.warn { color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 45%, transparent);
+  background: color-mix(in srgb, var(--amber) 10%, var(--surface-2)); }
+/* The Kontrolle detail as a band under the head — it belongs to the chip that opens it, and a
+   warning that scrolls away with the form is a warning nobody read. */
+.rp-control { flex: none; display: flex; flex-direction: column; gap: 6px;
+  padding: 10px 22px; background: var(--surface-2); border-bottom: 1px solid var(--glass-edge);
+  max-height: 32vh; overflow-y: auto; }
 /* the ✕ is a control on this row, so it obeys the row's floor — .ip-x is a 30px dialog affordance
    and this is a page you leave with gloves on */
 .rp-head .ip-x { display: grid; place-items: center; width: var(--tap); height: var(--tap); }
 .report-preflight-surface > .ip-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
-/* The actions are PINNED to the surface now (they scrolled with the form while this was a
-   sheet). A sheet is filled in top to bottom and its buttons belong at the end of it; a page is
-   arrived at mid-Einsatz to fix one time and print, and «PDF» two screens down was what every
-   scroll to the bottom was for. Kontrolle is pinned with them — see the component: a warning has
-   to be readable before the paper exists, and a reachable print button above an unreachable
-   warning is the same failure as a warning behind a fold. */
-.report-preflight-foot { flex: none; display: flex; flex-direction: column; gap: 10px;
-  padding: 10px 20px 14px; border-top: 1px solid var(--border-soft); }
-/* …but three warnings must not eat the form they are about: the block scrolls inside the footer
-   rather than pushing the buttons off a phone screen. */
-.report-preflight-foot > .report-pre-hints { max-height: 38vh; overflow-y: auto; }
+/* The actions live in the HEAD with the other surfaces' controls, and the readiness chip rides
+   with them — a warning about the record has to be in the same glance as the button that makes
+   the paper. The old pinned footer is gone with them. */
 /* TWO columns of a rapport (see the component for what goes in which and why). Each column is
    its own stack, so the single-column phone case is simply the two of them below one another —
    the DOM order, which is the printed order, is the same either way. */
@@ -3624,7 +3637,6 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 @media (max-width: 720px) {
   .report-preflight-surface { inset: calc(78px + env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
     calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
-  .report-preflight-foot { padding: 8px 12px 12px; gap: 8px; }
 }
 .report-preflight > .ip-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 

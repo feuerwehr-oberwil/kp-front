@@ -572,6 +572,9 @@ export function ReportPreflight({
   // «bereit» is a claim, so it is made only when nothing is outstanding — a fold that says all
   // is well while hiding a broken hash chain would be worse than no summary at all.
   const controlOk = !checking && proof.intact !== false && missTx === 0 && pendingMediaCount === 0
+  /** how many things are actually wrong — the chip counts them rather than saying «Kontrolle» */
+  const warnCount = (missTx > 0 ? 1 : 0) + (pendingMediaCount > 0 ? 1 : 0) + (proof.intact === false ? 1 : 0)
+  const [controlOpen, setControlOpen] = useState(false)
 
   const facts: AbschlussFacts = { reportMeta: meta, attendanceCount, mittelCount }
   const rows = hoursRows(attendance, { alarmedAt: alarmiert ?? null, endedAt: meta.endedAt ?? null })
@@ -622,6 +625,11 @@ export function ReportPreflight({
        operator two windows deep on the one screen that has to stay legible at 3am, and it is a
        panel in the page now. The head keeps a close button because the surface is still
        something you LEAVE (back to the Lage), not a place to end up. */
+    <>
+      {/* Opaque backdrop, exactly as Mittel and Atemschutz do it: the Lage showing through the
+          gap around an inset card makes a form look like something floating over the map, and
+          this surface is where somebody sits and writes. */}
+      <div className="rp-backdrop" aria-hidden />
       <div className="report-preflight report-preflight-surface">
         {/* The same head every other surface wears (Anwesenheit, Mittel): a title, and under it
             one line of what is actually recorded. It carried a bare title and an ✕ — dialog
@@ -633,10 +641,72 @@ export function ReportPreflight({
             <h2>{P.title}</h2>
             <p>{headSummary}</p>
           </div>
+          {/* The controls sit HERE, with the other surfaces' controls, and the readiness state
+              rides with them — that pairing is not decoration. A warning about the record (a
+              broken hash chain, an audio entry with no transcript, a photo still queued) has to
+              be read before the paper exists, so it has to be in the same glance as the button
+              that makes the paper. Putting the buttons up here and leaving the warnings at the
+              bottom of a scrolling form would be exactly the failure the never-behind-a-fold rule
+              prevents; they move together or not at all. */}
           <div className="rp-head-actions">
+            <button
+              type="button"
+              className={cx('rp-state', controlOk && 'ok', !controlOk && !checking && 'warn')}
+              onClick={() => setControlOpen((o) => !o)}
+              aria-expanded={controlOpen}
+              title={P.controlHead}
+            >
+              <Icon id={checking ? 'rotate' : controlOk ? 'check' : 'warn'} className={checking ? 'spin' : undefined} />
+              <span>{checking ? P.proofChecking : controlOk ? P.allReady : fillTemplate(P.controlOpen, { n: warnCount })}</span>
+            </button>
+            {onComplete && (
+              <button className="ip-btn" onClick={() => void complete()}><Icon id="check" />{A.complete}</button>
+            )}
+            {printStatus?.available && (
+              <button className={`ip-btn print-send${printStatus.online ? '' : ' offline'}`} disabled={printBusy}
+                onClick={() => startOutput('print')} title={printStatus.online ? R.online : R.offline}>
+                <span className="print-send-main">
+                  <Icon id="printer" />
+                  <span className={`dot print-relay-dot${printStatus.online ? ' online' : ''}`} aria-hidden />
+                  {printBusy ? R.sending : R.send}
+                </span>
+                {!printStatus.online && <span className="print-send-off">{R.offline}</span>}
+              </button>
+            )}
+            <button className="ip-btn primary" disabled={pdfBusy} onClick={() => startOutput('pdf')}>
+              <Icon id={pdfBusy ? 'rotate' : 'doc'} className={pdfBusy ? 'spin' : undefined} />{pdfBusy ? P.pdfBusy : P.pdfFull}
+            </button>
             <button className="ip-x" onClick={close} aria-label={P.backToMap} title={P.backToMap}><Icon id="close" /></button>
           </div>
         </header>
+        {/* The Kontrolle detail hangs UNDER the head as a band, not inside the scrolling form:
+            it belongs to the state chip that opens it, and a warning that scrolls away is a
+            warning nobody read. Open whenever there is something wrong. */}
+        {(controlOpen || !controlOk) && !checking && (
+          <section className="rp-control">
+            {missTx > 0 && (
+              <p className="report-pre-warn">
+                <Icon id="warn" /> <span>{fillTemplate(P.missingTranscripts, { n: missTx })}</span>
+                {onFixTranscripts && <button type="button" className="report-pre-fix" onClick={onFixTranscripts}>{P.fixTranscripts}</button>}
+              </p>
+            )}
+            {pendingMediaCount > 0 && (
+              <p className="report-pre-warn">
+                <Icon id="warn" /> <span>{fillTemplate(P.pendingMedia, { n: pendingMediaCount })}</span>
+              </p>
+            )}
+            {!proof.intact && (
+              <p className="report-pre-warn"><Icon id="warn" /> <span>{proofLabel(proof)}</span></p>
+            )}
+            {controlOpen && (
+              <div className="report-fold-body">
+                <p><Icon id={proof.intact ? 'check' : 'warn'} /> {proofLabel(proof)}</p>
+                <p><Icon id="doc" /> {fillTemplate(P.annotatedDefault, { n: annotatedPlanCount })}</p>
+                <p><Icon id="snapshot" /> {fillTemplate(P.stateNote, { at: formatDateTime(new Date().toISOString()) })}</p>
+              </div>
+            )}
+          </section>
+        )}
         <div className="ip-body report-preflight-body" ref={bodyRef}>
           {/* TWO columns on a wide screen (one below 1080px, see app.css), because the rapport is
               worked in two different ways and they interleave: the FORM is typed straight through
@@ -697,6 +767,14 @@ export function ReportPreflight({
                 <div><dt>{P.alarmierung}</dt><dd>{alarmiert ? formatDateTime(alarmiert) : <span className="report-meta-empty">{P.notRecorded}</span>}</dd></div>
               </dl>
             </div>
+          </section>
+
+          {/* «Rapportangaben» was ONE heading over everything after the dispatch facts — a blob a
+              screen and a half long in which nothing could be found by looking. It is four
+              sections now, each named after the question it answers, in exactly the order they
+              were already in (that order is the printed rapport's). */}
+          <section className="report-pre-section report-pre-meta">
+            <h3>{P.sectionBericht}</h3>
             {/* after-arrival — editable inline (replaces the old Bearbeiten modal) */}
             <label className="ip-field">
               <span>{P.summaryLabel}</span>
@@ -748,6 +826,10 @@ export function ReportPreflight({
                 </div>
               </div>
             </div>
+          </section>
+
+          <section className="report-pre-section report-pre-meta">
+            <h3>{P.sectionZeiten}</h3>
             {/* Ausgerückt: derived from the vehicle grid when it exists; the manual field
                 only appears on deployments WITHOUT configured vehicles (nothing else to
                 derive from). With vehicles configured but no times yet, the grid below is
@@ -842,6 +924,10 @@ export function ReportPreflight({
               </div>
               {zeitWarn('ende')}
             </label>
+          </section>
+
+          <section className="report-pre-section report-pre-meta">
+            <h3>{P.sectionNachbearbeitung}</h3>
             <label className="ip-field">
               <span>{P.remarksLabel}</span>
               <textarea className="ip-textarea" value={remarks} rows={3} placeholder={P.remarksPlaceholder}
@@ -1174,77 +1260,7 @@ export function ReportPreflight({
             anyway): a warning must be read BEFORE paper is made, and pinning the button without
             pinning the warning would have made it possible to print past one without ever having
             seen it — the same failure the «never behind a fold» rule exists to prevent. */}
-        <div className="report-preflight-foot">
-          {/* Kontrolle. Four lines of reassurance is three too many when the answer is yes —
-              but a PROBLEM must never be behind a fold, so the warnings sit outside it and the
-              tick only claims «bereit» when there are none. */}
-          <section className="report-pre-section report-pre-hints">
-            {missTx > 0 && (
-              <p className="report-pre-warn">
-                <Icon id="warn" /> <span>{fillTemplate(P.missingTranscripts, { n: missTx })}</span>
-                {onFixTranscripts && <button type="button" className="report-pre-fix" onClick={onFixTranscripts}>{P.fixTranscripts}</button>}
-              </p>
-            )}
-            {pendingMediaCount > 0 && (
-              <p className="report-pre-warn">
-                <Icon id="warn" /> <span>{fillTemplate(P.pendingMedia, { n: pendingMediaCount })}</span>
-              </p>
-            )}
-            {!checking && !proof.intact && (
-              <p className="report-pre-warn"><Icon id="warn" /> <span>{proofLabel(proof)}</span></p>
-            )}
-            <details className="report-fold">
-              <summary>
-                <Icon id="chevron-down" />
-                <span className={cx('report-fold-t', controlOk && 'report-ok')}>
-                  <Icon id={checking ? 'rotate' : controlOk ? 'check' : 'warn'} />
-                  {checking ? P.proofChecking : controlOk ? P.allReady : P.controlHead}
-                </span>
-              </summary>
-              <div className="report-fold-body">
-                <p><Icon id={proof.intact ? 'check' : 'warn'} /> {proofLabel(proof)}</p>
-                <p><Icon id="doc" /> {fillTemplate(P.annotatedDefault, { n: annotatedPlanCount })}</p>
-                <p><Icon id="snapshot" /> {fillTemplate(P.stateNote, { at: formatDateTime(new Date().toISOString()) })}</p>
-              </div>
-            </details>
-          </section>
-
-          {/* The actions stay DOWN HERE rather than moving up into the head with the other
-              surfaces' controls, and Kontrolle stays directly above them. A warning about the
-              record — a broken hash chain, an audio entry with no transcript, a photo still in
-              the upload queue — has to be read before the paper exists, and the only arrangement
-              in which that is guaranteed is the one where the warning and the button that makes
-              paper are in the same glance. In the head they would be a screen apart on a phone
-              and a column apart on a tablet, which is the «print button above an unreachable
-              warning» the never-behind-a-fold rule exists to prevent.
-              «Abbrechen» is gone with the dialog it belonged to: there is nothing here to cancel
-              — every field writes through as it is typed — and a page is left by the rail or by
-              the ✕ in the head. What is left is levelled like `.headActions` does it: one height
-              (--tap, the floor a gloved finger needs) and one radius, nothing shrunk to match. */}
-          <div className="ip-actions">
-            {/* ONE output (2026-07-18): the server composes the complete rapport incl.
-                Kroki + Pläne from data. «Einsatz abschliessen» = bookkeeping, secondary. */}
-            {onComplete && (
-              <button className="ip-btn" onClick={() => void complete()}><Icon id="check" />{A.complete}</button>
-            )}
-            {/* the relay's state is quiet while it answers (green dot, nothing to read) and only
-                speaks up when it does not — the title= alone was invisible on the tablet */}
-            {printStatus?.available && (
-              <button className={`ip-btn print-send${printStatus.online ? '' : ' offline'}`} disabled={printBusy}
-                onClick={() => startOutput('print')} title={printStatus.online ? R.online : R.offline}>
-                <span className="print-send-main">
-                  <Icon id="printer" />
-                  <span className={`dot print-relay-dot${printStatus.online ? ' online' : ''}`} aria-hidden />
-                  {printBusy ? R.sending : R.send}
-                </span>
-                {!printStatus.online && <span className="print-send-off">{R.offline}</span>}
-              </button>
-            )}
-            <button className="ip-btn primary" disabled={pdfBusy} onClick={() => startOutput('pdf')}>
-              <Icon id={pdfBusy ? 'rotate' : 'doc'} className={pdfBusy ? 'spin' : undefined} />{pdfBusy ? P.pdfBusy : P.pdfFull}
-            </button>
-          </div>
-        </div>
       </div>
+    </>
   )
 }

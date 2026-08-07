@@ -2360,7 +2360,13 @@ export const de = {
     headSummaryOpen: '{n} Personen · {m} Positionen · noch offen: {steps}',
     headSummaryReady: '{n} Personen · {m} Positionen · alle Angaben erfasst',
     // Rapportangaben section
-    rapportHead: 'Rapportangaben',
+    // «Rapportangaben» stand als eine Überschrift über allem – anderthalb Bildschirme, in denen
+    // sich nichts durch Hinschauen finden liess. Vier Abschnitte, jeder nach der Frage benannt,
+    // die er beantwortet; die Reihenfolge bleibt die des gedruckten Rapports.
+    rapportHead: 'Aus der Alarmierung',
+    sectionBericht: 'Bericht & Beteiligte',
+    sectionZeiten: 'Zeiten',
+    sectionNachbearbeitung: 'Nachbearbeitung',
     // …split out of the same field the Alarmmeldung arrives in (siehe lib/alarmText):
     // der Meldungstext ist das Einzige daran, was ein Mensch geschrieben hat.
     vehicleOrder: 'Ausrückeordnung',
@@ -2468,6 +2474,8 @@ export const de = {
     framingFit: 'Auf Einsatz zoomen',
     // Kontrolle section
     controlHead: 'Kontrolle',
+    // Der Zustands-Chip zählt, was offen ist, statt nur «Kontrolle» zu sagen
+    controlOpen: '{n} Hinweis(e)',
     proofChecking: 'Prüfnachweis wird geprüft …',
     annotatedDefault: '{n} annotierte Pläne werden standardmässig gedruckt.',
     missingTranscripts: '{n} Audioeintrag/-einträge ohne Transkript – fürs Protokoll nachtragen.',
