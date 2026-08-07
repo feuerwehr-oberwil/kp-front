@@ -20,6 +20,9 @@ export type CaptureAction =
   /** correct ONE presence block's von/bis (`index`, default the current one) — not the derived
    *  checkedInAt/leftAt summary, which is recomputed from the blocks */
   | { kind: 'setTimes'; personId: string; index?: number; from?: string; to?: string }
+  /** the free Bemerkung on a person's attendance row («Fahrer TLF», «Einsatzleiter») — the same
+   *  per-incident field the Anwesenheit view writes; presence itself stays untouched */
+  | { kind: 'setAttendanceNote'; personId: string; note?: string }
   | { kind: 'setMeta'; patch: Partial<ReportMeta> }
   | { kind: 'setMittel'; materialId?: string; label: string; unit: string; sourceId?: string; sourceLabel?: string; menge: number; by: string }
   /** Rapport-Beilage: a photo that belongs to the report (an Ausweis, a damage close-up). The
@@ -83,6 +86,12 @@ export function captureJournalRow(
       }))
     case 'setTimes':
       return row('clock', fillTemplate(C.logTimes, { name: ctx.name ?? action.personId }))
+    case 'setAttendanceNote':
+      // same event and therefore the same wording as the tablet's Anwesenheit view — a
+      // Bemerkung reads identically in the Verlauf no matter which surface wrote it
+      return row('user', fillTemplate(appConfig.copy.anwesenheit.logNote, {
+        name: ctx.name ?? action.personId, note: action.note ?? '–',
+      }))
     case 'setMittel':
       return row('box', fillTemplate(C.logMittel, {
         label: action.label, menge: String(action.menge), unit: action.unit, by: action.by,
@@ -118,6 +127,46 @@ export function cycleAttendance(
 }
 
 /**
+ * The attendance writes that picking a NAME in one of the poster's person pickers implies.
+ *
+ * Whoever takes on a function was there — the same rule the Trupp form follows in the app, so
+ * nobody ends up leading an Einsatz they are not on the Personalblatt of. The pickers are
+ * free-text Combos handing back a string, so the only safe resolution is an EXACT, unambiguous
+ * match on the display name (trimmed, case-insensitive): a typed-in guest (Nachbarwehr,
+ * Zivilist) or a name two members share resolves to nobody, and doing NOTHING is the right
+ * outcome there, not a failure.
+ *
+ * Two deliberate silences, because the poster is a phone at the magazine door with no room to
+ * argue: somebody already anwesend is not ticked again (that tap would CLOSE their block), and
+ * somebody recorded as «gegangen» is left exactly as they are — that departure was a decision,
+ * and the tablet is where it gets questioned. `note` lands only on an EMPTY Bemerkung; a
+ * hand-written one always outranks a derived one.
+ *
+ * Pure, so the whole rule is testable without a server. Returns the actions in the order they
+ * must run — an empty list means there is nothing to do.
+ */
+export function attendanceForPickedName(
+  name: string,
+  roster: CapturePerson[],
+  attendance: Record<string, AttendanceEntry>,
+  opts: { vonIso?: string; note?: string } = {},
+): CaptureAction[] {
+  const key = name.trim().toLowerCase()
+  if (!key) return []
+  const hits = roster.filter((p) => p.display_name.trim().toLowerCase() === key)
+  if (hits.length !== 1) return []
+  const p = hits[0]
+  const cur = attendance[p.id]
+  if (cur && !isPresent(cur)) return []
+  const actions: CaptureAction[] = []
+  if (!cur) actions.push({ kind: 'cycleAttendance', personId: p.id, name: p.display_name, vonIso: opts.vonIso })
+  // the entry the cycle just opened carries no Bemerkung either, so «empty» reads the same in
+  // both branches: there is nothing hand-written here that a derived remark could overwrite
+  if (opts.note && !cur?.note) actions.push({ kind: 'setAttendanceNote', personId: p.id, note: opts.note })
+  return actions
+}
+
+/**
  * Apply one capture action onto a server workspace blob, touching ONLY the capture
  * domains (attendance / mittel / reportMeta.endedAt) — every other key is passed through
  * untouched, so a concurrent KP tablet's map work survives the PUT.
@@ -144,6 +193,14 @@ export function applyAction(ws: Workspace | null, action: CaptureAction, nowIso:
     // undo of the destructive third tap: put the removed entry (incl. its times) back verbatim
     const attendance = { ...((base.attendance as Record<string, AttendanceEntry> | undefined) ?? {}) }
     attendance[action.personId] = action.entry
+    base.attendance = attendance
+    return base
+  }
+  if (action.kind === 'setAttendanceNote') {
+    const attendance = { ...((base.attendance as Record<string, AttendanceEntry> | undefined) ?? {}) }
+    const cur = attendance[action.personId]
+    if (!cur) return base // a Bemerkung annotates an existing entry, it never creates one
+    attendance[action.personId] = { ...cur, note: action.note?.trim() || undefined }
     base.attendance = attendance
     return base
   }
@@ -324,7 +381,7 @@ async function logCaptureAction(
     const now = att(after, action.personId)
     ctx.outcome = !now ? 'cleared' : isPresent(now) ? 'present' : 'left'
   }
-  if (action.kind === 'setTimes' || action.kind === 'restoreAttendance') {
+  if (action.kind === 'setTimes' || action.kind === 'restoreAttendance' || action.kind === 'setAttendanceNote') {
     ctx.name = att(after, action.personId)?.displayNameSnapshot ?? att(before, action.personId)?.displayNameSnapshot
   }
   const row = captureJournalRow(action, nowIso, captureRowSeq++, ctx)

@@ -32,8 +32,8 @@ import { TimeField } from '../components/TimeField'
 import { fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit } from '../lib/alarmzeiten'
 import type { IncidentMeta, Workspace } from '../lib/incidents'
 import {
-  CAPTURE_FRESH_MS, CaptureError, autoOpenTarget, captureApi, isNetworkFailure, onServerTime,
-  saveAction, withTimeout, type CaptureAction, type CapturePerson,
+  CAPTURE_FRESH_MS, CaptureError, attendanceForPickedName, autoOpenTarget, captureApi,
+  isNetworkFailure, onServerTime, saveAction, withTimeout, type CaptureAction, type CapturePerson,
 } from '../lib/captureClient'
 import {
   clearDraft, makeDebouncedFlush, restoreDraft, saveDraft, serverSkewMinutes, type DebouncedFlush,
@@ -426,6 +426,26 @@ export default function CaptureApp() {
           },
         },
       })
+    }
+  }
+
+  /**
+   * Picking a person in a picker marks them present — the rule the Trupp form already follows
+   * in the app: whoever takes on a function was at the Einsatz. The decision (who the name
+   * means, what that implies) lives in attendanceForPickedName; here it is only run, in order,
+   * stopping at the first save that did not land so the retry banner keeps ONE pending action.
+   *
+   * Deliberately quiet: a name that matches nobody and a person already ticked off produce no
+   * action at all, and neither gets a toast — the pick itself already confirmed with «gespeichert».
+   */
+  const markPickedPresent = async (name: string, saved: Workspace, note?: string) => {
+    if (!incident) return
+    // the blob the picker's own save just came back with, NOT the render closure: a tablet that
+    // ticked this person present a second ago would otherwise read as «not here yet», and the
+    // cycle would close the block it was supposed to open
+    const att = (saved.attendance as Record<string, AttendanceEntry> | undefined) ?? {}
+    for (const action of attendanceForPickedName(name, roster, att, { vonIso: incident.started_at, note })) {
+      if (!(await run(action))) return
     }
   }
 
@@ -939,7 +959,15 @@ export default function CaptureApp() {
                     allowCustom
                     officerFilter
                     rankOf={rankOf}
-                    onChange={(v) => { void run({ kind: 'setMeta', patch: { einsatzleiter: v || undefined } }).then((ok) => { if (ok) savedToast() }) }}
+                    onChange={(v) => {
+                      void run({ kind: 'setMeta', patch: { einsatzleiter: v || undefined } }).then(async (saved) => {
+                        if (!saved) return
+                        savedToast()
+                        // the Einsatzleiter was there, and the Personalblatt should say WHY the
+                        // name is on it — the Bemerkung only fills an empty one
+                        await markPickedPresent(v, saved, appConfig.copy.anwesenheit.roleEinsatzleiter)
+                      })
+                    }}
                   />
                 </div>
               </div>
@@ -1119,7 +1147,15 @@ export default function CaptureApp() {
                       allowCustom
                       officerFilter
                       rankOf={rankOf}
-                      onChange={(v) => { void run({ kind: 'setMeta', patch: { rueckmeldungElz: { ...rm?.rueckmeldungElz, name: v || undefined } } }).then((ok) => { if (ok) savedToast() }) }}
+                      onChange={(v) => {
+                        void run({ kind: 'setMeta', patch: { rueckmeldungElz: { ...rm?.rueckmeldungElz, name: v || undefined } } }).then(async (saved) => {
+                          if (!saved) return
+                          savedToast()
+                          // presence only: who called the ELZ was on the Einsatz, but no derived
+                          // Bemerkung — the Rückmeldung is already its own line on the Rapport
+                          await markPickedPresent(v, saved)
+                        })
+                      }}
                     />
                   </div>
                   <TimeField ariaLabel={C.rueckZeit} value={toTime(rm?.rueckmeldungElz?.at)} disabled={busy}
@@ -1171,6 +1207,10 @@ export default function CaptureApp() {
             )}
             <div className="cv-modal-who">
               <span>{C.whoTitle}</span>
+              {/* NOT an oversight that this pick marks nobody present, unlike Einsatzleiter and
+                  Rückmeldung: whoever fills the sheet in is often the Fourier at the desk the
+                  next morning, not somebody who was at the Einsatz. Ticking them off here would
+                  invent an Anwesenheit — and the hours behind it. */}
               <Combo
                 value={whoDraft}
                 options={roster.map((p) => p.display_name)}

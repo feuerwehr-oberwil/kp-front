@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { applyAction, autoOpenTarget, captureJournalRow, cycleAttendance } from './captureClient'
+import {
+  applyAction, attendanceForPickedName, autoOpenTarget, captureJournalRow, cycleAttendance,
+  type CapturePerson,
+} from './captureClient'
 import type { AttendanceEntry } from '../types'
 import type { Workspace } from './incidents'
 
@@ -150,6 +153,100 @@ describe('applyAction · Beilagen', () => {
   })
 })
 
+// Picking somebody as Einsatzleiter / für die Rückmeldung also ticks them present — the same
+// rule the Trupp form follows in the app. The pickers are free-text, so what a NAME resolves to
+// is the whole question.
+describe('attendanceForPickedName', () => {
+  const ALARM = '2026-08-07T09:00:00.000Z'
+  const roster: CapturePerson[] = [
+    { id: 'p1', display_name: 'Meier Anna' },
+    { id: 'p2', display_name: 'Studer Beat' },
+  ]
+
+  it('ticks a picked roster member present, «von» = Alarmzeit', () => {
+    const [action, ...rest] = attendanceForPickedName('Meier Anna', roster, {}, { vonIso: ALARM })
+    expect(action).toEqual({ kind: 'cycleAttendance', personId: 'p1', name: 'Meier Anna', vonIso: ALARM })
+    expect(rest).toEqual([])
+  })
+
+  it('matches trimmed and case-insensitively — a Combo hands back whatever was typed', () => {
+    expect(attendanceForPickedName('  meier anna ', roster, {})).toHaveLength(1)
+  })
+
+  it('does nothing for a name nobody on the roster carries', () => {
+    // the guest case: Nachbarwehr, Polizei, Zivilist — no match is the CORRECT outcome
+    expect(attendanceForPickedName('Wachtmeister Keller', roster, {})).toEqual([])
+    expect(attendanceForPickedName('Meier', roster, {})).toEqual([]) // partial ≠ a person
+    expect(attendanceForPickedName('', roster, {})).toEqual([])
+  })
+
+  it('does nothing when two members share the display name', () => {
+    // which of the two was meant is not knowable here, and ticking the wrong one is worse
+    const twins: CapturePerson[] = [{ id: 'p1', display_name: 'Meier Anna' }, { id: 'p9', display_name: 'Meier Anna' }]
+    expect(attendanceForPickedName('Meier Anna', twins, {})).toEqual([])
+  })
+
+  it('never ticks somebody who is already present — that tap would close their block', () => {
+    const att: Record<string, AttendanceEntry> = {
+      p1: { status: 'present', displayNameSnapshot: 'Meier Anna', intervals: [{ from: ALARM }] },
+    }
+    expect(attendanceForPickedName('Meier Anna', roster, att)).toEqual([])
+  })
+
+  it('leaves «gegangen» alone — a recorded departure was a decision', () => {
+    const att: Record<string, AttendanceEntry> = {
+      p1: {
+        status: 'left', displayNameSnapshot: 'Meier Anna',
+        intervals: [{ from: ALARM, to: '2026-08-07T10:00:00.000Z' }],
+      },
+    }
+    expect(attendanceForPickedName('Meier Anna', roster, att, { note: 'Einsatzleiter' })).toEqual([])
+  })
+
+  it('writes the Einsatzleiter remark alongside the tick', () => {
+    const actions = attendanceForPickedName('Studer Beat', roster, {}, { vonIso: ALARM, note: 'Einsatzleiter' })
+    expect(actions.map((a) => a.kind)).toEqual(['cycleAttendance', 'setAttendanceNote'])
+    expect(actions[1]).toEqual({ kind: 'setAttendanceNote', personId: 'p2', note: 'Einsatzleiter' })
+  })
+
+  it('remarks somebody who is already present without touching their presence', () => {
+    const att: Record<string, AttendanceEntry> = {
+      p1: { status: 'present', displayNameSnapshot: 'Meier Anna', intervals: [{ from: ALARM }] },
+    }
+    expect(attendanceForPickedName('Meier Anna', roster, att, { note: 'Einsatzleiter' }))
+      .toEqual([{ kind: 'setAttendanceNote', personId: 'p1', note: 'Einsatzleiter' }])
+  })
+
+  it('never overwrites a hand-written Bemerkung with a derived one', () => {
+    const att: Record<string, AttendanceEntry> = {
+      p1: { status: 'present', displayNameSnapshot: 'Meier Anna', note: 'Fahrer TLF', intervals: [{ from: ALARM }] },
+    }
+    expect(attendanceForPickedName('Meier Anna', roster, att, { note: 'Einsatzleiter' })).toEqual([])
+  })
+
+  it('ticks presence without a remark where none was asked for (Rückmeldung ELZ)', () => {
+    const actions = attendanceForPickedName('Meier Anna', roster, {}, { vonIso: ALARM })
+    expect(actions.map((a) => a.kind)).toEqual(['cycleAttendance'])
+  })
+})
+
+describe('applyAction · Bemerkung', () => {
+  const NOW = '2026-08-07T09:41:00.000Z'
+
+  it('writes the remark and leaves the presence blocks untouched', () => {
+    const ws = { attendance: { p1: { status: 'present', displayNameSnapshot: 'Meier Anna', intervals: [{ from: NOW }] } } } as unknown as Workspace
+    const out = applyAction(ws, { kind: 'setAttendanceNote', personId: 'p1', note: 'Einsatzleiter' }, NOW)
+    const att = out.attendance as Record<string, AttendanceEntry>
+    expect(att.p1.note).toBe('Einsatzleiter')
+    expect(att.p1.intervals).toEqual([{ from: NOW }])
+  })
+
+  it('never creates an entry — a Bemerkung only annotates one', () => {
+    const out = applyAction({}, { kind: 'setAttendanceNote', personId: 'ghost', note: 'Einsatzleiter' }, NOW)
+    expect(out.attendance).toBeUndefined()
+  })
+})
+
 describe('captureJournalRow — the poster writes to the Verlauf too', () => {
   const NOW = '2026-08-07T09:41:00.000Z'
 
@@ -192,6 +289,14 @@ describe('captureJournalRow — the poster writes to the Verlauf too', () => {
     const a = captureJournalRow({ kind: 'addAttachment', id: 'x', url: '/u' }, NOW, 0)
     const b = captureJournalRow({ kind: 'addAttachment', id: 'y', url: '/u' }, NOW, 1)
     expect(a?.id).not.toBe(b?.id)
+  })
+
+  it('logs a Bemerkung by name, in the same words the tablet uses', () => {
+    const row = captureJournalRow(
+      { kind: 'setAttendanceNote', personId: 'p1', note: 'Einsatzleiter' }, NOW, 0, { name: 'Meier Anna' },
+    )
+    expect(row?.text).toContain('Meier Anna')
+    expect(row?.text).toContain('Einsatzleiter')
   })
 
   it('resolves a person id to a name where it has one', () => {

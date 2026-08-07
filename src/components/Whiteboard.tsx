@@ -97,6 +97,9 @@ interface Props {
   rosterNames?: string[]
   /** name → rank key, for the officer-first sort + "nur Offiziere" filter on leadership symbols */
   rosterRank?: Record<string, string | undefined>
+  /** a roster field on a plan symbol («Fahrer», «Name») names somebody who is standing there —
+   *  same rule as on the Lage, so the Anwesenheit learns about it from either surface */
+  onRosterField?: (symbol: string | undefined, label: string | undefined, key: string, name: string) => void
   onRecent: (name: string) => void
   /** append to the unified journal with plan context (team link, plan coords). */
   log: (icon: string, text: string, extra?: PlanLogExtra) => void
@@ -151,7 +154,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', onChange, building, onSelectBuilding, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRecent, log, onSymbolPlaced, emit = () => {}, historyRef, onHistoryState, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTruppColor, onPickLine, onLinkLineTrupp, truppSeverities, planScale = {}, onCalibrate, slimTools: slimToolsProp = false }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', onChange, building, onSelectBuilding, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, onRecent, log, onSymbolPlaced, emit = () => {}, historyRef, onHistoryState, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTruppColor, onPickLine, onLinkLineTrupp, truppSeverities, planScale = {}, onCalibrate, slimTools: slimToolsProp = false }: Props) {
   const active = plans.find((p) => p.id === activeId) ?? plans[0]
   // A viewer-only plan (e.g. PV/documentation PDF) is read-only regardless of role: plain
   // pan/zoom, no drawing tools or annotation surface. Folds into the existing readOnly gates.
@@ -2203,7 +2206,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           svg={selSymbol.symbol ? sym.byName[selSymbol.symbol] ?? '' : ''}
           onClose={() => setSelId(null)}
           onTitle={(v) => patchCommit(selSymbol.id, { label: v })}
-          onFields={(fields) => patchCommit(selSymbol.id, { fields })}
+          onFields={(fields) => {
+            const before = selSymbol.fields ?? {}
+            patchCommit(selSymbol.id, { fields })
+            for (const [k, v] of Object.entries(fields)) {
+              if (v.trim() && before[k] !== v) onRosterField?.(selSymbol.symbol, selSymbol.label, k, v)
+            }
+          }}
           onNotes={(v) => patchCommit(selSymbol.id, { notes: v || undefined })}
           onFloorFrom={(f) => patchCommit(selSymbol.id, { floorFrom: f ?? undefined })}
           onFloorTo={(f) => patchCommit(selSymbol.id, { floorTo: f ?? undefined })}

@@ -1676,6 +1676,18 @@ export const en: Localizable<Copy> = {
   },
   anwesenheit: {
     title: 'Attendance',
+    // taking on a function also puts you on the attendance list; the remark is filled in only
+    // when nobody wrote one by hand
+    noteLabel: 'Remark',
+    notePlaceholder: 'e.g. driver TLF',
+    logNote: '{name} – remark: {note}',
+    roleEinsatzleiter: 'Incident commander',
+    roleFahrer: 'Driver {vehicle}',
+    roleRueckmeldung: 'Report to dispatch',
+    // hints, never blocks
+    conflictUnderPa: '{name} is under SCBA – team {trupp}.',
+    conflictElInTrupp: '{name} is incident commander and also in team {trupp}.',
+    conflictLeft: '{name} is recorded as «left».',
     summary: '{present} present · {left} left · {total} crew',
     reload: 'Reload crew',
     loading: 'Loading …',

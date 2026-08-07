@@ -21,6 +21,7 @@ import { formatAudioDuration } from './lib/audioImport'
 import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys, VEHICLE_SYMBOLS } from './lib/symbols'
 import { circlePolygon, fmtLV95, fmtWGS, haversineM, pathLengthM, polygonAreaM2 } from './lib/geo'
 import { intervalsOf, isPresent, openPresence } from './lib/attendanceIntervals'
+import { roleConflictHint, type AssignableRole } from './lib/roleAssignment'
 import { useShiftActions } from './lib/useShiftActions'
 import { useBandActions } from './lib/useBandActions'
 import { editorPrintTransport, fetchPrintStatus, type PrintRelayStatus } from './lib/printRelay'
@@ -2045,21 +2046,84 @@ export function IncidentWorkspace({
   )
   // present crew (attendance) — offered first in the Einsatzleiter picker (mirrors Atemschutz)
   const presentIds = useMemo(() => new Set(Object.entries(attendance).filter(([, a]) => isPresent(a)).map(([id]) => id)), [attendance])
-  const ensurePresentFromTrupp = (ids: (string | undefined)[]) => {
-    const fresh = [...new Set(ids.filter(Boolean) as string[])].filter((id) => !isPresent(attendance[id]))
-    if (!fresh.length) return
+  /** roster display name → person id. The symbol fields and the Erfassungsblatt pick from a list
+   *  of NAMES (Combo, not PersonField), so this is what turns «Widmer Céline» back into somebody
+   *  the Anwesenheit can be written for. A typed-in name that matches nobody resolves to
+   *  undefined — a guest or mutual aid, and those are exactly the people not on our roster. */
+  const rosterIdByName = useMemo(
+    () => new Map(personnel.filter((p) => p.active).map((p) => [p.displayName.trim().toLowerCase(), p.id])),
+    [personnel],
+  )
+
+  /**
+   * Being given a job on this Einsatz puts you on the Anwesenheit list. Whoever is named as
+   * Einsatzleiter, put in a Trupp or entered as the Fahrer of a vehicle IS on scene; a rapport
+   * that names somebody the attendance sheet has never heard of contradicts itself, and the
+   * contradiction goes to the Gemeinde on paper.
+   *
+   * `roleNote` additionally fills that person's Bemerkung («Fahrer TLF», «Einsatzleiter») — the
+   * field whose placeholder has always advertised exactly this and which nothing ever wrote. Only
+   * onto an EMPTY remark: what somebody typed there by hand outranks anything derived.
+   */
+  const ensurePresentForRole = (ids: (string | undefined)[], roleNote?: string) => {
+    const wanted = [...new Set(ids.filter(Boolean) as string[])]
+    const fresh = wanted.filter((id) => !isPresent(attendance[id]))
+    const needNote = roleNote ? wanted.filter((id) => !(attendance[id]?.note ?? '').trim()) : []
+    if (!fresh.length && !needNote.length) return
     setAttendance((cur) => {
       const next = { ...cur }
       for (const id of fresh) {
         const name = rosterById.get(id)?.displayName ?? cur[id]?.displayNameSnapshot ?? id
-        // being put in a Trupp opens a presence block: the alarm time for a first one, the real
+        // being given the job opens a presence block: the alarm time for a first one, the real
         // clock for someone who had already left and is being sent out again
         const at = intervalsOf(cur[id]).length ? new Date().toISOString() : incidentMeta.started_at
         next[id] = openPresence(cur[id], at, name)
       }
+      for (const id of needNote) if (next[id]) next[id] = { ...next[id], note: roleNote }
       return next
     })
     for (const id of fresh) log('people', `${rosterById.get(id)?.displayName ?? id} anwesend`, 'team')
+    for (const id of needNote) {
+      log('people', fillTemplate(appConfig.copy.anwesenheit.logNote, {
+        name: rosterById.get(id)?.displayName ?? id, note: roleNote ?? '–',
+      }), 'team')
+    }
+  }
+  const ensurePresentFromTrupp = (ids: (string | undefined)[]) => ensurePresentForRole(ids)
+
+  /** Assign a role: presence + Bemerkung, and the hint if it contradicts the record (lib ·
+   *  roleAssignment). The hint never blocks — it is shown after the assignment went through. */
+  const assignRole = (personId: string | undefined, role: AssignableRole, note?: string) => {
+    if (!personId) return
+    const name = rosterById.get(personId)?.displayName ?? attendance[personId]?.displayNameSnapshot ?? personId
+    const hint = roleConflictHint(personId, role, name, attendance, trupps)
+    ensurePresentForRole([personId], note)
+    if (hint) toast(hint, { icon: 'warn', tone: 'warn' })
+  }
+
+  /**
+   * A name typed into a symbol's roster field («Fahrer» on the TLF, «Name»/«Stv.» on the
+   * Einsatzleiter glyph) is a job handed to somebody who is standing there. It used to live
+   * ONLY on the entity: the Rapport, the Anwesenheit and the Soldblatt never learned about it,
+   * and the operator entered the same person twice. Only fields that CHANGED are considered —
+   * re-rendering the panel must not re-open a presence block somebody closed on purpose.
+   */
+  const ROSTER_FIELDS: readonly string[] = appConfig.symbols.rosterFields
+  const linkRosterFields = (prev: Entity, fields: Record<string, string>) => {
+    const before = prev.fields ?? {}
+    for (const [k, v] of Object.entries(fields)) {
+      if (!ROSTER_FIELDS.includes(k) || !v.trim() || before[k] === v) continue
+      const id = rosterIdByName.get(v.trim().toLowerCase())
+      if (!id) continue // a typed guest / mutual aid — not ours to mark present
+      // «Fahrer» is the one role the Bemerkung placeholder has always advertised; the vehicle it
+      // belongs to is the symbol's own label («Fahrer TLF»). A leadership glyph's «Name» writes
+      // «Einsatzleiter»; everything else just puts the person on the list without a caption.
+      const isEl = prev.symbol === 'VKF Einsatzleiter' && k === 'Name'
+      const note = k === 'Fahrer'
+        ? fillTemplate(appConfig.copy.anwesenheit.roleFahrer, { vehicle: prev.label ?? '' }).trim()
+        : isEl ? appConfig.copy.anwesenheit.roleEinsatzleiter : undefined
+      assignRole(id, isEl ? 'el' : 'fahrer', note)
+    }
   }
   const createTruppA = (t: Trupp) => { createTrupp(t); ensurePresentFromTrupp([t.leaderPersonId, ...(t.memberPersonIds ?? [])]) }
   const editTruppA = (id: string, f: TruppFields) => { editTrupp(id, f); ensurePresentFromTrupp([f.leaderPersonId, ...(f.memberPersonIds ?? [])]) }
@@ -2514,7 +2578,7 @@ export function IncidentWorkspace({
             if (titleLiveRef.current) { titleLiveRef.current = false; endDrag(); emit('entity.edit', { id: selected.id, patch: { label: v } }) }
             else patchEntity(selected.id, { label: v })
           }}
-          onFields={(fields) => patchEntity(selected.id, { fields })}
+          onFields={(fields) => { patchEntity(selected.id, { fields }); linkRosterFields(selected, fields) }}
           onNotes={!selected.live ? (v) => patchEntity(selected.id, { notes: v || undefined }) : undefined}
           onFloor={selected.kind === 'symbol' && !selected.live ? (f) => patchEntity(selected.id, { floor: f ?? undefined }) : undefined}
           onFloorFrom={selected.kind === 'symbol' && !selected.live ? (f) => patchEntity(selected.id, { floorFrom: f ?? undefined }) : undefined}
@@ -2546,10 +2610,18 @@ export function IncidentWorkspace({
             ? {
               value: vehicleOverrides[selected.id]?.fahrer ?? '',
               options: rosterNames,
-              onChange: (v: string) => setVehicleOverrides((m) => ({
-                ...m,
-                [selected.id]: { ...m[selected.id], fahrer: v.trim() || undefined },
-              })),
+              onChange: (v: string) => {
+                setVehicleOverrides((m) => ({
+                  ...m,
+                  [selected.id]: { ...m[selected.id], fahrer: v.trim() || undefined },
+                }))
+                // same rule as a placed vehicle's Fahrer field: naming a driver puts them on
+                // the Anwesenheit list with «Fahrer <Fahrzeug>» as their Bemerkung
+                const id = rosterIdByName.get(v.trim().toLowerCase())
+                if (id) {
+                  assignRole(id, 'fahrer', fillTemplate(appConfig.copy.anwesenheit.roleFahrer, { vehicle: selected.label ?? '' }).trim())
+                }
+              },
             }
             : undefined}
           connectedLines={drawings.filter((d) => [d.startAttachment, d.endAttachment].some((a) => a?.target.kind === 'object' && a.target.id === selected.id)).map((d) => ({ id: d.id, label: lineLabel(d) }))}
@@ -2931,6 +3003,7 @@ export function IncidentWorkspace({
           sym={sym}
           rosterNames={rosterNames}
           rosterRank={rosterRank}
+          onRosterField={(symbol, label, key, name) => linkRosterFields({ symbol, label } as Entity, { [key]: name })}
           onRecent={addRecent}
           log={logPlan}
           emit={emit}
@@ -3104,6 +3177,7 @@ export function IncidentWorkspace({
           onCaptionAttachment={canEditIncident && !readOnly ? captionAttachment : undefined}
           onRemoveAttachment={canEditIncident && !readOnly ? removeAttachment : undefined}
           canEdit={canEditIncident && !readOnly}
+          onRolePicked={assignRole}
           onSaveMeta={saveReportMeta}
           onEditDispatch={canEditIncident && !readOnly ? onEditMeta : undefined}
           onOpenAnwesenheit={() => { setReportPreflightOpen(false); setMode('anwesenheit'); setRapportReturn(true) }}

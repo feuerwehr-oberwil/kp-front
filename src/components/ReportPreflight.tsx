@@ -81,13 +81,18 @@ function Toggle({ label, checked, onChange, disabled }: { label: string; checked
 const savedScroll: { current: { incidentId: string; top: number } | null } = { current: null }
 
 export function ReportPreflight({
-  incident, reportMeta, personnel = [], presentIds = NO_IDS, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], plans = [], scene, board, building, captureUsage, canEdit = true, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onComplete, onClose, onFixTranscripts,
+  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], plans = [], scene, board, building, captureUsage, canEdit = true, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onComplete, onClose, onFixTranscripts,
 }: {
   incident: IncidentMeta
   reportMeta: ReportMeta
   /** Mannschaft roster + who is present — the Einsatzleiter picker offers present crew first */
   personnel?: Person[]
   presentIds?: Set<string>
+  /** Naming somebody here puts them on the Anwesenheit list and, for the Einsatzleiter, writes
+   *  the function into their Bemerkung. A rapport that names an Einsatzleiter the attendance
+   *  sheet has never heard of contradicts itself on paper. Undefined = nothing to link (a typed
+   *  guest name), which is exactly the case where nothing should happen. */
+  onRolePicked?: (personId: string | undefined, role: 'el' | 'fahrer', note?: string) => void
   events: TimelineEvent[]
   annotatedPlanCount: number
   truppCount: number
@@ -594,7 +599,13 @@ export function ReportPreflight({
             <div className="report-meta-grid">
               <PersonField
                 label={P.einsatzleiterLabel} placeholder={P.einsatzleiterPlaceholder}
-                value={{ name: einsatzleiter }} onChange={(slot) => { setEinsatzleiter(slot.name); persist({ einsatzleiter: slot.name.trim() || undefined }) }}
+                value={{ name: einsatzleiter }} onChange={(slot) => {
+                  setEinsatzleiter(slot.name)
+                  persist({ einsatzleiter: slot.name.trim() || undefined })
+                  // the slot's personId was thrown away here — which is why the EL named on the
+                  // Rapport never reached the Anwesenheit list
+                  onRolePicked?.(slot.personId, 'el', appConfig.copy.anwesenheit.roleEinsatzleiter)
+                }}
                 personnel={personnel} legacyRoster={[]} presentIds={presentIds}
                 assignedIds={NO_IDS} usedIds={NO_IDS} usedNames={NO_IDS}
                 rankFirst officerFilter
@@ -731,7 +742,12 @@ export function ReportPreflight({
               {/* who reported back to the ELZ — a roster pick like Einsatzleiter, free text allowed */}
               <PersonField
                 label={P.rueckmeldungLabel} placeholder={P.rueckmeldungName}
-                value={{ name: rueckName }} onChange={(slot) => { setRueckName(slot.name); persist(rueckOver(slot.name, rueckAt)) }}
+                value={{ name: rueckName }} onChange={(slot) => {
+                  setRueckName(slot.name)
+                  persist(rueckOver(slot.name, rueckAt))
+                  // whoever reported back to the ELZ was on scene to have something to report
+                  onRolePicked?.(slot.personId, 'el')
+                }}
                 personnel={personnel} legacyRoster={[]} presentIds={presentIds}
                 assignedIds={NO_IDS} usedIds={NO_IDS} usedNames={NO_IDS}
                 rankFirst

@@ -2434,6 +2434,15 @@ export const de = {
     noteLabel: 'Bemerkung',
     notePlaceholder: 'z. B. Fahrer TLF',
     logNote: '{name} – Bemerkung: {note}',
+    // Wer eine Funktion übernimmt, ist auch anwesend – die Bemerkung wird dabei automatisch
+    // gesetzt, aber nur wenn noch keine von Hand geschrieben wurde.
+    roleEinsatzleiter: 'Einsatzleiter',
+    roleFahrer: 'Fahrer {vehicle}',
+    roleRueckmeldung: 'Rückmeldung ELZ',
+    // Hinweise, nie Sperren: die App sagt, was sie weiss, und lässt entscheiden.
+    conflictUnderPa: '{name} ist unter PA – Trupp {trupp}.',
+    conflictElInTrupp: '{name} ist Einsatzleiter und zugleich im Trupp {trupp}.',
+    conflictLeft: '{name} ist als «gegangen» erfasst.',
     summary: '{present} anwesend · {left} gegangen · {total} Mannschaft',
     reload: 'Mannschaft neu laden',
     loading: 'Lädt …',

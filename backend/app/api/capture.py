@@ -53,10 +53,10 @@ from ..schemas import (
 # logged-in editors.
 #
 # Derived from what src/capture/CaptureApp.tsx actually touches: it reads ws.attendance,
-# ws.mittel and ws.reportMeta and nothing else, and its five save actions (cycleAttendance,
-# restoreAttendance, setTimes, setMittel, setMeta) write only those three. If the capture UI
-# ever needs another key, widening this set is a deliberate decision with a doc change
-# attached — which is exactly the review step that was missing before.
+# ws.mittel and ws.reportMeta and nothing else, and its save actions (cycleAttendance,
+# restoreAttendance, setTimes, setAttendanceNote, setMittel, setMeta) write only those three.
+# If the capture UI ever needs another key, widening this set is a deliberate decision with a
+# doc change attached — which is exactly the review step that was missing before.
 #
 # Widened 2026-08-06 by `attachments` (Rapport-Beilagen): the poster is where the paperwork is
 # done, and a photographed Ausweis or a damage close-up belongs to the same rapport the poster
