@@ -274,7 +274,7 @@ class MittelFormRowIn(BaseModel):
 
     label: str
     menge: str | None = None  # client-formatted "3" — None prints the write-in stub
-    unit: str = "Stk"
+    unit: str = "Stk."
     #: free remark on the line («an Werkhof übergeben») — printed under the label, because a
     #: quantity on its own has never explained what happened to the material. The client JOINS
     #: every source line's remark into this one string, so the cap matters more here than on a
@@ -871,16 +871,33 @@ def compose_report_pdf(
     # Versicherung, GVB) and should say whose it is before it says what happened. Modest by
     # design: a letterhead, not a banner. Missing, unreadable or SVG-without-a-renderer simply
     # prints nothing — a logo is never worth failing a rapport over.
-    logo = _logo_flowable(figures.get("logo"))
-    if logo is not None:
-        story.append(logo)
-        story.append(Spacer(1, 6))
     # An Übung says so ABOVE the title, before anything else is read. It is the one fact that
     # changes what the whole document is, and it is excluded from the statistics — a drill
     # rapport that reads like a deployment is a record that contradicts the numbers.
     if payload.incident.isExercise:
         story.append(Paragraph(_esc(L["exercise"]), st["exercise"]))
-    story.append(Paragraph(_esc(payload.incident.title), st["title"]))
+    title = Paragraph(_esc(payload.incident.title), st["title"])
+    logo = _logo_flowable(figures.get("logo"))
+    if logo is None:
+        story.append(title)
+    else:
+        # Mark and title on ONE line, the way a letterhead reads. Stacked, the logo pushed the
+        # Einsatz — the thing the sheet is about — a third of the way down the page, and the two
+        # read as separate blocks rather than as one heading.
+        lw = logo.drawWidth + 5 * mm
+        head_tbl = Table([[logo, title]], colWidths=[lw, inner_w - lw])
+        head_tbl.setStyle(
+            TableStyle(
+                [
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                    ("TOPPADDING", (0, 0), (-1, -1), 0),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                ]
+            )
+        )
+        story.append(head_tbl)
     iid = payload.incident.id
     short_id = f"{iid[:8]}…{iid[-4:]}" if len(iid) > 14 else iid
     footer_bits = [f"{L['generatedAt']}: {payload.generatedAt}", f"{L['incidentId']}: {short_id}"]

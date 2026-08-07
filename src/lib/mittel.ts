@@ -195,7 +195,7 @@ export function mittelListGroups(
     category: g.category,
     custom: false,
     rows: g.items.map((item): MittelListRow => {
-      const unit = item.unit ?? 'Stk'
+      const unit = item.unit ?? 'Stk.'
       const cells = new Map<string, MittelListCell>()
       for (const st of item.stock ?? []) {
         cells.set(st.source, { sourceId: st.source, sourceLabel: srcLabel(st.source), stock: st.qty, used: 0 })

@@ -42,7 +42,7 @@
       }
     ],
     "units": [
-      "Stk",
+      "Stk.",
       "l",
       "m",
       "Sack",
@@ -68,7 +68,7 @@
       {
         "id": "schlauch-c",
         "label": "Schlauch 40er",
-        "unit": "Stk",
+        "unit": "Stk.",
         "category": "Schläuche",
         "stock": [
           {
@@ -80,7 +80,7 @@
       {
         "id": "schlauch-b",
         "label": "Schlauch 75er",
-        "unit": "Stk",
+        "unit": "Stk.",
         "category": "Schläuche",
         "stock": [
           {
@@ -92,7 +92,7 @@
       {
         "id": "luefter",
         "label": "Drucklüfter",
-        "unit": "Stk",
+        "unit": "Stk.",
         "category": "Geräte",
         "stock": [
           {
@@ -108,7 +108,7 @@
       {
         "id": "tauchpumpe",
         "label": "Tauchpumpe",
-        "unit": "Stk",
+        "unit": "Stk.",
         "category": "Geräte",
         "stock": [
           {
@@ -132,7 +132,7 @@
       {
         "id": "leitkegel",
         "label": "Verkehrsleitkegel",
-        "unit": "Stk",
+        "unit": "Stk.",
         "category": "Absperrung",
         "stock": [
           {
@@ -144,7 +144,7 @@
       {
         "id": "auffangbehaelter",
         "label": "Auffangbehälter",
-        "unit": "Stk",
+        "unit": "Stk.",
         "category": "Umwelt",
         "stock": [
           {
@@ -158,13 +158,10 @@
   "report": {
     "partnerOrgs": [
       "Polizei",
-      "Sanität / Rettungsdienst",
-      "Werkhof Gemeinde",
-      "Elektrizitätswerk",
-      "Gasversorgung",
-      "Chemiewehr",
-      "Nachbarwehr",
-      "Zivilschutz"
+      "Sanität",
+      "Abschleppdienst",
+      "Stützpunkt",
+      "ADL / HRF"
     ]
   }
 }

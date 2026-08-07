@@ -496,7 +496,7 @@ const base = {
   mittel: {
     catalogue: [] as { id: string; label: string; unit?: string; category?: string; stock?: { source: string; qty: number }[]; symbol?: string; verbrauchbar?: boolean }[],
     sources: [] as { id: string; label: string }[],
-    units: ['Stk', 'l', 'm', 'Sack', 'Flasche', 'kg', 'Rolle', 'Paar', 'h'] as string[],
+    units: ['Stk.', 'l', 'm', 'Sack', 'Flasche', 'kg', 'Rolle', 'Paar', 'h'] as string[],
   },
   /** Schichtenplanung (the Zeitplan surface) */
   shifts: {

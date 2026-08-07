@@ -190,6 +190,14 @@ so this file – not the log – is the record of what shipped up to that point.
   entstand – dieselbe Handlung am Tablet schrieb immer eine. Jede Zeile trägt «(QR)», weil im
   Rechtsdokument sichtbar sein muss, dass sie nicht von einer angemeldeten Person stammt.
 
+- **Logo und Titel stehen auf einer Zeile.** Übereinander schob das Logo den Einsatz – das,
+  worum es auf dem Blatt geht – ein Drittel der Seite nach unten, und beide lasen sich als zwei
+  Blöcke statt als ein Kopf.
+
+- **«Stk» heisst jetzt «Stk.»** – eine Abkürzung liest sich mit Punkt. Die Demo führt ausserdem
+  dieselben Partnerorganisationen wie Oberwil, damit der Block dort so aussieht, wie eine Station
+  ihm wirklich begegnet.
+
 - **Im Hellmodus waren die Kästchen der Partnerorganisationen unsichtbar.** Sie waren mit dem
   Glanz-Token gerahmt – im Hellmodus schlicht weiss, also weiss auf weissem Blatt. Ein leeres
   Kästchen IST die Bedienung; es muss sichtbar sein, bevor etwas darin steht. Dasselbe galt für
