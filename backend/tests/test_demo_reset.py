@@ -1,7 +1,7 @@
 """The pre-filled demo workspace builder is pure, so it's unit-tested without a DB."""
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import text
@@ -53,6 +53,17 @@ def test_attendance_keyed_by_person_id():
         "checkedInAt": ws["attendance"]["pid-1"]["checkedInAt"],
         "displayNameSnapshot": "Hans Müller",
     }
+
+
+def test_everybody_present_is_on_the_clock_from_the_alarm():
+    """«ab Einsatzbeginn» is the button the operator presses, and a Wehr turning out to a
+    Zimmerbrand is counted from the alarm. A fixed offset started everyone 14 minutes after the
+    incident did — 14 minutes of unaccounted time on every person, on a demo whose whole job is
+    to show what a filled-in Einsatz looks like."""
+    ws = _ws()
+    started = NOW - timedelta(minutes=dr.DEMO_ELAPSED_MIN)
+    for a in ws["attendance"].values():
+        assert datetime.fromisoformat(a["checkedInAt"].replace("Z", "+00:00")) == started
 
 
 def test_mittel_key_to_catalogue_ids():

@@ -63,10 +63,10 @@ DEMO_INCIDENT = {
 # number, and inside the mixed-value dict its type is just `object`.
 #
 # ⚠️ It has to be OLDER than every stamp seeded below, or the demo contradicts itself: at 14 the
-# crew checked in 20 minutes ago (6 minutes BEFORE the alarm) and the first Trupp entered the
-# building in the same minute the pager went off. The Rapport's own plausibility check flags
-# exactly that, so the demo was failing it. 34 leaves an honest run-up — alarm, turnout, arrival,
-# then the entries at −14 and −8.
+# first Trupp entered the building in the same minute the pager went off, and the Rapport's own
+# plausibility check flags exactly that. 34 leaves an honest run-up — alarm, turnout, arrival,
+# then the entries at −14 and −8. The Anwesenheit starts exactly HERE (see build_demo_workspace):
+# «ab Einsatzbeginn» is the button the operator presses, so nobody's clock may start before it.
 DEMO_ELAPSED_MIN = 34
 
 # Dummy roster so Anwesenheit / Atemschutz person-assignment have people to work with. Sized like
@@ -312,10 +312,14 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
         },
     ]
 
-    # Anwesenheit: the present crew, checked in shortly after the alarm.
+    # Anwesenheit: the present crew, on the clock from the ALARM — «ab Einsatzbeginn», the button
+    # the operator actually presses. A fixed 20-minute offset put everybody's start 14 minutes
+    # after the incident began, which is not a state anybody produces: a Wehr that turns out to a
+    # Zimmerbrand is counted from the alarm, and the demo was quietly showing 14 minutes of
+    # unaccounted time on every single person.
+    started = now - timedelta(minutes=DEMO_ELAPSED_MIN)
     ws["attendance"] = {
-        pid: {"status": "present", "checkedInAt": _iso(now - timedelta(minutes=20)), "displayNameSnapshot": name}
-        for pid, name in present
+        pid: {"status": "present", "checkedInAt": _iso(started), "displayNameSnapshot": name} for pid, name in present
     }
 
     # Name the Einsatzleiter. The scene file leaves it empty, so the Rapport's most-asked field
