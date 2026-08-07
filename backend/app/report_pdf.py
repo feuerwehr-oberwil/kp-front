@@ -1235,6 +1235,10 @@ def compose_report_pdf(
             # of the full width it read as a table of mostly empty space.
             tbl = Table([thead, *body], colWidths=[inner_w * x for x in (0.26, 0.16, 0.12)], repeatRows=1)
             tbl.setStyle(_table_style())
+            # Narrower than the frame, so ReportLab's default CENTER floated it into the middle of
+            # the page — the pressure log sat off to the side of the Trupp name and «Auftrag / Ziel»
+            # lines it belongs under. Everything in this section shares the frame's left edge.
+            tbl.hAlign = "LEFT"
             story.append(Spacer(1, 3))
             story.append(tbl)
             story.append(Spacer(1, 6))

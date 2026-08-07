@@ -2,7 +2,7 @@ import type { AttendanceState, BoardDoc, Drawing, Entity, LngLat, MittelEntry, P
 import type { ReportMeta } from './workspace'
 import { appConfig } from '../config/appConfig'
 import { fmtDistance } from './geo'
-import { fillTemplate, hhmm } from './format'
+import { fillTemplate, hhmm, restoreUmlauts } from './format'
 import { fahrzeugRows, gruppenRows } from './alarmzeiten'
 import { intervalsOf } from './attendanceIntervals'
 import { getDeploymentConfig } from './deploymentConfig'
@@ -212,9 +212,15 @@ export function truppStatusLabel(status: Trupp['status']): string {
  *  said «loeschen», umlaut and capital and all. Same resolution the Atemschutz view uses. */
 export function truppAuftragLabel(auftrag?: string): string | undefined {
   if (!auftrag) return undefined
-  return appConfig.copy.atemschutz.auftragLabels[auftrag]
+  const known = appConfig.copy.atemschutz.auftragLabels[auftrag]
     ?? appConfig.atemschutz.auftrag.find((a) => a.id === auftrag)?.label
-    ?? auftrag
+  if (known) return known
+  // An id neither list knows — a Trupp from an older workspace, or a station that renamed its
+  // Auftrag types. Print it the way an id READS rather than the way it is stored: the ids are
+  // ASCII-transliterated like the symbol keys, so «loeschen» became «loeschen» on paper instead
+  // of «Löschen». Last resort, not the normal path.
+  const spelled = restoreUmlauts(auftrag)
+  return spelled.charAt(0).toUpperCase() + spelled.slice(1)
 }
 
 export function readingKindLabel(kind: 'entry' | 'contact' | 'pressure'): string {

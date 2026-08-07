@@ -21,6 +21,7 @@ import {
   personalForPdf,
   proofLabel,
   readingKindLabel,
+  truppAuftragLabel,
   truppStatusLabel,
 } from './report'
 
@@ -289,5 +290,23 @@ describe('einsatzleiterFromScene (Rapport pre-fill)', () => {
     expect(einsatzleiterFromScene([sym('a', 'VKF Einsatzleiter', { fields: { Name: '  ' } })])).toBeUndefined()
     expect(einsatzleiterFromScene([])).toBeUndefined()
     expect(einsatzleiterFromScene()).toBeUndefined()
+  })
+})
+
+describe('truppAuftragLabel (Auftrag on the Atemschutz sheet)', () => {
+  it('resolves the stored id to its display label', () => {
+    expect(truppAuftragLabel('loeschen')).toBe('Löschen')
+    expect(truppAuftragLabel('retten')).toBe('Retten')
+  })
+
+  it('spells an unknown id instead of printing it raw — «loeschen», not «loeschen»', () => {
+    // a Trupp from an older workspace, or a station that renamed its Auftrag types
+    expect(truppAuftragLabel('loeschangriff')).toBe('Löschangriff')
+    expect(truppAuftragLabel('geraetetraeger')).toBe('Gerätetraeger')
+  })
+
+  it('stays undefined without an Auftrag', () => {
+    expect(truppAuftragLabel()).toBeUndefined()
+    expect(truppAuftragLabel('')).toBeUndefined()
   })
 })
