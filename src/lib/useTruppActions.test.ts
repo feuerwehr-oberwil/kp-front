@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Dispatch, SetStateAction } from 'react'
-import { useTruppActions, LAGE_TARGET } from './useTruppActions'
-import type { BoardDoc, Drawing, Entity, Trupp } from '../types'
+import { useTruppActions, truppEditChanges, LAGE_TARGET } from './useTruppActions'
+import type { BoardDoc, Drawing, Entity, Trupp, TruppFields } from '../types'
 import { anyTruppInField } from './atemschutz'
 import type { Doc } from './workspace'
 
@@ -438,5 +438,40 @@ describe('moveTrupp (hand-set board order)', () => {
     const { actions, state } = board(baseTrupp({ id: 'a', order: 4 }), baseTrupp({ id: 'b', order: 9 }))
     actions.createTrupp(baseTrupp({ id: 'c' }))
     expect(state.trupps.find((t) => t.id === 'c')?.order).toBe(10)
+  })
+})
+
+describe('truppEditChanges (what the Verlauf line says)', () => {
+  const fields = (over: Partial<TruppFields> = {}): TruppFields => ({
+    name: 'Keller Anna', members: ['Meier Hans', 'Frei Nina'], pressure: 300, funkkanal: 11, ...over,
+  } as TruppFields)
+  const prev = baseTrupp({ name: 'Keller Anna', members: ['Meier Hans', 'Frei Nina'], funkkanal: 11 })
+
+  it('names the AdF who was taken out — the question asked afterwards', () => {
+    expect(truppEditChanges(prev, fields({ members: ['Meier Hans'] })))
+      .toEqual(['Frei Nina aus dem Trupp genommen'])
+  })
+
+  it('names who joined, and reports a swap as both', () => {
+    expect(truppEditChanges(prev, fields({ members: ['Meier Hans', 'Graf Stefan'] })))
+      .toEqual(['Frei Nina aus dem Trupp genommen', 'Graf Stefan dazugekommen'])
+  })
+
+  it('names the outgoing AND incoming Gruppenführer', () => {
+    expect(truppEditChanges(prev, fields({ name: 'Schmid Peter' })))
+      .toEqual(['Gruppenführer Keller Anna → Schmid Peter'])
+  })
+
+  it('distinguishes a new Leitung from a released one', () => {
+    expect(truppEditChanges(prev, fields({ lineNo: 3 }))).toEqual(['Leitung 3'])
+    expect(truppEditChanges(baseTrupp({ ...prev, lineNo: 3 }), fields())).toEqual(['Leitung gelöst'])
+  })
+
+  it('reports the Funkkanal, which used to vanish into «Auftrag angepasst»', () => {
+    expect(truppEditChanges(prev, fields({ funkkanal: 12 }))).toEqual(['Funkkanal 12'])
+  })
+
+  it('says nothing when the form was saved unchanged', () => {
+    expect(truppEditChanges(prev, fields({ funkkanal: 11 }))).toEqual([])
   })
 })

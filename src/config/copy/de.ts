@@ -1072,7 +1072,7 @@ export const de = {
     // status labels
     status: { angemeldet: 'Angemeldet', aktiv: 'Im Einsatz', rueckzug: 'Rückzug', ueberfaellig: 'Überfällig', raus: 'Draussen' } as Record<string, string>,
     // Verlauf templates ({name}, {bar}, {status})
-    logRegister: 'Trupp {name} angemeldet',
+    logRegister: 'Trupp {name} angemeldet – Eingangsdruck {bar} bar',
     // Verlaufszeile, wenn jemand die Sicherheitswerte verstellt. MIT alten und neuen Werten:
     // «geändert» allein sagt nicht, ob die Schwelle strenger oder lockerer wurde.
     logSafety: 'Atemschutz-Sicherheitswerte geändert: {changes}',
@@ -1089,11 +1089,32 @@ export const de = {
     // springt die Uhr im Protokoll ohne erkennbaren Grund.
     logRueckzug: 'Trupp {name}: Rückzug – gilt als Funkkontakt',
     logContinue: 'Trupp {name}: Einsatz fortgesetzt – gilt als Funkkontakt',
-    logEdit: 'Trupp {name}: Auftrag angepasst',
+    // Fallback, wenn das Formular gespeichert wurde ohne dass sich etwas geändert hat.
+    logEdit: 'Trupp {name}: bearbeitet',
+    // Der Normalfall: die Zeile SAGT, was sich geändert hat. «Auftrag angepasst» stand früher
+    // auch dann da, wenn ein AdF aus dem Trupp genommen wurde – und genau das fragt hinterher
+    // jemand nach.
+    logEditFields: 'Trupp {name}: {changes}',
+    changeLeader: 'Gruppenführer {from} → {to}',
+    changeMemberOut: '{names} aus dem Trupp genommen',
+    changeMemberIn: '{names} dazugekommen',
+    changeAuftrag: 'Auftrag angepasst',
+    changeLine: 'Leitung {n}',
+    changeLineCleared: 'Leitung gelöst',
+    changeFunkkanal: 'Funkkanal {n}',
+    changeColor: 'Farbe geändert',
+    logColor: 'Trupp {name}: Farbe geändert',
     logExit: 'Trupp {name} draussen',
-    logReenter: 'Trupp {name} wieder eingerückt',
+    logReenter: 'Trupp {name} wieder eingerückt – Eingangsdruck {bar} bar',
     logStandby: 'Trupp {name} bereitgestellt – noch nicht eingerückt',
     logAlarm: 'Atemschutz-Alarm: Trupp {name} – {status}',
+    // Der Alarmdruck war bisher nur auf der Karte sichtbar – im Protokoll fehlte der Moment,
+    // in dem der Trupp umkehren musste. Nur beim ÜBERSCHREITEN, nicht bei jedem Wert darunter.
+    logPressureAlarm: 'Trupp {name}: Alarmdruck {bar} bar erreicht',
+    // Ein Trupp, der von der Tafel verschwindet, ist die einzige Handlung, die früher gar nichts
+    // hinterliess – der Toast war weg und der Trupp hatte es nie gegeben.
+    logRemoved: 'Trupp {name} gelöscht',
+    logRestored: 'Trupp {name} wiederhergestellt',
   },
   // FKS hose-line device-letter labels (line decoration editor + tooltips)
   lineDecor: {

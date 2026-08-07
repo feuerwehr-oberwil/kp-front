@@ -6,7 +6,7 @@ import { fillTemplate, formatTime } from './format'
 import { toast } from './ui'
 import { gebaeudeDoc } from '../data/demoIncident'
 import { pickTeamColor } from './teamColors'
-import { atemschutzAuftragColors } from './deploymentConfig'
+import { atemschutzAuftragColors, atemschutzDoctrine } from './deploymentConfig'
 import { resolveLinkNumber, truppForLine, type LinkableLine } from './truppLines'
 
 type Mode = 'map' | 'plans' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel'
@@ -25,6 +25,37 @@ export const LAGE_TARGET = 'lage'
  * (lib/truppLines · truppTagText).
  */
 const truppLabel = (name: string): string => name.trim()
+
+/**
+ * What a Trupp edit actually CHANGED, as the words the Verlauf prints.
+ *
+ * Exported and pure so the wording is testable: the line it feeds used to be «Auftrag angepasst»
+ * for every field the form touches, which made removing an AdF and renaming the Gruppenführer
+ * indistinguishable from each other AND from nothing at all. The crew line names the person, not
+ * just «Mannschaft» — «wer war im Trupp» is the question asked afterwards.
+ */
+export function truppEditChanges(prev: Trupp | undefined, f: TruppFields): string[] {
+  if (!prev) return []
+  const az = appConfig.copy.atemschutz
+  const out: string[] = []
+  const members = (xs?: string[]) => (xs ?? []).map((x) => x.trim()).filter(Boolean)
+  if (prev.name.trim() !== f.name.trim()) out.push(fillTemplate(az.changeLeader, { from: prev.name, to: f.name }))
+  const before = members(prev.members)
+  const after = members(f.members)
+  const gone = before.filter((x) => !after.includes(x))
+  const added = after.filter((x) => !before.includes(x))
+  if (gone.length) out.push(fillTemplate(az.changeMemberOut, { names: gone.join(', ') }))
+  if (added.length) out.push(fillTemplate(az.changeMemberIn, { names: added.join(', ') }))
+  if (prev.auftrag !== f.auftrag || (prev.ziel ?? '') !== (f.ziel ?? '')) out.push(az.changeAuftrag)
+  if ((prev.lineNo ?? null) !== (f.lineNo ?? null)) {
+    out.push(f.lineNo == null ? az.changeLineCleared : fillTemplate(az.changeLine, { n: String(f.lineNo) }))
+  }
+  if ((prev.funkkanal ?? null) !== (f.funkkanal ?? null)) {
+    out.push(fillTemplate(az.changeFunkkanal, { n: f.funkkanal == null ? '–' : String(f.funkkanal) }))
+  }
+  if (f.color !== undefined && (prev.color ?? null) !== (f.color ?? null)) out.push(az.changeColor)
+  return out
+}
 
 interface Deps {
   trupps: Trupp[]
@@ -93,7 +124,9 @@ export function useTruppActions(deps: Deps) {
     // a new card joins at the END of the hand-set order, never in the middle of a board somebody
     // arranged — `order` is synced, so it lands the same way on every device
     setTrupps((ts) => [...ts, { ...t, order: t.order ?? ts.reduce((n, x) => Math.max(n, x.order ?? 0), 0) + 1 }])
-    log('flag', fillTemplate(appConfig.copy.atemschutz.logRegister, { name: t.name }), 'team')
+    // with the Eingangsdruck: it is the number the whole pressure trend is measured from, and
+    // the Verlauf used to start the story without it
+    log('flag', fillTemplate(appConfig.copy.atemschutz.logRegister, { name: t.name, bar: String(t.entryPressureBar) }), 'team')
     emit('atemschutz.register', { id: t.id })
   }
   const updateTrupp = (id: string, patch: Partial<Trupp>) =>
@@ -162,9 +195,12 @@ export function useTruppActions(deps: Deps) {
    */
   const setTruppColor = (id: string, color: string | null) => {
     const tr = trupps.find((t) => t.id === id)
-    if (!tr) return
+    if (!tr || (tr.color ?? null) === color) return
     updateTrupp(id, { color: color ?? undefined })
     recolorPlacement({ ...tr, color: color ?? undefined })
+    // repainting from the symbol used to be the one edit with no line at all, so a Lage that
+    // suddenly had two red Trupps could not be explained from the log
+    log('pen', fillTemplate(appConfig.copy.atemschutz.logColor, { name: tr.name }), 'team')
     emit('atemschutz.edit', { id, color })
   }
   /** The form's colour as a Trupp patch. `null` = «zurück auf automatisch» (drop the field),
@@ -297,6 +333,15 @@ export function useTruppActions(deps: Deps) {
           readings: [...(t.readings ?? []), { t: now, bar, kind: 'pressure' }] }
       : t)))
     log('drop', fillTemplate(appConfig.copy.atemschutz.logPressure, { name: tr?.name ?? '', bar }), 'team')
+    // Crossing the Alarmdruck is the moment the Trupp has to turn round, and it was visible on
+    // the card and nowhere else — the reconstruction afterwards could not say when it happened.
+    // Logged on the CROSSING only, so a Trupp reading below the threshold does not repeat it at
+    // every contact.
+    const alarmBar = atemschutzDoctrine().alarmBar
+    const wasAbove = (tr?.lastPressureBar ?? tr?.entryPressureBar ?? Infinity) > alarmBar
+    if (tr && wasAbove && bar <= alarmBar) {
+      log('warn', fillTemplate(appConfig.copy.atemschutz.logPressureAlarm, { name: tr.name, bar: String(alarmBar) }), 'team')
+    }
     emit('atemschutz.pressure', { id, bar })
     // confirm-with-undo (house rule): a fat-fingered reading ("20" for "200") would otherwise
     // permanently poison lowestBar → a false red «tiefster Druck» on the legal record with no
@@ -364,7 +409,14 @@ export function useTruppActions(deps: Deps) {
     // colour follows the Trupp, so a repaint (or a new Auftrag under a station colour rule) has
     // to reach the already-placed marker/chip too — otherwise board and map disagree
     if (tr) recolorPlacement({ ...tr, color: f.color === null ? undefined : f.color ?? tr.color, auftrag: f.auftrag })
-    log('pen', fillTemplate(appConfig.copy.atemschutz.logEdit, { name: f.name }), 'team')
+    // «Trupp X: Auftrag angepasst» covered every field the form touches and named none of them —
+    // so removing an AdF, swapping the Gruppenführer or changing the Funkkanal all read as the
+    // same nothing, and a Trupp whose Auftrag was untouched said the opposite of what happened.
+    // The line now lists what actually changed (same shape as the Sicherheitswerte line).
+    const changes = truppEditChanges(tr, f)
+    log('pen', changes.length
+      ? fillTemplate(appConfig.copy.atemschutz.logEditFields, { name: f.name, changes: changes.join(', ') })
+      : fillTemplate(appConfig.copy.atemschutz.logEdit, { name: f.name }), 'team')
     emit('atemschutz.edit', { id })
   }
   // re-deploy an exited Trupp (refilled bottle, going back inside): a fresh start — new pressure +
@@ -390,7 +442,7 @@ export function useTruppActions(deps: Deps) {
     if (tr && f.name !== tr.name) syncPlacementLabel(tr, f.name)
     if (tr) recolorPlacement({ ...tr, color: f.color === null ? undefined : f.color ?? tr.color, auftrag: f.auftrag })
     const az = appConfig.copy.atemschutz
-    log('flag', fillTemplate(standby ? az.logStandby : az.logReenter, { name: f.name }), 'team')
+    log('flag', fillTemplate(standby ? az.logStandby : az.logReenter, { name: f.name, bar: String(f.pressure ?? '') }), 'team')
     emit('atemschutz.status', { id, status: standby ? 'angemeldet' : 'aktiv' })
   }
   /**
@@ -489,6 +541,10 @@ export function useTruppActions(deps: Deps) {
     const tr = trupps.find((t) => t.id === id)
     setTrupps((ts) => ts.filter((t) => t.id !== id))
     if (tr) dropPlacements(tr)
+    // A Trupp leaving the Tafel is the one Atemschutz action the Verlauf never recorded: the
+    // toast said so and vanished, and the reconstruction afterwards showed a crew that had been
+    // under PA simply not existing. Every other lifecycle step has its line; so does this one.
+    log('trash', fillTemplate(appConfig.copy.atemschutz.logRemoved, { name: tr?.name ?? '' }), 'team')
     emit('atemschutz.delete', { id })
   }
   // undo for deleteTrupp (the delete-now + Rückgängig toast): re-add the captured Trupp with
@@ -496,7 +552,15 @@ export function useTruppActions(deps: Deps) {
   // removed with it and can't be resurrected faithfully, so the placement refs are stripped —
   // the restored Trupp is re-placed via «Platzieren». No-op if the id already exists (double tap).
   const restoreTrupp = (t: Trupp) => {
-    setTrupps((ts) => (ts.some((x) => x.id === t.id) ? ts : [...ts, { ...t, annoId: undefined, planId: undefined, entityId: undefined }]))
+    let restored = false
+    setTrupps((ts) => {
+      if (ts.some((x) => x.id === t.id)) return ts
+      restored = true
+      return [...ts, { ...t, annoId: undefined, planId: undefined, entityId: undefined }]
+    })
+    // the undo gets its own line rather than erasing the delete: the log is a record of what was
+    // done, and «gelöscht, dann doch nicht» is what happened
+    if (restored) log('undo', fillTemplate(appConfig.copy.atemschutz.logRestored, { name: t.name }), 'team')
     emit('atemschutz.restore', { id: t.id })
   }
 
