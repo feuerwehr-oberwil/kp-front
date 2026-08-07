@@ -3276,6 +3276,8 @@ export const de = {
     branding: {
       logo: 'Logo',
       logoHint: 'Anmeldebildschirm',
+      reportLogo: 'Rapport-Logo',
+      reportLogoHint: 'Kopf des gedruckten Einsatzrapports – leer = Logo oben',
       favicon: 'Favicon',
       faviconHint: 'Browser-Tab',
       usingDefault: 'Standard',

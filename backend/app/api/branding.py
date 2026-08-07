@@ -26,7 +26,12 @@ from .config import _projection
 
 router = APIRouter(prefix="/branding", tags=["branding"])
 
-_SLOTS = ("logo", "favicon")
+#: `reportLogo` is the letterhead on the printed Einsatzrapport. Its own slot rather than a
+#: reuse of `logo`: the app's brandmark is read on a screen at a glance, the rapport's is read
+#: on paper by a Gemeinde or a Versicherung — stations legitimately want a different mark there,
+#: and one that carries the full name reads badly in a header. Falls back to `logo` when unset,
+#: so nobody has to upload twice to get a sensible sheet.
+_SLOTS = ("logo", "favicon", "reportLogo")
 
 # Allowlist: only image types we can store and serve back safely. Anything else
 # (svg-as-script aside, executables, html, octet-stream) is rejected 415.

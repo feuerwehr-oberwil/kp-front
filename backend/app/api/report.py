@@ -46,7 +46,10 @@ _LOGO_KEY = "logo"
 
 async def _resolve_logo(db: AsyncSession, figs: dict[str, bytes]) -> None:
     row = (await db.execute(select(DeploymentConfigRow))).scalars().first()
-    url = ((row.config_json if row else None) or {}).get("identity", {}).get("assets", {}).get("logo")
+    assets = ((row.config_json if row else None) or {}).get("identity", {}).get("assets", {})
+    # the rapport's own letterhead wins; the app brandmark is the fallback, so a station that
+    # only ever uploaded one logo still gets a sensible sheet
+    url = assets.get("reportLogo") or assets.get("logo")
     if not isinstance(url, str):
         return
     m = _BRANDING_URL.match(url)

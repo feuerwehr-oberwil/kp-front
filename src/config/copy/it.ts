@@ -2094,6 +2094,8 @@ export const it: Localizable<Copy> = {
     branding: {
       logo: 'Logo',
       logoHint: 'Schermata di accesso',
+      reportLogo: 'Logo del rapporto',
+      reportLogoHint: 'Intestazione del rapporto stampato – vuoto = il logo sopra',
       favicon: 'Favicon',
       faviconHint: 'Scheda del browser',
       upload: 'Scegli immagine',

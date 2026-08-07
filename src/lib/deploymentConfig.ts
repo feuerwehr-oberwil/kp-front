@@ -12,6 +12,8 @@
 
 export interface DeploymentAssets {
   logo?: string | null
+  /** letterhead on the printed Einsatzrapport; falls back to `logo` when unset */
+  reportLogo?: string | null
   iconPng192?: string | null
   iconPng512?: string | null
   favicon?: string | null

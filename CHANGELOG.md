@@ -190,6 +190,16 @@ so this file – not the log – is the record of what shipped up to that point.
   entstand – dieselbe Handlung am Tablet schrieb immer eine. Jede Zeile trägt «(QR)», weil im
   Rechtsdokument sichtbar sein muss, dass sie nicht von einer angemeldeten Person stammt.
 
+- **Ein Klick ins Bild zoomt.** Der Zeiger zeigte eine Lupe, aber ein Klick tat nichts – der Zoom
+  lag hinter Doppelklick, Mausrad und Zwei-Finger-Geste, von denen das Bild keine anzeigt.
+  Klick hinein, Klick heraus; die anderen Gesten bleiben.
+
+- **Der Rapport hat ein eigenes Logo.** Die Marke der App wird auf einem Bildschirm im
+  Vorbeigehen gelesen, die des Rapports auf Papier von einer Gemeinde oder einer Versicherung –
+  Stationen wollen dort zu Recht ein anderes Zeichen, und eines mit dem vollen Namen liest sich
+  in einer Kopfzeile schlecht, auf einem Briefkopf richtig. **Admin → Branding → Rapport-Logo**;
+  leer bedeutet weiterhin das Logo darüber, niemand muss zweimal hochladen.
+
 - **Ein Eintrag riss einen von der Karte weg.** Nach «Erfassen» ging der Verlauf immer auf – auch
   wenn der Eintrag über den Knopf am unteren Rand oder über eine Checkliste begonnen wurde. Der
   Verlauf bleibt jetzt, wie er war: wer ihn offen hatte, sieht ihn weiter, wer auf der Karte

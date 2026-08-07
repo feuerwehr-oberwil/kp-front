@@ -7,7 +7,7 @@ import type { DeploymentConfig, DeploymentAssets } from '../lib/deploymentConfig
 // asset, an upload control, and a remove action. On any change the parent is handed the
 // fresh config projection so it can re-seed the editor and re-apply branding live.
 
-type Slot = 'logo' | 'favicon'
+type Slot = 'logo' | 'favicon' | 'reportLogo'
 
 const ACCEPT = 'image/svg+xml,image/png,image/jpeg,image/webp,image/x-icon,.ico,.svg,.png,.jpg,.jpeg,.webp'
 
@@ -102,6 +102,17 @@ export function BrandingFields({ assets, onApplied }: {
         label={C.logo}
         hint={C.logoHint}
         url={assets?.logo}
+        onApplied={onApplied}
+      />
+      {/* Its own slot, not a reuse of the logo: the app's brandmark is read on a screen at a
+          glance, the rapport's on paper by a Gemeinde or a Versicherung — and a mark carrying
+          the station's full name reads badly in a header but right on a letterhead. Falls back
+          to the logo above when empty, so one upload is still enough. */}
+      <BrandingSlot
+        slot="reportLogo"
+        label={C.reportLogo}
+        hint={C.reportLogoHint}
+        url={assets?.reportLogo}
         onApplied={onApplied}
       />
       <BrandingSlot

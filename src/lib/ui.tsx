@@ -237,6 +237,8 @@ function PhotoZoom({ url, alt }: { url: string; alt: string }) {
   const pts = useRef(new Map<number, { x: number; y: number }>())
   const pinch = useRef<{ dist: number; k: number } | null>(null)
   const drag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null)
+  /** did this gesture travel? a pan's release must not read as a click and undo the zoom */
+  const moved = useRef(false)
 
   const clamp = (n: { k: number; x: number; y: number }) => {
     const k = Math.min(8, Math.max(1, n.k))
@@ -263,6 +265,7 @@ function PhotoZoom({ url, alt }: { url: string; alt: string }) {
     zoomAt(z.k * (e.deltaY < 0 ? 1.15 : 1 / 1.15), e.clientX, e.clientY)
   }
   const onDown = (e: React.PointerEvent) => {
+    moved.current = false
     pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
     if (pts.current.size === 2) {
@@ -283,19 +286,34 @@ function PhotoZoom({ url, alt }: { url: string; alt: string }) {
       return
     }
     const d = drag.current
-    if (d) setZ((p) => clamp({ k: p.k, x: d.ox + (e.clientX - d.x), y: d.oy + (e.clientY - d.y) }))
+    if (d) {
+      if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 4) moved.current = true
+      setZ((p) => clamp({ k: p.k, x: d.ox + (e.clientX - d.x), y: d.oy + (e.clientY - d.y) }))
+    }
   }
   const onUp = (e: React.PointerEvent) => {
     pts.current.delete(e.pointerId)
     if (pts.current.size < 2) pinch.current = null
     if (pts.current.size === 0) drag.current = null
   }
+  /**
+   * A SINGLE click zooms. The surface already shows a zoom cursor, so a click is what anyone
+   * tries first — and it did nothing: the zoom sat behind a double-click, the wheel and a pinch,
+   * none of which the picture advertises. Click in, click out; the other gestures still work.
+   *
+   * Guarded on movement, or the release that ends a PAN would zoom out from under the hand.
+   */
+  const clickZoom = (e: React.MouseEvent) => {
+    if (moved.current) return
+    if (z.k > 1) setZ({ k: 1, x: 0, y: 0 })
+    else zoomAt(3, e.clientX, e.clientY)
+  }
 
   return (
     <div
       ref={boxRef} className="photo-view-zoom" onWheel={onWheel}
       onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
-      onDoubleClick={(e) => (z.k > 1 ? setZ({ k: 1, x: 0, y: 0 }) : zoomAt(3, e.clientX, e.clientY))}
+      onClick={clickZoom}
       data-zoomed={z.k > 1 || undefined}
     >
       <img
