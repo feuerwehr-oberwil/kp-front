@@ -50,40 +50,41 @@ Bearbeiten, Wiedereinrücken, Leitung verknüpfen/lösen, Alarm-Eskalation.
 Die Doktrin dazu steht in der AdFU-Ablaufbeschreibung: *«Der Verlauf ist keine automatische
 Einsatzchronik … Der AdFU sollte nicht jede Bedienhandlung protokollieren.»*
 
+## Geschlossen (2026-08-07)
+
+- **Die Erfassung schreibt in den Verlauf.** Jede Poster-Mutation läuft über `saveAction`
+  (`src/lib/captureClient.ts`), das nach dem angenommenen Workspace-Schreibvorgang eine Zeile
+  anhängt – mit «(QR)», weil im Rechtsdokument stehen muss, dass keine angemeldete Person
+  dahintersteht. Best effort: der Zustand ist bereits gespeichert, und ein Poster ist ein Handy
+  an der Magazintür – ein fehlgeschlagener Journal-Schreibvorgang darf den Tap nicht scheitern
+  lassen, wird aber laut geloggt.
+- **Rapportangaben und Partnerorganisationen schreiben eine Zeile** – eine pro Speicherung, die
+  sagt, *welche* Felder sich geändert haben (`changedReportMetaFields`, `src/lib/report.ts`).
+
 ## Lücken – bekannt, noch nicht geschlossen
 
 Diese sind **nicht** durch die Doktrin gedeckt: es geht um den Inhalt der Aufzeichnung selbst,
 nicht um Bedienhandlungen. Nach operativer Tragweite geordnet.
 
-1. **Die Erfassung (`/e/`, QR-Poster) schreibt überhaupt nichts in den Verlauf.** Anwesenheit,
-   Mittel, Rapportangaben und Beilagen lassen sich über das Poster ändern, ohne dass eine Zeile
-   entsteht – dieselben Handlungen am Tablet erzeugen alle eine.
-   Die Leitung dafür ist gebaut und nie angeschlossen: `src/lib/captureClient.ts:196` und
-   `backend/app/api/capture.py:488` existieren, haben aber **keinen Aufrufer**.
-   Der Ort dafür wäre `applyAction` (`src/lib/captureClient.ts:46`).
-2. **Rapportangaben und Partnerorganisationen haben gar keinen Kanal** – weder Verlauf noch
-   Audit. Einsatzleiter, Endezeit, Gruppen-/Fahrzeugzeiten, Gerettete, ELZ-Rückmeldung: der
-   Inhalt des gedruckten Rapports ändert sich spurlos (`src/IncidentWorkspace.tsx:3049` ist ein
-   blanker Setter).
-3. **Sicherheitsparameter des Atemschutzes** (Kontaktintervall, Karenz, Funkkanal) ändern sich
+1. **Sicherheitsparameter des Atemschutzes** (Kontaktintervall, Karenz, Funkkanal) ändern sich
    spurlos (`src/IncidentWorkspace.tsx:3144`). `src/lib/workspace.ts:83` nennt sie
    *«Safety-critical, so it MUST be shared across devices»* – wann ein Trupp als überfällig gilt,
    lässt sich also verstellen, ohne dass es jemand nachvollziehen kann.
-4. **Einen Anwesenheitsblock entfernen** schreibt nichts (`src/lib/useAttendanceActions.ts:94`),
+2. **Einen Anwesenheitsblock entfernen** schreibt nichts (`src/lib/useAttendanceActions.ts:94`),
    während das Leeren des ganzen Eintrags eine Zeile erzeugt (`:71`) – und das Entfernen des
    letzten Blocks *ist* dasselbe. Vermutlich schlicht übersehen.
-5. **Korrekturen an Alarmierungszeit, Adresse, Stichwort, Priorität** haben weder Audit-Event
+3. **Korrekturen an Alarmierungszeit, Adresse, Stichwort, Priorität** haben weder Audit-Event
    noch Verlaufszeile (`backend/app/api/incidents.py:222-233`). `started_at` ist ein Feld des
    Rechtsdokuments und trägt eigens ein `started_at_source = "manual"` – aber nicht, wann und
    durch wen.
-6. **Einzelne Plan-Annotation löschen** nur im Audit (`src/lib/useBoardDoc.ts:54`), während das
+4. **Einzelne Plan-Annotation löschen** nur im Audit (`src/lib/useBoardDoc.ts:54`), während das
    Gruppen-Löschen eine Zeile schreibt (`src/components/Whiteboard.tsx:1291`).
-7. **Leitungsnummer einer gezeichneten Linie ändern** nur im Audit
+5. **Leitungsnummer einer gezeichneten Linie ändern** nur im Audit
    (`src/IncidentWorkspace.tsx:2557`). Über diese Nummer wird zugeordnet, welcher Trupp an
    welcher Leitung arbeitet – die Zuordnung lässt sich also still verschieben.
-8. **Rapport-Beilagen** hinzufügen/entfernen nur im Audit, die Bildlegende gar nicht
+6. **Rapport-Beilagen** hinzufügen/entfernen nur im Audit, die Bildlegende gar nicht
    (`src/IncidentWorkspace.tsx:931`, `:955`, `:948`).
-9. **Fahrer eines GPS-Fahrzeugs** (`src/IncidentWorkspace.tsx:2491`) und
+7. **Fahrer eines GPS-Fahrzeugs** (`src/IncidentWorkspace.tsx:2491`) und
    **Gebäude/Stockwerk anlegen** (`:2815`, `:2831`) haben keinen Kanal.
 
 ## Wenn du etwas ergänzt
