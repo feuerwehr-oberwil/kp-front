@@ -628,6 +628,11 @@ def _fit_text(c, text: str, max_w: float, font: str = "Helvetica", size: float =
     return text + "…"
 
 
+#: How far under a signature row its rule sits — a hand's writing height, not a hairline gap.
+#: Anything less and the name is underlined rather than signed under.
+_SIG_DROP = 7 * mm
+
+
 class _FormRows(Flowable):
     """Dotted-leader form fields exactly like the jsPDF Erfassungsblatt: `Label: ······`,
     with a recorded value printed ON the line (as handwriting would be). Each row is a list
@@ -689,21 +694,29 @@ class _FormRows(Flowable):
                 else:
                     # A leader is an invitation to write. It is drawn where there is nothing to
                     # read — an empty Kontaktperson still gets its line — and omitted under a
-                    # value that is already printed, unless the field is one that gets signed
-                    # ON the line even when the name above it is known (`line=True`).
-                    if not value or f.get("line"):
+                    # value that is already printed.
+                    #
+                    # A SIGNATURE field (`line=True`) is the exception both ways: it always gets
+                    # its rule, and the rule sits a full writing height BELOW the row instead of
+                    # under the text. «Einsatzleiter: Céline Widmer» with a line through the
+                    # baseline underlined the name and left nowhere to sign — a signature needs
+                    # empty paper under the name it belongs to, which is how every Visum block on
+                    # a kantonale Vorlage is drawn.
+                    sig = bool(f.get("line"))
+                    rule_y = y - (_SIG_DROP if sig else 0.6 * mm)
+                    if not value or sig:
                         c.saveState()
                         c.setStrokeColor(_WRITE)
                         c.setLineWidth(0.5)
                         c.setDash(0.8, 0.8)
-                        c.line(lx, y - 0.6 * mm, x + w - 2 * mm, y - 0.6 * mm)
+                        # a signature rule starts at the label, not at the value column: it is
+                        # the whole field's line, not a continuation of the name above it
+                        c.line(x if sig else lx, rule_y, x + w - 2 * mm, rule_y)
                         c.restoreState()
                     if value:
                         c.setFont("Helvetica", 9)
                         c.setFillColor(_INK)
-                        c.drawString(
-                            lx + (1 * mm if f.get("line") else 0), y, _fit_text(c, value, w - (lx - x) - 4 * mm)
-                        )
+                        c.drawString(lx, y, _fit_text(c, value, w - (lx - x) - 4 * mm))
                 x += w
                 offset += w
 
@@ -1057,7 +1070,9 @@ def compose_report_pdf(
                 {"label": L["sigKommandant"], "w": 0.6, "value": m.kommandant, "line": True},
             ],
         ],
-        pitch=9.5 * mm,
+        # the rule hangs _SIG_DROP under each row, so the pitch has to clear it AND leave
+        # the next Ort/Datum room to breathe
+        pitch=14 * mm,
     )
     story.append(KeepTogether([*head(L["signoff"], cond=False), sig]))
 

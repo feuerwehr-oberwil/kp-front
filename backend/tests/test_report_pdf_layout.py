@@ -172,3 +172,34 @@ def test_the_pressure_log_shares_the_trupps_left_edge():
     )
     zeit_x = next(tp.get_rect(i)[0] for i in range(tp.count_rects()) if "Zeit" in tp.get_text_bounded(*tp.get_rect(i)))
     assert abs(zeit_x - name_x) < 6, f"table at x={zeit_x} is not aligned with the name at x={name_x}"
+
+
+def test_the_signature_rule_sits_under_the_name_not_through_it():
+    """«Einsatzleiter: Céline Widmer» used to be drawn with the rule on its own baseline, which
+    underlined the name and left nowhere to sign. A Visum needs empty paper under the name it
+    belongs to — so the two Visum rows have to stand a writing height apart."""
+    payload = ReportPayload.model_validate(
+        {
+            "incident": {"title": "Zimmerbrand", "id": "i"},
+            "generatedAt": "07.08.2026 09:00",
+            "proof": {"statusLabel": "intakt", "count": 1, "head": "0"},
+            "meta": {"einsatzleiter": "Widmer Céline", "kommandant": "Meier Hans"},
+        }
+    )
+    doc = pdfium.PdfDocument(compose_report_pdf(payload, {}))
+    page = next(p for p in (doc[i] for i in range(len(doc))) if "Unterschriften" in p.get_textpage().get_text_range())
+    tp = page.get_textpage()
+
+    def box(needle: str):
+        """The LAST match on the page — the Einsatzleiter is also named in the details box at the
+        top, and that one is not the Visum."""
+        hits = [tp.get_rect(i) for i in range(tp.count_rects()) if needle in tp.get_text_bounded(*tp.get_rect(i))]
+        assert hits, needle
+        return min(hits, key=lambda r: r[1])  # lowest on the page (y grows upwards)
+
+    el = box("Widmer")
+    kdt = box("Meier")
+    # the rule hangs _SIG_DROP (7 mm ≈ 20 pt) under the EL's name; the gap to the Kommandant row
+    # has to clear it and still leave a writing margin, or the two Visa run into each other
+    gap = el[1] - kdt[3]
+    assert gap > 32, f"only {gap:.1f} pt between the two Visum rows — no room to sign"
