@@ -1807,6 +1807,18 @@ export const de = {
   // Erfassungs-Ansicht (/e/<token>) — was das Poster im Magazin öffnet. Kein Login,
   // keine Karte; bewusst NICHT die Trainings-Oberfläche der Einsatzkräfte.
   capture: {
+    // Verlaufszeilen für das, was über das Poster erfasst wird. «(QR)» steht dran, weil eine
+    // Zeile ohne Absender im Rechtsdokument nicht sagt, wer sie geschrieben hat — am Tablet ist
+    // das die angemeldete Person, am Poster niemand.
+    logAttendancePresent: '{name} anwesend (QR)',
+    logAttendanceLeft: '{name} gegangen (QR)',
+    logAttendanceCleared: '{name} aus der Anwesenheit entfernt (QR)',
+    logAttendanceRestored: '{name} wiederhergestellt (QR)',
+    logTimes: 'Zeiten von {name} korrigiert (QR)',
+    logMittel: '{label}: {menge} {unit} (QR, {by})',
+    logAttachmentAdd: 'Rapport-Beilage hinzugefügt (QR)',
+    logAttachmentRemove: 'Rapport-Beilage entfernt (QR)',
+    logMeta: 'Rapportangaben geändert (QR): {fields}',
     title: 'Einsatz erfassen',
     invalid: 'Link ungültig oder Erfassung deaktiviert.',
     noIncidents: 'Zurzeit kein erfassbarer Einsatz.',
@@ -2341,6 +2353,9 @@ export const de = {
     toggleAttachments: 'Beilagen ({n})',
     // Beilagen: Fotos, die zum RAPPORT gehören (Ausweis, Schaden), nicht in den Verlauf.
     krokiAtLabel: 'Kroki-Stand',
+    // Verlaufszeile, wenn jemand die Rapportangaben ändert — der Inhalt des Dokuments, das
+    // unterschrieben wird, darf sich nicht spurlos ändern.
+    logMetaChanged: 'Rapportangaben geändert: {fields}',
     krokiOrientation: 'Ausrichtung',
     krokiPortrait: 'Hoch',
     krokiLandscape: 'Quer',

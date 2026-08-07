@@ -348,6 +348,41 @@ export interface PersonalPdfRow {
 /** «07.08.» — the day in front of a clock reading, for an Einsatz that runs past midnight. */
 const dayShort = (d: Date) => `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.`
 
+/** Human names for the Rapportangaben, for the Verlaufszeile that records a change to them. */
+const META_FIELD_LABELS: Record<string, string> = {
+  einsatzleiter: 'Einsatzleiter', kontaktperson: 'Kontaktperson', kommandant: 'Kommandant',
+  summary: 'Kurzbericht', remarks: 'Bemerkungen', lehren: 'Lehren',
+  endedAt: 'Einsatzende', ausgeruecktAt: 'Ausgerückt', alarmiertAt: 'Alarmierung',
+  gerettete: 'Gerettete', rueckmeldungElz: 'Rückmeldung ELZ',
+  partnerContacts: 'Partnerorganisationen', gruppen: 'Alarmzeiten', fahrzeuge: 'Fahrzeugzeiten',
+  mittelConfirmedNone: 'Material «keine»', erfasser: 'Erfasser', krokiPrint: 'Kroki-Ausschnitt',
+}
+
+/** Fields whose change is bookkeeping ABOUT the rapport rather than a statement about the
+ *  Einsatz — logging them would bury the ones that matter. */
+const META_QUIET = new Set(['erfasser', 'krokiPrint'])
+
+/**
+ * Which Rapportangaben actually changed between two versions — the content of the printed
+ * rapport (Einsatzleiter, Endezeit, Gerettete, Partnerorganisationen …) used to change with no
+ * journal row and no audit event at all. Returns display labels, empty when nothing worth a
+ * line moved, so the caller can stay silent rather than log «geändert: ».
+ */
+export function changedReportMetaFields(prev: ReportMeta, next: ReportMeta): string[] {
+  const keys = new Set([...Object.keys(prev), ...Object.keys(next)])
+  const out: string[] = []
+  for (const k of keys) {
+    if (META_QUIET.has(k)) continue
+    const a = (prev as Record<string, unknown>)[k]
+    const b = (next as Record<string, unknown>)[k]
+    // structural compare: gruppen/fahrzeuge/partnerContacts are arrays of objects, and an
+    // identity check would report a change on every re-render that rebuilt them
+    if (JSON.stringify(a ?? null) === JSON.stringify(b ?? null)) continue
+    out.push(META_FIELD_LABELS[k] ?? k)
+  }
+  return out.sort((x, y) => x.localeCompare(y, 'de'))
+}
+
 export function personalForPdf(
   roster: { id: string; name: string }[],
   attendance: AttendanceState,
@@ -381,13 +416,18 @@ export function personalForPdf(
       const bis = a ? clock(bounds.endedAt) : undefined
       return [{ name, erfasst: !!a, von, bis, vonDerived: !!von, bisDerived: !!bis, note: a?.note }]
     }
+    const alarmClock = clock(bounds.alarmedAt)
     return blocks.map((iv, i) => {
       const open = !iv.to
       const bis = open ? clock(bounds.endedAt) : clock(iv.to)
+      const von = clock(iv.from)
       return {
-        name, erfasst: true, von: clock(iv.from), bis,
-        // a recorded check-in is a measured time, always — only the far end can be derived
-        vonDerived: false,
+        name, erfasst: true, von, bis,
+        // Somebody who was there from the alarm is the ordinary case, and their start is the
+        // incident's own — nothing to check against. Only a check-in that DIFFERS from the
+        // alarm says something the paper has to be read for. (First block only: a return
+        // later in the Einsatz that happens to fall on the alarm minute is a real arrival.)
+        vonDerived: i === 0 && !!von && von === alarmClock,
         // only the LAST open block inherits the incident's end — an earlier open block would
         // mean a missing check-out mid-incident, and filling that in would invent hours
         bisDerived: open && !!bis,

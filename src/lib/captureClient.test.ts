@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyAction, autoOpenTarget, cycleAttendance } from './captureClient'
+import { applyAction, autoOpenTarget, captureJournalRow, cycleAttendance } from './captureClient'
 import type { AttendanceEntry } from '../types'
 import type { Workspace } from './incidents'
 
@@ -147,5 +147,56 @@ describe('applyAction · Beilagen', () => {
     ws = applyAction(ws, { kind: 'addAttachment', id: 'a2', url: '/api/media/2' }, NOW)
     const out = applyAction(ws, { kind: 'removeAttachment', id: 'a1' }, NOW)
     expect((out.attachments as { id: string }[]).map((a) => a.id)).toEqual(['a2'])
+  })
+})
+
+describe('captureJournalRow — the poster writes to the Verlauf too', () => {
+  const NOW = '2026-08-07T09:41:00.000Z'
+
+  it('names which way the attendance cycle went', () => {
+    const a = { kind: 'cycleAttendance', personId: 'p1', name: 'Meier Anna' } as const
+    expect(captureJournalRow(a, NOW, 0, { outcome: 'present' })?.text).toContain('anwesend')
+    expect(captureJournalRow(a, NOW, 0, { outcome: 'left' })?.text).toContain('gegangen')
+    expect(captureJournalRow(a, NOW, 0, { outcome: 'cleared' })?.text).toContain('entfernt')
+    expect(captureJournalRow(a, NOW, 0, { outcome: 'present' })?.text).toContain('Meier Anna')
+  })
+
+  it('marks the row as coming from the QR surface', () => {
+    // a row in a legal record has to say who wrote it; the poster has no signed-in person
+    const row = captureJournalRow({ kind: 'addAttachment', id: 'a', url: '/api/media/x' }, NOW)
+    expect(row?.text).toContain('QR')
+  })
+
+  it('says WHICH Rapportangaben changed, not just that some did', () => {
+    const row = captureJournalRow({ kind: 'setMeta', patch: { einsatzleiter: 'X', endedAt: 'Y' } }, NOW)
+    expect(row?.text).toContain('Einsatzleiter')
+    expect(row?.text).toContain('Einsatzende')
+  })
+
+  it('stays silent for the Erfasser bookkeeping field', () => {
+    // who tapped the poster is about the capture, not about the Einsatz
+    expect(captureJournalRow({ kind: 'setMeta', patch: { erfasser: 'Meier' } }, NOW)).toBeNull()
+  })
+
+  it('carries the material, the amount and who booked it', () => {
+    const row = captureJournalRow(
+      { kind: 'setMittel', label: 'Ölbindemittel', unit: 'Sack', menge: 3, by: 'Meier' }, NOW,
+    )
+    expect(row?.text).toContain('Ölbindemittel')
+    expect(row?.text).toContain('3')
+    expect(row?.text).toContain('Meier')
+  })
+
+  it('gives same-millisecond rows distinct ids', () => {
+    // the server skips a duplicate id idempotently — two rows sharing one would lose the second
+    const a = captureJournalRow({ kind: 'addAttachment', id: 'x', url: '/u' }, NOW, 0)
+    const b = captureJournalRow({ kind: 'addAttachment', id: 'y', url: '/u' }, NOW, 1)
+    expect(a?.id).not.toBe(b?.id)
+  })
+
+  it('resolves a person id to a name where it has one', () => {
+    const row = captureJournalRow({ kind: 'setTimes', personId: 'p1', from: NOW }, NOW, 0, { name: 'Meier Anna' })
+    expect(row?.text).toContain('Meier Anna')
+    expect(row?.text).not.toContain('p1')
   })
 })

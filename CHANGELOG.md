@@ -146,6 +146,16 @@ so this file – not the log – is the record of what shipped up to that point.
   the same grid now; a page short of a storey leaves its lower band empty, which is what a stack
   with nothing above it looks like.
 
+- **Was über den QR-Poster erfasst wird, steht jetzt im Verlauf.** Anwesenheit, Material,
+  Rapportangaben und Beilagen liessen sich über das Poster ändern, ohne dass eine einzige Zeile
+  entstand – dieselbe Handlung am Tablet schrieb immer eine. Jede Zeile trägt «(QR)», weil im
+  Rechtsdokument sichtbar sein muss, dass sie nicht von einer angemeldeten Person stammt.
+
+- **Auch die Rapportangaben schreiben eine Zeile.** Einsatzleiter, Endezeit, Gerettete,
+  Partnerorganisationen, die Alarm- und Fahrzeugzeiten – der Inhalt des Dokuments, das
+  unterschrieben wird – änderten sich bisher spurlos. Eine Zeile pro Speicherung, die sagt
+  *welche* Felder es waren.
+
 - **Ein Übungsrapport sah aus wie ein Einsatzrapport.** Ob ein Einsatz eine **Übung** war, stand
   nirgends auf dem Papier – dabei ist es das Einzige, was ändert, *was das Dokument überhaupt
   ist*, und Übungen fliessen nicht in die Statistik ein. Ein Übungsrapport, der sich wie ein

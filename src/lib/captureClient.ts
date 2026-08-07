@@ -9,6 +9,8 @@ import type { ReportMeta } from './workspace'
 import type { IncidentMeta, Workspace } from './incidents'
 import { closePresence, currentIntervalIndex, isPresent, openPresence, setIntervalTime } from './attendanceIntervals'
 import { currentLineFor } from './mittel'
+import { appConfig } from '../config/appConfig'
+import { fillTemplate, hhmm } from './format'
 
 // --- pure mutations -------------------------------------------------------------------
 
@@ -24,6 +26,83 @@ export type CaptureAction =
    *  bytes are already on the server (captureApi.uploadPhoto) — this only records the row. */
   | { kind: 'addAttachment'; id: string; url: string; caption?: string }
   | { kind: 'removeAttachment'; id: string }
+
+/** Human-readable names for the Rapportangaben the poster can touch — a Verlaufszeile that
+ *  says «Rapportangaben geändert» and nothing else is a row nobody can act on. */
+const META_FIELD_LABELS: Record<string, string> = {
+  einsatzleiter: 'Einsatzleiter', kontaktperson: 'Kontaktperson', summary: 'Kurzbericht',
+  remarks: 'Bemerkungen', lehren: 'Lehren', endedAt: 'Einsatzende', ausgeruecktAt: 'Ausgerückt',
+  gerettete: 'Gerettete', rueckmeldungElz: 'Rückmeldung ELZ', partnerContacts: 'Partnerorganisationen',
+  gruppen: 'Alarmzeiten', fahrzeuge: 'Fahrzeugzeiten', erfasser: 'Erfasser',
+}
+
+/**
+ * The Verlaufszeile for one capture action — the poster's half of the record.
+ *
+ * Everything the poster can change is incident RECORD (who was there, what was used, what the
+ * rapport says), and all of it used to land in the workspace blob without a single journal row:
+ * the same tap on the tablet logged, the same tap on the phone did not. `erfasser` is the one
+ * exception — it is bookkeeping about the capture itself, not about the Einsatz.
+ *
+ * Pure, so the wording is testable without a server. Returns null for an action that records
+ * nothing worth a line.
+ */
+export interface CaptureLogContext {
+  /** what the attendance cycle actually DID — only knowable from the resulting entry */
+  outcome?: 'present' | 'left' | 'cleared'
+  /** display name behind a personId, so a row reads «Meier Anna» and not a uuid */
+  name?: string
+}
+
+export function captureJournalRow(
+  action: CaptureAction, nowIso: string, seq = 0, ctx: CaptureLogContext = {},
+): TimelineEvent | null {
+  const C = appConfig.copy.capture
+  const row = (icon: string, text: string): TimelineEvent => ({
+    // `qr` prefix + a caller-supplied counter: two rows in the same millisecond must not share
+    // an id, or the server's idempotency skip swallows the second one
+    id: `qr${Date.parse(nowIso) || Date.now()}-${seq}`,
+    t: hhmm(new Date(nowIso)),
+    at: nowIso,
+    icon,
+    text,
+    surface: 'map',
+  })
+  switch (action.kind) {
+    case 'cycleAttendance': {
+      // the poster cycles frei → anwesend → gegangen → frei; which one it just did is only
+      // knowable from the resulting entry, so the caller hands the outcome in
+      const tpl = ctx.outcome === 'cleared' ? C.logAttendanceCleared
+        : ctx.outcome === 'left' ? C.logAttendanceLeft
+          : C.logAttendancePresent
+      return row('user', fillTemplate(tpl, { name: action.name }))
+    }
+    case 'restoreAttendance':
+      return row('user', fillTemplate(C.logAttendanceRestored, {
+        name: ctx.name ?? action.entry.displayNameSnapshot ?? '',
+      }))
+    case 'setTimes':
+      return row('clock', fillTemplate(C.logTimes, { name: ctx.name ?? action.personId }))
+    case 'setMittel':
+      return row('box', fillTemplate(C.logMittel, {
+        label: action.label, menge: String(action.menge), unit: action.unit, by: action.by,
+      }))
+    case 'addAttachment':
+      return row('photo', C.logAttachmentAdd)
+    case 'removeAttachment':
+      return row('photo', C.logAttachmentRemove)
+    case 'setMeta': {
+      const fields = Object.keys(action.patch).filter((k) => k !== 'erfasser')
+      // «Erfasser» alone is bookkeeping about the capture, not a change to the Einsatz
+      if (!fields.length) return null
+      return row('clipboard', fillTemplate(C.logMeta, {
+        fields: fields.map((k) => META_FIELD_LABELS[k] ?? k).join(', '),
+      }))
+    }
+    default:
+      return null
+  }
+}
 
 /** frei → anwesend → gegangen → frei. «von» defaults to the ALARM time (`vonIso`, the
  *  field-classification's «Vorschlag ab Alarmzeit») — retro capture at the magazine would
@@ -209,13 +288,50 @@ export async function saveAction(
   let attempt = 0
   for (;;) {
     const { workspace, workspace_rev } = await captureApi.workspace(token, incidentId)
-    const next = applyAction(workspace, action, new Date().toISOString())
+    const nowIso = new Date().toISOString()
+    const next = applyAction(workspace, action, nowIso)
     try {
       const saved = await captureApi.putWorkspace(token, incidentId, next, workspace_rev)
-      return { workspace: saved.workspace ?? next, rev: saved.workspace_rev }
+      const ws = saved.workspace ?? next
+      void logCaptureAction(token, incidentId, action, nowIso, workspace, ws)
+      return { workspace: ws, rev: saved.workspace_rev }
     } catch (e) {
       if (e instanceof CaptureError && e.status === 409 && attempt < 2) { attempt += 1; continue }
       throw e
     }
+  }
+}
+
+/** monotonic within a session, so two rows in the same millisecond get distinct ids */
+let captureRowSeq = 0
+
+/**
+ * Write the Verlaufszeile for a capture action — AFTER the workspace write has been accepted.
+ *
+ * Best-effort on purpose: the state change has already landed, and the poster is a phone at
+ * the magazine door with the connectivity that implies. Failing the operator's tap because the
+ * journal row could not be sent would be the worse trade — but a dropped row is a hole in the
+ * record, so it is logged loudly enough to be noticed in the console.
+ */
+async function logCaptureAction(
+  token: string, incidentId: string, action: CaptureAction,
+  nowIso: string, before: Workspace | null, after: Workspace,
+): Promise<void> {
+  const att = (ws: Workspace | null, id: string) =>
+    ((ws as { attendance?: Record<string, AttendanceEntry> } | null)?.attendance ?? {})[id]
+  const ctx: CaptureLogContext = {}
+  if (action.kind === 'cycleAttendance') {
+    const now = att(after, action.personId)
+    ctx.outcome = !now ? 'cleared' : isPresent(now) ? 'present' : 'left'
+  }
+  if (action.kind === 'setTimes' || action.kind === 'restoreAttendance') {
+    ctx.name = att(after, action.personId)?.displayNameSnapshot ?? att(before, action.personId)?.displayNameSnapshot
+  }
+  const row = captureJournalRow(action, nowIso, captureRowSeq++, ctx)
+  if (!row) return
+  try {
+    await captureApi.appendJournal(token, incidentId, [row])
+  } catch (e) {
+    console.error('Verlaufszeile der Erfassung konnte nicht gespeichert werden:', row.text, e)
   }
 }

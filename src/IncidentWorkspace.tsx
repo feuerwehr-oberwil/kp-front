@@ -8,7 +8,7 @@ import { useVehicleLayer } from './lib/useVehicleLayer'
 import { usePersonPositions } from './lib/usePersonPositions'
 import { useShareMyPosition } from './lib/useShareMyPosition'
 import { SharePositionPill, SharePositionSheet } from './components/SharePosition'
-import { autoActivateLayers, deriveInitial, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type Saved, type WorkspaceGate } from './lib/workspace'
+import { autoActivateLayers, deriveInitial, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type ReportMeta, type Saved, type WorkspaceGate } from './lib/workspace'
 import { useReplay } from './lib/useReplay'
 import { resolveHotkey, isTypingTarget } from './lib/hotkeys'
 import { moduleNumbers } from './lib/navRail'
@@ -118,7 +118,7 @@ import { assignedPersonIds } from './lib/personnel'
 import type { Item } from './lib/checklists'
 import type { NoteSize } from './types'
 import { ReportPreflight } from './components/ReportPreflight'
-import { annotatedPlans } from './lib/report'
+import { annotatedPlans, changedReportMetaFields } from './lib/report'
 import { mittelLineCount } from './lib/mittel'
 import { autoNoteWPx } from './lib/notes'
 import { prepareUploadImage } from './lib/imagePrep'
@@ -847,6 +847,24 @@ export function IncidentWorkspace({
   // Default on, but a per-device toggle (Einstellungen) lets a personal/background device opt out
   // and save battery. No-ops on browsers without the Wake Lock API.
   useWakeLock(keepScreenOn)
+
+  /**
+   * Rapportangaben with a Verlaufszeile. The printed rapport's own content — Einsatzleiter,
+   * Endezeit, Gerettete, Partnerorganisationen, die Alarm-/Fahrzeugzeiten — changed through a
+   * bare setter: no journal row, no audit event, nothing. On a document that gets signed and
+   * filed, a field that can be corrected without trace is the wrong kind of quiet.
+   *
+   * One row per save naming WHICH fields moved, not one per field: the sheet writes several at
+   * once (a Combo commit patches its neighbours), and a line per field would bury the Verlauf.
+   */
+  const saveReportMeta = useCallback((next: ReportMeta) => {
+    setReportMeta((prev) => {
+      const fields = changedReportMetaFields(prev, next)
+      if (fields.length) log('clipboard', fillTemplate(appConfig.copy.preflight.logMetaChanged, { fields: fields.join(', ') }))
+      return next
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- log is stable per mount
+  }, [])
 
   // Offline media queue: reattaches queued captures to their rows after a reload, retries on
   // reconnect, and swaps a row's local blob: URL for the persistent server URL on success.
@@ -3046,11 +3064,16 @@ export function IncidentWorkspace({
           onCaptionAttachment={canEditIncident && !readOnly ? captionAttachment : undefined}
           onRemoveAttachment={canEditIncident && !readOnly ? removeAttachment : undefined}
           canEdit={canEditIncident && !readOnly}
-          onSaveMeta={setReportMeta}
+          onSaveMeta={saveReportMeta}
           onEditDispatch={canEditIncident && !readOnly ? onEditMeta : undefined}
           onOpenAnwesenheit={() => { setReportPreflightOpen(false); setMode('anwesenheit'); setRapportReturn(true) }}
           onOpenMittel={() => { setReportPreflightOpen(false); setMode('mittel'); setRapportReturn(true) }}
-          onComplete={canEditIncident && !readOnly ? () => { setReportPreflightOpen(false); onCompleteRapport() } : undefined}
+          // Do NOT close the sheet here. On the real path the completion switches the active
+          // Einsatz and this whole workspace unmounts, so closing it is redundant; on the demo
+          // (and on any refusal) `completeRapport` returns early with a toast — and the sheet
+          // had already been shut, so the operator lost their place for an action that never
+          // happened. The «Abschliessen» confirm closes itself; that is the only thing that should.
+          onComplete={canEditIncident && !readOnly ? () => onCompleteRapport() : undefined}
           onClose={() => setReportPreflightOpen(false)}
           onFixTranscripts={() => { setReportPreflightOpen(false); setJournalOpen(true); setJournalFromRapport(true) }}
         />
