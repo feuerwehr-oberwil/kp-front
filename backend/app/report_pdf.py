@@ -399,7 +399,6 @@ L = {
     "personalCount": "<b>{n} Anwesende</b>",
     "personalTotals": "<b>{n} Anwesende</b> · Einsatzstunden <b>{h}</b> · gerundet <b>{r}</b>",
     "personalUnresolved": "{n} Person(en) ohne verwertbare Zeiten – in keiner der beiden Summen.",
-    "personalHint": "Abhaken, ggf. von–bis ergänzen",
     "journal": "Einsatzjournal",
     "colArea": "Bereich",
     "colEntry": "Eintrag",
@@ -639,7 +638,7 @@ class _FormRows(Flowable):
     of fields `{label, w (fraction), value?, time?}`; `time` fields render the `__:__`
     stub instead of a leader. `boxed` draws the Details frame around the block."""
 
-    def __init__(self, width: float, rows: list[list[dict]], boxed: bool = False, pitch: float = 8 * mm):
+    def __init__(self, width: float, rows: list[list[dict]], boxed: bool = False, pitch: float = 9.5 * mm):
         super().__init__()
         self.width = width
         self.rows = rows
@@ -864,7 +863,10 @@ def compose_report_pdf(
                 thickness=1.1,
                 color=colors.HexColor("#282828"),
                 spaceBefore=0,
-                spaceAfter=6,
+                # A section rule used to sit 6 pt above its first line, which is fine to READ and
+                # too tight to WRITE in — the Anwesenheit times and the Einsatz field in the
+                # header box are both filled in by hand, against the rule.
+                spaceAfter=10,
                 lineCap="butt",
             ),
         ]
@@ -1026,7 +1028,9 @@ def compose_report_pdf(
                     story.append(Paragraph(_esc(L["personalUnresolved"].format(n=ps.unresolved)), st["muted"]))
             else:
                 story.append(Paragraph(L["personalCount"].format(n=ps.present), st["cell"]))
-        story.append(Paragraph(_esc(L["personalHint"]), st["muted"]))
+        # No «Abhaken, ggf. von–bis ergänzen» above the table. The tick boxes and the empty
+        # von–bis cells say that themselves, on a sheet whose readers fill one in every week —
+        # and the line sat exactly where the pen needs room.
         story.append(Spacer(1, 4))
         story.append(_personal_table(payload.personal, inner_w, st))
 
@@ -1357,7 +1361,7 @@ def _personal_table(personal: list[PersonalRowIn], inner_w: float, st: dict[str,
         (_str_w(f"{p.von or _TIME_STUB} – {p.bis or _TIME_STUB}", "Helvetica", 8.5) for p in personal),
         default=0.0,
     )
-    time_w = max(30 * mm, min(widest + 3 * mm, 46 * mm))
+    time_w = max(34 * mm, min(widest + 3 * mm, 48 * mm))
     name_w = inner_w / 2 - check_w - time_w - 3 * mm
 
     def cells(p: PersonalRowIn | None) -> list:
@@ -1388,8 +1392,11 @@ def _personal_table(personal: list[PersonalRowIn], inner_w: float, st: dict[str,
     def column(people: list[PersonalRowIn]) -> Table:
         style: list[tuple] = [
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("TOPPADDING", (0, 0), (-1, -1), 1.8),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 1.8),
+            # A roster row is filled in with a PEN — the tick, and usually the two clocks. At
+            # 1.8 pt of padding the rows were legible and unwritable: two ballpoint digits do not
+            # fit between the line above and the line below.
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
             ("LEFTPADDING", (0, 0), (-1, -1), 1),
             # breathing room between the checkbox square and the name (jsPDF gap ~1.6mm);
             # the check cells lose ALL side padding so the X centers in its square

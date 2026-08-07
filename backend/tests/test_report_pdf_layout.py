@@ -203,3 +203,45 @@ def test_the_signature_rule_sits_under_the_name_not_through_it():
     # has to clear it and still leave a writing margin, or the two Visa run into each other
     gap = el[1] - kdt[3]
     assert gap > 32, f"only {gap:.1f} pt between the two Visum rows — no room to sign"
+
+
+def test_the_roster_rows_are_tall_enough_to_write_in():
+    """The tick and usually both clocks are filled in with a pen. At the old 1.8 pt padding the
+    rows were legible and unwritable — two ballpoint digits do not fit between the line above and
+    the line below. Guards the height without pinning the exact padding."""
+    roster = [{"name": f"Muster {i}", "erfasst": False} for i in range(12)]
+    payload = ReportPayload.model_validate(
+        {
+            "incident": {"title": "Zimmerbrand", "id": "i"},
+            "generatedAt": "07.08.2026 09:00",
+            "proof": {"statusLabel": "intakt", "count": 1, "head": "0"},
+            "personal": roster,
+        }
+    )
+    doc = pdfium.PdfDocument(compose_report_pdf(payload, {}))
+    page = next(p for p in (doc[i] for i in range(len(doc))) if "Muster 0" in p.get_textpage().get_text_range())
+    tp = page.get_textpage()
+
+    def top_of(needle: str) -> float:
+        return next(
+            tp.get_rect(i)[3] for i in range(tp.count_rects()) if needle in tp.get_text_bounded(*tp.get_rect(i))
+        )
+
+    # consecutive names in the SAME column are one row apart
+    pitch = top_of("Muster 0") - top_of("Muster 1")
+    assert pitch > 16, f"roster rows are {pitch:.1f} pt apart — no room for a pen"
+
+
+def test_a_full_roster_still_lands_on_a_sane_number_of_sheets():
+    """Taller rows must not turn a village Wehr's rapport into a booklet."""
+    roster = [{"name": f"Muster {i}", "erfasst": False} for i in range(28)]
+    payload = ReportPayload.model_validate(
+        {
+            "incident": {"title": "Zimmerbrand", "id": "i"},
+            "generatedAt": "07.08.2026 09:00",
+            "proof": {"statusLabel": "intakt", "count": 1, "head": "0"},
+            "personal": roster,
+        }
+    )
+    doc = pdfium.PdfDocument(compose_report_pdf(payload, {}))
+    assert len(doc) <= 3, f"{len(doc)} sheets for a 28-person roster"
