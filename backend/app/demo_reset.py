@@ -60,7 +60,13 @@ DEMO_INCIDENT = {
 # How long the incident has been running when the demo is viewed (drives the Einsatz clock).
 # Its own constant rather than a DEMO_INCIDENT key: it is the only numeric field consumed as a
 # number, and inside the mixed-value dict its type is just `object`.
-DEMO_ELAPSED_MIN = 14
+#
+# ⚠️ It has to be OLDER than every stamp seeded below, or the demo contradicts itself: at 14 the
+# crew checked in 20 minutes ago (6 minutes BEFORE the alarm) and the first Trupp entered the
+# building in the same minute the pager went off. The Rapport's own plausibility check flags
+# exactly that, so the demo was failing it. 34 leaves an honest run-up — alarm, turnout, arrival,
+# then the entries at −14 and −8.
+DEMO_ELAPSED_MIN = 34
 
 # Dummy roster so Anwesenheit / Atemschutz person-assignment have people to work with. Sized like
 # a real village Feuerwehr (not a dozen): the Anwesenheit list, the person pickers and the

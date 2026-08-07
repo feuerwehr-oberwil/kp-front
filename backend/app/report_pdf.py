@@ -983,7 +983,13 @@ def compose_report_pdf(
     # --- Einsatzjournal (Beilage) — only when there are entries; an empty journal table
     # would just cost paper on the blank form -----------------------------------------------
     if opt.journal and payload.journal:
-        story.extend(head(L["journal"]))
+        # The Journal is a BEILAGE, like the Kroki and the plans — an addition to the rapport,
+        # not a part of it. It started wherever the signed part happened to end, which put the
+        # first entries in the white space under the Unterschriften and made the two read as one
+        # document. Its own sheet says what it is. (_collapse_breaks drops the double if a
+        # section boundary already broke here.)
+        story.append(PageBreak())
+        story.extend(head(L["journal"], cond=False))
         thead = [Paragraph(_esc(L[c]), st["cellhead"]) for c in ("colTime", "colArea", "colEntry")]
         body: list[list] = []
         for r in payload.journal:
@@ -1249,7 +1255,16 @@ def _two_up(items: list, make_column, col_w: float) -> Table:
 def _personal_table(personal: list[PersonalRowIn], inner_w: float, st: dict[str, ParagraphStyle]) -> Table:
     """Two-up roster: [☐|Name|von–bis] × 2 — recorded people get a printed tick + clocks,
     the rest stays blank for the pen. Long rosters flow onto the next page."""
-    check_w, time_w = 4 * mm, 30 * mm
+    check_w = 4 * mm
+    # The clock column is sized to what it actually has to hold. A fixed 30 mm was enough for
+    # «14:41 – 11:00» and not for «02.08. 14:41 – 04.06. 11:00», so an Einsatz over midnight
+    # wrapped every row onto two lines — the remark under the name then had a stack of dates
+    # beside it. Capped, so a stray long value cannot eat the name column instead.
+    widest = max(
+        (_str_w(f"{p.von or _TIME_STUB} – {p.bis or _TIME_STUB}", "Helvetica", 8.5) for p in personal),
+        default=0.0,
+    )
+    time_w = max(30 * mm, min(widest + 3 * mm, 46 * mm))
     name_w = inner_w / 2 - check_w - time_w - 3 * mm
 
     def cells(p: PersonalRowIn | None) -> list:
@@ -1263,7 +1278,11 @@ def _personal_table(personal: list[PersonalRowIn], inner_w: float, st: dict[str,
                 return f'<font color="{_DERIVED}">{_TIME_STUB}</font>'
             return f'<font color="{_DERIVED}">{_esc(v)}</font>' if derived else _esc(v)
 
-        vonbis = f'{stamp(p.von, p.vonDerived)} <font color="{_DERIVED}">–</font> {stamp(p.bis, p.bisDerived)}'
+        # a non-breaking space around the dash: the column is sized for one line, and a break
+        # inside «02.08. 14:41 – 04.06. 11:00» would put it back onto two
+        vonbis = (
+            f'{stamp(p.von, p.vonDerived)}&nbsp;<font color="{_DERIVED}">–</font>&nbsp;{stamp(p.bis, p.bisDerived)}'
+        )
         name = _esc(p.name) if p.name else _LINE_STUB
         if p.note:
             name += f'<br/><font size="6.5" color="#5b6472">{_esc(p.note)}</font>'

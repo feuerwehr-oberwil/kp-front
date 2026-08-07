@@ -146,6 +146,38 @@ so this file – not the log – is the record of what shipped up to that point.
   the same grid now; a page short of a storey leaves its lower band empty, which is what a stack
   with nothing above it looks like.
 
+- **Das Kroki trägt einen Nordpfeil.** Auf dem Bildschirm weiss man, wie man schaut; auf Papier
+  nicht – und ein Kroki ohne Nordmarke lässt sich weder neben einen Plan legen noch gegen das
+  Gelände lesen.
+
+- **Das Einsatzjournal beginnt auf einer eigenen Seite.** Es ist eine Beilage, keine Fortsetzung:
+  bisher fing es dort an, wo der unterschriebene Teil gerade endete – die ersten Einträge standen
+  im Weissraum unter den Unterschriften, und beides las sich als ein Dokument.
+
+- **Die Geschoss-Skizze hatte einen Kasten um jede Stockwerk-Beschriftung.** «2. OG» wurde als
+  breite Textbox gezeichnet statt als Pille: eine fehlende Breitenangabe bedeutet laut Vertrag
+  die einzeilige Pille, der Code setzte aber eine Standardbreite ein.
+
+- **Auf dem Personalblatt ist auch der Beginn grau, wenn jemand von Anfang an dabei war** – eine
+  Zeile, die auf beiden Seiten grau ist, muss niemand prüfen. Und die Zeitspalte passt sich an
+  ihren Inhalt an: mit Datum brach «02.08. 14:41 – 04.06. 11:00» bisher auf zwei Zeilen um.
+
+- **Das Kroki-Fenster ist nicht mehr durchscheinend.** Der Rapport dahinter schlug durch genau
+  die Karte, die man durch dieses Fenster beurteilen soll.
+
+- **Die Datums-Eingabe hatte am Rechner keine Datumswahl.** Der Auswahl-Dialog zeigte eine grosse
+  leere Fläche mit nur der Uhrzeit darin: die Räder sind eine Finger-Bedienung, und mit Tastatur
+  wurde nichts an ihre Stelle gesetzt. Jetzt Tag · Monat · Jahr als Auswahlfelder neben der Zeit.
+
+- **Die Demo widersprach sich selbst.** Der Alarm lag 14 Minuten zurück, die Mannschaft hatte sich
+  aber vor 20 Minuten eingetragen – sechs Minuten *vor* dem Alarm – und der erste Trupp ging in
+  derselben Minute ins Gebäude, in der der Pager losging. Genau das, was die neue
+  Zeiten-Plausibilität anzeigt: die Demo fiel durch die eigene Prüfung.
+
+- **«Einsatz abschliessen» schliesst nur noch sich selbst.** Der Einsatzrapport wurde vorsorglich
+  mitgeschlossen – auf der Demo, wo die Aktion gar nicht ausgeführt wird, verlor man damit seinen
+  Platz für etwas, das nie passiert ist.
+
 - **Was über den QR-Poster erfasst wird, steht jetzt im Verlauf.** Anwesenheit, Material,
   Rapportangaben und Beilagen liessen sich über das Poster ändern, ohne dass eine einzige Zeile
   entstand – dieselbe Handlung am Tablet schrieb immer eine. Jede Zeile trägt «(QR)», weil im

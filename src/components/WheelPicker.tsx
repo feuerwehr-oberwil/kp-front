@@ -160,11 +160,11 @@ export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onC
   // the popover grew past it, so «OK» ended up under the bottom edge of the screen with no way to
   // reach it. Measured: 9px padding ×2 + 5×44px of wheel + 40px actions + its 8px gap, plus the
   // shortcut row when there is one.
-  const height = 18 + (coarse ? 220 : 52) + 48 + (shortcut || (onClear && clearLabel) ? 48 : 0)
+  const height = 18 + (coarse ? 220 : withDate ? 96 : 52) + 48 + (shortcut || (onClear && clearLabel) ? 48 : 0)
   const up = window.innerHeight - anchor.bottom < height + 16
   // a shortcut or a named clear needs its sentence on one line; the bare wheels do not
   const dayWheel = dayList.length > 1 ? 76 : 0
-  const width = withDate ? 316 : (shortcut || clearLabel ? 236 : 196) + dayWheel
+  const width = withDate ? (coarse ? 316 : 288) : (shortcut || clearLabel ? 236 : 196) + dayWheel
   const left = Math.max(8, Math.min(anchor.left, window.innerWidth - width - 8))
   // Always positioned by `top`, so one clamp covers both directions: a popover that would hang off
   // either edge slides back in rather than putting its actions out of reach.
@@ -200,7 +200,7 @@ export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onC
         </div>
       )}
       <div className="wheelpop-cols">
-        {withDate && (
+        {withDate && coarse && (
           <>
             <Wheel ariaLabel={C.day} items={monthDays} index={Math.min(v.d, daysInMonth) - 1}
               onIndex={(i) => setV((p) => ({ ...p, d: i + 1 }))} />
@@ -239,7 +239,30 @@ export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onC
               }}
               onKeyDown={(e) => { if (e.key === 'Enter') onCommit(v) }}
             />
-            {dayList.length > 1 && (
+            {/* ⚠️ With a keyboard the date needs its OWN controls: the day/month/year wheels are
+                a touch affordance, and rendering them here left a tall empty box with nothing in
+                it but the clock. Three selects — the same choice the wheels offer, in the shape a
+                mouse can use. Native selects follow the day-list precedent right below. */}
+            {withDate && (
+              <span className={w.dateRow}>
+                <select className={w.daySel} aria-label={C.day} value={Math.min(v.d, daysInMonth)}
+                  onChange={(e) => setV((p) => ({ ...p, d: Number(e.target.value) }))}>
+                  {monthDays.map((d, i) => <option key={d} value={i + 1}>{d}</option>)}
+                </select>
+                <select className={w.daySel} aria-label={C.month} value={v.mo}
+                  onChange={(e) => setV((p) => {
+                    const mo = Number(e.target.value)
+                    return { ...p, mo, d: Math.min(p.d, new Date(p.y, mo, 0).getDate()) }
+                  })}>
+                  {months.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+                </select>
+                <select className={w.daySel} aria-label={C.year} value={v.y}
+                  onChange={(e) => setV((p) => ({ ...p, y: Number(e.target.value) }))}>
+                  {years.map((y) => <option key={y} value={y}>{y}</option>)}
+                </select>
+              </span>
+            )}
+            {dayList.length > 1 && !withDate && (
               <select className={w.daySel} aria-label={C.day} value={Math.max(0, dayIndex)}
                 onChange={(e) => {
                   const d = dayList[Number(e.target.value)]

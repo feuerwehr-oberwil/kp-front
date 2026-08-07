@@ -689,6 +689,27 @@ def _hex_alpha(color: str, alpha: float) -> tuple[int, int, int, int]:
     return (r, g, b, int(alpha * 255))
 
 
+def _north_arrow(d: ImageDraw.ImageDraw, img_w: float, u: float) -> None:
+    """Nordpfeil, top-right.
+
+    On screen the map can be turned and the operator knows which way they are looking; on paper
+    it cannot, and a Kroki without a north mark cannot be laid next to a plan or read against
+    the terrain. The Kroki is always rendered north-up (the crop window has rotation disabled),
+    so the arrow is a fixed mark rather than a rotating dial — it states the convention, it does
+    not measure anything.
+    """
+    r = 17 * u
+    cx, cy = img_w - r - 14 * u, r + 14 * u
+    d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(255, 255, 255, 230), outline="#5b6573", width=max(1, int(u)))
+    # The N sits INSIDE the ring: above it, the mark ran off the top edge of the sheet.
+    f = _font(int(9 * u))
+    nw = d.textlength("N", font=f)
+    d.text((cx - nw / 2, cy - r * 0.92), "N", font=f, fill="#1c1c1c")
+    # a dart pointing north — at print size a two-tone needle turns to mush, an arrow does not
+    tip, tail, waist, half = cy - r * 0.34, cy + r * 0.66, cy + r * 0.30, r * 0.42
+    d.polygon([(cx, tip), (cx + half, tail), (cx, waist), (cx - half, tail)], fill="#1c1c1c")
+
+
 def render_kroki(
     scene: KrokiScene,
     pack: SymbolPack,
@@ -872,8 +893,9 @@ def render_kroki(
         _label_box(draw, xy, lines, int(fs))
 
     out = Image.alpha_composite(img, overlay).resize((width, height), Image.Resampling.LANCZOS).convert("RGB")
-    # attribution (tile ToS) bottom-right
     d2 = ImageDraw.Draw(out)
+    _north_arrow(d2, out.width, u)
+    # attribution (tile ToS) bottom-right
     f = _font(int(11 * u))
     tw = d2.textlength(attribution, font=f)
     d2.rectangle([out.width - tw - 12 * u, out.height - 18 * u, out.width, out.height], fill=(255, 255, 255, 200))
@@ -982,7 +1004,12 @@ def _overlay_board_annos(
             # lines in the same places. A team chip is always the one-line pill it was.
             fs = int(12 * u * ss * (1.0 if dark else _note_scale(a.get("noteSize"))))
             f = _font(fs)
-            box_w = (a.get("wN") or NOTE_WN_DEFAULT) * w if not dark else 0
+            # ⚠️ Absent `wN` means the one-line PILL, not a default-width box — that is what
+            # both PlanAnnoIn and the client say, and the `or NOTE_WN_DEFAULT` here said the
+            # opposite. It stretched every wN-less label into a wide bordered rectangle: the
+            # Geschoss-Skizze's «2. OG» printed as an empty box four times its own width.
+            wn = a.get("wN")
+            box_w = wn * w if (wn and not dark) else 0
             lines = _note_lines(draw, a["text"], f, box_w)
             lh = fs * 1.35
             pad = fs * 0.45

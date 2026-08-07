@@ -199,3 +199,21 @@ class TestTheDemoGuardCoversEveryCaller:
         import inspect
 
         assert "assert_demo_database()" in inspect.getsource(dr.reset)
+
+
+def test_the_demo_alarm_predates_everything_it_seeds():
+    """⚠️ The demo used to contradict itself: DEMO_ELAPSED_MIN was 14, so the crew checked in
+    20 minutes ago — six minutes BEFORE the alarm — and the first Atemschutz-Trupp entered the
+    building in the same minute the pager went off. The Rapport's own Zeiten-Plausibilität flags
+    that, so the demo was failing the check the app ships. Every seeded `now - timedelta(...)`
+    has to sit INSIDE the incident.
+    """
+    import re
+    from pathlib import Path
+
+    from app.demo_reset import DEMO_ELAPSED_MIN
+
+    src = Path(__file__).resolve().parents[1].joinpath("app/demo_reset.py").read_text()
+    stamps = {int(m) for m in re.findall(r"timedelta\(minutes=(\d+)\)", src)}
+    predating = sorted(m for m in stamps if m > DEMO_ELAPSED_MIN)
+    assert not predating, f"seeded stamps older than the alarm (now-{DEMO_ELAPSED_MIN}min): {predating}"

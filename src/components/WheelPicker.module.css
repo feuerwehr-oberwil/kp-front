@@ -35,8 +35,12 @@
   border-color: var(--green); box-shadow: inset 0 0 0 1px var(--green);
 }
 
-/* desktop: the typed field and the day, side by side — one control per value */
-.typedRow { display: flex; gap: 6px; width: 100%; }
+/* desktop: the typed field and the day, side by side — one control per value.
+   With a full date it wraps: Tag · Monat · Jahr on their own line under the clock, so three
+   selects and a time field don't squeeze each other into unreadable slivers. */
+.typedRow { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
+.dateRow { display: flex; gap: 6px; width: 100%; }
+.dateRow .daySel { flex: 1 1 0; min-width: 0; }
 .daySel {
   flex: none; min-height: 44px; padding: 0 8px; border-radius: var(--r-sm);
   border: 1px solid var(--glass-edge); background: var(--fill-soft); color: var(--ink);

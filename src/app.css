@@ -3753,7 +3753,10 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 /* The Kroki crop is a MAP you aim, not a dialog you acknowledge: the 720px sheet gave it about
    a postcard to do that in, so hitting the framing took several tries. It takes the room the
    screen has (the aspect ratio stays the printed one — this is WYSIWYG). */
-.kf-sheet { height: auto; max-height: 94dvh; }
+/* OPAQUE, unlike the other overlays. --glass is translucent, and this window's whole job is
+   that you can judge a map through it — the Rapport sheet showing through the crop made the
+   picture unreadable exactly where it had to be read. */
+.kf-sheet { height: auto; max-height: 94dvh; background: var(--surface); }
 .mp-sheet.kf-sheet, .mp-sheet.kf-sheet.ui-dialog { width: min(1400px, calc(100vw - 32px)); }
 /* the crop window IS the sheet: same proportions as the printed page, so what is framed is
    what comes out. max-width keeps a tall window from being WIDER than the page it stands for
