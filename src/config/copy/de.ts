@@ -25,7 +25,9 @@ export const de = {
   loadingSubtitle: 'Lade Karte & Symbolbibliothek ...',
   modes: { map: 'Lage', plans: 'Plan', checklists: 'Checkliste', atemschutz: 'Atemschutz', anwesenheit: 'Anwesenheit', mittel: 'Mittel', rapport: 'Rapport' },
   // the left navigation rail (Karte · Pläne group · Checkliste · Atemschutz)
-  navRail: { map: 'Karte', plansGroup: 'Pläne', objectSwitch: 'Objekt wählen', assign: 'Plan zuweisen', expand: 'Ausklappen', collapse: 'Einklappen', resize: 'Leiste anpassen', scrollMore: 'Weitere anzeigen' },
+  // (kein «Objekt wählen» mehr: die Leiste ist reine Navigation, das Objekt steht auf der
+  //  Plan-Fläche – siehe whiteboard.objectLabel)
+  navRail: { map: 'Karte', plansGroup: 'Pläne', assign: 'Plan zuweisen', expand: 'Ausklappen', collapse: 'Einklappen', resize: 'Leiste anpassen', scrollMore: 'Weitere anzeigen' },
   panels: { layers: 'Ebenen', history: 'Verlauf' },
   // LayerPanel: the toggle aria-label appends one of these state words after the layer name
   layerPanel: {
@@ -71,7 +73,6 @@ export const de = {
           { kind: 'sub', text: 'Linke Leiste' },
           { kind: 'list', items: [
             'Wechselt den Arbeitsbereich: **Karte** (Lage), die **Pläne** (Module/Gebäude), **Checkliste**, **Atemschutz**.',
-            'Unten **Objekt wählen** wechselt das Gebäude/Objekt der Pläne.',
             'Im Lage-Modus sind **Ebenen** und der **Karten**-Umschalter unten angeheftet – immer sichtbar.',
             'Am rechten Rand der Leiste ziehen klappt sie mit Beschriftungen auf bzw. wieder zu.',
           ] },
@@ -166,6 +167,7 @@ export const de = {
         blocks: [
           { kind: 'lead', text: 'Pro Objekt ein Whiteboard über den Modul-/Gebäudeplänen. Stockwerkweise, mit eigenen Werkzeugen.' },
           { kind: 'list', items: [
+            'Oben links steht, welches **Objekt** geladen ist – antippen wählt ein anderes ([[O]]). Es bestimmt die Pläne in der linken Leiste.',
             '**Symbol**, **Auswahl**, **Zeichnen** (Farbe/Stärke/Linienart), **Notiz** (Text), **Trupp**.',
             '**Stockwerke** als Stapel: mit den **OG/UG**-Knöpfen am Plan ein Geschoss darüber/darunter hinzufügen.',
             '**Zoom/Einpassen** unten in der Werkzeugleiste, wie auf der Karte.',
@@ -1258,6 +1260,11 @@ export const de = {
     replaceBuilding: 'Anderes Gebäude wählen',
     replaceBuildingConfirm: 'Es bestehen Skizzen auf den Geschossen. Anderes Gebäude wählen und die bisherigen Geschosse verwerfen?',
     otherObject: 'Anderes Objekt',
+    // Das Objekt entscheidet, welche Pläne geladen sind – darum steht es auf der Plan-Fläche,
+    // über den Plänen, die es bestimmt. Die Beschriftung nennt zuerst die Sache («Objekt»),
+    // dann den Namen: gesucht wird beim Hinsetzen «bin ich beim richtigen Gebäude?».
+    objectLabel: 'Objekt',
+    objectNone: 'Kein Objekt',
     objectActive: 'Pläne von "{name}"',
     objectReset: 'Auf nächstes Objekt zurücksetzen',
     // tapping an object in the picker swaps the plans of EVERY module at once, so it
@@ -2090,10 +2097,11 @@ export const de = {
     // und eine Meldung sagt, was herausgekommen ist.
     syncDone: 'Alles synchronisiert',
     syncFailedToast: 'Synchronisieren fehlgeschlagen – Änderungen bleiben lokal gespeichert.',
+    // Gruppentitel im Menü: zuerst dieser Einsatz (Kopfkarte), dann WELCHER Einsatz, dann die App.
     incidents: 'Einsätze',
+    app: 'App',
     allIncidents: 'Alle Einsätze',
     report: 'Einsatzrapport',
-    objectRow: 'Objekt: {name}',
     archive: 'Einsatz abschliessen',
     noOpenIncidents: 'Keine offenen Einsätze',
     logout: 'Abmelden',
@@ -2410,8 +2418,12 @@ export const de = {
     rueckmeldungLabel: 'Rückmeldung ELZ',
     rueckmeldungName: 'Name',
     rueckmeldungZeit: 'Zeit',
-    // Abschnitte (toggle) section — grouped: Karte & Pläne / Inhalte / Erweitert
+    // Abschnitte (Toggles) — nicht mehr als Block auf der Seite: gedruckt wird sofort mit dem,
+    // was eingestellt ist; das ▾ neben «Einsatzrapport (PDF)» führt zur Auswahl.
     sectionsHead: 'Abschnitte',
+    sectionsPick: 'Abschnitte wählen …',
+    sectionsHint: 'Gilt für das PDF und für den Ausdruck.',
+    printMenu: 'Weitere Druckoptionen',
     groupMap: 'Karte & Pläne',
     groupContents: 'Inhalte',
     toggleKroki: 'Kroki',

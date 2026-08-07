@@ -37,7 +37,7 @@ function SyncGlyph({ done, label }: { done: boolean; label: string }) {
 
 // --- TopBar switcher ----------------------------------------------------------------
 export function IncidentSwitcher({
-  active, incidents, isEditor, syncStatus, lastSyncedAt, user, onSettings, onSwitch, onHistory, onDivera, onArchive, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey, objectName, onObjectSwitch,
+  active, incidents, isEditor, syncStatus, lastSyncedAt, user, onSettings, onSwitch, onHistory, onDivera, onArchive, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey,
 }: {
   active: IncidentMeta | null
   incidents: IncidentMeta[]
@@ -71,10 +71,6 @@ export function IncidentSwitcher({
   /** changes whenever the app navigates to another surface — closes a menu that was left
    *  open under a sheet (e.g. Rapport → Anwesenheit must not land back in the menu) */
   navKey?: string
-  /** active Einsatzobjekt (manual pick or auto-surfaced nearest); shown on the object row */
-  objectName?: string | null
-  /** open the PlanPicker («Anderes Objekt») — the row replaces the old NavRail footer item */
-  onObjectSwitch?: () => void
 }) {
   const cp = appConfig.copy.incidentSwitcher
   // «Jetzt synchronisieren» reports what it did on the button itself: the ring spins for the
@@ -188,16 +184,19 @@ export function IncidentSwitcher({
       </button>
       {open && (
         <div className="ip-menu">
-          {/* Three zones (field feedback 2026-07-09): ① the current incident as a plain
-              HEADER card — title (phone-only, the button shows it on larger screens),
-              address, two small meta lines, icon-only Sync — plus its actions
-              (Einsatzrapport, Einsatz abschliessen); ② Einsätze — the OTHER incidents +
-              eröffnen + alle, all as rows; ③ utility rows + user. The round-4 rule was "no
-              destructive actions in this menu" (a stray per-row ✕ closed old incidents in
-              one tap); the labeled «abschliessen» row below is the sanctioned exception
-              (field request 2026-07-12): it goes through the same «wirklich abschliessen?»
-              confirm as «Alle Einsätze», and archiving stays reversible via Reaktivieren.
-              Closing OTHER incidents still lives only in «Alle Einsätze». */}
+          {/* Three zones (field feedback 2026-07-09), and each one now SAYS which it is: ① THIS
+              Einsatz as a plain HEADER card — title (phone-only, the button shows it on larger
+              screens), address, two small meta lines, icon-only Sync — plus «Einsatz
+              abschliessen»; ② «Einsätze» — WHICH Einsatz: the others + eröffnen + alle; ③ «App»
+              — the rows that have nothing to do with any Einsatz, then the user. The zones were
+              only ever separated by hairlines, so a row's scope had to be inferred from the
+              company it kept; the two labels are what the admin sidebar does with its nav, and
+              they cost one line each. The head card needs no label — it names itself.
+              The round-4 rule was "no destructive actions in this menu" (a stray per-row ✕
+              closed old incidents in one tap); the «abschliessen» row is the sanctioned
+              exception (field request 2026-07-12): it goes through the same «wirklich
+              abschliessen?» confirm as «Alle Einsätze», and archiving stays reversible via
+              Reaktivieren. Closing OTHER incidents still lives only in «Alle Einsätze». */}
           {active && (
             <>
               <div className="ip-menu-head">
@@ -229,17 +228,16 @@ export function IncidentSwitcher({
                   it from here made the menu the place you go to find things that are already
                   one tap away. Einsatzdaten editing still lives inside it (the «Bearbeiten»
                   link on its dispatch block) rather than as a menu entry of its own. */}
-              {/* Einsatzobjekt row — shows WHICH object's plans are loaded and opens the
-                  PlanPicker (replaces the old NavRail footer swap item, 2026-07-14) */}
-              {onObjectSwitch && (
-                <button className="ip-menu-act" onClick={() => openSheet(onObjectSwitch)}>
-                  <Icon id="pen" /> {objectName ? fillTemplate(cp.objectRow, { name: objectName }) : appConfig.copy.whiteboard.otherObject}
-                </button>
-              )}
+              {/* No «Objekt» row either: which Einsatzobjekt is loaded decides which PLANS are
+                  loaded, so it belongs on the Plan surface above them (Whiteboard · .wb-object),
+                  not in a menu that is opened for something else. Here it also had to say the
+                  object's name — a menu row is the wrong place for a read-out you want to check
+                  while you work on the plans it names. */}
               {onArchive && (
                 <>
-                  {/* set the terminal «abschliessen» apart from the edit actions (Rapport/Objekt)
-                      so it isn't a mis-tap neighbour — it still runs the «wirklich abschliessen?» confirm */}
+                  {/* set the terminal «abschliessen» apart from the card above it so it isn't a
+                      mis-tap neighbour of the Sync button — it still runs the «wirklich
+                      abschliessen?» confirm */}
                   <div className="ip-menu-sep ip-menu-sep-tight" />
                   <button className="ip-menu-act" onClick={() => { setOpen(false); onArchive() }}><Icon id="check" /> {cp.archive}</button>
                 </>
@@ -272,6 +270,9 @@ export function IncidentSwitcher({
               <div className="ip-menu-sep" />
             </>
           )}
+          {/* «App»: device + installation, not this Einsatz. It always has rows — Hilfe is
+              unconditional — so the label never heads an empty group the way «Einsätze» can. */}
+          <div className="ip-menu-label">{cp.app}</div>
           {onSettings && <button className="ip-menu-act" onClick={() => openSheet(onSettings)}><Icon id="gear" /> {appConfig.copy.settings.title}</button>}
           {active && <button className="ip-menu-act" onClick={() => openSheet(onOfflineReadiness)}><Icon id="snapshot" /> {appConfig.copy.offline.title}</button>}
           <button className="ip-menu-act" onClick={() => openSheet(onHelp)}><Icon id="info" /> {appConfig.copy.help.menu}</button>

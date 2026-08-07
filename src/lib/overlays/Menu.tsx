@@ -18,7 +18,7 @@ export interface MenuActionItem {
   reason?: ReactNode
 }
 
-export function Menu({ trigger, items, popupClassName, itemClassName, reasonClassName, side = 'bottom', align = 'end', sideOffset = 4 }: {
+export function Menu({ trigger, items, popupClassName, itemClassName, reasonClassName, side = 'bottom', align = 'end', sideOffset = 4, collisionPadding = 10 }: {
   trigger: ReactElement
   items: MenuActionItem[]
   popupClassName?: string
@@ -28,12 +28,17 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
   side?: 'top' | 'bottom' | 'left' | 'right'
   align?: 'start' | 'center' | 'end'
   sideOffset?: number
+  /** Keep-off distance from the viewport edge. Without it a wide menu on a control near the right
+   *  edge is positioned flush to that edge and can render half off screen — which is exactly what
+   *  the Rapport's print menu did on a tablet. Applies to every Menu in the app on purpose: this
+   *  is a property of the surface being finite, not of any one call site. */
+  collisionPadding?: number
 }) {
   return (
     <BaseMenu.Root>
       <BaseMenu.Trigger render={trigger} />
       <BaseMenu.Portal>
-        <BaseMenu.Positioner side={side} align={align} sideOffset={sideOffset}>
+        <BaseMenu.Positioner side={side} align={align} sideOffset={sideOffset} collisionPadding={collisionPadding}>
           <BaseMenu.Popup className={popupClassName}>
             {items.map((it, i) => (
               <BaseMenu.Item

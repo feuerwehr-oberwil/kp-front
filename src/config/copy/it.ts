@@ -19,7 +19,7 @@ import type { Copy, Localizable } from './index'
 export const it: Localizable<Copy> = {
   loadingSubtitle: 'Caricamento mappa e libreria simboli …',
   modes: { map: 'Situazione', plans: 'Piano', checklists: 'Checklist', atemschutz: 'Autoprotezione', anwesenheit: 'Presenza', rapport: 'Rapporto' },
-  navRail: { map: 'Mappa', plansGroup: 'Piani', objectSwitch: 'Scegli oggetto', assign: 'Assegna piano', expand: 'Espandi', collapse: 'Comprimi', resize: 'Adatta barra' },
+  navRail: { map: 'Mappa', plansGroup: 'Piani', assign: 'Assegna piano', expand: 'Espandi', collapse: 'Comprimi', resize: 'Adatta barra' },
   panels: { layers: 'Livelli', history: 'Diario' },
   layerPanel: {
     stateVisible: 'visibile, nascondi',
@@ -54,7 +54,6 @@ export const it: Localizable<Copy> = {
           { kind: 'sub', text: 'Barra sinistra' },
           { kind: 'list', items: [
             'Cambia area di lavoro: **Mappa** (Situazione), i **Piani** (Moduli/edifici), **Checklist**, **Autoprotezione**.',
-            'In basso **Scegli oggetto** cambia l’edificio/oggetto dei piani.',
             'In modalità Situazione, **Livelli** e il selettore della **Mappa** sono fissati in basso – sempre visibili.',
             'Trascinando il bordo destro della barra la si espande con le etichette o la si richiude.',
           ] },
@@ -123,6 +122,7 @@ export const it: Localizable<Copy> = {
         blocks: [
           { kind: 'lead', text: 'Una lavagna per oggetto sopra i piani dei moduli/edifici. Piano per piano, con strumenti propri.' },
           { kind: 'list', items: [
+            'In alto a sinistra si vede quale **oggetto** è caricato – toccalo per sceglierne un altro ([[O]]). Determina i piani nella barra a sinistra.',
             '**Simbolo**, **Selezione**, **Disegna** (colore/spessore/tipo di linea), **Nota** (testo), **Squadra**.',
             '**Piani** come pila: con i pulsanti **PS/PI** sul piano aggiungi un livello sopra/sotto.',
             '**Zoom/Adatta** in basso nella barra degli strumenti, come sulla carta.',
@@ -847,6 +847,8 @@ export const it: Localizable<Copy> = {
     replaceBuilding: 'Scegli un altro edificio',
     replaceBuildingConfirm: 'Ci sono schizzi sui piani. Scegliere un altro edificio e scartare i piani esistenti?',
     otherObject: 'Altro oggetto',
+    objectLabel: 'Oggetto',
+    objectNone: 'Nessun oggetto',
     objectActive: 'Piani di «{name}»',
     objectReset: 'Reimposta al prossimo oggetto',
     objectSwitchConfirmTitle: 'Carica un altro oggetto',
@@ -1277,6 +1279,7 @@ export const it: Localizable<Copy> = {
     storageShort: 'Memoria piena',
     syncNow: 'Sincronizza ora',
     incidents: 'Interventi',
+    app: 'App',
     allIncidents: 'Tutti gli interventi',
     archive: 'Chiudi intervento',
     report: 'Rapporto d’intervento',
@@ -1528,6 +1531,9 @@ export const it: Localizable<Copy> = {
     remarksLabel: 'Osservazioni',
     remarksPlaceholder: 'Facoltativo',
     sectionsHead: 'Sezioni',
+    sectionsPick: 'Scegli le sezioni …',
+    sectionsHint: 'Vale per il PDF e per la stampa.',
+    printMenu: 'Altre opzioni di stampa',
     groupMap: 'Mappa & piani',
     groupContents: 'Contenuti',
     toggleKroki: 'Schizzo',

@@ -140,6 +140,12 @@ interface Props {
    *  and halo of the Leitung that Trupp works on. Passed in so the 1 Hz clock never reaches this
    *  component (see AtemschutzAlarmHost). */
   truppSeverities?: Record<string, 1 | 2>
+  /** the loaded Einsatzobjekt (manual pick or auto-surfaced nearest) — named on the surface,
+   *  because it is what decides which plans these are. Null = none resolved yet. */
+  objectName?: string | null
+  /** open the PlanPicker. Omitted (an Einsatz-Link, which is bound to one object's plans)
+   *  hides the whole control — a read-out nobody may act on is chrome. */
+  onObjectSwitch?: () => void
   /** per-plan distance calibration (planId → factor). A plan has no inherent scale; the user
    *  calibrates against a printed scale bar so line lengths read in metres. See lib/planScale. */
   planScale?: PlanScales
@@ -154,7 +160,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', onChange, building, onSelectBuilding, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, onRecent, log, onSymbolPlaced, emit = () => {}, historyRef, onHistoryState, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTruppColor, onPickLine, onLinkLineTrupp, truppSeverities, planScale = {}, onCalibrate, slimTools: slimToolsProp = false }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', onChange, building, onSelectBuilding, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, onRecent, log, onSymbolPlaced, emit = () => {}, historyRef, onHistoryState, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTruppColor, onPickLine, onLinkLineTrupp, truppSeverities, objectName, onObjectSwitch, planScale = {}, onCalibrate, slimTools: slimToolsProp = false }: Props) {
   const active = plans.find((p) => p.id === activeId) ?? plans[0]
   // A viewer-only plan (e.g. PV/documentation PDF) is read-only regardless of role: plain
   // pan/zoom, no drawing tools or annotation surface. Folds into the existing readOnly gates.
@@ -1500,6 +1506,22 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     emit('building.reorient', { northUp: nextNorthUp, planId: activeId })
   }
 
+  // WHICH object's plans these are, on the surface the plans are used — the one thing about a
+  // plan set that cannot be read off any of its pages. It sits at the top-left of the stage,
+  // beside the module tabs in the rail, so the tab strip and the name of what it lists are one
+  // glance apart; it opens the same PlanPicker the [[O]] shortcut does. It is a floating chip
+  // rather than a header row because the stage is deliberately full-bleed (the plan pans up
+  // behind the top bar), and a solid bar would take that away from every plan to state
+  // something that changes once an Einsatz.
+  const objectChip = onObjectSwitch ? (
+    <button className="wb-object" onClick={onObjectSwitch}>
+      <Icon id="footprint" />
+      <span className="wb-object-k">{appConfig.copy.whiteboard.objectLabel}</span>
+      <span className="wb-object-v">{objectName ?? appConfig.copy.whiteboard.objectNone}</span>
+      <Icon id="chevron-down" />
+    </button>
+  ) : null
+
   // Viewer-only plan (e.g. PV / documentation PDF): bypass the annotation board entirely and
   // show a plain, natively-scrolling multi-page PDF viewer — no tools, no stitched pan/zoom board.
   if (active?.viewer && active.imageUrl) {
@@ -1507,6 +1529,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     // absolutely-positioned scroller) — don't override it, or the container collapses to 0 height.
     return (
       <div className="whiteboard">
+        {/* a viewer-only document is still one of THIS object's plans — the chip belongs on it
+            too, or the read-out would blink out on exactly the plans nobody can annotate */}
+        {objectChip}
         <PdfScroller key={active.id} url={planUrl(active.imageUrl)} />
       </div>
     )
@@ -1514,8 +1539,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
 
   return (
     <div className="whiteboard">
-      {/* document + object switching now lives in the global left NavRail; the
-          Whiteboard is just the stage + tools */}
+      {objectChip}
+      {/* the plan DOCUMENTS are picked in the global left NavRail (it is pure navigation); the
+          object they all belong to is named on the chip above */}
       {/* plan canvas + annotation layer */}
       <div className="wb-stage" ref={stageRef}>
         <div

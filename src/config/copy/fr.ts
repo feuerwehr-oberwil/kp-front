@@ -20,7 +20,7 @@ import type { Copy, Localizable } from './index'
 export const fr: Localizable<Copy> = {
   loadingSubtitle: 'Chargement de la carte et de la bibliothèque de symboles …',
   modes: { map: 'Situation', plans: 'Plan', checklists: 'Checklist', atemschutz: 'ARI', anwesenheit: 'Présence', rapport: 'Rapport' },
-  navRail: { map: 'Carte', plansGroup: 'Plans', objectSwitch: 'Choisir l’objet', assign: 'Attribuer le plan', expand: 'Déplier', collapse: 'Replier', resize: 'Ajuster la barre' },
+  navRail: { map: 'Carte', plansGroup: 'Plans', assign: 'Attribuer le plan', expand: 'Déplier', collapse: 'Replier', resize: 'Ajuster la barre' },
   panels: { layers: 'Couches', history: 'Journal' },
   layerPanel: {
     stateVisible: 'visible, masquer',
@@ -55,7 +55,6 @@ export const fr: Localizable<Copy> = {
           { kind: 'sub', text: 'Barre de gauche' },
           { kind: 'list', items: [
             'Change d’espace de travail : **Carte** (Situation), les **Plans** (modules/bâtiments), **Checklist**, **ARI**.',
-            'En bas, **Choisir l’objet** permute le bâtiment/objet des plans.',
             'En mode Situation, **Couches** et le sélecteur de **Carte** sont épinglés en bas – toujours visibles.',
             'Tirer le bord droit de la barre la déplie avec les libellés ou la replie.',
           ] },
@@ -124,6 +123,7 @@ export const fr: Localizable<Copy> = {
         blocks: [
           { kind: 'lead', text: 'Un tableau blanc par objet par-dessus les plans de module/bâtiment. Étage par étage, avec ses propres outils.' },
           { kind: 'list', items: [
+            'En haut à gauche, l’**objet** chargé – toucher pour en choisir un autre ([[O]]). Il détermine les plans de la barre de gauche.',
             '**Symbole**, **Sélection**, **Dessiner** (couleur/épaisseur/type de ligne), **Note** (texte), **Équipe**.',
             '**Étages** en pile : avec les boutons **étage sup./sous-sol** sur le plan, ajouter un niveau au-dessus/en dessous.',
             '**Zoom/Ajuster** en bas de la barre d’outils, comme sur la carte.',
@@ -848,6 +848,8 @@ export const fr: Localizable<Copy> = {
     replaceBuilding: 'Choisir un autre bâtiment',
     replaceBuildingConfirm: 'Des croquis existent sur les étages. Choisir un autre bâtiment et abandonner les étages actuels ?',
     otherObject: 'Autre objet',
+    objectLabel: 'Objet',
+    objectNone: 'Aucun objet',
     objectActive: 'Plans de « {name} »',
     objectReset: 'Réinitialiser sur l’objet suivant',
     objectSwitchConfirmTitle: 'Charger un autre objet',
@@ -1222,6 +1224,7 @@ export const fr: Localizable<Copy> = {
     storageShort: 'Stockage plein',
     syncNow: 'Synchroniser maintenant',
     incidents: 'Interventions',
+    app: 'Application',
     allIncidents: 'Toutes les interventions',
     archive: 'Clore l\u2019intervention',
     report: 'Rapport d’intervention',
@@ -1529,6 +1532,9 @@ export const fr: Localizable<Copy> = {
     remarksLabel: 'Remarques',
     remarksPlaceholder: 'Optionnel',
     sectionsHead: 'Sections',
+    sectionsPick: 'Choisir les sections …',
+    sectionsHint: 'Vaut pour le PDF et pour l’impression.',
+    printMenu: 'Autres options d’impression',
     groupMap: 'Carte & plans',
     groupContents: 'Contenus',
     toggleKroki: 'Croquis',

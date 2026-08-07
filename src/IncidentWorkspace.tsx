@@ -2462,8 +2462,6 @@ export function IncidentWorkspace({
             // a link session has no login to leave (and no way back in) — see App's landing card
             onLogout={linkScoped ? undefined : () => { void logout() }}
             navKey={`${mode}|${journalOpen ? 'journal' : ''}`}
-            objectName={activeObjectName}
-            onObjectSwitch={linkScoped ? undefined : () => setPickerOpen(true)}
           />
         }
       />
@@ -3002,6 +3000,10 @@ export function IncidentWorkspace({
           // behind the phone's Verlauf sheet, which parks the plan entirely.
           slimTools={!replayActive && !(isPhone && journalOpen)}
           activeId={activePlanId}
+          // which object's plans these are — named on the Plan surface itself (it decides what
+          // the rail lists). A link session is bound to one object, so it gets no switch.
+          objectName={activeObjectName}
+          onObjectSwitch={linkScoped ? undefined : () => setPickerOpen(true)}
           symMul={symMul}
           captionMode={symbolCaptions}
           annos={(replayActive ? replayBoard : board)?.[activePlanId] ?? []}

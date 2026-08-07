@@ -28,6 +28,7 @@ import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import { DateTimeField, TimeField } from './TimeField'
 import { Segmented } from './Segmented'
 import { Stepper } from './Stepper'
+import { Menu, Sheet, SheetClose } from '../lib/overlays'
 
 const NO_IDS = new Set<string>()
 
@@ -573,6 +574,8 @@ export function ReportPreflight({
   /** how many things are actually wrong — the chip counts them rather than saying «Kontrolle» */
   const warnCount = (missTx > 0 ? 1 : 0) + (pendingMediaCount > 0 ? 1 : 0) + (proof.intact === false ? 1 : 0)
   const [controlOpen, setControlOpen] = useState(false)
+  // «Abschnitte» — off the print action, not a block on the page (see the Sheet at the end)
+  const [sectionsOpen, setSectionsOpen] = useState(false)
 
   const facts: AbschlussFacts = { reportMeta: meta, attendanceCount, mittelCount }
   const rows = hoursRows(attendance, { alarmedAt: alarmiert ?? null, endedAt: meta.endedAt ?? null })
@@ -703,9 +706,33 @@ export function ReportPreflight({
                 {!printStatus.online && <span className="print-send-off">{R.offline}</span>}
               </button>
             )}
-            <button className="ip-btn primary" disabled={pdfBusy} onClick={() => startOutput('pdf')}>
-              <Icon id={pdfBusy ? 'rotate' : 'doc'} className={pdfBusy ? 'spin' : undefined} />{pdfBusy ? P.pdfBusy : P.pdfFull}
-            </button>
+            {/* Press it and it prints, with whatever is set. The ▾ is the second door: the same
+                print again (so the menu is never a dead end for the one who opened it looking
+                for «drucken»), and the way into the section picker. Split rather than two
+                buttons: the arrow belongs TO the PDF button — it modifies it — and a separate
+                ⋮ beside it would have read as the surface's menu. The pair never wraps apart
+                (it is one flex item), so at ≤720px it drops onto its own line intact. */}
+            <span className="rp-split">
+              <button className="ip-btn primary rp-split-main" disabled={pdfBusy} onClick={() => startOutput('pdf')}>
+                <Icon id={pdfBusy ? 'rotate' : 'doc'} className={pdfBusy ? 'spin' : undefined} />{pdfBusy ? P.pdfBusy : P.pdfFull}
+              </button>
+              <Menu
+                trigger={
+                  <button type="button" className="ip-btn primary rp-split-more" aria-label={P.printMenu} title={P.printMenu}>
+                    <Icon id="chevron-down" />
+                  </button>
+                }
+                popupClassName="rp-print-menu"
+                itemClassName={() => 'rp-print-menu-item'}
+                items={[
+                  { label: <><Icon id="doc" /> {P.pdfFull}</>, onClick: () => startOutput('pdf'), disabled: pdfBusy },
+                  // the sections themselves, one line down: what is on today rides along as the
+                  // item's own summary, so the common «is Anwesenheit in there?» is answered
+                  // without opening anything
+                  { label: <><Icon id="checklist" /> <span className="rp-print-menu-pick">{P.sectionsPick}<em>{printedSummary}</em></span></>, onClick: () => setSectionsOpen(true) },
+                ]}
+              />
+            </span>
           </div>
         </header>
         <div className="ip-body report-preflight-body" ref={bodyRef}>
@@ -1158,10 +1185,10 @@ export function ReportPreflight({
           {/* The Kroki, on the page. It was a modal that opened on the press of PDF / Ausdrucken,
               so the crop was chosen blind for the whole time the rapport was being written and
               then decided in a hurry, on top of a surface that had itself just stopped being a
-              dialog. Here it sits directly above «Abschnitte», because the two answer the same
-              question — what goes on the paper — and the toggle that includes or excludes the
-              Kroki is the first row of the fold underneath it. Above the checklist it would have
-              pushed Anwesenheit and Mittel, the rows worked most, down by the height of a map.
+              dialog. It sits at the END of the checklist column, below the rows worked most
+              (Anwesenheit, Mittel), which it would otherwise push down by the height of a map.
+              Whether a Kroki prints at all is a section, and sections live on the print action
+              now — switching it off takes this panel away with it (see krokiPanel).
               No confirm step: whatever the crop shows when PDF or Ausdrucken is pressed is what
               prints, and `startOutput` remembers it as this Einsatz's framing. */}
           {krokiPanel && (
@@ -1203,55 +1230,6 @@ export function ReportPreflight({
             </details>
           )}
 
-          {/* Folded, because this is the block that ate most of the dialog's height while
-              usually showing the obvious answer — the defaults already follow the data (the
-              useState seed re-derives on every open, since this dialog mounts fresh). The
-              summary is what makes folding safe: you still read what is about to print
-              without expanding, which is the only reason to look here at all. */}
-          <details className="report-pre-section report-fold">
-            <summary>
-              <Icon id="chevron-down" />
-              <span className="report-fold-t">{P.sectionsHead}</span>
-              <span className="report-fold-sum">{printedSummary}</span>
-            </summary>
-            {/* grouped, not one flat checkbox list: map material, then the data sections; the
-                two expert options fold behind «Erweitert» (field feedback 2026-07-09). The
-                plans choice is a 3-way segment mapping onto the annotatedPlans/allPlans pair
-                (all wins over annotated in the print derivation, see lib/report). */}
-            <div className="report-toggles">
-              <div className="report-toggle-grouphead">{P.groupMap}</div>
-              {/* WHETHER a Kroki prints, not what it shows: the crop, its Stand and its shape are
-                  chosen in the panel directly above this fold, so there are no «aktuelle Ansicht»
-                  / extent toggles here. Switching this off takes that panel away with it — there
-                  is nothing to frame for a page that is not being printed. */}
-              <Toggle label={P.toggleKroki} checked={options.kroki && mapContentCount > 0} onChange={(v) => patchOpt({ kroki: v })} disabled={mapContentCount === 0} />
-              <div className="report-plans-row">
-                <span>{P.plansLabel}</span>
-                <Segmented<'annotated' | 'all' | 'none'>
-                  ariaLabel={P.plansLabel}
-                  value={options.allPlans ? 'all' : options.annotatedPlans ? 'annotated' : 'none'}
-                  options={[
-                    { value: 'annotated', label: fillTemplate(P.plansAnnotated, { n: annotatedPlanCount }), disabled: annotatedPlanCount === 0 },
-                    { value: 'all', label: P.plansAll },
-                    { value: 'none', label: P.plansNone },
-                  ]}
-                  onChange={(id) => patchOpt(id === 'all' ? { allPlans: true } : id === 'annotated' ? { annotatedPlans: true, allPlans: false } : { annotatedPlans: false, allPlans: false })}
-                />
-              </div>
-              <div className="report-toggle-grouphead">{P.groupContents}</div>
-              <Toggle label={fillTemplate(P.toggleAtemschutz, { n: truppCount })} checked={options.atemschutz && truppCount > 0} onChange={(v) => patchOpt({ atemschutz: v })} disabled={truppCount === 0} />
-              {/* Personal + Material are form sheets: printable with zero records (stubs) */}
-              <Toggle label={fillTemplate(P.toggleAttendance, { n: attendanceCount })} checked={options.attendance} onChange={(v) => patchOpt({ attendance: v })} />
-              <Toggle label={fillTemplate(P.toggleMittel, { n: mittelCount })} checked={options.mittel} onChange={(v) => patchOpt({ mittel: v })} />
-              <Toggle label={P.toggleJournal} checked={options.journal} onChange={(v) => patchOpt({ journal: v })} />
-              <Toggle label={fillTemplate(P.toggleAttachments, { n: attachments.length })} checked={options.attachments && attachments.length > 0}
-                onChange={(v) => patchOpt({ attachments: v })} disabled={attachments.length === 0} />
-              {/* «Erweitert» used to fold this one row away. The whole Abschnitte block is already
-                  behind a fold, so it was a second door in front of a door — and a checkbox nobody
-                  can see is a checkbox nobody knows about. It sits in the list like the rest. */}
-              <Toggle label={P.toggleDetailedAudit} hint={P.toggleDetailedAuditHint} checked={options.detailedAudit} onChange={(v) => patchOpt({ detailedAudit: v })} />
-            </div>
-          </details>
           </div>
         </div>
 
@@ -1264,6 +1242,59 @@ export function ReportPreflight({
             pinning the warning would have made it possible to print past one without ever having
             seen it — the same failure the «never behind a fold» rule exists to prevent. */}
       </div>
+
+      {/* «Abschnitte» as a DIALOG off the print action, not a block on the page. As a fold it was
+          a section of the rapport that is not part of the rapport: it is neither recorded nor
+          printed, it is how the printing is done — and it sat there being scrolled past on every
+          Einsatz whose defaults were already right, which is nearly all of them. The defaults
+          follow the data (see the options seed), so the normal path is now press and print.
+          Still a real dialog rather than a nest of menu items: eight choices, two of them
+          grouped and one a three-way segment, is a form — a menu of checkboxes would be a menu
+          you cannot read. */}
+      <Sheet open={sectionsOpen} onClose={() => setSectionsOpen(false)} title={P.sectionsHead} fit
+        footer={<SheetClose className="ip-btn primary">{appConfig.copy.done}</SheetClose>}>
+        {/* what will print, in the dialog that decides it — the line the fold's summary used to
+            carry, kept because it is the one sentence that answers «and now what comes out?» */}
+        <p className="report-sections-sum">{printedSummary}</p>
+        <p className="report-sections-hint">{P.sectionsHint}</p>
+        {/* grouped, not one flat checkbox list: map material, then the data sections (field
+            feedback 2026-07-09). The plans choice is a 3-way segment mapping onto the
+            annotatedPlans/allPlans pair (all wins over annotated in the print derivation, see
+            lib/report). */}
+        <div className="report-toggles">
+          <div className="report-toggle-grouphead">{P.groupMap}</div>
+          {/* WHETHER a Kroki prints, not what it shows: the crop, its Stand and its shape are
+              chosen in the panel on the page, so there are no «aktuelle Ansicht» / extent
+              toggles here. Switching this off takes that panel away with it — there is
+              nothing to frame for a page that is not being printed. */}
+          <Toggle label={P.toggleKroki} checked={options.kroki && mapContentCount > 0} onChange={(v) => patchOpt({ kroki: v })} disabled={mapContentCount === 0} />
+          <div className="report-plans-row">
+            <span>{P.plansLabel}</span>
+            <Segmented<'annotated' | 'all' | 'none'>
+              ariaLabel={P.plansLabel}
+              value={options.allPlans ? 'all' : options.annotatedPlans ? 'annotated' : 'none'}
+              options={[
+                { value: 'annotated', label: fillTemplate(P.plansAnnotated, { n: annotatedPlanCount }), disabled: annotatedPlanCount === 0 },
+                { value: 'all', label: P.plansAll },
+                { value: 'none', label: P.plansNone },
+              ]}
+              onChange={(id) => patchOpt(id === 'all' ? { allPlans: true } : id === 'annotated' ? { annotatedPlans: true, allPlans: false } : { annotatedPlans: false, allPlans: false })}
+            />
+          </div>
+          <div className="report-toggle-grouphead">{P.groupContents}</div>
+          <Toggle label={fillTemplate(P.toggleAtemschutz, { n: truppCount })} checked={options.atemschutz && truppCount > 0} onChange={(v) => patchOpt({ atemschutz: v })} disabled={truppCount === 0} />
+          {/* Personal + Material are form sheets: printable with zero records (stubs) */}
+          <Toggle label={fillTemplate(P.toggleAttendance, { n: attendanceCount })} checked={options.attendance} onChange={(v) => patchOpt({ attendance: v })} />
+          <Toggle label={fillTemplate(P.toggleMittel, { n: mittelCount })} checked={options.mittel} onChange={(v) => patchOpt({ mittel: v })} />
+          <Toggle label={P.toggleJournal} checked={options.journal} onChange={(v) => patchOpt({ journal: v })} />
+          <Toggle label={fillTemplate(P.toggleAttachments, { n: attachments.length })} checked={options.attachments && attachments.length > 0}
+            onChange={(v) => patchOpt({ attachments: v })} disabled={attachments.length === 0} />
+          {/* «Erweitert» used to fold this one row away — a second door in front of a door,
+              and a checkbox nobody can see is a checkbox nobody knows about. It sits in the
+              list like the rest. */}
+          <Toggle label={P.toggleDetailedAudit} hint={P.toggleDetailedAuditHint} checked={options.detailedAudit} onChange={(v) => patchOpt({ detailedAudit: v })} />
+        </div>
+      </Sheet>
     </>
   )
 }

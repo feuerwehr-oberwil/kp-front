@@ -16,7 +16,7 @@ import type { Copy, Localizable } from './index'
 export const en: Localizable<Copy> = {
   loadingSubtitle: 'Loading map & symbol library …',
   modes: { map: 'Situation', plans: 'Plan', checklists: 'Checklist', atemschutz: 'SCBA', anwesenheit: 'Attendance', mittel: 'Resources', rapport: 'Report' },
-  navRail: { map: 'Map', plansGroup: 'Plans', objectSwitch: 'Choose object', assign: 'Assign plan', expand: 'Expand', collapse: 'Collapse', resize: 'Resize bar' },
+  navRail: { map: 'Map', plansGroup: 'Plans', assign: 'Assign plan', expand: 'Expand', collapse: 'Collapse', resize: 'Resize bar' },
   panels: { layers: 'Layers', history: 'Log' },
   layerPanel: {
     stateVisible: 'visible, hide',
@@ -55,7 +55,6 @@ export const en: Localizable<Copy> = {
           { kind: 'sub', text: 'Left rail' },
           { kind: 'list', items: [
             'Switches the work area: **Map** (Situation), the **Plans** (Modules/buildings), **Checklist**, **SCBA**.',
-            'At the bottom, **Choose object** swaps the building/object of the plans.',
             'In Situation mode, **Layers** and the **Map** toggle are pinned at the bottom – always visible.',
             'Dragging the right edge of the rail expands it with labels, or collapses it again.',
           ] },
@@ -124,6 +123,7 @@ export const en: Localizable<Copy> = {
         blocks: [
           { kind: 'lead', text: 'One whiteboard per object over the module/building plans. Storey by storey, with its own tools.' },
           { kind: 'list', items: [
+            'Top left shows which **object** is loaded – tap it to pick another ([[O]]). It decides the plans in the left bar.',
             '**Symbol**, **Select**, **Draw** (colour/width/line style), **Note** (text), **Team**.',
             '**Storeys** as a stack: use the **UF/BF** buttons on the plan to add a floor above/below.',
             '**Zoom/Fit** at the bottom of the tool rail, just like on the map.',
@@ -869,6 +869,8 @@ export const en: Localizable<Copy> = {
     replaceBuilding: 'Choose another building',
     replaceBuildingConfirm: 'There are sketches on the floors. Choose another building and discard the existing floors?',
     otherObject: 'Other object',
+    objectLabel: 'Object',
+    objectNone: 'No object',
     objectActive: 'Plans of "{name}"',
     objectReset: 'Reset to the next object',
     objectSwitchConfirmTitle: 'Load another object',
@@ -1289,8 +1291,8 @@ export const en: Localizable<Copy> = {
     syncNow: 'Sync now',
     syncDone: 'Everything synced',
     syncFailedToast: 'Sync failed – changes stay saved locally.',
-    objectRow: 'Object: {name}',
     incidents: 'Incidents',
+    app: 'App',
     allIncidents: 'All incidents',
     report: 'Incident report',
     archive: 'Close incident',
@@ -1605,6 +1607,9 @@ export const en: Localizable<Copy> = {
     remarksLabel: 'Remarks',
     remarksPlaceholder: 'Optional',
     sectionsHead: 'Sections',
+    sectionsPick: 'Choose sections …',
+    sectionsHint: 'Applies to the PDF and to the printout.',
+    printMenu: 'More print options',
     groupMap: 'Map & plans',
     groupContents: 'Contents',
     toggleKroki: 'Sketch',

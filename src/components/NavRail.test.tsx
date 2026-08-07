@@ -60,8 +60,8 @@ describe('NavRail', () => {
     expect(screen.getByRole('button', { name: 'Tafel' }).getAttribute('aria-pressed')).toBe('false')
   })
 
-  // (the object-switch footer item moved to the incident dropdown's «Objekt: …» row —
-  // covered by the IncidentSwitcher, 2026-07-14)
+  // (the object-switch footer item is gone from this rail for good: it went to the incident
+  // dropdown in 2026-07-14 and from there onto the Plan surface — see Whiteboard · .wb-object)
 
   it('labels are hidden in compact and revealed by the expand toggle', () => {
     setup()

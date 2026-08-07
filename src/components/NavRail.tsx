@@ -214,7 +214,9 @@ export function NavRail(p: Props) {
           <span className="nav-key" aria-hidden>{SURFACE_KEY.rapport}</span>
         </button>
 
-        {/* (object switch moved to the incident dropdown's «Objekt: …» row, 2026-07-14) */}
+        {/* (no object switch here: this rail is pure navigation, and collapsed — its default —
+            it is a 60px glyph column with no room to say WHICH object is loaded. It lives on
+            the Plan surface itself now, Whiteboard · .wb-object) */}
       </div>
       </div>
 
