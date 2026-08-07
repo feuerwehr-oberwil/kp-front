@@ -147,8 +147,14 @@ One JSON document, stored as the single `deployment_config` row, returned by `GE
                                                   // in backend/app/data/alarm_keywords.json
 
   "report": {                                    // Einsatzrapport form presets
-    "partnerOrgs": []                             // Partnerorganisationen checkbox row (paper + form);
+    "partnerOrgs": [],                            // Partnerorganisationen checkbox row (paper + form);
                                                   // empty = no preset row, free text stays possible
+    "reversePrintOrder": true,                    // station printer ejects face-up → reverse the
+                                                  // relayed document; the download stays in order
+    "hoursRounding": {                            // the BRACKETED Einsatzstunden figure – see §7a
+      "stepMin": 30,
+      "graceMin": 5
+    }
   },
 
   "integrations": {                              // ON/OFF only; credentials live in env (§6)
@@ -247,6 +253,43 @@ live?" is answerable without a session. The CLI is unaffected: `admin_config` re
 database directly rather than through the API.
 
 ---
+
+## 1b. `report.hoursRounding` – Einsatzstunden on the printed rapport
+
+The rapport carries one summary line under the roster:
+
+```
+6 Anwesende · Einsatzstunden 14:35 (gerundet 16:00 – pro Person auf 30 Min. aufgerundet, ab 5 Min. über dem Block)
+```
+
+**The first figure is raw** – every person's presence blocks summed to the minute, never rounded.
+That is what actually happened, and it is what the second figure has to be checkable against.
+
+**The second is the Sold convention.** Each person's own time is rounded UP to the next `stepMin`
+block, but only once `graceMin` past the previous one; the rounded values are then summed. With
+the shipped default (`stepMin: 30`, `graceMin: 5`):
+
+| served | counts as |
+| --- | --- |
+| 0:00 – 0:05 | 0:00 |
+| 0:06 – 0:35 | 0:30 |
+| 0:36 – 1:05 | 1:00 |
+| 1:06 – 1:35 | 1:30 |
+
+The grace is what stops a crew that stayed three minutes over the half hour from being counted a
+whole block for it.
+
+**Rounding is per person, then summed – never on the total.** Three people at 0:20 each are 1:00
+raw and 1:30 rounded; rounding the total instead would say 1:00 and quietly make the answer depend
+on how many people happened to come.
+
+A station that counts whole hours sets `{"stepMin": 60, "graceMin": 10}`. Whatever is configured,
+**the rapport prints the rule next to the number** – a rounded figure nobody can reproduce is a
+figure nobody trusts.
+
+⚠️ This is a summary for the person signing the sheet, not accounting. Sold and kantonale
+Statistik are computed in WinFAP from the recorded von–bis, and the per-person Stunden columns
+stay off the paper deliberately (field-classification decision, 2026-07-17).
 
 ## 2. Reference / werkleitungs layers – **station-supplied, nothing bundled**
 

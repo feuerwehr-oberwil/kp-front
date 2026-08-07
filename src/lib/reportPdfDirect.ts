@@ -16,6 +16,7 @@ import type { ReportDraft } from './report'
 import {
   annotatedPlans, formatDateTime, journalRows, metaExtrasForPdf, mittelFormForPdf, personalForPdf, readingKindLabel, truppAuftragLabel, truppStatusLabel,
 } from './report'
+import { DEFAULT_HOURS_ROUNDING, fmtHours, hoursRows, hoursSummary } from './attendanceHours'
 import { getDeploymentConfig } from './deploymentConfig'
 import { fillTemplate } from './format'
 import { buildKrokiPayload, shapeSvgString } from './krokiPayload'
@@ -240,6 +241,19 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
       : [],
     ...mittelFormForPdf(mittel, catalogue),
     ...personalForPdf(roster, attendance, { alarmedAt: meta.alarmiertAt ?? incident.started_at, endedAt: meta.endedAt ?? incident.closed_at }),
+    // Anwesende + Einsatzstunden as ONE line under the roster. Computed here, where the ISO
+    // timestamps live: the printed rows carry «19:12 – 21:40», and re-deriving minutes from
+    // formatted clock text on the server would be a second, disagreeing answer.
+    personalSummary: (() => {
+      const bounds = { alarmedAt: meta.alarmiertAt ?? incident.started_at ?? null, endedAt: meta.endedAt ?? incident.closed_at ?? null }
+      const cfgRule = cfg.report?.hoursRounding
+      const rule = {
+        stepMin: cfgRule?.stepMin ?? DEFAULT_HOURS_ROUNDING.stepMin,
+        graceMin: cfgRule?.graceMin ?? DEFAULT_HOURS_ROUNDING.graceMin,
+      }
+      const s = hoursSummary(hoursRows(attendance, bounds), rule)
+      return { present: s.present, hours: fmtHours(s.minutes), hoursRounded: fmtHours(s.rounded), stepMin: rule.stepMin, graceMin: rule.graceMin }
+    })(),
     partnerPresets: cfg.report?.partnerOrgs ?? [],
     generatedAt: formatDateTime(draft.generatedAt),
     kroki: kroki ?? undefined,

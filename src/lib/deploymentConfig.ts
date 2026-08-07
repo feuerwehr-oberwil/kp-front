@@ -292,7 +292,11 @@ export interface DeploymentConfig {
   /** station alarm groups for the Alarmierungs-/Ausrückzeiten grid — empty hides it */
   alarms?: { groups?: AlarmGroup[] | null }
   /** Einsatzrapport form presets (Partnerorganisationen checkbox row) */
-  report?: { partnerOrgs?: string[] | null }
+  report?: {
+    partnerOrgs?: string[] | null
+    /** how the bracketed Einsatzstunden figure rounds — see lib/attendanceHours · roundedMinutes */
+    hoursRounding?: { stepMin?: number | null; graceMin?: number | null } | null
+  }
   integrations?: DeploymentIntegrations
 }
 

@@ -10047,6 +10047,27 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "HoursRoundingConfig": {
+        "properties": {
+          "stepMin": {
+            "type": "integer",
+            "maximum": 480.0,
+            "minimum": 1.0,
+            "title": "Stepmin",
+            "default": 30
+          },
+          "graceMin": {
+            "type": "integer",
+            "maximum": 479.0,
+            "minimum": 0.0,
+            "title": "Gracemin",
+            "default": 5
+          }
+        },
+        "type": "object",
+        "title": "HoursRoundingConfig",
+        "description": "The Sold convention this station counts Einsatzstunden by — see ``ReportConfig``."
+      },
       "IdentityAssets": {
         "properties": {
           "logo": {
@@ -12902,6 +12923,9 @@
             "type": "boolean",
             "title": "Reverseprintorder",
             "default": true
+          },
+          "hoursRounding": {
+            "$ref": "#/components/schemas/HoursRoundingConfig"
           }
         },
         "type": "object",

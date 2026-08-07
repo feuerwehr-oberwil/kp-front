@@ -293,6 +293,23 @@ class ReportOptionsIn(BaseModel):
     journal: bool = True
 
 
+class PersonalSummaryIn(BaseModel):
+    """Anwesende + Einsatzstunden, computed CLIENT-side where the ISO timestamps are.
+
+    The rows print «19:12 – 21:40»; re-deriving minutes from that formatted clock text here
+    would be a second answer that can disagree with the app's. ``hours`` is the raw sum — what
+    actually happened — and ``hoursRounded`` the Sold figure (each person rounded up to the next
+    ``stepMin`` block once ``graceMin`` past the previous one, then summed). The rule travels
+    WITH the numbers so the paper can name it instead of leaving a reader to reverse-engineer it.
+    """
+
+    present: int = 0
+    hours: str = ""
+    hoursRounded: str = ""
+    stepMin: int = 30
+    graceMin: int = 5
+
+
 class AttachmentIn(BaseModel):
     """One Beilage: a photo that belongs to the REPORT — an ID document, a damage close-up.
 
@@ -324,6 +341,7 @@ class ReportPayload(BaseModel):
     mittelForm: list[MittelFormRowIn] = []
     # Partnerorganisationen presets — tick-off row when none were recorded digitally
     partnerPresets: list[str] = []
+    personalSummary: PersonalSummaryIn | None = None
     journal: list[JournalRowIn] = []
     attachments: list[AttachmentIn] = []
 
@@ -362,6 +380,9 @@ L = {
     "colPressure": "Druck bar",
     "noPressureLog": "Kein Druckverlauf erfasst.",
     "personal": "Personal / Anwesenheit",
+    # {n} Anwesende · {h} raw · {r} rounded · the rule that produced {r}
+    "personalTotals": "<b>{n} Anwesende</b> · Einsatzstunden <b>{h}</b> "
+    "(gerundet <b>{r}</b> – pro Person auf {step} Min. aufgerundet, ab {grace} Min. über dem Block)",
     "personalHint": "Abhaken, ggf. von–bis ergänzen",
     "journal": "Einsatzjournal",
     "colArea": "Bereich",
@@ -390,7 +411,11 @@ _LINE_STUB = " "  # write-in rows: empty cell, the ruled underline is the affor
 
 class _NumberedCanvas(_canvas.Canvas):
     """Two-pass canvas: buffers pages, then stamps «n / total» bottom-right on save —
-    ReportLab has no forward page count in a single pass."""
+    ReportLab has no forward page count in a single pass. The Einsatz is named bottom-left:
+    a rapport is 2 pages or 25, it gets stapled, unstapled and passed around, and a sheet that
+    does not say which Einsatz it belongs to cannot be put back."""
+
+    footer_label = ""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -408,6 +433,8 @@ class _NumberedCanvas(_canvas.Canvas):
             self.setFont("Helvetica", 8)
             self.setFillColor(colors.HexColor("#8a94a3"))
             self.drawRightString(w - 14 * mm, 8 * mm, f"{self._pageNumber} / {total}")
+            if self.footer_label:
+                self.drawString(14 * mm, 8 * mm, _fit_text(self, self.footer_label, w - 40 * mm, size=8))
             _canvas.Canvas.showPage(self)
         _canvas.Canvas.save(self)
 
@@ -934,6 +961,23 @@ def compose_report_pdf(
     # page break — each table splits at a row boundary, so a small Einsatz stays on one sheet.
     if opt.attendance and payload.personal:
         story.extend(head(L["personal"]))
+        # The two numbers a Fourier is asked for, on the sheet that gets signed. RAW first —
+        # what actually happened — and the Sold figure behind it, with the rule that produced it
+        # spelled out, because a rounded number nobody can reproduce is a number nobody trusts.
+        ps = payload.personalSummary
+        if ps and ps.present:
+            story.append(
+                Paragraph(
+                    L["personalTotals"].format(
+                        n=ps.present,
+                        h=_esc(ps.hours),
+                        r=_esc(ps.hoursRounded),
+                        step=ps.stepMin,
+                        grace=ps.graceMin,
+                    ),
+                    st["cell"],
+                )
+            )
         story.append(Paragraph(_esc(L["personalHint"]), st["muted"]))
         story.append(Spacer(1, 4))
         story.append(_personal_table(payload.personal, inner_w, st))
@@ -943,17 +987,19 @@ def compose_report_pdf(
         story.extend(head(L["mittel"]))
         story.append(_mittel_table(payload.mittelForm, inner_w, st))
 
-    if m.partnerContacts or payload.partnerPresets:
-        # EVERY organisation the station works with is listed — ticked where it was involved,
-        # blank where it was not — the way the Personalblatt lists the whole Mannschaft. A list
-        # of only the ticked ones cannot say «die Polizei war NICHT da», and on paper that
-        # difference is the whole point of the block. Anything recorded beyond the station's own
-        # list (a neighbouring Wehr, a Werkhof) is appended.
-        story.extend(head(L["partnerOrgs"]))
-        by_org = {(c.org or "").strip().lower(): c for c in m.partnerContacts}
-        listed = [(org, by_org.pop(org.strip().lower(), None)) for org in payload.partnerPresets]
-        listed += [(c.org or "", c) for c in by_org.values()]
-        story.append(_partner_table(listed, inner_w, st))
+    # EVERY organisation the station works with is listed — ticked where it was involved, blank
+    # where it was not — the way the Personalblatt lists the whole Mannschaft. A list of only the
+    # ticked ones cannot say «die Polizei war NICHT da», and on paper that difference is the whole
+    # point of the block. Anything recorded beyond the station's own list (a neighbouring Wehr, a
+    # Werkhof) is appended, and a blank row closes it off for the one nobody thought of — exactly
+    # the write-in rows the roster ends with. Printed unconditionally: the rapport is a FORM, and
+    # a station with no configured list still has a Polizei to tick.
+    story.extend(head(L["partnerOrgs"]))
+    by_org = {(c.org or "").strip().lower(): c for c in m.partnerContacts}
+    listed = [(org, by_org.pop(org.strip().lower(), None)) for org in payload.partnerPresets]
+    listed += [(c.org or "", c) for c in by_org.values()]
+    listed += [("", None)]
+    story.append(_partner_table(listed, inner_w, st))
 
     # Unterschriften close the SIGNED part (Haupt-Rapport + Personal + Material — one
     # unit, kantonale Vorlage 11-01-003): Einsatzleitung AND Kommandant, each with an own
@@ -1107,37 +1153,15 @@ def compose_report_pdf(
         story.append(NextPageTemplate("portrait"))
         story.append(PageBreak())
 
-    # Beilagen — document/damage photos with their caption underneath. Big enough to READ a
-    # driving licence off the paper, and no bigger: the app is where these are looked at, and a
-    # full-page plate each turned four photos into four sheets. Capped, they flow two-to-three
-    # per page; image and caption stay together so a plate never ends up orphaned from its label.
-    # A Beilage whose bytes are gone drops its plate rather than the rapport — hence the filter
-    # into a NEW name: re-binding the same one keeps the `| None` in its type, and the .hAlign
-    # below is then an attribute access on something the checker still believes can be None.
-    att_imgs: list[tuple[AttachmentIn, Image]] = [
-        (a, img)
-        for a, img in (
-            (a, _fit_image(figures.get(f"photo:{a.url}"), inner_w * 0.62, 92 * mm)) for a in payload.attachments
-        )
-        if img is not None
-    ]
-    for _a, _img in att_imgs:
-        _img.hAlign = "LEFT"  # share a left edge with the caption underneath
-    if att_imgs:
+    # Beilagen — laid out for the number of them there actually are (see _attachment_block).
+    # A Beilage whose bytes are gone drops its plate, not the rapport.
+    att_data = [(a, figures.get(f"photo:{a.url}")) for a in payload.attachments]
+    att_shown: list[tuple[AttachmentIn, bytes]] = [(a, d) for a, d in att_data if d]
+    if att_shown:
         story.append(NextPageTemplate("portrait"))
         story.append(PageBreak())
-        story.extend(head(L["attachments"]))
-        for att, img in att_imgs:
-            story.append(
-                KeepTogether(
-                    [
-                        img,
-                        Spacer(1, 3),
-                        Paragraph(_esc(att.caption or L["attachmentNoCaption"]), st["muted"]),
-                        Spacer(1, 10),
-                    ]
-                )
-            )
+        story.extend(head(f"{L['attachments']} ({len(att_shown)})"))
+        story.append(_attachment_block(att_shown, inner_w, st, L))
 
     # Atemschutzüberwachung closes the Anhang: protocol for reconstruction, not primary
     if opt.atemschutz and payload.trupps:
@@ -1198,7 +1222,12 @@ def compose_report_pdf(
             story.append(Spacer(1, 6))
 
     story = _collapse_breaks(story)
-    doc.build(story, canvasmaker=_NumberedCanvas)
+    label = " · ".join(x for x in (payload.incident.title, payload.generatedAt) if x)
+
+    class _Stamped(_NumberedCanvas):
+        footer_label = label
+
+    doc.build(story, canvasmaker=_Stamped)
     return buf.getvalue()
 
 
@@ -1316,6 +1345,80 @@ def _personal_table(personal: list[PersonalRowIn], inner_w: float, st: dict[str,
     # a shared row meant one person's remark set the height for whoever happened to sit opposite
     # them, and from there down the two halves no longer shared a baseline
     return _two_up(personal, column, check_w + name_w + time_w)
+
+
+# Up to this many Beilagen print as full plates; beyond it they become a contact sheet. The
+# number is the point where nobody reads plate 30 anyway — 50 large plates are ~20 sheets
+# appended to a 2-page rapport, and the signed part disappears behind a photo stack.
+_ATT_PLATE_MAX = 8
+
+
+def _attachment_block(
+    att: list[tuple[AttachmentIn, bytes]],
+    inner_w: float,
+    st: dict[str, ParagraphStyle],
+    labels: dict[str, str],
+) -> Table:
+    """Beilagen, laid out for the number of them there actually are.
+
+    A handful print LARGE — the reason to photograph a driving licence is to read it off the
+    paper afterwards. Many print as a numbered contact sheet: at 50 photos nobody reads plate 30,
+    and what the paper is for becomes «which pictures exist», which a thumbnail answers.
+
+    Either way each carries its number «B7», so the Verlauf, a phone call and the paper can all
+    name the same picture.
+    """
+    grid = len(att) > _ATT_PLATE_MAX
+    cols, cell_h = (3, 62 * mm) if grid else (1, 92 * mm)
+    gutter = 4 * mm
+    cell_w = (inner_w - gutter * (cols - 1)) / cols
+    img_w = cell_w if grid else inner_w * 0.62
+
+    def cell(i: int, a: AttachmentIn, data: bytes):
+        caption = Paragraph(f"<b>B{i}</b> · {_esc(a.caption or labels['attachmentNoCaption'])}", st["muted"])
+        img = _fit_image(data, img_w, cell_h)
+        if img is None:
+            return [caption]
+        img.hAlign = "LEFT"  # share a left edge with the caption underneath
+        if not grid:
+            return [img, Spacer(1, 3), caption]
+        # ⚠️ On a contact sheet the pictures are NOT the same height — a portrait Ausweis next to
+        # a landscape damage shot — so a plain stack put every caption at its own height and the
+        # row read as scattered. A fixed picture box bottom-aligns them onto one shelf and puts
+        # every caption in the row on the same line.
+        box = Table([[img], [caption]], colWidths=[cell_w], rowHeights=[cell_h, None])
+        box.setStyle(
+            TableStyle(
+                [
+                    ("VALIGN", (0, 0), (0, 0), "BOTTOM"),
+                    ("VALIGN", (0, 1), (0, 1), "TOP"),
+                    ("TOPPADDING", (0, 0), (-1, -1), 0),
+                    ("BOTTOMPADDING", (0, 0), (0, 0), 3),
+                    ("BOTTOMPADDING", (0, 1), (0, 1), 0),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                ]
+            )
+        )
+        return [box]
+
+    cells: list = [cell(i, a, d) for i, (a, d) in enumerate(att, start=1)]
+    rows = [cells[r : r + cols] for r in range(0, len(cells), cols)]
+    rows[-1] = rows[-1] + [""] * (cols - len(rows[-1]))  # pad the tail row out to `cols`
+    t = Table(rows, colWidths=[cell_w] * cols)
+    t.setStyle(
+        TableStyle(
+            [
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("TOPPADDING", (0, 0), (-1, -1), 0),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                # the gutter rides on the right of every cell but the last in its row
+                *[("RIGHTPADDING", (c, 0), (c, -1), gutter if c < cols - 1 else 0) for c in range(cols)],
+            ]
+        )
+    )
+    return t
 
 
 def _partner_table(

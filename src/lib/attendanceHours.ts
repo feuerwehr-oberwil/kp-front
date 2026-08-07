@@ -49,3 +49,59 @@ export function hoursRows(
     })
     .sort((x, y) => x.name.localeCompare(y.name, 'de-CH'))
 }
+
+/** Default rounding rule when the deployment configures none. Documented in
+ *  `docs/EINSATZRAPPORT.md` — the printed rapport names it too, so the paper explains itself. */
+export const DEFAULT_HOURS_ROUNDING = { stepMin: 30, graceMin: 5 }
+
+/**
+ * One person's minutes rounded the way a Sold sheet counts them: **up to the next
+ * `stepMin` block, but only once `graceMin` past the previous one**. With the default
+ * 30 / 5 that reads:
+ *
+ * | served | counts as |
+ * | --- | --- |
+ * | 0:00 – 0:05 | 0:00 |
+ * | 0:06 – 0:35 | 0:30 |
+ * | 0:36 – 1:05 | 1:00 |
+ * | 1:06 – 1:35 | 1:30 |
+ *
+ * The grace is what stops a crew that stayed three minutes over the half hour from being
+ * counted a full block for it. It is per PERSON, then summed — rounding the total instead
+ * would quietly give the same Einsatz a different answer depending on how many people came.
+ */
+export function roundedMinutes(minutes: number, rule = DEFAULT_HOURS_ROUNDING): number {
+  const step = Math.max(1, Math.round(rule.stepMin))
+  const grace = Math.max(0, Math.min(Math.round(rule.graceMin), step - 1))
+  if (minutes <= grace) return 0
+  return step * Math.ceil((minutes - grace) / step)
+}
+
+export interface HoursSummary {
+  /** people who were marked present at some point — a record, not a live headcount */
+  present: number
+  /** raw minutes served, summed. The primary number: what actually happened. */
+  minutes: number
+  /** the same, each person rounded first (see `roundedMinutes`) */
+  rounded: number
+  /** people whose block could not be resolved to a duration, so they are in neither total */
+  unresolved: number
+}
+
+/** The two numbers the printed rapport carries under the roster. */
+export function hoursSummary(rows: HoursRow[], rule = DEFAULT_HOURS_ROUNDING): HoursSummary {
+  let minutes = 0
+  let rounded = 0
+  let unresolved = 0
+  for (const r of rows) {
+    if (r.minutes == null) { unresolved += 1; continue }
+    minutes += r.minutes
+    rounded += roundedMinutes(r.minutes, rule)
+  }
+  return { present: rows.length, minutes, rounded, unresolved }
+}
+
+/** «14:35» — hours and minutes, never a decimal: 14.58 h is not a number anybody checks. */
+export function fmtHours(minutes: number): string {
+  return `${Math.floor(minutes / 60)}:${String(Math.round(minutes % 60)).padStart(2, '0')}`
+}

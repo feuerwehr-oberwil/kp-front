@@ -823,6 +823,28 @@ class ReportConfig(BaseModel):
     #: Default on: the relay is deliberately configured per station (PRINT_AGENT_SECRET), so
     #: whoever switches the printer on can switch this off if theirs ejects face-down.
     reversePrintOrder: bool = True
+    #: How the SECOND Einsatzstunden figure on the rapport is rounded (the one in brackets).
+    #:
+    #: The first figure is the raw sum — what actually happened, never rounded. The second is
+    #: each person's time rounded UP to the next ``stepMin`` block, but only once ``graceMin``
+    #: past the previous one, then summed. With the default 30 / 5: 0:05 counts as 0:00, 0:06 as
+    #: 0:30, 0:35 as 0:30, 0:36 as 1:00. The grace is what stops a crew that stayed three minutes
+    #: over the half hour from being counted a whole block for it.
+    #:
+    #: Rounding is per PERSON and then summed — rounding the total instead would give the same
+    #: Einsatz a different answer depending on how many people came. Set ``stepMin: 60`` for a
+    #: station that counts whole hours. See ``docs/EINSATZRAPPORT.md``.
+    hoursRounding: "HoursRoundingConfig" = Field(default_factory=lambda: HoursRoundingConfig())
+
+
+class HoursRoundingConfig(BaseModel):
+    """The Sold convention this station counts Einsatzstunden by — see ``ReportConfig``."""
+
+    model_config = ConfigDict(extra="ignore")
+    #: block size in minutes (30 = half hours, 60 = whole hours)
+    stepMin: int = Field(default=30, ge=1, le=480)
+    #: minutes past a block that still count as that block, not the next one
+    graceMin: int = Field(default=5, ge=0, le=479)
 
 
 class RankConfig(BaseModel):
