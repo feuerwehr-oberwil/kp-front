@@ -1261,6 +1261,9 @@ export const de = {
     center: 'Zentrieren',
     resetGps: 'GPS',
     resetGpsTitle: 'Auf GPS-Position und -Kurs zurücksetzen',
+    // Fahrer eines LIVE-Fahrzeugs: der GPS-Feed weiss wo, nie wer am Steuer sitzt.
+    driverLabel: 'Fahrer',
+    driverPlaceholder: 'Name aus der Mannschaft',
     rotateHint: 'Griff ziehen zum Ausrichten',
     detailsTitle: 'Details',
     // on-canvas caption override for this one symbol (Standard = follow the device default)

@@ -904,6 +904,8 @@ export const en: Localizable<Copy> = {
     center: 'Center',
     resetGps: 'GPS',
     resetGpsTitle: 'Reset to GPS position and heading',
+    driverLabel: 'Driver',
+    driverPlaceholder: 'Name from the crew',
     rotateHint: 'Drag the handle to align',
     detailsTitle: 'Details',
     caption: 'Caption',

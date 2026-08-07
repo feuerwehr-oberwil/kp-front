@@ -2481,6 +2481,19 @@ export function IncidentWorkspace({
           onResetGps={selected.live && selected.kind !== 'person'
             ? () => setVehicleOverrides((m) => { const { [selected.id]: _drop, ...rest } = m; return rest })
             : undefined}
+          // A live vehicle's Fahrer: the GPS feed reports where a vehicle IS, never who is in
+          // it, and that is the one thing the FU needs to reach it. Kept in the override map
+          // because the entity itself is rebuilt from the feed on every poll.
+          driver={selected.live && selected.kind !== 'person' && !readOnly
+            ? {
+              value: vehicleOverrides[selected.id]?.fahrer ?? '',
+              options: rosterNames,
+              onChange: (v: string) => setVehicleOverrides((m) => ({
+                ...m,
+                [selected.id]: { ...m[selected.id], fahrer: v.trim() || undefined },
+              })),
+            }
+            : undefined}
           connectedLines={drawings.filter((d) => [d.startAttachment, d.endAttachment].some((a) => a?.target.kind === 'object' && a.target.id === selected.id)).map((d) => ({ id: d.id, label: lineLabel(d) }))}
           onFocusLine={focusDrawing}
         />

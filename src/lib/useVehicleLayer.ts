@@ -6,7 +6,10 @@ import type { Entity, LngLat } from '../types'
 // the backend each poll (never persisted); operator overrides (drag to reposition / orient)
 // ride the workspace blob and win over the live value until reset.
 
-export type VehicleOverrides = Record<string, { coord?: LngLat; rotation?: number }>
+/** Per-vehicle operator overrides, persisted in the workspace blob. `fahrer` is here rather
+ *  than in the entity's own fields because a live vehicle is REBUILT from the GPS feed on every
+ *  poll — anything written onto the entity itself would be gone within seconds. */
+export type VehicleOverrides = Record<string, { coord?: LngLat; rotation?: number; fahrer?: string }>
 
 export interface VehicleLayer {
   /** raw live GPS entities from the backend (drives the "live" map badge) */
@@ -43,6 +46,9 @@ export function useVehicleLayer(initOverrides: VehicleOverrides): VehicleLayer {
       symbolSvg: ov.rotation != null ? vehicleSymbolSvg(v.label ?? '', rotation ?? 0) : v.symbolSvg,
       // aiming a vehicle by hand IS stating a direction — the rebuilt glyph gets the arrow
       directed: ov.rotation != null ? true : v.directed,
+      // the Fahrer joins the feed's own readings, so it shows on the symbol caption and prints
+      // on the Kroki exactly like a placed vehicle's Fahrer does
+      fields: ov.fahrer?.trim() ? { ...v.fields, Fahrer: ov.fahrer.trim() } : v.fields,
     }
   }), [gps.vehicles, overrides])
   const liveIds = useMemo(() => new Set(gps.vehicles.map((v) => v.id)), [gps.vehicles])

@@ -144,6 +144,11 @@ interface Props {
   hasOverride?: boolean
   /** reset a live vehicle's manual position/orientation back to the GPS feed */
   onResetGps?: () => void
+  /** Fahrer of a LIVE (GPS-sourced) vehicle. The feed knows where the vehicle is, never who is
+   *  driving it — and the entity is rebuilt on every poll, so this rides the operator override
+   *  instead of the entity's own fields. Offered even though the panel is otherwise read-only:
+   *  it is the one thing about a live vehicle only a human can say. */
+  driver?: { value: string; options: string[]; onChange: (v: string) => void }
   connectedLines?: { id: string; label: string }[]
   onFocusLine?: (id: string) => void
   // --- free-text note (Lage 'note' / Plan 'text') -------------------------------------------
@@ -182,7 +187,7 @@ function LabeledStepper({ label, ...rest }: { label: string } & React.ComponentP
   )
 }
 
-export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, readOnly, hasOverride, onResetGps, connectedLines = [], onFocusLine, onNoteWidth, onNoteSize, onNotePlain, onColor, onTeamColor }: Props) {
+export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, readOnly, hasOverride, onResetGps, driver, connectedLines = [], onFocusLine, onNoteWidth, onNoteSize, onNotePlain, onColor, onTeamColor }: Props) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
   const N = appConfig.copy.notes
@@ -478,6 +483,18 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
           {/* the glyph-affecting steppers — grouped, only the ones this symbol declares.
               View state: no stepper chrome at all (a disabled ± row still reads as editable);
               set values render as plain fields instead. */}
+          {driver && (
+            <label className="kv-driver">
+              <span>{C.driverLabel}</span>
+              <Combo
+                value={driver.value}
+                options={driver.options}
+                allowCustom
+                placeholder={C.driverPlaceholder}
+                onChange={driver.onChange}
+              />
+            </label>
+          )}
           {readOnly && (
             <div className="ctx-steps">
               {entity.floor != null && <div className="field"><span>{C.floor}</span><b>{floorStr(entity.floor)}</b></div>}

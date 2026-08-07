@@ -734,6 +734,10 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 .ctx-title-ro { display: block; cursor: default; border-bottom-color: transparent; }
 .ctx-notes-ro { margin: 0; font-size: 13.5px; line-height: 1.45; color: var(--ink); white-space: pre-wrap; }
 .kv-val-ro { font-weight: 500; }
+/* Fahrer of a live vehicle — the one editable thing on an otherwise read-only panel, so it is
+   given the ordinary field look rather than the muted read-out the GPS readings get. */
+.kv-driver { display: flex; flex-direction: column; gap: 4px; margin: 2px 0 8px; }
+.kv-driver > span { font: 700 11px var(--body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim); }
 /* inset to the left of the right-edge tool rail (rail 88 + 16 margin + 12 gap) */
 .ctx { position: absolute; right: 116px; top: 88px; width: 360px; background: var(--glass);
   backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); border-radius: var(--r-hero); z-index: 35;

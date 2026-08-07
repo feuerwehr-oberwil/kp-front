@@ -129,6 +129,12 @@ so this file – not the log – is the record of what shipped up to that point.
   (`report.reversePrintOrder`, switch it off for a printer that ejects face-down); the
   downloaded PDF stays in reading order, because that one is read on a screen.
 
+- **Ein GPS-Fahrzeug kann einen Fahrer bekommen.** Der Feed weiss, wo ein Fahrzeug ist, nie wer
+  darin sitzt – und genau das braucht die Einsatzleitung, um es zu erreichen. Der Fahrer wird am
+  Fahrzeug gesetzt, aus der Mannschaft, steht auf der Beschriftung und druckt auf dem Kroki wie
+  bei einem von Hand gesetzten Fahrzeug. Er überlebt den nächsten GPS-Poll, der das Symbol sonst
+  neu baut.
+
 - **Der Live-Standort in der Anwesenheit ist wieder eine Markierung, keine Ablesung.**
   «63 m · jetzt» hinter jedem Namen war eine zweite Zahlenspalte neben dem, wofür die Liste
   gelesen wird – den Namen. Es bleibt das Symbol, direkt links neben der Uhr; die Angabe steht

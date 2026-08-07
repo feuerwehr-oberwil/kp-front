@@ -882,6 +882,8 @@ export const it: Localizable<Copy> = {
     center: 'Centra',
     resetGps: 'GPS',
     resetGpsTitle: 'Reimposta su posizione e rotta GPS',
+    driverLabel: 'Conducente',
+    driverPlaceholder: 'Nome dall’organico',
     rotateHint: 'Trascina la maniglia per orientare',
     detailsTitle: 'Dettagli',
     notes: 'Note',

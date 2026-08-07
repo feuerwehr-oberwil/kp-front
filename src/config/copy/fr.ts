@@ -883,6 +883,8 @@ export const fr: Localizable<Copy> = {
     center: 'Centrer',
     resetGps: 'GPS',
     resetGpsTitle: 'Réinitialiser sur la position et le cap GPS',
+    driverLabel: 'Conducteur',
+    driverPlaceholder: 'Nom de l’effectif',
     rotateHint: 'Tirer la poignée pour orienter',
     detailsTitle: 'Détails',
     notes: 'Notes',
