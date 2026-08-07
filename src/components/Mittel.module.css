@@ -44,6 +44,24 @@
 .list { flex: 1 1 auto; overflow-y: auto; scrollbar-gutter: stable; padding: 8px 22px 18px; }
 .group { margin-top: 16px; }
 .group:first-child { margin-top: 4px; }
+
+/* Wide screens get TWO columns of groups. Full width, a row is ~1500px: the name sat on the
+   left edge and its stepper on the right, half a screen apart, with nothing in between — and
+   half the Positionen below the fold anyway. Two columns spend that width on more rows instead
+   of on air. Grid, not CSS multicol: multicol inside a vertically scrolling box lays its columns
+   out to the RIGHT and produces a horizontal scrollbar. A category never splits — a group is one
+   grid item — so a short group leaves a gap under it rather than spilling half of Schläuche into
+   the next column. Reading order stays left-to-right, top-to-bottom.
+   1200px, not the usual 1024: below it two columns of these rows start truncating labels. */
+@media (min-width: 1200px) {
+  .list {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 22px; align-content: start; align-items: start;
+  }
+  .list > .group:nth-child(-n+2) { margin-top: 4px; }
+  /* «Anderes Mittel» closes the list, not one column of it */
+  .list > .addCustom { grid-column: 1 / -1; }
+}
 /* padding-left aligns the header label with the item labels inside the cards
    (card border 1px + row padding-left 12px) */
 .groupHead {
