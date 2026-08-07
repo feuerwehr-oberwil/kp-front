@@ -10,6 +10,7 @@ import {
   IdentitySection,
   DoctrineSection,
   JournalSection,
+  ReportSection,
   FleetSection,
   LayersSection,
   ModulesSection,
@@ -29,7 +30,7 @@ import { IncidentHistoryView } from './IncidentHistoryView'
 // split into five focused "Station" pages that share a single config draft + Save bar
 // (see ConfigContext); everything else is one self-contained page per entry.
 type SectionId =
-  | 'identitaet' | 'doktrin' | 'journal' | 'fahrzeuge' | 'ebenen' | 'objektplaene'
+  | 'identitaet' | 'doktrin' | 'journal' | 'rapport' | 'fahrzeuge' | 'ebenen' | 'objektplaene'
   | 'mitglieder' | 'mannschaft' | 'erfassung'
   | 'einsaetze' | 'divera' | 'traccar' | 'statistik' | 'einsatzlink'
   | 'system' | 'sicherung'
@@ -54,6 +55,7 @@ const NAV: NavGroup[] = [
       { id: 'identitaet', icon: 'flag' },
       { id: 'doktrin', icon: 'compass' },
       { id: 'journal', icon: 'history' },
+      { id: 'rapport', icon: 'doc' },
       { id: 'fahrzeuge', icon: 'truck' },
       { id: 'ebenen', icon: 'layers' },
       { id: 'objektplaene', icon: 'doc' },
@@ -108,16 +110,17 @@ function initialSection(): SectionId {
 // Station pages that read the shared config document — they get the ConfigGate (draft-loading state).
 // 'mannschaft' is on the list for ONE config field (the station's name order); the rest of that
 // page talks to the personnel API directly.
-const CONFIG_SECTIONS = new Set<SectionId>(['identitaet', 'doktrin', 'journal', 'fahrzeuge', 'ebenen', 'objektplaene', 'mannschaft'])
+const CONFIG_SECTIONS = new Set<SectionId>(['identitaet', 'doktrin', 'journal', 'rapport', 'fahrzeuge', 'ebenen', 'objektplaene', 'mannschaft'])
 // Of those, only the genuinely-editable pages get the sticky autosave bar. The viewers
 // (Fahrzeuge, Kartenebenen, Objektpläne) are read-only — edited via the CLI — so no save bar.
-const AUTOSAVE_SECTIONS = new Set<SectionId>(['identitaet', 'doktrin', 'journal', 'mannschaft'])
+const AUTOSAVE_SECTIONS = new Set<SectionId>(['identitaet', 'doktrin', 'journal', 'rapport', 'mannschaft'])
 
 function renderSection(id: SectionId, _navigate: (id: SectionId) => void) {
   switch (id) {
     case 'identitaet': return <IdentitySection />
     case 'doktrin': return <DoctrineSection />
     case 'journal': return <JournalSection />
+    case 'rapport': return <ReportSection />
     case 'fahrzeuge': return <FleetSection />
     case 'ebenen': return <LayersSection />
     case 'objektplaene': return <ModulesSection />

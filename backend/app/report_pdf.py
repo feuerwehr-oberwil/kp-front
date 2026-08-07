@@ -302,15 +302,17 @@ class PersonalSummaryIn(BaseModel):
     The rows print «19:12 – 21:40»; re-deriving minutes from that formatted clock text here
     would be a second answer that can disagree with the app's. ``hours`` is the raw sum — what
     actually happened — and ``hoursRounded`` the Sold figure (each person rounded up to the next
-    ``stepMin`` block once ``graceMin`` past the previous one, then summed). The rule travels
-    WITH the numbers so the paper can name it instead of leaving a reader to reverse-engineer it.
+    ``stepMin`` block once ``graceMin`` past the previous one, then summed).
+
+    The rule itself is deliberately NOT printed (see the ``personalTotals`` label below and
+    ``docs/CONFIGURATION.md`` §1b) — it is identical on every rapport a station produces. It used
+    to travel here as ``stepMin``/``graceMin`` for a line that was never written; the fields are
+    gone rather than left as two numbers nothing reads.
     """
 
     present: int = 0
     hours: str = ""
     hoursRounded: str = ""
-    stepMin: int = 30
-    graceMin: int = 5
     #: people whose blocks could not be totalled (an end before its start — most often an open
     #: block borrowing an implausible Einsatzende). They are in NEITHER sum, so the sheet has to
     #: say so: a total that quietly leaves people out is worse than one that admits it.

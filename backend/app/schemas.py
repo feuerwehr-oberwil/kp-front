@@ -837,7 +837,7 @@ class ReportConfig(BaseModel):
     #:
     #: Rounding is per PERSON and then summed — rounding the total instead would give the same
     #: Einsatz a different answer depending on how many people came. Set ``stepMin: 60`` for a
-    #: station that counts whole hours. See ``docs/EINSATZRAPPORT.md``.
+    #: station that counts whole hours. See ``docs/CONFIGURATION.md`` §1b.
     hoursRounding: "HoursRoundingConfig" = Field(default_factory=lambda: HoursRoundingConfig())
 
 

@@ -262,7 +262,7 @@ database directly rather than through the API.
 The rapport carries one summary line under the roster:
 
 ```
-6 Anwesende · Einsatzstunden 14:35 (gerundet 16:00 – pro Person auf 30 Min. aufgerundet, ab 5 Min. über dem Block)
+6 Anwesende · Einsatzstunden 14:35 · gerundet 16:00
 ```
 
 **The first figure is raw** – every person's presence blocks summed to the minute, never rounded.
@@ -286,9 +286,15 @@ whole block for it.
 raw and 1:30 rounded; rounding the total instead would say 1:00 and quietly make the answer depend
 on how many people happened to come.
 
-A station that counts whole hours sets `{"stepMin": 60, "graceMin": 10}`. Whatever is configured,
-**the rapport prints the rule next to the number** – a rounded figure nobody can reproduce is a
-figure nobody trusts.
+A station that counts whole hours sets `{"stepMin": 60, "graceMin": 10}`. Set it in the admin UI
+under **Rapport → Rundung**, which shows a worked example under the two fields; the value is the
+same on every rapport that station prints.
+
+**The rule itself is NOT printed on the sheet.** It is identical on every rapport a station ever
+produces, so printing it would repeat the same sentence on every sheet forever – it belongs in the
+Weisung, next to the other conventions the people signing these sheets already work to. The
+figure it produces is checkable against the raw number beside it, which is why the raw one is
+printed at all.
 
 ⚠️ This is a summary for the person signing the sheet, not accounting. Sold and kantonale
 Statistik are computed in WinFAP from the recorded von–bis, and the per-person Stunden columns

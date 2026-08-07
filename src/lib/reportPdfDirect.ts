@@ -264,7 +264,7 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
         present: s.present,
         hours: totalled ? fmtHours(s.minutes) : '',
         hoursRounded: totalled ? fmtHours(s.rounded) : '',
-        stepMin: rule.stepMin, graceMin: rule.graceMin, unresolved: totalled ? s.unresolved : 0,
+        unresolved: totalled ? s.unresolved : 0,
       }
     })(),
     partnerPresets: cfg.report?.partnerOrgs ?? [],

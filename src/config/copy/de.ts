@@ -2843,6 +2843,7 @@ export const de = {
       karte: { label: 'Karte', title: 'Karte', lede: 'Startansicht der Lagekarte (Zentrum + Zoom), bevor ein Einsatz gewählt ist.' },
       doktrin: { label: 'Doktrin', title: 'Doktrin', lede: 'FKS-Vorgaben dieser Wehr: Standard-Funkkanal, AGT-Kontaktintervall und Warn-Vorlauf.' },
       journal: { label: 'Journal', title: 'Journal', lede: 'Textbausteine für den Verlauf: Vorschläge, die beim Tippen per Fuzzy-Suche vervollständigen.' },
+      rapport: { label: 'Rapport', title: 'Rapport', lede: 'Wie die Einsatzstunden auf dem gedruckten Rapport gerundet werden.' },
       fahrzeuge: {
         label: 'Symbole',
         title: 'Symbole',
@@ -3027,6 +3028,19 @@ export const de = {
     journal: {
       quickPhrases: 'Textbausteine',
       quickPhrasesTip: 'Eine Zeile pro Baustein. Beim Tippen im Eintrag-Editor erscheinen passende Bausteine als Vervollständigung (Fuzzy-Suche). Leer = die mitgelieferten Standardbausteine.',
+    },
+    // Rundung der Einsatzstunden. Die Regel steht bewusst NICHT auf dem gedruckten Rapport –
+    // sie ist auf jedem Blatt dieselbe und gehört in die Weisung (docs/CONFIGURATION.md §1b).
+    // Deshalb steht das Rechenbeispiel hier: wer die Zahl verstellt, sieht sofort, was sie tut.
+    report: {
+      groupRounding: 'Einsatzstunden – Rundung',
+      roundingTip: 'Gerundet wird pro Person, dann summiert – nie auf die Gesamtsumme. Sonst hinge dieselbe Zahl davon ab, wie viele Leute gekommen sind. Die ungerundete Summe steht auf dem Rapport daneben, damit die gerundete überprüfbar bleibt.',
+      stepMin: 'Schrittweite (min)',
+      stepMinTip: 'Auf welchen Block aufgerundet wird. 30 = halbe Stunden, 60 = ganze Stunden.',
+      graceMin: 'Toleranz (min)',
+      graceMinTip: 'So viele Minuten über einem Block zählen noch nicht als neuer. Verhindert, dass drei Minuten über der halben Stunde einen ganzen Block kosten.',
+      example: 'Beispiel',
+      exampleHint: 'Drei Personen mit {raw} ergeben gerundet {rounded}.',
     },
     doctrine: {
       groupFunk: 'Funk',

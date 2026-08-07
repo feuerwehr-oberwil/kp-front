@@ -50,8 +50,10 @@ export function hoursRows(
     .sort((x, y) => x.name.localeCompare(y.name, 'de-CH'))
 }
 
-/** Default rounding rule when the deployment configures none. Documented in
- *  `docs/EINSATZRAPPORT.md` — the printed rapport names it too, so the paper explains itself. */
+/** Default rounding rule when the deployment configures none — see `docs/CONFIGURATION.md` §1b.
+ *  The rule is NOT printed on the rapport: it is the same on every sheet a station produces, so
+ *  it belongs in the Weisung. The raw figure prints beside the rounded one, which is what makes
+ *  the rounded one checkable. */
 export const DEFAULT_HOURS_ROUNDING = { stepMin: 30, graceMin: 5 }
 
 /**

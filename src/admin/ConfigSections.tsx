@@ -11,6 +11,8 @@ import { ModulesViewer } from './ModulesViewer'
 import { ObjectsView, GeodataView } from './DataView'
 import { BrandingFields } from './BrandingFields'
 import { appConfig } from '../config/appConfig'
+import { fillTemplate } from '../lib/format'
+import { DEFAULT_HOURS_ROUNDING, fmtHours, roundedMinutes } from '../lib/attendanceHours'
 
 // The five "Station" pages. Each edits one facet of the single config document via the
 // shared ConfigContext (draft + Save live in the provider, not here). Section-level help
@@ -311,5 +313,51 @@ export function ModulesSection() {
       <h3 className="adm-view-subhead">{C.objectsTitle}</h3>
       <ObjectsView />
     </>
+  )
+}
+
+/**
+ * Rapport → Rundung. The one setting on this page changes what the Gemeinde is billed, and it
+ * lived in a JSON blob reachable only through the CLI. It is shown with a worked example rather
+ * than a description: the printed rapport deliberately does NOT carry the rule (it is identical
+ * on every sheet a station produces — see docs/CONFIGURATION.md §1b), so this page is the one
+ * place somebody can see what the two numbers actually do before changing them.
+ */
+export function ReportSection() {
+  const { draft, set } = useConfig()
+  const C = appConfig.copy.admin.report
+  const stepMin = getPath<number>(draft, ['report', 'hoursRounding', 'stepMin']) ?? DEFAULT_HOURS_ROUNDING.stepMin
+  const graceMin = getPath<number>(draft, ['report', 'hoursRounding', 'graceMin']) ?? DEFAULT_HOURS_ROUNDING.graceMin
+  // the three durations from the docs' own worked example, run through the LIVE rule
+  const sample = [67, 23, 178]
+  const rule = { stepMin, graceMin }
+  const raw = sample.map((m) => fmtHours(m)).join(' · ')
+  const rounded = fmtHours(sample.reduce((n, m) => n + roundedMinutes(m, rule), 0))
+  return (
+    <Card>
+      <h3 className="adm-fieldgroup">{C.groupRounding}</h3>
+      <p className="adm-hint">{C.roundingTip}</p>
+      <div className="adm-row-2">
+        <Field label={C.stepMin} tip={C.stepMinTip}>
+          <input
+            className="adm-input adm-input-mono" type="number" min={1} max={480} step={1}
+            value={numStr(getPath<number>(draft, ['report', 'hoursRounding', 'stepMin']))}
+            placeholder={String(DEFAULT_HOURS_ROUNDING.stepMin)}
+            onChange={(e) => set(['report', 'hoursRounding', 'stepMin'], numOrNull(e.target.value))}
+          />
+        </Field>
+        <Field label={C.graceMin} tip={C.graceMinTip}>
+          <input
+            className="adm-input adm-input-mono" type="number" min={0} max={479} step={1}
+            value={numStr(getPath<number>(draft, ['report', 'hoursRounding', 'graceMin']))}
+            placeholder={String(DEFAULT_HOURS_ROUNDING.graceMin)}
+            onChange={(e) => set(['report', 'hoursRounding', 'graceMin'], numOrNull(e.target.value))}
+          />
+        </Field>
+      </div>
+      <Field label={C.example}>
+        <p className="adm-hint">{fillTemplate(C.exampleHint, { raw, rounded })}</p>
+      </Field>
+    </Card>
   )
 }
