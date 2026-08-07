@@ -35,7 +35,10 @@ _ALLOWED_FIGURE_TYPES = {"image/png", "image/jpeg", "image/webp"}
 
 _MEDIA_URL = re.compile(r"^/api/media/([0-9a-fA-F-]{36})$")
 _REFERENCE_URL = re.compile(r"^/api/reference/([^/?#]+)$")
-_BRANDING_URL = re.compile(r"^/api/branding/file/([^/?#]+)$")
+#: ⚠️ `.+`, not `[^/]+`: the storage key IS a path («branding/<uuid>.png»), which is why the
+#: route itself declares `{key:path}`. A slash-free pattern here matched nothing, so the logo
+#: was skipped in silence — stored, served, configured, and absent from the sheet.
+_BRANDING_URL = re.compile(r"^/api/branding/file/(.+)$")
 
 #: The station's logo on the printed rapport, under the composer's `logo` figure key. Resolved
 #: HERE rather than uploaded by the client: the deployment config is the server's own record of
@@ -55,8 +58,13 @@ async def _resolve_logo(db: AsyncSession, figs: dict[str, bytes]) -> None:
     m = _BRANDING_URL.match(url)
     if not m:
         return
+    key = m.group(1)
+    # same guard the public route applies — this key comes from our own config, but a resolver
+    # that reads whatever a path says is one config edit away from being an arbitrary-file read
+    if not key.startswith("branding/") or ".." in key:
+        return
     try:
-        figs[_LOGO_KEY] = await storage.aget_bytes(m.group(1))
+        figs[_LOGO_KEY] = await storage.aget_bytes(key)
     except OSError:
         return  # the rapport prints without it — a missing logo is never worth failing over
 

@@ -387,11 +387,13 @@ L = {
     "colPressure": "Druck bar",
     "noPressureLog": "Kein Druckverlauf erfasst.",
     "personal": "Personal / Anwesenheit",
-    # The numbers on one line; the rule that produced them as a footnote under it. As one
-    # sentence it ran the width of the page and the two figures — the only part anybody
-    # transfers — were buried in the middle of it.
+    # On a RUNNING Einsatz there is no Einsatzende, so no block can be totalled — the sheet then
+    # says the one thing it knows (how many were there) instead of «0:00 · gerundet 0:00» plus a
+    # paragraph explaining why both are nothing. The rounding rule is not printed at all: it is
+    # the same rule on every rapport a station prints, and it belongs in the Weisung, not on
+    # every sheet next to the two numbers anybody actually transfers.
+    "personalCount": "<b>{n} Anwesende</b>",
     "personalTotals": "<b>{n} Anwesende</b> · Einsatzstunden <b>{h}</b> · gerundet <b>{r}</b>",
-    "personalRule": "Rundung: pro Person auf {step} Min. aufgerundet, ab {grace} Min. über dem Block.",
     "personalUnresolved": "{n} Person(en) ohne verwertbare Zeiten – in keiner der beiden Summen.",
     "personalHint": "Abhaken, ggf. von–bis ergänzen",
     "journal": "Einsatzjournal",
@@ -976,17 +978,20 @@ def compose_report_pdf(
         # spelled out, because a rounded number nobody can reproduce is a number nobody trusts.
         ps = payload.personalSummary
         if ps and ps.present:
-            story.append(
-                Paragraph(
-                    L["personalTotals"].format(n=ps.present, h=_esc(ps.hours), r=_esc(ps.hoursRounded)),
-                    st["cell"],
+            # `hours` empty = nothing to total (a running Einsatz has no Einsatzende, so every
+            # open block is unresolvable). Printing «0:00» there states a measurement.
+            if ps.hours:
+                story.append(
+                    Paragraph(
+                        L["personalTotals"].format(n=ps.present, h=_esc(ps.hours), r=_esc(ps.hoursRounded)),
+                        st["cell"],
+                    )
                 )
-            )
-            # the rule as a footnote, not inside the sentence carrying the figures
-            note = L["personalRule"].format(step=ps.stepMin, grace=ps.graceMin)
-            if ps.unresolved:
-                note += " " + L["personalUnresolved"].format(n=ps.unresolved)
-            story.append(Paragraph(_esc(note), st["muted"]))
+                # only worth saying when there IS a total for them to be missing from
+                if ps.unresolved:
+                    story.append(Paragraph(_esc(L["personalUnresolved"].format(n=ps.unresolved)), st["muted"]))
+            else:
+                story.append(Paragraph(L["personalCount"].format(n=ps.present), st["cell"]))
         story.append(Paragraph(_esc(L["personalHint"]), st["muted"]))
         story.append(Spacer(1, 4))
         story.append(_personal_table(payload.personal, inner_w, st))

@@ -204,6 +204,17 @@ so this file – not the log – is the record of what shipped up to that point.
   – nötig für die Demo, deren nächtlicher Reset die Konfiguration neu lädt und ein von Hand
   hochgeladenes Logo jedes Mal gelöscht hätte. Die Demo bringt ihr Logo jetzt selbst mit.
 
+- **Auf einem laufenden Einsatz sagt das Blatt nur, wie viele da sind.** Ohne Einsatzende lässt
+  sich kein Block auswerten – gedruckt wurde trotzdem «0:00 · gerundet 0:00» samt Absatz, der
+  erklärte, warum beide Nullen nichts bedeuten. Jetzt steht dort die eine Zahl, die feststeht.
+  Die Rundungsregel steht gar nicht mehr auf dem Blatt: sie ist auf jedem Rapport dieselbe und
+  gehört in die Weisung, nicht neben die zwei Zahlen, die tatsächlich jemand überträgt.
+
+- **Das Rapport-Logo erschien nicht auf dem Papier.** Es war hochgeladen, wurde ausgeliefert und
+  stand in der Konfiguration – der Ablageschlüssel ist aber ein PFAD («branding/<uuid>.png»),
+  und das Muster, das ihn wiedererkennen sollte, liess keine Schrägstriche zu. Es passte auf
+  nichts und das Logo wurde stillschweigend weggelassen.
+
 - **«Einsatzstunden 0:00» bei vier Anwesenden.** Ein noch offener Anwesenheitsblock leiht sich
   das Einsatzende – war das unplausibel (etwa ein vertipptes Datum), ergab jede Person eine
   negative Dauer, die auf 0 gekappt wurde. Vier Leute, null Stunden, und nichts sagte warum. Ein

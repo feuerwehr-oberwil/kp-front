@@ -254,9 +254,15 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
       const s = hoursSummary(hoursRows(attendance, bounds), rule)
       // `unresolved` travels too: those people are in NEITHER sum, and a total that quietly
       // leaves people out is worse than one that says it did
+      // No Einsatzende → no block can be totalled, so there are no hours to state. The sheet
+      // then prints the headcount alone rather than «0:00» twice with a paragraph explaining
+      // that both zeros mean «unknown» — which is what a running Einsatz produced.
+      const totalled = !!bounds.endedAt && s.minutes > 0
       return {
-        present: s.present, hours: fmtHours(s.minutes), hoursRounded: fmtHours(s.rounded),
-        stepMin: rule.stepMin, graceMin: rule.graceMin, unresolved: s.unresolved,
+        present: s.present,
+        hours: totalled ? fmtHours(s.minutes) : '',
+        hoursRounded: totalled ? fmtHours(s.rounded) : '',
+        stepMin: rule.stepMin, graceMin: rule.graceMin, unresolved: totalled ? s.unresolved : 0,
       }
     })(),
     partnerPresets: cfg.report?.partnerOrgs ?? [],

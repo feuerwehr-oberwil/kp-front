@@ -10,6 +10,9 @@ import json
 
 import pytest
 from PIL import Image as PILImage
+from sqlalchemy import select
+
+from app.report_pdf import compose_report_pdf
 
 pytestmark = pytest.mark.asyncio
 
@@ -185,3 +188,57 @@ async def test_over_long_remarks_are_truncated_not_rejected():
     # a remark that fits is left exactly as typed
     assert PersonalRowIn(name="A", note="Fahrer TLF").note == "Fahrer TLF"
     assert PersonalRowIn(name="A", note=None).note is None
+
+
+async def test_the_station_logo_actually_reaches_the_sheet(client, editor, db_session):
+    """⚠️ End-to-end on purpose. The logo was stored, served and named in the config — and still
+    absent from the PDF, because the resolver matched the URL with a slash-free pattern while the
+    storage key IS a path («branding/<uuid>.png»). Every piece passed its own unit test; only the
+    whole path together shows it. So this walks the real one: write the blob, point the config at
+    it, compose, and require the sheet to be bigger than the same sheet without it.
+    """
+    from app import storage
+    from app.api.report import _LOGO_KEY, resolve_report_assets
+    from app.models import DeploymentConfig
+    from app.report_pdf import ReportPayload
+
+    key = "branding/test-logo.png"
+    storage.put_bytes(key, _png(120, 60))
+    row = (await db_session.execute(select(DeploymentConfig))).scalars().first()
+    if row is None:
+        row = DeploymentConfig(id=1, config_json={})
+        db_session.add(row)
+    row.config_json = {**(row.config_json or {}), "identity": {"assets": {"reportLogo": f"/api/branding/file/{key}"}}}
+    await db_session.flush()
+
+    payload = ReportPayload.model_validate(_minimal_payload("x"))
+    figs: dict[str, bytes] = {}
+    await resolve_report_assets(db_session, payload, figs)
+    assert _LOGO_KEY in figs, "the configured logo did not reach the composer"
+
+    with_logo = compose_report_pdf(payload, figs)
+    without = compose_report_pdf(payload, {})
+    assert len(with_logo) > len(without)
+
+
+async def test_a_branding_url_cannot_read_outside_its_own_store(client, editor, db_session):
+    """The key is server-owned, but a resolver that reads whatever a path says is one bad config
+    edit away from being an arbitrary-file read — so it applies the same guard the public route
+    does."""
+    from app.api.report import _LOGO_KEY, resolve_report_assets
+    from app.models import DeploymentConfig
+    from app.report_pdf import ReportPayload
+
+    row = (await db_session.execute(select(DeploymentConfig))).scalars().first()
+    if row is None:
+        row = DeploymentConfig(id=1, config_json={})
+        db_session.add(row)
+    row.config_json = {
+        **(row.config_json or {}),
+        "identity": {"assets": {"reportLogo": "/api/branding/file/branding/../../../etc/passwd"}},
+    }
+    await db_session.flush()
+
+    figs: dict[str, bytes] = {}
+    await resolve_report_assets(db_session, ReportPayload.model_validate(_minimal_payload("x")), figs)
+    assert _LOGO_KEY not in figs
