@@ -22,7 +22,7 @@ describe('hoursRows', () => {
     expect(by.p3.minutes).toBe(150)
   })
 
-  it('yields null minutes while the Einsatzende is unknown, never negative ones', () => {
+  it('yields null minutes while the Einsatzende is unknown, and for an inverted block', () => {
     const att: AttendanceState = {
       p1: { status: 'present', checkedInAt: ALARM, displayNameSnapshot: 'Meier' },
       p2: { status: 'left', checkedInAt: ENDE, leftAt: ALARM, displayNameSnapshot: 'Huber' }, // inverted
@@ -30,7 +30,7 @@ describe('hoursRows', () => {
     const rows = hoursRows(att, { alarmedAt: ALARM, endedAt: null })
     const by = Object.fromEntries(rows.map((r) => [r.personId, r]))
     expect(by.p1.minutes).toBeNull()
-    expect(by.p2.minutes).toBe(0)
+    expect(by.p2.minutes).toBeNull() // inverted: unresolvable, not «measured as nothing»
   })
 
   it('keeps rows for people who left — presence is a record', () => {

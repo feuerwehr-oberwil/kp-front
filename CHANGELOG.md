@@ -190,6 +190,15 @@ so this file – not the log – is the record of what shipped up to that point.
   entstand – dieselbe Handlung am Tablet schrieb immer eine. Jede Zeile trägt «(QR)», weil im
   Rechtsdokument sichtbar sein muss, dass sie nicht von einer angemeldeten Person stammt.
 
+- **«Einsatzstunden 0:00» bei vier Anwesenden.** Ein noch offener Anwesenheitsblock leiht sich
+  das Einsatzende – war das unplausibel (etwa ein vertipptes Datum), ergab jede Person eine
+  negative Dauer, die auf 0 gekappt wurde. Vier Leute, null Stunden, und nichts sagte warum. Ein
+  Block, der vor seinem Anfang endet, ist jetzt **nicht auswertbar** statt «gemessen und
+  nichts», und das Blatt schreibt hin, wie viele Personen deshalb in keiner der beiden Summen
+  stehen. Die Zahlen stehen ausserdem auf einer eigenen Zeile, die Rundungsregel als Fussnote
+  darunter – als ein Satz lief das über die ganze Seitenbreite und die zwei Zahlen, die
+  überhaupt jemand überträgt, lagen mittendrin.
+
 - **Ein Klick ins Bild zoomt.** Der Zeiger zeigte eine Lupe, aber ein Klick tat nichts – der Zoom
   lag hinter Doppelklick, Mausrad und Zwei-Finger-Geste, von denen das Bild keine anzeigt.
   Klick hinein, Klick heraus; die anderen Gesten bleiben.

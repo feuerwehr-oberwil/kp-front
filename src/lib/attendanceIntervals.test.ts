@@ -139,8 +139,16 @@ describe('minutes actually served', () => {
     expect(totalMinutes([{ from: T(14) }], { alarmedAt: ALARM, endedAt: null })).toBeNull()
   })
 
-  it('never counts a corrected-backwards block as negative time', () => {
-    expect(totalMinutes([{ from: T(18), to: T(14) }], opts)).toBe(0)
+  it('reports a backwards block as unresolvable, not as zero minutes', () => {
+    // «0:00» would claim the block WAS measured and came to nothing. It cannot be totalled,
+    // and the summary has a place for that (`unresolved`) — see totalMinutes.
+    expect(totalMinutes([{ from: T(18), to: T(14) }], opts)).toBeNull()
+  })
+
+  it('does not let one impossible Einsatzende zero out everyone still on scene', () => {
+    // the reported case: an OPEN block borrows the incident's end, so a mistyped Einsatzende
+    // made «Einsatzstunden 0:00» for four people with nothing saying why
+    expect(totalMinutes([{ from: T(14) }], { alarmedAt: T(14), endedAt: T(9) })).toBeNull()
   })
 })
 

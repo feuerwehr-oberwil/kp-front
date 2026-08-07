@@ -308,6 +308,10 @@ class PersonalSummaryIn(BaseModel):
     hoursRounded: str = ""
     stepMin: int = 30
     graceMin: int = 5
+    #: people whose blocks could not be totalled (an end before its start — most often an open
+    #: block borrowing an implausible Einsatzende). They are in NEITHER sum, so the sheet has to
+    #: say so: a total that quietly leaves people out is worse than one that admits it.
+    unresolved: int = 0
 
 
 class AttachmentIn(BaseModel):
@@ -380,9 +384,12 @@ L = {
     "colPressure": "Druck bar",
     "noPressureLog": "Kein Druckverlauf erfasst.",
     "personal": "Personal / Anwesenheit",
-    # {n} Anwesende · {h} raw · {r} rounded · the rule that produced {r}
-    "personalTotals": "<b>{n} Anwesende</b> · Einsatzstunden <b>{h}</b> "
-    "(gerundet <b>{r}</b> – pro Person auf {step} Min. aufgerundet, ab {grace} Min. über dem Block)",
+    # The numbers on one line; the rule that produced them as a footnote under it. As one
+    # sentence it ran the width of the page and the two figures — the only part anybody
+    # transfers — were buried in the middle of it.
+    "personalTotals": "<b>{n} Anwesende</b> · Einsatzstunden <b>{h}</b> · gerundet <b>{r}</b>",
+    "personalRule": "Rundung: pro Person auf {step} Min. aufgerundet, ab {grace} Min. über dem Block.",
+    "personalUnresolved": "{n} Person(en) ohne verwertbare Zeiten – in keiner der beiden Summen.",
     "personalHint": "Abhaken, ggf. von–bis ergänzen",
     "journal": "Einsatzjournal",
     "colArea": "Bereich",
@@ -968,16 +975,15 @@ def compose_report_pdf(
         if ps and ps.present:
             story.append(
                 Paragraph(
-                    L["personalTotals"].format(
-                        n=ps.present,
-                        h=_esc(ps.hours),
-                        r=_esc(ps.hoursRounded),
-                        step=ps.stepMin,
-                        grace=ps.graceMin,
-                    ),
+                    L["personalTotals"].format(n=ps.present, h=_esc(ps.hours), r=_esc(ps.hoursRounded)),
                     st["cell"],
                 )
             )
+            # the rule as a footnote, not inside the sentence carrying the figures
+            note = L["personalRule"].format(step=ps.stepMin, grace=ps.graceMin)
+            if ps.unresolved:
+                note += " " + L["personalUnresolved"].format(n=ps.unresolved)
+            story.append(Paragraph(_esc(note), st["muted"]))
         story.append(Paragraph(_esc(L["personalHint"]), st["muted"]))
         story.append(Spacer(1, 4))
         story.append(_personal_table(payload.personal, inner_w, st))

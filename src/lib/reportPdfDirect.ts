@@ -252,7 +252,12 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
         graceMin: cfgRule?.graceMin ?? DEFAULT_HOURS_ROUNDING.graceMin,
       }
       const s = hoursSummary(hoursRows(attendance, bounds), rule)
-      return { present: s.present, hours: fmtHours(s.minutes), hoursRounded: fmtHours(s.rounded), stepMin: rule.stepMin, graceMin: rule.graceMin }
+      // `unresolved` travels too: those people are in NEITHER sum, and a total that quietly
+      // leaves people out is worse than one that says it did
+      return {
+        present: s.present, hours: fmtHours(s.minutes), hoursRounded: fmtHours(s.rounded),
+        stepMin: rule.stepMin, graceMin: rule.graceMin, unresolved: s.unresolved,
+      }
     })(),
     partnerPresets: cfg.report?.partnerOrgs ?? [],
     generatedAt: formatDateTime(draft.generatedAt),

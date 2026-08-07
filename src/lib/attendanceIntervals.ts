@@ -113,7 +113,14 @@ export function totalMinutes(intervals: PresenceInterval[], opts: { alarmedAt: s
     const a = ms(iv?.from ?? opts.alarmedAt)
     const b = ms(iv?.to ?? opts.endedAt)
     if (a == null || b == null) return null
-    sum += Math.max(0, b - a)
+    // ⚠️ A block that ends before it starts is NOT zero minutes — it is a block nobody can
+    // total, and saying «0:00» claims it was measured. The common way to get one is not a
+    // mistyped block at all: an OPEN block borrows the incident's Einsatzende, so a single
+    // implausible Einsatzende silently zeroed every person still on scene — four people,
+    // «Einsatzstunden 0:00», nothing on the sheet saying why. Unresolved instead, which the
+    // summary already counts and reports separately.
+    if (b < a) return null
+    sum += b - a
   }
   return Math.round(sum / 60_000)
 }
