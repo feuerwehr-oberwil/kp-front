@@ -35,13 +35,19 @@ export interface MittelDraft {
   note?: string | null
 }
 
-/** Remaining stock, glanceable: filled dots = still there, empty = used (≤8 total); larger
+/** The largest stock still worth drawing as dots. Seven is where subitizing gives out — up to
+ *  it you SEE «zwei von sieben», past it you start counting pips, which is slower than reading
+ *  the number. Keyed to the stock, never to the current count, so a row keeps its shape all
+ *  through the Einsatz instead of flipping format halfway. */
+const DOTS_MAX_STOCK = 7
+
+/** Remaining stock, glanceable: filled dots = still there, empty = used (small stocks); larger
  *  stocks fall back to a «noch N» chip. Amber when low, red at nothing left / over-use. */
 function StockDots({ remaining, total, label }: { remaining: number; total: number; label: string }) {
   const M = appConfig.copy.mittel
   const st = remaining <= 0 ? 'out' : total > 0 && remaining <= total * 0.25 ? 'low' : 'ok'
   const aria = fillTemplate(M.stockAria, { label, remaining: Math.max(0, remaining), total })
-  if (total > 8) {
+  if (total > DOTS_MAX_STOCK) {
     return (
       <span className={cx(s.noch, st === 'low' && s.low, st === 'out' && s.over)} title={aria}>
         {fillTemplate(M.noch, { n: Math.max(0, remaining) })}
