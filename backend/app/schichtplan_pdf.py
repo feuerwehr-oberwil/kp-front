@@ -65,8 +65,14 @@ def _hhmm(dt: datetime) -> str:
 def _range(a: datetime, b: datetime) -> str:
     """«07:00–12:00» — always the full clock on both ends, as on the screen. The bare hour read
     fine until one end carried minutes and the other did not: «20:30–21» is two notations in one
-    range, and on paper there is nobody to ask."""
-    return f"{_hhmm(a)}–{_hhmm(b)}"
+    range, and on paper there is nobody to ask.
+
+    A band that crosses midnight says which day it lands on: «22:00–06:00» is the shape a night
+    shift has, and on a wall sheet whose whole purpose is a multi-day rota there is nothing else
+    to read it against. Same treatment the Zeitplan axis already gives its midnight tick."""
+    if a.date() == b.date():
+        return f"{_hhmm(a)}–{_hhmm(b)}"
+    return f"{_hhmm(a)}–{b.strftime('%d.%m.')} {_hhmm(b)}"
 
 
 def _band_title(b: ZeitplanBand) -> str:

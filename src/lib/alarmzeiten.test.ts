@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  deriveAusgerueckt, fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit, zeitIssues,
+  deriveAusgerueckt, fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit, zeitFromClock, zeitIssues,
 } from './alarmzeiten'
 import type { AlarmGroup, FleetVehicle } from './deploymentConfig'
 
@@ -92,5 +92,47 @@ describe('zeitIssues — the clocks warn, they never block', () => {
     expect(zeitIssues({ alarmiertAt: 'keine Zeit', endedAt: '2026-08-06T11:00:00Z' }, NOW)).toEqual([])
     // an Einsatz over midnight is legitimate and must stay silent
     expect(zeitIssues({ alarmiertAt: '2026-08-05T23:40:00Z', endedAt: '2026-08-06T01:20:00Z' }, NOW)).toEqual([])
+  })
+})
+
+// The Einsatz that starts at 23:50: every clock in the grid is a bare HH:MM, so the calendar day
+// has to be inferred, and inferring «the alarm's own day» put the Ausrückzeit 23h35 BEFORE the
+// alarm — wrong date on the printed rapport, and zeitIssues warning `beforeAlarm` on an entry
+// that was right all along.
+describe('zeitFromClock — the Einsatz that runs over midnight', () => {
+  const local = (s: string) => new Date(s).toISOString()
+  const ALARM = local('2026-08-06T23:50:00')
+
+  it('puts an Ausrückzeit of 00:15 on the NEXT day, after the alarm', () => {
+    const out = zeitFromClock(ALARM, '00:15')
+    expect(out).not.toBeNull()
+    const d = new Date(out!)
+    expect(d.getDate()).toBe(7)
+    expect([d.getHours(), d.getMinutes()]).toEqual([0, 15])
+    expect(Date.parse(out!)).toBeGreaterThan(Date.parse(ALARM))
+  })
+
+  it('raises no beforeAlarm issue on that Ausrückzeit', () => {
+    const fahrzeuge = setFahrzeugZeit([], 'tlf', 'ausgerueckt', zeitFromClock(ALARM, '00:15'))
+    const ausgerueckt = deriveAusgerueckt(fahrzeuge)
+    const now = Date.parse(local('2026-08-07T09:00:00'))
+    expect(zeitIssues({ alarmiertAt: ALARM, ausgeruecktAt: ausgerueckt }, now)).toEqual([])
+  })
+
+  it('leaves a time later the same evening on the alarm day', () => {
+    const out = zeitFromClock(ALARM, '23:55')
+    expect(new Date(out!).getDate()).toBe(6)
+  })
+
+  it('takes the day wheel literally when the operator moved it — day three of an Elementarereignis', () => {
+    // the escape from a single roll: 07:30 on the 9th cannot be reached by inference at all
+    const out = zeitFromClock(ALARM, '07:30', new Date(2026, 7, 9))
+    const d = new Date(out!)
+    expect([d.getDate(), d.getHours(), d.getMinutes()]).toEqual([9, 7, 30])
+  })
+
+  it('reads an empty clock as «remove the entry», not as a stamp', () => {
+    expect(zeitFromClock(ALARM, '')).toBeNull()
+    expect(setGruppeZeit([{ id: 'g2', alarmedAt: ALARM }], 'g2', zeitFromClock(ALARM, ''))).toEqual([])
   })
 })

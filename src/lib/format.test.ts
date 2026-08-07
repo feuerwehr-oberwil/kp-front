@@ -1,12 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  fillTemplate,
-  formatSymbolName,
-  formatTime,
-  initials,
-  restoreUmlauts,
-  roleLabel,
-} from './format'
+import { dueClock, fillTemplate, formatSymbolName, formatTime, initials, isNextDay, restoreUmlauts, roleLabel } from './format'
 
 describe('restoreUmlauts', () => {
   it('restores transliterated umlauts (lower + upper variants)', () => {
@@ -142,5 +135,19 @@ describe('fillTemplate', () => {
   it('handles repeated placeholders and leaves literal braces-free text intact', () => {
     expect(fillTemplate('{x}-{x}', { x: 'q' })).toBe('q-q')
     expect(fillTemplate('no placeholders', {})).toBe('no placeholders')
+  })
+})
+
+describe('dueClock (a Wiedervorlage that fell to tomorrow)', () => {
+  it('prints the bare clock for a due time today', () => {
+    const today = new Date()
+    today.setHours(23, 30, 0, 0)
+    expect(dueClock(today.toISOString())).toBe(formatTime(today))
+  })
+
+  it('says «morgen» once the due time is not today — the banner used to hide that', () => {
+    const tomorrow = new Date(Date.now() + 26 * 3_600_000)
+    expect(dueClock(tomorrow.toISOString())).toContain('morgen')
+    expect(isNextDay(tomorrow.toISOString())).toBe(true)
   })
 })

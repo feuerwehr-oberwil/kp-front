@@ -13,7 +13,7 @@ import { fillTemplate, hhmm, dtLocalValue, dtLocalToIso } from '../lib/format'
 import type { IncidentMeta } from '../lib/incidents'
 import { getIncident, verifyChain } from '../lib/incidents'
 import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from '../lib/workspace'
-import { deriveAusgerueckt, fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit, zeitIssues } from '../lib/alarmzeiten'
+import { deriveAusgerueckt, fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit, zeitFromClock, zeitIssues } from '../lib/alarmzeiten'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
 import { loadReplay, stateAt, vehiclesAt, type ReplayBundle } from '../lib/replay'
 import { autoRotation, vehicleSymbolSvg } from '../lib/useVehiclePositions'
@@ -668,14 +668,19 @@ export function ReportPreflight({
             {(() => {
               const gRows = gruppenRows(getDeploymentConfig().alarms?.groups ?? [], gruppen)
               const vRows = fahrzeugRows(getDeploymentConfig().fleet?.vehicles ?? [], fahrzeuge)
-              const onGruppe = (id: string, hhmm: string) => {
-                const iso = hhmm ? applyTimeToIso(incident.started_at, hhmm) : null
+              // The grid shows a bare clock, so the calendar day is resolved against the alarm —
+              // an Ausrückzeit of 00:15 after an Alarmierung um 23:50 is the NEXT day, and used
+              // to land 23h35 before the alarm. Same rule and same day wheel as the Rückmeldung
+              // ELZ field below; `day` arrives only on an incident that spans more than one.
+              const zeitDays = incidentDays(meta.startedAt ?? incident.started_at, nowRef)
+              const onGruppe = (id: string, hhmm: string, day?: Date) => {
+                const iso = zeitFromClock(incident.started_at, hhmm, day)
                 const next = setGruppeZeit(gruppen, id, iso)
                 setGruppen(next)
                 persist({ gruppen: next.length ? next : undefined })
               }
-              const onFahrzeug = (id: string, hhmm: string) => {
-                const iso = hhmm ? applyTimeToIso(incident.started_at, hhmm) : null
+              const onFahrzeug = (id: string, hhmm: string, day?: Date) => {
+                const iso = zeitFromClock(incident.started_at, hhmm, day)
                 const next = setFahrzeugZeit(fahrzeuge, id, 'ausgerueckt', iso)
                 setFahrzeuge(next)
                 persist({ fahrzeuge: next.length ? next : undefined, ausgeruecktAt: deriveAusgerueckt(next) ?? dtLocalToIso(ausgerueckt) })
@@ -689,7 +694,8 @@ export function ReportPreflight({
                         {gRows.map(({ config: c, value: v }) => (
                           <label key={c.id} className="rz-row">
                             <span className="rz-name">{c.label}{c.color ? ` (${c.color})` : ''}</span>
-                            <TimeField ariaLabel={c.label} value={clockOf(v?.alarmedAt)} onCommit={(hhmm) => onGruppe(c.id, hhmm ?? '')} />
+                            <TimeField ariaLabel={c.label} value={clockOf(v?.alarmedAt)} days={zeitDays}
+                              onCommit={(hhmm, day) => onGruppe(c.id, hhmm ?? '', day)} />
                           </label>
                         ))}
                       </div>
@@ -710,7 +716,8 @@ export function ReportPreflight({
                                 </span>
                               )}
                             </span>
-                            <TimeField ariaLabel={c.label} value={clockOf(v?.ausgerueckt)} onCommit={(hhmm) => onFahrzeug(c.id, hhmm ?? '')} />
+                            <TimeField ariaLabel={c.label} value={clockOf(v?.ausgerueckt)} days={zeitDays}
+                              onCommit={(hhmm, day) => onFahrzeug(c.id, hhmm ?? '', day)} />
                           </label>
                         ))}
                       </div>

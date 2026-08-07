@@ -5,7 +5,7 @@ import { Overlay } from '../lib/overlays'
 import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
 import { acceptPhrase, suggestPhrases } from '../lib/quickPhrases'
-import { fillTemplate, formatTime } from '../lib/format'
+import { fillTemplate, formatTime, isNextDay } from '../lib/format'
 import { toast } from '../lib/ui'
 import { ApiError } from '../lib/api'
 import {
@@ -58,12 +58,6 @@ function defaultExactHHMM(): string {
   const d = new Date(Date.now() + 5 * 60_000)
   d.setMinutes(Math.ceil(d.getMinutes() / MIN_STEP) * MIN_STEP, 0, 0)
   return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
-}
-
-// the resolved due rolled to tomorrow (an exact time earlier than now → next day)
-function isNextDay(iso: string): boolean {
-  const due = new Date(iso); const today = new Date()
-  return due.getDate() !== today.getDate() || due.getMonth() !== today.getMonth()
 }
 
 // Custom HH:MM stepper — replaces the native <input type="time"> (whose OS spinner clashed with

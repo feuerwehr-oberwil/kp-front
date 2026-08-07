@@ -73,6 +73,21 @@ export function fmtSpanShort(ms: number): string {
   return `${Math.floor(mins / 60)} h ${String(mins % 60).padStart(2, '0')}`
 }
 
+/** A due time that fell to the next day (an exact Uhrzeit earlier than now rolls forward). */
+export function isNextDay(iso: string): boolean {
+  const due = new Date(iso)
+  const today = new Date()
+  return due.getDate() !== today.getDate() || due.getMonth() !== today.getMonth()
+}
+
+/** «06:30» or «06:30 · morgen» — a Wiedervorlage's due time, with the day when it is not today.
+ *  The composer said «morgen» while the banner and the journal row showed the bare clock, so a
+ *  reminder set for 06:30 tomorrow read as one that was already 14 hours overdue. */
+export function dueClock(iso: string): string {
+  const t = formatTime(new Date(iso))
+  return isNextDay(iso) ? `${t}${appConfig.copy.journal.reminderTomorrow}` : t
+}
+
 /** Zero-pad a number to two digits: 7 → "07". */
 export const pad2 = (n: number) => String(n).padStart(2, '0')
 

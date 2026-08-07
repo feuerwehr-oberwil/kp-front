@@ -29,7 +29,8 @@ import type { PartnerContact, ReportMeta } from '../lib/workspace'
 import { Combo } from '../components/Combo'
 import { Stepper } from '../components/Stepper'
 import { TimeField } from '../components/TimeField'
-import { fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit } from '../lib/alarmzeiten'
+import { fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit, zeitFromClock } from '../lib/alarmzeiten'
+import { incidentDays } from '../lib/zeitplanFormat'
 import type { IncidentMeta, Workspace } from '../lib/incidents'
 import {
   CAPTURE_FRESH_MS, CaptureError, attendanceForPickedName, autoOpenTarget, captureApi,
@@ -193,6 +194,9 @@ export default function CaptureApp() {
   }, [incident])
   // device-vs-server clock skew in minutes (from X-Server-Time), only when > 3min
   const [skewMin, setSkewMin] = useState<number | null>(null)
+  // read ONCE, only to bound the pickers' day wheel: a ticking clock at this level re-renders
+  // the whole poster every second, which is the exact shape that once cost the phone its battery
+  const [nowRef] = useState(() => Date.now())
   // cross-visibility: the KP tablet has opened this incident (editor_opened_at latch) — the
   // full rapport (incl. Lageskizze) will come from there, so printing here is optional
   const [kpActive, setKpActive] = useState(false)
@@ -664,14 +668,21 @@ export default function CaptureApp() {
 
   const gruppenCfg = getDeploymentConfig().alarms?.groups ?? []
   const fahrzeugeCfg = getDeploymentConfig().fleet?.vehicles ?? []
-  const onGruppeZeit = (id: string, hhmm: string | null) => {
-    const iso = hhmm ? applyTimeToIso(incident?.started_at ?? new Date().toISOString(), hhmm) : null
-    const next = setGruppeZeit(rm?.gruppen, id, iso)
+  // Both grids resolve an entered clock against the ALARM, exactly like the EL's Rapport form
+  // and the Ende/Rückmeldung fields further down. `incident.started_at` is the base that won:
+  // the poster is filled in hours after the Einsatz, so the old `?? new Date()` fallback dated
+  // an Ausrückzeit by when somebody happened to type it rather than by when they drove out —
+  // and past midnight the two are different days. The fallback is gone rather than repaired:
+  // these handlers only exist on screen 2, where an Einsatz is picked, and `run()` refuses to
+  // save without one anyway.
+  const onGruppeZeit = (id: string, hhmm: string | null, day?: Date) => {
+    if (!incident) return
+    const next = setGruppeZeit(rm?.gruppen, id, zeitFromClock(incident.started_at, hhmm ?? '', day))
     void run({ kind: 'setMeta', patch: { gruppen: next.length ? next : undefined } }).then((ok) => { if (ok) savedToast() })
   }
-  const onFahrzeugZeit = (id: string, hhmm: string | null) => {
-    const iso = hhmm ? applyTimeToIso(incident?.started_at ?? new Date().toISOString(), hhmm) : null
-    const next = setFahrzeugZeit(rm?.fahrzeuge, id, 'ausgerueckt', iso)
+  const onFahrzeugZeit = (id: string, hhmm: string | null, day?: Date) => {
+    if (!incident) return
+    const next = setFahrzeugZeit(rm?.fahrzeuge, id, 'ausgerueckt', zeitFromClock(incident.started_at, hhmm ?? '', day))
     void run({ kind: 'setMeta', patch: { fahrzeuge: next.length ? next : undefined } }).then((ok) => { if (ok) savedToast() })
   }
 
@@ -758,6 +769,9 @@ export default function CaptureApp() {
   }
 
   // --- screen 2: the capture sections (Personen · Material · Zeiten · Angaben) ---
+  // The Einsatz' own days, for the clocks that may legitimately fall on another one. On an
+  // Einsatz that finished the same evening this is a single day and no wheel appears at all.
+  const zeitDays = incidentDays(incident.started_at, nowRef)
   return (
     <div className="cv-shell"><IconSprite /><Overlays />
       <header className="cv-head">
@@ -840,7 +854,13 @@ export default function CaptureApp() {
                               const iso = applyTimeToIso(cur?.to ?? vonBase, hhmm, { nextDayIfBefore: cur?.from })
                               if (iso) void run({ kind: 'setTimes', personId: p.id, index: bi, to: iso }).then((ok) => { if (ok) savedToast() })
                             } else {
-                              const iso = applyTimeToIso(vonBase, hhmm)
+                              // The Anwesenheit view's guard, so the two surfaces cannot drift:
+                              // a start typed after its own end belongs to the previous day (a
+                              // night shift), never backwards in time — a reversed block renders
+                              // as nothing and counts zero minutes on the Rapport. Here the block
+                              // being corrected is by definition the OPEN one, so today there is
+                              // no `to` to trip over; it is the identical rule that matters.
+                              const iso = applyTimeToIso(vonBase, hhmm, { prevDayIfAfter: cur?.to })
                               if (iso) void run({ kind: 'setTimes', personId: p.id, index: bi, from: iso }).then((ok) => { if (ok) savedToast() })
                             }
                           }}
@@ -919,8 +939,8 @@ export default function CaptureApp() {
                     {gruppenRows(gruppenCfg, rm?.gruppen).map(({ config: c, value: v }) => (
                       <span key={c.id} className="cv-zrow">
                         <span className="cv-zname">{c.label}{c.color ? ` (${c.color})` : ''}</span>
-                        <TimeField ariaLabel={c.label} value={toTime(v?.alarmedAt)} disabled={busy}
-                          onCommit={(hhmm) => onGruppeZeit(c.id, hhmm)} />
+                        <TimeField ariaLabel={c.label} value={toTime(v?.alarmedAt)} disabled={busy} days={zeitDays}
+                          onCommit={(hhmm, day) => onGruppeZeit(c.id, hhmm, day)} />
                       </span>
                     ))}
                   </div>
@@ -933,8 +953,8 @@ export default function CaptureApp() {
                     {fahrzeugRows(fahrzeugeCfg, rm?.fahrzeuge).map(({ config: c, value: v }) => (
                       <span key={c.id} className="cv-zrow">
                         <span className="cv-zname">{c.label}</span>
-                        <TimeField ariaLabel={c.label} value={toTime(v?.ausgerueckt)} disabled={busy}
-                          onCommit={(hhmm) => onFahrzeugZeit(c.id, hhmm)} />
+                        <TimeField ariaLabel={c.label} value={toTime(v?.ausgerueckt)} disabled={busy} days={zeitDays}
+                          onCommit={(hhmm, day) => onFahrzeugZeit(c.id, hhmm, day)} />
                       </span>
                     ))}
                   </div>

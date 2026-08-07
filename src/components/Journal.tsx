@@ -5,7 +5,7 @@ import { EmptyState } from './EmptyState'
 import { Overlay } from '../lib/overlays'
 import { openPhoto } from '../lib/ui'
 import { appConfig } from '../config/appConfig'
-import { formatTime } from '../lib/format'
+import { dueClock, formatTime } from '../lib/format'
 import { groupByDay, isNachtrag, rowPhotos, rowTime } from '../lib/verlauf'
 import type { OpenReminder } from '../lib/reminders'
 
@@ -155,7 +155,7 @@ export function Journal({ events, plans, closedAt, onSelect, onClose, onTranscri
                   >
                     <span className="jr-rem-box"><Icon id="check" /></span>
                     <span className="jr-rem-due">
-                      {remDone ? C.doneState : remOverdue ? C.overdueLabel : C.dueAtLabel.replace('{t}', formatTime(new Date(openRem!.dueAt)))}
+                      {remDone ? C.doneState : remOverdue ? C.overdueLabel : C.dueAtLabel.replace('{t}', dueClock(openRem!.dueAt))}
                     </span>
                   </button>
                 )}

@@ -293,19 +293,18 @@ export function einsatzleiterFromScene(entities: Entity[] = []): string | undefi
  *  fully automatic alarm — the case the milestone integration exists for — produced a
  *  signed rapport with no Alarm- or Ausrückzeiten on it at all. Per-vehicle Vor-Ort- and
  *  Zurück-Zeiten stay digital-only; they are not fields on the paper form. */
-export function metaExtrasForPdf(meta: ReportMeta): {
+export function metaExtrasForPdf(meta: ReportMeta, bounds?: IncidentBounds): {
   gerettete?: string
   rueckmeldungElz?: string
   zeiten: [string, string][]
   erfasser?: string
 } {
   const R = appConfig.copy.report
-  const clock = (iso?: string) => {
-    if (!iso) return ''
-    const d = new Date(iso)
-    if (!Number.isFinite(d.getTime())) return ''
-    return hhmm(d)
-  }
+  // Same midnight rule as the Personalblatt directly above this grid on the sheet — it dated its
+  // clocks and this one did not, on the same page. «23:50 → 00:15» is 25 minutes or 23 hours
+  // depending on a date that was nowhere on the paper.
+  const fmt = spanAwareClock(bounds)
+  const clock = (iso?: string) => fmt(iso) ?? ''
   const gerettete = meta.gerettete && (meta.gerettete.personen != null || meta.gerettete.tiere != null)
     ? [
         meta.gerettete.personen != null ? `${meta.gerettete.personen} ${R.gerettetePersonen}` : null,
@@ -354,6 +353,31 @@ export interface PersonalPdfRow {
 /** «07.08.» — the day in front of a clock reading, for an Einsatz that runs past midnight. */
 const dayShort = (d: Date) => `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.`
 
+/** The incident's own bounds — what decides whether a printed clock needs its date. */
+export interface IncidentBounds { alarmedAt?: string | null; endedAt?: string | null }
+
+/**
+ * The one midnight rule for everything printed on the rapport: bare `08:23` on an ordinary
+ * one-day sheet, `23.06. 08:23` once the Einsatz actually spans days.
+ *
+ * Bare HH:MM is a lie over midnight — «08:23 – 09:00» reads as 37 minutes when it was 25 hours.
+ * The date rides along only when it has to, so the ordinary sheet stays as narrow as it was.
+ * Shared rather than re-implemented: it lived inside personalForPdf, which is why the Zeiten
+ * grid and the Rückmeldung ELZ on the SAME PAGE printed undated clocks.
+ */
+export function spanAwareClock(bounds?: IncidentBounds): (iso?: string | null) => string | undefined {
+  const a = bounds?.alarmedAt ? new Date(bounds.alarmedAt) : null
+  const e = bounds?.endedAt ? new Date(bounds.endedAt) : null
+  const spansDays = !!a && !!e && Number.isFinite(a.getTime()) && Number.isFinite(e.getTime())
+    && a.toDateString() !== e.toDateString()
+  return (iso?: string | null) => {
+    if (!iso) return undefined
+    const d = new Date(iso)
+    if (!Number.isFinite(d.getTime())) return undefined
+    return spansDays ? `${dayShort(d)} ${hhmm(d)}` : hhmm(d)
+  }
+}
+
 /** Human names for the Rapportangaben, for the Verlaufszeile that records a change to them. */
 const META_FIELD_LABELS: Record<string, string> = {
   einsatzleiter: 'Einsatzleiter', kontaktperson: 'Kontaktperson', kommandant: 'Kommandant',
@@ -398,21 +422,7 @@ export function personalForPdf(
    *  times were measured and which the app worked out — a signed sheet must not blur the two. */
   bounds: { alarmedAt?: string | null; endedAt?: string | null } = {},
 ): { personal: PersonalPdfRow[] } {
-  // Bare HH:MM is a lie on an Einsatz over midnight: «08:23 – 09:00» reads as 37 minutes when
-  // it was 25 hours. The date rides along only when the incident actually spans days, so the
-  // ordinary one-day sheet stays as narrow as it is now.
-  const spansDays = (() => {
-    const a = bounds.alarmedAt ? new Date(bounds.alarmedAt) : null
-    const e = bounds.endedAt ? new Date(bounds.endedAt) : null
-    if (!a || !e || !Number.isFinite(a.getTime()) || !Number.isFinite(e.getTime())) return false
-    return a.toDateString() !== e.toDateString()
-  })()
-  const clock = (iso?: string | null) => {
-    if (!iso) return undefined
-    const d = new Date(iso)
-    if (!Number.isFinite(d.getTime())) return undefined
-    return spansDays ? `${dayShort(d)} ${hhmm(d)}` : hhmm(d)
-  }
+  const clock = spanAwareClock(bounds)
   const rows = (name: string, a?: AttendanceState[string]): PersonalPdfRow[] => {
     const blocks = intervalsOf(a)
     // the remark rides on the FIRST row of a person: repeating it on every block of a crew that

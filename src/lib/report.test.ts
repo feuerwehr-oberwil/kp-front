@@ -21,6 +21,7 @@ import {
   personalForPdf,
   proofLabel,
   readingKindLabel,
+  spanAwareClock,
   truppAuftragLabel,
   truppStatusLabel,
 } from './report'
@@ -308,5 +309,46 @@ describe('truppAuftragLabel (Auftrag on the Atemschutz sheet)', () => {
   it('stays undefined without an Auftrag', () => {
     expect(truppAuftragLabel()).toBeUndefined()
     expect(truppAuftragLabel('')).toBeUndefined()
+  })
+})
+
+describe('spanAwareClock (one midnight rule for the whole sheet)', () => {
+  const oneDay = { alarmedAt: '2026-06-23T08:00:00', endedAt: '2026-06-23T11:00:00' }
+  const overnight = { alarmedAt: '2026-06-23T23:50:00', endedAt: '2026-06-24T02:30:00' }
+
+  it('stays on bare clocks for an ordinary Einsatz', () => {
+    expect(spanAwareClock(oneDay)('2026-06-23T08:23:00')).toBe('08:23')
+  })
+
+  it('carries the date once the Einsatz runs past midnight', () => {
+    // «23:50 → 00:15» is 25 minutes or 23 hours depending on a date that was nowhere on the paper
+    expect(spanAwareClock(overnight)('2026-06-23T23:50:00')).toBe('23.06. 23:50')
+    expect(spanAwareClock(overnight)('2026-06-24T00:15:00')).toBe('24.06. 00:15')
+  })
+
+  it('is undefined for nothing, and bare when the bounds are unknown', () => {
+    expect(spanAwareClock(overnight)()).toBeUndefined()
+    expect(spanAwareClock(overnight)('nonsense')).toBeUndefined()
+    expect(spanAwareClock()('2026-06-23T08:23:00')).toBe('08:23')
+  })
+})
+
+describe('metaExtrasForPdf follows the same rule as the roster above it', () => {
+  const meta = {
+    rueckmeldungElz: { name: 'Widmer Céline', at: '2026-06-24T00:15:00' },
+    gruppen: [{ id: 'g1', alarmedAt: '2026-06-23T23:50:00' }],
+    fahrzeuge: [{ id: 'tlf', ausgerueckt: '2026-06-24T00:05:00' }],
+  } as unknown as Parameters<typeof metaExtrasForPdf>[0]
+
+  it('dates the Zeiten grid and the Rückmeldung on an overnight Einsatz', () => {
+    const out = metaExtrasForPdf(meta, { alarmedAt: '2026-06-23T23:50:00', endedAt: '2026-06-24T02:30:00' })
+    expect(out.rueckmeldungElz).toBe('Widmer Céline · 24.06. 00:15')
+    expect(out.zeiten.find(([label]) => label.startsWith('Gr. 1'))?.[1]).toBe('23.06. 23:50')
+    expect(out.zeiten.find(([label]) => label === 'TLF')?.[1]).toBe('24.06. 00:05')
+  })
+
+  it('leaves an ordinary one-day sheet as narrow as it was', () => {
+    const out = metaExtrasForPdf(meta, { alarmedAt: '2026-06-23T08:00:00', endedAt: '2026-06-23T11:00:00' })
+    expect(out.rueckmeldungElz).toBe('Widmer Céline · 00:15')
   })
 })

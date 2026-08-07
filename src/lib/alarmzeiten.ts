@@ -4,6 +4,7 @@
 // editable in the rapport form. Operator edits stamp `manual: true` so the webhook never
 // overwrites a human decision (prefilled ≠ locked, but human beats machine).
 
+import { applyTimeToIso, isoOnDay } from './abschluss'
 import type { FahrzeugZeit, GruppeZeit } from './workspace'
 import type { AlarmGroup, FleetVehicle } from './deploymentConfig'
 
@@ -14,6 +15,28 @@ export function deriveAusgerueckt(fahrzeuge: FahrzeugZeit[] | undefined): string
   const times = (fahrzeuge ?? []).map((f) => f.ausgerueckt).filter((t): t is string => !!t)
   if (times.length === 0) return null
   return times.reduce((a, b) => (Date.parse(b) < Date.parse(a) ? b : a))
+}
+
+/**
+ * A bare 'HH:MM' typed into one of the incident's own clocks, put on the right calendar day.
+ *
+ * The grid asks for a clock and nothing else, so the day has to be inferred — and the only
+ * sensible anchor is the ALARM, not the day the rapport is being written. An Einsatz alarmed at
+ * 23:50 has Ausrückzeiten of 00:15, and stamping that onto the alarm's own day put it 23h35
+ * BEFORE the alarm: `zeitIssues` then warned `beforeAlarm` on a perfectly correct entry, and the
+ * printed rapport carried the wrong date. Rolling forward past midnight is the same rule the
+ * Rückmeldung ELZ field already used.
+ *
+ * `day` is the escape for everything a single roll cannot reach (day three of an
+ * Elementarereignis): it comes back from the picker's day wheel only when the incident spans more
+ * than one day and the operator moved it — then the day is known and nothing is inferred at all.
+ *
+ * Empty `hhmm` → null, which the setters below read as «remove the entry» (an accidental tap
+ * stays fully clearable).
+ */
+export function zeitFromClock(alarmIso: string, hhmm: string, day?: Date): string | null {
+  if (!hhmm) return null
+  return day ? isoOnDay(day, hhmm) : applyTimeToIso(alarmIso, hhmm, { nextDayIfBefore: alarmIso })
 }
 
 /** Upsert an operator-entered group alarm time (stamps `manual`); empty iso removes the

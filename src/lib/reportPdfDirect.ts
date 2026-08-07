@@ -226,7 +226,9 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
       alarmText: meta.alarmText, summary: meta.summary, lehren: meta.lehren, remarks: meta.remarks,
       kontaktperson: meta.kontaktperson, einsatzleiter: meta.einsatzleiter,
       kommandant: cfg.identity?.kommandant ?? undefined,
-      ...metaExtrasForPdf(meta),
+      // the same bounds the Personalblatt uses, so every clock on the sheet follows one
+      // midnight rule instead of two
+      ...metaExtrasForPdf(meta, { alarmedAt: meta.alarmiertAt ?? incident.started_at, endedAt: meta.endedAt ?? incident.closed_at }),
       alarmiertAt: formatDateTime(meta.alarmiertAt ?? incident.started_at),
       ausgeruecktAt: meta.ausgeruecktAt ? formatDateTime(meta.ausgeruecktAt) : undefined,
       endedAt: meta.endedAt ? formatDateTime(meta.endedAt) : undefined,
