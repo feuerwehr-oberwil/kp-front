@@ -37,7 +37,7 @@ function SyncGlyph({ done, label }: { done: boolean; label: string }) {
 
 // --- TopBar switcher ----------------------------------------------------------------
 export function IncidentSwitcher({
-  active, incidents, isEditor, syncStatus, lastSyncedAt, user, onSettings, onSwitch, onHistory, onDivera, onReportPrint, onArchive, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey, objectName, onObjectSwitch,
+  active, incidents, isEditor, syncStatus, lastSyncedAt, user, onSettings, onSwitch, onHistory, onDivera, onArchive, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey, objectName, onObjectSwitch,
 }: {
   active: IncidentMeta | null
   incidents: IncidentMeta[]
@@ -56,7 +56,6 @@ export function IncidentSwitcher({
   onDatenquellen: () => void
   /** Einsatzrapport (PDF / Drucken) — absent for an Einsatz-Link session, which may not
    *  generate documents or reach the station printer */
-  onReportPrint?: () => void
   /** archive the ACTIVE incident (behind the caller's «wirklich abschliessen?» confirm);
    *  absent for viewers / read-only views / an already-archived incident */
   onArchive?: () => void
@@ -226,9 +225,10 @@ export function IncidentSwitcher({
                     : <SyncGlyph done={syncPhase === 'done'} label={syncPhase === 'done' ? cp.syncDone : cp.syncNow} />}
                 </button>
               </div>
-              {/* Einsatzdaten editing lives inside the Einsatzrapport (its "Bearbeiten" link),
-                  not as a second menu entry — see ReportPreflight. */}
-              {onReportPrint && <button className="ip-menu-act" onClick={() => openSheet(onReportPrint)}><Icon id="doc" /> {cp.report}</button>}
+              {/* No «Einsatzrapport» row: it is a surface in the rail now, and a second door to
+                  it from here made the menu the place you go to find things that are already
+                  one tap away. Einsatzdaten editing still lives inside it (the «Bearbeiten»
+                  link on its dispatch block) rather than as a menu entry of its own. */}
               {/* Einsatzobjekt row — shows WHICH object's plans are loaded and opens the
                   PlanPicker (replaces the old NavRail footer swap item, 2026-07-14) */}
               {onObjectSwitch && (

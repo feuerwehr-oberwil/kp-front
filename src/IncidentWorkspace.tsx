@@ -2454,7 +2454,6 @@ export function IncidentWorkspace({
             // Einsatzrapport (PDF + Drucken) and «Alle Einsätze» are both refused for a link
             // session — one generates a document with everyone's names, the other lists the
             // Einsätze this link has nothing to do with.
-            onReportPrint={linkScoped ? undefined : openRapport}
             onArchive={canEditIncident && !readOnly ? onArchiveActive : undefined}
             onHelp={() => setHelpOpen(true)}
             onInstall={isStandalone() || !installOffered(getInstallPlatform()) ? undefined : () => setInstallGuideOpen(true)}

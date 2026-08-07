@@ -3623,13 +3623,17 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    wrong» and «the thing that told me» are one object. The chip stays amber and counts, so a
    warning reaches the operator whether or not this is open. */
 .rp-control-scrim { position: fixed; inset: 0; z-index: 40; }
-.rp-control { position: absolute; top: calc(100% + 6px); right: 0; z-index: 41;
+/* Anchored to the CHIP, not to the head's right edge. Hanging off the edge it opened level with
+   the PDF button, half a header away from the control it belongs to, and read as a panel that
+   happened to appear. */
+.rp-state-wrap { position: relative; display: inline-flex; }
+.rp-control { position: absolute; top: calc(100% + 6px); left: 0; z-index: 41;
   width: min(380px, calc(100vw - 32px)); display: flex; flex-direction: column; gap: 6px;
   padding: 12px 14px; border-radius: var(--r-ctl);
   background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow);
   max-height: 46vh; overflow-y: auto; }
-/* the head is the positioning context, and the popover must escape its overflow */
-.rp-head { position: relative; }
+/* the head must not clip the popover hanging out of it */
+.rp-head { position: relative; overflow: visible; }
 /* the ✕ is a control on this row, so it obeys the row's floor — .ip-x is a 30px dialog affordance
    and this is a page you leave with gloves on */
 .rp-head .ip-x { display: grid; place-items: center; width: var(--tap); height: var(--tap); }
@@ -4554,7 +4558,10 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
    facts (Alarmmeldung/Alarmierung) with a link into Einsatzdaten where they're edited. */
 .report-pre-meta { display: flex; flex-direction: column; gap: 14px; }
 .report-pre-section.report-pre-meta h3 { margin: 0; } /* gap owns the spacing — no double margin */
-.report-meta-dispatch { display: flex; flex-direction: column; gap: 8px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+.report-meta-dispatch { display: flex; flex-direction: column; gap: 8px; }
+/* No rule under it any more: it used to be the top of ONE long «Rapportangaben» block and the
+   line was what separated the read-only dispatch facts from the fields below. The block is its
+   own section now, and the section's own edge is the separator. */
 .report-meta-dispatch-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .report-meta-dispatch-head > span { font: 700 11px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); }
 .report-meta-editlink { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; margin: -4px -8px -4px 0;
@@ -4800,7 +4807,10 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
   align-items: start; }
 /* Abschnitte grouping: «Karte & Pläne» / «Inhalte» sub-heads span both columns, the plans
    choice is one 3-way segment, and the two expert options fold behind «Erweitert» */
-.report-toggle-grouphead { grid-column: 1 / -1; margin: 4px 0 -2px; font: 700 11px var(--body);
+.report-toggle-grouphead { grid-column: 1 / -1; margin: 4px 0 -2px;
+  /* indented to the tiles' own left padding, so the heading and the labels it heads share an
+     edge instead of stepping — the same alignment rule the Mittel group heads follow */
+  padding-left: 11px; font: 700 11px var(--body);
   letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); }
 .report-toggles .report-toggle-grouphead:first-child { margin-top: 0; }
 .report-plans-row { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 10px;
@@ -4809,10 +4819,16 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 /* Row height follows the text, not a tap-target minimum: eleven of these stacked at 44px each
    turned the section list into a page of its own, with more air than content. The 44px target is
    kept as PADDING around a real 18px checkbox, which is what the finger actually hits. */
-.report-toggle { display: flex; align-items: flex-start; gap: 10px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); padding: 7px 10px; font-size: 12.5px; font-weight: 700; color: var(--ink); cursor: pointer; }
+.report-toggle { display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); padding: 7px 10px; font-size: 12.5px; font-weight: 700; color: var(--ink); cursor: pointer; }
 /* A checkbox whose name does not say what it does is one nobody dares tick. The hint sits on
    its own line under the label — a tooltip is not readable with gloves on. */
 .report-toggle > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+/* Only a tile WITH a hint hangs its box from the top — and then the box lines up with the first
+   line of the label, not with the top of the tile. Every single-line tile stays centred, which is
+   what «the ticks are not aligned» was: one tile in the grid had a hint and un-centred the rest
+   of the row by making them all flex-start. */
+.report-toggle:has(.report-toggle-hint) { align-items: flex-start; }
+.report-toggle:has(.report-toggle-hint) > input { margin-top: 1px; }
 .report-toggle-hint { font: 500 11.5px/1.35 var(--body); color: var(--ink-faint); font-style: normal; }
 .report-toggle input { width: 18px; height: 18px; accent-color: var(--blue); }
 .report-toggle.disabled { opacity: .48; cursor: default; }

@@ -649,6 +649,7 @@ export function ReportPreflight({
               bottom of a scrolling form would be exactly the failure the never-behind-a-fold rule
               prevents; they move together or not at all. */}
           <div className="rp-head-actions">
+            <span className="rp-state-wrap">
             <button
               type="button"
               className={cx('rp-state', controlOk && 'ok', !controlOk && !checking && 'warn')}
@@ -659,6 +660,35 @@ export function ReportPreflight({
               <Icon id={checking ? 'rotate' : controlOk ? 'check' : 'warn'} className={checking ? 'spin' : undefined} />
               <span>{checking ? P.proofChecking : controlOk ? P.allReady : fillTemplate(P.controlOpen, { n: warnCount })}</span>
             </button>
+          {/* The Kontrolle detail is a POPOVER on the chip that opens it, not a band across the
+              page: it is a handful of lines about the record, and a full-width slab pushed the form
+              down every time anything was amiss. Anchored to the chip, so «what is wrong» and «the
+              thing that told me» are the same object. A warning still reaches the operator without
+              it — the chip itself is amber and counts them. */}
+        {controlOpen && (
+            <>
+              <div className="rp-control-scrim" onClick={() => setControlOpen(false)} aria-hidden />
+              <section className="rp-control" role="dialog" aria-label={P.controlHead}>
+                {missTx > 0 && (
+                  <p className="report-pre-warn">
+                    <Icon id="warn" /> <span>{fillTemplate(P.missingTranscripts, { n: missTx })}</span>
+                    {onFixTranscripts && <button type="button" className="report-pre-fix" onClick={onFixTranscripts}>{P.fixTranscripts}</button>}
+                  </p>
+                )}
+                {pendingMediaCount > 0 && (
+                  <p className="report-pre-warn">
+                    <Icon id="warn" /> <span>{fillTemplate(P.pendingMedia, { n: pendingMediaCount })}</span>
+                  </p>
+                )}
+                <div className="report-fold-body">
+                  <p><Icon id={proof.intact ? 'check' : 'warn'} /> {proofLabel(proof)}</p>
+                  <p><Icon id="doc" /> {fillTemplate(P.annotatedDefault, { n: annotatedPlanCount })}</p>
+                  <p><Icon id="snapshot" /> {fillTemplate(P.stateNote, { at: formatDateTime(new Date().toISOString()) })}</p>
+                </div>
+              </section>
+            </>
+        )}
+            </span>
             {onComplete && (
               <button className="ip-btn" onClick={() => void complete()}><Icon id="check" />{A.complete}</button>
             )}
@@ -677,34 +707,6 @@ export function ReportPreflight({
               <Icon id={pdfBusy ? 'rotate' : 'doc'} className={pdfBusy ? 'spin' : undefined} />{pdfBusy ? P.pdfBusy : P.pdfFull}
             </button>
           </div>
-          {/* The Kontrolle detail is a POPOVER on the chip that opens it, not a band across the
-            page: it is a handful of lines about the record, and a full-width slab pushed the form
-            down every time anything was amiss. Anchored to the chip, so «what is wrong» and «the
-            thing that told me» are the same object. A warning still reaches the operator without
-            it — the chip itself is amber and counts them. */}
-        {controlOpen && (
-          <>
-            <div className="rp-control-scrim" onClick={() => setControlOpen(false)} aria-hidden />
-            <section className="rp-control" role="dialog" aria-label={P.controlHead}>
-              {missTx > 0 && (
-                <p className="report-pre-warn">
-                  <Icon id="warn" /> <span>{fillTemplate(P.missingTranscripts, { n: missTx })}</span>
-                  {onFixTranscripts && <button type="button" className="report-pre-fix" onClick={onFixTranscripts}>{P.fixTranscripts}</button>}
-                </p>
-              )}
-              {pendingMediaCount > 0 && (
-                <p className="report-pre-warn">
-                  <Icon id="warn" /> <span>{fillTemplate(P.pendingMedia, { n: pendingMediaCount })}</span>
-                </p>
-              )}
-              <div className="report-fold-body">
-                <p><Icon id={proof.intact ? 'check' : 'warn'} /> {proofLabel(proof)}</p>
-                <p><Icon id="doc" /> {fillTemplate(P.annotatedDefault, { n: annotatedPlanCount })}</p>
-                <p><Icon id="snapshot" /> {fillTemplate(P.stateNote, { at: formatDateTime(new Date().toISOString()) })}</p>
-              </div>
-            </section>
-          </>
-        )}
         </header>
         <div className="ip-body report-preflight-body" ref={bodyRef}>
           {/* TWO columns on a wide screen (one below 1080px, see app.css), because the rapport is
@@ -725,8 +727,10 @@ export function ReportPreflight({
               handler can't slip past the markup. */}
           <fieldset className="report-fieldset" disabled={!canEdit}>
           <section className="report-pre-section report-pre-meta">
-            <h3>{P.rapportHead}</h3>
-            {/* dispatch facts — read-only here; the link jumps to Einsatzdaten where they live */}
+            {/* No <h3> here: the dispatch block carries its own «Aus den Einsatzdaten» heading and
+                the edit link that belongs to it, so a section title above it was the same words
+                twice. The other three sections have one because they have nothing else to say
+                what they are. */}
             <div className="report-meta-dispatch">
               <div className="report-meta-dispatch-head">
                 <span>{P.fromDispatch}</span>
