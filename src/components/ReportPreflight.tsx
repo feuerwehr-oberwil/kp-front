@@ -13,15 +13,16 @@ import { fillTemplate, hhmm, dtLocalValue, dtLocalToIso } from '../lib/format'
 import type { IncidentMeta } from '../lib/incidents'
 import { getIncident, verifyChain } from '../lib/incidents'
 import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from '../lib/workspace'
-import { deriveAusgerueckt, fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit } from '../lib/alarmzeiten'
+import { deriveAusgerueckt, fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit, zeitIssues } from '../lib/alarmzeiten'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
 import { loadReplay, stateAt, vehiclesAt, type ReplayBundle } from '../lib/replay'
 import { autoRotation, vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import type { AuditProof, KrokiView, ReportDraft, ReportOptions } from '../lib/report'
 import { defaultReportOptions, einsatzleiterFromScene, formatDateTime, missingTranscriptCount, proofLabel } from '../lib/report'
-import { applyTimeToIso, missingSteps, stepDone, type AbschlussFacts } from '../lib/abschluss'
+import { applyTimeToIso, isoOnDay, missingSteps, stepDone, type AbschlussFacts } from '../lib/abschluss'
 import { hoursRows } from '../lib/attendanceHours'
-import type { AttendanceState, BoardDoc, BuildingDoc, Drawing, Entity, LayerDef, LngLat, MittelEntry, Person, PlanDocument, ReportAttachment, TimelineEvent, Trupp } from '../types'
+import { incidentDays } from '../lib/zeitplanFormat'
+import type { AttendanceState, BoardDoc, BuildingDoc, CaptionMode, Drawing, Entity, LayerDef, LngLat, MittelEntry, Person, PlanDocument, ReportAttachment, TimelineEvent, Trupp } from '../types'
 import { visibleMittel } from '../lib/mittel'
 import { PersonField } from './PersonField'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
@@ -112,6 +113,9 @@ export function ReportPreflight({
     byName: Record<string, string>
     center: LngLat
     view: { center: LngLat; zoom: number }
+    /** the map's Beschriftungen setting — the printed Kroki carries the same labels the
+     *  screen it was framed on did (an Einsatzleiter symbol prints its name) */
+    captionMode?: CaptionMode
   }
   /** plan whiteboard annotations — server-rendered annotated Objektplan pages */
   board?: BoardDoc
@@ -179,6 +183,7 @@ export function ReportPreflight({
   // instant is what makes a rapport able to show the Rettung that has since left, or the moment
   // the Lage was at its worst. Reconstructed locally from the event journal (lib/replay), the
   // same fold the Wiedergabe uses — so the paper and the replay can never disagree.
+  const [nowRef] = useState(() => Date.now())
   const [krokiAt, setKrokiAt] = useState<number | null>(null)
   const [pastScene, setPastScene] = useState<{ entities: Entity[]; drawings: Drawing[] } | null>(null)
   const [krokiAtBusy, setKrokiAtBusy] = useState(false)
@@ -290,8 +295,15 @@ export function ReportPreflight({
     gerettete: numOrU(p) !== undefined || numOrU(t) !== undefined
       ? { personen: numOrU(p), tiere: numOrU(t) } : undefined,
   })
-  const rueckOver = (name: string, hhmm: string): Partial<ReportMeta> => {
-    const at = (hhmm ? applyTimeToIso(incident.started_at, hhmm, { nextDayIfBefore: incident.started_at }) : null) ?? undefined
+  // The Rückmeldung is often given LATER than it happened — «ah, die ELZ hab ich gestern um
+  // 23:40 informiert». Without a day the clock could only land on the incident's own start day
+  // (rolled forward when it read as earlier), which silently moved a yesterday to a today. The
+  // picker offers the incident's days and starts on TODAY, the normal answer; `day` comes back
+  // only when there is more than one to choose from, so a single-day Einsatz is unchanged.
+  const rueckOver = (name: string, hhmm: string, day?: Date): Partial<ReportMeta> => {
+    const at = (hhmm
+      ? (day ? isoOnDay(day, hhmm) : applyTimeToIso(incident.started_at, hhmm, { nextDayIfBefore: incident.started_at }))
+      : null) ?? undefined
     return { rueckmeldungElz: name.trim() || at ? { name: name.trim() || undefined, at } : undefined }
   }
   const editedMeta = (): Partial<ReportMeta> => ({
@@ -341,6 +353,26 @@ export function ReportPreflight({
   }
   const alarm = parseAlarmText(meta.alarmText)
   const alarmiert = meta.alarmiertAt
+  // Plausibility of the three clocks, as a HINT under the field that is wrong. Never a block:
+  // printing must not depend on what somebody typed, and an Einsatz over midnight is normal.
+  // `nowRef` is read once per sheet — a live clock here would re-render the form every second
+  // and is exactly the shape that once cost the phone its battery.
+  const issues = zeitIssues(
+    { alarmiertAt: alarmiert, ausgeruecktAt: derivedAus ?? dtLocalToIso(ausgerueckt), endedAt: dtLocalToIso(endedAt) },
+    nowRef,
+  )
+  const issueFor = (kind: 'ausgerueckt' | 'ende') => {
+    const i = issues.find((x) => x.kind === kind)
+    if (!i) return null
+    const t = i.ref ? formatDateTime(i.ref) : ''
+    if (i.code === 'future') return P.zeitFuture
+    return fillTemplate(i.code === 'beforeAusgerueckt' ? P.zeitBeforeAusgerueckt : P.zeitBeforeAlarm, { t })
+  }
+  // a plain call, not a component: one declared in the render body is re-created every pass
+  const zeitWarn = (kind: 'ausgerueckt' | 'ende') => {
+    const text = issueFor(kind)
+    return text ? <span className="rz-warn"><Icon id="warn" />{text}</span> : null
+  }
   const missTx = missingTranscriptCount(events)
   // krokiView arrives fresh from the framing modal — options state is set in parallel,
   // so it's passed explicitly instead of read back (setState is async)
@@ -598,6 +630,7 @@ export function ReportPreflight({
                   <DateTimeField ariaLabel={A.ausgerueckt} value={dtLocalToIso(ausgerueckt)}
                     onCommit={(iso) => { setAusgerueckt(dtLocalValue(iso ?? undefined)); persist({ ausgeruecktAt: iso ?? undefined }) }} />
                 </div>
+                {zeitWarn('ausgerueckt')}
               </label>
             ) : null}
             {/* Alarmierungs-/Ausrückzeiten grid — rows from deployment config (empty config
@@ -663,6 +696,7 @@ export function ReportPreflight({
                   onCommit={(iso) => { setEndedAt(dtLocalValue(iso ?? undefined)); persist({ endedAt: iso ?? undefined }) }} />
                 <button type="button" className="ip-btn" onClick={() => { const v = dtLocalValue(new Date().toISOString()); setEndedAt(v); persist({ endedAt: dtLocalToIso(v) }) }}>{P.now}</button>
               </div>
+              {zeitWarn('ende')}
             </label>
             <label className="ip-field">
               <span>{P.remarksLabel}</span>
@@ -686,7 +720,8 @@ export function ReportPreflight({
               <div className="ip-field">
                 <span>{P.rueckmeldungZeit}</span>
                 <TimeField ariaLabel={P.rueckmeldungZeit} value={rueckAt} nowLabel={P.now}
-                  onCommit={(hhmm) => { setRueckAt(hhmm ?? ''); persist(rueckOver(rueckName, hhmm ?? '')) }} />
+                  days={incidentDays(meta.startedAt ?? incident.started_at, nowRef)}
+                  onCommit={(hhmm, day) => { setRueckAt(hhmm ?? ''); persist(rueckOver(rueckName, hhmm ?? '', day)) }} />
               </div>
             </div>
             {/* Partnerorganisationen: WHO was there, from whom, reachable how — and the remark,

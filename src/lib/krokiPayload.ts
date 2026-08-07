@@ -4,7 +4,7 @@
 // composite, generic shapes — are resolved to SVG strings HERE with the same pure helpers
 // the live map uses, so client and server render the identical artwork.
 
-import type { Drawing, Entity, LayerDef, LngLat, ShapeKind, Trupp } from '../types'
+import type { CaptionMode, Drawing, Entity, LayerDef, LngLat, ShapeKind, Trupp } from '../types'
 import { appConfig } from '../config/appConfig'
 import { isVehicleSym } from './mapView'
 import { placardSvgForSymbol } from './placard'
@@ -14,6 +14,7 @@ import { SHAPE_DEFS } from './shapes'
 import { operationalExtentPoints, type KrokiView } from './report'
 import { resolveMapDrawings } from './lineAttachments'
 import { truppForLine, truppTagText } from './truppLines'
+import { symbolCaptionText } from './symbols'
 
 export interface KrokiEntityOut {
   coord: LngLat
@@ -71,12 +72,17 @@ export function shapeSvgString(kind: ShapeKind, color: string): string {
 
 /** Resolve one map entity into the server's Kroki entity — or null when it has no
  *  printable representation (photo markers stay app-only). */
-export function krokiEntity(e: Entity, byName: Record<string, string>): KrokiEntityOut | null {
+export function krokiEntity(e: Entity, byName: Record<string, string>, captionMode: CaptionMode = 'auto'): KrokiEntityOut | null {
   if (e.kind === 'photo') return null
   const base: KrokiEntityOut = {
     coord: e.coord, kind: e.kind, rotation: e.rotation,
     floor: e.floor, floorFrom: e.floorFrom, floorTo: e.floorTo,
     count: e.count, spread: e.spread,
+    // What the operator TYPED on the symbol — the Einsatzleiter's name, a Fahrer, a
+    // Bezeichnung. The server has drawn these captions all along (app/kroki.py · _caption);
+    // only `team` and `note` ever sent one, so every other label was on screen and missing
+    // from the paper. Same resolver the map uses, so the two cannot say different things.
+    caption: symbolCaptionText(e, captionMode) ?? undefined,
   }
   if (e.kind === 'team') return { ...base, caption: e.label || undefined, color: e.color || undefined }
   if (e.kind === 'note') {
@@ -130,15 +136,18 @@ export function buildKrokiPayload(args: {
   includeLiveVehiclesInExtent?: boolean
   /** monitored Trupps — a hose they work on prints its leader in the end tag */
   trupps?: Trupp[]
+  /** how much of a symbol's typed detail rides under it — the map's own Beschriftungen
+   *  setting, so the printed Kroki is labelled the way the screen it was framed on was */
+  captionMode?: CaptionMode
 }): KrokiPayloadOut | null {
-  const { entities, drawings: storedDrawings, layers, byName, center, trupps = [] } = args
+  const { entities, drawings: storedDrawings, layers, byName, center, trupps = [], captionMode = 'auto' } = args
   const drawings = resolveMapDrawings(storedDrawings, entities)
   const visible = (id: string) => layers.find((l) => l.id === id)?.visible ?? true
   const base = layers.find((l) => l.base && l.visible && l.tiles?.length) ?? layers.find((l) => l.base && l.tiles?.length)
   if (!base?.tiles?.length) return null
   const ents = entities
     .filter((e) => visible(e.layer))
-    .map((e) => krokiEntity(e, byName))
+    .map((e) => krokiEntity(e, byName, captionMode))
     .filter((e): e is KrokiEntityOut => e !== null)
   const truppLabel = (d: Drawing): string | undefined => {
     const t = truppForLine(d, trupps)

@@ -26,7 +26,7 @@ import logging
 
 from pydantic import BaseModel, field_validator
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
@@ -515,6 +515,19 @@ def _styles() -> dict[str, ParagraphStyle]:
         "rcell": ParagraphStyle("rp_rcell", parent=base["Normal"], fontSize=8.5, leading=10, textColor=ink),
         "rstub": ParagraphStyle(
             "rp_rstub", parent=base["Normal"], fontSize=8.5, leading=10, textColor=colors.HexColor("#969696")
+        ),
+        # right-hanging variants for the Material amount column — a quantity is read down the
+        # column, so it has to end on the same edge whatever the label beside it does
+        "ramt": ParagraphStyle(
+            "rp_ramt", parent=base["Normal"], fontSize=8.5, leading=10, textColor=ink, alignment=TA_RIGHT
+        ),
+        "rstubr": ParagraphStyle(
+            "rp_rstubr",
+            parent=base["Normal"],
+            fontSize=8.5,
+            leading=10,
+            textColor=colors.HexColor("#969696"),
+            alignment=TA_RIGHT,
         ),
     }
 
@@ -1189,14 +1202,18 @@ def _mittel_table(mittel: list[MittelFormRowIn], inner_w: float, st: dict[str, P
         label = _esc(row.label)
         if row.note:
             label += f'<br/><font size="6.5" color="#5b6472">{_esc(row.note)}</font>'
-        return [Paragraph(label, st["rcell"]), Paragraph(amt, st["rcell"] if row.menge else st["rstub"])]
+        return [Paragraph(label, st["rcell"]), Paragraph(amt, st["ramt"] if row.menge else st["rstubr"])]
 
     def column(rows_in: list[MittelFormRowIn]) -> Table:
         t = Table([cells(r) for r in rows_in] or [["", ""]], colWidths=[label_w, amt_w])
         t.setStyle(
             TableStyle(
                 [
-                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    # amounts hang on the RIGHT edge: «1 Stk» and «______ Stk» are read as a
+                    # column of quantities, and a recorded amount that started where its label
+                    # happened to end sat at a different x on every row. TOP, not MIDDLE — a
+                    # three-line remark under the label must not drag the amount down with it.
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
                     ("TOPPADDING", (0, 0), (-1, -1), 1.8),
                     ("BOTTOMPADDING", (0, 0), (-1, -1), 1.8),
                     ("LEFTPADDING", (0, 0), (-1, -1), 0),

@@ -40,6 +40,23 @@ describe('krokiEntity (glyph resolution for the server compositor)', () => {
     expect(krokiEntity(sym({ kind: 'photo', symbol: undefined }), {})).toBeNull()
   })
 
+  it('carries a symbol\'s typed label onto the paper', () => {
+    // ⚠️ Only `team` and `note` ever sent a caption, so the Einsatzleiter's name — and every
+    // other value typed onto a symbol — was on screen and missing from the printed Kroki.
+    // The server has drawn these all along (app/kroki.py · _caption).
+    const el = krokiEntity(sym({ symbol: 'Einsatzleiter', fields: { Name: 'Céline Widmer' } }), {})
+    expect(el?.caption).toBe('Céline Widmer')
+  })
+
+  it('labels the Kroki the way the map it was framed on is labelled', () => {
+    const e = sym({ symbol: 'Einsatzleiter', fields: { Name: 'Céline Widmer' }, notes: 'ab 21:40' })
+    expect(krokiEntity(e, {}, 'off')?.caption).toBeUndefined()
+    expect(krokiEntity(e, {}, 'auto')?.caption).toBe('Céline Widmer')
+    expect(krokiEntity(e, {}, 'all')?.caption).toContain('ab 21:40')
+    // a per-symbol override still beats the global setting, exactly as on the map
+    expect(krokiEntity({ ...e, caption: 'off' }, {}, 'all')?.caption).toBeUndefined()
+  })
+
   it('renders shapes as sized SVG silhouettes', () => {
     const out = krokiEntity(sym({ kind: 'shape', shape: 'cloud', sizeM: 120, symbol: undefined }), {})
     expect(out?.symbolSvg).toContain('<path')

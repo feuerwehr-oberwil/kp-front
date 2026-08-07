@@ -1,16 +1,14 @@
-// 24h time / date-time entry — hybrid by pointer type (decided 2026-07-14):
-// - touch devices: trigger button opens the WheelPicker popover (snap wheels, always 24h);
-// - desktop (fine pointer): plain text entry, normalised on commit — typing beats wheels
-//   with a keyboard. Both guarantee a 24h clock regardless of the OS language (native
-//   pickers render AM/PM on English devices, which is why they're not used).
+// 24h time / date-time entry. ONE way in on every device: the trigger opens the WheelPicker
+// popover, which offers the wheels for a finger AND a text field for a keyboard, side by side.
+// The split by pointer type it replaced (wheels on touch, a bare text box on the desktop) meant
+// every choice added to the popover — the day wheel, «ab Start», «noch da» — was unreachable
+// with a mouse. Always 24h regardless of OS language: a native picker renders AM/PM on an
+// English device, which is why none is used.
 
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { WheelPopover, type WheelValue } from './WheelPicker'
 
 const pad2 = (n: number) => String(n).padStart(2, '0')
-
-const isCoarse = () =>
-  typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
 
 /** '0715' | '7:15' | '19.30' → 'HH:MM' (24h), or null when not parseable/empty. */
 export function parseHHMM(raw: string): string | null {
@@ -22,43 +20,6 @@ export function parseHHMM(raw: string): string | null {
   const min = Number(m[2])
   if (h > 23 || min > 59) return null
   return `${pad2(h)}:${pad2(min)}`
-}
-
-/** '14.7.2026 17:15' | '14.07.26 1715' → Date, or null. Year accepts 2 or 4 digits. */
-export function parseDateTime(raw: string): Date | null {
-  const m = /^(\d{1,2})\.(\d{1,2})\.(\d{2,4})[,\s]+(\d{1,2})[:.]?(\d{2})$/.exec(raw.trim())
-  if (!m) return null
-  const [d, mo, yRaw, h, mi] = [Number(m[1]), Number(m[2]), Number(m[3]), Number(m[4]), Number(m[5])]
-  const y = yRaw < 100 ? 2000 + yRaw : yRaw
-  if (mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59) return null
-  const out = new Date(y, mo - 1, d, h, mi, 0, 0)
-  return Number.isFinite(out.getTime()) && out.getDate() === d ? out : null
-}
-
-function TextCommitInput({ value, display, commit, disabled, ariaLabel, placeholder, wide }: {
-  value: string
-  display: string
-  commit: (raw: string) => void
-  disabled?: boolean
-  ariaLabel: string
-  placeholder: string
-  wide?: boolean
-}) {
-  const [text, setText] = useState(display)
-  const [focused, setFocused] = useState(false)
-  useEffect(() => { if (!focused) setText(display) }, [display, focused])
-  return (
-    <input
-      type="text" inputMode={wide ? 'text' : 'numeric'} placeholder={placeholder}
-      className={`timefield-input${wide ? ' dt' : ''}`}
-      value={text} disabled={disabled} aria-label={ariaLabel} enterKeyHint="done"
-      onFocus={() => setFocused(true)}
-      onChange={(e) => setText(e.target.value)}
-      onBlur={(e) => { setFocused(false); commit(e.target.value) }}
-      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-      data-value={value}
-    />
-  )
 }
 
 export function TimeField({ value, onCommit, disabled, ariaLabel, nowLabel, className, shortcut, clearLabel, clearActive, days, placeholder, token }: {
@@ -145,8 +106,8 @@ export function TimeField({ value, onCommit, disabled, ariaLabel, nowLabel, clas
   )
 }
 
-/** Date + time variant — wheels (incl. day/month/year) on touch, `TT.MM.JJJJ HH:MM` text
- *  entry on desktop. Emits ISO. */
+/** Date + time variant — a day/month/year selector beside the clock, on every device.
+ *  Emits ISO. */
 export function DateTimeField({ value, onCommit, disabled, ariaLabel, className }: {
   /** ISO datetime ('' /undefined = unset) */
   value?: string
@@ -157,7 +118,6 @@ export function DateTimeField({ value, onCommit, disabled, ariaLabel, className 
 }) {
   const [open, setOpen] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
-  const coarse = isCoarse()
   const d = value ? new Date(value) : null
   const valid = d && Number.isFinite(d.getTime())
   const display = valid
@@ -166,24 +126,17 @@ export function DateTimeField({ value, onCommit, disabled, ariaLabel, className 
 
   return (
     <span className={`timefield${className ? ` ${className}` : ''}`}>
-      {coarse ? (
-        <button
-          type="button" ref={btnRef} className={`timefield-trigger dt${valid ? '' : ' empty'}`}
-          disabled={disabled} aria-label={ariaLabel} onClick={() => setOpen(true)}
-        >
-          {display || '--.--.---- --:--'}
-        </button>
-      ) : (
-        <TextCommitInput
-          value={value ?? ''} display={display} disabled={disabled} ariaLabel={ariaLabel}
-          placeholder="TT.MM.JJJJ HH:MM" wide
-          commit={(raw) => {
-            const parsed = parseDateTime(raw)
-            if (parsed) onCommit(parsed.toISOString())
-            else if (!raw.trim()) onCommit(null)
-          }}
-        />
-      )}
+      {/* ONE way in, on every device — the same decision TimeField made. The desktop used to get
+          a bare `TT.MM.JJJJ HH:MM` text box: date and time typed together as one string, where a
+          mistyped year reads exactly like a correct one and nothing offers the day you almost
+          certainly mean. The popover asks the two separately — a day/month/year selector and a
+          clock — and still takes typing, inside, next to those choices. */}
+      <button
+        type="button" ref={btnRef} className={`timefield-trigger dt${valid ? '' : ' empty'}`}
+        disabled={disabled} aria-label={ariaLabel} onClick={() => setOpen(true)}
+      >
+        {display || '--.--.---- --:--'}
+      </button>
       {open && btnRef.current && (
         <WheelPopover
           anchor={btnRef.current.getBoundingClientRect()}

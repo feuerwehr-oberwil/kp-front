@@ -3024,7 +3024,7 @@ export function IncidentWorkspace({
           attendance={attendance}
           trupps={trupps}
           plans={planDocs}
-          scene={{ entities, drawings, layers: mapLayers, byName: sym.byName, center: incidentView.center, view: { center: view.center, zoom: view.zoom } }}
+          scene={{ entities, drawings, layers: mapLayers, byName: sym.byName, center: incidentView.center, view: { center: view.center, zoom: view.zoom }, captionMode: symbolCaptions ?? 'auto' }}
           board={board}
           building={effBuilding}
           captureUsage={captureUsage}

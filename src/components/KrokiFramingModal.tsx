@@ -4,6 +4,7 @@ import type { Map as MapLibreMap } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { Icon } from '../lib/icons'
 import { Overlay } from '../lib/overlays'
+import { cx } from '../lib/cx'
 import { hhmm } from '../lib/format'
 import { appConfig } from '../config/appConfig'
 import { operationalExtentPoints } from '../lib/report'
@@ -195,19 +196,27 @@ export function KrokiFramingModal({ scene, initial, atMs = null, atBusy = false,
               {/* The DRAG is local; the reconstruction runs when the thumb comes to rest. Firing
                   it on every notch meant a fetch per pixel — the busy line blinked, the map
                   redrew mid-drag and the whole sheet flickered. */}
-              <input
-                className="kf-at-range" type="range"
-                min={startedAtMs} max={nowMs} step={30_000}
-                value={dragMs ?? atMs ?? nowMs}
-                aria-label={P.krokiAtLabel}
-                aria-valuetext={label}
-                onChange={(e) => setDragMs(Number(e.target.value))}
-                onPointerUp={() => commitDrag()}
-                onKeyUp={() => commitDrag()}
-                onBlur={() => commitDrag()}
-              />
+              {/* The reconstruction reports itself ON the slider — a bar that runs along the
+                  track it belongs to. The old «Lage wird rekonstruiert …» line sat beside the
+                  control, needed a fixed slot so its coming and going didn't resize the bar
+                  under the finger, and still said in eleven words what the track can say by
+                  moving. */}
+              <span className={cx('kf-at-track', atBusy && 'busy')}>
+                <input
+                  className="kf-at-range" type="range"
+                  min={startedAtMs} max={nowMs} step={30_000}
+                  value={dragMs ?? atMs ?? nowMs}
+                  aria-label={P.krokiAtLabel}
+                  aria-valuetext={label}
+                  aria-busy={atBusy || undefined}
+                  onChange={(e) => setDragMs(Number(e.target.value))}
+                  onPointerUp={() => commitDrag()}
+                  onKeyUp={() => commitDrag()}
+                  onBlur={() => commitDrag()}
+                />
+                <span className="kf-at-prog" aria-hidden="true" />
+              </span>
               <b className="kf-at-val">{label}</b>
-              <span className="kf-at-busy">{atBusy ? P.krokiAtBusy : ''}</span>
             </div>
           )}
           {/* ± on the map itself: with gloves on a tablet, pinching a crop into place is the

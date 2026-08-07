@@ -3350,6 +3350,16 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
    fixable in place (0 removes, with undo) */
 .cv-count-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .cv-count-row > span { font: 600 12.5px var(--body); color: var(--ink-dim); }
+/* «Personen» and «Tiere» ask the same question twice, so the two steppers must sit on the same
+   x. As separate flex rows each was only as wide as its own label and they staggered. ONE grid
+   over both rows (the labels `display: contents` into it) gives the labels a shared column that
+   ends where the counters begin — and it stays aligned in a locale with longer words, which a
+   fixed label width would not. Each Stepper carries its own `ariaLabel`, so it is named even
+   where a `display: contents` label is dropped from the accessibility tree. */
+.cv-row-controls.cv-counts { display: grid; grid-template-columns: auto max-content; align-items: center;
+  gap: 8px 10px; justify-content: end; width: 100%; }
+.cv-counts .cv-count-row { display: contents; }
+.cv-counts .cv-count-row > span { text-align: right; }
 .cv-matrow { display: flex; gap: 8px; }
 .cv-matrow .cv-input { flex: 1; min-width: 0; }
 .cv-amount { flex: 0 0 72px !important; text-align: center; }
@@ -4501,6 +4511,11 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .rz-sub { font: 500 11.5px var(--body); color: var(--ink-faint); }
 .rz-derived { align-items: baseline; gap: 10px; }
 .rz-derived b { font: 700 15px var(--body); color: var(--ink); }
+/* an impossible clock is SAID, not enforced — the field keeps the value, the print keeps going.
+   Amber, not --accent: this is «schau nochmal hin», not an error the app is refusing over. */
+.rz-warn { display: flex; align-items: center; gap: 6px; margin-top: 5px;
+  font: 600 12px var(--body); color: var(--amber-strong); }
+.rz-warn svg { width: 14px; height: 14px; flex: none; }
 /* Gerettete: two labelled ±steppers (Personen / Tiere), each a label-left / stepper-right row like
    the details-modal count control */
 .rz-counts { display: flex; flex-direction: column; gap: 6px; }
@@ -4540,11 +4555,21 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
   flex-wrap: wrap; max-width: calc(100% - 24px); padding: 7px 10px; border-radius: var(--r-ctl);
   background: var(--glass); border: 1px solid var(--glass-line); box-shadow: 0 4px 14px rgba(0, 0, 0, .2); }
 .kf-at-label { font: 700 12px var(--body); color: var(--ink-dim); }
-/* fixed slot: the hint appearing and vanishing used to resize the whole bar under the finger */
-.kf-at-busy { min-width: 10.5em; font: 600 12px var(--body); color: var(--ink-dim); }
 /* the slider IS the control: wide enough to aim with a gloved thumb, and the reading sits
    beside it so the value is never hidden under the finger */
-.kf-at-range { flex: 1 1 220px; min-width: 160px; max-width: 340px; accent-color: var(--blue); height: 28px; }
+.kf-at-track { position: relative; flex: 1 1 220px; min-width: 160px; max-width: 340px; display: flex; }
+.kf-at-range { flex: 1 1 auto; min-width: 0; accent-color: var(--blue); height: var(--tap); }
+/* «wird rekonstruiert» as MOTION on the track it belongs to, not a sentence beside it: a thin
+   bar sweeping the slider says the same thing without a fixed text slot resizing the bar. */
+.kf-at-prog { position: absolute; left: 0; right: 0; bottom: 4px; height: 2px; border-radius: 1px;
+  overflow: hidden; opacity: 0; transition: opacity .15s ease; pointer-events: none; }
+.kf-at-track.busy .kf-at-prog { opacity: 1; }
+.kf-at-prog::after { content: ''; position: absolute; inset: 0 auto 0 0; width: 38%; border-radius: 1px;
+  background: color-mix(in srgb, var(--blue) 85%, transparent); animation: kf-at-sweep 1.05s ease-in-out infinite; }
+@keyframes kf-at-sweep { 0% { transform: translateX(-100%); } 100% { transform: translateX(305%); } }
+@media (prefers-reduced-motion: reduce) {
+  .kf-at-prog::after { animation: none; width: 100%; opacity: .55; }
+}
 .kf-at-val { flex: none; min-width: 8.5em; font: 800 13px var(--mono); color: var(--ink); }
 
 /* the Rapportangaben + Beilagen live in a <fieldset> so one `disabled` covers every control in

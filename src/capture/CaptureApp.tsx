@@ -958,7 +958,7 @@ export default function CaptureApp() {
               </div>
               <div className="cv-row">
                 <span>{C.gerettete}</span>
-                <div className="cv-row-controls">
+                <div className="cv-row-controls cv-counts">
                   <label className="cv-count-row"><span>{C.gerettetePersonen}</span>
                     <Stepper value={savedPersonen} min={0} max={999} seed={1} placeholder="0" ariaLabel={C.gerettetePersonen}
                       onChange={(v) => setGerettete(v, savedTiere)}

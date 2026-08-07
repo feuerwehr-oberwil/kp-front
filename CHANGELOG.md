@@ -129,6 +129,38 @@ so this file – not the log – is the record of what shipped up to that point.
   (`report.reversePrintOrder`, switch it off for a printer that ejects face-down); the
   downloaded PDF stays in reading order, because that one is read on a screen.
 
+- **The printed Kroki lost every label on it.** A symbol carries what was typed onto it – the
+  Einsatzleiter's name, a Fahrer, a Bezeichnung – and the map has always shown it. Only Trupps
+  and Notizen ever sent theirs to the print, so a Kroki that read perfectly on screen came out
+  as unlabelled glyphs. The paper now carries the same labels, in the same setting
+  («Beschriftungen»), as the screen it was framed on.
+
+- **Impossible Einsatzzeiten now say so.** A rapport is written hours later, and «04.06.2025»
+  reads exactly like a correct date in a field showing one line. An Ende before the Ausrücken,
+  an Ausrücken before der Alarmierung, or a time in the future is now named right under the
+  field it belongs to – as a **hint, not a barrier**: an Einsatz over midnight is normal, and a
+  correction made at 3am is worth more than a form that refuses it.
+
+- **Datum und Zeit are asked as two things, not one string.** The desktop got a bare
+  `TT.MM.JJJJ HH:MM` text box, which is where a mistyped year comes from in the first place.
+  Both now open the same picker on every device – a day/month/year selector beside the clock,
+  with typing still available inside it. The **Rückmeldung ELZ** gained the day it was missing:
+  it defaults to today, and offers the incident's other days for the call that went out
+  yesterday.
+
+- **The Kroki «Stand» said in eleven words what the slider can show.** «Lage wird
+  rekonstruiert …» needed a fixed slot beside the control so its coming and going didn't resize
+  the bar under the finger. The reconstruction now reports itself as a thin bar running along
+  the track it belongs to.
+
+- **The printed Material amounts didn't line up.** «1 Stk» started wherever its label happened
+  to end, so a column of quantities sat at a different place on every row, and a three-line
+  remark dragged its amount down the page with it. Amounts hang on the right edge and stay on
+  their own line.
+
+- **Personen und Tiere didn't line up either.** On the Erfassungs-Poster the two counters were
+  each only as wide as their own word, so the steppers staggered. They share one column now.
+
 - **A Verlaufszeile with several photos kept only one of them.** Attaching three pictures to one
   entry uploaded all three and recorded the last one. Each upload wrote the row's whole picture
   list, and it read that list from the moment the callback was built rather than from the moment

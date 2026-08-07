@@ -8,7 +8,7 @@
 // stubs for everything not (yet) recorded digitally — printing never blocks on missing data.
 
 import { appConfig } from '../config/appConfig'
-import type { AttendanceState, BoardAnno, BoardDoc, BuildingDoc, Drawing, Entity, LayerDef, LngLat, MittelEntry, PlanDocument, ReportAttachment, TimelineEvent, Trupp } from '../types'
+import type { AttendanceState, BoardAnno, BoardDoc, BuildingDoc, CaptionMode, Drawing, Entity, LayerDef, LngLat, MittelEntry, PlanDocument, ReportAttachment, TimelineEvent, Trupp } from '../types'
 import { TILE_AR, floorLabel } from './whiteboard'
 import { buildView, fpBoxFrac } from './footprint'
 import type { IncidentMeta } from './incidents'
@@ -145,6 +145,9 @@ export interface DirectReportArgs {
     byName: Record<string, string>
     center: LngLat
     view: { center: LngLat; zoom: number }
+    /** the map's Beschriftungen setting — the printed Kroki carries the same labels the
+     *  screen it was framed on did (an Einsatzleiter symbol prints its name) */
+    captionMode?: CaptionMode
   }
   /** plan whiteboard (with `plans` + the annotatedPlans options → server-rendered pages) */
   board?: BoardDoc
@@ -175,6 +178,7 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
         entities: scene.entities, drawings: scene.drawings, layers: scene.layers, byName: scene.byName,
         center: scene.center,
         currentView: draft.options.krokiView ?? null,
+        captionMode: scene.captionMode,
         // so a hose on the printed Kroki names the Trupp that worked it
         trupps,
       })

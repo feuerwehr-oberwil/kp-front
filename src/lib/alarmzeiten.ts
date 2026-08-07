@@ -58,3 +58,57 @@ export function fahrzeugRows(config: FleetVehicle[], values: FahrzeugZeit[] | un
   return [...rows, ...extra]
 }
 
+
+/**
+ * Plausibility of the incident's own clocks — a WARNING, never a block.
+ *
+ * The three stamps have one true order: alarmiert → ausgerückt → Ende. A rapport is written
+ * hours later, from memory and off a wall clock, and a mistyped year («04.06.2025») or a
+ * transposed pair reads as perfectly normal in a field that shows one line. The check says so
+ * and stops there: printing must never be blocked by what somebody typed, an Einsatz over
+ * midnight is legitimate, and a correction made at 3am is worth more than a form that refuses
+ * it. `now` is injected so this stays pure.
+ */
+export type ZeitKind = 'ausgerueckt' | 'ende'
+
+export interface ZeitIssue {
+  /** which stamp the warning hangs off */
+  kind: ZeitKind
+  /** what is wrong — the caller maps it to copy */
+  code: 'beforeAlarm' | 'beforeAusgerueckt' | 'future'
+  /** the stamp it contradicts (ISO), for «liegt vor dem Ausrücken (06.08.2026 11:00)» */
+  ref?: string
+}
+
+/** A clock may sit this far ahead of now without being called out — the tablet's own clock
+ *  drifts, and «jetzt» stamped a second ago must never warn about itself. */
+const FUTURE_SLACK_MS = 5 * 60 * 1000
+
+const ms = (iso?: string | null): number | null => {
+  if (!iso) return null
+  const t = Date.parse(iso)
+  return Number.isFinite(t) ? t : null
+}
+
+export function zeitIssues(
+  stamps: { alarmiertAt?: string | null; ausgeruecktAt?: string | null; endedAt?: string | null },
+  now: number,
+): ZeitIssue[] {
+  const alarm = ms(stamps.alarmiertAt)
+  const aus = ms(stamps.ausgeruecktAt)
+  const ende = ms(stamps.endedAt)
+  const out: ZeitIssue[] = []
+
+  if (aus != null) {
+    if (alarm != null && aus < alarm) out.push({ kind: 'ausgerueckt', code: 'beforeAlarm', ref: stamps.alarmiertAt! })
+    if (aus > now + FUTURE_SLACK_MS) out.push({ kind: 'ausgerueckt', code: 'future' })
+  }
+  if (ende != null) {
+    // Only ONE ordering warning per stamp, the most specific first: an Ende before the
+    // Ausrücken is almost always also before the alarm, and saying both says nothing twice.
+    if (aus != null && ende < aus) out.push({ kind: 'ende', code: 'beforeAusgerueckt', ref: stamps.ausgeruecktAt! })
+    else if (alarm != null && ende < alarm) out.push({ kind: 'ende', code: 'beforeAlarm', ref: stamps.alarmiertAt! })
+    if (ende > now + FUTURE_SLACK_MS) out.push({ kind: 'ende', code: 'future' })
+  }
+  return out
+}
