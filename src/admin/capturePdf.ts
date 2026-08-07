@@ -160,10 +160,50 @@ export function downloadSheetPdf({ stationName, names, catalogue, groups = [], v
     y += zRowsN * rowHZ + GAP
   }
 
-  if (partnerOrgs.length > 0) {
-    heading(C.sheetPartner)
-    checkRow([...partnerOrgs, `${C.sheetPartnerOther}: ________________`], 3)
+  // The blank sheet is the PAPER TWIN of the Einsatzrapport, so it runs in the rapport's own
+  // section order (backend/app/report_pdf.py): Zeiten → Bemerkungen → Personal → Material →
+  // Partner → Unterschriften. It used to put Material and Partner before the roster, so
+  // transferring a filled-in sheet into the app meant reading the two documents out of step.
+  // --- Notizen ---------------------------------------------------------------------------
+  ensure(7 + 5 * 8)
+  heading(C.sheetNotizen)
+  for (let i = 0; i < 5; i += 1) {
+    dotted(M, y + 5, A4.w - M)
+    y += 9
   }
+  y += GAP - 4
+
+  // --- Anwesenheit: two columns, checkbox + name + von–bis stubs -------------------------
+  // The roster FLOWS, exactly as it does on the Einsatzrapport: it is the longest block on the
+  // sheet, and keeping it together pushed a village-sized Wehr onto a third sheet the moment the
+  // section order matched the rapport's. Chunked by what fits on the page rather than split
+  // mid-column, so the two columns always belong to the same chunk and read top-to-bottom.
+  const rowH = 6.4
+  const entries = [...names, ...Array.from({ length: 2 }, () => '')] // blanks for guests
+  ensure(7 + 3 * rowH) // a heading with fewer than three rows under it is an orphan
+  heading(C.sheetPersonen)
+  let rest = entries
+  while (rest.length > 0) {
+    const fits = Math.max(1, Math.floor((A4.h - 12 - y) / rowH)) * 2
+    const chunk = rest.slice(0, fits)
+    rest = rest.slice(fits)
+    const perCol = Math.ceil(chunk.length / 2)
+    const startY = y
+    chunk.forEach((n, i) => {
+      const col = i < perCol ? 0 : 1
+      const x = col === 0 ? M : col2X
+      const yy = startY + (i % perCol) * rowH
+      doc.setDrawColor(40).setLineWidth(0.35).rect(x, yy - 3.2, 3.6, 3.6)
+      doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(20)
+      if (n) doc.text(doc.splitTextToSize(n, colW - 26)[0] as string, x + 5.5, yy)
+      else dotted(x + 5.5, yy + 0.4, x + colW - 22)
+      doc.setFontSize(7).setTextColor(150)
+      doc.text('__:__ – __:__', x + colW - 19, yy)
+    })
+    y = startY + perCol * rowH
+    if (rest.length > 0) { doc.addPage(); y = M }
+  }
+  y += GAP
 
   // --- Material: two columns, label + amount stub, alphabetical (2026-07-18) -------------
   ensure(14)
@@ -184,35 +224,10 @@ export function downloadSheetPdf({ stationName, names, catalogue, groups = [], v
   })
   y = startM + perColM * rowHM + GAP
 
-  // --- Notizen ---------------------------------------------------------------------------
-  ensure(7 + 5 * 8)
-  heading(C.sheetNotizen)
-  for (let i = 0; i < 5; i += 1) {
-    dotted(M, y + 5, A4.w - M)
-    y += 9
+  if (partnerOrgs.length > 0) {
+    heading(C.sheetPartner)
+    checkRow([...partnerOrgs, `${C.sheetPartnerOther}: ________________`], 3)
   }
-  y += GAP - 4
-
-  // --- Anwesenheit: two columns, checkbox + name + von–bis stubs -------------------------
-  const rowH = 6.4
-  const entries = [...names, ...Array.from({ length: 2 }, () => '')] // blanks for guests
-  const perCol = Math.ceil(entries.length / 2)
-  const colHeight = perCol * rowH
-  ensure(7 + colHeight + 4) // heading + block together — no orphaned heading at a page foot
-  heading(C.sheetPersonen)
-  const startY = y
-  entries.forEach((n, i) => {
-    const col = i < perCol ? 0 : 1
-    const x = col === 0 ? M : col2X
-    const yy = startY + (i % perCol) * rowH
-    doc.setDrawColor(40).setLineWidth(0.35).rect(x, yy - 3.2, 3.6, 3.6)
-    doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(20)
-    if (n) doc.text(doc.splitTextToSize(n, colW - 26)[0] as string, x + 5.5, yy)
-    else dotted(x + 5.5, yy + 0.4, x + colW - 22)
-    doc.setFontSize(7).setTextColor(150)
-    doc.text('__:__ – __:__', x + colW - 19, yy)
-  })
-  y = startY + colHeight + GAP
 
   // --- Rückmeldung ELZ (who reported back to dispatch, when) ------------------------------
   ensure(16)

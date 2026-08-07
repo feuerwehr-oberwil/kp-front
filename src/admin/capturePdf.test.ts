@@ -51,10 +51,54 @@ describe('downloadSheetPdf', () => {
     return pages
   }
 
+  /** Every string the sheet draws, in draw order — enough to assert the SECTION ORDER. */
+  const renderText = (input: Parameters<typeof downloadSheetPdf>[0]): string[] => {
+    const api = jsPDF.API as unknown as Record<string, unknown>
+    const origSave = api.save
+    // `text` lives on the PROTOTYPE, not on jsPDF.API — restoring it by assignment would leave
+    // an own `undefined` shadowing the real method and break every test that ran after this one
+    const hadOwnText = Object.prototype.hasOwnProperty.call(api, 'text')
+    const origText = api.text
+    const seen: string[] = []
+    api.text = function (this: jsPDF, ...args: unknown[]) {
+      const t = args[0]
+      if (typeof t === 'string') seen.push(t)
+      else if (Array.isArray(t)) seen.push(...t.filter((x): x is string => typeof x === 'string'))
+      return this
+    }
+    api.save = function () {}
+    try {
+      downloadSheetPdf(input)
+    } finally {
+      api.save = origSave
+      if (hadOwnText) api.text = origText
+      else delete api.text
+    }
+    return seen
+  }
+
   it('renders the full canonical form for an Oberwil-sized station on exactly 2 pages', () => {
-    // page 1: Details/Zeiten/Partner/Material/Notizen · page 2: roster/Rückmeldung/Visum —
-    // the layout of the proven manual template (2 A4 = one duplex sheet)
+    // 2 A4 = one duplex sheet, which is the proven manual template. The section ORDER follows
+    // the Einsatzrapport (see the order test below); the roster flows rather than being kept
+    // together, which is what keeps a village-sized Wehr off a third sheet.
     expect(renderPages(OBERWIL_LIKE)).toBe(2)
+  })
+
+  it('runs the sections in the Einsatzrapport’s own order', () => {
+    // The blank sheet is the paper twin of the rapport: somebody fills this in at the Magazin
+    // and types it into the app from top to bottom. It used to put Material and Partner BEFORE
+    // the roster, so the two documents had to be read out of step.
+    const order = renderText(OBERWIL_LIKE)
+    const at = (needle: string) => {
+      const i = order.indexOf(needle)
+      expect(i, `«${needle}» missing from the sheet`).toBeGreaterThan(-1)
+      return i
+    }
+    expect(at('Alarmierungs- / Ausrückzeiten')).toBeLessThan(at('Kurzbericht / durchgeführte Arbeiten'))
+    expect(at('Kurzbericht / durchgeführte Arbeiten')).toBeLessThan(at('Anwesenheit (abhaken, ggf. von–bis)'))
+    expect(at('Anwesenheit (abhaken, ggf. von–bis)')).toBeLessThan(at('Material (Menge eintragen)'))
+    expect(at('Material (Menge eintragen)')).toBeLessThan(at('Partnerorganisationen'))
+    expect(at('Partnerorganisationen')).toBeLessThan(at('Visum'))
   })
 
   it('empty config lists → the compact sheet (no Zeiten/Partner/Kategorie rows)', () => {
