@@ -95,11 +95,6 @@ function Toggle({ label, hint, checked, onChange, disabled }: { label: string; h
 // (a mutated `.current` box, not a reassigned binding — the react-compiler lint forbids
 // reassigning module variables inside the component)
 const savedScroll: { current: { incidentId: string; top: number } | null } = { current: null }
-// …and the same for the Kroki panel, for the same reason: it is a fold the operator opened on
-// purpose, and having it snap shut behind every trip to Anwesenheit would make the one control
-// that costs a scroll to reach the one that never stays where it was put. Reset on a deliberate
-// close, so a fresh open follows the screen width again.
-const savedKrokiOpen: { current: { incidentId: string; open: boolean } | null } = { current: null }
 
 export function ReportPreflight({
   incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], plans = [], scene, board, building, captureUsage, canEdit = true, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onComplete, onFixTranscripts,
@@ -501,21 +496,10 @@ export function ReportPreflight({
   // The panel is a fold: on a wide screen it is open, because seeing the crop while the form is
   // typed is the whole reason it stopped being a modal; below the two-column breakpoint a map
   // crop is a postcard sitting between the operator and the fields, so it starts closed and
-  // says what it is hiding in its own summary. Either way it can be collapsed by hand — the
-  // choice, not the width, is what is remembered across a trip to Anwesenheit.
-  const [krokiOpen, setKrokiOpen] = useState(() => (
-    savedKrokiOpen.current?.incidentId === incident.id
-      ? savedKrokiOpen.current.open
-      : typeof window !== 'undefined' && window.matchMedia('(min-width: 1080px)').matches
-  ))
-  const toggleKrokiPanel = (open: boolean) => {
-    setKrokiOpen(open)
-    savedKrokiOpen.current = { incidentId: incident.id, open }
-  }
   // Loaded when the crop becomes visible, not on the first drag: the ticks exist to aim that
   // drag, so arriving after it would be arriving too late. Best-effort — a replay bundle that
   // will not load costs the marks, never the slider.
-  const krokiShown = krokiPanel && krokiOpen
+  const krokiShown = krokiPanel
   useEffect(() => {
     if (!krokiShown) return
     let alive = true
@@ -575,7 +559,6 @@ export function ReportPreflight({
   const warnCount = (missTx > 0 ? 1 : 0) + (pendingMediaCount > 0 ? 1 : 0) + (proof.intact === false ? 1 : 0)
   const [controlOpen, setControlOpen] = useState(false)
   // «Abschnitte» — off the print action, not a block on the page (see the Sheet at the end)
-  const [sectionsOpen, setSectionsOpen] = useState(false)
 
   const facts: AbschlussFacts = { reportMeta: meta, attendanceCount, mittelCount }
   const rows = hoursRows(attendance, { alarmedAt: alarmiert ?? null, endedAt: meta.endedAt ?? null })
@@ -602,7 +585,6 @@ export function ReportPreflight({
       : A.confirmMsg
     if (await confirmDialog({ title: A.confirmTitle, message, confirmLabel: A.confirmBtn })) {
       savedScroll.current = null
-      savedKrokiOpen.current = null
       onComplete()
     }
   }
@@ -724,12 +706,27 @@ export function ReportPreflight({
                 }
                 popupClassName="rp-print-menu"
                 itemClassName={() => 'rp-print-menu-item'}
+                // The sections are IN the menu, not behind it. «Was kommt aufs Papier» is several
+                // decisions in a row — a dialog to open, tick, and close for each one is the long
+                // way round something you do while looking at the button that prints. Base UI
+                // keeps the menu open on a checkbox, so the row you just flipped is still there.
                 items={[
                   { label: <><Icon id="doc" /> {P.pdfFull}</>, onClick: () => startOutput('pdf'), disabled: pdfBusy },
-                  // the sections themselves, one line down: what is on today rides along as the
-                  // item's own summary, so the common «is Anwesenheit in there?» is answered
-                  // without opening anything
-                  { label: <><Icon id="checklist" /> <span className="rp-print-menu-pick">{P.sectionsPick}<em>{printedSummary}</em></span></>, onClick: () => setSectionsOpen(true) },
+                  { kind: 'sep' as const },
+                  { kind: 'check' as const, label: P.toggleKroki, checked: options.kroki && mapContentCount > 0, disabled: mapContentCount === 0, onChange: (v: boolean) => patchOpt({ kroki: v }) },
+                  // Pläne is three-way (mit Anmerkungen / alle / keine) and does not fit a
+                  // checkbox, so the menu offers the two that are actually chosen between: the
+                  // annotated ones, or all of them. Off is «neither ticked».
+                  { kind: 'check' as const, label: fillTemplate(P.plansAnnotated, { n: annotatedPlanCount }), checked: options.annotatedPlans && !options.allPlans, onChange: (v: boolean) => patchOpt({ annotatedPlans: v, allPlans: false }) },
+                  { kind: 'check' as const, label: P.plansAll, checked: options.allPlans, onChange: (v: boolean) => patchOpt({ allPlans: v, annotatedPlans: v ? false : options.annotatedPlans }) },
+                  { kind: 'sep' as const },
+                  { kind: 'check' as const, label: fillTemplate(P.toggleAtemschutz, { n: truppCount }), checked: options.atemschutz, onChange: (v: boolean) => patchOpt({ atemschutz: v }) },
+                  { kind: 'check' as const, label: fillTemplate(P.toggleAttendance, { n: attendanceCount }), checked: options.attendance, onChange: (v: boolean) => patchOpt({ attendance: v }) },
+                  { kind: 'check' as const, label: fillTemplate(P.toggleMittel, { n: mittelCount }), checked: options.mittel, onChange: (v: boolean) => patchOpt({ mittel: v }) },
+                  { kind: 'check' as const, label: P.toggleJournal, checked: options.journal, onChange: (v: boolean) => patchOpt({ journal: v }) },
+                  { kind: 'check' as const, label: fillTemplate(P.toggleAttachments, { n: attachments.length }), checked: options.attachments && attachments.length > 0, disabled: attachments.length === 0, onChange: (v: boolean) => patchOpt({ attachments: v }) },
+                  { kind: 'sep' as const },
+                  { kind: 'check' as const, label: P.toggleDetailedAudit, checked: options.detailedAudit, onChange: (v: boolean) => patchOpt({ detailedAudit: v }) },
                 ]}
               />
             </span>
@@ -1191,23 +1188,13 @@ export function ReportPreflight({
               now — switching it off takes this panel away with it (see krokiPanel).
               No confirm step: whatever the crop shows when PDF or Ausdrucken is pressed is what
               prints, and `startOutput` remembers it as this Einsatz's framing. */}
+          {/* No fold. The panel is the only thing on this page that shows what the picture will
+              be, and a section that is open every time it is looked at is a section with a
+              chevron in front of it for nothing. */}
           {krokiPanel && (
-            <details className="report-pre-section report-fold" open={krokiOpen}
-              onToggle={(e) => toggleKrokiPanel(e.currentTarget.open)}>
-              <summary>
-                <Icon id="chevron-down" />
-                <span className="report-fold-t">{P.krokiHead}</span>
-                <span className="report-fold-sum">
-                  {fillTemplate(P.krokiSummary, {
-                    shape: options.krokiLandscape ? P.krokiLandscape : P.krokiPortrait,
-                    at: krokiStandLabel(krokiAt),
-                  })}
-                </span>
-              </summary>
-              {/* mounted only while open: a MapLibre map inside a closed <details> measures 0×0,
-                  and the auto-fit it performs on load would be computed against that */}
-              {krokiOpen && (
-                <KrokiFramingPanel
+            <section className="report-pre-section rp-kroki">
+              <h3>{P.krokiHead}</h3>
+              <KrokiFramingPanel
                   scene={effScene}
                   initial={options.krokiView}
                   // WHEN the picture shows. One picture is one Lage at one time; naming the
@@ -1226,8 +1213,7 @@ export function ReportPreflight({
                   captionMode={scene?.captionMode ?? 'auto'}
                   onViewChange={(v) => patchOpt({ krokiView: v })}
                 />
-              )}
-            </details>
+            </section>
           )}
 
           </div>
@@ -1251,50 +1237,6 @@ export function ReportPreflight({
           Still a real dialog rather than a nest of menu items: eight choices, two of them
           grouped and one a three-way segment, is a form — a menu of checkboxes would be a menu
           you cannot read. */}
-      <Sheet open={sectionsOpen} onClose={() => setSectionsOpen(false)} title={P.sectionsHead} fit
-        footer={<SheetClose className="ip-btn primary">{appConfig.copy.done}</SheetClose>}>
-        {/* what will print, in the dialog that decides it — the line the fold's summary used to
-            carry, kept because it is the one sentence that answers «and now what comes out?» */}
-        <p className="report-sections-sum">{printedSummary}</p>
-        <p className="report-sections-hint">{P.sectionsHint}</p>
-        {/* grouped, not one flat checkbox list: map material, then the data sections (field
-            feedback 2026-07-09). The plans choice is a 3-way segment mapping onto the
-            annotatedPlans/allPlans pair (all wins over annotated in the print derivation, see
-            lib/report). */}
-        <div className="report-toggles">
-          <div className="report-toggle-grouphead">{P.groupMap}</div>
-          {/* WHETHER a Kroki prints, not what it shows: the crop, its Stand and its shape are
-              chosen in the panel on the page, so there are no «aktuelle Ansicht» / extent
-              toggles here. Switching this off takes that panel away with it — there is
-              nothing to frame for a page that is not being printed. */}
-          <Toggle label={P.toggleKroki} checked={options.kroki && mapContentCount > 0} onChange={(v) => patchOpt({ kroki: v })} disabled={mapContentCount === 0} />
-          <div className="report-plans-row">
-            <span>{P.plansLabel}</span>
-            <Segmented<'annotated' | 'all' | 'none'>
-              ariaLabel={P.plansLabel}
-              value={options.allPlans ? 'all' : options.annotatedPlans ? 'annotated' : 'none'}
-              options={[
-                { value: 'annotated', label: fillTemplate(P.plansAnnotated, { n: annotatedPlanCount }), disabled: annotatedPlanCount === 0 },
-                { value: 'all', label: P.plansAll },
-                { value: 'none', label: P.plansNone },
-              ]}
-              onChange={(id) => patchOpt(id === 'all' ? { allPlans: true } : id === 'annotated' ? { annotatedPlans: true, allPlans: false } : { annotatedPlans: false, allPlans: false })}
-            />
-          </div>
-          <div className="report-toggle-grouphead">{P.groupContents}</div>
-          <Toggle label={fillTemplate(P.toggleAtemschutz, { n: truppCount })} checked={options.atemschutz && truppCount > 0} onChange={(v) => patchOpt({ atemschutz: v })} disabled={truppCount === 0} />
-          {/* Personal + Material are form sheets: printable with zero records (stubs) */}
-          <Toggle label={fillTemplate(P.toggleAttendance, { n: attendanceCount })} checked={options.attendance} onChange={(v) => patchOpt({ attendance: v })} />
-          <Toggle label={fillTemplate(P.toggleMittel, { n: mittelCount })} checked={options.mittel} onChange={(v) => patchOpt({ mittel: v })} />
-          <Toggle label={P.toggleJournal} checked={options.journal} onChange={(v) => patchOpt({ journal: v })} />
-          <Toggle label={fillTemplate(P.toggleAttachments, { n: attachments.length })} checked={options.attachments && attachments.length > 0}
-            onChange={(v) => patchOpt({ attachments: v })} disabled={attachments.length === 0} />
-          {/* «Erweitert» used to fold this one row away — a second door in front of a door,
-              and a checkbox nobody can see is a checkbox nobody knows about. It sits in the
-              list like the rest. */}
-          <Toggle label={P.toggleDetailedAudit} hint={P.toggleDetailedAuditHint} checked={options.detailedAudit} onChange={(v) => patchOpt({ detailedAudit: v })} />
-        </div>
-      </Sheet>
     </>
   )
 }

@@ -1567,14 +1567,17 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
    once an Einsatz — and the stage is full-bleed on purpose (the plan pans up behind the bar).
    --tap tall like every other control a gloved hand aims at; the name truncates rather than
    pushing the chip across the plan. */
+/* Small on purpose: it floats OVER the plan, so every millimetre it takes is plan it covers.
+   Below the tap floor by design — this is a label that happens to be tappable, sitting in the
+   quiet corner, not a control the hand goes to under pressure; the plan under it is the work. */
 .wb-object { position: absolute; z-index: 40; top: 88px; left: calc(var(--rail-w) + 28px);
-  max-width: min(340px, calc(100% - var(--rail-w) - 44px));
-  display: inline-flex; align-items: center; gap: 8px; min-height: var(--tap); padding: 0 12px;
+  max-width: min(260px, calc(100% - var(--rail-w) - 44px));
+  display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 9px;
   background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
   box-shadow: var(--shadow); border-radius: var(--r-sm); cursor: pointer;
-  font-family: var(--body); font-size: 12.5px; font-weight: 700; color: var(--ink); }
+  font-family: var(--body); font-size: 11.5px; font-weight: 700; color: var(--ink); }
 .wb-object:hover { background: var(--hover-strong); }
-.wb-object .i { width: 16px; height: 16px; flex: none; color: var(--ink-dim); }
+.wb-object .i { width: 14px; height: 14px; flex: none; color: var(--ink-dim); }
 /* «Objekt» names the thing, the value is what is read — so the label is the quiet one */
 .wb-object-k { flex: none; color: var(--ink-dim); font-weight: 600; }
 .wb-object-v { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -3669,6 +3672,17 @@ select.cv-input { appearance: none; -webkit-appearance: none;
   padding: 8px 11px; border-radius: var(--r-sm); cursor: pointer; outline: none;
   font: 600 13.5px var(--body); color: var(--ink); }
 .rp-print-menu-item[data-highlighted] { background: color-mix(in srgb, var(--ink) 8%, transparent); }
+.rp-print-menu-item[data-disabled] { opacity: var(--disabled); }
+/* Shared menu parts (see lib/overlays · Menu). The indicator keeps its BOX whether or not it is
+   ticked — `keepMounted` plus a hidden tick — so the labels in a checkbox menu line up in one
+   column instead of shifting sideways as things are switched on and off. */
+.ui-menu-sep { height: 1px; margin: 5px 8px; background: var(--glass-edge); }
+.ui-menu-check { flex: none; display: grid; place-items: center; width: 17px; height: 17px;
+  border-radius: 4px; border: 1.5px solid var(--border-strong, var(--border)); }
+.ui-menu-check svg { width: 12px; height: 12px; fill: none; stroke: var(--surface); stroke-width: 3;
+  stroke-linecap: round; stroke-linejoin: round; opacity: 0; }
+[data-checked] > .ui-menu-check { background: var(--blue); border-color: var(--blue); }
+[data-checked] > .ui-menu-check svg { opacity: 1; }
 .rp-print-menu-item[data-disabled] { opacity: var(--disabled); cursor: default; }
 .rp-print-menu-item svg { width: 16px; height: 16px; flex: none; opacity: .65; }
 /* «Abschnitte wählen …» carries what is on TODAY under it — the line the fold's summary used to

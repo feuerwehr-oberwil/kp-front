@@ -9,6 +9,20 @@ import { Menu as BaseMenu } from '@base-ui/react/menu'
  * The trigger keeps its own element/classes via `render`; Base UI wires aria-haspopup/expanded
  * and a `data-popup-open` attribute onto it (style the open trigger with `[data-popup-open]`).
  */
+/** A checkbox row INSIDE the menu — for settings you want to flip without leaving it. Base UI
+ *  keeps the menu open on a checkbox click, which is the whole point: «what goes on the paper»
+ *  is several decisions in a row, and a menu that closes after each one is a menu you reopen. */
+export interface MenuCheckItem {
+  kind: 'check'
+  label: ReactNode
+  checked: boolean
+  onChange: (checked: boolean) => void
+  disabled?: boolean
+}
+
+/** A rule between groups of items. */
+export interface MenuSeparator { kind: 'sep' }
+
 export interface MenuActionItem {
   label: ReactNode
   onClick: () => void
@@ -20,7 +34,7 @@ export interface MenuActionItem {
 
 export function Menu({ trigger, items, popupClassName, itemClassName, reasonClassName, side = 'bottom', align = 'end', sideOffset = 4, collisionPadding = 10 }: {
   trigger: ReactElement
-  items: MenuActionItem[]
+  items: (MenuActionItem | MenuCheckItem | MenuSeparator)[]
   popupClassName?: string
   /** class for each item; receives whether the item is `danger`. */
   itemClassName?: (danger: boolean) => string
@@ -40,17 +54,37 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
       <BaseMenu.Portal>
         <BaseMenu.Positioner side={side} align={align} sideOffset={sideOffset} collisionPadding={collisionPadding}>
           <BaseMenu.Popup className={popupClassName}>
-            {items.map((it, i) => (
-              <BaseMenu.Item
-                key={i}
-                className={itemClassName ? itemClassName(!!it.danger) : undefined}
-                disabled={it.disabled}
-                onClick={it.onClick}
-              >
-                {it.label}
-                {it.disabled && it.reason != null && <span className={reasonClassName}>{it.reason}</span>}
-              </BaseMenu.Item>
-            ))}
+            {items.map((it, i) => {
+              if ('kind' in it && it.kind === 'sep') return <BaseMenu.Separator key={i} className="ui-menu-sep" />
+              if ('kind' in it && it.kind === 'check') {
+                return (
+                  <BaseMenu.CheckboxItem
+                    key={i}
+                    className={itemClassName ? itemClassName(false) : undefined}
+                    checked={it.checked}
+                    disabled={it.disabled}
+                    onCheckedChange={it.onChange}
+                    closeOnClick={false}
+                  >
+                    <BaseMenu.CheckboxItemIndicator className="ui-menu-check" keepMounted>
+                      <svg viewBox="0 0 24 24" aria-hidden><path d="M5 13l4 4L19 7" /></svg>
+                    </BaseMenu.CheckboxItemIndicator>
+                    {it.label}
+                  </BaseMenu.CheckboxItem>
+                )
+              }
+              return (
+                <BaseMenu.Item
+                  key={i}
+                  className={itemClassName ? itemClassName(!!it.danger) : undefined}
+                  disabled={it.disabled}
+                  onClick={it.onClick}
+                >
+                  {it.label}
+                  {it.disabled && it.reason != null && <span className={reasonClassName}>{it.reason}</span>}
+                </BaseMenu.Item>
+              )
+            })}
           </BaseMenu.Popup>
         </BaseMenu.Positioner>
       </BaseMenu.Portal>
