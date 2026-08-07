@@ -901,7 +901,13 @@ export function ReportPreflight({
                           <input
                             className="ip-input" value={a.caption ?? ''} placeholder={P.attachmentsCaption}
                             aria-label={P.attachmentsCaption} disabled={!onCaptionAttachment}
+                            // typed value goes in untouched (trimming on change eats the space
+                            // you just pressed); the tidy-up happens once, on leaving the field
                             onChange={(e) => onCaptionAttachment?.(a.id, e.target.value)}
+                            onBlur={(e) => {
+                              const v = e.target.value.trim()
+                              if (v !== e.target.value) onCaptionAttachment?.(a.id, v)
+                            }}
                           />
                           {a.url.startsWith('blob:') && <span className="report-att-pending">{P.attachmentsPending}</span>}
                         </div>

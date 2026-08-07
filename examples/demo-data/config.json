@@ -154,5 +154,17 @@
         ]
       }
     ]
+  },
+  "report": {
+    "partnerOrgs": [
+      "Polizei",
+      "Sanität / Rettungsdienst",
+      "Werkhof Gemeinde",
+      "Elektrizitätswerk",
+      "Gasversorgung",
+      "Chemiewehr",
+      "Nachbarwehr",
+      "Zivilschutz"
+    ]
   }
 }

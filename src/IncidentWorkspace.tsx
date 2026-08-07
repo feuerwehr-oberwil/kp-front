@@ -997,7 +997,11 @@ export function IncidentWorkspace({
   }, [incidentMeta.id, readOnly, setAttachments, emit])
   const captionAttachment = useCallback((id: string, caption: string) => {
     if (readOnly) return
-    setAttachments((list) => list.map((a) => (a.id === id ? { ...a, caption: caption.trim() || undefined } : a)))
+    // Stored AS TYPED. `.trim()` here ran on every keystroke, so the space you pressed was
+    // deleted before the next letter arrived — «Ausweis Lenker» came out «AusweisLenker» and a
+    // trailing space was impossible. Trimming belongs where the caption is USED (the print
+    // payload), not where it is being written.
+    setAttachments((list) => list.map((a) => (a.id === id ? { ...a, caption: caption || undefined } : a)))
   }, [readOnly, setAttachments])
   const removeAttachment = useCallback((id: string) => {
     if (readOnly) return
@@ -1327,7 +1331,7 @@ export function IncidentWorkspace({
       })
       void ensureNotifyPermission()
       emit('reminder.create', { id: rid, dueAt: d.dueAt })
-      setComposerOpen(false); setJournalOpen(true)
+      setComposerOpen(false)
       toast(appConfig.copy.journal.reminderSaved, { icon: 'clock', tone: 'success' })
       return
     }
@@ -1358,7 +1362,11 @@ export function IncidentWorkspace({
     // session blob: URL (in-app recording) still needs the upload/queue path
     if (d.audioUrl?.startsWith('blob:')) void uploadMediaForRow(rowId, d.audioUrl, 'audio')
     emit('journal.add', { id: rowId, kind })
-    setComposerOpen(false); setJournalOpen(true)
+    // Leave the Verlauf as it was. Forcing it open is right for exactly one entry point — the
+    // Verlauf's own «Eintrag» button — and there it is already open behind the composer, so it
+    // is a no-op. From the phone's FAB or a checklist deep link it yanked the operator off the
+    // map they were working on, for a save the toast has already confirmed.
+    setComposerOpen(false)
     toast(appConfig.copy.journal.saved, { icon, tone: 'success' })
   }
 

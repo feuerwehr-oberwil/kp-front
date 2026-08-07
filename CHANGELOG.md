@@ -190,6 +190,21 @@ so this file – not the log – is the record of what shipped up to that point.
   entstand – dieselbe Handlung am Tablet schrieb immer eine. Jede Zeile trägt «(QR)», weil im
   Rechtsdokument sichtbar sein muss, dass sie nicht von einer angemeldeten Person stammt.
 
+- **Ein Eintrag riss einen von der Karte weg.** Nach «Erfassen» ging der Verlauf immer auf – auch
+  wenn der Eintrag über den Knopf am unteren Rand oder über eine Checkliste begonnen wurde. Der
+  Verlauf bleibt jetzt, wie er war: wer ihn offen hatte, sieht ihn weiter, wer auf der Karte
+  arbeitete, bleibt dort. Gespeichert wird es ohnehin bestätigt.
+
+- **In der Bildlegende einer Beilage liessen sich keine Leerzeichen tippen.** Die Legende wurde
+  bei jedem Tastendruck beschnitten, also war das eben getippte Leerzeichen weg, bevor der
+  nächste Buchstabe ankam – «Ausweis Lenker» wurde «AusweisLenker». Aufgeräumt wird jetzt einmal,
+  beim Verlassen des Feldes.
+
+- **Die Partnerorganisationen drucken als vollständige Liste.** Wie beim Personal: jede Ortschaft
+  aus der Stationsliste mit eigenem Kästchen – angekreuzt oder eben nicht – und eine leere Zeile
+  am Schluss für die, an die niemand gedacht hat. Ein Abschnitt, der nur die Angekreuzten zeigt,
+  kann nicht sagen «die Polizei war NICHT da». Die Demo bringt jetzt auch eine Liste mit.
+
 - **Wer die Atemschutz-Sicherheitswerte verstellt, hinterlässt eine Spur.** Kontaktintervall und
   Nachfrist entscheiden, wann ein Trupp als fällig und als überfällig gilt – wer einen davon
   mitten im Einsatz verschiebt, verschiebt alle Uhren des Atemschutz-Boards gleichzeitig, und das
