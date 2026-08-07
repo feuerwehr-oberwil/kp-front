@@ -74,7 +74,14 @@
 .iconBtn.danger { margin-left: 6px; }
 .iconBtn.danger:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
 
-.cardName { padding: 12px 14px 4px; }
+/* The identity block reserves the height of the NORMAL case — a name, two lines of AdF and one
+   row of Auftrag/Leitung chips — whether or not it uses it. Without the reservation every card
+   in the row started its contact clock at a different y: a three-man Trupp's clock sat where the
+   seven-man Trupp still had names, and scanning a wall of cards meant re-finding the number on
+   each one instead of reading down a line. A Trupp bigger than that still grows: clipping AdF
+   names off an Atemschutz card to keep a grid tidy is not a trade this app makes.
+   12 top + 23 name + (4 + 34) two member lines + (7 + 24) chip row + 4 bottom. */
+.cardName { padding: 12px 14px 4px; min-height: 108px; }
 .nameRow { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .nameStatic { display: block; font-size: 19px; font-weight: 800; color: var(--ink); padding: 2px 4px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -362,8 +369,13 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 .st-angemeldet .statusLabel { color: var(--blue); }
 
 /* pre-entry hint replacing the clocks before the Trupp is "eingerückt" */
+/* An angemeldet Trupp has no clock, so this hint stands where the contact clock stands on the
+   cards beside it. Given the clock's height and vertical centring, the two occupy the same band
+   and everything below them keeps its line across the row — a two-sentence hint and a
+   three-sentence one no longer shift the card underneath them either. */
 .preEntry { padding: 14px; margin: 0 0 2px; font-size: 13px; font-weight: 600; color: var(--ink-dim);
-  background: color-mix(in srgb, var(--blue) 6%, transparent); border-radius: var(--r-ctl); line-height: 1.35; }
+  background: color-mix(in srgb, var(--blue) 6%, transparent); border-radius: var(--r-ctl); line-height: 1.35;
+  min-height: 100px; display: flex; align-items: center; }
 
 /* Auftrag / Leitung chips on the card */
 .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }

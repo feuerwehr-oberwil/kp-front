@@ -111,7 +111,7 @@ import { useWeather } from './lib/useWeather'
 import { predownloadArea, tilesForBounds } from './lib/offlineTiles'
 import { WARM_BYTES, estimateStorage, fittedTileCap, fmtBytes, prefetchFit } from './lib/storageBudget'
 import { ChecklistsView } from './components/ChecklistsView'
-import { AtemschutzView } from './components/AtemschutzView'
+import { AtemschutzView, type TruppOrder } from './components/AtemschutzView'
 import { AnwesenheitView } from './components/AnwesenheitView'
 import { MittelView } from './components/MittelView'
 import { usePersonnel } from './lib/usePersonnel'
@@ -485,6 +485,10 @@ export function IncidentWorkspace({
   }, [doc.entities])
   // alarm audibility — per-device, localStorage-backed, app-wide (see useAtemschutzMute).
   const { muted: atemschutzMuted, toggle: toggleAtemschutzMuted } = useAtemschutzMute()
+  // how the Atemschutz board is arranged — a way of LOOKING at it, so per device. The hand-set
+  // order it can show (Trupp.order) is synced, so «wie gesetzt» is the same board everywhere.
+  const [atemschutzOrder, setAtemschutzOrderState] = useState<TruppOrder>(() => loadPrefs().atemschutzOrder ?? 'dringlichkeit')
+  const setAtemschutzOrder = (o: TruppOrder) => { setAtemschutzOrderState(o); savePrefs({ ...loadPrefs(), atemschutzOrder: o }) }
   // a Rapport checklist row navigated to Anwesenheit/Mittel → offer the one-tap way back
   const [rapportReturn, setRapportReturn] = useState(false)
   // «Leitung wählen»: the Trupp waiting for a hose to be tapped. Ephemeral (never saved) and
@@ -1890,7 +1894,7 @@ export function IncidentWorkspace({
   // a generic (untracked) team marker — the map twin of the plan's placeTeamChip
   const { placeGenericTeam, renameTeam, markTeamPosition, clearTeamTrail } = useTeamMarkerActions({ entities, commit, log, emit, setSelectedId, setSelectedDrawingId })
   // --- Atemschutzüberwachung (SCBA monitoring): Trupp mutations live in useTruppActions ---
-  const { createTrupp, updateTrupp, placeTruppOnPlan, placeTruppOnMap, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, showTruppLine, truppsWithLine, truppColors, setTruppColor } =
+  const { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, showTruppLine, truppsWithLine, truppColors, setTruppColor } =
     useTruppActions({
       trupps, drawings, entities, setTrupps, board, setBoard, setDocRaw, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus,
       // a new map marker lands at the current map centre (the operator drags it to position);
@@ -3072,6 +3076,9 @@ export function IncidentWorkspace({
           restoreTrupp={restoreTrupp}
           muted={atemschutzMuted}
           onToggleMuted={toggleAtemschutzMuted}
+          order={atemschutzOrder}
+          onOrder={setAtemschutzOrder}
+          onMove={canEditIncident && !readOnly ? moveTrupp : undefined}
           intervalMin={azIntervalMin}
           graceSec={azGraceSec}
           defaultFunkkanal={azFunkkanal}

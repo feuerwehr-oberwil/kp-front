@@ -72,6 +72,7 @@ export function IconSprite() {
       <symbol id="play" viewBox="0 0 24 24"><path d="M7 4.8 19 12 7 19.2z" fill="currentColor" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" /></symbol>
       <symbol id="pause" viewBox="0 0 24 24"><path d="M8 5h2.4v14H8zM13.6 5H16v14h-2.4z" fill="currentColor" /></symbol>
       <symbol id="chevron" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></symbol>
+      <symbol id="chevron-left" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6" /></symbol>
       <symbol id="chevron-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></symbol>
       <symbol id="chevron-up" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6" /></symbol>
       <symbol id="skipback" viewBox="0 0 24 24"><path d="M18.5 6 11 12l7.5 6V6z" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" /><path d="M6 5.5v13" stroke-width="2" stroke-linecap="round" /></symbol>

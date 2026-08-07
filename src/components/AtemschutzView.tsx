@@ -25,6 +25,9 @@ const cfg = appConfig.atemschutz // static, non-doctrine parts only (auftrag lis
 
 type FormMode = 'create' | 'edit' | 'redeploy'
 
+/** How the board is arranged — mirrors Prefs.atemschutzOrder. */
+export type TruppOrder = 'dringlichkeit' | 'manuell' | 'auftrag' | 'name'
+
 /** Resolve a Trupp's Auftrag type to its display label (the order detail lives in `ziel`). */
 function auftragTypeLabel(t: Trupp): string | null {
   if (!t.auftrag) return null
@@ -43,7 +46,7 @@ function snapBar(v: number): number {
 // large "Kontakt" reset, and a contact-clock alarm (amber nudge → red überfällig). Pressure is
 // set inline and logged. Purely presentational + local UI state — data + mutations via props.
 export function AtemschutzView({
-  trupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, createTrupp, placeTrupp, placeTargets, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, leitungOptions, showTruppLine, truppsWithLine, pickTruppLine, unlinkTruppLine,
+  trupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, order = 'dringlichkeit', onOrder, onMove, createTrupp, placeTrupp, placeTargets, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, leitungOptions, showTruppLine, truppsWithLine, pickTruppLine, unlinkTruppLine,
   intervalMin = atemschutzDoctrine().contactIntervalMin, graceSec = atemschutzDoctrine().contactGraceSec,
   defaultFunkkanal = atemschutzDoctrine().defaultFunkkanal,
 }: {
@@ -65,6 +68,11 @@ export function AtemschutzView({
    *  alarm now runs app-wide in useAtemschutzAlarm so it fires even off this surface */
   muted: boolean
   onToggleMuted: () => void
+  /** how the board is arranged (device pref) — überfällig floats regardless, see sortTrupps */
+  order?: TruppOrder
+  onOrder?: (o: TruppOrder) => void
+  /** move a card one slot in the hand-set order; only offered while that order is the one shown */
+  onMove?: (id: string, dir: -1 | 1) => void
   createTrupp: (t: Trupp) => void
   /** place a Trupp's marker — targetId is the Lage map or a plan (see App's placeTargets) */
   placeTrupp: (id: string, targetId?: string) => void
@@ -121,10 +129,32 @@ export function AtemschutzView({
   // überfällige Trupps float to the top of the board so an overdue one can't hide off-screen,
   // and the header carries a count badge (the alarm may be muted — the visual must not be).
   const overdueCount = trupps.filter((t) => live.get(t.id)?.status === 'ueberfaellig').length
-  const activeTrupps = trupps
-    .filter((t) => t.status !== 'raus')
-    .sort((a, b) => Number(live.get(b.id)?.status === 'ueberfaellig') - Number(live.get(a.id)?.status === 'ueberfaellig'))
-  const done = trupps.filter((t) => t.status === 'raus')
+  /**
+   * How the board is arranged. Whatever is chosen, ÜBERFÄLLIG still floats to the top: a card
+   * that can hide off-screen is the one failure mode this screen exists to prevent, and it is not
+   * a preference. Below that line:
+   *   · «wie gesetzt»  — the hand-set order (Trupp.order, synced), so a card keeps its slot and
+   *                      «Trupp 2 is the second one» stays true for the whole Einsatz
+   *   · «Dringlichkeit» — longest since Funkkontakt first (what the board always did)
+   *   · «Auftrag» / «Name» — for a board big enough to look things up in
+   * The MODE is per-device (a way of looking); the hand-set order is synced (it is data).
+   */
+  const orderKey = (t: Trupp) => trupps.findIndex((x) => x.id === t.id)
+  const sortTrupps = (list: Trupp[]) => [...list].sort((a, b) => {
+    const overdue = Number(live.get(b.id)?.status === 'ueberfaellig') - Number(live.get(a.id)?.status === 'ueberfaellig')
+    if (overdue) return overdue
+    if (order === 'name') return a.name.localeCompare(b.name, 'de') || orderKey(a) - orderKey(b)
+    if (order === 'auftrag') {
+      return (auftragTypeLabel(a) ?? '￿').localeCompare(auftragTypeLabel(b) ?? '￿', 'de') || orderKey(a) - orderKey(b)
+    }
+    if (order === 'dringlichkeit') {
+      const sev = (live.get(b.id)?.sinceContactSec ?? -1) - (live.get(a.id)?.sinceContactSec ?? -1)
+      if (sev) return sev
+    }
+    return (a.order ?? orderKey(a)) - (b.order ?? orderKey(b))
+  })
+  const activeTrupps = sortTrupps(trupps.filter((t) => t.status !== 'raus'))
+  const done = sortTrupps(trupps.filter((t) => t.status === 'raus'))
 
   // roster of everyone already entered on any Trupp (GF + AdF) — offered as quick-select chips
   // in the form so names don't have to be retyped each time.
@@ -191,6 +221,7 @@ export function AtemschutzView({
       onContact={recordContact} onPressure={recordPressure} onStatus={setTruppStatus}
       onEdit={() => openForm('edit', t)} onReenter={() => openForm('redeploy', t)}
       onDelete={deleteTrupp} onRestore={restoreTrupp} onPlace={handlePlace} onShowPlan={focusTruppOnPlan}
+      onMove={order === 'manuell' ? onMove : undefined}
       onPickLine={pickTruppLine}
       onShowLine={showTruppLine} hasLine={truppsWithLine.has(t.id)}
     />
@@ -207,6 +238,19 @@ export function AtemschutzView({
           <div className={s.overdueBadge} role="status" aria-live="assertive">
             <Icon id="warn" /><span>{az.overdueBadge.replace('{n}', String(overdueCount))}</span>
           </div>
+        )}
+        {trupps.length > 1 && onOrder && (
+          <Segmented
+            ariaLabel={az.orderLabel}
+            value={order}
+            onChange={(v) => onOrder(v as TruppOrder)}
+            options={[
+              { value: 'dringlichkeit', label: az.orderUrgency },
+              { value: 'manuell', label: az.orderManual },
+              { value: 'auftrag', label: az.orderAuftrag },
+              { value: 'name', label: az.orderName },
+            ]}
+          />
         )}
         <button
           className={cx(s.muteBtn, muted && s.muteOn)} onClick={onToggleMuted} aria-pressed={muted}
@@ -365,7 +409,7 @@ function PressureInline({ value, onCommit }: { value: number; onCommit: (bar: nu
 // Funkkontakt) with a large Kontakt reset; the inline Druck control + an expandable Verlauf log
 // sit below, and the lifecycle actions run along the bottom.
 function TruppCard({
-  t, live, now, color, canEdit, intervalMin, graceSec, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onRestore, onPlace, onShowPlan, onPickLine, onShowLine, hasLine,
+  t, live, now, color, canEdit, intervalMin, graceSec, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onRestore, onPlace, onShowPlan, onMove, onPickLine, onShowLine, hasLine,
 }: {
   t: Trupp; live: TruppLive; now: number; canEdit: boolean
   /** the colour this Trupp wears on the Lage / plan (useTruppActions · truppColors); absent while
@@ -378,6 +422,8 @@ function TruppCard({
   onEdit: () => void
   onReenter: () => void
   onDelete: (id: string) => void
+  /** present only while the hand-set order is the one on screen (see AtemschutzView) */
+  onMove?: (id: string, dir: -1 | 1) => void
   onRestore: (t: Trupp) => void
   onPlace: (id: string) => void
   onShowPlan: (id: string) => void
@@ -443,6 +489,18 @@ function TruppCard({
         {/* The actions ride in their own group so they wrap as a block if a card ever gets narrow
             enough — the status word must never be the thing that gets abbreviated. */}
         <div className={s.cardActs}>
+          {/* Only while the hand-set order is the one on screen: moving a card under any other
+              sort would rearrange something the sort is about to rearrange back. */}
+          {onMove && canEdit && (
+            <>
+              <button className={s.iconBtn} aria-label={az.moveBack} title={az.moveBack} onClick={() => onMove(t.id, -1)}>
+                <Icon id="chevron-left" />
+              </button>
+              <button className={s.iconBtn} aria-label={az.moveForward} title={az.moveForward} onClick={() => onMove(t.id, 1)}>
+                <Icon id="chevron" />
+              </button>
+            </>
+          )}
           {canEdit && status !== 'raus' && (
             <button className={s.iconBtn} aria-label={az.edit} title={az.edit} onClick={onEdit}>
               <Icon id="pen" />

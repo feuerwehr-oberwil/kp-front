@@ -581,6 +581,11 @@ export interface Trupp {
   lineNumber?: string
   /** Funkkanal the Trupp is on; seeded from the synced default (FKS-Standard: 11) */
   funkkanal?: number
+  /** Where this card sits when the board is ordered by hand (Reihenfolge · «Wie gesetzt»).
+   *  SYNCED, not a device pref: two operators looking at the same board have to see the same
+   *  board. Absent on older Trupps — they fall back to their position in the list, which is the
+   *  creation order they were shown in before this existed. */
+  order?: number
   /**
    * The Trupp's colour, wherever it is drawn: map marker, plan chip, its dot on the board.
    *

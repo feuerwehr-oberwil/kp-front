@@ -90,12 +90,30 @@ export function useTruppActions(deps: Deps) {
   // plan, not the Lage map. The EL places one manually later via "Platzieren" (placeTruppOnPlan),
   // which drops a resource chip on the Gebäude floor-stack (or Modul 6) keyed by Trupp.annoId.
   const createTrupp = (t: Trupp) => {
-    setTrupps((ts) => [...ts, t])
+    // a new card joins at the END of the hand-set order, never in the middle of a board somebody
+    // arranged — `order` is synced, so it lands the same way on every device
+    setTrupps((ts) => [...ts, { ...t, order: t.order ?? ts.reduce((n, x) => Math.max(n, x.order ?? 0), 0) + 1 }])
     log('flag', fillTemplate(appConfig.copy.atemschutz.logRegister, { name: t.name }), 'team')
     emit('atemschutz.register', { id: t.id })
   }
   const updateTrupp = (id: string, patch: Partial<Trupp>) =>
     setTrupps((ts) => ts.map((t) => (t.id === id ? { ...t, ...patch } : t)))
+
+  /** Move a card one slot in the hand-set order. Swaps the two `order` values rather than
+   *  renumbering the board, so a concurrent edit on another device touches at most these two
+   *  Trupps. Not logged: where a card sits is a way of looking at the board, not something that
+   *  happened at the Einsatz — and the Verlauf is thin enough to keep for what did. */
+  const moveTrupp = (id: string, dir: -1 | 1) => setTrupps((ts) => {
+    const ordered = [...ts].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    const i = ordered.findIndex((t) => t.id === id)
+    const j = i + dir
+    if (i < 0 || j < 0 || j >= ordered.length) return ts
+    const [a, b] = [ordered[i], ordered[j]]
+    // an older Trupp may carry no order at all — settle both from their current position first
+    const oa = a.order ?? i
+    const ob = b.order ?? j
+    return ts.map((t) => (t.id === a.id ? { ...t, order: ob } : t.id === b.id ? { ...t, order: oa } : t))
+  })
   // keep the placed chip/marker label in sync when the leader changes (plan chip text ==
   // map marker label == the leader's name as recorded)
   const syncPlacementLabel = (tr: Trupp, name: string) => {
@@ -502,5 +520,5 @@ export function useTruppActions(deps: Deps) {
     return out
   }
 
-  return { createTrupp, updateTrupp, placeTruppOnPlan, placeTruppOnMap, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, showTruppLine, truppsWithLine, truppColors, setTruppColor }
+  return { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, showTruppLine, truppsWithLine, truppColors, setTruppColor }
 }

@@ -401,3 +401,42 @@ describe('useTruppActions — Truppfarbe', () => {
     expect(actions.truppColors()).toEqual({})
   })
 })
+
+describe('moveTrupp (hand-set board order)', () => {
+  // the harness seeds one Trupp; a board needs several, so push the rest in first
+  const board = (...ts: Trupp[]) => {
+    const h = harness(ts[0])
+    h.state.trupps = ts
+    return h
+  }
+  const orders = (ts: Trupp[]) => ts.map((t) => [t.id, t.order] as const)
+
+  it('swaps two cards rather than renumbering the board', () => {
+    const { actions, state } = board(
+      baseTrupp({ id: 'a', order: 1 }), baseTrupp({ id: 'b', order: 2 }), baseTrupp({ id: 'c', order: 3 }),
+    )
+    actions.moveTrupp('c', -1)
+    // only b and c change — a concurrent edit elsewhere on the board is untouched
+    expect(orders(state.trupps)).toEqual([['a', 1], ['b', 3], ['c', 2]])
+  })
+
+  it('does nothing at either end', () => {
+    const { actions, state } = board(baseTrupp({ id: 'a', order: 1 }), baseTrupp({ id: 'b', order: 2 }))
+    actions.moveTrupp('a', -1)
+    actions.moveTrupp('b', 1)
+    expect(orders(state.trupps)).toEqual([['a', 1], ['b', 2]])
+  })
+
+  it('settles a Trupp that never carried an order from where it currently sits', () => {
+    const { actions, state } = board(baseTrupp({ id: 'a' }), baseTrupp({ id: 'b' }))
+    actions.moveTrupp('b', -1)
+    const byId = Object.fromEntries(state.trupps.map((t) => [t.id, t.order]))
+    expect(byId.b).toBeLessThan(byId.a!)
+  })
+
+  it('a new Trupp joins at the END of a hand-arranged board', () => {
+    const { actions, state } = board(baseTrupp({ id: 'a', order: 4 }), baseTrupp({ id: 'b', order: 9 }))
+    actions.createTrupp(baseTrupp({ id: 'c' }))
+    expect(state.trupps.find((t) => t.id === 'c')?.order).toBe(10)
+  })
+})

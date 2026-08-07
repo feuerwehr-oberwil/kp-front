@@ -57,6 +57,12 @@ export interface Prefs {
   elView?: boolean
   /** what the top Einsatzuhr shows — tap it to cycle. Default 'elapsed' (running duration). */
   clockMode?: 'elapsed' | 'now' | 'start'
+  /** How the Atemschutz board is ordered. Default 'dringlichkeit' (what the board always did).
+   *  A device pref because it is a way of LOOKING at the board; the hand-set order itself is
+   *  synced (Trupp.order), so «wie gesetzt» shows the same thing on every device.
+   *  ⚠️ Whatever is chosen, an überfälliger Trupp still floats to the top — a card that can hide
+   *  off-screen is the one failure mode this screen exists to prevent. */
+  atemschutzOrder?: 'dringlichkeit' | 'manuell' | 'auftrag' | 'name'
   /** Standort teilen — this device's standing PERMISSION to use its position for it, plus
    *  who it reports as. A DEVICE preference by design: it is the phone's owner deciding about
    *  their own phone, so it must not ride the synced workspace where another editor could

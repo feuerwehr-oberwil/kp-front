@@ -953,6 +953,15 @@ export const de = {
     zielLabel: 'Auftrag / Ziel',
     zielPlaceholder: 'z. B. 2. OG Wohnung links, Person vermisst',
     zielOtherPlaceholder: 'Auftrag beschreiben',
+    // Reihenfolge der Karten auf der Tafel. Überfällige Trupps stehen IMMER zuoberst – das ist
+    // keine Einstellung, sondern der Grund, warum es diese Tafel gibt.
+    orderLabel: 'Reihenfolge',
+    orderUrgency: 'Dringlichkeit',
+    orderManual: 'Wie gesetzt',
+    orderAuftrag: 'Auftrag',
+    orderName: 'Name',
+    moveBack: 'Karte nach vorne schieben',
+    moveForward: 'Karte nach hinten schieben',
     leaderLabel: 'Gruppenführer',
     leaderPlaceholder: 'Name Gruppenführer',
     memberLabel: 'AdF',
