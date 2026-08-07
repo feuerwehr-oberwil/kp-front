@@ -205,6 +205,12 @@ export function KrokiFramingModal({ scene, initial, atMs = null, atBusy = false,
             ))}
           </Map>
           <div className="kf-hint">{P.framingHint}</div>
+        </div>
+        {/* The controls belong to the WINDOW, not to the picture. Floating on the map they
+            covered the very crop they were there to adjust — the ± column sat on the Stand
+            slider's right end, and both hid whatever was underneath them. In their own bar the
+            map stays entirely map, and nothing moves when the frame changes shape. */}
+        <div className="kf-controls">
           {/* «Stand» — one picture is one Lage at ONE time. «Jetzt» is the normal answer; a time
               reconstructs the Lage as it stood then (the map redraws under the crop), which is
               how a rapport can still show a Rettung that has long since left. */}
@@ -241,9 +247,9 @@ export function KrokiFramingModal({ scene, initial, atMs = null, atBusy = false,
               <b className="kf-at-val">{label}</b>
             </div>
           )}
-          {/* ± on the map itself: with gloves on a tablet, pinching a crop into place is the
-              fiddliest gesture the app asks for, and this is the one place where the exact
-              framing is the whole point of the screen. */}
+          {/* ± stays: with gloves on a tablet, pinching a crop into place is the fiddliest
+              gesture the app asks for, and this is the one screen where the exact framing IS
+              the point. Beside the picture rather than on top of it. */}
           <div className="kf-zoom">
             <button type="button" className="kf-zoom-btn" aria-label={appConfig.copy.nav.zoomIn}
               onClick={() => mapRef.current?.getMap().zoomIn({ duration: 180 })}><Icon id="plus" /></button>

@@ -129,6 +129,17 @@ so this file – not the log – is the record of what shipped up to that point.
   (`report.reversePrintOrder`, switch it off for a printer that ejects face-down); the
   downloaded PDF stays in reading order, because that one is read on a screen.
 
+- **The Kroki crop window collapsed into a strip.** Centring the frame cancelled its stretch, so
+  it fell back to a width of nothing and took its own height with it – the ± buttons and the
+  hint ended up floating over the header and the footer. The frame is sized explicitly now.
+
+- **Everything that adjusts the crop sits under it, not on it.** The ± buttons and the
+  Kroki-Stand floated over the very picture they were there to adjust, and the ± column landed
+  on the slider's right end. They share one bar below the map, so the map stays entirely map and
+  nothing has to be repositioned when the frame changes shape. The crop also gives the window's
+  chrome its room back: on a laptop the sheet was tall enough to clip «Ausschnitt übernehmen»
+  off the bottom.
+
 - **The Rapport says which times were measured and which it worked out.** Somebody still on
   scene when the rapport prints had no Bis-Zeit at all, so the sheet WinFAP reads the hours off
   said nothing about them. The incident's own end fills that in now – and prints **grey**,

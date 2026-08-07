@@ -3754,19 +3754,35 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 /* the crop window IS the sheet: same proportions as the printed page, so what is framed is
    what comes out. max-width keeps a tall window from being WIDER than the page it stands for
    on a short screen, which would show more than gets printed. */
-.kf-map { flex: none; aspect-ratio: 1600 / 940; max-height: 78dvh; max-width: calc(78dvh * 1600 / 940); margin-inline: auto; }
-.kf-map.portrait { aspect-ratio: 1000 / 1400; max-width: calc(78dvh * 1000 / 1400); }
-.kf-orient { margin-left: auto; }
-.kf-orient .useg-btn { font-size: 12px; padding-inline: 10px; }
+/* ⚠️ `width: 100%` is load-bearing. `margin-inline: auto` on a flex item cancels the cross-axis
+   stretch, so without an explicit width the box falls back to a CONTENT width — and the map has
+   no content of its own, so it collapsed to nothing and took the whole crop window down with it
+   (the ± buttons and the hint then floated over the head and the footer). */
+/* The crop gets whatever the window has left after its own chrome. A flat 78dvh plus the head,
+   the control bar and the action row added up to more than the sheet's max-height, and the
+   sheet clips — «Ausschnitt übernehmen» was cut off the bottom on an ordinary laptop. */
+.kf-sheet { --kf-chrome: 216px; --kf-map-h: min(78dvh, calc(94dvh - var(--kf-chrome))); }
+.kf-map { flex: none; width: 100%; aspect-ratio: 1600 / 940; margin-inline: auto;
+  max-height: var(--kf-map-h); max-width: calc(var(--kf-map-h) * 1600 / 940); }
+.kf-map.portrait { aspect-ratio: 1000 / 1400; max-width: calc(var(--kf-map-h) * 1000 / 1400); }
+/* margin-left:auto pushes the shape picker to the right of the title; the gap keeps it off the
+   close button, which it was sitting flush against */
+.kf-orient { margin-left: auto; margin-right: 4px; }
+.kf-orient .useg-btn { font-size: 12px; padding-inline: 12px; min-height: var(--tap); }
+/* One bar under the crop for everything that ADJUSTS it. On the map these floated over the
+   picture they were adjusting — the ± column landed on the slider's right end — and they had to
+   be repositioned every time the frame changed shape. */
+.kf-controls { display: flex; align-items: center; gap: 12px; padding: 10px 16px;
+  border-top: 1px solid var(--glass-edge); }
 .kf-hint { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 2; pointer-events: none;
   max-width: calc(100% - 24px); text-align: center; padding: 7px 13px; border-radius: var(--r-pill); background: var(--glass);
   border: 1px solid var(--glass-line); font: 600 12.5px var(--body); color: var(--ink-dim); box-shadow: 0 4px 14px rgba(0, 0, 0, .2); }
 .kf-fit { margin-right: auto; }
-/* ± over the crop map — gloved-size, bottom-right, out of the way of the framing itself */
-.kf-zoom { position: absolute; right: 12px; bottom: 12px; z-index: 2; display: flex; flex-direction: column; gap: 6px; }
-.kf-zoom-btn { display: grid; place-items: center; width: 44px; height: 44px; cursor: pointer;
-  border: 1px solid var(--glass-line); border-radius: var(--r-sm); background: var(--glass); color: var(--ink);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, .2); }
+/* ± in the control bar: still gloved-size, now a ROW at the bar's right end rather than a
+   column floating on the crop */
+.kf-zoom { margin-left: auto; display: flex; gap: 6px; }
+.kf-zoom-btn { display: grid; place-items: center; width: var(--tap); height: var(--tap); cursor: pointer;
+  border: 1px solid var(--glass-line); border-radius: var(--r-sm); background: var(--glass); color: var(--ink); }
 .kf-zoom-btn:hover { border-color: var(--ink-faint); }
 .kf-zoom-btn .i { width: 18px; height: 18px; }
 .kf-print-box { position: relative; }
@@ -3779,6 +3795,14 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
    pills). Wrap instead — «Auf Einsatz zoomen» + «Abbrechen» share the top row, the primary
    «Ausschnitt übernehmen» drops to a full-width row of its own (thumb-friendly, prominent). */
 @media (max-width: 600px) {
+  /* the control bar does not fit one row on a phone: the ± pair keeps its own line under the
+     slider rather than squeezing the track down to a few pixels. Both it and the action row
+     wrap here, so the crop has to give up more of the window than it does on a laptop. */
+  .kf-sheet { --kf-chrome: 310px; }
+  .kf-controls { flex-wrap: wrap; gap: 8px 12px; padding: 8px 12px; }
+  .kf-at { flex: 1 1 100%; }
+  .kf-at-track { max-width: none; }
+  .kf-zoom { margin-left: auto; }
   .kf-sheet .mp-act { flex-wrap: wrap; }
   .kf-sheet .mp-act .ip-btn { flex: 1 1 auto; justify-content: center; white-space: nowrap; }
   .kf-sheet .mp-act .kf-fit { margin-right: 0; }
@@ -4557,9 +4581,7 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
   text-transform: uppercase; color: var(--ink-dim); }
 /* «Stand» on the crop map: Jetzt / a time + the reconstruction hint. Top-left, opposite the
    ± buttons, so neither sits where the framing itself needs to be read. */
-.kf-at { position: absolute; left: 12px; bottom: 12px; z-index: 2; display: flex; align-items: center; gap: 8px;
-  flex-wrap: wrap; max-width: calc(100% - 24px); padding: 7px 10px; border-radius: var(--r-ctl);
-  background: var(--glass); border: 1px solid var(--glass-line); box-shadow: 0 4px 14px rgba(0, 0, 0, .2); }
+.kf-at { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 10px; }
 .kf-at-label { font: 700 12px var(--body); color: var(--ink-dim); }
 /* the slider IS the control: wide enough to aim with a gloved thumb, and the reading sits
    beside it so the value is never hidden under the finger */
@@ -4567,7 +4589,7 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .kf-at-range { flex: 1 1 auto; min-width: 0; accent-color: var(--blue); height: var(--tap); }
 /* «wird rekonstruiert» as MOTION on the track it belongs to, not a sentence beside it: a thin
    bar sweeping the slider says the same thing without a fixed text slot resizing the bar. */
-.kf-at-prog { position: absolute; left: 0; right: 0; bottom: 4px; height: 2px; border-radius: 1px;
+.kf-at-prog { position: absolute; left: 0; right: 0; top: 50%; margin-top: 9px; height: 2px; border-radius: 1px;
   overflow: hidden; opacity: 0; transition: opacity .15s ease; pointer-events: none; }
 .kf-at-track.busy .kf-at-prog { opacity: 1; }
 .kf-at-prog::after { content: ''; position: absolute; inset: 0 auto 0 0; width: 38%; border-radius: 1px;
