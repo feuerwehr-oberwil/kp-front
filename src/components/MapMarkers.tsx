@@ -107,7 +107,7 @@ interface Props {
   /** device default for on-canvas symbol captions; a symbol's own `caption` overrides it.
    *  Captions are additionally hidden below appConfig.symbols.captionMinZoom (declutter). */
   captionMode?: CaptionMode
-  /** tactical editing is locked (viewer / Einsatzleiter-Ansicht / replay): a tap still selects
+  /** tactical editing is locked (viewer / Führungsansicht / replay): a tap still selects
    *  so the read-only detail panel opens, but no mutating grip is rendered (see MapView). */
   readOnly?: boolean
   draggable: boolean

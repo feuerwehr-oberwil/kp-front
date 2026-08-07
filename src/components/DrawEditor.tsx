@@ -63,7 +63,7 @@ interface Props {
   drawing: DrawStyle
   /** how many vertices the shape has, for the header subtitle (circle uses its radius instead) */
   pointCount: number
-  /** read-only surface (viewer role, Einsatzleiter-Ansicht, replay): keep everything that
+  /** read-only surface (viewer role, Führungsansicht, replay): keep everything that
    *  ANSWERS a question — Messung, Höhenprofil, Verbindungen, «springe zu» — and drop every
    *  control that would change the shape. The EL must be able to ask how long the Leitung is
    *  without being able to move it. */

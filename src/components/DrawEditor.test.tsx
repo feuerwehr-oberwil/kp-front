@@ -74,7 +74,7 @@ describe('Messung on an already drawn line', () => {
 
 // The Einsatzleiter must be able to ask how long the Leitung is without being able to move it:
 // read-only keeps every number and drops every control.
-describe('read-only (viewer / Einsatzleiter-Ansicht)', () => {
+describe('read-only (viewer / Führungsansicht)', () => {
   const D = appConfig.copy.drawingEditor
 
   it('keeps the numbers a locked surface is opened FOR', () => {

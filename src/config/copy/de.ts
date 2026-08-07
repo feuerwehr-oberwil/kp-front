@@ -1199,7 +1199,7 @@ export const de = {
       savedAll: 'Als Standard-Massstab gespeichert',
       savedThis: 'Massstab für diesen Plan gespeichert',
       needsCalibration: 'Massstab festlegen: die zwei Enden des Massstabs antippen',
-      // read-only (Einsatzleiter-Ansicht / Viewer): messen geht erst, wenn jemand mit
+      // read-only (Führungsansicht / Viewer): messen geht erst, wenn jemand mit
       // Schreibrechten den Massstab gesetzt hat – nie einen Knopf zeigen, der scheitern würde
       needsCalibrationViewer: 'Messen erst möglich, wenn der Massstab kalibriert ist',
     },
@@ -1677,8 +1677,11 @@ export const de = {
     keepScreenOnSub: 'Bildschirm nicht abdunkeln im Einsatz',
     keepScreenOnOn: 'Ein',
     keepScreenOnOff: 'Aus',
-    elView: 'Einsatzleiter-Ansicht',
-    elViewSub: 'Nur ansehen – Journal & Symbol-Details bleiben aktiv',
+    // Hiess «Einsatzleiter-Ansicht»: der Modus sperrt die Taktik und benennt keine
+    // Rolle – Kdt, Fourier und wer am Beamer mitliest, nutzen ihn genauso. Der Code-Bezeichner
+    // bleibt `elView`, damit gespeicherte Geräte-Einstellungen weiter gelten.
+    elView: 'Führungsansicht',
+    elViewSub: 'Taktik gesperrt – Journal & Symbol-Details bleiben aktiv',
     elViewOn: 'Ein',
     elViewOff: 'Aus',
     deviceFoot: 'Gilt nur auf diesem Gerät. Kleinerer Umkreis = schnellerer, kleinerer Offline-Download.',
@@ -3205,7 +3208,7 @@ export const de = {
       role: 'Rolle',
       roleViewer: 'Betrachter',
       roleEditor: 'Bearbeiter',
-      elViewDefault: 'Startet in Einsatzleiter-Ansicht',
+      elViewDefault: 'Startet in Führungsansicht',
       elViewDefaultHint: 'Taktik gesperrt, Journal & Details aktiv – am Gerät umschaltbar',
       colorLabel: 'Farbe',
       colorOptional: 'optional',

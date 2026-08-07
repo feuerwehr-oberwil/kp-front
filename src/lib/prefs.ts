@@ -51,7 +51,7 @@ export interface Prefs {
   /** last Verwaltung (admin) section id, so reopening /admin returns to the same page.
    *  Kept loose (string) so prefs.ts doesn't depend on the admin's SectionId union. */
   adminSection?: string
-  /** Einsatzleiter-Ansicht: tactical editing locked on this device (journal capture and
+  /** Führungsansicht: tactical editing locked on this device (journal capture and
    *  read-only symbol details stay live). Unset = follow the login's server-side default
    *  (AuthUser.el_view_default); an explicit toggle here overrides it. Editors only. */
   elView?: boolean

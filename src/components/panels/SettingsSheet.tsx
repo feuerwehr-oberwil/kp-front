@@ -40,7 +40,7 @@ export function SettingsSheet({
   onSettings?: (next: IncidentSettings) => void
   /** only the Einsatzleiter may change the synced section */
   canEdit?: boolean
-  /** Einsatzleiter-Ansicht device toggle — undefined hides the row (viewers: their whole
+  /** Führungsansicht device toggle — undefined hides the row (viewers: their whole
    *  session is read-only anyway, the toggle would be meaningless). Stays operable in EL
    *  view itself (it must — it's the way back out). */
   elView: boolean

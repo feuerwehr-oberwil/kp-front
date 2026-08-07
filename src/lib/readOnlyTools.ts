@@ -1,4 +1,4 @@
-// Which tools stay reachable when a surface is read-only (viewer role, Einsatzleiter-Ansicht,
+// Which tools stay reachable when a surface is read-only (viewer role, Führungsansicht,
 // a lost tab lock). The rule is narrow on purpose: a tool qualifies only if it writes NOTHING —
 // not the document, not the synced workspace, not the audit stream, not the Verlauf. Messen is
 // the whole point of this (see lib/useMeasure: its paths are ephemeral state and never saved);

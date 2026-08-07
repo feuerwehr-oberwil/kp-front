@@ -110,7 +110,7 @@ interface Props {
   /** recolour a team marker (null = automatic) — see MapMarkers */
   onTeamColor?: (e: Entity, color: string | null) => void
   onTeamClearTrail?: (id: string) => void
-  /** tactical editing is locked (viewer role, Einsatzleiter-Ansicht, replay). Everything
+  /** tactical editing is locked (viewer role, Führungsansicht, replay). Everything
    *  stays readable — panning, selecting, the ephemeral Messen path — but no affordance that
    *  would mutate the document is rendered: no vertex/move handles on a selected drawing, no
    *  lock chip, no note edit/delete grips. The app-level callbacks are no-ops in this state,

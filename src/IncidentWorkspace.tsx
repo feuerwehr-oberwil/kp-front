@@ -187,7 +187,7 @@ export function IncidentWorkspace({
   // reconstructed state. Owned by useReplay; `active` feeds the lock derivations below.
   const { active: replayActive, setActive: setReplayActive, ws: replayWs, onState: onReplayState, onVehicles: onReplayVehicles, exit: exitReplay, entities: replayEntities, board: replayBoard, building: replayBuilding } = useReplay()
   const readOnly = baseReadOnly || replayActive
-  // Einsatzleiter-Ansicht: an EDITOR's deliberate hands-off mode — tactical editing locked
+  // Führungsansicht: an EDITOR's deliberate hands-off mode — tactical editing locked
   // like a phone, but journal capture and read-only symbol details stay live. Device toggle
   // (Einstellungen), seeded by the login's server-side default (el_view_default) so a
   // dedicated «Einsatzleiter» account starts hands-off without per-device setup.
@@ -376,7 +376,7 @@ export function IncidentWorkspace({
   // one place that edits a single map entity: a discrete undo step + the audit
   // emit, so every field edit (label/fields/notes/floor/count/rotation) is recorded
   // identically — previously notes/floor/count silently skipped the audit stream.
-  // `commit` alone only stops a VIEWER: in the Einsatzleiter-Ansicht readOnly is false, so every
+  // `commit` alone only stops a VIEWER: in the Führungsansicht readOnly is false, so every
   // entity write needs the tactical lock too (the panels hide their controls, this is the floor).
   const patchEntity = (id: string, patch: Partial<Entity>) => {
     if (tacticalLocked) return
@@ -1317,7 +1317,7 @@ export function IncidentWorkspace({
     setNotePanelId(null); setEditNoteId(null)
   }
 
-  // Locking the surface mid-draw (Einsatzleiter-Ansicht toggled on, tab lock lost, replay entered)
+  // Locking the surface mid-draw (Führungsansicht toggled on, tab lock lost, replay entered)
   // must not leave a create tool armed behind a dock that is no longer rendered — disarm down to
   // the tool set the locked rail actually offers. Messen and Auswahl survive untouched.
   useEffect(() => {
@@ -1639,7 +1639,7 @@ export function IncidentWorkspace({
   const DUP_OFFSET = 0.00008 // ~6–9 m in WGS84 at Swiss latitudes
   const duplicateSelection = () => {
     // tacticalLocked, not readOnly: the drawing branch below used to duplicate for real in the
-    // Einsatzleiter-Ansicht, where readOnly is false.
+    // Führungsansicht, where readOnly is false.
     if (tacticalLocked) return
     if (selectedId) {
       const src = doc.entities.find((e) => e.id === selectedId)

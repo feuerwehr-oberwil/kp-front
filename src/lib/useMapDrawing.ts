@@ -116,7 +116,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
 
   const selectedDrawing = drawings.find((d) => d.id === selectedDrawingId) ?? null
   // Both patch paths carry the same `tacticalLocked` guard as the coord/vertex handlers below:
-  // `commit` alone only stops a VIEWER (readOnly) — in the Einsatzleiter-Ansicht it writes, and
+  // `commit` alone only stops a VIEWER (readOnly) — in the Führungsansicht it writes, and
   // the emit above it reached the audit stream even when the commit was dropped.
   const patchDrawing = (patch: Partial<Drawing>) => {
     if (tacticalLocked) return
