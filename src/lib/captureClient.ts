@@ -39,6 +39,11 @@ const META_FIELD_LABELS: Record<string, string> = {
   gruppen: 'Alarmzeiten', fahrzeuge: 'Fahrzeugzeiten', erfasser: 'Erfasser',
 }
 
+/** Which of those are short enough to quote, and which are prose — the tablet's rule, applied
+ *  to the subset the poster can reach (lib/report · META_SHORT / META_PROSE). */
+const META_SHORT = new Set(['einsatzleiter', 'kontaktperson', 'endedAt', 'ausgeruecktAt'])
+const META_PROSE = new Set(['summary', 'remarks', 'lehren'])
+
 /**
  * The Verlaufszeile for one capture action — the poster's half of the record.
  *
@@ -61,6 +66,7 @@ export function captureJournalRow(
   action: CaptureAction, nowIso: string, seq = 0, ctx: CaptureLogContext = {},
 ): TimelineEvent | null {
   const C = appConfig.copy.capture
+  const P = appConfig.copy.preflight
   const row = (icon: string, text: string): TimelineEvent => ({
     // `qr` prefix + a caller-supplied counter: two rows in the same millisecond must not share
     // an id, or the server's idempotency skip swallows the second one
@@ -101,12 +107,24 @@ export function captureJournalRow(
     case 'removeAttachment':
       return row('photo', C.logAttachmentRemove)
     case 'setMeta': {
-      const fields = Object.keys(action.patch).filter((k) => k !== 'erfasser')
+      const keys = Object.keys(action.patch).filter((k) => k !== 'erfasser')
       // «Erfasser» alone is bookkeeping about the capture, not a change to the Einsatz
-      if (!fields.length) return null
-      return row('clipboard', fillTemplate(C.logMeta, {
-        fields: fields.map((k) => META_FIELD_LABELS[k] ?? k).join(', '),
-      }))
+      if (!keys.length) return null
+      // Same rule as the tablet (lib/report · changedReportMetaFields): a short field carries
+      // its new value, free text says only that it was written. A row reading «Rapportangaben
+      // geändert (QR): Bemerkungen» is one nobody can act on — the poster's whole point is that
+      // the person at the magazine records something the command post has not seen.
+      const patch = action.patch as Record<string, unknown>
+      const fields = keys.map((k) => {
+        const label = META_FIELD_LABELS[k] ?? k
+        const v = patch[k]
+        if (META_PROSE.has(k)) return `${label} ${typeof v === 'string' && v.trim() ? P.metaWritten : P.metaCleared}`
+        if (META_SHORT.has(k) && typeof v === 'string' && v.trim()) {
+          return fillTemplate(P.metaValue, { label, value: v.trim() })
+        }
+        return label
+      })
+      return row('clipboard', fillTemplate(C.logMeta, { fields: fields.join(', ') }))
     }
     default:
       return null

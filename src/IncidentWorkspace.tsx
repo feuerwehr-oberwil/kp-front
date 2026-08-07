@@ -862,15 +862,31 @@ export function IncidentWorkspace({
    * threshold had been moved under it. The row carries the OLD and NEW values: «geändert» alone
    * does not say whether the limit got stricter or looser.
    */
+  // A safety value applies the instant it is tapped; its Verlauf row waits for the operator to
+  // stop tapping. Shorter than the Rapportangaben settle — this is a stepper, not a sentence.
+  const SAFETY_LOG_SETTLE_MS = 2500
+  const safetyLogBase = useRef<IncidentSettings | null>(null)
+  const safetyLogTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const saveIncidentSettings = useCallback((next: IncidentSettings) => {
     setIncidentSettings((prev) => {
-      const dz = atemschutzDoctrine()
-      const moved = changedSafetySettings(prev, next, {
-        contactIntervalMin: dz.contactIntervalMin,
-        contactGraceSec: dz.contactGraceSec,
-        defaultFunkkanal: dz.defaultFunkkanal,
-      })
-      if (moved.length) {
+      // The steppers write straight through on every tap (the value has to apply live — the
+      // contact clock is running on it), so 10 → 20 min used to be ten «geändert» rows, and a
+      // held ±button twenty. The VALUE still lands immediately; only its row waits for the
+      // number to settle, and is then written against where the burst started.
+      if (!safetyLogBase.current) safetyLogBase.current = prev
+      if (safetyLogTimer.current) clearTimeout(safetyLogTimer.current)
+      safetyLogTimer.current = setTimeout(() => {
+        const base = safetyLogBase.current
+        safetyLogBase.current = null
+        safetyLogTimer.current = null
+        if (!base) return
+        const dz = atemschutzDoctrine()
+        const moved = changedSafetySettings(base, next, {
+          contactIntervalMin: dz.contactIntervalMin,
+          contactGraceSec: dz.contactGraceSec,
+          defaultFunkkanal: dz.defaultFunkkanal,
+        })
+        if (!moved.length) return
         const AZ = appConfig.copy.atemschutz
         const tpl: Record<string, string> = {
           contactIntervalMin: AZ.logSafetyInterval,
@@ -879,7 +895,7 @@ export function IncidentWorkspace({
         }
         const changes = moved.map((m) => fillTemplate(tpl[m.key], { from: String(m.from), to: String(m.to) })).join(', ')
         log('warn', fillTemplate(AZ.logSafety, { changes }), 'team')
-      }
+      }, SAFETY_LOG_SETTLE_MS)
       return next
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- log is stable per mount
@@ -894,10 +910,29 @@ export function IncidentWorkspace({
    * One row per save naming WHICH fields moved, not one per field: the sheet writes several at
    * once (a Combo commit patches its neighbours), and a line per field would bury the Verlauf.
    */
+  // How long the Rapportangaben have to sit still before their change earns a Verlauf row.
+  // Long enough that a sentence being typed is one edit, short enough that closing the sheet and
+  // reading the Verlauf a moment later already shows it.
+  const META_LOG_SETTLE_MS = 4000
+  const metaLogBase = useRef<ReportMeta | null>(null)
+  const metaLogTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const saveReportMeta = useCallback((next: ReportMeta) => {
     setReportMeta((prev) => {
-      const fields = changedReportMetaFields(prev, next)
-      if (fields.length) log('clipboard', fillTemplate(appConfig.copy.preflight.logMetaChanged, { fields: fields.join(', ') }))
+      // The sheet persists on every KEYSTROKE (the textareas save as you type), so logging each
+      // save wrote one Verlauf row per character typed into a Bemerkung. The row is written from
+      // the state the editing STARTED in, once the typing stops — one line per edit, naming what
+      // actually moved between those two points.
+      if (!metaLogBase.current) metaLogBase.current = prev
+      if (metaLogTimer.current) clearTimeout(metaLogTimer.current)
+      metaLogTimer.current = setTimeout(() => {
+        const base = metaLogBase.current
+        metaLogBase.current = null
+        metaLogTimer.current = null
+        if (!base) return
+        const fields = changedReportMetaFields(base, next)
+        if (fields.length) log('clipboard', fillTemplate(appConfig.copy.preflight.logMetaChanged, { fields: fields.join(', ') }))
+      }, META_LOG_SETTLE_MS)
       return next
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- log is stable per mount
@@ -1837,7 +1872,13 @@ export function IncidentWorkspace({
       const coords = dr.coords.map((p, i) => i === (endpoint === 'start' ? 0 : dr.coords.length - 1) ? fallback : p)
       emit('draw.edit', { id: dr.id, patch: { coords, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) } })
     })
-    setSelectedDrawIds([]); setSelectedEntityIds([]); log('close', appConfig.copy.log.drawingDeleted)
+    setSelectedDrawIds([]); setSelectedEntityIds([])
+    // «Zeichnung entfernt» after a lasso over eleven objects is not vague, it is wrong — the
+    // singular says one thing went. The count is right here; a reconstruction needs it.
+    const gone = ids.length + ents.length
+    log('close', gone > 1
+      ? fillTemplate(appConfig.copy.log.selectionDeleted, { n: gone })
+      : appConfig.copy.log.drawingDeleted)
   }
 
   // select + fly to an object — used by clickable Verlauf rows
@@ -2086,11 +2127,21 @@ export function IncidentWorkspace({
       for (const id of needNote) if (next[id]) next[id] = { ...next[id], note: roleNote }
       return next
     })
-    for (const id of fresh) log('people', `${rosterById.get(id)?.displayName ?? id} anwesend`, 'team')
+    // ONE row per person, not one for the presence and a second for the remark: naming a Fahrer
+    // is a single act, and «Meier Anna anwesend» followed by «Meier Anna – Bemerkung: Fahrer TLF»
+    // reads like two things happened to her.
+    const A = appConfig.copy.anwesenheit
+    const noted = new Set(needNote)
+    for (const id of fresh) {
+      const name = rosterById.get(id)?.displayName ?? id
+      log('people', noted.has(id) && roleNote
+        ? fillTemplate(A.logPresentAs, { name, role: roleNote })
+        : `${name} anwesend`, 'team')
+    }
+    // somebody already on the list who has just been given the job: the role is the news
     for (const id of needNote) {
-      log('people', fillTemplate(appConfig.copy.anwesenheit.logNote, {
-        name: rosterById.get(id)?.displayName ?? id, note: roleNote ?? '–',
-      }), 'team')
+      if (fresh.includes(id)) continue
+      log('people', fillTemplate(A.logNote, { name: rosterById.get(id)?.displayName ?? id, note: roleNote ?? '–' }), 'team')
     }
   }
   const ensurePresentFromTrupp = (ids: (string | undefined)[]) => ensurePresentForRole(ids)

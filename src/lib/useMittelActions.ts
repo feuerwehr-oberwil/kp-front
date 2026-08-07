@@ -3,9 +3,13 @@ import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig } from './deploymentConfig'
 import { fillTemplate } from './format'
 import { toast } from './ui'
-import { currentLineFor, currentMengeFor, materialForSymbol } from './mittel'
+import { currentLineFor, currentMengeFor, materialForSymbol, mittelKey } from './mittel'
 import type { MittelDraft } from '../components/MittelView'
 import type { MittelEntry, TimelineEvent } from '../types'
+
+/** How long a Mittel count has to sit still before it earns its Verlauf line. One ±burst is
+ *  one act of recording, not one act per tap. */
+const COUNT_SETTLE_MS = 3000
 
 interface MittelActionsDeps {
   mittel: MittelEntry[]
@@ -55,13 +59,53 @@ export function useMittelActions({ mittel, setMittel, authorName, log }: MittelA
     setMittel((c) => [...c, { id: `m${Date.now()}-${c.length}`, ...probe, menge, note, stock, deleted, at, by: authorName || undefined }])
     const where = sourceLabel ? ` · ${sourceLabel}` : ''
     // An explicit removal is its own sentence — «auf 0 gesetzt» and «gelöscht» stopped being the
-    // same act the moment a zeroed line started surviving on the sheet.
-    if (deleted) log('box', fillTemplate(M.logDeleted, { label }) + where, 'team')
-    else if ((cur?.menge ?? 0) === menge && note !== cur?.note) log('box', fillTemplate(M.logNote, { label, note: note ?? '–' }) + where, 'team')
-    else if ((cur?.menge ?? 0) === menge) log('box', fillTemplate(M.logStock, { label, stock: stock ?? '–' }) + where, 'team')
-    else if (menge === 0) log('box', fillTemplate(M.logRemoved, { label }) + where, 'team')
-    else log('box', fillTemplate(M.logSet, { label, menge, unit }) + where, 'team')
+    // same act the moment a zeroed line started surviving on the sheet. It is also the one case
+    // that must NOT wait: a deletion is a decision, not a count being dialled in.
+    if (deleted) { flushLogFor(mittelKey(probe)); log('box', fillTemplate(M.logDeleted, { label }) + where, 'team'); return }
+    if ((cur?.menge ?? 0) === menge && note !== cur?.note) { log('box', fillTemplate(M.logNote, { label, note: note ?? '–' }) + where, 'team'); return }
+    if ((cur?.menge ?? 0) === menge) { log('box', fillTemplate(M.logStock, { label, stock: stock ?? '–' }) + where, 'team'); return }
+    // A COUNT settles before it is logged. «Ölbinder: 3 Sack» typed with the ±stepper is five
+    // taps, and it used to be five Verlauf rows — the material is already listed with its total
+    // in the Mittel section, so the log's job is to say when it was recorded, once.
+    scheduleCountLog(probe, `${where}`, unit)
   }
+
+  /** Pending «this count is still being dialled in» writers, one per material line. Each entry
+   *  keeps its timer AND the closure that writes the row, so the row can be forced out early. */
+  const countLogs = useRef(new Map<string, { timer: ReturnType<typeof setTimeout>; write: () => void }>())
+  /** Write a pending count row NOW — a deletion supersedes it, and so does leaving the incident. */
+  const flushLogFor = (key: string) => {
+    const p = countLogs.current.get(key)
+    if (!p) return
+    clearTimeout(p.timer)
+    countLogs.current.delete(key)
+    p.write()
+  }
+  const scheduleCountLog = (probe: Parameters<typeof currentLineFor>[1], where: string, unit: string) => {
+    const key = mittelKey(probe)
+    const pending = countLogs.current.get(key)
+    if (pending) clearTimeout(pending.timer)
+    const write = () => {
+      // read the FINAL value off the live log, not the one captured when the burst started
+      const menge = currentLineFor(mittelRef.current, probe)?.menge ?? 0
+      const label = probe.label
+      log('box', menge === 0
+        ? fillTemplate(M.logRemoved, { label }) + where
+        : fillTemplate(M.logSet, { label, menge, unit }) + where, 'team')
+    }
+    const timer = setTimeout(() => { countLogs.current.delete(key); write() }, COUNT_SETTLE_MS)
+    countLogs.current.set(key, { timer, write })
+  }
+  // Leaving the incident FORCES the pending rows out rather than dropping them — a Verlauf that
+  // silently loses the last thing recorded is worse than one written a moment early.
+  useEffect(() => {
+    const pending = countLogs.current
+    return () => {
+      for (const [, p] of pending) { clearTimeout(p.timer); p.write() }
+      pending.clear()
+    }
+  }, [])
+
   // Symbol→Mittel capture: placing a matching tactical symbol (Lage or Plan) offers logging the
   // material with one tap — never automatic, and deleting a symbol never decrements (symbols are
   // freely redrawn; the log stays the operator's record).

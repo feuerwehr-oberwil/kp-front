@@ -1291,7 +1291,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     removable.forEach((id) => emit('board.delete', { id, planId: activeId }))
     setSelIds((ids) => ids.filter((id) => !removable.includes(id)))
     setSelId(null)
-    log('close', appConfig.copy.whiteboard.groupDeleted)
+    log('close', removable.length > 1
+      ? fillTemplate(appConfig.copy.whiteboard.groupDeletedN, { n: removable.length })
+      : appConfig.copy.whiteboard.groupDeleted)
   }
 
   // pan (no zoom change) so a normalized plan point lands at the viewport centre

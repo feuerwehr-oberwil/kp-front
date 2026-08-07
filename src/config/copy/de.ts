@@ -773,6 +773,9 @@ export const de = {
     objectMoved: '{name} verschoben',
     objectDeleted: '{name} entfernt',
     drawingDeleted: 'Zeichnung entfernt',
+    // «Zeichnung entfernt» nach einer Lasso-Auswahl über elf Objekte ist nicht ungenau,
+    // sondern falsch – der Singular behauptet, es sei eines gewesen.
+    selectionDeleted: '{n} Objekte entfernt',
     duplicated: 'Objekt dupliziert',
     undo: 'Aktion rückgängig gemacht',
     redo: 'Aktion wiederholt',
@@ -1205,6 +1208,7 @@ export const de = {
     insertVertex: 'Punkt einfügen',
     dragVertex: 'Eckpunkt ziehen · Doppeltippen zum Löschen',
     groupDeleted: 'Auswahl entfernt',
+    groupDeletedN: '{n} Objekte vom Plan entfernt',
     placeText: 'Notiz auf Plan gesetzt',
     placeSymbol: 'Symbol "{name}" auf Plan gesetzt',
     placeLine: 'Linie auf Plan gezeichnet',
@@ -2391,7 +2395,15 @@ export const de = {
     krokiAtLabel: 'Kroki-Stand',
     // Verlaufszeile, wenn jemand die Rapportangaben ändert — der Inhalt des Dokuments, das
     // unterschrieben wird, darf sich nicht spurlos ändern.
-    logMetaChanged: 'Rapportangaben geändert: {fields}',
+    // «Rapportangaben geändert: Bemerkungen» sagte, dass mit irgendetwas irgendetwas passiert
+    // ist – das Wenigste, was ein Protokoll sagen kann. Kurze Felder nennen ihren neuen Wert,
+    // Fliesstext sagt nur, ob er geschrieben, überschrieben oder geleert wurde (der Verlauf ist
+    // nicht die zweite Kopie des Rapports).
+    logMetaChanged: 'Rapportangaben: {fields}',
+    metaValue: '{label} «{value}»',
+    metaWritten: 'geschrieben',
+    metaRewritten: 'überarbeitet',
+    metaCleared: 'geleert',
     krokiOrientation: 'Ausrichtung',
     krokiPortrait: 'Hoch',
     krokiLandscape: 'Quer',
@@ -2470,6 +2482,8 @@ export const de = {
     logNote: '{name} – Bemerkung: {note}',
     // Wer eine Funktion übernimmt, ist auch anwesend – die Bemerkung wird dabei automatisch
     // gesetzt, aber nur wenn noch keine von Hand geschrieben wurde.
+    // eine Zeile pro Person, nicht eine für die Anwesenheit und eine zweite für die Funktion
+    logPresentAs: '{name} anwesend – {role}',
     roleEinsatzleiter: 'Einsatzleiter',
     roleFahrer: 'Fahrer {vehicle}',
     roleRueckmeldung: 'Rückmeldung ELZ',

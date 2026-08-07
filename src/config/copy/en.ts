@@ -1681,6 +1681,7 @@ export const en: Localizable<Copy> = {
     noteLabel: 'Remark',
     notePlaceholder: 'e.g. driver TLF',
     logNote: '{name} – remark: {note}',
+    logPresentAs: '{name} present – {role}',
     roleEinsatzleiter: 'Incident commander',
     roleFahrer: 'Driver {vehicle}',
     roleRueckmeldung: 'Report to dispatch',

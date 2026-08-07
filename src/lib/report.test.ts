@@ -10,6 +10,7 @@ const deployment = {
 vi.mock('./deploymentConfig', () => ({ getDeploymentConfig: () => deployment }))
 import {
   annotatedPlans,
+  changedReportMetaFields,
   einsatzleiterFromScene,
   eventIso,
   hasVisiblePlanAnnotation,
@@ -350,5 +351,33 @@ describe('metaExtrasForPdf follows the same rule as the roster above it', () => 
   it('leaves an ordinary one-day sheet as narrow as it was', () => {
     const out = metaExtrasForPdf(meta, { alarmedAt: '2026-06-23T08:00:00', endedAt: '2026-06-23T11:00:00' })
     expect(out.rueckmeldungElz).toBe('Widmer Céline · 00:15')
+  })
+})
+
+describe('changedReportMetaFields (what the Verlauf row says)', () => {
+  const base = { einsatzleiter: 'Widmer Céline', remarks: '' } as Parameters<typeof changedReportMetaFields>[0]
+
+  it('quotes a short field rather than naming it in the abstract', () => {
+    // «Rapportangaben geändert: Einsatzleiter» said that something happened to something
+    const out = changedReportMetaFields(base, { ...base, einsatzleiter: 'Meier Hans' })
+    expect(out).toEqual(['Einsatzleiter «Meier Hans»'])
+  })
+
+  it('says what happened to free text, never what it now says', () => {
+    // the Verlauf is not a second copy of the rapport
+    expect(changedReportMetaFields(base, { ...base, remarks: 'Zugang Hinterhof' })).toEqual(['Bemerkungen geschrieben'])
+    const written = { ...base, remarks: 'Zugang Hinterhof' }
+    expect(changedReportMetaFields(written, { ...written, remarks: 'Zugang Hof' })).toEqual(['Bemerkungen überarbeitet'])
+    expect(changedReportMetaFields(written, { ...written, remarks: '' })).toEqual(['Bemerkungen geleert'])
+  })
+
+  it('reports a cleared short field as cleared, not as an empty quote', () => {
+    expect(changedReportMetaFields(base, { ...base, einsatzleiter: '' })).toEqual(['Einsatzleiter geleert'])
+  })
+
+  it('stays silent when nothing worth a line moved', () => {
+    expect(changedReportMetaFields(base, { ...base })).toEqual([])
+    // bookkeeping about the rapport itself is not a statement about the Einsatz
+    expect(changedReportMetaFields(base, { ...base, erfasser: 'FU' })).toEqual([])
   })
 })

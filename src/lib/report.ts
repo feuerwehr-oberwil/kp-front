@@ -392,13 +392,30 @@ const META_FIELD_LABELS: Record<string, string> = {
  *  Einsatz — logging them would bury the ones that matter. */
 const META_QUIET = new Set(['erfasser', 'krokiPrint'])
 
+/** Fields short enough to print their new value in the Verlauf line. A Kurzbericht or a
+ *  Bemerkung is a paragraph — quoting it would turn the log into a second copy of the rapport,
+ *  so those report only THAT they were written (see `_prose`). */
+const META_SHORT = new Set([
+  'einsatzleiter', 'kontaktperson', 'kommandant', 'endedAt', 'ausgeruecktAt', 'alarmiertAt',
+])
+
+/** Free-text fields: say what happened to them, never what they now say. */
+const META_PROSE = new Set(['summary', 'remarks', 'lehren'])
+
+const _hasText = (v: unknown) => typeof v === 'string' && v.trim().length > 0
+
 /**
- * Which Rapportangaben actually changed between two versions — the content of the printed
- * rapport (Einsatzleiter, Endezeit, Gerettete, Partnerorganisationen …) used to change with no
- * journal row and no audit event at all. Returns display labels, empty when nothing worth a
- * line moved, so the caller can stay silent rather than log «geändert: ».
+ * Which Rapportangaben actually changed between two versions, AS THE VERLAUF PRINTS THEM — the
+ * content of the printed rapport (Einsatzleiter, Endezeit, Gerettete, Partnerorganisationen …)
+ * used to change with no journal row at all, and then with a row that named the field and
+ * nothing else: «Rapportangaben geändert: Bemerkungen» tells a reader that something happened
+ * to something, which is the least a log can say.
+ *
+ * A short field now carries its new value; a free-text one says whether it was written,
+ * rewritten or cleared. Empty when nothing worth a line moved, so the caller stays silent.
  */
 export function changedReportMetaFields(prev: ReportMeta, next: ReportMeta): string[] {
+  const P = appConfig.copy.preflight
   const keys = new Set([...Object.keys(prev), ...Object.keys(next)])
   const out: string[] = []
   for (const k of keys) {
@@ -408,7 +425,18 @@ export function changedReportMetaFields(prev: ReportMeta, next: ReportMeta): str
     // structural compare: gruppen/fahrzeuge/partnerContacts are arrays of objects, and an
     // identity check would report a change on every re-render that rebuilt them
     if (JSON.stringify(a ?? null) === JSON.stringify(b ?? null)) continue
-    out.push(META_FIELD_LABELS[k] ?? k)
+    const label = META_FIELD_LABELS[k] ?? k
+    if (META_PROSE.has(k)) {
+      const verb = !_hasText(b) ? P.metaCleared : _hasText(a) ? P.metaRewritten : P.metaWritten
+      out.push(`${label} ${verb}`)
+    } else if (META_SHORT.has(k) && _hasText(b)) {
+      const shown = k.endsWith('At') ? (formatDateTime(b as string) || String(b)) : String(b).trim()
+      out.push(fillTemplate(P.metaValue, { label, value: shown }))
+    } else if (META_SHORT.has(k)) {
+      out.push(`${label} ${P.metaCleared}`)
+    } else {
+      out.push(label)
+    }
   }
   return out.sort((x, y) => x.localeCompare(y, 'de'))
 }
