@@ -627,9 +627,9 @@ def _fit_text(c, text: str, max_w: float, font: str = "Helvetica", size: float =
     return text + "…"
 
 
-#: How far under a signature row its rule sits — a hand's writing height, not a hairline gap.
+#: How far under a signature row its rule sits — enough to write a signature into, and no more.
 #: Anything less and the name is underlined rather than signed under.
-_SIG_DROP = 7 * mm
+_SIG_DROP = 6 * mm
 
 
 class _FormRows(Flowable):
@@ -638,7 +638,7 @@ class _FormRows(Flowable):
     of fields `{label, w (fraction), value?, time?}`; `time` fields render the `__:__`
     stub instead of a leader. `boxed` draws the Details frame around the block."""
 
-    def __init__(self, width: float, rows: list[list[dict]], boxed: bool = False, pitch: float = 9.5 * mm):
+    def __init__(self, width: float, rows: list[list[dict]], boxed: bool = False, pitch: float = 8.5 * mm):
         super().__init__()
         self.width = width
         self.rows = rows
@@ -701,9 +701,9 @@ class _FormRows(Flowable):
                     # baseline underlined the name and left nowhere to sign — a signature needs
                     # empty paper under the name it belongs to, which is how every Visum block on
                     # a kantonale Vorlage is drawn.
-                    sig = bool(f.get("line"))
+                    sig = bool(f.get("sign"))
                     rule_y = y - (_SIG_DROP if sig else 0.6 * mm)
-                    if not value or sig:
+                    if not value or sig or f.get("line"):
                         c.saveState()
                         c.setStrokeColor(_WRITE)
                         c.setLineWidth(0.5)
@@ -863,10 +863,9 @@ def compose_report_pdf(
                 thickness=1.1,
                 color=colors.HexColor("#282828"),
                 spaceBefore=0,
-                # A section rule used to sit 6 pt above its first line, which is fine to READ and
-                # too tight to WRITE in — the Anwesenheit times and the Einsatz field in the
-                # header box are both filled in by hand, against the rule.
-                spaceAfter=10,
+                # 7, not 10: the rule needs a little air under it for the hand that writes against
+                # it, but a form that floats reads as unfinished and costs a page.
+                spaceAfter=7,
                 lineCap="butt",
             ),
         ]
@@ -1065,18 +1064,21 @@ def compose_report_pdf(
     sig = _FormRows(
         inner_w,
         [
+            # «Ort, Datum: ______» is written ON its line like every other field on the sheet —
+            # it is a value somebody fills in, not a signature. Only the NAME field signs
+            # underneath, because that is the one that needs empty paper beneath it.
             [
-                {"label": L["sigOrtDatum"], "w": 0.4, "line": True},
-                {"label": L["einsatzleiter"], "w": 0.6, "value": m.einsatzleiter, "line": True},
+                {"label": L["sigOrtDatum"], "w": 0.4},
+                {"label": L["einsatzleiter"], "w": 0.6, "value": m.einsatzleiter, "sign": True},
             ],
             [
-                {"label": L["sigOrtDatum"], "w": 0.4, "line": True},
-                {"label": L["sigKommandant"], "w": 0.6, "value": m.kommandant, "line": True},
+                {"label": L["sigOrtDatum"], "w": 0.4},
+                {"label": L["sigKommandant"], "w": 0.6, "value": m.kommandant, "sign": True},
             ],
         ],
-        # the rule hangs _SIG_DROP under each row, so the pitch has to clear it AND leave
-        # the next Ort/Datum room to breathe
-        pitch=14 * mm,
+        # clears the signature rule hanging _SIG_DROP under each name, and no more: the sheet
+        # is a form, not a poster
+        pitch=11.5 * mm,
     )
     story.append(KeepTogether([*head(L["signoff"], cond=False), sig]))
 
@@ -1361,7 +1363,7 @@ def _personal_table(personal: list[PersonalRowIn], inner_w: float, st: dict[str,
         (_str_w(f"{p.von or _TIME_STUB} – {p.bis or _TIME_STUB}", "Helvetica", 8.5) for p in personal),
         default=0.0,
     )
-    time_w = max(34 * mm, min(widest + 3 * mm, 48 * mm))
+    time_w = max(32 * mm, min(widest + 3 * mm, 46 * mm))
     name_w = inner_w / 2 - check_w - time_w - 3 * mm
 
     def cells(p: PersonalRowIn | None) -> list:
@@ -1392,11 +1394,11 @@ def _personal_table(personal: list[PersonalRowIn], inner_w: float, st: dict[str,
     def column(people: list[PersonalRowIn]) -> Table:
         style: list[tuple] = [
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            # A roster row is filled in with a PEN — the tick, and usually the two clocks. At
-            # 1.8 pt of padding the rows were legible and unwritable: two ballpoint digits do not
-            # fit between the line above and the line below.
-            ("TOPPADDING", (0, 0), (-1, -1), 4),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            # A roster row is filled in with a PEN — the tick, and usually the two clocks — so it
+            # cannot go back to the 1.8 pt it had. 2.8 is the compromise: writable, and still
+            # dense enough that a village Wehr's roster does not sprawl.
+            ("TOPPADDING", (0, 0), (-1, -1), 2.8),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2.8),
             ("LEFTPADDING", (0, 0), (-1, -1), 1),
             # breathing room between the checkbox square and the name (jsPDF gap ~1.6mm);
             # the check cells lose ALL side padding so the X centers in its square
@@ -1418,10 +1420,17 @@ def _personal_table(personal: list[PersonalRowIn], inner_w: float, st: dict[str,
     return _two_up(personal, column, check_w + name_w + time_w)
 
 
-# Up to this many Beilagen print as full plates; beyond it they become a contact sheet. The
-# number is the point where nobody reads plate 30 anyway — 50 large plates are ~20 sheets
-# appended to a 2-page rapport, and the signed part disappears behind a photo stack.
-_ATT_PLATE_MAX = 8
+# Beilagen come in three sizes, because «how many are there» changes what the pages are FOR.
+#
+#   ≤2   full plates — a driving licence is photographed to be read off the paper afterwards
+#   ≤8   two-up — still readable, and half the sheets. Four plates down a single column left
+#        the right half of every page empty for no gain: at 62 % width a plate is not using
+#        the page it costs.
+#   >8   a numbered contact sheet, three across. Nobody reads plate 30, and what the paper is
+#        for becomes «which pictures exist», which a thumbnail answers. 50 large plates are
+#        ~20 sheets appended to a 2-page rapport, and the signed part disappears behind them.
+_ATT_PLATE_MAX = 2
+_ATT_GRID_MAX = 8
 
 
 def _attachment_block(
@@ -1432,15 +1441,22 @@ def _attachment_block(
 ) -> Table:
     """Beilagen, laid out for the number of them there actually are.
 
-    A handful print LARGE — the reason to photograph a driving licence is to read it off the
-    paper afterwards. Many print as a numbered contact sheet: at 50 photos nobody reads plate 30,
-    and what the paper is for becomes «which pictures exist», which a thumbnail answers.
+    One or two print LARGE — the reason to photograph a driving licence is to read it off the
+    paper afterwards. A handful go two-up, which is still readable and halves the sheets. Many
+    print as a numbered contact sheet: at 50 photos nobody reads plate 30, and what the paper is
+    for becomes «which pictures exist», which a thumbnail answers.
 
     Either way each carries its number «B7», so the Verlauf, a phone call and the paper can all
     name the same picture.
     """
-    grid = len(att) > _ATT_PLATE_MAX
-    cols, cell_h = (3, 62 * mm) if grid else (1, 92 * mm)
+    n = len(att)
+    grid = n > _ATT_PLATE_MAX
+    if n <= _ATT_PLATE_MAX:
+        cols, cell_h = 1, 92 * mm
+    elif n <= _ATT_GRID_MAX:
+        cols, cell_h = 2, 84 * mm
+    else:
+        cols, cell_h = 3, 62 * mm
     gutter = 4 * mm
     cell_w = (inner_w - gutter * (cols - 1)) / cols
     img_w = cell_w if grid else inner_w * 0.62

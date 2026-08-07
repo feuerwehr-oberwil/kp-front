@@ -42,7 +42,8 @@ def test_no_blank_page_between_kroki_and_beilagen():
 
 
 def test_beilagen_plates_share_a_page():
-    """Capped plates FLOW — a full-page plate each turned four photos into four sheets."""
+    """Capped plates FLOW — a full-page plate each turned four photos into four sheets. Four also
+    go TWO-UP: at 62 % width a single column of plates left the right half of every page empty."""
 
     def png() -> bytes:
         b = io.BytesIO()
@@ -59,8 +60,8 @@ def test_beilagen_plates_share_a_page():
         }
     )
     pdf = compose_report_pdf(payload, {f"photo:{u}": png() for u in urls})
-    # 4 plates: the form page + 2 Beilagen pages, not the form page + 4
-    assert len(pdfium.PdfDocument(pdf)) == 3
+    # 4 photos, two-up: the form page + ONE Beilagen page — not four sheets, and no longer two
+    assert len(pdfium.PdfDocument(pdf)) == 2
 
 
 def test_a_roster_longer_than_a_page_still_composes():
@@ -199,10 +200,11 @@ def test_the_signature_rule_sits_under_the_name_not_through_it():
 
     el = box("Widmer")
     kdt = box("Meier")
-    # the rule hangs _SIG_DROP (7 mm ≈ 20 pt) under the EL's name; the gap to the Kommandant row
-    # has to clear it and still leave a writing margin, or the two Visa run into each other
+    # The rule hangs _SIG_DROP (6 mm ≈ 17 pt) under the EL's name, and the signature is written
+    # into the space ABOVE it — so the gap to the Kommandant row has to clear the drop with a
+    # margin, or the rule lands on the next row's label. Not more: this is a form, not a poster.
     gap = el[1] - kdt[3]
-    assert gap > 32, f"only {gap:.1f} pt between the two Visum rows — no room to sign"
+    assert gap > 22, f"only {gap:.1f} pt between the two Visum rows — the rule has no room"
 
 
 def test_the_roster_rows_are_tall_enough_to_write_in():
@@ -228,8 +230,10 @@ def test_the_roster_rows_are_tall_enough_to_write_in():
         )
 
     # consecutive names in the SAME column are one row apart
+    # 2.8 pt of padding per side puts this near 15.5; the 1.8 it regressed from lands near 13.6,
+    # which is what the threshold is calibrated to catch.
     pitch = top_of("Muster 0") - top_of("Muster 1")
-    assert pitch > 16, f"roster rows are {pitch:.1f} pt apart — no room for a pen"
+    assert pitch > 14.5, f"roster rows are {pitch:.1f} pt apart — no room for a pen"
 
 
 def test_a_full_roster_still_lands_on_a_sane_number_of_sheets():
@@ -245,3 +249,54 @@ def test_a_full_roster_still_lands_on_a_sane_number_of_sheets():
     )
     doc = pdfium.PdfDocument(compose_report_pdf(payload, {}))
     assert len(doc) <= 3, f"{len(doc)} sheets for a 28-person roster"
+
+
+def test_ort_datum_is_written_on_its_own_line_not_under_it():
+    """«Ort, Datum: ______» is a value somebody fills in, like every other field on the sheet —
+    only the NAME signs underneath. A pass that gave every signature-block field the drop put the
+    Ort/Datum leader a writing-height below its own label, which reads as a stray rule."""
+    payload = ReportPayload.model_validate(
+        {
+            "incident": {"title": "Zimmerbrand", "id": "i"},
+            "generatedAt": "07.08.2026 09:00",
+            "proof": {"statusLabel": "intakt", "count": 1, "head": "0"},
+            "meta": {"einsatzleiter": "Widmer Céline", "kommandant": "Meier Hans"},
+        }
+    )
+    doc = pdfium.PdfDocument(compose_report_pdf(payload, {}))
+    page = next(p for p in (doc[i] for i in range(len(doc))) if "Unterschriften" in p.get_textpage().get_text_range())
+    tp = page.get_textpage()
+    ort = [tp.get_rect(i) for i in range(tp.count_rects()) if "Ort, Datum" in tp.get_text_bounded(*tp.get_rect(i))]
+    assert len(ort) == 2, "both Visum rows carry an Ort/Datum field"
+    # the two Ort/Datum labels sit one pitch apart — if either had been pushed down by a
+    # signature drop the spacing between them would no longer be uniform
+    gap = ort[0][1] - ort[1][1]
+    assert 25 < gap < 40, f"the two Ort/Datum rows are {gap:.1f} pt apart"
+
+
+def test_beilagen_pick_their_size_from_how_many_there_are():
+    """«How many are there» changes what the pages are FOR: one document is photographed to be
+    read off the paper, fifty are photographed so somebody can see which pictures exist."""
+
+    def png() -> bytes:
+        b = io.BytesIO()
+        Image.new("RGB", (1200, 1600), (200, 210, 200)).save(b, "PNG")
+        return b.getvalue()
+
+    def pages(n: int) -> int:
+        urls = [f"/api/media/a{i}" for i in range(n)]
+        payload = ReportPayload.model_validate(
+            {
+                "incident": {"title": "Beilagen-Probe", "id": "p"},
+                "generatedAt": "07.08.2026 01:00",
+                "proof": {"statusLabel": "intakt", "count": 1, "head": "0"},
+                "attachments": [{"url": u, "caption": f"Bild {i}"} for i, u in enumerate(urls)],
+            }
+        )
+        return len(pdfium.PdfDocument(compose_report_pdf(payload, {f"photo:{u}": png() for u in urls})))
+
+    # two full plates still share their page; twelve thumbnails do not need more sheets than eight
+    assert pages(2) == 2
+    assert pages(8) == pages(12) == 3
+    # and the whole range stays bounded — a photo stack must never bury the signed part
+    assert pages(30) <= 5
