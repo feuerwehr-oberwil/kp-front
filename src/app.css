@@ -3735,6 +3735,10 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
    120 scrim and it read as blurred and dead to the touch. */
 .mv-note-dialog.ui-dialog { z-index: 121; width: min(520px, 92vw); }
 .mv-note-dialog > .ip-actions { padding: 0 20px 18px; }
+/* «Eintrag löschen» sits at the far LEFT, with the auto margin pushing Abbrechen/Speichern
+   away from it — a destructive button next to the primary one is a mis-tap waiting to happen */
+.mv-note-dialog .ip-actions > .mv-del { margin-right: auto; color: var(--red-strong); }
+.mv-note-dialog .ip-actions > .mv-del svg { width: 15px; height: 15px; }
 .mp-sheet { display: flex; flex-direction: column; width: min(720px, 100%); height: min(560px, 90vh);
   background: var(--glass); border: 1px solid var(--glass-line); border-radius: var(--r-hero); overflow: hidden;
   box-shadow: 0 24px 60px rgba(0, 0, 0, .4); animation: pop .16s var(--ease); }

@@ -43,13 +43,22 @@ export function useMittelActions({ mittel, setMittel, authorName, log }: MittelA
     // so editing a quantity never wipes a remark, and a remark can be written without touching
     // the quantity (which is the common case: the material was logged, the note comes later)
     const note = d.note === undefined ? cur?.note : (d.note?.trim() || undefined)
-    if ((cur?.menge ?? 0) === menge && note === cur?.note) return // unchanged → no-op
+    // `stock` follows the same value/null/omitted contract as `note`: a hand-added line can be
+    // given a Bestand later without touching its count, and a count change never drops it.
+    const stock = d.stock === undefined ? cur?.stock : (d.stock === null ? undefined : Math.max(0, Math.round(d.stock)))
+    const deleted = d.deleted || undefined
+    const unchanged = (cur?.menge ?? 0) === menge && note === cur?.note && stock === cur?.stock && !deleted
+    if (unchanged) return // → no event, no Verlauf row
     // (Retablierung status retired 2026-07-14 — old entries keep their stored status,
     // new events simply don't carry one; cleanup/defects live outside the system.)
     const at = new Date().toISOString()
-    setMittel((c) => [...c, { id: `m${Date.now()}-${c.length}`, ...probe, menge, note, at, by: authorName || undefined }])
+    setMittel((c) => [...c, { id: `m${Date.now()}-${c.length}`, ...probe, menge, note, stock, deleted, at, by: authorName || undefined }])
     const where = sourceLabel ? ` · ${sourceLabel}` : ''
-    if ((cur?.menge ?? 0) === menge) log('box', fillTemplate(M.logNote, { label, note: note ?? '–' }) + where, 'team')
+    // An explicit removal is its own sentence — «auf 0 gesetzt» and «gelöscht» stopped being the
+    // same act the moment a zeroed line started surviving on the sheet.
+    if (deleted) log('box', fillTemplate(M.logDeleted, { label }) + where, 'team')
+    else if ((cur?.menge ?? 0) === menge && note !== cur?.note) log('box', fillTemplate(M.logNote, { label, note: note ?? '–' }) + where, 'team')
+    else if ((cur?.menge ?? 0) === menge) log('box', fillTemplate(M.logStock, { label, stock: stock ?? '–' }) + where, 'team')
     else if (menge === 0) log('box', fillTemplate(M.logRemoved, { label }) + where, 'team')
     else log('box', fillTemplate(M.logSet, { label, menge, unit }) + where, 'team')
   }

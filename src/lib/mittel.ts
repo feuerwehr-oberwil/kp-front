@@ -32,6 +32,10 @@ export interface CurrentMittel {
   status?: MittelStatus
   /** free remark on the line — the latest one written (see MittelEntry.note) */
   note?: string
+  /** nominal stock of an incident-local line (see MittelEntry.stock) */
+  stock?: number
+  /** the line was explicitly removed (see MittelEntry.deleted) */
+  deleted?: boolean
   at: string
   /** id of the latest event — the one a per-row edit appends a successor to */
   entryId: string
@@ -47,17 +51,28 @@ export function deriveCurrentMittel(entries: MittelEntry[]): Map<string, Current
     if (!prev || e.at >= prev.at) {
       out.set(key, {
         key, materialId: e.materialId, label: e.label, unit: e.unit,
-        sourceId: e.sourceId, sourceLabel: e.sourceLabel, menge: e.menge, status: e.status, note: e.note, at: e.at, entryId: e.id,
+        sourceId: e.sourceId, sourceLabel: e.sourceLabel, menge: e.menge, status: e.status, note: e.note,
+        stock: e.stock, deleted: e.deleted, at: e.at, entryId: e.id,
       })
     }
   }
   return out
 }
 
-/** The visible lines (latest per key, tombstones with `menge === 0` dropped), stably sorted. */
+/** The lines that were USED — latest per key, nothing removed, nothing at zero — stably sorted.
+ *  This is what the Rapport and the source view read: a line recorded and then corrected back to
+ *  zero states that nothing was used, and printing it would say the opposite. */
 export function visibleMittel(entries: MittelEntry[]): CurrentMittel[] {
+  return recordedMittel(entries).filter((c) => c.menge > 0)
+}
+
+/** Every line still on the sheet, INCLUDING the ones standing at zero — what the «Weitere» group
+ *  renders. A hand-added line that was stepped down to 0 has to stay in the list: it is the only
+ *  handle left for correcting the count back up, renaming it, or removing it on purpose. Only an
+ *  explicit removal takes a line out of here. */
+export function recordedMittel(entries: MittelEntry[]): CurrentMittel[] {
   return [...deriveCurrentMittel(entries).values()]
-    .filter((c) => c.menge > 0)
+    .filter((c) => !c.deleted)
     .sort((a, b) => a.label.localeCompare(b.label, 'de') || a.unit.localeCompare(b.unit, 'de'))
 }
 
@@ -220,11 +235,15 @@ export function mittelListGroups(
     }),
   }))
 
-  const customRows = visibleMittel(entries)
+  // recordedMittel, not visibleMittel: a hand-added line stepped down to 0 stays on the sheet.
+  // It is the only handle left for putting the count back, renaming it or removing it on purpose
+  // — and it does NOT reach the Rapport, which reads visibleMittel.
+  const customRows = recordedMittel(entries)
     .filter((c) => !covered.has(c.key))
     .map((c): MittelListRow => ({
       key: c.key, materialId: c.materialId, label: c.label, unit: c.unit, custom: true, totalUsed: c.menge,
-      cells: [{ sourceId: c.sourceId, sourceLabel: c.sourceLabel, used: c.menge, status: c.status }],
+      totalStock: c.stock,
+      cells: [{ sourceId: c.sourceId, sourceLabel: c.sourceLabel, stock: c.stock, used: c.menge, status: c.status }],
     }))
   if (customRows.length) groups.push({ category: labels.custom, custom: true, rows: customRows })
   return groups.filter((g) => g.rows.length > 0)

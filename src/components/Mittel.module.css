@@ -109,6 +109,11 @@
 .subLabel { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font: 650 13px var(--body); color: var(--ink-dim); }
 
+/* pencil dialog: Einheit and Bestand share a line — both are short, and stacked they pushed
+   Quelle and the Bemerkung below the fold on a phone */
+.dialogRow { display: flex; gap: 10px; align-items: flex-start; }
+.dialogRow > * { flex: 1 1 0; min-width: 0; }
+
 /* trailing «Anderes Mittel» row — the composer path for free-typed entries */
 .addCustom { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%;
   min-height: 48px; margin-top: 12px; cursor: pointer; border: 1px dashed var(--glass-edge);

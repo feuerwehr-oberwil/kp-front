@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { MittelEntry } from '../types'
 import {
-  mittelKey, deriveCurrentMittel, visibleMittel, currentMengeFor,
+  mittelKey, deriveCurrentMittel, visibleMittel, recordedMittel, currentMengeFor,
   groupBySource, groupByMaterial, mittelReportRows, mittelLineCount,
   availableFor, mittelListGroups, groupCatalogue,
   materialForSymbol, currentLineFor,
@@ -219,5 +219,50 @@ describe('status fold (data model — Retablierung UI retired 2026-07-14)', () =
     expect(currentLineFor(log, { materialId: 'luefter', label: 'Lüfter', unit: 'Stk' })?.status).toBe('defekt')
     const cleared = [...log, ev(3, { materialId: 'luefter', menge: 1 })]
     expect(currentLineFor(cleared, { materialId: 'luefter', label: 'Lüfter', unit: 'Stk' })?.status).toBeUndefined()
+  })
+})
+
+describe('recordedMittel (the sheet) vs visibleMittel (the Rapport)', () => {
+  it('keeps a zeroed line on the sheet and off the Rapport', () => {
+    // a hand-added line stepped back to 0 says «nothing used» — it must stay editable in the
+    // list (rename, Bestand, delete) while stating nothing on the printed sheet
+    const log = [
+      ev(1, { label: 'Kettensägenöl', unit: 'l', menge: 2 }),
+      ev(2, { label: 'Kettensägenöl', unit: 'l', menge: 0 }),
+    ]
+    expect(visibleMittel(log)).toHaveLength(0)
+    expect(recordedMittel(log)).toHaveLength(1)
+    expect(recordedMittel(log)[0]).toMatchObject({ label: 'Kettensägenöl', menge: 0 })
+  })
+
+  it('an explicit deletion takes the line off BOTH', () => {
+    const log = [
+      ev(1, { label: 'Kettensägenöl', unit: 'l', menge: 2 }),
+      ev(2, { label: 'Kettensägenöl', unit: 'l', menge: 2, deleted: true }),
+    ]
+    expect(visibleMittel(log)).toHaveLength(0)
+    expect(recordedMittel(log)).toHaveLength(0)
+    // undo is just another event — the tombstone clears
+    const undone = [...log, ev(3, { label: 'Kettensägenöl', unit: 'l', menge: 2, deleted: false })]
+    expect(recordedMittel(undone)).toHaveLength(1)
+    expect(visibleMittel(undone)).toHaveLength(1)
+  })
+
+  it('carries a hand-added line’s Bestand into its list row', () => {
+    const rows = mittelListGroups(
+      [ev(1, { label: 'Kettensägenöl', unit: 'l', menge: 2, stock: 5 })],
+      [], [], { other: 'Übrige', custom: 'Weitere' },
+    )
+    const custom = rows.find((g) => g.custom)
+    expect(custom?.rows[0]).toMatchObject({ label: 'Kettensägenöl', totalUsed: 2, totalStock: 5 })
+    expect(custom?.rows[0].cells[0]).toMatchObject({ stock: 5, used: 2 })
+  })
+
+  it('shows a zeroed hand-added line in the list group', () => {
+    const rows = mittelListGroups(
+      [ev(1, { label: 'Absperrband', unit: 'Rolle', menge: 1 }), ev(2, { label: 'Absperrband', unit: 'Rolle', menge: 0 })],
+      [], [], { other: 'Übrige', custom: 'Weitere' },
+    )
+    expect(rows.find((g) => g.custom)?.rows.map((r) => r.label)).toEqual(['Absperrband'])
   })
 })

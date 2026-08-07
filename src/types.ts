@@ -741,6 +741,14 @@ export interface MittelEntry {
    *  Carried on the event like `menge`, so the current picture takes the latest one and the
    *  history keeps what was written when. Printed with the line on the Rapport. */
   note?: string
+  /** Nominal total stock of an incident-local line — what «noch N» counts down from. A
+   *  catalogue material takes this from the deployment config; a hand-added one has nowhere
+   *  else to get it, so it is carried on the event (latest wins, like `note`). */
+  stock?: number
+  /** Explicit removal of a line. `menge: 0` used to double as the tombstone, but a hand-added
+   *  line now SURVIVES being stepped to zero (0 = nothing used, same as a catalogue row), so
+   *  the removal needs to say so itself. Set once; the events stay, as always. */
+  deleted?: boolean
   /** ISO timestamp the event was saved */
   at: string
   /** author display name snapshot, when known */

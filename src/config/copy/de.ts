@@ -2699,7 +2699,7 @@ export const de = {
     categoryOther: 'Übrige',
     // trailing group for free-typed (incident-local) lines in the unified list
     customGroup: 'Weitere',
-    // remaining-stock readout: dots up to 8 Stück, «noch N» beyond; aria/tooltip spells it out
+    // remaining-stock readout: dots up to 7 Stück, «noch N» beyond; aria/tooltip spells it out
     noch: 'noch {n}',
     stockAria: '{label}: noch {remaining} von {total}',
     emptyTitle: 'Noch keine Mittel erfasst.',
@@ -2718,15 +2718,23 @@ export const de = {
     qtyLabel: 'Menge',
     save: 'Speichern',
     cancel: 'Abbrechen',
-    removeRow: 'Auf 0 setzen (entfernen)',
-    // Entfernen (Stepper auf 0) läuft sofort mit Rückgängig-Toast; der Verlauf bleibt erhalten
-    removedToast: '«{label}» entfernt',
+    removeRow: 'Auf 0 setzen',
+    // Löschen läuft sofort mit Rückgängig-Toast; der Verlauf bleibt erhalten
+    removedToast: '«{label}» gelöscht',
     // Verlauf-Zeilen
     logSet: '{label}: {menge} {unit}',
-    logRemoved: '{label} entfernt',
+    logRemoved: '{label} auf 0 gesetzt',
+    logDeleted: '{label} gelöscht',
     logNote: '{label} – Bemerkung: {note}',
+    logStock: '{label} – Bestand: {stock}',
     noteLabel: 'Bemerkung',
     notePlaceholder: 'z. B. an Werkhof übergeben',
+    // Stiftdialog auf einer selbst erfassten Zeile: Bezeichnung/Einheit/Quelle/Bestand nachträglich
+    // korrigieren – erfasst wird sie einmal, gelesen wird sie den ganzen Einsatz lang
+    editLabel: 'Eintrag bearbeiten',
+    stockLabel: 'Bestand',
+    stockPlaceholder: 'optional',
+    deleteLine: 'Eintrag löschen',
     // Symbol→Mittel: Toast-Angebot nach dem Platzieren eines passenden taktischen Zeichens
     captureOffer: '{label} als Mittel erfassen?',
     captureAction: 'Erfassen',
