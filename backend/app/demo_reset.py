@@ -325,7 +325,39 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
     # Name the Einsatzleiter. The scene file leaves it empty, so the Rapport's most-asked field
     # read «nicht erfasst» on a fully worked demo incident — and nothing tied the «Einsatzleiter»
     # symbol on the map to a person on the Anwesenheit list.
-    ws["reportMeta"] = {**(ws.get("reportMeta") or {}), "einsatzleiter": DEMO_EINSATZLEITER}
+    # Alarmierungs- / Ausrückzeiten: the Rapport's Zeiten grid is built from the station's
+    # configured Gruppen + Fahrzeuge, and an empty grid on a fully worked demo Einsatz reads as
+    # a missing feature rather than as an unfilled form. Times sit in the honest run-up the
+    # incident already has — alarm, then a minute or two to the vehicles rolling — and stay
+    # BEFORE the first Trupp entry at −14 (see DEMO_ELAPSED_MIN).
+    #
+    # No `manual` flag: these are exactly what the milestone webhook would have prefilled, and
+    # marking them as human edits would tell the app to stop updating them.
+    ws["reportMeta"] = {
+        **(ws.get("reportMeta") or {}),
+        "einsatzleiter": DEMO_EINSATZLEITER,
+        "gruppen": [
+            {"id": "g1", "alarmedAt": _iso(started)},
+            # the second Gruppe is alarmed a minute later — a Nachalarmierung, which is what
+            # the two-row grid exists to show
+            {"id": "g2", "alarmedAt": _iso(started + timedelta(minutes=1))},
+        ],
+        "fahrzeuge": [
+            {
+                "id": "tlf",
+                "ausgerueckt": _iso(started + timedelta(minutes=4)),
+                "vorOrt": _iso(started + timedelta(minutes=9)),
+            },
+            {
+                "id": "adf",
+                "ausgerueckt": _iso(started + timedelta(minutes=5)),
+                "vorOrt": _iso(started + timedelta(minutes=10)),
+            },
+            # the MTF rolled but has not reported vor Ort — a half-filled row is the normal
+            # state of this grid mid-Einsatz, and the demo should show that too
+            {"id": "mtf", "ausgerueckt": _iso(started + timedelta(minutes=6))},
+        ],
+    }
 
     # Refresh the floor-stack chip's time labels so they read as fresh instead of a frozen 16:24.
     for res in ws.get("board", {}).get("gebaeude", []):

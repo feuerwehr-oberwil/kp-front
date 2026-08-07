@@ -2,6 +2,7 @@
 
 import json
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from sqlalchemy import text
@@ -228,3 +229,36 @@ def test_the_demo_alarm_predates_everything_it_seeds():
     stamps = {int(m) for m in re.findall(r"timedelta\(minutes=(\d+)\)", src)}
     predating = sorted(m for m in stamps if m > DEMO_ELAPSED_MIN)
     assert not predating, f"seeded stamps older than the alarm (now-{DEMO_ELAPSED_MIN}min): {predating}"
+
+
+def test_the_zeiten_grid_is_filled_and_plausible():
+    """An empty Zeiten grid on a fully worked demo Einsatz reads as a missing feature rather than
+    as an unfilled form. The times also have to survive the Rapport's own plausibility check:
+    nothing before the alarm, and everything before the first Trupp went in at −14."""
+    ws = _ws()
+    meta = ws["reportMeta"]
+    started = NOW - timedelta(minutes=dr.DEMO_ELAPSED_MIN)
+    first_entry = NOW - timedelta(minutes=14)
+
+    stamps = [g["alarmedAt"] for g in meta["gruppen"]]
+    stamps += [t for f in meta["fahrzeuge"] for t in (f.get("ausgerueckt"), f.get("vorOrt")) if t]
+    assert stamps, "the demo has to carry example Alarmierungs-/Ausrückzeiten"
+    for iso in stamps:
+        t = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+        assert started <= t <= first_entry, f"{iso} sits outside the incident's own run-up"
+
+    # a half-filled row is the normal state of this grid mid-Einsatz — the demo shows one
+    assert any(f.get("vorOrt") is None for f in meta["fahrzeuge"])
+    # these are what the milestone webhook would have prefilled, so none may claim to be a human edit
+    assert not any(r.get("manual") for r in [*meta["gruppen"], *meta["fahrzeuge"]])
+
+
+def test_the_seeded_zeiten_match_configured_rows():
+    """A time keyed to an id the station has not configured renders nowhere — the grid is built
+    from alarms.groups / fleet.vehicles, and an orphan row is invisible rather than wrong."""
+    cfg = json.loads((Path(__file__).resolve().parents[2] / "examples" / "demo-data" / "config.json").read_text())
+    group_ids = {g["id"] for g in cfg["alarms"]["groups"]}
+    vehicle_ids = {v["id"] for v in cfg["fleet"]["vehicles"]}
+    meta = _ws()["reportMeta"]
+    assert {g["id"] for g in meta["gruppen"]} <= group_ids
+    assert {f["id"] for f in meta["fahrzeuge"]} <= vehicle_ids

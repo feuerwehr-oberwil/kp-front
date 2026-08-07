@@ -21,6 +21,41 @@
       "bboxLv95": "2606000,1258000,2614000,1266000"
     }
   },
+  "alarms": {
+    "groups": [
+      {
+        "id": "g1",
+        "label": "Gr. 1",
+        "color": "Rot"
+      },
+      {
+        "id": "g2",
+        "label": "Gr. 2",
+        "color": "Grün"
+      },
+      {
+        "id": "tgp",
+        "label": "Tagespikett",
+        "tagespikett": true
+      }
+    ]
+  },
+  "fleet": {
+    "vehicles": [
+      {
+        "id": "tlf",
+        "label": "TLF"
+      },
+      {
+        "id": "mtf",
+        "label": "MTF"
+      },
+      {
+        "id": "adf",
+        "label": "ADF"
+      }
+    ]
+  },
   "doctrine": {
     "defaultChannel": "Kanal 1",
     "agtContactIntervalMin": 10,
