@@ -190,6 +190,11 @@ so this file – not the log – is the record of what shipped up to that point.
   entstand – dieselbe Handlung am Tablet schrieb immer eine. Jede Zeile trägt «(QR)», weil im
   Rechtsdokument sichtbar sein muss, dass sie nicht von einer angemeldeten Person stammt.
 
+- **Im Hellmodus waren die Kästchen der Partnerorganisationen unsichtbar.** Sie waren mit dem
+  Glanz-Token gerahmt – im Hellmodus schlicht weiss, also weiss auf weissem Blatt. Ein leeres
+  Kästchen IST die Bedienung; es muss sichtbar sein, bevor etwas darin steht. Dasselbe galt für
+  die Ringe der Abschluss-Checkliste.
+
 - **Die Partnerorganisationen sahen aus wie drei verschiedene Listen.** Angekreuzte Zeilen in
   Schwarz, nicht angekreuzte in Grau, die Schreibzeile leer – drei Schriftbilder und drei
   Zeilenhöhen in einem Block, dessen ganzer Sinn die Vergleichbarkeit ist. Ein Kreuz sagt bereits
