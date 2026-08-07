@@ -2041,7 +2041,7 @@ export function IncidentWorkspace({
     }
   }, [layers, incidentView.center, backendPlans, withGeoBbox])
   const blockedAttendanceIds = useMemo(() => assignedPersonIds(trupps), [trupps])
-  const { markPresent, markLeft, clearAttendance, setAttendanceTimes, removeAttendanceBlock, setAttendanceNote } = useAttendanceActions({
+  const { markPresent, markLeft, clearAttendance, setAttendanceTimes, removeAttendanceBlock, setAttendanceNote, addGuest } = useAttendanceActions({
     attendance, setAttendance, blockedAttendanceIds,
     startedAt: incidentMeta.started_at, reportDoneAt: incidentMeta.report_done_at, log,
   })
@@ -3144,6 +3144,7 @@ export function IncidentWorkspace({
           loading={personnelLoading}
           error={personnelError}
           blockedIds={blockedAttendanceIds}
+          onAddGuest={canEditIncident ? addGuest : undefined}
           onMarkPresent={markPresent}
           onMarkLeft={markLeft}
           onClear={clearAttendance}

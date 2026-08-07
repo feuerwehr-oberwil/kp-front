@@ -5,6 +5,12 @@ import { toast } from './ui'
 import type { AttendanceState, Person, TimelineEvent } from '../types'
 import { closePresence, currentIntervalIndex, intervalsOf, isPresent, openPresence, setIntervalTime, withIntervals } from './attendanceIntervals'
 
+/** Monotonic suffix for guest ids. `Date.now()` alone collides: two people walking in together
+ *  are entered in the same millisecond, and the second entry then OVERWRITES the first — one of
+ *  them silently missing from the Anwesenheit and from the Rapport. Module-level so it survives
+ *  a remount mid-incident. */
+let guestSeq = 0
+
 /** A freshly opened block cannot be split again this soon — that is a double tap, not a relief. */
 const MIN_BLOCK_MS = 60_000
 
@@ -118,5 +124,24 @@ export function useAttendanceActions({ attendance, setAttendance, blockedAttenda
     log('people', fillTemplate(appConfig.copy.anwesenheit.logNote, { name: e.displayNameSnapshot, note: next ?? '–' }), 'team')
   }
 
-  return { markPresent, markLeft, clearAttendance, setAttendanceTimes, removeAttendanceBlock, setAttendanceNote }
+  /**
+   * Somebody is on scene who is not on the Mannschaftsliste — a guest, mutual aid, an AdF whose
+   * roster entry never synced. The record has always been able to HOLD them (the Rapport prints
+   * attendance entries with no roster row as guest lines); there was simply no way to create one
+   * without an admin adding a Personnel row mid-incident.
+   *
+   * Deliberately NOT a roster entry: this person was here tonight, which is a statement about
+   * this Einsatz and not about the Wehr's membership. Same shape as «Anderes Mittel».
+   */
+  const addGuest = (name: string): string | undefined => {
+    const display = name.trim()
+    if (!display) return undefined
+    guestSeq += 1
+    const id = `g${Date.now().toString(36)}-${guestSeq}`
+    setAttendance((cur) => ({ ...cur, [id]: openPresence(undefined, startedAt, display) }))
+    log('people', fillTemplate(appConfig.copy.anwesenheit.logGuestAdded, { name: display }), 'team')
+    return id
+  }
+
+  return { markPresent, markLeft, clearAttendance, setAttendanceTimes, removeAttendanceBlock, setAttendanceNote, addGuest }
 }

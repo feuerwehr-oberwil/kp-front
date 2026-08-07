@@ -77,6 +77,21 @@
   display: grid; grid-template-columns: repeat(auto-fill, minmax(228px, 1fr)); gap: 8px; align-content: start;
 }
 
+/* Somebody recorded for THIS Einsatz only. Blue rather than the rank chip's accent: it is not a
+   Grad, and the two sit in the same slot. */
+.guestBadge { background: color-mix(in srgb, var(--blue) 14%, var(--surface)); color: var(--blue); }
+
+/* «Weitere Person» closes the crew list, the way «Anderes Mittel» closes the Mittel list — same
+   shape, same place, so the gesture is already known. */
+.addGuest {
+  display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%;
+  min-height: 46px; margin-top: 2px; cursor: pointer;
+  border: 1px dashed var(--glass-edge); background: none; border-radius: var(--r-ctl);
+  font: 700 13.5px var(--body); color: var(--ink-dim);
+}
+.addGuest:hover { border-color: var(--ink-faint); color: var(--ink); background: var(--surface); }
+.addGuest svg { width: 14px; height: 14px; }
+
 /* a row is the cycle button (personMain) plus, once anwesend/gegangen, a trailing time chip
    that opens an inline time input — correcting a wrong auto-stamped time in place */
 .person {

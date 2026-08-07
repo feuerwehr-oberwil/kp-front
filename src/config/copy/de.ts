@@ -2489,6 +2489,17 @@ export const de = {
     noteLabel: 'Bemerkung',
     notePlaceholder: 'z. B. Fahrer TLF',
     logNote: '{name} – Bemerkung: {note}',
+    // Person, die gar nicht auf der Mannschaftsliste steht (Gast, Nachbarwehr, noch nicht
+    // synchronisiert). Bewusst KEIN Mannschaftseintrag: sie war heute Abend hier – das ist eine
+    // Aussage über diesen Einsatz, nicht über die Wehr.
+    logGuestAdded: '{name} als weitere Person erfasst',
+    addGuest: 'Weitere Person',
+    addGuestTitle: 'Weitere Person erfassen',
+    addGuestHint: 'Für jemanden, der nicht auf der Mannschaftsliste steht – Gast, Nachbarwehr, noch nicht synchronisiert. Wird nur für diesen Einsatz erfasst.',
+    addGuestName: 'Name',
+    addGuestPlaceholder: 'z. B. Muster Felix (Nachbarwehr)',
+    guestGroup: 'Weitere',
+    guestBadge: 'Gast',
     // Wer eine Funktion übernimmt, ist auch anwesend – die Bemerkung wird dabei automatisch
     // gesetzt, aber nur wenn noch keine von Hand geschrieben wurde.
     // eine Zeile pro Person, nicht eine für die Anwesenheit und eine zweite für die Funktion

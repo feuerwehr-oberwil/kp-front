@@ -10,6 +10,7 @@ import { fillTemplate, fmtSpanShort, hhmm } from '../lib/format'
 import { applyTimeToIso, isoOnDay } from '../lib/abschluss'
 import { rankAbbr, rankLabel, rankOrder } from '../lib/rank'
 import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
+import { Overlay } from '../lib/overlays'
 import { fmtDayShort, fmtStartValue, incidentDays, isOtherDay } from '../lib/zeitplanFormat'
 import { loadPrefs, savePrefs } from '../lib/prefs'
 import { useIsPhone } from '../lib/useIsPhone'
@@ -225,6 +226,37 @@ function PaperSheet({ sheet, people, bands, printOnline, onPrint, onDownload, on
   )
 }
 
+/** Record somebody who is not on the Mannschaftsliste. One field: a name is all this needs, and
+ *  everything else about them (times, Bemerkung, blocks) is edited on the row afterwards exactly
+ *  like anybody else's — which is the point of shaping a guest like a Person. */
+function GuestDialog({ onCancel, onSubmit }: { onCancel: () => void; onSubmit: (name: string) => void }) {
+  const A = appConfig.copy.anwesenheit
+  const [name, setName] = useState('')
+  const submit = () => { if (name.trim()) onSubmit(name) }
+  return (
+    <Overlay open onClose={onCancel} className="ip-sheet ip-fit ui-dialog" ariaLabel={A.addGuestTitle}>
+      <div className="ip-head"><h2>{A.addGuestTitle}</h2>
+        <button className="ip-x" onClick={onCancel} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
+      </div>
+      <div className="ip-body">
+        <p className="ip-hint">{A.addGuestHint}</p>
+        <label className="ip-field">
+          <span>{A.addGuestName}</span>
+          <input
+            className="ip-input" autoFocus value={name} maxLength={80} placeholder={A.addGuestPlaceholder}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
+          />
+        </label>
+      </div>
+      <div className="ip-actions">
+        <button type="button" className="ip-btn" onClick={onCancel}>{appConfig.copy.mittel.cancel}</button>
+        <button type="button" className="ip-btn primary" disabled={!name.trim()} onClick={submit}>{appConfig.copy.mittel.save}</button>
+      </div>
+    </Overlay>
+  )
+}
+
 // The Anwesenheit surface: one unified, compact grid of the whole Mannschaft. Each name is a
 // button whose tap cycles its state — frei → anwesend → gegangen → frei — so a single view
 // both shows and edits attendance with no mode switching (3am tenet: recognition over recall).
@@ -279,7 +311,7 @@ function LivePositionChip({ live, center, onShow }: {
 // under your finger while you tap.
 export function AnwesenheitView({
   people, attendance, canEdit, loading, error, blockedIds,
-  onMarkPresent, onMarkLeft, onClear, onJumpToTrupp, onReload, onSetTimes, onRemoveBlock, onSetNote, captureUsage,
+  onAddGuest, onMarkPresent, onMarkLeft, onClear, onJumpToTrupp, onReload, onSetTimes, onRemoveBlock, onSetNote, captureUsage,
   shifts, bands, onCreateBand, onSaveBand, onRemoveBand, onCycleCell, onSetCellState, onPutCellState,
   startedAt, onAddShift, onAddShiftSpan, onReplaceShift, onSetShiftTime, onRemoveShift,
   onPrintZeitplan, onDownloadZeitplan, zeitplanPrintOnline,
@@ -292,6 +324,8 @@ export function AnwesenheitView({
   error: boolean
   /** person ids assigned to an active Trupp — locked against "Gegangen" until released */
   blockedIds: Set<string>
+  /** record somebody who is not on the Mannschaftsliste — see useAttendanceActions · addGuest */
+  onAddGuest?: (name: string) => void
   onMarkPresent: (p: Person) => void
   onMarkLeft: (p: Person) => void
   onClear: (p: Person) => void
@@ -370,6 +404,7 @@ export function AnwesenheitView({
   const [blocksFor, setBlocksFor] = useState<string | null>(null)
   // which paper sheet was picked from the printer menu, and is now naming itself before it goes
   const [paper, setPaper] = useState<ZeitplanSheet | null>(null)
+  const [addingGuest, setAddingGuest] = useState(false)
   useEffect(() => {
     if (view !== 'plan') return
     const t = setInterval(() => setNowMs(Date.now()), 30_000)
@@ -401,15 +436,25 @@ export function AnwesenheitView({
   // surface where people are marked present, and hiding the absent would hide the work.
   const [presentOnly, setPresentOnly] = useState(true)
   const planning = view !== 'list'
+  /** Attendance entries with no roster row: guests, mutual aid, an AdF who never synced. They
+   *  are shaped like a Person so every row action below works on them unchanged — and the
+   *  Rapport already prints them as guest lines. */
+  const guests = useMemo((): Person[] => {
+    const known = new Set(people.map((p) => p.id))
+    return Object.entries(attendance)
+      .filter(([id]) => !known.has(id))
+      .map(([id, a]) => ({ id, displayName: a.displayNameSnapshot || id, active: true, updatedAt: '', guest: true }))
+  }, [people, attendance])
+
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase()
-    return people
+    return [...people, ...guests]
       .filter((p) => !needle || p.displayName.toLowerCase().includes(needle))
       .filter((p) => !rankFilter || p.rank === rankFilter)
       .filter((p) => !(planning && presentOnly) || isPresent(attendance[p.id]))
       // grouped by seniority (most senior first), alpha within a rank
       .sort((a, b) => rankOrder(a.rank) - rankOrder(b.rank) || a.displayName.localeCompare(b.displayName, 'de'))
-  }, [people, q, rankFilter, planning, presentOnly, attendance])
+  }, [people, guests, q, rankFilter, planning, presentOnly, attendance])
 
   // frei → anwesend → gegangen → frei. A present+locked member jumps to the Trupp instead.
   const cycle = (p: Person) => {
@@ -684,6 +729,9 @@ export function AnwesenheitView({
                 >
                   <span className={cx(s.dot, present && s.dotPresent, left && s.dotLeft, !present && !left && s.dotFrei)} />
                   {p.rank && <span className={s.rank} title={rankLabel(p.rank)}>{rankAbbr(p.rank)}</span>}
+                  {/* somebody recorded for this Einsatz only — the badge sits where a Grad would,
+                      so the row still reads «who is this» before it reads the name */}
+                  {p.guest && <span className={cx(s.rank, s.guestBadge)}>{A.guestBadge}</span>}
                   <span className={s.name}>{p.displayName}</span>
                   {/* ⚠️ NO remark text in the row. It was shown here so it would not be
                       forgotten — and it took the width away from the NAME («Anna Me…»), which is
@@ -722,7 +770,21 @@ export function AnwesenheitView({
               </div>
             )
           })}
+          {/* Mirrors «Anderes Mittel»: the list is the Mannschaft, and somebody is standing here
+              who is not on it. */}
+          {canEdit && onAddGuest && (
+            <button type="button" className={s.addGuest} onClick={() => setAddingGuest(true)}>
+              <Icon id="plus" /> {A.addGuest}
+            </button>
+          )}
         </div>
+      )}
+
+      {addingGuest && onAddGuest && (
+        <GuestDialog
+          onCancel={() => setAddingGuest(false)}
+          onSubmit={(name) => { onAddGuest(name); setAddingGuest(false) }}
+        />
       )}
 
       {paper && (

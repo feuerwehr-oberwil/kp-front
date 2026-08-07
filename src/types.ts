@@ -648,6 +648,11 @@ export interface Person {
    *  undefined = no rank. Imported from Divera/CSV; drives officer-first picker sort + filters. */
   rank?: string
   active: boolean
+  /** Recorded on THIS Einsatz without being on the Mannschaftsliste — a guest, mutual aid, an
+   *  AdF whose roster entry never synced. Derived at render time from an attendance entry with
+   *  no roster row (see AnwesenheitView · guests); never stored on a Personnel record, because
+   *  «was here tonight» is a statement about the Einsatz and not about the Wehr. */
+  guest?: boolean
   updatedAt: string
 }
 
