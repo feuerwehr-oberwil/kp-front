@@ -88,6 +88,33 @@ export interface IncidentSettings {
   defaultFunkkanal?: number
 }
 
+/** The safety values, in the order the Einstellungen sheet asks them. */
+export const SAFETY_KEYS = ['contactIntervalMin', 'contactGraceSec', 'defaultFunkkanal'] as const
+export type SafetyKey = (typeof SAFETY_KEYS)[number]
+
+/**
+ * Which Atemschutz safety value changed, and from what to what.
+ *
+ * These decide WHEN a Trupp counts as fällig and as überfällig. Moving the interval mid-Einsatz
+ * moves every clock on the Atemschutz board at once, and it used to leave no trace of any kind —
+ * neither a Verlaufszeile nor an audit event. The reconstruction afterwards could see that a
+ * Trupp went overdue but not that the threshold had been moved under it.
+ *
+ * `defaults` resolves an unset value, so «vom Standard 10 auf 20» reads as a real change rather
+ * than as `undefined → 20`. Returns [] when nothing moved, so the caller can stay silent.
+ */
+export function changedSafetySettings(
+  prev: IncidentSettings, next: IncidentSettings, defaults: Record<SafetyKey, number>,
+): { key: SafetyKey; from: number; to: number }[] {
+  const out: { key: SafetyKey; from: number; to: number }[] = []
+  for (const key of SAFETY_KEYS) {
+    const from = prev[key] ?? defaults[key]
+    const to = next[key] ?? defaults[key]
+    if (from !== to) out.push({ key, from, to })
+  }
+  return out
+}
+
 // The persisted-workspace model, extracted from App's god component: the `Saved` blob
 // shape, the editable `Doc`, and the pure functions that normalize/derive App's initial
 // state from a blob. No React here — kept separate so hooks/components can share it.

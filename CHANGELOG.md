@@ -190,6 +190,13 @@ so this file – not the log – is the record of what shipped up to that point.
   entstand – dieselbe Handlung am Tablet schrieb immer eine. Jede Zeile trägt «(QR)», weil im
   Rechtsdokument sichtbar sein muss, dass sie nicht von einer angemeldeten Person stammt.
 
+- **Wer die Atemschutz-Sicherheitswerte verstellt, hinterlässt eine Spur.** Kontaktintervall und
+  Nachfrist entscheiden, wann ein Trupp als fällig und als überfällig gilt – wer einen davon
+  mitten im Einsatz verschiebt, verschiebt alle Uhren des Atemschutz-Boards gleichzeitig, und das
+  hinterliess bisher gar nichts: die Rekonstruktion konnte sehen, dass ein Trupp überfällig
+  wurde, aber nicht, dass die Schwelle unter ihm verschoben worden war. Die Zeile trägt **alten
+  und neuen Wert** – «geändert» allein sagt nicht, ob die Grenze strenger oder lockerer wurde.
+
 - **Auch die Rapportangaben schreiben eine Zeile.** Einsatzleiter, Endezeit, Gerettete,
   Partnerorganisationen, die Alarm- und Fahrzeugzeiten – der Inhalt des Dokuments, das
   unterschrieben wird – änderten sich bisher spurlos. Eine Zeile pro Speicherung, die sagt
@@ -344,6 +351,28 @@ so this file – not the log – is the record of what shipped up to that point.
   list is offered as TICK-OFFS the way the paper form asks it (ticking reveals that partner's one
   free line), and a Mittel line offers its remark wherever an amount was recorded. A person's remark also shows
   in the Anwesenheit row – a remark nobody sees is a remark nobody keeps up to date.
+
+- **Anwesende und Einsatzstunden stehen auf dem Rapport.** One line under the roster: how many
+  people were there, and how long – `6 Anwesende · Einsatzstunden 14:35 (gerundet 16:00)`. The
+  first figure is **raw**, summed to the minute, because that is what actually happened. The
+  second is the Sold convention: each person's own time rounded up to the next block, but only
+  once a few minutes past the previous one, then summed – **per person, never on the total**,
+  which would otherwise make the same Einsatz answer differently depending on how many people
+  came. The station sets the block and the grace (`report.hoursRounding`, default 30 / 5 minutes,
+  `docs/CONFIGURATION.md` §1b), and **the paper prints the rule next to the number** – a rounded
+  figure nobody can reproduce is a figure nobody trusts. The per-person Stunden columns stay off
+  the paper as decided in 2026-07: WinFAP computes those from the recorded von–bis. This is the
+  summary for whoever signs the sheet.
+
+- **Beilagen scale now.** Two photos and fifty are different documents. Up to eight print as
+  large plates – the reason to photograph a driving licence is to read it off the paper. Beyond
+  that they become a numbered contact sheet, three across: fifty pictures are six sheets instead
+  of twenty, and what the paper is for at that count is *which pictures exist*. Either way each
+  carries its number **B7**, so the Verlauf, a phone call and the paper can name the same
+  picture, and every page names its Einsatz in the footer – a rapport gets stapled, unstapled and
+  passed around, and a loose sheet that does not say which Einsatz it belongs to cannot be put
+  back. Whether the photos print at all stays the Beilagen toggle in the rapport dialog; the
+  downloaded PDF always carries everything.
 
 - **The printed rapport ejected a blank sheet.** Every Anhang section both *opens* with a page
   break and *closes* by switching the page template back – so two adjacent sections put two

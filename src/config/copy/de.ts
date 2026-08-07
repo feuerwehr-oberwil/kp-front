@@ -1064,6 +1064,12 @@ export const de = {
     status: { angemeldet: 'Angemeldet', aktiv: 'Im Einsatz', rueckzug: 'Rückzug', ueberfaellig: 'Überfällig', raus: 'Draussen' } as Record<string, string>,
     // Verlauf templates ({name}, {bar}, {status})
     logRegister: 'Trupp {name} angemeldet',
+    // Verlaufszeile, wenn jemand die Sicherheitswerte verstellt. MIT alten und neuen Werten:
+    // «geändert» allein sagt nicht, ob die Schwelle strenger oder lockerer wurde.
+    logSafety: 'Atemschutz-Sicherheitswerte geändert: {changes}',
+    logSafetyInterval: 'Funkkontakt-Intervall {from} → {to} min',
+    logSafetyGrace: 'Nachfrist {from} → {to} s',
+    logSafetyFunkkanal: 'Funkkanal {from} → {to}',
     logPlaced: 'Trupp {name} auf Plan platziert',
     logPlacedMap: 'Trupp {name} auf der Lage platziert',
     placeLage: 'Lagekarte',

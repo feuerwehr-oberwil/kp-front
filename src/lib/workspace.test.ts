@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { autoActivateLayers, demoClockAnchor, deriveInitial, latestTruppStamp, normalizeBoard, rebaseDemoClocks, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Saved } from './workspace'
+import { autoActivateLayers, demoClockAnchor, deriveInitial, latestTruppStamp, normalizeBoard, rebaseDemoClocks, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Saved, changedSafetySettings} from './workspace'
 import type { LayerDef } from '../types'
 
 // Inject one station reference layer with a category rule so the auto-activation path is
@@ -360,5 +360,40 @@ describe('sanitizeWorkspace — Rauch cloud → VKF Rauch symbol migration', () 
   it('leaves other shapes (arrow/square) untouched', () => {
     const g = sanitizeWorkspace({ schemaVersion: WORKSPACE_SCHEMA_VERSION, entities: [{ id: 'sh2', kind: 'shape', shape: 'arrow', coord: [7.5, 47.5] }] })
     expect((g.ws!.entities[0] as unknown as Record<string, unknown>).kind).toBe('shape')
+  })
+})
+
+describe('changedSafetySettings — moving an Atemschutz limit leaves a trace', () => {
+  const DEFAULTS = { contactIntervalMin: 10, contactGraceSec: 60, defaultFunkkanal: 11 }
+
+  it('says nothing when nothing moved', () => {
+    expect(changedSafetySettings({ contactIntervalMin: 10 }, { contactIntervalMin: 10 }, DEFAULTS)).toEqual([])
+  })
+
+  it('reports the old and the new value, not just that something changed', () => {
+    // «geändert» alone does not say whether the threshold got stricter or looser
+    expect(changedSafetySettings({ contactIntervalMin: 10 }, { contactIntervalMin: 20 }, DEFAULTS))
+      .toEqual([{ key: 'contactIntervalMin', from: 10, to: 20 }])
+  })
+
+  it('resolves an unset value against the doctrine default', () => {
+    // the first change of an untouched Einsatz must read «10 → 20», not «undefined → 20»
+    expect(changedSafetySettings({}, { contactIntervalMin: 20 }, DEFAULTS))
+      .toEqual([{ key: 'contactIntervalMin', from: 10, to: 20 }])
+  })
+
+  it('treats clearing back to the default as no change at all', () => {
+    expect(changedSafetySettings({ contactGraceSec: 60 }, {}, DEFAULTS)).toEqual([])
+  })
+
+  it('catches every safety value, including a Nachfrist of zero', () => {
+    // 0 is a real (and drastic) setting — a falsy check would have swallowed it
+    const out = changedSafetySettings(
+      { contactIntervalMin: 10, contactGraceSec: 60, defaultFunkkanal: 11 },
+      { contactIntervalMin: 5, contactGraceSec: 0, defaultFunkkanal: 12 },
+      DEFAULTS,
+    )
+    expect(out.map((c) => c.key)).toEqual(['contactIntervalMin', 'contactGraceSec', 'defaultFunkkanal'])
+    expect(out[1]).toEqual({ key: 'contactGraceSec', from: 60, to: 0 })
   })
 })

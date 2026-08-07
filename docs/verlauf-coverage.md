@@ -60,31 +60,32 @@ Einsatzchronik … Der AdFU sollte nicht jede Bedienhandlung protokollieren.»*
   lassen, wird aber laut geloggt.
 - **Rapportangaben und Partnerorganisationen schreiben eine Zeile** – eine pro Speicherung, die
   sagt, *welche* Felder sich geändert haben (`changedReportMetaFields`, `src/lib/report.ts`).
+- **Die Atemschutz-Sicherheitswerte schreiben eine Zeile, mit altem und neuem Wert**
+  (`changedSafetySettings`, `src/lib/workspace.ts`). Kontaktintervall und Nachfrist entscheiden,
+  wann ein Trupp als fällig und als überfällig gilt – wer einen davon mitten im Einsatz
+  verschiebt, verschiebt alle Uhren des Atemschutz-Boards gleichzeitig. «Geändert» allein würde
+  nicht sagen, ob die Schwelle strenger oder lockerer wurde.
 
 ## Lücken – bekannt, noch nicht geschlossen
 
 Diese sind **nicht** durch die Doktrin gedeckt: es geht um den Inhalt der Aufzeichnung selbst,
 nicht um Bedienhandlungen. Nach operativer Tragweite geordnet.
 
-1. **Sicherheitsparameter des Atemschutzes** (Kontaktintervall, Karenz, Funkkanal) ändern sich
-   spurlos (`src/IncidentWorkspace.tsx:3144`). `src/lib/workspace.ts:83` nennt sie
-   *«Safety-critical, so it MUST be shared across devices»* – wann ein Trupp als überfällig gilt,
-   lässt sich also verstellen, ohne dass es jemand nachvollziehen kann.
-2. **Einen Anwesenheitsblock entfernen** schreibt nichts (`src/lib/useAttendanceActions.ts:94`),
+1. **Einen Anwesenheitsblock entfernen** schreibt nichts (`src/lib/useAttendanceActions.ts:94`),
    während das Leeren des ganzen Eintrags eine Zeile erzeugt (`:71`) – und das Entfernen des
    letzten Blocks *ist* dasselbe. Vermutlich schlicht übersehen.
-3. **Korrekturen an Alarmierungszeit, Adresse, Stichwort, Priorität** haben weder Audit-Event
+2. **Korrekturen an Alarmierungszeit, Adresse, Stichwort, Priorität** haben weder Audit-Event
    noch Verlaufszeile (`backend/app/api/incidents.py:222-233`). `started_at` ist ein Feld des
    Rechtsdokuments und trägt eigens ein `started_at_source = "manual"` – aber nicht, wann und
    durch wen.
-4. **Einzelne Plan-Annotation löschen** nur im Audit (`src/lib/useBoardDoc.ts:54`), während das
+3. **Einzelne Plan-Annotation löschen** nur im Audit (`src/lib/useBoardDoc.ts:54`), während das
    Gruppen-Löschen eine Zeile schreibt (`src/components/Whiteboard.tsx:1291`).
-5. **Leitungsnummer einer gezeichneten Linie ändern** nur im Audit
+4. **Leitungsnummer einer gezeichneten Linie ändern** nur im Audit
    (`src/IncidentWorkspace.tsx:2557`). Über diese Nummer wird zugeordnet, welcher Trupp an
    welcher Leitung arbeitet – die Zuordnung lässt sich also still verschieben.
-6. **Rapport-Beilagen** hinzufügen/entfernen nur im Audit, die Bildlegende gar nicht
+5. **Rapport-Beilagen** hinzufügen/entfernen nur im Audit, die Bildlegende gar nicht
    (`src/IncidentWorkspace.tsx:931`, `:955`, `:948`).
-7. **Fahrer eines GPS-Fahrzeugs** (`src/IncidentWorkspace.tsx:2491`) und
+6. **Fahrer eines GPS-Fahrzeugs** (`src/IncidentWorkspace.tsx:2491`) und
    **Gebäude/Stockwerk anlegen** (`:2815`, `:2831`) haben keinen Kanal.
 
 ## Wenn du etwas ergänzt
