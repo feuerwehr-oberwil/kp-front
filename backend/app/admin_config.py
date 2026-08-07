@@ -159,6 +159,9 @@ EXAMPLE_CONFIG: dict[str, Any] = {
     },
     "roster": {
         "source": "manual",
+        # "last-first" = «Müller Hans» (the default, and what Divera delivers); "first-last"
+        # for a station whose lists read the other way round.
+        "nameOrder": "last-first",
         # Ordered Dienstgrade, most senior first (position = seniority). Generic Swiss militia
         # fire-service set — a station overrides this to match its own ranks. `tier` drives the
         # "nur Offiziere" picker filter + Anwesenheit grouping. Keep in sync with the frontend

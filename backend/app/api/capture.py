@@ -28,6 +28,7 @@ from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Reque
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .. import personnel as personnel_svc
 from .. import storage
 from ..alarms import get_alarms_config
 from ..api.media import _ALLOWED_PHOTO, MAX_UPLOAD_BYTES
@@ -216,10 +217,17 @@ async def capture_roster(
 ):
     """Active Mannschaft for the attendance checklist + «Wer erfasst?» attribution picker."""
     await _check_token(db, request, x_capture_token)
-    rows = (
-        await db.execute(select(Personnel).where(Personnel.is_active.is_(True)).order_by(Personnel.display_name))
-    ).scalars()
-    return list(rows)
+    rows = list((await db.execute(select(Personnel).where(Personnel.is_active.is_(True)))).scalars())
+    # Same names, same order, same sort as the KP tablet's roster — the two lists are read
+    # side by side (phone ticks off, tablet checks) and must not disagree on either.
+    order = await personnel_svc.load_roster_name_order(db)
+    out = []
+    for p in rows:
+        served = PersonnelOut.model_validate(p)
+        served.display_name = personnel_svc.person_display_name(p, order)
+        out.append(served)
+    out.sort(key=lambda person: personnel_svc.name_sort_key(person.display_name))
+    return out
 
 
 async def _bump_capture_usage(db: AsyncSession, incident_id: uuid.UUID) -> None:

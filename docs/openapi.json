@@ -12967,6 +12967,15 @@
             },
             "type": "array",
             "title": "Ranks"
+          },
+          "nameOrder": {
+            "type": "string",
+            "enum": [
+              "last-first",
+              "first-last"
+            ],
+            "title": "Nameorder",
+            "default": "last-first"
           }
         },
         "type": "object",

@@ -16,7 +16,8 @@ import { fillTemplate } from '../lib/format'
 import { providerLabel } from '../lib/deploymentConfig'
 import { rankAbbr, rankLabel } from '../lib/rank'
 import { InfoTip } from './InfoTip'
-import { ActionMenu } from './ui'
+import { ActionMenu, Field, Select } from './ui'
+import { useConfig, getPath } from './ConfigContext'
 
 // ─── helpers ───────────────────────────────────────────────────────────────────
 
@@ -239,6 +240,42 @@ type Async =
   | { kind: 'ok'; data: RosterPerson[] }
   | { kind: 'error'; detail: string }
 
+/** Station-wide name order. Sits on THIS page rather than under Doktrin because the list it
+ *  changes is right underneath — you pick an order and read the result, instead of switching
+ *  pages to find out what you did. One order for the whole Wehr: two operators reading the same
+ *  Trupp card differently is worse than either order being the "wrong" one. */
+function NameOrderCard() {
+  const { draft, set } = useConfig()
+  const C = appConfig.copy.admin.roster
+  // 'last-first' is the shipped default AND what the Divera sync writes — an unset config and a
+  // config set to last-first have to look the same in the picker.
+  const value = getPath<string>(draft, ['roster', 'nameOrder']) === 'first-last' ? 'first-last' : 'last-first'
+  return (
+    <section className="adm-card">
+      <header className="adm-card-head">
+        <h2 className="adm-card-title">
+          {C.nameOrderTitle}
+          <InfoTip label={C.nameOrderTitle} text={C.nameOrderTip} />
+        </h2>
+        <p className="adm-card-cap">{C.nameOrderCaption}</p>
+      </header>
+      <div className="adm-card-body">
+        <Field label={C.nameOrderLabel}>
+          <Select
+            value={value}
+            ariaLabel={C.nameOrderLabel}
+            onChange={(v) => set(['roster', 'nameOrder'], v)}
+            options={[
+              { value: 'last-first', label: C.nameOrderLastFirst },
+              { value: 'first-last', label: C.nameOrderFirstLast },
+            ]}
+          />
+        </Field>
+      </div>
+    </section>
+  )
+}
+
 export function RosterView() {
   const [state, setState] = useState<Async>({ kind: 'loading' })
   const [showInactive, setShowInactive] = useState(false)
@@ -319,6 +356,7 @@ export function RosterView() {
           onClose={() => setAddOpen(false)}
         />
       )}
+      <NameOrderCard />
       {personnelProvider === null && <CsvImportCard onImported={() => void load()} />}
 
       <section className="adm-card">

@@ -96,8 +96,11 @@ One JSON document, stored as the single `deployment_config` row, returned by `GE
   },
 
   "roster": {
-    "source": "manual"                            // "divera" | "manual" (CSV/hand) |
+    "source": "manual",                           // "divera" | "manual" (CSV/hand) |
                                                   // "snapshot" (a published roster file) – see §4
+    "nameOrder": "last-first"                     // "last-first" (Meier Hans, default) |
+                                                  // "first-last" (Hans Meier) – applies to every
+                                                  // surface: lists, map tags, Rapport, print
   },
 
   "mittel": {                                    // material-use sheet (Mittel): billing/report + "brauchen wir mehr?"
@@ -402,6 +405,15 @@ Stored in the configured asset store (local volume by default; S3 optional). Lim
 ## 4. Roster / personnel
 
 `roster.source` selects how `Person` records are populated.
+
+`roster.nameOrder` selects how they are **spelled**, station-wide: `"last-first"` (default,
+«Meier Hans» – what Divera delivers and how crew lists and Soldblätter sort) or `"first-last"`
+(«Hans Meier»). It is applied when a name is served, not when it is stored, so flipping it takes
+effect on every device at once and needs no re-sync – but a name already frozen into a printed
+Rapport or a closed incident keeps the spelling it was captured with. Set it in the admin UI
+under **Mannschaft**; everything downstream (lists, map tags, the Rapport, the print) follows,
+including the abbreviated Trupp tag («Meier H.»), which uses the order to tell surname from
+given name.
 
 ### 4a. `"divera"` – auto-sync
 - Requires a Divera access key in env (§6). The backend syncs Divera personnel → `Person`.

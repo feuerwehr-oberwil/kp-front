@@ -451,3 +451,22 @@ async def test_capture_workspace_carries_beilagen(client, capture_secret, db_ses
     ws = r.json()["workspace"]
     assert ws["attachments"] == [{"id": "a1", "url": "/api/media/1"}]
     assert "entities" not in ws  # the tactical picture is still none of the poster's business
+
+
+async def test_capture_roster_follows_the_station_name_order(client, capture_secret, db_session):
+    """The poster's roster is read next to the tablet's — same spelling, same sort, or the two
+    lists disagree about who is already ticked off."""
+    row = (await db_session.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one()
+    row.config_json = {"roster": {"nameOrder": "first-last"}}
+    db_session.add_all(
+        [
+            Personnel(display_name="Müller Hans", first_name="Hans", last_name="Müller", is_active=True),
+            Personnel(display_name="Ärni Zoe", first_name="Zoe", last_name="Ärni", is_active=True),
+            Personnel(display_name="Von Arx Beat", is_active=True),  # hand entry, no split
+        ]
+    )
+    await db_session.commit()
+
+    r = await client.get("/api/capture/roster", headers={"X-Capture-Token": TOKEN})
+    assert r.status_code == 200, r.text
+    assert [p["display_name"] for p in r.json()] == ["Hans Müller", "Von Arx Beat", "Zoe Ärni"]

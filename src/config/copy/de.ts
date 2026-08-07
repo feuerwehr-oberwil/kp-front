@@ -3087,7 +3087,7 @@ export const de = {
       username: 'Benutzername',
       usernamePlaceholder: 'z. B. fu',
       displayName: 'Anzeigename',
-      displayNamePlaceholder: 'z. B. Felix Muster',
+      displayNamePlaceholder: 'z. B. Muster Felix',
       role: 'Rolle',
       roleViewer: 'Betrachter',
       roleEditor: 'Bearbeiter',
@@ -3126,6 +3126,14 @@ export const de = {
       pinInvalid: 'PIN muss genau {n} Ziffern haben.',
     },
     roster: {
+      // Namensformat — eine Reihenfolge für die ganze Wehr. Steht hier, weil die Wirkung
+      // direkt darunter in der Liste sichtbar ist.
+      nameOrderTitle: 'Namensformat',
+      nameOrderCaption: 'Gilt überall: Mannschaftsliste, Anwesenheit, Karte, Rapport und Druck.',
+      nameOrderLabel: 'Reihenfolge',
+      nameOrderTip: 'Divera liefert «Nachname Vorname» – so sind auch Mannschaftslisten und Soldblätter sortiert. Die Umstellung wirkt sofort auf alle Geräte; bereits gedruckte Rapporte und abgeschlossene Einsätze behalten ihre Schreibweise.',
+      nameOrderLastFirst: 'Nachname Vorname · Meier Hans',
+      nameOrderFirstLast: 'Vorname Nachname · Hans Meier',
       sourceHint: 'Spalten: name (Pflicht), rank (optional). UTF-8, kommagetrennt, mit Kopfzeile. Provider-Identitäten werden durch die Synchronisation verwaltet.',
       addPerson: 'Person hinzufügen',
       addPersonCaption: 'Name der Person eingeben.',

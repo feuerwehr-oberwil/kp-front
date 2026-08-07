@@ -29,6 +29,7 @@ from sqlalchemy import delete, select
 from .auth.security import hash_pin
 from .database import async_session_maker
 from .models import DiveraEmergency, Incident, JournalEntry, ObjectSite, Personnel, User
+from .personnel import format_name
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +104,16 @@ DEMO_PEOPLE = [
     ("Roger", "Egger"),
 ]
 
+
+def demo_display_name(first: str, last: str) -> str:
+    """The seeded display name for one ``DEMO_PEOPLE`` entry — the shipped default order.
+
+    Every demo name goes through here (roster rows, Trupp members, the Anwesenheit snapshots),
+    because those three are read next to each other on one screen: a demo that seeded «Müller
+    Hans» into the roster and «Hans Müller» onto the Trupp card looks like a sync bug."""
+    return format_name("", first, last) or f"{last} {first}"
+
+
 # A pre-filled Verlauf (journal) so the demo lands with a worked incident's log instead of the
 # empty "Noch keine Ereignisse erfasst" state. Each is (minutes-before-now, text); seeded as
 # human `kind: 'journal'` TimelineEvents oldest-first. Times stay within the 14-min elapsed window.
@@ -121,35 +132,41 @@ DEMO_JOURNAL = [
 # of the roster: the demo has to show the "who came?" question, not a fire brigade at 100 %.
 #: Who leads this demo incident — named on the Rapport and on the Anwesenheit list, so the
 #: «Einsatzleiter» symbol on the Lage belongs to somebody.
-DEMO_EINSATZLEITER = "Céline Widmer"
+DEMO_EINSATZLEITER = demo_display_name("Céline", "Widmer")
 
+#: Kept as (Vorname, Nachname) pairs and joined through ``demo_display_name`` — these have to
+#: match the seeded roster's display names exactly to resolve to a Person row, so they must not
+#: be spelled out independently of the name order.
 DEMO_PRESENT = {
-    "Hans Müller",
-    "Anna Meier",
-    "Thomas Brunner",  # Trupp 1
-    "Peter Schmid",
-    "Laura Keller",
-    "Nina Frei",  # Trupp 2
-    "Marco Weber",
-    "Sarah Huber",
-    "Michael Baumann",  # Trupp 3
-    DEMO_EINSATZLEITER,
-    "Stefan Graf",  # Maschinist TLF
-    "Petra Roth",
-    "Daniel Wyss",  # Wasserversorgung
-    "Sandra Lüthi",
-    "Reto Bachmann",  # Verkehrsdienst
-    "Fabienne Steiner",
-    "Martin Zbinden",  # Reserve / Bereitstellung
-    # A real Zimmerbrand pulls more of the Wehr than the people with a job on the board: the
-    # Bereitstellung, the second Ablösung, the ones who came and are waiting. Without them the
-    # Anwesenheit read as a half-empty list beside a fully worked incident.
-    "Simon Hofer",
-    "Andrea Kunz",
-    "Lukas Bieri",
-    "Jonas Rüegg",
-    "Melanie Schneider",
-    "Patrick Amrein",
+    demo_display_name(first, last)
+    for first, last in [
+        ("Hans", "Müller"),
+        ("Anna", "Meier"),
+        ("Thomas", "Brunner"),  # Trupp 1
+        ("Peter", "Schmid"),
+        ("Laura", "Keller"),
+        ("Nina", "Frei"),  # Trupp 2
+        ("Marco", "Weber"),
+        ("Sarah", "Huber"),
+        ("Michael", "Baumann"),  # Trupp 3
+        ("Céline", "Widmer"),  # Einsatzleiterin
+        ("Stefan", "Graf"),  # Maschinist TLF
+        ("Petra", "Roth"),
+        ("Daniel", "Wyss"),  # Wasserversorgung
+        ("Sandra", "Lüthi"),
+        ("Reto", "Bachmann"),  # Verkehrsdienst
+        ("Fabienne", "Steiner"),
+        ("Martin", "Zbinden"),  # Reserve / Bereitstellung
+        # A real Zimmerbrand pulls more of the Wehr than the people with a job on the board: the
+        # Bereitstellung, the second Ablösung, the ones who came and are waiting. Without them the
+        # Anwesenheit read as a half-empty list beside a fully worked incident.
+        ("Simon", "Hofer"),
+        ("Andrea", "Kunz"),
+        ("Lukas", "Bieri"),
+        ("Jonas", "Rüegg"),
+        ("Melanie", "Schneider"),
+        ("Patrick", "Amrein"),
+    ]
 }
 
 
@@ -170,8 +187,8 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
     ws["trupps"] = [
         {
             "id": "trupp1",
-            "name": "Hans Müller",
-            "members": ["Anna Meier", "Thomas Brunner"],
+            "name": demo_display_name("Hans", "Müller"),
+            "members": [demo_display_name("Anna", "Meier"), demo_display_name("Thomas", "Brunner")],
             "auftrag": "retten",
             "ziel": "2. OG Wohnung Nord, 2 Personen vermisst",
             "lineNo": 1,
@@ -198,8 +215,8 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
         },
         {
             "id": "trupp2",
-            "name": "Peter Schmid",
-            "members": ["Laura Keller", "Nina Frei"],
+            "name": demo_display_name("Peter", "Schmid"),
+            "members": [demo_display_name("Laura", "Keller"), demo_display_name("Nina", "Frei")],
             "auftrag": "loeschen",
             "ziel": "Brandbekämpfung 2. OG",
             "lineNo": 2,  # numbered but not drawn — the auto-match attaches as soon as it is
@@ -220,8 +237,8 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
         },
         {
             "id": "trupp3",
-            "name": "Marco Weber",
-            "members": ["Sarah Huber", "Michael Baumann"],
+            "name": demo_display_name("Marco", "Weber"),
+            "members": [demo_display_name("Sarah", "Huber"), demo_display_name("Michael", "Baumann")],
             "auftrag": "sichern",
             "ziel": "Sicherheitstrupp bereit",
             "funkkanal": 11,
@@ -357,7 +374,7 @@ async def reset(wipe_objects: bool = True) -> None:
         await db.execute(delete(Personnel))
         people_rows: list[tuple[str, Personnel]] = []
         for first, last in DEMO_PEOPLE:
-            name = f"{first} {last}"
+            name = demo_display_name(first, last)
             p = Personnel(display_name=name, first_name=first, last_name=last, is_active=True)
             db.add(p)
             people_rows.append((name, p))

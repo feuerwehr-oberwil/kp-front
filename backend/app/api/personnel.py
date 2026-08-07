@@ -45,7 +45,11 @@ async def _identity_map(
     return out
 
 
-def _personnel_out(person: Personnel, identities: list[PersonnelExternalIdentity]) -> dict:
+def _personnel_out(
+    person: Personnel,
+    identities: list[PersonnelExternalIdentity],
+    order: personnel_svc.NameOrder = personnel_svc.DEFAULT_NAME_ORDER,
+) -> dict:
     divera = next((i.external_id for i in identities if i.provider == "divera"), None)
     try:
         legacy_divera_id = int(divera) if divera is not None else person.divera_id
@@ -57,7 +61,9 @@ def _personnel_out(person: Personnel, identities: list[PersonnelExternalIdentity
         "external_identities": [
             {"provider": i.provider, "external_id": i.external_id, "synced_at": i.synced_at} for i in identities
         ],
-        "display_name": person.display_name,
+        # Served in the station's roster.nameOrder; the stored column is never rewritten, so
+        # flipping the setting changes what the app reads on the very next request.
+        "display_name": personnel_svc.person_display_name(person, order),
         "first_name": person.first_name,
         "last_name": person.last_name,
         "rank": person.rank,
@@ -73,12 +79,18 @@ async def list_personnel(
     db: AsyncSession = Depends(get_db),
 ):
     """The crew roster, ordered by name. Active-only unless ``include_inactive=true``."""
-    stmt = select(Personnel).order_by(Personnel.display_name)
+    stmt = select(Personnel)
     if not include_inactive:
         stmt = stmt.where(Personnel.is_active.is_(True))
     people = list((await db.execute(stmt)).scalars())
     identities = await _identity_map(db, [p.id for p in people])
-    return [_personnel_out(p, identities.get(p.id, [])) for p in people]
+    order = await personnel_svc.load_roster_name_order(db)
+    out = [_personnel_out(p, identities.get(p.id, []), order) for p in people]
+    # Sorted on the SERVED name, not the stored one: under "first-last" an ORDER BY
+    # display_name would hand back a list alphabetised by a surname the operator can't see.
+    # ~100 rows, so Python sorts it (and gets accent-insensitive ordering for free).
+    out.sort(key=lambda row: personnel_svc.name_sort_key(row["display_name"]))
+    return out
 
 
 @router.post("", response_model=PersonnelOut, status_code=201)
@@ -97,7 +109,8 @@ async def create_person(
         )
     await db.refresh(person)
     identities = await _identity_map(db, [person.id])
-    return _personnel_out(person, identities.get(person.id, []))
+    order = await personnel_svc.load_roster_name_order(db)
+    return _personnel_out(person, identities.get(person.id, []), order)
 
 
 @router.patch("/{person_id}", response_model=PersonnelOut)
@@ -119,7 +132,8 @@ async def update_person(
     await db.flush()
     await db.refresh(person)
     identities = await _identity_map(db, [person.id])
-    return _personnel_out(person, identities.get(person.id, []))
+    order = await personnel_svc.load_roster_name_order(db)
+    return _personnel_out(person, identities.get(person.id, []), order)
 
 
 @router.delete("/{person_id}")

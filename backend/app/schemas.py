@@ -873,6 +873,11 @@ class RosterConfig(BaseModel):
     # Ordered rank list (most senior first). Empty → the frontend falls back to its in-code
     # Swiss default (see src/lib/rank.ts). Ranks reference these keys.
     ranks: list[RankConfig] = Field(default_factory=list)
+    # How a crew member's name reads, station-wide: "Müller Hans" (default — what Divera
+    # delivers and how a Feuerwehr calls people) or "Hans Müller". One order for the whole
+    # deployment, applied when a name is SERVED, not when it is stored: a station can flip
+    # this and every list, Trupp card and Rapport changes with the next request.
+    nameOrder: Literal["last-first", "first-last"] = "last-first"
 
 
 class MittelStockEntry(BaseModel):

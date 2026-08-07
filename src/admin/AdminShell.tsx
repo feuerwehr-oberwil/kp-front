@@ -106,10 +106,12 @@ function initialSection(): SectionId {
 }
 
 // Station pages that read the shared config document — they get the ConfigGate (draft-loading state).
-const CONFIG_SECTIONS = new Set<SectionId>(['identitaet', 'doktrin', 'journal', 'fahrzeuge', 'ebenen', 'objektplaene'])
+// 'mannschaft' is on the list for ONE config field (the station's name order); the rest of that
+// page talks to the personnel API directly.
+const CONFIG_SECTIONS = new Set<SectionId>(['identitaet', 'doktrin', 'journal', 'fahrzeuge', 'ebenen', 'objektplaene', 'mannschaft'])
 // Of those, only the genuinely-editable pages get the sticky autosave bar. The viewers
 // (Fahrzeuge, Kartenebenen, Objektpläne) are read-only — edited via the CLI — so no save bar.
-const AUTOSAVE_SECTIONS = new Set<SectionId>(['identitaet', 'doktrin', 'journal'])
+const AUTOSAVE_SECTIONS = new Set<SectionId>(['identitaet', 'doktrin', 'journal', 'mannschaft'])
 
 function renderSection(id: SectionId, _navigate: (id: SectionId) => void) {
   switch (id) {

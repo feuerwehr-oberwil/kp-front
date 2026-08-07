@@ -165,6 +165,13 @@ export interface DeploymentRoster {
   source?: 'manual' | 'divera' | 'snapshot' | null
   /** Ordered ranks, most senior first. Empty/absent → the in-code Swiss default in rank.ts. */
   ranks?: RankConfig[]
+  /** How a crew member's name reads, station-wide. `'last-first'` («Müller Hans») is the
+   *  default and what Divera already delivers; a station that runs its lists the other way
+   *  round sets `'first-last'`. One order for everybody: the alternative is two operators
+   *  reading the same Trupp card differently, and a Rapport whose spelling depends on which
+   *  device printed it. The backend serves display names already in this order — the frontend
+   *  only needs it to know which token is the SURNAME (see abbreviateName). */
+  nameOrder?: 'last-first' | 'first-last' | null
 }
 
 /** One entry of the station-wide Mittel (material) catalogue: a material that crews routinely
@@ -416,6 +423,16 @@ export function atemschutzDoctrine() {
 export function atemschutzAuftragColors(): Record<string, string> {
   const c = resolved.doctrine?.auftragColors
   return c && typeof c === 'object' ? c : {}
+}
+
+/**
+ * How the station spells crew names. Default `'last-first'` — that is what the Divera sync
+ * writes and how a Feuerwehr list is sorted and called out. Everything that DISPLAYS a name
+ * gets it from the backend already in this order; this accessor exists for the few places
+ * that have to take a name APART again (abbreviating for a chip, sorting a local list).
+ */
+export function rosterNameOrder(): 'last-first' | 'first-last' {
+  return resolved.roster?.nameOrder === 'first-last' ? 'first-last' : 'last-first'
 }
 
 /**

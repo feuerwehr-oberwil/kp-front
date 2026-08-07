@@ -166,3 +166,60 @@ async def test_import_csv_missing_name_column_400(client, editor):
     files = {"file": ("roster.csv", b"divera_id,foo\n1,bar\n", "text/csv")}
     r = await client.post("/api/personnel/import-csv", files=files)
     assert r.status_code == 400
+
+
+# --- roster.nameOrder ---------------------------------------------------------------
+
+
+async def _seed_split_roster(db_session) -> None:
+    """Three Divera-shaped rows (display name + split) plus one hand-entered row without one."""
+    from app.models import Personnel
+
+    db_session.add_all(
+        [
+            Personnel(display_name="Müller Hans", first_name="Hans", last_name="Müller", is_active=True),
+            Personnel(display_name="Ärni Zoe", first_name="Zoe", last_name="Ärni", is_active=True),
+            Personnel(display_name="Brunner Anna", first_name="Anna", last_name="Brunner", is_active=True),
+            Personnel(display_name="Von Arx Beat", is_active=True),  # hand entry, no split
+        ]
+    )
+    await db_session.commit()
+
+
+async def _set_name_order(db_session, order: str) -> None:
+    from app.models import DeploymentConfig
+
+    db_session.add(DeploymentConfig(id=1, config_json={"roster": {"nameOrder": order}}))
+    await db_session.commit()
+
+
+async def test_created_and_patched_person_comes_back_in_the_configured_order(client, editor, db_session):
+    await _login(client, editor)
+    await _set_name_order(db_session, "first-last")
+    # Hand entry has no first/last, so the typed string is served back verbatim …
+    r = await client.post("/api/personnel", json={"display_name": "Von Arx Beat"})
+    assert r.json()["display_name"] == "Von Arx Beat"
+    # … until a PATCH gives it the split the reorder needs.
+    pid = r.json()["id"]
+    r = await client.patch(f"/api/personnel/{pid}", json={"first_name": "Beat", "last_name": "Von Arx"})
+    assert r.json()["display_name"] == "Beat Von Arx"
+
+
+async def test_list_defaults_to_last_first_sorted_by_the_served_name(client, editor, db_session):
+    await _login(client, editor)
+    await _seed_split_roster(db_session)
+    names = [p["display_name"] for p in (await client.get("/api/personnel")).json()]
+    # Ä sorts with A, and the row without a split keeps its stored string.
+    assert names == ["Ärni Zoe", "Brunner Anna", "Müller Hans", "Von Arx Beat"]
+
+
+async def test_list_follows_first_last_in_both_spelling_and_sort(client, editor, db_session):
+    await _login(client, editor)
+    await _seed_split_roster(db_session)
+    await _set_name_order(db_session, "first-last")
+    names = [p["display_name"] for p in (await client.get("/api/personnel")).json()]
+    # Reordered AND re-sorted: sorting the stored column would have led with «Ärni Zoe».
+    assert names == ["Anna Brunner", "Hans Müller", "Von Arx Beat", "Zoe Ärni"]
+    # The stored split is served untouched — only the joined name follows the setting.
+    anna = next(p for p in (await client.get("/api/personnel")).json() if p["first_name"] == "Anna")
+    assert (anna["first_name"], anna["last_name"]) == ("Anna", "Brunner")

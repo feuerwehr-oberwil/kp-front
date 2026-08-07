@@ -1,5 +1,12 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Person, Trupp } from '../types'
+
+// The station's name order decides which token abbreviateName treats as the given name.
+// Default is the shipped one; the first-last case flips it for a single test.
+let nameOrder: 'last-first' | 'first-last' = 'last-first'
+vi.mock('./deploymentConfig', () => ({ rosterNameOrder: () => nameOrder }))
+afterEach(() => { nameOrder = 'last-first' })
+
 import { abbreviateName, assignedPersonIds, presentCount, resolvePersonName, rosterFromList } from './personnel'
 
 const person = (id: string, displayName: string, active = true): Person => ({ id, displayName, active, updatedAt: '2026-06-23T10:00:00Z' })
@@ -36,17 +43,23 @@ describe('assignedPersonIds', () => {
 })
 
 describe('abbreviateName', () => {
-  // the roster stores «Vorname Nachname» (Divera display_name); the label reads surname-first,
-  // the way a Feuerwehr calls people
+  // the roster spells names in the station's configured order; the label always reads
+  // surname-first, the way a Feuerwehr calls people
   it('puts the surname first and the given name to an initial', () => {
-    expect(abbreviateName('Andreas Keller')).toBe('Keller A.')
-    expect(abbreviateName('Anna Meier')).toBe('Meier A.')
+    expect(abbreviateName('Keller Andreas')).toBe('Keller A.')
+    expect(abbreviateName('Meier Anna')).toBe('Meier A.')
   })
   it('keeps a multi-word surname intact', () => {
-    expect(abbreviateName('Beat Von Arx')).toBe('Von Arx B.')
+    expect(abbreviateName('Von Arx Beat')).toBe('Von Arx B.')
   })
   it('passes a single token through unchanged', () => {
     expect(abbreviateName('Keller')).toBe('Keller')
+  })
+
+  it('reads the given name off the OTHER end for a «Vorname Nachname» station', () => {
+    nameOrder = 'first-last'
+    expect(abbreviateName('Andreas Keller')).toBe('Keller A.')
+    expect(abbreviateName('Beat Von Arx')).toBe('Von Arx B.')
   })
 })
 

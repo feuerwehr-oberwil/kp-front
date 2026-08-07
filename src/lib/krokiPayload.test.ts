@@ -128,7 +128,7 @@ describe('kroki payload · Atemschutz on a hose line', () => {
       { id: 'd2', kind: 'line', coords: [[7.55, 47.51], [7.57, 47.52]], lineNo: 2 },
     ]
     const trupps = [{
-      id: 't1', name: 'Hans Müller', lineNo: 1, entryPressureBar: 300,
+      id: 't1', name: 'Müller Hans', lineNo: 1, entryPressureBar: 300,
       entryTime: '2026-08-05T10:00:00Z', lastContactTime: '2026-08-05T10:03:00Z', status: 'aktiv' as const,
     }]
     const p = buildKrokiPayload({ entities: [], drawings, layers, byName: {}, center: [7.55, 47.51], trupps })

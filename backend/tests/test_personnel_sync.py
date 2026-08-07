@@ -8,7 +8,10 @@ from app.personnel import (
     diff_members,
     format_name,
     match_rank,
+    name_sort_key,
     normalize_name,
+    person_display_name,
+    split_name,
 )
 
 RANKS = [
@@ -24,6 +27,8 @@ class FakePerson:
     display_name: str
     is_active: bool = True
     rank: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
     id: uuid.UUID = None  # type: ignore[assignment]
 
     def __post_init__(self):
@@ -49,6 +54,54 @@ def test_format_name_lastname_only():
 
 def test_format_name_empty_is_none():
     assert format_name("", "", "") is None
+
+
+# --- roster.nameOrder --------------------------------------------------------------
+
+
+def test_format_name_first_last_order():
+    assert format_name("", "Hans", "Müller", "first-last") == "Hans Müller"
+
+
+def test_format_name_stdformat_under_both_orders():
+    # Divera always delivers "Lastname, Firstname" — only the join changes with the setting.
+    assert format_name("Müller, Hans", "", "", "last-first") == "Müller Hans"
+    assert format_name("Müller, Hans", "", "", "first-last") == "Hans Müller"
+
+
+def test_format_name_half_a_name_is_order_independent():
+    # Nothing to reorder — one token comes back as it is, whichever way round the station reads.
+    for order in ("last-first", "first-last"):
+        assert format_name("", "", "Müller", order) == "Müller"
+        assert format_name("", "Hans", "", order) == "Hans"
+
+
+def test_split_name_fills_both_halves_from_stdformat():
+    # The sync persists these; without them a stored name could never be reordered later.
+    assert split_name("Müller, Hans", "", "") == ("Müller", "Hans")
+    assert split_name("", "Hans", "Müller") == ("Müller", "Hans")
+
+
+def test_person_display_name_reorders_when_the_split_is_there():
+    p = FakePerson(divera_id=1, display_name="Müller Hans", first_name="Hans", last_name="Müller")
+    assert person_display_name(p, "last-first") == "Müller Hans"
+    assert person_display_name(p, "first-last") == "Hans Müller"
+
+
+def test_person_display_name_keeps_the_stored_string_without_a_split():
+    # Hand-entered crew: no first/last, so «Von Arx Beat» must survive verbatim in either order.
+    p = FakePerson(divera_id=None, display_name="Von Arx Beat")
+    assert person_display_name(p, "last-first") == "Von Arx Beat"
+    assert person_display_name(p, "first-last") == "Von Arx Beat"
+
+
+def test_person_display_name_keeps_the_stored_string_with_half_a_split():
+    p = FakePerson(divera_id=None, display_name="Müller", last_name="Müller")
+    assert person_display_name(p, "first-last") == "Müller"
+
+
+def test_name_sort_key_is_accent_and_case_insensitive():
+    assert sorted(["Zbinden A.", "Ärni B.", "abegg C."], key=name_sort_key) == ["abegg C.", "Ärni B.", "Zbinden A."]
 
 
 def test_normalize_name_accent_case_whitespace():

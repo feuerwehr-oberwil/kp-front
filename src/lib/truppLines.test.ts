@@ -71,7 +71,7 @@ describe('tone and tag', () => {
   })
 
   it('abbreviates the leader on the tag — the Trupp symbol is where the full name goes', () => {
-    expect(truppTagText(trupp('a', { name: 'Hans Müller' }))).toBe('Müller H.')
+    expect(truppTagText(trupp('a', { name: 'Müller Hans' }))).toBe('Müller H.')
   })
 })
 
@@ -118,7 +118,7 @@ describe('the demo scene resolves to the tag an operator will see', () => {
   it('names Müller H. on Leitung 1 and leaves the feed line anonymous', async () => {
     const { readFileSync } = await import('node:fs')
     const scene = JSON.parse(readFileSync('examples/demo-data/incident.workspace.json', 'utf-8'))
-    const t = trupp('trupp1', { name: 'Hans Müller', lineNo: 1, lineId: 'd1784735796244' })
+    const t = trupp('trupp1', { name: 'Müller Hans', lineNo: 1, lineId: 'd1784735796244' })
     const angriff = scene.drawings.find((d: { id: string }) => d.id === 'd1784735796244')
     expect(`Ltg ${angriff.lineNo} · ${truppTagText(truppForLine(angriff, [t])!)}`).toBe('Ltg 1 · Müller H.')
     // the hydrant feed carries no Trupp — the link never spreads along the chain
@@ -140,7 +140,7 @@ describe('leitungOptions (what the Trupp form offers)', () => {
 
   it('never reads a Trupp’s own Leitung as taken, and ignores one that is out', () => {
     const map = [{ id: 'a', lineNo: 1 }]
-    const mine = trupp('me', { name: 'Hans Müller', lineNo: 1 })
+    const mine = trupp('me', { name: 'Müller Hans', lineNo: 1 })
     expect(leitungOptions(map, [], [mine], 'me')[0].takenBy).toBeUndefined()
     const gone = trupp('old', { name: 'Alt', lineNo: 1, status: 'raus' })
     expect(leitungOptions(map, [], [gone])[0].takenBy).toBeUndefined()

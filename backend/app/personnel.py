@@ -13,7 +13,7 @@ import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Protocol
+from typing import Literal, Protocol
 
 import httpx
 from sqlalchemy import select
@@ -35,6 +35,22 @@ DIVERA_PULL_BASE_URL = "https://www.divera247.com/api/v2"
 # list and take the most senior match as the member's rank (see :func:`derive_rank_from_quals`).
 # So rank is derived from Divera when the personnel key can see qualifications; otherwise it stays
 # whatever it was (CSV import remains a fallback).
+
+
+#: The station-wide name order (config ``roster.nameOrder``) — see :class:`schemas.RosterConfig`.
+NameOrder = Literal["last-first", "first-last"]
+
+#: Fallback for every caller that cannot reach the config (pure helpers, seeds, CSV import).
+DEFAULT_NAME_ORDER: NameOrder = "last-first"
+
+
+class _SplitNamePerson(Protocol):
+    """A roster row as :func:`person_display_name` reads it — the stored string plus the split
+    it may or may not have."""
+
+    display_name: str
+    first_name: str | None
+    last_name: str | None
 
 
 class _ExistingPerson(Protocol):
@@ -110,10 +126,13 @@ def normalize_name(name: str) -> str:
     return "".join(c for c in name if unicodedata.category(c) != "Mn")
 
 
-def format_name(stdformat_name: str, firstname: str, lastname: str) -> str | None:
-    """Build the full display name as ``"Lastname Firstname"`` (so the list sorts/searches by
-    surname). ``stdformat_name`` arrives from Divera as ``"Lastname, Firstname"``. The map's
-    Trupp chip abbreviates this client-side; everywhere else uses the full name.
+def split_name(stdformat_name: str, firstname: str, lastname: str) -> tuple[str, str]:
+    """The ``(lastname, firstname)`` a Divera member record yields — either may be blank.
+
+    ``stdformat_name`` arrives as ``"Lastname, Firstname"`` and wins where it is unambiguous;
+    the explicit fields fill the gaps. Kept separate from :func:`format_name` because the sync
+    persists the two halves as well as the joined string: without them a stored name cannot be
+    reordered later, so a station flipping ``roster.nameOrder`` would see nothing change.
     """
     last, first = "", ""
     if stdformat_name:
@@ -122,13 +141,49 @@ def format_name(stdformat_name: str, firstname: str, lastname: str) -> str | Non
             last, first = parts[0].strip(), parts[1].strip()
         else:
             last = stdformat_name.strip()
-    last = last or lastname.strip()
-    first = first or firstname.strip()
+    return last or lastname.strip(), first or firstname.strip()
+
+
+def format_name(
+    stdformat_name: str, firstname: str, lastname: str, order: NameOrder = DEFAULT_NAME_ORDER
+) -> str | None:
+    """Build the full display name in the station's ``roster.nameOrder`` — ``"Müller Hans"``
+    under the default ``"last-first"`` (so the list sorts/searches by surname), ``"Hans
+    Müller"`` under ``"first-last"``. The map's Trupp chip abbreviates this client-side;
+    everywhere else uses the full name.
+
+    ``order`` defaults to the shipped default, so a caller with no config in reach (seeds, a
+    pure test) still produces the name a fresh deployment serves.
+    """
+    last, first = split_name(stdformat_name, firstname, lastname)
     if not last and not first:
         return None
     if last and first:
-        return f"{last} {first}"
-    return last or first or None
+        return f"{first} {last}" if order == "first-last" else f"{last} {first}"
+    return last or first
+
+
+def person_display_name(person: _SplitNamePerson, order: NameOrder = DEFAULT_NAME_ORDER) -> str:
+    """The name to SERVE for an existing roster row, in ``order``.
+
+    Rebuilt from the split ``first_name``/``last_name`` when both are there — that is the only
+    case where the two tokens are known for certain, so it is the only case where reordering is
+    safe. Everyone else (hand-entered crew, CSV rows, anything imported as one string) keeps
+    their stored ``display_name`` verbatim: guessing which token of «Von Arx Beat» is the
+    surname would rename people, and a roster that renames people is worse than one that reads
+    in the wrong order. Pure — the caller supplies the order (see :func:`load_roster_name_order`).
+    """
+    first = (person.first_name or "").strip()
+    last = (person.last_name or "").strip()
+    if first and last:
+        return f"{first} {last}" if order == "first-last" else f"{last} {first}"
+    return person.display_name
+
+
+def name_sort_key(name: str) -> str:
+    """Sort key for a roster list: accent- and case-insensitive, so Ä sorts with A and the
+    order does not depend on the database's collation. Deterministic, no locale needed."""
+    return normalize_name(name)
 
 
 def match_rank(text: str, ranks: list[dict]) -> str | None:
@@ -184,14 +239,24 @@ async def load_roster_ranks(db: AsyncSession) -> list[dict]:
     return EXAMPLE_CONFIG["roster"]["ranks"]
 
 
-async def fetch_divera_members() -> list[dict]:
+async def load_roster_name_order(db: AsyncSession) -> NameOrder:
+    """The station's ``roster.nameOrder`` (stored config → shipped default).
+
+    Read on every request that serves names — the order is applied when a name goes out, never
+    when it is stored, so flipping the setting takes effect without a migration or a re-sync."""
+    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+    value = ((row.config_json or {}).get("roster", {}) or {}).get("nameOrder") if row else None
+    return "first-last" if value == "first-last" else DEFAULT_NAME_ORDER
+
+
+async def fetch_divera_members(order: NameOrder = DEFAULT_NAME_ORDER) -> list[dict]:
     """Fetch crew members from the Divera pull API.
 
     Uses ``divera_personnel_access_key`` when set (it can see Qualifikationen), else the alarm
-    ``divera_access_key``. Returns dicts with ``divera_id``, ``name``, ``first_name``,
-    ``last_name`` and ``qualifications`` (the member's qualification NAMES, resolved via the
-    cluster catalogue — empty list when the key can't see them). Rank is derived from these at
-    sync time.
+    ``divera_access_key``. Returns dicts with ``divera_id``, ``name`` (joined in ``order``),
+    ``first_name``, ``last_name`` and ``qualifications`` (the member's qualification NAMES,
+    resolved via the cluster catalogue — empty list when the key can't see them). Rank is
+    derived from these at sync time.
     """
     access_key = settings.divera_personnel_access_key or settings.divera_access_key
     if not access_key:
@@ -224,9 +289,15 @@ async def fetch_divera_members() -> list[dict]:
             divera_id = int(member_id_str)
         except (ValueError, TypeError):
             continue
-        firstname = (info.get("firstname") or "").strip()
-        lastname = (info.get("lastname") or "").strip()
-        name = format_name((info.get("stdformat_name") or "").strip(), firstname, lastname)
+        # Both halves come from the same split as the joined name, so a member Divera only
+        # names via `stdformat_name` still lands with first_name/last_name filled — the pair
+        # the read-time reorder needs.
+        last, first = split_name(
+            (info.get("stdformat_name") or "").strip(),
+            (info.get("firstname") or "").strip(),
+            (info.get("lastname") or "").strip(),
+        )
+        name = format_name("", first, last, order)
         if not name:
             continue
         # `qualifications` is a list of ids (or {id,…} objects) → resolve to catalogue names
@@ -243,8 +314,8 @@ async def fetch_divera_members() -> list[dict]:
             {
                 "divera_id": divera_id,
                 "name": name,
-                "first_name": firstname or None,
-                "last_name": lastname or None,
+                "first_name": first or None,
+                "last_name": last or None,
                 "qualifications": quals,
             }
         )
@@ -315,7 +386,8 @@ async def _resolve_ranks(members: list[dict], db: AsyncSession) -> None:
 
 async def build_sync_preview(db: AsyncSession) -> dict:
     """Fetch from Divera and diff against the DB — read-only, no writes."""
-    members = await fetch_divera_members()
+    order = await load_roster_name_order(db)
+    members = await fetch_divera_members(order)
     await _resolve_ranks(members, db)
     existing = await provider_people(db, "divera")
     return diff_members(members, existing)
@@ -327,7 +399,8 @@ async def execute_sync(db: AsyncSession, *, deactivate_stale: bool) -> dict:
     Rank is derived from Divera qualifications when the personnel key can see them (authoritative
     then); if it can't, existing ranks are preserved untouched.
     """
-    members = await fetch_divera_members()
+    order = await load_roster_name_order(db)
+    members = await fetch_divera_members(order)
     await _resolve_ranks(members, db)
     by_member = {m["divera_id"]: m for m in members}
     existing = await provider_people(db, "divera")
