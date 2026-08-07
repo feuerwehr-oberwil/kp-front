@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resolveHotkey, isTypingTarget, type HotkeyCommand } from './hotkeys'
+import { resolveHotkey, isTypingTarget, SURFACE_KEY, type HotkeyCommand, type SurfaceCmd } from './hotkeys'
 
 // minimal KeyboardEvent stand-in — resolveHotkey only reads these five fields
 const ev = (key: string, mod: Partial<KeyboardEvent> = {}): KeyboardEvent =>
@@ -17,12 +17,21 @@ describe('resolveHotkey — modules & fit (numbers address the plan modules)', (
 })
 
 describe('resolveHotkey — non-module surfaces carry their own letter', () => {
-  it('K/H/A/W/I select the fixed surfaces', () => {
+  it('K/H/A/W/I/R select the fixed surfaces', () => {
     expect(resolve('k')).toEqual({ type: 'surface', surface: 'map' })
     expect(resolve('h')).toEqual({ type: 'surface', surface: 'checklists' })
     expect(resolve('a')).toEqual({ type: 'surface', surface: 'atemschutz' })
     expect(resolve('w')).toEqual({ type: 'surface', surface: 'anwesenheit' })
     expect(resolve('i')).toEqual({ type: 'surface', surface: 'mittel' })
+    expect(resolve('r')).toEqual({ type: 'surface', surface: 'rapport' })
+  })
+  // the rail prints SURFACE_KEY on the button and the keyboard has to agree with it — a badge
+  // that says R over a key that does something else is worse than no badge at all
+  it('every badge in SURFACE_KEY resolves to exactly its own surface', () => {
+    for (const [surface, key] of Object.entries(SURFACE_KEY) as [SurfaceCmd, string][]) {
+      expect(resolve(key.toLowerCase())).toEqual({ type: 'surface', surface })
+      expect(resolve(key)).toEqual({ type: 'surface', surface }) // caps-lock / Shift
+    }
   })
 })
 
@@ -66,10 +75,17 @@ describe('resolveHotkey — bare tool/panel/view keys', () => {
   it('maps the view keys', () => {
     expect(resolve('g')).toEqual({ type: 'view', view: 'locate' })
     expect(resolve('c')).toEqual({ type: 'view', view: 'coord' })
-    expect(resolve('r')).toEqual({ type: 'view', view: 'north' })
     expect(resolve('+')).toEqual({ type: 'view', view: 'zoomIn' })
     expect(resolve('=')).toEqual({ type: 'view', view: 'zoomIn' })
     expect(resolve('-')).toEqual({ type: 'view', view: 'zoomOut' })
+  })
+  // «Nach Norden» gave R up: it has the compass on every form factor (always on screen, rotating
+  // to the live bearing), while the Rapport had no key at all. R must reach the Rapport, and the
+  // remaining view keys must have survived the swap unshadowed.
+  it('R is the Rapport surface, not «Nach Norden»', () => {
+    expect(resolve('r')).toEqual({ type: 'surface', surface: 'rapport' })
+    expect(resolve('g')).toEqual({ type: 'view', view: 'locate' })
+    expect(resolve('c')).toEqual({ type: 'view', view: 'coord' })
   })
   it('? opens help', () => {
     expect(resolve('?')).toEqual({ type: 'panel', panel: 'help' })

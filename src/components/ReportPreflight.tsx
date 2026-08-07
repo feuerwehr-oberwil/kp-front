@@ -571,6 +571,18 @@ export function ReportPreflight({
           <button className="ip-x" onClick={close} aria-label={P.backToMap}><Icon id="close" /></button>
         </div>
         <div className="ip-body report-preflight-body" ref={bodyRef}>
+          {/* TWO columns on a wide screen (one below 1080px, see app.css), because the rapport is
+              worked in two different ways and they interleave: the FORM is typed straight through
+              — dispatch readout, Zusammenfassung, the Zeiten, Bemerkungen — while the ROUND-UP
+              beside it (wer und was war da: Anwesenheit · Mittel · Partner · Beilagen, then what
+              will print) is checked off after the fact and jumps to other surfaces. Stacked they
+              made one column two screens tall on a page half of which was margin; side by side
+              the Zeiten grid gets the width it was always asking for and the checklist stays
+              visible while the form is being typed. The DOM order is untouched — it is the order
+              of the printed rapport and of the paper Erfassungsblatt (report_pdf.py,
+              admin/capturePdf.ts, both tested) — the columns only decide WHERE, never in which
+              order things are read. */}
+          <div className="rp-col rp-col-form">
           {/* ONE disabled fieldset rather than a `readOnly` on twenty controls: a viewer, and an
               archived Einsatz («nur ansehen – zum Bearbeiten reaktivieren»), can read every
               recorded value here and change none of it. `persist` refuses too, so a stray
@@ -802,7 +814,9 @@ export function ReportPreflight({
 
 
           </fieldset>
+          </div>
 
+          <div className="rp-col rp-col-side">
           {/* the closing checklist: ONLY the two rows that navigate somewhere (Anwesenheit /
               Mittel). Zeiten + Zusammenfassung are ordinary fields above — the missing-steps
               confirm still guards them; Verlauf dropped (system rows made it always-green).
@@ -1032,7 +1046,18 @@ export function ReportPreflight({
               <Toggle label={P.toggleDetailedAudit} hint={P.toggleDetailedAuditHint} checked={options.detailedAudit} onChange={(v) => patchOpt({ detailedAudit: v })} />
             </div>
           </details>
+          </div>
+        </div>
 
+        {/* Pinned to the bottom of the surface instead of scrolling away at the end of the form.
+            As a sheet the buttons WERE the end of a thing you filled in top to bottom; a page is
+            not read that way — the rapport is opened mid-Einsatz to correct one time and print,
+            and «PDF» sitting two screens below was the reason for every scroll to the bottom.
+            Kontrolle comes with it (it is the row directly above the actions in the print order
+            anyway): a warning must be read BEFORE paper is made, and pinning the button without
+            pinning the warning would have made it possible to print past one without ever having
+            seen it — the same failure the «never behind a fold» rule exists to prevent. */}
+        <div className="report-preflight-foot">
           {/* Kontrolle. Four lines of reassurance is three too many when the answer is yes —
               but a PROBLEM must never be behind a fold, so the warnings sit outside it and the
               tick only claims «bereit» when there are none. */}

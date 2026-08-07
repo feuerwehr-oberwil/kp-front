@@ -93,7 +93,7 @@ export const de = {
           { kind: 'sub', text: 'Bereiche wechseln' },
           { kind: 'list', items: [
             'Zahlen öffnen das Plan-Modul mit dieser Nummer – welche es gibt, richtet sich nach den Modulen dieser Wehr: [[1]] Modul 1, [[2]] oder [[3]] das Modul «2/3», [[4]] Modul 4 …',
-            '[[K]] Karte · [[H]] Checkliste · [[A]] Atemschutz · [[W]] Anwesenheit · [[I]] Mittel. Der Rapport hat bewusst keine Taste – jeder passende Buchstabe ist vergeben, und er wird einmal pro Einsatz geöffnet.',
+            '[[K]] Karte · [[H]] Checkliste · [[A]] Atemschutz · [[W]] Anwesenheit · [[I]] Mittel · [[R]] Rapport.',
             '[[⌘]] [[[]] / [[⌘]] []]] blättert Schritt für Schritt durch alle Bereiche (auch Umgebung und Gebäude, die keine Nummer haben).',
           ] },
           { kind: 'sub', text: 'Werkzeuge (Lage & Plan gleich)' },
@@ -107,7 +107,7 @@ export const de = {
           ] },
           { kind: 'sub', text: 'Ansicht & Panels' },
           { kind: 'list', items: [
-            '[[+]] / [[−]] Zoom · [[0]] Einpassen · [[G]] Mein Standort · [[R]] Nach Norden · [[C]] Koordinaten-Format.',
+            '[[+]] / [[−]] Zoom · [[0]] Einpassen · [[G]] Mein Standort · [[C]] Koordinaten-Format. «Nach Norden» hat keine Taste – dafür ist der Kompass da, der immer sichtbar ist und mitdreht.',
             '[[J]] Verlauf · [[E]] Eintrag · [[B]] Ebenen · [[O]] Objekt wählen · [[⌘]] [[,]] Einstellungen · [[?]] diese Hilfe.',
           ] },
         ],

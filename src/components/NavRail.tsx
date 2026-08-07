@@ -205,11 +205,13 @@ export function NavRail(p: Props) {
         </button>
         {/* The Rapport is a SURFACE, not a dialog: it is filled in across a whole Einsatz, it
             wants the full width its Zeiten grid and roster need, and as a sheet it had the Kroki
-            framing modal opening on top of it — two dialogs deep. No key badge: every mnemonic
-            letter is taken (see lib/hotkeys), and this is a surface you open once per Einsatz. */}
+            framing modal opening on top of it — two dialogs deep. It carries R like every other
+            surface carries its letter; what R used to do (Nach Norden) has the compass, which is
+            on screen at all times and rotates to say so (see lib/hotkeys). */}
         <button className={`nav-item${p.mode === 'rapport' ? ' on' : ''}`} aria-pressed={p.mode === 'rapport'} aria-label={appConfig.copy.modes.rapport} onClick={() => p.onMode('rapport')}>
           <span className="nav-glyph"><Icon id="doc" /></span>
           <span className="nav-label">{appConfig.copy.modes.rapport}</span>
+          <span className="nav-key" aria-hidden>{SURFACE_KEY.rapport}</span>
         </button>
 
         {/* (object switch moved to the incident dropdown's «Objekt: …» row, 2026-07-14) */}

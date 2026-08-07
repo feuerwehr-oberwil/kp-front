@@ -7,23 +7,29 @@
 // Numbers address the plan MODULES by their own number (the rail already shows "1" / "2/3" as the
 // module glyph — that badge IS the key): 1 → Modul 1, 2 or 3 → Modul 2/3, 4 → Modul 4, …
 // The non-module surfaces carry their own letter, shown as a rail badge (SURFACE_KEY):
-//   K Karte · H Checkliste · A Atemschutz · W Anwesenheit · I Mittel
-// The Rapport surface deliberately has NO letter: every mnemonic one is taken (R is «Norden
-// ausrichten»), and squatting q/u/x — or rebinding a key somebody's hands already know — costs
-// more than the shortcut is worth on a surface you open once per Einsatz.
+//   K Karte · H Checkliste · A Atemschutz · W Anwesenheit · I Mittel · R Rapport
+// R used to be «Norden ausrichten» and is the Rapport's now, because the two commands are not
+// comparable: resetting the rotation has a permanent control on every form factor — the compass
+// (rail footer on a tablet, the floating cluster on a phone, the utility cluster on desktop) is
+// always on screen, it ROTATES to the live bearing, so it announces itself precisely when the
+// command is wanted, its menu opens on «Nach Norden», and MapView eases back to 0 by itself
+// within a few degrees of north. The Rapport had no key at all, it is the last surface with a
+// mnemonic letter free, and it is opened, left for Anwesenheit and returned to repeatedly across
+// one Einsatz. So `north` keeps its button and loses its letter rather than moving to q/u/x,
+// where a shortcut nobody can guess is worth less than none.
 // Bare letters are also the tools/panels/view; Cmd/Ctrl is reserved for the doc-level ops
 // (undo/redo/duplicate) and the OS-conventional Einstellungen (Cmd+,). The cheatsheet lives in
 // appConfig.copy.help ("Tastaturkürzel") — keep the three (here, SURFACE_KEY, help) in sync.
 
 export type ToolCmd =
   | 'select' | 'lasso' | 'symbol' | 'line' | 'area' | 'circle' | 'note' | 'team' | 'measure'
-export type SurfaceCmd = 'map' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel'
+export type SurfaceCmd = 'map' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel' | 'rapport'
 export type PanelCmd = 'journal' | 'composer' | 'layers' | 'picker' | 'settings' | 'help'
-export type ViewCmd = 'zoomIn' | 'zoomOut' | 'locate' | 'coord' | 'north'
+export type ViewCmd = 'zoomIn' | 'zoomOut' | 'locate' | 'coord'
 
 export type HotkeyCommand =
   | { type: 'module'; n: number }          // 1..9 → the plan module with that number
-  | { type: 'surface'; surface: SurfaceCmd } // K/H/A/W/I → a non-module surface
+  | { type: 'surface'; surface: SurfaceCmd } // K/H/A/W/I/R → a non-module surface
   | { type: 'fit' }                          // 0 → einpassen / center
   | { type: 'nav'; dir: -1 | 1 }             // Cmd+[ / Cmd+] → step through the whole nav list
   | { type: 'undo' }
@@ -36,7 +42,7 @@ export type HotkeyCommand =
 /** the letter badge shown on each non-module surface in the NavRail — the single source the rail
  *  and SURFACE_KEYS below both read, so the badge always matches what the key does. */
 export const SURFACE_KEY: Record<SurfaceCmd, string> = {
-  map: 'K', checklists: 'H', atemschutz: 'A', anwesenheit: 'W', mittel: 'I',
+  map: 'K', checklists: 'H', atemschutz: 'A', anwesenheit: 'W', mittel: 'I', rapport: 'R',
 }
 
 /** true while a text field owns focus — bare-letter shortcuts must stay inert so typing works. */
@@ -57,8 +63,9 @@ const TOOL_KEYS: Record<string, ToolCmd> = {
 const PANEL_KEYS: Record<string, PanelCmd> = {
   j: 'journal', e: 'composer', b: 'layers', o: 'picker',
 }
+// (no `r: 'north'` anymore — see the header: the compass is the north control, R is the Rapport)
 const VIEW_KEYS: Record<string, ViewCmd> = {
-  g: 'locate', c: 'coord', r: 'north',
+  g: 'locate', c: 'coord',
 }
 
 /**

@@ -3573,11 +3573,35 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 }
 .report-preflight-surface > .ip-head { flex: none; padding: 16px 20px 12px; border-bottom: 1px solid var(--border-soft); }
 .report-preflight-surface > .ip-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
-/* (the action row lives INSIDE the body and scrolls with the form, as it did in the sheet —
-   the buttons belong at the end of something you fill in top to bottom) */
+/* The actions are PINNED to the surface now (they scrolled with the form while this was a
+   sheet). A sheet is filled in top to bottom and its buttons belong at the end of it; a page is
+   arrived at mid-Einsatz to fix one time and print, and «PDF» two screens down was what every
+   scroll to the bottom was for. Kontrolle is pinned with them — see the component: a warning has
+   to be readable before the paper exists, and a reachable print button above an unreachable
+   warning is the same failure as a warning behind a fold. */
+.report-preflight-foot { flex: none; display: flex; flex-direction: column; gap: 10px;
+  padding: 10px 20px 14px; border-top: 1px solid var(--border-soft); }
+/* …but three warnings must not eat the form they are about: the block scrolls inside the footer
+   rather than pushing the buttons off a phone screen. */
+.report-preflight-foot > .report-pre-hints { max-height: 38vh; overflow-y: auto; }
+/* TWO columns of a rapport (see the component for what goes in which and why). Each column is
+   its own stack, so the single-column phone case is simply the two of them below one another —
+   the DOM order, which is the printed order, is the same either way. */
+.report-preflight-body > .rp-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+/* 1080px = an iPad in landscape, the narrowest screen where two columns of ~460px still fit
+   beside the rail. Below it the surface stays the single column it is on a phone. */
+@media (min-width: 1080px) {
+  .report-preflight-surface > .report-preflight-body {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px;
+    /* start, not stretch: the two columns are different lengths and neither should be padded
+       out to the other's height — the checklist would grow a hole under its last row */
+    align-items: start;
+  }
+}
 @media (max-width: 720px) {
   .report-preflight-surface { inset: calc(78px + env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
     calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
+  .report-preflight-foot { padding: 8px 12px 12px; gap: 8px; }
 }
 .report-preflight > .ip-head { flex: none; padding-bottom: 12px; border-bottom: 1px solid var(--border-soft); }
 .report-preflight > .ip-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }

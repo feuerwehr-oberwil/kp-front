@@ -1719,7 +1719,8 @@ export function IncidentWorkspace({
           case 'zoomOut': e.preventDefault(); if (onPlan) planKeys.current?.zoom(1 / 1.3); else mapRef.current?.zoomOut(); break
           case 'locate': if (onMap) { e.preventDefault(); setLocateReq((n) => n + 1) } break
           case 'coord': if (onMap) { e.preventDefault(); coord.cycle() } break
-          case 'north': if (onMap) { e.preventDefault(); mapRef.current?.resetNorth() } break
+          // «Nach Norden» has no key — the compass button carries it on every form factor and
+          // R went to the Rapport surface (see lib/hotkeys)
         }
         break
     }
