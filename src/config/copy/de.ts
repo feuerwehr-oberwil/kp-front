@@ -2351,7 +2351,14 @@ export const de = {
   preflight: {
     pdfFull: 'Einsatzrapport (PDF)',
     pdfBusy: 'PDF wird erstellt …',
-    title: 'Einsatzrapport drucken',
+    // Der Rapport ist eine eigene Fläche wie Anwesenheit oder Mittel – kein Druckdialog mehr.
+    // «Einsatzrapport drucken» hiess der Titel, solange das Blatt nur zum Drucken aufging.
+    title: 'Einsatzrapport',
+    // Eine Zeile unter dem Titel, im Ton der anderen Flächen («12 anwesend · 3 gegangen · 28
+    // Mannschaft»): erst was erfasst ist, dann das Urteil. Die offenen Punkte werden BENANNT –
+    // «unvollständig» allein schickt einen auf die Suche.
+    headSummaryOpen: '{n} Personen · {m} Positionen · noch offen: {steps}',
+    headSummaryReady: '{n} Personen · {m} Positionen · alle Angaben erfasst',
     // Rapportangaben section
     rapportHead: 'Rapportangaben',
     // …split out of the same field the Alarmmeldung arrives in (siehe lib/alarmText):
@@ -2452,11 +2459,13 @@ export const de = {
     // versteht. Es geht um die Buchungszeilen im gedruckten Verlauf (wer wann was geändert hat),
     // die sonst herausgefiltert werden. Der Prüfnachweis-Status oben bleibt davon unberührt.
     toggleDetailedAuditHint: 'Druckt zusätzlich die Buchungszeilen im Verlauf – wer wann was geändert hat. Für die Rekonstruktion eines Einsatzes; für das normale Rapport nicht nötig.',
-    // Kroki framing modal (WYSIWYG crop before PDF / Ausdrucken)
-    framingTitle: 'Kroki-Ausschnitt wählen',
+    // Kroki-Ausschnitt: ein Feld auf der Rapport-Fläche (WYSIWYG), kein Dialog vor dem Druck
+    // mehr – deshalb gibt es auch nichts mehr zu «übernehmen».
+    krokiHead: 'Kroki-Ausschnitt',
+    // was der zugeklappte Abschnitt sagen muss, damit Zuklappen überhaupt zulässig ist
+    krokiSummary: '{shape} · Stand {at}',
     framingHint: 'Karte verschieben und zoomen – gedruckt wird genau dieser Ausschnitt.',
     framingFit: 'Auf Einsatz zoomen',
-    framingConfirm: 'Ausschnitt übernehmen',
     // Kontrolle section
     controlHead: 'Kontrolle',
     proofChecking: 'Prüfnachweis wird geprüft …',
@@ -2465,8 +2474,8 @@ export const de = {
     fixTranscripts: 'Im Verlauf ergänzen',
     pendingMedia: '{n} Foto/Audio noch nicht hochgeladen – wird bei Verbindung ergänzt; auf anderen Geräten evtl. noch nicht sichtbar.',
     stateNote: 'Stand: ganzer Einsatz bis Rapport-Erstellung ({at}).',
-    // actions
-    cancel: 'Abbrechen',
+    // actions — kein «Abbrechen»: eine Fläche wird über die Leiste oder das ✕ im Kopf verlassen,
+    // und abzubrechen gäbe es ohnehin nichts (jedes Feld schreibt beim Tippen durch).
     openPrint: 'Druckansicht öffnen',
   },
   // Station print relay — «Ausdrucken» (preflight + capture)

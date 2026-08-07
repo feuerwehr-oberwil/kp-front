@@ -4,7 +4,7 @@ import { cx } from '../lib/cx'
 import { parseAlarmText } from '../lib/alarmText'
 import { confirmDialog, openPhoto, toast } from '../lib/ui'
 import { buildDirectReportPayload, downloadDirectReportPdf } from '../lib/reportPdfDirect'
-import { KrokiFramingModal } from './KrokiFramingModal'
+import { KrokiFramingPanel } from './KrokiFramingPanel'
 import { editorPrintTransport, enqueuePrint, fetchPrintStatus, prewarmPrint, type PrintRelayStatus } from '../lib/printRelay'
 import { trackPrintJob } from '../lib/printJobToast'
 import { appConfig } from '../config/appConfig'
@@ -16,8 +16,8 @@ import { deriveAusgerueckt, fahrzeugRows, gruppenRows, setFahrzeugZeit, setGrupp
 import { getDeploymentConfig } from '../lib/deploymentConfig'
 import { activityMoments, loadReplay, stateAt, vehiclesAt, type ReplayBundle } from '../lib/replay'
 import { autoRotation, vehicleSymbolSvg } from '../lib/useVehiclePositions'
-import type { AuditProof, KrokiView, ReportDraft, ReportOptions } from '../lib/report'
-import { defaultReportOptions, einsatzleiterFromScene, formatDateTime, missingTranscriptCount, operationalExtentPoints, proofLabel } from '../lib/report'
+import type { AuditProof, ReportDraft, ReportOptions } from '../lib/report'
+import { defaultReportOptions, einsatzleiterFromScene, formatDateTime, krokiStandLabel, missingTranscriptCount, operationalExtentPoints, proofLabel } from '../lib/report'
 import { applyTimeToIso, isoOnDay, missingSteps, stepDone, type AbschlussFacts } from '../lib/abschluss'
 import { hoursRows } from '../lib/attendanceHours'
 import { incidentDays } from '../lib/zeitplanFormat'
@@ -31,6 +31,21 @@ import { Segmented } from './Segmented'
 import { Stepper } from './Stepper'
 
 const NO_IDS = new Set<string>()
+
+/** Shape of the operational extent — wider than tall means a landscape sheet. Latitude is
+ *  scaled by cos(lat) so the comparison is in metres, not degrees: at 47° a degree of longitude
+ *  is only ~68 km against 111 km, and the raw numbers would call almost every Lage «hoch».
+ *  Read ONCE, to seed the orientation — from then on the value on screen is the choice. */
+function autoLandscape(scene?: { center: LngLat; entities: Entity[]; drawings: Drawing[] }): boolean {
+  if (!scene) return true
+  const pts = operationalExtentPoints(scene.center, scene.entities, scene.drawings, false)
+  if (pts.length < 2) return true
+  const lngs = pts.map((p) => p[0]), lats = pts.map((p) => p[1])
+  const midLat = (Math.min(...lats) + Math.max(...lats)) / 2
+  const w = (Math.max(...lngs) - Math.min(...lngs)) * Math.cos((midLat * Math.PI) / 180)
+  const h = Math.max(...lats) - Math.min(...lats)
+  return w >= h
+}
 
 /** HH:MM display value for the compact time inputs of the Zeiten grid. */
 function clockOf(iso?: string): string {
@@ -80,6 +95,11 @@ function Toggle({ label, hint, checked, onChange, disabled }: { label: string; h
 // (a mutated `.current` box, not a reassigned binding — the react-compiler lint forbids
 // reassigning module variables inside the component)
 const savedScroll: { current: { incidentId: string; top: number } | null } = { current: null }
+// …and the same for the Kroki panel, for the same reason: it is a fold the operator opened on
+// purpose, and having it snap shut behind every trip to Anwesenheit would make the one control
+// that costs a scroll to reach the one that never stays where it was put. Reset on a deliberate
+// close, so a fresh open follows the screen width again.
+const savedKrokiOpen: { current: { incidentId: string; open: boolean } | null } = { current: null }
 
 export function ReportPreflight({
   incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], plans = [], scene, board, building, captureUsage, canEdit = true, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onComplete, onClose, onFixTranscripts,
@@ -166,9 +186,12 @@ export function ReportPreflight({
     kroki: mapContentCount > 0,
     annotatedPlans: annotatedPlanCount > 0,
     atemschutz: truppCount > 0,
-    // the framing chosen for the LAST print of this Einsatz — see the modal's onConfirm
+    // The framing chosen for the LAST print of this Einsatz — the Kroki panel opens on it and
+    // reports every settled pan back into this same field, so what the surface would print is
+    // always what the crop on screen shows. Auto on first use: the operational extent decides
+    // the shape, so a Lage that runs north–south opens upright without anyone asking for it.
     krokiView: reportMeta.krokiPrint?.view ?? null,
-    krokiLandscape: reportMeta.krokiPrint?.landscape ?? defaultReportOptions.krokiLandscape,
+    krokiLandscape: reportMeta.krokiPrint?.landscape ?? autoLandscape(scene),
   })
   // Partnerorganisationen. The field existed in the model and PRINTED for months, but nothing
   // ever wrote it — so every rapport fell back to the config's tick-off row and «Polizei war da»
@@ -229,19 +252,6 @@ export function ReportPreflight({
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- incident/meta are stable per sheet
   }, [krokiAt])
-  // Shape of the operational extent — wider than tall means a landscape sheet. Latitude is
-  // scaled by cos(lat) so the comparison is in metres, not degrees: at 47° a degree of longitude
-  // is only ~68 km against 111 km, and the raw numbers would call almost every Lage «hoch».
-  const autoLandscape = useMemo(() => {
-    if (!scene) return true
-    const pts = operationalExtentPoints(scene.center, scene.entities, scene.drawings, false)
-    if (pts.length < 2) return true
-    const lngs = pts.map((p) => p[0]), lats = pts.map((p) => p[1])
-    const midLat = (Math.min(...lats) + Math.max(...lats)) / 2
-    const w = (Math.max(...lngs) - Math.min(...lngs)) * Math.cos((midLat * Math.PI) / 180)
-    const h = Math.max(...lats) - Math.min(...lats)
-    return w >= h
-  }, [scene])
 
   /** the Lage the printed Kroki is built from: the reconstructed one when a moment is chosen */
   const effScene = pastScene && scene ? { ...scene, entities: pastScene.entities, drawings: pastScene.drawings } : scene
@@ -403,9 +413,11 @@ export function ReportPreflight({
     return text ? <span className="rz-warn"><Icon id="warn" />{text}</span> : null
   }
   const missTx = missingTranscriptCount(events)
-  // krokiView arrives fresh from the framing modal — options state is set in parallel,
-  // so it's passed explicitly instead of read back (setState is async)
-  const buildDraft = (krokiView?: KrokiView | null): ReportDraft => {
+  // No krokiView argument any more: the panel reports each settled crop into `options` while the
+  // rapport is being filled in, so by the time a button is pressed the state IS the framing on
+  // screen. It used to be threaded through the modal's onConfirm because that value and the
+  // setState landed in the same tick.
+  const buildDraft = (): ReportDraft => {
     const generatedAt = new Date().toISOString()
     return {
       meta, generatedAt,
@@ -415,14 +427,14 @@ export function ReportPreflight({
       // `effScene` falls back to the LIVE Lage while the reconstruction is in flight and after
       // one fails, and a caption saying «Stand 21:14» over a picture of 23:00 is a false
       // statement on a document that is a legal record. No caption is the honest fallback.
-      options: { ...options, krokiView: krokiView ?? options.krokiView, krokiAt: krokiAt != null && pastScene ? new Date(krokiAt).toISOString() : null },
+      options: { ...options, krokiAt: krokiAt != null && pastScene ? new Date(krokiAt).toISOString() : null },
     }
   }
   const [pdfBusy, setPdfBusy] = useState(false)
   // ONE button (decided 2026-07-18): the server composes the complete rapport — map
   // render included (app/kroki.py) — from pure data. No Druckansicht detour anymore.
-  const downloadPdf = async (krokiView?: KrokiView | null) => {
-    const draft = buildDraft(krokiView)
+  const downloadPdf = async () => {
+    const draft = buildDraft()
     setPdfBusy(true)
     try {
       await downloadDirectReportPdf({
@@ -445,7 +457,7 @@ export function ReportPreflight({
     void fetchPrintStatus(editorPrintTransport()).then((s) => { if (alive) setPrintStatus(s) })
     return () => { alive = false }
   }, [])
-  // Opening this modal is a strong «about to print» signal: once we know the relay is
+  // Opening this surface is a strong «about to print» signal: once we know the relay is
   // available and the report carries a Kroki, warm the server's map-tile cache so the real
   // enqueue render is near-instant. Fire once, best-effort — reframes reuse overlapping tiles.
   const warmedRef = useRef(false)
@@ -453,14 +465,14 @@ export function ReportPreflight({
     if (warmedRef.current || !printStatus?.available || !options.kroki || mapContentCount === 0 || !scene) return
     warmedRef.current = true
     const payload = buildDirectReportPayload({
-      incident, draft: buildDraft(null), trupps, attendance, events, plans, mittel, attachments, scene: effScene, board, building,
+      incident, draft: buildDraft(), trupps, attendance, events, plans, mittel, attachments, scene: effScene, board, building,
       roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
     })
     void prewarmPrint(editorPrintTransport(), incident.id, payload)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [printStatus?.available, options.kroki, mapContentCount])
   const R = appConfig.copy.printRelay
-  const sendToPrinter = async (krokiView?: KrokiView | null) => {
+  const sendToPrinter = async () => {
     // ALWAYS confirm — «Ausdrucken» must never produce accidental paper; when the relay
     // is offline the modal doubles as the store-and-forward warning
     const ok = printStatus?.online
@@ -471,7 +483,7 @@ export function ReportPreflight({
     try {
       const t = editorPrintTransport()
       const payload = buildDirectReportPayload({
-        incident, draft: buildDraft(krokiView), trupps, attendance, events, plans, mittel, attachments, scene: effScene, board, building,
+        incident, draft: buildDraft(), trupps, attendance, events, plans, mittel, attachments, scene: effScene, board, building,
         roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
       })
       const jobId = await enqueuePrint(t, incident.id, payload)
@@ -483,14 +495,30 @@ export function ReportPreflight({
     }
   }
   const patchOpt = (patch: Partial<ReportOptions>) => setOptions((o) => ({ ...o, ...patch }))
-  // Kroki in the output → ALWAYS pick the framing first (WYSIWYG modal, seeded with the
-  // auto-fit or the last chosen crop); without a Kroki the action runs directly.
-  const [framingFor, setFramingFor] = useState<null | 'pdf' | 'print'>(null)
-  // Loaded when the framing modal OPENS, not on the first drag: the ticks exist to aim that
+  /** Is there anything to frame? A rapport-only Einsatz (nothing drawn, nothing placed) seeds
+   *  the Kroki section OFF and must not show an empty map pretending to be a picture — and
+   *  switching the section off by hand means the same thing: nothing is going on the paper. */
+  const krokiPanel = options.kroki && mapContentCount > 0 && !!effScene
+  // The panel is a fold: on a wide screen it is open, because seeing the crop while the form is
+  // typed is the whole reason it stopped being a modal; below the two-column breakpoint a map
+  // crop is a postcard sitting between the operator and the fields, so it starts closed and
+  // says what it is hiding in its own summary. Either way it can be collapsed by hand — the
+  // choice, not the width, is what is remembered across a trip to Anwesenheit.
+  const [krokiOpen, setKrokiOpen] = useState(() => (
+    savedKrokiOpen.current?.incidentId === incident.id
+      ? savedKrokiOpen.current.open
+      : typeof window !== 'undefined' && window.matchMedia('(min-width: 1080px)').matches
+  ))
+  const toggleKrokiPanel = (open: boolean) => {
+    setKrokiOpen(open)
+    savedKrokiOpen.current = { incidentId: incident.id, open }
+  }
+  // Loaded when the crop becomes visible, not on the first drag: the ticks exist to aim that
   // drag, so arriving after it would be arriving too late. Best-effort — a replay bundle that
-  // will not load costs the marks, never the picker.
+  // will not load costs the marks, never the slider.
+  const krokiShown = krokiPanel && krokiOpen
   useEffect(() => {
-    if (!framingFor) return
+    if (!krokiShown) return
     let alive = true
     void (async () => {
       try {
@@ -501,10 +529,24 @@ export function ReportPreflight({
       } catch { /* no marks; the slider still works */ }
     })()
     return () => { alive = false }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the modal opening
-  }, [framingFor, incident.id])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the panel becoming visible
+  }, [krokiShown, incident.id])
   const startOutput = (action: 'pdf' | 'print') => {
-    if (options.kroki && mapContentCount > 0 && scene) { setFramingFor(action); return }
+    // No framing step in front of the action any more — the crop has been on screen the whole
+    // time. What is left of the old onConfirm is the REMEMBERING: the framing rides the workspace
+    // blob so the second print comes out of the same window as the first, from any device. Written
+    // here rather than on every pan, because «the last print's framing» is what it claims to be —
+    // and a persist per map frame would be a workspace write per frame. Cleared for a read-only
+    // surface by `persist` itself.
+    if (krokiPanel && options.krokiView) {
+      persist({
+        krokiPrint: {
+          view: options.krokiView,
+          at: krokiAt != null && pastScene ? new Date(krokiAt).toISOString() : undefined,
+          landscape: options.krokiLandscape,
+        },
+      })
+    }
     if (action === 'pdf') void downloadPdf()
     else void sendToPrinter()
   }
@@ -534,16 +576,31 @@ export function ReportPreflight({
   const facts: AbschlussFacts = { reportMeta: meta, attendanceCount, mittelCount }
   const rows = hoursRows(attendance, { alarmedAt: alarmiert ?? null, endedAt: meta.endedAt ?? null })
 
+  // The head's one line, in the voice the other surfaces use («12 anwesend · 3 gegangen · 28
+  // Mannschaft»): what is recorded, then the verdict. «Alle Angaben erfasst» is a claim, so it is
+  // made only when the same Mindestangaben the Abschluss-Confirm checks are all in — and when
+  // they are not, the line NAMES the missing ones instead of saying that something, somewhere, is
+  // still open. It deliberately says nothing about the Prüfnachweis or the pending uploads: those
+  // are warnings, they live beside the buttons they must be read before, and a header that also
+  // mentioned them would be the second place to look for the same thing.
+  const missing = missingSteps(facts)
+  const headSummary = missing.length
+    ? fillTemplate(P.headSummaryOpen, { n: attendanceCount, m: mittelCount, steps: missing.map((s) => A.steps[s]).join(' · ') })
+    : fillTemplate(P.headSummaryReady, { n: attendanceCount, m: mittelCount })
+
   // «Einsatz abschliessen» is bookkeeping, not the artefact: it stamps report_done_at and
   // archives. The PDF is its own (primary) action — decoupled by decision 2026-07-08 after
   // auto-download-on-complete felt wrong in the field.
   const complete = async () => {
     if (!onComplete) return
-    const missing = missingSteps(facts)
     const message = missing.length
       ? `${fillTemplate(A.confirmMissing, { steps: missing.map((s) => A.steps[s]).join(', ') })} ${A.confirmMsg}`
       : A.confirmMsg
-    if (await confirmDialog({ title: A.confirmTitle, message, confirmLabel: A.confirmBtn })) { savedScroll.current = null; onComplete() }
+    if (await confirmDialog({ title: A.confirmTitle, message, confirmLabel: A.confirmBtn })) {
+      savedScroll.current = null
+      savedKrokiOpen.current = null
+      onComplete()
+    }
   }
 
   // Scroll keep-alive across the Anwesenheit/Mittel/Verlauf round trip (see savedScroll):
@@ -555,21 +612,31 @@ export function ReportPreflight({
     return () => { if (el) savedScroll.current = { incidentId: incident.id, top: el.scrollTop } }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-  const close = () => { savedScroll.current = null; onClose() }
+  const close = () => { savedScroll.current = null; savedKrokiOpen.current = null; onClose() }
 
   return (
-    <>
-      {/* A SURFACE, not a dialog. The Rapport is filled in across a whole Einsatz — a sentence
-          here, a time there, jump to Anwesenheit because somebody arrived — and it wants the
-          width its Zeiten grid and its two-up roster ask for. As a sheet it also had the Kroki
-          framing modal opening on top of it, which put the operator two dialogs deep on the one
-          screen that has to stay legible at 3am. The head keeps a close button because the
-          surface is still something you LEAVE (back to the Lage), not a place to end up. */}
+    /* A SURFACE, not a dialog. The Rapport is filled in across a whole Einsatz — a sentence
+       here, a time there, jump to Anwesenheit because somebody arrived — and it wants the width
+       its Zeiten grid and its two-up roster ask for. It is also the last screen here with no
+       dialog left over it at all: the Kroki framing used to open on top of this, which put the
+       operator two windows deep on the one screen that has to stay legible at 3am, and it is a
+       panel in the page now. The head keeps a close button because the surface is still
+       something you LEAVE (back to the Lage), not a place to end up. */
       <div className="report-preflight report-preflight-surface">
-        <div className="ip-head">
-          <h2>{P.title}</h2>
-          <button className="ip-x" onClick={close} aria-label={P.backToMap}><Icon id="close" /></button>
-        </div>
+        {/* The same head every other surface wears (Anwesenheit, Mittel): a title, and under it
+            one line of what is actually recorded. It carried a bare title and an ✕ — dialog
+            chrome, which is what a page inherits when it used to be a sheet. The ✕ stays,
+            because unlike Anwesenheit this surface is also arrived at FROM the Lage and from the
+            Abschluss-Assistent, and «zurück zur Lage» should not require finding the rail. */}
+        <header className="rp-head">
+          <div className="rp-head-titles">
+            <h2>{P.title}</h2>
+            <p>{headSummary}</p>
+          </div>
+          <div className="rp-head-actions">
+            <button className="ip-x" onClick={close} aria-label={P.backToMap} title={P.backToMap}><Icon id="close" /></button>
+          </div>
+        </header>
         <div className="ip-body report-preflight-body" ref={bodyRef}>
           {/* TWO columns on a wide screen (one below 1080px, see app.css), because the rapport is
               worked in two different ways and they interleave: the FORM is typed straight through
@@ -999,6 +1066,54 @@ export function ReportPreflight({
             </CheckRow>
           </section>
 
+          {/* The Kroki, on the page. It was a modal that opened on the press of PDF / Ausdrucken,
+              so the crop was chosen blind for the whole time the rapport was being written and
+              then decided in a hurry, on top of a surface that had itself just stopped being a
+              dialog. Here it sits directly above «Abschnitte», because the two answer the same
+              question — what goes on the paper — and the toggle that includes or excludes the
+              Kroki is the first row of the fold underneath it. Above the checklist it would have
+              pushed Anwesenheit and Mittel, the rows worked most, down by the height of a map.
+              No confirm step: whatever the crop shows when PDF or Ausdrucken is pressed is what
+              prints, and `startOutput` remembers it as this Einsatz's framing. */}
+          {krokiPanel && (
+            <details className="report-pre-section report-fold" open={krokiOpen}
+              onToggle={(e) => toggleKrokiPanel(e.currentTarget.open)}>
+              <summary>
+                <Icon id="chevron-down" />
+                <span className="report-fold-t">{P.krokiHead}</span>
+                <span className="report-fold-sum">
+                  {fillTemplate(P.krokiSummary, {
+                    shape: options.krokiLandscape ? P.krokiLandscape : P.krokiPortrait,
+                    at: krokiStandLabel(krokiAt),
+                  })}
+                </span>
+              </summary>
+              {/* mounted only while open: a MapLibre map inside a closed <details> measures 0×0,
+                  and the auto-fit it performs on load would be computed against that */}
+              {krokiOpen && (
+                <KrokiFramingPanel
+                  scene={effScene}
+                  initial={options.krokiView}
+                  // WHEN the picture shows. One picture is one Lage at one time; naming the
+                  // moment is the honest answer to «die Rettung ist weg», and the map redraws
+                  // under the crop as it is reconstructed.
+                  atMs={krokiAt}
+                  atBusy={krokiAtBusy}
+                  onAtChange={setKrokiAt}
+                  moments={krokiMoments}
+                  startedAtMs={Date.parse(meta.startedAt ?? incident.started_at) || null}
+                  landscape={options.krokiLandscape}
+                  onLandscapeChange={(v) => patchOpt({ krokiLandscape: v })}
+                  // the preview has to show what the sheet will show: the Trupp in a hose's end
+                  // tag and the same Beschriftungen setting the export resolves captions under
+                  trupps={trupps}
+                  captionMode={scene?.captionMode ?? 'auto'}
+                  onViewChange={(v) => patchOpt({ krokiView: v })}
+                />
+              )}
+            </details>
+          )}
+
           {/* Folded, because this is the block that ate most of the dialog's height while
               usually showing the obvious answer — the defaults already follow the data (the
               useState seed re-derives on every open, since this dialog mounts fresh). The
@@ -1016,8 +1131,10 @@ export function ReportPreflight({
                 (all wins over annotated in the print derivation, see lib/report). */}
             <div className="report-toggles">
               <div className="report-toggle-grouphead">{P.groupMap}</div>
-              {/* framing is chosen visually in the KrokiFramingModal right before PDF /
-                  Ausdrucken — no «aktuelle Ansicht» / extent toggles needed anymore */}
+              {/* WHETHER a Kroki prints, not what it shows: the crop, its Stand and its shape are
+                  chosen in the panel directly above this fold, so there are no «aktuelle Ansicht»
+                  / extent toggles here. Switching this off takes that panel away with it — there
+                  is nothing to frame for a page that is not being printed. */}
               <Toggle label={P.toggleKroki} checked={options.kroki && mapContentCount > 0} onChange={(v) => patchOpt({ kroki: v })} disabled={mapContentCount === 0} />
               <div className="report-plans-row">
                 <span>{P.plansLabel}</span>
@@ -1092,8 +1209,19 @@ export function ReportPreflight({
             </details>
           </section>
 
+          {/* The actions stay DOWN HERE rather than moving up into the head with the other
+              surfaces' controls, and Kontrolle stays directly above them. A warning about the
+              record — a broken hash chain, an audio entry with no transcript, a photo still in
+              the upload queue — has to be read before the paper exists, and the only arrangement
+              in which that is guaranteed is the one where the warning and the button that makes
+              paper are in the same glance. In the head they would be a screen apart on a phone
+              and a column apart on a tablet, which is the «print button above an unreachable
+              warning» the never-behind-a-fold rule exists to prevent.
+              «Abbrechen» is gone with the dialog it belonged to: there is nothing here to cancel
+              — every field writes through as it is typed — and a page is left by the rail or by
+              the ✕ in the head. What is left is levelled like `.headActions` does it: one height
+              (--tap, the floor a gloved finger needs) and one radius, nothing shrunk to match. */}
           <div className="ip-actions">
-            <button className="ip-btn" onClick={close}>{P.cancel}</button>
             {/* ONE output (2026-07-18): the server composes the complete rapport incl.
                 Kroki + Pläne from data. «Einsatz abschliessen» = bookkeeping, secondary. */}
             {onComplete && (
@@ -1118,50 +1246,5 @@ export function ReportPreflight({
           </div>
         </div>
       </div>
-
-      {framingFor && effScene && (
-        <KrokiFramingModal
-          scene={effScene}
-          initial={options.krokiView}
-          // WHEN the picture shows. It belongs HERE, on the screen that already asks «what does
-          // the printed Kroki show» — behind the sections fold nobody found it. One picture is
-          // one Lage at one time; naming the moment is the honest answer to «die Rettung ist
-          // weg», and the map below redraws as it is reconstructed.
-          atMs={krokiAt}
-          atBusy={krokiAtBusy}
-          onAtChange={setKrokiAt}
-          moments={krokiMoments}
-          startedAtMs={Date.parse(meta.startedAt ?? incident.started_at) || null}
-          // Auto on first use: the operational extent decides the shape, so a Lage that runs
-          // north–south opens upright without anyone asking for it. Once a framing has been
-          // confirmed for this Einsatz, that choice wins — the app stops guessing.
-          landscape={reportMeta.krokiPrint?.landscape ?? autoLandscape}
-          // the preview has to show what the sheet will show: the Trupp in a hose's end tag and
-          // the same Beschriftungen setting the export resolves captions under
-          trupps={trupps}
-          captionMode={scene?.captionMode ?? 'auto'}
-          onCancel={() => setFramingFor(null)}
-          onConfirm={(v, land) => {
-            patchOpt({ krokiView: v, krokiLandscape: land })
-            // Persisted, not just held in state: reprinting a rapport used to mean setting the
-            // crop, the moment and now the shape all over again — the sheet remounts on every
-            // trip to Anwesenheit, and the whole framing died with it. It rides the workspace
-            // blob, so the second print comes out of the same window as the first, from any
-            // device. Cleared for a read-only surface by `persist` itself.
-            persist({
-              krokiPrint: {
-                view: v,
-                at: krokiAt != null && pastScene ? new Date(krokiAt).toISOString() : undefined,
-                landscape: land,
-              },
-            })
-            const action = framingFor
-            setFramingFor(null)
-            if (action === 'pdf') void downloadPdf(v)
-            else void sendToPrinter(v)
-          }}
-        />
-      )}
-    </>
   )
 }

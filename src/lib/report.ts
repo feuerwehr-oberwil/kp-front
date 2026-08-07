@@ -184,6 +184,17 @@ export function missingTranscriptCount(events: TimelineEvent[]): number {
   return events.filter((e) => e.kind === 'audio' && e.audioUrl && !(e.transcript ?? '').trim()).length
 }
 
+/** «Stand» of the printed Kroki — the instant the picture shows, as the framing panel's slider
+ *  and the collapsed fold above it both say it.
+ *
+ *  Date AND time: on a long Einsatz «21:14» alone does not say which day, and the printed caption
+ *  carries the full stamp — the control must not say less than the paper. No year, unlike
+ *  formatDateTime: this is read against a slider that spans one Einsatz. */
+export function krokiStandLabel(ms: number | null): string {
+  return ms == null ? appConfig.copy.preflight.krokiAtNow
+    : new Date(ms).toLocaleString(appConfig.locale, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+}
+
 export function formatDateTime(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso

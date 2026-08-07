@@ -3556,9 +3556,15 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 .cv-ende > span:first-child { flex: none; font: 600 13.5px var(--body); color: var(--ink); min-width: 92px; }
 .cv-ende .cv-input { flex: 1; min-width: 0; }
 
-/* the Rapport sheet grew a 4th action — wrap instead of overflowing on phones */
+/* the Rapport surface's action row wraps instead of overflowing on phones */
 .report-preflight .ip-actions { flex-wrap: wrap; }
-.report-preflight .ip-actions .ip-btn { flex: 1 1 auto; justify-content: center; }
+/* ONE height and ONE corner for the whole row, the rule `.headActions` follows on Anwesenheit and
+   Mittel. `.ip-btn` derives its height from padding and lands around 37px — under the 44px floor a
+   gloved finger needs, on the row that makes paper. Levelled UP with min-height, never down:
+   «Ausdrucken» grows a second line when the relay is offline and must be allowed to be taller
+   than its neighbours rather than swallowing the reason it is taller. */
+.report-preflight .ip-actions .ip-btn { flex: 1 1 auto; justify-content: center;
+  min-height: var(--tap); border-radius: var(--r-sm); }
 /* the Rapport sheet is tall: pin the header so the title + ✕ stay reachable and scroll only
    the body — flex pinning like .ctx, not position:sticky (sticky inside the blurred sheet
    drifts on iOS) */
@@ -3571,7 +3577,24 @@ select.cv-input { appearance: none; -webkit-appearance: none;
   display: flex; flex-direction: column;
   background: var(--app-bg); border-radius: var(--r-surface); overflow: hidden; box-shadow: var(--shadow);
 }
-.report-preflight-surface > .ip-head { flex: none; padding: 16px 20px 12px; border-bottom: 1px solid var(--border-soft); }
+/* The head of a SURFACE, not of a dialog: the shell Anwesenheit and Mittel share — a title with a
+   one-line read-out under it on the left, controls levelled to --tap on the right. It wore
+   `.ip-head` (a bare 19px title and an ✕) because it used to be a sheet, and that made the one
+   page you arrive at from three different places the only one that did not look like the others.
+   Same paddings/typography as .head in Anwesenheit.module.css — kept here rather than moved into
+   a module because every other class on this surface already lives in app.css. */
+.rp-head { flex: none; display: flex; align-items: center; gap: 16px; padding: 16px 22px;
+  background: var(--surface); border-bottom: 1px solid var(--glass-edge); }
+.rp-head-titles { flex: 1 1 auto; min-width: 0; }
+.rp-head-titles h2 { margin: 0; font: 800 19px var(--body); color: var(--ink); }
+/* one line, and it truncates rather than pushing the head to two rows: the missing steps can
+   name four things on an Einsatz nobody has written up yet */
+.rp-head-titles p { margin: 3px 0 0; font-size: 12.5px; color: var(--ink-dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-head-actions { flex: none; display: flex; align-items: center; gap: 8px; }
+/* the ✕ is a control on this row, so it obeys the row's floor — .ip-x is a 30px dialog affordance
+   and this is a page you leave with gloves on */
+.rp-head .ip-x { display: grid; place-items: center; width: var(--tap); height: var(--tap); }
 .report-preflight-surface > .ip-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 /* The actions are PINNED to the surface now (they scrolled with the form while this was a
    sheet). A sheet is filled in top to bottom and its buttons belong at the end of it; a page is
@@ -3603,7 +3626,6 @@ select.cv-input { appearance: none; -webkit-appearance: none;
     calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
   .report-preflight-foot { padding: 8px 12px 12px; gap: 8px; }
 }
-.report-preflight > .ip-head { flex: none; padding-bottom: 12px; border-bottom: 1px solid var(--border-soft); }
 .report-preflight > .ip-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 
 .ip-ds-note { font: 500 11px var(--mono); color: var(--ink-faint); margin-top: 3px; }
@@ -3804,46 +3826,45 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .mp-pin svg { width: 28px; height: 28px; }
 .mp-act { display: flex; justify-content: flex-end; gap: 10px; padding: 13px 16px; border-top: 1px solid var(--glass-edge); }
 
-/* Kroki framing modal: the map keeps the server's 1600×940 render aspect, so the
-   visible crop IS the printed crop (no hidden letterboxing on either side) */
-/* The Kroki crop is a MAP you aim, not a dialog you acknowledge: the 720px sheet gave it about
-   a postcard to do that in, so hitting the framing took several tries. It takes the room the
-   screen has (the aspect ratio stays the printed one — this is WYSIWYG). */
-/* OPAQUE, unlike the other overlays. --glass is translucent, and this window's whole job is
-   that you can judge a map through it — the Rapport sheet showing through the crop made the
-   picture unreadable exactly where it had to be read. */
-.kf-sheet { height: auto; max-height: 94dvh; background: var(--surface); }
-.mp-sheet.kf-sheet, .mp-sheet.kf-sheet.ui-dialog { width: min(1400px, calc(100vw - 32px)); }
-/* the crop window IS the sheet: same proportions as the printed page, so what is framed is
-   what comes out. max-width keeps a tall window from being WIDER than the page it stands for
-   on a short screen, which would show more than gets printed. */
-/* ⚠️ `width: 100%` is load-bearing. `margin-inline: auto` on a flex item cancels the cross-axis
-   stretch, so without an explicit width the box falls back to a CONTENT width — and the map has
-   no content of its own, so it collapsed to nothing and took the whole crop window down with it
-   (the ± buttons and the hint then floated over the head and the footer). */
-/* The crop gets whatever the window has left after its own chrome. A flat 78dvh plus the head,
-   the control bar and the action row added up to more than the sheet's max-height, and the
-   sheet clips — «Ausschnitt übernehmen» was cut off the bottom on an ordinary laptop. */
-.kf-sheet { --kf-chrome: 216px; --kf-map-h: min(78dvh, calc(94dvh - var(--kf-chrome))); }
-.kf-map { flex: none; width: 100%; aspect-ratio: 1600 / 940; margin-inline: auto;
-  max-height: var(--kf-map-h); max-width: calc(var(--kf-map-h) * 1600 / 940); }
+/* Kroki framing PANEL — a block on the Rapport surface (it was a modal until 2026-08-07). The
+   map keeps the server's 1600×940 render aspect, so the visible crop IS the printed crop: no
+   hidden letterboxing on either side, and what is framed is what comes out. */
+.kf-panel { display: flex; flex-direction: column; gap: 8px; padding: 4px 10px 10px; }
+/* the teaching line and the shape picker share the row above the crop — see the component for
+   why Hoch·Quer may not sit anywhere below the frame whose height it changes */
+.kf-panel-head { display: flex; align-items: center; gap: 12px; min-height: var(--tap); }
+.kf-panel-hint { flex: 1 1 auto; min-width: 0; font: 500 12px var(--body); color: var(--ink-faint); }
+.kf-panel-head .useg-btn { font-size: 12px; padding-inline: 12px; min-height: var(--tap); }
+/* The crop is bounded by a HEIGHT, not by the viewport: in a column beside the form a portrait
+   sheet's 1000/1400 would otherwise make a ~460px column 640px tall and push «Abschnitte» off
+   the screen. max-width keeps the tall shape from ending up WIDER than the page it stands for,
+   which would show more than gets printed.
+   ⚠️ `width: 100%` is load-bearing: `margin-inline: auto` cancels the stretch, and the map has
+   no content of its own — without an explicit width the box collapses to nothing. */
+.kf-panel { --kf-map-h: min(42vh, 360px); }
+.kf-map { position: relative; flex: none; width: 100%; aspect-ratio: 1600 / 940; margin-inline: auto;
+  max-height: var(--kf-map-h); max-width: calc(var(--kf-map-h) * 1600 / 940);
+  border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); overflow: hidden; }
 .kf-map.portrait { aspect-ratio: 1000 / 1400; max-width: calc(var(--kf-map-h) * 1000 / 1400); }
-/* margin-left:auto pushes the shape picker to the right of the title; the gap keeps it off the
-   close button, which it was sitting flush against */
-.kf-orient { margin-left: auto; margin-right: 4px; }
-.kf-orient .useg-btn { font-size: 12px; padding-inline: 12px; min-height: var(--tap); }
+.kf-map .maplibregl-map { position: absolute; inset: 0; }
+/* ⚠️ the phone rule «hide the live map on every non-map surface» (see @media max-width 600px)
+   matches this one too — mode-rapport is not mode-map — and blanked the crop the one time it is
+   opened on a phone. The exception is scoped to the crop, so the Lage map behind the surface
+   stays hidden the way that rule intends. */
+.app:not(.mode-map) .kf-map .maplibregl-map { visibility: visible; }
 /* One bar under the crop for everything that ADJUSTS it. On the map these floated over the
    picture they were adjusting — the ± column landed on the slider's right end — and they had to
    be repositioned every time the frame changed shape. */
-.kf-controls { display: flex; align-items: center; gap: 12px; padding: 10px 16px;
-  border-top: 1px solid var(--glass-edge); }
-.kf-hint { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 2; pointer-events: none;
-  max-width: calc(100% - 24px); text-align: center; padding: 7px 13px; border-radius: var(--r-pill); background: var(--glass);
-  border: 1px solid var(--glass-line); font: 600 12.5px var(--body); color: var(--ink-dim); box-shadow: 0 4px 14px rgba(0, 0, 0, .2); }
-.kf-fit { margin-right: auto; }
-/* ± in the control bar: still gloved-size, now a ROW at the bar's right end rather than a
-   column floating on the crop */
-.kf-zoom { margin-left: auto; display: flex; gap: 6px; }
+.kf-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+/* The Stand slider keeps a line of its own. The panel is never much wider than the ~460px column
+   it sits in, and a track squeezed in beside «Auf Einsatz zoomen» and the ± pair is a track that
+   cannot be aimed — which is the whole point of the activity ticks under it. */
+.kf-panel .kf-at { flex: 1 1 100%; }
+.kf-panel .kf-at-track { max-width: none; }
+/* «Auf Einsatz zoomen» + ± are one cluster at the bar's right end; the Stand slider takes the
+   slack. Levelled to --tap like every other control that a gloved hand aims at. */
+.kf-ctl-fit { flex: none; min-height: var(--tap); white-space: nowrap; }
+.kf-zoom { flex: none; margin-left: auto; display: flex; gap: 6px; }
 .kf-zoom-btn { display: grid; place-items: center; width: var(--tap); height: var(--tap); cursor: pointer;
   border: 1px solid var(--glass-line); border-radius: var(--r-sm); background: var(--glass); color: var(--ink); }
 .kf-zoom-btn:hover { border-color: var(--ink-faint); }
@@ -3857,22 +3878,11 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 /* the drawing label chip stacks «Distanz · Schlauchhinweis» over the free label, like the print
    composes it — `nowrap` above would otherwise run both onto one line */
 .kf-draw-label { white-space: pre-line; text-align: center; }
-/* phone: the three footer buttons don't fit one row (their labels wrapped inside cramped
-   pills). Wrap instead — «Auf Einsatz zoomen» + «Abbrechen» share the top row, the primary
-   «Ausschnitt übernehmen» drops to a full-width row of its own (thumb-friendly, prominent). */
+/* Phone: the crop gives up height. It is opened deliberately here (the fold starts closed below
+   the two-column breakpoint), and what it is opened FOR is to check the framing — a picture that
+   fills the screen would leave nothing of the rapport it belongs to visible around it. */
 @media (max-width: 600px) {
-  /* the control bar does not fit one row on a phone: the ± pair keeps its own line under the
-     slider rather than squeezing the track down to a few pixels. Both it and the action row
-     wrap here, so the crop has to give up more of the window than it does on a laptop. */
-  .kf-sheet { --kf-chrome: 310px; }
-  .kf-controls { flex-wrap: wrap; gap: 8px 12px; padding: 8px 12px; }
-  .kf-at { flex: 1 1 100%; }
-  .kf-at-track { max-width: none; }
-  .kf-zoom { margin-left: auto; }
-  .kf-sheet .mp-act { flex-wrap: wrap; }
-  .kf-sheet .mp-act .ip-btn { flex: 1 1 auto; justify-content: center; white-space: nowrap; }
-  .kf-sheet .mp-act .kf-fit { margin-right: 0; }
-  .kf-sheet .mp-act .primary { flex-basis: 100%; }
+  .kf-panel { --kf-map-h: min(38vh, 300px); }
 }
 
 @keyframes dv-in { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translate(-50%, 0); } }
