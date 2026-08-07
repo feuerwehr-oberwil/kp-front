@@ -146,6 +146,23 @@ so this file – not the log – is the record of what shipped up to that point.
   the same grid now; a page short of a storey leaves its lower band empty, which is what a stack
   with nothing above it looks like.
 
+- **Ein Übungsrapport sah aus wie ein Einsatzrapport.** Ob ein Einsatz eine **Übung** war, stand
+  nirgends auf dem Papier – dabei ist es das Einzige, was ändert, *was das Dokument überhaupt
+  ist*, und Übungen fliessen nicht in die Statistik ein. Ein Übungsrapport, der sich wie ein
+  Ereignis liest, widerspricht den Zahlen dahinter. Er steht jetzt über dem Titel, vor allem
+  anderen.
+
+- **Die Kategorie hiess auf dem Rapport «Stichwort».** Sie ist die Kategorie – das Stichwort ist
+  der Titel darüber. Jetzt heisst sie, was sie ist.
+
+- **Die Adresssuche verlor die Strasse, sobald man die Postleitzahl tippte.** «storchenweg 8,
+  410» kam mit sechs Treffern zurück, von denen keiner ein Storchenweg war. Eine PLZ hat vier
+  Ziffern – eine halb getippte galt nicht als eine, also hängte die App die eigene Ortschaft
+  noch dazu. Die Anfrage trug zwei Ortschaften, und der Kartendienst antwortete, indem er auf
+  die ZAHLEN passte und den Strassennamen fallen liess. Sobald jemand selbst eine Ortschaft
+  schreibt, bleibt die Anfrage jetzt unangetastet – und **die eigene Gemeinde steht zuoberst**,
+  wenn es eine Strasse in mehreren Dörfern der Region gibt.
+
 - **The station's logo prints on the Rapport.** The uploaded Logo (Admin → Branding) sits above
   the title as a letterhead – the rapport leaves the building, to the Gemeinde, the Versicherung
   or the GVB, and should say whose it is before it says what happened. Deliberately modest, and

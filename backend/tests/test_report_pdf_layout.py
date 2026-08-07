@@ -78,3 +78,39 @@ def test_a_roster_longer_than_a_page_still_composes():
         }
     )
     assert len(pdfium.PdfDocument(compose_report_pdf(payload, {}))) >= 2
+
+
+def _text(pdf: bytes, page: int = 0) -> str:
+    return pdfium.PdfDocument(pdf)[page].get_textpage().get_text_range()
+
+
+def test_an_uebung_says_so_on_the_paper():
+    """An Übung is excluded from the statistics, so a drill rapport that reads like a real
+    deployment is a record that contradicts the numbers. Nothing else on the sheet tells them
+    apart — the marker rides above the title, before anything else is read."""
+    base = {
+        "incident": {"title": "Zimmerbrand", "id": "i", "type": "Brand"},
+        "generatedAt": "07.08.2026 09:00",
+        "proof": {"statusLabel": "intakt", "count": 1, "head": "0"},
+    }
+    real = compose_report_pdf(ReportPayload.model_validate(base), {})
+    drill = compose_report_pdf(
+        ReportPayload.model_validate({**base, "incident": {**base["incident"], "isExercise": True}}), {}
+    )
+    assert "ÜBUNG" not in _text(real)
+    assert "ÜBUNG" in _text(drill)
+
+
+def test_the_einsatz_category_is_labelled_as_one():
+    """`incident.type` is the wizard's «Kategorie»; the Stichwort is the title above the box.
+    The details box called the category «Stichwort», which named the wrong field."""
+    payload = ReportPayload.model_validate(
+        {
+            "incident": {"title": "Zimmerbrand", "id": "i", "type": "Brand"},
+            "generatedAt": "07.08.2026 09:00",
+            "proof": {"statusLabel": "intakt", "count": 1, "head": "0"},
+        }
+    )
+    text = _text(compose_report_pdf(payload, {}))
+    assert "Kategorie" in text
+    assert "Brand" in text

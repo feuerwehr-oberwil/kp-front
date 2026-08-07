@@ -85,9 +85,13 @@ class ReportMetaIn(BaseModel):
 
 class IncidentFacts(BaseModel):
     title: str
-    type: str | None = None
+    type: str | None = None  # the Einsatz KATEGORIE (wizard «Kategorie»); the Stichwort is `title`
     address: str | None = None
     id: str
+    #: An Übung must be legible AS an Übung on the paper. It is excluded from the statistics, so
+    #: a drill rapport that looks like a deployment puts paper and data in disagreement — and
+    #: nothing else on the sheet distinguishes the two.
+    isExercise: bool = False
 
 
 class JournalRowIn(BaseModel):
@@ -329,6 +333,8 @@ class ReportPayload(BaseModel):
 L = {
     "eyebrow": "Einsatzrapport",
     "keyword": "Stichwort",
+    "category": "Kategorie",
+    "exercise": "ÜBUNG — kein Ereignis",
     "address": "Adresse / Objekt",
     "einsatzleiter": "Einsatzleiter",
     "kontaktperson": "Kontaktperson",
@@ -506,6 +512,15 @@ def _styles() -> dict[str, ParagraphStyle]:
             spaceAfter=0,
         ),
         "cell": ParagraphStyle("rp_cell", parent=base["Normal"], fontSize=9, leading=12, textColor=ink),
+        "exercise": ParagraphStyle(
+            "rp_exercise",
+            parent=base["Normal"],
+            fontSize=11,
+            leading=13,
+            textColor=colors.HexColor("#b4690a"),
+            fontName="Helvetica-Bold",
+            spaceAfter=3,
+        ),
         "cellhead": ParagraphStyle(
             "rp_cellhead", parent=base["Normal"], fontSize=8, leading=10, textColor=dim, fontName="Helvetica-Bold"
         ),
@@ -821,6 +836,11 @@ def compose_report_pdf(
     if logo is not None:
         story.append(logo)
         story.append(Spacer(1, 6))
+    # An Übung says so ABOVE the title, before anything else is read. It is the one fact that
+    # changes what the whole document is, and it is excluded from the statistics — a drill
+    # rapport that reads like a deployment is a record that contradicts the numbers.
+    if payload.incident.isExercise:
+        story.append(Paragraph(_esc(L["exercise"]), st["exercise"]))
     story.append(Paragraph(_esc(payload.incident.title), st["title"]))
     iid = payload.incident.id
     short_id = f"{iid[:8]}…{iid[-4:]}" if len(iid) > 14 else iid
@@ -839,7 +859,7 @@ def compose_report_pdf(
             inner_w,
             [
                 [
-                    {"label": L["keyword"], "w": half, "value": payload.incident.type},
+                    {"label": L["category"], "w": half, "value": payload.incident.type},
                     {"label": L["alarmierung"], "w": half, "value": m.alarmiertAt},
                 ],
                 [{"label": L["address"], "w": 1.0, "value": payload.incident.address}],

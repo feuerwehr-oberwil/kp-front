@@ -217,6 +217,9 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
   const payload = {
     incident: {
       title: incident.title, id: incident.id, type: incident.type ?? undefined, address: incident.address ?? undefined,
+      // an Übung has to be legible AS one on the paper — it is excluded from the statistics,
+      // so a drill rapport that reads like a deployment contradicts the numbers behind it
+      isExercise: incident.is_exercise,
     },
     meta: {
       alarmText: meta.alarmText, summary: meta.summary, lehren: meta.lehren, remarks: meta.remarks,
