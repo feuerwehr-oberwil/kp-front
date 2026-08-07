@@ -12,7 +12,12 @@ chain" — under test with no live server or Postgres.
 import uuid
 from datetime import UTC, datetime
 
-from app.audit import GENESIS, _canonical, compute_hash
+import pytest
+import pytest_asyncio
+from sqlalchemy import update
+
+from app.audit import GENESIS, _canonical, append_event, compute_hash, verify_chain
+from app.models import Incident, IncidentEvent
 
 
 def _event_fields(incident_id, seq, op_type, payload, *, occurred_at=None):
@@ -115,3 +120,64 @@ def test_dropped_event_breaks_chain():
     result = _verify(truncated)
     assert result["intact"] is False
     assert result["broken_at_seq"] == 3
+
+
+# ── The REAL functions, against a real database ────────────────────────────────────────────
+# Everything above rebuilds the chain the way append_event/verify_chain do. That mirror is the
+# problem: it is a second implementation, and a field added to the hashed dict on one side and
+# not the other leaves both green while the legal record silently stops verifying. These
+# exercise the actual code paths, including the one thing the mirror cannot reach — a row
+# tampered with in the DATABASE, which is how a chain would really be broken.
+
+
+@pytest_asyncio.fixture
+async def incident(db_session):
+    inc = Incident(title="Kettenprobe", status="offen", source="manual")
+    db_session.add(inc)
+    await db_session.flush()
+    return inc
+
+
+@pytest.mark.asyncio
+async def test_a_freshly_appended_chain_verifies(db_session, incident):
+    for i in range(4):
+        await append_event(db_session, incident_id=incident.id, op_type=f"op.{i}", source="test", payload={"i": i})
+    await db_session.flush()
+
+    result = await verify_chain(db_session, incident.id)
+    assert result == {"intact": True, "broken_at_seq": None, "count": 4, "head": result["head"]}
+    assert result["head"] and result["head"] != GENESIS
+
+
+@pytest.mark.asyncio
+async def test_an_edited_payload_breaks_the_chain_at_that_row(db_session, incident):
+    """The load-bearing property: change a recorded event and the rapport says so.
+
+    Edited in SQL, not through the API — an attacker with database access is the threat the
+    chain exists for, and it is the only path the pure-function tests above cannot take."""
+    for i in range(3):
+        await append_event(db_session, incident_id=incident.id, op_type=f"op.{i}", source="test", payload={"i": i})
+    await db_session.flush()
+    assert (await verify_chain(db_session, incident.id))["intact"] is True
+
+    await db_session.execute(
+        update(IncidentEvent)
+        .where(IncidentEvent.incident_id == incident.id, IncidentEvent.seq == 2)
+        .values(payload_json={"i": 999})
+    )
+    await db_session.flush()
+    db_session.expunge_all()
+
+    result = await verify_chain(db_session, incident.id)
+    assert result["intact"] is False
+    assert result["broken_at_seq"] == 2  # the first bad row, not the last
+    assert result["count"] == 3  # every row is still counted — nothing is hidden
+
+
+@pytest.mark.asyncio
+async def test_an_incident_with_no_events_is_intact_not_broken(db_session, incident):
+    """A rapport printed before anything was recorded must not read «Hash-Kette gebrochen»."""
+    result = await verify_chain(db_session, incident.id)
+    assert result["intact"] is True
+    assert result["count"] == 0
+    assert result["head"] == GENESIS

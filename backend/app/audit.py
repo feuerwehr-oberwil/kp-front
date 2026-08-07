@@ -23,6 +23,23 @@ from .models import IncidentEvent, VehicleSample, WorkspaceSnapshot
 GENESIS = "0" * 64
 
 
+def _stamp(dt: datetime) -> str:
+    """The timestamp exactly as the chain hashes it: UTC, tz-aware, ISO.
+
+    ⚠️ The hash covers ``occurred_at.isoformat()``, and that string used to depend on what the
+    DATABASE DRIVER handed back. ``append_event`` hashes the Python value (tz-aware, «+00:00»);
+    ``verify_chain`` hashes the value after a round-trip. Postgres' timestamptz returns UTC, so
+    the two agreed and production verified — but any dialect that drops the tzinfo (SQLite, which
+    is what the test suite runs on) produced a different string and reported an intact chain as
+    broken. A legally load-bearing check must not depend on a driver detail.
+
+    Normalising here is byte-compatible with every chain written so far: a value already stored
+    as UTC formats identically, so existing incidents keep verifying. A naive value is READ as
+    UTC, which is what it always was — everything is written with ``datetime.now(UTC)``.
+    """
+    return (dt if dt.tzinfo else dt.replace(tzinfo=UTC)).astimezone(UTC).isoformat()
+
+
 def _canonical(fields: dict) -> str:
     """Stable JSON for hashing — sorted keys, no whitespace, UTC ISO timestamps."""
     return json.dumps(fields, sort_keys=True, separators=(",", ":"), default=str)
@@ -63,7 +80,7 @@ async def append_event(
     fields = {
         "incident_id": str(incident_id),
         "seq": seq,
-        "occurred_at": occurred.isoformat(),
+        "occurred_at": _stamp(occurred),
         "source": source,
         "user_id": str(user_id) if user_id else None,
         "op_type": op_type,
@@ -201,7 +218,7 @@ async def verify_chain(db: AsyncSession, incident_id: uuid.UUID) -> dict:
         fields = {
             "incident_id": str(ev.incident_id),
             "seq": ev.seq,
-            "occurred_at": ev.occurred_at.isoformat(),
+            "occurred_at": _stamp(ev.occurred_at),
             "source": ev.source,
             "user_id": str(ev.user_id) if ev.user_id else None,
             "op_type": ev.op_type,

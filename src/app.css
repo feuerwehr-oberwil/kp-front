@@ -4705,7 +4705,11 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 /* Row height follows the text, not a tap-target minimum: eleven of these stacked at 44px each
    turned the section list into a page of its own, with more air than content. The 44px target is
    kept as PADDING around a real 18px checkbox, which is what the finger actually hits. */
-.report-toggle { display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); padding: 7px 10px; font-size: 12.5px; font-weight: 700; color: var(--ink); cursor: pointer; }
+.report-toggle { display: flex; align-items: flex-start; gap: 10px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); padding: 7px 10px; font-size: 12.5px; font-weight: 700; color: var(--ink); cursor: pointer; }
+/* A checkbox whose name does not say what it does is one nobody dares tick. The hint sits on
+   its own line under the label — a tooltip is not readable with gloves on. */
+.report-toggle > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.report-toggle-hint { font: 500 11.5px/1.35 var(--body); color: var(--ink-faint); font-style: normal; }
 .report-toggle input { width: 18px; height: 18px; accent-color: var(--blue); }
 .report-toggle.disabled { opacity: .48; cursor: default; }
 .report-pre-hints p { display: flex; align-items: center; gap: 9px; margin: 7px 0; color: var(--ink-dim); font-size: 13px; }

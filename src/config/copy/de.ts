@@ -2413,6 +2413,10 @@ export const de = {
     attachmentsPending: 'noch nicht hochgeladen',
     attachmentsFailed: 'Beilage {name} konnte nicht hochgeladen werden – sie erscheint nicht im Druck.',
     toggleDetailedAudit: 'Detaillierter Prüfnachweis',
+    // «Detaillierter Prüfnachweis» sagt nicht, was angehakt wird – niemand hakt an, was er nicht
+    // versteht. Es geht um die Buchungszeilen im gedruckten Verlauf (wer wann was geändert hat),
+    // die sonst herausgefiltert werden. Der Prüfnachweis-Status oben bleibt davon unberührt.
+    toggleDetailedAuditHint: 'Druckt zusätzlich die Buchungszeilen im Verlauf – wer wann was geändert hat. Für die Rekonstruktion eines Einsatzes; für das normale Rapport nicht nötig.',
     // Kroki framing modal (WYSIWYG crop before PDF / Ausdrucken)
     framingTitle: 'Kroki-Ausschnitt wählen',
     framingHint: 'Karte verschieben und zoomen – gedruckt wird genau dieser Ausschnitt.',

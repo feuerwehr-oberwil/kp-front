@@ -63,11 +63,13 @@ function CheckRow({ done, label, sub, onGo, children }: {
   )
 }
 
-function Toggle({ label, checked, onChange, disabled }: { label: string; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
+function Toggle({ label, hint, checked, onChange, disabled }: { label: string; hint?: string; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
   return (
     <label className={`report-toggle${disabled ? ' disabled' : ''}`}>
       <input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
-      <span>{label}</span>
+      {/* the hint sits UNDER the label rather than in a tooltip: a row whose name does not say
+          what it does is one nobody dares tick, and a tooltip is not readable with gloves */}
+      <span>{label}{hint && <em className="report-toggle-hint">{hint}</em>}</span>
     </label>
   )
 }
@@ -1001,7 +1003,7 @@ export function ReportPreflight({
               {/* «Erweitert» used to fold this one row away. The whole Abschnitte block is already
                   behind a fold, so it was a second door in front of a door — and a checkbox nobody
                   can see is a checkbox nobody knows about. It sits in the list like the rest. */}
-              <Toggle label={P.toggleDetailedAudit} checked={options.detailedAudit} onChange={(v) => patchOpt({ detailedAudit: v })} />
+              <Toggle label={P.toggleDetailedAudit} hint={P.toggleDetailedAuditHint} checked={options.detailedAudit} onChange={(v) => patchOpt({ detailedAudit: v })} />
             </div>
           </details>
 
