@@ -515,6 +515,10 @@ class PersonnelSyncResult(BaseModel):
 class IdentityAssets(BaseModel):
     model_config = ConfigDict(extra="ignore")
     logo: str | None = None
+    #: Letterhead of the printed Einsatzrapport; falls back to `logo` when unset.
+    #: ⚠️ A slot missing HERE is silently dropped — `extra="ignore"` means the upload succeeds,
+    #: the blob is stored, and the URL vanishes on the way back out through this projection.
+    reportLogo: str | None = None
     iconPng192: str | None = None
     iconPng512: str | None = None
     favicon: str | None = None

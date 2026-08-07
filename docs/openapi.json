@@ -10081,6 +10081,17 @@
             ],
             "title": "Logo"
           },
+          "reportLogo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reportlogo"
+          },
           "iconPng192": {
             "anyOf": [
               {
