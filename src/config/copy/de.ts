@@ -1761,16 +1761,16 @@ export const de = {
   offline: {
     title: 'Offline-Bereitschaft',
     // Im Browser-Tab statt der Bereitschaftsliste: ein Tab ist kein verlässlicher
-    // Offline-Zustand (iOS räumt Caches nach Tagen ohne Nutzung weg, und der Tab muss dann
+    // Offline-Zustand (iOS löscht Caches nach Tagen ohne Nutzung, und der Tab muss dann
     // überhaupt noch offen sein). Statt eine Bereitschaft zu behaupten, die um 3 Uhr nicht
     // hält, sagt die Karte was fehlt und führt zur Installation – oder sagt, dass es hier
     // keine gibt.
     browserTitle: 'Offline erst als installierte App',
-    browserBody: 'Im Browser-Tab ist nichts verlässlich gespeichert: Karten, Pläne und Leitungen können jederzeit weggeräumt werden, und der Tab muss beim nächsten Einsatz noch offen sein. Installiert läuft KP Front auch ohne Empfang.',
+    browserBody: 'Im Browser-Tab ist nichts verlässlich gespeichert: Karten, Pläne und Leitungen können jederzeit gelöscht werden, und der Tab muss beim nächsten Einsatz noch offen sein. Installiert läuft KP Front auch offline.',
     browserInstall: 'Als App installieren',
     // Plattformen ohne Installationsweg (Desktop-Firefox …) — hier ehrlich sagen, dass es
     // nichts zu installieren gibt, statt auf eine Anleitung zu zeigen, die es nicht gibt.
-    browserNoInstall: 'Dieses Gerät bietet keine Installation an. Für den Einsatz ohne Empfang KP Front auf dem Tablet oder Handy installieren.',
+    browserNoInstall: 'Dieses Gerät bietet keine Installation an. Für den Einsatz offline KP Front auf dem Tablet oder Handy installieren.',
     syncNow: 'Jetzt synchronisieren',
     syncedAgo: 'Einsatzdaten {ago} synchronisiert',
     offline: 'Offline – lokal gespeichert',
@@ -3438,7 +3438,7 @@ export const de = {
       diskUnavailable: 'Datenträger-Auslastung nicht verfügbar.',
       free: 'Frei: {size}',
       offlineCache: 'Offline-Cache (dieses Gerät)',
-      offlineCacheTip: 'Der Offline-Cache (Service-Worker) dieses Geräts: gespeicherte Karten, Pläne und App-Dateien für den Einsatz ohne Empfang. Zahlen gelten nur für DIESES Gerät, nicht für den Server.',
+      offlineCacheTip: 'Der Offline-Cache (Service-Worker) dieses Geräts: gespeicherte Karten, Pläne und App-Dateien für den Einsatz offline. Zahlen gelten nur für DIESES Gerät, nicht für den Server.',
       cacheReading: 'Cache wird gelesen…',
       cacheUnavailable: 'In diesem Browser nicht verfügbar.',
       usedQuota: 'Belegt / Kontingent',
