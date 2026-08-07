@@ -3677,6 +3677,8 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    ticked — `keepMounted` plus a hidden tick — so the labels in a checkbox menu line up in one
    column instead of shifting sideways as things are switched on and off. */
 .ui-menu-sep { height: 1px; margin: 5px 8px; background: var(--glass-edge); }
+.ui-menu-head { padding: 6px 10px 3px; font: 700 10.5px var(--body); letter-spacing: .08em;
+  text-transform: uppercase; color: var(--ink-faint); }
 .ui-menu-check { flex: none; display: grid; place-items: center; width: 17px; height: 17px;
   border-radius: 4px; border: 1.5px solid var(--border-strong, var(--border)); }
 .ui-menu-check svg { width: 12px; height: 12px; fill: none; stroke: var(--surface); stroke-width: 3;
@@ -3685,14 +3687,6 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 [data-checked] > .ui-menu-check svg { opacity: 1; }
 .rp-print-menu-item[data-disabled] { opacity: var(--disabled); cursor: default; }
 .rp-print-menu-item svg { width: 16px; height: 16px; flex: none; opacity: .65; }
-/* «Abschnitte wählen …» carries what is on TODAY under it — the line the fold's summary used to
-   give away for free, kept at the place where the question is asked */
-.rp-print-menu-pick { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.rp-print-menu-pick em { font: 500 12px var(--body); font-style: normal; color: var(--ink-faint);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* the picker dialog's two lead lines: what will print, then what the choice applies to */
-.report-sections-sum { margin: 0 0 2px; font: 700 13px var(--body); color: var(--ink); }
-.report-sections-hint { margin: 0 0 10px; font: 500 12px var(--body); color: var(--ink-dim); }
 /* The readiness chip. It OPENS the detail band rather than being decoration, so it is a button,
    and it counts what is wrong instead of saying «Kontrolle» — «2 Hinweise» is actionable, a
    section name is not. Amber, never --accent: --accent is the brand red and must not mean state. */
@@ -4708,7 +4702,7 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 /* …and the summary of what prints: truncates rather than wrapping the head to two lines */
 .report-fold-sum { flex: 1 1 auto; min-width: 0; text-align: right; font: 500 12px var(--body);
   color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.report-fold-body, .report-fold > .report-toggles { padding: 2px 10px 10px; }
+.report-fold-body { padding: 2px 10px 10px; }
 .report-fold-body p { margin: 0 0 6px; display: flex; align-items: flex-start; gap: 8px;
   font-size: 12.5px; line-height: 1.45; color: var(--ink-dim); }
 .report-fold-body p .i { flex: none; width: 15px; height: 15px; margin-top: 1px; }
@@ -4886,34 +4880,8 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 /* the file input itself is invisible — the label IS the button (see .report-row-add) */
 .report-att-add input { display: none; }
 
-.report-toggles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px;
-  /* start, not stretch: «Detaillierter Prüfnachweis» carries four lines of hint and every tile
-     beside it was being padded out to match, so «Beilagen (7)» sat in a box three times its own
-     height with nothing in it. Each row is now as tall as its own content. */
-  align-items: start; }
-/* Abschnitte grouping (in the picker dialog): «Karte & Pläne» / «Inhalte» sub-heads span both
-   columns and the plans choice is one 3-way segment */
-.report-toggle-grouphead { grid-column: 1 / -1; margin: 4px 0 -2px;
-  /* indented to the tiles' own left padding, so the heading and the labels it heads share an
-     edge instead of stepping — the same alignment rule the Mittel group heads follow */
-  padding-left: 11px; font: 700 11px var(--body);
-  letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); }
-.report-toggles .report-toggle-grouphead:first-child { margin-top: 0; }
-.report-plans-row { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  border: 1px solid var(--border); border-radius: var(--r-ctl); background: var(--surface);
-  padding: 6px 10px; font-size: 13px; font-weight: 700; color: var(--ink); flex-wrap: wrap; }
-/* Row height follows the text, not a tap-target minimum: eleven of these stacked at 44px each
-   turned the section list into a page of its own, with more air than content. The 44px target is
-   kept as PADDING around a real 18px checkbox, which is what the finger actually hits. */
-.report-toggle { display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); padding: 7px 10px; font-size: 12.5px; font-weight: 700; color: var(--ink); cursor: pointer; }
-/* A checkbox whose name does not say what it does is one nobody dares tick. The hint sits on
-   its own line under the label — a tooltip is not readable with gloves on. */
-.report-toggle > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-/* Only a tile WITH a hint hangs its box from the top — and then the box lines up with the first
-   line of the label, not with the top of the tile. Every single-line tile stays centred, which is
-   what «the ticks are not aligned» was: one tile in the grid had a hint and un-centred the rest
-   of the row by making them all flex-start. */
-.report-toggle:has(.report-toggle-hint) { align-items: flex-start; }
+/* (the Abschnitte tile grid is gone — the sections are checkbox rows in the print menu now,
+   see lib/overlays · Menu and .rp-print-menu) */
 .report-toggle:has(.report-toggle-hint) > input { margin-top: 1px; }
 .report-toggle-hint { font: 500 11.5px/1.35 var(--body); color: var(--ink-faint); font-style: normal; }
 .report-toggle input { width: 18px; height: 18px; accent-color: var(--blue); }

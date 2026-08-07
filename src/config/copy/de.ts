@@ -2418,19 +2418,14 @@ export const de = {
     rueckmeldungLabel: 'Rückmeldung ELZ',
     rueckmeldungName: 'Name',
     rueckmeldungZeit: 'Zeit',
-    // Abschnitte (Toggles) — nicht mehr als Block auf der Seite: gedruckt wird sofort mit dem,
-    // was eingestellt ist; das ▾ neben «Einsatzrapport (PDF)» führt zur Auswahl.
+    // Abschnitte — nicht mehr als Block auf der Seite: gedruckt wird sofort mit dem, was
+    // eingestellt ist; angehakt wird im Menü hinter dem ▾ neben «Einsatzrapport (PDF)».
     sectionsHead: 'Abschnitte',
-    sectionsPick: 'Abschnitte wählen …',
-    sectionsHint: 'Gilt für das PDF und für den Ausdruck.',
     printMenu: 'Weitere Druckoptionen',
-    groupMap: 'Karte & Pläne',
-    groupContents: 'Inhalte',
     toggleKroki: 'Kroki',
     plansLabel: 'Pläne',
     plansAnnotated: 'Mit Anmerkungen ({n})',
     plansAll: 'Alle',
-    plansNone: 'Keine',
     toggleAtemschutz: 'Atemschutzüberwachung ({n})',
     toggleAttendance: 'Anwesenheit ({n})',
     toggleMittel: 'Mittel ({n})',
@@ -2476,7 +2471,6 @@ export const de = {
     // «Detaillierter Prüfnachweis» sagt nicht, was angehakt wird – niemand hakt an, was er nicht
     // versteht. Es geht um die Buchungszeilen im gedruckten Verlauf (wer wann was geändert hat),
     // die sonst herausgefiltert werden. Der Prüfnachweis-Status oben bleibt davon unberührt.
-    toggleDetailedAuditHint: 'Druckt zusätzlich die Buchungszeilen im Verlauf – wer wann was geändert hat. Für die Rekonstruktion eines Einsatzes; für den normalen Rapport nicht nötig.',
     // Kroki-Ausschnitt: ein Feld auf der Rapport-Fläche (WYSIWYG), kein Dialog vor dem Druck
     // mehr – deshalb gibt es auch nichts mehr zu «übernehmen».
     krokiHead: 'Kroki-Ausschnitt',

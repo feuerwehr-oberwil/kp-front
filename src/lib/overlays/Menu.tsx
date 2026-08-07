@@ -23,6 +23,11 @@ export interface MenuCheckItem {
 /** A rule between groups of items. */
 export interface MenuSeparator { kind: 'sep' }
 
+/** A group label. A menu that mixes an action with a block of settings has to say which is
+ *  which — a column of ticks under a print button, with nothing naming them, is a menu you have
+ *  to experiment with. */
+export interface MenuHeading { kind: 'head'; label: ReactNode }
+
 export interface MenuActionItem {
   label: ReactNode
   onClick: () => void
@@ -34,7 +39,7 @@ export interface MenuActionItem {
 
 export function Menu({ trigger, items, popupClassName, itemClassName, reasonClassName, side = 'bottom', align = 'end', sideOffset = 4, collisionPadding = 10 }: {
   trigger: ReactElement
-  items: (MenuActionItem | MenuCheckItem | MenuSeparator)[]
+  items: (MenuActionItem | MenuCheckItem | MenuSeparator | MenuHeading)[]
   popupClassName?: string
   /** class for each item; receives whether the item is `danger`. */
   itemClassName?: (danger: boolean) => string
@@ -56,6 +61,7 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
           <BaseMenu.Popup className={popupClassName}>
             {items.map((it, i) => {
               if ('kind' in it && it.kind === 'sep') return <BaseMenu.Separator key={i} className="ui-menu-sep" />
+              if ('kind' in it && it.kind === 'head') return <BaseMenu.GroupLabel key={i} className="ui-menu-head">{it.label}</BaseMenu.GroupLabel>
               if ('kind' in it && it.kind === 'check') {
                 return (
                   <BaseMenu.CheckboxItem

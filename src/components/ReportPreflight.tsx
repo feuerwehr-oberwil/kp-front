@@ -26,9 +26,8 @@ import { visibleMittel } from '../lib/mittel'
 import { PersonField } from './PersonField'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import { DateTimeField, TimeField } from './TimeField'
-import { Segmented } from './Segmented'
 import { Stepper } from './Stepper'
-import { Menu, Sheet, SheetClose } from '../lib/overlays'
+import { Menu } from '../lib/overlays'
 
 const NO_IDS = new Set<string>()
 
@@ -77,16 +76,6 @@ function CheckRow({ done, label, sub, onGo, children }: {
   )
 }
 
-function Toggle({ label, hint, checked, onChange, disabled }: { label: string; hint?: string; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
-  return (
-    <label className={`report-toggle${disabled ? ' disabled' : ''}`}>
-      <input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
-      {/* the hint sits UNDER the label rather than in a tooltip: a row whose name does not say
-          what it does is one nobody dares tick, and a tooltip is not readable with gloves */}
-      <span>{label}{hint && <em className="report-toggle-hint">{hint}</em>}</span>
-    </label>
-  )
-}
 
 // The preflight UNMOUNTS while the operator hops to Anwesenheit / Mittel / Verlauf («Zurück
 // zum Einsatzrapport» remounts it) — remember the body's scroll position per incident so the
@@ -542,15 +531,6 @@ export function ReportPreflight({
   // Personal and Material are always in it and that is deliberate — the Rapport is a pre-filled
   // FORM (field feedback 2026-07-17), so an incident with no records still wants the tick-off
   // roster and the amount stubs on paper. Everything else follows its content.
-  const printedSummary = [
-    options.kroki && mapContentCount > 0 ? P.toggleKroki : null,
-    options.allPlans || (options.annotatedPlans && annotatedPlanCount > 0) ? P.plansLabel : null,
-    options.atemschutz && truppCount > 0 ? P.summaryAtemschutz : null,
-    options.attendance ? P.summaryAttendance : null,
-    options.mittel ? P.summaryMittel : null,
-    options.journal ? P.summaryJournal : null,
-    options.attachments && attachments.length > 0 ? P.summaryAttachments : null,
-  ].filter(Boolean).join(' · ')
 
   // «bereit» is a claim, so it is made only when nothing is outstanding — a fold that says all
   // is well while hiding a broken hash chain would be worse than no summary at all.
@@ -558,7 +538,6 @@ export function ReportPreflight({
   /** how many things are actually wrong — the chip counts them rather than saying «Kontrolle» */
   const warnCount = (missTx > 0 ? 1 : 0) + (pendingMediaCount > 0 ? 1 : 0) + (proof.intact === false ? 1 : 0)
   const [controlOpen, setControlOpen] = useState(false)
-  // «Abschnitte» — off the print action, not a block on the page (see the Sheet at the end)
 
   const facts: AbschlussFacts = { reportMeta: meta, attendanceCount, mittelCount }
   const rows = hoursRows(attendance, { alarmedAt: alarmiert ?? null, endedAt: meta.endedAt ?? null })
@@ -706,13 +685,20 @@ export function ReportPreflight({
                 }
                 popupClassName="rp-print-menu"
                 itemClassName={() => 'rp-print-menu-item'}
-                // The sections are IN the menu, not behind it. «Was kommt aufs Papier» is several
-                // decisions in a row — a dialog to open, tick, and close for each one is the long
-                // way round something you do while looking at the button that prints. Base UI
-                // keeps the menu open on a checkbox, so the row you just flipped is still there.
+                // «Abschnitte» used to be a fold ON the page — a section of the rapport that is
+                // not part of the rapport: it is neither recorded nor printed, it is how the
+                // printing is done, and it was scrolled past on every Einsatz whose defaults were
+                // already right, which is nearly all of them (the seed follows the data).
+                // The sections are IN this menu now, not behind it: «was kommt aufs Papier» is
+                // several decisions in a row, and a dialog to open, tick and close for each one is
+                // the long way round something done while looking at the button that prints. Base
+                // UI keeps the menu open on a checkbox, so the row just flipped is still there.
                 items={[
                   { label: <><Icon id="doc" /> {P.pdfFull}</>, onClick: () => startOutput('pdf'), disabled: pdfBusy },
                   { kind: 'sep' as const },
+                  // The ticks need a name. Nine of them under «Einsatzrapport (PDF)» with nothing
+                  // saying what they are is a menu that has to be experimented with.
+                  { kind: 'head' as const, label: P.sectionsHead },
                   { kind: 'check' as const, label: P.toggleKroki, checked: options.kroki && mapContentCount > 0, disabled: mapContentCount === 0, onChange: (v: boolean) => patchOpt({ kroki: v }) },
                   // Pläne is three-way (mit Anmerkungen / alle / keine) and does not fit a
                   // checkbox, so the menu offers the two that are actually chosen between: the
@@ -1228,15 +1214,6 @@ export function ReportPreflight({
             pinning the warning would have made it possible to print past one without ever having
             seen it — the same failure the «never behind a fold» rule exists to prevent. */}
       </div>
-
-      {/* «Abschnitte» as a DIALOG off the print action, not a block on the page. As a fold it was
-          a section of the rapport that is not part of the rapport: it is neither recorded nor
-          printed, it is how the printing is done — and it sat there being scrolled past on every
-          Einsatz whose defaults were already right, which is nearly all of them. The defaults
-          follow the data (see the options seed), so the normal path is now press and print.
-          Still a real dialog rather than a nest of menu items: eight choices, two of them
-          grouped and one a three-way segment, is a form — a menu of checkboxes would be a menu
-          you cannot read. */}
     </>
   )
 }
