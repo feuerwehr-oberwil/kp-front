@@ -256,16 +256,21 @@ function LivePositionChip({ live, center, onShow }: {
   const text = atScene
     ? L.atScene
     : fillTemplate(mins === 0 ? L.chipNow : L.chip, { d: dist, n: String(mins) })
+  // Icon ONLY on the row. «63 m · jetzt» is the answer to a question you ask about ONE person,
+  // and printed behind every name it became a second column of numbers competing with the name
+  // — the thing the list is actually read for. The reading is not lost: it is the tooltip and
+  // the accessible name, and tapping still puts the person on the map, which is the real answer.
+  const label = `${text}${onShow ? ` · ${L.tapHint}` : ''}`
   return (
     <button
       type="button"
-      className={s.livePos}
+      className={cx(s.livePos, atScene && s.livePosHere)}
       onClick={onShow}
       disabled={!onShow}
-      title={onShow ? L.tapHint : undefined}
+      title={label}
+      aria-label={label}
     >
       <Icon id="locate" />
-      <span>{text}</span>
     </button>
   )
 }
@@ -698,6 +703,11 @@ export function AnwesenheitView({
                 {/* THE one clock in the row, always there: it opens the sheet where several
                     stretches — came, went, came back — are added and corrected. The chip beside it
                     edits the single time shown; this is the way to all the others. */}
+                <LivePositionChip
+                  live={livePositions?.get(p.id)}
+                  center={incidentCenter}
+                  onShow={onShowOnMap ? () => onShowOnMap(p.id) : undefined}
+                />
                 {canEdit && blocks.length > 0 && (
                   <button
                     type="button"
@@ -709,11 +719,6 @@ export function AnwesenheitView({
                     <Icon id="clock" />
                   </button>
                 )}
-                <LivePositionChip
-                  live={livePositions?.get(p.id)}
-                  center={incidentCenter}
-                  onShow={onShowOnMap ? () => onShowOnMap(p.id) : undefined}
-                />
               </div>
             )
           })}

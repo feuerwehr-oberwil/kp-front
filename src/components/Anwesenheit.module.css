@@ -122,18 +122,21 @@
 .backBtn svg { width: 16px; height: 16px; }
 .backBtn:hover { background: color-mix(in srgb, var(--green) 14%, transparent); }
 
-/* Live-Standort: «2.8 km · vor 3 min» beside the name. Deliberately in the muted ink and NOT
-   in a status colour — distance here means "he is at the Weiher like we sent him", so the
-   moment it reads as amber it stops being information and starts being an accusation. */
+/* Live-Standort: a MARK beside the name, not a reading. «2.8 km · vor 3 min» behind every name
+   was a second column of numbers competing with the one thing the list is read for; the reading
+   moved into the tooltip and the accessible name, and tapping puts the person on the map.
+   Deliberately in the muted ink and NOT in a status colour — distance here means "he is at the
+   Weiher like we sent him", so the moment it reads as amber it stops being information and
+   starts being an accusation. */
 .livePos {
-  flex: none; align-self: stretch; display: inline-flex; align-items: center; gap: 5px;
-  padding: 0 10px; max-width: 40%;
+  flex: none; align-self: stretch; display: inline-flex; align-items: center; justify-content: center;
+  width: var(--tap); padding: 0;
   border: none; border-left: 1px solid var(--glass-edge); background: none;
-  color: var(--ink-dim); font: 600 12px var(--body); white-space: nowrap;
-  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  color: var(--ink-dim); cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
-.livePos svg { flex: none; width: 14px; height: 14px; color: var(--ink-faint); }
-.livePos span { overflow: hidden; text-overflow: ellipsis; }
+.livePos svg { flex: none; width: 15px; height: 15px; color: var(--ink-faint); }
+/* at the Einsatzort the mark is the ordinary case — a filled dot would shout the normal state */
+.livePosHere svg { color: var(--ink-dim); }
 .livePos:hover:not(:disabled) { color: var(--ink); background: color-mix(in srgb, var(--accent) 8%, transparent); }
 .livePos:disabled { cursor: default; }
 

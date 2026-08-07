@@ -129,6 +129,11 @@ so this file – not the log – is the record of what shipped up to that point.
   (`report.reversePrintOrder`, switch it off for a printer that ejects face-down); the
   downloaded PDF stays in reading order, because that one is read on a screen.
 
+- **Der Live-Standort in der Anwesenheit ist wieder eine Markierung, keine Ablesung.**
+  «63 m · jetzt» hinter jedem Namen war eine zweite Zahlenspalte neben dem, wofür die Liste
+  gelesen wird – den Namen. Es bleibt das Symbol, direkt links neben der Uhr; die Angabe steht
+  im Tooltip, und ein Tipp zeigt die Person weiterhin auf der Karte.
+
 - **Die Geschoss-Skizze kam halb hochkant und halb quer aus dem Drucker.** Each page was shaped
   by the number of storeys that happened to land on it – two gave an upright sheet, one a wide
   one – so a building with an odd number of floors printed in two orientations. Every page keeps
