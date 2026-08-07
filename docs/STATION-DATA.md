@@ -105,6 +105,12 @@ admin secrets, API credentials, personal rosters, or operational data to the pub
 
 ## Definition of ready
 
+⚠️ **Ready is not the same as complete.** Nothing below asks for a full inventory, and none of
+these lists has to be finished before the app is worth running — see *You do not owe anyone a
+complete inventory* in [`SETUP.md`](SETUP.md) §4. A station with a dozen Mittel, four vehicles
+and the handful of objects it actually gets sent to is ready; the rest arrives when a real
+Einsatz shows what was missing.
+
 A technical owner should be able to confirm all of the following:
 
 - `/ready` reports both database and storage as healthy.

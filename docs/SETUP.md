@@ -120,6 +120,36 @@ there is no fallback to another station's data. Each has a CLI keyed off `KP_ADM
 from, starting from the synthetic Musterdorf example. Its **Definition of ready** section is the
 checklist for this step.
 
+### You do not owe anyone a complete inventory
+
+The most common way this step stalls is a station deciding it must first enter *everything* — the
+whole Mittel-Katalog, every vehicle, every Objektplan, the full Leitungskataster — before the app
+is worth switching on. It does not, and waiting until it is complete is the worse outcome.
+
+Every list here degrades on purpose:
+
+| List | With nothing loaded | What partial gets you |
+| --- | --- | --- |
+| Mittel-Katalog | The Mittel sheet still works — anything missing is typed as «Anderes Mittel» and prints on the Rapport exactly like a catalogue line | The dozen things you actually use up (Schlauch, Schaummittel, Ölbinder, Leitkegel) turn a free-text list into two taps |
+| Fahrzeuge / Gruppen | The Zeiten grid on the Rapport is simply omitted | The vehicles that really roll out give you Alarmierungs-/Ausrückzeiten without writing them by hand |
+| Objektpläne | An incident falls back to the OSM building outline and a Tafel | The five or ten objects you would actually be sent to are worth more than four hundred you would not |
+| Reference geodata | The map is the base map | One hydrant layer is already the thing an EL asks for first |
+| Mannschaft | Every person is typed in as «Weitere Person» per Einsatz | The active crew makes Anwesenheit a tap instead of a keyboard |
+
+The pattern is the same in each row: **load the part that earns its keep, use it, add the rest
+when a real Einsatz shows you what was missing.** A station that loads its twelve most-used
+Mittel and its four vehicles on a Tuesday evening is ready to run an incident that week.
+
+Updating mostly follows the same rule: `admin_objects load` **upserts** — object ids are stable
+uuid5s derived per folder, so correcting one object is one command with one object in the
+manifest, not a re-push of the library. Same for `admin_geodata` and `admin_checklists`, which
+are keyed per dataset.
+
+⚠️ **`admin_config` is the exception, and it bites.** It writes the whole configuration document,
+so a `load` of a file that is missing a section removes that section. Never load a config you have
+not just diffed against what is live: `admin_config show > current.json`, edit *that*, diff, then
+load.
+
 ### There are two doors, and one of them is not what it looks like
 
 The CLIs above are not an alternative to "the JSON files" – **the manifest is what the CLI
