@@ -107,6 +107,17 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Fixed
 
+- **Correcting the Einsatzdaten wrote eight fields every time.** `started_at` was the expensive
+  one: it round-trips through a formatter that drops seconds, and the backend stamps
+  `started_at_source = "manual"` for any `started_at` it receives — so fixing a typo in the
+  address rounded a 03:14:37 alarm to 03:14:00 and told the statistics consumer, whose only use
+  for that field is «did a human assert this», that one had. Edits diff against what the incident
+  looked like when the panel opened. With it: the ✕ that clears the location did nothing (an
+  omitted key is not written), a failed Meldungstext fetch enabled the save that blanks it,
+  clearing the Stichwort renamed the Einsatz to its address, the address menu never closed so the
+  next tap rewrote the location, and «Speichern» sat below the fold because the action row was
+  inside the scrolling body — which `Modal` gave no way to avoid, for any of its consumers.
+
 - **A guest, once added, could not be removed.** Two independent bugs shut both routes at once,
   quietly. The row's third tap deliberately refuses to cycle a guest back to «frei», because for
   a hand-added person that attendance entry is the ONLY record they were ever here. And the
