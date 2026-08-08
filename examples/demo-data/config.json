@@ -3,6 +3,10 @@
     "appName": "Feuerwehr Musterdorf",
     "locale": "de-CH",
     "accentColor": "#c4161c",
+    "assets": {
+      "logo": "/api/branding/file/branding/logo.png",
+      "reportLogo": "/api/branding/file/branding/reportLogo.png"
+    },
     "helpIntro": "Demo-Deployment mit synthetischen Daten — keine echte Wehr. Änderungen bleiben erhalten und werden jede Nacht zurückgesetzt.",
     "demoMode": true,
     "demoNote": "Demo-Zugang · PIN 000000 für alle · Daten sind synthetisch, für alle sichtbar und werden alle 12 Stunden zurückgesetzt (Mitternacht und Mittag).",

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Load the synthetic Musterdorf demo dataset into a deployment's database:
-# deployment config + a hydrant/water reference layer + the Schloss Musterdorf Einsatzobjekt
-# with synthetic module PDFs + demo checklists (an action list + tactical Stichworte).
+# deployment config + the station brandmark + a hydrant/water reference layer + the Schloss
+# Musterdorf Einsatzobjekt with synthetic module PDFs + demo checklists (an action list +
+# tactical Stichworte).
 #
 #   just demo-load                      # against the local dev DB (needs 'just db' running)
 #   DATABASE_URL=... bash examples/demo-data/load.sh   # against another DB
@@ -14,20 +15,29 @@ cd "$(dirname "$0")"          # examples/demo-data
 HERE="$(pwd)"
 cd ../../backend             # the admin CLIs run from backend/
 
-echo "→ 1/5  deployment config"
+echo "→ 1/6  deployment config"
 uv run python -m app.admin_config load "$HERE/config.json"
 
-echo "→ 2/5  reference geodata (water mains + hydrants)"
+# ⚠️ AFTER the config, never before: `admin_config load` replaces the whole document, and
+# identity.assets is part of it. config.json names these two URLs, so the nightly demo reset
+# keeps pointing at the blobs this step writes (stable, slot-derived keys — see admin_branding).
+# Without it the demo ran with no brandmark at all: no logo on the login screen, and the printed
+# Einsatzrapport had no letterhead.
+echo "→ 2/6  Brandmark (Login-Screen + Rapport-Briefkopf)"
+uv run python -m app.admin_branding load logo "$HERE/report-logo.png"
+uv run python -m app.admin_branding load reportLogo "$HERE/report-logo.png"
+
+echo "→ 3/6  reference geodata (water mains + hydrants)"
 uv run python -m app.admin_geodata load "$HERE/geodata.manifest.json"
 
-echo "→ 3/5  Einsatzobjekt + synthetic Modul-PDFs"
+echo "→ 4/6  Einsatzobjekt + synthetic Modul-PDFs"
 uv run python -m app.admin_objects load "$HERE/objects.manifest.json"
 
-echo "→ 4/5  Checklisten (Aufgaben FU + Taktik-Stichworte)"
+echo "→ 5/6  Checklisten (Aufgaben FU + Taktik-Stichworte)"
 uv run python -m app.admin_checklists load "$HERE/checklists.manifest.json"
 
 # Additive, never destructive — a Divera-synced roster just gains the demo names.
-echo "→ 5/5  Mannschaft (synthetic crew, so Anwesenheit/Schichtenplanung have people)"
+echo "→ 6/6  Mannschaft (synthetic crew, so Anwesenheit/Schichtenplanung have people)"
 uv run python -m app.seed_personnel
 
 echo ""

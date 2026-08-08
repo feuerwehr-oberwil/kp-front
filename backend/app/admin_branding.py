@@ -12,11 +12,17 @@ does the same thing through the browser; this exists for the paths a browser is 
 Run from ``backend/``::
 
     uv run python -m app.admin_branding push reportLogo path/to/logo.svg
+    uv run python -m app.admin_branding load reportLogo path/to/logo.png
     uv run python -m app.admin_branding show
 
 `push` goes through a RUNNING deployment's HTTP API (authenticating with ``ADMIN_SECRET``, the
 same handshake ``admin_geodata push`` uses), so the server writes its own volume — which is what
 makes it safe to run from a workstation against a remote deployment.
+
+`load` is the DB-direct sibling — the same path ``admin_config load`` and ``admin_geodata load``
+take, for a dataset that is loaded next to them (``examples/demo-data/load.sh``) rather than
+uploaded by a person. It writes the blob under a key derived from the SLOT, so re-running it
+overwrites in place instead of leaving a new orphan behind every night.
 
 Slots: ``logo`` (login screen, header), ``reportLogo`` (letterhead of the printed
 Einsatzrapport; falls back to ``logo`` when unset), ``favicon`` (browser tab).
@@ -41,6 +47,14 @@ _CONTENT_TYPES = {
 }
 
 
+#: DB-direct `load` writes under a stable, slot-derived key. The HTTP upload mints a random one
+#: per file (a person replacing a logo wants the old URL to stop resolving), but a dataset that
+#: is re-loaded on every demo reset would then leave one orphaned blob per night — and the
+#: config URL would change under a browser that had cached it.
+def _stable_key(slot: str, suffix: str) -> str:
+    return f"branding/{slot}{suffix}"
+
+
 def _fail(msg: str) -> None:
     print(msg, file=sys.stderr)
     raise SystemExit(1)
@@ -61,6 +75,34 @@ def _push(slot: str, path: Path, base: str, admin_secret: str) -> str:
             _fail(f"ERROR: upload of {path.name} to {slot} failed ({up.status_code}): {up.text[:300]}")
         assets = (up.json().get("identity") or {}).get("assets") or {}
         return str(assets.get(slot) or "")
+
+
+async def _load(slot: str, path: Path) -> str:
+    """Write the file into the blob store and point ``identity.assets[slot]`` at it."""
+    from sqlalchemy import select
+
+    from . import storage
+    from .database import async_session_maker
+    from .models import DeploymentConfig
+
+    key = _stable_key(slot, path.suffix.lower())
+    storage.put_bytes(key, path.read_bytes())
+    url = f"/api/branding/file/{key}"
+    async with async_session_maker() as db:
+        row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+        doc = dict((row.config_json if row else None) or {})
+        identity = dict(doc.get("identity") or {})
+        assets = dict(identity.get("assets") or {})
+        assets[slot] = url
+        identity["assets"] = assets
+        doc["identity"] = identity
+        if row is None:
+            db.add(DeploymentConfig(id=1, config_json=doc))
+        else:
+            # reassign, don't mutate: the JSON column only notices a new object
+            row.config_json = doc
+        await db.commit()
+    return url
 
 
 def _show(base: str) -> dict:
@@ -85,10 +127,30 @@ def main() -> None:
         "--secret", default=os.environ.get("KP_ADMIN_SECRET"), help="ADMIN_SECRET (env KP_ADMIN_SECRET)"
     )
 
+    p_load = sub.add_parser("load", help="write an image into a branding slot DIRECTLY (DB + blob store)")
+    p_load.add_argument("slot", choices=SLOTS)
+    p_load.add_argument("file")
+
     p_show = sub.add_parser("show", help="print the branding asset URLs a deployment currently serves")
     p_show.add_argument("--base", default=os.environ.get("KP_BASE_URL"), help="deployment base URL (env KP_BASE_URL)")
 
     a = ap.parse_args()
+
+    if a.cmd == "load":
+        import asyncio
+
+        path = Path(a.file)
+        if not path.is_file():
+            _fail(f"ERROR: {path} not found")
+        # the same allowlist the HTTP upload applies — a typo fails here, not as a broken image
+        if path.suffix.lower() not in _CONTENT_TYPES:
+            _fail(
+                f"ERROR: {path.suffix or path.name!r} is not an allowed image type ({', '.join(sorted(_CONTENT_TYPES))})"
+            )
+        url = asyncio.run(_load(a.slot, path))
+        print(f"OK: {a.slot} ← {path.name} → {url}")
+        return
+
     if not a.base:
         _fail("ERROR: set --base or KP_BASE_URL to the deployment URL")
 
