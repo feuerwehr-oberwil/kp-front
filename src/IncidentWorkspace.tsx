@@ -15,6 +15,7 @@ import { moduleNumbers } from './lib/navRail'
 import { incident as demoIncident, planDocuments, gebaeudeDoc, preparedOverlays } from './data/demoIncident'
 import type { CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LngLat, MittelEntry, Person, ShapeKind, TimelineEvent, Trupp, TruppFields } from './types'
 import { appConfig } from './config/appConfig'
+import { clearAllDrafts } from './lib/draftKeep'
 import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDemoMode } from './lib/deploymentConfig'
 import { fillTemplate, formatSymbolName, formatTime } from './lib/format'
 import { formatAudioDuration } from './lib/audioImport'
@@ -632,6 +633,10 @@ export function IncidentWorkspace({
   // the extra bottom clearances for FAB / docks / stage / whiteboard on phones. A viewer-only plan
   // (e.g. Modul 6 Gebäudepläne) renders no tool bar, so it gets ONE bar of clearance, not two —
   // otherwise the empty tool-bar lane blocks the PDF from scrolling to the bottom nav.
+  // ⚠️ A half-typed Mittel (or guest) belongs to the Einsatz it was started on. Switching
+  // incidents drops every kept draft, so the next one can never be handed the previous one's
+  // entry — see lib/draftKeep.
+  useEffect(() => { clearAllDrafts() }, [incidentMeta.id])
   const activePlanViewer = mode === 'plans' && planDocs.find((p) => p.id === activePlanId)?.viewer === true
   // a LOCKED surface now carries a bar too (the slim Auswahl · Messen rail), so it reserves the
   // same two lanes as an editor's — only replay, which renders no rail at all, gets one.

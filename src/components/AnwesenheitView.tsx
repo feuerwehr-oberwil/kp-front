@@ -6,6 +6,7 @@ import { fmtDistance, haversineM } from '../lib/geo'
 import type { ZeitplanSheet } from '../lib/zeitplanPrint'
 import { cx } from '../lib/cx'
 import { appConfig } from '../config/appConfig'
+import { useKeptState } from '../lib/draftKeep'
 import { fillTemplate, fmtSpanShort, hhmm } from '../lib/format'
 import { applyTimeToIso, isoOnDay } from '../lib/abschluss'
 import { rankAbbr, rankLabel, rankOrder } from '../lib/rank'
@@ -247,8 +248,11 @@ function PaperSheet({ sheet, people, bands, printOnline, onPrint, onDownload, on
  *  like anybody else's — which is the point of shaping a guest like a Person. */
 function GuestDialog({ onCancel, onSubmit }: { onCancel: () => void; onSubmit: (name: string) => void }) {
   const A = appConfig.copy.anwesenheit
-  const [name, setName] = useState('')
-  const submit = () => { if (name.trim()) onSubmit(name) }
+  // the typed name survives a jump to another surface and back — see lib/draftKeep. Cleared on
+  // submit; NOT cleared on cancel, because «weg» and «ich mache gleich weiter» look identical
+  // from here and losing the name is the more expensive of the two mistakes.
+  const [name, setName, clearName] = useKeptState('anwesenheit:guest', '')
+  const submit = () => { if (name.trim()) { onSubmit(name); clearName() } }
   return (
     <Overlay open onClose={onCancel} className="ip-sheet ip-fit ui-dialog" ariaLabel={A.addGuestTitle}>
       <div className="ip-head"><h2>{A.addGuestTitle}</h2>

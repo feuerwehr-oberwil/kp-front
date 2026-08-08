@@ -1609,9 +1609,15 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
      phone, so an absolute offset COMPOUNDS with that lift and the chips floated up into
      the middle of the plan instead of sitting above the tool bar. Viewport-anchored, they
      land where the arithmetic says. */
+  /* ⚠️ Counted from what is ACTUALLY on screen, one lane at a time. The base is the nav bar
+     alone — a viewer-only PDF renders no tool rail at all (`phoneTools` excludes it), so
+     reserving two lanes there left the chip hanging a whole bar's height above nothing. */
   .wb-botleft { position: fixed; left: 10px; right: 10px; max-width: none;
+    bottom: calc(var(--rail-h) + 20px + env(safe-area-inset-bottom)); }
+  /* an editable surface adds the tool rail under it… */
+  .app.phone-tools .wb-botleft {
     bottom: calc(var(--rail-h) * 2 + 20px + env(safe-area-inset-bottom)); }
-  /* …and a third line when the tool-SPECIFIC dock is out (a line/area tool's colours and widths).
+  /* …and a third lane when the tool-SPECIFIC dock is out (a line/area tool's colours and widths).
      That bar appears and disappears with the tool, so the chips move with it rather than being
      covered by it half the time. Same `:has` idiom the FAB already uses to get out of its way. */
   .app:has(.wb-dock) .wb-botleft {

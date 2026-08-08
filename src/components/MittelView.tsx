@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { clearDraft, keepDraft, readDraft } from '../lib/draftKeep'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig, type DeploymentMittelItem, type DeploymentMittelSource } from '../lib/deploymentConfig'
@@ -473,6 +474,14 @@ function MittelLineDialog({ M, target, sources, units, onClose, onSave, onDelete
 
 // The composer: free-typed entries (or a catalogue material with special unit/source) — the
 // catalogue itself edits inline via the list steppers, so this is the «Anderes Mittel» path.
+/** The composer's kept draft. Not cleared on «Abbrechen»: «weg» and «ich mache gleich weiter»
+ *  look identical from here, and losing what was typed is the more expensive mistake. */
+const DRAFT_KEY = 'mittel:composer'
+const EMPTY_DRAFT = {
+  label: '', materialId: undefined as string | undefined, unit: '',
+  sourceId: undefined as string | undefined, sourceLabel: undefined as string | undefined, menge: 1,
+}
+
 function MittelComposer({ M, catalogue, sources, units, entries, categorised, onCancel, onSubmit }: {
   M: typeof appConfig.copy.mittel
   catalogue: DeploymentMittelItem[]
@@ -483,12 +492,19 @@ function MittelComposer({ M, catalogue, sources, units, entries, categorised, on
   onCancel: () => void
   onSubmit: (d: MittelDraft) => void
 }) {
-  const [label, setLabel] = useState('')
-  const [materialId, setMaterialId] = useState<string | undefined>(undefined)
-  const [unit, setUnit] = useState('')
-  const [sourceId, setSourceId] = useState<string | undefined>(undefined)
-  const [sourceLabel, setSourceLabel] = useState<string | undefined>(undefined)
-  const [menge, setMenge] = useState(1)
+  // ⚠️ The half-filled entry survives this component being UNMOUNTED — which is what happens the
+  // moment somebody hops to the Verlauf mid-typing (see lib/draftKeep). Seeded from the keeper,
+  // written back on every change; dropped once the Mittel is actually recorded.
+  const kept = readDraft(DRAFT_KEY, EMPTY_DRAFT)
+  const [label, setLabel] = useState(kept.label)
+  const [materialId, setMaterialId] = useState<string | undefined>(kept.materialId)
+  const [unit, setUnit] = useState(kept.unit)
+  const [sourceId, setSourceId] = useState<string | undefined>(kept.sourceId)
+  const [sourceLabel, setSourceLabel] = useState<string | undefined>(kept.sourceLabel)
+  const [menge, setMenge] = useState(kept.menge)
+  useEffect(() => {
+    keepDraft(DRAFT_KEY, { label, materialId, unit, sourceId, sourceLabel, menge })
+  }, [label, materialId, unit, sourceId, sourceLabel, menge])
 
   const pickMaterial = (val: string) => {
     const item = catalogue.find((c) => c.label === val)
@@ -517,7 +533,11 @@ function MittelComposer({ M, catalogue, sources, units, entries, categorised, on
   )
 
   const valid = !!label.trim() && !!unit.trim() && menge >= 1
-  const submit = () => { if (valid) onSubmit({ materialId, label: label.trim(), unit: unit.trim(), sourceId, sourceLabel, menge }) }
+  const submit = () => {
+    if (!valid) return
+    onSubmit({ materialId, label: label.trim(), unit: unit.trim(), sourceId, sourceLabel, menge })
+    clearDraft(DRAFT_KEY) // recorded — the next «erfassen» starts empty
+  }
 
   return (
     <div className={s.composer}>
