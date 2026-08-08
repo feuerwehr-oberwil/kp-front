@@ -29,6 +29,8 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ## [Unreleased]
 
+## [0.5.0] – 2026-08-08
+
 ### Added
 
 - **The rapport prints the number WinFAP actually joins on.** «Einsatz-Nr» sits in the details
@@ -66,6 +68,22 @@ so this file – not the log – is the record of what shipped up to that point.
   places a point but never puts one where you are looking is the worse kind of almost-right.
 
 ### Changed
+
+- **`app.css` is a manifest, not a stylesheet.** It had reached 5'480 lines — 56 % larger than
+  when it was first written down as the biggest obstacle for anyone working in this repo — and
+  the global styles now live in `src/styles/NN-*.css`: tokens, base, map, one file per surface.
+  Nothing about the rendered page changed, and that is checked rather than asserted: every line
+  lands in exactly one part, in order, and the emitted CSS bundle came out identical down to its
+  content hash (the same hash the running demo was already serving). The numbering **is** the
+  cascade — `20-touch-floors.css` is last because its `(pointer: coarse)` targets have to beat
+  every surface above it, so a new block goes where it belongs and gets renumbered, rather than
+  being appended for tidiness. For self-hosters this changes nothing; for anyone editing the app
+  it is the difference between searching one 5'000-line file and opening the right one.
+
+  The same treatment started on `Whiteboard.tsx`, which had grown the other way (1'650 → 2'516):
+  Plan-Maßstab and Messen moved out whole into `usePlanMeasure`, together with the two prompt
+  surfaces that were sitting 1'800 lines away from the state they read. The rest of that file is
+  still one component and still too big.
 
 - **The Einsatzrapport is a surface, not a sheet.** It sits in the left rail under Material (key
   `R`) and behaves like Anwesenheit and Mittel: the rail stays put and the page changes under it.
@@ -1613,7 +1631,8 @@ toolchain on the VPS. Everything else here has been running in production since 
 - A render error on the login screen, landing list, or admin surface now shows the recoverable
   error card instead of a white screen (root-level error boundary + guarded boot init).
 
-[Unreleased]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.1.0...v0.2.0
