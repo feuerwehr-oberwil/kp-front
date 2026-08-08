@@ -51,3 +51,31 @@ describe('the roster refreshes itself, so the header carries no refresh button',
     expect(retry.hasAttribute('disabled')).toBe(true)
   })
 })
+
+// A guest is not on the Mannschaftsliste — they exist only as an attendance entry, synthesised
+// into a row. The clock button looked its person up in the ROSTER, so for a guest it found
+// nobody and the sheet silently did not open. That sheet is also the only place «Person
+// entfernen» lives (the row's tap deliberately refuses to cycle a guest back to «frei», because
+// that tap would delete the only record they were ever here) — so a guest could be added and
+// then never removed, with both routes out failing quietly.
+describe('a guest can be opened and removed like anybody else', () => {
+  const A = appConfig.copy.anwesenheit
+  const withGuest: AttendanceState = {
+    g1: { status: 'present', displayNameSnapshot: 'Muster Felix', intervals: [{ from: '2026-08-07T10:00:00.000Z' }] },
+  } as unknown as AttendanceState
+
+  it('opens the Zeiten sheet for a guest', () => {
+    mount({ attendance: withGuest })
+    const clock = screen.getByRole('button', { name: A.openBlocks.replace('{name}', 'Muster Felix') })
+    fireEvent.click(clock)
+    expect(screen.getByRole('button', { name: new RegExp(A.removeGuest) })).toBeTruthy()
+  })
+
+  it('removes the guest through it', () => {
+    const onClear = vi.fn()
+    mount({ attendance: withGuest, onClear })
+    fireEvent.click(screen.getByRole('button', { name: A.openBlocks.replace('{name}', 'Muster Felix') }))
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(A.removeGuest) }))
+    expect(onClear).toHaveBeenCalledWith(expect.objectContaining({ id: 'g1', guest: true }))
+  })
+})

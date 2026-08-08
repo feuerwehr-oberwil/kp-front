@@ -499,7 +499,14 @@ export function AnwesenheitView({
     return `${isOtherDay(end, new Date(from)) ? `${fmtDayShort(end)} ` : ''}${hhmm(end)}`
   }, [startedAt, nowMs, horizonH])
 
-  const blocksPerson = people.find((p) => p.id === blocksFor)
+  // ⚠️ Guests are NOT in `people` — they are synthesised from attendance entries that have no
+  // roster row (see `guests` above). Looking the clock button's person up in `people` alone meant
+  // the sheet simply never opened for one, and since a guest deliberately cannot be cycled back
+  // to «frei» (that tap would delete the only record they were ever here), the sheet is their ONE
+  // way out — «Gast entfernen» lives in it. So a guest could be added and then never removed.
+  // Searched across both lists, not across `rows`: `rows` is filtered by the search box and the
+  // rank/anwesend filters, and typing while the sheet is open would otherwise close it.
+  const blocksPerson = people.find((p) => p.id === blocksFor) ?? guests.find((p) => p.id === blocksFor)
   const empty = !people.length
   const planAvailable = !!shifts && !!onAddShift && !!onAddShiftSpan && !!onReplaceShift && !!onSetShiftTime && !!onRemoveShift
   const showPlan = planAvailable && view === 'plan'
