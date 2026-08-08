@@ -1344,13 +1344,18 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
 /* ⚠️ `.ui-dialog` alone positions NOTHING — every dialog pairs it with its own sheet class, and
    one that forgets renders unstyled at the top of <body>: present in the DOM, invisible on
    screen («der Stift öffnet nichts»). This is the Mittel remark's sheet. */
-.confirm-card { width: min(420px, 92vw); background: var(--surface);
-  border: 1px solid var(--glass-line); border-radius: var(--r-hero); padding: 22px 22px 16px; box-shadow: 0 30px 80px rgba(20, 28, 40, .4);
+/* The house dialog material: --glass + blur, like the seventeen sheets. It was flat --surface
+   with a hand-rolled shadow, so a confirm opening over a sheet was visibly a different colour of
+   card — and the title was 17/700 against the 19/800 every other dialog and surface uses. */
+.confirm-card { width: min(420px, 92vw); background: var(--glass); backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-edge); border-radius: var(--r-hero); padding: 22px 22px 16px; box-shadow: var(--shadow);
   animation: pop .16s var(--ease); }
-.confirm-title { margin: 0 0 8px; font-size: 17px; font-weight: 700; color: var(--ink); }
-.confirm-msg { margin: 0 0 18px; font-size: 13.5px; line-height: 1.5; color: var(--ink-dim); font-weight: 500; }
+.confirm-title { margin: 0 0 8px; font: 800 19px var(--body); color: var(--ink); }
+.confirm-msg { margin: 0 0 18px; font: 500 13px/1.45 var(--body); color: var(--ink-dim); }
 .confirm-actions { display: flex; gap: 8px; justify-content: flex-end; }
-.confirm-actions .btn { flex: 0 0 auto; min-width: 96px; padding: 11px 16px; font-size: 14px; }
+/* .ip-btn, the house family — `.btn` is the dense map-dock button (12.5px, flex:1, bounces on
+   press) and using it here is what made the confirm read as another app's dialog. */
+.confirm-actions .ip-btn { flex: 0 0 auto; min-width: 96px; min-height: var(--tap); justify-content: center; }
 .btn.primary { background: var(--btn-primary); border-color: var(--btn-primary); color: var(--on-btn-primary); }
 .btn.primary:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); }
 .btn.warn-solid { background: var(--red); border-color: var(--red); color: var(--on-fill); }

@@ -38,8 +38,11 @@ export function ConfirmCard({ open, title, message, confirmLabel, cancelLabel, d
           {title && <Dialog.Title className="confirm-title" render={<h3 />}>{title}</Dialog.Title>}
           <p className="confirm-msg">{message}</p>
           <div className="confirm-actions">
-            <button className="btn" onClick={() => onResolve(false)}>{cancelLabel}</button>
-            <button ref={confirmRef} className={`btn ${danger ? 'warn-solid' : 'primary'}`} onClick={() => onResolve(true)}>{confirmLabel}</button>
+            <button className="ip-btn" onClick={() => onResolve(false)}>{cancelLabel}</button>
+            {/* the OUTLINE danger, not a solid red fill: the same treatment every other destructive
+                action in the app wears (Anwesenheit, Verlauf, BandGrid), and this confirm is also
+                what «Einsatz abschliessen» goes through — which is not destructive at all. */}
+            <button ref={confirmRef} className={`ip-btn ${danger ? 'ip-btn-danger' : 'primary'}`} onClick={() => onResolve(true)}>{confirmLabel}</button>
           </div>
         </Dialog.Popup>
       </Dialog.Portal>

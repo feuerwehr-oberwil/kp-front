@@ -247,12 +247,16 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 /* --- shared create / edit / re-deploy form modal --- */
 /* centered dialog frame — Base UI (<Overlay>) supplies the scrim (.ui-backdrop), focus trap,
    scroll-lock and Esc; the popup owns its own fixed centering (siblings, no grid parent). */
+/* ⚠️ The HOUSE dialog material and geometry (.ip-sheet): --glass + blur, --r-hero, a 19/800
+   title. This modal used to be a parallel design system inside a shared primitive — flat
+   --surface, --r-surface, a 17px title and three private button classes — so opening «Trupp
+   anlegen» straight after any other dialog was the most visible break in the app. */
 .modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 81;
   width: min(680px, calc(100vw - 32px)); max-height: min(90dvh, calc(100dvh - 32px)); overflow-y: auto;
-  background: var(--surface); border-radius: var(--r-surface); box-shadow: var(--shadow);
+  background: var(--glass); backdrop-filter: blur(16px); border-radius: var(--r-hero); box-shadow: var(--shadow);
   display: flex; flex-direction: column; }
 .modalHead { display: flex; align-items: center; gap: 12px; padding: 16px 18px; border-bottom: 1px solid var(--glass-edge); }
-.modalHead h3 { margin: 0; flex: 1 1 auto; font-size: 17px; font-weight: 800; color: var(--ink); }
+.modalHead h3 { margin: 0; flex: 1 1 auto; font: 800 19px var(--body); color: var(--ink); }
 
 /* two columns (Auftrag · Trupp) so the create form fits without scrolling on a tablet; Druck
    and warnings span the full width. Collapses to one column on a phone. */
@@ -354,7 +358,7 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 .linkBtn :global(.i) { width: 14px; height: 14px; }
 
 .modalFoot { display: flex; gap: 10px; justify-content: flex-end; padding: 14px 18px; border-top: 1px solid var(--glass-edge);
-  position: sticky; bottom: 0; background: var(--surface); }
+  position: sticky; bottom: 0; background: var(--glass); }
 .ghostBtn { border: none; cursor: pointer; background: transparent; color: var(--ink-dim);
   font-family: var(--body); font-size: 14px; font-weight: 700; padding: 11px 16px; border-radius: var(--r-sm); }
 .ghostBtn:hover { background: var(--fill-soft); color: var(--ink); }

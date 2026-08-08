@@ -947,7 +947,9 @@ function TruppForm({
         </div>
 
       <div className={s.modalFoot}>
-        <button className={s.ghostBtn} onClick={onCancel}>{az.cancel}</button>
+        {/* the house button family — three private classes here were the last of this modal's own
+            design system (see Atemschutz.module.css · .modal) */}
+        <button className="ip-btn ghost" onClick={onCancel}>{az.cancel}</button>
         {/* Re-deploy forks here: a re-equipped Trupp is just as often held back as Sicherungstrupp
             as it is sent straight in. Both buttons take the same filled-in form, so the choice
             costs nothing — and «Bereitstellen» is the one that must NOT start a contact clock.
@@ -956,11 +958,11 @@ function TruppForm({
             steps back — the ORDER stays as it was, only the emphasis swaps, so nobody has to
             re-learn where the button is. */}
         {mode === 'redeploy' && (
-          <button className={s.primaryBtn} disabled={!canSubmit} onClick={() => submit(true)} title={az.reenterStandbyHint}>
+          <button className="ip-btn primary" disabled={!canSubmit} onClick={() => submit(true)} title={az.reenterStandbyHint}>
             {az.reenterStandby}
           </button>
         )}
-        <button className={mode === 'redeploy' ? s.secondaryBtn : s.primaryBtn} disabled={!canSubmit} onClick={() => submit()}>{submitLabel}</button>
+        <button className={mode === 'redeploy' ? 'ip-btn' : 'ip-btn primary'} disabled={!canSubmit} onClick={() => submit()}>{submitLabel}</button>
       </div>
     </Overlay>
   )

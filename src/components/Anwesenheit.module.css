@@ -221,7 +221,11 @@
   font: 700 10.5px var(--mono); color: var(--ink-dim);
 }
 .sheetField { display: flex; flex-direction: column; gap: 3px; }
-.sheetLabel { font: 600 10.5px var(--mono); color: var(--ink-faint); letter-spacing: .06em; text-transform: uppercase; }
+/* ⚠️ Sora, not --mono. --mono is for FIGURES — a clock, a duration, a pressure — where the
+   tabular widths do the work. A micro-LABEL in mono just reads as a second typeface: open a
+   person's Zeiten sheet and every label was Spline Sans Mono, open «Weitere Person erfassen»
+   and the same kind of label was Sora. One label voice; the numbers below them stay mono. */
+.sheetLabel { font: 700 11px var(--body); color: var(--ink-faint); letter-spacing: .06em; text-transform: uppercase; }
 .sheetTime { flex: none; }
 .sheetOpen {
   align-self: flex-start; padding: 0 10px; min-height: var(--tap); display: inline-flex; align-items: center;
@@ -278,7 +282,7 @@
 
 /* Zeitraum control — sits at the end of the search row, beside the thing it scopes */
 .horizon { flex: none; display: flex; align-items: center; gap: 6px; }
-.horizonLabel { font: 600 10.5px var(--mono); color: var(--ink-faint); letter-spacing: .06em; text-transform: uppercase; }
+.horizonLabel { font: 700 11px var(--body); color: var(--ink-faint); letter-spacing: .06em; text-transform: uppercase; }
 .horizonValue { min-width: 3.4rem; text-align: center; font: 700 12.5px var(--mono); color: var(--ink); }
 /* «bis 18:01» — at a constant px-per-hour a wider window is pixel-identical, so this is the only
    visible answer to what widening it bought you */

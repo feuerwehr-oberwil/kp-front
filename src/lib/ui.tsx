@@ -210,7 +210,7 @@ export function Overlays() {
           <div className="photo-view-head">
             <span className="photo-view-cap">{photo.caption || appConfig.copy.photoViewer.title}</span>
             {/* same-origin /api/media URL, so `download` really downloads instead of navigating */}
-            <a className="btn" href={photo.url} download={photo.filename}>
+            <a className="ip-btn" href={photo.url} download={photo.filename}>
               <Icon id="download" />{appConfig.copy.photoViewer.download}
             </a>
             <button className="ctx-x" onClick={closePhoto} aria-label={appConfig.copy.closeDialog} title={appConfig.copy.closeDialog}>
