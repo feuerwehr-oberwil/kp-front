@@ -1086,7 +1086,10 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
 
       {/* measurement path (line / polygon) — vertices rendered as draggable handles below */}
       <Source id="s-measure" type="geojson" data={measureFC}>
-        <Layer id="l-measure-fill" type="fill" paint={{ 'fill-color': uiBlue, 'fill-opacity': 0.1 }} />
+        {/* Polygon only. A fill layer closes a LineString into a ring and shades it, so a measured
+            Strecke that bends back on itself came out tinted like an area — the same guard the
+            draft layer has carried all along. */}
+        <Layer id="l-measure-fill" type="fill" filter={['==', ['geometry-type'], 'Polygon']} paint={{ 'fill-color': uiBlue, 'fill-opacity': 0.1 }} />
         <Layer id="l-measure-line" type="line" paint={{ 'line-color': uiBlue, 'line-width': 2.5, 'line-dasharray': [2, 1.2] }} layout={{ 'line-cap': 'round', 'line-join': 'round' }} />
         {/* fat transparent hit line so segment clicks (insert vertex) are easy to land */}
         <Layer id="l-measure-hit" type="line" paint={{ 'line-color': '#000', 'line-opacity': 0, 'line-width': 18 }} />
