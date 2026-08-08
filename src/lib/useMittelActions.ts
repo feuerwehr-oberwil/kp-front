@@ -113,7 +113,7 @@ export function useMittelActions({ mittel, setMittel, authorName, log }: MittelA
     const cfgM = getDeploymentConfig().mittel
     const item = materialForSymbol(cfgM?.catalogue ?? appConfig.mittel.catalogue, symbolName)
     if (!item) return
-    const unit = item.unit || 'Stk'
+    const unit = item.unit || appConfig.mittel.defaultUnit
     toast(fillTemplate(M.captureOffer, { label: item.label }), {
       icon: 'box',
       action: {

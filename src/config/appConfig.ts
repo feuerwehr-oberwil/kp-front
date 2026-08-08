@@ -497,6 +497,11 @@ const base = {
     catalogue: [] as { id: string; label: string; unit?: string; category?: string; stock?: { source: string; qty: number }[]; symbol?: string; verbrauchbar?: boolean }[],
     sources: [] as { id: string; label: string }[],
     units: ['Stk.', 'l', 'm', 'Sack', 'Flasche', 'kg', 'Rolle', 'Paar', 'h'] as string[],
+    /** What a catalogue entry that names no unit is counted in. ⚠️ It is «Stk.» WITH the dot —
+     *  it is an abbreviation of «Stück», and the same sheet printing «2 Stk.» on one line and
+     *  «1 Stk» on the next reads as two different units. Five call sites each carried their own
+     *  `|| 'Stk'` literal and all five had lost the dot; this is the one they read now. */
+    defaultUnit: 'Stk.',
   },
   /** Schichtenplanung (the Zeitplan surface) */
   shifts: {

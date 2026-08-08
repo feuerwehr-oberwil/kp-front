@@ -253,7 +253,7 @@ export function downloadSheetPdf({ stationName, names, catalogue, groups = [], v
     doc.text(doc.splitTextToSize(c.label, xAmt - x - 4)[0] as string, x, yy)
     dotted(xAmt, yy + 0.4, xAmt + amtW)
     doc.setFontSize(8.5).setTextColor(110)
-    doc.text(c.unit || 'Stk', xAmt + amtW + 2, yy)
+    doc.text(c.unit || appConfig.mittel.defaultUnit, xAmt + amtW + 2, yy)
   })
   y = startM + perColM * rowHM + GAP
 

@@ -14,7 +14,7 @@ const OBERWIL_LIKE = {
     'Wassersauger', 'Tauchpumpe klein', 'Tauchpumpe gross', 'Atemschutzgeräte', 'Exhauster',
     'Schaumleitung', 'Handlöscher', 'Wespenspray', 'Hochleistungslüfter', 'Generator',
     'Kettensäge', 'Rettungssäge', 'Wärmebildkamera', 'Rettungsschere / Spreizer',
-  ].map((label) => ({ label, unit: 'Stk' })),
+  ].map((label) => ({ label, unit: 'Stk.' })),
   groups: [
     { id: 'g2', label: 'Gr. 2', color: 'Rot' }, { id: 'g3', label: 'Gr. 3', color: 'Grün' },
     { id: 'g4', label: 'Gr. 4', color: 'Blau' }, { id: 'g5', label: 'Gr. 5', color: 'Gelb' },

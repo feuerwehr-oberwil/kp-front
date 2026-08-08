@@ -265,7 +265,9 @@ describe('server-PDF payload extras', () => {
     const { mittelForm } = mittelFormForPdf(mittel, catalogue)
     expect(mittelForm).toEqual([
       { label: 'Ölbinder', menge: '3', unit: 'Sack' },
-      { label: 'Sandsäcke', menge: undefined, unit: 'Stk' },
+      // a catalogue entry with no unit of its own is counted in «Stk.» — WITH the dot, the
+      // one spelling (appConfig.mittel.defaultUnit); five call sites used to disagree about it
+      { label: 'Sandsäcke', menge: undefined, unit: 'Stk.' },
       { label: 'Spezialschaum', menge: '20', unit: 'l' },
     ])
     // blank form: the whole catalogue as stubs, nothing dropped

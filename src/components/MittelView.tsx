@@ -515,7 +515,7 @@ function MittelComposer({ M, catalogue, sources, units, entries, categorised, on
     const item = catalogue.find((c) => c.label === val)
     setMaterialId(item?.id)
     setLabel(val)
-    setUnit((u) => item?.unit || u || units[0] || 'Stk')
+    setUnit((u) => item?.unit || u || units[0] || appConfig.mittel.defaultUnit)
   }
   const pickSource = (val: string) => {
     if (!val) { setSourceId(undefined); setSourceLabel(undefined); return }

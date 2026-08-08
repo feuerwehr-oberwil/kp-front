@@ -533,7 +533,7 @@ export function mittelFormForPdf(
     [...new Set((r?.items ?? []).map((i) => i.note?.trim()).filter(Boolean) as string[])].join(' · ') || undefined
   const sorted = [...catalogue].sort((a, b) => a.label.localeCompare(b.label, 'de-CH'))
   for (const c of sorted) {
-    const unit = c.unit || 'Stk'
+    const unit = c.unit || appConfig.mittel.defaultUnit
     const hit = byKey.get(`${c.id}|${unit.trim().toLowerCase()}`)
     if (hit) byKey.delete(hit.materialKey)
     rows.push({ label: c.label, menge: hit && hit.total > 0 ? String(hit.total) : undefined, unit, note: noteOf(hit) })

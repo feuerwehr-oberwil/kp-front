@@ -894,7 +894,7 @@ export default function CaptureApp() {
                   <ul className="cv-mittel">
                     {items.map((item) => {
                       const key = `mat:${item.id}`
-                      const probe = { materialId: item.id, label: item.label, unit: item.unit || 'Stk' }
+                      const probe = { materialId: item.id, label: item.label, unit: item.unit || appConfig.mittel.defaultUnit }
                       const serverCur = currentLineFor(mittel, { ...probe, sourceId: undefined, sourceLabel: undefined })?.menge ?? 0
                       const cur = matPending[key] ?? serverCur
                       return (
