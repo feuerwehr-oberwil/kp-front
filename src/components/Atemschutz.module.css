@@ -258,33 +258,6 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 .modalHead { display: flex; align-items: center; gap: 12px; padding: 16px 18px; border-bottom: 1px solid var(--glass-edge); }
 .modalHead h3 { margin: 0; flex: 1 1 auto; font: 800 19px var(--body); color: var(--ink); }
 
-/* «Trupp anlegen» as a BAND under the surface header — the pattern Mittel erfassen uses, and the
-   reason it is right here too: an ÜBERFÄLLIG card must never be hidden by the form that is
-   creating the next Trupp. It is the app's biggest form, so it is capped and scrolls internally
-   rather than pushing the board off the screen — the cards stay in view whatever the form does. */
-.composer { flex: none; display: flex; flex-direction: column;
-  background: var(--surface); border-bottom: 1px solid var(--glass-edge);
-  max-height: min(52dvh, 460px); }
-.composerHead { flex: none; display: flex; align-items: center; gap: 12px; padding: 12px 22px 0; }
-.composerTitle { flex: 1 1 auto; font: 800 12.5px var(--body); color: var(--ink-dim);
-  text-transform: uppercase; letter-spacing: .04em; }
-/* the form itself scrolls; the title and the actions stay put, so «Anlegen» is never scrolled
-   away from a form that is already filled in */
-.composerBody { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-gutter: stable;
-  padding: 12px 22px 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px 22px; align-items: start; }
-.composerFoot { flex: none; display: flex; gap: 10px; justify-content: flex-end;
-  padding: 10px 22px 14px; border-top: 1px solid var(--glass-edge); background: var(--surface); }
-@media (max-width: 720px) {
-  .composerBody { grid-template-columns: 1fr; }
-}
-@media (max-width: 600px) {
-  .composer { max-height: 62dvh; }
-  .composerHead { padding: 10px 14px 0; }
-  .composerBody { padding: 10px 14px 12px; }
-  .composerFoot { padding: 10px 14px 12px; }
-  .composerFoot :global(.ip-btn) { flex: 1 1 auto; min-height: 48px; justify-content: center; }
-}
-
 /* two columns (Auftrag · Trupp) so the create form fits without scrolling on a tablet; Druck
    and warnings span the full width. Collapses to one column on a phone. */
 .modalBody { padding: 16px 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px 22px; align-items: start; }
