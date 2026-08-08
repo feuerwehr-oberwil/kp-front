@@ -121,3 +121,33 @@ export function formatTime(date: Date, withSeconds = false): string {
 export function fillTemplate(template: string, values: Record<string, string | number>): string {
   return template.replace(/\{(\w+)\}/g, (_, key) => String(values[key] ?? ''))
 }
+
+/**
+ * Strip what the printed Einsatzrapport cannot set — emoji, pictographs, dingbats and the
+ * joiners/variation selectors that glue them together.
+ *
+ * The rapport is composed server-side in Helvetica (backend · report_pdf), which has no glyph
+ * for any of these: a «Brand 🔥 im 2. OG» typed on a phone came out as «Brand ■ im 2. OG» on the
+ * sheet that gets signed — and only there, so nobody saw it until the paper was in their hand.
+ * Blocked at the input instead of fixed at render, so what the app shows and what the printer
+ * prints are the same string (decision 2026-08-08).
+ *
+ * ⚠️ Text that does NOT come through a field of ours — the Alarmmeldung as the ELZ sent it —
+ * is untouched by this and can still print a box.
+ *
+ * Umlauts, accents, «·», en dashes and the rest of Latin-1 are left alone: Helvetica sets them.
+ */
+export function stripUnprintable(s: string): string {
+  return s
+    // Pictographs proper: emoji, dingbats, arrows-as-symbols, geometric shapes, and the
+    // private-use area an icon font would sit in.
+    .replace(/[\u{1F000}-\u{1FAFF}\u{2190}-\u{21FF}\u{2300}-\u{27BF}\u{2B00}-\u{2BFF}\u{E000}-\u{F8FF}]/gu, '')
+    // …then the glue: variation selectors, the zero-width joiner and the keycap mark. Taking
+    // the whole grapheme apart is exactly the intent here — «👨‍🚒» must leave nothing behind,
+    // and a lone joiner after its pictograph is gone would be an invisible character in a
+    // signed document. (eslint reads a class of combining marks as an accident; this isn't one.)
+    // eslint-disable-next-line no-misleading-character-class
+    .replace(/[\u{FE00}-\u{FE0F}\u{200D}\u{20E3}]/gu, '')
+    // a removed emoji between two words leaves «Brand  im 2. OG» — one space, not two
+    .replace(/ {2,}/g, ' ')
+}

@@ -4,7 +4,8 @@
 // Anwesenheit list and the Soldblatt never heard about it and the operator entered the same
 // person twice.
 //
-// This module is the pure half: what does a role assignment CONTRADICT? The writing half
+// This module is the pure half: what job does a roster field hand out, and what does that
+// assignment CONTRADICT in what is already recorded? The writing half
 // (opening a presence block, filling the Bemerkung) needs the workspace's setters and stays in
 // IncidentWorkspace.
 import { appConfig } from '../config/appConfig'
@@ -15,6 +16,34 @@ import type { AttendanceState, Trupp } from '../types'
 /** The roles a conflict is checked for. `el` covers leading the Einsatz and reporting to the
  *  ELZ; `fahrer` covers driving / operating a vehicle. */
 export type AssignableRole = 'el' | 'fahrer'
+
+/**
+ * What a name typed into a symbol's roster field MEANS — the job, and the Bemerkung it writes
+ * onto that person's Anwesenheit row. Pure, so the mapping is testable without the workspace.
+ *
+ * Three fields carry a person (`appConfig.symbols.rosterFields`) and they are not the same job:
+ *   · «Fahrer» on any vehicle → «Fahrer TLF» (the vehicle is the symbol's own label)
+ *   · «Name» on the Einsatzleiter glyph → «Einsatzleiter»
+ *   · «Stv.» on the same glyph → «Stv. Einsatzleiter» — the deputy used to be put on the list
+ *     with no Bemerkung at all, so the one row that says WHY they are on it stayed empty.
+ * Anything else (a «Name» on some other symbol) still marks the person present — being named
+ * on the board means being there — but has no job to write.
+ */
+export function rosterFieldRole(
+  symbol: string | undefined,
+  key: string,
+  label: string | undefined,
+): { role: AssignableRole; note?: string } {
+  const A = appConfig.copy.anwesenheit
+  if (key === 'Fahrer') {
+    return { role: 'fahrer', note: fillTemplate(A.roleFahrer, { vehicle: label ?? '' }).trim() }
+  }
+  if (symbol === appConfig.symbols.einsatzleiterName) {
+    if (key === 'Name') return { role: 'el', note: A.roleEinsatzleiter }
+    if (key === 'Stv.') return { role: 'el', note: A.roleEinsatzleiterStv }
+  }
+  return { role: 'fahrer' }
+}
 
 /**
  * The hint a role assignment earns when it contradicts something already recorded — or nothing,

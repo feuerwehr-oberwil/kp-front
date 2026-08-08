@@ -3,7 +3,7 @@ import { clearDraft, keepDraft, readDraft } from '../lib/draftKeep'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig, type DeploymentMittelItem, type DeploymentMittelSource } from '../lib/deploymentConfig'
-import { fillTemplate } from '../lib/format'
+import { fillTemplate, stripUnprintable } from '../lib/format'
 import { cx } from '../lib/cx'
 import { toast } from '../lib/ui'
 import { Overlay, Sheet } from '../lib/overlays'
@@ -253,19 +253,24 @@ export function MittelView({ entries, canEdit, onSave, captureUsage }: {
                   <div key={c.key} className={s.row}>
                     <div className={s.rowMain}>
                       <span className={s.rowLabel}>{c.label}</span>
+                      {/* ⚠️ Same row shape as «Alle», in the same order: Bestand as dots BEFORE
+                          the ±stepper, so the counting buttons sit on one right edge whichever
+                          view is open. «In Verwendung» used to write the stock as a «/ 4» chip
+                          AFTER the stepper — a different notation for the same fact, and it
+                          pushed every ± one chip-width off the alignment of the other view. */}
+                      {avail !== undefined && <StockDots remaining={avail - c.menge} total={avail} label={`${c.label} · ${c.sourceLabel ?? ''}`} />}
                       {/* the remark: what a number alone can never say — «an Werkhof übergeben»,
                           «Flasche defekt». It rides beside the count, not out at the row's edge. */}
                       {noteField({ materialId: c.materialId, label: c.label, unit: c.unit, sourceId: c.sourceId, sourceLabel: c.sourceLabel }, c.menge, c.label, !c.materialId)}
-                      {/* qty and unit read as one value («3 / 4 Stk») — unit trails the number */}
+                      {/* qty and unit read as one value («3 Stk») — unit trails the number */}
                       {canEdit ? (
                         <div className={s.rowEdit}>
                           <Stepper value={c.menge} min={0} max={9999} over={over} ariaLabel={`${c.label} ${c.unit}`} onChange={(v) => editRow(c, v)} />
-                          {avail !== undefined && <span className={cx(s.avail, over && s.over)}>/ {avail}</span>}
                           <span className={s.rowUnit}>{c.unit}</span>
                         </div>
                       ) : (
                         <>
-                          <span className={cx(s.rowQty, over && s.over)}>{c.menge}{avail !== undefined ? ` / ${avail}` : ''}</span>
+                          <span className={cx(s.rowQty, over && s.over)}>{c.menge}</span>
                           <span className={s.rowUnit}>{c.unit}</span>
                         </>
                       )}
@@ -423,7 +428,7 @@ function MittelLineDialog({ M, target, sources, units, onClose, onSave, onDelete
           <>
             <label className="ip-field">
               <span>{M.materialLabel}</span>
-              <input className="ip-input" autoFocus value={label} maxLength={80} onChange={(e) => setLabel(e.target.value)} />
+              <input className="ip-input" autoFocus value={label} maxLength={80} onChange={(e) => setLabel(stripUnprintable(e.target.value))} />
             </label>
             <div className={s.dialogRow}>
               <div className="ip-field">
@@ -453,7 +458,7 @@ function MittelLineDialog({ M, target, sources, units, onClose, onSave, onDelete
             // the Rapport joins every source line's remark into one cell, so keep each short —
             // an over-long cell cannot be split across pages and used to fail the whole compose
             maxLength={240}
-            onChange={(e) => setNote(e.target.value)}
+            onChange={(e) => setNote(stripUnprintable(e.target.value))}
           />
         </label>
       </div>

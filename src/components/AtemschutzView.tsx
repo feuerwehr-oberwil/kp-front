@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate } from '../lib/format'
+import { fillTemplate, stripUnprintable } from '../lib/format'
 import { confirmDialog, toast } from '../lib/ui'
 import { cx } from '../lib/cx'
 import { Segmented } from './Segmented'
@@ -176,6 +176,18 @@ export function AtemschutzView({
     [attendance],
   )
 
+  // Who is already spoken for: the Bemerkung on their Anwesenheits-Zeile is where a job ends up
+  // («Einsatzleiter», «Fahrer TLF» — lib/roleAssignment). Putting the Einsatzleiter under PA is
+  // allowed and sometimes right; the picker only says it out loud before it happens.
+  const rolesById = useMemo(
+    () => new Map(
+      Object.entries(attendance)
+        .map(([id, a]) => [id, (a.note ?? '').trim()] as const)
+        .filter(([, note]) => note.length > 0),
+    ),
+    [attendance],
+  )
+
   // unlock the alarm tone + ask for OS-notification permission on this gesture, so a later
   // überfällig alert can both sound and reach the tray when the app is backgrounded.
   const openForm = (mode: FormMode, trupp?: Trupp) => { unlockAlarm(); void ensureNotifyPermission(); setForm({ mode, trupp }) }
@@ -302,7 +314,7 @@ export function AtemschutzView({
       {form && (
         <TruppForm
           mode={form.mode} initial={form.trupp} roster={roster} defaultFunkkanal={defaultFunkkanal}
-          personnel={personnel} presentIds={presentIds}
+          personnel={personnel} presentIds={presentIds} rolesById={rolesById}
           assignedIds={assignedPersonIds(trupps.filter((t) => t.id !== form.trupp?.id))}
           leitungOptions={leitungOptions(form.trupp?.id)}
           onCancel={() => setForm(null)} onSubmit={submitForm}
@@ -715,7 +727,7 @@ function TruppCard({
 // Kontakt), then the Trupp; the Druck section shows only when a fresh cylinder is involved
 // (create + re-deploy), never on a plain edit where the live pressure must not be disturbed.
 function TruppForm({
-  mode, initial, roster, defaultFunkkanal, personnel, presentIds, assignedIds, leitungOptions, onCancel, onSubmit,
+  mode, initial, roster, defaultFunkkanal, personnel, presentIds, assignedIds, rolesById, leitungOptions, onCancel, onSubmit,
 }: {
   mode: FormMode
   initial?: Trupp
@@ -724,6 +736,9 @@ function TruppForm({
   personnel: Person[]
   presentIds: Set<string>
   assignedIds: Set<string>
+  /** who already holds a job on this Einsatz (Anwesenheits-Bemerkung), so the picker can say
+   *  «schon: Einsatzleiter» beside a name — a hint, never a block */
+  rolesById: Map<string, string>
   onCancel: () => void
   /** the Leitungen drawn on either surface (lib/truppLines · leitungOptions) — offered as
    *  quick-picks so the number is chosen from what exists, not typed blind */
@@ -828,7 +843,7 @@ function TruppForm({
                 // caps chosen so the card's one-line Ziel and the Leitung chip can't be blown out:
                 // «2. OG Wohnung Nord, 2 Personen vermisst» is 39 chars, a Leitung is «1»–«12»
                 maxLength={60}
-                onChange={(e) => setZiel(e.target.value)}
+                onChange={(e) => setZiel(stripUnprintable(e.target.value))}
               />
             </label>
             {/* The SAME 1–99 number the DrawEditor stamps on a hose — one type on both sides is
@@ -876,7 +891,7 @@ function TruppForm({
               label={az.leaderLabel} placeholder={az.leaderPlaceholder}
               value={leader} onChange={setLeader}
               personnel={personnel} legacyRoster={roster} presentIds={presentIds} assignedIds={assignedIds}
-              usedIds={usedIds} usedNames={usedNames}
+              usedIds={usedIds} usedNames={usedNames} rolesById={rolesById}
             />
             {/* Every AdF row is removable, including the two the form starts with. A Trupp needs
                 exactly one name to be valid — the Gruppenführer — so a two-person Trupp, a
@@ -889,7 +904,7 @@ function TruppForm({
                 onRemove={() => setMembers((ms) => ms.filter((_, j) => j !== i))}
                 removeLabel={fillTemplate(az.removeMember, { n: i + 1 })}
                 personnel={personnel} legacyRoster={roster} presentIds={presentIds} assignedIds={assignedIds}
-                usedIds={usedIds} usedNames={usedNames}
+                usedIds={usedIds} usedNames={usedNames} rolesById={rolesById}
               />
             ))}
             <button className={s.linkBtn} onClick={() => setMembers((ms) => [...ms, { name: '' }])}>

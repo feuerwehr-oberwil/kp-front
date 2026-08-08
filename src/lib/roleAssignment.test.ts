@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AttendanceState, Trupp } from '../types'
-import { roleConflictHint } from './roleAssignment'
+import { roleConflictHint, rosterFieldRole } from './roleAssignment'
 
 const trupp = (over: Partial<Trupp>): Trupp => ({
   id: 't1', name: 'Trupp 2', entryPressureBar: 300, entryTime: '', lastContactTime: '',
@@ -51,5 +51,25 @@ describe('roleConflictHint', () => {
   it('prefers the Trupp conflict over the departure — the Trupp is the sharper one', () => {
     const hint = roleConflictHint('p1', 'fahrer', 'Schmid Peter', left, [trupp({ memberPersonIds: ['p1'] })])
     expect(hint).toContain('Trupp 2')
+  })
+})
+
+describe('rosterFieldRole', () => {
+  it('names the vehicle a Fahrer drives', () => {
+    expect(rosterFieldRole('VKF Fahrzeug', 'Fahrer', 'TLF 1')).toEqual({ role: 'fahrer', note: 'Fahrer TLF 1' })
+  })
+
+  it('an unnamed vehicle still says «Fahrer», with nothing trailing it', () => {
+    expect(rosterFieldRole('VKF Fahrzeug', 'Fahrer', undefined)).toEqual({ role: 'fahrer', note: 'Fahrer' })
+  })
+
+  it('the Einsatzleiter glyph writes the function — Name leads, Stv. deputises', () => {
+    expect(rosterFieldRole('VKF Einsatzleiter', 'Name', undefined)).toEqual({ role: 'el', note: 'Einsatzleiter' })
+    // the deputy used to land on the Anwesenheit list with an empty Bemerkung
+    expect(rosterFieldRole('VKF Einsatzleiter', 'Stv.', undefined)).toEqual({ role: 'el', note: 'Stv. Einsatzleiter' })
+  })
+
+  it('a «Name» on any other symbol marks the person present without inventing a job', () => {
+    expect(rosterFieldRole('VKF Drehleiter', 'Name', 'ADL')).toEqual({ role: 'fahrer' })
   })
 })

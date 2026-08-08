@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dueClock, fillTemplate, formatSymbolName, formatTime, initials, isNextDay, restoreUmlauts, roleLabel } from './format'
+import { dueClock, fillTemplate, formatSymbolName, formatTime, initials, isNextDay, restoreUmlauts, roleLabel, stripUnprintable } from './format'
 
 describe('restoreUmlauts', () => {
   it('restores transliterated umlauts (lower + upper variants)', () => {
@@ -149,5 +149,25 @@ describe('dueClock (a Wiedervorlage that fell to tomorrow)', () => {
     const tomorrow = new Date(Date.now() + 26 * 3_600_000)
     expect(dueClock(tomorrow.toISOString())).toContain('morgen')
     expect(isNextDay(tomorrow.toISOString())).toBe(true)
+  })
+})
+
+// The rapport is set in Helvetica, which has no glyph for any of these — an emoji that survives
+// the input is a black box on the sheet that gets signed, and only there.
+describe('stripUnprintable', () => {
+  it('drops emoji and closes the gap they leave', () => {
+    expect(stripUnprintable('Brand 🔥 im 2. OG')).toBe('Brand im 2. OG')
+    expect(stripUnprintable('erledigt ✅')).toBe('erledigt ')
+    expect(stripUnprintable('👨‍🚒 Trupp 1')).toBe(' Trupp 1')
+  })
+
+  it('leaves everything Helvetica can actually set', () => {
+    expect(stripUnprintable('Öl · Hauptstrasse 4 – 2. OG, «Nord»')).toBe('Öl · Hauptstrasse 4 – 2. OG, «Nord»')
+    expect(stripUnprintable('Müller/Wyss (TLF 1) 300 bar')).toBe('Müller/Wyss (TLF 1) 300 bar')
+  })
+
+  it('is a no-op on plain text, so it can sit on every keystroke', () => {
+    const s = 'Wasserversorgung ab Hydrant Schlossgasse sichergestellt.'
+    expect(stripUnprintable(s)).toBe(s)
   })
 })

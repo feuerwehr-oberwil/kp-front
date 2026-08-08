@@ -5,7 +5,7 @@ import { Overlay } from '../lib/overlays'
 import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
 import { acceptPhrase, suggestPhrases } from '../lib/quickPhrases'
-import { fillTemplate, formatTime, isNextDay } from '../lib/format'
+import { fillTemplate, formatTime, isNextDay, stripUnprintable } from '../lib/format'
 import { toast } from '../lib/ui'
 import { ApiError } from '../lib/api'
 import {
@@ -344,7 +344,7 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
           ref={textRef}
           className="jc-text"
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => setText(stripUnprintable(e.target.value))}
           placeholder={mode === 'reminder' ? C.reminderTextPlaceholder : C.textPlaceholder}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit()

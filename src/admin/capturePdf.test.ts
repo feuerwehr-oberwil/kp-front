@@ -95,10 +95,10 @@ describe('downloadSheetPdf', () => {
       return i
     }
     expect(at('Alarmierungs- / Ausrückzeiten')).toBeLessThan(at('Kurzbericht / durchgeführte Arbeiten'))
-    expect(at('Kurzbericht / durchgeführte Arbeiten')).toBeLessThan(at('Anwesenheit (abhaken, ggf. von–bis)'))
-    expect(at('Anwesenheit (abhaken, ggf. von–bis)')).toBeLessThan(at('Material (Menge eintragen)'))
-    expect(at('Material (Menge eintragen)')).toBeLessThan(at('Partnerorganisationen'))
-    expect(at('Partnerorganisationen')).toBeLessThan(at('Visum'))
+    expect(at('Kurzbericht / durchgeführte Arbeiten')).toBeLessThan(at('Personal / Anwesenheit'))
+    expect(at('Personal / Anwesenheit')).toBeLessThan(at('Material'))
+    expect(at('Material')).toBeLessThan(at('Partnerorganisationen'))
+    expect(at('Partnerorganisationen')).toBeLessThan(at('Unterschriften'))
   })
 
   it('empty config lists → the compact sheet (no Zeiten/Partner/Kategorie rows)', () => {

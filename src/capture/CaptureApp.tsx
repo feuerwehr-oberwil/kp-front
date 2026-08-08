@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
-import { fillTemplate, hhmm } from '../lib/format'
+import { fillTemplate, hhmm, stripUnprintable } from '../lib/format'
 import { Icon, IconSprite } from '../lib/icons'
 import { Splash } from '../components/Splash'
 import { currentLineFor, visibleMittel } from '../lib/mittel'
@@ -128,7 +128,11 @@ function DraftField({ incidentId, field, saved, commit, textarea, number, classN
     return () => { void flusher.flushNow() } // unmount (accordion collapse) must not drop text
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-  const onChange = (v: string) => {
+  const onChange = (raw: string) => {
+    // one guard for every free-text field the poster owns (Kurzbericht, Bemerkungen,
+    // Bildlegenden): the rapport is set in Helvetica and prints an emoji as a black box —
+    // lib/format · stripUnprintable
+    const v = stripUnprintable(raw)
     setText(v)
     saveDraft(sessionStorage, incidentId, field, v)
     flusher.push(v)
@@ -1121,7 +1125,7 @@ export default function CaptureApp() {
                           className="cv-input" defaultValue={a.caption ?? ''} placeholder={C.beilagenCaption}
                           aria-label={C.beilagenCaption} disabled={busy}
                           onBlur={(e) => {
-                            const caption = e.target.value.trim()
+                            const caption = stripUnprintable(e.target.value).trim()
                             if (caption === (a.caption ?? '')) return
                             void run({ kind: 'addAttachment', id: a.id, url: a.url, caption: caption || undefined })
                               .then((ok) => { if (ok) savedToast() })

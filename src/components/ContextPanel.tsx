@@ -2,6 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react'
 import type { CaptionMode, NoteSize, Spread, SymbolControl, SymbolProps } from '../types'
 import { Icon } from '../lib/icons'
 import { openPhoto } from '../lib/ui'
+import { stripUnprintable } from '../lib/format'
 import { SheetGrip } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
 import { lookupUN, decodeKemler, type UnHazardEntry } from '../lib/unHazard'
@@ -251,7 +252,11 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
   // finalise on blur via onTitle (one undo step + audit). Without onTitleLive we fall back
   // to the legacy "commit only on blur" path.
   const liveEdited = useRef(false)
-  const changeTitle = (v: string) => {
+  const changeTitle = (raw: string) => {
+    // ⚠️ Emoji are stripped where text ENTERS, not where it prints: this label rides onto the
+    // Kroki and into the rapport, both set in Helvetica, which draws a black box for one
+    // (lib/format · stripUnprintable). Same guard on the detail fields and the notes below.
+    const v = stripUnprintable(raw)
     setTitle(v)
     if (onTitleLive) { liveEdited.current = true; onTitleLive(v) }
   }
@@ -273,7 +278,7 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
     const next = fillFromUN(raw)
     setRows(next)
     const rec: Record<string, string> = {}
-    for (const { k, v } of next) { const key = k.trim(); if (key) rec[key] = v }
+    for (const { k, v } of next) { const key = stripUnprintable(k).trim(); if (key) rec[key] = stripUnprintable(v) }
     onFields(rec)
   }
   const setRow = (i: number, patch: Partial<Row>) => setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)))
@@ -719,7 +724,7 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
                 className="ctx-notes-input"
                 value={notes}
                 placeholder={C.notesPlaceholder}
-                onChange={(e) => setNotes(e.target.value)}
+                onChange={(e) => setNotes(stripUnprintable(e.target.value))}
                 onBlur={blurNotes}
               />
             </div>

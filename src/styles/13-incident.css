@@ -437,6 +437,10 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rp-person em { font-style: normal; color: var(--amber); font-weight: 650; }
 .rp-person b { font-weight: 700; }
+/* the dim qualifier on both lists: a person's Funktion («· Einsatzleiter») and a material's
+   Quelle («· TLF»). Same weight as the line, quieter colour — it answers a second question,
+   and at 3am the name and the amount are the first one. */
+.rp-person i { font-style: normal; color: var(--ink-faint); }
 @media (max-width: 520px) {
   .rp-check-extra { padding-left: 12px; }
 }

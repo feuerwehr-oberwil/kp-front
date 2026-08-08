@@ -244,10 +244,10 @@ export const de = {
         blocks: [
           { kind: 'lead', text: 'Der **Einsatzrapport** ist eine eigene Fläche in der linken Leiste, unter Material ([[R]]) – ein vorausgefülltes Erfassungsblatt, kein Formular von null. Er wird über den ganzen Einsatz hinweg ergänzt, nicht erst am Schluss.' },
           { kind: 'list', items: [
-            'Auf breiten Schirmen zwei Spalten: links das **Formular** zum Tippen (Alarmierung, Kurzbericht, Zeiten, Bemerkungen, Rückmeldung ELZ), rechts der **Abgleich** zum Abhaken (Anwesenheit, Material, Partnerorganisationen, Beilagen).',
+            'Auf breiten Schirmen zwei Spalten: links das **Formular** zum Tippen (Alarmierung, Kurzbericht, Zeiten, Bemerkungen, Rückmeldung ELZ), rechts der **Abgleich** zum Abhaken (Anwesenheit, Material, Partnerorganisationen, Fotos).',
             'Unter dem Titel steht, was erfasst ist – und als eigene Chips, was **noch offen** ist: Zeiten, Anwesenheit, Mittel, Einsatzleiter, Kurzbericht, Rückmeldung ELZ. Nichts davon blockiert je den Druck.',
             'Der **Kroki-Ausschnitt** liegt als Feld neben dem Formular: verschieben, zoomen, **Hoch/Quer** und der **Kroki-Stand** – welchen Zeitpunkt das Bild zeigt, mit Strichen dort, wo etwas passiert ist. Gedruckt wird genau das, was auf dem Schirm steht; es gibt keinen Bestätigungsschritt.',
-            '**Einsatzrapport (PDF)** erzeugt den fertigen Rapport – serverseitig gerendert, ein Knopf. Das **▾** daneben öffnet **«Abschnitte»**: was aufs Papier kommt (Kroki, Pläne, Atemschutz, Anwesenheit, Material, Verlauf, Beilagen, detaillierter Prüfnachweis). Das Menü bleibt beim Anhaken offen.',
+            '**Einsatzrapport (PDF)** erzeugt den fertigen Rapport – serverseitig gerendert, ein Knopf. Das **▾** daneben öffnet **«Abschnitte»**: was aufs Papier kommt (Kroki, Pläne, Atemschutz, Anwesenheit, Material, Verlauf, Fotos, detaillierter Prüfnachweis). Das Menü bleibt beim Anhaken offen.',
             'Wo eine Wehr einen **Stationsdrucker** betreibt: **Ausdrucken** schickt den Rapport direkt dorthin (bei Unterbruch wird gespeichert und nachgeschickt).',
             'Stimmt etwas mit dem Datensatz nicht – eine unterbrochene Prüfkette, eine Sprachnotiz ohne Transkript, ein Foto noch in der Warteschlange –, erscheint neben den Knöpfen ein **oranger Hinweis-Chip**. Er zählt die Punkte und öffnet sie; ist alles in Ordnung, erscheint er gar nicht.',
             '**Einsatz abschliessen** archiviert den Einsatz und hält das Einsatzende fest.',
@@ -1336,9 +1336,11 @@ export const de = {
     // Selbstauskunft vom Kommandoposten aus entfernen: jemand fährt mit eingeschaltetem Teilen
     // nach Hause, oder ein Handy stirbt auf seinem letzten Fix – der Punkt behauptet dann, eine
     // Kraft sei irgendwo, wo sie nicht ist.
-    stopSharing: 'Selbstauskunft entfernen',
+    // kurz genug, um neben «Zentrieren» in die Aktionszeile zu passen – die lange Erklärung
+    // steht im Tooltip darunter, nicht auf dem Knopf
+    stopSharing: 'Standort entfernen',
     stopSharingTitle: 'Selbstgemeldete Position dieser Person entfernen. Sie kann danach jederzeit wieder teilen.',
-    stopSharingFailed: 'Selbstauskunft konnte nicht entfernt werden.',
+    stopSharingFailed: 'Standort konnte nicht entfernt werden.',
     // Fahrer eines LIVE-Fahrzeugs: der GPS-Feed weiss wo, nie wer am Steuer sitzt.
     driverLabel: 'Fahrer',
     driverPlaceholder: 'Name aus der Mannschaft',
@@ -1906,8 +1908,8 @@ export const de = {
     logAttendanceRestored: '{name} wiederhergestellt (QR)',
     logTimes: 'Zeiten von {name} korrigiert (QR)',
     logMittel: '{label}: {menge} {unit} (QR, {by})',
-    logAttachmentAdd: 'Rapport-Beilage hinzugefügt (QR)',
-    logAttachmentRemove: 'Rapport-Beilage entfernt (QR)',
+    logAttachmentAdd: 'Rapport-Foto hinzugefügt (QR)',
+    logAttachmentRemove: 'Rapport-Foto entfernt (QR)',
     logMeta: 'Rapportangaben geändert (QR): {fields}',
     title: 'Einsatz erfassen',
     invalid: 'Link ungültig oder Erfassung deaktiviert.',
@@ -1936,7 +1938,7 @@ export const de = {
     rueckZeit: 'Zeit',
     jetzt: 'Jetzt',
     kurzberichtHead: 'Kurzbericht',
-    // Beilagen am Erfassungs-Poster: Fotos, die zum Rapport gehören (Ausweis, Schaden)
+    // Rapport-Fotos am Erfassungs-Poster: Bilder, die zum Rapport gehören (Ausweis, Schaden)
     partnersHead: 'Partnerorganisationen',
     partnerOrg: 'Organisation',
     partnerNote: 'Bemerkung',
@@ -1945,11 +1947,11 @@ export const de = {
     // Kopfzeile der eigenen Klapp-Abschnitte — sagt im zugeklappten Zustand, ob schon etwas drin ist
     partnerCount: '{n} erfasst',
     partnerNone: 'keine',
-    beilagenHead: 'Beilagen',
+    beilagenHead: 'Fotos',
     beilagenAdd: 'Foto hinzufügen',
     beilagenBusy: 'Wird hochgeladen …',
     beilagenCaption: 'Bildlegende',
-    beilagenRemove: 'Beilage entfernen',
+    beilagenRemove: 'Foto entfernen',
     beilagenFailed: 'Foto konnte nicht hochgeladen werden.',
     beilagenCount: '{n} Foto(s)',
     beilagenNone: 'keine',
@@ -2416,7 +2418,7 @@ export const de = {
     summaryAttendance: 'Personal',
     summaryMittel: 'Material',
     summaryJournal: 'Verlauf',
-    summaryAttachments: 'Beilagen',
+    summaryAttachments: 'Fotos',
     allReady: 'Alles bereit',
     fromDispatch: 'Aus den Einsatzdaten',
     edit: 'Bearbeiten',
@@ -2462,8 +2464,10 @@ export const de = {
     toggleAttendance: 'Anwesenheit ({n})',
     toggleMittel: 'Mittel ({n})',
     toggleJournal: 'Einsatzjournal',
-    toggleAttachments: 'Beilagen ({n})',
-    // Beilagen: Fotos, die zum RAPPORT gehören (Ausweis, Schaden), nicht in den Verlauf.
+    toggleAttachments: 'Fotos ({n})',
+    // Fotos: Bilder, die zum RAPPORT gehören (Ausweis, Schaden), nicht in den Verlauf.
+    // ⚠️ Der Upload nimmt nur `image/*`. Solange das so ist, heisst die Fläche «Fotos» und nicht
+    // «Beilagen» – ein Wort, das eine PDF-Beilage verspricht, die es nicht annehmen kann.
     krokiAtLabel: 'Kroki-Stand',
     // Verlaufszeile, wenn jemand die Rapportangaben ändert — der Inhalt des Dokuments, das
     // unterschrieben wird, darf sich nicht spurlos ändern.
@@ -2487,7 +2491,7 @@ export const de = {
     partnerNote: 'Bemerkung (z. B. übernimmt Verkehr)',
     partnersNone: 'keine erfasst',
     partnerAdd: 'Organisation hinzufügen',
-    attachmentsHead: 'Beilagen',
+    attachmentsHead: 'Fotos',
     attachmentsHint: 'Fotos, die zum Rapport gehören – Ausweise, Schäden, übergebene Formulare. Sie drucken am Schluss gross genug zum Lesen und stehen nicht im Verlauf.',
     attachmentsAdd: 'Foto hinzufügen',
     attachmentsOpen: 'Foto gross ansehen',
@@ -2495,7 +2499,7 @@ export const de = {
     attachmentsNone: 'keine',
     attachmentsCaption: 'Bildlegende (z. B. «Ausweis Lenker»)',
     attachmentsPending: 'noch nicht hochgeladen',
-    attachmentsFailed: 'Beilage {name} konnte nicht hochgeladen werden – sie erscheint nicht im Druck.',
+    attachmentsFailed: 'Foto {name} konnte nicht hochgeladen werden – es erscheint nicht im Druck.',
     // Der Rapport ist eine Fläche, keine Dialogbox – geschlossen wird er, indem man zurück
     // auf die Lage geht.
     backToMap: 'Zurück zur Lage',
@@ -2579,8 +2583,14 @@ export const de = {
     // eine Zeile pro Person, nicht eine für die Anwesenheit und eine zweite für die Funktion
     logPresentAs: '{name} anwesend – {role}',
     roleEinsatzleiter: 'Einsatzleiter',
+    // «Stv.» am Einsatzleiter-Symbol: auch eine Funktion, und ohne Bemerkung stand der
+    // Stellvertreter als einziger ohne Grund auf der Liste
+    roleEinsatzleiterStv: 'Stv. Einsatzleiter',
     roleFahrer: 'Fahrer {vehicle}',
     roleRueckmeldung: 'Rückmeldung ELZ',
+    // Weiche Warnung im Personen-Picker (Atemschutz): wer schon eine Funktion hat, ist
+    // vermutlich schon verplant – gewählt werden kann er trotzdem, immer.
+    alreadyBooked: 'schon: {role}',
     // Hinweise, nie Sperren: die App sagt, was sie weiss, und lässt entscheiden.
     conflictUnderPa: '{name} ist unter PA – Trupp {trupp}.',
     conflictElInTrupp: '{name} ist Einsatzleiter und zugleich im Trupp {trupp}.',
@@ -3036,12 +3046,12 @@ export const de = {
       failed: 'Aktion fehlgeschlagen',
       sheetBtn: 'Erfassungsblatt als PDF (A4)',
       sheetCardTitle: 'Erfassungsblatt (Papier)',
-      sheetCardBody: 'Der Papier-Zwilling des digitalen Rapports: gleiche Felder, gleiche Reihenfolge – für den voll analogen Einsatz. Erzeugt aus aktuellem Mannschafts-, Material- und Konfigurationsstand; ausgefüllte Blätter fotografieren (Verlauf/Beilage) und in der App nachtragen.',
+      sheetCardBody: 'Der Papier-Zwilling des digitalen Rapports: gleiche Felder, gleiche Reihenfolge – für den voll analogen Einsatz. Erzeugt aus aktuellem Mannschafts-, Material- und Konfigurationsstand; ausgefüllte Blätter fotografieren (Verlauf/Rapport-Foto) und in der App nachtragen.',
       sheetHead: 'Erfassungsblatt Einsatz',
       sheetIncident: 'Einsatz',
       sheetAdresse: 'Adresse / Objekt',
       sheetEigentuemer: 'Eigentümer / Verursacher',
-      sheetGerettete: 'Gerettete (Personen / Tiere)',
+      sheetGerettete: 'Gerettet',
       sheetZeiten: 'Alarmierungs- / Ausrückzeiten',
       sheetPartner: 'Partnerorganisationen',
       sheetPartnerOther: 'Weitere',
@@ -3051,12 +3061,17 @@ export const de = {
       sheetAlarm: 'Alarmiert',
       sheetEnde: 'Einsatzende',
       sheetKontakt: 'Kontaktperson',
-      sheetSignatures: 'Visum',
+      // ⚠️ Die Abschnittsnamen sind die des Einsatzrapports (backend · report_pdf · L) – das
+      // Blatt ist sein Papier-Zwilling, und wer ein ausgefülltes Blatt in die App überträgt,
+      // liest beide nebeneinander. Anleitungen wie «(abhaken, ggf. von–bis)» standen nur hier
+      // und machten aus derselben Rubrik zwei verschieden benannte.
+      sheetSignatures: 'Unterschriften',
+      sheetOrtDatum: 'Ort, Datum',
       sheetName: 'Name',
       sheetEl: 'Einsatzleiter',
       sheetKdt: 'Kommandant',
-      sheetPersonen: 'Anwesenheit (abhaken, ggf. von–bis)',
-      sheetMaterial: 'Material (Menge eintragen)',
+      sheetPersonen: 'Personal / Anwesenheit',
+      sheetMaterial: 'Material',
       sheetNotizen: 'Kurzbericht / durchgeführte Arbeiten',
       hint: 'Der Link gilt für laufende und noch nicht rapportierte Einsätze; rapportierte verschwinden nach wenigen Stunden (Standard 12 h, alarms.captureWindowHours). Kein Zugriff auf Karte, Verwaltung oder archivierte Einsätze.',
       // Der Link IST das Geheimnis des Posters — wer ihn verschickt, verteilt den Zugang der

@@ -431,7 +431,10 @@ L = {
     "incidentEnd": "Einsatzende",
     "incidentId": "Einsatz-ID",
     "alarmMessage": "Alarmmeldung",
-    "attachments": "Beilagen",
+    # «Fotos», not «Beilagen»: the upload takes `image/*` and nothing else, and the app says
+    # Foto at every other step («Foto hinzufügen», «Bildlegende»). A heading that promises a
+    # Beilage the surface cannot accept is a heading that has to be explained.
+    "attachments": "Fotos",
     "summary": "Kurzbericht / durchgeführte Arbeiten",
     "lehren": "Lehren / Sicherheit",
     "remarks": "Bemerkungen",
@@ -1368,6 +1371,7 @@ def compose_report_pdf(
             # its own label, so «Mitglieder:», «Auftrag / Ziel:» and «Eintritt:» put their values
             # at three different indents and nothing under the Trupp name lined up. One label
             # column, sized to the widest label, gives every value the same tab stop.
+            label_w = 0.0
             if meta_bits:
                 label_w = max(_str_w(f"{k}:", "Helvetica-Bold", 9) for k, _ in meta_bits) + 3 * mm
                 meta_tbl = Table(
@@ -1403,13 +1407,21 @@ def compose_report_pdf(
             # A pressure log is three short values — a clock, one word and a number. At 45/35/20
             # of the full width it read as a table of mostly empty space.
             tbl = Table([thead, *body], colWidths=[inner_w * x for x in (0.26, 0.16, 0.12)], repeatRows=1)
-            tbl.setStyle(_table_style())
+            tbl.setStyle(_table_style(flush_left=False))
+            # ⚠️ Indented to the Trupp's VALUE column, not to the frame edge. The log belongs to
+            # the Trupp above it the same way «Eintritt: 20:29» does, and starting it at the page
+            # margin made it read as a new full-width section that happened to follow. Its own
+            # 5pt cell padding is subtracted, so the «Zeit» heading lands exactly on the tab stop
+            # that «Anna Meier» and «Retten · 2. OG» sit on.
+            indent = max(0.0, label_w - 5)
+            wrapped = Table([["", tbl]], colWidths=[indent, inner_w - indent])
+            wrapped.setStyle(TableStyle(_SPLIT_OUTER))
             # Narrower than the frame, so ReportLab's default CENTER floated it into the middle of
             # the page — the pressure log sat off to the side of the Trupp name and «Auftrag / Ziel»
-            # lines it belongs under. Everything in this section shares the frame's left edge.
-            tbl.hAlign = "LEFT"
+            # lines it belongs under.
+            wrapped.hAlign = "LEFT"
             story.append(Spacer(1, 3))
-            story.append(tbl)
+            story.append(wrapped)
             story.append(Spacer(1, 6))
 
     story = _collapse_breaks(story)
@@ -1432,8 +1444,18 @@ _SPLIT_OUTER = [
     ("LEFTPADDING", (0, 0), (-1, -1), 0),
     ("RIGHTPADDING", (0, 0), (-1, -1), 0),
 ]
-# Below the usable frame height, with room for the section heading above the table.
-_SPLIT_BUDGET = 660
+#: How TALL one indivisible chunk of a two-up block may get — i.e. how coarsely the block is
+#: allowed to break across a page boundary.
+#:
+#: ⚠️ NOT a page. It was 660pt — nearly the whole frame — which made the 66-name roster ONE
+#: indivisible row: with the header, the Kurzbericht and its own heading already on page 1
+#: there was never 660pt left for it, so ReportLab moved the entire roster to page 2 and the
+#: rapport's first page ended two thirds empty under a heading with nothing beneath it.
+#: At five rows the block simply continues where the page ran out, and the most that can be
+#: pushed down is those five rows. Reading order is untouched: the left/right split is made
+#: ONCE over the whole list and every chunk slices both halves in parallel, so the left column
+#: still reads 1…33 straight down and across the break.
+_SPLIT_BUDGET = 72
 # ⚠️ The gutter between the two halves of EVERY two-up block, stated once. It was a literal in
 # four places and the callers disagreed with it: Personal and Material each subtracted the whole
 # 3mm from their half instead of half of it, so both blocks came out 8.5pt narrower than the
@@ -1844,7 +1866,7 @@ def _mittel_table(mittel: list[MittelFormRowIn], inner_w: float, st: dict[str, P
     return _two_up(mittel, column, label_w + amt_w + unit_w)
 
 
-def _table_style() -> TableStyle:
+def _table_style(flush_left: bool = True) -> TableStyle:
     return TableStyle(
         [
             ("GRID", (0, 0), (-1, -1), 0.4, _GRID),
@@ -1856,6 +1878,10 @@ def _table_style() -> TableStyle:
             ("RIGHTPADDING", (0, 0), (-1, -1), 5),
             # ...but the FIRST column shares the section rule's left edge. At 5pt every
             # grid table on the sheet started 5pt right of the heading over it.
-            ("LEFTPADDING", (0, 0), (0, -1), 0),
+            # ⚠️ Only for a table that STARTS at that edge. The Atemschutz pressure log is
+            # indented to its Trupp's value column, so there is no rule to line up with — and
+            # zero padding there put «Zeit» hard against the cell border while «Art» in the
+            # next column had its 5pt. `flush_left=False` keeps all three columns even.
+            *([("LEFTPADDING", (0, 0), (0, -1), 0)] if flush_left else []),
         ]
     )

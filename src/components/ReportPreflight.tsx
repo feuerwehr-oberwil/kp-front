@@ -8,7 +8,7 @@ import { KrokiFramingPanel } from './KrokiFramingPanel'
 import { editorPrintTransport, enqueuePrint, fetchPrintStatus, prewarmPrint, type PrintRelayStatus } from '../lib/printRelay'
 import { trackPrintJob } from '../lib/printJobToast'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate, hhmm, dtLocalValue, dtLocalToIso } from '../lib/format'
+import { fillTemplate, hhmm, dtLocalValue, dtLocalToIso, stripUnprintable } from '../lib/format'
 import type { IncidentMeta } from '../lib/incidents'
 import { getIncident, verifyChain } from '../lib/incidents'
 import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from '../lib/workspace'
@@ -858,7 +858,7 @@ export function ReportPreflight({
             <label className="ip-field">
               <span>{P.summaryLabel}</span>
               <textarea className="ip-textarea" value={summary} rows={5} placeholder={P.summaryPlaceholder}
-                onChange={(e) => { setSummary(e.target.value); persist({ summary: e.target.value.trim() || undefined }) }} />
+                onChange={(e) => { const v = stripUnprintable(e.target.value); setSummary(v); persist({ summary: v.trim() || undefined }) }} />
             </label>
             <div className="report-meta-grid">
               <PersonField
@@ -877,7 +877,7 @@ export function ReportPreflight({
               <label className="ip-field">
                 <span>{P.kontaktpersonLabel}</span>
                 <input value={kontaktperson} placeholder={P.kontaktpersonPlaceholder}
-                  onChange={(e) => { setKontaktperson(e.target.value); persist({ kontaktperson: e.target.value.trim() || undefined }) }} />
+                  onChange={(e) => { const v = stripUnprintable(e.target.value); setKontaktperson(v); persist({ kontaktperson: v.trim() || undefined }) }} />
               </label>
             </div>
             {/* one Kontaktperson carries all contact/ownership details (2026-07-18 —
@@ -1010,12 +1010,12 @@ export function ReportPreflight({
             <label className="ip-field">
               <span>{P.remarksLabel}</span>
               <textarea className="ip-textarea" value={remarks} rows={3} placeholder={P.remarksPlaceholder}
-                onChange={(e) => { setRemarks(e.target.value); persist({ remarks: e.target.value.trim() || undefined }) }} />
+                onChange={(e) => { const v = stripUnprintable(e.target.value); setRemarks(v); persist({ remarks: v.trim() || undefined }) }} />
             </label>
             <label className="ip-field">
               <span>{P.lehrenLabel}</span>
               <textarea className="ip-textarea" value={lehren} rows={3} placeholder={P.lehrenPlaceholder}
-                onChange={(e) => { setLehren(e.target.value); persist({ lehren: e.target.value.trim() || undefined }) }} />
+                onChange={(e) => { const v = stripUnprintable(e.target.value); setLehren(v); persist({ lehren: v.trim() || undefined }) }} />
             </label>
             <div className="report-meta-grid rz-rueck-grid">
               {/* who reported back to the ELZ — a roster pick like Einsatzleiter, free text allowed */}
@@ -1072,6 +1072,12 @@ export function ReportPreflight({
                     {rows.map((r) => (
                       <span key={r.personId} className="rp-person">
                         {r.name}
+                        {/* the job they had — «Einsatzleiter», «Fahrer TLF» — read straight off
+                            their Bemerkung, the same string the printed Personal-/Anwesenheits-
+                            blatt puts under the name. At the end of an Einsatz this list IS the
+                            check «wer war da, und als was», so the function belongs on it. */}
+                        {(attendance[r.personId]?.note ?? '').trim()
+                          && <i>{` · ${(attendance[r.personId]!.note ?? '').trim()}`}</i>}
                         {/* only somebody who actually LEFT gets a time. hoursRows fills an open
                             block with the Einsatzende, which put «· bis 09:00» behind every name
                             on the list — the exception it exists to flag then read as the rule. */}
@@ -1086,9 +1092,15 @@ export function ReportPreflight({
               {mittelCount > 0 && (
                 <div className="rp-check-extra">
                   <div className="rp-people">
+                    {/* one line, three weights, same shape as the Anwesenheit list beside it:
+                        the amount is the value (bold), the unit and the material are the thing,
+                        and where it came from is the dim qualifier — «3 Sack Bindemittel · TLF».
+                        It used to set amount AND unit bold and print the Quelle in full ink, so
+                        four items read as one wall of equally loud text. */}
                     {visibleMittel(mittel).map((l) => (
                       <span key={l.key} className="rp-person">
-                        <b>{l.menge} {l.unit}</b> {l.label}{l.sourceLabel ? ` · ${l.sourceLabel}` : ''}
+                        <b>{l.menge}</b> {l.unit} {l.label}
+                        {l.sourceLabel && <i>{` · ${l.sourceLabel}`}</i>}
                       </span>
                     ))}
                   </div>
@@ -1147,14 +1159,14 @@ export function ReportPreflight({
                             <input
                               className="ip-input report-partner-name" value={partners[r.i].org ?? ''}
                               placeholder={P.partnerOrgShort} aria-label={P.partnerOrgShort}
-                              onChange={(e) => patchPartner(r.i, { org: e.target.value })} maxLength={80}
+                              onChange={(e) => patchPartner(r.i, { org: stripUnprintable(e.target.value) })} maxLength={80}
                             />
                           )}
                           {on && (
                             <input
                               className="ip-input" value={partners[r.i].note ?? ''} placeholder={P.partnerNote}
                               aria-label={`${r.org || P.partnerOrgShort} – ${P.partnerNote}`}
-                              onChange={(e) => patchPartner(r.i, { note: e.target.value })} maxLength={240}
+                              onChange={(e) => patchPartner(r.i, { note: stripUnprintable(e.target.value) })} maxLength={240}
                             />
                           )}
                           {on && r.custom && (
@@ -1203,7 +1215,7 @@ export function ReportPreflight({
                             aria-label={P.attachmentsCaption} disabled={!onCaptionAttachment}
                             // typed value goes in untouched (trimming on change eats the space
                             // you just pressed); the tidy-up happens once, on leaving the field
-                            onChange={(e) => onCaptionAttachment?.(a.id, e.target.value)}
+                            onChange={(e) => onCaptionAttachment?.(a.id, stripUnprintable(e.target.value))}
                             onBlur={(e) => {
                               const v = e.target.value.trim()
                               if (v !== e.target.value) onCaptionAttachment?.(a.id, v)

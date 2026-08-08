@@ -7,7 +7,7 @@ import type { ZeitplanSheet } from '../lib/zeitplanPrint'
 import { cx } from '../lib/cx'
 import { appConfig } from '../config/appConfig'
 import { useKeptState } from '../lib/draftKeep'
-import { fillTemplate, fmtSpanShort, hhmm } from '../lib/format'
+import { fillTemplate, fmtSpanShort, hhmm, stripUnprintable } from '../lib/format'
 import { applyTimeToIso, isoOnDay } from '../lib/abschluss'
 import { rankAbbr, rankLabel, rankOrder } from '../lib/rank'
 import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
@@ -130,7 +130,7 @@ function PresenceSheet({ person, blocks, note, canEdit, startedAt, onSetTimes, o
                 // a remark is one line beside the name on the Personalblatt; an essay pasted in
                 // here used to make the whole Rapport fail to compose (report_pdf · _clip_note)
                 maxLength={240}
-                onBlur={(e) => onSetNote(person.id, e.target.value)}
+                onBlur={(e) => onSetNote(person.id, stripUnprintable(e.target.value))}
                 onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
               />
             </label>
@@ -264,7 +264,7 @@ function GuestDialog({ onCancel, onSubmit }: { onCancel: () => void; onSubmit: (
           <span>{A.addGuestName}</span>
           <input
             className="ip-input" autoFocus value={name} maxLength={80} placeholder={A.addGuestPlaceholder}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => setName(stripUnprintable(e.target.value))}
             onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
           />
         </label>

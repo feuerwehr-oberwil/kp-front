@@ -22,7 +22,7 @@ import { formatAudioDuration } from './lib/audioImport'
 import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys, VEHICLE_SYMBOLS } from './lib/symbols'
 import { circlePolygon, fmtLV95, fmtWGS, haversineM, pathLengthM, polygonAreaM2 } from './lib/geo'
 import { intervalsOf, isPresent, openPresence } from './lib/attendanceIntervals'
-import { roleConflictHint, type AssignableRole } from './lib/roleAssignment'
+import { roleConflictHint, rosterFieldRole, type AssignableRole } from './lib/roleAssignment'
 import { useShiftActions } from './lib/useShiftActions'
 import { useBandActions } from './lib/useBandActions'
 import { editorPrintTransport, fetchPrintStatus, type PrintRelayStatus } from './lib/printRelay'
@@ -2201,14 +2201,11 @@ export function IncidentWorkspace({
       if (!ROSTER_FIELDS.includes(k) || !v.trim() || before[k] === v) continue
       const id = rosterIdByName.get(v.trim().toLowerCase())
       if (!id) continue // a typed guest / mutual aid — not ours to mark present
-      // «Fahrer» is the one role the Bemerkung placeholder has always advertised; the vehicle it
-      // belongs to is the symbol's own label («Fahrer TLF»). A leadership glyph's «Name» writes
-      // «Einsatzleiter»; everything else just puts the person on the list without a caption.
-      const isEl = prev.symbol === 'VKF Einsatzleiter' && k === 'Name'
-      const note = k === 'Fahrer'
-        ? fillTemplate(appConfig.copy.anwesenheit.roleFahrer, { vehicle: prev.label ?? '' }).trim()
-        : isEl ? appConfig.copy.anwesenheit.roleEinsatzleiter : undefined
-      assignRole(id, isEl ? 'el' : 'fahrer', note)
+      // which job this field hands out, and what it writes into the Bemerkung — lib ·
+      // roleAssignment, so «Fahrer TLF» / «Einsatzleiter» / «Stv. Einsatzleiter» is one
+      // decision with tests rather than a chain of conditions inside the workspace
+      const { role, note } = rosterFieldRole(prev.symbol, k, prev.label)
+      assignRole(id, role, note)
     }
   }
   const createTruppA = (t: Trupp) => { createTrupp(t); ensurePresentFromTrupp([t.leaderPersonId, ...(t.memberPersonIds ?? [])]) }

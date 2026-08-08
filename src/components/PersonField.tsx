@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { cx } from '../lib/cx'
+import { fillTemplate, stripUnprintable } from '../lib/format'
 import { isOfficer, rankAbbr, rankLabel, rankOrder } from '../lib/rank'
 import type { Person } from '../types'
 import s from './Atemschutz.module.css'
@@ -14,7 +15,7 @@ export type Slot = { name: string; personId?: string }
 // a person links the id; typing leaves it a manual snapshot. Replaces the old chip list.
 export function PersonField({
   label, placeholder, value, onChange, onRemove, removeLabel, personnel, legacyRoster, presentIds, assignedIds, usedIds, usedNames,
-  rankFirst = false, officerFilter = false,
+  rolesById, rankFirst = false, officerFilter = false,
 }: {
   label: string
   placeholder: string
@@ -31,6 +32,11 @@ export function PersonField({
   assignedIds: Set<string>
   usedIds: Set<string>
   usedNames: Set<string>
+  /** the job somebody already holds on this Einsatz, per person id — their Anwesenheits-
+   *  Bemerkung («Einsatzleiter», «Fahrer TLF»). Shown beside the name as a SOFT note: the
+   *  Einsatzleiter going in with a Trupp happens, and the picker's job is to say «this one
+   *  is probably already spoken for», never to hide or block them (3am tenet). */
+  rolesById?: Map<string, string>
   /** sort higher-ups first (rank → present → alpha) instead of the default present-first —
    *  used for the Einsatzleiter/officer pickers. */
   rankFirst?: boolean
@@ -54,7 +60,7 @@ export function PersonField({
   const [pos, setPos] = useState<{ left: number; top: number; width: number; maxH: number; up: boolean } | null>(null)
   const q = value.name.trim().toLowerCase()
 
-  type Opt = { key: string; name: string; personId?: string; present: boolean; assigned: boolean; rank?: string }
+  type Opt = { key: string; name: string; personId?: string; present: boolean; assigned: boolean; rank?: string; role?: string }
   const options: Opt[] = useMemo(() => {
     if (personnel.length) {
       return personnel
@@ -63,7 +69,10 @@ export function PersonField({
         .filter((p) => p.active && !usedIds.has(p.id) && !usedNames.has(p.displayName) && !assignedIds.has(p.id))
         // officer filter is opt-in (officerFilter) AND toggled on — narrows to officer ranks
         .filter((p) => !(officerFilter && officersOnly) || isOfficer(p.rank))
-        .map((p) => ({ key: p.id, name: p.displayName, personId: p.id, present: presentIds.has(p.id), assigned: false, rank: p.rank }))
+        .map((p) => ({
+          key: p.id, name: p.displayName, personId: p.id, present: presentIds.has(p.id), assigned: false, rank: p.rank,
+          role: rolesById?.get(p.id),
+        }))
         // rankFirst: higher-ups first (rank → present → alpha); default: present first, rank as tiebreaker
         .sort((a, b) =>
           rankFirst
@@ -72,7 +81,7 @@ export function PersonField({
         )
     }
     return legacyRoster.filter((n) => !usedNames.has(n)).map((n) => ({ key: n, name: n, present: false, assigned: false }))
-  }, [personnel, legacyRoster, presentIds, assignedIds, usedIds, usedNames, rankFirst, officerFilter, officersOnly])
+  }, [personnel, legacyRoster, presentIds, assignedIds, usedIds, usedNames, rolesById, rankFirst, officerFilter, officersOnly])
 
   // filter only while typing a free name; the roster list shows in full when just browsing
   const filtered = typing && q ? options.filter((o) => o.name.toLowerCase().includes(q)) : options
@@ -133,7 +142,7 @@ export function PersonField({
             // a hand-typed name (guest crew, someone not in Divera) is capped so it can't blow out
             // the Trupp card's one-line name row; every real roster name is far inside this
             maxLength={40}
-            onChange={(e) => onChange({ name: e.target.value })}
+            onChange={(e) => onChange({ name: stripUnprintable(e.target.value) })}
             onBlur={() => window.setTimeout(() => { setTyping(false); setOpen(false) }, 120)}
           />
         ) : (
@@ -181,7 +190,11 @@ export function PersonField({
                   {o.personId && <span className={cx(s.comboDot, o.present ? s.comboDotPresent : s.comboDotOff)} />}
                   {o.rank && <span className={s.comboRank} title={rankLabel(o.rank)}>{rankAbbr(o.rank)}</span>}
                   <span className={s.comboName}>{o.name}</span>
-                  {o.personId && !o.present && <span className={s.comboHint}>{az.notPresent}</span>}
+                  {/* the job they already hold outranks «nicht anwesend»: somebody with a
+                      Funktion IS here, and «schon: Einsatzleiter» is the more useful warning */}
+                  {o.role
+                    ? <span className={s.comboHint}>{fillTemplate(appConfig.copy.anwesenheit.alreadyBooked, { role: o.role })}</span>
+                    : o.personId && !o.present && <span className={s.comboHint}>{az.notPresent}</span>}
                 </button>
               </li>
             ))}

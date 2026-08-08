@@ -64,7 +64,7 @@ export function downloadSheetPdf({ stationName, names, catalogue, groups = [], v
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   const colW = (A4.w - 2 * M - 6) / 2 // two columns with a 6mm gutter
   const col2X = M + colW + 6
-  const rowHZ = 7 // Zeiten-grid row height
+  const rowHZ = 6.5 // Zeiten-grid row height (a `__:__` stub, nothing to write on the line)
   const GAP = 5 // uniform gap between sections
   let y = 0
 
@@ -72,8 +72,11 @@ export function downloadSheetPdf({ stationName, names, catalogue, groups = [], v
     doc.setLineDashPattern([0.8, 0.8], 0).setDrawColor(150).line(x1, yy, x2, yy)
     doc.setLineDashPattern([], 0)
   }
+  // 12.5pt bold + a solid dark rule — the Einsatzrapport's own section heading (report_pdf ·
+  // styles «h2»). The two documents are read one after the other, so a heading that is a point
+  // smaller here made the paper twin look like a different form.
   const heading = (t: string) => {
-    doc.setFont('helvetica', 'bold').setFontSize(11.5).setTextColor(20)
+    doc.setFont('helvetica', 'bold').setFontSize(12.5).setTextColor(20)
     doc.text(t, M, y)
     doc.setDrawColor(40).setLineWidth(0.4).line(M, y + 1.4, A4.w - M, y + 1.4)
     y += 7
@@ -95,32 +98,36 @@ export function downloadSheetPdf({ stationName, names, catalogue, groups = [], v
     doc.text(`${label}:`, x, yy)
     dotted(x + doc.getTextWidth(`${label}:`) + 2, yy + 0.6, x + w)
   }
-  // time slots are ALWAYS the same __:__ stub (uniform across header, grid, Rückmeldung)
-  const timeField = (label: string, x: number, yy: number) => {
-    doc.setFont('helvetica', 'normal').setFontSize(9.5).setTextColor(60)
-    doc.text(`${label}:`, x, yy)
-    doc.setTextColor(110)
-    doc.text('__:__', x + doc.getTextWidth(`${label}:`) + 2, yy)
-  }
+  // ⚠️ ONE write-in texture, the Einsatzrapport's: a fine dotted leader. A time in a FIELD is
+  // written on one like everything else — that is how the rapport prints an unrecorded
+  // Alarmierung (report_pdf · the Details box) — so the old `__:__` stub is gone from the
+  // header, the roster and the Rückmeldung. The one place it survives is the Alarmierungs-/
+  // Ausrückzeiten grid, where the rapport prints it too: there the stub IS the column.
   // Details box — the full paper-form header (canonical form, stats-integration.md
   // Table A). Long-hand fields (Einsatz, Adresse, Kontaktperson, Eigentümer) get FULL
   // lines; date/times/EL/Gerettete are short. 8 mm row pitch = space to actually write.
   const wFull = A4.w - 2 * M - 6
   const wThird = (A4.w - 2 * M - 18) / 3
-  doc.setDrawColor(40).setLineWidth(0.4).rect(M, y - 4, A4.w - 2 * M, 49)
+  // ⚠️ The frame is hung 6mm above the FIRST BASELINE, not 4. A 9.5pt cap is 3.4mm tall, so at
+  // 4 the «E» of «Einsatz» stood 1.6mm under the border and the top row read as if it had been
+  // ruled through. The bottom edge is unchanged (‑6 + 51 = ‑4 + 49), so nothing below moves.
+  doc.setDrawColor(40).setLineWidth(0.4).rect(M, y - 6, A4.w - 2 * M, 51)
   field(C.sheetIncident, M + 3, wFull, y + 1)
   field(C.sheetAdresse, M + 3, wFull, y + 9)
   field(C.sheetDate, M + 3, wThird, y + 17)
-  timeField(C.sheetAlarm, M + 6 + wThird, y + 17)
-  timeField(C.sheetEnde, M + 9 + 2 * wThird, y + 17)
+  field(C.sheetAlarm, M + 6 + wThird, wThird, y + 17)
+  field(C.sheetEnde, M + 9 + 2 * wThird, wThird, y + 17)
   field(C.sheetKontakt, M + 3, wFull, y + 25)
   field(C.sheetEigentuemer, M + 3, wFull, y + 33)
   field(C.sheetEl, M + 3, colW - 3, y + 41)
   field(C.sheetGerettete, col2X, colW - 3, y + 41)
   y += 49 + GAP
 
-  // compact checkbox rows (Kategorie / Partner): fixed column raster, tick-off only
-  const checkRow = (items: string[], cols: number) => {
+  // compact checkbox rows (Kategorie / Partner): fixed column raster, tick-off only.
+  // `writeInLast` turns the trailing item into a write-in row — a ticked box, a label and a
+  // dotted leader for the organisation nobody put on the list, which is exactly how the
+  // rapport ends its Partner table (report_pdf · _partner_table).
+  const checkRow = (items: string[], cols: number, writeInLast = false) => {
     const cw = (A4.w - 2 * M) / cols
     const rh = 5.6
     ensure(Math.ceil(items.length / cols) * rh + 2)
@@ -129,7 +136,10 @@ export function downloadSheetPdf({ stationName, names, catalogue, groups = [], v
       const yy = y + Math.floor(i / cols) * rh
       doc.setDrawColor(40).setLineWidth(0.35).rect(x, yy - 3, 3.4, 3.4)
       doc.setFont('helvetica', 'normal').setFontSize(8.5).setTextColor(20)
-      doc.text(doc.splitTextToSize(label, cw - 7)[0] as string, x + 5, yy)
+      const write = writeInLast && i === items.length - 1
+      const text = write ? `${label}:` : (doc.splitTextToSize(label, cw - 7)[0] as string)
+      doc.text(text, x + 5, yy)
+      if (write) dotted(x + 5 + doc.getTextWidth(text) + 2, yy + 0.6, x + cw - 4)
     })
     y += Math.ceil(items.length / cols) * rh + GAP
   }
@@ -165,20 +175,32 @@ export function downloadSheetPdf({ stationName, names, catalogue, groups = [], v
   // Partner → Unterschriften. It used to put Material and Partner before the roster, so
   // transferring a filled-in sheet into the app meant reading the two documents out of step.
   // --- Notizen ---------------------------------------------------------------------------
+  // 8 mm between write-in rules — the rapport's own Kurzbericht pitch (report_pdf ·
+  // write_lines), which is what the transferred text will be set in
   ensure(7 + 5 * 8)
   heading(C.sheetNotizen)
   for (let i = 0; i < 5; i += 1) {
-    dotted(M, y + 5, A4.w - M)
-    y += 9
+    dotted(M, y + 4.5, A4.w - M)
+    y += 8
   }
-  y += GAP - 4
+  // ⚠️ A section heading is drawn on its BASELINE, and 12.5pt bold rises 4.4mm above it — so
+  // the 1mm left here put «Personal / Anwesenheit» hard against the last write-in rule, with
+  // the rule reading as an underline of the heading. The loop already leaves 3.5mm of its own.
+  y += GAP + 1
 
   // --- Anwesenheit: two columns, checkbox + name + von–bis stubs -------------------------
   // The roster FLOWS, exactly as it does on the Einsatzrapport: it is the longest block on the
   // sheet, and keeping it together pushed a village-sized Wehr onto a third sheet the moment the
   // section order matched the rapport's. Chunked by what fits on the page rather than split
   // mid-column, so the two columns always belong to the same chunk and read top-to-bottom.
-  const rowH = 6.4
+  // Row pitch and the von–bis geometry follow the rapport's roster (report_pdf ·
+  // _personal_table): two write-in rules of equal width with the dash between them, so the
+  // dash sits at ONE x down the whole column and each end has room for «02.08. 14:41» rather
+  // than for a 7pt stub nobody can write on.
+  const rowH = 6.8
+  const dashW = 4
+  const endW = 13
+  const timeW = 2 * endW + dashW
   const entries = [...names, ...Array.from({ length: 2 }, () => '')] // blanks for guests
   ensure(7 + 3 * rowH) // a heading with fewer than three rows under it is an orphan
   heading(C.sheetPersonen)
@@ -193,12 +215,15 @@ export function downloadSheetPdf({ stationName, names, catalogue, groups = [], v
       const col = i < perCol ? 0 : 1
       const x = col === 0 ? M : col2X
       const yy = startY + (i % perCol) * rowH
+      const xTime = x + colW - timeW
       doc.setDrawColor(40).setLineWidth(0.35).rect(x, yy - 3.2, 3.6, 3.6)
       doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(20)
-      if (n) doc.text(doc.splitTextToSize(n, colW - 26)[0] as string, x + 5.5, yy)
-      else dotted(x + 5.5, yy + 0.4, x + colW - 22)
-      doc.setFontSize(7).setTextColor(150)
-      doc.text('__:__ – __:__', x + colW - 19, yy)
+      if (n) doc.text(doc.splitTextToSize(n, xTime - x - 8)[0] as string, x + 5.5, yy)
+      else dotted(x + 5.5, yy + 0.4, xTime - 3)
+      dotted(xTime, yy + 0.4, xTime + endW)
+      doc.setFontSize(8.5).setTextColor(110)
+      doc.text('–', xTime + endW + dashW / 2, yy, { align: 'center' })
+      dotted(xTime + endW + dashW, yy + 0.4, x + colW)
     })
     y = startY + perCol * rowH
     if (rest.length > 0) { doc.addPage(); y = M }
@@ -209,7 +234,13 @@ export function downloadSheetPdf({ stationName, names, catalogue, groups = [], v
   ensure(14)
   heading(C.sheetMaterial)
   const mats = [...catalogue].sort((a, b) => a.label.localeCompare(b.label, 'de-CH'))
-  const rowHM = 6.6
+  // ⚠️ Amount and unit are two COLUMNS, as on the rapport (report_pdf · _mittel_table): as one
+  // `______ Stk` string it was the unit that landed on the shared right edge, so every rule
+  // began where its unit happened to start — «Stk» at one x, «Sack» at another, and a lone «l»
+  // read as a stray glyph hanging off a line.
+  const rowHM = 6.8
+  const unitW = 10
+  const amtW = 14
   const perColM = Math.ceil(mats.length / 2)
   ensure(perColM * rowHM + 4)
   const startM = y
@@ -217,32 +248,37 @@ export function downloadSheetPdf({ stationName, names, catalogue, groups = [], v
     const col = i < perColM ? 0 : 1
     const x = col === 0 ? M : col2X
     const yy = startM + (i % perColM) * rowHM
+    const xAmt = x + colW - unitW - amtW
     doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(20)
-    doc.text(doc.splitTextToSize(c.label, colW - 30)[0] as string, x, yy)
-    doc.setTextColor(110)
-    doc.text(`______ ${c.unit || 'Stk'}`, x + colW - 24, yy)
+    doc.text(doc.splitTextToSize(c.label, xAmt - x - 4)[0] as string, x, yy)
+    dotted(xAmt, yy + 0.4, xAmt + amtW)
+    doc.setFontSize(8.5).setTextColor(110)
+    doc.text(c.unit || 'Stk', xAmt + amtW + 2, yy)
   })
   y = startM + perColM * rowHM + GAP
 
   if (partnerOrgs.length > 0) {
     heading(C.sheetPartner)
-    checkRow([...partnerOrgs, `${C.sheetPartnerOther}: ________________`], 3)
+    checkRow([...partnerOrgs, C.sheetPartnerOther], 3, true)
   }
 
   // --- Rückmeldung ELZ (who reported back to dispatch, when) ------------------------------
   ensure(16)
   heading(C.sheetRueckmeldung)
   field(C.sheetName, M, colW - 3, y + 2)
-  timeField(C.sheetZeit, col2X, y + 2)
+  field(C.sheetZeit, col2X, colW - 3, y + 2)
   y += 6 + GAP
 
   // --- signatures (keep the block together) ----------------------------------------------
+  // Both signatures carry their own «Ort, Datum», exactly like the rapport's Unterschriften
+  // block (report_pdf · sig): the two sheets are signed by the same two people on the same day
+  // and one of them was missing the date line the other one has.
   ensure(22)
   heading(C.sheetSignatures)
+  const sigW = (A4.w - 2 * M - 6) * 0.4
   const sig = (label: string, yy: number) => {
-    doc.setFont('helvetica', 'normal').setFontSize(9.5).setTextColor(60)
-    doc.text(`${label}:`, M, yy)
-    dotted(M + 40, yy + 0.6, A4.w - M)
+    field(C.sheetOrtDatum, M, sigW, yy)
+    field(label, M + sigW + 6, A4.w - M - (M + sigW + 6), yy)
   }
   sig(C.sheetEl, y + 3)
   sig(C.sheetKdt, y + 14)
