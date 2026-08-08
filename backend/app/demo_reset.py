@@ -28,7 +28,7 @@ from sqlalchemy import delete, select
 
 from .auth.security import hash_pin
 from .database import async_session_maker
-from .models import DiveraEmergency, Incident, JournalEntry, ObjectSite, Personnel, User
+from .models import DeploymentConfig, DiveraEmergency, Incident, JournalEntry, ObjectSite, Personnel, User
 from .personnel import format_name
 
 logger = logging.getLogger(__name__)
@@ -38,6 +38,23 @@ logger = logging.getLogger(__name__)
 # source for local `just demo-load`, so both paths render the same command picture.
 SCENE_PATH = Path(__file__).resolve().parents[2] / "examples" / "demo-data" / "incident.workspace.json"
 ZURICH = ZoneInfo("Europe/Zurich")
+
+# The STATION plan calibration (deployment_config.plan_scales_json, see api/plan_scales.py), so
+# Messen works on the demo's plans without anyone calibrating first. It is station-level rather
+# than a `planScale` in the scene file on purpose: a per-incident calibration overrides the
+# station one, so seeding it there would leave every OTHER incident uncalibrated — and this is
+# exactly the "a plan measures out of the box" case the station layer exists for.
+# Not written by `admin_config load`, which only touches config_json, so the reset script's
+# step 2 cannot wipe what step 1 writes here.
+DEMO_PLAN_SCALES = {
+    "default": None,
+    "byPlan": {
+        # Modul 1 (Übersicht), calibrated against a 100 m reference on the sheet.
+        "modul1": {"mPerU": 743.9113870340418, "refM": 100, "ar": 0.7070980398566116},
+        # The generated Gebäude floor-stack — its own space (1/TILE_AR), so it needs its own factor.
+        "gebaeude": {"mPerU": 14.970878656783539, "refM": 10, "ar": 1.3888888888888888},
+    },
+}
 
 # The fixed demo accounts. Both PINs are shown on the demo login screen (identity.demoNote).
 DEMO_USERS = [
@@ -189,8 +206,8 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
             "id": "trupp1",
             "name": demo_display_name("Hans", "Müller"),
             "members": [demo_display_name("Anna", "Meier"), demo_display_name("Thomas", "Brunner")],
-            "auftrag": "retten",
-            "ziel": "2. OG Wohnung Nord, 2 Personen vermisst",
+            "auftrag": "loeschen",
+            "ziel": "2. OG",
             "lineNo": 1,
             "lineId": "d1784735796244",  # the Angriffsleitung drawn on the Lage (scene file)
             "funkkanal": 11,
@@ -217,9 +234,10 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
             "id": "trupp2",
             "name": demo_display_name("Peter", "Schmid"),
             "members": [demo_display_name("Laura", "Keller"), demo_display_name("Nina", "Frei")],
-            "auftrag": "loeschen",
-            "ziel": "Brandbekämpfung 2. OG",
-            "lineNo": 2,  # numbered but not drawn — the auto-match attaches as soon as it is
+            "auftrag": "retten",
+            "ziel": "Rettung 2OG",
+            # deliberately NO lineNo: the second Trupp is working without a numbered Leitung, so
+            # the demo shows both states of the hose↔Trupp link side by side (Trupp 1 carries one).
             "funkkanal": 11,
             "entryPressureBar": 300,
             "entryTime": _iso(now - timedelta(minutes=8)),
@@ -431,6 +449,14 @@ async def reset(wipe_objects: bool = True) -> None:
         # the one running incident below (decision 2026-07-20: the take-flow banner cluttered the
         # landing; the default running Einsatz is the demo). Re-add a DEMO_ALARM here to restore it.
         await db.execute(delete(DiveraEmergency))
+
+        # Station plan calibration — see DEMO_PLAN_SCALES. Written on the config singleton, which
+        # may not exist yet on a fresh instance (admin_config load creates it in the next step).
+        cfg = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+        if cfg is None:
+            db.add(DeploymentConfig(id=1, plan_scales_json=DEMO_PLAN_SCALES))
+        else:
+            cfg.plan_scales_json = DEMO_PLAN_SCALES
 
         # The pre-filled running incident: static scene from the data file + live collections.
         now = datetime.now(UTC)

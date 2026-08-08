@@ -113,6 +113,23 @@ so this file – not the log – is the record of what shipped up to that point.
   app wears. Every «… erfassen» is a modal, including Mittel: one that behaved differently was
   worse than either pattern applied everywhere.
 
+- **The demo seed is the demo as it was arranged, not as it was first written.** The command
+  picture had been rearranged on the live demo and would have been thrown away at the next
+  nightly reset: five symbols moved (the Rettung onto floor 1, the Lüfter turned 111° → 23°), the
+  Angriffsleitung reshaped, and the two Atemschutz-Trupps' Aufträge swapped — Trupp 1 löscht, Trupp
+  2 rettet, with the Ziele shortened to what actually fits a card («2. OG», «Rettung 2OG») and
+  Trupp 2 left without a Leitungs-Nummer, so the demo shows both sides of the hose↔Trupp link at
+  once. The scene keys were captured into `incident.workspace.json`; the Trupps had to go into
+  `build_demo_workspace` instead, because their clocks are rebuilt relative to each reset and a
+  frozen timestamp in the data file is exactly what that code exists to avoid.
+
+- **Messen works on the demo's plans without calibrating first.** The reset now seeds a STATION
+  plan calibration (`deployment_config.plan_scales_json`) — Modul 1 against a 100 m reference,
+  plus the generated Gebäude floor-stack. Station-level rather than a `planScale` in the scene
+  file on purpose: a per-incident calibration overrides the station one, so seeding it in the
+  scene would have left every incident except the seeded one uncalibrated. `admin_config load`
+  only writes `config_json`, so the reset script's step 2 cannot wipe what step 1 puts there.
+
 ### Removed
 
 - **The demo's Modul 6 is gone, and the plan generator with it.** The Schloss ships a hand-drawn
