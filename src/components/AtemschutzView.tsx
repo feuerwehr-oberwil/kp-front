@@ -283,6 +283,17 @@ export function AtemschutzView({
         )}
       </header>
 
+      {/* the band sits between the header and the board — see TruppForm */}
+      {form && (
+        <TruppForm
+          mode={form.mode} initial={form.trupp} roster={roster} defaultFunkkanal={defaultFunkkanal}
+          personnel={personnel} presentIds={presentIds}
+          assignedIds={assignedPersonIds(trupps.filter((t) => t.id !== form.trupp?.id))}
+          leitungOptions={leitungOptions(form.trupp?.id)}
+          onCancel={() => setForm(null)} onSubmit={submitForm}
+        />
+      )}
+
       <div className={s.body}>
         {trupps.length === 0 ? (
           <div className={s.empty}>
@@ -298,16 +309,6 @@ export function AtemschutzView({
           </div>
         )}
       </div>
-
-      {form && (
-        <TruppForm
-          mode={form.mode} initial={form.trupp} roster={roster} defaultFunkkanal={defaultFunkkanal}
-          personnel={personnel} presentIds={presentIds}
-          assignedIds={assignedPersonIds(trupps.filter((t) => t.id !== form.trupp?.id))}
-          leitungOptions={leitungOptions(form.trupp?.id)}
-          onCancel={() => setForm(null)} onSubmit={submitForm}
-        />
-      )}
 
       {placePick && (
         <Overlay open onClose={() => setPlacePick(null)} className={cx(s.modal, s.placeModal)} ariaLabel={az.placeWhere}>
@@ -803,13 +804,17 @@ function TruppForm({
   // portal to <body> so the modal escapes the .surface stacking context (z-index 20) and covers
   // the TopBar ("+ Eintrag", z-index 40) instead of rendering beneath it
   return (
-    <Overlay open onClose={onCancel} className={s.modal} ariaLabel={title}>
-      <div className={s.modalHead}>
-        <h3>{title}</h3>
+    /* A BAND under the surface's own header, not a modal over it — the pattern «Mittel erfassen»
+       uses. The board stays visible while a Trupp is written up, which is the point: an
+       überfällig card must never be hidden by the form that is creating the next Trupp. Esc
+       still closes it (the header ✕), and the draft survives leaving the surface. */
+    <section className={s.composer} aria-label={title}>
+      <div className={s.composerHead}>
+        <span className={s.composerTitle}>{title}</span>
         <button className={s.iconBtn} aria-label={az.cancel} onClick={onCancel}><Icon id="close" /></button>
       </div>
 
-        <div className={s.modalBody}>
+        <div className={s.composerBody}>
           <div className={s.formCol}>
             <div className={s.formSection}>{az.sectionAuftrag}</div>
             <div className={s.field}>
@@ -946,7 +951,7 @@ function TruppForm({
           </div>
         </div>
 
-      <div className={s.modalFoot}>
+      <div className={s.composerFoot}>
         {/* the house button family — three private classes here were the last of this modal's own
             design system (see Atemschutz.module.css · .modal) */}
         <button className="ip-btn ghost" onClick={onCancel}>{az.cancel}</button>
@@ -964,7 +969,7 @@ function TruppForm({
         )}
         <button className={mode === 'redeploy' ? 'ip-btn' : 'ip-btn primary'} disabled={!canSubmit} onClick={() => submit()}>{submitLabel}</button>
       </div>
-    </Overlay>
+    </section>
   )
 }
 
