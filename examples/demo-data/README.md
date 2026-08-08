@@ -10,13 +10,14 @@ follows the real streets. Safe to commit and to load into a throwaway deployment
 | --- | --- | --- |
 | `config.json` | deployment config: app name, map center (Musterdorf), demo flag, doctrine, and a dummy **Mittel** catalogue | `admin_config` |
 | `geodata.manifest.json` + `wasserleitung.geojson` + `hydrant.geojson` | water mains (LineStrings following the streets) + hydrants sampled along them | `admin_geodata` |
-| `objects.manifest.json` + `plans/` | Schloss Musterdorf at the prepared alarm address, with synthetic Modul 1, combined Modul 2/3, and three-floor Modul 6 PDFs | `admin_objects` |
+| `objects.manifest.json` + `plans/` | Schloss Musterdorf at the prepared alarm address, with a hand-drawn Modul 1 (Übersicht) and combined Modul 2/3 (Zugang & Objekt) | `admin_objects` |
 | `checklists.manifest.json` + `checklists/` | a demo action list (Aufgaben FU) + tactical Stichworte (no diagram images) | `admin_checklists` |
-| `gen_water.py` / `gen_plans.py` | regenerate the water GeoJSON (Overpass street network) / synthetic plan diagrams (reportlab) | (run manually) |
+| `gen_water.py` | regenerate the water GeoJSON from the Overpass street network | (run manually) |
 | `load.sh` | loads config + geodata + objects + checklists in order | `just demo-load` |
 
-The `plans/*.pdf` here are **synthetic diagrams**, so taking the prepared Zimmerbrand automatically
-shows the object-plan module rail and multi-page floor plans. A real deployment loads its own
+The `plans/*.pdf` here are **synthetic sheets**, so taking the prepared Zimmerbrand automatically
+shows the object-plan module rail. There is no Modul 6 (Geschosspläne) in the demo dataset — the
+slot exists in the app, this object simply has no sheet for it. A real deployment loads its own
 Modul-PDFs and real checklists (incl. playbook diagrams) from a private data source
 (see [`docs/objektplaene-architecture.md`](../../docs/objektplaene-architecture.md)).
 

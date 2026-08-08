@@ -23,14 +23,14 @@ def test_demo_incident_matches_its_only_object_plan() -> None:
     assert obj["address"] == DEMO_INCIDENT["address"]
     assert obj["lat"] == DEMO_INCIDENT["lat"]
     assert obj["lng"] == DEMO_INCIDENT["lng"]
-    assert [plan["module"] for plan in obj["plans"]] == ["modul1", "modul2-3", "modul6"]
+    assert [plan["module"] for plan in obj["plans"]] == ["modul1", "modul2-3"]
 
 
 def test_demo_object_manifest_and_pdfs_are_valid() -> None:
     objects = _read_manifest(MANIFEST)
-    assert _validate_files(MANIFEST, objects) == 3
+    assert _validate_files(MANIFEST, objects) == 2
 
-    expected_pages = {"modul1": 1, "modul2-3": 1, "modul6": 5}  # Modul 6 = multi-page scrolling plan
+    expected_pages = {"modul1": 1, "modul2-3": 1}
     for plan in objects[0].plans:
         path = MANIFEST.parent / plan.file
         assert path.read_bytes().startswith(b"%PDF-")
@@ -40,9 +40,9 @@ def test_demo_object_manifest_and_pdfs_are_valid() -> None:
             first_page_text = pdf[0].get_textpage().get_text_range()
             # Every demo sheet has to SAY on its face that it is demo material — a plan that
             # looks like a real Einsatzplan and is not marked as one gets screenshotted, or
-            # forked into a station's own data. The generated sheets stamp «synthetisch»; the
-            # hand-drawn Modul 1 / 2-3 say it through Musterdorf and their own content
-            # («Hinter den 7 Bergen», Sofortmassnahme «Prinzessin befreien»).
+            # forked into a station's own data. Both remaining sheets are hand-drawn and say it
+            # through Musterdorf and their own content («Hinter den 7 Bergen», Sofortmassnahme
+            # «Prinzessin befreien»); the «synthetisch» stamp is what a generated sheet uses.
             assert "synthetisch" in first_page_text or "Musterdorf" in first_page_text
         finally:
             pdf.close()

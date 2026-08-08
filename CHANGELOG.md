@@ -113,6 +113,24 @@ so this file – not the log – is the record of what shipped up to that point.
   app wears. Every «… erfassen» is a modal, including Mittel: one that behaved differently was
   worse than either pattern applied everywhere.
 
+### Removed
+
+- **The demo's Modul 6 is gone, and the plan generator with it.** The Schloss ships a hand-drawn
+  Modul 1 and Modul 2-3; Modul 6 was the last generated placeholder and never got a drawn
+  replacement, so the demo now shows two real sheets instead of two real ones and a filler. The
+  `modul6` slot itself is untouched – it is a module preset every station can fill, and the app
+  still places a Trupp there when an object has no building footprint; this object simply has no
+  sheet for it. `gen_plans.py` went with it: once Modul 6 was out, the only thing the script could
+  still do was overwrite the two hand-drawn PDFs with generated ones, and the demo-data README was
+  pointing at it as the way to «regenerate» them. `gen_water.py` stays – the water GeoJSON really
+  is generated.
+
+  ⚠️ A plan can be added to a running deployment but never removed: there is no `DELETE` for
+  `/api/objects/{id}/plans/{module}`, no CLI subcommand, and neither `admin_objects load` nor
+  `push` prunes what the manifest no longer lists. The demo escapes this only because its full
+  reset drops every `ObjectSite` first, so the re-pushed manifest is authoritative. A station that
+  retires a Modul currently has to reach into the database.
+
 ### Fixed
 
 - **A measured Strecke was shaded like a Fläche.** The measure fill layer took every geometry it

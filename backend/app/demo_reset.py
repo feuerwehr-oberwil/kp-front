@@ -397,7 +397,7 @@ async def reset(wipe_objects: bool = True) -> None:
         blink.
       - ``False`` (the in-process scheduler): KEEP them. The in-process job only reseeds the
         incident/roster and never reloads objects, so wiping them here would strip the Schloss's
-        Modul 1 / 2-3 / 6 plans until the next GitHub reload — the demo's plan rail would sit empty
+        Modul 1 / 2-3 plans until the next GitHub reload — the demo's plan rail would sit empty
         (Umrisse + Tafel only) for most of each cycle."""
     assert_demo_database()
 
