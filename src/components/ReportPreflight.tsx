@@ -689,7 +689,12 @@ export function ReportPreflight({
                     away, on the Anwesenheit these names come from. */}
                 {unresolvedNames.length > 0 && (
                   <p className="report-pre-warn">
-                    <Icon id="warn" /> <span>{fillTemplate(P.unresolvedHours, { names: unresolvedNames.join(', ') })}</span>
+                    {/* joined on «·», not on a comma: the names read «Müller Hans», so every
+                        name already contains a space, and a comma between them is a weaker
+                        break than the one inside each pair — the run scanned as one long
+                        smear of words. A middot outranks the space and the list falls apart
+                        into people again. */}
+                    <Icon id="warn" /> <span>{fillTemplate(P.unresolvedHours, { names: unresolvedNames.join(' · ') })}</span>
                     {onOpenAnwesenheit && <button type="button" className="report-pre-fix" onClick={onOpenAnwesenheit}>{A.steps.anwesenheit}</button>}
                   </p>
                 )}
