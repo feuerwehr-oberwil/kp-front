@@ -19,7 +19,7 @@ import { autoRotation, vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import type { AuditProof, ReportDraft, ReportOptions } from '../lib/report'
 import { defaultReportOptions, einsatzleiterFromScene, formatDateTime, krokiStandLabel, missingTranscriptCount, operationalExtentPoints, proofLabel } from '../lib/report'
 import { applyTimeToIso, isoOnDay, missingSteps, stepDone, type AbschlussFacts } from '../lib/abschluss'
-import { hoursRows } from '../lib/attendanceHours'
+import { hoursRows, unresolvedHoursRows } from '../lib/attendanceHours'
 import { incidentDays } from '../lib/zeitplanFormat'
 import type { AttendanceState, BoardDoc, BuildingDoc, CaptionMode, Drawing, Entity, LayerDef, LngLat, MittelEntry, Person, PlanDocument, ReportAttachment, TimelineEvent, Trupp } from '../types'
 import { visibleMittel } from '../lib/mittel'
@@ -539,7 +539,10 @@ export function ReportPreflight({
   // totals. It used to print on the paper as «N Person(en) ohne verwertbare Zeiten», a count of
   // an abstraction that named neither who nor why and that nobody could act on from a sheet.
   // It belongs here instead: beside the button that makes the paper, while it can still be fixed.
-  const unresolvedNames = rows.filter((r) => r.minutes == null).map((r) => r.name)
+  // ⚠️ Filtered, not raw: while the Einsatz is RUNNING everybody still on scene totals to
+  // nothing, and naming all of them under «Zeiten laufen rückwärts oder fehlen» is a warning
+  // about the ordinary state of every open Einsatz (lib/attendanceHours · unresolvedHoursRows).
+  const unresolvedNames = unresolvedHoursRows(rows, { endedAt: meta.endedAt ?? null }).map((r) => r.name)
 
   // «bereit» is a claim, so it is made only when nothing is outstanding — a fold that says all
   // is well while hiding a broken hash chain would be worse than no summary at all.

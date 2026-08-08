@@ -107,3 +107,27 @@ export function hoursSummary(rows: HoursRow[], rule = DEFAULT_HOURS_ROUNDING): H
 export function fmtHours(minutes: number): string {
   return `${Math.floor(minutes / 60)}:${String(Math.round(minutes % 60)).padStart(2, '0')}`
 }
+
+/**
+ * The rows whose times somebody actually has to go and fix — as opposed to the rows that carry
+ * no duration for the ordinary reason that the Einsatz is still running.
+ *
+ * ⚠️ `minutes == null` alone is NOT a fault. An open block borrows the Einsatzende, so before
+ * there is one EVERY person still on scene totals to nothing — on the demo's running Zimmerbrand
+ * that named all 23 present crew under «Zeiten laufen rückwärts oder fehlen», which is neither
+ * true nor actionable: nothing is wrong, the Einsatz has not ended. The print path has drawn
+ * this line since it was written (`reportPdfDirect` prints the headcount alone and reports zero
+ * unresolved while `endedAt` is unset); the closing checklist had not.
+ *
+ * What survives the filter is the real case: blocks that are all CLOSED and still cannot be
+ * totalled, i.e. a departure recorded before its arrival. Those are wrong whether or not the
+ * Einsatz has ended, and they stay named.
+ */
+export function unresolvedHoursRows(rows: HoursRow[], opts: { endedAt: string | null }): HoursRow[] {
+  return rows.filter((r) => {
+    if (r.minutes != null) return false
+    // still here, and nothing to measure against yet — the normal state of a running Einsatz
+    if (!opts.endedAt && !r.leftEarly) return false
+    return true
+  })
+}

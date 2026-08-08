@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fmtHours, hoursSummary, roundedMinutes } from './attendanceHours'
+import { fmtHours, hoursSummary, roundedMinutes, unresolvedHoursRows } from './attendanceHours'
 import type { HoursRow } from './attendanceHours'
 
 // The rounding rule is a Sold convention, not arithmetic — it is worth pinning by example,
@@ -46,5 +46,36 @@ describe('fmtHours', () => {
     expect(fmtHours(875)).toBe('14:35')
     expect(fmtHours(60)).toBe('1:00')
     expect(fmtHours(0)).toBe('0:00')
+  })
+})
+
+// The demo's running Zimmerbrand named all 23 present crew under «Zeiten laufen rückwärts oder
+// fehlen» — a warning about the ordinary state of every Einsatz that has not ended yet.
+describe('unresolvedHoursRows', () => {
+  const mk = (over: Partial<HoursRow>): HoursRow => ({
+    personId: 'p', name: 'Widmer Céline', from: null, to: null, minutes: null, intervals: [], leftEarly: false, ...over,
+  })
+
+  it('says nothing about people still on scene while the Einsatz is running', () => {
+    const rows = [mk({ personId: 'a' }), mk({ personId: 'b', name: 'Meier Anna' })]
+    expect(unresolvedHoursRows(rows, { endedAt: null })).toEqual([])
+  })
+
+  it('still names a departure recorded before its arrival — wrong, ended or not', () => {
+    // every block CLOSED and the total still unresolvable: somebody mistyped a time
+    const broken = mk({ leftEarly: true, intervals: [{ from: '2026-08-08T10:00:00Z', to: '2026-08-08T09:00:00Z' }] })
+    expect(unresolvedHoursRows([broken], { endedAt: null }).map((r) => r.personId)).toEqual(['p'])
+  })
+
+  it('once there IS an Einsatzende, an unresolvable row is a fault again', () => {
+    // the case the warning exists for: an Einsatzende that lies before an open block's start
+    const rows = [mk({ personId: 'a' }), mk({ personId: 'b', minutes: 42 })]
+    expect(unresolvedHoursRows(rows, { endedAt: '2026-08-08T12:00:00Z' }).map((r) => r.personId)).toEqual(['a'])
+  })
+
+  it('leaves resolved rows alone in both states', () => {
+    const ok = [mk({ minutes: 0 }), mk({ minutes: 120, leftEarly: true })]
+    expect(unresolvedHoursRows(ok, { endedAt: null })).toEqual([])
+    expect(unresolvedHoursRows(ok, { endedAt: '2026-08-08T12:00:00Z' })).toEqual([])
   })
 })
