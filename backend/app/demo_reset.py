@@ -191,6 +191,37 @@ def _iso(dt: datetime) -> str:
     return dt.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
+#: The symbol that names who is leading, and the field on it that carries the name — mirrors
+#: `appConfig.symbols.einsatzleiterName` / `rosterFields` on the frontend.
+_EL_SYMBOL = "VKF Einsatzleiter"
+
+
+def _scene_roles(scene: dict, present: list[tuple[str, str]]) -> dict[str, str]:
+    """person_id → Anwesenheits-Bemerkung, read off the symbols placed in the scene.
+
+    The German wording is the app's (`src/config/copy/de.ts` · anwesenheit.role*), repeated here
+    rather than shared: the demo dataset is German-only, and a seed that quietly diverges from
+    what the app writes would teach the wrong thing. Only people who are actually present get a
+    remark — a symbol naming somebody who is not on the list is a contradiction the demo should
+    not seed, and one nobody would spot in a JSON file.
+    """
+    by_name = {name: pid for pid, name in present}
+    roles: dict[str, str] = {}
+    for e in scene.get("entities") or []:
+        fields = e.get("fields") or {}
+        for key, value in fields.items():
+            pid = by_name.get((value or "").strip())
+            if not pid:
+                continue
+            if key == "Fahrer":
+                roles[pid] = f"Fahrer {e.get('label') or ''}".strip()
+            elif e.get("symbol") == _EL_SYMBOL and key == "Name":
+                roles[pid] = "Einsatzleiter"
+            elif e.get("symbol") == _EL_SYMBOL and key == "Stv.":
+                roles[pid] = "Stv. Einsatzleiter"
+    return roles
+
+
 def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datetime) -> dict:
     """Return the full incident workspace: the static map/plan ``scene`` plus the live
     operational collections (Atemschutz Trupps on the clock, logged Mittel, Anwesenheit) with
@@ -339,6 +370,13 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
     ws["attendance"] = {
         pid: {"status": "present", "checkedInAt": _iso(started), "displayNameSnapshot": name} for pid, name in present
     }
+    # …and the JOB each of them is on the list for. In the app a name typed into a symbol's
+    # roster field writes that Bemerkung itself (lib/roleAssignment · rosterFieldRole); seeded
+    # data never passes through that path, so the demo showed «Widmer Céline» on the Anwesenheit
+    # and an «Einsatzleiter» symbol carrying her name with nothing connecting the two — the one
+    # place a visitor looks to understand what the field is for.
+    for pid, note in _scene_roles(scene, present).items():
+        ws["attendance"][pid]["note"] = note
 
     # Name the Einsatzleiter. The scene file leaves it empty, so the Rapport's most-asked field
     # read «nicht erfasst» on a fully worked demo incident — and nothing tied the «Einsatzleiter»

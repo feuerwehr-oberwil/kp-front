@@ -262,3 +262,49 @@ def test_the_seeded_zeiten_match_configured_rows():
     meta = _ws()["reportMeta"]
     assert {g["id"] for g in meta["gruppen"]} <= group_ids
     assert {f["id"] for f in meta["fahrzeuge"]} <= vehicle_ids
+
+
+def test_seeds_the_job_each_person_is_on_the_list_for():
+    """A name on a symbol writes the Anwesenheits-Bemerkung in the app (lib/roleAssignment);
+    seeded data never passes through that path, so the builder has to do it — otherwise the
+    demo shows an «Einsatzleiter» symbol and a roster row with nothing connecting them."""
+    scene = {
+        "entities": [
+            {
+                "id": "el",
+                "symbol": "VKF Einsatzleiter",
+                "label": "Einsatzleiter",
+                "fields": {"Name": "Widmer Céline", "Stv.": "Hans Müller"},
+            },
+            {"id": "tlf", "symbol": "VKF Fahrzeug", "label": "TLF", "fields": {"Fahrer": "Anna Meier"}},
+        ],
+    }
+    present = [("pid-1", "Widmer Céline"), ("pid-2", "Hans Müller"), ("pid-3", "Anna Meier"), ("pid-4", "Nina Frei")]
+    ws = build_demo_workspace(scene, present, NOW)
+    assert ws["attendance"]["pid-1"]["note"] == "Einsatzleiter"
+    assert ws["attendance"]["pid-2"]["note"] == "Stv. Einsatzleiter"
+    assert ws["attendance"]["pid-3"]["note"] == "Fahrer TLF"
+    # somebody with no job on the board keeps a bare row — a remark nobody wrote is not a remark
+    assert "note" not in ws["attendance"]["pid-4"]
+
+
+def test_a_symbol_naming_somebody_absent_seeds_nothing():
+    """The scene and the present list are edited independently. A remark for a person who is
+    not on the Anwesenheit would be a contradiction seeded into the demo, and one nobody spots
+    reading a JSON file."""
+    scene = {"entities": [{"id": "el", "symbol": "VKF Einsatzleiter", "fields": {"Name": "Wer Anders"}}]}
+    ws = build_demo_workspace(scene, [("pid-1", "Widmer Céline")], NOW)
+    assert "note" not in ws["attendance"]["pid-1"]
+
+
+def test_the_shipped_demo_scene_labels_its_einsatzleiter():
+    """Guards the dataset, not the builder: the Einsatzleiter symbol in the demo scene must keep
+    naming somebody who is seeded present, or the demo silently loses the label again."""
+    scene = json.loads((Path(__file__).resolve().parents[2] / "examples/demo-data/incident.workspace.json").read_text())
+    present = [(f"pid-{i}", n) for i, n in enumerate(sorted(dr.DEMO_PRESENT))]
+    notes = {
+        a["displayNameSnapshot"]: a["note"]
+        for a in build_demo_workspace(scene, present, NOW)["attendance"].values()
+        if a.get("note")
+    }
+    assert notes == {dr.DEMO_EINSATZLEITER: "Einsatzleiter"}
