@@ -44,9 +44,12 @@ describe('personalForPdf (Personal-/Soldblatt rows)', () => {
       g9: { status: 'left', displayNameSnapshot: 'Gast Vreni', checkedInAt: '2026-06-23T09:00:00', leftAt: '2026-06-23T10:30:00' },
     })
     expect(personal.map((p) => p.name)).toEqual(['Meier Anna', 'Müller Hans', 'Gast Vreni', '', ''])
-    expect(personal[0]).toMatchObject({ name: 'Meier Anna', erfasst: true, von: '09:05', bis: undefined })
-    expect(personal[1]).toMatchObject({ name: 'Müller Hans', erfasst: false, von: undefined, bis: undefined })
-    expect(personal[2]).toMatchObject({ name: 'Gast Vreni', erfasst: true, von: '09:00', bis: '10:30', bisDerived: false })
+    expect(personal[0]).toMatchObject({ name: 'Meier Anna', erfasst: true })
+    expect(personal[0].times).toEqual([{ von: '09:05', bis: undefined, vonDerived: false, bisDerived: false }])
+    expect(personal[1]).toMatchObject({ name: 'Müller Hans', erfasst: false })
+    expect(personal[1].times).toEqual([{ von: undefined, bis: undefined, vonDerived: false, bisDerived: false }])
+    expect(personal[2]).toMatchObject({ name: 'Gast Vreni', erfasst: true })
+    expect(personal[2].times).toEqual([{ von: '09:00', bis: '10:30', vonDerived: false, bisDerived: false }])
     expect(personal[3].erfasst).toBe(false)
   })
 
@@ -67,9 +70,10 @@ describe('personalForPdf (Personal-/Soldblatt rows)', () => {
         ],
       },
     })
-    expect(personal.map((p) => p.name)).toEqual(['Meier Anna', 'Meier Anna', 'Müller Hans', '', ''])
-    expect(personal[0]).toMatchObject({ name: 'Meier Anna', erfasst: true, von: '09:00', bis: '11:00' })
-    expect(personal[1]).toMatchObject({ name: 'Meier Anna', erfasst: true, von: '13:00', bis: '14:00' })
+    // one row per PERSON — the two stretches stack in the time column, they do not make two rows
+    expect(personal.map((p) => p.name)).toEqual(['Meier Anna', 'Müller Hans', '', ''])
+    expect(personal[0]).toMatchObject({ name: 'Meier Anna', erfasst: true })
+    expect(personal[0].times?.map((t) => `${t.von}–${t.bis}`)).toEqual(['09:00–11:00', '13:00–14:00'])
   })
 
   it('fills an open block with the Einsatzende and MARKS it as derived', () => {
@@ -78,7 +82,7 @@ describe('personalForPdf (Personal-/Soldblatt rows)', () => {
     const { personal } = personalForPdf(roster, {
       p1: { status: 'present', displayNameSnapshot: 'Meier Anna', checkedInAt: '2026-06-23T09:05:00' },
     }, { alarmedAt: '2026-06-23T09:00:00', endedAt: '2026-06-23T11:30:00' })
-    expect(personal[0]).toMatchObject({ von: '09:05', bis: '11:30', vonDerived: false, bisDerived: true })
+    expect(personal[0].times).toEqual([{ von: '09:05', bis: '11:30', vonDerived: false, bisDerived: true }])
   })
 
   it('derives BOTH ends for somebody ticked present with no times at all', () => {
@@ -86,12 +90,14 @@ describe('personalForPdf (Personal-/Soldblatt rows)', () => {
       p1: { status: 'present', displayNameSnapshot: 'Meier Anna' },
     }, { alarmedAt: '2026-06-23T09:00:00', endedAt: '2026-06-23T11:30:00' })
     // a line grey on both ends is one nobody has to check
-    expect(personal[0]).toMatchObject({ erfasst: true, von: '09:00', bis: '11:30', vonDerived: true, bisDerived: true })
+    expect(personal[0]).toMatchObject({ erfasst: true })
+    expect(personal[0].times).toEqual([{ von: '09:00', bis: '11:30', vonDerived: true, bisDerived: true }])
   })
 
   it('leaves an unrecorded person blank — a derived time must not invent attendance', () => {
     const { personal } = personalForPdf(roster, {}, { alarmedAt: '2026-06-23T09:00:00', endedAt: '2026-06-23T11:30:00' })
-    expect(personal[0]).toMatchObject({ erfasst: false, von: undefined, bis: undefined })
+    expect(personal[0]).toMatchObject({ erfasst: false })
+    expect(personal[0].times).toEqual([{ von: undefined, bis: undefined, vonDerived: false, bisDerived: false }])
   })
 
   it('carries the DATE once the Einsatz runs past midnight', () => {
@@ -99,15 +105,35 @@ describe('personalForPdf (Personal-/Soldblatt rows)', () => {
     const { personal } = personalForPdf(roster, {
       p1: { status: 'present', displayNameSnapshot: 'Meier Anna', checkedInAt: '2026-06-23T08:23:00' },
     }, { alarmedAt: '2026-06-23T08:00:00', endedAt: '2026-06-24T09:00:00' })
-    expect(personal[0].von).toBe('23.06. 08:23')
-    expect(personal[0].bis).toBe('24.06. 09:00')
+    expect(personal[0].times?.[0].von).toBe('23.06. 08:23')
+    expect(personal[0].times?.[0].bis).toBe('24.06. 09:00')
+  })
+
+  // ⚠️ ONE row, two stretches. It used to be one row per BLOCK, so a crew member who left and
+  // came back printed their name twice and was counted twice by anyone reading down the roster.
+  it('prints a person who came back ONCE, with both stretches', () => {
+    const { personal } = personalForPdf(roster, {
+      p1: {
+        status: 'present', displayNameSnapshot: 'Meier Anna', note: 'Fahrer TLF',
+        intervals: [
+          { from: '2026-06-23T08:00:00', to: '2026-06-23T09:30:00' },
+          { from: '2026-06-23T11:00:00', to: '2026-06-23T12:00:00' },
+        ],
+      },
+    }, { alarmedAt: '2026-06-23T08:00:00', endedAt: '2026-06-23T12:00:00' })
+    const mine = personal.filter((r) => r.name === 'Meier Anna')
+    expect(mine).toHaveLength(1)
+    expect(mine[0].times).toHaveLength(2)
+    expect(mine[0].times?.map((t) => `${t.von}–${t.bis}`)).toEqual(['08:00–09:30', '11:00–12:00'])
+    // the remark belongs to the PERSON, so it is printed once
+    expect(mine[0].note).toBe('Fahrer TLF')
   })
 
   it('stays on bare clocks for an ordinary one-day Einsatz', () => {
     const { personal } = personalForPdf(roster, {
       p1: { status: 'present', displayNameSnapshot: 'Meier Anna', checkedInAt: '2026-06-23T08:23:00' },
     }, { alarmedAt: '2026-06-23T08:00:00', endedAt: '2026-06-23T11:00:00' })
-    expect(personal[0].von).toBe('08:23')
+    expect(personal[0].times?.[0].von).toBe('08:23')
   })
 })
 

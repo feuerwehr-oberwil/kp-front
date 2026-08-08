@@ -24,7 +24,7 @@ from __future__ import annotations
 import io
 import logging
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.lib.pagesizes import A4, landscape
@@ -279,12 +279,10 @@ def _alarm_ref_text(ref: str | None) -> str:
 _PAD_ROW = 2.8
 
 
-class PersonalRowIn(BaseModel):
-    """One roster row on the Personal-/Soldblatt: printed tick when digitally recorded,
-    blank checkbox + write-in stubs otherwise. Clocks are client-formatted HH:MM."""
+class PersonalTimeIn(BaseModel):
+    """One stretch a person was on scene. Clocks are client-formatted HH:MM (or «02.08. 14:41»
+    once the Einsatz runs past midnight)."""
 
-    name: str
-    erfasst: bool = False
     von: str | None = None
     bis: str | None = None
     #: this clock was DERIVED from the incident's bounds, not recorded by anybody — printed grey
@@ -292,11 +290,37 @@ class PersonalRowIn(BaseModel):
     #: is grey on both ends is one nobody has to check.
     vonDerived: bool = False
     bisDerived: bool = False
+
+
+class PersonalRowIn(BaseModel):
+    """ONE row per person on the Personal-/Soldblatt, however many times they came and went:
+    printed tick when digitally recorded, blank checkbox + write-in stubs otherwise."""
+
+    name: str
+    erfasst: bool = False
+    #: every stretch, stacked in the time column. It used to be one ROW per stretch, so somebody
+    #: who left and came back printed their name twice and was counted twice by anyone reading
+    #: down the roster — the sheet answers «who was here», and a name is a person, not a shift.
+    times: list[PersonalTimeIn] = []
+    #: legacy single-stretch fields, kept so a payload queued by an older client (a print job
+    #: waiting in the relay across a deploy) still composes. Folded into `times` on validation.
+    von: str | None = None
+    bis: str | None = None
+    vonDerived: bool = False
+    bisDerived: bool = False
     #: free remark on this person for this Einsatz («Fahrer TLF», «abgelöst 21:40») — printed
-    #: small under the name, on the first row of a person who was present more than once
+    #: small under the name, once, because it belongs to the person and not to a stretch
     note: str | None = None
 
     _clip = field_validator("note")(_clip_note)
+
+    @model_validator(mode="after")
+    def _fold_legacy(self) -> PersonalRowIn:
+        if not self.times and (self.von or self.bis):
+            self.times = [
+                PersonalTimeIn(von=self.von, bis=self.bis, vonDerived=self.vonDerived, bisDerived=self.bisDerived)
+            ]
+        return self
 
 
 class PlanRef(BaseModel):
@@ -697,7 +721,13 @@ class _FormRows(Flowable):
         self.boxed = boxed
         self.pitch = pitch
         self.pad = 3 * mm if boxed else 0
-        self.height = len(rows) * self.pitch + 2 * self.pad - (2.5 * mm if not boxed else 0)
+        # ⚠️ The TOP pad is smaller than the bottom one, and that is what makes them look equal.
+        # Each row's text hangs at the BOTTOM of its own pitch slot, so the first row already
+        # carries most of a slot of empty air above it: measured, the gap under the box's top rule
+        # was 19pt against 13.4pt over the bottom one and 15.2pt between rows — the box read as
+        # top-heavy, with «Kategorie» pushed away from the edge it belongs to.
+        self.pad_top = max(0.0, self.pad - 5) if boxed else 0
+        self.height = len(rows) * self.pitch + self.pad + self.pad_top - (2.5 * mm if not boxed else 0)
 
     def wrap(self, availWidth: float, availHeight: float):  # noqa: N803 — ReportLab API
         return self.width, self.height
@@ -727,7 +757,7 @@ class _FormRows(Flowable):
         inner = self.width - 2 * self.pad
         stops = self._tab_stops(c, inner)
         for i, row in enumerate(self.rows):
-            y = self.height - self.pad - (i + 1) * self.pitch + 2.4 * mm  # text baseline
+            y = self.height - self.pad_top - (i + 1) * self.pitch + 2.4 * mm  # text baseline
             x = self.pad
             offset = 0.0
             for f in row:
@@ -935,8 +965,15 @@ def compose_report_pdf(
         return [Paragraph(_esc(text), st["h2"]), hr]
 
     def write_lines(n: int, row_h: float = 8 * mm) -> Table:
-        """N dotted write-in lines (the Erfassungsblatt's Notizen look)."""
-        t = Table([[Paragraph(_LINE_STUB, st["body"])] for _ in range(n)], colWidths=[inner_w], rowHeights=[row_h] * n)
+        """N dotted write-in lines (the Erfassungsblatt's Notizen look).
+
+        The FIRST row is short by the heading's own `spaceAfter`, so the first rule sits the same
+        distance under the heading as the following rules sit under each other. At a full row it
+        carried the heading gap AND a whole writing height, which made the block start with a
+        visibly wider band than it ever repeats — the section looked like it began with a blank.
+        """
+        heights = [row_h - 7, *[row_h] * (n - 1)] if n else []
+        t = Table([[Paragraph(_LINE_STUB, st["body"])] for _ in range(n)], colWidths=[inner_w], rowHeights=heights)
         t.setStyle(
             TableStyle(
                 [
@@ -1401,6 +1438,9 @@ _SPLIT_BUDGET = 660
 # 42.5. Nothing in the two biggest blocks lined up with anything. Derive both halves from here
 # and a caller can no longer disagree with the table it is filling.
 _SPLIT_GUTTER = 3 * mm
+#: The tick-off square, drawn at a FIXED size so every checkbox in a column matches whatever
+#: the row around it does — see _personal_table.
+_CHECK_W = 4 * mm
 
 
 def _split_col_w(inner_w: float) -> float:
@@ -1447,22 +1487,20 @@ def _two_up(items: list, make_column, col_w: float) -> Table:
 def _personal_table(personal: list[PersonalRowIn], inner_w: float, st: dict[str, ParagraphStyle]) -> Table:
     """Two-up roster: [☐|Name|von–bis] × 2 — recorded people get a printed tick + clocks,
     the rest stays blank for the pen. Long rosters flow onto the next page."""
-    check_w = 4 * mm
+    check_w = _CHECK_W
     # ⚠️ ONE stub shape per sheet. The stub was always «__:__» while a recorded value on an
     # Einsatz over midnight reads «02.08. 14:41» — so a column of blanks was visibly a different
     # length from the rows above it, and what somebody has to write in did not match what the
     # row beside it shows. When ANY row on the sheet carries a date, every stub carries the
     # space for one.
-    dated = any("." in (p.von or "") or "." in (p.bis or "") for p in personal)
+    ends = [v for p in personal for t in p.times for v in (t.von, t.bis)]
+    dated = any("." in (v or "") for v in ends)
     stub = "__.__. __:__" if dated else _TIME_STUB
     # The clock column is sized to what it actually has to hold. A fixed 30 mm was enough for
     # «14:41 – 11:00» and not for «02.08. 14:41 – 04.06. 11:00», so an Einsatz over midnight
     # wrapped every row onto two lines — the remark under the name then had a stack of dates
     # beside it. Capped, so a stray long value cannot eat the name column instead.
-    widest_end = max(
-        (_str_w(v or stub, "Helvetica", 8.5) for p in personal for v in (p.von, p.bis)),
-        default=0.0,
-    )
+    widest_end = max((_str_w(v or stub, "Helvetica", 8.5) for v in ends or [None]), default=0.0)
     dash_w = 4 * mm
     end_w = min(widest_end + 1.5 * mm, 21 * mm)
     time_w = max(32 * mm, min(2 * end_w + dash_w, 46 * mm))
@@ -1486,22 +1524,36 @@ def _personal_table(personal: list[PersonalRowIn], inner_w: float, st: dict[str,
         # drifted — and every row put its dash somewhere else. «von» hangs right against the
         # dash, «bis» starts left of it, which is also how the two are read: inwards, from the
         # dash. Fixed widths mean no wrap either, so the old &nbsp; guard is unnecessary.
+        # ONE line per stretch, stacked — a person who left and came back has two, under the one
+        # printing of their name.
+        spans = p.times or [PersonalTimeIn()]
         vonbis = Table(
             [
                 [
-                    Paragraph(stamp(p.von, p.vonDerived), st["ramt"]),
+                    Paragraph(stamp(t.von, t.vonDerived), st["ramt"]),
                     Paragraph(f'<font color="{_DERIVED}">–</font>', st["rdash"]),
-                    Paragraph(stamp(p.bis, p.bisDerived), st["rcell"]),
+                    Paragraph(stamp(t.bis, t.bisDerived), st["rcell"]),
                 ]
+                for t in spans
             ],
             colWidths=[end_w, dash_w, end_w],
         )
-        vonbis.setStyle(TableStyle(_SPLIT_OUTER))
+        vonbis.setStyle(TableStyle([*_SPLIT_OUTER, ("TOPPADDING", (0, 1), (-1, -1), 2)]))
         name: list = [Paragraph(_esc(p.name) if p.name else _LINE_STUB, st["rcell"])]
         if p.note:
             name.append(Paragraph(_esc(_clip_print(p.note)), st["rnote"]))
+        # ⚠️ A FIXED square, not a BOX on the table cell. As a cell border it took the ROW's
+        # height — so a person with a remark, or with two stretches stacked in the time column,
+        # got a checkbox twice as tall as their neighbour's. A tick-off column whose boxes are
+        # different sizes reads as a form somebody drew by hand.
+        box = Table(
+            [[Paragraph("<b>X</b>" if p.erfasst else "", st["check"])]], colWidths=[_CHECK_W], rowHeights=[_CHECK_W]
+        )
+        box.setStyle(
+            TableStyle([*_SPLIT_OUTER, ("BOX", (0, 0), (-1, -1), 0.5, _WRITE), ("VALIGN", (0, 0), (-1, -1), "MIDDLE")])
+        )
         return [
-            Paragraph("<b>X</b>" if p.erfasst else "", st["check"]),
+            box,
             name,
             # ⚠️ A WRITE-IN row prints no clocks. The roster deliberately carries two blank rows
             # at the end for somebody who turned up and is not on the Mannschaftsliste (see
@@ -1533,7 +1585,6 @@ def _personal_table(personal: list[PersonalRowIn], inner_w: float, st: dict[str,
             ("FONTSIZE", (0, 0), (-1, -1), 8.5),
         ]
         for r, p in enumerate(people):
-            style.append(("BOX", (0, r), (0, r), 0.5, _WRITE))  # the checkbox square
             if not p.name:
                 # the rule runs under the NAME and the clock column both — a write-in row is a
                 # whole row to fill in, and ruling only half of it drew a line that stopped

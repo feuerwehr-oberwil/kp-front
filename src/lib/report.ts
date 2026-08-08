@@ -351,13 +351,23 @@ export function metaExtrasForPdf(meta: ReportMeta, bounds?: IncidentBounds): {
  *  an outer span that would silently bill the hours they were away. */
 /** One printed roster line. `vonDerived`/`bisDerived` mark a time the app worked out from the
  *  incident's own bounds rather than one somebody recorded — the sheet prints those grey. */
+/** One stretch a person was on scene. A crew that came back after a break has several. */
+export interface PersonalPdfTime {
+  von?: string
+  bis?: string
+  /** this clock was DERIVED from the incident's bounds, not recorded — printed grey */
+  vonDerived?: boolean
+  bisDerived?: boolean
+}
+
+/** ONE row per person, however many times they came and went. It used to be one row per BLOCK,
+ *  so somebody who left and came back printed their name twice on the roster and was counted
+ *  twice by anyone reading down the column — the sheet has to say «who was here», and a name is
+ *  a person, not a shift. The stretches stack in the time column instead. */
 export interface PersonalPdfRow {
   name: string
   erfasst: boolean
-  von?: string
-  bis?: string
-  vonDerived?: boolean
-  bisDerived?: boolean
+  times?: PersonalPdfTime[]
   note?: string
 }
 
@@ -464,20 +474,18 @@ export function personalForPdf(
   const clock = spanAwareClock(bounds)
   const rows = (name: string, a?: AttendanceState[string]): PersonalPdfRow[] => {
     const blocks = intervalsOf(a)
-    // the remark rides on the FIRST row of a person: repeating it on every block of a crew that
-    // came back twice would print «Fahrer TLF» three times under one name
     if (!blocks.length) {
       const von = a ? clock(bounds.alarmedAt) : undefined
       const bis = a ? clock(bounds.endedAt) : undefined
-      return [{ name, erfasst: !!a, von, bis, vonDerived: !!von, bisDerived: !!bis, note: a?.note }]
+      return [{ name, erfasst: !!a, times: [{ von, bis, vonDerived: !!von, bisDerived: !!bis }], note: a?.note }]
     }
     const alarmClock = clock(bounds.alarmedAt)
-    return blocks.map((iv, i) => {
+    const times = blocks.map((iv, i) => {
       const open = !iv.to
       const bis = open ? clock(bounds.endedAt) : clock(iv.to)
       const von = clock(iv.from)
       return {
-        name, erfasst: true, von, bis,
+        von, bis,
         // Somebody who was there from the alarm is the ordinary case, and their start is the
         // incident's own — nothing to check against. Only a check-in that DIFFERS from the
         // alarm says something the paper has to be read for. (First block only: a return
@@ -486,9 +494,10 @@ export function personalForPdf(
         // only the LAST open block inherits the incident's end — an earlier open block would
         // mean a missing check-out mid-incident, and filling that in would invent hours
         bisDerived: open && !!bis,
-        note: i === 0 ? a?.note : undefined,
       }
     })
+    // one row, every stretch — and the remark once, because it belongs to the person
+    return [{ name, erfasst: true, times, note: a?.note }]
   }
   const rosterIds = new Set(roster.map((p) => p.id))
   const guests = Object.entries(attendance)
