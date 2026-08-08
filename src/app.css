@@ -3853,21 +3853,25 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    padding put the content 38px in from each edge — on a 390px screen that is a fifth of the
    screen spent on margin, and the rapport visibly ran narrower than the surface beside it in the
    rail. Anwesenheit's grid is at 14px here, so this is. */
-@media (max-width: 600px) {
-  .rp-head { padding: 10px 14px; gap: 10px 12px; }
-  .report-preflight-surface > .ip-body { padding: 12px 14px calc(16px + var(--fab-safe, 0px)); }
-  .report-pre-section { padding: 12px 13px; }
-  /* Icons only. Three labelled buttons want ~600px and a phone has ~370px of head, so the row
-     wrapped to three stacked full-width buttons and ate a third of the surface before the rapport
-     started. The naming survives in aria-label/title (see the component); what is dropped is a
-     word the surface's own title already says. Square, so they read as a toolbar rather than as
-     buttons with their text missing. */
+/* ⚠️ Icons from the two-column breakpoint DOWN, not only on a phone. Three labelled buttons want
+   ~600px, so anywhere below ~1080 the head wrapped them onto a second row — and the surface that
+   is one column below 1080 is exactly the one that has no width to spare. The split is clean:
+   two columns and words, or one column and a toolbar. The naming survives in aria-label/title
+   (see the component); what is dropped is a word the surface's own title already says. Square,
+   so they read as a toolbar rather than as buttons whose text failed to load. */
+@media (max-width: 1080px) {
   .rp-head-actions .rp-btn-label { display: none; }
   .rp-head-actions .ip-btn { width: var(--tap); padding: 0; justify-content: center; }
   .rp-head-actions .rp-split .rp-split-main { width: var(--tap); }
   /* «Ausdrucken» keeps its offline reason, so it is the one that may stay wider than a square */
   .rp-head-actions .ip-btn.print-send.offline { width: auto; padding: 0 10px; }
   .rp-head-actions .print-send-main { gap: 5px; }
+}
+@media (max-width: 600px) {
+  .rp-head { padding: 10px 14px; gap: 10px 12px; }
+  .report-preflight-surface > .ip-body { padding: 12px 14px calc(16px + var(--fab-safe, 0px)); }
+  .report-pre-section { padding: 12px 13px; }
+
 }
 .report-preflight > .ip-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 
@@ -4280,8 +4284,17 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
   /* .toputil reposition migrated → MapUtility.module.css */
   /* journal actions go icon-only so the title + clock fit (undo/redo stay icons) */
   .tb-actions .tb-act:not(.icon) span { display: none; }
-  .tb-actions .tb-act { padding: 8px; }  /* icon + labeled buttons share one rhythm once labels hide */
-  .tb-act-add { min-width: 0; }
+  /* ⚠️ …and once a button is ONLY an icon it has to be a full tap target. It was `padding: 8px`,
+     which lands around 31px — under the gloved floor — and the --tap sizing only arrived at
+     ≤600px. So every width between 601 and 860 offered the smallest buttons in the app on the
+     row that logs a Verlauf entry. Icon-only and full size go together at every width. */
+  .tb-actions .tb-act { padding: 8px; min-width: var(--tap); min-height: var(--tap); justify-content: center; }
+  .tb-act-add { min-width: var(--tap); }
+  /* the weather goes to its SHORT form here too, not only on a phone: the wind arrow and its
+     speed are the operational half (which way the smoke goes, how fast) — the condition
+     glyph and the temperature are context, and this is the width where the bar runs out. */
+  .tb-weather { gap: 4px; padding: 6px 6px; }
+  .tb-weather-cond, .tb-weather-temp { display: none; }
 }
 /* …and the reservation is only owed while that cluster EXISTS. It floats top-right solely as the
    tool rail's stand-in during replay (`.map-util`); every other map — editor, Viewer, Einsatz-

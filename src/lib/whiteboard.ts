@@ -14,6 +14,18 @@ export const TILE_AR = 0.72 // each floor tile's height/width in the stack
 // the default "fit" view is sized + vertically centred into the region BELOW the
 // bar. Must match the top-bar clearance used in CSS.
 export const TOP_INSET = 80
+// …and the same for the SIDE rails. The plan pans under them happily once it is dragged
+// there — what it must not do is OPEN underneath them, because the left edge of a plan is
+// where its title block and its Zufahrt are. Left = NavRail (16 + --rail-w) plus air; right =
+// the tool rail (16 + --vrail-w) plus air. Zero on a phone, where both are bottom BARS.
+// Like TOP_INSET these must match the CSS; an EXPANDED rail is wider still, and the fit is
+// deliberately not re-run for that — expanding the rail is a deliberate act with the plan
+// already on screen, and re-fitting under the hand would move what somebody is looking at.
+export const SIDE_INSET_L = 88
+export const SIDE_INSET_R = 92
+/** No side rails on a phone — they are the two stacked bottom bars there. */
+export const sideInsets = (viewportW: number) =>
+  viewportW <= 600 ? { l: 0, r: 0 } : { l: SIDE_INSET_L, r: SIDE_INSET_R }
 // in the floor-stack (Gebäude) view the +OG / −UG pills straddle the top and bottom
 // edges of the stack (CSS top/bottom: -17px). The default "fit" reserves this much
 // extra room above AND below so both pills stay fully on-screen instead of clipping.

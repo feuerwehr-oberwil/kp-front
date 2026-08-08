@@ -23,7 +23,7 @@ import { DrawEditor } from './DrawEditor'
 import { ShapeEditor } from './ShapeEditor'
 import { ShapeGlyph, SHAPE_DEFS } from '../lib/shapes'
 import { noteScale, autoNoteWN, clampNoteWN, noteWN } from '../lib/notes'
-import { planUrl, TILE_AR, TOP_INSET, STACK_VPAD, clamp01, floorLabel, floorGeometry } from '../lib/whiteboard'
+import { planUrl, TILE_AR, TOP_INSET, STACK_VPAD, sideInsets, clamp01, floorLabel, floorGeometry } from '../lib/whiteboard'
 import { advanceDwell, applyRouting, attachInsetPx, boundaryPoint, EMPTY_DWELL, forkPortPoint, incomingAttachments, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 import { calibrate, pathMetres, polyAreaM2, isStale, type PlanScale } from '../lib/planScale'
 import { resolvePlanScale, saveStationDefault, saveStationPlanOverride } from '../lib/stationPlanScale'
@@ -389,11 +389,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // height excludes TOP_INSET so the fitted plan never sits behind the bar. In the
   // floor-stack we also reserve STACK_VPAD top & bottom so the +OG / −UG pills (which
   // straddle the stack edges) stay fully visible at the default fit.
+  const side = useMemo(() => sideInsets(vp.w), [vp.w])
   const fit = useMemo(() => {
-    const w = vp.w, h = Math.max(0, vp.h - TOP_INSET - (stack ? 2 * STACK_VPAD : 0)); if (!w || !h) return { w: 0, h: 0 }
+    const w = Math.max(0, vp.w - side.l - side.r)
+    const h = Math.max(0, vp.h - TOP_INSET - (stack ? 2 * STACK_VPAD : 0)); if (!w || !h) return { w: 0, h: 0 }
     const byW = { w, h: w * effAspect }
     return byW.h <= h ? byW : { w: h / effAspect, h }
-  }, [vp, effAspect, stack])
+  }, [vp, effAspect, stack, side])
   // Zoom by LAYOUT, not by a CSS scale transform: the board's real pixel size is
   // fit × scale. This re-rasterizes the PDF + SVG symbols + text crisply at the
   // actual zoom instead of bitmap-scaling a 100% texture (which pixelates them).
@@ -1577,7 +1579,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           <div
             ref={boardRef}
             className={`wb-board ${blank ? 'wb-board-blank' : ''}`}
-            style={{ width: sW || undefined, height: sH || undefined, transform: `translate(-50%, -50%) translate(${pos.x}px, ${pos.y + TOP_INSET / 2}px)` }}
+            // the reserved lanes are not symmetric (the rails differ), so the centre shifts by half
+            // their difference — exactly what TOP_INSET / 2 already does for the top bar
+            style={{ width: sW || undefined, height: sH || undefined, transform: `translate(-50%, -50%) translate(${pos.x + (side.l - side.r) / 2}px, ${pos.y + TOP_INSET / 2}px)` }}
           >
             {stack && building ? (
               floorsTTB.map((f, idx) => (

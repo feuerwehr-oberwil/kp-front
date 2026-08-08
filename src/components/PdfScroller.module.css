@@ -8,13 +8,27 @@
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
 }
+/* ⚠️ The padding RESERVES THE RAIL LANES. The scroller fills the whiteboard, which is
+   deliberately full-bleed (inset: 0) so a document can be panned up behind the top bar — but on
+   first load that meant the first page opened centred in the whole viewport, i.e. with its left
+   edge under the NavRail and its head under the top bar, which is exactly the part of a plan you
+   read first. Padding shifts the flex centring instead of clipping anything, so the page starts
+   in the free area and STILL scrolls under the chrome once anybody drags it there. */
 .pages {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  padding: 12px;
+  padding: 88px calc(var(--vrail-w, 60px) + 26px) 16px calc(var(--rail-w) + 28px);
   min-height: 100%;
+}
+/* phone: the rails are bottom BARS, so the lanes to keep clear are the top bar and the two
+   stacked bars at the foot */
+@media (max-width: 600px) {
+  .pages {
+    padding: calc(76px + env(safe-area-inset-top)) 10px
+      calc(var(--rail-h) * 2 + 28px + env(safe-area-inset-bottom)) 10px;
+  }
 }
 .page {
   display: block;
