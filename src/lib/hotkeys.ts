@@ -34,7 +34,7 @@ export type ViewCmd = 'zoomIn' | 'zoomOut' | 'locate' | 'coord'
 
 export type HotkeyCommand =
   | { type: 'module'; n: number }          // 1..9 → the plan module with that number
-  | { type: 'surface'; surface: SurfaceCmd } // K/H/A/W/I/R → a non-module surface
+  | { type: 'surface'; surface: SurfaceCmd } // K/C/A/P/M/R → a non-module surface
   | { type: 'fit' }                          // 0 → einpassen / center
   | { type: 'nav'; dir: -1 | 1 }             // Cmd+[ / Cmd+] → step through the whole nav list
   | { type: 'undo' }

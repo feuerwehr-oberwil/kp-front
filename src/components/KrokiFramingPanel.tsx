@@ -247,8 +247,10 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
                   <TeilstueckFork angleDeg={forkAngle(ld.d.coords)} color={ld.color} width={ld.width} />
                 </Marker>
               )}
+              {/* zIndex: above the line's own decorations — see MapView for why it has to sit on
+                  the marker container, and the printed Kroki has to match the screen */}
               {ld.hasTag && (
-                <Marker longitude={ld.tagAt[0]} latitude={ld.tagAt[1]} anchor="center" offset={[0, -14]}>
+                <Marker longitude={ld.tagAt[0]} latitude={ld.tagAt[1]} anchor="center" offset={[0, -14]} style={{ zIndex: 3 }}>
                   {/* no alarm tint here, exactly as on paper: a printed Kroki is the record of
                       an incident, not a live board (see krokiPayload · drawings) */}
                   <EndTag lineNo={ld.d.lineNo} content={ld.d.content} floorTag={ld.d.floorTag}

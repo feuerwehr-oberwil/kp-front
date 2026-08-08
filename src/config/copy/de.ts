@@ -56,12 +56,15 @@ export const de = {
         id: 'ueberblick', title: 'Überblick', icon: 'info',
         blocks: [
           { kind: 'intro' },
-          { kind: 'sub', text: 'Die vier Arbeitsbereiche (linke Leiste)' },
+          { kind: 'sub', text: 'Die Arbeitsbereiche (linke Leiste)' },
           { kind: 'list', items: [
             '**Lage** – die taktische Karte mit Symbolen, Linien, Flächen und den Werkleitungs-Ebenen.',
             '**Plan** – die Objektpläne dieser Wehr (Module, Gebäudeumrisse) als Whiteboard, stockwerkweise.',
             '**Checkliste** – abarbeitbare Einsatz-Checklisten.',
             '**Atemschutz** – Überwachung der eingesetzten Trupps mit Zeit und Druck.',
+            '**Personal** – wer im Einsatz ist, mit Zeiten und Bemerkung; auch Gäste («Weitere Person»).',
+            '**Material** – was eingesetzt wurde, aus dem Katalog oder frei erfasst.',
+            '**Rapport** – der Einsatzrapport: ein vorausgefülltes Formular, das über den ganzen Einsatz hinweg ergänzt und am Schluss gedruckt wird.',
           ] },
           { kind: 'note', text: 'Leitgedanke: bedienbar um 3 Uhr morgens, nach einem halben Jahr ohne Übung. Wiedererkennen statt auswendig lernen, mit Handschuhen und offline nutzbar.' },
         ],
@@ -72,13 +75,13 @@ export const de = {
           { kind: 'lead', text: 'Drei feste Zonen: die Bereichsleiste links, die Einsatzleiste oben, die Werkzeugleiste rechts.' },
           { kind: 'sub', text: 'Linke Leiste' },
           { kind: 'list', items: [
-            'Wechselt den Arbeitsbereich: **Karte** (Lage), die **Pläne** (Module/Gebäude), **Checkliste**, **Atemschutz**.',
+            'Wechselt den Arbeitsbereich: **Karte** (Lage), die **Pläne** (Module/Gebäude), **Checkliste**, **Atemschutz**, **Personal**, **Material**, **Rapport**. Auf jedem Knopf steht sein Buchstabe – der erste des deutschen Worts.',
             'Im Lage-Modus sind **Ebenen** und der **Karten**-Umschalter unten angeheftet – immer sichtbar.',
             'Am rechten Rand der Leiste ziehen klappt sie mit Beschriftungen auf bzw. wieder zu.',
           ] },
           { kind: 'sub', text: 'Obere Einsatzleiste' },
           { kind: 'list', items: [
-            'Links der Einsatz-Name mit dem **Menü** (Einsatz wechseln, Tag/Nacht, diese Hilfe …) und der Uhr.',
+            'Links der Einsatz-Name mit dem **Menü** (Einsatz abschliessen, Einsatz wechseln, Einstellungen, Offline-Bereitschaft, diese Hilfe …) und der **Einsatzuhr**.',
             'Rechts **Rückgängig/Wiederholen**, **Verlauf** und **+ Eintrag**.',
           ] },
           { kind: 'sub', text: 'Rechte Werkzeugleiste' },
@@ -167,7 +170,7 @@ export const de = {
         blocks: [
           { kind: 'lead', text: 'Pro Objekt ein Whiteboard über den Modul-/Gebäudeplänen. Stockwerkweise, mit eigenen Werkzeugen.' },
           { kind: 'list', items: [
-            'Oben links steht, welches **Objekt** geladen ist – antippen wählt ein anderes ([[O]]). Es bestimmt die Pläne in der linken Leiste.',
+            'Unten links, neben dem Massstab, steht die **Adresse** des geladenen Objekts – antippen wählt ein anderes ([[O]]). Das Objekt bestimmt die Pläne in der linken Leiste.',
             '**Symbol**, **Auswahl**, **Zeichnen** (Farbe/Stärke/Linienart), **Notiz** (Text), **Trupp**.',
             '**Stockwerke** als Stapel: mit den **OG/UG**-Knöpfen am Plan ein Geschoss darüber/darunter hinzufügen.',
             '**Zoom/Einpassen** unten in der Werkzeugleiste, wie auf der Karte.',
@@ -239,11 +242,14 @@ export const de = {
       {
         id: 'rapport', title: 'Rapport & Abschluss', icon: 'doc',
         blocks: [
-          { kind: 'lead', text: 'Am Einsatzende führt der **Abschluss-Assistent** durch den Rapport – ein vorausgefülltes Erfassungsblatt, kein Formular von null.' },
+          { kind: 'lead', text: 'Der **Einsatzrapport** ist eine eigene Fläche in der linken Leiste, unter Material ([[R]]) – ein vorausgefülltes Erfassungsblatt, kein Formular von null. Er wird über den ganzen Einsatz hinweg ergänzt, nicht erst am Schluss.' },
           { kind: 'list', items: [
-            'Prüfe **Anwesenheit**, **Mittel** und die Rapportangaben; fehlende Punkte sind markiert, blockieren den Druck aber nie.',
-            '**Rapport-PDF** erzeugt den fertigen Einsatzrapport (inkl. Kroki-Kartenausschnitt) – serverseitig gerendert, ein Knopf.',
+            'Auf breiten Schirmen zwei Spalten: links das **Formular** zum Tippen (Alarmierung, Kurzbericht, Zeiten, Bemerkungen, Rückmeldung ELZ), rechts der **Abgleich** zum Abhaken (Anwesenheit, Material, Partnerorganisationen, Beilagen).',
+            'Unter dem Titel steht, was erfasst ist – und als eigene Chips, was **noch offen** ist: Zeiten, Anwesenheit, Mittel, Einsatzleiter, Kurzbericht, Rückmeldung ELZ. Nichts davon blockiert je den Druck.',
+            'Der **Kroki-Ausschnitt** liegt als Feld neben dem Formular: verschieben, zoomen, **Hoch/Quer** und der **Kroki-Stand** – welchen Zeitpunkt das Bild zeigt, mit Strichen dort, wo etwas passiert ist. Gedruckt wird genau das, was auf dem Schirm steht; es gibt keinen Bestätigungsschritt.',
+            '**Einsatzrapport (PDF)** erzeugt den fertigen Rapport – serverseitig gerendert, ein Knopf. Das **▾** daneben öffnet **«Abschnitte»**: was aufs Papier kommt (Kroki, Pläne, Atemschutz, Anwesenheit, Material, Verlauf, Beilagen, detaillierter Prüfnachweis). Das Menü bleibt beim Anhaken offen.',
             'Wo eine Wehr einen **Stationsdrucker** betreibt: **Ausdrucken** schickt den Rapport direkt dorthin (bei Unterbruch wird gespeichert und nachgeschickt).',
+            'Stimmt etwas mit dem Datensatz nicht – eine unterbrochene Prüfkette, eine Sprachnotiz ohne Transkript, ein Foto noch in der Warteschlange –, erscheint neben den Knöpfen ein **oranger Hinweis-Chip**. Er zählt die Punkte und öffnet sie; ist alles in Ordnung, erscheint er gar nicht.',
             '**Einsatz abschliessen** archiviert den Einsatz und hält das Einsatzende fest.',
           ] },
           { kind: 'note', text: 'Ein abgeschlossener Einsatz lässt sich **wieder öffnen** – spätere Ergänzungen erscheinen in Verlauf und Rapport als **Nachträge**, nichts geht verloren.' },
@@ -290,7 +296,7 @@ export const de = {
           ] },
           { kind: 'sub', text: 'Tag / Nacht' },
           { kind: 'list', items: [
-            'Im Einsatz-Menü umschaltbar – der Nachtmodus dämpft Karte und Oberfläche fürs Dunkle.',
+            'In den **Einstellungen** ([[⌘]] [[,]]) unter «Farbschema»: Automatisch (folgt dem Tageslicht), Tag oder Nacht. Der Nachtmodus dämpft Karte und Oberfläche fürs Dunkle.',
           ] },
         ],
       },
@@ -2112,6 +2118,10 @@ export const de = {
     app: 'App',
     allIncidents: 'Alle Einsätze',
     report: 'Einsatzrapport',
+    // Adresse, Kategorie, Stichwort korrigieren — dieselbe Maske wie beim Eröffnen. Steht auch
+    // im Rapport («Aus den Einsatzdaten › Bearbeiten»); im Menü, weil ein falscher Ort auffällt,
+    // lange bevor jemand den Rapport öffnet.
+    editMeta: 'Einsatzdaten bearbeiten',
     archive: 'Einsatz abschliessen',
     noOpenIncidents: 'Keine offenen Einsätze',
     logout: 'Abmelden',

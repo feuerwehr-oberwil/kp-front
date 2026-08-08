@@ -122,7 +122,7 @@ export const it: Localizable<Copy> = {
         blocks: [
           { kind: 'lead', text: 'Una lavagna per oggetto sopra i piani dei moduli/edifici. Piano per piano, con strumenti propri.' },
           { kind: 'list', items: [
-            'In alto a sinistra si vede quale **oggetto** è caricato – toccalo per sceglierne un altro ([[O]]). Determina i piani nella barra a sinistra.',
+            'In basso a sinistra, accanto alla scala, l’**indirizzo** dell’oggetto caricato – toccalo per sceglierne un altro ([[O]]). L’oggetto determina i piani nella barra a sinistra.',
             '**Simbolo**, **Selezione**, **Disegna** (colore/spessore/tipo di linea), **Nota** (testo), **Squadra**.',
             '**Piani** come pila: con i pulsanti **PS/PI** sul piano aggiungi un livello sopra/sotto.',
             '**Zoom/Adatta** in basso nella barra degli strumenti, come sulla carta.',

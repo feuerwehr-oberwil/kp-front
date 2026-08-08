@@ -123,7 +123,7 @@ export const en: Localizable<Copy> = {
         blocks: [
           { kind: 'lead', text: 'One whiteboard per object over the module/building plans. Storey by storey, with its own tools.' },
           { kind: 'list', items: [
-            'Top left shows which **object** is loaded – tap it to pick another ([[O]]). It decides the plans in the left bar.',
+            'Bottom left, beside the scale, shows the loaded object’s **address** – tap it to pick another ([[O]]). The object decides the plans in the left bar.',
             '**Symbol**, **Select**, **Draw** (colour/width/line style), **Note** (text), **Team**.',
             '**Storeys** as a stack: use the **UF/BF** buttons on the plan to add a floor above/below.',
             '**Zoom/Fit** at the bottom of the tool rail, just like on the map.',

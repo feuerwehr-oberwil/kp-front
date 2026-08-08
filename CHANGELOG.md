@@ -31,6 +31,154 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
+- **The rapport prints the number WinFAP actually joins on.** «Einsatz-Nr» sits in the details
+  box beside the Alarmierung: the alerting system's own reference for the alarm, short form (its
+  first four hex) first because that is what gets typed, the full reference behind it so the slip
+  in the hand and the sheet on the desk can be checked against each other. It is the same value
+  `/api/stats/incidents` exports as `alarm_ref`, resolved **server-side** in
+  `compose_report_from_payload` rather than sent by the client, so a rapport printed from a stale
+  tab cannot put a different number on paper from the one the exporter sends. A missing reference
+  prints no row rather than an empty label, because an empty label invites a guess. The
+  «Einsatz-ID» left the footer with it – this app's own incident UUID joins nothing, and two
+  number-ish things on one sheet is how the wrong one ends up in the record system. ⚠️ It is an
+  address key, not an incident key: 52.9 % of Einsätze share it with another, so it removes the
+  address disagreement from the ±3 h join – it does not replace the join. See
+  [`docs/STATS-EXPORT.md`](docs/STATS-EXPORT.md).
+
+- **A half-typed entry survives leaving the surface.** Every «… erfassen» form lives on a
+  surface, and surfaces unmount when another is chosen in the rail – start recording a Mittel,
+  the radio goes, jump to the Verlauf, come back, and the half-filled form was gone with nothing
+  said. Drafts are kept outside the component that owns them, dropped on submit but **not** on
+  cancel («weg» and «ich mache gleich weiter» look identical from inside a form, and losing the
+  entry is the more expensive mistake), and dropped wholesale when the incident changes so the
+  next Einsatz can never be handed the previous one's entry.
+
+- **Messen can place a point without hitting it.** «Punkt in der Mitte setzen» on both the Lage
+  map and the Plan: the surface moves under a fixed centre instead of a gloved finger aiming at a
+  hydrant, which is the gesture that misses on a tablet. Same trade the Kroki framing makes.
+
+### Changed
+
+- **The Einsatzrapport is a surface, not a sheet.** It sits in the left rail under Material (key
+  `R`) and behaves like Anwesenheit and Mittel: the rail stays put and the page changes under it.
+  It is filled in ACROSS an Einsatz – a sentence here, a time there, jump to Anwesenheit because
+  somebody arrived, come back – which a modal was the wrong shape for, and choosing the Kroki
+  crop used to put the operator two dialogs deep on the one screen that has to stay legible at
+  3am. From 1080px up it splits into the form you TYPE on the left and the round-up you TICK OFF
+  on the right; the DOM order is untouched, because it is the printed order and tests pin it.
+  There is no ✕ and no «Abbrechen» – a page is left by choosing another surface.
+
+- **«Abschnitte» moved onto the print button.** What goes on the paper is several decisions in a
+  row, and a dialog to open, tick and close for each one was the long way round something done
+  while looking at the button that prints. They are checkbox rows in the menu on the `▾` half of
+  «Einsatzrapport (PDF)» now, under a heading that names them, and the menu stays open as they
+  are flipped. Printing prints; the picker is there for the rare sheet that leaves something out.
+
+- **The readiness chip appears only when something is wrong.** A green «Alles bereit» spent a
+  control on the most contested row of the surface to announce that nothing had happened, and
+  taught the eye to skip exactly the spot a warning appears in. What is still missing is named as
+  chips under the title instead – and «noch offen» now includes the Rückmeldung ELZ, which needs
+  both halves: a name with no time does not say when it was given, a time with no name does not
+  say who gave it.
+
+- **The surface shortcuts are the first letter of the German word.** `K` Karte · `C` Checkliste ·
+  `A` Atemschutz · `P` Personal · `M` Material · `R` Rapport. The old set had grown one letter at
+  a time – `H` for Checkliste, `W` for Anwesenheit, `I` for Mittel – and not one of the three
+  could be derived from anything. Taking `C`/`P`/`M` displaced three tools, which follow the same
+  rule rather than landing on whatever was free: Lasso → `W` (Wählen), Absperrkreis → `U`
+  (Umkreis, which is what it draws), Koordinaten → `X`. Surfaces resolve before tools, so a
+  letter claimed for a surface silently swallows a tool – the three moved in the same change.
+
+- **The Einsatzobjekt sits with its plans.** It decides WHICH plans load, so it belongs on the
+  Plan surface rather than in the incident menu. The chip joined the Maßstab in the stage's
+  bottom-left corner and reads the **address**: «Mühlemattstrasse 8» is shorter than «Schloss
+  Bottmingen» and is what an Einsatz is actually called by. The name stays the label in the
+  picker, which is where an object is searched for.
+
+- **Overlays are one design system.** The confirm card and the Atemschutz Trupp modal were flat
+  `--surface` with their own radius while seventeen sheets are `--glass` at `--r-hero`, so a
+  confirm opening over a sheet was visibly a different colour of card. `.btn` – the dense
+  map-dock button – was being used inside dialogs, where `.ip-btn` is the house family. And
+  `--mono`, which is for figures, had spread to micro-labels, so one sheet set every label in
+  Spline Sans Mono while the dialog beside it set the same label in Sora. Destructive confirms
+  take the outline danger rather than a solid red fill, which is what every other delete in the
+  app wears. Every «… erfassen» is a modal, including Mittel: one that behaved differently was
+  worse than either pattern applied everywhere.
+
+### Fixed
+
+- **A guest, once added, could not be removed.** Two independent bugs shut both routes at once,
+  quietly. The row's third tap deliberately refuses to cycle a guest back to «frei», because for
+  a hand-added person that attendance entry is the ONLY record they were ever here. And the
+  Zeiten sheet, which is where «Person entfernen» lives, looked its person up in the roster
+  alone, found nobody and silently did not open.
+
+- **Opening the print menu took the app down.** The heading added above «Abschnitte» rendered a
+  bare group label, which reads the id it has to announce out of a group context and throws when
+  there is none. A heading opens a real group now, and a rule divides one rather than ending it –
+  otherwise «Abschnitte» would have named only the three ticks above the first rule.
+
+- **The confirm dialog ignored a tap beside it.** Clicking the backdrop did nothing, on the
+  reasoning that a destructive confirm should not be dismissable by accident. But the only thing
+  a backdrop click can do is resolve *false* – it can never confirm – so the worst it buys is
+  pressing the button again, while a modal that does not answer the gesture every other overlay
+  answers reads as a frozen app.
+
+- **«Noch offen: Abschluss. Trotzdem abschliessen?»** The step checked the Kurzbericht but was
+  named after the section it sits in, so the confirm named the button that had just been pressed.
+  A step names the field it wants filled in.
+
+- **The printed roster listed a person once per shift.** Somebody who left and came back appeared
+  twice, counted twice by anyone reading down the column – and the sheet answers «who was here»,
+  where a name is a person, not a shift. One row now, the stretches stacked in the time column,
+  the remark printed once because it belongs to the person. The tick box is a fixed 4 mm square
+  whatever the row does, and the two clocks sit in three fixed columns so every dash lands on one
+  `x` – as one proportional string they drifted, because Helvetica's underscore is narrower than
+  its digits. The blank write-in rows stopped printing phantom `__:__` clocks, and the stubs
+  carry a date once any row on the sheet does.
+
+- **The Visum had nowhere to sign, and then two rules at two heights.** The rule was drawn on the
+  text baseline, so it underlined the name. Dropping it a writing height below the row fixed that
+  and broke the row instead: «Ort, Datum: ____» and «Einsatzleiter: Anna Meier ____» each carried
+  a rule at a different `y`, and the lower one sat nearer the NEXT row's label than the name it
+  belonged to. The rule is on the row's own line now and starts where the name ends – signing
+  happens beside the name, not under it.
+
+- **The printed sheet's columns disagreed with each other.** Headings reserved 26 mm with a
+  `CondPageBreak` that could not work – the reserve is measured before the heading is laid out –
+  so «Partnerorganisationen» printed as the last thing on page 1 with every one of its rows on
+  page 2. Personal and Material each subtracted the whole two-up gutter instead of half, so both
+  came out 8.5 pt narrow and were centre-floated against their own section rules. Material's
+  write-in rule started wherever its unit began, putting three different edges in one column.
+  The Beilagen gutter was subtracted from the widths AND drawn as padding inside them, so two
+  photographs measured as touching; plates centre in their box now and three rows fit a page
+  instead of two.
+
+- **A plan opened underneath the rails.** A plan and a viewer-only PDF both opened centred in the
+  whole viewport, so their left edge started under the NavRail and their head under the top bar –
+  which is where a plan keeps its title block and its Zufahrt. Both reserve the chrome now and
+  still pan under it once dragged, which was always deliberate; what was wrong was opening that
+  way.
+
+- **One breakpoint, at 600px.** The Rapport was the only surface switching to phone insets at 720
+  while the NavRail stays a vertical rail down to 600 – so through the whole 601–720px band (iPad
+  Split View, a landscape phone) the page ran edge-to-edge UNDER a floating rail that covered its
+  own title. Between 601 and 860 the top-bar actions were icon-only AND ~31px, the smallest
+  button in the app on the row that logs a Verlauf entry; icon-only and full size go together at
+  every width now.
+
+- **`--accent` had leaked into meaning state.** It is the brand red, and it had spread to the
+  Combo's «on» row and – worst – the time wheel's selection band: a selection painted alarm-red
+  on a surface where red already means *überfällig* is the one confusion the token rule exists to
+  prevent. Ticked rows on the Rapport went blue too, so an ordinary rapport lit up with nine blue
+  rings for the news that all was normal. Done reads by shape and ink now.
+
+- **Three CSS classes were referenced but never written.** `.ip-hint` is the visible one: the
+  Gast dialog's explanatory paragraph fell through to the browser default – 16px in full `--ink`
+  with 1em margins, above a 12px `--ink-dim` label – so the hint was larger and louder than the
+  heading's own subtitle. `.ip-btn danger` rendered «Schicht entfernen» identical to «Abbrechen»,
+  and `btn ghost` rendered three intended-transparent buttons as filled ones.
+
 - **A Rückmeldung can carry a photo.** Up to two, picked by hand in the sheet – "hier war der
   Knopf" is often one picture and no sentences. It is the only thing that leaves this app which
   the sanitiser cannot read, so it is fenced accordingly: the app still captures no screenshot
@@ -41,8 +189,8 @@ so this file – not the log – is the record of what shipped up to that point.
   not offered at all. See [`PRIVACY.md`](PRIVACY.md).
 
 - **The Einsatzrapport takes Beilagen.** Photos that belong to the REPORT rather than to the
-  Verlauf – an ID document, a damage close-up, a handed-over form. They are captured in the
-  rapport dialog (or at the Erfassungs-Poster, below), carry a caption, and print at the end
+  Verlauf – an ID document, a damage close-up, a handed-over form. They are captured on the
+  Rapport surface (or at the Erfassungs-Poster, below), carry a caption, and print at the end
   **one plate per page, large enough to read** – which is the only reason to photograph a
   document in the first place. Deliberately not a Verlauf row: the Verlauf is a timed record of
   what happened, and a picture of somebody's licence is neither an observation nor a moment.
@@ -54,7 +202,7 @@ so this file – not the log – is the record of what shipped up to that point.
   **checklist over the station's own list**: every organisation is on screen, ticked or not, and
   ticking one reveals the single free line that is the point of the block – «Wm. Keller,
   übernimmt Verkehr ab Kreisel». The one that turns up anyway can still be typed in. Screen and
-  paper ask it identically, in the rapport dialog and at the Erfassungs-Poster.
+  paper ask it identically, on the Rapport surface and at the Erfassungs-Poster.
 
 - **The printed Partnerorganisationen are a real form.** Every configured organisation prints
   with an **empty box**, not just the ones that were ticked on screen – a rapport gets corrected
@@ -111,7 +259,7 @@ so this file – not the log – is the record of what shipped up to that point.
 
 - **An archived Einsatz was only apparently read-only.** The banner has always said «Nur
   ansehen – zum Bearbeiten reaktivieren», but the checklist, Anwesenheit, Mittel and the whole
-  rapport dialog could still be changed – and saved. The unlock is «Reaktivieren», once and
+  Rapport could still be changed – and saved. The unlock is «Reaktivieren», once and
   with its own confirm; edits after it stay badged as Nachträge, which is what that is for.
 
 - **A contact clock was allowed to jump backwards.** On the public demo the time offset was
@@ -440,8 +588,9 @@ so this file – not the log – is the record of what shipped up to that point.
   once a few minutes past the previous one, then summed – **per person, never on the total**,
   which would otherwise make the same Einsatz answer differently depending on how many people
   came. The station sets the block and the grace (`report.hoursRounding`, default 30 / 5 minutes,
-  `docs/CONFIGURATION.md` §1b), and **the paper prints the rule next to the number** – a rounded
-  figure nobody can reproduce is a figure nobody trusts. The per-person Stunden columns stay off
+  `docs/CONFIGURATION.md` §1b). The rule itself is **not** printed: it is identical on every
+  rapport a station produces, so the sheet would repeat one sentence forever – it belongs in the
+  Weisung. What makes the rounded figure checkable is the raw one printed beside it. The per-person Stunden columns stay off
   the paper as decided in 2026-07: WinFAP computes those from the recorded von–bis. This is the
   summary for whoever signs the sheet.
 
@@ -452,7 +601,7 @@ so this file – not the log – is the record of what shipped up to that point.
   carries its number **B7**, so the Verlauf, a phone call and the paper can name the same
   picture, and every page names its Einsatz in the footer – a rapport gets stapled, unstapled and
   passed around, and a loose sheet that does not say which Einsatz it belongs to cannot be put
-  back. Whether the photos print at all stays the Beilagen toggle in the rapport dialog; the
+  back. Whether the photos print at all stays the Beilagen tick under «Abschnitte»; the
   downloaded PDF always carries everything.
 
 - **The printed rapport ejected a blank sheet.** Every Anhang section both *opens* with a page
@@ -472,7 +621,7 @@ so this file – not the log – is the record of what shipped up to that point.
 
 - **The sections print in the order the app asks for them.** Anwesenheit → Material →
   Partnerorganisationen: our own people, our own material, then everyone else – the same
-  sequence as the rapport dialog on screen, so filling in and checking the paper follow one
+  sequence as the Rapport surface on screen, so filling in and checking the paper follow one
   order. «Material (Menge eintragen)» is just **Material**; the amount stubs say that already.
 
 - **A Beilage no longer claims a whole page.** Four photos meant four sheets. The app is where

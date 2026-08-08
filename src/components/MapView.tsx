@@ -1182,8 +1182,13 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
               <TeilstueckFork angleDeg={ld.angleDeg} color={ld.color} width={ld.width} />
             </Marker>
           )}
+          {/* ⚠️ zIndex ABOVE the line's other decorations. Every MapLibre marker is its own
+              stacking context (it carries a transform), so a z-index inside the tag cannot
+              lift it past a SIBLING marker — it has to sit on the marker container. Without
+              it the decorations of a line that runs under its own tag paint straight through
+              the text, and the tag is the one thing on a Leitung that has to stay readable. */}
           {(ld.d.content || ld.d.lineNo != null || ld.d.floorTag != null || ld.trupp) && (
-            <Marker longitude={(ld.d.endLabelAt ?? ld.anchor)[0]} latitude={(ld.d.endLabelAt ?? ld.anchor)[1]} anchor="center" offset={[0, -14]}>
+            <Marker longitude={(ld.d.endLabelAt ?? ld.anchor)[0]} latitude={(ld.d.endLabelAt ?? ld.anchor)[1]} anchor="center" offset={[0, -14]} style={{ zIndex: 3 }}>
               {/* the -14 offset lifts the tag clear of the line end; dragging pins it to a georeferenced anchor */}
               <div className={`line-end-tag-wrap draggable${ld.d.id === selectedDrawingId ? ' sel' : ''}`}
                 style={{ cursor: onLabelMove ? 'move' : undefined }}

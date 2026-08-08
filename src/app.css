@@ -1587,8 +1587,8 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 /* the chips position themselves through the row now, not against the stage */
 .wb-botleft > .wb-scale-chip { position: static; }
-/* the object's name may take the room the Maßstab does not — it is the longer of the two, and
-   the Maßstab is a handful of characters */
+/* the object's ADDRESS may take the room the Maßstab does not — it is the longer of the two,
+   and the Maßstab is a handful of characters */
 .wb-object { min-width: 0; max-width: 100%; }
 /* a read-out with nowhere to go (a link-scoped viewer is bound to ONE object) is not greyed out
    — it is still the answer to «which building am I looking at», it simply cannot be tapped */

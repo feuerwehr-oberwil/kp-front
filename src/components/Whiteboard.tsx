@@ -1517,6 +1517,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // rather than a header row because the stage is deliberately full-bleed (the plan pans up
   // behind the top bar), and a solid bar would take that away from every plan to state
   // something that changes once an Einsatz.
+  // It sits in the stage's BOTTOM-LEFT pill row beside the Maßstab and wears that pill, so the
+  // two read-outs about «what am I looking at» share one corner — it used to be a hero-elevated
+  // card in the TOP-left, stating from the corner of the plan that is actually looked at a thing
+  // that changes once an Einsatz.
   // ⚠️ The READ-OUT and the SWITCH are two different things, and gating both on `onObjectSwitch`
   // meant the one session that is bound to a single object — a link-scoped viewer — was the only
   // one never told which object it is looking at. It reads either way; it is only tappable when

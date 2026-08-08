@@ -408,7 +408,8 @@ export function IncidentWorkspace({
   // most-recently-used symbols (shared by both surfaces' palettes) — newest first, deduped, capped
   const addRecent = (name: string) => setRecent((r) => [name, ...r.filter((x) => x !== name)].slice(0, 12))
   // overlay / popover / sheet open-state (views popover, symbol palette, Einstellungen,
-  // Objekt-Picker, Hilfe, Installations-Guide, Offline-Bereitschaft, Rapport-Preflight,
+  // Objekt-Picker, Hilfe, Installations-Guide, Offline-Bereitschaft — the Rapport is not here,
+  // it is a rail surface, so «open it» is setMode('rapport'),
   // layers panel) — grouped in useSheets; switching to a tool closes the views popover + panel.
   const { viewsOpen, setViewsOpen, paletteOpen, setPaletteOpen, settingsOpen, setSettingsOpen, pickerOpen, setPickerOpen, helpOpen, setHelpOpen, installGuideOpen, setInstallGuideOpen, offlineReadyOpen, setOfflineReadyOpen } = useSheets()
   // Rückmeldung composer, reachable only from Einstellungen. Deliberately NOT in useSheets'
@@ -2454,6 +2455,7 @@ export function IncidentWorkspace({
             onSettings={linkScoped ? undefined : () => setSettingsOpen(true)}
             onSwitch={onSwitchIncident}
             onHistory={linkScoped ? undefined : onOpenHistory}
+            onEditMeta={canEditIncident && !readOnly ? onEditMeta : undefined}
             onDivera={onOpenDivera}
             onDatenquellen={onOpenDatenquellen}
             // Einsatzrapport (PDF + Drucken) and «Alle Einsätze» are both refused for a link

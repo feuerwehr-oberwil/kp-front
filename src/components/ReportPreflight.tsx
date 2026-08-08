@@ -585,8 +585,8 @@ export function ReportPreflight({
        its Zeiten grid and its two-up roster ask for. It is also the last screen here with no
        dialog left over it at all: the Kroki framing used to open on top of this, which put the
        operator two windows deep on the one screen that has to stay legible at 3am, and it is a
-       panel in the page now. The head keeps a close button because the surface is still
-       something you LEAVE (back to the Lage), not a place to end up. */
+       panel in the page now. The head carries NO close button: a page is left by choosing
+       another surface in the rail, and a ✕ on one of six surfaces asks «closed into what?». */
     <>
       {/* Opaque backdrop, exactly as Mittel and Atemschutz do it: the Lage showing through the
           gap around an inset card makes a form look like something floating over the map, and

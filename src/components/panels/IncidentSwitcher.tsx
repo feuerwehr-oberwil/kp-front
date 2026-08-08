@@ -37,7 +37,7 @@ function SyncGlyph({ done, label }: { done: boolean; label: string }) {
 
 // --- TopBar switcher ----------------------------------------------------------------
 export function IncidentSwitcher({
-  active, incidents, isEditor, syncStatus, lastSyncedAt, user, onSettings, onSwitch, onHistory, onDivera, onArchive, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey,
+  active, incidents, isEditor, syncStatus, lastSyncedAt, user, onSettings, onSwitch, onHistory, onDivera, onEditMeta, onArchive, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey,
 }: {
   active: IncidentMeta | null
   incidents: IncidentMeta[]
@@ -58,6 +58,8 @@ export function IncidentSwitcher({
    *  generate documents or reach the station printer */
   /** archive the ACTIVE incident (behind the caller's «wirklich abschliessen?» confirm);
    *  absent for viewers / read-only views / an already-archived incident */
+  /** correct the dispatch facts (address, category, Stichwort) — omitted for a viewer */
+  onEditMeta?: () => void
   onArchive?: () => void
   onHelp: () => void
   /** open the "Als App installieren" guide — App passes it only in a plain browser tab */
@@ -233,6 +235,12 @@ export function IncidentSwitcher({
                   not in a menu that is opened for something else. Here it also had to say the
                   object's name — a menu row is the wrong place for a read-out you want to check
                   while you work on the plans it names. */}
+              {/* A wrong ADDRESS is noticed while looking at the map, long before anybody opens
+                  the Rapport — and the Rapport's «Bearbeiten» link was the only way in. Same
+                  mask either way; this is just the second door, next to the incident it edits. */}
+              {onEditMeta && (
+                <button className="ip-menu-act" onClick={() => { setOpen(false); onEditMeta() }}><Icon id="pen" /> {cp.editMeta}</button>
+              )}
               {onArchive && (
                 /* No rule above it. It was there to set the terminal «abschliessen» apart from
                    the Sync button as a mis-tap neighbour — but Sync is a 40px icon at the head's

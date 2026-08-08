@@ -123,7 +123,7 @@ export const fr: Localizable<Copy> = {
         blocks: [
           { kind: 'lead', text: 'Un tableau blanc par objet par-dessus les plans de module/bâtiment. Étage par étage, avec ses propres outils.' },
           { kind: 'list', items: [
-            'En haut à gauche, l’**objet** chargé – toucher pour en choisir un autre ([[O]]). Il détermine les plans de la barre de gauche.',
+            'En bas à gauche, à côté de l’échelle, l’**adresse** de l’objet chargé – toucher pour en choisir un autre ([[O]]). L’objet détermine les plans de la barre de gauche.',
             '**Symbole**, **Sélection**, **Dessiner** (couleur/épaisseur/type de ligne), **Note** (texte), **Équipe**.',
             '**Étages** en pile : avec les boutons **étage sup./sous-sol** sur le plan, ajouter un niveau au-dessus/en dessous.',
             '**Zoom/Ajuster** en bas de la barre d’outils, comme sur la carte.',

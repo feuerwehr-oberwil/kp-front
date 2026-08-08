@@ -4,7 +4,7 @@ import { useState } from 'react'
  *  synced, all of it purely local UI. Grouped here to keep the workspace component's state
  *  list focused on operational data: the views popover, symbol palette, and the one-off
  *  modal sheets (Einstellungen, Objekt-Picker, Hilfe, Installations-Guide,
- *  Offline-Bereitschaft, Rapport-Preflight).
+ *  Offline-Bereitschaft). The Rapport is NOT one of them — it is a rail surface (`mode`).
  *
  *  The layers `panel` stays in the workspace component: it's cleared alongside the tactical
  *  gesture state (enterReplay, the tool-change effect), so it lives next to that state. */

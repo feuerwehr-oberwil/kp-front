@@ -322,8 +322,14 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
    same weight as the ring around the dots themselves. The row is dragged with a thumb and the
    dots are cut off at the edge, which is the affordance; the rail added nothing but noise.
    Same treatment the phone tool dock gets. */
-.colorRow { display: flex; align-items: center; gap: 8px; overflow-x: auto; overscroll-behavior-x: contain;
-  scroll-snap-type: x proximity; padding: 2px 0 6px;
+/* ⚠️ `overflow-y: hidden` is not belt-and-braces: setting `overflow-x: auto` makes the OTHER axis
+   compute to `auto` too, so this row scrolled vertically as well — over the 44px transparent hit
+   pad each 28px dot carries (`.colorDot::after`), which overflows the row by 8px top and bottom.
+   The padding is 8px so that pad fits INSIDE the row: clipping it would have silently shrunk the
+   gloved tap target it exists to provide, which is the wrong way to stop a scrollbar. */
+.colorRow { display: flex; align-items: center; gap: 8px;
+  overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity; padding: 8px 0;
   scrollbar-width: none; -ms-overflow-style: none; }
 .colorRow > * { flex: none; scroll-snap-align: center; }
 .colorRow::-webkit-scrollbar { display: none; }
