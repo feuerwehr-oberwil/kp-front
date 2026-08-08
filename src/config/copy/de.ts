@@ -1189,12 +1189,14 @@ export const de = {
       unit: 'm',
       confirm: 'Übernehmen',
       cancel: 'Abbrechen',
-      chipCalibrated: 'Massstab: Ref. {m} m',
-      chipUncalibrated: 'Massstab nicht kalibriert',
+      // Der Chip schwebt ÜBER dem Plan, also kostet jedes Wort Plan. Das Icon sagt bereits
+      // «Massstab»; der Text sagt nur noch, woran man ist.
+      chipCalibrated: 'Ref. {m} m',
+      chipUncalibrated: 'nicht kalibriert',
       recalibrate: 'Neu kalibrieren',
       calibrate: 'Massstab kalibrieren',
       calibrateHint: 'Zwei Punkte des Massstabs antippen',
-      stale: 'Plan geändert – Massstab neu prüfen',
+      stale: 'Massstab neu prüfen',
       saved: 'Massstab kalibriert ({m} m Referenz)',
       // #3: persist a calibration station-wide (across incidents) so plans measure out of the box
       persistTitle: 'Massstab merken?',
@@ -2370,8 +2372,12 @@ export const de = {
     // Eine Zeile unter dem Titel, im Ton der anderen Flächen («12 anwesend · 3 gegangen · 28
     // Mannschaft»): erst was erfasst ist, dann das Urteil. Die offenen Punkte werden BENANNT –
     // «unvollständig» allein schickt einen auf die Suche.
-    headSummaryOpen: '{n} Personen · {m} Positionen · noch offen: {steps}',
-    headSummaryReady: '{n} Personen · {m} Positionen · alle Angaben erfasst',
+    // Der Kopf trägt die Zahlen; was noch fehlt, steht als eigene Chips daneben und darf
+    // umbrechen — als ein Satz wurde daraus «… noch offen: Kurzberi…», also genau die
+    // Information abgeschnitten, derentwegen die Zeile existiert.
+    headCounts: '{n} Personen · {m} Positionen',
+    headAllRecorded: 'alle Angaben erfasst',
+    headStillOpen: 'noch offen',
     // Rapportangaben section
     // «Rapportangaben» stand als eine Überschrift über allem – anderthalb Bildschirme, in denen
     // sich nichts durch Hinschauen finden liess. Vier Abschnitte, jeder nach der Frage benannt,

@@ -506,7 +506,7 @@ export function IncidentWorkspace({
   useEffect(() => { if (mode !== 'anwesenheit' && mode !== 'mittel') setRapportReturn(false) }, [mode])
   // per-object backend module plans (auto-surfaced near object, or a manual PlanPicker override),
   // plus the resolved plan-doc list with module PDFs swapped in — see useObjectPlans
-  const { backendPlans, resolvedPlanDocs, manualObject, activeObjectName, pickObject, resetObject } = useObjectPlans(incidentMeta.id, incidentView.center, setActivePlanId, pickedObjectId, setPickedObjectId)
+  const { backendPlans, resolvedPlanDocs, manualObject, activeObjectName, activeObjectAddress, pickObject, resetObject } = useObjectPlans(incidentMeta.id, incidentView.center, setActivePlanId, pickedObjectId, setPickedObjectId)
 
   // PWA: pre-download the current map area + plans/symbols/geodata so the base map and
   // reference data render offline at the scene (delivers the `offline`/`cachedTiles` promise).
@@ -3003,6 +3003,7 @@ export function IncidentWorkspace({
           // which object's plans these are — named on the Plan surface itself (it decides what
           // the rail lists). A link session is bound to one object, so it gets no switch.
           objectName={activeObjectName}
+          objectAddress={activeObjectAddress}
           onObjectSwitch={linkScoped ? undefined : () => setPickerOpen(true)}
           symMul={symMul}
           captionMode={symbolCaptions}

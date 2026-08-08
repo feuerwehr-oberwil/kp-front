@@ -3229,19 +3229,22 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .ip-hist-nores { margin: 4px 2px; font: 500 13px var(--body); color: var(--ink-faint); font-style: italic; }
 
 /* --- Rapport closing checklist (inside the Einsatzrapport sheet) --------------------- */
-.rp-checks { display: flex; flex-direction: column; gap: 8px; }
-/* ⚠️ `--surface-veil` inside a `--surface-2` card is a 1% difference at night (.07 vs .06 white)
-   and there was no border — the four rows read as one flat slab of text with no edges at all.
-   The same family of rows on the sibling surfaces (Anwesenheit `.person`, Mittel `.row`) are
-   solid `--surface` on a `--glass-edge` hairline; this is that. */
+/* Not a card any more — a plain stack of them. The four rows sit at COLUMN level, beside the
+   form's named sections, so the gap is the column's own 12px and the rhythm of the two halves
+   of the page finally matches. */
+.rp-checks { display: flex; flex-direction: column; gap: 12px; }
+/* ⚠️ Same material as `.report-pre-section`, because that is now what these ARE: top-level
+   cards in the side column, facing the form's cards across the page. (They were `--surface-veil`
+   inside a `--surface-2` wrapper — a 1% difference at night, with no border, so the four read as
+   one flat slab of text with no edges at all.) */
 .rp-check { display: flex; flex-direction: column; border-radius: var(--r-ctl);
-  border: 1px solid var(--glass-edge); background: var(--surface); }
+  border: 1px solid var(--glass-edge); background: var(--surface-2); }
 /* only the two rows that GO somewhere respond to the pointer — Partner and Beilagen are worked
    inside the row and their `.rp-check-main` is disabled, so a hover on them would promise a
    navigation that is not there */
 .rp-check { position: relative; }
 .rp-check:has(.rp-check-main:not(:disabled)):hover { border-color: var(--ink-faint); }
-.rp-check-main { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 5px 10px;
+.rp-check-main { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 11px 16px;
   border: none; background: none; text-align: left; color: var(--ink); cursor: pointer; width: 100%; }
 .rp-check-main:disabled { cursor: default; }
 /* THE WHOLE CARD OPENS IT, not the title row alone. The names under «Anwesenheit» are the reason
@@ -3267,7 +3270,8 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .rp-check-sub { font: 500 12.5px var(--body); color: var(--ink-faint); flex: 1; min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
 .rp-check-go { flex: none; width: 15px; height: 15px; color: var(--ink-faint); }
-.rp-check-extra { padding: 0 12px 10px 48px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+/* the body starts under the LABEL, not under the dot: 16 (card pad) + 26 (dot) + 10 (gap) */
+.rp-check-extra { padding: 0 16px 14px 52px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
 /* quick double-check lists (Anwesenheit names + Mittel lines): read-only chips, early
    leavers / amounts inline — corrections go through the row's Go arrow */
 /* No inner scroller. A 34vh cap put a second scroll region inside a surface that already scrolls
@@ -3691,10 +3695,21 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    paints over whatever is beside it */
 .rp-head-titles h2 { margin: 0; font: 800 19px var(--body); color: var(--ink);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* one line, and it truncates rather than pushing the head to two rows: the missing steps can
-   name four things on an Einsatz nobody has written up yet */
-.rp-head-titles p { margin: 3px 0 0; font-size: 12.5px; color: var(--ink-dim);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* ⚠️ It WRAPS now. Truncating this line meant truncating the missing steps, because they sit
+   at its end — «noch offen: Kurzberi…» hides the one thing the line exists to say. The
+   counts stay a single read-out; the open steps are chips that take a second row when they
+   need one, which on a head that is already allowed to wrap costs nothing. */
+.rp-head-sum { margin: 4px 0 0; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px;
+  font-size: 12.5px; color: var(--ink-dim); min-width: 0; }
+.rp-head-counts { white-space: nowrap; }
+.rp-head-done { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.rp-head-done svg { width: 13px; height: 13px; }
+/* Amber, not red: nothing here is wrong, it is simply not written yet — and --accent is the
+   brand red and never means state. The label is the quiet one, the fields are what is read. */
+.rp-head-open { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; min-width: 0; }
+.rp-head-open-k { color: var(--ink-faint); }
+.rp-head-open em { font-style: normal; font-weight: 700; padding: 1px 7px; border-radius: var(--r-pill);
+  color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 14%, transparent); }
 .rp-head-actions { flex: 0 1 auto; min-width: 0; margin-left: auto;
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 /* Each control keeps its own width when the cluster wraps — only the print split may give, and
@@ -4897,12 +4912,19 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
    over anything behind it — the marks were being drawn and then covered by the track, which
    looks exactly like «the marks were never added». They still take no pointer events, so the
    slider keeps every pixel of its hit area. */
+/* A RULER under the groove: a hairline the whole width of the track, with a taller tick at
+   every moment. The hairline is what makes them read as marks ON a timeline rather than as
+   specks — a handful of 2px dashes floating under a slider is not a pattern the eye picks
+   up, which is why they were there and nobody saw them. They also sat at --ink-dim, which
+   on this track is barely a shade off the groove itself. */
 .kf-at-marks { position: absolute; inset: 50% 9px auto 9px; height: 0; pointer-events: none; z-index: 2; }
-.kf-at-marks i { position: absolute; top: 6px; width: 2px; height: 7px; margin-left: -1px;
-  border-radius: 1px; background: var(--ink-dim); opacity: .9; }
+.kf-at-marks::before { content: ''; position: absolute; left: 0; right: 0; top: 12px; height: 1px;
+  background: color-mix(in srgb, var(--ink-faint) 45%, transparent); }
+.kf-at-marks i { position: absolute; top: 6px; width: 2px; height: 9px; margin-left: -1px;
+  border-radius: 1px; background: var(--ink); opacity: .75; }
 /* «wird rekonstruiert» as MOTION on the track it belongs to, not a sentence beside it: a thin
    bar sweeping the slider says the same thing without a fixed text slot resizing the bar. */
-.kf-at-prog { position: absolute; left: 0; right: 0; top: 50%; margin-top: 9px; height: 2px; border-radius: 1px;
+.kf-at-prog { position: absolute; left: 0; right: 0; top: 50%; margin-top: 17px; height: 2px; border-radius: 1px;
   overflow: hidden; opacity: 0; transition: opacity .15s ease; pointer-events: none; }
 .kf-at-track.busy .kf-at-prog { opacity: 1; }
 .kf-at-prog::after { content: ''; position: absolute; inset: 0 auto 0 0; width: 38%; border-radius: 1px;

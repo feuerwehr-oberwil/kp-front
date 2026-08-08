@@ -234,13 +234,13 @@ export function IncidentSwitcher({
                   object's name — a menu row is the wrong place for a read-out you want to check
                   while you work on the plans it names. */}
               {onArchive && (
-                <>
-                  {/* set the terminal «abschliessen» apart from the card above it so it isn't a
-                      mis-tap neighbour of the Sync button — it still runs the «wirklich
-                      abschliessen?» confirm */}
-                  <div className="ip-menu-sep ip-menu-sep-tight" />
-                  <button className="ip-menu-act" onClick={() => { setOpen(false); onArchive() }}><Icon id="check" /> {cp.archive}</button>
-                </>
+                /* No rule above it. It was there to set the terminal «abschliessen» apart from
+                   the Sync button as a mis-tap neighbour — but Sync is a 40px icon at the head's
+                   right edge and this is a full-width row below it, so they were never in the
+                   same reach; the rule only chopped the head card in half. The separation that
+                   does the work is the rule UNDER it, which parts «dieser Einsatz» from the list
+                   of other ones, and the confirm the action still runs. */
+                <button className="ip-menu-act" onClick={() => { setOpen(false); onArchive() }}><Icon id="archive" /> {cp.archive}</button>
               )}
               <div className="ip-menu-sep" />
             </>

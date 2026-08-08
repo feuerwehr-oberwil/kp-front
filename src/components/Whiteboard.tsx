@@ -143,6 +143,8 @@ interface Props {
   /** the loaded Einsatzobjekt (manual pick or auto-surfaced nearest) — named on the surface,
    *  because it is what decides which plans these are. Null = none resolved yet. */
   objectName?: string | null
+  /** the object's street address — what the chip over the plans reads (see objectChip) */
+  objectAddress?: string | null
   /** open the PlanPicker. Omitted (an Einsatz-Link, which is bound to one object's plans)
    *  hides the whole control — a read-out nobody may act on is chrome. */
   onObjectSwitch?: () => void
@@ -160,7 +162,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', onChange, building, onSelectBuilding, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, onRecent, log, onSymbolPlaced, emit = () => {}, historyRef, onHistoryState, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTruppColor, onPickLine, onLinkLineTrupp, truppSeverities, objectName, onObjectSwitch, planScale = {}, onCalibrate, slimTools: slimToolsProp = false }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', onChange, building, onSelectBuilding, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, onRecent, log, onSymbolPlaced, emit = () => {}, historyRef, onHistoryState, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTruppColor, onPickLine, onLinkLineTrupp, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, slimTools: slimToolsProp = false }: Props) {
   const active = plans.find((p) => p.id === activeId) ?? plans[0]
   // A viewer-only plan (e.g. PV/documentation PDF) is read-only regardless of role: plain
   // pan/zoom, no drawing tools or annotation surface. Folds into the existing readOnly gates.
@@ -1517,7 +1519,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // meant the one session that is bound to a single object — a link-scoped viewer — was the only
   // one never told which object it is looking at. It reads either way; it is only tappable when
   // there is somewhere to tap to.
-  const objectChipName = objectName ?? appConfig.copy.whiteboard.objectNone
+  // the ADDRESS, not the name: «Mühlemattstrasse 8» is shorter than «Schloss Bottmingen» and is
+  // what the Einsatz is called by. The name is still what the picker and its toast say, because
+  // that is where an object is searched for. Name is the fallback when there is no address.
+  const objectChipName = objectAddress ?? objectName ?? appConfig.copy.whiteboard.objectNone
   const objectChip = (
     <button
       type="button"

@@ -92,6 +92,21 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
     setDragMs(null)
   }
   const label = krokiStandLabel(dragMs ?? atMs)
+  /** Where the ticks go, as percentages, one per VISIBLE position rather than one per event.
+   *  A busy Einsatz records hundreds of moments inside one hour; drawn raw they merge into a
+   *  solid bar, which says «something happened all the time» — the opposite of what a mark is
+   *  for — and puts hundreds of nodes under the thumb. Rounded to 0.5 % of the track (roughly
+   *  a tick's own width at any usable size) and de-duplicated, so two ticks are two places. */
+  const markPcts = useMemo(() => {
+    const span = nowMs - startedAtMs!
+    if (startedAtMs == null || span <= 0) return []
+    const seen = new Set<number>()
+    for (const t of moments) {
+      if (t < startedAtMs || t > nowMs) continue
+      seen.add(Math.round(((t - startedAtMs) / span) * 200) / 2)
+    }
+    return [...seen].sort((a, b) => a - b)
+  }, [moments, startedAtMs, nowMs])
   const mapRef = useRef<MapRef>(null)
   const [previewZoom, setPreviewZoom] = useState(initial?.zoom ?? 16)
   const [previewWidth, setPreviewWidth] = useState(720)
@@ -318,13 +333,9 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
                 recorded action. Ticks only: they mark, they are not targets, and the slider
                 underneath keeps every pixel of its own hit area. */}
             <span className={cx('kf-at-track', atBusy && 'busy')}>
-              {moments.length > 0 && (
+              {markPcts.length > 0 && (
                 <span className="kf-at-marks" aria-hidden="true">
-                  {moments.map((t, i) => {
-                    const span = nowMs - startedAtMs
-                    if (span <= 0 || t < startedAtMs || t > nowMs) return null
-                    return <i key={i} style={{ left: `${((t - startedAtMs) / span) * 100}%` }} />
-                  })}
+                  {markPcts.map((pct) => <i key={pct} style={{ left: `${pct}%` }} />)}
                 </span>
               )}
               <input

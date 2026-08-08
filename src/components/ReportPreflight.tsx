@@ -550,9 +550,7 @@ export function ReportPreflight({
   // are warnings, they live beside the buttons they must be read before, and a header that also
   // mentioned them would be the second place to look for the same thing.
   const missing = missingSteps(facts)
-  const headSummary = missing.length
-    ? fillTemplate(P.headSummaryOpen, { n: attendanceCount, m: mittelCount, steps: missing.map((s) => A.steps[s]).join(' · ') })
-    : fillTemplate(P.headSummaryReady, { n: attendanceCount, m: mittelCount })
+  const headCounts = fillTemplate(P.headCounts, { n: attendanceCount, m: mittelCount })
 
   // «Einsatz abschliessen» is bookkeeping, not the artefact: it stamps report_done_at and
   // archives. The PDF is its own (primary) action — decoupled by decision 2026-07-08 after
@@ -603,7 +601,22 @@ export function ReportPreflight({
         <header className="rp-head">
           <div className="rp-head-titles">
             <h2>{P.title}</h2>
-            <p>{headSummary}</p>
+            {/* ⚠️ NOT one sentence. As «5 Personen · 2 Positionen · noch offen: Kurzberi…» the
+                line truncated away the only part of itself worth reading — what is still
+                missing was the first thing to go, because it sits at the end. The counts are a
+                read-out and stay one line; what is OPEN is a set, so it is a set of chips that
+                wrap onto a second row and are named in full however many there are. */}
+            <p className="rp-head-sum">
+              <span className="rp-head-counts">{headCounts}</span>
+              {missing.length > 0 ? (
+                <span className="rp-head-open">
+                  <span className="rp-head-open-k">{P.headStillOpen}</span>
+                  {missing.map((s) => <em key={s}>{A.steps[s]}</em>)}
+                </span>
+              ) : (
+                <span className="rp-head-done"><Icon id="check" />{P.headAllRecorded}</span>
+              )}
+            </p>
           </div>
           {/* The controls sit HERE, with the other surfaces' controls, and the readiness state
               rides with them — that pairing is not decoration. A warning about the record (a
@@ -1013,11 +1026,14 @@ export function ReportPreflight({
           </div>
 
           <div className="rp-col rp-col-side">
-          {/* the closing checklist: ONLY the two rows that navigate somewhere (Anwesenheit /
-              Mittel). Zeiten + Zusammenfassung are ordinary fields above — the missing-steps
-              confirm still guards them; Verlauf dropped (system rows made it always-green).
-              Sits below Rapportangaben so the sheet lands on a clean title + the report facts. */}
-          <section className="report-pre-section rp-checks">
+          {/* Four SECTIONS, not four cards inside a fifth. They used to sit in an unnamed
+              `.report-pre-section` wrapper — a box round a box, headed by nothing, while the
+              column opposite carried named cards at the top level. Each of these already says
+              what it is and how much of it there is, so the wrapper was pure nesting: a border
+              weight, a padding, and a rhythm that did not match the form beside it.
+              They still belong together and still read in this order (it is the printed one):
+              all four answer «wer und was war da», and all four are filled in after the fact. */}
+          <div className="rp-checks">
             <CaptureUsageChip usage={captureUsage} />
             <CheckRow
               done={stepDone('anwesenheit', facts)}
@@ -1193,7 +1209,7 @@ export function ReportPreflight({
                 )}
               </div>
             </CheckRow>
-          </section>
+          </div>
 
           {/* The Kroki, on the page. It was a modal that opened on the press of PDF / Ausdrucken,
               so the crop was chosen blind for the whole time the rapport was being written and

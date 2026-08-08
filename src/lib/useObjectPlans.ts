@@ -111,8 +111,8 @@ export function useObjectPlans(
   /** persist a new pick (or undefined to reset) into the synced workspace blob. */
   onPick: (objectId: string | undefined) => void,
 ) {
-  const [autoInfo, setAutoInfo] = useState<{ plans: Record<string, string>; titles: Record<string, string>; name?: string }>({ plans: {}, titles: {} })
-  const [manualObject, setManualObject] = useState<{ id: string; name: string; plans: Record<string, string>; titles: Record<string, string> } | null>(null)
+  const [autoInfo, setAutoInfo] = useState<{ plans: Record<string, string>; titles: Record<string, string>; name?: string; address?: string | null }>({ plans: {}, titles: {} })
+  const [manualObject, setManualObject] = useState<{ id: string; name: string; address?: string | null; plans: Record<string, string>; titles: Record<string, string> } | null>(null)
   const backendPlans = manualObject?.plans ?? autoInfo.plans
   const backendTitles = manualObject?.titles ?? autoInfo.titles
 
@@ -156,7 +156,7 @@ export function useObjectPlans(
       .then((objs) => {
         if (!alive) return
         const nearest = objs[0]
-        setAutoInfo(nearest ? { ...buildPlanInfo(nearest.plans), name: nearest.name } : { plans: {}, titles: {} })
+        setAutoInfo(nearest ? { ...buildPlanInfo(nearest.plans), name: nearest.name, address: nearest.address } : { plans: {}, titles: {} })
       })
       .catch(() => { /* no object reachable → Umrisse + Tafel only */ })
     return () => { alive = false }
@@ -171,7 +171,7 @@ export function useObjectPlans(
     if (manualObject?.id === pickedObjectId) return
     let alive = true
     getObjectResilient(pickedObjectId) // offline → falls back to the IDB-cached object
-      .then((obj) => { if (alive) setManualObject({ id: obj.id, name: obj.name, ...buildPlanInfo(obj.plans) }) })
+      .then((obj) => { if (alive) setManualObject({ id: obj.id, name: obj.name, address: obj.address, ...buildPlanInfo(obj.plans) }) })
       .catch(() => { /* object removed → fall back to auto */ })
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -182,7 +182,7 @@ export function useObjectPlans(
   // jump to the first module so the chosen object's PDF is visible immediately.
   const pickObject = useCallback((obj: ObjectWithPlans) => {
     const info = buildPlanInfo(obj.plans)
-    setManualObject({ id: obj.id, name: obj.name, ...info })
+    setManualObject({ id: obj.id, name: obj.name, address: obj.address, ...info })
     onPick(obj.id) // sync the pick per incident (workspace blob), so it survives switching + reload
     // jump to Modul 1 if the object has it, else its lowest-numbered module
     const firstModule = info.plans.modul1 ? 'modul1' : Object.keys(info.plans).sort()[0]
@@ -199,5 +199,10 @@ export function useObjectPlans(
   // the name shown in the incident dropdown's «Objekt: …» row — manual pick wins, else the
   // auto-surfaced nearest object, else null (row falls back to «Anderes Objekt»)
   const activeObjectName = manualObject?.name ?? autoInfo.name ?? null
-  return { backendPlans, resolvedPlanDocs, manualObject, activeObjectName, pickObject, resetObject }
+  // The chip over the plans reads the ADDRESS, not the name: «Mühlemattstrasse 8» is both
+  // shorter than «Schloss Bottmingen» and the thing an Einsatz is actually called by. The name
+  // stays the label everywhere the object is CHOSEN (the picker, the toast), where it is what
+  // you search for. Falls back to the name when an object carries no address.
+  const activeObjectAddress = manualObject?.address ?? autoInfo.address ?? null
+  return { backendPlans, resolvedPlanDocs, manualObject, activeObjectName, activeObjectAddress, pickObject, resetObject }
 }
