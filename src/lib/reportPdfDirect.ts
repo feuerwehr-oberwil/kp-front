@@ -63,19 +63,12 @@ export function planAnnosForPdf(annos: BoardAnno[], _byName: Record<string, stri
 // ---- Gebäude floor-stack export (server-side-rendering.md Phase 2) ----------------------
 // The stack has no PDF behind it, so the client expresses each page entirely with the
 // server's existing anno primitives on a BLANK base: footprint outline = 'area', floor
-// label = 'text' pill, tile separator = dashed 'draw', north dial = pre-resolved
-// 'symbol' svg. Real board annos are lifted from tile-local into page space here
+// label = 'text' pill, tile separator = dashed 'draw', north dial = a 'north' anno the
+// SERVER draws. Real board annos are lifted from tile-local into page space here
 // (the server has no floor model). Max 2 storeys per page so tiles print near full width.
 
 const STACK_FLOORS_PER_PAGE = 2
 const STACK_INK = '#3b4656'
-
-const northDialSvg = (deg: number) => (
-  `<svg viewBox="-26 -26 52 52" xmlns="http://www.w3.org/2000/svg">`
-  + `<circle r="24" fill="#ffffff" fill-opacity="0.92" stroke="#94a0ad" stroke-width="2"/>`
-  + `<g transform="rotate(${deg})"><path d="M0 -19 L6 2 L-6 2 Z" fill="#e8392b"/>`
-  + `<text y="14" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="${STACK_INK}">N</text></g></svg>`
-)
 
 /** The floor-stack rendered as blank-base plan pages (chunked, top storey first). */
 export function floorStackPages(
@@ -110,7 +103,11 @@ export function floorStackPages(
       }
       page.push({ kind: 'text', x: 0.06, y: (idx + 0.06) / N, text: floorLabel(f) })
     })
-    if (ci === 0) page.push({ kind: 'symbol', x: 0.94, y: 0.045 / N, symbolSvg: northDialSvg(viewAngle), sizeN: 0.055 })
+    // ⚠️ The dial is the SERVER's (backend · kroki · north_dial_svg), not one this file draws.
+    // It used to send its own SVG — a red triangle with the N under the centre — so the floor
+    // page and the Kroki carried two different north marks onto the same stapled rapport. The
+    // client sends the ANGLE; the glyph has one definition.
+    if (ci === 0) page.push({ kind: 'north', x: 0.94, y: 0.045 / N, deg: viewAngle, sizeN: 0.055 })
     // board annos of these storeys, lifted tile-local → page space (x spans the full width)
     const lift = (a: BoardAnno, idx: number): BoardAnno => ({
       ...a,

@@ -1529,14 +1529,18 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                     )}
                   </div>
                   {/* north arrow — drawn on the topmost storey, top-right (mirrors the
-                      label); the needle + N point at true north for the auto-rotated footprint */}
+                      label); the needle + N point at true north for the auto-rotated footprint.
+                      ⚠️ Geometry copied from the printed dial (backend · kroki · north_dial_svg):
+                      the screen and the two printed pages carried three different north marks.
+                      The N sits INSIDE the ring and the needle is a dart in ink, which is the
+                      one that survived print review. */}
                   {idx === 0 && fpView && (
-                    <svg viewBox="-6 -8 52 60" className="wb-north-dial" aria-hidden>
+                    <svg viewBox="-25 -25 50 50" className="wb-north-dial" aria-hidden>
                       <title>{appConfig.copy.whiteboard.northTitle}</title>
-                      <circle cx="20" cy="24" r="15" className="wb-north-ring" />
-                      <g style={{ transform: `rotate(${viewAngle}deg)`, transformOrigin: '20px 24px' }}>
-                        <path d="M20 11 L25 26 L20 22 L15 26 Z" className="wb-north-needle" />
-                        <text x="20" y="7" className="wb-north-n">{appConfig.copy.whiteboard.northLabel}</text>
+                      <circle r="24" className="wb-north-ring" />
+                      <g style={{ transform: `rotate(${viewAngle}deg)`, transformOrigin: '0px 0px' }}>
+                        <text y="-13" className="wb-north-n">{appConfig.copy.whiteboard.northLabel}</text>
+                        <path d="M0 -8 L10 16 L0 7 L-10 16 Z" className="wb-north-needle" />
                       </g>
                     </svg>
                   )}

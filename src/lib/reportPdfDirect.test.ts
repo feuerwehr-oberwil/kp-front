@@ -57,8 +57,11 @@ describe('floorStackPages', () => {
       expect(p.annos.some((x) => x.kind === 'area')).toBe(true)
       expect(p.annos.some((x) => x.kind === 'text')).toBe(true)
     }
-    expect(pages[0].annos.some((x) => typeof x.symbolSvg === 'string' && String(x.symbolSvg).includes('>N<'))).toBe(true)
-    expect(pages[1].annos.some((x) => typeof x.symbolSvg === 'string' && String(x.symbolSvg).includes('>N<'))).toBe(false)
+    // the dial is a 'north' anno carrying only the ANGLE — the glyph itself is the server's, so
+    // the Gebäude page and the Kroki cannot drift into two different north marks again
+    expect(pages[0].annos.filter((x) => x.kind === 'north')).toHaveLength(1)
+    expect(pages[0].annos.find((x) => x.kind === 'north')).toMatchObject({ deg: 0 })
+    expect(pages[1].annos.some((x) => x.kind === 'north')).toBe(false)
     // outline points stay inside the page box
     const pts = pages[0].annos.filter((x) => x.kind === 'area').flatMap((x) => x.pts as number[][])
     for (const [x, y] of pts) { expect(x).toBeGreaterThanOrEqual(0); expect(x).toBeLessThanOrEqual(1); expect(y).toBeGreaterThanOrEqual(0); expect(y).toBeLessThanOrEqual(1) }

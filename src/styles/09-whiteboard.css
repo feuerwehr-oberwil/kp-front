@@ -176,11 +176,12 @@
 
 /* north arrow — drawn on the topmost storey tile (top-right, mirroring the storey
    label), the trust signal for the auto-rotated Gebäude footprint. */
-.wb-north-dial { position: absolute; top: calc(14px + env(safe-area-inset-top)); right: 18px; z-index: 1; width: 44px; height: 50px;
+.wb-north-dial { position: absolute; top: calc(14px + env(safe-area-inset-top)); right: 18px; z-index: 1; width: 44px; height: 44px;
   overflow: visible; pointer-events: none; filter: drop-shadow(0 2px 6px rgba(30, 45, 70, .25)); }
 .wb-north-ring { fill: var(--glass); stroke: var(--glass-line); stroke-width: 1.5; }
-.wb-north-needle { fill: var(--red); }
-.wb-north-n { fill: var(--ink); font: 700 11px var(--body); text-anchor: middle; }
+/* ink, not red — the same dart the printed Kroki and the Gebäude page carry */
+.wb-north-needle { fill: var(--ink); }
+.wb-north-n { fill: var(--ink); font: 700 13px var(--body); text-anchor: middle; }
 .wb-floors-ctl small { font-size: 10px; font-weight: 700; line-height: 1; }
 /* blank writable sheet */
 .wb-board-blank { box-shadow: 0 6px 24px rgba(30, 45, 70, .18), inset 0 0 0 1px var(--border-soft); }

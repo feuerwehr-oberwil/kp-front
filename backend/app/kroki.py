@@ -689,25 +689,42 @@ def _hex_alpha(color: str, alpha: float) -> tuple[int, int, int, int]:
     return (r, g, b, int(alpha * 255))
 
 
-def _north_arrow(d: ImageDraw.ImageDraw, img_w: float, u: float) -> None:
-    """Nordpfeil, top-right.
+#: THE north mark, for every surface that carries one — the Kroki, the Gebäude floor-stack page,
+#: and the dial on screen (src/components/Whiteboard.tsx, matched by hand).
+#:
+#: ⚠️ There were three of them and they disagreed: the Kroki drew an ink dart with the N inside
+#: the ring, the floor-stack page a red triangle with the N under the centre, and the screen a
+#: red dart with the N floating above the ring. Three marks for one convention, two of them on
+#: pages that get stapled together.
+#:
+#: The Kroki's is the one that survived print review, so it is the one that stayed: the N sits
+#: INSIDE the ring (above it, the mark ran off the top edge of the sheet), and it is a DART
+#: rather than a two-tone needle because at print size a needle turns to mush. `deg` rotates the
+#: whole dial for the Gebäudeview, whose footprint is auto-rotated; the Kroki is always north-up
+#: and passes 0, so there it states the convention rather than measuring anything.
+def north_dial_svg(deg: float = 0) -> str:
+    return (
+        '<svg viewBox="-25 -25 50 50" xmlns="http://www.w3.org/2000/svg">'
+        '<circle r="24" fill="#ffffff" fill-opacity="0.90" stroke="#5b6573" stroke-width="1.5"/>'
+        f'<g transform="rotate({deg})">'
+        '<text y="-13" text-anchor="middle" font-family="Helvetica, Arial, sans-serif"'
+        ' font-size="13" font-weight="700" fill="#1c1c1c">N</text>'
+        '<path d="M0 -8 L10 16 L0 7 L-10 16 Z" fill="#1c1c1c"/>'
+        "</g></svg>"
+    )
+
+
+def _north_arrow(img: Image.Image, img_w: float, u: float) -> None:
+    """Nordpfeil, top-right of the Kroki.
 
     On screen the map can be turned and the operator knows which way they are looking; on paper
     it cannot, and a Kroki without a north mark cannot be laid next to a plan or read against
-    the terrain. The Kroki is always rendered north-up (the crop window has rotation disabled),
-    so the arrow is a fixed mark rather than a rotating dial — it states the convention, it does
-    not measure anything.
-    """
-    r = 17 * u
-    cx, cy = img_w - r - 14 * u, r + 14 * u
-    d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(255, 255, 255, 230), outline="#5b6573", width=max(1, int(u)))
-    # The N sits INSIDE the ring: above it, the mark ran off the top edge of the sheet.
-    f = _font(int(9 * u))
-    nw = d.textlength("N", font=f)
-    d.text((cx - nw / 2, cy - r * 0.92), "N", font=f, fill="#1c1c1c")
-    # a dart pointing north — at print size a two-tone needle turns to mush, an arrow does not
-    tip, tail, waist, half = cy - r * 0.34, cy + r * 0.66, cy + r * 0.30, r * 0.42
-    d.polygon([(cx, tip), (cx + half, tail), (cx, waist), (cx - half, tail)], fill="#1c1c1c")
+    the terrain."""
+    size = int(34 * u)
+    dial = raster_svg(north_dial_svg(), size)
+    # `paste` with the glyph as its own mask, not alpha_composite: this runs on the FLATTENED
+    # RGB image, after the overlay has been merged and downsampled
+    img.paste(dial, (int(img_w - size - 14 * u), int(14 * u)), dial)
 
 
 def render_kroki(
@@ -901,7 +918,7 @@ def render_kroki(
 
     out = Image.alpha_composite(img, overlay).resize((width, height), Image.Resampling.LANCZOS).convert("RGB")
     d2 = ImageDraw.Draw(out)
-    _north_arrow(d2, out.width, u)
+    _north_arrow(out, out.width, u)
     # attribution (tile ToS) bottom-right
     f = _font(int(11 * u))
     tw = d2.textlength(attribution, font=f)
@@ -991,6 +1008,15 @@ def _overlay_board_annos(
                     _dashed(draw, pts, color, sw, dash=14 * u * ss, gap=10 * u * ss)
                 else:
                     draw.line(pts, fill=color, width=sw, joint="curve")
+        elif kind == "north":
+            # The floor-stack page's dial, drawn from the SAME source as the Kroki's (see
+            # north_dial_svg). It used to arrive as a `symbol` anno carrying an SVG the CLIENT
+            # had written — a second dial, a red triangle with its N under the centre, on a page
+            # that gets stapled to the Kroki. The client now sends the angle and nothing else.
+            size = round((a.get("sizeN") or 0.055) * w)
+            dial = raster_svg(north_dial_svg(float(a.get("deg") or 0)), size)
+            x, y = pp(a.get("x") or 0, a.get("y") or 0)
+            overlay.alpha_composite(dial, (int(x - dial.width / 2), int(y - dial.height / 2)))
         elif kind == "symbol":
             svg = a.get("symbolSvg") or (pack.by_name.get(a["symbol"]) if pack and a.get("symbol") else None)
             if not svg:
