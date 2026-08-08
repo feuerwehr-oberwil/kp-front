@@ -397,3 +397,22 @@ def test_the_join_number_prints_and_the_uuid_does_not():
     # against the printed slip
     assert "7616 · fwo-sms-761610d931ac" in withref
     assert "Einsatz-ID" not in withref
+
+
+def test_dispatch_text_loses_its_emoji_before_it_reaches_the_page():
+    """Helvetica draws a black box for a pictograph, and the Stichwort is set 20pt at the top of
+    the sheet. The app blocks emoji where text is TYPED, but the Stichwort/Kategorie/Adresse
+    arrive from the ELZ verbatim and nobody here can edit them in a guarded field."""
+    from app.report_pdf import IncidentFacts, ReportMetaIn
+
+    f = IncidentFacts(
+        title="Brand \U0001f525 Hauptstrasse 4", type="Brand ✅", address="Hauptstr. 4 \U0001f3e0", id="x"
+    )
+    assert (f.title, f.type, f.address) == ("Brand Hauptstrasse 4", "Brand", "Hauptstr. 4")
+    assert ReportMetaIn(alarmText="Zimmerbrand \U0001f692 2. OG").alarmText == "Zimmerbrand 2. OG"
+    # everything Helvetica CAN set stays exactly as the ELZ sent it
+    assert (
+        IncidentFacts(title="Öl · Hauptstrasse 4 – 2. OG «Nord»", id="x").title == "Öl · Hauptstrasse 4 – 2. OG «Nord»"
+    )
+    # a title that is nothing but an emoji keeps it: a box says something was sent, blank does not
+    assert IncidentFacts(title="\U0001f525", id="x").title == "\U0001f525"

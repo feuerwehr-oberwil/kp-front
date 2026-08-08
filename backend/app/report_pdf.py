@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import io
 import logging
+import re
 
 from pydantic import BaseModel, field_validator, model_validator
 from reportlab.lib import colors
@@ -54,6 +55,30 @@ logger = logging.getLogger(__name__)
 # ----------------------------------------------------------------------------- payload models
 
 
+#: Helvetica has no glyph for a pictograph, so ReportLab draws a black box — and only on the
+#: PAPER, which is where nobody sees it until it is in their hand. The app blocks these where
+#: text is typed (`src/lib/format.ts` · stripUnprintable), but that reach stops at text WE own:
+#: the Stichwort, the Kategorie and the address arrive from the alerting system exactly as the
+#: ELZ wrote them, and nobody at this station can edit them in a field the guard covers. Those
+#: are stripped here instead. Everything a human typed keeps the input-side guard — a rapport
+#: must print what was written, not a version of it this file decided on.
+_PICTOGRAPHS = re.compile(
+    "[\U0001f000-\U0001faff\u2190-\u21ff\u2300-\u27bf\u2b00-\u2bff\ue000-\uf8ff\ufe00-\ufe0f\u200d\u20e3]"
+)
+
+
+def _strip_pictographs(v: str | None) -> str | None:
+    """Drop emoji/dingbats and the joiners that glue them together, then close the gap.
+
+    A value that is NOTHING BUT pictographs is left alone: a sheet whose Stichwort prints as a
+    box is bad, a sheet whose Stichwort is blank is worse — the box at least says something was
+    sent. Emptying a field is never the better answer on a form that gets signed.
+    """
+    if not v:
+        return v
+    return re.sub(" {2,}", " ", _PICTOGRAPHS.sub("", v)).strip() or v.strip()
+
+
 class PartnerContact(BaseModel):
     org: str | None = None
     name: str | None = None
@@ -62,6 +87,9 @@ class PartnerContact(BaseModel):
 
 
 class ReportMetaIn(BaseModel):
+    #: dispatch text, not ours to edit — see _strip_pictographs
+    _no_emoji = field_validator("alarmText")(_strip_pictographs)
+
     alarmText: str | None = None
     summary: str | None = None
     endedAt: str | None = None  # already display-formatted by the client
@@ -83,6 +111,10 @@ class ReportMetaIn(BaseModel):
 
 
 class IncidentFacts(BaseModel):
+    #: ⚠️ Stichwort, Kategorie and Adresse come from the ELZ verbatim — see _strip_pictographs.
+    #: The title is set 20pt at the top of the sheet, so a box there is the loudest one there is.
+    _no_emoji = field_validator("title", "type", "address")(_strip_pictographs)
+
     title: str
     type: str | None = None  # the Einsatz KATEGORIE (wizard «Kategorie»); the Stichwort is `title`
     address: str | None = None
@@ -694,6 +726,8 @@ _WRITE = colors.HexColor("#969696")  # write-in dotted leaders/stubs (jsPDF gray
 #: because both mean «this is not a measured value»
 _DERIVED = "#969696"
 _INK = colors.HexColor("#141414")  # form ink (jsPDF gray 20)
+#: the dim ink every secondary line uses (styles · dim), as a string for inline <font> markup
+_DIM_INK = "#5b6573"
 _LABEL = colors.HexColor("#3c3c3c")  # field labels (jsPDF gray 60)
 
 
@@ -1585,9 +1619,22 @@ def _personal_table(personal: list[PersonalRowIn], inner_w: float, st: dict[str,
                 ]
             )
         )
-        name: list = [Paragraph(_esc(p.name) if p.name else _LINE_STUB, st["rcell"])]
-        if p.note:
-            name.append(Paragraph(_esc(_clip_print(p.note)), st["rnote"]))
+        # The remark rides INLINE behind the name — «Meier Anna · Einsatzleiter» — whenever it
+        # fits the column. As its own line under the name it made that row two lines tall, and
+        # since the two halves of the sheet are independent tables (see _two_up), every remark
+        # opened a one-row gap in the column OPPOSITE it: a hole that reads as a missing person
+        # on a roster whose whole job is «who was here». A role is short, which is the case this
+        # is for; anything too long to fit still gets its own line and its own two-line room.
+        note = _clip_print(p.note) if p.note else ""
+        inline = bool(note) and (
+            _str_w(p.name, "Helvetica", 8.5) + _str_w(f" · {note}", "Helvetica", 6.5) <= name_w - 11
+        )
+        label = _esc(p.name) if p.name else _LINE_STUB
+        if inline:
+            label += f'<font size="6.5" color="{_DIM_INK}"> · {_esc(note)}</font>'
+        name: list = [Paragraph(label, st["rcell"])]
+        if note and not inline:
+            name.append(Paragraph(_esc(note), st["rnote"]))
         # ⚠️ A FIXED square, not a BOX on the table cell. As a cell border it took the ROW's
         # height — so a person with a remark, or with two stretches stacked in the time column,
         # got a checkbox twice as tall as their neighbour's. A tick-off column whose boxes are
