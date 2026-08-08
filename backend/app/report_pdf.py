@@ -709,6 +709,13 @@ class _FormRows(Flowable):
             y = self.height - self.pad - (i + 1) * self.pitch + 2.4 * mm  # text baseline
             x = self.pad
             offset = 0.0
+            # ⚠️ ONE rule height per row. A Visum row holds «Ort, Datum» beside the name that
+            # signs, and only the name's rule was dropped a writing height — so the row printed
+            # two dotted lines at two different y, and the lower one sat closer to the NEXT row's
+            # «Ort, Datum» label than to the name it belongs to. It read as a line that had come
+            # adrift. The drop is a property of the ROW: a signature needs empty paper under it,
+            # and the place and date written beside it belong on that same line.
+            row_drop = _SIG_DROP if any(f.get("sign") for f in row) else 0.6 * mm
             for f in row:
                 w = inner * f["w"]
                 label = f"{f['label']}:"
@@ -733,7 +740,7 @@ class _FormRows(Flowable):
                     # empty paper under the name it belongs to, which is how every Visum block on
                     # a kantonale Vorlage is drawn.
                     sig = bool(f.get("sign"))
-                    rule_y = y - (_SIG_DROP if sig else 0.6 * mm)
+                    rule_y = y - row_drop
                     if not value or sig or f.get("line"):
                         c.saveState()
                         c.setStrokeColor(_WRITE)

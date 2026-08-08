@@ -300,3 +300,62 @@ def test_beilagen_pick_their_size_from_how_many_there_are():
     assert pages(8) == pages(12) == 3
     # and the whole range stays bounded — a photo stack must never bury the signed part
     assert pages(30) <= 5
+
+
+def test_both_rules_of_a_visum_row_sit_on_one_line():
+    """«Ort, Datum» is written beside the name that signs, and only the NAME's rule was dropped a
+    writing height — so the row printed two dotted rules at two different y, and the lower one
+    ended up nearer the NEXT row's «Ort, Datum» label than the name it belongs to. It read as a
+    line that had come adrift. A Visum row has ONE rule height.
+
+    Rules are drawn paths, not text, so this measures the rendered page: for every rule in the
+    signature column there must be one at the same height in the Ort/Datum column."""
+    payload = ReportPayload.model_validate(
+        {
+            "incident": {"title": "Zimmerbrand", "id": "i"},
+            "generatedAt": "07.08.2026 09:00",
+            "proof": {"statusLabel": "intakt", "count": 1, "head": "0"},
+            "meta": {"einsatzleiter": "Widmer Céline", "kommandant": "Meier Hans"},
+        }
+    )
+    doc = pdfium.PdfDocument(compose_report_pdf(payload, {}))
+    page = next(p for p in (doc[i] for i in range(len(doc))) if "Unterschriften" in p.get_textpage().get_text_range())
+    scale = 3
+    img = page.render(scale=scale).to_pil().convert("L")
+    w, h = img.size
+    px = img.load()
+    tp = page.get_textpage()
+
+    def lowest(needle: str):
+        hits = [tp.get_rect(i) for i in range(tp.count_rects()) if needle in tp.get_text_bounded(*tp.get_rect(i))]
+        assert hits, needle
+        return min(hits, key=lambda r: r[1])
+
+    # the Visum band, in image coordinates (PDF y grows up, the image's grows down)
+    top = int((page.get_height() - lowest("Widmer")[1]) * scale) - 20
+    bot = int((page.get_height() - lowest("Meier")[1]) * scale) + 90
+    mid = w // 2
+
+    def rule_ys(x0: int, x1: int) -> list[float]:
+        """Mid-y of each horizontal band that is mostly ink across the span — a dotted rule."""
+        rows = [
+            y
+            for y in range(max(0, top), min(h, bot))
+            if sum(1 for x in range(x0, x1) if px[x, y] < 200) > (x1 - x0) * 0.2
+        ]
+        bands: list[list[int]] = []
+        for y in rows:
+            if bands and y - bands[-1][-1] <= 2:
+                bands[-1].append(y)
+            else:
+                bands.append([y])
+        return [sum(b) / len(b) for b in bands]
+
+    # the signature column past its labels — only rules are wide enough to register here
+    signature = rule_ys(mid + 20, int(0.94 * w))
+    ortdatum = rule_ys(int(0.06 * w), mid - 20)
+    assert len(signature) == 2, f"expected a rule per Visum row, found {signature}"
+    for y in signature:
+        assert any(abs(y - o) <= 2 for o in ortdatum), (
+            f"the signature rule at y={y:.1f} has no «Ort, Datum» rule level with it (found {ortdatum})"
+        )
