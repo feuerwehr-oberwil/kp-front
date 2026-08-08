@@ -35,7 +35,13 @@ uv run python -m app.admin_objects push "$ROOT/examples/demo-data/objects.manife
 
 # AFTER admin_config load, never before: that step rewrites identity.assets wholesale, so a
 # logo pushed earlier would be wiped by the same reset that is supposed to install it.
-echo "→ 5/5  reload the Rapport-Logo"
+#
+# BOTH slots, from the same file: `reportLogo` is the letterhead of the printed Einsatzrapport,
+# `logo` is the mark on the login screen and in the header. Only reportLogo was pushed here, so
+# the demo has been running without a brandmark on screen — and config.json deliberately names
+# NO asset URLs, because these two pushes are the only thing that creates the blobs behind them.
+echo "→ 5/5  reload the Brandmark (Login-Screen + Rapport-Briefkopf)"
+uv run python -m app.admin_branding push logo "$ROOT/examples/demo-data/report-logo.png"
 uv run python -m app.admin_branding push reportLogo "$ROOT/examples/demo-data/report-logo.png"
 
 echo "✓ Demo reset complete."
