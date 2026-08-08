@@ -94,12 +94,12 @@ export const de = {
           { kind: 'sub', text: 'Bereiche wechseln' },
           { kind: 'list', items: [
             'Zahlen öffnen das Plan-Modul mit dieser Nummer – welche es gibt, richtet sich nach den Modulen dieser Wehr: [[1]] Modul 1, [[2]] oder [[3]] das Modul «2/3», [[4]] Modul 4 …',
-            '[[K]] Karte · [[H]] Checkliste · [[A]] Atemschutz · [[W]] Anwesenheit · [[I]] Mittel · [[R]] Rapport.',
+            '[[K]] Karte · [[C]] Checkliste · [[A]] Atemschutz · [[P]] Personal · [[M]] Material · [[R]] Rapport – jeweils der erste Buchstabe des Bereichs.',
             '[[⌘]] [[[]] / [[⌘]] []]] blättert Schritt für Schritt durch alle Bereiche (auch Umgebung und Gebäude, die keine Nummer haben).',
           ] },
           { kind: 'sub', text: 'Werkzeuge (Lage & Plan gleich)' },
           { kind: 'list', items: [
-            '[[V]] Auswahl · [[M]] Mehrfach · [[S]] Symbol · [[L]] Linie · [[F]] Fläche · [[P]] Absperrkreis · [[N]] Notiz · [[T]] Trupp · [[D]] Messen.',
+            '[[V]] Auswahl · [[W]] Mehrfach wählen · [[S]] Symbol · [[L]] Linie · [[F]] Fläche · [[U]] Umkreis · [[N]] Notiz · [[T]] Trupp · [[D]] Messen.',
           ] },
           { kind: 'sub', text: 'Bearbeiten' },
           { kind: 'list', items: [
@@ -108,7 +108,7 @@ export const de = {
           ] },
           { kind: 'sub', text: 'Ansicht & Panels' },
           { kind: 'list', items: [
-            '[[+]] / [[−]] Zoom · [[0]] Einpassen · [[G]] Mein Standort · [[C]] Koordinaten-Format. «Nach Norden» hat keine Taste – dafür ist der Kompass da, der immer sichtbar ist und mitdreht.',
+            '[[+]] / [[−]] Zoom · [[0]] Einpassen · [[G]] Mein Standort · [[X]] Koordinaten-Format. «Nach Norden» hat keine Taste – dafür ist der Kompass da, der immer sichtbar ist und mitdreht.',
             '[[J]] Verlauf · [[E]] Eintrag · [[B]] Ebenen · [[O]] Objekt wählen · [[⌘]] [[,]] Einstellungen · [[?]] diese Hilfe.',
           ] },
         ],

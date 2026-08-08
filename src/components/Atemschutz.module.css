@@ -317,11 +317,16 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 /* ONE row that scrolls, not a wrapped block: eleven targets wrapped into two rows read as a
    dump of colours the operator has to search, and pushed the rest of the form down. «Automatisch»
    is the common answer, so it sticks to the left edge while the dots slide under it. */
+/* ⚠️ No visible scrollbar. A grey rail under six colour dots reads as a seventh piece of UI on a
+   row whose whole job is «pick a colour» — and it is drawn in --border, which on this form is the
+   same weight as the ring around the dots themselves. The row is dragged with a thumb and the
+   dots are cut off at the edge, which is the affordance; the rail added nothing but noise.
+   Same treatment the phone tool dock gets. */
 .colorRow { display: flex; align-items: center; gap: 8px; overflow-x: auto; overscroll-behavior-x: contain;
-  scroll-snap-type: x proximity; padding: 2px 0 6px; }
+  scroll-snap-type: x proximity; padding: 2px 0 6px;
+  scrollbar-width: none; -ms-overflow-style: none; }
 .colorRow > * { flex: none; scroll-snap-align: center; }
-.colorRow::-webkit-scrollbar { height: 6px; }
-.colorRow::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.colorRow::-webkit-scrollbar { display: none; }
 .colorAuto { position: sticky; left: 0; z-index: 1; border: 1px solid var(--glass-edge); border-radius: 999px;
   padding: 6px 11px; background: var(--surface); color: var(--ink); font: 700 12px/1 var(--body); cursor: pointer;
   /* the dots scroll UNDER this chip, so it needs its own opaque edge rather than a hairline */

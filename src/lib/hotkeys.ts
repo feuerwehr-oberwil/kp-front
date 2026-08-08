@@ -7,7 +7,12 @@
 // Numbers address the plan MODULES by their own number (the rail already shows "1" / "2/3" as the
 // module glyph — that badge IS the key): 1 → Modul 1, 2 or 3 → Modul 2/3, 4 → Modul 4, …
 // The non-module surfaces carry their own letter, shown as a rail badge (SURFACE_KEY):
-//   K Karte · H Checkliste · A Atemschutz · W Anwesenheit · I Mittel · R Rapport
+//   K Karte · C Checkliste · A Atemschutz · P Personal · M Material · R Rapport
+// One rule, and it is guessable: the FIRST LETTER OF THE GERMAN WORD for the surface. The old
+// set had grown letter by letter (H for Checkliste, W for Anwesenheit, I for Mittel) and none
+// of the three could be derived from anything. Taking C/P/M displaced three tools, which moved
+// to letters that follow the same rule rather than to whatever was free: Lasso → W (Wählen),
+// Absperrkreis → U (Umkreis, which is what it draws), Koordinaten → X (the x/y of a coordinate).
 // R used to be «Norden ausrichten» and is the Rapport's now, because the two commands are not
 // comparable: resetting the rotation has a permanent control on every form factor — the compass
 // (rail footer on a tablet, the floating cluster on a phone, the utility cluster on desktop) is
@@ -42,7 +47,7 @@ export type HotkeyCommand =
 /** the letter badge shown on each non-module surface in the NavRail — the single source the rail
  *  and SURFACE_KEYS below both read, so the badge always matches what the key does. */
 export const SURFACE_KEY: Record<SurfaceCmd, string> = {
-  map: 'K', checklists: 'H', atemschutz: 'A', anwesenheit: 'W', mittel: 'I', rapport: 'R',
+  map: 'K', checklists: 'C', atemschutz: 'A', anwesenheit: 'P', mittel: 'M', rapport: 'R',
 }
 
 /** true while a text field owns focus — bare-letter shortcuts must stay inert so typing works. */
@@ -58,14 +63,14 @@ const SURFACE_KEYS: Record<string, SurfaceCmd> = Object.fromEntries(
 ) as Record<string, SurfaceCmd>
 
 const TOOL_KEYS: Record<string, ToolCmd> = {
-  v: 'select', m: 'lasso', s: 'symbol', l: 'line', f: 'area', p: 'circle', n: 'note', t: 'team', d: 'measure',
+  v: 'select', w: 'lasso', s: 'symbol', l: 'line', f: 'area', u: 'circle', n: 'note', t: 'team', d: 'measure',
 }
 const PANEL_KEYS: Record<string, PanelCmd> = {
   j: 'journal', e: 'composer', b: 'layers', o: 'picker',
 }
 // (no `r: 'north'` anymore — see the header: the compass is the north control, R is the Rapport)
 const VIEW_KEYS: Record<string, ViewCmd> = {
-  g: 'locate', c: 'coord',
+  g: 'locate', x: 'coord',
 }
 
 /**

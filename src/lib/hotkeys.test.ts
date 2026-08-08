@@ -17,12 +17,12 @@ describe('resolveHotkey — modules & fit (numbers address the plan modules)', (
 })
 
 describe('resolveHotkey — non-module surfaces carry their own letter', () => {
-  it('K/H/A/W/I/R select the fixed surfaces', () => {
+  it('K/C/A/P/M/R select the fixed surfaces — the German first letter of each', () => {
     expect(resolve('k')).toEqual({ type: 'surface', surface: 'map' })
-    expect(resolve('h')).toEqual({ type: 'surface', surface: 'checklists' })
+    expect(resolve('c')).toEqual({ type: 'surface', surface: 'checklists' })
     expect(resolve('a')).toEqual({ type: 'surface', surface: 'atemschutz' })
-    expect(resolve('w')).toEqual({ type: 'surface', surface: 'anwesenheit' })
-    expect(resolve('i')).toEqual({ type: 'surface', surface: 'mittel' })
+    expect(resolve('p')).toEqual({ type: 'surface', surface: 'anwesenheit' })
+    expect(resolve('m')).toEqual({ type: 'surface', surface: 'mittel' })
     expect(resolve('r')).toEqual({ type: 'surface', surface: 'rapport' })
   })
   // the rail prints SURFACE_KEY on the button and the keyboard has to agree with it — a badge
@@ -56,13 +56,13 @@ describe('resolveHotkey — doc-level ops need Cmd/Ctrl', () => {
 })
 
 describe('resolveHotkey — bare tool/panel/view keys', () => {
-  it('maps the tool letters (Absperrkreis is P — K belongs to the Karte surface)', () => {
+  it('maps the tool letters (Umkreis is U — K/C/P/M all belong to surfaces now)', () => {
     expect(resolve('v')).toEqual({ type: 'tool', tool: 'select' })
-    expect(resolve('m')).toEqual({ type: 'tool', tool: 'lasso' })
+    expect(resolve('w')).toEqual({ type: 'tool', tool: 'lasso' })
     expect(resolve('s')).toEqual({ type: 'tool', tool: 'symbol' })
     expect(resolve('l')).toEqual({ type: 'tool', tool: 'line' })
     expect(resolve('f')).toEqual({ type: 'tool', tool: 'area' })
-    expect(resolve('p')).toEqual({ type: 'tool', tool: 'circle' })
+    expect(resolve('u')).toEqual({ type: 'tool', tool: 'circle' })
     expect(resolve('n')).toEqual({ type: 'tool', tool: 'note' })
     expect(resolve('t')).toEqual({ type: 'tool', tool: 'team' })
   })
@@ -74,7 +74,7 @@ describe('resolveHotkey — bare tool/panel/view keys', () => {
   })
   it('maps the view keys', () => {
     expect(resolve('g')).toEqual({ type: 'view', view: 'locate' })
-    expect(resolve('c')).toEqual({ type: 'view', view: 'coord' })
+    expect(resolve('x')).toEqual({ type: 'view', view: 'coord' })
     expect(resolve('+')).toEqual({ type: 'view', view: 'zoomIn' })
     expect(resolve('=')).toEqual({ type: 'view', view: 'zoomIn' })
     expect(resolve('-')).toEqual({ type: 'view', view: 'zoomOut' })
@@ -85,7 +85,7 @@ describe('resolveHotkey — bare tool/panel/view keys', () => {
   it('R is the Rapport surface, not «Nach Norden»', () => {
     expect(resolve('r')).toEqual({ type: 'surface', surface: 'rapport' })
     expect(resolve('g')).toEqual({ type: 'view', view: 'locate' })
-    expect(resolve('c')).toEqual({ type: 'view', view: 'coord' })
+    expect(resolve('x')).toEqual({ type: 'view', view: 'coord' })
   })
   it('? opens help', () => {
     expect(resolve('?')).toEqual({ type: 'panel', panel: 'help' })
@@ -97,7 +97,7 @@ describe('resolveHotkey — bare tool/panel/view keys', () => {
 
 describe('resolveHotkey — non-shortcuts', () => {
   it('bare letters that are not bound return null', () => {
-    for (const k of ['q', 'u', 'x', 'y', 'z']) expect(resolve(k)).toBeNull()
+    for (const k of ['q', 'h', 'i', 'y', 'z']) expect(resolve(k)).toBeNull()
   })
   it('a bound letter with Cmd is NOT a bare tool (never hijack browser combos)', () => {
     expect(resolve('s', { metaKey: true })).toBeNull() // Cmd+S = browser save
