@@ -12,8 +12,12 @@ import type { ReportMeta } from './workspace'
 // were ever checked, so a rapport could close with nobody named as having led the incident.
 // Printing is deliberately unaffected: it never blocks, a missing field prints as an empty
 // line to fill in by hand (form model 2026-07-17).
-export type AbschlussStep = 'zeiten' | 'anwesenheit' | 'mittel' | 'einsatzleiter' | 'abschluss'
-export const ABSCHLUSS_STEPS: AbschlussStep[] = ['zeiten', 'anwesenheit', 'mittel', 'einsatzleiter', 'abschluss']
+// 'abschluss' → 'kurzbericht' 2026-08-07: the step checks `summary`, the Kurzbericht — but it was
+// named after the thing it is a step OF, so the confirm read «Noch offen: Abschluss. Trotzdem
+// abschliessen?» in a dialog titled «Einsatz abschliessen». A step has to name the field it wants
+// filled in; that sentence named the button that was already pressed.
+export type AbschlussStep = 'zeiten' | 'anwesenheit' | 'mittel' | 'einsatzleiter' | 'kurzbericht'
+export const ABSCHLUSS_STEPS: AbschlussStep[] = ['zeiten', 'anwesenheit', 'mittel', 'einsatzleiter', 'kurzbericht']
 
 export interface AbschlussFacts {
   reportMeta: ReportMeta
@@ -32,7 +36,7 @@ export function stepDone(step: AbschlussStep, f: AbschlussFacts): boolean {
       return f.mittelCount > 0 || !!f.reportMeta.mittelConfirmedNone
     case 'einsatzleiter':
       return !!f.reportMeta.einsatzleiter?.trim()
-    case 'abschluss':
+    case 'kurzbericht':
       return !!f.reportMeta.summary?.trim()
   }
 }

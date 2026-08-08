@@ -21,8 +21,8 @@ describe('stepDone', () => {
   })
 
   it('abschluss needs a non-blank Zusammenfassung', () => {
-    expect(stepDone('abschluss', facts({ reportMeta: { summary: '   ' } }))).toBe(false)
-    expect(stepDone('abschluss', facts({ reportMeta: { summary: 'BMA, Fehlalarm.' } }))).toBe(true)
+    expect(stepDone('kurzbericht', facts({ reportMeta: { summary: '   ' } }))).toBe(false)
+    expect(stepDone('kurzbericht', facts({ reportMeta: { summary: 'BMA, Fehlalarm.' } }))).toBe(true)
   })
 
   // One of the four Mindestangaben, and the one that went unchecked until 2026-08-03: a

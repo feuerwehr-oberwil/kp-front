@@ -1265,6 +1265,11 @@ export const de = {
     // dann den Namen: gesucht wird beim Hinsetzen «bin ich beim richtigen Gebäude?».
     objectLabel: 'Objekt',
     objectNone: 'Kein Objekt',
+    // Der Chip nennt nur noch den Namen – «Objekt» beschriftete das Feld, und genau das sagt
+    // der Wert schon. Das Verb steckt jetzt dort, wo es vorher ganz fehlte: im Vorlesetext.
+    objectIs: 'Einsatzobjekt: {name}',
+    objectSwitch: 'Einsatzobjekt: {name} – anderes Objekt wählen',
+    objectSwitchShort: 'Anderes Objekt wählen',
     objectActive: 'Pläne von "{name}"',
     objectReset: 'Auf nächstes Objekt zurücksetzen',
     // tapping an object in the picker swaps the plans of EVERY module at once, so it
@@ -2153,7 +2158,7 @@ export const de = {
       anwesenheit: 'Anwesenheit',
       mittel: 'Mittel',
       einsatzleiter: 'Einsatzleiter',
-      abschluss: 'Abschluss',
+      kurzbericht: 'Kurzbericht',
     },
     ausgerueckt: 'Ausgerückt',
     ende: 'Einsatzende',

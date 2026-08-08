@@ -613,16 +613,31 @@ export function ReportPreflight({
               bottom of a scrolling form would be exactly the failure the never-behind-a-fold rule
               prevents; they move together or not at all. */}
           <div className="rp-head-actions">
+            {/* The chip appears ONLY when something is wrong. A green «Alles bereit» spent a
+                control on the most contested row of the surface to announce that nothing had
+                happened — and the line under the title already says whether the Angaben are
+                complete, so it was also the second place to look for the same answer. Worse, a
+                badge that is present and green on every ordinary Einsatz teaches the eye to skip
+                exactly the spot the warning will appear in.
+                Nothing actionable is lost: every state that needs a person is a warning, and a
+                warning still lands here, amber, counted, in the same glance as the button that
+                makes the paper. The Prüfnachweis read-out goes with it while it is intact —
+                the signed paper is the record (report_pdf · decision E), and «intact» is not
+                news. A BROKEN chain is, and that raises the chip.
+                Not rendered while checking either: a spinner that resolves to nothing a moment
+                later is a flicker on the row, and the check is the app's business, not the
+                operator's. */}
+            {!checking && !controlOk && (
             <span className="rp-state-wrap">
             <button
               type="button"
-              className={cx('rp-state', controlOk && 'ok', !controlOk && !checking && 'warn')}
+              className={cx('rp-state', 'warn')}
               onClick={() => setControlOpen((o) => !o)}
               aria-expanded={controlOpen}
               title={P.controlHead}
             >
-              <Icon id={checking ? 'rotate' : controlOk ? 'check' : 'warn'} className={checking ? 'spin' : undefined} />
-              <span>{checking ? P.proofChecking : controlOk ? P.allReady : fillTemplate(P.controlOpen, { n: warnCount })}</span>
+              <Icon id="warn" />
+              <span>{fillTemplate(P.controlOpen, { n: warnCount })}</span>
             </button>
           {/* The Kontrolle detail is a POPOVER on the chip that opens it, not a band across the
               page: it is a handful of lines about the record, and a full-width slab pushed the form
@@ -653,17 +668,27 @@ export function ReportPreflight({
             </>
         )}
             </span>
+            )}
+            {/* ⚠️ Every label in this row is wrapped in `.rp-btn-label`, not left as a bare text
+                node: on a phone the row goes icon-only (see app.css) and a bare text node cannot
+                be hidden. The label survives as `aria-label` + `title`, so what is dropped is the
+                pixels, never the naming. */}
             {onComplete && (
-              <button className="ip-btn" onClick={() => void complete()}><Icon id="check" />{A.complete}</button>
+              <button className="ip-btn" onClick={() => void complete()} aria-label={A.complete} title={A.complete}>
+                <Icon id="archive" /><span className="rp-btn-label">{A.complete}</span>
+              </button>
             )}
             {printStatus?.available && (
               <button className={`ip-btn print-send${printStatus.online ? '' : ' offline'}`} disabled={printBusy}
-                onClick={() => startOutput('print')} title={printStatus.online ? R.online : R.offline}>
+                onClick={() => startOutput('print')} aria-label={printBusy ? R.sending : R.send}
+                title={printStatus.online ? R.online : R.offline}>
                 <span className="print-send-main">
                   <Icon id="printer" />
                   <span className={`dot print-relay-dot${printStatus.online ? ' online' : ''}`} aria-hidden />
-                  {printBusy ? R.sending : R.send}
+                  <span className="rp-btn-label">{printBusy ? R.sending : R.send}</span>
                 </span>
+                {/* the offline reason is the whole point of the taller button — it stays when the
+                    label goes, because «it will print later» is not guessable from a printer icon */}
                 {!printStatus.online && <span className="print-send-off">{R.offline}</span>}
               </button>
             )}
@@ -674,8 +699,10 @@ export function ReportPreflight({
                 ⋮ beside it would have read as the surface's menu. The pair never wraps apart
                 (it is one flex item), so at ≤720px it drops onto its own line intact. */}
             <span className="rp-split">
-              <button className="ip-btn primary rp-split-main" disabled={pdfBusy} onClick={() => startOutput('pdf')}>
-                <Icon id={pdfBusy ? 'rotate' : 'doc'} className={pdfBusy ? 'spin' : undefined} />{pdfBusy ? P.pdfBusy : P.pdfFull}
+              <button className="ip-btn primary rp-split-main" disabled={pdfBusy} onClick={() => startOutput('pdf')}
+                aria-label={pdfBusy ? P.pdfBusy : P.pdfFull} title={pdfBusy ? P.pdfBusy : P.pdfFull}>
+                <Icon id={pdfBusy ? 'rotate' : 'doc'} className={pdfBusy ? 'spin' : undefined} />
+                <span className="rp-btn-label">{pdfBusy ? P.pdfBusy : P.pdfFull}</span>
               </button>
               <Menu
                 trigger={
@@ -694,8 +721,11 @@ export function ReportPreflight({
                 // the long way round something done while looking at the button that prints. Base
                 // UI keeps the menu open on a checkbox, so the row just flipped is still there.
                 items={[
-                  { label: <><Icon id="doc" /> {P.pdfFull}</>, onClick: () => startOutput('pdf'), disabled: pdfBusy },
-                  { kind: 'sep' as const },
+                  // No «Einsatzrapport (PDF)» row in here. It was meant as a second door for
+                  // whoever opened the ▾ looking for «drucken», but the door it repeats is the
+                  // button the ▾ is physically attached to — one press to the left, already
+                  // pressed to get here. A menu whose first line is the control that opened it
+                  // teaches that the two do different things, and they do not.
                   // The ticks need a name. Nine of them under «Einsatzrapport (PDF)» with nothing
                   // saying what they are is a menu that has to be experimented with.
                   { kind: 'head' as const, label: P.sectionsHead },

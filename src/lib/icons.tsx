@@ -69,6 +69,13 @@ export function IconSprite() {
       <symbol id="check" viewBox="0 0 24 24"><path d="M5 12.5 10 17 19 7" stroke-width="2.2" /></symbol>
       <symbol id="checklist" viewBox="0 0 24 24"><rect x="3.5" y="6.5" width="14" height="14" rx="2" /><path d="M8 3.5h10.5a2 2 0 0 1 2 2V16" /><path d="M6.8 12.4l1.5 1.5 2.7-3M13.2 13h2" /><path d="M6.8 17.2l1.5 1.5 2.7-3M13.2 17.8h2" /></symbol>
       <symbol id="lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="9.5" rx="2.2" /><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" /></symbol>
+      {/* «Einsatz abschliessen»: a lid, a box, and the thing going down into it — the action
+          stamps the rapport done and ARCHIVES the Einsatz, which is what this says. It wore a
+          bare `check`, the same glyph as every tick in the checklist below it, the partner boxes
+          and the menu's checkmarks; on the one button that ends the Einsatz that read as one more
+          tick. Not `lock` either: later corrections stay possible and print as Nachträge, so a
+          padlock would promise something the app does not do. */}
+      <symbol id="archive" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="4.5" rx="1.4" /><path d="M4.8 8.5v10.1a1.9 1.9 0 0 0 1.9 1.9h10.6a1.9 1.9 0 0 0 1.9-1.9V8.5" /><path d="M9.6 13.2 12 15.6l2.4-2.4M12 15.2v-4" /></symbol>
       <symbol id="play" viewBox="0 0 24 24"><path d="M7 4.8 19 12 7 19.2z" fill="currentColor" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" /></symbol>
       <symbol id="pause" viewBox="0 0 24 24"><path d="M8 5h2.4v14H8zM13.6 5H16v14h-2.4z" fill="currentColor" /></symbol>
       <symbol id="chevron" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></symbol>

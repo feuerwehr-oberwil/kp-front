@@ -1513,14 +1513,31 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // rather than a header row because the stage is deliberately full-bleed (the plan pans up
   // behind the top bar), and a solid bar would take that away from every plan to state
   // something that changes once an Einsatz.
-  const objectChip = onObjectSwitch ? (
-    <button className="wb-object" onClick={onObjectSwitch}>
+  // ⚠️ The READ-OUT and the SWITCH are two different things, and gating both on `onObjectSwitch`
+  // meant the one session that is bound to a single object — a link-scoped viewer — was the only
+  // one never told which object it is looking at. It reads either way; it is only tappable when
+  // there is somewhere to tap to.
+  const objectChipName = objectName ?? appConfig.copy.whiteboard.objectNone
+  const objectChip = (
+    <button
+      type="button"
+      className="wb-scale-chip wb-object"
+      // «Objekt» named the field, which is the one thing the value already says — a plan set
+      // belongs to an Einsatzobjekt and nothing else in this corner is a place name. The chevron
+      // went with it: everywhere else in this app it opens a popover under the control, and here
+      // it opened a full modal with a search field and a map. What is left is the fact itself.
+      // The verb lives in the label a screen reader reads, where it was missing entirely.
+      aria-label={onObjectSwitch
+        ? fillTemplate(appConfig.copy.whiteboard.objectSwitch, { name: objectChipName })
+        : fillTemplate(appConfig.copy.whiteboard.objectIs, { name: objectChipName })}
+      title={onObjectSwitch ? appConfig.copy.whiteboard.objectSwitchShort : undefined}
+      disabled={!onObjectSwitch}
+      onClick={onObjectSwitch}
+    >
       <Icon id="footprint" />
-      <span className="wb-object-k">{appConfig.copy.whiteboard.objectLabel}</span>
-      <span className="wb-object-v">{objectName ?? appConfig.copy.whiteboard.objectNone}</span>
-      <Icon id="chevron-down" />
+      <span>{objectChipName}</span>
     </button>
-  ) : null
+  )
 
   // Viewer-only plan (e.g. PV / documentation PDF): bypass the annotation board entirely and
   // show a plain, natively-scrolling multi-page PDF viewer — no tools, no stitched pan/zoom board.
@@ -1530,8 +1547,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     return (
       <div className="whiteboard">
         {/* a viewer-only document is still one of THIS object's plans — the chip belongs on it
-            too, or the read-out would blink out on exactly the plans nobody can annotate */}
-        {objectChip}
+            too, or the read-out would blink out on exactly the plans nobody can annotate. No
+            Maßstab beside it here: there is nothing to calibrate on a document. */}
+        <div className="wb-botleft">{objectChip}</div>
         <PdfScroller key={active.id} url={planUrl(active.imageUrl)} />
       </div>
     )
@@ -1539,9 +1557,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
 
   return (
     <div className="whiteboard">
-      {objectChip}
       {/* the plan DOCUMENTS are picked in the global left NavRail (it is pure navigation); the
-          object they all belong to is named on the chip above */}
+          object they all belong to is named on the chip in the bottom-left corner */}
       {/* plan canvas + annotation layer */}
       <div className="wb-stage" ref={stageRef}>
         <div
@@ -2440,6 +2457,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         )
       })()}
 
+      {/* The two facts about a plan that no page of it states — WHICH object, and at what scale —
+          in one row in the stage's quiet corner. They were a bespoke glass chip in the top-left
+          and this pill down here; two recipes for one job, with the louder of the two sitting on
+          the corner of the plan that is actually looked at. One family now, one corner. */}
+      <div className="wb-botleft">
+      {objectChip}
       {/* Maßstab — trust chip: shows whether the active plan is calibrated; tap to (re)calibrate.
           Never a hidden assumption — a plan with no scale says so. Hidden for the OSM live outline /
           blank sheet (no printed reference to measure against). A locked surface keeps the chip
@@ -2460,6 +2483,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           }</span>
         </button>
       )}
+      </div>
 
       {/* #3: persist a fresh calibration station-wide so plans measure out of the box next time */}
       {savePrompt && !readOnly && (

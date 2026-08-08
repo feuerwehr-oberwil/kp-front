@@ -769,7 +769,16 @@ html.rail-dragging .mapctl, html.rail-dragging .layers-card,
    segment (Luftrichtung, Beschriftung, and short fixed detail-field lists like a Kleinlöscher Typ all
    render through components/Segmented, so they look + feel identical). Wraps for longer sets; longer
    lists / the Mannschaft roster use the Combo dropdown instead. Right-aligned in a .field row. */
-.useg { display: inline-flex; flex-wrap: wrap; gap: 3px; background: var(--fill-soft); border-radius: var(--r-ctl); padding: 3px; max-width: 100%; }
+/* ⚠️ `flex: none` is load-bearing. As a flex ITEM this control was `0 1 auto` — shrinkable — and
+   its automatic minimum is one button wide, so in any row where it sits beside text (the Kroki
+   panel's teaching line, a .field label, a .set-row in Einstellungen) the browser handed it its
+   min-content width and `flex-wrap` did the rest: «Hoch | Quer» came out as Hoch ABOVE Quer, a
+   97px tower beside a sentence. A segmented control never volunteers to shrink — the prose next
+   to it yields first. `flex-wrap` stays for the genuine last resort, when max-width:100% bites.
+   Anwesenheit had already worked this out locally (`.controls > .useg { flex: none }`); this
+   promotes it to the rule, which is where it belonged. Every caller that WANTS the control to
+   stretch overrides it more specifically (.jc-mode, Mittel, Atemschutz, Anwesenheit). */
+.useg { display: inline-flex; flex: none; flex-wrap: wrap; gap: 3px; background: var(--fill-soft); border-radius: var(--r-ctl); padding: 3px; max-width: 100%; }
 .field .useg, .ctx-caprow .useg, .kv-row .useg { margin-left: auto; }
 /* ONE segmented spec, no per-surface overrides. The option radius was a stray 7px belonging to no
    tier, and the height was 28px / 34px / 46px in three places — two of them under the gloved floor
@@ -1559,32 +1568,31 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 /* (the old .wb-modules/.wb-mod/.wb-objpick document-switcher sidebar was removed — plan
    docs are picked in the left NavRail and the PlanPicker modal below; CSS pruned 2026-07-12) */
 
-/* WHICH Einsatzobjekt's plans these are — the one fact about a plan set that no page of it
-   states. It floats over the stage in the same glass chrome as .wb-zoom-float, top-LEFT, in the
-   band that starts where the rail's plan tabs start (top: 88px clears the app's top bar, left
-   follows --rail-w) so the tab strip and the name of what it lists sit one glance apart. A
-   solid header row would have cost every plan a strip of height to state something that changes
-   once an Einsatz — and the stage is full-bleed on purpose (the plan pans up behind the bar).
-   --tap tall like every other control a gloved hand aims at; the name truncates rather than
-   pushing the chip across the plan. */
-/* Small on purpose: it floats OVER the plan, so every millimetre it takes is plan it covers.
-   Below the tap floor by design — this is a label that happens to be tappable, sitting in the
-   quiet corner, not a control the hand goes to under pressure; the plan under it is the work. */
-.wb-object { position: absolute; z-index: 40; top: 88px; left: calc(var(--rail-w) + 28px);
-  max-width: min(260px, calc(100% - var(--rail-w) - 44px));
-  display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 9px;
-  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
-  box-shadow: var(--shadow); border-radius: var(--r-sm); cursor: pointer;
-  font-family: var(--body); font-size: 11.5px; font-weight: 700; color: var(--ink); }
-.wb-object:hover { background: var(--hover-strong); }
-.wb-object .i { width: 14px; height: 14px; flex: none; color: var(--ink-dim); }
-/* «Objekt» names the thing, the value is what is read — so the label is the quiet one */
-.wb-object-k { flex: none; color: var(--ink-dim); font-weight: 600; }
-.wb-object-v { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-@media (max-width: 720px) {
-  /* the rail is a bottom BAR on a phone, so the chip has no rail to clear — but it does have to
-     clear the top bar (switcher · Einsatzuhr · undo/redo · Verlauf), which owns the full width */
-  .wb-object { top: calc(76px + env(safe-area-inset-top)); left: 8px; max-width: calc(100% - 16px); }
+/* The stage's quiet corner: the two facts about a plan that no page of it states — WHICH object,
+   and at what scale. WHICH object used to be its own glass chip in the TOP-left, carrying
+   `--shadow` (the app's hero elevation, the same one the top bar and the rail wear) to say a
+   thing that changes once an Einsatz and is already right 99 times out of 100. It shouted, it
+   invented a recipe nobody else used, and it sat on the corner of the plan that is looked at.
+   Both are the Maßstab pill now — one recipe, one corner, and the top-left is plan again. */
+.wb-botleft { position: absolute; z-index: 8; left: calc(var(--rail-w) + 28px); bottom: 12px;
+  max-width: calc(100% - var(--rail-w) - 44px);
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* the chips position themselves through the row now, not against the stage */
+.wb-botleft > .wb-scale-chip { position: static; }
+/* the object's name may take the room the Maßstab does not — it is the longer of the two, and
+   the Maßstab is a handful of characters */
+.wb-object { min-width: 0; max-width: 100%; }
+/* a read-out with nowhere to go (a link-scoped viewer is bound to ONE object) is not greyed out
+   — it is still the answer to «which building am I looking at», it simply cannot be tapped */
+.wb-object:disabled { cursor: default; opacity: 1; }
+.wb-object:disabled:hover { border-color: var(--glass-edge); color: var(--ink-dim); }
+/* ⚠️ 600px, not 720px. The old chip switched to its phone position at ≤720px while the NavRail
+   only becomes a bottom BAR at ≤600px — so through the whole 601–720px band (iPad Split View,
+   a landscape phone) the chip was pushed to left:8px and landed ON the vertical rail. The row
+   tracks --rail-w until the rail is genuinely gone, and only then hugs the edge. */
+@media (max-width: 600px) {
+  .wb-botleft { left: 10px; right: 10px; max-width: none;
+    bottom: calc(var(--rail-h) + 22px + env(safe-area-inset-bottom)); }
 }
 
 /* PlanPicker modal — searchable object list (primary) + supporting mini-map.
@@ -2046,10 +2054,10 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-cal-unit { flex: none; font: 700 14px var(--body); color: var(--ink-dim); }
 .wb-cal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 2px; }
 
-/* Plan-Maßstab: trust chip — bottom-left of the plan stage, taps to (re)calibrate */
-/* clear the left rail (left:16px + --rail-w) instead of sitting behind it, like .mapctl/.cl-surface */
-.wb-scale-chip { position: absolute; left: calc(var(--rail-w) + 28px); bottom: 12px; z-index: 8; display: inline-flex; align-items: center; gap: 6px;
-  max-width: 60%; padding: 6px 10px; border-radius: var(--r-pill); border: 1px solid var(--glass-edge); background: var(--surface);
+/* Plan-Maßstab: trust chip — taps to (re)calibrate. Position comes from `.wb-botleft`, the row it
+   shares with the Objekt read-out; clearing the rail is that row's job now, stated once. */
+.wb-scale-chip { display: inline-flex; align-items: center; gap: 6px;
+  max-width: 100%; padding: 6px 10px; border-radius: var(--r-pill); border: 1px solid var(--glass-edge); background: var(--surface);
   box-shadow: var(--shadow-sm); color: var(--ink-dim); font: 600 12px var(--body); cursor: pointer; }
 .wb-scale-chip svg { width: 14px; height: 14px; flex: none; }
 .wb-scale-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -3221,16 +3229,39 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .ip-hist-nores { margin: 4px 2px; font: 500 13px var(--body); color: var(--ink-faint); font-style: italic; }
 
 /* --- Rapport closing checklist (inside the Einsatzrapport sheet) --------------------- */
-.rp-checks { display: flex; flex-direction: column; gap: 6px; }
-.rp-check { display: flex; flex-direction: column; border-radius: var(--r-ctl); background: var(--surface-veil); }
+.rp-checks { display: flex; flex-direction: column; gap: 8px; }
+/* ⚠️ `--surface-veil` inside a `--surface-2` card is a 1% difference at night (.07 vs .06 white)
+   and there was no border — the four rows read as one flat slab of text with no edges at all.
+   The same family of rows on the sibling surfaces (Anwesenheit `.person`, Mittel `.row`) are
+   solid `--surface` on a `--glass-edge` hairline; this is that. */
+.rp-check { display: flex; flex-direction: column; border-radius: var(--r-ctl);
+  border: 1px solid var(--glass-edge); background: var(--surface); }
+/* only the two rows that GO somewhere respond to the pointer — Partner and Beilagen are worked
+   inside the row and their `.rp-check-main` is disabled, so a hover on them would promise a
+   navigation that is not there */
+.rp-check { position: relative; }
+.rp-check:has(.rp-check-main:not(:disabled)):hover { border-color: var(--ink-faint); }
 .rp-check-main { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 5px 10px;
   border: none; background: none; text-align: left; color: var(--ink); cursor: pointer; width: 100%; }
 .rp-check-main:disabled { cursor: default; }
+/* THE WHOLE CARD OPENS IT, not the title row alone. The names under «Anwesenheit» are the reason
+   anyone looks at that card, and they were the one part of it that was not a way in — you read
+   «Meier Anna · bis 19:47», reached for it, and hit nothing. Done as a stretched hit area on the
+   button that is already there rather than an onClick on the card: one real <button> keeps the
+   keyboard focus, the role and the label, and nothing gets nested inside anything.
+   ⚠️ The overlay covers the card, so anything genuinely interactive inside the body has to be
+   lifted back above it — the Partner ticks and their remark fields, «Nichts verwendet», the
+   Beilagen captions and thumbnails. Plain text stays underneath, which is the point. */
+.rp-check-main:not(:disabled)::after { content: ''; position: absolute; inset: 0; border-radius: inherit; }
+.rp-check-extra :is(button, input, textarea, select, a, label, fieldset) { position: relative; z-index: 1; }
 /* same white-on-white as the partner box above — the ring of an unfinished step was invisible
    in light mode, so the checklist read as a list of labels with no state at all */
 .rp-check-dot { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
   border: 1.5px solid color-mix(in srgb, var(--ink-faint) 55%, transparent); color: var(--ink-faint); }
-.rp-check-dot.done { border-color: color-mix(in srgb, var(--blue) 65%, transparent); color: var(--blue); }
+/* done is the ORDINARY state and reads by its shape — a tick where there was a dash. It was blue,
+   which put four blue rings down a column that also carries one per partner organisation; see the
+   note on .report-partner.on. Ink, not hue. */
+.rp-check-dot.done { border-color: color-mix(in srgb, var(--ink-faint) 80%, transparent); color: var(--ink); }
 .rp-check-dot svg { width: 14px; height: 14px; }
 .rp-check-label { font: 700 14px var(--body); flex: none; }
 .rp-check-sub { font: 500 12.5px var(--body); color: var(--ink-faint); flex: 1; min-width: 0;
@@ -3239,8 +3270,12 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .rp-check-extra { padding: 0 12px 10px 48px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
 /* quick double-check lists (Anwesenheit names + Mittel lines): read-only chips, early
    leavers / amounts inline — corrections go through the row's Go arrow */
+/* No inner scroller. A 34vh cap put a second scroll region inside a surface that already scrolls
+   — a drag starting on a name scrolled the list, hit its end and died there (the body has
+   `overscroll-behavior: contain`) — and it also swallowed the card's own tap area. The card grows
+   and the page scrolls, which is the one behaviour there is nothing to learn about. */
 .rp-people { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 3px 14px; width: 100%; max-height: 34vh; overflow-y: auto; }
+  gap: 3px 14px; width: 100%; }
 .rp-person { font: 500 13px var(--body); color: var(--ink); min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rp-person em { font-style: normal; color: var(--amber); font-weight: 650; }
@@ -3636,15 +3671,37 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    page you arrive at from three different places the only one that did not look like the others.
    Same paddings/typography as .head in Anwesenheit.module.css — kept here rather than moved into
    a module because every other class on this surface already lives in app.css. */
-.rp-head { flex: none; display: flex; align-items: center; gap: 16px; padding: 16px 22px;
+/* ⚠️ The head WRAPS. Four controls plus their gaps want ~756px; on a 1024px iPad in portrait —
+   a primary orientation — the head has 876px of content box, and the title was handed 104px of
+   it. `.rp-head-actions` was `flex: none`, which pins a flex item at its max-content width and
+   makes its own `flex-wrap` unreachable: nothing could ever constrain it enough to wrap. So the
+   overflow came out of the title instead, which has `min-width: 0` and an `<h2>` that did not
+   truncate — the text painted straight out of its collapsed box and the readiness chip, a later
+   sibling with its own background, painted on top of it. The ▾ half of the print button then
+   fell off the surface's right edge, which IS clipped (`overflow: hidden`).
+   The fix is three parts and they only work together: the titles get a real flex BASIS so the
+   actions are asked to wrap before the title is squeezed to nothing, the actions may shrink, and
+   the head itself may become two rows. A second row costs ~52px of a surface that scrolls; a
+   clipped print button costs the paper. */
+.rp-head { flex: none; display: flex; align-items: center; gap: 12px 16px; flex-wrap: wrap;
+  padding: 16px 22px;
   background: var(--surface); border-bottom: 1px solid var(--glass-edge); }
-.rp-head-titles { flex: 1 1 auto; min-width: 0; }
-.rp-head-titles h2 { margin: 0; font: 800 19px var(--body); color: var(--ink); }
+.rp-head-titles { flex: 1 1 240px; min-width: 0; }
+/* it truncates, exactly as the line under it always did — an <h2> that does not is an <h2> that
+   paints over whatever is beside it */
+.rp-head-titles h2 { margin: 0; font: 800 19px var(--body); color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* one line, and it truncates rather than pushing the head to two rows: the missing steps can
    name four things on an Einsatz nobody has written up yet */
 .rp-head-titles p { margin: 3px 0 0; font-size: 12.5px; color: var(--ink-dim);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rp-head-actions { flex: none; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.rp-head-actions { flex: 0 1 auto; min-width: 0; margin-left: auto;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+/* Each control keeps its own width when the cluster wraps — only the print split may give, and
+   it gives by truncating its label, never by dropping its ▾. The readiness chip is NOT allowed
+   to become icon-only here: it is the one control on this row that reports a problem, and the
+   whole point of putting it beside the button that makes paper is that it can be READ. */
+.rp-head-actions > :not(.rp-split) { flex: none; }
 /* ONE height and ONE corner for every control on this row — the same rule the Anwesenheit head
    states: --tap is the floor a finger needs, so nothing shrinks to meet its neighbours. */
 /* ⚠️ NOT a child combinator. The chip gained a positioning wrapper when its popover was
@@ -3690,13 +3747,16 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 /* The readiness chip. It OPENS the detail band rather than being decoration, so it is a button,
    and it counts what is wrong instead of saying «Kontrolle» — «2 Hinweise» is actionable, a
    section name is not. Amber, never --accent: --accent is the brand red and must not mean state. */
+/* Same material as the buttons it stands in line with — .ip-btn is `--surface` on `--glass-edge`.
+   On `--surface-2` + `--border` the chip read as a slightly translucent hole between two solid
+   buttons; the row levelled height and corner but never the surface. */
 .rp-state { display: inline-flex; align-items: center; gap: 7px; padding: 0 12px; cursor: pointer;
-  border: 1px solid var(--border); background: var(--surface-2); color: var(--ink-dim);
+  border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink-dim);
   font: 700 12.5px var(--body); }
 .rp-state svg { width: 15px; height: 15px; }
 .rp-state.ok { color: var(--green-strong); border-color: color-mix(in srgb, var(--green) 35%, transparent); }
 .rp-state.warn { color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 45%, transparent);
-  background: color-mix(in srgb, var(--amber) 10%, var(--surface-2)); }
+  background: color-mix(in srgb, var(--amber) 10%, var(--surface)); }
 /* The Kontrolle detail as a POPOVER on its chip. A band across the page pushed the form down
    every time anything was amiss, for a handful of lines about the record; anchored here, «what is
    wrong» and «the thing that told me» are one object. The chip stays amber and counts, so a
@@ -3709,14 +3769,24 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 .rp-control { position: absolute; top: calc(100% + 6px); left: 0; z-index: 41;
   width: min(380px, calc(100vw - 32px)); display: flex; flex-direction: column; gap: 6px;
   padding: 12px 14px; border-radius: var(--r-ctl);
-  background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow);
+  background: var(--surface); border: 1px solid var(--glass-edge); box-shadow: var(--shadow);
   max-height: 46vh; overflow-y: auto; }
+/* ⚠️ This popover is NOT portalled (the print menu beside it is, via overlays · Menu), so it is
+   clipped by the surface's own `overflow: hidden`. Hanging 380px to the RIGHT of a chip that has
+   itself been pushed right by the wrapped action row, it loses its last lines off the surface
+   edge — the pending-uploads warning among them. Once the head can wrap, open it leftwards. */
+@media (max-width: 1080px) { .rp-control { left: auto; right: 0; } }
 /* the head must not clip the popover hanging out of it */
 .rp-head { position: relative; overflow: visible; }
 /* the ✕ is a control on this row, so it obeys the row's floor — .ip-x is a 30px dialog affordance
    and this is a page you leave with gloves on */
 .rp-head .ip-x { display: grid; place-items: center; width: var(--tap); height: var(--tap); }
-.report-preflight-surface > .ip-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+/* Content padding matches the head's 22px, so the cards line up with the title above them
+   (`.ip-body`'s own 6px/20px is a dialog's, and left the first card glued to the head border).
+   The bottom clears the FAB the way Anwesenheit, Mittel, Atemschutz, Checklists and Zeitplan all
+   already do — `--fab-safe` is 0px when no FAB is on screen, so this is inert on a tablet. */
+.report-preflight-surface > .ip-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable;
+  padding: 14px 22px calc(22px + var(--fab-safe, 0px)); }
 /* The actions live in the HEAD with the other surfaces' controls, and the readiness chip rides
    with them — a warning about the record has to be in the same glance as the button that makes
    the paper. The old pinned footer is gone with them. */
@@ -3737,6 +3807,26 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 @media (max-width: 720px) {
   .report-preflight-surface { inset: calc(78px + env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
     calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
+}
+/* Phone: the cards get the width Anwesenheit's rows get. 22px of body padding plus 16px of card
+   padding put the content 38px in from each edge — on a 390px screen that is a fifth of the
+   screen spent on margin, and the rapport visibly ran narrower than the surface beside it in the
+   rail. Anwesenheit's grid is at 14px here, so this is. */
+@media (max-width: 600px) {
+  .rp-head { padding: 10px 14px; gap: 10px 12px; }
+  .report-preflight-surface > .ip-body { padding: 12px 14px calc(16px + var(--fab-safe, 0px)); }
+  .report-pre-section { padding: 12px 13px; }
+  /* Icons only. Three labelled buttons want ~600px and a phone has ~370px of head, so the row
+     wrapped to three stacked full-width buttons and ate a third of the surface before the rapport
+     started. The naming survives in aria-label/title (see the component); what is dropped is a
+     word the surface's own title already says. Square, so they read as a toolbar rather than as
+     buttons with their text missing. */
+  .rp-head-actions .rp-btn-label { display: none; }
+  .rp-head-actions .ip-btn { width: var(--tap); padding: 0; justify-content: center; }
+  .rp-head-actions .rp-split .rp-split-main { width: var(--tap); }
+  /* «Ausdrucken» keeps its offline reason, so it is the one that may stay wider than a square */
+  .rp-head-actions .ip-btn.print-send.offline { width: auto; padding: 0 10px; }
+  .rp-head-actions .print-send-main { gap: 5px; }
 }
 .report-preflight > .ip-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 
@@ -3941,12 +4031,19 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 /* Kroki framing PANEL — a block on the Rapport surface (it was a modal until 2026-08-07). The
    map keeps the server's 1600×940 render aspect, so the visible crop IS the printed crop: no
    hidden letterboxing on either side, and what is framed is what comes out. */
-.kf-panel { display: flex; flex-direction: column; gap: 8px; padding: 4px 10px 10px; }
+/* No padding of its own: it sits inside a .report-pre-section, which already pads. Doubling the
+   two put the crop 26px in from a card edge every other card's content meets at 16px. */
+.kf-panel { display: flex; flex-direction: column; gap: 8px; padding: 0; }
 /* the teaching line and the shape picker share the row above the crop — see the component for
-   why Hoch·Quer may not sit anywhere below the frame whose height it changes */
-.kf-panel-head { display: flex; align-items: center; gap: 12px; min-height: var(--tap); }
-.kf-panel-hint { flex: 1 1 auto; min-width: 0; font: 500 12px var(--body); color: var(--ink-faint); }
-.kf-panel-head .useg-btn { font-size: 12px; padding-inline: 12px; min-height: var(--tap); }
+   why Hoch·Quer may not sit anywhere below the frame whose height it changes.
+   The row may wrap: the hint is a 62-character sentence and the picker ~150px, which on a phone
+   is a six-line paragraph squeezed beside a control. Wrapped, each gets a line. */
+.kf-panel-head { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; min-height: var(--tap); }
+.kf-panel-hint { flex: 1 1 200px; min-width: 0; font: 500 12px var(--body); color: var(--ink-faint); }
+/* the size is this row's business; the HEIGHT is not — `.useg-btn` is already --tap minus the
+   track's padding, so the control measures a full 44px. Forcing 44 on the option made this the
+   only 50px segmented in the app, against the «ONE segmented spec» rule above it. */
+.kf-panel-head .useg-btn { font-size: 12px; padding-inline: 12px; }
 /* The crop is bounded by a HEIGHT, not by the viewport: in a column beside the form a portrait
    sheet's 1000/1400 would otherwise make a ~460px column 640px tall and push «Abschnitte» off
    the screen. max-width keeps the tall shape from ending up WIDER than the page it stands for,
@@ -3968,6 +4065,12 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
    picture they were adjusting — the ± column landed on the slider's right end — and they had to
    be repositioned every time the frame changed shape. */
 .kf-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+/* ⚠️ Bottom padding on the scroller does NOT save this row from the FAB. The ± pair is pinned to
+   the right edge by `margin-left: auto` and sits MID-scroll, so at some scroll position the «−»
+   is always under the circle — a 44px target that cannot be hit. Reserving the FAB's own column
+   moves the pair out from under it at every scroll position. --fab-safe is exactly the width the
+   FAB claims over this surface, and 0px when there is no FAB. */
+@media (max-width: 600px) { .kf-controls { padding-right: var(--fab-safe, 0px); } }
 /* The Stand slider keeps a line of its own. The panel is never much wider than the ~460px column
    it sits in, and a track squeezed in beside «Auf Einsatz zoomen» and the ± pair is a track that
    cannot be aimed — which is the whole point of the activity ticks under it. */
@@ -4642,7 +4745,10 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
    line was what separated the read-only dispatch facts from the fields below. The block is its
    own section now, and the section's own edge is the separator. */
 .report-meta-dispatch-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.report-meta-dispatch-head > span { font: 700 11px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); }
+/* --ink-dim, the same ink as every other eyebrow on this surface (.report-pre-section h3). It sat
+   on --ink-faint, one shade quieter, directly above three headings that did not — same size,
+   same weight, same tracking, different colour, stacked in one column. */
+.report-meta-dispatch-head > span { font: 700 11px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-dim); }
 .report-meta-editlink { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; margin: -4px -8px -4px 0;
   font: 600 12px var(--body); color: var(--blue); background: none; border: none; border-radius: var(--r-sm); cursor: pointer; }
 .report-meta-editlink:hover { background: color-mix(in srgb, var(--blue) 10%, transparent); }
@@ -4766,7 +4872,11 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
   background: transparent; color: var(--ink-dim); border-radius: var(--r-sm); padding: 8px 12px; font: 600 12.5px var(--body); cursor: pointer; }
 .rm-partner-add:hover { border-color: var(--blue); color: var(--blue); }
 .rm-partner-add svg { width: 15px; height: 15px; }
-.report-pre-section { border: 1px solid var(--border); border-radius: var(--r-ctl); padding: 10px 12px; background: var(--surface-2); }
+/* padding > the gap between the items inside it. At 10px/12px around a 14px stack, the fields
+   were further from each other than from the card wall — the classic «content bursting out of
+   the box». `--glass-edge` rather than `--border` is the hairline every other surface uses;
+   the rapport was the only place on `--border`. */
+.report-pre-section { border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); padding: 14px 16px; background: var(--surface-2); }
 /* section header = the SAME uppercase eyebrow as the details modal (.ctx-section-label) so every
    header across the app reads identically (was a one-off 14px sentence-case here) */
 .report-pre-section h3 { margin: 0 0 12px; font: 700 11px var(--body); letter-spacing: .08em;
@@ -4805,7 +4915,9 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 
 /* the Rapportangaben + Beilagen live in a <fieldset> so one `disabled` covers every control in
    them (viewer / archived Einsatz). Reset the UA fieldset chrome — it is a gate, not a box. */
-.report-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+/* 12px, the gap `.rp-col` uses. The form column stacked its cards 10px apart and the checklist
+   column 12px, so the two halves of one page kept a different rhythm. */
+.report-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
 /* the same read-only gate inside a checklist row, where the indent comes from .rp-check-extra */
 .rp-check-gate { align-self: stretch; gap: 6px; }
 .report-fieldset:disabled .report-att-x, .report-fieldset:disabled .report-row-add { display: none; }
@@ -4838,15 +4950,24 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
    carries a real value in both themes, softened so a ticked one still stands out. */
 .report-partner-box { flex: none; display: grid; place-items: center; width: 22px; height: 22px;
   border: 1.5px solid color-mix(in srgb, var(--ink-faint) 55%, transparent);
-  border-radius: var(--r-sm); color: var(--blue); }
+  border-radius: var(--r-sm); color: var(--ink-dim); }
 .report-partner-box svg { width: 14px; height: 14px; }
+/* ⚠️ A TICK IS NOT AN ALERT. Ticked rows went blue — box AND glyph — and this column carries a
+   lot of them: four section rows plus one per partner organisation, so an ordinary rapport lit
+   up with eight or nine blue rings for the sole news that everything was normal. Colour has to
+   be spent on the thing that needs a person; a checklist that is going WELL should be the quiet
+   half of the page. So the ticked state is carried by the SHAPE (a tick where there was an empty
+   box) and by the row's ink going from --ink-dim up to --ink — both readable at a glance, in
+   greyscale, at 3am. The blue is handed back to the two places on this surface that mean
+   «attention»: an amber warning, and the accent that is never used for state at all. */
 .report-partner.on .report-partner-tick { color: var(--ink); }
-.report-partner.on .report-partner-box { border-color: color-mix(in srgb, var(--blue) 55%, var(--glass-line)); }
+.report-partner.on .report-partner-box { border-color: color-mix(in srgb, var(--ink-faint) 80%, transparent); color: var(--ink); }
 .report-partner-org { font: 600 13.5px var(--body); }
 .report-partner-tick.bare { min-width: 0; padding-right: 0; }
-.report-partner .ip-input { flex: 1 1 120px; min-width: 0; min-height: 38px; padding: 8px 10px; font-size: 13.5px; }
+/* the shared .ip-input, at its shared size. Shrunk to 38px/13.5px here it was a different control
+   from the identical input one card below it in the same column (the Beilagen caption). */
+.report-partner .ip-input { flex: 1 1 120px; min-width: 0; }
 .report-partner-name { flex: 1 1 140px; }
-.report-partner .report-att-x { flex: none; width: 38px; height: 38px; }
 @media (max-width: 640px) {
   /* the free line drops under its own tick rather than squeezing both onto one line */
   .report-partner { flex-wrap: wrap; }
@@ -4886,13 +5007,19 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .report-toggle-hint { font: 500 11.5px/1.35 var(--body); color: var(--ink-faint); font-style: normal; }
 .report-toggle input { width: 18px; height: 18px; accent-color: var(--blue); }
 .report-toggle.disabled { opacity: .48; cursor: default; }
-.report-pre-hints p { display: flex; align-items: center; gap: 9px; margin: 7px 0; color: var(--ink-dim); font-size: 13px; }
-.report-pre-hints .i { width: 17px; height: 17px; color: var(--blue); }
-/* missing-transcript warning: amber + a button that jumps to the Verlauf to fill them, so it
-   actually gets actioned rather than read past */
-.report-pre-hints p.report-pre-warn { color: var(--amber-strong); font-weight: 600; flex-wrap: wrap;
+/* ⚠️ These warnings were SCOPED TO A CONTAINER THAT NO LONGER EXISTS. `.report-pre-hints` was the
+   band at the foot of the old sheet; when the Kontrolle became a popover on its chip the rows
+   moved but their only styling stayed behind the dead ancestor. There is no `p { margin: 0 }`
+   reset in this file, so the one thing on this surface that says «a photo is still queued, the
+   paper you are about to make will not have it» rendered as a plain ink-coloured paragraph with
+   the browser's own 1em margins — no amber, no tint, no flex, and «Transkripte ergänzen» inline
+   in the sentence. Unscoped, and the rule survives the next move.
+   missing-transcript warning: amber + a button that jumps to the Verlauf to fill them, so it
+   actually gets actioned rather than read past. */
+.report-pre-warn { display: flex; align-items: center; gap: 9px; margin: 0; flex-wrap: wrap;
+  font: 600 12.5px/1.45 var(--body); color: var(--amber-strong);
   background: color-mix(in srgb, var(--amber) 10%, transparent); border-radius: var(--r-ctl); padding: 9px 12px; }
-.report-pre-warn .i { color: var(--amber-strong); }
+.report-pre-warn .i { flex: none; width: 17px; height: 17px; color: var(--amber-strong); }
 .report-pre-warn span { flex: 1 1 auto; min-width: 0; }
 .report-pre-fix { flex: none; border: none; cursor: pointer; background: var(--amber); color: var(--on-fill);
   font: 700 12.5px var(--body); padding: 7px 12px; border-radius: var(--r-sm); }
@@ -5216,3 +5343,20 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
    sign of which line was meant */
 @keyframes jr-flash { from { background: color-mix(in srgb, var(--blue) 18%, transparent); } to { background: transparent; } }
 .hist-ev.jr-flash { animation: jr-flash .9s var(--ease); }
+
+/* ---- Rapport: the gloved floor ------------------------------------------------------------
+   Everything on this surface that a finger aims at reaches --tap on a touch screen. These sit
+   below it with a mouse on purpose — a dense checklist column of 44px rows is a lot of column —
+   so the floor is raised where it matters and nowhere else. `pointer: coarse` is the instrument
+   the rest of this file already uses for exactly this. */
+@media (pointer: coarse) {
+  .rp-check-main { min-height: var(--tap); }
+  .report-att-x { width: var(--tap); height: var(--tap); }
+  .report-partner { min-height: var(--tap); }
+  .report-partner-tick { min-height: var(--tap); }
+  .report-row-add { min-height: var(--tap); }
+  /* «Bearbeiten» is the ONE way into the Einsatzdaten from here, and it was a ~28px text link.
+     The negative margin keeps it optically flush with the eyebrow it sits beside, so it has to
+     grow with the hit area rather than being left behind by it. */
+  .report-meta-editlink { min-height: var(--tap); padding: 0 8px; margin: -8px -8px -8px 0; }
+}
