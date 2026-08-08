@@ -53,44 +53,78 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
    *  is a property of the surface being finite, not of any one call site. */
   collisionPadding?: number
 }) {
+  const renderItem = (it: MenuActionItem | MenuCheckItem, key: number) => {
+    // `'kind' in it` alone: at this point the union is check|action and only the checkbox row
+    // carries a `kind`, so the compound guard the old inline switch needed would leave TS unable
+    // to narrow the fall-through to MenuActionItem.
+    if ('kind' in it) {
+      return (
+        <BaseMenu.CheckboxItem
+          key={key}
+          className={itemClassName ? itemClassName(false) : undefined}
+          checked={it.checked}
+          disabled={it.disabled}
+          onCheckedChange={it.onChange}
+          closeOnClick={false}
+        >
+          <BaseMenu.CheckboxItemIndicator className="ui-menu-check" keepMounted>
+            <svg viewBox="0 0 24 24" aria-hidden><path d="M5 13l4 4L19 7" /></svg>
+          </BaseMenu.CheckboxItemIndicator>
+          {it.label}
+        </BaseMenu.CheckboxItem>
+      )
+    }
+    return (
+      <BaseMenu.Item
+        key={key}
+        className={itemClassName ? itemClassName(!!it.danger) : undefined}
+        disabled={it.disabled}
+        onClick={it.onClick}
+      >
+        {it.label}
+        {it.disabled && it.reason != null && <span className={reasonClassName}>{it.reason}</span>}
+      </BaseMenu.Item>
+    )
+  }
+
+  // A heading OPENS A GROUP, it is not a row that happens to look like one. Base UI's GroupLabel
+  // reads the id it has to announce out of the group's context and THROWS when there is none
+  // («MenuGroupContext is missing») — a bare label crashed the whole app the moment the print
+  // menu was opened. Grouping it properly is also the only version worth anything: the label is
+  // what a screen reader announces for every row under it, so «Abschnitte» has to OWN the ticks
+  // rather than merely precede them.
+  // A rule does NOT close a group — it divides one. «Abschnitte» names nine sections that come in
+  // three runs, and a group that ended at the first rule would leave six of them unnamed again,
+  // which is the thing the heading was added to fix. Only the next heading closes a group; rows
+  // before the first heading stay ungrouped, which is what an unlabelled block is.
+  type Row = { it: MenuActionItem | MenuCheckItem; key: number } | { sep: true; key: number }
+  const blocks: { label?: ReactNode; rows: Row[] }[] = []
+  items.forEach((it, i) => {
+    if ('kind' in it && it.kind === 'head') { blocks.push({ label: it.label, rows: [] }); return }
+    if (!blocks.length) blocks.push({ rows: [] })
+    blocks[blocks.length - 1].rows.push('kind' in it && it.kind === 'sep' ? { sep: true, key: i } : { it, key: i })
+  })
+  const renderRow = (r: Row) =>
+    'sep' in r ? <BaseMenu.Separator key={r.key} className="ui-menu-sep" /> : renderItem(r.it, r.key)
+
   return (
     <BaseMenu.Root>
       <BaseMenu.Trigger render={trigger} />
       <BaseMenu.Portal>
         <BaseMenu.Positioner side={side} align={align} sideOffset={sideOffset} collisionPadding={collisionPadding}>
           <BaseMenu.Popup className={popupClassName}>
-            {items.map((it, i) => {
-              if ('kind' in it && it.kind === 'sep') return <BaseMenu.Separator key={i} className="ui-menu-sep" />
-              if ('kind' in it && it.kind === 'head') return <BaseMenu.GroupLabel key={i} className="ui-menu-head">{it.label}</BaseMenu.GroupLabel>
-              if ('kind' in it && it.kind === 'check') {
-                return (
-                  <BaseMenu.CheckboxItem
-                    key={i}
-                    className={itemClassName ? itemClassName(false) : undefined}
-                    checked={it.checked}
-                    disabled={it.disabled}
-                    onCheckedChange={it.onChange}
-                    closeOnClick={false}
-                  >
-                    <BaseMenu.CheckboxItemIndicator className="ui-menu-check" keepMounted>
-                      <svg viewBox="0 0 24 24" aria-hidden><path d="M5 13l4 4L19 7" /></svg>
-                    </BaseMenu.CheckboxItemIndicator>
-                    {it.label}
-                  </BaseMenu.CheckboxItem>
+            {blocks.map((b, i) => (
+              // no label = nothing to associate, so no wrapper either — an extra div around the
+              // rows would only add a box for the popup's own layout to reason about
+              b.label == null
+                ? b.rows.map(renderRow)
+                : (
+                  <BaseMenu.Group key={`g${i}`}>
+                    <BaseMenu.GroupLabel className="ui-menu-head">{b.label}</BaseMenu.GroupLabel>
+                    {b.rows.map(renderRow)}
+                  </BaseMenu.Group>
                 )
-              }
-              return (
-                <BaseMenu.Item
-                  key={i}
-                  className={itemClassName ? itemClassName(!!it.danger) : undefined}
-                  disabled={it.disabled}
-                  onClick={it.onClick}
-                >
-                  {it.label}
-                  {it.disabled && it.reason != null && <span className={reasonClassName}>{it.reason}</span>}
-                </BaseMenu.Item>
-              )
-            })}
+            ))}
           </BaseMenu.Popup>
         </BaseMenu.Positioner>
       </BaseMenu.Portal>
