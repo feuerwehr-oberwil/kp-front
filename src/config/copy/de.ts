@@ -633,6 +633,7 @@ export const de = {
     // als einzige löschbar (Alle Einsätze)
     exerciseToggle: 'Übung – zählt nicht zur Einsatzstatistik',
     detailsLabel: 'Meldungstext (optional)',
+    alarmTextUnavailable: 'Alarmmeldung konnte nicht geladen werden – bleibt unverändert',
     detailsPlaceholder: 'Zusätzliche Angaben zur Meldung',
     // --- Actions ---
     open: 'Einsatz öffnen',

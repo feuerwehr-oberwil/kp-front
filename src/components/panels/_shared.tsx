@@ -2,12 +2,17 @@
 // helpers used by more than one panel. Split out of the former IncidentPanels.tsx.
 import { Sheet } from '../../lib/overlays'
 
+// ⚠️ `footer` is FORWARDED, and an action row belongs in it. Sheet places the footer as a
+// SIBLING of the scrolling `.ip-body`; a `.ip-actions` div passed as a child lands inside
+// that scroller instead, which loses `.ip-sheet > .ip-actions`'s padding (the rule exists
+// because that is a trap every author falls into) and — worse — scrolls «Speichern» off the
+// bottom of a long form. Modal did not forward it at all, so every consumer had no choice.
 // `fit` = height hugs the content (capped), for short one-off modals that would otherwise
 // leave a big empty bottom in the uniform 800px frame. Backed by the shared <Sheet> primitive
 // (Base UI Dialog + focus trap/restore/scroll-lock), so every consumer gets that for free.
-export function Modal({ title, onClose, children, wide, fit }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean; fit?: boolean }) {
+export function Modal({ title, onClose, children, footer, wide, fit }: { title: string; onClose: () => void; children: React.ReactNode; footer?: React.ReactNode; wide?: boolean; fit?: boolean }) {
   return (
-    <Sheet open onClose={onClose} title={title} wide={wide} fit={fit}>
+    <Sheet open onClose={onClose} title={title} footer={footer} wide={wide} fit={fit}>
       {children}
     </Sheet>
   )

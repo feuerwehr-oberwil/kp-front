@@ -35,6 +35,33 @@ import { Modal, realCoord } from './_shared'
 
 // Single guided panel — see the note above. 3am tenet: nothing hidden, nothing to memorise,
 // everything correctable, before or after the incident is born.
+/** The subset of `next` that actually differs from `seed`.
+ *
+ *  `text` is compared too, but only when it is present in `next` — the fetch guard already keeps
+ *  it out of the body when the existing Meldungstext could not be read, and an absent key here
+ *  has to stay absent rather than becoming "changed to undefined".
+ *
+ *  Timestamps are compared as INSTANTS, not strings: the field round-trips through a formatter
+ *  that drops seconds, so `2026-08-02T14:41:37Z` comes back as `…14:41:00` and a plain !==
+ *  would call every save a change to the Alarmzeit — which is the bug this exists to prevent.
+ *  Same-minute counts as untouched; a real edit moves the minute.
+ */
+export function changedOnly(next: Record<string, unknown>, seed: Record<string, unknown> | null): Record<string, unknown> {
+  if (!seed) return next
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(next)) {
+    if (!(k in seed)) { out[k] = v; continue } // e.g. `text`, which has no seed
+    const before = seed[k]
+    if (k === 'started_at') {
+      const a = typeof v === 'string' ? Date.parse(v) : NaN
+      const b = typeof before === 'string' ? Date.parse(before) : NaN
+      if (Number.isFinite(a) && Number.isFinite(b) && Math.floor(a / 60_000) === Math.floor(b / 60_000)) continue
+    }
+    if (v !== before) out[k] = v
+  }
+  return out
+}
+
 export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   /** existing incident to correct in place (PATCH) instead of creating; null = manual create */
   edit?: IncidentMeta | null
@@ -70,12 +97,53 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   // Übung — stats-excluded + deletable. A Probealarm that opened itself gets retro-tagged here.
   const [isExercise, setIsExercise] = useState(!!edit?.is_exercise)
   const [busy, setBusy] = useState(false)
+  // the Alarmmeldung fetch FAILED — the textarea is disabled and says so, and `text` stays out of
+  // the PATCH body, so a save cannot blank what could not be read (see the fetch below)
+  const [textFailed, setTextFailed] = useState(false)
+
+  /** What the incident looked like when this panel opened — the baseline the save diffs against
+   *  (see submit). Frozen on mount on purpose: it is «what the operator started from», so a
+   *  background sync landing mid-edit must not quietly widen or narrow what the save writes. */
+  const seed = useRef(edit ? {
+    title: edit.title ?? '',
+    type: edit.type ?? null,
+    priority: edit.priority === 'HIGH' ? 'HIGH' : 'LOW',
+    address: edit.address ?? null,
+    started_at: edit.started_at ?? null,
+    is_exercise: !!edit.is_exercise,
+    lng: realCoord(edit.lng, edit.lat)?.[0] ?? null,
+    lat: realCoord(edit.lng, edit.lat)?.[1] ?? null,
+  } as Record<string, unknown> : null).current
 
   // address autocomplete
   const [hits, setHits] = useState<GeoHit[]>([])
   const [addrLoading, setAddrLoading] = useState(false)
   const [addrOpen, setAddrOpen] = useState(false)
   const addrSeq = useRef(0)
+  // ⚠️ The menu has to CLOSE on an outside tap, the way Combo does. Nothing but picking a hit
+  // ever closed it, so in edit mode — where the field is prefilled — merely tapping in to fix a
+  // typo opened a 220px list over the three location buttons and the Stichwort field below it.
+  // The next tap anywhere in that band landed on an address row and silently rewrote the address
+  // AND the coordinate. Esc closes the menu before the sheet, so the way out is not «discard
+  // every edit».
+  const addrRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!addrOpen) return
+    const onDown = (e: PointerEvent) => {
+      if (!addrRef.current?.contains(e.target as Node)) setAddrOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      e.stopPropagation()   // the sheet's own Esc must not fire and throw the edits away
+      setAddrOpen(false)
+    }
+    document.addEventListener('pointerdown', onDown, true)
+    document.addEventListener('keydown', onKey, true)
+    return () => {
+      document.removeEventListener('pointerdown', onDown, true)
+      document.removeEventListener('keydown', onKey, true)
+    }
+  }, [addrOpen])
 
   // object library picker
   const [objOpen, setObjOpen] = useState(false)
@@ -141,7 +209,12 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
     let alive = true
     getIncident(edit.id)
       .then((full) => { if (alive) { setText((t) => (t.trim() ? t : full.text ?? '')); setTextReady(true) } })
-      .catch(() => { if (alive) setTextReady(true) })
+      // ⚠️ NOT setTextReady(true). The guard exists so a save before the fetch lands cannot
+      // blank an existing Meldungstext — and the failure path is exactly when that matters:
+      // on a bad connection `text` is still '' and the PATCH would write null over the
+      // dispatch message the Rapport prints as «Alarmmeldung». Left false, the field stays
+      // out of the body entirely and the textarea says why.
+      .catch(() => { if (alive) setTextFailed(true) })
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [edit?.id])
@@ -159,10 +232,15 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   // «Eröffnen» must never be a dead-end: after the primary «Hier»/GPS path the title is often
   // blank, which used to leave the button disabled with no hint. Fall back to the address
   // short-form, then the category label (always set) — there's always a sensible incident name.
-  const effectiveTitle =
-    title.trim() ||
-    (address.trim() ? shortAddress(address.trim()) ?? '' : '') ||
-    (ix.kategorienLabels[kategorie ?? ix.kategorien[0]] ?? kategorie ?? ix.kategorien[0])
+  // ⚠️ CREATE only. On an existing Einsatz the fallback is a silent rename: select-all in the
+  // Stichwort field and, before a character is typed, the panel has already resolved a title —
+  // save and «Gebäudebrand Schulhaus» becomes «Schulstrasse 4». Correcting is not creating; a
+  // blank field there means «I am mid-edit», so the save waits instead of inventing a name.
+  const effectiveTitle = edit
+    ? title.trim()
+    : title.trim() ||
+      (address.trim() ? shortAddress(address.trim()) ?? '' : '') ||
+      (ix.kategorienLabels[kategorie ?? ix.kategorien[0]] ?? kategorie ?? ix.kategorien[0])
   // Demo: a visitor may explore the whole wizard, but actually opening a new Einsatz is blocked
   // (it would write to the shared backend). Editing the demo incident stays fully open.
   const demoBlocked = isDemoMode() && !edit
@@ -171,7 +249,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
     setBusy(true)
     // Meldungstext/Alarmmeldung is sent on create, and on edit once the existing text has
     // been fetched (textReady) so a quick save can't blank it.
-    const body = {
+    const full = {
       title: effectiveTitle,
       type: kategorie,
       priority,
@@ -179,10 +257,25 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
       ...(textReady ? { text: text.trim() || null } : {}),
       ...(dtLocalToIso(alarmiertAt) ? { started_at: dtLocalToIso(alarmiertAt) } : {}),
       is_exercise: isExercise,
-      ...(coord ? { lng: coord[0], lat: coord[1] } : {}),
+      // ⚠️ `null`, not omitted, once there WAS one. The ✕ set `coord` to null and the read-out
+      // agreed — but an omitted key is not written (the PATCH is exclude_unset), so the location
+      // was cleared on screen, «Einsatz aktualisiert» came back, and the old coordinate was still
+      // on the record and still driving the map.
+      ...(coord ? { lng: coord[0], lat: coord[1] } : edit && realCoord(edit.lng, edit.lat) ? { lng: null, lat: null } : {}),
     }
+    // ⚠️ On EDIT, send only what actually changed. The full body re-wrote eight fields every
+    // time, including three the operator may never have looked at — and `started_at` is the
+    // expensive one: it is seeded through a formatter that drops seconds, and the backend stamps
+    // `started_at_source = "manual"` whenever it arrives. So fixing a typo in the address rounded
+    // a 03:14:37 alarm to 03:14:00 and told the statistics consumer a human had asserted the
+    // time. A null `type`/`priority` was likewise invented into a value the backend deliberately
+    // derives itself. Diffing also shrinks the last-write-wins window to the touched fields.
+    const patch = edit ? changedOnly(full, seed) : null
+    // nothing was touched — closing is the honest outcome, and it skips a write that would
+    // otherwise re-stamp the record for no reason
+    if (patch && !Object.keys(patch).length) { onClose(); return }
     try {
-      const inc = edit ? await patchIncident(edit.id, body) : await createIncident(body)
+      const inc = edit && patch ? await patchIncident(edit.id, patch) : await createIncident(full)
       toast(edit ? ix.updated : ix.created, { icon: 'check', tone: 'success' })
       onCreated(inc)
     } catch (e) {
@@ -208,10 +301,16 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   return (
     <>
     {mapOpen && <MapPicker initial={coord} onCancel={() => setMapOpen(false)} onConfirm={applyPicked} />}
-    <Modal title={edit ? ix.editTitle : ix.titleNew} onClose={onClose}>
+    <Modal title={edit ? ix.editTitle : ix.titleNew} onClose={onClose} footer={<>
+      {/* manual create is reached from the landing — "Zurück" signals it returns there */}
+      <button className="ip-btn" onClick={onClose}>{edit ? ix.cancel : ix.back}</button>
+      <button className="ip-btn primary" disabled={!effectiveTitle || busy || demoBlocked} onClick={submit}>
+        {busy ? <><Icon id="rotate" className="spin" /> {edit ? ix.saving : ix.opening}</> : edit ? ix.save : ix.open}
+      </button>
+    </>}>
       {/* --- Standort --- */}
       <div className="ip-ix-head">{ix.locationHead}</div>
-      <div className="ip-field ip-ac">
+      <div className="ip-field ip-ac" ref={addrRef}>
         <span>{ix.addressLabel}</span>
         <input
           value={address}
@@ -330,19 +429,16 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
               onCommit={(iso) => setAlarmiertAt(dtLocalValue(iso))} />
           </label>
           <label className="ip-field"><span>{ix.alarmMessage}</span>
-            <textarea className="ip-textarea" rows={3} value={text} onChange={(e) => setText(e.target.value)} placeholder={ix.detailsPlaceholder} />
+            {/* disabled while the existing Meldungstext could not be read — editing it would
+                mean typing over something invisible, and saving would blank it */}
+            <textarea className="ip-textarea" rows={3} value={text} disabled={!textReady}
+              onChange={(e) => setText(e.target.value)}
+              placeholder={textFailed ? ix.alarmTextUnavailable : ix.detailsPlaceholder} />
           </label>
         </>
       )}
 
       {demoBlocked && <p className="ip-demo-block"><Icon id="info" /> {ix.demoBlocked}</p>}
-      <div className="ip-actions">
-        {/* manual create is reached from the landing — "Zurück" signals it returns there */}
-        <button className="ip-btn" onClick={onClose}>{edit ? ix.cancel : ix.back}</button>
-        <button className="ip-btn primary" disabled={!effectiveTitle || busy || demoBlocked} onClick={submit}>
-          {busy ? <><Icon id="rotate" className="spin" /> {edit ? ix.saving : ix.opening}</> : edit ? ix.save : ix.open}
-        </button>
-      </div>
     </Modal>
     </>
   )

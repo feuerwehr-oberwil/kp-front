@@ -5438,6 +5438,20 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 @keyframes jr-flash { from { background: color-mix(in srgb, var(--blue) 18%, transparent); } to { background: transparent; } }
 .hist-ev.jr-flash { animation: jr-flash .9s var(--ease); }
 
+/* ---- Einsatzdaten: the gloved floor ---------------------------------------------------------
+   Nothing in this panel reached --tap, and the two extremes were the wrong way round: the
+   SMALLEST target (≈19px) removed the incident's location, and the largest was a full-width
+   primary that moves it. Same instrument the Rapport uses — raised where a finger aims, left
+   alone for a mouse. */
+@media (pointer: coarse) {
+  .ip-ac-row { min-height: var(--tap); }
+  .ip-objrow { min-height: var(--tap); }
+  .ip-loc-clear { width: var(--tap); height: var(--tap); display: grid; place-items: center; }
+  .ip-ix-methods .ip-btn { min-height: var(--tap); }
+  /* the Übung checkbox is a native ~16px box — the ROW is what gets aimed at */
+  .ip-check { min-height: var(--tap); }
+}
+
 /* ---- Rapport: the gloved floor ------------------------------------------------------------
    Everything on this surface that a finger aims at reaches --tap on a touch screen. These sit
    below it with a mouse on purpose — a dense checklist column of 44px rows is a lot of column —
