@@ -370,3 +370,30 @@ def test_both_rules_of_a_visum_row_sit_on_one_line():
         assert any(abs(y - o) <= 2 for o in ortdatum), (
             f"the signature rule at y={y:.1f} has no «Ort, Datum» rule level with it (found {ortdatum})"
         )
+
+
+def test_the_join_number_prints_and_the_uuid_does_not():
+    """WinFAP is joined on the alerting system's own alarm reference, whose short form is its
+    FIRST four hex — not on this app's incident UUID, which joins nothing. Printing both put two
+    number-looking things on one sheet, and the case-number field only wants one of them. So the
+    Einsatz-Nr sits in the details box (where a form is filled in from) and the Einsatz-ID is off
+    the footer entirely."""
+    payload = ReportPayload.model_validate(
+        {
+            "incident": {"title": "Zimmerbrand", "id": "3f2a91c4-77bd-4c1e-9a55-0e21b7d4239d"},
+            "generatedAt": "07.08.2026 09:00",
+            "proof": {"statusLabel": "intakt", "count": 1, "head": "0"},
+        }
+    )
+    plain = pdfium.PdfDocument(compose_report_pdf(payload, {}))[0].get_textpage().get_text_range()
+    assert "Einsatz-ID" not in plain
+    assert "3f2a91c4" not in plain, "the incident UUID must not reach the paper"
+    assert "Einsatz-Nr" not in plain, "no reference, no row — an empty label invites the wrong number"
+
+    payload.incident.alarmRef = "fwo-sms-761610d931ac"
+    withref = pdfium.PdfDocument(compose_report_pdf(payload, {}))[0].get_textpage().get_text_range()
+    assert "Einsatz-Nr" in withref
+    # the short form is what gets typed, so it leads; the full reference follows for checking
+    # against the printed slip
+    assert "7616 · fwo-sms-761610d931ac" in withref
+    assert "Einsatz-ID" not in withref

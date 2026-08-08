@@ -22,7 +22,7 @@ from .. import storage
 from ..auth.dependencies import CurrentUser
 from ..database import get_db
 from ..models import DeploymentConfig as DeploymentConfigRow
-from ..models import Incident, Media, ReferenceDataset
+from ..models import DiveraEmergency, Incident, Media, ReferenceDataset
 from ..report_pdf import ReportPayload, compose_report_pdf
 from ..schichtplan_pdf import compose_schichtplan_pdf
 from ..zeitplan_pdf import ZeitplanPayload, compose_zeitplan_pdf
@@ -126,6 +126,31 @@ async def resolve_report_assets(db: AsyncSession, data: ReportPayload, figs: dic
     return plan_pdfs
 
 
+async def _alarm_ref(db: AsyncSession, incident_id: str) -> str | None:
+    """The alerting system's own reference for this incident's alarm — the number WinFAP and
+    the cantonal statistics join on, and the same one ``api.stats`` exports as ``alarm_ref``.
+
+    Resolved HERE rather than sent by the client: the pool row is the authority, and a rapport
+    printed from a stale tab must not put a different number on paper from the one the exporter
+    sends. Earliest arrival wins, exactly as ``stats._alarm_refs`` does it — an incident can
+    absorb a second pool alarm (split dispatch), and the first alarm is the one whose slip was
+    printed. Best-effort: a rapport never fails to compose over a missing reference.
+    """
+    try:
+        iid = uuid.UUID(incident_id)
+    except (ValueError, AttributeError):
+        return None
+    return (
+        await db.execute(
+            select(DiveraEmergency.divera_number)
+            .where(DiveraEmergency.taken_incident_id == iid)
+            .where(DiveraEmergency.divera_number.is_not(None))
+            .order_by(DiveraEmergency.received_at.asc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+
+
 async def compose_report_from_payload(
     db: AsyncSession, payload: str, figs: dict[str, bytes] | None = None
 ) -> tuple[bytes, ReportPayload]:
@@ -138,6 +163,7 @@ async def compose_report_from_payload(
             status_code=422, detail=f"Ungültige Rapport-Daten: {e.errors(include_url=False)[:5]}"
         ) from e
     figs = figs if figs is not None else {}
+    data.incident.alarmRef = await _alarm_ref(db, data.incident.id)
     plan_pdfs = await resolve_report_assets(db, data, figs)
     try:
         # composition does real work now (tile fetch + rasterising) — off the event loop

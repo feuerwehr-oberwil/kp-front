@@ -91,6 +91,12 @@ class IncidentFacts(BaseModel):
     #: a drill rapport that looks like a deployment puts paper and data in disagreement — and
     #: nothing else on the sheet distinguishes the two.
     isExercise: bool = False
+    #: The number WinFAP and the cantonal statistics are joined on — the alerting system's own
+    #: reference for the alarm («fwo-sms-761610d931ac»), whose short form is its FIRST four hex.
+    #: Filled server-side in ``api.report.compose_report_from_payload``, never by the client:
+    #: the pool row that carries it is the authority, and a number typed into WinFAP from this
+    #: sheet has to be the one the exporter sends.
+    alarmRef: str | None = None
 
 
 class JournalRowIn(BaseModel):
@@ -253,6 +259,18 @@ def _clip_print(v: str) -> str:
     """Clamp a remark to what fits two printed lines. Never rejects — printing must not depend
     on what somebody typed (form model 2026-07-17); the full text lives in the workspace."""
     return v if len(v) <= _NOTE_PRINT_MAX else v[: _NOTE_PRINT_MAX - 1].rstrip() + "…"
+
+
+def _alarm_ref_text(ref: str | None) -> str:
+    """«7616 · fwo-sms-761610d931ac» — the short form first, because that is the one that
+    gets typed into WinFAP's Schadenfall-Nr, then the full reference so the printed slip and
+    this sheet can be checked against each other. The short form is the FIRST four hex of
+    the suffix, which is what fwo-divera prints on the slip."""
+    if not ref:
+        return ""
+    suffix = ref.rsplit("-", 1)[-1]
+    short = suffix[:4] if len(suffix) >= 4 else ""
+    return f"{short} · {ref}" if short else ref
 
 
 #: Cell padding for the pen-writable tick-off/worksheet tables (Personal, Partner, Material).
@@ -430,6 +448,7 @@ L = {
     # «Gerettet», not «Gerettete»: the box is a form label followed by what was rescued
     # («Gerettet: 2 Personen»), not a noun standing on its own.
     "gerettete": "Gerettet",
+    "alarmRef": "Einsatz-Nr",
     "rueckmeldungElz": "Rückmeldung ELZ",
     "zeiten": "Alarmierungs- / Ausrückzeiten",
     "erfasser": "Erfasst durch",
@@ -961,9 +980,11 @@ def compose_report_pdf(
             )
         )
         story.append(head_tbl)
-    iid = payload.incident.id
-    short_id = f"{iid[:8]}…{iid[-4:]}" if len(iid) > 14 else iid
-    footer_bits = [f"{L['generatedAt']}: {payload.generatedAt}", f"{L['incidentId']}: {short_id}"]
+    # ⚠️ NO Einsatz-ID here any more. It was this app's own incident UUID, shortened for display —
+    # it joins nothing in WinFAP, and printing a number-looking thing beside the one that DOES
+    # join is how the wrong one gets typed into the case-number field. The Einsatz-Nr is in the
+    # details box below, where somebody filling in a form reads.
+    footer_bits = [f"{L['generatedAt']}: {payload.generatedAt}"]
     if m.erfasser:
         footer_bits.append(f"{L['erfasser']}: {m.erfasser}")
     story.append(Paragraph(_esc(" · ".join(footer_bits)), st["muted"]))
@@ -990,6 +1011,14 @@ def compose_report_pdf(
                     {"label": L["einsatzleiter"], "w": half, "value": m.einsatzleiter},
                     {"label": L["gerettete"], "w": half, "value": m.gerettete},
                 ],
+                # The join key, in the block that is read while a form is being filled in. Short
+                # form first because that is what gets typed; the full reference behind it so the
+                # slip in the hand and the sheet on the desk can be checked against each other.
+                *(
+                    [[{"label": L["alarmRef"], "w": 1.0, "value": _alarm_ref_text(payload.incident.alarmRef)}]]
+                    if payload.incident.alarmRef
+                    else []
+                ),
                 [{"label": L["kontaktperson"], "w": 1.0, "value": m.kontaktperson}],
                 [{"label": L["rueckmeldungElz"], "w": 1.0, "value": m.rueckmeldungElz}],
             ],
