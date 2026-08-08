@@ -6,7 +6,7 @@ import { getDeploymentConfig, type DeploymentMittelItem, type DeploymentMittelSo
 import { fillTemplate } from '../lib/format'
 import { cx } from '../lib/cx'
 import { toast } from '../lib/ui'
-import { Overlay } from '../lib/overlays'
+import { Overlay, Sheet } from '../lib/overlays'
 import { Combo } from './Combo'
 import { Stepper } from './Stepper'
 import { Segmented } from './Segmented'
@@ -540,8 +540,18 @@ function MittelComposer({ M, catalogue, sources, units, entries, categorised, on
   }
 
   return (
-    <div className={s.composer}>
-      <div className={s.composerTitle}>{M.composerTitle}</div>
+    /* A MODAL, like every other «… erfassen» in the app. It was an inline band under the header —
+       and a band is genuinely better at keeping the list you are adding to visible — but one
+       «erfassen» that behaves differently from the others is worse than either pattern applied
+       everywhere, and the two forms that could not be bands (Trupp anlegen is seven fields, the
+       Gast needs its explanatory line) settled which way «everywhere» had to go. The draft still
+       survives leaving the surface, so the one thing the band was protecting is kept. */
+    <Sheet open fit title={M.composerTitle} onClose={onCancel} ariaLabel={M.composerTitle}
+      footer={<>
+        <button type="button" className="ip-btn" onClick={onCancel}>{M.cancel}</button>
+        <button type="button" className="ip-btn primary" disabled={!valid} onClick={submit}>{M.save}</button>
+      </>}
+    >
       <div className={s.composerFields}>
         <div className={s.field}>
           <label>{M.materialLabel}</label>
@@ -562,11 +572,7 @@ function MittelComposer({ M, catalogue, sources, units, entries, categorised, on
           <label>{M.qtyLabel}</label>
           <Stepper value={menge} min={1} max={9999} ariaLabel={M.qtyLabel} onChange={setMenge} />
         </div>
-        <div className={s.composerActions}>
-          <button type="button" className="ip-btn" onClick={onCancel}>{M.cancel}</button>
-          <button type="button" className="ip-btn primary" disabled={!valid} onClick={submit}>{M.save}</button>
-        </div>
       </div>
-    </div>
+    </Sheet>
   )
 }
