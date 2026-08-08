@@ -88,38 +88,23 @@ const shots = [
       await page.waitForTimeout(1500)
     },
   },
-  {
-    name: 'rapport',
-    nav: 'Karte',
-    settle: 2500,
-    note: 'Der Einsatzrapport vor dem PDF: Angaben prüfen, Fehlendes nachtragen',
-    prep: async (page) => {
-      await page.locator('.ip-switch-btn').click()
-      await page.getByRole('button', { name: 'Einsatzrapport' }).click()
-      await page.waitForTimeout(2000)
-      // Der Dialogkopf zeigt lauter leere Felder – das Bild soll aber zeigen, was
-      // schon drinsteht. Darum bis zur Anwesenheits-Karte scrollen: Mannschaft,
-      // Mittel und die Abschnitte des PDF stehen dann zusammen im Bild.
-      await page.evaluate(() => {
-        const body = document.querySelector('.report-preflight-body')
-        if (!body) return
-        const card = [...body.querySelectorAll('*')].find((el) => {
-          const r = el.getBoundingClientRect()
-          return /Anwesenheit/.test(el.textContent || '') && el.children.length
-            && r.height > 100 && r.height < 320
-        })
-        if (card) {
-          body.scrollTop += card.getBoundingClientRect().top - body.getBoundingClientRect().top - 14
-        }
-      })
-      await page.waitForTimeout(1000)
-    },
-  },
+  // ⚠️ Der Rapport war einmal ein Dialog, den man über das Einsatz-Menü aufmachte
+  // (`.ip-switch-btn` → «Einsatzrapport»), und dieser Schritt scrollte in
+  // `.report-preflight-body` bis zur Anwesenheits-Karte. Beides gibt es nicht mehr: der
+  // Rapport ist eine eigene Fläche in der linken Leiste (Taste R). Der alte Schritt lief
+  // 30 s in einen Timeout und nahm das Bild gar nicht mehr auf – ein Aufruf, der still
+  // nichts mehr trifft, ist hier derselbe Fehler wie ein Test, der nichts mehr prüft.
+  { name: 'rapport', nav: 'Rapport', settle: 2500, note: 'Der Einsatzrapport: ein vorausgefülltes Erfassungsblatt, über den ganzen Einsatz ergänzt' },
 ]
 
 /** Demo-Chrome, die im Marketing-Bild nichts zu suchen hat. */
 const HIDE_CSS = `
   .demo-ribbon, .demo-welcome-scrim, .kp-toast, [data-sonner-toaster] { display: none !important; }
+  /* Der schwebende Neualarm-Streifen (.dv-banner) legte sich quer über den Kopf der Mittel-
+     und Rapport-Bilder — auf der öffentlichen Demo läuft ständig ein frischer Alarm ein.
+     Er ist echtes Produktverhalten, aber vorübergehendes Chrome: im Standbild liest er sich
+     wie ein Fehlerzustand, der die Überschrift verdeckt. Gleiche Familie wie die Toasts. */
+  .dv-banner { display: none !important; }
 `
 
 const run = async () => {
