@@ -307,4 +307,4 @@ def test_the_shipped_demo_scene_labels_its_einsatzleiter():
         for a in build_demo_workspace(scene, present, NOW)["attendance"].values()
         if a.get("note")
     }
-    assert notes == {dr.DEMO_EINSATZLEITER: "Einsatzleiter"}
+    assert notes == {dr.DEMO_EINSATZLEITER: "Einsatzleiter", dr.demo_display_name("Stefan", "Graf"): "Fahrer TLF"}
