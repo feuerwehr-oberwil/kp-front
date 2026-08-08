@@ -35,7 +35,6 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfgen import canvas as _canvas
 from reportlab.platypus import (
     BaseDocTemplate,
-    CondPageBreak,
     Flowable,
     Frame,
     HRFlowable,
@@ -242,6 +241,26 @@ def _clip_note(v: str | None) -> str | None:
     return v[: _NOTE_MAX - 1].rstrip() + "…"
 
 
+#: What a remark may occupy ON PAPER, which is a different question from what will crash the
+#: composer. `_NOTE_MAX` is the crash guard; at 400 characters a remark still wraps to four lines
+#: of 6.5pt in a ~62mm label column, and one such row measured 45pt tall against 13.6pt
+#: neighbours — it stretched its own column's rhythm so far that the two halves of the Material
+#: block visibly stopped sharing baselines. Two lines is what the row can carry.
+_NOTE_PRINT_MAX = 110
+
+
+def _clip_print(v: str) -> str:
+    """Clamp a remark to what fits two printed lines. Never rejects — printing must not depend
+    on what somebody typed (form model 2026-07-17); the full text lives in the workspace."""
+    return v if len(v) <= _NOTE_PRINT_MAX else v[: _NOTE_PRINT_MAX - 1].rstrip() + "…"
+
+
+#: Cell padding for the pen-writable tick-off/worksheet tables (Personal, Partner, Material).
+#: They carried 2.8 / 2.5 / 1.8 — three paddings for one row type, so two visually identical
+#: tick-off blocks on the same sheet came out at a 15.0 and a 15.6pt pitch.
+_PAD_ROW = 2.8
+
+
 class PersonalRowIn(BaseModel):
     """One roster row on the Personal-/Soldblatt: printed tick when digitally recorded,
     blank checkbox + write-in stubs otherwise. Clocks are client-formatted HH:MM."""
@@ -371,7 +390,6 @@ L = {
     "incidentId": "Einsatz-ID",
     "alarmMessage": "Alarmmeldung",
     "attachments": "Beilagen",
-    "attachmentNoCaption": "ohne Bildlegende",
     "summary": "Kurzbericht / durchgeführte Arbeiten",
     "lehren": "Lehren / Sicherheit",
     "remarks": "Bemerkungen",
@@ -529,6 +547,8 @@ def _styles() -> dict[str, ParagraphStyle]:
             spaceAfter=2,
             alignment=TA_LEFT,
             leftIndent=0,
+            # the rule under it carries the same flag — see head()
+            keepWithNext=1,
         ),
         "h3": ParagraphStyle(
             "rp_h3",
@@ -595,6 +615,17 @@ def _styles() -> dict[str, ParagraphStyle]:
             leading=10,
             textColor=colors.HexColor("#969696"),
             alignment=TA_RIGHT,
+        ),
+        # The unit sits in its own column beside the amount, so «Stk» / «Sack» / «l» form one
+        # column and the write-in rule beside them is one width — see _mittel_table.
+        "runit": ParagraphStyle("rp_runit", parent=base["Normal"], fontSize=8.5, leading=10, textColor=dim),
+        # A remark is its OWN paragraph, not an inline <font size="6.5"> inside the label. Inline,
+        # it inherited the label's 10pt leading — 3.5pt of lead on a 6.5pt face against 1.5pt on
+        # the 8.5pt name above it — so a remark hung away from the line it belongs to and the
+        # amount beside it aligned with neither. Its own style also gets it its own colour, which
+        # was hardcoded twice as #5b6472 against the #5b6573 every other dim thing uses.
+        "rnote": ParagraphStyle(
+            "rp_rnote", parent=base["Normal"], fontSize=6.5, leading=8, spaceBefore=1, textColor=dim
         ),
     }
 
@@ -849,26 +880,31 @@ def compose_report_pdf(
     story: list = []
     m, opt = payload.meta, payload.options
 
-    def head(text: str, cond: bool = True) -> list:
+    def head(text: str) -> list:
         """Section heading matching the Erfassungsblatt: bold line + solid dark rule.
-        The CondPageBreak keeps a heading from being orphaned at a page foot — if less
-        than heading + two content lines fit, the whole section starts on the next page.
-        `cond=False` for headings already inside a KeepTogether (a nested page break
-        would confuse its measuring)."""
-        return [
-            *([CondPageBreak(26 * mm)] if cond else []),
-            Paragraph(_esc(text), st["h2"]),
-            HRFlowable(
-                width="100%",
-                thickness=1.1,
-                color=colors.HexColor("#282828"),
-                spaceBefore=0,
-                # 7, not 10: the rule needs a little air under it for the hand that writes against
-                # it, but a form that floats reads as unfinished and costs a page.
-                spaceAfter=7,
-                lineCap="butt",
-            ),
-        ]
+
+        ⚠️ It used to reserve 26mm with a CondPageBreak, which cannot be right: the reserve is
+        measured BEFORE the heading is laid out, the heading block itself eats 38pt of it, and the
+        first content of Personal/Material/Partner is a two-up outer row — one indivisible
+        flowable whose height depends on the roster. «Partnerorganisationen» duly printed as the
+        last thing on page 1 with every one of its rows on page 2.
+        keepWithNext on the heading AND its rule makes ReportLab bundle heading + rule + the next
+        flowable into a KeepTogether, so a heading can never be the last thing on a page whatever
+        follows it. A block taller than a full frame still splits normally — KeepTogether.split()
+        hands the content back unchanged when it does not fit anywhere.
+        """
+        hr = HRFlowable(
+            width="100%",
+            thickness=1.1,
+            color=colors.HexColor("#282828"),
+            spaceBefore=0,
+            # 7, not 10: the rule needs a little air under it for the hand that writes against
+            # it, but a form that floats reads as unfinished and costs a page.
+            spaceAfter=7,
+            lineCap="butt",
+        )
+        hr.keepWithNext = 1
+        return [Paragraph(_esc(text), st["h2"]), hr]
 
     def write_lines(n: int, row_h: float = 8 * mm) -> Table:
         """N dotted write-in lines (the Erfassungsblatt's Notizen look)."""
@@ -1080,7 +1116,7 @@ def compose_report_pdf(
         # is a form, not a poster
         pitch=11.5 * mm,
     )
-    story.append(KeepTogether([*head(L["signoff"], cond=False), sig]))
+    story.append(KeepTogether([*head(L["signoff"]), sig]))
 
     # --- Einsatzjournal (Beilage) — only when there are entries; an empty journal table
     # would just cost paper on the blank form -----------------------------------------------
@@ -1091,7 +1127,10 @@ def compose_report_pdf(
         # document. Its own sheet says what it is. (_collapse_breaks drops the double if a
         # section boundary already broke here.)
         story.append(PageBreak())
-        story.extend(head(L["journal"], cond=False))
+        story.extend(head(L["journal"]))
+        # the Eintrag column's content width — mirrors the colWidths below, minus the two
+        # 5pt side paddings _table_style() puts inside every cell
+        entry_w = inner_w - 60 * mm - 10
         thead = [Paragraph(_esc(L[c]), st["cellhead"]) for c in ("colTime", "colArea", "colEntry")]
         body: list[list] = []
         for r in payload.journal:
@@ -1104,7 +1143,10 @@ def compose_report_pdf(
             for data in shots:
                 # each picture on its own line under the text, at the same width — a row with
                 # three photos prints three, which is why they were attached
-                photo = _fit_image(data, inner_w * 0.45, 45 * mm)
+                # the Eintrag column's own content width, not a fraction of the page: at
+                # `inner_w * 0.45` a landscape shot used 69 % of its column and a portrait
+                # one was height-capped to 2.1 cm across — unreadable on paper.
+                photo = _fit_image(data, entry_w, 55 * mm)
                 if photo:
                     entry_cells.append(Spacer(1, 2))
                     entry_cells.append(photo)
@@ -1217,7 +1259,7 @@ def compose_report_pdf(
         story.append(NextPageTemplate("portrait"))
         story.append(PageBreak())
         story.extend(head(f"{L['attachments']} ({len(att_shown)})"))
-        story.append(_attachment_block(att_shown, inner_w, st, L))
+        story.append(_attachment_block(att_shown, inner_w, st))
 
     # Atemschutzüberwachung closes the Anhang: protocol for reconstruction, not primary
     if opt.atemschutz and payload.trupps:
@@ -1313,6 +1355,19 @@ _SPLIT_OUTER = [
 ]
 # Below the usable frame height, with room for the section heading above the table.
 _SPLIT_BUDGET = 660
+# ⚠️ The gutter between the two halves of EVERY two-up block, stated once. It was a literal in
+# four places and the callers disagreed with it: Personal and Material each subtracted the whole
+# 3mm from their half instead of half of it, so both blocks came out 8.5pt narrower than the
+# frame and ReportLab centre-floated them — the roster's checkboxes sat at x=46.8 and Material's
+# labels at 43.9 while the section rule above them started at 39.7 and the Partner tick-offs at
+# 42.5. Nothing in the two biggest blocks lined up with anything. Derive both halves from here
+# and a caller can no longer disagree with the table it is filling.
+_SPLIT_GUTTER = 3 * mm
+
+
+def _split_col_w(inner_w: float) -> float:
+    """Width of ONE half of a two-up block — the gutter is shared, so each side gives up half."""
+    return inner_w / 2 - _SPLIT_GUTTER / 2
 
 
 def _two_up(items: list, make_column, col_w: float) -> Table:
@@ -1346,7 +1401,7 @@ def _two_up(items: list, make_column, col_w: float) -> Table:
             k += 1
         rows.append([make_column(left[i : i + k]), "", make_column(right[i : i + k])])
         i += k
-    outer = Table(rows or [["", "", ""]], colWidths=[col_w, 3 * mm, col_w])
+    outer = Table(rows or [["", "", ""]], colWidths=[col_w, _SPLIT_GUTTER, col_w])
     outer.setStyle(TableStyle(_SPLIT_OUTER))
     return outer
 
@@ -1364,7 +1419,7 @@ def _personal_table(personal: list[PersonalRowIn], inner_w: float, st: dict[str,
         default=0.0,
     )
     time_w = max(32 * mm, min(widest + 3 * mm, 46 * mm))
-    name_w = inner_w / 2 - check_w - time_w - 3 * mm
+    name_w = _split_col_w(inner_w) - check_w - time_w
 
     def cells(p: PersonalRowIn | None) -> list:
         if p is None:
@@ -1382,23 +1437,33 @@ def _personal_table(personal: list[PersonalRowIn], inner_w: float, st: dict[str,
         vonbis = (
             f'{stamp(p.von, p.vonDerived)}&nbsp;<font color="{_DERIVED}">–</font>&nbsp;{stamp(p.bis, p.bisDerived)}'
         )
-        name = _esc(p.name) if p.name else _LINE_STUB
+        name: list = [Paragraph(_esc(p.name) if p.name else _LINE_STUB, st["rcell"])]
         if p.note:
-            name += f'<br/><font size="6.5" color="#5b6472">{_esc(p.note)}</font>'
+            name.append(Paragraph(_esc(_clip_print(p.note)), st["rnote"]))
         return [
             Paragraph("<b>X</b>" if p.erfasst else "", st["check"]),
-            Paragraph(name, st["rcell"]),
-            Paragraph(vonbis, st["rcell"]),
+            name,
+            # ⚠️ A WRITE-IN row prints no clocks. The roster deliberately carries two blank rows
+            # at the end for somebody who turned up and is not on the Mannschaftsliste (see
+            # lib/report.ts) — and they printed the full «__:__ – __:__» stub beside an empty
+            # tick box, so the sheet ended in two people nobody had got round to naming. The
+            # ruled underline is the affordance for a blank row; the stub is for a NAMED person
+            # whose times are still to be filled in.
+            Paragraph(vonbis if p.name else "", st["rcell"]),
         ]
 
     def column(people: list[PersonalRowIn]) -> Table:
         style: list[tuple] = [
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            # TOP, not MIDDLE. A person with a remark has a two-line name cell, and a
+            # middle-aligned row floated their clocks between the two lines — aligned with
+            # neither the name above nor the remark below. The Material worksheet beside it
+            # already uses TOP for exactly this reason.
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
             # A roster row is filled in with a PEN — the tick, and usually the two clocks — so it
             # cannot go back to the 1.8 pt it had. 2.8 is the compromise: writable, and still
             # dense enough that a village Wehr's roster does not sprawl.
-            ("TOPPADDING", (0, 0), (-1, -1), 2.8),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 2.8),
+            ("TOPPADDING", (0, 0), (-1, -1), _PAD_ROW),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), _PAD_ROW),
             ("LEFTPADDING", (0, 0), (-1, -1), 1),
             # breathing room between the checkbox square and the name (jsPDF gap ~1.6mm);
             # the check cells lose ALL side padding so the X centers in its square
@@ -1410,7 +1475,10 @@ def _personal_table(personal: list[PersonalRowIn], inner_w: float, st: dict[str,
         for r, p in enumerate(people):
             style.append(("BOX", (0, r), (0, r), 0.5, _WRITE))  # the checkbox square
             if not p.name:
-                style.append(("LINEBELOW", (1, r), (1, r), 0.5, _WRITE, 1, (0.8, 0.8)))  # guest write-in
+                # the rule runs under the NAME and the clock column both — a write-in row is a
+                # whole row to fill in, and ruling only half of it drew a line that stopped
+                # under the empty time stub it no longer prints
+                style.append(("LINEBELOW", (1, r), (-1, r), 0.5, _WRITE, 1, (0.8, 0.8)))  # guest write-in
         t = Table([cells(p) for p in people] or [["", "", ""]], colWidths=[check_w, name_w, time_w])
         t.setStyle(TableStyle(style))
         return t
@@ -1437,7 +1505,6 @@ def _attachment_block(
     att: list[tuple[AttachmentIn, bytes]],
     inner_w: float,
     st: dict[str, ParagraphStyle],
-    labels: dict[str, str],
 ) -> Table:
     """Beilagen, laid out for the number of them there actually are.
 
@@ -1454,7 +1521,10 @@ def _attachment_block(
     if n <= _ATT_PLATE_MAX:
         cols, cell_h = 1, 92 * mm
     elif n <= _ATT_GRID_MAX:
-        cols, cell_h = 2, 84 * mm
+        # 74, not 84: at 84 the row pitch was 260pt against ~735pt of usable page, so only TWO
+        # rows fitted and every sheet ended with ~79mm of nothing. 74 brings the row to 232pt —
+        # three rows to a page, the same plates on half the paper.
+        cols, cell_h = 2, 74 * mm
     else:
         cols, cell_h = 3, 62 * mm
     # 6, not 4: two photographs butted almost together read as one wide picture, and a contact
@@ -1464,7 +1534,11 @@ def _attachment_block(
     img_w = cell_w if grid else inner_w * 0.62
 
     def cell(i: int, a: AttachmentIn, data: bytes):
-        caption = Paragraph(f"<b>B{i}</b> · {_esc(a.caption or labels['attachmentNoCaption'])}", st["muted"])
+        # The NUMBER is the contract — it is what lets the Verlauf, a phone call and the paper
+        # name the same picture. A caption is extra. «ohne Bildlegende» printed under all seven
+        # plates of an ordinary rapport, which is a placeholder repeated until it is noise.
+        cap = _esc((a.caption or "").strip())
+        caption = Paragraph(f"<b>B{i}</b>" + (f" · {cap}" if cap else ""), st["muted"])
         img = _fit_image(data, img_w, cell_h)
         if img is None:
             return [caption]
@@ -1479,7 +1553,11 @@ def _attachment_block(
         box.setStyle(
             TableStyle(
                 [
-                    ("VALIGN", (0, 0), (0, 0), "BOTTOM"),
+                    # MIDDLE, not BOTTOM. The box is a fixed height and the plates are not, so
+                    # bottom-aligning left a short one hanging under a void — measured at 63mm
+                    # of white above a 58pt plate beside one that filled its box. The captions
+                    # still share a shelf either way: the picture row height is fixed.
+                    ("VALIGN", (0, 0), (0, 0), "MIDDLE"),
                     ("VALIGN", (0, 1), (0, 1), "TOP"),
                     ("TOPPADDING", (0, 0), (-1, -1), 0),
                     ("BOTTOMPADDING", (0, 0), (0, 0), 3),
@@ -1494,7 +1572,13 @@ def _attachment_block(
     cells: list = [cell(i, a, d) for i, (a, d) in enumerate(att, start=1)]
     rows = [cells[r : r + cols] for r in range(0, len(cells), cols)]
     rows[-1] = rows[-1] + [""] * (cols - len(rows[-1]))  # pad the tail row out to `cols`
-    t = Table(rows, colWidths=[cell_w] * cols)
+    # ⚠️ The gutter is drawn as RIGHTPADDING INSIDE each cell, so it has to be part of that
+    # cell's width. As `[cell_w] * cols` the table came out `gutter * (cols-1)` narrower than
+    # the frame — ReportLab then centre-floated the whole block (left edge 48.2 against a
+    # section rule at 39.7) AND the images, sized at cell_w, overflowed their own padding: two
+    # photographs measured as touching, B1 ending at 297.64 and B2 starting at 297.64.
+    t = Table(rows, colWidths=[cell_w + (gutter if c < cols - 1 else 0) for c in range(cols)])
+    t.hAlign = "LEFT"
     t.setStyle(
         TableStyle(
             [
@@ -1521,7 +1605,7 @@ def _partner_table(
     in the one line and sits right next to its organisation.
     """
     check_w = 4 * mm
-    col_w = inner_w / 2 - 1.5 * mm
+    col_w = _split_col_w(inner_w)
     org_w = (col_w - check_w) * 0.42
 
     def column(part: list[tuple[str, PartnerContact | None]]) -> Table:
@@ -1541,8 +1625,8 @@ def _partner_table(
         ]
         style: list[tuple] = [
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("TOPPADDING", (0, 0), (-1, -1), 2.5),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
+            ("TOPPADDING", (0, 0), (-1, -1), _PAD_ROW),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), _PAD_ROW),
             ("LEFTPADDING", (0, 0), (-1, -1), 1),
             ("LEFTPADDING", (1, 0), (1, -1), 5),
             ("LEFTPADDING", (0, 0), (0, -1), 0),
@@ -1563,22 +1647,33 @@ def _partner_table(
 
 def _mittel_table(mittel: list[MittelFormRowIn], inner_w: float, st: dict[str, ParagraphStyle]) -> Table:
     """Two-up Material worksheet: label + «______ Stk» amount stub / bold recorded amount."""
-    amt_w = 26 * mm
-    label_w = inner_w / 2 - amt_w - 3 * mm
+    # ⚠️ THREE columns, because the write-in rule has to be a RULE and not six underscores in a
+    # string. As `f"______ {unit}"` right-aligned, it was the UNIT that landed on the shared edge
+    # and the rule started wherever the unit happened to begin — measured on one sheet, «Stk»
+    # rules began at x=250.3, «Sack» at 243.7 and «l» at 260.7, and the «l» of Liter read as a
+    # stray glyph hanging off the end of a rule. A recorded «1 Stk» sat on a fourth edge again.
+    # Amount and unit get their own columns and the stub is drawn with LINEBELOW, so every rule
+    # on the sheet starts and ends at the same x and every unit sits in one column.
+    unit_w = 12 * mm
+    amt_w = 14 * mm
+    label_w = _split_col_w(inner_w) - amt_w - unit_w
 
     def cells(row: MittelFormRowIn | None) -> list:
         if row is None:
-            return ["", ""]
-        amt = f"{_esc(row.menge)} {_esc(row.unit)}" if row.menge else f"______ {_esc(row.unit)}"
+            return ["", "", ""]
         # the remark rides UNDER the label, small: «3 Sack» says how much, «an Werkhof
         # übergeben» says what happened to it, and only the second one is worth reading twice
-        label = _esc(row.label)
+        label: list = [Paragraph(_esc(row.label), st["rcell"])]
         if row.note:
-            label += f'<br/><font size="6.5" color="#5b6472">{_esc(row.note)}</font>'
-        return [Paragraph(label, st["rcell"]), Paragraph(amt, st["ramt"] if row.menge else st["rstubr"])]
+            label.append(Paragraph(_esc(_clip_print(row.note)), st["rnote"]))
+        return [
+            label,
+            Paragraph(_esc(row.menge) if row.menge else "", st["ramt"]),
+            Paragraph(_esc(row.unit), st["runit"]),
+        ]
 
     def column(rows_in: list[MittelFormRowIn]) -> Table:
-        t = Table([cells(r) for r in rows_in] or [["", ""]], colWidths=[label_w, amt_w])
+        t = Table([cells(r) for r in rows_in] or [["", "", ""]], colWidths=[label_w, amt_w, unit_w])
         t.setStyle(
             TableStyle(
                 [
@@ -1587,10 +1682,19 @@ def _mittel_table(mittel: list[MittelFormRowIn], inner_w: float, st: dict[str, P
                     # happened to end sat at a different x on every row. TOP, not MIDDLE — a
                     # three-line remark under the label must not drag the amount down with it.
                     ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                    ("TOPPADDING", (0, 0), (-1, -1), 1.8),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 1.8),
+                    ("TOPPADDING", (0, 0), (-1, -1), _PAD_ROW),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), _PAD_ROW),
                     ("LEFTPADDING", (0, 0), (-1, -1), 0),
                     ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                    # air between the number and its unit, so «1» and «Stk» do not touch
+                    ("RIGHTPADDING", (1, 0), (1, -1), 4),
+                    # the write-in rule, under the amount cell only — one x, one width, and only
+                    # on the rows that are actually still to be filled in
+                    *[
+                        ("LINEBELOW", (1, r), (1, r), 0.5, _WRITE)
+                        for r, rr in enumerate(rows_in)
+                        if rr is not None and not rr.menge
+                    ],
                 ]
             )
         )
@@ -1600,45 +1704,7 @@ def _mittel_table(mittel: list[MittelFormRowIn], inner_w: float, st: dict[str, P
     # material with a four-line remark stretched the row on the FAR side too, and from there
     # down the two columns no longer sat on the same baselines — the sheet looked broken even
     # though every value was right. Independent columns simply flow past each other.
-    return _two_up(mittel, column, label_w + amt_w)
-
-
-def _check_grid(
-    items: list[str], ticked: set[str], inner_w: float, st: dict[str, ParagraphStyle], cols: int = 3
-) -> Table:
-    """Compact checkbox raster (Partner presets): fixed columns, tick-off only."""
-    n_rows = -(-len(items) // cols)
-    check_w = 4 * mm
-    label_w = inner_w / cols - check_w
-    rows: list[list] = []
-    style: list[tuple] = [
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING", (0, 0), (-1, -1), 2.5),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
-        ("LEFTPADDING", (0, 0), (-1, -1), 1),
-        # gap between checkbox square and label; check cells un-padded so the X centers
-        *[("LEFTPADDING", (2 * c + 1, 0), (2 * c + 1, -1), 5) for c in range(cols)],
-        *[("LEFTPADDING", (2 * c, 0), (2 * c, -1), 0) for c in range(cols)],
-        *[("RIGHTPADDING", (2 * c, 0), (2 * c, -1), 0) for c in range(cols)],
-    ]
-    for r in range(n_rows):
-        row: list = []
-        for c in range(cols):
-            i = r * cols + c
-            if i < len(items):
-                row.extend(
-                    [
-                        Paragraph("<b>X</b>" if items[i] in ticked else "", st["check"]),
-                        Paragraph(_esc(items[i]), st["cell"]),
-                    ]
-                )
-                style.append(("BOX", (c * 2, r), (c * 2, r), 0.5, _WRITE))
-            else:
-                row.extend(["", ""])
-        rows.append(row)
-    t = Table(rows, colWidths=[check_w, label_w] * cols)
-    t.setStyle(TableStyle(style))
-    return t
+    return _two_up(mittel, column, label_w + amt_w + unit_w)
 
 
 def _table_style() -> TableStyle:
@@ -1651,5 +1717,8 @@ def _table_style() -> TableStyle:
             ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
             ("LEFTPADDING", (0, 0), (-1, -1), 5),
             ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+            # ...but the FIRST column shares the section rule's left edge. At 5pt every
+            # grid table on the sheet started 5pt right of the heading over it.
+            ("LEFTPADDING", (0, 0), (0, -1), 0),
         ]
     )
