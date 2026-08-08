@@ -53,9 +53,17 @@ so this file – not the log – is the record of what shipped up to that point.
   entry is the more expensive mistake), and dropped wholesale when the incident changes so the
   next Einsatz can never be handed the previous one's entry.
 
-- **Messen can place a point without hitting it.** «Punkt in der Mitte setzen» on both the Lage
-  map and the Plan: the surface moves under a fixed centre instead of a gloved finger aiming at a
-  hydrant, which is the gesture that misses on a tablet. Same trade the Kroki framing makes.
+- **A measured segment carries a «+» in its middle.** The Plan has had one per segment for as
+  long as it has been able to measure; the Lage map only let a point be inserted by tapping the
+  line itself, which is a 2.5px dashed stroke to aim a gloved finger at. Both surfaces now offer
+  the same handle in the same place, on the same segments – an area's closing edge included – so
+  a node lands between two others without the aim. Tapping the line still works and inserts at
+  exactly the same index; the two routes read one rule rather than each keeping its own copy.
+
+  The dock's «Punkt in der Mitte setzen» went with it. It solved the same aiming problem by
+  moving the map under a fixed centre, but it could only ever APPEND – the correction actually
+  needed mid-measurement is a point *between* two others, and a dock button that looks like it
+  places a point but never puts one where you are looking is the worse kind of almost-right.
 
 ### Changed
 
@@ -106,6 +114,12 @@ so this file – not the log – is the record of what shipped up to that point.
   worse than either pattern applied everywhere.
 
 ### Fixed
+
+- **A measured Strecke was shaded like a Fläche.** The measure fill layer took every geometry it
+  was given, and a fill layer closes a LineString into a ring – so a route that bent back on
+  itself came out tinted, which on the one tool whose two modes are «Strecke» and «Fläche» reads
+  as the wrong mode being active. It now filters to Polygon, the guard the in-progress draft
+  layer beside it has carried all along.
 
 - **Correcting the Einsatzdaten wrote eight fields every time.** `started_at` was the expensive
   one: it round-trips through a formatter that drops seconds, and the backend stamps
