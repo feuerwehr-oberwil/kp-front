@@ -21,6 +21,24 @@ cd backend
 : "${KP_BASE_URL:?set KP_BASE_URL to the demo app URL}"
 : "${KP_ADMIN_SECRET:?set KP_ADMIN_SECRET to the demo admin secret}"
 
+# ⚠️ The three HTTP steps below talk to a RUNNING app, and the nightly cron fires whenever it
+# fires — including while Railway is mid-redeploy, when the edge answers 502. On 08.08. that
+# killed a reset between «config loaded» and «geodata/logo re-pushed». `admin_config load` no
+# longer strips what these steps restore (app/admin_config · _RUNTIME_SECTIONS), so a lost run
+# is survivable now; retrying means it usually is not lost at all.
+retry() {
+  local n=1
+  until "$@"; do
+    if [ "$n" -ge 3 ]; then
+      echo "FAILED after $n attempts: $*" >&2
+      return 1
+    fi
+    echo "   … attempt $n failed (the app may be redeploying) — retrying in 20s" >&2
+    n=$((n + 1))
+    sleep 20
+  done
+}
+
 echo "→ 1/5  wipe incidents + roster, re-ensure demo accounts"
 KP_DEMO_RESET=1 uv run python -m app.demo_reset
 
@@ -28,10 +46,10 @@ echo "→ 2/5  reload deployment config"
 uv run python -m app.admin_config load "$ROOT/examples/demo-data/config.json"
 
 echo "→ 3/5  reload reference geodata (hydrants) via API push"
-uv run python -m app.admin_geodata push "$ROOT/examples/demo-data/geodata.manifest.json"
+retry uv run python -m app.admin_geodata push "$ROOT/examples/demo-data/geodata.manifest.json"
 
 echo "→ 4/5  reload Einsatzobjekte via API push"
-uv run python -m app.admin_objects push "$ROOT/examples/demo-data/objects.manifest.json"
+retry uv run python -m app.admin_objects push "$ROOT/examples/demo-data/objects.manifest.json"
 
 # AFTER admin_config load, never before: that step rewrites identity.assets wholesale, so a
 # logo pushed earlier would be wiped by the same reset that is supposed to install it.
@@ -41,7 +59,7 @@ uv run python -m app.admin_objects push "$ROOT/examples/demo-data/objects.manife
 # the demo has been running without a brandmark on screen — and config.json deliberately names
 # NO asset URLs, because these two pushes are the only thing that creates the blobs behind them.
 echo "→ 5/5  reload the Brandmark (Login-Screen + Rapport-Briefkopf)"
-uv run python -m app.admin_branding push logo "$ROOT/examples/demo-data/report-logo.png"
-uv run python -m app.admin_branding push reportLogo "$ROOT/examples/demo-data/report-logo.png"
+retry uv run python -m app.admin_branding push logo "$ROOT/examples/demo-data/report-logo.png"
+retry uv run python -m app.admin_branding push reportLogo "$ROOT/examples/demo-data/report-logo.png"
 
 echo "✓ Demo reset complete."

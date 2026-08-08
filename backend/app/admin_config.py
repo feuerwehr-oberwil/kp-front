@@ -323,14 +323,53 @@ async def _show() -> dict[str, Any] | None:
         return row.config_json if (row and row.config_json) else None
 
 
-async def _load(doc_json: dict[str, Any]) -> None:
+#: Sections of the config document that are NOT config-as-code: they are written at RUNTIME by
+#: the other admin paths — `identity.assets` by a branding upload (admin UI or admin_branding),
+#: `referenceLayers` by a geodata push — and no config file names them, because the URLs inside
+#: them only exist once the blob has been stored.
+#:
+#: ⚠️ A plain `load` therefore used to DELETE them. That is how the public demo lost its logo:
+#: the reset script loads the config first and re-pushes logo + geodata afterwards, so a run
+#: that fails in between leaves a demo with no brandmark and no hydrants — which is exactly what
+#: happened on 08.08. And it is the same trap for a station: upload a logo in the admin UI, load
+#: a config change from the repo an hour later, logo gone, nothing said. Carried over unless the
+#: incoming file names the section itself, and said out loud when it happens.
+_RUNTIME_SECTIONS = ("referenceLayers",)
+
+
+def _carry_runtime_sections(stored: dict[str, Any] | None, incoming: dict[str, Any]) -> list[str]:
+    """Copy the runtime-written sections from `stored` into `incoming` where the file is silent.
+    Returns the names carried over, for the caller to report."""
+    if not stored:
+        return []
+    carried: list[str] = []
+    for key in _RUNTIME_SECTIONS:
+        if stored.get(key) and not incoming.get(key):
+            incoming[key] = stored[key]
+            carried.append(key)
+    # identity.assets sits one level down and is the one that gets noticed, because a missing
+    # logo is visible on the login screen of every device in the Magazin
+    assets = ((stored.get("identity") or {}).get("assets")) or {}
+    assets = {k: v for k, v in assets.items() if v}
+    if assets:
+        identity = dict(incoming.get("identity") or {})
+        if not identity.get("assets"):
+            identity["assets"] = assets
+            incoming["identity"] = identity
+            carried.append("identity.assets")
+    return carried
+
+
+async def _load(doc_json: dict[str, Any]) -> list[str]:
     async with async_session_maker() as db:
         row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+        carried = _carry_runtime_sections(row.config_json if row else None, doc_json)
         if row is None:
             db.add(DeploymentConfig(id=1, config_json=doc_json))
         else:
             row.config_json = doc_json
         await db.commit()
+        return carried
 
 
 def _normalize_argv(argv: list[str]) -> list[str]:
@@ -391,9 +430,12 @@ async def _amain(argv: list[str]) -> int:
             print(f"OK (dry-run): {args.file} is valid; not written. Keys: {_summary(doc_json)}")
             print(f"    {_vocabulary_line(doc_json)}")
             return 0
-        await _load(doc_json)
+        carried = await _load(doc_json)
         print(f"OK: loaded {args.file} into deployment_config id=1.")
         print(f"    top-level keys set: {_summary(doc_json)}")
+        if carried:
+            # said out loud: the file did NOT contain these, and they are still there
+            print(f"    kept from the stored config (runtime-written, not in the file): {', '.join(carried)}")
         print(f"    {_vocabulary_line(doc_json)}")
         return 0
     # show
