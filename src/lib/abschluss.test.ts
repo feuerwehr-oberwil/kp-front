@@ -33,12 +33,25 @@ describe('stepDone', () => {
     expect(stepDone('einsatzleiter', facts({ reportMeta: { einsatzleiter: 'Hptm Meier' } }))).toBe(true)
   })
 
+  // BOTH halves of the Rückmeldung. A name with no time does not say when it was given, and a
+  // time with no name does not say who gave it — and the rapport prints the pair as one line.
+  it('rueckmeldung needs a name AND a time', () => {
+    expect(stepDone('rueckmeldung', facts())).toBe(false)
+    expect(stepDone('rueckmeldung', facts({ reportMeta: { rueckmeldungElz: { name: 'Wm Keller' } } }))).toBe(false)
+    expect(stepDone('rueckmeldung', facts({ reportMeta: { rueckmeldungElz: { at: '2026-07-08T05:00:00Z' } } }))).toBe(false)
+    expect(stepDone('rueckmeldung', facts({ reportMeta: { rueckmeldungElz: { name: '  ', at: '2026-07-08T05:00:00Z' } } }))).toBe(false)
+    expect(stepDone('rueckmeldung', facts({
+      reportMeta: { rueckmeldungElz: { name: 'Wm Keller', at: '2026-07-08T05:00:00Z' } },
+    }))).toBe(true)
+  })
+
   it('missingSteps lists everything open, in step order', () => {
     expect(missingSteps(facts())).toEqual(ABSCHLUSS_STEPS)
     const done = facts({
       reportMeta: {
         endedAt: '2026-07-08T05:00:00Z', summary: 'ok', mittelConfirmedNone: true,
         einsatzleiter: 'Hptm Meier',
+        rueckmeldungElz: { name: 'Wm Keller', at: '2026-07-08T05:10:00Z' },
       },
       attendanceCount: 3,
     })
@@ -49,7 +62,10 @@ describe('stepDone', () => {
   // whatever is still empty prints as a blank line to fill in by hand.
   it('a rapport missing only the Einsatzleiter names exactly that', () => {
     const m = missingSteps(facts({
-      reportMeta: { endedAt: '2026-07-08T05:00:00Z', summary: 'ok', mittelConfirmedNone: true },
+      reportMeta: {
+        endedAt: '2026-07-08T05:00:00Z', summary: 'ok', mittelConfirmedNone: true,
+        rueckmeldungElz: { name: 'Wm Keller', at: '2026-07-08T05:10:00Z' },
+      },
       attendanceCount: 3,
     }))
     expect(m).toEqual(['einsatzleiter'])

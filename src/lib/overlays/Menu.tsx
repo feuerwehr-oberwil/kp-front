@@ -20,6 +20,17 @@ export interface MenuCheckItem {
   disabled?: boolean
 }
 
+/** A one-of-N choice INSIDE the menu — a way of LOOKING at something, not a setting to flip.
+ *  Unlike the checkbox rows it closes on pick: there is exactly one answer, so staying open would
+ *  leave a menu over the thing whose arrangement was just changed. Real radio semantics rather
+ *  than a column of checkboxes with one ticked, so it is announced as the single choice it is. */
+export interface MenuRadioGroup<T extends string = string> {
+  kind: 'radio'
+  value: T
+  onChange: (value: T) => void
+  options: { value: T; label: ReactNode; disabled?: boolean }[]
+}
+
 /** A rule between groups of items. */
 export interface MenuSeparator { kind: 'sep' }
 
@@ -39,7 +50,7 @@ export interface MenuActionItem {
 
 export function Menu({ trigger, items, popupClassName, itemClassName, reasonClassName, side = 'bottom', align = 'end', sideOffset = 4, collisionPadding = 10 }: {
   trigger: ReactElement
-  items: (MenuActionItem | MenuCheckItem | MenuSeparator | MenuHeading)[]
+  items: (MenuActionItem | MenuCheckItem | MenuSeparator | MenuHeading | MenuRadioGroup)[]
   popupClassName?: string
   /** class for each item; receives whether the item is `danger`. */
   itemClassName?: (danger: boolean) => string
@@ -53,7 +64,26 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
    *  is a property of the surface being finite, not of any one call site. */
   collisionPadding?: number
 }) {
-  const renderItem = (it: MenuActionItem | MenuCheckItem, key: number) => {
+  const renderItem = (it: MenuActionItem | MenuCheckItem | MenuRadioGroup, key: number) => {
+    if ('kind' in it && it.kind === 'radio') {
+      return (
+        <BaseMenu.RadioGroup key={key} value={it.value} onValueChange={(v) => it.onChange(String(v))}>
+          {it.options.map((o) => (
+            <BaseMenu.RadioItem
+              key={o.value}
+              value={o.value}
+              disabled={o.disabled}
+              className={itemClassName ? itemClassName(false) : undefined}
+            >
+              <BaseMenu.RadioItemIndicator className="ui-menu-check ui-menu-radio" keepMounted>
+                <svg viewBox="0 0 24 24" aria-hidden><path d="M5 13l4 4L19 7" /></svg>
+              </BaseMenu.RadioItemIndicator>
+              {o.label}
+            </BaseMenu.RadioItem>
+          ))}
+        </BaseMenu.RadioGroup>
+      )
+    }
     // `'kind' in it` alone: at this point the union is check|action and only the checkbox row
     // carries a `kind`, so the compound guard the old inline switch needed would leave TS unable
     // to narrow the fall-through to MenuActionItem.
@@ -97,7 +127,7 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
   // three runs, and a group that ended at the first rule would leave six of them unnamed again,
   // which is the thing the heading was added to fix. Only the next heading closes a group; rows
   // before the first heading stay ungrouped, which is what an unlabelled block is.
-  type Row = { it: MenuActionItem | MenuCheckItem; key: number } | { sep: true; key: number }
+  type Row = { it: MenuActionItem | MenuCheckItem | MenuRadioGroup; key: number } | { sep: true; key: number }
   const blocks: { label?: ReactNode; rows: Row[] }[] = []
   items.forEach((it, i) => {
     if ('kind' in it && it.kind === 'head') { blocks.push({ label: it.label, rows: [] }); return }

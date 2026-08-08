@@ -1396,6 +1396,7 @@ export const en: Localizable<Copy> = {
       mittel: 'Materials',
       einsatzleiter: 'Incident commander',
       kurzbericht: 'Summary',
+      rueckmeldung: 'Report back to ELZ',
     },
     ausgerueckt: 'Turned out',
     ende: 'Incident end',

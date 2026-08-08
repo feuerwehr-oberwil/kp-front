@@ -6,7 +6,7 @@ import { confirmDialog, toast } from '../lib/ui'
 import { cx } from '../lib/cx'
 import { Segmented } from './Segmented'
 import { Stepper } from './Stepper'
-import { Overlay } from '../lib/overlays'
+import { Menu, Overlay } from '../lib/overlays'
 import { contactSeverity, deriveTruppLive, estimatePressure, fmtClock, pressureAlarm, type TruppLive } from '../lib/atemschutz'
 import type { AttendanceState, Person, Trupp, TruppFields } from '../types'
 import { abbreviateName, assignedPersonIds } from '../lib/personnel'
@@ -239,16 +239,34 @@ export function AtemschutzView({
             <Icon id="warn" /><span>{az.overdueBadge.replace('{n}', String(overdueCount))}</span>
           </div>
         )}
+        {/* ⚠️ A MENU, not a segmented control. Four options laid out in full needed ~380px in a
+            header that also carries a title, a subtitle, an überfällig badge, the alarm toggle and
+            «Neuer Trupp» — so it grew over the subtitle and covered the sentence explaining what
+            the board is. A way of LOOKING at the board is not worth a permanent strip of the one
+            screen that exists to show overdue Trupps; behind its own icon it costs 44px and the
+            current choice still shows as a tick when it is opened. */}
         {trupps.length > 1 && onOrder && (
-          <Segmented
-            ariaLabel={az.orderLabel}
-            value={order}
-            onChange={(v) => onOrder(v as TruppOrder)}
-            options={[
-              { value: 'dringlichkeit', label: az.orderUrgency },
-              { value: 'manuell', label: az.orderManual },
-              { value: 'auftrag', label: az.orderAuftrag },
-              { value: 'name', label: az.orderName },
+          <Menu
+            trigger={
+              <button type="button" className={s.orderBtn} aria-label={az.orderLabel} title={az.orderLabel}>
+                <Icon id="filter" />
+              </button>
+            }
+            popupClassName="rp-print-menu"
+            itemClassName={() => 'rp-print-menu-item'}
+            items={[
+              { kind: 'head' as const, label: az.orderLabel },
+              {
+                kind: 'radio' as const,
+                value: order,
+                onChange: (v: string) => onOrder(v as TruppOrder),
+                options: [
+                  { value: 'dringlichkeit', label: az.orderUrgency },
+                  { value: 'manuell', label: az.orderManual },
+                  { value: 'auftrag', label: az.orderAuftrag },
+                  { value: 'name', label: az.orderName },
+                ],
+              },
             ]}
           />
         )}

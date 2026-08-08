@@ -1320,6 +1320,7 @@ export const it: Localizable<Copy> = {
       mittel: 'Mezzi',
       einsatzleiter: 'Capo intervento',
       kurzbericht: 'Rapporto breve',
+      rueckmeldung: 'Riscontro alla CO',
     },
     ausgerueckt: 'Partenza',
     ende: 'Fine intervento',

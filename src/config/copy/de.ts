@@ -2161,6 +2161,7 @@ export const de = {
       mittel: 'Mittel',
       einsatzleiter: 'Einsatzleiter',
       kurzbericht: 'Kurzbericht',
+      rueckmeldung: 'Rückmeldung ELZ',
     },
     ausgerueckt: 'Ausgerückt',
     ende: 'Einsatzende',

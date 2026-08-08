@@ -1591,8 +1591,23 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
    a landscape phone) the chip was pushed to left:8px and landed ON the vertical rail. The row
    tracks --rail-w until the rail is genuinely gone, and only then hugs the edge. */
 @media (max-width: 600px) {
-  .wb-botleft { left: 10px; right: 10px; max-width: none;
-    bottom: calc(var(--rail-h) + 22px + env(safe-area-inset-bottom)); }
+  /* ⚠️ It has to clear the TOOL rail, not just the nav bar. The bars stack: nav bar at the
+     bottom, then `.wb-tools` (bottom: 14px + rail-h, height rail-h) above it. At one rail-h the
+     chips sat INSIDE the tool bar's band and were drawn over its buttons. Two rail-h puts them
+     on the first free line above it — which is also where the plan's own footer text ends up,
+     so the two stop fighting for the same strip. */
+  /* ⚠️ FIXED, not absolute — the same trap `.wb-tools` documents two screens down. This row
+     lives inside `.whiteboard`, whose own bottom is already lifted above the bars on a
+     phone, so an absolute offset COMPOUNDS with that lift and the chips floated up into
+     the middle of the plan instead of sitting above the tool bar. Viewport-anchored, they
+     land where the arithmetic says. */
+  .wb-botleft { position: fixed; left: 10px; right: 10px; max-width: none;
+    bottom: calc(var(--rail-h) * 2 + 20px + env(safe-area-inset-bottom)); }
+  /* …and a third line when the tool-SPECIFIC dock is out (a line/area tool's colours and widths).
+     That bar appears and disappears with the tool, so the chips move with it rather than being
+     covered by it half the time. Same `:has` idiom the FAB already uses to get out of its way. */
+  .app:has(.wb-dock) .wb-botleft {
+    bottom: calc(var(--rail-h) * 3 + 26px + env(safe-area-inset-bottom)); }
 }
 
 /* PlanPicker modal — searchable object list (primary) + supporting mini-map.
@@ -3122,7 +3137,11 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .ui-backdrop { position: fixed; inset: 0; z-index: 80; background: rgba(20,28,40,.32); backdrop-filter: blur(2px); }
 .ip-sheet.ui-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 81; }
 .ip-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 8px; }
-.ip-head h2 { margin: 0; font: 700 19px var(--body); color: var(--ink); }
+/* 800, like EVERY other title in the app — Anwesenheit, Mittel, Atemschutz, Checklists, Hilfe and
+   the Rapport all set their h2 at 800/19. At 700 the dialog heads («Weitere Person erfassen»,
+   «Anderes Objekt») were a visibly lighter cut of Sora than the surface behind them, which reads
+   as a different typeface rather than as a smaller heading. */
+.ip-head h2 { margin: 0; font: 800 19px var(--body); color: var(--ink); }
 .ip-x { border: none; background: none; cursor: pointer; color: var(--ink-dim); padding: 6px; border-radius: var(--r-sm); }
 .ip-x:hover { background: var(--hover); }
 .ip-x svg { width: 18px; height: 18px; }
@@ -3819,7 +3838,14 @@ select.cv-input { appearance: none; -webkit-appearance: none;
     align-items: start;
   }
 }
-@media (max-width: 720px) {
+/* ⚠️ 600px, not 720px — the width every OTHER surface switches at (Anwesenheit, Mittel,
+   Atemschutz), and the width `useIsPhone` itself uses. At 720 the Rapport was alone in taking the
+   phone inset while the NavRail stays a vertical rail down to 600, so through the whole 601–720px
+   band (iPad Split View, a landscape phone) the page ran edge-to-edge UNDER a floating rail that
+   covered its own title — neither a sidebar layout nor a bottom-bar one. One breakpoint governs
+   the lot now: above it the rail is at the left and the surfaces leave room for it, below it the
+   rail is a bottom bar and the surfaces take the full width. */
+@media (max-width: 600px) {
   .report-preflight-surface { inset: calc(78px + env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
     calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
 }
@@ -4334,7 +4360,13 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
     /* width HUGS the content (centred) so a 2-item dock isn't stretched across the screen;
        caps at the viewport and scrolls when a busy tool (line/area) overflows */
     width: max-content; max-width: calc(100vw - 16px); height: var(--rail-h); max-height: var(--rail-h);
-    padding: 6px 12px; overflow-x: auto; overflow-y: hidden; }
+    padding: 6px 12px; overflow-x: auto; overflow-y: hidden;
+    /* ⚠️ No visible scrollbar. The base .wb-dock is the DESKTOP column, where a thin bar is a
+       useful hint on a tall stack; inherited by this horizontal bar it drew a grey rail across
+       the bottom of the tool dock — under the buttons, on a control that is dragged with a thumb
+       and needs no indicator to be discovered. It still scrolls. */
+    scrollbar-width: none; -ms-overflow-style: none; }
+  .phone-tools .wb-dock::-webkit-scrollbar { display: none; }
   /* buttons keep their size instead of flex-shrinking when a busy dock overflows — otherwise the
      round × / ℹ squashed into ovals in line/area docks while the bar scrolled */
   .phone-tools .wb-dock > * { flex: none; }

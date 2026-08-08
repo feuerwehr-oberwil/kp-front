@@ -1321,6 +1321,7 @@ export const fr: Localizable<Copy> = {
       mittel: 'Moyens',
       einsatzleiter: 'Chef d’intervention',
       kurzbericht: 'Rapport succinct',
+      rueckmeldung: 'Retour à la CET',
     },
     ausgerueckt: 'Départ',
     ende: 'Fin d’intervention',

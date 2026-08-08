@@ -16,8 +16,14 @@ import type { ReportMeta } from './workspace'
 // named after the thing it is a step OF, so the confirm read «Noch offen: Abschluss. Trotzdem
 // abschliessen?» in a dialog titled «Einsatz abschliessen». A step has to name the field it wants
 // filled in; that sentence named the button that was already pressed.
-export type AbschlussStep = 'zeiten' | 'anwesenheit' | 'mittel' | 'einsatzleiter' | 'kurzbericht'
-export const ABSCHLUSS_STEPS: AbschlussStep[] = ['zeiten', 'anwesenheit', 'mittel', 'einsatzleiter', 'kurzbericht']
+//
+// 'rueckmeldung' was added 2026-08-08: whether the ELZ was told the Einsatz is over is a fact
+// with a right answer, unlike the Bemerkungen and Lehren it shares its section with — those are
+// prose and are legitimately empty on a routine Einsatz, so requiring them would leave the chip
+// amber on nearly every rapport and teach the eye to skip it. Named after the FIELD, not after
+// the «Nachbearbeitung» section it sits in — see the note above about 'abschluss'.
+export type AbschlussStep = 'zeiten' | 'anwesenheit' | 'mittel' | 'einsatzleiter' | 'kurzbericht' | 'rueckmeldung'
+export const ABSCHLUSS_STEPS: AbschlussStep[] = ['zeiten', 'anwesenheit', 'mittel', 'einsatzleiter', 'kurzbericht', 'rueckmeldung']
 
 export interface AbschlussFacts {
   reportMeta: ReportMeta
@@ -38,6 +44,12 @@ export function stepDone(step: AbschlussStep, f: AbschlussFacts): boolean {
       return !!f.reportMeta.einsatzleiter?.trim()
     case 'kurzbericht':
       return !!f.reportMeta.summary?.trim()
+    case 'rueckmeldung': {
+      // BOTH halves. A name with no time does not say when, and a time with nobody's name does
+      // not say who reported — and the rapport prints the pair as one statement.
+      const r = f.reportMeta.rueckmeldungElz
+      return !!r?.name?.trim() && !!r.at
+    }
   }
 }
 
