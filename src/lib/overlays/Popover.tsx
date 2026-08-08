@@ -23,16 +23,22 @@ export interface PopoverProps {
   sideOffset?: number
   /** z-index for the (fixed) Positioner — set it to stack above surrounding fixed chrome. */
   zIndex?: number
+  /** Keep-off distance from the viewport edge — the same default, and for the same reason, as
+   *  overlays · Menu: Base UI's own 5px leaves a popover on a control near the edge sitting flush
+   *  against it, and a panel of prose read flush to the glass reads as one that has been cut. On
+   *  a phone the difference is not cosmetic — the Rapport's Kontrolle popover lost its first
+   *  column of text off the left edge. A property of the surface being finite, not of a call site. */
+  collisionPadding?: number
   open?: boolean
   onOpenChange?: (open: boolean) => void
 }
 
-export function Popover({ trigger, children, ariaLabel, popupClassName, side = 'bottom', align = 'end', sideOffset = 8, zIndex, open, onOpenChange }: PopoverProps) {
+export function Popover({ trigger, children, ariaLabel, popupClassName, side = 'bottom', align = 'end', sideOffset = 8, collisionPadding = 10, zIndex, open, onOpenChange }: PopoverProps) {
   return (
     <BasePopover.Root open={open} onOpenChange={onOpenChange}>
       <BasePopover.Trigger render={trigger} />
       <BasePopover.Portal>
-        <BasePopover.Positioner side={side} align={align} sideOffset={sideOffset} style={zIndex != null ? { zIndex } : undefined}>
+        <BasePopover.Positioner side={side} align={align} sideOffset={sideOffset} collisionPadding={collisionPadding} style={zIndex != null ? { zIndex } : undefined}>
           <BasePopover.Popup className={popupClassName} aria-label={ariaLabel}>
             {children}
           </BasePopover.Popup>

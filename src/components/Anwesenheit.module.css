@@ -262,7 +262,9 @@
 
 /* the shared dropdown for both header menus */
 .menuPop {
-  min-width: 190px; padding: 6px; border-radius: var(--r-ctl);
+  /* max-width beside the min: collision handling shifts a popup back onto the screen, it cannot
+     shrink one that is wider than the screen to begin with. */
+  min-width: 190px; max-width: min(320px, 92vw); padding: 6px; border-radius: var(--r-ctl);
   background: var(--surface); box-shadow: var(--shadow); border: 1px solid var(--glass-edge);
   z-index: 60;
 }

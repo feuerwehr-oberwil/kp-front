@@ -27,7 +27,7 @@ import { PersonField } from './PersonField'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import { DateTimeField, TimeField } from './TimeField'
 import { Stepper } from './Stepper'
-import { Menu } from '../lib/overlays'
+import { Menu, Popover } from '../lib/overlays'
 
 const NO_IDS = new Set<string>()
 
@@ -648,27 +648,31 @@ export function ReportPreflight({
                 Not rendered while checking either: a spinner that resolves to nothing a moment
                 later is a flicker on the row, and the check is the app's business, not the
                 operator's. */}
+            {/* The Kontrolle detail is a POPOVER on the chip that opens it, not a band across the
+                page: it is a handful of lines about the record, and a full-width slab pushed the form
+                down every time anything was amiss. Anchored to the chip, so «what is wrong» and «the
+                thing that told me» are the same object. A warning still reaches the operator without
+                it — the chip itself is amber and counts them.
+                Through overlays · Popover, like the print menu beside it — NOT hand-rolled absolute
+                positioning. The hand-rolled version anchored to the chip's own edge, and on a phone
+                the wrapped action row pushes that chip far enough right that a 358px panel opening
+                leftwards from it started at roughly x=−130: the names in the Einsatzstunden warning
+                were cut off the left of the screen, hard-clipped by the surface's `overflow: hidden`.
+                Portalled + collision-aware, the panel is clamped to the viewport instead of to the
+                chip, so no breakpoint has to guess which way it should open. */}
             {!checking && !controlOk && (
-            <span className="rp-state-wrap">
-            <button
-              type="button"
-              className={cx('rp-state', 'warn')}
-              onClick={() => setControlOpen((o) => !o)}
-              aria-expanded={controlOpen}
-              title={P.controlHead}
-            >
-              <Icon id="warn" />
-              <span>{fillTemplate(P.controlOpen, { n: warnCount })}</span>
-            </button>
-          {/* The Kontrolle detail is a POPOVER on the chip that opens it, not a band across the
-              page: it is a handful of lines about the record, and a full-width slab pushed the form
-              down every time anything was amiss. Anchored to the chip, so «what is wrong» and «the
-              thing that told me» are the same object. A warning still reaches the operator without
-              it — the chip itself is amber and counts them. */}
-        {controlOpen && (
-            <>
-              <div className="rp-control-scrim" onClick={() => setControlOpen(false)} aria-hidden />
-              <section className="rp-control" role="dialog" aria-label={P.controlHead}>
+              <Popover
+                open={controlOpen}
+                onOpenChange={setControlOpen}
+                popupClassName="rp-control"
+                ariaLabel={P.controlHead}
+                trigger={(
+                  <button type="button" className={cx('rp-state', 'warn')} title={P.controlHead}>
+                    <Icon id="warn" />
+                    <span>{fillTemplate(P.controlOpen, { n: warnCount })}</span>
+                  </button>
+                )}
+              >
                 {missTx > 0 && (
                   <p className="report-pre-warn">
                     <Icon id="warn" /> <span>{fillTemplate(P.missingTranscripts, { n: missTx })}</span>
@@ -694,10 +698,7 @@ export function ReportPreflight({
                   <p><Icon id="doc" /> {fillTemplate(P.annotatedDefault, { n: annotatedPlanCount })}</p>
                   <p><Icon id="snapshot" /> {fillTemplate(P.stateNote, { at: formatDateTime(new Date().toISOString()) })}</p>
                 </div>
-              </section>
-            </>
-        )}
-            </span>
+              </Popover>
             )}
             {/* ⚠️ Every label in this row is wrapped in `.rp-btn-label`, not left as a bare text
                 node: on a phone the row goes icon-only (see app.css) and a bare text node cannot

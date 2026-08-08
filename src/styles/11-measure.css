@@ -35,6 +35,10 @@
 .draw-lock-hint { position: absolute; bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%); pointer-events: none;
   display: flex; flex-direction: column; gap: 5px; min-width: 96px; padding: 7px 10px; border-radius: var(--r-sm);
   background: var(--surface); box-shadow: 0 6px 18px rgba(0, 0, 0, .32); }
+/* The chip lives in the right-hand tool cluster, a thumb's width off the edge. Centred on it, a
+   nowrap German label hangs its right half off the screen — there is no room to the right to
+   centre into. Below a tablet the hint hangs its RIGHT edge on the chip's instead. */
+@media (max-width: 720px) { .draw-lock-hint { left: auto; right: 0; transform: none; } }
 .draw-lock-hint-label { font: 700 11px var(--body); color: var(--ink); white-space: nowrap; text-align: center; }
 .draw-lock-hint-bar { height: 4px; border-radius: 2px; background: var(--border); overflow: hidden; }
 .draw-lock-hint-bar i { display: block; height: 100%; width: 0; background: var(--blue); animation: lock-bar .7s linear forwards; }
@@ -161,7 +165,10 @@
 .draw-editor .de-menu-trigger .de-trupp-outnote { flex: none; color: var(--ink-dim); font: 600 11.5px/1 var(--body); font-style: normal; }
 .draw-editor .de-menu-trigger:hover,
 .draw-editor .de-menu-trigger[data-popup-open] { border-color: var(--ink-dim); }
-.de-menu-pop { min-width: 200px; padding: 6px; border-radius: var(--r-ctl); background: var(--surface);
+/* max-width beside the min: collision handling shifts a popup back onto the screen, it cannot
+   shrink one that is wider than the screen. A long Trupp label is what would grow this past a
+   phone's width — same guard the print menu and the context menu already carry. */
+.de-menu-pop { min-width: 200px; max-width: min(320px, 92vw); padding: 6px; border-radius: var(--r-ctl); background: var(--surface);
   box-shadow: var(--shadow); border: 1px solid var(--glass-edge); z-index: 60; }
 .de-menu-item { display: flex; align-items: center; gap: 9px; width: 100%; min-height: var(--tap);
   padding: 0 11px; border-radius: var(--r-sm); cursor: pointer; font: 600 13.5px var(--body); color: var(--ink); outline: none; }

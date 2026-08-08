@@ -1138,7 +1138,9 @@
 .adm-menu-ic { width: 18px; height: 18px; }
 
 .adm-menu-list {
-  margin: 0; padding: 5px; list-style: none; min-width: 208px;
+  /* max-width beside the min: collision handling shifts a popup back onto the screen, it cannot
+     shrink one that is wider than the screen to begin with. */
+  margin: 0; padding: 5px; list-style: none; min-width: 208px; max-width: min(320px, 92vw);
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--r-ctl); box-shadow: var(--shadow);
 }

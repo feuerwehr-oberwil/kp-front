@@ -931,22 +931,24 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    every time anything was amiss, for a handful of lines about the record; anchored here, «what is
    wrong» and «the thing that told me» are one object. The chip stays amber and counts, so a
    warning reaches the operator whether or not this is open. */
-.rp-control-scrim { position: fixed; inset: 0; z-index: 40; }
 /* Anchored to the CHIP, not to the head's right edge. Hanging off the edge it opened level with
    the PDF button, half a header away from the control it belongs to, and read as a panel that
-   happened to appear. */
-.rp-state-wrap { position: relative; display: inline-flex; }
-.rp-control { position: absolute; top: calc(100% + 6px); left: 0; z-index: 41;
+   happened to appear.
+   Positioned by overlays · Popover (portalled, collision-aware), so this rule carries the SKIN
+   only — no `position`/`top`/`left`, and no breakpoint that flips which way it opens. The old
+   hand-rolled version had both, and both were wrong on a phone: it anchored to the chip's own
+   edge, and the wrapped action row pushes that chip far enough right that a 358px panel opening
+   leftwards began off the left of the screen, hard-clipped by the surface's `overflow: hidden`.
+   The width stays viewport-relative anyway — collision handling can shift a popup back onto the
+   screen, but it cannot shrink one that is wider than the screen to begin with. */
+.rp-control { z-index: 60;
   width: min(380px, calc(100vw - 32px)); display: flex; flex-direction: column; gap: 6px;
   padding: 12px 14px; border-radius: var(--r-ctl);
   background: var(--surface); border: 1px solid var(--glass-edge); box-shadow: var(--shadow);
   max-height: 46vh; overflow-y: auto; }
-/* ⚠️ This popover is NOT portalled (the print menu beside it is, via overlays · Menu), so it is
-   clipped by the surface's own `overflow: hidden`. Hanging 380px to the RIGHT of a chip that has
-   itself been pushed right by the wrapped action row, it loses its last lines off the surface
-   edge — the pending-uploads warning among them. Once the head can wrap, open it leftwards. */
-@media (max-width: 1080px) { .rp-control { left: auto; right: 0; } }
-/* the head must not clip the popover hanging out of it */
+/* long personnel lists in the Einsatzstunden warning must wrap, not push the panel wider */
+.rp-control .report-pre-warn { min-width: 0; overflow-wrap: anywhere; }
+/* the head must not clip a popover anchored inside it */
 .rp-head { position: relative; overflow: visible; }
 /* the ✕ is a control on this row, so it obeys the row's floor — .ip-x is a 30px dialog affordance
    and this is a page you leave with gloves on */
