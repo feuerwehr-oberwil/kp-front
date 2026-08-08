@@ -1,0 +1,430 @@
+/* ============================================================================
+   Unified journal (Verlauf) — global TopBar actions, slide-over drawer + composer
+   ============================================================================ */
+
+/* TopBar global actions — sit at the right, just before the Lage/Plan switch */
+/* shrinkable: with `flex: none` the action cluster never gave way, so once the Atemschutz chip
+   carried a long name AND a four-digit clock it pushed itself out past the bar's own rounded
+   edge and floated over the map. The title/address yield first, then this. */
+/* flex: NONE, not `0 1 auto`. The cluster is buttons and a weather readout — every child is
+   nowrap, so there is nothing inside it that shrinking can actually reclaim. Allowed to shrink,
+   it was squeezed below its own content and its children painted straight out through the bar's
+   right edge (no clip on .topbar): 177px of «5 km/h» sitting on the map at 861px, and again in
+   the 601–740px band. The bar already has a member whose whole job is to yield — the incident
+   title ellipsises (.ip-switch-title, min-width:0) — so let the width come from there. */
+.tb-actions { display: flex; align-items: center; gap: 4px; margin-left: auto; flex: none; min-width: 0; }
+.tb-act { position: relative; display: flex; align-items: center; justify-content: center; gap: 6px; border: none; cursor: pointer;
+  background: var(--fill-soft); color: var(--ink-dim); border-radius: var(--r-sm); padding: 7px 11px; min-height: 42px; font-size: 12.5px;
+  font-weight: 700; font-family: inherit; transition: background .14s var(--ease), color .14s var(--ease); }
+.tb-act .i { width: 15px; height: 15px; }
+.tb-act.icon { padding: 7px 9px; min-width: 42px; background: transparent; }
+.tb-act:hover { color: var(--ink); background: var(--fill-soft); }
+.tb-act:disabled { opacity: var(--disabled); cursor: default; }
+.tb-act:disabled:hover { background: transparent; color: var(--ink-dim); }
+.tb-act.on { background: var(--ink-fill); color: var(--on-accent-ink); }
+.tb-vr { width: 1px; height: 20px; background: var(--border); margin: 0 3px; }
+/* Atemschutz alarm chip — conditional (only rendered while a Trupp is fällig/überfällig).
+   A compact pill, not a banner, so it's an ambient cue rather than an interruption. */
+.tb-az { display: inline-flex; align-items: center; gap: 6px; border: none; cursor: pointer; border-radius: var(--r-pill);
+  font-family: var(--body); font-size: 12.5px; font-weight: 700; padding: 5px 11px 5px 9px; margin-right: 2px;
+  flex: 0 1 auto; min-width: 0; transition: background .14s var(--ease); }
+.tb-az .i { width: 15px; height: 15px; flex: none; }
+/* the name yields before the clock does — «wie lange schon» is the number you act on — but it
+   never vanishes: a bare timer that names nobody is useless when two Trupps are inside */
+.tb-az-name { flex: 0 1 auto; min-width: 4.5rem; max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tb-az-clock { flex: none; }
+.tb-az-clock { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+/* An ÜBERFÄLLIGER Trupp outranks the weather readout for the width. The chip only exists while
+   somebody is overdue, so this trade only happens exactly when it should. */
+.topbar:has(.tb-az) .tb-weather-wrap { display: none; }
+/* …and below 1100px it outranks the incident TITLE as well, for the same reason and by the same
+   mechanism the phone layout already uses (glyph in, words out — the full title stays one tap away
+   in the dropdown). Without this the bar ran out of road: the chip is allowed to shrink, but not
+   past a readable name and never into the countdown, so once those two floors were reached it had
+   nowhere left to go and painted straight out through the pill's right edge. Worst at 861–1000px,
+   where `.mode-map .topbar` also hands 250px back to the zoom/locate cluster — 900px wide put 78px
+   of «Peter Schmid 615:41» outside the bar, i.e. the one thing on screen that must be legible was
+   the one thing sitting on the map. The title is what a crowded bar can most afford to lose: you
+   know which incident you are standing in; you do not know how long the Trupp has been inside. */
+@media (max-width: 1100px) {
+  .topbar:has(.tb-az) .ip-switch-title { display: none; }
+  .topbar:has(.tb-az) .ip-switch-glyph { display: grid; }
+  /* «Verlauf» loses its word too, the same trade the bar already makes for everyone below 860px.
+     Not «Eintrag»: that one stays labelled, because writing the journal entry is the thing an
+     officer does WHILE the alarm is running. :not(.tb-rem-count) so the reminder badge — a count,
+     not a label — survives; hiding it would drop a number the bar exists to show. */
+  .topbar:has(.tb-az) .tb-act:not(.tb-act-add) span:not(.tb-rem-count) { display: none; }
+  .topbar:has(.tb-az) .tb-act:not(.tb-act-add) { padding: 8px; }
+}
+.tb-az.warn { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); }
+.tb-az.warn:hover { background: color-mix(in srgb, var(--amber) 26%, transparent); }
+.tb-az.crit { background: color-mix(in srgb, var(--red) 15%, transparent); color: var(--red-strong); animation: tb-az-pulse 1.6s infinite; }
+.tb-az.crit:hover { background: color-mix(in srgb, var(--red) 26%, transparent); }
+
+/* GPS-Feed-Chip — erscheint nur, wenn der Live-Feed schweigt. Die Fahrzeuge bleiben auf der
+   Karte stehen (Verschwinden liest sich als «ist weggefahren», nicht als «Feed weg»), also
+   muss das Einfrieren hier sichtbar werden. Bernstein, nicht Rot: eine eingefrorene Position
+   ist ein Vorbehalt, kein Alarm — und Rot gehört dem überfälligen Trupp. */
+.tb-gps { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: var(--r-pill);
+  font-family: var(--body); font-size: 12.5px; font-weight: 700; padding: 5px 11px 5px 9px; margin-right: 2px;
+  flex: none; cursor: default;
+  background: color-mix(in srgb, var(--amber, #b45309) 16%, transparent); color: var(--amber-strong, #b45309); }
+.tb-gps .i { width: 15px; height: 15px; flex: none; }
+.tb-gps-age { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+@keyframes tb-az-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .68; } }
+/* compact wind readout folded into the bar on a phone — downwind arrow + speed, no temp */
+.tb-wind { display: inline-flex; align-items: center; gap: 4px; border: none; cursor: pointer; background: transparent;
+  color: var(--ink-dim); border-radius: var(--r-sm); padding: 6px 6px; min-height: 42px; font-family: inherit;
+  font-variant-numeric: tabular-nums; transition: background .14s var(--ease), color .14s var(--ease); }
+.tb-wind:hover:not(:disabled) { color: var(--ink); background: var(--fill-soft); }
+.tb-wind:disabled { cursor: default; }
+.tb-wind b { font-size: 12px; font-weight: 700; white-space: nowrap; }
+.tb-wind-arr { width: 16px; height: 16px; display: grid; place-items: center; flex: none; }
+.tb-wind-arr svg { width: 16px; height: 16px; display: block; }
+/* weather readout in the bar (condition · temp · downwind arrow · speed), sat next to Eintrag */
+.tb-weather { display: inline-flex; align-items: center; gap: 6px; border: none; cursor: pointer; background: transparent;
+  color: var(--ink-dim); border-radius: var(--r-sm); padding: 6px 9px; min-height: 42px; font-family: inherit;
+  font-variant-numeric: tabular-nums; white-space: nowrap; transition: background .14s var(--ease), color .14s var(--ease); }
+.tb-weather:hover:not(:disabled) { color: var(--ink); background: var(--fill-soft); }
+.tb-weather:disabled { cursor: default; }
+.tb-weather b { font-size: 12px; font-weight: 700; white-space: nowrap; }
+.tb-weather-cond { display: grid; place-items: center; flex: none; color: var(--ink); }
+.tb-weather-cond svg { width: 18px; height: 18px; display: block; }
+.tb-weather-temp { padding-right: 8px; border-right: 1px solid var(--border); }
+
+
+/* weather detail popover (tap the bar readout) */
+.tb-weather-wrap { position: relative; display: inline-flex; }
+.tb-weather-scrim { position: fixed; inset: 0; z-index: 200; border: none; background: rgba(20, 28, 40, .12); cursor: default; }
+/* position + z-index now come from the Base UI Popover Positioner (src/lib/overlays/Popover.tsx);
+   the popup itself is static within it. */
+.tb-weather-pop { width: 280px;
+  /* landscape phones: the pop is taller than the leftover viewport below the bar —
+     cap it and scroll instead of pushing the MeteoSchweiz link off-screen */
+  max-height: calc(100dvh - 90px - env(safe-area-inset-top)); overflow-y: auto; overscroll-behavior: contain;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-ctl); box-shadow: 0 14px 40px rgba(0, 0, 0, .3), 0 0 0 1px var(--glass-edge);
+  padding: 16px; animation: popIn .15s var(--ease); font-variant-numeric: tabular-nums; }
+/* centred header: condition glyph, label, big temperature */
+.wx-pop-head { display: flex; flex-direction: column; align-items: center; gap: 4px; padding-bottom: 14px; margin-bottom: 12px; border-bottom: 1px solid var(--border); }
+.wx-pop-cond { display: grid; place-items: center; color: var(--ink); }
+.wx-pop-cond svg { width: 34px; height: 34px; display: block; }
+.wx-pop-head-t { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.wx-pop-head-t b { font: 700 14px var(--body); color: var(--ink); }
+.wx-pop-head-t span { font: 800 22px var(--body); color: var(--ink); letter-spacing: -.01em; }
+.wx-pop-rows { display: flex; flex-direction: column; gap: 9px; margin: 0; }
+.wx-pop-row { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
+.wx-pop-row dt { font: 600 12.5px var(--body); color: var(--ink-faint); flex: none; }
+.wx-pop-row dd { margin: 0; font: 700 12.5px var(--body); color: var(--ink); text-align: right; }
+.wx-pop-link { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; margin-top: 14px;
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--fill-soft);
+  color: var(--blue); font: 700 12.5px var(--body); cursor: pointer; }
+.wx-pop-link:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); border-color: color-mix(in srgb, var(--blue) 35%, var(--border)); }
+.wx-pop-link svg { width: 16px; height: 16px; }
+.tb-act-add { position: relative; overflow: hidden; background: var(--blue); color: var(--on-fill); touch-action: none; user-select: none; min-width: 96px; }
+/* ⚠️ NOT `--blue-strong` on hover: that token flips LIGHTER in night mode (it is the tint-text
+   role), so a hover on the filled button washed it out to pale blue with barely-there ink —
+   the one button in the bar that has to look pressable. A hover deepens the fill in both
+   themes, and the ink stays the fill's own contrast colour. */
+.tb-act-add:hover { background: color-mix(in srgb, var(--blue) 88%, var(--ink)); color: var(--on-fill); }
+.tb-act-add .i, .tb-act-add span { position: relative; z-index: 1; }
+/* press-and-hold "charging" cue: a bar fills across the button over the hold
+   window, then the button flips to red (recording) — so the hold reads as doing something */
+.tb-hold { position: absolute; left: 0; top: 0; bottom: 0; width: 0; z-index: 0; background: rgba(255, 255, 255, .28);
+  animation: tbHold .22s linear forwards; }
+@keyframes tbHold { from { width: 0; } to { width: 100%; } }
+.tb-act-add.rec { background: var(--red); animation: recPulse 1.4s ease-in-out infinite; }
+.tb-act-add.rec span { font-family: var(--mono); }
+/* explicit stop affordance shown while recording — a white square reads as "stop" */
+.tb-stop { position: relative; z-index: 1; width: 11px; height: 11px; border-radius: 2px; background: var(--on-accent-ink); flex: none; }
+
+/* slide-over drawer — right edge, full height, opens over either surface */
+/* the Verlauf drawer docks INBOARD of the right tool rail (right:16 + width:88 + 8px
+   gap = 112px) so the rail and its pinned zoom/fit footer stay visible + interactive.
+   The scrim stops at the same edge, leaving the rail strip un-covered (and un-dimmed)
+   so its buttons stay live; click-away-to-close still works over the rest of the map.
+   The phone block (below) resets both to a full-width bottom sheet. */
+/* full-width scrim so the right tool rail is also blocked while the Verlauf drawer is open
+   (the drawer sits at z61, above this) */
+.journal-scrim { position: fixed; inset: 0; z-index: 60; background: rgba(12, 18, 28, .48); }
+.journal-drawer { position: fixed; top: 88px; right: 112px; bottom: 12px; width: 440px; max-width: calc(100vw - 124px); z-index: 61;
+  display: flex; flex-direction: column; background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid var(--glass-line); border-radius: var(--r-surface); box-shadow: var(--shadow); padding: 10px;
+  animation: drawerIn .18s var(--ease); }
+@keyframes drawerIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+.journal-head { display: flex; align-items: center; gap: 8px; padding: 4px 4px 10px; }
+.journal-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: var(--ink); }
+.journal-title .i { width: 17px; height: 17px; }
+.journal-replay { position: relative; margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
+  height: 28px; padding: 0 11px; border: none; border-radius: var(--r-sm); cursor: pointer;
+  background: var(--amber); color: var(--on-fill); font-family: var(--body); font-weight: 700; font-size: 12px; }
+/* full-height transparent pad — visually compact chip, finger-sized target */
+.journal-replay::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
+.journal-replay:hover { filter: brightness(.96); }
+.journal-replay .i { width: 13px; height: 13px; }
+/* with the replay button taking the auto margin, the × just trails it */
+.journal-replay + .journal-x { margin-left: 0; }
+.journal-x { margin-left: auto; width: 28px; height: 28px; border-radius: var(--r-sm); border: none; cursor: pointer;
+  background: var(--surface-2); color: var(--ink-dim); display: grid; place-items: center; }
+.journal-x:hover { background: var(--hover-strong); color: var(--ink); }
+.journal-x .i { width: 14px; height: 14px; }
+
+/* Verlauf row layout — surface chip + event text (reuses .history-list / .hist-ev) */
+.hist-ev .tx { display: flex; align-items: baseline; gap: 7px; flex: 1; min-width: 0; }
+.jr-chip { flex: none; font-size: 10px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase;
+  padding: 2px 6px; border-radius: var(--r-xs); line-height: 1.3; }
+.jr-chip-map { background: color-mix(in srgb, var(--blue) 14%, transparent); color: var(--blue-strong); }
+.jr-chip-plan { background: color-mix(in srgb, var(--green) 15%, transparent); color: var(--green-strong); }
+/* row appended after the Einsatzende (archive → reopen correction) */
+.jr-chip-nachtrag { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
+.jr-text { min-width: 0; line-height: 1.3; overflow-wrap: anywhere; }
+/* calendar-day separator: the Verlauf can span days (Hochwasser) or weeks (Nachträge) */
+.jr-day-sep { display: flex; align-items: center; gap: 10px; margin: 10px 2px 4px; font-size: 11px;
+  font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim); }
+.jr-day-sep::before, .jr-day-sep::after { content: ''; flex: 1; height: 1px; background: var(--glass-edge); }
+
+/* quick-add composer — centred card over the modal backdrop */
+/* pop, not panelIn: the composer is centred (or a bottom sheet on phones) — panelIn's
+   translateY(-50%) start made it fly in from half a screen up */
+/* <Overlay>: backdrop is .modal-backdrop; the composer owns its own positioning. Desktop = top-
+   anchored 11vh, horizontally centred (a mode switch that changes height keeps a stable top);
+   phones flip it to a keyboard-lifting bottom sheet (see the ≤600px rule). */
+.journal-composer { position: fixed; left: 50%; top: 11vh; transform: translateX(-50%); z-index: 81;
+  width: min(460px, 92vw); max-height: calc(88dvh - 11vh); overflow-y: auto; overscroll-behavior: contain;
+  /* no backdrop-filter: --surface is opaque in BOTH themes (#fff / #232c3a), so the blur painted
+     nothing — it only made the compositor re-blur the map behind the card on every frame of the
+     open animation, which is the other half of the desktop jank. Same for .sym-modal/.confirm-card. */
+  background: var(--surface);
+  border: 1px solid var(--glass-line); border-radius: var(--r-hero); box-shadow: var(--shadow); padding: 16px;
+  display: flex; flex-direction: column; gap: 12px; animation: pop .16s var(--ease); }
+.jc-head { display: flex; align-items: center; }
+.jc-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: var(--ink); }
+.jc-title .i { width: 16px; height: 16px; }
+.jc-head .journal-x { margin-left: auto; }
+.jc-text { width: 100%; min-height: 92px; resize: vertical; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
+  padding: 10px 12px; font-family: inherit; font-size: 14px; color: var(--ink); background: var(--surface-2); }
+.jc-text:focus { outline: none; border-color: color-mix(in srgb, var(--blue) 50%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 12%, transparent); }
+/* ---- one rhythm for every control in the composer ----
+   The two modes are the same dialog, so they should be the same shape: a fixed grid of
+   equal-height rows instead of buttons that wrap wherever they happen to run out of room. It
+   used to wrap 2+1 (Aufnehmen · Audio / Foto) and 4+2 (chips), and the pin button was 50px
+   next to a 44px Erfassen because its label took two lines — three different heights in one
+   dialog, and a sheet that changed height when you switched mode. */
+.jc-audio { display: grid; grid-template-columns: repeat(3, 1fr); align-items: center; gap: 8px; }
+/* the recorded-clip readout is a full-width row under the three buttons, not a fourth column */
+.jc-audio .jc-clip { grid-column: 1 / -1; }
+.jc-rec { display: flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid var(--glass-edge); background: var(--surface-2);
+  color: var(--ink-dim); border-radius: var(--r-sm); padding: 8px 10px; height: var(--tap); min-width: 0; font-size: 12.5px; font-weight: 700; cursor: pointer;
+  font-family: inherit; white-space: nowrap; }
+.jc-rec .i { flex: none; }
+.jc-rec .i { width: 15px; height: 15px; }
+.jc-rec:hover { color: var(--ink); }
+.jc-rec.on { background: var(--red); border-color: var(--red); color: var(--on-fill); animation: recPulse 1.4s ease-in-out infinite; }
+@keyframes recPulse { 50% { opacity: .72; } }
+.jc-clip { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-dim); font-weight: 600; }
+.jc-clip-len { font-family: var(--mono); }
+.jc-clip-x { width: 32px; height: 32px; border-radius: var(--r-sm); border: none; cursor: pointer; display: grid; place-items: center;
+  background: var(--fill-soft); color: var(--ink-dim); }
+.jc-clip-x:hover { background: var(--fill-soft); color: var(--ink); }
+.jc-clip-x .i { width: 12px; height: 12px; }
+/* imported external voice memo: preview row + required «Aufnahme begann» confirmation */
+.jc-import { display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--glass-edge);
+  border-radius: var(--r-ctl); background: var(--surface-2); padding: 10px 12px; }
+.jc-import-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.jc-import-name { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.jc-import-name strong { font-size: 12.5px; color: var(--ink); }
+.jc-import-name em { font-style: normal; font-size: 12px; color: var(--ink-dim); font-family: var(--mono);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jc-import-start { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.jc-import-hint { margin: 0; font-size: 12.5px; color: var(--ink-dim); }
+/* the last two rows of the same grid: the pin, then the send. Not a flex row with the send
+   pushed right – at 44px that wastes the row it sits in, and it left Eintrag two rows deep
+   while Erinnerung was four, so the dialog changed height when you switched mode. */
+.jc-foot { display: grid; grid-template-columns: 1fr; gap: 8px; }
+/* reminder mode has no pin — its spacer must not leave an empty row behind */
+.jc-pin-spacer { display: none; }
+.jc-pin { display: flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid var(--glass-edge); background: var(--surface-2);
+  color: var(--ink-dim); border-radius: var(--r-sm); padding: 8px 12px; height: var(--tap); font-size: 12.5px; font-weight: 700; cursor: pointer;
+  font-family: inherit; white-space: nowrap; }
+.jc-pin { width: 100%; }
+.jc-pin .i { width: 15px; height: 15px; flex: none; }
+.jc-pin:hover { color: var(--ink); }
+.jc-pin.on { background: color-mix(in srgb, var(--blue) 12%, transparent); border-color: color-mix(in srgb, var(--blue) 50%, transparent); color: var(--blue-strong); }
+.jc-send { width: 100%; display: flex; align-items: center; justify-content: center; gap: 7px; border: none; cursor: pointer;
+  background: var(--blue); color: var(--on-fill); border-radius: var(--r-sm); padding: 9px 16px; height: var(--tap); font-size: 12.5px; font-weight: 800;
+  font-family: inherit; white-space: nowrap; }
+.jc-send .i { width: 15px; height: 15px; }
+.jc-send:hover { background: var(--blue-strong); }
+.jc-send:disabled { opacity: var(--disabled); cursor: default; }
+
+/* composer mode toggle: Eintrag vs Wiedervorlage */
+/* mode switch uses the shared <Segmented>; full-width with composer-size tap targets */
+.jc-mode .useg { display: flex; width: 100%; }
+.jc-mode .useg-btn { flex: 1; }
+
+/* Erinnerung due-time picker */
+.jc-due { display: flex; flex-direction: column; gap: 8px; }
+/* «Fällig in» was the one label the reminder mode had that the entry mode did not — the 23px
+   that made the dialog resize on a mode switch. It is also the one label its chips do not need:
+   «+5 min» already reads as when, and it was never true of «Uhrzeit», which is absolute. The
+   mode segment directly above says «Erinnerung». */
+.jc-due-label { display: none; }
+/* six chips → two rows of three, always. Wrapping put four on one row and two on the next,
+   which read as «these four belong together» when they do not. */
+.jc-due-chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.jc-due-chip { display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--glass-edge); background: var(--surface-2);
+  color: var(--ink); border-radius: var(--r-sm); padding: 9px 10px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
+  height: var(--tap); min-width: 0; white-space: nowrap; }
+.jc-due-chip .i { width: 14px; height: 14px; flex: none; }
+.jc-due-chip:hover { border-color: color-mix(in srgb, var(--blue) 40%, var(--glass-edge)); }
+.jc-due-chip.on { background: color-mix(in srgb, var(--blue) 12%, transparent); border-color: color-mix(in srgb, var(--blue) 50%, transparent); color: var(--blue-strong); }
+/* custom HH:MM stepper (replaces the native time spinner) */
+.jc-time { display: inline-flex; align-items: center; gap: 12px; align-self: flex-start; padding: 8px 14px; border-radius: var(--r-ctl);
+  background: var(--surface-2); border: 1px solid var(--glass-edge); }
+.jc-time-col { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.jc-time-col b { font: 800 26px/1 var(--mono); color: var(--ink); min-width: 38px; text-align: center; }
+/* tap-to-type: the value as a button + the inline numeric input (both match .jc-time-col b) */
+.jc-time-val { font: 800 26px/1 var(--mono); color: var(--ink); min-width: 38px; text-align: center;
+  border: none; background: transparent; cursor: pointer; padding: 2px 0; border-radius: var(--r-sm); }
+.jc-time-val:hover { background: var(--fill-soft); }
+.jc-time-input { width: 44px; box-sizing: border-box; font: 800 26px/1 var(--mono); color: var(--blue); text-align: center;
+  border: none; background: transparent; outline: none; padding: 2px 0; }
+.jc-time-btn { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--glass-edge); background: var(--surface);
+  color: var(--ink-dim); border-radius: var(--r-sm); cursor: pointer; touch-action: none; user-select: none; }
+.jc-time-btn:hover { border-color: var(--blue); color: var(--blue); }
+.jc-time-btn:active { background: var(--fill-soft); }
+.jc-time-btn .i { width: 18px; height: 18px; }
+.jc-time-sep { font: 800 24px/1 var(--mono); color: var(--ink-faint); margin-top: -2px; }
+.jc-due-preview { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; font-size: 13px; font-weight: 700;
+  color: var(--blue-strong); }
+.jc-due-preview .i { width: 15px; height: 15px; }
+.jc-due-preview em { font-style: normal; color: var(--ink-dim); font-weight: 600; }
+.jc-pin-spacer { flex: 1; }
+
+/* open-reminders count badge on the Verlauf button */
+.tb-rem-count { position: absolute; top: -5px; right: -5px; min-width: 17px; height: 17px; padding: 0 4px; box-sizing: border-box;
+  border-radius: var(--r-sm); background: var(--amber); color: var(--on-fill); line-height: 17px; text-align: center;
+  font-size: 11px; font-weight: 800; letter-spacing: -.2px; }
+
+/* due-reminder banner — persistent until handled */
+.reminder-banner { position: absolute; top: calc(80px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 45; width: min(440px, calc(100vw - 32px));
+  background: var(--surface); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
+  border-left: 3px solid var(--amber); border-radius: var(--r-hero); box-shadow: var(--shadow); padding: 13px 15px 14px;
+  display: flex; flex-direction: column; gap: 11px; animation: panelIn .16s var(--ease); }
+.rb-head { display: flex; align-items: center; gap: 7px; color: var(--amber-strong); }
+.rb-head .i { width: 15px; height: 15px; flex: none; }
+.rb-title { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.rb-due { margin-left: auto; font-size: 12px; font-weight: 700; font-family: var(--mono); color: var(--ink-dim); }
+.rb-text { font-size: 15px; font-weight: 650; color: var(--ink); line-height: 1.3; }
+.rb-more { color: var(--ink-dim); font-weight: 700; }
+.rb-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.rb-btn { flex: 1 1 auto; min-width: 100px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--glass-edge); background: var(--surface-2);
+  color: var(--ink-dim); border-radius: var(--r-sm); padding: 9px 10px; font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: inherit;
+  min-height: 42px; white-space: nowrap; }
+.rb-btn .i { width: 15px; height: 15px; flex: none; }
+.rb-btn:hover { color: var(--ink); border-color: color-mix(in srgb, var(--ink) 22%, var(--glass-edge)); background: var(--surface); }
+.rb-done { flex: 1.25; background: var(--green); border-color: var(--green); color: var(--on-fill); }
+.rb-done:hover { color: var(--on-fill); border-color: var(--green); background: var(--green); filter: brightness(1.06); }
+
+/* PWA update prompt (UpdateBanner) — low-urgency, so it sits at the BOTTOM and below the
+   safety banners' z-index, never competing with a due-reminder alert at the top. Calm accent
+   (the themeable --accent token, not the amber alert colour). */
+.update-banner { position: absolute; bottom: calc(16px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); z-index: 40;
+  width: min(400px, calc(100vw - 32px)); display: flex; align-items: center; gap: 10px;
+  background: var(--surface); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
+  border-left: 3px solid var(--accent); border-radius: var(--r-hero); box-shadow: var(--shadow); padding: 9px 12px;
+  animation: panelIn .16s var(--ease); }
+.update-banner > .i { width: 16px; height: 16px; flex: none; color: var(--accent); }
+.ub-text { display: flex; flex-direction: column; gap: 1px; margin-right: auto; min-width: 0; }
+.ub-title { font-size: 13px; font-weight: 750; color: var(--ink); }
+.ub-hint { font-size: 12px; color: var(--ink-dim); }
+.ub-btn { flex: none; min-height: 44px; border-radius: var(--r-sm); padding: 9px 12px; font-size: 12.5px; font-weight: 700; cursor: pointer;
+  font-family: inherit; border: 1px solid var(--glass-edge); background: var(--surface-2); color: var(--ink-dim); white-space: nowrap; }
+.ub-btn:hover { color: var(--ink); border-color: color-mix(in srgb, var(--ink) 22%, var(--glass-edge)); background: var(--surface); }
+/* primary (accent) banner action — used by the install nudge + tab-lock banner; the update
+   banner itself is announce-only since 2026-07-09 (a restart applies the waiting build) */
+.ub-reload { background: var(--btn-primary); border-color: var(--btn-primary); color: var(--on-btn-primary); }
+.ub-reload:hover { color: var(--on-btn-primary); border-color: var(--btn-primary-hover); background: var(--btn-primary-hover); }
+.ub-reload:disabled { opacity: var(--disabled); cursor: default; }
+
+/* "Als App installieren" nudge (InstallBanner) — same glass card as the update banner; when
+   an update banner is showing at the same time the install nudge steps up above it */
+.update-banner ~ .install-banner { bottom: calc(88px + env(safe-area-inset-bottom)); }
+/* persistent «Einsatz archiviert — nur ansehen» state banner (ArchivedBanner): the update
+   banner's chrome with an amber accent; it stays up for the whole read-only visit */
+.archived-banner { border-left-color: var(--amber-strong); }
+.archived-banner > .i { color: var(--amber-strong); }
+@media (max-width: 600px) {
+  /* Every bottom banner (Update/Install/TabLock/Archived all share .update-banner) must clear the
+     phone bottom nav bar — previously only .archived-banner did, so Update/Install/TabLock sat ON
+     the nav row and covered its centre items (the banner is z-40, the nav bar z-35). The drawing
+     surfaces (map/plan) carry a SECOND (tool) bar, so clear both there; keep a stacked Install
+     nudge above its Update sibling. */
+  /* phone: left-align + cap width so the banner never sits under the bottom-right Eintrag FAB
+     (it used to be centred and full-width, so the FAB covered its action). Slightly tighter type. */
+  .update-banner { bottom: calc(var(--rail-h) + 24px + env(safe-area-inset-bottom));
+    left: 12px; transform: none; width: min(340px, calc(100vw - 96px)); }
+  .update-banner .ub-title { font-size: 12.5px; }
+  .update-banner .ub-hint { font-size: 11.5px; }
+  .phone-tools .update-banner { bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom)); }
+  .update-banner ~ .install-banner { bottom: calc(var(--rail-h) + 96px + env(safe-area-inset-bottom)); }
+  .phone-tools .update-banner ~ .install-banner { bottom: calc(var(--rail-h) * 2 + 96px + env(safe-area-inset-bottom)); }
+  /* narrow phones: an action cluster that can't fit beside the text WRAPS onto its own
+     line instead of spilling out of the fixed banner — spilled fixed content silently
+     widens the iOS layout viewport, and the whole app renders shifted off-screen
+     (landing screen, 2026-07-15). Applies to every .update-banner-chrome banner
+     (Update/Install/TabLock/Archived) — the alarm .dv-banner gets the same below. */
+  .update-banner { flex-wrap: wrap; justify-content: flex-end; }
+  .update-banner .ub-text { flex: 1 1 auto; }
+  /* …except the announce-only update banner, which opts out via .ub-compact. It is the least
+     urgent thing on screen and the only one of these with a single short action, so on a phone
+     it stays ONE row: tighter box, and OK beside the text instead of below it.
+     The zero flex-basis is what stops the wrap — a flex line breaks on base sizes, so a
+     content-wide text column pushes the button onto its own row before it ever shrinks. It can
+     still shrink and wrap its own text, so nothing spills out of the fixed banner (which is what
+     the rule above exists to prevent). The 44px tap target is untouched. */
+  .update-banner.ub-compact { width: min(300px, calc(100vw - 96px)); gap: 8px; padding: 7px 9px; flex-wrap: nowrap; }
+  .update-banner.ub-compact .ub-text { flex: 1 1 0; }
+  .update-banner.ub-compact .ub-title { font-size: 12px; }
+  .update-banner.ub-compact .ub-hint { font-size: 11px; line-height: 1.35; }
+  .update-banner.ub-compact .ub-btn { padding: 7px 10px; font-size: 12.5px; }
+}
+/* install guide (InstallGuide) — platform-detected steps in the standard ip-sheet */
+.ig-why { margin: 0 0 16px; font-size: 14px; line-height: 1.45; color: var(--ink-dim); }
+.ig-install { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 50px;
+  border: 1px solid var(--btn-primary); background: var(--btn-primary); color: var(--on-btn-primary); border-radius: var(--r-sm);
+  font: 650 15px var(--body); cursor: pointer; }
+.ig-install:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); }
+.ig-install:disabled { opacity: var(--disabled); cursor: default; }
+.ig-install .i { width: 17px; height: 17px; }
+.ig-native-hint { margin: 8px 0 0; font-size: 12.5px; color: var(--ink-dim); text-align: center; }
+.ig-or { margin: 18px 0 10px; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-faint); }
+.ig-intro { margin: 0 0 10px; font-size: 13.5px; font-weight: 650; color: var(--ink); }
+.ig-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; counter-reset: ig; }
+.ig-steps li { display: flex; align-items: center; gap: 11px; counter-increment: ig; }
+.ig-steps li::before { content: counter(ig); flex: none; width: 26px; height: 26px; display: grid; place-items: center;
+  border-radius: 50%; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent);
+  font: 750 13px var(--mono); }
+.ig-step-text { font-size: 14px; line-height: 1.4; color: var(--ink); }
+.ig-step-text .i { width: 16px; height: 16px; vertical-align: -3px; margin: 0 2px; color: var(--accent); }
+.ig-note { margin: 14px 0 0; font-size: 12.5px; color: var(--ink-dim); }
+.ig-done { display: flex; align-items: center; gap: 10px; padding: 14px; border-radius: var(--r-ctl);
+  background: color-mix(in srgb, var(--green) 12%, transparent); color: var(--ink); font-size: 14px; font-weight: 650; }
+.ig-done .i { width: 18px; height: 18px; flex: none; color: var(--green); }
+
+/* composer photo preview + Verlauf row thumbnail */
+/* several attached pictures, side by side — the row grows, nothing is replaced */
+.jc-photos { display: flex; flex-wrap: wrap; gap: 8px; }
+.jc-photo { position: relative; align-self: flex-start; border-radius: var(--r-ctl); overflow: hidden; border: 1px solid var(--glass-edge); }
+.jc-photo img { display: block; max-height: 160px; max-width: 100%; object-fit: cover; }
+.jc-photo .jc-clip-x { position: absolute; top: 6px; right: 6px; background: rgba(20, 28, 40, .6); color: var(--on-accent-ink); }
+.jc-photo .jc-clip-x:hover { background: rgba(20, 28, 40, .85); color: var(--on-accent-ink); }
+/* a <button> now (it opens the in-app viewer, not a new tab) — reset the UA button chrome */
+.jr-thumb { flex: none; width: 34px; height: 34px; border-radius: var(--r-xs); overflow: hidden; border: 1px solid var(--glass-edge); display: block; padding: 0; background: none; cursor: pointer; }
+.jr-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* offline media-queue chip on a Verlauf row (photo/audio not yet on the server) */
+.jr-media-state { flex: none; display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 600;
+  padding: 1px 6px; border-radius: var(--r-pill, 999px); white-space: nowrap;
+  color: var(--amber-strong); background: color-mix(in srgb, var(--amber-strong) 14%, transparent); }
+.jr-media-state .i { width: 12px; height: 12px; }
+.jr-media-state.failed { color: var(--red-strong, #d33); background: color-mix(in srgb, var(--red-strong, #d33) 14%, transparent); }

@@ -1,0 +1,231 @@
+/* ── left navigation rail (Karte · Pläne · Checkliste) ── */
+.navrail { position: absolute; left: 16px; top: 88px; bottom: 16px; height: max-content; margin-block: auto;
+  z-index: 35; display: flex; flex-direction: column; gap: 4px;
+  /* vertically centred in the same band as the right .tool-rail (top 88 → bottom 16), so the two
+     side rails read as a matched pair instead of the left one hanging from the top. */
+  max-height: calc(100dvh - 104px);
+  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
+  box-shadow: var(--shadow); border-radius: var(--r-surface); padding: 7px; width: var(--rail-w); transition: width .18s var(--ease); }
+/* surfaces scroll if the list grows; the pinned map-controls below stay visible */
+.nav-scroll-wrap { position: relative; flex: 1 1 auto; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
+.nav-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 4px;
+  scrollbar-width: none; }
+.nav-scroll::-webkit-scrollbar { display: none; }
+/* explicit "scroll for more" chevron at the overflowing edge — a clear affordance on top of the
+   fade (the fade alone read as "the list just ends"). Unmasked: sits in the wrap, not the
+   masked scroll area. Bounces gently so it reads as interactive, not decorative. */
+/* a real button: it intercepts the tap to scroll, so the half-hidden item under the edge
+   isn't selected instead. Spans the rail width at the overflowing edge. */
+.nav-more { position: absolute; left: 0; right: 0; z-index: 4; display: grid; place-items: center;
+  height: 22px; pointer-events: auto; cursor: pointer; border: none; background: transparent; padding: 0; color: var(--ink); }
+/* a solid backing chip so the scroll chevron reads clearly and never looks like it's stuck on
+   top of a rail glyph */
+.nav-more .i { width: 17px; height: 17px; background: var(--app-bg); border-radius: 50%;
+  box-shadow: 0 0 0 4px var(--app-bg); }
+/* nudge a handful of times, then rest — a PERPETUAL animation over the backdrop-filtered
+   rail keeps the GPU compositing forever (measured battery cost on phones); the keyframes
+   end on the base offset, so the settled chevron still reads as "more" */
+.nav-more-down { bottom: 0; animation: navMoreDown 1.6s var(--ease) 6; }
+.nav-more-up { top: 0; animation: navMoreUp 1.6s var(--ease) 6; }
+.nav-more-up .i { transform: rotate(180deg); }
+@keyframes navMoreDown { 0%, 100% { transform: translateY(-1px); } 50% { transform: translateY(2px); } }
+@keyframes navMoreUp { 0%, 100% { transform: translateY(1px); } 50% { transform: translateY(-2px); } }
+/* fade the edge that has hidden items, so a clipped surface (e.g. Anwesenheit just below the
+   fold on an iPad) reads as "scroll for more" instead of looking like the end of the list */
+.nav-scroll.more-bottom:not(.more-top) { -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 22px), transparent);
+  mask-image: linear-gradient(180deg, #000 calc(100% - 22px), transparent); }
+.nav-scroll.more-top:not(.more-bottom) { -webkit-mask-image: linear-gradient(180deg, transparent, #000 22px);
+  mask-image: linear-gradient(180deg, transparent, #000 22px); }
+.nav-scroll.more-top.more-bottom { -webkit-mask-image: linear-gradient(180deg, transparent, #000 22px, #000 calc(100% - 22px), transparent);
+  mask-image: linear-gradient(180deg, transparent, #000 22px, #000 calc(100% - 22px), transparent); }
+/* width is driven by --rail-w so the rail AND the overlays that track it move as one.
+   apply() sets it to 60/216 on toggle; the grip sets it live per-pixel during a drag. */
+.navrail.dragging { transition: none; }   /* live-resize follows the pointer without easing lag */
+/* the expand toggle mirrors a nav-item's layout (46px glyph column + label) so the
+   chevron lines up with the M1/M2 glyphs below; transparent with an item-style hover */
+/* match a nav-item's size: 46px row + 13.5px label, so "Einklappen" reads the same as
+   Karte / Modul 1 etc. (was 40px tall with 12px text → looked smaller) */
+.nav-exp { display: flex; align-items: center; gap: 10px; height: 46px; flex: none; border: 0; background: transparent;
+  border-radius: var(--r-sm); color: var(--ink-faint); cursor: pointer; font: inherit; font-size: 13.5px; font-weight: 700;
+  padding: 0; width: 100%; margin-bottom: 2px; transition: background .14s var(--ease), color .14s var(--ease); }
+.navrail:not(.expanded) .nav-exp, .navrail.dragging .nav-exp { justify-content: center; }
+.nav-exp:hover { background: var(--hover); color: var(--ink); }
+.nav-exp-ic { width: 46px; min-width: 46px; display: grid; place-items: center; }
+.nav-exp .i { width: 18px; height: 18px; transition: transform .2s var(--ease); }
+.navrail.expanded .nav-exp .i { transform: rotate(180deg); }
+.nav-exp-t { display: none; }
+.navrail.expanded:not(.dragging) .nav-exp-t { display: inline; }
+/* object switch = rare utility: a small, muted footer item set apart from the surfaces */
+.nav-foot { height: 40px; margin-top: 4px; color: var(--ink-faint); }
+.nav-foot .nav-glyph .i { width: 18px; height: 18px; }
+.nav-foot:hover { color: var(--ink); }
+.nav-sep { height: 1px; flex: none; background: var(--border); margin: 5px 9px; }
+.nav-item { display: flex; align-items: center; gap: 10px; height: 46px; flex: none; border: 0; background: transparent; border-radius: var(--r-sm);
+  cursor: pointer; color: var(--ink); font: inherit; padding: 0; width: 100%; position: relative; transition: background .14s var(--ease); }
+.navrail:not(.expanded) .nav-item, .navrail.dragging .nav-item { justify-content: center; }
+.nav-item:hover { background: var(--hover); }
+.nav-item.on { background: var(--ink-fill); color: var(--on-accent-ink); }
+.nav-glyph { width: 46px; min-width: 46px; height: 46px; display: grid; place-items: center; font-size: 15px; font-weight: 800; position: relative; }
+.nav-glyph .i { width: 22px; height: 22px; }
+.nav-glyph.mono { letter-spacing: -.02em; }
+/* combined-module fraction ("⅔"): a precomposed glyph sized to match a monogram's height */
+.nav-glyph.nav-frac { font-size: 24px; font-weight: 700; line-height: 1; }
+/* diagonal fallback (no precomposed glyph): compact, single-glyph footprint */
+.nav-glyph.nav-frac-diag { display: inline-flex; align-items: center; font-size: 15px; }
+.nav-frac-diag .nav-frac-n { font-size: .56em; align-self: flex-start; }
+.nav-frac-diag .nav-frac-s { font-size: .9em; font-weight: 300; margin: 0 -.12em; }
+.nav-frac-diag .nav-frac-d { font-size: .56em; align-self: flex-end; }
+/* module/floor monograms sit in a bordered chip so they read as document tabs rather than bare
+   tool glyphs; the chip hugs its content (1 / 2 / 6 / RWA / ⅔) and inverts on the active pill */
+.nav-mono-chip { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
+  min-width: 30px; min-height: 30px; max-width: 100%; padding: 1px 6px; border: 1.5px solid var(--border); border-radius: 8px; line-height: 1; }
+/* The chip has to fit inside the 46px glyph column WITH its border — a clipped border reads as a
+   rendering fault, not as a tight fit. A single digit sits at the inherited 15px; a two- or
+   three-letter sub-slot acronym ("PV", "RWA") gets the room it needs by shrinking the text
+   instead of the box, so every chip keeps the same footprint down the rail. */
+.nav-glyph.mono[data-mono-len="2"] .nav-mono-chip { font-size: 12.5px; }
+.nav-glyph.mono[data-mono-len="3"] .nav-mono-chip { font-size: 10.5px; padding: 1px 4px; letter-spacing: -.01em; }
+.nav-glyph.mono[data-mono-len="4"] .nav-mono-chip { font-size: 9px; padding: 1px 3px; letter-spacing: -.02em; }
+.nav-item.on .nav-mono-chip { border-color: color-mix(in srgb, var(--on-accent-ink) 45%, transparent); }
+/* labels render ONLY in the committed expanded state and never during a drag, so they
+   can't clip mid-resize — they fade in once the rail snaps open */
+/* …and they never push past the rail's edge. The label is data in the plan tiles (a station's
+   own sub-sheet names), so "it fits today" is not a property we control — a long one truncates
+   with an ellipsis instead of being sliced off mid-word by the rail's overflow. */
+/* ⚠️ `text-align: start` is load-bearing, not decoration: .nav-item is a <button>, and the UA
+   stylesheet centres a button's text. The label is a full-width flex child (it has to be, so a
+   long plan name truncates against the rail's edge rather than at its own), so it inherited that
+   centring and every label floated in the middle of the rail while its icon sat at the left. */
+.nav-label { display: none; min-width: 0; flex: 1 1 auto; padding-right: 8px; text-align: start; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; font-size: 13.5px; font-weight: 600; }
+.navrail.expanded:not(.dragging) .nav-label { display: block; }
+/* Expanded: left-align the way the right .vrail already right-aligns. The 46px glyph column is
+   there to CENTRE an icon in the slim rail; once labels appear it becomes a fixed gutter that
+   floats every icon ~12px inward, so the two rails read as a mismatched pair — the right one
+   flush to its edge, the left one indented. Shrink the glyph to the icon and let symmetric
+   padding do the spacing, exactly as .vrail.expanded does. Collapsed/dragging keep the 46px
+   column so icon-only centering is untouched. */
+.navrail.expanded:not(.dragging) .nav-item,
+.navrail.expanded:not(.dragging) .nav-exp { padding-inline: 12px; }
+.navrail.expanded:not(.dragging) .nav-glyph,
+.navrail.expanded:not(.dragging) .nav-exp-ic { width: 26px; min-width: 26px; }
+/* ⚠️ the module monogram is a BOX, not a glyph: at min-width 30px it was wider than the 22px
+   column the expanded rail shrinks the glyph to, so it spilled over and pushed «Modul 1» /
+   «Modul 2/3» right — the module rows read as indented and unevenly spaced next to the icon
+   rows. Expanded, the chip is sized to the column (and the column to the chip), so every label
+   starts on the same edge. Collapsed keeps the big chip: there it IS the whole row. */
+.navrail.expanded:not(.dragging) .nav-mono-chip { min-width: 26px; min-height: 26px; padding: 1px 4px; }
+.navrail.expanded:not(.dragging) .nav-glyph.nav-frac { font-size: 20px; }
+.nav-live { position: absolute; top: 6px; right: 6px; width: 9px; height: 9px; border-radius: 50%; background: var(--green); border: 2px solid #fff; }
+.nav-item.on .nav-live { border-color: var(--ink-fill); }
+/* Atemschutz cross-surface alarm dot: amber when fällig, red + pulse when überfällig */
+.nav-live.nav-alarm { background: var(--amber); }
+.nav-live.nav-alarm.crit { background: var(--red); animation: nav-alarm-pulse 1.4s infinite; }
+@keyframes nav-alarm-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+/* keyboard-shortcut badge on the fixed surface items (Karte/Checkliste/…) — mirrors .help-kbd and
+   sits bottom-right so it never collides with the top-right live/alarm dot. Shown only on devices
+   with a real keyboard/pointer, so touch tablets stay uncluttered. Modules already show their
+   number as the glyph, so they need no separate badge. */
+.nav-item { position: relative; }
+.nav-key { display: none; position: absolute; right: 5px; bottom: 4px; min-width: 15px; height: 15px;
+  box-sizing: border-box; padding: 0 3px; font-family: var(--mono); font-size: 9.5px; font-weight: 700;
+  line-height: 13px; text-align: center; border-radius: var(--r-xs); border: 1px solid var(--border);
+  background: var(--fill-soft); color: color-mix(in srgb, var(--ink) 55%, transparent); pointer-events: none; }
+.nav-item.on .nav-key { border-color: color-mix(in srgb, var(--on-accent-ink) 45%, transparent); color: var(--on-accent-ink); background: transparent; }
+@media (hover: hover) and (pointer: fine) { .nav-key { display: block; } }
+.nav-grip { position: absolute; top: 0; right: -7px; width: 20px; height: 100%; border: 0; background: transparent; padding: 0;
+  cursor: ew-resize; z-index: 3; display: flex; align-items: center; justify-content: center; touch-action: none; }
+.nav-grip::after { content: ""; width: 4px; height: 38px; border-radius: 3px; background: var(--border); transition: background .14s var(--ease); }
+.nav-grip:hover::after, .nav-grip.drag::after { background: color-mix(in srgb, var(--blue) 55%, transparent); }
+/* The rail is TOP-anchored (top:88px) in every mode so it sits in the same place whatever
+   surface is active — previously non-plan modes vertically centred it (margin-block:auto),
+   which made the rail jump up/down between e.g. Plan and Checkliste. */
+
+/* Behind the Anwesenheit / Atemschutz / Checkliste surfaces, cover the live map with a solid
+   app background: it shouldn't show through the inset card's margins, and a half-visible map
+   that can't be interacted with reads as "is this tappable?" — it isn't. (Swallows margin taps
+   too, so the map behind never pans.) */
+.app.mode-anwesenheit::before, .app.mode-atemschutz::before, .app.mode-checklists::before {
+  content: ''; position: fixed; inset: 0; z-index: 18; background: var(--app-bg);
+}
+
+/* ── map-only view-control launcher (Ebenen) — tracks the rail width ── */
+.mapctl { position: absolute; left: calc(var(--rail-w) + 28px); top: 104px; z-index: 33; display: flex; flex-direction: column; gap: 8px;
+  transition: left .18s var(--ease); }
+/* during an active grip-drag, every rail-tracking overlay drops its easing so it stays
+   locked to the rail edge instead of rubber-banding ~180ms behind it */
+html.rail-dragging .mapctl, html.rail-dragging .layers-card,
+.mapctl .rbtn { width: 46px; height: 46px; }
+.mapctl .rbtn .i { width: 20px; height: 20px; }
+.mapctl-backdrop { position: fixed; inset: 0; z-index: 28; }
+
+/* layers card — wears the same dark "dock" chrome as the measure/draw ToolDock and the
+   saved-views popover (solid --ink-fill, white controls, popIn), and sits in the SAME spot:
+   vertically centred just left of the right tool rail. Only one of {Ebenen, views popover,
+   tool dock} is ever open (App wires the mutual exclusivity). Phones override this into a
+   full-width sheet below. */
+/* +26 rather than +42: the rail itself sits 16px off the right edge, so this leaves a 10px
+   channel between dock and rail instead of 26px. They belong together — the dock is what the
+   rail button just opened — and the old gap read as two unrelated panels. */
+.layers-card { position: fixed; right: calc(var(--vrail-w, 60px) + 26px); top: 50%; transform: translateY(-50%);
+  width: 264px; max-width: calc(100vw - 16px); max-height: calc(100dvh - 32px); overflow-y: auto;
+  background: var(--ink-fill); color: var(--on-accent-ink); border-radius: var(--r-surface);
+  padding: 10px; z-index: 201; box-shadow: var(--shadow); }
+
+/* REPLAY (and any other view without the tool rail): both docks are positioned against
+   `--vrail-w` — a rail that is not on screen there. They were opening centred beside a phantom,
+   while the button that opened them floats top-right in .toputil. Anchor them under that
+   instead: same corner, same 10px channel, so the panel still belongs to its own button. */
+.map-util :is(.layers-card, .mv-dock) {
+  top: calc(16px + 42px + 10px); right: 16px; bottom: auto; transform: none;
+  max-height: calc(100dvh - 96px);
+}
+/* the title row STICKS while the list scrolls: it carries the ✕, and a long layer list (or a
+   short phone viewport) scrolled the only way out of the sheet off the top. `-10px` cancels the
+   card's own padding so the sticky strip spans the full width and nothing shows through beside
+   it; the matching padding is added back inside. */
+.lc-title { position: sticky; top: -10px; z-index: 1; margin: -10px -10px 0; padding: 14px 18px 8px;
+  background: var(--ink-fill); border-radius: var(--r-surface) var(--r-surface) 0 0;
+  font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: rgba(255, 255, 255, .65);
+  display: flex; align-items: center; gap: 7px; }
+/* round close button at the title's right end — mirrors the views popover / .wb-dock-x */
+.lc-x { flex: none; margin-left: auto; width: 34px; height: 34px; border-radius: var(--r-sm); border: none;
+  background: rgba(255, 255, 255, .14); color: var(--on-accent-ink); display: grid; place-items: center;
+  cursor: pointer; padding: 0; transition: background .14s var(--ease); }
+.lc-x:hover { background: rgba(255, 255, 255, .28); }
+.lc-x .i { width: 16px; height: 16px; }
+.lgroup { font-size: 11px; font-weight: 700; color: rgba(255, 255, 255, .7); padding: 13px 8px 5px; }
+/* Basiskarte tiles — one row for a one-of-three choice. auto-fit so a deployment with a
+   different number of bases still lays out; 70px is the floor a glyph + short name needs. */
+.lbases { display: grid; grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); gap: 6px; padding: 0 4px 2px; }
+/* Left-aligned like every row beneath them. These tiles used to centre their icon and label
+   while the whole rest of the panel (Taktische Zeichen, Fahrzeuge, Hydranten …) ran flush
+   left, so the one section at the TOP was the one that did not line up with anything. */
+.lbase { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 6px;
+  min-height: 62px; padding: 8px 4px; cursor: pointer; font: inherit; color: var(--on-accent-ink);
+  background: rgba(255, 255, 255, .07); border: 1px solid transparent; border-radius: var(--r-sm);
+  transition: background .14s var(--ease), border-color .14s var(--ease); }
+.lbase:hover { background: rgba(255, 255, 255, .16); }
+/* selected: the same accent wash the saved-views rows use on this surface (token + color-mix,
+   so day/night both stay right) */
+.lbase.on { background: color-mix(in srgb, var(--blue) 34%, transparent); border-color: color-mix(in srgb, var(--blue) 62%, transparent); }
+.lbase-ic { display: grid; place-items: center; color: rgba(255, 255, 255, .8); }
+.lbase.on .lbase-ic { color: var(--on-accent-ink); }
+.lbase-ic .i { width: 20px; height: 20px; }
+.lbase-t { font-size: 11px; font-weight: 700; line-height: 1.15; text-align: left;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+/* clean list rows — transparent, no per-row box; visible vs hidden shown by the blue eye +
+   opacity, with the dock's white hover highlight */
+.lrow { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 8px; border: none; background: transparent;
+  border-radius: var(--r-sm); font-size: 13px; font-weight: 600; color: var(--on-accent-ink); cursor: pointer;
+  transition: opacity .14s, background .14s; }
+.lrow:hover { background: rgba(255, 255, 255, .12); }
+.lrow.off { opacity: .55; }
+.lrow .ic { font-size: 15px; color: rgba(255, 255, 255, .75); display: grid; place-items: center; }
+.lrow .name { flex: 1; font-size: 13px; font-weight: 600; }
+.lrow .lock { display: grid; place-items: center; font-size: 13px; color: rgba(255, 255, 255, .5); }
+.lrow .eye { font-size: 15px; color: var(--blue); display: grid; place-items: center; }
+.lrow.off .eye { color: rgba(255, 255, 255, .45); }
+.opacity { display: flex; gap: 9px; align-items: center; padding: 2px 8px 9px 34px; }
+.opacity input { flex: 1; accent-color: var(--blue); height: 4px; }
+.opacity span { font-family: var(--mono); font-size: 10px; color: rgba(255, 255, 255, .6); width: 34px; text-align: right; }

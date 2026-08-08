@@ -1,0 +1,181 @@
+/* ---- audio player sheet (Durchhören) ---- */
+.ap-head { align-items: flex-start; gap: 12px; }
+.ap-title { flex: 1; min-width: 0; }
+.ap-title h2 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ap-range { font-family: var(--mono); font-size: 12px; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+.ap-body { display: flex; flex-direction: column; gap: 12px; padding: 8px 20px 18px; }
+.ap-wave-wrap { flex: none; position: relative; }
+.ap-wave { display: block; width: 100%; height: 96px; border-radius: 12px; background: var(--fill-soft); cursor: pointer; touch-action: none; }
+/* peaks are computing server-side — sweep a soft highlight until they arrive */
+.ap-wave-shimmer { position: absolute; inset: 0 0 21px 0; border-radius: 12px; overflow: hidden; pointer-events: none; }
+.ap-wave-shimmer::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ink) 7%, transparent), transparent);
+  animation: apShimmer 1.6s ease-in-out infinite; }
+@keyframes apShimmer { to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) { .ap-wave-shimmer::after { animation: none; opacity: .5; transform: none; } }
+.ap-clock { position: relative; display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10.5px;
+  color: var(--ink-faint); padding: 5px 2px 0; font-variant-numeric: tabular-nums; min-height: 16px; }
+.ap-clock span[style] { transform: translateX(-50%); }
+.ap-transport { display: flex; align-items: center; gap: 10px; flex: none; }
+.ap-btn { width: 44px; height: 44px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface);
+  color: var(--ink); display: grid; place-items: center; cursor: pointer; }
+.ap-btn-main { width: 54px; height: 54px; background: var(--btn-primary); border-color: var(--btn-primary); color: var(--on-btn-primary); }
+.ap-btn-main .i { width: 18px; height: 18px; }
+.ap-btn-main:hover { background: var(--btn-primary-hover); }
+.ap-skip { display: grid; place-items: center; line-height: 1; }
+.ap-skip small { font-size: 9px; font-weight: 800; margin-top: 1px; }
+.ap-speed { border: 1px solid var(--border); border-radius: 999px; background: var(--surface); padding: 10px 15px;
+  font: 800 13px var(--mono); color: var(--ink); cursor: pointer; min-height: var(--tap); }
+.ap-time { margin-left: auto; text-align: right; }
+.ap-time strong { display: block; font-family: var(--mono); font-size: 21px; font-weight: 700; letter-spacing: -.01em;
+  font-variant-numeric: tabular-nums; color: var(--ink); }
+.ap-time span { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.ap-offline { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--ink-dim); font-size: 13px; font-weight: 600; }
+.ap-offline .i { color: var(--amber); }
+.ap-add { flex: none; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface-2);
+  padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.ap-add-label { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 800; color: var(--ink); }
+.ap-add-label .i { width: 13px; height: 13px; }
+.ap-add-label em { font-style: normal; font-family: var(--mono); color: var(--accent); font-variant-numeric: tabular-nums; }
+.ap-add-row { display: flex; gap: 8px; }
+.ap-add-row input { flex: 1; min-width: 0; border: 1px solid var(--glass-edge); border-radius: 12px; background: var(--surface);
+  padding: 10px 12px; font: inherit; font-size: 13px; color: var(--ink); }
+.ap-add-row input::placeholder { color: var(--ink-faint); }
+.ap-add-row input:focus { outline: none; border-color: color-mix(in srgb, var(--blue) 50%, transparent); }
+.ap-send { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: var(--r-sm); background: var(--btn-primary);
+  color: var(--on-accent-ink); padding: 0 16px; font: inherit; font-size: 12.5px; font-weight: 800; cursor: pointer; }
+.ap-send:disabled { opacity: var(--disabled); cursor: default; }
+.ap-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px;
+  border-top: 1px solid var(--border-soft); padding-top: 10px; }
+.ap-list-head { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 6px; }
+.ap-empty { margin: 0; color: var(--ink-faint); font-size: 13px; }
+.ap-row { display: flex; align-items: center; gap: 10px; padding: 8px; border: none; border-radius: 10px; background: none;
+  font: inherit; font-size: 13px; color: var(--ink); cursor: pointer; text-align: left; }
+.ap-row:hover { background: var(--fill-soft); }
+.ap-row.current { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.ap-row.current .ap-row-t { color: var(--accent); font-weight: 700; }
+.ap-row-t { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); width: 38px; flex: none; font-variant-numeric: tabular-nums; }
+.ap-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.ap-dot-entry { background: var(--blue); }
+.ap-dot-reminder { background: var(--amber); }
+.ap-dot-system { background: var(--ink-faint); }
+.ap-row-tx { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ap-row-go { color: var(--ink-faint); width: 13px; height: 13px; flex: none; }
+/* STT: Transkribieren trigger + draft review (ghost entries the operator confirms) */
+.ap-stt-btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 999px;
+  background: var(--surface); color: var(--ink); padding: 8px 13px; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; flex: none; }
+.ap-stt-btn .i { width: 13px; height: 13px; }
+.ap-stt-note { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--ink-dim); font-size: 13px; font-weight: 600; flex-wrap: wrap; }
+.ap-stt-note .i { width: 14px; height: 14px; flex: none; }
+/* a transcript that FAILED is broken, not a warning — red, per the colour rule */
+.ap-stt-failed .i { color: var(--red); }
+.ap-stt-retry { border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--ink);
+  padding: 5px 11px; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.ap-stt { flex: none; display: flex; flex-direction: column; gap: 2px; }
+.ap-stt-bar { display: flex; align-items: center; gap: 10px; border-radius: var(--r-ctl); padding: 10px 12px;
+  background: color-mix(in srgb, var(--amber) 9%, var(--surface)); border: 1px solid color-mix(in srgb, var(--amber) 30%, transparent);
+  font-size: 12.5px; font-weight: 600; color: var(--ink); margin-bottom: 6px; }
+.ap-stt-bar > .i { width: 14px; height: 14px; color: var(--amber); flex: none; }
+.ap-stt-bar span { flex: 1; min-width: 0; }
+.ap-stt-all { border: none; border-radius: var(--r-pill); background: var(--btn-primary); color: var(--on-btn-primary);
+  padding: 7px 13px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; flex: none; }
+.ap-draft { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 12px; }
+/* in-progress = blue, the same answer the Zeitplan already gives for a running state.
+   It is not a warning: nothing is wrong while a transcript is still being written. */
+.ap-draft-t { font-family: var(--mono); font-size: 11px; color: var(--blue); width: 38px; flex: none; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ap-draft-play { width: 28px; height: 28px; border-radius: var(--r-sm); border: 1px dashed color-mix(in srgb, var(--blue) 55%, transparent);
+  background: none; color: var(--amber); display: grid; place-items: center; cursor: pointer; flex: none; }
+.ap-draft-play .i { width: 11px; height: 11px; }
+.ap-draft-tx { flex: 1; min-width: 0; border: none; background: none; font: inherit; font-size: 13px; font-style: italic;
+  color: var(--ink-dim); padding: 4px 6px; border-radius: 8px; }
+.ap-draft-tx:focus { outline: none; background: var(--surface); color: var(--ink); font-style: normal;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--blue) 50%, transparent); }
+.ap-d-btn { width: 32px; height: 32px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface);
+  display: grid; place-items: center; cursor: pointer; flex: none; }
+.ap-d-btn .i { width: 13px; height: 13px; }
+.ap-d-ok { color: var(--green); }
+.ap-d-no { color: var(--ink-faint); }
+/* marker-row in-place edit (mirrors the Verlauf pencil; suggestions themselves vanish
+   once übernommen — the entry lives on here and stays correctable) */
+.ap-row-edit { width: 28px; height: 28px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface);
+  color: var(--ink-dim); display: grid; place-items: center; cursor: pointer; flex: none; opacity: 0; }
+.ap-row:hover .ap-row-edit, .ap-row:focus-within .ap-row-edit { opacity: 1; }
+@media (hover: none) { .ap-row-edit { opacity: 1; } }
+.ap-row-edit .i { width: 12px; height: 12px; }
+.ap-row-editing { cursor: default; }
+.ap-row-input { flex: 1; min-width: 0; border: 1px solid var(--glass-edge); border-radius: 10px; background: var(--surface);
+  padding: 7px 10px; font: inherit; font-size: 13px; color: var(--ink); }
+.ap-row-input:focus { outline: none; border-color: color-mix(in srgb, var(--blue) 50%, transparent); }
+.jr-transcript button { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--ink); padding: 6px 8px; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.jr-transcript button .i { width: 14px; height: 14px; }
+/* a still-missing transcript is an amber call-to-action, not a quiet grey button — so the
+   reminder to fill it actually gets noticed */
+.jr-transcript button.jr-tx-missing { background: color-mix(in srgb, var(--amber) 16%, transparent);
+  border-color: color-mix(in srgb, var(--amber) 45%, transparent); color: var(--amber-strong); }
+.jr-transcript button.jr-tx-missing .i { color: var(--amber-strong); }
+.jr-transcript textarea { width: min(420px, 100%); resize: vertical; border: 1px solid var(--border); border-radius: var(--r-xs); background: var(--surface); color: var(--ink); padding: 8px; font: inherit; font-size: 12px; }
+.jr-transcript-actions { display: flex; gap: 6px; }
+
+/* Mannschaft sync dialog */
+.psync-counts { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.psync-counts li { display: flex; align-items: baseline; gap: 8px; border: 1px solid var(--border); border-radius: var(--r-ctl); padding: 10px 12px; background: var(--surface-2); }
+.psync-counts b { font: 800 20px var(--mono); color: var(--ink); }
+.psync-counts span { font-size: 12px; color: var(--ink-dim); }
+.psync-stale { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: var(--ink-dim); line-height: 1.45; }
+.psync-stale input { width: 18px; height: 18px; margin-top: 1px; accent-color: var(--blue); flex: none; }
+.psync-result { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--ink-dim); }
+@media (max-width: 720px) {
+  .report-meta-grid, .report-toggles { grid-template-columns: 1fr; }
+}
+
+/* Textbausteine: standard radio-message chips under the composer text */
+.jc-phrases { display: flex; flex-wrap: wrap; gap: 6px; }
+.jc-phrase { min-height: 44px; padding: 8px 12px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface); color: var(--ink); }
+.jc-phrase:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--glass-edge));
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+
+/* Einsatzuhr: tap-to-cycle clock (duration / wall time / start) beside the wall clock. It's a
+   <button> now — strip the native chrome and give it a comfortable tap area. */
+.tb-einsatzuhr { color: var(--ink-dim); background: none; border: none; cursor: pointer; font: inherit;
+  padding: 6px 4px; margin: -6px 0; border-radius: var(--r-sm); -webkit-tap-highlight-color: transparent; }
+.tb-einsatzuhr:hover { color: var(--ink); }
+.tb-einsatzuhr:active { background: var(--fill-soft); }
+.tb-einsatzuhr .i { width: 14px; height: 14px; }
+.tb-uhr-chev { width: 12px; height: 12px; opacity: .5; margin-left: 1px; }
+/* Einsatzuhr mode dropdown: labelled, selectable rows (Dauer / Uhrzeit / Beginn) so the reading
+   is never ambiguous — recognition over the old blind tap-to-cycle. */
+.tb-uhr-menu { background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
+  border-radius: var(--r-ctl); box-shadow: var(--shadow); padding: 6px; min-width: 236px; }
+.tb-uhr-row { display: flex; align-items: center; gap: 11px; width: 100%; height: 42px; padding: 0 10px; border: 0;
+  background: transparent; border-radius: var(--r-sm); cursor: pointer; color: var(--ink); font: inherit; text-align: left; }
+.tb-uhr-row:hover { background: var(--hover); }
+.tb-uhr-row.on { background: var(--fill-soft); }
+.tb-uhr-row .i { width: 18px; height: 18px; color: var(--ink-dim); flex: none; }
+.tb-uhr-lbl { font-size: 13px; font-weight: 600; flex: 1; }
+.tb-uhr-val { font-family: var(--mono); font-size: 12.5px; color: var(--ink-dim); }
+.tb-uhr-row .tb-uhr-chk { width: 16px; height: 16px; color: var(--green); flex: none; visibility: hidden; }
+.tb-uhr-row.on .tb-uhr-chk { visibility: visible; }
+
+/* ERG response block inside the UN-hazard readout */
+.un-erg { margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--glass-edge); }
+.un-erg-tih { margin-top: 4px; }
+.un-erg-n { display: block; font-size: 11px; font-weight: 700; color: var(--ink-dim); margin-bottom: 2px; }
+.un-erg-src { margin: 6px 0 0; font-size: 11px; color: var(--ink-dim); }
+
+/* Guarded live-GPS attachment: persistent but compact, so the safety choice stays available
+   without obscuring the map or implying the known Traccar position itself is an alarm. */
+.gps-follow-prompts { position: fixed; z-index: 46; top: calc(76px + env(safe-area-inset-top)); left: 50%;
+  transform: translateX(-50%); display: flex; flex-direction: column; gap: 6px; width: min(540px, calc(100vw - 32px)); pointer-events: none; }
+.gps-follow-prompt { pointer-events: auto; display: flex; align-items: center; gap: 9px; padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--amber) 38%, var(--glass-edge)); border-radius: var(--r-ctl);
+  background: color-mix(in srgb, var(--amber) 8%, var(--surface)); box-shadow: var(--shadow-pop); color: var(--ink); }
+.gps-follow-prompt > .i { width: 17px; height: 17px; color: var(--amber-strong); flex: none; }
+.gps-follow-prompt > span { min-width: 0; flex: 1; display: flex; flex-direction: column; font-size: 12.5px; }
+.gps-follow-prompt small { color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gps-follow-prompt button { min-height: 44px; padding: 7px 11px; border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--surface); color: var(--ink); font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; flex: none; }
+@media (max-width: 620px) {
+  .gps-follow-prompt { flex-wrap: wrap; }
+  .gps-follow-prompt > span { flex-basis: calc(100% - 30px); }
+}

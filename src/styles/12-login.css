@@ -1,0 +1,116 @@
+/* ============================================================
+   Login gate — kiosk PIN lock. A calm, glass lock screen that speaks the app's
+   palette + radius + shadow language. Built for gloved taps: large targets.
+   ============================================================ */
+/* justify-items centres horizontally; align-items uses `safe center` so a card taller
+   than the viewport (tall pinpad + demo banner) falls back to top-aligned and stays
+   fully scrollable instead of clipping the bottom 0/⌫ row past the scroll start edge. */
+/* `minmax(0, 1fr)` is load-bearing, not tidying: an `auto` grid track refuses to shrink below
+   its item's min-content, so ONE unbreakable word inside the card set a floor for the whole
+   screen. A long German rank/function ("Führungsunterstützung", 175px on its own) pushed the
+   card to 359px — wider than a 320px phone — and `overflow: auto` here quietly turned that
+   into a sideways-scrolling login instead of an error anyone would notice. The card's own
+   `width: min(408px, 100%)` could not help: the TRACK had already grown, so 100% was 359px.
+   Explicitly minmax(0, …) lets the track shrink and hands the constraint back to the card. */
+.login { position: fixed; inset: 0; z-index: 200; display: grid; grid-template-columns: minmax(0, 1fr);
+  justify-items: center; align-items: safe center;
+  background: var(--app-bg);
+  color: var(--ink); overflow: auto; padding: 24px; }
+.login-card { width: min(408px, 100%); display: flex; flex-direction: column; gap: 24px;
+  background: var(--glass); border: 1px solid var(--glass-line);
+  border-radius: var(--r-hero); padding: 30px 28px 32px;
+  box-shadow: var(--shadow); backdrop-filter: blur(14px) saturate(1.4); animation: pop .3s var(--ease); }
+
+/* ErrorBoundary fallback — reuses the login card, but centred and with a stacked action list
+   (up to three: reload / close incident / discard local copy). Buttons go full-width so the
+   escape actions are unmissable and comfortably tappable in the dark. */
+.eb-card { text-align: center; gap: 16px; align-items: stretch; }
+.eb-body { margin: 0; color: var(--ink-dim); font-size: 14px; line-height: 1.45; }
+.eb-actions { display: flex; flex-direction: column; gap: 8px; }
+.eb-actions .ip-btn { width: 100%; justify-content: center; }
+.eb-warn { margin: 0; color: var(--ink-faint); font-size: 12.5px; line-height: 1.4; }
+
+/* brand lockup — app logo + wordmark, separated from the body by a hairline */
+.login-brand { display: flex; align-items: center; gap: 15px; padding-bottom: 22px;
+  border-bottom: 1px solid var(--glass-edge); }
+.login-logo { width: 44px; height: 44px; flex: none; border-radius: 10px; box-shadow: 0 1px 4px color-mix(in srgb, #000 22%, transparent); }
+.login-name { font-size: 16px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; color: var(--ink); line-height: 1; }
+.login-sub { font-family: var(--mono); font-size: 11.5px; letter-spacing: .01em; color: var(--ink-faint); margin-top: 5px; }
+
+.login-hint { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--ink-faint); margin-bottom: -6px; }
+.login-state { display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 30px 0; font-size: 13.5px; font-weight: 500; color: var(--ink-faint); text-align: center; }
+/* the roster-failed state carries a retry action: the headline reads in red, the instruction
+   underneath in normal ink (it is advice, not alarm), the raw status in small print for the call
+   to whoever runs the server — and the button on its own full-width row */
+.login-state-err { color: var(--red); flex-direction: column; align-items: stretch; gap: 0; }
+.login-err-head { display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; }
+.login-err-hint { margin: 8px 0 0; font-size: 12.5px; font-weight: 500; line-height: 1.45; color: var(--ink-dim); }
+.login-err-code { margin: 6px 0 0; font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+.login-state-err .ip-btn { justify-content: center; margin-top: 12px; }
+.login-state .i { width: 18px; height: 18px; flex: none; }
+
+/* roster — large tappable tiles (2-up grid for many; one prominent row for a single user) */
+/* one column of full-width rows — two-column tiles broke long names (feedback 2026-07-08) */
+.roster { display: flex; flex-direction: column; gap: 8px; max-height: 56vh; overflow-y: auto;
+  scrollbar-width: thin; scrollbar-color: var(--glass-edge) transparent; margin: -2px; padding: 2px; }
+.roster::-webkit-scrollbar { width: 8px; }
+.roster::-webkit-scrollbar-thumb { background: rgba(30, 45, 70, .18); border-radius: var(--r-xs); border: 2px solid transparent; background-clip: content-box; }
+.roster-tile { display: flex; flex-direction: row; align-items: center; gap: 14px; padding: 12px 16px;
+  border: 1px solid var(--glass-edge); border-radius: var(--r-surface); background: var(--surface-2);
+  color: var(--ink); cursor: pointer; font-family: var(--body); text-align: left;
+  transition: background .14s var(--ease), border-color .14s var(--ease), transform .12s var(--ease), box-shadow .16s var(--ease); }
+.roster-tile:hover { background: var(--surface); border-color: rgba(30, 45, 70, .2); box-shadow: var(--shadow-sm); }
+.roster-tile:active { transform: scale(.97); }
+.roster-meta { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; flex: 1; }
+.roster-avatar { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; flex: none;
+  font-family: var(--body); font-size: 17px; font-weight: 700; letter-spacing: .02em; color: var(--on-accent-ink);
+  box-shadow: 0 2px 8px rgba(30, 45, 70, .25), inset 0 0 0 2px rgba(255, 255, 255, .22); }
+.roster-name { font-size: 14.5px; font-weight: 600; line-height: 1.25; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.roster-role { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  padding: 3px 9px; border-radius: var(--r-xs); background: rgba(30, 45, 70, .08); color: var(--ink-faint); }
+.roster-role.editor { background: color-mix(in srgb, var(--red) 14%, transparent); color: var(--red); }
+.roster-go { display: grid; place-items: center; flex: none; color: var(--ink-faint); }
+.roster-go .i { width: 18px; height: 18px; }
+/* single-user keeps its slightly roomier row */
+.roster-solo .roster-tile { gap: 16px; padding: 16px 18px; }
+.roster-solo .roster-avatar { width: 52px; height: 52px; font-size: 19px; }
+
+/* PIN pad */
+.pinpad { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.pin-backuser { display: flex; align-items: center; gap: 11px; align-self: stretch; padding: 9px 14px 9px 8px;
+  border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface-2);
+  color: var(--ink); cursor: pointer; font-family: var(--body); transition: background .14s var(--ease); }
+.pin-backuser:hover { background: var(--surface); }
+.pin-backuser .i { width: 18px; height: 18px; transform: rotate(180deg); color: var(--ink-faint); flex: none; }
+.pin-avatar { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; flex: none;
+  font-size: 14px; font-weight: 700; color: var(--on-accent-ink); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .22); }
+.pin-username { font-size: 14.5px; font-weight: 600; }
+
+.pin-dots { display: flex; gap: 15px; padding: 6px 0 2px; }
+.pin-dots.err { animation: pinShake .35s var(--ease); }
+/* --ink is the MARK token and flips with the theme; --ink-fill is a dark SURFACE that stays dark
+   in both, so on the night login card the filled dot sat at 1.4:1 — you typed a PIN and the screen
+   showed nothing back. Day is unchanged: --ink is byte-identical to the old --ink-fill there. */
+.pin-dot { width: 13px; height: 13px; border-radius: 50%; background: var(--ink-tint);
+  box-shadow: inset 0 0 0 1px var(--ink-tint); transition: background .14s var(--ease), transform .14s var(--ease), box-shadow .14s var(--ease); }
+.pin-dot.on { background: var(--ink); transform: scale(1.14); box-shadow: 0 0 0 4px var(--ink-tint); }
+.pin-dots.err .pin-dot.on { background: var(--red); box-shadow: 0 0 0 4px color-mix(in srgb, var(--red) 18%, transparent); }
+@keyframes pinShake { 10%, 90% { transform: translateX(-2px); } 30%, 70% { transform: translateX(5px); } 50% { transform: translateX(-6px); } }
+
+.pin-msg { min-height: 17px; font-size: 13px; font-weight: 600; color: var(--red); text-align: center; line-height: 1.3; }
+
+.pin-grid { display: grid; grid-template-columns: repeat(3, 76px); gap: 13px; }
+.pin-key { width: 76px; height: 76px; border-radius: 50%; border: 1px solid var(--glass-edge);
+  background: var(--surface-2); color: var(--ink); font-family: var(--body); font-size: 27px; font-weight: 600;
+  cursor: pointer; display: grid; place-items: center;
+  transition: background .12s var(--ease), transform .1s var(--ease), box-shadow .14s var(--ease); }
+.pin-key:hover:not(:disabled) { background: var(--surface); box-shadow: var(--shadow-sm); }
+.pin-key:active:not(:disabled) { transform: scale(.92); background: var(--fill-soft); box-shadow: none; }
+.pin-key:disabled { opacity: var(--disabled); cursor: default; }
+.pin-key-fn { background: transparent; border-color: transparent; box-shadow: none; }
+.pin-key-fn:hover:not(:disabled) { box-shadow: none; }
+.pin-key-fn .i { width: 22px; height: 22px; color: var(--ink-faint); }
+.pin-key-spacer { width: 76px; height: 76px; }

@@ -1,0 +1,322 @@
+/* ============================================================
+   Toasts + confirm dialog (replace native alert/confirm)
+   ============================================================ */
+/* Demo deployments: a fixed diagonal "DEMO" ribbon across the top-left corner. Non-interactive
+   (taps pass through), so it never blocks a control; amber to read as "not a real incident". */
+.demo-ribbon { position: fixed; top: calc(15px + env(safe-area-inset-top)); left: -36px; width: 132px; z-index: 150; pointer-events: none;
+  transform: rotate(-45deg); background: var(--amber); color: var(--on-fill);
+  text-align: center; padding: 3px 0; font-size: 11px; font-weight: 800; letter-spacing: 2px;
+  box-shadow: 0 1px 5px rgba(20, 28, 40, .35); }
+/* First-visit demo welcome modal (own scrim above the DEMO ribbon so it owns the screen). */
+.dw-scrim { z-index: 160; padding: 24px; }
+/* <Overlay>: backdrop is .modal-backdrop.dw-scrim; the card owns its own fixed centering */
+.dw-card { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 161;
+  width: min(440px, 92vw); max-height: 88dvh; overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--glass-line); border-radius: var(--r-hero);
+  box-shadow: var(--shadow); padding: 22px 22px 20px; animation: panelIn .16s var(--ease); }
+.dw-x { position: absolute; top: 12px; right: 12px; width: 34px; height: 34px; border-radius: var(--r-sm);
+  border: none; background: var(--fill-soft); color: var(--ink-dim); display: grid; place-items: center; cursor: pointer; }
+.dw-x .i { width: 16px; height: 16px; }
+.dw-head { display: flex; align-items: center; gap: 10px; margin: 0 40px 12px 0; }
+.dw-badge { flex: none; background: var(--amber); color: var(--on-fill); font-size: 10px; font-weight: 800;
+  letter-spacing: 1.5px; padding: 3px 8px; border-radius: var(--r-pill); }
+.dw-title { margin: 0; font-size: 19px; font-weight: 800; color: var(--ink); }
+.dw-intro { margin: 0 0 14px; font-size: 13.5px; line-height: 1.5; color: var(--ink-dim); font-weight: 500; }
+/* large reload caveat — the one thing a visitor must know (edits vanish on reload) */
+.dw-warn { display: flex; align-items: center; gap: 11px; margin: 0 0 16px; padding: 13px 15px;
+  border-radius: var(--r-sm); background: color-mix(in srgb, var(--amber) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--amber) 45%, transparent); }
+.dw-warn .i { width: 24px; height: 24px; flex: none; color: var(--amber); stroke-width: 2.2; }
+.dw-warn span { font-size: 14px; line-height: 1.4; font-weight: 700; color: var(--ink); }
+.dw-sec { margin-bottom: 14px; }
+.dw-sec h3 { display: flex; align-items: center; gap: 7px; margin: 0 0 7px; font-size: 13px; font-weight: 700; color: var(--ink); }
+.dw-sec h3 .i { width: 16px; height: 16px; color: var(--accent); flex: none; }
+.dw-know h3 .i { color: var(--ink-dim); }
+.dw-sec ul { margin: 0; padding-left: 23px; display: flex; flex-direction: column; gap: 5px; }
+.dw-sec li { font-size: 13px; line-height: 1.45; color: var(--ink-dim); font-weight: 500; }
+.dw-cta { margin-top: 6px; width: 100%; min-height: 48px; border: none; border-radius: var(--r-sm);
+  background: var(--btn-primary); color: var(--on-btn-primary); font-size: 14px; font-weight: 800; cursor: pointer; }
+.dw-cta:hover { background: var(--btn-primary-hover); }
+/* Login credential hint on a demo instance. */
+.login-demo-note { margin: 2px 0 14px; padding: 8px 12px; border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--ink-dim);
+  font-size: 12.5px; font-weight: 600; line-height: 1.45; text-align: center;
+  border: 1px solid color-mix(in srgb, var(--amber) 40%, transparent); }
+
+/* pinned to both edges (NOT left:50% + translate: an auto-width fixed box only gets the
+   space right of the 50% mark as shrink-to-fit width, so long undo toasts collapsed to a
+   half-viewport pill with per-character wrapping); pills center themselves inside */
+/* off-screen but announced — a visual chain (the print stages) needs a plain sentence next to it */
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap; border: 0; }
+.toaster { position: fixed; left: 16px; right: 16px; bottom: 28px; z-index: 90;
+  display: flex; flex-direction: column-reverse; align-items: center; gap: 8px; pointer-events: none; }
+.toaster > * { max-width: 100%; }
+/* The pill lands ON the dark primary button of a sheet footer (Rapport: «Einsatzrapport (PDF)»)
+   and on the night map — both as dark as --ink-fill, and --shadow's own hairline is dark, so the
+   edge dissolved and toast + button read as one block. A light inner edge gives the pill its own
+   contour on any base; --on-accent-ink is near-white in both themes, so it also holds on the
+   red/green tone fills below. */
+.toast { display: flex; align-items: center; gap: 9px; background: var(--ink-fill); color: var(--on-accent-ink); font-size: 13px; font-weight: 600;
+  padding: 10px 16px; border-radius: var(--r-btn); white-space: nowrap;
+  box-shadow: var(--shadow), inset 0 0 0 1px color-mix(in srgb, var(--on-accent-ink) 24%, transparent);
+  animation: toastIn .22s var(--ease); }
+.toast .i { width: 16px; height: 16px; flex: none; }
+/* live job as a chain of stages (printJobToast): reached ones keep their tick and step back, the
+   running one carries the label, unreached ones stay visible as pips — «what still has to
+   happen» is readable without opening anything. */
+.toast-steps { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.toast-step { display: flex; align-items: center; gap: 5px; white-space: nowrap; opacity: .4;
+  transition: opacity .25s var(--ease); }
+.toast-step.done { opacity: .6; }
+.toast-step.now, .toast-step.fail { opacity: 1; }
+.toast-step .i, .toast-step .print-feed { width: 14px; height: 14px; }
+.toast-chev { display: flex; flex: none; opacity: .28; }
+.toast-chev .i { width: 12px; height: 12px; }
+.toast-pip { width: 7px; height: 7px; border-radius: 50%; flex: none;
+  background: color-mix(in srgb, var(--on-accent-ink) 45%, transparent); }
+/* the sheet feeding out of the printer — a rotating dial (the usual busy glyph) reads wrong on a
+   printer. The global prefers-reduced-motion rule stills it; the stages stay readable. */
+.print-feed-paper { animation: printFeed 2s var(--ease) infinite; }
+@keyframes printFeed {
+  0%, 8% { transform: translateY(4px); opacity: 0; }
+  30% { opacity: 1; }
+  60%, 100% { transform: translateY(0); opacity: 1; }
+}
+/* the text is the shrinkable part — long messages wrap INSIDE the pill instead of
+   ballooning past the action button (undo toast on the capture modal, 2026-07-18) */
+.toast > span { min-width: 0; white-space: normal; overflow-wrap: anywhere; text-align: left; line-height: 1.3; }
+/* inline action (confirm-with-undo): the toaster itself is pointer-events:none, so the
+   button re-enables hits; sized to stay a comfortable touch target inside the pill */
+.toast-action { pointer-events: auto; flex: none; align-self: center; margin-left: 4px; padding: 6px 14px; min-height: 44px;
+  font-size: 12.5px; font-weight: 700; color: var(--on-accent-ink); border: none; border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--on-accent-ink) 18%, transparent); cursor: pointer; }
+/* the fill is overridden, so the ink has to be too — .toast sits on --ink-fill and keeps its
+   near-white, which lands at 2.2:1 once the fill turns green */
+.toast-success { background: var(--green); color: var(--on-fill); }
+.toast-warn { background: var(--red); color: var(--on-fill); }
+@keyframes toastIn { from { opacity: 0; transform: translateY(10px) scale(.96); } }
+
+.confirm-backdrop { z-index: 95; }
+/* Base UI AlertDialog (src/lib/overlays/ConfirmCard.tsx): scrim + card are portal siblings, so
+   the card centres itself (the old .modal-backdrop grid parent is gone). Sits just above the
+   confirm-backdrop (95). */
+.confirm-card.ui-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 96; }
+/* ⚠️ `.ui-dialog` alone positions NOTHING — every dialog pairs it with its own sheet class, and
+   one that forgets renders unstyled at the top of <body>: present in the DOM, invisible on
+   screen («der Stift öffnet nichts»). This is the Mittel remark's sheet. */
+/* The house dialog material: --glass + blur, like the seventeen sheets. It was flat --surface
+   with a hand-rolled shadow, so a confirm opening over a sheet was visibly a different colour of
+   card — and the title was 17/700 against the 19/800 every other dialog and surface uses. */
+.confirm-card { width: min(420px, 92vw); background: var(--glass); backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-edge); border-radius: var(--r-hero); padding: 22px 22px 16px; box-shadow: var(--shadow);
+  animation: pop .16s var(--ease); }
+.confirm-title { margin: 0 0 8px; font: 800 19px var(--body); color: var(--ink); }
+.confirm-msg { margin: 0 0 18px; font: 500 13px/1.45 var(--body); color: var(--ink-dim); }
+.confirm-actions { display: flex; gap: 8px; justify-content: flex-end; }
+/* .ip-btn, the house family — `.btn` is the dense map-dock button (12.5px, flex:1, bounces on
+   press) and using it here is what made the confirm read as another app's dialog. */
+.confirm-actions .ip-btn { flex: 0 0 auto; min-width: 96px; min-height: var(--tap); justify-content: center; }
+.btn.primary { background: var(--btn-primary); border-color: var(--btn-primary); color: var(--on-btn-primary); }
+.btn.primary:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); }
+.btn.warn-solid { background: var(--red); border-color: var(--red); color: var(--on-fill); }
+.btn.warn-solid:hover { background: var(--red-solid-hover); border-color: var(--red-solid-hover); }
+
+
+.loading { position: fixed; inset: 0; display: grid; place-items: center; z-index: 60; }
+.loading-card { display: flex; flex-direction: column; align-items: center; gap: 18px; animation: fade .3s var(--ease); }
+/* Static pre-React boot splash (markup in index.html). Held back briefly: a warm launch mounts
+   React well inside this delay, so the ordinary case still goes straight to the login screen
+   with no flicker, and only a start slow enough to look broken ever shows a pulse. `both` keeps
+   it fully transparent during the delay rather than painting and then fading. */
+.boot-splash { animation: fade .3s var(--ease) .4s both; }
+.ping { position: relative; width: 72px; height: 72px; display: grid; place-items: center; }
+.ping span { position: absolute; border-radius: 50%; }
+.ping span:not(.core) { width: 100%; height: 100%; border: 2px solid var(--accent); animation: ping 1.8s var(--ease) infinite; }
+.ping span:nth-child(2) { animation-delay: .6s; }
+.ping .core { position: static; width: 13px; height: 13px; background: var(--accent); box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 16%, transparent); }
+@keyframes ping { 0% { transform: scale(.25); opacity: .9; } 80%, 100% { transform: scale(1); opacity: 0; } }
+.loading-name { font-size: 16px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--ink); }
+.loading-sub { font-family: var(--mono); font-size: 12px; color: var(--ink-dim); }
+/* stalled-launch block: appears only after Splash's STUCK_MS, so it must fade in rather than
+   pop, and it must never widen the centred card on a phone. */
+.loading-stuck { display: flex; flex-direction: column; align-items: center; gap: 10px; max-width: 30ch; text-align: center;
+  padding-top: 14px; border-top: 1px solid var(--border-soft); animation: fade .3s var(--ease); }
+.loading-stuck-title { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.loading-stuck-hint { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--ink-dim); }
+
+/* note pill + photo markers */
+/* shape/padding kept identical to the Plan note (.wb-text-label) so a Notiz reads the same on
+   map and plan — only the font-size is fixed here (map pills don't scale with zoom) */
+/* `overflow-wrap` is not optional here: the pill is capped at 180px, so a long unbroken token
+   (a hydrant code, a chemical name, a pasted id) ran straight out of the paper and sat on the
+   map as bare letters. White-space stays `normal` — «Einzeilig» is ONE line that simply runs
+   out of room at 180px, not a place to compose paragraphs; that is what «Textfeld» is for. */
+.note-pill { background: var(--note-bg); border: 1px solid var(--note-border); color: var(--note-ink); font-size: 12px; font-weight: 600;
+  padding: 0.38em 0.7em; border-radius: 0.6em; box-shadow: 0 4px 10px rgba(30, 45, 70, .2); max-width: 180px;
+  overflow-wrap: break-word; }
+/* A coloured note in the PILL look tints its paper, not its ink: the picked colour has to be
+   legible from across a KP, and coloured text on a yellow pill is neither. Mixed against the
+   note tokens rather than set flat, so it holds in day and night (the plain look colours the
+   text instead — there is no paper to tint). One rule for the map pill and the plan label. */
+.note-pill.tinted, .wb-text-label.tinted, .note-pill-input.tinted, .wb-text-input.tinted {
+  background: color-mix(in srgb, var(--note-tint) 22%, var(--note-bg));
+  border-color: color-mix(in srgb, var(--note-tint) 75%, var(--note-border));
+  /* the TEXT carries the colour too — a tinted border alone was a detail you had to go
+     looking for. Mixed toward the note's own dark ink rather than used raw: the raw swatch
+     (a mid-blue, a mid-green) on a pale tinted pill is thin at 12px with gloves on, while
+     70% colour over the ink stays unmistakably that colour and still reads at arm's length. */
+  color: color-mix(in srgb, var(--note-tint) 70%, var(--note-ink));
+}
+/* empty note shows a muted placeholder so it stays visible + tappable (like the Plan note) */
+.note-pill-ph { opacity: .5; font-style: italic; }
+/* raw inline text entry on the map note — same yellow pill, just editable (mirrors the Plan) */
+.note-pill-input { font-family: var(--body); outline: none; min-width: 6em; width: auto;
+  user-select: text; -webkit-user-select: text; }
+.note-pill-input::placeholder { color: var(--note-ink); opacity: .45; }
+/* selected/editing note: an on-theme gold ring (NOT the blue marker halo, which we suppress
+   for notes) — covers both the pill and the editable input (both carry .note-pill) */
+.marker.sel .note-pill { border-color: var(--note-border-sel); box-shadow: 0 0 0 2px var(--note-ring), 0 4px 10px rgba(30, 45, 70, .2); }
+/* map text BOX: an explicit width (px — map notes don't scale with zoom) replaces the 180px
+   auto-cap and lets the pill wrap + grow downwards. Mirrors .wb-text-label.box on the plan. */
+.note-pill.box { max-width: none; white-space: pre-wrap; overflow-wrap: break-word; line-height: 1.35; }
+textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-height: 1.35; }
+
+/* ── "Klartext": a note with no paper. Shared by both surfaces, because a heading on a blank
+   sheet should not look like a sticker. The HALO is not optional decoration — bare text over
+   an aerial photo is unreadable in patches without it, so it is part of the mode, and it reads
+   from --note-halo (sheet-coloured) rather than a frozen white so night mode inverts it too. */
+.note-pill.plain, .wb-text-label.plain, .wb-text-input.plain, .note-pill-input.plain {
+  background: transparent; border-color: transparent; box-shadow: none;
+  text-shadow: 0 0 3px var(--note-halo), 0 0 3px var(--note-halo), 0 0 6px var(--note-halo); }
+/* while selected/editing, a plain note still needs an edge to grab — a faint wash of its own
+   paper colour, enough to see the box without turning it back into a sticker */
+.marker.sel .note-pill.plain, .wb-anno.sel .wb-text-label.plain,
+.wb-text-input.plain, .note-pill-input.plain {
+  background: color-mix(in srgb, var(--note-bg) 22%, transparent); border-color: var(--note-border-sel); }
+
+/* right-edge width grip on a text box. Sits OUTSIDE the box so it never covers the text, and
+   is a full 30px tall for a gloved drag even when the box itself is one small line. */
+.note-wgrip { position: absolute; right: -9px; top: 50%; transform: translateY(-50%);
+  width: 16px; height: 32px; padding: 0; border-radius: 5px; background: var(--surface);
+  border: 1px solid var(--note-border-sel); color: var(--ink-dim); cursor: ew-resize;
+  display: grid; place-items: center; touch-action: none; z-index: 2;
+  box-shadow: 0 2px 6px rgba(30, 45, 70, .25); }
+.note-wgrip .i { width: 12px; height: 12px; }
+/* ✓ "Fertig" on a text box being edited: in box mode Enter makes a newline, so touch needs a
+   visible way out (tap-away and Esc work too, but neither is discoverable with gloves on). */
+.note-done { position: absolute; right: -12px; bottom: -12px; width: 32px; height: 32px;
+  padding: 0; border-radius: 50%; border: none; background: var(--green); color: var(--on-fill);
+  display: grid; place-items: center; cursor: pointer; z-index: 3;
+  box-shadow: 0 3px 9px rgba(30, 45, 70, .3); }
+.note-done .i { width: 16px; height: 16px; stroke-width: 2.4; }
+.ph img { width: 100%; height: 100%; object-fit: cover; border-radius: var(--r-ctl); }
+.ctx-photo { padding: 0 18px 10px; border: 0; background: none; width: 100%; cursor: pointer; }
+.ctx-photo img { width: 100%; border-radius: var(--r-ctl); display: block; }
+
+/* Full-size picture viewer (lib/ui · openPhoto). Sized to the picture, capped by the viewport:
+   a document photo is worth the whole screen, and nothing else on it competes. */
+.photo-scrim { position: fixed; inset: 0; z-index: 300; background: rgba(10, 14, 20, .72); backdrop-filter: blur(3px); }
+.photo-view.ui-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 301; }
+.photo-view { display: flex; flex-direction: column; gap: 10px; max-width: min(96vw, 1200px);
+  max-height: 92dvh; padding: 12px; background: var(--glass); backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-line); border-radius: var(--r-hero); box-shadow: var(--shadow); }
+.photo-view-head { display: flex; align-items: center; gap: 10px; }
+.photo-view-cap { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font: 700 13px var(--body); color: var(--ink); }
+/* the download link is a BUTTON here — the global anchor underline made it read as body text */
+.photo-view-head .btn { flex: none; text-decoration: none; }
+/* the zoom frame clips; the image inside it is what moves (see lib/ui · PhotoZoom) */
+.photo-view-zoom { min-height: 0; display: flex; overflow: hidden; border-radius: var(--r-ctl);
+  background: var(--fill-soft); touch-action: none; cursor: zoom-in; }
+.photo-view-zoom[data-zoomed] { cursor: grab; }
+.photo-view-zoom[data-zoomed]:active { cursor: grabbing; }
+.photo-view-img { min-height: 0; max-width: 100%; object-fit: contain; transform-origin: center;
+  user-select: none; -webkit-user-drag: none; }
+
+/* swatch / width pickers — shared by the draw-style bar and the draw editor */
+.dh-swatches, .dh-widths { display: flex; align-items: center; gap: 9px; }
+.dh-color { width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .5); cursor: pointer; padding: 0;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .12); } /* inner edge so a white/light swatch stays visible */
+/* .draw-editor already overrides this pair (see below) because a white ring on a light panel is
+   invisible — but the ContextPanel renders the same swatches outside .draw-editor, where the ring
+   sat at ~1.1:1 in day and the selected colour was indistinguishable from the rest. */
+.dh-color.on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--ink-tint-strong); }
+.dh-width { width: 38px; height: 34px; display: grid; place-items: center; background: rgba(255, 255, 255, .12); border: none; border-radius: var(--r-sm); cursor: pointer; }
+.dh-width.on { background: rgba(255, 255, 255, .3); }
+.dh-width span { display: block; width: 18px; background: var(--on-accent-ink); border-radius: 4px; }
+
+/* drawing editor reuses .ctx; dark swatches/widths on light bg */
+/* grouped sections: a divider BETWEEN groups, not between every row (cleaner, shorter) */
+.draw-editor .de-group { padding: 6px 0; }
+.draw-editor .de-group + .de-group { border-top: 1px solid var(--border-soft); }
+/* wrap: a row is a label plus its control, and several controls (the Abschluss glyph trio, the
+   Inhalt letters, a ± stepper) are wider than half a narrow panel. Without wrapping they ran into
+   their own label. The control drops onto its own line instead. */
+/* ONE row height for the whole column. Every row carried the same 7px padding, but the controls
+   inside them did not agree on a height — a swatch strip is 30px, a preset pair 34px, the Abschluss
+   glyphs 40px, a ± stepper 44px, and a row that is only a label and a value is 17px. That put
+   fourteen rows at heights from 31px to 58px in a single narrow column, so the labels down the left
+   edge landed on no rhythm at all. min-height sets the rhythm and the padding drops to 2px so the
+   tallest control (the 44px stepper) still fits inside it: nothing shrank, nothing lost its tap
+   target, and every label now sits 48px below the one above it. Rows that WRAP (a control wider
+   than half the panel drops under its own label) grow past it — min-height, not height. */
+.draw-editor .de-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 4px 10px; min-height: 48px; padding: 2px 0; font-size: 13px; color: var(--ink-dim); font-weight: 500; }
+.draw-editor .de-row > span:first-child { flex: 0 1 auto; min-width: 0; }
+/* duplicate-Leitung notice: a warning, never a block — a real incident sometimes needs the wrong
+   thing typed for a moment, and the operator is told why it matters instead of being stopped */
+.draw-editor .de-warn { display: flex; align-items: center; gap: 6px; margin: 2px 0 6px; font-size: 12px;
+  font-weight: 600; color: var(--amber-strong, var(--amber)); }
+.draw-editor .de-warn svg { width: 15px; height: 15px; flex: none; }
+/* a clean, always-present thin scrollbar so the panel reads as scrollable */
+.draw-editor .ctx-body { scrollbar-width: thin; scrollbar-color: var(--border) transparent; scroll-padding-bottom: 8px; }
+.draw-editor .ctx-body::-webkit-scrollbar { width: 8px; }
+.draw-editor .ctx-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; border: 2px solid transparent; background-clip: padding-box; }
+.draw-editor .ctx-body::-webkit-scrollbar-thumb:hover { background: var(--ink-faint); background-clip: padding-box; }
+.draw-editor .dh-color { border-color: var(--border); }
+.draw-editor .dh-color.on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--ink-tint-strong); }
+/* fill-transparency swatches (circle/area): the 0% option shows a ∅ on an empty chip */
+.de-fill { display: grid; place-items: center; font-size: 13px; font-weight: 700; color: var(--ink-faint); line-height: 1; }
+.draw-editor .dh-width { background: var(--fill-soft); }
+.draw-editor .dh-width.on { background: var(--ink-tint); }
+.draw-editor .dh-width span { background: var(--ink); }
+.draw-editor .wb-ls { --ls-ink: var(--ink); background: var(--fill-soft); }
+.draw-editor .wb-ls.on { background: var(--ink-tint); }
+.draw-editor .de-input { width: 150px; padding: 5px 8px; border: 1px solid var(--border); border-radius: var(--r-xs);
+  font-size: 13px; color: var(--ink); background: var(--surface); }
+.draw-editor .de-input-short { width: 60px; text-align: center; }
+.draw-editor .de-numrow { display: inline-flex; gap: 6px; }
+.draw-editor .de-numrow .de-input-short { width: 52px; }
+.draw-editor .de-toggle { padding: 4px 12px; border: 1px solid var(--border); border-radius: var(--r-sm);
+  font-size: 12.5px; font-weight: 700; color: var(--ink-dim); background: var(--fill-soft); cursor: pointer; }
+.draw-editor .de-toggle.on { background: var(--blue); border-color: var(--blue); color: var(--on-fill); }
+/* line-preset chips (Freihand · Messpfeil · Rettungsachse) — post-pick style switcher */
+.draw-editor .de-presets { display: inline-flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
+.draw-editor .de-preset { padding: 4px 10px; border: 1px solid var(--border); border-radius: var(--r-sm);
+  font-size: 12px; font-weight: 600; color: var(--ink-dim); background: var(--fill-soft); cursor: pointer; }
+.draw-editor .de-preset.on { background: var(--blue); border-color: var(--blue); color: var(--on-fill); }
+/* line-ending glyph picker (plain · arrow · Teilstück fork) uses the shared <Segmented> */
+
+/* shape editor — size / rotation range rows */
+/* shape editor hint row (size/rotation are done by dragging on the map) */
+.de-hint { display: block; font-size: 11.5px; color: var(--ink-faint); font-weight: 500; padding: 10px 0 2px; border: none; line-height: 1.4; }
+/* the Rauch/cloud silhouette sits a touch low-and-right inside its viewBox (airy top, flat
+   heavy bottom), so nudge the glyph up-and-left in the title box to read as centred */
+.shape-ph { padding: 5px 9px 9px 5px; overflow: hidden; }
+/* size stepper in the shape editor — the phone-reachable way to scale (the corner
+   drag-handle sits under this sheet on a phone) */
+.shape-size-steps { display: flex; align-items: center; gap: 8px; }
+.shape-size-btn { width: 40px; min-width: 40px; height: 36px; padding: 0; justify-content: center; }
+.shape-size-btn svg { width: 18px; height: 18px; }
+.shape-ph .shape-svg { width: 100%; height: 100%; }
+
+/* timeline audio play */
+.tl-play { background: var(--green); color: var(--on-fill); border: none; border-radius: var(--r-sm); width: 26px; height: 26px;
+  cursor: pointer; display: grid; place-items: center; flex: none; transition: transform .12s var(--ease); }
+.tl-play:active { transform: scale(.9); }
+/* while a voice memo is sounding, the button turns blue and pulses so it's obvious */
+.tl-play.playing { background: var(--blue); animation: playPulse 1.3s ease-in-out infinite; }
+@keyframes playPulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--blue) 45%, transparent); } 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--blue) 0%, transparent); } }
+.tl-play .i { width: 11px; height: 11px; margin-left: 1px; }
+.tl-play.playing .i { margin-left: 0; }

@@ -1,0 +1,230 @@
+/* ============================================================
+   Tool rail — right edge (Lage map). Shares the .vrail look with the
+   whiteboard tool rail (.wb-tools) so tools sit in the same place in both modes.
+   ============================================================ */
+/* top-anchored to mirror the left NavRail (same top, same max-height); the inner
+   .vrail-scroll handles overflow so the pinned map-nav footer never scrolls away */
+/* content-height, packed at the same compact spacing as the left NavRail (a matched pair).
+   top/bottom both set + margin-block:auto centres it vertically WHEN there's room, but lets it
+   grow downward (toward the bottom edge) to fit a long list before it has to scroll. The top
+   stays at 80px (clear of the top bar); only a list taller than the full height scrolls. */
+.tool-rail { position: absolute; right: 16px; top: 88px; bottom: 16px; height: max-content; margin-block: auto;
+  z-index: 30; max-height: calc(100dvh - 104px); }
+/* width is driven by --vrail-w (compact 64 / wide 212) so the rail expands like the left
+   NavRail — but leftward, since it's anchored to the right edge. apply() sets it on toggle;
+   the left-edge grip sets it live per-pixel during a drag. */
+.vrail { display: flex; flex-direction: column; gap: 4px; width: var(--vrail-w, 60px); transition: width .18s var(--ease);
+  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid var(--glass-line); border-radius: var(--r-surface); padding: 7px; box-shadow: var(--shadow); }
+.vrail.dragging { transition: none; }   /* live-resize follows the pointer without easing lag */
+/* tools pack at the top at a compact 4px gap (mirrors the left rail's .nav-scroll), not
+   spread to fill — the pinned footer stays at the bottom and the list scrolls if too tall. */
+.vrail-scroll-wrap { position: relative; flex: 1 1 auto; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
+.vrail-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column;
+  gap: 4px; scrollbar-width: none; }
+.vrail-scroll::-webkit-scrollbar { display: none; }
+/* "scroll for more" chevron at the overflowing edge — mirrors the left rail's .nav-more
+   (reuses the navMoreUp/navMoreDown keyframes) */
+.vrail-more { position: absolute; left: 0; right: 0; z-index: 4; display: grid; place-items: center;
+  height: 22px; pointer-events: auto; cursor: pointer; border: none; background: transparent; padding: 0; color: var(--ink); }
+.vrail-more .i { width: 17px; height: 17px; background: var(--app-bg); border-radius: 50%;
+  box-shadow: 0 0 0 4px var(--app-bg); }
+.vrail-more-down { bottom: 0; animation: navMoreDown 1.6s var(--ease) 6; } /* capped — see .nav-more-down */
+.vrail-more-up { top: 0; animation: navMoreUp 1.6s var(--ease) 6; }
+.vrail-more-up .i { transform: rotate(180deg); }
+/* pinned map-nav footer (folded in from the old top-right cluster): zoom / fit /
+   coordinate buttons. Always a single column — it fits the slim compact rail (mirrors the
+   left rail's single-column footer) and, by keeping the footer height constant, the tool
+   area above stays the same height whether collapsed or expanded, so the tools don't
+   re-spread when you expand. A wide item (the compass) spans the column. */
+/* footer is a flex column identical to .vrail-scroll, so the footer buttons slide in and
+   align exactly like the tool buttons above (a single grid column behaved differently) */
+.vrail-nav { flex: none; display: flex; flex-direction: column; gap: 4px; }
+/* footer buttons ARE tool buttons: same ink, height, glyph column and expanded label —
+   no brighter/heavier treatment, no different alignment */
+/* font: inherit, exactly as on the left rail's .nav-item and on .vrail-exp below — a <button> does
+   not inherit the page font, so once the rail is expanded «Ebenen» and «Ansichten» came out in the
+   browser's own face while «Einklappen» directly beneath them, and the whole left rail, did not. */
+.vrail-nbtn { display: flex; flex-direction: row-reverse; align-items: center; gap: 10px; height: 46px; flex: none; border: none; background: transparent;
+  border-radius: var(--r-sm); color: var(--ink); cursor: pointer; font: inherit; transition: background .14s var(--ease), color .14s var(--ease); }
+.vrail:not(.expanded) .vrail-nbtn, .vrail.dragging .vrail-nbtn { justify-content: center; }
+.vrail-nbtn:not(.on):hover:not(:disabled) { background: var(--hover); color: var(--ink); }
+.vrail-nbtn.on { background: var(--ink-fill); color: var(--on-accent-ink); }
+.vrail-nbtn:disabled { opacity: var(--disabled); cursor: default; }
+.vrail-sep-foot { flex: none; margin: 2px 10px; }
+.vrail-compass { display: grid; place-items: center; transition: transform .15s ease; }
+/* expand toggle — mirrors the left rail's, but row-reversed so the chevron sits in the
+   right-edge glyph column (the rail is anchored right and opens leftward) */
+/* match the left rail's .nav-exp exactly: 46px row + 13.5px label, flex:none so the pinned
+   footer can never compress it — so "Einklappen" reads identically on both sidebars */
+/* `overflow: hidden` because the rail animates its WIDTH (.18s) while this row keeps a fixed
+   46px icon box: mid-collapse the box no longer fits and the chevron painted outside the rail
+   for a frame or two, floating over the map. Clipped, it slides under the edge instead. */
+.vrail-exp { overflow: hidden; display: flex; flex-direction: row-reverse; align-items: center; gap: 10px; height: 46px; flex: none; border: 0; background: transparent;
+  border-radius: var(--r-sm); color: var(--ink-faint); cursor: pointer; font: inherit; font-size: 13.5px; font-weight: 700;
+  padding: 0; width: 100%; margin-bottom: 2px; transition: background .14s var(--ease), color .14s var(--ease); }
+.vrail:not(.expanded) .vrail-exp, .vrail.dragging .vrail-exp { justify-content: center; }
+.vrail-exp:hover { background: var(--hover); color: var(--ink); }
+.vrail-exp-ic { width: 46px; min-width: 46px; display: grid; place-items: center; }
+.vrail-exp .i { width: 18px; height: 18px; transform: rotate(180deg); transition: transform .2s var(--ease); }
+.vrail.expanded .vrail-exp .i { transform: rotate(0deg); }
+.vrail-exp-t { display: none; }
+.vrail.expanded:not(.dragging) .vrail-exp-t { display: inline; }
+/* tool buttons mirror the left rail's nav-item: a fixed right-edge glyph column + a
+   label that shows only in the committed expanded state (never mid-drag, so it can't clip) */
+.vrail-tool { display: flex; flex-direction: row-reverse; align-items: center; gap: 10px; height: 46px; flex: none;
+  border: none; background: transparent; border-radius: var(--r-sm); color: var(--ink); cursor: pointer; font: inherit; padding: 0; width: 100%;
+  transition: background .14s var(--ease), color .14s var(--ease); }
+.vrail:not(.expanded) .vrail-tool, .vrail.dragging .vrail-tool { justify-content: center; }
+.vrail-glyph { width: 46px; min-width: 46px; height: 46px; display: grid; place-items: center; }
+.vrail-glyph .i { width: 22px; height: 22px; }
+.vrail-label { display: none; white-space: nowrap; font-size: 13.5px; font-weight: 600; }
+.vrail.expanded:not(.dragging) .vrail-label { display: block; }
+/* expanded: the glyph no longer carries the icon's horizontal inset (it would sit flush against
+   the pill edge) — shrink it to the icon and let symmetric tool padding give label + icon equal
+   breathing room. Collapsed/dragging keep the 46px glyph for perfect icon-only centering. */
+.vrail.expanded:not(.dragging) .vrail-tool { padding-inline: 12px; }
+.vrail.expanded:not(.dragging) .vrail-glyph { width: 22px; min-width: 22px; }
+/* expanded: items stay right-aligned (default flex-start = packed to the right edge in
+   row-reverse), and the glyph shrinks to the icon so the icon sits at the right edge with the
+   SAME inset as the rail's left padding — symmetric, not floating 12px in from a fixed-width
+   glyph column. (Collapsed keeps the 46px glyph so the icon stays centred in the slim rail.) */
+.vrail.expanded:not(.dragging) .vrail-glyph,
+.vrail.expanded:not(.dragging) .vrail-exp-ic { width: auto; min-width: 0; }
+/* hover must not override the selected (.on) state — a selected tool stays ink,
+   it does not flash white on hover */
+.vrail-tool:not(.on):hover:not(:disabled) { background: var(--hover); color: var(--ink); }
+.vrail-tool.on { background: var(--ink-fill); color: var(--on-accent-ink); }
+.vrail-tool.on:hover:not(:disabled) { background: var(--ink-fill-hover); color: var(--on-accent-ink); }
+.vrail-tool:disabled { opacity: var(--disabled); cursor: default; }
+.vrail-sep { height: 1px; flex: none; background: var(--border); margin: 5px 9px; }
+/* one-shot actions + the display-mode switch read as discrete push-buttons
+   (faint resting fill + hairline), visually distinct from the flat, sticky modal
+   tools above — so "press to do X" is never confused with "select a mode" */
+/* audio is the only action that holds state — it goes red while recording */
+.vrail-tool.is-action.on, .vrail-tool.is-action.on:hover:not(:disabled) { background: var(--red); color: var(--on-fill); box-shadow: none; }
+/* drag grip on the LEFT edge — pull it to resize the rail (mirror of the nav-grip) */
+.vrail-grip { position: absolute; top: 0; left: -7px; width: 20px; height: 100%; border: 0; background: transparent; padding: 0;
+  cursor: ew-resize; z-index: 3; display: flex; align-items: center; justify-content: center; touch-action: none; }
+.vrail-grip::after { content: ""; width: 4px; height: 38px; border-radius: 3px; background: var(--border); transition: background .14s var(--ease); }
+.vrail-grip:hover::after, .vrail-grip.drag::after { background: color-mix(in srgb, var(--blue) 55%, transparent); }
+
+/* rail extras */
+.rbtn:disabled { opacity: var(--disabled); cursor: default; }
+
+/* (.toputil / .tu-btn / .tu-divider / .compass migrated → MapUtility.module.css) */
+
+/* coordinate readout — subtle, bottom-centre, shown only while picking/locked */
+.coord-read { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 35;
+  display: grid; gap: 2px; padding: 8px 14px; background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid var(--glass-line); border-radius: var(--r-ctl); box-shadow: var(--shadow); pointer-events: none; }
+.coord-read.aiming { border-color: color-mix(in srgb, var(--blue) 50%, transparent); }
+.cr-row { display: flex; align-items: baseline; gap: 9px; }
+.cr-tag { font-size: 9.5px; font-weight: 700; letter-spacing: .08em; color: var(--ink-faint); width: 42px; }
+.cr-val { font-family: var(--mono); font-size: 12.5px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.cr-hint { margin-top: 3px; font-size: 10.5px; font-weight: 600; color: var(--ink-faint); text-align: center; }
+.coord-read.aiming .cr-hint { color: var(--blue); }
+/* when the measure tool is active its results panel also sits bottom-centre (z35);
+   lift the readout clear above it and keep it on top so the two never collide */
+.coord-read { z-index: 36; }
+.coord-read-stacked { bottom: 200px; }
+
+/* locked coordinate reticle on the map */
+.pick-reticle { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--blue);
+  background: color-mix(in srgb, var(--blue) 18%, transparent); box-shadow: 0 0 0 2px rgba(255, 255, 255, .85); pointer-events: none; }
+.pick-reticle::after { content: ''; position: absolute; left: 50%; top: 50%; width: 3px; height: 3px;
+  border-radius: 50%; background: var(--blue); transform: translate(-50%, -50%); }
+
+/* lightweight position indicators on the map — non-interactive, just to view */
+.map-here { pointer-events: none; }
+/* Einsatzort: a thin target ring at the incident/object location */
+.map-incident { width: 26px; height: 26px; border-radius: 50%;
+  border: 2px solid var(--red, #e23); box-shadow: 0 0 0 2px rgba(255, 255, 255, .85);
+  position: relative; }
+.map-incident::after { content: ''; position: absolute; inset: 0; margin: auto;
+  width: 5px; height: 5px; border-radius: 50%; background: var(--red, #e23); }
+/* own GPS position: the familiar blue dot with a soft accuracy halo */
+.map-me { width: 14px; height: 14px; border-radius: 50%; background: var(--blue);
+  border: 2.5px solid #fff; box-shadow: 0 0 0 6px color-mix(in srgb, var(--blue) 18%, transparent), 0 1px 3px rgba(0, 0, 0, .4); }
+
+/* (the base-map switcher popover is gone — Basiskarte selection is the first group of
+   the Ebenen panel, LayerPanel.tsx) */
+
+/* context-panel inline edit inputs (custom, not browser default) */
+.ctx-titlewrap { flex: 1; min-width: 0; }
+/* inline editables carry a faint resting affordance (a soft underline) so touch
+   users can see they're editable without a hover to reveal it */
+.ctx-title-input { width: 100%; border: none; background: transparent; font-family: var(--body); font-size: 17px; font-weight: 700;
+  color: var(--ink); padding: 2px 5px; margin: -2px -5px; border-radius: var(--r-xs) var(--r-xs) 0 0; outline: none;
+  border-bottom: 1.5px solid rgba(30, 45, 70, .16); }
+.ctx-title-input::placeholder { color: var(--ink-faint); font-weight: 600; }
+.ctx-title-input:not(.ctx-title-ro):hover { background: var(--fill-soft); border-bottom-color: rgba(30, 45, 70, .3); }
+.ctx-title-input:focus { background: color-mix(in srgb, var(--blue) 9%, transparent); border-bottom-color: var(--blue); }
+/* keyboard-free stepper (− value +), used for Geschoss + Anzahl. The clear ✕ keeps
+   a FIXED slot (visibility toggles, with a gap before it) so the + button never
+   shifts under the finger between taps and never sits where clear will appear. */
+.step { display: inline-flex; align-items: center; gap: 6px; }
+/* font-family: inherit — the same <button> default that put «Höhenprofil» in the browser's face.
+   Invisible in practice, because the glyphs are only «−» and «+», but four of these steppers sit
+   inside the drawing detail column, and a panel that is font-consistent everywhere except its two
+   steppers is a trap for the next person who measures it. */
+.step-btn { width: 44px; height: 44px; flex: none; border-radius: var(--r-sm); border: 1px solid var(--border);
+  background: var(--surface-2); color: var(--ink); font-family: inherit; font-size: 19px; font-weight: 700; line-height: 1; cursor: pointer;
+  display: grid; place-items: center; padding: 0; }
+.step-btn:hover:not(:disabled) { background: var(--surface); border-color: var(--border); }
+.step-btn:active:not(:disabled) { background: color-mix(in srgb, var(--blue) 12%, transparent); border-color: var(--blue); }
+.step-btn:disabled { opacity: var(--disabled); cursor: default; }
+.step-val { font-family: var(--mono); font-weight: 600; min-width: 30px; text-align: center; color: var(--ink);
+  /* digits must not change width as they change value, or the ± buttons twitch under the finger */
+  font-variant-numeric: tabular-nums; }
+/* tap the value to type a number directly */
+.step-val-btn { display: inline-grid; place-items: center; min-height: 44px; border: none; background: transparent; cursor: pointer; padding: 3px 5px; border-radius: var(--r-sm); }
+.step-val-btn:hover:not(:disabled) { background: var(--hover); }
+.step-val-btn:disabled { cursor: default; }
+/* over-stock flag: the value reads red (e.g. Mittel used past the available amount) */
+.step-val.step-over { color: var(--red); }
+.step-input { width: 52px; box-sizing: border-box; border: 1px solid var(--blue); border-radius: var(--r-xs);
+  background: var(--surface); padding: 3px 4px; outline: none; }
+.step-clear { width: 32px; height: 32px; flex: none; margin-left: 8px; border-radius: var(--r-sm); border: none; padding: 0;
+  background: var(--fill-soft); color: var(--ink-dim); cursor: pointer; display: grid; place-items: center; }
+.step-clear:hover:not(:disabled) { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
+.step-clear:disabled { opacity: var(--disabled); cursor: default; }
+.step-clear .i { width: 14px; height: 14px; }
+
+/* symbol search modal */
+.modal-backdrop { position: fixed; inset: 0; background: rgba(20, 28, 40, .45); backdrop-filter: blur(2px); z-index: 80;
+  display: grid; place-items: center; animation: fade .12s ease; }
+@keyframes fade { from { opacity: 0; } }
+/* the Eintrag/Erinnerung composer is top-anchored on tablet/desktop so its mode toggle keeps
+   the same vertical position when the two modes differ in height (centred, it jumped). On
+   phones it stays a bottom sheet (see the ≤600px rule). */
+.sym-modal { width: min(760px, 92vw); height: min(620px, 86vh); display: flex; flex-direction: column; gap: 12px;
+  background: var(--surface); border: 1px solid var(--glass-line);
+  border-radius: var(--r-hero); padding: 16px; box-shadow: 0 30px 80px rgba(20, 28, 40, .4); animation: pop .16s var(--ease); }
+/* `scale`, NOT `transform: scale()`. Two of the three cards that use this keyframe centre
+   themselves with a transform (.journal-composer translateX(-50%), .confirm-card
+   translate(-50%,-50%)); a `transform` keyframe REPLACES that translate for the length of the
+   animation, so the card started half its own width off-centre and slid into place. That slide
+   was the "janky open" — it was never the timing. The independent `scale` property composes with
+   whatever transform the element already carries, so both cards now only grow in place. */
+@keyframes pop { from { scale: .97; opacity: 0; } }
+.sym-top { display: flex; align-items: center; gap: 10px; }
+.sym-search { flex: 1; display: flex; align-items: center; gap: 10px; background: var(--fill-soft); border-radius: var(--r-ctl); padding: 0 14px; color: var(--ink-dim); }
+.sym-search .i { width: 20px; height: 20px; }
+.sym-search input { flex: 1; border: none; background: transparent; outline: none; font-family: var(--body); font-size: 16px; color: var(--ink); padding: 14px 0; }
+.sym-clear, .sym-close { background: var(--fill-soft); border: none; border-radius: var(--r-sm); width: 40px; height: 40px; display: grid; place-items: center; color: var(--ink-dim); cursor: pointer; flex: none; }
+.sym-scroll { flex: 1; overflow-y: auto; scrollbar-width: thin; }
+.sym-ghead { position: sticky; top: 0; background: var(--surface); backdrop-filter: blur(4px); z-index: 1;
+  font-size: 11px; font-weight: 700; letter-spacing: .04em; color: var(--ink-dim); padding: 8px 4px 5px; }
+.sym-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(94px, 1fr)); gap: 6px; align-content: start; margin-bottom: 6px; }
+.sym-cell { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 6px 9px; border-radius: var(--r-ctl); background: none; border: 1px solid transparent; cursor: pointer; }
+.sym-cell:hover { background: var(--fill-soft); border-color: var(--border-soft); }
+.sym-cell svg { width: 40px; height: 40px; }
+.sym-shape { width: 40px; height: 40px; display: block; }
+/* proper German hyphenation (lang=de) so long compounds split at valid points
+   ("Ver­wun­de­ten­nest"), not mid-word orphans like "Verwundetennes-t" */
+.sym-cell small { font-size: 12px; font-weight: 600; color: var(--ink-dim); text-align: center; line-height: 1.1;
+  hyphens: auto; -webkit-hyphens: auto; overflow-wrap: break-word; word-break: normal; }
+/* terse empty/transient line — search no-match, loading, load error (shared with .pp-empty) */
+.sym-empty, .pp-empty { text-align: center; color: var(--ink-faint); font: 500 13px var(--body); padding: 28px 0; }
+.sym-empty { grid-column: 1/-1; }

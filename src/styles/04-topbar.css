@@ -1,0 +1,35 @@
+/* top bar — single line, left-aligned (utilities live top-right) */
+/* top offset carries the safe-area inset, matching the phone rules further down (the base rule
+   did not, so on iPad — no phone media query — nothing here cleared a notch). Inert on iOS, where
+   the status bar insets the web view itself and the inset is always 0 (see index.html); kept so
+   the base rules do not have to be rediscovered if any platform ever does report one. */
+.topbar { position: absolute; top: calc(16px + env(safe-area-inset-top)); left: 16px; display: flex; align-items: center;
+  gap: 14px; background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
+  border-radius: var(--r-hero); padding: 8px 8px 8px 18px; z-index: 56; box-shadow: var(--shadow); max-width: calc(100vw - 32px); }
+
+.ename { font-weight: 700; font-size: 14.5px; white-space: nowrap; flex: none; }
+/* address yields first: it ellipsises so a long title/address can never push the
+   Lage/Plan toggle off-screen or overflow the bar */
+.eaddr { color: var(--ink-dim); font-size: 12.5px; font-weight: 500; white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; flex: 1 1 auto; }
+.vr { width: 1px; height: 22px; background: var(--border); flex: none; }
+.stat { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-dim); font-weight: 600; white-space: nowrap; flex: none; }
+.stat b { font-family: var(--mono); color: var(--ink); }
+.dot { width: 8px; height: 8px; border-radius: 50%; }
+.dot.r { background: var(--red); animation: p 1.4s infinite; }
+@keyframes p { 50% { opacity: .3; } }
+/* Station print relay: heartbeat dot on «An Stationsdrucker» (preflight + capture). Green and
+   silent while the relay answers — only the abnormal state gets words, because the title= it used
+   to rely on does not exist on a tablet. */
+.print-relay-dot { flex: none; background: var(--amber); }
+.print-relay-dot.online { background: var(--green); }
+.print-send.offline { flex-direction: column; align-items: flex-start; gap: 1px; padding-top: 6px; padding-bottom: 6px; }
+.print-send-main { display: inline-flex; align-items: center; gap: 8px; }
+.print-send-off { font: 600 11px var(--body); color: var(--amber-strong); padding-left: 23px; }
+/* the capture poster's buttons are centred, so the second line centres with them */
+.cv-btn.print-send.offline { align-items: center; }
+.cv-btn .print-send-off { padding-left: 0; }
+
+.rbtn { width: 54px; height: 54px; border-radius: var(--r-sm); background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid var(--glass-line); box-shadow: var(--shadow); display: grid; place-items: center; font-size: 21px;
+  color: var(--ink); cursor: pointer; padding: 0; }
+.rbtn.active { background: var(--ink-fill); color: var(--on-accent-ink); }

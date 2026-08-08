@@ -1,0 +1,456 @@
+/* ============================================================
+   Phone field-capture FAB + mobile (≤600px) viewer layout. On phones the app is a
+   live read-only viewer: the editing rail/panels are hidden (also gated in React via
+   `tacticalLocked`), and an editor gets a thumb-reachable "+ Eintrag" to add a
+   journal note / photo / voice memo from the field.
+   ============================================================ */
+/* THE corner the FAB owns, declared once. Every surface that scrolls content under it reads this
+   instead of inventing its own number — the old scattered 64/72/80/86px guesses each covered the
+   place somebody remembered and missed the rest, and a hit-test found the circle sitting on the
+   Atemschutz «Austritt» button, on Anwesenheit person rows, on a Mittel row and on the Checkliste
+   rail. 66px = the 58px circle plus 8px of air; it is the same in both axes because the FAB's
+   16/18px offsets and the surfaces' 8/18px insets cancel out to the same figure.
+   0 unless the FAB is actually on screen (viewer, composer, open panel, tool dock → no reserve). */
+.app { --fab-safe: 0px; }
+.app:has(.fab-entry) { --fab-safe: 66px; }
+.fab-entry { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: calc(18px + env(safe-area-inset-bottom)); z-index: 55;
+  display: inline-flex; align-items: center; gap: 8px; padding: 14px 20px 14px 16px;
+  border: none; border-radius: var(--r-pill); background: var(--btn-primary); color: var(--on-btn-primary);
+  font: 700 15px var(--body); cursor: pointer; overflow: hidden; touch-action: none; user-select: none;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--ink) 34%, transparent), var(--shadow-sm);
+  animation: pop .2s var(--ease); transition: transform .12s var(--ease), filter .14s var(--ease); }
+.fab-entry:hover { filter: brightness(1.05); }
+.fab-entry:active { transform: scale(.95); }
+.fab-entry .i, .fab-entry span { position: relative; z-index: 1; }
+.fab-entry .i { width: 18px; height: 18px; }
+/* recording: the FAB turns red + shows the running timer, same as the TopBar Eintrag */
+.fab-entry.rec { background: var(--red); animation: recPulse 1.4s ease-in-out infinite; }
+.fab-entry.rec span { font-family: var(--mono); }
+/* while something underneath is being scrolled the circle steps back — smaller, half-transparent,
+   so the row or the curve it sits on can be READ during the gesture. It never moves and never
+   disappears (it is the only way to log from the field on a phone), and it is back at full size
+   ~400ms after the finger stops, so nothing about where it is has to be remembered. A recording
+   FAB stays loud: a running voice memo is not something to make quiet. */
+.fab-entry.quiet:not(.rec) { transform: scale(.82); opacity: .5; box-shadow: none; }
+@media (prefers-reduced-motion: reduce) { .fab-entry { transition: none; } }
+
+/* ---- Tablet (the primary device, ~768–1024px): the desktop layout's fixed-width side
+   panels occlude the map. Narrow + tuck them so the centre stays usable. Phone rules
+   (≤600px) below override this. ---- */
+@media (min-width: 601px) and (max-width: 1024px) {
+  /* narrow the map panels but let layers keep tracking the rail (--rail-w) */
+  .layers-card { width: 240px; }
+  .history-card { width: 240px; left: 78px; }
+  /* 300px was below what the drawing editor's own rows need: «Abschluss» and «Inhalt» carry
+     control groups 200px+ wide, so at 300px the label and its buttons collided. Scale with the
+     viewport instead of pinning a number — on a 768px tablet this lands at 340px and still leaves
+     the map its centre. */
+  .ctx { width: clamp(300px, calc(100vw - 420px), 360px); right: 96px; }
+  .topbar { gap: 10px; }
+  .eaddr { max-width: 26vw; }
+}
+
+/* ---- TopBar ⇄ top-right map utilities: never let them collide ----
+   Below 860px the bar would have to run under the zoom/locate cluster, so the
+   cluster drops below the bar (as on phones) and the bar gets the full width.
+   At 861px+ there is room side-by-side, so on the Lage surface (where the
+   utilities exist) the bar reserves space on the right for them. */
+@media (max-width: 860px) {
+  /* .toputil reposition migrated → MapUtility.module.css */
+  /* journal actions go icon-only so the title + clock fit (undo/redo stay icons) */
+  .tb-actions .tb-act:not(.icon) span { display: none; }
+  /* ⚠️ …and once a button is ONLY an icon it has to be a full tap target. It was `padding: 8px`,
+     which lands around 31px — under the gloved floor — and the --tap sizing only arrived at
+     ≤600px. So every width between 601 and 860 offered the smallest buttons in the app on the
+     row that logs a Verlauf entry. Icon-only and full size go together at every width. */
+  .tb-actions .tb-act { padding: 8px; min-width: var(--tap); min-height: var(--tap); justify-content: center; }
+  .tb-act-add { min-width: var(--tap); }
+  /* the weather goes to its SHORT form here too, not only on a phone: the wind arrow and its
+     speed are the operational half (which way the smoke goes, how fast) — the condition
+     glyph and the temperature are context, and this is the width where the bar runs out. */
+  .tb-weather { gap: 4px; padding: 6px 6px; }
+  .tb-weather-cond, .tb-weather-temp { display: none; }
+}
+/* …and the reservation is only owed while that cluster EXISTS. It floats top-right solely as the
+   tool rail's stand-in during replay (`.map-util`); every other map — editor, Viewer, Einsatz-
+   leiter-Ansicht — has an empty top-right corner, and paying 250px of rent for it is what pushed
+   the weather readout out through the bar's right edge from 1100px down (177px of «5 km/h»
+   painting on the map at 861px). Reserve it when it is there, hand it back when it is not. */
+@media (min-width: 861px) {
+  .mode-map.map-util .topbar { max-width: calc(100vw - 250px); }
+  /* 250px is a comfortable reservation, not a measured one: at 861px the right-hand utilities
+     start 158px past the bar's edge, so ~90px of that is slack. Slack is the right default — but
+     not when an überfällig chip is in the bar. Then the clamp is what breaks it: at 861px the bar
+     wants 617px and is handed 609px, the chip has already given everything it can give (the name
+     is at its floor, the countdown never truncates), and the last 8px come out through the pill's
+     right edge. 861–875px is a narrow band, and it is also the width an iPad in landscape with a
+     split view lands on. Hand back 50px of the slack while the chip is there and the band closes
+     with room to spare; the utilities still keep ~108px of clear air at the tightest width. */
+  .mode-map.map-util .topbar:has(.tb-az) { max-width: calc(100vw - 200px); }
+}
+
+@media (max-width: 600px) {
+  /* ── Phone editing ── the tool rail is ALWAYS there on the drawing surfaces (no edit
+     mode): a horizontal bar stacked above the surface bar, so tools and view switching are
+     both permanently one tap away. Viewers/EL-Ansicht simply don't render it. */
+  .tool-rail, .wb-tools {
+    /* FIXED, not absolute: .wb-tools lives inside the .whiteboard container, whose bottom is
+       itself lifted above the bars on phones — absolute offsets COMPOUND and the bar floated
+       mid-screen on every plan surface. Viewport-anchored, both bars land in the same spot. */
+    position: fixed;
+    left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
+    bottom: calc(14px + var(--rail-h) + env(safe-area-inset-bottom)); top: auto; width: auto !important; height: var(--rail-h);
+    margin-block: 0; flex-direction: row; align-items: center; gap: 2px; max-height: none; padding: 6px 8px; }
+  /* rail chrome that has no meaning in a bar: expand/collapse, resize grip, the pinned
+     nav footer (pinch zooms; locate/fit live in the TopBar mapNav on phones) */
+  :is(.tool-rail, .wb-tools) :is(.vrail-exp, .vrail-grip, .vrail-more, .vrail-label) { display: none; }
+  .wb-tools :is(.vrail-nav, .vrail-sep-foot) { display: none; }
+  /* …with ONE exception: Ebenen. It used to sit in the bottom surface bar, which made that rail
+     part navigation and part map control; it belongs to the map, so it lives in the tool rail on
+     every form factor. Kept in the FOOTER rather than the scrolling strip for the same reason as
+     on a short iPad — with 9 tools beside it, an Ebenen that scrolls away is an Ebenen you hunt
+     for. The rest of the footer (compass, zoom) stays hidden: pinch zooms, and the floating
+     the compass sits in the footer beside Ebenen. */
+  .tool-rail .vrail-nav { flex: none; flex-direction: row; align-items: center; gap: 2px; }
+  .tool-rail .vrail-nav > :not(.vrail-layers):not(.vrail-views) { display: none; }
+  /* Ebenen and the compass, pinned side by side at the right end of the tool bar — the same
+     two controls a read-only session has always had there. The editor used to get the compass
+     as a floating cluster over the map instead, which meant the map's two navigation controls
+     lived in two different places depending on who you were logged in as. One place now:
+     they are map controls, and the tool bar is where the map's controls are. */
+  .tool-rail :is(.vrail-layers, .vrail-views) { width: 50px; min-width: 50px; flex: 0 0 auto; }
+  /* Ebenen stays the OUTERMOST control — it is the one reached most often, so it keeps the
+     corner the thumb finds without looking. `order` rather than a DOM swap: on every wider
+     form factor this footer is a vertical column where the existing order is right. */
+  .tool-rail .vrail-views { order: 1; }
+  .tool-rail .vrail-layers { order: 2; }
+  /* the weather goes back into the top bar on a read-only surface: that bar carries no
+     undo/redo and no Eintrag, which measures 96px free against the readout's 83px. */
+  .slim-tools .topbar .tb-weather-wrap { display: inline-flex; }
+  .tool-rail .vrail-sep-foot { width: 1px; height: 26px; margin: 0 4px; flex: none; align-self: center; }
+  :is(.tool-rail, .wb-tools) .vrail-scroll-wrap { flex: 1 1 auto; min-width: 0; }
+  :is(.tool-rail, .wb-tools) .vrail-scroll {
+    flex-direction: row; align-items: center; overflow-x: auto; overflow-y: hidden; gap: 2px;
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent);
+    mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent); }
+  :is(.tool-rail, .wb-tools) .vrail-tool { width: 50px; min-width: 50px; flex: 0 0 auto; }
+  :is(.tool-rail, .wb-tools) .vrail-sep { width: 1px; height: 26px; margin: 0 4px; flex: none; }
+  /* the tool-option dock is a HORIZONTAL bar in line with the other bottom bars (not a right-edge
+     vertical column, which overlapped the centred hints + measure panel). It stacks as the third
+     bar above the tool bar; the ℹ tip + measure panel sit above IT (see their rail-h*3 rules).
+     fixed for the same compounding reason as the bars above (it nests in .whiteboard on Plan);
+     transform:none cancels .wb-dock-map's desktop translateY(-50%) centring. Scrolls horizontally
+     when a busy tool (line/area) has more options than fit. */
+  .phone-tools .wb-dock { position: fixed; left: 50%; right: auto; top: auto; transform: translateX(-50%);
+    /* 6px above the tool bar — the SAME gap the tool bar has above the nav bar (both are +6 offsets) */
+    bottom: calc(var(--rail-h) * 2 + 20px + env(safe-area-inset-bottom));
+    flex-direction: row; align-items: center; gap: 10px;
+    /* width HUGS the content (centred) so a 2-item dock isn't stretched across the screen;
+       caps at the viewport and scrolls when a busy tool (line/area) overflows */
+    width: max-content; max-width: calc(100vw - 16px); height: var(--rail-h); max-height: var(--rail-h);
+    padding: 6px 12px; overflow-x: auto; overflow-y: hidden;
+    /* ⚠️ No visible scrollbar. The base .wb-dock is the DESKTOP column, where a thin bar is a
+       useful hint on a tall stack; inherited by this horizontal bar it drew a grey rail across
+       the bottom of the tool dock — under the buttons, on a control that is dragged with a thumb
+       and needs no indicator to be discovered. It still scrolls. */
+    scrollbar-width: none; -ms-overflow-style: none; }
+  .phone-tools .wb-dock::-webkit-scrollbar { display: none; }
+  /* buttons keep their size instead of flex-shrinking when a busy dock overflows — otherwise the
+     round × / ℹ squashed into ovals in line/area docks while the bar scrolled */
+  .phone-tools .wb-dock > * { flex: none; }
+  /* group dividers run vertically in a horizontal bar (they're a horizontal line in the column) */
+  .phone-tools .wb-dock .wb-style-sep { width: 1px; height: 24px; }
+  /* colours: a single full-size row (not a cramped 2-row grid) */
+  .phone-tools .wb-dock .wb-sw-grid { display: flex; grid-template-columns: none; gap: 8px; }
+  .phone-tools .wb-dock .wb-sw { width: 30px; height: 30px; }
+  /* UNIFORM button + icon size across the whole bar: tool buttons 44×40 (r-ctl), the round × 40×40,
+     every icon 18px — was a jumble (34/38 buttons, 16/17/18 icons). ℹ already matches (DockInfo). */
+  .phone-tools .wb-dock .wb-dock-tog, .phone-tools .wb-dock .wb-dock-go,
+  .phone-tools .wb-dock .wb-ww, .phone-tools .wb-dock .wb-ls { width: 44px; min-width: 44px; height: 40px; border-radius: var(--r-sm); }
+  .phone-tools .wb-dock .wb-dock-x { width: 40px; height: 40px; }
+  .phone-tools .wb-dock .i { width: 18px; height: 18px; }
+  .phone-tools .whiteboard { bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom)); }
+  .phone-tools .coord-read { bottom: calc(var(--rail-h) * 2 + 30px + env(safe-area-inset-bottom)); }
+  /* the Eintrag-FAB clears both bars on the drawing surfaces */
+  .phone-tools .fab-entry { bottom: calc(var(--rail-h) * 2 + 28px + env(safe-area-inset-bottom)); }
+
+  /* ── details as a bottom sheet ── the shared .ctx editors (ContextPanel / DrawEditor /
+     ShapeEditor) become a drag-expandable bottom sheet: half-height default so the map and
+     the selection stay visible, grip-drag or tap toggles full, drag well down dismisses.
+     Also shown in the VIEW state (read-only details on tap — parity with the EL view). */
+  .ctx { display: flex; left: 0; right: 0; bottom: 0; top: auto; width: auto;
+    height: var(--sheet-h, 46dvh); max-height: 92dvh; border-radius: var(--r-hero) var(--r-hero) 0 0;
+    z-index: 62; padding-bottom: env(safe-area-inset-bottom);
+    /* bottom sheet enters from below (ctxIn slides sideways — desktop side-panel chrome),
+       and the half↔full snap eases instead of jumping; live grip-drags disable the
+       transition (SheetGrip sets .sheet-dragging) so the sheet tracks the finger 1:1 */
+    animation: sheetUp .22s var(--ease); transition: height .22s var(--ease); }
+  .ctx.sheet-dragging { transition: none; }
+  .ctx.sheet-full { height: var(--sheet-h, 88dvh); }
+  /* phone scroll model: the sheet is a fixed flex column, ONLY the grip + header are
+     pinned (by layout, not position:sticky — sticky inside a backdrop-filtered scroller
+     proved unreliable on iOS) and EVERYTHING else scrolls in the body, including the
+     caption row + Zentrieren/Entfernen actions (.ctx-footer-inline replaces the pinned
+     desktop copy — field feedback 2026-07-09). */
+  .ctx { overflow: hidden; }
+  .ctx .ctx-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+  .ctx > .ctx-caprow, .ctx > .ctx-actions { display: none; }
+  .ctx-footer-inline { display: block; }
+  .ctx-footer-inline .ctx-caprow { padding: 8px 0 0; }
+  .ctx-footer-inline .ctx-actions { padding: 12px 0 10px; }
+  /* compact sheet header: slimmer grip + tighter head so the map/selection keep more room */
+  .sheet-grip { display: flex; align-items: center; justify-content: center; flex: none;
+    height: 20px; border: none; cursor: grab; touch-action: none;
+    background: transparent;
+    border-radius: var(--r-hero) var(--r-hero) 0 0; }
+  .sheet-grip span { width: 44px; height: 5px; border-radius: 3px; background: var(--border); }
+  .ctx-head { padding: 2px 16px 10px; gap: 10px; }
+  .ctx .ph { width: 38px; height: 38px; }
+  .ctx .ph svg { width: 26px; height: 26px; }
+
+  /* nothing on a phone may push the page sideways */
+  html, body, #root { overflow-x: hidden; }
+
+  /* top bar — one clean full-width row; the title truncates, Eintrag is the FAB.
+     top/left/right hug the safe area so the bar clears the notch + rounded corners */
+  .topbar { top: calc(10px + env(safe-area-inset-top)); left: max(10px, env(safe-area-inset-left));
+    right: max(10px, env(safe-area-inset-right)); max-width: none; padding: 6px 12px 6px 14px; gap: 8px; flex-wrap: nowrap; }
+  .eaddr, .vr { display: none; }
+  .ip-switch { min-width: 0; flex: 0 0 auto; }
+  /* the truncated title was useless at phone width («C…») — show the incident glyph
+     instead; the full title lives one tap away in the dropdown header */
+  .ip-switch-title { display: none; }
+  .ip-switch-glyph { display: grid; }
+  .tb-act-add { display: none; }                    /* Eintrag handled by the FAB on phones */
+  /* Verlauf goes icon-only. :not(.tb-rem-count) — the bare `span` selector also caught the
+     reminder-count badge, so the number of due reminders vanished on exactly the device most
+     likely to be carrying them. */
+  .tb-act:not(.tb-act-add) span:not(.tb-rem-count) { display: none; }
+  /* icon-only bar actions need a gloved 44px hit area without inflating the glyph */
+  .tb-act:not(.tb-act-add) { padding: 8px; min-width: var(--tap); min-height: var(--tap); justify-content: center; }
+  /* the Atemschutz chip is the last thing in the bar, so its own trailing margin is what tips it
+     over the edge on a 390px phone — and the name floor that keeps it readable on a tablet is
+     wider than a phone can spare. Both give here; the countdown still never truncates. */
+  .tb-az { margin-right: 0; }
+  .tb-az-name { min-width: 3.5rem; }
+  /* tighten the right cluster (wind · locate/fit · Verlauf) so it reads as one group —
+     the vertical separators are dropped entirely: on a bar this narrow they read as
+     clutter, and the grouping is clear from the icons alone */
+  .tb-actions { gap: 1px; }
+  .tb-vr { display: none; }
+  .topbar { gap: 6px; }
+  /* weather trims to the bare downwind arrow + speed on phones (condition/temp are
+     "read, not felt" detail that doesn't fit the narrow bar) */
+  .tb-weather { gap: 4px; padding: 6px 6px; min-height: 40px; }
+  .tb-weather-cond, .tb-weather-temp { display: none; }
+  /* the weather pop anchors near the top bar; reserve the two bottom bars so a tall readout
+     scrolls internally instead of spilling over them (matches the compass/views menu) */
+  .tb-weather-pop { max-height: calc(100dvh - 90px - var(--rail-h) * 2 - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+  /* Atemschutz überfällig-chip on a phone. The name goes — «wie lange schon» is the number you act
+     on, and the Trupp is one tap away on the AS board. The CLOCK stays.
+     It used to go too, because the chip still overflowed the bar with only the clock in it. That
+     diagnosis was off by one step: the chip was not too wide, it was the only thing in the row
+     ALLOWED to get narrower. Undo, redo and Verlauf each hold a hard 44px gloved tap target, so
+     the flex algorithm took every missing pixel out of the one item with room to give — squashing
+     the chip to 14px and pushing its own 15px gauge out through the pill's right edge. Icon-only
+     did not fix that; it just made the thing that overflowed smaller.
+     So undo/redo step aside instead, and buy back 88px. That is the honest trade at 3am on a
+     390px screen: an overdue Trupp outranks two edit-history buttons, and the Verlauf beside them
+     still holds the history anyway. */
+  .tb-az-name { display: none; }
+  .tb-az { gap: 5px; padding: 6px 9px; }
+  .topbar:has(.tb-az) :is(.tb-act-history, .tb-vr-history) { display: none; }
+
+  /* ── NavRail → bottom bar on a phone ── the SAME surface items, re-laid-out as a
+     horizontally-scrollable row in the thumb zone (Karte · M1 M2 … · Checkliste ·
+     Atemschutz · object · Ebenen/base). Desktop keeps the vertical left rail. */
+  .navrail { left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
+    bottom: calc(8px + env(safe-area-inset-bottom)); top: auto; width: auto; height: var(--rail-h);
+    margin-block: 0; flex-direction: row; align-items: center; gap: 2px; max-height: none; padding: 6px 8px; }
+  .nav-exp { display: none; }            /* no expand/collapse on the bar */
+  .nav-scroll { flex-direction: row; align-items: center; overflow-x: auto; overflow-y: hidden; gap: 2px;
+    /* fade the right edge so a clipped item reads as "scroll for more" */
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent);
+    mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent); }
+  .nav-item { width: 50px; min-width: 50px; flex: 0 0 auto; }
+  .nav-foot { margin-top: 0; }
+  .nav-sep { width: 1px; height: 26px; margin: 0 4px; flex: none; }   /* vertical divider in a row */
+
+  /* zoom controls reposition (.toputil) migrated → MapUtility.module.css */
+
+  /* layers/history: the sheet opens ABOVE the bars (full width, scrolls, capped to the
+     viewport) instead of beside the rail */
+  .layers-card, .history-card {
+    left: max(10px, env(safe-area-inset-left)); right: max(10px, env(safe-area-inset-right)); width: auto; max-width: none;
+    top: calc(76px + env(safe-area-inset-top)); bottom: calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)); transform: none;
+    max-height: none; overflow-y: auto; overscroll-behavior: contain; }
+  /* …and where the tool bar is the SECOND bar, it clears both — the sheet used to start over
+     the tool rail, hiding the very Ebenen button that opened it (same clearance the measure
+     panel takes above) */
+  .phone-tools :is(.layers-card, .history-card) {
+    bottom: calc(var(--rail-h) * 2 + 26px + env(safe-area-inset-bottom)); }
+
+  /* coordinate readout sits above the bottom bar + home indicator */
+  .coord-read { bottom: calc(var(--rail-h) + 24px + env(safe-area-inset-bottom)); max-width: calc(100vw - 24px); }
+
+  /* journal drawer → full-width bottom sheet (was a right-edge column too narrow on a
+     phone); body scrolls, capped to the viewport with safe-area room top + bottom. The
+     map rail is CSS-hidden here, so the scrim covers the full screen again (no rail strip
+     to expose) and the floating MapUtility provides map-nav. */
+  .journal-scrim { inset: 0; }
+  .journal-drawer { top: auto; left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
+    bottom: calc(8px + env(safe-area-inset-bottom)); width: auto; max-width: none;
+    max-height: calc(100dvh - 70px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    border-radius: var(--r-hero) var(--r-hero) var(--r-surface) var(--r-surface); }
+
+  /* journal composer → full-width bottom sheet that lifts above the keyboard (the inline
+     marginBottom = keyboard height keeps the actions + send reachable) */
+  .journal-composer { left: 0; right: 0; bottom: 0; top: auto; transform: none;
+    width: 100%; max-width: none;
+    border-radius: var(--r-hero) var(--r-hero) 0 0; max-height: 86dvh; overflow-y: auto;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    animation: sheetUp .22s var(--ease); }
+  /* every ip-sheet is bottom-anchored on phones — rise from below, not pop in place */
+  .ip-sheet, .pp-sheet:not(.pp-nomap), .sym-modal { animation: sheetUp .22s var(--ease); }
+
+  /* incident-management sheets (Einsatz wizard, Datenquellen, PlanPicker) become
+     near-full-width bottom sheets so the inputs + actions stay reachable */
+  .ip-ovl { place-items: end center; padding: 0; }
+  .ip-sheet, .ip-sheet.ip-wide, .pp-sheet:not(.pp-nomap) { width: 100%; max-width: none;
+    height: auto; max-height: 92dvh; border-radius: var(--r-hero) var(--r-hero) 0 0; }
+  .ip-body { padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
+  /* Base UI Dialog popup has no .ip-ovl grid parent, so bottom-anchor it here (the old
+     .ip-ovl{place-items:end center} did this) — same full-width bottom sheet + sheetUp entrance. */
+  .ip-sheet.ui-dialog { top: auto; bottom: 0; left: 0; transform: none; }
+
+  /* confirm dialog stays centred but fits the narrow screen with safe-area gutters */
+  .confirm-card { width: min(420px, calc(100vw - 24px)); }
+  /* symbol search → bottom sheet (the grid is tall; bottom-aligning keeps the search
+     field + close reachable). Symbol picking is editor-only so this is rare on a phone. */
+  .modal-backdrop:not(.modal-sheet):not(.confirm-backdrop) { place-items: end center; }
+  .sym-modal { width: 100%; max-width: none; height: 92dvh;
+    border-radius: var(--r-hero) var(--r-hero) 0 0; }
+
+  /* incident switcher dropdown caps to the viewport so it can't run off the bottom */
+  .ip-menu { max-height: calc(100dvh - 80px - env(safe-area-inset-top)); }
+
+  /* the plan's floating zoom (−/%/+/fit) is dropped on a phone — pinch handles zoom and
+     Fit moves into the top bar (TopBar mapNav), matching the map's locate treatment */
+  .wb-zoom-float { display: none; }
+  /* the plan stage spans the full width and clears the bottom bar (the board's fit
+     re-measures to this area) so plan content isn't hidden behind the bar */
+  .whiteboard { bottom: calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)); }
+  /* on every non-map surface the content fills the screen — hide the live map behind it
+     so it never peeks through the panel margins or around the floating rail. The backdrop
+     is the flat --canvas-bg (the whiteboard stage colour) so the area around the rail and
+     panels matches the plan stage instead of the darker --app-bg gradient (no two-tone).
+     The map repaints when Karte is reselected. */
+  .app:not(.mode-map) .maplibregl-map { visibility: hidden; }
+  .app:not(.mode-map) { background: var(--canvas-bg); }
+  /* with the bottom bar present, the FAB lifts above it and the map attribution ⓘ lifts
+     above the FAB so the bottom-right reads bar → FAB → ⓘ with no overlap */
+  .fab-entry { bottom: calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)); }
+  /* «Zurück zum Rapport» return pill (Anwesenheit/Mittel only → single nav bar) sat at 18px, i.e.
+     ON the nav bar; lift it clear like the FAB. */
+  .rp-return { bottom: calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)); }
+  .maplibregl-ctrl-bottom-right { margin-bottom: calc(var(--rail-h) + 86px + env(safe-area-inset-bottom)); }
+  /* toasts clear the bottom bar — and BOTH bars on the drawing surfaces (else a toast landed on
+     the tool bar, covering its buttons), matching .phone-tools .coord-read / .fab-entry */
+  .toaster { bottom: calc(var(--rail-h) + 24px + env(safe-area-inset-bottom)); }
+  .phone-tools .toaster { bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom)); }
+  /* long toast texts wrap on phones instead of nowrap-overflowing the fixed toaster
+     (same layout-viewport-widening failure mode as the banners) */
+  .toast { white-space: normal; }
+  /* the stage chain needs ~360px plus the undo button — more than a phone has, and it ran under
+     «Rückgängig». Only the running stage keeps its label here: tick › printer «Wird gedruckt» ›
+     pip. Same chain, same order as on the tablet, one line. */
+  .toast-step:not(.now) .toast-step-label { display: none; }
+  .toast-step:not(.now) { gap: 0; }
+  /* the nav rail stays compact on a phone; drag-to-resize is a desktop affordance and
+     would fight map gestures along the rail edge, so hide the grip (chevron still expands) */
+  .nav-grip { display: none; }
+  /* + Eintrag FAB → a compact icon-only circle on a phone (the label crowded the weather
+     pill on the same bottom baseline). The recording state keeps its label/timer so the
+     running time stays legible. */
+  .fab-entry:not(.rec) { width: 58px; height: 58px; padding: 0; gap: 0; justify-content: center; border-radius: 50%; }
+  .fab-entry:not(.rec) span { display: none; }
+  /* .cl-main FAB clearance migrated → Checklists.module.css */
+
+  /* while a tool-option dock is open it owns the bottom-right corner — the FAB sat ON TOP
+     of it (z55 over z31) and blocked the ✕/options. The Eintrag FAB yields for the duration
+     of the tool interaction and returns the moment the dock closes. */
+  .app:has(.wb-dock) .fab-entry { display: none; }
+
+  /* floating compass + wind cluster on the phone map (rendered only there) — the
+     rail-footer compass is hidden in the bottom tool bar, and the wind readout moved out
+     of the top bar (it clipped at the screen edge on 375–393px). Sits BELOW the bar
+     (74px clears the 10px offset + ~58px bar), mirroring the desktop .toputil placement. */
+  /* Wind, floating top-right. It used to share this box with the compass; the compass moved
+     to the tool bar, the wind stayed — it is a READ-OUT, and the bar has no room for it. */
+  .phone-wx { position: absolute; top: calc(76px + env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); z-index: 40;
+    display: flex; align-items: center;
+    background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
+    border-radius: var(--r-btn); padding: 4px; box-shadow: var(--shadow); }
+  /* the bar's own weather readout is phone-hidden — it lives in this cluster instead */
+  .topbar .tb-weather-wrap { display: none; }
+  /* …and the GPS caveat leaves the bar for the same reason the weather did: there is no room
+     for it. At 390px the bar's action cluster is already full at 132px of a 134px budget
+     (undo · redo · Verlauf), so the chip — 198px with its age — simply painted off the right
+     edge. It is a caveat about the vehicles on the MAP, so it floats over the map instead:
+     out of flow (the bar fits again), pinned under the bar on the left, at the same 76px the
+     wind read-out uses on the right so the two read as one row. Its text is the whole point,
+     so it keeps it. */
+  /* While this device is broadcasting somebody's location, the stop has to be on screen on
+     EVERY surface — the map, the Anwesenheit, the Plan. But it cannot live in the bar here:
+     undo · redo · Verlauf already fill the same 134px budget that pushed the GPS caveat out,
+     and a fourth 44px control overflowed by 23px, hanging the pill half off the right edge —
+     i.e. the one control that must never be hard to reach was the one being clipped. So it
+     leaves the flow and floats under the bar on the left, at the same 76px the wind read-out
+     uses on the right, and the bar fits again. Still 44px, still tappable, still everywhere. */
+  .tb-share { position: fixed; top: calc(76px + env(safe-area-inset-top));
+    left: max(10px, env(safe-area-inset-left)); z-index: 41; }
+  /* …and the GPS caveat keeps clear of that slot, reserved or not: a chip that jumps sideways
+     when somebody starts sharing is worse than one that sits 52px in. */
+  .tb-gps { position: fixed; top: calc(76px + env(safe-area-inset-top));
+    left: calc(max(10px, env(safe-area-inset-left)) + 52px); max-width: calc(100vw - 142px); margin-right: 0;
+    background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
+    border: 1px solid color-mix(in srgb, var(--amber, #b45309) 30%, transparent);
+    box-shadow: var(--shadow); }
+  .phone-wx .tb-weather { min-height: 40px; }
+
+  /* Einstellungen rows: the 3-segment controls (Farbschema, Beschriftungen) are wider than
+     a phone row leaves next to the label — let the control wrap onto its own right-aligned
+     line instead of clipping at the card edge */
+  /* uniform phone layout: the label (+ sub) always takes the full first line, the control drops
+     to its own right-aligned line below — for EVERY row (seg AND stepper), so short rows don't
+     stay inline while long ones wrap and the stepper doesn't sit left while segments sit right */
+  .set-row { flex-wrap: wrap; row-gap: 12px; }
+  .set-row-l { flex: 1 1 100%; }
+  .set-row .useg, .set-row .step { margin-left: auto; }
+
+  /* Einsätze list rows: title + two status badges + the Reaktivieren button never fit one
+     line — badges slid under the button and the title crushed to one character. Text block
+     takes the full width (badges wrap below the title), the action drops to its own line. */
+  .ip-hist { flex-wrap: wrap; }
+  .ip-hist-main { flex: 1 1 100%; }
+  .ip-hist-title { flex-wrap: wrap; row-gap: 4px; }
+  /* title ALWAYS owns its line (wrapping instead of mid-word ellipsis), so the badges land
+     together on the row below — not sometimes-beside, sometimes-under (landing feedback) */
+  .ip-hist-name { flex: 1 1 100%; white-space: normal; }
+  .ip-hist > .ip-btn { margin-left: auto; }
+}
+
+/* Below ~355px even the 88px freed by dropping undo/redo is not enough for the Atemschutz
+   countdown, and the clock starts punching out of the bar again (32px outside it at 320px). Only
+   there does the chip fall back to the bare pulsing gauge — which is what every phone used to get,
+   and is still better than a number that is half on the map. 360px is the cut: every phone in
+   service (390/393/402/430) and the common Android 360 keep their countdown; only the 320–355px
+   class (an SE 1st gen, or a split view squeezed that far) drops to the icon.
+   ⚠️ This lives AFTER the phone block, on purpose. Written INSIDE it, it needed its own @media —
+   which meant closing the phone block early, and that silently re-parented everything below it
+   (the whole NavRail → bottom bar section included) into this 359px query. The nav rail then
+   stayed a vertical sidebar on every phone. A media query in the middle of a block is a scissor. */
+@media (max-width: 359px) {
+  .tb-az-clock { display: none; }
+}
+

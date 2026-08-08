@@ -1,0 +1,30 @@
+/* ---- Einsatzdaten: the gloved floor ---------------------------------------------------------
+   Nothing in this panel reached --tap, and the two extremes were the wrong way round: the
+   SMALLEST target (≈19px) removed the incident's location, and the largest was a full-width
+   primary that moves it. Same instrument the Rapport uses — raised where a finger aims, left
+   alone for a mouse. */
+@media (pointer: coarse) {
+  .ip-ac-row { min-height: var(--tap); }
+  .ip-objrow { min-height: var(--tap); }
+  .ip-loc-clear { width: var(--tap); height: var(--tap); display: grid; place-items: center; }
+  .ip-ix-methods .ip-btn { min-height: var(--tap); }
+  /* the Übung checkbox is a native ~16px box — the ROW is what gets aimed at */
+  .ip-check { min-height: var(--tap); }
+}
+
+/* ---- Rapport: the gloved floor ------------------------------------------------------------
+   Everything on this surface that a finger aims at reaches --tap on a touch screen. These sit
+   below it with a mouse on purpose — a dense checklist column of 44px rows is a lot of column —
+   so the floor is raised where it matters and nowhere else. `pointer: coarse` is the instrument
+   the rest of this file already uses for exactly this. */
+@media (pointer: coarse) {
+  .rp-check-main { min-height: var(--tap); }
+  .report-att-x { width: var(--tap); height: var(--tap); }
+  .report-partner { min-height: var(--tap); }
+  .report-partner-tick { min-height: var(--tap); }
+  .report-row-add { min-height: var(--tap); }
+  /* «Bearbeiten» is the ONE way into the Einsatzdaten from here, and it was a ~28px text link.
+     The negative margin keeps it optically flush with the eyebrow it sits beside, so it has to
+     grow with the hit area rather than being left behind by it. */
+  .report-meta-editlink { min-height: var(--tap); padding: 0 8px; margin: -8px -8px -8px 0; }
+}

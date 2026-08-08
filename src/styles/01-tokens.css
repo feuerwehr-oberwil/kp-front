@@ -1,0 +1,190 @@
+:root {
+  /* Field-readable glass: opaque enough to hold contrast over aerial imagery
+     and in daylight, with a faint dark hairline so edges read on any base map. */
+  --glass: rgba(255, 255, 255, .9);
+  --glass-line: rgba(255, 255, 255, .7);
+  --glass-edge: rgba(30, 45, 70, .1);
+  --ink: #1b2330;
+  --ink-dim: #4d586a;
+  --ink-faint: #6c7686;
+  --red: #e8392b;
+  /* Brand-identity accent. Defaults to the brigade red (and inherits its day/night
+     flip via var(--red)), so the look is unchanged with no deployment config. A
+     station's identity.accentColor overrides this at boot (applyDeploymentBranding
+     sets it inline on :root). Drives only brand surfaces — NOT the semantic --red
+     (warn/danger/error), which stays red regardless of brand. */
+  --accent: var(--red);
+  --blue: #1f6feb;
+  --green: #178a4a;
+  --amber: #e2920a;
+  /* layered shadow: hairline edge + tight contact + soft ambient — holds the
+     panel edge over dark aerial imagery where the white border alone vanishes */
+  --shadow: 0 0 0 1px rgba(30, 45, 70, .08), 0 1px 2px rgba(30, 45, 70, .12), 0 14px 36px rgba(30, 45, 70, .16);
+  --shadow-sm: 0 0 0 1px rgba(30, 45, 70, .07), 0 1px 2px rgba(30, 45, 70, .1), 0 6px 16px rgba(30, 45, 70, .12);
+  /* radius scale: control / button / surface / hero */
+  --r-ctl: 14px;
+  --r-btn: 16px;
+  --r-surface: 20px;
+  --r-hero: 22px;
+  --ease: cubic-bezier(.2, .7, .3, 1);
+  --mono: 'Spline Sans Mono', ui-monospace, monospace;
+  --body: 'Sora', system-ui, sans-serif;
+  /* live width of the left nav rail (NavRail writes it on drag/expand); the map
+     overlays track it via calc() so they slide right and never overlap the rail */
+  --rail-w: 60px;
+  /* height of the nav rail when it becomes a bottom bar on a phone; content + bottom
+     overlays clear it via calc(var(--rail-h) + …) the way --rail-w drives the left inset */
+  --rail-h: 60px;
+
+  /* ---- Semantic surface tokens (theme-flippable) ----
+     Day values mirror the literals they replace, so day mode is byte-for-byte
+     unchanged. The night block below re-declares only these + the core glass/ink. */
+  --app-bg: radial-gradient(120% 90% at 50% -10%, #eef3f7 0%, #dfe6ec 45%, #d3dce4 100%);
+  --canvas-bg: #eef1f4;        /* whiteboard stage backdrop */
+  --map-bg: #e9eef0;          /* Lage map fallback fill (under tiles) */
+  --board-bg: #fff;            /* the plan "paper" itself */
+  --surface: #fff;            /* solid white surfaces (buttons, inputs, paper) */
+  --surface-2: rgba(255, 255, 255, .6);  /* faint glass tiles / soft fills */
+  --hover: rgba(255, 255, 255, .55);     /* recurring glass-hover fill */
+  --hover-strong: rgba(255, 255, 255, .85); /* stronger hover (white-ish) */
+  --border: rgba(0, 0, 0, .1);           /* recurring hairline on light chrome */
+  --border-soft: rgba(0, 0, 0, .06);     /* faintest separator hairline */
+  --fill-soft: rgba(0, 0, 0, .045);      /* inset field / search backgrounds */
+  --on-accent-ink: #fff;      /* text/marks on --ink-fill and on the station's own --accent */
+  /* Ink on a SATURATED fill (--blue/--green/--red/--amber). It is a second token because those
+     four flip bright for the dark theme while --ink-fill stays dark: near-white on the night blue
+     is 2.5:1, on the night green 2.3:1 — unreadable exactly where a primary button, a segmented
+     option or a toast puts its one word. Dark ink on those same fills is 6–8:1.
+     NOT used on --accent: that one is set per station at runtime (deploymentConfig), so nobody
+     here knows whether it is light or dark, and those sites keep --on-accent-ink. */
+  --on-fill: #fff;
+  --ink-fill: #1b2330;        /* dark "active pill" / tool-dock surface (= day --ink) */
+  --ink-fill-hover: #0f1722;  /* hover on dark ink-fill buttons/docks (darker in day) */
+  /* "strong" accent variants: a darker shade used as a hover background on an accent
+     button OR as legible text on a faint accent-tint chip. Day = the literals they
+     replace; night flips LIGHTER so the same role reads on dark surfaces. */
+  --blue-strong: #1a5fd0;
+  --green-strong: #137a40;
+  --amber-strong: #b4690a;
+  --red-strong: #c43122;
+  --red-solid-hover: #cf2c1f; /* hover bg on a solid-red (warn) button */
+  --green-solid-hover: #1f9d57; /* hover bg on a solid-green (enter) button */
+  /* floating label badges drawn over the map / plan board (coords, trail times,
+     measure labels). Day = white veil + dark ink; night = dark veil + light ink. */
+  --label-bg: rgba(255, 255, 255, .92);
+  --label-soft: rgba(255, 255, 255, .82); /* slightly more translucent variant */
+  /* faint white veil tiles over glass/imagery (incident rows, hold-cue) */
+  --surface-veil: rgba(255, 255, 255, .55);
+  /* "active" tint on a LIGHT panel: a dark wash marking a selected swatch/toggle in
+     the DrawEditor. Day = dark-on-light; night flips to light-on-dark. */
+  --ink-tint: rgba(27, 35, 48, .15);
+  --ink-tint-strong: rgba(27, 35, 48, .25);
+  /* small radius tier — chips, rows, badges, swatches (below the ctl/btn/surface scale) */
+  --r-xs: 8px;
+  --r-sm: 10px;
+  --r-pill: 999px;
+  /* gloved tap target — small icon controls expand to this via a hit-pad or min-size */
+  --tap: 44px;
+  /* THE dimming for a disabled control. It was six different numbers (.34–.6) across ~40 rules:
+     at .35 a label is unreadable in daylight on a tablet, so you cannot see which action is
+     coming back; at .55 it still looks tappable and you press it. .45 is the one that reads as
+     "not now" while staying legible. Never inline the number — this is the only place it lives. */
+  --disabled: .45;
+  /* THE primary-action fill, in one place. A "primary" button was --ink-fill on some surfaces,
+     --blue on others and the station's --accent on four more — and --accent is alarm red in
+     Oberwil, i.e. the same colour as delete. Red now only ever means danger/delete and never
+     fills an action button. Swapping the three lines below moves every primary button at once. */
+  /* Day: the darkest thing on a light sheet. Night re-declares it as the LIGHTEST thing on a dark
+     one — see the night block for why it cannot simply stay --ink-fill. */
+  --btn-primary: var(--ink-fill);
+  --btn-primary-hover: var(--ink-fill-hover);
+  --on-btn-primary: var(--on-accent-ink);
+  /* sticky-note pills (map note + plan text). Day = warm paper yellow; night re-declares
+     to a deep amber so the note still reads AS a note on the dark map/board instead of
+     glaring as a bright daylight sticky. */
+  --note-bg: #fff8d6;
+  --note-border: #e8d68a;
+  --note-border-sel: #caa83a;
+  --note-ink: #5a4b12;
+  --note-ring: rgba(184, 150, 40, .6);
+  /* halo behind a background-less "Klartext" note, so bare text stays legible over an aerial
+     photo or a busy plan. It is the SHEET colour, not a frozen white — night re-declares it,
+     otherwise light-on-light text disappears exactly where it matters. */
+  --note-halo: #fff;
+  /* VKF hazard-placard yellow (Gefahrentafel) — a fixed doctrinal semaphore colour,
+     intentionally the same in both themes so the placard reads true */
+  --hazard-yellow: #d4b106;
+}
+
+/* ---------------------------------------------------------------------------
+   NIGHT THEME — dark surfaces, light ink, for gloved 2am field use.
+   Only re-declares the tokens that carry colour; everything built on var(--…)
+   flips for free. Accent hues are nudged brighter so they stay legible on dark.
+   --------------------------------------------------------------------------- */
+:root[data-theme="night"] {
+  /* near-opaque so glass panels (Ebenen, ctx, Verlauf, rails) read properly dark
+     instead of letting the map bleed through the blur */
+  --glass: rgba(20, 26, 36, .97);
+  --glass-line: rgba(255, 255, 255, .08);
+  --glass-edge: rgba(255, 255, 255, .12);
+  --ink: #e8edf4;
+  --ink-dim: #a4b0c2;
+  --ink-faint: #76829a;
+  /* brighter, slightly desaturated accents for contrast on dark surfaces */
+  --red: #ff5a4d;
+  --blue: #5aa0ff;
+  --green: #38c172;
+  --amber: #f4b033;
+  --shadow: 0 0 0 1px rgba(0, 0, 0, .5), 0 1px 2px rgba(0, 0, 0, .5), 0 14px 36px rgba(0, 0, 0, .55);
+  --shadow-sm: 0 0 0 1px rgba(0, 0, 0, .45), 0 1px 2px rgba(0, 0, 0, .4), 0 6px 16px rgba(0, 0, 0, .45);
+
+  --app-bg: radial-gradient(120% 90% at 50% -10%, #1a2230 0%, #131922 45%, #0d1118 100%);
+  --canvas-bg: #0d1118;
+  --map-bg: #0d1118;
+  --board-bg: #1c2330;
+  --surface: #232c3a;
+  --surface-2: rgba(255, 255, 255, .06);
+  --hover: rgba(255, 255, 255, .08);
+  --hover-strong: rgba(255, 255, 255, .14);
+  --border: rgba(255, 255, 255, .12);
+  --border-soft: rgba(255, 255, 255, .07);
+  --fill-soft: rgba(255, 255, 255, .06);
+  /* white-on-accent text stays near-white but warmed a touch off pure #fff */
+  --on-accent-ink: #f5f8fc;
+  --on-fill: #0d1118;         /* see the day block — 7.1:1 on the night blue, 8.1:1 on the green */
+  /* "active/selected" dark pills + tool docks stay a raised dark surface in night
+     (NOT the now-light --ink), so their light content keeps contrast */
+  --ink-fill: #2b3545;
+  --ink-fill-hover: #384354; /* hover LIFTS the dark pill in night (vs darkens in day) */
+  /* The primary button INVERTS at night instead of tracking --ink-fill. Its label was never the
+     problem — #f5f8fc on #2b3545 measures 11.6:1 — the BUTTON was: #2b3545 against the #232c3a
+     sheet it sits on is 1.14:1, so the one action of a form had no visible edge and read as a
+     slightly different patch of panel. Light-on-dark fixes the thing that was actually missing:
+     8.8:1 against the sheet, 11.8:1 for the label. Deliberately dimmer than --ink (#e8edf4, which
+     measures 12:1 but glares in a dark cab) — this is the one bright shape on a night screen, so
+     it should be readable, not a lamp. Hover DARKENS here, mirroring the day direction. */
+  --btn-primary: #c3cddc;
+  --btn-primary-hover: #b0bccf;
+  --on-btn-primary: var(--on-fill);
+  /* accents flip lighter so a hover-bg / tint-text role still reads on dark */
+  --blue-strong: #8cbcff;
+  --green-strong: #5fd68c;
+  --amber-strong: #f0b04a;
+  --red-strong: #ff8a7d;
+  --red-solid-hover: #ff7567;
+  --green-solid-hover: #46d684;
+  --label-bg: rgba(20, 28, 40, .92);
+  --label-soft: rgba(20, 28, 40, .82);
+  --surface-veil: rgba(255, 255, 255, .07);
+  --ink-tint: rgba(255, 255, 255, .14);
+  --ink-tint-strong: rgba(255, 255, 255, .22);
+  /* deep amber note that still reads as a paper sticky against the dark map/board */
+  --note-bg: #4a3f1c;
+  --note-border: #6e5d2a;
+  --note-border-sel: #c9aa4c;
+  --note-ink: #f1e3a6;
+  --note-ring: rgba(214, 184, 92, .6);
+  /* dark halo at night: the ink is light, so the outline that separates it from the map has
+     to be dark. A frozen white here would smear the text into an unreadable glow. */
+  --note-halo: #0d1118;
+}

@@ -1,0 +1,184 @@
+/* map */
+#map { position: absolute; inset: 0; background: var(--map-bg); }
+.maplibregl-ctrl-attrib { font-size: 9px !important; }
+/* The Lage map's twin of the plan canvas's tool cursors (.wb-canvas.tool-* below). `.placing`
+   alone only covered a symbol/shape already picked from the palette — arming Linie, Fläche,
+   Messen, Notiz or Trupp left the plain grab hand, so an armed tool was indistinguishable from
+   none. !important because MapLibre writes its own cursor onto the canvas inline.
+   `maptool-` and not `tool-`: this class rides the app ROOT, and `tool-*` belongs to
+   .wb-canvas — one namespace per surface keeps a future rule from reaching across. */
+.placing #map, .placing .maplibregl-canvas,
+.maptool-line #map, .maptool-line .maplibregl-canvas,
+.maptool-area #map, .maptool-area .maplibregl-canvas,
+.maptool-circle #map, .maptool-circle .maplibregl-canvas,
+.maptool-measure #map, .maptool-measure .maplibregl-canvas,
+.maptool-note #map, .maptool-note .maplibregl-canvas,
+.maptool-team #map, .maptool-team .maplibregl-canvas,
+.maptool-lasso #map, .maptool-lasso .maplibregl-canvas,
+.maptool-scale #map, .maptool-scale .maplibregl-canvas { cursor: crosshair !important; }
+
+/* markers — bare tactical symbol, real-world scaled. White fill only for outline-with-text. */
+.marker { position: relative; display: flex; flex-direction: column; align-items: center; cursor: pointer; --gpx: 44px; }
+/* Mid-move the pointer says so, the way the plan canvas already does for an annotation
+   (.wb-canvas.tool-pan .wb-anno:active). At REST the marker keeps `pointer`, deliberately: a
+   symbol is tap-to-select and hold-to-drag, so a resting `grab` would promise a drag that a
+   quick flick does not perform — it pans the map. !important and on the descendants too,
+   because the glyph, its halo and the hit pad each set their own cursor. */
+.marker.dragging, .marker.dragging * { cursor: grabbing !important; }
+/* Fat-finger touch slop: an invisible hit pad a little larger than the glyph, so a tap that
+   lands just shy of the symbol still selects it. Because markers are DOM nodes ABOVE the map
+   canvas, this pad also wins over any area/Absperrkreis drawn underneath (those live on the
+   canvas). Kept modest (~10px) so two symbols sitting close together don't swallow each other's
+   targets — where pads do overlap, the upper (later-drawn / hovered, z-index 5) marker wins.
+   Not on notes: they're already a wide pill and own inline-text editing. */
+.marker:not(.marker-note)::before {
+  content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 0;
+  width: max(calc(var(--gpx) + 20px), 44px); height: max(calc(var(--gpx) + 20px), 44px);
+}
+/* Touch edit handles. The anchor box --hbox is the glyph's pixel size but never smaller
+   than 56px, so on a tiny symbol the handles still push out to a comfortable, well-spaced
+   ring instead of piling up on top of the icon. Handles are a fixed ~34px on screen with
+   a 44px hit pad (::after) regardless of zoom — gloved-finger sized. */
+.marker.sel { --hbox: max(var(--gpx), 56px); }
+/* selection halo — the "this is selected" cue. Sized to reliably clear a FINGERTIP (~45px): a
+   mobile user's finger covers the symbol, so the ring's edge peeking out around the finger is the
+   only thing they can see. Min ~104px diameter, a bold accent ring + soft glow. */
+.sel-halo { position: absolute; left: 50%; top: 50%; z-index: 0;
+  width: max(calc(var(--hbox) + 40px), 104px); height: max(calc(var(--hbox) + 40px), 104px); transform: translate(-50%, -50%);
+  border-radius: 50%; background: color-mix(in srgb, var(--blue) 15%, transparent); border: 3px solid color-mix(in srgb, var(--blue) 85%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue) 30%, transparent), 0 2px 12px rgba(30, 45, 70, .28); animation: haloIn .18s var(--ease); }
+@keyframes haloIn { from { opacity: 0; transform: translate(-50%, -50%) scale(.8); } }
+.marker.sel .ts, .marker.sel .shape-glyph, .marker.sel .note-pill { position: relative; z-index: 1; }
+.handle { position: absolute; width: 34px; height: 34px; border-radius: 50%; border: 2px solid #fff;
+  color: var(--on-accent-ink); display: grid; place-items: center; box-shadow: 0 2px 7px rgba(30, 45, 70, .32); padding: 0; z-index: 8; }
+.handle::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
+.handle .i { width: 16px; height: 16px; stroke-width: 2.3; }
+/* inline delete + live-vehicle rotate share the top-LEFT corner of the ring (they are
+   mutually exclusive — a live vehicle has no local delete) */
+.marker-del, .marker-rotate { left: calc(50% - var(--hbox) / 2 - 3px); top: calc(50% - var(--hbox) / 2 - 3px);
+  transform: translate(-50%, -50%); }
+.marker-del { background: var(--red); cursor: pointer; }
+/* (a note's handles no longer live on the corners — see .note-grips below) */
+.marker-rotate { background: var(--ink-fill); cursor: grab; touch-action: none; }
+.marker-rotate:active { cursor: grabbing; }
+/* ── selected-note handles: ONE ROW ABOVE THE NOTE, on both surfaces ──
+   Corner orbs work on a square glyph, but a note's pill is short and often narrow — a 28px orb
+   centred on its corner covers the text it belongs to, and puts delete a mis-tap from the pen.
+   The row clears the note entirely and keeps 44px touch targets. */
+.note-grips { position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%);
+  margin-bottom: 11px; display: flex; gap: 9px; z-index: 9; }
+.note-grip { width: 30px; height: 30px; border-radius: 50%; border: 2px solid #fff; padding: 0;
+  display: grid; place-items: center; cursor: pointer; position: relative;
+  color: var(--on-accent-ink); box-shadow: 0 2px 7px rgba(30, 45, 70, .32); }
+/* 44px touch pad without growing the visual orb (parity with .wb-del / .handle) */
+.note-grip::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
+.note-grip .i { width: 14px; height: 14px; stroke-width: 2.2; }
+.ng-edit { background: var(--blue); }
+/* neutral: the gear OPENS something, it changes nothing by itself */
+.ng-gear { background: var(--ink-fill); }
+.ng-del { background: var(--red); }
+.ts { position: relative; line-height: 0; border-radius: var(--r-xs); transition: transform .14s var(--ease), box-shadow .14s var(--ease); }
+/* storey badge — signed floor (+2, -1) in the symbol's own colour, on a white chip
+   so light icon colours (yellow) stay legible; sits at the icon's top-right corner */
+.sym-floor { position: absolute; top: -7px; right: -9px; z-index: 6; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
+  border-radius: var(--r-sm); background: var(--surface); line-height: 16px; text-align: center; font-size: 11px; font-weight: 800; letter-spacing: -.2px;
+  box-shadow: 0 1px 2px rgba(15, 22, 34, .3), 0 2px 5px rgba(30, 45, 70, .2); pointer-events: none; }
+/* quantity badge — bottom-right counterpart to the floor badge; an ink chip so it
+   reads as a count distinct from the (white, symbol-coloured) floor badge */
+.sym-count { position: absolute; bottom: -7px; right: -9px; z-index: 6; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
+  border-radius: var(--r-sm); background: var(--ink-fill); color: var(--on-accent-ink); line-height: 16px; text-align: center; font-size: 11px; font-weight: 800; letter-spacing: -.2px;
+  box-shadow: 0 1px 2px rgba(15, 22, 34, .3), 0 2px 5px rgba(30, 45, 70, .2); pointer-events: none; }
+/* metadata caption — a symbol's discriminating value(s) printed just under its glyph (e.g.
+   "CO₂" under a Kleinlöscher), so an operator reads it without opening the dashboard. Same
+   chrome as the line label (.measure-label.draw-label / .wb-line-label) for Lage↔Plan parity;
+   a sibling of the glyph so it never rotates. Centred below, may stack lines (the 'all' mode). */
+.sym-caption { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 3px; z-index: 6;
+  display: flex; flex-direction: column; align-items: center; gap: 1px; max-width: 132px;
+  padding: 1px 6px; border-radius: var(--r-xs); background: var(--surface); color: var(--ink);
+  font-size: 11.5px; font-weight: 700; line-height: 1.25; text-align: center; white-space: nowrap;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .25); pointer-events: none; }
+.sym-caption > span { overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+/* inner wrapper carries the symbol's own rotation (chip + glyph rotate together),
+   so selection scale / hover stay on the outer .ts and don't fight the rotation */
+.ts-rot { width: 100%; height: 100%; line-height: 0; border-radius: var(--r-xs); }
+/* a second glyph stacked on the base (the Grosslüfter fan over the vehicle body), centred so it
+   rotates about the shared centre; scaled + rotated inline. Non-interactive — the base owns hits. */
+.ts-overlay { position: absolute; inset: 0; pointer-events: none; }
+/* layered shadow: a tight dark contact edge + a soft ground shadow so symbols read on any base map */
+.ts svg { width: 100%; height: 100%; display: block;
+  filter: drop-shadow(0 1px 1px rgba(15, 22, 34, .42)) drop-shadow(0 3px 6px rgba(30, 45, 70, .26)); }
+.ts-rot.white { background: var(--on-accent-ink); border-radius: 4px; box-shadow: 0 1px 1px rgba(15, 22, 34, .3), 0 3px 7px rgba(30, 45, 70, .22); }
+/* FKS Entwicklung overlay — a 2× box centred on the glyph; arrows drawn outside it.
+   Higher specificity than '.ts svg' so it keeps its own size, and a soft white halo
+   keeps coloured arrows legible over any base map. */
+.ts svg.sym-spread { position: absolute; top: -75%; left: -75%; width: 250%; height: 250%; overflow: visible;
+  pointer-events: none; z-index: 5; filter: drop-shadow(0 0 1.5px rgba(255, 255, 255, .9)); }
+.marker:hover { z-index: 5; }
+.marker:hover .ts { transform: scale(1.07); }
+/* selection: no outline — a selected item just pops up larger (and the ContextPanel
+   opens / shapes show their edit handles), so nothing covers the symbol itself. */
+.marker.sel { z-index: 6; }
+/* a brief bounce confirms the tap, then settles a touch LARGER (and stays there) so the
+   selection reads at a glance — kept modest so the footprint stays roughly honest and the
+   glyph still fits inside its halo (sized to the true glyph px, with ~10px of slack each side) */
+.marker.sel .ts { transform: scale(1.22); animation: selpop .24s var(--ease); }
+@keyframes selpop { 0% { transform: scale(1); } 55% { transform: scale(1.36); } 100% { transform: scale(1.22); } }
+.ts.photo { width: 58px; height: 44px; }
+
+/* editable shapes (arrow / cloud / square) — sized in metres, rotated in place.
+   No transform transition: rotation must track the pointer 1:1 (a transition makes
+   it lag and feel janky). The body shows a move cursor — drag it to reposition. */
+.shape-glyph { line-height: 0; cursor: move; }
+.shape-glyph .shape-svg { width: 100%; height: 100%; display: block;
+  filter: drop-shadow(0 1px 1px rgba(15, 22, 34, .4)) drop-shadow(0 3px 6px rgba(30, 45, 70, .25)); }
+/* shapes show their rotate/resize handles when selected; a quick one-shot bounce on the
+   inner glyph (which carries no rotation) confirms it's the targeted object, then settles
+   back to 1× so the real-world footprint stays accurate. */
+.marker.sel .shape-svg { animation: shapebounce .26s var(--ease); transform-origin: 50% 50%; }
+@keyframes shapebounce { 0% { transform: scale(.9); } 55% { transform: scale(1.14); } 100% { transform: scale(1); } }
+
+/* Transform handles live in a rotor that rotates WITH the shape, so they stay
+   visually attached. Colour language: neutral dark (ink) for the edit handles so
+   they stay unobtrusive; red is reserved for delete. */
+/* rotate + resize live in a rotor that turns WITH the shape so they stay attached. The
+   rotor fills the marker (centre = glyph centre); handles anchor off --hbox so they sit
+   a fixed distance outside the glyph at any zoom. */
+.shape-rotor { position: absolute; inset: 0; transform-origin: center; pointer-events: none; z-index: 8; }
+.shape-rotor button { pointer-events: auto; }
+/* the stem tethers the rotate knob to the shape — a clear "swing me around" cue */
+.shape-stem { position: absolute; left: 50%; top: calc(50% - var(--hbox, 56px) / 2 - 18px); width: 2px; height: 18px;
+  transform: translateX(-50%); background: var(--ink-fill); pointer-events: none; }
+/* rotate knob floats above top-centre; resize grip at the bottom-right corner of the ring */
+.shape-rotate { left: 50%; top: calc(50% - var(--hbox, 56px) / 2 - 18px); transform: translate(-50%, -50%);
+  background: var(--ink-fill); cursor: grab; touch-action: none; }
+.shape-rotate:active { cursor: grabbing; }
+.shape-rotate:hover { background: var(--ink-fill-hover); }
+.shape-resize { left: calc(50% + var(--hbox, 56px) / 2 + 3px); top: calc(50% + var(--hbox, 56px) / 2 + 3px);
+  transform: translate(-50%, -50%); border-radius: var(--r-sm); background: var(--ink-fill); cursor: nwse-resize; touch-action: none; }
+.shape-resize:hover { background: var(--ink-fill-hover); }
+/* Grosslüfter: a SECOND rotor for the fan/airflow, placed on the OPPOSITE (bottom) side of the
+   ring from the blue vehicle-body knob and amber-tinted — so the two knobs are always far apart
+   and easy to grab independently (rotating the body without catching the fan). */
+.shape-rotor-fan .shape-stem { top: calc(50% + var(--hbox, 56px) / 2); height: 18px; background: var(--amber); }
+.shape-rotor-fan .shape-rotate { top: calc(50% + var(--hbox, 56px) / 2 + 18px); background: var(--amber); }
+.shape-rotor-fan .shape-rotate:hover { background: var(--amber-strong); }
+/* Hubretter cage: a single amber grab handle AT the boom tip (positioned in JS at the truck centre +
+   reach·bearing). The boom line is its own tether, so there's no stem. */
+.cage-handle { position: absolute; z-index: 9; }
+.cage-handle .shape-cage { left: 0; top: 0; transform: translate(-50%, -50%); background: var(--amber); cursor: grab; touch-action: none; }
+.cage-handle .shape-cage:active { cursor: grabbing; }
+.cage-handle .shape-cage:hover { background: var(--amber-strong); }
+
+/* panel + context entrance motion — subtle & quick */
+@keyframes panelIn { from { opacity: 0; transform: translateY(-50%) translateX(-12px); } }
+@keyframes ctxIn { from { opacity: 0; transform: translateX(14px); } }
+/* bottom sheets rise from below — phone .ctx, journal composer, and every ip-sheet that is
+   bottom-anchored on phones (panelIn/ctxIn slide sideways/half-screen there: "appears
+   strangely", field feedback 2026-07-09) */
+@keyframes sheetUp { from { opacity: 0; transform: translateY(26px); } }
+@keyframes popIn { from { opacity: 0; transform: translateY(6px) scale(.97); } }
+.history-card { animation: panelIn .16s var(--ease); }
+.layers-card { animation: popIn .15s var(--ease); }  /* dock chrome → dock entrance */
+.ctx { animation: ctxIn .16s var(--ease); }
+@media (prefers-reduced-motion: reduce) { * { animation-duration: .001ms !important; transition-duration: .001ms !important; } }
+.ts.photo img { width: 100%; height: 100%; object-fit: cover; border-radius: var(--r-xs); display: block; }

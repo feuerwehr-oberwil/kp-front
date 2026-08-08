@@ -1,0 +1,1171 @@
+/* ---------------------------------------------------------------------------
+   Incident management UI (Phases 2–7): switcher, modal panels, empty state.
+   Light glass theme to match the rest of the app.
+   --------------------------------------------------------------------------- */
+/* identity yields first: the switcher shrinks (title ellipsises) so the clock,
+   journal actions and the Lage/Plan switch can never be pushed off the bar */
+.ip-switch { position: relative; display: flex; align-items: center; min-width: 0; flex: 0 1 auto; }
+/* phone-only incident glyph in the switcher pill (title hidden ≤600px) */
+.ip-switch-glyph { display: none; place-items: center; color: var(--ink-dim); }
+.ip-switch-glyph .i { width: 17px; height: 17px; }
+.ip-switch-btn {
+  display: inline-flex; align-items: center; gap: 8px; max-width: 46vw; min-width: 0;
+  padding: 6px 12px; border: none; border-radius: var(--r-sm);
+  background: var(--glass); box-shadow: var(--shadow-sm); color: var(--ink);
+  font: 700 14px/1.1 var(--body); cursor: pointer;
+}
+.ip-switch-btn:hover { background: var(--surface); }
+.ip-switch-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 0 1 auto; }
+.ip-switch-btn svg { width: 16px; height: 16px; opacity: .6; flex: none; }
+/* sync-status mark in the incident switcher — a FIXED 16px slot so the constant saving↔saved
+   flip never shifts the title/chevron (no inline time or text). Colour + shape encode the
+   state; the full status + save time live in the dropdown (.ip-menu-meta) and the title. */
+.ip-status { width: 16px; height: 16px; flex: none; display: inline-flex; align-items: center; justify-content: center; }
+.ip-status svg { width: 14px !important; height: 14px !important; opacity: 1 !important; }
+.ip-status-dot { width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
+.ip-status-synced { color: var(--green); }
+.ip-status-pending { color: var(--amber); }
+.ip-status-offline { color: var(--ink-dim); }
+.ip-status-error { color: var(--red); }
+/* storage-full: red like a sync error, because it is the more severe of the two — the work
+   isn't merely un-synced, it isn't saved anywhere */
+.ip-status-storage { color: var(--red); }
+/* loud offline pill in the switcher header — only shows while offline, so it never causes the
+   constant saving↔saved layout flip; amber-on-tint so it reads at a glance at 3am */
+.ip-offline-chip { display: inline-flex; align-items: center; gap: 5px; flex: none;
+  padding: 2px 8px; border-radius: 999px; font-size: 12.5px; font-weight: 600; line-height: 1;
+  color: var(--amber); background: color-mix(in srgb, var(--amber) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--amber) 38%, transparent); }
+.ip-offline-chip .ip-status-dot { width: 7px; height: 7px; }
+/* sync-error variant of the chip — red-on-tint with the warn glyph, same slot/behaviour */
+.ip-error-chip { color: var(--red); background: color-mix(in srgb, var(--red) 14%, transparent);
+  border-color: color-mix(in srgb, var(--red) 38%, transparent); }
+.ip-switch-btn .ip-error-chip svg { width: 12px; height: 12px; opacity: 1; }
+/* active-incident HEADER card: plain title + address + two small meta lines with the
+   icon-only Sync beside them — no highlighted row, no big pill (field feedback 2026-07-09,
+   round 3: the pill+✕ treatment read as a selected item with a stray close button) */
+.ip-menu-head { display: flex; align-items: flex-start; gap: 8px; padding: 8px 8px 8px 12px; }
+.ip-menu-headmain { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ip-menu-headtitle { font: 700 15px var(--body); color: var(--ink); overflow-wrap: anywhere; }
+/* larger screens show the title in the switcher button already — repeating it in the
+   header card read as a duplicate; phones (glyph-only button) keep it here */
+@media (min-width: 601px) { .ip-menu-headtitle { display: none; } }
+.ip-menu-headmain > .ip-menu-sub { white-space: normal; margin-bottom: 4px; }
+.ip-menu-metaline { display: flex; align-items: center; gap: 6px; font: 600 11.5px var(--body); }
+.ip-menu-metaline > span { color: var(--ink-dim); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ip-menu-metaline svg, .ip-menu-metaline .i { width: 12px; height: 12px; flex: none; }
+.ip-menu-metaline .i { color: var(--ink-dim); }
+/* icon-only resync — a compact 40px target beside the status lines */
+.ip-menu-resync { flex: none; display: grid; place-items: center; width: 40px; height: 40px; padding: 0;
+  border: 1px solid color-mix(in srgb, var(--blue) 40%, var(--border)); border-radius: var(--r-sm); background: color-mix(in srgb, var(--blue) 8%, var(--surface));
+  color: var(--blue-strong); cursor: pointer; }
+.ip-menu-resync:hover { background: color-mix(in srgb, var(--blue) 15%, var(--surface)); }
+.ip-menu-resync svg { width: 15px; height: 15px; }
+.ip-menu-resync:disabled { cursor: default; }
+/* Spinner → tick, as ONE circle rather than two icons swapped: r=9 ⇒ circumference ≈ 56.5, and
+   every dash length below is cut to that. Busy draws a ~quarter arc and rotates it; done closes
+   the arc to a full ring and strokes the tick through it, so the eye follows the same shape from
+   «working» to «erledigt» and no words are needed for the most boring outcome there is. */
+.sync-glyph { display: block; overflow: visible; fill: none; stroke: currentColor;
+  stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.sync-ring { stroke-dasharray: 14 43; transform-origin: 50% 50%; animation: spin .75s linear infinite; }
+.sync-tick { stroke-dasharray: 14; stroke-dashoffset: 14; }
+/* done: the ring completes (no longer spinning) and the tick draws in just behind it */
+.sync-glyph.on { color: var(--green); }
+.sync-glyph.on .sync-ring { animation: none; stroke-dasharray: 57 57; stroke-dashoffset: 0;
+  transition: stroke-dasharray .26s var(--ease); }
+.sync-glyph.on .sync-tick { stroke-dashoffset: 0; transition: stroke-dashoffset .3s var(--ease) .14s; }
+.ip-menu-resync.sync-done { border-color: color-mix(in srgb, var(--green) 45%, var(--border));
+  background: color-mix(in srgb, var(--green) 10%, var(--surface)); }
+/* reduced motion: keep the STATES (arc → closed ring + tick), drop the spin and the draw-on */
+@media (prefers-reduced-motion: reduce) {
+  .sync-ring { animation: none; }
+  .sync-glyph.on .sync-ring, .sync-glyph.on .sync-tick { transition: none; }
+}
+/* small-caps section label inside the dropdown (e.g. "Dieser Einsatz") — same idiom as .set-group-t */
+.ip-menu-label { padding: 4px 12px 2px; font: 700 11px var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
+
+.ip-menu {
+  position: absolute; top: calc(100% + 8px); left: 0; min-width: min(300px, 88vw); max-width: min(380px, 92vw);
+  background: var(--surface); border: 1px solid var(--glass-edge); border-radius: var(--r-surface);
+  box-shadow: var(--shadow); padding: 8px; z-index: 62; max-height: calc(100dvh - 104px); overflow: auto;
+}
+.ip-menu-empty { padding: 12px; color: var(--ink-faint); font: 500 13px var(--body); }
+.ip-menu-rowmain, .ip-menu-act {
+  display: flex; flex-direction: column; gap: 2px; width: 100%; min-width: 0; text-align: left;
+  padding: 8px 12px; min-height: 44px; border: none; background: none; border-radius: var(--r-ctl);
+  cursor: pointer; color: var(--ink); font: 600 13.5px var(--body);
+}
+.ip-menu-act { flex-direction: row; align-items: center; gap: 10px; font-weight: 600; }
+.ip-menu-act svg { width: 16px; height: 16px; opacity: .65; }
+/* incident row — pure switch target (no destructive actions in this menu; closing an
+   incident lives in «Alle Einsätze» / the Rapport) */
+.ip-menu-row { display: flex; align-items: stretch; gap: 2px; border-radius: var(--r-ctl); }
+.ip-menu-rowmain { flex: 1; }
+.ip-menu-rowmain:hover, .ip-menu-act:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); }
+.ip-menu-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ip-menu-sub { font: 500 12px var(--body); color: var(--ink-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* #10: event anchor for section swipe — wraps the non-canvas surfaces so a horizontal drag
+   bubbles to the pager handler. Fills the app so a swipe registers anywhere on the surface; the
+   child views keep their own absolute inset/z-index (rendered relative to this box). */
+/* touch-action pan-y: the browser keeps vertical scrolling but hands us horizontal gestures, so a
+   sideways drag fires pointermove (instead of ending in pointercancel as an assumed scroll). An
+   ancestor's touch-action restricts descendants, so this covers the scrollable views inside. */
+.section-pager { position: absolute; inset: 0; z-index: 20; touch-action: pan-y; }
+/* #10 phase 2: thin phone-only edge strips over the map/plan canvas that catch an inward swipe to
+   change section. Kept narrow so normal map/plan panning (from the middle) is unaffected. z-index
+   MUST sit above the Plan whiteboard (z-20, absolute inset:0 — it would otherwise swallow these
+   edge touches so only the map worked) but below the tool docks/controls (z-28+) so those still
+   win where they overlap. touch-action:none so the browser doesn't treat the drag as a scroll. */
+.edge-swipe { position: fixed; top: calc(96px + env(safe-area-inset-top)); bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom));
+  width: 22px; z-index: 24; touch-action: none; }
+.edge-swipe-l { left: 0; }
+.edge-swipe-r { right: 0; }
+
+.ip-menu-sep { height: 1px; background: var(--glass-edge); margin: 4px; }
+/* tight variant: isolates a single terminal action (Einsatz abschliessen) without the full gap */
+.ip-menu-sep-tight { margin: 2px 4px; background: color-mix(in srgb, var(--glass-edge) 60%, transparent); }
+.ip-menu-act.danger { color: var(--red); }
+/* app utilities (Einstellungen · Bereitschaft · Hilfe · Installieren) as one compact row of
+   labeled tiles — icon + word keeps recognition (3am tenet) while taking a third of the
+   height the old one-per-row list did */
+/* Einstellungen sheet: two grouped cards (Gerät = device prefs · Einsatz = synced),
+   iOS-style — small-caps group label, hairline-divided rows in a soft card, footnote below */
+.set-sheet { display: flex; flex-direction: column; gap: 24px; }
+.set-group { display: flex; flex-direction: column; gap: 8px; }
+.set-group-t { margin: 0 0 0 4px; font: 700 11px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-dim); }
+.set-card { border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface-2); overflow: hidden; }
+.set-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 11px 14px; min-height: 56px; }
+.set-row + .set-row { border-top: 1px solid var(--glass-edge); }
+/* Three steppers stacked in one card, each formatting its value differently — «5 min», «60 s»,
+   «K 11». Sized to their own text, every row was a different width, so the − and + buttons sat
+   at three different x positions down a column you operate with a thumb. One width for the value
+   slot puts the buttons on a shared edge. */
+.set-row .step-val { min-width: 68px; }
+.set-row-l { display: flex; flex-direction: column; gap: 2px; font: 600 14.5px var(--body); color: var(--ink); }
+.set-row-l small { font: 500 12px var(--body); color: var(--ink-faint); }
+.set-group-foot { margin: 2px 4px 0; font: 500 12px var(--body); color: var(--ink-faint); line-height: 1.4; }
+/* the Einstellungen segmented controls + ±steppers now use the shared <Segmented>/.useg and
+   <Stepper>/.step (components/Segmented, components/Stepper) — the old .set-seg / .set-step chrome
+   was a duplicate and has been removed. */
+/* utility action row (Leeres Erfassungsblatt) — a download button, not a segmented setting */
+.set-dl { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 6px 14px;
+  border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface);
+  color: var(--ink); font: 600 13px var(--body); cursor: pointer; white-space: nowrap; }
+.set-dl:hover:not(:disabled) { border-color: var(--glass-line); }
+.set-dl:disabled { opacity: var(--disabled); }
+.set-dl svg { width: 15px; height: 15px; }
+
+/* Offline-Bereitschaft sheet — a glanceable readiness checklist + one load-all action */
+.or-sheet { display: flex; flex-direction: column; gap: 14px; }
+.or-stand { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: var(--r-ctl);
+  background: var(--fill-soft); font: 600 13px var(--body); color: var(--ink-dim); }
+.or-stand svg { width: 15px; height: 15px; flex: none; }
+.or-stand.or-sync-synced { color: var(--green-strong); background: color-mix(in srgb, var(--green) 9%, var(--surface)); }
+.or-stand.or-sync-offline, .or-stand.or-sync-error { color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 11%, var(--surface)); }
+/* not amber with the retryable states: nothing here will be retried */
+.or-stand.or-sync-storage { color: var(--red); background: color-mix(in srgb, var(--red) 10%, var(--surface)); }
+.or-stand .ip-status-dot { width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
+.or-resync { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 6px 12px;
+  border: 1px solid color-mix(in srgb, var(--blue) 45%, transparent); border-radius: var(--r-sm); background: var(--surface);
+  color: var(--blue-strong); font: 700 12.5px var(--body); cursor: pointer; white-space: nowrap; }
+.or-resync:hover { background: color-mix(in srgb, var(--blue) 10%, var(--surface)); }
+.or-resync svg { width: 14px; height: 14px; }
+.or-list { display: flex; flex-direction: column; }
+.or-row { display: flex; align-items: center; gap: 11px; min-height: var(--tap); padding: 6px 4px;
+  border-bottom: 1px solid var(--border-soft); }
+.or-row:last-child { border-bottom: none; }
+.or-dot { flex: none; width: 18px; text-align: center; font-size: 15px; line-height: 1; }
+.or-dot.or-ready { color: var(--green); }
+.or-dot.or-online { color: var(--amber-strong); }
+.or-dot.or-missing { color: var(--ink-faint); }
+.or-dot.or-unknown { color: var(--ink-faint); opacity: .6; }
+.or-label { flex: 1 1 auto; min-width: 0; font: 600 14px var(--body); color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.or-note { flex: none; font: 600 12.5px var(--body); color: var(--ink-faint); }
+.or-note.or-ready { color: var(--green-strong); }
+.or-note.or-online { color: var(--amber-strong); }
+.or-note.or-missing { color: var(--ink-dim); }
+/* browser-tab state: the readiness list is replaced by why it isn't one (see the component) */
+.or-browser { display: flex; gap: 11px; padding: 13px 14px; border-radius: var(--r-ctl);
+  background: var(--fill-soft); border: 1px solid var(--border); }
+.or-browser > .i { width: 17px; height: 17px; flex: none; color: var(--blue); margin-top: 2px; }
+.or-browser-t { margin: 0 0 5px; font: 700 13.5px var(--body); color: var(--ink); }
+.or-browser-b { margin: 0; font: 500 12.5px var(--body); line-height: 1.5; color: var(--ink-dim); }
+.or-browser-b + .or-browser-b { margin-top: 7px; }
+/* the download sits UNDER the install button in a browser tab — still offered, not the headline.
+   Doubled selector: .or-load is declared further down, so equal specificity would let it win. */
+.or-load.or-load-quiet { background: var(--fill-soft); color: var(--ink); }
+.or-load.or-load-quiet:hover:not(:disabled) { background: var(--hover-strong); }
+
+.or-load { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--tap);
+  border: none; border-radius: var(--r-sm); background: var(--ink-fill); color: var(--on-accent-ink);
+  font: 700 14px var(--body); cursor: pointer; }
+.or-load svg { width: 17px; height: 17px; }
+.or-load:hover:not(:disabled) { background: var(--ink-fill-hover); }
+.or-load:disabled { opacity: var(--disabled); cursor: default; }
+/* determinate download progress (replaces the button while warming the caches) */
+.or-prog { display: flex; flex-direction: column; gap: 7px; padding: 4px 2px; }
+.or-prog-track { height: 10px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 10%, transparent); overflow: hidden; }
+.or-prog-fill { height: 100%; border-radius: 999px; background: var(--blue);
+  transition: width .25s var(--ease); min-width: 10px; }
+.or-prog-meta { display: flex; align-items: center; justify-content: space-between; font: 600 12.5px var(--body); color: var(--ink-dim); }
+.or-prog-pct { font-family: var(--mono); font-weight: 700; color: var(--blue-strong); font-variant-numeric: tabular-nums; }
+.or-foot { margin: 0 2px; font: 500 12px var(--body); color: var(--ink-faint); line-height: 1.45; }
+
+/* signed-in user + logout, docked at the foot of the incident menu */
+.ip-menu-user { display: flex; align-items: center; gap: 9px; padding: 6px 6px 4px; }
+.ip-menu-av { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; flex: none;
+  font: 700 12.5px var(--body); color: var(--on-accent-ink); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .22); }
+.ip-menu-userinfo { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.ip-menu-username { font: 600 13px var(--body); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ip-menu-userrole { font: 600 10px var(--body); letter-spacing: .05em; text-transform: uppercase; color: var(--ink-faint); }
+.ip-menu-logout { display: flex; align-items: center; gap: 6px; flex: none; padding: 7px 10px; border: none;
+  border-radius: var(--r-sm); background: rgba(30, 45, 70, .05); color: var(--ink-dim); cursor: pointer;
+  font: 600 12.5px var(--body); transition: background .14s var(--ease), color .14s var(--ease); }
+.ip-menu-logout:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
+.ip-menu-logout svg { width: 15px; height: 15px; }
+
+/* build stamp + manual update check, pinned to the menu foot */
+.ip-menu-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin-top: 4px; padding: 8px 8px 4px; border-top: 1px solid var(--glass-edge); }
+.ip-menu-ver { font: 600 10.5px var(--mono, var(--body)); letter-spacing: .02em; color: var(--ink-faint);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* modal sheets */
+.ip-ovl {
+  position: fixed; inset: 0; z-index: 80; display: grid; place-items: center;
+  background: rgba(20,28,40,.32); backdrop-filter: blur(2px); padding: 20px;
+}
+/* ONE standard modal frame — every ip-sheet (Einsatzrapport, Objekt-Picker, Eröffnen,
+   Alle Einsätze, Einstellungen, …) is the SAME size, so switching between them never
+   resizes the window (testing feedback 2026-07-14). Header pins; .ip-body/.pp-body
+   scroll. Phones override into full-width bottom sheets below. */
+.ip-sheet {
+  width: min(720px, 94vw); height: min(800px, 88dvh);
+  /* grid-item automatic-minimum guard (same trap as .ip-emptyapp-card): a nowrap row
+     inside a sheet must never push the sheet past the viewport */
+  min-width: 0; max-width: 100%;
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--glass); backdrop-filter: blur(16px); border-radius: var(--r-hero); box-shadow: var(--shadow);
+}
+.ip-sheet > .ip-head { flex: none; }
+.ip-sheet > .ip-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+/* fit variant: hug the content instead of the fixed 800px frame (short one-off modals) */
+.ip-sheet.ip-fit { height: auto; max-height: min(800px, 88dvh); }
+/* Base UI Dialog wrapper (src/lib/overlays/Sheet.tsx). Base UI portals the Backdrop and the
+   Popup as SIBLINGS — there is no .ip-ovl grid parent — so the scrim moves onto .ui-backdrop
+   and the centering onto .ip-sheet.ui-dialog. Values mirror the old .ip-ovl exactly (incl. the
+   phone bottom-sheet override at the end of this file) so migrated sheets are pixel-identical. */
+.ui-backdrop { position: fixed; inset: 0; z-index: 80; background: rgba(20,28,40,.32); backdrop-filter: blur(2px); }
+.ip-sheet.ui-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 81; }
+.ip-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 8px; }
+/* 800, like EVERY other title in the app — Anwesenheit, Mittel, Atemschutz, Checklists, Hilfe and
+   the Rapport all set their h2 at 800/19. At 700 the dialog heads («Weitere Person erfassen»,
+   «Anderes Objekt») were a visibly lighter cut of Sora than the surface behind them, which reads
+   as a different typeface rather than as a smaller heading. */
+.ip-head h2 { margin: 0; font: 800 19px var(--body); color: var(--ink); }
+.ip-x { border: none; background: none; cursor: pointer; color: var(--ink-dim); padding: 6px; border-radius: var(--r-sm); }
+.ip-x:hover { background: var(--hover); }
+.ip-x svg { width: 18px; height: 18px; }
+.ip-body { padding: 6px 20px 20px; display: flex; flex-direction: column; gap: 12px; }
+.ip-sub { margin: 8px 0 2px; font: 700 12px var(--body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-faint); }
+
+.ip-field { display: flex; flex-direction: column; gap: 5px; }
+.ip-field > span { font: 600 12px var(--body); color: var(--ink-dim); }
+.ip-field input, .ip-field select, .ip-input {
+  padding: 11px 12px; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
+  background: var(--surface); font: 500 15px var(--body); color: var(--ink);
+}
+/* a standalone field OUTSIDE .ip-field (Beilagen caption, Partnerorganisationen, the
+   Anwesenheit remark) — same control, just not wrapped in a label block */
+.ip-input { width: 100%; min-width: 0; }
+/* One focus ring for every intake/wizard field — a visible blue halo so the EL always
+   sees which control is live (gloved, 3am), instead of the browser default outline. */
+.ip-field input:focus, .ip-field select:focus, .ip-textarea:focus, .ip-search:focus, .ip-input:focus {
+  outline: none; border-color: color-mix(in srgb, var(--blue) 50%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 12%, transparent);
+}
+.ip-select { width: 100%; cursor: pointer; }
+/* spinning glyph for in-progress actions (taking an alarm, opening/saving an Einsatz) so the
+   rotate icon reads as "working", not a frozen refresh button */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin .9s linear infinite; transform-origin: 50% 50%; }
+.ip-seg { display: flex; gap: 6px; }
+.ip-seg button {
+  flex: 1; padding: 10px; border: 1px solid var(--glass-edge); border-radius: var(--r-sm);
+  background: var(--surface); cursor: pointer; font: 700 12.5px var(--body); color: var(--ink-dim);
+}
+.ip-seg button.on { background: var(--blue); color: var(--on-fill); border-color: var(--blue); }
+.ip-check { display: flex; align-items: center; gap: 8px; font: 500 13px var(--body); color: var(--ink-dim); }
+
+.ip-actions, .ip-row-actions { display: flex; gap: 10px; justify-content: flex-end; align-items: center; }
+/* The footer row of a SHEET pays for its own breathing room. It used to have none, so every new
+   sheet put its primary button hard into the frame's bottom-right corner — found once on the
+   TimeBlockSheet and patched there locally, then found again on the two Schichten sheets. A trap
+   that catches every author is a missing rule, not a missing patch. Scoped to a direct child of
+   .ip-sheet, so .ip-row-actions and any inline action row are untouched. */
+.ip-sheet > .ip-actions { padding: 8px 20px 16px; }
+/* demo: "opening is disabled" note above the wizard's action row */
+.ip-demo-block { display: flex; align-items: center; gap: 7px; margin: 0 0 10px; padding: 9px 12px;
+  border-radius: var(--r-sm); background: var(--fill-soft); color: var(--ink-dim); font: 600 12.5px var(--body); }
+.ip-demo-block svg { width: 15px; height: 15px; flex: none; color: var(--ink-faint); }
+.ip-row-actions { justify-content: flex-start; }
+.ip-btn {
+  display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border: 1px solid var(--glass-edge);
+  border-radius: var(--r-sm); background: var(--surface); cursor: pointer; font: 700 14px var(--body);
+  color: var(--ink); text-decoration: none;
+}
+.ip-btn:hover { background: var(--hover-strong); }
+.ip-btn svg { width: 16px; height: 16px; }
+.ip-btn.primary { background: var(--btn-primary); color: var(--on-btn-primary); border-color: var(--btn-primary); }
+.ip-btn.primary:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); }
+.ip-btn.primary:disabled { opacity: var(--disabled); cursor: default; }
+/* delete (Übungen in «Alle Einsätze») — red-tinted outline, never a solid destructive button */
+.ip-btn-danger { color: var(--red); border-color: color-mix(in srgb, var(--red) 35%, transparent); }
+.ip-btn-danger:hover { background: color-mix(in srgb, var(--red) 10%, transparent); }
+.ip-btn.ghost { background: none; border-color: transparent; }
+/* ⚠️ `.ip-btn danger` was written at a call site that predates the rename (BandGrid's
+   «Schicht entfernen»); an alias costs nothing and stops the destructive button rendering
+   identical to «Abbrechen» the next time somebody reaches for the obvious name. */
+.ip-btn.danger { color: var(--red); border-color: color-mix(in srgb, var(--red) 35%, transparent); }
+.ip-btn.danger:hover { background: color-mix(in srgb, var(--red) 10%, transparent); }
+.ip-note { color: var(--ink-faint); font: 500 13px var(--body); }
+/* ⚠️ THIS RULE DID NOT EXIST. `.ip-hint` is rendered in the Gast dialog (and read as the
+   house hint class), so that paragraph fell through to the UA default: 16px in full --ink
+   with 1em margins, directly above a 12px --ink-dim field label. It was bigger and louder
+   than the heading's own subtitle — which is exactly the «non-standard font» a dialog gets
+   accused of. Same spec as .ip-note, one step dimmer than the label it explains. */
+.ip-hint { margin: 0; font: 500 13px/1.45 var(--body); color: var(--ink-dim); }
+
+/* Shared empty state for destination surfaces (intake pool, Verlauf): icon + headline +
+   optional explainer + optional CTA. Teaches what the surface is for instead of a bare line. */
+.empty-state { display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: 6px; padding: 32px 16px 24px; color: var(--ink-faint); }
+/* fill + vertically center within a flex panel (Mittel/Anwesenheit/Checklists destinations) */
+.empty-state.empty-fill { flex: 1 1 auto; height: 100%; justify-content: center; }
+.empty-state-icon { display: grid; place-items: center; width: 46px; height: 46px; margin-bottom: 4px;
+  border-radius: 50%; background: var(--surface-2); color: var(--ink-dim); }
+.empty-state-icon svg { width: 22px; height: 22px; }
+.empty-state-title { font: 700 15.5px var(--body); color: var(--ink); }
+.empty-state-sub { font: 500 13px var(--body); color: var(--ink-faint); max-width: 36ch; line-height: 1.45; }
+.empty-state-act { margin-top: 12px; display: flex; gap: 8px; align-self: stretch; }
+.empty-state-act .ip-btn { flex: 1; justify-content: center; }
+.ip-hist, .ip-ds {
+  display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: var(--r-ctl);
+  background: var(--surface-veil); box-shadow: var(--shadow-sm);
+}
+.ip-ds-main, .ip-hist-main { flex: 1; min-width: 0; text-align: left; border: none; background: none; cursor: pointer; }
+.ip-hist-title, .ip-ds-title { font: 600 15px var(--body); color: var(--ink); display: flex; align-items: center; gap: 8px; min-width: 0; }
+/* truncate a long incident title so the status badge keeps its place instead of overlapping */
+.ip-hist-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* incident status badge in the Einsätze list (own class — must NOT collide with the
+   fixed-size sync .ip-status above, which would clamp it to 16px and clip the label) */
+.ip-badge { font: 700 10px var(--body); letter-spacing: .03em; text-transform: uppercase; padding: 2px 7px; border-radius: var(--r-xs); flex: none; white-space: nowrap; }
+.ip-badge-open { background: color-mix(in srgb, var(--blue) 12%, transparent); color: var(--blue); }
+.ip-badge-work { background: color-mix(in srgb, var(--red) 13%, transparent); color: var(--red); }
+.ip-badge-arch { background: var(--fill-soft); color: var(--ink-dim); }
+/* Übung — amber so a training is never mistaken for a real Einsatz (switcher + lists) */
+.ip-badge-exercise { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); }
+.ip-menu-headtitle .ip-badge, .ip-menu-title .ip-badge { margin-left: 6px; vertical-align: 1px; }
+.ip-hist-sub, .ip-ds-sub { font: 500 12px var(--body); color: var(--ink-faint); margin-top: 2px; }
+/* rapport lifecycle badges (derived, lib/rapportStatus) */
+/* Alle Einsätze: search + time-group headers — the list grows by one row per Einsatz
+   forever, so an old incident must stay findable without endless scrolling */
+.ip-hist-search { display: flex; align-items: center; gap: 9px; padding: 4px 14px; min-height: 48px;
+  border-radius: var(--r-ctl); background: var(--surface-veil); box-shadow: var(--shadow-sm); }
+.ip-hist-search .i { width: 16px; height: 16px; color: var(--ink-faint); flex: none; }
+.ip-hist-search input { border: none; outline: none; background: transparent; width: 100%;
+  font: 500 14px var(--body); color: var(--ink); }
+.ip-hist-group { margin: 10px 2px 0; font: 800 11.5px var(--body); color: var(--ink-faint);
+  text-transform: uppercase; letter-spacing: .05em; }
+.ip-hist-nores { margin: 4px 2px; font: 500 13px var(--body); color: var(--ink-faint); font-style: italic; }
+
+/* --- Rapport closing checklist (inside the Einsatzrapport sheet) --------------------- */
+/* Not a card any more — a plain stack of them. The four rows sit at COLUMN level, beside the
+   form's named sections, so the gap is the column's own 12px and the rhythm of the two halves
+   of the page finally matches. */
+.rp-checks { display: flex; flex-direction: column; gap: 12px; }
+/* ⚠️ Same material as `.report-pre-section`, because that is now what these ARE: top-level
+   cards in the side column, facing the form's cards across the page. (They were `--surface-veil`
+   inside a `--surface-2` wrapper — a 1% difference at night, with no border, so the four read as
+   one flat slab of text with no edges at all.) */
+.rp-check { display: flex; flex-direction: column; border-radius: var(--r-ctl);
+  border: 1px solid var(--glass-edge); background: var(--surface-2); }
+/* only the two rows that GO somewhere respond to the pointer — Partner and Beilagen are worked
+   inside the row and their `.rp-check-main` is disabled, so a hover on them would promise a
+   navigation that is not there */
+.rp-check { position: relative; }
+.rp-check:has(.rp-check-main:not(:disabled)):hover { border-color: var(--ink-faint); }
+.rp-check-main { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 11px 16px;
+  border: none; background: none; text-align: left; color: var(--ink); cursor: pointer; width: 100%; }
+.rp-check-main:disabled { cursor: default; }
+/* THE WHOLE CARD OPENS IT, not the title row alone. The names under «Anwesenheit» are the reason
+   anyone looks at that card, and they were the one part of it that was not a way in — you read
+   «Meier Anna · bis 19:47», reached for it, and hit nothing. Done as a stretched hit area on the
+   button that is already there rather than an onClick on the card: one real <button> keeps the
+   keyboard focus, the role and the label, and nothing gets nested inside anything.
+   ⚠️ The overlay covers the card, so anything genuinely interactive inside the body has to be
+   lifted back above it — the Partner ticks and their remark fields, «Nichts verwendet», the
+   Beilagen captions and thumbnails. Plain text stays underneath, which is the point. */
+.rp-check-main:not(:disabled)::after { content: ''; position: absolute; inset: 0; border-radius: inherit; }
+.rp-check-extra :is(button, input, textarea, select, a, label, fieldset) { position: relative; z-index: 1; }
+/* same white-on-white as the partner box above — the ring of an unfinished step was invisible
+   in light mode, so the checklist read as a list of labels with no state at all */
+.rp-check-dot { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, var(--ink-faint) 55%, transparent); color: var(--ink-faint); }
+/* done is the ORDINARY state and reads by its shape — a tick where there was a dash. It was blue,
+   which put four blue rings down a column that also carries one per partner organisation; see the
+   note on .report-partner.on. Ink, not hue. */
+.rp-check-dot.done { border-color: color-mix(in srgb, var(--ink-faint) 80%, transparent); color: var(--ink); }
+.rp-check-dot svg { width: 14px; height: 14px; }
+.rp-check-label { font: 700 14px var(--body); flex: none; }
+.rp-check-sub { font: 500 12.5px var(--body); color: var(--ink-faint); flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+.rp-check-go { flex: none; width: 15px; height: 15px; color: var(--ink-faint); }
+/* the body starts under the LABEL, not under the dot: 16 (card pad) + 26 (dot) + 10 (gap) */
+.rp-check-extra { padding: 0 16px 14px 52px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+/* quick double-check lists (Anwesenheit names + Mittel lines): read-only chips, early
+   leavers / amounts inline — corrections go through the row's Go arrow */
+/* No inner scroller. A 34vh cap put a second scroll region inside a surface that already scrolls
+   — a drag starting on a name scrolled the list, hit its end and died there (the body has
+   `overscroll-behavior: contain`) — and it also swallowed the card's own tap area. The card grows
+   and the page scrolls, which is the one behaviour there is nothing to learn about. */
+.rp-people { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 3px 14px; width: 100%; }
+.rp-person { font: 500 13px var(--body); color: var(--ink); min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-person em { font-style: normal; color: var(--amber); font-weight: 650; }
+.rp-person b { font-weight: 700; }
+@media (max-width: 520px) {
+  .rp-check-extra { padding-left: 12px; }
+}
+/* floating way back to the Rapport sheet after a checklist row navigated away */
+.rp-return { position: fixed; bottom: calc(18px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
+  z-index: 56; display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 10px 18px;
+  border: none; border-radius: var(--r-pill); background: var(--btn-primary); color: var(--on-btn-primary);
+  font: 700 14px var(--body); cursor: pointer; box-shadow: 0 8px 24px rgba(0, 0, 0, .3); }
+.rp-return svg { width: 16px; height: 16px; }
+
+/* --- Station capture view (/e/<token>) — phone-first, poster-opened -------------------- */
+.cv-shell { max-width: 560px; margin: 0 auto; padding: 0 14px calc(24px + env(safe-area-inset-bottom));
+  display: flex; flex-direction: column; gap: 12px; min-height: 100dvh; }
+/* sticky header: incident title + Zurück stay visible over the long roster scroll.
+   Phone (shell = full width): edge-to-edge via the negative margins. */
+.cv-head { position: sticky; top: 0; z-index: 6; display: flex; align-items: center; gap: 10px;
+  margin: 0 -14px; padding: calc(10px + env(safe-area-inset-top)) 14px 8px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+/* viewport wider than the centered column (560px shell + 2×14px padding): the full-bleed
+   negative margins would float a band wider than the cards — align the header with the
+   column instead and round the bottom so it reads as the column's own top card */
+@media (min-width: 589px) {
+  .cv-head { margin: 0; padding: calc(12px + env(safe-area-inset-top)) 16px 10px;
+    border-radius: 0 0 var(--r-ctl) var(--r-ctl); }
+}
+/* desktop: wider column, roomier cards — the phone-first paddings look cramped on a monitor */
+@media (min-width: 760px) {
+  .cv-shell { max-width: 640px; gap: 16px; }
+  .cv-acc-body { padding: 16px 18px 18px; gap: 12px; }
+  .cv-acc-head { padding: 12px 18px; }
+}
+.cv-head h1 { font: 800 20px var(--body); color: var(--ink); margin: 0; }
+.cv-head p { font: 500 12.5px var(--body); color: var(--ink-faint); margin: 2px 0 0; }
+.cv-head-main { flex: 1; min-width: 0; }
+.cv-back { display: grid; place-items: center; width: 44px; height: 44px; border: none; background: var(--surface-veil);
+  border-radius: var(--r-sm); color: var(--ink); cursor: pointer; }
+.cv-back svg { width: 18px; height: 18px; transform: rotate(180deg); }
+.cv-card { background: var(--surface-veil); border-radius: var(--r-ctl); padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.cv-card h2 { font: 700 14.5px var(--body); color: var(--ink); margin: 0; display: flex; justify-content: space-between; align-items: baseline; }
+.cv-center { align-items: center; text-align: center; padding: 32px 16px; color: var(--ink-faint); }
+.cv-hint { font: 500 13px var(--body); color: var(--ink-dim); margin: 0; }
+/* Amber, not --accent (the brand red must never mean state) and not grey: this says the paper
+   will have holes in it, which is worth noticing but is not an error — printing a form with
+   blanks is a normal, deliberate thing to do here. Full row so it never shares a line with the
+   buttons it is about. */
+.cv-missing { flex: 1 0 100%; display: flex; align-items: flex-start; gap: 8px; margin: 2px 0 0;
+  padding: 8px 11px; border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--amber) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--amber) 30%, transparent);
+  font: 600 13px/1.4 var(--body); color: var(--ink); }
+.cv-missing svg { width: 16px; height: 16px; flex: none; margin-top: 1px; color: var(--amber-strong); }
+/* clock-skew warning — non-blocking, but a drifted device clock corrupts every erfasste Zeit */
+.cv-skew { display: flex; align-items: center; gap: 6px; margin: 0;
+  font: 600 13px var(--body); color: var(--amber-strong); }
+.cv-skew svg { width: 15px; height: 15px; flex: none; }
+.cv-list { display: flex; flex-direction: column; gap: 8px; }
+.cv-item { display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 10px 14px; border: none; text-align: left;
+  background: var(--surface-veil); border-radius: var(--r-ctl); color: var(--ink); cursor: pointer; box-shadow: var(--shadow-sm); }
+.cv-item-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.cv-item-title { font: 700 15px var(--body); }
+.cv-item-sub { font: 500 12.5px var(--body); color: var(--ink-faint); }
+/* group divider — only rendered when the list actually mixes tonight's Einsatz with the
+   unreported backlog, so the common single-row list stays header-free */
+.cv-list-head { margin: 6px 2px 0; font: 800 11.5px var(--body); color: var(--ink-faint);
+  text-transform: uppercase; letter-spacing: .05em; }
+.cv-list + .cv-list { margin-top: 4px; }
+/* Übung — same amber as the tablet's .ip-badge-exercise: a drill or a test run must never
+   be mistaken for the real Einsatz, on the surface where untrained people tick names off */
+.cv-badge-exercise { display: inline-block; margin-left: 6px; padding: 1px 7px; vertical-align: 1px;
+  border-radius: 999px; font: 800 10.5px var(--body); text-transform: uppercase; letter-spacing: .04em;
+  white-space: nowrap; /* wraps to its own line on a narrow phone rather than splitting */
+  background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); }
+.cv-input { min-height: 44px; padding: 8px 12px; border-radius: var(--r-ctl); border: 1px solid var(--glass-line);
+  background: var(--surface); color: var(--ink); font: 500 15px var(--body); width: 100%; }
+/* search + ⓘ: the tap-cycle explanation hides behind the info toggle (inline it crowded the card) */
+.cv-search-row { display: flex; align-items: center; gap: 8px; }
+.cv-search-row .cv-input { flex: 1; min-width: 0; }
+/* The search stays put while its list scrolls. A roster is long enough that filtering it means
+   scrolling to the name, and the field that filtered it had already scrolled off the top — so
+   correcting a typo meant scrolling back up to find the box. Stacks UNDER the section head,
+   which is itself sticky under the page header (see .cv-acc-head): three fixed things in a
+   column, each offset by the one above it.
+   The negative side margins + padding let the sticky band span the card's full width, so list
+   rows slide under a solid strip rather than past a floating box. */
+.cv-sticky-search { position: sticky; z-index: 3;
+  /* 56px is .cv-acc-head's own min-height, not a variable somebody has to remember to set —
+     it is one row of label + sub and does not wrap. --cv-head-h IS measured, because the page
+     header changes height with the «KP aktiv» line. */
+  top: calc(var(--cv-head-h, 64px) - 1px + 56px);
+  margin: 0 -14px; padding: 8px 14px;
+  background: linear-gradient(var(--surface-veil), var(--surface-veil)), var(--surface); }
+.cv-info { display: grid; place-items: center; width: 44px; height: 44px; flex: none; cursor: pointer;
+  border: 1px solid var(--glass-line); background: var(--surface); color: var(--ink-dim); border-radius: var(--r-sm); }
+.cv-info.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.cv-info svg { width: 18px; height: 18px; }
+/* Partnerorganisationen on the poster: organisation + one free line, same two fields the
+   tablet asks for. Stacks on a phone, which is what the poster is scanned with. */
+.cv-partners { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+/* A checklist, matching the Rapport sheet: tick + name are one target, the free line appears
+   only once the row is ticked. On a phone the line wraps under its own tick rather than
+   halving both — this page is filled in standing up, with one thumb. */
+.cv-partner { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.cv-partner-tick { flex: 1 1 auto; display: flex; align-items: center; gap: 10px; min-width: 160px;
+  min-height: 44px; padding: 0 8px 0 4px; border: none; border-radius: var(--r-sm);
+  background: none; color: var(--ink-dim); cursor: pointer; text-align: left; }
+.cv-partner-box { flex: none; display: grid; place-items: center; width: 24px; height: 24px;
+  border: 1.5px solid var(--glass-line); border-radius: var(--r-sm); color: var(--blue); }
+.cv-partner-box svg { width: 15px; height: 15px; }
+.cv-partner.on .cv-partner-tick { color: var(--ink); }
+.cv-partner.on .cv-partner-box { border-color: color-mix(in srgb, var(--blue) 55%, var(--glass-line)); }
+.cv-partner-org { font: 600 15px var(--body); }
+.cv-partner-tick.bare { flex: none; min-width: 0; padding-right: 0; }
+.cv-partner .cv-input { flex: 1 1 140px; min-width: 0; }
+.cv-partner-name { flex: 1 1 140px; }
+@media (max-width: 640px) {
+  .cv-partner-tick { flex: 1 1 100%; }
+  .cv-partner .cv-input { flex: 1 1 100%; }
+}
+
+/* Beilagen on the Erfassungs-Poster: thumbnail + caption per row, and one big «Foto
+   hinzufügen» that IS the file input (a phone at the magazine door, one hand, gloves on). */
+.cv-beilagen { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.cv-beilagen-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.cv-beilagen-list li { display: flex; align-items: center; gap: 8px; }
+.cv-beilagen-list img { flex: none; width: 52px; height: 52px; object-fit: cover; border-radius: var(--r-sm);
+  border: 1px solid var(--glass-edge); background: var(--fill-soft); }
+.cv-beilagen-list .cv-input { flex: 1 1 auto; min-width: 0; }
+.cv-beilagen-add { cursor: pointer; }
+.cv-beilagen-add input { display: none; }
+.cv-beilagen-add.busy { opacity: .6; pointer-events: none; }
+
+.cv-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 48px; padding: 8px 14px;
+  border: none; border-radius: var(--r-sm); background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--ink); font: 700 14px var(--body); cursor: pointer; white-space: nowrap; }
+.cv-btn:disabled { opacity: var(--disabled); }
+/* ⚠️ `.cv-btn` is tinted with --accent, which IS this deployment's brand RED — right for the one
+   action a screen is about, wrong for «hinzufügen» rows, which came out looking like a warning.
+   Those use the neutral variant: a dashed outline that reads as «there is room for one more». */
+.cv-btn-add { background: none; border: 1px dashed var(--glass-edge); color: var(--ink); }
+.cv-btn-add:hover:not(:disabled) { border-color: var(--ink-faint); }
+.cv-btn-ghost { min-height: 40px; padding: 0 10px; background: none; color: var(--ink-faint); }
+.cv-btn-ghost:hover:not(:disabled) { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
+.cv-btn svg { width: 15px; height: 15px; }
+.cv-linkbtn { border: none; background: none; color: var(--accent); font: 700 12.5px var(--body); cursor: pointer; padding: 0; }
+.cv-ende { display: flex; align-items: center; justify-content: space-between; gap: 10px; font: 500 14.5px var(--body); color: var(--ink); }
+/* flows in the page scroll — the nested 46dvh list scroll confused touch (two surfaces) */
+.cv-people { display: flex; flex-direction: column; gap: 6px; }
+.cv-person { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 48px; padding: 8px 12px;
+  border: 1px solid var(--glass-line); border-radius: var(--r-ctl); background: var(--surface); color: var(--ink);
+  font: 600 15px var(--body); cursor: pointer; text-align: left; }
+.cv-person.on { border-color: color-mix(in srgb, var(--green) 45%, var(--glass-line));
+  background: color-mix(in srgb, var(--green) 14%, var(--surface)); }
+.cv-person.left { opacity: .65; }
+/* state chip: ✓ (anwesend, GREEN like the main app's Anwesenheit grid) / exit-arrow
+   (gegangen, muted) — shape + tint together, never colour alone; word = aria-label */
+.cv-person-state { display: grid; place-items: center; width: 26px; height: 26px; flex: none;
+  border-radius: 999px; color: var(--green);
+  background: color-mix(in srgb, var(--green) 18%, transparent); }
+.cv-person.left .cv-person-state { color: var(--amber-strong);
+  background: color-mix(in srgb, var(--amber) 18%, transparent); }
+.cv-person-state svg { width: 15px; height: 15px; }
+.cv-mittel { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.cv-mittel li { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px;
+  font: 500 14px var(--body); color: var(--ink); }
+.cv-mittel-label { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+/* same reason as .set-row .step-val: a column of steppers whose values carry different units
+   («3 Sack», «40 l», «6 Stk») put the ± buttons at a different x on every line */
+.cv-mittel .step-val { min-width: 62px; }
+/* Mittel lines + Gerettete counts use the shared <Stepper> (.step chrome); a wrong amount is
+   fixable in place (0 removes, with undo) */
+.cv-count-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.cv-count-row > span { font: 600 12.5px var(--body); color: var(--ink-dim); }
+/* «Personen» and «Tiere» ask the same question twice, so the two steppers must sit on the same
+   x. As separate flex rows each was only as wide as its own label and they staggered. ONE grid
+   over both rows (the labels `display: contents` into it) gives the labels a shared column that
+   ends where the counters begin — and it stays aligned in a locale with longer words, which a
+   fixed label width would not. Each Stepper carries its own `ariaLabel`, so it is named even
+   where a `display: contents` label is dropped from the accessibility tree. */
+.cv-row-controls.cv-counts { display: grid; grid-template-columns: auto max-content; align-items: center;
+  gap: 8px 10px; justify-content: end; width: 100%; }
+.cv-counts .cv-count-row { display: contents; }
+.cv-counts .cv-count-row > span { text-align: right; }
+.cv-matrow { display: flex; gap: 8px; }
+.cv-matrow .cv-input { flex: 1; min-width: 0; }
+.cv-amount { flex: 0 0 72px !important; text-align: center; }
+.cv-notes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px;
+  font: 500 13.5px var(--body); color: var(--ink-faint); }
+.cv-error { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: var(--r-ctl);
+  background: color-mix(in srgb, var(--red) 14%, transparent); color: var(--red); font: 600 13.5px var(--body);
+  flex-wrap: wrap; }
+.cv-error svg { width: 16px; height: 16px; flex: none; }
+.cv-error-text { flex: 1; min-width: 0; }
+.cv-retry { background: color-mix(in srgb, var(--red) 18%, transparent); color: var(--red); }
+.cv-row { display: grid; grid-template-columns: minmax(112px, 148px) 1fr; align-items: center;
+  gap: 8px 12px; font: 600 13.5px var(--body); color: var(--ink); }
+.cv-row > span:first-child { min-width: 0; }
+.cv-row-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.cv-row .cv-input { width: 100%; min-width: 0; }
+/* phones: the side label squeezed the input to half width (truncated placeholders,
+   fiddly targets) — stack label OVER a full-width, 48px/16px input instead. 16px also
+   stops iOS' focus auto-zoom. (Feedback 2026-07-18) */
+@media (max-width: 560px) {
+  .cv-row { grid-template-columns: 1fr; gap: 4px; }
+  .cv-row > span:first-child { font-size: 12.5px; color: var(--ink-dim); }
+  .cv-row .cv-input, .cv-acc .cv-input { min-height: 48px; font-size: 16px; }
+}
+/* the von/bis word before a person's time — the field's meaning flips with the status,
+   so SAY it instead of implying it (Feedback 2026-07-18) */
+/* fixed width so «von» and «bis» rows align — the tag sits between the flexible name
+   button and the time field; differing word widths would shift both per row */
+.cv-time-tag { flex: none; width: 28px; text-align: right; font: 700 13px var(--body); color: var(--ink-dim); }
+/* keep name + von/bis + time + Jetzt on one 360px row: tighter chrome inside the row */
+.cv-person-row .timefield { gap: 6px; }
+.cv-person-row .timefield-trigger { min-width: 64px; }
+
+/* 24h time / date-time fields: trigger buttons opening the wheel popover */
+.timefield { display: inline-flex; align-items: center; gap: 8px; }
+.timefield-trigger { min-width: 76px; min-height: 44px; padding: 4px 10px; text-align: center;
+  border-radius: var(--r-ctl); border: 1px solid var(--glass-line); background: var(--surface);
+  color: var(--ink); font: 600 14.5px var(--body); font-variant-numeric: tabular-nums; cursor: pointer; }
+.timefield-trigger.dt { min-width: 168px; }
+.timefield-trigger.empty { color: var(--ink-faint); font-weight: 500; }
+.timefield-trigger:disabled { opacity: var(--disabled); cursor: default; }
+.timefield-input { width: 82px; min-height: 44px; padding: 4px 8px; text-align: center;
+  border-radius: var(--r-ctl); border: 1px solid var(--glass-line); background: var(--surface);
+  color: var(--ink); font: 600 14.5px var(--body); font-variant-numeric: tabular-nums; }
+.timefield-input.dt { width: 176px; }
+.timefield-input::placeholder { color: var(--ink-faint); font-weight: 500; }
+.timefield-input:disabled { opacity: var(--disabled); }
+.timefield-now { min-height: 44px; padding: 6px 12px; border: 1px solid var(--glass-line);
+  border-radius: var(--r-sm); background: var(--surface); color: var(--ink);
+  font: 600 13px var(--body); cursor: pointer; }
+.timefield-now:disabled { opacity: var(--disabled); }
+
+/* the wheel popover: snap-scrolling columns under a fixed center band */
+.wheelpop { z-index: 1300; padding: 10px; border-radius: var(--r-ctl);
+  background: var(--surface); border: 1px solid var(--glass-line);
+  box-shadow: 0 12px 34px color-mix(in srgb, var(--ink) 22%, transparent); }
+.wheelpop-cols { position: relative; display: flex; gap: 4px; }
+/* 5 rows of 44px (ITEM_H in WheelPicker.tsx — pads/band derive from it: pad = (height−44)/2) */
+.wheel { height: 220px; flex: 1; overflow-y: auto; scroll-snap-type: y mandatory;
+  scrollbar-width: none; border-radius: var(--r-xs); position: relative; }
+.wheel::-webkit-scrollbar { display: none; }
+.wheel-pad { height: 88px; flex: none; }
+.wheel-item { display: grid; place-items: center; width: 100%; height: 44px;
+  scroll-snap-align: center; border: none; background: none; cursor: pointer;
+  /* --ink-dim, not --ink-faint: at night the faint tone is 3.64:1, and reading the numbers you are
+     NOT on yet is the entire job of this popover. */
+  font: 600 15px var(--body); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+.wheel-item.on { color: var(--ink); font-weight: 750; }
+.wheelpop-sep { width: 1px; background: var(--glass-line); margin: 28px 2px; }
+/* the SELECTION band of the time wheel — --blue for the same reason as .combo-toggle.on above:
+   it marks what is chosen, and brand red does not mean «chosen» anywhere else in the app */
+.wheelpop-band { position: absolute; left: 0; right: 0; top: 88px; height: 44px;
+  pointer-events: none; border-radius: var(--r-xs);
+  background: color-mix(in srgb, var(--blue) 10%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--blue) 40%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--blue) 40%, transparent); }
+.wheelpop-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 10px; }
+.wheelpop-actions .wheelpop-btn.clear { margin-right: auto; }
+.wheelpop-btn { min-height: 44px; padding: 6px 12px; border-radius: var(--r-sm);
+  border: 1px solid var(--glass-line); background: var(--surface); color: var(--ink);
+  font: 700 12.5px var(--body); cursor: pointer; white-space: nowrap; }
+.wheelpop-btn.clear { color: var(--red); border-color: color-mix(in srgb, var(--red) 40%, transparent); }
+.wheelpop-btn.clear svg { width: 14px; height: 14px; display: block; }
+.wheelpop-btn.primary { background: var(--btn-primary); border-color: var(--btn-primary); color: var(--on-btn-primary); }
+
+.cv-matgroup { display: flex; flex-direction: column; gap: 2px; }
+.cv-matgroup-head { font: 700 11.5px var(--body); letter-spacing: .04em; text-transform: uppercase;
+  color: var(--ink-faint); padding: 6px 0 2px; }
+.cv-mittel li.used .cv-mittel-label { color: var(--accent); font-weight: 700; }
+.cv-rueck { flex-wrap: wrap; }
+.cv-textarea { min-height: 64px; resize: vertical; width: 100%; box-sizing: border-box; }
+.cv-row.top { align-items: start; }
+.cv-row.top > span:first-child { padding-top: 12px; }
+.cv-subhead { font: 650 12px var(--body); color: var(--ink-dim); margin-top: 2px; }
+.cv-zgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px 14px; width: 100%; min-width: 0; }
+.cv-zrow { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; }
+.cv-zname { font: 600 12.5px var(--body); color: var(--ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cv-pdf { align-self: flex-start; margin-top: 4px; }
+/* cross-visibility QR ↔ KP: subtle live-dot line in the header (reassurance, not an alarm),
+   and the quiet secondary styling the output buttons take while the KP tablet is active */
+.cv-kp-live { display: flex; align-items: center; gap: 6px; margin: 3px 0 0;
+  font: 600 12.5px var(--body); color: var(--green-strong); }
+.cv-kp-dot { width: 8px; height: 8px; border-radius: 50%; flex: none;
+  background: var(--green); animation: p 2.4s infinite; }
+.cv-btn.cv-quiet { background: var(--surface-veil); color: var(--ink-dim); font-weight: 600; }
+/* modal confirm (Ausdrucken / Rapport-PDF): solid + taller than Abbrechen — the decision
+   button carries the visual weight */
+.cv-btn.cv-primary { min-height: 52px; padding: 8px 20px; background: var(--btn-primary);
+  color: var(--on-btn-primary); font-weight: 700; }
+/* KP-aktiv notice at the print/PDF decision: green live-tint box, clearer than a faint hint */
+.cv-modal-kp { display: flex; align-items: center; gap: 8px; margin: 0; padding: 10px 12px;
+  border-radius: var(--r-ctl); font: 600 13.5px var(--body); color: var(--ink);
+  background: color-mix(in srgb, var(--green) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--green) 35%, transparent); }
+/* tablet-side mirror: QR-usage chip on the QR-writable surfaces (Anwesenheit / Mittel /
+   Einsatzrapport headers) — informational only, neutral tone (not a warning) */
+.capture-usage-chip { display: inline-flex; align-items: center; padding: 3px 10px; flex: none;
+  border-radius: 999px; border: 1px solid var(--glass-line); background: var(--surface-veil);
+  font: 600 12.5px var(--body); color: var(--ink-dim); white-space: nowrap; }
+/* in the Rapport sheet the chip leads the Anwesenheit/Mittel checklist (not the title row) */
+.rp-checks .capture-usage-chip { align-self: flex-start; }
+/* output bar: plain flow at the page end — sticky ate too much of a small phone screen */
+.cv-pdfbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding-bottom: env(safe-area-inset-bottom); }
+.cv-abschluss { display: flex; flex-direction: column; gap: 10px; padding: 14px; }
+.cv-rueck-name { flex: 1; min-width: 180px; }
+
+/* accordion sections: all three headers visible at once — nothing hides below a scroll */
+.cv-acc { display: flex; flex-direction: column; gap: 10px; }
+/* ONE global scroll (no nested list scroll): the card must NOT clip (overflow kills
+   position:sticky), so the card look lives on head+body instead of the section */
+/* gap: 0 — the base .cv-card's 10px gutter pushed the head off its own body, so an open
+   section read as a floating title above an unrelated block instead of one card */
+.cv-acc-card { padding: 0; gap: 0; overflow: visible; background: none; }
+.cv-acc-head { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 56px; padding: 10px 14px;
+  border: none; color: var(--ink); cursor: pointer; text-align: left; border-radius: var(--r-ctl);
+  /* pins right under the page header while its (long) section is open — collapsing or
+     jumping back is always one tap; same glass treatment as .cv-head for the stuck state */
+  position: sticky; top: calc(var(--cv-head-h, 64px) - 1px); z-index: 4;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+/* open = the body's own surface, no seam: the head IS the top of the card it opened. The
+   opaque base stays under the veil so the sticky head never goes see-through mid-scroll. */
+.cv-acc-head.on { border-radius: var(--r-ctl) var(--r-ctl) 0 0;
+  background: linear-gradient(var(--surface-veil), var(--surface-veil)), var(--surface); }
+.cv-acc-label { font: 700 15.5px var(--body); flex: none; }
+.cv-acc-sub { flex: 1; min-width: 0; font: 500 13px var(--body); color: var(--ink-faint); text-align: right;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cv-acc-head svg { flex: none; width: 15px; height: 15px; color: var(--ink-faint); }
+.cv-acc-body { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 14px; min-width: 0;
+  background: var(--surface-veil); border-radius: 0 0 var(--r-ctl) var(--r-ctl); }
+.cv-acc-body > * { max-width: 100%; min-width: 0; }
+/* «Wer erfasst?» + confirm modal — fronts Rapport-PDF and Ausdrucken (no accidental paper) */
+.cv-modal-ovl { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 18px;
+  background: color-mix(in srgb, var(--ink) 28%, transparent); }
+.cv-modal { width: min(420px, 100%); gap: 12px; background: var(--surface); box-shadow: var(--shadow);
+  max-height: 90dvh; overflow-y: auto; }
+.cv-modal-who { display: flex; align-items: center; gap: 10px; }
+.cv-modal-who > span { flex: none; font: 700 13.5px var(--body); color: var(--ink); }
+.cv-modal-who > :last-child { flex: 1; min-width: 0; }
+.cv-modal-warn { color: var(--amber-strong); display: flex; align-items: center; gap: 6px; }
+.cv-modal-warn svg { width: 14px; height: 14px; flex: none; }
+.cv-modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 2px; }
+
+/* native selects styled like the rest of the inputs (default chrome looked foreign) */
+select.cv-input { appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23848c99' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px; }
+
+/* person row + after-the-fact time refinement (gegangen is not locked to "now") */
+.cv-person-row { display: flex; align-items: center; gap: 8px; }
+.cv-person-row .cv-person { flex: 1; min-width: 0; }
+.cv-person-time { flex: none; }
+.cv-person-times { display: flex; align-items: center; gap: 6px; padding: 0 2px 2px 10px;
+  font: 500 12.5px var(--body); color: var(--ink-faint); }
+.cv-person-times input[type="time"] { width: 106px; font-variant-numeric: tabular-nums; min-height: 40px; padding: 4px 6px; border-radius: var(--r-ctl);
+  border: 1px solid var(--glass-line); background: var(--surface); color: var(--ink); font: 500 13.5px var(--body); }
+.cv-ende input[type="time"] { width: 112px; font-variant-numeric: tabular-nums; min-height: 44px; padding: 4px 8px; border-radius: var(--r-ctl);
+  border: 1px solid var(--glass-line); background: var(--surface); color: var(--ink); font: 500 14px var(--body); }
+.cv-ende > span:first-child { flex: none; font: 600 13.5px var(--body); color: var(--ink); min-width: 92px; }
+.cv-ende .cv-input { flex: 1; min-width: 0; }
+
+/* the Rapport surface's action row wraps instead of overflowing on phones */
+.report-preflight .ip-actions { flex-wrap: wrap; }
+/* ONE height and ONE corner for the whole row, the rule `.headActions` follows on Anwesenheit and
+   Mittel. `.ip-btn` derives its height from padding and lands around 37px — under the 44px floor a
+   gloved finger needs, on the row that makes paper. Levelled UP with min-height, never down:
+   «Ausdrucken» grows a second line when the relay is offline and must be allowed to be taller
+   than its neighbours rather than swallowing the reason it is taller. */
+.report-preflight .ip-actions .ip-btn { flex: 1 1 auto; justify-content: center;
+  min-height: var(--tap); border-radius: var(--r-sm); }
+/* the Rapport sheet is tall: pin the header so the title + ✕ stay reachable and scroll only
+   the body — flex pinning like .ctx, not position:sticky (sticky inside the blurred sheet
+   drifts on iOS) */
+.report-preflight { display: flex; flex-direction: column; overflow: hidden; }
+/* The Rapport as a SURFACE — same geometry every other full surface uses (Mittel, Anwesenheit,
+   Atemschutz), so the rail stays put and the page changes underneath it. It carries the
+   .report-preflight rules above by sharing the class, which is why those keep working. */
+.rp-backdrop { position: fixed; inset: 0; background: var(--app-bg); z-index: 19; }
+.report-preflight-surface {
+  position: absolute; inset: 88px 16px 16px calc(var(--rail-w) + 28px); z-index: 20;
+  display: flex; flex-direction: column;
+  background: var(--app-bg); border-radius: var(--r-surface); overflow: hidden; box-shadow: var(--shadow);
+}
+/* The head of a SURFACE, not of a dialog: the shell Anwesenheit and Mittel share — a title with a
+   one-line read-out under it on the left, controls levelled to --tap on the right. It wore
+   `.ip-head` (a bare 19px title and an ✕) because it used to be a sheet, and that made the one
+   page you arrive at from three different places the only one that did not look like the others.
+   Same paddings/typography as .head in Anwesenheit.module.css — kept here rather than moved into
+   a module because every other class on this surface already lives in app.css. */
+/* ⚠️ The head WRAPS. Four controls plus their gaps want ~756px; on a 1024px iPad in portrait —
+   a primary orientation — the head has 876px of content box, and the title was handed 104px of
+   it. `.rp-head-actions` was `flex: none`, which pins a flex item at its max-content width and
+   makes its own `flex-wrap` unreachable: nothing could ever constrain it enough to wrap. So the
+   overflow came out of the title instead, which has `min-width: 0` and an `<h2>` that did not
+   truncate — the text painted straight out of its collapsed box and the readiness chip, a later
+   sibling with its own background, painted on top of it. The ▾ half of the print button then
+   fell off the surface's right edge, which IS clipped (`overflow: hidden`).
+   The fix is three parts and they only work together: the titles get a real flex BASIS so the
+   actions are asked to wrap before the title is squeezed to nothing, the actions may shrink, and
+   the head itself may become two rows. A second row costs ~52px of a surface that scrolls; a
+   clipped print button costs the paper. */
+.rp-head { flex: none; display: flex; align-items: center; gap: 12px 16px; flex-wrap: wrap;
+  padding: 16px 22px;
+  background: var(--surface); border-bottom: 1px solid var(--glass-edge); }
+.rp-head-titles { flex: 1 1 240px; min-width: 0; }
+/* it truncates, exactly as the line under it always did — an <h2> that does not is an <h2> that
+   paints over whatever is beside it */
+.rp-head-titles h2 { margin: 0; font: 800 19px var(--body); color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* ⚠️ It WRAPS now. Truncating this line meant truncating the missing steps, because they sit
+   at its end — «noch offen: Kurzberi…» hides the one thing the line exists to say. The
+   counts stay a single read-out; the open steps are chips that take a second row when they
+   need one, which on a head that is already allowed to wrap costs nothing. */
+.rp-head-sum { margin: 4px 0 0; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px;
+  font-size: 12.5px; color: var(--ink-dim); min-width: 0; }
+.rp-head-counts { white-space: nowrap; }
+.rp-head-done { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.rp-head-done svg { width: 13px; height: 13px; }
+/* Amber, not red: nothing here is wrong, it is simply not written yet — and --accent is the
+   brand red and never means state. The label is the quiet one, the fields are what is read. */
+.rp-head-open { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; min-width: 0; }
+.rp-head-open-k { color: var(--ink-faint); }
+.rp-head-open em { font-style: normal; font-weight: 700; padding: 1px 7px; border-radius: var(--r-pill);
+  color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 14%, transparent); }
+.rp-head-actions { flex: 0 1 auto; min-width: 0; margin-left: auto;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+/* Each control keeps its own width when the cluster wraps — only the print split may give, and
+   it gives by truncating its label, never by dropping its ▾. The readiness chip is NOT allowed
+   to become icon-only here: it is the one control on this row that reports a problem, and the
+   whole point of putting it beside the button that makes paper is that it can be READ. */
+.rp-head-actions > :not(.rp-split) { flex: none; }
+/* ONE height and ONE corner for every control on this row — the same rule the Anwesenheit head
+   states: --tap is the floor a finger needs, so nothing shrinks to meet its neighbours. */
+/* ⚠️ NOT a child combinator. The chip gained a positioning wrapper when its popover was
+   anchored to it, which silently took it out of this rule — it kept its own padding and lost the
+   row's height and corner, so it sat short and square between two tall rounded buttons. The one
+   rule that levels this row must match the control wherever it is nested. */
+.rp-head-actions .ip-btn, .rp-head-actions .rp-state {
+  min-height: var(--tap); border-radius: var(--r-sm);
+}
+/* The print action as a SPLIT button: press it and it prints, or take the ▾ for the same print
+   and the way into «Abschnitte». ONE flex item, so the row's wrap at ≤720px carries the pair
+   down together — an arrow that has wrapped away from its button belongs to nothing. The rule
+   above levels both halves (it matches however deep they sit); what is overridden here is only
+   the SEAM between them, and that is what says this is one control rather than two that happen
+   to touch. The outer silhouette keeps the row's --r-sm. */
+.rp-split { display: inline-flex; align-items: stretch; min-width: 0; max-width: 100%; }
+.rp-split .rp-split-main { min-width: 0; border-top-right-radius: 0; border-bottom-right-radius: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-split .rp-split-more { flex: none; width: var(--tap); padding: 0; justify-content: center;
+  border-top-left-radius: 0; border-bottom-left-radius: 0;
+  border-left: 1px solid color-mix(in srgb, var(--on-btn-primary) 35%, transparent); }
+.rp-print-menu { min-width: 240px; max-width: min(340px, 92vw); padding: 6px; border-radius: var(--r-ctl);
+  background: var(--surface); box-shadow: var(--shadow); border: 1px solid var(--glass-edge); z-index: 60; }
+.rp-print-menu-item { display: flex; align-items: center; gap: 10px; width: 100%; min-height: var(--tap);
+  padding: 8px 11px; border-radius: var(--r-sm); cursor: pointer; outline: none;
+  font: 600 13.5px var(--body); color: var(--ink); }
+.rp-print-menu-item[data-highlighted] { background: color-mix(in srgb, var(--ink) 8%, transparent); }
+.rp-print-menu-item[data-disabled] { opacity: var(--disabled); }
+/* Shared menu parts (see lib/overlays · Menu). The indicator keeps its BOX whether or not it is
+   ticked — `keepMounted` plus a hidden tick — so the labels in a checkbox menu line up in one
+   column instead of shifting sideways as things are switched on and off. */
+.ui-menu-sep { height: 1px; margin: 5px 8px; background: var(--glass-edge); }
+.ui-menu-head { padding: 6px 10px 3px; font: 700 10.5px var(--body); letter-spacing: .08em;
+  text-transform: uppercase; color: var(--ink-faint); }
+.ui-menu-check { flex: none; display: grid; place-items: center; width: 17px; height: 17px;
+  border-radius: 4px; border: 1.5px solid var(--border-strong, var(--border)); }
+.ui-menu-check svg { width: 12px; height: 12px; fill: none; stroke: var(--surface); stroke-width: 3;
+  stroke-linecap: round; stroke-linejoin: round; opacity: 0; }
+[data-checked] > .ui-menu-check { background: var(--blue); border-color: var(--blue); }
+[data-checked] > .ui-menu-check svg { opacity: 1; }
+.rp-print-menu-item[data-disabled] { opacity: var(--disabled); cursor: default; }
+.rp-print-menu-item svg { width: 16px; height: 16px; flex: none; opacity: .65; }
+/* The readiness chip. It OPENS the detail band rather than being decoration, so it is a button,
+   and it counts what is wrong instead of saying «Kontrolle» — «2 Hinweise» is actionable, a
+   section name is not. Amber, never --accent: --accent is the brand red and must not mean state. */
+/* Same material as the buttons it stands in line with — .ip-btn is `--surface` on `--glass-edge`.
+   On `--surface-2` + `--border` the chip read as a slightly translucent hole between two solid
+   buttons; the row levelled height and corner but never the surface. */
+.rp-state { display: inline-flex; align-items: center; gap: 7px; padding: 0 12px; cursor: pointer;
+  border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink-dim);
+  font: 700 12.5px var(--body); }
+.rp-state svg { width: 15px; height: 15px; }
+.rp-state.ok { color: var(--green-strong); border-color: color-mix(in srgb, var(--green) 35%, transparent); }
+.rp-state.warn { color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 45%, transparent);
+  background: color-mix(in srgb, var(--amber) 10%, var(--surface)); }
+/* The Kontrolle detail as a POPOVER on its chip. A band across the page pushed the form down
+   every time anything was amiss, for a handful of lines about the record; anchored here, «what is
+   wrong» and «the thing that told me» are one object. The chip stays amber and counts, so a
+   warning reaches the operator whether or not this is open. */
+.rp-control-scrim { position: fixed; inset: 0; z-index: 40; }
+/* Anchored to the CHIP, not to the head's right edge. Hanging off the edge it opened level with
+   the PDF button, half a header away from the control it belongs to, and read as a panel that
+   happened to appear. */
+.rp-state-wrap { position: relative; display: inline-flex; }
+.rp-control { position: absolute; top: calc(100% + 6px); left: 0; z-index: 41;
+  width: min(380px, calc(100vw - 32px)); display: flex; flex-direction: column; gap: 6px;
+  padding: 12px 14px; border-radius: var(--r-ctl);
+  background: var(--surface); border: 1px solid var(--glass-edge); box-shadow: var(--shadow);
+  max-height: 46vh; overflow-y: auto; }
+/* ⚠️ This popover is NOT portalled (the print menu beside it is, via overlays · Menu), so it is
+   clipped by the surface's own `overflow: hidden`. Hanging 380px to the RIGHT of a chip that has
+   itself been pushed right by the wrapped action row, it loses its last lines off the surface
+   edge — the pending-uploads warning among them. Once the head can wrap, open it leftwards. */
+@media (max-width: 1080px) { .rp-control { left: auto; right: 0; } }
+/* the head must not clip the popover hanging out of it */
+.rp-head { position: relative; overflow: visible; }
+/* the ✕ is a control on this row, so it obeys the row's floor — .ip-x is a 30px dialog affordance
+   and this is a page you leave with gloves on */
+.rp-head .ip-x { display: grid; place-items: center; width: var(--tap); height: var(--tap); }
+/* Content padding matches the head's 22px, so the cards line up with the title above them
+   (`.ip-body`'s own 6px/20px is a dialog's, and left the first card glued to the head border).
+   The bottom clears the FAB the way Anwesenheit, Mittel, Atemschutz, Checklists and Zeitplan all
+   already do — `--fab-safe` is 0px when no FAB is on screen, so this is inert on a tablet. */
+.report-preflight-surface > .ip-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable;
+  padding: 14px 22px calc(22px + var(--fab-safe, 0px)); }
+/* The actions live in the HEAD with the other surfaces' controls, and the readiness chip rides
+   with them — a warning about the record has to be in the same glance as the button that makes
+   the paper. The old pinned footer is gone with them. */
+/* TWO columns of a rapport (see the component for what goes in which and why). Each column is
+   its own stack, so the single-column phone case is simply the two of them below one another —
+   the DOM order, which is the printed order, is the same either way. */
+.report-preflight-body > .rp-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+/* 1080px = an iPad in landscape, the narrowest screen where two columns of ~460px still fit
+   beside the rail. Below it the surface stays the single column it is on a phone. */
+@media (min-width: 1080px) {
+  .report-preflight-surface > .report-preflight-body {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px;
+    /* start, not stretch: the two columns are different lengths and neither should be padded
+       out to the other's height — the checklist would grow a hole under its last row */
+    align-items: start;
+  }
+}
+/* ⚠️ 600px, not 720px — the width every OTHER surface switches at (Anwesenheit, Mittel,
+   Atemschutz), and the width `useIsPhone` itself uses. At 720 the Rapport was alone in taking the
+   phone inset while the NavRail stays a vertical rail down to 600, so through the whole 601–720px
+   band (iPad Split View, a landscape phone) the page ran edge-to-edge UNDER a floating rail that
+   covered its own title — neither a sidebar layout nor a bottom-bar one. One breakpoint governs
+   the lot now: above it the rail is at the left and the surfaces leave room for it, below it the
+   rail is a bottom bar and the surfaces take the full width. */
+@media (max-width: 600px) {
+  .report-preflight-surface { inset: calc(78px + env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
+    calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
+}
+/* Phone: the cards get the width Anwesenheit's rows get. 22px of body padding plus 16px of card
+   padding put the content 38px in from each edge — on a 390px screen that is a fifth of the
+   screen spent on margin, and the rapport visibly ran narrower than the surface beside it in the
+   rail. Anwesenheit's grid is at 14px here, so this is. */
+/* ⚠️ Icons from the two-column breakpoint DOWN, not only on a phone. Three labelled buttons want
+   ~600px, so anywhere below ~1080 the head wrapped them onto a second row — and the surface that
+   is one column below 1080 is exactly the one that has no width to spare. The split is clean:
+   two columns and words, or one column and a toolbar. The naming survives in aria-label/title
+   (see the component); what is dropped is a word the surface's own title already says. Square,
+   so they read as a toolbar rather than as buttons whose text failed to load. */
+@media (max-width: 1080px) {
+  .rp-head-actions .rp-btn-label { display: none; }
+  .rp-head-actions .ip-btn { width: var(--tap); padding: 0; justify-content: center; }
+  .rp-head-actions .rp-split .rp-split-main { width: var(--tap); }
+  /* «Ausdrucken» keeps its offline reason, so it is the one that may stay wider than a square */
+  .rp-head-actions .ip-btn.print-send.offline { width: auto; padding: 0 10px; }
+  .rp-head-actions .print-send-main { gap: 5px; }
+}
+@media (max-width: 600px) {
+  .rp-head { padding: 10px 14px; gap: 10px 12px; }
+  .report-preflight-surface > .ip-body { padding: 12px 14px calc(16px + var(--fab-safe, 0px)); }
+  .report-pre-section { padding: 12px 13px; }
+
+}
+.report-preflight > .ip-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+
+.ip-ds-note { font: 500 11px var(--mono); color: var(--ink-faint); margin-top: 3px; }
+/* Datenquellen: collapsible groups + search so the 150+ object list stays manageable */
+.ip-group { margin: 8px 0 2px; }
+.ip-group > :not(summary) { margin-top: 6px; }
+.ip-group-head, summary.ip-group-head { display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none;
+  font: 700 12px var(--body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-faint); padding: 8px 2px; user-select: none; }
+summary.ip-group-head::-webkit-details-marker { display: none; }
+summary.ip-group-head::before { content: '▸'; font-size: 10px; transition: transform .15s var(--ease); color: var(--ink-faint); }
+details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
+.ip-objects-head { cursor: default; margin-top: 10px; }
+.ip-group-count { font-weight: 600; color: var(--ink-faint); text-transform: none; letter-spacing: 0; }
+/* section subhead = the shared uppercase eyebrow (.ctx-section-label spec), not a blue sentence-case one-off */
+.ip-sub2 { margin: 8px 0 2px; font: 700 11px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-dim); }
+.ip-search { width: 100%; box-sizing: border-box; margin: 4px 0 6px; padding: 9px 12px; border: 1px solid var(--glass-edge);
+  border-radius: var(--r-ctl); background: var(--surface); font: 500 13px var(--body); color: var(--ink); }
+/* "Neue Geo-Ebene" form: a small card under the global datasets list */
+.ip-addlayer { margin-top: 6px; padding: 10px; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
+  background: color-mix(in srgb, var(--surface) 70%, transparent); display: flex; flex-direction: column; gap: 6px; }
+.ip-addlayer .ip-search { margin: 0; }
+.ip-addlayer-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ip-addlayer-row select { flex: 1 1 auto; min-height: 38px; padding: 7px 10px; border: 1px solid var(--glass-edge);
+  border-radius: var(--r-ctl); background: var(--surface); font: 500 13px var(--body); color: var(--ink); }
+.ip-addlayer-row input[type="color"] { width: 38px; height: 38px; padding: 2px; border: 1px solid var(--glass-edge);
+  border-radius: var(--r-ctl); background: var(--surface); cursor: pointer; }
+.ip-ds-compact { padding: 8px 10px; }
+.ip-ds-compact .ip-ds-title { font-size: 13.5px; }
+.ip-ds-dist { color: var(--blue); font-weight: 600; }
+/* --- Einsatz eröffnen wizard --- */
+.ip-ix-head { margin: 4px 0 -2px; font: 700 11px var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
+/* «Hier» (GPS) is the primary method on its own full-width row; the two fallbacks share
+   the row below — three-in-a-row clipped «Objekt aus Feuerwehrplänen» and wrapped «Auf
+   Karte setzen» onto three lines on phones */
+.ip-ix-methods { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ip-ix-methods .ip-btn { justify-content: center; min-width: 0; }
+.ip-ix-methods .ip-btn:first-child { grid-column: 1 / -1; }
+.ip-btn.on { background: var(--blue); color: var(--on-fill); border-color: var(--blue); }
+
+/* address autocomplete */
+.ip-ac { position: relative; }
+.ip-ac-menu { position: absolute; top: 100%; left: 0; right: 0; z-index: 5; margin-top: 4px;
+  max-height: 220px; overflow-y: auto; background: var(--surface); border: 1px solid var(--glass-edge);
+  border-radius: var(--r-ctl); box-shadow: var(--shadow); padding: 4px; }
+.ip-ac-row { display: flex; align-items: center; gap: 9px; width: 100%; padding: 9px 10px; border: none;
+  background: none; cursor: pointer; text-align: left; border-radius: var(--r-ctl);
+  font: 500 13.5px var(--body); color: var(--ink); }
+.ip-ac-row:hover { background: var(--hover-strong); }
+.ip-ac-row svg { width: 15px; height: 15px; flex: none; color: var(--ink-faint); }
+.ip-ac-note { padding: 9px 10px; font: 500 12.5px var(--body); color: var(--ink-faint); }
+/* terse transient "no matches" note, centered for a filtered list/grid destination */
+.ip-ac-note-center { text-align: center; padding: 18px 12px; }
+
+/* object library picker */
+.ip-objpick { border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); padding: 6px 8px; background: var(--surface-2); }
+.ip-objlist { max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.ip-objgroup { font: 700 10.5px var(--body); letter-spacing: .05em; text-transform: uppercase; color: var(--ink-faint); padding: 6px 8px 2px; }
+.ip-objrow { display: flex; width: 100%; padding: 8px 10px; border: none; background: none; cursor: pointer;
+  text-align: left; border-radius: var(--r-ctl); }
+.ip-objrow:hover { background: var(--hover-strong); }
+.ip-objrow-main { display: flex; flex-direction: column; min-width: 0; }
+.ip-objrow-name { font: 600 13.5px var(--body); color: var(--ink); }
+.ip-objrow-dist { color: var(--blue); font-weight: 600; }
+.ip-objrow-sub { font: 500 12px var(--body); color: var(--ink-faint); margin-top: 1px; }
+
+/* resolved-location line — a QUIET one-line hint, not a boxed warning (the dashed
+   mono-font box read louder than the actual inputs; cleanup 2026-07-15) */
+.ip-loc { display: flex; align-items: center; gap: 7px; padding: 2px 2px;
+  color: var(--ink-faint); font: 500 12.5px var(--body); }
+.ip-loc.set { color: var(--ink-dim); }
+.ip-loc svg { width: 15px; height: 15px; flex: none; }
+.ip-loc.set svg { color: var(--blue); }
+.ip-loc-txt { flex: 1; min-width: 0; }
+.ip-loc-clear { display: grid; place-items: center; border: none; background: none; cursor: pointer;
+  color: var(--ink-faint); padding: 2px; border-radius: var(--r-sm); }
+.ip-loc-clear:hover { background: var(--hover-strong); color: var(--ink); }
+.ip-loc-clear svg { width: 15px; height: 15px; }
+
+/* category chips */
+.ip-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ip-chip { padding: 8px 12px; border: 1px solid var(--glass-edge); border-radius: var(--r-pill); background: var(--surface);
+  cursor: pointer; font: 600 13px var(--body); color: var(--ink-dim); }
+.ip-chip:hover { background: var(--hover-strong); }
+.ip-chip.on { background: var(--blue); color: var(--on-fill); border-color: var(--blue); }
+
+.ip-textarea { padding: 11px 12px; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
+  background: var(--surface); font: 500 15px var(--body); color: var(--ink); resize: vertical; }
+
+.ip-emptyapp { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px;
+  background: var(--app-bg);
+  /* the card can outgrow a phone viewport (recent list + actions + footer) — the grid
+     track takes the card's height and the page scrolls instead of clipping */
+  overflow-y: auto; overscroll-behavior: contain; }
+/* min-width: 0 + max-width cap: as a GRID item the card's automatic minimum is its
+   min-content, and a long nowrap alarm address blew it past the phone viewport (the
+   width property loses to the automatic minimum — landing screen, 2026-07-15) */
+.ip-emptyapp-card { width: min(408px, 100%); min-width: 0; max-width: 100%; background: var(--glass); border: 1px solid var(--glass-line);
+  box-shadow: var(--shadow); border-radius: var(--r-hero); padding: 30px 28px 22px; text-align: left;
+  backdrop-filter: blur(14px) saturate(1.4); animation: pop .3s var(--ease); }
+.ip-emptyapp-brand { gap: 15px; padding-bottom: 22px; margin-bottom: 24px;
+  border-bottom: 1px solid var(--glass-edge); }
+.ip-emptyapp-brand .login-sub { font-family: var(--body); font-size: 12.5px; font-weight: 600; color: var(--ink-dim); letter-spacing: 0; }
+.ip-emptyapp-card h1 { margin: 0 0 8px; font: 700 21px var(--body); letter-spacing: -.01em; color: var(--ink); }
+.ip-emptyapp-card p { margin: 0 0 22px; max-width: 34ch; color: var(--ink-dim); font: 500 14.5px var(--body); line-height: 1.45; }
+.ip-emptyapp-none { margin: 0 0 18px; color: var(--ink-dim); font: 500 14.5px var(--body); line-height: 1.45; }
+
+/* landing launcher: open Einsätze + Divera alarms listed directly, each a tappable row */
+.ip-launch-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;
+  max-height: 46vh; overflow-y: auto; }
+.ip-launch { display: flex; align-items: center; gap: 11px; width: 100%; text-align: left;
+  padding: 12px 13px; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
+  background: var(--surface); cursor: pointer; color: var(--ink); }
+.ip-launch:hover { background: var(--hover-strong); }
+.ip-launch:disabled { opacity: var(--disabled); cursor: default; }
+.ip-launch > svg { width: 17px; height: 17px; flex: none; color: var(--ink-faint); }
+.ip-launch-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.ip-launch-title { font: 600 15px var(--body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ip-launch-sub { font: 500 12.5px var(--body); color: var(--ink-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Divera-alarm row: red kicker + pulse to read as the loud, fresh thing */
+.ip-launch.alarm { border-color: color-mix(in srgb, var(--red) 35%, var(--glass-edge)); }
+.ip-launch-kicker { font: 800 10px var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--red); }
+.ip-launch-pulse { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%;
+  background: color-mix(in srgb, var(--red) 14%, transparent); color: var(--red); }
+.ip-launch-pulse svg { width: 16px; height: 16px; }
+.ip-launch-go { flex: none; font: 700 12.5px var(--body); color: var(--red); padding-left: 6px; }
+/* the alarm card splits into take-button + pool-archive × (the intake sheet is gone),
+   so the row drops its own padding/cursor onto the inner hit areas */
+.ip-launch.alarm { padding: 0; cursor: default; display: flex; align-items: stretch; gap: 0; }
+.ip-launch-hit { display: flex; align-items: center; gap: 11px; flex: 1; min-width: 0; text-align: left;
+  padding: 12px 4px 12px 13px; border: none; background: none; cursor: pointer; color: inherit;
+  border-radius: inherit; font: inherit; }
+.ip-launch-hit:disabled { opacity: var(--disabled); cursor: default; }
+.ip-launch-x { flex: none; display: grid; place-items: center; width: 44px; border: none; background: none;
+  cursor: pointer; color: var(--ink-faint); border-radius: inherit; }
+.ip-launch-x:hover { color: var(--ink); background: var(--hover-strong); }
+.ip-launch-x svg { width: 16px; height: 16px; }
+.ip-emptyapp-actions { display: flex; flex-direction: column; gap: 10px; }
+.ip-emptyapp-secondary { display: flex; gap: 10px; }
+.ip-emptyapp-secondary .ip-btn { flex: 1; justify-content: center; }
+.ip-btn.block { justify-content: center; padding: 13px 16px; }
+/* keep the empty-state CTAs flush-left with the headline rather than centered (full-width, left label) */
+.ip-emptyapp-actions .ip-btn { justify-content: flex-start; }
+.ip-emptyapp-foot { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--glass-edge);
+  display: flex; flex-direction: column; gap: 8px; }
+/* identity card reuses the in-incident menu classes (ip-menu-user/-av/-userinfo) so both
+   surfaces render "who am I" identically; only spacing differs in the card footer */
+.ip-emptyapp-foot .ip-menu-user { padding: 0 2px; }
+.ip-foot-logout { display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; border: none; border-radius: var(--r-sm);
+  background: none; cursor: pointer; font: 600 13px var(--body); color: var(--ink-faint);
+  transition: background .14s var(--ease), color .14s var(--ease); }
+.ip-foot-logout:hover { background: color-mix(in srgb, var(--red) 10%, transparent); color: var(--red); }
+.ip-foot-logout .i { width: 15px; height: 15px; }
+.ip-emptyapp-utils { display: flex; flex-wrap: wrap; gap: 2px; margin-left: -6px; }
+.ip-foot-util { display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; border: none; border-radius: var(--r-sm);
+  background: none; cursor: pointer; font: 600 13px var(--body); color: var(--ink-dim);
+  transition: background .14s var(--ease), color .14s var(--ease); }
+.ip-foot-util:hover { background: var(--hover-strong); color: var(--ink); }
+.ip-foot-util .i { width: 15px; height: 15px; color: var(--ink-faint); }
+.ip-emptyapp-ver { margin-top: 14px; text-align: left; font: 600 10.5px var(--mono, var(--body));
+  letter-spacing: .02em; color: var(--ink-faint); }

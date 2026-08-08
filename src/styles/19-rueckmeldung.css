@@ -1,0 +1,115 @@
+/* --- Rückmeldung: launcher prompt + composer ------------------------------------------
+   The prompt renders on the LAUNCHER only, never over an open incident — see lib/trouble.
+   Styled as a calm card, not an alert: nothing here is urgent, and something that looks
+   urgent on a command tablet costs attention that belongs to the Einsatz. */
+.fb-prompt { display: flex; flex-direction: column; gap: 8px; width: 100%; padding: 12px 14px;
+  border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--fill-soft); }
+.fb-prompt-head { display: flex; align-items: center; gap: 8px; color: var(--ink-dim); }
+.fb-prompt-head svg { width: 15px; height: 15px; flex: none; }
+.fb-prompt-kicker { font: 700 11px var(--body); text-transform: uppercase; letter-spacing: .06em; }
+.fb-prompt-what { font: 600 11px var(--body); color: var(--ink-faint); margin-left: auto;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fb-prompt-q { margin: 0; font: 600 14px var(--body); color: var(--ink); }
+.fb-prompt-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+
+.fb-sheet { display: flex; flex-direction: column; gap: 12px; }
+.fb-q { margin: 0; font: 700 15px var(--body); color: var(--ink); }
+.fb-intro { margin: 0; font: 400 13px var(--body); color: var(--ink-dim); }
+.fb-input { width: 100%; min-height: 110px; padding: 10px 12px; resize: vertical;
+  border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface);
+  color: var(--ink); font: 400 14px var(--body); }
+/* --blue, not --accent: focus is a system signal, not brand. A station whose accent is its own
+   red would otherwise ring this one field in the danger colour. */
+.fb-input:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+/* Character count, shown only in the last tenth before the server's cap. Tabular so it doesn't
+   jitter while typing. */
+.fb-count { margin: -6px 0 0; text-align: right; font: 400 12px var(--body);
+  color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+/* «Das wird mitgeschickt» is OPEN by default — the promise that nothing else leaves the device
+   is only credible if the operator can read the whole block while deciding, not after. */
+.fb-tech > summary { cursor: pointer; font: 600 12.5px var(--body); color: var(--ink-dim);
+  min-height: 44px; display: flex; align-items: center; }
+.fb-tech-block { margin: 4px 0 0; padding: 10px 12px; overflow-x: auto;
+  border-radius: var(--r-sm); background: var(--fill-soft); color: var(--ink-dim);
+  font: 400 12px/1.6 var(--mono, ui-monospace, monospace); white-space: pre; }
+.fb-tech-note { margin: 6px 0 0; font: 400 12px var(--body); color: var(--ink-faint); }
+/* Foto anhängen — the one binary a Rückmeldung may carry, and the only part of the payload no
+   scrubber can read. It sits directly under «Das wird mitgeschickt» because that is what it is:
+   a thumbnail the operator can recognise before deciding, not a filename they have to trust. */
+.fb-photos { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: -4px 0 0; }
+.fb-photo { position: relative; margin: 0; width: 96px; height: 96px; overflow: hidden;
+  border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--fill-soft); }
+.fb-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+/* 44px target as everywhere else, but only the 24px chip inside it paints — a remove button
+   that covered a quarter of the thumbnail would hide the thing it is asking about. */
+.fb-photo-x { position: absolute; top: 0; right: 0; width: 44px; height: 44px; display: grid;
+  place-items: center; padding: 0; border: 0; background: none; cursor: pointer; color: var(--ink); }
+.fb-photo-x svg { width: 14px; height: 14px; padding: 5px; border-radius: 50%;
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  box-shadow: 0 1px 3px color-mix(in srgb, #000 28%, transparent); }
+.fb-photo-x:focus-visible { outline: 2px solid var(--blue); outline-offset: -6px; border-radius: var(--r-sm); }
+/* The label IS the button (same trick as .report-att-add) — the input only has to be reachable. */
+.fb-photo-add { position: relative; display: inline-flex; align-items: center; gap: 6px;
+  min-height: 44px; padding: 0 12px; cursor: pointer; border: 1px dashed var(--glass-edge);
+  border-radius: var(--r-sm); color: var(--ink-dim); font: 700 12.5px var(--body); }
+.fb-photo-add:hover { background: var(--fill-soft); color: var(--ink); }
+.fb-photo-add:focus-within { outline: 2px solid var(--blue); outline-offset: 1px; }
+.fb-photo-add svg { width: 14px; height: 14px; flex: none; }
+/* Off-screen rather than display:none, so the control keeps its place in the tab order. */
+.fb-photo-add input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.fb-photo-hint { font: 400 12px var(--body); color: var(--ink-faint); }
+/* Why Kopieren/E-Mail suddenly carry less than the send button does. A note, never a disabled
+   button: the text is still worth copying, and on a deployment with outbound off it is the
+   only exit there is. */
+.fb-photo-note { margin: -6px 0 0; font: 400 12px var(--body); color: var(--ink-faint); }
+.fb-privacy { display: flex; align-items: center; gap: 6px; margin: 0;
+  font: 400 12.5px var(--body); color: var(--ink-faint); }
+.fb-privacy svg { width: 14px; height: 14px; flex: none; }
+/* Send failed / disabled: warn tone, but still a note rather than an alarm — the fallbacks
+   are one button away and nothing the operator typed is lost. */
+.fb-warn { color: var(--amber-strong); align-items: flex-start; }
+/* Kopieren / E-Mail: the server-free routes. Quiet and left-aligned so the row below reads as
+   one decision (senden oder nicht) instead of a menu of transports — but still a 44px target,
+   because on a deployment with outbound switched off they are the ONLY way out. */
+.fb-alt { display: flex; gap: 4px; flex-wrap: wrap; margin: -4px 0 -4px -10px; }
+.fb-alt-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 44px;
+  padding: 0 10px; border: 0; border-radius: var(--r-sm); background: none; cursor: pointer;
+  color: var(--ink-dim); font: 700 12.5px var(--body); }
+.fb-alt-btn:hover { background: var(--fill-soft); color: var(--ink); }
+.fb-alt-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.fb-alt-btn svg { width: 14px; height: 14px; flex: none; }
+.fb-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+
+/* install steps rendered INSIDE the Offline-Bereitschaft sheet (not behind a second modal):
+   the guide's own top margin would double up against the card above it */
+.or-install > :first-child { margin-top: 0; }
+.or-install .ig-steps { margin-top: 2px; }
+
+/* search hits inside the help text. Deliberately a tint + weight rather than the browser's
+   default yellow block: the help renders in day and night, and a fixed yellow is unreadable
+   in one of them. Inline-block would break the line rhythm, so it only paints. */
+.help-hit { background: color-mix(in srgb, var(--blue) 22%, transparent); color: inherit;
+  border-radius: 3px; padding: 0 1px; font-weight: 700; }
+
+/* Verlauf activity strip — WHEN the Einsatz has substance, as one line above the list. A long
+   Verlauf is a wall of rows in which «was war um halb zehn» means scrolling and reading; the
+   strip answers by POSITION, and a tap lands on the nearest row. The strip takes the tap as a
+   whole (a 44px-tall band), so the ticks themselves never need to be hit targets. */
+.jr-strip {
+  position: relative; flex: none; height: 34px; margin: 0 4px 6px; cursor: pointer;
+  border-radius: var(--r-sm); background: var(--fill-soft);
+  box-shadow: inset 0 0 0 1px var(--glass-edge);
+  /* ⚠️ The gloved hit band is the element's OWN height, not a pseudo-element with a negative
+     inset. That version reached 9px past its box in both directions — invisible, but it lay over
+     the drawer's header and swallowed taps meant for «Wiedergabe» and the close ✕. An element
+     that extends its hit area outside itself steals from whatever it happens to sit next to. */
+}
+.jr-strip:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.jr-strip i {
+  position: absolute; top: 9px; width: 1.5px; height: 16px; margin-left: -0.75px;
+  border-radius: 1px; background: var(--ink-faint); opacity: .7;
+}
+/* the row the strip just jumped to, briefly — otherwise a smooth scroll ends somewhere with no
+   sign of which line was meant */
+@keyframes jr-flash { from { background: color-mix(in srgb, var(--blue) 18%, transparent); } to { background: transparent; } }
+.hist-ev.jr-flash { animation: jr-flash .9s var(--ease); }

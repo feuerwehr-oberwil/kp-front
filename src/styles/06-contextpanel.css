@@ -1,0 +1,283 @@
+/* context panel */
+/* bottom-sheet drag handle inside every .ctx editor — phone-only chrome (see SheetGrip);
+   on desktop/tablet the panel floats beside the rail and the grip stays hidden */
+.sheet-grip { display: none; }
+/* view-state (readOnly) static variants — same metrics as their editable twins, no focus */
+/* A read-only title must not LOOK editable. It shares .ctx-title-input for metrics, which also
+   handed it the resting underline and the hover highlight — so «Notiz» (whose text is the
+   content, edited in the textarea below, never in the header) invited a click that does
+   nothing, and a viewer's title did the same. Same size, no affordance. */
+.ctx-title-ro { display: block; cursor: default; border-bottom-color: transparent; }
+.ctx-notes-ro { margin: 0; font-size: 13.5px; line-height: 1.45; color: var(--ink); white-space: pre-wrap; }
+.kv-val-ro { font-weight: 500; }
+/* Fahrer of a live vehicle — the one editable thing on an otherwise read-only panel, so it is
+   given the ordinary field look rather than the muted read-out the GPS readings get. */
+.kv-driver { display: flex; flex-direction: column; gap: 4px; margin: 2px 0 8px; }
+.kv-driver > span { font: 700 11px var(--body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim); }
+/* inset to the left of the right-edge tool rail (rail 88 + 16 margin + 12 gap) */
+.ctx { position: absolute; right: 116px; top: 88px; width: 360px; background: var(--glass);
+  backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); border-radius: var(--r-hero); z-index: 35;
+  box-shadow: var(--shadow); max-height: calc(100dvh - 104px - env(safe-area-inset-bottom));
+  display: flex; flex-direction: column; overflow: hidden; }
+/* Pin the header (with its close button) + photo + caption + footer actions; scroll ONLY the
+   body. So a long panel (e.g. a Gefahrentafel with the full UN-hazard block) stays a sane height,
+   never overflows the viewport, and the ✕ / Löschen buttons are always reachable. The draw editor
+   already relied on this; it's now the default for every symbol panel too. */
+.ctx-head, .ctx-photo, .ctx-caprow, .ctx-actions { flex: none; }
+.ctx-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+/* phone-only copy of the caption row + footer actions at the END of the scrolling body —
+   on phones only the grip + header stay pinned and everything else scrolls (the pinned
+   desktop copy is hidden there, and vice versa). Rendered by all .ctx editors. */
+.ctx-footer-inline { display: none; }
+.ctx-head { padding: 16px 18px 14px; display: flex; align-items: center; gap: 13px; border-bottom: 1px solid var(--border-soft); }
+.ph { width: 46px; height: 46px; border-radius: var(--r-ctl); border: 2px solid var(--blue); color: var(--blue);
+  display: grid; place-items: center; font-family: var(--mono); font-size: 12px; background: var(--surface-2); flex: none; }
+.ph svg { width: 30px; height: 30px; }
+.ctx-head h3 { margin: 0; font-size: 17px; font-weight: 700; }
+.ctx-head p { margin: 2px 0 0; font-size: 12px; color: var(--ink-dim); font-weight: 500; }
+.ctx-x { margin-left: auto; align-self: flex-start; background: var(--surface-2); border: none; border-radius: var(--r-sm);
+  width: 32px; height: 32px; display: grid; place-items: center; cursor: pointer; color: var(--ink-dim); }
+.ctx-body { padding: 0 18px 8px; }
+.field { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border-soft); font-size: 14px; }
+.field span { color: var(--ink-dim); font-weight: 600; }
+.field b { font-family: var(--mono); font-weight: 500; text-align: right; }
+/* THE segmented option-picker for the whole details modal — a soft track with a blue-filled active
+   segment (Luftrichtung, Beschriftung, and short fixed detail-field lists like a Kleinlöscher Typ all
+   render through components/Segmented, so they look + feel identical). Wraps for longer sets; longer
+   lists / the Mannschaft roster use the Combo dropdown instead. Right-aligned in a .field row. */
+/* ⚠️ `flex: none` is load-bearing. As a flex ITEM this control was `0 1 auto` — shrinkable — and
+   its automatic minimum is one button wide, so in any row where it sits beside text (the Kroki
+   panel's teaching line, a .field label, a .set-row in Einstellungen) the browser handed it its
+   min-content width and `flex-wrap` did the rest: «Hoch | Quer» came out as Hoch ABOVE Quer, a
+   97px tower beside a sentence. A segmented control never volunteers to shrink — the prose next
+   to it yields first. `flex-wrap` stays for the genuine last resort, when max-width:100% bites.
+   Anwesenheit had already worked this out locally (`.controls > .useg { flex: none }`); this
+   promotes it to the rule, which is where it belonged. Every caller that WANTS the control to
+   stretch overrides it more specifically (.jc-mode, Mittel, Atemschutz, Anwesenheit). */
+.useg { display: inline-flex; flex: none; flex-wrap: wrap; gap: 3px; background: var(--fill-soft); border-radius: var(--r-ctl); padding: 3px; max-width: 100%; }
+.field .useg, .ctx-caprow .useg, .kv-row .useg { margin-left: auto; }
+/* ONE segmented spec, no per-surface overrides. The option radius was a stray 7px belonging to no
+   tier, and the height was 28px / 34px / 46px in three places — two of them under the gloved floor
+   on the control that picks an Auftrag. The option is --tap minus the track's 3px padding on each
+   side, so the CONTROL measures a full 44px (the thing a thumb aims at) while the well still shows
+   around the active pill — the affordance that says "these are options in a group". That geometry
+   is Anwesenheit's, worked out for its header row; this promotes it to the rule. */
+.useg-btn { appearance: none; border: 0; background: transparent; border-radius: var(--r-sm); padding: 6px 12px;
+  min-height: calc(var(--tap) - 6px);
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  font: 700 12.5px var(--body); color: var(--ink-dim); cursor: pointer; white-space: nowrap; transition: background .12s, color .12s; }
+.useg-btn .i { width: 15px; height: 15px; }
+.useg-btn:hover:not(.on):not(:disabled) { color: var(--ink); }
+.useg-btn.on { background: var(--blue); color: var(--on-fill); box-shadow: 0 1px 2px rgba(20, 40, 80, .22); }
+.useg-btn:disabled { opacity: var(--disabled); cursor: default; }
+
+/* the glyph-affecting steppers (Geschoss / Anzahl / Drehung) sit in one group;
+   the section header below — not a hairline — separates them from the details */
+.ctx-steps .field:last-child { border-bottom: none; }
+/* note settings (Form / Grösse / Darstellung / Farbe) — the whole body of a note's panel, so
+   the last row carries no hairline (nothing follows it) */
+.ctx-note .field:last-child { border-bottom: none; }
+/* the note's content field — full width, its own label above (not a right-aligned .field row):
+   a sentence needs the whole panel, not the value column */
+.ctx-note-text { padding: 12px 0 10px; border-bottom: 1px solid var(--border-soft); }
+.ctx-note-input { display: block; width: 100%; resize: vertical; min-height: 76px;
+  font: 500 14px/1.45 var(--body); color: var(--ink); background: var(--fill-soft);
+  border: 1px solid var(--border-soft); border-radius: var(--r-ctl); padding: 10px 12px; }
+.ctx-note-input:focus { outline: none; border-color: var(--blue); background: var(--surface); }
+/* seven swatches (default note ink + the six drawing colours) have to sit on ONE line next to
+   their label — at the full 30px they wrapped a single lonely circle onto a second row */
+.ctx-note-colors { display: flex; align-items: center; gap: 7px; margin-left: auto; justify-content: flex-end; }
+.ctx-note-colors .dh-color { width: 26px; height: 26px; }
+/* the Truppfarbe row is ONE scrolling row under its own section label (see the twin in
+   Atemschutz.module.css) — wrapped, eleven swatches read as a dump rather than as a choice */
+.ctx-section > .ctx-note-colors { margin-left: 0; justify-content: flex-start; overflow-x: auto;
+  overscroll-behavior-x: contain; scroll-snap-type: x proximity; padding-bottom: 4px; }
+.ctx-section > .ctx-note-colors > * { flex: none; scroll-snap-align: center; }
+.ctx-team-auto { position: sticky; left: 0; z-index: 1; border: 1px solid var(--glass-edge); border-radius: 999px;
+  padding: 6px 11px; background: var(--surface); color: var(--ink); font: 700 12px/1 var(--body); cursor: pointer;
+  box-shadow: 6px 0 6px -4px var(--surface); }
+.ctx-team-auto:hover { border-color: var(--ink-dim); }
+.ctx-team-auto.on { background: color-mix(in srgb, var(--blue) 18%, var(--surface)); border-color: var(--blue); color: var(--blue); }
+/* "default note ink" swatch — shows the actual sticky-note colours rather than a generic
+   neutral, so it reads as "back to a normal note" instead of "no colour" */
+.dh-color.note-ink { background: var(--note-bg); box-shadow: inset 0 0 0 1px var(--note-border); }
+/* a labelled group inside the panel body (Details, Notizen) */
+.ctx-section { margin-top: 16px; }
+.ctx-section-label { display: block; font-size: 11px; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--ink-dim); margin-bottom: 6px; }
+
+/* Preset / read-only detail fields render as plain .field rows (label left, control right) — the
+   SAME row as the Darstellung steppers above, so a «Typ» sits identically to a «Luftrichtung». Their
+   label reuses .kv-key-ro, styled to match .field span. Only USER-added custom fields keep the
+   editable key box + delete (.kv-row). */
+.kv-key-ro { font-size: 14px; font-weight: 600; color: var(--ink-dim); }
+.field .kv-val { flex: 0 1 auto; min-width: 132px; text-align: left; }
+.field b.kv-val-ro { font-family: var(--mono); font-weight: 500; }
+.field .combo, .kv-row .combo { margin-left: auto; min-width: 132px; }
+/* editable custom key/value rows */
+.kv-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border-soft); }
+.kv-key, .kv-val { font-size: 13px; color: var(--ink); border: none; background: var(--fill-soft); border-radius: var(--r-sm);
+  padding: 8px 10px; min-width: 0; font-family: var(--body); }
+.kv-key { flex: 0 0 38%; font-weight: 600; color: var(--ink-dim); }
+.kv-val { flex: 1; font-family: var(--mono); }
+.kv-key:focus, .kv-val:focus { outline: none; background: color-mix(in srgb, var(--blue) 10%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--blue) 35%, transparent); }
+/* two rows can't share a Bezeichnung — details are stored as a key→value map, so the later row
+   would silently swallow the earlier one. The row keeps its red key box (it stays red while
+   focused, hence the higher specificity than :focus) and hands its border to the hint below. */
+.kv-row.dup { border-bottom: none; padding-bottom: 2px; }
+.kv-row.dup .kv-key { color: var(--red); background: color-mix(in srgb, var(--red) 10%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--red) 40%, transparent); }
+.kv-dup-hint { display: flex; align-items: flex-start; gap: 6px; margin: 0; padding: 0 0 8px;
+  border-bottom: 1px solid var(--border-soft); font-size: 12px; line-height: 1.35; color: var(--red); }
+.kv-dup-hint .i { width: 13px; height: 13px; flex: none; margin-top: 1px; }
+/* shared custom dropdown (Combo) — styled like the Atemschutz Trupp picker, no native chrome */
+.combo { position: relative; flex: 1; min-width: 0; }
+.combo-pick { width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 6px; text-align: left;
+  border: 1px solid var(--border); border-radius: var(--r-sm); padding: 7px 30px 7px 10px; background: var(--fill-soft);
+  font: 600 13px var(--body); color: var(--ink); cursor: pointer; min-height: var(--tap); }
+.combo-pick:hover { border-color: var(--ink-faint); }
+.combo-pick.empty .combo-pick-name { color: var(--ink-faint); }
+.combo-pick-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.combo-chev { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); display: grid; place-items: center; color: var(--ink-faint); pointer-events: none; }
+.combo-chev .i { width: 15px; height: 15px; }
+/* ≥44px hit area (icon stays small visually) — a fat-fingered clear beats an unreachable one */
+.combo-clear { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); display: grid; place-items: center;
+  width: 44px; height: 44px; border: none; background: transparent; color: var(--ink-faint); cursor: pointer; border-radius: var(--r-sm); }
+.combo-clear:hover { background: var(--surface); color: var(--ink); }
+.combo-clear .i { width: 13px; height: 13px; }
+.combo-input { width: 100%; box-sizing: border-box; border: 1px solid var(--blue); border-radius: var(--r-sm); padding: 7px 10px;
+  font: 600 13px var(--body); color: var(--ink); background: var(--surface); outline: none; }
+.combo-menu { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 6; margin: 0; padding: 4px; list-style: none;
+  max-height: 240px; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-sm); box-shadow: var(--shadow); }
+/* portalled to <body> so a scrollable/overflow-hidden panel can't clip or cut off the menu */
+/* z above the phone bottom sheet (.ctx @62), journal drawer (@61) AND the modal sheets
+   (.ip-ovl @80 — the Einsatz wizard's Kategorie combo rendered BEHIND the modal at 70:
+   "category can't be selected"). Below the toaster (@90). The menu is portalled precisely
+   so no container can clip it; it must out-stack them all. */
+.combo-menu-portal { position: fixed; right: auto; z-index: 85; }
+.combo-opt { width: 100%; display: flex; align-items: center; gap: 8px; cursor: pointer; text-align: left; border: none;
+  background: none; border-radius: var(--r-xs); padding: 8px 9px; min-height: var(--tap); font: 600 13px var(--body); color: var(--ink); }
+/* Dienstgrad chip in a roster option — mirrors the Atemschutz PersonField badge */
+.combo-rank { flex: none; font: 800 10px var(--body); letter-spacing: .02em; color: var(--ink-dim);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface)); border-radius: 5px; padding: 2px 5px; }
+.combo-opt:hover { background: var(--fill-soft); }
+.combo-opt.on { background: color-mix(in srgb, var(--blue) 10%, transparent); color: var(--blue); }
+.combo-opt-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.combo-type { color: var(--blue-strong); font-weight: 700; border-top: 1px solid var(--border-soft); margin-top: 2px; }
+.combo-type .i { width: 14px; height: 14px; }
+/* "nur Offiziere" filter pinned atop the roster picker on leadership symbols */
+.combo-toggle { color: var(--ink-dim); font-weight: 700; border-bottom: 1px solid var(--border-soft); margin-bottom: 2px; }
+/* ⚠️ --blue, not --accent. `.on` is literally «this one is selected», and --accent is the brand
+   red — painting a selection alarm-red is the one thing the token rule forbids, and this control
+   sits in a roster where red already means something. */
+.combo-toggle.on { color: var(--ink); background: color-mix(in srgb, var(--blue) 12%, transparent); }
+.combo-toggle .i { width: 14px; height: 14px; color: var(--blue); }
+.combo-empty { padding: 8px 10px; font-size: 12px; color: var(--ink-faint); }
+.combo-group { list-style: none; }
+.combo-group > ul { list-style: none; margin: 0; padding: 0; }
+.combo-group-head { padding: 7px 10px 3px; font-size: 10.5px; font-weight: 800; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--ink-faint); }
+.combo-group + .combo-group .combo-group-head { border-top: 1px solid var(--border-soft); margin-top: 2px; }
+.ctx-title-pick { margin-top: 6px; display: flex; }
+
+/* read-only ADR hazard readout (UN-Nr → substance/hazard data on the Gefahrentafel) */
+.un-haz { background: var(--fill-soft); border-radius: var(--r-sm); padding: 12px 12px 10px; }
+.un-haz-row { display: flex; gap: 8px; padding: 4px 0; font-size: 13px; }
+.un-haz-k { flex: 0 0 44%; color: var(--ink-dim); font-weight: 600; }
+.un-haz-v { flex: 1; color: var(--ink); font-family: var(--mono); }
+.un-haz-water { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; padding: 7px 9px; border-radius: var(--r-xs);
+  background: var(--red); color: var(--on-fill); font-size: 12.5px; font-weight: 700; }
+.un-haz-water svg { width: 15px; height: 15px; flex: none; }
+.un-haz-list { margin: 0 0 8px; padding-left: 18px; }
+.un-haz-list li { font-size: 12.5px; color: var(--ink); padding: 2px 0; }
+.un-haz-none { margin: 2px 0 2px; font-size: 12px; color: var(--ink-faint); }
+.un-haz-link { display: inline-flex; align-items: center; gap: 5px; margin-top: 8px; font-size: 12px;
+  font-weight: 600; color: var(--blue, #1f6feb); text-decoration: none; }
+.un-haz-link:hover { text-decoration: underline; }
+.un-haz-link svg { width: 14px; height: 14px; flex: none; }
+.kv-x { flex: none; width: 32px; height: 32px; border-radius: var(--r-sm); border: none; cursor: pointer; display: grid; place-items: center;
+  background: var(--fill-soft); color: var(--ink-faint); }
+.kv-x:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
+.kv-x .i { width: 13px; height: 13px; }
+.kv-add { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; border: 1px dashed var(--glass-edge);
+  background: none; color: var(--ink-dim); border-radius: var(--r-sm); padding: 8px 12px; font-size: 12.5px; font-weight: 600;
+  font-family: var(--body); cursor: pointer; transition: background .14s var(--ease), color .14s var(--ease), border-color .14s var(--ease); }
+.kv-add:hover { background: color-mix(in srgb, var(--blue) 7%, transparent); border-color: var(--blue); color: var(--blue); }
+.kv-add .i { width: 14px; height: 14px; }
+/* FKS Entwicklung (spread) controls — a label + a row of small toggle buttons */
+.spread-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 0; }
+.spread-row + .spread-row { border-top: 1px solid var(--border-soft); }
+.spread-lbl { font-size: 13px; font-weight: 600; color: var(--ink-dim); }
+.spread-btns { display: inline-flex; gap: 5px; }
+.spread-btn { min-width: 44px; height: 44px; padding: 0 8px; border-radius: var(--r-sm); border: 1px solid var(--border);
+  background: var(--surface-2); color: var(--ink); font-family: var(--mono); font-size: 12.5px; font-weight: 700;
+  cursor: pointer; display: grid; place-items: center; transition: background .14s var(--ease), color .14s var(--ease), border-color .14s var(--ease); }
+.spread-btn.wide { font-family: var(--body); letter-spacing: .02em; }
+.spread-btn:hover:not(:disabled):not(.on) { background: var(--surface); border-color: var(--border); }
+.spread-btn.on { background: var(--blue); border-color: var(--blue); color: var(--on-fill); }
+.spread-btn:disabled { opacity: var(--disabled); cursor: default; }
+
+/* general free-text notes */
+.ctx-notes { display: flex; flex-direction: column; }
+.ctx-notes-input { width: 100%; box-sizing: border-box; min-height: 64px; resize: vertical; border: 1px solid var(--border);
+  border-radius: var(--r-ctl); padding: 9px 11px; font-family: var(--body); font-size: 13.5px; color: var(--ink);
+  background: var(--fill-soft); }
+.ctx-notes-input::placeholder { color: var(--ink-faint); }
+.ctx-notes-input:focus { outline: none; background: color-mix(in srgb, var(--blue) 7%, transparent); border-color: var(--blue); box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue) 12%, transparent); }
+/* compact per-symbol caption override, tucked above the Zentrieren/Entfernen row — small and
+   low-emphasis since field values matter first; visibility is a rare tweak (a tiny inline seg). */
+.ctx-caprow { display: flex; align-items: center; gap: 8px; padding: 4px 14px 0; }
+.ctx-caprow-lbl { font-size: 11px; color: var(--ink-dim); white-space: nowrap; }
+/* the caption picker uses the shared .useg segmented control (see components/Segmented); the row
+   just pins it to the right. A touch smaller here since it sits by the footer actions. */
+/* the caption row keeps only its tighter LABEL — height/radius come from the one segmented spec */
+.ctx-caprow .useg-btn { padding: 4px 10px; }
+
+.ctx-actions { display: flex; gap: 6px; padding: 12px 14px 16px; }
+.btn { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 5px; min-height: var(--tap); font-size: 12.5px; font-weight: 700;
+  padding: 11px 4px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface-2);
+  cursor: pointer; color: var(--ink); white-space: nowrap; }
+.btn:hover { background: var(--surface); border-color: var(--border); }
+.btn .i { width: 14px; height: 14px; }
+.btn.warn { color: var(--red); }
+.btn.warn:hover { background: color-mix(in srgb, var(--red) 8%, transparent); border-color: color-mix(in srgb, var(--red) 32%, transparent); }
+
+/* history (Verlauf) — left panel */
+.history-card { position: absolute; left: 84px; top: 88px; width: 300px; max-height: calc(100dvh - 104px);
+  display: flex; flex-direction: column; background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid var(--glass-line); border-radius: var(--r-surface); padding: 8px; z-index: 29; box-shadow: var(--shadow); }
+/* overflow-x hidden: with overflow-y:auto the x-axis otherwise computes to `auto` and the
+   Verlauf scrolls sideways on a tablet — rows must line-wrap, never scroll horizontally */
+.history-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 2px; }
+.hist-ev { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--r-ctl); font-size: 13px; font-weight: 500; }
+.hist-ev.clickable { cursor: pointer; }
+.hist-ev.clickable:hover { background: var(--hover); }
+/* persistent affordance so touch users can tell a row navigates without hovering */
+.hist-go { margin-left: auto; color: var(--ink-faint); display: grid; place-items: center; flex: none; opacity: .55; transition: transform .14s var(--ease), opacity .14s var(--ease); }
+.hist-go .i { width: 15px; height: 15px; }
+.hist-ev.clickable:hover .hist-go { opacity: 1; transform: translateX(2px); }
+.hist-ev .tl-play + .hist-go { margin-left: 0; }
+.hist-ev .t { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); flex: none; width: 38px; }
+/* timeline node + connector */
+.hist-ev .ic { position: relative; width: 26px; height: 26px; border-radius: 50%; background: var(--surface-2);
+  border: 1px solid var(--border-soft); color: var(--ink-dim); font-size: 13px; display: grid; place-items: center; flex: none; }
+.hist-ev .ic::after { content: ''; position: absolute; top: calc(100% + 1px); left: 50%; transform: translateX(-50%);
+  width: 2px; height: 16px; background: var(--border); }
+.hist-ev:last-child .ic::after { display: none; }
+.hist-ev .tx { flex: 1; }
+
+/* reminder (Erinnerung) row: due label + checklist-style done toggle */
+.jr-text.jr-rem-struck { text-decoration: line-through; color: var(--ink-faint); }
+.jr-rem { display: inline-flex; align-items: center; gap: 7px; flex: none; border: 1px solid var(--glass-edge); background: var(--surface-2);
+  color: var(--ink-dim); border-radius: var(--r-pill); padding: 5px 11px 5px 6px; font-size: 12px; font-weight: 700; cursor: pointer;
+  font-family: inherit; min-height: 34px; }
+.jr-rem:hover:not(:disabled) { color: var(--ink); border-color: color-mix(in srgb, var(--green) 55%, var(--glass-edge)); }
+.jr-rem:hover:not(:disabled) .jr-rem-box .i { opacity: var(--disabled); }
+.jr-rem:disabled { cursor: default; }
+.jr-rem-box { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid currentColor; display: grid; place-items: center; flex: none; }
+.jr-rem-box .i { width: 13px; height: 13px; opacity: 0; }
+.jr-rem-due { white-space: nowrap; }
+.jr-rem.overdue { color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 55%, var(--glass-edge)); }
+.jr-rem.done { color: var(--ink-faint); border-color: var(--border-soft); }
+.jr-rem.done .jr-rem-box { background: var(--green); border-color: var(--green); color: var(--on-fill); }
+.jr-rem.done .jr-rem-box .i { opacity: 1; }

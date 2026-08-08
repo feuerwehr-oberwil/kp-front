@@ -84,8 +84,13 @@ to prod.
 - **Theming:** use tokens / `color-mix(in srgb, var(--accent) N%, ...)`, **never** a frozen
   `rgba()` of the accent – that breaks day/night and per-station accent theming.
 - **CSS:** design tokens, the day/night flip (`[data-theme="night"]`), and shared chrome live
-  in `src/app.css`; component-specific layout goes in `*.module.css` files that reference
-  `var(--token)`; the admin UI uses `src/admin/admin.css`.
+  in **`src/styles/NN-*.css`** – one numbered file per block (tokens, base, map, chrome, one per
+  surface), listed in order by `src/app.css`, which is now a manifest of `@import`s and holds no
+  rules of its own. **The numbering is the cascade**: source order decides ties, so put a new
+  block where it belongs and renumber, rather than appending for tidiness – `20-touch-floors.css`
+  is last precisely because its `(pointer: coarse)` targets have to beat every surface above it.
+  Component-specific layout still goes in `*.module.css` files that reference `var(--token)`;
+  the admin UI uses `src/admin/admin.css`.
 - **Overlays go through `src/lib/overlays/`** (`Sheet`/`SheetClose`, `Overlay`, `ConfirmCard`,
   `Menu`, `Popover`/`PopoverClose`) – thin wrappers over **Base UI** (`@base-ui/react`, headless)
   that supply focus trap/restore, scroll-lock, Esc, backdrop/outside-click dismissal, and ARIA,

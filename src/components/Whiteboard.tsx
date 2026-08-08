@@ -25,15 +25,15 @@ import { ShapeGlyph, SHAPE_DEFS } from '../lib/shapes'
 import { noteScale, autoNoteWN, clampNoteWN, noteWN } from '../lib/notes'
 import { planUrl, TILE_AR, TOP_INSET, STACK_VPAD, sideInsets, clamp01, floorLabel, floorGeometry } from '../lib/whiteboard'
 import { advanceDwell, applyRouting, attachInsetPx, boundaryPoint, EMPTY_DWELL, forkPortPoint, incomingAttachments, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
-import { calibrate, pathMetres, polyAreaM2, isStale, type PlanScale } from '../lib/planScale'
-import { resolvePlanScale, saveStationDefault, saveStationPlanOverride } from '../lib/stationPlanScale'
+import { pathMetres, type PlanScale } from '../lib/planScale'
 import { MeasurePanel } from './MeasurePanel'
 import { slimTools, PLAN_READONLY_TOOLS } from '../lib/readOnlyTools'
 import { useIsPhone } from '../lib/useIsPhone'
 import type { PlanScales } from '../lib/workspace'
 import { fmtDistance, fmtArea, hoseLengthHint } from '../lib/geo'
-import { useLongPress } from '../lib/useLongPress'
 import { buildView, remapPoint, type Ring } from '../lib/footprint'
+import { usePlanMeasure } from './usePlanMeasure'
+import { PlanScalePrompt, PlanScalePersist } from './PlanScalePrompts'
 import { useBoardView } from './useBoardView'
 import { useBoardDoc } from './useBoardDoc'
 import { useBoardGestures } from './useBoardGestures'
@@ -217,21 +217,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     next.has(id) ? next.delete(id) : next.add(id)
     return next
   })
-  // Plan-Maßstab calibration: the reference is captured by tapping its TWO endpoints (nodes), then
-  // a popover asks for its real length. last-used length is pre-filled (plans share similar bars).
-  const [calNodes, setCalNodes] = useState<[number, number][]>([])
-  const [calPrompt, setCalPrompt] = useState<{ a: [number, number]; b: [number, number] } | null>(null)
-  const [lastRefM, setLastRefM] = useState<number>(appConfig.drawing.planScaleDefaultM)
-  const [refMInput, setRefMInput] = useState<string>('')
-  // after a fresh field calibration: offer to persist it station-wide (#3) — as the default for
-  // every plan, or just for this one. Cleared on plan switch so it never lingers on another sheet.
-  const [savePrompt, setSavePrompt] = useState<PlanScale | null>(null)
-  useEffect(() => { setSavePrompt(null) }, [activeId])
-  // Messen (measure): node-based distance / area, ephemeral (never saved). Each mode keeps its own
-  // points, exactly like the Lage map's useMeasure. Metrics come from the plan calibration.
-  const [measMode, setMeasMode] = useState<'line' | 'area'>('line')
-  const [measLine, setMeasLine] = useState<[number, number][]>([])
-  const [measArea, setMeasArea] = useState<[number, number][]>([])
+  // Plan-Maßstab (calibration) + Messen (ephemeral distance/area) own their state end to end in
+  // usePlanMeasure — see the hook call below, which needs toNorm/floorAt and so cannot sit here.
 
   const canvasRef = useRef<HTMLDivElement | null>(null)
   // The canvas element as STATE, so effects that attach observers/listeners re-run when it
@@ -261,8 +248,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const planDraftMagnet = useRef<PlanDraftMagnet | null>(null)
   const planDraftTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const setPlanDraftMagnet = (next: PlanDraftMagnet | null) => { planDraftMagnet.current = next; setPlanDraftMagnetState(next) }
-  // drag a Messen vertex (ephemeral measurement path; mirrors vertDrag but never persisted)
-  const measDrag = useRef<{ idx: number; moved: boolean } | null>(null)
   // which text note is mid-edit (so we checkpoint undo once per edit session, then stream
   // each keystroke live into the anno — like the Lage note title)
   const textEditId = useRef<string | null>(null)
@@ -315,22 +300,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // floor-stack ↔ board-normalized y maps for the current document (see lib/whiteboard)
   const { mapY, localY, floorAt } = floorGeometry(stack, floorsTTB, N)
 
-  // reset view + transient state when switching document; seed an aspect from the
-  // orientation (image docs refine it on load, blank sheets keep it)
-  useEffect(() => {
-    applyView(1, { x: 0, y: 0 }); setSelId(null); setSelIds([]); setEditId(null); setDraft(null); setPending(null)
-    setMeasLine([]); setMeasArea([]); setCalNodes([]); setCalPrompt(null) // ephemeral measure/calibrate state
-    if (tool === 'symbol') setTool('pan')
-    setAspect(active.orientation === 'portrait' ? 1.414 : 1 / 1.414)
-  }, [activeId]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // drop any in-progress node draft when the tool changes (e.g. leaving Linie/Fläche mid-shape);
-  // a half-laid Messen path / Maßstab tap is ephemeral too, so clear them when leaving those tools
+  // drop any in-progress node draft when the tool changes (e.g. leaving Linie/Fläche mid-shape).
+  // The half-laid Messen path / Maßstab tap is ephemeral too — usePlanMeasure clears those itself.
   useEffect(() => {
     setDraft(null); lastTap.current = null
-    if (tool !== 'measure') { setMeasLine([]); setMeasArea([]) }
-    if (tool !== 'scale') setCalNodes([])
-  }, [tool]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [tool])
   // Esc cancels an in-progress node shape, else clears the selection
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -407,33 +381,28 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     return [(clientX - r.left) / r.width, (clientY - r.top) / r.height]
   }
 
-  // --- Plan-Maßstab: derived calibration state for the active plan ---
-  // Measurement is aspect-corrected: a normalized segment's true length depends on the plan's
-  // aspect ratio (width / height). On a single sheet that's 1/aspect; on a floor-stack each storey
-  // TILE is measured in its own space (1/TILE_AR), so one calibration covers every floor of the
-  // same drawing. The reference drag and stored line `pts` live in this same space.
-  const measureAR = stack ? 1 / TILE_AR : 1 / aspect
-  // Resolve through the STATION calibration (per-incident → per-plan override → station default),
-  // so a plan measures out of the box without re-calibrating each incident (#3). A field
-  // calibration for this incident still wins; a stale candidate falls through.
-  const workspaceScale: PlanScale | undefined = planScale[activeId]
-  const activeScale: PlanScale | undefined = resolvePlanScale(activeId, workspaceScale, measureAR)
-  const scaleStale = !!workspaceScale && isStale(workspaceScale, measureAR) && !activeScale
-  const calibrated = !!activeScale
-  // metres of a stored polyline (tile-local pts already, for a floor-stack) under the calibration
-  const planMetres = (pts: [number, number][]): number | null =>
-    calibrated && activeScale ? pathMetres(pts, activeScale.mPerU, measureAR) : null
-  // convert a board-normalized point into the measurement space (tile-local y on a floor-stack)
-  const toMeasurePt = (n: [number, number]): [number, number] => stack ? [n[0], localY(n[1], floorAt(n[1]))] : n
+  // --- Plan-Maßstab + Messen (calibration and ephemeral measurement) ---
+  // One hook, because both halves share the measurement space: a calibration is only meaningful
+  // in the space its reference was drawn in, and a measured path has to be converted into that
+  // same space before it can become metres. Nothing here is ever written to the board document.
+  const {
+    calNodes, setCalNodes, calPrompt, setCalPrompt, lastRefM, refMInput, setRefMInput, savePrompt, setSavePrompt,
+    measMode, setMeasMode, setMeasLine, setMeasArea,
+    measureAR, activeScale, scaleStale, calibrated, planMetres,
+    measPath, setMeasPath, measMpts, measLenM, measAreaM2, measPerimM, measReset, resetEphemeral,
+    measNodeDown, measMove, measUp, measDragging, measInsert, measDelete, measPress,
+    closeCalPrompt, commitCalibration,
+  } = usePlanMeasure({ activeId, stack, aspect, planScale, localY, floorAt, tool, setTool, toNorm, log, onCalibrate })
 
-  // --- Messen: the active path + calibrated metrics for the panel (line OR area, per mode) ---
-  const measPath = measMode === 'line' ? measLine : measArea
-  const setMeasPath = (fn: (pts: [number, number][]) => [number, number][]) => (measMode === 'line' ? setMeasLine(fn) : setMeasArea(fn))
-  const measMpts = measPath.map(toMeasurePt)
-  const measLenM = calibrated && activeScale ? pathMetres(measMpts, activeScale.mPerU, measureAR) : 0
-  const measAreaM2 = calibrated && activeScale ? polyAreaM2(measMpts, activeScale.mPerU, measureAR) : 0
-  const measPerimM = calibrated && activeScale && measMpts.length >= 3 ? pathMetres([...measMpts, measMpts[0]], activeScale.mPerU, measureAR) : 0
-  const measReset = () => { setMeasLine([]); setMeasArea([]) }
+  // reset view + transient state when switching document; seed an aspect from the
+  // orientation (image docs refine it on load, blank sheets keep it). Sits BELOW the hook
+  // because it clears the state the hook owns — above it, resetEphemeral is not yet declared.
+  useEffect(() => {
+    applyView(1, { x: 0, y: 0 }); setSelId(null); setSelIds([]); setEditId(null); setDraft(null); setPending(null)
+    resetEphemeral() // the measure/calibrate state usePlanMeasure owns
+    if (tool === 'symbol') setTool('pan')
+    setAspect(active.orientation === 'portrait' ? 1.414 : 1 / 1.414)
+  }, [activeId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Annotation document + per-plan undo/redo (the keyed history map, the set/commit mutation
   // funnel, audit-emitting CRUD, and the global-TopBar history wiring) live in useBoardDoc; the
@@ -792,22 +761,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       finishPlanDraftMagnet()
     }
   }
-  // close the metre-entry popover, returning to where calibration was started from: stay in
-  // Messen (the auto-calibrate-on-first-measure flow), otherwise drop to pan (the Maßstab chip).
-  const closeCalPrompt = () => { setCalPrompt(null); setTool(tool === 'measure' ? 'measure' : 'pan') }
-  // commit the metre-entry popover: derive + persist the calibration factor for this plan
-  const commitCalibration = (refM: number) => {
-    if (!calPrompt) return
-    const a = toMeasurePt(calPrompt.a), b = toMeasurePt(calPrompt.b)
-    const sc = calibrate(a, b, refM, measureAR)
-    closeCalPrompt()
-    if (!sc) return
-    setLastRefM(refM)
-    onCalibrate?.(activeId, sc)
-    log('measure', fillTemplate(appConfig.copy.whiteboard.scale.saved, { m: String(refM) }))
-    toast(fillTemplate(appConfig.copy.whiteboard.scale.saved, { m: String(refM) }))
-    if (onCalibrate) setSavePrompt(sc) // editor: offer to remember it across incidents
-  }
   // create a Linie from a finished path (a freehand drag OR a node-tapped draft), baking the sticky
   // preset's arrow/marker/dash — then one-shot to pan with the new line selected so its style editor
   // opens right away. Mirrors the Lage map's createLine, so both surfaces behave identically.
@@ -1002,28 +955,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     patchCommit(a.id, { pts: pts.filter((_, i) => i !== idx) })
   }
 
-  // --- Messen node editing (ephemeral; mirrors the vertex handlers but on the measure path) ---
-  const measNodeDown = (idx: number, e: React.PointerEvent) => {
-    if (tool !== 'measure') return
-    e.stopPropagation()
-    ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
-    measDrag.current = { idx, moved: false }
-  }
-  const measMove = (e: React.PointerEvent) => {
-    const st = measDrag.current; if (!st) return
-    const n = toNorm(e.clientX, e.clientY); if (!n) return
-    st.moved = true
-    setMeasPath((p) => p.map((q, i) => (i === st.idx ? n : q)))
-  }
-  const measUp = () => { measDrag.current = null }
-  const measInsert = (idx: number, e: React.PointerEvent) => {
-    e.stopPropagation()
-    setMeasPath((p) => { const b = p[(idx + 1) % p.length]; const mid: [number, number] = [(p[idx][0] + b[0]) / 2, (p[idx][1] + b[1]) / 2]; return [...p.slice(0, idx + 1), mid, ...p.slice(idx + 1)] })
-  }
-  const measDelete = (idx: number) => { measDrag.current = null; setMeasPath((p) => p.filter((_, i) => i !== idx)) }
-  // touch path for node delete — double-tap rarely synthesizes dblclick on iOS
-  const measPress = useLongPress()
-
   // --- chip dragging (resource / symbol / text in pan mode) ---
   const chipDown = (e: React.PointerEvent, id: string) => {
     if (tool !== 'pan') return
@@ -1084,7 +1015,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     if (chipDrag.current) chipMove(e)
     else if (drawDrag.current) drawMove(e)
     else if (vertDrag.current) vertMove(e)
-    else if (measDrag.current) measMove(e)
+    else if (measDragging()) measMove(e)
   }
   const manipUp = () => { chipUp(); drawUp(); vertUp(); measUp() }
 
@@ -2437,38 +2368,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       )}
 
       {/* Maßstab — metre-entry popover after the two reference taps: a clean −/+ stepper */}
-      {calPrompt && (() => {
-        const step = appConfig.drawing.planScaleStepM
-        const val = parseFloat(refMInput) || 0
-        const bump = (d: number) => setRefMInput(String(Math.max(0, Math.round((val + d) * 100) / 100)))
-        return (
-        <div className="wb-trupp-scrim" onPointerDown={closeCalPrompt}>
-          <div className="wb-cal-pop" onPointerDown={(e) => e.stopPropagation()}>
-            <div className="wb-cal-title">{appConfig.copy.whiteboard.scale.promptTitle}</div>
-            <div className="wb-cal-body">{appConfig.copy.whiteboard.scale.promptBody}</div>
-            <div className="wb-cal-chips">
-              {appConfig.drawing.planScaleDefaultsM.map((m) => (
-                <button key={m} className={`wb-cal-chip ${val === m ? 'on' : ''}`} onClick={() => setRefMInput(String(m))}>{m} m</button>
-              ))}
-            </div>
-            <div className="wb-cal-stepper">
-              <button className="wb-cal-step" aria-label="−" disabled={val <= 0} onClick={() => bump(-step)}>−</button>
-              <div className="wb-cal-num">
-                <input className="wb-cal-input" type="number" inputMode="decimal" min={0} step="any" autoFocus value={refMInput}
-                  onChange={(e) => setRefMInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') commitCalibration(val) }} />
-                <span className="wb-cal-unit">{appConfig.copy.whiteboard.scale.unit}</span>
-              </div>
-              <button className="wb-cal-step" aria-label="+" onClick={() => bump(step)}>+</button>
-            </div>
-            <div className="wb-cal-actions">
-              <button className="ip-btn ghost" onClick={closeCalPrompt}>{appConfig.copy.whiteboard.scale.cancel}</button>
-              <button className="btn primary" disabled={!(val > 0)} onClick={() => commitCalibration(val)}>{appConfig.copy.whiteboard.scale.confirm}</button>
-            </div>
-          </div>
-        </div>
-        )
-      })()}
+      {calPrompt && (
+        <PlanScalePrompt refMInput={refMInput} setRefMInput={setRefMInput}
+          onCommit={commitCalibration} onClose={closeCalPrompt} />
+      )}
 
       {/* The two facts about a plan that no page of it states — WHICH object, and at what scale —
           in one row in the stage's quiet corner. They were a bespoke glass chip in the top-left
@@ -2500,16 +2403,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
 
       {/* #3: persist a fresh calibration station-wide so plans measure out of the box next time */}
       {savePrompt && !readOnly && (
-        <div className="wb-scale-persist" role="group" aria-label={appConfig.copy.whiteboard.scale.persistTitle}>
-          <span className="wb-scale-persist-t">{appConfig.copy.whiteboard.scale.persistTitle}</span>
-          <button className="btn" onClick={() => { void saveStationDefault(savePrompt); toast(appConfig.copy.whiteboard.scale.savedAll); setSavePrompt(null) }}>
-            {appConfig.copy.whiteboard.scale.saveAll}
-          </button>
-          <button className="btn" onClick={() => { void saveStationPlanOverride(activeId, savePrompt); toast(appConfig.copy.whiteboard.scale.savedThis); setSavePrompt(null) }}>
-            {appConfig.copy.whiteboard.scale.saveThis}
-          </button>
-          <button className="wb-scale-persist-x" aria-label={appConfig.copy.closeDialog} onClick={() => setSavePrompt(null)}><Icon id="close" /></button>
-        </div>
+        <PlanScalePersist scale={savePrompt} activeId={activeId} onDone={() => setSavePrompt(null)} />
       )}
     </div>
   )

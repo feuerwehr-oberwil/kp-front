@@ -1,0 +1,357 @@
+/* ============================================================
+   Einsatzrapport — metadata dialogs, preflight, print view.
+   Operational UI stays dark-capable; printed pages are normalized to paper.
+   ============================================================ */
+.report-meta-sheet .ip-field textarea {
+  min-height: 86px; resize: vertical;
+}
+.report-meta-sheet .ip-field input[type="datetime-local"] {
+  min-height: var(--tap);
+  font-size: 15px;
+  line-height: 1.2;
+  color-scheme: light dark;
+  /* datetime-local carries a large intrinsic min-width; without this it (plus the
+     "Jetzt" button) overflows its grid column and shoves the whole sheet sideways.
+     -webkit-appearance:none is the iPad-specific fix: iOS/iPadOS Safari sizes the control
+     from its native ::-webkit-date-and-time-value intrinsic content and IGNORES width:100%
+     until the native appearance is stripped — the field supplies its own border/bg/padding,
+     and tapping still opens the native picker. */
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+/* the inner value box carries a default margin on iOS that adds stray width past the input
+   edge; zero it and left-align so the value sits flush after appearance is stripped */
+.report-meta-sheet .ip-field input[type="datetime-local"]::-webkit-date-and-time-value {
+  text-align: left;
+  margin: 0;
+}
+.report-meta-grid > .ip-field { min-width: 0; }
+/* roomier than the default 460px dialog: two datetime fields + the "Jetzt" button need the
+   extra width or the second column clips the button (esp. on iPad where the date control has
+   a large intrinsic min-width) */
+.report-meta-sheet { width: min(600px, 94vw); }
+.report-meta-sheet .ip-textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+/* preflight Rapportangaben: the after-arrival fields are edited inline. The section becomes a
+   flex column so its items (heading · dispatch block · fields) get even spacing — without this
+   the labels/grid (all margin:0) would touch. The dispatch block above shows the read-only
+   facts (Alarmmeldung/Alarmierung) with a link into Einsatzdaten where they're edited. */
+.report-pre-meta { display: flex; flex-direction: column; gap: 14px; }
+.report-pre-section.report-pre-meta h3 { margin: 0; } /* gap owns the spacing — no double margin */
+.report-meta-dispatch { display: flex; flex-direction: column; gap: 8px; }
+/* No rule under it any more: it used to be the top of ONE long «Rapportangaben» block and the
+   line was what separated the read-only dispatch facts from the fields below. The block is its
+   own section now, and the section's own edge is the separator. */
+.report-meta-dispatch-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+/* --ink-dim, the same ink as every other eyebrow on this surface (.report-pre-section h3). It sat
+   on --ink-faint, one shade quieter, directly above three headings that did not — same size,
+   same weight, same tracking, different colour, stacked in one column. */
+.report-meta-dispatch-head > span { font: 700 11px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-dim); }
+.report-meta-editlink { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; margin: -4px -8px -4px 0;
+  font: 600 12px var(--body); color: var(--blue); background: none; border: none; border-radius: var(--r-sm); cursor: pointer; }
+.report-meta-editlink:hover { background: color-mix(in srgb, var(--blue) 10%, transparent); }
+.report-meta-readout { margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.report-meta-readout > div { display: grid; grid-template-columns: 116px 1fr; gap: 12px; align-items: baseline; }
+.report-meta-readout dt { margin: 0; font: 600 12px var(--body); color: var(--ink-dim); }
+.report-meta-readout dd { margin: 0; font-size: 13px; line-height: 1.45; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+.report-meta-empty { color: var(--ink-faint); }
+
+/* Right-click menu on the planning surfaces (lib/overlays/ContextMenu). Base UI's positioner
+   owns the placement, so this styles the popup only — same surface vocabulary as .ip-menu,
+   without its absolute anchoring. */
+.ui-ctxmenu-pos { z-index: 210; }
+.ui-ctxmenu { min-width: 208px; max-width: min(320px, 92vw); padding: 6px;
+  background: var(--surface); border: 1px solid var(--glass-edge); border-radius: var(--r-surface);
+  box-shadow: var(--shadow); outline: none; }
+.ui-ctxmenu-item { display: flex; align-items: center; gap: 8px; width: 100%;
+  min-height: 36px; padding: 0 10px; border: 0; border-radius: var(--r-ctl); background: none;
+  font: 600 13.5px var(--body); color: var(--ink); text-align: left; cursor: pointer; user-select: none; }
+.ui-ctxmenu-item[data-highlighted] { background: color-mix(in srgb, var(--blue) 10%, transparent); }
+.ui-ctxmenu-item[data-disabled] { opacity: var(--disabled); cursor: default; }
+.ui-ctxmenu-item.danger { color: var(--red); }
+.ui-ctxmenu-item.danger[data-highlighted] { background: color-mix(in srgb, var(--red) 10%, transparent); }
+/* a rule above, separating «which state is it» from «what can I do to it» */
+.ui-ctxmenu-item[data-sep] { margin-top: 5px; padding-top: 5px; border-top: 1px solid var(--glass-edge);
+  border-top-left-radius: 0; border-top-right-radius: 0; }
+/* fixed tick slot so the labels do not shift sideways as the state changes */
+.ui-ctxmenu-tick { flex: none; width: 12px; color: var(--blue); font-weight: 800; }
+
+/* A folded Rapport section: the head stays a real
+   row (44px, chevron, title) and carries a summary on the right so the fold can be read
+   without being opened — the only reason folding these is safe. */
+.report-fold { border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface); }
+/* A fold that IS its own card (.report-pre-section.report-fold — the Kroki panel is the one
+   left, «Abschnitte» having moved onto the print action): the section supplies border, radius
+   and background, the summary/body supply the padding — otherwise both pad and the head sits
+   22px in. A fold nested INSIDE a card gets no chrome of its own, so the page reads as one card
+   per block, exactly like Beilagen. */
+.report-pre-section.report-fold { padding: 0; }
+.report-pre-section > .report-fold { border: 0; border-radius: 0; background: none; }
+/* …and both heads are the same height: one fold IS its card (Abschnitte) and pads itself, the
+   other sits INSIDE one (Alles bereit) and inherits that card's padding — without this the two
+   summaries differ by the card's 10px and the sheet looks misaligned. */
+.report-pre-section > .report-fold > summary { padding-inline: 0; min-height: 20px; }
+.report-pre-section > .report-fold .report-fold-body { padding: 6px 0 0; }
+.report-pre-section.report-fold > summary { min-height: 40px; }
+.report-fold > summary { display: flex; align-items: center; gap: 8px; min-height: 40px;
+  padding: 0 12px; cursor: pointer; list-style: none; font: 700 13px var(--body); color: var(--ink); }
+.report-fold > summary::-webkit-details-marker { display: none; }
+.report-fold > summary > .i:first-child { flex: none; width: 16px; height: 16px; color: var(--ink-faint);
+  transition: transform .15s var(--ease); }
+.report-fold[open] > summary > .i:first-child { transform: rotate(180deg); }
+.report-fold-t { flex: none; display: inline-flex; align-items: center; gap: 6px; }
+.report-fold-t .i { width: 15px; height: 15px; }
+/* the readiness tick — green only when it is actually claiming «bereit» */
+.report-ok { color: var(--green-strong); }
+/* …and the summary of what prints: truncates rather than wrapping the head to two lines */
+.report-fold-sum { flex: 1 1 auto; min-width: 0; text-align: right; font: 500 12px var(--body);
+  color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.report-fold-body { padding: 2px 10px 10px; }
+.report-fold-body p { margin: 0 0 6px; display: flex; align-items: flex-start; gap: 8px;
+  font-size: 12.5px; line-height: 1.45; color: var(--ink-dim); }
+.report-fold-body p .i { flex: none; width: 15px; height: 15px; margin-top: 1px; }
+/* Sofortmassnahmen under the Einsatzplan row — a real list, since that is what they are, and
+   they were arriving as pre-wrapped text with the generator's two-space indent baked in. */
+.report-meta-list { margin: 4px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; }
+.report-meta-list li { white-space: normal; }
+.report-meta-body, .report-preflight-body { display: flex; flex-direction: column; gap: 12px; }
+/* ALWAYS one column: the dialog is only ~600px wide, and two native datetime controls side by
+   side overflow on every platform (the iOS/iPadOS one ignores width and shows its intrinsic
+   size). One per row gives each the full width and they line up. */
+.report-meta-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+/* Ende input takes the full row so it matches the Beginn field's width; "Jetzt" wraps below */
+/* min-width:0 on the flex CONTAINER too (not just the input) so it can shrink below the native
+   datetime control's intrinsic width inside the grid column; input keeps flex-basis:100% so it
+   always takes a full row and "Jetzt" wraps below. (A stray later `flex:1 1 auto` duplicate used
+   to clobber this — removed.) */
+.report-meta-end { display: flex; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.report-meta-end input { flex: 1 1 100%; min-width: 0; width: 100%; }
+.report-meta-end .ip-btn { flex: none; }
+.report-meta-end.dtrow { flex-wrap: nowrap; }
+.report-meta-end.dtrow .timefield { flex: none; }
+/* Alarmierungs-/Ausrückzeiten grid (config-driven rows: Gruppen + Fahrzeuge) */
+.rz-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px 12px; }
+.rz-row { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.rz-name { flex: 1; min-width: 0; font: 600 13px var(--body); color: var(--ink); }
+.rz-row input[type="time"] { flex: none; width: 112px; font-variant-numeric: tabular-nums; }
+.rz-sub { font: 500 11.5px var(--body); color: var(--ink-faint); }
+.rz-derived { align-items: baseline; gap: 10px; }
+.rz-derived b { font: 700 15px var(--body); color: var(--ink); }
+/* an impossible clock is SAID, not enforced — the field keeps the value, the print keeps going.
+   Amber, not --accent: this is «schau nochmal hin», not an error the app is refusing over. */
+.rz-warn { display: flex; align-items: center; gap: 6px; margin-top: 5px;
+  font: 600 12px var(--body); color: var(--amber-strong); }
+.rz-warn svg { width: 14px; height: 14px; flex: none; }
+/* Gerettete: two labelled ±steppers (Personen / Tiere), each a label-left / stepper-right row like
+   the details-modal count control */
+.rz-counts { display: flex; flex-direction: column; gap: 6px; }
+.rz-count { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: var(--tap); }
+.rz-count > span { font: 600 13px var(--body); color: var(--ink-dim); }
+.rz-rueck { display: flex; gap: 8px; }
+.rz-rueck input:first-child { flex: 1; min-width: 0; }
+.rz-rueck input[type="time"] { flex: none; width: 112px; font-variant-numeric: tabular-nums; }
+
+/* partner-organisation contact rows (org+contact on top, phone+note below, ✕ spans both) */
+.rm-partners { display: flex; flex-direction: column; gap: 10px; }
+.rm-partner-row { display: grid; gap: 6px; align-items: center;
+  grid-template-columns: 1fr 1fr 34px; grid-template-areas: "org name x" "phone note x";
+  padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.rm-partner-row:last-of-type { border-bottom: none; padding-bottom: 0; }
+.rm-partner-org { grid-area: org; } .rm-partner-name { grid-area: name; }
+.rm-partner-phone { grid-area: phone; } .rm-partner-note { grid-area: note; } .rm-partner-x { grid-area: x; }
+.rm-partner-row input { min-width: 0; width: 100%; border: 1px solid var(--border); border-radius: var(--r-sm);
+  padding: 9px 10px; font: 600 13px var(--body); color: var(--ink); background: var(--surface); }
+.rm-partner-row input:focus { border-color: var(--blue); outline: none; }
+.rm-partner-x { display: grid; place-items: center; align-self: stretch; border: none; background: transparent;
+  color: var(--ink-faint); cursor: pointer; border-radius: var(--r-sm); }
+.rm-partner-x:hover { background: var(--hover-strong); color: var(--red); }
+.rm-partner-x svg { width: 16px; height: 16px; }
+.rm-partner-add { display: inline-flex; align-items: center; gap: 7px; align-self: flex-start; border: 1px dashed var(--border);
+  background: transparent; color: var(--ink-dim); border-radius: var(--r-sm); padding: 8px 12px; font: 600 12.5px var(--body); cursor: pointer; }
+.rm-partner-add:hover { border-color: var(--blue); color: var(--blue); }
+.rm-partner-add svg { width: 15px; height: 15px; }
+/* padding > the gap between the items inside it. At 10px/12px around a 14px stack, the fields
+   were further from each other than from the card wall — the classic «content bursting out of
+   the box». `--glass-edge` rather than `--border` is the hairline every other surface uses;
+   the rapport was the only place on `--border`. */
+.report-pre-section { border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); padding: 14px 16px; background: var(--surface-2); }
+/* section header = the SAME uppercase eyebrow as the details modal (.ctx-section-label) so every
+   header across the app reads identically (was a one-off 14px sentence-case here) */
+.report-pre-section h3 { margin: 0 0 12px; font: 700 11px var(--body); letter-spacing: .08em;
+  text-transform: uppercase; color: var(--ink-dim); }
+/* «Stand» on the crop map: Jetzt / a time + the reconstruction hint. Top-left, opposite the
+   ± buttons, so neither sits where the framing itself needs to be read. */
+.kf-at { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 10px; }
+.kf-at-label { font: 700 12px var(--body); color: var(--ink-dim); }
+/* the slider IS the control: wide enough to aim with a gloved thumb, and the reading sits
+   beside it so the value is never hidden under the finger */
+.kf-at-track { position: relative; flex: 1 1 220px; min-width: 160px; max-width: 340px; display: flex; }
+.kf-at-range { flex: 1 1 auto; min-width: 0; accent-color: var(--blue); height: var(--tap); position: relative; z-index: 1; }
+/* WHEN anything happened, as hairlines under the Stand track. They MARK, they are not targets:
+   pointer-events stay off so the slider keeps every pixel of its own hit area, which is the one
+   thing a gloved drag cannot afford to lose. Inset by the thumb's radius so a tick at t=0 sits
+   under the thumb's centre rather than at the track's very edge. */
+/* ⚠️ ABOVE the input, not below it. The range input carries z-index 1 so its own track paints
+   over anything behind it — the marks were being drawn and then covered by the track, which
+   looks exactly like «the marks were never added». They still take no pointer events, so the
+   slider keeps every pixel of its hit area. */
+/* A RULER under the groove: a hairline the whole width of the track, with a taller tick at
+   every moment. The hairline is what makes them read as marks ON a timeline rather than as
+   specks — a handful of 2px dashes floating under a slider is not a pattern the eye picks
+   up, which is why they were there and nobody saw them. They also sat at --ink-dim, which
+   on this track is barely a shade off the groove itself. */
+.kf-at-marks { position: absolute; inset: 50% 9px auto 9px; height: 0; pointer-events: none; z-index: 2; }
+.kf-at-marks::before { content: ''; position: absolute; left: 0; right: 0; top: 12px; height: 1px;
+  background: color-mix(in srgb, var(--ink-faint) 45%, transparent); }
+.kf-at-marks i { position: absolute; top: 6px; width: 2px; height: 9px; margin-left: -1px;
+  border-radius: 1px; background: var(--ink); opacity: .75; }
+/* «wird rekonstruiert» as MOTION on the track it belongs to, not a sentence beside it: a thin
+   bar sweeping the slider says the same thing without a fixed text slot resizing the bar. */
+.kf-at-prog { position: absolute; left: 0; right: 0; top: 50%; margin-top: 17px; height: 2px; border-radius: 1px;
+  overflow: hidden; opacity: 0; transition: opacity .15s ease; pointer-events: none; }
+.kf-at-track.busy .kf-at-prog { opacity: 1; }
+.kf-at-prog::after { content: ''; position: absolute; inset: 0 auto 0 0; width: 38%; border-radius: 1px;
+  background: color-mix(in srgb, var(--blue) 85%, transparent); animation: kf-at-sweep 1.05s ease-in-out infinite; }
+@keyframes kf-at-sweep { 0% { transform: translateX(-100%); } 100% { transform: translateX(305%); } }
+@media (prefers-reduced-motion: reduce) {
+  .kf-at-prog::after { animation: none; width: 100%; opacity: .55; }
+}
+.kf-at-val { flex: none; min-width: 8.5em; font: 800 13px var(--mono); color: var(--ink); }
+
+/* the Rapportangaben + Beilagen live in a <fieldset> so one `disabled` covers every control in
+   them (viewer / archived Einsatz). Reset the UA fieldset chrome — it is a gate, not a box. */
+/* 12px, the gap `.rp-col` uses. The form column stacked its cards 10px apart and the checklist
+   column 12px, so the two halves of one page kept a different rhythm. */
+.report-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+/* the same read-only gate inside a checklist row, where the indent comes from .rp-check-extra */
+.rp-check-gate { align-self: stretch; gap: 6px; }
+.report-fieldset:disabled .report-att-x, .report-fieldset:disabled .report-row-add { display: none; }
+
+/* «+ Zeile» under a repeating block (Beilage, Partnerorganisation) */
+.report-row-add { display: inline-flex; align-self: flex-start; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; cursor: pointer;
+  border: 1px dashed var(--border); border-radius: var(--r-ctl); background: var(--surface); color: var(--ink);
+  font: 700 13px var(--body); }
+.report-row-add:hover { border-color: var(--ink-faint); }
+.report-row-add .i { width: 16px; height: 16px; }
+
+/* Partnerorganisationen, in the Anwesenheit/Mittel block: one row = the organisation (the
+   station's own list, free text allowed) + one free line for whatever is worth saying. Two
+   fields, because that is all this question has ever needed. */
+.report-partners { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; width: 100%; }
+/* organisation · remark · remove, on ONE baseline. The two controls come from different
+   components (Combo vs input), so their heights are pinned here — otherwise the row reads as
+   two fields that missed each other. */
+/* Checklist rows: the tick + the organisation name are ONE target (a 40px label is a miss
+   waiting to happen on a tablet), and the free line only appears once the row is ticked —
+   an empty field beside an unticked organisation reads as something still to fill in. */
+.report-partner { display: flex; align-items: center; gap: 8px; min-height: 40px; }
+.report-partner-tick { flex: none; display: flex; align-items: center; gap: 9px; min-width: 170px;
+  min-height: 38px; padding: 0 8px 0 4px; border: none; border-radius: var(--r-sm);
+  background: none; color: var(--ink-dim); cursor: pointer; text-align: left; }
+.report-partner-tick:hover { background: var(--hover); }
+/* ⚠️ NOT --glass-line: that token is a glass HIGHLIGHT — white at .7 in light mode — so the
+   empty box was white on a white sheet and the tick-off list read as plain text. An unticked
+   box is the whole affordance; it has to be visible before anything is in it. --ink-faint
+   carries a real value in both themes, softened so a ticked one still stands out. */
+.report-partner-box { flex: none; display: grid; place-items: center; width: 22px; height: 22px;
+  border: 1.5px solid color-mix(in srgb, var(--ink-faint) 55%, transparent);
+  border-radius: var(--r-sm); color: var(--ink-dim); }
+.report-partner-box svg { width: 14px; height: 14px; }
+/* ⚠️ A TICK IS NOT AN ALERT. Ticked rows went blue — box AND glyph — and this column carries a
+   lot of them: four section rows plus one per partner organisation, so an ordinary rapport lit
+   up with eight or nine blue rings for the sole news that everything was normal. Colour has to
+   be spent on the thing that needs a person; a checklist that is going WELL should be the quiet
+   half of the page. So the ticked state is carried by the SHAPE (a tick where there was an empty
+   box) and by the row's ink going from --ink-dim up to --ink — both readable at a glance, in
+   greyscale, at 3am. The blue is handed back to the two places on this surface that mean
+   «attention»: an amber warning, and the accent that is never used for state at all. */
+.report-partner.on .report-partner-tick { color: var(--ink); }
+.report-partner.on .report-partner-box { border-color: color-mix(in srgb, var(--ink-faint) 80%, transparent); color: var(--ink); }
+.report-partner-org { font: 600 13.5px var(--body); }
+.report-partner-tick.bare { min-width: 0; padding-right: 0; }
+/* the shared .ip-input, at its shared size. Shrunk to 38px/13.5px here it was a different control
+   from the identical input one card below it in the same column (the Beilagen caption). */
+.report-partner .ip-input { flex: 1 1 120px; min-width: 0; }
+.report-partner-name { flex: 1 1 140px; }
+@media (max-width: 640px) {
+  /* the free line drops under its own tick rather than squeezing both onto one line */
+  .report-partner { flex-wrap: wrap; }
+  .report-partner-tick { min-width: 0; flex: 1 1 100%; }
+}
+
+/* Beilagen: photos that belong to the RAPPORT (Ausweis, Schaden) rather than to the Verlauf.
+   Thumbnail + caption per row, because the caption is what the plate prints underneath and the
+   thumbnail is only there to say WHICH photo you are labelling. */
+/* ⚠️ `.rp-check-extra` is `align-items: flex-start`, so anything that must span the row has to
+   say so — without this the caption field sat at its intrinsic ~20-character width with the
+   delete button stranded beside it and half the card empty. Margins stay at 0: the container's
+   own gap sets the rhythm, and ad-hoc ones on top of it made the block look randomly spaced. */
+.report-att-hint, .report-att-list, .report-att { align-self: stretch; width: 100%; }
+.report-att-hint { margin: 0; font: 500 12px/1.45 var(--body); color: var(--ink-dim); }
+.report-att-list { list-style: none; margin: 2px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.report-att { display: flex; align-items: center; gap: 10px; }
+/* The thumb is a BUTTON now (it opens the picture full-size), so the image inside needs its own
+   size — `object-fit` on the button does nothing, and an unconstrained <img> rendered at its
+   natural resolution straight over the rest of the section. */
+.report-att-thumb { flex: none; width: 56px; height: 56px; padding: 0; overflow: hidden; cursor: pointer;
+  border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--fill-soft); }
+.report-att-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.report-att-thumb:hover { border-color: var(--ink-faint); }
+.report-att-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.report-att-pending { font: 600 11.5px var(--body); color: var(--amber-strong); }
+.report-att-x { flex: none; display: grid; place-items: center; width: 40px; height: 40px; padding: 0; cursor: pointer;
+  border: none; border-radius: var(--r-sm); background: transparent; color: var(--ink-faint); }
+.report-att-x:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
+.report-att-x .i { width: 16px; height: 16px; }
+/* the file input itself is invisible — the label IS the button (see .report-row-add) */
+.report-att-add input { display: none; }
+
+/* (the Abschnitte tile grid is gone — the sections are checkbox rows in the print menu now,
+   see lib/overlays · Menu and .rp-print-menu) */
+.report-toggle:has(.report-toggle-hint) > input { margin-top: 1px; }
+.report-toggle-hint { font: 500 11.5px/1.35 var(--body); color: var(--ink-faint); font-style: normal; }
+.report-toggle input { width: 18px; height: 18px; accent-color: var(--blue); }
+.report-toggle.disabled { opacity: .48; cursor: default; }
+/* ⚠️ These warnings were SCOPED TO A CONTAINER THAT NO LONGER EXISTS. `.report-pre-hints` was the
+   band at the foot of the old sheet; when the Kontrolle became a popover on its chip the rows
+   moved but their only styling stayed behind the dead ancestor. There is no `p { margin: 0 }`
+   reset in this file, so the one thing on this surface that says «a photo is still queued, the
+   paper you are about to make will not have it» rendered as a plain ink-coloured paragraph with
+   the browser's own 1em margins — no amber, no tint, no flex, and «Transkripte ergänzen» inline
+   in the sentence. Unscoped, and the rule survives the next move.
+   missing-transcript warning: amber + a button that jumps to the Verlauf to fill them, so it
+   actually gets actioned rather than read past. */
+.report-pre-warn { display: flex; align-items: center; gap: 9px; margin: 0; flex-wrap: wrap;
+  font: 600 12.5px/1.45 var(--body); color: var(--amber-strong);
+  background: color-mix(in srgb, var(--amber) 10%, transparent); border-radius: var(--r-ctl); padding: 9px 12px; }
+.report-pre-warn .i { flex: none; width: 17px; height: 17px; color: var(--amber-strong); }
+.report-pre-warn span { flex: 1 1 auto; min-width: 0; }
+.report-pre-fix { flex: none; border: none; cursor: pointer; background: var(--amber); color: var(--on-fill);
+  font: 700 12.5px var(--body); padding: 7px 12px; border-radius: var(--r-sm); }
+.report-pre-fix:hover { filter: brightness(.96); }
+
+/* transcript wraps onto its own line below the (flex) event row, indented to sit
+   under the event text rather than the time/icon columns */
+.hist-ev:has(.jr-transcript) { flex-wrap: wrap; }
+/* basis must leave room for the 74px indent — 100% + margin overflowed the drawer once
+   the annotation line carried non-shrinking buttons (Durchhören + Transkript) */
+.jr-transcript { flex: 0 0 calc(100% - 74px); min-width: 0; margin: 2px 0 2px 74px; display: flex; flex-direction: column; gap: 6px; }
+.jr-transcript p { margin: 0; color: var(--ink-dim); font-size: 12px; line-height: 1.45; white-space: pre-wrap; }
+/* annotation-line actions under an audio row: Durchhören + Transkript side by side */
+.jr-tx-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* Durchhören: opens the audio player sheet for long recordings (rows with audioMeta).
+   `.jr-transcript button` would out-specify a bare class — hence the qualified selector. */
+.jr-transcript button.jr-open, button.jr-open { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border);
+  border-radius: 999px; background: var(--surface); color: var(--ink); padding: 6px 12px; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; flex: none; }
+.jr-open .i { width: 13px; height: 13px; }
+.jr-open:hover { background: var(--hover-strong); }
+/* jump chip on rows that annotate a recording — opens the player at that moment */
+.jr-jump { width: 32px; height: 32px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface);
+  color: var(--ink-dim); display: grid; place-items: center; cursor: pointer; flex: none; }
+.jr-jump .i { width: 13px; height: 13px; }
+.jr-jump:hover { color: var(--ink); background: var(--hover-strong); }

@@ -1,0 +1,225 @@
+/* ============================================================================
+   Measurement tool — on-map labels + results panel (distance / height / area)
+   ============================================================================ */
+.wb-dock-tog:disabled { opacity: var(--disabled); cursor: default; }
+
+/* cumulative distance / area labels pinned to the live measure path */
+.measure-label { padding: 2px 7px; border-radius: var(--r-xs); font-size: 11px; font-weight: 700;
+  font-family: var(--mono); white-space: nowrap; background: var(--label-bg); color: var(--ink);
+  box-shadow: 0 1px 2px rgba(15, 22, 34, .3), 0 2px 6px rgba(30, 45, 70, .22); pointer-events: none; }
+.measure-label.strong { background: var(--blue); color: var(--on-fill); }
+.measure-label.draw-label { text-align: center; line-height: 1.25; }
+/* a line's distance/text label is draggable (nudge it off overlapping ink), so it must
+   accept pointer events again and hint the move cursor */
+.measure-label.draw-label.draggable { pointer-events: auto; touch-action: none; }
+/* a label whose line/shape is selected gets a bold accent ring (+ small lift) so it's obvious
+   which readout belongs to the selected drawing when many lines overlap */
+.measure-label.draw-label.sel { box-shadow: 0 0 0 2.5px var(--blue), 0 2px 7px rgba(30, 45, 70, .3); }
+.line-end-tag-wrap.sel .line-end-tag { box-shadow: 0 0 0 2.5px var(--blue); }
+/* inline letter marker on an annotated line (e.g. R on a Rettungsachse) — replaces the
+   removed MapLibre text-field symbol layer (which needed a glyphs font source) */
+.draw-marker { font: 800 13px/1 var(--mono); letter-spacing: .02em; pointer-events: none;
+  text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 3px #fff, 0 0 3px #fff; }
+/* lock chip on a locked drawing — the only tap target on a click-through locked shape */
+.draw-lock-chip { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%;
+  background: var(--glass); border: 1px solid var(--glass-line); box-shadow: 0 2px 8px rgba(0, 0, 0, .25);
+  color: var(--ink-dim); cursor: pointer; padding: 0; backdrop-filter: blur(8px);
+  transition: color .12s var(--ease), border-color .12s var(--ease); }
+.draw-lock-chip { position: relative; touch-action: none; }
+/* 44px hit pad — the chip is the ONLY tap target on a locked shape */
+.draw-lock-chip::after { content: ''; position: absolute; inset: -7px; border-radius: 50%; }
+.draw-lock-chip:hover { color: var(--blue); border-color: color-mix(in srgb, var(--blue) 45%, var(--glass-line)); }
+.draw-lock-chip > svg:not(.draw-lock-ring) { width: 15px; height: 15px; }
+.draw-lock-chip.holding { color: var(--blue); border-color: color-mix(in srgb, var(--blue) 55%, var(--glass-line)); }
+/* hold progress floats ABOVE the chip (finger-independent) so it stays visible under a fingertip */
+.draw-lock-hint { position: absolute; bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%); pointer-events: none;
+  display: flex; flex-direction: column; gap: 5px; min-width: 96px; padding: 7px 10px; border-radius: var(--r-sm);
+  background: var(--surface); box-shadow: 0 6px 18px rgba(0, 0, 0, .32); }
+.draw-lock-hint-label { font: 700 11px var(--body); color: var(--ink); white-space: nowrap; text-align: center; }
+.draw-lock-hint-bar { height: 4px; border-radius: 2px; background: var(--border); overflow: hidden; }
+.draw-lock-hint-bar i { display: block; height: 100%; width: 0; background: var(--blue); animation: lock-bar .7s linear forwards; }
+@keyframes lock-bar { to { width: 100%; } }
+/* draggable measurement vertex */
+/* path vertices — small dot, but a 44px transparent hit pad (::after) so a fingertip can
+   grab one to drag, or press-and-hold to delete, without a precise aim. touch-action:none
+   keeps the press from scrolling/panning before the long-press timer fires. */
+.measure-handle, .draw-handle { position: relative; width: 18px; height: 18px; border-radius: 50%; background: var(--on-accent-ink);
+  border: 3px solid var(--blue); box-shadow: 0 1px 3px rgba(30, 45, 70, .4); cursor: grab; box-sizing: border-box; touch-action: none; }
+.measure-handle::after, .draw-handle::after { content: ''; position: absolute; left: 50%; top: 50%;
+  width: 44px; height: 44px; transform: translate(-50%, -50%); }
+.measure-handle:active, .draw-handle:active { cursor: grabbing; transform: scale(1.15); }
+/* insert-a-node "+" at a measured segment's midpoint. Held at .55 so a path with many segments
+   doesn't read as a row of buttons with a line behind it; same 34px hit pad as the Plan's
+   .wb-vins, which this deliberately matches pixel for pixel. */
+.measure-insert { position: relative; width: 18px; height: 18px; border-radius: 50%; padding: 0;
+  display: grid; place-items: center; background: var(--blue); border: 2px solid var(--surface);
+  color: var(--on-fill); cursor: pointer; box-sizing: border-box; touch-action: none; opacity: .55; }
+.measure-insert::after { content: ''; position: absolute; left: 50%; top: 50%;
+  width: 34px; height: 34px; transform: translate(-50%, -50%); }
+.measure-insert:hover { opacity: 1; }
+.measure-insert .i { width: 11px; height: 11px; stroke-width: 2.6; }
+/* endpoint-attach feedback — a ring on the connection point whose centre fills to solid over ~350ms
+   while hovered (the classic "fills up until it locks" affordance). Keyed to the target in JSX, so a
+   fresh target restarts the fill. It's a hover flourish; the attach commits on release. Dragging
+   never detaches — the × detach chip beside the node does that — so there is no drag-× state. */
+.magnet-port { display: grid; place-items: center; width: 27px; height: 27px; border: 3px solid var(--accent);
+  border-radius: 50%; background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--surface) 72%, transparent); pointer-events: none; }
+.magnet-port::after { content: ''; width: 0; height: 0; border-radius: 50%; background: var(--accent); }
+.magnet-port.snap::after { animation: magnetFill 350ms ease-out forwards; }
+@keyframes magnetFill { from { width: 0; height: 0; } to { width: 15px; height: 15px; } }
+.magnet-port.blocked { border-color: var(--red); color: var(--red); background: color-mix(in srgb, var(--red) 12%, var(--surface)); }
+.magnet-port.blocked::after { display: none; }
+.magnet-port > small { position: absolute; top: 32px; width: max-content; max-width: 220px; padding: 5px 8px; border-radius: 7px;
+  background: var(--ink); color: var(--surface); font-size: 11px; font-weight: 700; }
+.wb-magnet { position: absolute; z-index: 12; transform: translate(-50%, -50%); }
+/* explicit detach affordance: a chip beside a selected, connected endpoint (map + plan). Sized for
+   fat fingers — it's the only on-canvas control that both signals "connected" and breaks the link. */
+.line-detach-chip { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%;
+  border: 3px solid var(--red); background: var(--surface); color: var(--red);
+  box-shadow: 0 2px 6px rgba(30, 45, 70, .34); cursor: pointer; }
+/* the geometrically-centred close glyph — a text "×" sits off-centre by its font metrics */
+.line-detach-chip .i { width: 20px; height: 20px; stroke-width: 2.6; vertical-align: baseline; }
+/* press = shrink, like every other :active in this sheet — this one alone grew */
+.line-detach-chip:active { transform: scale(.94); }
+.network-halo { position: absolute; inset: -7px; border: 2px solid color-mix(in srgb, var(--accent) 55%, transparent); border-radius: 50%; pointer-events: none; }
+.hidden-attachment-marker { width: 14px; height: 14px; border: 2px dashed var(--accent); border-radius: 50%; background: color-mix(in srgb, var(--surface) 80%, transparent); }
+/* Messung — length + Schläuche of an already-drawn line, and the collapsible Höhenprofil. The
+   chart itself keeps MeasurePanel's .mp-* classes (see components/ProfileChart), which are sized
+   off width:100% and so fit the narrower ctx dock unchanged. */
+/* A read-only value sits where every other row in this panel has a CONTROL, so it needs to read
+   as data rather than as a disabled button: a quiet chip, aligned to the same right edge. */
+.draw-editor .de-measure-v {
+  flex: none; padding: 4px 10px; border-radius: var(--r-xs);
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  font: 700 13.5px var(--mono); color: var(--ink); letter-spacing: -.2px;
+}
+/* the Höhenprofil discloser keeps the rows' rhythm — same label colour and left edge — and gains
+   a real hover/expanded state so it reads as something you can open */
+/* font-family: inherit, and it is not optional. This is a <button>, and a button does NOT inherit
+   the page font on its own — it falls back to the browser's own UI face. Every other line in this
+   panel is a <span> inside .de-row, so «Höhenprofil» was the one label in the Messung block set in
+   a different typeface than the rows above and below it. Everything else here (13px/500/--ink-dim)
+   already matched .de-row exactly, which is what made the odd one out so hard to place. */
+/* it IS a row — same 48px rhythm, same 2px padding, same flush-right edge as every control above
+   it. The old 8px of right padding pushed its chevron 8px inside the line the controls hold, and
+   the 2px margin-top nudged it off the rhythm by exactly enough to notice without being able to
+   say why. */
+.draw-editor .de-prof-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%;
+  min-height: 48px; padding: 2px 0; border: 0; border-radius: var(--r-sm);
+  background: transparent; color: var(--ink-dim); cursor: pointer;
+  font-family: inherit; font-size: 12.5px; font-weight: 700; -webkit-tap-highlight-color: transparent; }
+.draw-editor .de-prof-toggle:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 5%, transparent); }
+.draw-editor .de-prof-toggle.on { color: var(--ink); }
+.draw-editor .de-prof-toggle .i { width: 16px; height: 16px; transition: transform .18s var(--ease); }
+.draw-editor .de-prof-toggle.on { color: var(--ink); }
+.draw-editor .de-prof-toggle.on .i { transform: rotate(180deg); }
+.draw-editor .de-prof-msg { padding: 10px 0; font-size: 12px; color: var(--ink-faint); text-align: center; }
+
+/* Verbindungen — reuses the editor's own .de-row / .de-preset rows verbatim so it reads as one more
+   FKS group, not a separate widget. Only the target value, the note line and the detach get styling. */
+.draw-editor .de-conn-title { padding: 4px 0 2px; font-size: 11px; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--ink-dim); }
+/* the same font-family: inherit as .de-prof-toggle above, for the same reason — these three are
+   buttons sitting among .de-row labels, and a button that does not ask for the page font gets the
+   browser's instead. */
+.draw-editor .de-conn-name { display: inline-flex; align-items: center; gap: 3px; max-width: 60%; padding: 0; border: 0;
+  background: none; color: var(--ink); font-family: inherit; font-size: 13px; font-weight: 600; }
+.draw-editor .de-conn-name > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.draw-editor .de-conn-name:disabled { color: var(--ink-dim); }
+.draw-editor .de-conn-go { flex: none; color: var(--ink-faint); font-size: 16px; line-height: 1; }
+.draw-editor .de-conn-note { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 0 6px; font-size: 12px; color: var(--ink-dim); }
+.draw-editor .de-conn-note.warn { color: var(--red); font-weight: 600; }
+.draw-editor .de-conn-reveal { color: var(--blue); font-family: inherit; font-size: 12px; font-weight: 600; text-decoration: underline; }
+/* also a row: the 28px height and the 2px/4px margins made the last line of the panel sit tighter
+   than everything above it, and its text started 4px in from the left edge the labels hold. */
+.draw-editor .de-conn-detach { display: inline-flex; align-items: center; margin: 0; min-height: 48px; padding: 2px 0;
+  border: 0; background: transparent; color: var(--red); font-family: inherit; font-size: 12.5px; font-weight: 600; }
+.draw-editor .de-conn-detach:hover { text-decoration: underline; }
+/* Verbundene Linien — flat rows in the sidebar idiom (hairline separators, chevron affordance),
+   not floating cards; the row label uses the friendly line name, not the raw id. */
+.ctx-connections button { width: 100%; min-height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 8px 0; border: 0; border-top: 1px solid var(--border-soft); background: none; color: var(--ink);
+  font-family: inherit; font-size: 12.5px; font-weight: 700; text-align: left; }
+.ctx-connections button:first-of-type { border-top: 0; }
+.ctx-connections button > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctx-conn-go { flex: none; color: var(--ink-faint); font-size: 16px; line-height: 1; }
+/* Trupp picker + the jump to it, as ONE control group: the chevron sits against the picker the
+   way a "go there" affordance does everywhere else in the panel, instead of repeating the name
+   in a row of its own. */
+.draw-editor .de-trupp { display: inline-flex; align-items: center; gap: 4px; max-width: 62%; min-width: 0; }
+/* the picker itself — our own button + Menu, sized and coloured like every other row control
+   (a native <select> dropped macOS chrome into the middle of the panel) */
+.draw-editor .de-menu-trigger { display: inline-flex; align-items: center; gap: 6px; min-width: 0; min-height: 38px;
+  padding: 8px 10px; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface);
+  color: var(--ink); font: 700 13px/1.2 var(--body); cursor: pointer; }
+.draw-editor .de-menu-trigger > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.draw-editor .de-menu-trigger svg { width: 14px; height: 14px; flex: none; opacity: .65; }
+/* the Trupp that laid this Leitung and is already out — same dim + strike as its map marker
+   (.team-dot.raus), so «wer war hier» stays readable without reading as «wer ist hier» */
+.draw-editor .de-menu-trigger .de-trupp-out { color: var(--ink-dim); text-decoration: line-through; }
+.draw-editor .de-menu-trigger .de-trupp-outnote { flex: none; color: var(--ink-dim); font: 600 11.5px/1 var(--body); font-style: normal; }
+.draw-editor .de-menu-trigger:hover,
+.draw-editor .de-menu-trigger[data-popup-open] { border-color: var(--ink-dim); }
+.de-menu-pop { min-width: 200px; padding: 6px; border-radius: var(--r-ctl); background: var(--surface);
+  box-shadow: var(--shadow); border: 1px solid var(--glass-edge); z-index: 60; }
+.de-menu-item { display: flex; align-items: center; gap: 9px; width: 100%; min-height: var(--tap);
+  padding: 0 11px; border-radius: var(--r-sm); cursor: pointer; font: 600 13.5px var(--body); color: var(--ink); outline: none; }
+.de-menu-item[data-highlighted] { background: color-mix(in srgb, var(--ink) 8%, transparent); }
+/* the tick marks the current pick; the empty slot keeps every label on the same left edge */
+.de-menu-tick { flex: none; width: 15px; height: 15px; visibility: hidden; color: var(--blue); }
+.de-menu-tick.on { visibility: visible; }
+.de-menu-tick svg { width: 100%; height: 100%; }
+.draw-editor .de-trupp-go { display: grid; place-items: center; width: 32px; min-height: 32px; padding: 0;
+  border: 0; background: none; color: var(--ink-dim); cursor: pointer; }
+.draw-editor .de-trupp-go:hover { color: var(--blue); }
+
+/* selected-drawing edit handles (reshape vertices + move grip + delete) — each gets a
+   transparent hit pad; kept below 44px because move/delete/rotate cluster around the
+   drawing centre and full-size pads would overlap onto the destructive ✕ */
+.draw-move { position: relative; width: 30px; height: 30px; border-radius: 50%; background: var(--blue); color: var(--on-fill);
+  display: grid; place-items: center; cursor: grab; box-shadow: 0 2px 6px rgba(30, 45, 70, .4); border: 2px solid #fff; }
+.draw-move::after { content: ''; position: absolute; inset: -5px; }
+.draw-move:active { cursor: grabbing; }
+.draw-move .i { width: 16px; height: 16px; }
+/* edit hub sits at the drawing's centre: a rotor knob straight up, the delete ✕ to
+   the upper-right, with the move grip (separate marker) filling the centre */
+.draw-edit-hub { position: relative; }
+.draw-del { position: absolute; left: 0; top: 0; transform: translate(16px, -16px);
+  width: 24px; height: 24px; border-radius: 50%; background: var(--red, #e23); color: var(--on-accent-ink); border: 2px solid #fff;
+  display: grid; place-items: center; cursor: pointer; box-shadow: 0 2px 6px rgba(30, 45, 70, .4); padding: 0; }
+.draw-del .i { width: 13px; height: 13px; }
+.draw-del::after { content: ''; position: absolute; inset: -7px; }
+.draw-rotor { position: absolute; left: 0; top: 0; pointer-events: none; }
+.draw-rotor button { pointer-events: auto; }
+.draw-stem { position: absolute; left: 0; bottom: 0; width: 2px; height: 24px; transform: translateX(-50%); background: var(--blue); }
+.draw-rotate { position: absolute; left: 0; bottom: 24px; transform: translateX(-50%);
+  width: 28px; height: 28px; border-radius: 50%; background: var(--blue); color: var(--on-fill); border: 2px solid #fff;
+  display: grid; place-items: center; cursor: grab; box-shadow: 0 2px 6px rgba(30, 45, 70, .4); padding: 0; }
+.draw-rotate:active { cursor: grabbing; }
+.draw-rotate::after { content: ''; position: absolute; inset: -6px; }
+.draw-rotate .i { width: 15px; height: 15px; }
+/* WebGL context lost: centred over the (now blank) canvas, above the map chrome but below
+   sheets/toasts. Persistent by design — it stays until the operator rebuilds the map. */
+.map-gl-lost { position: absolute; z-index: 120; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center;
+  width: min(30ch, calc(100% - 32px)); padding: 18px 20px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-surface);
+  box-shadow: var(--shadow); animation: pop .3s var(--ease); }
+.map-gl-lost-title { font-size: 14px; font-weight: 650; color: var(--ink); }
+.map-gl-lost-hint { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--ink-dim); }
+
+/* marquee selection rectangle (Select tool drag) */
+.marquee-box { z-index: 6; pointer-events: none; border: 1.5px solid var(--blue);
+  background: color-mix(in srgb, var(--blue) 10%, transparent); border-radius: 2px; }
+
+/* plan Mehrfach (lasso) marquee box — client coords, so fixed positioning */
+.wb-marquee { position: fixed; z-index: 30; pointer-events: none; border: 1.5px solid var(--blue);
+  background: color-mix(in srgb, var(--blue) 10%, transparent); border-radius: 2px; }
+/* plan group handles (≥2 selected) — move grip + delete at the combined centre */
+.wb-group-acts { position: absolute; top: 0; left: 0; z-index: 7;
+  display: flex; gap: 6px; background: var(--ink-fill); border-radius: var(--r-ctl); padding: 5px; box-shadow: var(--shadow); }
+.wb-pa-move { background: var(--blue); cursor: grab; touch-action: none; }
+.wb-pa-move:hover { background: var(--blue); filter: brightness(1.08); }
+.wb-pa-move:active { cursor: grabbing; }
+

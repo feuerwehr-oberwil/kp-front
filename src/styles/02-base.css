@@ -1,0 +1,80 @@
+* { box-sizing: border-box; }
+html, body, #root { margin: 0; height: 100%; }
+/* paint the themed backdrop on html too: iOS over-scroll and the safe-area bands around
+   standalone/browser chrome show html's background — without this they render white */
+html { background: var(--app-bg); }
+/* An ordinary scrolling PAGE rather than the app's fixed shell (the Erfassungs-Poster, see
+   main.tsx). Without this its content was trapped under `body { overflow: hidden }` and
+   everything past the viewport showed as an unpainted white band. */
+html.page-scroll, html.page-scroll body { height: auto; min-height: 100%; overflow: visible; }
+html.page-scroll body { background: var(--app-bg); }
+html.page-scroll #root { height: auto; min-height: 100%; background: var(--app-bg); }
+body {
+  font-family: var(--body); color: var(--ink); overflow: hidden;
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+  background:
+    var(--app-bg);
+  -webkit-tap-highlight-color: transparent; user-select: none;
+  /* app feel: the UI chrome scrolls but never pinch-/double-tap-zooms like a web page
+     (touch-action is the reliable method — iOS ignores user-scalable=no). The map and
+     plan stage opt back into raw gestures below so THEY still zoom. */
+  touch-action: pan-x pan-y;
+  overscroll-behavior: none;
+  -webkit-touch-callout: none;
+}
+/* only the map + plan get raw multi-touch (their own JS owns the zoom) */
+#map, .maplibregl-map, .maplibregl-canvas, .wb-stage, .wb-canvas { touch-action: none; }
+.app { position: fixed; inset: 0; }
+
+/* shared interaction feel for all floating glass controls */
+.rbtn, .vrail-tool, .ctx-x, .sym-close, .sym-clear, .chip, .btn {
+  transition: background .16s var(--ease), color .16s var(--ease),
+    transform .12s var(--ease), box-shadow .16s var(--ease);
+}
+.rbtn:not(.active):hover { background: var(--hover-strong); }
+.rbtn:active, .vrail-tool:active { transform: scale(.94); }
+.btn:active, .chip:active { transform: scale(.96); }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.app :focus:not(:focus-visible) { outline: none; }
+
+/* Touch ergonomics — gloved field use on a tablet. Small icon-only controls get
+   a centred, transparent 44×44 hit area so the tap target meets WCAG 2.5.8
+   without inflating the visible button. Densely-packed pickers are enlarged
+   directly (overlapping invisible targets would cause mis-taps). */
+.ctx-x, .sym-close, .sym-clear, .tl-play,
+.journal-x, .wb-dock-x, .ip-x, .jc-clip-x, .pp-clear, .step-clear,
+.wb-dock-tog, .wb-dock-go, .jr-jump, .jr-open { position: relative; }
+.ctx-x::after, .sym-close::after, .sym-clear::after,
+.tl-play::after, .wb-del::after,
+.journal-x::after, .wb-dock-x::after, .ip-x::after,
+.jc-clip-x::after, .pp-clear::after, .step-clear::after,
+.wb-dock-tog::after, .wb-dock-go::after, .jr-jump::after, .jr-open::after {
+  content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px;
+  transform: translate(-50%, -50%);
+}
+
+/* Scrollbars — one thin treatment for every scrollable pane. Styling ::-webkit-scrollbar
+   opts out of the OS auto-hiding overlay bar, so a pane that can scroll shows its bar
+   persistently instead of it appearing out of nowhere mid-scroll. :where() keeps the
+   specificity at zero so the deliberate exceptions (.nav-scroll, .vrail-scroll, .wheel
+   hide theirs; .wb-dock/.roster tint theirs) still win. */
+:where(*) { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--ink) 28%, transparent) transparent; }
+:where(*)::-webkit-scrollbar { width: 9px; height: 9px; background: transparent; }
+:where(*)::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--ink) 26%, transparent);
+  border-radius: 999px; border: 2px solid transparent; background-clip: content-box;
+}
+:where(*)::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--ink) 40%, transparent); background-clip: content-box; }
+/* in-flow panes reserve the scrollbar lane up front so content doesn't shift the moment
+   a list grows past the fold (module-CSS lists set this in their own files). NOT the
+   narrow icon docks (.wb-dock) — a permanently reserved lane reads as lopsided padding
+   on a column that's only as wide as its buttons. */
+.ctx-body, .history-list, .sym-scroll, .pp-list, .roster, .rp-people, .cv-people,
+.report-preflight > .ip-body, .ip-objlist, .ip-launch-list, .help-toc, .help-content { scrollbar-gutter: stable; }
+
+/* native number-input spinners off app-wide — counts use steppers or plain typing */
+input[type='number']::-webkit-outer-spin-button, input[type='number']::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type='number'] { -moz-appearance: textfield; appearance: textfield; }
+
+.i { width: 1em; height: 1em; stroke: currentColor; stroke-width: 1.8; fill: none;
+  stroke-linecap: round; stroke-linejoin: round; flex: none; vertical-align: -.12em; }
