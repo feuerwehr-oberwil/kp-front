@@ -175,10 +175,12 @@ def test_the_pressure_log_shares_the_trupps_left_edge():
     assert abs(zeit_x - name_x) < 6, f"table at x={zeit_x} is not aligned with the name at x={name_x}"
 
 
-def test_the_signature_rule_sits_under_the_name_not_through_it():
-    """«Einsatzleiter: Céline Widmer» used to be drawn with the rule on its own baseline, which
-    underlined the name and left nowhere to sign. A Visum needs empty paper under the name it
-    belongs to — so the two Visum rows have to stand a writing height apart."""
+def test_the_signature_rule_starts_after_the_name_not_through_it():
+    """A Visum row reads as ONE line — «Einsatzleiter: Anna Meier ______» — so the rule sits on
+    the row's own baseline and starts where the name ends. Drawn from the label it would
+    underline the name; hung a writing height below (as it was until 2026-08-08) it put two
+    rules at two heights in one row, the lower one nearer the NEXT row's label than its own
+    name. Guards the gap between the rows too — they must not crowd each other."""
     payload = ReportPayload.model_validate(
         {
             "incident": {"title": "Zimmerbrand", "id": "i"},
@@ -200,11 +202,20 @@ def test_the_signature_rule_sits_under_the_name_not_through_it():
 
     el = box("Widmer")
     kdt = box("Meier")
-    # The rule hangs _SIG_DROP (6 mm ≈ 17 pt) under the EL's name, and the signature is written
-    # into the space ABOVE it — so the gap to the Kommandant row has to clear the drop with a
-    # margin, or the rule lands on the next row's label. Not more: this is a form, not a poster.
+    # the two Visum rows stay a writing height apart — a form, not a poster
     gap = el[1] - kdt[3]
-    assert gap > 22, f"only {gap:.1f} pt between the two Visum rows — the rule has no room"
+    assert gap > 22, f"only {gap:.1f} pt between the two Visum rows — no room to sign"
+
+    # and the rule does not run through the name: nothing is drawn on the row's rule line
+    # across the name's own span, while the stretch to its right is where the rule lives.
+    scale = 3
+    px = page.render(scale=scale).to_pil().convert("L").load()
+    rule_y = int((page.get_height() - el[1] + 0.6 * 72 / 25.4) * scale)
+    x0, x1 = int(el[0] * scale) + 2, int(el[2] * scale) - 2
+    under_name = [
+        y for y in range(rule_y - 3, rule_y + 4) if sum(1 for x in range(x0, x1) if px[x, y] < 200) > (x1 - x0) * 0.2
+    ]
+    assert not under_name, "the signature rule runs through the Einsatzleiter's name"
 
 
 def test_the_roster_rows_are_tall_enough_to_write_in():

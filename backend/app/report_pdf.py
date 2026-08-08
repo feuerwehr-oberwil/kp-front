@@ -427,7 +427,9 @@ L = {
     "sigKommandant": "Kommandant",
     "generatedAt": "Erstellt",
     "mittel": "Material",
-    "gerettete": "Gerettete",
+    # «Gerettet», not «Gerettete»: the box is a form label followed by what was rescued
+    # («Gerettet: 2 Personen»), not a noun standing on its own.
+    "gerettete": "Gerettet",
     "rueckmeldungElz": "Rückmeldung ELZ",
     "zeiten": "Alarmierungs- / Ausrückzeiten",
     "erfasser": "Erfasst durch",
@@ -619,6 +621,11 @@ def _styles() -> dict[str, ParagraphStyle]:
         # The unit sits in its own column beside the amount, so «Stk» / «Sack» / «l» form one
         # column and the write-in rule beside them is one width — see _mittel_table.
         "runit": ParagraphStyle("rp_runit", parent=base["Normal"], fontSize=8.5, leading=10, textColor=dim),
+        # the dash between «von» and «bis», centred in its own narrow column so it lands on
+        # one x down the whole roster — see _personal_table
+        "rdash": ParagraphStyle(
+            "rp_rdash", parent=base["Normal"], fontSize=8.5, leading=10, textColor=dim, alignment=TA_CENTER
+        ),
         # A remark is its OWN paragraph, not an inline <font size="6.5"> inside the label. Inline,
         # it inherited the label's 10pt leading — 3.5pt of lead on a 6.5pt face against 1.5pt on
         # the 8.5pt name above it — so a remark hung away from the line it belongs to and the
@@ -656,11 +663,6 @@ def _fit_text(c, text: str, max_w: float, font: str = "Helvetica", size: float =
     while text and c.stringWidth(text + "…", font, size) > max_w:
         text = text[:-1]
     return text + "…"
-
-
-#: How far under a signature row its rule sits — enough to write a signature into, and no more.
-#: Anything less and the name is underlined rather than signed under.
-_SIG_DROP = 6 * mm
 
 
 class _FormRows(Flowable):
@@ -709,13 +711,6 @@ class _FormRows(Flowable):
             y = self.height - self.pad - (i + 1) * self.pitch + 2.4 * mm  # text baseline
             x = self.pad
             offset = 0.0
-            # ⚠️ ONE rule height per row. A Visum row holds «Ort, Datum» beside the name that
-            # signs, and only the name's rule was dropped a writing height — so the row printed
-            # two dotted lines at two different y, and the lower one sat closer to the NEXT row's
-            # «Ort, Datum» label than to the name it belongs to. It read as a line that had come
-            # adrift. The drop is a property of the ROW: a signature needs empty paper under it,
-            # and the place and date written beside it belong on that same line.
-            row_drop = _SIG_DROP if any(f.get("sign") for f in row) else 0.6 * mm
             for f in row:
                 w = inner * f["w"]
                 label = f"{f['label']}:"
@@ -733,27 +728,34 @@ class _FormRows(Flowable):
                     # read — an empty Kontaktperson still gets its line — and omitted under a
                     # value that is already printed.
                     #
-                    # A SIGNATURE field (`line=True`) is the exception both ways: it always gets
-                    # its rule, and the rule sits a full writing height BELOW the row instead of
-                    # under the text. «Einsatzleiter: Céline Widmer» with a line through the
-                    # baseline underlined the name and left nowhere to sign — a signature needs
-                    # empty paper under the name it belongs to, which is how every Visum block on
-                    # a kantonale Vorlage is drawn.
+                    # A SIGNATURE field always gets its rule, printed value or not — that is the
+                    # only way it differs. It is drawn ON THE ROW'S OWN LINE and STARTS WHERE THE
+                    # VALUE ENDS, so the whole thing reads as one line: «Einsatzleiter: Anna Meier
+                    # ________». It used to hang a full writing height below the row, which put
+                    # two rules at two heights in every Visum row and left the lower one nearer
+                    # the NEXT row's «Ort, Datum» label than the name it belonged to. Signing
+                    # happens on the rule, next to the name, exactly as «Ort, Datum: ____» works
+                    # two centimetres to its left.
                     sig = bool(f.get("sign"))
-                    rule_y = y - row_drop
+                    rule_y = y - 0.6 * mm
+                    shown = ""
+                    if value:
+                        c.setFont("Helvetica", 9)
+                        shown = _fit_text(c, value, w - (lx - x) - 4 * mm)
                     if not value or sig or f.get("line"):
+                        # start clear of whatever is already printed, so the rule is somewhere to
+                        # write rather than an underline through the name
+                        start = lx + (_str_w(shown, "Helvetica", 9) + 2 * mm if shown else 0)
                         c.saveState()
                         c.setStrokeColor(_WRITE)
                         c.setLineWidth(0.5)
                         c.setDash(0.8, 0.8)
-                        # a signature rule starts at the label, not at the value column: it is
-                        # the whole field's line, not a continuation of the name above it
-                        c.line(x if sig else lx, rule_y, x + w - 2 * mm, rule_y)
+                        c.line(start, rule_y, x + w - 2 * mm, rule_y)
                         c.restoreState()
-                    if value:
+                    if shown:
                         c.setFont("Helvetica", 9)
                         c.setFillColor(_INK)
-                        c.drawString(lx, y, _fit_text(c, value, w - (lx - x) - 4 * mm))
+                        c.drawString(lx, y, shown)
                 x += w
                 offset += w
 
@@ -1119,8 +1121,8 @@ def compose_report_pdf(
                 {"label": L["sigKommandant"], "w": 0.6, "value": m.kommandant, "sign": True},
             ],
         ],
-        # clears the signature rule hanging _SIG_DROP under each name, and no more: the sheet
-        # is a form, not a poster
+        # Room to sign BESIDE the name, not under it — the rule is on the row's own line now,
+        # so the pitch only has to keep the two Visum rows from crowding each other.
         pitch=11.5 * mm,
     )
     story.append(KeepTogether([*head(L["signoff"]), sig]))
@@ -1417,15 +1419,25 @@ def _personal_table(personal: list[PersonalRowIn], inner_w: float, st: dict[str,
     """Two-up roster: [☐|Name|von–bis] × 2 — recorded people get a printed tick + clocks,
     the rest stays blank for the pen. Long rosters flow onto the next page."""
     check_w = 4 * mm
+    # ⚠️ ONE stub shape per sheet. The stub was always «__:__» while a recorded value on an
+    # Einsatz over midnight reads «02.08. 14:41» — so a column of blanks was visibly a different
+    # length from the rows above it, and what somebody has to write in did not match what the
+    # row beside it shows. When ANY row on the sheet carries a date, every stub carries the
+    # space for one.
+    dated = any("." in (p.von or "") or "." in (p.bis or "") for p in personal)
+    stub = "__.__. __:__" if dated else _TIME_STUB
     # The clock column is sized to what it actually has to hold. A fixed 30 mm was enough for
     # «14:41 – 11:00» and not for «02.08. 14:41 – 04.06. 11:00», so an Einsatz over midnight
     # wrapped every row onto two lines — the remark under the name then had a stack of dates
     # beside it. Capped, so a stray long value cannot eat the name column instead.
-    widest = max(
-        (_str_w(f"{p.von or _TIME_STUB} – {p.bis or _TIME_STUB}", "Helvetica", 8.5) for p in personal),
+    widest_end = max(
+        (_str_w(v or stub, "Helvetica", 8.5) for p in personal for v in (p.von, p.bis)),
         default=0.0,
     )
-    time_w = max(32 * mm, min(widest + 3 * mm, 46 * mm))
+    dash_w = 4 * mm
+    end_w = min(widest_end + 1.5 * mm, 21 * mm)
+    time_w = max(32 * mm, min(2 * end_w + dash_w, 46 * mm))
+    end_w = (time_w - dash_w) / 2
     name_w = _split_col_w(inner_w) - check_w - time_w
 
     def cells(p: PersonalRowIn | None) -> list:
@@ -1436,14 +1448,26 @@ def _personal_table(personal: list[PersonalRowIn], inner_w: float, st: dict[str,
         # to read as exactly that, so the two are not one string in one colour any more
         def stamp(v: str | None, derived: bool) -> str:
             if not v:
-                return f'<font color="{_DERIVED}">{_TIME_STUB}</font>'
+                return f'<font color="{_DERIVED}">{stub}</font>'
             return f'<font color="{_DERIVED}">{_esc(v)}</font>' if derived else _esc(v)
 
-        # a non-breaking space around the dash: the column is sized for one line, and a break
-        # inside «02.08. 14:41 – 04.06. 11:00» would put it back onto two
-        vonbis = (
-            f'{stamp(p.von, p.vonDerived)}&nbsp;<font color="{_DERIVED}">–</font>&nbsp;{stamp(p.bis, p.bisDerived)}'
+        # ⚠️ THREE columns, so the dash is at one x down the whole sheet. As one string the two
+        # ends were set proportionally — «__:__» and «02.08. 14:41» are not the same width, and
+        # Helvetica's underscore is narrower than its digits, so even two stubs of equal shape
+        # drifted — and every row put its dash somewhere else. «von» hangs right against the
+        # dash, «bis» starts left of it, which is also how the two are read: inwards, from the
+        # dash. Fixed widths mean no wrap either, so the old &nbsp; guard is unnecessary.
+        vonbis = Table(
+            [
+                [
+                    Paragraph(stamp(p.von, p.vonDerived), st["ramt"]),
+                    Paragraph(f'<font color="{_DERIVED}">–</font>', st["rdash"]),
+                    Paragraph(stamp(p.bis, p.bisDerived), st["rcell"]),
+                ]
+            ],
+            colWidths=[end_w, dash_w, end_w],
         )
+        vonbis.setStyle(TableStyle(_SPLIT_OUTER))
         name: list = [Paragraph(_esc(p.name) if p.name else _LINE_STUB, st["rcell"])]
         if p.note:
             name.append(Paragraph(_esc(_clip_print(p.note)), st["rnote"]))
@@ -1456,7 +1480,7 @@ def _personal_table(personal: list[PersonalRowIn], inner_w: float, st: dict[str,
             # tick box, so the sheet ended in two people nobody had got round to naming. The
             # ruled underline is the affordance for a blank row; the stub is for a NAMED person
             # whose times are still to be filled in.
-            Paragraph(vonbis if p.name else "", st["rcell"]),
+            vonbis if p.name else "",
         ]
 
     def column(people: list[PersonalRowIn]) -> Table:
