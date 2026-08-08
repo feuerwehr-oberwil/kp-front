@@ -185,7 +185,7 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
           </div>
         ))}
         {addLabel && onAdd && (
-          <button type="button" className={cx('btn', 'ghost', s.add)} onClick={onAdd}>
+          <button type="button" className={cx('ip-btn', 'ghost', s.add)} onClick={onAdd}>
             <Icon id="plus" />{addLabel}
           </button>
         )}

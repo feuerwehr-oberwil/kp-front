@@ -478,7 +478,9 @@ button.stepVal:hover { border-color: var(--blue); }
   margin-bottom: 2px; min-height: 40px;
 }
 .comboToggle :global(.i) { width: 15px; height: 15px; color: var(--accent); }
-.comboToggleOn { color: var(--ink); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+/* --blue: this is a SELECTED state, and --accent is the brand red — the note two rules up in
+   this same file says so. */
+.comboToggleOn { color: var(--ink); background: color-mix(in srgb, var(--blue) 12%, transparent); }
 
 @media (max-width: 600px) {
   /* full width below the top bar (78px clears the floating bar with a visible gap — at 64px

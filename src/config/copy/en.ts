@@ -481,6 +481,7 @@ export const en: Localizable<Copy> = {
     modeLine: 'Distance',
     modeArea: 'Area',
     clear: 'Reset',
+    addPoint: 'Add a point at the centre',
     deleteNode: 'Right-click to remove',
     distance: 'Distance',
     perimeter: 'Perimeter',

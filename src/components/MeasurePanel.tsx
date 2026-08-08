@@ -75,7 +75,7 @@ export function MeasurePanel({ mode, coords, profile, profileLoading, metrics, s
         </div>
       )}
       {onCalibrate && (
-        <button type="button" className={cx('btn', blocked ? 'primary' : 'ghost', s['mp-cal-btn'])} onClick={onCalibrate}>
+        <button type="button" className={cx('ip-btn', blocked ? 'primary' : 'ghost', s['mp-cal-btn'])} onClick={onCalibrate}>
           <Icon id="measure" />{blocked ? calibrateLabel : recalibrateLabel}
         </button>
       )}

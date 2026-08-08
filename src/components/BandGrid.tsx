@@ -228,7 +228,7 @@ function BandSheet({ band, bands, startedAt, onCreate, onSave, onRemove, onClose
       footer={
         <>
           {band && (
-            <button type="button" className="ip-btn danger" onClick={() => { onRemove(band.id); onClose() }}>
+            <button type="button" className="ip-btn ip-btn-danger" onClick={() => { onRemove(band.id); onClose() }}>
               <Icon id="trash" />{S.removeBand}
             </button>
           )}

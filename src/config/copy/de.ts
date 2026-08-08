@@ -735,6 +735,9 @@ export const de = {
     modeLine: 'Strecke',
     modeArea: 'Fläche',
     clear: 'Zurücksetzen',
+    // Punkt in die Bildmitte setzen, statt ihn mit dem Finger zu treffen: mit Handschuhen auf
+    // einen Hydranten zu zielen ist genau die Bewegung, die auf dem Tablet misslingt.
+    addPoint: 'Punkt in der Mitte setzen',
     deleteNode: 'Rechtsklick zum Entfernen',
     distance: 'Distanz',
     perimeter: 'Umfang',

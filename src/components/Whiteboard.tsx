@@ -2168,6 +2168,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           measMode={measMode}
           setMeasMode={setMeasMode}
           measCount={measPath.length}
+          onMeasAddPoint={() => {
+            const r = stageRef.current?.getBoundingClientRect(); if (!r) return
+            const n = toNorm(r.left + r.width / 2, r.top + r.height / 2)
+            if (n) setMeasPath((pts) => [...pts, [clamp01(n[0]), clamp01(n[1])]])
+          }}
           onMeasClear={() => setMeasPath(() => [])}
           onMeasClose={() => { measReset(); setTool('pan') }}
           noteDefaults={noteDefaults}
@@ -2458,7 +2463,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               <button className="wb-cal-step" aria-label="+" onClick={() => bump(step)}>+</button>
             </div>
             <div className="wb-cal-actions">
-              <button className="btn ghost" onClick={closeCalPrompt}>{appConfig.copy.whiteboard.scale.cancel}</button>
+              <button className="ip-btn ghost" onClick={closeCalPrompt}>{appConfig.copy.whiteboard.scale.cancel}</button>
               <button className="btn primary" disabled={!(val > 0)} onClick={() => commitCalibration(val)}>{appConfig.copy.whiteboard.scale.confirm}</button>
             </div>
           </div>

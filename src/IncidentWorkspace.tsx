@@ -2894,6 +2894,13 @@ export function IncidentWorkspace({
             { type: 'toggle', icon: 'measure', label: appConfig.copy.measure.modeLine, on: measure.mode === 'line', onClick: () => measure.setMode('line') },
             { type: 'toggle', icon: 'area', label: appConfig.copy.measure.modeArea, on: measure.mode === 'area', onClick: () => measure.setMode('area') },
           ],
+          // Drop a point in the CENTRE of the view. Tapping is still the fast way, but aiming a
+          // gloved finger at a hydrant on a tablet is the gesture that misses — this lets the map
+          // be moved under a fixed crosshair instead, which is the same trade the Kroki framing
+          // makes. Mirrored exactly on the Plan (WbControls · Messen).
+          [{ type: 'action', icon: 'plus', label: appConfig.copy.measure.addPoint, onClick: () => {
+            const c = mapRef.current?.getMap().getCenter(); if (c) measure.setPath((d) => [...d, [c.lng, c.lat]])
+          } }],
           [{ type: 'action', icon: 'trash', label: appConfig.copy.measure.clear, disabled: !measure.path.length, onClick: () => measure.setPath(() => []) }],
           [{ type: 'info', text: appConfig.copy.dockHints.measure }],
         ]} />

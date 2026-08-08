@@ -182,6 +182,8 @@ interface DocksProps {
   measMode: 'line' | 'area'
   setMeasMode: (m: 'line' | 'area') => void
   measCount: number
+  /** drop a point in the centre of the view — see the dock for why */
+  onMeasAddPoint: () => void
   onMeasClear: () => void
   onMeasClose: () => void
   /** Defaults for the NEXT note, set while the Notiz tool is armed. They live here — before a
@@ -199,7 +201,7 @@ interface DocksProps {
  * Freihand↔Punkte input toggle, and the line style (Freihand/Messpfeil/Rettungsachse) is chosen in
  * the post-draw editor, not here.
  */
-export function WbToolDocks({ tool, lineMode, color, width, dashed, draftActive, selResource, setTool, setLineMode, setColor, setWidth, setDashed, onFinish, onCancelDraft, recolorTeam, trailsShown, onToggleTrails, measMode, setMeasMode, measCount, onMeasClear, onMeasClose, noteDefaults, setNoteDefaults }: DocksProps) {
+export function WbToolDocks({ tool, lineMode, color, width, dashed, draftActive, selResource, setTool, setLineMode, setColor, setWidth, setDashed, onFinish, onCancelDraft, recolorTeam, trailsShown, onToggleTrails, measMode, setMeasMode, measCount, onMeasAddPoint, onMeasClear, onMeasClose, noteDefaults, setNoteDefaults }: DocksProps) {
   const closeDraft = () => { onCancelDraft(); setTool('pan') }
   return (
     <>
@@ -239,6 +241,9 @@ export function WbToolDocks({ tool, lineMode, color, width, dashed, draftActive,
             { type: 'toggle', icon: 'measure', label: appConfig.copy.measure.modeLine, on: measMode === 'line', onClick: () => setMeasMode('line') },
             { type: 'toggle', icon: 'area', label: appConfig.copy.measure.modeArea, on: measMode === 'area', onClick: () => setMeasMode('area') },
           ],
+          // a point in the CENTRE of the view — see the Lage dock for why (a gloved finger
+          // misses a hydrant; moving the plan under a fixed crosshair does not)
+          [{ type: 'action', icon: 'plus', label: appConfig.copy.measure.addPoint, onClick: onMeasAddPoint }],
           [{ type: 'action', icon: 'trash', label: appConfig.copy.measure.clear, disabled: !measCount, onClick: onMeasClear }],
           [{ type: 'info', text: appConfig.copy.whiteboard.dockHints.measure }],
         ]} />
