@@ -532,15 +532,23 @@ export function ReportPreflight({
   // FORM (field feedback 2026-07-17), so an incident with no records still wants the tick-off
   // roster and the amount stubs on paper. Everything else follows its content.
 
+  const facts: AbschlussFacts = { reportMeta: meta, attendanceCount, mittelCount }
+  const rows = hoursRows(attendance, { alarmedAt: alarmiert ?? null, endedAt: meta.endedAt ?? null })
+  // People whose presence blocks cannot be turned into a duration — almost always a still-open
+  // block borrowing an Einsatzende that lies BEFORE it. They fall out of BOTH Einsatzstunden
+  // totals. It used to print on the paper as «N Person(en) ohne verwertbare Zeiten», a count of
+  // an abstraction that named neither who nor why and that nobody could act on from a sheet.
+  // It belongs here instead: beside the button that makes the paper, while it can still be fixed.
+  const unresolvedNames = rows.filter((r) => r.minutes == null).map((r) => r.name)
+
   // «bereit» is a claim, so it is made only when nothing is outstanding — a fold that says all
   // is well while hiding a broken hash chain would be worse than no summary at all.
   const controlOk = !checking && proof.intact !== false && missTx === 0 && pendingMediaCount === 0
+    && unresolvedNames.length === 0
   /** how many things are actually wrong — the chip counts them rather than saying «Kontrolle» */
   const warnCount = (missTx > 0 ? 1 : 0) + (pendingMediaCount > 0 ? 1 : 0) + (proof.intact === false ? 1 : 0)
+    + (unresolvedNames.length > 0 ? 1 : 0)
   const [controlOpen, setControlOpen] = useState(false)
-
-  const facts: AbschlussFacts = { reportMeta: meta, attendanceCount, mittelCount }
-  const rows = hoursRows(attendance, { alarmedAt: alarmiert ?? null, endedAt: meta.endedAt ?? null })
 
   // The head's one line, in the voice the other surfaces use («12 anwesend · 3 gegangen · 28
   // Mannschaft»): what is recorded, then the verdict. «Alle Angaben erfasst» is a claim, so it is
@@ -670,6 +678,15 @@ export function ReportPreflight({
                 {pendingMediaCount > 0 && (
                   <p className="report-pre-warn">
                     <Icon id="warn" /> <span>{fillTemplate(P.pendingMedia, { n: pendingMediaCount })}</span>
+                  </p>
+                )}
+                {/* names them and says WHY — a count of «ohne verwertbare Zeiten» was the version
+                    that got printed and that nobody could do anything with. The fix is one tap
+                    away, on the Anwesenheit these names come from. */}
+                {unresolvedNames.length > 0 && (
+                  <p className="report-pre-warn">
+                    <Icon id="warn" /> <span>{fillTemplate(P.unresolvedHours, { names: unresolvedNames.join(', ') })}</span>
+                    {onOpenAnwesenheit && <button type="button" className="report-pre-fix" onClick={onOpenAnwesenheit}>{A.steps.anwesenheit}</button>}
                   </p>
                 )}
                 <div className="report-fold-body">

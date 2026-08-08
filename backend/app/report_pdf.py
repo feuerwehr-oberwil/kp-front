@@ -458,7 +458,6 @@ L = {
     # every sheet next to the two numbers anybody actually transfers.
     "personalCount": "<b>{n} Anwesende</b>",
     "personalTotals": "<b>{n} Anwesende</b> · Einsatzstunden <b>{h}</b> · gerundet <b>{r}</b>",
-    "personalUnresolved": "{n} Person(en) ohne verwertbare Zeiten – in keiner der beiden Summen.",
     "journal": "Einsatzjournal",
     "colArea": "Bereich",
     "colEntry": "Eintrag",
@@ -482,6 +481,11 @@ L = {
 # so a blank stub lines up column-exact with a machine-filled HH:MM next to it
 _TIME_STUB = "__:__"
 _LINE_STUB = " "  # write-in rows: empty cell, the ruled underline is the affordance
+#: THE write-in texture for the whole sheet: a fine dotted leader. It already carried the
+#: details box, Kontaktperson, Rückmeldung ELZ, Gerettet and the Kurzbericht lines; the roster
+#: clocks and the Material amounts join it, so «hier schreiben» looks the same everywhere
+#: instead of being underscores in one block and dashes in the next.
+_WRITE_DASH = (1, (0.8, 0.8))
 
 
 # ----------------------------------------------------------------------------- styles
@@ -977,7 +981,7 @@ def compose_report_pdf(
         t.setStyle(
             TableStyle(
                 [
-                    ("LINEBELOW", (0, 0), (-1, -1), 0.5, _WRITE, 1, (0.8, 0.8)),
+                    ("LINEBELOW", (0, 0), (-1, -1), 0.5, _WRITE, *_WRITE_DASH),
                     ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
                     ("LEFTPADDING", (0, 0), (-1, -1), 0),
                 ]
@@ -1022,6 +1026,11 @@ def compose_report_pdf(
     # join is how the wrong one gets typed into the case-number field. The Einsatz-Nr is in the
     # details box below, where somebody filling in a form reads.
     footer_bits = [f"{L['generatedAt']}: {payload.generatedAt}"]
+    # The join number rides HERE, on the line under the title, rather than in the details box: it
+    # is not a fact about the Einsatz the way an address or an Einsatzleiter is — it is the
+    # handle this sheet is filed under, which is what the rest of this line already carries.
+    if payload.incident.alarmRef:
+        footer_bits.append(f"{L['alarmRef']}: {_alarm_ref_text(payload.incident.alarmRef)}")
     if m.erfasser:
         footer_bits.append(f"{L['erfasser']}: {m.erfasser}")
     story.append(Paragraph(_esc(" · ".join(footer_bits)), st["muted"]))
@@ -1048,14 +1057,6 @@ def compose_report_pdf(
                     {"label": L["einsatzleiter"], "w": half, "value": m.einsatzleiter},
                     {"label": L["gerettete"], "w": half, "value": m.gerettete},
                 ],
-                # The join key, in the block that is read while a form is being filled in. Short
-                # form first because that is what gets typed; the full reference behind it so the
-                # slip in the hand and the sheet on the desk can be checked against each other.
-                *(
-                    [[{"label": L["alarmRef"], "w": 1.0, "value": _alarm_ref_text(payload.incident.alarmRef)}]]
-                    if payload.incident.alarmRef
-                    else []
-                ),
                 [{"label": L["kontaktperson"], "w": 1.0, "value": m.kontaktperson}],
                 [{"label": L["rueckmeldungElz"], "w": 1.0, "value": m.rueckmeldungElz}],
             ],
@@ -1134,8 +1135,11 @@ def compose_report_pdf(
                     )
                 )
                 # only worth saying when there IS a total for them to be missing from
-                if ps.unresolved:
-                    story.append(Paragraph(_esc(L["personalUnresolved"].format(n=ps.unresolved)), st["muted"]))
+                # ⚠️ «N Person(en) ohne verwertbare Zeiten» is NOT printed. On paper it was a count
+                # of an abstraction that nobody could act on — the affected person is already in
+                # the roster above with their times, and the sentence named neither them nor the
+                # reason. It belongs where it can be fixed: the Rapport surface raises it as a
+                # Hinweis beside the button that makes the paper (ReportPreflight · Kontrolle).
             else:
                 story.append(Paragraph(L["personalCount"].format(n=ps.present), st["cell"]))
         # No «Abhaken, ggf. von–bis ergänzen» above the table. The tick boxes and the empty
@@ -1495,7 +1499,10 @@ def _personal_table(personal: list[PersonalRowIn], inner_w: float, st: dict[str,
     # space for one.
     ends = [v for p in personal for t in p.times for v in (t.von, t.bis)]
     dated = any("." in (v or "") for v in ends)
-    stub = "__.__. __:__" if dated else _TIME_STUB
+    # the two clock cells are EMPTY and carry a dotted rule instead of an underscore stub —
+    # one texture means «hier schreiben» across the whole sheet (see _WRITE_DASH)
+    stub = ""
+    _ = dated  # the shape no longer changes with it; the column width still does
     # The clock column is sized to what it actually has to hold. A fixed 30 mm was enough for
     # «14:41 – 11:00» and not for «02.08. 14:41 – 04.06. 11:00», so an Einsatz over midnight
     # wrapped every row onto two lines — the remark under the name then had a stack of dates
@@ -1538,7 +1545,24 @@ def _personal_table(personal: list[PersonalRowIn], inner_w: float, st: dict[str,
             ],
             colWidths=[end_w, dash_w, end_w],
         )
-        vonbis.setStyle(TableStyle([*_SPLIT_OUTER, ("TOPPADDING", (0, 1), (-1, -1), 2)]))
+        # an EMPTY clock cell gets the sheet's write-in rule under it. The stub used to be
+        # «__.__. __:__», which is a third texture on a sheet that already has a dotted
+        # leader — and its underscores never lined up with the digits of a filled row,
+        # because Helvetica's underscore is narrower than its figures.
+        vonbis.setStyle(
+            TableStyle(
+                [
+                    *_SPLIT_OUTER,
+                    ("TOPPADDING", (0, 1), (-1, -1), 2),
+                    *[
+                        ("LINEBELOW", (col, r), (col, r), 0.5, _WRITE, *_WRITE_DASH)
+                        for r, t in enumerate(spans)
+                        for col, v in ((0, t.von), (2, t.bis))
+                        if not v
+                    ],
+                ]
+            )
+        )
         name: list = [Paragraph(_esc(p.name) if p.name else _LINE_STUB, st["rcell"])]
         if p.note:
             name.append(Paragraph(_esc(_clip_print(p.note)), st["rnote"]))
@@ -1589,7 +1613,9 @@ def _personal_table(personal: list[PersonalRowIn], inner_w: float, st: dict[str,
                 # the rule runs under the NAME and the clock column both — a write-in row is a
                 # whole row to fill in, and ruling only half of it drew a line that stopped
                 # under the empty time stub it no longer prints
-                style.append(("LINEBELOW", (1, r), (-1, r), 0.5, _WRITE, 1, (0.8, 0.8)))  # guest write-in
+                # the rule sits under the NAME column only, so a write-in row lines up with the named
+                # rows above it instead of running one bar across the whole width
+                style.append(("LINEBELOW", (1, r), (1, r), 0.5, _WRITE, *_WRITE_DASH))
         t = Table([cells(p) for p in people] or [["", "", ""]], colWidths=[check_w, name_w, time_w])
         t.setStyle(TableStyle(style))
         return t
@@ -1802,7 +1828,7 @@ def _mittel_table(mittel: list[MittelFormRowIn], inner_w: float, st: dict[str, P
                     # the write-in rule, under the amount cell only — one x, one width, and only
                     # on the rows that are actually still to be filled in
                     *[
-                        ("LINEBELOW", (1, r), (1, r), 0.5, _WRITE)
+                        ("LINEBELOW", (1, r), (1, r), 0.5, _WRITE, *_WRITE_DASH)
                         for r, rr in enumerate(rows_in)
                         if rr is not None and not rr.menge
                     ],

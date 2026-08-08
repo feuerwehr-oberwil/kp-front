@@ -750,6 +750,11 @@ def render_kroki(
     # neighbouring line (prod feedback 2026-07-18) ---
     labels: list[tuple[tuple[float, float], list[str], int]] = []
     markers: list[tuple[tuple[float, float], str, int, str]] = []
+    # ⚠️ End tags are DEFERRED like the marker letters, and drawn after them. Drawn inline they
+    # went down before the —R—R— letters of their own line, so a Leitung running under its own
+    # tag had the letters painted straight through «1 · W · Meier A.». The tag is the one thing
+    # on a hose line that has to stay readable, and the screen puts it on top too (MapView).
+    end_tags: list[tuple[list[tuple[float, float]], list[str], str, int]] = []
     for d in scene.drawings:
         color = d.get("color") or "#1f6feb"
         kind = d.get("kind")
@@ -809,7 +814,7 @@ def render_kroki(
             if d.get("trupp"):
                 tag_parts.append(str(d["trupp"]))
             if tag_parts:
-                _end_tag(draw, pts, tag_parts, color, int(12 * u * ss))
+                end_tags.append((pts, tag_parts, color, int(12 * u * ss)))
             # label chip at the midpoint VERTEX (like the map): distance line + free label stack
             lines: list[str] = []
             if d.get("showDistance"):
@@ -886,9 +891,11 @@ def render_kroki(
         if e.get("caption"):
             _caption(draw, (x, y + size / 2 + 3 * u * ss), str(e["caption"]).split("\n"), int(11.5 * u * ss))
 
-    # marker letters over the lines, label chips on top of everything
+    # marker letters over the lines, then the end tags over THOSE, label chips on top of all
     for xy, letter, fs, color in markers:
         _halo_text(draw, xy, letter, fs, color)
+    for tag_pts, tag_parts, tag_color, tag_fs in end_tags:
+        _end_tag(draw, tag_pts, tag_parts, tag_color, tag_fs)
     for xy, lines, fs in labels:
         _label_box(draw, xy, lines, int(fs))
 

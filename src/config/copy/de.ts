@@ -2512,6 +2512,10 @@ export const de = {
     annotatedDefault: '{n} annotierte Pläne werden standardmässig gedruckt.',
     missingTranscripts: '{n} Audioeintrag/-einträge ohne Transkript – fürs Protokoll nachtragen.',
     fixTranscripts: 'Im Verlauf ergänzen',
+    // Nennt WEN und WARUM. Auf dem Papier stand «N Person(en) ohne verwertbare Zeiten» – eine
+    // Zahl über eine Abstraktion, mit der niemand etwas anfangen konnte. Häufigste Ursache: ein
+    // offener Block, der das Einsatzende erbt, das VOR seinem Beginn liegt.
+    unresolvedHours: '{names}: Zeiten laufen rückwärts oder fehlen – nicht in den Einsatzstunden.',
     pendingMedia: '{n} Foto/Audio noch nicht hochgeladen – wird bei Verbindung ergänzt; auf anderen Geräten evtl. noch nicht sichtbar.',
     stateNote: 'Stand: ganzer Einsatz bis Rapport-Erstellung ({at}).',
     // actions — kein «Abbrechen»: eine Fläche wird über die Leiste oder das ✕ im Kopf verlassen,
