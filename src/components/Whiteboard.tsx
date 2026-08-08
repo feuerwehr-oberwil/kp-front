@@ -1783,7 +1783,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                   if (measMode === 'line' && i === measPath.length - 1) return null
                   const b = measPath[(i + 1) % measPath.length]
                   return (
-                    <button key={`mi-${i}`} className="wb-vins" title={appConfig.copy.whiteboard.insertVertex} aria-label={appConfig.copy.whiteboard.insertVertex}
+                    <button key={`mi-${i}`} className="wb-vins" title={appConfig.copy.measure.insertPoint} aria-label={appConfig.copy.measure.insertPoint}
                       style={{ left: 0, top: 0, transform: `translate(${((p[0] + b[0]) / 2) * sW}px, ${((p[1] + b[1]) / 2) * sH}px) translate(-50%, -50%)` }}
                       onPointerDown={(e) => measInsert(i, e)}><Icon id="plus" /></button>
                   )
@@ -2172,11 +2172,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           measMode={measMode}
           setMeasMode={setMeasMode}
           measCount={measPath.length}
-          onMeasAddPoint={() => {
-            const r = stageRef.current?.getBoundingClientRect(); if (!r) return
-            const n = toNorm(r.left + r.width / 2, r.top + r.height / 2)
-            if (n) setMeasPath((pts) => [...pts, [clamp01(n[0]), clamp01(n[1])]])
-          }}
           onMeasClear={() => setMeasPath(() => [])}
           onMeasClose={() => { measReset(); setTool('pan') }}
           noteDefaults={noteDefaults}

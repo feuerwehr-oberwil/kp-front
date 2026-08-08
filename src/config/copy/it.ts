@@ -302,7 +302,7 @@ export const it: Localizable<Copy> = {
     circle: 'Trascina dal centro verso il bordo per impostare il raggio in metri. Raggio e riempimento si regolano poi nell’editor.',
     note: 'Tocca la carta per inserire una nota.',
     shape: 'Tocca la carta per posizionare la forma. Attiva il lucchetto per metterne più di seguito.',
-    measure: 'Tocca i punti sulla carta. La distanza mostra lunghezza e profilo altimetrico, la superficie mostra area e perimetro. Trascina i punti per spostarli, tocca una linea per un punto intermedio, clic destro su un punto per rimuoverlo.',
+    measure: 'Tocca i punti sulla carta. La distanza mostra lunghezza e profilo altimetrico, la superficie mostra area e perimetro. Trascina i punti per spostarli, il + al centro di un segmento inserisce un punto intermedio, clic destro su un punto per rimuoverlo.',
   },
   map: {
     incidentHere: 'Luogo d’intervento',
@@ -473,7 +473,7 @@ export const it: Localizable<Copy> = {
     modeLine: 'Distanza',
     modeArea: 'Superficie',
     clear: 'Reimposta',
-    addPoint: 'Aggiungi un punto al centro',
+    insertPoint: 'Inserisci punto',
     deleteNode: 'Clic destro per rimuovere',
     distance: 'Distanza',
     perimeter: 'Perimetro',

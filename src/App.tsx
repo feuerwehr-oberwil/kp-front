@@ -344,16 +344,22 @@ export default function App() {
 
   // In-place metadata correction from the review banner (category) — patch + reflect in the
   // active meta and list without remounting the workspace (no location/center change).
+  /** Show an already-saved incident's new facts without remounting anything — the active meta
+   *  and its row in the list. Shared by `patchActiveMeta` and the Einsatzdaten correction, so
+   *  «reflect» means one thing. */
+  const reflectMeta = useCallback((updated: IncidentMeta) => {
+    setActiveMeta(updated)
+    setIncidents((list) => (list ?? []).map((i) => (i.id === updated.id ? updated : i)))
+  }, [])
   const patchActiveMeta = useCallback(async (patch: Partial<IncidentMeta>) => {
     if (!activeId) return
     try {
       const updated = await patchIncident(activeId, patch)
-      setActiveMeta(updated as IncidentMeta)
-      setIncidents((list) => (list ?? []).map((i) => (i.id === updated.id ? (updated as IncidentMeta) : i)))
+      reflectMeta(updated as IncidentMeta)
     } catch (e) {
       toast(e instanceof ApiError ? e.detail : appConfig.copy.errors.updateFailed, { icon: 'warn', tone: 'warn' })
     }
-  }, [activeId])
+  }, [activeId, reflectMeta])
 
   // Archive ANY incident from the switcher list (per-incident, not just the active one).
   // Archiving the active one flushes + tears down its live sync and re-opens the next
@@ -657,7 +663,18 @@ export default function App() {
           edit={editMeta}
           nearCoord={activeMeta?.lng != null && activeMeta?.lat != null ? [activeMeta.lng, activeMeta.lat] : null}
           onClose={() => { setOverlay(null); setEditMeta(null) }}
-          onCreated={(inc) => { setEditMeta(null); markReviewed(inc.id); void openCreated(inc) }}
+          // ⚠️ A CORRECTION does not remount. `openCreated` re-keys IncidentWorkspace, which is
+          // right when an Einsatz is opened and wrong when one is corrected: it threw the
+          // operator out of whatever surface they were on (the Rapport, usually — that is where
+          // the «Bearbeiten» link lives) and reset the print section toggles and the Kroki
+          // reconstruction with it. Reflecting the patch in place is what `patchActiveMeta`
+          // already does for the review banner's Kategorie dropdown.
+          onCreated={(inc) => {
+            const wasEdit = !!editMeta
+            setEditMeta(null)
+            markReviewed(inc.id)
+            if (wasEdit) { setOverlay(null); reflectMeta(inc as IncidentMeta) } else void openCreated(inc)
+          }}
         />
       )}
       {overlay === 'history' && (

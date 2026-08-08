@@ -5,6 +5,7 @@ import {
   isRotatableSym,
   isVehicleSym,
   lineFeat,
+  pathSegmentCount,
   polyFeat,
   pxPerM,
   resumeViewState,
@@ -162,6 +163,17 @@ describe('effectiveLayer', () => {
     expect(effectiveLayer(ent({ symbol: 'VKF Drohne', layer: 'taktisch' }))).toBe('taktisch')
     expect(effectiveLayer(ent({ symbol: 'VKF Luefter mobil', layer: 'taktisch' }))).toBe('taktisch')
     expect(effectiveLayer(ent({ kind: 'note', layer: 'markup' }))).toBe('markup')
+  })
+
+  it('counts the same segments for the "+" handles as for the tap-the-line hit test', () => {
+    // a line of n points has n-1 segments; an area closes back to the first, so it has n …
+    expect(pathSegmentCount(4, false)).toBe(3)
+    expect(pathSegmentCount(4, true)).toBe(4)
+    // … but only once it is actually a ring — two points are still just a line
+    expect(pathSegmentCount(2, true)).toBe(1)
+    // nothing to insert INTO below two points
+    expect(pathSegmentCount(1, false)).toBe(0)
+    expect(pathSegmentCount(0, true)).toBe(0)
   })
 
   it('derives the vehicle set from the presets, not a hand-kept list', () => {

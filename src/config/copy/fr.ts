@@ -303,7 +303,7 @@ export const fr: Localizable<Copy> = {
     circle: 'Glissez du centre vers l’extérieur pour fixer le rayon en mètres. Ajustez ensuite le rayon et le remplissage dans l’éditeur.',
     note: 'Touchez la carte pour poser une note.',
     shape: 'Touchez la carte pour placer la forme. Activez le verrou pour en poser plusieurs à la suite.',
-    measure: 'Touchez des points sur la carte. La distance affiche la longueur et le profil altimétrique, la surface affiche l’aire et le périmètre. Tirez les points pour déplacer, touchez une ligne pour un point intermédiaire, clic droit sur un point pour le supprimer.',
+    measure: 'Touchez des points sur la carte. La distance affiche la longueur et le profil altimétrique, la surface affiche l’aire et le périmètre. Tirez les points pour déplacer, le + au milieu d’un segment insère un point intermédiaire, clic droit sur un point pour le supprimer.',
   },
   map: {
     incidentHere: 'Lieu d’intervention',
@@ -474,7 +474,7 @@ export const fr: Localizable<Copy> = {
     modeLine: 'Distance',
     modeArea: 'Surface',
     clear: 'Réinitialiser',
-    addPoint: 'Ajouter un point au centre',
+    insertPoint: 'Insérer un point',
     deleteNode: 'Clic droit pour supprimer',
     distance: 'Distance',
     perimeter: 'Périmètre',

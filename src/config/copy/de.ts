@@ -585,7 +585,7 @@ export const de = {
     note: 'Auf die Karte tippen, um eine Notiz zu setzen. «Textfeld» macht daraus einen mehrzeiligen Block, dessen Breite sich am rechten Rand ziehen lässt.',
     team: 'Auf die Karte tippen und den Trupp aus der Liste wählen. Zum Verschieben ziehen.',
     shape: 'Auf die Karte tippen, um die Form zu platzieren. Schloss aktivieren, um mehrere nacheinander zu setzen.',
-    measure: 'Punkte auf die Karte tippen. Strecke zeigt Distanz und Höhenprofil, Fläche zeigt Flächeninhalt und Umfang. Punkte ziehen zum Verschieben, auf eine Linie tippen für einen Zwischenpunkt, Rechtsklick auf einen Punkt entfernt ihn.',
+    measure: 'Punkte auf die Karte tippen. Strecke zeigt Distanz und Höhenprofil, Fläche zeigt Flächeninhalt und Umfang. Punkte ziehen zum Verschieben, das + in der Mitte einer Strecke setzt einen Zwischenpunkt, Rechtsklick auf einen Punkt entfernt ihn.',
   },
   map: {
     incidentHere: 'Einsatzort',
@@ -633,6 +633,12 @@ export const de = {
     // als einzige löschbar (Alle Einsätze)
     exerciseToggle: 'Übung – zählt nicht zur Einsatzstatistik',
     detailsLabel: 'Meldungstext (optional)',
+    // «Hier» verschiebt den Einsatzort auf den Gerätestandort. Bei einem laufenden Einsatz wird
+    // immer gefragt – die Maske wird meistens im Magazin geöffnet, um eine Adresse zu
+    // korrigieren, und ein Fehlgriff verschiebt Karte, Kroki, Kachel-Vorrat und Objektpläne mit.
+    moveConfirmTitle: 'Einsatzort verschieben?',
+    moveConfirmMsg: 'Der Einsatzort wird auf deinen jetzigen Standort gesetzt – {d} vom bisherigen entfernt. Karte, Kroki-Ausschnitt und die Objektpläne in der Nähe richten sich danach.',
+    moveConfirmBtn: 'Verschieben',
     alarmTextUnavailable: 'Alarmmeldung konnte nicht geladen werden – bleibt unverändert',
     detailsPlaceholder: 'Zusätzliche Angaben zur Meldung',
     // --- Actions ---
@@ -742,9 +748,9 @@ export const de = {
     modeLine: 'Strecke',
     modeArea: 'Fläche',
     clear: 'Zurücksetzen',
-    // Punkt in die Bildmitte setzen, statt ihn mit dem Finger zu treffen: mit Handschuhen auf
-    // einen Hydranten zu zielen ist genau die Bewegung, die auf dem Tablet misslingt.
-    addPoint: 'Punkt in der Mitte setzen',
+    // das + in der Mitte jeder Strecke — dieselbe Beschriftung auf Lage und Plan, weil es
+    // dieselbe Geste ist
+    insertPoint: 'Punkt einfügen',
     deleteNode: 'Rechtsklick zum Entfernen',
     distance: 'Distanz',
     perimeter: 'Umfang',

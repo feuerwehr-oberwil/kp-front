@@ -7,7 +7,7 @@ import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
 import { LINE_DASH_ML } from '../lib/draw'
 import { markerParamsAlong, lerpPoint, MAX_VERTEX_HANDLES } from '../lib/lineStyle'
-import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, resumeViewState, snapNorth, shapePx, symPx, effectiveLayer } from '../lib/mapView'
+import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, snapNorth, shapePx, symPx, effectiveLayer } from '../lib/mapView'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
 import { truppForLine, truppLineTone, truppTagText } from '../lib/truppLines'
 import { pathLengthM, fmtDistance, fmtArea, polygonAreaM2, hoseLengthHint, circlePolygon } from '../lib/geo'
@@ -48,6 +48,34 @@ function LockChip({ onUnlock }: { onUnlock: () => void }) {
       <Icon id="lock" />
     </button>
   )
+}
+
+// The "+" sitting at the middle of a measured segment — the Plan already had one per segment
+// (WbControls · Messen), and tapping a thin dashed line to land a point between two others is
+// the aim that fails with gloves on. Its listeners are NATIVE, not React's: React delegates at
+// the tree root, which is an ANCESTOR of the map container, so maplibre's own listener on the
+// canvas container has already fired by then — the same tap would insert here AND append a
+// point at the end of the path, which is the opposite of what was asked for.
+function MeasureInsertHandle({ title, onInsert }: { title: string; onInsert: () => void }) {
+  const ref = useRef<HTMLButtonElement>(null)
+  // re-bind each render so the closure sees the current onInsert (one element, one listener)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const swallow = (e: Event) => e.stopPropagation()
+    const click = (e: Event) => { e.stopPropagation(); e.preventDefault(); onInsert() }
+    el.addEventListener('click', click)
+    el.addEventListener('pointerdown', swallow)
+    el.addEventListener('mousedown', swallow)
+    el.addEventListener('touchstart', swallow, { passive: true })
+    return () => {
+      el.removeEventListener('click', click)
+      el.removeEventListener('pointerdown', swallow)
+      el.removeEventListener('mousedown', swallow)
+      el.removeEventListener('touchstart', swallow)
+    }
+  })
+  return <button ref={ref} type="button" className="measure-insert" title={title} aria-label={title}><Icon id="plus" /></button>
 }
 
 // planar shoelace area (deg², relative only) of a clicked feature's outer ring; non-polygon
@@ -831,7 +859,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     const cp = m.project(ll as [number, number])
     const px = points.map((p) => m.project(p as [number, number]))
     const n = px.length
-    const segs = isArea && n >= 3 ? n : n - 1 // area: include closing edge
+    const segs = pathSegmentCount(n, isArea) // area: includes the closing edge
     let best = -1, bestD = Infinity
     for (let i = 0; i < segs; i++) {
       const a = px[i], b = px[(i + 1) % n]
@@ -1112,6 +1140,22 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           />
         </Marker>
       ))}
+
+      {/* a "+" at each segment's midpoint — the same segments segInsertIndex() recognises when the
+          line itself is tapped (the area's closing edge included), so both routes insert the same
+          node at the same index. Rendered before the vertices so a handle wins where they overlap. */}
+      {measureKind && onMeasureInsert && measurePoints.length >= 2 && (() => {
+        const n = measurePoints.length
+        return Array.from({ length: pathSegmentCount(n, measureKind === 'area') }, (_, i) => {
+          const a = measurePoints[i], b = measurePoints[(i + 1) % n]
+          const mid: LngLat = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
+          return (
+            <Marker key={`mi${i}`} longitude={mid[0]} latitude={mid[1]} anchor="center">
+              <MeasureInsertHandle title={appConfig.copy.measure.insertPoint} onInsert={() => onMeasureInsert(i + 1, mid)} />
+            </Marker>
+          )
+        })
+      })()}
 
       {/* draggable measurement vertices */}
       {measureKind && measurePoints.map((p, i) => (

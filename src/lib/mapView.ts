@@ -66,6 +66,13 @@ export const resumeViewState = (
   ? { longitude: live.center[0], latitude: live.center[1], zoom: live.zoom, bearing: live.bearing }
   : { longitude: center[0], latitude: center[1], zoom, bearing })
 
+/** How many insertable segments a measured / edited path has. An area closes back to its first
+ *  point, so it has one more than a line of the same vertices — but only once it IS a ring
+ *  (two points are still just a line). Shared by the tap-the-line hit test and the "+" handles
+ *  drawn at each midpoint, so the two routes offer exactly the same insert positions. */
+export const pathSegmentCount = (points: number, isArea: boolean): number =>
+  points < 2 ? 0 : isArea && points >= 3 ? points : points - 1
+
 export type FC = { type: 'FeatureCollection'; features: any[] }
 export const fc = (features: any[]): FC => ({ type: 'FeatureCollection', features })
 export const lineFeat = (coords: LngLat[], props: any = {}) => ({ type: 'Feature', geometry: { type: 'LineString', coordinates: coords }, properties: props })

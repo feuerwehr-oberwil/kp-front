@@ -31,6 +31,18 @@ from ..schemas import (
 router = APIRouter(prefix="/incidents", tags=["incidents"])
 
 
+#: The Einsatzdaten a correction is worth recording. Everything a reconstruction needs to say
+#: «the sheet was signed with THIS address» — and nothing that is not a dispatch fact.
+_TRACKED_META = ("title", "type", "priority", "address", "lng", "lat", "started_at")
+
+
+def _json_safe(v: object) -> object:
+    """A value the audit payload can hold. The tracked fields are strings, floats and one
+    datetime; the chain hashes its payload as JSON, so a datetime has to become a string here
+    rather than at serialisation time — the hash must be reproducible from the stored row."""
+    return v.isoformat() if isinstance(v, datetime) else v
+
+
 async def _get(db: AsyncSession, incident_id: uuid.UUID) -> Incident:
     inc = (await db.execute(select(Incident).where(Incident.id == incident_id))).scalar_one_or_none()
     if inc is None:
@@ -219,8 +231,28 @@ async def patch_incident(
     archived_before = inc.is_archived
     exercise_before = inc.is_exercise
     report_done_before = inc.report_done_at
+    # ⚠️ Snapshot BEFORE the setattr loop. Correcting the Einsatzdaten used to leave no trace at
+    # all — only the Übung toggle wrote an event — so the address on a signed rapport could differ
+    # from the address the crew drove to and nothing recorded that. These are the facts a
+    # reconstruction needs, and the frontend already documents `meta.change` as covering «a person
+    # changing the record» (lib/replay.ts); until now only one field made that true.
+    before = {k: getattr(inc, k) for k in _TRACKED_META}
     for k, v in data.items():
         setattr(inc, k, v)
+    changed = {
+        k: {"from": _json_safe(before[k]), "to": _json_safe(getattr(inc, k))}
+        for k in _TRACKED_META
+        if k in data and getattr(inc, k) != before[k]
+    }
+    if changed:
+        await audit.append_event(
+            db,
+            incident_id=inc.id,
+            op_type="meta.change",
+            source="einsatzdaten",
+            user_id=user.id,
+            payload={"fields": changed},
+        )
     if data.get("started_at") is not None:
         # A correction in the Einsatzdaten panel is a human asserting the Alarmierungszeit —
         # it overrides whatever the alerting system said, and it upgrades an unknown

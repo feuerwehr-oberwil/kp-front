@@ -306,7 +306,7 @@ export const en: Localizable<Copy> = {
     note: 'Tap the map to drop a note.',
     team: 'Tap the map and pick the crew from the list. Drag to move it.',
     shape: 'Tap the map to place the shape. Enable the lock to place several in a row.',
-    measure: 'Tap points on the map. Distance shows length and elevation profile, area shows surface and perimeter. Drag points to move, tap a line for an intermediate point, right-click a point to remove it.',
+    measure: 'Tap points on the map. Distance shows length and elevation profile, area shows surface and perimeter. Drag points to move, the + in the middle of a segment inserts an intermediate point, right-click a point to remove it.',
   },
   map: {
     incidentHere: 'Incident',
@@ -481,7 +481,7 @@ export const en: Localizable<Copy> = {
     modeLine: 'Distance',
     modeArea: 'Area',
     clear: 'Reset',
-    addPoint: 'Add a point at the centre',
+    insertPoint: 'Insert point',
     deleteNode: 'Right-click to remove',
     distance: 'Distance',
     perimeter: 'Perimeter',

@@ -276,3 +276,50 @@ async def test_export_prefers_an_explicit_report_meta_override(client, db_sessio
     rec = (await _export(client))[0]
     assert rec["alarmiertAt"] == "2026-03-01T13:45:00+00:00"
     assert rec["started_at_source"] is None
+
+
+async def test_a_correction_is_recorded_in_the_hash_chain(client, db_session, editor):
+    """⚠️ Correcting the Einsatzdaten used to leave NO trace — only the Übung toggle wrote an
+    event. So the address on a signed rapport could differ from the address the crew drove to,
+    and nothing anywhere said so. `lib/replay.ts` already documents `meta.change` as covering «a
+    person changing the record»; this is what makes that true for the facts that matter."""
+    from app.models import IncidentEvent
+
+    await _login(client, editor)
+    r = await client.post("/api/incidents", json={"title": "Zimmerbrand", "address": "Schulstrasse 4"})
+    assert r.status_code == 201, r.text
+    incident_id = r.json()["id"]
+
+    r = await client.patch(f"/api/incidents/{incident_id}", json={"address": "Schulgasse 4"})
+    assert r.status_code == 200, r.text
+
+    rows = (
+        (
+            await db_session.execute(
+                select(IncidentEvent).where(IncidentEvent.op_type == "meta.change").order_by(IncidentEvent.seq)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(rows) == 1, "the address correction has to be on the record"
+    fields = rows[0].payload_json["fields"]
+    assert fields["address"] == {"from": "Schulstrasse 4", "to": "Schulgasse 4"}
+    # only what actually moved — an untouched field must not appear as a change
+    assert set(fields) == {"address"}
+
+
+async def test_a_patch_that_changes_nothing_writes_no_event(client, db_session, editor):
+    """Re-sending the same value is not a correction. Without this the diff would be pointless:
+    every save would stamp the record whether or not anything moved."""
+    from app.models import IncidentEvent
+
+    await _login(client, editor)
+    r = await client.post("/api/incidents", json={"title": "Zimmerbrand", "address": "Schulstrasse 4"})
+    incident_id = r.json()["id"]
+    await client.patch(f"/api/incidents/{incident_id}", json={"address": "Schulstrasse 4"})
+
+    rows = (
+        (await db_session.execute(select(IncidentEvent).where(IncidentEvent.op_type == "meta.change"))).scalars().all()
+    )
+    assert rows == []

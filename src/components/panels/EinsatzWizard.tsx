@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from '../../lib/icons'
-import { toast } from '../../lib/ui'
+import { confirmDialog, toast } from '../../lib/ui'
 import { ApiError } from '../../lib/api'
 import { useGeoPosition } from '../../lib/useGeoPosition'
 import { MapPicker } from '../MapPicker'
 import { DateTimeField } from '../TimeField'
 import { Combo } from '../Combo'
 import { appConfig } from '../../config/appConfig'
-import { dtLocalValue, dtLocalToIso } from '../../lib/format'
+import { dtLocalValue, dtLocalToIso, fillTemplate } from '../../lib/format'
+import { fmtDistance, haversineM } from '../../lib/geo'
 import { isDemoMode, shortAddress } from '../../lib/deploymentConfig'
 import {
   createIncident,
@@ -156,12 +157,30 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   // «Hier» — the PRIMARY location method: the EL usually stands at (or near) the Einsatzort,
   // so one tap takes a GPS fix; object library / map pick are the fallbacks for elsewhere
   const [locating, setLocating] = useState(false)
+  // ⚠️ On an EXISTING Einsatz «Hier» always asks first. It is the largest button in the panel
+  // and it moves the Einsatzort to wherever the device is standing — and the panel is most often
+  // opened from the Magazin, hours later, to fix an address. One mis-tap moved the incident to
+  // the station and took the map, the Kroki framing, the offline tile box and the nearest-object
+  // plan surfacing with it, silently. Creating is untouched: there is nothing to move yet.
+  const confirmMove = async (c: [number, number]): Promise<boolean> => {
+    const from = realCoord(edit?.lng, edit?.lat)
+    if (!edit || !from) return true
+    return confirmDialog({
+      title: ix.moveConfirmTitle,
+      message: fillTemplate(ix.moveConfirmMsg, { d: fmtDistance(haversineM(from, c)) }),
+      confirmLabel: ix.moveConfirmBtn,
+    })
+  }
   const useHere = () => {
     if (locating) return
     if (!navigator.geolocation) { toast(ix.hereFailed, { icon: 'warn', tone: 'warn' }); return }
     setLocating(true)
     navigator.geolocation.getCurrentPosition(
-      (p) => { setLocating(false); applyPicked([p.coords.longitude, p.coords.latitude]) },
+      (p) => {
+        setLocating(false)
+        const c: [number, number] = [p.coords.longitude, p.coords.latitude]
+        void confirmMove(c).then((ok) => { if (ok) applyPicked(c) })
+      },
       () => { setLocating(false); toast(ix.hereFailed, { icon: 'warn', tone: 'warn' }) },
       { enableHighAccuracy: true, timeout: 10_000, maximumAge: 30_000 },
     )
@@ -175,7 +194,12 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   // map-click fills the nearest registered address, not just bare coords)
   const applyPicked = (c: [number, number]) => {
     setCoord(c); setMapOpen(false); setAddrOpen(false)
-    geocodeReverse(c[1], c[0]).then((hit) => { if (hit?.label) setAddress(hit.label) }).catch(() => {})
+    // ⚠️ Fills a BLANK address only — the same rule the Rapport uses for the Kroki-seeded
+    // Einsatzleiter. A nudge of the map pin used to overwrite an address somebody had just
+    // typed by hand, and a typed address is a statement; a reverse-geocode is a guess.
+    geocodeReverse(c[1], c[0])
+      .then((hit) => { if (hit?.label) setAddress((a) => (a.trim() ? a : hit.label)) })
+      .catch(() => {})
   }
 
   // debounced swisstopo autocomplete on the address field (skip while a hit is locked in)
