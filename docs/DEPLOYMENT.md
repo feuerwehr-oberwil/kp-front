@@ -20,6 +20,20 @@ railway variable set RAILWAY_RUN_UID=0 --service <app-service>
 
 Verify `GET /ready` after the deployment; both `database` and `storage` must report `ok`.
 
+> **What the committed `railway.json` sets, and why** (2026-08-08, after a 25-minute outage on
+> 0/1 replicas). `restartPolicyType: ALWAYS` – a station server has no successful exit, so a
+> clean shutdown must be restarted too; `ON_FAILURE` only covers a crash and left production
+> stopped. `numReplicas: 1` is a **correctness** constraint, not a budget one: the backend runs
+> APScheduler in-process (Divera polling, push sweep, heartbeat), and a second replica
+> double-fires every one of those. `sleepApplication: false` – an app that sleeps is an app that
+> is not there when the pager goes off. `healthcheckTimeout: 300` because migrations run on boot
+> and a long history needs the room. **`region` is deliberately not in the file** – that one is
+> the deployer's choice, set it on the service.
+>
+> Two things no committed file can do for you: a Railway setting only takes effect **after the
+> service redeploys**, and a restart policy nobody has tested is a belief – stop the container on
+> a non-production service once and confirm it comes back by itself.
+
 ---
 
 ## 1. What you're deploying
