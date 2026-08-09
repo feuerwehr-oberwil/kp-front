@@ -8,6 +8,9 @@ import type { Person } from '../types'
 import type { Slot } from './PersonField'
 import s from './Atemschutz.module.css'
 
+/** A Trupp is a Gruppenführer and three AdF — four slots, always shown. */
+const SLOTS = 4
+
 /**
  * Who is in this Trupp, and which of them leads it.
  *
@@ -22,7 +25,7 @@ import s from './Atemschutz.module.css'
  * print, so «who leads» is never stored twice and cannot disagree with itself.
  */
 export function TruppTeam({
-  value, onChange, personnel, legacyRoster, presentIds, stationIds, assignedIds, rolesById,
+  value, onChange, personnel, legacyRoster, presentIds, stationIds, assignedIds, rolesById, onAddGuest,
 }: {
   /** the Trupp, in printed order — `value[0]` is the Gruppenführer */
   value: Slot[]
@@ -39,6 +42,8 @@ export function TruppTeam({
   assignedIds: Set<string>
   /** the job somebody already holds on this Einsatz (Anwesenheits-Bemerkung) — a soft note */
   rolesById?: Map<string, string>
+  /** record a hand-typed Gast on the Anwesenheit too. Absent for a session that may not write. */
+  onAddGuest?: (name: string) => void
 }) {
   const az = appConfig.copy.atemschutz
   const [q, setQ] = useState('')
@@ -92,39 +97,57 @@ export function TruppTeam({
     const name = typed.trim()
     if (!name) return
     add({ name })
+    // A Gast under PA was at the Einsatz — that is not in question, it is the premise of putting
+    // them in a Trupp. They used to have to be added to the Anwesenheit by hand afterwards, and
+    // a name that only ever existed on a Trupp card reaches neither the Personalblatt nor the
+    // statistics export.
+    onAddGuest?.(name)
     setTyped('')
     setTyping(false)
   }
 
   return (
     <div className={s.team}>
-      {/* THE TRUPP — first, because it is the answer; the Mannschaft below it is the way to it. */}
-      {value.length === 0 ? (
-        <p className={s.teamEmpty}>{az.teamEmpty}</p>
-      ) : (
-        <ul className={s.teamChosen}>
-          {value.map((m, i) => (
-            <li key={`${m.personId ?? m.name}-${i}`} className={cx(s.teamRow, i === 0 && s.teamRowLead)}>
-              {/* The crown is a RADIO in behaviour: exactly one Gruppenführer, always. On the
-                  leader it is pressed and inert — tapping «make this one the leader» on the
-                  leader has no meaning, and an enabled button that does nothing teaches that
-                  taps here sometimes fail. */}
+      {/* THE TRUPP — first, because it is the answer; the Mannschaft below it is the way to it.
+          FOUR slots, always: that is what a Trupp is (GF + 3), the box never changes height as
+          people are ticked, and an empty slot says «this is where the next one goes» far better
+          than a sentence would. */}
+      <ul className={s.teamChosen}>
+        {Array.from({ length: Math.max(SLOTS, value.length) }, (_, i) => {
+          const m = value[i]
+          if (!m) {
+            return (
+              <li key={`empty-${i}`} className={cx(s.teamRow, s.teamRowEmpty)} aria-hidden>
+                <span className={s.teamRole} />
+                <span className={s.teamName}>{az.teamSlotEmpty}</span>
+              </li>
+            )
+          }
+          const lead = i === 0
+          return (
+            <li key={`${m.personId ?? m.name}-${i}`} className={cx(s.teamRow, lead && s.teamRowLead)}>
+              {/* ⚠️ The ROW is the control, not a star at its edge. Exactly one Gruppenführer,
+                  always — so this behaves like a radio, and a radio is chosen by tapping the
+                  option, not a glyph beside it. The leader's own row is inert: tapping «make
+                  this one the leader» on the leader has no meaning, and a live control that
+                  does nothing teaches that taps here sometimes fail. */}
               <button
                 type="button"
-                className={cx(s.teamCrown, i === 0 && s.teamCrownOn)}
-                aria-pressed={i === 0}
-                disabled={i === 0}
-                title={i === 0 ? az.leaderLabel : fillTemplate(az.makeLeader, { name: m.name })}
-                aria-label={i === 0 ? az.leaderLabel : fillTemplate(az.makeLeader, { name: m.name })}
+                className={s.teamPick}
+                aria-pressed={lead}
+                disabled={lead}
+                title={lead ? az.leaderLabel : fillTemplate(az.makeLeader, { name: m.name })}
+                aria-label={lead ? az.leaderLabel : fillTemplate(az.makeLeader, { name: m.name })}
                 onClick={() => promote(i)}
               >
-                <Icon id="star" />
+                <span className={cx(s.teamRole, lead && s.teamRoleLead)}>
+                  {lead ? az.leaderBadge : az.memberLabel}
+                </span>
+                <span className={s.teamName}>{m.name}</span>
+                {/* a typed name carries no roster link — say so, so nobody wonders later why
+                    this one person never appeared in the statistics export */}
+                {!m.personId && <span className={s.comboHint}>{az.teamManual}</span>}
               </button>
-              <span className={s.teamName}>{m.name}</span>
-              {i === 0 && <span className={s.teamBadge}>{az.leaderBadge}</span>}
-              {/* a typed name carries no roster link — say so, so nobody wonders later why this
-                  one person never appeared in the statistics export */}
-              {!m.personId && <span className={s.comboHint}>{az.teamManual}</span>}
               <button
                 type="button" className={s.slotRemove}
                 title={fillTemplate(az.teamRemove, { name: m.name })}
@@ -132,9 +155,9 @@ export function TruppTeam({
                 onClick={() => remove(i)}
               ><Icon id="close" /></button>
             </li>
-          ))}
-        </ul>
-      )}
+          )
+        })}
+      </ul>
 
       {/* THE MANNSCHAFT. A search box rather than a scroll list: on a 66-person roster the old
           dropdown was the surface people complained about first. */}
@@ -191,7 +214,10 @@ export function TruppTeam({
               else if (e.key === 'Escape') { setTyped(''); setTyping(false) }
             }}
           />
-          <button type="button" className="ip-btn" disabled={!typed.trim()} onClick={submitTyped}>{az.teamAdd}</button>
+          <button
+            type="button" className={s.teamTypeAdd} disabled={!typed.trim()}
+            title={az.teamAdd} aria-label={az.teamAdd} onClick={submitTyped}
+          ><Icon id="plus" /></button>
           <button type="button" className={s.slotRemove} aria-label={az.cancel} title={az.cancel}
             onClick={() => { setTyped(''); setTyping(false) }}><Icon id="close" /></button>
         </div>

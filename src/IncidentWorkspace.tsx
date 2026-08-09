@@ -72,7 +72,8 @@ import { MeasurePanel } from './components/MeasurePanel'
 import { SHAPE_DEFS, ShapeGlyph } from './lib/shapes'
 import { Journal } from './components/Journal'
 import { JournalComposer, type JournalDraft } from './components/JournalComposer'
-import { composeJournalText, journalSources } from './lib/journalEntry'
+import { composeJournalText } from './lib/journalEntry'
+import { journalVocabulary } from './lib/journalLinks'
 import { AudioPlayerSheet } from './components/AudioPlayerSheet'
 import { ReminderBanner } from './components/ReminderBanner'
 import { UpdateBanner } from './components/UpdateBanner'
@@ -1417,7 +1418,7 @@ export function IncidentWorkspace({
       // Datensatz — Verlauf, Rapport und Prüfkette lesen diese eine Zeichenkette, und eine
       // Zeile, deren Bedeutung in einem Nebenfeld läge, stünde in der App anders als auf dem
       // Papier. Die strukturierten Felder reisen zum Filtern mit, nicht zum Anzeigen.
-      icon, text: composeJournalText(body, d), kind, source: d.source, entryType: d.entryType,
+      icon, text: composeJournalText(body, d), kind, entryType: d.entryType,
       audioUrl: d.audioUrl, photoUrls: photoUrls.length ? photoUrls : undefined, audioMeta: d.audioMeta,
       // an imported memo lands at its confirmed recording start; everything else at composer-open
       at: (imported ? d.audioMeta?.startedAt : undefined) ?? composerOpenedAt.current ?? undefined,
@@ -2109,6 +2110,10 @@ export function IncidentWorkspace({
   }
   // assigning someone to a Trupp implies they're on scene — mark every roster-linked member
   // present (even at "angemeldet"). Only the newly-present are logged, so re-edits don't spam.
+  /** The linkable vocabulary of this Einsatz — Mannschaft, Mittel, Partnerorganisationen,
+   *  Fahrzeuge, Alarmgruppen (lib/journalLinks). ONE memo, shared by the composer and the
+   *  Verlauf, so the two can never mark different things. */
+  const journalVocab = useMemo(() => journalVocabulary(personnel, attendance), [personnel, attendance])
   const rosterById = useMemo(() => new Map(personnel.map((p) => [p.id, p])), [personnel])
   // active-member names feeding the symbol detail comboboxes (Einsatzleiter / Offizier / Fahrer)
   const rosterNames = useMemo(() => personnel.filter((p) => p.active).map((p) => p.displayName), [personnel])
@@ -3202,6 +3207,8 @@ export function IncidentWorkspace({
           canEdit={canEditIncident}
           personnel={personnel}
           attendance={effAttendance}
+          // a Gast under PA was at the Einsatz — record them on the Anwesenheit too
+          onAddGuest={canEditIncident ? (name) => { addGuest(name) } : undefined}
           createTrupp={createTruppA}
           placeTrupp={placeTrupp}
           placeTargets={placeTargets}
@@ -3343,6 +3350,7 @@ export function IncidentWorkspace({
           and AFTER the Rapport sheet so its checklist row can stack the Verlauf on top */}
       {journalOpen && (
         <Journal
+          vocab={journalVocab}
           events={timeline}
           closedAt={incidentMeta.closed_at}
           plans={planDocs}
@@ -3378,8 +3386,9 @@ export function IncidentWorkspace({
       {composerOpen && (
         <JournalComposer
           surface={mode === 'plans' ? 'plan' : 'map'}
-          // who is on scene RIGHT NOW, officers first — offered without anybody searching
-          sources={journalSources(personnel, effAttendance)}
+          // everything this Einsatz has words for — Mannschaft, Mittel, Partnerorganisationen,
+          // Fahrzeuge, Alarmgruppen. Typing three letters of any of them completes it.
+          vocab={journalVocab}
           onSubmit={addJournal}
           onClose={() => setComposerOpen(false)}
           incidentStartAt={incidentMeta.started_at}

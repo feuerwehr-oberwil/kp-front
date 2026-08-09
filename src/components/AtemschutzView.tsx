@@ -18,6 +18,7 @@ import type { Slot } from './PersonField'
 import { TruppTeam } from './TruppTeam'
 import { ensureNotifyPermission, unlockAlarm } from '../lib/alarm'
 import { atemschutzDoctrine } from '../lib/deploymentConfig'
+import { useKeptState } from '../lib/draftKeep'
 import { useHoldRepeat } from '../lib/useHoldRepeat'
 import { useTapToType } from '../lib/useTapToType'
 import s from './Atemschutz.module.css'
@@ -50,7 +51,7 @@ function snapBar(v: number): number {
 // large "Kontakt" reset, and a contact-clock alarm (amber nudge → red überfällig). Pressure is
 // set inline and logged. Purely presentational + local UI state — data + mutations via props.
 export function AtemschutzView({
-  trupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, order = 'dringlichkeit', onOrder, onMove, createTrupp, placeTrupp, placeTargets, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, leitungOptions, showTruppLine, truppsWithLine, pickTruppLine, unlinkTruppLine,
+  trupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, onAddGuest, order = 'dringlichkeit', onOrder, onMove, createTrupp, placeTrupp, placeTargets, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, leitungOptions, showTruppLine, truppsWithLine, pickTruppLine, unlinkTruppLine,
   intervalMin = atemschutzDoctrine().contactIntervalMin, graceSec = atemschutzDoctrine().contactGraceSec,
   defaultFunkkanal = atemschutzDoctrine().defaultFunkkanal,
 }: {
@@ -102,6 +103,9 @@ export function AtemschutzView({
   pickTruppLine: (id: string) => void
   /** release a Trupp's Leitung — used when another Trupp takes it over (confirmed Ablösung) */
   unlinkTruppLine: (id: string) => void
+  /** put a hand-typed Gast on the Anwesenheit — a Gast under PA was at the Einsatz, and a name
+   *  that only ever existed on a Trupp card reaches neither the Personalblatt nor the export */
+  onAddGuest?: (name: string) => void
 }) {
   const az = appConfig.copy.atemschutz // read per-render so the resolved locale applies
   // the shared create / edit / re-deploy form — null when closed
@@ -329,6 +333,7 @@ export function AtemschutzView({
           personnel={personnel} presentIds={presentIds} stationIds={stationIds} rolesById={rolesById}
           assignedIds={assignedPersonIds(trupps.filter((t) => t.id !== form.trupp?.id))}
           leitungOptions={leitungOptions(form.trupp?.id)}
+          onAddGuest={onAddGuest}
           onCancel={() => setForm(null)} onSubmit={submitForm}
         />
       )}
@@ -752,7 +757,7 @@ function TruppCard({
 // Kontakt), then the Trupp; the Druck section shows only when a fresh cylinder is involved
 // (create + re-deploy), never on a plain edit where the live pressure must not be disturbed.
 function TruppForm({
-  mode, initial, roster, defaultFunkkanal, personnel, presentIds, stationIds, assignedIds, rolesById, leitungOptions, onCancel, onSubmit,
+  mode, initial, roster, defaultFunkkanal, personnel, presentIds, stationIds, assignedIds, rolesById, leitungOptions, onAddGuest, onCancel, onSubmit,
 }: {
   mode: FormMode
   initial?: Trupp
@@ -769,12 +774,18 @@ function TruppForm({
   /** the Leitungen drawn on either surface (lib/truppLines · leitungOptions) — offered as
    *  quick-picks so the number is chosen from what exists, not typed blind */
   leitungOptions: LeitungOption[]
+  /** record a hand-typed Gast on the Anwesenheit as well — being put in a Trupp IS being here */
+  onAddGuest?: (name: string) => void
   /** `standby` (re-deploy only) parks the Trupp as Reserve instead of sending it straight in */
   onSubmit: (f: TruppFields, standby?: boolean) => void
 }) {
   const az = appConfig.copy.atemschutz // read per-render so the resolved locale applies
-  const [auftrag, setAuftrag] = useState<Trupp['auftrag'] | null>(initial?.auftrag ?? null)
-  const [ziel, setZiel] = useState(initial?.ziel ?? '')
+  // ⚠️ The typed Trupp survives a mis-tap. Only «Abbrechen» throws it away — an ✕ or a tap on
+  // the backdrop is «not now», and losing three names and a Ziel to a fat finger at 3am is the
+  // expensive half of that pair (see lib/draftKeep, the same rule the Gast name follows).
+  const draftKey = `atemschutz:trupp:${mode}:${initial?.id ?? 'new'}`
+  const [auftrag, setAuftrag, clearAuftrag] = useKeptState<Trupp['auftrag'] | null>(`${draftKey}:auftrag`, initial?.auftrag ?? null)
+  const [ziel, setZiel, clearZiel] = useKeptState(`${draftKey}:ziel`, initial?.ziel ?? '')
   // Leitung: numeric since 2026-08-05. A Trupp carrying only the old free text starts empty and
   // keeps that text visible underneath — the record stays as its Überwacher typed it, and a
   // legacy «1» still auto-matches the drawn Leitung 1 (lib/truppLines · truppLineNo).
@@ -787,13 +798,13 @@ function TruppForm({
   // ONE list, leader first (see TruppTeam): `team[0]` IS the Gruppenführer, which is also the
   // order the card, the Rapport and the map tag print. The record on disk keeps its old shape
   // (`name` + `members`), so nothing that ever read a Trupp has to change.
-  const [team, setTeam] = useState<Slot[]>(() => {
+  const [team, setTeam, clearTeam] = useKeptState<Slot[]>(`${draftKey}:team`, (() => {
     const lead: Slot[] = initial?.name ? [{ name: initial.name, personId: initial.leaderPersonId }] : []
     const rest = (initial?.members ?? [])
       .map((m, i) => ({ name: m, personId: initial?.memberPersonIds?.[i] }))
       .filter((m) => m.name.trim())
     return [...lead, ...rest]
-  })
+  })())
   // a fresh cylinder for create / re-deploy; edit never touches pressure
   const [pressure, setPressure] = useState<number>(() => {
     const dz = atemschutzDoctrine()
@@ -822,8 +833,10 @@ function TruppForm({
   }, [team, assignedIds])
   const canSubmit = auftragOk && (team[0]?.name.trim().length ?? 0) > 0 && (!showPressure || pressure > 0) && !assignedConflict
 
+  const dropDraft = () => { clearAuftrag(); clearZiel(); clearTeam() }
   const submit = (standby = false) => {
     if (!canSubmit) return
+    dropDraft()
     const cleanMembers = team.slice(1).filter((m) => m.name.trim())
     const memberPersonIds = cleanMembers.map((m) => m.personId).filter(Boolean) as string[]
     onSubmit({
@@ -930,6 +943,17 @@ function TruppForm({
                 ))}
               </div>
             </div>
+            {/* The fresh cylinder belongs with the Auftrag, not beside the crew list: the right
+                column is the Trupp now and it is much taller, so a stepper hanging under it read
+                as an afterthought. */}
+            {showPressure && (
+              <>
+                <div className={s.formSection}>{mode === 'redeploy' ? az.newPressureLabel : az.pressureLabel}</div>
+                <div className={s.field}>
+                  <PressureStepper value={pressure} onChange={setPressure} />
+                </div>
+              </>
+            )}
           </div>
 
           <div className={s.formCol}>
@@ -940,7 +964,7 @@ function TruppForm({
             <TruppTeam
               value={team} onChange={setTeam}
               personnel={personnel} legacyRoster={roster} presentIds={presentIds} stationIds={stationIds}
-              assignedIds={assignedIds} rolesById={rolesById}
+              assignedIds={assignedIds} rolesById={rolesById} onAddGuest={onAddGuest}
             />
           </div>
 
@@ -962,22 +986,14 @@ function TruppForm({
                 <FunkkanalStepper value={funkkanal} onChange={setFunkkanal} />
               </div>
             </div>
-
-            {showPressure && (
-              <div className={s.formCol}>
-                <div className={s.formSection}>{mode === 'redeploy' ? az.newPressureLabel : az.pressureLabel}</div>
-                <div className={s.field}>
-                  <PressureStepper value={pressure} onChange={setPressure} />
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
       <div className={s.modalFoot}>
         {/* the house button family — three private classes here were the last of this modal's own
             design system (see Atemschutz.module.css · .modal) */}
-        <button className="ip-btn ghost" onClick={onCancel}>{az.cancel}</button>
+        {/* the ONLY control that throws the draft away — ✕ and the backdrop keep it */}
+        <button className="ip-btn ghost" onClick={() => { dropDraft(); onCancel() }}>{az.cancel}</button>
         {/* Re-deploy forks here: a re-equipped Trupp is just as often held back as Sicherungstrupp
             as it is sent straight in. Both buttons take the same filled-in form, so the choice
             costs nothing — and «Bereitstellen» is the one that must NOT start a contact clock.

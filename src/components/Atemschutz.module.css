@@ -527,14 +527,28 @@ button.stepVal:hover { border-color: var(--blue); }
    it is any other number, so the box is that size from the start and only a fourth person moves
    anything (09.08. feedback). The empty state fills the same box, which also makes it read as
    «this is where the Trupp goes» rather than as a stray hint. */
-.teamChosen, .teamEmpty { min-height: 142px; }
-.teamEmpty { margin: 0; padding: 10px 12px; border: 1px dashed var(--glass-edge); border-radius: var(--r-ctl);
-  font-size: 12.5px; font-weight: 600; color: var(--ink-faint);
-  display: flex; align-items: center; justify-content: center; text-align: center; }
-.teamChosen { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px;
-  align-content: flex-start; }
-.teamRow { display: flex; align-items: center; gap: 8px; min-height: var(--tap); padding: 4px 6px 4px 4px;
+/* Four slots, always. The box therefore never changes height as people are ticked — the modal
+   used to grow with every pick and the roster list walked down the screen after it. */
+.teamChosen { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.teamEmpty { display: none; }
+.teamRow { display: flex; align-items: center; gap: 4px; min-height: var(--tap); padding: 0 6px 0 0;
   border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface); }
+/* a slot nobody is in yet: the shape of the row, none of its weight */
+.teamRowEmpty { border-style: dashed; background: none; padding-left: 12px; color: var(--ink-faint); }
+.teamRowEmpty .teamName { color: var(--ink-faint); font-weight: 600; }
+
+/* THE ROW is the control that picks the Gruppenführer — one of N, so it behaves like a radio,
+   and a radio is chosen by tapping the option rather than a glyph beside it. */
+.teamPick { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 9px;
+  align-self: stretch; padding: 0 0 0 8px; border: none; background: none; cursor: pointer;
+  text-align: left; font: inherit; color: inherit; -webkit-tap-highlight-color: transparent; }
+.teamPick:disabled { cursor: default; }
+.teamPick:hover:not(:disabled) { background: var(--fill-soft); border-radius: var(--r-ctl); }
+/* the role, spelled out on the left — «GF» or «AdF». It replaced a star: a symbol that has to
+   be learnt, on a row whose whole job is to say who leads. */
+.teamRole { flex: none; width: 30px; font: 800 10.5px var(--body); letter-spacing: .03em;
+  color: var(--ink-faint); text-transform: uppercase; }
+.teamRoleLead { color: var(--amber-strong); }
 /* the Gruppenführer's row carries the emphasis, not just a badge — the card, the Rapport and the
    map tag all print this person first, so the form should look the way the paper reads */
 .teamRowLead { border-color: color-mix(in srgb, var(--amber) 45%, transparent);
@@ -543,16 +557,6 @@ button.stepVal:hover { border-color: var(--blue); }
   font: 700 14px var(--body); color: var(--ink); }
 .teamBadge { flex: none; font: 800 10px var(--body); letter-spacing: .05em; color: var(--amber-strong);
   background: color-mix(in srgb, var(--amber) 18%, transparent); border-radius: 5px; padding: 2px 6px; }
-.teamCrown { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: var(--r-sm);
-  border: 1px solid transparent; background: transparent; color: var(--ink-faint); cursor: pointer; position: relative; }
-.teamCrown::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px;
-  transform: translate(-50%, -50%); }
-.teamCrown :global(.i) { width: 17px; height: 17px; }
-.teamCrown:hover:not(:disabled) { color: var(--amber-strong);
-  background: color-mix(in srgb, var(--amber) 14%, transparent); }
-/* the leader's star is FILLED and inert: it states who leads rather than offering it again */
-.teamCrownOn { color: var(--amber-strong); cursor: default; }
-.teamCrownOn :global(.i) { fill: currentColor; }
 
 .teamSearch { display: flex; align-items: center; gap: 8px; padding: 0 10px; min-height: var(--tap);
   border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface); }
@@ -581,6 +585,13 @@ button.stepVal:hover { border-color: var(--blue); }
   padding: 11px 12px; background: var(--surface); font-family: var(--body); font-size: 15px; color: var(--ink);
   outline: none; }
 .teamTypeInput:focus { border-color: var(--ink); }
+/* a (+), not a word: the row already says what is being typed */
+.teamTypeAdd { flex: none; display: grid; place-items: center; width: var(--tap); height: var(--tap);
+  border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface);
+  color: var(--ink); cursor: pointer; }
+.teamTypeAdd:hover:not(:disabled) { border-color: var(--ink-faint); }
+.teamTypeAdd:disabled { opacity: var(--disabled); cursor: default; }
+.teamTypeAdd :global(.i) { width: 17px; height: 17px; }
 
 @media (max-width: 600px) {
   /* full width below the top bar (78px clears the floating bar with a visible gap — at 64px
