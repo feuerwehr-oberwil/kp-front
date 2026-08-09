@@ -17,7 +17,7 @@ import {
   validateAudioImport,
 } from '../lib/audioImport'
 import type { JournalEntryType, TimelineEvent } from '../types'
-import type { JournalSource } from '../lib/journalEntry'
+import { acceptName, nameRanges, suggestNames, type JournalSource } from '../lib/journalEntry'
 import { useHoldRepeat } from '../lib/useHoldRepeat'
 import { useTapToType } from '../lib/useTapToType'
 import { useKeyboardInset } from '../lib/useKeyboardInset'
@@ -125,12 +125,30 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
     : appConfig.journal.quickPhrases
   const [text, setText] = useState('')
   const suggestions = useMemo(() => suggestPhrases(text, quickPhrases), [text, quickPhrases])
+  // ⚠️ NAMES come before the Textbausteine, and only from the word being typed (not the whole
+  // fragment): you write the sentence you were going to write anyway and the SPELLING of the
+  // name comes for free. A journal holding «Baumann», «Baumann M.» and «Bauman» is one nobody
+  // can search afterwards, and that is the whole of it — accepting one inserts text, nothing
+  // more. Who REPORTED the entry is the Von field below; the two are different questions.
+  const nameHits = useMemo(() => suggestNames(text, sources), [text, sources])
+  // where the known names sit right now, so the field can mark them as you type
+  const marks = useMemo(() => nameRanges(text, sources), [text, sources])
   const textRef = useRef<HTMLTextAreaElement>(null)
+  const marksRef = useRef<HTMLDivElement>(null)
   // Accepting a Textbaustein must keep the operator in the writing flow: textarea stays
   // focused (tablet keyboard stays up) with the caret right after the inserted phrase,
   // ready to type on. rAF so the refocus runs after React committed the new value.
   const accept = (phrase: string) => {
     setText((t) => acceptPhrase(t, phrase))
+    requestAnimationFrame(() => {
+      const el = textRef.current
+      if (!el) return
+      el.focus()
+      el.setSelectionRange(el.value.length, el.value.length)
+    })
+  }
+  const takeName = (name: string) => {
+    setText((t) => acceptName(t, name))
     requestAnimationFrame(() => {
       const el = textRef.current
       if (!el) return
@@ -358,6 +376,27 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
           />
         </div>
 
+        {/* The backdrop that marks known names. A <textarea> cannot style part of its own
+            content, so the same text is painted behind it in a transparent div and only the
+            <mark> spans show — the field itself is see-through. Both share one font, one
+            padding and one line-height, and the backdrop follows the field's scroll, or the
+            marks would drift off their words the moment the text got long. */}
+        <div className="jc-text-wrap">
+          <div className="jc-text-marks" ref={marksRef} aria-hidden>
+            {(() => {
+              const out: React.ReactNode[] = []
+              let at = 0
+              marks.forEach((r, i) => {
+                if (r.start > at) out.push(text.slice(at, r.start))
+                out.push(<mark key={i}>{text.slice(r.start, r.end)}</mark>)
+                at = r.end
+              })
+              // the trailing newline needs a character after it or the div collapses a line
+              // short of the textarea and every mark below it sits one line too high
+              out.push(`${text.slice(at)}\n`)
+              return out
+            })()}
+          </div>
         <textarea
           ref={textRef}
           className="jc-text"
@@ -367,18 +406,31 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit()
             // Tab accepts the top Textbaustein suggestion (keyboard path; touch just taps)
-            else if (e.key === 'Tab' && suggestions.length > 0) {
+            // Tab takes the top suggestion — a NAME first when one is offered, because that
+            // is the one you were mid-word on
+            else if (e.key === 'Tab' && (nameHits.length > 0 || suggestions.length > 0)) {
               e.preventDefault()
-              accept(suggestions[0].phrase)
+              if (nameHits.length > 0) takeName(nameHits[0].name)
+              else accept(suggestions[0].phrase)
             }
           }}
+          onScroll={(e) => { if (marksRef.current) marksRef.current.scrollTop = e.currentTarget.scrollTop }}
         />
+        </div>
 
         {/* Textbausteine as autocomplete (2026-07-02 decision: no static chip row) — while
             typing, the current fragment fuzzy-matches the station's phrase list and the best
             completions appear here; tap (or Tab for the first) replaces the fragment. */}
-        {suggestions.length > 0 && (
+        {(nameHits.length > 0 || suggestions.length > 0) && (
           <div className="jc-phrases" role="group" aria-label={C.quickPhrasesAria}>
+            {nameHits.map((n) => (
+              <button
+                key={`n:${n.id ?? n.name}`}
+                className="jc-phrase jc-phrase-name"
+                onPointerDown={(e) => e.preventDefault()}
+                onClick={() => takeName(n.name)}
+              >{n.name}</button>
+            ))}
             {suggestions.map((m) => (
               <button
                 key={m.phrase}

@@ -201,8 +201,28 @@
 .jc-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: var(--ink); }
 .jc-title .i { width: 16px; height: 16px; }
 .jc-head .journal-x { margin-left: auto; }
-.jc-text { width: 100%; min-height: 92px; resize: vertical; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
-  padding: 10px 12px; font-family: inherit; font-size: 14px; color: var(--ink); background: var(--surface-2); }
+/* The field and the layer that marks known names in it. A <textarea> cannot style part of its
+   own content, so the same text is painted behind it and only the <mark> spans show through a
+   see-through field. ⚠️ Every metric that affects where a character lands must match on both —
+   font, size, line-height, padding, border, wrapping. A single px of difference and the marks
+   drift off their words further down the field. */
+.jc-text-wrap { position: relative; }
+.jc-text-marks {
+  position: absolute; inset: 0; overflow: hidden; pointer-events: none;
+  border: 1px solid transparent; border-radius: var(--r-ctl); padding: 10px 12px;
+  font-family: inherit; font-size: 14px; line-height: normal; color: transparent;
+  white-space: pre-wrap; overflow-wrap: break-word;
+}
+.jc-text-marks mark {
+  background: color-mix(in srgb, var(--blue) 20%, transparent);
+  color: transparent; border-radius: 3px;
+}
+.jc-text { position: relative; display: block;
+  width: 100%; min-height: 92px; resize: vertical; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
+  padding: 10px 12px; font-family: inherit; font-size: 14px; line-height: normal; color: var(--ink);
+  background: transparent; }
+/* the field's own fill lives on the wrapper, so the marks sit between it and the text */
+.jc-text-wrap { background: var(--surface-2); border-radius: var(--r-ctl); }
 .jc-text:focus { outline: none; border-color: color-mix(in srgb, var(--blue) 50%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 12%, transparent); }
 /* ---- one rhythm for every control in the composer ----
    The two modes are the same dialog, so they should be the same shape: a fixed grid of
