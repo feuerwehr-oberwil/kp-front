@@ -186,8 +186,12 @@ export const de = {
           { kind: 'lead', text: 'Lückenlose Überwachung jedes Atemschutztrupps nach FKS – das Sicherheitssignal ist die **Zeit seit dem letzten Funkkontakt**, nicht eine geschätzte Restzeit.' },
           { kind: 'sub', text: 'Trupp anlegen' },
           { kind: 'list', items: [
-            '**Auftrag** zuerst: Art wählen (Retten · Löschen · Absuchen · Sichern · Erkunden · Anderes), **Ziel / Ort** in Klartext (z. B. „2. OG Wohnung links") und optional die Leitungs-/Schlauch-Nr.',
-            '**Trupp & Druck**: Gruppenführer und AdF erfassen (bereits eingesetzte Namen als Schnellwahl) und den Eingangsdruck (bar) setzen.',
+            '**Wer geht rein**: drei Slots, der oberste ist der **GF** – die ganze Zeile antippen macht jemanden zum Gruppenführer, das **✕** entfernt ihn. Ein grösserer Trupp hängt einfach weitere Zeilen an.',
+            'Über die **Personensuche** wird die ganze Mannschaft gefunden, nicht nur die Anwesenden; neben jedem Namen steht, was dagegen spricht (nicht anwesend, Magazin, schon in einem Trupp). **(+)** erfasst einen Gast (Nachbarwehr) – der landet zugleich in der Anwesenheit und gilt dort als derselbe Mensch.',
+            '**Eingangsdruck** (bar) und **Funkkanal** stehen rechts daneben.',
+            'Darunter der **Auftrag**: Art (Retten · Löschen · Absuchen · Sichern · Erkunden · Anderes), **Ziel / Ort** in Klartext, **Leitung Nr.** (die bereits gezeichneten Leitungen stehen als Schnellwahl daneben) und die **Farbe** auf Lage und Plan.',
+            'Der Auftrag hält niemanden auf: **Trupp anmelden** geht auch ohne ihn. Die Karte trägt dann **«Auftrag offen»**, und ein Tipp darauf öffnet das Formular.',
+            'Getippte Angaben bleiben erhalten, wenn das Fenster mit **✕** oder per Klick daneben geschlossen wird – nur **Abbrechen** verwirft sie.',
           ] },
           { kind: 'sub', text: 'Überwachung pro Trupp' },
           { kind: 'list', items: [
@@ -197,6 +201,7 @@ export const de = {
             'Status **Angemeldet → Im Einsatz → Rückzug → Draussen**. **Rückzug** lässt sich mit **Fortsetzen** widerrufen; ein draussener Trupp geht mit **Wieder einrücken** (neue Flasche) zurück in die Überwachung.',
             '**Verlauf** je Trupp (ausklappbar) zeigt jeden Kontakt mit Uhrzeit und Druck.',
             '**Bearbeiten** (Stift) passt Auftrag, Ziel/Stockwerk oder Trupp mitten im Einsatz an.',
+            'Wer unter PA ist, lässt sich in der **Anwesenheit** nicht abmelden – ein Tipp auf die Zeile springt stattdessen auf die Karte dieses Trupps und hebt sie kurz hervor.',
             'Überfällige Trupps rücken nach oben, oben erscheint ein Zähler; der **Alarmton** ist pro Gerät stummschaltbar (Glocke). Alles landet im Verlauf.',
             'Jeder Trupp lässt sich auf dem Plan platzieren (Knopf „auf Plan zeigen").',
           ] },
@@ -220,6 +225,7 @@ export const de = {
           { kind: 'lead', text: 'Ein gemeinsames, fortlaufendes Protokoll über Lage und Plan – die Einsatz-Chronik.' },
           { kind: 'list', items: [
             '**+ Eintrag** (oben rechts): kurz tippen öffnet die Texteingabe; **gedrückt halten** nimmt eine **Sprachnotiz** auf. Fotos lassen sich ebenfalls anhängen.',
+            'Ab **zwei Buchstaben** werden Namen vorgeschlagen – Mannschaft, Material, Partnerorganisationen, Fahrzeuge und Alarmgruppen. Angetippt wird der ganze Name eingesetzt; im Verlauf und auf dem gedruckten Rapport ist er hervorgehoben. Ein eigenes «Von»-Feld gibt es nicht: der Satz sagt schon, wer gemeldet hat.',
             'Wesentliche Aktionen (Symbol gesetzt, Zeichnung erstellt/entfernt …) landen automatisch im Verlauf.',
             '**Rückgängig/Wiederholen** gilt für Lage und Plan.',
             'Ein Verlaufseintrag mit Ort springt beim Antippen zurück auf die Stelle in Karte oder Plan; Fotos und Sprachnotizen lassen sich direkt im Verlauf öffnen/abspielen.',
@@ -261,6 +267,7 @@ export const de = {
           { kind: 'lead', text: 'Wo eine Wehr die Erfassung aktiviert hat (Verwaltung › Erfassung), öffnet ein **QR-Poster** im Magazin die Erfassungs-Ansicht – ohne Login, für alle ohne Tablet-Zugriff.' },
           { kind: 'list', items: [
             'Der laufende Einsatz wird gewählt; **Anwesenheit** und **Mittel** lassen sich am eigenen Handy erfassen.',
+            'Ein Name wird durch Antippen weitergeschaltet: **nicht anwesend → Magazin → Vor Ort → gegangen**. Das **ⓘ** neben der Suche sagt es nochmals, samt der Bedeutung der Zeit daneben (von = Ankunft, bis = Weggang).',
             'Die Angaben fliessen in **denselben Einsatz** wie am KP-Tablet und werden zusammengeführt (bei Abweichungen mit Hinweis zum Prüfen).',
             'Als Rückfall gibt es das **leere Erfassungsblatt (PDF)** zum Ausdrucken und Nachtragen von Hand.',
           ] },

@@ -29,6 +29,91 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ## [Unreleased]
 
+### Added
+
+- **Every name in a Verlaufszeile links itself.** The «Von» field is gone – it asked for
+  something the sentence already says, and it only ever knew people. In its place one
+  vocabulary: crew, Mittel, Partnerorganisationen, Fahrzeuge and Alarmgruppen, matched against
+  the line as it is typed, longest match first so «Meier Anna» wins over «Meier». Matches are
+  tinted per kind in the composer, in the Verlauf, and – via a markup field on the row – in the
+  printed Rapport. Suggestions start at **two** letters instead of three, but at exactly two only
+  a word start counts: two letters of fuzzy subsequence would put half the Mannschaft under every
+  «im» somebody types.
+
+- **A locked roster row points at the Trupp that locks it.** Tapping somebody who is under PA used
+  to open the Atemschutzüberwachung and leave the finding to whoever tapped – on a page of cards
+  the Trupp they were sent to was often off-screen, so «why can I not tick this person» was still
+  a search. The row carries the Trupp id now: the card scrolls itself into view and flashes a
+  ring. The ring is **ink**, not a status colour – every hue on that card already means something
+  (blau angemeldet, grün aktiv, amber Rückzug, rot überfällig), so a blue ring around a blue card
+  said «angemeldet» twice and «look here» not at all.
+
+- **A plan entry can pin its own bytes.** `objects.manifest.json` accepts a `sha256` per plan;
+  where it is set, `admin_objects validate|load|push` refuse to publish anything else under that
+  module. ⚠️ This is a *wrong-tree* check, not a corruption check – see **Fixed** below.
+
+### Changed
+
+- **«Trupp anlegen» asks in the order it is answered.** Who goes in and with how much air come
+  first; Art, Auftrag/Ziel, Leitung, Farbe and Kanal follow. The Auftrag no longer blocks
+  «Trupp anmelden» – a Trupp standing at the door must not wait on a field it can be given a tap
+  later – so the card shows a dashed **«Auftrag offen»** chip until it has one, and tapping that
+  chip opens the form. The gap is visible instead of silent. Three slots are drawn at rest (GF +
+  2) and a bigger Trupp simply grows the box; Druck and Kanal use a smaller stepper, because they
+  are set once, bare-handed, before anybody is under PA. Measured at 1024×768 the whole form
+  stands without scrolling, with room left for the drawn-Leitung chips to wrap. On a phone it is
+  a full-height sheet rather than a centred box ~180px shorter than the screen.
+
+- **A Gast under PA is one person, not two.** A hand-typed name now keeps the id the Anwesenheit
+  files them under, so the roster row locks and wears the PA badge and the picker says «in einem
+  Trupp». Added by name alone they were two unrelated records that happened to read alike.
+
+- **The Ort on a roster row is a glyph.** Spelling «Vor Ort» / «Magazin» out cost ~60px of every
+  row – enough that «Baumann Michael» truncated. Haus + blau for the Magazin, Pin + ink for the
+  Einsatzort, both glyphs named in the legend beside the three status dots, where the blue
+  «Bemerkung» dot is now named too. The counts get a full-width row of their own, and the QR
+  read-out a quieter one under them: sharing the title line with the view tabs left them ~250px,
+  which is five stacked lines on a 700px panel and an ellipsis on a phone.
+
+### Fixed
+
+- **⚠️ The public demo served generated placeholder Objektpläne again.** It had shipped drawn
+  Modul 1 and 2-3 sheets since 07.08. and retired its Modul 6 on 08.08.; on 09.08. all three were
+  back – the placeholders *and* the retired module – because a reset ran from a checkout that
+  predated them. Nothing failed and nothing was logged: `admin_objects push` publishes whatever
+  PDFs the tree it runs in happens to hold. Re-running the reset from `main` restored the drawn
+  sheets (594'110 / 211'100 bytes) and dropped Modul 6, and a plan may now pin its `sha256` so a
+  stale tree fails loudly instead of publishing quietly. The pull's `index.json` has always
+  carried a digest per plan; this gives the push door the same footing.
+
+- **The Kroki preview drew hoch symbols 1.6× too small.** The crop scales every decorated marker
+  by `previewWidth / PRINT_REF_WIDTH` so what stands on the screen is what lands on the sheet, but
+  one reference is not enough: the Kroki renders at 1600×940 quer and 1000×1400 hoch, and a symbol
+  is sized in *absolute* pixels on that canvas. The same 40px symbol is 2.5 % of a landscape sheet
+  and 4 % of a portrait one. Measured after: quer 3.20 % of the crop's width, hoch 5.12 %.
+
+- **A roster column could paint over the one beside it.** `min-height: 0` on both columns of the
+  Trupp form was permission to be squeezed below their own content – which is what lets the crew
+  list fill the leftover room, and which a grid row does not scroll but *overdraws*. Stacked on a
+  phone that put the whole roster straight through Eingangsdruck and Funkkanal. The permission
+  belongs to the Trupp column alone, and on a phone to neither.
+
+- **The Erfassungs-Poster's search bar hung outside its card**, and named three tap states where
+  there are four. The sticky band undoes the card padding with negative margins while a
+  `max-width` capped its width, so it sat 14px past the list on the left and 14px short on the
+  right; the field itself carried the band's own colour and read as a white bar rather than a
+  field. The ⓘ now says «nicht anwesend → Magazin → Vor Ort → gegangen», in all four locales.
+
+- **The Atemschutz page of the Rapport sized its label column per Trupp**, so a block carrying
+  «Auftrag / Ziel» put its values ~14mm in while the next – «AdF 1» and nothing else – put them
+  ~8mm in. Every block started at a different x and the pressure logs stepped in and out with
+  them. Widest label on the page wins, for all of them.
+
+- **The roster grid was off-centre in its own panel.** `scrollbar-gutter: stable` reserves the
+  scrollbar's width *inside* the padding box, so on the ordinary short list the rows sat 22px from
+  the left edge and 33px from the right – an empty strip nothing explained.
+
+
 ## [0.5.0] – 2026-08-08
 
 ### Added

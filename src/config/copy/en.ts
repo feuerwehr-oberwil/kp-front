@@ -137,8 +137,12 @@ export const en: Localizable<Copy> = {
           { kind: 'lead', text: 'Gap-free monitoring of every SCBA team per FKS – the safety signal is the **time since last radio contact**, not an estimated remaining time.' },
           { kind: 'sub', text: 'Create a team' },
           { kind: 'list', items: [
-            '**Assignment** first: pick the type (Rescue · Extinguish · Search · Secure · Recon · Other), the **target / location** in plain text (e.g. "2nd floor, flat on the left") and optionally the line/hose no.',
-            '**Team & pressure**: record the team leader and member (already deployed names as quick-pick) and set the entry pressure (bar).',
+            '**Who goes in**: three slots, the top one is the **team leader** – tapping a row promotes that person, the **✕** removes them. A larger team simply adds rows.',
+            'The **person search** reaches the whole roster, not only those present; beside each name stands whatever argues against them (not present, at the station, already in a team). **(+)** records a guest (mutual aid) – added to the attendance at the same time, as the same person.',
+            '**Entry pressure** (bar) and **radio channel** sit beside it.',
+            'Below that the **assignment**: type (Rescue · Extinguish · Search · Secure · Recon · Other), **target / location** in plain text, **line no.** (lines already drawn are offered beside it) and the **colour** on the map and plan.',
+            'The assignment holds nobody up: **register team** works without it. The card then reads **«no task yet»**, and tapping that opens the form.',
+            'What is typed survives closing the window with **✕** or a tap outside – only **Cancel** discards it.',
           ] },
           { kind: 'sub', text: 'Monitoring per team' },
           { kind: 'list', items: [
@@ -148,6 +152,7 @@ export const en: Localizable<Copy> = {
             'Status **Registered → Deployed → Withdrawing → Out**. **Withdraw** can be reverted with **Continue**; an out team returns to monitoring with **Re-deploy** (new cylinder).',
             '**Log** per team (expandable) shows every contact with time and pressure.',
             '**Edit** (pencil) adjusts assignment, target/storey or team mid-incident.',
+            'Somebody under SCBA cannot be signed out in **Attendance** – tapping their row jumps to that team\'s card and highlights it briefly instead.',
             'Overdue teams move to the top and a counter appears; the **alarm sound** can be muted per device (bell). Everything lands in the log.',
             'Each team can be placed on the plan (the "show on plan" button).',
           ] },
