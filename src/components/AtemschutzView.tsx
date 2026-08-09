@@ -911,18 +911,6 @@ function TruppForm({
               </div>
               {legacyLine && <p className={s.fieldNote}>{fillTemplate(az.lineLegacyNote, { value: legacyLine })}</p>}
             </div>
-          </div>
-
-          <div className={s.formCol}>
-            <div className={s.formSection}>{az.sectionTeam}</div>
-            {/* One list, ticked; the star says who leads. A Trupp is valid with exactly one name
-                (the Gruppenführer), so a two-person Trupp, a four-person Trupp and a mis-tap are
-                all one tap apart — which the three fixed slots could not do. */}
-            <TruppTeam
-              value={team} onChange={setTeam}
-              personnel={personnel} legacyRoster={roster} presentIds={presentIds} stationIds={stationIds}
-              assignedIds={assignedIds} rolesById={rolesById}
-            />
             {/* The colour this Trupp wears on the Lage and on the plan. «Automatisch» is the
                 normal case (every Trupp a different one); picking is for when the EL would rather
                 read the picture by role — «alle Löschtrupps rot» — and a duplicate is then the
@@ -942,6 +930,18 @@ function TruppForm({
                 ))}
               </div>
             </div>
+          </div>
+
+          <div className={s.formCol}>
+            <div className={s.formSection}>{az.sectionTeam}</div>
+            {/* One list, ticked; the star says who leads. A Trupp is valid with exactly one name
+                (the Gruppenführer), so a two-person Trupp, a four-person Trupp and a mis-tap are
+                all one tap apart — which the three fixed slots could not do. */}
+            <TruppTeam
+              value={team} onChange={setTeam}
+              personnel={personnel} legacyRoster={roster} presentIds={presentIds} stationIds={stationIds}
+              assignedIds={assignedIds} rolesById={rolesById}
+            />
           </div>
 
           {assignedConflict && (

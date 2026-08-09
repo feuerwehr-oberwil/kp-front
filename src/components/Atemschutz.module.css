@@ -521,9 +521,18 @@ button.stepVal:hover { border-color: var(--blue); }
    list below is the way to it and scrolls. Both live in one column so the whole team fits a
    tablet without the form scrolling — three stacked dropdowns used to be taller than this. */
 .team { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+/* ⚠️ The chosen block RESERVES the room a normal Trupp needs (GF + 2 AdF). It used to grow with
+   every tick, so the modal changed height under the finger and the roster list — the thing being
+   tapped — walked down the screen after every pick. A Trupp is three people far more often than
+   it is any other number, so the box is that size from the start and only a fourth person moves
+   anything (09.08. feedback). The empty state fills the same box, which also makes it read as
+   «this is where the Trupp goes» rather than as a stray hint. */
+.teamChosen, .teamEmpty { min-height: 142px; }
 .teamEmpty { margin: 0; padding: 10px 12px; border: 1px dashed var(--glass-edge); border-radius: var(--r-ctl);
-  font-size: 12.5px; font-weight: 600; color: var(--ink-faint); }
-.teamChosen { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+  font-size: 12.5px; font-weight: 600; color: var(--ink-faint);
+  display: flex; align-items: center; justify-content: center; text-align: center; }
+.teamChosen { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px;
+  align-content: flex-start; }
 .teamRow { display: flex; align-items: center; gap: 8px; min-height: var(--tap); padding: 4px 6px 4px 4px;
   border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface); }
 /* the Gruppenführer's row carries the emphasis, not just a badge — the card, the Rapport and the
@@ -558,7 +567,7 @@ button.stepVal:hover { border-color: var(--blue); }
 /* Bounded, so the Auftrag column beside it stays reachable without scrolling the whole modal.
    ~5 rows: enough that the search is usually unnecessary, short enough to keep the footer in
    view — the button that actually starts the Trupp must never be below the fold. */
-.teamList { list-style: none; margin: 0; padding: 4px; max-height: 232px; overflow-y: auto;
+.teamList { list-style: none; margin: 0; padding: 4px; max-height: 208px; overflow-y: auto;
   border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface); }
 .teamOptTaken { opacity: .45; cursor: default; }
 /* «Magazin» is the one hint on this list that is operational rather than advisory: somebody

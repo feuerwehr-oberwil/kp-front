@@ -74,7 +74,11 @@
 /* the dense grid — auto-fill so a wide screen packs many columns, narrow ones fewer */
 .grid {
   flex: 1 1 auto; overflow-y: auto; scrollbar-gutter: stable; margin: 0; padding: 2px 22px 16px;
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(228px, 1fr)); gap: 8px; align-content: start;
+  /* ⚠️ 228px was measured against a row that carried a name and a clock. It now also carries
+     the Ort, and «Baumann Michael» went to «Baumann Mich…» — the one thing this list exists to
+     show. Raised to 300px: a column more scrolling costs nothing next to a name you cannot
+     read, and at this width the Ort keeps its word too (see the container query below). */
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px; align-content: start;
 }
 
 /* Somebody recorded for THIS Einsatz only. Blue rather than the rank chip's accent: it is not a
@@ -180,9 +184,8 @@ button.ortScene:hover { background: var(--fill-soft); color: var(--ink); }
 button.ortStation:hover { background: color-mix(in srgb, var(--blue) 22%, transparent); }
 
 .ortLabel { display: none; }
-/* measured against the real thing: at 228px (the grid's own minimum) a name like «Baumann
-   Michael» is already at the ellipsis, and the word would take another 46px off it */
-@container (min-width: 316px) { .ortLabel { display: inline; } }
+/* below this the word costs the name more than it is worth; the glyph says the same thing */
+@container (min-width: 290px) { .ortLabel { display: inline; } }
 
 @media (max-width: 600px) {
   /* full width below the top bar (78px clears the floating bar with a visible gap — at 64px
