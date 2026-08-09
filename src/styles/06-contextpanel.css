@@ -184,8 +184,11 @@
 .combo-search-clear:hover { background: var(--fill-soft); color: var(--ink); }
 .combo-search-clear .i { width: 14px; height: 14px; }
 
-/* the contradiction a filled roster field carries — under the field, and it stays */
-.kv-hint { display: flex; align-items: center; gap: 6px; margin: 4px 0 0;
+/* the contradiction a filled roster field carries — under the field, and it stays.
+   ⚠️ .field / .kv-row are single-line flex rows, so as a plain sibling the hint landed BESIDE
+   the control and wrapped into a four-word-tall red column. It takes a row of its own. */
+.field:has(> .kv-hint), .kv-row:has(> .kv-hint) { flex-wrap: wrap; }
+.kv-hint { flex: 0 0 100%; display: flex; align-items: center; gap: 6px; margin: 4px 0 0;
   font: 600 12px/1.35 var(--body); color: var(--accent); }
 .kv-hint .i { width: 14px; height: 14px; flex: none; }
 .combo-type { color: var(--blue-strong); font-weight: 700; border-top: 1px solid var(--border-soft); margin-top: 2px; }
