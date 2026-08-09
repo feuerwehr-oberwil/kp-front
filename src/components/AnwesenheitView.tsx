@@ -703,6 +703,8 @@ export function AnwesenheitView({
               <span className={s.legendSep} />
               <span className={s.legendOrt}><Icon id="pin" />{A.ortScene}</span>
               <span className={cx(s.legendOrt, s.legendOrtStation)}><Icon id="station" />{A.ortStation}</span>
+              <span className={s.legendSep} />
+              <span className={s.legendNote}><i />{A.legendNote}</span>
             </div>
           )}
           {/* how far the axis reaches — it belongs on the search line beside the thing it filters,
@@ -844,8 +846,11 @@ export function AnwesenheitView({
                   <button
                     type="button"
                     className={cx(s.backBtn, attendance[p.id]?.note && s.hasNote)}
-                    title={fillTemplate(A.openBlocks, { name: p.displayName })}
-                    aria-label={fillTemplate(A.openBlocks, { name: p.displayName })}
+                    /* ⚠️ The blue dot on this button means «da steht eine Bemerkung» and nothing
+                       on the row said so — a mark you have to be told about is a mark nobody
+                       reads. It is in the legend now, and the button says it too. */
+                    title={fillTemplate(attendance[p.id]?.note ? A.openBlocksNote : A.openBlocks, { name: p.displayName })}
+                    aria-label={fillTemplate(attendance[p.id]?.note ? A.openBlocksNote : A.openBlocks, { name: p.displayName })}
                     onClick={() => setBlocksFor(p.id)}
                   >
                     <Icon id="clock" />

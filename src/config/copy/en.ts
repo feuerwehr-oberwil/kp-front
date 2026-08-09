@@ -1782,6 +1782,8 @@ export const en: Localizable<Copy> = {
     blocksNone: 'Has not been present yet.',
     blocksHint: 'Each line is one real turn on site. Correct a time here when a stamp landed wrong.',
     openBlocks: 'Open attendance for {name}',
+    openBlocksNote: 'Open attendance for {name} · note recorded',
+    legendNote: 'Note',
     stillHere: 'still here',
     running: 'running',
     ended: 'finished',

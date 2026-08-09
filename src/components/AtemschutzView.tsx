@@ -893,7 +893,8 @@ function TruppForm({
               Everything else is refinement and lives one tap away — on a phone the old order put
               five optional fields between the EL and the two mandatory ones. */}
           <div className={s.formCol}>
-            <div className={s.formSection}>{az.sectionTeam}</div>
+            <div className={s.field}>
+              <span>{az.sectionTeam}</span>
             {/* One list, leader first. A Trupp is valid with exactly one name (the
                 Gruppenführer), so a two-person Trupp, a four-person Trupp and a mis-tap are all
                 one tap apart — which the three fixed slots could not do. */}
@@ -902,27 +903,29 @@ function TruppForm({
               personnel={personnel} legacyRoster={roster} presentIds={presentIds} stationIds={stationIds}
               assignedIds={assignedIds} rolesById={rolesById} onAddGuest={onAddGuest}
             />
+            </div>
           </div>
 
           <div className={s.formCol}>
             {showPressure && (
-              <>
-                <div className={s.formSection}>{mode === 'redeploy' ? az.newPressureLabel : az.pressureLabel}</div>
-                <div className={s.field}>
-                  <PressureStepper value={pressure} onChange={setPressure} compact />
-                </div>
-              </>
+              <div className={s.field}>
+                <span>{mode === 'redeploy' ? az.newPressureLabel : az.pressureLabel}</span>
+                <PressureStepper value={pressure} onChange={setPressure} compact />
+              </div>
             )}
 
             {/* Kanal rides with the Druck: two short numbers between two big buttons, the pair
                 you set on every single Trupp. Everything below is the Auftrag — worth having,
-                never a reason to hold a Trupp at the door. */}
-            <div className={s.formSection}>{az.funkkanalSection}</div>
+                never a reason to hold a Trupp at the door.
+                ⚠️ No section headings in here. Uppercase labels over rules cut the form into
+                four boxes and each rule cost a row, in a modal sized to a tablet; every field
+                already says what it is, and «AUFTRAG» over a field called «Auftrag / Ziel» was
+                the same word twice. */}
             <div className={s.field}>
+              <span>{az.funkkanalSection}</span>
               <FunkkanalStepper value={funkkanal} onChange={setFunkkanal} compact />
             </div>
 
-            <div className={s.formSection}>{az.sectionAuftrag}</div>
             <div className={s.field}>
               <span>{az.auftragLabel}</span>
               <Segmented

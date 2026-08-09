@@ -80,6 +80,9 @@
 .legend .legendOrt svg { width: 14px; height: 14px; color: var(--ink-dim); }
 .legend .legendOrtStation svg { color: var(--blue-strong); }
 .legendSep { width: 1px; height: 14px; background: var(--glass-edge); }
+/* the blue dot that rides on the clock button when somebody has a Bemerkung — same size, same
+   colour, so the legend entry IS the mark rather than a description of it */
+.legend .legendNote i { width: 6px; height: 6px; background: var(--blue); }
 
 /* the dense grid — auto-fill so a wide screen packs many columns, narrow ones fewer */
 .grid {

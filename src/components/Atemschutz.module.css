@@ -326,6 +326,8 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
   color: var(--ink-faint); padding-top: 4px; border-top: 1px solid var(--glass-edge); margin-top: 2px; }
 .formSection:first-child { border-top: none; padding-top: 0; margin-top: 0; }
 .field { display: flex; flex-direction: column; gap: 5px; }
+/* a labelled field that CONTAINS the flexing Trupp block passes the room through */
+.formCol > .field:has(> .team) { flex: 1 1 0; min-height: 0; }
 .field > span { font-size: 12px; font-weight: 700; color: var(--ink-dim); }
 /* what an older Trupp record had typed in the free-text Leitung field, shown as entered — the
    record is never rewritten, so the Überwacher can still read what they wrote */
@@ -699,6 +701,9 @@ button.stepVal:hover { border-color: var(--blue); }
      left» has no meaning and «may shrink below my content» is actively harmful. Both take the
      height they need and the sheet scrolls them, which is what the full-height sheet is for. */
   .modalBody > .formCol:first-child { min-height: auto; }
+  /* …and the label wrapper around it — `flex: 1 1 0` there collapses the whole Trupp block to a
+     basis of zero, which is the same paint-over-the-next-row failure one level down */
+  .formCol > .field:has(> .team) { flex: none; min-height: auto; }
   .team { flex: none; }
   .teamList { flex: none; max-height: 38dvh; }
 }

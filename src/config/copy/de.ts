@@ -2737,6 +2737,8 @@ export const de = {
     blocksNone: 'Noch nicht anwesend gewesen.',
     blocksHint: 'Jede Zeile ist eine tatsächliche Anwesenheit dieser Person. Hier korrigieren, wenn eine Stempelung daneben liegt.',
     openBlocks: 'Anwesenheit von {name} öffnen',
+    openBlocksNote: 'Anwesenheit von {name} öffnen · Bemerkung erfasst',
+    legendNote: 'Bemerkung',
     stillHere: 'noch da',
     // Kopf der Zeit-Karte: was diese Zeile IST. Kein Schalter – eine Anwesenheit läuft oder ist
     // beendet, und das entscheidet die Liste, nicht dieses Blatt.
