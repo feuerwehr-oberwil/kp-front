@@ -159,7 +159,7 @@ describe('applyAction · Beilagen', () => {
   })
 })
 
-// Picking somebody as Einsatzleiter / für die Rückmeldung also ticks them present — the same
+// Picking somebody as Einsatzleiter / for the Rückmeldung also ticks them present — the same
 // rule the Trupp form follows in the app. The pickers are free-text, so what a NAME resolves to
 // is the whole question.
 describe('attendanceForPickedName', () => {

@@ -8,13 +8,13 @@ export const EMPTY_STYLE = { version: 8 as const, sources: {}, layers: [] }
 
 export const vis = (on: boolean) => ({ visibility: (on ? 'visible' : 'none') as 'visible' | 'none' })
 
-// Symbol-Größe an die reale Welt gekoppelt (m), skaliert mit Zoom — aber in ein
-// ENGES Band geklemmt: an normalen Einsatz-Zooms wirkt ein Symbol fast konstant
-// (wie ein Karten-Pin), wächst nie über das Dach (kein „Offizier so gross wie ein
-// Haus") und schrumpft beim Rauszoomen leicht, damit ein Cluster nicht verklumpt.
+// Symbol size tied to the real world (m), scaling with zoom — but clamped into a
+// NARROW band: at normal Einsatz zooms a symbol looks almost constant (like a map
+// pin), never grows past the roof (no "Offizier as big as a house") and shrinks
+// slightly when zooming out, so a cluster doesn't clump together.
 const SIZE_M: Record<string, number> = { vehicle: 11, command: 10, hydrant: 6, symbol: 8, area: 8 }
-// das Band (px). `mul` ist der globale S/M/L-Faktor (lib/prefs · symbolMul); er
-// skaliert das ganze Band, sodass auch die Decken/Boden mitwachsen.
+// the band (px). `mul` is the global S/M/L factor (lib/prefs · symbolMul); it
+// scales the whole band, so the ceiling/floor grow along with it.
 const SYM_MIN = 28
 const SYM_MAX = 48
 export const pxPerM = (lat: number, z: number) => Math.pow(2, z) / (156543.03392 * Math.cos((lat * Math.PI) / 180))

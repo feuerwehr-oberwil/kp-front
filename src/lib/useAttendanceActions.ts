@@ -126,7 +126,7 @@ export function useAttendanceActions({ attendance, setAttendance, blockedAttenda
   }
 
   /**
-   * Am Einsatzort oder noch im Magazin — the answer to «wen könnte ich noch nachziehen».
+   * At the Einsatzort or still in the Magazin — the answer to «wen könnte ich noch nachziehen».
    *
    * A toggle, so it takes no argument: there are two states and the tap means «the other one».
    * Written only for somebody who is actually present; on anybody else the control is not

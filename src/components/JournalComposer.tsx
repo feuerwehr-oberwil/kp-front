@@ -460,7 +460,7 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
           </div>
         )}
 
-        {/* ── Wer hat es gesagt, und was für eine Aussage ist es ──
+        {/* ── Who said it, and what kind of statement it is ──
             Both live BELOW the text and above the media, in one quiet strip: the sentence is
             still what this surface is for, and neither of these may look like a field that has
             to be filled in before it will accept one. Entry mode only — a Wiedervorlage is a

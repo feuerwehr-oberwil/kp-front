@@ -25,8 +25,8 @@ export const de = {
   loadingSubtitle: 'Lade Karte & Symbolbibliothek ...',
   modes: { map: 'Lage', plans: 'Plan', checklists: 'Checkliste', atemschutz: 'Atemschutz', anwesenheit: 'Anwesenheit', mittel: 'Mittel', rapport: 'Rapport' },
   // the left navigation rail (Karte · Pläne group · Checkliste · Atemschutz)
-  // (kein «Objekt wählen» mehr: die Leiste ist reine Navigation, das Objekt steht auf der
-  //  Plan-Fläche – siehe whiteboard.objectLabel)
+  // (no «Objekt wählen» any more: the rail is pure navigation, the object sits on the
+  //  plan surface – see whiteboard.objectLabel)
   navRail: { map: 'Karte', plansGroup: 'Pläne', assign: 'Plan zuweisen', expand: 'Ausklappen', collapse: 'Einklappen', resize: 'Leiste anpassen', scrollMore: 'Weitere anzeigen' },
   panels: { layers: 'Ebenen', history: 'Verlauf' },
   // LayerPanel: the toggle aria-label appends one of these state words after the layer name
@@ -40,17 +40,17 @@ export const de = {
     subtitle: 'Alle Funktionen auf einen Blick – gebaut, um auch um 3 Uhr morgens ohne Übung bedienbar zu sein.',
     contents: 'Inhalt',
     close: 'Schliessen',
-    // Die Hilfe ist lang und wird im Einsatz mit einer konkreten Frage geöffnet, nicht zum
-    // Lesen — die Suche filtert Inhaltsverzeichnis UND Abschnitte (auf dem Handy gibt es
-    // kein Inhaltsverzeichnis, dort ist die Filterung der Abschnitte die ganze Suche).
+    // The help is long and gets opened during an Einsatz with a concrete question, not to be
+    // read — the search filters the table of contents AND the sections (on a phone there is no
+    // table of contents, so filtering the sections is the whole search there).
     search: 'Hilfe durchsuchen …',
     searchClear: 'Suche löschen',
     searchNone: 'Keine Treffer für «{q}».',
     searchHint: 'Anderes Stichwort versuchen – gesucht wird in Überschriften und Text.',
-    // Fallback-Einleitung wenn die Station keine eigene helpIntro konfiguriert hat.
+    // Fallback intro when the station has not configured a helpIntro of its own.
     introFallback: 'KP Front ist die digitale Lage- und Einsatzführung deiner Feuerwehr: taktische Lagekarte, Objektpläne, Atemschutzüberwachung und ein gemeinsames Verlaufsprotokoll – alles live auf mehreren Geräten gleichzeitig.',
-    // Inhalt der Hilfe-Sektionen. Inline-Auszeichnung: **fett** für Hervorhebungen,
-    // [[Taste]] für Tastatur-Chips. blocks: lead/sub/list/note werden in HelpOverlay gerendert.
+    // Content of the help sections. Inline markup: **bold** for emphasis, [[Taste]] for
+    // keyboard chips. blocks: lead/sub/list/note are rendered in HelpOverlay.
     sections: [
       {
         id: 'ueberblick', title: 'Überblick', icon: 'info',
@@ -632,17 +632,17 @@ export const de = {
     titleLabel: 'Stichwort / Titel',
     titlePlaceholder: 'z. B. Gebäudebrand Schulhaus',
     categoryLabel: 'Kategorie',
-    // Priorität: aus den Stichwörtern des Alarms geraten, darum hier korrigierbar
+    // Priorität: guessed from the alarm's Stichwörter, hence correctable here
     priorityLabel: 'Priorität',
     priorityHigh: 'Dringend',
     priorityLow: 'Normal',
-    // Übungen bleiben voll bedienbar, fliessen aber nicht in die Statistik ein und sind
-    // als einzige löschbar (Alle Einsätze)
+    // Übungen stay fully operable, but do not feed the statistics and are the only ones
+    // that can be deleted (Alle Einsätze)
     exerciseToggle: 'Übung – zählt nicht zur Einsatzstatistik',
     detailsLabel: 'Meldungstext (optional)',
-    // «Hier» verschiebt den Einsatzort auf den Gerätestandort. Bei einem laufenden Einsatz wird
-    // immer gefragt – die Maske wird meistens im Magazin geöffnet, um eine Adresse zu
-    // korrigieren, und ein Fehlgriff verschiebt Karte, Kroki, Kachel-Vorrat und Objektpläne mit.
+    // «Hier» moves the Einsatzort to the device's location. On a running Einsatz it always asks
+    // first – the form is usually opened in the Magazin to correct an address, and a mis-tap
+    // takes the map, the Kroki, the tile stock and the Objektpläne along with it.
     moveConfirmTitle: 'Einsatzort verschieben?',
     moveConfirmMsg: 'Der Einsatzort wird auf deinen jetzigen Standort gesetzt – {d} vom bisherigen entfernt. Karte, Kroki-Ausschnitt und die Objektpläne in der Nähe richten sich danach.',
     moveConfirmBtn: 'Verschieben',
@@ -755,8 +755,8 @@ export const de = {
     modeLine: 'Strecke',
     modeArea: 'Fläche',
     clear: 'Zurücksetzen',
-    // das + in der Mitte jeder Strecke — dieselbe Beschriftung auf Lage und Plan, weil es
-    // dieselbe Geste ist
+    // the + in the middle of every segment — the same label on Lage and Plan, because it is
+    // the same gesture
     insertPoint: 'Punkt einfügen',
     deleteNode: 'Rechtsklick zum Entfernen',
     distance: 'Distanz',
@@ -798,8 +798,8 @@ export const de = {
     objectMoved: '{name} verschoben',
     objectDeleted: '{name} entfernt',
     drawingDeleted: 'Zeichnung entfernt',
-    // «Zeichnung entfernt» nach einer Lasso-Auswahl über elf Objekte ist nicht ungenau,
-    // sondern falsch – der Singular behauptet, es sei eines gewesen.
+    // «Zeichnung entfernt» after a lasso selection over eleven objects isn't imprecise, it is
+    // wrong – the singular claims there was only one.
     selectionDeleted: '{n} Objekte entfernt',
     duplicated: 'Objekt dupliziert',
     undo: 'Aktion rückgängig gemacht',
@@ -816,7 +816,7 @@ export const de = {
     surfaceMap: 'Lage',
     surfacePlan: 'Plan',
     replay: 'Wiedergabe starten',
-    // Aktivitätsstreifen über der Liste: WANN etwas passiert ist, als Position statt als Zeile
+    // activity strip above the list: WHEN something happened, as a position rather than a row
     stripLabel: 'Zeitstrahl – tippen, um zur passenden Stelle zu springen',
     replayHint: 'Lage und Plan zu einem früheren Zeitpunkt abspielen',
     // composer
@@ -830,7 +830,7 @@ export const de = {
     discardAudio: 'Aufnahme verwerfen',
     // external voice-memo import
     audioUpload: 'Audio hochladen',
-    // Kurzform für die Telefon-Zeile, wo die drei Medienknöpfe je ein Drittel der Breite haben
+    // short form for the phone row, where the three media buttons get a third of the width each
     audioUploadShort: 'Audio',
     audioImportLabel: 'Externe Audioaufnahme',
     audioStartLabel: 'Aufnahme begann',
@@ -884,17 +884,17 @@ export const de = {
     // last-writer-wins stays, but the divergence is said, not silent (append-only record)
     attendanceConflict: 'Anwesenheit von {name}: abweichende Angaben aus QR-Erfassung und KP wurden zusammengeführt – bitte prüfen.',
     quickPhrasesAria: 'Textbausteine',
-    // ── Wer hat es gesagt, und was für eine Aussage ist es ──
-    // Beides landet im TEXT der Zeile (lib/journalEntry · composeJournalText); die
-    // strukturierten Felder gibt es zum Filtern, nicht zum Anzeigen.
-    // ⚠️ KEIN «Von»-Feld mehr (09.08.). Es fragte, was der Satz schon beantwortet — wer
-    // «Meier meldet Kellerbrand bestätigt» schreibt, hat gesagt, wer gemeldet hat — und ein
-    // zweites Feld für dieselbe Aussage ist ein zweites Feld zum Ausfüllen. Gewollt war, dass
-    // die NAMEN echt sind: richtig geschrieben und als Verknüpfung sichtbar (lib/journalLinks).
+    // ── Who said it, and what kind of statement is it ──
+    // Both end up in the row's TEXT (lib/journalEntry · composeJournalText); the structured
+    // fields exist for filtering, not for display.
+    // ⚠️ NO «Von» field any more (09.08.). It asked what the sentence already answers — whoever
+    // writes «Meier meldet Kellerbrand bestätigt» has said who reported it — and a second field
+    // for the same statement is a second field to fill in. What was actually wanted is that the
+    // NAMES are real: spelled correctly and visible as a link (lib/journalLinks).
     linkKinds: { person: 'Person', material: 'Material', partner: 'Partner', vehicle: 'Fahrzeug', group: 'Gruppe' } as Record<string, string>,
     typeLabel: 'Art',
-    // «Info» ist der Normalfall und druckt KEINE Marke — eine Marke auf jeder Zeile ist
-    // Tapete. Die Wörter stammen aus dem Führungsrhythmus (BGV Behelf Schadenplatz).
+    // «Info» is the normal case and prints NO badge — a badge on every row is wallpaper. The
+    // words come from the Führungsrhythmus (BGV Behelf Schadenplatz).
     entryTypes: { info: 'Info', auftrag: 'Auftrag', sofort: 'Sofortmassnahme' } as Record<string, string>,
     entryTypeShort: { info: 'Info', auftrag: 'Auftrag', sofort: 'Sofort' } as Record<string, string>,
     pinMap: 'An aktueller Kartenmitte anheften',
@@ -997,8 +997,8 @@ export const de = {
     zielLabel: 'Auftrag / Ziel',
     zielPlaceholder: 'z. B. 2OG links',
     zielOtherPlaceholder: 'Auftrag beschreiben',
-    // Reihenfolge der Karten auf der Tafel. Überfällige Trupps stehen IMMER zuoberst – das ist
-    // keine Einstellung, sondern der Grund, warum es diese Tafel gibt.
+    // Order of the cards on the board. Überfällige Trupps ALWAYS sit at the top – that is not a
+    // setting, it is the reason this board exists.
     orderLabel: 'Reihenfolge',
     orderUrgency: 'Dringlichkeit',
     orderManual: 'Wie gesetzt',
@@ -1012,27 +1012,27 @@ export const de = {
     memberPlaceholder: 'Name (optional)',
     addMember: 'AdF hinzufügen',
     removeMember: 'AdF {n} entfernen',
-    // Trupp-Auswahl (TruppTeam) — eine Liste zum Antippen statt drei feste Felder. Die drei
-    // Felder konnten einen Trupp benennen, aber nicht umstellen: wer zuerst getippt wurde, war
-    // für immer Gruppenführer. Der Stern ist die Korrektur, und sie kostet einen Tipp.
+    // Trupp selection (TruppTeam) — a list to tap instead of three fixed fields. The three
+    // fields could name a Trupp but not rearrange it: whoever was typed first was Gruppenführer
+    // forever. The star is the correction, and it costs one tap.
     teamEmpty: 'Noch niemand im Trupp. Unten antippen.',
-    // Vier Plätze stehen immer da — so sieht ein Trupp aus (GF + 3), und ein leerer Platz sagt
-    // «hier kommt der nächste hin» deutlicher als ein Satz. Die Zeile selbst wählt den GF.
+    // Four slots are always there — that is what a Trupp looks like (GF + 3), and an empty slot
+    // says «hier kommt der nächste hin» more clearly than a sentence. The row itself picks the GF.
     teamSlotEmpty: '—',
     teamSearchPlaceholder: 'Person suchen …',
     teamNoMatches: 'Kein Treffer',
     leaderBadge: 'GF',
     makeLeader: '{name} als Gruppenführer',
     teamRemove: '{name} aus dem Trupp nehmen',
-    // jemand, der schon in einem anderen aktiven Trupp steht: sichtbar, aber nicht wählbar –
-    // eine Person, ein Trupp. Ausblenden hiess, dass die Suche einfach nichts fand.
+    // somebody who is already in another active Trupp: visible, but not selectable – one person,
+    // one Trupp. Hiding them meant the search simply found nothing.
     teamTaken: 'in einem Trupp',
-    // von Hand getippt, also ohne Verknüpfung zur Mannschaftsliste
+    // typed by hand, i.e. with no link to the roster
     teamManual: 'ohne Eintrag',
     teamTypeName: 'Name eingeben (Gast / Nachbarwehr)',
     teamAdd: 'Hinzufügen',
-    // Leitung: dieselbe Nummer wie auf der gezeichneten Leitung (Lage/Plan) — daran finden sich
-    // Trupp und Schlauchlinie, ohne dass jemand etwas doppelt tippt.
+    // Leitung: the same number as on the drawn Leitung (Lage/Plan) — that is how Trupp and
+    // Schlauchleitung find each other, without anybody typing anything twice.
     lineNoLabel: 'Leitung Nr.',
     lineLegacyNote: 'Früher erfasst: «{value}»',
     lineOptsLabel: 'Gezeichnet:',
@@ -1061,14 +1061,14 @@ export const de = {
     officersOnly: 'nur Offiziere',
     typeName: 'Name eingeben …',
     assignedConflict: '{name} ist bereits in einem anderen Trupp.',
-    // wenn der Slot verknüpft, aber namenlos ist — stand als deutsches Literal im Code
+    // when the slot is linked but nameless — used to be a German literal in the code
     assignedFallbackName: 'Diese Person',
     cancel: 'Abbrechen',
     save: 'Speichern',
     start: 'Trupp anmelden',
     reenterSubmit: 'Einrücken',
-    // Zweiter Weg beim Wiedereinrücken: neue Flasche, neuer Auftrag, aber noch nicht unter PA –
-    // der Trupp wartet als Sicherungstrupp und wird später mit «Eingerückt» gestartet.
+    // Second path when re-entering: new cylinder, new Auftrag, but not under PA yet – the Trupp
+    // waits as a Sicherungstrupp and is started later with «Eingerückt».
     reenterStandby: 'Bereitstellen',
     reenterStandbyHint: 'Trupp als Reserve anmelden – die Kontaktuhr startet erst mit «Eingerückt».',
     // board card
@@ -1077,9 +1077,9 @@ export const de = {
     colorAutoHint: 'Farbe der Wehr für diesen Auftrag, sonst die nächste freie – jeder Trupp eine andere.',
     sinceContact: 'Seit letztem Kontakt',
     elapsed: 'Einsatzzeit',
-    // Pausenuhr: wie lange der Trupp draussen ist. Die Einsatzzeit steht ab «Raus» still (sie ist
-    // fertig), diese läuft dafür – das ist die Zahl, die der Überwacher für die Erholungszeit
-    // vor dem nächsten Einsatz braucht.
+    // Break clock: how long the Trupp has been out. The Einsatzzeit stands still from «Raus» on
+    // (it is finished), this one runs instead – that is the number the Überwacher needs for the
+    // recovery time before the next Einsatz.
     outFor: 'Draussen seit',
     estimated: 'Erwartet (Schätzung)',
     estimatedHint: 'Planungshilfe – bis genügend Druckverlauf vorliegt, geschätzt mit {liters} L Flasche und {rate} L/min Verbrauch. Ersetzt keine Druckmeldung.',
@@ -1088,8 +1088,8 @@ export const de = {
     estimatedSourceFallback: '{rate} L/min angenommen · Stand {time}',
     currentPressure: 'Druck',
     lowestPressure: 'Tiefster',
-    // Alarmdruck auf der Truppkarte. Die «Schätzung»-Variante greift, wenn nur die Hochrechnung
-    // die Grenze erreicht hat – eine Schätzung darf nie wie eine gemeldete Druckmeldung klingen.
+    // Alarmdruck on the Trupp card. The «Schätzung» variant applies when only the projection has
+    // reached the threshold – an estimate must never sound like a reported Druckmeldung.
     alarmNote: 'Alarmdruck {bar} bar erreicht',
     alarmNoteEst: 'Alarmdruck {bar} bar – laut Schätzung erreicht',
     lineField: 'Leitung',
@@ -1116,18 +1116,18 @@ export const de = {
     actContinue: 'Fortsetzen',
     actExit: 'Raus',
     actReenter: 'Wieder einrücken',
-    // Ein Sicherungstrupp geht meistens NICHT hinein. Bis 08.08. konnte man ihn nur löschen –
-    // also das Einzige wegwerfen, was belegt, dass er bereitstand. Er wird jetzt abgeschlossen
-    // wie jeder andere: unter «Draussen», mit Pausenuhr, jederzeit wieder einrückbar.
+    // A Sicherungstrupp mostly does NOT go in. Until 08.08. you could only delete it – i.e. throw
+    // away the one thing proving it stood ready. It is now closed out like any other: under
+    // «Draussen», with a break clock, ready to re-enter at any time.
     actNotDeployed: 'Nicht eingesetzt',
     actNotDeployedHint: 'Trupp abschliessen, ohne dass er unter PA war – bleibt für einen erneuten Einsatz bereit',
-    // Statuswort und Verlaufszeile für genau diesen Fall: «draussen» behauptet, er sei drin gewesen
+    // status word and Verlauf row for exactly this case: «draussen» claims it had been inside
     statusNotDeployed: 'Nicht eingesetzt',
     logNotDeployed: 'Trupp {name} nicht eingesetzt',
     exitConfirmTitle: 'Trupp draussen?',
     exitConfirmMsg: 'Den Trupp als draussen markieren und die Überwachung beenden?',
     remove: 'Entfernen',
-    // Entfernen läuft sofort mit Rückgängig-Toast (kein Bestätigungsdialog)
+    // removal happens immediately with an undo toast (no confirmation dialog)
     removedToast: 'Trupp {name} entfernt',
     place: 'Platzieren',
     placeWhere: 'Wohin platzieren?',
@@ -1146,8 +1146,8 @@ export const de = {
     status: { angemeldet: 'Angemeldet', aktiv: 'Im Einsatz', rueckzug: 'Rückzug', ueberfaellig: 'Überfällig', raus: 'Draussen' } as Record<string, string>,
     // Verlauf templates ({name}, {bar}, {status})
     logRegister: 'Trupp {name} angemeldet – Eingangsdruck {bar} bar',
-    // Verlaufszeile, wenn jemand die Sicherheitswerte verstellt. MIT alten und neuen Werten:
-    // «geändert» allein sagt nicht, ob die Schwelle strenger oder lockerer wurde.
+    // Verlauf row for when somebody changes the safety values. WITH old and new values:
+    // «geändert» alone doesn't say whether the threshold got stricter or looser.
     logSafety: 'Atemschutz-Sicherheitswerte geändert: {changes}',
     logSafetyInterval: 'Funkkontakt-Intervall {from} → {to} min',
     logSafetyGrace: 'Nachfrist {from} → {to} s',
@@ -1158,15 +1158,15 @@ export const de = {
     logEntry: 'Trupp {name} eingerückt',
     logContact: 'Trupp {name}: Kontakt bestätigt',
     logPressure: 'Trupp {name}: Druck {bar} bar',
-    // Rückzug und Fortsetzen setzen die Kontaktuhr zurück; das muss im Verlauf stehen, sonst
-    // springt die Uhr im Protokoll ohne erkennbaren Grund.
+    // Rückzug and Fortsetzen reset the contact clock; that has to be in the Verlauf, otherwise
+    // the clock jumps in the record for no visible reason.
     logRueckzug: 'Trupp {name}: Rückzug – gilt als Funkkontakt',
     logContinue: 'Trupp {name}: Einsatz fortgesetzt – gilt als Funkkontakt',
-    // Fallback, wenn das Formular gespeichert wurde ohne dass sich etwas geändert hat.
+    // Fallback for when the form was saved without anything having changed.
     logEdit: 'Trupp {name}: bearbeitet',
-    // Der Normalfall: die Zeile SAGT, was sich geändert hat. «Auftrag angepasst» stand früher
-    // auch dann da, wenn ein AdF aus dem Trupp genommen wurde – und genau das fragt hinterher
-    // jemand nach.
+    // The normal case: the row SAYS what changed. «Auftrag angepasst» used to appear even when
+    // an AdF had been taken out of the Trupp – and that is exactly what somebody asks about
+    // afterwards.
     logEditFields: 'Trupp {name}: {changes}',
     changeLeader: 'Gruppenführer {from} → {to}',
     changeMemberOut: '{names} aus dem Trupp genommen',
@@ -1181,11 +1181,11 @@ export const de = {
     logReenter: 'Trupp {name} wieder eingerückt – Eingangsdruck {bar} bar',
     logStandby: 'Trupp {name} bereitgestellt – noch nicht eingerückt',
     logAlarm: 'Atemschutz-Alarm: Trupp {name} – {status}',
-    // Der Alarmdruck war bisher nur auf der Karte sichtbar – im Protokoll fehlte der Moment,
-    // in dem der Trupp umkehren musste. Nur beim ÜBERSCHREITEN, nicht bei jedem Wert darunter.
+    // The Alarmdruck used to be visible only on the card – the record was missing the moment the
+    // Trupp had to turn back. Only on CROSSING it, not on every value below it.
     logPressureAlarm: 'Trupp {name}: Alarmdruck {bar} bar erreicht',
-    // Ein Trupp, der von der Tafel verschwindet, ist die einzige Handlung, die früher gar nichts
-    // hinterliess – der Toast war weg und der Trupp hatte es nie gegeben.
+    // A Trupp disappearing from the board is the one action that used to leave nothing behind at
+    // all – the toast was gone and the Trupp had never existed.
     logRemoved: 'Trupp {name} gelöscht',
     logRestored: 'Trupp {name} wiederhergestellt',
   },
@@ -1255,8 +1255,8 @@ export const de = {
       unit: 'm',
       confirm: 'Übernehmen',
       cancel: 'Abbrechen',
-      // Der Chip schwebt ÜBER dem Plan, also kostet jedes Wort Plan. Das Icon sagt bereits
-      // «Massstab»; der Text sagt nur noch, woran man ist.
+      // The chip floats ABOVE the plan, so every word costs plan. The icon already says
+      // «Massstab»; the text only says where you stand.
       chipCalibrated: 'Ref. {m} m',
       chipUncalibrated: 'nicht kalibriert',
       recalibrate: 'Neu kalibrieren',
@@ -1271,8 +1271,8 @@ export const de = {
       savedAll: 'Als Standard-Massstab gespeichert',
       savedThis: 'Massstab für diesen Plan gespeichert',
       needsCalibration: 'Massstab festlegen: die zwei Enden des Massstabs antippen',
-      // read-only (Führungsansicht / Viewer): messen geht erst, wenn jemand mit
-      // Schreibrechten den Massstab gesetzt hat – nie einen Knopf zeigen, der scheitern würde
+      // read-only (Führungsansicht / viewer): measuring only works once somebody with write
+      // rights has set the Massstab – never show a button that would fail
       needsCalibrationViewer: 'Messen erst möglich, wenn der Massstab kalibriert ist',
     },
     finishShape: 'Fertig',
@@ -1288,8 +1288,8 @@ export const de = {
     placeTeam: '{name} auf Plan gesetzt',
     selectTrupp: 'Welcher Trupp?',
     newTeam: 'Neuer Trupp',
-    // Ein Trupp steht an genau EINEM Ort. Wer ihn in dieser Liste nochmals antippt, verschiebt
-    // ihn — gemeint war fast immer ein zweiter Trupp. Darum ausgegraut statt auswählbar.
+    // A Trupp stands in exactly ONE place. Tapping it again in this list MOVES it — what was
+    // meant was almost always a second Trupp. Hence greyed out instead of selectable.
     truppPlacedHere: 'schon hier',
     truppPlacedElsewhere: 'auf {where}',
     truppOnMap: 'der Karte',
@@ -1328,13 +1328,14 @@ export const de = {
     replaceBuilding: 'Anderes Gebäude wählen',
     replaceBuildingConfirm: 'Es bestehen Skizzen auf den Geschossen. Anderes Gebäude wählen und die bisherigen Geschosse verwerfen?',
     otherObject: 'Anderes Objekt',
-    // Das Objekt entscheidet, welche Pläne geladen sind – darum steht es auf der Plan-Fläche,
-    // über den Plänen, die es bestimmt. Die Beschriftung nennt zuerst die Sache («Objekt»),
-    // dann den Namen: gesucht wird beim Hinsetzen «bin ich beim richtigen Gebäude?».
+    // The object decides which plans are loaded – that is why it sits on the plan surface, above
+    // the plans it determines. The label names the thing first («Objekt»), then the name: what
+    // you look for when you sit down is «bin ich beim richtigen Gebäude?».
     objectLabel: 'Objekt',
     objectNone: 'Kein Objekt',
-    // Der Chip nennt nur noch den Namen – «Objekt» beschriftete das Feld, und genau das sagt
-    // der Wert schon. Das Verb steckt jetzt dort, wo es vorher ganz fehlte: im Vorlesetext.
+    // The chip now only names the name – «Objekt» labelled the field, and that is exactly what
+    // the value already says. The verb now sits where it was missing entirely: in the read-aloud
+    // text.
     objectIs: 'Einsatzobjekt: {name}',
     objectSwitch: 'Einsatzobjekt: {name} – anderes Objekt wählen',
     objectSwitchShort: 'Anderes Objekt wählen',
@@ -1383,26 +1384,26 @@ export const de = {
     center: 'Zentrieren',
     resetGps: 'GPS',
     resetGpsTitle: 'Auf GPS-Position und -Kurs zurücksetzen',
-    // Der Kroki wird Stunden später gedruckt. Ein Fahrzeug, das inzwischen heimgefahren ist,
-    // nimmt sein Symbol mit — das Bild zeigt dann kein TLF an einem Einsatz, der eines hatte.
-    // «Festhalten» schreibt die JETZIGE Position als Übersteuerung; «GPS» daneben ist der Weg
-    // zurück, also gibt es kein zweites Fahrzeug-Verhalten, das man sich merken müsste.
+    // The Kroki is printed hours later. A Fahrzeug that has since driven home takes its symbol
+    // with it — the picture then shows no TLF at an Einsatz that had one. «Festhalten» writes
+    // the CURRENT position as an override; «GPS» next to it is the way back, so there is no
+    // second Fahrzeug behaviour anybody has to remember.
     pinGps: 'Festhalten',
     pinGpsTitle: 'Fahrzeug hier festhalten – es bleibt stehen, auch wenn es wegfährt',
     logPinned: '{name} festgehalten',
-    // Verlaufszeilen des Fahrzeug-Feeds. Sie beantworten «wann ist wer weggefahren» – die
-    // Frage, die Stunden später niemand mehr aus dem Kopf beantwortet.
+    // Verlauf rows from the Fahrzeug feed. They answer «wann ist wer weggefahren» – the question
+    // nobody can answer from memory hours later.
     logVehicleArrived: '{name} vor Ort',
     logVehicleLeft: '{name} hat den Einsatzort verlassen',
-    // Selbstauskunft vom Kommandoposten aus entfernen: jemand fährt mit eingeschaltetem Teilen
-    // nach Hause, oder ein Handy stirbt auf seinem letzten Fix – der Punkt behauptet dann, eine
-    // Kraft sei irgendwo, wo sie nicht ist.
-    // kurz genug, um neben «Zentrieren» in die Aktionszeile zu passen – die lange Erklärung
-    // steht im Tooltip darunter, nicht auf dem Knopf
+    // Remove a self-reported position from the Kommandoposten: somebody drives home with sharing
+    // still on, or a phone dies on its last fix – the dot then claims a Kraft is somewhere it
+    // is not.
+    // short enough to fit next to «Zentrieren» in the action row – the long explanation sits in
+    // the tooltip below it, not on the button
     stopSharing: 'Standort entfernen',
     stopSharingTitle: 'Selbstgemeldete Position dieser Person entfernen. Sie kann danach jederzeit wieder teilen.',
     stopSharingFailed: 'Standort konnte nicht entfernt werden.',
-    // Fahrer eines LIVE-Fahrzeugs: der GPS-Feed weiss wo, nie wer am Steuer sitzt.
+    // Driver of a LIVE Fahrzeug: the GPS feed knows where it is, never who is at the wheel.
     driverLabel: 'Fahrer',
     driverPlaceholder: 'Name aus der Mannschaft',
     rotateHint: 'Griff ziehen zum Ausrichten',
@@ -1419,7 +1420,7 @@ export const de = {
     removeField: 'Feld entfernen',
     fieldKeyPlaceholder: 'Bezeichnung',
     fieldValuePlaceholder: 'Wert',
-    // zwei Felder mit derselben Bezeichnung fallen beim Speichern zusammen – {key} = die Bezeichnung
+    // two fields with the same label collapse into one on save – {key} = that label
     duplicateField: '«{key}» gibt es schon – nur der letzte Wert bleibt erhalten.',
     // UN-Nr → Stoff auto-fill (Gefahrentafel). unField/stoffField are the detail-row
     // keys the lookup reads/writes (must match the preset's `fields`). The summary is
@@ -1493,18 +1494,18 @@ export const de = {
     content: 'Inhalt',
     contentPlain: 'Wasser',
     lineNo: 'Leitung Nr.',
-    // Zwei Leitungen mit derselben Nummer machen die Nummer mehrdeutig — und die Nummer ist es,
-    // woran die Atemschutzüberwachung ihre Leitung erkennt.
+    // Two Leitungen with the same number make the number ambiguous — and the number is what the
+    // Atemschutzüberwachung recognises its Leitung by.
     lineNoDuplicate: 'Leitung {n} gibt es hier schon',
     trupp: 'Gehört zu Trupp',
     truppShow: 'Trupp {name} zeigen',
     truppNone: 'Kein Trupp',
-    // Der Trupp, der diese Leitung gelegt hat, ist wieder draussen. Er bleibt im Feld stehen –
-    // er ist der Eintrag, der sagt, wer an dieser Leitung war – nur eben als «draussen» markiert.
+    // The Trupp that laid this Leitung is back out. It stays in the field – it is the entry that
+    // says who was on this Leitung – just marked as «draussen».
     truppOut: 'draussen',
     floorTag: 'Stockwerk',
     distance: 'Länge',
-    // Messung-Gruppe: die Zahlen einer bereits gezeichneten Linie (Länge, Schläuche, Höhenprofil)
+    // Messung group: the numbers of an already drawn line (length, Schläuche, elevation profile)
     measurement: 'Messung',
     showOnMap: 'Auf Karte',
     inputMode: 'Eingabe',
@@ -1545,9 +1546,9 @@ export const de = {
     offline: 'Offline',
     tiles: 'Tiles',
     recording: 'REC',
-    // Vorbehalt am stehengebliebenen GPS-Bild: die Fahrzeuge verschwinden bewusst NICHT,
-    // also muss das Einfrieren beschriftet sein – sonst sehen stundenalte Positionen so
-    // verbindlich aus wie eine Minute alte.
+    // Caveat on a stalled GPS picture: the Fahrzeuge deliberately do NOT disappear, so the
+    // freeze has to be labelled – otherwise hours-old positions look as authoritative as
+    // one-minute-old ones.
     gpsFrozen: 'GPS eingefroren',
     gpsFrozenHint: 'Der Live-GPS-Feed antwortet nicht. Die Fahrzeuge stehen auf ihrer zuletzt bekannten Position.',
   },
@@ -1568,8 +1569,8 @@ export const de = {
     customDefault: 'Eingeben …',
     empty: 'Keine Auswahl',
     officersOnly: 'nur Offiziere',
-    // Bewusst NICHT automatisch fokussiert: das bleibt ein Tipp-Auswähler, und eine Tastatur,
-    // die von selbst aufgeht, verdeckt auf dem Tablet genau die Liste, die sie filtert.
+    // Deliberately NOT auto-focused: this stays a tap picker, and a keyboard that opens by
+    // itself covers exactly the list it filters on a tablet.
     searchPlaceholder: 'Person suchen …',
     noMatches: 'Kein Treffer',
   },
@@ -1676,10 +1677,10 @@ export const de = {
     },
     desktop: {
       intro: 'In Chrome oder Edge:',
-      // Das Menü zuerst, nicht das Symbol: das Installations-Symbol in der Adressleiste
-      // erscheint NUR, solange die Seite installierbar und noch nicht installiert ist, und
-      // Chrome hat es über die Versionen mehrfach verschoben. Wer danach sucht und es nicht
-      // findet, hält die Anleitung für falsch. Der Menüweg gibt es immer.
+      // The menu first, not the icon: the install icon in the address bar appears ONLY while the
+      // page is installable and not yet installed, and Chrome has moved it several times across
+      // versions. Somebody who looks for it and can't find it concludes the instructions are
+      // wrong. The menu path is always there.
       steps: [
         'Browser-Menü ⋮ oben rechts öffnen',
         '«KP Front installieren» wählen und bestätigen',
@@ -1728,7 +1729,7 @@ export const de = {
   weather: {
     label: 'Wetter',
     details: 'Wetterdetails',
-    // freundliche Sammel-Fehlermeldung — rohe fetch-/Server-Fehlertexte erreichen die UI nie
+    // friendly catch-all error — raw fetch/server error texts never reach the UI
     unavailable: 'Wetterdaten zurzeit nicht verfügbar',
     from: 'aus',
     cardinals: ['N', 'NO', 'O', 'SO', 'S', 'SW', 'W', 'NW'] as string[],
@@ -1743,9 +1744,9 @@ export const de = {
     station: 'Station',
     source: 'Quelle',
     meteoRadar: 'MeteoSchweiz Niederschlagsradar',
-    // Ziel des Wetter-Badges — die MeteoSchweiz-Radarseite in der Sprache des Deployments
-    // (jede Locale überschreibt mit ihrer admin.ch-Variante). Kein Koordinaten-Deep-Link
-    // möglich; {lat}/{lng} werden ersetzt, falls ein künftiges Ziel sie akzeptiert.
+    // Target of the weather badge — the MeteoSchweiz radar page in the deployment's language
+    // (every locale overrides with its own admin.ch variant). No coordinate deep link is
+    // possible; {lat}/{lng} are substituted in case a future target accepts them.
     detailsUrl: 'https://www.meteoschweiz.admin.ch/service-und-publikationen/applikationen/niederschlag.html',
     conditions: {
       clear: 'Klar', fair: 'Heiter', partly: 'Teils bewölkt', overcast: 'Bedeckt',
@@ -1753,7 +1754,7 @@ export const de = {
       rainShowers: 'Regenschauer', snowShowers: 'Schneeschauer', thunder: 'Gewitter', cloudy: 'Bewölkt',
     } as Record<string, string>,
   },
-  // PDF-Rendering — Statuszeile im PdfScroller + Erstlade-Platzhalter im PdfViewport (Plan)
+  // PDF rendering — status line in PdfScroller + first-load placeholder in PdfViewport (Plan)
   pdf: {
     loading: 'PDF wird geladen…',
     failed: 'PDF konnte nicht geladen werden.',
@@ -1776,9 +1777,9 @@ export const de = {
     keepScreenOnSub: 'Bildschirm nicht abdunkeln im Einsatz',
     keepScreenOnOn: 'Ein',
     keepScreenOnOff: 'Aus',
-    // Hiess «Einsatzleiter-Ansicht»: der Modus sperrt die Taktik und benennt keine
-    // Rolle – Kdt, Fourier und wer am Beamer mitliest, nutzen ihn genauso. Der Code-Bezeichner
-    // bleibt `elView`, damit gespeicherte Geräte-Einstellungen weiter gelten.
+    // Used to be called «Einsatzleiter-Ansicht»: the mode locks the tactical layer and names no
+    // role – Kdt, Fourier and whoever reads along on the beamer use it just the same. The code
+    // identifier stays `elView` so stored device settings keep working.
     elView: 'Führungsansicht',
     elViewSub: 'Taktik gesperrt – Journal & Symbol-Details bleiben aktiv',
     elViewOn: 'Ein',
@@ -1835,7 +1836,7 @@ export const de = {
       + 'von sich aus keinen Screenshot; ein Bild geht nur mit, wenn du es unten von Hand '
       + 'anhängst. Beim Direktversand wird davon noch weniger übertragen: statt der vollen '
       + 'Browser-Kennung nur die Geräteart, z. B. «iPad Safari».',
-    // Foto anhängen – nur beim Direktversand, weil Kopie und E-Mail keine Datei tragen können.
+    // Attach a photo – direct send only, because copy and e-mail cannot carry a file.
     photoAdd: 'Foto anhängen',
     photoHint: 'Höchstens zwei, werden vorher verkleinert.',
     photoRemove: 'Foto entfernen',
@@ -1850,7 +1851,7 @@ export const de = {
     mail: 'E-Mail schreiben',
     send: 'Senden',
     sending: 'Wird gesendet …',
-    // Nach dem Senden: der Server antwortet mit dem, was er tatsächlich abgelegt hat.
+    // After sending: the server answers with what it actually filed.
     sentTitle: 'Danke – ist angekommen.',
     sentBody: 'Die Rückmeldung liegt auf eurem eigenen Server und geht von dort weiter, sobald '
       + 'eine Verbindung besteht. Bis dahin bleibt sie hier liegen.',
@@ -1877,16 +1878,15 @@ export const de = {
   // Offline-Bereitschaft readiness diagnostics
   offline: {
     title: 'Offline-Bereitschaft',
-    // Im Browser-Tab statt der Bereitschaftsliste: ein Tab ist kein verlässlicher
-    // Offline-Zustand (iOS löscht Caches nach Tagen ohne Nutzung, und der Tab muss dann
-    // überhaupt noch offen sein). Statt eine Bereitschaft zu behaupten, die um 3 Uhr nicht
-    // hält, sagt die Karte was fehlt und führt zur Installation – oder sagt, dass es hier
-    // keine gibt.
+    // Shown in a browser tab instead of the readiness list: a tab is no reliable offline state
+    // (iOS clears caches after days without use, and the tab then has to still be open at all).
+    // Rather than claim a Bereitschaft that won't hold at 3am, the card says what is missing and
+    // leads to the install – or says that there is none here.
     browserTitle: 'Offline erst als installierte App',
     browserBody: 'Im Browser-Tab ist nichts verlässlich gespeichert: Karten, Pläne und Leitungen können jederzeit gelöscht werden, und der Tab muss beim nächsten Einsatz noch offen sein. Installiert läuft KP Front auch offline.',
     browserInstall: 'Als App installieren',
-    // Plattformen ohne Installationsweg (Desktop-Firefox …) — hier ehrlich sagen, dass es
-    // nichts zu installieren gibt, statt auf eine Anleitung zu zeigen, die es nicht gibt.
+    // Platforms with no install path (desktop Firefox …) — say honestly that there is nothing to
+    // install here, instead of pointing at instructions that don't exist.
     browserNoInstall: 'Dieses Gerät bietet keine Installation an. Für den Einsatz offline KP Front auf dem Tablet oder Handy installieren.',
     syncNow: 'Jetzt synchronisieren',
     syncedAgo: 'Einsatzdaten {ago} synchronisiert',
@@ -1916,15 +1916,15 @@ export const de = {
     rowPersonnel: 'Mannschaft',
     personnelCount: '{n} Personen',
     rowObjectSearch: 'Objektsuche',
-    // Gerätespeicher — die Bereitschaftszeile, die es nie gab: ein volles Gerät speichert
-    // NICHTS offline, egal wie grün alle anderen Zeilen sind.
+    // Device storage — the readiness row that never existed: a full device stores NOTHING
+    // offline, no matter how green every other row is.
     rowStorage: 'Gerätespeicher',
     storageFree: '{size} frei',
     storageUnknown: 'Gerät meldet keinen Speicherstand',
     storageFullShort: 'Voll – nichts wird lokal gesichert',
     storageFull: 'Speicher voll – Änderungen sind nicht lokal gesichert',
-    // Vorabprüfung von «Alles für offline laden»: der Offline-Vorrat und der Einsatzrapport
-    // teilen denselben Speicher, also darf ein Kartendownload den Rapport nicht verdrängen.
+    // Pre-flight check for «Alles für offline laden»: the offline stock and the Einsatzrapport
+    // share the same storage, so a map download must not crowd the Rapport out.
     dlTightTitle: 'Wenig Speicher auf diesem Gerät',
     dlTightMsg: 'Der Download braucht ≈ {need}, frei sind {free}. Reduziert wird das ganze Gebiet geladen, aber weniger detailliert (etwa {pct} % der Kartenkacheln). Der Einsatzrapport behält so Platz.',
     dlTightConfirm: 'Reduziert laden',
@@ -1952,21 +1952,20 @@ export const de = {
     bodyEditor: 'Eröffne einen Einsatz oder übernimm einen Divera-Alarm.',
     history: 'Verlauf',
   },
-  // «Neuer Einsatz»-Banner — kündigt einen mid-session aufgetauchten Einsatz an (Auto-
-  // Eröffnung, generischer Alarmeingang oder Übernahme auf einem anderen Gerät); wechselt
-  // nie automatisch.
+  // «Neuer Einsatz» banner — announces an Einsatz that appeared mid-session (auto-open, a
+  // generic incoming alarm, or a take on another device); never switches automatically.
   incidentAlert: {
     kicker: 'Neuer Einsatz',
     switch: 'Wechseln',
     open: 'Öffnen',
     later: 'Später',
   },
-  // Erfassungs-Ansicht (/e/<token>) — was das Poster im Magazin öffnet. Kein Login,
-  // keine Karte; bewusst NICHT die Trainings-Oberfläche der Einsatzkräfte.
+  // Erfassung view (/e/<token>) — what the poster in the Magazin opens. No login, no map;
+  // deliberately NOT the crew's training surface.
   capture: {
-    // Verlaufszeilen für das, was über das Poster erfasst wird. «(QR)» steht dran, weil eine
-    // Zeile ohne Absender im Rechtsdokument nicht sagt, wer sie geschrieben hat — am Tablet ist
-    // das die angemeldete Person, am Poster niemand.
+    // Verlauf rows for whatever gets captured via the poster. «(QR)» is on them because a row
+    // with no author in the legal record doesn't say who wrote it — on the tablet that is the
+    // signed-in person, on the poster nobody.
     logAttendancePresent: '{name} anwesend (QR)',
     logAttendanceLeft: '{name} gegangen (QR)',
     logAttendanceCleared: '{name} aus der Anwesenheit entfernt (QR)',
@@ -2003,13 +2002,13 @@ export const de = {
     rueckZeit: 'Zeit',
     jetzt: 'Jetzt',
     kurzberichtHead: 'Kurzbericht',
-    // Rapport-Fotos am Erfassungs-Poster: Bilder, die zum Rapport gehören (Ausweis, Schaden)
+    // Rapport photos on the Erfassung poster: pictures belonging to the Rapport (ID, damage)
     partnersHead: 'Partnerorganisationen',
     partnerOrg: 'Organisation',
     partnerNote: 'Bemerkung',
     partnerAdd: 'Organisation hinzufügen',
     partnerRemove: 'Organisation entfernen',
-    // Kopfzeile der eigenen Klapp-Abschnitte — sagt im zugeklappten Zustand, ob schon etwas drin ist
+    // header of the collapsible sections — says while collapsed whether anything is in there yet
     partnerCount: '{n} erfasst',
     partnerNone: 'keine',
     beilagenHead: 'Fotos',
@@ -2069,21 +2068,21 @@ export const de = {
     // tablet-side mirror: chip on the QR-writable surfaces (Anwesenheit, Mittel, Rapport)
     usageChip: 'QR: {n} Einträge · zuletzt {t}',
     usageChipOne: 'QR: 1 Eintrag · zuletzt {t}',
-    // Übung: das Poster erreicht Übungen wie echte Einsätze — wer erfasst, muss beides auf
-    // den ersten Blick unterscheiden können (Liste, Kopfzeile, und vor jedem Ausdruck).
+    // Übung: the poster reaches Übungen just like real Einsätze — whoever captures has to tell
+    // the two apart at a glance (list, header, and before every print).
     exerciseHint: 'Übung – zählt nicht für die Einsatzstatistik.',
-    // Die Liste mischt den frischen Einsatz mit dem noch nicht rapportierten Rückstand;
-    // ohne Trennung sitzt ein drei Wochen alter Einsatz direkt unter dem von heute Nacht.
+    // The list mixes the fresh Einsatz with the backlog that hasn't been reported yet; without a
+    // split, a three-week-old Einsatz sits directly below tonight's.
     groupCurrent: 'Aktuell',
     groupBacklog: 'Noch offen',
   },
-  // Einsatz-Link (/l/<token>) — die Ansicht, die aus der Alarmmeldung heraus geöffnet wird:
-  // kein Login, ein Einsatz, nur lesen. Wer das liest, steht nachts irgendwo im Dunkeln und
-  // hat genau diesen einen Bildschirm – jede Meldung sagt darum, was jetzt zu tun ist.
+  // Einsatz-Link (/l/<token>) — the view opened straight out of the alert message: no login, one
+  // Einsatz, read-only. Whoever reads this is standing somewhere in the dark at night with
+  // exactly this one screen – so every message says what to do now.
   incidentLink: {
     opening: 'Einsatz wird geöffnet …',
-    // 404 kann ein Rennen sein: die Alarmierung ist schneller auf dem Handy als der Einsatz
-    // in kp-front. Das ist der einzige Zustand, der sich von selbst auflöst.
+    // A 404 can be a race: the alert reaches the phone faster than the Einsatz reaches kp-front.
+    // This is the only state that resolves itself.
     pendingTitle: 'Einsatz noch nicht verfügbar',
     pendingHint: 'Der Alarm ist eben erst eingetroffen. Wird automatisch nochmals versucht …',
     notReadyTitle: 'Dieser Einsatz ist nicht abrufbar.',
@@ -2097,38 +2096,38 @@ export const de = {
     errorTitle: 'Der Server antwortet nicht.',
     errorHint: 'Bitte nochmals versuchen. Bleibt es dabei: bei der Einsatzleitung melden.',
     retry: 'Nochmals versuchen',
-    // der Einsatz liess sich nach dem Öffnen des Links nicht laden (Empfang weg) – die
-    // Startseite sagt das, statt eine leere Einsatzliste zu zeigen
+    // the Einsatz could not be loaded after opening the link (signal gone) – the landing page
+    // says so instead of showing an empty incident list
     unavailable: 'Dieser Einsatz ist gerade nicht abrufbar. Seite neu laden, sobald du wieder Empfang hast.',
   },
-  // Standort teilen — die Frage ans eigene Handy und was die Pille danach sagt. Bewusst
-  // ohne Werbetext: Wer wann was sieht, steht vollständig da, weil genau das die Frage ist,
-  // die sich jemand um 3 Uhr stellt, bevor er auf «Ja» tippt.
+  // Standort teilen — the question put to your own phone and what the pill says afterwards.
+  // Deliberately without marketing text: who sees what and when is spelled out in full, because
+  // that is exactly the question somebody asks at 3am before tapping «Ja».
   sharePosition: {
     askTitle: 'Standort teilen?',
     askBody: 'Der Kommandoposten sieht dann auf der Lagekarte, wo du bist – damit klar ist, wer wo arbeitet (z. B. beim Wassertransport) und wer erreichbar ist.',
     askWho: 'Sichtbar nur für den Kommandoposten. Andere, die den Einsatz-Link haben, sehen deinen Standort nicht.',
     askHowLong: 'Nur solange dieser Einsatz läuft. Beim Abschluss wird der Standort gelöscht.',
     askBackground: 'Wenn du das Handy sperrst, wird nichts mehr übermittelt – die letzte Position bleibt mit Zeitangabe stehen.',
-    // Kein «du wirst nur einmal gefragt» mehr: die Erlaubnis bleibt, das Teilen selbst muss bei
-    // jedem Einsatz bewusst eingeschaltet werden (Kompass-Menü).
+    // No more «du wirst nur einmal gefragt»: the permission persists, but the sharing itself has
+    // to be switched on deliberately for every Einsatz (compass menu).
     askAgain: 'Bei jedem Einsatz musst du das Teilen selbst einschalten – es startet nie von allein.',
     pickTitle: 'Wer bist du?',
     pickHint: 'Damit dein Punkt auf der Karte einen Namen hat.',
     search: 'Name suchen',
     yes: 'Ja, Standort teilen',
     no: 'Nein, danke',
-    // Kompass-Menü: die eine Zeile, die das Teilen ein- und ausschaltet
+    // compass menu: the one row that switches sharing on and off
     menuOff: 'Standort teilen',
     menuOn: 'Standort teilen – ein',
-    // Gründe, warum die Zeile gerade nicht geht. Sie verschwindet NICHT — ein Bedienelement,
-    // das sich in Luft auflöst, ist von einer nie gebauten Funktion nicht zu unterscheiden.
+    // Reasons why the row currently doesn't work. It does NOT disappear — a control that
+    // vanishes into thin air is indistinguishable from a feature that was never built.
     menuClosed: 'Nur solange der Einsatz läuft',
     menuDemo: 'Demo: simuliert – dein Standort wird nicht abgefragt',
-    // Während geteilt wird: das Beenden muss genauso deutlich dastehen wie das Starten — ein
-    // Gerät, das den Standort einer Person sendet, darf das Aufhören nicht verstecken.
+    // While sharing: stopping has to be stated just as plainly as starting — a device sending a
+    // person's location must not hide the way to stop.
     menuOnHint: 'Tippen zum Beenden',
-    // Pille in der Kopfzeile
+    // pill in the header
     on: 'Standort geteilt',
     starting: 'Standort wird gesucht …',
     paused: 'Standort pausiert',
@@ -2139,22 +2138,22 @@ export const de = {
     takenHint: 'Ein anderes Gerät teilt gerade unter diesem Namen. Wähle deinen Namen neu oder warte kurz.',
     failing: 'Standort kommt nicht an',
     failingHint: 'Das Handy findet deinen Standort, aber der Server nimmt ihn nicht entgegen – meist fehlender Empfang. Es wird weiter versucht.',
-    // Grund fürs Suchen, nicht eigener Zustand: drinnen/im Keller meldet ein Handy gerne eine
-    // Genauigkeit von mehreren hundert Metern, und ein solcher Punkt auf der Karte wäre gelogen.
+    // A reason for still searching, not a state of its own: indoors/in a cellar a phone happily
+    // reports an accuracy of several hundred metres, and such a dot on the map would be a lie.
     impreciseHint: 'Der Empfang ist noch zu ungenau für einen Punkt auf der Karte. Draussen wird es meist innert Sekunden besser.',
     lastAt: 'Zuletzt {t}',
     stop: 'Standort nicht mehr teilen',
     change: 'Namen ändern',
-    // Einstellungen: NUR die Erlaubnis, nicht das Teilen selbst. Eingeschaltet wird im
-    // Kompass-Menü auf der Karte, bei jedem Einsatz neu.
+    // Einstellungen: ONLY the permission, not the sharing itself. Switching it on happens in the
+    // compass menu on the map, freshly for every Einsatz.
     settingsLabel: 'Standort verwenden',
     settingsHint: 'Erlaubt diesem Gerät, deinen Standort zu verwenden. Geteilt wird erst, wenn du es auf der Karte einschaltest.',
     settingsAs: 'Als {name}',
     settingsOn: 'Erlaubt',
     settingsOff: 'Aus',
   },
-  // Anwesenheitsliste: Live-Standort neben dem Namen. Bewusst neutral – weit weg ist der
-  // Normalfall (Wassertransport), keine Warnung.
+  // Anwesenheit list: live position next to the name. Deliberately neutral – far away is the
+  // normal case (Wassertransport), not a warning.
   livePosition: {
     chip: '{d} · vor {n} min',
     chipNow: '{d} · jetzt',
@@ -2170,31 +2169,31 @@ export const de = {
     badgePending: 'Nicht synchronisiert – wird gespeichert',
     badgeOffline: 'Offline – lokal gespeichert, wird synchronisiert sobald wieder verbunden',
     badgeError: 'Synchronisierung fehlgeschlagen – lokal gespeichert, wird erneut versucht',
-    // Speicher voll: die anderen Zustände versprechen «lokal gespeichert» – genau das trifft
-    // hier NICHT zu, die Änderungen leben nur in dieser App-Sitzung.
+    // Storage full: the other states promise «lokal gespeichert» – and that is exactly what does
+    // NOT hold here, the changes only live for this app session.
     badgeStorage: 'Speicher voll – Änderungen sind NICHT lokal gesichert und gehen beim Schliessen verloren',
     offlineShort: 'Offline',
     errorShort: 'Sync-Fehler',
     storageShort: 'Speicher voll',
-    // one-shot Warn-Toasts (useIncidentSync) — einmal pro Episode, bewusst kein Dauerbanner
+    // one-shot warning toasts (useIncidentSync) — once per episode, deliberately no permanent banner
     syncErrorToast: 'Synchronisierung fehlgeschlagen – Änderungen sind lokal gespeichert.',
     syncOfflineToast: 'Immer noch offline – Änderungen werden lokal gespeichert.',
-    // Boot: die Einsatzliste kam aus dem Offline-Cache
+    // Boot: the incident list came out of the offline cache
     bootOffline: 'Offline – gespeicherte Daten werden angezeigt.',
     syncNow: 'Jetzt synchronisieren',
-    // Der Knopf lief bisher stumm: auf einem bereits synchronen Einsatz — dem Normalfall —
-    // sah ein Tipp genau gleich aus wie gar kein Tipp. Jetzt dreht das Symbol währenddessen
-    // und eine Meldung sagt, was herausgekommen ist.
+    // The button used to run silently: on an already-synced Einsatz — the normal case — a tap
+    // looked exactly like no tap at all. Now the icon spins while it runs and a message says
+    // what came of it.
     syncDone: 'Alles synchronisiert',
     syncFailedToast: 'Synchronisieren fehlgeschlagen – Änderungen bleiben lokal gespeichert.',
-    // Gruppentitel im Menü: zuerst dieser Einsatz (Kopfkarte), dann WELCHER Einsatz, dann die App.
+    // group titles in the menu: this Einsatz first (header card), then WHICH Einsatz, then the app.
     incidents: 'Einsätze',
     app: 'App',
     allIncidents: 'Alle Einsätze',
     report: 'Einsatzrapport',
-    // Adresse, Kategorie, Stichwort korrigieren — dieselbe Maske wie beim Eröffnen. Steht auch
-    // im Rapport («Aus den Einsatzdaten › Bearbeiten»); im Menü, weil ein falscher Ort auffällt,
-    // lange bevor jemand den Rapport öffnet.
+    // Correct Adresse, Kategorie, Stichwort — the same form as when opening. Also sits in the
+    // Rapport («Aus den Einsatzdaten › Bearbeiten»); in the menu, because a wrong location gets
+    // noticed long before anybody opens the Rapport.
     editMeta: 'Einsatzdaten bearbeiten',
     archive: 'Einsatz abschliessen',
     noOpenIncidents: 'Keine offenen Einsätze',
@@ -2299,7 +2298,7 @@ export const de = {
     allOther: 'Alle übrigen Objekte',
     allObjects: 'Alle Objekte',
   },
-  // Mannschaft mit der konfigurierten Personalquelle synchronisieren
+  // sync the roster with the configured personnel source
   personnelSync: {
     title: 'Mannschaft mit {provider} synchronisieren',
     unknownError: 'Unbekannter Fehler',
@@ -2344,7 +2343,7 @@ export const de = {
     skipBack: 'Vorheriges Ereignis',
     skipFwd: 'Nächstes Ereignis',
     pause: 'Pause',
-    // Leerzeiten: was die Wiedergabe überspringt, und was auf der Spur als Lücke liegt
+    // idle spans: what the playback skips, and what sits on the track as a gap
     skipped: 'übersprungen {span}',
     gapTitle: '{span} ohne Ereignis',
     sinceAlarm: '{span} seit Alarm',
@@ -2429,16 +2428,16 @@ export const de = {
     proofIntact: 'Hash-Kette intakt',
     proofBroken: 'Hash-Kette unterbrochen',
     proofBrokenAt: 'Hash-Kette unterbrochen bei #{seq}',
-    // journalArea — the "Bereich" column value for a printed journal row. Die Namen sind die
-    // Flächennamen der App (copy.modes), damit man die Zeile dort wiederfindet, wo sie entstand.
+    // journalArea — the "Bereich" column value for a printed journal row. The names are the app's
+    // own surface names (copy.modes), so a row can be found again where it was created.
     areaManual: 'Manuell',
     areaAtemschutz: 'Atemschutz',
     areaAnwesenheit: 'Anwesenheit',
     areaMittel: 'Mittel',
     areaChecklist: 'Checkliste',
     areaRapport: 'Rapport',
-    // «Kroki» stand hier, bis 09.08.: das ist das gedruckte Bild, nicht die Fläche, auf der
-    // jemand etwas gesetzt hat. Alles andere in dieser Spalte nennt eine Fläche.
+    // «Kroki» stood here until 09.08.: that is the printed picture, not the surface somebody
+    // placed something on. Everything else in this column names a surface.
     areaLage: 'Lage',
     // describeDrawing — short tactical labels for a drawing in the report
     drawCircle: 'Absperrkreis',
@@ -2462,31 +2461,31 @@ export const de = {
   preflight: {
     pdfFull: 'Einsatzrapport (PDF)',
     pdfBusy: 'PDF wird erstellt …',
-    // Der Rapport ist eine eigene Fläche wie Anwesenheit oder Mittel – kein Druckdialog mehr.
-    // «Einsatzrapport drucken» hiess der Titel, solange das Blatt nur zum Drucken aufging.
+    // The Rapport is its own surface like Anwesenheit or Mittel – no print dialog any more. The
+    // title was «Einsatzrapport drucken» for as long as the sheet only opened to be printed.
     title: 'Einsatzrapport',
-    // Eine Zeile unter dem Titel, im Ton der anderen Flächen («12 anwesend · 3 gegangen · 28
-    // Mannschaft»): erst was erfasst ist, dann das Urteil. Die offenen Punkte werden BENANNT –
-    // «unvollständig» allein schickt einen auf die Suche.
-    // Der Kopf trägt die Zahlen; was noch fehlt, steht als eigene Chips daneben und darf
-    // umbrechen — als ein Satz wurde daraus «… noch offen: Kurzberi…», also genau die
-    // Information abgeschnitten, derentwegen die Zeile existiert.
+    // One line under the title, in the tone of the other surfaces («12 anwesend · 3 gegangen ·
+    // 28 Mannschaft»): what is captured first, then the verdict. The open points are NAMED –
+    // «unvollständig» on its own sends you searching.
+    // The head carries the numbers; what is still missing stands next to it as its own chips and
+    // is allowed to wrap — as one sentence it turned into «… noch offen: Kurzberi…», i.e. it cut
+    // off exactly the information the line exists for.
     headCounts: '{n} Personen · {m} Positionen',
     headAllRecorded: 'alle Angaben erfasst',
     headStillOpen: 'noch offen',
     // Rapportangaben section
-    // «Rapportangaben» stand als eine Überschrift über allem – anderthalb Bildschirme, in denen
-    // sich nichts durch Hinschauen finden liess. Vier Abschnitte, jeder nach der Frage benannt,
-    // die er beantwortet; die Reihenfolge bleibt die des gedruckten Rapports.
+    // «Rapportangaben» stood as one heading over everything – one and a half screens in which
+    // nothing could be found by looking. Four sections, each named after the question it
+    // answers; the order stays that of the printed Rapport.
     rapportHead: 'Aus der Alarmierung',
     sectionBericht: 'Bericht & Beteiligte',
     sectionZeiten: 'Zeiten',
     sectionNachbearbeitung: 'Nachbearbeitung',
-    // …split out of the same field the Alarmmeldung arrives in (siehe lib/alarmText):
-    // der Meldungstext ist das Einzige daran, was ein Mensch geschrieben hat.
+    // …split out of the same field the Alarmmeldung arrives in (see lib/alarmText): the message
+    // text is the only part of it a human wrote.
     vehicleOrder: 'Ausrückeordnung',
     einsatzplan: 'Einsatzplan',
-    // kurze Namen für die Zusammenfassung auf der zugeklappten «Inhalt»-Zeile
+    // short names for the summary on the collapsed «Inhalt» row
     summaryAtemschutz: 'Atemschutz',
     summaryAttendance: 'Personal',
     summaryMittel: 'Material',
@@ -2505,14 +2504,14 @@ export const de = {
     kontaktpersonLabel: 'Kontaktperson',
     kontaktpersonPlaceholder: 'Eigentümer / Melder / Verantwortlicher',
     incidentEndLabel: 'Ende Einsatz',
-    // Plausibilität der Einsatzzeiten — ein Hinweis, keine Sperre: gedruckt wird immer.
+    // Plausibility of the Einsatzzeiten — a hint, not a block: printing always happens.
     zeitBeforeAlarm: 'Liegt vor der Alarmierung ({t})',
     zeitBeforeAusgerueckt: 'Liegt vor dem Ausrücken ({t})',
     zeitFuture: 'Liegt in der Zukunft',
     now: 'Jetzt',
-    // Gedruckt wird IMMER — ein halb ausgefüllter Rapport, der im Magazin von Hand
-    // fertiggeschrieben wird, ist eine echte Arbeitsweise. Aber das PDF verlässt das Haus und
-    // ist die Fassung, die abgelegt wird: also einmal benennen, was fehlt, und dann gehen lassen.
+    // Printing ALWAYS happens — a half-filled Rapport that gets finished by hand in the Magazin
+    // is a genuine way of working. But the PDF leaves the building and is the version that gets
+    // filed: so name once what is missing, and then let it go.
     exportIncompleteTitle: 'Angaben fehlen noch',
     exportIncompleteLead: 'Noch offen:',
     exportIncompleteMsg: 'Der Rapport lässt sich trotzdem erstellen – die offenen Felder bleiben leer und können von Hand ergänzt werden.',
@@ -2531,8 +2530,8 @@ export const de = {
     rueckmeldungLabel: 'Rückmeldung ELZ',
     rueckmeldungName: 'Name',
     rueckmeldungZeit: 'Zeit',
-    // Abschnitte — nicht mehr als Block auf der Seite: gedruckt wird sofort mit dem, was
-    // eingestellt ist; angehakt wird im Menü hinter dem ▾ neben «Einsatzrapport (PDF)».
+    // Sections — no longer a block on the page: printing happens immediately with whatever is
+    // set; ticking happens in the menu behind the ▾ next to «Einsatzrapport (PDF)».
     sectionsHead: 'Abschnitte',
     printMenu: 'Weitere Druckoptionen',
     toggleKroki: 'Kroki',
@@ -2544,16 +2543,15 @@ export const de = {
     toggleMittel: 'Mittel ({n})',
     toggleJournal: 'Einsatzjournal',
     toggleAttachments: 'Fotos ({n})',
-    // Fotos: Bilder, die zum RAPPORT gehören (Ausweis, Schaden), nicht in den Verlauf.
-    // ⚠️ Der Upload nimmt nur `image/*`. Solange das so ist, heisst die Fläche «Fotos» und nicht
-    // «Beilagen» – ein Wort, das eine PDF-Beilage verspricht, die es nicht annehmen kann.
+    // Fotos: pictures that belong to the RAPPORT (ID, damage), not into the Verlauf.
+    // ⚠️ The upload only takes `image/*`. As long as that holds, the surface is called «Fotos»
+    // and not «Beilagen» – a word that promises a PDF Beilage it cannot accept.
     krokiAtLabel: 'Kroki-Stand',
-    // Verlaufszeile, wenn jemand die Rapportangaben ändert — der Inhalt des Dokuments, das
-    // unterschrieben wird, darf sich nicht spurlos ändern.
-    // «Rapportangaben geändert: Bemerkungen» sagte, dass mit irgendetwas irgendetwas passiert
-    // ist – das Wenigste, was ein Protokoll sagen kann. Kurze Felder nennen ihren neuen Wert,
-    // Fliesstext sagt nur, ob er geschrieben, überschrieben oder geleert wurde (der Verlauf ist
-    // nicht die zweite Kopie des Rapports).
+    // Verlauf row for when somebody changes the Rapportangaben — the content of the document
+    // that gets signed must not change without a trace.
+    // «Rapportangaben geändert: Bemerkungen» said that something happened to something – the
+    // least a record can say. Short fields name their new value, free text only says whether it
+    // was written, overwritten or emptied (the Verlauf is not a second copy of the Rapport).
     logMetaChanged: 'Rapportangaben: {fields}',
     metaValue: '{label} «{value}»',
     metaWritten: 'geschrieben',
@@ -2579,44 +2577,43 @@ export const de = {
     attachmentsCaption: 'Bildlegende (z. B. «Ausweis Lenker»)',
     attachmentsPending: 'noch nicht hochgeladen',
     attachmentsFailed: 'Foto {name} konnte nicht hochgeladen werden – es erscheint nicht im Druck.',
-    // Der Rapport ist eine Fläche, keine Dialogbox – geschlossen wird er, indem man zurück
-    // auf die Lage geht.
+    // The Rapport is a surface, not a dialog box – it is closed by going back to the Lage.
     backToMap: 'Zurück zur Lage',
     toggleDetailedAudit: 'Detaillierter Prüfnachweis',
-    // «Detaillierter Prüfnachweis» sagt nicht, was angehakt wird – niemand hakt an, was er nicht
-    // versteht. Es geht um die Buchungszeilen im gedruckten Verlauf (wer wann was geändert hat),
-    // die sonst herausgefiltert werden. Der Prüfnachweis-Status oben bleibt davon unberührt.
-    // Kroki-Ausschnitt: ein Feld auf der Rapport-Fläche (WYSIWYG), kein Dialog vor dem Druck
-    // mehr – deshalb gibt es auch nichts mehr zu «übernehmen».
+    // «Detaillierter Prüfnachweis» doesn't say what is being ticked – nobody ticks what they
+    // don't understand. It is about the bookkeeping rows in the printed Verlauf (who changed
+    // what when), which are otherwise filtered out. The Prüfnachweis status above is unaffected.
+    // Kroki-Ausschnitt: a field on the Rapport surface (WYSIWYG), no dialog before printing any
+    // more – which is also why there is nothing left to «übernehmen».
     krokiHead: 'Kroki-Ausschnitt',
-    // was der zugeklappte Abschnitt sagen muss, damit Zuklappen überhaupt zulässig ist
+    // what the collapsed section has to say for collapsing to be permissible at all
     krokiSummary: '{shape} · Stand {at}',
     framingHint: 'Karte verschieben und zoomen – gedruckt wird genau dieser Ausschnitt.',
     framingFit: 'Auf Einsatz zoomen',
-    // Der Ausschnitt folgte bis 09.08. nicht nach: einmal um 22:20 gewählt, um 01:30 unverändert
-    // gedruckt — mit allem, was seither dazukam, ausserhalb, und ohne dass es jemand sagte.
+    // Until 09.08. the crop did not follow along: picked once at 22:20, printed unchanged at
+    // 01:30 — with everything added since then outside it, and nobody saying so.
     framingFollows: 'Folgt der Lage',
     framingFollowOn: 'Der Ausschnitt wächst mit der Lage mit. Verschieben schaltet das ab.',
     framingFollowOff: 'Ausschnitt an die Lage anpassen – und mitwachsen lassen',
-    // Ein Pfeil statt Herauszoomen: was draussen liegt, ist meist ein Hydrant zwei Strassen
-    // weiter, und dafür das halbe Bild kleiner zu machen kostet mehr, als es bringt.
+    // An arrow instead of zooming out: what lies outside is usually a Hydrant two streets away,
+    // and shrinking half the picture for that costs more than it gains.
     framingOutside: '{n} ausserhalb – antippen zum Anpassen',
     // Kontrolle section
     controlHead: 'Kontrolle',
-    // Der Zustands-Chip zählt, was offen ist, statt nur «Kontrolle» zu sagen
+    // the state chip counts what is open instead of just saying «Kontrolle»
     controlOpen: '{n} Hinweis(e)',
     proofChecking: 'Prüfnachweis wird geprüft …',
     annotatedDefault: '{n} annotierte Pläne werden standardmässig gedruckt.',
     missingTranscripts: '{n} Audioeintrag/-einträge ohne Transkript – fürs Protokoll nachtragen.',
     fixTranscripts: 'Im Verlauf ergänzen',
-    // Nennt WEN und WARUM. Auf dem Papier stand «N Person(en) ohne verwertbare Zeiten» – eine
-    // Zahl über eine Abstraktion, mit der niemand etwas anfangen konnte. Häufigste Ursache: ein
-    // offener Block, der das Einsatzende erbt, das VOR seinem Beginn liegt.
+    // Names WHO and WHY. On paper it said «N Person(en) ohne verwertbare Zeiten» – a number over
+    // an abstraction nobody could do anything with. Most common cause: an open block inheriting
+    // the Einsatzende, which lies BEFORE its own start.
     unresolvedHours: '{names}: Zeiten laufen rückwärts oder fehlen – nicht in den Einsatzstunden.',
     pendingMedia: '{n} Foto/Audio noch nicht hochgeladen – wird bei Verbindung ergänzt; auf anderen Geräten evtl. noch nicht sichtbar.',
     stateNote: 'Stand: ganzer Einsatz bis Rapport-Erstellung ({at}).',
-    // actions — kein «Abbrechen»: eine Fläche wird über die Leiste oder das ✕ im Kopf verlassen,
-    // und abzubrechen gäbe es ohnehin nichts (jedes Feld schreibt beim Tippen durch).
+    // actions — no «Abbrechen»: a surface is left via the rail or the ✕ in the header, and there
+    // would be nothing to cancel anyway (every field writes through as you type).
     openPrint: 'Druckansicht öffnen',
   },
   // Station print relay — «Ausdrucken» (preflight + capture)
@@ -2649,29 +2646,29 @@ export const de = {
   // Anwesenheit surface (AnwesenheitView)
   anwesenheit: {
     title: 'Anwesenheit',
-    // freie Bemerkung pro Person für DIESEN Einsatz («Fahrer TLF», «abgelöst 21:40»)
+    // free remark per person for THIS Einsatz («Fahrer TLF», «abgelöst 21:40»)
     noteLabel: 'Bemerkung',
     notePlaceholder: 'z. B. Fahrer TLF',
     logNote: '{name} – Bemerkung: {note}',
-    // Die drei Verlaufszeilen der Anwesenheit. Sie standen bis 09.08. als deutsche Literale im
-    // Code — auf einer französischen Installation war das Journal an genau diesen Stellen
-    // deutsch, und der Rapport druckt es so, wie es erfasst wurde.
+    // The three Anwesenheit Verlauf rows. Until 09.08. they were German literals in the code — on
+    // a French installation the journal was German in exactly these places, and the Rapport
+    // prints it the way it was captured.
     logPresent: '{name} anwesend',
     logPresentAgain: '{name} wieder anwesend',
     logLeft: '{name} gegangen',
-    // Am Einsatzort oder noch im Magazin — die Antwort auf «wen könnte ich noch nachziehen».
-    // Der Eintrag hält nur den JETZIGEN Zustand; der Verlauf hält, wann er gewechselt hat.
+    // At the Einsatzort or still in the Magazin — the answer to «wen könnte ich noch nachziehen».
+    // The entry holds only the CURRENT state; the Verlauf holds when it changed.
     ortScene: 'Vor Ort',
     ortStation: 'Magazin',
     ortToScene: '{name} an den Einsatzort schicken',
     ortToStation: '{name} ins Magazin setzen',
     logOrtScene: '{name} vor Ort',
     logOrtStation: '{name} im Magazin',
-    // Kopfzeile: erst wie viele da sind, dann wo sie sind
+    // header line: how many are here first, then where they are
     summaryOrt: '{scene} vor Ort · {station} Magazin',
-    // Person, die gar nicht auf der Mannschaftsliste steht (Gast, Nachbarwehr, noch nicht
-    // synchronisiert). Bewusst KEIN Mannschaftseintrag: sie war heute Abend hier – das ist eine
-    // Aussage über diesen Einsatz, nicht über die Wehr.
+    // Somebody who isn't on the roster at all (guest, neighbouring Wehr, not synced yet).
+    // Deliberately NOT a roster entry: they were here tonight – that is a statement about this
+    // Einsatz, not about the Wehr.
     logGuestAdded: '{name} als weitere Person erfasst',
     addGuest: 'Weitere Person',
     addGuestTitle: 'Weitere Person erfassen',
@@ -2681,22 +2678,22 @@ export const de = {
     guestGroup: 'Weitere',
     guestBadge: 'Gast',
     removeGuest: 'Person entfernen',
-    // Wer eine Funktion übernimmt, ist auch anwesend – die Bemerkung wird dabei automatisch
-    // gesetzt, aber nur wenn noch keine von Hand geschrieben wurde.
-    // eine Zeile pro Person, nicht eine für die Anwesenheit und eine zweite für die Funktion
+    // Whoever takes on a role is present too – the remark is set automatically along with it, but
+    // only if none has been written by hand yet.
+    // one row per person, not one for the Anwesenheit and a second one for the role
     logPresentAs: '{name} anwesend – {role}',
     roleEinsatzleiter: 'Einsatzleiter',
-    // «Stv.» am Einsatzleiter-Symbol: auch eine Funktion, und ohne Bemerkung stand der
-    // Stellvertreter als einziger ohne Grund auf der Liste
+    // «Stv.» on the Einsatzleiter symbol: also a role, and without a remark the deputy was the
+    // only one on the list with no reason given
     roleEinsatzleiterStv: 'Stv. Einsatzleiter',
     roleFahrer: 'Fahrer {vehicle}',
     roleRueckmeldung: 'Rückmeldung ELZ',
-    // Weiche Warnung im Personen-Picker (Atemschutz): wer schon eine Funktion hat, ist
-    // vermutlich schon verplant – gewählt werden kann er trotzdem, immer.
+    // Soft warning in the person picker (Atemschutz): whoever already has a role is probably
+    // already committed – they can still be picked, always.
     alreadyBooked: 'schon: {role}',
-    // Hinweise, nie Sperren: die App sagt, was sie weiss, und lässt entscheiden.
+    // Hints, never blocks: the app says what it knows and lets people decide.
     conflictUnderPa: '{name} ist unter PA – Trupp {trupp}.',
-    // dasselbe als kurze Marke AUF dem Listeneintrag — dort wird entschieden, nicht danach
+    // the same thing as a short badge ON the list row — that is where it is decided, not after
     statusUnderPa: 'unter PA',
     conflictElInTrupp: '{name} ist Einsatzleiter und zugleich im Trupp {trupp}.',
     conflictLeft: '{name} ist als «gegangen» erfasst.',
@@ -2719,20 +2716,20 @@ export const de = {
     weg: 'weg',
     // time chip on anwesend/gegangen rows — tap to correct a wrong auto-stamped time
     editTime: 'Zeit anpassen',
-    // Zeitplan + Schichten: geplant wird mit denen, die da sind — die ganze Mannschaft auf
-    // der Achse begräbt die paar Anwesenden unter leeren Spuren. Umschaltbar, weil wer in
-    // zwei Stunden eintrifft trotzdem eingeplant werden können muss.
+    // Zeitplan + Schichten: planning happens with whoever is here — the whole Mannschaft on the
+    // axis buries the handful of present people under empty tracks. Switchable, because somebody
+    // arriving in two hours must still be plannable.
     presentOnlyOn: 'Nur Anwesende – tippen für die ganze Mannschaft',
     presentOnlyOff: 'Ganze Mannschaft – tippen für nur Anwesende',
     rankFilterLabel: 'Nach Grad filtern',
     rankAll: 'Alle',
-    // Rückkehr: der dritte Tipp löscht (frei), darum bekommt die Rückkehr einen eigenen Knopf.
-    // Er öffnet einen NEUEN Anwesenheitsblock; der erste behält sein von–bis.
+    // Return: the third tap deletes (clears), so returning gets a button of its own. It opens a
+    // NEW Anwesenheit block; the first one keeps its von–bis.
     backAgain: 'Wieder da',
     backAgainHint: '{name} ist zurück – neue Zeit ab jetzt',
     blockCount: '{n} Zeiten',
-    // «Block» war Werkstattsprache – auf dem Platz denkt niemand in Blöcken. Es sind Zeiten.
-    // Anwesenheitsblätter: dieselbe Form wie die Schichten-Ansicht, damit beide gleich zu lesen sind
+    // «Block» was workshop language – nobody on the ground thinks in blocks. They are Zeiten.
+    // Anwesenheit sheets: the same shape as the Schichten view, so both read the same way
     von: 'von',
     bis: 'bis',
     addBlock: 'Neue Zeit ab jetzt',
@@ -2747,25 +2744,25 @@ export const de = {
     openBlocksNote: 'Anwesenheit von {name} öffnen · Bemerkung erfasst',
     legendNote: 'Bemerkung',
     stillHere: 'noch da',
-    // Kopf der Zeit-Karte: was diese Zeile IST. Kein Schalter – eine Anwesenheit läuft oder ist
-    // beendet, und das entscheidet die Liste, nicht dieses Blatt.
+    // Head of the time card: what this row IS. Not a switch – an Anwesenheit is running or has
+    // ended, and the list decides that, not this sheet.
     running: 'läuft',
     ended: 'beendet',
-    // auf dem Kopf der Zeitplan-Karte, beim Überfahren: er sieht aus wie eine Überschrift
+    // on the head of the Zeitplan card, on hover: it looks like a heading
     flip: 'umschalten',
     done: 'Fertig',
-    // Umschalter über derselben Mannschaft, drei Blicke: wer ist DA, wer kann WANN (stetige Zeit,
-    // personen-major), und wer besetzt WELCHES Fenster (diskrete Zeit, schicht-major).
-    // «Anwes.» und nicht «Anwesenheit»: erst gekürzt passen drei Segmente auf 390 px
-    // (~278 px verfügbar, ~250 gebraucht). Das dritte gehört hierher und nicht ins ⋯-Menü –
-    // eine ganze Arbeitsweise steht nicht hinter drei Punkten.
+    // Switch over the same Mannschaft, three views: who is HERE, who can be there WHEN
+    // (continuous time, person-major), and who staffs WHICH window (discrete time, Schicht-major).
+    // «Anwes.» and not «Anwesenheit»: only abbreviated do three segments fit on 390 px (~278 px
+    // available, ~250 needed). The third one belongs here and not in the ⋯ menu – a whole way of
+    // working does not sit behind three dots.
     viewList: 'Anwes.',
     viewPlan: 'Zeitplan',
     viewBands: 'Schichten',
     viewLabel: 'Ansicht',
   },
-  // Schichtenplanung – das Führungsformular «Zeitplan» (Wer × Zeit), rein planend:
-  // geplante Balken sind hohl, tatsächliche Anwesenheit ist gefüllt. Der Plan schreibt nie.
+  // Schicht planning – the command form «Zeitplan» (who × time), purely planning: planned bars
+  // are hollow, actual Anwesenheit is filled. The plan never writes.
   zeitplan: {
     title: 'Zeitplan',
     summary: '{planned} eingeplant · {present} jetzt da',
@@ -2776,33 +2773,33 @@ export const de = {
     to: 'bis',
     remove: 'Schicht löschen',
     removed: 'Schicht {name} gelöscht',
-    // Wisch und Zug lösen so leicht aus wie ein Fehltipp – also bekommen sie denselben Rückzug
-    // wie das Löschen. Der Umschalter geplant⇄fix nicht: der ist mit einem zweiten Tipp zurück.
+    // A swipe and a drag fire as easily as a mis-tap – so they get the same undo as deleting.
+    // The planned⇄fixed toggle does not: a second tap takes that back.
     added: 'Schicht für {name} geplant',
     moved: 'Schicht von {name} verschoben',
     conflict: 'Doppelt eingeteilt – zwei Schichten zur selben Zeit',
-    // Der eine Fehler, den dieses Formular finden soll – also wird er ausgesprochen, statt als
-    // 12px-Zeichen auf einem gefüllten Balken zu sitzen, wo er den geringsten Kontrast der ganzen
-    // Fläche hat (und dessen Erklärung in einem `title` steckte, den ein Touchscreen nie zeigt).
-    // Gemeldet, nicht verweigert: um 3 Uhr ist ein Doppeleintrag ein Hinweis zum Hinschauen.
+    // The one mistake this form is meant to find – so it is spoken out loud instead of sitting as
+    // a 12px glyph on a filled bar, where it has the lowest contrast of the whole surface (and
+    // whose explanation was stuck in a `title` that a touchscreen never shows).
+    // Reported, not refused: at 3am a double entry is a hint to take a look.
     conflictTitleOne: 'Eine Person ist doppelt eingeteilt.',
     conflictTitleMany: '{n} Personen sind doppelt eingeteilt.',
     conflictWho: '{name} · {from}–{to}',
     conflictMore: '… und {n} weitere',
-    // Der Weg unterscheidet sich je nach Fläche: auf der Zeitachse schaltet der Tipp direkt um,
-    // im Bänderraster fragt er zuerst, wenn die Zeit über die Wache hinausreicht. Der Satz nennt
-    // darum das ZIEL, nicht die Mechanik – sonst stimmt er auf einer der beiden nicht.
+    // The path differs per surface: on the time axis the tap switches directly, in the band grid
+    // it asks first when the time reaches beyond the Wache. So the sentence names the GOAL, not
+    // the mechanics – otherwise it would be wrong on one of the two.
     conflictFix: 'Eine der beiden Einteilungen antippen und auf «verfügbar» setzen – die Zeit selbst bleibt stehen.',
     conflictShort: 'doppelt eingeteilt',
-    // Eine Schicht, deren «bis» vor ihrem «von» liegt, wird gar nicht gezeichnet. Diese Marke
-    // steht an ihrer Stelle, damit die Zeile nicht schweigt.
+    // A Schicht whose «bis» lies before its «von» is not drawn at all. This badge stands in its
+    // place, so the row doesn't stay silent.
     brokenShift: 'Diese Schicht endet vor ihrem Anfang – zum Korrigieren antippen',
     now: 'jetzt',
     coveragePeak: ' · max {n}',
     coverage: 'Deckung',
     coverageHint: 'Drei Linien: grau verfügbar, blau geplant, grün tatsächlich anwesend – wo die grüne Linie einbricht, ist die Lücke.',
-    // Die Deckungszeile klappt auf: die Kurve sagt WO die Lücke ist, die Zahlen sagen WIE VIELE.
-    // Zugeklappt als Standard – die Form liest man auf einen Blick, die Ziffern kosten drei Zeilen.
+    // The coverage row expands: the curve says WHERE the gap is, the numbers say HOW MANY.
+    // Collapsed by default – the shape reads at a glance, the digits cost three lines.
     coverageExpand: 'Zahlen zeigen – wie viele verfügbar, geplant und anwesend sind',
     coverageCollapse: 'Zahlen ausblenden',
     planned: 'verfügbar',
@@ -2811,17 +2808,16 @@ export const de = {
     emptyHint: 'Plane pro Person, von wann bis wann sie verfügbar ist. Der Plan verändert die Anwesenheit nicht – abgehakt wird sie weiterhin in der Anwesenheitsliste.',
     legendHint: 'Hohl = verfügbar · gefüllt = eingeteilt · grün = tatsächlich anwesend',
     print: 'Zeitplan drucken',
-    // ZWEI Blätter, getrennt gewählt – sie beantworten verschiedene Fragen, also wird gefragt
-    // statt geraten, welches gemeint war. Erst das Blatt wählen, dann den Weg: das Blatt nennt
-    // seinen Inhalt und bietet Drucker und PDF an. So bleibt die Bestätigung vor dem Druck
-    // erhalten (Papier kommt aus der Maschine, bevor ein Toast verklungen ist), ohne dass vier
-    // Menüeinträge nötig wären.
+    // TWO sheets, picked separately – they answer different questions, so which one was meant is
+    // asked rather than guessed. Pick the sheet first, then the route: the sheet names its
+    // content and offers printer and PDF. That keeps the confirmation before printing (paper
+    // comes out of the machine before a toast has faded), without needing four menu entries.
     sheetSchichtplan: 'Schichtplan …',
     sheetVerfuegbarkeiten: 'Verfügbarkeiten …',
     sheetSchichtplanTitle: 'Schichtplan',
     sheetVerfuegbarkeitenTitle: 'Verfügbarkeiten',
-    // «66 Personen · 2 Schichten · Stand 09:14» – die Zahl prüft zugleich, ob der Filter oben so
-    // steht wie gemeint
+    // «66 Personen · 2 Schichten · Stand 09:14» – the number doubles as a check that the filter
+    // above is set the way it was meant to be
     sheetContent: '{people} Personen · Stand {t}',
     sheetContentBands: '{people} Personen · {bands} Schichten · Stand {t}',
     sheetSchichtplanHint: 'Die Wachen quer, die Namen längs, Häkchen dazwischen – das Führungsformular, wie es die Mannschaft kennt.',
@@ -2829,9 +2825,10 @@ export const de = {
     pdf: 'Als PDF',
     paperMenu: 'Aufs Papier',
     printFailed: 'Zeitplan konnte nicht gedruckt werden.',
-    // Kopf der Namensspalte – wie auf dem gedruckten Formular
+    // head of the name column – as on the printed form
     who: 'Wer',
-    // Ab der zweiten Schicht ersetzt ein Sammelknopf die Chips (sonst wird die Zeile unlesbar)
+    // from the second Schicht on, a collective button replaces the chips (the row becomes
+    // unreadable otherwise)
     shiftCount: '{n} Schichten',
     editTitle: 'Schichten – {name}',
     plannedSection: 'Verfügbarkeit & Einteilung',
@@ -2841,21 +2838,21 @@ export const de = {
     plannedNone: 'Noch keine Verfügbarkeit erfasst.',
     addShift: 'Schicht hinzufügen',
     stillHere: 'noch da',
-    // Kopf der Zeit-Karte: was diese Zeile IST. Kein Schalter – eine Anwesenheit läuft oder ist
-    // beendet, und das entscheidet die Liste, nicht dieses Blatt.
+    // Head of the time card: what this row IS. Not a switch – an Anwesenheit is running or has
+    // ended, and the list decides that, not this sheet.
     running: 'läuft',
     ended: 'beendet',
-    // auf dem Kopf der Zeitplan-Karte, beim Überfahren: er sieht aus wie eine Überschrift
+    // on the head of the Zeitplan card, on hover: it looks like a heading
     flip: 'umschalten',
     done: 'Fertig',
-    // Direktbedienung auf dem Raster – wie das Papierformular, das man ausfüllt
+    // direct operation on the grid – like the paper form you fill in
     fromStart: 'ab Beginn',
     fromStartHint: 'Setzt den Beginn auf die Alarmzeit des Einsatzes.',
     sheetHint: 'Zeiten hier anpassen · Zustand rechts umschalten · gelöscht wird nur hier.',
     laneHint: 'Ziehen trägt Verfügbarkeit ein · Balken tippen macht daraus einen Plan · ziehen verschiebt · gedrückt halten öffnet die Schichten',
-    // Drei Zustände einer Zeile: was jemand ANBIETET, was daraus EINGETEILT wurde, und was
-    // tatsächlich passiert ist. Die ersten zwei schaltet ein Balken-Tipp um, der dritte kommt
-    // aus der Anwesenheit und wird hier nie geschrieben.
+    // Three states of a row: what somebody OFFERS, what was ASSIGNED out of it, and what actually
+    // happened. A bar tap switches the first two, the third comes from the Anwesenheit and is
+    // never written here.
     available: 'verfügbar',
     confirmed: 'geplant',
     tentative: 'verfügbar',
@@ -2868,81 +2865,81 @@ export const de = {
     planAt: 'Schicht für {name} planen',
     dragMove: 'Verschieben',
     dragFrom: 'Beginn ziehen',
-    // Rechtsklick-Menü auf einem Balken: Zustände beim Namen nennen statt weiterschalten
+    // right-click menu on a bar: name the states instead of cycling through them
     editEntry: 'Bearbeiten …',
     dragTo: 'Ende ziehen',
   },
-  // Schichtbänder (BandGrid) — die Transponierte des Zeitplans. Der Zeitplan ist personen-major
-  // über stetige Zeit («eine Person wählen, zeichnen wann»); hier ist die Spalte ein benanntes
-  // Zeitfenster und man entscheidet pro Person nur noch WER. Damit entfällt die Zeiteingabe ganz:
-  // ein Tipp pro Zelle statt Blatt öffnen · von wählen · bis wählen · schliessen.
+  // Schichtbänder (BandGrid) — the transpose of the Zeitplan. The Zeitplan is person-major over
+  // continuous time («pick a person, draw when»); here the column is a named time window and per
+  // person you only decide WHO. That removes time entry entirely: one tap per cell instead of
+  // open sheet · pick von · pick bis · close.
   schichten: {
     title: 'Schichten',
-    // Kopf der Namensspalte, wie auf dem gedruckten Führungsformular
+    // head of the name column, as on the printed Führungsformular
     who: 'Wer',
-    // Der EINE Weg hinein: kein Vorschlag, kein Übernehmen aus einem Balken, kein Einsammeln.
+    // The ONE way in: no suggestion, no adopting from a bar, no harvesting.
     addBand: 'Schicht definieren',
     addBandFirst: 'Erste Schicht definieren',
     emptyTitle: 'Noch keine Schicht.',
     emptyHint: 'Leg die Zeitfenster an, die du besetzen willst – danach wird pro Person nur noch angetippt.',
     emptyAxisHint: 'Oder im Zeitplan pro Person frei einzeichnen.',
-    // Das Band-Blatt: anlegen und bearbeiten teilen sich eine Fläche
+    // The band sheet: creating and editing share one surface
     sheetAddTitle: 'Schicht anlegen',
     sheetEditTitle: 'Schicht bearbeiten',
     labelField: 'Name',
     labelPlaceholder: 'Früh',
-    // Die Beruhigung, die den ganzen Entwurf trägt: anlegen teilt niemanden ein.
+    // The reassurance the whole design rests on: creating one assigns nobody.
     sheetHint: 'Die Schicht wird für die ganze Mannschaft angelegt. Jede Zelle beginnt leer.',
     create: 'Anlegen',
     save: 'Sichern',
     removeBand: 'Schicht löschen',
-    // Gelöscht wird das BAND, nicht die Planung: die Schichten bleiben als freihändige stehen.
-    // Das ist der einzige Weg, auf dem echte Planung sonst still verschwinden würde.
+    // What gets deleted is the BAND, not the planning: the Schichten remain as freehand ones.
+    // This is the one path on which real planning would otherwise vanish silently.
     removeBandHint: 'Löschen entfernt nur die Spalte – die eingeteilten Zeiten bleiben als freihändige im Zeitplan stehen.',
     removedBand: 'Schicht «{label}» gelöscht',
-    // Beim Verschieben eines Bandes: kein stiller Zusammenhang in die eine oder andere Richtung.
+    // When a band is moved: no silent coupling in either direction.
     moveTitle: 'Zeiten mitziehen?',
     moveMsg: '{n} Personen sind auf die alten Zeiten eingeteilt. Sollen ihre Zeiten mitziehen?',
     moveYes: 'Mitziehen',
     moveNo: 'Nur die Schicht',
-    // Kopfzahlen einer Spalte. Zwei nackte Ziffern nebeneinander («0  8») sagen nicht, welche
-    // welche ist – die Legende in der WER-Spalte benennt sie einmal für alle Spalten, statt jede
-    // Spalte zweimal zu beschriften. Anteilig gezählt: die Zahl beantwortet «wie viele habe ich in
-    // diesem Fenster», nicht «wie viele Häkchen sehe ich».
+    // Header numbers of a column. Two bare digits side by side («0  8») don't say which is which
+    // – the legend in the WER column names them once for all columns, instead of labelling every
+    // column twice. Counted proportionally: the number answers «wie viele habe ich in diesem
+    // Fenster», not «wie viele Häkchen sehe ich».
     countsAria: '{available} verfügbar, {planned} geplant',
-    // Dieselben zwei Wörter wie die Deckungskurve im Zeitplan – eine Fläche, ein Vokabular.
-    // Vorher stand hier «frei» und «fix», was zwei Namen für dieselben zwei Zustände waren.
+    // The same two words as the coverage curve in the Zeitplan – one surface, one vocabulary.
+    // This used to say «frei» and «fix», which were two names for the same two states.
     available: 'verfügbar',
     confirmed: 'geplant',
-    // Wer freihändige Zeiten ohne Band hat, stünde sonst überall leer – wie jemand, der nichts
-    // angeboten hat. Die Marke nennt die echte Zeit, damit das Raster das nicht behauptet.
+    // Somebody with freehand times and no band would otherwise show up empty everywhere – like
+    // somebody who offered nothing. The badge names the real time, so the grid doesn't claim that.
     ownTimes: 'eigene Zeiten ausserhalb jeder Schicht: {times}',
     ownTimesMore: '{first} +{n}',
-    // Zelle: eine Schicht mit bandId, deren Zeiten vom Band abweichen. Sie zeigt ihre echte Zeit
-    // und wird nie durch Antippen gelöscht – dahinter steckt von Hand gezogene Planung.
+    // Cell: a Schicht with a bandId whose times deviate from the band. It shows its real time and
+    // is never deleted by tapping – there is hand-drawn planning behind it.
     deviating: '{name}: {from}–{to} statt {bandFrom}–{bandTo}',
     cellAria: '{name} in {band}',
-    // Ein Wort passt nur auf ein Fenster, in dem EIN Zustand durchgehend gilt. «Verfügbar 09–11»
-    // und «geplant 10–20» in einer Wache 07–12 sind drei Zustände (nichts, angeboten, eingeteilt);
-    // dafür gibt es kein wahres Wort, also sagt die Zelle «teilweise» und der Streifen darunter
-    // zeigt, wo was liegt.
-    // Eine Zelle spricht über IHRE Spalte: läuft die Zeit bis ans Wachenende, ist die einzige
-    // Neuigkeit ihr Anfang – und umgekehrt. Kürzer als ein voller Bereich und genauer.
+    // One word only fits a window in which ONE state holds throughout. «Verfügbar 09–11» and
+    // «geplant 10–20» inside a Wache of 07–12 are three states (nothing, offered, assigned);
+    // there is no true word for that, so the cell says «teilweise» and the strip below it shows
+    // where what lies.
+    // A cell speaks about ITS column: if the time runs to the end of the Wache, the only news is
+    // its start – and vice versa. Shorter than a full range, and more precise.
     cellFrom: 'ab {t}',
     cellUntil: 'bis {t}',
     partial: 'teilweise',
     partialHint: 'Nicht alle davon decken die ganze Schicht ab.',
-    // Ein Tipp auf eine gemischte Zelle hat keine eindeutige Fortsetzung – sonst schaltete er
-    // zwischen zwei Zuständen hin und her, ohne dass je einer für das ganze Fenster gilt.
+    // A tap on a mixed cell has no unambiguous continuation – otherwise it would flip between two
+    // states without either one ever holding for the whole window.
     resolveTitle: 'Teils verfügbar, teils geplant',
     resolveMsg: '{name} ist in {band} teilweise eingeteilt und teilweise nur verfügbar. Was soll für dieses Fenster gelten?',
-    // ⚠ Eine Schicht hat EINEN Zustand: reicht sie über die Wache hinaus, zieht die Änderung mit.
+    // ⚠ A Schicht has ONE state: if it reaches beyond the Wache, the change carries along.
     resolveGap: 'Der Rest der Schicht ist von dieser Person nicht abgedeckt – das bleibt so.',
-    // Aus einer gezogenen Strecke werden drei Objekte – das erfährt man vorher, nicht nachher.
+    // One dragged span becomes three objects – you find that out beforehand, not afterwards.
     splitTitle: 'Wird geteilt',
     splitChanges: 'ändert sich',
     splitKeeps: 'bleibt {state}',
-    // Nur das mittlere Stück ändert sich – das ist der Sinn des Schneidens.
+    // Only the middle piece changes – that is the point of the cut.
     splitNote: 'Nur das Stück innerhalb der Schicht ändert sich; ausserhalb bleibt alles, wie es ist.',
     crossTitle: 'Reicht über die Schicht hinaus',
     crossMsg: 'Diese Zeit von {name} läuft über {band} hinaus. Was soll für dieses Fenster gelten?',
@@ -2950,11 +2947,11 @@ export const de = {
     resolveConfirmed: 'Alles auf geplant',
     resolveCancel: 'Abbrechen',
     conflict: 'Doppelt eingeteilt – zwei Schichten zur selben Zeit',
-    // Rechtsklick auf eine Zelle: Zustände benennen statt weiterschalten
+    // right-click on a cell: name the states instead of cycling through them
     editEntry: 'Bearbeiten …',
     scrollHint: 'Waagrecht rollen für weitere Schichten',
   },
-  // Mittel surface (MittelView) — manuelle Materialerfassung für Rapport / Nachschub
+  // Mittel surface (MittelView) — manual material capture for Rapport / resupply
   mittel: {
     title: 'Mittel',
     summary: '{lines} Positionen',
@@ -2987,9 +2984,9 @@ export const de = {
     save: 'Speichern',
     cancel: 'Abbrechen',
     removeRow: 'Auf 0 setzen',
-    // Löschen läuft sofort mit Rückgängig-Toast; der Verlauf bleibt erhalten
+    // deleting happens immediately with an undo toast; the Verlauf is kept
     removedToast: '«{label}» gelöscht',
-    // Verlauf-Zeilen
+    // Verlauf rows
     logSet: '{label}: {menge} {unit}',
     logRemoved: '{label} auf 0 gesetzt',
     logDeleted: '{label} gelöscht',
@@ -2997,17 +2994,17 @@ export const de = {
     logStock: '{label} – Bestand: {stock}',
     noteLabel: 'Bemerkung',
     notePlaceholder: 'z. B. an Werkhof übergeben',
-    // Stiftdialog auf einer selbst erfassten Zeile: Bezeichnung/Einheit/Quelle/Bestand nachträglich
-    // korrigieren – erfasst wird sie einmal, gelesen wird sie den ganzen Einsatz lang
+    // Pencil dialog on a self-captured row: correct label/unit/source/stock after the fact – it
+    // is captured once and read for the whole Einsatz
     editLabel: 'Eintrag bearbeiten',
     stockLabel: 'Bestand',
     stockPlaceholder: 'optional',
     deleteLine: 'Eintrag löschen',
-    // Symbol→Mittel: Toast-Angebot nach dem Platzieren eines passenden taktischen Zeichens
+    // Symbol→Mittel: toast offer after placing a matching tactical symbol
     captureOffer: '{label} als Mittel erfassen?',
     captureAction: 'Erfassen',
     captured: '{label}: {menge} {unit} erfasst',
-    // Retablierung pro Gerätezeile (verbrauchbare Mittel landen in der Nachschub-Liste)
+    // Retablierung per equipment row (consumable Mittel end up in the resupply list)
   },
   // Checkliste surface (ChecklistsView · ChecklistRunner · ChecklistReference)
   checklists: {
@@ -3142,9 +3139,9 @@ export const de = {
       disabled: 'Erfassung deaktiviert.',
       printBtn: 'Poster als PDF (A4)',
       posterHead: 'Einsatz erfassen',
-      // Die Schritte müssen dem entsprechen, was auf dem Handy wirklich passiert: der Name
-      // wird beim Abhaken angetippt, nicht vorher gewählt, und bei einem einzigen frischen
-      // Einsatz öffnet die Seite ihn direkt (autoOpenTarget) — darum «falls gefragt».
+      // The steps have to match what actually happens on the phone: the name is tapped while
+      // ticking off, not picked beforehand, and with a single fresh Einsatz the page opens it
+      // directly (autoOpenTarget) — hence «falls gefragt».
       posterStep1: 'QR-Code mit der Handy-Kamera scannen',
       posterStep2: 'Falls gefragt: den eigenen Einsatz antippen',
       posterStep3: 'Eigenen Namen antippen – Häkchen heisst anwesend',
@@ -3168,10 +3165,10 @@ export const de = {
       sheetAlarm: 'Alarmiert',
       sheetEnde: 'Einsatzende',
       sheetKontakt: 'Kontaktperson',
-      // ⚠️ Die Abschnittsnamen sind die des Einsatzrapports (backend · report_pdf · L) – das
-      // Blatt ist sein Papier-Zwilling, und wer ein ausgefülltes Blatt in die App überträgt,
-      // liest beide nebeneinander. Anleitungen wie «(abhaken, ggf. von–bis)» standen nur hier
-      // und machten aus derselben Rubrik zwei verschieden benannte.
+      // ⚠️ The section names are the Einsatzrapport's (backend · report_pdf · L) – the sheet is
+      // its paper twin, and whoever transfers a filled-in sheet into the app reads both side by
+      // side. Instructions like «(abhaken, ggf. von–bis)» only existed here and turned the same
+      // rubric into two differently named ones.
       sheetSignatures: 'Unterschriften',
       sheetOrtDatum: 'Ort, Datum',
       sheetName: 'Name',
@@ -3181,8 +3178,8 @@ export const de = {
       sheetMaterial: 'Material',
       sheetNotizen: 'Kurzbericht / durchgeführte Arbeiten',
       hint: 'Der Link gilt für laufende und noch nicht rapportierte Einsätze; rapportierte verschwinden nach wenigen Stunden (Standard 12 h, alarms.captureWindowHours). Kein Zugriff auf Karte, Verwaltung oder archivierte Einsätze.',
-      // Der Link IST das Geheimnis des Posters — wer ihn verschickt, verteilt den Zugang der
-      // ganzen Wache. Das steht hier, weil genau hier der Link zum Kopieren angeboten wird.
+      // The link IS the poster's secret — whoever sends it around hands out the whole Wache's
+      // access. It says so here, because this is exactly where the link is offered for copying.
       linkWarn: 'Dieser Link ist der Poster-Schlüssel: Wer ihn hat, kann erfassen. Nach dem Verschicken (Test, Schulung) Token rotieren und Poster neu drucken.',
       testTitle: 'Vorher testen',
       testBody: 'Einsatz mit Haken «Übung» eröffnen, den Link verschicken, erfassen lassen – die Übung ist in der Erfassung als solche angeschrieben und zählt nicht in die Statistik. Danach die Übung archivieren und den Token rotieren.',
@@ -3263,9 +3260,10 @@ export const de = {
       quickPhrases: 'Textbausteine',
       quickPhrasesTip: 'Eine Zeile pro Baustein. Beim Tippen im Eintrag-Editor erscheinen passende Bausteine als Vervollständigung (Fuzzy-Suche). Leer = die mitgelieferten Standardbausteine.',
     },
-    // Rundung der Einsatzstunden. Die Regel steht bewusst NICHT auf dem gedruckten Rapport –
-    // sie ist auf jedem Blatt dieselbe und gehört in die Weisung (docs/CONFIGURATION.md §1b).
-    // Deshalb steht das Rechenbeispiel hier: wer die Zahl verstellt, sieht sofort, was sie tut.
+    // Rounding of the Einsatzstunden. The rule deliberately does NOT appear on the printed
+    // Rapport – it is the same on every sheet and belongs in the Weisung (docs/CONFIGURATION.md
+    // §1b). That is why the worked example sits here: whoever changes the number immediately
+    // sees what it does.
     report: {
       groupRounding: 'Einsatzstunden – Rundung',
       roundingTip: 'Gerundet wird pro Person, dann summiert – nie auf die Gesamtsumme. Sonst hinge dieselbe Zahl davon ab, wie viele Leute gekommen sind. Die ungerundete Summe steht auf dem Rapport daneben, damit die gerundete überprüfbar bleibt.',
@@ -3275,7 +3273,7 @@ export const de = {
       graceMinTip: 'So viele Minuten über einem Block zählen noch nicht als neuer. Verhindert, dass drei Minuten über der halben Stunde einen ganzen Block kosten.',
       example: 'Beispiel',
       exampleHint: 'Drei Personen mit {raw} ergeben gerundet {rounded}.',
-      // Die zweite Zahl, die entscheidet, was auf dem Personalblatt über eine Zeit steht.
+      // The second number that decides what the Personalblatt says about a time.
       groupMerge: 'Anwesenheit – Zeiten zusammenfassen',
       mergeTip: 'Zwei Einträge kurz hintereinander sind fast nie zwei Einsätze, sondern ein korrigierter Fehltipp – oder Poster und Tablet haben dieselbe Ankunft erfasst. Auf dem Rapport werden sie zu einer Strecke; erfasst bleiben beide, und in der Anwesenheit steht weiterhin, was wirklich getippt wurde.',
       mergeGapMin: 'Lücke bis (min)',
@@ -3285,9 +3283,9 @@ export const de = {
       groupFunk: 'Funk',
       groupPressure: 'Atemschutz – Druck',
       groupContact: 'Atemschutz – Kontakt',
-      // Luftvorrat-Schätzung: die Karte sagt «geschätzt mit 7 L Flasche und 50 L/min» – das las
-      // sich wie eine Stationseinstellung, war aber keine (das Backend hat beide Felder beim
-      // Speichern verworfen, und einzutippen gab es sie nirgends).
+      // Air-supply estimate: the card says «geschätzt mit 7 L Flasche und 50 L/min» – which read
+      // like a station setting but wasn't one (the backend discarded both fields on save, and
+      // there was nowhere to type them in).
       groupAir: 'Atemschutz – Luftvorrat',
       airTip: 'Grundlage der Schätzung «noch ≈ N bar» auf der Truppkarte. Reine Planungshilfe – die Karte sagt dazu, worauf sie beruht, und ersetzt die Druckmeldung nicht.',
       cylinderLiters: 'Flaschenvolumen (L)',
@@ -3435,8 +3433,8 @@ export const de = {
       pinInvalid: 'PIN muss genau {n} Ziffern haben.',
     },
     roster: {
-      // Namensformat — eine Reihenfolge für die ganze Wehr. Steht hier, weil die Wirkung
-      // direkt darunter in der Liste sichtbar ist.
+      // Name format — one order for the whole Wehr. It sits here because the effect is visible
+      // directly below it in the list.
       nameOrderTitle: 'Namensformat',
       nameOrderCaption: 'Gilt überall: Mannschaftsliste, Anwesenheit, Karte, Rapport und Druck.',
       nameOrderLabel: 'Reihenfolge',
@@ -3531,8 +3529,8 @@ export const de = {
       colFeatures: 'Features',
       colSource: 'Quelle',
       justNow: 'gerade eben',
-      // Einheiten überall gleich abgekürzt: min · s · h (so schreiben es die Stepper und die
-      // Verlaufszeilen auch) – «Min.» und «Std.» daneben lasen sich wie eine andere Grösse.
+      // Units abbreviated the same way everywhere: min · s · h (that is how the steppers and the
+      // Verlauf rows write them too) – «Min.» and «Std.» next to them read like a different unit.
       relMin: 'vor {n} min',
       relHour: 'vor {n} h',
     },
@@ -3685,8 +3683,8 @@ export const de = {
       clearConfirm: 'Offline-Cache auf DIESEM Gerät leeren?\n\nDie gespeicherten Karten, Pläne und App-Dateien werden gelöscht. Beim nächsten Laden werden sie neu vom Server geholt (Internet nötig). Anmeldung und Server-Daten bleiben unberührt.',
       offlineCacheCaption: 'Lokale Wartung: leert nur den Offline-Cache auf DIESEM Gerät. Beim nächsten Laden werden die Dateien neu geholt. Anmeldung und Server bleiben unberührt.',
     },
-    // Fehlerberichte nach aussen. Standard: aus. Der Ton hier ist bewusst nüchtern –
-    // die Anlage gehört der Feuerwehr, wir fragen, wir informieren nicht bloss.
+    // Error reports going outside. Default: off. The tone here is deliberately sober – the
+    // installation belongs to the Feuerwehr, we ask, we don't merely inform.
     telemetry: {
       title: 'Fehlerberichte an die Entwicklung',
       caption: 'Standardmässig aus. Nichts verlässt diese Anlage, solange das hier nicht '
@@ -3696,7 +3694,7 @@ export const de = {
         + 'Zustimmung. Was in beiden Fällen übertragen wird, steht unten wörtlich.',
       loading: 'Wird geladen…',
       loadError: 'Status konnte nicht geladen werden.',
-      // Erstmalige Frage: keine Antwort ist vorausgewählt, keine ist hervorgehoben.
+      // First-time question: no answer is pre-selected, none is emphasised.
       askCaption: 'Einmal entscheiden – bis dahin wird nichts gesendet.',
       askQuestion: 'Sollen Abstürze dieser Anlage automatisch an die Entwicklung gemeldet '
         + 'werden?',

@@ -455,7 +455,7 @@ export function SystemView() {
             {/* Client-side offline cache (this device) — a half-row card in the grid. */}
             <OfflineCacheCard />
 
-            {/* Was diese Anlage nach aussen sendet — opt-in, standardmässig aus. */}
+            {/* What this installation sends outwards – opt-in, off by default. */}
             <TelemetryCard />
             </div>
           </>

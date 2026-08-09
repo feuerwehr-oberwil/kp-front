@@ -1189,7 +1189,7 @@
 .adm-toolbar { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
 
 /* ════════════════════════════════════════════════════════════════════════════
-   Fehlerberichte (Telemetrie): der Schalter, und darunter die Belege
+   Fehlerberichte (telemetry): the switch, and beneath it the evidence
    ════════════════════════════════════════════════════════════════════════════ */
 .adm-tel-state { margin-bottom: 8px; }
 .adm-tel-ask { margin: 0 0 4px; font: 600 14px var(--body); color: var(--ink); }

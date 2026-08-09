@@ -2,7 +2,7 @@ import type { AttendanceEntry, AttendanceOrt, AttendanceState } from '../types'
 import { isPresent } from './attendanceIntervals'
 
 /**
- * Am Einsatzort oder noch im Magazin — «wen könnte ich noch nachziehen?»
+ * At the Einsatzort or still at the Magazin — «wen könnte ich noch nachziehen?»
  *
  * That question is about THIS MINUTE, so this is one state per person and no history at all: the
  * alternative is a second kind of presence block, and a record of every walk between the Magazin

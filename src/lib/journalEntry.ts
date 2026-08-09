@@ -4,7 +4,7 @@ import type { JournalLink } from './journalLinks'
 import { fuzzyScore } from './quickPhrases'
 
 /**
- * «Wer hat es gesagt» und «was für eine Aussage ist das» — auf einer Zeile.
+ * «Wer hat es gesagt» and «was für eine Aussage ist das» — on one line.
  *
  * The two fields are composed INTO the row's text rather than printed from side fields, because
  * `text` is the record: the Verlauf, the Rapport and the hash chain all read that one string,

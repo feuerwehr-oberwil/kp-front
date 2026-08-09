@@ -195,10 +195,10 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
             .tb-share in app.css. The bar's four 44px actions do not fit a 390px screen. */}
         {shareSlot && <span className="tb-share">{shareSlot}</span>}
         {hasWind && <WeatherBadge weather={weather!} onOpenMeteo={onOpenWeather} bearing={bearing} />}
-        {/* GPS-Feed-Chip. Die Fahrzeuge bleiben absichtlich auf der Karte, wenn der Feed
-            stirbt — sie verschwinden zu lassen läse sich als «abgerückt» statt als «Feed
-            weg». Genau deshalb braucht das Einfrieren einen sichtbaren Vorbehalt: ohne ihn
-            sehen stundenalte Positionen exakt so verbindlich aus wie eine Minute alte. */}
+        {/* GPS feed chip. The Fahrzeuge deliberately stay on the map when the feed dies —
+            letting them disappear would read as «abgerückt» rather than as «Feed weg». That
+            is exactly why the freeze needs a visible caveat: without one, hours-old positions
+            look every bit as binding as a position one minute old. */}
         {gpsStale && (
           <span
             className="tb-gps"

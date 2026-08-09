@@ -63,7 +63,7 @@ export const layers: LayerDef[] = [
 ]
 
 export const entities: Entity[] = [
-  // --- Lage / taktische Zeichen (um das Schulgebäude herum) ---
+  // --- Lage / taktische Zeichen (around the school building) ---
   { id: 'brand', kind: 'symbol', layer: 'taktisch', coord: at(4, 6), symbol: 'VKF Feuer', label: 'Vollbrand Schulhaus Trakt B' },
   {
     id: 'person', kind: 'symbol', layer: 'taktisch', coord: at(26, 2), symbol: 'VKF Rettungen', label: '2 Personen vermisst',

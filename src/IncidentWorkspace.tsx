@@ -1414,10 +1414,10 @@ export function IncidentWorkspace({
         : d.audioUrl ? `${appConfig.copy.log.audioNote}${d.secs ? ` (${d.secs}s)` : ''}` : photoUrls.length ? appConfig.copy.journal.photoNote : appConfig.copy.log.journalNote)
     const rowId = `e${Date.now()}-j`
     pushEvent({
-      // «Wer» und «Art» werden IN den Text komponiert (lib/journalEntry): `text` ist der
-      // Datensatz — Verlauf, Rapport und Prüfkette lesen diese eine Zeichenkette, und eine
-      // Zeile, deren Bedeutung in einem Nebenfeld läge, stünde in der App anders als auf dem
-      // Papier. Die strukturierten Felder reisen zum Filtern mit, nicht zum Anzeigen.
+      // «Wer» and «Art» are composed INTO the text (lib/journalEntry): `text` is the record —
+      // Verlauf, Rapport and the hash chain all read this one string, and a row whose meaning
+      // lived in a side field would read differently in the app than it does on paper. The
+      // structured fields travel along for filtering, not for display.
       icon, text: composeJournalText(body, d), kind, entryType: d.entryType,
       audioUrl: d.audioUrl, photoUrls: photoUrls.length ? photoUrls : undefined, audioMeta: d.audioMeta,
       // an imported memo lands at its confirmed recording start; everything else at composer-open

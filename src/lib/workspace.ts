@@ -26,7 +26,7 @@ export interface ReportMeta {
   remarks?: string
   /** Lehren / Sicherheit — debrief notes (what to learn, safety observations) for the rapport */
   lehren?: string
-  /** Kontaktperson vor Ort (Eigentümer / Melder / Verantwortlicher) */
+  /** Kontaktperson on scene (owner / Melder / person in charge) */
   kontaktperson?: string
   /** Einsatzleiter — picked from the Mannschaft roster (free text allowed) */
   einsatzleiter?: string
@@ -34,16 +34,16 @@ export interface ReportMeta {
   alarmiertAt?: string
   /** Ausrückzeit — manual for now; future enhancement: derive from first vehicle GPS movement. */
   ausgeruecktAt?: string
-  /** Kontaktdaten der beteiligten Partnerorganisationen */
+  /** contact details of the Partnerorganisationen involved */
   partnerContacts?: PartnerContact[]
   /** Abschluss-Assistent: «keine Mittel verwendet» explicitly confirmed — the Mittel step
    *  counts as complete with zero entries only when someone said so, never by silence. */
   mittelConfirmedNone?: boolean
-  /** Alarmierzeit je alarmierter Gruppe — ids from config `alarms.groups`; prefilled by
+  /** Alarmierzeit per alarmed Gruppe — ids from config `alarms.groups`; prefilled by
    *  the milestone webhook, `manual: true` entries are the operator's and never
    *  auto-overwritten. Unknown ids render as unmatched lines, never dropped. */
   gruppen?: GruppeZeit[]
-  /** Fahrzeug-Zeitachse (Ausrückzeit / Vor Ort / Zurück) — ids from config
+  /** Fahrzeug timeline (Ausrückzeit / Vor Ort / Zurück) — ids from config
    *  `fleet.vehicles`; same prefill/manual semantics as `gruppen`. The header
    *  Ausgerückt is DERIVED from these once any exist (deriveAusgerueckt). */
   fahrzeuge?: FahrzeugZeit[]
@@ -51,11 +51,11 @@ export interface ReportMeta {
    *  shows, and the page shape. Remembered so a reprint (a correction, a second copy for the
    *  Gemeinde) comes out of the same window instead of being framed from scratch. */
   krokiPrint?: { view?: KrokiView; at?: string; landscape?: boolean }
-  /** Gerettete Personen / Tiere (counts; absent ≠ 0 — absent means not recorded) */
+  /** Gerettete: people / animals (counts; absent ≠ 0 — absent means not recorded) */
   gerettete?: { personen?: number; tiere?: number }
-  /** Wer über die Erfassung (/e/) erfasst hat — kommagetrennt, jede Person einmal */
+  /** who recorded via the Erfassung (/e/) — comma-separated, each person once */
   erfasser?: string
-  /** Rückmeldung an die ELZ: wer hat wann zurückgemeldet */
+  /** Rückmeldung to the ELZ: who reported back, and when */
   rueckmeldungElz?: { name?: string; at?: string }
 }
 
@@ -82,9 +82,9 @@ export interface IncidentSettings {
   /** Atemschutz Funkkontakt-Intervall (min): contact fällig (amber) from this mark.
    *  Safety-critical, so it MUST be shared across devices — hence synced, not a pref. */
   contactIntervalMin?: number
-  /** Nachfrist (sec) on top of the interval before the hard überfällig alarm fires */
+  /** grace period (sec) on top of the interval before the hard überfällig alarm fires */
   contactGraceSec?: number
-  /** default Funkkanal a new Atemschutz-Trupp is seeded with (FKS-Standard: 11) */
+  /** default Funkkanal a new Atemschutz-Trupp is seeded with (FKS standard: 11) */
   defaultFunkkanal?: number
 }
 

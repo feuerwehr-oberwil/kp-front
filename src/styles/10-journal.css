@@ -61,10 +61,10 @@
 .tb-az.crit { background: color-mix(in srgb, var(--red) 15%, transparent); color: var(--red-strong); animation: tb-az-pulse 1.6s infinite; }
 .tb-az.crit:hover { background: color-mix(in srgb, var(--red) 26%, transparent); }
 
-/* GPS-Feed-Chip — erscheint nur, wenn der Live-Feed schweigt. Die Fahrzeuge bleiben auf der
-   Karte stehen (Verschwinden liest sich als «ist weggefahren», nicht als «Feed weg»), also
-   muss das Einfrieren hier sichtbar werden. Bernstein, nicht Rot: eine eingefrorene Position
-   ist ein Vorbehalt, kein Alarm — und Rot gehört dem überfälligen Trupp. */
+/* GPS feed chip — only appears when the live feed goes silent. The Fahrzeuge stay put on the
+   map (disappearing reads as «it has driven off», not as «the feed is gone»), so the freeze
+   has to become visible here. Amber, not red: a frozen position is a caveat, not an alarm —
+   and red belongs to the überfälliger Trupp. */
 .tb-gps { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: var(--r-pill);
   font-family: var(--body); font-size: 12.5px; font-weight: 700; padding: 5px 11px 5px 9px; margin-right: 2px;
   flex: none; cursor: default;

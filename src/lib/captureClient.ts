@@ -17,7 +17,7 @@ import { fillTemplate, hhmm } from './format'
 
 export type CaptureAction =
   | { kind: 'cycleAttendance'; personId: string; name: string; vonIso?: string }
-  // Am Einsatzort oder noch im Magazin (see lib/attendanceOrt). The POSTER asks instead of
+  // At the Einsatzort or still at the Magazin (see lib/attendanceOrt). The POSTER asks instead of
   // assuming: it hangs in the Magazin, which is why it would be tempting to default to
   // «Magazin» — but it is also scanned on the way back in, and a wrong Ort is invisible
   // to the person who caused it. One tap on a surface where a tap is cheap.
