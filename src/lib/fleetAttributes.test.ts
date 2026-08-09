@@ -66,3 +66,24 @@ describe('symbolConfigurableFields — the viewer attribute model', () => {
     expect(symbolConfigurableFields('VKF KP Front')).toEqual([])
   })
 })
+
+describe('shipped preset field options', () => {
+  it('offers the Rettung states without locking the field', () => {
+    cfg.current = {}
+    // ⚠️ «vermisst» / «eingesperrt» are STATES of a Rettung, not symbols of their own — the
+    // difference between a search and a rescue, on a marker that already carries the count.
+    expect(symbolFieldOptions('VKF Rettungen', undefined, []).Status)
+      .toEqual(['vermisst', 'eingesperrt', 'gerettet'])
+  })
+
+  it('⚠️ does not bleed rescue words into another symbol that also has a «Status»', () => {
+    // SI Schieber's Status is auf/zu. Keying the list by FIELD alone would have offered it
+    // «vermisst», which is the bug the roster-field rule was already written against.
+    expect(symbolFieldOptions('SI Schieber', undefined, []).Status).toEqual([])
+  })
+
+  it("a station's own list wins over the shipped one", () => {
+    cfg.current = { fleet: { attributeLists: [{ symbol: 'VKF Rettungen', field: 'Status', options: ['vermisst', 'geborgen'] }] } }
+    expect(symbolFieldOptions('VKF Rettungen', undefined, []).Status).toEqual(['vermisst', 'geborgen'])
+  })
+})

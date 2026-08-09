@@ -12,6 +12,10 @@ interface SymbolPreset {
    *  entry when omitted; set it where the first field isn't the readable one (e.g. a
    *  Gefahrentafel leads with 'UN-Nr' but 'Stoff' is what a passing operator wants to read). */
   caption?: string
+  /** shipped suggestion lists for detail fields, keyed by field name. A hint, never a cage:
+   *  the field stays free text, and a deployment's own `fleet.attributeLists` entry for the
+   *  same symbol+field wins over anything here (lib/symbols · symbolFieldOptions). */
+  fieldOptions?: Record<string, string[]>
 }
 
 const base = {
@@ -264,7 +268,16 @@ const base = {
         // ── Schadenlage ── on a storey (floor badge); the label carries the rest.
         'VKF Feuer': { controls: ['floor', 'spread'] },
         'VKF Rauch': { controls: ['floor', 'spread'] },
-        'VKF Rettungen': { controls: ['count', 'floor'], fields: ['Status'] },
+        // ⚠️ «Vermisst» and «eingesperrt» are STATES of a Rettung, not symbols of their own.
+        // The count and the storey were already here; what the map could not say was whether
+        // those three on the 2nd floor are still unaccounted for or known and trapped, which
+        // is the difference between a search and a rescue. Free text stays possible — the list
+        // is the fast path, not a cage (a station overrides it via fleet.attributeLists).
+        'VKF Rettungen': {
+          controls: ['count', 'floor'],
+          fields: ['Status'],
+          fieldOptions: { Status: ['vermisst', 'eingesperrt', 'gerettet'] },
+        },
         'VKF Unfall': { controls: ['floor'] },
         'VKF Gefaehrliche Stoffe': { controls: ['floor', 'spread'], fields: ['Stoff'] },
         'VKF Wasser': { controls: ['floor', 'spread'] },

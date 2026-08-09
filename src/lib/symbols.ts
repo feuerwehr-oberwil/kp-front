@@ -113,6 +113,11 @@ export function symbolFieldOptions(name: string | undefined, cat: string | undef
   // list bled into the member-name dropdown). Use a separate field.
   for (const key of Object.keys(out)) {
     if (rosterSet.has(key)) continue
+    // the symbol's own shipped list first, then a deployment list ON TOP — a station that
+    // configures one means it, and a shipped default must never win over what somebody typed
+    // into their own config.
+    const shipped = p?.fieldOptions?.[key]
+    if (shipped?.length) out[key] = shipped
     const override = fleetOptionsFor(name, key)
     if (override) out[key] = override
   }
