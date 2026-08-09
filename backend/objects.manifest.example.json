@@ -11,7 +11,8 @@
         {
           "module": "modul1",
           "file": "plans/dorfmatt/modul1.pdf",
-          "title": "Schulhaus Dorfmatt – Übersicht"
+          "title": "Schulhaus Dorfmatt – Übersicht",
+          "sha256": "8ea2bc8ff96a4ad73bf8ba4645b69b26d6865cf9b58cd6e9ab27afca7e213d17"
         },
         {
           "module": "modul2",

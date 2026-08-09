@@ -36,6 +36,7 @@ derives a deterministic uuid5 per folder), so reruns upsert in place rather than
 
 import argparse
 import asyncio
+import hashlib
 import json
 import os
 import sys
@@ -60,6 +61,15 @@ class PlanEntry(BaseModel):
     file: str  # local PDF path, relative to the manifest's directory
     title: str | None = None
     sourceNote: str | None = None
+    #: Optional SHA-256 of the PDF, lower-case hex. Set it and every `validate`/`load`/`push`
+    #: refuses to publish anything else under this module.
+    #:
+    #: ⚠️ This is not a corruption check — it is a WRONG-TREE check. A manifest is published
+    #: from whatever checkout runs the script, so a stale worktree quietly republishes whatever
+    #: PDFs it happens to hold: on 09.08. the demo went back to the generated placeholders (and
+    #: a Modul 6 retired the day before) because a reset ran from a tree that predated the drawn
+    #: sheets. Nothing failed; the demo simply served the old plans until somebody noticed.
+    sha256: str | None = None
 
     @model_validator(mode="after")
     def _check(self) -> "PlanEntry":
@@ -69,6 +79,11 @@ class PlanEntry(BaseModel):
             raise ValueError(f"plan: module {self.module!r} exceeds 16 chars (DB column limit)")
         if not self.file.lower().endswith(".pdf"):
             raise ValueError(f"plan {self.module!r}: 'file' must be a .pdf ({self.file!r})")
+        if self.sha256 is not None:
+            digest = self.sha256.strip().lower()
+            if len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
+                raise ValueError(f"plan {self.module!r}: 'sha256' must be 64 hex characters ({self.sha256!r})")
+            object.__setattr__(self, "sha256", digest)
         return self
 
 
@@ -177,16 +192,33 @@ def _resolve(manifest_path: Path, plan: PlanEntry) -> Path:
 
 
 def _validate_files(manifest_path: Path, objects: list[ObjectEntry]) -> int:
-    """Check every referenced PDF exists and starts with the PDF magic; return total plan count."""
+    """Check every referenced PDF exists, is a PDF, and — where the manifest pins one — matches
+    its recorded SHA-256. Returns the total plan count.
+
+    The digest check runs on EVERY door (`validate`, `load`, `push`), because the failure it
+    guards is publishing from the wrong tree, and the wrong tree is exactly the one that would
+    skip a separate verification step.
+    """
     n = 0
     for o in objects:
         for p in o.plans:
             src = _resolve(manifest_path, p)
             if not src.is_file():
                 _fail(f"ERROR: {manifest_path}: object {o.id} plan {p.module!r} file not found: {src}")
-            with src.open("rb") as fh:
-                if fh.read(5) != b"%PDF-":
-                    _fail(f"ERROR: {src} is not a PDF (missing %PDF- header).")
+            raw = src.read_bytes()
+            if raw[:5] != b"%PDF-":
+                _fail(f"ERROR: {src} is not a PDF (missing %PDF- header).")
+            if p.sha256:
+                actual = hashlib.sha256(raw).hexdigest()
+                if actual != p.sha256:
+                    _fail(
+                        f"ERROR: {src} is not the plan this manifest pins.\n"
+                        f"       expected sha256 {p.sha256}\n"
+                        f"       actual   sha256 {actual}  ({len(raw)} bytes)\n"
+                        f"       This usually means the checkout is stale — publishing it would put the "
+                        f"wrong sheet in front of a crew. Update the tree, or re-pin the digest if the "
+                        f"new PDF is the intended one."
+                    )
             n += 1
     return n
 

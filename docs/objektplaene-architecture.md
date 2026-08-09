@@ -165,6 +165,26 @@ That is refresh by **push**: import-on-workstation → push-to-prod, mirroring g
 push`. A deployment whose plan library is maintained by another system can also **pull** –
 next section.
 
+### Pin the bytes you mean to publish
+
+A plan entry may carry a **`sha256`** (lower-case hex of the PDF). Where it is set, `validate`,
+`load` and `push` all refuse to publish anything else under that module — and they say what
+they found:
+
+```json
+{ "module": "modul1", "file": "plans/schloss/modul1.pdf",
+  "sha256": "8ea2bc8f…", "title": "Schloss – Übersicht" }
+```
+
+⚠️ This is a **wrong-tree** check, not a corruption check. A manifest is published from
+whichever checkout runs the script, so a stale worktree quietly republishes whatever PDFs it
+happens to hold: on 09.08.2026 the public demo went back to generated placeholders — and to a
+Modul 6 retired the day before — because a reset ran from a tree that predated the drawn
+sheets. Nothing failed, and the demo simply served the old plans until somebody noticed. The
+pull's `index.json` has always carried a digest per plan (see below); this gives the push door
+the same footing. It stays optional: a station whose library legitimately changes every week
+would only be re-pinning it every week.
+
 ## Pull – fetch plans instead of being pushed them
 
 **The problem with push.** Everything above needs the deployment's `ADMIN_SECRET` at the far
