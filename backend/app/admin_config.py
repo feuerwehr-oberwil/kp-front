@@ -150,11 +150,21 @@ EXAMPLE_CONFIG: dict[str, Any] = {
         # (Legacy vehicleTypes/luefterTypes/kleinloeschTypes/partner still work as a fallback.)
         "attributeLists": [
             {"symbol": "VKF Fahrzeug", "field": "title", "options": ["TLF", "ADL", "HLF", "ELW"]},
-            {"symbol": "VKF Luefter mobil", "field": "Typ", "options": ["Überdruck", "Elektro"]},
+            # «Akku» is its own answer, not a flavour of «Elektro»: a battery fan needs no cable
+            # and no generator, which is the whole reason the Front asks which one is up there.
+            {"symbol": "VKF Luefter mobil", "field": "Typ", "options": ["Überdruck", "Elektro", "Akku"]},
             {"symbol": "FW Kleinloeschgeraet", "field": "Typ", "options": ["Wasser", "Schaum", "CO₂"]},
             {"symbol": "VKF Bereich Feuerwehr", "field": "Einheit", "options": ["Stützpunkt", "Nachbarwehr"]},
             {"symbol": "VKF Bereich Sanitaet", "field": "Einheit", "options": ["Rettungsdienst", "Rega"]},
             {"symbol": "VKF Bereich Polizei", "field": "Einheit", "options": ["Kantonspolizei"]},
+            # What an Offizier on the Lage is DOING — the sector they were given, not their rank.
+            # Shipped as a list because «Of-Front» and the four standing jobs are the ones every
+            # Wehr runs; a station that names its sectors differently edits them in Verwaltung.
+            {
+                "symbol": "FW Offizier",
+                "field": "Funktion",
+                "options": ["Of-Front", "Lüften", "Atemschutz", "Retten", "Logistik"],
+            },
         ],
     },
     "doctrine": {
