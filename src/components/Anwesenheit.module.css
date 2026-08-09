@@ -76,9 +76,11 @@
   flex: 1 1 auto; overflow-y: auto; scrollbar-gutter: stable; margin: 0; padding: 2px 22px 16px;
   /* ⚠️ 228px was measured against a row that carried a name and a clock. It now also carries
      the Ort, and «Baumann Michael» went to «Baumann Mich…» — the one thing this list exists to
-     show. Raised to 300px: a column more scrolling costs nothing next to a name you cannot
-     read, and at this width the Ort keeps its word too (see the container query below). */
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px; align-content: start;
+     show. 300px was still not enough: Ort (108) + clock (39) + the dot and the AT badge left the
+     name 99px and it kept truncating. At 380px a 1440px panel packs three columns instead of
+     four — but the Ort word is what made the row that hungry. With the Ort back to icon-only
+     the same name fits in a 290px column, so the list packs more people on a screen again. */
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 8px; align-content: start;
 }
 
 /* Somebody recorded for THIS Einsatz only. Blue rather than the rank chip's accent: it is not a
@@ -161,20 +163,16 @@
 
 /* ── Vor Ort / Magazin ────────────────────────────────────────────────────────────────────
    A full-height edge button, the same shape as the clock beside it — the row already has that
-   language and a pill floating inside it was a third one. The WORD appears only where there is
-   room for it: the grid is `auto-fill`, so a viewport media query says nothing about how wide
-   any single row actually is, and the name is the one thing this list exists to show. Hence a
-   container query on the row itself. Icon-only still says everything the control means — the
-   accessible name carries the sentence either way. */
-.person { container-type: inline-size; }
+   language and a pill floating inside it was a third one. ALWAYS icon-only: the word cost ~60px
+   of every row, which is what pushed the columns wide enough that «Baumann Michael» truncated.
+   The glyph plus the blue says it — Haus + blau = Magazin, Pin + ink = am Einsatzort — and the
+   accessible name still carries the full sentence for anyone who needs it read out. */
 
 .ort {
-  /* ⚠️ ONE width for every row. «Magazin» and «Vor Ort» are different lengths, so the buttons
-     ended at different x down the column and the names beside them stopped lining up — on a
-     list that is read by running an eye down it, that is the whole complaint. Fixed to what
-     the longer of the two needs; icon-only rows shrink to the icon's own box. */
+  /* ⚠️ ONE width for every row. The two states must not end at different x, or the names beside
+     them stop lining up — on a list read by running an eye down it, that is the whole complaint. */
   flex: none; align-self: stretch; display: inline-flex; align-items: center; justify-content: center;
-  gap: 6px; width: 46px; padding: 0;
+  width: 46px; padding: 0;
   border: none; border-left: 1px solid var(--glass-edge); background: none;
   cursor: pointer; font: 700 11.5px var(--body); white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
@@ -188,13 +186,7 @@ button.ortScene:hover { background: var(--fill-soft); color: var(--ink); }
 .ortStation { color: var(--blue-strong); background: color-mix(in srgb, var(--blue) 13%, transparent); }
 button.ortStation:hover { background: color-mix(in srgb, var(--blue) 22%, transparent); }
 
-.ortLabel { display: none; }
-/* below this the word costs the name more than it is worth; the glyph says the same thing.
-   With the word the button needs a wider fixed box — still ONE width for every row. */
-@container (min-width: 290px) {
-  .ort { width: 108px; justify-content: flex-start; padding: 0 11px; }
-  .ortLabel { display: inline; }
-}
+
 
 @media (max-width: 600px) {
   /* full width below the top bar (78px clears the floating bar with a visible gap — at 64px

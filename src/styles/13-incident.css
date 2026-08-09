@@ -470,7 +470,7 @@
 /* desktop: wider column, roomier cards — the phone-first paddings look cramped on a monitor */
 @media (min-width: 760px) {
   .cv-shell { max-width: 640px; gap: 16px; }
-  .cv-acc-body { padding: 16px 18px 18px; gap: 12px; }
+  .cv-acc-body { --cv-body-pad: 18px; padding: 16px var(--cv-body-pad) 18px; gap: 12px; }
   .cv-acc-head { padding: 12px 18px; }
 }
 .cv-head h1 { font: 800 20px var(--body); color: var(--ink); margin: 0; }
@@ -518,7 +518,12 @@
   background: var(--surface); color: var(--ink); font: 500 15px var(--body); width: 100%; }
 /* search + ⓘ: the tap-cycle explanation hides behind the info toggle (inline it crowded the card) */
 .cv-search-row { display: flex; align-items: center; gap: 8px; }
-.cv-search-row .cv-input { flex: 1; min-width: 0; }
+/* ⚠️ The field is RECESSED against the sticky band, not the same white as it. Both carried
+   `--surface`, so the input's own hairline border vanished into the band behind it and the
+   search read as a seamless white bar with the ⓘ floating on it — no edges, no field. */
+.cv-search-row .cv-input { flex: 1; min-width: 0; background: var(--fill-soft); }
+.cv-search-row .cv-input:focus { background: var(--surface); outline: none;
+  border-color: color-mix(in srgb, var(--blue) 50%, transparent); }
 /* The search stays put while its list scrolls. A roster is long enough that filtering it means
    scrolling to the name, and the field that filtered it had already scrolled off the top — so
    correcting a typo meant scrolling back up to find the box. Stacks UNDER the section head,
@@ -531,8 +536,11 @@
      it is one row of label + sub and does not wrap. --cv-head-h IS measured, because the page
      header changes height with the «KP aktiv» line. */
   top: calc(var(--cv-head-h, 64px) - 1px + 56px);
-  margin: 0 -14px; padding: 8px 14px;
-  background: linear-gradient(var(--surface-veil), var(--surface-veil)), var(--surface); }
+  margin: 0 calc(var(--cv-body-pad) * -1); padding: 8px var(--cv-body-pad);
+  background: linear-gradient(var(--surface-veil), var(--surface-veil)), var(--surface);
+  /* it floats OVER the list while scrolling, so it needs an edge — without one the band and
+     the first row underneath it merged into one white shape */
+  border-bottom: 1px solid var(--glass-line); }
 .cv-info { display: grid; place-items: center; width: 44px; height: 44px; flex: none; cursor: pointer;
   border: 1px solid var(--glass-line); background: var(--surface); color: var(--ink-dim); border-radius: var(--r-sm); }
 .cv-info.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
@@ -780,9 +788,14 @@
 .cv-acc-sub { flex: 1; min-width: 0; font: 500 13px var(--body); color: var(--ink-faint); text-align: right;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cv-acc-head svg { flex: none; width: 15px; height: 15px; color: var(--ink-faint); }
-.cv-acc-body { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 14px; min-width: 0;
+.cv-acc-body { --cv-body-pad: 14px;
+  display: flex; flex-direction: column; gap: 10px; padding: 12px var(--cv-body-pad) 14px; min-width: 0;
   background: var(--surface-veil); border-radius: 0 0 var(--r-ctl) var(--r-ctl); }
 .cv-acc-body > * { max-width: 100%; min-width: 0; }
+/* ⚠️ …except the full-bleed sticky band. It undoes the body padding with negative side margins,
+   and `max-width: 100%` capped it at the padded width while the left margin still pulled it out
+   — so it hung 14px past the rows on the left and stopped 14px short on the right. */
+.cv-acc-body > .cv-sticky-search { max-width: none; }
 /* «Wer erfasst?» + confirm modal — fronts Rapport-PDF and Ausdrucken (no accidental paper) */
 .cv-modal-ovl { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 18px;
   background: color-mix(in srgb, var(--ink) 28%, transparent); }

@@ -813,12 +813,10 @@ export function AnwesenheitView({
                       onClick={() => onSetOrt(p)}
                     >
                       <Icon id={ortOf(a) === 'station' ? 'station' : 'pin'} />
-                      <span className={s.ortLabel}>{ortOf(a) === 'station' ? A.ortStation : A.ortScene}</span>
                     </button>
                   ) : (
                     <span className={cx(s.ort, ortOf(a) === 'station' ? s.ortStation : s.ortScene)}>
                       <Icon id={ortOf(a) === 'station' ? 'station' : 'pin'} />
-                      <span className={s.ortLabel}>{ortOf(a) === 'station' ? A.ortStation : A.ortScene}</span>
                     </span>
                   )
                 )}
