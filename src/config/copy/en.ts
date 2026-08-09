@@ -1642,6 +1642,8 @@ export const en: Localizable<Copy> = {
     zeitBeforeAlarm: 'Earlier than the alarm ({t})',
     zeitBeforeAusgerueckt: 'Earlier than turnout ({t})',
     zeitFuture: 'In the future',
+    exportIncompleteTitle: 'Details still missing',
+    exportIncompleteMsg: 'The report can still be produced — the open fields stay blank and can be filled in by hand.',
     now: 'Now',
     remarksLabel: 'Remarks',
     remarksPlaceholder: 'Optional',

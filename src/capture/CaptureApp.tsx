@@ -20,6 +20,7 @@ import { Splash } from '../components/Splash'
 import { currentLineFor, visibleMittel } from '../lib/mittel'
 import { applyTimeToIso } from '../lib/abschluss'
 import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
+import { ortOf } from '../lib/attendanceOrt'
 import { Overlays, toast } from '../lib/ui'
 import { prepareUploadImage } from '../lib/imagePrep'
 import { capturePrintTransport, enqueuePrint, fetchPrintStatus, type PrintRelayStatus } from '../lib/printRelay'
@@ -415,8 +416,10 @@ export default function CaptureApp() {
     geretteteFlush.push(Object.keys(g).length ? g : undefined)
   }
 
-  // attendance tap: frei → anwesend → gegangen are visibly reflected on the row itself; the
-  // third tap DELETES the entry incl. its recorded times — that one gets confirm-with-undo
+  // attendance tap: frei → MAGAZIN → vor Ort → gegangen → frei, all on the row itself. Four
+  // states, one gesture and no dialog — the modal that used to ask «wo bist du?» was one
+  // decision too many on a phone held at a door with a glove on (09.08.). The last tap DELETES
+  // the entry incl. its recorded times, so that one gets confirm-with-undo.
   const tapPerson = async (p: CapturePerson) => {
     if (!incident) return
     const prev = attendance[p.id]
@@ -424,10 +427,6 @@ export default function CaptureApp() {
     // not stamp everyone's arrival with the tap moment near the incident's end
     const saved = await run({ kind: 'cycleAttendance', personId: p.id, name: p.display_name, vonIso: incident.started_at })
     if (!saved) return
-    // ONLY on the tap that made somebody present. The second tap («gegangen») and the third
-    // («frei») are not arrivals, and asking where a person who just left is standing is a
-    // question with no answer.
-    if (!prev) { setAskOrt(p); return }
     if (prev?.status === 'left') {
       toast(fillTemplate(C.removedEntry, { name: p.display_name }), {
         icon: 'warn',
@@ -613,10 +612,6 @@ export default function CaptureApp() {
   // editable, and the question rides in the modal that fronts PDF + Ausdrucken — which
   // also makes every print an explicit two-step, so no accidental paper.
   const [askWho, setAskWho] = useState<null | 'pdf' | 'print'>(null)
-  // Somebody who has just ticked themselves present, waiting to say WHERE they are.
-  // The poster asks rather than assuming «Magazin»: it hangs there, but it is also
-  // scanned on the way back in, and a wrong Ort is invisible to whoever caused it.
-  const [askOrt, setAskOrt] = useState<CapturePerson | null>(null)
   const [whoDraft, setWhoDraft] = useState('')
   const openWho = (what: 'pdf' | 'print') => { setWhoDraft(recorder); setAskWho(what) }
   // the page is a scrolling document (mount effect above) — freeze it behind the modal,
@@ -830,8 +825,14 @@ export default function CaptureApp() {
                 {filteredRoster.map((p) => {
                   const a = attendance[p.id]
                   const here = isPresent(a)
-                  const state = a ? (here ? 'on' : 'left') : ''
-                  // the poster edits the CURRENT presence block (it keeps the narrow three-step
+                  // ⚠️ THREE visible states, not two: «anwesend» alone was the half-truth this
+                  // feature exists to end — somebody who has scanned the poster in the Magazin
+                  // has not left the building yet, and the command post needs to see exactly
+                  // that. The row therefore shows Magazin and Vor Ort as different states.
+                  const atStation = here && ortOf(a) === 'station'
+                  const state = a ? (here ? (atStation ? 'station' : 'on') : 'left') : ''
+                  const stateLabel = !a ? '' : !here ? C.stateLeft : atStation ? A.ortStation : A.ortScene
+                  // the poster edits the CURRENT presence block (it keeps the narrow four-step
                   // cycle; returns are ticked on the tablet, which has the Zeitplan for them)
                   const blocks = intervalsOf(a)
                   const bi = blocks.length - 1
@@ -842,12 +843,12 @@ export default function CaptureApp() {
                       <button className={`cv-person ${state}`} disabled={busy}
                         onClick={() => void tapPerson(p)}>
                         <span className="cv-person-name">{p.display_name}</span>
-                        {/* state as a glyph chip (✓ / exit-arrow) — the word lives on as the
-                            aria-label and in the ⓘ help; the von/bis tag disambiguates */}
+                        {/* state as a glyph chip — the pin and the Magazin are the same two
+                            glyphs the tablet's Anwesenheit uses, so the poster and the KP say
+                            the same thing the same way. The word rides as the aria-label. */}
                         {a && (
-                          <span className="cv-person-state" role="img"
-                            aria-label={here ? C.statePresent : C.stateLeft}>
-                            <Icon id={here ? 'check' : 'arrow'} />
+                          <span className="cv-person-state" role="img" aria-label={stateLabel}>
+                            <Icon id={!here ? 'arrow' : atStation ? 'station' : 'pin'} />
                           </span>
                         )}
                       </button>
@@ -1231,35 +1232,6 @@ export default function CaptureApp() {
           </p>
         )}
       </div>
-
-      {/* Vor Ort oder Magazin, straight after the tick that recorded the arrival. Two big
-          targets and no pre-selection — a poster is read at arm's length with a glove on, and
-          a highlighted default is the one somebody taps without reading. Dismissing leaves the
-          entry at «Vor Ort» (lib/attendanceOrt · ortOf), which is what it meant before this
-          question existed, so a closed sheet never records something nobody said. */}
-      {askOrt && (
-        <div className="cv-modal-ovl" onClick={() => setAskOrt(null)}>
-          <div className="cv-card cv-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
-            <h2>{fillTemplate(C.ortAskTitle, { name: askOrt.display_name })}</h2>
-            <p className="cv-hint">{C.ortAskHint}</p>
-            <div className="cv-ort-pick">
-              {(['scene', 'station'] as const).map((ort) => (
-                <button
-                  key={ort} type="button" className={`cv-btn cv-ort-btn cv-ort-${ort}`} disabled={busy}
-                  onClick={() => {
-                    const person = askOrt
-                    setAskOrt(null)
-                    void run({ kind: 'setAttendanceOrt', personId: person.id, name: person.display_name, ort })
-                  }}
-                >
-                  <Icon id={ort === 'station' ? 'station' : 'pin'} />
-                  <span>{ort === 'station' ? A.ortStation : A.ortScene}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* «Wer erfasst?» + confirm in ONE modal — fronts both outputs, so a stray tap on
           Ausdrucken can never reach the printer, and the Erfasser lands on the record */}

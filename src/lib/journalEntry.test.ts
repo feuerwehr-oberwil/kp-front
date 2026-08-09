@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AttendanceState, Person } from '../types'
-import { composeJournalText, journalSources } from './journalEntry'
+import { acceptName, composeJournalText, journalSources, nameRanges as journalNameRanges, suggestNames } from './journalEntry'
 
 describe('composeJournalText', () => {
   it('leaves a bare entry exactly as it was written', () => {
@@ -68,5 +68,41 @@ describe('journalSources', () => {
 
   it('is empty before anybody is ticked present', () => {
     expect(journalSources(personnel, {})).toEqual([])
+  })
+})
+
+describe('typing a name', () => {
+  const sources = [
+    { id: 'p1', name: 'Baumann Michael' },
+    { id: 'p2', name: 'Meier Anna' },
+    { id: 'p3', name: 'Brunner Thomas' },
+  ]
+
+  it('suggests on the WORD, not on the whole sentence', () => {
+    expect(suggestNames('Meier meldet Baum', sources).map((s) => s.name)).toEqual(['Baumann Michael'])
+  })
+
+  it('stays quiet until the fragment could only be a name', () => {
+    expect(suggestNames('Kellerbrand im', sources)).toEqual([])
+    expect(suggestNames('Ba', sources)).toEqual([])
+  })
+
+  it('does not suggest a name that is already typed out', () => {
+    expect(suggestNames('Baumann Michael', sources).map((s) => s.name)).not.toContain('Baumann Michael')
+  })
+
+  it('replaces the word and leaves a space to keep writing', () => {
+    expect(acceptName('Meier meldet Baum', 'Baumann Michael')).toBe('Meier meldet Baumann Michael ')
+    expect(acceptName('', 'Meier Anna')).toBe('Meier Anna ')
+  })
+
+  it('marks every known name in the text, longest first so they cannot overlap', () => {
+    const text = 'Meier Anna und Brunner Thomas im 2. OG'
+    const ranges = journalNameRanges(text, sources)
+    expect(ranges.map((r) => text.slice(r.start, r.end))).toEqual(['Meier Anna', 'Brunner Thomas'])
+  })
+
+  it('marks nothing when no roster name appears', () => {
+    expect(journalNameRanges('Kellerbrand bestätigt', sources)).toEqual([])
   })
 })

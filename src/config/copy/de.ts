@@ -1959,11 +1959,6 @@ export const de = {
     logAttendancePresent: '{name} anwesend (QR)',
     logAttendanceLeft: '{name} gegangen (QR)',
     logAttendanceCleared: '{name} aus der Anwesenheit entfernt (QR)',
-    // Das Poster FRAGT, wo jemand steht, statt «Magazin» anzunehmen — es hängt zwar dort,
-    // wird aber auch auf dem Rückweg gescannt, und ein falscher Ort fällt dem, der ihn
-    // verursacht hat, nie auf. Abbrechen lässt den Eintrag auf «Vor Ort» (der Standard).
-    ortAskTitle: '{name} – wo bist du?',
-    ortAskHint: 'Damit die Einsatzleitung weiss, wer noch nachgezogen werden kann.',
     logAttendanceRestored: '{name} wiederhergestellt (QR)',
     logTimes: 'Zeiten von {name} korrigiert (QR)',
     logMittel: '{label}: {menge} {unit} (QR, {by})',
@@ -2504,6 +2499,11 @@ export const de = {
     zeitBeforeAusgerueckt: 'Liegt vor dem Ausrücken ({t})',
     zeitFuture: 'Liegt in der Zukunft',
     now: 'Jetzt',
+    // Gedruckt wird IMMER — ein halb ausgefüllter Rapport, der im Magazin von Hand
+    // fertiggeschrieben wird, ist eine echte Arbeitsweise. Aber das PDF verlässt das Haus und
+    // ist die Fassung, die abgelegt wird: also einmal benennen, was fehlt, und dann gehen lassen.
+    exportIncompleteTitle: 'Angaben fehlen noch',
+    exportIncompleteMsg: 'Der Rapport lässt sich trotzdem erstellen – die offenen Felder bleiben leer und können von Hand ergänzt werden.',
     remarksLabel: 'Bemerkungen',
     remarksPlaceholder: 'Optional',
     lehrenLabel: 'Lehren / Sicherheit',

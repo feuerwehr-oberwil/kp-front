@@ -1566,6 +1566,8 @@ export const it: Localizable<Copy> = {
     zeitBeforeAlarm: 'Precede l’allarme ({t})',
     zeitBeforeAusgerueckt: 'Precede l’uscita ({t})',
     zeitFuture: 'Nel futuro',
+    exportIncompleteTitle: 'Mancano ancora dei dati',
+    exportIncompleteMsg: 'Il rapporto può comunque essere creato – i campi aperti restano vuoti e possono essere completati a mano.',
     now: 'Ora',
     remarksLabel: 'Osservazioni',
     remarksPlaceholder: 'Facoltativo',

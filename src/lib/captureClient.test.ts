@@ -12,17 +12,23 @@ describe('cycleAttendance', () => {
   it('defaults «von» to the alarm time, not the tap moment (retro capture)', () => {
     const p = cycleAttendance(undefined, 'Meier', '2026-07-08T21:36:00Z', '2026-07-08T20:15:00Z')
     expect(p?.checkedInAt).toBe('2026-07-08T20:15:00Z')
-    // «bis» stays the tap moment
-    const left = cycleAttendance(p, 'Meier', '2026-07-08T21:40:00Z', '2026-07-08T20:15:00Z')
+    // «bis» stays the tap moment — two taps on from here, since the first one only moves
+    // them out of the Magazin
+    const onScene = cycleAttendance(p, 'Meier', '2026-07-08T20:20:00Z', '2026-07-08T20:15:00Z')
+    const left = cycleAttendance(onScene, 'Meier', '2026-07-08T21:40:00Z', '2026-07-08T20:15:00Z')
     expect(left?.leftAt).toBe('2026-07-08T21:40:00Z')
   })
 
-  it('frei → anwesend → gegangen → frei, stamping on entry', () => {
+  it('frei → Magazin → vor Ort → gegangen → frei, stamping on entry', () => {
+    // the poster hangs in the Magazin, so that is the first state — see the four-state
+    // describe block below for what each tap means
     const p1 = cycleAttendance(undefined, 'Meier', NOW)
-    expect(p1).toMatchObject({ status: 'present', checkedInAt: NOW, displayNameSnapshot: 'Meier' })
-    const p2 = cycleAttendance(p1 as AttendanceEntry, 'Meier', '2026-07-08T15:00:00Z')
-    expect(p2).toMatchObject({ status: 'left', checkedInAt: NOW, leftAt: '2026-07-08T15:00:00Z' })
-    expect(cycleAttendance(p2 as AttendanceEntry, 'Meier', NOW)).toBeUndefined()
+    expect(p1).toMatchObject({ status: 'present', checkedInAt: NOW, ort: 'station', displayNameSnapshot: 'Meier' })
+    const p2 = cycleAttendance(p1 as AttendanceEntry, 'Meier', '2026-07-08T14:55:00Z')
+    expect(p2).toMatchObject({ status: 'present', checkedInAt: NOW, ort: 'scene' })
+    const p3 = cycleAttendance(p2 as AttendanceEntry, 'Meier', '2026-07-08T15:00:00Z')
+    expect(p3).toMatchObject({ status: 'left', checkedInAt: NOW, leftAt: '2026-07-08T15:00:00Z' })
+    expect(cycleAttendance(p3 as AttendanceEntry, 'Meier', NOW)).toBeUndefined()
   })
 })
 
@@ -303,5 +309,34 @@ describe('captureJournalRow — the poster writes to the Verlauf too', () => {
     const row = captureJournalRow({ kind: 'setTimes', personId: 'p1', from: NOW }, NOW, 0, { name: 'Meier Anna' })
     expect(row?.text).toContain('Meier Anna')
     expect(row?.text).not.toContain('p1')
+  })
+})
+
+describe('cycleAttendance — four states on the poster', () => {
+  const NOW2 = '2026-08-08T22:30:00Z'
+  const VON = '2026-08-08T22:11:00Z'
+
+  it('starts at the MAGAZIN — that is where the poster hangs', () => {
+    const first = cycleAttendance(undefined, 'Meier Anna', NOW2, VON)!
+    expect(first.status).toBe('present')
+    expect(first.ort).toBe('station')
+    expect(first.intervals?.[0].from).toBe(VON)
+  })
+
+  it('second tap moves them to the Einsatzort without touching the times', () => {
+    const first = cycleAttendance(undefined, 'Meier Anna', NOW2, VON)!
+    const second = cycleAttendance(first, 'Meier Anna', NOW2)!
+    expect(second.ort).toBe('scene')
+    expect(second.status).toBe('present')
+    expect(second.intervals).toEqual(first.intervals)
+  })
+
+  it('third tap is «gegangen», fourth clears the entry', () => {
+    let e = cycleAttendance(undefined, 'Meier Anna', NOW2, VON)
+    e = cycleAttendance(e, 'Meier Anna', NOW2)
+    const left = cycleAttendance(e, 'Meier Anna', NOW2)!
+    expect(left.status).toBe('left')
+    expect(left.leftAt).toBe(NOW2)
+    expect(cycleAttendance(left, 'Meier Anna', NOW2)).toBeUndefined()
   })
 })

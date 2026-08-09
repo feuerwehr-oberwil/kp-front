@@ -8,6 +8,7 @@ import type { AttendanceEntry, AttendanceOrt, MittelEntry, TimelineEvent } from 
 import type { ReportMeta } from './workspace'
 import type { IncidentMeta, Workspace } from './incidents'
 import { closePresence, currentIntervalIndex, isPresent, openPresence, setIntervalTime } from './attendanceIntervals'
+import { ortOf } from './attendanceOrt'
 import { currentLineFor } from './mittel'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, hhmm } from './format'
@@ -62,7 +63,7 @@ const META_PROSE = new Set(['summary', 'remarks', 'lehren'])
  */
 export interface CaptureLogContext {
   /** what the attendance cycle actually DID — only knowable from the resulting entry */
-  outcome?: 'present' | 'left' | 'cleared'
+  outcome?: 'station' | 'present' | 'left' | 'cleared'
   /** display name behind a personId, so a row reads «Meier Anna» and not a uuid */
   name?: string
 }
@@ -88,7 +89,10 @@ export function captureJournalRow(
       // knowable from the resulting entry, so the caller hands the outcome in
       const tpl = ctx.outcome === 'cleared' ? C.logAttendanceCleared
         : ctx.outcome === 'left' ? C.logAttendanceLeft
-          : C.logAttendancePresent
+          // the Magazin tick is its own line: «anwesend» for somebody who has not left the
+          // building yet is the half-truth this whole feature exists to end
+          : ctx.outcome === 'station' ? appConfig.copy.anwesenheit.logOrtStation
+            : C.logAttendancePresent
       return row('user', fillTemplate(tpl, { name: action.name }))
     }
     case 'setAttendanceOrt':
@@ -149,8 +153,16 @@ export function captureJournalRow(
 export function cycleAttendance(
   cur: AttendanceEntry | undefined, name: string, nowIso: string, vonIso?: string,
 ): AttendanceEntry | undefined {
-  if (!cur) return openPresence(undefined, vonIso ?? nowIso, name)
-  if (isPresent(cur)) return closePresence(cur, nowIso, name)
+  // frei → MAGAZIN. The poster hangs in the Magazin, so that is where somebody scanning it
+  // almost always is — and it is the state the command post needs to see, because a crew at
+  // the Magazin is who can still be called forward.
+  if (!cur) return { ...openPresence(undefined, vonIso ?? nowIso, name), ort: 'station' }
+  if (isPresent(cur)) {
+    // …→ VOR ORT. Still one tap, still no dialog: the modal that asked this was one decision
+    // too many on a phone held at a door with a glove on (dropped 09.08.).
+    if (ortOf(cur) === 'station') return { ...cur, ort: 'scene' }
+    return closePresence(cur, nowIso, name) // → gegangen
+  }
   return undefined // gegangen → frei (entry removed, same as the app's third tap)
 }
 
@@ -416,7 +428,7 @@ async function logCaptureAction(
   const ctx: CaptureLogContext = {}
   if (action.kind === 'cycleAttendance') {
     const now = att(after, action.personId)
-    ctx.outcome = !now ? 'cleared' : isPresent(now) ? 'present' : 'left'
+    ctx.outcome = !now ? 'cleared' : !isPresent(now) ? 'left' : ortOf(now) === 'station' ? 'station' : 'present'
   }
   if (action.kind === 'setTimes' || action.kind === 'restoreAttendance' || action.kind === 'setAttendanceNote') {
     ctx.name = att(after, action.personId)?.displayNameSnapshot ?? att(before, action.personId)?.displayNameSnapshot
