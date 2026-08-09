@@ -11,6 +11,7 @@ import { fillTemplate, fmtSpanShort, hhmm, stripUnprintable } from '../lib/forma
 import { applyTimeToIso, isoOnDay } from '../lib/abschluss'
 import { rankAbbr, rankLabel, rankOrder } from '../lib/rank'
 import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
+import { ortCounts, ortOf } from '../lib/attendanceOrt'
 import { Overlay } from '../lib/overlays'
 import { fmtDayShort, fmtStartValue, incidentDays, isOtherDay } from '../lib/zeitplanFormat'
 import { loadPrefs, savePrefs } from '../lib/prefs'
@@ -331,7 +332,7 @@ function LivePositionChip({ live, center, onShow }: {
 // under your finger while you tap.
 export function AnwesenheitView({
   people, attendance, canEdit, loading, error, blockedIds,
-  onAddGuest, onMarkPresent, onMarkLeft, onClear, onJumpToTrupp, onReload, onSetTimes, onRemoveBlock, onSetNote, captureUsage,
+  onAddGuest, onMarkPresent, onMarkLeft, onClear, onSetOrt, onJumpToTrupp, onReload, onSetTimes, onRemoveBlock, onSetNote, captureUsage,
   shifts, bands, onCreateBand, onSaveBand, onRemoveBand, onCycleCell, onSetCellState, onPutCellState,
   startedAt, onAddShift, onAddShiftSpan, onReplaceShift, onSetShiftTime, onRemoveShift,
   onPrintZeitplan, onDownloadZeitplan, zeitplanPrintOnline,
@@ -347,6 +348,9 @@ export function AnwesenheitView({
   /** record somebody who is not on the Mannschaftsliste — see useAttendanceActions · addGuest */
   onAddGuest?: (name: string) => void
   onMarkPresent: (p: Person) => void
+  /** flip a present person between Einsatzort and Magazin — «wen könnte ich noch
+   *  nachziehen» (see lib/attendanceOrt). Absent for a session that may not write. */
+  onSetOrt?: (p: Person) => void
   onMarkLeft: (p: Person) => void
   onClear: (p: Person) => void
   onJumpToTrupp: () => void
@@ -446,7 +450,8 @@ export function AnwesenheitView({
       if (a.status === 'present') present++
       else if (a.status === 'left') left++
     }
-    return { present, left, total: people.length }
+    const { scene, station } = ortCounts(attendance)
+    return { present, left, total: people.length, scene, station }
   }, [attendance, people])
 
   // Planning is done with the people who are HERE. The whole Mannschaft on the axis buries the
@@ -534,7 +539,17 @@ export function AnwesenheitView({
       <header className={s.head}>
         <div className={s.headTitles}>
           <h2>{A.title}</h2>
-          <p>{fillTemplate(A.summary, { present: counts.present, left: counts.left, total: counts.total })}</p>
+          {/* «12 anwesend · 3 gegangen · 28 Mannschaft» — and, once anybody is at the Magazin,
+              where those twelve are. That second half IS the answer to «wen könnte ich noch
+              nachziehen», so it belongs in the head and not behind a filter. Hidden while
+              everybody is at the scene: on the ordinary Einsatz it would say «12 vor Ort · 0
+              Magazin» forever, which is a line that teaches you to stop reading the head. */}
+          <p>
+            {fillTemplate(A.summary, { present: counts.present, left: counts.left, total: counts.total })}
+            {counts.station > 0 && (
+              <> · {fillTemplate(A.summaryOrt, { scene: counts.scene, station: counts.station })}</>
+            )}
+          </p>
         </div>
         <div className={s.headActions}>
           <CaptureUsageChip usage={captureUsage} />
@@ -784,6 +799,29 @@ export function AnwesenheitView({
                 {/* THE one clock in the row, always there: it opens the sheet where several
                     stretches — came, went, came back — are added and corrected. The chip beside it
                     edits the single time shown; this is the way to all the others. */}
+                {/* Am Einsatzort oder noch im Magazin. ONE tap flips it, and the chip says
+                    which it is in a word — this is read at a glance down a column of 12 names,
+                    so it must not be a colour alone. Only on somebody who is HERE: «wo ist
+                    jemand, der gegangen ist» has no answer worth a control. */}
+                {present && (
+                  canEdit && onSetOrt ? (
+                    <button
+                      type="button"
+                      className={cx(s.ort, ortOf(a) === 'station' ? s.ortStation : s.ortScene)}
+                      title={fillTemplate(ortOf(a) === 'station' ? A.ortToScene : A.ortToStation, { name: p.displayName })}
+                      aria-label={fillTemplate(ortOf(a) === 'station' ? A.ortToScene : A.ortToStation, { name: p.displayName })}
+                      onClick={() => onSetOrt(p)}
+                    >
+                      <Icon id={ortOf(a) === 'station' ? 'station' : 'pin'} />
+                      <span className={s.ortLabel}>{ortOf(a) === 'station' ? A.ortStation : A.ortScene}</span>
+                    </button>
+                  ) : (
+                    <span className={cx(s.ort, ortOf(a) === 'station' ? s.ortStation : s.ortScene)}>
+                      <Icon id={ortOf(a) === 'station' ? 'station' : 'pin'} />
+                      <span className={s.ortLabel}>{ortOf(a) === 'station' ? A.ortStation : A.ortScene}</span>
+                    </span>
+                  )
+                )}
                 <LivePositionChip
                   live={livePositions?.get(p.id)}
                   center={incidentCenter}

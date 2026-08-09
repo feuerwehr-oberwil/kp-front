@@ -4,6 +4,7 @@ import { fillTemplate } from './format'
 import { toast } from './ui'
 import type { AttendanceState, Person, TimelineEvent } from '../types'
 import { closePresence, currentIntervalIndex, intervalsOf, isPresent, openPresence, setIntervalTime, withIntervals } from './attendanceIntervals'
+import { ortOf, otherOrt } from './attendanceOrt'
 
 /** Monotonic suffix for guest ids. `Date.now()` alone collides: two people walking in together
  *  are entered in the same millisecond, and the second entry then OVERWRITES the first — one of
@@ -62,12 +63,12 @@ export function useAttendanceActions({ attendance, setAttendance, blockedAttenda
     const returning = intervalsOf(attendance[p.id]).length > 0
     const at = returning ? new Date().toISOString() : startedAt
     setAttendance((cur) => ({ ...cur, [p.id]: openPresence(cur[p.id], at, p.displayName) }))
-    log('people', `${p.displayName} ${returning ? 'wieder anwesend' : 'anwesend'}`, 'team')
+    log('people', fillTemplate(returning ? appConfig.copy.anwesenheit.logPresentAgain : appConfig.copy.anwesenheit.logPresent, { name: p.displayName }), 'team')
   }
   const markLeft = (p: Person) => {
     if (blockedAttendanceIds.has(p.id) || !isPresent(attendance[p.id])) return
     setAttendance((cur) => (cur[p.id] ? { ...cur, [p.id]: closePresence(cur[p.id], new Date().toISOString(), p.displayName) } : cur))
-    log('people', `${p.displayName} gegangen`, 'team')
+    log('people', fillTemplate(appConfig.copy.anwesenheit.logLeft, { name: p.displayName }), 'team')
   }
   const clearAttendance = (p: Person) => {
     const prev = attendance[p.id]
@@ -125,6 +126,24 @@ export function useAttendanceActions({ attendance, setAttendance, blockedAttenda
   }
 
   /**
+   * Am Einsatzort oder noch im Magazin — the answer to «wen könnte ich noch nachziehen».
+   *
+   * A toggle, so it takes no argument: there are two states and the tap means «the other one».
+   * Written only for somebody who is actually present; on anybody else the control is not
+   * offered, because «wo ist jemand, der gegangen ist» has no answer worth storing.
+   */
+  const setAttendanceOrt = (p: Person) => {
+    const e = attendance[p.id]
+    if (!e || !isPresent(e)) return
+    const next = otherOrt(ortOf(e))
+    setAttendance((cur) => (cur[p.id] ? { ...cur, [p.id]: { ...cur[p.id], ort: next } } : cur))
+    // The Verlauf is where the HISTORY of this lives — the entry itself only ever holds the
+    // current state, so «wann kam die zweite Gruppe nach» is answerable here and nowhere else.
+    const A = appConfig.copy.anwesenheit
+    log('people', fillTemplate(next === 'station' ? A.logOrtStation : A.logOrtScene, { name: p.displayName }), 'team')
+  }
+
+  /**
    * Somebody is on scene who is not on the Mannschaftsliste — a guest, mutual aid, an AdF whose
    * roster entry never synced. The record has always been able to HOLD them (the Rapport prints
    * attendance entries with no roster row as guest lines); there was simply no way to create one
@@ -143,5 +162,5 @@ export function useAttendanceActions({ attendance, setAttendance, blockedAttenda
     return id
   }
 
-  return { markPresent, markLeft, clearAttendance, setAttendanceTimes, removeAttendanceBlock, setAttendanceNote, addGuest }
+  return { markPresent, markLeft, clearAttendance, setAttendanceTimes, removeAttendanceBlock, setAttendanceNote, setAttendanceOrt, addGuest }
 }

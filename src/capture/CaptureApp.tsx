@@ -424,6 +424,10 @@ export default function CaptureApp() {
     // not stamp everyone's arrival with the tap moment near the incident's end
     const saved = await run({ kind: 'cycleAttendance', personId: p.id, name: p.display_name, vonIso: incident.started_at })
     if (!saved) return
+    // ONLY on the tap that made somebody present. The second tap («gegangen») and the third
+    // («frei») are not arrivals, and asking where a person who just left is standing is a
+    // question with no answer.
+    if (!prev) { setAskOrt(p); return }
     if (prev?.status === 'left') {
       toast(fillTemplate(C.removedEntry, { name: p.display_name }), {
         icon: 'warn',
@@ -596,6 +600,7 @@ export default function CaptureApp() {
   // Station print relay: the same rapport straight onto the station printer — the phone
   // needs no printer setup. Hidden unless the deployment runs a relay (fail-closed).
   const R = appConfig.copy.printRelay
+  const A = appConfig.copy.anwesenheit
   const [printStatus, setPrintStatus] = useState<PrintRelayStatus | null>(null)
   const [printBusy, setPrintBusy] = useState(false)
   useEffect(() => {
@@ -608,6 +613,10 @@ export default function CaptureApp() {
   // editable, and the question rides in the modal that fronts PDF + Ausdrucken — which
   // also makes every print an explicit two-step, so no accidental paper.
   const [askWho, setAskWho] = useState<null | 'pdf' | 'print'>(null)
+  // Somebody who has just ticked themselves present, waiting to say WHERE they are.
+  // The poster asks rather than assuming «Magazin»: it hangs there, but it is also
+  // scanned on the way back in, and a wrong Ort is invisible to whoever caused it.
+  const [askOrt, setAskOrt] = useState<CapturePerson | null>(null)
   const [whoDraft, setWhoDraft] = useState('')
   const openWho = (what: 'pdf' | 'print') => { setWhoDraft(recorder); setAskWho(what) }
   // the page is a scrolling document (mount effect above) — freeze it behind the modal,
@@ -1222,6 +1231,35 @@ export default function CaptureApp() {
           </p>
         )}
       </div>
+
+      {/* Vor Ort oder Magazin, straight after the tick that recorded the arrival. Two big
+          targets and no pre-selection — a poster is read at arm's length with a glove on, and
+          a highlighted default is the one somebody taps without reading. Dismissing leaves the
+          entry at «Vor Ort» (lib/attendanceOrt · ortOf), which is what it meant before this
+          question existed, so a closed sheet never records something nobody said. */}
+      {askOrt && (
+        <div className="cv-modal-ovl" onClick={() => setAskOrt(null)}>
+          <div className="cv-card cv-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <h2>{fillTemplate(C.ortAskTitle, { name: askOrt.display_name })}</h2>
+            <p className="cv-hint">{C.ortAskHint}</p>
+            <div className="cv-ort-pick">
+              {(['scene', 'station'] as const).map((ort) => (
+                <button
+                  key={ort} type="button" className={`cv-btn cv-ort-btn cv-ort-${ort}`} disabled={busy}
+                  onClick={() => {
+                    const person = askOrt
+                    setAskOrt(null)
+                    void run({ kind: 'setAttendanceOrt', personId: person.id, name: person.display_name, ort })
+                  }}
+                >
+                  <Icon id={ort === 'station' ? 'station' : 'pin'} />
+                  <span>{ort === 'station' ? A.ortStation : A.ortScene}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* «Wer erfasst?» + confirm in ONE modal — fronts both outputs, so a stray tap on
           Ausdrucken can never reach the printer, and the Erfasser lands on the record */}

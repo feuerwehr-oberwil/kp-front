@@ -13,6 +13,7 @@ import { BrandingFields } from './BrandingFields'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { DEFAULT_HOURS_ROUNDING, fmtHours, roundedMinutes } from '../lib/attendanceHours'
+import { DEFAULT_ATTENDANCE_MERGE_GAP_MIN } from '../lib/attendanceIntervals'
 
 // The five "Station" pages. Each edits one facet of the single config document via the
 // shared ConfigContext (draft + Save live in the provider, not here). Section-level help
@@ -369,6 +370,22 @@ export function ReportSection() {
       <Field label={C.example}>
         <p className="adm-hint">{fillTemplate(C.exampleHint, { raw, rounded })}</p>
       </Field>
+
+      {/* The other number that decides what the Personalblatt says about a person's time. It
+          belongs beside the rounding rather than in its own card: both are the station's
+          convention for turning a recorded presence into a printed figure. */}
+      <h3 className="adm-fieldgroup">{C.groupMerge}</h3>
+      <p className="adm-hint">{C.mergeTip}</p>
+      <div className="adm-row-2">
+        <Field label={C.mergeGapMin} tip={C.mergeGapMinTip}>
+          <input
+            className="adm-input adm-input-mono" type="number" min={0} max={240} step={1}
+            value={numStr(getPath<number>(draft, ['report', 'attendanceMergeGapMin']))}
+            placeholder={String(DEFAULT_ATTENDANCE_MERGE_GAP_MIN)}
+            onChange={(e) => set(['report', 'attendanceMergeGapMin'], numOrNull(e.target.value))}
+          />
+        </Field>
+      </div>
     </Card>
   )
 }

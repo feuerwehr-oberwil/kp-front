@@ -4,7 +4,7 @@
 // onto the freshest server blob and retries once through a 409, so it composes with a
 // live KP tablet exactly like a second (slow, narrow) editor.
 
-import type { AttendanceEntry, MittelEntry, TimelineEvent } from '../types'
+import type { AttendanceEntry, AttendanceOrt, MittelEntry, TimelineEvent } from '../types'
 import type { ReportMeta } from './workspace'
 import type { IncidentMeta, Workspace } from './incidents'
 import { closePresence, currentIntervalIndex, isPresent, openPresence, setIntervalTime } from './attendanceIntervals'
@@ -16,6 +16,11 @@ import { fillTemplate, hhmm } from './format'
 
 export type CaptureAction =
   | { kind: 'cycleAttendance'; personId: string; name: string; vonIso?: string }
+  // Am Einsatzort oder noch im Magazin (see lib/attendanceOrt). The POSTER asks instead of
+  // assuming: it hangs in the Magazin, which is why it would be tempting to default to
+  // «Magazin» — but it is also scanned on the way back in, and a wrong Ort is invisible
+  // to the person who caused it. One tap on a surface where a tap is cheap.
+  | { kind: 'setAttendanceOrt'; personId: string; name: string; ort: AttendanceOrt }
   | { kind: 'restoreAttendance'; personId: string; entry: AttendanceEntry }
   /** correct ONE presence block's von/bis (`index`, default the current one) — not the derived
    *  checkedInAt/leftAt summary, which is recomputed from the blocks */
@@ -86,6 +91,11 @@ export function captureJournalRow(
           : C.logAttendancePresent
       return row('user', fillTemplate(tpl, { name: action.name }))
     }
+    case 'setAttendanceOrt':
+      return row('user', fillTemplate(
+        action.ort === 'station' ? appConfig.copy.anwesenheit.logOrtStation : appConfig.copy.anwesenheit.logOrtScene,
+        { name: action.name },
+      ))
     case 'restoreAttendance':
       return row('user', fillTemplate(C.logAttendanceRestored, {
         name: ctx.name ?? action.entry.displayNameSnapshot ?? '',
@@ -204,6 +214,15 @@ export function applyAction(ws: Workspace | null, action: CaptureAction, nowIso:
     const next = cycleAttendance(attendance[action.personId], action.name, nowIso, action.vonIso)
     if (next) attendance[action.personId] = next
     else delete attendance[action.personId]
+    base.attendance = attendance
+    return base
+  }
+  if (action.kind === 'setAttendanceOrt') {
+    const attendance = { ...((base.attendance as Record<string, AttendanceEntry> | undefined) ?? {}) }
+    // only ever on an entry that exists: the poster asks straight after the tick that created
+    // one, but a retried save may land after somebody cycled that person back to «frei»
+    const cur = attendance[action.personId]
+    if (cur) attendance[action.personId] = { ...cur, ort: action.ort }
     base.attendance = attendance
     return base
   }

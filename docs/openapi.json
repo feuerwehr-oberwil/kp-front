@@ -12979,6 +12979,13 @@
           },
           "hoursRounding": {
             "$ref": "#/components/schemas/HoursRoundingConfig"
+          },
+          "attendanceMergeGapMin": {
+            "type": "integer",
+            "maximum": 240.0,
+            "minimum": 0.0,
+            "title": "Attendancemergegapmin",
+            "default": 15
           }
         },
         "type": "object",

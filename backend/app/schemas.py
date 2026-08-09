@@ -847,6 +847,20 @@ class ReportConfig(BaseModel):
     #: Einsatz a different answer depending on how many people came. Set ``stepMin: 60`` for a
     #: station that counts whole hours. See ``docs/CONFIGURATION.md`` §1b.
     hoursRounding: "HoursRoundingConfig" = Field(default_factory=lambda: HoursRoundingConfig())
+    #: How short a break between two recorded presence blocks still counts as ONE stretch on
+    #: the Personalblatt, in minutes.
+    #:
+    #: Somebody ticked «gegangen» and «wieder anwesend» a minute later did not go home —
+    #: that is a corrected mis-tap, or the QR poster and the tablet recording the same arrival
+    #: from two sides. Printed as recorded it came out as two lines under one name
+    #: («22:11 – 22:58» over «22:59 – 23:20»), which reads as a break that never happened.
+    #:
+    #: The record keeps both blocks either way; only the Rapport merges them, and the
+    #: Einsatzstunden follow the same merge so the two halves of the sheet agree. ``0`` prints
+    #: every block exactly as recorded. A station number, not a per-incident one: whether a
+    #: ten-minute gap is «a break» or «two deployments» has to mean the same on every sheet
+    #: the Wehr files. See ``docs/CONFIGURATION.md`` §1b.
+    attendanceMergeGapMin: int = Field(default=15, ge=0, le=240)
 
 
 class HoursRoundingConfig(BaseModel):

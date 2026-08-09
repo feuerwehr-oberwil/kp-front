@@ -74,11 +74,14 @@ One JSON document, stored as the single `deployment_config` row, returned by `GE
     // Verwaltung › Fahrzeuge & Geräte, or edit in the config JSON and load via CLI.
     "attributeLists": [
       { "symbol": "VKF Fahrzeug",          "field": "title",   "options": ["TLF", "ADL", "HLF", "ELW"] },
-      { "symbol": "VKF Luefter mobil",     "field": "Typ",     "options": ["Überdruck", "Elektro"] },
+      { "symbol": "VKF Luefter mobil",     "field": "Typ",     "options": ["Überdruck", "Elektro", "Akku"] },
       { "symbol": "FW Kleinloeschgeraet",  "field": "Typ",     "options": ["Wasser", "Schaum", "CO₂"] },
       { "symbol": "VKF Bereich Feuerwehr", "field": "Einheit", "options": ["Stützpunkt", "Nachbarwehr"] },
       { "symbol": "VKF Bereich Sanitaet",  "field": "Einheit", "options": ["Rettungsdienst", "Rega"] },
-      { "symbol": "VKF Bereich Polizei",   "field": "Einheit", "options": ["Kantonspolizei"] }
+      { "symbol": "VKF Bereich Polizei",   "field": "Einheit", "options": ["Kantonspolizei"] },
+      // what an Offizier on the Lage is DOING — the sector they were given, not their rank
+      { "symbol": "FW Offizier",           "field": "Funktion",
+        "options": ["Of-Front", "Lüften", "Atemschutz", "Retten", "Logistik"] }
     ]
     // Legacy fixed fields (vehicleTypes/luefterTypes/kleinloeschTypes/partner) are still
     // accepted as a compatibility fallback; normalize them into attributeLists in config.
@@ -159,7 +162,10 @@ One JSON document, stored as the single `deployment_config` row, returned by `GE
     "hoursRounding": {                            // the BRACKETED Einsatzstunden figure – see §7a
       "stepMin": 30,
       "graceMin": 5
-    }
+    },
+    "attendanceMergeGapMin": 15                   // presence blocks less than this far apart print
+                                                  // as ONE stretch on the Personalblatt – see §1c;
+                                                  // 0 = print every recorded block as recorded
   },
 
   "integrations": {                              // ON/OFF only; credentials live in env (§6)
@@ -256,6 +262,32 @@ What stays public either way is the `alarmVocabulary` **summary** – `source`
 (`shipped` | `deployment`), `schemaVersion` and counts, never the words – so "is my override
 live?" is answerable without a session. The CLI is unaffected: `admin_config` reads the
 database directly rather than through the API.
+
+---
+
+## 1c. `report.attendanceMergeGapMin` – two ticks that are one arrival
+
+Presence is recorded in blocks: somebody arrives, leaves, comes back. Two blocks a minute apart
+are almost never two deployments – they are a corrected mis-tap, or the QR poster and the tablet
+recording the same arrival from two sides. Printed as recorded that came out as two lines under
+one name:
+
+```
+Keller Laura        08.08. 22:11 – 08.08. 22:58
+                    08.08. 22:59 – 08.08. 23:20
+```
+
+…which reads as a person who went home during an Einsatz that never stopped. With the shipped
+default of 15 minutes the sheet prints one stretch, `22:11 – 23:20`.
+
+**The record keeps both blocks.** Only the rapport merges them, and the Anwesenheit surface still
+shows and edits exactly what was recorded – that is where a wrong tick is corrected. The
+Einsatzstunden follow the same merge, so the hours under the roster add up to the lines above them.
+
+**A station number, not a per-incident one.** Whether a ten-minute gap is «a break» or «two
+deployments» is a Weisung, and it has to mean the same on every sheet the Wehr files – so it is
+not something an EL settles at 3am. A Wehr that runs long deployments with real Ablösungen and
+wants every one of them on paper sets `0`.
 
 ---
 
