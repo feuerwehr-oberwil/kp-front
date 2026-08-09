@@ -975,9 +975,6 @@ export const de = {
     sectionAuftrag: 'Auftrag',
     sectionTeam: 'Trupp',
     auftragLabel: 'Art',
-    moreLabel: 'Weitere Angaben',
-    moreHint: 'Art · Auftrag · Leitung · Farbe · Kanal',
-    moreLine: 'Ltg {no}',
     auftragOpen: 'Auftrag offen',
     // DISPLAY labels for the Auftrag types, keyed by the auftrag `id` (appConfig.atemschutz.auftrag).
     // de = current German labels; en/fr/it translate. The stored auftrag value is always the id —
@@ -2039,7 +2036,7 @@ export const de = {
     endeNow: 'Jetzt setzen',
     sectionPersonen: 'Anwesenheit',
     presentCount: '{n} anwesend',
-    tapHint: 'Antippen: nicht anwesend → anwesend → gegangen. Zeit daneben: von = Ankunft, nach Weggang bis = Weggang.',
+    tapHint: 'Antippen: nicht anwesend → Magazin → Vor Ort → gegangen. Zeit daneben: von = Ankunft, nach Weggang bis = Weggang.',
     tapHelp: 'Hilfe zur Bedienung',
     statePresent: 'anwesend',
     stateLeft: 'gegangen',

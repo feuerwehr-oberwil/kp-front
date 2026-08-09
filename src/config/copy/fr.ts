@@ -628,9 +628,6 @@ export const fr: Localizable<Copy> = {
     sectionAuftrag: 'Mission',
     sectionTeam: 'Binôme',
     auftragLabel: 'Type',
-    moreLabel: 'Autres indications',
-    moreHint: 'Type · Mission · Conduite · Couleur · Canal',
-    moreLine: 'Cond. {no}',
     auftragOpen: 'Mission ouverte',
     // Libellés d'AFFICHAGE des types de mission, indexés par l'id (la valeur stockée reste l'id).
     auftragLabels: {
@@ -1213,7 +1210,7 @@ export const fr: Localizable<Copy> = {
     endeNow: 'Maintenant',
     sectionPersonen: 'Présences',
     presentCount: '{n} présents',
-    tapHint: 'Toucher : absent → présent → parti. Heure à côté : de = arrivée, après le départ à = départ.',
+    tapHint: 'Toucher : absent → caserne → sur place → parti. Heure à côté : de = arrivée, après le départ à = départ.',
     statePresent: 'présent',
     stateLeft: 'parti',
     sectionMaterial: 'Matériel',

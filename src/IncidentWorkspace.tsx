@@ -3208,7 +3208,7 @@ export function IncidentWorkspace({
           personnel={personnel}
           attendance={effAttendance}
           // a Gast under PA was at the Einsatz — record them on the Anwesenheit too
-          onAddGuest={canEditIncident ? (name) => { addGuest(name) } : undefined}
+          onAddGuest={canEditIncident ? addGuest : undefined}
           createTrupp={createTruppA}
           placeTrupp={placeTrupp}
           placeTargets={placeTargets}

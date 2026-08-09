@@ -627,9 +627,6 @@ export const it: Localizable<Copy> = {
     sectionAuftrag: 'Compito',
     sectionTeam: 'Squadra',
     auftragLabel: 'Tipo',
-    moreLabel: 'Altri dati',
-    moreHint: 'Tipo · Incarico · Linea · Colore · Canale',
-    moreLine: 'Linea {no}',
     auftragOpen: 'Incarico aperto',
     // Etichette di VISUALIZZAZIONE dei tipi di mandato, indicizzate per id (il valore resta l'id).
     auftragLabels: {
@@ -1268,7 +1265,7 @@ export const it: Localizable<Copy> = {
     endeNow: 'Adesso',
     sectionPersonen: 'Presenze',
     presentCount: '{n} presenti',
-    tapHint: 'Toccare: assente → presente → andato. Ora accanto: da = arrivo, dopo l\'uscita a = uscita.',
+    tapHint: 'Toccare: assente → rimessa → sul posto → andato. Ora accanto: da = arrivo, dopo l\'uscita a = uscita.',
     statePresent: 'presente',
     stateLeft: 'partito',
     sectionMaterial: 'Materiale',

@@ -638,9 +638,6 @@ export const en: Localizable<Copy> = {
     sectionAuftrag: 'Assignment',
     sectionTeam: 'Team',
     auftragLabel: 'Type',
-    moreLabel: 'More details',
-    moreHint: 'Type · Task · Line · Colour · Channel',
-    moreLine: 'Line {no}',
     auftragOpen: 'No task yet',
     // DISPLAY labels for the Auftrag types, keyed by the auftrag id (stored value stays the id).
     auftragLabels: {
@@ -1263,7 +1260,7 @@ export const en: Localizable<Copy> = {
     endeNow: 'Set to now',
     sectionPersonen: 'Attendance',
     presentCount: '{n} present',
-    tapHint: 'Tap: absent → present → left. Time next to it: from = arrival, after leaving to = departure.',
+    tapHint: 'Tap: absent → station → on scene → left. Time next to it: from = arrival, after leaving to = departure.',
     tapHelp: 'How this works',
     statePresent: 'present',
     stateLeft: 'left',

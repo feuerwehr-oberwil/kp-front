@@ -43,7 +43,8 @@ export function TruppTeam({
   /** the job somebody already holds on this Einsatz (Anwesenheits-Bemerkung) — a soft note */
   rolesById?: Map<string, string>
   /** record a hand-typed Gast on the Anwesenheit too. Absent for a session that may not write. */
-  onAddGuest?: (name: string) => void
+  /** records the Gast on the Anwesenheit and hands back the id it filed them under */
+  onAddGuest?: (name: string) => string | undefined
 }) {
   const az = appConfig.copy.atemschutz
   const [q, setQ] = useState('')
@@ -96,12 +97,15 @@ export function TruppTeam({
   const submitTyped = () => {
     const name = typed.trim()
     if (!name) return
-    add({ name })
     // A Gast under PA was at the Einsatz — that is not in question, it is the premise of putting
     // them in a Trupp. They used to have to be added to the Anwesenheit by hand afterwards, and
     // a name that only ever existed on a Trupp card reaches neither the Personalblatt nor the
     // statistics export.
-    onAddGuest?.(name)
+    // ⚠️ …and the slot keeps the id the Anwesenheit gave them, so the two rows are the SAME
+    // person to everything downstream: the roster row locks and wears the PA badge, the picker
+    // says «in einem Trupp», and «einer, ein Trupp» holds for a Nachbarwehr too. Added by name
+    // only, the Gast was two unrelated entries that happened to read alike.
+    add({ name, personId: onAddGuest?.(name) })
     setTyped('')
     setTyping(false)
   }
