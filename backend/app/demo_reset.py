@@ -68,7 +68,7 @@ DEMO_INCIDENT = {
     "title": "Zimmerbrand",
     "type": "Brand",
     "text": "Gemeldeter Zimmerbrand im 2. OG, Rauch sichtbar. Menschenrettung läuft.",
-    "address": "Schlossgasse 9, 4103 Bottmingen",
+    "address": "Schlossgasse 9, 9999 Musterdorf",
     "lat": 47.52371857249871,
     "lng": 7.570345444795164,
     "divera_id": 990000,

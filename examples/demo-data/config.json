@@ -6,7 +6,7 @@
     "helpIntro": "Demo-Deployment mit synthetischen Daten — keine echte Wehr. Änderungen bleiben erhalten und werden jede Nacht zurückgesetzt.",
     "demoMode": true,
     "demoNote": "Demo-Zugang · PIN 000000 für alle · Daten sind synthetisch, für alle sichtbar und werden alle 12 Stunden zurückgesetzt (Mitternacht und Mittag).",
-    "kommandant": "Thomas Brunner"
+    "kommandant": "Brunner Thomas"
   },
   "map": {
     "defaultView": {
@@ -17,7 +17,7 @@
       "zoom": 14
     },
     "geocoder": {
-      "defaultLocality": "4104 Oberwil",
+      "defaultLocality": "9999 Musterdorf",
       "bboxLv95": "2606000,1258000,2614000,1266000"
     }
   },

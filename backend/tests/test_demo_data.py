@@ -19,7 +19,7 @@ def test_demo_incident_matches_its_only_object_plan() -> None:
 
     # the pre-filled RUNNING incident is the Schloss, so its object's Module plans attach.
     obj = raw["objects"][0]
-    assert obj["name"] == "Schloss Bottmingen"
+    assert obj["name"] == "Schloss Musterdorf"
     assert obj["address"] == DEMO_INCIDENT["address"]
     assert obj["lat"] == DEMO_INCIDENT["lat"]
     assert obj["lng"] == DEMO_INCIDENT["lng"]

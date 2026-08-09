@@ -155,7 +155,7 @@ async def test_reset_keeps_objects_when_not_wiping(session_factory, monkeypatch)
     async with session_factory() as db:
         db.add(
             ObjectSite(
-                name="Schloss Bottmingen", address="Schlossgasse 9, 4103 Bottmingen", lat=47.5237186, lng=7.5703454
+                name="Schloss Musterdorf", address="Schlossgasse 9, 9999 Musterdorf", lat=47.5237186, lng=7.5703454
             )
         )
         await db.commit()

@@ -23,8 +23,8 @@ HERE = Path(__file__).resolve().parent
 
 # The two demo objects — pipes/hydrants cluster around these (geocoded addresses).
 POIS = [
-    ("Feuerwehr Musterdorf", 47.51643, 7.56195),   # Feuerwehrstrasse 1, 4104 Musterdorf
-    ("Schloss Musterdorf", 47.52382, 7.57037),  # Schlossgasse 9, 4104 Musterdorf
+    ("Feuerwehr Musterdorf", 47.51643, 7.56195),   # Feuerwehrstrasse 1, 9999 Musterdorf
+    ("Schloss Musterdorf", 47.52382, 7.57037),  # Schlossgasse 9, 9999 Musterdorf
 ]
 RADIUS_M = 430           # keep streets whose vertices fall within this of a POI
 HYDRANT_SPACING_M = 150  # place a hydrant roughly every N metres along a main
