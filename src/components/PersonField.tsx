@@ -47,6 +47,11 @@ export function PersonField({
   const az = appConfig.copy.atemschutz
   const [open, setOpen] = useState(false)
   const [officersOnly, setOfficersOnly] = useState(false)
+  // Narrowing the roster by typing. A 66-person Mannschaft in a 252px menu is ~5 visible rows,
+  // so finding somebody meant scrolling past sixty names with a gloved finger — the one
+  // complaint about this picker after the 08.08. Einsatz. NOT auto-focused: this stays a
+  // roster-first picker, and a keyboard that opens by itself covers the list it is filtering.
+  const [search, setSearch] = useState('')
   // Roster-first: the field is a tap-to-open picker (no keyboard). The OS keyboard only
   // appears once the user explicitly chooses "Name eingeben" for a guest / mutual-aid name.
   const [typing, setTyping] = useState(false)
@@ -83,8 +88,14 @@ export function PersonField({
     return legacyRoster.filter((n) => !usedNames.has(n)).map((n) => ({ key: n, name: n, present: false, assigned: false }))
   }, [personnel, legacyRoster, presentIds, assignedIds, usedIds, usedNames, rolesById, rankFirst, officerFilter, officersOnly])
 
-  // filter only while typing a free name; the roster list shows in full when just browsing
-  const filtered = typing && q ? options.filter((o) => o.name.toLowerCase().includes(q)) : options
+  // two independent narrowings: the free-name field filters by what is being typed INTO the
+  // slot, the menu's own box filters while browsing. Never both — the box only exists in the
+  // menu, and the menu is closed while typing a name.
+  const needle = (typing ? q : search.trim().toLowerCase())
+  const filtered = needle ? options.filter((o) => o.name.toLowerCase().includes(needle)) : options
+  // below this the whole roster is on screen anyway and a search box is one more control
+  // between the finger and the name it came for
+  const showSearch = options.length > 8
 
   // entering type-mode is a deliberate user tap, so focusing here is allowed to open the keyboard
   useEffect(() => { if (typing) inputRef.current?.focus() }, [typing])
@@ -95,7 +106,7 @@ export function PersonField({
     if (!open) return
     const onDown = (e: PointerEvent) => {
       const t = e.target as Node
-      if (!rootRef.current?.contains(t) && !menuRef.current?.contains(t)) setOpen(false)
+      if (!rootRef.current?.contains(t) && !menuRef.current?.contains(t)) { setOpen(false); setSearch('') }
     }
     document.addEventListener('pointerdown', onDown)
     return () => document.removeEventListener('pointerdown', onDown)
@@ -120,6 +131,9 @@ export function PersonField({
     return () => { window.removeEventListener('scroll', place, true); window.removeEventListener('resize', place) }
   }, [open])
 
+  // a menu that reopens still holding last time's search would look like a roster with people
+  // missing from it — the one way this control can lie
+  const closeMenu = () => { setOpen(false); setSearch('') }
   const clear = () => { onChange({ name: '' }); setTyping(false) }
 
   return (
@@ -143,14 +157,14 @@ export function PersonField({
             // the Trupp card's one-line name row; every real roster name is far inside this
             maxLength={40}
             onChange={(e) => onChange({ name: stripUnprintable(e.target.value) })}
-            onBlur={() => window.setTimeout(() => { setTyping(false); setOpen(false) }, 120)}
+            onBlur={() => window.setTimeout(() => { setTyping(false); closeMenu() }, 120)}
           />
         ) : (
           <button
             ref={pickRef}
             type="button" className={cx(s.comboPick, !value.name && s.comboPickEmpty)}
             aria-haspopup="listbox" aria-expanded={open}
-            onClick={() => setOpen((v) => !v)}
+            onClick={() => { if (open) closeMenu(); else setOpen(true) }}
           >
             <span className={s.comboPickName}>{value.name || placeholder}</span>
           </button>
@@ -169,6 +183,24 @@ export function PersonField({
             // position:fixed that's viewport-bottom + 4 — the 0-height-sliver trap the
             // global Combo already guards against)
             style={{ left: pos.left, width: pos.width, maxHeight: pos.maxH, ...(pos.up ? { top: 'auto', bottom: window.innerHeight - pos.top + 4 } : { top: pos.top + 4 }) }}>
+            {showSearch && (
+              <li className={s.comboSearchRow}>
+                <span className={s.comboSearchIcon} aria-hidden><Icon id="search" /></span>
+                <input
+                  className={s.comboSearch} value={search} inputMode="search"
+                  placeholder={az.teamSearchPlaceholder} aria-label={az.teamSearchPlaceholder}
+                  onChange={(e) => setSearch(e.target.value)}
+                  // a stray Enter in a picker must not submit the form the picker sits in
+                  onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault() }}
+                />
+                {search && (
+                  <button type="button" className={s.comboSearchClear}
+                    aria-label={appConfig.copy.anwesenheit.clearSearch}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => setSearch('')}><Icon id="close" /></button>
+                )}
+              </li>
+            )}
             {officerFilter && (
               <li>
                 <button
@@ -185,7 +217,7 @@ export function PersonField({
               <li key={o.key}>
                 <button
                   type="button" className={s.comboOpt}
-                  onClick={() => { onChange({ name: o.name, personId: o.personId }); setOpen(false) }}
+                  onClick={() => { onChange({ name: o.name, personId: o.personId }); closeMenu() }}
                 >
                   {o.personId && <span className={cx(s.comboDot, o.present ? s.comboDotPresent : s.comboDotOff)} />}
                   {o.rank && <span className={s.comboRank} title={rankLabel(o.rank)}>{rankAbbr(o.rank)}</span>}
@@ -198,10 +230,10 @@ export function PersonField({
                 </button>
               </li>
             ))}
-            {!filtered.length && <li className={s.comboEmpty}>{az.noRoster}</li>}
+            {!filtered.length && <li className={s.comboEmpty}>{needle ? az.teamNoMatches : az.noRoster}</li>}
             {/* type-a-name fallback for guests / mutual aid — only here does the keyboard appear */}
             <li>
-              <button type="button" className={cx(s.comboOpt, s.comboType)} onClick={() => { setOpen(false); setTyping(true) }}>
+              <button type="button" className={cx(s.comboOpt, s.comboType)} onClick={() => { closeMenu(); setTyping(true) }}>
                 <Icon id="type" /><span>{az.typeName}</span>
               </button>
             </li>

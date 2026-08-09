@@ -121,9 +121,20 @@ export function useTruppActions(deps: Deps) {
   // plan, not the Lage map. The EL places one manually later via "Platzieren" (placeTruppOnPlan),
   // which drops a resource chip on the Gebäude floor-stack (or Modul 6) keyed by Trupp.annoId.
   const createTrupp = (t: Trupp) => {
+    // The Eingangsdruck IS a measurement, taken at the Tafel before anybody goes anywhere — so it
+    // opens the Druckverlauf rather than sitting outside it. It used to be recorded only in
+    // `entryPressureBar`, and the log started at «Eingerückt»: a Sicherungstrupp that was never
+    // sent in therefore printed «Kein Druckverlauf erfasst» on the Rapport under a Trupp whose
+    // cylinder the Überwacher had read and typed in (08.08. Einsatz).
+    const registered: Trupp['readings'] = t.readings?.length
+      ? t.readings
+      : [{ t: new Date().toISOString(), bar: t.entryPressureBar, kind: 'registered' }]
     // a new card joins at the END of the hand-set order, never in the middle of a board somebody
     // arranged — `order` is synced, so it lands the same way on every device
-    setTrupps((ts) => [...ts, { ...t, order: t.order ?? ts.reduce((n, x) => Math.max(n, x.order ?? 0), 0) + 1 }])
+    setTrupps((ts) => [...ts, {
+      ...t, readings: registered,
+      order: t.order ?? ts.reduce((n, x) => Math.max(n, x.order ?? 0), 0) + 1,
+    }])
     // with the Eingangsdruck: it is the number the whole pressure trend is measured from, and
     // the Verlauf used to start the story without it
     log('flag', fillTemplate(appConfig.copy.atemschutz.logRegister, { name: t.name, bar: String(t.entryPressureBar) }), 'team')
@@ -381,7 +392,12 @@ export function useTruppActions(deps: Deps) {
       }
       return { ...t, status }
     }))
-    const tpl = status === 'aktiv' ? (isResume ? az.logContinue : az.logEntry) : status === 'rueckzug' ? az.logRueckzug : status === 'raus' ? az.logExit : null
+    // «draussen» on a Trupp that never went in is a false statement about where people were —
+    // a Sicherungstrupp that was stood down gets its own line (see atemschutz · truppNeverDeployed)
+    const neverDeployed = status === 'raus' && !tr?.entryTime
+    const tpl = status === 'aktiv' ? (isResume ? az.logContinue : az.logEntry)
+      : status === 'rueckzug' ? az.logRueckzug
+      : status === 'raus' ? (neverDeployed ? az.logNotDeployed : az.logExit) : null
     const icon = status === 'raus' ? 'logout' : status === 'rueckzug' ? 'undo' : 'flag'
     if (tpl) log(icon, fillTemplate(tpl, { name: tr?.name ?? '' }), 'team')
     emit('atemschutz.status', { id, status })
@@ -390,7 +406,7 @@ export function useTruppActions(deps: Deps) {
     // Rückgängig toast restoring the pre-raus Trupp (status + entry/contact clocks + exitTime).
     if (status === 'raus' && tr) {
       const snapshot = tr
-      toast(fillTemplate(appConfig.copy.atemschutz.logExit, { name: tr.name }), {
+      toast(fillTemplate(neverDeployed ? az.logNotDeployed : az.logExit, { name: tr.name }), {
         icon: 'undo',
         action: { label: appConfig.copy.undo, onClick: () => setTrupps((ts) => ts.map((t) => (t.id === id ? snapshot : t))) },
       })
@@ -436,7 +452,9 @@ export function useTruppActions(deps: Deps) {
           status: standby ? 'angemeldet' : 'aktiv',
           entryTime: standby ? '' : now, lastContactTime: standby ? '' : now, exitTime: undefined,
           entryPressureBar: f.pressure, lastPressureBar: undefined, lastPressureTime: undefined, lowestBar: f.pressure,
-          readings: standby ? [] : [{ t: now, bar: f.pressure, kind: 'entry' }] }
+          // standby is the create path exactly: the fresh cylinder was read, so the log opens
+          // with that reading rather than empty (see createTrupp)
+          readings: [{ t: now, bar: f.pressure, kind: standby ? 'registered' : 'entry' }] }
       : t)))
     if (tr && f.lineNo !== tr.lineNo && tr.lineId) clearLineAnchor(id)
     if (tr && f.name !== tr.name) syncPlacementLabel(tr, f.name)

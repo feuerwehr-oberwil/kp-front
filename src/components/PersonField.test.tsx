@@ -52,3 +52,41 @@ describe('PersonField', () => {
     expect(onChange).toHaveBeenCalledWith({ name: 'Gast Person' })
   })
 })
+
+describe('PersonField · roster search', () => {
+  const many: Person[] = Array.from({ length: 12 }, (_, i) => ({
+    id: `x${i}`, displayName: `Muster ${String(i).padStart(2, '0')}`, active: true,
+    updatedAt: '2026-08-09T00:00:00.000Z',
+  }))
+
+  function open(personnel: Person[]) {
+    render(
+      <PersonField
+        label="Einsatzleiter" placeholder="Person wählen" value={{ name: '' }} onChange={vi.fn()}
+        personnel={personnel} legacyRoster={[]} presentIds={new Set()} assignedIds={new Set()}
+        usedIds={new Set()} usedNames={new Set()}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Person wählen' }))
+  }
+
+  it('narrows a long roster by what is typed', () => {
+    open(many)
+    expect(screen.getAllByRole('button', { name: /Muster/ })).toHaveLength(12)
+    fireEvent.change(screen.getByLabelText('Person suchen …'), { target: { value: 'ster 07' } })
+    const hits = screen.getAllByRole('button', { name: /Muster/ })
+    expect(hits).toHaveLength(1)
+    expect(hits[0].textContent).toContain('Muster 07')
+  })
+
+  it('says «kein Treffer» rather than «keine Mannschaft» when a search finds nothing', () => {
+    open(many)
+    fireEvent.change(screen.getByLabelText('Person suchen …'), { target: { value: 'zzz' } })
+    expect(screen.getByText('Kein Treffer')).toBeTruthy()
+  })
+
+  it('offers no search box on a roster that already fits', () => {
+    open(personnel)
+    expect(screen.queryByLabelText('Person suchen …')).toBeNull()
+  })
+})

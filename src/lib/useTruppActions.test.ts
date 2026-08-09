@@ -165,7 +165,9 @@ describe('useTruppActions — Rückzug / Fortsetzen count as a Funkkontakt', () 
     expect(t.entryTime).toBe('')
     expect(t.lastContactTime).toBe('')
     expect(t.exitTime).toBeUndefined()
-    expect(t.readings).toEqual([]) // fresh cylinder, fresh record — the entry row comes on «Eingerückt»
+    // the fresh cylinder was READ — that reading opens the log, so a Reserve that is never
+    // sent in still prints a Druckverlauf instead of «Kein Druckverlauf erfasst»
+    expect(t.readings).toEqual([{ t: expect.any(String), bar: 300, kind: 'registered' }])
     expect(t.entryPressureBar).toBe(300)
     expect(t.lowestBar).toBe(300) // the old 40 bar must not follow the new bottle
     // and the standby Trupp is genuinely off the contact clock
@@ -191,7 +193,12 @@ describe('useTruppActions — Rückzug / Fortsetzen count as a Funkkontakt', () 
     const t = state.trupps[0]
     expect(t.status).toBe('aktiv')
     expect(t.entryTime).toBeTruthy()
-    expect(t.readings).toEqual([{ t: t.entryTime, bar: 300, kind: 'entry' }])
+    // the standby reading stays: the log is append-only, and the two rows are two real
+    // moments — the cylinder read at the Tafel, then the crew going under PA
+    expect(t.readings).toEqual([
+      { t: expect.any(String), bar: 300, kind: 'registered' },
+      { t: t.entryTime, bar: 300, kind: 'entry' },
+    ])
   })
 
   it('«Raus» ends monitoring and does NOT fake a contact', () => {
@@ -473,5 +480,17 @@ describe('truppEditChanges (what the Verlauf line says)', () => {
 
   it('says nothing when the form was saved unchanged', () => {
     expect(truppEditChanges(prev, fields({ funkkanal: 11 }))).toEqual([])
+  })
+})
+
+describe('useTruppActions — the Eingangsdruck opens the Druckverlauf', () => {
+  it('a newly registered Trupp already has its cylinder reading logged', () => {
+    const { actions, state } = harness(baseTrupp({}))
+    actions.createTrupp({
+      id: 'T9', name: 'Sicherungstrupp', entryPressureBar: 300, entryTime: '', lastContactTime: '',
+      lowestBar: 300, status: 'angemeldet', readings: [],
+    })
+    const t = state.trupps.find((x) => x.id === 'T9')!
+    expect(t.readings).toEqual([{ t: expect.any(String), bar: 300, kind: 'registered' }])
   })
 })

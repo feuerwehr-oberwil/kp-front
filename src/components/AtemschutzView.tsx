@@ -8,10 +8,12 @@ import { Segmented } from './Segmented'
 import { Stepper } from './Stepper'
 import { Menu, Overlay } from '../lib/overlays'
 import { contactSeverity, deriveTruppLive, estimatePressure, fmtClock, pressureAlarm, type TruppLive } from '../lib/atemschutz'
+import { truppStatusLabel } from '../lib/report'
 import type { AttendanceState, Person, Trupp, TruppFields } from '../types'
 import { abbreviateName, assignedPersonIds } from '../lib/personnel'
 import { truppLineNo, type LeitungOption } from '../lib/truppLines'
-import { PersonField, type Slot } from './PersonField'
+import type { Slot } from './PersonField'
+import { TruppTeam } from './TruppTeam'
 import { ensureNotifyPermission, unlockAlarm } from '../lib/alarm'
 import { atemschutzDoctrine } from '../lib/deploymentConfig'
 import { useHoldRepeat } from '../lib/useHoldRepeat'
@@ -467,7 +469,9 @@ function TruppCard({
 }) {
   const az = appConfig.copy.atemschutz // read per-render so the resolved locale applies
   const status = live.status
-  const statusLabel = az.status[status] ?? status
+  // «Draussen» on a Trupp that never went under PA claims it came out of something. Only that
+  // one word differs — the state, the section and the actions are the same (truppNeverDeployed).
+  const statusLabel = status === 'raus' ? truppStatusLabel(t) : (az.status[status] ?? status)
   const [logOpen, setLogOpen] = useState(false)
   const inField = t.status === 'aktiv' || t.status === 'rueckzug'
   const auftrag = auftragTypeLabel(t)
@@ -688,6 +692,14 @@ function TruppCard({
           <button className={cx(s.actBtn, s.actEnter)} onClick={() => onStatus(t.id, 'aktiv')}>
             <Icon id="flag" /><span>{az.actEnter}</span>
           </button>
+          {/* The Sicherungstrupp that was never needed. Until 08.08. the only way to close one
+              was the bin — which throws away the one record that says a crew stood ready, on a
+              document that is the legal account of the Einsatz. This closes it like any other
+              Trupp: under «Draussen», break clock running, «Wieder einrücken» right there. */}
+          <button className={cx(s.actBtn, s.actStandDown)} title={az.actNotDeployedHint}
+            onClick={() => onStatus(t.id, 'raus')}>
+            <Icon id="logout" /><span>{az.actNotDeployed}</span>
+          </button>
         </div>
       )}
       {canEdit && inField && (
@@ -708,7 +720,7 @@ function TruppCard({
       )}
       {status === 'raus' && (
         <>
-          {t.exitTime && <div className={s.exitedNote}>{az.status.raus}: {fmtTime(t.exitTime)}</div>}
+          {t.exitTime && <div className={s.exitedNote}>{truppStatusLabel(t)}: {fmtTime(t.exitTime)}</div>}
           {canEdit && (
             <div className={s.actions}>
               <button className={cx(s.actBtn, s.actReenter)} onClick={onReenter}>
@@ -758,12 +770,16 @@ function TruppForm({
   // null = automatic (the station colour for this Auftrag, else the next free palette colour).
   // A picked colour is used as picked, duplicates included — see Trupp.color.
   const [color, setColor] = useState<string | null>(initial?.color ?? null)
-  const [leader, setLeader] = useState<Slot>({ name: initial?.name ?? '', personId: initial?.leaderPersonId })
-  const [members, setMembers] = useState<Slot[]>(
-    initial?.members?.length
-      ? initial.members.map((m, i) => ({ name: m, personId: initial.memberPersonIds?.[i] }))
-      : [{ name: '' }, { name: '' }], // default Trupp = 1 Truppführer + 2 AdF
-  )
+  // ONE list, leader first (see TruppTeam): `team[0]` IS the Gruppenführer, which is also the
+  // order the card, the Rapport and the map tag print. The record on disk keeps its old shape
+  // (`name` + `members`), so nothing that ever read a Trupp has to change.
+  const [team, setTeam] = useState<Slot[]>(() => {
+    const lead: Slot[] = initial?.name ? [{ name: initial.name, personId: initial.leaderPersonId }] : []
+    const rest = (initial?.members ?? [])
+      .map((m, i) => ({ name: m, personId: initial?.memberPersonIds?.[i] }))
+      .filter((m) => m.name.trim())
+    return [...lead, ...rest]
+  })
   // a fresh cylinder for create / re-deploy; edit never touches pressure
   const [pressure, setPressure] = useState<number>(() => {
     const dz = atemschutzDoctrine()
@@ -781,32 +797,30 @@ function TruppForm({
   const showPressure = mode !== 'edit'
   const isAnderes = auftrag === 'anderes'
   const auftragOk = !!auftrag && (!isAnderes || ziel.trim().length > 0)
-  // a linked person already deployed in another active Trupp blocks submit (one person, one Trupp)
+  // A linked person already deployed in another active Trupp blocks submit (one person, one
+  // Trupp). The picker no longer OFFERS one — but an existing Trupp being edited can still carry
+  // somebody who was assigned elsewhere in the meantime, and that has to be sayable.
   const assignedConflict = useMemo(() => {
-    for (const sl of [leader, ...members]) {
-      if (sl.personId && assignedIds.has(sl.personId)) return sl.name.trim() || 'Diese Person'
+    for (const sl of team) {
+      if (sl.personId && assignedIds.has(sl.personId)) return sl.name.trim() || az.assignedFallbackName
     }
     return null
-  }, [leader, members, assignedIds])
-  const canSubmit = auftragOk && leader.name.trim().length > 0 && (!showPressure || pressure > 0) && !assignedConflict
-
-  // names/ids already chosen in this form — excluded from the other slots' dropdowns
-  const usedNames = new Set([leader.name.trim(), ...members.map((m) => m.name.trim())].filter(Boolean))
-  const usedIds = new Set([leader.personId, ...members.map((m) => m.personId)].filter(Boolean) as string[])
+  }, [team, assignedIds])
+  const canSubmit = auftragOk && (team[0]?.name.trim().length ?? 0) > 0 && (!showPressure || pressure > 0) && !assignedConflict
 
   const submit = (standby = false) => {
     if (!canSubmit) return
-    const cleanMembers = members.filter((m) => m.name.trim())
+    const cleanMembers = team.slice(1).filter((m) => m.name.trim())
     const memberPersonIds = cleanMembers.map((m) => m.personId).filter(Boolean) as string[]
     onSubmit({
-      name: leader.name.trim(),
+      name: team[0].name.trim(),
       members: cleanMembers.length ? cleanMembers.map((m) => m.name.trim()) : undefined,
       auftrag: auftrag ?? undefined,
       ziel: ziel.trim() || undefined,
       lineNo: lineNo ?? undefined,
       funkkanal: Number.isFinite(funkkanal) ? funkkanal : undefined,
       pressure,
-      leaderPersonId: leader.name.trim() ? leader.personId : undefined,
+      leaderPersonId: team[0].personId,
       memberPersonIds: memberPersonIds.length ? memberPersonIds : undefined,
       color, // null = automatic
     }, standby)
@@ -887,29 +901,14 @@ function TruppForm({
 
           <div className={s.formCol}>
             <div className={s.formSection}>{az.sectionTeam}</div>
-            <PersonField
-              label={az.leaderLabel} placeholder={az.leaderPlaceholder}
-              value={leader} onChange={setLeader}
-              personnel={personnel} legacyRoster={roster} presentIds={presentIds} assignedIds={assignedIds}
-              usedIds={usedIds} usedNames={usedNames} rolesById={rolesById}
+            {/* One list, ticked; the star says who leads. A Trupp is valid with exactly one name
+                (the Gruppenführer), so a two-person Trupp, a four-person Trupp and a mis-tap are
+                all one tap apart — which the three fixed slots could not do. */}
+            <TruppTeam
+              value={team} onChange={setTeam}
+              personnel={personnel} legacyRoster={roster} presentIds={presentIds}
+              assignedIds={assignedIds} rolesById={rolesById}
             />
-            {/* Every AdF row is removable, including the two the form starts with. A Trupp needs
-                exactly one name to be valid — the Gruppenführer — so a two-person Trupp, a
-                four-person Trupp and a row added by mistake are all reachable from here.
-                Removing by INDEX (not by value) so identical empty rows can't collapse together. */}
-            {members.map((m, i) => (
-              <PersonField
-                key={i} label={`${az.memberLabel} ${i + 1}`} placeholder={az.memberPlaceholder}
-                value={m} onChange={(slot) => setMembers((ms) => ms.map((x, j) => (j === i ? slot : x)))}
-                onRemove={() => setMembers((ms) => ms.filter((_, j) => j !== i))}
-                removeLabel={fillTemplate(az.removeMember, { n: i + 1 })}
-                personnel={personnel} legacyRoster={roster} presentIds={presentIds} assignedIds={assignedIds}
-                usedIds={usedIds} usedNames={usedNames} rolesById={rolesById}
-              />
-            ))}
-            <button className={s.linkBtn} onClick={() => setMembers((ms) => [...ms, { name: '' }])}>
-              <Icon id="plus" /><span>{az.addMember}</span>
-            </button>
             {/* The colour this Trupp wears on the Lage and on the plan. «Automatisch» is the
                 normal case (every Trupp a different one); picking is for when the EL would rather
                 read the picture by role — «alle Löschtrupps rot» — and a duplicate is then the

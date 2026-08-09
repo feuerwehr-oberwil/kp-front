@@ -221,6 +221,11 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 /* end monitoring — neutral, not a reassuring green check (green = "in field, contact fresh") */
 .actExit { color: var(--ink-dim); }
 .actExit:hover { background: var(--fill-soft); color: var(--ink); }
+/* «Nicht eingesetzt» sits beside the green «Eingerückt» and must not compete with it: entering
+   the field is the action this card exists for, standing the Trupp down is the quiet one. Same
+   weight as «Raus», which is the same kind of decision. */
+.actStandDown { color: var(--ink-dim); }
+.actStandDown:hover { background: var(--fill-soft); color: var(--ink); }
 /* re-deploy an exited Trupp — prominent filled action on the otherwise-quiet raus card */
 .actReenter { color: var(--on-accent-ink); background: var(--green); }
 .actReenter:hover { background: var(--green-solid-hover); }
@@ -487,6 +492,20 @@ button.stepVal:hover { border-color: var(--blue); }
   flex: none; font: 800 10px var(--body); letter-spacing: .02em; color: var(--ink-dim);
   background: color-mix(in srgb, var(--accent) 12%, var(--surface)); border-radius: 5px; padding: 2px 5px;
 }
+/* the roster search, pinned above the list — sticky so it survives a scroll: a filter you have
+   to scroll back up to reach is a filter you stop using */
+.comboSearchRow { position: sticky; top: -4px; z-index: 1; display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px; margin: -4px -4px 2px; background: var(--surface);
+  border-bottom: 1px solid var(--glass-edge); }
+.comboSearchIcon { display: grid; place-items: center; color: var(--ink-faint); flex: none; }
+.comboSearchIcon :global(.i) { width: 15px; height: 15px; }
+.comboSearch { flex: 1 1 auto; min-width: 0; border: none; background: transparent; outline: none;
+  font-family: var(--body); font-size: 14px; color: var(--ink); padding: 6px 0; }
+.comboSearchClear { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border: none;
+  background: transparent; color: var(--ink-faint); cursor: pointer; border-radius: var(--r-sm); }
+.comboSearchClear:hover { background: var(--fill-soft); color: var(--ink); }
+.comboSearchClear :global(.i) { width: 14px; height: 14px; }
+
 /* "nur Offiziere" toggle pinned above the roster list */
 .comboToggle {
   color: var(--ink-dim); font-weight: 700; border-bottom: 1px solid var(--glass-edge);
@@ -496,6 +515,59 @@ button.stepVal:hover { border-color: var(--blue); }
 /* --blue: this is a SELECTED state, and --accent is the brand red — the note two rules up in
    this same file says so. */
 .comboToggleOn { color: var(--ink); background: color-mix(in srgb, var(--blue) 12%, transparent); }
+
+/* ── Trupp-Auswahl (TruppTeam) ────────────────────────────────────────────────────────────
+   The Trupp first, the Mannschaft under it: the top block is the ANSWER and stays put, the
+   list below is the way to it and scrolls. Both live in one column so the whole team fits a
+   tablet without the form scrolling — three stacked dropdowns used to be taller than this. */
+.team { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.teamEmpty { margin: 0; padding: 10px 12px; border: 1px dashed var(--glass-edge); border-radius: var(--r-ctl);
+  font-size: 12.5px; font-weight: 600; color: var(--ink-faint); }
+.teamChosen { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.teamRow { display: flex; align-items: center; gap: 8px; min-height: var(--tap); padding: 4px 6px 4px 4px;
+  border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface); }
+/* the Gruppenführer's row carries the emphasis, not just a badge — the card, the Rapport and the
+   map tag all print this person first, so the form should look the way the paper reads */
+.teamRowLead { border-color: color-mix(in srgb, var(--amber) 45%, transparent);
+  background: color-mix(in srgb, var(--amber) 9%, var(--surface)); }
+.teamName { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font: 700 14px var(--body); color: var(--ink); }
+.teamBadge { flex: none; font: 800 10px var(--body); letter-spacing: .05em; color: var(--amber-strong);
+  background: color-mix(in srgb, var(--amber) 18%, transparent); border-radius: 5px; padding: 2px 6px; }
+.teamCrown { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: var(--r-sm);
+  border: 1px solid transparent; background: transparent; color: var(--ink-faint); cursor: pointer; position: relative; }
+.teamCrown::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px;
+  transform: translate(-50%, -50%); }
+.teamCrown :global(.i) { width: 17px; height: 17px; }
+.teamCrown:hover:not(:disabled) { color: var(--amber-strong);
+  background: color-mix(in srgb, var(--amber) 14%, transparent); }
+/* the leader's star is FILLED and inert: it states who leads rather than offering it again */
+.teamCrownOn { color: var(--amber-strong); cursor: default; }
+.teamCrownOn :global(.i) { fill: currentColor; }
+
+.teamSearch { display: flex; align-items: center; gap: 8px; padding: 0 10px; min-height: var(--tap);
+  border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface); }
+.teamSearch :global(.i) { width: 16px; height: 16px; color: var(--ink-faint); flex: none; }
+.teamSearch input { flex: 1 1 auto; min-width: 0; border: none; background: transparent; outline: none;
+  font-family: var(--body); font-size: 15px; color: var(--ink); padding: 0; }
+.teamSearchClear { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border: none;
+  background: transparent; color: var(--ink-faint); cursor: pointer; border-radius: var(--r-sm); }
+.teamSearchClear:hover { background: var(--fill-soft); color: var(--ink); }
+.teamSearchClear :global(.i) { width: 14px; height: 14px; }
+
+/* Bounded, so the Auftrag column beside it stays reachable without scrolling the whole modal.
+   ~5 rows: enough that the search is usually unnecessary, short enough to keep the footer in
+   view — the button that actually starts the Trupp must never be below the fold. */
+.teamList { list-style: none; margin: 0; padding: 4px; max-height: 232px; overflow-y: auto;
+  border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface); }
+.teamOptTaken { opacity: .45; cursor: default; }
+.teamOptTaken:hover { background: none; }
+
+.teamTypeRow { display: flex; align-items: center; gap: 8px; }
+.teamTypeInput { flex: 1 1 auto; min-width: 0; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
+  padding: 11px 12px; background: var(--surface); font-family: var(--body); font-size: 15px; color: var(--ink);
+  outline: none; }
+.teamTypeInput:focus { border-color: var(--ink); }
 
 @media (max-width: 600px) {
   /* full width below the top bar (78px clears the floating bar with a visible gap — at 64px
