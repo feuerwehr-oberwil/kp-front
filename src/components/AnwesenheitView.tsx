@@ -688,6 +688,11 @@ export function AnwesenheitView({
               <span><i className={s.dotFrei} />{A.legendFrei}</span>
               <span><i className={s.dotPresent} />{A.legendPresent}</span>
               <span><i className={s.dotLeft} />{A.legendLeft}</span>
+              {/* the Ort button is a glyph on the row and nothing on it says which glyph means
+                  what. Here is where you look it up once and never again. */}
+              <span className={s.legendSep} />
+              <span className={s.legendOrt}><Icon id="pin" />{A.ortScene}</span>
+              <span className={cx(s.legendOrt, s.legendOrtStation)}><Icon id="station" />{A.ortStation}</span>
             </div>
           )}
           {/* how far the axis reaches — it belongs on the search line beside the thing it filters,

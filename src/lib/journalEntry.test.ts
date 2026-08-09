@@ -45,9 +45,16 @@ describe('typing a term', () => {
     expect(suggestLinks('3 Sack Ölbind', vocab).map((l) => l.kind)).toEqual(['material'])
   })
 
-  it('stays quiet until the fragment could only be a name', () => {
+  it('offers from two letters on, but only where they START a word', () => {
+    expect(suggestLinks('Ba', vocab).map((l) => l.name)).toEqual(['Baumann Michael'])
+    // …a word inside the name counts too — «Mi» is how you reach for the Vorname
+    expect(suggestLinks('Mi', vocab).map((l) => l.name)).toEqual(['Baumann Michael'])
+  })
+
+  it('⚠️ two letters of fuzzy subsequence would put half the Mannschaft under every «im»', () => {
+    // 'i','m' are both in «Baumann Michael» in order — a prefix rule is what keeps it quiet
     expect(suggestLinks('Kellerbrand im', vocab)).toEqual([])
-    expect(suggestLinks('Ba', vocab)).toEqual([])
+    expect(suggestLinks('L', vocab)).toEqual([])
   })
 
   it('⚠️ stops offering a term once it is written out — a second tap wrote it twice', () => {

@@ -46,7 +46,9 @@ export function suggestLinks(text: string, vocab: JournalLink[], limit = 4): Jou
   const word = currentWord(text)
   if (word.length < MIN_NAME_FRAGMENT) return []
   const written = text.toLowerCase().trimEnd()
+  const strict = word.length === MIN_NAME_FRAGMENT
   return vocab
+    .filter((l) => !strict || startsAWord(word, l.name))
     .map((l) => ({ l, score: fuzzyScore(word, l.name) }))
     // ⚠️ Compared against the whole TEXT, not the word. A full name is two words, so after
     // accepting «Baumann Michael» the word under the cursor is «Michael» — which still matches,
@@ -68,9 +70,16 @@ export function currentWord(text: string): string {
   return text.split(/[\s]/).pop() ?? ''
 }
 
-/** A term is worth offering from this many letters on. Two would put half the Mannschaft under
- *  every «zu», «am», «in» somebody types. */
-const MIN_NAME_FRAGMENT = 3
+/** A term is worth offering from this many letters on. */
+const MIN_NAME_FRAGMENT = 2
+
+/** …but at exactly two letters only a WORD START counts. Two letters of fuzzy subsequence put
+ *  half the Mannschaft under every «zu», «am», «in» somebody types; «Ba» → «Baumann Michael»
+ *  and «Mi» → «Baumann Michael» is what the two letters were actually meant to do. */
+function startsAWord(word: string, name: string): boolean {
+  const q = word.toLowerCase()
+  return name.toLowerCase().split(/[\s(/-]+/).some((w) => w.startsWith(q))
+}
 
 /** Replace the word being typed with the accepted term, keeping everything before it. */
 export function acceptName(text: string, name: string): string {

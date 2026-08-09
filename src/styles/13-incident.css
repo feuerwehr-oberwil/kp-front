@@ -796,6 +796,9 @@
    and `max-width: 100%` capped it at the padded width while the left margin still pulled it out
    — so it hung 14px past the rows on the left and stopped 14px short on the right. */
 .cv-acc-body > .cv-sticky-search { max-width: none; }
+/* …and it butts straight against the head. The band and the head are the same surface, so the
+   body's top padding drew a stripe of page between two things that belong to one card. */
+.cv-acc-body:has(> .cv-sticky-search:first-child) { padding-top: 0; }
 /* «Wer erfasst?» + confirm modal — fronts Rapport-PDF and Ausdrucken (no accidental paper) */
 .cv-modal-ovl { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 18px;
   background: color-mix(in srgb, var(--ink) 28%, transparent); }

@@ -70,6 +70,10 @@
 .legend { display: inline-flex; align-items: center; gap: 14px; flex: none; }
 .legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--ink-faint); }
 .legend i { width: 9px; height: 9px; border-radius: 50%; }
+/* the two Ort glyphs, in the colours they carry on the row — read once, then the row is enough */
+.legend .legendOrt svg { width: 14px; height: 14px; color: var(--ink-dim); }
+.legend .legendOrtStation svg { color: var(--blue-strong); }
+.legendSep { width: 1px; height: 14px; background: var(--glass-edge); }
 
 /* the dense grid — auto-fill so a wide screen packs many columns, narrow ones fewer */
 .grid {
