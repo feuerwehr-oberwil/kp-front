@@ -89,14 +89,14 @@ function buildPlanInfo(plans: ReferenceDataset[]): { plans: Record<string, strin
   for (const pl of plans) {
     const k = planKey(pl)
     if (!k) continue
-    map[k] = referenceUrl(pl.id)
+    map[k] = referenceUrl(pl.id, pl.current_version)
     if (pl.title) titles[k] = pl.title
   }
   if (!map['modul2-3']) {
     const m2 = plans.find((p) => planKey(p) === 'modul2')
     const m3 = plans.find((p) => planKey(p) === 'modul3')
     if (m2 && m3 && m2.size_bytes != null && m2.size_bytes === m3.size_bytes) {
-      map['modul2-3'] = referenceUrl(m2.id) // identical content → the combined sheet
+      map['modul2-3'] = referenceUrl(m2.id, m2.current_version) // identical content → the combined sheet
     }
   }
   return { plans: map, titles }

@@ -19,8 +19,19 @@ export interface ReferenceDataset {
 }
 
 export const listReference = () => apiGet<ReferenceDataset[]>('/api/reference')
-/** URL for fetching a reference dataset file (geojson/symbols/pdf), same-origin. */
-export const referenceUrl = (id: string) => `/api/reference/${encodeURIComponent(id)}`
+/**
+ * URL for fetching a reference dataset file (geojson/symbols/pdf), same-origin.
+ *
+ * ⚠️ Pass the dataset's `current_version` for anything that gets REPLACED in place. Re-uploading
+ * a Modul-PDF writes new bytes under the same dataset id — the id is the stable handle, which is
+ * the point of it — so the URL stayed identical while the sheet changed, and three caches keyed
+ * on that URL kept serving the old plan: the service worker's `reference-data` entry (stale-
+ * while-revalidate, 30 days), pdf.js' document cache, and the rendered-bitmap cache. The version
+ * IS the cache key; `store_plan` bumps it on every write for exactly this reason. The backend
+ * ignores the query string (api/report · _REFERENCE_URL, api/reference reads the path param).
+ */
+export const referenceUrl = (id: string, version?: number) =>
+  `/api/reference/${encodeURIComponent(id)}${version == null ? '' : `?v=${version}`}`
 export async function uploadReference(id: string, file: Blob, filename: string, sourceNote?: string) {
   const form = new FormData()
   form.append('file', file, filename)

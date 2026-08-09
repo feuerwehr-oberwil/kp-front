@@ -242,3 +242,18 @@ async def test_a_branding_url_cannot_read_outside_its_own_store(client, editor, 
     figs: dict[str, bytes] = {}
     await resolve_report_assets(db_session, ReportPayload.model_validate(_minimal_payload("x")), figs)
     assert _LOGO_KEY not in figs
+
+
+async def test_plan_page_url_with_a_version_query_still_resolves(client, editor):
+    """⚠️ Plan URLs carry `?v=<current_version>` so a re-uploaded Modul-PDF busts every cache
+    keyed on the URL. The resolver's pattern was anchored WITHOUT a query string, so those urls
+    matched nothing and the plan page would have dropped out of the printed rapport in silence —
+    the same failure the branding URL had."""
+    from app.api.report import _REFERENCE_URL
+
+    assert _REFERENCE_URL.match("/api/reference/plan:abc:modul1").group(1) == "plan:abc:modul1"
+    assert _REFERENCE_URL.match("/api/reference/plan:abc:modul1?v=3").group(1) == "plan:abc:modul1"
+    assert _REFERENCE_URL.match("/api/reference/plan:abc:modul1?v=3&x=1").group(1) == "plan:abc:modul1"
+    # and it still refuses anything that is not one dataset id
+    assert _REFERENCE_URL.match("/api/reference/a/b") is None
+    assert _REFERENCE_URL.match("/api/media/x") is None

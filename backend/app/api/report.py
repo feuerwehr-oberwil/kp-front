@@ -34,7 +34,12 @@ _MAX_FIGURE_BYTES = 12 * 1024 * 1024  # 12 MB per captured page — generous for
 _ALLOWED_FIGURE_TYPES = {"image/png", "image/jpeg", "image/webp"}
 
 _MEDIA_URL = re.compile(r"^/api/media/([0-9a-fA-F-]{36})$")
-_REFERENCE_URL = re.compile(r"^/api/reference/([^/?#]+)$")
+#: ⚠️ The query string is OPTIONAL, and ignored. Plan URLs carry the dataset's version
+#: (`?v=3`) so that re-uploading a Modul-PDF produces a NEW url and every cache — the service
+#: worker's, pdf.js' document cache, the rendered-bitmap cache — misses instead of serving the
+#: sheet somebody replaced. Anchored without it, this pattern matched none of those urls and
+#: the plan page dropped out of the printed rapport in silence, exactly like the logo below.
+_REFERENCE_URL = re.compile(r"^/api/reference/([^/?#]+)(?:\?[^#]*)?$")
 #: ⚠️ `.+`, not `[^/]+`: the storage key IS a path («branding/<uuid>.png»), which is why the
 #: route itself declares `{key:path}`. A slash-free pattern here matched nothing, so the logo
 #: was skipped in silence — stored, served, configured, and absent from the sheet.
