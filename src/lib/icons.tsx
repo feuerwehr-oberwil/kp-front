@@ -67,6 +67,16 @@ export function IconSprite() {
       <symbol id="hourglass" viewBox="0 0 24 24"><path d="M6 4h12M6 20h12M8 4l4 8 4-8M8 20l4-8 4 8" /></symbol>
       <symbol id="bell" viewBox="0 0 24 24"><path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z" /><path d="M10 20a2 2 0 0 0 4 0" /></symbol>
       <symbol id="check" viewBox="0 0 24 24"><path d="M5 12.5 10 17 19 7" stroke-width="2.2" /></symbol>
+      {/* Am Einsatzort: the map's own position pin, so «vor Ort» on the crew list and a dot on
+          the Lage read as the same idea. Deliberately NOT a flame — this says WHERE somebody is,
+          not what is burning. */}
+      <symbol id="pin" viewBox="0 0 24 24"><path d="M12 21.5s7-6.6 7-11.5a7 7 0 1 0-14 0c0 4.9 7 11.5 7 11.5z" /><circle cx="12" cy="10" r="2.6" /></symbol>
+      {/* …and its counterpart: the Magazin, a building with a door */}
+      <symbol id="station" viewBox="0 0 24 24"><path d="M3.5 10.5 12 4l8.5 6.5" /><path d="M5.5 9.8V20h13V9.8" /><path d="M10 20v-5.5h4V20" /></symbol>
+      {/* who LEADS — the Gruppenführer crown in the Trupp picker. Outline while it is an offer,
+          filled by the caller (.teamCrownOn) once it is the state, so the leader reads as a
+          fact rather than as one more button that could still be pressed. */}
+      <symbol id="star" viewBox="0 0 24 24"><path d="m12 3.8 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" stroke-linejoin="round" /></symbol>
       <symbol id="checklist" viewBox="0 0 24 24"><rect x="3.5" y="6.5" width="14" height="14" rx="2" /><path d="M8 3.5h10.5a2 2 0 0 1 2 2V16" /><path d="M6.8 12.4l1.5 1.5 2.7-3M13.2 13h2" /><path d="M6.8 17.2l1.5 1.5 2.7-3M13.2 17.8h2" /></symbol>
       <symbol id="lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="9.5" rx="2.2" /><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" /></symbol>
       {/* «Einsatz abschliessen»: a lid, a box, and the thing going down into it — the action

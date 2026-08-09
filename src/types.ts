@@ -357,7 +357,26 @@ export interface TimelineEvent {
   annoId?: string        // related board annotation (e.g. a team) to select
   /** user-dropped pin (vs. an automatic entity/team link) — shown with a pin glyph */
   pinned?: boolean
+  /**
+   * Who said it, and what kind of statement it was.
+   *
+   * ⚠️ Both are ALSO written into `text` at compose time, and `text` stays the record: the
+   * Verlauf, the Rapport and the audit chain all read that one string, and a row whose meaning
+   * lived in a side field would say something different in the app than on the paper. These
+   * exist so the journal can later be FILTERED and counted by them — «zeig mir alle
+   * Sofortmassnahmen» — not so that a second copy of the sentence can drift from the first.
+   *
+   * `source.personId` is set only when the name came off the Mannschaftsliste; ELZ, Polizei,
+   * Melder and a typed name carry a name and no id, which is exactly what they are.
+   */
+  source?: { name: string; personId?: string }
+  /** Führungsrhythmus (BGV Behelf Schadenplatz): an ordinary observation, an order given, or
+   *  an immediate measure. Absent = an ordinary entry, which is the overwhelming majority. */
+  entryType?: JournalEntryType
 }
+
+/** `'info'` · `'auftrag'` (Befehlsgebung) · `'sofort'` (Sofortmassnahme). See TimelineEvent. */
+export type JournalEntryType = 'info' | 'auftrag' | 'sofort'
 
 export interface Incident {
   type: string
@@ -548,12 +567,13 @@ export interface ReportAttachment {
   at: string
 }
 
-/** One entry in a Trupp's contact/pressure log. `entry` = eingerückt (or re-deployed), `contact`
+/** One entry in a Trupp's contact/pressure log. `registered` = angemeldet (the cylinder read at
+ *  the Tafel, before anyone goes anywhere), `entry` = eingerückt (or re-deployed), `contact`
  *  = a radio check (pressure unchanged, carries the current reading), `pressure` = a new reading. */
 export interface TruppReading {
   t: string
   bar: number
-  kind: 'entry' | 'contact' | 'pressure'
+  kind: 'registered' | 'entry' | 'contact' | 'pressure'
 }
 
 export interface Trupp {
@@ -678,7 +698,22 @@ export interface AttendanceEntry {
   /** Every executed block, oldest first — the truth (see lib/attendanceIntervals). Absent on an
    *  entry written before blocks existed, which projects its checkedInAt/leftAt pair instead. */
   intervals?: PresenceInterval[]
+  /**
+   * Where this person is RIGHT NOW: at the Einsatzort, or still at the Magazin.
+   *
+   * The question it answers is «wen könnte ich noch nachziehen», which is a question about this
+   * minute and nothing else — so it is ONE state per person, not a second kind of presence block.
+   * It is deliberately not history: a record of every walk between the Magazin and the scene
+   * would be a lot of rows nobody ever reads, and the Verlauf already carries the changes.
+   *
+   * Absent on every entry written before 2026-08-09, and on anybody not present — those read as
+   * `'scene'` (see lib/attendanceOrt · ortOf), because before this existed «anwesend» meant «here».
+   */
+  ort?: AttendanceOrt
 }
+
+/** `'scene'` = am Einsatzort · `'station'` = im Magazin. See AttendanceEntry.ort. */
+export type AttendanceOrt = 'scene' | 'station'
 export type AttendanceState = Record<string, AttendanceEntry>
 
 /** One planned availability block of the Schichtenplanung (see lib/shifts). A PLAN — it never

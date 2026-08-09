@@ -877,6 +877,23 @@ export const de = {
     // last-writer-wins stays, but the divergence is said, not silent (append-only record)
     attendanceConflict: 'Anwesenheit von {name}: abweichende Angaben aus QR-Erfassung und KP wurden zusammengeführt – bitte prüfen.',
     quickPhrasesAria: 'Textbausteine',
+    // ── Wer hat es gesagt, und was für eine Aussage ist es ──
+    // Beides landet im TEXT der Zeile (lib/journalEntry · composeJournalText); die
+    // strukturierten Felder gibt es zum Filtern, nicht zum Anzeigen.
+    sourceLabel: 'Von',
+    // Anwesende stehen sofort da — eine Suche wäre mehr Arbeit, als den Namen in den Satz zu
+    // tippen, und dann füllt es niemand aus.
+    sourceMore: 'Weitere …',
+    sourceSearch: 'Person suchen …',
+    sourceClear: 'Von leeren',
+    // Nicht aus der Mannschaft: erfahrungsgemäss die Mehrheit der Meldungen
+    sourcePresets: ['ELZ', 'Polizei', 'Melder', 'Eigentümer'] as string[],
+    sourceTyped: 'Name eingeben',
+    typeLabel: 'Art',
+    // «Info» ist der Normalfall und druckt KEINE Marke — eine Marke auf jeder Zeile ist
+    // Tapete. Die Wörter stammen aus dem Führungsrhythmus (BGV Behelf Schadenplatz).
+    entryTypes: { info: 'Info', auftrag: 'Auftrag', sofort: 'Sofortmassnahme' } as Record<string, string>,
+    entryTypeShort: { info: 'Info', auftrag: 'Auftrag', sofort: 'Sofort' } as Record<string, string>,
     pinMap: 'An aktueller Kartenmitte anheften',
     pinPlan: 'An aktueller Planmitte anheften',
     send: 'Erfassen',
@@ -991,6 +1008,22 @@ export const de = {
     memberPlaceholder: 'Name (optional)',
     addMember: 'AdF hinzufügen',
     removeMember: 'AdF {n} entfernen',
+    // Trupp-Auswahl (TruppTeam) — eine Liste zum Antippen statt drei feste Felder. Die drei
+    // Felder konnten einen Trupp benennen, aber nicht umstellen: wer zuerst getippt wurde, war
+    // für immer Gruppenführer. Der Stern ist die Korrektur, und sie kostet einen Tipp.
+    teamEmpty: 'Noch niemand im Trupp. Unten antippen.',
+    teamSearchPlaceholder: 'Person suchen …',
+    teamNoMatches: 'Kein Treffer',
+    leaderBadge: 'GF',
+    makeLeader: '{name} als Gruppenführer',
+    teamRemove: '{name} aus dem Trupp nehmen',
+    // jemand, der schon in einem anderen aktiven Trupp steht: sichtbar, aber nicht wählbar –
+    // eine Person, ein Trupp. Ausblenden hiess, dass die Suche einfach nichts fand.
+    teamTaken: 'in einem Trupp',
+    // von Hand getippt, also ohne Verknüpfung zur Mannschaftsliste
+    teamManual: 'ohne Eintrag',
+    teamTypeName: 'Name eingeben (Gast / Nachbarwehr)',
+    teamAdd: 'Hinzufügen',
     // Leitung: dieselbe Nummer wie auf der gezeichneten Leitung (Lage/Plan) — daran finden sich
     // Trupp und Schlauchlinie, ohne dass jemand etwas doppelt tippt.
     lineNoLabel: 'Leitung Nr.',
@@ -1021,6 +1054,8 @@ export const de = {
     officersOnly: 'nur Offiziere',
     typeName: 'Name eingeben …',
     assignedConflict: '{name} ist bereits in einem anderen Trupp.',
+    // wenn der Slot verknüpft, aber namenlos ist — stand als deutsches Literal im Code
+    assignedFallbackName: 'Diese Person',
     cancel: 'Abbrechen',
     save: 'Speichern',
     start: 'Trupp anmelden',
@@ -1058,7 +1093,7 @@ export const de = {
     pressureConfirmHint: 'Neuen Druck bestätigen – zählt als Kontakt',
     // per-Trupp contact/pressure log (expandable on the card)
     verlauf: 'Verlauf',
-    readingKind: { entry: 'Eingerückt', contact: 'Kontakt', pressure: 'Druck' } as Record<string, string>,
+    readingKind: { registered: 'Angemeldet', entry: 'Eingerückt', contact: 'Kontakt', pressure: 'Druck' } as Record<string, string>,
     // contact-clock state words (carry the state as TEXT, not colour alone — colourblind-safe)
     clockOk: 'Kontakt ok',
     clockWarn: 'Kontakt fällig',
@@ -1074,6 +1109,14 @@ export const de = {
     actContinue: 'Fortsetzen',
     actExit: 'Raus',
     actReenter: 'Wieder einrücken',
+    // Ein Sicherungstrupp geht meistens NICHT hinein. Bis 08.08. konnte man ihn nur löschen –
+    // also das Einzige wegwerfen, was belegt, dass er bereitstand. Er wird jetzt abgeschlossen
+    // wie jeder andere: unter «Draussen», mit Pausenuhr, jederzeit wieder einrückbar.
+    actNotDeployed: 'Nicht eingesetzt',
+    actNotDeployedHint: 'Trupp abschliessen, ohne dass er unter PA war – bleibt für einen erneuten Einsatz bereit',
+    // Statuswort und Verlaufszeile für genau diesen Fall: «draussen» behauptet, er sei drin gewesen
+    statusNotDeployed: 'Nicht eingesetzt',
+    logNotDeployed: 'Trupp {name} nicht eingesetzt',
     exitConfirmTitle: 'Trupp draussen?',
     exitConfirmMsg: 'Den Trupp als draussen markieren und die Überwachung beenden?',
     remove: 'Entfernen',
@@ -1333,6 +1376,17 @@ export const de = {
     center: 'Zentrieren',
     resetGps: 'GPS',
     resetGpsTitle: 'Auf GPS-Position und -Kurs zurücksetzen',
+    // Der Kroki wird Stunden später gedruckt. Ein Fahrzeug, das inzwischen heimgefahren ist,
+    // nimmt sein Symbol mit — das Bild zeigt dann kein TLF an einem Einsatz, der eines hatte.
+    // «Festhalten» schreibt die JETZIGE Position als Übersteuerung; «GPS» daneben ist der Weg
+    // zurück, also gibt es kein zweites Fahrzeug-Verhalten, das man sich merken müsste.
+    pinGps: 'Festhalten',
+    pinGpsTitle: 'Fahrzeug hier festhalten – es bleibt stehen, auch wenn es wegfährt',
+    logPinned: '{name} festgehalten',
+    // Verlaufszeilen des Fahrzeug-Feeds. Sie beantworten «wann ist wer weggefahren» – die
+    // Frage, die Stunden später niemand mehr aus dem Kopf beantwortet.
+    logVehicleArrived: '{name} vor Ort',
+    logVehicleLeft: '{name} hat den Einsatzort verlassen',
     // Selbstauskunft vom Kommandoposten aus entfernen: jemand fährt mit eingeschaltetem Teilen
     // nach Hause, oder ein Handy stirbt auf seinem letzten Fix – der Punkt behauptet dann, eine
     // Kraft sei irgendwo, wo sie nicht ist.
@@ -1905,6 +1959,11 @@ export const de = {
     logAttendancePresent: '{name} anwesend (QR)',
     logAttendanceLeft: '{name} gegangen (QR)',
     logAttendanceCleared: '{name} aus der Anwesenheit entfernt (QR)',
+    // Das Poster FRAGT, wo jemand steht, statt «Magazin» anzunehmen — es hängt zwar dort,
+    // wird aber auch auf dem Rückweg gescannt, und ein falscher Ort fällt dem, der ihn
+    // verursacht hat, nie auf. Abbrechen lässt den Eintrag auf «Vor Ort» (der Standard).
+    ortAskTitle: '{name} – wo bist du?',
+    ortAskHint: 'Damit die Einsatzleitung weiss, wer noch nachgezogen werden kann.',
     logAttendanceRestored: '{name} wiederhergestellt (QR)',
     logTimes: 'Zeiten von {name} korrigiert (QR)',
     logMittel: '{label}: {menge} {unit} (QR, {by})',
@@ -2364,9 +2423,17 @@ export const de = {
     proofIntact: 'Hash-Kette intakt',
     proofBroken: 'Hash-Kette unterbrochen',
     proofBrokenAt: 'Hash-Kette unterbrochen bei #{seq}',
-    // journalArea — the "Bereich" column value for a printed journal row
+    // journalArea — the "Bereich" column value for a printed journal row. Die Namen sind die
+    // Flächennamen der App (copy.modes), damit man die Zeile dort wiederfindet, wo sie entstand.
     areaManual: 'Manuell',
     areaAtemschutz: 'Atemschutz',
+    areaAnwesenheit: 'Anwesenheit',
+    areaMittel: 'Mittel',
+    areaChecklist: 'Checkliste',
+    areaRapport: 'Rapport',
+    // «Kroki» stand hier, bis 09.08.: das ist das gedruckte Bild, nicht die Fläche, auf der
+    // jemand etwas gesetzt hat. Alles andere in dieser Spalte nennt eine Fläche.
+    areaLage: 'Lage',
     // describeDrawing — short tactical labels for a drawing in the report
     drawCircle: 'Absperrkreis',
     drawAreaLabeled: 'Abschnitt "{label}"',
@@ -2514,6 +2581,14 @@ export const de = {
     krokiSummary: '{shape} · Stand {at}',
     framingHint: 'Karte verschieben und zoomen – gedruckt wird genau dieser Ausschnitt.',
     framingFit: 'Auf Einsatz zoomen',
+    // Der Ausschnitt folgte bis 09.08. nicht nach: einmal um 22:20 gewählt, um 01:30 unverändert
+    // gedruckt — mit allem, was seither dazukam, ausserhalb, und ohne dass es jemand sagte.
+    framingFollows: 'Folgt der Lage',
+    framingFollowOn: 'Der Ausschnitt wächst mit der Lage mit. Verschieben schaltet das ab.',
+    framingFollowOff: 'Ausschnitt an die Lage anpassen – und mitwachsen lassen',
+    // Ein Pfeil statt Herauszoomen: was draussen liegt, ist meist ein Hydrant zwei Strassen
+    // weiter, und dafür das halbe Bild kleiner zu machen kostet mehr, als es bringt.
+    framingOutside: '{n} ausserhalb – antippen zum Anpassen',
     // Kontrolle section
     controlHead: 'Kontrolle',
     // Der Zustands-Chip zählt, was offen ist, statt nur «Kontrolle» zu sagen
@@ -2566,6 +2641,22 @@ export const de = {
     noteLabel: 'Bemerkung',
     notePlaceholder: 'z. B. Fahrer TLF',
     logNote: '{name} – Bemerkung: {note}',
+    // Die drei Verlaufszeilen der Anwesenheit. Sie standen bis 09.08. als deutsche Literale im
+    // Code — auf einer französischen Installation war das Journal an genau diesen Stellen
+    // deutsch, und der Rapport druckt es so, wie es erfasst wurde.
+    logPresent: '{name} anwesend',
+    logPresentAgain: '{name} wieder anwesend',
+    logLeft: '{name} gegangen',
+    // Am Einsatzort oder noch im Magazin — die Antwort auf «wen könnte ich noch nachziehen».
+    // Der Eintrag hält nur den JETZIGEN Zustand; der Verlauf hält, wann er gewechselt hat.
+    ortScene: 'Vor Ort',
+    ortStation: 'Magazin',
+    ortToScene: '{name} an den Einsatzort schicken',
+    ortToStation: '{name} ins Magazin setzen',
+    logOrtScene: '{name} vor Ort',
+    logOrtStation: '{name} im Magazin',
+    // Kopfzeile: erst wie viele da sind, dann wo sie sind
+    summaryOrt: '{scene} vor Ort · {station} Magazin',
     // Person, die gar nicht auf der Mannschaftsliste steht (Gast, Nachbarwehr, noch nicht
     // synchronisiert). Bewusst KEIN Mannschaftseintrag: sie war heute Abend hier – das ist eine
     // Aussage über diesen Einsatz, nicht über die Wehr.
@@ -3168,6 +3259,11 @@ export const de = {
       graceMinTip: 'So viele Minuten über einem Block zählen noch nicht als neuer. Verhindert, dass drei Minuten über der halben Stunde einen ganzen Block kosten.',
       example: 'Beispiel',
       exampleHint: 'Drei Personen mit {raw} ergeben gerundet {rounded}.',
+      // Die zweite Zahl, die entscheidet, was auf dem Personalblatt über eine Zeit steht.
+      groupMerge: 'Anwesenheit – Zeiten zusammenfassen',
+      mergeTip: 'Zwei Einträge kurz hintereinander sind fast nie zwei Einsätze, sondern ein korrigierter Fehltipp – oder Poster und Tablet haben dieselbe Ankunft erfasst. Auf dem Rapport werden sie zu einer Strecke; erfasst bleiben beide, und in der Anwesenheit steht weiterhin, was wirklich getippt wurde.',
+      mergeGapMin: 'Lücke bis (min)',
+      mergeGapMinTip: 'Kürzere Unterbrüche gelten auf dem Rapport als eine Strecke. 0 druckt jeden erfassten Block einzeln.',
     },
     doctrine: {
       groupFunk: 'Funk',
