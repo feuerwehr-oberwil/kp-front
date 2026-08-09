@@ -852,8 +852,12 @@ class _FormRows(Flowable):
 
 #: Letterhead size for the station logo — tall enough to be recognised, short enough that the
 #: incident title stays the first thing read on the page.
-_LOGO_H = 13 * mm
-_LOGO_MAX_W = 55 * mm
+#:
+#: Raised from 13mm on 09.08.: the mark sat against a title AND a subtitle line hung under it at
+#: the page margin, so it read as the smallest thing in its own letterhead. With the subtitle
+#: moved into the title cell the head is one two-line block ≈17mm tall, and the mark matches it.
+_LOGO_H = 17 * mm
+_LOGO_MAX_W = 60 * mm
 
 
 def _logo_flowable(data: bytes | None) -> Image | None:
@@ -1037,15 +1041,36 @@ def compose_report_pdf(
     if payload.incident.isExercise:
         story.append(Paragraph(_esc(L["exercise"]), st["exercise"]))
     title = Paragraph(_esc(payload.incident.title), st["title"])
+    # ⚠️ NO Einsatz-ID here. It was this app's own incident UUID, shortened for display — it joins
+    # nothing in WinFAP, and printing a number-looking thing beside the one that DOES join is how
+    # the wrong one gets typed into the case-number field. The Einsatz-Nr is in the details box
+    # below, where somebody filling in a form reads.
+    footer_bits = [f"{L['generatedAt']}: {payload.generatedAt}"]
+    # The join number rides HERE, on the line under the title, rather than in the details box: it
+    # is not a fact about the Einsatz the way an address or an Einsatzleiter is — it is the
+    # handle this sheet is filed under, which is what the rest of this line already carries.
+    if payload.incident.alarmRef:
+        footer_bits.append(f"{L['alarmRef']}: {_alarm_ref_text(payload.incident.alarmRef)}")
+    if m.erfasser:
+        footer_bits.append(f"{L['erfasser']}: {m.erfasser}")
+    subtitle = Paragraph(_esc(" · ".join(footer_bits)), st["muted"])
+
     logo = _logo_flowable(figures.get("logo"))
     if logo is None:
         story.append(title)
+        story.append(subtitle)
     else:
         # Mark and title on ONE line, the way a letterhead reads. Stacked, the logo pushed the
         # Einsatz — the thing the sheet is about — a third of the way down the page, and the two
         # read as separate blocks rather than as one heading.
+        #
+        # The «Erstellt: …» line goes INSIDE the title cell rather than full-width underneath it
+        # (09.08.): hung at the page margin it started under the LOGO, so the mark had a caption
+        # it does not have and the two blocks stopped lining up. Stacked with the title it is
+        # what it is — a subtitle — and the letterhead becomes one block of two lines, which is
+        # also what let the mark grow (see _LOGO_H).
         lw = logo.drawWidth + 5 * mm
-        head_tbl = Table([[logo, title]], colWidths=[lw, inner_w - lw])
+        head_tbl = Table([[logo, [title, subtitle]]], colWidths=[lw, inner_w - lw])
         head_tbl.setStyle(
             TableStyle(
                 [
@@ -1058,19 +1083,6 @@ def compose_report_pdf(
             )
         )
         story.append(head_tbl)
-    # ⚠️ NO Einsatz-ID here any more. It was this app's own incident UUID, shortened for display —
-    # it joins nothing in WinFAP, and printing a number-looking thing beside the one that DOES
-    # join is how the wrong one gets typed into the case-number field. The Einsatz-Nr is in the
-    # details box below, where somebody filling in a form reads.
-    footer_bits = [f"{L['generatedAt']}: {payload.generatedAt}"]
-    # The join number rides HERE, on the line under the title, rather than in the details box: it
-    # is not a fact about the Einsatz the way an address or an Einsatzleiter is — it is the
-    # handle this sheet is filed under, which is what the rest of this line already carries.
-    if payload.incident.alarmRef:
-        footer_bits.append(f"{L['alarmRef']}: {_alarm_ref_text(payload.incident.alarmRef)}")
-    if m.erfasser:
-        footer_bits.append(f"{L['erfasser']}: {m.erfasser}")
-    story.append(Paragraph(_esc(" · ".join(footer_bits)), st["muted"]))
     story.append(Spacer(1, 10))
 
     # The Details box — same frame + dotted-leader fields as the Erfassungsblatt, with the
@@ -1134,7 +1146,18 @@ def compose_report_pdf(
                 row.extend(zrows[i] if i < len(zrows) else ["", ""])
             grid.append(row)
         cw = inner_w / cols
-        zt = Table(grid, colWidths=[cw * 0.32, cw * 0.68] * cols)
+        # ⚠️ The value column is sized to what it HAS TO HOLD, not to a fixed third of the cell.
+        # A bare «22:47» fits 0.32 of a 3-up column; «08.08. 22:47» — which is what every clock
+        # on the sheet reads once the Einsatz runs past midnight (lib/report · spanAwareClock) —
+        # does not, so every row broke onto two lines with the date orphaned above the time, and
+        # the empty ones showed a write-in rule the width of a dash (08.08. Einsatz). Measured,
+        # then clamped: a stray long value must not eat the label beside it either.
+        widest_val = max((_str_w(val, "Helvetica", 9) for _, val in m.zeiten if val), default=0.0)
+        val_pad = 6  # the RIGHTPADDING below, which the text cannot use
+        # the floor keeps the write-in rule a field somebody can write a date into, on a sheet
+        # where nothing has been recorded at all and there is no value to measure
+        val_w = min(max(widest_val + val_pad + 2, cw * 0.34), cw * 0.58)
+        zt = Table(grid, colWidths=[val_w, cw - val_w] * cols)
         # the rule goes under the empty VALUE cells only — the label beside it is printed, not
         # written, and a bar under it would say otherwise
         # ⚠️ `isinstance` guard, not a plain falsy test: a last row short of a full set is padded
@@ -1298,6 +1321,9 @@ def compose_report_pdf(
     # interleaved. The Kroki is rendered HERE, server-side (app/kroki.py); the figure-based
     # branches remain as the one-release compat window for old clients.
     kroki_png: bytes | None = None
+    #: filled by the renderer when the labels could not all fit as words and the picture
+    #: fell back to numbers — «1 · 2 · 3» then print as a legend under the Kroki
+    kroki_legend: list[str] = []
     if opt.kroki and payload.kroki is not None:
         from . import kroki as kk
 
@@ -1321,6 +1347,7 @@ def compose_report_pdf(
                 sym_mul=kk.kroki_symbol_mul(symbol_zoom),
                 max_tile_z=payload.kroki.maxTileZoom or 19,
                 attribution=payload.kroki.attribution,
+                legend_out=kroki_legend,
             )
             b = io.BytesIO()
             img_out.save(b, "PNG")
@@ -1365,10 +1392,40 @@ def compose_report_pdf(
             story.append(Paragraph(_esc(payload.krokiCaption), st["muted"]))
         k_w = land_inner_w if k_land else inner_w
         k_h = (land_inner_h if k_land else (ph - 2 * margin)) - 22 * mm
-        img = _fit_image(kroki_png, k_w, k_h)
+        # the legend claims its own room when there is one, so the picture is never squeezed
+        # under a block that then overflows onto a second sheet
+        legend_h = (5 * mm + len(kroki_legend) * 4.6 * mm) if kroki_legend else 0
+        img = _fit_image(kroki_png, k_w, k_h - legend_h)
         if img:
             story.append(Spacer(1, 4))
             story.append(img)
+        # ⚠️ Numbers on the picture are useless without this. The renderer only falls back to
+        # them when the words could not all be printed where they belong (kroki · the collision
+        # pass), and the legend is where they go — with room for the FULL text, which is the
+        # other reason it is the better fallback than a shortened chip.
+        if kroki_legend:
+            story.append(Spacer(1, 4))
+            rows = [
+                [
+                    Paragraph(f"<b>{i}</b>", st["cell"]),
+                    Paragraph(_esc(text), st["cell"]),
+                ]
+                for i, text in enumerate(kroki_legend, start=1)
+            ]
+            lt = Table(rows, colWidths=[7 * mm, k_w - 7 * mm])
+            lt.setStyle(
+                TableStyle(
+                    [
+                        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                        ("TOPPADDING", (0, 0), (-1, -1), 1),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+                    ]
+                )
+            )
+            lt.hAlign = "LEFT"
+            story.append(lt)
         if not plan_imgs:
             story.append(NextPageTemplate("portrait"))
             story.append(PageBreak())

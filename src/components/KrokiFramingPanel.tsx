@@ -1,10 +1,11 @@
-import { Fragment, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import Map, { Layer, Marker, Source, type MapRef } from 'react-map-gl/maplibre'
 import type { Map as MapLibreMap } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { Icon } from '../lib/icons'
 import { cx } from '../lib/cx'
 import { appConfig } from '../config/appConfig'
+import { fillTemplate } from '../lib/format'
 import { operationalExtentPoints } from '../lib/report'
 import { circlePolygon } from '../lib/geo'
 import { TacticalSymbol } from '../lib/symbolRender'
@@ -31,6 +32,9 @@ import { krokiStandLabel, type KrokiView } from '../lib/report'
 // framing on screen IS what prints: there is nothing left to confirm.
 
 const FIT_MAX_ZOOM = 20 // mirror of the server's fit_view max_z
+/** Breathing room around the fitted Lage, in preview px. 48 was ~2 cm of white on every side of
+ *  an A4 sheet — enough street to orient by is a good thing, that much of it is not. */
+const FIT_PAD = 28
 const CARTO_FALLBACK = 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png'
 // backend/app/kroki.py renders print overlays against this reference viewport. Scaling the
 // complete decorated marker (not only its glyph) makes badges/spreads/shapes WYSIWYG here.
@@ -108,6 +112,17 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
     return [...seen].sort((a, b) => a - b)
   }, [moments, startedAtMs, nowMs])
   const mapRef = useRef<MapRef>(null)
+  /**
+   * Does the crop still follow the Lage?
+   *
+   * ⚠️ The stored `krokiView` used to be the last word: framed once at 22:20, restored verbatim
+   * at 01:30, with everything placed since it outside the picture — and nothing said so
+   * (08.08. Einsatz). It follows until somebody frames by hand, and a hand-made frame then wins
+   * forever, because overruling an operator's own crop is worse than any automatic fit.
+   */
+  const [follow, setFollow] = useState(() => !initial)
+  /** the crop as it currently stands — what decides whether anything is outside it */
+  const [viewBounds, setViewBounds] = useState<[number, number, number, number] | null>(null)
   const [previewZoom, setPreviewZoom] = useState(initial?.zoom ?? 16)
   const [previewWidth, setPreviewWidth] = useState(720)
   const printScale = previewWidth / PRINT_REF_WIDTH
@@ -177,7 +192,53 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
       }
     }), [scene.drawings, drawingsVisible, trupps])
 
-  const fit = () => mapRef.current?.getMap().fitBounds(bounds, { padding: 48, maxZoom: FIT_MAX_ZOOM })
+  const fit = () => mapRef.current?.getMap().fitBounds(bounds, { padding: FIT_PAD, maxZoom: FIT_MAX_ZOOM })
+  /** …and go back to following, because «alles zeigen» is a request for exactly that */
+  const fitAndFollow = () => { setFollow(true); fit() }
+
+  /**
+   * Re-fit while following: when the Lage grows past the frame, and when the page shape flips.
+   *
+   * ⚠️ Hoch/Quer used to keep centre and zoom, so turning the sheet upright lost the left and
+   * right of the picture without gaining anything above or below — the choice of shape changed
+   * the crop rather than the page. `boundsKey` rather than `bounds`: the array is rebuilt on
+   * every render, and depending on the object would re-fit continuously.
+   */
+  const boundsKey = bounds.flat().join(',')
+  useEffect(() => {
+    if (!follow) return
+    mapRef.current?.getMap().fitBounds(bounds, { padding: FIT_PAD, maxZoom: FIT_MAX_ZOOM, duration: 200 })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- boundsKey IS the bounds, stably
+  }, [follow, boundsKey, landscape])
+
+  /**
+   * What is placed OUTSIDE the crop, and roughly which way.
+   *
+   * Shown as an arrow at the edge rather than by widening the frame: something outside is
+   * usually one Hydrant two streets away, and zooming out to reach it shrinks the part of the
+   * picture the sheet is actually about. The arrow says «there is more, that way» and offers
+   * the fit — it never takes it.
+   */
+  const offscreen = useMemo(() => {
+    if (!viewBounds) return null
+    const [w, s2, e, n] = viewBounds
+    const pts = operationalExtentPoints(scene.center, scene.entities, drawingsVisible ? scene.drawings : [], false)
+    const out = pts.filter(([lng, lat]) => lng < w || lng > e || lat < s2 || lat > n)
+    if (!out.length || out.length === pts.length) return null // nothing out, or nothing framed at all
+    const cx = (w + e) / 2, cy = (s2 + n) / 2
+    const ox = out.reduce((t, p) => t + p[0], 0) / out.length
+    const oy = out.reduce((t, p) => t + p[1], 0) / out.length
+    // screen y grows downwards, so the vertical component is negated for the angle
+    const rad = Math.atan2(-(oy - cy), (ox - cx) * Math.cos((cy * Math.PI) / 180))
+    return {
+      count: out.length,
+      deg: (rad * 180) / Math.PI,
+      // park it just inside the frame edge, in the direction the content lies
+      left: 50 + 38 * Math.cos(rad),
+      top: 50 - 38 * Math.sin(rad),
+    }
+  }, [viewBounds, scene, drawingsVisible])
+
   const syncView = (m: MapLibreMap) => {
     setPreviewZoom(m.getZoom())
     setPreviewWidth(m.getContainer().clientWidth)
@@ -188,6 +249,7 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
   const reportView = (m: MapLibreMap) => {
     const c = m.getCenter()
     const b = m.getBounds()
+    setViewBounds([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()])
     onViewChange?.({
       center: [c.lng, c.lat],
       zoom: m.getZoom(),
@@ -216,11 +278,29 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
         />
       </div>
       <div className={cx('kf-map', !landscape && 'portrait')}>
+        {/* Something is placed outside this crop. An ARROW, not a forced zoom-out: what is
+            outside is usually one Hydrant two streets away, and widening the frame to reach it
+            shrinks the part of the picture the sheet is about. It offers the fit; it never
+            takes it. */}
+        {offscreen && !follow && (
+          <button
+            type="button" className="kf-off"
+            style={{ left: `${offscreen.left}%`, top: `${offscreen.top}%` }}
+            title={fillTemplate(P.framingOutside, { n: offscreen.count })}
+            aria-label={fillTemplate(P.framingOutside, { n: offscreen.count })}
+            onClick={fitAndFollow}
+          >
+            <span className="kf-off-arrow" style={{ transform: `rotate(${-offscreen.deg}deg)` }} aria-hidden>
+              <Icon id="chevron" />
+            </span>
+            <span>{offscreen.count}</span>
+          </button>
+        )}
         <Map
           ref={mapRef}
           initialViewState={initial
             ? { longitude: initial.center[0], latitude: initial.center[1], zoom: initial.zoom }
-            : { bounds, fitBoundsOptions: { padding: 48, maxZoom: FIT_MAX_ZOOM } }}
+            : { bounds, fitBoundsOptions: { padding: FIT_PAD, maxZoom: FIT_MAX_ZOOM } }}
           mapStyle={style}
           dragRotate={false}
           pitchWithRotate={false}
@@ -228,7 +308,9 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
           attributionControl={false}
           onLoad={(e) => { e.target.touchZoomRotate.disableRotation(); syncView(e.target); reportView(e.target) }}
           onMove={(e) => { setPreviewZoom(e.viewState.zoom) }}
-          onMoveEnd={(e) => reportView(e.target)}
+          // `originalEvent` is present only when a HAND moved the map — the programmatic
+          // fitBounds below must not switch its own mode off
+          onMoveEnd={(e) => { if (e.originalEvent) setFollow(false); reportView(e.target) }}
           onResize={(e) => { syncView(e.target); reportView(e.target) }}
         >
           <Source id="draws" type="geojson" data={geojson}>
@@ -359,7 +441,11 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
         )}
         {/* «Auf Einsatz zoomen» joins the ± pair: all three answer «show me more / less / all
             of it», and the old action row they were split across is gone with the confirm. */}
-        <button type="button" className="ip-btn kf-ctl-fit" onClick={fit}><Icon id="cross" /> {P.framingFit}</button>
+        {/* «Auf Einsatz zoomen» AND «folgt der Lage» are the same wish, so they are one control:
+            pressing it fits now and keeps fitting, and the first hand-made pan turns it off. */}
+        <button type="button" className={cx('ip-btn kf-ctl-fit', follow && 'kf-ctl-follow')}
+          aria-pressed={follow} title={follow ? P.framingFollowOn : P.framingFollowOff}
+          onClick={fitAndFollow}><Icon id="cross" /> {follow ? P.framingFollows : P.framingFit}</button>
         {/* ± stays: with gloves on a tablet, pinching a crop into place is the fiddliest
             gesture the app asks for, and this is the one place where the exact framing IS
             the point. Beside the picture rather than on top of it. */}

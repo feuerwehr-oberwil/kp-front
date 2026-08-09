@@ -631,6 +631,18 @@ def _label_box(
             draw.text((tx, ty), t, font=f, fill=ink, anchor=anchor)
 
 
+#: A numbered marker is this many px across at the reference width — big enough to read on
+#: paper, small enough not to become the picture. Scaled by `u` like everything else.
+_NUM_R = 8.0
+
+
+def _numbered_marker(draw: ImageDraw.ImageDraw, xy: tuple[float, float], n: int, r: float) -> None:
+    """A dark disc with a number in it, where a label chip would have been."""
+    x, y = xy
+    draw.ellipse([x - r, y - r, x + r, y + r], fill="#12161c", outline="white", width=max(1, int(r / 5)))
+    draw.text((x, y + r * 0.04), str(n), font=_font(int(r * 1.25)), fill="white", anchor="mm")
+
+
 def _fmt_distance(m: float) -> str:
     return f"{round(m)} m" if m < 1000 else f"{m / 1000:.2f} km".replace(".", ",")
 
@@ -740,12 +752,19 @@ def render_kroki(
     supersample: int = 2,
     ref_width: int = 1050,
     max_tile_z: int = 19,
+    legend_out: list[str] | None = None,
 ) -> Image.Image:
     """Compose one Kroki bitmap: base tiles + drawings + tactical symbols + attribution.
 
     `ref_width`: the on-screen viewport width the client sizing rules assume (~the print
     view's map container). Symbol sizes, line widths and label fonts scale by
-    width/ref_width so the printed proportions match the app regardless of render DPI."""
+    width/ref_width so the printed proportions match the app regardless of render DPI.
+
+    `legend_out`: filled with «1 · 2 · 3 …» in picture order WHEN the labels could not all be
+    printed as words and the picture fell back to numbers (see the collision pass below). Left
+    empty otherwise. An out-parameter rather than a second return value so every existing
+    caller — and the tile warmer — stays exactly as it was."""
+    legend = legend_out if legend_out is not None else []
     ss = supersample
     u = width / ref_width  # UI scale: screen-px rules → render-px
     view = view or fit_view(scene.extent_points(), width, height)
@@ -766,6 +785,9 @@ def render_kroki(
     # FILL first, then every stroke + decor — so an area's fill can never sit on top of a
     # neighbouring line (prod feedback 2026-07-18) ---
     labels: list[tuple[tuple[float, float], list[str], int]] = []
+    # symbol captions ride in their own list because they are drawn by a different function and
+    # hang DOWNWARDS from their anchor; both go through one collision pass at the end
+    captions: list[tuple[tuple[float, float], list[str], int]] = []
     markers: list[tuple[tuple[float, float], str, int, str]] = []
     # ⚠️ End tags are DEFERRED like the marker letters, and drawn after them. Drawn inline they
     # went down before the —R—R— letters of their own line, so a Leitung running under its own
@@ -904,17 +926,40 @@ def render_kroki(
             _badge(draw, (x + size / 2, y - size / 2), rng, bh, "white", color)
         if (e.get("count") or 0) > 1:
             _badge(draw, (x + size / 2, y + size / 2), str(e["count"]), bh, "#1b2330", "white")
-        # metadata caption under the glyph (the map's .sym-caption)
+        # metadata caption under the glyph (the map's .sym-caption) — DEFERRED into the same
+        # collision pass the drawing labels go through: on the 08.08. Kroki two of these
+        # («Kurmann Thomas» over «Lüfter Akku 3. OG») printed straight on top of one another,
+        # and a chip drawn inline cannot know what is coming after it.
         if e.get("caption"):
-            _caption(draw, (x, y + size / 2 + 3 * u * ss), str(e["caption"]).split("\n"), int(11.5 * u * ss))
+            captions.append(((x, y + size / 2 + 3 * u * ss), str(e["caption"]).split("\n"), int(11.5 * u * ss)))
 
     # marker letters over the lines, then the end tags over THOSE, label chips on top of all
     for xy, letter, fs, color in markers:
         _halo_text(draw, xy, letter, fs, color)
     for tag_pts, tag_parts, tag_color, tag_fs in end_tags:
         _end_tag(draw, tag_pts, tag_parts, tag_color, tag_fs)
-    for xy, lines, fs in labels:
-        _label_box(draw, xy, lines, int(fs))
+
+    # ── words last, and they go in the LEGEND, not on the picture ──
+    #
+    # ⚠️ Chips used to be drawn where their own anchor was, with no idea what else was already
+    # there. Three symbols within ten metres therefore printed three chips on top of one
+    # another and the middle one was simply unreadable — on PAPER, where nothing can be dragged
+    # aside (08.08. Einsatz).
+    #
+    # So every labelled thing gets a NUMBER and the words go into a list beside the picture.
+    # Numbering only on collision was tried and dropped (decided 09.08.): it made the same
+    # Einsatz print differently before and after one more symbol, and «where did the names go»
+    # is a question the sheet must never raise. Predictable beats clever here — and the legend
+    # has room for the full text where a chip had to be cut short, which is the other half of
+    # why it is the better shape.
+    words = [(xy, lines, fs, False) for xy, lines, fs in labels]
+    words += [(xy, lines, fs, True) for xy, lines, fs in captions]
+    for i, (xy, lines, _fs, under) in enumerate(words, start=1):
+        # a caption's anchor is the TOP edge of where its chip would have hung, so the disc is
+        # nudged down onto it; a label chip is centred on its anchor already
+        x, y = xy
+        _numbered_marker(draw, (x, y + _NUM_R * u * ss if under else y), i, _NUM_R * u * ss)
+        legend.append(" · ".join(t for t in lines if t.strip()))
 
     out = Image.alpha_composite(img, overlay).resize((width, height), Image.Resampling.LANCZOS).convert("RGB")
     d2 = ImageDraw.Draw(out)

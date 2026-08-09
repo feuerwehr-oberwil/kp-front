@@ -331,3 +331,63 @@ def test_plan_page_renders_a_wrapped_note_box(tmp_path):
         width=800,
     )
     assert img.width > 0 and img.height > 0
+
+
+def test_every_label_becomes_a_number_and_a_legend_line():
+    """⚠️ Chips used to be drawn where their own anchor was, with no idea what was already
+    there — so three symbols within a few metres printed three chips on top of one another and
+    the middle one was unreadable, on PAPER, where nothing can be dragged aside (08.08.).
+
+    Numbering only ON COLLISION was tried and dropped (09.08.): it made the same Einsatz print
+    differently before and after one more symbol. Every labelled thing is numbered, always."""
+    from app import kroki as kk
+
+    def scene(spread: float) -> "kk.KrokiScene":
+        return kk.KrokiScene(
+            entities=[
+                {
+                    "id": "a",
+                    "kind": "symbol",
+                    "symbol": "VKF Einsatzleiter",
+                    "coord": [7.5300, 47.4100],
+                    "caption": "Kurmann Thomas",
+                },
+                {
+                    "id": "b",
+                    "kind": "symbol",
+                    "symbol": "VKF Luefter mobil",
+                    "coord": [7.5300 + spread, 47.4100 + spread],
+                    "caption": "Lüfter Akku 3. OG",
+                },
+                {
+                    "id": "c",
+                    "kind": "symbol",
+                    "symbol": "VKF Fahrzeug",
+                    "coord": [7.5340, 47.4128],
+                    "caption": "TLF · Meier Anna",
+                },
+            ]
+        )
+
+    # crammed together and comfortably apart produce the SAME sheet — that is the whole point
+    for spread in (0.00004, 0.0016):
+        legend: list[str] = []
+        kk.render_kroki(scene(spread), kk.get_pack(), "", width=900, height=700, legend_out=legend)
+        # in picture order, and carrying the FULL text a chip would have had to cut
+        assert legend == ["Kurmann Thomas", "Lüfter Akku 3. OG", "TLF · Meier Anna"], spread
+
+
+def test_a_kroki_without_labels_has_no_legend():
+    """An empty legend is what tells report_pdf not to put a numbered list under a picture that
+    carries no numbers — symbols without a caption are still just symbols."""
+    from app import kroki as kk
+
+    scene = kk.KrokiScene(
+        entities=[
+            {"id": "a", "kind": "symbol", "symbol": "VKF Einsatzleiter", "coord": [7.5300, 47.4100]},
+            {"id": "b", "kind": "symbol", "symbol": "VKF Fahrzeug", "coord": [7.5310, 47.4108]},
+        ]
+    )
+    legend: list[str] = []
+    kk.render_kroki(scene, kk.get_pack(), "", width=900, height=700, legend_out=legend)
+    assert legend == []
