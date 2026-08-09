@@ -175,6 +175,49 @@ def test_the_pressure_log_shares_the_trupps_left_edge():
     assert abs(zeit_x - name_x) < 6, f"table at x={zeit_x} is not aligned with the name at x={name_x}"
 
 
+def test_every_trupp_block_shares_one_tab_stop():
+    """The label column was sized per Trupp, so a block carrying «Auftrag / Ziel» put its values
+    ~14mm in and the next one — «AdF 1» and nothing else — put them ~8mm in. Down a page of
+    Trupps every block started at a different x and the pressure logs stepped in and out with
+    them. One width for the whole section."""
+    payload = ReportPayload.model_validate(
+        {
+            "incident": {"title": "Zimmerbrand", "id": "i"},
+            "generatedAt": "07.08.2026 09:00",
+            "proof": {"statusLabel": "intakt", "count": 1, "head": "0"},
+            "trupps": [
+                {
+                    "name": "Brunner Thomas",
+                    "statusLabel": "im Einsatz",
+                    "members": ["Frei Nina"],
+                    "auftrag": "Sichern",  # the long label — «Auftrag / Ziel:»
+                    "readings": [{"t": "09:05", "kindLabel": "Eintritt", "bar": "300"}],
+                },
+                {
+                    "name": "Huber Sarah",
+                    "statusLabel": "im Einsatz",
+                    "members": ["Meier Anna"],  # short labels only — «AdF 1:»
+                    "readings": [{"t": "09:07", "kindLabel": "Eintritt", "bar": "300"}],
+                },
+            ],
+        }
+    )
+    doc = pdfium.PdfDocument(compose_report_pdf(payload, {}))
+    page = doc[len(doc) - 1]
+    tp = page.get_textpage()
+
+    def left_of(needle: str) -> float:
+        return next(
+            tp.get_rect(i)[0] for i in range(tp.count_rects()) if needle in tp.get_text_bounded(*tp.get_rect(i))
+        )
+
+    # the two value columns, and both pressure logs that hang off them
+    assert abs(left_of("Frei Nina") - left_of("Meier Anna")) < 1.5
+    zeit = [tp.get_rect(i)[0] for i in range(tp.count_rects()) if "Zeit" in tp.get_text_bounded(*tp.get_rect(i))]
+    assert len(zeit) == 2, f"expected one pressure log per Trupp, got {len(zeit)}"
+    assert abs(zeit[0] - zeit[1]) < 1.5
+
+
 def test_the_signature_rule_starts_after_the_name_not_through_it():
     """A Visum row reads as ONE line — «Einsatzleiter: Anna Meier ______» — so the rule sits on
     the row's own baseline and starts where the name ends. Drawn from the label it would

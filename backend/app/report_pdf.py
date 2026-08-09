@@ -1463,11 +1463,9 @@ def compose_report_pdf(
     # Atemschutzüberwachung closes the Anhang: protocol for reconstruction, not primary
     if opt.atemschutz and payload.trupps:
         story.extend(head(L["atemschutz"]))
-        for tr in payload.trupps:
-            # No status. A rapport is written after the fact, and «Im Einsatz» on a finished
-            # Einsatz states something that stopped being true before the sheet was printed.
-            story.append(Paragraph(_esc(tr.name), st["h3"]))
-            meta_bits = []
+
+        def _meta_bits(tr):
+            bits = []
             # One row per AdF, numbered the way the Trupp form numbers them — «AdF 1», «AdF 2».
             # A single «AdF: Laura Keller, Nina Frei» line made the sheet name the crew
             # differently from the screen the operator filled in, and a comma list gives no
@@ -1475,22 +1473,36 @@ def compose_report_pdf(
             # gets no row of his own: the heading above IS his name.
             for i, member in enumerate(tr.members, start=1):
                 if member.strip():
-                    meta_bits.append((L["memberN"].format(n=i), member))
+                    bits.append((L["memberN"].format(n=i), member))
             if tr.auftrag or tr.ziel:
-                meta_bits.append((L["auftrag"], " · ".join([x for x in (tr.auftrag, tr.ziel) if x])))
+                bits.append((L["auftrag"], " · ".join([x for x in (tr.auftrag, tr.ziel) if x])))
             if tr.lineNumber:
-                meta_bits.append((L["line"], str(tr.lineNumber)))
+                bits.append((L["line"], str(tr.lineNumber)))
             if tr.entryTime:
-                meta_bits.append((L["entry"], tr.entryTime))
+                bits.append((L["entry"], tr.entryTime))
             if tr.exitTime:
-                meta_bits.append((L["exit"], tr.exitTime))
+                bits.append((L["exit"], tr.exitTime))
+            return bits
+
+        # ⚠️ ONE tab stop for the whole section, not one per Trupp. Sized per block, a Trupp with
+        # an «Auftrag / Ziel» put its values ~14mm in and the next Trupp — three «AdF n» rows and
+        # nothing else — put them ~8mm in, so every block on the page started at a different x
+        # and the pressure logs stepped in and out with them. Widest label anywhere wins.
+        _all_bits = [_meta_bits(tr) for tr in payload.trupps]
+        label_w = 0.0
+        _labels = [k for bits in _all_bits for k, _ in bits]
+        if _labels:
+            label_w = max(_str_w(f"{k}:", "Helvetica-Bold", 9) for k in _labels) + 3 * mm
+
+        for tr, meta_bits in zip(payload.trupps, _all_bits, strict=True):
+            # No status. A rapport is written after the fact, and «Im Einsatz» on a finished
+            # Einsatz states something that stopped being true before the sheet was printed.
+            story.append(Paragraph(_esc(tr.name), st["h3"]))
             # A TABLE, not one Paragraph per line: as free lines each value started right after
-            # its own label, so «Mitglieder:», «Auftrag / Ziel:» and «Eintritt:» put their values
-            # at three different indents and nothing under the Trupp name lined up. One label
-            # column, sized to the widest label, gives every value the same tab stop.
-            label_w = 0.0
+            # its own label, so «AdF 1», «Auftrag / Ziel» and «Eintritt» put their values at three
+            # different indents and nothing under the Trupp name lined up. One label column,
+            # sized above to the widest label on the PAGE, gives every value the same tab stop.
             if meta_bits:
-                label_w = max(_str_w(f"{k}:", "Helvetica-Bold", 9) for k, _ in meta_bits) + 3 * mm
                 meta_tbl = Table(
                     [
                         [Paragraph(f"<b>{_esc(k)}:</b>", st["cell"]), Paragraph(_esc(v), st["cell"])]

@@ -8,9 +8,11 @@
 }
 
 .head {
-  display: flex; align-items: center; gap: 16px; padding: 16px 22px;
+  display: flex; align-items: center; gap: 8px 16px; padding: 16px 22px; flex-wrap: wrap;
   background: var(--surface); border-bottom: 1px solid var(--glass-edge);
 }
+/* the counts, on a line of their own under everything else — see AnwesenheitView */
+.headSummary { flex: 1 0 100%; order: 4; margin: 0; font-size: 12.5px; color: var(--ink-dim); }
 .headTitles { flex: 1 1 auto; min-width: 0; }
 .headActions { flex: none; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 /* ONE height and ONE corner for every control on this line. They had three: the printer button is
@@ -29,7 +31,7 @@
    the tools, and claim only their own width. */
 .headTabs { flex: none; order: 2; }
 .headTitles h2 { margin: 0; font-size: 19px; font-weight: 800; color: var(--ink); }
-.headTitles p { margin: 3px 0 0; font-size: 12.5px; color: var(--ink-dim); }
+
 
 .reload {
   flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
@@ -201,7 +203,13 @@ button.ortStation:hover { background: color-mix(in srgb, var(--blue) 22%, transp
   .headTitles h2 { font-size: 17px; }
   /* keep the counts on a single line so the header stays short (was wrapping to 4 lines and
      ballooning the header); the action buttons collapse to icons to free the width for it */
-  .headTitles p { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* ⚠️ The counts are never cut. «13 anwesend · 2 gegange…» is the one line this panel exists
+     to give at a glance, and an ellipsis through it answers nothing — so they keep their own
+     full-width row and wrap there if they must. The QR read-out steps aside on a phone: it is a
+     footnote about the poster being used, which nobody acts on, and it is still on the Rapport. */
+  .headSummary { font-size: 12px; line-height: 1.35; order: 4; }
+  .headTabs { order: 5; }
+  .head :global(.capture-usage-chip) { display: none; }
   .headActions { gap: 6px; }
   .reload { padding: 0; width: var(--tap); height: var(--tap); justify-content: center; }
   .reloadLabel { display: none; }
