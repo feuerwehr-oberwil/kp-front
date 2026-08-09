@@ -17,7 +17,7 @@ import {
   validateAudioImport,
 } from '../lib/audioImport'
 import type { JournalEntryType, TimelineEvent } from '../types'
-import { acceptName, nameRanges, suggestNames, type JournalSource } from '../lib/journalEntry'
+import { acceptName, journalMaterials, nameRanges, suggestNames, type JournalSource } from '../lib/journalEntry'
 import { useHoldRepeat } from '../lib/useHoldRepeat'
 import { useTapToType } from '../lib/useTapToType'
 import { useKeyboardInset } from '../lib/useKeyboardInset'
@@ -130,7 +130,7 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
   // name comes for free. A journal holding «Baumann», «Baumann M.» and «Bauman» is one nobody
   // can search afterwards, and that is the whole of it — accepting one inserts text, nothing
   // more. Who REPORTED the entry is the Von field below; the two are different questions.
-  const nameHits = useMemo(() => suggestNames(text, sources), [text, sources])
+  const nameHits = useMemo(() => suggestNames(text, [...sources, ...journalMaterials()]), [text, sources])
   // where the known names sit right now, so the field can mark them as you type
   const marks = useMemo(() => nameRanges(text, sources), [text, sources])
   const textRef = useRef<HTMLTextAreaElement>(null)
@@ -483,7 +483,10 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
                 Re-tapping the chosen one clears it, so the field is never a trap. */}
             <div className="jc-meta-row" role="group" aria-label={C.sourceLabel}>
               <span className="jc-meta-lbl">{C.sourceLabel}</span>
-              {sources.map((sv) => (
+              {/* the chips are the crew who are HERE — six of them, because that is what fits
+                  two rows and who is standing at the Kommandoposten. Everybody else is reachable
+                  by typing (the suggestion row above searches the whole roster). */}
+              {sources.filter((sv) => sv.present).slice(0, 6).map((sv) => (
                 <button
                   key={sv.id ?? sv.name}
                   type="button"

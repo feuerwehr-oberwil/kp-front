@@ -48,26 +48,33 @@ describe('journalSources', () => {
     person('p4', 'Graf Stefan'),
   ]
 
-  it('offers only the people who are HERE — somebody who went home is not reporting', () => {
+  it('puts the crew who are HERE first, officers among them first', () => {
     const attendance: AttendanceState = {
       p1: here('Brunner Thomas'),
       p2: here('Meier Anna'),
       p4: { status: 'left', displayNameSnapshot: 'Graf Stefan', intervals: [{ from: 'x', to: 'y' }] },
     }
-    expect(journalSources(personnel, attendance).map((s) => s.name))
-      // officers first: they are the ones who report
-      .toEqual(['Meier Anna', 'Brunner Thomas'])
+    const names = journalSources(personnel, attendance).map((s) => s.name)
+    expect(names.slice(0, 2)).toEqual(['Meier Anna', 'Brunner Thomas'])
+    // …and everybody else is still there, just after them
+    expect(names).toContain('Graf Stefan')
+    expect(names).toContain('Huber Sarah')
   })
 
-  it('caps the row so it stays two lines of chips', () => {
-    const many = Array.from({ length: 12 }, (_, i) => person(`x${i}`, `Muster ${i}`))
-    const attendance: AttendanceState = Object.fromEntries(many.map((p) => [p.id, here(p.displayName)]))
-    expect(journalSources(many, attendance)).toHaveLength(6)
-    expect(journalSources(many, attendance, 3)).toHaveLength(3)
+  it('⚠️ offers EVERYBODY, with the crew on scene first', () => {
+    // whoever a journal entry is about is very often not ticked present — the AdF still
+    // driving in, the Kommandant on the phone — and a list that cannot spell their name is
+    // worse than none. Attendance only decides the order.
+    const attendance: AttendanceState = { p3: here('Huber Sarah') }
+    const names = journalSources(personnel, attendance).map((s) => s.name)
+    expect(names[0]).toBe('Huber Sarah')
+    expect(names).toHaveLength(personnel.length)
+    expect(names).toContain('Graf Stefan')
   })
 
-  it('is empty before anybody is ticked present', () => {
-    expect(journalSources(personnel, {})).toEqual([])
+  it('still lists the roster before anybody is ticked present', () => {
+    expect(journalSources(personnel, {}).map((s) => s.name)).toHaveLength(personnel.length)
+    expect(journalSources([], {})).toEqual([])
   })
 })
 
@@ -77,6 +84,14 @@ describe('typing a name', () => {
     { id: 'p2', name: 'Meier Anna' },
     { id: 'p3', name: 'Brunner Thomas' },
   ]
+
+  it('breaks a score tie on who is actually here', () => {
+    const tie = [
+      { id: 'a', name: 'Brunner Thomas', present: false },
+      { id: 'b', name: 'Brunner Peter', present: true },
+    ]
+    expect(suggestNames('Brunner', tie).map((s) => s.name)[0]).toBe('Brunner Peter')
+  })
 
   it('suggests on the WORD, not on the whole sentence', () => {
     expect(suggestNames('Meier meldet Baum', sources).map((s) => s.name)).toEqual(['Baumann Michael'])

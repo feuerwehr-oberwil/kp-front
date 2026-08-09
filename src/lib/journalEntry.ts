@@ -2,6 +2,7 @@ import { appConfig } from '../config/appConfig'
 import type { JournalEntryType, Person, AttendanceState } from '../types'
 import { isPresent } from './attendanceIntervals'
 import { rankOrder } from './rank'
+import { getDeploymentConfig } from './deploymentConfig'
 import { fuzzyScore } from './quickPhrases'
 
 /**
@@ -54,14 +55,24 @@ export interface JournalSource {
  * `limit` is what fits two rows of chips; everybody else is reachable through the search that
  * sits at the end of the row. Present crew ONLY: somebody who has gone home is not reporting.
  */
-export function journalSources(
-  personnel: Person[], attendance: AttendanceState, limit = 6,
-): JournalSource[] {
+export function journalSources(personnel: Person[], attendance: AttendanceState): JournalSource[] {
   return personnel
-    .filter((p) => p.active && isPresent(attendance[p.id]))
-    .sort((a, b) => rankOrder(a.rank) - rankOrder(b.rank) || a.displayName.localeCompare(b.displayName, 'de'))
-    .slice(0, limit)
-    .map((p) => ({ id: p.id, name: p.displayName, present: true }))
+    .filter((p) => p.active)
+    .map((p) => ({ id: p.id, name: p.displayName, present: isPresent(attendance[p.id]) }))
+    // ⚠️ EVERYBODY, not just the crew on scene. Whoever is being talked about in a journal
+    // entry is very often somebody who is not ticked present — the AdF still driving in, the
+    // Kommandant on the phone — and a suggestion list that cannot spell their name is worse
+    // than none. Attendance only decides the ORDER.
+    .sort((a, b) => Number(b.present) - Number(a.present)
+      || rankOrder(personnel.find((p) => p.id === a.id)?.rank) - rankOrder(personnel.find((p) => p.id === b.id)?.rank)
+      || a.name.localeCompare(b.name, 'de'))
+}
+
+/** The station's Mittel, offered the same way a name is: «Ölbind» completes to «Ölbinder
+ *  (Granulat)», so the Verlauf and the Mittel list call the same thing the same thing. */
+export function journalMaterials(): JournalSource[] {
+  const cat = getDeploymentConfig().mittel?.catalogue ?? []
+  return cat.map((m) => ({ name: m.label })).filter((m) => !!m.name?.trim())
 }
 
 
@@ -96,7 +107,10 @@ export function suggestNames(text: string, sources: JournalSource[], limit = 3):
     // matches, so the chip kept offering the same name and a second tap wrote
     // «Baumann Baumann Michael».
     .filter((m) => m.score > 0 && !written.endsWith(m.s.name.toLowerCase()))
-    .sort((a, b) => b.score - a.score)
+    // score first — a better spelling match beats being on scene. Attendance breaks the tie:
+    // two people whose names start the same way, and the one who is here is the likelier one.
+    .sort((a, b) => b.score - a.score || Number(b.s.present) - Number(a.s.present)
+      || a.s.name.localeCompare(b.s.name, 'de'))
     .slice(0, limit)
     .map((m) => m.s)
 }
