@@ -18,10 +18,13 @@ import { Dialog } from '@base-ui/react/dialog'
  * app answers to. A modal that does not respond to a tap beside it reads as a frozen app, and
  * that is the wrong thing to be wondering about with an Einsatz open.
  */
-export function ConfirmCard({ open, title, message, confirmLabel, cancelLabel, danger, onResolve }: {
+export function ConfirmCard({ open, title, message, items, note, confirmLabel, cancelLabel, danger, onResolve }: {
   open: boolean
   title?: string
   message: string
+  /** open points as a list — see ui.tsx · ConfirmReq.items */
+  items?: string[]
+  note?: string
   confirmLabel: string
   cancelLabel: string
   danger?: boolean
@@ -37,6 +40,15 @@ export function ConfirmCard({ open, title, message, confirmLabel, cancelLabel, d
         <Dialog.Popup role="alertdialog" className="confirm-card ui-dialog" initialFocus={confirmRef} aria-label={title ?? message}>
           {title && <Dialog.Title className="confirm-title" render={<h3 />}>{title}</Dialog.Title>}
           <p className="confirm-msg">{message}</p>
+          {/* the open points as a LIST, not as a comma-separated run-on — this is the part
+              somebody has to act on, item by item, and a paragraph is read to the end by
+              nobody at 3am */}
+          {!!items?.length && (
+            <ul className="confirm-list">
+              {items.map((it) => <li key={it}>{it}</li>)}
+            </ul>
+          )}
+          {note && <p className="confirm-note">{note}</p>}
           <div className="confirm-actions">
             <button className="ip-btn" onClick={() => onResolve(false)}>{cancelLabel}</button>
             {/* the OUTLINE danger, not a solid red fill: the same treatment every other destructive

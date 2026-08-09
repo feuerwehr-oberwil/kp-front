@@ -1568,6 +1568,7 @@ export const fr: Localizable<Copy> = {
     zeitBeforeAusgerueckt: 'Antérieur au départ ({t})',
     zeitFuture: 'Dans le futur',
     exportIncompleteTitle: 'Des indications manquent',
+    exportIncompleteLead: 'Encore ouvert :',
     exportIncompleteMsg: 'Le rapport peut tout de même être établi – les champs ouverts restent vides et peuvent être complétés à la main.',
     now: 'Maintenant',
     remarksLabel: 'Remarques',

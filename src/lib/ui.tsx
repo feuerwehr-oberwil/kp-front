@@ -23,6 +23,12 @@ interface ConfirmReq {
   id: number
   title?: string
   message: string
+  /** the open points, as a LIST. «Noch offen: Zeiten, Mittel, Einsatzleiter, Kurzbericht,
+   *  Rückmeldung ELZ. Trotzdem abschliessen? …» is a paragraph nobody reads to the end — and
+   *  it is the one part of the sentence somebody has to act on, item by item. */
+  items?: string[]
+  /** the sentence AFTER the list — what happens if you go ahead anyway */
+  note?: string
   confirmLabel: string
   cancelLabel: string
   danger?: boolean
@@ -79,6 +85,8 @@ export function updateToast(id: number, text: string, opts?: { icon?: string; to
 export function confirmDialog(opts: {
   title?: string
   message: string
+  items?: string[]
+  note?: string
   confirmLabel?: string
   cancelLabel?: string
   danger?: boolean
@@ -90,6 +98,8 @@ export function confirmDialog(opts: {
       id: seq++,
       title: opts.title,
       message: opts.message,
+      items: opts.items,
+      note: opts.note,
       confirmLabel: opts.confirmLabel ?? appConfig.copy.confirm.ok,
       cancelLabel: opts.cancelLabel ?? appConfig.copy.confirm.cancel,
       danger: opts.danger,
@@ -192,6 +202,8 @@ export function Overlays() {
         open={!!req}
         title={req?.title}
         message={req?.message ?? ''}
+        items={req?.items}
+        note={req?.note}
         confirmLabel={req?.confirmLabel ?? ''}
         cancelLabel={req?.cancelLabel ?? ''}
         danger={req?.danger}

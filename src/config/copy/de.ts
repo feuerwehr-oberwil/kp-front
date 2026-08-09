@@ -2503,6 +2503,7 @@ export const de = {
     // fertiggeschrieben wird, ist eine echte Arbeitsweise. Aber das PDF verlässt das Haus und
     // ist die Fassung, die abgelegt wird: also einmal benennen, was fehlt, und dann gehen lassen.
     exportIncompleteTitle: 'Angaben fehlen noch',
+    exportIncompleteLead: 'Noch offen:',
     exportIncompleteMsg: 'Der Rapport lässt sich trotzdem erstellen – die offenen Felder bleiben leer und können von Hand ergänzt werden.',
     remarksLabel: 'Bemerkungen',
     remarksPlaceholder: 'Optional',

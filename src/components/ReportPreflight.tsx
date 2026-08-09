@@ -513,7 +513,9 @@ export function ReportPreflight({
     if (missing.length) {
       const ok = await confirmDialog({
         title: P.exportIncompleteTitle,
-        message: `${fillTemplate(A.confirmMissing, { steps: missing.map((st2) => A.steps[st2]).join(', ') })} ${P.exportIncompleteMsg}`,
+        message: P.exportIncompleteLead,
+        items: missing.map((st2) => A.steps[st2]),
+        note: P.exportIncompleteMsg,
         confirmLabel: action === 'print' ? R.send : P.pdfFull,
         cancelLabel: appConfig.copy.cancel,
       })
@@ -583,10 +585,15 @@ export function ReportPreflight({
   // auto-download-on-complete felt wrong in the field.
   const complete = async () => {
     if (!onComplete) return
-    const message = missing.length
-      ? `${fillTemplate(A.confirmMissing, { steps: missing.map((s) => A.steps[s]).join(', ') })} ${A.confirmMsg}`
-      : A.confirmMsg
-    if (await confirmDialog({ title: A.confirmTitle, message, confirmLabel: A.confirmBtn })) {
+    // same shape as the export warning above — the open points are a list, and the question
+    // comes after them rather than at the end of a paragraph nobody reads that far into
+    if (await confirmDialog({
+      title: A.confirmTitle,
+      message: missing.length ? P.exportIncompleteLead : A.confirmMsg,
+      items: missing.map((s) => A.steps[s]),
+      note: missing.length ? A.confirmMsg : undefined,
+      confirmLabel: A.confirmBtn,
+    })) {
       savedScroll.current = null
       onComplete()
     }

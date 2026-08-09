@@ -1643,6 +1643,7 @@ export const en: Localizable<Copy> = {
     zeitBeforeAusgerueckt: 'Earlier than turnout ({t})',
     zeitFuture: 'In the future',
     exportIncompleteTitle: 'Details still missing',
+    exportIncompleteLead: 'Still open:',
     exportIncompleteMsg: 'The report can still be produced — the open fields stay blank and can be filled in by hand.',
     now: 'Now',
     remarksLabel: 'Remarks',

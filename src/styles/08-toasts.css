@@ -112,7 +112,18 @@
   border: 1px solid var(--glass-edge); border-radius: var(--r-hero); padding: 22px 22px 16px; box-shadow: var(--shadow);
   animation: pop .16s var(--ease); }
 .confirm-title { margin: 0 0 8px; font: 800 19px var(--body); color: var(--ink); }
-.confirm-msg { margin: 0 0 18px; font: 500 13px/1.45 var(--body); color: var(--ink-dim); }
+.confirm-msg { margin: 0 0 10px; font: 500 13px/1.45 var(--body); color: var(--ink-dim); }
+/* The open points, as a list. «Noch offen: Zeiten, Mittel, Einsatzleiter, Kurzbericht,
+   Rückmeldung ELZ. Trotzdem abschliessen? …» was one paragraph — and the half of it somebody
+   has to ACT on, item by item, sat in the middle of a sentence nobody reads to the end. */
+.confirm-list { margin: 0 0 14px; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 3px; }
+.confirm-list li { position: relative; padding-left: 15px; font: 700 13px/1.45 var(--body); color: var(--ink); }
+.confirm-list li::before { content: ''; position: absolute; left: 3px; top: .62em; width: 4px; height: 4px;
+  border-radius: 50%; background: var(--ink-faint); }
+/* …and the consequence AFTER them, where it reads as the answer to the list rather than as
+   more of the same sentence */
+.confirm-note { margin: 0 0 18px; font: 500 12.5px/1.45 var(--body); color: var(--ink-faint); }
+.confirm-msg:last-of-type:not(:only-of-type) { margin-bottom: 18px; }
 .confirm-actions { display: flex; gap: 8px; justify-content: flex-end; }
 /* .ip-btn, the house family — `.btn` is the dense map-dock button (12.5px, flex:1, bounces on
    press) and using it here is what made the confirm read as another app's dialog. */
