@@ -1,64 +1,269 @@
 #!/usr/bin/env node
 /**
- * Baut aus site/index.html eine einzelne, in sich geschlossene Datei:
- * Schriften und Screenshots werden als data:-URIs eingebettet.
+ * Builds the landing page from one template plus one text file per language.
  *
- *   node site/build.mjs
- *   → site/dist/index.html
+ *   site/index.template.html   ← structure, markup, images, scripts
+ *   site/content/config.json   ← which languages exist, and under which URL
+ *   site/content/de.json       ← the German text (the base)
+ *   site/content/fr.json       ← the translation, laid over the base
  *
- * Gehostet wird site/ direkt (index.html + fonts/ + shots/). dist/index.html ist
- * die Variante zum Weitergeben: eine Datei, offline lesbar, ohne Server.
+ *   node site/build.mjs          → writes the pages
+ *   node site/build.mjs --check  → writes nothing, reports drift only (CI)
+ *
+ * Two kinds of page come out:
+ *
+ *   site/index.html          site/fr/index.html        ← what Pages serves
+ *   site/dist/index.html     site/dist/fr/index.html   ← the same page as ONE file
+ *
+ * The first kind is committed, because GitHub Pages serves `site/` verbatim –
+ * the page in the repo IS the page on the web. So whoever edits the template or
+ * a text has to rebuild, and `--check` in CI makes sure nobody forgets. The
+ * second kind is the hand-out variant: fonts and screenshots as data: URIs,
+ * readable offline, no server needed.
+ *
+ * A third language is one entry in config.json and one file in content/ – the
+ * template does not change. A language ships only once it is listed in
+ * config.json: an empty `it/` is worse than none.
  */
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { dirname, join, extname } from 'node:path'
+import { dirname, join } from 'node:path'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-const SRC = join(HERE, 'index.html')
-const OUT_DIR = join(HERE, 'dist')
-const OUT = join(OUT_DIR, 'index.html')
+const CHECK = process.argv.includes('--check')
 
+const read = (...p) => readFileSync(join(HERE, ...p), 'utf8')
+const readJson = (...p) => JSON.parse(read(...p))
+
+const config = readJson('content', 'config.json')
+
+const isPlainObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
+
+// ─── Text files: every language sits on top of the base language ──────────────
+//
+// Same mechanism as the app (src/config/copy/): German is the base, every other
+// language overrides only what it has actually translated. A missing key falls
+// back to German visibly instead of rendering empty – and the coverage figure
+// below makes sure "falls back" never quietly means "forgotten". Lists are
+// overlaid entry by entry, so a translation need not repeat file names or order.
+const merge = (base, over) => {
+  if (over === undefined) return base
+  if (Array.isArray(base) && Array.isArray(over))
+    return base.map((item, i) => merge(item, over[i])).concat(over.slice(base.length))
+  if (isPlainObject(base) && isPlainObject(over)) {
+    const out = { ...base }
+    for (const key of Object.keys(over)) out[key] = merge(base[key], over[key])
+    return out
+  }
+  return over
+}
+
+// Not every leaf is text. A screenshot's file name and pixel size are shared on
+// purpose: the images stay German on every language's page (they come from a
+// real instance – restaged ones would be a claim), and the page says so instead
+// of pretending otherwise. Counting those as gaps would bury the real ones.
+const STRUCTURAL = [/^shots\.items\[\d+\]\.(file|w|h)$/, /^hero\.frame(File|W|H)$/]
+const translatable = (path) => !STRUCTURAL.some((re) => re.test(path))
+
+const allLeafPaths = (v, path = '', out = []) => {
+  if (Array.isArray(v)) v.forEach((x, i) => allLeafPaths(x, `${path}[${i}]`, out))
+  else if (isPlainObject(v)) for (const k of Object.keys(v)) allLeafPaths(v[k], path ? `${path}.${k}` : k, out)
+  else out.push(path)
+  return out
+}
+
+// Which leaves a language did NOT translate – reported as a coverage figure.
+const untranslated = (base, over, path = '', out = []) => {
+  if (over === undefined) { out.push(path); return out }
+  if (Array.isArray(base) && Array.isArray(over))
+    base.forEach((item, i) => untranslated(item, over[i], `${path}[${i}]`, out))
+  else if (isPlainObject(base) && isPlainObject(over))
+    for (const key of Object.keys(base)) untranslated(base[key], over[key], path ? `${path}.${key}` : key, out)
+  return out
+}
+
+// ─── The template language ────────────────────────────────────────────────────
+//
+// Three forms, which is all this page needs:
+//
+//   {{path.to.text}}          inserts text (markup inside the text is allowed
+//                             and wanted – <strong> and <a> belong to the sentence)
+//   {{.}}                     the entry itself, inside a list of plain strings
+//   {{#path}} … {{/path}}     list  → the block once per entry ({{field}} resolves
+//                                     against the entry, then against the root)
+//                             truthy value → the block once, or not at all
+//
+// A section tag alone on its line takes that whole line with it, so a repeated
+// block keeps the indentation of its own body instead of collecting blank lines.
+//
+// No escaping: the content comes from this repo, not from visitors.
+const STANDALONE = /^[ \t]*(\{\{[#/][\w.]+\}\})[ \t]*\r?\n/gm
+const SECTION = /\{\{#([\w.]+)\}\}([\s\S]*?)\{\{\/\1\}\}/g
+const VALUE = /\{\{(\.|\w+(?:\.\w+)*)\}\}/g
+
+// Notes addressed to whoever edits the template have no business on the page.
+const TEMPLATE_ONLY = /^[ \t]*<!--@template[\s\S]*?-->[ \t]*\r?\n/gm
+
+const lookup = (scopes, path) => {
+  if (path === '.') return scopes[scopes.length - 1]
+  for (let i = scopes.length - 1; i >= 0; i--) {
+    let cur = scopes[i]
+    let found = true
+    for (const key of path.split('.')) {
+      if (!isPlainObject(cur) && !Array.isArray(cur)) { found = false; break }
+      if (!(key in cur)) { found = false; break }
+      cur = cur[key]
+    }
+    if (found) return cur
+  }
+  return undefined
+}
+
+const render = (tpl, scopes, missing) =>
+  tpl
+    .replace(SECTION, (_, path, body) => {
+      const val = lookup(scopes, path)
+      if (Array.isArray(val)) return val.map((item) => render(body, [...scopes, item], missing)).join('')
+      if (!val) return ''
+      return render(body, isPlainObject(val) ? [...scopes, val] : scopes, missing)
+    })
+    .replace(VALUE, (_, path) => {
+      const val = lookup(scopes, path)
+      if (val === undefined || val === null) { missing.add(path); return '' }
+      return String(val)
+    })
+
+const template = read('index.template.html')
+  .replace(TEMPLATE_ONLY, '')
+  .replace(STANDALONE, '$1')
+
+const BANNER = (locale) =>
+  `<!-- Built from site/index.template.html + site/content/${locale}.json.\n` +
+  `     Edits here are lost on the next \`node site/build.mjs\`. -->`
+
+// ─── The single-file variant ──────────────────────────────────────────────────
 const MIME = {
-  '.woff2': 'font/woff2',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.png': 'image/png',
-  '.svg': 'image/svg+xml',
+  woff2: 'font/woff2',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  svg: 'image/svg+xml',
 }
 
-const inline = (rel) => {
-  const ext = extname(rel).toLowerCase()
-  const mime = MIME[ext]
-  if (!mime) throw new Error(`Kein MIME-Typ für ${rel} hinterlegt`)
-  const b64 = readFileSync(join(HERE, rel)).toString('base64')
-  return `data:${mime};base64,${b64}`
+// A sub-language page points back at site/ with ../; embedding always resolves
+// against site/, no matter which depth the reference was written at.
+const flatten = (rel) => rel.replace(/^(\.\.\/)+/, '')
+
+const inline = (rel, seen) => {
+  const flat = flatten(rel)
+  const mime = MIME[flat.split('.').pop().toLowerCase()]
+  if (!mime) throw new Error(`No MIME type registered for ${flat}`)
+  seen.push(flat)
+  return `data:${mime};base64,${readFileSync(join(HERE, flat)).toString('base64')}`
 }
 
-let html = readFileSync(SRC, 'utf8')
-const embedded = []
+const bundle = (html) => {
+  const seen = []
+  // Stylesheet first, so the font URLs inside it come along in the same pass.
+  let out = html.replace(/<link rel="stylesheet" href="((?:\.\.\/)*[^"]+)">/g, (_, rel) => {
+    const flat = flatten(rel)
+    seen.push(flat)
+    return `<style>\n${read(flat)}</style>`
+  })
+  out = out.replace(/url\(((?:\.\.\/)*fonts\/[^)'"]+)\)/g, (_, rel) => `url(${inline(rel, seen)})`)
+  out = out.replace(/src="((?:\.\.\/)*(?:shots|fonts)\/[^"]+)"/g, (_, rel) => `src="${inline(rel, seen)}"`)
 
-// Stylesheet zuerst hineinziehen, damit die Schrift-URLs darin gleich mitgehen
-html = html.replace(/<link rel="stylesheet" href="([^"]+)">/g, (_, rel) => {
-  embedded.push(rel)
-  return `<style>\n${readFileSync(join(HERE, rel), 'utf8')}</style>`
-})
+  if (out.match(/(?:src=|url\()["']?(?:\.\.\/|\.\/)*(?:fonts|shots)\//))
+    throw new Error('Local references survived the bundle – adjust build.mjs')
+  return out
+}
 
-// url(fonts/…) in CSS und src="shots/…" im Markup – beide relativ zu site/
-html = html.replace(/url\((fonts\/[^)'"]+)\)/g, (_, rel) => {
-  embedded.push(rel)
-  return `url(${inline(rel)})`
-})
-html = html.replace(/src="((?:shots|fonts)\/[^"]+)"/g, (_, rel) => {
-  embedded.push(rel)
-  return `src="${inline(rel)}"`
-})
+// ─── Build ────────────────────────────────────────────────────────────────────
+const baseLocale = config.locales[0]
+const base = readJson('content', `${baseLocale.code}.json`)
 
-const left = html.match(/(?:src|url\()["']?(?:\.\/)?(?:fonts|shots)\//)
-if (left) throw new Error('Es sind lokale Verweise übrig geblieben – build.mjs anpassen')
+const dirOf = (locale) => locale.dir ?? (locale.code === baseLocale.code ? '' : `${locale.code}/`)
+const urlOf = (locale) => `${config.origin}/${dirOf(locale)}`
 
-mkdirSync(OUT_DIR, { recursive: true })
-writeFileSync(OUT, html)
+const written = []
+const stale = []
+const problems = []
 
-console.log(`${embedded.length} Dateien eingebettet:`)
-embedded.forEach((f) => console.log(`  · ${f}`))
-console.log(`→ site/dist/index.html  (${(Buffer.byteLength(html) / 1024).toFixed(0)} KB)`)
+const put = (rel, content) => {
+  const path = join(HERE, rel)
+  const current = existsSync(path) ? readFileSync(path, 'utf8') : null
+  if (current === content) return
+  if (CHECK) { stale.push(rel); return }
+  mkdirSync(dirname(path), { recursive: true })
+  writeFileSync(path, content)
+  written.push(rel)
+}
+
+for (const locale of config.locales) {
+  const isBase = locale.code === baseLocale.code
+  const own = isBase ? base : readJson('content', `${locale.code}.json`)
+  const content = isBase ? base : merge(base, own)
+  const dir = dirOf(locale)
+
+  // Everything that is not text but follows from where the page sits: language,
+  // path depth, canonical address, and the links to its sister languages.
+  const page = {
+    ...content,
+    lang: locale.code,
+    ogLocale: locale.ogLocale,
+    base: '../'.repeat(dir.split('/').filter(Boolean).length),
+    canonical: urlOf(locale),
+    alternates: config.locales
+      .map((l) => ({ hreflang: l.hreflang, href: urlOf(l) }))
+      .concat([{ hreflang: 'x-default', href: urlOf(baseLocale) }]),
+    langLinks: config.locales.map((l) => ({
+      code: l.code,
+      label: l.label,
+      name: l.name,
+      href: urlOf(l),
+      current: l.code === locale.code,
+    })),
+  }
+
+  const missing = new Set()
+  const html = render(template, [page], missing).replace(/^<!doctype html>/i, `<!doctype html>\n${BANNER(locale.code)}`)
+  if (missing.size) problems.push(`${locale.code}: ${[...missing].join(', ')}`)
+
+  put(`${dir}index.html`, html)
+  put(join('dist', dir, 'index.html'), bundle(html))
+
+  if (!isBase) {
+    // A screenshot's file name and pixel size are shared on purpose, not
+    // translated – the images are German on every language's page, and the page
+    // says so rather than pretending otherwise. Counting them as gaps would bury
+    // the ones that matter.
+    const gaps = untranslated(base, own).filter(translatable)
+    const total = allLeafPaths(base).filter(translatable).length
+    console.log(`${locale.code}: ${total - gaps.length}/${total} texts translated (${(((total - gaps.length) / total) * 100).toFixed(1)} %)`)
+    if (gaps.length) {
+      console.log(`   ${gaps.length} fall back to ${baseLocale.code}:`)
+      gaps.forEach((p) => console.log(`     · ${p}`))
+    }
+  }
+}
+
+if (problems.length) {
+  console.error('Unknown keys in the template:')
+  problems.forEach((p) => console.error(`  · ${p}`))
+  process.exit(1)
+}
+
+if (CHECK) {
+  if (stale.length) {
+    console.error('The built pages are behind the template and the texts:')
+    stale.forEach((f) => console.error(`  · site/${f}`))
+    console.error('\n  node site/build.mjs   – and commit the result.')
+    process.exit(1)
+  }
+  console.log('Built pages are up to date.')
+} else if (written.length) {
+  console.log(`${written.length} files written:`)
+  written.forEach((f) => console.log(`  · site/${f}`))
+} else {
+  console.log('Nothing to do – everything was already up to date.')
+}

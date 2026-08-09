@@ -1,15 +1,16 @@
 #!/usr/bin/env node
 /**
- * Screenshots für die Landingpage aufnehmen.
+ * Capture the screenshots for the landing page.
  *
- *   node site/capture.mjs                       # gegen die öffentliche Demo
+ *   node site/capture.mjs                       # against the public demo
  *   node site/capture.mjs --base http://localhost:5188
- *   node site/capture.mjs --only lage,mittel    # nur einzelne Shots
+ *   node site/capture.mjs --only lage,mittel    # only individual shots
  *
- * Fährt eine echte Instanz mit Playwright an, schaltet auf Tagmodus, blendet die
- * Demo-Chrome (Willkommensdialog, DEMO-Banderole) aus und legt die Bilder in
- * site/shots/ ab. Die Bildnamen sind der Vertrag mit site/index.html – wer hier
- * umbenennt, muss dort mitziehen.
+ * Drives a real instance with Playwright, switches to day mode, hides the demo
+ * chrome (welcome dialog, DEMO ribbon) and writes the images into site/shots/.
+ * The image names are the contract with `shots.items` in site/content/de.json –
+ * whoever renames one here has to follow suit there (only there: the translations
+ * inherit the file name and merely caption it).
  */
 import { chromium } from '@playwright/test'
 import { fileURLToPath } from 'node:url'
@@ -17,13 +18,13 @@ import { dirname, join } from 'node:path'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SHOTS = join(HERE, 'shots')
-// Die README-Bilder entstehen aus denselben Seitenzuständen wie die Landingpage-Shots.
-// Vorher wurden sie separat von Hand geschossen und liefen dadurch auseinander — ein Shot
-// mit `docs:` schreibt jetzt beides in einem Durchgang.
+// The README images come out of the same page states as the landing-page shots. They used
+// to be shot separately by hand and drifted apart because of it — a shot with `docs:` now
+// writes both in one pass.
 const DOCS_SHOTS = join(HERE, '..', 'docs', 'screenshots')
 
 const DEFAULT_BASE = 'https://demo.kp-front.ch'
-const VIEWPORT = { width: 1500, height: 937 } // 1.6:1 – dieselbe Kachelform für alle Shots
+const VIEWPORT = { width: 1500, height: 937 } // 1.6:1 – the same tile shape for every shot
 const QUALITY = 82
 
 const argv = process.argv.slice(2)
@@ -33,19 +34,19 @@ const arg = (name) => {
 }
 const base = (arg('base') || DEFAULT_BASE).replace(/\/$/, '')
 const only = arg('only')?.split(',').map((s) => s.trim()).filter(Boolean)
-// Nur die README-Bilder neu schreiben und die Landingpage-JPEGs in Ruhe lassen. Nötig,
-// weil beide Ausgaben aus derselben Aufnahme stammen, aber nicht dieselbe Auflösung
-// wollen: die Landingpage bindet inline ein (1x), die README-Bilder werden auf GitHub
-// vergrössert (2x). Also: erst der normale Lauf, dann `--scale 2 --docs-only`.
+// Rewrite only the README images and leave the landing-page JPEGs alone. Needed because
+// both outputs come from the same capture but don't want the same resolution: the landing
+// page inlines them (1x), the README images are viewed enlarged on GitHub (2x). So: the
+// normal run first, then `--scale 2 --docs-only`.
 const docsOnly = argv.includes('--docs-only')
-// Aufnahme-Auflösung: 1 für die Landingpage, 2 für die README-Bilder (siehe oben).
+// Capture resolution: 1 for the landing page, 2 for the README images (see above).
 const scale = Number(arg('scale') || 1)
-// Die öffentliche Demo lässt ohne Anmeldung herein. Eine lokale Instanz nicht – dort braucht es
-// eine Rolle und einen PIN, sonst steht der Browser vor dem Anmeldeschirm und läuft in den Timeout.
+// The public demo lets you in without signing in. A local instance does not – there it takes a
+// role and a PIN, otherwise the browser sits at the login screen and runs into the timeout.
 const pin = arg('pin')
 
-/** Ein Shot = eine Ansicht aus der linken Navigationsleiste, plus Einschwingzeit.
- *  `prep` öffnet vorher noch etwas (Sheet, Menü); `nav` darf dann fehlen. */
+/** One shot = one view from the left nav rail, plus settle time.
+ *  `prep` opens something else first (sheet, menu); `nav` may then be missing. */
 const shots = [
   { name: 'lage', nav: 'Karte', settle: 3500, note: 'Hero: taktische Karte', docs: 'lage' },
   { name: 'plan', nav: 'Modul 1', settle: 4000, note: 'Objektplan als Whiteboard' },
@@ -60,10 +61,10 @@ const shots = [
     prep: async (page) => {
       await page.getByRole('button', { name: 'Zeitplan', exact: true }).click()
       await page.waitForTimeout(1500)
-      // Der Standard-Zeitraum ist auf ein Bild hin zu weit: die Balken der Demo liegen in den
-      // ersten Stunden, der Rest der Achse wäre leere Fläche. Enger stellen, bis die Mannschaft
-      // die Breite auch füllt – und ans Ende scrollen, damit die Deckungszeile unter der letzten
-      // Zeile sitzt statt halb über ihr.
+      // The default Zeitraum is too wide for a picture: the demo's bars sit in the first few
+      // hours, the rest of the axis would be empty space. Narrow it until the crew actually
+      // fills the width – and scroll to the end so the coverage row sits below the last row
+      // instead of half over it.
       const narrower = page.getByRole('button', { name: 'Zeitraum enger' }).first()
       for (let i = 0; i < 2 && await narrower.count(); i++) {
         await narrower.click()
@@ -88,22 +89,22 @@ const shots = [
       await page.waitForTimeout(1500)
     },
   },
-  // ⚠️ Der Rapport war einmal ein Dialog, den man über das Einsatz-Menü aufmachte
-  // (`.ip-switch-btn` → «Einsatzrapport»), und dieser Schritt scrollte in
-  // `.report-preflight-body` bis zur Anwesenheits-Karte. Beides gibt es nicht mehr: der
-  // Rapport ist eine eigene Fläche in der linken Leiste (Taste R). Der alte Schritt lief
-  // 30 s in einen Timeout und nahm das Bild gar nicht mehr auf – ein Aufruf, der still
-  // nichts mehr trifft, ist hier derselbe Fehler wie ein Test, der nichts mehr prüft.
+  // ⚠️ The Rapport used to be a dialog you opened from the Einsatz menu
+  // (`.ip-switch-btn` → «Einsatzrapport»), and this step scrolled inside
+  // `.report-preflight-body` down to the Anwesenheit card. Neither exists any more: the
+  // Rapport is its own surface in the left rail (key R). The old step ran 30 s into a
+  // timeout and stopped capturing the image altogether – a call that silently matches
+  // nothing is the same mistake here as a test that no longer checks anything.
   { name: 'rapport', nav: 'Rapport', settle: 2500, note: 'Der Einsatzrapport: ein vorausgefülltes Erfassungsblatt, über den ganzen Einsatz ergänzt' },
 ]
 
-/** Demo-Chrome, die im Marketing-Bild nichts zu suchen hat. */
+/** Demo chrome that has no business being in a marketing picture. */
 const HIDE_CSS = `
   .demo-ribbon, .demo-welcome-scrim, .kp-toast, [data-sonner-toaster] { display: none !important; }
-  /* Der schwebende Neualarm-Streifen (.dv-banner) legte sich quer über den Kopf der Mittel-
-     und Rapport-Bilder — auf der öffentlichen Demo läuft ständig ein frischer Alarm ein.
-     Er ist echtes Produktverhalten, aber vorübergehendes Chrome: im Standbild liest er sich
-     wie ein Fehlerzustand, der die Überschrift verdeckt. Gleiche Familie wie die Toasts. */
+  /* The floating new-alarm strip (.dv-banner) lay right across the head of the Mittel and
+     Rapport pictures — on the public demo a fresh Alarm keeps coming in. It is real product
+     behaviour, but transient chrome: in a still it reads like an error state covering the
+     heading. Same family as the toasts. */
   .dv-banner { display: none !important; }
 `
 
@@ -118,8 +119,8 @@ const run = async () => {
     reducedMotion: 'reduce',
   })
 
-  // Tagmodus erzwingen (die App schaltet sonst nach Sonnenuntergang auf Nacht) und
-  // den Willkommensdialog der Demo als "gesehen" markieren, bevor React startet.
+  // Force day mode (otherwise the app switches to night after sunset) and mark the demo's
+  // welcome dialog as "seen" before React starts.
   const { host, protocol } = new URL(base)
   await ctx.addCookies([{
     name: 'kp-front-prefs',
@@ -148,7 +149,7 @@ const run = async () => {
       await page.waitForTimeout(80)
     }
     await page.waitForTimeout(2500)
-    // Erstbesuch-Dialoge, die es auf der Demo dank kp.demo.welcomed nicht gibt.
+    // First-visit dialogs that don't exist on the demo thanks to kp.demo.welcomed.
     for (const label of [/Los geht/i, /Verstanden/i]) {
       const btn = page.getByRole('button', { name: label })
       if (await btn.count()) await btn.first().click().catch(() => {})
@@ -162,10 +163,10 @@ const run = async () => {
   if (!wanted.length) throw new Error(`--only passt auf keinen Shot (${shots.map((s) => s.name).join(', ')})`)
 
   for (const shot of wanted) {
-    // Ein Shot darf ein Sheet offen lassen (der Verlauf tut das). Dessen Scrim liegt danach
-    // über der Navigation und fängt jeden Klick ab — der nächste Shot lief in den Timeout,
-    // statt aufzunehmen. Escape schliesst dieses Sheet nicht, also wird neu geladen, und zwar
-    // nur dann, wenn wirklich ein Scrim im Weg ist: auf dem normalen Weg kostet das nichts.
+    // A shot may leave a sheet open (the Verlauf does). Its scrim then lies over the
+    // navigation and swallows every click — the next shot ran into the timeout instead of
+    // capturing. Escape does not close that sheet, so we reload, and only when a scrim really
+    // is in the way: on the normal path this costs nothing.
     if (await page.locator('.journal-scrim, [data-base-ui-portal] [role="presentation"]').count()) {
       await page.goto(base, { waitUntil: 'domcontentloaded' })
       await page.locator('.nav-item').first().waitFor({ timeout: 45000 })
@@ -182,8 +183,8 @@ const run = async () => {
       await page.screenshot({ path, type: 'jpeg', quality: QUALITY })
       console.log(`  ✓ ${shot.name}.jpg  (${shot.nav})`)
     }
-    // Derselbe Seitenzustand, zweite Ausgabe: das README-Bild. PNG, weil README-Bilder auf
-    // GitHub oft vergrössert betrachtet werden und Text dort verlustfrei bleiben soll.
+    // Same page state, second output: the README image. PNG, because README images are often
+    // viewed enlarged on GitHub and text should stay lossless there.
     if (shot.docs) {
       const docsPath = join(DOCS_SHOTS, `${shot.docs}.png`)
       await page.screenshot({ path: docsPath, type: 'png' })

@@ -1,0 +1,415 @@
+<!doctype html>
+<!--@template
+  This file is the TEMPLATE. The served pages (index.html, fr/index.html) are
+  built from it – anything written into those is lost on the next build.
+  Text belongs in content/<language>.json, structure belongs here.
+-->
+<html lang="{{lang}}">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>{{meta.title}}</title>
+<meta name="description" content="{{meta.description}}">
+<link rel="canonical" href="{{canonical}}">
+{{#alternates}}
+<link rel="alternate" hreflang="{{hreflang}}" href="{{href}}">
+{{/alternates}}
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231b2330'/%3E%3Cg transform='translate(16 16.5) scale(0.085) translate(-257 -274)'%3E%3Cellipse cx='256' cy='398' rx='150' ry='19' fill='%23000' opacity='0.22'/%3E%3Cg stroke='%23c4cedb' stroke-width='3' stroke-linejoin='round'%3E%3Cpolygon points='100,216 198,190 198,380 100,406' fill='%23e7edf4'/%3E%3Cpolygon points='208,190 306,216 306,406 208,380' fill='%23ffffff'/%3E%3Cpolygon points='316,216 414,190 414,380 316,406' fill='%23d8e1ec'/%3E%3C/g%3E%3Cpath fill='%23e8392b' d='M256 350 C221 297 186 260 186 206 A70 70 0 1 1 326 206 C326 260 291 297 256 350 Z'/%3E%3Ccircle cx='256' cy='200' r='30' fill='%23fff'/%3E%3C/g%3E%3C/svg%3E">
+<meta property="og:type" content="website">
+<meta property="og:title" content="{{meta.ogTitle}}">
+<meta property="og:description" content="{{meta.ogDescription}}">
+<meta property="og:url" content="{{canonical}}">
+<meta property="og:image" content="https://kp-front.ch/shots/lage.jpg">
+<meta property="og:image:width" content="1500">
+<meta property="og:image:height" content="937">
+<meta property="og:locale" content="{{ogLocale}}">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="{{base}}landing.css">
+
+<svg style="display:none" aria-hidden="true">
+  <symbol id="i-gh" viewBox="0 0 16 16">
+    <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+  </symbol>
+  <symbol id="i-play" viewBox="0 0 16 16">
+    <path d="M4.5 3.1a.7.7 0 0 1 1.05-.6l7.2 4.9a.7.7 0 0 1 0 1.2l-7.2 4.9a.7.7 0 0 1-1.05-.6z"/>
+  </symbol>
+  <symbol id="i-arrow" viewBox="0 0 16 16">
+    <path d="M8.8 2.3a.9.9 0 0 0-1.3 1.25L10.4 6.6H2.2a.9.9 0 0 0 0 1.8h8.2l-2.9 3.05a.9.9 0 0 0 1.3 1.25l4.3-4.5a.9.9 0 0 0 0-1.2z"/>
+  </symbol>
+  <symbol id="i-bug" viewBox="0 0 16 16">
+    <path d="M8 1.2A6.8 6.8 0 1 0 8 14.8 6.8 6.8 0 0 0 8 1.2zm0 3.1a.95.95 0 0 1 .95 1l-.22 3.4a.73.73 0 0 1-1.46 0l-.22-3.4a.95.95 0 0 1 .95-1zm0 6.2a1.05 1.05 0 1 1 0 2.1 1.05 1.05 0 0 1 0-2.1z"/>
+  </symbol>
+  <symbol id="i-idea" viewBox="0 0 16 16">
+    <path d="M8 1.2a4.8 4.8 0 0 0-2.95 8.58c.4.32.63.75.7 1.22l.08.5h4.34l.08-.5c.07-.47.3-.9.7-1.22A4.8 4.8 0 0 0 8 1.2zM6.25 12.9a.75.75 0 0 0 0 1.5h3.5a.75.75 0 0 0 0-1.5z"/>
+  </symbol>
+  <symbol id="i-mail" viewBox="0 0 16 16">
+    <path d="M2 4.6c0-.77.63-1.4 1.4-1.4h9.2c.77 0 1.4.63 1.4 1.4v.2L8 8.4 2 4.8zm0 1.95 5.6 3.36c.25.15.55.15.8 0L14 6.55v4.85c0 .77-.63 1.4-1.4 1.4H3.4A1.4 1.4 0 0 1 2 11.4z"/>
+  </symbol>
+</svg>
+
+<header class="top">
+  <div class="wrap top-in">
+    <a class="mark" href="#">
+      <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="7" fill="#1b2330"/>
+        <g transform="translate(16 16.5) scale(0.085) translate(-257 -274)">
+          <ellipse cx="256" cy="398" rx="150" ry="19" fill="#000" opacity="0.22"/>
+          <g stroke="#c4cedb" stroke-width="3" stroke-linejoin="round">
+            <polygon points="100,216 198,190 198,380 100,406" fill="#e7edf4"/>
+            <polygon points="208,190 306,216 306,406 208,380" fill="#ffffff"/>
+            <polygon points="316,216 414,190 414,380 316,406" fill="#d8e1ec"/>
+          </g>
+          <path fill="#e8392b" d="M256 350 C221 297 186 260 186 206 A70 70 0 1 1 326 206 C326 260 291 297 256 350 Z"/>
+          <circle cx="256" cy="200" r="30" fill="#fff"/>
+        </g>
+      </svg>
+      <span>KP Front</span></a>
+    <nav aria-label="{{nav.aria}}">
+      <a href="#funktionen">{{nav.features}}</a>
+      <a href="#kontakt">{{nav.contact}}</a>
+      <span class="langs" role="group" aria-label="{{nav.languageAria}}">{{#langLinks}}<a class="lang{{#current}} on{{/current}}" href="{{href}}" hreflang="{{code}}" lang="{{code}}"{{#current}} aria-current="page"{{/current}}><abbr title="{{name}}">{{label}}</abbr></a>{{/langLinks}}</span>
+      <a class="icon-link" href="https://github.com/feuerwehr-oberwil/kp-front" target="_blank" rel="noopener" aria-label="{{nav.githubAria}}"><svg class="ico"><use href="#i-gh"/></svg></a>
+      <a class="cta" href="https://demo.kp-front.ch" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg>{{nav.demo}}</a>
+    </nav>
+  </div>
+</header>
+
+{{#notice}}
+<div class="notice">
+  <p class="wrap">{{notice}}</p>
+</div>
+{{/notice}}
+<main>
+  <section class="hero wrap">
+    <p class="eyebrow">{{hero.eyebrow}}</p>
+    <h1>{{hero.h1}}</h1>
+    <p class="lede">{{hero.lede}}</p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="https://demo.kp-front.ch" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg>{{hero.cta}}</a>
+      <span class="cta-note">{{hero.ctaNote}}</span>
+    </div>
+    <figure class="frame">
+      <div class="frame-bar" aria-hidden="true">
+        <span class="dot live"></span><span class="dot"></span><span class="dot"></span>
+        <span class="addr">{{hero.frameAddr}}</span>
+      </div>
+      <img src="{{base}}shots/{{hero.frameFile}}" alt="{{hero.frameAlt}}" width="{{hero.frameW}}" height="{{hero.frameH}}">
+    </figure>
+  </section>
+
+  <section class="fit">
+    <div class="wrap">
+      <div class="fit-row">
+        <p class="fit-k">{{fit.whoLabel}}</p>
+        <ul class="fit-v">
+          {{#fit.who}}
+          <li>{{.}}</li>
+          {{/fit.who}}
+        </ul>
+      </div>
+      <div class="fit-row">
+        <p class="fit-k">{{fit.whatLabel}}</p>
+        <ul class="fit-v">
+          {{#fit.what}}
+          <li>{{.}}</li>
+          {{/fit.what}}
+        </ul>
+      </div>
+      <p class="fit-note">{{fit.note}}</p>
+    </div>
+  </section>
+
+  <section class="tenet">
+    <div class="wrap">
+      <p class="eyebrow">{{tenet.eyebrow}}</p>
+      <blockquote>{{tenet.quote}}</blockquote>
+      <p class="expl">{{tenet.expl}}</p>
+    </div>
+  </section>
+
+  <section class="wrap" id="einsatz">
+    <div class="sec-head">
+      <p class="eyebrow">{{incident.eyebrow}}</p>
+      <h2>{{incident.h2}}</h2>
+      <p>{{incident.lede}}</p>
+    </div>
+    <div class="verlauf-list">
+      {{#incident.entries}}
+      <article class="entry">
+        <div class="time">{{time}}</div><div class="rail" aria-hidden="true"></div>
+        <div class="body">
+          <p class="tag">{{tag}}</p>
+          <h3>{{h3}}</h3>
+          <p>{{p}}</p>
+        </div>
+      </article>
+      {{/incident.entries}}
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">{{shots.eyebrow}}</p>
+      <h2>{{shots.h2}}</h2>
+      <p>{{shots.lede}}</p>
+      {{#shots.note}}
+      <p class="sec-note">{{shots.note}}</p>
+      {{/shots.note}}
+    </div>
+    <div class="shots-grid">
+      {{#shots.items}}
+      <figure class="shot">
+        <img src="{{base}}shots/{{file}}" alt="{{alt}}" width="{{w}}" height="{{h}}" loading="lazy" decoding="async">
+        <figcaption>
+          <div class="cap-t">{{title}}</div>
+          <div class="cap-s">{{sub}}</div>
+        </figcaption>
+      </figure>
+      {{/shots.items}}
+    </div>
+  </section>
+
+  <section class="wrap" id="aenderung">
+    <div class="sec-head">
+      <p class="eyebrow">{{change.eyebrow}}</p>
+      <h2>{{change.h2}}</h2>
+      <p>{{change.lede}}</p>
+    </div>
+    <div class="change-wrap">
+      <table class="change">
+        <thead>
+          <tr><th scope="col">{{change.headToday}}</th><th scope="col">{{change.headWith}}</th></tr>
+        </thead>
+        <tbody>
+          {{#change.rows}}
+          <tr><td>{{today}}</td><td>{{with}}</td></tr>
+          {{/change.rows}}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="wrap" id="funktionen">
+    <div class="sec-head">
+      <p class="eyebrow">{{features.eyebrow}}</p>
+      <h2>{{features.h2}}</h2>
+      <p>{{features.lede}}</p>
+    </div>
+    <div class="feature-cols">
+      {{#features.groups}}
+      <div class="fgroup">
+        <h3>{{h3}}</h3>
+        <ul class="flist">
+          {{#items}}
+          <li>{{.}}</li>
+          {{/items}}
+        </ul>
+      </div>
+      {{/features.groups}}
+    </div>
+  </section>
+
+  <section class="sibling">
+    <div class="wrap">
+      <div class="sibling-txt">
+        <p class="eyebrow">{{sibling.eyebrow}}</p>
+        <h2>{{sibling.h2}}</h2>
+        <p>{{sibling.p}}</p>
+        <a class="btn btn-ghost" href="https://kp-rueck.ch">{{sibling.cta}}<svg class="ico" style="width:14px;height:14px"><use href="#i-arrow"/></svg></a>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap" id="fragen">
+    <div class="sec-head">
+      <p class="eyebrow">{{faq.eyebrow}}</p>
+      <h2>{{faq.h2}}</h2>
+    </div>
+    <div class="faq-list">
+      {{#faq.items}}
+      <div class="faq-item">
+        <h3>{{q}}</h3>
+        <p>{{a}}</p>
+      </div>
+      {{/faq.items}}
+    </div>
+  </section>
+
+  <section class="wrap" id="kontakt">
+    <div class="contact-grid">
+      <div class="contact-side">
+        <p class="eyebrow">{{contact.eyebrow}}</p>
+        <h2>{{contact.h2}}</h2>
+        <p>{{contact.p}}</p>
+        <p class="alt">{{contact.alt}}</p>
+      </div>
+      <div class="contact-ways">
+        <a class="way" href="https://github.com/feuerwehr-oberwil/kp-front/issues/new?template=bug_report.md" target="_blank" rel="noopener">
+          <span class="way-ico"><svg class="ico"><use href="#i-bug"/></svg></span>
+          <span class="way-body">
+            <span class="way-t">{{contact.bug.t}}</span>
+            <span class="way-s">{{contact.bug.s}}</span>
+          </span>
+          <svg class="way-go"><use href="#i-arrow"/></svg>
+        </a>
+        <a class="way" href="https://github.com/feuerwehr-oberwil/kp-front/issues/new?template=feature_request.md" target="_blank" rel="noopener">
+          <span class="way-ico"><svg class="ico"><use href="#i-idea"/></svg></span>
+          <span class="way-body">
+            <span class="way-t">{{contact.idea.t}}</span>
+            <span class="way-s">{{contact.idea.s}}</span>
+          </span>
+          <svg class="way-go"><use href="#i-arrow"/></svg>
+        </a>
+        <form class="way way-form" action="https://api.staticforms.dev/submit" method="POST">
+          <span class="way-ico"><svg class="ico"><use href="#i-mail"/></svg></span>
+          <div class="way-body">
+            <span class="way-t">{{contact.mail.t}}</span>
+            <span class="way-s">{{contact.mail.s}}</span>
+            <input type="hidden" name="apiKey" value="sf_ed957c38761f21e20b01928a">
+            <input type="hidden" name="subject" value="KP Front – Landingpage ({{lang}})">
+            <p class="hp"><label>{{contact.form.honeypot}}
+              <input type="text" name="website" tabindex="-1" autocomplete="off"></label></p>
+            <div class="f-fields">
+              <div class="f-row">
+                <label class="f-lab" for="f-name">{{contact.form.name}}</label>
+                <input class="f-in" id="f-name" type="text" name="name" autocomplete="name" placeholder="{{contact.form.namePlaceholder}}">
+              </div>
+              <div class="f-row">
+                <label class="f-lab" for="f-mail">{{contact.form.mail}}</label>
+                <input class="f-in" id="f-mail" type="email" name="email" required autocomplete="email" placeholder="{{contact.form.mailPlaceholder}}">
+              </div>
+              <div class="f-row">
+                <label class="f-lab" for="f-msg">{{contact.form.message}}</label>
+                <textarea class="f-in" id="f-msg" name="message" rows="4" required placeholder="{{contact.form.messagePlaceholder}}"></textarea>
+              </div>
+            </div>
+            <button class="btn btn-primary f-send" type="submit">{{contact.form.send}}</button>
+            <p class="f-note" role="status" hidden></p>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p class="foot-origin">{{footer.origin}}</p>
+    <div class="foot-row">
+      <span>© 2026 <a href="https://bastianeichenberger.ch" target="_blank" rel="noopener">Bastian Eichenberger</a> · AGPL-3.0</span>
+      <a href="https://github.com/feuerwehr-oberwil/kp-front" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://demo.kp-front.ch" target="_blank" rel="noopener">{{footer.demo}}</a>
+      <a href="https://kp-rueck.ch">KP Rück</a>
+      <a href="#kontakt">{{footer.contact}}</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Scroll-Reveal: nur mit JS und ohne Reduced-Motion; bereits sichtbare
+  // Elemente erscheinen sofort (kein Nachfaden beim Reload mitten auf der Seite)
+  document.documentElement.classList.add('js');
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
+    var els = document.querySelectorAll('.sec-head, .entry, .pillar, .shot, .fgroup, .faq-item, .tenet .wrap, .sibling-txt, .contact-side, .contact-ways');
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+      });
+    }, { rootMargin: '0px 0px -60px' });
+    els.forEach(function (el) {
+      el.classList.add('reveal');
+      if (el.getBoundingClientRect().top < innerHeight * 0.9) el.classList.add('in');
+      else io.observe(el);
+    });
+  }
+
+  // Kontaktformular. Ohne JS bleibt es ein gewöhnlicher POST – der Absender
+  // landet dann auf der Bestätigungsseite des Dienstes. Mit JS senden wir im
+  // Hintergrund und bleiben auf der Seite. Der Honigtopf ist für Menschen
+  // unsichtbar: ist er ausgefüllt, war es ein Bot, und wir brechen still ab.
+  (function () {
+    var form = document.querySelector('.way-form');
+    if (!form || !window.fetch || !window.FormData) return;
+    var fields = form.querySelector('.f-fields');
+    var note = form.querySelector('.f-note');
+    var send = form.querySelector('.f-send');
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var hp = form.querySelector('input[name="website"]');
+      if (hp && hp.value) return;
+
+      send.disabled = true;
+      note.hidden = false;
+      note.className = 'f-note';
+      note.textContent = '{{contact.form.sending}}';
+
+      fetch(form.action, { method: 'POST', body: new FormData(form) })
+        .then(function (r) {
+          if (!r.ok) throw new Error(String(r.status));
+          fields.hidden = true;
+          send.hidden = true;
+          note.className = 'f-note ok';
+          note.textContent = '{{contact.form.ok}}';
+        })
+        .catch(function () {
+          send.disabled = false;
+          note.className = 'f-note err';
+          note.textContent = '{{contact.form.error}}';
+        });
+    });
+  })();
+
+  // Bilder-Lightbox: ein Klick auf eine Kachel legt den Screenshot
+  // bildschirmfüllend über die Seite. Der Knopf wird hier erzeugt, damit das
+  // Markup der Kacheln unangetastet bleibt – ohne JS gibt es einfach keinen Zoom.
+  (function () {
+    var shots = [].slice.call(document.querySelectorAll('.shot'));
+    if (!shots.length || typeof HTMLDialogElement === 'undefined') return;
+
+    var dlg = document.createElement('dialog');
+    dlg.className = 'lb';
+    dlg.innerHTML =
+      '<button class="lb-x" type="button" aria-label="{{lightbox.close}}">×</button>' +
+      '<button class="lb-nav lb-prev" type="button" aria-label="{{lightbox.prev}}">‹</button>' +
+      '<button class="lb-nav lb-next" type="button" aria-label="{{lightbox.next}}">›</button>' +
+      '<figure class="lb-fig"><img alt=""><figcaption></figcaption></figure>';
+    document.body.appendChild(dlg);
+
+    var img = dlg.querySelector('.lb-fig img');
+    var cap = dlg.querySelector('.lb-fig figcaption');
+    var idx = 0;
+
+    var show = function (i) {
+      idx = (i + shots.length) % shots.length;
+      var s = shots[idx];
+      var src = s.querySelector('img');
+      img.src = src.src;
+      img.alt = src.alt;
+      cap.innerHTML = '<b>' + s.querySelector('.cap-t').textContent + '</b> – '
+        + s.querySelector('.cap-s').textContent;
+    };
+
+    shots.forEach(function (s, i) {
+      var im = s.querySelector('img');
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'shot-zoom';
+      btn.setAttribute('aria-label', '{{lightbox.zoom}}: ' + s.querySelector('.cap-t').textContent);
+      im.parentNode.insertBefore(btn, im);
+      btn.appendChild(im);
+      btn.addEventListener('click', function () { show(i); dlg.showModal(); });
+    });
+
+    dlg.querySelector('.lb-x').addEventListener('click', function () { dlg.close(); });
+    dlg.querySelector('.lb-prev').addEventListener('click', function () { show(idx - 1); });
+    dlg.querySelector('.lb-next').addEventListener('click', function () { show(idx + 1); });
+    // Klick auf den Hintergrund schliesst, ein Klick aufs Bild nicht.
+    dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); });
+    // Escape erledigt <dialog> selber; hier nur das Blättern.
+    dlg.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowLeft') { e.preventDefault(); show(idx - 1); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); show(idx + 1); }
+    });
+  })();
+</script>

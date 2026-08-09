@@ -1,0 +1,329 @@
+{
+  "notice": "Cette version française n’a pas encore été relue par une personne francophone des sapeurs-pompiers. Un terme qui sonne faux ? <a href=\"#kontakt\">Dites-le-nous</a>, nous corrigeons.",
+  "meta": {
+    "title": "KP Front – conduite d’intervention pour les sapeurs-pompiers de milice",
+    "description": "KP Front est le poste de commandement numérique sur les lieux : situation, plans, protection respiratoire, journal et rapport dans une application open source qui fonctionne hors ligne.",
+    "ogTitle": "KP Front – conduite d’intervention pour les sapeurs-pompiers de milice",
+    "ogDescription": "Le poste de commandement numérique sur les lieux : situation, plans, protection respiratoire, journal et rapport dans une application open source qui fonctionne hors ligne."
+  },
+  "nav": {
+    "aria": "Navigation principale",
+    "features": "Fonctions",
+    "contact": "Contact",
+    "demo": "Démo",
+    "githubAria": "KP Front sur GitHub",
+    "languageAria": "Langue"
+  },
+  "hero": {
+    "eyebrow": "Open source&nbsp;· Suisse",
+    "h1": "La conduite d’intervention numérique pour les sapeurs-pompiers.",
+    "lede": "KP Front est le poste de commandement numérique sur les lieux :\n      <strong>situation, plans, protection respiratoire, journal et rapport</strong> dans une seule application.",
+    "cta": "Ouvrir la démo",
+    "ctaNote": "Sans connexion – dans la démo, il y a le feu à Musterdorf",
+    "frameAddr": "LAGE · ZIMMERBRAND · 2611624 / 1263070",
+    "frameAlt": "Vue Situation : carte tactique avec signes conventionnels CSSP, secteurs et conduites"
+  },
+  "fit": {
+    "whoLabel": "Pour qui",
+    "who": [
+      "Sapeurs-pompiers de milice",
+      "Corps locaux",
+      "Centres de renfort"
+    ],
+    "whatLabel": "Pour quoi",
+    "what": [
+      "Incendies",
+      "Accidents de la circulation",
+      "Assistance technique",
+      "Défense chimique et hydrocarbure",
+      "Événements majeurs"
+    ],
+    "note": "Né du service opérationnel réel des\n        <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">sapeurs-pompiers d’Oberwil BL</a>\n        – éprouvé sur le terrain et développé en continu."
+  },
+  "tenet": {
+    "eyebrow": "La mesure de toute chose",
+    "quote": "«&nbsp;Utilisable à <em>3 heures du matin</em> – après six mois sans exercice&nbsp;»",
+    "expl": "Dans un corps de milice, personne n’est devant l’écran tous les jours. L’application\n        doit donc être faite pour être utilisée juste, à moitié endormi :\n        <strong>l’essentiel visible d’emblée, de bons réglages par défaut plutôt que des options,\n        et rien qui ne puisse être annulé.</strong>"
+  },
+  "incident": {
+    "eyebrow": "De l’alarme au rapport",
+    "h2": "Une intervention, une application.",
+    "lede": "Voilà à quoi ressemble une nuit avec KP Front – la situation, la protection respiratoire et la documentation\n        restent compréhensibles pour tous, à tout moment.",
+    "entries": [
+      {
+        "time": "03:01",
+        "tag": "Alarme",
+        "h3": "L’alarme arrive.",
+        "p": "Reprendre en un geste une alarme du système d’alarme (p.&nbsp;ex. Divera) – ou démarrer\n            à la main depuis une adresse, un objet ou la carte. Le lieu et les données de l’objet\n            sont là avant que le premier véhicule ne roule."
+      },
+      {
+        "time": "03:07",
+        "tag": "Situation",
+        "h3": "La première situation est posée.",
+        "p": "Signes conventionnels CSSP, secteurs, conduites et notes sur la carte swisstopo. Bornes hydrantes,\n            conduites et positions des véhicules se trouvent en dessous, sous forme de couches."
+      },
+      {
+        "time": "03:12",
+        "tag": "Protection respiratoire",
+        "h3": "Le équipe 1 entre.",
+        "p": "Pression, moment du repli et temps depuis le dernier contact tournent pour chaque équipe.\n            L’application se manifeste avant que cela ne devienne juste – même si personne\n            ne regarde l’heure à ce moment-là."
+      },
+      {
+        "time": "03:18",
+        "tag": "Plan",
+        "h3": "Le plan d’objet devient un tableau blanc.",
+        "p": "Ouvrir le plan d’intervention, dessiner dessus, y placer les équipes, mesurer à\n            l’échelle – avec les mêmes outils que sur la carte."
+      },
+      {
+        "time": "03:40",
+        "tag": "Journal",
+        "h3": "Tout est dans le journal.",
+        "p": "Écrire, ou simplement parler – les notes vocales deviennent automatiquement du texte\n            dans le journal. Le journal ne fait que s’allonger, il ne se réécrit jamais : on\n            corrige par une nouvelle entrée, pas à la gomme. L’intervention reste ainsi\n            documentée."
+      },
+      {
+        "time": "04:30",
+        "tag": "Horaires",
+        "h3": "La relève se planifie, elle ne s’estime pas.",
+        "p": "Si la nuit s’annonce longue, les Horaires planifient pour chaque personne de quand à\n            quand elle est disponible et quand elle est engagée. La courbe de couverture montre\n            où il manque du monde – avant que le trou ne soit là. Les Présences n’en sont pas\n            touchées : ici on planifie, là on pointe."
+      },
+      {
+        "time": "05:55",
+        "tag": "Rapport",
+        "h3": "À la rentrée, le rapport est presque terminé.",
+        "p": "Situation, effectif, moyens et journal alimentent directement le rapport.\n            Personne n’a à reconstituer la nuit de mémoire."
+      },
+      {
+        "time": "Après",
+        "tag": "Rejouer",
+        "h3": "La nuit se rejoue.",
+        "p": "Pour le débriefing, la fonction Rejouer repasse toute l’intervention : la situation,\n            les équipes et le journal tels qu’ils étaient à chaque minute. Les longues attentes\n            sont sautées – quatre heures deviennent quelques minutes."
+      }
+    ]
+  },
+  "shots": {
+    "eyebrow": "Tiré de la démo",
+    "h2": "Voilà à quoi cela ressemble.",
+    "lede": "Toutes les images proviennent de la démo publique. Cliquez sur\n        «&nbsp;Ouvrir la démo&nbsp;» et vous serez dans la même situation.",
+    "note": "Les captures d’écran sont en allemand : elles viennent d’une instance réelle, et des\n        images reconstituées seraient une affirmation plutôt qu’une preuve. L’application\n        elle-même, elle, parle français.",
+    "items": [
+      {
+        "alt": "Vue Plan : plan d’objet comme tableau blanc, avec dessin, symboles et échelle",
+        "title": "Plan",
+        "sub": "Plans d’objet et d’intervention avec signes conventionnels, marquages et mesure à l’échelle"
+      },
+      {
+        "alt": "Vue Protection respiratoire : équipes avec pression et temps depuis le dernier contact",
+        "title": "Protection respiratoire",
+        "sub": "Surveillance des équipes, des temps, des pressions et des annonces"
+      },
+      {
+        "alt": "Vue Bâtiment : étages superposés avec l’affectation des équipes",
+        "title": "Bâtiment",
+        "sub": "Les étages les uns sur les autres – quel équipe travaille à quel niveau"
+      },
+      {
+        "alt": "Journal : entrées chronologiques à côté de la carte",
+        "title": "Journal",
+        "sub": "Documentation continue de tous les événements importants – les notes vocales deviennent du texte"
+      },
+      {
+        "alt": "Présences : liste de l’effectif avec les heures d’arrivée",
+        "title": "Présences",
+        "sub": "Qui est rentré et depuis quand – la base de la liste d’effectif et du rapport"
+      },
+      {
+        "alt": "Horaires : grille des tours, une ligne par personne, barres planifiées et réelles, courbe de couverture en dessous",
+        "title": "Horaires",
+        "sub": "Planifier les tours lors d’interventions longues – disponible, engagé, réellement présent, et où la couverture s’effondre"
+      },
+      {
+        "alt": "Checklist : tâches de l’aide à la conduite avec l’avancement",
+        "title": "Checklists",
+        "sub": "Les checklists de conduite de votre corps, à cocher plutôt que rangées dans un classeur"
+      },
+      {
+        "alt": "Vue Moyens : matériel engagé, par provenance",
+        "title": "Moyens",
+        "sub": "Saisir le matériel et la consommation pendant l’intervention, au lieu de les estimer après"
+      },
+      {
+        "alt": "Rapport d’intervention avant impression : présences et moyens déjà repris, en dessous les sections du PDF à cocher",
+        "title": "Rapport",
+        "sub": "Presque terminé à la rentrée – contrôler, compléter, exporter en PDF, lancer l’impression"
+      }
+    ]
+  },
+  "change": {
+    "eyebrow": "Le changement",
+    "h2": "Ce qui change.",
+    "lede": "Rien de tout cela n’est cassé aujourd’hui – la carte de situation sur papier fonctionne\n        depuis des décennies. KP Front prend les mêmes places, simplement sans recopier.",
+    "headToday": "Aujourd’hui",
+    "headWith": "Avec KP Front",
+    "rows": [
+      {
+        "today": "Carte de situation sur papier",
+        "with": "Tableau de la situation sur chaque appareil"
+      },
+      {
+        "today": "Tableau de surveillance et chronomètre",
+        "with": "Une surveillance qui se manifeste d’elle-même"
+      },
+      {
+        "today": "Bouts de papier et mémoire",
+        "with": "Un journal qui suit"
+      },
+      {
+        "today": "Plan d’objet dans un classeur",
+        "with": "Un plan sur lequel on dessine"
+      },
+      {
+        "today": "Rapport le lendemain",
+        "with": "Rapport à la rentrée"
+      },
+      {
+        "today": "Débriefing de mémoire",
+        "with": "Rejouer la nuit du début à la fin"
+      }
+    ]
+  },
+  "features": {
+    "eyebrow": "Étendue des fonctions",
+    "h2": "Ce qu’il y a dedans.",
+    "lede": "Né d’interventions et d’exercices réels, pas d’une liste de fonctions. Tout ce qui vient\n      de l’extérieur – alarme, GPS, imprimante – est <strong>facultatif</strong> : KP Front\n      fonctionne aussi entièrement sans ces raccordements.",
+    "groups": [
+      {
+        "h3": "Situation &amp; plan",
+        "items": [
+          "<strong>Signes conventionnels</strong> selon la CSSP, avec attributs et libellés",
+          "Secteurs, zones de barrage, surfaces et dessin à main levée",
+          "Conduites avec annotations CSSP, chacune rattachée à une équipe",
+          "Mesure de distances et de surfaces, à l’échelle également sur le plan",
+          "Couches : bornes hydrantes, cadastre des conduites, services cartographiques cantonaux",
+          "Plans d’objet comme tableau blanc, étages superposés, tableau vierge",
+          "Annuler/rétablir sur chaque surface"
+        ]
+      },
+      {
+        "h3": "Effectif &amp; moyens",
+        "items": [
+          "<strong>Surveillance PR</strong> : pression, moment du repli, temps depuis le dernier contact, alarmes",
+          "Équipes sur la carte, sur le plan et dans les étages – avec leur propre couleur, la même partout",
+          "Présences avec heures d’arrivée et grades",
+          "<strong>Horaires</strong> : planifier les tours par personne, courbe de couverture sur\n            toute l’intervention, imprimable comme formulaire de conduite",
+          "<strong>Partager sa position</strong> : qui ouvre le lien apparaît comme un point sur la\n            carte de situation – volontairement, et pour cette intervention seulement",
+          "Moyens et matériel avec stock et consommation",
+          "Checklists pour l’aide à la conduite et le chef d’intervention",
+          "Vue chef d’intervention : suivre sans rien déplacer"
+        ]
+      },
+      {
+        "h3": "Documentation",
+        "items": [
+          "<strong>Un journal</strong> qui ne fait que s’allonger et ne se réécrit jamais",
+          "Notes vocales avec transcription, photos, rappels",
+          "<strong>Rejouer</strong> : repasser l’intervention minute par minute, attentes sautées –\n            pour le débriefing",
+          "Rapport d’intervention en PDF prêt à imprimer – croquis à un instant choisi compris",
+          "Photos en annexe au rapport, organisations partenaires avec leur propre formulaire",
+          "Feuille de saisie par code QR, pour tous ceux qui ont quelque chose à apporter",
+          "Heures d’alarme et d’intervention tirées du déroulement, pas de la mémoire"
+        ]
+      },
+      {
+        "h3": "Exploitation",
+        "items": [
+          "<strong>Fonctionne hors ligne</strong> comme application installable, contrôle de disponibilité compris",
+          "Plusieurs appareils à la fois, tout se synchronise automatiquement",
+          "Rôles : modifier, ou seulement suivre",
+          "Mode jour/nuit, taille des symboles, grandes zones tactiles pour la tablette",
+          "Peut reprendre les alarmes de Divera <span class=\"opt\">facultatif</span>",
+          "Positions des véhicules par GPS <span class=\"opt\">facultatif</span>",
+          "Impression PDF à la caserne <span class=\"opt\">facultatif</span>",
+          "<strong>Espace d’administration propre</strong> à chaque corps : effectif, véhicules, checklists, couches cartographiques et modèles",
+          "Interface en allemand, anglais, français et italien"
+        ]
+      }
+    ]
+  },
+  "sibling": {
+    "eyebrow": "Projet apparenté",
+    "h2": "KP Front conduit à l’avant. KP Rück garde la vue d’ensemble à l’arrière.",
+    "p": "<strong>KP Rück</strong> reproduit sous forme numérique le tableau magnétique du poste de\n          commandement arrière : un tableau pour le personnel, les véhicules et le matériel.\n          Application distincte, même écriture – les deux peuvent se transmettre des alarmes,\n          mais n’ont pas besoin l’une de l’autre.",
+    "cta": "Découvrir KP Rück"
+  },
+  "faq": {
+    "eyebrow": "Questions &amp; réponses",
+    "h2": "Les questions les plus fréquentes.",
+    "items": [
+      {
+        "q": "Pourquoi changer ?",
+        "a": "Tout le monde voit la même situation au même moment – au véhicule de commandement,\n          sur la tablette et chez le chef d’intervention. Aucune annonce ne se perd sur un bout de\n          papier. La surveillance PR se manifeste d’elle-même avant que cela ne devienne juste.\n          Moins de trafic radio pour des questions dont la réponse est déjà sur le tableau de la\n          situation – et le rapport est presque terminé à la rentrée, au lieu du week-end suivant.\n          KP Front aide la direction d’intervention à garder une situation sans contradictions et à rendre\n          les écarts visibles : une équipe sans contact radio, un véhicule qui n’est nulle part,\n          une annonce qui n’est jamais venue."
+      },
+      {
+        "q": "À qui appartiennent les données ?",
+        "a": "À vous. Chaque corps exploite son propre KP Front – sur sa propre machine à la caserne ou\n          dans le cloud. Vous décidez où se trouvent les cartes, les plans et les données\n          d’intervention ; rien ne part chez un fabricant ou chez des tiers."
+      },
+      {
+        "q": "Combien cela coûte-t-il ?",
+        "a": "Rien. KP Front est open source (AGPL) – <strong>pas de licence, pas d’abonnement,\n          pas de coût par appareil</strong>. Restent vos propres frais d’exploitation : un petit\n          serveur ou une machine à la caserne."
+      },
+      {
+        "q": "Que faut-il pour l’exploiter ?",
+        "a": "Moins qu’on ne le croit. Un petit mini-PC ou serveur à la caserne suffit, l’installation\n          prend quelques heures. Ensuite, le système tourne largement tout seul, et les mises à\n          jour tiennent en un geste. Il faut quelqu’un qui l’installe une fois – dans le corps, à\n          la commune, ou une connaissance de l’informatique. Et si vous n’avez personne :\n          écrivez-nous, nous aidons à l’installation."
+      },
+      {
+        "q": "Peut-on l’adapter à nos procédures ?",
+        "a": "Oui. Chaque corps a son propre espace d’administration : effectif, véhicules, doctrine\n          et modèles y sont librement réglables. Checklists, plans d’objet et couches\n          cartographiques proviennent de vos propres données de corps et se chargent avec les\n          outils en ligne de commande livrés. Et comme tout le code est sur\n          <a href=\"https://github.com/feuerwehr-oberwil/kp-front\" target=\"_blank\" rel=\"noopener\">GitHub <svg class=\"ico\" style=\"width:13px;height:13px;vertical-align:-2px\"><use href=\"#i-gh\"/></svg></a>,\n          tout le reste peut être construit – par vous-mêmes ou sur mandat."
+      },
+      {
+        "q": "Dans quelles langues l’application fonctionne-t-elle ?",
+        "a": "L’interface parle allemand, anglais, français et italien ; chaque appareil choisit sa\n          langue lui-même, dans la même intervention. Les captures d’écran de cette page sont en\n          allemand parce qu’elles proviennent d’une instance réelle – des images reconstituées\n          seraient une affirmation plutôt qu’une preuve."
+      },
+      {
+        "q": "Comment commencer ?",
+        "a": "Par la <a href=\"https://demo.kp-front.ch\" target=\"_blank\" rel=\"noopener\">démo</a>,\n          sans inscription – à Musterdorf, le feu est déjà déclaré. Ensuite, l’essayer à un\n          exercice. Et si cela convient : écrivez-nous, nous aidons à l’installation."
+      }
+    ]
+  },
+  "contact": {
+    "eyebrow": "Contact",
+    "h2": "Dites-nous ce que vous en pensez.",
+    "p": "Vous voulez essayer KP Front chez vous ? Quelque chose manque, ou ne fonctionne pas\n          comme vous l’attendiez ? Écrivez-nous – nous lisons tout.",
+    "alt": "Pour les questions et les idées ouvertes, il y a les\n          <a href=\"https://github.com/feuerwehr-oberwil/kp-front/discussions\" target=\"_blank\" rel=\"noopener\">discussions GitHub</a>.",
+    "bug": {
+      "t": "Signaler une erreur",
+      "s": "Que s’est-il passé, et qu’attendiez-vous ? Les captures d’écran se glissent directement dans le formulaire."
+    },
+    "idea": {
+      "t": "Proposer quelque chose",
+      "s": "Il manque un geste qui fait partie de vos procédures ? Décrivez le cas, pas la solution."
+    },
+    "mail": {
+      "t": "Écrire directement",
+      "s": "Sans compte GitHub, ou si quelque chose ne doit pas être public – également pour «&nbsp;nous aimerions l’essayer chez nous&nbsp;»."
+    },
+    "form": {
+      "honeypot": "Merci de laisser ce champ vide",
+      "name": "Nom",
+      "namePlaceholder": "Qui écrit ?",
+      "mail": "E-mail",
+      "mailPlaceholder": "Pour que nous puissions répondre",
+      "message": "Message",
+      "messagePlaceholder": "De quoi s’agit-il ?",
+      "send": "Envoyer le message",
+      "sending": "Envoi en cours …",
+      "ok": "Merci – le message est arrivé. Nous revenons vers vous.",
+      "error": "Cela n’a pas fonctionné. Écrivez directement à bastian.eichenberger@feuerwehr-oberwil.ch."
+    }
+  },
+  "lightbox": {
+    "close": "Fermer",
+    "prev": "Image précédente",
+    "next": "Image suivante",
+    "zoom": "Agrandir"
+  },
+  "footer": {
+    "origin": "Né du service opérationnel des <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">sapeurs-pompiers d’Oberwil BL</a> –\n      parce qu’en intervention nous avons vu revenir les mêmes sources d’erreur : doubles\n      affectations, informations éparpillées et erreurs de recopie à la main.\n      Chaque corps exploite son propre KP Front, avec ses cartes, ses plans et ses données.",
+    "demo": "Démo",
+    "contact": "Contact"
+  }
+}

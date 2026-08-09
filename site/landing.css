@@ -105,6 +105,31 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 }
 .icon-link:hover { color: var(--ink); background: var(--fill-soft); }
 .icon-link .ico { width: 19px; height: 19px; }
+/* Language switcher: two plain text links, no flags and no dropdown. Real links,
+   so a crawler can follow them and a shared link carries its language along. */
+.langs { display: flex; align-items: center; }
+.top nav a.lang {
+  font-family: var(--mono); font-size: 12px; font-weight: 500;
+  letter-spacing: .1em; padding: 9px 8px; color: var(--ink-faint);
+}
+.top nav a.lang.on { color: var(--ink); font-weight: 700; }
+.langs a + a { position: relative; }
+.langs a + a::before {
+  content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+  width: 1px; height: 11px; background: var(--line);
+}
+.langs abbr { text-decoration: none; border-bottom: 0; cursor: inherit; }
+/* Strip under the header, for a language whose translation has not yet been read
+   by somebody from the fire service. Says so rather than pretending otherwise. */
+.notice {
+  background: color-mix(in srgb, var(--red) 7%, #fdfbf7);
+  border-bottom: 1px solid color-mix(in srgb, var(--red) 20%, transparent);
+}
+.notice p {
+  padding-top: 11px; padding-bottom: 11px;
+  font-size: .86rem; color: var(--ink-dim);
+}
+.notice a { color: var(--ink); }
 /* ---------- hero ---------- */
 .eyebrow {
   font-family: var(--mono); font-size: 12.5px; font-weight: 500;
@@ -172,6 +197,8 @@ section[id] { scroll-margin-top: 76px; } /* anchor targets clear the sticky head
   margin: 14px 0 0;
 }
 .sec-head p:not(.eyebrow) { color: var(--ink-dim); margin-top: 14px; }
+/* A caveat under a section lede – smaller and quieter than the lede itself. */
+.sec-head p.sec-note { color: var(--ink-faint); font-size: .86rem; margin-top: 12px; }
 
 /* ---------- Passt für ---------- */
 /* Der schnelle Filter «ist das für uns?», direkt unter dem Hero. Bewusst
@@ -564,8 +591,9 @@ dialog.lb::backdrop { background: rgba(12, 14, 17, .9); }
   .entry { grid-template-columns: 52px 16px 1fr; gap: 0 12px; }
 }
 @media (max-width: 560px) {
-  /* Funktionen/Kontakt are only scroll anchors – GitHub + Demo carry the header */
-  .top nav a:not(.cta):not(.icon-link) { display: none; }
+  /* Funktionen/Kontakt are only scroll anchors – GitHub + Demo carry the header.
+     The language links stay: a French reader on a phone has no other way over. */
+  .top nav a:not(.cta):not(.icon-link):not(.lang) { display: none; }
   .top-in { gap: 12px; }
   .fit-row { grid-template-columns: 1fr; }
   /* Zwei Spalten passen auf dem Handy nicht nebeneinander, und seitlich schieben

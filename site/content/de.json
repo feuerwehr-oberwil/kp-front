@@ -1,0 +1,357 @@
+{
+  "meta": {
+    "title": "KP Front – Einsatzführung für die Milizfeuerwehr",
+    "description": "KP Front ist der digitale Kommandoposten am Einsatzort: Lage, Pläne, Atemschutz, Verlauf und Rapport in einer offline-fähigen Open-Source-App.",
+    "ogTitle": "KP Front – Einsatzführung für die Milizfeuerwehr",
+    "ogDescription": "Der digitale Kommandoposten am Einsatzort: Lage, Pläne, Atemschutz, Verlauf und Rapport in einer offline-fähigen Open-Source-App."
+  },
+  "nav": {
+    "aria": "Hauptnavigation",
+    "features": "Funktionen",
+    "contact": "Kontakt",
+    "demo": "Demo",
+    "githubAria": "KP Front auf GitHub",
+    "languageAria": "Sprache"
+  },
+  "hero": {
+    "eyebrow": "Open Source&nbsp;· Schweiz",
+    "h1": "Digitale Einsatzführung für die Feuerwehr.",
+    "lede": "KP Front ist der digitale Kommandoposten am Einsatzort:\n      <strong>Lage, Pläne, Atemschutz, Verlauf und Rapport</strong> in einer App.",
+    "cta": "Demo öffnen",
+    "ctaNote": "Ohne Login – in der Demo brennt es gerade in Musterdorf",
+    "frameAddr": "LAGE · ZIMMERBRAND · 2611624 / 1263070",
+    "frameAlt": "Lage-Ansicht: taktische Karte mit FKS-Symbolen, Sektoren und Schlauchleitungen",
+    "frameFile": "lage.jpg",
+    "frameW": 1500,
+    "frameH": 937
+  },
+  "fit": {
+    "whoLabel": "Für wen",
+    "who": [
+      "Milizfeuerwehren",
+      "Ortsfeuerwehren",
+      "Stützpunktfeuerwehren"
+    ],
+    "whatLabel": "Für was",
+    "what": [
+      "Brände",
+      "Verkehrsunfälle",
+      "Hilfeleistungen",
+      "Chemie- und Ölwehr",
+      "Grossereignisse"
+    ],
+    "note": "Entwickelt aus dem realen Einsatzbetrieb der\n        <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">Feuerwehr Oberwil BL</a>\n        – dort erprobt und laufend weiterentwickelt."
+  },
+  "tenet": {
+    "eyebrow": "Der Massstab",
+    "quote": "«Bedienbar um <em>3 Uhr nachts</em> – nach sechs Monaten ohne Übung»",
+    "expl": "In der Milizfeuerwehr sitzt niemand täglich am Gerät. Also muss die App so\n        gebaut sein, dass man sie im Halbschlaf richtig bedient:\n        <strong>alles Wichtige direkt sichtbar, sinnvolle Vorgaben statt Einstellungen, und jede\n        Aktion lässt sich rückgängig machen.</strong>"
+  },
+  "incident": {
+    "eyebrow": "Vom Alarm bis zum Rapport",
+    "h2": "Ein Einsatz, eine App.",
+    "lede": "So sieht eine Nacht mit KP Front aus – Lage, Atemschutz und Dokumentation bleiben für\n        alle Beteiligten jederzeit nachvollziehbar.",
+    "entries": [
+      {
+        "time": "03:01",
+        "tag": "Alarm",
+        "h3": "Der Alarm kommt rein.",
+        "p": "Alarme aus dem Alarmierungssystem (z.&nbsp;B. Divera) mit einem Tipp übernehmen – oder\n            von Hand ab Adresse, Objekt oder Karte starten. Einsatzort und Objektdaten stehen,\n            bevor das erste Fahrzeug rollt."
+      },
+      {
+        "time": "03:07",
+        "tag": "Lage",
+        "h3": "Die erste Lage steht.",
+        "p": "FKS-Symbole, Sektoren, Schlauchleitungen und Notizen auf der swisstopo-Karte.\n            Hydranten, Leitungen und Fahrzeugpositionen liegen als Ebenen drunter."
+      },
+      {
+        "time": "03:12",
+        "tag": "Atemschutz",
+        "h3": "Trupp 1 geht rein.",
+        "p": "Druck, Rückzugszeit und Kontaktuhr laufen pro Trupp mit. Die App meldet sich,\n            bevor es knapp wird – auch wenn gerade niemand auf die Uhr schaut."
+      },
+      {
+        "time": "03:18",
+        "tag": "Plan",
+        "h3": "Der Objektplan wird zum Whiteboard.",
+        "p": "Einsatzplan öffnen, drauf zeichnen, Trupps platzieren, massstabsgetreu messen –\n            mit denselben Werkzeugen wie auf der Karte."
+      },
+      {
+        "time": "03:40",
+        "tag": "Verlauf",
+        "h3": "Alles steht im Verlauf.",
+        "p": "Tippen oder einfach reinsprechen – Sprachnotizen werden automatisch zu Text im\n            Journal. Der Verlauf wird nur ergänzt, nie umgeschrieben – korrigiert wird mit\n            neuen Einträgen, nicht mit dem Radiergummi. So bleibt der Einsatz belegbar."
+      },
+      {
+        "time": "04:30",
+        "tag": "Zeitplan",
+        "h3": "Die Ablösung wird geplant, nicht geschätzt.",
+        "p": "Wird es eine lange Nacht, plant der Zeitplan pro Person, von wann bis wann sie\n            verfügbar ist und wann sie eingeteilt ist. Die Deckungslinie zeigt, wo zu wenige\n            Leute stehen – bevor die Lücke da ist. Die Anwesenheit bleibt davon unberührt:\n            geplant wird hier, abgehakt wird dort."
+      },
+      {
+        "time": "05:55",
+        "tag": "Rapport",
+        "h3": "Beim Einrücken ist der Rapport fast fertig.",
+        "p": "Lage, Mannschaft, Mittel und Verlauf fliessen direkt in den Rapport.\n            Niemand muss die Nacht nachher aus dem Kopf rekonstruieren."
+      },
+      {
+        "time": "Danach",
+        "tag": "Zeitreise",
+        "h3": "Die Nacht läuft nochmal ab.",
+        "p": "Für die Nachbesprechung spielt die Zeitreise den ganzen Einsatz ab: Lage, Trupps\n            und Verlauf so, wie sie zu jeder Minute standen. Die langen Wartezeiten überspringt\n            sie – aus vier Stunden werden ein paar Minuten."
+      }
+    ]
+  },
+  "shots": {
+    "eyebrow": "Aus der Demo",
+    "h2": "So sieht das aus.",
+    "lede": "Alle Bilder sind aus der öffentlichen Demo aufgenommen. Klick auf\n        «Demo öffnen», und du stehst in derselben Lage.",
+    "items": [
+      {
+        "file": "plan.jpg",
+        "w": 1500,
+        "h": 937,
+        "alt": "Plan-Ansicht: Objektplan als Whiteboard mit Zeichnung, Symbolen und Massstab",
+        "title": "Plan",
+        "sub": "Objekt- und Einsatzpläne mit taktischen Zeichen, Markierungen und massstabsgetreuem Messen"
+      },
+      {
+        "file": "atemschutz.jpg",
+        "w": 1500,
+        "h": 937,
+        "alt": "Atemschutz-Ansicht: Trupps mit Druck und laufender Kontaktuhr",
+        "title": "Atemschutz",
+        "sub": "Überwachung von Trupps, Zeiten, Drücken und Rückmeldungen"
+      },
+      {
+        "file": "gebaeude.jpg",
+        "w": 1500,
+        "h": 937,
+        "alt": "Gebäude-Ansicht: Geschossstapel mit Truppzuordnung",
+        "title": "Gebäude",
+        "sub": "Die Geschosse übereinander – welcher Trupp arbeitet auf welchem Stock"
+      },
+      {
+        "file": "verlauf.jpg",
+        "w": 1500,
+        "h": 937,
+        "alt": "Verlauf: chronologische Einträge neben der Karte",
+        "title": "Verlauf",
+        "sub": "Laufende Dokumentation aller wichtigen Ereignisse – Sprachnotizen werden automatisch zu Text"
+      },
+      {
+        "file": "anwesenheit.jpg",
+        "w": 1500,
+        "h": 937,
+        "alt": "Anwesenheit: Mannschaftsliste mit Ankunftszeiten",
+        "title": "Anwesenheit",
+        "sub": "Wer ist eingerückt und seit wann – die Grundlage für Mannschaftsliste und Rapport"
+      },
+      {
+        "file": "zeitplan.jpg",
+        "w": 1500,
+        "h": 937,
+        "alt": "Zeitplan: Schichtenraster mit einer Zeile pro Person, geplanten und tatsächlichen Balken sowie der Deckungslinie darunter",
+        "title": "Zeitplan",
+        "sub": "Schichten planen bei langen Einsätzen – verfügbar, eingeteilt, tatsächlich da, und wo die Deckung einbricht"
+      },
+      {
+        "file": "checkliste.jpg",
+        "w": 1500,
+        "h": 937,
+        "alt": "Checkliste: Aufgaben der Führungsunterstützung mit Fortschritt",
+        "title": "Checklisten",
+        "sub": "Die Führungs-Checklisten eurer Feuerwehr, zum Abhaken statt im Ordner"
+      },
+      {
+        "file": "mittel.jpg",
+        "w": 1500,
+        "h": 937,
+        "alt": "Mittel-Ansicht: Materialeinsatz nach Quelle",
+        "title": "Mittel",
+        "sub": "Material und Verbrauch im Einsatz erfassen, statt nachher zu schätzen"
+      },
+      {
+        "file": "rapport.jpg",
+        "w": 1500,
+        "h": 937,
+        "alt": "Einsatzrapport vor dem Druck: Anwesenheit und Mittel bereits übernommen, darunter die Abschnitte des PDF zum Ankreuzen",
+        "title": "Rapport",
+        "sub": "Beim Einrücken fast fertig – kontrollieren, ergänzen, als PDF exportieren, direkt drucken lassen"
+      }
+    ]
+  },
+  "change": {
+    "eyebrow": "Umstieg",
+    "h2": "Was sich ändert.",
+    "lede": "Nichts davon ist heute kaputt – die Lagekarte auf Papier funktioniert seit\n        Jahrzehnten. KP Front tritt an dieselben Stellen, nur ohne Abschreiben.",
+    "headToday": "Heute",
+    "headWith": "Mit KP Front",
+    "rows": [
+      {
+        "today": "Lagekarte auf Papier",
+        "with": "Lagebild auf jedem Gerät"
+      },
+      {
+        "today": "Atemschutztafel und Stoppuhr",
+        "with": "Überwachung, die sich selbst meldet"
+      },
+      {
+        "today": "Notizzettel und Gedächtnis",
+        "with": "Verlauf, der mitläuft"
+      },
+      {
+        "today": "Objektplan im Ordner",
+        "with": "Plan zum Draufzeichnen"
+      },
+      {
+        "today": "Rapport am Tag danach",
+        "with": "Rapport beim Einrücken"
+      },
+      {
+        "today": "Nachbesprechung aus dem Gedächtnis",
+        "with": "Die Nacht nochmal ablaufen lassen"
+      }
+    ]
+  },
+  "features": {
+    "eyebrow": "Funktionsumfang",
+    "h2": "Was alles drin ist.",
+    "lede": "Gewachsen an echten Einsätzen und Übungen, nicht an einer Featureliste. Alles, was von\n        aussen dazukommt – Alarmierung, GPS, Drucker – ist <strong>optional</strong>: KP Front\n        läuft auch vollständig ohne diese Anbindungen.",
+    "groups": [
+      {
+        "h3": "Lage &amp; Plan",
+        "items": [
+          "<strong>Taktische Zeichen</strong> nach FKS-Konventionen, mit Attributen und Beschriftung",
+          "Sektoren, Absperrkreise, Flächen und Freihandzeichnung",
+          "Schlauchleitungen mit FKS-Annotationen, jede einem Trupp zugeordnet",
+          "Messen von Distanz und Fläche, massstabsgetreu auch auf dem Plan",
+          "Ebenen: Hydranten, Leitungskataster, kantonale Kartendienste",
+          "Objektpläne als Whiteboard, Geschossstapel, leere Tafel",
+          "Rückgängig/Wiederholen auf jeder Fläche"
+        ]
+      },
+      {
+        "h3": "Mannschaft &amp; Mittel",
+        "items": [
+          "<strong>Atemschutzüberwachung</strong>: Druck, Rückzugszeit, Kontaktuhr, Alarme",
+          "Trupps auf Karte, Plan und im Geschossstapel – mit eigener Truppfarbe, überall dieselbe",
+          "Anwesenheit mit Ankunftszeiten und Dienstgraden",
+          "<strong>Zeitplan</strong>: Schichten pro Person planen, Deckungslinie über den\n            ganzen Einsatz, als Führungsformular druckbar",
+          "<strong>Standort teilen</strong>: wer den Link öffnet, erscheint als Punkt auf der\n            Lagekarte – freiwillig, und nur für diesen Einsatz",
+          "Mittel und Material mit Bestand und Verbrauch",
+          "Checklisten für Führungsunterstützung und Einsatzleitung",
+          "Einsatzleiter-Ansicht: mitlesen, ohne etwas zu verschieben"
+        ]
+      },
+      {
+        "h3": "Dokumentation",
+        "items": [
+          "<strong>Verlauf</strong>, der nur ergänzt und nie umgeschrieben wird",
+          "Sprachnotizen mit Transkription, Fotos, Erinnerungen",
+          "<strong>Zeitreise</strong>: den Einsatz Minute für Minute nachspielen, Wartezeiten\n            übersprungen – für die Nachbesprechung",
+          "Einsatzrapport als fixfertiges PDF – inkl. Kroki zu einem gewählten Zeitpunkt",
+          "Fotos als Beilagen zum Rapport, Partnerorganisationen mit eigenem Formular",
+          "Erfassungsblatt für alle, die etwas beitragen, per QR-Code",
+          "Alarm- und Einsatzzeiten aus dem Ablauf statt aus dem Gedächtnis"
+        ]
+      },
+      {
+        "h3": "Betrieb",
+        "items": [
+          "<strong>Offline-fähig</strong> als installierbare App, inkl. Bereitschaftsprüfung",
+          "Mehrere Geräte gleichzeitig, alles synchronisiert sich automatisch",
+          "Rollen: bearbeiten oder nur mitlesen",
+          "Tag-/Nachtmodus, Symbolgrösse, grosse Bedienflächen fürs Tablet",
+          "Kann Alarme aus Divera übernehmen <span class=\"opt\">optional</span>",
+          "Fahrzeugpositionen per GPS <span class=\"opt\">optional</span>",
+          "PDF-Druck im Magazin <span class=\"opt\">optional</span>",
+          "<strong>Eigener Verwaltungsbereich</strong> pro Feuerwehr: Mannschaft, Fahrzeuge, Checklisten, Karten-Ebenen und Vorlagen",
+          "Oberfläche auf Deutsch, Englisch, Französisch und Italienisch"
+        ]
+      }
+    ]
+  },
+  "sibling": {
+    "eyebrow": "Verwandtes Projekt",
+    "h2": "KP Front führt vorne. KP Rück hält hinten den Überblick.",
+    "p": "<strong>KP Rück</strong> bildet die Magnettafel im rückwärtigen Kommandoposten\n          digital ab: ein Board für Personal, Fahrzeuge und Material. Eigene App, gleiche Handschrift –\n          die beiden können sich Alarme übergeben, brauchen einander aber nicht.",
+    "cta": "KP Rück ansehen"
+  },
+  "faq": {
+    "eyebrow": "Fragen &amp; Antworten",
+    "h2": "Die häufigsten Fragen.",
+    "items": [
+      {
+        "q": "Warum umsteigen?",
+        "a": "Alle sehen gleichzeitig dieselbe Lage – am Führungsfahrzeug, auf dem Tablet und beim\n          Einsatzleiter. Keine Meldung geht auf einem Notizzettel verloren. Die\n          Atemschutzüberwachung meldet sich selbst, bevor es knapp wird. Weniger Funkverkehr für\n          Fragen, die ohnehin auf dem Lagebild stehen – und der Rapport ist beim Einrücken fast\n          fertig statt am Wochenende danach. KP Front unterstützt die Einsatzleitung dabei, die\n          Lage widerspruchsfrei zu halten und Abweichungen sichtbar zu machen: ein Trupp ohne\n          Funkkontakt, ein Fahrzeug, das nirgends steht, eine Rückmeldung, die nie kam."
+      },
+      {
+        "q": "Wem gehören die Daten?",
+        "a": "Euch. Jede Feuerwehr betreibt ihr eigenes KP Front – auf dem eigenen Rechner im\n          Magazin oder in der Cloud. Ihr entscheidet, wo Karten, Pläne und Einsatzdaten\n          liegen; nichts geht an einen Hersteller oder an Dritte."
+      },
+      {
+        "q": "Was kostet das?",
+        "a": "Nichts. KP Front ist Open Source (AGPL) – <strong>keine Lizenz, kein Abo, keine\n          Kosten pro Gerät</strong>. Was bleibt, sind die eigenen Betriebskosten: ein kleiner\n          Server oder ein Rechner im Magazin."
+      },
+      {
+        "q": "Was braucht es für den Betrieb?",
+        "a": "Weniger, als viele annehmen. Ein kleiner Mini-PC oder Server im Magazin reicht, die\n          Einrichtung dauert wenige Stunden. Danach läuft das System weitgehend von selbst, und\n          Updates sind ein Handgriff. Es braucht jemanden, der das einmal aufsetzt – in der Feuerwehr, in der\n          Gemeinde oder eine befreundete IT. Und wenn ihr niemanden habt: Meldet euch, wir\n          helfen beim Aufsetzen."
+      },
+      {
+        "q": "Können wir es an unsere Abläufe anpassen?",
+        "a": "Ja. Jede Feuerwehr hat ihren eigenen Verwaltungsbereich: Mannschaft, Fahrzeuge,\n          Doktrin und Vorlagen sind dort frei einstellbar. Checklisten, Objektpläne und\n          Karten-Ebenen kommen aus den eigenen Stationsdaten und werden über die\n          mitgelieferten Kommandozeilen-Werkzeuge geladen. Und weil der\n          ganze Code auf <a href=\"https://github.com/feuerwehr-oberwil/kp-front\" target=\"_blank\" rel=\"noopener\">GitHub <svg class=\"ico\" style=\"width:13px;height:13px;vertical-align:-2px\"><use href=\"#i-gh\"/></svg></a>\n          steht, lässt sich alles Übrige bauen – selbst oder in Auftrag."
+      },
+      {
+        "q": "In welchen Sprachen läuft die App?",
+        "a": "Die Oberfläche spricht Deutsch, Englisch, Französisch und Italienisch; jedes Gerät\n          wählt seine Sprache selbst, im selben Einsatz. Die Screenshots auf dieser Seite sind\n          deutsch, weil sie aus einer echten Instanz stammen – nachgestellte Bilder wären eine\n          Behauptung."
+      },
+      {
+        "q": "Wie fangen wir an?",
+        "a": "Mit der <a href=\"https://demo.kp-front.ch\" target=\"_blank\" rel=\"noopener\">Demo</a>,\n          ohne Anmeldung – in Musterdorf brennt es schon. Danach an einer Übung ausprobieren.\n          Und wenn es passt: Melde dich, wir helfen beim Aufsetzen."
+      }
+    ]
+  },
+  "contact": {
+    "eyebrow": "Kontakt",
+    "h2": "Sag uns, was du denkst.",
+    "p": "Willst du KP Front bei euch ausprobieren? Fehlt etwas, oder funktioniert etwas nicht so,\n          wie du es erwartest? Melde dich – wir lesen alles.",
+    "alt": "Für Fragen und offene Ideen gibt es die\n          <a href=\"https://github.com/feuerwehr-oberwil/kp-front/discussions\" target=\"_blank\" rel=\"noopener\">GitHub-Diskussionen</a>.",
+    "bug": {
+      "t": "Fehler melden",
+      "s": "Was ist passiert, was hättest du erwartet? Screenshots ziehst du direkt ins Formular."
+    },
+    "idea": {
+      "t": "Etwas wünschen",
+      "s": "Fehlt ein Handgriff, der bei euch zum Ablauf gehört? Beschreib den Fall, nicht die Lösung."
+    },
+    "mail": {
+      "t": "Direkt schreiben",
+      "s": "Ohne GitHub-Konto, oder wenn etwas nicht öffentlich stehen soll – auch für «wir würden das gerne bei uns ausprobieren»."
+    },
+    "form": {
+      "honeypot": "Dieses Feld bitte leer lassen",
+      "name": "Name",
+      "namePlaceholder": "Wer schreibt?",
+      "mail": "E-Mail",
+      "mailPlaceholder": "Damit wir antworten können",
+      "message": "Nachricht",
+      "messagePlaceholder": "Worum geht es?",
+      "send": "Nachricht senden",
+      "sending": "Wird gesendet …",
+      "ok": "Danke – die Nachricht ist da. Wir melden uns.",
+      "error": "Das hat nicht geklappt. Schreib bitte direkt an bastian.eichenberger@feuerwehr-oberwil.ch."
+    }
+  },
+  "lightbox": {
+    "close": "Schliessen",
+    "prev": "Vorheriges Bild",
+    "next": "Nächstes Bild",
+    "zoom": "Vergrössern"
+  },
+  "footer": {
+    "origin": "Entstanden im Einsatzbetrieb der <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">Feuerwehr Oberwil BL</a> –\n      weil wir im Einsatz immer wieder dieselben Fehlerquellen gesehen haben: Doppelbelegungen, verstreute\n      Informationen und handschriftliche Übertragungsfehler.\n      Jede Feuerwehr betreibt ihr eigenes KP Front, mit eigenen Karten, Plänen und Daten.",
+    "demo": "Demo",
+    "contact": "Kontakt"
+  }
+}

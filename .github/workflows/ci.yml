@@ -47,6 +47,12 @@ jobs:
       - name: Build SPA
         run: pnpm build
 
+      # GitHub Pages serves site/ verbatim, so the generated pages are committed.
+      # This fails if index.html / fr/index.html are behind the template or the
+      # texts – otherwise the site in the repo stops being the site on the web.
+      - name: Landing page is built from its sources
+        run: node site/build.mjs --check
+
       # Advisory (like the backend's pip-audit): surface vulnerable prod deps in the log
       # without wedging CI on an unfixable upstream CVE.
       - name: Dependency audit (pnpm audit, advisory)

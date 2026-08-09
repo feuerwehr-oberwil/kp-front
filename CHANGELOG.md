@@ -31,6 +31,33 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
+- **The landing page speaks French, and it is generated rather than written twice.**
+  `site/index.html` used to be the page; it is now the *output* of `site/index.template.html`
+  plus one text file per language (`site/content/de.json`, `fr.json`). German is the base and
+  every other language is laid over it – the same overlay mechanism as `src/config/copy/` – so a
+  translation writes only what it translates, a gap falls back to German *visibly*, and
+  `build.mjs` prints the coverage after every run. A third language is one entry in
+  `content/config.json` and one file in `content/`; the template does not change. The switcher is
+  two plain text links (no flags, no dropdown, no cookie, and deliberately **no
+  `Accept-Language` redirect** – a German-speaking firefighter sent to `/fr/` by a browser
+  setting is worse than a switcher he can see), with `hreflang` alternates both ways and a
+  per-language `canonical`. The duplicate-per-language alternative was cheaper today and drifts
+  on every design change – and `landing.css` is byte-identical across kp-front and kp-rueck, so
+  drift would cost twice.
+  ⚠️ **The built pages are committed**, because GitHub Pages serves `site/` verbatim: the page in
+  the repo *is* the page on the web. `node site/build.mjs --check` runs in CI so a stale build
+  fails loudly instead of silently serving yesterday's text.
+  ⚠️ **The French page carries a visible line saying no French-speaking firefighter has read it
+  yet.** It is not decoration – it comes off when somebody has. Screenshots stay German on every
+  language: they come from a real instance, and restaged ones would be a claim rather than a
+  proof. The page says that too.
+
+- **The landing page names what shipped since it was last written** – Zeitreise (replaying an
+  incident minute by minute, waits skipped), Standort teilen, a Schlauchleitung belonging to a
+  Trupp, Truppfarben, Partnerorganisationen, photos as Rapport-Beilagen, and the Kroki as of a
+  chosen moment. Plus an eighth step in the night's timeline: the debrief, which is the only
+  place Zeitreise is actually used.
+
 - **Every name in a Verlaufszeile links itself.** The «Von» field is gone – it asked for
   something the sentence already says, and it only ever knew people. In its place one
   vocabulary: crew, Mittel, Partnerorganisationen, Fahrzeuge and Alarmgruppen, matched against

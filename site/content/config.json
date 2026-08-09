@@ -1,0 +1,21 @@
+{
+  "origin": "https://kp-front.ch",
+  "locales": [
+    {
+      "code": "de",
+      "label": "DE",
+      "name": "Deutsch",
+      "hreflang": "de-CH",
+      "ogLocale": "de_CH",
+      "dir": ""
+    },
+    {
+      "code": "fr",
+      "label": "FR",
+      "name": "Français",
+      "hreflang": "fr-CH",
+      "ogLocale": "fr_CH",
+      "dir": "fr/"
+    }
+  ]
+}
