@@ -649,7 +649,7 @@ export const en: Localizable<Copy> = {
       anderes: 'Other',
     },
     zielLabel: 'Assignment / target',
-    zielPlaceholder: 'e.g. 2nd floor, flat on the left, person missing',
+    zielPlaceholder: 'e.g. 2nd floor left',
     zielOtherPlaceholder: 'Describe the assignment',
     leaderLabel: 'Team leader',
     leaderPlaceholder: 'Team leader name',

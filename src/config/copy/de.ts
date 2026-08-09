@@ -988,7 +988,7 @@ export const de = {
       anderes: 'Anderes',
     } as Record<string, string>,
     zielLabel: 'Auftrag / Ziel',
-    zielPlaceholder: 'z. B. 2. OG Wohnung links, Person vermisst',
+    zielPlaceholder: 'z. B. 2OG links',
     zielOtherPlaceholder: 'Auftrag beschreiben',
     // Reihenfolge der Karten auf der Tafel. Überfällige Trupps stehen IMMER zuoberst – das ist
     // keine Einstellung, sondern der Grund, warum es diese Tafel gibt.

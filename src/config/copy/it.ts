@@ -638,7 +638,7 @@ export const it: Localizable<Copy> = {
       anderes: 'Altro',
     },
     zielLabel: 'Compito / obiettivo',
-    zielPlaceholder: 'es. 2° piano, appartamento a sinistra, persona dispersa',
+    zielPlaceholder: 'es. 2° piano sinistra',
     zielOtherPlaceholder: 'Descrivi il compito',
     leaderLabel: 'Capogruppo',
     leaderPlaceholder: 'Nome del capogruppo',

@@ -8,8 +8,10 @@ import type { Person } from '../types'
 import type { Slot } from './PersonField'
 import s from './Atemschutz.module.css'
 
-/** A Trupp is a Gruppenführer and three AdF — four slots, always shown. */
-const SLOTS = 4
+/** A Trupp is a Gruppenführer and two AdF — three slots, always shown. A bigger Trupp is a real
+ *  Trupp and simply grows the box (see the render below); three is what the form should be
+ *  ASKING for, and a fourth empty slot on every single Trupp read as one man missing. */
+const SLOTS = 3
 
 /**
  * Who is in this Trupp, and which of them leads it.
@@ -113,9 +115,10 @@ export function TruppTeam({
   return (
     <div className={s.team}>
       {/* THE TRUPP — first, because it is the answer; the Mannschaft below it is the way to it.
-          FOUR slots, always: that is what a Trupp is (GF + 3), the box never changes height as
-          people are ticked, and an empty slot says «this is where the next one goes» far better
-          than a sentence would. */}
+          THREE slots at rest: that is the Trupp the form is asking for (GF + 2), the box does not
+          change height as the usual three are ticked, and an empty slot says «this is where the
+          next one goes» far better than a sentence would. A fourth, fifth, tenth person simply
+          adds a row — `Math.max(SLOTS, value.length)` — so a big Trupp is never refused. */}
       <ul className={s.teamChosen}>
         {Array.from({ length: Math.max(SLOTS, value.length) }, (_, i) => {
           const m = value[i]

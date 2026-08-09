@@ -639,7 +639,7 @@ export const fr: Localizable<Copy> = {
       anderes: 'Autre',
     },
     zielLabel: 'Mission / but',
-    zielPlaceholder: 'p. ex. 1er étage, appartement de gauche, personne disparue',
+    zielPlaceholder: 'p. ex. 2e étage gauche',
     zielOtherPlaceholder: 'Décrire la mission',
     leaderLabel: 'Chef de groupe',
     leaderPlaceholder: 'Nom du chef de groupe',
