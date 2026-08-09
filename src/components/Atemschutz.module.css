@@ -284,7 +284,12 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
   /* `stretch`, not `start`: the Trupp column has to be as tall as the form for its list to have
      anything to grow into */
   align-items: stretch; }
-.formCol { display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 0; }
+.formCol { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+/* ⚠️ ONLY the Trupp column may be squeezed below its content — that is what lets its list fill
+   the leftover room. Granted to `.formCol` at large it also let the AUFTRAG column shrink below
+   what it needs, and a grid row shorter than its content does not scroll, it PAINTS OVER the
+   next one: on a phone the roster rows drew straight through Eingangsdruck and Funkkanal. */
+.modalBody > .formCol:first-child { min-height: 0; }
 .formColWide { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 12px; }
 /* The two ± steppers (Funkkanal · Eingangsdruck). Spans the modal, then splits itself: two
    columns where they fit, one where they don't — and a single child fills the row rather than
@@ -690,5 +695,10 @@ button.stepVal:hover { border-color: var(--blue); }
    up a dozen rows below the fold. There the list is a fixed box again. Two letters in the search
    above it and it is three rows anyway. */
 @media (max-width: 560px) {
+  /* Stacked, the columns are rows of ONE grid whose height is the sheet's — so «fill what is
+     left» has no meaning and «may shrink below my content» is actively harmful. Both take the
+     height they need and the sheet scrolls them, which is what the full-height sheet is for. */
+  .modalBody > .formCol:first-child { min-height: auto; }
+  .team { flex: none; }
   .teamList { flex: none; max-height: 38dvh; }
 }
