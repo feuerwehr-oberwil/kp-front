@@ -22,7 +22,7 @@ import s from './Atemschutz.module.css'
  * print, so «who leads» is never stored twice and cannot disagree with itself.
  */
 export function TruppTeam({
-  value, onChange, personnel, legacyRoster, presentIds, assignedIds, rolesById,
+  value, onChange, personnel, legacyRoster, presentIds, stationIds, assignedIds, rolesById,
 }: {
   /** the Trupp, in printed order — `value[0]` is the Gruppenführer */
   value: Slot[]
@@ -31,6 +31,10 @@ export function TruppTeam({
   /** names off older Trupps, used when no roster synced (Divera outage) */
   legacyRoster: string[]
   presentIds: Set<string>
+  /** …of whom these are still at the MAGAZIN. Somebody standing at the Magazin usually cannot
+   *  go under PA at all, so the picker says so and sinks them below the crew on scene — a hint
+   *  and an ordering, never a block: they may be five minutes out, and the Überwacher decides. */
+  stationIds?: Set<string>
   /** ids in another ACTIVE Trupp — shown, greyed, and not selectable (one person, one Trupp) */
   assignedIds: Set<string>
   /** the job somebody already holds on this Einsatz (Anwesenheits-Bemerkung) — a soft note */
@@ -46,13 +50,14 @@ export function TruppTeam({
   const chosenIds = new Set(value.map((v) => v.personId).filter(Boolean) as string[])
   const chosenNames = new Set(value.map((v) => v.name.trim()).filter(Boolean))
 
-  type Opt = { key: string; name: string; personId?: string; present: boolean; rank?: string; role?: string; taken: boolean }
+  type Opt = { key: string; name: string; personId?: string; present: boolean; atStation: boolean; rank?: string; role?: string; taken: boolean }
   const options: Opt[] = useMemo(() => {
     if (personnel.length) {
       return personnel
         .filter((p) => p.active && !chosenIds.has(p.id) && !chosenNames.has(p.displayName))
         .map((p) => ({
           key: p.id, name: p.displayName, personId: p.id, present: presentIds.has(p.id),
+          atStation: !!stationIds?.has(p.id),
           rank: p.rank, role: rolesById?.get(p.id), taken: assignedIds.has(p.id),
         }))
         // present first, then by seniority, then alphabetical — the same order every other
@@ -61,14 +66,17 @@ export function TruppTeam({
         .sort((a, b) =>
           Number(a.taken) - Number(b.taken)
           || Number(b.present) - Number(a.present)
+          // …and of the people who ARE here, the ones on scene come before the ones still at
+          // the Magazin: a Trupp is formed from who is standing in front of you
+          || Number(a.atStation) - Number(b.atStation)
           || rankOrder(a.rank) - rankOrder(b.rank)
           || a.name.localeCompare(b.name, 'de'))
     }
     return legacyRoster.filter((n) => !chosenNames.has(n))
-      .map((n) => ({ key: n, name: n, present: false, taken: false }))
+      .map((n) => ({ key: n, name: n, present: false, atStation: false, taken: false }))
     // chosenIds/chosenNames are rebuilt from `value` on every render; `value` is the real input
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [personnel, legacyRoster, presentIds, assignedIds, rolesById, value])
+  }, [personnel, legacyRoster, presentIds, stationIds, assignedIds, rolesById, value])
 
   const needle = q.trim().toLowerCase()
   const filtered = needle ? options.filter((o) => o.name.toLowerCase().includes(needle)) : options
@@ -153,13 +161,17 @@ export function TruppTeam({
               {o.personId && <span className={cx(s.comboDot, o.present ? s.comboDotPresent : s.comboDotOff)} />}
               {o.rank && <span className={s.comboRank} title={rankLabel(o.rank)}>{rankAbbr(o.rank)}</span>}
               <span className={s.comboName}>{o.name}</span>
-              {/* one note per row, most important first: already in a Trupp beats a Funktion,
-                  which beats «nicht anwesend» — somebody with a job IS here */}
+              {/* ONE note per row, most operational first: already in a Trupp beats «still at
+                  the Magazin», which beats a Funktion, which beats «nicht anwesend». Where
+                  somebody IS decides whether they can go under PA at all; a Funktion is only a
+                  reason to think twice. */}
               {o.taken
                 ? <span className={s.comboHint}>{az.teamTaken}</span>
-                : o.role
-                  ? <span className={s.comboHint}>{fillTemplate(appConfig.copy.anwesenheit.alreadyBooked, { role: o.role })}</span>
-                  : o.personId && !o.present && <span className={s.comboHint}>{az.notPresent}</span>}
+                : o.atStation
+                  ? <span className={cx(s.comboHint, s.teamAtStation)}>{appConfig.copy.anwesenheit.ortStation}</span>
+                  : o.role
+                    ? <span className={s.comboHint}>{fillTemplate(appConfig.copy.anwesenheit.alreadyBooked, { role: o.role })}</span>
+                    : o.personId && !o.present && <span className={s.comboHint}>{az.notPresent}</span>}
             </button>
           </li>
         ))}

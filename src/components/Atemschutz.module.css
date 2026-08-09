@@ -561,6 +561,10 @@ button.stepVal:hover { border-color: var(--blue); }
 .teamList { list-style: none; margin: 0; padding: 4px; max-height: 232px; overflow-y: auto;
   border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface); }
 .teamOptTaken { opacity: .45; cursor: default; }
+/* «Magazin» is the one hint on this list that is operational rather than advisory: somebody
+   standing at the Magazin usually cannot go under PA at all. It gets the ink of the Ort chip in
+   Anwesenheit, so the two surfaces say the same thing the same way. */
+.teamAtStation { color: var(--blue-strong); font-weight: 700; }
 .teamOptTaken:hover { background: none; }
 
 .teamTypeRow { display: flex; align-items: center; gap: 8px; }

@@ -156,28 +156,33 @@
 .livePos:disabled { cursor: default; }
 
 /* ── Vor Ort / Magazin ────────────────────────────────────────────────────────────────────
-   One chip, one tap, two states — «wen könnte ich noch nachziehen». It carries the WORD as
-   well as the glyph: this is read at a glance down a column of twelve names, and a control
-   whose whole meaning is a colour is one that has to be learnt every time (3am tenet). */
+   A full-height edge button, the same shape as the clock beside it — the row already has that
+   language and a pill floating inside it was a third one. The WORD appears only where there is
+   room for it: the grid is `auto-fill`, so a viewport media query says nothing about how wide
+   any single row actually is, and the name is the one thing this list exists to show. Hence a
+   container query on the row itself. Icon-only still says everything the control means — the
+   accessible name carries the sentence either way. */
+.person { container-type: inline-size; }
+
 .ort {
-  flex: none; display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 9px;
-  border-radius: 999px; border: 1px solid transparent; cursor: pointer;
-  font: 700 11.5px var(--body); white-space: nowrap; -webkit-tap-highlight-color: transparent;
-  position: relative;
+  flex: none; align-self: stretch; display: inline-flex; align-items: center; gap: 6px;
+  padding: 0 11px; border: none; border-left: 1px solid var(--glass-edge); background: none;
+  cursor: pointer; font: 700 11.5px var(--body); white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
 }
-/* 44px of touch behind a 30px chip — gloved-finger sized without a taller row */
-.ort::after { content: ''; position: absolute; left: 50%; top: 50%; width: 100%; height: 44px;
-  min-width: 44px; transform: translate(-50%, -50%); }
-.ort svg { flex: none; width: 13px; height: 13px; }
-/* am Einsatzort = the ordinary case, so it stays quiet: the ink of the row, no fill */
-.ortScene { color: var(--ink-dim); background: var(--fill-soft); border-color: var(--glass-edge); }
-button.ortScene:hover { color: var(--ink); border-color: var(--ink-faint); }
-/* …the Magazin is the one worth SEEING, because it is the answer to the question */
-.ortStation {
-  color: var(--blue-strong); background: color-mix(in srgb, var(--blue) 14%, transparent);
-  border-color: color-mix(in srgb, var(--blue) 38%, transparent);
-}
+.ort svg { width: 16px; height: 16px; flex: none; }
+/* am Einsatzort = the ordinary case, so it stays the ink of the row and nothing more */
+.ortScene { color: var(--ink-dim); }
+button.ortScene:hover { background: var(--fill-soft); color: var(--ink); }
+/* …the Magazin is the one worth SEEING, because it is the answer to the question. It keeps its
+   tint when the word is gone — icon-only is exactly when the colour has to carry it. */
+.ortStation { color: var(--blue-strong); background: color-mix(in srgb, var(--blue) 13%, transparent); }
 button.ortStation:hover { background: color-mix(in srgb, var(--blue) 22%, transparent); }
+
+.ortLabel { display: none; }
+/* measured against the real thing: at 228px (the grid's own minimum) a name like «Baumann
+   Michael» is already at the ellipsis, and the word would take another 46px off it */
+@container (min-width: 316px) { .ortLabel { display: inline; } }
 
 @media (max-width: 600px) {
   /* full width below the top bar (78px clears the floating bar with a visible gap — at 64px

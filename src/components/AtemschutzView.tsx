@@ -8,6 +8,8 @@ import { Segmented } from './Segmented'
 import { Stepper } from './Stepper'
 import { Menu, Overlay } from '../lib/overlays'
 import { contactSeverity, deriveTruppLive, estimatePressure, fmtClock, pressureAlarm, type TruppLive } from '../lib/atemschutz'
+import { isPresent } from '../lib/attendanceIntervals'
+import { ortOf } from '../lib/attendanceOrt'
 import { truppStatusLabel } from '../lib/report'
 import type { AttendanceState, Person, Trupp, TruppFields } from '../types'
 import { abbreviateName, assignedPersonIds } from '../lib/personnel'
@@ -177,6 +179,14 @@ export function AtemschutzView({
     () => new Set(Object.entries(attendance).filter(([, a]) => a.status === 'present').map(([id]) => id)),
     [attendance],
   )
+  // …and which of them are still at the Magazin. Somebody at the Magazin usually cannot go under
+  // PA at all, so the picker says so and sinks them below the crew on scene (see TruppTeam).
+  const stationIds = useMemo(
+    () => new Set(Object.entries(attendance)
+      .filter(([, a]) => isPresent(a) && ortOf(a) === 'station')
+      .map(([id]) => id)),
+    [attendance],
+  )
 
   // Who is already spoken for: the Bemerkung on their Anwesenheits-Zeile is where a job ends up
   // («Einsatzleiter», «Fahrer TLF» — lib/roleAssignment). Putting the Einsatzleiter under PA is
@@ -316,7 +326,7 @@ export function AtemschutzView({
       {form && (
         <TruppForm
           mode={form.mode} initial={form.trupp} roster={roster} defaultFunkkanal={defaultFunkkanal}
-          personnel={personnel} presentIds={presentIds} rolesById={rolesById}
+          personnel={personnel} presentIds={presentIds} stationIds={stationIds} rolesById={rolesById}
           assignedIds={assignedPersonIds(trupps.filter((t) => t.id !== form.trupp?.id))}
           leitungOptions={leitungOptions(form.trupp?.id)}
           onCancel={() => setForm(null)} onSubmit={submitForm}
@@ -689,16 +699,19 @@ function TruppCard({
 
       {canEdit && t.status === 'angemeldet' && (
         <div className={s.actions}>
-          <button className={cx(s.actBtn, s.actEnter)} onClick={() => onStatus(t.id, 'aktiv')}>
-            <Icon id="flag" /><span>{az.actEnter}</span>
-          </button>
           {/* The Sicherungstrupp that was never needed. Until 08.08. the only way to close one
               was the bin — which throws away the one record that says a crew stood ready, on a
               document that is the legal account of the Einsatz. This closes it like any other
-              Trupp: under «Draussen», break clock running, «Wieder einrücken» right there. */}
+              Trupp: under «Draussen», break clock running, «Wieder einrücken» right there.
+              ⚠️ LEFT of «Eingerückt», which is the shape every other pair on this card has:
+              the quiet way out on the left, the action the card exists for on the right, under
+              the thumb. It read the other way round for one afternoon (09.08.). */}
           <button className={cx(s.actBtn, s.actStandDown)} title={az.actNotDeployedHint}
             onClick={() => onStatus(t.id, 'raus')}>
             <Icon id="logout" /><span>{az.actNotDeployed}</span>
+          </button>
+          <button className={cx(s.actBtn, s.actEnter)} onClick={() => onStatus(t.id, 'aktiv')}>
+            <Icon id="flag" /><span>{az.actEnter}</span>
           </button>
         </div>
       )}
@@ -739,7 +752,7 @@ function TruppCard({
 // Kontakt), then the Trupp; the Druck section shows only when a fresh cylinder is involved
 // (create + re-deploy), never on a plain edit where the live pressure must not be disturbed.
 function TruppForm({
-  mode, initial, roster, defaultFunkkanal, personnel, presentIds, assignedIds, rolesById, leitungOptions, onCancel, onSubmit,
+  mode, initial, roster, defaultFunkkanal, personnel, presentIds, stationIds, assignedIds, rolesById, leitungOptions, onCancel, onSubmit,
 }: {
   mode: FormMode
   initial?: Trupp
@@ -747,6 +760,7 @@ function TruppForm({
   defaultFunkkanal: number
   personnel: Person[]
   presentIds: Set<string>
+  stationIds: Set<string>
   assignedIds: Set<string>
   /** who already holds a job on this Einsatz (Anwesenheits-Bemerkung), so the picker can say
    *  «schon: Einsatzleiter» beside a name — a hint, never a block */
@@ -906,7 +920,7 @@ function TruppForm({
                 all one tap apart — which the three fixed slots could not do. */}
             <TruppTeam
               value={team} onChange={setTeam}
-              personnel={personnel} legacyRoster={roster} presentIds={presentIds}
+              personnel={personnel} legacyRoster={roster} presentIds={presentIds} stationIds={stationIds}
               assignedIds={assignedIds} rolesById={rolesById}
             />
             {/* The colour this Trupp wears on the Lage and on the plan. «Automatisch» is the
