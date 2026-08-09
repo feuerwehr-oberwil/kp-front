@@ -4,7 +4,8 @@
 // defaults (Alarmierung → Einsatzende when a timestamp is missing) and a column total.
 
 import type { AttendanceState, PresenceInterval } from '../types'
-import { intervalsOf, totalMinutes } from './attendanceIntervals'
+import { intervalsOf, mergeCloseBlocks, totalMinutes } from './attendanceIntervals'
+import { attendanceMergeGapMin } from './deploymentConfig'
 
 export interface HoursRow {
   personId: string
@@ -35,7 +36,10 @@ export function hoursRows(
 ): HoursRow[] {
   return Object.entries(attendance)
     .map(([personId, e]) => {
-      const intervals = intervalsOf(e)
+      // the same merge the Personalblatt prints (report · personalForPdf), so the hours
+      // under the roster add up to the lines above them — a sheet whose two halves
+      // disagree about how many stretches somebody had is a sheet nobody can sign
+      const intervals = mergeCloseBlocks(intervalsOf(e), attendanceMergeGapMin())
       const last = intervals[intervals.length - 1]
       return {
         personId,

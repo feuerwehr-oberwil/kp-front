@@ -1,11 +1,12 @@
-import type { AttendanceState, BoardDoc, Drawing, Entity, LngLat, MittelEntry, PlanDocument, TimelineEvent, Trupp } from '../types'
+import type { AttendanceState, BoardDoc, Drawing, Entity, LngLat, MittelEntry, PlanDocument, TimelineEvent, Trupp, TruppReading } from '../types'
 import type { ReportMeta } from './workspace'
 import { appConfig } from '../config/appConfig'
 import { fmtDistance } from './geo'
 import { fillTemplate, hhmm, restoreUmlauts } from './format'
 import { fahrzeugRows, gruppenRows } from './alarmzeiten'
-import { intervalsOf } from './attendanceIntervals'
-import { getDeploymentConfig } from './deploymentConfig'
+import { intervalsOf, mergeCloseBlocks } from './attendanceIntervals'
+import { truppNeverDeployed } from './atemschutz'
+import { attendanceMergeGapMin, getDeploymentConfig } from './deploymentConfig'
 import { mittelReportRows } from './mittel'
 import { rowPhotos } from './verlauf'
 
@@ -134,12 +135,54 @@ export interface JournalPrintRow {
   nachtrag?: boolean
 }
 
+/**
+ * The «Bereich» column: WHERE in the app this entry came from.
+ *
+ * ⚠️ `kind` alone cannot answer this and never could. `'team'` is written by the Atemschutz
+ * board, by Anwesenheit, by Mittel, by a role note and by the live-position sharing switch — so
+ * every one of them printed as «Atemschutz» — and everything with no kind at all fell through to
+ * the map, which is how a change to the Rapportangaben came out under «Kroki» with the entry
+ * «Rapportangaben: Einsatzleiter Meier Anna» (08.08. Einsatz). The `icon` is what actually
+ * separates those writers, so the two are read together.
+ *
+ * The names are the app's own surface names (copy.modes), so a reader looking for the row can go
+ * to the surface it names. Nothing here is stored — an old record classifies the same way a new
+ * one does, because the rule reads only fields both have.
+ */
 export function journalArea(e: TimelineEvent, plans: PlanDocument[]): string {
   const r = appConfig.copy.report
+  // ── hand-written first, whatever surface it was written on ──
+  // a Checklisten-Haken is a documented decision, not a free note — and it is the only other
+  // thing `journal` is written for besides the composer
+  if (e.kind === 'journal' && e.icon === 'check') return r.areaChecklist
+  if (e.kind === 'reminder') return r.areaManual
   if (e.kind === 'audio' || e.kind === 'photo' || e.kind === 'journal' || e.pinned) return r.areaManual
+  // ── then by ICON, which is what actually separates the writers ──
+  // ⚠️ Every row the QR poster writes has NO kind at all (lib/captureClient · row), so a rule
+  // that went by kind classified all of them as map-tactical. The icon is the only thing the
+  // tablet's rows and the poster's rows have in common.
+  if (e.icon === 'clipboard') return r.areaRapport
+  if (e.icon === 'photo') return r.areaRapport // Beilage added/removed at the poster
+  if (e.icon === 'people' || e.icon === 'user' || e.icon === 'clock') return r.areaAnwesenheit
+  if (e.icon === 'box') return r.areaMittel
+  // everything else the Atemschutz board writes: Kontakt, Druck, Leitung, Alarm, Sicherheitswerte
   if (e.kind === 'team') return r.areaAtemschutz
   if (e.surface === 'plan') return planLabel(plans.find((p) => p.id === e.planId), e.floor)
-  return r.kroki
+  return r.areaLage
+}
+
+/** Prefixes a printed entry no longer needs, because the Bereich beside it now says the same
+ *  thing. The RECORD keeps its wording — it is append-only, and the live Verlauf has no column
+ *  to lean on, so «Rapportangaben: …» is exactly right there. Only the printed row drops it. */
+function withoutAreaPrefix(text: string): string {
+  const prefixes = [
+    appConfig.copy.preflight.logMetaChanged,
+    appConfig.copy.capture.logMeta,
+  ].map((tpl) => tpl.replace('{fields}', '').trimEnd()).filter(Boolean)
+  for (const p of prefixes) {
+    if (text.startsWith(p)) return text.slice(p.length).trimStart() || text
+  }
+  return text
 }
 
 export function journalRows(
@@ -164,7 +207,7 @@ export function journalRows(
         iso,
         timeLabel: iso ? formatDateTime(iso) : e.t,
         area: journalArea(e, plans),
-        text: e.text,
+        text: withoutAreaPrefix(e.text),
         kind: e.kind,
         photoUrls: rowPhotos(e),
         audioUrl: e.audioUrl,
@@ -214,8 +257,15 @@ export function proofLabel(proof: AuditProof): string {
   return proof.brokenAtSeq ? fillTemplate(r.proofBrokenAt, { seq: proof.brokenAtSeq }) : r.proofBroken
 }
 
-export function truppStatusLabel(status: Trupp['status']): string {
-  return appConfig.copy.atemschutz.status[status] ?? status
+/** The Trupp's state as a word. Takes the whole Trupp, not just `status`: a Sicherungstrupp that
+ *  was closed without ever going under PA shares the `raus` state but must not be printed as
+ *  «draussen» — see lib/atemschutz · truppNeverDeployed. A bare status is still accepted for the
+ *  callers that only have one. */
+export function truppStatusLabel(t: Trupp | Trupp['status']): string {
+  const az = appConfig.copy.atemschutz
+  if (typeof t !== 'string' && truppNeverDeployed(t)) return az.statusNotDeployed
+  const status = typeof t === 'string' ? t : t.status
+  return az.status[status] ?? status
 }
 
 /** The Auftrag TYPE as it reads, not as it is stored. The stored value is the config id
@@ -234,9 +284,13 @@ export function truppAuftragLabel(auftrag?: string): string | undefined {
   return spelled.charAt(0).toUpperCase() + spelled.slice(1)
 }
 
-export function readingKindLabel(kind: 'entry' | 'contact' | 'pressure'): string {
+export function readingKindLabel(kind: TruppReading['kind']): string {
   const r = appConfig.copy.report
-  return kind === 'entry' ? r.truppEntry : kind === 'contact' ? appConfig.copy.atemschutz.readingKind.contact : appConfig.copy.atemschutz.readingKind.pressure
+  const az = appConfig.copy.atemschutz
+  if (kind === 'registered') return az.readingKind.registered
+  if (kind === 'entry') return r.truppEntry
+  if (kind === 'contact') return az.readingKind.contact
+  return az.readingKind.pressure
 }
 
 export function operationalExtentPoints(
@@ -472,8 +526,11 @@ export function personalForPdf(
   bounds: { alarmedAt?: string | null; endedAt?: string | null } = {},
 ): { personal: PersonalPdfRow[] } {
   const clock = spanAwareClock(bounds)
+  // Two ticks a minute apart are a correction, not a person who went home — see
+  // attendanceIntervals · mergeCloseBlocks. The RECORD keeps both; the sheet prints one line.
+  const gapMin = attendanceMergeGapMin()
   const rows = (name: string, a?: AttendanceState[string]): PersonalPdfRow[] => {
-    const blocks = intervalsOf(a)
+    const blocks = mergeCloseBlocks(intervalsOf(a), gapMin)
     if (!blocks.length) {
       const von = a ? clock(bounds.alarmedAt) : undefined
       const bis = a ? clock(bounds.endedAt) : undefined

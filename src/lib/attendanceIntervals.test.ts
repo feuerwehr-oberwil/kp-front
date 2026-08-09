@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  closePresence, currentIntervalIndex, intervalsOf, isPresent, openPresence, setIntervalTime, totalMinutes, withIntervals,
+  closePresence, currentIntervalIndex, intervalsOf, isPresent, mergeCloseBlocks, openPresence, setIntervalTime, totalMinutes, withIntervals,
 } from './attendanceIntervals'
 import type { AttendanceEntry } from '../types'
 
@@ -162,5 +162,41 @@ describe('removing one recorded block (the sheet\'s delete)', () => {
     expect(second.checkedInAt).toBe(T(14))
     expect(second.leftAt).toBe(T(18))
     expect(second.status).toBe('left')
+  })
+})
+
+describe('mergeCloseBlocks', () => {
+  const iv = (from: string, to?: string) => ({ from: `2026-08-08T${from}:00`, ...(to ? { to: `2026-08-08T${to}:00` } : {}) })
+
+  it('joins the two ticks that are really one arrival', () => {
+    // the 08.08. sheet: «22:11 – 22:58» over «22:59 – 23:20» under one name
+    expect(mergeCloseBlocks([iv('22:11', '22:58'), iv('22:59', '23:20')], 15))
+      .toEqual([iv('22:11', '23:20')])
+  })
+
+  it('leaves a real break alone', () => {
+    const blocks = [iv('18:00', '19:00'), iv('22:00', '23:00')]
+    expect(mergeCloseBlocks(blocks, 15)).toEqual(blocks)
+  })
+
+  it('keeps the merged stretch OPEN when the later block is still running', () => {
+    expect(mergeCloseBlocks([iv('22:11', '22:58'), iv('22:59')], 15))
+      .toEqual([{ from: '2026-08-08T22:11:00', to: undefined }])
+  })
+
+  it('never merges across a block that has no end — there is nothing after «still here»', () => {
+    const blocks = [iv('22:11'), iv('22:59', '23:20')]
+    expect(mergeCloseBlocks(blocks, 15)).toEqual(blocks)
+  })
+
+  it('is a no-op at 0 and on a single block', () => {
+    const blocks = [iv('22:11', '22:58'), iv('22:59', '23:20')]
+    expect(mergeCloseBlocks(blocks, 0)).toEqual(blocks)
+    expect(mergeCloseBlocks([iv('22:11', '22:58')], 15)).toEqual([iv('22:11', '22:58')])
+  })
+
+  it('chains: three ticks close together become one stretch', () => {
+    expect(mergeCloseBlocks([iv('22:11', '22:20'), iv('22:22', '22:40'), iv('22:41', '23:20')], 15))
+      .toEqual([iv('22:11', '23:20')])
   })
 })

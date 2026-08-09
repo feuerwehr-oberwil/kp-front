@@ -7,7 +7,12 @@ const deployment = {
   alarms: { groups: [{ id: 'g1', label: 'Gr. 1', color: 'Rot' }, { id: 'tgp', label: 'Gr. 9' }] },
   fleet: { vehicles: [{ id: 'tlf', label: 'TLF' }, { id: 'pio', label: 'Pio' }] },
 }
-vi.mock('./deploymentConfig', () => ({ getDeploymentConfig: () => deployment }))
+// `attendanceMergeGapMin` is its own accessor, not a field on the config object — the mock
+// has to provide it or personalForPdf/hoursRows blow up on an undefined import
+vi.mock('./deploymentConfig', () => ({
+  getDeploymentConfig: () => deployment,
+  attendanceMergeGapMin: () => 15,
+}))
 import {
   annotatedPlans,
   changedReportMetaFields,
@@ -129,6 +134,21 @@ describe('personalForPdf (Personal-/Soldblatt rows)', () => {
     expect(mine[0].note).toBe('Fahrer TLF')
   })
 
+  it('prints two ticks a minute apart as ONE stretch', () => {
+    // the 08.08. sheet: «22:11 – 22:58» over «22:59 – 23:20» under one name, which reads as
+    // somebody who went home during an Einsatz that never stopped
+    const { personal } = personalForPdf(roster, {
+      p1: {
+        status: 'left', displayNameSnapshot: 'Meier Anna',
+        intervals: [
+          { from: '2026-08-08T22:11:00', to: '2026-08-08T22:58:00' },
+          { from: '2026-08-08T22:59:00', to: '2026-08-08T23:20:00' },
+        ],
+      },
+    }, { alarmedAt: '2026-08-08T22:11:00', endedAt: '2026-08-08T23:20:00' })
+    expect(personal[0].times?.map((t) => `${t.von}–${t.bis}`)).toEqual(['22:11–23:20'])
+  })
+
   it('stays on bare clocks for an ordinary one-day Einsatz', () => {
     const { personal } = personalForPdf(roster, {
       p1: { status: 'present', displayNameSnapshot: 'Meier Anna', checkedInAt: '2026-06-23T08:23:00' },
@@ -179,6 +199,41 @@ describe('report journal rows', () => {
     expect(rows[1].area).toBe('Manuell')
   })
 
+  it('names the Bereich each row actually came from', () => {
+    const at = (n: number) => `2026-08-08T2${n}:00:00.000Z`
+    const events: TimelineEvent[] = [
+      // the one that started this: a Rapportangaben change used to print under «Kroki»
+      { id: 'meta', t: '22:47', at: at(0), icon: 'clipboard', text: 'Rapportangaben: Einsatzleiter: Meier Anna' },
+      // «team» is written by four different surfaces — the icon is what separates them
+      { id: 'az', t: '22:31', at: at(1), icon: 'radio', text: 'Funkkontakt Trupp 1', kind: 'team' },
+      { id: 'anw', t: '22:11', at: at(2), icon: 'people', text: 'Meier Anna anwesend', kind: 'team' },
+      { id: 'mit', t: '22:20', at: at(3), icon: 'box', text: 'Ölbinder: 3 Sack', kind: 'team' },
+      // the QR poster writes rows with NO kind at all
+      { id: 'qr', t: '22:12', at: at(4), icon: 'user', text: 'Huber Sarah anwesend', surface: 'map' },
+      { id: 'check', t: '22:15', at: at(5), icon: 'check', text: '☑ Bereitstellung', kind: 'journal' },
+      { id: 'lage', t: '22:18', at: at(6), icon: 'hex', text: 'Symbol "Lüfter" gesetzt', kind: 'symbol' },
+    ]
+    const byId = new Map(journalRows(events, plans, undefined, null, { includeBookkeeping: true })
+      .map((r) => [r.id, r.area]))
+    expect(byId.get('meta')).toBe('Rapport')
+    expect(byId.get('az')).toBe('Atemschutz')
+    expect(byId.get('anw')).toBe('Anwesenheit')
+    expect(byId.get('mit')).toBe('Mittel')
+    expect(byId.get('qr')).toBe('Anwesenheit')
+    expect(byId.get('check')).toBe('Checkliste')
+    expect(byId.get('lage')).toBe('Lage')
+  })
+
+  it('drops a prefix the Bereich column already says', () => {
+    const e: TimelineEvent = {
+      id: 'meta', t: '22:47', at: '2026-08-08T20:47:00.000Z', icon: 'clipboard',
+      text: 'Rapportangaben: Einsatzleiter: Meier Anna',
+    }
+    const row = journalRows([e], plans)[0]
+    expect(row.area).toBe('Rapport')
+    expect(row.text).toBe('Einsatzleiter: Meier Anna')
+  })
+
   it('uses fallback date for legacy HH:MM rows', () => {
     const e: TimelineEvent = { id: 'a', t: '12:34', icon: 'type', text: 'Alt', kind: 'journal' }
     expect(eventIso(e, '2026-06-23T00:00:00.000Z')).toContain('2026-06-23T')
@@ -206,6 +261,16 @@ describe('report proof and Atemschutz labels', () => {
     expect(readingKindLabel('entry')).toBe('Eintritt')
     expect(readingKindLabel('contact')).toBe('Kontakt')
     expect(readingKindLabel('pressure')).toBe('Druck')
+  })
+
+  it('never prints «Draussen» for a Trupp that was stood down without going in', () => {
+    const t = (over: Partial<Trupp>): Trupp => ({
+      id: 't1', name: 'Meier', entryPressureBar: 300, entryTime: '', lastContactTime: '',
+      lowestBar: 300, status: 'raus', readings: [], ...over,
+    })
+    expect(truppStatusLabel(t({ exitTime: '2026-08-08T22:47:00Z' }))).toBe('Nicht eingesetzt')
+    // one that really did come out keeps the word it earned
+    expect(truppStatusLabel(t({ entryTime: '2026-08-08T22:20:00Z', exitTime: '2026-08-08T22:47:00Z' }))).toBe('Draussen')
   })
 })
 

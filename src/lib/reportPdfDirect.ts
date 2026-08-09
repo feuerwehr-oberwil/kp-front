@@ -270,11 +270,18 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
     krokiCaption: kroki ? krokiCaption : undefined,
     planPages,
     trupps: (draft.options.atemschutz ? trupps : []).map((t) => ({
-      name: t.name, statusLabel: truppStatusLabel(t.status), members: t.members ?? [], auftrag: truppAuftragLabel(t.auftrag), ziel: t.ziel,
+      name: t.name, statusLabel: truppStatusLabel(t), members: t.members ?? [], auftrag: truppAuftragLabel(t.auftrag), ziel: t.ziel,
       // the numeric Leitung, else the free text an older record still carries verbatim
       lineNumber: t.lineNo != null ? String(t.lineNo) : t.lineNumber?.trim() || undefined,
       entryTime: t.entryTime ? formatDateTime(t.entryTime) : undefined, exitTime: t.exitTime ? formatDateTime(t.exitTime) : undefined,
-      readings: (t.readings ?? []).map((rr) => ({ t: formatDateTime(rr.t), kindLabel: readingKindLabel(rr.kind), bar: rr.bar != null ? String(rr.bar) : undefined })),
+      // ⚠️ A Trupp whose log is empty still has a pressure somebody read off the cylinder and
+      // typed in. Trupps registered from 2026-08-09 open their log with it (useTruppActions ·
+      // createTrupp); one recorded BEFORE that has only `entryPressureBar`, and printing «Kein
+      // Druckverlauf erfasst» over a number the Überwacher wrote down is the sheet contradicting
+      // the record. Undated, because that is all the older shape knows — a made-up clock on a
+      // legal document is worse than a missing one.
+      readings: ((t.readings?.length ? t.readings : [{ t: '', bar: t.entryPressureBar, kind: 'registered' as const }])
+        .map((rr) => ({ t: rr.t ? formatDateTime(rr.t) : '', kindLabel: readingKindLabel(rr.kind), bar: rr.bar != null ? String(rr.bar) : undefined }))),
     })),
     journal: draft.options.journal ? journal : [],
   }

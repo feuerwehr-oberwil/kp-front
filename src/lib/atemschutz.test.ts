@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { anyTruppInField, contactSeverity, deriveTruppLive, estimatePressure, fmtClock, peakAtemschutzAlarm, pressureAlarm, truppInField } from './atemschutz'
+import { anyTruppInField, contactSeverity, deriveTruppLive, estimatePressure, fmtClock, peakAtemschutzAlarm, pressureAlarm, truppInField, truppNeverDeployed } from './atemschutz'
 import type { Trupp } from '../types'
 
 // A Trupp that entered at a fixed reference time; its contact clock starts at entry.
@@ -299,5 +299,18 @@ describe('truppInField / anyTruppInField (1 Hz tick gate)', () => {
       { ...base, id: 'a', status: 'raus', exitTime: base.entryTime },
       { ...base, id: 'b', status: 'aktiv' },
     ])).toBe(true)
+  })
+})
+
+describe('truppNeverDeployed', () => {
+  it('is true only for a closed Trupp that never went under PA', () => {
+    // the Sicherungstrupp that was stood down: registered, closed, no entry
+    expect(truppNeverDeployed({ ...base, status: 'raus', entryTime: '', exitTime: '2026-06-21T11:00:00Z' })).toBe(true)
+  })
+
+  it('is false for a Trupp that came out of the field, and while it is still registered', () => {
+    expect(truppNeverDeployed({ ...base, status: 'raus', exitTime: '2026-06-21T11:00:00Z' })).toBe(false)
+    expect(truppNeverDeployed({ ...base, status: 'angemeldet', entryTime: '' })).toBe(false)
+    expect(truppNeverDeployed({ ...base, status: 'aktiv' })).toBe(false)
   })
 })

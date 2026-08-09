@@ -94,6 +94,22 @@ export function anyTruppInField(trupps: Trupp[]): boolean {
 }
 
 /**
+ * Registered, then closed WITHOUT ever going under PA — the Sicherungstrupp that was never needed.
+ *
+ * It shares the `raus` state (2026-08-09): the crew is finished, off the active board, and can be
+ * sent in later with a fresh cylinder — which is exactly what `raus` already means, and the break
+ * clock beside it is the useful number for a crew that is standing at the vehicle. Only the WORD
+ * differs, everywhere it is printed or shown: «draussen» claims the Trupp came out of something,
+ * and on a legal record that is a statement about where people were.
+ *
+ * Derived from the absence of an `entryTime` rather than stored, so no old record has to be
+ * migrated and no two fields can disagree about whether somebody went in.
+ */
+export function truppNeverDeployed(t: Trupp): boolean {
+  return t.status === 'raus' && !t.entryTime
+}
+
+/**
  * Alarm tier from the contact clock alone: 0 silent · 1 fällig · 2 overdue.
  * Tier 1 is the amber "Kontakt fällig" from the interval mark (FKS-Standard: 5 min); tier 2 is
  * the hard überfällig alarm once the `contactGraceSec` on top has passed too (default: +1 min).

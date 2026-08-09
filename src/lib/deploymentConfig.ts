@@ -305,6 +305,9 @@ export interface DeploymentConfig {
     partnerOrgs?: string[] | null
     /** how the bracketed Einsatzstunden figure rounds — see lib/attendanceHours · roundedMinutes */
     hoursRounding?: { stepMin?: number | null; graceMin?: number | null } | null
+    /** how short a break still counts as ONE stretch on the Personalblatt — see
+     *  lib/attendanceIntervals · mergeCloseBlocks. 0 switches merging off entirely. */
+    attendanceMergeGapMin?: number | null
   }
   integrations?: DeploymentIntegrations
 }
@@ -323,6 +326,7 @@ import { apiGet } from './api'
 import { idbGet, idbSet } from './idb'
 import { wgs84ToLV95, lv95ToWgs84 } from './geo'
 import { appConfig } from '../config/appConfig'
+import { DEFAULT_ATTENDANCE_MERGE_GAP_MIN } from './attendanceIntervals'
 import type { LayerDef, PlanDocument } from '../types'
 
 const CACHE_KEY = 'kp-front-deployment-config'
@@ -431,6 +435,19 @@ export function atemschutzAuftragColors(): Record<string, string> {
  * gets it from the backend already in this order; this accessor exists for the few places
  * that have to take a name APART again (abbreviating for a chip, sorting a local list).
  */
+/**
+ * How short a break between two recorded presence blocks still reads as one stretch on the
+ * Rapport, in minutes (see lib/attendanceIntervals · mergeCloseBlocks). Default 15.
+ *
+ * A station number, not a per-incident one: whether a ten-minute gap is «a break» or «two
+ * deployments» is a Weisung that has to mean the same on every sheet the Wehr files. `0` prints
+ * every recorded block exactly as recorded.
+ */
+export function attendanceMergeGapMin(): number {
+  const v = resolved.report?.attendanceMergeGapMin
+  return typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : DEFAULT_ATTENDANCE_MERGE_GAP_MIN
+}
+
 export function rosterNameOrder(): 'last-first' | 'first-last' {
   return resolved.roster?.nameOrder === 'first-last' ? 'first-last' : 'last-first'
 }

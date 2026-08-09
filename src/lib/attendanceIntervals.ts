@@ -94,6 +94,46 @@ export function currentIntervalIndex(e: AttendanceEntry | undefined): number {
   return Math.max(0, intervalsOf(e).length - 1)
 }
 
+/**
+ * Blocks separated by less than `gapMin` read as ONE stretch.
+ *
+ * A crew member who is ticked «gegangen» and «wieder anwesend» a minute later did not leave —
+ * somebody corrected a mis-tap, or the QR poster and the tablet recorded the same arrival from
+ * two sides. On the Personalblatt that came out as two lines under one name, «22:11 – 22:58»
+ * over «22:59 – 23:20», which reads as a person who went home and came back for an Einsatz that
+ * never stopped (08.08. Einsatz).
+ *
+ * DISPLAY only, and only on the way to the Rapport: the record keeps both blocks, because both
+ * were really recorded and the Anwesenheit sheet is where a correction is made. The threshold is
+ * the station's (`report.attendanceMergeGapMin`) — how long a break has to be before this Wehr
+ * calls it one is a Weisung, not a number an EL settles at 3am.
+ *
+ * An OPEN block absorbs everything after it: there is nothing after «still here».
+ */
+export const DEFAULT_ATTENDANCE_MERGE_GAP_MIN = 15
+
+export function mergeCloseBlocks(intervals: PresenceInterval[], gapMin: number): PresenceInterval[] {
+  if (gapMin <= 0 || intervals.length < 2) return intervals
+  const gapMs = gapMin * 60_000
+  const out: PresenceInterval[] = []
+  for (const iv of intervals) {
+    const prev = out[out.length - 1]
+    if (!prev) { out.push({ ...iv }); continue }
+    // an unfinished previous block cannot be measured against the next one's start, and an
+    // unparseable stamp must not silently swallow a stretch — both stay separate
+    const end = prev.to ? Date.parse(prev.to) : NaN
+    const start = Date.parse(iv.from)
+    if (Number.isFinite(end) && Number.isFinite(start) && start - end < gapMs) {
+      // the LATER end wins, including «no end at all» — coming back and still being here
+      // means the merged stretch is still running
+      out[out.length - 1] = { from: prev.from, to: iv.to }
+      continue
+    }
+    out.push({ ...iv })
+  }
+  return out
+}
+
 const ms = (iso: string | null | undefined): number | null => {
   if (!iso) return null
   const n = new Date(iso).getTime()
