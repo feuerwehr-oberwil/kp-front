@@ -176,6 +176,7 @@ export const en: Localizable<Copy> = {
           { kind: 'lead', text: 'A shared, running log across Situation and Plan – the incident chronicle.' },
           { kind: 'list', items: [
             '**+ Entry** (top right): a short tap opens text input; **press and hold** records a **voice note**. Photos can be attached too.',
+            'From **two letters** on, names are suggested – crew, resources, partner organisations, vehicles and alarm groups. Tapping one inserts the whole name; it is highlighted in the log and on the printed report. There is no separate «from» field: the sentence already says who reported it.',
             'Significant actions (symbol placed, drawing created/removed …) land in the log automatically.',
             '**Undo/Redo** applies to Situation and Plan.',
             'A log entry with a location jumps back to the spot in map or plan when tapped; photos and voice notes can be opened/played directly in the log.',

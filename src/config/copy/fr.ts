@@ -137,8 +137,12 @@ export const fr: Localizable<Copy> = {
           { kind: 'lead', text: 'Surveillance sans faille de chaque binôme ARI selon FKS – le signal de sécurité est le **temps depuis le dernier contact radio**, et non une autonomie restante estimée.' },
           { kind: 'sub', text: 'Créer un binôme' },
           { kind: 'list', items: [
-            '**Mission** d’abord : choisir le type (Sauver · Éteindre · Fouiller · Sécuriser · Reconnaître · Autre), le **but / lieu** en clair (p. ex. « 1er étage, appartement de gauche ») et, en option, le n° de conduite/tuyau.',
-            '**Binôme et pression** : saisir le chef de groupe et le sapeur-pompier (noms déjà engagés en sélection rapide) et régler la pression d’entrée (bar).',
+            '**Qui entre** : trois emplacements, celui du haut est le **chef de binôme** – toucher une ligne le désigne, le **✕** le retire. Un binôme plus grand ajoute simplement des lignes.',
+            'La **recherche de personne** atteint tout l’effectif, pas seulement les présents ; à côté de chaque nom figure ce qui s’y oppose (absent, au dépôt, déjà dans un binôme). **(+)** enregistre un invité (renfort voisin) – ajouté en même temps à la présence, comme la même personne.',
+            'La **pression d’entrée** (bar) et le **canal radio** sont juste à côté.',
+            'En dessous, la **mission** : type (Sauver · Éteindre · Fouiller · Sécuriser · Reconnaître · Autre), **but / lieu** en clair, **n° de conduite** (les conduites déjà dessinées sont proposées à côté) et la **couleur** sur la carte et le plan.',
+            'La mission ne retient personne : **Annoncer le binôme** fonctionne sans elle. La carte affiche alors **« mission ouverte »**, et un toucher dessus ouvre le formulaire.',
+            'Ce qui est saisi survit à une fermeture par **✕** ou par un clic à côté – seul **Annuler** l’efface.',
           ] },
           { kind: 'sub', text: 'Surveillance par binôme' },
           { kind: 'list', items: [
@@ -148,6 +152,7 @@ export const fr: Localizable<Copy> = {
             'Statut **Annoncé → En intervention → Repli → Sorti**. **Repli** peut être annulé avec **Poursuivre** ; un binôme sorti revient à la surveillance avec **Réengager** (nouvelle bouteille).',
             '**Journal** par binôme (dépliable) montre chaque contact avec l’heure et la pression.',
             '**Modifier** (crayon) ajuste la mission, le but/étage ou l’équipe en cours d’intervention.',
+            'Une personne sous ARI ne peut pas être désengagée dans la **Présence** – toucher sa ligne saute à la carte de ce binôme et la met brièvement en évidence.',
             'Les binômes en retard remontent en haut, un compteur apparaît ; le **son d’alarme** peut être coupé par appareil (cloche). Tout est consigné au journal.',
             'Chaque binôme peut être placé sur le plan (bouton « montrer sur le plan »).',
           ] },
@@ -171,6 +176,7 @@ export const fr: Localizable<Copy> = {
           { kind: 'lead', text: 'Un journal partagé et continu à travers Situation et Plan – la chronique de l’intervention.' },
           { kind: 'list', items: [
             '**+ Entrée** (en haut à droite) : un appui court ouvre la saisie de texte ; **maintenir appuyé** enregistre une **note vocale**. Des photos peuvent aussi être jointes.',
+            'Dès **deux lettres**, des noms sont proposés – effectif, matériel, organisations partenaires, véhicules et groupes d’alarme. Un toucher insère le nom entier ; il est mis en évidence dans le journal et sur le rapport imprimé. Il n’y a pas de champ « de » séparé : la phrase dit déjà qui a annoncé.',
             'Les actions importantes (symbole posé, dessin créé/supprimé …) sont consignées automatiquement au journal.',
             '**Annuler/Rétablir** s’applique à Situation et Plan.',
             'Une entrée de journal avec un lieu ramène à l’endroit dans la carte ou le plan quand on la touche ; photos et notes vocales s’ouvrent/se lisent directement dans le journal.',

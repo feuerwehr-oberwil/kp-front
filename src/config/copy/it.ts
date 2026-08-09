@@ -136,8 +136,12 @@ export const it: Localizable<Copy> = {
           { kind: 'lead', text: 'Sorveglianza senza lacune di ogni squadra ARA secondo FKS – il segnale di sicurezza è il **tempo dall’ultimo contatto radio**, non un tempo residuo stimato.' },
           { kind: 'sub', text: 'Creare una squadra' },
           { kind: 'list', items: [
-            '**Compito** prima: scegli il tipo (Salvare · Spegnere · Perlustrare · Mettere in sicurezza · Ricognizione · Altro), l’**obiettivo / luogo** in chiaro (es. «2° piano, appartamento a sinistra») e, facoltativo, il n. della linea/tubo.',
-            '**Squadra e pressione**: registra il capogruppo e il milito (i nomi già impiegati come selezione rapida) e imposta la pressione d’ingresso (bar).',
+            '**Chi entra**: tre posti, quello in alto è il **capogruppo** – toccando una riga lo si designa, la **✕** lo toglie. Una squadra più grande aggiunge semplicemente righe.',
+            'La **ricerca persona** raggiunge tutto l’organico, non solo i presenti; accanto a ogni nome sta ciò che lo sconsiglia (assente, in rimessa, già in una squadra). **(+)** registra un ospite (pompieri vicini) – aggiunto nello stesso momento alla presenza, come la stessa persona.',
+            'La **pressione d’ingresso** (bar) e il **canale radio** stanno di fianco.',
+            'Sotto il **compito**: tipo (Salvare · Spegnere · Perlustrare · Mettere in sicurezza · Ricognizione · Altro), **obiettivo / luogo** in chiaro, **n. linea** (le linee già disegnate sono proposte di fianco) e il **colore** su mappa e piano.',
+            'Il compito non trattiene nessuno: **Annunciare la squadra** funziona anche senza. La scheda riporta allora **«compito aperto»**, e toccandolo si apre il modulo.',
+            'Quanto digitato sopravvive alla chiusura con **✕** o a un clic di fianco – solo **Annulla** lo scarta.',
           ] },
           { kind: 'sub', text: 'Sorveglianza per squadra' },
           { kind: 'list', items: [
@@ -147,6 +151,7 @@ export const it: Localizable<Copy> = {
             'Stato **Annunciata → In intervento → Ritiro → Fuori**. Il **Ritiro** si può revocare con **Continua**; una squadra fuori rientra in sorveglianza con **Rientrare** (nuova bombola).',
             '**Diario** per squadra (espandibile) mostra ogni contatto con ora e pressione.',
             '**Modifica** (matita) adatta compito, obiettivo/piano o squadra durante l’intervento.',
+            'Chi è sotto autoprotezione non si può congedare nella **Presenza** – toccando la sua riga si salta alla scheda di quella squadra, evidenziata per un momento.',
             'Le squadre in ritardo salgono in alto, in cima appare un contatore; il **suono d’allarme** si può silenziare per dispositivo (campanella). Tutto finisce nel diario.',
             'Ogni squadra si può posizionare sul piano (pulsante «mostra sul piano»).',
           ] },
@@ -170,6 +175,7 @@ export const it: Localizable<Copy> = {
           { kind: 'lead', text: 'Un diario condiviso e continuo tra Situazione e Piano – la cronaca dell’intervento.' },
           { kind: 'list', items: [
             '**+ Voce** (in alto a destra): un tocco breve apre l’immissione testo; **tieni premuto** per registrare una **nota vocale**. Si possono allegare anche foto.',
+            'Da **due lettere** in poi vengono proposti nomi – organico, materiale, organizzazioni partner, veicoli e gruppi d’allarme. Toccandone uno si inserisce il nome intero; è evidenziato nel diario e sul rapporto stampato. Non c’è un campo «da» separato: la frase dice già chi ha segnalato.',
             'Le azioni rilevanti (simbolo posizionato, disegno creato/rimosso …) finiscono automaticamente nel diario.',
             '**Annulla/Ripeti** vale per Situazione e Piano.',
             'Una voce del diario con un luogo, se toccata, riporta al punto sulla carta o sul piano; foto e note vocali si aprono/riproducono direttamente nel diario.',
