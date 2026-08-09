@@ -260,7 +260,13 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
    With `overflow-y: auto` on the frame the head scrolled away with the content, so on a long
    form the title and the ✕ were simply gone. Head and foot pin; only .modalBody moves. */
 .modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 81;
-  width: min(680px, calc(100vw - 32px)); max-height: min(90dvh, calc(100dvh - 32px)); overflow: hidden;
+  /* A HEIGHT, not just a ceiling: the Mannschaftsliste is the one thing here that should take
+     whatever room is left (a ten-person Trupp is a real Trupp), and «what is left» does not
+     exist while the frame shrink-wraps its content. 760px is head + foot + what the Auftrag
+     column needs with the small steppers — so on an installed iPad in landscape (768px, no
+     browser chrome) the whole form stands without scrolling, and on anything taller the
+     Mannschaftsliste takes the surplus instead of the frame growing empty. */
+  width: min(680px, calc(100vw - 32px)); height: min(760px, calc(100dvh - 32px)); overflow: hidden;
   background: var(--glass); backdrop-filter: blur(16px); border-radius: var(--r-hero); box-shadow: var(--shadow);
   display: flex; flex-direction: column; }
 /* 18px 20px 10px, like every other .ip-head in the app — 16px all round plus a rule made this
@@ -273,8 +279,11 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
    tablet; warnings span the full width. Collapses to one column on a phone, in the order that
    matters there: who goes in, with how much air, then everything else. */
 .modalBody { flex: 1 1 auto; min-height: 0; overflow-y: auto;
-  padding: 6px 20px 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px 22px; align-items: start; }
-.formCol { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  padding: 6px 20px 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px 22px;
+  /* `stretch`, not `start`: the Trupp column has to be as tall as the form for its list to have
+     anything to grow into */
+  align-items: stretch; }
+.formCol { display: flex; flex-direction: column; gap: 12px; min-width: 0; min-height: 0; }
 .formColWide { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 12px; }
 /* The two ± steppers (Funkkanal · Eingangsdruck). Spans the modal, then splits itself: two
    columns where they fit, one where they don't — and a single child fills the row rather than
@@ -429,6 +438,14 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
   border-radius: var(--r-pill); padding: 3px 10px; }
 /* Auftrag type chip pops (it's the order), Ziel/Ort rides alongside as plain emphasis text */
 .tagAuftrag { color: var(--blue); background: color-mix(in srgb, var(--blue) 10%, transparent); }
+/* «this one» — the card a locked Anwesenheits-Zeile just sent you to. A ring that fades, not a
+   state that stays: pointing is a gesture (same rule as the map's flashDrawingId). */
+@keyframes truppFlash {
+  0%, 55% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 55%, transparent); }
+  100% { box-shadow: 0 0 0 3px transparent; }
+}
+.cardFlash { animation: truppFlash 2.2s ease-out 1; }
+@media (prefers-reduced-motion: reduce) { .cardFlash { animation-duration: 0.01ms; box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 55%, transparent); } }
 /* no Auftrag yet — dashed, not amber: it is a gap to fill, not an alarm, and tapping it opens
    the form on the fold that holds it */
 .tagAuftragOpen { color: var(--ink-faint); background: none; cursor: pointer;
@@ -453,6 +470,15 @@ button.stepVal:hover { border-color: var(--blue); }
 /* inline numeric input shown when typing an exact value (matches the .stepVal b look) */
 .stepInput { width: 90%; box-sizing: border-box; text-align: center; border: none; background: transparent;
   outline: none; font: 800 28px/1 var(--mono); color: var(--blue); padding: 0; }
+/* ⚠️ In the create form only. Druck and Kanal are set once, with a bare hand, before anybody is
+   under PA — two 64px blocks each cost the form ~50px it does not have on a tablet. The gloved
+   size stays where it is earned: «Druck aktualisieren», tapped at the door mid-Einsatz. Still
+   over the 44px tap floor. */
+.stepperSmall { grid-template-columns: 52px 1fr 52px; gap: 8px; }
+.stepperSmall .stepBtn { min-height: 48px; }
+.stepperSmall .stepBtn :global(.i) { width: 18px; height: 18px; }
+.stepperSmall .stepVal b, .stepperSmall .stepInput { font-size: 21px; }
+.stepperSmall .stepVal span { margin-top: 1px; }
 
 /* roster quick-select chips (previously-entered people) in the form */
 .roster { display: flex; flex-wrap: wrap; gap: 7px; }
@@ -545,7 +571,7 @@ button.stepVal:hover { border-color: var(--blue); }
    The Trupp first, the Mannschaft under it: the top block is the ANSWER and stays put, the
    list below is the way to it and scrolls. Both live in one column so the whole team fits a
    tablet without the form scrolling — three stacked dropdowns used to be taller than this. */
-.team { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.team { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 /* ⚠️ The chosen block RESERVES the room a normal Trupp needs (GF + 2 AdF). It used to grow with
    every tick, so the modal changed height under the finger and the roster list — the thing being
    tapped — walked down the screen after every pick. A Trupp is three people far more often than
@@ -596,7 +622,10 @@ button.stepVal:hover { border-color: var(--blue); }
 /* Bounded, so the Auftrag column beside it stays reachable without scrolling the whole modal.
    ~5 rows: enough that the search is usually unnecessary, short enough to keep the footer in
    view — the button that actually starts the Trupp must never be below the fold. */
-.teamList { list-style: none; margin: 0; padding: 4px; max-height: 208px; overflow-y: auto;
+/* fills whatever the slots, the search and the Gast link leave over — down to eight rows, which
+   is a Trupp plus the crew you are choosing it from. 208px was a fixed box that wasted the room
+   a tall modal has and starved a ten-person Trupp of the room it needs. */
+.teamList { list-style: none; margin: 0; padding: 4px; flex: 1 1 0; min-height: 168px; overflow-y: auto;
   border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface); }
 .teamOptTaken { opacity: .45; cursor: default; }
 /* «Magazin» is the one hint on this list that is operational rather than advisory: somebody
@@ -645,11 +674,11 @@ button.stepVal:hover { border-color: var(--blue); }
   .statusDot, .contactCrit .contactVal, .overdueBadge { animation: none; }
 }
 
-/* ⚠️ Must come AFTER .teamList's own max-height — same specificity, so source order decides.
-   On the phone sheet the list gets more room (208px was measured against a centred dialog that
-   was shorter than the screen), but it stays capped: let it grow to its full length and the
-   Eingangsdruck — the one field besides the names you cannot skip — ends up a dozen rows below
-   the fold. Two letters in the search above it and the list is three rows anyway. */
+/* ⚠️ Must come AFTER .teamList's own rule — same specificity, so source order decides.
+   On the phone the columns stack, so «fill the rest of the column» would mean «fill the rest of
+   the sheet» and the Eingangsdruck — the one field besides the names you cannot skip — would end
+   up a dozen rows below the fold. There the list is a fixed box again. Two letters in the search
+   above it and it is three rows anyway. */
 @media (max-width: 560px) {
-  .teamList { max-height: 38dvh; }
+  .teamList { flex: none; max-height: 38dvh; }
 }

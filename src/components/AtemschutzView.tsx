@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, stripUnprintable } from '../lib/format'
@@ -54,6 +54,7 @@ export function AtemschutzView({
   trupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, onAddGuest, order = 'dringlichkeit', onOrder, onMove, createTrupp, placeTrupp, placeTargets, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, leitungOptions, showTruppLine, truppsWithLine, pickTruppLine, unlinkTruppLine,
   intervalMin = atemschutzDoctrine().contactIntervalMin, graceSec = atemschutzDoctrine().contactGraceSec,
   defaultFunkkanal = atemschutzDoctrine().defaultFunkkanal,
+  focus,
 }: {
   trupps: Trupp[]
   /** trupp id → the colour it wears on the Lage / plan (useTruppActions · truppColors). Missing
@@ -106,6 +107,9 @@ export function AtemschutzView({
   /** put a hand-typed Gast on the Anwesenheit — a Gast under PA was at the Einsatz, and a name
    *  that only ever existed on a Trupp card reaches neither the Personalblatt nor the export */
   onAddGuest?: (name: string) => string | undefined
+  /** «point at THAT Trupp» — set by a locked Anwesenheit row. The nonce makes a repeat tap point
+   *  again; the card scrolls itself into view and flashes, then the mark clears on its own. */
+  focus?: { id: string; nonce: number } | null
 }) {
   const az = appConfig.copy.atemschutz // read per-render so the resolved locale applies
   // the shared create / edit / re-deploy form — null when closed
@@ -246,6 +250,7 @@ export function AtemschutzView({
   const cards = (list: Trupp[]) => list.map((t) => (
     <TruppCard
       key={t.id} t={t} live={live.get(t.id)!} now={now} color={truppColors[t.id]} canEdit={canEdit} intervalMin={intervalMin} graceSec={graceSec}
+      flash={focus?.id === t.id}
       onContact={recordContact} onPressure={recordPressure} onStatus={setTruppStatus}
       onEdit={() => openForm('edit', t)} onReenter={() => openForm('redeploy', t)}
       onDelete={deleteTrupp} onRestore={restoreTrupp} onPlace={handlePlace} onShowPlan={focusTruppOnPlan}
@@ -358,14 +363,14 @@ export function AtemschutzView({
 
 // A gloved-friendly ±stepper for cylinder pressure (step + ceiling from config; 320 bar allows
 // an overfull bottle). Big targets, snaps to the step grid; tap the value to type an exact bar.
-function PressureStepper({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+function PressureStepper({ value, onChange, compact }: { value: number; onChange: (v: number) => void; compact?: boolean }) {
   const az = appConfig.copy.atemschutz // read per-render so the resolved locale applies
   const dz = atemschutzDoctrine()
   const dec = useHoldRepeat(() => onChange(snapBar(value - dz.pressureStep)))
   const inc = useHoldRepeat(() => onChange(snapBar(value + dz.pressureStep)))
   const edit = useTapToType({ min: 0, max: dz.pressureMax, onCommit: (v) => onChange(snapBar(v)), clamp: snapBar })
   return (
-    <div className={s.stepper}>
+    <div className={cx(s.stepper, compact && s.stepperSmall)}>
       <button type="button" className={s.stepBtn} aria-label={fillTemplate(az.pressureDown, { step: dz.pressureStep })} {...dec}>
         <Icon id="minus" />
       </button>
@@ -383,7 +388,7 @@ function PressureStepper({ value, onChange }: { value: number; onChange: (v: num
 
 // The Funkkanal ±stepper in the create/edit form: hold to repeat, tap the value to type an
 // exact channel. Clamped to the configured channel range.
-function FunkkanalStepper({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+function FunkkanalStepper({ value, onChange, compact }: { value: number; onChange: (v: number) => void; compact?: boolean }) {
   const az = appConfig.copy.atemschutz
   const dz = atemschutzDoctrine()
   const clamp = (v: number) => Math.max(dz.funkkanalMin, Math.min(dz.funkkanalMax, v))
@@ -391,7 +396,7 @@ function FunkkanalStepper({ value, onChange }: { value: number; onChange: (v: nu
   const inc = useHoldRepeat(() => onChange(clamp(value + 1)))
   const edit = useTapToType({ min: dz.funkkanalMin, max: dz.funkkanalMax, onCommit: onChange })
   return (
-    <div className={s.stepper}>
+    <div className={cx(s.stepper, compact && s.stepperSmall)}>
       <button type="button" className={s.stepBtn} aria-label={az.funkkanalDown} {...dec}><Icon id="minus" /></button>
       {edit.editing ? (
         <div className={s.stepVal}><input className={s.stepInput} {...edit.inputProps} /><span>{az.funkkanalUnit}</span></div>
@@ -456,7 +461,7 @@ function PressureInline({ value, onCommit }: { value: number; onCommit: (bar: nu
 // Funkkontakt) with a large Kontakt reset; the inline Druck control + an expandable Verlauf log
 // sit below, and the lifecycle actions run along the bottom.
 function TruppCard({
-  t, live, now, color, canEdit, intervalMin, graceSec, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onRestore, onPlace, onShowPlan, onMove, onPickLine, onShowLine, hasLine,
+  t, live, now, color, canEdit, intervalMin, graceSec, flash, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onRestore, onPlace, onShowPlan, onMove, onPickLine, onShowLine, hasLine,
 }: {
   t: Trupp; live: TruppLive; now: number; canEdit: boolean
   /** the colour this Trupp wears on the Lage / plan (useTruppActions · truppColors); absent while
@@ -466,6 +471,8 @@ function TruppCard({
   onContact: (id: string) => void
   onPressure: (id: string, bar: number) => void
   onStatus: (id: string, status: Trupp['status']) => void
+  /** this is the card somebody was just sent to — scroll it under their eyes and mark it */
+  flash?: boolean
   onEdit: () => void
   onReenter: () => void
   onDelete: (id: string) => void
@@ -488,6 +495,15 @@ function TruppCard({
   // one word differs — the state, the section and the actions are the same (truppNeverDeployed).
   const statusLabel = status === 'raus' ? truppStatusLabel(t) : (az.status[status] ?? status)
   const [logOpen, setLogOpen] = useState(false)
+  // ⚠️ The jump has to LAND. Switching to the Überwachung and leaving a wall of cards was the
+  // complaint: on a long list the Trupp somebody was sent to was off-screen, so the answer to
+  // «why can I not tick this person» was still a search. `flash` flips false→true per jump
+  // (the nonce upstream), so a repeat tap scrolls again.
+  const cardRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!flash) return
+    cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [flash])
   const inField = t.status === 'aktiv' || t.status === 'rueckzug'
   const auftrag = auftragTypeLabel(t)
   const sev = contactSeverity(live.sinceContactSec, intervalMin, graceSec)
@@ -531,7 +547,7 @@ function TruppCard({
   }
 
   return (
-    <div className={cx(s.card, s[`st-${status}`])}>
+    <div ref={cardRef} className={cx(s.card, s[`st-${status}`], flash && s.cardFlash)}>
       <div className={s.cardBanner}>
         <span className={s.statusDot} />
         <span className={s.statusLabel}>{statusLabel}</span>
@@ -893,7 +909,7 @@ function TruppForm({
               <>
                 <div className={s.formSection}>{mode === 'redeploy' ? az.newPressureLabel : az.pressureLabel}</div>
                 <div className={s.field}>
-                  <PressureStepper value={pressure} onChange={setPressure} />
+                  <PressureStepper value={pressure} onChange={setPressure} compact />
                 </div>
               </>
             )}
@@ -903,7 +919,7 @@ function TruppForm({
                 never a reason to hold a Trupp at the door. */}
             <div className={s.formSection}>{az.funkkanalSection}</div>
             <div className={s.field}>
-              <FunkkanalStepper value={funkkanal} onChange={setFunkkanal} />
+              <FunkkanalStepper value={funkkanal} onChange={setFunkkanal} compact />
             </div>
 
             <div className={s.formSection}>{az.sectionAuftrag}</div>

@@ -331,7 +331,7 @@ function LivePositionChip({ live, center, onShow }: {
 // marking them gone (the checkout rule). Order is stable alphabetical so chips don't reflow
 // under your finger while you tap.
 export function AnwesenheitView({
-  people, attendance, canEdit, loading, error, blockedIds,
+  people, attendance, canEdit, loading, error, blockedIds, truppOfPerson,
   onAddGuest, onMarkPresent, onMarkLeft, onClear, onSetOrt, onJumpToTrupp, onReload, onSetTimes, onRemoveBlock, onSetNote, captureUsage,
   shifts, bands, onCreateBand, onSaveBand, onRemoveBand, onCycleCell, onSetCellState, onPutCellState,
   startedAt, onAddShift, onAddShiftSpan, onReplaceShift, onSetShiftTime, onRemoveShift,
@@ -353,7 +353,10 @@ export function AnwesenheitView({
   onSetOrt?: (p: Person) => void
   onMarkLeft: (p: Person) => void
   onClear: (p: Person) => void
-  onJumpToTrupp: () => void
+  /** the Trupp a locked row belongs to — the jump POINTS at that card, it does not merely
+   *  open the Überwachung and leave the finding to whoever tapped */
+  truppOfPerson: Map<string, string>
+  onJumpToTrupp: (truppId?: string) => void
   onReload: () => void
   /** correct a wrong auto-stamped time via the row's time chip (e.g. "gegangen" marked
    *  after the person already left) — same handler as the Rapport Stunden editor. Patches the
@@ -485,7 +488,7 @@ export function AnwesenheitView({
   const cycle = (p: Person) => {
     const status = attendance[p.id]?.status
     if (status === 'present') {
-      if (blockedIds.has(p.id)) { onJumpToTrupp(); return }
+      if (blockedIds.has(p.id)) { onJumpToTrupp(truppOfPerson.get(p.id)); return }
       onMarkLeft(p)
     } else if (status === 'left') {
       // A roster row cycles back to «frei» — it is still on the Mannschaftsliste either way.
@@ -544,13 +547,17 @@ export function AnwesenheitView({
               nachziehen», so it belongs in the head and not behind a filter. Hidden while
               everybody is at the scene: on the ordinary Einsatz it would say «12 vor Ort · 0
               Magazin» forever, which is a line that teaches you to stop reading the head. */}
-          <p>
-            {fillTemplate(A.summary, { present: counts.present, left: counts.left, total: counts.total })}
-            {counts.station > 0 && (
-              <> · {fillTemplate(A.summaryOrt, { scene: counts.scene, station: counts.station })}</>
-            )}
-          </p>
         </div>
+        {/* ⚠️ A row of its OWN, spanning the head. Beside the title it competed with the QR
+            read-out and the three view tabs for what was left, so on a 700px panel «13 anwesend
+            · 2 gegangen · 12 Mannschaft …» stacked five lines deep in a 250px column — and on a
+            phone it was cut off entirely. It is the one line this panel exists to give. */}
+        <p className={s.headSummary}>
+          {fillTemplate(A.summary, { present: counts.present, left: counts.left, total: counts.total })}
+          {counts.station > 0 && (
+            <> · {fillTemplate(A.summaryOrt, { scene: counts.scene, station: counts.station })}</>
+          )}
+        </p>
         <div className={s.headActions}>
           <CaptureUsageChip usage={captureUsage} />
           {/* The Zeitplan's paper output. Kept MOUNTED in both views and merely hidden in the

@@ -19,7 +19,7 @@ const noop = () => {}
 const mount = (over: Partial<Parameters<typeof AnwesenheitView>[0]> = {}) => {
   const props = {
     people, attendance: {} as AttendanceState, canEdit: true, loading: false, error: false,
-    blockedIds: new Set<string>(), onMarkPresent: noop, onMarkLeft: noop, onClear: noop,
+    blockedIds: new Set<string>(), truppOfPerson: new Map<string, string>(), onMarkPresent: noop, onMarkLeft: noop, onClear: noop,
     onJumpToTrupp: noop, onReload: vi.fn(),
     ...over,
   }

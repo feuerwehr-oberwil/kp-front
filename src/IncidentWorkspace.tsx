@@ -120,7 +120,7 @@ import { AtemschutzView, type TruppOrder } from './components/AtemschutzView'
 import { AnwesenheitView } from './components/AnwesenheitView'
 import { MittelView } from './components/MittelView'
 import { usePersonnel } from './lib/usePersonnel'
-import { assignedPersonIds } from './lib/personnel'
+import { assignedPersonIds, truppByPersonId } from './lib/personnel'
 import type { Item } from './lib/checklists'
 import type { NoteSize } from './types'
 import { ReportPreflight } from './components/ReportPreflight'
@@ -2070,6 +2070,11 @@ export function IncidentWorkspace({
     }
   }, [layers, incidentView.center, backendPlans, withGeoBbox])
   const blockedAttendanceIds = useMemo(() => assignedPersonIds(trupps), [trupps])
+  const truppOfPerson = useMemo(() => truppByPersonId(trupps), [trupps])
+  /** «show me THAT card»: a locked roster row points at the Trupp it is locked by. Carries a
+   *  nonce so tapping the same person twice points again — pointing is a gesture, not a state,
+   *  and the AtemschutzView clears it on its own timer. */
+  const [truppFocus, setTruppFocus] = useState<{ id: string; nonce: number } | null>(null)
   const { markPresent, markLeft, clearAttendance, setAttendanceTimes, removeAttendanceBlock, setAttendanceNote, setAttendanceOrt, addGuest } = useAttendanceActions({
     attendance, setAttendance, blockedAttendanceIds,
     startedAt: incidentMeta.started_at, reportDoneAt: incidentMeta.report_done_at, log,
@@ -3228,6 +3233,7 @@ export function IncidentWorkspace({
           intervalMin={azIntervalMin}
           graceSec={azGraceSec}
           defaultFunkkanal={azFunkkanal}
+          focus={truppFocus}
         />
       )}
 
@@ -3243,7 +3249,11 @@ export function IncidentWorkspace({
           onMarkPresent={markPresent}
           onMarkLeft={markLeft}
           onClear={clearAttendance}
-          onJumpToTrupp={() => { setMode('atemschutz'); setPanel(null) }}
+          truppOfPerson={truppOfPerson}
+          onJumpToTrupp={(truppId) => {
+            setMode('atemschutz'); setPanel(null)
+            if (truppId) setTruppFocus({ id: truppId, nonce: Date.now() })
+          }}
           onReload={() => { void reloadPersonnel() }}
           onSetTimes={canEditIncident ? setAttendanceTimes : undefined}
           onRemoveBlock={canEditIncident ? removeAttendanceBlock : undefined}

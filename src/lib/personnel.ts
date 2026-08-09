@@ -32,6 +32,19 @@ export function assignedPersonIds(trupps: Trupp[]): Set<string> {
   return ids
 }
 
+/** personId → the id of the ACTIVE Trupp they are in. Same rule as assignedPersonIds (a Trupp
+ *  that is `raus` no longer holds anybody), but it keeps the answer to «which one» — a locked
+ *  roster row has to be able to point at the card it is locked by, not just say that it is. */
+export function truppByPersonId(trupps: Trupp[]): Map<string, string> {
+  const by = new Map<string, string>()
+  for (const t of trupps) {
+    if (t.status === 'raus') continue
+    if (t.leaderPersonId) by.set(t.leaderPersonId, t.id)
+    for (const id of t.memberPersonIds ?? []) by.set(id, t.id)
+  }
+  return by
+}
+
 export const presentCount = (attendance: AttendanceState): number =>
   Object.values(attendance).filter((a) => a.status === 'present').length
 
