@@ -68,6 +68,13 @@ export function downloadSheetPdf({ stationName, names, catalogue, groups = [], v
   const GAP = 5 // uniform gap between sections
   let y = 0
 
+  /** ⚠️ ONE tick-off square for the whole sheet — 4mm, the size the Einsatzrapport prints
+   *  (_CHECK_W). The roster drew 3.6 and the Partner/Kategorie rows 3.4: two sizes on one page,
+   *  and neither matched the document this sheet is the twin of. */
+  const CHECK = 4
+  const checkBox = (x: number, yy: number) => {
+    doc.setDrawColor(40).setLineWidth(0.35).rect(x, yy - CHECK * 0.8, CHECK, CHECK)
+  }
   const dotted = (x1: number, yy: number, x2: number) => {
     doc.setLineDashPattern([0.8, 0.8], 0).setDrawColor(150).line(x1, yy, x2, yy)
     doc.setLineDashPattern([], 0)
@@ -98,11 +105,9 @@ export function downloadSheetPdf({ stationName, names, catalogue, groups = [], v
     doc.text(`${label}:`, x, yy)
     dotted(x + doc.getTextWidth(`${label}:`) + 2, yy + 0.6, x + w)
   }
-  // ⚠️ ONE write-in texture, the Einsatzrapport's: a fine dotted leader. A time in a FIELD is
-  // written on one like everything else — that is how the rapport prints an unrecorded
-  // Alarmierung (report_pdf · the Details box) — so the old `__:__` stub is gone from the
-  // header, the roster and the Rückmeldung. The one place it survives is the Alarmierungs-/
-  // Ausrückzeiten grid, where the rapport prints it too: there the stub IS the column.
+  // ⚠️ ONE write-in texture, the Einsatzrapport's: a fine dotted leader. Every time on this
+  // sheet is written on one — the header fields, the roster clocks, the Rückmeldung and the
+  // Alarmierungs-/Ausrückzeiten grid. There is no `__:__` left in either document.
   // Details box — the full paper-form header (canonical form, stats-integration.md
   // Table A). Long-hand fields (Einsatz, Adresse, Kontaktperson, Eigentümer) get FULL
   // lines; date/times/EL/Gerettete are short. 8 mm row pitch = space to actually write.
@@ -134,17 +139,17 @@ export function downloadSheetPdf({ stationName, names, catalogue, groups = [], v
     items.forEach((label, i) => {
       const x = M + (i % cols) * cw
       const yy = y + Math.floor(i / cols) * rh
-      doc.setDrawColor(40).setLineWidth(0.35).rect(x, yy - 3, 3.4, 3.4)
+      checkBox(x, yy)
       doc.setFont('helvetica', 'normal').setFontSize(8.5).setTextColor(20)
       const write = writeInLast && i === items.length - 1
       const text = write ? `${label}:` : (doc.splitTextToSize(label, cw - 7)[0] as string)
-      doc.text(text, x + 5, yy)
-      if (write) dotted(x + 5 + doc.getTextWidth(text) + 2, yy + 0.6, x + cw - 4)
+      doc.text(text, x + CHECK + 1.6, yy)
+      if (write) dotted(x + CHECK + 1.6 + doc.getTextWidth(text) + 2, yy + 0.6, x + cw - 4)
     })
     y += Math.ceil(items.length / cols) * rh + GAP
   }
 
-  // Alarmierungs-/Ausrückzeiten — groups left, vehicles right, `__:__` stub per row
+  // Alarmierungs-/Ausrückzeiten — groups left, vehicles right, a write-in rule per row
   // (rows from deployment config; both lists empty → section omitted entirely)
   if (groups.length > 0 || vehicles.length > 0) {
     const zItems = [
@@ -156,11 +161,14 @@ export function downloadSheetPdf({ stationName, names, catalogue, groups = [], v
     const cwZ = (A4.w - 2 * M) / zCols
     ensure(7 + zRowsN * rowHZ + 2)
     heading(C.sheetZeiten)
+    // the same dotted write-in rule as every other field — the Einsatzrapport's Zeiten grid
+    // draws one here too, so the two documents no longer disagree about what «hier schreiben»
+    // looks like (this was the last `__:__` on the sheet)
+    const zeitW = 13
     const zeitStub = (x: number, yy: number, label: string) => {
-      doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(110)
-      doc.text('__:__', x, yy)
-      doc.setTextColor(20)
-      doc.text(doc.splitTextToSize(label, cwZ - 16)[0] as string, x + 11.5, yy)
+      dotted(x, yy + 0.4, x + zeitW)
+      doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(20)
+      doc.text(doc.splitTextToSize(label, cwZ - zeitW - 6)[0] as string, x + zeitW + 3, yy)
     }
     zItems.forEach((label, i) => {
       const col = Math.floor(i / zRowsN)
@@ -216,10 +224,10 @@ export function downloadSheetPdf({ stationName, names, catalogue, groups = [], v
       const x = col === 0 ? M : col2X
       const yy = startY + (i % perCol) * rowH
       const xTime = x + colW - timeW
-      doc.setDrawColor(40).setLineWidth(0.35).rect(x, yy - 3.2, 3.6, 3.6)
+      checkBox(x, yy)
       doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(20)
-      if (n) doc.text(doc.splitTextToSize(n, xTime - x - 8)[0] as string, x + 5.5, yy)
-      else dotted(x + 5.5, yy + 0.4, xTime - 3)
+      if (n) doc.text(doc.splitTextToSize(n, xTime - x - CHECK - 4)[0] as string, x + CHECK + 1.6, yy)
+      else dotted(x + CHECK + 1.6, yy + 0.4, xTime - 3)
       dotted(xTime, yy + 0.4, xTime + endW)
       doc.setFontSize(8.5).setTextColor(110)
       doc.text('–', xTime + endW + dashW / 2, yy, { align: 'center' })

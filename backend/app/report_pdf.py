@@ -1114,9 +1114,14 @@ def compose_report_pdf(
     # the config declares neither.
     if m.zeiten:
         story.extend(head(L["zeiten"]))
+        # ⚠️ An unrecorded time is a dotted RULE, like every other write-in field on the sheet.
+        # It was «__:__» — the sheet's second «write here» texture, and the two sat a few
+        # centimetres apart: the Zeiten grid in underscores, the roster clocks right below it in
+        # dotted leaders. Underscores also never line up with the digits of a filled row, since
+        # Helvetica's «_» is narrower than its figures, so a column of half-filled times came out
+        # ragged. One texture; see the roster and the Material amounts.
         zrows = [
-            [Paragraph(_esc(val or _TIME_STUB), st["stub" if not val else "cell"]), Paragraph(_esc(lab), st["cell"])]
-            for lab, val in m.zeiten
+            [Paragraph(_esc(val) if val else "", st["cell"]), Paragraph(_esc(lab), st["cell"])] for lab, val in m.zeiten
         ]
         # 3-up columns to keep the grid compact
         cols = 3
@@ -1130,6 +1135,17 @@ def compose_report_pdf(
             grid.append(row)
         cw = inner_w / cols
         zt = Table(grid, colWidths=[cw * 0.32, cw * 0.68] * cols)
+        # the rule goes under the empty VALUE cells only — the label beside it is printed, not
+        # written, and a bar under it would say otherwise
+        # ⚠️ `isinstance` guard, not a plain falsy test: a last row short of a full set is padded
+        # with EMPTY STRINGS, and those must not get a rule — that would draw write-in fields for
+        # Gruppen the station does not have.
+        blanks = [
+            (c * 2, r)
+            for r, row in enumerate(grid)
+            for c in range(cols)
+            if isinstance(row[c * 2], Paragraph) and not row[c * 2].text
+        ]
         zt.setStyle(
             TableStyle(
                 [
@@ -1137,6 +1153,10 @@ def compose_report_pdf(
                     ("TOPPADDING", (0, 0), (-1, -1), 3),
                     ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
                     ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                    # a value cell holds a whole 0.32 of the column; the rule is inset so it
+                    # reads as a field rather than as a bar under the whole grid
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                    *[("LINEBELOW", (col, row), (col, row), 0.5, _WRITE, *_WRITE_DASH) for col, row in blanks],
                 ]
             )
         )
@@ -1459,7 +1479,14 @@ def compose_report_pdf(
             story.append(Spacer(1, 6))
 
     story = _collapse_breaks(story)
-    label = " · ".join(x for x in (payload.incident.title, payload.generatedAt) if x)
+    # ⚠️ The page footer carries the ALARM time, not the moment the file was made. Every page
+    # said «Erstellt: …» twice — once under the title, once at the foot of every sheet — and the
+    # print time is the least useful stamp on a document that gets reprinted after a correction:
+    # two printings of the same Einsatz footed differently and read as two Einsätze. The
+    # Alarmierung is what a stack of rapports is sorted and found by. Falls back to the print
+    # time only when nothing recorded the alarm, so the foot is never blank.
+    stamp = m.alarmiertAt or payload.generatedAt
+    label = " · ".join(x for x in (payload.incident.title, stamp) if x)
 
     class _Stamped(_NumberedCanvas):
         footer_label = label
@@ -1501,6 +1528,23 @@ _SPLIT_GUTTER = 3 * mm
 #: The tick-off square, drawn at a FIXED size so every checkbox in a column matches whatever
 #: the row around it does — see _personal_table.
 _CHECK_W = 4 * mm
+
+
+def _check_box(ticked: bool) -> Table:
+    """ONE tick-off square for the whole sheet: 4mm, square, whatever the row does.
+
+    ⚠️ Not a BOX on the table cell. As a cell border it takes the ROW's height — so a person
+    with a remark, or a Partner row whose Bemerkung wrapped, got a checkbox twice as tall as its
+    neighbour's, and a tick-off column whose boxes are different sizes reads as a form somebody
+    drew by hand. The roster had worked this out locally; the Partner block still carried the
+    cell-border version, at a third size again.
+    """
+    st = _styles()
+    box = Table([[Paragraph("<b>X</b>" if ticked else "", st["check"])]], colWidths=[_CHECK_W], rowHeights=[_CHECK_W])
+    box.setStyle(
+        TableStyle([*_SPLIT_OUTER, ("BOX", (0, 0), (-1, -1), 0.5, _WRITE), ("VALIGN", (0, 0), (-1, -1), "MIDDLE")])
+    )
+    return box
 
 
 def _split_col_w(inner_w: float) -> float:
@@ -1635,16 +1679,7 @@ def _personal_table(personal: list[PersonalRowIn], inner_w: float, st: dict[str,
         name: list = [Paragraph(label, st["rcell"])]
         if note and not inline:
             name.append(Paragraph(_esc(note), st["rnote"]))
-        # ⚠️ A FIXED square, not a BOX on the table cell. As a cell border it took the ROW's
-        # height — so a person with a remark, or with two stretches stacked in the time column,
-        # got a checkbox twice as tall as their neighbour's. A tick-off column whose boxes are
-        # different sizes reads as a form somebody drew by hand.
-        box = Table(
-            [[Paragraph("<b>X</b>" if p.erfasst else "", st["check"])]], colWidths=[_CHECK_W], rowHeights=[_CHECK_W]
-        )
-        box.setStyle(
-            TableStyle([*_SPLIT_OUTER, ("BOX", (0, 0), (-1, -1), 0.5, _WRITE), ("VALIGN", (0, 0), (-1, -1), "MIDDLE")])
-        )
+        box = _check_box(p.erfasst)
         return [
             box,
             name,
@@ -1810,7 +1845,7 @@ def _partner_table(
     read as belonging to nothing; whatever is worth noting («Wm. Keller, Verkehr ab Kreisel») goes
     in the one line and sits right next to its organisation.
     """
-    check_w = 4 * mm
+    check_w = _CHECK_W
     col_w = _split_col_w(inner_w)
     org_w = (col_w - check_w) * 0.42
 
@@ -1819,15 +1854,14 @@ def _partner_table(
         # the write-in row empty — three type treatments and three row heights in a block whose
         # whole point is that the entries are comparable. A tick says «this one was there»; the
         # typography must not say it a second time, more quietly.
+        notes = [_esc(" · ".join(x for x in (c.name, c.phone, c.note) if x)) if c else "" for _, c in part]
         rows = [
             [
-                Paragraph(("<b>X</b>" if c else ""), st["check"]),
+                _check_box(bool(c)),
                 Paragraph(_esc(org) if org else _LINE_STUB, st["rcell"]),
-                Paragraph(
-                    _esc(" · ".join(x for x in (c.name, c.phone, c.note) if x)) if c else _LINE_STUB, st["rcell"]
-                ),
+                Paragraph(note or _LINE_STUB, st["rcell"]),
             ]
-            for org, c in part
+            for (org, c), note in zip(part, notes, strict=True)
         ]
         style: list[tuple] = [
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
@@ -1838,11 +1872,13 @@ def _partner_table(
             ("LEFTPADDING", (0, 0), (0, -1), 0),
             ("RIGHTPADDING", (0, 0), (0, -1), 0),
             ("FONTSIZE", (0, 0), (-1, -1), 8.5),
-            # An EMPTY SQUARE on every row, not just a printed X on the ticked ones: the rapport
-            # gets corrected on paper as often as on screen, and an organisation that turns out
-            # to have been there needs somewhere to put the tick.
-            *[("BOX", (0, r), (0, r), 0.5, _WRITE) for r in range(len(rows))],
-            *[("LINEBELOW", (0, r), (-1, r), 0.4, _GRID) for r in range(len(rows))],
+            # ⚠️ The rule goes under what is still to be WRITTEN, not under the whole row. A bar
+            # running from the tick box to the page edge underlined the checkbox and the printed
+            # organisation as well — two things nobody fills in — so the sheet read as ruled
+            # paper rather than as a form with fields. Same treatment as the Unterschriften
+            # block: the box, the name, and the leader starting where the writing starts.
+            *[("LINEBELOW", (2, r), (2, r), 0.5, _WRITE, *_WRITE_DASH) for r, n in enumerate(notes) if not n],
+            *[("LINEBELOW", (1, r), (1, r), 0.5, _WRITE, *_WRITE_DASH) for r, (org, _) in enumerate(part) if not org],
         ]
         t = Table(rows or [["", "", ""]], colWidths=[check_w, org_w, col_w - check_w - org_w])
         t.setStyle(TableStyle(style))
