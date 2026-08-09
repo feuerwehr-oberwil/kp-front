@@ -136,3 +136,80 @@ describe('zeitFromClock — the Einsatz that runs over midnight', () => {
     expect(setGruppeZeit([{ id: 'g2', alarmedAt: ALARM }], 'g2', zeitFromClock(ALARM, ''))).toEqual([])
   })
 })
+
+describe('zeitIssues — equal minutes are simultaneous, not out of order', () => {
+  // the Alarmierung comes off the webhook WITH seconds; every typed clock lands on :00
+  const alarm = '2026-08-08T22:11:37.000Z'
+  const now = Date.parse('2026-08-08T23:30:00.000Z')
+
+  it('says nothing when Ausgerückt is typed as the alarm minute', () => {
+    expect(zeitIssues({ alarmiertAt: alarm, ausgeruecktAt: '2026-08-08T22:11:00.000Z' }, now)).toEqual([])
+  })
+
+  it('still warns when Ausgerückt is fully an earlier minute', () => {
+    const issues = zeitIssues({ alarmiertAt: alarm, ausgeruecktAt: '2026-08-08T22:10:00.000Z' }, now)
+    expect(issues).toEqual([{ kind: 'ausgerueckt', code: 'beforeAlarm', ref: alarm }])
+  })
+
+  it('applies the same rule to the Einsatzende', () => {
+    const aus = '2026-08-08T22:14:52.000Z'
+    expect(zeitIssues({ alarmiertAt: alarm, ausgeruecktAt: aus, endedAt: '2026-08-08T22:14:00.000Z' }, now)).toEqual([])
+    expect(zeitIssues({ alarmiertAt: alarm, ausgeruecktAt: aus, endedAt: '2026-08-08T22:13:00.000Z' }, now))
+      .toEqual([{ kind: 'ende', code: 'beforeAusgerueckt', ref: aus }])
+  })
+
+  it('keeps full precision for the future check, which reads a live clock', () => {
+    const soon = new Date(now + 10 * 60_000).toISOString()
+    expect(zeitIssues({ alarmiertAt: alarm, endedAt: soon }, now))
+      .toEqual([{ kind: 'ende', code: 'future' }])
+  })
+})
+
+describe('a raw id must never reach paper', () => {
+  it('names a group the config does not know', () => {
+    // the 08.08. rapport printed «fwo-offiziere» and «fwo-gruppe6» in the Alarmierungszeiten
+    const rows = gruppenRows([], [
+      { id: 'fwo-offiziere', alarmedAt: '2026-08-08T22:11:00Z' },
+      { id: 'fwo-gruppe6', alarmedAt: '2026-08-08T22:15:00Z' },
+      { id: 'fwo-tgp', alarmedAt: '2026-08-08T22:20:00Z' },
+    ])
+    expect(rows.map((r) => r.config.label)).toEqual(['Offiziere', 'Gruppe 6', 'TGP'])
+  })
+
+  it('keeps the configured label wherever there is one, and only names the orphan', () => {
+    const config = [{ id: 'fwo-offiziere', label: 'Gr. 1', color: 'Kdo' }]
+    const rows = gruppenRows(config, [
+      { id: 'fwo-offiziere', alarmedAt: '2026-08-08T22:11:00Z' },
+      { id: 'fwo-gruppe6', alarmedAt: '2026-08-08T22:15:00Z' },
+    ])
+    expect(rows.map((r) => r.config.label)).toEqual(['Gr. 1', 'Gruppe 6'])
+  })
+
+  it('leaves an id with no station prefix alone', () => {
+    expect(gruppenRows([], [{ id: 'zug2', alarmedAt: '2026-08-08T22:11:00Z' }])[0].config.label)
+      .toBe('Zug 2')
+  })
+
+  it('does the same for a vehicle the config does not know', () => {
+    const rows = fahrzeugRows([], [
+      { id: 'tlf', ausgerueckt: '2026-08-08T22:14:00Z' },
+      { id: 'fwo-pio-1', ausgerueckt: '2026-08-08T22:16:00Z' },
+    ])
+    // «fwo» is NOT stripped here: only one of the two ids carries it, so it is not a shared
+    // station prefix and guessing would be how «zug-2» becomes «2» (see sharedPrefix)
+    expect(rows.map((r) => r.config.label)).toEqual(['TLF', 'Fwo Pio 1'])
+  })
+
+  it('strips the station prefix once the ids actually agree on one', () => {
+    const rows = fahrzeugRows([], [
+      { id: 'fwo-tlf', ausgerueckt: '2026-08-08T22:14:00Z' },
+      { id: 'fwo-pio-1', ausgerueckt: '2026-08-08T22:16:00Z' },
+    ])
+    expect(rows.map((r) => r.config.label)).toEqual(['TLF', 'Pio 1'])
+  })
+
+  it('never strips on a sample of one — «zug-2» keeps its word', () => {
+    expect(gruppenRows([], [{ id: 'zug-2', alarmedAt: '2026-08-08T22:11:00Z' }])[0].config.label)
+      .toBe('Zug 2')
+  })
+})

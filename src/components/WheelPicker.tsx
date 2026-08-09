@@ -14,38 +14,83 @@ import w from './WheelPicker.module.css'
 
 const ITEM_H = 44 // px, one wheel row — a full ≥44px tap target; must match .wheel-item/.wheel-pad/.wheelpop-band in app.css
 
-function Wheel({ items, index, onIndex, ariaLabel }: {
+/**
+ * How many copies of the list a LOOPING wheel holds, and which one the finger is kept in.
+ *
+ * A clock has no first and no last minute, and the wheels behaved as if it did: at 23:59 the
+ * only way to 00:05 was to drag the whole column back down through twenty-three hours. Seven
+ * bands is what makes the loop invisible — the middle one leaves three bands of runway in each
+ * direction (hours ≈ 3100px, minutes ≈ 7900px), which is further than a hard fling carries, so
+ * the silent re-centre almost always happens while the wheel is already still.
+ */
+const LOOPS = 7
+const MID_BAND = 3
+
+function Wheel({ items, index, onIndex, ariaLabel, loop = false }: {
   items: string[]
   index: number
   onIndex: (i: number) => void
   ariaLabel: string
+  /** wrap around — for the values that genuinely have no ends (hour, minute). A bounded list
+   *  (the incident's days, a month, a year) must NOT loop: running off the end of those means
+   *  the value does not exist, and a wheel that silently returns to January says it does. */
+  loop?: boolean
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const settle = useRef(0)
+  const n = items.length
+  // the same list, several times over — identical content, so a jump between copies is invisible
+  const rows = loop ? Array.from({ length: n * LOOPS }, (_, i) => items[i % n]) : items
+  const base = loop ? MID_BAND * n : 0
+  const top = (i: number) => (base + i) * ITEM_H
+
   // position on mount / external change (e.g. «Jetzt») without fighting the user's scroll
   useEffect(() => {
     const el = ref.current
-    if (el && Math.round(el.scrollTop / ITEM_H) !== index) el.scrollTop = index * ITEM_H
-  }, [index])
+    if (!el) return
+    const at = Math.round(el.scrollTop / ITEM_H)
+    if (!loop) { if (at !== index) el.scrollTop = index * ITEM_H; return }
+    // already showing this value in SOME band → leave it alone, or every settle would yank the
+    // column back to the middle under the finger
+    if (((at % n) + n) % n !== index) el.scrollTop = top(index)
+  }, [index, loop, n]) // eslint-disable-line react-hooks/exhaustive-deps -- `top` is derived from these
+
   const onScroll = () => {
     window.clearTimeout(settle.current)
     settle.current = window.setTimeout(() => {
       const el = ref.current
       if (!el) return
-      const i = Math.max(0, Math.min(items.length - 1, Math.round(el.scrollTop / ITEM_H)))
+      const at = Math.round(el.scrollTop / ITEM_H)
+      if (!loop) {
+        const i = Math.max(0, Math.min(n - 1, at))
+        if (i !== index) onIndex(i)
+        return
+      }
+      const i = ((at % n) + n) % n
+      // back to the middle band, on the SAME value — the row under the band is identical, so
+      // nothing moves on screen. Only when it is actually needed: assigning scrollTop cancels
+      // iOS momentum, and doing it after every flick would make the wheel feel sticky.
+      if (at < n || at >= (LOOPS - 1) * n) el.scrollTop = top(i)
       if (i !== index) onIndex(i)
     }, 90)
   }
   return (
     <div className="wheel" ref={ref} onScroll={onScroll} role="listbox" aria-label={ariaLabel} tabIndex={0}>
       <div className="wheel-pad" aria-hidden />
-      {items.map((it, i) => (
-        <button
-          key={i} type="button" role="option" aria-selected={i === index}
-          className={`wheel-item${i === index ? ' on' : ''}`}
-          onClick={() => { onIndex(i); const el = ref.current; if (el) el.scrollTo({ top: i * ITEM_H, behavior: 'smooth' }) }}
-        >{it}</button>
-      ))}
+      {rows.map((it, i) => {
+        const value = loop ? i % n : i
+        // ⚠️ the selected ROW, not every row holding the selected value: with seven copies on
+        // the strip, marking them all would put `.on` on seven rows and read out seven
+        // «selected» options. The one in the middle band is the one the picker commits.
+        const on = value === index && (!loop || Math.floor(i / n) === MID_BAND)
+        return (
+          <button
+            key={i} type="button" role="option" aria-selected={on}
+            className={`wheel-item${on ? ' on' : ''}`}
+            onClick={() => { onIndex(value); const el = ref.current; if (el) el.scrollTo({ top: i * ITEM_H, behavior: 'smooth' }) }}
+          >{it}</button>
+        )
+      })}
       <div className="wheel-pad" aria-hidden />
     </div>
   )
@@ -223,8 +268,10 @@ export function WheelPopover({ anchor, initial, withDate, onCommit, onClose, onC
             other, and it was never clear which one the popover would actually commit. */}
         {coarse ? (
           <>
-            <Wheel ariaLabel={C.hour} items={HOURS} index={v.h} onIndex={(i) => setV((p) => ({ ...p, h: i }))} />
-            <Wheel ariaLabel={C.minute} items={MINUTES} index={v.mi} onIndex={(i) => setV((p) => ({ ...p, mi: i }))} />
+            {/* the two that loop: a clock has no first and no last minute, so 23:59 → 00:05 is
+                one flick down rather than a drag back through the whole day */}
+            <Wheel loop ariaLabel={C.hour} items={HOURS} index={v.h} onIndex={(i) => setV((p) => ({ ...p, h: i }))} />
+            <Wheel loop ariaLabel={C.minute} items={MINUTES} index={v.mi} onIndex={(i) => setV((p) => ({ ...p, mi: i }))} />
             <div className="wheelpop-band" aria-hidden />
           </>
         ) : (

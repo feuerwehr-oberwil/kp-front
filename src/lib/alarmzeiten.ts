@@ -61,14 +61,64 @@ export function setFahrzeugZeit(
   return hasValue ? [...rest, next] : rest
 }
 
+/**
+ * A readable name for a group the deployment config cannot name.
+ *
+ * ⚠️ The fallback used to be the raw id, and it reached PAPER: the rapport of 08.08. carried
+ * «fwo-offiziere» and «fwo-gruppe6» in the Alarmierungszeiten instead of «Gr. 1 (Kdo)» and
+ * «Gr. 6 (Alle)». That happens whenever the values outlive the config that names them — a
+ * device holding a cached config from before a group was added, an offline first launch, an id
+ * the milestone webhook wrote that the station later renamed. The times are real and must
+ * print either way; what must never print is a slug, because a signed document with a database
+ * key on it is one nobody can read and nobody can check.
+ *
+ * `shared` is the leading segment every id has in common (the station prefix, «fwo-») — it
+ * carries no information once it is on all of them, so it comes off.
+ */
+export function humanizeGroupId(id: string, shared?: string): string {
+  const rest = shared && id.startsWith(`${shared}-`) ? id.slice(shared.length + 1) : id
+  const words = rest
+    .replace(/[-_]+/g, ' ')
+    // «gruppe6» is two words that were never spaced — the digits are the number of the thing
+    .replace(/([a-zA-Z])(\d)/g, '$1 $2')
+    .replace(/(\d)([a-zA-Z])/g, '$1 $2')
+    .split(/\s+/)
+    .filter(Boolean)
+  if (!words.length) return id
+  return words
+    // a short token with no vowel is an abbreviation, not a word: «tgp» → «TGP», «wkh» → «WKH»
+    .map((w) => (w.length <= 4 && !/[aeiouäöü]/i.test(w) ? w.toUpperCase() : w[0].toUpperCase() + w.slice(1)))
+    .join(' ')
+}
+
+/**
+ * The leading `-` segment shared by every id, else undefined (nothing to strip).
+ *
+ * Deliberately strict — it must be on ALL of them, and there must be at least two. One id in
+ * isolation says nothing about which of its segments is a station prefix, and stripping on a
+ * sample of one would turn «zug-2» into «2». A prefix that only some ids carry is not a prefix;
+ * the honest outcome there is a slightly clumsy «Fwo Pio 1», which is still a name somebody can
+ * read, rather than a guess that deletes the meaningful half of one.
+ */
+function sharedPrefix(ids: string[]): string | undefined {
+  if (ids.length < 2) return undefined
+  const heads = ids.map((id) => (id.includes('-') ? id.split('-')[0] : null))
+  const first = heads[0]
+  return first && heads.every((h) => h === first) ? first : undefined
+}
+
 /** Grid rows in config order, values joined in; entries whose id is not in the config
- *  append at the end (unmatched — shown, never dropped). */
+ *  append at the end (unmatched — shown, never dropped, and never shown as a raw id). */
 export function gruppenRows(config: AlarmGroup[], values: GruppeZeit[] | undefined) {
   const byId = new Map((values ?? []).map((g) => [g.id, g]))
   const rows = config.map((c) => ({ config: c, value: byId.get(c.id) }))
   const known = new Set(config.map((c) => c.id))
-  const extra = (values ?? []).filter((g) => !known.has(g.id))
-    .map((g) => ({ config: { id: g.id, label: g.id } as AlarmGroup, value: g }))
+  const orphans = (values ?? []).filter((g) => !known.has(g.id))
+  // the prefix is read off the WHOLE picture, config included, so a single unmatched group
+  // among eight configured ones still loses the «fwo-» the other eight never showed
+  const shared = sharedPrefix([...config.map((c) => c.id), ...orphans.map((g) => g.id)])
+  const extra = orphans
+    .map((g) => ({ config: { id: g.id, label: humanizeGroupId(g.id, shared) } as AlarmGroup, value: g }))
   return [...rows, ...extra]
 }
 
@@ -76,8 +126,19 @@ export function fahrzeugRows(config: FleetVehicle[], values: FahrzeugZeit[] | un
   const byId = new Map((values ?? []).map((f) => [f.id, f]))
   const rows = config.map((c) => ({ config: c, value: byId.get(c.id) }))
   const known = new Set(config.map((c) => c.id))
-  const extra = (values ?? []).filter((f) => !known.has(f.id))
-    .map((f) => ({ config: { id: f.id, label: f.id.toUpperCase() } as FleetVehicle, value: f }))
+  const orphans = (values ?? []).filter((f) => !known.has(f.id))
+  // ⚠️ A vehicle id is the Traccar device name, which is usually already the call sign («tlf»),
+  // so uppercasing it lands on the right word. It is NOT always: «fwo-pio-1» has to lose the
+  // station prefix like a group id does, or the sheet carries a slug (see humanizeGroupId).
+  const shared = sharedPrefix([...config.map((c) => c.id), ...orphans.map((f) => f.id)])
+  const extra = orphans
+    .map((f) => ({
+      config: {
+        id: f.id,
+        label: f.id.includes('-') ? humanizeGroupId(f.id, shared) : f.id.toUpperCase(),
+      } as FleetVehicle,
+      value: f,
+    }))
   return [...rows, ...extra]
 }
 
@@ -107,6 +168,21 @@ export interface ZeitIssue {
  *  drifts, and «jetzt» stamped a second ago must never warn about itself. */
 const FUTURE_SLACK_MS = 5 * 60 * 1000
 
+/**
+ * A stamp truncated to the MINUTE, which is the only precision any of these clocks has.
+ *
+ * ⚠️ The Alarmierung comes off the dispatch webhook and carries seconds («22:11:37»); every
+ * clock a human enters is typed as HH:MM and lands on :00. So an Ausrückzeit typed as the same
+ * minute as the alarm — which happens, and is correct: the Ausrücken of the crew already at the
+ * Magazin — parsed as 37 seconds BEFORE it, and the form warned «Liegt vor der Alarmierung» on
+ * a perfectly good entry (08.08. Einsatz). Only a stamp that is fully an earlier MINUTE is
+ * genuinely out of order; equal minutes are simultaneous, and simultaneous is possible.
+ */
+const minuteMs = (iso?: string | null): number | null => {
+  const t = ms(iso)
+  return t == null ? null : Math.floor(t / 60_000)
+}
+
 const ms = (iso?: string | null): number | null => {
   if (!iso) return null
   const t = Date.parse(iso)
@@ -117,21 +193,27 @@ export function zeitIssues(
   stamps: { alarmiertAt?: string | null; ausgeruecktAt?: string | null; endedAt?: string | null },
   now: number,
 ): ZeitIssue[] {
-  const alarm = ms(stamps.alarmiertAt)
-  const aus = ms(stamps.ausgeruecktAt)
-  const ende = ms(stamps.endedAt)
+  // ORDER is judged to the minute (see minuteMs); the future check keeps the full stamp,
+  // because that one is measured against a live clock and not against a typed one.
+  const alarm = minuteMs(stamps.alarmiertAt)
+  const aus = minuteMs(stamps.ausgeruecktAt)
+  const ende = minuteMs(stamps.endedAt)
+  // …the FUTURE check keeps full precision: it is measured against the tablet's live clock,
+  // not against another typed stamp, so there is no rounding mismatch to absorb.
+  const ausAbs = ms(stamps.ausgeruecktAt)
+  const endeAbs = ms(stamps.endedAt)
   const out: ZeitIssue[] = []
 
   if (aus != null) {
     if (alarm != null && aus < alarm) out.push({ kind: 'ausgerueckt', code: 'beforeAlarm', ref: stamps.alarmiertAt! })
-    if (aus > now + FUTURE_SLACK_MS) out.push({ kind: 'ausgerueckt', code: 'future' })
+    if (ausAbs != null && ausAbs > now + FUTURE_SLACK_MS) out.push({ kind: 'ausgerueckt', code: 'future' })
   }
   if (ende != null) {
     // Only ONE ordering warning per stamp, the most specific first: an Ende before the
     // Ausrücken is almost always also before the alarm, and saying both says nothing twice.
     if (aus != null && ende < aus) out.push({ kind: 'ende', code: 'beforeAusgerueckt', ref: stamps.ausgeruecktAt! })
     else if (alarm != null && ende < alarm) out.push({ kind: 'ende', code: 'beforeAlarm', ref: stamps.alarmiertAt! })
-    if (ende > now + FUTURE_SLACK_MS) out.push({ kind: 'ende', code: 'future' })
+    if (endeAbs != null && endeAbs > now + FUTURE_SLACK_MS) out.push({ kind: 'ende', code: 'future' })
   }
   return out
 }
