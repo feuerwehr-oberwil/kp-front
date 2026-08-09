@@ -13,7 +13,7 @@ import { isOfficer, rankAbbr, rankLabel, rankOrder } from '../lib/rank'
  * `value=""` + a non-empty placeholder makes it a pure prefill picker (it shows the placeholder and
  * never retains a selection, since the parent keeps value empty).
  */
-export function Combo({ value, options, groups, placeholder, allowCustom, customLabel = appConfig.copy.combo.customDefault, clearable = true, officerFilter, rankOf, onChange }: {
+export function Combo({ value, options, groups, placeholder, allowCustom, customLabel = appConfig.copy.combo.customDefault, clearable = true, officerFilter, rankOf, statusOf, onChange }: {
   value: string
   options: string[]
   /** optional grouped rendering: section headers with their own options. When set, the menu
@@ -27,11 +27,18 @@ export function Combo({ value, options, groups, placeholder, allowCustom, custom
    *  Needs `rankOf` to resolve an option (person name) to its rank key. Ignored with `groups`. */
   officerFilter?: boolean
   rankOf?: (name: string) => string | undefined
+  /** What is already known about this person, shown ON the entry: «unter PA», «Magazin»,
+   *  «nicht anwesend». A picker that lists sixty names and says nothing about any of them makes
+   *  the operator pick first and find out afterwards — which is what the toast used to do. */
+  statusOf?: (name: string) => { label: string; tone?: 'warn' | 'muted' | 'info' } | undefined
   onChange: (v: string) => void
 }) {
   const [open, setOpen] = useState(false)
   const [officersOnly, setOfficersOnly] = useState(false)
   const [typing, setTyping] = useState(false)
+  // Narrowing by typing. NOT auto-focused: this stays a tap-to-pick control, and a keyboard
+  // that opens by itself covers the very list it is filtering on a tablet.
+  const [search, setSearch] = useState('')
 
   // A filter that can only ever empty the list is worse than no filter: without Dienstgrade
   // (no personnel source, or a roster that carries none) «nur Offiziere» offered a toggle
@@ -48,6 +55,12 @@ export function Combo({ value, options, groups, placeholder, allowCustom, custom
     const list = officersOnly && hasOfficers ? options.filter((o) => isOfficer(rankOf(o))) : options
     return [...list].sort((a, b) => rankOrder(rankOf(a)) - rankOrder(rankOf(b)) || a.localeCompare(b, 'de'))
   }, [options, officerFilter, rankOf, officersOnly, hasOfficers])
+  const needle = search.trim().toLowerCase()
+  const match = (o: string) => !needle || o.toLowerCase().includes(needle)
+  const listed = useMemo(() => shown.filter(match), [shown, needle]) // eslint-disable-line react-hooks/exhaustive-deps
+  // below this the whole list is on screen anyway and a search box is one more control between
+  // the finger and the name it came for
+  const showSearch = (groups ? groups.reduce((n, g) => n + g.options.length, 0) : options.length) > 8
   const [pos, setPos] = useState<{ left: number; top: number; width: number; maxH: number; up: boolean } | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
   const pickRef = useRef<HTMLButtonElement>(null)
@@ -80,7 +93,7 @@ export function Combo({ value, options, groups, placeholder, allowCustom, custom
     if (!open) return
     const onDown = (e: PointerEvent) => {
       const t = e.target as Node
-      if (!rootRef.current?.contains(t) && !menuRef.current?.contains(t)) setOpen(false)
+      if (!rootRef.current?.contains(t) && !menuRef.current?.contains(t)) { setOpen(false); setSearch('') }
     }
     document.addEventListener('pointerdown', onDown)
     return () => document.removeEventListener('pointerdown', onDown)
@@ -98,7 +111,7 @@ export function Combo({ value, options, groups, placeholder, allowCustom, custom
   }
   return (
     <div className="combo" ref={rootRef}>
-      <button ref={pickRef} type="button" className={`combo-pick${value ? '' : ' empty'}`} aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+      <button ref={pickRef} type="button" className={`combo-pick${value ? '' : ' empty'}`} aria-haspopup="listbox" aria-expanded={open} onClick={() => { setSearch(''); setOpen((v) => !v) }}>
         <span className="combo-pick-name">{value || placeholder}</span>
         <span className="combo-chev" aria-hidden><Icon id="chevron-down" /></span>
       </button>
@@ -112,6 +125,22 @@ export function Combo({ value, options, groups, placeholder, allowCustom, custom
           // stretched the menu into a 0-height sliver OFF-screen whenever the trigger sat
           // low (the phone bottom sheet — "the dropdown does nothing")
           style={{ left: pos.left, width: pos.width, maxHeight: pos.maxH, ...(pos.up ? { top: 'auto', bottom: window.innerHeight - pos.top + 4 } : { top: pos.top + 4 }) }}>
+          {showSearch && (
+            <li className="combo-search-row">
+              <span className="combo-search-icon" aria-hidden><Icon id="search" /></span>
+              <input
+                className="combo-search" value={search} inputMode="search"
+                placeholder={appConfig.copy.combo.searchPlaceholder}
+                aria-label={appConfig.copy.combo.searchPlaceholder}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault() }}
+              />
+              {search && (
+                <button type="button" className="combo-search-clear" aria-label={appConfig.copy.clear}
+                  onMouseDown={(e) => e.preventDefault()} onClick={() => setSearch('')}><Icon id="close" /></button>
+              )}
+            </li>
+          )}
           {hasOfficers && (
             <li>
               <button type="button" className={`combo-opt combo-toggle${officersOnly ? ' on' : ''}`}
@@ -126,9 +155,9 @@ export function Combo({ value, options, groups, placeholder, allowCustom, custom
               <li key={g.label} className="combo-group">
                 <div className="combo-group-head">{g.label}</div>
                 <ul>
-                  {g.options.map((o) => (
+                  {g.options.filter(match).map((o) => (
                     <li key={o}>
-                      <button type="button" className={`combo-opt${o === value ? ' on' : ''}`} onClick={() => { onChange(o); setOpen(false) }}>
+                      <button type="button" className={`combo-opt${o === value ? ' on' : ''}`} onClick={() => { onChange(o); setOpen(false); setSearch('') }}>
                         <span className="combo-opt-name">{o}</span>
                       </button>
                     </li>
@@ -136,20 +165,26 @@ export function Combo({ value, options, groups, placeholder, allowCustom, custom
                 </ul>
               </li>
             ))
-            : shown.map((o) => {
+            : listed.map((o) => {
               // rank-aware picker: show the Dienstgrad chip next to each name (same badge as the
               // Atemschutz PersonField), so the officers-first sorting is legible at a glance
               const rank = officerFilter && rankOf ? rankOf(o) : undefined
+              const status = statusOf?.(o)
               return (
                 <li key={o}>
-                  <button type="button" className={`combo-opt${o === value ? ' on' : ''}`} onClick={() => { onChange(o); setOpen(false) }}>
+                  <button type="button" className={`combo-opt${o === value ? ' on' : ''}`} onClick={() => { onChange(o); setOpen(false); setSearch('') }}>
                     {rank && <span className="combo-rank" title={rankLabel(rank)}>{rankAbbr(rank)}</span>}
                     <span className="combo-opt-name">{o}</span>
+                    {/* what is already known about them — «unter PA», «Magazin», «gegangen».
+                        A hint, never a block: the operator decides, they just should not have
+                        to pick first and find out afterwards. */}
+                    {status && <span className={`combo-opt-status${status.tone ? ` ${status.tone}` : ''}`}>{status.label}</span>}
                   </button>
                 </li>
               )
             })}
-          {!(groups ? options.length : shown.length) && <li className="combo-empty">{appConfig.copy.combo.empty}</li>}
+          {!(groups ? groups.some((g) => g.options.some(match)) : listed.length)
+            && <li className="combo-empty">{needle ? appConfig.copy.combo.noMatches : appConfig.copy.combo.empty}</li>}
           {allowCustom && (
             <li>
               <button type="button" className="combo-opt combo-type" onClick={() => { setOpen(false); setTyping(true) }}>

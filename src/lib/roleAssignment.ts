@@ -11,6 +11,7 @@
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
 import { intervalsOf, isPresent } from './attendanceIntervals'
+import { ortOf } from './attendanceOrt'
 import type { AttendanceState, Trupp } from '../types'
 
 /** The roles a conflict is checked for. `el` covers leading the Einsatz and reporting to the
@@ -74,4 +75,33 @@ export function roleConflictHint(
   const e = attendance[personId]
   if (e && !isPresent(e) && intervalsOf(e).length > 0) return fillTemplate(A.conflictLeft, { name })
   return undefined
+}
+
+
+/**
+ * What is already known about one person, for the entry that offers them.
+ *
+ * The same three facts `roleConflictHint` warns about — under PA, gone home — plus where they
+ * are. ⚠️ Shown ON the option rather than after the pick: a toast says «Brunner Thomas ist
+ * unter PA» once, three seconds after the operator already chose him, and then it is gone. The
+ * list is where the decision is made, so the list is where the fact belongs.
+ *
+ * Never a block. Somebody under PA CAN be the Fahrer on paper — it usually means one of the two
+ * entries is wrong, and which one is the operator's call, not the app's.
+ */
+export function personStatusHint(
+  personId: string | undefined,
+  attendance: AttendanceState,
+  trupps: Trupp[],
+): { label: string; tone?: 'warn' | 'muted' | 'info' } | undefined {
+  if (!personId) return undefined
+  const A = appConfig.copy.anwesenheit
+  const inTrupp = trupps.find((t) => t.status !== 'raus'
+    && (t.leaderPersonId === personId || (t.memberPersonIds ?? []).includes(personId)))
+  if (inTrupp) return { label: A.statusUnderPa, tone: 'warn' }
+  const e = attendance[personId]
+  if (!e) return { label: A.legendFrei, tone: 'muted' }
+  if (!isPresent(e)) return { label: A.legendLeft, tone: 'muted' }
+  // present — and the one thing worth saying about a present person is where they are standing
+  return ortOf(e) === 'station' ? { label: A.ortStation, tone: 'info' } : undefined
 }

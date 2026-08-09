@@ -1013,6 +1013,8 @@ export const it: Localizable<Copy> = {
   combo: {
     customDefault: 'Inserisci …',
     empty: 'Nessuna scelta',
+    searchPlaceholder: 'Cerca persona …',
+    noMatches: 'Nessun risultato',
   },
   login: {
     subtitle: 'Supporto alla conduzione',

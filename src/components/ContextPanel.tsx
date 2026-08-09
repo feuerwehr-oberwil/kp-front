@@ -23,7 +23,7 @@ const ROSTER_FIELDS = new Set<string>(appConfig.symbols.rosterFields)
 // leadership glyphs whose roster picker gets the officer-first sort + "nur Offiziere" toggle
 const OFFICER_ROSTER_SYMBOLS = new Set<string>(appConfig.symbols.officerRosterSymbols)
 
-function FieldControl({ fieldKey, value, options, placeholder, officerFilter, rankOf, onInput, onCommit }: {
+function FieldControl({ fieldKey, value, options, placeholder, officerFilter, rankOf, statusOf, onInput, onCommit }: {
   fieldKey: string
   value: string
   options?: string[]
@@ -31,6 +31,8 @@ function FieldControl({ fieldKey, value, options, placeholder, officerFilter, ra
   /** roster picker: sort officers first + offer the "nur Offiziere" filter (leadership symbols) */
   officerFilter?: boolean
   rankOf?: (name: string) => string | undefined
+  /** what is already known about a person — «unter PA», «Magazin», «gegangen» (roster fields) */
+  statusOf?: (name: string) => { label: string; tone?: 'warn' | 'muted' | 'info' } | undefined
   onInput: (v: string) => void   // live edit (no commit) while typing
   onCommit: (v: string) => void  // commit immediately (tab/select/blur)
 }) {
@@ -55,7 +57,8 @@ function FieldControl({ fieldKey, value, options, placeholder, officerFilter, ra
   return (
     <Combo value={value} options={options} placeholder={placeholder}
       allowCustom={isRoster} customLabel="Name eingeben …"
-      officerFilter={isRoster && officerFilter} rankOf={rankOf} onChange={onCommit} />
+      officerFilter={isRoster && officerFilter} rankOf={rankOf}
+      statusOf={isRoster ? statusOf : undefined} onChange={onCommit} />
   )
 }
 
@@ -136,6 +139,13 @@ interface Props {
   /** roster name → rank key, for the officer-first sort + "nur Offiziere" filter on
    *  leadership symbols (FW Offizier / VKF Einsatzleiter). Absent → no rank filtering. */
   rosterRank?: Record<string, string | undefined>
+  /** what is already known about a roster name — shown ON the dropdown entry */
+  personStatus?: (name: string) => { label: string; tone?: 'warn' | 'muted' | 'info' } | undefined
+  /** ⚠️ The contradiction a filled roster field carries, by field key, shown UNDER the field
+   *  and permanently. It used to be a toast: «Brunner Thomas ist unter PA» appeared three
+   *  seconds after the pick and then went away, so the one place it mattered — the field it is
+   *  about — never said anything at all. */
+  fieldHints?: Record<string, string | undefined>
   /** preset-seeded field keys — protected from row deletion (no ✕) so they aren't lost by a stray tap */
   protectedKeys?: Set<string>
   onDelete: () => void
@@ -197,7 +207,7 @@ function LabeledStepper({ label, ...rest }: { label: string } & React.ComponentP
   )
 }
 
-export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onStopSharing, readOnly, hasOverride, onPinGps, onResetGps, driver, connectedLines = [], onFocusLine, onNoteWidth, onNoteSize, onNotePlain, onColor, onTeamColor }: Props) {
+export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onStopSharing, readOnly, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, onNoteWidth, onNoteSize, onNotePlain, onColor, onTeamColor }: Props) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
   const N = appConfig.copy.notes
@@ -614,9 +624,15 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
               {rows.filter((r) => !readOnly || r.v.trim()).map((r, i) => {
                 const fixed = readOnly || !!protectedKeys?.has(r.k.trim())
                 const field = (
-                  <FieldControl fieldKey={r.k} value={r.v} options={fieldOptions?.[r.k]} placeholder={C.fieldValuePlaceholder}
-                    officerFilter={officerSym} rankOf={rankOf}
-                    onInput={(v) => setRow(i, { v })} onCommit={(v) => setRowValue(i, v)} />
+                  <>
+                    <FieldControl fieldKey={r.k} value={r.v} options={fieldOptions?.[r.k]} placeholder={C.fieldValuePlaceholder}
+                      officerFilter={officerSym} rankOf={rankOf} statusOf={personStatus}
+                      onInput={(v) => setRow(i, { v })} onCommit={(v) => setRowValue(i, v)} />
+                    {/* the contradiction stays put, under the field it is about */}
+                    {fieldHints?.[r.k.trim()] && (
+                      <p className="kv-hint"><Icon id="warn" />{fieldHints[r.k.trim()]}</p>
+                    )}
+                  </>
                 )
                 // a preset / read-only field reads like the Darstellung rows above — a plain label and
                 // the control, no editable-key box, no delete — so a «Typ» sits identically to a

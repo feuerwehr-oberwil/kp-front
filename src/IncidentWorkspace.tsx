@@ -23,7 +23,7 @@ import { formatAudioDuration } from './lib/audioImport'
 import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys, VEHICLE_SYMBOLS } from './lib/symbols'
 import { circlePolygon, fmtLV95, fmtWGS, haversineM, pathLengthM, polygonAreaM2 } from './lib/geo'
 import { intervalsOf, isPresent, openPresence } from './lib/attendanceIntervals'
-import { roleConflictHint, rosterFieldRole, type AssignableRole } from './lib/roleAssignment'
+import { personStatusHint, roleConflictHint, rosterFieldRole, type AssignableRole } from './lib/roleAssignment'
 import { useShiftActions } from './lib/useShiftActions'
 import { useBandActions } from './lib/useBandActions'
 import { editorPrintTransport, fetchPrintStatus, type PrintRelayStatus } from './lib/printRelay'
@@ -2128,6 +2128,26 @@ export function IncidentWorkspace({
     [personnel],
   )
 
+  /** What is already known about a roster NAME — «unter PA», «Magazin», «gegangen». Shown on
+   *  the dropdown entry itself (see roleAssignment · personStatusHint). */
+  const personStatus = (name: string) =>
+    personStatusHint(rosterIdByName.get(name.trim().toLowerCase()), attendance, trupps)
+  /** …and the contradiction a FILLED roster field already carries, per field key. ⚠️ This used
+   *  to be a toast fired once at assignment time: it appeared after the pick and then went away,
+   *  so the field it was about never said anything. */
+  const rosterFieldHints = (e: Entity | undefined): Record<string, string | undefined> | undefined => {
+    if (!e || e.kind !== 'symbol') return undefined
+    const out: Record<string, string | undefined> = {}
+    for (const [key, val] of Object.entries(e.fields ?? {})) {
+      const name = (val ?? '').trim()
+      if (!name || !ROSTER_FIELDS.includes(key)) continue
+      const role = rosterFieldRole(e.symbol, key, e.label)
+      const id = rosterIdByName.get(name.toLowerCase())
+      out[key] = roleConflictHint(id, role.role, name, attendance, trupps)
+    }
+    return out
+  }
+
   /**
    * Being given a job on this Einsatz puts you on the Anwesenheit list. Whoever is named as
    * Einsatzleiter, put in a Trupp or entered as the Fahrer of a vehicle IS on scene; a rapport
@@ -2692,6 +2712,8 @@ export function IncidentWorkspace({
           titleOptions={selected.kind === 'symbol' && !selected.live ? symbolTitleOptions(selected.symbol, sym.symbols.find((x) => x.name === selected.symbol)?.cat) : undefined}
           fieldOptions={selected.kind === 'symbol' && !selected.live ? symbolFieldOptions(selected.symbol, sym.symbols.find((x) => x.name === selected.symbol)?.cat, rosterNames) : undefined}
           rosterRank={rosterRank}
+          personStatus={personStatus}
+          fieldHints={rosterFieldHints(selected)}
           protectedKeys={selected.kind === 'symbol' ? new Set(symbolPresetFieldKeys(selected.symbol, sym.symbols.find((x) => x.name === selected.symbol)?.cat)) : undefined}
           onDelete={() => deleteEntity(selected.id)}
           hasOverride={vehicleOverrides[selected.id] != null}

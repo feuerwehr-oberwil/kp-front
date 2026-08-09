@@ -1014,6 +1014,8 @@ export const fr: Localizable<Copy> = {
   combo: {
     customDefault: 'Saisir …',
     empty: 'Aucun choix',
+    searchPlaceholder: 'Rechercher une personne …',
+    noMatches: 'Aucun résultat',
   },
   login: {
     subtitle: 'Aide à la conduite',

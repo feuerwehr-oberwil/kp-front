@@ -1043,6 +1043,8 @@ export const en: Localizable<Copy> = {
   combo: {
     customDefault: 'Enter …',
     empty: 'No choices',
+    searchPlaceholder: 'Search person …',
+    noMatches: 'No match',
   },
   login: {
     subtitle: 'Command support',
@@ -1736,6 +1738,7 @@ export const en: Localizable<Copy> = {
     alreadyBooked: 'already: {role}',
     // hints, never blocks
     conflictUnderPa: '{name} is under SCBA – team {trupp}.',
+    statusUnderPa: 'under SCBA',
     conflictElInTrupp: '{name} is incident commander and also in team {trupp}.',
     conflictLeft: '{name} is recorded as «left».',
     summary: '{present} present · {left} left · {total} crew',

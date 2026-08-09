@@ -1561,6 +1561,10 @@ export const de = {
     customDefault: 'Eingeben …',
     empty: 'Keine Auswahl',
     officersOnly: 'nur Offiziere',
+    // Bewusst NICHT automatisch fokussiert: das bleibt ein Tipp-Auswähler, und eine Tastatur,
+    // die von selbst aufgeht, verdeckt auf dem Tablet genau die Liste, die sie filtert.
+    searchPlaceholder: 'Person suchen …',
+    noMatches: 'Kein Treffer',
   },
   // Login gate (face picker + PIN pad)
   demo: {
@@ -2685,6 +2689,8 @@ export const de = {
     alreadyBooked: 'schon: {role}',
     // Hinweise, nie Sperren: die App sagt, was sie weiss, und lässt entscheiden.
     conflictUnderPa: '{name} ist unter PA – Trupp {trupp}.',
+    // dasselbe als kurze Marke AUF dem Listeneintrag — dort wird entschieden, nicht danach
+    statusUnderPa: 'unter PA',
     conflictElInTrupp: '{name} ist Einsatzleiter und zugleich im Trupp {trupp}.',
     conflictLeft: '{name} ist als «gegangen» erfasst.',
     summary: '{present} anwesend · {left} gegangen · {total} Mannschaft',
