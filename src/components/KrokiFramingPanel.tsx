@@ -38,7 +38,14 @@ const FIT_PAD = 28
 const CARTO_FALLBACK = 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png'
 // backend/app/kroki.py renders print overlays against this reference viewport. Scaling the
 // complete decorated marker (not only its glyph) makes badges/spreads/shapes WYSIWYG here.
+//
+// ⚠️ ONE reference is not enough. report_pdf.py renders the Kroki at 1600×940 quer but 1000×1400
+// hoch, and kroki.py sizes a symbol in ABSOLUTE pixels on that canvas (sym_px clamps to 28..48).
+// The same 40px symbol is therefore 2.5% of a landscape sheet and 4% of a portrait one — so a
+// single reference drew the hoch preview's symbols 1.6× too small, which is not what gets
+// printed. The reference follows the orientation, in the same ratio as the two renders.
 const PRINT_REF_WIDTH = 1050
+const PRINT_REF_WIDTH_PORTRAIT = Math.round((PRINT_REF_WIDTH * 1000) / 1600)
 
 /** Web-Mercator northing, for a screen angle without asking the map to project. */
 const mercY = (lat: number) => Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360))
@@ -125,7 +132,7 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
   const [viewBounds, setViewBounds] = useState<[number, number, number, number] | null>(null)
   const [previewZoom, setPreviewZoom] = useState(initial?.zoom ?? 16)
   const [previewWidth, setPreviewWidth] = useState(720)
-  const printScale = previewWidth / PRINT_REF_WIDTH
+  const printScale = previewWidth / (landscape ? PRINT_REF_WIDTH : PRINT_REF_WIDTH_PORTRAIT)
 
   // same base-layer pick as buildKrokiPayload, so the preview shows the printed basemap
   const base = scene.layers.find((l) => l.base && l.visible && l.tiles?.length) ?? scene.layers.find((l) => l.base && l.tiles?.length)
