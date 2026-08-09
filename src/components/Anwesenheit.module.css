@@ -13,6 +13,10 @@
 }
 /* the counts, on a line of their own under everything else — see AnwesenheitView */
 .headSummary { flex: 1 0 100%; order: 4; margin: 0; font-size: 12.5px; color: var(--ink-dim); }
+/* …and the QR read-out under THAT: same idea, one step quieter. Empty until the first poster
+   write, and an empty <p> must not draw a gap. */
+.headQr { flex: 1 0 100%; order: 5; margin: 0; line-height: 1; }
+.headQr:empty { display: none; }
 .headTitles { flex: 1 1 auto; min-width: 0; }
 .headActions { flex: none; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 /* ONE height and ONE corner for every control on this line. They had three: the printer button is
@@ -208,8 +212,8 @@ button.ortStation:hover { background: color-mix(in srgb, var(--blue) 22%, transp
      full-width row and wrap there if they must. The QR read-out steps aside on a phone: it is a
      footnote about the poster being used, which nobody acts on, and it is still on the Rapport. */
   .headSummary { font-size: 12px; line-height: 1.35; order: 4; }
-  .headTabs { order: 5; }
-  .head :global(.capture-usage-chip) { display: none; }
+  .headQr { order: 5; }
+  .headTabs { order: 6; }
   .headActions { gap: 6px; }
   .reload { padding: 0; width: var(--tap); height: var(--tap); justify-content: center; }
   .reloadLabel { display: none; }

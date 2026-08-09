@@ -558,8 +558,11 @@ export function AnwesenheitView({
             <> · {fillTemplate(A.summaryOrt, { scene: counts.scene, station: counts.station })}</>
           )}
         </p>
+        {/* …and the poster read-out under it again, in its own still-quieter row. Beside the
+            title it was a pill competing with the panel's own heading; folded into the counts it
+            muddled «wie steht es» with «womit wurde erfasst». One line each. */}
+        <p className={s.headQr}><CaptureUsageChip usage={captureUsage} /></p>
         <div className={s.headActions}>
-          <CaptureUsageChip usage={captureUsage} />
           {/* The Zeitplan's paper output. Kept MOUNTED in both views and merely hidden in the
               list — mounting it only for the Zeitplan made the view toggle jump sideways every
               time you switched tabs, because the actions row is right-aligned and one more button

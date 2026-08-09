@@ -269,21 +269,22 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
   width: min(680px, calc(100vw - 32px)); height: min(760px, calc(100dvh - 32px)); overflow: hidden;
   background: var(--glass); backdrop-filter: blur(16px); border-radius: var(--r-hero); box-shadow: var(--shadow);
   display: flex; flex-direction: column; }
-/* 18px 20px 10px, like every other .ip-head in the app — 16px all round plus a rule made this
-   one head taller than the ones beside it in the same session. The 800/19 title stays: that is
-   the app-wide heading cut, and a lighter one reads as a different typeface. */
-.modalHead { flex: none; display: flex; align-items: center; gap: 12px; padding: 18px 20px 10px; }
-.modalHead h3 { margin: 0; flex: 1 1 auto; font: 800 19px var(--body); color: var(--ink); }
+/* ⚠️ Tighter than the standard .ip-head, and deliberately so: this form has a row that GROWS
+   — the drawn Leitungen wrap to a second line of chips as soon as a few hoses exist — and the
+   frame is sized to a tablet. The chrome pays for that line, not the fields. 800/17 keeps the
+   app-wide heading cut (a lighter weight reads as a different typeface, not a smaller heading). */
+.modalHead { flex: none; display: flex; align-items: center; gap: 12px; padding: 12px 20px 6px; }
+.modalHead h3 { margin: 0; flex: 1 1 auto; font: 800 17px var(--body); color: var(--ink); }
 
 /* two columns (Trupp · Druck + Weitere Angaben) so the create form fits without scrolling on a
    tablet; warnings span the full width. Collapses to one column on a phone, in the order that
    matters there: who goes in, with how much air, then everything else. */
 .modalBody { flex: 1 1 auto; min-height: 0; overflow-y: auto;
-  padding: 6px 20px 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px 22px;
+  padding: 4px 20px 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px 22px;
   /* `stretch`, not `start`: the Trupp column has to be as tall as the form for its list to have
      anything to grow into */
   align-items: stretch; }
-.formCol { display: flex; flex-direction: column; gap: 12px; min-width: 0; min-height: 0; }
+.formCol { display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 0; }
 .formColWide { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 12px; }
 /* The two ± steppers (Funkkanal · Eingangsdruck). Spans the modal, then splits itself: two
    columns where they fit, one where they don't — and a single child fills the row rather than
@@ -394,15 +395,18 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 /* Auftrag picker uses the shared <Segmented>, but with gloved-size tap targets in the wizard
    (the canonical .useg-btn is 34px; here we keep the ≥46px 2-up grid the wizard had). */
 .field :global(.useg) { display: flex; flex-wrap: wrap; width: 100%; }
-/* only the WRAP behaviour is local — a four-option Auftrag set needs two rows in this form.
-   Height and radius come from the one segmented spec. */
-.field :global(.useg-btn) { flex: 1 0 40%; font-weight: 700; }
+/* only the WRAP behaviour is local. ⚠️ 1 0 26%, not 40%: at 40% a six-option Auftrag set wrapped
+   two-up into THREE rows, and the third row is the one the drawn Leitungen below need for their
+   own chips once a few hoses exist. Three-up is two rows, and «Absuchen» — the longest word in
+   the set — still has room at this column width. Height and radius come from the one segmented
+   spec; only how many fit on a row is this form's business. */
+.field :global(.useg-btn) { flex: 1 0 26%; font-weight: 700; }
 
 .linkBtn { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; border: none; cursor: pointer;
   background: transparent; color: var(--blue-strong); font-family: var(--body); font-size: 12.5px; font-weight: 700; padding: 4px 2px; }
 .linkBtn :global(.i) { width: 14px; height: 14px; }
 
-.modalFoot { flex: none; display: flex; gap: 10px; justify-content: flex-end; padding: 14px 20px;
+.modalFoot { flex: none; display: flex; gap: 10px; justify-content: flex-end; padding: 10px 20px;
   border-top: 1px solid var(--glass-edge); background: var(--glass); }
 .ghostBtn { border: none; cursor: pointer; background: transparent; color: var(--ink-dim);
   font-family: var(--body); font-size: 14px; font-weight: 700; padding: 11px 16px; border-radius: var(--r-sm); }
@@ -439,13 +443,19 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 /* Auftrag type chip pops (it's the order), Ziel/Ort rides alongside as plain emphasis text */
 .tagAuftrag { color: var(--blue); background: color-mix(in srgb, var(--blue) 10%, transparent); }
 /* «this one» — the card a locked Anwesenheits-Zeile just sent you to. A ring that fades, not a
-   state that stays: pointing is a gesture (same rule as the map's flashDrawingId). */
+   state that stays: pointing is a gesture (same rule as the map's flashDrawingId).
+   ⚠️ INK, not a status colour. Every hue on this card already means something — blau
+   angemeldet, grün aktiv, amber Rückzug, rot überfällig — so a blue ring around a blue card
+   said «angemeldet» twice and «look here» not at all. It also blinks twice: two beats is a
+   gesture, one long fade is just a border somebody might read as a fifth state. */
 @keyframes truppFlash {
-  0%, 55% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 55%, transparent); }
-  100% { box-shadow: 0 0 0 3px transparent; }
+  0%, 22%, 48%, 74% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 62%, transparent); }
+  11%, 36%, 62%, 100% { box-shadow: 0 0 0 4px transparent; }
 }
-.cardFlash { animation: truppFlash 2.2s ease-out 1; }
-@media (prefers-reduced-motion: reduce) { .cardFlash { animation-duration: 0.01ms; box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 55%, transparent); } }
+.cardFlash { animation: truppFlash 1.9s ease-out 1; }
+@media (prefers-reduced-motion: reduce) {
+  .cardFlash { animation: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 62%, transparent); }
+}
 /* no Auftrag yet — dashed, not amber: it is a gap to fill, not an alarm, and tapping it opens
    the form on the fold that holds it */
 .tagAuftragOpen { color: var(--ink-faint); background: none; cursor: pointer;
