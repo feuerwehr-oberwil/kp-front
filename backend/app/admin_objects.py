@@ -64,11 +64,16 @@ class PlanEntry(BaseModel):
     #: Optional SHA-256 of the PDF, lower-case hex. Set it and every `validate`/`load`/`push`
     #: refuses to publish anything else under this module.
     #:
-    #: ⚠️ This is not a corruption check — it is a WRONG-TREE check. A manifest is published
-    #: from whatever checkout runs the script, so a stale worktree quietly republishes whatever
-    #: PDFs it happens to hold: on 09.08. the demo went back to the generated placeholders (and
-    #: a Modul 6 retired the day before) because a reset ran from a tree that predated the drawn
-    #: sheets. Nothing failed; the demo simply served the old plans until somebody noticed.
+    #: ⚠️ This is not a corruption check — it is a WRONG-TREE check, and on its own it is only
+    #: half of one. A manifest is published from whatever checkout runs the script, so a stale
+    #: worktree quietly republishes whatever PDFs it happens to hold: on 09.08. the demo went
+    #: back to the generated placeholders (and a Modul 6 retired the day before) because a reset
+    #: ran from a tree that predated the drawn sheets — twice, hours apart, the second time from
+    #: a checkout at v0.1.0. This pin catches only the case where the MANIFEST is current and the
+    #: PDF beside it is not; an old tree brings an old manifest *and* an old copy of this file,
+    #: so nothing here ever runs. The half that does hold is server-side —
+    #: ``api/objects._check_plan_digest`` + ``REQUIRE_PLAN_DIGEST`` — because the server is the
+    #: only participant that cannot itself be stale.
     sha256: str | None = None
 
     @model_validator(mode="after")
@@ -309,14 +314,19 @@ def _push(
             n_obj += 1
             for p in o.plans:
                 src = _resolve(manifest_path, p)
-                form = {}
+                raw = src.read_bytes()
+                # Always declare the bytes, pinned in the manifest or not. The server verifies
+                # what it is given and — where it is configured to (the public demo) — refuses a
+                # publish that declares nothing at all, because a client that cannot name its own
+                # bytes is older than the guard. See api/objects._check_plan_digest.
+                form = {"sha256": hashlib.sha256(raw).hexdigest()}
                 if p.title:
                     form["title"] = p.title
                 if p.sourceNote:
                     form["source_note"] = p.sourceNote
                 rp = c.put(
                     f"/api/objects/{o.id}/plans/{p.module}",
-                    files={"file": (src.name, src.read_bytes(), "application/pdf")},
+                    files={"file": (src.name, raw, "application/pdf")},
                     data=form,
                 )
                 if rp.status_code != 200:

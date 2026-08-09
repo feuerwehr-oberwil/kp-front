@@ -20,7 +20,14 @@ jobs:
   reset:
     runs-on: ubuntu-latest
     steps:
+      # ⚠️ Pin the ref explicitly. The default for a `schedule` event is the SHA the run was
+      # queued from, which drifts behind main whenever the queue is slow — and this job publishes
+      # the tree it checks out onto the live demo, so "whatever was current when the cron fired"
+      # is not good enough. `ref: main` takes the tip at RUN time, which is also the only thing
+      # that satisfies the preflight in scripts/demo-reset.sh (HEAD must equal origin/main).
       - uses: actions/checkout@v7
+        with:
+          ref: main
 
       # Gate on the demo secret via a step OUTPUT — the `secrets` context is not reliably
       # usable in `if:` expressions, so we surface presence as an output and branch on that.

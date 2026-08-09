@@ -8951,6 +8951,18 @@
               }
             ],
             "title": "Source Note"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha256",
+            "description": "SHA-256 of the PDF, lower-case hex. Verified against the received bytes when given. Required when the deployment sets REQUIRE_PLAN_DIGEST (the public demo does)."
           }
         },
         "type": "object",

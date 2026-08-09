@@ -75,9 +75,16 @@ so this file – not the log – is the record of what shipped up to that point.
   (blau angemeldet, grün aktiv, amber Rückzug, rot überfällig), so a blue ring around a blue card
   said «angemeldet» twice and «look here» not at all.
 
-- **A plan entry can pin its own bytes.** `objects.manifest.json` accepts a `sha256` per plan;
-  where it is set, `admin_objects validate|load|push` refuse to publish anything else under that
-  module. ⚠️ This is a *wrong-tree* check, not a corruption check – see **Fixed** below.
+- **A plan entry can pin its own bytes, and the deployment can insist on it.**
+  `objects.manifest.json` accepts a `sha256` per plan; where it is set,
+  `admin_objects validate|load|push` refuse to publish anything else under that module. That
+  half runs in the publishing tree, so it only ever catches a *current* manifest beside a stale
+  PDF – see **Fixed** below for the half that does not. The half that holds is server-side:
+  `admin_objects push` now declares every plan's digest to the API, `PUT /api/objects/{id}/plans/{module}`
+  verifies any digest it is given on **every** deployment, and `REQUIRE_PLAN_DIGEST` makes one
+  *mandatory* for an automated publish – on automatically for the public demo, off for a station
+  so an older CLI keeps working. A person picking a PDF in the admin UI is never asked for one:
+  they have no tree to be stale. ⚠️ These are *wrong-tree* checks, not corruption checks.
 
 ### Changed
 
@@ -104,14 +111,36 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Fixed
 
-- **⚠️ The public demo served generated placeholder Objektpläne again.** It had shipped drawn
-  Modul 1 and 2-3 sheets since 07.08. and retired its Modul 6 on 08.08.; on 09.08. all three were
-  back – the placeholders *and* the retired module – because a reset ran from a checkout that
-  predated them. Nothing failed and nothing was logged: `admin_objects push` publishes whatever
-  PDFs the tree it runs in happens to hold. Re-running the reset from `main` restored the drawn
-  sheets (594'110 / 211'100 bytes) and dropped Modul 6, and a plan may now pin its `sha256` so a
-  stale tree fails loudly instead of publishing quietly. The pull's `index.json` has always
-  carried a digest per plan; this gives the push door the same footing.
+- **⚠️ The public demo served generated placeholder Objektpläne again – twice on 09.08., and the
+  second time the manifest pin did not stop it.** It had shipped drawn Modul 1 and 2-3 sheets
+  since 07.08. and retired its Modul 6 on 08.08.; both times all three came back – the
+  placeholders *and* the retired module. Nothing failed and nothing was logged: `admin_objects
+  push` publishes whatever PDFs the tree it runs in happens to hold.
+
+  The first diagnosis, written here that afternoon, blamed the nightly workflow for checking out
+  a stale tree. **That was wrong**, and worth recording as wrong: the 08.08. scheduled run
+  checked out `c72f9b3`, whose tree already held the drawn sheets (594'110 / 211'100 bytes) and
+  no Modul 6 at all. Both regressions came from **outside CI** – somebody ran
+  `scripts/demo-reset.sh` against the live demo from an old local checkout, the second time from
+  one at `v0.1.0`. That reset restores *everything* the tree holds, so July's `config.json` came
+  back with the plans: `helpIntro`, the map centre, `4104 Musterdorf`, and a brandmark reset to
+  none.
+
+  The `sha256` a plan may pin cannot catch this, and it is worth being precise about why: an old
+  checkout carries an old manifest **and** an old `admin_objects`, so both the digest and the
+  code that would check it are absent together. A guard that ships in the artifact it is guarding
+  can only catch a *partially* stale tree. The one participant in a publish that is never stale
+  is the server, so that is where the refusal moved: `PUT /api/objects/{id}/plans/{module}` takes
+  a `sha256` and verifies it everywhere, and under `REQUIRE_PLAN_DIGEST` – on by default for the
+  public demo, and derived from `DEMO_RESET_CRON` rather than from `demoMode`, which the bad
+  publish overwrites – an automated publish that declares *nothing* is refused outright. A client
+  that cannot name its own bytes is by construction older than the check.
+
+  Two smaller doors closed with it: `scripts/demo-reset.sh` now states which commit it is before
+  it touches anything (HEAD must equal `origin/main`, `examples/demo-data` must be clean,
+  `KP_DEMO_RESET_ALLOW_STALE=1` to override) – checked *before* the wipe, so a refusal really is
+  "nothing happened" – and the workflow checks out `ref: main` explicitly instead of the SHA the
+  cron happened to queue from.
 
 - **The Kroki preview drew hoch symbols 1.6× too small.** The crop scales every decorated marker
   by `previewWidth / PRINT_REF_WIDTH` so what stands on the screen is what lands on the sheet, but

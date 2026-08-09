@@ -1,5 +1,6 @@
 """Einsatzobjekte + per-object module plans; proximity auto-surface on incidents."""
 
+import hashlib
 import re
 import unicodedata
 import uuid
@@ -9,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth.dependencies import CurrentAdmin, CurrentUser, OptionalUser, UserOrAdmin
+from ..config import settings
 from ..database import get_db
 from ..geo_util import haversine_m
 from ..models import Incident, ObjectSite, ReferenceDataset
@@ -20,6 +22,8 @@ router = APIRouter(prefix="/objects", tags=["objects"])
 # PDF-only: per-object module plans are rendered by the PDF viewport. Reject anything else
 # with 415 so a non-PDF can't be stored under a `plan:` id and then fail to render / be a vector.
 _ALLOWED_PLAN_TYPES = {"application/pdf"}
+
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
 async def _plans_for(db: AsyncSession, object_id: uuid.UUID) -> list[ReferenceDataset]:
@@ -121,6 +125,55 @@ async def upsert_object(
     return o
 
 
+def _check_plan_digest(object_id: uuid.UUID, module: str, data: bytes, declared: str | None, *, machine: bool) -> None:
+    """The publish door's wrong-tree guard: a plan must say which bytes it is.
+
+    ⚠️ Read `Settings.require_plan_digest` before changing this. The manifest-side pin added on
+    09.08. could not stop the failure it was written for, because an old checkout carries an old
+    manifest *and* an old `admin_objects` — the digest and its checker go stale together. Only
+    the server is never the stale party, so the refusal has to happen here. A client that cannot
+    name the bytes it is uploading is, by construction, older than the guard.
+
+    Two rules, not one:
+
+    * **Whenever a digest IS declared** it is verified, on every deployment. One hash turns a
+      truncated or swapped upload into a 400 instead of a plan a crew opens at 3am.
+    * **A digest is REQUIRED only of a machine publish** — an admin-secret session with no
+      logged-in user, which is exactly `admin_objects push` (`auth/dependencies.get_optional_user`
+      spells this split out: the CLI holds the secret and no user). A person who picked a PDF in
+      the admin UI is choosing that file deliberately and in front of the plan they replaced;
+      refusing them would be a stale-tree message aimed at somebody with no tree. And the
+      demo — where the requirement is on by default — must keep its admin surface usable, since
+      being clicked through is the whole job it has.
+    """
+    if declared is None or not declared.strip():
+        if not (machine and settings.plan_digest_required):
+            return
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Plan {module!r} für Objekt {object_id} wurde ohne 'sha256' hochgeladen. Dieses "
+                "Deployment nimmt automatisierte Plan-Uploads nur an, wenn sie ihre eigenen Bytes "
+                "benennen (REQUIRE_PLAN_DIGEST). Der Client ist älter als diese Prüfung — aus einem "
+                "veralteten Checkout zu veröffentlichen ist genau der Fehler, den sie verhindert. "
+                "Checkout aktualisieren und erneut veröffentlichen."
+            ),
+        )
+    expected = declared.strip().lower()
+    if not _SHA256_RE.match(expected):
+        raise HTTPException(status_code=422, detail="'sha256' muss 64 hexadezimale Kleinbuchstaben sein")
+    actual = hashlib.sha256(data).hexdigest()
+    if actual != expected:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Plan {module!r} für Objekt {object_id}: die Bytes sind nicht die angekündigten "
+                f"(erwartet {expected[:12]}…, erhalten {actual[:12]}…, {len(data)} Bytes). "
+                "Nichts gespeichert."
+            ),
+        )
+
+
 @router.put("/{object_id}/plans/{module}", response_model=ReferenceDatasetOut)
 async def upload_plan(
     object_id: uuid.UUID,
@@ -130,6 +183,13 @@ async def upload_plan(
     file: UploadFile = File(...),
     title: str | None = Form(default=None),
     source_note: str | None = Form(default=None),
+    sha256: str | None = Form(
+        default=None,
+        description=(
+            "SHA-256 of the PDF, lower-case hex. Verified against the received bytes when given. "
+            "Required when the deployment sets REQUIRE_PLAN_DIGEST (the public demo does)."
+        ),
+    ),
     db: AsyncSession = Depends(get_db),
 ) -> ReferenceDataset:
     o = (await db.execute(select(ObjectSite).where(ObjectSite.id == object_id))).scalar_one_or_none()
@@ -140,6 +200,9 @@ async def upload_plan(
     if content_type not in _ALLOWED_PLAN_TYPES:
         raise HTTPException(status_code=415, detail=f"Plan muss ein PDF sein (erhalten: {content_type!r})")
 
+    data = await file.read()
+    _check_plan_digest(object_id, module, data, sha256, machine=actor is None)
+
     # The plan write itself lives in app/plans.py, because it is not only this endpoint's:
     # the snapshot pull writes the same datasets, and the id rule, storage key and version
     # bump have to be decided once for both doors (see that module's docstring).
@@ -147,7 +210,7 @@ async def upload_plan(
         db,
         o,
         module,
-        await file.read(),
+        data,
         content_type=content_type,
         title=title,
         source_note=source_note,

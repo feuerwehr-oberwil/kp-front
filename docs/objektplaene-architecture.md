@@ -185,6 +185,30 @@ pull's `index.json` has always carried a digest per plan (see below); this gives
 the same footing. It stays optional: a station whose library legitimately changes every week
 would only be re-pinning it every week.
 
+⚠️⚠️ **And on its own it is only half a check.** It happened *again* the same evening, from a
+checkout at `v0.1.0`, with the pin already in place — because an old tree carries an old
+manifest **and** an old `admin_objects`. The digest and the code that checks it go stale
+together, so this half only ever catches a *current* manifest sitting beside a *stale* PDF. A
+guard that ships inside the artifact it guards cannot see past the artifact.
+
+### The half that holds: the server refuses
+
+The one participant in a publish that can never be the stale one is the deployment. So the
+publish door checks too:
+
+| | |
+| --- | --- |
+| `push` **declares** a `sha256` for every plan | pinned in the manifest or not — it hashes what it is about to send |
+| `PUT /api/objects/{id}/plans/{module}` **verifies** any `sha256` it is given | on every deployment, always. One hash turns a truncated or swapped upload into a `400` |
+| `REQUIRE_PLAN_DIGEST` makes one **mandatory** for an *automated* publish | admin secret + no logged-in user = `admin_objects push`. A client that cannot name its own bytes is by construction older than this check, so it is refused |
+| A person uploading a PDF in the admin UI is never asked | they picked the file in a dialog, in front of the plan they are replacing; they have no tree to be stale |
+
+`REQUIRE_PLAN_DIGEST` is unset by default and derived: **on** for the public demo, **off** for a
+station, so nobody's older CLI stops working because of a flag they never set. The demo is
+detected via `DEMO_RESET_CRON`/`DEMO_RESET_SECONDS` and deliberately **not** via
+`identity.demoMode` — demoMode lives in `deployment_config`, which is exactly what a stale
+publish overwrites, and a guard the incident can switch off is not a guard.
+
 ## Pull – fetch plans instead of being pushed them
 
 **The problem with push.** Everything above needs the deployment's `ADMIN_SECRET` at the far

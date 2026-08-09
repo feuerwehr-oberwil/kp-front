@@ -240,6 +240,24 @@ class Settings(BaseSettings):
     # fail-closed contract: empty → no in-process reset job. A real station must never set either.
     demo_reset_cron: str = ""
 
+    # --- Objektplan publish guard ---
+    # When on, `PUT /api/objects/{id}/plans/{module}` REFUSES an upload that does not declare
+    # the SHA-256 of the bytes it carries (and refuses a declared digest that doesn't match).
+    #
+    # ⚠️ This is a wrong-TREE guard, and it is deliberately server-side. The pin in
+    # `objects.manifest.json` cannot catch the failure it was written for: a stale checkout
+    # carries a stale manifest AND a stale CLI, so neither the digest nor the code that checks
+    # it exists in the tree doing the publishing. Twice now the public demo went back to its
+    # generated placeholder sheets — and to a Modul 6 retired the day before — because a reset
+    # ran from an old checkout against the live deployment. The only participant that is never
+    # stale is the server, so the door says no.
+    #
+    # `None` = auto: ON for the public demo (which is the deployment that keeps getting
+    # published to from old trees — DEMO_RESET_CRON/DEMO_RESET_SECONDS is what makes a box the
+    # demo), OFF everywhere else, so a self-hoster running last year's CLI against this year's
+    # server is not locked out by a flag they never set. `true`/`false` forces it either way.
+    require_plan_digest: bool | None = None
+
     # --- Traccar (Phase 6) ---
     traccar_url: str = ""
     traccar_email: str = ""
@@ -378,6 +396,21 @@ class Settings(BaseSettings):
     def api_docs_enabled(self) -> bool:
         """Show OpenAPI docs in dev always; in production only when EXPOSE_API_DOCS=true."""
         return (not is_production()) or self.expose_api_docs
+
+    @property
+    def is_public_demo(self) -> bool:
+        """This box resets itself on a timer — i.e. it is the public demo, not a station.
+
+        Read off the in-process reset schedule rather than off `identity.demoMode`: demoMode
+        lives in `deployment_config`, which is exactly what a stale publish overwrites, so a
+        guard keyed on it would be switched off by the event it exists to stop.
+        """
+        return bool(self.demo_reset_cron.strip() or self.demo_reset_seconds > 0)
+
+    @property
+    def plan_digest_required(self) -> bool:
+        """Whether a plan upload has to declare its own SHA-256 (see `require_plan_digest`)."""
+        return self.is_public_demo if self.require_plan_digest is None else self.require_plan_digest
 
 
 settings = Settings()

@@ -14,12 +14,59 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
-cd backend
 
 : "${DATABASE_URL:?set DATABASE_URL to the demo database}"
 : "${SECRET_KEY:?set SECRET_KEY to the demo SECRET_KEY (peppers the PIN hashes)}"
 : "${KP_BASE_URL:?set KP_BASE_URL to the demo app URL}"
 : "${KP_ADMIN_SECRET:?set KP_ADMIN_SECRET to the demo admin secret}"
+
+# ⚠️ PREFLIGHT: this script publishes whatever the tree it runs in happens to hold, and step 1
+# WIPES before anything is re-pushed. Twice on 09.08. the demo was reset from an old checkout —
+# the second time from v0.1.0 — which restored July's generated placeholder Objektpläne, a Modul 6
+# retired the day before, and July's deployment config, quietly and with every step reporting OK.
+# So the tree states which commit it is before it is allowed to touch the demo at all.
+#
+# Deliberately BEFORE step 1: refusing after the wipe would leave the demo empty, which is not
+# "nothing happened".
+#
+# `git ls-remote` is read-only and writes nothing locally. Set KP_DEMO_RESET_ALLOW_STALE=1 to
+# publish a tree that is not the published main on purpose (e.g. testing a branch against a
+# throwaway deployment) — it prints what it is doing.
+if [ "${KP_DEMO_RESET_ALLOW_STALE:-0}" = "1" ]; then
+  echo "⚠ KP_DEMO_RESET_ALLOW_STALE=1 — publishing this tree without checking it against origin/main."
+elif ! git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+  echo "✖ Not a git checkout — refusing: there is no way to tell whether this tree is current." >&2
+  echo "✖ Run the 'Demo reset' workflow from main, or set KP_DEMO_RESET_ALLOW_STALE=1 to override." >&2
+  exit 1
+else
+  head_sha="$(git -C "$ROOT" rev-parse HEAD)"
+  main_sha="$(git -C "$ROOT" ls-remote origin refs/heads/main 2>/dev/null | cut -f1)"
+  if [ -z "$main_sha" ]; then
+    echo "✖ Could not read origin/main (network? remote?) — refusing rather than guessing." >&2
+    echo "✖ Set KP_DEMO_RESET_ALLOW_STALE=1 to publish this tree anyway." >&2
+    exit 1
+  fi
+  if [ "$head_sha" != "$main_sha" ]; then
+    echo "✖ This checkout is not origin/main." >&2
+    echo "✖   HEAD        $head_sha  ($(git -C "$ROOT" log -1 --format=%s HEAD))" >&2
+    echo "✖   origin/main $main_sha" >&2
+    echo "✖ Publishing it would put this tree's demo data — config, plans, geodata — on the live" >&2
+    echo "✖ demo. That is how July's placeholder Objektpläne came back. Nothing was touched." >&2
+    echo "✖ Run the 'Demo reset' workflow from main instead (Actions → Demo reset → Run workflow)." >&2
+    exit 1
+  fi
+  dirty="$(git -C "$ROOT" status --porcelain -- examples/demo-data)"
+  if [ -n "$dirty" ]; then
+    echo "✖ Uncommitted changes under examples/demo-data:" >&2
+    echo "$dirty" >&2
+    echo "✖ Refusing: the demo would then serve something that is in nobody's history." >&2
+    echo "✖ Commit and push it first, or set KP_DEMO_RESET_ALLOW_STALE=1." >&2
+    exit 1
+  fi
+  echo "✓ Preflight: publishing origin/main @ ${head_sha:0:12}"
+fi
+
+cd backend
 
 # ⚠️ The three HTTP steps below talk to a RUNNING app, and the nightly cron fires whenever it
 # fires — including while Railway is mid-redeploy, when the edge answers 502. On 08.08. that
