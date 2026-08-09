@@ -169,8 +169,13 @@
 .person { container-type: inline-size; }
 
 .ort {
-  flex: none; align-self: stretch; display: inline-flex; align-items: center; gap: 6px;
-  padding: 0 11px; border: none; border-left: 1px solid var(--glass-edge); background: none;
+  /* ⚠️ ONE width for every row. «Magazin» and «Vor Ort» are different lengths, so the buttons
+     ended at different x down the column and the names beside them stopped lining up — on a
+     list that is read by running an eye down it, that is the whole complaint. Fixed to what
+     the longer of the two needs; icon-only rows shrink to the icon's own box. */
+  flex: none; align-self: stretch; display: inline-flex; align-items: center; justify-content: center;
+  gap: 6px; width: 46px; padding: 0;
+  border: none; border-left: 1px solid var(--glass-edge); background: none;
   cursor: pointer; font: 700 11.5px var(--body); white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
 }
@@ -184,8 +189,12 @@ button.ortScene:hover { background: var(--fill-soft); color: var(--ink); }
 button.ortStation:hover { background: color-mix(in srgb, var(--blue) 22%, transparent); }
 
 .ortLabel { display: none; }
-/* below this the word costs the name more than it is worth; the glyph says the same thing */
-@container (min-width: 290px) { .ortLabel { display: inline; } }
+/* below this the word costs the name more than it is worth; the glyph says the same thing.
+   With the word the button needs a wider fixed box — still ONE width for every row. */
+@container (min-width: 290px) {
+  .ort { width: 108px; justify-content: flex-start; padding: 0 11px; }
+  .ortLabel { display: inline; }
+}
 
 @media (max-width: 600px) {
   /* full width below the top bar (78px clears the floating bar with a visible gap — at 64px

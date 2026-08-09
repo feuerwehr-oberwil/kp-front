@@ -1132,12 +1132,13 @@ def compose_report_pdf(
         # dotted leaders. Underscores also never line up with the digits of a filled row, since
         # Helvetica's «_» is narrower than its figures, so a column of half-filled times came out
         # ragged. One texture; see the roster and the Material amounts.
-        # ⚠️ LABEL first, then the value — the way every other write-in block on this sheet
-        # reads (the Details box, Partnerorganisationen, Unterschriften). It was the other way
-        # round, so a filled row put its clock where the eye was looking for a name and an empty
-        # one put a rule there instead, which is what made the grid read as ragged (09.08.).
+        # ⚠️ VALUE first, then its label. The grid is 3-up, so with the label first each rule
+        # ended up sitting BETWEEN its own label and the next column's — «Gr. 1 (Rot) ____
+        # Tagespikett» reads as if the line belonged to Tagespikett. Value-first puts every rule
+        # immediately in front of the thing it is the time for, which is the one arrangement
+        # that cannot be misread (09.08., after trying it the other way round).
         zrows = [
-            [Paragraph(_esc(lab), st["cell"]), Paragraph(_esc(val), st["cell"]) if val else None]
+            [Paragraph(_esc(val), st["cell"]) if val else None, Paragraph(_esc(lab), st["cell"])]
             for lab, val in m.zeiten
         ]
         # 3-up columns to keep the grid compact
@@ -1159,7 +1160,7 @@ def compose_report_pdf(
         # not a LINEBELOW any more
         for i, (_lab, val) in enumerate(m.zeiten):
             if not val:
-                zrows[i][1] = _write_rule(val_w - val_pad)
+                zrows[i][0] = _write_rule(val_w - val_pad)
         grid: list[list] = []
         for ri in range(n_rows):
             row: list = []
@@ -1167,7 +1168,7 @@ def compose_report_pdf(
                 i = c * n_rows + ri
                 row.extend(zrows[i] if i < len(zrows) else ["", ""])
             grid.append(row)
-        zt = Table(grid, colWidths=[cw - val_w, val_w] * cols)
+        zt = Table(grid, colWidths=[val_w, cw - val_w] * cols)
         zt.setStyle(
             TableStyle(
                 [
