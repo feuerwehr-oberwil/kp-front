@@ -628,6 +628,10 @@ export const fr: Localizable<Copy> = {
     sectionAuftrag: 'Mission',
     sectionTeam: 'Binôme',
     auftragLabel: 'Type',
+    moreLabel: 'Autres indications',
+    moreHint: 'Type · Mission · Conduite · Couleur · Canal',
+    moreLine: 'Cond. {no}',
+    auftragOpen: 'Mission ouverte',
     // Libellés d'AFFICHAGE des types de mission, indexés par l'id (la valeur stockée reste l'id).
     auftragLabels: {
       retten: 'Sauver',

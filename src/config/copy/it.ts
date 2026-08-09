@@ -627,6 +627,10 @@ export const it: Localizable<Copy> = {
     sectionAuftrag: 'Compito',
     sectionTeam: 'Squadra',
     auftragLabel: 'Tipo',
+    moreLabel: 'Altri dati',
+    moreHint: 'Tipo · Incarico · Linea · Colore · Canale',
+    moreLine: 'Linea {no}',
+    auftragOpen: 'Incarico aperto',
     // Etichette di VISUALIZZAZIONE dei tipi di mandato, indicizzate per id (il valore resta l'id).
     auftragLabels: {
       retten: 'Salvare',

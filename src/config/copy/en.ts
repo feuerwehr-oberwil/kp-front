@@ -638,6 +638,10 @@ export const en: Localizable<Copy> = {
     sectionAuftrag: 'Assignment',
     sectionTeam: 'Team',
     auftragLabel: 'Type',
+    moreLabel: 'More details',
+    moreHint: 'Type · Task · Line · Colour · Channel',
+    moreLine: 'Line {no}',
+    auftragOpen: 'No task yet',
     // DISPLAY labels for the Auftrag types, keyed by the auftrag id (stored value stays the id).
     auftragLabels: {
       retten: 'Rescue',

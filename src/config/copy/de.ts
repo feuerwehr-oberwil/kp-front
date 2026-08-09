@@ -975,6 +975,10 @@ export const de = {
     sectionAuftrag: 'Auftrag',
     sectionTeam: 'Trupp',
     auftragLabel: 'Art',
+    moreLabel: 'Weitere Angaben',
+    moreHint: 'Art · Auftrag · Leitung · Farbe · Kanal',
+    moreLine: 'Ltg {no}',
+    auftragOpen: 'Auftrag offen',
     // DISPLAY labels for the Auftrag types, keyed by the auftrag `id` (appConfig.atemschutz.auftrag).
     // de = current German labels; en/fr/it translate. The stored auftrag value is always the id —
     // only the label localizes; falls back to the config label when a key is missing.

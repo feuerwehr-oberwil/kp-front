@@ -596,9 +596,13 @@ function TruppCard({
         {!!t.members?.filter(Boolean).length && (
           <div className={s.members}>{t.members.filter(Boolean).join(' · ')}</div>
         )}
-        {(auftrag || t.ziel || lineTag || t.funkkanal != null) && (
-          <div className={s.tags}>
-            {auftrag && <span className={cx(s.tag, s.tagAuftrag)}>{auftrag}</span>}
+        <div className={s.tags}>
+            {/* ⚠️ The Auftrag is optional in the form (it must never hold a Trupp at the door),
+                so its ABSENCE has to be visible — a Trupp with no job on the card is a question
+                the Überwacher has to be able to see, not one nobody thinks to ask. */}
+            {auftrag
+              ? <span className={cx(s.tag, s.tagAuftrag)}>{auftrag}</span>
+              : <button type="button" className={cx(s.tag, s.tagAuftragOpen)} onClick={onEdit}>{az.auftragOpen}</button>}
             {t.ziel && <span className={s.tagZiel}>{t.ziel}</span>}
             {/* the numeric Leitung, else the free text an older record still carries verbatim */}
             {lineTag && (hasLine ? (
@@ -609,8 +613,7 @@ function TruppCard({
               <span className={s.tag}>{az.lineField} {lineTag}</span>
             ))}
             {t.funkkanal != null && <span className={s.tag}>Kanal {t.funkkanal}</span>}
-          </div>
-        )}
+        </div>
       </div>
 
       {t.status === 'angemeldet' ? (
@@ -821,7 +824,19 @@ function TruppForm({
 
   const showPressure = mode !== 'edit'
   const isAnderes = auftrag === 'anderes'
-  const auftragOk = !!auftrag && (!isAnderes || ziel.trim().length > 0)
+  // ⚠️ The Auftrag no longer BLOCKS. It is behind the fold now, and a Trupp standing at the door
+  // must not wait on a field — the Überwachung exists to run a clock, and the job can be filled
+  // in a tap later (the card says «Auftrag offen» until it is). «Anderes» still needs its word:
+  // it is a label that says nothing on its own.
+  const auftragOk = !isAnderes || ziel.trim().length > 0
+  // remembered per DEVICE, not per draft: a station that always names the Auftrag opens this
+  // once and never sees the fold again. An edit opens it whenever there is something inside.
+  const [more, setMore] = useKeptState('atemschutz:trupp:more', !!(initial?.auftrag || initial?.ziel || initial?.lineNo || initial?.color))
+  const moreSummary = useMemo(() => {
+    const filled = [auftrag ? (az.auftragLabels[auftrag] ?? auftrag) : null, ziel.trim() || null,
+      lineNo != null ? fillTemplate(az.moreLine, { no: String(lineNo) }) : null].filter(Boolean)
+    return filled.length ? filled.join(' · ') : az.moreHint
+  }, [auftrag, ziel, lineNo, az])
   // A linked person already deployed in another active Trupp blocks submit (one person, one
   // Trupp). The picker no longer OFFERS one — but an existing Trupp being edited can still carry
   // somebody who was assigned elsewhere in the meantime, and that has to be sayable.
@@ -866,86 +881,22 @@ function TruppForm({
       </div>
 
         <div className={s.modalBody}>
+          {/* ⚠️ ORDER. What starts the clock comes first: who goes in, and with how much air.
+              Everything else is refinement and lives one tap away — on a phone the old order put
+              five optional fields between the EL and the two mandatory ones. */}
           <div className={s.formCol}>
-            <div className={s.formSection}>{az.sectionAuftrag}</div>
-            <div className={s.field}>
-              <span>{az.auftragLabel}</span>
-              <Segmented
-                ariaLabel={az.auftragLabel}
-                value={auftrag ?? undefined}
-                onChange={(v) => setAuftrag(v)}
-                options={cfg.auftrag.map((a) => ({ value: a.id, label: az.auftragLabels[a.id] ?? a.label }))}
-              />
-            </div>
-            <label className={s.field}>
-              <span>{az.zielLabel}</span>
-              <input
-                value={ziel} placeholder={isAnderes ? az.zielOtherPlaceholder : az.zielPlaceholder}
-                // caps chosen so the card's one-line Ziel and the Leitung chip can't be blown out:
-                // «2. OG Wohnung Nord, 2 Personen vermisst» is 39 chars, a Leitung is «1»–«12»
-                maxLength={60}
-                onChange={(e) => setZiel(stripUnprintable(e.target.value))}
-              />
-            </label>
-            {/* The SAME 1–99 number the DrawEditor stamps on a hose — one type on both sides is
-                what lets a Trupp and a drawn Leitung find each other without anyone re-typing
-                anything (lib/truppLines). A Trupp recorded before this was free text keeps its
-                text below; it is never rewritten. */}
-            <div className={cx(s.field, s.lineField)}>
-              <span>{az.lineNoLabel}</span>
-              {/* stepper and the drawn Leitungen share ONE row: the stepper is for a number that
-                  isn't drawn yet, the chips are the common case, and stacking them cost three
-                  rows of a form that has to fit on a tablet in one glance */}
-              <div className={s.lineRow}>
-                <Stepper
-                  value={lineNo} min={1} max={99} placeholder="–"
-                  onChange={setLineNo} onClear={() => setLineNo(null)} canClear={lineNo != null}
-                  ariaLabel={az.lineNoLabel}
-                />
-              {/* The Leitungen that are actually DRAWN. Typing a number blind is how the two sides
-                  end up disagreeing — the hose usually exists long before anyone registers the
-                  Trupp. A number someone else is on stays pickable (real incidents need
-                  corrections) but says whose it is. */}
-                {leitungOptions.length > 0 && (
-                  <div className={s.lineOpts}>
-                    <span className={s.lineOptsLabel}>{az.lineOptsLabel}</span>
-                    {leitungOptions.map((o) => (
-                      <button
-                        key={o.no} type="button"
-                        className={cx(s.lineOpt, lineNo === o.no && s.on, !!o.takenBy && s.taken)}
-                        title={o.takenBy ? fillTemplate(az.lineOptTaken, { name: o.takenBy }) : undefined}
-                        onClick={() => setLineNo(o.no)}
-                      >
-                        {o.no}{o.onPlan ? ' ·\u00a0P' : ''}{o.takenBy ? ` · ${abbreviateName(o.takenBy)}` : ''}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {legacyLine && <p className={s.fieldNote}>{fillTemplate(az.lineLegacyNote, { value: legacyLine })}</p>}
-            </div>
-            {/* The colour this Trupp wears on the Lage and on the plan. «Automatisch» is the
-                normal case (every Trupp a different one); picking is for when the EL would rather
-                read the picture by role — «alle Löschtrupps rot» — and a duplicate is then the
-                point, not a mistake, so nothing here refuses one. */}
-            <div className={s.field}>
-              <span>{az.colorLabel}</span>
-              <div className={s.colorRow}>
-                <button
-                  type="button" className={cx(s.colorAuto, color == null && s.on)} aria-pressed={color == null}
-                  title={az.colorAutoHint} onClick={() => setColor(null)}
-                >{az.colorAuto}</button>
-                {appConfig.drawing.teamColors.map((c) => (
-                  <button
-                    key={c} type="button" className={cx(s.colorDot, color === c && s.on)} style={{ background: c }}
-                    aria-label={c} aria-pressed={color === c} onClick={() => setColor(c)}
-                  />
-                ))}
-              </div>
-            </div>
-            {/* The fresh cylinder belongs with the Auftrag, not beside the crew list: the right
-                column is the Trupp now and it is much taller, so a stepper hanging under it read
-                as an afterthought. */}
+            <div className={s.formSection}>{az.sectionTeam}</div>
+            {/* One list, leader first. A Trupp is valid with exactly one name (the
+                Gruppenführer), so a two-person Trupp, a four-person Trupp and a mis-tap are all
+                one tap apart — which the three fixed slots could not do. */}
+            <TruppTeam
+              value={team} onChange={setTeam}
+              personnel={personnel} legacyRoster={roster} presentIds={presentIds} stationIds={stationIds}
+              assignedIds={assignedIds} rolesById={rolesById} onAddGuest={onAddGuest}
+            />
+          </div>
+
+          <div className={s.formCol}>
             {showPressure && (
               <>
                 <div className={s.formSection}>{mode === 'redeploy' ? az.newPressureLabel : az.pressureLabel}</div>
@@ -954,18 +905,104 @@ function TruppForm({
                 </div>
               </>
             )}
-          </div>
 
-          <div className={s.formCol}>
-            <div className={s.formSection}>{az.sectionTeam}</div>
-            {/* One list, ticked; the star says who leads. A Trupp is valid with exactly one name
-                (the Gruppenführer), so a two-person Trupp, a four-person Trupp and a mis-tap are
-                all one tap apart — which the three fixed slots could not do. */}
-            <TruppTeam
-              value={team} onChange={setTeam}
-              personnel={personnel} legacyRoster={roster} presentIds={presentIds} stationIds={stationIds}
-              assignedIds={assignedIds} rolesById={rolesById} onAddGuest={onAddGuest}
-            />
+            {/* Art, Auftrag/Ziel, Leitung, Farbe, Kanal. All five are worth having and none of
+                them stops a Trupp from going in, so they fold away — closed by default, opened
+                once and it stays open on this device (a station that always fills them in never
+                sees the fold again). An edit opens it by itself: a Trupp that HAS an Auftrag must
+                never hide it. */}
+            <button
+              type="button" className={cx(s.moreToggle, more && s.moreOpen)} aria-expanded={more}
+              onClick={() => setMore(!more)}
+            >
+              <Icon id="chevron" />
+              <span className={s.moreLabel}>{az.moreLabel}</span>
+              <span className={s.moreHint}>{moreSummary}</span>
+            </button>
+
+            {more && (
+              <div className={s.moreBody}>
+                <div className={s.field}>
+                  <span>{az.auftragLabel}</span>
+                  <Segmented
+                    ariaLabel={az.auftragLabel}
+                    value={auftrag ?? undefined}
+                    onChange={(v) => setAuftrag(v)}
+                    options={cfg.auftrag.map((a) => ({ value: a.id, label: az.auftragLabels[a.id] ?? a.label }))}
+                  />
+                </div>
+                <label className={s.field}>
+                  <span>{az.zielLabel}</span>
+                  <input
+                    value={ziel} placeholder={isAnderes ? az.zielOtherPlaceholder : az.zielPlaceholder}
+                    // caps chosen so the card's one-line Ziel and the Leitung chip can't be blown out:
+                    // «2. OG Wohnung Nord, 2 Personen vermisst» is 39 chars, a Leitung is «1»–«12»
+                    maxLength={60}
+                    onChange={(e) => setZiel(stripUnprintable(e.target.value))}
+                  />
+                </label>
+                {/* The SAME 1–99 number the DrawEditor stamps on a hose — one type on both sides is
+                    what lets a Trupp and a drawn Leitung find each other without anyone re-typing
+                    anything (lib/truppLines). A Trupp recorded before this was free text keeps its
+                    text below; it is never rewritten. */}
+                <div className={cx(s.field, s.lineField)}>
+                  <span>{az.lineNoLabel}</span>
+                  {/* stepper and the drawn Leitungen share ONE row: the stepper is for a number that
+                      isn't drawn yet, the chips are the common case, and stacking them cost three
+                      rows of a form that has to fit on a tablet in one glance */}
+                  <div className={s.lineRow}>
+                    <Stepper
+                      value={lineNo} min={1} max={99} placeholder="–"
+                      onChange={setLineNo} onClear={() => setLineNo(null)} canClear={lineNo != null}
+                      ariaLabel={az.lineNoLabel}
+                    />
+                    {/* The Leitungen that are actually DRAWN. Typing a number blind is how the two
+                        sides end up disagreeing — the hose usually exists long before anyone
+                        registers the Trupp. A number someone else is on stays pickable (real
+                        incidents need corrections) but says whose it is. */}
+                    {leitungOptions.length > 0 && (
+                      <div className={s.lineOpts}>
+                        <span className={s.lineOptsLabel}>{az.lineOptsLabel}</span>
+                        {leitungOptions.map((o) => (
+                          <button
+                            key={o.no} type="button"
+                            className={cx(s.lineOpt, lineNo === o.no && s.on, !!o.takenBy && s.taken)}
+                            title={o.takenBy ? fillTemplate(az.lineOptTaken, { name: o.takenBy }) : undefined}
+                            onClick={() => setLineNo(o.no)}
+                          >
+                            {o.no}{o.onPlan ? ' ·\u00a0P' : ''}{o.takenBy ? ` · ${abbreviateName(o.takenBy)}` : ''}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {legacyLine && <p className={s.fieldNote}>{fillTemplate(az.lineLegacyNote, { value: legacyLine })}</p>}
+                </div>
+                {/* The colour this Trupp wears on the Lage and on the plan. «Automatisch» is the
+                    normal case (every Trupp a different one); picking is for when the EL would rather
+                    read the picture by role — «alle Löschtrupps rot» — and a duplicate is then the
+                    point, not a mistake, so nothing here refuses one. */}
+                <div className={s.field}>
+                  <span>{az.colorLabel}</span>
+                  <div className={s.colorRow}>
+                    <button
+                      type="button" className={cx(s.colorAuto, color == null && s.on)} aria-pressed={color == null}
+                      title={az.colorAutoHint} onClick={() => setColor(null)}
+                    >{az.colorAuto}</button>
+                    {appConfig.drawing.teamColors.map((c) => (
+                      <button
+                        key={c} type="button" className={cx(s.colorDot, color === c && s.on)} style={{ background: c }}
+                        aria-label={c} aria-pressed={color === c} onClick={() => setColor(c)}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <div className={s.field}>
+                  <span>{az.funkkanalSection}</span>
+                  <FunkkanalStepper value={funkkanal} onChange={setFunkkanal} />
+                </div>
+              </div>
+            )}
           </div>
 
           {assignedConflict && (
@@ -973,20 +1010,6 @@ function TruppForm({
               <Icon id="warn" /><span>{fillTemplate(az.assignedConflict, { name: assignedConflict })}</span>
             </p>
           )}
-
-          {/* Kanal and Druck side by side where there is room. Each stepper is one short number
-              between two big buttons, so full-width rows made the modal scroll for two values
-              that fit next to each other — and pushed the confirm button off a laptop screen.
-              `auto-fit` rather than a fixed pair: with no Druck (a Trupp that carries none) the
-              Kanal simply fills the row instead of leaving a hole beside it. */}
-          <div className={s.stepperPair}>
-            <div className={s.formCol}>
-              <div className={s.formSection}>{az.funkkanalSection}</div>
-              <div className={s.field}>
-                <FunkkanalStepper value={funkkanal} onChange={setFunkkanal} />
-              </div>
-            </div>
-          </div>
         </div>
 
       <div className={s.modalFoot}>

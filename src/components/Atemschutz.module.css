@@ -263,8 +263,9 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 .modalHead { display: flex; align-items: center; gap: 12px; padding: 16px 18px; border-bottom: 1px solid var(--glass-edge); }
 .modalHead h3 { margin: 0; flex: 1 1 auto; font: 800 19px var(--body); color: var(--ink); }
 
-/* two columns (Auftrag · Trupp) so the create form fits without scrolling on a tablet; Druck
-   and warnings span the full width. Collapses to one column on a phone. */
+/* two columns (Trupp · Druck + Weitere Angaben) so the create form fits without scrolling on a
+   tablet; warnings span the full width. Collapses to one column on a phone, in the order that
+   matters there: who goes in, with how much air, then everything else. */
 .modalBody { padding: 16px 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px 22px; align-items: start; }
 .formCol { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .formColWide { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 12px; }
@@ -274,6 +275,33 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 .stepperPair { grid-column: 1 / -1; display: grid; gap: 12px 16px;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
 @media (max-width: 560px) { .modalBody { grid-template-columns: 1fr; } }
+
+/* ── «Weitere Angaben» ─────────────────────────────────────────────────────────────────────
+   Five optional fields behind one row. Closed it reads as a summary of what is already in
+   there, so folding something away never hides that it was filled in. */
+.moreToggle { display: flex; align-items: center; gap: 8px; width: 100%; min-height: var(--tap);
+  padding: 8px 12px; cursor: pointer; text-align: left;
+  border: 1px solid var(--glass-edge); background: var(--surface); border-radius: var(--r-ctl); }
+.moreToggle:hover { border-color: var(--ink-faint); }
+.moreToggle svg { width: 15px; height: 15px; flex: none; color: var(--ink-faint);
+  transition: transform .14s ease; }
+.moreOpen svg { transform: rotate(90deg); }
+.moreLabel { font: 700 13.5px var(--body); color: var(--ink); flex: none; }
+.moreHint { font: 600 12px var(--body); color: var(--ink-faint); min-width: 0; flex: 1 1 auto;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+.moreBody { display: flex; flex-direction: column; gap: 12px; }
+
+/* ⚠️ On a phone the form is a full-height sheet, not a centred box. The centred dialog was
+   ~180px shorter than the screen while its content was twice as tall, which is what forced the
+   person list into its OWN scroll box — a scroller inside a scroller, under your thumb. Full
+   height means exactly one thing scrolls. */
+@media (max-width: 560px) {
+  .modal { top: 0; left: 0; transform: none; width: 100vw;
+    height: 100dvh; max-height: 100dvh; border-radius: 0; overflow: hidden; }
+  .modalHead { padding-top: max(16px, env(safe-area-inset-top)); }
+  .modalBody { flex: 1 1 auto; overflow-y: auto; }
+  .modalFoot { padding-bottom: max(14px, env(safe-area-inset-bottom)); }
+}
 /* Gebäude / Modul-6 placement picker */
 .placeModal { width: min(360px, calc(100vw - 32px)); }
 .placeOpts { padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
@@ -409,6 +437,11 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
   border-radius: var(--r-pill); padding: 3px 10px; }
 /* Auftrag type chip pops (it's the order), Ziel/Ort rides alongside as plain emphasis text */
 .tagAuftrag { color: var(--blue); background: color-mix(in srgb, var(--blue) 10%, transparent); }
+/* no Auftrag yet — dashed, not amber: it is a gap to fill, not an alarm, and tapping it opens
+   the form on the fold that holds it */
+.tagAuftragOpen { color: var(--ink-faint); background: none; cursor: pointer;
+  border: 1px dashed var(--glass-edge); padding: 2px 9px; }
+.tagAuftragOpen:hover { color: var(--ink); border-color: var(--ink-faint); }
 .tagZiel { font-size: 12.5px; font-weight: 600; color: var(--ink-dim); align-self: center;
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -618,4 +651,13 @@ button.stepVal:hover { border-color: var(--blue); }
    badge, so dropping the pulse loses no information for users who opt out of animation */
 @media (prefers-reduced-motion: reduce) {
   .statusDot, .contactCrit .contactVal, .overdueBadge { animation: none; }
+}
+
+/* ⚠️ Must come AFTER .teamList's own max-height — same specificity, so source order decides.
+   On the phone sheet the list gets more room (208px was measured against a centred dialog that
+   was shorter than the screen), but it stays capped: let it grow to its full length and the
+   Eingangsdruck — the one field besides the names you cannot skip — ends up a dozen rows below
+   the fold. Two letters in the search above it and the list is three rows anyway. */
+@media (max-width: 560px) {
+  .teamList { max-height: 38dvh; }
 }
