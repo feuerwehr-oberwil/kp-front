@@ -148,6 +148,10 @@ interface Props {
   readOnly?: boolean
   /** true when the vehicle has a manual position/orientation override */
   hasOverride?: boolean
+  /** Hold a live vehicle where it stands: writes its current position as an override so the
+   *  symbol stays put once the vehicle drives off. Absent for one that is already held (there
+   *  is nothing to pin) and for anything that is not a GPS vehicle. */
+  onPinGps?: () => void
   /** reset a live vehicle's manual position/orientation back to the GPS feed */
   onResetGps?: () => void
   /** Fahrer of a LIVE (GPS-sourced) vehicle. The feed knows where the vehicle is, never who is
@@ -193,7 +197,7 @@ function LabeledStepper({ label, ...rest }: { label: string } & React.ComponentP
   )
 }
 
-export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onStopSharing, readOnly, hasOverride, onResetGps, driver, connectedLines = [], onFocusLine, onNoteWidth, onNoteSize, onNotePlain, onColor, onTeamColor }: Props) {
+export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onStopSharing, readOnly, hasOverride, onPinGps, onResetGps, driver, connectedLines = [], onFocusLine, onNoteWidth, onNoteSize, onNotePlain, onColor, onTeamColor }: Props) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
   const N = appConfig.copy.notes
@@ -368,6 +372,10 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
           <Icon id="close" />{C.stopSharing}
         </button>
       )}
+      {/* «Festhalten» and «GPS» are the two directions of one thing, so they sit together:
+          hold this vehicle where it stands, or give it back to the feed. Only ONE is ever
+          live — a pinned vehicle has nothing to pin, a following one has nothing to reset. */}
+      {onPinGps && <button className="btn" onClick={onPinGps} title={C.pinGpsTitle}><Icon id="coords" />{C.pinGps}</button>}
       {onResetGps
         ? <button className="btn" disabled={!hasOverride} onClick={onResetGps} title={C.resetGpsTitle}><Icon id="compass" />{C.resetGps}</button>
         : !readOnly && !onStopSharing && <button className="btn warn" onClick={onDelete}><Icon id="close" />{appConfig.copy.delete}</button>}

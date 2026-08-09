@@ -135,6 +135,34 @@
 .jc-phrase:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--glass-edge));
   background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
 
+/* ── Von / Art ────────────────────────────────────────────────────────────────────────────
+   One quiet strip under the text. Deliberately NOT field-shaped: the sentence is what this
+   surface is for, and a control that looks like a required field is one that makes people
+   close the composer. So: a small label, small chips, nothing preselected, and 12px of ink. */
+.jc-meta { display: flex; flex-direction: column; gap: 6px; }
+.jc-meta-row { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; min-width: 0; }
+.jc-meta-lbl { flex: none; width: 34px; font: 700 10.5px var(--body); letter-spacing: .04em;
+  text-transform: uppercase; color: var(--ink-faint); }
+.jc-chip {
+  min-height: 32px; padding: 0 11px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink-dim);
+  font: 600 12px var(--body); white-space: nowrap; -webkit-tap-highlight-color: transparent;
+}
+.jc-chip:hover { color: var(--ink); border-color: var(--ink-faint); }
+/* --blue, never --accent: this is a SELECTED state, and --accent is the deployment's brand red */
+.jc-chip.on { color: var(--blue-strong); font-weight: 700;
+  background: color-mix(in srgb, var(--blue) 16%, transparent);
+  border-color: color-mix(in srgb, var(--blue) 42%, transparent); }
+.jc-chip-ghost { border-style: dashed; color: var(--ink-faint); }
+/* the three Arten carry their own ink ONCE CHOSEN — an unchosen row stays uniform, so nothing
+   on it competes with the text field above it */
+.jc-chip.jc-type-auftrag.on { color: var(--amber-strong);
+  background: color-mix(in srgb, var(--amber) 18%, transparent);
+  border-color: color-mix(in srgb, var(--amber) 45%, transparent); }
+.jc-chip.jc-type-sofort.on { color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+
 /* Einsatzuhr: tap-to-cycle clock (duration / wall time / start) beside the wall clock. It's a
    <button> now — strip the native chrome and give it a comfortable tap area. */
 .tb-einsatzuhr { color: var(--ink-dim); background: none; border: none; cursor: pointer; font: inherit;

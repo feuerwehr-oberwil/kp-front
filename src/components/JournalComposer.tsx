@@ -16,7 +16,8 @@ import {
   resolveRecordingStart,
   validateAudioImport,
 } from '../lib/audioImport'
-import type { TimelineEvent } from '../types'
+import type { JournalEntryType, TimelineEvent } from '../types'
+import type { JournalSource } from '../lib/journalEntry'
 import { useHoldRepeat } from '../lib/useHoldRepeat'
 import { useTapToType } from '../lib/useTapToType'
 import { useKeyboardInset } from '../lib/useKeyboardInset'
@@ -38,6 +39,10 @@ export interface JournalDraft {
   pin: boolean
   /** set in Wiedervorlage mode: ISO time this entry becomes due (makes it a reminder) */
   dueAt?: string
+  /** who reported it — a roster person (with id) or a free name (ELZ, Polizei, Melder) */
+  source?: { name: string; personId?: string }
+  /** Info · Auftrag · Sofortmassnahme; absent = an ordinary entry */
+  entryType?: JournalEntryType
 }
 
 // Wiedervorlage due selection: a relative "+N min" chip, or an exact wall-clock time.
@@ -98,10 +103,16 @@ function TimeStepper({ hhmm, onChange }: { hhmm: string; onChange: (v: string) =
 // optionally pinned to the current view. Reachable from both surfaces (mounted
 // at app level), it records its own clip so the audio is attached to the entry
 // rather than auto-logged. `surface` only drives the pin label + default.
-export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, uploadAudio }: {
+export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, uploadAudio, sources = [], onSearchSource }: {
   surface: 'map' | 'plan'
   onSubmit: (d: JournalDraft) => void
   onClose: () => void
+  /** the people on scene RIGHT NOW, officers first — offered as chips with no search step at
+   *  all (see lib/journalEntry · journalSources). Empty on a surface with no roster. */
+  sources?: JournalSource[]
+  /** open the full searchable roster for everybody who did not fit the chip row. Absent =
+   *  no «Weitere …» offer, which is right when the whole crew already fits. */
+  onSearchSource?: (pick: (s: JournalSource) => void) => void
   /** alarm/start time of the incident — prefill for the imported memo's «Aufnahme begann» */
   incidentStartAt?: string
   /** uploads an imported memo during save (large files never enter the offline queue) */
@@ -131,6 +142,11 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
   const [dueSel, setDueSel] = useState<DueSel>(null)
   const dueAt = mode === 'reminder' ? resolveDueAt(dueSel) : undefined
   const [pin, setPin] = useState(false)
+  // Who said it, and what kind of statement it is. Both OPTIONAL and both empty by
+  // default: the composer's job is still to take a sentence, and a form that asks two
+  // questions before it accepts one is a form nobody opens at 3am.
+  const [source, setSource] = useState<{ name: string; personId?: string } | null>(null)
+  const [entryType, setEntryType] = useState<JournalEntryType | null>(null)
   const [recording, setRecording] = useState(false)
   const [elapsed, setElapsed] = useState(0)
   const [clip, setClip] = useState<{ url: string; secs: number; startedAt: string } | null>(null)
@@ -271,6 +287,7 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
       if (!alive.current) return // closed mid-upload — cancelled, no row
       onSubmit({
         text: text.trim(), pin, photoUrls: photos.length ? photos : undefined,
+        source: source ?? undefined, entryType: entryType ?? undefined,
         audioUrl: url, secs: imported.durationSec ?? undefined,
         audioMeta: {
           source: 'imported', startedAt: startAt.toISOString(),
@@ -309,6 +326,7 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
     if (imported) { void submitImported(); return }
     onSubmit({
       text: text.trim(), audioUrl: clip?.url, secs: clip?.secs, photoUrls: photos.length ? photos : undefined, pin,
+      source: source ?? undefined, entryType: entryType ?? undefined,
       audioMeta: clip ? { source: 'recorded', startedAt: clip.startedAt, durationSec: clip.secs } : undefined,
     })
   }
@@ -398,6 +416,68 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
                 {isNextDay(dueAt) && <em>{C.reminderTomorrow}</em>}
               </span>
             )}
+          </div>
+        )}
+
+        {/* ── Wer hat es gesagt, und was für eine Aussage ist es ──
+            Both live BELOW the text and above the media, in one quiet strip: the sentence is
+            still what this surface is for, and neither of these may look like a field that has
+            to be filled in before it will accept one. Entry mode only — a Wiedervorlage is a
+            note to oneself, so it has no source and no kind. */}
+        {mode === 'entry' && (
+          <div className="jc-meta">
+            {/* ANWESENDE STEHEN SOFORT DA. A search box would make «wer hat es gesagt» more
+                work than typing the name into the sentence, and then nobody fills it in.
+                Re-tapping the chosen one clears it, so the field is never a trap. */}
+            <div className="jc-meta-row" role="group" aria-label={C.sourceLabel}>
+              <span className="jc-meta-lbl">{C.sourceLabel}</span>
+              {sources.map((sv) => (
+                <button
+                  key={sv.id ?? sv.name}
+                  type="button"
+                  className={`jc-chip${source?.name === sv.name ? ' on' : ''}`}
+                  aria-pressed={source?.name === sv.name}
+                  onClick={() => setSource((cur) => (cur?.name === sv.name ? null : { name: sv.name, personId: sv.id }))}
+                >{sv.name}</button>
+              ))}
+              {/* not from the Mannschaft — in practice the majority of what gets reported */}
+              {C.sourcePresets.map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  className={`jc-chip${source?.name === preset ? ' on' : ''}`}
+                  aria-pressed={source?.name === preset}
+                  onClick={() => setSource((cur) => (cur?.name === preset ? null : { name: preset }))}
+                >{preset}</button>
+              ))}
+              {onSearchSource && (
+                <button
+                  type="button" className="jc-chip jc-chip-ghost"
+                  onClick={() => onSearchSource((sv) => setSource({ name: sv.name, personId: sv.id }))}
+                >{C.sourceMore}</button>
+              )}
+              {/* somebody picked through the search who is not on the chip row still has to be
+                  visible and clearable — otherwise the only sign of a set source is off-screen */}
+              {source && !sources.some((sv) => sv.name === source.name) && !C.sourcePresets.includes(source.name) && (
+                <button type="button" className="jc-chip on" aria-pressed
+                  title={C.sourceClear} onClick={() => setSource(null)}>{source.name}</button>
+              )}
+            </div>
+
+            {/* Art — quiet by design: three small chips, none preselected. «Info» is the
+                ordinary case and prints no marker at all (lib/journalEntry). */}
+            <div className="jc-meta-row" role="group" aria-label={C.typeLabel}>
+              <span className="jc-meta-lbl">{C.typeLabel}</span>
+              {(['info', 'auftrag', 'sofort'] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  className={`jc-chip jc-type-${t}${entryType === t ? ' on' : ''}`}
+                  aria-pressed={entryType === t}
+                  onClick={() => setEntryType((cur) => (cur === t ? null : t))}
+                >{C.entryTypeShort[t]}</button>
+              ))}
+            </div>
           </div>
         )}
 

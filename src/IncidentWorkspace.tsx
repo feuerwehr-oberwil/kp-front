@@ -5,6 +5,7 @@ import { IconSprite, Icon } from './lib/icons'
 import { useSymbols } from './lib/useSymbols'
 import { vehicleSymbolSvg } from './lib/useVehiclePositions'
 import { useVehicleLayer } from './lib/useVehicleLayer'
+import { useVehiclePresenceLog } from './lib/useVehiclePresenceLog'
 import { usePersonPositions } from './lib/usePersonPositions'
 import { useShareMyPosition } from './lib/useShareMyPosition'
 import { SharePositionPill, SharePositionSheet } from './components/SharePosition'
@@ -71,6 +72,7 @@ import { MeasurePanel } from './components/MeasurePanel'
 import { SHAPE_DEFS, ShapeGlyph } from './lib/shapes'
 import { Journal } from './components/Journal'
 import { JournalComposer, type JournalDraft } from './components/JournalComposer'
+import { composeJournalText, journalSources } from './lib/journalEntry'
 import { AudioPlayerSheet } from './components/AudioPlayerSheet'
 import { ReminderBanner } from './components/ReminderBanner'
 import { UpdateBanner } from './components/UpdateBanner'
@@ -267,7 +269,7 @@ export function IncidentWorkspace({
   // they auto-update and never get persisted. The operator can drag a vehicle to
   // reposition it and drag its handle to orient it; those overrides live here
   // (persisted) and win over the GPS value until reset via the "GPS" button.
-  const { liveVehicles, liveIds, overrides: vehicleOverrides, setOverrides: setVehicleOverrides, gpsStale, gpsAgeMs } = useVehicleLayer(init.vehicleOverrides)
+  const { gpsVehicles, liveVehicles, liveIds, overrides: vehicleOverrides, setOverrides: setVehicleOverrides, gpsStale, gpsAgeMs } = useVehicleLayer(init.vehicleOverrides)
   // Standort teilen. Two halves that deliberately do not meet: this device REPORTS where its
   // holder is (`share`, available to every session including a link-scoped phone), and the
   // command post READS the crew picture (`livePeople`, refused to a link session server-side,
@@ -1270,6 +1272,16 @@ export function IncidentWorkspace({
     })
   }, [liveVehicles, replayActive, setDocRaw])
 
+  // «Wann ist das TLF weggefahren?» — the feed answers it into the Verlauf, because an hour
+  // later nobody can. Reads the RAW feed (`gpsVehicles`), not the overridden view: a vehicle
+  // held in place by hand still really drives away, and that is the moment worth recording.
+  useVehiclePresenceLog({
+    vehicles: gpsVehicles,
+    center: incidentView.center,
+    enabled: canEditIncident && !replayActive,
+    log,
+  })
+
   const pausedGpsConnections = useMemo(() => drawings.flatMap((drawing) => (['start', 'end'] as const).flatMap((endpoint) => {
     const attachment = endpoint === 'start' ? drawing.startAttachment : drawing.endAttachment
     return attachment?.gps?.state === 'paused' ? [{ drawing, endpoint, attachment }] : []
@@ -1401,7 +1413,12 @@ export function IncidentWorkspace({
         : d.audioUrl ? `${appConfig.copy.log.audioNote}${d.secs ? ` (${d.secs}s)` : ''}` : photoUrls.length ? appConfig.copy.journal.photoNote : appConfig.copy.log.journalNote)
     const rowId = `e${Date.now()}-j`
     pushEvent({
-      icon, text: body, kind, audioUrl: d.audioUrl, photoUrls: photoUrls.length ? photoUrls : undefined, audioMeta: d.audioMeta,
+      // «Wer» und «Art» werden IN den Text komponiert (lib/journalEntry): `text` ist der
+      // Datensatz — Verlauf, Rapport und Prüfkette lesen diese eine Zeichenkette, und eine
+      // Zeile, deren Bedeutung in einem Nebenfeld läge, stünde in der App anders als auf dem
+      // Papier. Die strukturierten Felder reisen zum Filtern mit, nicht zum Anzeigen.
+      icon, text: composeJournalText(body, d), kind, source: d.source, entryType: d.entryType,
+      audioUrl: d.audioUrl, photoUrls: photoUrls.length ? photoUrls : undefined, audioMeta: d.audioMeta,
       // an imported memo lands at its confirmed recording start; everything else at composer-open
       at: (imported ? d.audioMeta?.startedAt : undefined) ?? composerOpenedAt.current ?? undefined,
       surface: onPlan ? 'plan' : 'map', planId: onPlan ? activePlanId : undefined, coord, px, py, floor, pinned,
@@ -2052,7 +2069,7 @@ export function IncidentWorkspace({
     }
   }, [layers, incidentView.center, backendPlans, withGeoBbox])
   const blockedAttendanceIds = useMemo(() => assignedPersonIds(trupps), [trupps])
-  const { markPresent, markLeft, clearAttendance, setAttendanceTimes, removeAttendanceBlock, setAttendanceNote, addGuest } = useAttendanceActions({
+  const { markPresent, markLeft, clearAttendance, setAttendanceTimes, removeAttendanceBlock, setAttendanceNote, setAttendanceOrt, addGuest } = useAttendanceActions({
     attendance, setAttendance, blockedAttendanceIds,
     startedAt: incidentMeta.started_at, reportDoneAt: incidentMeta.report_done_at, log,
   })
@@ -2689,6 +2706,19 @@ export function IncidentWorkspace({
           onResetGps={selected.live && selected.kind !== 'person'
             ? () => setVehicleOverrides((m) => { const { [selected.id]: _drop, ...rest } = m; return rest })
             : undefined}
+          // «Hier festhalten»: the Kroki is printed hours later, and a vehicle that has since
+          // driven home takes its symbol with it — the picture then shows no TLF at an Einsatz
+          // that had one. Pinning writes the CURRENT position as an override, which is the same
+          // mechanism a drag already uses, so «GPS» beside it is the way back and there is no
+          // second kind of pinned vehicle to reason about.
+          onPinGps={selected.live && selected.kind !== 'person' && canEditIncident && !readOnly
+            && Array.isArray(selected.coord) && vehicleOverrides[selected.id]?.coord == null
+            ? () => {
+              const coord = selected.coord as LngLat
+              setVehicleOverrides((m) => ({ ...m, [selected.id]: { ...m[selected.id], coord } }))
+              log('truck', fillTemplate(appConfig.copy.contextPanel.logPinned, { name: selected.label ?? '' }), 'symbol', undefined, selected.id)
+            }
+            : undefined}
           // A live vehicle's Fahrer: the GPS feed reports where a vehicle IS, never who is in
           // it, and that is the one thing the FU needs to reach it. Kept in the override map
           // because the entity itself is rebuilt from the feed on every poll.
@@ -3189,6 +3219,7 @@ export function IncidentWorkspace({
           onSetTimes={canEditIncident ? setAttendanceTimes : undefined}
           onRemoveBlock={canEditIncident ? removeAttendanceBlock : undefined}
           onSetNote={canEditIncident ? setAttendanceNote : undefined}
+          onSetOrt={canEditIncident ? setAttendanceOrt : undefined}
           captureUsage={captureUsage}
           shifts={effShifts}
           bands={effBands}
@@ -3325,6 +3356,8 @@ export function IncidentWorkspace({
       {composerOpen && (
         <JournalComposer
           surface={mode === 'plans' ? 'plan' : 'map'}
+          // who is on scene RIGHT NOW, officers first — offered without anybody searching
+          sources={journalSources(personnel, effAttendance)}
           onSubmit={addJournal}
           onClose={() => setComposerOpen(false)}
           incidentStartAt={incidentMeta.started_at}
