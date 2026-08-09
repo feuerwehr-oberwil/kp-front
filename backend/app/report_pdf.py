@@ -1132,19 +1132,17 @@ def compose_report_pdf(
         # dotted leaders. Underscores also never line up with the digits of a filled row, since
         # Helvetica's «_» is narrower than its figures, so a column of half-filled times came out
         # ragged. One texture; see the roster and the Material amounts.
+        # ⚠️ LABEL first, then the value — the way every other write-in block on this sheet
+        # reads (the Details box, Partnerorganisationen, Unterschriften). It was the other way
+        # round, so a filled row put its clock where the eye was looking for a name and an empty
+        # one put a rule there instead, which is what made the grid read as ragged (09.08.).
         zrows = [
-            [Paragraph(_esc(val) if val else "", st["cell"]), Paragraph(_esc(lab), st["cell"])] for lab, val in m.zeiten
+            [Paragraph(_esc(lab), st["cell"]), Paragraph(_esc(val), st["cell"]) if val else None]
+            for lab, val in m.zeiten
         ]
         # 3-up columns to keep the grid compact
         cols = 3
         n_rows = -(-len(zrows) // cols)
-        grid: list[list] = []
-        for ri in range(n_rows):
-            row: list = []
-            for c in range(cols):
-                i = c * n_rows + ri
-                row.extend(zrows[i] if i < len(zrows) else ["", ""])
-            grid.append(row)
         cw = inner_w / cols
         # ⚠️ The value column is sized to what it HAS TO HOLD, not to a fixed third of the cell.
         # A bare «22:47» fits 0.32 of a 3-up column; «08.08. 22:47» — which is what every clock
@@ -1157,18 +1155,19 @@ def compose_report_pdf(
         # the floor keeps the write-in rule a field somebody can write a date into, on a sheet
         # where nothing has been recorded at all and there is no value to measure
         val_w = min(max(widest_val + val_pad + 2, cw * 0.34), cw * 0.58)
-        zt = Table(grid, colWidths=[val_w, cw - val_w] * cols)
-        # the rule goes under the empty VALUE cells only — the label beside it is printed, not
-        # written, and a bar under it would say otherwise
-        # ⚠️ `isinstance` guard, not a plain falsy test: a last row short of a full set is padded
-        # with EMPTY STRINGS, and those must not get a rule — that would draw write-in fields for
-        # Gruppen the station does not have.
-        blanks = [
-            (c * 2, r)
-            for r, row in enumerate(grid)
-            for c in range(cols)
-            if isinstance(row[c * 2], Paragraph) and not row[c * 2].text
-        ]
+        # an unrecorded time is a rule ON the row's own line — see _write_rule for why this is
+        # not a LINEBELOW any more
+        for i, (_lab, val) in enumerate(m.zeiten):
+            if not val:
+                zrows[i][1] = _write_rule(val_w - val_pad)
+        grid: list[list] = []
+        for ri in range(n_rows):
+            row: list = []
+            for c in range(cols):
+                i = c * n_rows + ri
+                row.extend(zrows[i] if i < len(zrows) else ["", ""])
+            grid.append(row)
+        zt = Table(grid, colWidths=[cw - val_w, val_w] * cols)
         zt.setStyle(
             TableStyle(
                 [
@@ -1176,10 +1175,9 @@ def compose_report_pdf(
                     ("TOPPADDING", (0, 0), (-1, -1), 3),
                     ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
                     ("LEFTPADDING", (0, 0), (-1, -1), 0),
-                    # a value cell holds a whole 0.32 of the column; the rule is inset so it
-                    # reads as a field rather than as a bar under the whole grid
+                    # the rule is inset from the next column so it reads as a field rather than
+                    # as a bar running across the whole grid
                     ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-                    *[("LINEBELOW", (col, row), (col, row), 0.5, _WRITE, *_WRITE_DASH) for col, row in blanks],
                 ]
             )
         )
@@ -1562,6 +1560,27 @@ _SPLIT_OUTER = [
     ("LEFTPADDING", (0, 0), (-1, -1), 0),
     ("RIGHTPADDING", (0, 0), (-1, -1), 0),
 ]
+
+
+def _write_rule(width: float, fs: float = 8.5) -> Table:
+    """A dotted write-in rule that sits ON the text line, not at the bottom of the row.
+
+    ⚠️ ``LINEBELOW`` draws at the bottom of the CELL, and a table row is as tall as its tallest
+    cell — which in every tick-off block on this sheet is the checkbox. So an empty row's rule
+    dropped a line below the box beside it and read as a second, lower row: box on one line,
+    the thing to write on the next (08.08. sheet, three blocks at once). Reported 09.08. as
+    «the empty lines where things aren't all on one line».
+
+    This is a one-cell table of exactly one text line's height, so the rule lands where the
+    words would have been no matter what else shares the row. Left-aligned and given an
+    explicit width, so every rule in a column starts and ends at the same x.
+    """
+    t = Table([[""]], colWidths=[width], rowHeights=[fs * 1.2])
+    t.setStyle(TableStyle([*_SPLIT_OUTER, ("LINEBELOW", (0, 0), (0, 0), 0.5, _WRITE, *_WRITE_DASH)]))
+    t.hAlign = "LEFT"
+    return t
+
+
 #: How TALL one indivisible chunk of a two-up block may get — i.e. how coarsely the block is
 #: allowed to break across a page boundary.
 #:
@@ -1730,7 +1749,12 @@ def _personal_table(personal: list[PersonalRowIn], inner_w: float, st: dict[str,
         inline = bool(note) and (
             _str_w(p.name, "Helvetica", 8.5) + _str_w(f" · {note}", "Helvetica", 6.5) <= name_w - 11
         )
-        label = _esc(p.name) if p.name else _LINE_STUB
+        # ⚠️ A write-in row's rule is part of the CELL, not a LINEBELOW on the row: the row is as
+        # tall as the checkbox beside it, so the rule dropped onto the next line and the sheet
+        # read as a box on one line and a blank on the one under it (see _write_rule).
+        if not p.name:
+            return [_check_box(False), _write_rule(name_w - 5), ""]
+        label = _esc(p.name)
         if inline:
             label += f'<font size="6.5" color="{_DIM_INK}"> · {_esc(note)}</font>'
         name: list = [Paragraph(label, st["rcell"])]
@@ -1769,14 +1793,6 @@ def _personal_table(personal: list[PersonalRowIn], inner_w: float, st: dict[str,
             ("RIGHTPADDING", (0, 0), (0, -1), 0),
             ("FONTSIZE", (0, 0), (-1, -1), 8.5),
         ]
-        for r, p in enumerate(people):
-            if not p.name:
-                # the rule runs under the NAME and the clock column both — a write-in row is a
-                # whole row to fill in, and ruling only half of it drew a line that stopped
-                # under the empty time stub it no longer prints
-                # the rule sits under the NAME column only, so a write-in row lines up with the named
-                # rows above it instead of running one bar across the whole width
-                style.append(("LINEBELOW", (1, r), (1, r), 0.5, _WRITE, *_WRITE_DASH))
         t = Table([cells(p) for p in people] or [["", "", ""]], colWidths=[check_w, name_w, time_w])
         t.setStyle(TableStyle(style))
         return t
@@ -1912,11 +1928,14 @@ def _partner_table(
         # whole point is that the entries are comparable. A tick says «this one was there»; the
         # typography must not say it a second time, more quietly.
         notes = [_esc(" · ".join(x for x in (c.name, c.phone, c.note) if x)) if c else "" for _, c in part]
+        note_w = col_w - check_w - org_w
+        # each write-in cell carries its OWN rule, on its own text line — a LINEBELOW would sit
+        # at the bottom of a row whose height comes from the checkbox (see _write_rule)
         rows = [
             [
                 _check_box(bool(c)),
-                Paragraph(_esc(org) if org else _LINE_STUB, st["rcell"]),
-                Paragraph(note or _LINE_STUB, st["rcell"]),
+                Paragraph(_esc(org), st["rcell"]) if org else _write_rule(org_w - 5),
+                Paragraph(note, st["rcell"]) if note else _write_rule(note_w - 5),
             ]
             for (org, c), note in zip(part, notes, strict=True)
         ]
@@ -1929,15 +1948,8 @@ def _partner_table(
             ("LEFTPADDING", (0, 0), (0, -1), 0),
             ("RIGHTPADDING", (0, 0), (0, -1), 0),
             ("FONTSIZE", (0, 0), (-1, -1), 8.5),
-            # ⚠️ The rule goes under what is still to be WRITTEN, not under the whole row. A bar
-            # running from the tick box to the page edge underlined the checkbox and the printed
-            # organisation as well — two things nobody fills in — so the sheet read as ruled
-            # paper rather than as a form with fields. Same treatment as the Unterschriften
-            # block: the box, the name, and the leader starting where the writing starts.
-            *[("LINEBELOW", (2, r), (2, r), 0.5, _WRITE, *_WRITE_DASH) for r, n in enumerate(notes) if not n],
-            *[("LINEBELOW", (1, r), (1, r), 0.5, _WRITE, *_WRITE_DASH) for r, (org, _) in enumerate(part) if not org],
         ]
-        t = Table(rows or [["", "", ""]], colWidths=[check_w, org_w, col_w - check_w - org_w])
+        t = Table(rows or [["", "", ""]], colWidths=[check_w, org_w, note_w])
         t.setStyle(TableStyle(style))
         return t
 

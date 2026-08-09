@@ -206,7 +206,7 @@ EXAMPLE_CONFIG: dict[str, Any] = {
             {
                 "id": "luefter",
                 "label": "Lüfter",
-                "unit": "Stk",
+                "unit": "Stk.",
                 "category": "Geräte",
                 "stock": [{"source": "tlf", "qty": 2}, {"source": "lf", "qty": 1}],
             },
@@ -218,7 +218,11 @@ EXAMPLE_CONFIG: dict[str, Any] = {
             {"id": "depot", "label": "Magazin"},
         ],
         # Common unit suggestions for custom entries; free text always stays possible.
-        "units": ["Stk", "l", "m", "Sack", "Flasche", "kg"],
+        # ⚠️ «Stk.» WITH the dot — it abbreviates «Stück», and a sheet printing «2 Stk.» on
+        # one line and «1 Stk» on the next reads as two different units. The code default
+        # has carried the dot since 6b2f5cc; these are the shipped DATA, and a station
+        # whose catalogue was seeded before that still has the dotless form stored.
+        "units": ["Stk.", "l", "m", "Sack", "Flasche", "kg"],
     },
     "alarms": {
         # Auto-open is no longer configurable: every alarm becomes an Einsatz on arrival, on

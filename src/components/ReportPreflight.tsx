@@ -503,7 +503,22 @@ export function ReportPreflight({
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the panel becoming visible
   }, [krokiShown, incident.id])
-  const startOutput = (action: 'pdf' | 'print') => {
+  const startOutput = async (action: 'pdf' | 'print') => {
+    // ⚠️ A rapport that is still missing Mindestangaben may ALWAYS be produced — printing is
+    // never blocked by what somebody has not typed yet, and a half-filled sheet taken to the
+    // Magazin to be finished by hand is a real way of working. But a PDF that leaves the
+    // building is the version that gets filed, so the gap is said out loud once, by name,
+    // before it goes. Same words the Abschluss confirm uses; the only difference is that this
+    // one is a warning and that one is a decision.
+    if (missing.length) {
+      const ok = await confirmDialog({
+        title: P.exportIncompleteTitle,
+        message: `${fillTemplate(A.confirmMissing, { steps: missing.map((st2) => A.steps[st2]).join(', ') })} ${P.exportIncompleteMsg}`,
+        confirmLabel: action === 'print' ? R.send : P.pdfFull,
+        cancelLabel: appConfig.copy.cancel,
+      })
+      if (!ok) return
+    }
     // No framing step in front of the action any more — the crop has been on screen the whole
     // time. What is left of the old onConfirm is the REMEMBERING: the framing rides the workspace
     // blob so the second print comes out of the same window as the first, from any device. Written
@@ -719,7 +734,7 @@ export function ReportPreflight({
             )}
             {printStatus?.available && (
               <button className={`ip-btn print-send${printStatus.online ? '' : ' offline'}`} disabled={printBusy}
-                onClick={() => startOutput('print')} aria-label={printBusy ? R.sending : R.send}
+                onClick={() => void startOutput('print')} aria-label={printBusy ? R.sending : R.send}
                 title={printStatus.online ? R.online : R.offline}>
                 <span className="print-send-main">
                   <Icon id="printer" />
@@ -738,7 +753,7 @@ export function ReportPreflight({
                 ⋮ beside it would have read as the surface's menu. The pair never wraps apart
                 (it is one flex item), so at ≤720px it drops onto its own line intact. */}
             <span className="rp-split">
-              <button className="ip-btn primary rp-split-main" disabled={pdfBusy} onClick={() => startOutput('pdf')}
+              <button className="ip-btn primary rp-split-main" disabled={pdfBusy} onClick={() => void startOutput('pdf')}
                 aria-label={pdfBusy ? P.pdfBusy : P.pdfFull} title={pdfBusy ? P.pdfBusy : P.pdfFull}>
                 <Icon id={pdfBusy ? 'rotate' : 'doc'} className={pdfBusy ? 'spin' : undefined} />
                 <span className="rp-btn-label">{pdfBusy ? P.pdfBusy : P.pdfFull}</span>

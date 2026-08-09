@@ -187,6 +187,23 @@ release-tag version:
 
 # --- Deployment config  (config-as-code — see docs/CONFIGURATION.md) ----------
 
+# Pull the LIVE station config off a Railway deployment into a local file.
+#
+# ⚠️ The whole reason this exists: developing against the shipped defaults does not feel like
+# the app the Wehr uses. Their Mittel catalogue, their Gruppen, their symbol lists and their
+# Module are what make a screen look right or wrong, and a bug like «Stk» without a dot only
+# shows up against real data.
+#
+# Read-only — it never writes to the deployment. `railway run` does NOT work for this: the
+# DATABASE_URL it injects is the INTERNAL hostname and does not resolve from a laptop, so the
+# public TCP proxy is read off the Postgres service instead.
+[group('Deployment config')]
+config-pull out="backend/private/live.config.json" service="Postgres":
+    @DB=$(railway variables --service {{service}} --kv | grep '^DATABASE_PUBLIC_URL=' | cut -d= -f2-); \
+    test -n "$DB" || { echo "No DATABASE_PUBLIC_URL on service {{service}} — is the project linked?"; exit 1; }; \
+    cd backend && DATABASE_URL="$DB" uv run python -m app.admin_config show > "{{absolute_path(out)}}"
+    @echo "\033[1;32m✓ Live config → {{out}}\033[0m  (load it into your local DB with: just config-load {{out}})"
+
 # Print a fully-populated example deployment config (starting point — copy & edit).
 [group('Deployment config')]
 config-example:
