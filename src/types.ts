@@ -358,20 +358,17 @@ export interface TimelineEvent {
   /** user-dropped pin (vs. an automatic entity/team link) — shown with a pin glyph */
   pinned?: boolean
   /**
-   * Who said it, and what kind of statement it was.
+   * What kind of statement this was — Führungsrhythmus (BGV Behelf Schadenplatz): an ordinary
+   * observation, an order given, or an immediate measure. Absent = ordinary, the vast majority.
    *
-   * ⚠️ Both are ALSO written into `text` at compose time, and `text` stays the record: the
-   * Verlauf, the Rapport and the audit chain all read that one string, and a row whose meaning
-   * lived in a side field would say something different in the app than on the paper. These
-   * exist so the journal can later be FILTERED and counted by them — «zeig mir alle
-   * Sofortmassnahmen» — not so that a second copy of the sentence can drift from the first.
+   * ⚠️ ALSO written into `text` at compose time, and `text` stays the record: the Verlauf, the
+   * Rapport and the audit chain all read that one string, and a row whose meaning lived in a
+   * side field would say something different in the app than on the paper. This exists so the
+   * journal can later be FILTERED by it, not so a second copy of the sentence can drift.
    *
-   * `source.personId` is set only when the name came off the Mannschaftsliste; ELZ, Polizei,
-   * Melder and a typed name carry a name and no id, which is exactly what they are.
+   * There is deliberately no «who said it» field: the sentence answers that, and the names in
+   * it are linked (lib/journalLinks). A second field asking the same thing was dropped 09.08.
    */
-  source?: { name: string; personId?: string }
-  /** Führungsrhythmus (BGV Behelf Schadenplatz): an ordinary observation, an order given, or
-   *  an immediate measure. Absent = an ordinary entry, which is the overwhelming majority. */
   entryType?: JournalEntryType
 }
 

@@ -134,8 +134,15 @@
   border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface); color: var(--ink); }
 /* a NAME suggestion is a different offer from a Textbaustein — it completes the WORD under the
    cursor rather than the sentence, and what it carries is the spelling the rest of the app uses */
-.jc-phrase-name { border-color: color-mix(in srgb, var(--blue) 40%, transparent);
+.jc-phrase-link { border-color: color-mix(in srgb, var(--blue) 40%, transparent);
   background: color-mix(in srgb, var(--blue) 10%, var(--surface)); color: var(--blue-strong); }
+.jc-link-material { border-color: color-mix(in srgb, var(--green) 40%, transparent);
+  background: color-mix(in srgb, var(--green) 10%, var(--surface)); color: var(--green-strong); }
+.jc-link-partner { border-color: color-mix(in srgb, var(--amber) 45%, transparent);
+  background: color-mix(in srgb, var(--amber) 12%, var(--surface)); color: var(--amber-strong); }
+.jc-link-vehicle { border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface)); color: var(--accent); }
+.jc-link-group { border-color: var(--glass-edge); background: var(--surface); color: var(--ink); }
 .jc-phrase:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--glass-edge));
   background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
 

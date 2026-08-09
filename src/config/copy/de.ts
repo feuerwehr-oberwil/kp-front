@@ -880,15 +880,11 @@ export const de = {
     // ── Wer hat es gesagt, und was für eine Aussage ist es ──
     // Beides landet im TEXT der Zeile (lib/journalEntry · composeJournalText); die
     // strukturierten Felder gibt es zum Filtern, nicht zum Anzeigen.
-    sourceLabel: 'Von',
-    // Anwesende stehen sofort da — eine Suche wäre mehr Arbeit, als den Namen in den Satz zu
-    // tippen, und dann füllt es niemand aus.
-    sourceMore: 'Weitere …',
-    sourceSearch: 'Person suchen …',
-    sourceClear: 'Von leeren',
-    // Nicht aus der Mannschaft: erfahrungsgemäss die Mehrheit der Meldungen
-    sourcePresets: ['ELZ', 'Polizei', 'Melder', 'Eigentümer'] as string[],
-    sourceTyped: 'Name eingeben',
+    // ⚠️ KEIN «Von»-Feld mehr (09.08.). Es fragte, was der Satz schon beantwortet — wer
+    // «Meier meldet Kellerbrand bestätigt» schreibt, hat gesagt, wer gemeldet hat — und ein
+    // zweites Feld für dieselbe Aussage ist ein zweites Feld zum Ausfüllen. Gewollt war, dass
+    // die NAMEN echt sind: richtig geschrieben und als Verknüpfung sichtbar (lib/journalLinks).
+    linkKinds: { person: 'Person', material: 'Material', partner: 'Partner', vehicle: 'Fahrzeug', group: 'Gruppe' } as Record<string, string>,
     typeLabel: 'Art',
     // «Info» ist der Normalfall und druckt KEINE Marke — eine Marke auf jeder Zeile ist
     // Tapete. Die Wörter stammen aus dem Führungsrhythmus (BGV Behelf Schadenplatz).
@@ -1012,6 +1008,9 @@ export const de = {
     // Felder konnten einen Trupp benennen, aber nicht umstellen: wer zuerst getippt wurde, war
     // für immer Gruppenführer. Der Stern ist die Korrektur, und sie kostet einen Tipp.
     teamEmpty: 'Noch niemand im Trupp. Unten antippen.',
+    // Vier Plätze stehen immer da — so sieht ein Trupp aus (GF + 3), und ein leerer Platz sagt
+    // «hier kommt der nächste hin» deutlicher als ein Satz. Die Zeile selbst wählt den GF.
+    teamSlotEmpty: '—',
     teamSearchPlaceholder: 'Person suchen …',
     teamNoMatches: 'Kein Treffer',
     leaderBadge: 'GF',

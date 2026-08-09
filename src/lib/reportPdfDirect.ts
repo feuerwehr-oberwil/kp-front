@@ -25,6 +25,7 @@ import { placardSvgForSymbol } from './placard'
 import { vehicleSymbolSvg } from './useVehiclePositions'
 import { downloadReportPdf, reportFilenameHint } from './reportPdf'
 import { resolvePlanAnnos } from './lineAttachments'
+import type { JournalLink } from './journalLinks'
 
 /** Board annotations of one plan, in the server's PlanAnnoIn shape (dynamic symbol
  *  glyphs resolved to SVG strings, like the whiteboard renders them). */
@@ -129,6 +130,9 @@ export function floorStackPages(
 }
 
 export interface DirectReportArgs {
+  /** the linkable vocabulary (lib/journalLinks) — the printed journal marks the same terms the
+   *  app marks, in bold. Absent = the entry prints verbatim, as it always did. */
+  vocab?: JournalLink[]
   incident: IncidentMeta
   draft: ReportDraft
   trupps: Trupp[]
@@ -170,9 +174,9 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
   // journal photos: send the server-relative media URL — the composer loads the bytes
   // from its own media store (session-only blob: URLs can't be resolved there and are
   // simply not yet uploaded — the preflight already warns about pending media)
-  const journal = journalRows(events, plans, meta.startedAt ?? incident.started_at, incident.closed_at, { includeBookkeeping: draft.options.detailedAudit })
+  const journal = journalRows(events, plans, meta.startedAt ?? incident.started_at, incident.closed_at, { includeBookkeeping: draft.options.detailedAudit, vocab: args.vocab })
     .map((r) => ({
-      timeLabel: r.timeLabel, area: r.area, text: r.text, transcript: r.transcript || undefined,
+      timeLabel: r.timeLabel, area: r.area, text: r.text, markup: r.markup, transcript: r.transcript || undefined,
       // only pictures the SERVER can fetch — a blob: URL is one that never finished uploading
       photoUrls: r.photoUrls?.filter((u) => u.startsWith('/')),
     }))

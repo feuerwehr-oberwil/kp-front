@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { PlanDocument, TimelineEvent } from '../types'
+import { linkParts, type JournalLink } from '../lib/journalLinks'
 import { Icon } from '../lib/icons'
 import { EmptyState } from './EmptyState'
 import { Overlay } from '../lib/overlays'
@@ -48,9 +49,12 @@ const chip = (e: TimelineEvent, plans: PlanDocument[]): string => {
 // The unified Verlauf — the single, append-only stream of everything that
 // happens on either surface. Rendered as a slide-over so it can open over the
 // map or the plan; a row jumps back to wherever its event happened.
-export function Journal({ events, plans, closedAt, onSelect, onClose, onTranscript, onReplay, openReminders, onReminderDone, mediaStatusOf, onOpenPlayer, onEditText }: {
+export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose, onTranscript, onReplay, openReminders, onReminderDone, mediaStatusOf, onOpenPlayer, onEditText }: {
   events: TimelineEvent[]
   plans: PlanDocument[]
+  /** the linkable vocabulary (lib/journalLinks) — the SAME memo the composer marks with, so a
+   *  name that lit up while it was being typed still lights up once it is a row */
+  vocab?: JournalLink[]
   /** the Einsatzende (incident closed_at) — rows appended after it render as Nachträge */
   closedAt?: string | null
   onSelect: (e: TimelineEvent) => void
@@ -201,7 +205,13 @@ export function Journal({ events, plans, closedAt, onSelect, onClose, onTranscri
                 <span className="tx">
                   <span className={`jr-chip jr-chip-${e.surface ?? 'map'}`}>{chip(e, plans)}</span>
                   {isNachtrag(e, closedAt) && <span className="jr-chip jr-chip-nachtrag">{C.nachtrag}</span>}
-                  <span className={`jr-text ${remDone ? 'jr-rem-struck' : ''}`}>{e.text}</span>
+                  {/* the names in the sentence, marked — the same vocabulary and the same
+                      marking the composer used while it was being typed */}
+                  <span className={`jr-text ${remDone ? 'jr-rem-struck' : ''}`}>
+                    {linkParts(e.text, vocab).map((p, pi) => (p.kind
+                      ? <b key={pi} className={`jr-link jr-link-${p.kind}`}>{p.text}</b>
+                      : <span key={pi}>{p.text}</span>))}
+                  </span>
                 </span>
                 {isReminder && (
                   <button

@@ -135,6 +135,13 @@ class JournalRowIn(BaseModel):
     timeLabel: str
     area: str
     text: str
+    #: The entry with its linked terms wrapped in ``<b>`` — people, Mittel, Partnerorganisationen,
+    #: Fahrzeuge, Alarmgruppen (see src/lib/journalLinks). Absent when nothing was linked, and
+    #: then ``text`` prints verbatim as it always did.
+    #:
+    #: ⚠️ Already escaped by the client, because only the client can tell its own markup from an
+    #: «&» somebody typed. It is therefore NOT run through ``_esc`` again here.
+    markup: str | None = None
     transcript: str | None = None
     photoKey: str | None = None  # legacy: figure key of a client-uploaded photo
     photoUrl: str | None = None  # single photo — the shape rows written before 2026-08-06 carry
@@ -1292,7 +1299,7 @@ def compose_report_pdf(
         thead = [Paragraph(_esc(L[c]), st["cellhead"]) for c in ("colTime", "colArea", "colEntry")]
         body: list[list] = []
         for r in payload.journal:
-            entry_cells: list = [Paragraph(_esc(r.text), st["cell"])]
+            entry_cells: list = [Paragraph(r.markup or _esc(r.text), st["cell"])]
             if r.transcript:
                 entry_cells.append(Paragraph(f"<b>{_esc(L['transcript'])}:</b> {_esc(r.transcript)}", st["muted"]))
             urls = r.photoUrls or ([r.photoUrl] if r.photoUrl else [])

@@ -9,6 +9,7 @@ import { truppNeverDeployed } from './atemschutz'
 import { attendanceMergeGapMin, getDeploymentConfig } from './deploymentConfig'
 import { mittelReportRows } from './mittel'
 import { rowPhotos } from './verlauf'
+import { linkMarkup, type JournalLink } from './journalLinks'
 
 export interface KrokiView {
   center: LngLat
@@ -131,9 +132,16 @@ export interface JournalPrintRow {
   photoUrls?: string[]
   audioUrl?: string
   transcript?: string
+  /** the entry with its linked terms in <b>…</b>, for the PDF. Absent when nothing is linked —
+   *  the composer then prints `text` verbatim, as it always did. */
+  markup?: string
   /** row was appended AFTER the Einsatzende (closed_at) — printed under «Nachträge» */
   nachtrag?: boolean
 }
+
+/** ReportLab's Paragraph takes a tiny HTML subset, so anything that is not our own markup has
+ *  to be escaped before it goes in — an «&» or a «<» in a note would otherwise break the row. */
+const escapeXml = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
 /**
  * The «Bereich» column: WHERE in the app this entry came from.
@@ -187,7 +195,7 @@ function withoutAreaPrefix(text: string): string {
 
 export function journalRows(
   events: TimelineEvent[], plans: PlanDocument[], fallbackDate?: string, closedAt?: string | null,
-  opts?: { includeBookkeeping?: boolean },
+  opts?: { includeBookkeeping?: boolean; vocab?: JournalLink[] },
 ): JournalPrintRow[] {
   const closedMs = closedAt ? Date.parse(closedAt) : NaN
   return events
@@ -208,6 +216,11 @@ export function journalRows(
         timeLabel: iso ? formatDateTime(iso) : e.t,
         area: journalArea(e, plans),
         text: withoutAreaPrefix(e.text),
+        // the same links the app marks, as bold on paper — the Rapport has no colour to spend,
+        // and bold is what a reader already reads as «this is a name» (lib/journalLinks)
+        markup: opts?.vocab?.length
+          ? linkMarkup(withoutAreaPrefix(e.text), opts.vocab, escapeXml)
+          : undefined,
         kind: e.kind,
         photoUrls: rowPhotos(e),
         audioUrl: e.audioUrl,

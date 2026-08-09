@@ -17,7 +17,8 @@ import {
   validateAudioImport,
 } from '../lib/audioImport'
 import type { JournalEntryType, TimelineEvent } from '../types'
-import { acceptName, journalMaterials, nameRanges, suggestNames, type JournalSource } from '../lib/journalEntry'
+import { acceptName, suggestLinks } from '../lib/journalEntry'
+import { linkParts, type JournalLink } from '../lib/journalLinks'
 import { useHoldRepeat } from '../lib/useHoldRepeat'
 import { useTapToType } from '../lib/useTapToType'
 import { useKeyboardInset } from '../lib/useKeyboardInset'
@@ -39,8 +40,6 @@ export interface JournalDraft {
   pin: boolean
   /** set in Wiedervorlage mode: ISO time this entry becomes due (makes it a reminder) */
   dueAt?: string
-  /** who reported it — a roster person (with id) or a free name (ELZ, Polizei, Melder) */
-  source?: { name: string; personId?: string }
   /** Info · Auftrag · Sofortmassnahme; absent = an ordinary entry */
   entryType?: JournalEntryType
 }
@@ -103,16 +102,14 @@ function TimeStepper({ hhmm, onChange }: { hhmm: string; onChange: (v: string) =
 // optionally pinned to the current view. Reachable from both surfaces (mounted
 // at app level), it records its own clip so the audio is attached to the entry
 // rather than auto-logged. `surface` only drives the pin label + default.
-export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, uploadAudio, sources = [], onSearchSource }: {
+export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, uploadAudio, vocab = [] }: {
   surface: 'map' | 'plan'
   onSubmit: (d: JournalDraft) => void
   onClose: () => void
-  /** the people on scene RIGHT NOW, officers first — offered as chips with no search step at
-   *  all (see lib/journalEntry · journalSources). Empty on a surface with no roster. */
-  sources?: JournalSource[]
-  /** open the full searchable roster for everybody who did not fit the chip row. Absent =
-   *  no «Weitere …» offer, which is right when the whole crew already fits. */
-  onSearchSource?: (pick: (s: JournalSource) => void) => void
+  /** everything this Einsatz has words for — Mannschaft, Mittel, Partnerorganisationen,
+   *  Fahrzeuge, Alarmgruppen (see lib/journalLinks · journalVocabulary). Typing three letters
+   *  of any of them completes it; whatever ends up in the text is marked. */
+  vocab?: JournalLink[]
   /** alarm/start time of the incident — prefill for the imported memo's «Aufnahme begann» */
   incidentStartAt?: string
   /** uploads an imported memo during save (large files never enter the offline queue) */
@@ -130,9 +127,9 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
   // name comes for free. A journal holding «Baumann», «Baumann M.» and «Bauman» is one nobody
   // can search afterwards, and that is the whole of it — accepting one inserts text, nothing
   // more. Who REPORTED the entry is the Von field below; the two are different questions.
-  const nameHits = useMemo(() => suggestNames(text, [...sources, ...journalMaterials()]), [text, sources])
-  // where the known names sit right now, so the field can mark them as you type
-  const marks = useMemo(() => nameRanges(text, sources), [text, sources])
+  const nameHits = useMemo(() => suggestLinks(text, vocab), [text, vocab])
+  // …and what is already in the text, so the field can mark it as you type
+  const parts = useMemo(() => linkParts(text, vocab), [text, vocab])
   const textRef = useRef<HTMLTextAreaElement>(null)
   const marksRef = useRef<HTMLDivElement>(null)
   // Accepting a Textbaustein must keep the operator in the writing flow: textarea stays
@@ -163,7 +160,6 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
   // Who said it, and what kind of statement it is. Both OPTIONAL and both empty by
   // default: the composer's job is still to take a sentence, and a form that asks two
   // questions before it accepts one is a form nobody opens at 3am.
-  const [source, setSource] = useState<{ name: string; personId?: string } | null>(null)
   const [entryType, setEntryType] = useState<JournalEntryType | null>(null)
   const [recording, setRecording] = useState(false)
   const [elapsed, setElapsed] = useState(0)
@@ -305,7 +301,7 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
       if (!alive.current) return // closed mid-upload — cancelled, no row
       onSubmit({
         text: text.trim(), pin, photoUrls: photos.length ? photos : undefined,
-        source: source ?? undefined, entryType: entryType ?? undefined,
+        entryType: entryType ?? undefined,
         audioUrl: url, secs: imported.durationSec ?? undefined,
         audioMeta: {
           source: 'imported', startedAt: startAt.toISOString(),
@@ -344,7 +340,7 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
     if (imported) { void submitImported(); return }
     onSubmit({
       text: text.trim(), audioUrl: clip?.url, secs: clip?.secs, photoUrls: photos.length ? photos : undefined, pin,
-      source: source ?? undefined, entryType: entryType ?? undefined,
+      entryType: entryType ?? undefined,
       audioMeta: clip ? { source: 'recorded', startedAt: clip.startedAt, durationSec: clip.secs } : undefined,
     })
   }
@@ -383,19 +379,12 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
             marks would drift off their words the moment the text got long. */}
         <div className="jc-text-wrap">
           <div className="jc-text-marks" ref={marksRef} aria-hidden>
-            {(() => {
-              const out: React.ReactNode[] = []
-              let at = 0
-              marks.forEach((r, i) => {
-                if (r.start > at) out.push(text.slice(at, r.start))
-                out.push(<mark key={i}>{text.slice(r.start, r.end)}</mark>)
-                at = r.end
-              })
-              // the trailing newline needs a character after it or the div collapses a line
-              // short of the textarea and every mark below it sits one line too high
-              out.push(`${text.slice(at)}\n`)
-              return out
-            })()}
+            {parts.map((p, i) => (p.kind
+              ? <mark key={i} className={`jc-mark-${p.kind}`}>{p.text}</mark>
+              : <span key={i}>{p.text}</span>))}
+            {/* the trailing newline needs a character after it or the div collapses a line
+                short of the textarea and every mark below it sits one line too high */}
+            {'\n'}
           </div>
         <textarea
           ref={textRef}
@@ -425,8 +414,8 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
           <div className="jc-phrases" role="group" aria-label={C.quickPhrasesAria}>
             {nameHits.map((n) => (
               <button
-                key={`n:${n.id ?? n.name}`}
-                className="jc-phrase jc-phrase-name"
+                key={`n:${n.kind}:${n.id ?? n.name}`}
+                className={`jc-phrase jc-phrase-link jc-link-${n.kind}`}
                 onPointerDown={(e) => e.preventDefault()}
                 onClick={() => takeName(n.name)}
               >{n.name}</button>
@@ -478,47 +467,6 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
             note to oneself, so it has no source and no kind. */}
         {mode === 'entry' && (
           <div className="jc-meta">
-            {/* ANWESENDE STEHEN SOFORT DA. A search box would make «wer hat es gesagt» more
-                work than typing the name into the sentence, and then nobody fills it in.
-                Re-tapping the chosen one clears it, so the field is never a trap. */}
-            <div className="jc-meta-row" role="group" aria-label={C.sourceLabel}>
-              <span className="jc-meta-lbl">{C.sourceLabel}</span>
-              {/* the chips are the crew who are HERE — six of them, because that is what fits
-                  two rows and who is standing at the Kommandoposten. Everybody else is reachable
-                  by typing (the suggestion row above searches the whole roster). */}
-              {sources.filter((sv) => sv.present).slice(0, 6).map((sv) => (
-                <button
-                  key={sv.id ?? sv.name}
-                  type="button"
-                  className={`jc-chip${source?.name === sv.name ? ' on' : ''}`}
-                  aria-pressed={source?.name === sv.name}
-                  onClick={() => setSource((cur) => (cur?.name === sv.name ? null : { name: sv.name, personId: sv.id }))}
-                >{sv.name}</button>
-              ))}
-              {/* not from the Mannschaft — in practice the majority of what gets reported */}
-              {C.sourcePresets.map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  className={`jc-chip${source?.name === preset ? ' on' : ''}`}
-                  aria-pressed={source?.name === preset}
-                  onClick={() => setSource((cur) => (cur?.name === preset ? null : { name: preset }))}
-                >{preset}</button>
-              ))}
-              {onSearchSource && (
-                <button
-                  type="button" className="jc-chip jc-chip-ghost"
-                  onClick={() => onSearchSource((sv) => setSource({ name: sv.name, personId: sv.id }))}
-                >{C.sourceMore}</button>
-              )}
-              {/* somebody picked through the search who is not on the chip row still has to be
-                  visible and clearable — otherwise the only sign of a set source is off-screen */}
-              {source && !sources.some((sv) => sv.name === source.name) && !C.sourcePresets.includes(source.name) && (
-                <button type="button" className="jc-chip on" aria-pressed
-                  title={C.sourceClear} onClick={() => setSource(null)}>{source.name}</button>
-              )}
-            </div>
-
             {/* Art — quiet by design: three small chips, none preselected. «Info» is the
                 ordinary case and prints no marker at all (lib/journalEntry). */}
             <div className="jc-meta-row" role="group" aria-label={C.typeLabel}>

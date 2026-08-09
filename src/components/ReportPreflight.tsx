@@ -24,6 +24,7 @@ import { incidentDays } from '../lib/zeitplanFormat'
 import type { AttendanceState, BoardDoc, BuildingDoc, CaptionMode, Drawing, Entity, LayerDef, LngLat, MittelEntry, Person, PlanDocument, ReportAttachment, TimelineEvent, Trupp } from '../types'
 import { visibleMittel } from '../lib/mittel'
 import { PersonField } from './PersonField'
+import { journalVocabulary } from '../lib/journalLinks'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import { DateTimeField, TimeField } from './TimeField'
 import { Stepper } from './Stepper'
@@ -422,6 +423,8 @@ export function ReportPreflight({
     try {
       await downloadDirectReportPdf({
         incident, draft, trupps, attendance, events, plans, mittel, attachments, scene: effScene, board, building,
+        // the printed journal marks the same terms the app marks (lib/journalLinks)
+        vocab: journalVocabulary(personnel, attendance),
         roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
       })
       // success needs no banner — the downloaded/opened PDF IS the feedback
