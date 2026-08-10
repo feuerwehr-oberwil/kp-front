@@ -315,6 +315,31 @@ def test_a_symbol_naming_somebody_absent_seeds_nothing():
     assert "note" not in ws["attendance"]["pid-1"]
 
 
+def test_every_person_named_on_a_demo_symbol_is_a_seeded_roster_name():
+    """Guards the DATASET: a name typed into a symbol's roster field must be spelled exactly the
+    way the roster serves it.
+
+    The scene file is hand-edited and the roster is generated, so the two can drift apart in a
+    way nothing notices — «Céline Widmer» on the Einsatzleiter symbol against a Mannschaft full
+    of «Widmer Céline» (fixed in b83c8ab, and still on the public demo weeks later). A mismatch
+    is not cosmetic: `_scene_roles` joins the two BY NAME, so a symbol whose spelling drifts
+    silently stops putting its Bemerkung on anybody's Anwesenheit row.
+
+    Covers every roster field on every symbol (appConfig · symbols.rosterFields), not just the
+    two that happen to carry a role today."""
+    scene = json.loads((Path(__file__).resolve().parents[2] / "examples/demo-data/incident.workspace.json").read_text())
+    roster = {dr.demo_display_name(first, last) for first, last in dr.DEMO_PEOPLE}
+    named = [
+        (e.get("symbol"), key, value)
+        for e in scene.get("entities") or []
+        for key, value in (e.get("fields") or {}).items()
+        if key in {"Name", "Fahrer", "Stv."} and (value or "").strip()
+    ]
+    assert named, "the demo scene should name somebody on at least one symbol"
+    unknown = [(sym, key, v) for sym, key, v in named if v.strip() not in roster]
+    assert not unknown, f"not spelled the way the roster serves them: {unknown}"
+
+
 def test_the_shipped_demo_scene_labels_its_einsatzleiter():
     """Guards the dataset, not the builder: the Einsatzleiter symbol in the demo scene must keep
     naming somebody who is seeded present, or the demo silently loses the label again."""
