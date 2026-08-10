@@ -34,11 +34,17 @@ async def seed_demo_personnel() -> int:
         rows = list((await db.execute(select(Personnel.display_name, Personnel.first_name, Personnel.last_name))).all())
         existing = {r.display_name for r in rows} | {(r.first_name, r.last_name) for r in rows}
         created = 0
-        for first, last in DEMO_PEOPLE:
+        for first, last, rank in DEMO_PEOPLE:
             if (first, last) in existing or demo_display_name(first, last) in existing:
                 continue
             db.add(
-                Personnel(display_name=demo_display_name(first, last), first_name=first, last_name=last, is_active=True)
+                Personnel(
+                    display_name=demo_display_name(first, last),
+                    first_name=first,
+                    last_name=last,
+                    rank=rank,
+                    is_active=True,
+                )
             )
             created += 1
         await db.commit()

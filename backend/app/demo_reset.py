@@ -75,6 +75,31 @@ DEMO_INCIDENT = {
     "divera_number": "2026-DEMO-000",
 }
 
+# A SECOND, already-closed Einsatz. The demo had exactly one incident, so three surfaces had
+# nothing to show: the Verlauf across incidents, the archive, and «Einsatz wechseln». A closed one
+# also demonstrates the state the running one cannot — a rapport that is done.
+#
+# Deliberately SMALL and archived: archived Einsätze do not surface on the landing card (they live
+# one tap below, in the Verlauf), so it exercises those surfaces without competing with the
+# Zimmerbrand for the visitor's first glance. A BMA-Fehlalarm is the right shape for it — the most
+# common turnout there is, over in twenty minutes, and the one every Wehr recognises.
+DEMO_CLOSED_INCIDENT = {
+    "title": "Brandmeldeanlage",
+    "type": "BMA",
+    "text": "Auslösung Brandmeldeanlage Gewerbestrasse 4, Melder 12 (Technikraum).",
+    "address": "Gewerbestrasse 4, 9999 Musterdorf",
+    "lat": 47.52104,
+    "lng": 7.56502,
+    "divera_id": 990002,
+    "divera_number": "2026-DEMO-001",
+}
+
+#: How long ago the closed Einsatz ran, and how long it lasted. Yesterday, so it is unambiguously
+#: a different day from the running one — that is what makes the Verlauf's day separators and the
+#: Rapport's date columns show what they are for.
+DEMO_CLOSED_AGO_H = 26
+DEMO_CLOSED_DURATION_MIN = 22
+
 # How long the incident has been running when the demo is viewed (drives the Einsatz clock).
 # Its own constant rather than a DEMO_INCIDENT key: it is the only numeric field consumed as a
 # number, and inside the mixed-value dict its type is just `object`.
@@ -90,35 +115,43 @@ DEMO_ELAPSED_MIN = 34
 # a real village Feuerwehr (not a dozen): the Anwesenheit list, the person pickers and the
 # Personalblatt only look like the real thing when picking a name means scrolling past the ones
 # who stayed home. Order is the roster order; who is actually on scene is DEMO_PRESENT below.
+#
+# ⚠️ Each entry carries a DIENSTGRAD (the third field), keyed to `roster.ranks` in
+# examples/demo-data/config.json. Without it every demo person was rankless, which quietly
+# switched off three things a visitor would otherwise see working: the Grad badge on every picker
+# row, the seniority sort those pickers use, and the «nur Offiziere» filter — which hides itself
+# when no option would match, so on the demo it simply never appeared. The shape is a militia
+# village Wehr's: a handful of Offiziere, a couple of Wachtmeister, a Gruppenführer per Gruppe,
+# and AdF as the large remainder.
 DEMO_PEOPLE = [
-    ("Hans", "Müller"),
-    ("Anna", "Meier"),
-    ("Peter", "Schmid"),
-    ("Laura", "Keller"),
-    ("Marco", "Weber"),
-    ("Sarah", "Huber"),
-    ("Thomas", "Brunner"),
-    ("Nina", "Frei"),
-    ("Michael", "Baumann"),
-    ("Céline", "Widmer"),
-    ("Stefan", "Graf"),
-    ("Petra", "Roth"),
-    ("Daniel", "Wyss"),
-    ("Sandra", "Lüthi"),
-    ("Reto", "Bachmann"),
-    ("Fabienne", "Steiner"),
-    ("Martin", "Zbinden"),
-    ("Simon", "Hofer"),
-    ("Andrea", "Kunz"),
-    ("Lukas", "Bieri"),
-    ("Jonas", "Rüegg"),
-    ("Melanie", "Schneider"),
-    ("Patrick", "Amrein"),
-    ("Corinne", "Studer"),
-    ("Beat", "Lehmann"),
-    ("Tobias", "Vogel"),
-    ("Silvia", "Marti"),
-    ("Roger", "Egger"),
+    ("Hans", "Müller", "gruppenfuehrer"),
+    ("Anna", "Meier", "feuerwehrmann"),
+    ("Peter", "Schmid", "gruppenfuehrer"),
+    ("Laura", "Keller", "feuerwehrmann"),
+    ("Marco", "Weber", "gruppenfuehrer"),
+    ("Sarah", "Huber", "feuerwehrmann"),
+    ("Thomas", "Brunner", "offizier"),
+    ("Nina", "Frei", "feuerwehrmann"),
+    ("Michael", "Baumann", "feuerwehrmann"),
+    ("Céline", "Widmer", "offizier"),
+    ("Stefan", "Graf", "wachtmeister"),
+    ("Petra", "Roth", "feuerwehrmann"),
+    ("Daniel", "Wyss", "gruppenfuehrer"),
+    ("Sandra", "Lüthi", "feuerwehrmann"),
+    ("Reto", "Bachmann", "wachtmeister"),
+    ("Fabienne", "Steiner", "feuerwehrmann"),
+    ("Martin", "Zbinden", "feuerwehrmann"),
+    ("Simon", "Hofer", "offizier"),
+    ("Andrea", "Kunz", "feuerwehrmann"),
+    ("Lukas", "Bieri", "feuerwehrmann"),
+    ("Jonas", "Rüegg", "gruppenfuehrer"),
+    ("Melanie", "Schneider", "feuerwehrmann"),
+    ("Patrick", "Amrein", "feuerwehrmann"),
+    ("Corinne", "Studer", "wachtmeister"),
+    ("Beat", "Lehmann", "offizier"),
+    ("Tobias", "Vogel", "feuerwehrmann"),
+    ("Silvia", "Marti", "feuerwehrmann"),
+    ("Roger", "Egger", "gruppenfuehrer"),
 ]
 
 
@@ -142,6 +175,16 @@ DEMO_JOURNAL = [
     (8, "Angriffstrupp 2 (Schmid) zur Brandbekämpfung 2. OG eingesetzt."),
     (5, "1 Person gerettet und an Sanität übergeben."),
     (2, "Brand unter Kontrolle, Nachlöscharbeiten laufen."),
+]
+
+#: The closed Einsatz's Verlauf — (minutes AFTER its own start, text). Short on purpose: what it
+#: demonstrates is a finished record, not a second worked incident.
+DEMO_CLOSED_JOURNAL = [
+    (0, "Alarmierung Brandmeldeanlage Gewerbestrasse 4, Melder 12."),
+    (6, "Eintreffen. Keine Rauchentwicklung sichtbar, Kontakt mit Hauswart."),
+    (11, "Technikraum kontrolliert: Wasserdampf aus defektem Ventil, kein Brand."),
+    (18, "Anlage zurückgestellt, Melder 12 überbrückt. Übergabe an Liegenschaftsverwaltung."),
+    (22, "Rückzug, Einsatz beendet."),
 ]
 
 # Who is physically present (Anwesenheit) — the nine Trupp members, the Einsatzleiter, and the
@@ -484,9 +527,11 @@ async def reset(wipe_objects: bool = True) -> None:
         # generated ids so the pre-filled Anwesenheit can reference real Person rows.
         await db.execute(delete(Personnel))
         people_rows: list[tuple[str, Personnel]] = []
-        for first, last in DEMO_PEOPLE:
+        for first, last, rank in DEMO_PEOPLE:
             name = demo_display_name(first, last)
-            p = Personnel(display_name=name, first_name=first, last_name=last, is_active=True)
+            # `rank` keys into roster.ranks (examples/demo-data/config.json). On a real station it
+            # arrives from Divera's Qualifikationen; the demo has no Divera, so it is seeded.
+            p = Personnel(display_name=name, first_name=first, last_name=last, rank=rank, is_active=True)
             db.add(p)
             people_rows.append((name, p))
         # The uuid4 primary key is a COLUMN default — SQLAlchemy assigns it at flush (INSERT), not
@@ -567,6 +612,64 @@ async def reset(wipe_objects: bool = True) -> None:
                 )
             )
 
+        # …and the closed BMA one day earlier (see DEMO_CLOSED_INCIDENT). It carries a finished
+        # `reportMeta` rather than a worked map: what it exists to show is an Einsatz whose rapport
+        # is DONE, and a second entry for «Einsatz wechseln» and the archive.
+        closed_start = now - timedelta(hours=DEMO_CLOSED_AGO_H)
+        closed_end = closed_start + timedelta(minutes=DEMO_CLOSED_DURATION_MIN)
+        closed = Incident(
+            title=DEMO_CLOSED_INCIDENT["title"],
+            type=DEMO_CLOSED_INCIDENT["type"],
+            priority="NORMAL",
+            text=DEMO_CLOSED_INCIDENT["text"],
+            address=DEMO_CLOSED_INCIDENT["address"],
+            lat=DEMO_CLOSED_INCIDENT["lat"],
+            lng=DEMO_CLOSED_INCIDENT["lng"],
+            status="abgeschlossen",
+            source="divera",
+            source_ref=DEMO_CLOSED_INCIDENT["divera_number"],
+            divera_id=DEMO_CLOSED_INCIDENT["divera_id"],
+            auto_opened=False,
+            started_at=closed_start,
+            started_at_source="alarm",
+            editor_opened_at=closed_start,
+            closed_at=closed_end,
+            is_archived=True,
+            map_workspace_json={
+                "reportMeta": {
+                    "einsatzleiter": DEMO_EINSATZLEITER,
+                    "alarmiertAt": _iso(closed_start),
+                    "ausgeruecktAt": _iso(closed_start + timedelta(minutes=4)),
+                    "endedAt": _iso(closed_end),
+                    "summary": (
+                        "Auslösung durch Wasserdampf im Technikraum. Kein Brand, keine Verletzten. "
+                        "Anlage vor Ort zurückgestellt und der Liegenschaftsverwaltung übergeben."
+                    ),
+                    "mittelConfirmedNone": True,
+                },
+            },
+            workspace_rev=1,
+        )
+        db.add(closed)
+        await db.flush()
+        for i, (mins, text) in enumerate(DEMO_CLOSED_JOURNAL, start=1):
+            db.add(
+                JournalEntry(
+                    incident_id=closed.id,
+                    client_id=f"demo-bma-{i}",
+                    seq=i,
+                    row_json={
+                        "id": f"demo-bma-{i}",
+                        "t": "",
+                        "at": _iso(closed_start + timedelta(minutes=mins)),
+                        "icon": "type",
+                        "text": text,
+                        "kind": "journal",
+                        "surface": "map",
+                    },
+                )
+            )
+
         for u in DEMO_USERS:
             user = (await db.execute(select(User).where(User.username == u["username"]))).scalar_one_or_none()
             if user is None:
@@ -580,12 +683,13 @@ async def reset(wipe_objects: bool = True) -> None:
             user.is_active = True
         await db.commit()
     logger.info(
-        "Demo reset: seeded 1 running incident (%d Trupps, %d Mittel, %d present, %d Verlauf), no "
-        "pending alarm, ensured %d user(s), %d people.",
+        "Demo reset: seeded 1 running incident (%d Trupps, %d Mittel, %d present, %d Verlauf) "
+        "+ 1 closed one (%d Verlauf), no pending alarm, ensured %d user(s), %d people.",
         len(workspace["trupps"]),
         len(workspace["mittel"]),
         len(present),
         len(DEMO_JOURNAL),
+        len(DEMO_CLOSED_JOURNAL),
         len(DEMO_USERS),
         len(DEMO_PEOPLE),
     )

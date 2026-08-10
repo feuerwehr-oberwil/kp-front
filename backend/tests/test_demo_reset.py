@@ -328,7 +328,7 @@ def test_every_person_named_on_a_demo_symbol_is_a_seeded_roster_name():
     Covers every roster field on every symbol (appConfig · symbols.rosterFields), not just the
     two that happen to carry a role today."""
     scene = json.loads((Path(__file__).resolve().parents[2] / "examples/demo-data/incident.workspace.json").read_text())
-    roster = {dr.demo_display_name(first, last) for first, last in dr.DEMO_PEOPLE}
+    roster = {dr.demo_display_name(first, last) for first, last, _rank in dr.DEMO_PEOPLE}
     named = [
         (e.get("symbol"), key, value)
         for e in scene.get("entities") or []
@@ -351,3 +351,25 @@ def test_the_shipped_demo_scene_labels_its_einsatzleiter():
         if a.get("note")
     }
     assert notes == {dr.DEMO_EINSATZLEITER: "Einsatzleiter", dr.demo_display_name("Stefan", "Graf"): "Fahrer TLF"}
+
+
+def test_every_seeded_rank_exists_in_the_demo_config():
+    """The Dienstgrad on a demo person is a KEY into `roster.ranks` in the demo config, and the
+    two live in different files. A key with no entry behind it is invisible rather than loud: the
+    Grad badge renders empty, the seniority sort files that person last, and «nur Offiziere»
+    quietly does not offer them — which is exactly how the demo ran rankless for months."""
+    cfg = json.loads((Path(__file__).resolve().parents[2] / "examples/demo-data/config.json").read_text())
+    keys = {r["key"] for r in cfg["roster"]["ranks"]}
+    seeded = {rank for _first, _last, rank in dr.DEMO_PEOPLE}
+    assert seeded <= keys, f"seeded ranks missing from roster.ranks: {sorted(seeded - keys)}"
+    # …and a rank nobody holds is a list entry that can never be seen on the demo
+    assert keys <= seeded, f"configured ranks nobody on the demo holds: {sorted(keys - seeded)}"
+
+
+def test_the_demo_has_officers_for_the_officer_filter_to_find():
+    """«nur Offiziere» hides itself when no option would match (Combo · hasOfficers), so a demo
+    with no officer-tier person shows a picker the real app does not have."""
+    cfg = json.loads((Path(__file__).resolve().parents[2] / "examples/demo-data/config.json").read_text())
+    officers = {r["key"] for r in cfg["roster"]["ranks"] if r.get("tier") == "officer"}
+    held = [rank for _f, _l, rank in dr.DEMO_PEOPLE if rank in officers]
+    assert len(held) >= 2, "the demo needs more than one Offizier for the filter to be worth showing"

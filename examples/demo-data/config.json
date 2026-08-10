@@ -54,12 +54,121 @@
         "id": "adf",
         "label": "ADF"
       }
+    ],
+    "attributeLists": [
+      {
+        "symbol": "VKF Fahrzeug",
+        "field": "title",
+        "options": [
+          "TLF",
+          "MTF",
+          "ADF"
+        ]
+      },
+      {
+        "symbol": "VKF Luefter mobil",
+        "field": "Typ",
+        "options": [
+          "Überdruck",
+          "Elektro",
+          "Schnellläufer",
+          "Exhauster",
+          "Grosslüfter",
+          "Akku"
+        ]
+      },
+      {
+        "symbol": "FW Kleinloeschgeraet",
+        "field": "Typ",
+        "options": [
+          "Wasser",
+          "Schaum",
+          "AB-Pulver",
+          "BC-Pulver",
+          "D-Pulver",
+          "F-Löschmittel",
+          "CO₂"
+        ]
+      },
+      {
+        "symbol": "VKF Bereich Feuerwehr",
+        "field": "Einheit",
+        "options": [
+          "Stützpunkt",
+          "Inspektorat",
+          "Nachbarwehr"
+        ]
+      },
+      {
+        "symbol": "VKF Bereich Sanitaet",
+        "field": "Einheit",
+        "options": [
+          "Rettungsdienst",
+          "Care-Team",
+          "Rega"
+        ]
+      },
+      {
+        "symbol": "VKF Bereich Polizei",
+        "field": "Einheit",
+        "options": [
+          "Kantonspolizei",
+          "Gemeindepolizei"
+        ]
+      },
+      {
+        "symbol": "FW Offizier",
+        "field": "Funktion",
+        "options": [
+          "Of-Front",
+          "Lüften",
+          "SiBe",
+          "Atemschutz",
+          "Retten",
+          "Logistik"
+        ]
+      }
+    ]
+  },
+  "roster": {
+    "nameOrder": "last-first",
+    "ranks": [
+      {
+        "key": "offizier",
+        "label": "Offizier",
+        "abbr": "Of",
+        "tier": "officer"
+      },
+      {
+        "key": "wachtmeister",
+        "label": "Wachtmeister",
+        "abbr": "Wm",
+        "tier": "nco"
+      },
+      {
+        "key": "gruppenfuehrer",
+        "label": "Gruppenführer",
+        "abbr": "Grfhr",
+        "tier": "nco"
+      },
+      {
+        "key": "feuerwehrmann",
+        "label": "Angehörige(r) der Feuerwehr",
+        "abbr": "AdF",
+        "tier": "crew"
+      }
     ]
   },
   "doctrine": {
-    "defaultChannel": "Kanal 1",
-    "agtContactIntervalMin": 10,
-    "warnLeadMin": 5
+    "defaultFunkkanal": 11,
+    "funkkanalMin": 1,
+    "funkkanalMax": 99,
+    "contactIntervalMin": 5,
+    "contactGraceSec": 60,
+    "defaultPressureBar": 300,
+    "pressureStep": 10,
+    "pressureMax": 320,
+    "alarmBar": 100
   },
   "mittel": {
     "sources": [
