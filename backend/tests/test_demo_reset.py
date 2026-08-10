@@ -38,6 +38,24 @@ def test_adds_live_collections():
     assert all(len(t["members"]) == 2 for t in ws["trupps"])
 
 
+def test_trupp_members_carry_roster_ids():
+    """A demo Trupp must LINK to the roster, not merely repeat its names.
+
+    Seeded with names alone, every member was an unlinked hand-typed entry: the Trupp form
+    tagged all nine «Gast», and the person picker kept offering people who were already in a
+    Trupp — the only thing joining the two was a string that had to match the served display
+    name exactly, which it stopped doing the moment the roster's name order differed."""
+    present = [(f"pid-{i}", n) for i, n in enumerate(sorted(dr.DEMO_PRESENT))]
+    by_name = {name: pid for pid, name in present}
+    trupps = build_demo_workspace(SCENE, present, NOW)["trupps"]
+    for t in trupps:
+        assert t["leaderPersonId"] == by_name[t["name"]]
+        assert t["memberPersonIds"] == [by_name[m] for m in t["members"]]
+    # …and no two Trupps claim the same person (one person, one Trupp)
+    ids = [t["leaderPersonId"] for t in trupps] + [p for t in trupps for p in t["memberPersonIds"]]
+    assert len(ids) == len(set(ids))
+
+
 def test_trupp_clocks_are_reset_relative():
     ws = _ws()
     # the field Trupps' contact is recent (< the 5-min interval) so they read "Kontakt OK"

@@ -230,6 +230,19 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
     ws = dict(scene)  # shallow copy; we only add top-level collections + retime the board chip
     hhmm = (now - timedelta(minutes=14)).astimezone(ZURICH).strftime("%H:%M")
 
+    # ⚠️ The Trupps carry ROSTER IDS, not just names (Trupp.leaderPersonId / memberPersonIds).
+    # Seeded with names alone, every demo Trupp member was an unlinked, hand-typed name: the
+    # form tagged all nine of them «Gast», and the person picker went on offering people who
+    # were already in a Trupp, because the only thing tying the two together was a string that
+    # had to match the served display name character for character. Which it did not the moment
+    # the roster's name order differed from the seed's. Ids are what everything else in the app
+    # joins on, so the demo joins on them too.
+    by_name = {name: pid for pid, name in present}
+
+    def _pid(first: str, last: str) -> str | None:
+        """The roster id of a seeded demo person, or None if they were not marked present."""
+        return by_name.get(demo_display_name(first, last))
+
     # Three Trupps: two in the field with a fresh Funkkontakt, one Sicherheitstrupp angemeldet.
     # The first links to the floor-stack chip already placed in board.gebaeude (annoId/planId).
     ws["trupps"] = [
@@ -237,6 +250,8 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
             "id": "trupp1",
             "name": demo_display_name("Hans", "Müller"),
             "members": [demo_display_name("Anna", "Meier"), demo_display_name("Thomas", "Brunner")],
+            "leaderPersonId": _pid("Hans", "Müller"),
+            "memberPersonIds": [_pid("Anna", "Meier"), _pid("Thomas", "Brunner")],
             "auftrag": "loeschen",
             "ziel": "2. OG",
             "lineNo": 1,
@@ -265,6 +280,8 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
             "id": "trupp2",
             "name": demo_display_name("Peter", "Schmid"),
             "members": [demo_display_name("Laura", "Keller"), demo_display_name("Nina", "Frei")],
+            "leaderPersonId": _pid("Peter", "Schmid"),
+            "memberPersonIds": [_pid("Laura", "Keller"), _pid("Nina", "Frei")],
             "auftrag": "retten",
             "ziel": "Rettung 2OG",
             # deliberately NO lineNo: the second Trupp is working without a numbered Leitung, so
@@ -288,6 +305,8 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
             "id": "trupp3",
             "name": demo_display_name("Marco", "Weber"),
             "members": [demo_display_name("Sarah", "Huber"), demo_display_name("Michael", "Baumann")],
+            "leaderPersonId": _pid("Marco", "Weber"),
+            "memberPersonIds": [_pid("Sarah", "Huber"), _pid("Michael", "Baumann")],
             "auftrag": "sichern",
             "ziel": "Sicherheitstrupp bereit",
             "funkkanal": 11,
