@@ -488,6 +488,10 @@ L = {
     "line": "Leitung",
     "entry": "Eintritt",
     "exit": "Austritt",
+    # A Sicherungstrupp that stood ready and was stood down never entered anything, so it has no
+    # «Eintritt» and its stamp is not an «Austritt». Printed as its own row — the sheet is the
+    # legal account, and a crew that was under PA and one that was not are different facts.
+    "notDeployed": "Nicht eingesetzt",
     "colTime": "Zeit",
     "colKind": "Art",
     "colPressure": "Druck bar",
@@ -1480,8 +1484,14 @@ def compose_report_pdf(
                 bits.append((L["line"], str(tr.lineNumber)))
             if tr.entryTime:
                 bits.append((L["entry"], tr.entryTime))
-            if tr.exitTime:
-                bits.append((L["exit"], tr.exitTime))
+                if tr.exitTime:
+                    bits.append((L["exit"], tr.exitTime))
+            elif tr.exitTime:
+                # closed without ever going under PA (atemschutz · truppNeverDeployed). Printing
+                # it as «Austritt» claimed the Trupp came out of something it never went into —
+                # on a Sicherungstrupp that is the difference between a crew that was exposed
+                # and one that was not, which is exactly what this sheet is read for.
+                bits.append((L["notDeployed"], tr.exitTime))
             return bits
 
         # ⚠️ ONE tab stop for the whole section, not one per Trupp. Sized per block, a Trupp with
@@ -1495,8 +1505,10 @@ def compose_report_pdf(
             label_w = max(_str_w(f"{k}:", "Helvetica-Bold", 9) for k in _labels) + 3 * mm
 
         for tr, meta_bits in zip(payload.trupps, _all_bits, strict=True):
-            # No status. A rapport is written after the fact, and «Im Einsatz» on a finished
-            # Einsatz states something that stopped being true before the sheet was printed.
+            # No status word. A rapport is written after the fact, and «Im Einsatz» on a
+            # finished Einsatz states something that stopped being true before the sheet was
+            # printed. The ONE state that outlives the Einsatz — a Trupp that never went under
+            # PA — is carried by its own «Nicht eingesetzt» row above (see _meta_bits).
             story.append(Paragraph(_esc(tr.name), st["h3"]))
             # A TABLE, not one Paragraph per line: as free lines each value started right after
             # its own label, so «AdF 1», «Auftrag / Ziel» and «Eintritt» put their values at three

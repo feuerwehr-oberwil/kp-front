@@ -145,6 +145,44 @@ def test_the_atemschutz_sheet_numbers_its_adf_the_way_the_form_does():
     assert "Gruppenführer" not in text
 
 
+def test_a_trupp_that_never_went_under_pa_says_so_instead_of_an_austritt():
+    """The Sicherungstrupp that stood ready and was stood down.
+
+    It carries an exit stamp like any closed Trupp, and the sheet printed that stamp as
+    «Austritt» — claiming a crew came out of a building it never entered. On the one document
+    that records who was exposed, that is the whole difference the row exists to state.
+    """
+    payload = ReportPayload.model_validate(
+        {
+            "incident": {"title": "Zimmerbrand", "id": "i"},
+            "generatedAt": "07.08.2026 09:00",
+            "proof": {"statusLabel": "intakt", "count": 1, "head": "0"},
+            "trupps": [
+                {
+                    "name": "Weber Marco",
+                    "statusLabel": "Nicht eingesetzt",
+                    "members": ["Huber Sarah"],
+                    "entryTime": None,
+                    "exitTime": "07.08.2026 03:40",
+                    "readings": [],
+                },
+                {
+                    "name": "Schmid Peter",
+                    "statusLabel": "Draussen",
+                    "members": [],
+                    "entryTime": "07.08.2026 03:05",
+                    "exitTime": "07.08.2026 03:32",
+                    "readings": [],
+                },
+            ],
+        }
+    )
+    text = _text(compose_report_pdf(payload, {}))
+    assert "Nicht eingesetzt" in text
+    # …and the Trupp that DID go in still gets the ordinary pair
+    assert "Eintritt" in text and "Austritt" in text
+
+
 def test_the_pressure_log_shares_the_trupps_left_edge():
     """The readings table is narrower than the frame, so ReportLab's default CENTER floated it
     into the middle of the page while the Trupp name and «Auftrag / Ziel» above it sat at the
