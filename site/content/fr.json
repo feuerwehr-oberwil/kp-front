@@ -19,7 +19,7 @@
     "h1": "La conduite d’intervention numérique pour les sapeurs-pompiers.",
     "lede": "KP Front est le poste de commandement numérique sur les lieux :\n      <strong>situation, plans, protection respiratoire, journal et rapport</strong> dans une seule application.",
     "cta": "Ouvrir la démo",
-    "ctaNote": "Sans connexion – dans la démo, il y a le feu à Musterdorf (interface en allemand)",
+    "ctaNote": "Sans inscription – dans la démo, il y a le feu à Musterdorf (interface en allemand)",
     "frameAddr": "LAGE · ZIMMERBRAND · 2611624 / 1263070",
     "frameAlt": "Vue Situation : carte tactique avec signes conventionnels CSSP, secteurs et conduites"
   },
@@ -44,7 +44,7 @@
   "tenet": {
     "eyebrow": "La mesure de toute chose",
     "quote": "«&nbsp;Utilisable à <em>3 heures du matin</em> – après six mois sans exercice&nbsp;»",
-    "expl": "Dans un corps de milice, personne n’est devant l’écran tous les jours. L’application\n        doit donc être faite pour être utilisée juste, à moitié endormi :\n        <strong>l’essentiel visible d’emblée, de bons réglages par défaut plutôt que des options,\n        et rien qui ne puisse être annulé.</strong>"
+    "expl": "Dans un corps de milice, personne n’est devant l’écran tous les jours. L’application\n        doit donc pouvoir être utilisée correctement à moitié endormi :\n        <strong>l’essentiel visible d’emblée, de bons réglages par défaut plutôt que des options,\n        et rien qui ne puisse être annulé.</strong>"
   },
   "incident": {
     "eyebrow": "De l’alarme au rapport",
@@ -55,7 +55,7 @@
         "time": "03:01",
         "tag": "Alarme",
         "h3": "L’alarme arrive.",
-        "p": "Reprendre en un geste une alarme du système d’alarme (p.&nbsp;ex. Divera) – ou démarrer\n            à la main depuis une adresse, un objet ou la carte. Le lieu et les données de l’objet\n            sont là avant que le premier véhicule ne roule."
+        "p": "Reprendre en un geste une alarme de votre système d’alerte (p.&nbsp;ex. Divera) – ou démarrer\n            à la main depuis une adresse, un objet ou la carte. Le lieu et les données de l’objet\n            sont là avant que le premier véhicule ne roule."
       },
       {
         "time": "03:07",
@@ -66,8 +66,8 @@
       {
         "time": "03:12",
         "tag": "Protection respiratoire",
-        "h3": "Le équipe 1 entre.",
-        "p": "Pression, moment du repli et temps depuis le dernier contact tournent pour chaque équipe.\n            L’application se manifeste avant que cela ne devienne juste – même si personne\n            ne regarde l’heure à ce moment-là."
+        "h3": "L’équipe 1 entre.",
+        "p": "Pression, moment du repli et temps depuis le dernier contact sont décomptés pour chaque équipe.\n            L’application se manifeste avant que la marge ne devienne trop courte – même si personne\n            ne regarde l’heure à ce moment-là."
       },
       {
         "time": "03:18",
@@ -85,12 +85,12 @@
         "time": "04:30",
         "tag": "Horaires",
         "h3": "La relève se planifie, elle ne s’estime pas.",
-        "p": "Si la nuit s’annonce longue, les Horaires planifient pour chaque personne de quand à\n            quand elle est disponible et quand elle est engagée. La courbe de couverture montre\n            où il manque du monde – avant que le trou ne soit là. Les Présences n’en sont pas\n            touchées : ici on planifie, là on pointe."
+        "p": "Si la nuit s’annonce longue, les Horaires planifient pour chaque personne de quand à\n            quand elle est disponible et quand elle est engagée. La courbe de couverture montre\n            où il manque du monde – avant que le trou ne soit là. Les Présences n’en sont pas\n            concernées : ici on planifie, là on pointe."
       },
       {
         "time": "05:55",
         "tag": "Rapport",
-        "h3": "À la rentrée, le rapport est presque terminé.",
+        "h3": "Au retour à la caserne, le rapport est presque terminé.",
         "p": "Situation, effectif, moyens et journal alimentent directement le rapport.\n            Personne n’a à reconstituer la nuit de mémoire."
       },
       {
@@ -120,7 +120,7 @@
       {
         "alt": "Vue Bâtiment : étages superposés avec l’affectation des équipes",
         "title": "Bâtiment",
-        "sub": "Les étages les uns sur les autres – quel équipe travaille à quel niveau"
+        "sub": "Les étages les uns sur les autres – quelle équipe travaille à quel niveau"
       },
       {
         "alt": "Journal : entrées chronologiques à côté de la carte",
@@ -130,7 +130,7 @@
       {
         "alt": "Présences : liste de l’effectif avec les heures d’arrivée",
         "title": "Présences",
-        "sub": "Qui est rentré et depuis quand – la base de la liste d’effectif et du rapport"
+        "sub": "Qui est arrivé et depuis quand – la base de la liste d’effectif et du rapport"
       },
       {
         "alt": "Horaires : grille des tours, une ligne par personne, barres planifiées et réelles, courbe de couverture en dessous",
@@ -150,14 +150,14 @@
       {
         "alt": "Rapport d’intervention avant impression : présences et moyens déjà repris, en dessous les sections du PDF à cocher",
         "title": "Rapport",
-        "sub": "Presque terminé à la rentrée – contrôler, compléter, exporter en PDF, lancer l’impression"
+        "sub": "Presque terminé au retour à la caserne – contrôler, compléter, exporter en PDF, lancer l’impression"
       }
     ]
   },
   "change": {
     "eyebrow": "Le changement",
     "h2": "Ce qui change.",
-    "lede": "Rien de tout cela n’est cassé aujourd’hui – la carte de situation sur papier fonctionne\n        depuis des décennies. KP Front prend les mêmes places, simplement sans recopier.",
+    "lede": "Rien de tout cela n’est cassé aujourd’hui – la carte de situation sur papier fonctionne\n        depuis des décennies. KP Front occupe les mêmes fonctions, simplement sans recopiage.",
     "headToday": "Aujourd’hui",
     "headWith": "Avec KP Front",
     "rows": [
@@ -179,7 +179,7 @@
       },
       {
         "today": "Rapport le lendemain",
-        "with": "Rapport à la rentrée"
+        "with": "Rapport au retour à la caserne"
       },
       {
         "today": "Débriefing de mémoire",
@@ -257,7 +257,7 @@
     "items": [
       {
         "q": "Pourquoi changer ?",
-        "a": "Tout le monde voit la même situation au même moment – au véhicule de commandement,\n          sur la tablette et chez le chef d’intervention. Aucune annonce ne se perd sur un bout de\n          papier. La surveillance PR se manifeste d’elle-même avant que cela ne devienne juste.\n          Moins de trafic radio pour des questions dont la réponse est déjà sur le tableau de la\n          situation – et le rapport est presque terminé à la rentrée, au lieu du week-end suivant.\n          KP Front aide la direction d’intervention à garder une situation sans contradictions et à rendre\n          les écarts visibles : une équipe sans contact radio, un véhicule qui n’est nulle part,\n          une annonce qui n’est jamais venue."
+        "a": "Tout le monde voit la même situation au même moment – au véhicule de commandement,\n          sur la tablette et chez le chef d’intervention. Aucune annonce ne se perd sur un bout de\n          papier. La surveillance PR se manifeste d’elle-même avant que la marge ne devienne trop courte.\n          Moins de trafic radio pour des questions dont la réponse est déjà sur le tableau de la\n          situation – et le rapport est presque terminé au retour à la caserne, au lieu du week-end suivant.\n          KP Front aide la direction d’intervention à garder une situation sans contradictions et à rendre\n          les écarts visibles : une équipe sans contact radio, un véhicule qui n’est nulle part,\n          une annonce qui n’est jamais venue."
       },
       {
         "q": "À qui appartiennent les données ?",
