@@ -8,6 +8,7 @@ import { cx } from '../lib/cx'
 import { appConfig } from '../config/appConfig'
 import { useKeptState } from '../lib/draftKeep'
 import { fillTemplate, fmtSpanShort, hhmm, stripUnprintable } from '../lib/format'
+import { personnelProviderName } from '../lib/deploymentConfig'
 import { applyTimeToIso, isoOnDay } from '../lib/abschluss'
 import { rankAbbr, rankLabel, rankOrder } from '../lib/rank'
 import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
@@ -438,6 +439,8 @@ export function AnwesenheitView({
     return () => clearInterval(t)
   }, [view])
   const A = appConfig.copy.anwesenheit
+  // the roster's source, named only where this station has one (see deploymentConfig)
+  const rosterProvider = personnelProviderName()
 
   // Distinct ranks present in the roster, most senior first — drives the quick-filter chips.
   // Only shown when at least one member carries a rank (else the row is noise).
@@ -765,7 +768,9 @@ export function AnwesenheitView({
 
       {empty ? (
         <EmptyState className="empty-fill" icon={error ? 'warn' : 'people'}
-          title={error ? A.loadFailedTitle : A.emptyTitle} sub={error ? A.loadFailedHint : A.emptyHint}
+          title={error ? A.loadFailedTitle : A.emptyTitle}
+          sub={error ? A.loadFailedHint
+            : rosterProvider ? fillTemplate(A.emptyHintSync, { provider: rosterProvider }) : A.emptyHint}
           action={<button type="button" className="ip-btn" onClick={onReload} disabled={loading}><Icon id="rotate" /> {A.retry}</button>} />
       ) : !rows.length ? (
         <div className="ip-ac-note ip-ac-note-center">{A.noMatches}</div>
@@ -818,7 +823,9 @@ export function AnwesenheitView({
                   className={s.personMain}
                   disabled={!canEdit}
                   onClick={() => cycle(p)}
-                  title={locked ? A.lockedTitle : !p.active ? A.notInDivera : undefined}
+                  title={locked ? A.lockedTitle
+                    : !p.active ? (rosterProvider ? fillTemplate(A.notInSource, { provider: rosterProvider }) : A.notInDivera)
+                      : undefined}
                 >
                   <span className={cx(s.dot, present && s.dotPresent, left && s.dotLeft, !present && !left && s.dotFrei)} />
                   {p.rank && <span className={s.rank} title={rankLabel(p.rank)}>{rankAbbr(p.rank)}</span>}

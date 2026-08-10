@@ -3,7 +3,7 @@ import './app.css'
 import { IconSprite, Icon } from './lib/icons'
 import { demoClockAnchor, latestTruppStamp, rebaseDemoClocks, type Saved } from './lib/workspace'
 import { appConfig } from './config/appConfig'
-import { shortAddress, isDemoMode } from './lib/deploymentConfig'
+import { shortAddress, isDemoMode, alarmProviderName } from './lib/deploymentConfig'
 import { fillTemplate, initials, roleLabel } from './lib/format'
 import { Overlays, toast, confirmDialog } from './lib/ui'
 import { loadPrefs, savePrefs } from './lib/prefs'
@@ -482,6 +482,8 @@ export default function App() {
   // (with its own margin) and skipped the sentence explaining what to do. A hole where the
   // explanation should be, on the one screen whose whole job is «what now».
   const landingAlarms = isEditor ? poolAlarms.filter((a) => !dismissedAlarms.has(a.divera_id)) : []
+  // the Alarmquelle's own name, or null where this station has none (deploymentConfig)
+  const alarmProvider = alarmProviderName()
   const hasLanding = openIncidents.length > 0 || landingAlarms.length > 0
 
   return (
@@ -580,7 +582,16 @@ export default function App() {
               // A link session only ever lands here when ITS incident couldn't be fetched
               // (signal lost between the link and the incident) — say that instead of an
               // "eröffne einen Einsatz" it can't act on.
-              <p className="ip-emptyapp-none">{linkScoped ? appConfig.copy.incidentLink.unavailable : isEditor ? appConfig.copy.emptyApp.bodyEditor : appConfig.copy.emptyApp.bodyViewer}</p>
+              // ⚠️ «übernimm einen Divera-Alarm» only where there IS an Alarmquelle, and named
+              // after whichever one this station runs. Every station saw the Divera sentence —
+              // including the ones on another source and the ones entering every Einsatz by
+              // hand, who were pointed at a product they do not have.
+              <p className="ip-emptyapp-none">{
+                linkScoped ? appConfig.copy.incidentLink.unavailable
+                  : !isEditor ? appConfig.copy.emptyApp.bodyViewer
+                    : alarmProvider ? fillTemplate(appConfig.copy.emptyApp.bodyEditorAlarm, { provider: alarmProvider })
+                      : appConfig.copy.emptyApp.bodyEditor
+              }</p>
             )}
             <div className="ip-emptyapp-actions">
               {isEditor && (

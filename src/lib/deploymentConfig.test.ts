@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { IDBFactory } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getDeploymentConfig, loadDeploymentConfigBounded, mapReferenceLayers, stripLocality } from './deploymentConfig'
+import { alarmProviderName, getDeploymentConfig, loadDeploymentConfig, loadDeploymentConfigBounded, mapReferenceLayers, personnelProviderName, stripLocality } from './deploymentConfig'
 import { idbSet, __resetIdbForTests } from './idb'
 
 describe('mapReferenceLayers', () => {
@@ -121,5 +121,49 @@ describe('loadDeploymentConfigBounded — first paint is never held hostage', ()
   it('resolves to {} on a stalled request with no cache (first-ever boot) — never hangs', async () => {
     fetchMock.mockReturnValueOnce(new Promise(() => {}))
     await expect(loadDeploymentConfigBounded(30)).resolves.toEqual({})
+  })
+})
+
+// ⚠️ Copy must never hard-code «Divera». Every station saw «übernimm einen Divera-Alarm» — the
+// ones on another source, and the ones entering every Einsatz by hand, who were being pointed at
+// a product they do not have. The neutral sentence is the default; naming a source is the
+// exception, and `null` here is what selects it.
+describe('naming the Alarm-/Personalquelle only where there is one', () => {
+  const load = async (cfg: unknown) => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(cfg), {
+      status: 200, headers: { 'content-type': 'application/json' },
+    })))
+    await loadDeploymentConfig()
+  }
+  afterEach(() => { vi.unstubAllGlobals() })
+
+  it('is null on a station with no integrations at all — the hand-entry case', async () => {
+    await load({})
+    expect(alarmProviderName()).toBeNull()
+    expect(personnelProviderName()).toBeNull()
+  })
+
+  it('is null when a provider is registered but NOT configured', async () => {
+    // «registered» is a code capability; «configured» is env. Only the second one means a
+    // station can actually take an alarm, and unset must not look like working.
+    await load({ integrations: { alarms: { provider: 'divera', configured: false, capabilities: [] } } })
+    expect(alarmProviderName()).toBeNull()
+  })
+
+  it('names whichever provider this station runs, not Divera by default', async () => {
+    await load({ integrations: { alarms: { provider: 'ilias', configured: true, capabilities: [] } } })
+    expect(alarmProviderName()).toBe('Ilias')
+  })
+
+  it('still answers for an older backend that only sends the legacy flag', async () => {
+    await load({ integrations: { diveraConfigured: true } })
+    expect(alarmProviderName()).toBe('Divera')
+    expect(personnelProviderName()).toBe('Divera')
+  })
+
+  it('keeps the two sources apart — a station can sync people without taking alarms', async () => {
+    await load({ integrations: { personnel: { provider: 'divera', configured: true, capabilities: [] } } })
+    expect(personnelProviderName()).toBe('Divera')
+    expect(alarmProviderName()).toBeNull()
   })
 })

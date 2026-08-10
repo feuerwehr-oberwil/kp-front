@@ -243,6 +243,32 @@ export interface ProviderRegistration {
   capabilities: string[]
 }
 
+/**
+ * The name to put in front of a user when a sentence has to NAME the source — «übernimm einen
+ * Divera-Alarm», «Nicht mehr in Divera». `null` when this station has no such provider.
+ *
+ * ⚠️ Copy must never hard-code «Divera». It is one alarm source among several (the app went
+ * provider-neutral for exactly this reason), and a station running on something else — or on
+ * nothing, entering every Einsatz by hand — was being told to take an alarm from a product it
+ * does not have. The neutral sentence is the DEFAULT and the provider variant is the exception,
+ * so a new provider costs nothing and an unconfigured station is never sent looking.
+ */
+export function alarmProviderName(): string | null {
+  const i = getDeploymentConfig().integrations
+  const p = i?.alarms
+  if (p?.configured && p.provider) return providerLabel(p.provider)
+  // legacy flag, still served by older backends that predate the provider registry
+  return i?.diveraConfigured ? providerLabel('divera') : null
+}
+
+/** …the same for the roster's source — «Mannschaft aus X synchronisieren», «Nicht mehr in X». */
+export function personnelProviderName(): string | null {
+  const i = getDeploymentConfig().integrations
+  const p = i?.personnel
+  if (p?.configured && p.provider) return providerLabel(p.provider)
+  return i?.diveraConfigured ? providerLabel('divera') : null
+}
+
 /** Display label for a provider slug ('divera' → 'Divera'); the slug stays the wire format. */
 export const providerLabel = (slug: string): string =>
   slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : slug

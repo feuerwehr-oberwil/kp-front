@@ -214,7 +214,7 @@ export const de = {
           { kind: 'list', items: [
             '**Aufgaben** – Einsatz-Checklisten (z. B. FU, Lagerapport) mit Fortschrittsanzeige; Punkte abhaken, Verzweigungen folgen mehrstufigen Abläufen.',
             '**Taktik · Stichworte** – Stichwort suchen und den passenden Eintrag öffnen (mit Gefahren-Farbcode und Skizzen).',
-            'Bei einem übernommenen Divera-Alarm wird automatisch ein passendes Stichwort vorgeschlagen.',
+            'Bei einem übernommenen Alarm wird automatisch ein passendes Stichwort vorgeschlagen.',
           ] },
           { kind: 'lead', text: 'Der Stand bleibt erhalten und wird auf alle Geräte synchronisiert.' },
         ],
@@ -239,7 +239,7 @@ export const de = {
           { kind: 'lead', text: 'Alles im Einsatz-Menü (Name oben links).' },
           { kind: 'list', items: [
             '**Einsatz wechseln** zwischen den offenen Einsätzen; **Neuer Einsatz** (Ort auf der Karte wählbar).',
-            '**Divera-Pool** – eingehende Alarme übernehmen.',
+            '**Alarm-Pool** – eingehende Alarme übernehmen (nur wo eine Alarmquelle angebunden ist).',
             '**Einsätze** – Archiv/frühere Einsätze öffnen.',
             '**Aktuellen archivieren** schliesst den laufenden Einsatz ab.',
           ] },
@@ -2001,9 +2001,15 @@ export const de = {
   emptyApp: {
     title: 'Kein offener Einsatz',
     bodyViewer: 'Zurzeit ist kein Einsatz aktiv.',
-    bodyPoolOne: '1 Divera-Alarm im Pool – eröffnen und auf der Karte prüfen.',
-    bodyPoolMany: '{n} Divera-Alarme im Pool – eröffnen und auf der Karte prüfen.',
-    bodyEditor: 'Eröffne einen Einsatz oder übernimm einen Divera-Alarm.',
+    bodyPoolOne: '1 Alarm im Pool – eröffnen und auf der Karte prüfen.',
+    bodyPoolMany: '{n} Alarme im Pool – eröffnen und auf der Karte prüfen.',
+    // ⚠️ The NEUTRAL sentence is the default; the one naming the Alarmquelle is the exception.
+    // «übernimm einen Divera-Alarm» was shown to every station — including the ones running on
+    // another source, and the ones entering every Einsatz by hand, who were being pointed at a
+    // product they do not have. Which name (if any) appears comes from
+    // deploymentConfig · alarmProviderName().
+    bodyEditor: 'Eröffne einen Einsatz.',
+    bodyEditorAlarm: 'Eröffne einen Einsatz oder übernimm einen {provider}-Alarm.',
     history: 'Verlauf',
   },
   // «Neuer Einsatz» banner — announces an Einsatz that appeared mid-session (auto-open, a
@@ -2815,11 +2821,14 @@ export const de = {
     loadFailedTitle: 'Mannschaft konnte nicht geladen werden.',
     loadFailedHint: 'Offline oder Server nicht erreichbar. Zuletzt geladene Liste bleibt erhalten.',
     emptyTitle: 'Keine Mannschaft vorhanden.',
-    emptyHint: 'Synchronisiere die Mannschaft aus Divera.',
+    // same rule as emptyApp.bodyEditor: name the source only where there is one to name
+    emptyHint: 'Noch keine Mannschaft erfasst.',
+    emptyHintSync: 'Synchronisiere die Mannschaft aus {provider}.',
     retry: 'Erneut versuchen',
     noMatches: 'Keine Treffer.',
     lockedTitle: 'Im Atemschutz-Trupp – zuerst Trupp draussen melden',
-    notInDivera: 'Nicht mehr in Divera',
+    notInDivera: 'Nicht mehr auf der Mannschaftsliste',
+    notInSource: 'Nicht mehr in {provider}',
     weg: 'weg',
     // time chip on anwesend/gegangen rows — tap to correct a wrong auto-stamped time
     editTime: 'Zeit anpassen',
