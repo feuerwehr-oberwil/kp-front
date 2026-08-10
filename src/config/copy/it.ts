@@ -600,7 +600,7 @@ export const it: Localizable<Copy> = {
     reminderSend: 'Imposta promemoria',
     reminderSaved: 'Promemoria impostato',
     reminderNeedsDue: 'Scegli la scadenza',
-    reminderCreated: 'Promemoria: {text}',
+    reminderCreated: 'Promemoria impostato per le {t}: {text}',
     dueTitle: 'Promemoria in scadenza',
     dueOne: 'Promemoria in scadenza',
     dueMany: '{n} promemoria in scadenza',

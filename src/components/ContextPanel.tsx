@@ -31,7 +31,7 @@ function FieldControl({ fieldKey, value, options, placeholder, officerFilter, ra
   /** roster picker: sort officers first + offer the "nur Offiziere" filter (leadership symbols) */
   officerFilter?: boolean
   rankOf?: (name: string) => string | undefined
-  /** what is already known about a person — «unter PA», «Magazin», «gegangen» (roster fields) */
+  /** what is already known about a person — «unter AS», «Magazin», «gegangen» (roster fields) */
   statusOf?: (name: string) => { label: string; tone?: 'warn' | 'muted' | 'info' } | undefined
   onInput: (v: string) => void   // live edit (no commit) while typing
   onCommit: (v: string) => void  // commit immediately (tab/select/blur)
@@ -142,7 +142,7 @@ interface Props {
   /** what is already known about a roster name — shown ON the dropdown entry */
   personStatus?: (name: string) => { label: string; tone?: 'warn' | 'muted' | 'info' } | undefined
   /** ⚠️ The contradiction a filled roster field carries, by field key, shown UNDER the field
-   *  and permanently. It used to be a toast: «Brunner Thomas ist unter PA» appeared three
+   *  and permanently. It used to be a toast: «Brunner Thomas ist unter AS» appeared three
    *  seconds after the pick and then went away, so the one place it mattered — the field it is
    *  about — never said anything at all. */
   fieldHints?: Record<string, string | undefined>

@@ -201,7 +201,7 @@ export const de = {
             'Status **Angemeldet → Im Einsatz → Rückzug → Draussen**. **Rückzug** lässt sich mit **Fortsetzen** widerrufen; ein draussener Trupp geht mit **Wieder einrücken** (neue Flasche) zurück in die Überwachung.',
             '**Verlauf** je Trupp (ausklappbar) zeigt jeden Kontakt mit Uhrzeit und Druck.',
             '**Bearbeiten** (Stift) passt Auftrag, Ziel/Stockwerk oder Trupp mitten im Einsatz an.',
-            'Wer unter PA ist, lässt sich in der **Anwesenheit** nicht abmelden – ein Tipp auf die Zeile springt stattdessen auf die Karte dieses Trupps und hebt sie kurz hervor.',
+            'Wer unter AS ist, lässt sich in der **Anwesenheit** nicht abmelden – ein Tipp auf die Zeile springt stattdessen auf die Karte dieses Trupps und hebt sie kurz hervor.',
             'Überfällige Trupps rücken nach oben, oben erscheint ein Zähler; der **Alarmton** ist pro Gerät stummschaltbar (Glocke). Alles landet im Verlauf.',
             'Jeder Trupp lässt sich auf dem Plan platzieren (Knopf „auf Plan zeigen").',
           ] },
@@ -805,6 +805,27 @@ export const de = {
     undo: 'Aktion rückgängig gemacht',
     redo: 'Aktion wiederholt',
     journalNote: 'Notiz',
+    // ⚠️ EDITING the Kroki, not just placing and removing on it (10.08.). A symbol got one row
+    // when it appeared and one when it went, and everything in between — the Stockwerk, the name
+    // of the Einsatzleiter typed into its field, the Anzahl, eine Ausbreitung — changed the
+    // picture the Einsatz is led from without a single line in the record. Each of these names
+    // the VALUE: «Stockwerk geändert» would send a reader to the replay for the one thing a
+    // printed rapport cannot do.
+    entityEdited: '{name}: {changes}',
+    fieldSet: '{field}: {value}',
+    fieldChanged: '{field} auf {value} geändert',
+    fieldCleared: '{field} geleert',
+    labelSet: 'Beschriftung «{value}»',
+    labelCleared: 'Beschriftung entfernt',
+    floorSet: 'Stockwerk {value}',
+    floorCleared: 'Stockwerk entfernt',
+    floorRangeSet: 'Stockwerke {from} – {to}',
+    floorRangeCleared: 'Stockwerk-Bereich entfernt',
+    countSet: 'Anzahl {n}',
+    spreadSet: 'Ausbreitung erfasst',
+    spreadCleared: 'Ausbreitung entfernt',
+    notesWritten: 'Notiz erfasst',
+    notesCleared: 'Notiz geleert',
   },
   // unified, append-only journal (Verlauf) shared by Lage + Plan
   journal: {
@@ -922,7 +943,12 @@ export const de = {
     reminderSend: 'Erinnerung setzen',
     reminderSaved: 'Erinnerung gesetzt',
     reminderNeedsDue: 'Fälligkeit wählen',
-    reminderCreated: 'Erinnerung: {text}',
+    // ⚠️ The row a reminder writes WHEN IT IS SET. It used to carry the bare reminder text, so
+    // the Verlauf held «Lüfter prüfen» among a hundred other lines and the only row that said
+    // the word «Erinnerung» was the one saying it had been done — the record showed an answer
+    // with no question. The Fälligkeit belongs in it too: what was decided at 21:40 was not
+    // «Lüfter prüfen», it was «Lüfter prüfen, um 22:10».
+    reminderCreated: 'Erinnerung gesetzt für {t}: {text}',
     // due banner + actions
     dueTitle: 'Erinnerung fällig',
     dueOne: 'Erinnerung fällig',
@@ -931,6 +957,13 @@ export const de = {
     dueSnooze: '+10 min',
     dueOpen: 'In Verlauf öffnen',
     openCount: '{n} offen',
+    // ⚠️ Offene Erinnerungen are held at the TOP of the Verlauf, out of chronological order.
+    // Everything else in this list is where it happened, because the Verlauf is the record —
+    // but a Wiedervorlage is the one row that is about the FUTURE, and on a busy Einsatz it
+    // was thirty rows up within ten minutes. Held here it cannot be scrolled past; the row it
+    // came from stays in its place in the chronology, this is a second view of it.
+    openRemindersHead: 'Offene Erinnerungen',
+    openReminderGo: 'Zum Eintrag springen',
     doneLog: 'Erinnerung erledigt: {text}',
     snoozeLog: 'Erinnerung +{mins} min: {text}',
     // Verlauf reminder row: due label + done toggle (checklist-style)
@@ -1020,9 +1053,12 @@ export const de = {
     // fields could name a Trupp but not rearrange it: whoever was typed first was Gruppenführer
     // forever. The star is the correction, and it costs one tap.
     teamEmpty: 'Noch niemand im Trupp. Unten antippen.',
-    // Four slots are always there — that is what a Trupp looks like (GF + 3), and an empty slot
+    // Three slots are always there — that is what a Trupp looks like (GF + 2), and an empty slot
     // says «hier kommt der nächste hin» more clearly than a sentence. The row itself picks the GF.
-    teamSlotEmpty: '—',
+    // ⚠️ The slot wears its ROLE in the badge column (leaderBadge / memberLabel); this is only the
+    // quiet placeholder in the name column, and it is the same en dash every other empty value in
+    // the app uses — not an em dash, which read as a heavier statement than «noch niemand».
+    teamSlotEmpty: '–',
     teamSearchPlaceholder: 'Person suchen …',
     teamNoMatches: 'Kein Treffer',
     leaderBadge: 'GF',
@@ -1057,6 +1093,13 @@ export const de = {
     logLineUnlinked: 'Trupp {name}: Leitung gelöst',
     pressureLabel: 'Eingangsdruck (bar)',
     newPressureLabel: 'Neuer Eingangsdruck (bar)',
+    // ⚠️ «Trupp bearbeiten» shows the Eingangsdruck too. It used to be the one field the form
+    // hid, so a mistyped 200 for 300 at der Anmeldung could only be corrected by deleting the
+    // Trupp — and the Eingangsdruck is what every Verbrauchsrechnung and the tiefster Druck on
+    // the Rapport are measured against. Correcting it does NOT touch the contact clock: this is
+    // a correction of what was written down, not a new Druckmeldung (that is the card's ± ).
+    editPressureLabel: 'Eingangsdruck korrigieren (bar)',
+    editPressureHint: 'Korrigiert den erfassten Eingangsdruck – zählt nicht als Funkkontakt.',
     funkkanalSection: 'Funkkanal',
     funkkanalDown: 'Funkkanal runter',
     funkkanalUp: 'Funkkanal hoch',
@@ -1128,7 +1171,7 @@ export const de = {
     // away the one thing proving it stood ready. It is now closed out like any other: under
     // «Draussen», with a break clock, ready to re-enter at any time.
     actNotDeployed: 'Nicht eingesetzt',
-    actNotDeployedHint: 'Trupp abschliessen, ohne dass er unter PA war – bleibt für einen erneuten Einsatz bereit',
+    actNotDeployedHint: 'Trupp abschliessen, ohne dass er unter AS war – bleibt für einen erneuten Einsatz bereit',
     // status word and Verlauf row for exactly this case: «draussen» claims it had been inside
     statusNotDeployed: 'Nicht eingesetzt',
     logNotDeployed: 'Trupp {name} nicht eingesetzt',
@@ -1143,7 +1186,7 @@ export const de = {
     showOnPlan: 'Auf Plan zeigen',
     showOnMap: 'Auf der Lage zeigen',
     rosterLabel: 'Bereits erfasst',
-    preEntryHint: 'Noch nicht eingerückt – «Eingerückt» drücken, sobald der Trupp unter PA geht.',
+    preEntryHint: 'Noch nicht eingerückt – «Eingerückt» drücken, sobald der Trupp unter AS geht.',
     // alarm sound toggle (per-device, persisted locally)
     alarmOn: 'Alarmton an',
     alarmOff: 'Alarmton aus',
@@ -1184,6 +1227,9 @@ export const de = {
     changeLineCleared: 'Leitung gelöst',
     changeFunkkanal: 'Funkkanal {n}',
     changeColor: 'Farbe geändert',
+    // A corrected Eingangsdruck names BOTH numbers: the record has to show what it used to say,
+    // because everything derived from it (Verbrauch, tiefster Druck) was computed from the old one.
+    changePressure: 'Eingangsdruck {from} → {to} bar',
     logColor: 'Trupp {name}: Farbe geändert',
     logExit: 'Trupp {name} draussen',
     logReenter: 'Trupp {name} wieder eingerückt – Eingangsdruck {bar} bar',
@@ -2444,9 +2490,12 @@ export const de = {
     areaMittel: 'Mittel',
     areaChecklist: 'Checkliste',
     areaRapport: 'Rapport',
-    // «Kroki» stood here until 09.08.: that is the printed picture, not the surface somebody
-    // placed something on. Everything else in this column names a surface.
-    areaLage: 'Lage',
+    // ⚠️ «Kroki» again (10.08.), reversing the 09.08. rename to «Lage». The reasoning then was
+    // that this column names SURFACES and the Kroki is the printed picture. In the hand it read
+    // the other way round: somebody looking for what happened to the tactical picture searched
+    // the export for «Kroki», found a column full of «Lage», and concluded the entries were
+    // gone. The word people look for wins over the taxonomy.
+    areaLage: 'Kroki',
     // describeDrawing — short tactical labels for a drawing in the report
     drawCircle: 'Absperrkreis',
     drawAreaLabeled: 'Abschnitt "{label}"',
@@ -2566,6 +2615,31 @@ export const de = {
     metaWritten: 'geschrieben',
     metaRewritten: 'überarbeitet',
     metaCleared: 'geleert',
+    // ⚠️ THE STRUCTURED FIELDS SAY WHAT THEY BECAME (10.08.). Six fields used to write nothing
+    // but their own name — «Rückmeldung ELZ», «Partnerorganisationen», «Alarmzeiten» — so the
+    // Verlauf recorded that a field had been touched and never what it now said. Worse, each of
+    // them is edited one row at a time, and every row started its own 4-Sekunden-Fenster: three
+    // taps on the Partnerliste printed three byte-identical rows, which read as a bug in the log
+    // rather than as three decisions. A row that names the organisation is both useful AND
+    // distinguishable from the row before it, so this fixes the duplicates by fixing the text.
+    metaRueckmeldung: 'Rückmeldung ELZ durch {name} um {t}',
+    metaRueckmeldungTime: 'Rückmeldung ELZ um {t}',
+    metaRueckmeldungName: 'Rückmeldung ELZ durch {name}',
+    metaGerettete: 'Gerettete: {value}',
+    metaPartnerAdded: 'Partnerorganisation {org} ergänzt',
+    metaPartnerRemoved: 'Partnerorganisation {org} entfernt',
+    metaPartnerNote: 'Partnerorganisation {org} – Bemerkung: {note}',
+    // an organisation whose name is still being typed: named as such rather than as «‹› ergänzt»
+    metaPartnerUnnamed: 'Partnerorganisation erfasst',
+    metaGruppe: 'Alarmzeit {gruppe}: {t}',
+    metaGruppeCleared: 'Alarmzeit {gruppe} geleert',
+    metaFahrzeugAus: '{fahrzeug} ausgerückt {t}',
+    metaFahrzeugVorOrt: '{fahrzeug} vor Ort {t}',
+    metaFahrzeugZurueck: '{fahrzeug} zurück {t}',
+    metaFahrzeugCleared: '{fahrzeug}: Zeit geleert',
+    // the two states read identically as «Material «keine»» — one of them says the opposite
+    metaMittelNoneOn: 'Material: «keine verwendet» bestätigt',
+    metaMittelNoneOff: 'Material: «keine verwendet» widerrufen',
     krokiOrientation: 'Ausrichtung',
     krokiPortrait: 'Hoch',
     krokiLandscape: 'Quer',
@@ -2692,9 +2766,15 @@ export const de = {
     // one row per person, not one for the Anwesenheit and a second one for the role
     logPresentAs: '{name} anwesend – {role}',
     roleEinsatzleiter: 'Einsatzleiter',
+    // ⚠️ The SHORT form, for inside a sentence. A Verlaufszeile names the person and then
+    // says what they are — «Rückmeldung an ELZ durch Widmer Céline (EL)» — and the full
+    // doctrine word there is four syllables for one letter of information, on a surface
+    // that is read in a hurry. The list itself keeps the whole word.
+    roleEinsatzleiterShort: 'EL',
     // «Stv.» on the Einsatzleiter symbol: also a role, and without a remark the deputy was the
     // only one on the list with no reason given
     roleEinsatzleiterStv: 'Stv. Einsatzleiter',
+    roleEinsatzleiterStvShort: 'Stv. EL',
     roleFahrer: 'Fahrer {vehicle}',
     roleRueckmeldung: 'Rückmeldung ELZ',
     // Soft warning in the person picker (Atemschutz): whoever already has a role is probably
@@ -2704,9 +2784,12 @@ export const de = {
     // both simply state what somebody is. So does this one.
     alreadyBooked: '{role}',
     // Hints, never blocks: the app says what it knows and lets people decide.
-    conflictUnderPa: '{name} ist unter PA – Trupp {trupp}.',
+    conflictUnderPa: '{name} ist unter AS – Trupp {trupp}.',
     // the same thing as a short badge ON the list row — that is where it is decided, not after
-    statusUnderPa: 'unter PA',
+    // ⚠️ «AS», not «PA» (10.08.). PA is the Pressluftatmer — the device. What this badge says
+    // is that somebody is under ATEMSCHUTZ, which is the doctrine word, the name of the board
+    // and the name of the whole surface. One thing, one abbreviation.
+    statusUnderPa: 'unter AS',
     conflictElInTrupp: '{name} ist Einsatzleiter und zugleich im Trupp {trupp}.',
     conflictLeft: '{name} ist als «gegangen» erfasst.',
     // ⚠️ No «{total} Mannschaft». How big the Wehr is is the one number everybody already

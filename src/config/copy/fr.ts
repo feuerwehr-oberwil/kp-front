@@ -601,7 +601,7 @@ export const fr: Localizable<Copy> = {
     reminderSend: 'Définir le rappel',
     reminderSaved: 'Rappel défini',
     reminderNeedsDue: 'Choisir une échéance',
-    reminderCreated: 'Rappel : {text}',
+    reminderCreated: 'Rappel fixé pour {t} : {text}',
     dueTitle: 'Rappel échu',
     dueOne: 'Rappel échu',
     dueMany: '{n} rappels échus',

@@ -83,7 +83,7 @@ export function roleConflictHint(
  *
  * The same three facts `roleConflictHint` warns about — under PA, gone home — plus where they
  * are. ⚠️ Shown ON the option rather than after the pick: a toast says «Brunner Thomas ist
- * unter PA» once, three seconds after the operator already chose him, and then it is gone. The
+ * unter AS» once, three seconds after the operator already chose him, and then it is gone. The
  * list is where the decision is made, so the list is where the fact belongs.
  *
  * Never a block. Somebody under PA CAN be the Fahrer on paper — it usually means one of the two

@@ -27,7 +27,7 @@ export function Combo({ value, options, groups, placeholder, allowCustom, custom
    *  Needs `rankOf` to resolve an option (person name) to its rank key. Ignored with `groups`. */
   officerFilter?: boolean
   rankOf?: (name: string) => string | undefined
-  /** What is already known about this person, shown ON the entry: «unter PA», «Magazin»,
+  /** What is already known about this person, shown ON the entry: «unter AS», «Magazin»,
    *  «nicht anwesend». A picker that lists sixty names and says nothing about any of them makes
    *  the operator pick first and find out afterwards — which is what the toast used to do. */
   statusOf?: (name: string) => { label: string; tone?: 'warn' | 'muted' | 'info' } | undefined
@@ -175,7 +175,7 @@ export function Combo({ value, options, groups, placeholder, allowCustom, custom
                   <button type="button" className={`combo-opt${o === value ? ' on' : ''}`} onClick={() => { onChange(o); setOpen(false); setSearch('') }}>
                     {rank && <span className="combo-rank" title={rankLabel(rank)}>{rankAbbr(rank)}</span>}
                     <span className="combo-opt-name">{o}</span>
-                    {/* what is already known about them — «unter PA», «Magazin», «gegangen».
+                    {/* what is already known about them — «unter AS», «Magazin», «gegangen».
                         A hint, never a block: the operator decides, they just should not have
                         to pick first and find out afterwards. */}
                     {status && <span className={`combo-opt-status${status.tone ? ` ${status.tone}` : ''}`}>{status.label}</span>}
