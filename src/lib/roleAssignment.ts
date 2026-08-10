@@ -16,7 +16,16 @@ import type { AttendanceState, Trupp } from '../types'
 
 /** The roles a conflict is checked for. `el` covers leading the Einsatz and reporting to the
  *  ELZ; `fahrer` covers driving / operating a vehicle. */
-export type AssignableRole = 'el' | 'fahrer'
+/**
+ * `presence` is a job-less assignment: naming somebody here MARKS THEM PRESENT and nothing more.
+ *
+ * ⚠️ It exists because «Rückmeldung ELZ» was filed as `el`. Whoever phoned the Einsatzleitzentrale
+ * is not thereby the Einsatzleiter — it is a call somebody made, not a function they hold — so
+ * that field inherited the Einsatzleiter conflict check and announced «X ist Einsatzleiter und
+ * zugleich im Trupp 2» about a Trupp member who had simply made the call. A warning that fires on
+ * a normal, correct entry is the fastest way to teach an operator to ignore warnings.
+ */
+export type AssignableRole = 'el' | 'fahrer' | 'presence'
 
 /**
  * What a name typed into a symbol's roster field MEANS — the job, and the Bemerkung it writes
@@ -64,6 +73,9 @@ export function roleConflictHint(
   trupps: Trupp[],
 ): string | undefined {
   if (!personId) return undefined
+  // a presence-only assignment contradicts nothing: it says somebody was here, which is exactly
+  // what being in a Trupp or driving a vehicle already says
+  if (role === 'presence') return undefined
   const A = appConfig.copy.anwesenheit
   const inTrupp = trupps.find((t) => t.status !== 'raus'
     && (t.leaderPersonId === personId || (t.memberPersonIds ?? []).includes(personId)))

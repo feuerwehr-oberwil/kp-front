@@ -518,11 +518,18 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
           {driver && (
             <label className="kv-driver">
               <span>{C.driverLabel}</span>
+              {/* ⚠️ The SAME picker as every other roster field (sweep, 10.08.). This one had no
+                  Dienstgrad, no «unter AS / Magazin / nicht anwesend» and no rank ordering — on
+                  the one field where naming somebody who is already under Atemschutz is the
+                  conflict the app warns about, and it warned only AFTER the pick. Now the row
+                  says so while the finger is still over it. */}
               <Combo
                 value={driver.value}
                 options={driver.options}
                 allowCustom
                 placeholder={C.driverPlaceholder}
+                rankOf={rankOf ?? (rosterRank ? (n: string) => rosterRank[n] : undefined)}
+                statusOf={personStatus}
                 onChange={driver.onChange}
               />
             </label>

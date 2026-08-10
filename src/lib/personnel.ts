@@ -20,6 +20,75 @@ export function resolvePersonName(roster: Roster, id?: string, snapshot?: string
   return id ?? ''
 }
 
+/**
+ * A name → roster id index, matched the way people actually retype a name: trimmed, case-folded.
+ */
+export function rosterIdByName(people: Person[]): Map<string, string> {
+  return new Map(people.filter((p) => p.active).map((p) => [p.displayName.trim().toLowerCase(), p.id]))
+}
+
+/**
+ * A Trupp as the FORM reads it: one slot per person, leader first, each carrying the roster id
+ * behind their name where there is one.
+ *
+ * Two shapes have to survive this, and the stored record cannot distinguish them:
+ *
+ *  · **No ids at all.** Not only ancient records — a device offline through a roster sync, a
+ *    workspace written by an older build, a draft kept in the browser from before ids existed.
+ *    Everything downstream then treats those people as guests: the form badges all three «Gast»,
+ *    the picker goes on offering somebody already committed, and «einer, ein Trupp» stops
+ *    holding — with the roster row sitting right there under the same name.
+ *
+ *  · **⚠️ A COMPACTED id array.** `memberPersonIds` is written `.filter(Boolean)` (submitForm) but
+ *    read positionally, so a Trupp of [Gast, Meier] stores `[meierId]` — and on reopen slot 0,
+ *    the Gast, adopts Meier's id. That is a wrong PERSON on an Atemschutz record, and it is
+ *    silent. So a positional id is trusted only when the roster agrees it belongs to that name;
+ *    otherwise the name decides.
+ *
+ * A name matching nobody keeps no id: that is a real Gast, and inventing a roster row for them
+ * would be the same class of error in the other direction.
+ */
+export function truppSlots(t: Trupp, byName: Map<string, string>, roster: Roster): { name: string; personId?: string }[] {
+  const idOf = (name: string) => byName.get(name.trim().toLowerCase())
+  const same = (id: string | undefined, name: string) =>
+    !!id && (roster.get(id)?.displayName ?? '').trim().toLowerCase() === name.trim().toLowerCase()
+  const resolve = (name: string, stored?: string) => (same(stored, name) ? stored : idOf(name) ?? (stored && !roster.has(stored) ? stored : undefined))
+  const out: { name: string; personId?: string }[] = []
+  if (t.name?.trim()) out.push({ name: t.name, personId: resolve(t.name, t.leaderPersonId) })
+  const ids = t.memberPersonIds ?? []
+  ;(t.members ?? []).forEach((m, i) => {
+    if (m?.trim()) out.push({ name: m, personId: resolve(m, ids[i]) })
+  })
+  return out
+}
+
+/**
+ * The Trupps as the rest of the app should READ them: every member who resolves to a roster row
+ * carrying that row's id.
+ *
+ * A read-only projection — nothing here rewrites the record. It exists because the three answers
+ * everything else asks (`assignedPersonIds`, `truppByPersonId`, `personStatusHint`) are computed
+ * from ids alone, so a Trupp holding only NAMES was invisible to all of them: the Fahrer picker
+ * said nothing about somebody already under Atemschutz, the Anwesenheit row did not lock, and
+ * «einer, ein Trupp» silently stopped holding. Resolving once, here, is what keeps those three
+ * from each needing their own name fallback.
+ */
+export function linkTrupps(trupps: Trupp[], byName: Map<string, string>, roster: Roster): Trupp[] {
+  if (byName.size === 0) return trupps
+  let changed = false
+  const out = trupps.map((t) => {
+    const slots = truppSlots(t, byName, roster)
+    const ids = slots.map((sl) => sl.personId).filter(Boolean) as string[]
+    const leaderPersonId = slots[0]?.personId
+    const memberIds = slots.slice(1).map((sl) => sl.personId).filter(Boolean) as string[]
+    const before = [t.leaderPersonId, ...(t.memberPersonIds ?? [])].filter(Boolean)
+    if (leaderPersonId === t.leaderPersonId && before.length === ids.length) return t
+    changed = true
+    return { ...t, leaderPersonId, memberPersonIds: memberIds }
+  })
+  return changed ? out : trupps
+}
+
 /** Person ids currently assigned to any non-exited Trupp — used for present-first ordering
  *  and the duplicate-assignment warning in the picker. */
 export function assignedPersonIds(trupps: Trupp[]): Set<string> {

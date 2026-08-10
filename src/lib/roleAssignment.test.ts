@@ -73,3 +73,21 @@ describe('rosterFieldRole', () => {
     expect(rosterFieldRole('VKF Drehleiter', 'Name', 'ADL')).toEqual({ role: 'fahrer' })
   })
 })
+
+// «Rückmeldung ELZ» was filed as `el`, so naming the Trupp member who made the call announced
+// «X ist Einsatzleiter und zugleich im Trupp 2». A warning that fires on a correct entry is the
+// fastest way to teach an operator to ignore warnings.
+describe('presence-only assignments contradict nothing', () => {
+  it('stays silent for somebody in a Trupp', () => {
+    const trupps = [{ id: 'T1', name: 'Trupp 2', entryPressureBar: 300, entryTime: '', lastContactTime: '', status: 'aktiv' as const, memberPersonIds: ['p1'] }]
+    expect(roleConflictHint('p1', 'presence', 'Meier Anna', {}, trupps)).toBeUndefined()
+    // …while the real Einsatzleiter assignment still says so
+    expect(roleConflictHint('p1', 'el', 'Meier Anna', {}, trupps)).toBeTruthy()
+  })
+
+  it('stays silent for somebody recorded as gegangen', () => {
+    const att = { p1: { status: 'left' as const, displayNameSnapshot: 'Meier Anna', intervals: [{ from: '2026-08-10T10:00:00Z', to: '2026-08-10T11:00:00Z' }] } }
+    expect(roleConflictHint('p1', 'presence', 'Meier Anna', att, [])).toBeUndefined()
+    expect(roleConflictHint('p1', 'fahrer', 'Meier Anna', att, [])).toBeTruthy()
+  })
+})

@@ -14,12 +14,13 @@ import { getIncident, verifyChain } from '../lib/incidents'
 import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from '../lib/workspace'
 import { deriveAusgerueckt, fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit, zeitFromClock, zeitIssues } from '../lib/alarmzeiten'
 import type { ZeitKind } from '../lib/alarmzeiten'
+import type { AssignableRole } from '../lib/roleAssignment'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
 import { activityMoments, loadReplay, stateAt, vehiclesAt, type ReplayBundle } from '../lib/replay'
 import { autoRotation, vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import type { AuditProof, ReportDraft, ReportOptions } from '../lib/report'
 import { defaultReportOptions, einsatzleiterFromScene, formatDateTime, krokiStandLabel, missingTranscriptCount, operationalExtentPoints, proofLabel } from '../lib/report'
-import { missingSteps, stepDone, type AbschlussFacts } from '../lib/abschluss'
+import { missingSteps, stepDone, type AbschlussFacts, type AbschlussStep } from '../lib/abschluss'
 import { hoursRows, unresolvedHoursRows } from '../lib/attendanceHours'
 import { incidentDays } from '../lib/zeitplanFormat'
 import type { AttendanceState, BoardDoc, BuildingDoc, CaptionMode, Drawing, Entity, LayerDef, LngLat, MittelEntry, Person, PlanDocument, ReportAttachment, TimelineEvent, Trupp } from '../types'
@@ -33,9 +34,6 @@ import { Stepper } from './Stepper'
 import { Menu, Popover } from '../lib/overlays'
 
 const NO_IDS = new Set<string>()
-
-/** How many blank free rows the Partnerorganisationen block always keeps ready to type into. */
-const FREE_PARTNER_ROWS = 2
 
 /** Does this partner row say anything at all? Blank rows live on screen and never reach the blob. */
 const partnerFilled = (p: PartnerContact) => [p.org, p.name, p.phone, p.note].some((v) => v?.trim())
@@ -63,15 +61,17 @@ function clockOf(iso?: string): string {
   return hhmm(d)
 }
 
-function CheckRow({ done, label, sub, onGo, children }: {
+function CheckRow({ done, label, sub, onGo, anchor, children }: {
   done: boolean
   label: string
   sub: string
   onGo?: () => void
+  /** the Abschluss step this row answers — the «noch offen» chips scroll to it (see jumpToStep) */
+  anchor?: string
   children?: ReactNode
 }) {
   return (
-    <div className="rp-check">
+    <div className="rp-check" data-step={anchor}>
       <button type="button" className="rp-check-main" onClick={onGo} disabled={!onGo}>
         <span className={`rp-check-dot${done ? ' done' : ''}`}>
           <Icon id={done ? 'check' : 'minus'} />
@@ -106,7 +106,7 @@ export function ReportPreflight({
    *  the function into their Bemerkung. A rapport that names an Einsatzleiter the attendance
    *  sheet has never heard of contradicts itself on paper. Undefined = nothing to link (a typed
    *  guest name), which is exactly the case where nothing should happen. */
-  onRolePicked?: (personId: string | undefined, role: 'el' | 'fahrer', note?: string) => void
+  onRolePicked?: (personId: string | undefined, role: AssignableRole, note?: string) => void
   events: TimelineEvent[]
   annotatedPlanCount: number
   truppCount: number
@@ -193,27 +193,14 @@ export function ReportPreflight({
   // ever wrote it — so every rapport fell back to the config's tick-off row and «Polizei war da»
   // was all the paper ever said. The remark is the point of the block: which patrol, whose
   // number, what they took over.
-  // …and two of the free rows are always ALREADY THERE. The list covers the usual partners, but
-  // the ones that are not on it — a Nachbarwehr, the Werkdienst, the Bahn — needed «+ Weitere»
-  // pressed first, and a row you have to summon is a row nobody fills in at 3am. An empty row
-  // costs nothing: `savePartners` already strips blanks on the way to the blob, so two waiting
-  // fields never reach the rapport unless somebody types in them.
-  const partnerBlanks = (xs: PartnerContact[]): PartnerContact[] => {
-    const blank = xs.filter((p) => !partnerFilled(p)).length
-    return blank >= FREE_PARTNER_ROWS ? xs : [...xs, ...Array.from({ length: FREE_PARTNER_ROWS - blank }, () => ({ org: '' }))]
-  }
-  const [partners, setPartners] = useState<PartnerContact[]>(
-    () => (canEdit ? partnerBlanks(reportMeta.partnerContacts ?? []) : reportMeta.partnerContacts ?? []),
-  )
+  const [partners, setPartners] = useState<PartnerContact[]>(() => reportMeta.partnerContacts ?? [])
   const savePartners = (next: PartnerContact[]) => {
     // Bail BEFORE the local state: `persist` already refuses to write while read-only, so
     // accepting the edit on screen would show a viewer (or a closed Einsatz) a partner that
     // was never saved and vanishes on close — the silent-drop failure the read-only fieldset
     // exists to prevent. This block sits outside that fieldset, so it guards itself.
     if (!canEdit) return
-    // top up on the way IN, so filling the last blank row immediately offers the next one and
-    // the block never runs out of somewhere to type
-    setPartners(partnerBlanks(next))
+    setPartners(next)
     // an all-empty row is nothing to record — dropped on the way to the blob, kept on screen
     const clean = next.filter(partnerFilled)
     persist({ partnerContacts: clean.length ? clean : undefined })
@@ -664,6 +651,28 @@ export function ReportPreflight({
   // choosing another surface in the rail, which unmounts this one and captures the scroll — and
   // «Einsatz abschliessen» clears the saved position itself, because coming back to a completed
   // rapport should start at the top.
+  /**
+   * Jump to the section a «noch offen» chip names, and flash it.
+   *
+   * The chips list what is still missing and were pure text: you read «Zeiten», then hunted for
+   * the Zeiten yourself down a page that is four sections long. Naming a problem and not
+   * pointing at it is the same failure the überfällig badge had on the Atemschutz board.
+   *
+   * Anchored on `data-step` rather than on refs: the six steps live in four different shapes
+   * (a CheckRow, a labelled field, a grid, a person picker), and one attribute is the only thing
+   * they can all carry without being restructured around it.
+   */
+  const jumpToStep = (step: AbschlussStep) => {
+    const el = bodyRef.current?.querySelector<HTMLElement>(`[data-step="${step}"]`)
+    if (!el) return
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    el.classList.add('rp-flash')
+    window.setTimeout(() => el.classList.remove('rp-flash'), 1200)
+    // the field the step is ABOUT, focused where there is one — a chip that scrolls to a text
+    // box the operator then has to tap is one tap short of finishing the job
+    el.querySelector<HTMLElement>('textarea, input, button')?.focus({ preventScroll: true })
+  }
+
   const bodyRef = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     const el = bodyRef.current
@@ -704,7 +713,15 @@ export function ReportPreflight({
               {missing.length > 0 ? (
                 <span className="rp-head-open">
                   <span className="rp-head-open-k">{P.headStillOpen}</span>
-                  {missing.map((s) => <em key={s}>{A.steps[s]}</em>)}
+                  {/* each chip JUMPS to the thing it names — see jumpToStep */}
+                  {missing.map((s) => (
+                    <button
+                      key={s} type="button" className="rp-head-open-go"
+                      title={fillTemplate(P.headOpenGo, { step: A.steps[s] })}
+                      aria-label={fillTemplate(P.headOpenGo, { step: A.steps[s] })}
+                      onClick={() => jumpToStep(s)}
+                    >{A.steps[s]}</button>
+                  ))}
                 </span>
               ) : (
                 <span className="rp-head-done"><Icon id="check" />{P.headAllRecorded}</span>
@@ -940,12 +957,14 @@ export function ReportPreflight({
           <section className="report-pre-section report-pre-meta">
             <h3>{P.sectionBericht}</h3>
             {/* after-arrival — editable inline (replaces the old Bearbeiten modal) */}
-            <label className="ip-field">
+            <label className="ip-field" data-step="kurzbericht">
               <span>{P.summaryLabel}</span>
               <textarea className="ip-textarea" value={summary} rows={5} placeholder={P.summaryPlaceholder}
                 onChange={(e) => { const v = stripUnprintable(e.target.value); setSummary(v); persist({ summary: v.trim() || undefined }) }} />
             </label>
-            <div className="report-meta-grid">
+            {/* the Einsatzleiter is this grid's FIRST cell, so anchoring the grid puts it in
+                view without wrapping the picker in a div that would become a grid item of its own */}
+            <div className="report-meta-grid" data-step="einsatzleiter">
               <PersonField
                 label={P.einsatzleiterLabel} placeholder={P.einsatzleiterPlaceholder}
                 value={{ name: einsatzleiter }} onChange={(slot) => {
@@ -995,7 +1014,7 @@ export function ReportPreflight({
             </div>
           </section>
 
-          <section className="report-pre-section report-pre-meta">
+          <section className="report-pre-section report-pre-meta" data-step="zeiten">
             <h3>{P.sectionZeiten}</h3>
             {/* Ausgerückt: derived from the vehicle grid when it exists; the manual field
                 only appears on deployments WITHOUT configured vehicles (nothing else to
@@ -1105,15 +1124,18 @@ export function ReportPreflight({
               <textarea className="ip-textarea" value={lehren} rows={3} placeholder={P.lehrenPlaceholder}
                 onChange={(e) => { const v = stripUnprintable(e.target.value); setLehren(v); persist({ lehren: v.trim() || undefined }) }} />
             </label>
-            <div className="report-meta-grid rz-rueck-grid">
+            <div className="report-meta-grid rz-rueck-grid" data-step="rueckmeldung">
               {/* who reported back to the ELZ — a roster pick like Einsatzleiter, free text allowed */}
               <PersonField
                 label={P.rueckmeldungLabel} placeholder={P.rueckmeldungName}
                 value={{ name: rueckName }} onChange={(slot) => {
                   setRueckName(slot.name)
                   persist(rueckOver(slot.name, rueckAt))
-                  // whoever reported back to the ELZ was on scene to have something to report
-                  onRolePicked?.(slot.personId, 'el')
+                  // ⚠️ `presence`, NOT `el`. Whoever reported back to the ELZ was on scene to
+                  // have something to report — that is all this field says. Filed as `el` it
+                  // inherited the Einsatzleiter conflict check and warned «X ist Einsatzleiter
+                  // und zugleich im Trupp 2» about somebody who had just made a phone call.
+                  onRolePicked?.(slot.personId, 'presence')
                 }}
                 personnel={personnel} legacyRoster={[]} presentIds={presentIds}
                 assignedIds={NO_IDS} usedIds={NO_IDS} usedNames={NO_IDS}
@@ -1156,6 +1178,7 @@ export function ReportPreflight({
           <div className="rp-checks">
             <CaptureUsageChip usage={captureUsage} />
             <CheckRow
+              anchor="anwesenheit"
               done={stepDone('anwesenheit', facts)}
               label={A.steps.anwesenheit}
               sub={fillTemplate(A.personen, { n: attendanceCount })}
@@ -1185,7 +1208,7 @@ export function ReportPreflight({
                 </div>
               )}
             </CheckRow>
-            <CheckRow done={stepDone('mittel', facts)} label={A.steps.mittel} sub={fillTemplate(A.mittelCount, { n: mittelCount })} onGo={onOpenMittel}>
+            <CheckRow anchor="mittel" done={stepDone('mittel', facts)} label={A.steps.mittel} sub={fillTemplate(A.mittelCount, { n: mittelCount })} onGo={onOpenMittel}>
               {mittelCount > 0 && (
                 <div className="rp-check-extra">
                   <div className="rp-people">

@@ -12,7 +12,7 @@ import { isPresent } from '../lib/attendanceIntervals'
 import { ortOf } from '../lib/attendanceOrt'
 import { truppStatusLabel } from '../lib/report'
 import type { AttendanceState, Person, Trupp, TruppFields } from '../types'
-import { abbreviateName, assignedPersonIds } from '../lib/personnel'
+import { abbreviateName, assignedPersonIds, rosterFromList, rosterIdByName, truppSlots } from '../lib/personnel'
 import { truppLineNo, type LeitungOption } from '../lib/truppLines'
 import { ClearableInput } from './ClearableInput'
 import type { Slot } from './PersonField'
@@ -835,6 +835,11 @@ function TruppForm({
   // the backdrop is «not now», and losing three names and a Ziel to a fat finger at 3am is the
   // expensive half of that pair (see lib/draftKeep, the same rule the Gast name follows).
   const draftKey = `atemschutz:trupp:${mode}:${initial?.id ?? 'new'}`
+  // The two roster indexes the slot resolution needs: name → id, and id → Person (to check that
+  // a stored positional id really belongs to the name beside it — see lib/personnel · truppSlots).
+  const rosterByName = useMemo(() => rosterIdByName(personnel), [personnel])
+  const rosterById = useMemo(() => rosterFromList(personnel), [personnel])
+
   const [auftrag, setAuftrag, clearAuftrag] = useKeptState<Trupp['auftrag'] | null>(`${draftKey}:auftrag`, initial?.auftrag ?? null)
   const [ziel, setZiel, clearZiel] = useKeptState(`${draftKey}:ziel`, initial?.ziel ?? '')
   // Leitung: numeric since 2026-08-05. A Trupp carrying only the old free text starts empty and
@@ -849,13 +854,21 @@ function TruppForm({
   // ONE list, leader first (see TruppTeam): `team[0]` IS the Gruppenführer, which is also the
   // order the card, the Rapport and the map tag print. The record on disk keeps its old shape
   // (`name` + `members`), so nothing that ever read a Trupp has to change.
-  const [team, setTeam, clearTeam] = useKeptState<Slot[]>(`${draftKey}:team`, (() => {
-    const lead: Slot[] = initial?.name ? [{ name: initial.name, personId: initial.leaderPersonId }] : []
-    const rest = (initial?.members ?? [])
-      .map((m, i) => ({ name: m, personId: initial?.memberPersonIds?.[i] }))
-      .filter((m) => m.name.trim())
-    return [...lead, ...rest]
-  })())
+  const [team, setTeam, clearTeam] = useKeptState<Slot[]>(
+    `${draftKey}:team`,
+    initial ? truppSlots(initial, rosterByName, rosterById) : [],
+  )
+  // ⚠️ …and the KEPT DRAFT gets the same treatment. `useKeptState` restores whatever was in the
+  // browser, which on a device that has been open across a roster sync (or across a demo reset)
+  // is a team of bare names — so the form re-badged three roster members «Gast» while the Trupp
+  // on disk had their ids all along. Re-linking on open is idempotent and never invents an id.
+  useEffect(() => {
+    const linked = team.map((sl) => (sl.personId ? sl : { ...sl, personId: rosterByName.get(sl.name.trim().toLowerCase()) }))
+    if (linked.some((sl, i) => sl.personId !== team[i].personId)) setTeam(linked)
+    // once per mount: the roster is stable while a modal is open, and re-running on `team`
+    // would fight the operator's own edits
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   // a fresh cylinder for create / re-deploy; edit never touches pressure
   const [pressure, setPressure] = useState<number>(() => {
     const dz = atemschutzDoctrine()

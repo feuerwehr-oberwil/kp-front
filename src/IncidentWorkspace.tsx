@@ -120,7 +120,7 @@ import { AtemschutzView, type TruppOrder } from './components/AtemschutzView'
 import { AnwesenheitView } from './components/AnwesenheitView'
 import { MittelView } from './components/MittelView'
 import { usePersonnel } from './lib/usePersonnel'
-import { assignedPersonIds, truppByPersonId } from './lib/personnel'
+import { assignedPersonIds, linkTrupps, truppByPersonId } from './lib/personnel'
 import { rosterWithGuests } from './lib/guests'
 import type { Item } from './lib/checklists'
 import type { NoteSize } from './types'
@@ -2109,8 +2109,22 @@ export function IncidentWorkspace({
       geojsons: layers.filter((l) => l.geojson).map((l) => withGeoBbox(l.geojson as string)),
     }
   }, [layers, incidentView.center, backendPlans, withGeoBbox])
-  const blockedAttendanceIds = useMemo(() => assignedPersonIds(trupps), [trupps])
-  const truppOfPerson = useMemo(() => truppByPersonId(trupps), [trupps])
+  const rosterById = useMemo(() => new Map(personnel.map((p) => [p.id, p])), [personnel])
+  /** roster display name → person id. The symbol fields and the Erfassungsblatt pick from a list
+   *  of NAMES (Combo, not PersonField), so this is what turns «Widmer Céline» back into somebody
+   *  the Anwesenheit can be written for. A typed-in name that matches nobody resolves to
+   *  undefined — a guest or mutual aid, and those are exactly the people not on our roster. */
+  const rosterIdByName = useMemo(
+    () => new Map(personnel.filter((p) => p.active).map((p) => [p.displayName.trim().toLowerCase(), p.id])),
+    [personnel],
+  )
+  // ⚠️ Read the Trupps through the roster first (lib/personnel · linkTrupps). Everything below
+  // answers «who is already committed» from IDS, so a Trupp carrying only names was invisible to
+  // all of it — the Fahrer picker said nothing about somebody under Atemschutz, their Anwesenheit
+  // row did not lock, and «einer, ein Trupp» quietly stopped holding. The record is untouched.
+  const linkedTrupps = useMemo(() => linkTrupps(trupps, rosterIdByName, rosterById), [trupps, rosterIdByName, rosterById])
+  const blockedAttendanceIds = useMemo(() => assignedPersonIds(linkedTrupps), [linkedTrupps])
+  const truppOfPerson = useMemo(() => truppByPersonId(linkedTrupps), [linkedTrupps])
   /** «show me THAT card»: a locked roster row points at the Trupp it is locked by. Carries a
    *  nonce so tapping the same person twice points again — pointing is a gesture, not a state,
    *  and the AtemschutzView clears it on its own timer. */
@@ -2165,7 +2179,6 @@ export function IncidentWorkspace({
    *  written down anywhere it mattered. */
   const pickablePersonnel = useMemo(() => rosterWithGuests(personnel, attendance), [personnel, attendance])
   const journalVocab = useMemo(() => journalVocabulary(personnel, attendance), [personnel, attendance])
-  const rosterById = useMemo(() => new Map(personnel.map((p) => [p.id, p])), [personnel])
   // active-member names feeding the symbol detail comboboxes (Einsatzleiter / Offizier / Fahrer)
   // ⚠️ Built from the PICKABLE roster, guests included. These names fill the dropdowns on a
   // symbol («Fahrer», «Name» on the Einsatzleiter glyph), and a Nachbarwehr driver recorded
@@ -2178,19 +2191,11 @@ export function IncidentWorkspace({
   )
   // present crew (attendance) — offered first in the Einsatzleiter picker (mirrors Atemschutz)
   const presentIds = useMemo(() => new Set(Object.entries(attendance).filter(([, a]) => isPresent(a)).map(([id]) => id)), [attendance])
-  /** roster display name → person id. The symbol fields and the Erfassungsblatt pick from a list
-   *  of NAMES (Combo, not PersonField), so this is what turns «Widmer Céline» back into somebody
-   *  the Anwesenheit can be written for. A typed-in name that matches nobody resolves to
-   *  undefined — a guest or mutual aid, and those are exactly the people not on our roster. */
-  const rosterIdByName = useMemo(
-    () => new Map(personnel.filter((p) => p.active).map((p) => [p.displayName.trim().toLowerCase(), p.id])),
-    [personnel],
-  )
 
   /** What is already known about a roster NAME — «unter AS», «Magazin», «gegangen». Shown on
    *  the dropdown entry itself (see roleAssignment · personStatusHint). */
   const personStatus = (name: string) =>
-    personStatusHint(rosterIdByName.get(name.trim().toLowerCase()), attendance, trupps)
+    personStatusHint(rosterIdByName.get(name.trim().toLowerCase()), attendance, linkedTrupps)
   /** …and the contradiction a FILLED roster field already carries, per field key. ⚠️ This used
    *  to be a toast fired once at assignment time: it appeared after the pick and then went away,
    *  so the field it was about never said anything. */
