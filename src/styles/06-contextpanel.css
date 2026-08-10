@@ -309,3 +309,30 @@
 .jr-rem.done { color: var(--ink-faint); border-color: var(--border-soft); }
 .jr-rem.done .jr-rem-box { background: var(--green); border-color: var(--green); color: var(--on-fill); }
 .jr-rem.done .jr-rem-box .i { opacity: 1; }
+
+/* OFFENE ERINNERUNGEN, held at the top of the Verlauf (see Journal.tsx). Sticky, because the
+   point is that they cannot be scrolled past — a Wiedervorlage is the one row in an append-only
+   record that is about the future, and on a busy Einsatz it was thirty rows up in ten minutes. */
+.jr-pinned { position: sticky; top: 0; z-index: 2; display: flex; flex-direction: column; gap: 4px;
+  margin: 0 0 10px; padding: 8px; border-radius: var(--r-md);
+  border: 1px solid color-mix(in srgb, var(--amber) 30%, var(--glass-edge));
+  background: color-mix(in srgb, var(--amber) 7%, var(--surface)); }
+.jr-pinned-head { display: flex; align-items: center; gap: 7px; font: 700 12px var(--body); color: var(--ink-dim); }
+.jr-pinned-head .i { width: 14px; height: 14px; flex: none; }
+.jr-pinned-head b { margin-left: auto; font-weight: 700; color: var(--ink-faint); }
+.jr-pinned-row { display: flex; align-items: center; gap: 8px; min-height: var(--tap); }
+.jr-pinned-text { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px;
+  border: none; background: none; padding: 0; cursor: pointer; text-align: left;
+  font: 600 13.5px var(--body); color: var(--ink); }
+.jr-pinned-text:disabled { cursor: default; }
+.jr-pinned-text > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* the Fälligkeit leads: on this block the QUESTION is «was ist noch offen und seit wann» */
+.jr-pinned-due { flex: none; font: 700 11.5px var(--body); color: var(--ink-faint);
+  border: 1px solid var(--glass-edge); border-radius: var(--r-pill); padding: 2px 8px; white-space: nowrap; }
+.jr-pinned-row.overdue .jr-pinned-due { color: var(--amber-strong);
+  border-color: color-mix(in srgb, var(--amber) 55%, var(--glass-edge)); }
+
+/* the job printed after a linked name («Widmer Céline (EL)»). Normal weight inside the bold
+   name: it explains the name, it is not part of it — and every second row of a busy Verlauf
+   carries one, so it has to stay quiet. */
+.jr-link-role { font-style: normal; font-weight: 500; color: var(--ink-faint); }

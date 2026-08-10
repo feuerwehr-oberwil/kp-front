@@ -52,3 +52,35 @@ describe('linkMarkup', () => {
       .toBe('<b>TLF</b> &amp; Pio')
   })
 })
+
+// A Verlauf full of surnames tells a reader who was talking only if they already know the Wehr.
+// Six months later, or on a Nachbarwehr's copy of the Rapport, nobody does.
+describe('the job after the name', () => {
+  const withRoles: JournalLink[] = [
+    { name: 'Widmer Céline', kind: 'person', id: 'p1', role: 'EL' },
+    { name: 'Graf Stefan', kind: 'person', id: 'p2', role: 'Fahrer TLF' },
+    { name: 'Meier Anna', kind: 'person', id: 'p3' },
+  ]
+
+  it('names the role after the person it belongs to', () => {
+    const parts = linkParts('Rückmeldung an ELZ durch Widmer Céline', withRoles)
+    expect(parts.find((p) => p.kind)?.role).toBe('EL')
+  })
+
+  it('says it ONCE per entry — a row that repeats itself reads as a bug', () => {
+    const parts = linkParts('Widmer Céline meldet, Widmer Céline übernimmt', withRoles)
+    const marked = parts.filter((p) => p.kind)
+    expect(marked).toHaveLength(2)
+    expect(marked[0].role).toBe('EL')
+    expect(marked[1].role).toBeUndefined()
+  })
+
+  it('leaves somebody without a job exactly as they were', () => {
+    expect(linkParts('Meier Anna meldet', withRoles).find((p) => p.kind)?.role).toBeUndefined()
+  })
+
+  it('prints the role in plain weight beside the bold name', () => {
+    expect(linkMarkup('Graf Stefan meldet', withRoles, (x) => x))
+      .toBe('<b>Graf Stefan</b> (Fahrer TLF) meldet')
+  })
+})

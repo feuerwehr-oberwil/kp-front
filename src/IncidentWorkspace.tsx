@@ -18,7 +18,7 @@ import type { CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LngLat, 
 import { appConfig } from './config/appConfig'
 import { clearAllDrafts } from './lib/draftKeep'
 import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDemoMode } from './lib/deploymentConfig'
-import { fillTemplate, formatSymbolName, formatTime } from './lib/format'
+import { fillTemplate, formatSymbolName, formatTime, hhmm } from './lib/format'
 import { formatAudioDuration } from './lib/audioImport'
 import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys, VEHICLE_SYMBOLS } from './lib/symbols'
 import { circlePolygon, fmtLV95, fmtWGS, haversineM, pathLengthM, polygonAreaM2 } from './lib/geo'
@@ -121,15 +121,23 @@ import { AnwesenheitView } from './components/AnwesenheitView'
 import { MittelView } from './components/MittelView'
 import { usePersonnel } from './lib/usePersonnel'
 import { assignedPersonIds, truppByPersonId } from './lib/personnel'
+import { rosterWithGuests } from './lib/guests'
 import type { Item } from './lib/checklists'
 import type { NoteSize } from './types'
 import { ReportPreflight } from './components/ReportPreflight'
 import { annotatedPlans, changedReportMetaFields } from './lib/report'
+import { entityEditChanges, entityLogName } from './lib/entityEdit'
 import { mittelLineCount } from './lib/mittel'
 import { autoNoteWPx } from './lib/notes'
 import { prepareUploadImage } from './lib/imagePrep'
 
 const prefs = loadPrefs()
+
+/** How long an edit has to sit still before it earns a Verlauf row. Long enough that a sentence
+ *  being typed is ONE edit, short enough that reading the Verlauf a moment later already shows
+ *  it. Shared by the Rapportangaben logger and the Kroki symbol-edit logger — both write on
+ *  every keystroke, and both would otherwise produce one row per character. */
+const META_LOG_SETTLE_MS = 4000
 // The manually-picked Einsatzobjekt moved from this device cookie into the synced workspace blob
 // (per incident). Keep the value in-memory so deriveInitial can import it once this session, then
 // clear the legacy cookie field so a later reset can't be resurrected from a stale cookie.
@@ -377,6 +385,31 @@ export function IncidentWorkspace({
   // always-fresh keydown dispatcher — assigned every render (below, once all handlers exist) so
   // the single window listener never re-subscribes yet never closes over stale state.
   const hotkeyRef = useRef<(e: KeyboardEvent) => void>(() => {})
+  /**
+   * The Verlauf row for EDITING a symbol on the Kroki, written once the editing stops.
+   *
+   * Same shape and the same reason as the Rapportangaben logger further down: the inspector
+   * writes on every keystroke, so a row per `patchEntity` would be a row per character typed
+   * into a name field. The base is the entity as it stood when the editing STARTED, and the
+   * line names what actually moved between those two points — per entity, so editing two
+   * symbols in the same four seconds stays two rows about two symbols.
+   */
+  const entityLogBase = useRef(new Map<string, { base: Entity; timer: ReturnType<typeof setTimeout> }>())
+  const noteEntityEdit = (before: Entity, after: Entity) => {
+    const open = entityLogBase.current.get(before.id)
+    const base = open?.base ?? before
+    if (open) clearTimeout(open.timer)
+    const timer = setTimeout(() => {
+      entityLogBase.current.delete(before.id)
+      const changes = entityEditChanges(base, after)
+      if (!changes.length) return
+      log('pen', fillTemplate(appConfig.copy.log.entityEdited, {
+        name: entityLogName(after), changes: changes.join(', '),
+      }), 'symbol', undefined, before.id)
+    }, META_LOG_SETTLE_MS)
+    entityLogBase.current.set(before.id, { base, timer })
+  }
+
   // one place that edits a single map entity: a discrete undo step + the audit
   // emit, so every field edit (label/fields/notes/floor/count/rotation) is recorded
   // identically — previously notes/floor/count silently skipped the audit stream.
@@ -384,7 +417,11 @@ export function IncidentWorkspace({
   // entity write needs the tactical lock too (the panels hide their controls, this is the floor).
   const patchEntity = (id: string, patch: Partial<Entity>) => {
     if (tacticalLocked) return
-    commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === id ? { ...e, ...patch } : e)) }))
+    commit((d) => {
+      const before = d.entities.find((e) => e.id === id)
+      if (before) noteEntityEdit(before, { ...before, ...patch })
+      return { ...d, entities: d.entities.map((e) => (e.id === id ? { ...e, ...patch } : e)) }
+    })
     emit('entity.edit', { id, patch })
   }
 
@@ -923,10 +960,6 @@ export function IncidentWorkspace({
    * One row per save naming WHICH fields moved, not one per field: the sheet writes several at
    * once (a Combo commit patches its neighbours), and a line per field would bury the Verlauf.
    */
-  // How long the Rapportangaben have to sit still before their change earns a Verlauf row.
-  // Long enough that a sentence being typed is one edit, short enough that closing the sheet and
-  // reading the Verlauf a moment later already shows it.
-  const META_LOG_SETTLE_MS = 4000
   const metaLogBase = useRef<ReportMeta | null>(null)
   const metaLogTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -1387,8 +1420,15 @@ export function IncidentWorkspace({
     // lib/reminders.ts). Ask for notification permission here, on the user's submit gesture.
     if (d.dueAt) {
       const rid = `rem${Date.now()}`
+      // The row says that a reminder was SET, and for when. It carried the bare text before, so
+      // the only line in the Verlauf naming the word «Erinnerung» was the one saying it had been
+      // done — an answer with no question anywhere above it.
+      const dueDate = new Date(d.dueAt)
+      const createdText = fillTemplate(appConfig.copy.journal.reminderCreated, {
+        t: Number.isFinite(dueDate.getTime()) ? hhmm(dueDate) : '', text: d.text,
+      })
       pushEvent({
-        icon: 'clock', text: d.text, kind: 'reminder', at: composerOpenedAt.current ?? undefined,
+        icon: 'clock', text: createdText, kind: 'reminder', at: composerOpenedAt.current ?? undefined,
         surface: onPlan ? 'plan' : 'map', planId: onPlan ? activePlanId : undefined,
         reminder: { op: 'created', id: rid, dueAt: d.dueAt },
       })
@@ -2118,10 +2158,19 @@ export function IncidentWorkspace({
   /** The linkable vocabulary of this Einsatz — Mannschaft, Mittel, Partnerorganisationen,
    *  Fahrzeuge, Alarmgruppen (lib/journalLinks). ONE memo, shared by the composer and the
    *  Verlauf, so the two can never mark different things. */
+  /** The roster as a PICKER sees it: the Mannschaft plus everybody recorded on this Einsatz who
+   *  is not on it (lib/guests). A Gast used to be nameable exactly once — on the Anwesenheit that
+   *  created them — and was then invisible to the Trupp form, the Fahrer field and the
+   *  Einsatzleiter picker, so the Nachbarwehr driver who was standing right there could not be
+   *  written down anywhere it mattered. */
+  const pickablePersonnel = useMemo(() => rosterWithGuests(personnel, attendance), [personnel, attendance])
   const journalVocab = useMemo(() => journalVocabulary(personnel, attendance), [personnel, attendance])
   const rosterById = useMemo(() => new Map(personnel.map((p) => [p.id, p])), [personnel])
   // active-member names feeding the symbol detail comboboxes (Einsatzleiter / Offizier / Fahrer)
-  const rosterNames = useMemo(() => personnel.filter((p) => p.active).map((p) => p.displayName), [personnel])
+  // ⚠️ Built from the PICKABLE roster, guests included. These names fill the dropdowns on a
+  // symbol («Fahrer», «Name» on the Einsatzleiter glyph), and a Nachbarwehr driver recorded
+  // on the Anwesenheit could not be selected on the vehicle they were actually driving.
+  const rosterNames = useMemo(() => pickablePersonnel.filter((p) => p.active).map((p) => p.displayName), [pickablePersonnel])
   // name → rank key, for the officer-first sort + "nur Offiziere" filter on leadership symbols
   const rosterRank = useMemo(
     () => Object.fromEntries(personnel.filter((p) => p.active).map((p) => [p.displayName, p.rank])),
@@ -2138,7 +2187,7 @@ export function IncidentWorkspace({
     [personnel],
   )
 
-  /** What is already known about a roster NAME — «unter PA», «Magazin», «gegangen». Shown on
+  /** What is already known about a roster NAME — «unter AS», «Magazin», «gegangen». Shown on
    *  the dropdown entry itself (see roleAssignment · personStatusHint). */
   const personStatus = (name: string) =>
     personStatusHint(rosterIdByName.get(name.trim().toLowerCase()), attendance, trupps)
@@ -3210,7 +3259,7 @@ export function IncidentWorkspace({
           showTruppLine={showTruppLine} truppsWithLine={truppsWithLine()}
           pickTruppLine={pickTruppLine} unlinkTruppLine={unlinkTruppLine}
           canEdit={canEditIncident}
-          personnel={personnel}
+          personnel={pickablePersonnel}
           attendance={effAttendance}
           // a Gast under PA was at the Einsatz — record them on the Anwesenheit too
           onAddGuest={canEditIncident ? addGuest : undefined}
@@ -3320,7 +3369,7 @@ export function IncidentWorkspace({
         <ReportPreflight
           incident={incidentMeta}
           reportMeta={reportMeta}
-          personnel={personnel}
+          personnel={pickablePersonnel}
           presentIds={presentIds}
           events={timeline}
           annotatedPlanCount={annotatedPlanCount}
@@ -3332,6 +3381,8 @@ export function IncidentWorkspace({
           pendingMediaCount={media.pendingCount}
           attendance={attendance}
           trupps={trupps}
+          contactIntervalMin={azIntervalMin}
+          contactGraceSec={azGraceSec}
           plans={planDocs}
           scene={{ entities, drawings, layers: mapLayers, byName: sym.byName, center: incidentView.center, view: { center: view.center, zoom: view.zoom }, captionMode: symbolCaptions ?? 'auto' }}
           board={board}

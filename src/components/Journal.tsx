@@ -134,11 +134,21 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
       if (d < bestD) { bestD = d; best = e.id }
     }
     if (!best) return
-    const el = listRef.current?.querySelector(`[data-ev="${CSS.escape(best)}"]`)
+    jumpToRow(best)
+  }
+  /** Scroll to one row by id and flash it — the strip and the pinned Erinnerungen share it. */
+  const jumpToRow = (id: string) => {
+    const el = listRef.current?.querySelector(`[data-ev="${CSS.escape(id)}"]`)
     el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
     el?.classList.add('jr-flash')
     window.setTimeout(() => el?.classList.remove('jr-flash'), 900)
   }
+  // Overdue first, then by Fälligkeit — the same order the Atemschutz board sorts its cards in:
+  // the one that has been waiting longest is the one that is about to be forgotten.
+  const pinnedReminders = useMemo(
+    () => [...(openReminders ?? [])].sort((a, b) => Date.parse(a.dueAt) - Date.parse(b.dueAt)),
+    [openReminders],
+  )
 
   return (
     <Overlay open onClose={onClose} className="journal-drawer" backdropClassName="journal-scrim" ariaLabel={C.title} dismissEscape={false}>
@@ -178,6 +188,43 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
         )}
         <div className="history-list" ref={listRef}>
           {events.length === 0 && <EmptyState icon="history" title={C.empty} />}
+          {/* OFFENE ERINNERUNGEN, held at the top. The only rows in this list that are not where
+              they happened — deliberately: a Wiedervorlage is about what still has to be done,
+              and on an Einsatz that writes a row a minute it was scrolled past within ten. Each
+              one jumps to its own place in the chronology, which is where the record keeps it. */}
+          {pinnedReminders.length > 0 && (
+            <div className="jr-pinned">
+              <div className="jr-pinned-head">
+                <Icon id="clock" /><span>{C.openRemindersHead}</span>
+                <b>{C.openCount.replace('{n}', String(pinnedReminders.length))}</b>
+              </div>
+              {pinnedReminders.map((r) => {
+                const overdue = Date.parse(r.dueAt) <= now
+                const src = events.find((e) => e.reminder?.op === 'created' && e.reminder.id === r.id)
+                return (
+                  <div key={r.id} className={`jr-pinned-row ${overdue ? 'overdue' : ''}`}>
+                    <button
+                      type="button" className="jr-pinned-text"
+                      title={C.openReminderGo} aria-label={C.openReminderGo}
+                      disabled={!src}
+                      onClick={() => { if (src) jumpToRow(src.id) }}
+                    >
+                      <span className="jr-pinned-due">
+                        {overdue ? C.overdueLabel : C.dueAtLabel.replace('{t}', dueClock(r.dueAt))}
+                      </span>
+                      <span>{r.text}</span>
+                    </button>
+                    <button
+                      type="button" className="jr-rem"
+                      disabled={!onReminderDone}
+                      title={C.markDoneTitle} aria-label={C.markDoneTitle}
+                      onClick={() => onReminderDone?.(r)}
+                    ><span className="jr-rem-box"><Icon id="check" /></span></button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
           {groupByDay(events).map((g, gi) => (
             <Fragment key={g.label ?? `today-${gi}`}>
               {g.label && <div className="jr-day-sep" role="separator">{g.label}</div>}
@@ -208,8 +255,17 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                   {/* the names in the sentence, marked — the same vocabulary and the same
                       marking the composer used while it was being typed */}
                   <span className={`jr-text ${remDone ? 'jr-rem-struck' : ''}`}>
+                    {/* the job after the name, on its first mention — «Widmer Céline (EL)».
+                        A Verlauf full of surnames tells a reader who was talking only if they
+                        already know the Wehr; six months later, or on a Nachbarwehr's copy,
+                        nobody does. Quiet weight: it is context for the name, not a second one. */}
                     {linkParts(e.text, vocab).map((p, pi) => (p.kind
-                      ? <b key={pi} className={`jr-link jr-link-${p.kind}`}>{p.text}</b>
+                      ? (
+                        <b key={pi} className={`jr-link jr-link-${p.kind}`}>
+                          {p.text}
+                          {p.role && <i className="jr-link-role"> ({p.role})</i>}
+                        </b>
+                      )
                       : <span key={pi}>{p.text}</span>))}
                   </span>
                 </span>
