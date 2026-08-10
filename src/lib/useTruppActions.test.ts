@@ -4,6 +4,7 @@ import { useTruppActions, truppEditChanges, LAGE_TARGET } from './useTruppAction
 import type { BoardDoc, Drawing, Entity, Trupp, TruppFields } from '../types'
 import { appConfig } from '../config/appConfig'
 import { anyTruppInField, truppNeverDeployed } from './atemschutz'
+import { fillTemplate } from './format'
 import type { Doc } from './workspace'
 
 // useTruppActions has no React hooks inside — it's a closure factory over injected setters,
@@ -121,6 +122,34 @@ describe('useTruppActions placement (one place per Trupp)', () => {
     const { actions, state } = harness(baseTrupp({ entityId: 'e1' }), { entities: [marker] })
     actions.editTrupp('T1', { name: 'Beat Muster', pressure: 300 })
     expect(state.doc.entities[0].label).toBe('Beat Muster')
+  })
+
+  // A 200 typed for 300 at der Anmeldung used to be uncorrectable: the edit form hid the field,
+  // and everything downstream (Verbrauch, «tiefster Druck» on the Rapport) is measured against it.
+  it('editTrupp corrects the Eingangsdruck — entry reading and lowestBar move with it', () => {
+    const t = baseTrupp({
+      entryPressureBar: 200,
+      lowestBar: 200,
+      readings: [
+        { t: '2026-07-06T10:00:00Z', bar: 200, kind: 'entry' },
+        { t: '2026-07-06T10:12:00Z', bar: 250, kind: 'pressure' },
+      ],
+    })
+    const { actions, state } = harness(t)
+    actions.editTrupp('T1', { name: 'Keller Anna', pressure: 300 })
+    expect(state.trupps[0].entryPressureBar).toBe(300)
+    // the entry ROW is the same statement written twice — a Verlauf still saying 200 would
+    // contradict the card it sits next to
+    expect(state.trupps[0].readings?.[0].bar).toBe(300)
+    expect(state.trupps[0].readings?.[1].bar).toBe(250) // a real later reading is never rewritten
+    // …and the lowest is re-derived, so a corrected entry can't leave a value nobody measured
+    expect(state.trupps[0].lowestBar).toBe(250)
+  })
+
+  it('correcting the Eingangsdruck is not a Funkkontakt — the safety clock stays where it was', () => {
+    const { actions, state } = harness(baseTrupp({ entryPressureBar: 200, lastContactTime: '2026-07-06T10:00:00Z' }))
+    actions.editTrupp('T1', { name: 'Keller Anna', pressure: 300 })
+    expect(state.trupps[0].lastContactTime).toBe('2026-07-06T10:00:00Z')
   })
 
   it('exports the Lage placement-target id the picker dispatches on', () => {
@@ -499,6 +528,11 @@ describe('truppEditChanges (what the Verlauf line says)', () => {
     name: 'Keller Anna', members: ['Meier Hans', 'Frei Nina'], pressure: 300, funkkanal: 11, ...over,
   } as TruppFields)
   const prev = baseTrupp({ name: 'Keller Anna', members: ['Meier Hans', 'Frei Nina'], funkkanal: 11 })
+
+  it('names both numbers when the Eingangsdruck was corrected', () => {
+    expect(truppEditChanges(prev, fields({ pressure: 280 })))
+      .toEqual([fillTemplate(appConfig.copy.atemschutz.changePressure, { from: '300', to: '280' })])
+  })
 
   it('names the AdF who was taken out — the question asked afterwards', () => {
     expect(truppEditChanges(prev, fields({ members: ['Meier Hans'] })))

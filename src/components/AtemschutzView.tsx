@@ -870,7 +870,11 @@ function TruppForm({
     return () => window.removeEventListener('keydown', onKey)
   }, [onCancel])
 
-  const showPressure = mode !== 'edit'
+  // ⚠️ Shown in EVERY mode, including 'edit'. Hiding it there meant a mistyped Eingangsdruck could
+  // never be corrected — and it is the number the Verbrauch and the tiefster Druck on the Rapport
+  // are measured against. In edit mode it corrects what was recorded; it never counts as a contact.
+  const showPressure = true
+  const isEdit = mode === 'edit'
   const isAnderes = auftrag === 'anderes'
   // ⚠️ The Auftrag no longer BLOCKS. It is behind the fold now, and a Trupp standing at the door
   // must not wait on a field — the Überwachung exists to run a clock, and the job can be filled
@@ -941,8 +945,11 @@ function TruppForm({
           <div className={s.formCol}>
             {showPressure && (
               <div className={s.field}>
-                <span>{mode === 'redeploy' ? az.newPressureLabel : az.pressureLabel}</span>
+                <span>{mode === 'redeploy' ? az.newPressureLabel : isEdit ? az.editPressureLabel : az.pressureLabel}</span>
                 <PressureStepper value={pressure} onChange={setPressure} compact />
+                {/* said out loud, because the same ± on the CARD does the opposite: there it is a
+                    Druckmeldung and resets the contact clock. Here it corrects the record. */}
+                {isEdit && <p className={s.fieldNote}>{az.editPressureHint}</p>}
               </div>
             )}
 

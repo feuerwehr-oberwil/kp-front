@@ -217,20 +217,33 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
         {/* Atemschutz alarm chip — pinned at the far right so it never shifts the other controls.
             Only present once a Trupp is ÜBERFÄLLIG (red); the amber "fällig" lead stays on the
             board only. Taps through to the Atemschutz surface. */}
-        {azAlarm && azAlarm.peak >= 2 && azAlarm.urgent && (
-          <button
-            className="tb-az crit"
-            onClick={onOpenAtemschutz}
-            title={appConfig.copy.atemschutz.chipHint}
-            aria-label={`${appConfig.copy.modes.atemschutz}: ${appConfig.copy.atemschutz.clockOverdue} — ${azAlarm.urgent.name}`}
-          >
-            <Icon id="gauge" />
-            <span className="tb-az-name">{azAlarm.urgent.name}</span>
-            {/* ticks off the bar's own 1 Hz clock — the alarm state object itself stays
-                reference-stable between tier/Trupp transitions (App must not re-render per second) */}
-            <span className="tb-az-clock">{fmtClock(Math.round((now - azAlarm.urgent.contactAt) / 1000))}</span>
-          </button>
-        )}
+        {azAlarm && azAlarm.peak >= 2 && azAlarm.urgent && (() => {
+          // ⚠️ TWO reasons this chip is red, and it has to say which. Out of contact ticks a
+          // clock; at or below the Alarmdruck it shows the bar. A chip that showed a contact
+          // clock for a Trupp whose air is gone would name the wrong emergency.
+          const u = azAlarm.urgent
+          const lowPressure = u.reason === 'pressure'
+          const what = lowPressure
+            ? fillTemplate(appConfig.copy.atemschutz.alarmNote, { bar: String(u.bar ?? '') })
+            : appConfig.copy.atemschutz.clockOverdue
+          return (
+            <button
+              className="tb-az crit"
+              onClick={onOpenAtemschutz}
+              title={appConfig.copy.atemschutz.chipHint}
+              aria-label={`${appConfig.copy.modes.atemschutz}: ${what} — ${u.name}`}
+            >
+              <Icon id={lowPressure ? 'drop' : 'gauge'} />
+              <span className="tb-az-name">{u.name}</span>
+              {/* the clock ticks off the bar's own 1 Hz tick — the alarm state object stays
+                  reference-stable between tier/Trupp transitions (App must not re-render per
+                  second). A pressure alarm has no clock to tick: it shows the number. */}
+              <span className="tb-az-clock">
+                {lowPressure ? `${u.bar} bar` : fmtClock(Math.round((now - u.contactAt) / 1000))}
+              </span>
+            </button>
+          )
+        })()}
       </div>
     </div>
   )

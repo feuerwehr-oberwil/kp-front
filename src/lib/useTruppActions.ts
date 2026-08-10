@@ -54,6 +54,11 @@ export function truppEditChanges(prev: Trupp | undefined, f: TruppFields): strin
     out.push(fillTemplate(az.changeFunkkanal, { n: f.funkkanal == null ? '–' : String(f.funkkanal) }))
   }
   if (f.color !== undefined && (prev.color ?? null) !== (f.color ?? null)) out.push(az.changeColor)
+  // both numbers, because everything already derived from the old one (Verbrauch, tiefster Druck)
+  // was computed against it — «Eingangsdruck geändert» would not let anybody redo that arithmetic
+  if (f.pressure !== prev.entryPressureBar) {
+    out.push(fillTemplate(az.changePressure, { from: String(prev.entryPressureBar), to: String(f.pressure) }))
+  }
   return out
 }
 
@@ -412,11 +417,34 @@ export function useTruppActions(deps: Deps) {
       })
     }
   }
-  // edit a Trupp's Auftrag / team mid-incident (job changed, moved floor, crew swapped). Touches
-  // only the descriptive fields — never the live clock/pressure. Keeps the plan chip label in sync.
+  // edit a Trupp's Auftrag / team mid-incident (job changed, moved floor, crew swapped). Never
+  // touches the live CLOCK. Keeps the plan chip label in sync.
+  //
+  // The Eingangsdruck IS editable here (2026-08-10) — it is the number the Verbrauch and the
+  // «tiefster Druck» on the Rapport are measured against, and a 200 typed for 300 at der Anmeldung
+  // previously had no correction path at all short of deleting the Trupp. What a correction does
+  // and deliberately does NOT do:
+  //   · it rewrites entryPressureBar and the FIRST reading (the entry/registered one), because
+  //     that row is the same statement written twice — leaving it would print a Verlauf that
+  //     contradicts the card,
+  //   · it re-derives lowestBar from the corrected value and the readings that followed, so a
+  //     corrected entry cannot leave a «tiefster Druck» that was never measured,
+  //   · it does NOT set lastContactTime. This is a correction of what was written down, not a
+  //     Druckmeldung — the card's ± is the Druckmeldung, and it resets the safety clock.
   const editTrupp = (id: string, f: TruppFields) => {
     const tr = trupps.find((t) => t.id === id)
-    updateTrupp(id, { name: f.name, members: f.members, auftrag: f.auftrag, ziel: f.ziel, lineNo: f.lineNo, funkkanal: f.funkkanal, leaderPersonId: f.leaderPersonId, memberPersonIds: f.memberPersonIds, ...colorPatch(f) })
+    const bar = f.pressure
+    const pressurePatch = (t: Trupp): Partial<Trupp> => {
+      if (bar === t.entryPressureBar) return {}
+      const readings = (t.readings ?? []).map((r, i) =>
+        (i === 0 && (r.kind === 'entry' || r.kind === 'registered') ? { ...r, bar } : r))
+      // the lowest pressure this Trupp ever showed: the corrected entry, plus every reading
+      // actually taken since. Recomputed rather than min()'d against the old lowestBar, which
+      // may itself be the wrong entry value.
+      const lowestBar = Math.min(bar, ...readings.map((r) => r.bar))
+      return { entryPressureBar: bar, readings, lowestBar }
+    }
+    updateTrupp(id, { name: f.name, members: f.members, auftrag: f.auftrag, ziel: f.ziel, lineNo: f.lineNo, funkkanal: f.funkkanal, leaderPersonId: f.leaderPersonId, memberPersonIds: f.memberPersonIds, ...colorPatch(f), ...(tr ? pressurePatch(tr) : {}) })
     // Clearing (or changing) the Leitung number in the form IS how a Trupp lets go of a hose —
     // that is where the operator already is when they change their mind, so the card needs no
     // «lösen» icon. The anchor goes with it, or the tag would survive its own number.

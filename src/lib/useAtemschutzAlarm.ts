@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
-import { anyTruppInField, type AtemschutzAlarmState, contactSeverity, deriveTruppLive, peakAtemschutzAlarm } from './atemschutz'
+import { anyTruppInField, type AtemschutzAlarmState, contactSeverity, deriveTruppLive, peakAtemschutzAlarm, pressureAlarm } from './atemschutz'
 import { Alarm, chime, notify } from './alarm'
-import { isDemoMode } from './deploymentConfig'
+import { atemschutzDoctrine, isDemoMode } from './deploymentConfig'
 import type { Trupp } from '../types'
 
 const SILENT: AtemschutzAlarmState = { peak: 0, urgent: null, severities: {} }
@@ -43,6 +43,8 @@ export function useAtemschutzAlarm({
 }): AtemschutzAlarmState {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const az = appConfig.copy.atemschutz
+  // the station's Alarmdruck — read here so the tone, the chip and the card all use one number
+  const alarmBar = atemschutzDoctrine().alarmBar
   const [now, setNow] = useState(() => Date.now())
   const alarm = useRef<Alarm | null>(null)
   const prevSeverity = useRef<Map<string, number>>(new Map())
@@ -81,10 +83,17 @@ export function useAtemschutzAlarm({
     for (const t of trupps) {
       const l = deriveTruppLive(t, now, intervalMin, graceSec)
       if ((l.status ?? t.status) === 'raus') { prevSeverity.current.set(t.id, 0); lastNotify.current.delete(t.id); continue }
-      const sev = contactSeverity(l.sinceContactSec, intervalMin, graceSec)
+      // ⚠️ Two emergencies, one tier. A Trupp at or below the Alarmdruck has to turn round NOW,
+      // exactly like one out of contact — and until 10.08. that fact lived on its card and
+      // nowhere else, so it reached nobody who was not already looking at the Atemschutz board.
+      // It is tier 2 outright: the Alarmdruck IS the deadline, it has no amber lead-up.
+      const lowPressure = pressureAlarm(l.currentBar ?? null, alarmBar)
+      const sev = lowPressure ? 2 : contactSeverity(l.sinceContactSec, intervalMin, graceSec)
       const was = prevSeverity.current.get(t.id) ?? 0
       const justCrossed = sev >= 2 && was < 2
-      if (justCrossed) logAlarm(t.id, 'ueberfaellig') // crossed into overdue → record once
+      // the Verlauf already carries the pressure crossing from recordPressure (logPressureAlarm),
+      // so only the contact crossing is recorded here — otherwise one reading writes two lines
+      if (justCrossed && !lowPressure) logAlarm(t.id, 'ueberfaellig') // crossed into overdue → record once
       // opt-in early nudge: a soft one-shot pip the moment a Trupp crosses into the amber
       // «Kontakt fällig» lead (sev 0→1). Off by default; muted/demo suppress it like the alarm.
       if (cfg.contactDueChime && !muted && !demo && sev >= 1 && was < 1) chime()
@@ -109,7 +118,7 @@ export function useAtemschutzAlarm({
     // Only ÜBERFÄLLIG (tier 2) makes a sound — the amber "Kontakt fällig" lead stays silent (and
     // board-only), so the tone/wake-lock don't nag before a Trupp is actually overdue.
     alarm.current.set(peak >= 2 ? 2 : 0)
-  }, [trupps, now, muted, active, logAlarm, intervalMin, graceSec, az, demo])
+  }, [trupps, now, muted, active, logAlarm, intervalMin, graceSec, az, demo, alarmBar])
 
   useEffect(() => () => alarm.current?.stop(), [])
 
@@ -117,8 +126,8 @@ export function useAtemschutzAlarm({
   // source for the cross-surface surfaces (NavRail dot + TopBar chip), so they never disagree with
   // the tone. Silent during replay (read-only past).
   return useMemo(
-    () => (active ? peakAtemschutzAlarm(trupps, now, intervalMin, graceSec) : SILENT),
-    [active, trupps, now, intervalMin, graceSec],
+    () => (active ? peakAtemschutzAlarm(trupps, now, intervalMin, graceSec, alarmBar) : SILENT),
+    [active, trupps, now, intervalMin, graceSec, alarmBar],
   )
 }
 

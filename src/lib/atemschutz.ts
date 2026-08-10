@@ -149,7 +149,14 @@ export interface AtemschutzAlarmState {
   /** the Trupp driving the alarm (highest tier, then longest since contact) — null when silent.
    *  `contactAt` (ms epoch of the last contact) lets the chip tick its own clock, so this state
    *  object can stay REFERENCE-STABLE between transitions (the 1 Hz tick must not re-render App). */
-  urgent: { id: string; name: string; sinceContactSec: number; contactAt: number; severity: 1 | 2 } | null
+  urgent: {
+    id: string; name: string; sinceContactSec: number; contactAt: number; severity: 1 | 2
+    /** WHY this Trupp is the loudest — the two are different emergencies and the chip has to
+     *  say which one. `contact` ticks a clock; `pressure` shows the bar it dropped to. */
+    reason: 'contact' | 'pressure'
+    /** the cylinder pressure, on a `pressure` alarm */
+    bar?: number
+  } | null
   /** per-Trupp tier for the surfaces that draw a Trupp somewhere else — today the hose line its
    *  Trupp works on (lib/truppLines). Only Trupps ABOVE 0 appear, so the object stays small and
    *  changes rarely: the alarm host compares it by content and pushes to App only when a tier
@@ -164,23 +171,38 @@ export interface AtemschutzAlarmState {
  */
 export function peakAtemschutzAlarm(
   trupps: Trupp[], now: number, contactIntervalMin: number, contactGraceSec: number,
+  /** the Alarmdruck (bar). A Trupp at or below it is the same order of emergency as one out of
+   *  contact — it has to turn round NOW — and until 10.08. it was visible on its card and
+   *  nowhere else: the operator had to be looking at the Atemschutz board to learn about it. */
+  alarmBar?: number,
 ): AtemschutzAlarmState {
   let peak: 0 | 1 | 2 = 0
   let urgent: AtemschutzAlarmState['urgent'] = null
   const severities: Record<string, 1 | 2> = {}
   let bestRank = -1
   for (const t of trupps) {
-    const { sinceContactSec } = deriveTruppLive(t, now, contactIntervalMin, contactGraceSec)
-    if (sinceContactSec == null) continue // not in the field → no contact clock
-    const sev = contactSeverity(sinceContactSec, contactIntervalMin, contactGraceSec)
+    const { sinceContactSec, currentBar } = deriveTruppLive(t, now, contactIntervalMin, contactGraceSec)
+    if (sinceContactSec == null) continue // not in the field → no contact clock, no PA
+    const contactSev = contactSeverity(sinceContactSec, contactIntervalMin, contactGraceSec)
+    // ⚠️ Low pressure is tier 2 outright — there is no «fällig» half-step for it. The Alarmdruck
+    // is the point at which the Trupp turns round; it is already the deadline, not a lead-up.
+    const lowPressure = alarmBar != null && currentBar != null && currentBar <= alarmBar
+    const sev: 0 | 1 | 2 = lowPressure ? 2 : contactSev
     if (sev > peak) peak = sev
     if (sev === 0) continue // narrows sev to 1 | 2 for the urgent record below
     severities[t.id] = sev
-    // rank by tier first, then by how long since contact — the worst, longest-waiting Trupp wins
-    const rank = sev * 1_000_000 + sinceContactSec
+    // Rank by tier, then by how far past the line. A low-pressure Trupp ranks by how far BELOW
+    // the Alarmdruck it is (in bar, scaled so it sorts against the seconds of a contact clock),
+    // so the one with the least air left is the one the chip points at.
+    const overBy = lowPressure ? (alarmBar! - currentBar!) * 60 : sinceContactSec
+    const rank = sev * 1_000_000 + overBy
     if (rank > bestRank) {
       bestRank = rank
-      urgent = { id: t.id, name: t.name, sinceContactSec, contactAt: now - sinceContactSec * 1000, severity: sev }
+      urgent = {
+        id: t.id, name: t.name, sinceContactSec, contactAt: now - sinceContactSec * 1000, severity: sev,
+        reason: lowPressure ? 'pressure' : 'contact',
+        bar: lowPressure ? currentBar : undefined,
+      }
     }
   }
   return { peak, urgent, severities }

@@ -230,6 +230,39 @@ describe('fmtClock', () => {
   })
 })
 
+describe('peakAtemschutzAlarm — the Alarmdruck reaches the app-wide surfaces too', () => {
+  const REF = Date.parse('2026-08-10T12:00:00Z')
+  const inField = (over: Partial<Trupp>): Trupp => ({
+    id: 'T1', name: 'Angriff 1', entryPressureBar: 300, entryTime: '2026-08-10T11:58:00Z',
+    lastContactTime: '2026-08-10T11:59:30Z', status: 'aktiv', ...over,
+  })
+
+  it('raises tier 2 for a Trupp at the Alarmdruck, even with a fresh Funkkontakt', () => {
+    // it was on the card and nowhere else: nobody who was not looking at the board heard about it
+    const r = peakAtemschutzAlarm([inField({ lastPressureBar: 100 })], REF, 10, 60, 100)
+    expect(r.peak).toBe(2)
+    expect(r.urgent?.reason).toBe('pressure')
+    expect(r.urgent?.bar).toBe(100)
+  })
+
+  it('stays silent above the Alarmdruck', () => {
+    expect(peakAtemschutzAlarm([inField({ lastPressureBar: 110 })], REF, 10, 60, 100).peak).toBe(0)
+  })
+
+  it('points at the Trupp with the LEAST air left when two are below it', () => {
+    const r = peakAtemschutzAlarm(
+      [inField({ id: 'a', name: 'A', lastPressureBar: 90 }), inField({ id: 'b', name: 'B', lastPressureBar: 60 })],
+      REF, 10, 60, 100,
+    )
+    expect(r.urgent?.name).toBe('B')
+    expect(r.severities).toEqual({ a: 2, b: 2 })
+  })
+
+  it('leaves the contact clock alone when no Alarmdruck is configured', () => {
+    expect(peakAtemschutzAlarm([inField({ lastPressureBar: 10 })], REF, 10, 60).peak).toBe(0)
+  })
+})
+
 describe('peakAtemschutzAlarm', () => {
   const at = (sinceContactMin: number, over: Partial<Trupp> = {}): Trupp => ({
     ...base,

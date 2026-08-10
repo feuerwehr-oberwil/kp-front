@@ -603,8 +603,13 @@ button.stepVal:hover { border-color: var(--blue); }
 .teamRow { display: flex; align-items: center; gap: 4px; min-height: var(--tap); padding: 0 6px 0 0;
   border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface); }
 /* a slot nobody is in yet: the shape of the row, none of its weight */
-.teamRowEmpty { border-style: dashed; background: none; padding-left: 12px; color: var(--ink-faint); }
+/* ⚠️ The same left inset and gap as a FILLED row (.teamPick), so the role column lines up down
+   the whole stack — «GF» over «AdF» over a name has to be one column, not three near-misses. */
+.teamRowEmpty { border-style: dashed; background: none; padding-left: 8px; gap: 9px; color: var(--ink-faint); }
 .teamRowEmpty .teamName { color: var(--ink-faint); font-weight: 600; }
+/* the ROLE is what an empty slot has to say («GF», «AdF»), so it reads a shade stronger than the
+   placeholder beside it — otherwise the one piece of information on the row is the faintest */
+.teamRowEmpty .teamRole { color: var(--ink-dim); }
 
 /* THE ROW is the control that picks the Gruppenführer — one of N, so it behaves like a radio,
    and a radio is chosen by tapping the option rather than a glyph beside it. */

@@ -123,9 +123,13 @@ export function TruppTeam({
         {Array.from({ length: Math.max(SLOTS, value.length) }, (_, i) => {
           const m = value[i]
           if (!m) {
+            // ⚠️ The empty slot NAMES its role — «GF», «AdF», «AdF». Three identical dashes said
+            // only «something is missing here»; the badge column was blank on exactly the rows
+            // where a first-time user needs to be told what a Trupp is made of. The role is the
+            // one thing the form knows about a slot nobody is in yet, so it is what the slot says.
             return (
               <li key={`empty-${i}`} className={cx(s.teamRow, s.teamRowEmpty)} aria-hidden>
-                <span className={s.teamRole} />
+                <span className={s.teamRole}>{i === 0 ? az.leaderBadge : az.memberLabel}</span>
                 <span className={s.teamName}>{az.teamSlotEmpty}</span>
               </li>
             )
