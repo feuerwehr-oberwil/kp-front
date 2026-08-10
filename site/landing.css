@@ -110,7 +110,11 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .langs { display: flex; align-items: center; }
 .top nav a.lang {
   font-family: var(--mono); font-size: 12px; font-weight: 500;
-  letter-spacing: .1em; padding: 9px 8px; color: var(--ink-faint);
+  letter-spacing: .1em; color: var(--ink-faint);
+  /* The label is small on purpose – it is a switch, not a destination – but the target it
+     offers a thumb is not. Padding does the growing, so the type stays quiet while the hit
+     area clears 44px; the header's min-height absorbs it without moving anything. */
+  padding: 13px 10px;
 }
 .top nav a.lang.on { color: var(--ink); font-weight: 700; }
 .langs a + a { position: relative; }

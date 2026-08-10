@@ -164,6 +164,13 @@ const inline = (rel, seen) => {
 
 const bundle = (html) => {
   const seen = []
+  // The served pages link `fr/` and `../`, which is what keeps the public URLs clean. A
+  // browser only resolves those to index.html over HTTP, though – and the whole point of
+  // this variant is that it opens from a file:// path with no server, where `fr/` lands on a
+  // directory instead of a page. So the hand-out, and only the hand-out, spells the file out.
+  html = html.replace(/<span class="langs"[\s\S]*?<\/span>/, (span) =>
+    span.replace(/href="((?:\.\.\/|\.\/)*(?:[\w-]+\/)*)"/g, 'href="$1index.html"'),
+  )
   // Stylesheet first, so the font URLs inside it come along in the same pass.
   let out = html.replace(/<link rel="stylesheet" href="((?:\.\.\/)*[^"]+)">/g, (_, rel) => {
     const flat = flatten(rel)
@@ -204,6 +211,15 @@ for (const locale of config.locales) {
   const own = isBase ? base : readJson('content', `${locale.code}.json`)
   const content = isBase ? base : merge(base, own)
   const dir = dirOf(locale)
+  const up = '../'.repeat(dir.split('/').filter(Boolean).length)
+
+  // The switcher is RELATIVE, the metadata is ABSOLUTE, and the split is deliberate.
+  // `canonical` and `hreflang` name one authoritative address, so they have to carry the
+  // origin. The visible links must not: an absolute switcher pins the pages to
+  // kp-front.ch, and then DE→FR walks off any copy that is not it – a local preview, the
+  // single-file dist/ hand-out, a self-hoster's own domain. Relative, the pair travels
+  // together wherever the folder goes.
+  const relTo = (l) => `${up}${dirOf(l)}` || './'
 
   // Everything that is not text but follows from where the page sits: language,
   // path depth, canonical address, and the links to its sister languages.
@@ -211,7 +227,7 @@ for (const locale of config.locales) {
     ...content,
     lang: locale.code,
     ogLocale: locale.ogLocale,
-    base: '../'.repeat(dir.split('/').filter(Boolean).length),
+    base: up,
     canonical: urlOf(locale),
     alternates: config.locales
       .map((l) => ({ hreflang: l.hreflang, href: urlOf(l) }))
@@ -220,7 +236,7 @@ for (const locale of config.locales) {
       code: l.code,
       label: l.label,
       name: l.name,
-      href: urlOf(l),
+      href: relTo(l),
       current: l.code === locale.code,
     })),
   }

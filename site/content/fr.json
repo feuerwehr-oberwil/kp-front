@@ -1,5 +1,5 @@
 {
-  "notice": "Cette version française n’a pas encore été relue par une personne francophone des sapeurs-pompiers. Un terme qui sonne faux ? <a href=\"#kontakt\">Dites-le-nous</a>, nous corrigeons.",
+  "notice": "Cette version française n’a pas encore été relue par une personne francophone des sapeurs-pompiers, et la démo tourne en allemand. Un terme qui sonne faux ? <a href=\"#kontakt\">Dites-le-nous</a>, nous corrigeons.",
   "meta": {
     "title": "KP Front – conduite d’intervention pour les sapeurs-pompiers de milice",
     "description": "KP Front est le poste de commandement numérique sur les lieux : situation, plans, protection respiratoire, journal et rapport dans une application open source qui fonctionne hors ligne.",
@@ -19,7 +19,7 @@
     "h1": "La conduite d’intervention numérique pour les sapeurs-pompiers.",
     "lede": "KP Front est le poste de commandement numérique sur les lieux :\n      <strong>situation, plans, protection respiratoire, journal et rapport</strong> dans une seule application.",
     "cta": "Ouvrir la démo",
-    "ctaNote": "Sans connexion – dans la démo, il y a le feu à Musterdorf",
+    "ctaNote": "Sans connexion – dans la démo, il y a le feu à Musterdorf (interface en allemand)",
     "frameAddr": "LAGE · ZIMMERBRAND · 2611624 / 1263070",
     "frameAlt": "Vue Situation : carte tactique avec signes conventionnels CSSP, secteurs et conduites"
   },
@@ -28,7 +28,8 @@
     "who": [
       "Sapeurs-pompiers de milice",
       "Corps locaux",
-      "Centres de renfort"
+      "Centres de renfort",
+      "Sapeurs-pompiers professionnels"
     ],
     "whatLabel": "Pour quoi",
     "what": [
@@ -104,7 +105,7 @@
     "eyebrow": "Tiré de la démo",
     "h2": "Voilà à quoi cela ressemble.",
     "lede": "Toutes les images proviennent de la démo publique. Cliquez sur\n        «&nbsp;Ouvrir la démo&nbsp;» et vous serez dans la même situation.",
-    "note": "Les captures d’écran sont en allemand : elles viennent d’une instance réelle, et des\n        images reconstituées seraient une affirmation plutôt qu’une preuve. L’application\n        elle-même, elle, parle français.",
+    "note": "Les captures d’écran sont en allemand : la démo publique l’est, et elles en viennent – des images reconstituées seraient une affirmation plutôt qu’une preuve.",
     "items": [
       {
         "alt": "Vue Plan : plan d’objet comme tableau blanc, avec dessin, symboles et échelle",
@@ -239,7 +240,7 @@
           "Positions des véhicules par GPS <span class=\"opt\">facultatif</span>",
           "Impression PDF à la caserne <span class=\"opt\">facultatif</span>",
           "<strong>Espace d’administration propre</strong> à chaque corps : effectif, véhicules, checklists, couches cartographiques et modèles",
-          "Interface en allemand, anglais, français et italien"
+          "Interface en allemand, anglais, français ou italien – réglée une fois par corps"
         ]
       }
     ]
@@ -276,7 +277,7 @@
       },
       {
         "q": "Dans quelles langues l’application fonctionne-t-elle ?",
-        "a": "L’interface parle allemand, anglais, français et italien ; chaque appareil choisit sa\n          langue lui-même, dans la même intervention. Les captures d’écran de cette page sont en\n          allemand parce qu’elles proviennent d’une instance réelle – des images reconstituées\n          seraient une affirmation plutôt qu’une preuve."
+        "a": "L’interface existe en allemand, anglais, français et italien. La langue se règle <strong>une fois par corps</strong>, pas par appareil – en intervention tout le monde lit les mêmes termes, et c’est voulu : une situation, un vocabulaire.\n          La démo publique tourne en <strong>allemand</strong>. Les captures d’écran de cette page viennent de cette même instance – des images reconstituées seraient une affirmation plutôt qu’une preuve."
       },
       {
         "q": "Comment commencer ?",

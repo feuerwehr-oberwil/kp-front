@@ -30,7 +30,8 @@
     "who": [
       "Milizfeuerwehren",
       "Ortsfeuerwehren",
-      "Stützpunktfeuerwehren"
+      "Stützpunktfeuerwehren",
+      "Berufsfeuerwehren"
     ],
     "whatLabel": "Für was",
     "what": [
@@ -267,7 +268,7 @@
           "Fahrzeugpositionen per GPS <span class=\"opt\">optional</span>",
           "PDF-Druck im Magazin <span class=\"opt\">optional</span>",
           "<strong>Eigener Verwaltungsbereich</strong> pro Feuerwehr: Mannschaft, Fahrzeuge, Checklisten, Karten-Ebenen und Vorlagen",
-          "Oberfläche auf Deutsch, Englisch, Französisch und Italienisch"
+          "Oberfläche auf Deutsch, Englisch, Französisch oder Italienisch – pro Feuerwehr eingestellt"
         ]
       }
     ]
@@ -304,7 +305,7 @@
       },
       {
         "q": "In welchen Sprachen läuft die App?",
-        "a": "Die Oberfläche spricht Deutsch, Englisch, Französisch und Italienisch; jedes Gerät\n          wählt seine Sprache selbst, im selben Einsatz. Die Screenshots auf dieser Seite sind\n          deutsch, weil sie aus einer echten Instanz stammen – nachgestellte Bilder wären eine\n          Behauptung."
+        "a": "Die Oberfläche gibt es auf Deutsch, Englisch, Französisch und Italienisch. Die Sprache wird <strong>einmal pro Feuerwehr</strong> eingestellt, nicht pro Gerät – im Einsatz lesen alle dieselben Begriffe, und das ist Absicht: eine Lage, ein Vokabular.\n          Die öffentliche Demo läuft auf <strong>Deutsch</strong>. Die Screenshots hier sind aus derselben Instanz – nachgestellte Bilder wären eine Behauptung."
       },
       {
         "q": "Wie fangen wir an?",
