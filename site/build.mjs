@@ -196,11 +196,25 @@ const written = []
 const stale = []
 const problems = []
 
+/**
+ * ⚠️ `--check` only judges the COMMITTED pages.
+ *
+ * `site/dist/` is gitignored – it is the hand-out variant, rebuilt on demand and never in the
+ * repo. So on a fresh CI checkout those two files do not exist, `--check` found them missing and
+ * reported the built pages as «behind» on every single push. The check was unsatisfiable by
+ * construction, and a gate that can only ever be red teaches people to ignore a red gate.
+ *
+ * The reason `--check` exists is that GitHub Pages serves `site/` verbatim: the page in the repo
+ * IS the page on the web, so it must not drift from its sources. Nothing about that applies to a
+ * file which is not in the repo.
+ */
+const isCommitted = (rel) => !rel.startsWith('dist/') && !rel.startsWith(join('dist', ''))
+
 const put = (rel, content) => {
   const path = join(HERE, rel)
   const current = existsSync(path) ? readFileSync(path, 'utf8') : null
   if (current === content) return
-  if (CHECK) { stale.push(rel); return }
+  if (CHECK) { if (isCommitted(rel)) stale.push(rel); return }
   mkdirSync(dirname(path), { recursive: true })
   writeFileSync(path, content)
   written.push(rel)
