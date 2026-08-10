@@ -444,6 +444,12 @@ class ReportPayload(BaseModel):
     krokiKey: str | None = None
     plans: list[PlanRef] = []
     trupps: list[TruppIn] = []
+    # What «überfällig» MEANT on this Einsatz. The Atemschutz protocol is read to judge the
+    # contact log — was a gap acceptable, when did the board go red — and that judgement is
+    # against an interval the paper never named. It is a per-incident setting on top of a
+    # per-station one, so it cannot be looked up afterwards: it travels with the document.
+    atemschutzIntervalMin: int | None = None
+    atemschutzGraceSec: int | None = None
     # Personal-/Soldblatt: the FULL roster (recorded people ticked), guests appended
     personal: list[PersonalRowIn] = []
     # Material worksheet: full catalogue with stubs, recorded amounts filled
@@ -481,6 +487,9 @@ L = {
     "partnerOther": "Weitere",
     "kroki": "Kroki",
     "atemschutz": "Atemschutzüberwachung",
+    # printed under the heading, so the contact log can be judged against the rule it ran on
+    "azInterval": "Funkkontakt-Intervall: {n} min · überfällig ab +{g} min",
+    "azIntervalNoGrace": "Funkkontakt-Intervall: {n} min",
     # the house term (copy · atemschutz.memberLabel); «Mitglieder» reads like a club. Numbered
     # per row so the sheet names the Trupp exactly the way the form that filled it does.
     "memberN": "AdF {n}",
@@ -1467,6 +1476,20 @@ def compose_report_pdf(
     # Atemschutzüberwachung closes the Anhang: protocol for reconstruction, not primary
     if opt.atemschutz and payload.trupps:
         story.extend(head(L["atemschutz"]))
+        # The rule this Einsatz ran on, once, under the heading — every «überfällig» below
+        # is measured against it, and a reader six months later has nowhere else to find it.
+        if payload.atemschutzIntervalMin:
+            grace_min = round((payload.atemschutzGraceSec or 0) / 60)
+            story.append(
+                Paragraph(
+                    _esc(
+                        L["azInterval"].format(n=payload.atemschutzIntervalMin, g=grace_min)
+                        if grace_min
+                        else L["azIntervalNoGrace"].format(n=payload.atemschutzIntervalMin)
+                    ),
+                    st["muted"],
+                )
+            )
 
         def _meta_bits(tr):
             bits = []

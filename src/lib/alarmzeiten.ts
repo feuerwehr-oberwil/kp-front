@@ -153,7 +153,11 @@ export function fahrzeugRows(config: FleetVehicle[], values: FahrzeugZeit[] | un
  * midnight is legitimate, and a correction made at 3am is worth more than a form that refuses
  * it. `now` is injected so this stays pure.
  */
-export type ZeitKind = 'ausgerueckt' | 'ende'
+// ⚠️ `rueckmeldung` joined the checked clocks on 10.08. It is the field most often filled in
+// from memory hours later («die ELZ hab ich um 23:40 informiert»), it carries its own DATE
+// wheel, and it was the one time on the sheet nothing looked at — so a Rückmeldung typed onto
+// the wrong day sat before the alarm on a signed rapport with no hint at all.
+export type ZeitKind = 'ausgerueckt' | 'ende' | 'rueckmeldung'
 
 export interface ZeitIssue {
   /** which stamp the warning hangs off */
@@ -190,7 +194,11 @@ const ms = (iso?: string | null): number | null => {
 }
 
 export function zeitIssues(
-  stamps: { alarmiertAt?: string | null; ausgeruecktAt?: string | null; endedAt?: string | null },
+  stamps: {
+    alarmiertAt?: string | null; ausgeruecktAt?: string | null; endedAt?: string | null
+    /** when the ELZ was told — often entered long afterwards, so it gets the same check */
+    rueckmeldungAt?: string | null
+  },
   now: number,
 ): ZeitIssue[] {
   // ORDER is judged to the minute (see minuteMs); the future check keeps the full stamp,
@@ -214,6 +222,16 @@ export function zeitIssues(
     if (aus != null && ende < aus) out.push({ kind: 'ende', code: 'beforeAusgerueckt', ref: stamps.ausgeruecktAt! })
     else if (alarm != null && ende < alarm) out.push({ kind: 'ende', code: 'beforeAlarm', ref: stamps.alarmiertAt! })
     if (endeAbs != null && endeAbs > now + FUTURE_SLACK_MS) out.push({ kind: 'ende', code: 'future' })
+  }
+  // The Rückmeldung an die ELZ: same rule, same order — one warning, the most specific first.
+  // It is deliberately NOT checked against the Einsatzende: reporting back before the Einsatz is
+  // formally closed is the normal case, not a contradiction.
+  const rueck = minuteMs(stamps.rueckmeldungAt)
+  const rueckAbs = ms(stamps.rueckmeldungAt)
+  if (rueck != null) {
+    if (aus != null && rueck < aus) out.push({ kind: 'rueckmeldung', code: 'beforeAusgerueckt', ref: stamps.ausgeruecktAt! })
+    else if (alarm != null && rueck < alarm) out.push({ kind: 'rueckmeldung', code: 'beforeAlarm', ref: stamps.alarmiertAt! })
+    if (rueckAbs != null && rueckAbs > now + FUTURE_SLACK_MS) out.push({ kind: 'rueckmeldung', code: 'future' })
   }
   return out
 }

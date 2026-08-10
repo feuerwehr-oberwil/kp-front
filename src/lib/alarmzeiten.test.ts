@@ -50,6 +50,27 @@ describe('grid rows', () => {
   })
 })
 
+describe('zeitIssues — the Rückmeldung an die ELZ is checked like the other clocks', () => {
+  const NOW = Date.parse('2026-08-06T12:00:00Z')
+  const alarm = '2026-08-06T10:00:00Z'
+  const aus = '2026-08-06T10:05:00Z'
+
+  it('flags a Rückmeldung entered before the Ausrücken — the wrong-day typo', () => {
+    expect(zeitIssues({ alarmiertAt: alarm, ausgeruecktAt: aus, rueckmeldungAt: '2026-08-05T23:40:00Z' }, NOW))
+      .toEqual([{ kind: 'rueckmeldung', code: 'beforeAusgerueckt', ref: aus }])
+  })
+
+  it('falls back to the alarm when no Ausrückzeit is recorded', () => {
+    expect(zeitIssues({ alarmiertAt: alarm, rueckmeldungAt: '2026-08-06T09:00:00Z' }, NOW))
+      .toEqual([{ kind: 'rueckmeldung', code: 'beforeAlarm', ref: alarm }])
+  })
+
+  it('stays quiet on a Rückmeldung given before the Einsatz was formally closed — the normal case', () => {
+    expect(zeitIssues({ alarmiertAt: alarm, ausgeruecktAt: aus, endedAt: '2026-08-06T11:30:00Z', rueckmeldungAt: '2026-08-06T11:00:00Z' }, NOW))
+      .toEqual([])
+  })
+})
+
 describe('zeitIssues — the clocks warn, they never block', () => {
   const NOW = Date.parse('2026-08-06T12:00:00Z')
   const alarm = '2026-08-06T09:00:00Z'

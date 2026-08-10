@@ -136,6 +136,10 @@ export interface DirectReportArgs {
   incident: IncidentMeta
   draft: ReportDraft
   trupps: Trupp[]
+  /** the Funkkontakt-Intervall this Einsatz actually ran on, and the grace on top of it —
+   *  what «überfällig» meant here, printed with the Atemschutz protocol */
+  contactIntervalMin?: number
+  contactGraceSec?: number
   attendance: AttendanceState
   events: TimelineEvent[]
   plans: PlanDocument[]
@@ -273,6 +277,13 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
     kroki: kroki ?? undefined,
     krokiCaption: kroki ? krokiCaption : undefined,
     planPages,
+    // ⚠️ WHAT «überfällig» MEANT on this Einsatz. The sheet reconstructs an Atemschutz-Einsatz
+    // from its contact log, and every judgement about that log — was a gap acceptable, when did
+    // the board go red — depends on an interval the paper never named. It is a per-incident
+    // setting on top of a per-station one (IncidentSettings · contactIntervalMin), so a reader
+    // six months later has no way to look it up: it has to travel with the document.
+    atemschutzIntervalMin: args.contactIntervalMin,
+    atemschutzGraceSec: args.contactGraceSec,
     trupps: (draft.options.atemschutz ? trupps : []).map((t) => ({
       name: t.name, statusLabel: truppStatusLabel(t), members: t.members ?? [], auftrag: truppAuftragLabel(t.auftrag), ziel: t.ziel,
       // the numeric Leitung, else the free text an older record still carries verbatim

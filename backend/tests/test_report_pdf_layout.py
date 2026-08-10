@@ -145,6 +145,39 @@ def test_the_atemschutz_sheet_numbers_its_adf_the_way_the_form_does():
     assert "Gruppenführer" not in text
 
 
+def test_the_atemschutz_sheet_names_the_interval_ueberfaellig_was_measured_against():
+    """«überfällig» is a judgement against a Funkkontakt-Intervall, and the sheet never said
+    which one. It is a per-incident setting on top of a per-station one, so a reader six months
+    later has nowhere to look it up — it has to travel with the document."""
+    payload = ReportPayload.model_validate(
+        {
+            "incident": {"title": "Zimmerbrand", "id": "i"},
+            "generatedAt": "07.08.2026 09:00",
+            "proof": {"statusLabel": "intakt", "count": 1, "head": "0"},
+            "atemschutzIntervalMin": 10,
+            "atemschutzGraceSec": 300,
+            "trupps": [{"name": "Schmid Peter", "statusLabel": "im Einsatz", "readings": []}],
+        }
+    )
+    text = _text(compose_report_pdf(payload, {}))
+    assert "Funkkontakt-Intervall: 10 min" in text
+    assert "+5 min" in text
+
+
+def test_the_atemschutz_sheet_says_nothing_about_an_interval_it_was_not_told():
+    """A rapport built by an older client sends no interval. Printing a default would state a
+    rule this Einsatz may never have run on, on the sheet that records whether it was kept."""
+    payload = ReportPayload.model_validate(
+        {
+            "incident": {"title": "Zimmerbrand", "id": "i"},
+            "generatedAt": "07.08.2026 09:00",
+            "proof": {"statusLabel": "intakt", "count": 1, "head": "0"},
+            "trupps": [{"name": "Schmid Peter", "statusLabel": "im Einsatz", "readings": []}],
+        }
+    )
+    assert "Funkkontakt-Intervall" not in _text(compose_report_pdf(payload, {}))
+
+
 def test_a_trupp_that_never_went_under_pa_says_so_instead_of_an_austritt():
     """The Sicherungstrupp that stood ready and was stood down.
 

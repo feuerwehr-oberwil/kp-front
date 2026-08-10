@@ -428,6 +428,12 @@
    Beilagen captions and thumbnails. Plain text stays underneath, which is the point. */
 .rp-check-main:not(:disabled)::after { content: ''; position: absolute; inset: 0; border-radius: inherit; }
 .rp-check-extra :is(button, input, textarea, select, a, label, fieldset) { position: relative; z-index: 1; }
+/* ⚠️ …EXCEPT a control that is already positioned against its own field. The rule above is one
+   class + one element, so it outranks `.ci-clear`'s own `position: absolute` and turned the ✕
+   that sits INSIDE a clearable field into an in-flow button underneath it — which is what the
+   Partnerorganisationen rows showed: two fields on one line, each with a stray ✕ dangling below.
+   It still needs the z-index; only the positioning has to be handed back. */
+.rp-check-extra .ci-clear { position: absolute; }
 /* same white-on-white as the partner box above — the ring of an unfinished step was invisible
    in light mode, so the checklist read as a list of labels with no state at all */
 .rp-check-dot { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;

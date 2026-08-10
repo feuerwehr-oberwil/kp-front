@@ -13,6 +13,7 @@ import type { IncidentMeta } from '../lib/incidents'
 import { getIncident, verifyChain } from '../lib/incidents'
 import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from '../lib/workspace'
 import { deriveAusgerueckt, fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit, zeitFromClock, zeitIssues } from '../lib/alarmzeiten'
+import type { ZeitKind } from '../lib/alarmzeiten'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
 import { activityMoments, loadReplay, stateAt, vehiclesAt, type ReplayBundle } from '../lib/replay'
 import { autoRotation, vehicleSymbolSvg } from '../lib/useVehiclePositions'
@@ -32,6 +33,12 @@ import { Stepper } from './Stepper'
 import { Menu, Popover } from '../lib/overlays'
 
 const NO_IDS = new Set<string>()
+
+/** How many blank free rows the Partnerorganisationen block always keeps ready to type into. */
+const FREE_PARTNER_ROWS = 2
+
+/** Does this partner row say anything at all? Blank rows live on screen and never reach the blob. */
+const partnerFilled = (p: PartnerContact) => [p.org, p.name, p.phone, p.note].some((v) => v?.trim())
 
 /** Shape of the operational extent — wider than tall means a landscape sheet. Latitude is
  *  scaled by cos(lat) so the comparison is in metres, not degrees: at 47° a degree of longitude
@@ -88,7 +95,7 @@ function CheckRow({ done, label, sub, onGo, children }: {
 const savedScroll: { current: { incidentId: string; top: number } | null } = { current: null }
 
 export function ReportPreflight({
-  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], plans = [], scene, board, building, captureUsage, canEdit = true, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onComplete, onFixTranscripts,
+  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], contactIntervalMin, contactGraceSec, plans = [], scene, board, building, captureUsage, canEdit = true, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onComplete, onFixTranscripts,
 }: {
   incident: IncidentMeta
   reportMeta: ReportMeta
@@ -116,6 +123,10 @@ export function ReportPreflight({
   /** full attendance record — drives the collapsible Stunden (von–bis) editor */
   attendance?: AttendanceState
   trupps?: Trupp[]
+  /** the Funkkontakt-Intervall this Einsatz ran on + the grace on top — what «überfällig»
+   *  meant here. It is a per-incident setting, so nobody can look it up on the paper later. */
+  contactIntervalMin?: number
+  contactGraceSec?: number
   plans?: PlanDocument[]
   /** the Lage scene for the server-rendered Kroki (entities/drawings/layers/view) */
   scene?: {
@@ -182,16 +193,29 @@ export function ReportPreflight({
   // ever wrote it — so every rapport fell back to the config's tick-off row and «Polizei war da»
   // was all the paper ever said. The remark is the point of the block: which patrol, whose
   // number, what they took over.
-  const [partners, setPartners] = useState<PartnerContact[]>(() => reportMeta.partnerContacts ?? [])
+  // …and two of the free rows are always ALREADY THERE. The list covers the usual partners, but
+  // the ones that are not on it — a Nachbarwehr, the Werkdienst, the Bahn — needed «+ Weitere»
+  // pressed first, and a row you have to summon is a row nobody fills in at 3am. An empty row
+  // costs nothing: `savePartners` already strips blanks on the way to the blob, so two waiting
+  // fields never reach the rapport unless somebody types in them.
+  const partnerBlanks = (xs: PartnerContact[]): PartnerContact[] => {
+    const blank = xs.filter((p) => !partnerFilled(p)).length
+    return blank >= FREE_PARTNER_ROWS ? xs : [...xs, ...Array.from({ length: FREE_PARTNER_ROWS - blank }, () => ({ org: '' }))]
+  }
+  const [partners, setPartners] = useState<PartnerContact[]>(
+    () => (canEdit ? partnerBlanks(reportMeta.partnerContacts ?? []) : reportMeta.partnerContacts ?? []),
+  )
   const savePartners = (next: PartnerContact[]) => {
     // Bail BEFORE the local state: `persist` already refuses to write while read-only, so
     // accepting the edit on screen would show a viewer (or a closed Einsatz) a partner that
     // was never saved and vanishes on close — the silent-drop failure the read-only fieldset
     // exists to prevent. This block sits outside that fieldset, so it guards itself.
     if (!canEdit) return
-    setPartners(next)
+    // top up on the way IN, so filling the last blank row immediately offers the next one and
+    // the block never runs out of somewhere to type
+    setPartners(partnerBlanks(next))
     // an all-empty row is nothing to record — dropped on the way to the blob, kept on screen
-    const clean = next.filter((p) => [p.org, p.name, p.phone, p.note].some((v) => v?.trim()))
+    const clean = next.filter(partnerFilled)
     persist({ partnerContacts: clean.length ? clean : undefined })
   }
   const patchPartner = (i: number, over: Partial<PartnerContact>) =>
@@ -370,6 +394,31 @@ export function ReportPreflight({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reportMeta.einsatzleiter, einsatzleiter])
 
+  // …and put that Einsatzleiter on the ANWESENHEIT, once.
+  //
+  // ⚠️ The EL is the one person a rapport names on its front page — and until 10.08. that name
+  // was only ever a string on `reportMeta` (or on the Kroki symbol it was seeded from). Nothing
+  // guaranteed a matching Anwesenheits-Zeile, so an Einsatz could be led by somebody who
+  // appeared on NO list: not on the Anwesenheit, not in the Trupp picker's «schon: Einsatzleiter»
+  // hint, and not on the printed Personalblatt — which is also the Soldblatt. The interactive
+  // pick already writes it (onRolePicked · lib/roleAssignment); this covers every other route a
+  // name arrives by (seeded data, a sync from another device, the symbol).
+  //
+  // Only when the name RESOLVES to a roster row: a hand-typed one has no id to file attendance
+  // under, and inventing a guest row from a free-text field would put people on the Soldblatt
+  // that nobody recorded.
+  const linkedEinsatzleiter = useRef(false)
+  useEffect(() => {
+    if (linkedEinsatzleiter.current || !onRolePicked) return
+    const name = (reportMeta.einsatzleiter ?? einsatzleiter).trim()
+    if (!name) return
+    const p = personnel.find((x) => x.displayName.trim().toLowerCase() === name.toLowerCase())
+    if (!p || attendance[p.id]) return
+    linkedEinsatzleiter.current = true
+    onRolePicked(p.id, 'el', appConfig.copy.anwesenheit.roleEinsatzleiter)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per mount, guarded by the ref
+  }, [reportMeta.einsatzleiter, einsatzleiter, personnel, attendance])
+
   const meta: ReportMeta = {
     ...reportMeta,
     ...editedMeta(),
@@ -384,10 +433,15 @@ export function ReportPreflight({
   // `nowRef` is read once per sheet — a live clock here would re-render the form every second
   // and is exactly the shape that once cost the phone its battery.
   const issues = zeitIssues(
-    { alarmiertAt: alarmiert, ausgeruecktAt: derivedAus ?? dtLocalToIso(ausgerueckt), endedAt: dtLocalToIso(endedAt) },
+    {
+      alarmiertAt: alarmiert,
+      ausgeruecktAt: derivedAus ?? dtLocalToIso(ausgerueckt),
+      endedAt: dtLocalToIso(endedAt),
+      rueckmeldungAt: rueckIso,
+    },
     nowRef,
   )
-  const issueFor = (kind: 'ausgerueckt' | 'ende') => {
+  const issueFor = (kind: ZeitKind) => {
     const i = issues.find((x) => x.kind === kind)
     if (!i) return null
     const t = i.ref ? formatDateTime(i.ref) : ''
@@ -395,7 +449,7 @@ export function ReportPreflight({
     return fillTemplate(i.code === 'beforeAusgerueckt' ? P.zeitBeforeAusgerueckt : P.zeitBeforeAlarm, { t })
   }
   // a plain call, not a component: one declared in the render body is re-created every pass
-  const zeitWarn = (kind: 'ausgerueckt' | 'ende') => {
+  const zeitWarn = (kind: ZeitKind) => {
     const text = issueFor(kind)
     return text ? <span className="rz-warn"><Icon id="warn" />{text}</span> : null
   }
@@ -425,7 +479,7 @@ export function ReportPreflight({
     setPdfBusy(true)
     try {
       await downloadDirectReportPdf({
-        incident, draft, trupps, attendance, events, plans, mittel, attachments, scene: effScene, board, building,
+        incident, draft, trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, building,
         // the printed journal marks the same terms the app marks (lib/journalLinks)
         vocab: journalVocabulary(personnel, attendance),
         roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
@@ -454,7 +508,7 @@ export function ReportPreflight({
     if (warmedRef.current || !printStatus?.available || !options.kroki || mapContentCount === 0 || !scene) return
     warmedRef.current = true
     const payload = buildDirectReportPayload({
-      incident, draft: buildDraft(), trupps, attendance, events, plans, mittel, attachments, scene: effScene, board, building,
+      incident, draft: buildDraft(), trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, building,
       roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
     })
     void prewarmPrint(editorPrintTransport(), incident.id, payload)
@@ -472,7 +526,7 @@ export function ReportPreflight({
     try {
       const t = editorPrintTransport()
       const payload = buildDirectReportPayload({
-        incident, draft: buildDraft(), trupps, attendance, events, plans, mittel, attachments, scene: effScene, board, building,
+        incident, draft: buildDraft(), trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, building,
         roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
       })
       const jobId = await enqueuePrint(t, incident.id, payload)
@@ -1075,6 +1129,10 @@ export function ReportPreflight({
                   <button type="button" className="ip-btn"
                     onClick={() => { const iso = new Date().toISOString(); setRueckAt(iso); persist(rueckOver(rueckName, iso)) }}>{P.now}</button>
                 </div>
+                {/* the same plausibility hint the Einsatzende carries — this field has a DATE
+                    wheel and is usually filled in from memory, so it is the likeliest of the
+                    four to land on the wrong day */}
+                {zeitWarn('rueckmeldung')}
               </div>
             </div>
             {/* Partnerorganisationen: WHO was there, from whom, reachable how — and the remark,
@@ -1163,9 +1221,13 @@ export function ReportPreflight({
                 the one that turns up is not always on it), and one free line beside it carries
                 whatever is worth saying: «Wm. Keller, übernimmt Verkehr ab Kreisel». */}
             <CheckRow
-              done={partners.length > 0}
+              /* ⚠️ the FILLED rows, not `partners.length` — the block always carries two blank
+                 free rows, and counting those ticked the step off before anything was recorded */
+              done={partners.some(partnerFilled)}
               label={P.partnersLabel}
-              sub={partners.length ? partners.map((p) => p.org).filter(Boolean).join(' · ') : P.partnersNone}
+              sub={partners.some(partnerFilled)
+                ? partners.map((p) => p.org).filter(Boolean).join(' · ')
+                : P.partnersNone}
             >
               <div className="rp-check-extra">
                 {/* own gate: the sheet's main fieldset ends above the checklist, so a viewer or

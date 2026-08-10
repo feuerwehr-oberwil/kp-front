@@ -1,5 +1,5 @@
 import type { AttendanceState, BoardDoc, Drawing, Entity, LngLat, MittelEntry, PlanDocument, TimelineEvent, Trupp, TruppReading } from '../types'
-import type { ReportMeta } from './workspace'
+import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from './workspace'
 import { appConfig } from '../config/appConfig'
 import { fmtDistance } from './geo'
 import { fillTemplate, hhmm, restoreUmlauts } from './format'
@@ -164,6 +164,15 @@ export function journalArea(e: TimelineEvent, plans: PlanDocument[]): string {
   // thing `journal` is written for besides the composer
   if (e.kind === 'journal' && e.icon === 'check') return r.areaChecklist
   if (e.kind === 'reminder') return r.areaManual
+  // ⚠️ A row that WAS given a type says so in this column. «Manuell» answers «wo kam das her»,
+  // which is the least interesting thing about an Auftrag or a Sofortmassnahme — and the type
+  // was already in the text as a «Auftrag · » prefix, so the printed row carried the word twice
+  // and the column carried nothing. Now the column IS the type and `withoutAreaPrefix` drops
+  // the duplicate from the text. `info` keeps «Manuell»: it is the ordinary case and prints no
+  // tag anywhere else either.
+  if (e.entryType && e.entryType !== 'info') {
+    return appConfig.copy.journal.entryTypes[e.entryType] ?? r.areaManual
+  }
   if (e.kind === 'audio' || e.kind === 'photo' || e.kind === 'journal' || e.pinned) return r.areaManual
   // ── then by ICON, which is what actually separates the writers ──
   // ⚠️ Every row the QR poster writes has NO kind at all (lib/captureClient · row), so a rule
@@ -189,6 +198,14 @@ function withoutAreaPrefix(text: string): string {
   ].map((tpl) => tpl.replace('{fields}', '').trimEnd()).filter(Boolean)
   for (const p of prefixes) {
     if (text.startsWith(p)) return text.slice(p.length).trimStart() || text
+  }
+  // …and the entry-type tag the composer writes into the text («Auftrag · Trupp 2 sichert»),
+  // now that the Bereich column carries the same word. Only the printed row drops it — the
+  // record keeps its wording, and the live Verlauf has no column to lean on.
+  for (const [key, label] of Object.entries(appConfig.copy.journal.entryTypes)) {
+    if (key === 'info') continue
+    const tag = `${label} · `
+    if (text.startsWith(tag)) return text.slice(tag.length).trimStart() || text
   }
   return text
 }
@@ -506,14 +523,26 @@ export function changedReportMetaFields(prev: ReportMeta, next: ReportMeta): str
   const P = appConfig.copy.preflight
   const keys = new Set([...Object.keys(prev), ...Object.keys(next)])
   const out: string[] = []
+  // ⚠️ The header Ausrückzeit is DERIVED from the Fahrzeug grid (deriveAusgerueckt), and one tap
+  // in that grid persists both. Logged separately they printed the same fact twice in one row —
+  // «Ausgerückt «10.08.2026, 14:05», Fahrzeugzeiten» — so when the vehicles moved, the vehicles
+  // are the statement and the derived header is not.
+  const fahrzeugeMoved = JSON.stringify(prev.fahrzeuge ?? null) !== JSON.stringify(next.fahrzeuge ?? null)
   for (const k of keys) {
     if (META_QUIET.has(k)) continue
+    if (k === 'ausgeruecktAt' && fahrzeugeMoved) continue
     const a = (prev as Record<string, unknown>)[k]
     const b = (next as Record<string, unknown>)[k]
     // structural compare: gruppen/fahrzeuge/partnerContacts are arrays of objects, and an
     // identity check would report a change on every re-render that rebuilt them
     if (JSON.stringify(a ?? null) === JSON.stringify(b ?? null)) continue
-    const label = META_FIELD_LABELS[k] ?? k
+    // the structured fields write their own sentences — see `_structuredMetaLines`
+    const structured = _structuredMetaLines(k, a, b)
+    if (structured) { out.push(...structured); continue }
+    const label = META_FIELD_LABELS[k]
+    // A key with no human name is an internal one (`startedAt`, `alarmText`) — printing the
+    // identifier put «startedAt» on the signed rapport, which is worse than saying nothing.
+    if (!label) continue
     if (META_PROSE.has(k)) {
       const verb = !_hasText(b) ? P.metaCleared : _hasText(a) ? P.metaRewritten : P.metaWritten
       out.push(`${label} ${verb}`)
@@ -527,6 +556,110 @@ export function changedReportMetaFields(prev: ReportMeta, next: ReportMeta): str
     }
   }
   return out.sort((x, y) => x.localeCompare(y, 'de'))
+}
+
+/** hh:mm for a Verlauf line about a Rapport time; the raw value if it will not parse. */
+const _clock = (iso?: string) => (iso ? formatDateTime(iso) || iso : '')
+
+/**
+ * The Rapportangaben that are STRUCTURES rather than values — and therefore the ones that used
+ * to log nothing but their own name. Returns one line per thing that actually moved, or
+ * `undefined` for a key this does not handle (the caller falls back to the generic path).
+ *
+ * ⚠️ Each of these blocks is edited one row at a time — tick Polizei, tick Sanität, type a
+ * remark — and every row starts its own debounce window. Naming the row is what makes three
+ * consecutive entries three readable statements instead of three identical ones.
+ */
+function _structuredMetaLines(k: string, a: unknown, b: unknown): string[] | undefined {
+  const P = appConfig.copy.preflight
+  if (k === 'rueckmeldungElz') {
+    const rk = (b ?? {}) as { name?: string; at?: string }
+    const name = rk.name?.trim()
+    const t = _clock(rk.at)
+    if (name && t) return [fillTemplate(P.metaRueckmeldung, { name, t })]
+    if (name) return [fillTemplate(P.metaRueckmeldungName, { name })]
+    if (t) return [fillTemplate(P.metaRueckmeldungTime, { t })]
+    return [`${META_FIELD_LABELS.rueckmeldungElz} ${P.metaCleared}`]
+  }
+  if (k === 'gerettete') {
+    const value = _geretteteText(b as { personen?: number; tiere?: number } | undefined)
+    return [value ? fillTemplate(P.metaGerettete, { value }) : `${META_FIELD_LABELS.gerettete} ${P.metaCleared}`]
+  }
+  if (k === 'mittelConfirmedNone') return [b ? P.metaMittelNoneOn : P.metaMittelNoneOff]
+  if (k === 'partnerContacts') return _partnerLines((a ?? []) as PartnerContact[], (b ?? []) as PartnerContact[])
+  if (k === 'gruppen') return _gruppenLines((a ?? []) as GruppeZeit[], (b ?? []) as GruppeZeit[])
+  if (k === 'fahrzeuge') return _fahrzeugLines((a ?? []) as FahrzeugZeit[], (b ?? []) as FahrzeugZeit[])
+  return undefined
+}
+
+/** «2 Personen · 1 Tier» — the same wording the printed rapport uses. */
+function _geretteteText(g?: { personen?: number; tiere?: number }): string {
+  const R = appConfig.copy.report
+  if (!g || (g.personen == null && g.tiere == null)) return ''
+  return [
+    g.personen != null ? `${g.personen} ${R.gerettetePersonen}` : null,
+    g.tiere != null ? `${g.tiere} ${R.geretteteTiere}` : null,
+  ].filter(Boolean).join(' · ')
+}
+
+/** Partnerorganisationen, diffed BY ORGANISATION: who was added, who was removed, whose remark
+ *  changed. Blank rows (the two the block always keeps ready) are not organisations and are
+ *  skipped, or opening the sheet would log two arrivals nobody recorded. */
+function _partnerLines(before: PartnerContact[], after: PartnerContact[]): string[] {
+  const P = appConfig.copy.preflight
+  const key = (p: PartnerContact) => (p.org ?? '').trim().toLowerCase()
+  const named = (xs: PartnerContact[]) => xs.filter((p) => [p.org, p.name, p.phone, p.note].some((v) => v?.trim()))
+  const A = new Map(named(before).map((p) => [key(p), p]))
+  const B = new Map(named(after).map((p) => [key(p), p]))
+  const out: string[] = []
+  for (const [k, p] of B) {
+    const org = (p.org ?? '').trim()
+    if (!A.has(k)) { out.push(org ? fillTemplate(P.metaPartnerAdded, { org }) : P.metaPartnerUnnamed); continue }
+    const note = (p.note ?? '').trim()
+    if (note !== (A.get(k)?.note ?? '').trim() && note) out.push(fillTemplate(P.metaPartnerNote, { org, note }))
+  }
+  for (const [k, p] of A) {
+    if (!B.has(k)) out.push(fillTemplate(P.metaPartnerRemoved, { org: (p.org ?? '').trim() }))
+  }
+  return out
+}
+
+/** Alarmzeit per Gruppe, named by its configured label — «g2» means nothing on paper. */
+function _gruppenLines(before: GruppeZeit[], after: GruppeZeit[]): string[] {
+  const P = appConfig.copy.preflight
+  const labels = new Map((getDeploymentConfig().alarms?.groups ?? []).map((g) => [g.id, g.label || g.id]))
+  const A = new Map(before.map((g) => [g.id, g]))
+  const out: string[] = []
+  for (const g of after) {
+    if (A.get(g.id)?.alarmedAt === g.alarmedAt) continue
+    const gruppe = labels.get(g.id) ?? g.id
+    out.push(g.alarmedAt
+      ? fillTemplate(P.metaGruppe, { gruppe, t: _clock(g.alarmedAt) })
+      : fillTemplate(P.metaGruppeCleared, { gruppe }))
+  }
+  return out
+}
+
+/** The three Fahrzeug clocks, one line each — «Fahrzeugzeiten» named neither the vehicle nor
+ *  which of its three times moved, on the grid where a whole Wehr's turnout is entered. */
+function _fahrzeugLines(before: FahrzeugZeit[], after: FahrzeugZeit[]): string[] {
+  const P = appConfig.copy.preflight
+  const labels = new Map((getDeploymentConfig().fleet?.vehicles ?? []).map((v) => [v.id, v.label || v.id]))
+  const A = new Map(before.map((v) => [v.id, v]))
+  const out: string[] = []
+  const slots: [keyof FahrzeugZeit, string][] = [
+    ['ausgerueckt', P.metaFahrzeugAus], ['vorOrt', P.metaFahrzeugVorOrt], ['zurueck', P.metaFahrzeugZurueck],
+  ]
+  for (const v of after) {
+    const fahrzeug = labels.get(v.id) ?? v.id
+    const prev = A.get(v.id)
+    for (const [slot, tpl] of slots) {
+      const now = v[slot] as string | undefined
+      if ((prev?.[slot] as string | undefined) === now) continue
+      out.push(now ? fillTemplate(tpl, { fahrzeug, t: _clock(now) }) : fillTemplate(P.metaFahrzeugCleared, { fahrzeug }))
+    }
+  }
+  return out
 }
 
 export function personalForPdf(

@@ -221,7 +221,7 @@ describe('report journal rows', () => {
     expect(byId.get('mit')).toBe('Mittel')
     expect(byId.get('qr')).toBe('Anwesenheit')
     expect(byId.get('check')).toBe('Checkliste')
-    expect(byId.get('lage')).toBe('Lage')
+    expect(byId.get('lage')).toBe('Kroki')
   })
 
   it('drops a prefix the Bereich column already says', () => {
@@ -232,6 +232,26 @@ describe('report journal rows', () => {
     const row = journalRows([e], plans)[0]
     expect(row.area).toBe('Rapport')
     expect(row.text).toBe('Einsatzleiter: Meier Anna')
+  })
+
+  // «Manuell» answers «wo kam das her» — the least interesting thing about an Auftrag, and the
+  // word was already sitting in the text as a «Auftrag · » prefix. Column and text swapped jobs.
+  it('names the entry type in the Bereich column and drops it from the text', () => {
+    const e: TimelineEvent = {
+      id: 'a', t: '14:12', at: '2026-08-10T12:12:00.000Z', icon: 'type', kind: 'journal',
+      text: 'Auftrag · Trupp 2 sichert das Treppenhaus', entryType: 'auftrag',
+    }
+    const row = journalRows([e], plans)[0]
+    expect(row.area).toBe('Auftrag')
+    expect(row.text).toBe('Trupp 2 sichert das Treppenhaus')
+  })
+
+  it('leaves an ordinary Info row as «Manuell» — the common case wears no tag anywhere', () => {
+    const e: TimelineEvent = {
+      id: 'a', t: '14:12', at: '2026-08-10T12:12:00.000Z', icon: 'type', kind: 'journal',
+      text: 'Kellerbrand bestätigt', entryType: 'info',
+    }
+    expect(journalRows([e], plans)[0].area).toBe('Manuell')
   })
 
   it('uses fallback date for legacy HH:MM rows', () => {
@@ -472,5 +492,55 @@ describe('changedReportMetaFields (what the Verlauf row says)', () => {
     expect(changedReportMetaFields(base, { ...base })).toEqual([])
     // bookkeeping about the rapport itself is not a statement about the Einsatz
     expect(changedReportMetaFields(base, { ...base, erfasser: 'FU' })).toEqual([])
+  })
+
+  // The six structured fields used to write nothing but their own name, so three taps on the
+  // Partnerliste printed three identical «Partnerorganisationen» rows — a log that reads as a bug.
+  it('names the Partnerorganisation that arrived, so consecutive rows are three statements', () => {
+    const one = { ...base, partnerContacts: [{ org: 'Polizei' }] }
+    expect(changedReportMetaFields(base, one)).toEqual(['Partnerorganisation Polizei ergänzt'])
+    const two = { ...base, partnerContacts: [{ org: 'Polizei' }, { org: 'Sanität' }] }
+    expect(changedReportMetaFields(one, two)).toEqual(['Partnerorganisation Sanität ergänzt'])
+    expect(changedReportMetaFields(two, one)).toEqual(['Partnerorganisation Sanität entfernt'])
+  })
+
+  it('does not report the blank rows the Partner block always keeps ready', () => {
+    expect(changedReportMetaFields(base, { ...base, partnerContacts: [{ org: '' }, { org: '' }] })).toEqual([])
+  })
+
+  it('carries the Partner remark — the reason the block exists', () => {
+    const on = { ...base, partnerContacts: [{ org: 'Polizei' }] }
+    expect(changedReportMetaFields(on, { ...base, partnerContacts: [{ org: 'Polizei', note: 'Wm. Keller, Verkehr' }] }))
+      .toEqual(['Partnerorganisation Polizei – Bemerkung: Wm. Keller, Verkehr'])
+  })
+
+  it('says who reported back to the ELZ and when — the row the 10.08. test found empty', () => {
+    const out = changedReportMetaFields(base, { ...base, rueckmeldungElz: { name: 'Widmer Céline', at: '2026-08-10T12:17:00Z' } })
+    expect(out[0]).toContain('Rückmeldung ELZ durch Widmer Céline um ')
+    expect(changedReportMetaFields(base, { ...base, rueckmeldungElz: { name: 'Widmer Céline' } }))
+      .toEqual(['Rückmeldung ELZ durch Widmer Céline'])
+  })
+
+  it('counts the Gerettete instead of naming the field', () => {
+    expect(changedReportMetaFields(base, { ...base, gerettete: { personen: 2, tiere: 1 } }))
+      .toEqual(['Gerettete: 2 Personen · 1 Tiere'])
+  })
+
+  it('distinguishes confirming «keine Mittel» from taking it back', () => {
+    const on = { ...base, mittelConfirmedNone: true }
+    expect(changedReportMetaFields(base, on)).toEqual(['Material: «keine verwendet» bestätigt'])
+    expect(changedReportMetaFields(on, { ...base, mittelConfirmedNone: false })).toEqual(['Material: «keine verwendet» widerrufen'])
+  })
+
+  it('names the vehicle AND which of its three clocks moved', () => {
+    const out = changedReportMetaFields(base, { ...base, fahrzeuge: [{ id: 'tlf', ausgerueckt: '2026-08-10T12:05:00Z' }] })
+    expect(out).toHaveLength(1)
+    expect(out[0]).toContain('ausgerückt')
+    expect(out[0]).toContain('TLF') // the configured label, never the raw id
+  })
+
+  it('never prints a raw field identifier on the signed rapport', () => {
+    // `startedAt` has no human name; a row reading «startedAt» is worse than no row
+    expect(changedReportMetaFields(base, { ...base, startedAt: '2026-08-10T12:00:00Z' })).toEqual([])
   })
 })
