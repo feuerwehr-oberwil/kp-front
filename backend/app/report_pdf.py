@@ -1263,7 +1263,11 @@ def compose_report_pdf(
     by_org = {(c.org or "").strip().lower(): c for c in m.partnerContacts}
     listed = [(org, by_org.pop(org.strip().lower(), None)) for org in payload.partnerPresets]
     listed += [(c.org or "", c) for c in by_org.values()]
-    listed += [("", None)]
+    # TWO blank write-in rows, like the Personalblatt — this is where «die zwei leeren» belong.
+    # They were briefly put in the Rapport SURFACE instead, where two empty Organisation/Bemerkung
+    # pairs plus their bins just stacked up under a list that already offers «+ Weitere». On paper
+    # there is no «+», so a partner nobody configured can only be written where there is a rule.
+    listed += [("", None), ("", None)]
     story.append(_partner_table(listed, inner_w, st))
 
     # Unterschriften close the SIGNED part (Haupt-Rapport + Personal + Material — one

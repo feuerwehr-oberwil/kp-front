@@ -359,3 +359,16 @@
   color: var(--ink-dim); display: grid; place-items: center; cursor: pointer; flex: none; }
 .jr-jump .i { width: 13px; height: 13px; }
 .jr-jump:hover { color: var(--ink); background: var(--hover-strong); }
+
+/* «noch offen» chips are BUTTONS that jump to the section they name (ReportPreflight ·
+   jumpToStep). Same amber pill as before — the chip already looked like a thing you could press,
+   and it simply was not one; only the pointer and the hover are new. */
+.rp-head-open-go { font: inherit; font-weight: 700; padding: 1px 7px; border: none;
+  border-radius: var(--r-pill); cursor: pointer;
+  color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 14%, transparent); }
+.rp-head-open-go:hover { background: color-mix(in srgb, var(--amber) 26%, transparent); }
+/* …and the target says «here» for a moment. Without it a smooth scroll on a long page ends
+   somewhere plausible and the operator has to work out which of four sections they were sent to. */
+@keyframes rp-flash-fade { from { background: color-mix(in srgb, var(--accent-soft, #2563eb) 16%, transparent); } to { background: transparent; } }
+.rp-flash { animation: rp-flash-fade 1.2s ease-out; border-radius: var(--r-md); }
+@media (prefers-reduced-motion: reduce) { .rp-flash { animation-duration: 1ms; } }

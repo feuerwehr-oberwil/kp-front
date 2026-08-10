@@ -476,7 +476,13 @@ export default function App() {
   // Landing list when no incident is active: the open Einsätze to resume + the Divera alarms
   // to take, shown directly (no "Kein offener Einsatz" dead-end), with manual create always on.
   const openIncidents = incidents.filter((i) => !i.is_archived)
-  const hasLanding = openIncidents.length > 0 || (isEditor && poolAlarms.length > 0)
+  // ⚠️ The alarms that will ACTUALLY render, dismissals included. `hasLanding` counted the raw
+  // pool while the list below filtered out anything dismissed on this device — so once every
+  // pool alarm had been ×-ed away, the card took the launcher branch, rendered an EMPTY list
+  // (with its own margin) and skipped the sentence explaining what to do. A hole where the
+  // explanation should be, on the one screen whose whole job is «what now».
+  const landingAlarms = isEditor ? poolAlarms.filter((a) => !dismissedAlarms.has(a.divera_id)) : []
+  const hasLanding = openIncidents.length > 0 || landingAlarms.length > 0
 
   return (
     <>
@@ -545,7 +551,7 @@ export default function App() {
                     <Icon id="chevron" />
                   </button>
                 ))}
-                {isEditor && poolAlarms.filter((a) => !dismissedAlarms.has(a.divera_id)).map((a) => (
+                {landingAlarms.map((a) => (
                   // the pool's ONLY surface now (the intake sheet is gone): take, or ×
                   // to hide it on THIS device only (per-device, kp.divera.dismissed) — the ×
                   // NEVER archives a live dispatch for the crew (that would be a server delete)

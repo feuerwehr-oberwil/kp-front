@@ -1166,16 +1166,24 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .ip-emptyapp-card { width: min(408px, 100%); min-width: 0; max-width: 100%; background: var(--glass); border: 1px solid var(--glass-line);
   box-shadow: var(--shadow); border-radius: var(--r-hero); padding: 30px 28px 22px; text-align: left;
   backdrop-filter: blur(14px) saturate(1.4); animation: pop .3s var(--ease); }
-.ip-emptyapp-brand { gap: 15px; padding-bottom: 22px; margin-bottom: 24px;
+/* ⚠️ ONE rhythm down this card. The brand block spent 22 + 24 = 46px before the first control,
+   the footer 18 + 14 before its rule and 8 between its rows, and the version line another 14 —
+   five different gaps in a card with four things in it, which is what made the empty state read
+   as a hole rather than as a short card. 18px separates blocks, 10px separates rows inside one. */
+.ip-emptyapp-brand { gap: 15px; padding-bottom: 18px; margin-bottom: 18px;
   border-bottom: 1px solid var(--glass-edge); }
 .ip-emptyapp-brand .login-sub { font-family: var(--body); font-size: 12.5px; font-weight: 600; color: var(--ink-dim); letter-spacing: 0; }
-.ip-emptyapp-card h1 { margin: 0 0 8px; font: 700 21px var(--body); letter-spacing: -.01em; color: var(--ink); }
-.ip-emptyapp-card p { margin: 0 0 22px; max-width: 34ch; color: var(--ink-dim); font: 500 14.5px var(--body); line-height: 1.45; }
+/* the card carries no <h1> since the «Kein offener Einsatz» dead-end was replaced by the
+   launcher — the brand block IS the heading. The paragraph rule stays for FeedbackPrompt's copy. */
+.ip-emptyapp-card p { margin: 0 0 18px; max-width: 34ch; color: var(--ink-dim); font: 500 14.5px var(--body); line-height: 1.45; }
 .ip-emptyapp-none { margin: 0 0 18px; color: var(--ink-dim); font: 500 14.5px var(--body); line-height: 1.45; }
 
 /* landing launcher: open Einsätze + Divera alarms listed directly, each a tappable row */
-.ip-launch-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;
+.ip-launch-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px;
   max-height: 46vh; overflow-y: auto; }
+/* belt and braces for the bug above: an empty launcher takes no room at all, so a future path
+   that renders it with nothing in it cannot reopen the hole */
+.ip-launch-list:empty { display: none; }
 .ip-launch { display: flex; align-items: center; gap: 11px; width: 100%; text-align: left;
   padding: 12px 13px; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
   background: var(--surface); cursor: pointer; color: var(--ink); }
@@ -1209,8 +1217,8 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .ip-btn.block { justify-content: center; padding: 13px 16px; }
 /* keep the empty-state CTAs flush-left with the headline rather than centered (full-width, left label) */
 .ip-emptyapp-actions .ip-btn { justify-content: flex-start; }
-.ip-emptyapp-foot { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--glass-edge);
-  display: flex; flex-direction: column; gap: 8px; }
+.ip-emptyapp-foot { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--glass-edge);
+  display: flex; flex-direction: column; gap: 10px; }
 /* identity card reuses the in-incident menu classes (ip-menu-user/-av/-userinfo) so both
    surfaces render "who am I" identically; only spacing differs in the card footer */
 .ip-emptyapp-foot .ip-menu-user { padding: 0 2px; }
@@ -1225,5 +1233,5 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
   transition: background .14s var(--ease), color .14s var(--ease); }
 .ip-foot-util:hover { background: var(--hover-strong); color: var(--ink); }
 .ip-foot-util .i { width: 15px; height: 15px; color: var(--ink-faint); }
-.ip-emptyapp-ver { margin-top: 14px; text-align: left; font: 600 10.5px var(--mono, var(--body));
+.ip-emptyapp-ver { margin-top: 18px; text-align: left; font: 600 10.5px var(--mono, var(--body));
   letter-spacing: .02em; color: var(--ink-faint); }
