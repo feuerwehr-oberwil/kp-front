@@ -895,8 +895,11 @@ export const de = {
     typeLabel: 'Art',
     // «Info» is the normal case and prints NO badge — a badge on every row is wallpaper. The
     // words come from the Führungsrhythmus (BGV Behelf Schadenplatz).
+    // ⚠️ ONE spelling. There used to be a short form («Sofort») for the composer's chips and the
+    // full word for the Verlauf, so the chip you pressed and the line it wrote named two
+    // different things. «Sofortmassnahme» is a doctrine word — abbreviating it is what made the
+    // chip read as a hurry rather than as a kind of entry.
     entryTypes: { info: 'Info', auftrag: 'Auftrag', sofort: 'Sofortmassnahme' } as Record<string, string>,
-    entryTypeShort: { info: 'Info', auftrag: 'Auftrag', sofort: 'Sofort' } as Record<string, string>,
     pinMap: 'An aktueller Kartenmitte anheften',
     pinPlan: 'An aktueller Planmitte anheften',
     send: 'Erfassen',
@@ -997,6 +1000,7 @@ export const de = {
     zielLabel: 'Auftrag / Ziel',
     zielPlaceholder: 'z. B. 2OG links',
     zielOtherPlaceholder: 'Auftrag beschreiben',
+    zielClear: 'Auftrag / Ziel leeren',
     // Order of the cards on the board. Überfällige Trupps ALWAYS sit at the top – that is not a
     // setting, it is the reason this board exists.
     orderLabel: 'Reihenfolge',
@@ -1027,8 +1031,10 @@ export const de = {
     // somebody who is already in another active Trupp: visible, but not selectable – one person,
     // one Trupp. Hiding them meant the search simply found nothing.
     teamTaken: 'in einem Trupp',
-    // typed by hand, i.e. with no link to the roster
-    teamManual: 'ohne Eintrag',
+    // Typed by hand, i.e. with no link to the roster – a Gast, a Nachbarwehr, an AdF whose
+    // roster row never synced. The SAME word the Anwesenheit uses for the same person
+    // (anwesenheit.guestBadge): one thing, one name for it, on both screens.
+    teamManual: 'Gast',
     teamTypeName: 'Name eingeben (Gast / Nachbarwehr)',
     teamAdd: 'Hinzufügen',
     // Leitung: the same number as on the drawn Leitung (Lage/Plan) — that is how Trupp and
@@ -1105,8 +1111,10 @@ export const de = {
     clockOk: 'Kontakt ok',
     clockWarn: 'Kontakt fällig',
     clockOverdue: 'Überfällig',
-    // header overdue badge ({n} = number of überfällige Trupps)
+    // header overdue badge ({n} = number of überfällige Trupps) — a BUTTON: it jumps to the
+    // Trupp that has been out of contact longest, the way the TopBar chip jumps to this board
     overdueBadge: '{n} überfällig',
+    overdueBadgeGo: 'Zu Trupp {name} – am längsten ohne Kontakt',
     // cross-surface TopBar chip (shown on any surface while a Trupp is fällig/überfällig)
     chipHint: 'Atemschutz – antippen zur Überwachung',
     // lifecycle action buttons
@@ -2502,6 +2510,7 @@ export const de = {
     einsatzleiterLabel: 'Einsatzleiter',
     einsatzleiterPlaceholder: 'Wählen oder eingeben',
     kontaktpersonLabel: 'Kontaktperson',
+    kontaktpersonClear: 'Kontaktperson leeren',
     kontaktpersonPlaceholder: 'Eigentümer / Melder / Verantwortlicher',
     incidentEndLabel: 'Ende Einsatz',
     // Plausibility of the Einsatzzeiten — a hint, not a block: printing always happens.
@@ -2690,18 +2699,26 @@ export const de = {
     roleRueckmeldung: 'Rückmeldung ELZ',
     // Soft warning in the person picker (Atemschutz): whoever already has a role is probably
     // already committed – they can still be picked, always.
-    alreadyBooked: 'schon: {role}',
+    // ⚠️ The ROLE, nothing in front of it. «schon:» read as a refusal on a row that refuses
+    // nothing, and the note sits in the same slot as «in einem Trupp» / «nicht anwesend», which
+    // both simply state what somebody is. So does this one.
+    alreadyBooked: '{role}',
     // Hints, never blocks: the app says what it knows and lets people decide.
     conflictUnderPa: '{name} ist unter PA – Trupp {trupp}.',
     // the same thing as a short badge ON the list row — that is where it is decided, not after
     statusUnderPa: 'unter PA',
     conflictElInTrupp: '{name} ist Einsatzleiter und zugleich im Trupp {trupp}.',
     conflictLeft: '{name} ist als «gegangen» erfasst.',
-    summary: '{present} anwesend · {left} gegangen · {total} Mannschaft',
+    // ⚠️ No «{total} Mannschaft». How big the Wehr is is the one number everybody already
+    // knows; on the line that answers «wie steht es gerade» it was a constant among two counts
+    // that move.
+    summary: '{present} anwesend · {left} gegangen',
     reload: 'Mannschaft neu laden',
     loading: 'Lädt …',
     searchPlaceholder: 'Suchen',
     clearSearch: 'Suche löschen',
+    // the legend's own name — the phone shows it behind an info button
+    legendTitle: 'Was bedeuten die Zeichen?',
     legendFrei: 'nicht anwesend',
     legendPresent: 'anwesend',
     legendLeft: 'gegangen',

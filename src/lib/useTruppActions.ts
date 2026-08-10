@@ -584,20 +584,40 @@ export function useTruppActions(deps: Deps) {
 
   /**
    * The colour each Trupp actually WEARS right now — for the Atemschutz board, so a card and its
-   * symbol on the Lage read as the same Trupp. The placed marker/chip is the truth where there is
-   * one (it is what the operator is looking at); otherwise a colour that has been decided (own
-   * pick / station colour for the Auftrag). A Trupp that is neither placed nor decided is absent:
-   * its automatic colour is only settled at placement, and printing a guess here that changes on
-   * placement would be worse than showing nothing.
+   * symbol on the Lage read as the same Trupp.
+   *
+   * EVERY Trupp gets one. In order of authority: the placed marker/chip (it is what the operator
+   * is looking at), then a colour somebody decided (own pick / station colour for the Auftrag),
+   * then the automatic palette slot. That last case used to be left BLANK — the reasoning being
+   * that an automatic colour is only settled at placement, so showing one early could show the
+   * wrong one. In practice it meant the board's colour column was full of holes: a Trupp that
+   * had simply never been placed had no dot, which reads as «this one has no colour» rather than
+   * «not decided yet», and on a board where colour IS identity that is the more misleading of
+   * the two. The guess is also not much of a guess: it runs the same `preferredColor` slot
+   * through the same `pickTeamColor` the placement will use, so placing a Trupp normally
+   * confirms the colour it was already wearing.
+   *
+   * ⚠️ The running `used` set is what keeps the unplaced ones APART. Asked one at a time they
+   * would every one of them get the first free colour — ten Trupps, one colour, which is the
+   * exact failure pickTeamColor exists to prevent.
    */
   const truppColors = (): Record<string, string> => {
     const out: Record<string, string> = {}
+    const used: string[] = []
+    // decided colours are claimed FIRST, before any automatic one is handed out — otherwise the
+    // automatic pass could take the colour a later Trupp already wears by decision
     for (const t of trupps) {
       const placed = t.entityId ? entities.find((e) => e.id === t.entityId)?.color
         : t.annoId && t.planId ? (board[t.planId] ?? []).find((a) => a.id === t.annoId)?.color
         : undefined
       const c = placed ?? chosenColor(t)
-      if (c) out[t.id] = c
+      if (c) { out[t.id] = c; used.push(c) }
+    }
+    for (const t of trupps) {
+      if (out[t.id]) continue
+      const c = pickTeamColor(preferredColor(t.id), used)
+      out[t.id] = c
+      used.push(c)
     }
     return out
   }

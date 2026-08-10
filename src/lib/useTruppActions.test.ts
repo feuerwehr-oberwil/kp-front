@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { Dispatch, SetStateAction } from 'react'
 import { useTruppActions, truppEditChanges, LAGE_TARGET } from './useTruppActions'
 import type { BoardDoc, Drawing, Entity, Trupp, TruppFields } from '../types'
-import { anyTruppInField } from './atemschutz'
+import { appConfig } from '../config/appConfig'
+import { anyTruppInField, truppNeverDeployed } from './atemschutz'
 import type { Doc } from './workspace'
 
 // useTruppActions has no React hooks inside — it's a closure factory over injected setters,
@@ -13,7 +14,12 @@ const baseTrupp = (over: Partial<Trupp>): Trupp => ({
   lastContactTime: '2026-07-06T10:00:00Z', status: 'aktiv', ...over,
 })
 
-function harness(trupp: Trupp, seed?: { board?: BoardDoc; entities?: Entity[]; drawings?: Drawing[] }) {
+function harness(
+  trupp: Trupp,
+  seed?: { board?: BoardDoc; entities?: Entity[]; drawings?: Drawing[] },
+  /** capture the Verlauf lines this action writes (icon, text) */
+  log: (icon: string, text: string) => void = () => {},
+) {
   const state = {
     trupps: [trupp],
     board: seed?.board ?? {},
@@ -32,7 +38,7 @@ function harness(trupp: Trupp, seed?: { board?: BoardDoc; entities?: Entity[]; d
     setBoard: ((a) => { state.board = apply(state.board, a) }) as Dispatch<SetStateAction<BoardDoc>>,
     setDocRaw: ((a) => { state.doc = apply(state.doc, a) }) as Dispatch<SetStateAction<Doc>>,
     building: null,
-    log: () => {}, logPlan: () => {}, emit: () => {},
+    log, logPlan: () => {}, emit: () => {},
     setMode: () => {}, setActivePlanId: () => {}, setPanel: () => {}, setPlanFocus: () => {},
     mapCenter: () => [7.53, 47.41],
     focusMapEntity: () => {},
@@ -208,6 +214,33 @@ describe('useTruppActions — Rückzug / Fortsetzen count as a Funkkontakt', () 
     expect(t.exitTime).toBeTruthy()
     expect(t.lastContactTime).toBe(stale.lastContactTime) // clock untouched — the Trupp is out
     expect(t.readings).toHaveLength(1)
+  })
+
+  // The Sicherungstrupp that stood ready and was stood down. It is closed like any other Trupp,
+  // so it must leave the same three traces: a stamp, a line in the Verlauf, and its own state —
+  // and NOT be recorded as having come out of a building it never entered.
+  it('standing a registered Trupp down stamps a time and logs it as «nicht eingesetzt»', () => {
+    const lines: string[] = []
+    const { actions, state } = harness(
+      baseTrupp({ status: 'angemeldet', entryTime: '', lastContactTime: '' }),
+      undefined,
+      (_icon, text) => lines.push(text),
+    )
+    actions.setTruppStatus('T1', 'raus')
+    const t = state.trupps[0]
+    expect(t.status).toBe('raus')
+    expect(t.exitTime).toBeTruthy()   // the timestamp the card + the Rapport print
+    expect(t.entryTime).toBe('')      // …and it never went under PA
+    expect(truppNeverDeployed(t)).toBe(true)
+    expect(lines).toEqual([`Trupp ${t.name} nicht eingesetzt`])
+  })
+
+  it('a Trupp that DID go in is logged as «draussen», not «nicht eingesetzt»', () => {
+    const lines: string[] = []
+    const { actions, state } = harness(baseTrupp({ status: 'aktiv' }), undefined, (_i, text) => lines.push(text))
+    actions.setTruppStatus('T1', 'raus')
+    expect(truppNeverDeployed(state.trupps[0])).toBe(false)
+    expect(lines).toEqual([`Trupp ${state.trupps[0].name} draussen`])
   })
 })
 
@@ -403,9 +436,22 @@ describe('useTruppActions — Truppfarbe', () => {
     expect(placed().actions.truppColors()).toEqual({ T1: '#1f6feb' })
   })
 
-  it('says nothing about a Trupp that is neither placed nor coloured', () => {
+  // …and a Trupp that is neither placed nor decided still gets one: the board's colour column
+  // had holes in it, which on a board where colour IS identity reads as «dieser hat keine».
+  it('gives an unplaced, undecided Trupp its automatic palette slot', () => {
     const { actions } = harness(baseTrupp({}))
-    expect(actions.truppColors()).toEqual({})
+    expect(actions.truppColors().T1).toBe(appConfig.drawing.teamColors[0])
+  })
+
+  it('keeps the automatic ones apart from each other and from the decided ones', () => {
+    const [c0, c1] = appConfig.drawing.teamColors
+    const { actions, state } = harness(baseTrupp({}))
+    // a second Trupp that has DECIDED on the first palette colour — the automatic one must
+    // step aside rather than wear the same colour as its neighbour
+    state.trupps.push({ ...baseTrupp({}), id: 'T2', color: c0 })
+    const colors = actions.truppColors()
+    expect(colors.T2).toBe(c0)
+    expect(colors.T1).toBe(c1)
   })
 })
 

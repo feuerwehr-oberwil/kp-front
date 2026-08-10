@@ -560,8 +560,11 @@ function MittelComposer({ M, catalogue, sources, units, entries, categorised, on
       <div className={s.composerFields}>
         <div className={s.field}>
           <label>{M.materialLabel}</label>
+          {/* clearable: this is the «Anderes Mittel» path, so the value here is often a name
+              somebody typed and then wants to type differently. Clearing it used to mean
+              reopening the picker and hunting for the free-type row again. */}
           <Combo value={label} options={catalogue.map((c) => c.label)} groups={matGroups} placeholder={M.materialPlaceholder}
-            allowCustom customLabel={M.customMaterial} clearable={false} onChange={pickMaterial} />
+            allowCustom customLabel={M.customMaterial} onChange={pickMaterial} />
         </div>
         <div className={cx(s.field, s.fieldNarrow)}>
           <label>{M.unitLabel}</label>

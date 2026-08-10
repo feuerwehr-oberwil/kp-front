@@ -83,6 +83,12 @@
 /* the blue dot that rides on the clock button when somebody has a Bemerkung — same size, same
    colour, so the legend entry IS the mark rather than a description of it */
 .legend .legendNote i { width: 6px; height: 6px; background: var(--blue); }
+/* the same legend, on a phone, behind the info button — one entry per line because there is no
+   width for a strip, and the ink goes up to --ink-dim: read once, deliberately, not scanned */
+.legendPop { max-width: min(280px, 88vw); padding: 12px 14px; border-radius: var(--r-ctl);
+  background: var(--surface); box-shadow: var(--shadow); border: 1px solid var(--glass-edge); z-index: 60; }
+.legendStack { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.legendStack span { font-size: 13px; color: var(--ink-dim); }
 
 /* the dense grid — auto-fill so a wide screen packs many columns, narrow ones fewer */
 .grid {
@@ -252,6 +258,11 @@ button.ortStation:hover { background: color-mix(in srgb, var(--blue) 22%, transp
   .controls { padding: 10px 14px; gap: 10px; }
   /* one full-width column: two columns truncated most names («Binggeli Mic…») on a phone —
      a readable name beats density here (field feedback 2026-07-08) */
+  /* ⚠️ The Ort button matches the CLOCK beside it. At 46px it was the widest thing on the row
+     after the name — wider than the watch, which is the more consequential of the two — so on a
+     phone the two glyph buttons at the end of a row read as a big one and a small one rather
+     than as a pair. 38px is the clock's own width (11px padding + a 16px glyph). */
+  .ort { width: 38px; }
   /* the last person row clears the Eintrag FAB — the circle sat on a row's presence toggle and on
      its time chip, i.e. on the two controls this list exists for. --fab-safe is 0 without a FAB. */
   .grid { padding: 2px 14px calc(16px + var(--fab-safe, 0px)); grid-template-columns: 1fr; gap: 6px; }

@@ -303,6 +303,13 @@
     max-height: calc(100dvh - 70px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     border-radius: var(--r-hero) var(--r-hero) var(--r-surface) var(--r-surface); }
 
+  /* The suggestion row keeps its space even when it has nothing to suggest. The composer is
+     bottom-anchored here, so a row that comes and goes between the field and the chips moves
+     the FIELD — and matches come and go on nearly every keystroke, which is what made typing
+     with a photo attached feel like the text was hopping under the caret. One reserved row
+     (its own height, no border, no fill) costs nothing and holds the field still. */
+  .jc-phrases.is-empty { display: block; min-height: 44px; }
+
   /* journal composer → full-width bottom sheet that lifts above the keyboard (the inline
      marginBottom = keyboard height keeps the actions + send reachable) */
   .journal-composer { left: 0; right: 0; bottom: 0; top: auto; transform: none;

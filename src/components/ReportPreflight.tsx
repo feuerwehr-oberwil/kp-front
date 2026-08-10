@@ -18,11 +18,12 @@ import { activityMoments, loadReplay, stateAt, vehiclesAt, type ReplayBundle } f
 import { autoRotation, vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import type { AuditProof, ReportDraft, ReportOptions } from '../lib/report'
 import { defaultReportOptions, einsatzleiterFromScene, formatDateTime, krokiStandLabel, missingTranscriptCount, operationalExtentPoints, proofLabel } from '../lib/report'
-import { applyTimeToIso, isoOnDay, missingSteps, stepDone, type AbschlussFacts } from '../lib/abschluss'
+import { missingSteps, stepDone, type AbschlussFacts } from '../lib/abschluss'
 import { hoursRows, unresolvedHoursRows } from '../lib/attendanceHours'
 import { incidentDays } from '../lib/zeitplanFormat'
 import type { AttendanceState, BoardDoc, BuildingDoc, CaptionMode, Drawing, Entity, LayerDef, LngLat, MittelEntry, Person, PlanDocument, ReportAttachment, TimelineEvent, Trupp } from '../types'
 import { visibleMittel } from '../lib/mittel'
+import { ClearableInput } from './ClearableInput'
 import { PersonField } from './PersonField'
 import { journalVocabulary } from '../lib/journalLinks'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
@@ -279,7 +280,11 @@ export function ReportPreflight({
   const [geretteteP, setGeretteteP] = useState(reportMeta.gerettete?.personen?.toString() ?? '')
   const [geretteteT, setGeretteteT] = useState(reportMeta.gerettete?.tiere?.toString() ?? '')
   const [rueckName, setRueckName] = useState(reportMeta.rueckmeldungElz?.name ?? '')
-  const [rueckAt, setRueckAt] = useState(clockOf(reportMeta.rueckmeldungElz?.at))
+  // ⚠️ The full ISO, not an HH:MM. The Rückmeldung an die ELZ is regularly given after
+  // midnight, or the morning after on a long Einsatz, and a bare clock had to guess which
+  // day it meant (applyTimeToIso rolled it forward past the start). The Einsatzende beside
+  // it has always asked for a date; this is the same question and now asks it the same way.
+  const [rueckAt, setRueckAt] = useState(reportMeta.rueckmeldungElz?.at ?? '')
 
   useEffect(() => {
     let alive = true
@@ -313,20 +318,18 @@ export function ReportPreflight({
     const n = Number(s)
     return s.trim() !== '' && Number.isFinite(n) && n >= 0 ? Math.round(n) : undefined
   }
-  const rueckIso = (rueckAt ? applyTimeToIso(incident.started_at, rueckAt, { nextDayIfBefore: incident.started_at }) : null) ?? undefined
+  const rueckIso = rueckAt || undefined
   const geretteteOver = (p: string, t: string): Partial<ReportMeta> => ({
     gerettete: numOrU(p) !== undefined || numOrU(t) !== undefined
       ? { personen: numOrU(p), tiere: numOrU(t) } : undefined,
   })
   // The Rückmeldung is often given LATER than it happened — «ah, die ELZ hab ich gestern um
-  // 23:40 informiert». Without a day the clock could only land on the incident's own start day
-  // (rolled forward when it read as earlier), which silently moved a yesterday to a today. The
-  // picker offers the incident's days and starts on TODAY, the normal answer; `day` comes back
-  // only when there is more than one to choose from, so a single-day Einsatz is unchanged.
-  const rueckOver = (name: string, hhmm: string, day?: Date): Partial<ReportMeta> => {
-    const at = (hhmm
-      ? (day ? isoOnDay(day, hhmm) : applyTimeToIso(incident.started_at, hhmm, { nextDayIfBefore: incident.started_at }))
-      : null) ?? undefined
+  // 23:40 informiert» — so it carries a DATE, like the Einsatzende above it. It used to be a
+  // bare clock with an optional day chip, which could only offer the incident's own days and
+  // defaulted to rolling the time forward past the start; a Rückmeldung given the next morning
+  // was filed on the night of the fire, on the one field that records when the ELZ was told.
+  const rueckOver = (name: string, iso: string): Partial<ReportMeta> => {
+    const at = iso || undefined
     return { rueckmeldungElz: name.trim() || at ? { name: name.trim() || undefined, at } : undefined }
   }
   const editedMeta = (): Partial<ReportMeta> => ({
@@ -904,8 +907,11 @@ export function ReportPreflight({
               />
               <label className="ip-field">
                 <span>{P.kontaktpersonLabel}</span>
-                <input value={kontaktperson} placeholder={P.kontaktpersonPlaceholder}
-                  onChange={(e) => { const v = stripUnprintable(e.target.value); setKontaktperson(v); persist({ kontaktperson: v.trim() || undefined }) }} />
+                {/* ✕: the Rapport is filled in after the fact and corrected as the picture
+                    settles — a name written down from a first guess is normal here. */}
+                <ClearableInput value={kontaktperson} placeholder={P.kontaktpersonPlaceholder}
+                  clearLabel={P.kontaktpersonClear}
+                  onChange={(raw) => { const v = stripUnprintable(raw); setKontaktperson(v); persist({ kontaktperson: v.trim() || undefined }) }} />
               </label>
             </div>
             {/* one Kontaktperson carries all contact/ownership details (2026-07-18 —
@@ -1061,9 +1067,14 @@ export function ReportPreflight({
               />
               <div className="ip-field">
                 <span>{P.rueckmeldungZeit}</span>
-                <TimeField ariaLabel={P.rueckmeldungZeit} value={rueckAt} nowLabel={P.now}
-                  days={incidentDays(meta.startedAt ?? incident.started_at, nowRef)}
-                  onCommit={(hhmm, day) => { setRueckAt(hhmm ?? ''); persist(rueckOver(rueckName, hhmm ?? '', day)) }} />
+                {/* Datum + Zeit, the same control the Einsatzende uses — with «Jetzt» beside it,
+                    because the ordinary case is that the call has just been made. */}
+                <div className="report-meta-end dtrow">
+                  <DateTimeField ariaLabel={P.rueckmeldungZeit} value={rueckAt}
+                    onCommit={(iso) => { setRueckAt(iso ?? ''); persist(rueckOver(rueckName, iso ?? '')) }} />
+                  <button type="button" className="ip-btn"
+                    onClick={() => { const iso = new Date().toISOString(); setRueckAt(iso); persist(rueckOver(rueckName, iso)) }}>{P.now}</button>
+                </div>
               </div>
             </div>
             {/* Partnerorganisationen: WHO was there, from whom, reachable how — and the remark,
@@ -1168,33 +1179,43 @@ export function ReportPreflight({
                     {partnerRows.map((r) => {
                       const on = r.i >= 0
                       return (
-                        <div className={cx('report-partner', on && 'on')} key={r.custom ? `c${r.i}` : r.org}>
-                          {/* a free row NAMES itself in its own field — repeating the label beside
-                              that field cost 170px the row did not have, and the delete button
-                              wrapped onto a line of its own */}
-                          <button
-                            type="button" className={cx('report-partner-tick', r.custom && 'bare')}
-                            role="checkbox" aria-checked={on} aria-label={r.org || P.partnerOrgShort}
-                            onClick={() => (on
-                              ? savePartners(partners.filter((_, j) => j !== r.i))
-                              : savePartners([...partners, { org: r.org }]))}
-                          >
-                            <span className="report-partner-box">{on && <Icon id="check" />}</span>
-                            {!r.custom && <span className="report-partner-org">{r.org}</span>}
-                          </button>
+                        <div className={cx('report-partner', on && 'on', r.custom && 'free')} key={r.custom ? `c${r.i}` : r.org}>
+                          {/* ⚠️ NO tick on a free row. A tick answers «war die da?» about an
+                              organisation the list already names — a row somebody added by hand
+                              is there BECAUSE it was there, so the box had nothing to ask and
+                              unticking it silently deleted the row, a bin disguised as a
+                              checkbox right next to the actual bin. It was also unlabelled, so
+                              at the narrow breakpoint (where the tick claims the full row width)
+                              a free row opened with an empty checkmark on a line of its own and
+                              the two fields squeezed underneath — «man kann keine Organisation
+                              richtig hinzufügen». Now: the field IS the row. */}
+                          {!r.custom && (
+                            <button
+                              type="button" className="report-partner-tick"
+                              role="checkbox" aria-checked={on} aria-label={r.org || P.partnerOrgShort}
+                              onClick={() => (on
+                                ? savePartners(partners.filter((_, j) => j !== r.i))
+                                : savePartners([...partners, { org: r.org }]))}
+                            >
+                              <span className="report-partner-box">{on && <Icon id="check" />}</span>
+                              <span className="report-partner-org">{r.org}</span>
+                            </button>
+                          )}
                           {/* a free-typed organisation names itself; a listed one is already named */}
                           {on && r.custom && (
-                            <input
-                              className="ip-input report-partner-name" value={partners[r.i].org ?? ''}
+                            <ClearableInput
+                              className="ip-input" wrapClassName="report-partner-name" value={partners[r.i].org ?? ''}
                               placeholder={P.partnerOrgShort} aria-label={P.partnerOrgShort}
-                              onChange={(e) => patchPartner(r.i, { org: stripUnprintable(e.target.value) })} maxLength={80}
+                              clearLabel={P.partnerOrgShort}
+                              onChange={(v) => patchPartner(r.i, { org: stripUnprintable(v) })} maxLength={80}
                             />
                           )}
                           {on && (
-                            <input
+                            <ClearableInput
                               className="ip-input" value={partners[r.i].note ?? ''} placeholder={P.partnerNote}
                               aria-label={`${r.org || P.partnerOrgShort} – ${P.partnerNote}`}
-                              onChange={(e) => patchPartner(r.i, { note: stripUnprintable(e.target.value) })} maxLength={240}
+                              clearLabel={P.partnerNote}
+                              onChange={(v) => patchPartner(r.i, { note: stripUnprintable(v) })} maxLength={240}
                             />
                           )}
                           {on && r.custom && (

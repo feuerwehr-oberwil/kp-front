@@ -409,8 +409,13 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
 
         {/* Textbausteine as autocomplete (2026-07-02 decision: no static chip row) — while
             typing, the current fragment fuzzy-matches the station's phrase list and the best
-            completions appear here; tap (or Tab for the first) replaces the fragment. */}
-        {(nameHits.length > 0 || suggestions.length > 0) && (
+            completions appear here; tap (or Tab for the first) replaces the fragment.
+            ⚠️ The empty row is still MOUNTED, so its space can be reserved on a phone. The
+            composer is a bottom-anchored sheet there: a row appearing and disappearing between
+            the field and the chips moves the field itself, and with matches coming and going on
+            almost every keystroke the text you were typing hopped around under the caret. On a
+            wide screen the row still collapses to nothing (see .jc-phrases.is-empty). */}
+        {(nameHits.length === 0 && suggestions.length === 0) ? <div className="jc-phrases is-empty" aria-hidden /> : (
           <div className="jc-phrases" role="group" aria-label={C.quickPhrasesAria}>
             {nameHits.map((n) => (
               <button
@@ -478,7 +483,7 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
                   className={`jc-chip jc-type-${t}${entryType === t ? ' on' : ''}`}
                   aria-pressed={entryType === t}
                   onClick={() => setEntryType((cur) => (cur === t ? null : t))}
-                >{C.entryTypeShort[t]}</button>
+                >{C.entryTypes[t]}</button>
               ))}
             </div>
           </div>

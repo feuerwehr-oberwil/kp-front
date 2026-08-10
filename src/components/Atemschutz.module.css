@@ -31,9 +31,15 @@
 .orderBtn :global(.i) { width: 18px; height: 18px; }
 .orderBtn:hover, .orderBtn[data-popup-open] { color: var(--ink); border-color: var(--ink-faint); }
 /* surface-level escalation: an überfällig count badge that's unmissable even if the tone is muted */
-.overdueBadge { flex: none; display: inline-flex; align-items: center; gap: 7px; padding: 8px 13px; border-radius: var(--r-pill);
+/* A BUTTON that jumps to the Trupp (see AtemschutzView) — so it needs a tap target and a
+   pressed state, not just a pill. The 44px floor is the house rule for anything a gloved
+   finger aims at, and this is the one control on the board somebody reaches for in a hurry. */
+.overdueBadge { flex: none; display: inline-flex; align-items: center; gap: 7px; padding: 8px 13px;
+  min-height: 44px; border: none; border-radius: var(--r-pill); cursor: pointer;
   background: var(--red); color: var(--on-accent-ink); font-size: 13px; font-weight: 800; letter-spacing: .02em;
+  font-family: inherit; -webkit-tap-highlight-color: transparent;
   animation: az-pulse 1.2s infinite; }
+.overdueBadge:active { transform: scale(.97); }
 .overdueBadge :global(.i) { width: 15px; height: 15px; }
 
 .body { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; padding: 18px 22px; }
@@ -59,7 +65,6 @@
   border-top: 5px solid var(--ink-faint); }
 .cardBanner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px;
   background: var(--fill-soft); border-bottom: 1px solid var(--glass-edge); }
-.statusDot { width: 11px; height: 11px; border-radius: 50%; background: var(--ink-faint); flex: none; }
 /* «ÜBERFÄLLIG» is the word you scan a wall of cards for, so it NEVER shrinks and never ellipses —
    three 44px icon buttons used to squeeze it down to «ÜBERFÄ…» at every card width. It stays whole
    and the action group wraps below it instead, which in practice never happens above ~250px. */
@@ -232,20 +237,17 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 .exitedNote { padding: 11px 14px; font-size: 12.5px; font-weight: 600; color: var(--ink-faint);
   border-top: 1px solid var(--glass-edge); background: var(--fill-soft); }
 
-/* status colour coding on the card top-border + banner dot */
+/* status colour coding on the card top-border + banner (the banner's own dot is gone — see
+   AtemschutzView: the one disc on a card is the Truppfarbe, and it means identity) */
 .st-aktiv { border-top-color: var(--green); }
-.st-aktiv .statusDot { background: var(--green); }
 .st-aktiv .statusLabel { color: var(--green); }
 .st-rueckzug { border-top-color: var(--amber); }
 .st-rueckzug .cardBanner { background: color-mix(in srgb, var(--amber) 10%, transparent); }
-.st-rueckzug .statusDot { background: var(--amber); }
 .st-rueckzug .statusLabel { color: var(--amber); }
 .st-ueberfaellig { border-top-color: var(--red); }
 .st-ueberfaellig .cardBanner { background: color-mix(in srgb, var(--red) 12%, transparent); }
-.st-ueberfaellig .statusDot { background: var(--red); animation: az-pulse 1s infinite; }
 .st-ueberfaellig .statusLabel { color: var(--red); }
 .st-raus { border-top-color: var(--ink-faint); opacity: .86; }
-.st-raus .statusDot { background: var(--ink-faint); }
 
 @keyframes az-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
 
@@ -431,7 +433,6 @@ button.pValBtn:hover { background: var(--fill-soft, rgba(0, 0, 0, .04)); }
 
 /* angemeldet (registered, not yet entered): neutral blue banner, no alarm */
 .st-angemeldet { border-top-color: var(--blue); }
-.st-angemeldet .statusDot { background: var(--blue); }
 .st-angemeldet .statusLabel { color: var(--blue); }
 
 /* pre-entry hint replacing the clocks before the Trupp is "eingerückt" */
@@ -688,7 +689,7 @@ button.stepVal:hover { border-color: var(--blue); }
 /* respect reduced-motion: the überfällig signal is carried by colour + the state WORD + the
    badge, so dropping the pulse loses no information for users who opt out of animation */
 @media (prefers-reduced-motion: reduce) {
-  .statusDot, .contactCrit .contactVal, .overdueBadge { animation: none; }
+  .contactCrit .contactVal, .overdueBadge { animation: none; }
 }
 
 /* ⚠️ Must come AFTER .teamList's own rule — same specificity, so source order decides.

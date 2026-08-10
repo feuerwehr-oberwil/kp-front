@@ -14,6 +14,7 @@ import { truppStatusLabel } from '../lib/report'
 import type { AttendanceState, Person, Trupp, TruppFields } from '../types'
 import { abbreviateName, assignedPersonIds } from '../lib/personnel'
 import { truppLineNo, type LeitungOption } from '../lib/truppLines'
+import { ClearableInput } from './ClearableInput'
 import type { Slot } from './PersonField'
 import { TruppTeam } from './TruppTeam'
 import { ensureNotifyPermission, unlockAlarm } from '../lib/alarm'
@@ -57,9 +58,8 @@ export function AtemschutzView({
   focus,
 }: {
   trupps: Trupp[]
-  /** trupp id → the colour it wears on the Lage / plan (useTruppActions · truppColors). Missing
-   *  for a Trupp that is neither placed nor deliberately coloured — its automatic colour is only
-   *  settled at placement. */
+  /** trupp id → the colour it wears on the Lage / plan (useTruppActions · truppColors). Every
+   *  Trupp has an entry: placed colour, then decided colour, then its automatic palette slot. */
   truppColors: Record<string, string>
   canEdit: boolean
   /** per-incident Funkkontakt-Intervall (min) + Nachfrist (sec); default = appConfig doctrine */
@@ -114,6 +114,16 @@ export function AtemschutzView({
   const az = appConfig.copy.atemschutz // read per-render so the resolved locale applies
   // the shared create / edit / re-deploy form — null when closed
   const [form, setForm] = useState<{ mode: FormMode; trupp?: Trupp } | null>(null)
+  /**
+   * «zeig mir den» from THIS surface — the header's überfällig badge. The `focus` prop covers
+   * the jump in from somewhere else (a locked Anwesenheit row); this is the same mark set from
+   * inside, so the badge behaves like the app-wide TopBar chip it mirrors instead of being the
+   * one warning on the screen that does nothing when you press it.
+   *
+   * The later nonce wins, so whichever pointed last is the one the board obeys.
+   */
+  const [selfFocus, setSelfFocus] = useState<{ id: string; nonce: number } | null>(null)
+  const activeFocus = (selfFocus?.nonce ?? -1) > (focus?.nonce ?? -1) ? selfFocus : focus
   // a Trupp awaiting a Gebäude/Modul-6 placement choice (only when >1 target exists)
   const [placePick, setPlacePick] = useState<string | null>(null)
   const handlePlace = (id: string) => {
@@ -140,7 +150,12 @@ export function AtemschutzView({
 
   // überfällige Trupps float to the top of the board so an overdue one can't hide off-screen,
   // and the header carries a count badge (the alarm may be muted — the visual must not be).
-  const overdueCount = trupps.filter((t) => live.get(t.id)?.status === 'ueberfaellig').length
+  const overdueTrupps = trupps.filter((t) => live.get(t.id)?.status === 'ueberfaellig')
+  const overdueCount = overdueTrupps.length
+  // the one the badge jumps to: longest out of contact, which is the same card the board's own
+  // sort puts at the top — so the jump lands where the eye was already being sent
+  const mostOverdue = [...overdueTrupps]
+    .sort((a, b) => (live.get(b.id)?.sinceContactSec ?? 0) - (live.get(a.id)?.sinceContactSec ?? 0))[0]
   /**
    * How the board is arranged. Whatever is chosen, ÜBERFÄLLIG still floats to the top: a card
    * that can hide off-screen is the one failure mode this screen exists to prevent, and it is not
@@ -250,7 +265,7 @@ export function AtemschutzView({
   const cards = (list: Trupp[]) => list.map((t) => (
     <TruppCard
       key={t.id} t={t} live={live.get(t.id)!} now={now} color={truppColors[t.id]} canEdit={canEdit} intervalMin={intervalMin} graceSec={graceSec}
-      flash={focus?.id === t.id}
+      flash={activeFocus?.id === t.id}
       onContact={recordContact} onPressure={recordPressure} onStatus={setTruppStatus}
       onEdit={() => openForm('edit', t)} onReenter={() => openForm('redeploy', t)}
       onDelete={deleteTrupp} onRestore={restoreTrupp} onPlace={handlePlace} onShowPlan={focusTruppOnPlan}
@@ -267,10 +282,21 @@ export function AtemschutzView({
           <h2>{az.title}</h2>
           <p>{az.subtitle}</p>
         </div>
-        {overdueCount > 0 && (
-          <div className={s.overdueBadge} role="status" aria-live="assertive">
+        {mostOverdue && (
+          /* ⚠️ A BUTTON. It used to be a <div>: the loudest thing on the screen, saying that a
+              Trupp is out of contact, and pressing it did nothing — so on a board with eight
+              cards the answer to «welcher denn?» was still a scroll. It now points at the same
+              card the app-wide TopBar chip points at (the most overdue one, which is also the
+              one sortTrupps floats to the top), and a repeat press points again. */
+          <button
+            type="button" className={s.overdueBadge}
+            aria-live="assertive"
+            title={fillTemplate(az.overdueBadgeGo, { name: mostOverdue.name })}
+            aria-label={fillTemplate(az.overdueBadgeGo, { name: mostOverdue.name })}
+            onClick={() => setSelfFocus({ id: mostOverdue.id, nonce: Date.now() })}
+          >
             <Icon id="warn" /><span>{az.overdueBadge.replace('{n}', String(overdueCount))}</span>
-          </div>
+          </button>
         )}
         {/* ⚠️ A MENU, not a segmented control. Four options laid out in full needed ~380px in a
             header that also carries a title, a subtitle, an überfällig badge, the alarm toggle and
@@ -464,8 +490,8 @@ function TruppCard({
   t, live, now, color, canEdit, intervalMin, graceSec, flash, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onRestore, onPlace, onShowPlan, onMove, onPickLine, onShowLine, hasLine,
 }: {
   t: Trupp; live: TruppLive; now: number; canEdit: boolean
-  /** the colour this Trupp wears on the Lage / plan (useTruppActions · truppColors); absent while
-   *  it is neither placed nor deliberately coloured */
+  /** the colour this Trupp wears on the Lage / plan (useTruppActions · truppColors) — set for
+   *  every Trupp, automatic ones included */
   color?: string
   intervalMin: number; graceSec: number
   onContact: (id: string) => void
@@ -549,7 +575,12 @@ function TruppCard({
   return (
     <div ref={cardRef} className={cx(s.card, s[`st-${status}`], flash && s.cardFlash)}>
       <div className={s.cardBanner}>
-        <span className={s.statusDot} />
+        {/* ⚠️ NO dot in front of the status. A card already carries one coloured disc — the
+            Truppfarbe beside the name, which is the Trupp's identity on the Lage and the plan.
+            A second disc at the top of the same card, in a status colour, was read as that
+            identity: «warum ist Trupp 2 plötzlich grün». The word is the state, the top border
+            and the banner tint already carry its colour, and the one dot on the card means the
+            one thing. */}
         <span className={s.statusLabel}>{statusLabel}</span>
         {/* The actions ride in their own group so they wrap as a block if a card ever gets narrow
             enough — the status word must never be the thing that gets abbreviated. */}
@@ -603,8 +634,9 @@ function TruppCard({
 
       <div className={s.cardName}>
         {/* the colour this Trupp wears on the Lage / plan, so the card and the symbol out there
-            read as the same Trupp. Absent while the colour is still automatic AND unplaced —
-            that one is only settled at placement, and a guess here would change under them. */}
+            read as the same Trupp. EVERY Trupp has one, the automatically-coloured ones included
+            (useTruppActions · truppColors) — a hole in this column read as «no colour» on a board
+            where colour is identity. */}
         <div className={s.nameRow}>
           {color && <span className={s.nameDot} style={{ background: color }} aria-hidden />}
           <span className={s.nameStatic}>{t.name}</span>
@@ -937,12 +969,16 @@ function TruppForm({
             </div>
             <label className={s.field}>
               <span>{az.zielLabel}</span>
-              <input
+              {/* ✕: a Trupp that comes back and goes in again gets a NEW order, and the old one
+                  is not a starting point for typing it — «2. OG Wohnung Nord, 2 Personen
+                  vermisst» had to be select-all-deleted by hand on a phone, mid-Einsatz. */}
+              <ClearableInput
                 value={ziel} placeholder={isAnderes ? az.zielOtherPlaceholder : az.zielPlaceholder}
                 // caps chosen so the card's one-line Ziel and the Leitung chip can't be blown out:
                 // «2. OG Wohnung Nord, 2 Personen vermisst» is 39 chars, a Leitung is «1»–«12»
                 maxLength={60}
-                onChange={(e) => setZiel(stripUnprintable(e.target.value))}
+                clearLabel={az.zielClear}
+                onChange={(v) => setZiel(stripUnprintable(v))}
               />
             </label>
             {/* The SAME 1–99 number the DrawEditor stamps on a hose — one type on both sides is

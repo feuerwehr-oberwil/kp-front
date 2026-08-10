@@ -12,7 +12,7 @@ import { applyTimeToIso, isoOnDay } from '../lib/abschluss'
 import { rankAbbr, rankLabel, rankOrder } from '../lib/rank'
 import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
 import { ortCounts, ortOf } from '../lib/attendanceOrt'
-import { Overlay } from '../lib/overlays'
+import { Overlay, Popover } from '../lib/overlays'
 import { fmtDayShort, fmtStartValue, incidentDays, isOtherDay } from '../lib/zeitplanFormat'
 import { loadPrefs, savePrefs } from '../lib/prefs'
 import { useIsPhone } from '../lib/useIsPhone'
@@ -454,8 +454,8 @@ export function AnwesenheitView({
       else if (a.status === 'left') left++
     }
     const { scene, station } = ortCounts(attendance)
-    return { present, left, total: people.length, scene, station }
-  }, [attendance, people])
+    return { present, left, scene, station }
+  }, [attendance])
 
   // Planning is done with the people who are HERE. The whole Mannschaft on the axis buries the
   // handful actually on scene under a dozen empty lanes, so both planning tabs start filtered
@@ -542,7 +542,7 @@ export function AnwesenheitView({
       <header className={s.head}>
         <div className={s.headTitles}>
           <h2>{A.title}</h2>
-          {/* «12 anwesend · 3 gegangen · 28 Mannschaft» — and, once anybody is at the Magazin,
+          {/* «12 anwesend · 3 gegangen» — and, once anybody is at the Magazin,
               where those twelve are. That second half IS the answer to «wen könnte ich noch
               nachziehen», so it belongs in the head and not behind a filter. Hidden while
               everybody is at the scene: on the ordinary Einsatz it would say «12 vor Ort · 0
@@ -553,7 +553,7 @@ export function AnwesenheitView({
             · 2 gegangen · 12 Mannschaft …» stacked five lines deep in a 250px column — and on a
             phone it was cut off entirely. It is the one line this panel exists to give. */}
         <p className={s.headSummary}>
-          {fillTemplate(A.summary, { present: counts.present, left: counts.left, total: counts.total })}
+          {fillTemplate(A.summary, { present: counts.present, left: counts.left })}
           {counts.station > 0 && (
             <> · {fillTemplate(A.summaryOrt, { scene: counts.scene, station: counts.station })}</>
           )}
@@ -706,6 +706,30 @@ export function AnwesenheitView({
               <span className={s.legendSep} />
               <span className={s.legendNote}><i />{A.legendNote}</span>
             </div>
+          )}
+          {/* …and on a phone the SAME legend behind an info button. It used to be dropped
+              entirely there — the one screen where a glyph-only row (a pin, a Magazin, a blue
+              dot on a clock) is all there is, and nothing anywhere said what any of them meant.
+              A dropped legend is not a smaller legend, it is no legend. */}
+          {view === 'list' && isPhone && (
+            <Popover
+              ariaLabel={A.legendTitle}
+              popupClassName={s.legendPop}
+              trigger={
+                <button type="button" className={s.iconBtn} aria-label={A.legendTitle} title={A.legendTitle}>
+                  <Icon id="info" />
+                </button>
+              }
+            >
+              <div className={cx(s.legend, s.legendStack)}>
+                <span><i className={s.dotFrei} />{A.legendFrei}</span>
+                <span><i className={s.dotPresent} />{A.legendPresent}</span>
+                <span><i className={s.dotLeft} />{A.legendLeft}</span>
+                <span className={s.legendOrt}><Icon id="pin" />{A.ortScene}</span>
+                <span className={cx(s.legendOrt, s.legendOrtStation)}><Icon id="station" />{A.ortStation}</span>
+                <span className={s.legendNote}><i />{A.legendNote}</span>
+              </div>
+            </Popover>
           )}
           {/* how far the axis reaches — it belongs on the search line beside the thing it filters,
               not on a row of its own pushing the grid down */}

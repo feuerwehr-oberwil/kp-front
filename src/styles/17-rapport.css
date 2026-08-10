@@ -273,15 +273,19 @@
 .report-partner.on .report-partner-tick { color: var(--ink); }
 .report-partner.on .report-partner-box { border-color: color-mix(in srgb, var(--ink-faint) 80%, transparent); color: var(--ink); }
 .report-partner-org { font: 600 13.5px var(--body); }
-.report-partner-tick.bare { min-width: 0; padding-right: 0; }
 /* the shared .ip-input, at its shared size. Shrunk to 38px/13.5px here it was a different control
-   from the identical input one card below it in the same column (the Beilagen caption). */
-.report-partner .ip-input { flex: 1 1 120px; min-width: 0; }
+   from the identical input one card below it in the same column (the Beilagen caption).
+   ⚠️ The flex item is the CLEARABLE wrapper (.ci), not the <input> inside it — sizing the inner
+   input leaves the wrapper at its content width and the row collapses. */
+.report-partner > .ci { flex: 1 1 120px; min-width: 0; }
 .report-partner-name { flex: 1 1 140px; }
 @media (max-width: 640px) {
   /* the free line drops under its own tick rather than squeezing both onto one line */
   .report-partner { flex-wrap: wrap; }
   .report-partner-tick { min-width: 0; flex: 1 1 100%; }
+  /* …but a FREE row has no tick, so nothing may claim the full width and push the two fields
+     onto a cramped second line — the organisation takes the row and the remark follows it. */
+  .report-partner.free > .ci { flex: 1 1 100%; }
 }
 
 /* Beilagen: photos that belong to the RAPPORT (Ausweis, Schaden) rather than to the Verlauf.
