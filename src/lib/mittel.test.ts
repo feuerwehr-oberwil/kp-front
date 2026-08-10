@@ -266,3 +266,31 @@ describe('recordedMittel (the sheet) vs visibleMittel (the Rapport)', () => {
     expect(rows.find((g) => g.custom)?.rows.map((r) => r.label)).toEqual(['Absperrband'])
   })
 })
+
+// «Stk» and «Stk.» are one unit. They keyed as two, so the same material recorded before and
+// after the catalogue gained its dot printed as two lines that add up to neither figure.
+describe('one unit, two spellings', () => {
+  const at = (n: number) => `2026-08-10T1${n}:00:00Z`
+  const e = (unit: string, menge: number, i: number): MittelEntry => ({
+    id: `m${i}`, materialId: 'schlauch-b', label: 'Schlauch 75er', unit,
+    sourceId: 'tlf', sourceLabel: 'TLF', menge, at: at(i), by: 'FU',
+  })
+
+  it('folds a dotless spelling into the dotted one instead of splitting the line', () => {
+    const out = visibleMittel([e('Stk', 1, 1), e('Stk.', 5, 2)])
+    expect(out).toHaveLength(1)
+    expect(out[0].menge).toBe(5)
+  })
+
+  it('shows the fuller spelling even when the dotless entry came last', () => {
+    const out = visibleMittel([e('Stk.', 5, 1), e('Stk', 1, 2)])
+    expect(out).toHaveLength(1)
+    expect(out[0].unit).toBe('Stk.')
+    expect(out[0].menge).toBe(1) // the later event still wins on the AMOUNT
+  })
+
+  it('keeps genuinely different units apart', () => {
+    const out = visibleMittel([e('Stk.', 5, 1), { ...e('l', 40, 2), materialId: 'schlauch-b' }])
+    expect(out).toHaveLength(2)
+  })
+})

@@ -553,10 +553,14 @@ export function AnwesenheitView({
             · 2 gegangen · 12 Mannschaft …» stacked five lines deep in a 250px column — and on a
             phone it was cut off entirely. It is the one line this panel exists to give. */}
         <p className={s.headSummary}>
-          {fillTemplate(A.summary, { present: counts.present, left: counts.left })}
+          {fillTemplate(A.summary, { present: counts.present })}
           {counts.station > 0 && (
             <> · {fillTemplate(A.summaryOrt, { scene: counts.scene, station: counts.station })}</>
           )}
+          {/* «gegangen» closes the line. Between «anwesend» and the Ort split it sat in the
+              middle of the two numbers that describe the crew ON HAND, which is not what it
+              counts. Hidden at zero: a «0 gegangen» is not news on most Einsätze. */}
+          {counts.left > 0 && <> · {fillTemplate(A.summaryLeft, { left: counts.left })}</>}
         </p>
         {/* …and the poster read-out under it again, in its own still-quieter row. Beside the
             title it was a pill competing with the panel's own heading; folded into the counts it

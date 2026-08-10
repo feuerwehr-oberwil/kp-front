@@ -9,12 +9,28 @@
 // trail). No code here removes events.
 import type { MittelEntry, MittelStatus } from '../types'
 
+/**
+ * A unit reduced to what it MEANS, for comparing two spellings of it.
+ *
+ * ⚠️ «Stk» and «Stk.» are one unit. They keyed as two, so the same material recorded before and
+ * after the catalogue gained its dot split into two lines on the same sheet — «1 Stk Schlauch
+ * 75er» directly above «5 Stk. Schlauch 75er», which reads as two different things and adds up
+ * to neither. That happens without anybody editing a catalogue: a tablet that was open across a
+ * config change writes the spelling it still had.
+ *
+ * Trailing dots and case only; nothing else is folded. «l» and «L» are the same litre, «kg» and
+ * «Kg» the same kilo — but «Sack» and «Stk.» stay different units, which is the distinction the
+ * key exists to make in the first place.
+ */
+const unitKey = (u: string) => u.trim().toLowerCase().replace(/\.+$/, '')
+
 /** The stable identity of a "what was used, from where" line: material + unit + source. Custom
  *  (incident-local) materials/sources have no config id, so they key off their trimmed label.
- *  Unit is part of the key — the same material recorded in `Stk` and in `l` are separate lines. */
+ *  Unit is part of the key — the same material recorded in `Stk.` and in `l` are separate lines,
+ *  but two SPELLINGS of one unit are not (see `unitKey`). */
 export function mittelKey(e: Pick<MittelEntry, 'materialId' | 'label' | 'unit' | 'sourceId' | 'sourceLabel'>): string {
   const m = e.materialId ?? `~${e.label.trim().toLowerCase()}`
-  const u = e.unit.trim().toLowerCase()
+  const u = unitKey(e.unit)
   const s = e.sourceId ?? (e.sourceLabel ? `~${e.sourceLabel.trim().toLowerCase()}` : '')
   return `${m}|${u}|${s}`
 }
@@ -43,6 +59,11 @@ export interface CurrentMittel {
 
 /** Fold the append-only event log into the latest event per key. ISO `at` strings compare
  *  lexicographically, so the newest event wins regardless of array order (merge can reorder). */
+/** Of two spellings of the SAME unit (see `unitKey`), the one to show: the longer, which is the
+ *  one carrying the abbreviation's dot. Falls back to the newer when there is nothing to compare. */
+const fullerUnit = (prev: string | undefined, next: string): string =>
+  (prev && unitKey(prev) === unitKey(next) && prev.trim().length > next.trim().length ? prev : next)
+
 export function deriveCurrentMittel(entries: MittelEntry[]): Map<string, CurrentMittel> {
   const out = new Map<string, CurrentMittel>()
   for (const e of entries) {
@@ -50,7 +71,11 @@ export function deriveCurrentMittel(entries: MittelEntry[]): Map<string, Current
     const prev = out.get(key)
     if (!prev || e.at >= prev.at) {
       out.set(key, {
-        key, materialId: e.materialId, label: e.label, unit: e.unit,
+        // ⚠️ The unit comes from the LATEST event, and two spellings now fold into one line — so
+        // whichever was written last is what the line shows. Prefer the fuller spelling when they
+        // differ («Stk.» over «Stk»): the dot is the station's configured form, and a line that
+        // merged an old entry into a new one must not print the older wording of it.
+        key, materialId: e.materialId, label: e.label, unit: fullerUnit(prev?.unit, e.unit),
         sourceId: e.sourceId, sourceLabel: e.sourceLabel, menge: e.menge, status: e.status, note: e.note,
         stock: e.stock, deleted: e.deleted, at: e.at, entryId: e.id,
       })
@@ -216,7 +241,7 @@ export function mittelListGroups(
         cells.set(st.source, { sourceId: st.source, sourceLabel: srcLabel(st.source), stock: st.qty, used: 0 })
       }
       for (const c of currentAll) {
-        if (c.materialId !== item.id || c.unit.trim().toLowerCase() !== unit.trim().toLowerCase()) continue
+        if (c.materialId !== item.id || unitKey(c.unit) !== unitKey(unit)) continue
         covered.add(c.key)
         const k = c.sourceId ?? (c.sourceLabel ? `~${c.sourceLabel.trim().toLowerCase()}` : '')
         const cell = cells.get(k)

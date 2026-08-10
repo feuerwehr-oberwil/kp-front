@@ -1653,7 +1653,8 @@ export const fr: Localizable<Copy> = {
   },
   anwesenheit: {
     title: 'Présence',
-    summary: '{present} présents · {left} partis',
+    summary: '{present} présents',
+    summaryLeft: '{left} partis',
     reload: 'Recharger l’effectif',
     loading: 'Chargement …',
     searchPlaceholder: 'Rechercher un nom',

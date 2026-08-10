@@ -1652,7 +1652,8 @@ export const it: Localizable<Copy> = {
   },
   anwesenheit: {
     title: 'Presenza',
-    summary: '{present} presenti · {left} andati via',
+    summary: '{present} presenti',
+    summaryLeft: '{left} andati via',
     reload: 'Ricarica effettivo',
     loading: 'Caricamento …',
     searchPlaceholder: 'Cerca nome',

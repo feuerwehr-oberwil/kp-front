@@ -443,12 +443,13 @@ function MittelLineDialog({ M, target, sources, units, onClose, onSave, onDelete
                 />
               </label>
             </div>
-            {sources.length > 0 && (
-              <div className="ip-field">
-                <span>{M.sourceLabel}</span>
-                <Combo value={sourceLabel} options={sources.map((x) => x.label)} placeholder={M.sourcePlaceholder} onChange={setSourceLabel} />
-              </div>
-            )}
+            <div className="ip-field">
+              <span>{M.sourceLabel}</span>
+              <Combo
+                value={sourceLabel} options={sources.map((x) => x.label)} placeholder={M.sourcePlaceholder}
+                allowCustom customLabel={M.sourceCustom} onChange={setSourceLabel}
+              />
+            </div>
           </>
         )}
         <label className="ip-field">
@@ -570,12 +571,19 @@ function MittelComposer({ M, catalogue, sources, units, entries, categorised, on
           <label>{M.unitLabel}</label>
           <Combo value={unit} options={units} placeholder={M.unitPlaceholder} allowCustom clearable={false} onChange={setUnit} />
         </div>
-        {sources.length > 0 && (
-          <div className={s.field}>
-            <label>{M.sourceLabel}</label>
-            <Combo value={sourceLabel ?? ''} options={sources.map((x) => x.label)} placeholder={M.sourcePlaceholder} onChange={pickSource} />
-          </div>
-        )}
+        {/* shown even where the station configured NO sources: with the free-text escape there
+            is still something to pick, and «woher kam das» is worth recording either way */}
+        <div className={s.field}>
+          <label>{M.sourceLabel}</label>
+          {/* free text allowed: the configured Fahrzeuge are the usual Bezugsquelle, never the
+              whole set — a Nachbarwehr's TLF, the Depot, the Werkhof. `pickSource` already copes
+              with a label that matches no configured source (it keeps the label and leaves
+              sourceId unset), so only the escape hatch was missing. */}
+          <Combo
+            value={sourceLabel ?? ''} options={sources.map((x) => x.label)} placeholder={M.sourcePlaceholder}
+            allowCustom customLabel={M.sourceCustom} onChange={pickSource}
+          />
+        </div>
         <div className={cx(s.field, s.fieldNarrow)}>
           <label>{M.qtyLabel}</label>
           <Stepper value={menge} min={1} max={9999} ariaLabel={M.qtyLabel} onChange={setMenge} />

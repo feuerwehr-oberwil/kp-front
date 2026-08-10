@@ -2530,6 +2530,8 @@ export const de = {
     headCounts: '{n} Personen · {m} Positionen',
     headAllRecorded: 'alle Angaben erfasst',
     headStillOpen: 'noch offen',
+    // a «noch offen» chip is a button: it scrolls to the thing it names and flashes it
+    headOpenGo: 'Zu «{step}» springen',
     // Rapportangaben section
     // «Rapportangaben» stood as one heading over everything – one and a half screens in which
     // nothing could be found by looking. Four sections, each named after the question it
@@ -2795,7 +2797,12 @@ export const de = {
     // ⚠️ No «{total} Mannschaft». How big the Wehr is is the one number everybody already
     // knows; on the line that answers «wie steht es gerade» it was a constant among two counts
     // that move.
-    summary: '{present} anwesend · {left} gegangen',
+    // ⚠️ «gegangen» LAST, after the Ort split. The line reads left to right as «how many are
+    // here, where are they» — and «gegangen» is the only count that is about people who are not
+    // part of that picture any more, so it belongs at the end rather than between the two
+    // numbers that describe the crew on hand.
+    summary: '{present} anwesend',
+    summaryLeft: '{left} gegangen',
     reload: 'Mannschaft neu laden',
     loading: 'Lädt …',
     searchPlaceholder: 'Suchen',
@@ -3080,6 +3087,11 @@ export const de = {
     unitPlaceholder: 'Einheit',
     sourceLabel: 'Quelle',
     sourcePlaceholder: 'Quelle (optional)',
+    // ⚠️ The configured Fahrzeuge are the usual answer, never the whole one. Material comes off a
+    // Nachbarwehr's TLF, out of the Depot, from the Werkhof, off a lorry that happened to be
+    // there — and the picker offered no way to say so, so those lines were recorded with no
+    // Quelle at all and the Rapport could not say where anything came from.
+    sourceCustom: 'Andere Quelle eingeben …',
     qtyLabel: 'Menge',
     save: 'Speichern',
     cancel: 'Abbrechen',
