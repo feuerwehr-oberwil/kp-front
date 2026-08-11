@@ -109,9 +109,7 @@ async def test_intake_accepts_kp_ruecks_payload(client, alarm_secret, db_session
     assert incidents[0].source_ref is None
 
 
-async def test_intake_without_source_id_cannot_dedupe_and_says_so_by_creating_two(
-    client, alarm_secret, db_session
-):
+async def test_intake_without_source_id_cannot_dedupe_and_says_so_by_creating_two(client, alarm_secret, db_session):
     """No id to dedupe on means no dedupe — not "dedupe against everything from this source".
 
     Matching on a NULL source_ref would have collapsed every id-less alarm from one sender
