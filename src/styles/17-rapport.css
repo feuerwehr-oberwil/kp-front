@@ -376,7 +376,9 @@
   0%, 22%, 48%, 74% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 62%, transparent); }
   11%, 36%, 62%, 100% { box-shadow: 0 0 0 4px transparent; }
 }
-.rp-flash { animation: rp-flash-ring 1.9s ease-out 1; border-radius: var(--r-md); }
+/* ⚠️ `--r-sm`: `--r-md` is not a token (the scale is xs/sm/pill · ctl/btn/surface/hero), so the
+   ring used to square off around a row whose own corners are rounded. */
+.rp-flash { animation: rp-flash-ring 1.9s ease-out 1; border-radius: var(--r-sm); }
 @media (prefers-reduced-motion: reduce) {
   .rp-flash { animation: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 62%, transparent); }
 }
