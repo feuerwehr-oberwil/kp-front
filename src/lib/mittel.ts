@@ -323,10 +323,24 @@ export const AIRFLOW_BLOW = 'blasen'
 
 const eq = (a: string | undefined, b: string) => normToken(a ?? '').trim() === normToken(b).trim()
 
-/** Does this catalogue entry's `when` clause hold for the symbol as placed? */
-function whenHolds(when: Record<string, string> | undefined, m: SymbolMatch): boolean {
+/**
+ * Does this catalogue entry's `when` hold for the symbol as placed?
+ *
+ * One clause is an AND over its fields; a LIST of clauses is an OR over the clauses. The OR is
+ * what «Typ = Exhauster oder Luftrichtung = saugen» needs — a Lüfter switched to saugen is an
+ * Exhauster whether or not anybody also set its Typ.
+ */
+function whenHolds(when: Record<string, string> | Record<string, string>[] | undefined, m: SymbolMatch): boolean {
   if (!when) return false
-  return Object.entries(when).every(([field, want]) => {
+  if (Array.isArray(when)) return when.some((clause) => clauseHolds(clause, m))
+  return clauseHolds(when, m)
+}
+
+function clauseHolds(when: Record<string, string>, m: SymbolMatch): boolean {
+  const entries = Object.entries(when)
+  // an empty clause would match everything — that is a config mistake, not a wildcard
+  if (!entries.length) return false
+  return entries.every(([field, want]) => {
     if (eq(field, AIRFLOW_FIELD)) {
       return eq(m.extract ? AIRFLOW_EXTRACT : AIRFLOW_BLOW, want)
     }

@@ -205,13 +205,18 @@ export interface DeploymentMittelItem {
    * alone can only ever offer the first of the three, so it offered the wrong one — and an
    * Exhauster was simply never findable.
    *
-   * Every entry must hold: `{ Typ: 'Exhauster' }` matches a Lüfter whose Typ says Exhauster.
-   * The pseudo-field `Luftrichtung` reads the symbol's airflow (`saugen` / `blasen`), because a
-   * Lüfter set to extract IS an Exhauster whatever its Typ says. Matching is case-insensitive.
-   * A material carrying `when` outranks a bare `symbol` match, so the general «Lüfter» stays the
-   * fallback for a symbol that names no variant.
+   * Every entry in a clause must hold — `{ Typ: 'Exhauster' }` matches a Lüfter whose Typ says
+   * Exhauster. A LIST of clauses is an OR: any one of them matching is enough. That is not a
+   * theoretical nicety — a Lüfter set to **saugen** IS an Exhauster whatever its Typ says, so the
+   * honest rule is «Typ = Exhauster ODER Luftrichtung = saugen», and an AND-only schema could
+   * express neither half without losing the other.
+   *
+   * The pseudo-field `Luftrichtung` reads the symbol's airflow (`saugen` / `blasen`). Matching is
+   * case- and umlaut-insensitive, like every other name match here. A material carrying `when`
+   * outranks a bare `symbol` match, so the general «Lüfter» stays the fallback for a symbol that
+   * names no variant.
    */
-  when?: Record<string, string>
+  when?: Record<string, string> | Record<string, string>[]
   /** true = consumable (used up → Nachschub list); false/absent = equipment that must come
    *  back (gets the per-line Retablierung status: zurück / vor Ort / defekt). */
   verbrauchbar?: boolean

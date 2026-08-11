@@ -332,6 +332,33 @@ describe('materialForSymbol — one symbol, several materials', () => {
     expect(materialForSymbol([{ id: 'l', label: 'Leiter', unit: 'Stk.' }], 'VKF Einsatzleiter')).toBeUndefined()
   })
 
+  it('takes a LIST of clauses as an OR — a Lüfter set to saugen IS an Exhauster', () => {
+    // «Typ = Exhauster ODER Luftrichtung = saugen»: an AND-only schema could express neither
+    // half without losing the other, and the airflow one is the case nobody remembers to type.
+    const orCat: DeploymentMittelItem[] = [
+      { id: 'luefter', label: 'Lüfter', unit: 'Stk.', symbol: 'VKF Luefter mobil' },
+      { id: 'exhauster', label: 'Exhauster', unit: 'Stk.', symbol: 'VKF Luefter mobil',
+        when: [{ Typ: 'Exhauster' }, { Luftrichtung: 'saugen' }] },
+    ]
+    expect(materialForSymbol(orCat, { symbol: 'VKF Luefter mobil', fields: { Typ: 'Exhauster' } })?.id).toBe('exhauster')
+    expect(materialForSymbol(orCat, { symbol: 'VKF Luefter mobil', extract: true })?.id).toBe('exhauster')
+    // …and neither of them true still falls through to the general material
+    expect(materialForSymbol(orCat, { symbol: 'VKF Luefter mobil', fields: { Typ: 'Elektro' } })?.id).toBe('luefter')
+  })
+
+  it('treats a clause as an AND over its own fields', () => {
+    const andCat: DeploymentMittelItem[] = [
+      { id: 'both', label: 'Beides', unit: 'Stk.', symbol: 'S', when: { Typ: 'A', Ort: 'B' } },
+    ]
+    expect(materialForSymbol(andCat, { symbol: 'S', fields: { Typ: 'A', Ort: 'B' } })?.id).toBe('both')
+    expect(materialForSymbol(andCat, { symbol: 'S', fields: { Typ: 'A' } })).toBeUndefined()
+  })
+
+  it('never lets an empty clause match everything — that is a config mistake, not a wildcard', () => {
+    const bad: DeploymentMittelItem[] = [{ id: 'x', label: 'X', unit: 'Stk.', symbol: 'S', when: {} }]
+    expect(materialForSymbol(bad, { symbol: 'S' })).toBeUndefined()
+  })
+
   it('books from where the Bestand says it lives', () => {
     expect(defaultSourceFor(cat[2])).toBe('pio')
     expect(defaultSourceFor(cat[0])).toBe('tlf')

@@ -926,11 +926,13 @@ class MittelItem(BaseModel):
     # …and WHICH variant of that symbol, keyed on the symbol's own fields: {"Typ": "Exhauster"}.
     # One symbol is routinely several materials (Lüfter / Grosslüfter / Exhauster share one pack
     # name and are told apart by the Typ a station already configures in fleet.attributeLists).
-    # The pseudo-field "Luftrichtung" reads the airflow flag — a Lüfter set to saugen IS an
-    # Exhauster. ⚠️ `extra="ignore"` above means an unknown key is dropped SILENTLY on load, so
-    # this field has to exist here or the whole mapping vanishes between the file and the app —
-    # the same way the demo's doctrine block did.
-    when: dict[str, str] | None = None
+    # A LIST of clauses is an OR — "Typ = Exhauster ODER Luftrichtung = saugen", because a Lüfter
+    # switched to saugen is an Exhauster whether or not anybody also set its Typ. The pseudo-field
+    # "Luftrichtung" reads the airflow flag.
+    # ⚠️ `extra="ignore"` above means an unknown key is dropped SILENTLY on load, so this field
+    # has to exist here or the whole mapping vanishes between the file and the app — the same way
+    # the demo's doctrine block did.
+    when: dict[str, str] | list[dict[str, str]] | None = None
     # consumable (Nachschub list) vs. equipment (Retablierung status zurück/vor Ort/defekt)
     verbrauchbar: bool = False
 
