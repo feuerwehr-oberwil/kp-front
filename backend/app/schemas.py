@@ -343,7 +343,11 @@ class AlarmIn(BaseModel):
     """
 
     source: str = Field(default="webhook", min_length=1, max_length=16, pattern=r"^[a-z0-9][a-z0-9_-]*$")
-    source_id: str = Field(min_length=1, max_length=128)
+    # OPTIONAL, deliberately — it was required here and optional in KP Rück, so the same
+    # relay could not feed both apps: one answered 422 where the other accepted the alarm.
+    # Without it there is nothing to dedupe on, so a redelivery creates a second incident;
+    # that is the sender's trade to make, and it is the same trade KP Rück offers.
+    source_id: str | None = Field(default=None, min_length=1, max_length=128)
     title: str = Field(min_length=1)
     text: str | None = None
     address: str | None = None
@@ -352,6 +356,10 @@ class AlarmIn(BaseModel):
     type: str | None = None
     priority: Literal["HIGH", "LOW"] | None = None
     started_at: datetime | None = None
+    # Accepted so one payload validates against both apps. KP Rück shows this in its alarm
+    # pool ("E-123"); an Einsatz here has no such field, so it is ACCEPTED AND IGNORED rather
+    # than rejected. Said out loud because a silently dropped field is worse than a 422.
+    number: str | None = Field(default=None, max_length=50)
 
 
 class AlarmOut(BaseModel):

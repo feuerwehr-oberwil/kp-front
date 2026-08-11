@@ -58,10 +58,14 @@ async def intake(
             detail=f"source '{payload.source}' ist reserviert (Divera nutzt die eigene Integration)",
         )
 
-    existing = await find_by_source_ref(db, payload.source, payload.source_id)
-    if existing is not None:
-        response.status_code = status.HTTP_200_OK
-        return AlarmOut(incident_id=existing.id, created=False)
+    # Only dedupe when the sender gave us an id to dedupe ON. `source_id` is optional now
+    # (KP Rück always allowed it to be), and matching on None would collapse every
+    # id-less alarm from one source into the first one ever received.
+    if payload.source_id is not None:
+        existing = await find_by_source_ref(db, payload.source, payload.source_id)
+        if existing is not None:
+            response.status_code = status.HTTP_200_OK
+            return AlarmOut(incident_id=existing.id, created=False)
 
     inc = await create_incident_from_alarm(
         db,

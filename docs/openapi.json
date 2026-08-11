@@ -8438,9 +8438,16 @@
             "default": "webhook"
           },
           "source_id": {
-            "type": "string",
-            "maxLength": 128,
-            "minLength": 1,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Source Id"
           },
           "title": {
@@ -8529,11 +8536,22 @@
               }
             ],
             "title": "Started At"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
           }
         },
         "type": "object",
         "required": [
-          "source_id",
           "title"
         ],
         "title": "AlarmIn",

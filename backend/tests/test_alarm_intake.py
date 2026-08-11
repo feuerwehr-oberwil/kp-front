@@ -89,6 +89,44 @@ async def test_intake_is_idempotent_on_source_id(client, alarm_secret, db_sessio
     assert len(n) == 1
 
 
+async def test_intake_accepts_kp_ruecks_payload(client, alarm_secret, db_session):
+    """One payload has to work against both apps.
+
+    `POST /api/alarms` exists in KP Front and KP Rück with the same path and purpose and
+    took incompatible payloads: `source_id` was REQUIRED here and optional there, and
+    `number` was accepted there and rejected here. A relay written against KP Rück got a
+    422 from this endpoint, while the reserved-slug lists were carefully kept in sync — so
+    it looked unified and was not.
+    """
+    payload = {"source": "leitstelle", "title": "BMA Alarm Industriestrasse", "number": "E-501"}
+    r = await client.post("/api/alarms?secret=alarm-secret-123", json=payload)
+    assert r.status_code == 201, r.text
+
+    incidents = (await db_session.execute(select(Incident))).scalars().all()
+    assert len(incidents) == 1
+    # `number` has no field on an Einsatz here — accepted for payload compatibility and
+    # ignored, deliberately, rather than rejected.
+    assert incidents[0].source_ref is None
+
+
+async def test_intake_without_source_id_cannot_dedupe_and_says_so_by_creating_two(
+    client, alarm_secret, db_session
+):
+    """No id to dedupe on means no dedupe — not "dedupe against everything from this source".
+
+    Matching on a NULL source_ref would have collapsed every id-less alarm from one sender
+    into the first one ever received, which is far worse than a duplicate: the second real
+    alarm of the night would silently return the first one's incident.
+    """
+    payload = {"source": "leitstelle", "title": "Wasser im Keller"}
+    r1 = await client.post("/api/alarms?secret=alarm-secret-123", json=payload)
+    r2 = await client.post("/api/alarms?secret=alarm-secret-123", json=payload)
+    assert r1.status_code == 201
+    assert r2.status_code == 201
+    assert r1.json()["incident_id"] != r2.json()["incident_id"]
+    assert len((await db_session.execute(select(Incident))).scalars().all()) == 2
+
+
 async def test_zero_coordinates_mean_no_location():
     """Divera sends lat/lng 0/0 for alarms without a location («Einrücken ins Magazin») —
     stored verbatim it centred map + weather on Null Island (nearest Swiss station:
