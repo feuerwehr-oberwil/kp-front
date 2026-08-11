@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AttendanceState, Trupp } from '../types'
-import { roleConflictHint, rosterFieldRole } from './roleAssignment'
+import { mergeRoleNote, roleConflictHint, rosterFieldRole } from './roleAssignment'
 
 const trupp = (over: Partial<Trupp>): Trupp => ({
   id: 't1', name: 'Trupp 2', entryPressureBar: 300, entryTime: '', lastContactTime: '',
@@ -89,5 +89,62 @@ describe('presence-only assignments contradict nothing', () => {
     const att = { p1: { status: 'left' as const, displayNameSnapshot: 'Meier Anna', intervals: [{ from: '2026-08-10T10:00:00Z', to: '2026-08-10T11:00:00Z' }] } }
     expect(roleConflictHint('p1', 'presence', 'Meier Anna', att, [])).toBeUndefined()
     expect(roleConflictHint('p1', 'fahrer', 'Meier Anna', att, [])).toBeTruthy()
+  })
+})
+
+// An Offizier symbol carries a FUNKTION («SiBe», «Lüften», «Atemschutz») and it used to stop at
+// the glyph: the person was marked present with no Bemerkung, so neither the Anwesenheitsliste
+// nor the Personalblatt printed from it could say what any of the officers actually did.
+describe('an Offizier symbol forwards its Funktion to the person', () => {
+  it('writes the Funktion as the Bemerkung', () => {
+    expect(rosterFieldRole('FW Offizier', 'Name', undefined, { Funktion: 'SiBe', Name: 'Meier Anna' }))
+      .toEqual({ role: 'presence', note: 'Offizier SiBe' })
+  })
+
+  it('falls back to the plain word when no Funktion was chosen', () => {
+    expect(rosterFieldRole('FW Offizier', 'Name', undefined, { Name: 'Meier Anna' }))
+      .toEqual({ role: 'presence', note: 'Offizier' })
+    expect(rosterFieldRole('FW Offizier', 'Name', undefined, { Funktion: '  ', Name: 'x' }).note).toBe('Offizier')
+  })
+
+  it('is presence-only — «Logistik» contradicts nothing about being in a Trupp', () => {
+    const trupps = [{ id: 'T1', name: 'Trupp 2', entryPressureBar: 300, entryTime: '', lastContactTime: '', status: 'aktiv' as const, memberPersonIds: ['p1'] }]
+    const { role } = rosterFieldRole('FW Offizier', 'Name', undefined, { Funktion: 'Logistik' })
+    expect(roleConflictHint('p1', role, 'Meier Anna', {}, trupps)).toBeUndefined()
+  })
+
+  it('leaves the Einsatzleiter glyph exactly as it was — that one IS a leadership role', () => {
+    expect(rosterFieldRole('VKF Einsatzleiter', 'Name', undefined, { Funktion: 'SiBe' }))
+      .toEqual({ role: 'el', note: 'Einsatzleiter' })
+  })
+})
+
+// One person routinely holds two jobs. Filling only an EMPTY note meant whichever was recorded
+// first silently swallowed every later one — the Fahrer who then went under Atemschutz stayed
+// «Fahrer Pio» on the sheet somebody reads to answer «wer war wo».
+describe('mergeRoleNote', () => {
+  it('joins a second, different job', () => {
+    expect(mergeRoleNote('Fahrer Pio', 'AS')).toBe('Fahrer Pio, AS')
+    expect(mergeRoleNote('AS', 'Fahrer Pio')).toBe('AS, Fahrer Pio')
+  })
+
+  it('says nothing twice', () => {
+    expect(mergeRoleNote('Fahrer Pio, AS', 'AS')).toBe('Fahrer Pio, AS')
+    expect(mergeRoleNote('AS', 'as')).toBe('AS')
+  })
+
+  it('⚠️ REPLACES a part with the same leading word — a correction is not a second job', () => {
+    expect(mergeRoleNote('Offizier SiBe', 'Offizier Atemschutz')).toBe('Offizier Atemschutz')
+    expect(mergeRoleNote('Fahrer Pio, AS', 'Fahrer MoWa')).toBe('AS, Fahrer MoWa')
+  })
+
+  it('never touches what somebody typed by hand', () => {
+    expect(mergeRoleNote('abgelöst 21:40', 'AS')).toBe('abgelöst 21:40, AS')
+  })
+
+  it('handles the empty cases', () => {
+    expect(mergeRoleNote(undefined, 'AS')).toBe('AS')
+    expect(mergeRoleNote('  ', 'AS')).toBe('AS')
+    expect(mergeRoleNote('Fahrer Pio', '  ')).toBe('Fahrer Pio')
   })
 })

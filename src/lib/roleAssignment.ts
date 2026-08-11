@@ -43,6 +43,9 @@ export function rosterFieldRole(
   symbol: string | undefined,
   key: string,
   label: string | undefined,
+  /** the symbol's OTHER fields — an Offizier's job is written on the symbol as «Funktion», so
+   *  the note that reaches the Anwesenheit has to be able to read it. */
+  fields?: Record<string, string>,
 ): { role: AssignableRole; note?: string } {
   const A = appConfig.copy.anwesenheit
   if (key === 'Fahrer') {
@@ -51,6 +54,16 @@ export function rosterFieldRole(
   if (symbol === appConfig.symbols.einsatzleiterName) {
     if (key === 'Name') return { role: 'el', note: A.roleEinsatzleiter }
     if (key === 'Stv.') return { role: 'el', note: A.roleEinsatzleiterStv }
+  }
+  // ⚠️ An Offizier symbol carries a FUNKTION («SiBe», «Lüften», «Atemschutz»), and it used to
+  // stop at the glyph: the named person was marked present with no Bemerkung, so the
+  // Anwesenheitsliste — and the Personalblatt printed from it — could not say what any of the
+  // officers actually did. The job is written right there on the symbol; this forwards it.
+  if (symbol && (appConfig.symbols.officerRosterSymbols as readonly string[]).includes(symbol) && key === 'Name') {
+    const fn = (fields?.Funktion ?? '').trim()
+    // `presence`, not a leadership role: «Logistik» or «Lüften» contradicts nothing about being
+    // in a Trupp, and a warning that fires on a correct entry teaches people to ignore warnings.
+    return { role: 'presence', note: fn ? fillTemplate(A.roleOffizier, { funktion: fn }) : A.roleOffizierPlain }
   }
   return { role: 'fahrer' }
 }
@@ -116,4 +129,29 @@ export function personStatusHint(
   if (!isPresent(e)) return { label: A.legendLeft, tone: 'muted' }
   // present — and the one thing worth saying about a present person is where they are standing
   return ortOf(e) === 'station' ? { label: A.ortStation, tone: 'info' } : undefined
+}
+
+
+/**
+ * The Bemerkung a person should carry after being given another job.
+ *
+ * One person routinely holds two: the Fahrer who then goes under Atemschutz is «Fahrer Pio, AS»,
+ * and the Anwesenheitsliste has to say both — it is the sheet somebody reads to answer «wer war
+ * wo». Filling only an EMPTY note (the old rule) meant whichever job was recorded first silently
+ * swallowed every later one.
+ *
+ * ⚠️ A new part REPLACES an existing part with the same leading word, and is otherwise appended.
+ * That is what keeps a correction a correction: «Offizier SiBe» re-filed as «Offizier Atemschutz»
+ * is the same field saying something new, not a second job — while «AS» beside «Fahrer Pio» is
+ * genuinely a second one. Hand-typed text has no such collision and is never touched.
+ */
+export function mergeRoleNote(existing: string | undefined, add: string): string {
+  const next = add.trim()
+  if (!next) return (existing ?? '').trim()
+  const parts = (existing ?? '').split(',').map((p) => p.trim()).filter(Boolean)
+  const lead = (p: string) => p.split(/\s+/)[0].toLowerCase()
+  // already said, in exactly these words — nothing to do
+  if (parts.some((p) => p.toLowerCase() === next.toLowerCase())) return parts.join(', ')
+  const kept = parts.filter((p) => lead(p) !== lead(next))
+  return [...kept, next].join(', ')
 }

@@ -23,7 +23,7 @@ import { formatAudioDuration } from './lib/audioImport'
 import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys, VEHICLE_SYMBOLS } from './lib/symbols'
 import { circlePolygon, fmtLV95, fmtWGS, haversineM, pathLengthM, polygonAreaM2 } from './lib/geo'
 import { intervalsOf, isPresent, openPresence } from './lib/attendanceIntervals'
-import { personStatusHint, roleConflictHint, rosterFieldRole, type AssignableRole } from './lib/roleAssignment'
+import { mergeRoleNote, personStatusHint, roleConflictHint, rosterFieldRole, type AssignableRole } from './lib/roleAssignment'
 import { useShiftActions } from './lib/useShiftActions'
 import { useBandActions } from './lib/useBandActions'
 import { editorPrintTransport, fetchPrintStatus, type PrintRelayStatus } from './lib/printRelay'
@@ -2246,7 +2246,12 @@ export function IncidentWorkspace({
   const ensurePresentForRole = (ids: (string | undefined)[], roleNote?: string) => {
     const wanted = [...new Set(ids.filter(Boolean) as string[])]
     const fresh = wanted.filter((id) => !isPresent(attendance[id]))
-    const needNote = roleNote ? wanted.filter((id) => !(attendance[id]?.note ?? '').trim()) : []
+    // ⚠️ APPEND, don't fill-if-empty: one person routinely holds two jobs, and the Fahrer who
+    // then goes under Atemschutz is «Fahrer Pio, AS». See lib/roleAssignment · mergeRoleNote for
+    // when a part replaces an earlier one instead of joining it.
+    const needNote = roleNote
+      ? wanted.filter((id) => mergeRoleNote(attendance[id]?.note, roleNote) !== (attendance[id]?.note ?? '').trim())
+      : []
     if (!fresh.length && !needNote.length) return
     setAttendance((cur) => {
       const next = { ...cur }
@@ -2257,7 +2262,7 @@ export function IncidentWorkspace({
         const at = intervalsOf(cur[id]).length ? new Date().toISOString() : incidentMeta.started_at
         next[id] = openPresence(cur[id], at, name)
       }
-      for (const id of needNote) if (next[id]) next[id] = { ...next[id], note: roleNote }
+      for (const id of needNote) if (next[id]) next[id] = { ...next[id], note: mergeRoleNote(next[id].note, roleNote!) }
       return next
     })
     // ONE row per person, not one for the presence and a second for the remark: naming a Fahrer
@@ -2277,7 +2282,14 @@ export function IncidentWorkspace({
       log('people', fillTemplate(A.logNote, { name: rosterById.get(id)?.displayName ?? id, note: roleNote ?? '–' }), 'team')
     }
   }
-  const ensurePresentFromTrupp = (ids: (string | undefined)[]) => ensurePresentForRole(ids)
+  /** ⚠️ Being in a Trupp is a JOB, and the Anwesenheit should say so. It marked the crew present
+   *  and wrote nothing, so the list — and the Personalblatt printed from it — could not tell an
+   *  AdF who stood at the Magazin from one who was under Atemschutz. The link already existed in
+   *  one direction (the Trupp picker says «unter AS» about somebody on the list); this is the
+   *  same fact read the other way round. Like every auto-Bemerkung it only fills an EMPTY one,
+   *  so anything typed by hand survives. */
+  const ensurePresentFromTrupp = (ids: (string | undefined)[]) =>
+    ensurePresentForRole(ids, appConfig.copy.anwesenheit.roleAtemschutz)
 
   /** Assign a role: presence + Bemerkung, and the hint if it contradicts the record (lib ·
    *  roleAssignment). The hint never blocks — it is shown after the assignment went through. */
@@ -2299,14 +2311,19 @@ export function IncidentWorkspace({
   const ROSTER_FIELDS: readonly string[] = appConfig.symbols.rosterFields
   const linkRosterFields = (prev: Entity, fields: Record<string, string>) => {
     const before = prev.fields ?? {}
+    // ⚠️ A changed FUNKTION has to reach the person too, and the name beside it did not move —
+    // so «Meier, SiBe» corrected to «Meier, Atemschutz» would otherwise leave the Anwesenheit
+    // saying SiBe forever. The job is what this field records; re-file the name when it changes.
+    const jobChanged = Object.entries(fields).some(([k, v]) => !ROSTER_FIELDS.includes(k) && before[k] !== v)
     for (const [k, v] of Object.entries(fields)) {
-      if (!ROSTER_FIELDS.includes(k) || !v.trim() || before[k] === v) continue
+      if (!ROSTER_FIELDS.includes(k) || !v.trim()) continue
+      if (before[k] === v && !jobChanged) continue
       const id = rosterIdByName.get(v.trim().toLowerCase())
       if (!id) continue // a typed guest / mutual aid — not ours to mark present
       // which job this field hands out, and what it writes into the Bemerkung — lib ·
       // roleAssignment, so «Fahrer TLF» / «Einsatzleiter» / «Stv. Einsatzleiter» is one
       // decision with tests rather than a chain of conditions inside the workspace
-      const { role, note } = rosterFieldRole(prev.symbol, k, prev.label)
+      const { role, note } = rosterFieldRole(prev.symbol, k, prev.label, fields)
       assignRole(id, role, note)
     }
   }
