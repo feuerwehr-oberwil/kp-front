@@ -187,6 +187,18 @@ describe('presets that were silently absent', () => {
     expect(byName['VKF Feuer']).toBeUndefined()
   })
 
+  it('kit that is carried inside can name the storey it is on', () => {
+    // cellar work and stairwell ventilation are the normal case, and the storey was the one
+    // thing these could not say. The VEHICLES deliberately keep none — a Drehleiter is outside.
+    for (const n of ['VKF Luefter mobil', 'Grosslüfter', 'FW Entrauchung', 'FW Kleinloeschgeraet',
+                     'FW Tauchpumpe', 'FW Wassersauger', 'VKF Innenhydrant', 'SI Wasserloeschposten']) {
+      expect(symbolControls(n).has('floor'), n).toBe(true)
+    }
+    for (const n of ['VKF Drehleiter', 'VKF Hubretter', 'FW Boot', 'VKF Fahrzeug']) {
+      expect(symbolControls(n).has('floor'), n).toBe(false)
+    }
+  })
+
   it('a water source can state its capacity', () => {
     expect(symbolPresetFieldKeys('WV Loeschweier')).toContain('Kapazität')
     expect(symbolPresetFieldKeys('SI Wasserbezugsort')).toContain('Kapazität')

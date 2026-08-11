@@ -303,13 +303,13 @@ const base = {
         'FW Elektroanlage': { controls: ['floor'] },
         'FW Gefahr W': { controls: ['floor'] },
         // ── Personen / Sanität ── the label/name says it; no fields, no count.
-        'VKF Patientensammelstelle': { controls: ['count'] },
-        'VKF Sanitaetshilfsstelle': { controls: ['count'] },
-        'VKF Totensammelstelle': { controls: ['count'] },
-        'VKF Sammelstelle': { controls: ['count'] },   // FKS: Unverletzte (see displayNames)
+        'VKF Patientensammelstelle': { controls: ['count', 'floor'] },
+        'VKF Sanitaetshilfsstelle': { controls: ['count', 'floor'] },
+        'VKF Totensammelstelle': { controls: ['count', 'floor'] },
+        'VKF Sammelstelle': { controls: ['count', 'floor'] },   // FKS: Unverletzte (see displayNames)
         'FW Sammelplatz': {},
         'FW Warteraum': {},
-        'FW Verwundetennest': { controls: ['count'] },
+        'FW Verwundetennest': { controls: ['count', 'floor'] },
         'VKF Bereich Sanitaet': { fields: ['Einheit'] },
         // ── Führung ── name is the info; only the two person symbols seed 'Name'.
         'VKF KP Front': {},
@@ -341,25 +341,30 @@ const base = {
         // generic vehicle: user-named (see lib/symbols) — title + a Fahrer picker; type lists via config
         'VKF Fahrzeug': { controls: ['rotation'], fields: ['Fahrer'] },
         'VKF Pumpe Typ2': {},
-        'FW Tauchpumpe': {},
-        'FW Wassersauger': {},
+        // ⚠️ The kit below carries a STOREY (11.08.). A Lüfter, ein Exhauster, eine Tauchpumpe,
+        // ein Handlöscher and ein Innenhydrant are placed INSIDE a building as often as outside
+        // one — cellar work and stairwell ventilation are the normal case — and the storey was
+        // the one thing the symbol could not say. The VEHICLES above deliberately keep none: a
+        // Drehleiter stands in the street, and a control that is always empty is worse than none.
+        'FW Tauchpumpe': { controls: ['floor'] },
+        'FW Wassersauger': { controls: ['floor'] },
         'VKF Helilandeplatz': {},
-        'VKF Luefter mobil': { controls: ['rotation', 'airflow'], fields: ['Typ'] },
+        'VKF Luefter mobil': { controls: ['rotation', 'airflow', 'floor'], fields: ['Typ'] },
         // composite vehicle-mounted Grosslüfter: body heading (rotation) + fan aim (rotation2),
         // each with its own on-canvas rotor + Drehung stepper, PLUS the Lüfter airflow direction
         // (Einblasen / Absaugen — reverses the fan glyph, same as the mobile Lüfter). Synthesised
         // in lib/useSymbols.
-        'Grosslüfter': { controls: ['rotation', 'rotation2', 'airflow'], fields: ['Fahrer'] },
-        'FW Entrauchung': { controls: ['rotation'] },
-        'FW Kleinloeschgeraet': { fields: ['Typ'] },
+        'Grosslüfter': { controls: ['rotation', 'rotation2', 'airflow', 'floor'], fields: ['Fahrer'] },
+        'FW Entrauchung': { controls: ['rotation', 'floor'] },
+        'FW Kleinloeschgeraet': { controls: ['floor'], fields: ['Typ'] },
         'FW Boot': { controls: ['rotation'], fields: ['Fahrer'] },
         'FW Sprungretter': {},
         'FW Leiter': { controls: ['rotation'] },
         // ── Wasser ── fixed supply points; the symbol is the info.
         'SI Ueberflurhydrant': {},
         'SI Unterflurhydrant': {},
-        'VKF Innenhydrant': {},
-        'SI Wasserloeschposten': {},
+        'VKF Innenhydrant': { controls: ['floor'] },
+        'SI Wasserloeschposten': { controls: ['floor'] },
         'WV Loeschweier': { fields: ['Kapazität'] },
         'SI Wasserbezugsort': { fields: ['Kapazität'] },
         'SI Wasserdruckversorgung': {},
