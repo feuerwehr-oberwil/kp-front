@@ -19,7 +19,9 @@ import { getDeploymentConfig } from '../lib/deploymentConfig'
 import { activityMoments, loadReplay, stateAt, vehiclesAt, type ReplayBundle } from '../lib/replay'
 import { autoRotation, vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import type { AuditProof, ReportDraft, ReportOptions } from '../lib/report'
-import { defaultReportOptions, einsatzleiterFromScene, formatDateTime, krokiStandLabel, missingTranscriptCount, operationalExtentPoints, proofLabel } from '../lib/report'
+import {
+  defaultReportOptions, einsatzleiterFromScene, formatDateTime, krokiStandLabel, missingTranscriptCount, proofLabel,
+} from '../lib/report'
 import { missingSteps, stepDone, type AbschlussFacts, type AbschlussStep } from '../lib/abschluss'
 import { hoursRows, unresolvedHoursRows } from '../lib/attendanceHours'
 import { incidentDays } from '../lib/zeitplanFormat'
@@ -37,21 +39,6 @@ const NO_IDS = new Set<string>()
 
 /** Does this partner row say anything at all? Blank rows live on screen and never reach the blob. */
 const partnerFilled = (p: PartnerContact) => [p.org, p.name, p.phone, p.note].some((v) => v?.trim())
-
-/** Shape of the operational extent — wider than tall means a landscape sheet. Latitude is
- *  scaled by cos(lat) so the comparison is in metres, not degrees: at 47° a degree of longitude
- *  is only ~68 km against 111 km, and the raw numbers would call almost every Lage «hoch».
- *  Read ONCE, to seed the orientation — from then on the value on screen is the choice. */
-function autoLandscape(scene?: { center: LngLat; entities: Entity[]; drawings: Drawing[] }): boolean {
-  if (!scene) return true
-  const pts = operationalExtentPoints(scene.center, scene.entities, scene.drawings, false)
-  if (pts.length < 2) return true
-  const lngs = pts.map((p) => p[0]), lats = pts.map((p) => p[1])
-  const midLat = (Math.min(...lats) + Math.max(...lats)) / 2
-  const w = (Math.max(...lngs) - Math.min(...lngs)) * Math.cos((midLat * Math.PI) / 180)
-  const h = Math.max(...lats) - Math.min(...lats)
-  return w >= h
-}
 
 /** HH:MM display value for the compact time inputs of the Zeiten grid. */
 function clockOf(iso?: string): string {
@@ -187,7 +174,12 @@ export function ReportPreflight({
     // always what the crop on screen shows. Auto on first use: the operational extent decides
     // the shape, so a Lage that runs north–south opens upright without anyone asking for it.
     krokiView: reportMeta.krokiPrint?.view ?? null,
-    krokiLandscape: reportMeta.krokiPrint?.landscape ?? autoLandscape(scene),
+    // ⚠️ HOCH by default. The rapport is a portrait document and every other page of it is
+    // portrait, so a landscape Kroki turns the one sheet people actually look at sideways in the
+    // middle of the stack. It used to be derived from the scene's bounding box, which meant the
+    // orientation changed between two prints of the SAME Einsatz as symbols were added. A
+    // remembered choice still wins — this is only what an unframed rapport starts from.
+    krokiLandscape: reportMeta.krokiPrint?.landscape ?? false,
   })
   // Partnerorganisationen. The field existed in the model and PRINTED for months, but nothing
   // ever wrote it — so every rapport fell back to the config's tick-off row and «Polizei war da»
@@ -663,11 +655,23 @@ export function ReportPreflight({
    * they can all carry without being restructured around it.
    */
   const jumpToStep = (step: AbschlussStep) => {
-    const el = bodyRef.current?.querySelector<HTMLElement>(`[data-step="${step}"]`)
-    if (!el) return
-    el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    const body = bodyRef.current
+    const el = body?.querySelector<HTMLElement>(`[data-step="${step}"]`)
+    if (!body || !el) return
+    // ⚠️ Scroll the SHEET, not `scrollIntoView`. Three of the six targets are whole `<section>`s
+    // taller than the viewport, and `block: 'center'` centres their MIDDLE — which puts the
+    // heading the chip just named off the top of the screen, so the jump lands somewhere
+    // plausible and unrecognisable. Putting the target's top just under the sheet's top edge is
+    // the same thing a reader would do with their thumb.
+    const top = el.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop - 12
+    body.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+    // …and the same two-beat ink ring the Atemschutz board uses when a locked Anwesenheits-Zeile
+    // sends you to a card (Atemschutz.module.css · truppFlash). One surface, one way of saying
+    // «this one» — a soft 1.2 s background wash read as a rendering artefact rather than a point.
+    el.classList.remove('rp-flash')
+    void el.offsetWidth // restart the animation when the same chip is tapped twice
     el.classList.add('rp-flash')
-    window.setTimeout(() => el.classList.remove('rp-flash'), 1200)
+    window.setTimeout(() => el.classList.remove('rp-flash'), 2000)
     // the field the step is ABOUT, focused where there is one — a chip that scrolls to a text
     // box the operator then has to tap is one tap short of finishing the job
     el.querySelector<HTMLElement>('textarea, input, button')?.focus({ preventScroll: true })

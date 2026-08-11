@@ -367,8 +367,16 @@
   border-radius: var(--r-pill); cursor: pointer;
   color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 14%, transparent); }
 .rp-head-open-go:hover { background: color-mix(in srgb, var(--amber) 26%, transparent); }
-/* …and the target says «here» for a moment. Without it a smooth scroll on a long page ends
-   somewhere plausible and the operator has to work out which of four sections they were sent to. */
-@keyframes rp-flash-fade { from { background: color-mix(in srgb, var(--accent-soft, #2563eb) 16%, transparent); } to { background: transparent; } }
-.rp-flash { animation: rp-flash-fade 1.2s ease-out; border-radius: var(--r-md); }
-@media (prefers-reduced-motion: reduce) { .rp-flash { animation-duration: 1ms; } }
+/* …and the target says «here». ⚠️ The SAME two-beat ink ring the Atemschutz board uses when a
+   locked Anwesenheits-Zeile sends you to a card (Atemschutz.module.css · truppFlash) — one app,
+   one way of pointing. A 1.2 s background wash read as a rendering artefact instead of a point,
+   and INK is deliberate: every hue on this sheet already means something (amber = noch offen,
+   blue = attention), so a coloured ring would say one of those a second time. */
+@keyframes rp-flash-ring {
+  0%, 22%, 48%, 74% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 62%, transparent); }
+  11%, 36%, 62%, 100% { box-shadow: 0 0 0 4px transparent; }
+}
+.rp-flash { animation: rp-flash-ring 1.9s ease-out 1; border-radius: var(--r-md); }
+@media (prefers-reduced-motion: reduce) {
+  .rp-flash { animation: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 62%, transparent); }
+}

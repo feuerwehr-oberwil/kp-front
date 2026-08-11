@@ -127,7 +127,7 @@ import type { NoteSize } from './types'
 import { ReportPreflight } from './components/ReportPreflight'
 import { annotatedPlans, changedReportMetaFields } from './lib/report'
 import { entityEditChanges, entityLogName } from './lib/entityEdit'
-import { mittelLineCount } from './lib/mittel'
+import { currentMengeFor, mittelLineCount, symbolCaptureConfigured } from './lib/mittel'
 import { autoNoteWPx } from './lib/notes'
 import { prepareUploadImage } from './lib/imagePrep'
 
@@ -1590,7 +1590,6 @@ export function IncidentWorkspace({
       else { setPending(null); setTool('select'); setSelectedId(id); setSelectedDrawingId(null) }
       log('hex', fillTemplate(appConfig.copy.log.symbolPlaced, { name: entity.label || formatSymbolName(s) }), 'symbol', undefined, id)
       emit('entity.add', { id, symbol: s, entity })
-      offerMittelCapture(s)
     } else if (tool === 'note') {
       const id = `n${Date.now()}`
       commit((d) => ({ ...d, entities: [...d.entities, { id, kind: 'note', layer: appConfig.defaults.drawingLayerId, coord: c, label: '', subtitle: appConfig.copy.entities.noteSubtitle, noteW: autoNoteWPx('', noteDefaults.size === 'm' ? undefined : noteDefaults.size), noteAutoW: true, noteSize: noteDefaults.size === 'm' ? undefined : noteDefaults.size, notePlain: noteDefaults.plain || undefined, color: noteDefaults.color || undefined }] }))
@@ -2133,7 +2132,10 @@ export function IncidentWorkspace({
     attendance, setAttendance, blockedAttendanceIds,
     startedAt: incidentMeta.started_at, reportDoneAt: incidentMeta.report_done_at, log,
   })
-  const { saveMittel, offerMittelCapture } = useMittelActions({ mittel, setMittel, authorName: user?.display_name, log })
+  const { saveMittel, captureMittelForSymbol } = useMittelActions({ mittel, setMittel, authorName: user?.display_name, log })
+  // The gate for the symbol→Mittel row: «has this station mapped anything at all». Not a setting
+  // anybody has to discover, and a Wehr that never configured it never sees an offer.
+  const mittelCaptureOn = symbolCaptureConfigured(getDeploymentConfig().mittel?.catalogue ?? appConfig.mittel.catalogue)
   // Schichtenplanung — a PLAN over the same Mannschaft; it never writes the attendance record
   const { addShift, addShiftSpan, replaceShift, setShiftTime, removeShift } = useShiftActions({ shifts, setShifts, startedAt: incidentMeta.started_at })
   // …and the Schichten reading of it: the same shifts, grouped into named windows. Creating a band
@@ -2760,6 +2762,16 @@ export function IncidentWorkspace({
             if (titleLiveRef.current) { titleLiveRef.current = false; endDrag(); emit('entity.edit', { id: selected.id, patch: { label: v } }) }
             else patchEntity(selected.id, { label: v })
           }}
+          // Symbol→Mittel: only where the station mapped at least one material to a symbol.
+          // No switch to find — a Wehr that has not configured it never gets an offer.
+          onCaptureMittel={mittelCaptureOn && !readOnly ? captureMittelForSymbol : undefined}
+          mittelCountFor={(item, sourceId) => currentMengeFor(mittel, {
+            materialId: item.id,
+            label: item.label,
+            unit: item.unit || appConfig.mittel.defaultUnit,
+            sourceId,
+            sourceLabel: (getDeploymentConfig().mittel?.sources ?? appConfig.mittel.sources).find((x) => x.id === sourceId)?.label,
+          })}
           onFields={(fields) => { patchEntity(selected.id, { fields }); linkRosterFields(selected, fields) }}
           onNotes={!selected.live ? (v) => patchEntity(selected.id, { notes: v || undefined }) : undefined}
           onFloor={selected.kind === 'symbol' && !selected.live ? (f) => patchEntity(selected.id, { floor: f ?? undefined }) : undefined}
@@ -3110,7 +3122,6 @@ export function IncidentWorkspace({
       {mode === 'plans' && sym.ready && (
         <Whiteboard
           plans={planDocs}
-          onSymbolPlaced={offerMittelCapture}
           // on desktop the Verlauf drawer docks beside the plan's tool rail (same as the
           // map), so the rail + its zoom/fit footer stay live. Only a phone still parks
           // the plan read-only while Verlauf is open (there it's a full-width bottom sheet).
@@ -3382,7 +3393,12 @@ export function IncidentWorkspace({
           attendanceCount={Object.keys(attendance).length}
           mittelCount={mittelLineCount(mittel)}
           mittel={mittel}
-          mapContentCount={entities.length + drawings.length}
+          // ⚠️ What counts as «es wurde eine Lage gezeichnet» — and a LIVE vehicle does not.
+          // Those entities arrive from GPS on their own, so on a station running Traccar the
+          // Kroki was pre-selected on every Einsatz, including ones where nobody drew anything:
+          // a page of the printed rapport showing three lorries on an empty map. Only what an
+          // operator placed or drew is a reason to print a picture.
+          mapContentCount={entities.filter((e) => !e.live).length + drawings.length}
           pendingMediaCount={media.pendingCount}
           attendance={attendance}
           trupps={trupps}

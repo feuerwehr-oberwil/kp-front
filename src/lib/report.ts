@@ -44,10 +44,16 @@ export interface ReportOptions {
 }
 
 export const defaultReportOptions: ReportOptions = {
+  // ⚠️ The SHEET overrides this from the live scene (`kroki: mapContentCount > 0`) — a rapport
+  // with nothing drawn prints no empty map. This stays true for the callers that have no scene
+  // to judge by (the QR-Erfassung's own PDF), where the option is moot anyway.
   kroki: true,
   krokiView: null,
   krokiAt: null,
-  krokiLandscape: true,
+  // ⚠️ HOCH. The rapport is a portrait document; a landscape Kroki turns the one page people
+  // actually look at sideways in the middle of the stack. See ReportPreflight for the same
+  // default on the sheet itself.
+  krokiLandscape: false,
   annotatedPlans: true,
   allPlans: false,
   atemschutz: true,
