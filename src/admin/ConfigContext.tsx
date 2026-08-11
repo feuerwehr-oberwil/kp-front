@@ -48,6 +48,11 @@ type SaveState =
   | { kind: 'idle' }
   | { kind: 'saving' }
   | { kind: 'ok' }
+  /** ⚠️ Somebody else changed the config since this tab loaded it. NOT an error: nothing failed
+   *  and nothing is lost — this tab's edits are still in the draft. It is a state that must
+   *  STOP the autosave, because the whole point is that a full-document write no longer wins by
+   *  default. «Übernehmen» re-sends on top of the newer document; reloading the page takes it. */
+  | { kind: 'conflict' }
   | { kind: 'error'; message: string; reauth?: boolean }
 
 interface ConfigCtx {
@@ -72,6 +77,9 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [save, setSave] = useState<SaveState>({ kind: 'idle' })
   const savingRef = useRef(false)
+  /** The version of the document the SERVER holds, as last seen. Sent as `If-Match` on every
+   *  save (backend · api/config · put_config) so a stale tab is refused rather than obeyed. */
+  const versionRef = useRef<string | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -79,6 +87,7 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
       .then((cfg) => {
         if (!alive) return
         const safe = cfg && typeof cfg === 'object' ? cfg : {}
+        versionRef.current = safe.version ?? null
         setDraft(safe)
         setSaved(safe)
       })
@@ -103,11 +112,29 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
     // app. Strip both before the full-document PUT so neither is ever re-sent.
     const { integrations: _ignore, symbols: _dropSymbols, ...payload } =
       sent as DeploymentConfig & { symbols?: unknown }
+    let echo: DeploymentConfig | undefined
     try {
-      await apiPut<DeploymentConfig>('/api/config', payload)
+      echo = await apiPut<DeploymentConfig>(
+        '/api/config', payload,
+        // omitted only on a document this tab has never read a version for — a fresh, unwritten
+        // station, where there is nothing to conflict with
+        versionRef.current ? { 'If-Match': versionRef.current } : undefined,
+      )
     } catch (e: unknown) {
       savingRef.current = false
       if (e instanceof ApiError) {
+        // ⚠️ 409 = the stored document moved on. Stop autosaving and SAY so — the old behaviour
+        // (a full-document PUT that always won) is exactly how a tab left open all morning
+        // reverted a station's Dienstgrade, Partnerorganisationen and Atemschutz-Doktrin in one
+        // write. The draft is kept; re-reading the version lets «Übernehmen» land on top.
+        if (e.status === 409) {
+          setSave({ kind: 'conflict' })
+          try {
+            const fresh = await apiGet<DeploymentConfig>('/api/config')
+            versionRef.current = fresh.version ?? null
+          } catch { /* offline → «Übernehmen» will fail loudly, which is honest */ }
+          return
+        }
         const reauth = e.status === 401 || e.status === 403
         setSave({
           kind: 'error',
@@ -122,7 +149,16 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
     // Release the lock BEFORE the state updates, so the autosave effect re-runs (on the
     // new `saved`) and picks up any edits made while this save was in flight.
     savingRef.current = false
-    setSaved(sent)
+    versionRef.current = echo?.version ?? versionRef.current
+    // ⚠️ The branding slots come back from the SERVER, which owns them (api/config · _keep_assets):
+    // they are written by the upload endpoints and by `admin_branding push`, never typed here, so
+    // a draft loaded before a logo was installed carries stale nulls. Folding the echo's assets
+    // into both sides keeps this tab showing the logo that actually exists — and keeps `saved`
+    // equal to `draft`, so the dirty check still settles instead of re-saving forever.
+    const assets = echo?.identity?.assets
+    const merged = assets ? { ...sent, identity: { ...(sent.identity ?? {}), assets } } : sent
+    setSaved(merged)
+    if (merged !== sent) setDraft((d) => (d ? { ...d, identity: { ...(d.identity ?? {}), assets } } : d))
     setSave({ kind: 'ok' })
     // Best-effort: re-resolve the singleton + re-apply branding so title/accent update
     // live. A failure here must not flip the (already successful) save to an error.
@@ -135,11 +171,14 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
   // flight defers — its completion bumps `saved`, re-running this with any trailing edits.
   useEffect(() => {
     if (loadError || !draft || !saved) return
+    // a refused save must not re-fire on its own — that would be the silent overwrite again,
+    // one debounce later. It waits for «Übernehmen» (retry).
+    if (save.kind === 'conflict') return
     if (JSON.stringify(draft) === JSON.stringify(saved)) return
     if (savingRef.current) return
     const t = setTimeout(() => { void persist(draft) }, AUTOSAVE_DELAY_MS)
     return () => clearTimeout(t)
-  }, [draft, saved, loadError, persist])
+  }, [draft, saved, loadError, persist, save.kind])
 
   const set = (path: (string | number)[], val: unknown) => {
     setDraft((d) => setPath(d ?? {}, path, val))
@@ -149,6 +188,7 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
 
   const applyServerConfig = (cfg: DeploymentConfig) => {
     const safe = cfg && typeof cfg === 'object' ? cfg : {}
+    versionRef.current = safe.version ?? versionRef.current
     setDraft(safe)
     setSaved(safe)
     setSave({ kind: 'idle' })
@@ -178,6 +218,18 @@ export function ConfigAutosaveStatus() {
   const { save, dirty, draft, retry } = useConfig()
   const C = appConfig.copy.admin.autosave
   if (!draft) return null
+  // ⚠️ Its own state, ahead of `error`: nothing failed, and this page's edits are still here.
+  // What it must do is STOP looking like a page that saves by itself, because the one thing
+  // that must not happen next is this tab writing its hour-old document over the newer one.
+  if (save.kind === 'conflict') {
+    return (
+      <span className="adm-autosave warn" title={C.conflictHint}>
+        <span className="adm-autosave-dot" aria-hidden />
+        {C.conflict}
+        <button type="button" className="adm-autosave-retry" onClick={retry}>{C.conflictApply}</button>
+      </span>
+    )
+  }
   if (save.kind === 'error') {
     return (
       <span className="adm-autosave err">

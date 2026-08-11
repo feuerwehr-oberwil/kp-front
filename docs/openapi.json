@@ -740,9 +740,25 @@
           "config"
         ],
         "summary": "Put Config",
-        "description": "Admin-only. Validates the body (422 on invalid), persists the document to the\nsingleton row, stamps ``updated_by`` (the admin's user when driving the UI, NULL for\na CLI push), and returns the same projection as GET.",
+        "description": "Admin-only. Validates the body (422 on invalid), persists the document to the\nsingleton row, stamps ``updated_by`` (the admin's user when driving the UI, NULL for\na CLI push), and returns the same projection as GET.\n\n⚠️ ``identity.assets`` is NOT taken from the body — see ``_keep_assets``.\n\n⚠️ ``If-Match`` carries the ``version`` the caller last read. This is a FULL-DOCUMENT\nreplace and the Verwaltung autosaves, so a browser tab holding a draft from an hour ago\nreverted everything anybody had changed since — the whole document, silently, on the next\nnudge of one unrelated field. That is how the public demo lost its Dienstgrade, its\nPartnerorganisationen, its Atemschutz-Doktrin (including the Alarmdruck) and the point on\nits «Stk.» in one write, and it is the same trap for a station with two admins.\n\nSent and stale → 409, and the client re-reads before deciding. OMITTED → written as\nbefore: ``admin_config load``, ``admin_geodata`` and the backup importer are deliberate,\none-shot pushes by somebody at a terminal, not a tab that has been open since breakfast.",
         "operationId": "put_config_api_config_put",
         "parameters": [
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          },
           {
             "name": "admin_session",
             "in": "cookie",
@@ -9303,6 +9319,17 @@
           },
           "alarmVocabulary": {
             "$ref": "#/components/schemas/AlarmVocabularyStatus"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
           }
         },
         "type": "object",

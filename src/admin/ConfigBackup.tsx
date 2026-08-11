@@ -83,6 +83,11 @@ export function ConfigBackup({ config, onImported }: {
     const { integrations: _ignore, symbols: _drop, ...payload } =
       parsed as Record<string, unknown>
     try {
+      // ⚠️ Deliberately WITHOUT the `If-Match` version the autosave sends. Importing a backup is
+      // «replace the whole document with this file» — the user picked the file, confirmed it, and
+      // the pre-import config was just downloaded as a rollback. Refusing it because somebody
+      // else saved five minutes ago would be a conflict check firing on the one write that means
+      // to overwrite. The autosave is the case that needs guarding: a tab, not a decision.
       const saved = await apiPut<DeploymentConfig>('/api/config', payload)
       onImported(saved && typeof saved === 'object' ? saved : (payload as DeploymentConfig))
       setState({ kind: 'ok', message: C.imported })

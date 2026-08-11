@@ -116,6 +116,47 @@ async def test_branding_serve_rejects_traversal(client):
     assert r2.status_code == 404
 
 
+async def test_config_put_cannot_strip_an_uploaded_asset(client, editor, admin_login):
+    """A full-document PUT must not be able to null a branding slot.
+
+    The Verwaltung holds the config in a client-side draft and replaces the whole document on
+    every autosave, so a draft loaded BEFORE a logo was installed (from the CLI, from another
+    device, by the nightly demo reset) used to put it back to null the next time anybody nudged
+    an unrelated field — silently. That is how the public demo lost its brandmark three times.
+    """
+    await _login(client, editor)
+    await admin_login(client)
+    up = await client.post("/api/branding/logo", files={"file": ("logo.png", _PNG, "image/png")})
+    url = up.json()["identity"]["assets"]["logo"]
+    assert url
+
+    # a stale draft: the whole document, with assets as the client last saw them (empty)
+    stale = await client.put(
+        "/api/config",
+        json={"identity": {"appName": "Testwehr", "assets": {"logo": None, "favicon": None}}},
+    )
+    assert stale.status_code == 200, stale.text
+    # the echo the admin UI re-seeds from carries the real URL, not the null it sent…
+    assert stale.json()["identity"]["assets"]["logo"] == url
+    assert stale.json()["identity"]["appName"] == "Testwehr"  # everything else IS the body
+    # …and so does the next GET
+    got = await client.get("/api/config")
+    assert got.json()["identity"]["assets"]["logo"] == url
+
+
+async def test_branding_delete_still_clears_after_a_put(client, editor, admin_login):
+    """Removing a logo goes through DELETE /api/branding/{slot} — which must still work.
+    `_keep_assets` carries over only slots that are SET, so the delete is not undone by the
+    next config save."""
+    await _login(client, editor)
+    await admin_login(client)
+    await client.post("/api/branding/logo", files={"file": ("logo.png", _PNG, "image/png")})
+    rm = await client.delete("/api/branding/logo")
+    assert rm.json()["identity"]["assets"]["logo"] is None
+    after = await client.put("/api/config", json={"identity": {"appName": "Testwehr"}})
+    assert after.json()["identity"]["assets"]["logo"] is None
+
+
 async def test_branding_delete_clears_asset(client, editor, admin_login):
     await _login(client, editor)
     await admin_login(client)
@@ -127,3 +168,53 @@ async def test_branding_delete_clears_asset(client, editor, admin_login):
     rm = await client.delete("/api/branding/favicon")
     assert rm.status_code == 200
     assert rm.json()["identity"]["assets"]["favicon"] is None
+
+
+# --- optimistic concurrency: a stale tab cannot silently revert the station ----------
+
+
+async def test_a_put_with_a_stale_version_is_refused(client, editor, admin_login):
+    """⚠️ THE bug this guards: the Verwaltung holds the config in a client-side draft and
+    replaces the whole document on every autosave. A tab open since breakfast therefore reverted
+    everything anybody had changed since — Dienstgrade, Partnerorganisationen, the Atemschutz
+    doctrine including the Alarmdruck — on the next nudge of one unrelated field, with no error
+    and no diff to look at. Refused, so the client re-reads before it decides.
+    """
+    await _login(client, editor)
+    await admin_login(client)
+    first = await client.put("/api/config", json={"identity": {"appName": "Erste"}})
+    stale = first.json()["version"]
+    assert stale
+
+    # somebody else (or the CLI) writes in the meantime
+    await client.put("/api/config", json={"identity": {"appName": "Zweite"}})
+
+    conflict = await client.put("/api/config", json={"identity": {"appName": "Erste"}}, headers={"If-Match": stale})
+    assert conflict.status_code == 409, conflict.text
+    # …and the newer document is untouched
+    assert (await client.get("/api/config")).json()["identity"]["appName"] == "Zweite"
+
+
+async def test_the_version_advances_so_the_next_save_goes_through(client, editor, admin_login):
+    """The token handed back must be the NEW one — otherwise a client that saves twice in a row
+    conflicts with a document only it has ever touched."""
+    await _login(client, editor)
+    await admin_login(client)
+    v1 = (await client.put("/api/config", json={"identity": {"appName": "A"}})).json()["version"]
+    r2 = await client.put("/api/config", json={"identity": {"appName": "B"}}, headers={"If-Match": v1})
+    assert r2.status_code == 200, r2.text
+    v2 = r2.json()["version"]
+    r3 = await client.put("/api/config", json={"identity": {"appName": "C"}}, headers={"If-Match": v2})
+    assert r3.status_code == 200, r3.text
+
+
+async def test_a_put_without_the_header_still_writes(client, editor, admin_login):
+    """`admin_config load`, the geodata push and the backup importer are deliberate one-shot
+    pushes by somebody at a terminal — not a tab that has been open for an hour. Omitting the
+    token keeps them working exactly as before."""
+    await _login(client, editor)
+    await admin_login(client)
+    await client.put("/api/config", json={"identity": {"appName": "Erste"}})
+    later = await client.put("/api/config", json={"identity": {"appName": "CLI"}})
+    assert later.status_code == 200
+    assert (await client.get("/api/config")).json()["identity"]["appName"] == "CLI"

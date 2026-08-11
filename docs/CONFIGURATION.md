@@ -30,13 +30,31 @@ state`).
 One JSON document, stored as the single `deployment_config` row, returned by `GET /api/config`.
 **Every field is optional**; anything omitted falls back to the national default.
 
+> ⚠️ **Every write replaces the WHOLE document.** There are no partial writes — the admin UI, the
+> CLIs and the backup importer all upsert the complete row. Two consequences you have to know:
+>
+> 1. **`identity.assets` is not editable through this document.** The branding slots are written
+>    by the upload endpoints (`POST` / `DELETE /api/branding/{slot}`) and by `admin_branding push`,
+>    because the URLs behind them only exist once a blob has been stored. A `PUT` or a `load` that
+>    omits or nulls them **carries the stored values over** instead of clearing them. Removing a
+>    logo means `DELETE /api/branding/{slot}`.
+> 2. **`PUT /api/config` supports optimistic concurrency.** `GET` returns an opaque `version`
+>    (a hash of the stored document); send it back as `If-Match` and a write against a document
+>    somebody else has changed since is refused with **409** instead of silently winning. The
+>    Verwaltung does this on every autosave — without it, a browser tab left open reverted a whole
+>    station's config on the next nudge of one unrelated field. **Omitting the header still
+>    writes**, which is what keeps the CLIs and the backup import working: those are deliberate
+>    one-shot pushes by somebody at a terminal, not a tab that has been open since breakfast.
+
 ```jsonc
 {
   "identity": {
     "appName": "Feuerwehr Musterdorf",        // shown in title bar, login, help; default "KP Front"
     "locale": "de-CH",                          // "de-CH" today; "fr-CH" / "it-CH" later
     "accentColor": "#c4161c",                   // must flow through the --accent token system
-    "assets": {                                 // see §3 for upload rules
+    "assets": {                                 // ⚠️ READ-ONLY here — written by the branding
+                                                //    endpoints / `admin_branding`; see the note
+                                                //    above and §3 for upload rules
       "logo": "logo.svg",                        // ref into asset storage
       "iconPng192": "icon-192.png",
       "iconPng512": "icon-512.png",

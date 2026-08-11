@@ -130,6 +130,15 @@
   background: color-mix(in srgb, var(--red) 7%, var(--surface-2));
 }
 .adm-autosave.err .adm-autosave-dot { background: var(--red); }
+/* «anderswo geändert» — amber, not red: nothing failed and nothing is lost, the page has simply
+   stopped saving by itself until somebody decides which document wins. Red would say the save
+   broke, which sends an admin looking for a problem that isn't there. */
+.adm-autosave.warn {
+  color: var(--amber-strong);
+  border-color: color-mix(in srgb, var(--amber) 40%, var(--border-soft));
+  background: color-mix(in srgb, var(--amber) 9%, var(--surface-2));
+}
+.adm-autosave.warn .adm-autosave-dot { background: var(--amber); }
 .adm-autosave-retry {
   margin-left: 2px; padding: 0; border: none; background: transparent;
   color: var(--blue); font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer;

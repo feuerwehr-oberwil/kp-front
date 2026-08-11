@@ -29,16 +29,20 @@ Response contract (both GET and PUT return the SAME projection ``DeploymentConfi
       "integrations": { "diveraConfigured": bool, "traccarConfigured": bool },  # env-derived
       "alarmVocabulary": { "source": "shipped"|"deployment", "schemaVersion": int,
                            "titleKeywords": int, "highPriorityKeywords": int,
-                           "fallbackCategory": str }                            # derived
+                           "fallbackCategory": str },                           # derived
+      "version": str                     # opaque token of the STORED document — send it back as
+                                         # If-Match on the next PUT (see put_config)
     }
 
 Never exposes ``updated_by``, raw secrets, or API keys. On a fresh / empty / corrupt DB
 row, GET serves the safe empty config above — never 404, never 500.
 """
 
+import hashlib
+import json
 import logging
 
-from fastapi import APIRouter, Cookie, Depends
+from fastapi import APIRouter, Cookie, Depends, Header, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -80,7 +84,24 @@ def _alarm_vocabulary(doc: DeploymentConfigIn) -> AlarmVocabularyStatus:
     )
 
 
-def _projection(doc: DeploymentConfigIn, *, include_keywords: bool = True) -> DeploymentConfigOut:
+def _version(doc: dict | None) -> str:
+    """The version token of a stored config document: a hash of its CONTENT.
+
+    ⚠️ Content, not ``updated_at``. A timestamp is the obvious choice and the wrong one — SQLite
+    stores it to the second and Postgres' ``now()`` is transaction-start time, so two saves
+    inside one second are indistinguishable and the check silently passes exactly when a
+    conflict is most likely. A hash needs no column, no migration and no clock.
+
+    It also gives the right answer to the case a timestamp gets wrong in the other direction:
+    re-saving a document somebody else has already saved IDENTICALLY is not a conflict, because
+    nothing the caller has is out of date.
+    """
+    return hashlib.sha256(json.dumps(doc or {}, sort_keys=True, separators=(",", ":")).encode()).hexdigest()[:16]
+
+
+def _projection(
+    doc: DeploymentConfigIn, *, include_keywords: bool = True, version: str | None = None
+) -> DeploymentConfigOut:
     """Validated document + env-derived integration flags → the response projection.
 
     ``include_keywords=False`` withholds the ``alarmKeywords`` block. GET is public so the
@@ -103,7 +124,36 @@ def _projection(doc: DeploymentConfigIn, *, include_keywords: bool = True) -> De
         **payload,
         integrations=integrations(),
         alarmVocabulary=_alarm_vocabulary(doc),
+        version=version,
     )
+
+
+def _keep_assets(stored: dict | None, incoming: dict) -> dict:
+    """Carry ``identity.assets`` from the stored document into an incoming full-document write.
+
+    ⚠️ The branding slots are the one part of this document nobody TYPES. They are written by
+    the upload endpoints (app/api/branding.py) and by ``admin_branding push``, because the URLs
+    inside them only exist once a blob has been stored — and yet they live inside the document
+    that the admin UI replaces wholesale on every autosave.
+
+    So any full-document write could strip them, and repeatedly did: the Verwaltung holds the
+    config in a client-side draft, and a draft loaded BEFORE a logo was installed (from the CLI,
+    from another device, by the nightly demo reset) puts the logo back to null the next time
+    anybody nudges an unrelated field. No error, no diff to look at, just a login screen with no
+    brandmark and a Rapport with no letterhead. That is how the public demo lost its logo three
+    times, and it is the same trap for a station.
+
+    Not solvable in the model: ``DeploymentConfigIn`` fills missing sections with defaults, so by
+    the time the body is validated «assets were not mentioned» and «assets were cleared» are the
+    same null. Hence the rule is positional instead — the document body is not where assets are
+    edited, the branding endpoints are, and DELETE ``/api/branding/{slot}`` is how one is removed.
+    """
+    kept = {k: v for k, v in (((stored or {}).get("identity") or {}).get("assets") or {}).items() if v}
+    if not kept:
+        return incoming
+    identity = dict(incoming.get("identity") or {})
+    identity["assets"] = {**(identity.get("assets") or {}), **kept}
+    return {**incoming, "identity": identity}
 
 
 @router.get("", response_model=DeploymentConfigOut)
@@ -126,7 +176,7 @@ async def get_config(
     except Exception:  # noqa: BLE001 — never let a bad stored row brick GET
         logger.warning("deployment_config row failed validation; serving empty fallback", exc_info=True)
         doc = DeploymentConfigIn()
-    return _projection(doc, include_keywords=await _admin_session_valid(admin_session))
+    return _projection(doc, include_keywords=await _admin_session_valid(admin_session), version=_version(raw))
 
 
 @router.get("/meta")
@@ -153,14 +203,35 @@ async def put_config(
     _admin: CurrentAdmin,
     actor: OptionalUser,
     db: AsyncSession = Depends(get_db),
+    if_match: str | None = Header(default=None, alias="If-Match"),
 ) -> DeploymentConfigOut:
     """Admin-only. Validates the body (422 on invalid), persists the document to the
     singleton row, stamps ``updated_by`` (the admin's user when driving the UI, NULL for
     a CLI push), and returns the same projection as GET.
+
+    ⚠️ ``identity.assets`` is NOT taken from the body — see ``_keep_assets``.
+
+    ⚠️ ``If-Match`` carries the ``version`` the caller last read. This is a FULL-DOCUMENT
+    replace and the Verwaltung autosaves, so a browser tab holding a draft from an hour ago
+    reverted everything anybody had changed since — the whole document, silently, on the next
+    nudge of one unrelated field. That is how the public demo lost its Dienstgrade, its
+    Partnerorganisationen, its Atemschutz-Doktrin (including the Alarmdruck) and the point on
+    its «Stk.» in one write, and it is the same trap for a station with two admins.
+
+    Sent and stale → 409, and the client re-reads before deciding. OMITTED → written as
+    before: ``admin_config load``, ``admin_geodata`` and the backup importer are deliberate,
+    one-shot pushes by somebody at a terminal, not a tab that has been open since breakfast.
     """
     row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+    stored_version = _version(row.config_json if row else None)
+    if if_match is not None and if_match.strip('"') != stored_version:
+        raise HTTPException(
+            status_code=409,
+            detail="Die Konfiguration wurde inzwischen an anderer Stelle geändert.",
+            headers={"ETag": stored_version},
+        )
     # Persist the normalized document (defaults filled in) so GET round-trips consistently.
-    doc_json = body.model_dump(mode="json")
+    doc_json = _keep_assets(row.config_json if row else None, body.model_dump(mode="json"))
     actor_id = actor.id if actor else None
     if row is None:
         row = DeploymentConfig(id=1, config_json=doc_json, updated_by=actor_id)
@@ -176,4 +247,7 @@ async def put_config(
     from ..divera import reset_vocabulary_cache
 
     reset_vocabulary_cache()
-    return _projection(body)
+    # …the PERSISTED document, not the body: they differ by the carried-over branding slots, and
+    # the admin UI re-seeds its draft from this response — echoing the body would hand it back
+    # the very nulls that were just refused, ready to be written again on the next edit.
+    return _projection(DeploymentConfigIn.model_validate(doc_json), version=_version(doc_json))

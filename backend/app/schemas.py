@@ -1072,3 +1072,8 @@ class DeploymentConfigOut(DeploymentConfigIn):
     # Derived from the document, not stored: a one-glance answer to "shipped or ours?" that
     # does not require reading (or understanding) the whole `alarmKeywords` block above.
     alarmVocabulary: AlarmVocabularyStatus = Field(default_factory=AlarmVocabularyStatus)
+    # Opaque version token of the stored document — hand it back on the next PUT and a write
+    # against a document somebody else has since changed is refused (409) instead of silently
+    # winning. See app/api/config · put_config. NOT part of the document; `DeploymentConfigIn`
+    # ignores extras, so echoing this response straight back as a body is harmless.
+    version: str | None = None

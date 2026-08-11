@@ -198,17 +198,19 @@ async function gzipText(text: string): Promise<Blob> {
 }
 
 function withJson(method: string) {
-  return async <T>(path: string, body?: unknown): Promise<T> => {
-    if (body === undefined) return request<T>(path, { method })
+  /** `extra` adds request headers — used for the `If-Match` version token on the
+   *  full-document config PUT (see admin/ConfigContext). */
+  return async <T>(path: string, body?: unknown, extra?: Record<string, string>): Promise<T> => {
+    if (body === undefined) return request<T>(path, { method, headers: extra })
     const json = JSON.stringify(body)
     // decide the encoding FIRST, then issue exactly ONE request — a catch around the
     // request itself would silently re-send after a failure (double-applied writes on a
     // lost response, masked 4xx errors), so only the compression step may fall back.
-    let init: RequestInit = { method, headers: { 'Content-Type': 'application/json' }, body: json }
+    let init: RequestInit = { method, headers: { 'Content-Type': 'application/json', ...extra }, body: json }
     if (json.length >= GZIP_THRESHOLD && typeof CompressionStream !== 'undefined') {
       try {
         const gz = await gzipText(json)
-        init = { method, headers: { 'Content-Type': 'application/json', 'Content-Encoding': 'gzip' }, body: gz }
+        init = { method, headers: { 'Content-Type': 'application/json', 'Content-Encoding': 'gzip', ...extra }, body: gz }
       } catch { /* compression failed → plain JSON init stands */ }
     }
     return request<T>(path, init)

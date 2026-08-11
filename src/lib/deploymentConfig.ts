@@ -357,6 +357,11 @@ export interface DeploymentConfig {
     attendanceMergeGapMin?: number | null
   }
   integrations?: DeploymentIntegrations
+  /** Opaque version token of the document the SERVER holds, off GET/PUT. Sent back as
+   *  `If-Match` on the next save, so a tab holding an hour-old draft is refused instead of
+   *  silently reverting whatever anybody changed since (backend · api/config · put_config).
+   *  Response-only: the backend ignores it on the way in, and the editor never edits it. */
+  version?: string | null
 }
 
 export interface AlarmGroup {
