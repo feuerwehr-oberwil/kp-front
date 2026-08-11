@@ -304,6 +304,27 @@ def build() -> list[dict]:
          text("MS", 0.8, fill=BLUE, y=-0.4), text("2", 0.8, fill=BLUE, y=0.4)],
         vb=2.6,
     ))
+    # ⚠️ HOUSE SYMBOLS, in the FKS grammar — not official FKS signs (11.08.).
+    #
+    # FireGIS was searched for both: its whole pump family is «MS 1/2/3», i.e. Motorspritzen
+    # graded by type, plus a circle-and-triangle process-pump glyph used for a BUILDING's
+    # Entwässerung («FW EW Pumpe», magenta). There is no sign for a Tauchpumpe and none for a
+    # Wassersauger — the two devices a Wehr actually carries to a flooded cellar.
+    #
+    # So these follow the pack's own convention for exactly this family rather than inventing a
+    # pictogram: a square in Führungs-blue with a short Kürzel, the same geometry, stroke and
+    # viewBox as «MS 2» above. TP and WS read alongside MS as what they are, and a crew that
+    # knows the Motorspritze sign can read them without being taught.
+    add("Fahrzeuge / Mittel", "FW Tauchpumpe", svg(
+        [path([(-1, -1), (1, -1), (1, 1), (-1, 1)], stroke=BLUE, sw=0.1, close=True),
+         text("TP", 0.9, fill=BLUE)],
+        vb=2.6,
+    ))
+    add("Fahrzeuge / Mittel", "FW Wassersauger", svg(
+        [path([(-1, -1), (1, -1), (1, 1), (-1, 1)], stroke=BLUE, sw=0.1, close=True),
+         text("WS", 0.9, fill=BLUE)],
+        vb=2.6,
+    ))
     # ── the smaller Mittel (after the vehicles) ──
     add("Fahrzeuge / Mittel", "VKF Luefter mobil", svg(
         [path([(-0.9, -0.4), (-0.6, -0.4), (-0.3, -0.7), (-0.3, 0.7), (-0.6, 0.4), (-0.9, 0.4)],

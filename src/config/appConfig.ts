@@ -219,6 +219,8 @@ const base = {
       'VKF Hubretter': 'Hubretter',
       'VKF Fahrzeug': 'Fahrzeug',
       'VKF Pumpe Typ2': 'Pumpe',
+      'FW Tauchpumpe': 'Tauchpumpe',
+      'FW Wassersauger': 'Wassersauger',
       'VKF Helilandeplatz': 'Helilandeplatz',
       'VKF Drohne': 'Drohne',
       'VKF Luefter mobil': 'Lüfter',
@@ -331,6 +333,8 @@ const base = {
         // generic vehicle: user-named (see lib/symbols) — title + a Fahrer picker; type lists via config
         'VKF Fahrzeug': { controls: ['rotation'], fields: ['Fahrer'] },
         'VKF Pumpe Typ2': {},
+        'FW Tauchpumpe': {},
+        'FW Wassersauger': {},
         'VKF Helilandeplatz': {},
         'VKF Luefter mobil': { controls: ['rotation', 'airflow'], fields: ['Typ'] },
         // composite vehicle-mounted Grosslüfter: body heading (rotation) + fan aim (rotation2),
