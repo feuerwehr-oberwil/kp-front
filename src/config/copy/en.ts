@@ -944,7 +944,6 @@ export const en: Localizable<Copy> = {
     driverLabel: 'Driver',
     driverPlaceholder: 'Name from the crew',
     rotateHint: 'Drag the handle to align',
-    detailsTitle: 'Details',
     caption: 'Caption',
     captionDefault: 'Default',
     captionOff: 'Off',

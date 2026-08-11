@@ -1471,7 +1471,6 @@ export const de = {
     driverLabel: 'Fahrer',
     driverPlaceholder: 'Name aus der Mannschaft',
     rotateHint: 'Griff ziehen zum Ausrichten',
-    detailsTitle: 'Details',
     // on-canvas caption override for this one symbol (Standard = follow the device default)
     caption: 'Beschriftung',
     captionDefault: 'Standard',

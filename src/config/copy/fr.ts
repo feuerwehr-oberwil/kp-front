@@ -923,7 +923,6 @@ export const fr: Localizable<Copy> = {
     driverLabel: 'Conducteur',
     driverPlaceholder: 'Nom de l’effectif',
     rotateHint: 'Tirer la poignée pour orienter',
-    detailsTitle: 'Détails',
     notes: 'Notes',
     notesPlaceholder: 'Notes générales …',
     addField: 'Ajouter un champ',

@@ -922,7 +922,6 @@ export const it: Localizable<Copy> = {
     driverLabel: 'Conducente',
     driverPlaceholder: 'Nome dall’organico',
     rotateHint: 'Trascina la maniglia per orientare',
-    detailsTitle: 'Dettagli',
     notes: 'Note',
     notesPlaceholder: 'Note generali …',
     addField: 'Aggiungi campo',

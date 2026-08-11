@@ -47,7 +47,15 @@
    because of its own min-width floor. A station names its symbol fields freely («Luftrichtung»,
    «Einsatzmittel-Typ»), so the pair reliably outgrew a phone. Wrapping is the right answer at
    every width — the control drops under its label and nothing ends up off-screen. */
-.field { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 0; border-bottom: 1px solid var(--border-soft); font-size: 14px; }
+/* ⚠️ NO hairline, and the row's OWN wrap gap is what keeps a wrapped row readable.
+   The panel is a run of «Beschriftung + Bedienelement» rows in a fixed order, never more than
+   four of them for any symbol in the pack — so neither rules nor titles are needed to take it in
+   at a glance, and both were adding weight to a surface that is a bottom sheet on a phone.
+   The one case a separator DID earn its keep is a row that wraps (the control drops under its
+   label at narrow widths): without something, «Luftrichtung» over a dropdown reads as two
+   entries. `row-gap: 2px` against `padding: 8px 0` answers it by proximity instead — 2px inside
+   a row, 16px between two — which holds at every width without a line. */
+.field { display: flex; align-items: center; justify-content: space-between; gap: 10px 10px; row-gap: 2px; flex-wrap: wrap; padding: 8px 0; font-size: 14px; }
 .field span { color: var(--ink-dim); font-weight: 600; min-width: 0; }
 .field b { font-family: var(--mono); font-weight: 500; text-align: right; }
 /* THE segmented option-picker for the whole details modal — a soft track with a blue-filled active
@@ -93,10 +101,8 @@
 
 /* the glyph-affecting steppers (Geschoss / Anzahl / Drehung) sit in one group;
    the section header below — not a hairline — separates them from the details */
-.ctx-steps .field:last-child { border-bottom: none; }
 /* note settings (Form / Grösse / Darstellung / Farbe) — the whole body of a note's panel, so
    the last row carries no hairline (nothing follows it) */
-.ctx-note .field:last-child { border-bottom: none; }
 /* the note's content field — full width, its own label above (not a right-aligned .field row):
    a sentence needs the whole panel, not the value column */
 .ctx-note-text { padding: 12px 0 10px; border-bottom: 1px solid var(--border-soft); }
@@ -125,6 +131,9 @@
 .dh-color.note-ink { background: var(--note-bg); box-shadow: inset 0 0 0 1px var(--note-border); }
 /* a labelled group inside the panel body (Details, Notizen) */
 .ctx-section { margin-top: 16px; }
+/* the untitled run of label+control rows (steppers, Bezeichnung, the symbol's own fields) — it
+   continues the rows above it rather than starting something, so it opens no gap of its own */
+.ctx-rows { display: block; }
 .ctx-section-label { display: block; font-size: 11px; font-weight: 700; letter-spacing: .08em;
   text-transform: uppercase; color: var(--ink-dim); margin-bottom: 6px; }
 
@@ -137,7 +146,8 @@
 .field b.kv-val-ro { font-family: var(--mono); font-weight: 500; }
 .field .combo, .kv-row .combo { margin-left: auto; min-width: 132px; }
 /* editable custom key/value rows */
-.kv-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border-soft); }
+/* a user-added field: same run as .field above, so the same treatment — no rule */
+.kv-row { display: flex; align-items: center; gap: 8px; row-gap: 2px; flex-wrap: wrap; padding: 8px 0; }
 .kv-key, .kv-val { font-size: 13px; color: var(--ink); border: none; background: var(--fill-soft); border-radius: var(--r-sm);
   padding: 8px 10px; min-width: 0; font-family: var(--body); }
 .kv-key { flex: 0 0 38%; font-weight: 600; color: var(--ink-dim); }
@@ -146,7 +156,7 @@
 /* two rows can't share a Bezeichnung — details are stored as a key→value map, so the later row
    would silently swallow the earlier one. The row keeps its red key box (it stays red while
    focused, hence the higher specificity than :focus) and hands its border to the hint below. */
-.kv-row.dup { border-bottom: none; padding-bottom: 2px; }
+.kv-row.dup { padding-bottom: 2px; }
 .kv-row.dup .kv-key { color: var(--red); background: color-mix(in srgb, var(--red) 10%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--red) 40%, transparent); }
 .kv-dup-hint { display: flex; align-items: flex-start; gap: 6px; margin: 0; padding: 0 0 8px;
@@ -276,8 +286,14 @@
 .ctx-notes-input:focus { outline: none; background: color-mix(in srgb, var(--blue) 7%, transparent); border-color: var(--blue); box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue) 12%, transparent); }
 /* compact per-symbol caption override, tucked above the Zentrieren/Entfernen row — small and
    low-emphasis since field values matter first; visibility is a rare tweak (a tiny inline seg). */
-.ctx-caprow { display: flex; align-items: center; gap: 8px; padding: 4px 14px 0; }
-.ctx-caprow-lbl { font-size: 11px; color: var(--ink-dim); white-space: nowrap; }
+/* ⚠️ Beschriftung stays at the BOTTOM, below the actions, and reads as what it is: a display
+   SETTING for this one symbol, not a property of the thing it marks. Everything above answers
+   «was ist das und was tut es»; this answers «wie laut soll es auf der Karte sein», which is the
+   least of it. Same row shape as the run above so it is not a third kind of control — only
+   quieter, and it wraps by proximity like the rest. */
+.ctx-caprow { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  row-gap: 2px; flex-wrap: wrap; padding: 6px 14px 0; }
+.ctx-caprow-lbl { font-size: 12.5px; font-weight: 600; color: var(--ink-faint); }
 /* the caption picker uses the shared .useg segmented control (see components/Segmented); the row
    just pins it to the right. A touch smaller here since it sits by the footer actions. */
 /* the caption row keeps only its tighter LABEL — height/radius come from the one segmented spec */

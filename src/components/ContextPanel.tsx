@@ -714,9 +714,15 @@ export function ContextPanel({ entity, svg, onClose, onCenter, onTitle, onTitleL
           )}
 
           {/* labelled key/value detail rows (the symbol's preset, freely edited) */}
+          {/* ⚠️ NO section title. A «Fahrer» row is a label and a value selector — exactly what the
+              Drehung and the Bezeichnung above it are — so a heading over it only claimed that a
+              different KIND of thing started here. Of 81 symbols, 30 carry no such row at all, 27
+              carry one and exactly one carries four, so the whole run is glanceable without being
+              announced. Titles are kept for the blocks that are genuinely something else: the
+              Ausbreitung (two sub-rows), the Mittel-Erfassung, die UN-Gefahr, Notizen, Farbe and
+              the Leitungen. */}
           {(!readOnly || rows.length > 0) && (
-            <div className="ctx-section">
-              <span className="ctx-section-label">{C.detailsTitle}</span>
+            <div className="ctx-rows">
               {rows.filter((r) => !readOnly || r.v.trim()).map((r, i) => {
                 const fixed = readOnly || !!protectedKeys?.has(r.k.trim())
                 const field = (

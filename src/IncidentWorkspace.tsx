@@ -2309,12 +2309,15 @@ export function IncidentWorkspace({
    * re-rendering the panel must not re-open a presence block somebody closed on purpose.
    */
   const ROSTER_FIELDS: readonly string[] = appConfig.symbols.rosterFields
-  const linkRosterFields = (prev: Entity, fields: Record<string, string>) => {
+  const linkRosterFields = (prev: Entity, fields: Record<string, string>, opts?: { force?: boolean }) => {
     const before = prev.fields ?? {}
     // ⚠️ A changed FUNKTION has to reach the person too, and the name beside it did not move —
     // so «Meier, SiBe» corrected to «Meier, Atemschutz» would otherwise leave the Anwesenheit
     // saying SiBe forever. The job is what this field records; re-file the name when it changes.
-    const jobChanged = Object.entries(fields).some(([k, v]) => !ROSTER_FIELDS.includes(k) && before[k] !== v)
+    // `force` = the SYMBOL changed rather than a field — its label is part of what the Bemerkung
+    // says, so the same names have to be re-filed against the new one.
+    const jobChanged = opts?.force
+      || Object.entries(fields).some(([k, v]) => !ROSTER_FIELDS.includes(k) && before[k] !== v)
     for (const [k, v] of Object.entries(fields)) {
       if (!ROSTER_FIELDS.includes(k) || !v.trim()) continue
       if (before[k] === v && !jobChanged) continue
@@ -2776,6 +2779,11 @@ export function IncidentWorkspace({
             // blur: fold the whole live edit into one undo step + a single audit event
             if (titleLiveRef.current) { titleLiveRef.current = false; endDrag(); emit('entity.edit', { id: selected.id, patch: { label: v } }) }
             else patchEntity(selected.id, { label: v })
+            // ⚠️ …and the Fahrer's Bemerkung is «Fahrer {Label}», so naming the vehicle AFTER
+            // naming its driver has to reach that person. A generic Fahrzeug is placed unlabelled
+            // and gets its Bezeichnung typed later, which makes «Fahrer» with nothing after it
+            // the NORMAL first state rather than an edge case.
+            linkRosterFields({ ...selected, label: v }, selected.fields ?? {}, { force: true })
           }}
           // Symbol→Mittel: only where the station mapped at least one material to a symbol.
           // No switch to find — a Wehr that has not configured it never gets an offer.
