@@ -49,12 +49,38 @@ describe('suggestPhrases', () => {
   it('caps the list at three', () => {
     expect(suggestPhrases('er', PHRASES).length).toBeLessThanOrEqual(3)
   })
+
+  // ⚠️ Not only at the START of a sentence. Matching the whole fragment meant the suggestions
+  // stopped as soon as the entry was more than one phrase long — which is exactly when a long
+  // line typed with one thumb is worth completing.
+  it('still suggests once the sentence has run on for a few words', () => {
+    const s = suggestPhrases('Rauch aus Fenster 2. OG, brand un', PHRASES)
+    expect(s[0].phrase).toBe('Brand unter Kontrolle')
+    expect(s[0].frag).toBe('brand un')
+  })
+
+  it('prefers the longest stretch that completes to something', () => {
+    const s = suggestPhrases('Meldung: wasserversorgung erst', PHRASES)
+    expect(s[0].phrase).toBe('Wasserversorgung erstellt')
+    expect(s[0].frag).toBe('wasserversorgung erst')
+  })
 })
 
 describe('acceptPhrase', () => {
   it('replaces the typed fragment, keeping earlier sentences', () => {
-    expect(acceptPhrase('AGT eingesetzt. verst', 'Verstärkung angefordert'))
+    expect(acceptPhrase('AGT eingesetzt. verst', 'Verstärkung angefordert', 'verst'))
       .toBe('AGT eingesetzt. Verstärkung angefordert')
-    expect(acceptPhrase('bran', 'Brand unter Kontrolle')).toBe('Brand unter Kontrolle')
+    expect(acceptPhrase('bran', 'Brand unter Kontrolle', 'bran')).toBe('Brand unter Kontrolle')
+  })
+
+  it('replaces only the matched tail, not the sentence in front of it', () => {
+    const text = 'Rauch aus Fenster 2. OG, brand un'
+    const [top] = suggestPhrases(text, PHRASES)
+    expect(acceptPhrase(text, top.phrase, top.frag))
+      .toBe('Rauch aus Fenster 2. OG, Brand unter Kontrolle')
+  })
+
+  it('appends rather than mangling the entry when the fragment is gone', () => {
+    expect(acceptPhrase('etwas anderes', 'Feuer aus', 'weg')).toBe('etwas anderesFeuer aus')
   })
 })

@@ -4,7 +4,7 @@ import { Segmented } from './Segmented'
 import { Overlay } from '../lib/overlays'
 import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
-import { acceptPhrase, suggestPhrases } from '../lib/quickPhrases'
+import { acceptPhrase, suggestPhrases, type PhraseMatch } from '../lib/quickPhrases'
 import { fillTemplate, formatTime, isNextDay, stripUnprintable } from '../lib/format'
 import { toast } from '../lib/ui'
 import { ApiError } from '../lib/api'
@@ -135,8 +135,8 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
   // Accepting a Textbaustein must keep the operator in the writing flow: textarea stays
   // focused (tablet keyboard stays up) with the caret right after the inserted phrase,
   // ready to type on. rAF so the refocus runs after React committed the new value.
-  const accept = (phrase: string) => {
-    setText((t) => acceptPhrase(t, phrase))
+  const accept = (m: PhraseMatch) => {
+    setText((t) => acceptPhrase(t, m.phrase, m.frag))
     requestAnimationFrame(() => {
       const el = textRef.current
       if (!el) return
@@ -400,7 +400,7 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
             else if (e.key === 'Tab' && (nameHits.length > 0 || suggestions.length > 0)) {
               e.preventDefault()
               if (nameHits.length > 0) takeName(nameHits[0].name)
-              else accept(suggestions[0].phrase)
+              else accept(suggestions[0])
             }
           }}
           onScroll={(e) => { if (marksRef.current) marksRef.current.scrollTop = e.currentTarget.scrollTop }}
@@ -431,7 +431,7 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
                 className="jc-phrase"
                 // keep the textarea focused through the tap — no blur, no keyboard close
                 onPointerDown={(e) => e.preventDefault()}
-                onClick={() => accept(m.phrase)}
+                onClick={() => accept(m)}
               >{m.phrase}</button>
             ))}
           </div>

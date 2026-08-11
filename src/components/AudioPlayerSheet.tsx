@@ -6,7 +6,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { ApiError, apiGet, apiPatch, apiPost } from '../lib/api'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
-import { acceptPhrase, suggestPhrases } from '../lib/quickPhrases'
+import { acceptPhrase, suggestPhrases, type PhraseMatch } from '../lib/quickPhrases'
 import {
   audioWindowOf,
   clockTicks,
@@ -328,8 +328,8 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onPatchEnt
     : appConfig.journal.quickPhrases
   const suggestions = useMemo(() => suggestPhrases(text, quickPhrases), [text, quickPhrases])
   const inputRef = useRef<HTMLInputElement>(null)
-  const accept = (phrase: string) => {
-    setText((t) => acceptPhrase(t, phrase))
+  const accept = (m: PhraseMatch) => {
+    setText((t) => acceptPhrase(t, m.phrase, m.frag))
     requestAnimationFrame(() => inputRef.current?.focus())
   }
   const sendEntry = () => {
@@ -417,7 +417,7 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onPatchEnt
                   onChange={(e) => setText(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') sendEntry()
-                    else if (e.key === 'Tab' && suggestions.length > 0) { e.preventDefault(); accept(suggestions[0].phrase) }
+                    else if (e.key === 'Tab' && suggestions.length > 0) { e.preventDefault(); accept(suggestions[0]) }
                   }}
                 />
                 <button className="ap-send" disabled={!text.trim()} onClick={sendEntry}><Icon id="check" />{C.send}</button>
@@ -425,7 +425,7 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onPatchEnt
               {suggestions.length > 0 && (
                 <div className="jc-phrases" role="group" aria-label={C.quickPhrasesAria}>
                   {suggestions.map((m) => (
-                    <button key={m.phrase} className="jc-phrase" onPointerDown={(e) => e.preventDefault()} onClick={() => accept(m.phrase)}>{m.phrase}</button>
+                    <button key={m.phrase} className="jc-phrase" onPointerDown={(e) => e.preventDefault()} onClick={() => accept(m)}>{m.phrase}</button>
                   ))}
                 </div>
               )}
