@@ -79,6 +79,17 @@
 .useg-btn:hover:not(.on):not(:disabled) { color: var(--ink); }
 .useg-btn.on { background: var(--blue); color: var(--on-fill); box-shadow: 0 1px 2px rgba(20, 40, 80, .22); }
 .useg-btn:disabled { opacity: var(--disabled); cursor: default; }
+/* ⚠️ FIVE OR MORE OPTIONS STOP BEING A TRACK. A segmented control is a track with a pill sliding
+   in it, and that reading only survives while the options fit on one line. At six — «Überdruck ·
+   Elektro · Schnellläufer · Grosslüfter · Exhauster · Akku», which is one real station's Lüfter
+   list — it wraps into a grey slab of two ragged rows, and the well stops meaning anything.
+   So past four they become what they actually are: a row of chips. Same tap targets, same
+   one-tap access (the reason the threshold is generous in the first place — a doctrine list must
+   not hide behind a dropdown), no well pretending to be a track. */
+.useg:has(> :nth-child(5)) { background: none; padding: 0; gap: 6px; }
+.useg:has(> :nth-child(5)) > .useg-btn { border: 1px solid var(--glass-edge); background: var(--surface); }
+.useg:has(> :nth-child(5)) > .useg-btn:hover:not(.on):not(:disabled) { border-color: var(--ink-faint); }
+.useg:has(> :nth-child(5)) > .useg-btn.on { border-color: var(--blue); }
 
 /* the glyph-affecting steppers (Geschoss / Anzahl / Drehung) sit in one group;
    the section header below — not a hairline — separates them from the details */
@@ -97,14 +108,16 @@
    their label — at the full 30px they wrapped a single lonely circle onto a second row */
 .ctx-note-colors { display: flex; align-items: center; gap: 7px; margin-left: auto; justify-content: flex-end; }
 .ctx-note-colors .dh-color { width: 26px; height: 26px; }
-/* the Truppfarbe row is ONE scrolling row under its own section label (see the twin in
-   Atemschutz.module.css) — wrapped, eleven swatches read as a dump rather than as a choice */
-.ctx-section > .ctx-note-colors { margin-left: 0; justify-content: flex-start; overflow-x: auto;
-  overscroll-behavior-x: contain; scroll-snap-type: x proximity; padding-bottom: 4px; }
-.ctx-section > .ctx-note-colors > * { flex: none; scroll-snap-align: center; }
-.ctx-team-auto { position: sticky; left: 0; z-index: 1; border: 1px solid var(--glass-edge); border-radius: 999px;
-  padding: 6px 11px; background: var(--surface); color: var(--ink); font: 700 12px/1 var(--body); cursor: pointer;
-  box-shadow: 6px 0 6px -4px var(--surface); }
+/* ⚠️ The Truppfarbe row WRAPS (11.08.). It used to be one horizontally scrolling row, on the
+   reasoning that eleven wrapped swatches read as a dump rather than as a choice. In the hand it
+   was worse: the row ended mid-swatch with a half circle at the edge, which reads as damage
+   rather than as «there is more», and finding a colour meant scrolling a 40px-tall strip inside a
+   panel that already scrolls vertically. Every colour visible at once IS the choice. */
+.ctx-section > .ctx-note-colors { margin-left: 0; justify-content: flex-start; flex-wrap: wrap;
+  row-gap: 8px; padding-bottom: 2px; }
+.ctx-section > .ctx-note-colors > * { flex: none; }
+.ctx-team-auto { border: 1px solid var(--glass-edge); border-radius: 999px;
+  padding: 6px 11px; background: var(--surface); color: var(--ink); font: 700 12px/1 var(--body); cursor: pointer; }
 .ctx-team-auto:hover { border-color: var(--ink-dim); }
 .ctx-team-auto.on { background: color-mix(in srgb, var(--blue) 18%, var(--surface)); border-color: var(--blue); color: var(--blue); }
 /* "default note ink" swatch — shows the actual sticky-note colours rather than a generic
@@ -359,5 +372,9 @@
   color: var(--ink); cursor: pointer; }
 .ctx-mittel-add:hover { background: var(--hover-strong); }
 .ctx-mittel-add .i { width: 18px; height: 18px; }
-/* what is already on the sheet — the reason somebody hesitates over a second tap */
-.ctx-mittel-already { display: block; margin-top: 4px; font: 600 11.5px var(--body); color: var(--ink-faint); }
+/* what is already on the sheet for this material FROM THIS SOURCE. Zero is shown too — it is the
+   starting state, and a counter that appears only after the first tap makes the first tap look
+   like it did something different from the second. */
+.ctx-mittel-count { flex: none; font: 600 12.5px var(--body); color: var(--ink-faint); white-space: nowrap; }
+.ctx-mittel-count b { font-size: 15px; font-weight: 800; }
+.ctx-mittel-count.on { color: var(--ink); }

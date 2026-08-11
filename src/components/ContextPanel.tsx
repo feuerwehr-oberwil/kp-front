@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react'
 import type { CaptionMode, NoteSize, Spread, SymbolControl, SymbolProps } from '../types'
 import { Icon } from '../lib/icons'
 import { openPhoto } from '../lib/ui'
-import { fillTemplate, formatSymbolName, stripUnprintable } from '../lib/format'
+import { formatSymbolName, stripUnprintable } from '../lib/format'
 import { SheetGrip, useSheetDrag } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
 import { lookupUN, decodeKemler, type UnHazardEntry } from '../lib/unHazard'
@@ -101,6 +101,13 @@ function MittelCaptureRow({ entity, onCapture, countFor }: {
   return (
     <div className="ctx-section ctx-mittel">
       <span className="ctx-section-label">{M.captureOffer}</span>
+      {/* ⚠️ A COUNT, not a + and a sentence. The row used to pair a bare + with «schon 1 Stk.
+          erfasst» underneath, which reads as a contradiction: the line says something is already
+          recorded while the control still looks like nothing has happened. The number IS the
+          state — it shows what is on the sheet for this material from this source, and pressing +
+          raises it. Same stepper idiom as the Mittel surface itself, so one thing is counted one
+          way in both places. `clearable={false}`: the ✕ offered «no source at all», which is
+          never the better answer when the Bestand already names one. */}
       <div className="ctx-mittel-row">
         <span className="ctx-mittel-name">{item.label}</span>
         {sources.length > 0 && (
@@ -110,18 +117,19 @@ function MittelCaptureRow({ entity, onCapture, countFor }: {
               value={sources.find((x) => x.id === chosen)?.label ?? ''}
               options={sources.map((x) => x.label)}
               placeholder={M.captureNoSource}
+              clearable={false}
               onChange={(v) => setSource(sources.find((x) => x.label === v)?.id)}
             />
           </label>
         )}
+        <span className={`ctx-mittel-count${already > 0 ? ' on' : ''}`}>
+          <b>{already}</b> {unit}
+        </span>
         <button type="button" className="ctx-mittel-add" onClick={() => onCapture(item, chosen)}
           title={M.captureAction} aria-label={`${M.captureAction}: ${item.label}`}>
           <Icon id="plus" />
         </button>
       </div>
-      {already > 0 && (
-        <span className="ctx-mittel-already">{fillTemplate(M.captureAlready, { menge: already, unit })}</span>
-      )}
     </div>
   )
 }
