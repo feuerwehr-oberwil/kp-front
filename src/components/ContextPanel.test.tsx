@@ -68,11 +68,24 @@ describe('ContextPanel — stepper gating by the `controls` prop', () => {
 })
 
 describe('ContextPanel — basic wiring', () => {
-  it('renders the entity title and calls onClose from the X button', () => {
+  it('names the SYMBOL in the header, and it cannot be edited', () => {
+    // ⚠️ The header is a name, not a field: renaming a «Rauch» to «Küche» made the panel lie
+    // about which symbol was selected. Anything worth saying about one symbol goes in Notizen.
     const p = setup({ controls: new Set<SymbolControl>(['rotation']) })
-    expect((screen.getByDisplayValue('Brand') as HTMLInputElement).value).toBe('Brand')
+    expect(screen.getByText('Feuer')).toBeTruthy()          // the symbol's own name
+    expect(screen.queryByDisplayValue('Brand')).toBeNull()  // …and no input to overwrite it
     fireEvent.click(screen.getByLabelText('Schliessen'))
     expect(p.onClose).toHaveBeenCalled()
+  })
+
+  it('gives a user-labelled symbol its own Bezeichnung field instead', () => {
+    // the generic Fahrzeug is the one symbol whose label IS its identity — recognised by the
+    // station having configured a title list for it
+    setup({ entity: { id: 'v1', symbol: 'VKF Fahrzeug', label: 'TLF' }, titleOptions: ['TLF', 'MTF'] })
+    expect(screen.getByText('Bezeichnung')).toBeTruthy()
+    // …and the header still SHOWS it (a Fahrzeug is known by its label, not by «Fahrzeug»),
+    // it just is not the place you change it any more
+    expect(screen.getAllByText('TLF').length).toBeGreaterThan(1)
   })
 
   it('stepping rotation up commits via onRotate', () => {
@@ -125,10 +138,12 @@ describe('ContextPanel — preset fields always surface', () => {
   })
 })
 
-describe('ContextPanel — live title editing', () => {
+// A NOTE is the surface that still types into `label` — its text IS its content. Every other
+// symbol's header became read-only on 11.08., so this is where the live-edit path lives now.
+describe('ContextPanel — live text editing on a note', () => {
   it('with onTitleLive, streams every keystroke live and finalises once on blur', () => {
     const onTitleLive = vi.fn(); const onTitle = vi.fn()
-    setup({ entity: { id: 'n1', label: '' }, onTitleLive, onTitle })
+    setup({ entity: { id: 'n1', label: '' }, onTitleLive, onTitle, onNotePlain: vi.fn() })
     const input = screen.getByDisplayValue('') as HTMLInputElement
     fireEvent.change(input, { target: { value: 'A' } })
     fireEvent.change(input, { target: { value: 'An' } })
@@ -142,7 +157,7 @@ describe('ContextPanel — live title editing', () => {
 
   it('without onTitleLive, falls back to commit-only-on-blur', () => {
     const onTitle = vi.fn()
-    setup({ entity: { id: 'n2', label: '' }, onTitle })
+    setup({ entity: { id: 'n2', label: '' }, onTitle, onNotePlain: vi.fn() })
     const input = screen.getByDisplayValue('') as HTMLInputElement
     fireEvent.change(input, { target: { value: 'Hi' } })
     expect(onTitle).not.toHaveBeenCalled()

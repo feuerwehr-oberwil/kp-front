@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react'
 import type { CaptionMode, NoteSize, Spread, SymbolControl, SymbolProps } from '../types'
 import { Icon } from '../lib/icons'
 import { openPhoto } from '../lib/ui'
-import { fillTemplate, stripUnprintable } from '../lib/format'
+import { fillTemplate, formatSymbolName, stripUnprintable } from '../lib/format'
 import { SheetGrip, useSheetDrag } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
 import { lookupUN, decodeKemler, type UnHazardEntry } from '../lib/unHazard'
@@ -150,7 +150,6 @@ export interface SymbolView extends SymbolProps {
 interface Props {
   entity: SymbolView
   svg?: string
-  autoFocusTitle?: boolean
   onClose: () => void
   /** recenter the surface on this object — absent where the surface can't (yet) recenter */
   onCenter?: () => void
@@ -276,7 +275,7 @@ function LabeledStepper({ label, ...rest }: { label: string } & React.ComponentP
   )
 }
 
-export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onStopSharing, readOnly, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, onNoteWidth, onNoteSize, onNotePlain, onColor, onTeamColor, onCaptureMittel, mittelCountFor }: Props) {
+export function ContextPanel({ entity, svg, onClose, onCenter, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onStopSharing, readOnly, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, onNoteWidth, onNoteSize, onNotePlain, onColor, onTeamColor, onCaptureMittel, mittelCountFor }: Props) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
   const N = appConfig.copy.notes
@@ -318,17 +317,14 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
     return [...preset, ...extra]
   })
   const [notes, setNotes] = useState(entity.notes ?? '')
-  const titleRef = useRef<HTMLInputElement>(null)
-  // a note edits its content in a textarea instead of the title input (see the header)
+  // a note edits its content in a textarea; every other symbol's header is read-only now
   const noteTextRef = useRef<HTMLTextAreaElement>(null)
-  useEffect(() => { if (autoFocusTitle) { titleRef.current?.focus(); titleRef.current?.select() } }, [autoFocusTitle])
-  // Follow the title when it changes OUTSIDE this input. A note is the case that needs it: its
+  // Follow the label when it changes OUTSIDE this panel. A note is the case that needs it: its
   // panel opens the moment it is placed and the operator then types on the canvas, so without
-  // this the panel keeps showing an empty title — and the next edit here would wipe what they
-  // wrote. Skipped while this input has focus, so it can never clobber live typing.
+  // this the panel keeps showing an empty text — and the next edit here would wipe what they
+  // wrote. Skipped while the note's own textarea has focus, so it can never clobber live typing.
   useEffect(() => {
-    const el = document.activeElement
-    if (el !== titleRef.current && el !== noteTextRef.current) setTitle(entity.label ?? '')
+    if (document.activeElement !== noteTextRef.current) setTitle(entity.label ?? '')
   }, [entity.label])
 
   // live-title editing: stream each keystroke to onTitleLive (silent surface update) and
@@ -415,6 +411,12 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
   // "Notizen" box inside a note would be a riddle. So the details block is suppressed outright
   // and the Notiz section below is all a note gets.
   const isNote = !!(onNoteWidth || onNoteSize || onNotePlain)
+  /** A symbol whose LABEL is its identity — today exactly the generic Fahrzeug, recognised by the
+   *  fact that the station configured a title list for it. Those keep an editable name (as a
+   *  «Bezeichnung» field below); every other symbol's header is its own name and read-only. */
+  const labelled = !isNote && !!titleOptions?.length
+  /** the symbol's own name, for the header of everything that is NOT user-labelled */
+  const symbolName = entity.symbol ? formatSymbolName(entity.symbol) : ''
   const showDetails = !isNote && (showFloor || showFloorRange || showCount || showRotate || showSpread || showAirflow || onNotes || rows.length > 0 || showUnHazard || !readOnly)
 
   /* on-canvas caption override for THIS symbol — small + de-emphasised down by the actions
@@ -477,29 +479,16 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
           {/* A note has no NAME — its text IS its content, and a sentence does not belong in a
               one-line title field. So the header just says «Notiz» and the text lives in the
               textarea below, where it can breathe. */}
-          {isNote ? (
-            <span className="ctx-title-input ctx-title-ro">{N.section}</span>
-          ) : readOnly ? (
-            <span className="ctx-title-input ctx-title-ro">{title || C.titlePlaceholder}</span>
-          ) : (
-          <input
-            ref={titleRef}
-            className="ctx-title-input"
-            autoFocus={autoFocusTitle}
-            value={title}
-            placeholder={isNote ? appConfig.copy.whiteboard.textPlaceholder : C.titlePlaceholder}
-            onChange={(e) => changeTitle(e.target.value)}
-            onBlur={blurTitle}
-            onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-          />
-          )}
-          {/* type prefill dropdown (e.g. common vehicle types) — keeps the free text input above */}
-          {!readOnly && titleOptions?.length ? (
-            <div className="ctx-title-pick">
-              <Combo value="" options={titleOptions} placeholder={C.titleTypePick} clearable={false}
-                onChange={(v) => { if (v) { changeTitle(v); onTitle(v) } }} />
-            </div>
-          ) : null}
+          {/* ⚠️ THE HEADER IS A NAME, NOT A FIELD (11.08.). It carries the symbol's own name — a
+              default that says WHAT this is — and renaming a Rauch to «Küche» made the panel
+              lie about which symbol was selected. Where something genuinely needs saying about
+              one symbol, that is what Notizen is for. The one real exception is the generic
+              Fahrzeug, whose label IS its identity; that moved to a «Bezeichnung» field below,
+              where it reads like every other field and does not fight the header's drag on a
+              phone (components/SheetGrip · useSheetDrag). */}
+          <span className="ctx-title-input ctx-title-ro">
+            {isNote ? N.section : labelled ? (title || C.titlePlaceholder) : (symbolName || title || C.titlePlaceholder)}
+          </span>
           {/* a note's subtitle IS «Notiz», which the title above already says — one word is enough */}
           {entity.subtitle && !isNote && <p>{entity.subtitle}</p>}
         </div>
@@ -701,6 +690,19 @@ export function ContextPanel({ entity, svg, autoFocusTitle, onClose, onCenter, o
                 </div>
               </div>
             </div>
+          )}
+
+          {/* The generic Fahrzeug's own name. It used to be the header input; here it reads like
+              every other field, keeps its type list, and leaves the header free to be dragged. */}
+          {labelled && !readOnly && (
+            <label className="field">
+              <span>{C.labelField}</span>
+              <Combo
+                value={title} options={titleOptions ?? []} placeholder={C.titlePlaceholder}
+                allowCustom customLabel={C.labelCustom}
+                onChange={(v) => { changeTitle(v); onTitle(v) }}
+              />
+            </label>
           )}
 
           {/* labelled key/value detail rows (the symbol's preset, freely edited) */}

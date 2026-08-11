@@ -777,7 +777,6 @@ export function IncidentWorkspace({
   }, [flashDrawingId])
   // last reported plan-view centre, so a journal pin on the plan anchors to "here"
   const planCenter = useRef<{ x: number; y: number; floor: number }>({ x: 0.5, y: 0.5, floor: 0 })
-  const [autoFocusId, setAutoFocusId] = useState<string | null>(null)
   // the note being edited inline with raw text directly on the map — exactly like the Plan
   // whiteboard's text notes (placement auto-edits; double-click re-enters; single tap just selects)
   const [editNoteId, setEditNoteId] = useState<string | null>(null)
@@ -2748,7 +2747,6 @@ export function IncidentWorkspace({
           entity={selected}
           readOnly={selected.live || tacticalLocked}
           svg={selected.symbolSvg ?? (selected.symbol === appConfig.symbols.vehicleName ? vehicleSymbolSvg(selected.label ?? '', selected.rotation ?? 0) : selected.symbol ? sym.byName[selected.symbol] : undefined)}
-          autoFocusTitle={autoFocusId === selected.id}
           onClose={() => setSelectedId(null)}
           onCenter={() => mapRef.current?.flyTo({ center: selected.coord, zoom: 18.4 })}
           onTitleLive={(v) => {

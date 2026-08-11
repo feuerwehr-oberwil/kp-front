@@ -1410,6 +1410,12 @@ export const de = {
   contextPanel: {
     titlePlaceholder: 'Bezeichnung ...',
     titleTypePick: 'Typ wählen …',
+    // ⚠️ The generic Fahrzeug is the ONE symbol whose label is its identity («TLF», nicht
+    // «Fahrzeug»), so it keeps an editable name — as a field down here rather than as the panel
+    // header. Every other symbol's header says which symbol it is and is read-only; was etwas
+    // Besonderes über eines zu sagen ist, gehört in die Notizen.
+    labelField: 'Bezeichnung',
+    labelCustom: 'Andere Bezeichnung …',
     floor: 'Geschoss',
     floorFrom: 'Von Geschoss',
     floorTo: 'Bis Geschoss',
