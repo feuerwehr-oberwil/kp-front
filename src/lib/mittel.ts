@@ -306,14 +306,84 @@ function normToken(s: string): string {
 }
 const tokens = (s: string) => normToken(s).split(/[^a-z0-9]+/).filter(Boolean)
 
-/** The catalogue material a placed symbol corresponds to, or undefined. */
-export function materialForSymbol(catalogue: DeploymentMittelItem[], symbolName: string): DeploymentMittelItem | undefined {
-  const explicit = catalogue.find((c) => c.symbol && c.symbol.trim() === symbolName.trim())
-  if (explicit) return explicit
+/** What a placed symbol is, as far as the catalogue is concerned: its pack name plus whatever
+ *  its own fields say about it. `Luftrichtung` is synthesised from the airflow flag — a Lüfter
+ *  set to extract IS an Exhauster, and that state lives outside `fields`. */
+export interface SymbolMatch {
+  symbol: string
+  fields?: Record<string, string | undefined>
+  /** true = saugen (Absaugen), false/absent = blasen */
+  extract?: boolean
+}
+
+/** The pseudo-field the airflow flag answers to in a catalogue `when` clause. */
+export const AIRFLOW_FIELD = 'Luftrichtung'
+export const AIRFLOW_EXTRACT = 'saugen'
+export const AIRFLOW_BLOW = 'blasen'
+
+const eq = (a: string | undefined, b: string) => normToken(a ?? '').trim() === normToken(b).trim()
+
+/** Does this catalogue entry's `when` clause hold for the symbol as placed? */
+function whenHolds(when: Record<string, string> | undefined, m: SymbolMatch): boolean {
+  if (!when) return false
+  return Object.entries(when).every(([field, want]) => {
+    if (eq(field, AIRFLOW_FIELD)) {
+      return eq(m.extract ? AIRFLOW_EXTRACT : AIRFLOW_BLOW, want)
+    }
+    // a symbol's own field, matched case- and umlaut-insensitively like everything else here
+    const got = Object.entries(m.fields ?? {}).find(([k]) => eq(k, field))?.[1]
+    return eq(got, want)
+  })
+}
+
+/**
+ * The catalogue material a placed symbol corresponds to, or undefined.
+ *
+ * Order, most specific first:
+ *   1. the symbol matches AND a `when` clause holds — «Lüfter, Typ = Exhauster» → Exhauster
+ *   2. the symbol matches and the entry names no variant — the general «Lüfter»
+ *   3. the loose label↔symbol-name token match, for the 1:1 cases nobody configures
+ *      («Tauchpumpe» ↔ «FW Tauchpumpe»); «Leiter» still does NOT match «VKF Einsatzleiter»,
+ *      because every token of the LABEL has to appear as a whole word in the symbol name.
+ */
+export function materialForSymbol(
+  catalogue: DeploymentMittelItem[],
+  symbol: string | SymbolMatch,
+): DeploymentMittelItem | undefined {
+  const m: SymbolMatch = typeof symbol === 'string' ? { symbol } : symbol
+  const name = m.symbol.trim()
+  const named = catalogue.filter((c) => c.symbol && c.symbol.trim() === name)
+  return named.find((c) => whenHolds(c.when, m))
+    ?? named.find((c) => !c.when)
+    ?? tokenMatch(catalogue, name)
+}
+
+function tokenMatch(catalogue: DeploymentMittelItem[], symbolName: string): DeploymentMittelItem | undefined {
   const symTokens = new Set(tokens(symbolName))
   return catalogue.find((c) => {
     const t = tokens(c.label)
     return t.length > 0 && t.every((x) => symTokens.has(x))
   })
+}
+
+/**
+ * Is the symbol→Mittel capture configured at all on this station?
+ *
+ * ⚠️ The gate is «has anybody mapped a material to a symbol», not a switch somebody has to find.
+ * A station that has not thought about this never gets an offer it did not ask for — which is
+ * the state that produced wrong suggestions before — and there is no setting to discover. The
+ * loose token match only applies WITHIN a station that configured something, so it stays a
+ * convenience rather than a source of guesses nobody asked for.
+ */
+export function symbolCaptureConfigured(catalogue: DeploymentMittelItem[]): boolean {
+  return catalogue.some((c) => !!c.symbol)
+}
+
+/** Where a material should be booked from by default: the source its Bestand says it lives on.
+ *  The biggest stock wins when it is carried in several places; undefined when the catalogue
+ *  says nothing, and then the picker simply opens unset. */
+export function defaultSourceFor(item: DeploymentMittelItem): string | undefined {
+  const best = [...(item.stock ?? [])].sort((a, b) => (b.qty ?? 0) - (a.qty ?? 0))[0]
+  return best?.source
 }
 

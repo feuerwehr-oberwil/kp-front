@@ -1,9 +1,9 @@
 import { useEffect, useRef, type Dispatch, type SetStateAction } from 'react'
 import { appConfig } from '../config/appConfig'
-import { getDeploymentConfig } from './deploymentConfig'
+import { getDeploymentConfig, type DeploymentMittelItem } from './deploymentConfig'
 import { fillTemplate } from './format'
 import { toast } from './ui'
-import { currentLineFor, currentMengeFor, materialForSymbol, mittelKey } from './mittel'
+import { currentLineFor, currentMengeFor, mittelKey } from './mittel'
 import type { MittelDraft } from '../components/MittelView'
 import type { MittelEntry, TimelineEvent } from '../types'
 
@@ -106,25 +106,26 @@ export function useMittelActions({ mittel, setMittel, authorName, log }: MittelA
     }
   }, [])
 
-  // Symbol→Mittel capture: placing a matching tactical symbol (Lage or Plan) offers logging the
-  // material with one tap — never automatic, and deleting a symbol never decrements (symbols are
-  // freely redrawn; the log stays the operator's record).
-  const offerMittelCapture = (symbolName: string) => {
+  /**
+   * Symbol→Mittel capture: record the material a placed symbol stands for.
+   *
+   * ⚠️ NO TOAST any more (2026-08-11). The offer used to be a transient toast beside every other
+   * toast, so it was missed constantly — and it recorded with no Bezugsquelle, which is how the
+   * Rapport filled up with «Ohne Zuordnung» lines. It is now a permanent row in the symbol's own
+   * detail panel (ContextPanel · MittelCaptureRow), where it can be found ten minutes later, and
+   * it carries the Quelle. This function is what that row calls.
+   *
+   * Never automatic, and deleting a symbol never decrements: symbols are freely redrawn, the log
+   * is the operator's record.
+   */
+  const captureMittelForSymbol = (item: DeploymentMittelItem, sourceId?: string) => {
     const cfgM = getDeploymentConfig().mittel
-    const item = materialForSymbol(cfgM?.catalogue ?? appConfig.mittel.catalogue, symbolName)
-    if (!item) return
     const unit = item.unit || appConfig.mittel.defaultUnit
-    toast(fillTemplate(M.captureOffer, { label: item.label }), {
-      icon: 'box',
-      action: {
-        label: M.captureAction,
-        onClick: () => {
-          const menge = currentMengeFor(mittelRef.current, { materialId: item.id, label: item.label, unit }) + 1
-          saveMittel({ materialId: item.id, label: item.label, unit, menge })
-          toast(fillTemplate(M.captured, { label: item.label, menge, unit }), { icon: 'check', tone: 'success' })
-        },
-      },
-    })
+    const src = (cfgM?.sources ?? appConfig.mittel.sources).find((x) => x.id === sourceId)
+    const key = { materialId: item.id, label: item.label, unit, sourceId: src?.id, sourceLabel: src?.label }
+    const menge = currentMengeFor(mittelRef.current, key) + 1
+    saveMittel({ ...key, menge })
+    toast(fillTemplate(M.captured, { label: item.label, menge, unit }), { icon: 'check', tone: 'success' })
   }
-  return { saveMittel, offerMittelCapture }
+  return { saveMittel, captureMittelForSymbol }
 }

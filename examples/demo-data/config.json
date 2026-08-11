@@ -247,7 +247,8 @@
             "source": "depot",
             "qty": 2
           }
-        ]
+        ],
+        "symbol": "VKF Luefter mobil"
       },
       {
         "id": "tauchpumpe",
@@ -259,7 +260,8 @@
             "source": "mtf",
             "qty": 2
           }
-        ]
+        ],
+        "symbol": "FW Tauchpumpe"
       },
       {
         "id": "schaummittel",
@@ -294,6 +296,38 @@
           {
             "source": "depot",
             "qty": 3
+          }
+        ]
+      },
+      {
+        "id": "exhauster",
+        "label": "Exhauster",
+        "unit": "Stk.",
+        "category": "Geräte",
+        "symbol": "VKF Luefter mobil",
+        "when": {
+          "Luftrichtung": "saugen"
+        },
+        "stock": [
+          {
+            "source": "mtf",
+            "qty": 1
+          }
+        ]
+      },
+      {
+        "id": "grossluefter",
+        "label": "Grosslüfter",
+        "unit": "Stk.",
+        "category": "Geräte",
+        "symbol": "VKF Luefter mobil",
+        "when": {
+          "Typ": "Grosslüfter"
+        },
+        "stock": [
+          {
+            "source": "depot",
+            "qty": 1
           }
         ]
       }

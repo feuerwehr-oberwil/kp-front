@@ -4,7 +4,7 @@ import {
   mittelKey, deriveCurrentMittel, visibleMittel, recordedMittel, currentMengeFor,
   groupBySource, groupByMaterial, mittelReportRows, mittelLineCount,
   availableFor, mittelListGroups, groupCatalogue,
-  materialForSymbol, currentLineFor,
+  materialForSymbol, currentLineFor, defaultSourceFor, symbolCaptureConfigured,
 } from './mittel'
 import type { DeploymentMittelItem, DeploymentMittelSource } from './deploymentConfig'
 
@@ -292,5 +292,54 @@ describe('one unit, two spellings', () => {
   it('keeps genuinely different units apart', () => {
     const out = visibleMittel([e('Stk.', 5, 1), { ...e('l', 40, 2), materialId: 'schlauch-b' }])
     expect(out).toHaveLength(2)
+  })
+})
+
+// ⚠️ One symbol is routinely SEVERAL materials. A station carries Lüfter, Hochleistungslüfter and
+// Exhauster and has exactly one «VKF Luefter mobil» to place — so matching on the symbol name
+// alone could only ever offer the first of the three, and an Exhauster was never findable.
+describe('materialForSymbol — one symbol, several materials', () => {
+  const cat: DeploymentMittelItem[] = [
+    { id: 'luefter', label: 'Lüfter', unit: 'Stk.', symbol: 'VKF Luefter mobil', stock: [{ source: 'tlf', qty: 2 }] },
+    { id: 'gross', label: 'Hochleistungslüfter', unit: 'Stk.', symbol: 'VKF Luefter mobil', when: { Typ: 'Grosslüfter' } },
+    { id: 'exhauster', label: 'Exhauster', unit: 'Stk.', symbol: 'VKF Luefter mobil', when: { Typ: 'Exhauster' }, stock: [{ source: 'pio', qty: 1 }] },
+    { id: 'saugend', label: 'Exhauster (saugend)', unit: 'Stk.', symbol: 'VKF Luefter mobil', when: { Luftrichtung: 'saugen' } },
+    { id: 'tauchpumpe', label: 'Tauchpumpe', unit: 'Stk.' },
+  ]
+
+  it('picks the variant the symbol\'s own field names', () => {
+    expect(materialForSymbol(cat, { symbol: 'VKF Luefter mobil', fields: { Typ: 'Exhauster' } })?.id).toBe('exhauster')
+    expect(materialForSymbol(cat, { symbol: 'VKF Luefter mobil', fields: { Typ: 'Grosslüfter' } })?.id).toBe('gross')
+  })
+
+  it('falls back to the general material when no variant matches', () => {
+    expect(materialForSymbol(cat, { symbol: 'VKF Luefter mobil', fields: { Typ: 'Elektro' } })?.id).toBe('luefter')
+    expect(materialForSymbol(cat, { symbol: 'VKF Luefter mobil' })?.id).toBe('luefter')
+  })
+
+  it('reads the airflow flag as a field — a Lüfter set to saugen IS an Exhauster', () => {
+    expect(materialForSymbol(cat, { symbol: 'VKF Luefter mobil', extract: true })?.id).toBe('saugend')
+    expect(materialForSymbol(cat, { symbol: 'VKF Luefter mobil', extract: false })?.id).toBe('luefter')
+  })
+
+  it('matches field names and values the way people actually type them', () => {
+    expect(materialForSymbol(cat, { symbol: 'VKF Luefter mobil', fields: { typ: ' exhauster ' } })?.id).toBe('exhauster')
+  })
+
+  it('keeps the loose token match for the 1:1 cases nobody configures', () => {
+    expect(materialForSymbol(cat, 'FW Tauchpumpe')?.id).toBe('tauchpumpe')
+    // …and still refuses the near-miss the token rule exists to refuse
+    expect(materialForSymbol([{ id: 'l', label: 'Leiter', unit: 'Stk.' }], 'VKF Einsatzleiter')).toBeUndefined()
+  })
+
+  it('books from where the Bestand says it lives', () => {
+    expect(defaultSourceFor(cat[2])).toBe('pio')
+    expect(defaultSourceFor(cat[0])).toBe('tlf')
+    expect(defaultSourceFor(cat[1])).toBeUndefined()
+  })
+
+  it('is silent on a station that mapped nothing — no offers nobody asked for', () => {
+    expect(symbolCaptureConfigured([{ id: 'x', label: 'Lüfter', unit: 'Stk.' }])).toBe(false)
+    expect(symbolCaptureConfigured(cat)).toBe(true)
   })
 })

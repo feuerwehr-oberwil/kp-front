@@ -3122,9 +3122,17 @@ export const de = {
     stockPlaceholder: 'optional',
     deleteLine: 'Eintrag löschen',
     // Symbol→Mittel: toast offer after placing a matching tactical symbol
-    captureOffer: '{label} als Mittel erfassen?',
+    // ⚠️ A ROW in the symbol's own panel, not a toast (11.08.). As a toast the offer sat beside
+    // every other toast, was missed constantly, and recorded with no Quelle — which is how the
+    // Rapport filled up with «Ohne Zuordnung». A row can be found again ten minutes later.
+    captureOffer: 'Als Mittel erfassen',
     captureAction: 'Erfassen',
+    captureFrom: 'ab',
+    captureNoSource: 'ohne Quelle',
     captured: '{label}: {menge} {unit} erfasst',
+    // what is already on the sheet for this material, so a second tap is a decision and not a
+    // guess — «schon 2 erfasst» is the whole reason somebody hesitates over this button
+    captureAlready: 'schon {menge} {unit} erfasst',
     // Retablierung per equipment row (consumable Mittel end up in the resupply list)
   },
   // Checkliste surface (ChecklistsView · ChecklistRunner · ChecklistReference)

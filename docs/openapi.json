@@ -11432,6 +11432,20 @@
             ],
             "title": "Symbol"
           },
+          "when": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "When"
+          },
           "verbrauchbar": {
             "type": "boolean",
             "title": "Verbrauchbar",

@@ -1962,9 +1962,12 @@ export const en: Localizable<Copy> = {
     stockPlaceholder: 'optional',
     deleteLine: 'Delete entry',
     // Symbol→Mittel capture offer + Retablierung
-    captureOffer: 'Log {label} as materiel?',
+    captureOffer: 'Log as materiel',
     captureAction: 'Log it',
+    captureFrom: 'from',
+    captureNoSource: 'no source',
     captured: '{label}: {menge} {unit} logged',
+    captureAlready: '{menge} {unit} already logged',
   },
   checklists: {
     railLabel: 'Checklists',

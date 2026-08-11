@@ -196,6 +196,22 @@ export interface DeploymentMittelItem {
    *  placing that symbol on Lage/Plan offers logging the material. Without it, a loose
    *  label↔symbol-name token match still applies (see lib/mittel · materialForSymbol). */
   symbol?: string
+  /**
+   * …and WHICH of that symbol's variants this material is, keyed on the symbol's own fields.
+   *
+   * ⚠️ One symbol is routinely several materials. A station has «Lüfter», «Hochleistungslüfter»
+   * and «Exhauster» in its catalogue and exactly ONE «VKF Luefter mobil» to place, told apart by
+   * the `Typ` field it already configures in `fleet.attributeLists`. Matching on the symbol name
+   * alone can only ever offer the first of the three, so it offered the wrong one — and an
+   * Exhauster was simply never findable.
+   *
+   * Every entry must hold: `{ Typ: 'Exhauster' }` matches a Lüfter whose Typ says Exhauster.
+   * The pseudo-field `Luftrichtung` reads the symbol's airflow (`saugen` / `blasen`), because a
+   * Lüfter set to extract IS an Exhauster whatever its Typ says. Matching is case-insensitive.
+   * A material carrying `when` outranks a bare `symbol` match, so the general «Lüfter» stays the
+   * fallback for a symbol that names no variant.
+   */
+  when?: Record<string, string>
   /** true = consumable (used up → Nachschub list); false/absent = equipment that must come
    *  back (gets the per-line Retablierung status: zurück / vor Ort / defekt). */
   verbrauchbar?: boolean
