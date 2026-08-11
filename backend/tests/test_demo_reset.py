@@ -373,3 +373,40 @@ def test_the_demo_has_officers_for_the_officer_filter_to_find():
     officers = {r["key"] for r in cfg["roster"]["ranks"] if r.get("tier") == "officer"}
     held = [rank for _f, _l, rank in dr.DEMO_PEOPLE if rank in officers]
     assert len(held) >= 2, "the demo needs more than one Offizier for the filter to be worth showing"
+
+
+def test_every_trupp_points_at_something_that_exists():
+    """⚠️ Guards the DATASET's cross-references: a Trupp names a Leitung, a plan chip and a map
+    marker by id, and all three live in a different file from the Trupp itself.
+
+    A reference to something that is not there is silent in every direction — a `lineNo` nobody
+    drew shows a Leitung tag on a card with nothing to jump to, a `lineId` pointing at a deleted
+    drawing breaks «Leitung zeigen», and an `annoId` for a chip that no longer exists leaves the
+    Trupp untracked on the plan. Nothing errors; the demo just quietly stops demonstrating the
+    thing it is there to demonstrate.
+    """
+    scene = json.loads((Path(__file__).resolve().parents[2] / "examples/demo-data/incident.workspace.json").read_text())
+    present = [(f"pid-{i}", n) for i, n in enumerate(sorted(dr.DEMO_PRESENT))]
+    ws = build_demo_workspace(scene, present, NOW)
+
+    lines = {d["id"]: d.get("lineNo") for d in ws.get("drawings", []) if d.get("kind") == "line"}
+    drawn_numbers = {n for n in lines.values() if n is not None}
+    annos = {a["id"] for anns in (ws.get("board") or {}).values() for a in anns}
+    entities = {e["id"] for e in ws.get("entities", [])}
+
+    for t in ws["trupps"]:
+        if t.get("lineId") is not None:
+            assert t["lineId"] in lines, f"{t['id']} works on a Leitung that is not drawn"
+            # …and the NUMBER on the card is the number on that hose, not a second opinion
+            assert t.get("lineNo") == lines[t["lineId"]], f"{t['id']}'s Leitung number contradicts the drawing"
+        if t.get("lineNo") is not None:
+            assert t["lineNo"] in drawn_numbers, f"{t['id']} carries Leitung {t['lineNo']}, which nobody drew"
+        if t.get("annoId") is not None:
+            assert t["annoId"] in annos, f"{t['id']} is placed on a plan chip that does not exist"
+        if t.get("entityId") is not None:
+            assert t["entityId"] in entities, f"{t['id']} is placed on a map marker that does not exist"
+
+    # …and no numbered Leitung is left over with nobody on it: an orphan number on the Kroki is
+    # the same confusion from the other end.
+    claimed = {t.get("lineNo") for t in ws["trupps"]}
+    assert drawn_numbers <= claimed, f"drawn but unclaimed Leitungen: {drawn_numbers - claimed}"

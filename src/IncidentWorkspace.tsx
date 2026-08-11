@@ -120,7 +120,7 @@ import { AtemschutzView, type TruppOrder } from './components/AtemschutzView'
 import { AnwesenheitView } from './components/AnwesenheitView'
 import { MittelView } from './components/MittelView'
 import { usePersonnel } from './lib/usePersonnel'
-import { assignedPersonIds, linkTrupps, truppByPersonId } from './lib/personnel'
+import { assignedPersonIds, canonicalName, linkTrupps, personIdForName, rosterIdByName as rosterIdByNameOf, truppByPersonId } from './lib/personnel'
 import { rosterWithGuests } from './lib/guests'
 import type { Item } from './lib/checklists'
 import type { NoteSize } from './types'
@@ -533,7 +533,7 @@ export function IncidentWorkspace({
   const { muted: atemschutzMuted, toggle: toggleAtemschutzMuted } = useAtemschutzMute()
   // how the Atemschutz board is arranged — a way of LOOKING at it, so per device. The hand-set
   // order it can show (Trupp.order) is synced, so «wie gesetzt» is the same board everywhere.
-  const [atemschutzOrder, setAtemschutzOrderState] = useState<TruppOrder>(() => loadPrefs().atemschutzOrder ?? 'dringlichkeit')
+  const [atemschutzOrder, setAtemschutzOrderState] = useState<TruppOrder>(() => loadPrefs().atemschutzOrder ?? 'manuell')
   const setAtemschutzOrder = (o: TruppOrder) => { setAtemschutzOrderState(o); savePrefs({ ...loadPrefs(), atemschutzOrder: o }) }
   // a Rapport checklist row navigated to Anwesenheit/Mittel → offer the one-tap way back
   const [rapportReturn, setRapportReturn] = useState(false)
@@ -1429,7 +1429,9 @@ export function IncidentWorkspace({
       pushEvent({
         icon: 'clock', text: createdText, kind: 'reminder', at: composerOpenedAt.current ?? undefined,
         surface: onPlan ? 'plan' : 'map', planId: onPlan ? activePlanId : undefined,
-        reminder: { op: 'created', id: rid, dueAt: d.dueAt },
+        // the bare text travels ALONGSIDE the composed row: the record needs «gesetzt für 12:06»,
+        // the pinned block and the fällig banner need only «Lüfter prüfen» (see types · reminder)
+        reminder: { op: 'created', id: rid, dueAt: d.dueAt, text: d.text },
       })
       void ensureNotifyPermission()
       emit('reminder.create', { id: rid, dueAt: d.dueAt })
@@ -2107,15 +2109,26 @@ export function IncidentWorkspace({
       geojsons: layers.filter((l) => l.geojson).map((l) => withGeoBbox(l.geojson as string)),
     }
   }, [layers, incidentView.center, backendPlans, withGeoBbox])
-  const rosterById = useMemo(() => new Map(personnel.map((p) => [p.id, p])), [personnel])
+  /** The roster as a PICKER sees it: the Mannschaft plus everybody recorded on this Einsatz who
+   *  is not on it (lib/guests). A Gast used to be nameable exactly once — on the Anwesenheit that
+   *  created them — and was then invisible to the Trupp form, the Fahrer field and the
+   *  Einsatzleiter picker, so the Nachbarwehr driver who was standing right there could not be
+   *  written down anywhere it mattered. */
+  const pickablePersonnel = useMemo(() => rosterWithGuests(personnel, attendance), [personnel, attendance])
+  /** ⚠️ …and every index below is built from THAT list, guests included. Offering a Gast in the
+   *  dropdown while resolving names against the bare Mannschaftsliste is the worst of both: the
+   *  picker let you choose the Nachbarwehr's Fahrer and then nothing recorded it, because the
+   *  name resolved to no id — no Anwesenheits-Bemerkung, no lock, and their name never marked in
+   *  the Verlauf. What a picker offers and what the app can resolve have to be one list. */
+  const rosterById = useMemo(() => new Map(pickablePersonnel.map((p) => [p.id, p])), [pickablePersonnel])
   /** roster display name → person id. The symbol fields and the Erfassungsblatt pick from a list
    *  of NAMES (Combo, not PersonField), so this is what turns «Widmer Céline» back into somebody
-   *  the Anwesenheit can be written for. A typed-in name that matches nobody resolves to
-   *  undefined — a guest or mutual aid, and those are exactly the people not on our roster. */
-  const rosterIdByName = useMemo(
-    () => new Map(personnel.filter((p) => p.active).map((p) => [p.displayName.trim().toLowerCase(), p.id])),
-    [personnel],
-  )
+   *  the Anwesenheit can be written for. A name that matches nobody — not even a Gast already on
+   *  this Einsatz — resolves to undefined: that is mutual aid nobody has written down yet.
+   *  ⚠️ Built by lib/personnel rather than inline, so it is the SAME index (and the same word-
+   *  order tolerance) the Atemschutz board and `truppSlots` match against — an app that resolves
+   *  «Hans Müller» on one screen and not on the next is worse than one that never resolves it. */
+  const rosterIdByName = useMemo(() => rosterIdByNameOf(pickablePersonnel), [pickablePersonnel])
   // ⚠️ Read the Trupps through the roster first (lib/personnel · linkTrupps). Everything below
   // answers «who is already committed» from IDS, so a Trupp carrying only names was invisible to
   // all of it — the Fahrer picker said nothing about somebody under Atemschutz, their Anwesenheit
@@ -2173,30 +2186,50 @@ export function IncidentWorkspace({
   /** The linkable vocabulary of this Einsatz — Mannschaft, Mittel, Partnerorganisationen,
    *  Fahrzeuge, Alarmgruppen (lib/journalLinks). ONE memo, shared by the composer and the
    *  Verlauf, so the two can never mark different things. */
-  /** The roster as a PICKER sees it: the Mannschaft plus everybody recorded on this Einsatz who
-   *  is not on it (lib/guests). A Gast used to be nameable exactly once — on the Anwesenheit that
-   *  created them — and was then invisible to the Trupp form, the Fahrer field and the
-   *  Einsatzleiter picker, so the Nachbarwehr driver who was standing right there could not be
-   *  written down anywhere it mattered. */
-  const pickablePersonnel = useMemo(() => rosterWithGuests(personnel, attendance), [personnel, attendance])
-  const journalVocab = useMemo(() => journalVocabulary(personnel, attendance), [personnel, attendance])
+  // ⚠️ The PICKABLE roster, guests included — so a Gast's name is marked in the Verlauf like
+  // anybody else's. A name the composer offers but the Verlauf then refuses to mark reads as
+  // the app not recognising somebody it just autocompleted.
+  const journalVocab = useMemo(() => journalVocabulary(pickablePersonnel, attendance), [pickablePersonnel, attendance])
   // active-member names feeding the symbol detail comboboxes (Einsatzleiter / Offizier / Fahrer)
   // ⚠️ Built from the PICKABLE roster, guests included. These names fill the dropdowns on a
   // symbol («Fahrer», «Name» on the Einsatzleiter glyph), and a Nachbarwehr driver recorded
   // on the Anwesenheit could not be selected on the vehicle they were actually driving.
   const rosterNames = useMemo(() => pickablePersonnel.filter((p) => p.active).map((p) => p.displayName), [pickablePersonnel])
-  // name → rank key, for the officer-first sort + "nur Offiziere" filter on leadership symbols
+  // name → rank key, for the officer-first sort + "nur Offiziere" filter on leadership symbols.
+  // Guests included: they carry no Dienstgrad, and an entry MISSING from this map is what tells
+  // the picker to sort them by name alone — which is the right answer for a Nachbarwehr.
   const rosterRank = useMemo(
-    () => Object.fromEntries(personnel.filter((p) => p.active).map((p) => [p.displayName, p.rank])),
-    [personnel],
+    () => Object.fromEntries(pickablePersonnel.filter((p) => p.active).map((p) => [p.displayName, p.rank])),
+    [pickablePersonnel],
+  )
+  /** person id → the job they already hold on this Einsatz, read off their Anwesenheits-Bemerkung
+   *  («Einsatzleiter», «Fahrer TLF», «Offizier SiBe»). ⚠️ ONE map, handed to EVERY person picker.
+   *  The Atemschutz board built its own and the Rapport's Einsatzleiter/Rückmeldung pickers had
+   *  none, so the same roster read differently depending on which screen you opened it from —
+   *  and the picker that most needs to say «this one is already leading» was the silent one. */
+  const rolesById = useMemo(
+    () => new Map(
+      Object.entries(attendance)
+        .map(([id, a]) => [id, (a.note ?? '').trim()] as const)
+        .filter(([, note]) => note.length > 0),
+    ),
+    [attendance],
   )
   // present crew (attendance) — offered first in the Einsatzleiter picker (mirrors Atemschutz)
   const presentIds = useMemo(() => new Set(Object.entries(attendance).filter(([, a]) => isPresent(a)).map(([id]) => id)), [attendance])
 
   /** What is already known about a roster NAME — «unter AS», «Magazin», «gegangen». Shown on
    *  the dropdown entry itself (see roleAssignment · personStatusHint). */
-  const personStatus = (name: string) =>
-    personStatusHint(rosterIdByName.get(name.trim().toLowerCase()), attendance, linkedTrupps)
+  const personStatus = (name: string) => {
+    const id = personIdForName(rosterIdByName, name)
+    const hint = personStatusHint(id, attendance, linkedTrupps)
+    // …and whether they are one of ours at all. A Gast is offered in these dropdowns like anybody
+    // else (lib/guests), so the list has to SAY so — the same word the Anwesenheit badges them
+    // with. Leads whatever else is known: «Gast» changes who you think you are picking.
+    if (!(id && rosterById.get(id)?.guest)) return hint
+    const gast = appConfig.copy.anwesenheit.guestBadge
+    return { label: hint ? `${gast} · ${hint.label}` : gast, tone: hint?.tone ?? 'info' as const }
+  }
   /** …and the contradiction a FILLED roster field already carries, per field key. ⚠️ This used
    *  to be a toast fired once at assignment time: it appeared after the pick and then went away,
    *  so the field it was about never said anything. */
@@ -2207,7 +2240,7 @@ export function IncidentWorkspace({
       const name = (val ?? '').trim()
       if (!name || !ROSTER_FIELDS.includes(key)) continue
       const role = rosterFieldRole(e.symbol, key, e.label)
-      const id = rosterIdByName.get(name.toLowerCase())
+      const id = personIdForName(rosterIdByName, name)
       out[key] = roleConflictHint(id, role.role, name, attendance, trupps)
     }
     return out
@@ -2321,7 +2354,7 @@ export function IncidentWorkspace({
     for (const [k, v] of Object.entries(fields)) {
       if (!ROSTER_FIELDS.includes(k) || !v.trim()) continue
       if (before[k] === v && !jobChanged) continue
-      const id = rosterIdByName.get(v.trim().toLowerCase())
+      const id = personIdForName(rosterIdByName, v)
       if (!id) continue // a typed guest / mutual aid — not ours to mark present
       // which job this field hands out, and what it writes into the Bemerkung — lib ·
       // roleAssignment, so «Fahrer TLF» / «Einsatzleiter» / «Stv. Einsatzleiter» is one
@@ -2330,12 +2363,28 @@ export function IncidentWorkspace({
       assignRole(id, role, note)
     }
   }
-  const createTruppA = (t: Trupp) => { createTrupp(t); ensurePresentFromTrupp([t.leaderPersonId, ...(t.memberPersonIds ?? [])]) }
-  const editTruppA = (id: string, f: TruppFields) => { editTrupp(id, f); ensurePresentFromTrupp([f.leaderPersonId, ...(f.memberPersonIds ?? [])]) }
+  /**
+   * The roster's spelling of every name on a Trupp, applied ON THE WAY IN.
+   *
+   * ⚠️ The Trupp's name is what the rest of the app draws from — the card, the hose tag, the
+   * Kroki chip (through `abbreviateName`, which reads the station's name order to decide which
+   * token is the surname) and the bold in the Verlauf. Typed «Hans Müller» where the roster says
+   * «Müller Hans», all four disagreed at once: one Kroki carrying «Müller H.» beside «Peter S.»,
+   * and a Verlauf marking one Trupp's leader and not the other's. The name resolves to the same
+   * person either way (lib/personnel · personIdForName) — so it may as well be written down the
+   * way the person is spelled everywhere else. A real Gast matches nobody and is left alone.
+   */
+  const canonTrupp = <T extends TruppFields | Trupp>(t: T): T => ({
+    ...t,
+    name: canonicalName(t.name, rosterIdByName, rosterById),
+    members: t.members?.map((m) => canonicalName(m, rosterIdByName, rosterById)),
+  })
+  const createTruppA = (t: Trupp) => { createTrupp(canonTrupp(t)); ensurePresentFromTrupp([t.leaderPersonId, ...(t.memberPersonIds ?? [])]) }
+  const editTruppA = (id: string, f: TruppFields) => { editTrupp(id, canonTrupp(f)); ensurePresentFromTrupp([f.leaderPersonId, ...(f.memberPersonIds ?? [])]) }
   // `standby` MUST be forwarded: this wrapper used to swallow it, so «Bereitstellen» ran the
   // «Wieder einrücken» path — a crew standing at the vehicle with a running contact clock, which
   // is exactly the case the standby fork exists to prevent (see useTruppActions · reactivateTrupp).
-  const reactivateTruppA = (id: string, f: TruppFields, standby?: boolean) => { reactivateTrupp(id, f, standby); ensurePresentFromTrupp([f.leaderPersonId, ...(f.memberPersonIds ?? [])]) }
+  const reactivateTruppA = (id: string, f: TruppFields, standby?: boolean) => { reactivateTrupp(id, canonTrupp(f), standby); ensurePresentFromTrupp([f.leaderPersonId, ...(f.memberPersonIds ?? [])]) }
 
   // --- checklists ---
   // Ticking is field documentation, not tactical editing, so it's gated by ROLE
@@ -2854,7 +2903,7 @@ export function IncidentWorkspace({
                 }))
                 // same rule as a placed vehicle's Fahrer field: naming a driver puts them on
                 // the Anwesenheit list with «Fahrer <Fahrzeug>» as their Bemerkung
-                const id = rosterIdByName.get(v.trim().toLowerCase())
+                const id = personIdForName(rosterIdByName, v)
                 if (id) {
                   assignRole(id, 'fahrer', fillTemplate(appConfig.copy.anwesenheit.roleFahrer, { vehicle: selected.label ?? '' }).trim())
                 }

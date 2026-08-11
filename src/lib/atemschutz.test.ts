@@ -146,19 +146,30 @@ describe('estimatePressure (Planungshilfe — expected pressure)', () => {
     })
   })
 
-  it('starts a fresh history segment after pressure rises', () => {
+  // ⚠️ Revised 11.08.: a rise no longer restarts the history. A Trupp does not change cylinders
+  // inside a burning building, so a value going up is a CORRECTION of what was typed — and
+  // restarting cost the estimate its whole span, leaving it projecting off the last two minutes
+  // for the rest of the Einsatz. Eingangsdruck against the latest reading, over the whole time
+  // under PA, whatever happened in between.
+  it('measures from the Eingangsdruck to the latest reading, across a rise', () => {
     const t: Trupp = {
       ...base,
       readings: [pressure(10, 200), pressure(11, 300), pressure(15, 280)],
     }
-    // The 300 bar increase is a new cylinder/correction. Only 300 → 280 over 4 min is used.
+    // entry 300 → 280 over the 15 min since Eintritt = 1.33 bar/min, projected 2 min further
     expect(estimatePressure(t, REF + 17 * 60_000, 7, 50)).toMatchObject({
-      bar: 270,
+      bar: 277,
       source: 'history',
-      rateBarPerMin: 5,
       basedAt: pressure(15, 280).t,
-      sampleCount: 2,
+      sampleCount: 4,
     })
+  })
+
+  // …and a «current» ABOVE the Eingangsdruck yields no positive rate at all. The honest answer
+  // to a record that contradicts itself is the configured assumption, not a negative consumption.
+  it('falls back to the assumption when the latest reading is above the Eingangsdruck', () => {
+    const t: Trupp = { ...base, readings: [pressure(10, 320)] }
+    expect(estimatePressure(t, REF + 12 * 60_000, 7, 50)).toMatchObject({ source: 'assumption' })
   })
 
   it('re-anchors the fallback at a confirmed value when no drop was measured', () => {

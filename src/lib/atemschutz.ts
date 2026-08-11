@@ -215,15 +215,17 @@ export interface PressureEstimate {
   rateBarPerMin: number
   /** latest real pressure value anchoring the projection */
   basedAt: string
-  /** entry baseline + confirmed pressure readings in the current non-increasing segment */
+  /** entry baseline + every confirmed pressure reading since (the rate itself is measured from
+   *  the FIRST of them to the latest — see estimatePressure) */
   sampleCount: number
 }
 
 /**
  * Planungshilfe only — expected pressure projected from the Trupp's confirmed pressure history.
  * Entry + actual `pressure` readings form timestamped samples; ordinary contact rows are ignored
- * because they merely repeat the last pressure and are not new measurements. A pressure increase
- * starts a fresh segment (new cylinder/correction) rather than becoming negative consumption.
+ * because they merely repeat the last pressure and are not new measurements. The rate is the
+ * EINGANGSDRUCK against the latest reading over the whole time under PA — see the note at the
+ * calculation for why a rise no longer restarts it.
  *
  * Until a segment contains a measured pressure drop, the configured L/min assumption remains as
  * an explicitly labelled fallback. Deliberately OUT of `deriveTruppLive` and the alarm path: this
@@ -241,7 +243,10 @@ export function estimatePressure(
   const samples: Sample[] = [{ at: entry, bar: t.entryPressureBar }]
 
   for (const reading of t.readings ?? []) {
-    if (reading.kind !== 'pressure') continue
+    // ⚠️ `alarm` IS a Druckmeldung — it is the reading that happened to cross the Alarmdruck, and
+    // it is filed under its own kind only so the printed Journal can name that moment. Excluding
+    // it would drop a real measurement out of the projection.
+    if (reading.kind !== 'pressure' && reading.kind !== 'alarm') continue
     const at = ms(reading.t)
     if (validSample(at, reading.bar)) samples.push({ at, bar: reading.bar })
   }
@@ -254,19 +259,24 @@ export function estimatePressure(
   const unique = samples.filter((sample, i) =>
     i === 0 || sample.at !== samples[i - 1].at || sample.bar !== samples[i - 1].bar)
 
-  // Only the latest continuous segment is meaningful. A rise indicates a new pressure basis,
-  // normally a cylinder change or correction, so older consumption must not leak across it.
-  let segment: Sample[] = []
-  for (const sample of unique) {
-    if (segment.length && sample.bar > segment[segment.length - 1].bar) segment = [sample]
-    else segment.push(sample)
-  }
-
-  const first = segment[0]
-  const latest = segment[segment.length - 1]
+  // ⚠️ EINGANGSDRUCK vs. the latest reading, over the whole time under PA (revised 11.08.).
+  //
+  // It used to restart on any rise — a higher value was read as a new pressure basis, so
+  // everything before it was thrown away. That is not what a rise means here: a Trupp does not
+  // change cylinders inside a burning building, so a value going up is a correction of what was
+  // typed, and the Eingangsdruck itself is now the field that gets corrected (useTruppActions ·
+  // editTrupp). Meanwhile the reset had a real cost: one fat-fingered high reading left the
+  // Schätzung computing consumption from two minutes of history for the rest of the Einsatz,
+  // which is the least reliable window there is.
+  //
+  // Two points, the whole span, at any time. Nothing in between changes the answer, and a
+  // «current» that is somehow ABOVE the Eingangsdruck yields no positive rate and falls back to
+  // the configured assumption — which is the honest answer to a record that contradicts itself.
+  const first = unique[0]
+  const latest = unique[unique.length - 1]
   const elapsedMin = (latest.at - first.at) / 60000
   const measuredRate = elapsedMin > 0 ? (first.bar - latest.bar) / elapsedMin : 0
-  const hasMeasuredConsumption = segment.length >= 2 && measuredRate > 0
+  const hasMeasuredConsumption = unique.length >= 2 && measuredRate > 0
   const fallbackRate = cylinderLiters > 0 && consumptionLPerMin > 0
     ? consumptionLPerMin / cylinderLiters
     : 0
@@ -279,7 +289,7 @@ export function estimatePressure(
     source: hasMeasuredConsumption ? 'history' : 'assumption',
     rateBarPerMin,
     basedAt: new Date(latest.at).toISOString(),
-    sampleCount: segment.length,
+    sampleCount: unique.length,
   }
 }
 

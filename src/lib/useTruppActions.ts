@@ -344,20 +344,25 @@ export function useTruppActions(deps: Deps) {
     const tr = trupps.find((t) => t.id === id)
     const snapshot = tr // the Trupp as it was BEFORE the reading — for the undo
     const now = new Date().toISOString()
-    setTrupps((ts) => ts.map((t) => (t.id === id
-      ? { ...t, lastPressureBar: bar, lastPressureTime: now, lastContactTime: now, lowestBar: Math.min(t.lowestBar ?? t.entryPressureBar, bar),
-          readings: [...(t.readings ?? []), { t: now, bar, kind: 'pressure' }] }
-      : t)))
-    log('drop', fillTemplate(appConfig.copy.atemschutz.logPressure, { name: tr?.name ?? '', bar }), 'team')
     // Crossing the Alarmdruck is the moment the Trupp has to turn round, and it was visible on
     // the card and nowhere else — the reconstruction afterwards could not say when it happened.
-    // Logged on the CROSSING only, so a Trupp reading below the threshold does not repeat it at
-    // every contact.
+    // Only on the CROSSING, so a Trupp already below the threshold does not repeat it at every
+    // contact — and as ONE row, not a second one after the reading: the crossing IS this reading,
+    // and two lines in the same minute read as two Druckmeldungen on the printed Journal.
     const alarmBar = atemschutzDoctrine().alarmBar
     const wasAbove = (tr?.lastPressureBar ?? tr?.entryPressureBar ?? Infinity) > alarmBar
-    if (tr && wasAbove && bar <= alarmBar) {
-      log('warn', fillTemplate(appConfig.copy.atemschutz.logPressureAlarm, { name: tr.name, bar: String(alarmBar) }), 'team')
-    }
+    const crossed = !!tr && wasAbove && bar <= alarmBar
+    // …and the LOG ROW says so too, so the printed Atemschutz-Journal can name the moment
+    // instead of leaving a reader to compare a column of numbers against the station's doctrine
+    setTrupps((ts) => ts.map((t) => (t.id === id
+      ? { ...t, lastPressureBar: bar, lastPressureTime: now, lastContactTime: now, lowestBar: Math.min(t.lowestBar ?? t.entryPressureBar, bar),
+          readings: [...(t.readings ?? []), { t: now, bar, kind: crossed ? 'alarm' : 'pressure' }] }
+      : t)))
+    const line = fillTemplate(
+      crossed ? appConfig.copy.atemschutz.logPressureAlarm : appConfig.copy.atemschutz.logPressure,
+      { name: tr?.name ?? '', bar },
+    )
+    log(crossed ? 'warn' : 'drop', line, 'team')
     emit('atemschutz.pressure', { id, bar })
     // confirm-with-undo (house rule): a fat-fingered reading ("20" for "200") would otherwise
     // permanently poison lowestBar → a false red «tiefster Druck» on the legal record with no
@@ -365,8 +370,10 @@ export function useTruppActions(deps: Deps) {
     // per-Trupp readings). The Verlauf line stays (append-only doctrine — the record shows the
     // correction happened), but the safety-critical derived state is fixed.
     if (snapshot) {
-      toast(fillTemplate(appConfig.copy.atemschutz.logPressure, { name: tr?.name ?? '', bar }), {
-        icon: 'drop',
+      // the SAME line the record got — a toast that says «Druck 100 bar» while the Verlauf says
+      // «Alarmdruck erreicht» is the app confirming something other than what it wrote down
+      toast(line, {
+        icon: crossed ? 'warn' : 'drop',
         action: { label: appConfig.copy.undo, onClick: () => setTrupps((ts) => ts.map((t) => (t.id === id ? snapshot : t))) },
       })
     }
@@ -393,7 +400,13 @@ export function useTruppActions(deps: Deps) {
       }
       if (status === 'raus') return { ...t, status, exitTime: now }
       if (impliesContact) {
-        return { ...t, status, lastContactTime: now, readings: [...(t.readings ?? []), { t: now, bar: t.lastPressureBar ?? t.entryPressureBar, kind: 'contact' }] }
+        // ⚠️ A Rückzug is written down AS a Rückzug. It counts as a Funkkontakt and used to be
+        // logged as nothing but one, so the printed Journal showed the order to come back as an
+        // ordinary radio check — the one row a reconstruction is looking for, indistinguishable
+        // from the twenty around it. A Fortsetzen stays a plain Kontakt: the Trupp was reached
+        // and sent back in, which is what a Kontakt is.
+        const kind = status === 'rueckzug' ? 'rueckzug' as const : 'contact' as const
+        return { ...t, status, lastContactTime: now, readings: [...(t.readings ?? []), { t: now, bar: t.lastPressureBar ?? t.entryPressureBar, kind }] }
       }
       return { ...t, status }
     }))

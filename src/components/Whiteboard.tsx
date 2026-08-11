@@ -1857,7 +1857,22 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                         }}
                         // finalise on blur: keep the note even if empty (a placed note must persist,
                         // mirroring the Lage map) and record one audit edit for the whole session
-                        onBlur={(e) => { setEditId(null); if (textEditId.current === a.id) { textEditId.current = null; emit('board.edit', { id: a.id, patch: { text: e.target.value }, planId: activeId }) } }}
+                        onBlur={(e) => {
+                          setEditId(null)
+                          if (textEditId.current !== a.id) return
+                          textEditId.current = null
+                          emit('board.edit', { id: a.id, patch: { text: e.target.value }, planId: activeId })
+                          // …and the Verlauf gets what it SAYS, not that a note exists (parity with
+                          // the Lage's map notes, lib/entityEdit). Once per editing session, on the
+                          // way out — a row per keystroke would be a wall.
+                          const v = e.target.value.replace(/\s+/g, ' ').trim()
+                          const was = (a.text ?? '').replace(/\s+/g, ' ').trim()
+                          if (v !== was) {
+                            log('type', v
+                              ? fillTemplate(appConfig.copy.log.noteWritten, { value: v })
+                              : appConfig.copy.log.notesCleared)
+                          }
+                        }}
                         // Enter makes a new line — the ✓, Esc and tapping away are the way out
                         onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); (e.target as HTMLTextAreaElement).blur() } }} />
                     : <span className={cls('wb-text-label')} style={style}>{a.text || appConfig.copy.whiteboard.text}</span>

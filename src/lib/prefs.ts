@@ -57,7 +57,8 @@ export interface Prefs {
   elView?: boolean
   /** what the top Einsatzuhr shows — tap it to cycle. Default 'elapsed' (running duration). */
   clockMode?: 'elapsed' | 'now' | 'start'
-  /** How the Atemschutz board is ordered. Default 'dringlichkeit' (what the board always did).
+  /** How the Atemschutz board is ordered. Default 'manuell' — «wie gesetzt», the hand-set order,
+   *  so a card keeps its slot and «Trupp 2 is the second one» stays true for the whole Einsatz.
    *  A device pref because it is a way of LOOKING at the board; the hand-set order itself is
    *  synced (Trupp.order), so «wie gesetzt» shows the same thing on every device.
    *  ⚠️ Whatever is chosen, an überfälliger Trupp still floats to the top — a card that can hide

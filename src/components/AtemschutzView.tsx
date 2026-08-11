@@ -12,7 +12,7 @@ import { isPresent } from '../lib/attendanceIntervals'
 import { ortOf } from '../lib/attendanceOrt'
 import { truppStatusLabel } from '../lib/report'
 import type { AttendanceState, Person, Trupp, TruppFields } from '../types'
-import { abbreviateName, assignedPersonIds, rosterFromList, rosterIdByName, truppSlots } from '../lib/personnel'
+import { abbreviateName, assignedPersonIds, personIdForName, rosterFromList, rosterIdByName, truppSlots } from '../lib/personnel'
 import { truppLineNo, type LeitungOption } from '../lib/truppLines'
 import { ClearableInput } from './ClearableInput'
 import type { Slot } from './PersonField'
@@ -52,7 +52,7 @@ function snapBar(v: number): number {
 // large "Kontakt" reset, and a contact-clock alarm (amber nudge → red überfällig). Pressure is
 // set inline and logged. Purely presentational + local UI state — data + mutations via props.
 export function AtemschutzView({
-  trupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, onAddGuest, order = 'dringlichkeit', onOrder, onMove, createTrupp, placeTrupp, placeTargets, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, leitungOptions, showTruppLine, truppsWithLine, pickTruppLine, unlinkTruppLine,
+  trupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, onAddGuest, order = 'manuell', onOrder, onMove, createTrupp, placeTrupp, placeTargets, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, leitungOptions, showTruppLine, truppsWithLine, pickTruppLine, unlinkTruppLine,
   intervalMin = atemschutzDoctrine().contactIntervalMin, graceSec = atemschutzDoctrine().contactGraceSec,
   defaultFunkkanal = atemschutzDoctrine().defaultFunkkanal,
   focus,
@@ -160,9 +160,9 @@ export function AtemschutzView({
    * How the board is arranged. Whatever is chosen, ÜBERFÄLLIG still floats to the top: a card
    * that can hide off-screen is the one failure mode this screen exists to prevent, and it is not
    * a preference. Below that line:
-   *   · «wie gesetzt»  — the hand-set order (Trupp.order, synced), so a card keeps its slot and
-   *                      «Trupp 2 is the second one» stays true for the whole Einsatz
-   *   · «Dringlichkeit» — longest since Funkkontakt first (what the board always did)
+   *   · «wie gesetzt»  — the DEFAULT: the hand-set order (Trupp.order, synced), so a card keeps
+   *                      its slot and «Trupp 2 is the second one» stays true for the whole Einsatz
+   *   · «Dringlichkeit» — longest since Funkkontakt first (what the board did before)
    *   · «Auftrag» / «Name» — for a board big enough to look things up in
    * The MODE is per-device (a way of looking); the hand-set order is synced (it is data).
    */
@@ -320,8 +320,8 @@ export function AtemschutzView({
                 value: order,
                 onChange: (v: string) => onOrder(v as TruppOrder),
                 options: [
-                  { value: 'dringlichkeit', label: az.orderUrgency },
                   { value: 'manuell', label: az.orderManual },
+                  { value: 'dringlichkeit', label: az.orderUrgency },
                   { value: 'auftrag', label: az.orderAuftrag },
                   { value: 'name', label: az.orderName },
                 ],
@@ -469,6 +469,15 @@ function PressureInline({ value, onCommit }: { value: number; onCommit: (bar: nu
           </button>
         </div>
       </div>
+      {/* Air does not come back — a value above the last one is almost always a typo. Almost:
+          it is also how a wrong Eingangsdruck gets corrected, so this says so and gets out of
+          the way (see copy · pressureRose). Shown BEFORE the commit, where it can still be
+          fixed rather than undone. */}
+      {dirty && bar > value && (
+        <div className={s.pressureWarn} role="status">
+          <Icon id="warn" /><span>{fillTemplate(az.pressureRose, { from: value })}</span>
+        </div>
+      )}
       {dirty && (
         <div className={s.pressureConfirm}>
           <button type="button" className={s.pConfirm} onClick={() => onCommit(bar)} title={az.pressureConfirmHint}>
@@ -863,7 +872,7 @@ function TruppForm({
   // is a team of bare names — so the form re-badged three roster members «Gast» while the Trupp
   // on disk had their ids all along. Re-linking on open is idempotent and never invents an id.
   useEffect(() => {
-    const linked = team.map((sl) => (sl.personId ? sl : { ...sl, personId: rosterByName.get(sl.name.trim().toLowerCase()) }))
+    const linked = team.map((sl) => (sl.personId ? sl : { ...sl, personId: personIdForName(rosterByName, sl.name) }))
     if (linked.some((sl, i) => sl.personId !== team[i].personId)) setTeam(linked)
     // once per mount: the roster is stable while a modal is open, and re-running on `team`
     // would fight the operator's own edits

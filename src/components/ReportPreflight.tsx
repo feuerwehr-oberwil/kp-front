@@ -386,6 +386,18 @@ export function ReportPreflight({
   // Only when the name RESOLVES to a roster row: a hand-typed one has no id to file attendance
   // under, and inventing a guest row from a free-text field would put people on the Soldblatt
   // that nobody recorded.
+  /** person id → the job they already hold, off their Anwesenheits-Bemerkung — shown on every
+   *  option of the two person pickers below (lib/roleAssignment writes these notes). Same shape
+   *  the Atemschutz board's pickers use; a roster that reads differently depending on which
+   *  screen it is opened from is a roster nobody trusts. */
+  const rolesById = useMemo(
+    () => new Map(
+      Object.entries(attendance)
+        .map(([id, a]) => [id, (a.note ?? '').trim()] as const)
+        .filter(([, note]) => note.length > 0),
+    ),
+    [attendance],
+  )
   const linkedEinsatzleiter = useRef(false)
   useEffect(() => {
     if (linkedEinsatzleiter.current || !onRolePicked) return
@@ -983,6 +995,10 @@ export function ReportPreflight({
                 }}
                 personnel={personnel} legacyRoster={[]} presentIds={presentIds}
                 assignedIds={NO_IDS} usedIds={NO_IDS} usedNames={NO_IDS}
+                // ⚠️ The job each candidate already holds. This picker of all of them was the
+                // silent one: it is where somebody is MADE Einsatzleiter, and it said nothing
+                // about the fact that the name under the cursor is already the Fahrer of the TLF.
+                rolesById={rolesById}
                 rankFirst officerFilter
               />
               </div>
@@ -1147,6 +1163,7 @@ export function ReportPreflight({
                 }}
                 personnel={personnel} legacyRoster={[]} presentIds={presentIds}
                 assignedIds={NO_IDS} usedIds={NO_IDS} usedNames={NO_IDS}
+                rolesById={rolesById}
                 rankFirst
               />
               <div className="ip-field">

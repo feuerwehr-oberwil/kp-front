@@ -530,3 +530,64 @@ def test_dispatch_text_loses_its_emoji_before_it_reaches_the_page():
     )
     # a title that is nothing but an emoji keeps it: a box says something was sent, blank does not
     assert IncidentFacts(title="\U0001f525", id="x").title == "\U0001f525"
+
+
+def test_a_guest_is_marked_as_one_on_the_roster():
+    """A name that is not on the Mannschaftsliste has to say so ON THE SHEET.
+
+    The app badges guests on the Anwesenheit screen; the printed Personalblatt appended them to
+    the bottom of our own roster with nothing to distinguish them. The one reader who cannot ask
+    — a Gemeinde or a Versicherung reading a signed rapport weeks later — then counted a
+    Nachbarwehr's AdF as one of ours. A guest who also held a job prints both, guest first.
+    """
+    payload = ReportPayload.model_validate(
+        {
+            "incident": {"title": "Zimmerbrand", "id": "i"},
+            "generatedAt": "07.08.2026 09:00",
+            "proof": {"statusLabel": "intakt", "count": 1, "head": "0"},
+            "personal": [
+                {"name": "Meier Anna", "erfasst": True, "note": "Fahrer TLF"},
+                {"name": "Bucher Urs", "erfasst": True, "guest": True},
+                {"name": "Frei Nina", "erfasst": True, "guest": True, "note": "Fahrer ADL"},
+            ],
+        }
+    )
+    doc = pdfium.PdfDocument(compose_report_pdf(payload, {}))
+    text = "".join(doc[i].get_textpage().get_text_range() for i in range(len(doc)))
+    assert "Bucher Urs" in text
+    assert "Gast" in text
+    # the guest mark leads the remark rather than replacing it
+    assert "Gast · Fahrer ADL" in text
+    # …and one of ours is never marked
+    assert "Meier Anna · Fahrer TLF" in text
+
+
+def test_a_wrapping_partner_row_keeps_its_box_on_the_first_line():
+    """The tick belongs beside the NAME, not beside the middle of it.
+
+    A Partnerorganisation is free text with no length rule behind it, so a long one wraps to
+    three lines — and a middle-aligned checkbox floated down next to the second. On a block whose
+    whole use is reading down the boxes, the box then pointed at nothing.
+    """
+    long_org = "Blaulicht und sonst noch Leuchten die auf der Kerze nicht die hellsten sind"
+    payload = ReportPayload.model_validate(
+        {
+            "incident": {"title": "Zimmerbrand", "id": "i"},
+            "generatedAt": "07.08.2026 09:00",
+            "proof": {"statusLabel": "intakt", "count": 1, "head": "0"},
+            "partnerPresets": [long_org, "Rotlicht"],
+            "meta": {"partnerContacts": [{"org": long_org, "note": "War nicht vor Ort"}]},
+        }
+    )
+    doc = pdfium.PdfDocument(compose_report_pdf(payload, {}))
+    page = next(p for p in (doc[i] for i in range(len(doc))) if "Blaulicht" in p.get_textpage().get_text_range())
+    tp = page.get_textpage()
+
+    def top_of(needle: str) -> float:
+        return next(
+            tp.get_rect(i)[3] for i in range(tp.count_rects()) if needle in tp.get_text_bounded(*tp.get_rect(i))
+        )
+
+    # the ✗ in the box and the first word of the organisation share a line (within one line's
+    # height); a middle-aligned box on a three-line row sat a full line-and-a-half below it
+    assert abs(top_of("X") - top_of("Blaulicht")) < 6, "the tick is not on the organisation's first line"

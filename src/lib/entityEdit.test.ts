@@ -41,10 +41,28 @@ describe('entityEditChanges (the Verlauf line for editing the Kroki)', () => {
     expect(entityEditChanges(sym({ count: 1 }), sym({}))).toEqual([])
   })
 
-  it('says a Notiz was written, never what it says — the Verlauf is not a second Kroki', () => {
-    const out = entityEditChanges(sym({}), sym({ notes: 'Gasgeruch im Treppenhaus' }))
-    expect(out).toEqual(['Notiz erfasst'])
-    expect(out.join()).not.toContain('Gasgeruch')
+  // Reversed 11.08.: the note is QUOTED. It used to say only that one had been written, which on
+  // a printed Rapport — where the Kroki cannot be clicked — is a row pointing at nothing.
+  it('quotes a Notiz written on a symbol', () => {
+    expect(entityEditChanges(sym({}), sym({ notes: 'Gasgeruch im Treppenhaus' })))
+      .toEqual(['Notiz «Gasgeruch im Treppenhaus»'])
+  })
+
+  it('folds a multi-line note onto one row', () => {
+    expect(entityEditChanges(sym({}), sym({ notes: ' Keller\n  verraucht \n' })))
+      .toEqual(['Notiz «Keller verraucht»'])
+  })
+
+  it('says a note was emptied without quoting the emptiness', () => {
+    expect(entityEditChanges(sym({ notes: 'alt' }), sym({ notes: '  ' }))).toEqual(['Notiz geleert'])
+  })
+
+  // A Notiz box keeps its TEXT in `label`, so it must not be announced as a «Beschriftung».
+  it('calls a Notiz box’s text a Notiz, not a Beschriftung', () => {
+    const note = (over: Partial<Entity>): Entity =>
+      ({ ...sym({}), kind: 'note', ...over })
+    expect(entityEditChanges(note({}), note({ label: 'Sammelplatz Ost' })))
+      .toEqual(['Notiz «Sammelplatz Ost»'])
   })
 
   it('stays silent on pure geometry — arranging the picture is not an event', () => {

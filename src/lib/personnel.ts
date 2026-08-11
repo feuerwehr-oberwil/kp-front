@@ -20,11 +20,60 @@ export function resolvePersonName(roster: Roster, id?: string, snapshot?: string
   return id ?? ''
 }
 
+/** One name reduced to what it MEANS for matching: trimmed, case-folded, whitespace collapsed. */
+const nameKey = (name: string) => name.trim().toLowerCase().replace(/\s+/g, ' ')
+
+/** …and the same name with its words put in a fixed order, so «Hans Müller» and «Müller Hans»
+ *  reduce to one key. Alphabetical rather than "surname first" on purpose: which token IS the
+ *  surname is exactly what a name typed in the other order does not tell us. */
+const swappedKey = (name: string) => nameKey(name).split(' ').sort().join(' ')
+
 /**
- * A name → roster id index, matched the way people actually retype a name: trimmed, case-folded.
+ * A name → roster id index, matched the way people actually retype a name: trimmed, case-folded
+ * — and TOLERANT OF THE WORD ORDER.
+ *
+ * ⚠️ The order tolerance is the point. The station has one name order (roster.nameOrder, served
+ * by the backend), but an operator typing at 3am has their own, and half of them write «Hans
+ * Müller» where the roster says «Müller Hans». That used to resolve to nobody, which is not a
+ * cosmetic difference — it made the typed name a GUEST: no id, so the Anwesenheit row never
+ * locked, the picker went on offering somebody already under Atemschutz, the Verlauf stopped
+ * marking their name, and `abbreviateName` — which reads the station order to decide which token
+ * is the surname — turned them into «Peter S.» beside a «Müller H.» on the same Kroki. One
+ * roster person, two spellings, and every downstream feature quietly off.
+ *
+ * The exact spelling always wins: a swapped key is only added where nothing claims it, and an
+ * ambiguous one (two people who are each other's reversal) is dropped rather than guessed —
+ * picking the wrong one would put the wrong person on an Atemschutz record.
  */
 export function rosterIdByName(people: Person[]): Map<string, string> {
-  return new Map(people.filter((p) => p.active).map((p) => [p.displayName.trim().toLowerCase(), p.id]))
+  const active = people.filter((p) => p.active)
+  const out = new Map(active.map((p) => [nameKey(p.displayName), p.id]))
+  const swapped = new Map<string, string | null>()
+  for (const p of active) {
+    const k = swappedKey(p.displayName)
+    if (!k || out.has(k)) continue
+    swapped.set(k, swapped.has(k) ? null : p.id)
+  }
+  for (const [k, id] of swapped) if (id) out.set(k, id)
+  return out
+}
+
+/** Look a name up in a `rosterIdByName` index — the exact spelling first, then the word order
+ *  the operator happened to use. Every caller goes through this, so «matches the roster» means
+ *  one thing app-wide instead of five `.get(name.toLowerCase())` calls that each decide. */
+export function personIdForName(byName: Map<string, string>, name: string | undefined): string | undefined {
+  const n = (name ?? '').trim()
+  if (!n) return undefined
+  return byName.get(nameKey(n)) ?? byName.get(swappedKey(n))
+}
+
+/** The roster's own spelling of a name, if it names somebody on it — «Hans Müller» → «Müller
+ *  Hans». Everything drawn from a name (the Trupp card, the hose tag, `abbreviateName`, the bold
+ *  in the Verlauf) reads better from ONE spelling, and the roster's is the one the rest of the
+ *  app already uses. Unknown names — real Gäste, mutual aid — pass through untouched. */
+export function canonicalName(name: string, byName: Map<string, string>, roster: Roster): string {
+  const id = personIdForName(byName, name)
+  return (id && roster.get(id)?.displayName?.trim()) || name
 }
 
 /**
@@ -49,9 +98,11 @@ export function rosterIdByName(people: Person[]): Map<string, string> {
  * would be the same class of error in the other direction.
  */
 export function truppSlots(t: Trupp, byName: Map<string, string>, roster: Roster): { name: string; personId?: string }[] {
-  const idOf = (name: string) => byName.get(name.trim().toLowerCase())
+  const idOf = (name: string) => personIdForName(byName, name)
+  // «the stored id belongs to this name» — word-order tolerant like the lookup above, or a Trupp
+  // typed «Hans Müller» would keep failing this check and fall back to the name every time
   const same = (id: string | undefined, name: string) =>
-    !!id && (roster.get(id)?.displayName ?? '').trim().toLowerCase() === name.trim().toLowerCase()
+    !!id && swappedKey(roster.get(id)?.displayName ?? '') === swappedKey(name)
   const resolve = (name: string, stored?: string) => (same(stored, name) ? stored : idOf(name) ?? (stored && !roster.has(stored) ? stored : undefined))
   const out: { name: string; personId?: string }[] = []
   if (t.name?.trim()) out.push({ name: t.name, personId: resolve(t.name, t.leaderPersonId) })

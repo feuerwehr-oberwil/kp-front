@@ -315,7 +315,17 @@ export interface TimelineEvent {
    *  so a reminder is never a row with a mutated status: the `created` row carries op+dueAt,
    *  and `done`/`snoozed` are their OWN later rows referencing the same `id`. The open set and
    *  effective due time are DERIVED from these events (see lib/reminders.ts), never edited in place. */
-  reminder?: { op: 'created' | 'done' | 'snoozed'; id: string; dueAt?: string }
+  reminder?: {
+    op: 'created' | 'done' | 'snoozed'; id: string; dueAt?: string
+    /** ⚠️ The BARE Wiedervorlage, as typed — «Pizza bestellen», not the row's own `text`
+     *  («Erinnerung gesetzt für 12:06: Pizza bestellen»). The two are not the same string: the
+     *  row is the record and has to say what was decided and for when, while every place that
+     *  RE-shows the reminder (the pinned block, the fällig banner, the erledigt/snooze rows)
+     *  already prints the Fälligkeit beside it and only wants the thing to do. Reading the row
+     *  text there stuttered the time and the word «Erinnerung» twice per line.
+     *  Optional: rows written before this existed fall back to the stripped `text`. */
+    text?: string
+  }
   /** enrichment patch: this row carries later-arriving fields (transcript, uploaded media
    *  URL) for the row with id `patchOf`. The journal store folds patches onto their target
    *  at display time and hides the patch row itself — rows are never edited in place
@@ -570,7 +580,19 @@ export interface ReportAttachment {
 export interface TruppReading {
   t: string
   bar: number
-  kind: 'registered' | 'entry' | 'contact' | 'pressure'
+  /**
+   * What this row of the per-Trupp log IS.
+   *
+   * ⚠️ `alarm` and `rueckzug` are the two moments the printed Atemschutz-Journal is actually read
+   * for — when the Trupp hit its Alarmdruck, and when it was ordered back — and neither used to
+   * be distinguishable on it. The Alarmdruck reading printed as an ordinary «Druck» among a
+   * column of them, and a Rückzug was written down as a plain «Kontakt», which it also is (it
+   * resets the safety clock) but is not ONLY. Both are recorded as their own kind, so the sheet
+   * can say so without the reader reconstructing it from the numbers.
+   *
+   * Rows written before these kinds existed keep theirs — the log is append-only.
+   */
+  kind: 'registered' | 'entry' | 'contact' | 'pressure' | 'alarm' | 'rueckzug'
 }
 
 export interface Trupp {

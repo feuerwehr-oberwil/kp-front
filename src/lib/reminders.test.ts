@@ -14,6 +14,28 @@ describe('deriveReminders', () => {
     expect(open[0]).toMatchObject({ id: 'a', rowId: 'r1', text: 'Lüfter prüfen', dueAt: '2026-06-24T03:10:00.000Z' })
   })
 
+  // The pinned block and the fällig banner print the Fälligkeit themselves, so what they want
+  // from the row is the bare Wiedervorlage — not «Erinnerung gesetzt für 12:06: Pizza …», which
+  // read as the same time twice on one line.
+  it('prefers the bare reminder text over the composed row text', () => {
+    const tl = [row('r1', 'Erinnerung gesetzt für 12:06: Pizza bestellen',
+      { op: 'created', id: 'a', dueAt: '2026-06-24T10:06:00.000Z', text: 'Pizza bestellen' })]
+    expect(deriveReminders(tl)[0].text).toBe('Pizza bestellen')
+  })
+
+  // …and rows written before `reminder.text` existed are still in the append-only record and
+  // still open, so the lead-in is peeled off their text instead.
+  it('strips the «Erinnerung gesetzt für …» lead-in from an older row', () => {
+    const tl = [row('r1', 'Erinnerung gesetzt für 12:06: Pizza bestellen',
+      { op: 'created', id: 'a', dueAt: '2026-06-24T10:06:00.000Z' })]
+    expect(deriveReminders(tl)[0].text).toBe('Pizza bestellen')
+  })
+
+  it('leaves a row that does not carry the lead-in untouched', () => {
+    const tl = [row('r1', 'Lüfter prüfen', { op: 'created', id: 'a', dueAt: '2026-06-24T03:10:00.000Z' })]
+    expect(deriveReminders(tl)[0].text).toBe('Lüfter prüfen')
+  })
+
   it('drops a reminder once a later done row references it', () => {
     const tl = [
       row('r2', 'erledigt', { op: 'done', id: 'a' }),

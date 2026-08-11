@@ -53,7 +53,10 @@ describe('personalForPdf (Personal-/Soldblatt rows)', () => {
     expect(personal[0].times).toEqual([{ von: '09:05', bis: undefined, vonDerived: false, bisDerived: false }])
     expect(personal[1]).toMatchObject({ name: 'Müller Hans', erfasst: false })
     expect(personal[1].times).toEqual([{ von: undefined, bis: undefined, vonDerived: false, bisDerived: false }])
-    expect(personal[2]).toMatchObject({ name: 'Gast Vreni', erfasst: true })
+    // …and marked as a guest: on a signed sheet read weeks later by somebody who cannot ask,
+    // an unmarked name sitting among our own roster reads as one of ours
+    expect(personal[2]).toMatchObject({ name: 'Gast Vreni', erfasst: true, guest: true })
+    expect(personal[0].guest).toBeFalsy()
     expect(personal[2].times).toEqual([{ von: '09:00', bis: '10:30', vonDerived: false, bisDerived: false }])
     expect(personal[3].erfasst).toBe(false)
   })

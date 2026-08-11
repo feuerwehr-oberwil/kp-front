@@ -326,6 +326,9 @@ export function readingKindLabel(kind: TruppReading['kind']): string {
   if (kind === 'registered') return az.readingKind.registered
   if (kind === 'entry') return r.truppEntry
   if (kind === 'contact') return az.readingKind.contact
+  // the two rows the sheet is read for — see types · TruppReading
+  if (kind === 'alarm') return az.readingKind.alarm
+  if (kind === 'rueckzug') return az.readingKind.rueckzug
   return az.readingKind.pressure
 }
 
@@ -459,6 +462,11 @@ export interface PersonalPdfRow {
   erfasst: boolean
   times?: PersonalPdfTime[]
   note?: string
+  /** not on the Mannschaftsliste — a Gast, a Nachbarwehr, somebody not yet synced. The app has
+   *  badged them on the Anwesenheit screen all along and the SHEET did not, so the one reader
+   *  who cannot ask (a Gemeinde or a Versicherung reading a signed rapport weeks later) saw a
+   *  name in the middle of our roster and had no way to know it was not one of ours. */
+  guest?: boolean
 }
 
 /** «07.08.» — the day in front of a clock reading, for an Einsatz that runs past midnight. */
@@ -713,7 +721,8 @@ export function personalForPdf(
     .filter(([id]) => !rosterIds.has(id))
     .map(([, a]) => ({ name: a.displayNameSnapshot, a }))
     .sort((x, y) => x.name.localeCompare(y.name, 'de'))
-    .flatMap(({ name, a }) => rows(name, a))
+    // …and they are MARKED as such on the sheet, the way the Anwesenheit screen marks them
+    .flatMap(({ name, a }) => rows(name, a).map((r) => ({ ...r, guest: true })))
   return {
     personal: [
       ...roster.flatMap((p) => rows(p.name, attendance[p.id])),

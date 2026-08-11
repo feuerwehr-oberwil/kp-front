@@ -650,7 +650,7 @@ export const fr: Localizable<Copy> = {
     leaderLabel: 'Chef de groupe',
     leaderPlaceholder: 'Nom du chef de groupe',
     memberLabel: 'Sapeur-pompier',
-    memberPlaceholder: 'Nom (optionnel)',
+    guestNamePlaceholder: 'Nom',
     addMember: 'Ajouter un sapeur-pompier',
     removeMember: 'Retirer le sapeur-pompier {n}',
     teamEmpty: 'Personne dans l’équipe. Touchez un nom ci-dessous.',

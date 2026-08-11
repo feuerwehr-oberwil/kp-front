@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { AttendanceState, Trupp } from '../types'
-import { mergeRoleNote, roleConflictHint, rosterFieldRole } from './roleAssignment'
+import { appConfig } from '../config/appConfig'
+import { mergeRoleNote, personStatusHint, roleConflictHint, rosterFieldRole } from './roleAssignment'
 
 const trupp = (over: Partial<Trupp>): Trupp => ({
   id: 't1', name: 'Trupp 2', entryPressureBar: 300, entryTime: '', lastContactTime: '',
@@ -146,5 +147,38 @@ describe('mergeRoleNote', () => {
     expect(mergeRoleNote(undefined, 'AS')).toBe('AS')
     expect(mergeRoleNote('  ', 'AS')).toBe('AS')
     expect(mergeRoleNote('Fahrer Pio', '  ')).toBe('Fahrer Pio')
+  })
+})
+
+
+// Shown ON the option, before the pick. ⚠️ The symbol pickers («Fahrer» on a vehicle, «Name» on
+// the Einsatzleiter glyph) read this and nothing else, so whatever it omits, those dropdowns
+// cannot say — which is why the job belongs in it.
+describe('personStatusHint', () => {
+  const A = appConfig.copy.anwesenheit
+
+  it('names the job a present person already holds', () => {
+    const st: AttendanceState = { ...present, p1: { ...present.p1, note: 'Fahrer TLF' } }
+    expect(personStatusHint('p1', st, [])).toMatchObject({ label: 'Fahrer TLF' })
+  })
+
+  it('says nothing about a present person with no job — the ordinary case stays quiet', () => {
+    expect(personStatusHint('p1', present, [])).toBeUndefined()
+  })
+
+  it('under PA outranks the job: one person cannot be in two places', () => {
+    const st: AttendanceState = { ...present, p1: { ...present.p1, note: 'Fahrer TLF' } }
+    const t = trupp({ leaderPersonId: 'p1' })
+    expect(personStatusHint('p1', st, [t])).toMatchObject({ label: A.statusUnderPa, tone: 'warn' })
+  })
+
+  it('…and so does where they are standing', () => {
+    const st: AttendanceState = { ...present, p1: { ...present.p1, note: 'Fahrer TLF', ort: 'station' } }
+    expect(personStatusHint('p1', st, [])).toMatchObject({ label: A.ortStation })
+  })
+
+  it('somebody who has gone home is still the more important fact', () => {
+    const st: AttendanceState = { ...left, p1: { ...left.p1, note: 'Fahrer TLF' } }
+    expect(personStatusHint('p1', st, [])).toMatchObject({ label: A.legendLeft })
   })
 })

@@ -660,7 +660,7 @@ export const en: Localizable<Copy> = {
     leaderLabel: 'Team leader',
     leaderPlaceholder: 'Team leader name',
     memberLabel: 'Member',
-    memberPlaceholder: 'Name (optional)',
+    guestNamePlaceholder: 'Name',
     addMember: 'Add member',
     removeMember: 'Remove member {n}',
     teamEmpty: 'Nobody on this team yet. Tap a name below.',

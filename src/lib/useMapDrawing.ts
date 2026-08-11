@@ -118,14 +118,35 @@ export function useMapDrawing(deps: MapDrawingDeps) {
   // Both patch paths carry the same `tacticalLocked` guard as the coord/vertex handlers below:
   // `commit` alone only stops a VIEWER (readOnly) — in the Führungsansicht it writes, and
   // the emit above it reached the audit stream even when the commit was dropped.
+  /**
+   * The Verlauf row for NAMING a shape — «Fläche «Sammelplatz»», «Absperrkreis «90 m Chlor»».
+   *
+   * Only the label. Colour, width, dash and geometry are how the picture is arranged and change
+   * constantly while somebody arranges it; the name is the one edit that says what the shape IS,
+   * and it used to reach the document silently — the record held «Fläche gezeichnet» and never
+   * what that Fläche turned out to be. Same rule as a Notiz (lib/entityEdit).
+   */
+  const noteDrawingLabel = (before: Drawing | undefined, patch: Partial<Drawing>) => {
+    if (!before || !('label' in patch)) return
+    const L = appConfig.copy.log
+    const was = (before.label ?? '').trim()
+    const now = (patch.label ?? '').replace(/\s+/g, ' ').trim()
+    if (was === now) return
+    const kind = L.drawKinds[before.kind] ?? L.drawKinds.line
+    log('pen', now
+      ? fillTemplate(L.drawingLabelSet, { kind, value: now })
+      : fillTemplate(L.drawingLabelCleared, { kind }), 'symbol')
+  }
   const patchDrawing = (patch: Partial<Drawing>) => {
     if (tacticalLocked) return
+    noteDrawingLabel(drawings.find((dr) => dr.id === selectedDrawingId), patch)
     emit('draw.edit', { id: selectedDrawingId, patch }); commit((d) => ({ ...d, drawings: d.drawings.map((dr) => (dr.id === selectedDrawingId ? { ...dr, ...patch } : dr)) }))
   }
   // patch a specific drawing by id (e.g. unlock from the on-map lock chip, where the locked
   // shape isn't the selected one)
   const patchDrawingById = (id: string, patch: Partial<Drawing>) => {
     if (tacticalLocked) return
+    noteDrawingLabel(drawings.find((dr) => dr.id === id), patch)
     emit('draw.edit', { id, patch }); commit((d) => ({ ...d, drawings: d.drawings.map((dr) => (dr.id === id ? { ...dr, ...patch } : dr)) }))
   }
 

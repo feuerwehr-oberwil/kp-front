@@ -350,6 +350,10 @@ class PersonalRowIn(BaseModel):
     #: free remark on this person for this Einsatz («Fahrer TLF», «abgelöst 21:40») — printed
     #: small under the name, once, because it belongs to the person and not to a stretch
     note: str | None = None
+    #: not on the Mannschaftsliste — a Gast, a Nachbarwehr, somebody not yet synced. Printed as a
+    #: «Gast» mark behind the name, because the sheet is read weeks later by somebody who cannot
+    #: ask: an unmarked guest sitting among our own roster reads as one of ours.
+    guest: bool = False
 
     _clip = field_validator("note")(_clip_note)
 
@@ -506,6 +510,9 @@ L = {
     "colPressure": "Druck bar",
     "noPressureLog": "Kein Druckverlauf erfasst.",
     "personal": "Personal / Anwesenheit",
+    # the app's own word for it (copy · anwesenheit.guestBadge) — one thing, one name for it,
+    # on the screen and on the paper
+    "guest": "Gast",
     # On a RUNNING Einsatz there is no Einsatzende, so no block can be totalled — the sheet then
     # says the one thing it knows (how many were there) instead of «0:00 · gerundet 0:00» plus a
     # paragraph explaining why both are nothing. The rounding rule is not printed at all: it is
@@ -1804,7 +1811,12 @@ def _personal_table(personal: list[PersonalRowIn], inner_w: float, st: dict[str,
         # opened a one-row gap in the column OPPOSITE it: a hole that reads as a missing person
         # on a roster whose whole job is «who was here». A role is short, which is the case this
         # is for; anything too long to fit still gets its own line and its own two-line room.
+        # «Gast» leads the remark — it says what KIND of entry this row is, which is read before
+        # what the person did on it. One suffix, so a guest with a job prints «Gast · Fahrer TLF»
+        # rather than two competing marks.
         note = _clip_print(p.note) if p.note else ""
+        if p.guest:
+            note = f"{L['guest']} · {note}" if note else L["guest"]
         inline = bool(note) and (
             _str_w(p.name, "Helvetica", 8.5) + _str_w(f" · {note}", "Helvetica", 6.5) <= name_w - 11
         )
@@ -1986,20 +1998,28 @@ def _partner_table(
         # the write-in row empty — three type treatments and three row heights in a block whose
         # whole point is that the entries are comparable. A tick says «this one was there»; the
         # typography must not say it a second time, more quietly.
-        notes = [_esc(" · ".join(x for x in (c.name, c.phone, c.note) if x)) if c else "" for _, c in part]
+        # ⚠️ CLAMPED, like every other remark on this sheet. A partner's name and remark are free
+        # text with no length rule behind them, and a long one wrapped to four or five lines —
+        # which on a two-up block means the row opposite it opens a hole that size (see
+        # `_personal_table`), and the two halves stop sharing baselines from there down.
+        notes = [_esc(_clip_print(" · ".join(x for x in (c.name, c.phone, c.note) if x))) if c else "" for _, c in part]
         note_w = col_w - check_w - org_w
         # each write-in cell carries its OWN rule, on its own text line — a LINEBELOW would sit
         # at the bottom of a row whose height comes from the checkbox (see _write_rule)
         rows = [
             [
                 _check_box(bool(c)),
-                Paragraph(_esc(org), st["rcell"]) if org else _write_rule(org_w - 5),
+                Paragraph(_esc(_clip_print(org)), st["rcell"]) if org else _write_rule(org_w - 5),
                 Paragraph(note, st["rcell"]) if note else _write_rule(note_w - 5),
             ]
             for (org, c), note in zip(part, notes, strict=True)
         ]
         style: list[tuple] = [
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            # ⚠️ TOP, not MIDDLE — the same rule the roster beside it follows. An organisation or
+            # a remark that wraps makes the row three lines tall, and a middle-aligned tick then
+            # floated down beside the SECOND line: on a sheet somebody reads down the boxes of,
+            # the box no longer sat next to the name it belongs to.
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
             ("TOPPADDING", (0, 0), (-1, -1), _PAD_ROW),
             ("BOTTOMPADDING", (0, 0), (-1, -1), _PAD_ROW),
             ("LEFTPADDING", (0, 0), (-1, -1), 1),

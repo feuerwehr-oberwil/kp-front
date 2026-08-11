@@ -8,6 +8,7 @@
 // The open set and each reminder's *effective* due time are derived here — never stored as a
 // mutable field. This keeps reminders correct under offline merge + replay for free.
 
+import { appConfig } from '../config/appConfig'
 import type { Surface, TimelineEvent } from '../types'
 
 export interface OpenReminder {
@@ -15,7 +16,10 @@ export interface OpenReminder {
   id: string
   /** timeline row id of the `created` event — target for "In Verlauf öffnen" */
   rowId: string
-  /** reminder text (from the `created` row) */
+  /** the bare Wiedervorlage — «Lüfter prüfen», NOT the `created` row's own text («Erinnerung
+   *  gesetzt für 22:10: Lüfter prüfen»). Everything that re-shows a reminder prints the
+   *  Fälligkeit itself, so the prefix arrived as a stutter: «fällig 12:06 · Erinnerung gesetzt
+   *  für 12:06: Pizza …». */
   text: string
   /** effective due time (ISO): the latest snooze, else the original */
   dueAt: string
@@ -59,10 +63,30 @@ export function deriveReminders(timeline: readonly TimelineEvent[], closedAt?: s
     const dueAt = st.dueAt ?? c.reminder?.dueAt
     if (!dueAt) continue // malformed (created without a due) — skip rather than fire instantly
     if (Number.isFinite(closedMs) && Date.parse(dueAt) < closedMs) continue // expired by closure
-    open.push({ id, rowId: c.id, text: c.text, dueAt, createdAt: c.at ?? '', surface: c.surface })
+    open.push({ id, rowId: c.id, text: bareText(c), dueAt, createdAt: c.at ?? '', surface: c.surface })
   }
   // soonest-due first; the banner shows the most urgent at the top
   return open.sort((a, b) => a.dueAt.localeCompare(b.dueAt))
+}
+
+/**
+ * The bare Wiedervorlage of a `created` row.
+ *
+ * New rows carry it on `reminder.text`. Rows written before that — and the record is
+ * append-only, so they are still there and still open — only have the composed row text, so the
+ * «Erinnerung gesetzt für {t}: » lead-in is peeled off it. The pattern is derived FROM the copy
+ * template rather than hard-coded, so it keeps working in every locale and stays correct if the
+ * wording changes; anything that does not match is returned untouched.
+ */
+function bareText(e: TimelineEvent): string {
+  const explicit = e.reminder?.text?.trim()
+  if (explicit) return explicit
+  const tpl = appConfig.copy.journal.reminderCreated
+  const lead = tpl.slice(0, tpl.indexOf('{text}'))
+  if (!lead || !tpl.includes('{text}')) return e.text
+  const esc = lead.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace('\\{t\\}', '.{0,12}?')
+  const m = new RegExp(`^${esc}`).exec(e.text)
+  return m ? e.text.slice(m[0].length).trim() || e.text : e.text
 }
 
 /** A reminder is due once its effective due time has passed. */

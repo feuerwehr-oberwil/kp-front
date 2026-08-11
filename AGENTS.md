@@ -73,7 +73,11 @@ to prod.
 - **Incident records are append-only where it matters.** Verlauf is the human operational journal
   plus selected meaningful system events; audit/events record committed domain actions. Don't add
   mutate/delete shortcuts for production records; lifecycle changes (reminders, media transcripts,
-  corrections) are *new appended events* with state derived from them.
+  corrections) are *new appended events* with state derived from them. **A row carries what was
+  said, not a pointer to it** (reversed 11.08.): a Notiz, a Fläche's name, a Druckmeldung print
+  their actual text/value, because the Rapport is read on paper where nothing can be clicked. The
+  row is also the ONE string the Verlauf, the Rapport and the hash chain all read – so a re-shown
+  reminder carries its bare text alongside (`reminder.text`) rather than the row being re-parsed.
 - **Two kinds of settings:** per-device preferences (cookie/Preferences) vs. synced
   per-incident state (workspace blob). Both live in the Einstellungen sheet – pick the right
   one for a new setting.

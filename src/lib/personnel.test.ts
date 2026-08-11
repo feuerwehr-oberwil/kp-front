@@ -7,7 +7,7 @@ let nameOrder: 'last-first' | 'first-last' = 'last-first'
 vi.mock('./deploymentConfig', () => ({ rosterNameOrder: () => nameOrder }))
 afterEach(() => { nameOrder = 'last-first' })
 
-import { abbreviateName, assignedPersonIds, presentCount, resolvePersonName, linkTrupps, rosterFromList, rosterIdByName, truppSlots } from './personnel'
+import { abbreviateName, assignedPersonIds, canonicalName, personIdForName, presentCount, resolvePersonName, linkTrupps, rosterFromList, rosterIdByName, truppSlots } from './personnel'
 
 const person = (id: string, displayName: string, active = true): Person => ({ id, displayName, active, updatedAt: '2026-06-23T10:00:00Z' })
 
@@ -69,6 +69,53 @@ describe('presentCount', () => {
       p1: { status: 'present', displayNameSnapshot: 'Müller Hans' },
       p2: { status: 'left', displayNameSnapshot: 'Meier Anna' },
     })).toBe(1)
+  })
+})
+
+// The roster spells names in ONE order; the operator typing at 3am does not. A typed «Hans
+// Müller» that resolved to nobody made a roster person into a guest — no Anwesenheit lock, no
+// bold in the Verlauf, and a Kroki tag reading «Hans M.» beside «Müller H.» for the same Wehr.
+describe('rosterIdByName / personIdForName (word order)', () => {
+  const people: Person[] = [person('p1', 'Müller Hans'), person('p2', 'Von Arx Beat')]
+  const idx = rosterIdByName(people)
+
+  it('matches the roster spelling', () => {
+    expect(personIdForName(idx, 'Müller Hans')).toBe('p1')
+    expect(personIdForName(idx, '  müller   hans ')).toBe('p1')
+  })
+  it('matches the other word order too', () => {
+    expect(personIdForName(idx, 'Hans Müller')).toBe('p1')
+    expect(personIdForName(idx, 'Beat Von Arx')).toBe('p2')
+  })
+  it('still resolves nobody for a real Gast', () => {
+    expect(personIdForName(idx, 'Rösti Albert')).toBeUndefined()
+    expect(personIdForName(idx, '')).toBeUndefined()
+  })
+  it('the exact spelling wins over somebody else’s reversal', () => {
+    const both = rosterIdByName([person('p1', 'Müller Hans'), person('p2', 'Hans Müller')])
+    expect(personIdForName(both, 'Hans Müller')).toBe('p2')
+    expect(personIdForName(both, 'Müller Hans')).toBe('p1')
+  })
+  it('refuses to guess when two people are each other’s reversal', () => {
+    // «Peter Schmid» and «Schmid Peter» are two roster rows: nothing here can tell which one a
+    // third spelling meant, and putting the wrong person on an Atemschutz record is not a
+    // cosmetic error. No match is the honest answer.
+    const ambiguous = rosterIdByName([person('p1', 'Schmid Peter'), person('p2', 'Peter Schmid')])
+    expect(personIdForName(ambiguous, 'peter schmid')).toBe('p2') // an exact spelling still wins
+    expect(personIdForName(ambiguous, 'Schmid  Peter')).toBe('p1')
+  })
+})
+
+describe('canonicalName', () => {
+  const people = [person('p1', 'Müller Hans')]
+  const idx = rosterIdByName(people)
+  const roster = rosterFromList(people)
+
+  it('rewrites a typed name to the roster spelling', () => {
+    expect(canonicalName('Hans Müller', idx, roster)).toBe('Müller Hans')
+  })
+  it('leaves a name the roster does not know alone', () => {
+    expect(canonicalName('Rösti Albert', idx, roster)).toBe('Rösti Albert')
   })
 })
 

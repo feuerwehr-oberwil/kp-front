@@ -649,7 +649,7 @@ export const it: Localizable<Copy> = {
     leaderLabel: 'Capogruppo',
     leaderPlaceholder: 'Nome del capogruppo',
     memberLabel: 'Milito',
-    memberPlaceholder: 'Nome (facoltativo)',
+    guestNamePlaceholder: 'Nome',
     addMember: 'Aggiungi milito',
     removeMember: 'Rimuovi milito {n}',
     teamEmpty: 'Nessuno nella squadra. Tocca un nome qui sotto.',

@@ -58,7 +58,7 @@ export function TruppTeam({
   const chosenIds = new Set(value.map((v) => v.personId).filter(Boolean) as string[])
   const chosenNames = new Set(value.map((v) => v.name.trim()).filter(Boolean))
 
-  type Opt = { key: string; name: string; personId?: string; present: boolean; atStation: boolean; rank?: string; role?: string; taken: boolean }
+  type Opt = { key: string; name: string; personId?: string; present: boolean; atStation: boolean; rank?: string; role?: string; taken: boolean; guest?: boolean }
   const options: Opt[] = useMemo(() => {
     if (personnel.length) {
       return personnel
@@ -67,6 +67,8 @@ export function TruppTeam({
           key: p.id, name: p.displayName, personId: p.id, present: presentIds.has(p.id),
           atStation: !!stationIds?.has(p.id),
           rank: p.rank, role: rolesById?.get(p.id), taken: assignedIds.has(p.id),
+          // not on the Mannschaftsliste (lib/guests) — offered like anybody else, but SAID
+          guest: p.guest,
         }))
         // present first, then by seniority, then alphabetical — the same order every other
         // picker in the app uses, so a name sits where the hand already expects it. Somebody
@@ -194,6 +196,7 @@ export function TruppTeam({
             >
               {o.personId && <span className={cx(s.comboDot, o.present ? s.comboDotPresent : s.comboDotOff)} />}
               {o.rank && <span className={s.comboRank} title={rankLabel(o.rank)}>{rankAbbr(o.rank)}</span>}
+              {o.guest && <span className={s.comboGuest}>{appConfig.copy.anwesenheit.guestBadge}</span>}
               <span className={s.comboName}>{o.name}</span>
               {/* ONE note per row, most operational first: already in a Trupp beats «still at
                   the Magazin», which beats a Funktion, which beats «nicht anwesend». Where
@@ -218,7 +221,7 @@ export function TruppTeam({
         <div className={s.teamTypeRow}>
           <input
             ref={typedRef} autoFocus className={s.teamTypeInput} value={typed} maxLength={40}
-            placeholder={az.memberPlaceholder} aria-label={az.typeName}
+            placeholder={az.guestNamePlaceholder} aria-label={az.typeName}
             onChange={(e) => setTyped(stripUnprintable(e.target.value))}
             onKeyDown={(e) => {
               if (e.key === 'Enter') { e.preventDefault(); submitTyped() }

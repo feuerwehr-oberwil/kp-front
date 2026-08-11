@@ -833,8 +833,18 @@ export const de = {
     countSet: 'Anzahl {n}',
     spreadSet: 'Ausbreitung erfasst',
     spreadCleared: 'Ausbreitung entfernt',
-    notesWritten: 'Notiz erfasst',
+    // ⚠️ The note is QUOTED (reversed 11.08.; it used to be the bare «Notiz erfasst»). A note is
+    // the sentence somebody wrote BECAUSE the symbol could not say it — a row announcing that
+    // such a sentence exists elsewhere is no record of it, least of all on a printed Rapport
+    // where the Kroki cannot be clicked.
+    noteWritten: 'Notiz «{value}»',
     notesCleared: 'Notiz geleert',
+    /** a Fläche / Linie / Absperrkreis given a name — same rule as the note above. Naming a shape
+     *  is how «die Fläche da» becomes «Sammelplatz», and it used to reach the document without a
+     *  row: the Verlauf said a Fläche had been drawn and never what it turned out to be. */
+    drawingLabelSet: '{kind} «{value}»',
+    drawingLabelCleared: '{kind}: Beschriftung entfernt',
+    drawKinds: { area: 'Fläche', line: 'Zeichnung', circle: 'Absperrkreis' } as Record<string, string>,
   },
   // unified, append-only journal (Verlauf) shared by Lage + Plan
   journal: {
@@ -1055,7 +1065,10 @@ export const de = {
     leaderLabel: 'Gruppenführer',
     leaderPlaceholder: 'Name Gruppenführer',
     memberLabel: 'AdF',
-    memberPlaceholder: 'Name (optional)',
+    // ⚠️ NOT «(optional)». This is the row you opened in order to enter a Gast — the + beside
+    // it is disabled until it says something, so «optional» described the field before it
+    // existed rather than the one in front of you.
+    guestNamePlaceholder: 'Name',
     addMember: 'AdF hinzufügen',
     removeMember: 'AdF {n} entfernen',
     // Trupp selection (TruppTeam) — a list to tap instead of three fixed fields. The three
@@ -1156,9 +1169,21 @@ export const de = {
     pressureUp: '{step} bar mehr',
     pressureConfirm: 'Bestätigen',
     pressureConfirmHint: 'Neuen Druck bestätigen – zählt als Kontakt',
+    // ⚠️ A HINT, never a block. Air does not come back, so a rising value is almost always a
+    // typo — but «almost always» is not «always»: it is also how a wrong Eingangsdruck gets
+    // corrected, and at 3am the app does not get to refuse what the Überwacher says they read
+    // off the gauge. Shown while the value is still pending, so it can be fixed before it
+    // becomes a record rather than undone afterwards.
+    pressureRose: 'Höher als zuletzt ({from} bar) – vertippt?',
     // per-Trupp contact/pressure log (expandable on the card)
     verlauf: 'Verlauf',
-    readingKind: { registered: 'Angemeldet', entry: 'Eingerückt', contact: 'Kontakt', pressure: 'Druck' } as Record<string, string>,
+    // ⚠️ «Alarmdruck» and «Rückzug» are the two rows the printed Atemschutz-Journal is read for.
+    // Both used to be indistinguishable on it — the Alarmdruck as one «Druck» among a column of
+    // them, the Rückzug as a plain «Kontakt».
+    readingKind: {
+      registered: 'Angemeldet', entry: 'Eingerückt', contact: 'Kontakt', pressure: 'Druck',
+      alarm: 'Alarmdruck', rueckzug: 'Rückzug',
+    } as Record<string, string>,
     // contact-clock state words (carry the state as TEXT, not colour alone — colourblind-safe)
     clockOk: 'Kontakt ok',
     clockWarn: 'Kontakt fällig',
@@ -1246,7 +1271,14 @@ export const de = {
     logAlarm: 'Atemschutz-Alarm: Trupp {name} – {status}',
     // The Alarmdruck used to be visible only on the card – the record was missing the moment the
     // Trupp had to turn back. Only on CROSSING it, not on every value below it.
-    logPressureAlarm: 'Trupp {name}: Alarmdruck {bar} bar erreicht',
+    //
+    // ⚠️ This REPLACES the plain `logPressure` row for that one reading – it does not follow it.
+    // Both were written, so the crossing arrived as «Druck 100 bar» and «Alarmdruck 100 bar
+    // erreicht» on two lines in the same minute: the same event twice, which on a printed
+    // Atemschutz-Journal reads as two Druckmeldungen. `{bar}` is therefore the READING, not the
+    // threshold – the number that was measured is the fact, and «Alarmdruck erreicht» already
+    // says what it means. The threshold itself is station doctrine and stands on the Rapport.
+    logPressureAlarm: 'Trupp {name}: Druck {bar} bar – Alarmdruck erreicht',
     // A Trupp disappearing from the board is the one action that used to leave nothing behind at
     // all – the toast was gone and the Trupp had never existed.
     logRemoved: 'Trupp {name} gelöscht',
@@ -3409,6 +3441,14 @@ export const de = {
       sessionExpired: 'Sitzung abgelaufen – bitte neu anmelden.',
       saveFailed: 'Speichern fehlgeschlagen',
       loadFailed: 'Konfiguration konnte nicht geladen werden',
+      // ⚠️ NOT an error – nothing failed and nothing is lost. Somebody (oder ein Reset, oder die
+      // Kommandozeile) hat die Konfiguration inzwischen geändert, und dieser Browser-Tab kennt
+      // noch den Stand von vorher. Eine solche Seite hat immer das ganze Dokument geschrieben:
+      // ein seit dem Morgen offener Tab hat damit Dienstgrade, Partnerorganisationen und die
+      // Atemschutz-Doktrin einer Wehr in einem Zug zurückgesetzt – lautlos.
+      conflict: 'Konfiguration wurde anderswo geändert',
+      conflictHint: 'Neu laden zeigt den aktuellen Stand. «Übernehmen» schreibt die Änderungen dieser Seite darüber.',
+      conflictApply: 'Übernehmen',
     },
     usageBar: { aria: '{pct}% belegt' },
     identity: {

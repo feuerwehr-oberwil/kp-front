@@ -163,14 +163,17 @@ describe('useTruppActions placement (one place per Trupp)', () => {
 describe('useTruppActions — Rückzug / Fortsetzen count as a Funkkontakt', () => {
   const stale = { lastContactTime: '2026-07-06T10:00:00Z', readings: [{ t: '2026-07-06T10:00:00Z', bar: 300, kind: 'entry' as const }] }
 
-  it('Rückzug resets the contact clock and appends a contact reading', () => {
+  // …and it is written down AS a Rückzug (11.08.). Filed as a plain «Kontakt» it printed on the
+  // Atemschutz-Journal as an ordinary radio check — the one row a reconstruction looks for,
+  // indistinguishable from the twenty around it.
+  it('Rückzug resets the contact clock and appends a Rückzug reading', () => {
     const { actions, state } = harness(baseTrupp({ status: 'aktiv', lastPressureBar: 140, ...stale }))
     actions.setTruppStatus('T1', 'rueckzug')
     const t = state.trupps[0]
     expect(t.status).toBe('rueckzug')
     expect(t.lastContactTime).not.toBe(stale.lastContactTime)
     expect(t.readings).toHaveLength(2)
-    expect(t.readings?.[t.readings.length - 1]).toMatchObject({ kind: 'contact', bar: 140 }) // carries the last known Druck
+    expect(t.readings?.[t.readings.length - 1]).toMatchObject({ kind: 'rueckzug', bar: 140 }) // carries the last known Druck
   })
 
   it('Fortsetzen out of a Rückzug does the same', () => {
@@ -572,5 +575,40 @@ describe('useTruppActions — the Eingangsdruck opens the Druckverlauf', () => {
     })
     const t = state.trupps.find((x) => x.id === 'T9')!
     expect(t.readings).toEqual([{ t: expect.any(String), bar: 300, kind: 'registered' }])
+  })
+})
+
+// The two rows the printed Atemschutz-Journal is actually read for: when the Trupp hit its
+// Alarmdruck and when it was ordered back. Both used to be indistinguishable on it.
+describe('useTruppActions — the Alarmdruck is a reading of its own kind', () => {
+  const alarmBar = appConfig.atemschutz.alarmBar
+
+  it('files the reading that CROSSES the Alarmdruck as «alarm», and logs one row for it', () => {
+    const lines: string[] = []
+    const { actions, state } = harness(
+      baseTrupp({ lastPressureBar: alarmBar + 50, readings: [] }),
+      undefined,
+      (_i, text) => lines.push(text),
+    )
+    actions.recordPressure('T1', alarmBar)
+    const r = state.trupps[0].readings ?? []
+    expect(r[r.length - 1]).toMatchObject({ kind: 'alarm', bar: alarmBar })
+    // ⚠️ ONE row, not «Druck 100 bar» followed by «Alarmdruck 100 bar erreicht» in the same minute
+    expect(lines).toHaveLength(1)
+    expect(lines[0]).toContain(appConfig.copy.atemschutz.readingKind.alarm)
+  })
+
+  it('an ordinary reading above the Alarmdruck stays a plain Druck', () => {
+    const { actions, state } = harness(baseTrupp({ lastPressureBar: 300, readings: [] }))
+    actions.recordPressure('T1', 250)
+    const r = state.trupps[0].readings ?? []
+    expect(r[r.length - 1]).toMatchObject({ kind: 'pressure', bar: 250 })
+  })
+
+  it('does not repeat itself once the Trupp is already below the Alarmdruck', () => {
+    const { actions, state } = harness(baseTrupp({ lastPressureBar: alarmBar - 10, readings: [] }))
+    actions.recordPressure('T1', alarmBar - 20)
+    const r = state.trupps[0].readings ?? []
+    expect(r[r.length - 1]).toMatchObject({ kind: 'pressure' })
   })
 })

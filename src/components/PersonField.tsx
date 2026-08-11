@@ -65,7 +65,7 @@ export function PersonField({
   const [pos, setPos] = useState<{ left: number; top: number; width: number; maxH: number; up: boolean } | null>(null)
   const q = value.name.trim().toLowerCase()
 
-  type Opt = { key: string; name: string; personId?: string; present: boolean; assigned: boolean; rank?: string; role?: string }
+  type Opt = { key: string; name: string; personId?: string; present: boolean; assigned: boolean; rank?: string; role?: string; guest?: boolean }
   const options: Opt[] = useMemo(() => {
     if (personnel.length) {
       return personnel
@@ -77,6 +77,9 @@ export function PersonField({
         .map((p) => ({
           key: p.id, name: p.displayName, personId: p.id, present: presentIds.has(p.id), assigned: false, rank: p.rank,
           role: rolesById?.get(p.id),
+          // not on the Mannschaftsliste (lib/guests) — offered like anybody else, but SAID, so
+          // nobody picks a Nachbarwehr's AdF thinking they are looking at their own crew
+          guest: p.guest,
         }))
         // rankFirst: higher-ups first (rank → present → alpha); default: present first, rank as tiebreaker
         .sort((a, b) =>
@@ -221,6 +224,7 @@ export function PersonField({
                 >
                   {o.personId && <span className={cx(s.comboDot, o.present ? s.comboDotPresent : s.comboDotOff)} />}
                   {o.rank && <span className={s.comboRank} title={rankLabel(o.rank)}>{rankAbbr(o.rank)}</span>}
+                  {o.guest && <span className={s.comboGuest}>{appConfig.copy.anwesenheit.guestBadge}</span>}
                   <span className={s.comboName}>{o.name}</span>
                   {/* the job they already hold outranks «nicht anwesend»: somebody with a
                       Funktion IS here, and «schon: Einsatzleiter» is the more useful warning */}

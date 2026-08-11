@@ -127,8 +127,15 @@ export function personStatusHint(
   const e = attendance[personId]
   if (!e) return { label: A.legendFrei, tone: 'muted' }
   if (!isPresent(e)) return { label: A.legendLeft, tone: 'muted' }
-  // present — and the one thing worth saying about a present person is where they are standing
-  return ortOf(e) === 'station' ? { label: A.ortStation, tone: 'info' } : undefined
+  // present — so where they are standing, and then WHAT THEY ARE DOING
+  if (ortOf(e) === 'station') return { label: A.ortStation, tone: 'info' }
+  // ⚠️ The job they already hold, off their Anwesenheits-Bemerkung. It used to stop at the two
+  // whereabouts above, so the symbol pickers — the «Fahrer» on a vehicle, the «Name» on the
+  // Einsatzleiter glyph — were the only person lists in the app that could not say «this one is
+  // already the Fahrer of the TLF». Same fact the Trupp form's picker has always shown; the
+  // ordering is that picker's too (in einem Trupp → Magazin → Funktion → nicht anwesend).
+  const note = (e.note ?? '').trim()
+  return note ? { label: fillTemplate(A.alreadyBooked, { role: note }), tone: 'info' } : undefined
 }
 
 
