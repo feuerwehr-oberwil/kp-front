@@ -954,11 +954,27 @@ def render_kroki(
     # why it is the better shape.
     words = [(xy, lines, fs, False) for xy, lines, fs in labels]
     words += [(xy, lines, fs, True) for xy, lines, fs in captions]
-    for i, (xy, lines, _fs, under) in enumerate(words, start=1):
+    # ⚠️ ONLY what the picture actually shows. The Kroki crop follows the Lage, so the scene
+    # routinely carries labelled things outside the frame — their numbered disc is drawn off the
+    # canvas and silently clipped, while the legend went on listing them. The sheet then ended in
+    # a «7» nobody could find on the map, which is worse than not listing it: a reader assumes
+    # they missed it and goes looking. The disc has to be able to sit fully inside the frame.
+    r = _NUM_R * u * ss
+    w_px, h_px = overlay.size
+
+    def marker_xy(xy: tuple[float, float], under: bool) -> tuple[float, float]:
         # a caption's anchor is the TOP edge of where its chip would have hung, so the disc is
         # nudged down onto it; a label chip is centred on its anchor already
         x, y = xy
-        _numbered_marker(draw, (x, y + _NUM_R * u * ss if under else y), i, _NUM_R * u * ss)
+        return (x, y + r if under else y)
+
+    on_picture = [
+        (marker_xy(xy, under), lines)
+        for xy, lines, _fs, under in words
+        if r <= marker_xy(xy, under)[0] <= w_px - r and r <= marker_xy(xy, under)[1] <= h_px - r
+    ]
+    for i, (xy, lines) in enumerate(on_picture, start=1):
+        _numbered_marker(draw, xy, i, r)
         legend.append(" · ".join(t for t in lines if t.strip()))
 
     out = Image.alpha_composite(img, overlay).resize((width, height), Image.Resampling.LANCZOS).convert("RGB")

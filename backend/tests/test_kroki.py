@@ -391,3 +391,41 @@ def test_a_kroki_without_labels_has_no_legend():
     legend: list[str] = []
     kk.render_kroki(scene, kk.get_pack(), "", width=900, height=700, legend_out=legend)
     assert legend == []
+
+
+def test_the_legend_lists_only_what_the_crop_actually_shows():
+    """⚠️ A legend number the reader cannot find on the map is worse than no entry at all.
+
+    The Kroki crop follows the Lage (the operator frames the picture), so the scene routinely
+    carries labelled symbols outside the frame. Their numbered disc was drawn off the canvas and
+    silently clipped away while the legend went on listing them — a sheet ending in a «7» with
+    no 7 anywhere on the picture, which sends the reader looking for something that is not there
+    (reported 11.08. off a demo Kroki).
+    """
+    from app import kroki as kk
+
+    scene = kk.KrokiScene(
+        entities=[
+            {
+                "id": "a",
+                "kind": "symbol",
+                "symbol": "VKF Einsatzleiter",
+                "coord": [7.5300, 47.4100],
+                "caption": "im Bild",
+            },
+            # far outside any view fitted to the entity above
+            {
+                "id": "b",
+                "kind": "symbol",
+                "symbol": "VKF Fahrzeug",
+                "coord": [7.5300, 47.4100],
+                "caption": "weit weg",
+            },
+        ]
+    )
+    # a view centred tightly on the first symbol; the second is moved out of it
+    scene.entities[1]["coord"] = [7.6000, 47.4600]
+    view = kk.fit_view([(7.5300, 47.4100)], 900, 700)
+    legend: list[str] = []
+    kk.render_kroki(scene, kk.get_pack(), "", width=900, height=700, view=view, legend_out=legend)
+    assert legend == ["im Bild"], legend
