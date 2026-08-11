@@ -1430,6 +1430,7 @@ export const en: Localizable<Copy> = {
       anwesenheit: 'Attendance',
       mittel: 'Materials',
       einsatzleiter: 'Incident commander',
+      kontaktperson: 'Contact person',
       kurzbericht: 'Summary',
       rueckmeldung: 'Report back to ELZ',
     },
@@ -1741,6 +1742,9 @@ export const en: Localizable<Copy> = {
     roleEinsatzleiterStv: 'Deputy incident commander',
     roleEinsatzleiterStvShort: 'Dep. IC',
     roleFahrer: 'Driver {vehicle}',
+    roleOffizier: 'Officer {funktion}',
+    roleAtemschutz: 'SCBA',
+    roleOffizierPlain: 'Officer',
     roleRueckmeldung: 'Report to dispatch',
     alreadyBooked: '{role}',
     // hints, never blocks
@@ -1967,7 +1971,6 @@ export const en: Localizable<Copy> = {
     captureFrom: 'from',
     captureNoSource: 'no source',
     captured: '{label}: {menge} {unit} logged',
-    captureAlready: '{menge} {unit} already logged',
   },
   checklists: {
     railLabel: 'Checklists',

@@ -22,8 +22,13 @@ import type { ReportMeta } from './workspace'
 // prose and are legitimately empty on a routine Einsatz, so requiring them would leave the chip
 // amber on nearly every rapport and teach the eye to skip it. Named after the FIELD, not after
 // the «Nachbearbeitung» section it sits in — see the note above about 'abschluss'.
-export type AbschlussStep = 'zeiten' | 'anwesenheit' | 'mittel' | 'einsatzleiter' | 'kurzbericht' | 'rueckmeldung'
-export const ABSCHLUSS_STEPS: AbschlussStep[] = ['zeiten', 'anwesenheit', 'mittel', 'einsatzleiter', 'kurzbericht', 'rueckmeldung']
+// 'kontaktperson' was split out from 'einsatzleiter' on 2026-08-11. They are two different
+// people answering two different questions — who LED the Einsatz, and who on site the Wehr
+// dealt with (Hauswart, Betreiber, Anwohner) — and they sit in one grid, so a single chip
+// pointed at both and highlighted both. It is also a fact with a right answer, like the
+// Einsatzleiter and unlike the prose beside it.
+export type AbschlussStep = 'zeiten' | 'anwesenheit' | 'mittel' | 'einsatzleiter' | 'kontaktperson' | 'kurzbericht' | 'rueckmeldung'
+export const ABSCHLUSS_STEPS: AbschlussStep[] = ['zeiten', 'anwesenheit', 'mittel', 'einsatzleiter', 'kontaktperson', 'kurzbericht', 'rueckmeldung']
 
 export interface AbschlussFacts {
   reportMeta: ReportMeta
@@ -42,6 +47,8 @@ export function stepDone(step: AbschlussStep, f: AbschlussFacts): boolean {
       return f.mittelCount > 0 || !!f.reportMeta.mittelConfirmedNone
     case 'einsatzleiter':
       return !!f.reportMeta.einsatzleiter?.trim()
+    case 'kontaktperson':
+      return !!f.reportMeta.kontaktperson?.trim()
     case 'kurzbericht':
       return !!f.reportMeta.summary?.trim()
     case 'rueckmeldung': {

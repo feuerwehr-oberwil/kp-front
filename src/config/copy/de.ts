@@ -2316,6 +2316,7 @@ export const de = {
       anwesenheit: 'Anwesenheit',
       mittel: 'Mittel',
       einsatzleiter: 'Einsatzleiter',
+      kontaktperson: 'Kontaktperson',
       kurzbericht: 'Kurzbericht',
       rueckmeldung: 'Rückmeldung ELZ',
     },
@@ -2794,6 +2795,14 @@ export const de = {
     roleEinsatzleiterStv: 'Stv. Einsatzleiter',
     roleEinsatzleiterStvShort: 'Stv. EL',
     roleFahrer: 'Fahrer {vehicle}',
+    // the Funktion written on an Offizier-Symbol, forwarded to that person's Anwesenheits-
+    // Bemerkung — «Offizier SiBe», «Offizier Lüften». Without one: just «Offizier».
+    roleOffizier: 'Offizier {funktion}',
+    // somebody in an Atemschutz-Trupp — the same fact the picker states as «unter AS», written
+    // onto their Anwesenheits-Zeile so the Personalblatt can tell them from the crew that stayed
+    // at the Magazin. Short, because it shares a narrow column with «Fahrer TLF».
+    roleAtemschutz: 'AS',
+    roleOffizierPlain: 'Offizier',
     roleRueckmeldung: 'Rückmeldung ELZ',
     // Soft warning in the person picker (Atemschutz): whoever already has a role is probably
     // already committed – they can still be picked, always.
@@ -3140,9 +3149,6 @@ export const de = {
     captureFrom: 'ab',
     captureNoSource: 'ohne Quelle',
     captured: '{label}: {menge} {unit} erfasst',
-    // what is already on the sheet for this material, so a second tap is a decision and not a
-    // guess — «schon 2 erfasst» is the whole reason somebody hesitates over this button
-    captureAlready: 'schon {menge} {unit} erfasst',
     // Retablierung per equipment row (consumable Mittel end up in the resupply list)
   },
   // Checkliste surface (ChecklistsView · ChecklistRunner · ChecklistReference)

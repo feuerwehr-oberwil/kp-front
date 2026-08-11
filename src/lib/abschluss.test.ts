@@ -50,7 +50,7 @@ describe('stepDone', () => {
     const done = facts({
       reportMeta: {
         endedAt: '2026-07-08T05:00:00Z', summary: 'ok', mittelConfirmedNone: true,
-        einsatzleiter: 'Hptm Meier',
+        einsatzleiter: 'Hptm Meier', kontaktperson: 'Hauswart Roth',
         rueckmeldungElz: { name: 'Wm Keller', at: '2026-07-08T05:10:00Z' },
       },
       attendanceCount: 3,
@@ -64,11 +64,26 @@ describe('stepDone', () => {
     const m = missingSteps(facts({
       reportMeta: {
         endedAt: '2026-07-08T05:00:00Z', summary: 'ok', mittelConfirmedNone: true,
+        kontaktperson: 'Hauswart Roth',
         rueckmeldungElz: { name: 'Wm Keller', at: '2026-07-08T05:10:00Z' },
       },
       attendanceCount: 3,
     }))
     expect(m).toEqual(['einsatzleiter'])
+  })
+
+  // ⚠️ Two people, two questions: who LED the Einsatz, and who on site the Wehr dealt with.
+  // They shared one step until 11.08., so the «Einsatzleiter» chip pointed at both fields.
+  it('counts the Kontaktperson separately from the Einsatzleiter', () => {
+    const base = {
+      endedAt: '2026-07-08T05:00:00Z', summary: 'ok', mittelConfirmedNone: true,
+      rueckmeldungElz: { name: 'Wm Keller', at: '2026-07-08T05:10:00Z' },
+    }
+    expect(missingSteps(facts({ reportMeta: { ...base, einsatzleiter: 'Hptm Meier' }, attendanceCount: 3 })))
+      .toEqual(['kontaktperson'])
+    expect(missingSteps(facts({ reportMeta: { ...base, kontaktperson: 'Hauswart Roth' }, attendanceCount: 3 })))
+      .toEqual(['einsatzleiter'])
+    expect(stepDone('kontaktperson', facts({ reportMeta: { kontaktperson: '   ' } }))).toBe(false)
   })
 })
 

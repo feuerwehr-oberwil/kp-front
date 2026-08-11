@@ -966,9 +966,12 @@ export function ReportPreflight({
               <textarea className="ip-textarea" value={summary} rows={5} placeholder={P.summaryPlaceholder}
                 onChange={(e) => { const v = stripUnprintable(e.target.value); setSummary(v); persist({ summary: v.trim() || undefined }) }} />
             </label>
-            {/* the Einsatzleiter is this grid's FIRST cell, so anchoring the grid puts it in
-                view without wrapping the picker in a div that would become a grid item of its own */}
-            <div className="report-meta-grid" data-step="einsatzleiter">
+            <div className="report-meta-grid">
+              {/* ⚠️ Each field carries its OWN anchor. The grid used to carry one for
+                  «einsatzleiter», so the chip highlighted the Einsatzleiter AND the Kontaktperson
+                  — two different people answering two different questions. The grid is a single
+                  column, so a wrapper here is a plain block box and changes no layout. */}
+              <div data-step="einsatzleiter">
               <PersonField
                 label={P.einsatzleiterLabel} placeholder={P.einsatzleiterPlaceholder}
                 value={{ name: einsatzleiter }} onChange={(slot) => {
@@ -982,7 +985,8 @@ export function ReportPreflight({
                 assignedIds={NO_IDS} usedIds={NO_IDS} usedNames={NO_IDS}
                 rankFirst officerFilter
               />
-              <label className="ip-field">
+              </div>
+              <label className="ip-field" data-step="kontaktperson">
                 <span>{P.kontaktpersonLabel}</span>
                 {/* ✕: the Rapport is filled in after the fact and corrected as the picture
                     settles — a name written down from a first guess is normal here. */}
