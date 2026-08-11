@@ -3390,6 +3390,16 @@ export const de = {
       loading: 'Einsätze werden geladen…', error: 'Einsätze konnten nicht geladen werden.', search: 'Titel, Adresse oder Herkunft suchen…',
       none: 'Keine Einsätze vorhanden.', noMatches: 'Keine Einsätze passen zur Suche.', started: 'Beginn', incident: 'Einsatz', status: 'Status',
       source: 'Herkunft', report: 'Rapport', updated: 'Geändert', open: 'offen', closed: 'abgeschlossen', complete: 'vollständig', incomplete: 'offen',
+      // ⚠️ Löschen vernichtet eine Einsatzakte: Verlauf, Prüfkette, Anwesenheit, Fotos und
+      // Sprachnotizen. Die Frage nennt deshalb, was verschwindet — nicht «wirklich löschen?»,
+      // was nur fragt, ob man den Knopf treffen wollte. Nur für abgeschlossene Einsätze, weil
+      // das Abschliessen der Moment ist, in dem jemand sagt «der Einsatz ist vorbei».
+      delete: 'Löschen',
+      deleteAria: '«{title}» löschen',
+      deleteQuestion: 'Verlauf, Prüfkette, Anwesenheit und alle Medien von «{title}» endgültig löschen?',
+      deleteOpenHint: 'Erst abschliessen',
+      deleteFailed: 'Löschen fehlgeschlagen.',
+      actions: 'Aktionen',
     },
     autosave: {
       retry: 'Erneut versuchen',

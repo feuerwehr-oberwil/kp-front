@@ -64,6 +64,7 @@ async def test_flag_roundtrip_and_patch(client, editor):
 
 
 async def test_delete_real_incident_forbidden(client, editor):
+    """An EDITOR still cannot delete a real Einsatz — that is an Einsatzakte, not a scratch pad."""
     await _login(client, editor)
     inc_id = await _create(client, "Echter Einsatz")
 
@@ -73,6 +74,31 @@ async def test_delete_real_incident_forbidden(client, editor):
     # still there
     r = await client.get(f"/api/incidents/{inc_id}")
     assert r.status_code == 200
+
+
+async def test_admin_can_delete_an_archived_real_incident(client, editor, admin_login):
+    """The second door: a mistaken duplicate or a test alarm taken in earnest used to be
+    undeletable by anybody. It takes the same key as the Verwaltung."""
+    await _login(client, editor)
+    inc_id = await _create(client, "Doppelt erfasst")
+    assert (await client.patch(f"/api/incidents/{inc_id}", json={"is_archived": True})).status_code == 200
+
+    await admin_login(client)
+    r = await client.delete(f"/api/incidents/{inc_id}")
+    assert r.status_code == 204, r.text
+    assert (await client.get(f"/api/incidents/{inc_id}")).status_code == 404
+
+
+async def test_admin_cannot_delete_a_running_real_incident(client, editor, admin_login):
+    """⚠️ Archiving is the operator saying the Einsatz is over, and it is the only moment at which
+    «löschen» is a decision rather than an accident."""
+    await _login(client, editor)
+    inc_id = await _create(client, "Läuft noch")
+
+    await admin_login(client)
+    r = await client.delete(f"/api/incidents/{inc_id}")
+    assert r.status_code == 409, r.text
+    assert (await client.get(f"/api/incidents/{inc_id}")).status_code == 200
 
 
 async def test_delete_exercise_removes_it(client, editor):
