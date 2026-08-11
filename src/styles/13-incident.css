@@ -899,20 +899,24 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    actions are asked to wrap before the title is squeezed to nothing, the actions may shrink, and
    the head itself may become two rows. A second row costs ~52px of a surface that scrolls; a
    clipped print button costs the paper. */
-.rp-head { flex: none; display: flex; align-items: center; gap: 12px 16px; flex-wrap: wrap;
-  padding: 16px 22px;
+/* THE surface header (tokens · --head-*) — the same object as the Anwesenheit, Atemschutz and
+   Mittel heads. This one's proportions became the shared spec: it is the head that had already
+   worked out both problems (a titles block that takes its own row rather than squeezing, and a
+   summary allowed to wrap), so the other three were levelled to it rather than the other way. */
+.rp-head { flex: none; display: flex; align-items: center; gap: var(--head-gap); flex-wrap: wrap;
+  padding: var(--head-pad);
   background: var(--surface); border-bottom: 1px solid var(--glass-edge); }
-.rp-head-titles { flex: 1 1 240px; min-width: 0; }
+.rp-head-titles { flex: 1 1 var(--head-titles-min); min-width: 0; }
 /* it truncates, exactly as the line under it always did — an <h2> that does not is an <h2> that
    paints over whatever is beside it */
-.rp-head-titles h2 { margin: 0; font: 800 19px var(--body); color: var(--ink);
+.rp-head-titles h2 { margin: 0; font: var(--head-title); color: var(--ink);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* ⚠️ It WRAPS now. Truncating this line meant truncating the missing steps, because they sit
    at its end — «noch offen: Kurzberi…» hides the one thing the line exists to say. The
    counts stay a single read-out; the open steps are chips that take a second row when they
    need one, which on a head that is already allowed to wrap costs nothing. */
-.rp-head-sum { margin: 4px 0 0; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px;
-  font-size: 12.5px; color: var(--ink-dim); min-width: 0; }
+.rp-head-sum { margin: var(--head-sub-gap) 0 0; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px;
+  font-size: var(--head-sub); color: var(--ink-dim); min-width: 0; }
 .rp-head-counts { white-space: nowrap; }
 .rp-head-done { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .rp-head-done svg { width: 13px; height: 13px; }

@@ -12,14 +12,19 @@
   background: var(--app-bg); border-radius: var(--r-surface); overflow: hidden; box-shadow: var(--shadow);
 }
 
+/* THE surface header (tokens · --head-*) — see Atemschutz.module.css; identical by construction. */
 .head {
-  display: flex; align-items: center; gap: 16px; padding: 16px 22px;
+  display: flex; align-items: center; gap: var(--head-gap); padding: var(--head-pad); flex-wrap: wrap;
   background: var(--surface); border-bottom: 1px solid var(--glass-edge);
 }
-.headTitles { flex: 1 1 auto; min-width: 0; }
+.headTitles { flex: 1 1 var(--head-titles-min); min-width: 0; }
 .headActions { flex: none; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-.headTitles h2 { margin: 0; font-size: 19px; font-weight: 800; color: var(--ink); }
-.headTitles p { margin: 3px 0 0; font-size: 12.5px; color: var(--ink-dim); }
+/* ⚠️ No ellipsis, unlike the Rapport's h2 — that one carries an arbitrary Einsatz name and has
+   to truncate; these three are fixed strings the layout is sized for («Atemschutzüberwachung» is
+   the longest, and --head-titles-min is wide enough for it). A fixed title that truncates is a
+   bug, not a graceful degradation. Font and spacing are the shared spec; wrapping is not. */
+.headTitles h2 { margin: 0; font: var(--head-title); color: var(--ink); }
+.headTitles p { margin: var(--head-sub-gap) 0 0; font-size: var(--head-sub); color: var(--ink-dim); }
 
 /* the Mittel / nach-Quelle view toggle now uses the shared <Segmented> (.useg) — its old
    bespoke .viewToggle chrome was removed. Disabled options grey out while the list is empty. */

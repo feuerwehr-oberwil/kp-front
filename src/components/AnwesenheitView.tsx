@@ -549,22 +549,25 @@ export function AnwesenheitView({
               where those twelve are. That second half IS the answer to «wen könnte ich noch
               nachziehen», so it belongs in the head and not behind a filter. Hidden while
               everybody is at the scene: on the ordinary Einsatz it would say «12 vor Ort · 0
-              Magazin» forever, which is a line that teaches you to stop reading the head. */}
+              Magazin» forever, which is a line that teaches you to stop reading the head.
+              ⚠️ UNDER THE TITLE, the way every other surface head carries its quiet line
+              (tokens · --head-*). It used to be a full-width row of its own BELOW the tabs and
+              the buttons — which fixed the real problem it had (squeezed into a 250px column it
+              stacked five lines deep) at the cost of a head that was a different object from the
+              three next to it. The titles block now yields to the tools only down to
+              --head-titles-min and then takes a row of its own, so the counts still get a line
+              they fit on — the same way the Rapport's head has always solved this. */}
+          <p className={s.headSummary}>
+            {fillTemplate(A.summary, { present: counts.present })}
+            {counts.station > 0 && (
+              <> · {fillTemplate(A.summaryOrt, { scene: counts.scene, station: counts.station })}</>
+            )}
+            {/* «gegangen» closes the line. Between «anwesend» and the Ort split it sat in the
+                middle of the two numbers that describe the crew ON HAND, which is not what it
+                counts. Hidden at zero: a «0 gegangen» is not news on most Einsätze. */}
+            {counts.left > 0 && <> · {fillTemplate(A.summaryLeft, { left: counts.left })}</>}
+          </p>
         </div>
-        {/* ⚠️ A row of its OWN, spanning the head. Beside the title it competed with the QR
-            read-out and the three view tabs for what was left, so on a 700px panel «13 anwesend
-            · 2 gegangen · 12 Mannschaft …» stacked five lines deep in a 250px column — and on a
-            phone it was cut off entirely. It is the one line this panel exists to give. */}
-        <p className={s.headSummary}>
-          {fillTemplate(A.summary, { present: counts.present })}
-          {counts.station > 0 && (
-            <> · {fillTemplate(A.summaryOrt, { scene: counts.scene, station: counts.station })}</>
-          )}
-          {/* «gegangen» closes the line. Between «anwesend» and the Ort split it sat in the
-              middle of the two numbers that describe the crew ON HAND, which is not what it
-              counts. Hidden at zero: a «0 gegangen» is not news on most Einsätze. */}
-          {counts.left > 0 && <> · {fillTemplate(A.summaryLeft, { left: counts.left })}</>}
-        </p>
         {/* …and the poster read-out under it again, in its own still-quieter row. Beside the
             title it was a pill competing with the panel's own heading; folded into the counts it
             muddled «wie steht es» with «womit wurde erfasst». One line each. */}

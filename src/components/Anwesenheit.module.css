@@ -7,17 +7,21 @@
   background: var(--app-bg); border-radius: var(--r-surface); overflow: hidden; box-shadow: var(--shadow);
 }
 
+/* THE surface header (tokens · --head-*) — see Atemschutz.module.css; identical by construction.
+   This head carries ONE row more than the others (the QR read-out), which is what a surface with
+   more to say is allowed to do — it does not get different metrics for it. */
 .head {
-  display: flex; align-items: center; gap: 8px 16px; padding: 16px 22px; flex-wrap: wrap;
+  display: flex; align-items: center; gap: var(--head-gap); padding: var(--head-pad); flex-wrap: wrap;
   background: var(--surface); border-bottom: 1px solid var(--glass-edge);
 }
-/* the counts, on a line of their own under everything else — see AnwesenheitView */
-.headSummary { flex: 1 0 100%; order: 4; margin: 0; font-size: 12.5px; color: var(--ink-dim); }
-/* …and the QR read-out under THAT: same idea, one step quieter. Empty until the first poster
-   write, and an empty <p> must not draw a gap. */
+/* the counts, under the title inside the titles block — see AnwesenheitView */
+.headSummary { margin: var(--head-sub-gap) 0 0; font-size: var(--head-sub); color: var(--ink-dim); }
+/* …and the QR read-out under THAT: same idea, one step quieter, and on a row of its own because
+   it answers a different question. Empty until the first poster write, and an empty <p> must not
+   draw a gap. */
 .headQr { flex: 1 0 100%; order: 5; margin: 0; line-height: 1; }
 .headQr:empty { display: none; }
-.headTitles { flex: 1 1 auto; min-width: 0; }
+.headTitles { flex: 1 1 var(--head-titles-min); min-width: 0; }
 .headActions { flex: none; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 /* ONE height and ONE corner for every control on this line. They had three: the printer button is
    --tap (44px, the tap floor), the tab switcher came to 40px (34px buttons inside 3px padding) and
@@ -34,7 +38,11 @@
    the action cluster coming with them. On a desk screen they sit inline, between the title and
    the tools, and claim only their own width. */
 .headTabs { flex: none; order: 2; }
-.headTitles h2 { margin: 0; font-size: 19px; font-weight: 800; color: var(--ink); }
+/* ⚠️ No ellipsis, unlike the Rapport's h2 — that one carries an arbitrary Einsatz name and has
+   to truncate; these three are fixed strings the layout is sized for («Atemschutzüberwachung» is
+   the longest, and --head-titles-min is wide enough for it). A fixed title that truncates is a
+   bug, not a graceful degradation. Font and spacing are the shared spec; wrapping is not. */
+.headTitles h2 { margin: 0; font: var(--head-title); color: var(--ink); }
 
 
 .reload {
@@ -223,12 +231,13 @@ button.ortStation:hover { background: color-mix(in srgb, var(--blue) 22%, transp
   /* keep the counts on a single line so the header stays short (was wrapping to 4 lines and
      ballooning the header); the action buttons collapse to icons to free the width for it */
   /* ⚠️ The counts are never cut. «13 anwesend · 2 gegange…» is the one line this panel exists
-     to give at a glance, and an ellipsis through it answers nothing — so they keep their own
-     full-width row and wrap there if they must. The QR read-out steps aside on a phone: it is a
-     footnote about the poster being used, which nobody acts on, and it is still on the Rapport. */
-  .headSummary { font-size: 12px; line-height: 1.35; order: 4; }
+     to give at a glance, and an ellipsis through it answers nothing — so they wrap rather than
+     truncate. (They sit under the title inside the titles block now, so the `order` they used to
+     carry as a direct child of `.head` is gone with it.) The QR read-out steps aside on a phone:
+     it is a footnote about the poster being used, which nobody acts on, and it is still on the
+     Rapport. */
+  .headSummary { font-size: 12px; line-height: 1.35; }
   .headQr { order: 5; }
-  .headTabs { order: 6; }
   .headActions { gap: 6px; }
   .reload { padding: 0; width: var(--tap); height: var(--tap); justify-content: center; }
   .reloadLabel { display: none; }
