@@ -269,6 +269,14 @@ const base = {
       byName: {
         // ── Schadenlage ── on a storey (floor badge); the label carries the rest.
         'VKF Feuer': { controls: ['floor', 'spread'] },
+        // ⚠️ These four carried NO preset at all, so they were the only Schadenlage symbols
+        // without a storey — while Feuer, Rauch, Wasser, Unfall, Explosion, Gefahrstoffe and
+        // Rettungen all have one. Damage in a building happens on a floor, and «Teilzerstörung»
+        // with no storey is exactly the statement a Kroki cannot afford to leave vague.
+        'FW Beschaedigung': { controls: ['floor'] },
+        'FW Teilzerstoerung': { controls: ['floor'] },
+        'FW Totalzerstoerung': { controls: ['floor'] },
+        'FW Ueberschwemmung': { controls: ['floor'] },
         'VKF Rauch': { controls: ['floor', 'spread'] },
         // ⚠️ «Vermisst» and «eingesperrt» are STATES of a Rettung, not symbols of their own.
         // The count and the storey were already here; what the map could not say was whether
@@ -295,13 +303,13 @@ const base = {
         'FW Elektroanlage': { controls: ['floor'] },
         'FW Gefahr W': { controls: ['floor'] },
         // ── Personen / Sanität ── the label/name says it; no fields, no count.
-        'VKF Patientensammelstelle': {},
-        'VKF Sanitaetshilfsstelle': {},
-        'VKF Totensammelstelle': {},
-        'VKF Sammelstelle': {},   // FKS: Unverletzte (see displayNames)
+        'VKF Patientensammelstelle': { controls: ['count'] },
+        'VKF Sanitaetshilfsstelle': { controls: ['count'] },
+        'VKF Totensammelstelle': { controls: ['count'] },
+        'VKF Sammelstelle': { controls: ['count'] },   // FKS: Unverletzte (see displayNames)
         'FW Sammelplatz': {},
         'FW Warteraum': {},
-        'FW Verwundetennest': {},
+        'FW Verwundetennest': { controls: ['count'] },
         'VKF Bereich Sanitaet': { fields: ['Einheit'] },
         // ── Führung ── name is the info; only the two person symbols seed 'Name'.
         'VKF KP Front': {},
@@ -352,8 +360,8 @@ const base = {
         'SI Unterflurhydrant': {},
         'VKF Innenhydrant': {},
         'SI Wasserloeschposten': {},
-        'WV Loeschweier': {},
-        'SI Wasserbezugsort': {},
+        'WV Loeschweier': { fields: ['Kapazität'] },
+        'SI Wasserbezugsort': { fields: ['Kapazität'] },
         'SI Wasserdruckversorgung': {},
         // ── Gebäude ── interior elements: floor badge; walls/doors/stairs also orient.
         'GB BA Wand F30': { controls: ['rotation', 'floor'] },

@@ -423,6 +423,10 @@ export function ContextPanel({ entity, svg, onClose, onCenter, onTitle, onTitleL
    *  fact that the station configured a title list for it. Those keep an editable name (as a
    *  «Bezeichnung» field below); every other symbol's header is its own name and read-only. */
   const labelled = !isNote && !!titleOptions?.length
+  /** «Anzahl Verwundete», not «Anzahl». On the symbols where the number IS the message, the bare
+   *  word makes a reader ask what is being counted — and the Kroki prints the label, so the paper
+   *  inherits the question. Falls back to the plain word for everything else. */
+  const countLabel = (entity.symbol && C.countBySymbol[entity.symbol]) || C.count
   /** the symbol's own name, for the header of everything that is NOT user-labelled */
   const symbolName = entity.symbol ? formatSymbolName(entity.symbol) : ''
   const showDetails = !isNote && (showFloor || showFloorRange || showCount || showRotate || showSpread || showAirflow || onNotes || rows.length > 0 || showUnHazard || !readOnly)
@@ -608,7 +612,7 @@ export function ContextPanel({ entity, svg, onClose, onCenter, onTitle, onTitleL
               {entity.floor != null && <div className="field"><span>{C.floor}</span><b>{floorStr(entity.floor)}</b></div>}
               {entity.floorFrom != null && <div className="field"><span>{C.floorFrom}</span><b>{floorStr(entity.floorFrom)}</b></div>}
               {entity.floorTo != null && <div className="field"><span>{C.floorTo}</span><b>{floorStr(entity.floorTo)}</b></div>}
-              {(entity.count ?? 1) > 1 && <div className="field"><span>{C.count}</span><b>{entity.count}</b></div>}
+              {(entity.count ?? 1) > 1 && <div className="field"><span>{countLabel}</span><b>{entity.count}</b></div>}
               {(entity.rotation ?? 0) !== 0 && <div className="field"><span>{showRotate2 ? C.rotationVehicle : C.rotation}</span><b>{entity.rotation}°</b></div>}
               {entity.extract && <div className="field"><span>{C.airflow}</span><b>{C.airflowExtract}</b></div>}
             </div>
@@ -631,9 +635,9 @@ export function ContextPanel({ entity, svg, onClose, onCenter, onTitle, onTitleL
                 </>
               )}
               {showCount && (
-                <LabeledStepper label={C.count} value={entity.count ?? 1}
+                <LabeledStepper label={countLabel} value={entity.count ?? 1}
                   onChange={(v) => onCount!(v)} onClear={() => onCount!(null)} canClear={(entity.count ?? 1) > 1}
-                  min={1} max={COUNT_MAX} readOnly={readOnly} ariaLabel={C.count} />
+                  min={1} max={COUNT_MAX} readOnly={readOnly} ariaLabel={countLabel} />
               )}
               {showRotate && (
                 // when a fan rotation is also present (Grosslüfter) the body stepper reads «Fahrzeug»
@@ -727,7 +731,8 @@ export function ContextPanel({ entity, svg, onClose, onCenter, onTitle, onTitleL
                 const fixed = readOnly || !!protectedKeys?.has(r.k.trim())
                 const field = (
                   <>
-                    <FieldControl fieldKey={r.k} value={r.v} options={fieldOptions?.[r.k]} placeholder={C.fieldValuePlaceholder}
+                    <FieldControl fieldKey={r.k} value={r.v} options={fieldOptions?.[r.k]}
+                      placeholder={C.fieldPlaceholders[r.k.trim()] ?? C.fieldValuePlaceholder}
                       officerFilter={officerSym} rankOf={rankOf} statusOf={personStatus}
                       onInput={(v) => setRow(i, { v })} onCommit={(v) => setRowValue(i, v)} />
                     {/* the contradiction stays put, under the field it is about */}

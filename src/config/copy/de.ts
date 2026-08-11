@@ -348,6 +348,11 @@ export const de = {
     'VKF Hubretter': 'Hubretter',
     'VKF Fahrzeug': 'Fahrzeug',
     'VKF Pumpe Typ2': 'Pumpe',
+    // ⚠️ These two had NO entry and fell through to formatSymbolName(), which strips the
+    // pack prefix — «VKF Rauch» → «Rauch» happened to be right, and would have stopped being
+    // right the moment either name changed. Every other placeable symbol is named here.
+    'VKF Rauch': 'Rauch',
+    'FW Boot': 'Boot',
     'FW Tauchpumpe': 'Tauchpumpe',
     'FW Wassersauger': 'Wassersauger',
     'VKF Helilandeplatz': 'Helilandeplatz',
@@ -1437,6 +1442,18 @@ export const de = {
     spreadDown: 'Untergeschoss (↓)',
     count: 'Anzahl',
     rotation: 'Drehung',
+    // ⚠️ The Anzahl gets the noun it is counting. A “Patientensammelstelle · Anzahl 12” makes a
+    // reader ask «Anzahl was» on the one symbol where the number IS the message — and the Kroki
+    // prints the label, so the paper inherits the question. Keyed per symbol; anything not listed
+    // keeps the plain «Anzahl».
+    countBySymbol: {
+      'VKF Patientensammelstelle': 'Anzahl Patienten',
+      'VKF Sanitaetshilfsstelle': 'Anzahl Patienten',
+      'FW Verwundetennest': 'Anzahl Verwundete',
+      'VKF Totensammelstelle': 'Anzahl Verstorbene',
+      'VKF Sammelstelle': 'Anzahl Unverletzte',
+      'VKF Rettungen': 'Anzahl Personen',
+    } as Record<string, string>,
     rotationVehicle: 'Fahrzeug',
     rotationFan: 'Lüfter',
     rotationLadder: 'Leiter',
@@ -1483,6 +1500,12 @@ export const de = {
     removeField: 'Feld entfernen',
     fieldKeyPlaceholder: 'Bezeichnung',
     fieldValuePlaceholder: 'Wert',
+    // ⚠️ A field whose value needs a UNIT has to say so in the box. «Kapazität: 80» is ambiguous
+    // between litres and cubic metres on the one number a Wasserversorgung is planned from —
+    // and the placeholder is the cheapest place to settle it, since it costs nothing to ignore.
+    fieldPlaceholders: {
+      'Kapazität': 'z. B. 80 m³',
+    } as Record<string, string>,
     // two fields with the same label collapse into one on save – {key} = that label
     duplicateField: '«{key}» gibt es schon – nur der letzte Wert bleibt erhalten.',
     // UN-Nr → Stoff auto-fill (Gefahrentafel). unField/stoffField are the detail-row

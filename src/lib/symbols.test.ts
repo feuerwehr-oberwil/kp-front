@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { symbolCaptionText, symbolControls, symbolFieldOptions } from './symbols'
+import { symbolCaptionText, symbolControls, symbolFieldOptions, symbolPresetFieldKeys } from './symbols'
 import type { SymbolControl } from '../types'
 import { appConfig } from '../config/appConfig'
 
@@ -156,5 +156,41 @@ describe('symbolCaptionText — metadata printed under a symbol glyph', () => {
     expect(symbolCaptionText({
       symbol: appConfig.symbols.vehicleName, label: 'TLF 1', fields: { Fahrer: 'Céline Widmer' }, caption: 'off',
     }, 'all')).toBeNull()
+  })
+})
+
+// The symbol pack's presets are config, and a missing entry is invisible rather than loud — the
+// symbol simply offers nothing. These pin the ones that were found missing on 2026-08-11.
+describe('presets that were silently absent', () => {
+  it('every Schadenlage symbol can name a storey', () => {
+    // Beschädigung / Teil- / Totalzerstörung / Überschwemmung had NO preset at all, so they were
+    // the only damage symbols with no floor — «Teilzerstörung» with no storey is exactly the
+    // statement a Kroki cannot afford to leave vague.
+    for (const n of ['FW Beschaedigung', 'FW Teilzerstoerung', 'FW Totalzerstoerung', 'FW Ueberschwemmung',
+                     'VKF Feuer', 'VKF Rauch', 'VKF Wasser', 'VKF Unfall']) {
+      expect(symbolControls(n).has('floor'), n).toBe(true)
+    }
+  })
+
+  it('every place people are collected can count them', () => {
+    for (const n of ['VKF Patientensammelstelle', 'VKF Sanitaetshilfsstelle', 'FW Verwundetennest',
+                     'VKF Totensammelstelle', 'VKF Sammelstelle', 'VKF Rettungen']) {
+      expect(symbolControls(n).has('count'), n).toBe(true)
+    }
+  })
+
+  it('…and the Anzahl says WHAT it counts', () => {
+    const byName = appConfig.copy.contextPanel.countBySymbol
+    expect(byName['FW Verwundetennest']).toBe('Anzahl Verwundete')
+    expect(byName['VKF Totensammelstelle']).toBe('Anzahl Verstorbene')
+    // anything not listed keeps the plain word
+    expect(byName['VKF Feuer']).toBeUndefined()
+  })
+
+  it('a water source can state its capacity', () => {
+    expect(symbolPresetFieldKeys('WV Loeschweier')).toContain('Kapazität')
+    expect(symbolPresetFieldKeys('SI Wasserbezugsort')).toContain('Kapazität')
+    // …and the box says which unit, because «Kapazität: 80» is ambiguous
+    expect(appConfig.copy.contextPanel.fieldPlaceholders['Kapazität']).toContain('m³')
   })
 })
