@@ -250,7 +250,8 @@
   background: var(--glass); backdrop-filter: blur(16px); border-radius: var(--r-hero); box-shadow: var(--shadow);
 }
 .ip-sheet > .ip-head { flex: none; }
-.ip-sheet > .ip-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+/* same x-axis trap as .ctx-body — see 06-contextpanel.css */
+.ip-sheet > .ip-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; }
 /* fit variant: hug the content instead of the fixed 800px frame (short one-off modals) */
 .ip-sheet.ip-fit { height: auto; max-height: min(800px, 88dvh); }
 /* Base UI Dialog wrapper (src/lib/overlays/Sheet.tsx). Base UI portals the Backdrop and the
@@ -1013,7 +1014,7 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    (`.ip-body`'s own 6px/20px is a dialog's, and left the first card glued to the head border).
    The bottom clears the FAB the way Anwesenheit, Mittel, Atemschutz, Checklists and Zeitplan all
    already do — `--fab-safe` is 0px when no FAB is on screen, so this is inert on a tablet. */
-.report-preflight-surface > .ip-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable;
+.report-preflight-surface > .ip-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-gutter: stable;
   padding: 14px 22px calc(22px + var(--fab-safe, 0px)); }
 /* The actions live in the HEAD with the other surfaces' controls, and the readiness chip rides
    with them — a warning about the record has to be in the same glance as the button that makes
@@ -1067,7 +1068,7 @@ select.cv-input { appearance: none; -webkit-appearance: none;
   .report-pre-section { padding: 12px 13px; }
 
 }
-.report-preflight > .ip-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.report-preflight > .ip-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
 
 .ip-ds-note { font: 500 11px var(--mono); color: var(--ink-faint); margin-top: 3px; }
 /* Datenquellen: collapsible groups + search so the 150+ object list stays manageable */

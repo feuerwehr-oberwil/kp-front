@@ -193,7 +193,7 @@
      caption row + Zentrieren/Entfernen actions (.ctx-footer-inline replaces the pinned
      desktop copy — field feedback 2026-07-09). */
   .ctx { overflow: hidden; }
-  .ctx .ctx-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+  .ctx .ctx-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
   .ctx > .ctx-caprow, .ctx > .ctx-actions { display: none; }
   .ctx-footer-inline { display: block; }
   .ctx-footer-inline .ctx-caprow { padding: 8px 0 0; }
@@ -204,7 +204,13 @@
     background: transparent;
     border-radius: var(--r-hero) var(--r-hero) 0 0; }
   .sheet-grip span { width: 44px; height: 5px; border-radius: 3px; background: var(--border); }
-  .ctx-head { padding: 2px 16px 10px; gap: 10px; }
+  /* the whole header is a drag target for the sheet (components/SheetGrip · useSheetDrag), so it
+     needs the same touch-action as the grip — otherwise the browser claims the vertical gesture
+     for scrolling and the sheet never moves. `cursor: grab` says so on a pointer device. */
+  .ctx-head { padding: 2px 16px 10px; gap: 10px; touch-action: none; cursor: grab; }
+  .ctx-head:active { cursor: grabbing; }
+  /* …but the controls inside it are still controls */
+  .ctx-head button, .ctx-head input { cursor: pointer; touch-action: auto; }
   .ctx .ph { width: 38px; height: 38px; }
   .ctx .ph svg { width: 26px; height: 26px; }
 

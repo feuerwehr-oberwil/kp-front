@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react'
 import { Icon } from '../lib/icons'
-import { SheetGrip } from './SheetGrip'
+import { SheetGrip, useSheetDrag } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { LineStylePicker } from '../lib/draw'
@@ -174,10 +174,13 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, peri
       <button className="btn warn" onClick={onDelete}><Icon id="close" />{appConfig.copy.delete}</button>
     </div>
   )
+  // the header shares the grip's drag (tap stays a tap there — see useSheetDrag)
+  const sheetDrag = useSheetDrag({ onClose, tapToggles: false })
   return (
     <div className="ctx draw-editor">
       <SheetGrip onClose={onClose} />
-      <div className="ctx-head">
+      {/* the whole header drags the sheet too, not just the 44×5px grip above it */}
+      <div className="ctx-head" {...sheetDrag}>
         <div className="ph" style={{ borderColor: color, color }}><Icon id={headIcon} /></div>
         <div className="ctx-titlewrap"><h3>{headTitle}</h3><p>{headSub}</p></div>
         <button className="ctx-x" onClick={onClose} title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>

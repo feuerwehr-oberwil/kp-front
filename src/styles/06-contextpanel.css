@@ -24,7 +24,11 @@
    never overflows the viewport, and the ✕ / Löschen buttons are always reachable. The draw editor
    already relied on this; it's now the default for every symbol panel too. */
 .ctx-head, .ctx-photo, .ctx-caprow, .ctx-actions { flex: none; }
-.ctx-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+/* ⚠️ overflow-x: hidden is NOT redundant. With `overflow-y: auto` the x-axis computes to `auto`
+   too, so any row a shade too wide turns this panel into a sideways scroller — the same trap
+   already documented on .history-list. On a phone, where this IS the detail sheet, that means
+   content sitting off-screen with nothing saying so. */
+.ctx-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; }
 /* phone-only copy of the caption row + footer actions at the END of the scrolling body —
    on phones only the grip + header stay pinned and everything else scrolls (the pinned
    desktop copy is hidden there, and vice versa). Rendered by all .ctx editors. */
@@ -38,8 +42,13 @@
 .ctx-x { margin-left: auto; align-self: flex-start; background: var(--surface-2); border: none; border-radius: var(--r-sm);
   width: 32px; height: 32px; display: grid; place-items: center; cursor: pointer; color: var(--ink-dim); }
 .ctx-body { padding: 0 18px 8px; }
-.field { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border-soft); font-size: 14px; }
-.field span { color: var(--ink-dim); font-weight: 600; }
+/* ⚠️ `flex-wrap: wrap` + a shrinkable label. A field row is «Beschriftung + Bedienelement» and
+   both halves were unshrinkable: the label because text does not shrink on its own, the control
+   because of its own min-width floor. A station names its symbol fields freely («Luftrichtung»,
+   «Einsatzmittel-Typ»), so the pair reliably outgrew a phone. Wrapping is the right answer at
+   every width — the control drops under its label and nothing ends up off-screen. */
+.field { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 0; border-bottom: 1px solid var(--border-soft); font-size: 14px; }
+.field span { color: var(--ink-dim); font-weight: 600; min-width: 0; }
 .field b { font-family: var(--mono); font-weight: 500; text-align: right; }
 /* THE segmented option-picker for the whole details modal — a soft track with a blue-filled active
    segment (Luftrichtung, Beschriftung, and short fixed detail-field lists like a Kleinlöscher Typ all
@@ -233,7 +242,7 @@
 .kv-add:hover { background: color-mix(in srgb, var(--blue) 7%, transparent); border-color: var(--blue); color: var(--blue); }
 .kv-add .i { width: 14px; height: 14px; }
 /* FKS Entwicklung (spread) controls — a label + a row of small toggle buttons */
-.spread-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 0; }
+.spread-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 7px 0; }
 .spread-row + .spread-row { border-top: 1px solid var(--border-soft); }
 .spread-lbl { font-size: 13px; font-weight: 600; color: var(--ink-dim); }
 .spread-btns { display: inline-flex; gap: 5px; }
@@ -336,3 +345,19 @@
    name: it explains the name, it is not part of it — and every second row of a busy Verlauf
    carries one, so it has to stay quiet. */
 .jr-link-role { font-style: normal; font-weight: 500; color: var(--ink-faint); }
+
+/* «Als Mittel erfassen» — the row that replaced the missable toast (components/ContextPanel ·
+   MittelCaptureRow). Wraps like every other field row, so a long material name plus a Quelle
+   picker plus the + never pushes the panel sideways. */
+.ctx-mittel-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ctx-mittel-name { flex: 1 1 auto; min-width: 0; font: 700 13.5px var(--body); color: var(--ink); }
+.ctx-mittel-src { display: flex; align-items: center; gap: 6px; flex: 1 1 140px; min-width: 0; }
+.ctx-mittel-src > span { flex: none; font: 600 12px var(--body); color: var(--ink-faint); }
+/* the + is the action; a full tap target, and the one thing on the row that is not a readout */
+.ctx-mittel-add { flex: none; display: grid; place-items: center; width: var(--tap); height: var(--tap);
+  border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface);
+  color: var(--ink); cursor: pointer; }
+.ctx-mittel-add:hover { background: var(--hover-strong); }
+.ctx-mittel-add .i { width: 18px; height: 18px; }
+/* what is already on the sheet — the reason somebody hesitates over a second tap */
+.ctx-mittel-already { display: block; margin-top: 4px; font: 600 11.5px var(--body); color: var(--ink-faint); }

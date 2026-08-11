@@ -1,6 +1,6 @@
 import type { Entity } from '../types'
 import { Icon } from '../lib/icons'
-import { SheetGrip } from './SheetGrip'
+import { SheetGrip, useSheetDrag } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
 import { ShapeGlyph } from '../lib/shapes'
 
@@ -35,10 +35,13 @@ export function ShapeEditor({ entity, onColor, onScale, onCenter, onDelete, onCl
       <button className="btn warn" onClick={onDelete}><Icon id="close" />{appConfig.copy.delete}</button>
     </div>
   )
+  // the header shares the grip's drag (tap stays a tap there — see useSheetDrag)
+  const sheetDrag = useSheetDrag({ onClose, tapToggles: false })
   return (
     <div className="ctx draw-editor">
       <SheetGrip onClose={onClose} />
-      <div className="ctx-head">
+      {/* the whole header drags the sheet too, not just the 44×5px grip above it */}
+      <div className="ctx-head" {...sheetDrag}>
         <div className="ph shape-ph" style={{ borderColor: color }}><ShapeGlyph kind={entity.shape ?? 'square'} color={color} /></div>
         <div className="ctx-titlewrap"><h3>{name}</h3><p>{appConfig.copy.shapes.kindLabel}</p></div>
         <button className="ctx-x" onClick={onClose} title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
