@@ -1550,6 +1550,9 @@ export const de = {
     notesPlaceholder: 'Allgemeine Notizen …',
     addField: 'Feld hinzufügen',
     removeField: 'Feld entfernen',
+    // ⇄ between the Einsatzleiter glyph's two rows. Says what HAPPENS, not what the button is:
+    // an Ablösung is «übergeben», and both Anwesenheits-Bemerkungen follow the swap by themselves.
+    swapEl: 'Führung übergeben (EL ⇄ Stv.)',
     fieldKeyPlaceholder: 'Bezeichnung',
     fieldValuePlaceholder: 'Wert',
     // ⚠️ A field whose value needs a UNIT has to say so in the box. «Kapazität: 80» is ambiguous

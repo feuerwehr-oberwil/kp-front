@@ -143,6 +143,15 @@ describe('mergeRoleNote', () => {
     expect(mergeRoleNote('abgelöst 21:40', 'AS')).toBe('abgelöst 21:40, AS')
   })
 
+  // ⚠️ Handing the Einsatz over: the two notes share no leading word but are ONE slot on one
+  // symbol, so joining them would put «Einsatzleiter, Stv. Einsatzleiter» on a single row.
+  it('⚠️ EL and Stv. EL replace each other — nobody is both', () => {
+    expect(mergeRoleNote('Einsatzleiter', 'Stv. Einsatzleiter')).toBe('Stv. Einsatzleiter')
+    expect(mergeRoleNote('Stv. Einsatzleiter', 'Einsatzleiter')).toBe('Einsatzleiter')
+    // …and the rest of the row survives the swap
+    expect(mergeRoleNote('Fahrer TLF, Einsatzleiter', 'Stv. Einsatzleiter')).toBe('Fahrer TLF, Stv. Einsatzleiter')
+  })
+
   it('handles the empty cases', () => {
     expect(mergeRoleNote(undefined, 'AS')).toBe('AS')
     expect(mergeRoleNote('  ', 'AS')).toBe('AS')

@@ -151,7 +151,20 @@ export function personStatusHint(
  * That is what keeps a correction a correction: «Offizier SiBe» re-filed as «Offizier Atemschutz»
  * is the same field saying something new, not a second job — while «AS» beside «Fahrer Pio» is
  * genuinely a second one. Hand-typed text has no such collision and is never touched.
+ *
+ * ⚠️ …and two notes can be the same JOB while sharing no leading word. «Einsatzleiter» and «Stv.
+ * Einsatzleiter» are one slot on one symbol — handing the Einsatz over (the ⇄ on the Einsatzleiter
+ * glyph, or simply moving a name from one field to the other) would otherwise leave the person who
+ * stepped back reading «Einsatzleiter, Stv. Einsatzleiter»: an Anwesenheitsliste claiming somebody
+ * is both, on the one row a Rapport quotes.
  */
+const sameSlot = (a: string, b: string): boolean => {
+  const A = appConfig.copy.anwesenheit
+  const pair = [A.roleEinsatzleiter.toLowerCase(), A.roleEinsatzleiterStv.toLowerCase()]
+  const [x, y] = [a.trim().toLowerCase(), b.trim().toLowerCase()]
+  return pair.includes(x) && pair.includes(y)
+}
+
 export function mergeRoleNote(existing: string | undefined, add: string): string {
   const next = add.trim()
   if (!next) return (existing ?? '').trim()
@@ -159,6 +172,6 @@ export function mergeRoleNote(existing: string | undefined, add: string): string
   const lead = (p: string) => p.split(/\s+/)[0].toLowerCase()
   // already said, in exactly these words — nothing to do
   if (parts.some((p) => p.toLowerCase() === next.toLowerCase())) return parts.join(', ')
-  const kept = parts.filter((p) => lead(p) !== lead(next))
+  const kept = parts.filter((p) => lead(p) !== lead(next) && !sameSlot(p, next))
   return [...kept, next].join(', ')
 }

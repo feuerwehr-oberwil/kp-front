@@ -119,13 +119,15 @@ describe('ContextPanel — preset fields always surface', () => {
 
   // a trailing preset field (Einsatzleiter «Stv.», added after Name) must stay AFTER Name even
   // when it's blank/missing — not hoisted above it just because it isn't stored yet.
-  it('keeps a missing trailing preset field in canonical order (Name before Stv.)', () => {
+  // (The stored keys are still Name/Stv.; this glyph LABELS them by the job — see «the
+  // Einsatzleiter pair» below — so the order is read off those labels.)
+  it('keeps a missing trailing preset field in canonical order (EL before Stv.)', () => {
     setup({
       entity: { id: 'el1', symbol: 'VKF Einsatzleiter', fields: { Name: 'Müller' } },
       protectedKeys: new Set(['Name', 'Stv.']),
     })
     const keys = screen.getAllByText((_t, el) => el?.className === 'kv-key-ro').map((el) => el.textContent)
-    expect(keys).toEqual(['Name', 'Stv.'])
+    expect(keys).toEqual(['EL', 'Stv. EL'])
   })
 
   it('does not seed blank rows on a read-only entity', () => {
@@ -197,5 +199,54 @@ describe('ContextPanel — duplicate custom field names', () => {
     fireEvent.change(key2, { target: { value: 'Test' } })
     fireEvent.blur(key2)
     expect(onFields).toHaveBeenCalledWith({ Test: 'b' })
+  })
+})
+
+// The Einsatzleiter glyph carries the two halves of ONE job. «Name» beside «Stv.» named the value
+// on one row and the job on the other, and a handover meant clearing both dropdowns and finding
+// both names again — at the one moment nobody has thirty seconds.
+describe('ContextPanel — the Einsatzleiter pair', () => {
+  const el = (fields: Record<string, string>) => ({
+    entity: { id: 's1', symbol: 'VKF Einsatzleiter', fields },
+    protectedKeys: new Set(['Name', 'Stv.']),
+    fieldOptions: { Name: ['Widmer Céline', 'Müller Hans'], 'Stv.': ['Widmer Céline', 'Müller Hans'] },
+  })
+  const SWAP = 'Führung übergeben (EL ⇄ Stv.)'
+
+  it('labels the rows by the JOB, not by «Name»', () => {
+    setup(el({ Name: 'Widmer Céline', 'Stv.': 'Müller Hans' }))
+    expect(screen.getByText('EL')).toBeTruthy()
+    expect(screen.getByText('Stv. EL')).toBeTruthy()
+    expect(screen.queryByText('Name')).toBeNull()
+  })
+
+  it('hands the Einsatz over in one tap — both fields, one commit', () => {
+    const onFields = vi.fn()
+    setup({ ...el({ Name: 'Widmer Céline', 'Stv.': 'Müller Hans' }), onFields })
+    fireEvent.click(screen.getByRole('button', { name: SWAP }))
+    expect(onFields).toHaveBeenCalledTimes(1)
+    expect(onFields).toHaveBeenCalledWith({ Name: 'Müller Hans', 'Stv.': 'Widmer Céline' })
+  })
+
+  it('works with only one of the two filled — that is a handover to nobody yet', () => {
+    const onFields = vi.fn()
+    setup({ ...el({ Name: 'Widmer Céline', 'Stv.': '' }), onFields })
+    fireEvent.click(screen.getByRole('button', { name: SWAP }))
+    expect(onFields).toHaveBeenCalledWith({ Name: '', 'Stv.': 'Widmer Céline' })
+  })
+
+  it('offers nothing to swap while both are empty', () => {
+    setup(el({ Name: '', 'Stv.': '' }))
+    expect(screen.queryByRole('button', { name: SWAP })).toBeNull()
+  })
+
+  it('leaves every other symbol alone', () => {
+    setup({
+      entity: { id: 's1', symbol: 'VKF Fahrzeug', fields: { Fahrer: 'Müller Hans' } },
+      protectedKeys: new Set(['Fahrer']),
+      fieldOptions: { Fahrer: ['Müller Hans'] },
+    })
+    expect(screen.getByText('Fahrer')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: SWAP })).toBeNull()
   })
 })

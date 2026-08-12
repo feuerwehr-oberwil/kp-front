@@ -24,6 +24,10 @@ const NOTE_COLORS = appConfig.drawing.colors
 const ROSTER_FIELDS = new Set<string>(appConfig.symbols.rosterFields)
 // leadership glyphs whose roster picker gets the officer-first sort + "nur Offiziere" toggle
 const OFFICER_ROSTER_SYMBOLS = new Set<string>(appConfig.symbols.officerRosterSymbols)
+// The Einsatzleiter glyph's two roster rows, in the order the preset lists them. They are a PAIR
+// — the two halves of one job — which is what the labels and the ⇄ below are about.
+const EL_NAME = 'Name'
+const EL_STV = 'Stv.'
 
 function FieldControl({ fieldKey, value, options, placeholder, officerFilter, rankOf, statusOf, onInput, onCommit }: {
   fieldKey: string
@@ -293,6 +297,18 @@ export function ContextPanel({ entity, svg, onClose, onCenter, onTitle, onTitleL
   // leadership glyph → its roster picker offers the officer-first sort + "nur Offiziere" filter
   const officerSym = !!entity.symbol && OFFICER_ROSTER_SYMBOLS.has(entity.symbol)
   const rankOf = officerSym && rosterRank ? (n: string) => rosterRank[n] : undefined
+  // ⚠️ The Einsatzleiter glyph's rows are labelled «EL» / «Stv.», not «Name» / «Stv.». The
+  // STORED keys are unchanged (Name/Stv. — the Kroki, the caption and the Anwesenheits-Bemerkung
+  // all key off them); this is what the row SAYS. «Name» beside «Stv.» named the value on one row
+  // and the job on the other, so the two never read as the two halves of one job — which is what
+  // they are, and what makes the ⇄ below obvious.
+  const elSym = !readOnly && entity.symbol === appConfig.symbols.einsatzleiterName
+  const rowLabel = (k: string) => {
+    if (!elSym) return k
+    if (k === EL_NAME) return appConfig.copy.anwesenheit.roleEinsatzleiterShort
+    if (k === EL_STV) return appConfig.copy.anwesenheit.roleEinsatzleiterStvShort
+    return k
+  }
   // a stepper is offered only where its callback is wired (the surface supports it)
   // AND the symbol's preset lists it; no preset passed ⇒ show all wired steppers.
   const allow = (c: SymbolControl) => !controls || controls.has(c)
@@ -378,6 +394,21 @@ export function ContextPanel({ entity, svg, onClose, onCenter, onTitle, onTitleL
   const setRow = (i: number, patch: Partial<Row>) => setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)))
   // set a row's value AND commit (used by the tab/dropdown controls, which have no blur)
   const setRowValue = (i: number, v: string) => commitRows(rows.map((r, j) => (j === i ? { ...r, v } : r)))
+  /**
+   * Hand the Einsatz over: EL ⇄ Stv., in one commit.
+   *
+   * The two used to be re-typed — clear both dropdowns, find both names again — at the one
+   * moment nobody has thirty seconds, and the Anwesenheit only learned about it if you got both
+   * halves right. ONE commit re-files both fields, so `linkRosterFields` re-files both people
+   * (and lib/roleAssignment · mergeRoleNote makes the new Bemerkung REPLACE the old one, rather
+   * than leaving whoever stepped back reading «Einsatzleiter, Stv. Einsatzleiter»).
+   */
+  const swapEl = () => commitRows(rows.map((r) => {
+    const k = r.k.trim()
+    if (k === EL_NAME) return { ...r, v: rows.find((x) => x.k.trim() === EL_STV)?.v ?? '' }
+    if (k === EL_STV) return { ...r, v: rows.find((x) => x.k.trim() === EL_NAME)?.v ?? '' }
+    return r
+  }))
   const addRow = () => setRows((rs) => [...rs, { k: '', v: '' }])
   const removeRow = (i: number) => commitRows(rows.filter((_, j) => j !== i))
 
@@ -752,11 +783,24 @@ export function ContextPanel({ entity, svg, onClose, onCenter, onTitle, onTitleL
                 // a preset / read-only field reads like the Darstellung rows above — a plain label and
                 // the control, no editable-key box, no delete — so a «Typ» sits identically to a
                 // «Luftrichtung». A user-added custom field keeps its editable key + delete.
+                // …and the Einsatzleiter pair gets the ⇄ between its two rows: the handover is a
+                // swap, and a swap is one gesture. Offered only once there is something to swap.
+                const swap = elSym && r.k.trim() === EL_NAME
+                  && rows.some((x) => x.k.trim() === EL_STV)
+                  && rows.some((x) => (x.k.trim() === EL_NAME || x.k.trim() === EL_STV) && x.v.trim())
                 return fixed ? (
-                  <div className="field" key={i}>
-                    <span className="kv-key-ro">{r.k}</span>
-                    {readOnly ? <b className="kv-val-ro">{r.v}</b> : field}
-                  </div>
+                  <Fragment key={i}>
+                    <div className="field">
+                      <span className="kv-key-ro">{rowLabel(r.k)}</span>
+                      {readOnly ? <b className="kv-val-ro">{r.v}</b> : field}
+                    </div>
+                    {swap && (
+                      <button type="button" className="kv-swap" onClick={swapEl}
+                        title={C.swapEl} aria-label={C.swapEl}>
+                        <Icon id="swap" /><span>{C.swapEl}</span>
+                      </button>
+                    )}
+                  </Fragment>
                 ) : (
                   <Fragment key={i}>
                     <div className={`kv-row${dupRow[i] ? ' dup' : ''}`}>
