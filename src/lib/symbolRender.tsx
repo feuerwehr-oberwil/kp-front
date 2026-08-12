@@ -228,11 +228,16 @@ export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floo
           dangerouslySetInnerHTML={{ __html: overlay.svg }}
         />
       )}
+      {/* ⚠️ NOT tinted with `symColor`. The storey was printed in the symbol's own colour on a
+          white chip, which is unreadable for exactly the symbols that carry one most often: a
+          yellow BMA's «+1» was yellow on white. The chip's position on the glyph is what ties
+          the badge to its symbol; the colour only ever repeated what the icon underneath
+          already says, at the cost of the one thing the badge is for. */}
       {floor != null && (
-        <span className="sym-floor" style={{ color: symColor(svg) }}>{floorBadge(floor)}</span>
+        <span className="sym-floor">{floorBadge(floor)}</span>
       )}
       {hasRange && (
-        <span className="sym-floor" style={{ color: symColor(svg) }}>{floorRangeBadge(floorFrom, floorTo)}</span>
+        <span className="sym-floor">{floorRangeBadge(floorFrom, floorTo)}</span>
       )}
       {count != null && count > 1 && (
         <span className="sym-count">{count}</span>

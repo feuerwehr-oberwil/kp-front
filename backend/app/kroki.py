@@ -917,13 +917,16 @@ def render_kroki(
         if e.get("rotation"):
             glyph = glyph.rotate(-e["rotation"], expand=True, resample=Image.Resampling.BICUBIC)
         overlay.alpha_composite(glyph, (int(x - glyph.width / 2), int(y - glyph.height / 2)))
-        # storey badge top-right (white chip, symbol colour) / count bottom-right (ink chip)
+        # storey badge top-right (white chip, ink) / count bottom-right (ink chip, white)
+        # ⚠️ The storey was printed in the SYMBOL's colour, which is the one legibility this
+        # chip exists to provide: a yellow symbol's «+1» came out yellow on white — on paper,
+        # where nobody can zoom in. Matches the client (.sym-floor).
         bh = max(16.0 * u * ss / 2, size * 0.46)
         if e.get("floor") is not None:
-            _badge(draw, (x + size / 2, y - size / 2), floor_badge(e["floor"]), bh, "white", color)
+            _badge(draw, (x + size / 2, y - size / 2), floor_badge(e["floor"]), bh, "white", "#1b2330")
         elif e.get("floorFrom") is not None or e.get("floorTo") is not None:
             rng = "/".join(floor_badge(v) for v in (e.get("floorFrom"), e.get("floorTo")) if v is not None)
-            _badge(draw, (x + size / 2, y - size / 2), rng, bh, "white", color)
+            _badge(draw, (x + size / 2, y - size / 2), rng, bh, "white", "#1b2330")
         if (e.get("count") or 0) > 1:
             _badge(draw, (x + size / 2, y + size / 2), str(e["count"]), bh, "#1b2330", "white")
         # metadata caption under the glyph (the map's .sym-caption) — DEFERRED into the same
