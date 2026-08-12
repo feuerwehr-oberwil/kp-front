@@ -29,6 +29,8 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ## [Unreleased]
 
+## [0.6.0] – 2026-08-12
+
 ### Added
 
 - **The landing page speaks French, and it is generated rather than written twice.**
@@ -86,6 +88,86 @@ so this file – not the log – is the record of what shipped up to that point.
   so an older CLI keeps working. A person picking a PDF in the admin UI is never asked for one:
   they have no tree to be stale. ⚠️ These are *wrong-tree* checks, not corruption checks.
 
+- **Every search box forgives an umlaut and one typo.** `lib/search` is now the single decision
+  about what a typed query finds, and every list that had its own substring test uses it:
+  Anwesenheit, both person fields, the Trupp form, the shared Combo, «Standort teilen», the symbol
+  palette, the Plan-Picker, the Datenquellen list. Umlauts match in *either* direction («Mueller»
+  finds Müller and «Müller» finds Mueller, because both sides are folded the same way), accents
+  fold away («Celine» finds Céline), and one wrong, missing, extra or swapped letter still finds
+  the name — from four characters up, and only at a word start. Below that, one edit matches half
+  the Mannschaft, which is worse than no match at all.
+
+- **A name typed anywhere is somebody who was there.** Typing a name is how a Gast, a Nachbarwehr
+  or an AdF whose roster row never synced gets onto an Einsatz — and only two surfaces recorded
+  one. Everywhere else the name stopped on the object it was typed onto: a Fahrer on a vehicle, a
+  «Stv.» on the Einsatzleiter glyph, the Einsatzleiter on the Rapport. So an Einsatz could be led
+  by somebody the Anwesenheit had never heard of, and the Personalblatt printed from it is also
+  the Soldblatt. Every person field now files the name under an id — the roster's if it names one
+  of ours, a fresh Gast's otherwise — and a Gast gets the job («Fahrer TLF») in the same act, on
+  one row, in one Verlaufszeile.
+  ⚠️ The free-type escape in a dropdown commits when the field is LEFT, not per keystroke.
+  «Muster Felix» typed letter by letter would otherwise have put thirteen people on the list.
+
+- **«Trupp finden» — one list of every Trupp standing anywhere.** Lage markers and plan chips,
+  Atemschutz or not; tapping a row goes there. The Atemschutz card could already jump to its own
+  Trupp, but only to that one: a team marker dropped straight onto the Lage, or a chip on a
+  Gebäude storey, was reachable only by remembering which surface it went onto and then finding it
+  among the symbols. It searches the PEOPLE in a Trupp too — you know who went in, not which
+  number they were given — and lives on the Trupp tool's own dock, because reaching for that tool
+  is already the gesture for «etwas mit einem Trupp».
+
+- **The Einsatzleiter symbol is a pair, with a handover.** Its two rows read «EL» and «Stv. EL»
+  instead of «Name» and «Stv.» — the value on one row and the job on the other never read as the
+  two halves of one job — and a ⇄ between them swaps the two in one commit, which re-files both
+  people through the same path a normal edit takes. The stored keys are unchanged, so the Kroki,
+  the map caption and every Bemerkung keep reading exactly as they did.
+
+- **Every replaced station config is kept, and can be put back.** Each write to
+  `deployment_config` now stores the document it replaces, with when and by what (api / cli /
+  branding); `admin_config history` lists them and `restore <id>` puts one back — and the restore
+  is kept too, so stepping back is reversible. This is the part that matters for a real station:
+  the demo can be repaired by re-running its reset, and Oberwil cannot — there is no seed file to
+  rebuild a station from, and until now a bad write was simply permanent. `admin_config load`
+  additionally exits 2 rather than emptying a section that currently has content.
+
+- **An archived Einsatz can be deleted — by an admin, from the Verwaltung.** A real Einsatz was
+  undeletable by anybody, so a duplicate created when two people took the same alarm sat in the
+  Verlauf and in the statistics forever. Two doors, because they answer different questions:
+  an **Übung** is deletable by any editor at any time (it exists to be thrown away), a **real
+  Einsatz** takes an admin session and has to be **archived** first.
+  ⚠️ Archived is the gate, not a nicety: it is the operator saying the Einsatz is over, and the
+  only moment at which «löschen» is a decision rather than an accident. Deleting one destroys an
+  Einsatzakte — Verlauf, hash-chained Prüfkette, Anwesenheit, photos, voice memos.
+
+- **`POST /api/alarms` accepts KP Rück's payload.** The endpoint exists in both apps with the same
+  path and the same purpose and took incompatible bodies: `source_id` was required here and
+  optional there, so a relay written against KP Rück got a 422. It is optional here too now —
+  without it there is nothing to dedupe on, so a redelivery creates a second incident, which is
+  the sender's trade to make. `number` is declared and ignored (an Einsatz here has no field for
+  it), so it appears in the OpenAPI contract instead of being dropped silently.
+
+- **A symbol knows which material it is, where it came from, and says so where you look.** The
+  symbol→Mittel capture was a guess delivered in a toast: missed constantly, and gone for good
+  once it timed out. It is a row in the symbol's own detail panel now — it cannot time out, and it
+  is still there ten minutes later when you remember. A catalogue entry may name the variant it
+  is (`when: {Typ: "Exhauster"}`, or a LIST of clauses, any one of which matching is enough),
+  because one symbol is routinely several materials: a station has Lüfter, Hochleistungslüfter and
+  Exhauster and exactly one «VKF Luefter mobil» to place. A Lüfter set to *saugen* is an
+  Exhauster whatever its Typ says, so the airflow reads as a pseudo-field.
+
+- **A person's Bemerkung collects every job they held.** The Offizier symbol forwards its
+  «Funktion» («SiBe», «Lüften») onto the person's Anwesenheits-Zeile, correcting that Funktion
+  re-files them, and being in a Trupp writes «AS» — the same fact the Trupp picker already stated
+  in the other direction. The Personalblatt could not tell an AdF who stood at the Magazin from
+  one who was under Atemschutz.
+
+- **Tauchpumpe and Wassersauger**, the two pumps FKS has no sign for, drawn in the house pack —
+  plus kit that is carried inside can now name the storey it is on, and the storeys, counts and
+  capacities that were missing from other symbols.
+
+- **The demo is a configured station**, not a bare one: Dienstgrade, Symbolfeld-Listen, a second
+  finished Einsatz, a station mark, and a Trupp made of roster rows rather than of typed names.
+
 ### Changed
 
 - **«Trupp anlegen» asks in the order it is answered.** Who goes in and with how much air come
@@ -108,6 +190,30 @@ so this file – not the log – is the record of what shipped up to that point.
   «Bemerkung» dot is now named too. The counts get a full-width row of their own, and the QR
   read-out a quieter one under them: sharing the title line with the view tabs left them ~250px,
   which is five stacked lines on a 700px panel and an ellipsis on a phone.
+
+- **«AS», not «PA», everywhere it is written.** PA is the Pressluftatmer — the device. What the
+  badge, the picker hint and the Bemerkung say is that somebody is under *Atemschutz*, which is
+  the doctrine word, the name of the board and the name of the surface. One thing, one
+  abbreviation.
+
+- **The Alarmquelle is named only where there is one, and only by its own name.** Copy that said
+  «Divera» on installations that do not run it, or named the source where the source is irrelevant,
+  now says neither.
+
+- **The symbol's detail rows are a label and a value, with nothing announced over them.** The
+  section titles and rules above them claimed a different KIND of thing started there; of 81
+  symbols, 30 carry no such row at all and exactly one carries four. The panel header names the
+  symbol, so the name is not also a field inside it.
+
+- **A Gebäude is oriented by its WALLS, not by its bounding box.** The floor stack asked whether
+  the rotated bounding box is nearly square — a page-fit question — and an L- or U-shaped
+  building answers «yes» while its walls run unmistakably in one direction. The Schloss on the
+  demo stood tilted 21°, corners into the sheet, because its min-area box measures 0.98 high by
+  wide. It now rotates whenever one direction family holds at least half the wall length (mod 90°,
+  since the four walls of a rectangle are one family), stays north-up when no direction dominates
+  — a round tank, a scattered outline — and takes the SMALLER of the two turns that square the
+  walls, so the sheets stay as close to the Lage's orientation as squaring allows.
+  ⚠️ `orientDeg` is stored per building, so nothing already placed moves.
 
 ### Fixed
 
@@ -169,6 +275,67 @@ so this file – not the log – is the record of what shipped up to that point.
   scrollbar's width *inside* the padding box, so on the ordinary short list the rows sat 22px from
   the left edge and 33px from the right – an empty strip nothing explained.
 
+- **⚠️ A stale Verwaltung tab could revert the whole station, and did — three times.**
+  `deployment_config` has no partial writes: the Verwaltung, both CLIs and the backup importer all
+  replace the complete document, and the Verwaltung AUTOSAVES a debounced full-document PUT of a
+  client-side draft. So a tab holding an older draft won by default. On 11.08. the public demo
+  lost `identity.assets` (both logos), `roster.ranks`, ALL of `doctrine` — including `alarmBar`,
+  the Atemschutz turn-back pressure — `report.partnerOrgs` and the point on «Stk.» in one write,
+  hours after a reset had reported every step OK. It surfaces as unrelated features quietly
+  switching off, never as an error, which is why a missing logo was diagnosed as a script-ordering
+  problem three times. Three layers now: the branding slots are **server-owned** (written by the
+  upload endpoints, never by the document the UI replaces); a write must carry **`If-Match`** with
+  the version it read or it is refused with **428**; and because the tab that does the damage is
+  by definition an OLD one that sends no header, a request that a browser fingerprint identifies
+  (`Sec-Fetch-Site`, `Origin`) is refused *without* one, while a CLI push is not.
+
+- **A storey badge you can read on the symbol that carries one.** The signed floor (+1, −2) was
+  printed in the SYMBOL's own colour on a white chip — so on a yellow BMA it was yellow on white,
+  on the one badge whose whole job is to be read at a glance. Ink on the surface colour now, in
+  the app and in the printed Kroki, where it matters more because nobody can zoom in on paper.
+
+- **The delete on an Atemschutz card is no longer cut in half.** Six actions need 264px of buttons
+  and the card's minimum column was 270px, so the last one — the delete — was pushed past the
+  card's rounded edge and clipped by its overflow, reading as a control the card was not offering.
+  The column minimum is 288px, the smallest width that keeps the row whole and still under the
+  300px that once cost a landscape tablet its third card.
+
+- **The action on a red toast stops turning white on hover.** It carries `.btn`, whose `:hover`
+  paints the light surface colour — a white block on the red «Sync-Fehler» pill with the near-white
+  label vanishing into it.
+
+- **«Wohin platzieren?» fits its two rows.** It borrowed the Trupp form's fixed 760px height, so a
+  picker whose whole content is a title and two options stood as a column of empty glass.
+
+- **Textbausteine complete mid-sentence**, not only when the line starts with one.
+
+- **The Kroki legend lists only what the picture actually shows**, and its crop follows the Lage.
+
+- **⚠️ EL and Stv. EL replace each other on a person's Bemerkung.** They share no leading word, so
+  the merge rule appended rather than replaced and whoever stepped back read as «Einsatzleiter,
+  Stv. Einsatzleiter» — an Anwesenheitsliste claiming somebody is both, on the row the Rapport
+  quotes. Reachable before the ⇄ existed, by moving a name between the two fields by hand.
+
+- **The demo shows the building that is actually there.** Its floor stack carried a hand-made
+  symmetric cross while the «Umrisse» sheet beside it drew the real neighbourhood from
+  OpenStreetMap — the same Einsatz showing two different buildings at one address. It now carries
+  the real 39-vertex footprint, generated through the app's own maths rather than by hand. The
+  BMA-Fehlalarm moved onto a real building too, instead of an empty patch of ground.
+
+- **Nothing in a panel scrolls sideways**, on a phone or anywhere else, and the whole header of a
+  sheet drags it rather than a grip somewhere in it.
+
+- **A Trupp that carries only names is still a Trupp** — every surface that answers «who is
+  already committed» from ids was blind to one, so its Anwesenheits-Zeile did not lock and the
+  Fahrer picker said nothing about somebody under Atemschutz.
+
+- **The Rapport**: no Kroki without a Lage and portrait by default; the Kontaktperson is its own
+  requirement with its own target; the Verlauf says what CHANGED rather than which field was
+  touched; a Trupp that never went under PA did not come out of anything.
+
+- **The 10.08. testing round** — one dot per card, a warning that goes somewhere, and the
+  landing page's French follow-ups (it reads as French now, and the switcher works off
+  kp-front.ch).
 
 ## [0.5.0] – 2026-08-08
 
@@ -1772,7 +1939,8 @@ toolchain on the VPS. Everything else here has been running in production since 
 - A render error on the login screen, landing list, or admin surface now shows the recoverable
   error card instead of a white screen (root-level error boundary + guarded boot init).
 
-[Unreleased]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.2.0...v0.3.0

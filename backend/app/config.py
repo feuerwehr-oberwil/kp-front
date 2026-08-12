@@ -47,7 +47,7 @@ class Settings(BaseSettings):
 
     # --- Meta ---
     project_name: str = "kp-front API"
-    version: str = "0.5.0"
+    version: str = "0.6.0"
     api_prefix: str = "/api"
 
     # --- Uvicorn ---
