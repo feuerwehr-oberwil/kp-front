@@ -127,7 +127,11 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
         // (a full-document PUT that always won) is exactly how a tab left open all morning
         // reverted a station's Dienstgrade, Partnerorganisationen and Atemschutz-Doktrin in one
         // write. The draft is kept; re-reading the version lets «Übernehmen» land on top.
-        if (e.status === 409) {
+        // 428 = this PAGE predates the guard and sent no version at all (api/config · put_config).
+        // Same treatment: stop autosaving and say so. «Übernehmen» works because the fresh read
+        // below gives this tab the token it was missing — which is also why the message says
+        // «neu laden» rather than «nochmals versuchen».
+        if (e.status === 409 || e.status === 428) {
           setSave({ kind: 'conflict' })
           try {
             const fresh = await apiGet<DeploymentConfig>('/api/config')

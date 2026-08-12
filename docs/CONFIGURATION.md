@@ -38,13 +38,19 @@ One JSON document, stored as the single `deployment_config` row, returned by `GE
 >    because the URLs behind them only exist once a blob has been stored. A `PUT` or a `load` that
 >    omits or nulls them **carries the stored values over** instead of clearing them. Removing a
 >    logo means `DELETE /api/branding/{slot}`.
-> 2. **`PUT /api/config` supports optimistic concurrency.** `GET` returns an opaque `version`
->    (a hash of the stored document); send it back as `If-Match` and a write against a document
->    somebody else has changed since is refused with **409** instead of silently winning. The
->    Verwaltung does this on every autosave — without it, a browser tab left open reverted a whole
->    station's config on the next nudge of one unrelated field. **Omitting the header still
->    writes**, which is what keeps the CLIs and the backup import working: those are deliberate
->    one-shot pushes by somebody at a terminal, not a tab that has been open since breakfast.
+> 2. **`PUT /api/config` requires optimistic concurrency from a browser.** `GET` returns an
+>    opaque `version` (a hash of the stored document); send it back as `If-Match` and a write
+>    against a document somebody else has changed since is refused with **409** instead of
+>    silently winning. The Verwaltung does this on every autosave — without it, a browser tab left
+>    open reverted a whole station's config on the next nudge of one unrelated field.
+>
+>    A request that looks like a browser (it carries `Sec-Fetch-Site` or `Origin`) and sends **no**
+>    `If-Match` is refused with **428 Precondition Required** — reload the page and repeat the
+>    edit. ⚠️ Merely making the header optional was not enough, and the demo was clobbered a
+>    second time because of it: the guard then protects only tabs new enough to send the header,
+>    and the tab that does the damage is by definition an old one. **A non-browser caller may
+>    still omit it** — `admin_config load`, `admin_geodata` and `admin_branding` are deliberate
+>    one-shot pushes by somebody at a terminal, and they send neither header.
 
 ```jsonc
 {

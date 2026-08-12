@@ -218,3 +218,55 @@ async def test_a_put_without_the_header_still_writes(client, editor, admin_login
     later = await client.put("/api/config", json={"identity": {"appName": "CLI"}})
     assert later.status_code == 200
     assert (await client.get("/api/config")).json()["identity"]["appName"] == "CLI"
+
+
+async def test_a_browser_put_without_the_version_is_refused(client, editor, admin_login):
+    """⚠️ The hole the first version of this guard left open.
+
+    Making `If-Match` merely optional protects only tabs new enough to send it — and the tab that
+    does the damage is by definition an OLD one, open since before the guard shipped. It sends no
+    header, is indistinguishable from a CLI push, and overwrites. The public demo was clobbered a
+    second time exactly that way, hours after the guard went live.
+
+    A browser always sends `Sec-Fetch-Site`; httpx and curl do not. So a request that looks like a
+    browser must carry the version, and gets 428 (this page is stale) when it does not.
+    """
+    await _login(client, editor)
+    await admin_login(client)
+    await client.put("/api/config", json={"identity": {"appName": "Erste"}})
+
+    stale_tab = await client.put(
+        "/api/config",
+        json={"identity": {"appName": "Von einem alten Tab"}},
+        headers={"Sec-Fetch-Site": "same-origin"},
+    )
+    assert stale_tab.status_code == 428, stale_tab.text
+    # …and it changed nothing
+    assert (await client.get("/api/config")).json()["identity"]["appName"] == "Erste"
+
+
+async def test_an_origin_header_counts_as_a_browser_too(client, editor, admin_login):
+    """A cross-origin write carries `Origin` even where `Sec-Fetch-*` is absent (older Safari)."""
+    await _login(client, editor)
+    await admin_login(client)
+    r = await client.put(
+        "/api/config",
+        json={"identity": {"appName": "X"}},
+        headers={"Origin": "https://front.example.ch"},
+    )
+    assert r.status_code == 428
+
+
+async def test_a_browser_put_with_a_current_version_still_writes(client, editor, admin_login):
+    """The guard must not break the Verwaltung itself — a current tab saves normally."""
+    await _login(client, editor)
+    await admin_login(client)
+    first = await client.put("/api/config", json={"identity": {"appName": "Erste"}})
+    v = first.json()["version"]
+    ok = await client.put(
+        "/api/config",
+        json={"identity": {"appName": "Zweite"}},
+        headers={"Sec-Fetch-Site": "same-origin", "If-Match": v},
+    )
+    assert ok.status_code == 200, ok.text
+    assert (await client.get("/api/config")).json()["identity"]["appName"] == "Zweite"

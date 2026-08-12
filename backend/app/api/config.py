@@ -204,6 +204,8 @@ async def put_config(
     actor: OptionalUser,
     db: AsyncSession = Depends(get_db),
     if_match: str | None = Header(default=None, alias="If-Match"),
+    sec_fetch_site: str | None = Header(default=None, alias="Sec-Fetch-Site"),
+    origin: str | None = Header(default=None, alias="Origin"),
 ) -> DeploymentConfigOut:
     """Admin-only. Validates the body (422 on invalid), persists the document to the
     singleton row, stamps ``updated_by`` (the admin's user when driving the UI, NULL for
@@ -218,12 +220,31 @@ async def put_config(
     Partnerorganisationen, its Atemschutz-Doktrin (including the Alarmdruck) and the point on
     its «Stk.» in one write, and it is the same trap for a station with two admins.
 
-    Sent and stale → 409, and the client re-reads before deciding. OMITTED → written as
-    before: ``admin_config load``, ``admin_geodata`` and the backup importer are deliberate,
-    one-shot pushes by somebody at a terminal, not a tab that has been open since breakfast.
+    Sent and stale → 409, and the client re-reads before deciding.
+
+    ⚠️ A BROWSER MUST SEND IT. Making the header merely optional left the hole it was meant to
+    close: the guard only protects tabs new enough to know about it, and the tab that does the
+    damage is by definition an OLD one — it was open before the fix shipped, so it sends no
+    header and is then indistinguishable from a CLI push. The demo was clobbered a second time
+    that way, hours after the guard went live. A browser always sends `Sec-Fetch-Site` (and, on
+    a cross-origin write, `Origin`); httpx and curl send neither unless told to, so
+    ``admin_config load``, ``admin_geodata`` and ``admin_branding`` keep working untouched —
+    those are one-shot pushes by somebody at a terminal, not a tab open since breakfast. The
+    backup IMPORT is a browser and therefore sends the header too: it re-reads the version
+    immediately before writing (admin/ConfigBackup), which is what keeps «replace everything
+    with this file» deliberate without letting an hour-old page do it by accident.
+    A browser that omits it gets 428 (Precondition Required): the request is not wrong, it is
+    missing the one thing that makes it safe, and the fix is to reload the page.
     """
     row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     stored_version = _version(row.config_json if row else None)
+    from_browser = sec_fetch_site is not None or origin is not None
+    if if_match is None and from_browser:
+        raise HTTPException(
+            status_code=428,
+            detail="Diese Seite ist veraltet. Bitte neu laden und die Änderung wiederholen.",
+            headers={"ETag": stored_version},
+        )
     if if_match is not None and if_match.strip('"') != stored_version:
         raise HTTPException(
             status_code=409,

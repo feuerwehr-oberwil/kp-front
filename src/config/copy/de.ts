@@ -1012,6 +1012,8 @@ export const de = {
     httpNotFoundHint: 'Diese Adresse kennt der Server nicht. Möglicherweise läuft dort eine andere Version.',
     httpTooLarge: 'Datei zu gross',
     httpTooLargeHint: 'Der Server nimmt Dateien dieser Grösse nicht an.',
+    httpStale: 'Seite veraltet',
+    httpStaleHint: 'Diese Seite kennt einen älteren Stand. Neu laden und die Änderung wiederholen.',
     httpTooMany: 'Zu viele Versuche',
     httpTooManyHint: 'Kurz warten, dann nochmals versuchen.',
     httpRejected: 'Anfrage abgelehnt',

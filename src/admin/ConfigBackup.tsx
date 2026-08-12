@@ -83,12 +83,18 @@ export function ConfigBackup({ config, onImported }: {
     const { integrations: _ignore, symbols: _drop, ...payload } =
       parsed as Record<string, unknown>
     try {
-      // ⚠️ Deliberately WITHOUT the `If-Match` version the autosave sends. Importing a backup is
-      // «replace the whole document with this file» — the user picked the file, confirmed it, and
-      // the pre-import config was just downloaded as a rollback. Refusing it because somebody
-      // else saved five minutes ago would be a conflict check firing on the one write that means
-      // to overwrite. The autosave is the case that needs guarding: a tab, not a decision.
-      const saved = await apiPut<DeploymentConfig>('/api/config', payload)
+      // ⚠️ The version is read FRESH here, not taken from this page's draft. Importing a backup
+      // IS «replace the whole document with this file» — the user picked it, confirmed it, and
+      // the pre-import config was just downloaded as a rollback — so it must not fail because
+      // somebody saved five minutes ago. But it must not ride on a stale token either: the
+      // backend now REQUIRES the header from a browser (api/config · put_config), because the
+      // tab that does the damage is always an old one. Re-reading immediately before the write
+      // keeps the import deliberate without letting an hour-old page overwrite silently.
+      const current = await apiGet<DeploymentConfig>('/api/config')
+      const saved = await apiPut<DeploymentConfig>(
+        '/api/config', payload,
+        current.version ? { 'If-Match': current.version } : undefined,
+      )
       onImported(saved && typeof saved === 'object' ? saved : (payload as DeploymentConfig))
       setState({ kind: 'ok', message: C.imported })
       refreshMeta()

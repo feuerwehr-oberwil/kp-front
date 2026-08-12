@@ -61,6 +61,10 @@ function statusMessage(status: number): { detail: string; hint?: string } | null
   if (status === 403) return { detail: c.httpForbidden, hint: c.httpForbiddenHint }
   if (status === 404) return { detail: c.httpNotFound, hint: c.httpNotFoundHint }
   if (status === 413) return { detail: c.httpTooLarge, hint: c.httpTooLargeHint }
+  // 428 = this PAGE is out of date, not the request. The config PUT requires the version token
+  // a browser can only have from a fresh load (api/config · put_config), so a tab older than the
+  // guard lands here — and the answer is a reload, not a retry.
+  if (status === 428) return { detail: c.httpStale, hint: c.httpStaleHint }
   if (status === 429) return { detail: c.httpTooMany, hint: c.httpTooManyHint }
   // 502/503/504: the server is down or restarting — the one case where waiting genuinely helps.
   if (status === 502 || status === 503 || status === 504) return { detail: c.httpGateway, hint: c.httpGatewayHint }
