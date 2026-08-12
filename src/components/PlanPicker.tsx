@@ -3,6 +3,7 @@ import Map, { Marker, type MapRef } from 'react-map-gl/maplibre'
 import { QuietAttributionControl } from './MapAttribution'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { Icon } from '../lib/icons'
+import { matchesQuery, searchQuery } from '../lib/search'
 import { appConfig } from '../config/appConfig'
 import { confirmDialog } from '../lib/ui'
 import { fillTemplate } from '../lib/format'
@@ -71,10 +72,11 @@ export function PlanPicker({ center, activeObjectId, onSelect, onReset, onClose 
   }, [center])
 
   const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase()
+    // the same tolerance as the roster pickers (lib/search): «Schlossgasse» still finds
+    // Schlossgasse with a letter out of place, and umlauts match either spelling
+    const needle = searchQuery(q)
     if (!needle) return objects
-    return objects.filter((o) =>
-      o.name.toLowerCase().includes(needle) || (o.address ?? '').toLowerCase().includes(needle))
+    return objects.filter((o) => matchesQuery(needle, o.name) || matchesQuery(needle, o.address ?? ''))
   }, [objects, q])
 
   const withCoords = useMemo(() => filtered.filter((o) => o.lat != null && o.lng != null), [filtered])

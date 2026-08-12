@@ -4,6 +4,7 @@
 // none — has nothing for it to select. It used to render anyway, so the one thing it could do
 // was empty the list. These cover both directions, plus the stale-filter trap.
 
+import { useState } from 'react'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Combo } from './Combo'
@@ -64,5 +65,42 @@ describe('Combo — officer filter', () => {
         rankOf={() => undefined} onChange={vi.fn()} />,
     )
     NAMES.forEach((n) => expect(screen.getByRole('button', { name: opt(n) })).toBeTruthy())
+  })
+})
+
+// A name typed into a roster field is recorded as a Gast on the Anwesenheit the moment it is
+// committed. Every keystroke used to be a commit, so «Muster Felix» would have put thirteen
+// people on the list — one per prefix. `onInput` is what separates typing from finishing.
+describe('Combo — the free-type escape', () => {
+  function typeGuest(onCommit: (v: string) => void) {
+    function Harness() {
+      const [v, setV] = useState('')
+      return (
+        <Combo value={v} options={NAMES} placeholder="Name wählen …" allowCustom
+          onInput={setV} onChange={(x) => { setV(x); onCommit(x) }} />
+      )
+    }
+    render(<Harness />)
+    fireEvent.click(screen.getByRole('button', { name: /Name wählen/ }))
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.combo.customDefault }))
+    return screen.getByPlaceholderText('Name wählen …')
+  }
+
+  it('streams keystrokes without committing any of them', () => {
+    const onCommit = vi.fn()
+    const input = typeGuest(onCommit)
+    fireEvent.change(input, { target: { value: 'Mu' } })
+    fireEvent.change(input, { target: { value: 'Muster Felix' } })
+    expect(onCommit).not.toHaveBeenCalled()
+    expect((input as HTMLInputElement).value).toBe('Muster Felix')
+  })
+
+  it('commits the whole name once, when the field is left', () => {
+    const onCommit = vi.fn()
+    const input = typeGuest(onCommit)
+    fireEvent.change(input, { target: { value: 'Muster Felix' } })
+    fireEvent.blur(input)
+    expect(onCommit).toHaveBeenCalledTimes(1)
+    expect(onCommit).toHaveBeenCalledWith('Muster Felix')
   })
 })

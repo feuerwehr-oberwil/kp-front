@@ -53,6 +53,44 @@ describe('PersonField', () => {
   })
 })
 
+// A hand-typed name is how a Gast / Nachbarwehr / not-yet-synced AdF is named here. It used to
+// stay a bare string on the Rapport: no id, so nothing reached the Anwesenheit — the Einsatz
+// could be led by somebody who appears on no list, and on no Personalblatt printed from one.
+describe('PersonField · a typed name is filed under an id', () => {
+  function type(onAddGuest?: (name: string) => string | undefined) {
+    const onChange = vi.fn()
+    render(
+      <PersonField
+        label="Einsatzleiter" placeholder="Person wählen" value={{ name: 'Muster Felix' }} onChange={onChange}
+        personnel={personnel} legacyRoster={[]} presentIds={new Set()} assignedIds={new Set()}
+        usedIds={new Set()} usedNames={new Set()} onAddGuest={onAddGuest}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /Muster Felix/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Name eingeben/ }))
+    fireEvent.blur(screen.getByDisplayValue('Muster Felix'))
+    return onChange
+  }
+
+  it('hands the name to onAddGuest on blur and keeps the id it comes back with', async () => {
+    vi.useFakeTimers()
+    const onAddGuest = vi.fn(() => 'g1')
+    const onChange = type(onAddGuest)
+    await vi.advanceTimersByTimeAsync(200)
+    vi.useRealTimers()
+    expect(onAddGuest).toHaveBeenCalledWith('Muster Felix')
+    expect(onChange).toHaveBeenCalledWith({ name: 'Muster Felix', personId: 'g1' })
+  })
+
+  it('leaves the bare name alone where the session may not write', async () => {
+    vi.useFakeTimers()
+    const onChange = type(undefined)
+    await vi.advanceTimersByTimeAsync(200)
+    vi.useRealTimers()
+    expect(onChange).not.toHaveBeenCalled()
+  })
+})
+
 describe('PersonField · roster search', () => {
   const many: Person[] = Array.from({ length: 12 }, (_, i) => ({
     id: `x${i}`, displayName: `Muster ${String(i).padStart(2, '0')}`, active: true,

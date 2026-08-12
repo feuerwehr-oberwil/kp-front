@@ -3,6 +3,7 @@ import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
 import { fillTemplate, formatTime } from '../lib/format'
 import { rankAbbr, rankOrder } from '../lib/rank'
+import { matchesQuery, searchQuery } from '../lib/search'
 import { Modal } from './panels/_shared'
 import type { Person } from '../types'
 import type { ShareApi, ShareState } from '../lib/useShareMyPosition'
@@ -56,9 +57,10 @@ export function SharePositionSheet({ roster, onPick, onClose, pickOnly }: {
   const [q, setQ] = useState('')
 
   const people = useMemo(() => {
-    const needle = q.trim().toLowerCase()
+    // same tolerance as every other roster search (lib/search): umlauts either way, one typo
+    const needle = searchQuery(q)
     return roster
-      .filter((p) => p.active && (!needle || p.displayName.toLowerCase().includes(needle)))
+      .filter((p) => p.active && (!needle || matchesQuery(needle, p.displayName)))
       // Officer-first, then alphabetical — the same order every other roster list uses, so
       // finding yourself is the same motion here as in the Anwesenheit.
       .sort((a, b) => rankOrder(a.rank) - rankOrder(b.rank) || a.displayName.localeCompare(b.displayName, 'de-CH'))

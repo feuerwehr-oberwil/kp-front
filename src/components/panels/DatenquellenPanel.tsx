@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Icon } from '../../lib/icons'
+import { matchesQuery, searchQuery } from '../../lib/search'
 import { toast } from '../../lib/ui'
 import { ApiError } from '../../lib/api'
 import { fillTemplate } from '../../lib/format'
@@ -70,9 +71,10 @@ export function DatenquellenPanel({ isEditor, incidentCoord, onClose }: {
   }
 
   const [query, setQuery] = useState('')
-  const q = query.trim().toLowerCase()
+  // umlaut-neutral, one typo forgiven — same rule as every other search box (lib/search)
+  const q = searchQuery(query)
   const matches = (o: ObjectWithPlans) =>
-    !q || o.name.toLowerCase().includes(q) || (o.address ?? '').toLowerCase().includes(q)
+    !q || matchesQuery(q, o.name) || matchesQuery(q, o.address ?? '')
   const filtered = objects.filter(matches)
   // With coords: split into "nearby" (≤1 km, by distance) + the rest (alphabetical). The
   // full list (155+) is collapsed by default so the panel isn't an unwieldy wall of rows.

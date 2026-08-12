@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { isOfficer, rankAbbr, rankLabel, rankOrder } from '../lib/rank'
+import { matchesQuery, searchQuery } from '../lib/search'
 
 /**
  * A custom dropdown styled like the Atemschutz Trupp picker (tap-to-open menu, no native select
@@ -13,7 +14,7 @@ import { isOfficer, rankAbbr, rankLabel, rankOrder } from '../lib/rank'
  * `value=""` + a non-empty placeholder makes it a pure prefill picker (it shows the placeholder and
  * never retains a selection, since the parent keeps value empty).
  */
-export function Combo({ value, options, groups, placeholder, allowCustom, customLabel = appConfig.copy.combo.customDefault, clearable = true, officerFilter, rankOf, statusOf, onChange }: {
+export function Combo({ value, options, groups, placeholder, allowCustom, customLabel = appConfig.copy.combo.customDefault, clearable = true, officerFilter, rankOf, statusOf, onInput, onChange }: {
   value: string
   options: string[]
   /** optional grouped rendering: section headers with their own options. When set, the menu
@@ -31,6 +32,11 @@ export function Combo({ value, options, groups, placeholder, allowCustom, custom
    *  «nicht anwesend». A picker that lists sixty names and says nothing about any of them makes
    *  the operator pick first and find out afterwards — which is what the toast used to do. */
   statusOf?: (name: string) => { label: string; tone?: 'warn' | 'muted' | 'info' } | undefined
+  /** Free typing, keystroke by keystroke — `onChange` then fires ONCE, when the field is left.
+   *  ⚠️ Without it every letter is a finished value, which is fine for a text field and wrong
+   *  for a person: a typed Gast is recorded on the Anwesenheit the moment the name is committed,
+   *  and «Muster Felix» typed letter by letter would put thirteen people on the list. */
+  onInput?: (v: string) => void
   onChange: (v: string) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -55,8 +61,9 @@ export function Combo({ value, options, groups, placeholder, allowCustom, custom
     const list = officersOnly && hasOfficers ? options.filter((o) => isOfficer(rankOf(o))) : options
     return [...list].sort((a, b) => rankOrder(rankOf(a)) - rankOrder(rankOf(b)) || a.localeCompare(b, 'de'))
   }, [options, officerFilter, rankOf, officersOnly, hasOfficers])
-  const needle = search.trim().toLowerCase()
-  const match = (o: string) => !needle || o.toLowerCase().includes(needle)
+  // one shared idea of what a query finds (lib/search): umlauts either way, one typo forgiven
+  const needle = useMemo(() => searchQuery(search), [search])
+  const match = (o: string) => !needle || matchesQuery(needle, o)
   const listed = useMemo(() => shown.filter(match), [shown, needle]) // eslint-disable-line react-hooks/exhaustive-deps
   // below this the whole list is on screen anyway and a search box is one more control between
   // the finger and the name it came for
@@ -103,8 +110,8 @@ export function Combo({ value, options, groups, placeholder, allowCustom, custom
     return (
       <div className="combo">
         <input ref={inputRef} className="combo-input" value={value} placeholder={placeholder}
-          onChange={(e) => onChange(e.target.value)}
-          onBlur={() => setTyping(false)}
+          onChange={(e) => (onInput ?? onChange)(e.target.value)}
+          onBlur={() => { setTyping(false); if (onInput) onChange(value) }}
           onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} />
       </div>
     )

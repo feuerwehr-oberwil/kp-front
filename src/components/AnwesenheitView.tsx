@@ -11,6 +11,7 @@ import { fillTemplate, fmtSpanShort, hhmm, stripUnprintable } from '../lib/forma
 import { personnelProviderName } from '../lib/deploymentConfig'
 import { applyTimeToIso, isoOnDay } from '../lib/abschluss'
 import { rankAbbr, rankLabel, rankOrder } from '../lib/rank'
+import { matchesQuery, searchQuery } from '../lib/search'
 import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
 import { ortCounts, ortOf } from '../lib/attendanceOrt'
 import { Overlay, Popover } from '../lib/overlays'
@@ -478,9 +479,11 @@ export function AnwesenheitView({
   }, [people, attendance])
 
   const rows = useMemo(() => {
-    const needle = q.trim().toLowerCase()
+    // umlaut-neutral, and one typo forgiven (lib/search) — «Mueller» finds Müller, «Widemr»
+    // finds Widmer. A 66-name Mannschaft searched with gloves on cannot demand exact spelling.
+    const needle = searchQuery(q)
     return [...people, ...guests]
-      .filter((p) => !needle || p.displayName.toLowerCase().includes(needle))
+      .filter((p) => !needle || matchesQuery(needle, p.displayName))
       .filter((p) => !rankFilter || p.rank === rankFilter)
       .filter((p) => !(planning && presentOnly) || isPresent(attendance[p.id]))
       // grouped by seniority (most senior first), alpha within a rank

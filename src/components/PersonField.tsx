@@ -5,6 +5,7 @@ import { appConfig } from '../config/appConfig'
 import { cx } from '../lib/cx'
 import { fillTemplate, stripUnprintable } from '../lib/format'
 import { isOfficer, rankAbbr, rankLabel, rankOrder } from '../lib/rank'
+import { matchesQuery, searchQuery } from '../lib/search'
 import type { Person } from '../types'
 import s from './Atemschutz.module.css'
 
@@ -15,7 +16,7 @@ export type Slot = { name: string; personId?: string }
 // a person links the id; typing leaves it a manual snapshot. Replaces the old chip list.
 export function PersonField({
   label, placeholder, value, onChange, onRemove, removeLabel, personnel, legacyRoster, presentIds, assignedIds, usedIds, usedNames,
-  rolesById, rankFirst = false, officerFilter = false,
+  rolesById, rankFirst = false, officerFilter = false, onAddGuest,
 }: {
   label: string
   placeholder: string
@@ -43,6 +44,10 @@ export function PersonField({
   /** offer a "nur Offiziere" toggle that narrows the list to officer-rank people (the
    *  type-a-name fallback stays, so nobody is truly hidden — 3am tenet). */
   officerFilter?: boolean
+  /** File a hand-typed name under an id — the roster's, or a fresh Gast's — so the person named
+   *  here reaches the Anwesenheit like anybody picked from the list. Hands back that id; absent
+   *  for a session that may not write, and the slot then keeps the bare name it always did. */
+  onAddGuest?: (name: string) => string | undefined
 }) {
   const az = appConfig.copy.atemschutz
   const [open, setOpen] = useState(false)
@@ -63,7 +68,6 @@ export function PersonField({
   // absolutely-positioned menu gets clipped at that overflow boundary — fatal on a phone where
   // the lower person fields sit right at the sheet's scroll edge
   const [pos, setPos] = useState<{ left: number; top: number; width: number; maxH: number; up: boolean } | null>(null)
-  const q = value.name.trim().toLowerCase()
 
   type Opt = { key: string; name: string; personId?: string; present: boolean; assigned: boolean; rank?: string; role?: string; guest?: boolean }
   const options: Opt[] = useMemo(() => {
@@ -94,8 +98,9 @@ export function PersonField({
   // two independent narrowings: the free-name field filters by what is being typed INTO the
   // slot, the menu's own box filters while browsing. Never both — the box only exists in the
   // menu, and the menu is closed while typing a name.
-  const needle = (typing ? q : search.trim().toLowerCase())
-  const filtered = needle ? options.filter((o) => o.name.toLowerCase().includes(needle)) : options
+  // …and both narrow the same way (lib/search): umlauts either way, one typo forgiven.
+  const needle = useMemo(() => searchQuery(typing ? value.name : search), [typing, value.name, search])
+  const filtered = needle ? options.filter((o) => matchesQuery(needle, o.name)) : options
   // below this the whole roster is on screen anyway and a search box is one more control
   // between the finger and the name it came for
   const showSearch = options.length > 8
@@ -138,6 +143,18 @@ export function PersonField({
   // missing from it — the one way this control can lie
   const closeMenu = () => { setOpen(false); setSearch('') }
   const clear = () => { onChange({ name: '' }); setTyping(false) }
+  /** Leaving the free-text field is what FINISHES a hand-typed name: it is filed under an id —
+   *  the roster's if it names one of ours, a fresh Gast's otherwise (lib/guests) — so whoever is
+   *  named here reaches the Anwesenheit like anybody picked from the list. A name that only ever
+   *  sat on the Rapport reached neither the Personalblatt nor the statistics export. */
+  const commitTyped = () => {
+    setTyping(false)
+    closeMenu()
+    const name = value.name.trim()
+    if (!onAddGuest || !name || value.personId) return
+    const id = onAddGuest(name)
+    if (id) onChange({ name, personId: id })
+  }
 
   return (
     <div className={s.field}>
@@ -160,7 +177,8 @@ export function PersonField({
             // the Trupp card's one-line name row; every real roster name is far inside this
             maxLength={40}
             onChange={(e) => onChange({ name: stripUnprintable(e.target.value) })}
-            onBlur={() => window.setTimeout(() => { setTyping(false); closeMenu() }, 120)}
+            // the delay lets a tap on a menu entry win over the blur (that path sets a personId)
+            onBlur={() => window.setTimeout(commitTyped, 120)}
           />
         ) : (
           <button

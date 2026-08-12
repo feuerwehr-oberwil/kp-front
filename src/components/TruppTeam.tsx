@@ -4,6 +4,7 @@ import { appConfig } from '../config/appConfig'
 import { cx } from '../lib/cx'
 import { fillTemplate, stripUnprintable } from '../lib/format'
 import { rankAbbr, rankLabel, rankOrder } from '../lib/rank'
+import { matchesQuery, searchQuery } from '../lib/search'
 import type { Person } from '../types'
 import type { Slot } from './PersonField'
 import s from './Atemschutz.module.css'
@@ -88,8 +89,10 @@ export function TruppTeam({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [personnel, legacyRoster, presentIds, stationIds, assignedIds, rolesById, value])
 
-  const needle = q.trim().toLowerCase()
-  const filtered = needle ? options.filter((o) => o.name.toLowerCase().includes(needle)) : options
+  // umlaut-neutral and one typo forgiven (lib/search) — the Mannschaft is searched here with
+  // gloves on, and a name that will not come up reads as a person who is not on the list
+  const needle = searchQuery(q)
+  const filtered = needle ? options.filter((o) => matchesQuery(needle, o.name)) : options
 
   // Adding the FIRST person makes them Gruppenführer, because the overwhelmingly common case is
   // that the Trupp is entered leader-first. Nothing is locked by it — the crown moves with a tap.
