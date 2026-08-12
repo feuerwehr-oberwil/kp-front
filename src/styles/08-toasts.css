@@ -91,6 +91,12 @@
 .toast-action { pointer-events: auto; flex: none; align-self: center; margin-left: 4px; padding: 6px 14px; min-height: 44px;
   font-size: 12.5px; font-weight: 700; color: var(--on-accent-ink); border: none; border-radius: var(--r-sm);
   background: color-mix(in srgb, var(--on-accent-ink) 18%, transparent); cursor: pointer; }
+/* ⚠️ It carries `.btn` too, and `.btn:hover` paints --surface — a WHITE block on the red
+   Sync-Fehler pill, with the near-white label vanishing into it. The pill's own tone is the base
+   here, so hovering only deepens the same translucent fill (and needs `.toast` in front of it to
+   outrank `.btn:hover`). */
+.toast .toast-action:hover { background: color-mix(in srgb, var(--on-accent-ink) 30%, transparent);
+  color: var(--on-accent-ink); }
 /* the fill is overridden, so the ink has to be too — .toast sits on --ink-fill and keeps its
    near-white, which lands at 2.2:1 once the fill turns green */
 .toast-success { background: var(--green); color: var(--on-fill); }
