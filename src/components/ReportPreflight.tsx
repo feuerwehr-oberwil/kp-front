@@ -82,7 +82,7 @@ function CheckRow({ done, label, sub, onGo, anchor, children }: {
 const savedScroll: { current: { incidentId: string; top: number } | null } = { current: null }
 
 export function ReportPreflight({
-  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], contactIntervalMin, contactGraceSec, plans = [], scene, board, building, captureUsage, canEdit = true, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onComplete, onFixTranscripts,
+  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, onAddGuest, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], contactIntervalMin, contactGraceSec, plans = [], scene, board, building, captureUsage, canEdit = true, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onComplete, onFixTranscripts,
 }: {
   incident: IncidentMeta
   reportMeta: ReportMeta
@@ -91,9 +91,13 @@ export function ReportPreflight({
   presentIds?: Set<string>
   /** Naming somebody here puts them on the Anwesenheit list and, for the Einsatzleiter, writes
    *  the function into their Bemerkung. A rapport that names an Einsatzleiter the attendance
-   *  sheet has never heard of contradicts itself on paper. Undefined = nothing to link (a typed
-   *  guest name), which is exactly the case where nothing should happen. */
+   *  sheet has never heard of contradicts itself on paper. Undefined = nothing to link, which
+   *  by now only happens for a name typed on a session that may not write. */
   onRolePicked?: (personId: string | undefined, role: AssignableRole, note?: string) => void
+  /** …and the id a hand-typed name is filed under: the roster's, or a fresh Gast's. Carries the
+   *  job, because a Gast's row is CREATED by this call — there is nothing yet for a following
+   *  `onRolePicked` to write a Bemerkung onto. Absent = the session may not write. */
+  onAddGuest?: (name: string, role: AssignableRole, note?: string) => string | undefined
   events: TimelineEvent[]
   annotatedPlanCount: number
   truppCount: number
@@ -383,9 +387,10 @@ export function ReportPreflight({
   // pick already writes it (onRolePicked · lib/roleAssignment); this covers every other route a
   // name arrives by (seeded data, a sync from another device, the symbol).
   //
-  // Only when the name RESOLVES to a roster row: a hand-typed one has no id to file attendance
-  // under, and inventing a guest row from a free-text field would put people on the Soldblatt
-  // that nobody recorded.
+  // Only when the name RESOLVES to a roster row. A name that arrives this way was NOT typed
+  // here — it comes from seeded data, another device's sync or the Kroki symbol — and minting a
+  // Gast for one would put people on the Soldblatt that nobody recorded on this screen. Typing a
+  // name into the picker itself is the deliberate act, and that path files a Gast (onAddGuest).
   /** person id → the job they already hold, off their Anwesenheits-Bemerkung — shown on every
    *  option of the two person pickers below (lib/roleAssignment writes these notes). Same shape
    *  the Atemschutz board's pickers use; a roster that reads differently depending on which
@@ -999,6 +1004,7 @@ export function ReportPreflight({
                 // silent one: it is where somebody is MADE Einsatzleiter, and it said nothing
                 // about the fact that the name under the cursor is already the Fahrer of the TLF.
                 rolesById={rolesById}
+                onAddGuest={onAddGuest && ((name) => onAddGuest(name, 'el', appConfig.copy.anwesenheit.roleEinsatzleiter))}
                 rankFirst officerFilter
               />
               </div>
@@ -1164,6 +1170,9 @@ export function ReportPreflight({
                 personnel={personnel} legacyRoster={[]} presentIds={presentIds}
                 assignedIds={NO_IDS} usedIds={NO_IDS} usedNames={NO_IDS}
                 rolesById={rolesById}
+                // `presence` here too (see onRolePicked above): whoever phoned the ELZ was on
+                // scene, which is all this field says — it does not make them Einsatzleiter.
+                onAddGuest={onAddGuest && ((name) => onAddGuest(name, 'presence'))}
                 rankFirst
               />
               <div className="ip-field">

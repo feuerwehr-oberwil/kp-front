@@ -2828,6 +2828,9 @@ export const de = {
     // Deliberately NOT a roster entry: they were here tonight – that is a statement about this
     // Einsatz, not about the Wehr.
     logGuestAdded: '{name} als weitere Person erfasst',
+    // …und wenn der Name gleich in ein Rollenfeld getippt wurde (Fahrer, Stv., Einsatzleiter):
+    // eine Zeile, nicht zwei. Erfasst und wofür, in derselben Bewegung.
+    logGuestAddedAs: '{name} als weitere Person erfasst – {role}',
     addGuest: 'Weitere Person',
     addGuestTitle: 'Weitere Person erfassen',
     addGuestHint: 'Für jemanden, der nicht auf der Mannschaftsliste steht – Gast, Nachbarwehr, noch nicht synchronisiert. Wird nur für diesen Einsatz erfasst.',

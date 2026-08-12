@@ -2335,6 +2335,32 @@ export function IncidentWorkspace({
   }
 
   /**
+   * The id a HAND-TYPED name is filed under, given the job it was typed into — the one thing
+   * every person field needs and only two of them used to have.
+   *
+   * Typing a name is the normal way a Nachbarwehr, a Gast or an AdF whose roster row never
+   * synced gets onto this Einsatz. Only the Anwesenheit's «Weitere Person» and the Trupp form
+   * recorded one; everywhere else the name stopped on the object it was typed on — a Fahrer on a
+   * vehicle, a Stv. on the Einsatzleiter glyph, the Einsatzleiter on the Rapport — so an Einsatz
+   * could be led by somebody the Anwesenheit, the Personalblatt and the Soldblatt printed from it
+   * had never heard of.
+   *
+   * ⚠️ Resolve BEFORE recording. The pickable roster already holds this Einsatz's guests, so
+   * naming the same Nachbarwehr driver on a second vehicle finds the row they already have
+   * rather than opening a second one under the same name.
+   *
+   * ⚠️ And a NEW Gast gets the job from `addGuest` itself, not from a role assignment afterwards:
+   * their row does not exist yet in this render's `attendance`/`rosterById`, so the assignment
+   * would mark a stranger present and write their raw id into the Verlauf.
+   */
+  const assignTypedName = (name: string, role: AssignableRole, note?: string): string | undefined => {
+    const known = personIdForName(rosterIdByName, name)
+    if (!known) return addGuest(name, note)
+    assignRole(known, role, note)
+    return known
+  }
+
+  /**
    * A name typed into a symbol's roster field («Fahrer» on the TLF, «Name»/«Stv.» on the
    * Einsatzleiter glyph) is a job handed to somebody who is standing there. It used to live
    * ONLY on the entity: the Rapport, the Anwesenheit and the Soldblatt never learned about it,
@@ -2354,13 +2380,13 @@ export function IncidentWorkspace({
     for (const [k, v] of Object.entries(fields)) {
       if (!ROSTER_FIELDS.includes(k) || !v.trim()) continue
       if (before[k] === v && !jobChanged) continue
-      const id = personIdForName(rosterIdByName, v)
-      if (!id) continue // a typed guest / mutual aid — not ours to mark present
       // which job this field hands out, and what it writes into the Bemerkung — lib ·
       // roleAssignment, so «Fahrer TLF» / «Einsatzleiter» / «Stv. Einsatzleiter» is one
       // decision with tests rather than a chain of conditions inside the workspace
       const { role, note } = rosterFieldRole(prev.symbol, k, prev.label, fields)
-      assignRole(id, role, note)
+      // ⚠️ …and a name the Mannschaftsliste has never heard of is a Gast, recorded as one
+      // rather than dropped: it was typed onto a symbol because that person is standing there.
+      assignTypedName(v, role, note)
     }
   }
   /**
@@ -2902,11 +2928,9 @@ export function IncidentWorkspace({
                   [selected.id]: { ...m[selected.id], fahrer: v.trim() || undefined },
                 }))
                 // same rule as a placed vehicle's Fahrer field: naming a driver puts them on
-                // the Anwesenheit list with «Fahrer <Fahrzeug>» as their Bemerkung
-                const id = personIdForName(rosterIdByName, v)
-                if (id) {
-                  assignRole(id, 'fahrer', fillTemplate(appConfig.copy.anwesenheit.roleFahrer, { vehicle: selected.label ?? '' }).trim())
-                }
+                // the Anwesenheit list with «Fahrer <Fahrzeug>» as their Bemerkung — and a typed
+                // Nachbarwehr driver onto it as a Gast (assignTypedName)
+                assignTypedName(v, 'fahrer', fillTemplate(appConfig.copy.anwesenheit.roleFahrer, { vehicle: selected.label ?? '' }).trim())
               },
             }
             : undefined}
@@ -3349,8 +3373,11 @@ export function IncidentWorkspace({
           canEdit={canEditIncident}
           personnel={pickablePersonnel}
           attendance={effAttendance}
-          // a Gast under PA was at the Einsatz — record them on the Anwesenheit too
-          onAddGuest={canEditIncident ? addGuest : undefined}
+          // a Gast under PA was at the Einsatz — record them on the Anwesenheit too. Through
+          // assignTypedName, so typing the name of somebody who IS on the list (or already on
+          // this Einsatz) links that row instead of opening a second one beside it. No job
+          // written here: the Trupp is not formed yet, and submitting it writes «AS» itself.
+          onAddGuest={canEditIncident ? (name) => assignTypedName(name, 'presence') : undefined}
           createTrupp={createTruppA}
           placeTrupp={placeTrupp}
           placeTargets={placeTargets}
@@ -3487,6 +3514,9 @@ export function IncidentWorkspace({
           onRemoveAttachment={canEditIncident && !readOnly ? removeAttachment : undefined}
           canEdit={canEditIncident && !readOnly}
           onRolePicked={assignRole}
+          // the Einsatzleiter / Rückmeldung pickers: a typed name is a Gast, so the EL named on
+          // the front page of the rapport is on the Anwesenheit behind it even for a Nachbarwehr
+          onAddGuest={canEditIncident && !readOnly ? assignTypedName : undefined}
           onSaveMeta={saveReportMeta}
           onEditDispatch={canEditIncident && !readOnly ? onEditMeta : undefined}
           onOpenAnwesenheit={() => { setMode('anwesenheit'); setRapportReturn(true) }}

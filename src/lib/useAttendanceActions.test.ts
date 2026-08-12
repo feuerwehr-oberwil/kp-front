@@ -48,6 +48,18 @@ describe('addGuest — somebody on scene who is not on the Mannschaftsliste', ()
     expect(Object.keys(state.attendance)).toHaveLength(0)
   })
 
+  // A Gast is usually created BY the field that names them — «Fahrer TLF» on a vehicle, the
+  // Einsatzleiter on the Rapport. The job has to be written here: their row does not exist yet,
+  // so the caller has nothing to hang a Bemerkung on afterwards.
+  it('carries the job it was typed into onto the row, in one Verlauf line', () => {
+    const { actions, state } = harness()
+    const id = actions.addGuest('Muster Felix', 'Fahrer TLF')
+    expect(state.attendance[id!].note).toBe('Fahrer TLF')
+    expect(state.log).toHaveLength(1)
+    expect(state.log[0]).toContain('Muster Felix')
+    expect(state.log[0]).toContain('Fahrer TLF')
+  })
+
   it('gives each guest their own id — two «Gast» entries are two people', () => {
     const { actions, state } = harness()
     const a = actions.addGuest('Muster Felix')

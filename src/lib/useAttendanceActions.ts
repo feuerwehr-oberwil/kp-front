@@ -151,14 +151,26 @@ export function useAttendanceActions({ attendance, setAttendance, blockedAttenda
    *
    * Deliberately NOT a roster entry: this person was here tonight, which is a statement about
    * this Einsatz and not about the Wehr's membership. Same shape as «Anderes Mittel».
+   *
+   * `note` is the job the name was typed into — «Fahrer TLF», «Einsatzleiter». It is written
+   * HERE rather than by a following role assignment, because the row does not exist yet: the
+   * caller cannot mark somebody present who is only about to be created, and the Verlauf line it
+   * would write knows the id but not the name. One act, one row, one line.
    */
-  const addGuest = (name: string): string | undefined => {
+  const addGuest = (name: string, note?: string): string | undefined => {
     const display = name.trim()
     if (!display) return undefined
     guestSeq += 1
     const id = `g${Date.now().toString(36)}-${guestSeq}`
-    setAttendance((cur) => ({ ...cur, [id]: openPresence(undefined, startedAt, display) }))
-    log('people', fillTemplate(appConfig.copy.anwesenheit.logGuestAdded, { name: display }), 'team')
+    const job = note?.trim()
+    setAttendance((cur) => ({
+      ...cur,
+      [id]: { ...openPresence(undefined, startedAt, display), ...(job ? { note: job } : {}) },
+    }))
+    const A = appConfig.copy.anwesenheit
+    log('people', job
+      ? fillTemplate(A.logGuestAddedAs, { name: display, role: job })
+      : fillTemplate(A.logGuestAdded, { name: display }), 'team')
     return id
   }
 
