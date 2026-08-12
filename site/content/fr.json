@@ -36,20 +36,20 @@
       "Incendies",
       "Accidents de la circulation",
       "Assistance technique",
-      "Défense chimique et hydrocarbure",
+      "Défense chimique et lutte contre les hydrocarbures",
       "Événements majeurs"
     ],
     "note": "Né du service opérationnel réel des\n        <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">sapeurs-pompiers d’Oberwil BL</a>\n        – éprouvé sur le terrain et développé en continu."
   },
   "tenet": {
-    "eyebrow": "La mesure de toute chose",
+    "eyebrow": "Notre mesure",
     "quote": "«&nbsp;Utilisable à <em>3 heures du matin</em> – après six mois sans exercice&nbsp;»",
     "expl": "Dans un corps de milice, personne n’est devant l’écran tous les jours. L’application\n        doit donc pouvoir être utilisée correctement à moitié endormi :\n        <strong>l’essentiel visible d’emblée, de bons réglages par défaut plutôt que des options,\n        et rien qui ne puisse être annulé.</strong>"
   },
   "incident": {
     "eyebrow": "De l’alarme au rapport",
     "h2": "Une intervention, une application.",
-    "lede": "Voilà à quoi ressemble une nuit avec KP Front – la situation, la protection respiratoire et la documentation\n        restent compréhensibles pour tous, à tout moment.",
+    "lede": "Voilà à quoi ressemble une nuit avec KP Front – la situation, la protection respiratoire et la documentation\n        restent cohérentes et compréhensibles pour tous.",
     "entries": [
       {
         "time": "03:01",
@@ -67,7 +67,7 @@
         "time": "03:12",
         "tag": "Protection respiratoire",
         "h3": "L’équipe 1 entre.",
-        "p": "Pression, moment du repli et temps depuis le dernier contact sont décomptés pour chaque équipe.\n            L’application se manifeste avant que la marge ne devienne trop courte – même si personne\n            ne regarde l’heure à ce moment-là."
+        "p": "Pression, moment du repli et temps depuis le dernier contact sont décomptés pour chaque équipe.\n            L’application alerte avant que la marge ne devienne trop courte – même si personne\n            ne regarde l’heure à ce moment-là."
       },
       {
         "time": "03:18",
@@ -163,15 +163,15 @@
     "rows": [
       {
         "today": "Carte de situation sur papier",
-        "with": "Tableau de la situation sur chaque appareil"
+        "with": "Image de situation sur chaque appareil"
       },
       {
         "today": "Tableau de surveillance et chronomètre",
-        "with": "Une surveillance qui se manifeste d’elle-même"
+        "with": "Une surveillance qui alerte automatiquement"
       },
       {
         "today": "Bouts de papier et mémoire",
-        "with": "Un journal qui suit"
+        "with": "Un journal qui s’écrit au fur et à mesure"
       },
       {
         "today": "Plan d’objet dans un classeur",
@@ -257,7 +257,7 @@
     "items": [
       {
         "q": "Pourquoi changer ?",
-        "a": "Tout le monde voit la même situation au même moment – au véhicule de commandement,\n          sur la tablette et chez le chef d’intervention. Aucune annonce ne se perd sur un bout de\n          papier. La surveillance PR se manifeste d’elle-même avant que la marge ne devienne trop courte.\n          Moins de trafic radio pour des questions dont la réponse est déjà sur le tableau de la\n          situation – et le rapport est presque terminé au retour à la caserne, au lieu du week-end suivant.\n          KP Front aide la direction d’intervention à garder une situation sans contradictions et à rendre\n          les écarts visibles : une équipe sans contact radio, un véhicule qui n’est nulle part,\n          une annonce qui n’est jamais venue."
+        "a": "Tout le monde voit la même situation au même moment – au véhicule de commandement,\n          sur la tablette et chez le chef d’intervention. Aucune annonce ne se perd sur un bout de\n          papier. La surveillance PR alerte automatiquement avant que la marge ne devienne trop courte.\n          Moins de trafic radio pour des questions dont la réponse est déjà sur l’image de la\n          situation – et le rapport est presque terminé au retour à la caserne, au lieu du week-end suivant.\n          KP Front aide la direction d’intervention à garder une situation sans contradictions et à rendre\n          les écarts visibles : une équipe sans contact radio, un véhicule qui n’est nulle part,\n          une annonce qui n’est jamais venue."
       },
       {
         "q": "À qui appartiennent les données ?",
