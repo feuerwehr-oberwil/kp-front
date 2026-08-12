@@ -481,6 +481,41 @@ class DeploymentConfig(Base):
     updated_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"), nullable=True)
 
 
+class DeploymentConfigHistory(Base):
+    """The config document AS IT WAS, kept before each write that replaced it.
+
+    ⚠️ Every writer of ``deployment_config.config_json`` replaces the WHOLE document, so one
+    writer holding an outdated copy costs a station its Dienstgrade, its Atemschutz-Doktrin, its
+    Partnerorganisationen and its Fahrzeuge in a single silent write. The demo lost its config
+    three times in four days, each time through a different path, each time diagnosed only
+    because somebody happened to look.
+
+    The guards in front of those paths stay (a browser must send the version it read; the CLI
+    refuses to empty a populated section without ``--force``) — but each of them protects a route
+    somebody thought of, and the record here is that enumerating them keeps coming up short. This
+    table protects nothing and covers everything: it is what makes a bad write UNDOABLE, whatever
+    wrote it. A station has no seed file to rebuild from — the demo's reset is the only reason
+    those three occurrences were recoverable at all — so for a real Wehr this is the whole safety
+    net. See ``admin_config history|restore``.
+    """
+
+    __tablename__ = "deployment_config_history"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    #: the document as it stood BEFORE the write, not a diff — a diff needs an intact base to
+    #: mean anything, and the case this exists for is exactly the one where there isn't one
+    config_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    replaced_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )
+    #: which path did the replacing — `api` (Verwaltung / HTTP), `cli` (admin_config load),
+    #: `branding` (a logo upload), `geodata` (a reference-layer push). The one question that was
+    #: unanswerable after the fact: nobody could say whether it had been a browser or a terminal.
+    source: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    #: the admin driving the UI; NULL for a CLI push, which has no user behind it
+    replaced_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+
+
 # --- Audit-trail capture substrate (sub-phase A) ------------------------------------
 
 

@@ -48,6 +48,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..alarm_keywords import SHIPPED
 from ..auth.dependencies import CurrentAdmin, OptionalUser, _admin_session_valid
+from ..config_history import keep_previous
 from ..database import get_db
 from ..i18n import set_locale
 from ..models import DeploymentConfig, User
@@ -254,6 +255,9 @@ async def put_config(
     # Persist the normalized document (defaults filled in) so GET round-trips consistently.
     doc_json = _keep_assets(row.config_json if row else None, body.model_dump(mode="json"))
     actor_id = actor.id if actor else None
+    # …and keep what is being replaced, so this write is undoable whatever it turns out to have
+    # been (app/config_history). Best-effort by design: the net must never drop the write.
+    await keep_previous(db, "api", actor_id)
     if row is None:
         row = DeploymentConfig(id=1, config_json=doc_json, updated_by=actor_id)
         db.add(row)

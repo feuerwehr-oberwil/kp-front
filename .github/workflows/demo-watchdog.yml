@@ -1,0 +1,85 @@
+name: Demo watchdog
+
+# Is the public demo still showing what it is supposed to show?
+#
+# ⚠️ This exists because the demo's config was silently emptied three times in four days and
+# nobody noticed for hours each time. The damage never looks like an error: the login screen just
+# has no logo, the pickers have no Dienstgrade, the Atemschutz board has no Alarmdruck, the
+# Rapport has no Partnerorganisationen. Every automated step reports success throughout, because
+# nothing is broken — the config simply says less than it did. It was caught, all three times,
+# because a human happened to look at the right screen.
+#
+# The write paths themselves are guarded now (a browser must send the version it read; the CLI
+# refuses to empty a populated section without --force; every write keeps the document it
+# replaces). This job is the layer that does not depend on having thought of the path: it asserts
+# what the demo must SHOW, and fails loudly when that stops being true.
+#
+# Recovery when it fires: `admin_config history` then `admin_config restore <id>` against the demo
+# database — or re-run «Demo reset», which rebuilds from the seed file.
+
+on:
+  schedule:
+    - cron: "40 */2 * * *"   # every 2 hours, offset off the hour so it never races the reset
+  workflow_dispatch: {}
+
+concurrency:
+  group: demo-watchdog
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      # Nothing is checked out and nothing is authenticated: the whole point is to see the demo
+      # exactly as a visitor does, over the public GET the login screen itself reads.
+      - name: Check the demo config still carries what it should
+        env:
+          DEMO_URL: ${{ secrets.DEMO_BASE_URL }}
+        run: |
+          if [ -z "$DEMO_URL" ]; then
+            echo "DEMO_BASE_URL not set — skipping (this repo has no demo)."
+            exit 0
+          fi
+          cfg=$(curl -fsS --retry 3 --retry-delay 10 "${DEMO_URL%/}/api/config") || {
+            echo "::error::Could not read ${DEMO_URL%/}/api/config — the demo may be down."
+            exit 1
+          }
+          echo "$cfg" | python3 -c '
+          import json, sys
+          d = json.load(sys.stdin)
+
+          def n(*path):
+              cur = d
+              for p in path:
+                  cur = (cur or {}).get(p)
+              return cur
+
+          # Each of these was lost in one of the three incidents, and each is something a visitor
+          # can SEE. Deliberately not a full comparison against the seed file: a diff would fail on
+          # every legitimate demo-data commit and be muted within a week.
+          checks = [
+              ("identity.assets.logo",   n("identity", "assets", "logo")),
+              ("identity.assets.reportLogo", n("identity", "assets", "reportLogo")),
+              ("identity.appName",       n("identity", "appName")),
+              ("roster.ranks",           n("roster", "ranks")),
+              ("doctrine.alarmBar",      n("doctrine", "alarmBar")),
+              ("report.partnerOrgs",     n("report", "partnerOrgs")),
+              ("fleet.vehicles",         n("fleet", "vehicles")),
+              ("alarms.groups",          n("alarms", "groups")),
+              ("mittel.catalogue",       n("mittel", "catalogue")),
+              ("referenceLayers",        n("referenceLayers")),
+          ]
+          missing = [k for k, v in checks if v is None or (isinstance(v, (list, dict, str)) and len(v) == 0)]
+          for k, v in checks:
+              mark = "MISSING" if k in missing else "ok"
+              size = len(v) if isinstance(v, (list, dict)) else v
+              print(f"  {mark:8} {k} = {size}")
+          if missing:
+              print()
+              print("::error::The demo config has lost " + str(len(missing)) + " section(s): " + ", ".join(missing))
+              print("::error::This is the silent-clobber failure. Recover with `admin_config history`")
+              print("::error::then `admin_config restore <id>`, or re-run the «Demo reset» workflow.")
+              sys.exit(1)
+          print()
+          print("Demo config intact.")
+          '

@@ -735,8 +735,23 @@ uv run python -m app.admin_config validate private/<station>.config.json   # par
 uv run python -m app.admin_config diff private/<station>.config.json        # what would change vs stored
 uv run python -m app.admin_config load private/<station>.config.json        # validate + upsert
 uv run python -m app.admin_config show              # print the stored config
+uv run python -m app.admin_config history           # the configs this one replaced, newest first
+uv run python -m app.admin_config restore <id>      # put one of them back
 ```
 Invalid input prints precise `field.path: message` lines and exits non-zero (nothing written).
+
+> ⚠️ **`load` refuses to empty a section that currently has content** (exit 2), listing exactly
+> what would go — `roster.ranks`, `doctrine.alarmBar`, `report.partnerOrgs`. That is what
+> publishing an OLD config file looks like, and it is how the public demo lost its Dienstgrade,
+> its Atemschutz-Doktrin and its Partnerorganisationen while every step reported success. Check
+> the file is the one you meant (`admin_config diff`), and pass `--force` if the emptying is
+> genuinely intended — a station dropping its Partnerliste is a real edit.
+>
+> **Every write keeps the document it replaced** (`deployment_config_history`), whichever path
+> made it — the Verwaltung, a CLI push, a branding upload. `history` lists them with when and by
+> what, `restore <id>` puts one back, and the restore is itself kept, so stepping back is
+> reversible too. This is the safety net that does not depend on having anticipated the write
+> path: **a station has no seed file to rebuild from**, so without it a bad `load` is permanent.
 
 Against the Railway production DB from a workstation, inject the public proxy URL (no secrets
 printed):

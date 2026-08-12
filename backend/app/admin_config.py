@@ -49,8 +49,9 @@ from typing import Any
 from pydantic import ValidationError
 from sqlalchemy import select
 
+from .config_history import emptied_sections, keep_previous
 from .database import async_session_maker
-from .models import DeploymentConfig
+from .models import DeploymentConfig, DeploymentConfigHistory
 from .schemas import DeploymentConfigIn
 
 # A representative, schema-valid example. Mirrors CONFIGURATION.md §1; edit to taste.
@@ -374,21 +375,70 @@ def _carry_runtime_sections(stored: dict[str, Any] | None, incoming: dict[str, A
     return carried
 
 
-async def _load(doc_json: dict[str, Any]) -> list[str]:
+async def _load(doc_json: dict[str, Any]) -> None:
+    """Write a document that is ALREADY final — the runtime sections have been carried into it by
+    the caller (see `_prepare`), so what lands is exactly what the caller was shown and checked."""
     async with async_session_maker() as db:
         row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-        carried = _carry_runtime_sections(row.config_json if row else None, doc_json)
+        # keep what is being replaced — this is the path with no user behind it and no undo of
+        # its own, and it is the one that publishes a whole file (app/config_history)
+        await keep_previous(db, "cli")
         if row is None:
             db.add(DeploymentConfig(id=1, config_json=doc_json))
         else:
             row.config_json = doc_json
         await db.commit()
-        return carried
+
+
+async def _prepare(doc_json: dict[str, Any]) -> tuple[dict[str, Any] | None, list[str]]:
+    """The stored document, and the runtime sections carried into `doc_json` (mutated in place).
+
+    ⚠️ Split out of `_load` so the destructive-load check can run against what will ACTUALLY be
+    written. Checking the raw file instead would have reported `referenceLayers` and
+    `identity.assets` as emptied on every run — those are never in the file, they are carried —
+    and the refusal would have fired on the nightly demo reset, i.e. on the one caller that is
+    always correct.
+    """
+    async with async_session_maker() as db:
+        row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+        stored = row.config_json if (row and row.config_json) else None
+    carried = _carry_runtime_sections(stored, doc_json)
+    return stored, carried
+
+
+async def _history() -> list[tuple[int, str, str | None, dict[str, Any] | None]]:
+    """(id, replaced_at, source, document) for every kept config, newest first."""
+    async with async_session_maker() as db:
+        rows = (
+            await db.execute(
+                select(DeploymentConfigHistory).order_by(DeploymentConfigHistory.replaced_at.desc()).limit(50)
+            )
+        ).scalars()
+        return [(r.id, r.replaced_at.isoformat(), r.source, r.config_json) for r in rows]
+
+
+async def _restore(entry_id: int) -> dict[str, Any] | None:
+    """Put a kept document back. The document being replaced is itself kept first, so a restore
+    is as undoable as anything else — including a restore of the wrong entry."""
+    async with async_session_maker() as db:
+        entry = (
+            await db.execute(select(DeploymentConfigHistory).where(DeploymentConfigHistory.id == entry_id))
+        ).scalar_one_or_none()
+        if entry is None or not entry.config_json:
+            return None
+        await keep_previous(db, "cli")
+        row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+        if row is None:
+            db.add(DeploymentConfig(id=1, config_json=entry.config_json))
+        else:
+            row.config_json = entry.config_json
+        await db.commit()
+        return entry.config_json
 
 
 def _normalize_argv(argv: list[str]) -> list[str]:
     """Back-compat shim: map the legacy ``<file>`` and ``--show`` forms onto subcommands."""
-    cmds = {"schema", "example", "validate", "diff", "load", "show"}
+    cmds = {"schema", "example", "validate", "diff", "load", "show", "history", "restore"}
     if not argv or argv == ["--show"]:
         return ["show"]
     if argv[0] in cmds or argv[0] in ("-h", "--help"):
@@ -412,7 +462,15 @@ async def _amain(argv: list[str]) -> int:
     p_load = sub.add_parser("load", help="validate + upsert a file into the row")
     p_load.add_argument("file")
     p_load.add_argument("--dry-run", action="store_true", help="validate only, do not write")
+    p_load.add_argument(
+        "--force",
+        action="store_true",
+        help="load even if it would EMPTY sections that currently have content (see the refusal)",
+    )
     sub.add_parser("show", help="print the currently-stored config")
+    sub.add_parser("history", help="list the kept previous configs (newest first)")
+    p_restore = sub.add_parser("restore", help="put a kept config back (see `history` for the id)")
+    p_restore.add_argument("id", type=int)
 
     args = parser.parse_args(_normalize_argv(argv))
 
@@ -444,13 +502,55 @@ async def _amain(argv: list[str]) -> int:
             print(f"OK (dry-run): {args.file} is valid; not written. Keys: {_summary(doc_json)}")
             print(f"    {_vocabulary_line(doc_json)}")
             return 0
-        carried = await _load(doc_json)
+        # ⚠️ REFUSE a load that would empty something that currently has content, unless it is
+        # asked for explicitly. This is the shape of every one of these incidents: publishing an
+        # OLD file over a newer config, which reports success while a station quietly loses its
+        # Dienstgrade, its Atemschutz-Doktrin and its Partnerorganisationen. Every step said OK
+        # each time it happened. A file that legitimately clears a section (a station dropping
+        # its Partnerliste) passes --force and means it.
+        # carry the runtime sections FIRST, then check what the final document would empty
+        stored, carried = await _prepare(doc_json)
+        dropped = emptied_sections(stored, doc_json)
+        if dropped and not args.force:
+            print(
+                f"REFUSED: {args.file} would EMPTY {len(dropped)} section(s) that currently have content:",
+                file=sys.stderr,
+            )
+            for d in dropped:
+                print(f"  - {d}", file=sys.stderr)
+            print("", file=sys.stderr)
+            print("This is what publishing an OLD config file looks like. Check the file is the", file=sys.stderr)
+            print("one you meant (`git log examples/... ` / `admin_config diff <file>`).", file=sys.stderr)
+            print("If the emptying is intended, repeat with --force.", file=sys.stderr)
+            return 2
+        await _load(doc_json)
         print(f"OK: loaded {args.file} into deployment_config id=1.")
+        if dropped:
+            # forced through — say what went, because nothing else will
+            print(f"    ⚠️ EMPTIED (--force): {', '.join(dropped)}")
         print(f"    top-level keys set: {_summary(doc_json)}")
         if carried:
             # said out loud: the file did NOT contain these, and they are still there
             print(f"    kept from the stored config (runtime-written, not in the file): {', '.join(carried)}")
         print(f"    {_vocabulary_line(doc_json)}")
+        return 0
+    if args.cmd == "history":
+        entries = await _history()
+        if not entries:
+            print("No previous configs kept yet (nothing has overwritten this one).")
+            return 0
+        print(f"{len(entries)} kept config(s), newest first — restore with `admin_config restore <id>`:")
+        for eid, at, src, doc in entries:
+            print(f"  [{eid}] {at}  via {src or '?'}  ({_summary(doc or {})})")
+        return 0
+    if args.cmd == "restore":
+        doc = await _restore(args.id)
+        if doc is None:
+            print(f"ERROR: no kept config with id {args.id} (see `admin_config history`).", file=sys.stderr)
+            return 1
+        print(f"OK: restored kept config [{args.id}] into deployment_config id=1.")
+        print(f"    top-level keys set: {_summary(doc)}")
+        print("    the document it replaced was itself kept — `history` again to step back.")
         return 0
     # show
     stored = await _show()
