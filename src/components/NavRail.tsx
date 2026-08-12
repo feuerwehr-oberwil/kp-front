@@ -23,10 +23,6 @@ interface Props {
   /** trailing slot after the surface list — the phone's 🔧 Bearbeiten toggle lives here
    *  (bar swap: tapping it replaces this surface bar with the tool rail) */
   trailing?: ReactNode
-  /** «Trupp finden»: opens the finder overlay (NOT a surface — see TruppFinder). Rendered
-   *  only while something is actually placed; `placedTrupps` is that count, shown as a badge. */
-  onFindTrupp?: () => void
-  placedTrupps?: number
 }
 
 const COMPACT = 60, WIDE = 216
@@ -187,16 +183,6 @@ export function NavRail(p: Props) {
         })}
 
         <div className="nav-sep" />
-        {/* «Trupp finden» — an ACTION, not a surface: it opens a list over whatever is on screen
-            and is gone once you have chosen (see TruppFinder). So it never takes the `on` state,
-            and it is offered only while something is placed — an entry that opens an empty list
-            is a control that lies about having an answer. */}
-        {p.onFindTrupp && (p.placedTrupps ?? 0) > 0 && (
-          <button className="nav-item" aria-label={nav.findTrupp} onClick={p.onFindTrupp}>
-            <span className="nav-glyph"><Icon id="search" /><span className="nav-count">{p.placedTrupps}</span></span>
-            <span className="nav-label">{nav.findTrupp}</span>
-          </button>
-        )}
         <button className={`nav-item${p.mode === 'checklists' ? ' on' : ''}`} aria-pressed={p.mode === 'checklists'} aria-label={appConfig.copy.modes.checklists} onClick={() => p.onMode('checklists')}>
           <span className="nav-glyph"><Icon id="checklist" /></span>
           <span className="nav-label">{appConfig.copy.modes.checklists}</span>

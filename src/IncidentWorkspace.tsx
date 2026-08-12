@@ -2765,8 +2765,6 @@ export function IncidentWorkspace({
         activePlanId={activePlanId}
         onSelectPlan={(id) => { if (mode !== 'plans') clearMapUi(); setMode('plans'); setActivePlanId(id) }}
         azSeverity={azAlarm.peak}
-        onFindTrupp={() => { clearMapUi(); setFindTruppOpen(true) }}
-        placedTrupps={placed.length}
       />
 
       {findTruppOpen && (
@@ -3131,6 +3129,15 @@ export function IncidentWorkspace({
       {mapUI && tool === 'team' && (
         <ToolDock groups={[
           [{ type: 'close', onClick: () => { setTeamPick(null); setTool('select') } }],
+          // ⚠️ «Trupp finden» lives HERE, on the tool the question is about — not in the left
+          // rail, which navigates between surfaces. Reaching for the Trupp tool is already the
+          // gesture for «etwas mit einem Trupp», and placing one and finding one are the two
+          // things that gesture can mean. Disabled rather than hidden while nothing is placed:
+          // on the tool's own dock, its absence would read as a tool that lost a button.
+          [{
+            type: 'action', icon: 'search', label: appConfig.copy.truppFinder.title,
+            disabled: placed.length === 0, onClick: () => setFindTruppOpen(true),
+          }],
           [{ type: 'info', text: appConfig.copy.dockHints.team }],
         ]} />
       )}

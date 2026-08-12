@@ -118,12 +118,6 @@
 .navrail.expanded:not(.dragging) .nav-glyph.nav-frac { font-size: 20px; }
 .nav-live { position: absolute; top: 6px; right: 6px; width: 9px; height: 9px; border-radius: 50%; background: var(--green); border: 2px solid #fff; }
 .nav-item.on .nav-live { border-color: var(--ink-fill); }
-/* «Trupp finden» carries HOW MANY are placed, in the same corner the live dot uses. A number
-   rather than a dot: it is the one thing worth knowing before opening the list, and «3» also
-   says what the glyph is counting. */
-.nav-count { position: absolute; top: 2px; right: 2px; min-width: 16px; height: 16px; padding: 0 4px;
-  border-radius: 8px; background: var(--blue); color: var(--on-fill);
-  font: 800 10px/16px var(--body); text-align: center; }
 /* Atemschutz cross-surface alarm dot: amber when fällig, red + pulse when überfällig */
 .nav-live.nav-alarm { background: var(--amber); }
 .nav-live.nav-alarm.crit { background: var(--red); animation: nav-alarm-pulse 1.4s infinite; }
