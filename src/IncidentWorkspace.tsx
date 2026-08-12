@@ -125,6 +125,8 @@ import { rosterWithGuests } from './lib/guests'
 import type { Item } from './lib/checklists'
 import type { NoteSize } from './types'
 import { ReportPreflight } from './components/ReportPreflight'
+import { TruppFinder } from './components/TruppFinder'
+import { placedTrupps, type PlacedTrupp } from './lib/placedTrupps'
 import { annotatedPlans, changedReportMetaFields } from './lib/report'
 import { entityEditChanges, entityLogName } from './lib/entityEdit'
 import { currentMengeFor, mittelLineCount, symbolCaptureConfigured } from './lib/mittel'
@@ -459,6 +461,8 @@ export function IncidentWorkspace({
   // tool closes it + the views popover. Kept here (not in useSheets) next to the tactical
   // gesture state it's cleared alongside (enterReplay), so those stay plain useState setters.
   const [panel, setPanel] = useState<'layers' | null>(null)
+  // «Trupp finden» (TruppFinder) — an overlay over whatever is on screen, not a surface
+  const [findTruppOpen, setFindTruppOpen] = useState(false)
   useEffect(() => { if (tool !== 'select') { setViewsOpen(false); setPanel(null) } }, [tool])
   // measurement tool (distance/height-profile line, or area) — extracted to useMeasure.
   // All ephemeral (never saved); gated on the measure tool being active.
@@ -1959,6 +1963,21 @@ export function IncidentWorkspace({
     const d = drawings.find((x) => x.id === id); if (!d?.coords[0]) return
     setSelectedDrawingId(id); setSelectedId(null); mapRef.current?.flyTo({ center: d.coords[0], zoom: 17.8 })
   }
+  /** Every Trupp standing somewhere on this Einsatz — Lage markers AND plan chips, Atemschutz
+   *  or not (lib/placedTrupps). Feeds the rail's count and the finder's list. */
+  const placed = useMemo(() => placedTrupps(entities, board, planDocs, trupps), [entities, board, planDocs, trupps])
+  /**
+   * Go to the picked Trupp. ⚠️ The SAME two jumps «auf Plan zeigen» makes from the Atemschutz
+   * card (useTruppActions · focusTruppOnPlan) — a second way to arrive at a marker would be a
+   * second set of rules about what «zeigen» leaves behind: the map jump selects the marker, the
+   * plan jump opens its storey and points at the chip.
+   */
+  const goToTrupp = (t: PlacedTrupp) => {
+    setPanel(null)
+    if (t.target.kind === 'map') { setMode('map'); focusEntity(t.target.entityId); return }
+    setMode('plans'); setActivePlanId(t.target.planId)
+    setPlanFocus({ x: t.target.x, y: t.target.y, floor: t.target.floor, annoId: t.target.annoId, nonce: Date.now() })
+  }
   const deleteEntity = async (id: string) => {
     if (tacticalLocked) return
     const ent = entities.find((e) => e.id === id)
@@ -2746,7 +2765,13 @@ export function IncidentWorkspace({
         activePlanId={activePlanId}
         onSelectPlan={(id) => { if (mode !== 'plans') clearMapUi(); setMode('plans'); setActivePlanId(id) }}
         azSeverity={azAlarm.peak}
+        onFindTrupp={() => { clearMapUi(); setFindTruppOpen(true) }}
+        placedTrupps={placed.length}
       />
+
+      {findTruppOpen && (
+        <TruppFinder trupps={placed} onPick={goToTrupp} onClose={() => setFindTruppOpen(false)} />
+      )}
 
       {mapUI && (
         <>

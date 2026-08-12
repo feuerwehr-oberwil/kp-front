@@ -27,7 +27,22 @@ export const de = {
   // the left navigation rail (Karte · Pläne group · Checkliste · Atemschutz)
   // (no «Objekt wählen» any more: the rail is pure navigation, the object sits on the
   //  plan surface – see whiteboard.objectLabel)
-  navRail: { map: 'Karte', plansGroup: 'Pläne', assign: 'Plan zuweisen', expand: 'Ausklappen', collapse: 'Einklappen', resize: 'Leiste anpassen', scrollMore: 'Weitere anzeigen' },
+  navRail: { map: 'Karte', plansGroup: 'Pläne', assign: 'Plan zuweisen', expand: 'Ausklappen', collapse: 'Einklappen', resize: 'Leiste anpassen', scrollMore: 'Weitere anzeigen', findTrupp: 'Trupp finden' },
+  // «Trupp finden» – the one place that answers «wo steht Trupp 2», across Lage UND Pläne.
+  // Deliberately the same shape as «Welcher Trupp?»: a short list you tap, no surface of its own.
+  truppFinder: {
+    title: 'Trupp finden',
+    placeholder: 'Trupp oder Name …',
+    // …because the list searches the people in a Trupp too, not just its name
+    hint: 'Sucht auch nach Namen im Trupp.',
+    noMatches: 'Kein Trupp gefunden',
+    // shown INSTEAD of the list when nothing is placed anywhere — the honest answer, and it
+    // says where a Trupp comes from rather than leaving an empty box
+    empty: 'Noch kein Trupp platziert.',
+    emptyHint: 'Trupps werden auf der Lage oder auf einem Plan platziert – über die Atemschutz-Karte oder das Trupp-Werkzeug.',
+    // the row's own status word, when the Atemschutz board says the Trupp has come back out
+    raus: 'raus',
+  },
   panels: { layers: 'Ebenen', history: 'Verlauf' },
   // LayerPanel: the toggle aria-label appends one of these state words after the layer name
   layerPanel: {
@@ -1085,6 +1100,9 @@ export const de = {
     teamSlotEmpty: '–',
     teamSearchPlaceholder: 'Person suchen …',
     teamNoMatches: 'Kein Treffer',
+    // a placed marker whose name was never typed – it still has to be findable, and «Trupp»
+    // is what it is. Only ever shown in a list, never written onto the record.
+    truppFallbackName: 'Trupp',
     leaderBadge: 'GF',
     makeLeader: '{name} als Gruppenführer',
     teamRemove: '{name} aus dem Trupp nehmen',
