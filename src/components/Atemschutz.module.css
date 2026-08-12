@@ -61,8 +61,12 @@
    line you had to re-scan for each card's action bar; now every bar in a row sits on the same
    baseline. The slack lands inside .meta (below the numbers, above the actions), never as a gap
    under the last button — see .meta's flex-grow. */
-/* minmax 270px so a normal landscape tablet fits 3 Trupp cards per row (was 300px → only 2) */
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 16px; align-items: stretch; }
+/* ⚠️ 288px, not 270. A card carrying all six actions needs 264px of buttons plus the banner's
+   own 20px of padding, and below that the group breaks — which puts the DELETE alone on a row of
+   its own, the loudest button in the quietest place. 270 was chosen to fit three cards on a
+   landscape tablet (300 fitted only two); 288 is the smallest width that keeps the action row
+   whole, so it buys the row back while staying under the 300 that cost the third column. */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(288px, 1fr)); gap: 16px; align-items: stretch; }
 .sep { grid-column: 1 / -1; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
   color: var(--ink-faint); padding: 10px 2px 2px; border-top: 1px solid var(--glass-edge); margin-top: 6px; }
 
