@@ -88,8 +88,10 @@ DEMO_CLOSED_INCIDENT = {
     "type": "BMA",
     "text": "Auslösung Brandmeldeanlage Gewerbestrasse 4, Melder 12 (Technikraum).",
     "address": "Gewerbestrasse 4, 9999 Musterdorf",
-    "lat": 47.52104,
-    "lng": 7.56502,
+    # A real building on the demo's own map, so the Umrisse sheet and the Gebäude stack have
+    # something to show for this Einsatz too — not an empty patch of ground.
+    "lat": 47.5165459755087,
+    "lng": 7.56193049830498,
     "divera_id": 990002,
     "divera_number": "2026-DEMO-001",
 }
