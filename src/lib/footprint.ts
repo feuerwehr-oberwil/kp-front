@@ -56,10 +56,46 @@ function convexHull(pts: Pt[]): Pt[] {
 
 // ---- principal-axis orientation ----------------------------------------------------
 
-/** Snap-to-north threshold: footprints whose best orientation is within this many degrees
- *  of north-up, OR that are nearly square, are left north-up (no pointless rotation). */
+/** Snap-to-north threshold: a footprint already within this many degrees of north-up is left
+ *  alone (no pointless rotation). */
 const SNAP_DEG = 3
-const SQUARE_ASPECT = 0.92
+/** How much of the total wall length has to run in ONE direction before the footprint is turned
+ *  to it, and how far off that direction a wall may be and still count towards it. */
+const DOMINANT_SHARE = 0.5
+const WALL_TOL_DEG = 6
+/** Above this short/long ratio the two candidate rotations are equally good — see the tie-break
+ *  in principalAngleDeg. */
+const SQUARE_TIE = 0.95
+
+/**
+ * The share of this footprint's total wall length that runs in its dominant direction.
+ *
+ * ⚠️ Directions are taken mod 90°, because the four walls of any rectangular building are ONE
+ * family: a wall at 21° and a wall at 111° are the two sides of the same corner.
+ */
+function dominantWallShare(rings: Ring[]): number {
+  const walls: { deg: number; len: number }[] = []
+  for (const ring of rings) {
+    for (let i = 0; i < ring.length; i++) {
+      const [x1, y1] = ring[i], [x2, y2] = ring[(i + 1) % ring.length]
+      const len = Math.hypot(x2 - x1, y2 - y1)
+      if (len < 1e-9) continue
+      walls.push({ deg: (((Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI) % 90 + 90) % 90, len })
+    }
+  }
+  const total = walls.reduce((s, w) => s + w.len, 0)
+  if (!total) return 0
+  const near = (a: number, b: number) => {
+    const d = Math.abs(a - b) % 90
+    return Math.min(d, 90 - d) <= WALL_TOL_DEG
+  }
+  let best = 0
+  for (const w of walls) {
+    const share = walls.reduce((sum, o) => (near(w.deg, o.deg) ? sum + o.len : sum), 0) / total
+    if (share > best) best = share
+  }
+  return best
+}
 
 /** Degrees to rotate the footprint so its longest axis runs horizontal (minimum-area
  *  rectangle via rotating calipers over the convex hull). 0 = already north-up / square. */
@@ -92,25 +128,30 @@ export function principalAngleDeg(rings: Ring[]): number {
   while (deg > 90) deg -= 180
   while (deg <= -90) deg += 180
 
-  const aspect = computeAspect(rings, (deg * Math.PI) / 180, c)
-  if (Math.abs(deg) < SNAP_DEG || aspect > SQUARE_ASPECT) return 0
+  // ⚠️ On a NEARLY SQUARE box the «longer side horizontal» flip above is a coin toss — the two
+  // sides are the same length, so both 69° and −21° square the walls equally well. Take the
+  // smaller turn: the storey sheets then sit as close to the Lage's own orientation as squaring
+  // the walls allows, instead of standing the building on end for no reason.
+  const short = Math.min(best.w, best.h), long = Math.max(best.w, best.h)
+  if (long > 0 && short / long > SQUARE_TIE) {
+    const alt = deg > 0 ? deg - 90 : deg + 90
+    if (Math.abs(alt) < Math.abs(deg)) deg = alt
+  }
+
+  if (Math.abs(deg) < SNAP_DEG) return 0
+  // ⚠️ …and a footprint whose walls do not agree on a direction is left north-up. This used to
+  // ask whether the rotated BOUNDING BOX is nearly square — a page-fit question, and the wrong
+  // one for an L- or U-shaped building: the Schloss's walls run unambiguously at 21° (72% of its
+  // wall length), its min-area box is 0.98 h/w, and the old guard therefore vetoed the one
+  // rotation that makes its walls read as walls. A round tank or a scattered outline still has
+  // no dominant direction, and still stays north-up.
+  if (dominantWallShare(rings) < DOMINANT_SHARE) return 0
   return deg
 }
 
 function bboxCenter(rings: Ring[]): Pt {
   const b = bbox(rings)
   return [(b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2]
-}
-
-function computeAspect(rings: Ring[], angleRad: number, center: Pt): number {
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-  for (const ring of rings) for (const p of ring) {
-    const [x, y] = rotate(p, angleRad, center)
-    if (x < minX) minX = x; if (x > maxX) maxX = x
-    if (y < minY) minY = y; if (y > maxY) maxY = y
-  }
-  const w = maxX - minX || 1, h = maxY - minY || 1
-  return h / w
 }
 
 // ---- views -------------------------------------------------------------------------

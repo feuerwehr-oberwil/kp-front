@@ -31,6 +31,35 @@ describe('principalAngleDeg', () => {
     const turned = RECT.map((ring) => ring.map((p) => rot(p, 47, [0.5, 0.25])))
     expect(buildView(turned, principalAngleDeg(turned)).aspect).toBeCloseTo(0.5, 2)
   })
+
+  // ⚠️ The guard used to ask whether the rotated BOUNDING BOX is nearly square, which is a
+  // page-fit question. An L-shaped building answers it «yes» while its walls run unmistakably
+  // in one direction — so the Schloss stayed tilted 21° on the sheet, corners and all.
+  it('turns an L-shaped building whose walls agree, even when its box is square', () => {
+    const L: Ring[] = [[[0, 0], [1, 0], [1, 0.4], [0.4, 0.4], [0.4, 1], [0, 1]]]
+    const turned = L.map((ring) => ring.map((p) => rot(p, 21, [0.5, 0.5])))
+    const angle = principalAngleDeg(turned)
+    // the walls end up square to the sheet again — and by the SHORTER turn of the two that do
+    // it (−21° rather than +69°), so the sheet stays as close to north-up as squaring allows
+    expect(angle).toBeCloseTo(-21, 0)
+    // …and the box they end up in is the nearly-square one the old guard vetoed on
+    expect(buildView(turned, angle).aspect).toBeGreaterThan(0.92)
+  })
+
+  it('sits a diamond back down on its side', () => {
+    const square: Ring[] = [[[0, 0], [1, 0], [1, 1], [0, 1]]]
+    const diamond = square.map((ring) => ring.map((p) => rot(p, 45, [0.5, 0.5])))
+    expect(Math.abs(principalAngleDeg(diamond))).toBeCloseTo(45, 0)
+  })
+
+  // …and a footprint with no dominant direction has no «longest axis» worth turning to
+  it('leaves a round outline north-up', () => {
+    const circle: Ring[] = [Array.from({ length: 48 }, (_, i): Pt => {
+      const a = (i / 48) * Math.PI * 2
+      return [0.5 + 0.5 * Math.cos(a), 0.5 + 0.5 * Math.sin(a)]
+    })]
+    expect(principalAngleDeg(circle)).toBe(0)
+  })
 })
 
 describe('buildView', () => {
