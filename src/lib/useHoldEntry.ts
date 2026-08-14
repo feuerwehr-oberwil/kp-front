@@ -19,6 +19,11 @@ export type HoldTarget = 'audio' | 'photo'
  * been answered — and picking «Foto» then had to throw that recording away. The action fires on
  * RELEASE, from whichever target is selected: one gesture, one outcome, and no recording nobody
  * asked for. The cost is that the memo starts a few hundred ms later than it used to.
+ *
+ * ⚠️ A HOLD resolves on pointerup/pointercancel; a plain TAP resolves on CLICK. That split is
+ * not tidiness — iOS does not reliably deliver the pointerup for a tap, so with the tap on
+ * pointerup every press on the phone FAB fell through to the hold timer and started recording.
+ * See `onClick`, which is also why there is no keydown handler.
  */
 export function useHoldEntry(opts: {
   recording: boolean
@@ -32,6 +37,8 @@ export function useHoldEntry(opts: {
   const pressCue = useRef<number | null>(null)
   const holding = useRef(false)
   const latchedRef = useRef(false)
+  /** the pointer phase already acted on this interaction — swallow the click that follows */
+  const resolved = useRef(false)
   const [pressing, setPressing] = useState(false)
   // the targets are only offered where there is somewhere to slide TO
   const targets = !!opts.onHoldPhoto
@@ -41,14 +48,10 @@ export function useHoldEntry(opts: {
   const setHoverTarget = (t: HoldTarget | null) => { hoverRef.current = t; setHover(t) }
 
   const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
-    // ⚠️ preventDefault kills the COMPATIBILITY CLICK the browser would fire after this touch.
-    // Without it, the tap that opens the composer is re-dispatched onto whatever has just
-    // mounted under the finger — on a phone that is the composer's own «Foto» button, so
-    // tapping «Eintrag» opened the camera. We drive everything from pointerup ourselves.
-    e.preventDefault()
     e.currentTarget.setPointerCapture?.(e.pointerId)
     holding.current = true
     latchedRef.current = false
+    resolved.current = false
     setHoverTarget(null) // never inherit a choice from the previous gesture
     if (opts.recording) return // a press while recording just stops it on release
     pressCue.current = window.setTimeout(() => { if (holding.current) setPressing(true) }, CUE_MS)
@@ -70,12 +73,15 @@ export function useHoldEntry(opts: {
     if (t === 'audio' || t === 'photo') setHoverTarget(t)
   }
 
-  // iPadOS / some tablets deliver `pointercancel` instead of `pointerup` for a clean
-  // tap (the OS speculatively claims the touch as a gesture). Treat that as a tap too,
-  // unless the hold already latched — otherwise the short-press opens nothing.
-  const onPointerCancel = () => end(!latchedRef.current && !opts.recording)
+  // iPadOS / some tablets deliver `pointercancel` instead of `pointerup` for a clean tap (the
+  // OS speculatively claims the touch as a gesture). A cancel is a release by any other name —
+  // the finger left the screen — so it resolves the gesture exactly as an up would, and it also
+  // has to stand in for the CLICK that will never arrive after it.
+  const onPointerCancel = () => end(true)
+  const onPointerUp = () => end(false)
 
-  const end = (commit: boolean) => {
+  /** `fromCancel` — no click is coming, so a plain tap has to be settled here. */
+  const end = (fromCancel: boolean) => {
     if (!holding.current) return
     holding.current = false
     setPressing(false)
@@ -85,17 +91,34 @@ export function useHoldEntry(opts: {
       latchedRef.current = false
       const pick = hoverRef.current
       setLatched(false); setHoverTarget(null)
-      // THIS is where the gesture acts — one outcome, chosen by where the finger let go.
+      resolved.current = true
+      // THIS is where a HOLD acts — one outcome, chosen by where the finger let go.
       if (pick === 'photo' && opts.onHoldPhoto) opts.onHoldPhoto()
       else opts.onHoldStart()
       return
     }
-    if (opts.recording) { if (commit) opts.onHoldStop(); return } // tap while recording → stop
-    if (commit) opts.onTap()                                      // quick tap → open composer
+    if (opts.recording) { resolved.current = true; opts.onHoldStop(); return } // tap → stop
+    if (fromCancel) { resolved.current = true; opts.onTap() }
+    // …otherwise leave the plain tap to the click below.
   }
 
-  const onKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); opts.recording ? opts.onHoldStop() : opts.onTap() }
+  /**
+   * ⚠️ A plain TAP is settled here, not on pointerup. Two reasons, both of which bit:
+   *
+   * On iOS the pointer stream for a tap is not dependable — the up can go missing and only a
+   * late cancel arrives, by which time the hold timer has fired, so EVERY tap on the phone FAB
+   * resolved as a hold and started recording. `click` is the one signal every platform gets
+   * right, and it covers Enter/Space on a focused button for free (which is why there is no
+   * keydown handler: that one fired onTap and then the browser's own click fired it again).
+   *
+   * And it fixes the ghost click the other way round: the composer now mounts DURING this
+   * click's dispatch rather than before it, so the same tap can no longer be re-delivered to
+   * whatever appeared under the finger — which is how tapping «Eintrag» opened the camera.
+   */
+  const onClick = () => {
+    if (resolved.current) { resolved.current = false; return } // the pointer phase already acted
+    if (opts.recording) { opts.onHoldStop(); return }
+    opts.onTap()
   }
 
   return {
@@ -107,9 +130,9 @@ export function useHoldEntry(opts: {
     handlers: {
       onPointerDown,
       onPointerMove,
-      onPointerUp: () => end(true),
+      onPointerUp,
       onPointerCancel,
-      onKeyDown,
+      onClick,
       onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
     },
   }

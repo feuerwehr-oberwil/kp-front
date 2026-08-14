@@ -121,7 +121,7 @@
   color: var(--blue); font: 700 12.5px var(--body); cursor: pointer; }
 .wx-pop-link:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); border-color: color-mix(in srgb, var(--blue) 35%, var(--border)); }
 .wx-pop-link svg { width: 16px; height: 16px; }
-.tb-act-add { position: relative; overflow: hidden; background: var(--blue); color: var(--on-fill); touch-action: none; user-select: none; min-width: 96px; }
+.tb-act-add { position: relative; background: var(--blue); color: var(--on-fill); touch-action: none; user-select: none; min-width: 96px; }
 /* ⚠️ NOT `--blue-strong` on hover: that token flips LIGHTER in night mode (it is the tint-text
    role), so a hover on the filled button washed it out to pale blue with barely-there ink —
    the one button in the bar that has to look pressable. A hover deepens the fill in both
@@ -130,8 +130,13 @@
 .tb-act-add .i, .tb-act-add span { position: relative; z-index: 1; }
 /* press-and-hold "charging" cue: a bar fills across the button over the hold
    window, then the button flips to red (recording) — so the hold reads as doing something */
+/* ⚠️ It rounds its OWN corners (border-radius: inherit) rather than being clipped by the
+   button. The button used to carry `overflow: hidden` purely for this bar — which also
+   swallowed the hold chooser, so at the moment the hold latched a dark fragment of it flashed
+   INSIDE the button before the class that lifted the clip took effect. A cue that clips itself
+   costs one line and lets the button stop clipping anything. */
 .tb-hold { position: absolute; left: 0; top: 0; bottom: 0; width: 0; z-index: 0; background: rgba(255, 255, 255, .28);
-  animation: tbHold .22s linear forwards; }
+  border-radius: inherit; animation: tbHold .22s linear forwards; }
 @keyframes tbHold { from { width: 0; } to { width: 100%; } }
 .tb-act-add.rec { background: var(--red); animation: recPulse 1.4s ease-in-out infinite; }
 .tb-act-add.rec span { font-family: var(--mono); }
@@ -140,7 +145,6 @@
    They live INSIDE the button (it owns the pointer capture for the whole gesture and is the
    only element the events reach), so the button's `overflow: hidden` — there for the charging
    cue — has to give way while they show. */
-.tb-act-add.latched, .fab-entry.latched { overflow: visible; }
 /* ⚠️ The CONTAINER is `pointer-events: none` so the gap between the two targets falls through,
    but each TARGET must be hit-testable: `document.elementFromPoint` skips anything with
    pointer-events none, so with it inherited the hit test could never match and sliding onto

@@ -8,11 +8,10 @@ import { useHoldEntry } from './useHoldEntry'
 // tap while recording → onHoldStop. We test the timing edges with fake timers and a synthetic
 // pointer event (only the bits the hook touches).
 //
-// ⚠️ `preventDefault` is one of those bits, and it is load-bearing: without it the browser's
-// compatibility click lands on whatever mounted under the finger, which is how tapping the
-// phone FAB opened the camera instead of the composer.
+// ⚠️ A plain tap resolves on CLICK, not on pointerup — iOS does not deliver the up reliably,
+// and every tap on the phone FAB was resolving as a hold. These tests drive both.
 const pointer = () =>
-  ({ pointerId: 1, preventDefault: vi.fn(), currentTarget: { setPointerCapture: vi.fn() } }) as unknown as React.PointerEvent<HTMLButtonElement>
+  ({ pointerId: 1, currentTarget: { setPointerCapture: vi.fn() } }) as unknown as React.PointerEvent<HTMLButtonElement>
 
 function setup(recording = false, withPhoto = false) {
   const onTap = vi.fn()
@@ -37,21 +36,29 @@ beforeEach(() => vi.useFakeTimers())
 afterEach(() => vi.useRealTimers())
 
 describe('useHoldEntry timing state machine', () => {
-  it('suppresses the compatibility click, so the tap cannot land on what opens next', () => {
-    const { hook } = setup(false)
-    const e = pointer()
-    act(() => hook.result.current.handlers.onPointerDown(e))
-    expect(e.preventDefault).toHaveBeenCalled()
-  })
-
-  it('a quick tap (release before HOLD_MS) fires onTap, not onHoldStart', () => {
+  it('a quick tap (release before HOLD_MS) fires onTap once, on the click', () => {
     const { hook, onTap, onHoldStart } = setup(false)
     act(() => hook.result.current.handlers.onPointerDown(pointer()))
     act(() => void vi.advanceTimersByTime(100)) // < HOLD_MS, no latch
     act(() => hook.result.current.handlers.onPointerUp())
+    expect(onTap).not.toHaveBeenCalled() // …the up alone must not open anything
+    act(() => hook.result.current.handlers.onClick())
 
     expect(onTap).toHaveBeenCalledTimes(1)
     expect(onHoldStart).not.toHaveBeenCalled()
+  })
+
+  // ⚠️ THE mobile bug: a hold resolves on release, and the click the browser fires afterwards
+  // must not then also open the composer on top of the recording that just started.
+  it('the click after a resolved hold is swallowed', () => {
+    const { hook, onTap, onHoldStart } = setup(false, true)
+    act(() => hook.result.current.handlers.onPointerDown(pointer()))
+    act(() => void vi.advanceTimersByTime(360))
+    act(() => hook.result.current.handlers.onPointerUp())
+    act(() => hook.result.current.handlers.onClick())
+
+    expect(onHoldStart).toHaveBeenCalledTimes(1)
+    expect(onTap).not.toHaveBeenCalled()
   })
 
   // ⚠️ THE contract of the hold: passing HOLD_MS offers the choice and does nothing else. It
@@ -89,18 +96,28 @@ describe('useHoldEntry timing state machine', () => {
     expect(hook.result.current.pressing).toBe(false)
   })
 
-  it('a tap while recording fires onHoldStop (stop + save)', () => {
+  it('a tap while recording fires onHoldStop exactly once, click included', () => {
     const { hook, onHoldStop, onTap } = setup(true)
     act(() => hook.result.current.handlers.onPointerDown(pointer()))
     act(() => void vi.advanceTimersByTime(50))
     act(() => hook.result.current.handlers.onPointerUp())
+    act(() => hook.result.current.handlers.onClick())
 
     expect(onHoldStop).toHaveBeenCalledTimes(1)
     expect(onTap).not.toHaveBeenCalled()
   })
 
-  // iPadOS delivers `pointercancel` instead of `pointerup` for a clean tap, so a cancel
-  // before HOLD_MS (no latch, not recording) is treated as a tap → onTap fires.
+  // keyboard: Enter/Space on a focused button fire a native click, so onClick covers them.
+  // There is deliberately no keydown handler — it used to fire onTap and then the browser's
+  // own click fired it a second time.
+  it('a bare click (keyboard Enter) opens the composer', () => {
+    const { hook, onTap } = setup(false)
+    act(() => hook.result.current.handlers.onClick())
+    expect(onTap).toHaveBeenCalledTimes(1)
+  })
+
+  // iPadOS delivers `pointercancel` instead of `pointerup` for a clean tap, and no click
+  // follows one — so the cancel has to settle the tap itself.
   it('pointer cancel before HOLD_MS is treated as a tap (fires onTap)', () => {
     const { hook, onTap, onHoldStart, onHoldStop } = setup(false)
     act(() => hook.result.current.handlers.onPointerDown(pointer()))

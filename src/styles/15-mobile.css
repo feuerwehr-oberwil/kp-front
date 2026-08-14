@@ -16,7 +16,7 @@
 .fab-entry { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: calc(18px + env(safe-area-inset-bottom)); z-index: 55;
   display: inline-flex; align-items: center; gap: 8px; padding: 14px 20px 14px 16px;
   border: none; border-radius: var(--r-pill); background: var(--btn-primary); color: var(--on-btn-primary);
-  font: 700 15px var(--body); cursor: pointer; overflow: hidden; touch-action: none; user-select: none;
+  font: 700 15px var(--body); cursor: pointer; touch-action: none; user-select: none;
   box-shadow: 0 4px 14px color-mix(in srgb, var(--ink) 34%, transparent), var(--shadow-sm);
   animation: pop .2s var(--ease); transition: transform .12s var(--ease), filter .14s var(--ease); }
 .fab-entry:hover { filter: brightness(1.05); }
