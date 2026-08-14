@@ -270,6 +270,7 @@ export const de = {
             'Der **Kroki-Ausschnitt** liegt als Feld neben dem Formular: verschieben, zoomen, **Hoch/Quer** und der **Kroki-Stand** – welchen Zeitpunkt das Bild zeigt, mit Strichen dort, wo etwas passiert ist. Gedruckt wird genau das, was auf dem Schirm steht; es gibt keinen Bestätigungsschritt.',
             '**Einsatzrapport (PDF)** erzeugt den fertigen Rapport – serverseitig gerendert, ein Knopf. Das **▾** daneben öffnet **«Abschnitte»**: was aufs Papier kommt (Kroki, Pläne, Atemschutz, Anwesenheit, Material, Verlauf, Fotos, detaillierter Prüfnachweis). Das Menü bleibt beim Anhaken offen.',
             'Wo eine Wehr einen **Stationsdrucker** betreibt: **Ausdrucken** schickt den Rapport direkt dorthin (bei Unterbruch wird gespeichert und nachgeschickt).',
+            'Hat die Wehr eigene Formulare hinterlegt (Verwaltung › Rapport), steht unter den Fotos **Formulare & Links** – eine Liste zum Abhaken. **Öffnen** ruft das Formular auf, mit Stichwort, Ort, Datum und Einsatzleiter bereits ausgefüllt, soweit der Link das vorsieht. Der Haken wird von Hand gesetzt: ob ein Formular abgeschickt wurde, sieht die App nicht.',
             'Stimmt etwas mit dem Datensatz nicht – eine unterbrochene Prüfkette, eine Sprachnotiz ohne Transkript, ein Foto noch in der Warteschlange –, erscheint neben den Knöpfen ein **oranger Hinweis-Chip**. Er zählt die Punkte und öffnet sie; ist alles in Ordnung, erscheint er gar nicht.',
             '**Einsatz abschliessen** archiviert den Einsatz und hält das Einsatzende fest.',
           ] },
@@ -2757,7 +2758,6 @@ export const de = {
     partnersNone: 'keine erfasst',
     partnerAdd: 'Organisation hinzufügen',
     attachmentsHead: 'Fotos',
-    attachmentsHint: 'Fotos, die zum Rapport gehören – Ausweise, Schäden, übergebene Formulare. Sie drucken am Schluss gross genug zum Lesen und stehen nicht im Verlauf.',
     attachmentsAdd: 'Foto hinzufügen',
     attachmentsOpen: 'Foto gross ansehen',
     attachmentsCount: '{n} Foto(s)',
@@ -2765,6 +2765,20 @@ export const de = {
     attachmentsCaption: 'Bildlegende (z. B. «Ausweis Lenker»)',
     attachmentsPending: 'noch nicht hochgeladen',
     attachmentsFailed: 'Foto {name} konnte nicht hochgeladen werden – es erscheint nicht im Druck.',
+    // «Formulare & Links» – die eigenen Formulare der Wehr (Verwaltung › Rapport). Der ganze
+    // Abschnitt fehlt, wo keine konfiguriert sind, darum braucht es keinen leeren Zustand.
+    linksHead: 'Formulare & Links',
+    linksCount: '{done} von {n} erledigt',
+    linksOpen: 'Öffnen',
+    // Der Haken sagt «ich habe das erledigt» – die App sieht nie, ob ein Formular abgeschickt
+    // wurde, darum setzt sie ihn nie selbst.
+    linksMarkDone: '{title} als erledigt markieren',
+    linksMarkOpen: '{title} wieder als offen markieren',
+    linksDoneAt: 'erledigt · {at}',
+    // Nach dem Öffnen einmal nachfragen: der Tab ist weg, der Haken wäre sonst vergessen.
+    linksOpened: '{title} geöffnet.',
+    linksOpenedAction: 'Erledigt',
+    linksOpenFailed: '{title} konnte nicht geöffnet werden – der Browser hat das Fenster blockiert.',
     // The Rapport is a surface, not a dialog box – it is closed by going back to the Lage.
     backToMap: 'Zurück zur Lage',
     toggleDetailedAudit: 'Detaillierter Prüfnachweis',
@@ -3315,7 +3329,7 @@ export const de = {
       karte: { label: 'Karte', title: 'Karte', lede: 'Startansicht der Lagekarte (Zentrum + Zoom), bevor ein Einsatz gewählt ist.' },
       doktrin: { label: 'Doktrin', title: 'Doktrin', lede: 'FKS-Vorgaben dieser Wehr: Standard-Funkkanal, AGT-Kontaktintervall und Warn-Vorlauf.' },
       journal: { label: 'Journal', title: 'Journal', lede: 'Textbausteine für den Verlauf: Vorschläge, die beim Tippen per Fuzzy-Suche vervollständigen.' },
-      rapport: { label: 'Rapport', title: 'Rapport', lede: 'Wie die Einsatzstunden auf dem gedruckten Rapport gerundet werden.' },
+      rapport: { label: 'Rapport', title: 'Rapport', lede: 'Wie die Einsatzstunden auf dem gedruckten Rapport gerundet werden – und welche eigenen Formulare am Schluss noch auszufüllen sind.' },
       fahrzeuge: {
         label: 'Symbole',
         title: 'Symbole',
@@ -3542,6 +3556,22 @@ export const de = {
       mergeTip: 'Zwei Einträge kurz hintereinander sind fast nie zwei Einsätze, sondern ein korrigierter Fehltipp – oder Poster und Tablet haben dieselbe Ankunft erfasst. Auf dem Rapport werden sie zu einer Strecke; erfasst bleiben beide, und in der Anwesenheit steht weiterhin, was wirklich getippt wurde.',
       mergeGapMin: 'Lücke bis (min)',
       mergeGapMinTip: 'Kürzere Unterbrüche gelten auf dem Rapport als eine Strecke. 0 druckt jeden erfassten Block einzeln.',
+      // Die eigenen Formulare der Wehr, als abhakbare Liste auf dem Rapport.
+      groupLinks: 'Formulare & Links',
+      linksTip: 'Formulare, die nach einem Einsatz sowieso noch auszufüllen sind – die Getränkeabrechnung, eine Schadenmeldung, ein eigenes Formular. Sie erscheinen auf dem Rapport als Liste zum Abhaken; ohne Eintrag gibt es den Abschnitt dort nicht. Auf dem gedruckten Rapport stehen sie nie.',
+      linkTitle: 'Titel',
+      linkTitlePlaceholder: 'z. B. Getränke-Konsum zulasten Gemeinde',
+      linkNote: 'Notiz',
+      linkNotePlaceholder: 'Wann ist das auszufüllen? (optional)',
+      linkUrl: 'Link',
+      linkUrlTip: 'Bei Google Forms: im Formular «Link zum Vorausfüllen abrufen», Beispielwerte eintippen, den Link hierher kopieren – und die Beispielwerte durch Platzhalter ersetzen.',
+      linkUrlPlaceholder: 'https://…',
+      linkAdd: 'Link hinzufügen',
+      linkRemove: 'Link entfernen',
+      linkTokens: 'Platzhalter einfügen',
+      linkPreview: 'Vorschau mit einem Beispiel-Einsatz',
+      linkPreviewNone: 'Kein gültiger Link (http oder https) – dieser Eintrag erscheint nicht auf dem Rapport.',
+      linkPreviewNoTitle: 'Ohne Titel erscheint dieser Eintrag nicht auf dem Rapport.',
     },
     doctrine: {
       groupFunk: 'Funk',

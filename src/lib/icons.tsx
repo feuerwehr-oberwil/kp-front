@@ -117,6 +117,8 @@ export function IconSprite() {
       <symbol id="wx-snow" viewBox="0 0 24 24"><path d="M7 14a4 4 0 0 1-.5-7.97 5.5 5.5 0 0 1 10.6-1.06A3.75 3.75 0 0 1 17 14z" /><path d="M8.5 18.5v2M11.5 17.5v2M14.5 18.5v2" stroke-linecap="round" /></symbol>
       <symbol id="wx-fog" viewBox="0 0 24 24"><path d="M7 12a4 4 0 0 1-.5-7.97 5.5 5.5 0 0 1 10.6-1.06A3.75 3.75 0 0 1 17 12z" /><path d="M5 16h14M7 19.5h12" stroke-linecap="round" /></symbol>
       <symbol id="wx-storm" viewBox="0 0 24 24"><path d="M7 14a4 4 0 0 1-.5-7.97 5.5 5.5 0 0 1 10.6-1.06A3.75 3.75 0 0 1 17 14z" /><path d="M12 14l-2.5 4h3l-2 3.5" /></symbol>
+      {/* leaving the app: the station's own forms on the Rapport (Formulare & Links) */}
+      <symbol id="external" viewBox="0 0 24 24"><path d="M18 13.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5.5" /><path d="M14.5 3H21v6.5M21 3l-9.5 9.5" /></symbol>
       <symbol id="share-ios" viewBox="0 0 24 24"><path d="M8 8.5H6.5A1.8 1.8 0 0 0 4.7 10.3v8.4a1.8 1.8 0 0 0 1.8 1.8h11a1.8 1.8 0 0 0 1.8-1.8v-8.4a1.8 1.8 0 0 0-1.8-1.8H16" /><path d="M12 14V3M8.5 6.5 12 3l3.5 3.5" /></symbol>
     </svg>
   )

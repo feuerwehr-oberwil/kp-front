@@ -10,6 +10,8 @@
 // Contract (camelCase, every field optional/possibly-empty — a fresh deployment returns
 // mostly-empty objects). This type mirrors the backend response exactly; keep in sync.
 
+import { isOpenableUrl, type ReportLink } from './reportLinks'
+
 export interface DeploymentAssets {
   logo?: string | null
   /** letterhead on the printed Einsatzrapport; falls back to `logo` when unset */
@@ -355,6 +357,9 @@ export interface DeploymentConfig {
     /** how short a break still counts as ONE stretch on the Personalblatt — see
      *  lib/attendanceIntervals · mergeCloseBlocks. 0 switches merging off entirely. */
     attendanceMergeGapMin?: number | null
+    /** the station's own paperwork as links on the Rapport — see lib/reportLinks. Empty or
+     *  absent = the section does not exist on this deployment's Rapport at all. */
+    links?: ReportLink[] | null
   }
   integrations?: DeploymentIntegrations
   /** Opaque version token of the document the SERVER holds, off GET/PUT. Sent back as
@@ -498,6 +503,17 @@ export function atemschutzAuftragColors(): Record<string, string> {
 export function attendanceMergeGapMin(): number {
   const v = resolved.report?.attendanceMergeGapMin
   return typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : DEFAULT_ATTENDANCE_MERGE_GAP_MIN
+}
+
+/**
+ * The station's «Formulare & Links» for the Rapport, gated at the boundary: a row without a
+ * title, without an id or without an openable http(s) URL is not a link anybody could use, so
+ * it is dropped here rather than rendered as a dead row on the Rapport (see lib/reportLinks).
+ * An empty result means the section does not appear at all.
+ */
+export function reportLinks(): ReportLink[] {
+  return (resolved.report?.links ?? []).filter((l) =>
+    !!l && !!l.id?.trim() && !!l.title?.trim() && isOpenableUrl(l.url ?? ''))
 }
 
 export function rosterNameOrder(): 'last-first' | 'first-last' {

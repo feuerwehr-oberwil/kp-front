@@ -245,6 +245,45 @@
 .adm-textarea-tall { min-height: 360px; max-height: 72vh; overflow-y: auto; }
 .adm-textarea-tall { background: var(--surface); border-color: color-mix(in srgb, var(--blue) 22%, var(--border)); }
 
+/* «Formulare & Links» (Verwaltung › Rapport): one card per link, because a link is four things
+   that belong together — title, note, URL and the preview of what that URL resolves to. A flat
+   list of inputs would have made the preview belong to nothing in particular. */
+/* ⚠️ `adm-formlink`, NOT `adm-link` — that name is taken by the header's blue anchor above,
+   whose `:hover { text-decoration: underline }` then underlined every word in this card. */
+.adm-formlink { border: 1px solid var(--border-soft); border-radius: var(--r-ctl); padding: 14px;
+  margin-top: 12px; background: var(--fill-soft); display: flex; flex-direction: column; gap: 10px; }
+/* title takes the row, the bin keeps its size and sits on the input's baseline */
+.adm-formlink-head { display: flex; align-items: flex-end; gap: 8px; }
+.adm-formlink-head .adm-field { flex: 1 1 auto; min-width: 0; }
+.adm-formlink-x { flex: none; display: grid; place-items: center; width: var(--tap); height: var(--tap);
+  padding: 0; cursor: pointer; border: none; border-radius: var(--r-ctl);
+  background: transparent; color: var(--ink-faint); }
+.adm-formlink-x:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
+.adm-formlink-x .i { width: 17px; height: 17px; }
+/* a prefill URL is long and its interesting part is at the END (the entry.* pairs) — it wraps
+   rather than scrolling sideways, so the placeholders stay findable */
+.adm-formlink-url { resize: vertical; line-height: 1.5; word-break: break-all; }
+.adm-formlink-tokens { display: flex; flex-wrap: wrap; gap: 6px; }
+.adm-token { padding: 5px 10px; cursor: pointer; border: 1px solid var(--border);
+  border-radius: var(--r-pill); background: var(--surface); color: var(--ink-dim);
+  font: 600 12px var(--mono); }
+.adm-token:hover { border-color: var(--ink-faint); color: var(--ink); }
+/* ⚠️ `white-space` has to be said out loud: this <p> sits inside a `<label class="adm-field">`
+   and inherits `nowrap` from the label chrome, which pins the line no matter what `break-all`
+   asks for — the preview rendered as one unbroken 400-character line with the interesting end
+   (the resolved entry.* values) clipped past the card edge. `pre-wrap` rather than `normal`
+   because this is a URL: the spaces in it are part of what is being previewed. */
+.adm-formlink-preview { margin: 0; min-width: 0; width: 100%; padding: 10px 12px; border-radius: var(--r-ctl);
+  background: var(--surface); color: var(--ink-dim); font: 500 12px/1.7 var(--mono);
+  white-space: pre-wrap; word-break: break-all; overflow-wrap: anywhere; }
+.adm-formlink-warn { color: var(--amber-strong); }
+.adm-formlink-add { display: inline-flex; align-self: flex-start; align-items: center; gap: 8px;
+  min-height: var(--tap); margin-top: 12px; padding: 0 15px; cursor: pointer;
+  border: 1px dashed var(--border); border-radius: var(--r-ctl);
+  background: transparent; color: var(--ink); font: 700 13px var(--body); }
+.adm-formlink-add:hover { border-color: var(--ink-faint); }
+.adm-formlink-add .i { width: 16px; height: 16px; }
+
 /* color field */
 .adm-color-row { display: flex; align-items: center; gap: 10px; }
 .adm-color-swatch {

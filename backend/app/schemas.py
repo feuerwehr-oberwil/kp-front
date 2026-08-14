@@ -1,5 +1,6 @@
 """Pydantic request/response schemas (grows per phase)."""
 
+import re
 import uuid
 from datetime import datetime
 from typing import Any, Literal
@@ -876,6 +877,63 @@ class ReportConfig(BaseModel):
     #: ten-minute gap is «a break» or «two deployments» has to mean the same on every sheet
     #: the Wehr files. See ``docs/CONFIGURATION.md`` §1b.
     attendanceMergeGapMin: int = Field(default=15, ge=0, le=240)
+    #: The station's OWN paperwork, as links on the Rapport ("Formulare & Links").
+    #:
+    #: Every Wehr has forms that live outside this app and still have to be filled in after an
+    #: Einsatz — a Getränke-Abrechnung for the Gemeinde, a Schadenmeldung for the Versicherung,
+    #: an internal Google-Form. They are station-specific by nature, so they are configuration:
+    #: a deployment that sets none has no such section on its Rapport at all. Ticking one off
+    #: is per-incident and lives in the workspace blob, not here. See
+    #: ``docs/CONFIGURATION.md`` §1d and the frontend's ``src/lib/reportLinks.ts``.
+    #:
+    #: ⚠️ NOT optional. Verwaltung PUTs the whole document, so accepting ``None`` here would be
+    #: the difference between "this station has no forms" and a 422 that wedges every later
+    #: config edit in that tab. An empty list is how "none" is said.
+    links: list["ReportLinkConfig"] = Field(default_factory=list, max_length=30)
+
+
+class ReportLinkConfig(BaseModel):
+    """One row of ``ReportConfig.links``.
+
+    ``url`` may carry ``{platzhalter}`` tokens (``{stichwort}``, ``{ort}``, ``{datum}``,
+    ``{alarmzeit}``, ``{einsatzende}``, ``{einsatzleiter}``, ``{kontaktperson}``,
+    ``{kurzbericht}``, ``{wehr}``), which the app substitutes URL-encoded when the link is
+    opened. That is how a Google Form arrives with Anlass and Datum already in it — see
+    "Link zum Vorausfüllen abrufen" in Google Forms, which yields ``?usp=pp_url&entry.<id>=…``.
+
+    The backend does not resolve or fetch these; it stores them.
+
+    ⚠️ ``url`` is constrained to http(s) HERE as well, not only in the app. The frontend gate
+    (``deploymentConfig · reportLinks``) protects the one consumer that exists today; a
+    ``javascript:`` URL accepted into the stored document would be waiting for the next one.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+    #: stable id — an incident's tick state is filed under it
+    id: str = Field(min_length=1, max_length=64)
+    title: str = Field(min_length=1, max_length=120)
+    url: str = Field(min_length=1, max_length=2048)
+    #: when this has to be filled in ("nur bei Gebäudeschaden, innert 48 h")
+    note: str | None = Field(default=None, max_length=200)
+
+    @field_validator("id", "title", "url")
+    @classmethod
+    def _not_blank(cls, v: str) -> str:
+        """⚠️ Stripped, and blank-after-stripping is empty. ``min_length=1`` alone accepts a
+        single space, while the app drops the row on ``.trim()`` — which is the worst of both:
+        stored, shown as configured in Verwaltung, and absent from every Rapport."""
+        if not v.strip():
+            raise ValueError("must not be blank")
+        return v.strip()
+
+    @field_validator("url")
+    @classmethod
+    def _http_only(cls, v: str) -> str:
+        """Reject anything the app would refuse to open anyway — with an explanation, rather
+        than storing a row that silently never appears on a Rapport."""
+        if not re.match(r"^https?://", v, re.IGNORECASE):
+            raise ValueError("url must start with http:// or https://")
+        return v
 
 
 class HoursRoundingConfig(BaseModel):

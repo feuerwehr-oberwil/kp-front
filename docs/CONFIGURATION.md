@@ -191,9 +191,11 @@ One JSON document, stored as the single `deployment_config` row, returned by `GE
       "stepMin": 30,
       "graceMin": 5
     },
-    "attendanceMergeGapMin": 15                   // presence blocks less than this far apart print
+    "attendanceMergeGapMin": 15,                  // presence blocks less than this far apart print
                                                   // as ONE stretch on the Personalblatt – see §1c;
                                                   // 0 = print every recorded block as recorded
+    "links": []                                   // the station's own forms, as a tick-off list on
+                                                  // the Rapport – see §1d. Empty = no such section
   },
 
   "integrations": {                              // ON/OFF only; credentials live in env (§6)
@@ -316,6 +318,93 @@ Einsatzstunden follow the same merge, so the hours under the roster add up to th
 deployments» is a Weisung, and it has to mean the same on every sheet the Wehr files – so it is
 not something an EL settles at 3am. A Wehr that runs long deployments with real Ablösungen and
 wants every one of them on paper sets `0`.
+
+---
+
+## 1d. `report.links` – the station's own forms, on the Rapport
+
+Every Wehr has paperwork that lives outside this app and still has to be filled in after an
+Einsatz: a Getränke-Abrechnung for the Gemeinde, a Schadenmeldung for the Versicherung, an
+internal form. `report.links` puts them on the Rapport as a tick-off list under the Beilagen –
+title, an optional note saying *when* it has to be filled in, and a link that opens it.
+
+**The shipped default is an empty list, and that is the intended state for most deployments** –
+these forms are one station's own, so no default here could ever be right for another. Configure
+none and the section does not exist: no empty card, no chip, nothing explaining a feature this
+station does not use. Edit the list in **Verwaltung › Rapport**; a row whose URL is not
+`http`/`https` is dropped rather than rendered as a link the app will not open.
+
+An illustrative entry (the ids below are made up – yours come from your own form):
+
+```json
+"links": [
+  {
+    "id": "getraenke",
+    "title": "Getränkeabrechnung Gemeinde",
+    "note": "Nur wenn Getränke bezogen wurden",
+    "url": "https://forms.example.ch/getraenke?usp=pp_url&entry.111111111={einsatzleiter}&entry.222222222=Einsatz {datum}"
+  }
+]
+```
+
+### Placeholders
+
+The URL may carry `{platzhalter}` tokens, substituted **URL-encoded** at the moment the link is
+opened – so the form comes up with the incident already in it instead of blank:
+
+| Token | Value |
+|---|---|
+| `{stichwort}` | the alarm title |
+| `{ort}` | the address |
+| `{datum}` | date of the Alarmierung (`14.08.2026`) |
+| `{alarmzeit}` | Alarmierung, date **and** time |
+| `{einsatzende}` | Einsatzende, date and time |
+| `{einsatzleiter}` · `{kontaktperson}` | the two names off the Rapport |
+| `{kurzbericht}` | the Kurzbericht text |
+| `{wehr}` | the station's own name (`identity.appName`, falling back to `KP Front`) |
+
+An **empty** field resolves to an empty string (a rapport is written while the Einsatz runs). An
+**unknown** token is left standing verbatim: a typo then shows up as `{einsatzort}` in the preview
+in Verwaltung and in the opened form, which is the only way anybody would ever find it. Only the
+substituted values are encoded – the separators typed between them stay literal, because the same
+string carries the `&` and `=` that hold the query together.
+
+**Google Forms**: press *«Link zum Vorausfüllen abrufen»* in the form, type sample values, copy
+the link, then swap the sample values for placeholders. The resulting URL has the shape
+`?usp=pp_url&entry.<feld-id>=<wert>`. Anything else that prefills from the query string works the
+same way.
+
+### ⚠️ A placeholder sends incident data to whoever hosts the form
+
+This is the part to think about before configuring one. `{ort}` is the incident address,
+`{einsatzleiter}` and `{kontaktperson}` are named individuals, and `{kurzbericht}` is free text
+that in this line of work routinely describes what was found at an address – including health
+details about the people who live there. Put one in a link and that data travels **in the URL**
+to whoever runs the form. `noreferrer` does not help here: the data *is* the address being
+opened. It lands in the form provider's logs, in the operator's browser history, and is visible
+to any browser extension on that device.
+
+Use the narrow tokens (`{datum}`, `{stichwort}`, `{wehr}`) for third-party forms, and keep
+`{kurzbericht}`, `{ort}` and the two names for forms your own Gemeinde or Kanton hosts. A
+Google Form means Google. See [`PRIVACY.md`](../PRIVACY.md).
+
+**The links themselves are public.** `GET /api/config` is unauthenticated by design (the login
+screen needs the station's branding before anyone logs in), and `report.links` rides along with
+the rest of the document. Treat a configured URL as world-readable: a Google Form id is a
+capability – whoever has it can submit to the form – so do not put tokens, keys or a secret path
+in a link. This is a property of the config endpoint as a whole, not of this field.
+
+### What it deliberately is not
+
+- **Not printed.** The rapport is the record; a to-do list of links is not part of it.
+- **Not an Abschluss-Assistent step.** A station's own paperwork does not belong in this app's
+  completion model, and it must never be able to hold up an archive.
+- **Not in the Verlauf.** Ticking off the Getränkeabrechnung says nothing about the Einsatz, and
+  the Verlauf is the record of the Einsatz (`lib/report · META_QUIET`).
+- **Never ticked automatically.** Opening a form says nothing about whether it was submitted. The
+  app offers the tick once, when the operator **comes back** from the form – offered at the press
+  it would expire on a tab that had just lost focus. The tick is per-incident, lives in the
+  workspace blob, and merges per link id, so two devices ticking two different forms keep both.
 
 ---
 

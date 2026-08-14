@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { IDBFactory } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { alarmProviderName, getDeploymentConfig, loadDeploymentConfig, loadDeploymentConfigBounded, mapReferenceLayers, personnelProviderName, stripLocality } from './deploymentConfig'
+import { alarmProviderName, getDeploymentConfig, loadDeploymentConfig, loadDeploymentConfigBounded, mapReferenceLayers, personnelProviderName, reportLinks, stripLocality } from './deploymentConfig'
 import { idbSet, __resetIdbForTests } from './idb'
 
 describe('mapReferenceLayers', () => {
@@ -165,5 +165,63 @@ describe('naming the Alarm-/Personalquelle only where there is one', () => {
     await load({ integrations: { personnel: { provider: 'divera', configured: true, capabilities: [] } } })
     expect(personnelProviderName()).toBe('Divera')
     expect(alarmProviderName()).toBeNull()
+  })
+})
+
+// `reportLinks()` is the boundary the whole «Formulare & Links» feature rests on: whatever it
+// returns is rendered on the Rapport and handed to `window.open`. The config document is
+// admin-written, but it is still DATA — and it also arrives from the `admin_config` CLI, which
+// does not go through the API's validation at all.
+describe('reportLinks — what is allowed onto the Rapport', () => {
+  const load = async (cfg: unknown) => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(cfg), {
+      status: 200, headers: { 'content-type': 'application/json' },
+    })))
+    await loadDeploymentConfig()
+  }
+  afterEach(() => { vi.unstubAllGlobals() })
+
+  const withLinks = (links: unknown[]) => load({ report: { links } })
+  const ok = { id: 'getraenke', title: 'Getränkeabrechnung', url: 'https://forms.example.ch/f' }
+
+  it('is empty on a station that configured none — which is what removes the section', async () => {
+    await load({})
+    expect(reportLinks()).toEqual([])
+    await load({ report: {} })
+    expect(reportLinks()).toEqual([])
+  })
+
+  it('passes a configured form through untouched, placeholders and all', async () => {
+    await withLinks([{ ...ok, url: 'https://forms.example.ch/f?a={ort}', note: 'nur bei Bezug' }])
+    expect(reportLinks()).toHaveLength(1)
+    expect(reportLinks()[0].url).toBe('https://forms.example.ch/f?a={ort}')
+  })
+
+  it('drops a URL this app would refuse to open', async () => {
+    // ⚠️ The one that matters: an href out of the config document must never be able to run.
+    await withLinks([{ ...ok, url: 'javascript:alert(1)' }])
+    expect(reportLinks()).toEqual([])
+    await withLinks([{ ...ok, url: 'data:text/html,<script>alert(1)</script>' }])
+    expect(reportLinks()).toEqual([])
+    await withLinks([{ ...ok, url: '//evil.example' }])
+    expect(reportLinks()).toEqual([])
+  })
+
+  it('drops a row with nothing to show or nothing to file the tick under', async () => {
+    await withLinks([{ ...ok, title: '   ' }])
+    expect(reportLinks()).toEqual([])
+    await withLinks([{ ...ok, id: '' }])
+    expect(reportLinks()).toEqual([])
+  })
+
+  it('drops only the bad row, never the good ones beside it', async () => {
+    await withLinks([{ ...ok, url: 'javascript:alert(1)' }, { ...ok, id: 'schaden' }])
+    expect(reportLinks().map((l) => l.id)).toEqual(['schaden'])
+  })
+
+  it('survives junk in the document rather than taking the Rapport down with it', async () => {
+    // reachable via `admin_config load` of a hand-edited file
+    await withLinks([null, 'nonsense', {}])
+    expect(reportLinks()).toEqual([])
   })
 })

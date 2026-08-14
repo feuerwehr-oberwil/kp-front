@@ -63,6 +63,14 @@ export interface ReportMeta {
   erfasser?: string
   /** Rückmeldung to the ELZ: who reported back, and when */
   rueckmeldungElz?: { name?: string; at?: string }
+  /** Which of the station's Rapport-Links (config `report.links`, see lib/reportLinks) have
+   *  been dealt with on THIS Einsatz — link id → the instant it was ticked.
+   *
+   *  ⚠️ The tick is always a person's, never the app's: opening a form tells us nothing about
+   *  whether it was submitted, so nothing here is ever set automatically. It lives in the blob
+   *  rather than on the device because the Einsatz is worked from several of them — whoever
+   *  opens the Rapport next has to see that the Getränke-Formular is already away. */
+  linksDone?: Record<string, string>
 }
 
 export interface GruppeZeit {

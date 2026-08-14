@@ -14,6 +14,11 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { DEFAULT_HOURS_ROUNDING, fmtHours, roundedMinutes } from '../lib/attendanceHours'
 import { DEFAULT_ATTENDANCE_MERGE_GAP_MIN } from '../lib/attendanceIntervals'
+import {
+  isOpenableUrl, linkTokenValues, resolveLinkUrl, REPORT_LINK_TOKENS,
+  type ReportLink, type ReportLinkFacts,
+} from '../lib/reportLinks'
+import { Icon } from '../lib/icons'
 
 // The five "Station" pages. Each edits one facet of the single config document via the
 // shared ConfigContext (draft + Save live in the provider, not here). Section-level help
@@ -386,6 +391,145 @@ export function ReportSection() {
           />
         </Field>
       </div>
+
+      <h3 className="adm-fieldgroup">{C.groupLinks}</h3>
+      <p className="adm-hint">{C.linksTip}</p>
+      <ReportLinksEditor />
     </Card>
+  )
+}
+
+/** The Einsatz the link PREVIEW is resolved against — a plausible one, so an admin can read
+ *  what a placeholder will turn into without having to open a real incident. */
+const SAMPLE_LINK_FACTS: ReportLinkFacts = {
+  stichwort: 'Brand Gebäude',
+  ort: 'Musterstrasse 3',
+  alarmiertAt: '2026-08-14T19:42:00Z',
+  endedAt: '2026-08-14T21:05:00Z',
+  einsatzleiter: 'Hans Muster',
+  kontaktperson: 'Anna Meier',
+  kurzbericht: 'Küchenbrand, durch Kleinlöschgerät gelöscht.',
+  wehr: 'Feuerwehr Musterdorf',
+}
+
+/**
+ * «Formulare & Links» — the station's own paperwork as rows on the Rapport (lib/reportLinks).
+ *
+ * The workflow this is shaped around: in Google Forms press «Link zum Vorausfüllen abrufen»,
+ * type sample values, paste the link here — then swap the sample values for placeholders. The
+ * chips insert a placeholder AT THE CURSOR, so nobody has to remember their names, and the
+ * preview underneath resolves the whole URL against a sample Einsatz: a typo shows up as a
+ * `{platzhalter}` still standing in the preview, which is the only way to catch one before an
+ * Einsatz does.
+ */
+function ReportLinksEditor() {
+  const { draft, set } = useConfig()
+  const C = appConfig.copy.admin.report
+  // Array.isArray, not `?? []`: the document can also be written by the `admin_config` CLI
+  // straight into the DB, and a hand-edited `links: {}` would otherwise white-screen this page
+  // on `.map` — the one config surface somebody would go to in order to FIX that.
+  const raw = getPath<ReportLink[]>(draft, ['report', 'links'])
+  const rows = Array.isArray(raw) ? raw : []
+  // the URL field a chip inserts into: the one that was focused last. Held as an element ref
+  // rather than an index, because the insert needs its live selection anyway.
+  const urlRef = useRef<HTMLTextAreaElement | null>(null)
+  // ⚠️ The empty list is written as `[]`, NOT as `null`. `report.links` is a plain
+  // `list[ReportLinkConfig]` on the backend (schemas.py), so a `null` fails validation — and
+  // because Verwaltung PUTs the WHOLE document, that 422 does not just refuse the deletion:
+  // the null stays in the draft and every later edit on every Station page 422s with it, in a
+  // 700 ms autosave retry loop, until the tab is reloaded (which throws the edit away). The
+  // «a cleared section should look untouched» idea was void anyway — `model_dump` fills the
+  // default, so every saved document carries `"links": []` whatever we send.
+  const write = (next: ReportLink[]) => set(['report', 'links'], next)
+  const patch = (i: number, over: Partial<ReportLink>) =>
+    write(rows.map((r, j) => (j === i ? { ...r, ...over } : r)))
+
+  const insertToken = (i: number, token: string) => {
+    const row = rows[i]
+    const el = urlRef.current
+    const url = row?.url ?? ''
+    // ⚠️ Matched by link ID, never by row index. The ref is deliberately not cleared on blur
+    // (pressing a chip blurs the field, which is the whole point of holding it), so after a row
+    // above this one is deleted it still points at a DETACHED textarea — one that, matched by
+    // index, would answer to the row that moved up into its place. The token then went in at
+    // the caret of a different URL, usually mid-host, and the focus/caret restore silently did
+    // nothing because the node was no longer in the document.
+    const live = el && el.dataset.id === row?.id && el.isConnected ? el : null
+    // nothing focused → append, which is what a chip pressed straight after pasting asks for
+    const at = live ? (live.selectionStart ?? url.length) : url.length
+    patch(i, { url: `${url.slice(0, at)}{${token}}${url.slice(at)}` })
+    if (live) {
+      const caret = at + token.length + 2
+      requestAnimationFrame(() => { live.focus(); live.setSelectionRange(caret, caret) })
+    }
+  }
+
+  return (
+    <>
+      {rows.map((row, i) => {
+        const preview = resolveLinkUrl(row.url ?? '', linkTokenValues(SAMPLE_LINK_FACTS))
+        return (
+          <div className="adm-formlink" key={row.id}>
+            <div className="adm-formlink-head">
+              <Field label={C.linkTitle}>
+                <input
+                  className="adm-input" type="text" value={row.title ?? ''}
+                  placeholder={C.linkTitlePlaceholder}
+                  onChange={(e) => patch(i, { title: e.target.value })}
+                />
+              </Field>
+              <button
+                type="button" className="adm-formlink-x" title={C.linkRemove} aria-label={C.linkRemove}
+                onClick={() => write(rows.filter((_, j) => j !== i))}
+              >
+                <Icon id="trash" />
+              </button>
+            </div>
+            <Field label={C.linkNote}>
+              <input
+                className="adm-input" type="text" value={row.note ?? ''}
+                placeholder={C.linkNotePlaceholder}
+                onChange={(e) => patch(i, { note: e.target.value || null })}
+              />
+            </Field>
+            <Field label={C.linkUrl} tip={C.linkUrlTip}>
+              <textarea
+                className="adm-input adm-input-mono adm-formlink-url" rows={3} value={row.url ?? ''}
+                placeholder={C.linkUrlPlaceholder} data-id={row.id}
+                onFocus={(e) => { urlRef.current = e.currentTarget }}
+                onChange={(e) => patch(i, { url: e.target.value })}
+              />
+            </Field>
+            <div className="adm-formlink-tokens" role="group" aria-label={C.linkTokens}>
+              {REPORT_LINK_TOKENS.map((t) => (
+                <button type="button" key={t} className="adm-token" onClick={() => insertToken(i, t)}>
+                  {`{${t}}`}
+                </button>
+              ))}
+            </div>
+            {/* What the Rapport will actually open — and, where it would not, WHY.
+                ⚠️ This warns on exactly the conditions `reportLinks()` drops a row on, title
+                included. Checking only the URL let an admin paste a link, see a correct green
+                preview, save without a title, and get a row that never appears on any Rapport
+                while Verwaltung said it was fine. */}
+            <Field label={C.linkPreview}>
+              {isOpenableUrl(preview) && !!row.title?.trim()
+                ? <p className="adm-formlink-preview">{preview}</p>
+                : (
+                  <p className="adm-hint adm-formlink-warn">
+                    {row.title?.trim() ? C.linkPreviewNone : C.linkPreviewNoTitle}
+                  </p>
+                )}
+            </Field>
+          </div>
+        )
+      })}
+      <button
+        type="button" className="adm-formlink-add"
+        onClick={() => write([...rows, { id: `lnk${Date.now()}-${rows.length}`, title: '', url: '' }])}
+      >
+        <Icon id="plus" />{C.linkAdd}
+      </button>
+    </>
   )
 }

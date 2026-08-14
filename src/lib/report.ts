@@ -508,8 +508,13 @@ const META_FIELD_LABELS: Record<string, string> = {
 }
 
 /** Fields whose change is bookkeeping ABOUT the rapport rather than a statement about the
- *  Einsatz — logging them would bury the ones that matter. */
-const META_QUIET = new Set(['erfasser', 'krokiPrint'])
+ *  Einsatz — logging them would bury the ones that matter.
+ *
+ *  `linksDone` is here DELIBERATELY, not by omission: ticking off the station's own paperwork
+ *  (the Getränkeabrechnung, a Schadenmeldung — see lib/reportLinks) says nothing about what
+ *  happened at the Einsatz, and the Verlauf is the record of the Einsatz. The tick itself is
+ *  kept in the workspace blob with its timestamp, so it is neither invisible nor lost. */
+const META_QUIET = new Set(['erfasser', 'krokiPrint', 'linksDone'])
 
 /** Fields short enough to print their new value in the Verlauf line. A Kurzbericht or a
  *  Bemerkung is a paragraph — quoting it would turn the log into a second copy of the rapport,

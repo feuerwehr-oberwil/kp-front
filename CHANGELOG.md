@@ -31,6 +31,22 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
+- **The Wehr's own paperwork sits on the Rapport, pre-filled.** Every station has forms that live
+  outside this app and still have to be filled in afterwards – a Getränkeabrechnung for the
+  Gemeinde, a Schadenmeldung, an internal form. `report.links` (Verwaltung › Rapport) puts them
+  under the Fotos as a list to tick off, and the URL can carry placeholders – `{stichwort}`,
+  `{ort}`, `{datum}`, `{einsatzleiter}` and five more – that are filled in from the running
+  Einsatz when the link is opened, so a Google Form comes up with Anlass and Datum already in it
+  instead of blank. The tick is per-incident and shared across devices, merged per link so two
+  people ticking two different forms keep both. **Configure none and the section does not exist**
+  – no empty card explaining a feature a station does not use. It never reaches the paper: the
+  rapport is the record, a to-do list of links is not part of it, and neither is it an
+  Abschluss-Assistent step that could hold up an archive. Nothing is ever ticked automatically –
+  opening a form says nothing about whether it was submitted, so the app asks once, when the
+  operator comes back from it. ⚠️ A placeholder sends incident text to whoever hosts the form,
+  and the configured links are served by the public config endpoint – both are spelled out in
+  `docs/CONFIGURATION.md` §1d and `PRIVACY.md`.
+
 - **Filters are one button per surface, and the search line is the same line everywhere.**
   Grad, Status and Kategorie were an inline segmented track and a legend strip – two rows of
   chrome above the list you came for, over controls that are barely reached in the field. They

@@ -299,6 +299,44 @@
   .report-partner.free > .ci { flex: 1 1 100%; }
 }
 
+/* «Formulare & Links»: the station's own paperwork (config `report.links`). Built from the
+   Partnerorganisationen row above — same tick, same rule that the tick and the title are ONE
+   target, same «a tick is a SHAPE, not a hue» (see .report-partner.on). The only addition is
+   the way out of the app on the right, which is a plain secondary button and not an <a>: the
+   URL is composed from the Einsatz at the moment of the press (lib/reportLinks · resolveLinkUrl),
+   so there is no href to put in the markup ahead of time. */
+.rp-links { align-self: stretch; width: 100%; display: flex; flex-direction: column; gap: 6px; }
+.rp-link { display: flex; align-items: center; gap: 8px; min-height: var(--tap); }
+.rp-link-tick { flex: 1 1 auto; display: flex; align-items: center; gap: 9px; min-width: 0;
+  min-height: 38px; padding: 0 8px 0 4px; border: none; border-radius: var(--r-sm);
+  background: none; color: var(--ink-dim); cursor: pointer; text-align: left; }
+.rp-link-tick:hover { background: var(--hover); }
+.rp-link-tick:disabled { cursor: default; }
+.rp-link-tick:disabled:hover { background: none; }
+.rp-link-box { flex: none; display: grid; place-items: center; width: 22px; height: 22px;
+  border: 1.5px solid color-mix(in srgb, var(--ink-faint) 55%, transparent);
+  border-radius: var(--r-sm); color: var(--ink-dim); }
+.rp-link-box svg { width: 14px; height: 14px; }
+.rp-link.on .rp-link-tick { color: var(--ink); }
+.rp-link.on .rp-link-box { border-color: color-mix(in srgb, var(--ink-faint) 80%, transparent); color: var(--ink); }
+/* title over its note — the note is a second question («wann?»), so it may not compete with
+   the title for the first glance */
+.rp-link-txt { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.rp-link-title { font: 600 13.5px var(--body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-link-note { font: 500 11.5px var(--body); color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-link-open { flex: none; display: inline-flex; align-items: center; gap: 7px; min-height: 40px;
+  padding: 0 13px; cursor: pointer; border: 1px solid var(--glass-edge); border-radius: var(--r-sm);
+  background: var(--surface); color: var(--ink); font: 700 12.5px var(--body); }
+.rp-link-open:hover { background: var(--hover-strong); }
+.rp-link-open .i { width: 15px; height: 15px; }
+@media (max-width: 640px) {
+  /* «Öffnen» drops UNDER its own title rather than squeezing it to two words. Indented to the
+     title (4px pad + 22px box + 9px gap) so it stays visibly part of that row and not the next. */
+  .rp-link { flex-wrap: wrap; }
+  .rp-link-tick { flex: 1 1 100%; }
+  .rp-link-open { margin-left: 35px; }
+}
+
 /* Beilagen: photos that belong to the RAPPORT (Ausweis, Schaden) rather than to the Verlauf.
    Thumbnail + caption per row, because the caption is what the plate prints underneath and the
    thumbnail is only there to say WHICH photo you are labelling. */
@@ -306,9 +344,8 @@
    say so — without this the caption field sat at its intrinsic ~20-character width with the
    delete button stranded beside it and half the card empty. Margins stay at 0: the container's
    own gap sets the rhythm, and ad-hoc ones on top of it made the block look randomly spaced. */
-.report-att-hint, .report-att-list, .report-att { align-self: stretch; width: 100%; }
-.report-att-hint { margin: 0; font: 500 12px/1.45 var(--body); color: var(--ink-dim); }
-.report-att-list { list-style: none; margin: 2px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.report-att-list, .report-att { align-self: stretch; width: 100%; }
+.report-att-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .report-att { display: flex; align-items: center; gap: 10px; }
 /* The thumb is a BUTTON now (it opens the picture full-size), so the image inside needs its own
    size — `object-fit` on the button does nothing, and an unconstrained <img> rendered at its

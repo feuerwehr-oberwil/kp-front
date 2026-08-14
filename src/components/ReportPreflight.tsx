@@ -15,7 +15,8 @@ import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from '../li
 import { deriveAusgerueckt, fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit, zeitFromClock, zeitIssues } from '../lib/alarmzeiten'
 import type { ZeitKind } from '../lib/alarmzeiten'
 import type { AssignableRole } from '../lib/roleAssignment'
-import { getDeploymentConfig } from '../lib/deploymentConfig'
+import { deploymentName, getDeploymentConfig, reportLinks } from '../lib/deploymentConfig'
+import { linkTokenValues, resolveLinkUrl, type ReportLink } from '../lib/reportLinks'
 import { activityMoments, loadReplay, stateAt, vehiclesAt, type ReplayBundle } from '../lib/replay'
 import { autoRotation, vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import type { AuditProof, ReportDraft, ReportOptions } from '../lib/report'
@@ -640,6 +641,71 @@ export function ReportPreflight({
   }
   const P = appConfig.copy.preflight
   const A = appConfig.copy.abschluss
+
+  // «Formulare & Links» — the station's OWN paperwork (config `report.links`, see
+  // lib/reportLinks). No config, no section: a Wehr that has no such forms never sees an empty
+  // card explaining a feature it does not use.
+  const stationLinks = reportLinks()
+  const linksDone = meta.linksDone ?? {}
+  const linksDoneCount = stationLinks.filter((l) => linksDone[l.id]).length
+  /** ⚠️ Through `metaRef`, not `persist` — the tick is offered again when the operator returns
+   *  from the form, which is a moment later than the render the offer was built in. `persist`
+   *  would merge THAT render's form state and undo whatever was typed since (same reason as
+   *  stampReportMade). Every field on this surface persists itself already. */
+  const setLinkDone = (id: string, done: boolean) => {
+    if (!canEdit) return
+    const next = { ...(metaRef.current.linksDone ?? {}) }
+    if (done) next[id] = new Date().toISOString()
+    else delete next[id]
+    onSaveMeta({ ...metaRef.current, linksDone: Object.keys(next).length ? next : undefined })
+  }
+  /** The link whose form was opened and not yet ticked off — the offer waits here until the
+   *  operator comes back (see the effect below). */
+  const returnOffer = useRef<ReportLink | null>(null)
+  const openLink = (link: ReportLink) => {
+    // Resolved at the moment of the press, not at render: the Kurzbericht and the Einsatzende
+    // are typed while the Rapport is open, and the form should carry what stands there NOW.
+    const url = resolveLinkUrl(link.url, linkTokenValues({
+      stichwort: incident.title,
+      ort: incident.address,
+      alarmiertAt: meta.alarmiertAt,
+      endedAt: meta.endedAt,
+      einsatzleiter: meta.einsatzleiter,
+      kontaktperson: meta.kontaktperson,
+      kurzbericht: meta.summary,
+      wehr: deploymentName(),
+    }))
+    // ⚠️ A blocked popup returns null, and saying «geöffnet» then offering to tick it off would
+    // let the checklist record a form that never came up. Say what actually happened instead.
+    if (!window.open(url, '_blank', 'noopener,noreferrer')) {
+      toast(fillTemplate(P.linksOpenFailed, { title: link.title }), { icon: 'warn', tone: 'warn' })
+      return
+    }
+    // The app cannot see whether the form was submitted, so it asks — but only once the
+    // operator is BACK. A toast raised now would sit on a tab that just lost focus and expire
+    // (6 s) long before anyone finished filling anything in.
+    // Skipped where the row is already ticked, and where this session may not write anyway.
+    if (!canEdit || linksDone[link.id]) return
+    returnOffer.current = link
+  }
+  // …and here is the coming back. Scoped to the mounted Rapport on purpose: leave the surface
+  // and the offer dies with it, which also keeps `metaRef` (read by `setLinkDone`) fresh for as
+  // long as the offer can be taken.
+  useEffect(() => {
+    const onVisible = () => {
+      const link = returnOffer.current
+      if (document.visibilityState !== 'visible' || !link) return
+      returnOffer.current = null
+      toast(fillTemplate(P.linksOpened, { title: link.title }), {
+        icon: 'external',
+        action: { label: P.linksOpenedAction, onClick: () => setLinkDone(link.id, true) },
+      })
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+    // `setLinkDone` reads the live blob off `metaRef`, so a listener bound once is not stale.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Derived closing checklist (lib/abschluss): the sheet is the ONE closing surface — the
   // status is recomputed from the data on every render, never stored as visited-state.
@@ -1468,8 +1534,10 @@ export function ReportPreflight({
               label={P.attachmentsHead}
               sub={attachments.length ? fillTemplate(P.attachmentsCount, { n: attachments.length }) : P.attachmentsNone}
             >
+              {/* No explainer paragraph. «Fotos» with «Foto hinzufügen» under it is not a card
+                  anybody needs a sentence for, and four lines of prose at the top of a row
+                  pushed the pictures themselves below the fold. Same for the links row. */}
               <div className="rp-check-extra">
-                <p className="report-att-hint">{P.attachmentsHint}</p>
                 {attachments.length > 0 && (
                   <ul className="report-att-list">
                     {attachments.map((a) => (
@@ -1516,6 +1584,52 @@ export function ReportPreflight({
                 )}
               </div>
             </CheckRow>
+            {/* …and under the Beilagen, the station's own paperwork: the Getränkeabrechnung, a
+                Schadenmeldung, whatever this Wehr still has to fill in elsewhere. It belongs in
+                THIS column because the column's question is «was ist noch offen» — and a form
+                that has not been sent is exactly that. It never reaches the paper (the printed
+                rapport is the record, not the to-do list), and where a station has configured
+                none the whole card is absent rather than empty. */}
+            {stationLinks.length > 0 && (
+              <CheckRow
+                done={linksDoneCount === stationLinks.length}
+                label={P.linksHead}
+                sub={fillTemplate(P.linksCount, { done: linksDoneCount, n: stationLinks.length })}
+              >
+                <div className="rp-check-extra">
+                  <div className="rp-links">
+                    {stationLinks.map((link) => {
+                      const at = linksDone[link.id]
+                      return (
+                        <div key={link.id} className={cx('rp-link', at && 'on')}>
+                          {/* tick + title are ONE target, as on the Partnerorganisationen rows —
+                              a 40px checkbox beside a label is a miss waiting to happen */}
+                          <button
+                            type="button" className="rp-link-tick" disabled={!canEdit}
+                            role="checkbox" aria-checked={!!at}
+                            aria-label={fillTemplate(at ? P.linksMarkOpen : P.linksMarkDone, { title: link.title })}
+                            onClick={() => setLinkDone(link.id, !at)}
+                          >
+                            <span className="rp-link-box"><Icon id={at ? 'check' : 'minus'} /></span>
+                            <span className="rp-link-txt">
+                              <span className="rp-link-title">{link.title}</span>
+                              {/* the note says WHEN this has to be filled in; once it is done the
+                                  row answers the more useful question instead — when it was */}
+                              {at
+                                ? <span className="rp-link-note">{fillTemplate(P.linksDoneAt, { at: formatDateTime(at) })}</span>
+                                : link.note?.trim() && <span className="rp-link-note">{link.note.trim()}</span>}
+                            </span>
+                          </button>
+                          <button type="button" className="rp-link-open" onClick={() => openLink(link)}>
+                            <Icon id="external" />{P.linksOpen}
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </CheckRow>
+            )}
           </div>
 
           {/* The Kroki, on the page. It was a modal that opened on the press of PDF / Ausdrucken,

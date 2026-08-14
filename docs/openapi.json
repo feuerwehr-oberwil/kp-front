@@ -13120,11 +13120,61 @@
             "minimum": 0.0,
             "title": "Attendancemergegapmin",
             "default": 15
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/ReportLinkConfig"
+            },
+            "type": "array",
+            "maxItems": 30,
+            "title": "Links"
           }
         },
         "type": "object",
         "title": "ReportConfig",
         "description": "Einsatzrapport form presets. `partnerOrgs` feeds the Partnerorganisationen\ncheckbox row (paper Erfassungsblatt + rapport form quick-pick); free-text entries\nremain possible everywhere. Empty = no preset row."
+      },
+      "ReportLinkConfig": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "url": {
+            "type": "string",
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Url"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "url"
+        ],
+        "title": "ReportLinkConfig",
+        "description": "One row of ``ReportConfig.links``.\n\n``url`` may carry ``{platzhalter}`` tokens (``{stichwort}``, ``{ort}``, ``{datum}``,\n``{alarmzeit}``, ``{einsatzende}``, ``{einsatzleiter}``, ``{kontaktperson}``,\n``{kurzbericht}``, ``{wehr}``), which the app substitutes URL-encoded when the link is\nopened. That is how a Google Form arrives with Anlass and Datum already in it — see\n\"Link zum Vorausfüllen abrufen\" in Google Forms, which yields ``?usp=pp_url&entry.<id>=…``.\n\nThe backend does not resolve or fetch these; it stores them.\n\n⚠️ ``url`` is constrained to http(s) HERE as well, not only in the app. The frontend gate\n(``deploymentConfig · reportLinks``) protects the one consumer that exists today; a\n``javascript:`` URL accepted into the stored document would be waiting for the next one."
       },
       "RosterConfig": {
         "properties": {

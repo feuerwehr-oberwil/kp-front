@@ -28,6 +28,33 @@ receives names, roster, attendance or journal text — only a location. The ship
 mirror list includes one host in Russia (`maps.mail.ru`, a long-standing public mirror); a
 station that would rather not use it sets `OVERPASS_MIRRORS` to the other two.
 
+## Forms your own Wehr links from the Rapport
+
+A station can put its own paperwork on the Rapport as a list of links – the Getränkeabrechnung
+for the Gemeinde, a Schadenmeldung, an internal form (`report.links`, see
+[`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) §1d). **Nothing here is on by default:** a
+deployment that configures no links has no such section, and this whole page does not apply to
+it.
+
+Where a station does configure one, two things are worth being deliberate about:
+
+- **A link can carry incident data to whoever hosts the form.** The URL may contain placeholders
+  the app fills in when the link is opened, and those include the incident address, the
+  Einsatzleiter and Kontaktperson by name, and the free-text Kurzbericht – which in this line of
+  work often describes what was found at an address. That data travels **in the URL**, from the
+  browser, to the form's host: its logs, and the device's own browser history. If the form is a
+  Google Form, the host is Google. The app opens the link with `noreferrer`, which is beside the
+  point here – the data is the address being requested, not the referrer.
+- **The configured links themselves are readable by anyone.** They are part of the station config
+  served by the app's public `/api/config` (the login screen needs branding before login). A form
+  id is a capability: whoever knows it can submit to that form. Do not put a token, key or secret
+  path in a link.
+
+Neither of these sends anything to the maintainer, and neither is affected by the telemetry
+switch below — this is your Wehr's own configuration talking to your Wehr's own choice of form
+provider. It is documented here because it is the one place in the app where incident text can
+leave the instance without an operator realising it.
+
 ## Sharing your own location during an Einsatz
 
 One feature has a person's phone report where that person is: **Standort teilen**. It exists so

@@ -149,6 +149,35 @@ export function mergeRecord<V>(
   return out
 }
 
+/**
+ * `reportMeta`, with its one NESTED record merged per key instead of as an opaque value.
+ *
+ * ⚠️ `linksDone` (the station's Rapport-Formulare, ticked off per Einsatz) is a
+ * `Record<linkId, ISO>`, and the flat merge treats a whole object as one value: the AdFU
+ * ticking «Getränke» on the tablet while the EL ticks «Schadenmeldung» on the phone would end
+ * with one of the two ticks gone, silently — while the field's own doc comment promises that
+ * whoever opens the Rapport next sees what is already away. Merged per link id it is a union,
+ * and an untick still beats a concurrent tick (delete wins, as everywhere else here).
+ *
+ * Every other reportMeta field is a scalar or a small value object edited as a unit, so the
+ * flat merge is right for them and stays.
+ */
+function mergeReportMeta(
+  base: Record<string, unknown>,
+  mine: Record<string, unknown>,
+  theirs: Record<string, unknown>,
+): Record<string, unknown> {
+  const out = mergeRecord(base, mine, theirs)
+  const done = mergeRecord(
+    (base.linksDone ?? {}) as Record<string, unknown>,
+    (mine.linksDone ?? {}) as Record<string, unknown>,
+    (theirs.linksDone ?? {}) as Record<string, unknown>,
+  )
+  if (Object.keys(done).length) out.linksDone = done
+  else delete out.linksDone
+  return out
+}
+
 /** Merge the per-plan board (planId → annotations[]), merging each plan's annotations by id. */
 function mergeBoard(
   base: Record<string, HasId[]>,
@@ -225,7 +254,7 @@ export function mergeWorkspace(
       (m.settings ?? {}) as Record<string, unknown>,
       (t.settings ?? {}) as Record<string, unknown>,
     ),
-    reportMeta: mergeRecord(
+    reportMeta: mergeReportMeta(
       (b.reportMeta ?? {}) as Record<string, unknown>,
       (m.reportMeta ?? {}) as Record<string, unknown>,
       (t.reportMeta ?? {}) as Record<string, unknown>,
