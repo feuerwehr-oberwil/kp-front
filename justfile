@@ -111,11 +111,16 @@ demo-reset:
 # (Mirrors .github/workflows/ci.yml. It exists because «lint + test» was NOT that set: a ruff
 # FORMAT violation once passed locally and turned main red, because nothing here ran
 # `ruff format --check`. The same thing then happened with `mypy`, which CI runs and this did
-# not — so a fully green `just ci` still pushed a red main. Not covered — both need Docker:
-# the gitleaks scan and the image build.)
+# not — so a fully green `just ci` still pushed a red main. And a third time with `pnpm build`,
+# which is the ONLY step that parses CSS — `tsc` and `pnpm lint` never open a stylesheet, so a
+# syntax error in one sailed through a green `just ci`. The landing page's drift check was
+# missing for the same reason. Not covered — both need Docker: the gitleaks scan and the image
+# build.)
 # Run everything CI would fail you on, before you push.
 [group('Quality')]
-ci: check
+ci:
+    pnpm build
+    node site/build.mjs --check
     pnpm test
     cd backend && uv run ruff format --check .
     cd backend && uv run ruff check .
