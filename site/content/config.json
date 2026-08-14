@@ -16,6 +16,22 @@
       "hreflang": "fr-CH",
       "ogLocale": "fr_CH",
       "dir": "fr/"
+    },
+    {
+      "code": "it",
+      "label": "IT",
+      "name": "Italiano",
+      "hreflang": "it-CH",
+      "ogLocale": "it_CH",
+      "dir": "it/"
+    },
+    {
+      "code": "en",
+      "label": "EN",
+      "name": "English",
+      "hreflang": "en",
+      "ogLocale": "en_GB",
+      "dir": "en/"
     }
   ]
 }

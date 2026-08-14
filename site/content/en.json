@@ -1,0 +1,330 @@
+{
+  "notice": "This English version has not yet been reviewed by an English-speaking firefighter, and the demo itself runs in German. Something that reads wrong? <a href=\"#kontakt\">Tell us</a> and we will fix it.",
+  "meta": {
+    "title": "KP Front – incident command for the militia fire service",
+    "description": "KP Front is the digital command post at the scene: situation, plans, breathing apparatus, log and report in one offline-capable open-source app.",
+    "ogTitle": "KP Front – incident command for the militia fire service",
+    "ogDescription": "The digital command post at the scene: situation, plans, breathing apparatus, log and report in one offline-capable open-source app."
+  },
+  "nav": {
+    "aria": "Main navigation",
+    "features": "Features",
+    "contact": "Contact",
+    "demo": "Demo",
+    "githubAria": "KP Front on GitHub",
+    "languageAria": "Language"
+  },
+  "hero": {
+    "eyebrow": "Open source&nbsp;· Switzerland",
+    "h1": "Digital incident command for the fire service.",
+    "lede": "KP Front is the digital command post at the scene:\n      <strong>situation, plans, breathing apparatus, log and report</strong> in one app.",
+    "cta": "Open the demo",
+    "ctaNote": "No login – in the demo, Musterdorf is on fire right now (interface in German)",
+    "frameAddr": "LAGE · ZIMMERBRAND · 2611624 / 1263070",
+    "frameAlt": "Situation view: tactical map with Swiss FKS symbols, sectors and hose lines"
+  },
+  "fit": {
+    "whoLabel": "For whom",
+    "who": [
+      "Militia fire services",
+      "Local fire services",
+      "Regional support fire services",
+      "Career fire services"
+    ],
+    "whatLabel": "For what",
+    "what": [
+      "Fires",
+      "Road traffic collisions",
+      "Technical rescue",
+      "Hazmat and oil spills",
+      "Major incidents"
+    ],
+    "note": "Grown out of the real operational work of\n        <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">Feuerwehr Oberwil BL</a>\n        – proven there, and developed further with every incident."
+  },
+  "tenet": {
+    "eyebrow": "The measure",
+    "quote": "«Usable at <em>3 in the morning</em> – after six months without practice»",
+    "expl": "In a militia fire service nobody sits at the screen every day. So the app has to be\n        built for someone half asleep to get right:\n        <strong>everything that matters visible at once, sensible defaults instead of settings, and\n        every action can be undone.</strong>"
+  },
+  "incident": {
+    "eyebrow": "From the call to the report",
+    "h2": "One incident, one app.",
+    "lede": "This is what a night with KP Front looks like – the situation, breathing apparatus and\n        documentation stay consistent and traceable for everyone involved.",
+    "entries": [
+      {
+        "time": "03:01",
+        "tag": "Call",
+        "h3": "The call comes in.",
+        "p": "Take over an alert from your paging system (e.&nbsp;g. Divera) with one tap – or start\n            by hand from an address, a building or the map. The location and the building data are\n            there before the first appliance rolls."
+      },
+      {
+        "time": "03:07",
+        "tag": "Situation",
+        "h3": "The first situation picture is up.",
+        "p": "FKS tactical symbols, sectors, hose lines and notes on the swisstopo map.\n            Hydrants, utility lines and vehicle positions sit underneath as layers."
+      },
+      {
+        "time": "03:12",
+        "tag": "Breathing apparatus",
+        "h3": "Team 1 goes in.",
+        "p": "Cylinder pressure, turnaround time and contact clock run per team. The app speaks up\n            before it gets tight – even when nobody happens to be watching the clock."
+      },
+      {
+        "time": "03:18",
+        "tag": "Plan",
+        "h3": "The building plan becomes a whiteboard.",
+        "p": "Open the pre-incident plan, draw on it, place teams, measure to scale –\n            with the same tools as on the map."
+      },
+      {
+        "time": "03:40",
+        "tag": "Log",
+        "h3": "Everything is in the log.",
+        "p": "Type it, or simply speak it – voice memos turn into text in the journal by\n            themselves. The log is only ever added to, never rewritten – corrections are made\n            with new entries, not with an eraser. That is what keeps the incident on record."
+      },
+      {
+        "time": "04:30",
+        "tag": "Shift plan",
+        "h3": "Relief is planned, not guessed.",
+        "p": "If it turns into a long night, the shift plan holds, per person, from when to when\n            they are available and when they are rostered. The coverage line shows where there\n            are too few people – before the gap is there. Attendance is untouched by it:\n            planning happens here, ticking off happens there."
+      },
+      {
+        "time": "05:55",
+        "tag": "Report",
+        "h3": "By the time you head back, the report is nearly done.",
+        "p": "Situation, crew, resources and log flow straight into the incident report.\n            Nobody has to reconstruct the night from memory afterwards."
+      },
+      {
+        "time": "Afterwards",
+        "tag": "Replay",
+        "h3": "The night runs once more.",
+        "p": "For the debrief, the replay plays the whole incident back: situation, teams and log\n            exactly as they stood at any given minute. It skips the long waits – four hours\n            become a few minutes."
+      }
+    ]
+  },
+  "shots": {
+    "eyebrow": "From the demo",
+    "h2": "This is what it looks like.",
+    "lede": "Every image is taken from the public demo. Click «Open the demo» and you are\n        standing in the same incident.",
+    "note": "The screenshots are in German: the public demo is, and they come from it – staged images would be a claim rather than evidence.",
+    "items": [
+      {
+        "alt": "Plan view: building plan as a whiteboard with drawing, symbols and scale",
+        "title": "Plan",
+        "sub": "Building and pre-incident plans with tactical symbols, markings and measuring to scale"
+      },
+      {
+        "alt": "Breathing apparatus view: teams with cylinder pressure and a running contact clock",
+        "title": "Breathing apparatus",
+        "sub": "Monitoring of teams, times, pressures and check-ins"
+      },
+      {
+        "alt": "Building view: stack of floors with team assignment",
+        "title": "Building",
+        "sub": "The floors stacked up – which team is working on which storey"
+      },
+      {
+        "alt": "Log: chronological entries next to the map",
+        "title": "Log",
+        "sub": "Running documentation of everything that matters – voice memos turn into text by themselves"
+      },
+      {
+        "alt": "Attendance: crew list with arrival times",
+        "title": "Attendance",
+        "sub": "Who has turned out and since when – the basis for the crew list and the report"
+      },
+      {
+        "alt": "Shift plan: shift grid with one row per person, planned and actual bars, and the coverage line below",
+        "title": "Shift plan",
+        "sub": "Plan shifts on long incidents – available, rostered, actually there, and where coverage breaks down"
+      },
+      {
+        "alt": "Checklist: command support tasks with progress",
+        "title": "Checklists",
+        "sub": "Your own command checklists, there to be ticked off instead of sitting in a folder"
+      },
+      {
+        "alt": "Resources view: material used, by source",
+        "title": "Resources",
+        "sub": "Record equipment and consumption during the incident instead of estimating afterwards"
+      },
+      {
+        "alt": "Incident report before printing: attendance and resources already carried over, with the sections of the PDF to tick below",
+        "title": "Report",
+        "sub": "Nearly done when you head back – check it, add to it, export as PDF, send it straight to the printer"
+      }
+    ]
+  },
+  "change": {
+    "eyebrow": "Switching over",
+    "h2": "What changes.",
+    "lede": "None of this is broken today – the paper situation map has worked for decades.\n        KP Front steps into the same places, only without the copying out.",
+    "headToday": "Today",
+    "headWith": "With KP Front",
+    "rows": [
+      {
+        "today": "Situation map on paper",
+        "with": "Situation picture on every device"
+      },
+      {
+        "today": "BA board and stopwatch",
+        "with": "Monitoring that speaks up by itself"
+      },
+      {
+        "today": "Scraps of paper and memory",
+        "with": "A log that keeps up"
+      },
+      {
+        "today": "Building plan in a folder",
+        "with": "A plan you can draw on"
+      },
+      {
+        "today": "Report the day after",
+        "with": "Report as you head back"
+      },
+      {
+        "today": "Debrief from memory",
+        "with": "Run the night through again"
+      }
+    ]
+  },
+  "features": {
+    "eyebrow": "Scope",
+    "h2": "What is in it.",
+    "lede": "Grown at real incidents and exercises, not from a feature list. Everything that comes\n        from outside – paging, GPS, printers – is <strong>optional</strong>: KP Front runs\n        perfectly well without any of those connections.",
+    "groups": [
+      {
+        "h3": "Situation &amp; plan",
+        "items": [
+          "<strong>Tactical symbols</strong> to FKS conventions, with attributes and labelling",
+          "Sectors, cordons, areas and freehand drawing",
+          "Hose lines with FKS annotations, each assigned to a team",
+          "Measuring distance and area, to scale on the plan as well",
+          "Layers: hydrants, utility cadastre, cantonal map services",
+          "Building plans as a whiteboard, stack of floors, blank board",
+          "Undo/redo on every surface"
+        ]
+      },
+      {
+        "h3": "Crew &amp; resources",
+        "items": [
+          "<strong>Breathing apparatus monitoring</strong>: pressure, turnaround time, contact clock, alarms",
+          "Teams on the map, on the plan and in the stack of floors – each with its own team colour, the same everywhere",
+          "Attendance with arrival times and ranks",
+          "<strong>Shift plan</strong>: plan shifts per person, coverage line across the whole\n            incident, printable as a command form",
+          "<strong>Share location</strong>: whoever opens the link appears as a dot on the\n            situation map – voluntary, and only for this incident",
+          "Resources and equipment with stock and consumption",
+          "Checklists for command support and the incident commander",
+          "Incident commander view: read along without moving anything"
+        ]
+      },
+      {
+        "h3": "Documentation",
+        "items": [
+          "A <strong>log</strong> that is only added to and never rewritten",
+          "Voice memos with transcription, photos, reminders",
+          "<strong>Replay</strong>: play the incident back minute by minute, waits skipped –\n            for the debrief",
+          "Incident report as a ready-made PDF – including a Kroki sketch at a chosen moment",
+          "Photos as attachments to the report, partner organisations with their own form",
+          "A capture sheet by QR code for everyone who has something to contribute",
+          "Alert and incident times from what actually happened, not from memory"
+        ]
+      },
+      {
+        "h3": "Running it",
+        "items": [
+          "<strong>Offline-capable</strong> as an installable app, readiness check included",
+          "Several devices at once, everything syncs by itself",
+          "Roles: edit, or read along only",
+          "Day/night mode, symbol size, large touch targets for the tablet",
+          "Can take over alerts from Divera <span class=\"opt\">optional</span>",
+          "Vehicle positions by GPS <span class=\"opt\">optional</span>",
+          "PDF printing at the station <span class=\"opt\">optional</span>",
+          "<strong>Your own administration area</strong> per fire service: crew, vehicles, checklists, map layers and templates",
+          "Interface in German, English, French or Italian – set per fire service"
+        ]
+      }
+    ]
+  },
+  "sibling": {
+    "eyebrow": "Related project",
+    "h2": "KP Front commands at the front. KP Rück keeps the overview behind it.",
+    "p": "<strong>KP Rück</strong> is the digital version of the magnetic board in the rear\n          command post: one board for personnel, vehicles and equipment. Its own app, the same\n          handwriting – the two can hand incidents over to each other, but neither needs the other.",
+    "cta": "Take a look at KP Rück"
+  },
+  "faq": {
+    "eyebrow": "Questions &amp; answers",
+    "h2": "The questions we get most.",
+    "items": [
+      {
+        "q": "Why switch?",
+        "a": "Everyone sees the same situation at the same time – in the command vehicle, on the\n          tablet and at the incident commander. No message is lost on a scrap of paper. The BA\n          monitoring speaks up by itself before it gets tight. Less radio traffic for questions\n          that are already answered on the situation picture – and the report is nearly done as\n          you head back, instead of the weekend after. KP Front helps the incident commander keep\n          the situation free of contradictions and make the odd one out visible: a team out of\n          radio contact, an appliance that is nowhere, a check-in that never came."
+      },
+      {
+        "q": "Who owns the data?",
+        "a": "You do. Every fire service runs its own KP Front – on its own machine at the station\n          or in the cloud. You decide where maps, plans and incident data live; nothing goes to a\n          vendor or to third parties."
+      },
+      {
+        "q": "What does it cost?",
+        "a": "Nothing. KP Front is open source (AGPL) – <strong>no licence, no subscription, no\n          per-device fee</strong>. What remains is your own running costs: a small server, or a\n          machine at the station."
+      },
+      {
+        "q": "What does it take to run?",
+        "a": "Less than most people assume. A small mini PC or server at the station is enough, and\n          setting it up takes a few hours. After that the system largely looks after itself, and\n          updates are one command. You need somebody to set it up once – in the fire service, at\n          the municipality, or a friendly IT contact. And if you have nobody: get in touch, we\n          will help you set it up."
+      },
+      {
+        "q": "Can we adapt it to how we work?",
+        "a": "Yes. Every fire service has its own administration area: crew, vehicles, doctrine and\n          templates are all set there. Checklists, building plans and map layers come from your\n          own station data and are loaded with the command-line tools that ship with it. And\n          because the whole code is on <a href=\"https://github.com/feuerwehr-oberwil/kp-front\" target=\"_blank\" rel=\"noopener\">GitHub <svg class=\"ico\" style=\"width:13px;height:13px;vertical-align:-2px\"><use href=\"#i-gh\"/></svg></a>,\n          anything else can be built – by you or to your order."
+      },
+      {
+        "q": "What languages does the app run in?",
+        "a": "The interface comes in German, English, French and Italian. The language is set <strong>once per fire service</strong>, not per device – during an incident everybody reads the same terms, and that is deliberate: one situation, one vocabulary.\n          The public demo runs in <strong>German</strong>. The screenshots here are from that same instance – staged images would be a claim."
+      },
+      {
+        "q": "How do we start?",
+        "a": "With the <a href=\"https://demo.kp-front.ch\" target=\"_blank\" rel=\"noopener\">demo</a>,\n          no sign-up – Musterdorf is already on fire. Then try it at an exercise. And if it\n          fits: get in touch, we will help you set it up."
+      }
+    ]
+  },
+  "contact": {
+    "eyebrow": "Contact",
+    "h2": "Tell us what you think.",
+    "p": "Do you want to try KP Front at your fire service? Is something missing, or does\n          something not work the way you expect? Get in touch – we read everything.",
+    "alt": "For questions and open-ended ideas there are the\n          <a href=\"https://github.com/feuerwehr-oberwil/kp-front/discussions\" target=\"_blank\" rel=\"noopener\">GitHub discussions</a>.",
+    "bug": {
+      "t": "Report a fault",
+      "s": "What happened, and what did you expect? Drag screenshots straight into the form."
+    },
+    "idea": {
+      "t": "Ask for something",
+      "s": "Is a step missing that is part of how you work? Describe the case, not the solution."
+    },
+    "mail": {
+      "t": "Write to us directly",
+      "s": "Without a GitHub account, or when something should not be public – including «we would like to try this at ours»."
+    },
+    "form": {
+      "honeypot": "Please leave this field empty",
+      "name": "Name",
+      "namePlaceholder": "Who is writing?",
+      "mail": "E-mail",
+      "mailPlaceholder": "So we can reply",
+      "message": "Message",
+      "messagePlaceholder": "What is it about?",
+      "send": "Send message",
+      "sending": "Sending …",
+      "ok": "Thank you – the message is here. We will get back to you.",
+      "error": "That did not work. Please write directly to bastian.eichenberger@feuerwehr-oberwil.ch."
+    }
+  },
+  "lightbox": {
+    "close": "Close",
+    "prev": "Previous image",
+    "next": "Next image",
+    "zoom": "Zoom in"
+  },
+  "footer": {
+    "origin": "Born out of the operational work of <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">Feuerwehr Oberwil BL</a> –\n      because at incident after incident we kept seeing the same sources of error: double bookings, information\n      scattered across places, and transcription mistakes made by hand.\n      Every fire service runs its own KP Front, with its own maps, plans and data.",
+    "demo": "Demo",
+    "contact": "Contact"
+  }
+}

@@ -1,0 +1,330 @@
+{
+  "notice": "Questa versione italiana non è ancora stata riletta da un pompiere di lingua italiana, e la demo gira in tedesco. Un termine che suona sbagliato? <a href=\"#kontakt\">Scrivetecelo</a>, lo correggiamo.",
+  "meta": {
+    "title": "KP Front – condotta d’intervento per i pompieri di milizia",
+    "description": "KP Front è il posto di comando digitale sul posto: situazione, piani, protezione respiratoria, diario e rapporto in un’app open source che funziona anche offline.",
+    "ogTitle": "KP Front – condotta d’intervento per i pompieri di milizia",
+    "ogDescription": "Il posto di comando digitale sul posto: situazione, piani, protezione respiratoria, diario e rapporto in un’app open source che funziona anche offline."
+  },
+  "nav": {
+    "aria": "Navigazione principale",
+    "features": "Funzioni",
+    "contact": "Contatto",
+    "demo": "Demo",
+    "githubAria": "KP Front su GitHub",
+    "languageAria": "Lingua"
+  },
+  "hero": {
+    "eyebrow": "Open source&nbsp;· Svizzera",
+    "h1": "La condotta d’intervento digitale per i pompieri.",
+    "lede": "KP Front è il posto di comando digitale sul posto:\n      <strong>situazione, piani, protezione respiratoria, diario e rapporto</strong> in un’unica app.",
+    "cta": "Apri la demo",
+    "ctaNote": "Senza registrazione – nella demo Musterdorf sta bruciando adesso (interfaccia in tedesco)",
+    "frameAddr": "LAGE · ZIMMERBRAND · 2611624 / 1263070",
+    "frameAlt": "Vista Situazione: carta tattica con simboli CSP, settori e condotte"
+  },
+  "fit": {
+    "whoLabel": "Per chi",
+    "who": [
+      "Pompieri di milizia",
+      "Corpi locali",
+      "Centri di soccorso",
+      "Pompieri professionisti"
+    ],
+    "whatLabel": "Per cosa",
+    "what": [
+      "Incendi",
+      "Incidenti della circolazione",
+      "Interventi di soccorso tecnico",
+      "Difesa chimica e antinquinamento",
+      "Grandi eventi"
+    ],
+    "note": "Nato dall’attività operativa reale dei\n        <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">pompieri di Oberwil BL</a>\n        – lì collaudato e sviluppato di intervento in intervento."
+  },
+  "tenet": {
+    "eyebrow": "Il metro di misura",
+    "quote": "«Utilizzabile alle <em>3 di notte</em> – dopo sei mesi senza esercitazioni»",
+    "expl": "Nei pompieri di milizia nessuno sta al dispositivo tutti i giorni. Quindi l’app deve\n        essere fatta in modo da usarla correttamente anche mezzo addormentati:\n        <strong>tutto l’essenziale visibile subito, impostazioni predefinite sensate al posto delle\n        opzioni, e ogni azione si può annullare.</strong>"
+  },
+  "incident": {
+    "eyebrow": "Dall’allarme al rapporto",
+    "h2": "Un intervento, un’app.",
+    "lede": "Ecco com’è una notte con KP Front – situazione, protezione respiratoria e documentazione\n        restano coerenti e ricostruibili per tutti quelli che ci sono.",
+    "entries": [
+      {
+        "time": "03:01",
+        "tag": "Allarme",
+        "h3": "Arriva l’allarme.",
+        "p": "Riprendere con un tocco un allarme dal sistema di allertamento (p.&nbsp;es. Divera) –\n            oppure partire a mano da un indirizzo, un oggetto o la carta. Il luogo e i dati\n            dell’oggetto ci sono prima che il primo veicolo si muova."
+      },
+      {
+        "time": "03:07",
+        "tag": "Situazione",
+        "h3": "La prima situazione è in piedi.",
+        "p": "Simboli tattici CSP, settori, condotte e note sulla carta swisstopo.\n            Idranti, condotte e posizioni dei veicoli stanno sotto come livelli."
+      },
+      {
+        "time": "03:12",
+        "tag": "Protezione respiratoria",
+        "h3": "La squadra 1 entra.",
+        "p": "Pressione, tempo di rientro e orologio di contatto scorrono per ogni squadra. L’app\n            si fa sentire prima che diventi stretta – anche quando nessuno sta guardando l’ora."
+      },
+      {
+        "time": "03:18",
+        "tag": "Piano",
+        "h3": "Il piano d’oggetto diventa una lavagna.",
+        "p": "Aprire il piano d’intervento, disegnarci sopra, posizionare le squadre, misurare in\n            scala – con gli stessi strumenti della carta."
+      },
+      {
+        "time": "03:40",
+        "tag": "Diario",
+        "h3": "Tutto sta nel diario.",
+        "p": "Scrivere, oppure semplicemente parlarci dentro – le note vocali diventano testo nel\n            diario da sole. Il diario viene solo integrato, mai riscritto – si corregge con voci\n            nuove, non con la gomma. È questo che rende l’intervento documentabile."
+      },
+      {
+        "time": "04:30",
+        "tag": "Piano turni",
+        "h3": "Il cambio si pianifica, non si stima.",
+        "p": "Se diventa una notte lunga, il piano turni tiene, per ogni persona, da quando a\n            quando è disponibile e quando è impiegata. La linea di copertura mostra dove le\n            persone sono troppo poche – prima che il buco ci sia. Le presenze restano fuori da\n            tutto questo: qui si pianifica, lì si spunta."
+      },
+      {
+        "time": "05:55",
+        "tag": "Rapporto",
+        "h3": "Al rientro il rapporto è quasi pronto.",
+        "p": "Situazione, uomini, mezzi e diario confluiscono direttamente nel rapporto\n            d’intervento. Nessuno deve ricostruire la notte a memoria."
+      },
+      {
+        "time": "Dopo",
+        "tag": "Viaggio nel tempo",
+        "h3": "La notte scorre un’altra volta.",
+        "p": "Per il debriefing il viaggio nel tempo riproduce tutto l’intervento: situazione,\n            squadre e diario esattamente come stavano minuto per minuto. Le lunghe attese le\n            salta – quattro ore diventano pochi minuti."
+      }
+    ]
+  },
+  "shots": {
+    "eyebrow": "Dalla demo",
+    "h2": "Ecco come si presenta.",
+    "lede": "Tutte le immagini sono riprese dalla demo pubblica. Clicca su «Apri la demo» e ti\n        ritrovi nella stessa situazione.",
+    "note": "Gli screenshot sono in tedesco: la demo pubblica lo è, e vengono da lì – immagini ricostruite sarebbero un’affermazione invece che una prova.",
+    "items": [
+      {
+        "alt": "Vista Piano: piano d’oggetto come lavagna, con disegno, simboli e scala",
+        "title": "Piano",
+        "sub": "Piani d’oggetto e d’intervento con segni tattici, marcature e misurazione in scala"
+      },
+      {
+        "alt": "Vista Protezione respiratoria: squadre con pressione e orologio di contatto in corso",
+        "title": "Protezione respiratoria",
+        "sub": "Sorveglianza di squadre, tempi, pressioni e riscontri"
+      },
+      {
+        "alt": "Vista Edificio: piani sovrapposti con l’assegnazione delle squadre",
+        "title": "Edificio",
+        "sub": "I piani uno sopra l’altro – quale squadra lavora a quale piano"
+      },
+      {
+        "alt": "Diario: voci in ordine cronologico accanto alla carta",
+        "title": "Diario",
+        "sub": "Documentazione continua di tutto ciò che conta – le note vocali diventano testo da sole"
+      },
+      {
+        "alt": "Presenze: elenco degli uomini con gli orari di arrivo",
+        "title": "Presenze",
+        "sub": "Chi è arrivato e da quando – la base per l’elenco degli uomini e per il rapporto"
+      },
+      {
+        "alt": "Piano turni: griglia dei turni con una riga per persona, barre pianificate ed effettive e sotto la linea di copertura",
+        "title": "Piano turni",
+        "sub": "Pianificare i turni negli interventi lunghi – disponibile, impiegato, davvero presente, e dove la copertura cede"
+      },
+      {
+        "alt": "Lista di controllo: compiti del supporto alla condotta con l’avanzamento",
+        "title": "Liste di controllo",
+        "sub": "Le liste di controllo della condotta dei vostri pompieri, da spuntare invece che nel classificatore"
+      },
+      {
+        "alt": "Vista Mezzi: materiale impiegato per provenienza",
+        "title": "Mezzi",
+        "sub": "Rilevare materiale e consumo durante l’intervento, invece di stimarli dopo"
+      },
+      {
+        "alt": "Rapporto d’intervento prima della stampa: presenze e mezzi già ripresi, sotto le sezioni del PDF da spuntare",
+        "title": "Rapporto",
+        "sub": "Quasi pronto al rientro – controllare, completare, esportare in PDF, mandare direttamente in stampa"
+      }
+    ]
+  },
+  "change": {
+    "eyebrow": "Il passaggio",
+    "h2": "Cosa cambia.",
+    "lede": "Niente di tutto questo è rotto oggi – la carta della situazione su carta funziona da\n        decenni. KP Front si mette negli stessi posti, solo senza ricopiare.",
+    "headToday": "Oggi",
+    "headWith": "Con KP Front",
+    "rows": [
+      {
+        "today": "Carta della situazione su carta",
+        "with": "Quadro della situazione su ogni dispositivo"
+      },
+      {
+        "today": "Tabella protezione respiratoria e cronometro",
+        "with": "Una sorveglianza che si fa sentire da sola"
+      },
+      {
+        "today": "Foglietti e memoria",
+        "with": "Un diario che sta al passo"
+      },
+      {
+        "today": "Piano d’oggetto nel classificatore",
+        "with": "Un piano su cui disegnare"
+      },
+      {
+        "today": "Rapporto il giorno dopo",
+        "with": "Rapporto al rientro"
+      },
+      {
+        "today": "Debriefing a memoria",
+        "with": "Far scorrere la notte un’altra volta"
+      }
+    ]
+  },
+  "features": {
+    "eyebrow": "Funzionalità",
+    "h2": "Cosa c’è dentro.",
+    "lede": "Cresciuta su interventi ed esercitazioni veri, non su un elenco di funzioni. Tutto ciò\n        che arriva da fuori – allertamento, GPS, stampanti – è <strong>opzionale</strong>: KP Front\n        funziona anche del tutto senza questi collegamenti.",
+    "groups": [
+      {
+        "h3": "Situazione &amp; piano",
+        "items": [
+          "<strong>Segni tattici</strong> secondo le convenzioni CSP, con attributi e diciture",
+          "Settori, cerchi di sbarramento, superfici e disegno a mano libera",
+          "Condotte con annotazioni CSP, ognuna assegnata a una squadra",
+          "Misurazione di distanze e superfici, in scala anche sul piano",
+          "Livelli: idranti, catasto delle condotte, servizi cartografici cantonali",
+          "Piani d’oggetto come lavagna, piani sovrapposti, lavagna vuota",
+          "Annulla/ripristina su ogni superficie"
+        ]
+      },
+      {
+        "h3": "Uomini &amp; mezzi",
+        "items": [
+          "<strong>Sorveglianza della protezione respiratoria</strong>: pressione, tempo di rientro, orologio di contatto, allarmi",
+          "Squadre sulla carta, sul piano e nei piani sovrapposti – con il proprio colore di squadra, lo stesso ovunque",
+          "Presenze con orari di arrivo e gradi",
+          "<strong>Piano turni</strong>: pianificare i turni per persona, linea di copertura su\n            tutto l’intervento, stampabile come formulario di condotta",
+          "<strong>Condividere la posizione</strong>: chi apre il link appare come punto sulla\n            carta della situazione – volontario, e solo per questo intervento",
+          "Mezzi e materiale con scorte e consumo",
+          "Liste di controllo per il supporto alla condotta e la direzione dell’intervento",
+          "Vista capo intervento: leggere senza spostare nulla"
+        ]
+      },
+      {
+        "h3": "Documentazione",
+        "items": [
+          "Un <strong>diario</strong> che viene solo integrato e mai riscritto",
+          "Note vocali con trascrizione, foto, promemoria",
+          "<strong>Viaggio nel tempo</strong>: riprodurre l’intervento minuto per minuto, con le\n            attese saltate – per il debriefing",
+          "Rapporto d’intervento come PDF già pronto – incluso il croquis a un momento scelto",
+          "Foto come allegati al rapporto, organizzazioni partner con un formulario proprio",
+          "Scheda di rilevamento via codice QR per tutti quelli che hanno qualcosa da aggiungere",
+          "Orari di allarme e d’intervento dallo svolgimento invece che dalla memoria"
+        ]
+      },
+      {
+        "h3": "Esercizio",
+        "items": [
+          "<strong>Funziona offline</strong> come app installabile, verifica di prontezza inclusa",
+          "Più dispositivi insieme, tutto si sincronizza da solo",
+          "Ruoli: modificare, oppure solo leggere",
+          "Modo giorno/notte, dimensione dei simboli, superfici di comando grandi per il tablet",
+          "Può riprendere allarmi da Divera <span class=\"opt\">opzionale</span>",
+          "Posizioni dei veicoli via GPS <span class=\"opt\">opzionale</span>",
+          "Stampa PDF in rimessa <span class=\"opt\">opzionale</span>",
+          "<strong>Area amministrativa propria</strong> per ogni corpo: uomini, veicoli, liste di controllo, livelli cartografici e modelli",
+          "Interfaccia in tedesco, inglese, francese o italiano – impostata per corpo"
+        ]
+      }
+    ]
+  },
+  "sibling": {
+    "eyebrow": "Progetto affine",
+    "h2": "KP Front conduce davanti. KP Rück tiene la visione d’insieme dietro.",
+    "p": "<strong>KP Rück</strong> riproduce in digitale la lavagna magnetica del posto di comando\n          arretrato: una tavola per personale, veicoli e materiale. App propria, stessa grafia –\n          i due possono passarsi gli allarmi, ma non hanno bisogno l’uno dell’altro.",
+    "cta": "Guarda KP Rück"
+  },
+  "faq": {
+    "eyebrow": "Domande &amp; risposte",
+    "h2": "Le domande più frequenti.",
+    "items": [
+      {
+        "q": "Perché cambiare?",
+        "a": "Tutti vedono nello stesso momento la stessa situazione – al veicolo di comando, sul\n          tablet e dal capo intervento. Nessun messaggio si perde su un foglietto. La\n          sorveglianza della protezione respiratoria si fa sentire da sola prima che diventi\n          stretta. Meno traffico radio per domande che stanno comunque sul quadro della\n          situazione – e il rapporto è quasi pronto al rientro invece che il fine settimana dopo.\n          KP Front aiuta la direzione dell’intervento a tenere la situazione priva di\n          contraddizioni e a rendere visibili gli scarti: una squadra senza contatto radio, un\n          veicolo che non sta da nessuna parte, un riscontro che non è mai arrivato."
+      },
+      {
+        "q": "A chi appartengono i dati?",
+        "a": "A voi. Ogni corpo pompieri gestisce il proprio KP Front – sul proprio computer in\n          rimessa oppure nel cloud. Decidete voi dove stanno carte, piani e dati d’intervento;\n          nulla va a un fornitore o a terzi."
+      },
+      {
+        "q": "Quanto costa?",
+        "a": "Niente. KP Front è open source (AGPL) – <strong>nessuna licenza, nessun abbonamento,\n          nessun costo per dispositivo</strong>. Restano i vostri costi d’esercizio: un piccolo\n          server o un computer in rimessa."
+      },
+      {
+        "q": "Cosa serve per farlo funzionare?",
+        "a": "Meno di quanto molti pensino. Basta un piccolo mini PC o server in rimessa,\n          l’installazione richiede poche ore. Poi il sistema va avanti in gran parte da solo, e\n          gli aggiornamenti sono un gesto. Serve qualcuno che lo metta in piedi una volta – nel\n          corpo, in comune o un’informatica amica. E se non avete nessuno: scriveteci, vi aiutiamo\n          a metterlo in piedi."
+      },
+      {
+        "q": "Possiamo adattarlo ai nostri processi?",
+        "a": "Sì. Ogni corpo ha la propria area amministrativa: uomini, veicoli, dottrina e modelli\n          si impostano liberamente lì. Liste di controllo, piani d’oggetto e livelli cartografici\n          arrivano dai dati della vostra sede e si caricano con gli strumenti da riga di comando\n          forniti. E poiché tutto il codice sta su <a href=\"https://github.com/feuerwehr-oberwil/kp-front\" target=\"_blank\" rel=\"noopener\">GitHub <svg class=\"ico\" style=\"width:13px;height:13px;vertical-align:-2px\"><use href=\"#i-gh\"/></svg></a>,\n          tutto il resto si può costruire – da soli o su mandato."
+      },
+      {
+        "q": "In quali lingue funziona l’app?",
+        "a": "L’interfaccia c’è in tedesco, inglese, francese e italiano. La lingua si imposta <strong>una volta per corpo</strong>, non per dispositivo – durante l’intervento tutti leggono gli stessi termini, ed è voluto: una situazione, un vocabolario.\n          La demo pubblica gira in <strong>tedesco</strong>. Gli screenshot qui vengono dalla stessa istanza – immagini ricostruite sarebbero un’affermazione."
+      },
+      {
+        "q": "Come cominciamo?",
+        "a": "Con la <a href=\"https://demo.kp-front.ch\" target=\"_blank\" rel=\"noopener\">demo</a>,\n          senza registrazione – a Musterdorf sta già bruciando. Poi provatela a un’esercitazione.\n          E se va bene: scriveteci, vi aiutiamo a metterla in piedi."
+      }
+    ]
+  },
+  "contact": {
+    "eyebrow": "Contatto",
+    "h2": "Diteci cosa ne pensate.",
+    "p": "Volete provare KP Front da voi? Manca qualcosa, oppure qualcosa non funziona come vi\n          aspettate? Scriveteci – leggiamo tutto.",
+    "alt": "Per domande e idee ancora aperte ci sono le\n          <a href=\"https://github.com/feuerwehr-oberwil/kp-front/discussions\" target=\"_blank\" rel=\"noopener\">discussioni su GitHub</a>.",
+    "bug": {
+      "t": "Segnalare un errore",
+      "s": "Cos’è successo, cosa vi sareste aspettati? Gli screenshot si trascinano direttamente nel formulario."
+    },
+    "idea": {
+      "t": "Chiedere qualcosa",
+      "s": "Manca un gesto che da voi fa parte del processo? Descrivete il caso, non la soluzione."
+    },
+    "mail": {
+      "t": "Scrivere direttamente",
+      "s": "Senza un conto GitHub, o quando qualcosa non deve stare in pubblico – anche per «vorremmo provarlo da noi»."
+    },
+    "form": {
+      "honeypot": "Lasciare questo campo vuoto",
+      "name": "Nome",
+      "namePlaceholder": "Chi scrive?",
+      "mail": "E-mail",
+      "mailPlaceholder": "Per poter rispondere",
+      "message": "Messaggio",
+      "messagePlaceholder": "Di cosa si tratta?",
+      "send": "Invia il messaggio",
+      "sending": "Invio in corso …",
+      "ok": "Grazie – il messaggio è arrivato. Ci facciamo vivi.",
+      "error": "Non ha funzionato. Scrivete direttamente a bastian.eichenberger@feuerwehr-oberwil.ch."
+    }
+  },
+  "lightbox": {
+    "close": "Chiudi",
+    "prev": "Immagine precedente",
+    "next": "Immagine successiva",
+    "zoom": "Ingrandisci"
+  },
+  "footer": {
+    "origin": "Nato nell’attività operativa dei <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">pompieri di Oberwil BL</a> –\n      perché in intervento vedevamo sempre le stesse fonti di errore: doppie assegnazioni, informazioni\n      sparse e errori di trascrizione a mano.\n      Ogni corpo pompieri gestisce il proprio KP Front, con carte, piani e dati propri.",
+    "demo": "Demo",
+    "contact": "Contatto"
+  }
+}
