@@ -139,30 +139,47 @@
 /* ── the latched hold's two slide targets (Sprachnotiz · Foto) ──
    They live INSIDE the button (it owns the pointer capture for the whole gesture and is the
    only element the events reach), so the button's `overflow: hidden` — there for the charging
-   cue — has to give way while they show. `pointer-events: none`: nothing here is ever clicked,
-   the hit test is elementFromPoint against [data-hold-target] (see lib/useHoldEntry). */
+   cue — has to give way while they show. */
 .tb-act-add.latched, .fab-entry.latched { overflow: visible; }
-.hold-targets { position: absolute; left: 50%; transform: translateX(-50%); z-index: 3;
+/* ⚠️ The CONTAINER is `pointer-events: none` so the gap between the two targets falls through,
+   but each TARGET must be hit-testable: `document.elementFromPoint` skips anything with
+   pointer-events none, so with it inherited the hit test could never match and sliding onto
+   «Foto» silently did nothing (see lib/useHoldEntry · onPointerMove). Nothing here is ever
+   clicked — the button holds the capture — they only have to be FINDABLE by geometry. */
+/* ⚠️ RIGHT-anchored, not centred. Both hosts live against the right edge of the screen — the
+   TopBar «Eintrag» and the phone FAB — and the chooser is wider than either button, so centring
+   it on the button hung it off the right edge of the viewport. Anchored to the button's own
+   right edge it opens inward, where there is room. */
+.hold-targets { position: absolute; right: 0; z-index: 3;
   display: flex; gap: 4px; padding: 4px; pointer-events: none; white-space: nowrap;
   background: var(--surface); border: 1px solid var(--glass-line); border-radius: var(--r-ctl);
-  box-shadow: var(--shadow); animation: pop .12s var(--ease); }
-/* ⚠️ BOTH hosts set `position: relative` on every <span> they contain (.tb-act-add span above,
-   .fab-entry span in 15-mobile.css) so the label stacks over the charging cue. That selector is
-   0,1,1 and out-specifies a bare `.hold-targets` at 0,1,0 — so the chooser came out RELATIVE and
-   rendered as an inline box inside the button, on top of the label, instead of above/below it.
-   Scoped here to win. */
-.tb-act-add .hold-targets, .fab-entry .hold-targets { position: absolute; }
+  box-shadow: var(--shadow); }
+.hold-target { pointer-events: auto; }
+/* ⚠️ BOTH hosts set `position: relative` AND `z-index: 1` on every <span> they contain
+   (.tb-act-add span above, .fab-entry span in 15-mobile.css) so the label stacks over the
+   charging cue. That selector is 0,1,1 and out-specifies a bare `.hold-targets` at 0,1,0 — so
+   the chooser came out RELATIVE and rendered as an inline box inside the button, on top of the
+   label, instead of above or below it. Everything positional is repeated here to win the tie. */
+.tb-act-add .hold-targets, .fab-entry .hold-targets { position: absolute; right: 0; z-index: 3; }
 /* clear of the button either way — the FAB sits at the bottom of the screen, the TopBar
-   button at the top, and the targets must never open off-screen */
-.hold-targets-above { bottom: calc(100% + 10px); }
-.hold-targets-below { top: calc(100% + 10px); }
+   button at the top — and each grows OUT of its button, so the gesture reads as the button
+   opening rather than a panel appearing from nowhere. 140ms: long enough to be seen at the
+   moment the hold latches, short enough that the finger is never waiting for it. */
+.hold-targets-above { bottom: calc(100% + 10px); animation: holdRise .14s var(--ease); }
+.hold-targets-below { top: calc(100% + 10px); animation: holdDrop .14s var(--ease); }
+@keyframes holdRise { from { opacity: 0; transform: translateY(7px) scale(.96); } }
+@keyframes holdDrop { from { opacity: 0; transform: translateY(-7px) scale(.96); } }
 .hold-target { display: inline-flex; align-items: center; gap: 6px; padding: 10px 14px;
   border-radius: var(--r-sm); font: 700 13px var(--body); color: var(--ink-dim);
-  transition: background .1s var(--ease), color .1s var(--ease); }
+  transition: background .12s var(--ease), color .12s var(--ease), transform .12s var(--ease); }
 .hold-target .i { width: 15px; height: 15px; }
-/* the one the finger is over — this is the whole feedback of the gesture, so it is not subtle */
-.hold-target.on { background: var(--btn-primary); color: var(--on-btn-primary); }
-@media (prefers-reduced-motion: reduce) { .hold-targets { animation: none; } }
+/* the one the finger is over — this is the whole feedback of the gesture, so it is not subtle.
+   The nudge is what makes a slide feel like it LANDED rather than merely recoloured something. */
+.hold-target.on { background: var(--btn-primary); color: var(--on-btn-primary); transform: scale(1.04); }
+@media (prefers-reduced-motion: reduce) {
+  .hold-targets-above, .hold-targets-below { animation: none; }
+  .hold-target, .hold-target.on { transition: none; transform: none; }
+}
 /* explicit stop affordance shown while recording — a white square reads as "stop" */
 .tb-stop { position: relative; z-index: 1; width: 11px; height: 11px; border-radius: 2px; background: var(--on-accent-ink); flex: none; }
 
@@ -235,10 +252,10 @@
   .journal-composer { top: max(12px, env(safe-area-inset-top));
     max-height: calc(100dvh - 24px - var(--jc-kb, 0px)); }
 }
-.jc-head { display: flex; align-items: center; }
-.jc-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: var(--ink); }
-.jc-title .i { width: 16px; height: 16px; }
-.jc-head .journal-x { margin-left: auto; }
+/* (.jc-head / .jc-title are gone — the mode tabs name this sheet, and the ✕ sits with them.
+   See JournalComposer.) */
+.jc-mode { display: flex; align-items: center; gap: 8px; }
+.jc-mode .journal-x { flex: none; }
 /* The field and the layer that marks known names in it. A <textarea> cannot style part of its
    own content, so the same text is painted behind it and only the <mark> spans show through a
    see-through field. ⚠️ Every metric that affects where a character lands must match on both —
@@ -327,9 +344,9 @@
 .jc-send:hover { background: var(--blue-strong); }
 .jc-send:disabled { opacity: var(--disabled); cursor: default; }
 
-/* composer mode toggle: Eintrag vs Wiedervorlage */
-/* mode switch uses the shared <Segmented>; full-width with composer-size tap targets */
-.jc-mode .useg { display: flex; width: 100%; }
+/* composer mode toggle: Eintrag vs Wiedervorlage — the shared <Segmented>, taking the row
+   beside the ✕ (it names the sheet, so it gets the width) with composer-size tap targets */
+.jc-mode .useg { display: flex; flex: 1 1 auto; min-width: 0; }
 .jc-mode .useg-btn { flex: 1; }
 
 /* Erinnerung due-time picker */

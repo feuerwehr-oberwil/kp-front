@@ -34,14 +34,12 @@ interface Props {
   /** quick tap on "Eintrag" — open the composer. Omitted hides the button entirely: a
       session that may not write the Verlauf (an Einsatz-Link) must not be offered it. */
   onAddEntry?: () => void
-  /** press-and-hold "Eintrag" — start recording a voice memo (latches on release) */
+  /** the hold was released over «Sprachnotiz» (or released without moving) — start the memo */
   onHoldStart?: () => void
   /** tap the recording button — stop + save the voice memo */
   onHoldEnd?: () => void
   /** the hold was released over «Foto» — straight to the camera (see useHoldEntry) */
   onHoldPhoto?: () => void
-  /** …and the memo that hold had already started is thrown away */
-  onHoldCancel?: () => void
   /** replaces the static incident title/address (e.g. the incident switcher) */
   titleSlot?: React.ReactNode
   /** global undo/redo — re-homed here from the old left Rail so both surfaces reach it */
@@ -81,7 +79,7 @@ interface Props {
 // Single-line top bar: incident identity + clock on the left, global journal +
 // undo/redo on the right (the surface switch moved to the left NavRail). The clock
 // interval lives here so the per-second tick re-renders only the bar, not the map below.
-export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, onHoldCancel, titleSlot, onUndo, onRedo, canUndo, canRedo, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, onOpenAtemschutz, gpsStale, gpsAgeMs, shareSlot }: Props) {
+export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, titleSlot, onUndo, onRedo, canUndo, canRedo, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, onOpenAtemschutz, gpsStale, gpsAgeMs, shareSlot }: Props) {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000)
@@ -120,7 +118,6 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
     onHoldStart: onHoldStart ?? noop,
     onHoldStop: onHoldEnd ?? noop,
     onHoldPhoto,
-    onHoldCancel,
   })
 
   return (

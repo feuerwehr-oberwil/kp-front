@@ -358,12 +358,11 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
       ariaLabel={C.composerTitle} dismissEscape={false} initialFocus={textRef}
       style={{ marginBottom: kbInset, '--jc-kb': `${kbInset}px` } as React.CSSProperties}>
       <div onPaste={onPaste} style={{ display: 'contents' }}>
-        <div className="jc-head">
-          <span className="jc-title"><Icon id={mode === 'reminder' ? 'clock' : 'type'} />{mode === 'reminder' ? C.modeReminder : C.composerTitle}</span>
-          <button className="journal-x" title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog} onClick={onClose}><Icon id="close" /></button>
-        </div>
-
-        {/* mode: a normal Eintrag, or a time-due Wiedervorlage (reminder) */}
+        {/* mode: a normal Eintrag, or a time-due Wiedervorlage (reminder).
+            ⚠️ No title row above it. «Journaleintrag» sat over «Eintrag · Erinnerung» saying
+            the same thing one line higher, and on a phone this sheet is fighting the keyboard
+            for every row it has. The tabs name the surface; the ✕ joins them rather than
+            claiming a line of its own. The dialog keeps its accessible name on the Overlay. */}
         <div className="jc-mode">
           <Segmented
             ariaLabel={C.composerTitle}
@@ -374,6 +373,7 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
               { value: 'reminder', label: <><Icon id="clock" />{C.modeReminder}</> },
             ]}
           />
+          <button className="journal-x" title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog} onClick={onClose}><Icon id="close" /></button>
         </div>
 
         {/* The backdrop that marks known names. A <textarea> cannot style part of its own

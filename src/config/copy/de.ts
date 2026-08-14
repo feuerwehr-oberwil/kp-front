@@ -239,7 +239,7 @@ export const de = {
         blocks: [
           { kind: 'lead', text: 'Ein gemeinsames, fortlaufendes Protokoll über Lage und Plan – die Einsatz-Chronik.' },
           { kind: 'list', items: [
-            '**+ Eintrag** (oben rechts): kurz tippen öffnet die Texteingabe; **gedrückt halten** nimmt sofort eine **Sprachnotiz** auf. Beim Halten erscheinen zwei Felder – der Finger kann auf **Foto** schieben und loslassen, dann geht es direkt zur Kamera. Fotos lassen sich auch im Eintrag selbst anhängen.',
+            '**+ Eintrag** (oben rechts): kurz tippen öffnet die Texteingabe. **Gedrückt halten** zeigt zwei Felder – **Sprachnotiz** und **Foto**. Der Finger schiebt auf eines davon und lässt los; ohne Schieben kommt die Sprachnotiz. Erst beim Loslassen läuft die Aufnahme bzw. öffnet die Kamera. Fotos lassen sich auch im Eintrag selbst anhängen.',
             'Ab **zwei Buchstaben** werden Namen vorgeschlagen – Mannschaft, Material, Partnerorganisationen, Fahrzeuge und Alarmgruppen. Angetippt wird der ganze Name eingesetzt; im Verlauf und auf dem gedruckten Rapport ist er hervorgehoben. Ein eigenes «Von»-Feld gibt es nicht: der Satz sagt schon, wer gemeldet hat.',
             'Wesentliche Aktionen (Symbol gesetzt, Zeichnung erstellt/entfernt …) landen automatisch im Verlauf.',
             '**Rückgängig/Wiederholen** gilt für Lage und Plan.',
@@ -867,7 +867,7 @@ export const de = {
   journal: {
     open: 'Verlauf',
     add: 'Eintrag',
-    addHint: 'Tippen für Eintrag · halten für Sprachnotiz, dann auf «Foto» schieben',
+    addHint: 'Tippen für Eintrag · halten und auf Sprachnotiz oder Foto schieben',
     title: 'Verlauf',
     empty: 'Noch keine Ereignisse erfasst',
     surfaceMap: 'Lage',
@@ -881,9 +881,6 @@ export const de = {
     textPlaceholder: 'Was ist passiert? Meldung, Beobachtung, Entscheid …',
     record: 'Aufnehmen',
     recordStop: 'Aufnahme stoppen',
-    dictate: 'Diktieren',
-    dictateStop: 'Diktat stoppen',
-    dictateListening: 'Höre zu …',
     discardAudio: 'Aufnahme verwerfen',
     // external voice-memo import
     audioUpload: 'Audio hochladen',
@@ -925,7 +922,6 @@ export const de = {
     sttTake: 'Übernehmen',
     sttDismiss: 'Verwerfen',
     sttEmpty: 'Keine Sprache erkannt.',
-    sttTaken: 'Eintrag übernommen',
     photo: 'Foto',
     photoNote: 'Foto',
     photoOpen: 'Foto gross ansehen',
@@ -2928,13 +2924,13 @@ export const de = {
     loading: 'Lädt …',
     searchPlaceholder: 'Suchen',
     clearSearch: 'Suche löschen',
-    legendFrei: 'nicht anwesend',
-    legendPresent: 'anwesend',
-    legendLeft: 'gegangen',
+    statusFrei: 'nicht anwesend',
+    statusPresent: 'anwesend',
+    statusLeft: 'gegangen',
     // Zwei Filter-Knöpfe: Grad (Mannschafts-Glyphe) und Zustand (Trichter). Die Legende IST
     // das Zustand-Menü – jede Zeile trägt ihr Zeichen, also wird dort auch nachgeschaut.
     filterLabel: 'Filtern',
-    legendAll: 'Alle',
+    statusAll: 'Alle',
     // ⚠️ «Nach Status filtern», nicht «Was bedeuten die Zeichen?». Das Menü filtert – dass man
     // daneben auch nachschaut, was der Punkt bedeutet, ist ein Nebeneffekt und kein Titel.
     statusFilterLabel: 'Nach Status filtern',
@@ -2979,7 +2975,7 @@ export const de = {
     blocksHint: 'Jede Zeile ist eine tatsächliche Anwesenheit dieser Person. Hier korrigieren, wenn eine Stempelung daneben liegt.',
     openBlocks: 'Anwesenheit von {name} öffnen',
     openBlocksNote: 'Anwesenheit von {name} öffnen · Bemerkung erfasst',
-    legendNote: 'Bemerkung',
+    statusNote: 'Bemerkung',
     stillHere: 'noch da',
     // Head of the time card: what this row IS. Not a switch – an Anwesenheit is running or has
     // ended, and the list decides that, not this sheet.

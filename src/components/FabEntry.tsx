@@ -5,18 +5,17 @@ import { fmtMMSS } from '../lib/geo'
 import { useHoldEntry } from '../lib/useHoldEntry'
 import { HoldTargets } from './HoldTargets'
 
-// Mobile field-capture FAB. Same tap / long-hold gesture as the TopBar "Eintrag":
-// tap opens the composer, hold starts a (latched) voice memo, tap-while-recording stops it.
-// Once the hold latches, two targets rise above the circle — slide onto «Foto» and release to
-// get the camera instead; release without moving and the memo just keeps recording.
-export function FabEntry({ recording, recStartedAt, onTap, onHoldStart, onHoldStop, onHoldPhoto, onHoldCancel }: {
+// Mobile field-capture FAB. Same tap / long-hold gesture as the TopBar "Eintrag": tap opens
+// the composer, hold offers Sprachnotiz · Foto, tap-while-recording stops it. The hold acts on
+// RELEASE — two targets rise above the circle and the finger slides onto one; release without
+// moving and you get the voice memo (see lib/useHoldEntry).
+export function FabEntry({ recording, recStartedAt, onTap, onHoldStart, onHoldStop, onHoldPhoto }: {
   recording: boolean
   recStartedAt: number | null
   onTap: () => void
   onHoldStart: () => void
   onHoldStop: () => void
   onHoldPhoto?: () => void
-  onHoldCancel?: () => void
 }) {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
@@ -25,7 +24,7 @@ export function FabEntry({ recording, recStartedAt, onTap, onHoldStart, onHoldSt
     return () => clearInterval(t)
   }, [recording])
   const recSec = recording && recStartedAt ? Math.max(0, Math.round((now - recStartedAt) / 1000)) : 0
-  const { pressing, latched, hover, handlers } = useHoldEntry({ recording, onTap, onHoldStart, onHoldStop, onHoldPhoto, onHoldCancel })
+  const { pressing, latched, hover, handlers } = useHoldEntry({ recording, onTap, onHoldStart, onHoldStop, onHoldPhoto })
 
   // The circle steps back while something under it is being scrolled, so the row / curve it
   // covers can be read during the gesture. Scroll does not bubble, hence the capture listener:

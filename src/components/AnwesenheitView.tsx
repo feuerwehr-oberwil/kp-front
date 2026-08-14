@@ -475,12 +475,12 @@ export function AnwesenheitView({
   // carry one, so it rides ALONGSIDE the state rather than competing with it.
   const [noteOnly, setNoteOnly] = useState(false)
   const stateEntries = [
-    { key: 'frei', cls: [], mark: <i className={s.dotFrei} />, label: A.legendFrei },
-    { key: 'present', cls: [], mark: <i className={s.dotPresent} />, label: A.legendPresent },
-    { key: 'left', cls: [], mark: <i className={s.dotLeft} />, label: A.legendLeft },
+    { key: 'frei', cls: [], mark: <i className={s.dotFrei} />, label: A.statusFrei },
+    { key: 'present', cls: [], mark: <i className={s.dotPresent} />, label: A.statusPresent },
+    { key: 'left', cls: [], mark: <i className={s.dotLeft} />, label: A.statusLeft },
     // the two places, under the state they refine — both mean «anwesend, und zwar dort»
-    { key: 'scene', cls: [s.legendOrt], mark: <Icon id="pin" />, label: A.ortScene },
-    { key: 'station', cls: [s.legendOrt, s.legendOrtStation], mark: <Icon id="station" />, label: A.ortStation },
+    { key: 'scene', cls: [s.markOrt], mark: <Icon id="pin" />, label: A.ortScene },
+    { key: 'station', cls: [s.markOrt, s.markOrtStation], mark: <Icon id="station" />, label: A.ortStation },
   ] satisfies { key: StateKey; cls: string[]; mark: React.ReactNode; label: string }[]
   /** ⚠️ What is on is named in the button's TOOLTIP and marked with a fixed-size dot — it is
    *  never printed on the button. A label that appears when a filter is set changes the button's
@@ -490,7 +490,7 @@ export function AnwesenheitView({
    *  several picks and the label would be arbitrarily long. */
   const stateOn = [
     ...stateEntries.filter((e) => stateSel.has(e.key)).map((e) => e.label),
-    ...(noteOnly ? [A.legendNote] : []),
+    ...(noteOnly ? [A.statusNote] : []),
   ].join(' · ')
   const rankOn = ranksPresent.filter((r) => rankSel.has(r)).map(rankDisplay).join(' · ')
   const planning = view !== 'list'
@@ -756,10 +756,10 @@ export function AnwesenheitView({
                 // «Alle» clears the states but LEAVES the Bemerkung flag: they are separate
                 // questions, and a row under «Status» that silently switched off a checkbox
                 // below the rule would be the same trap the split Ort group was.
-                { kind: 'check' as const, label: A.legendAll, checked: stateSel.size === 0, onChange: () => setStateSel(new Set()) },
+                { kind: 'check' as const, label: A.statusAll, checked: stateSel.size === 0, onChange: () => setStateSel(new Set()) },
                 ...stateEntries.map((e) => ({
                   kind: 'check' as const,
-                  label: <span className={cx(s.legendMark, ...e.cls)}>{e.mark}{e.label}</span>,
+                  label: <span className={cx(s.markRow, ...e.cls)}>{e.mark}{e.label}</span>,
                   checked: stateSel.has(e.key),
                   onChange: () => setStateSel((sel) => toggled(sel, e.key)),
                 })),
@@ -769,7 +769,7 @@ export function AnwesenheitView({
                 { kind: 'sep' as const },
                 {
                   kind: 'check' as const,
-                  label: <span className={cx(s.legendMark, s.legendNote)}><i />{A.noteOnly}</span>,
+                  label: <span className={cx(s.markRow, s.statusNote)}><i />{A.noteOnly}</span>,
                   checked: noteOnly,
                   onChange: setNoteOnly,
                 },
@@ -788,8 +788,8 @@ export function AnwesenheitView({
               <Icon id="plus" />
             </button>
           )}
-          {/* (the inline legend strip and its phone ⓘ popover are gone — both facets live in the
-              one funnel above, which is also where the marks are now looked up.) */}
+          {/* (the inline legend strip and its phone ⓘ popover are gone — both facets live in
+              the two filter buttons above, which is also where the marks are looked up now.) */}
           {/* how far the axis reaches — it belongs on the search line beside the thing it filters,
               not on a row of its own pushing the grid down */}
           {showPlan && (
@@ -939,7 +939,7 @@ export function AnwesenheitView({
                     className={cx(s.backBtn, attendance[p.id]?.note && s.hasNote)}
                     /* ⚠️ The blue dot on this button means «da steht eine Bemerkung» and nothing
                        on the row said so — a mark you have to be told about is a mark nobody
-                       reads. It is in the legend now, and the button says it too. */
+                       reads. It is named in the filter menu now, and the button says it too. */
                     title={fillTemplate(attendance[p.id]?.note ? A.openBlocksNote : A.openBlocks, { name: p.displayName })}
                     aria-label={fillTemplate(attendance[p.id]?.note ? A.openBlocksNote : A.openBlocks, { name: p.displayName })}
                     onClick={() => setBlocksFor(p.id)}

@@ -67,23 +67,22 @@
   border-radius: 5px; padding: 2px 5px;
 }
 
-/* ── the legend's marks ──
-   ⚠️ UNSCOPED on purpose. They used to live inside a `.legend` strip and were styled through
-   it; the strip is gone (everything filters from the one funnel now) and the same marks are
-   rendered as menu-row labels instead, where a `.legend …` selector would never match. They
-   are the row's own marks either way — a dot, the two Ort glyphs, the Bemerkung dot — so they
-   belong to the mark, not to whatever happens to contain it.
-   Every entry is a FILTER as well as a key: picking «Magazin» shows only those (see
-   AnwesenheitView · statusFilter/ortFilter), and reading what the house means is the same
-   gesture — which is why the menu rows carry the mark rather than describing it. */
-.legendMark { display: inline-flex; align-items: center; gap: 9px; }
-.legendMark i { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+/* ── the row's marks ──
+   ⚠️ UNSCOPED on purpose. They used to live inside a legend strip and were styled through it;
+   that strip is gone (everything filters from the one funnel now) and the same marks are
+   rendered as filter-menu rows instead, where a container-scoped selector would never match.
+   They are the person row's own marks either way — a dot, the two Ort glyphs, the Bemerkung
+   dot — so they belong to the mark, not to whatever happens to contain it.
+   Every entry both NAMES a state and filters by it (see AnwesenheitView · stateFilter), which
+   is why the menu rows carry the mark itself rather than describing it. */
+.markRow { display: inline-flex; align-items: center; gap: 9px; }
+.markRow i { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 /* the two Ort glyphs, in the colours they carry on the row — read once, then the row is enough */
-.legendOrt svg { width: 14px; height: 14px; color: var(--ink-dim); }
-.legendOrtStation svg { color: var(--blue-strong); }
+.markOrt svg { width: 14px; height: 14px; color: var(--ink-dim); }
+.markOrtStation svg { color: var(--blue-strong); }
 /* the blue dot that rides on the clock button when somebody has a Bemerkung — same size, same
-   colour, so the legend entry IS the mark rather than a description of it */
-.legendNote i { width: 6px; height: 6px; background: var(--blue); }
+   colour, so the filter row IS the mark rather than a description of it */
+.markNote i { width: 6px; height: 6px; background: var(--blue); }
 
 /* the dense grid — auto-fill so a wide screen packs many columns, narrow ones fewer */
 .grid {

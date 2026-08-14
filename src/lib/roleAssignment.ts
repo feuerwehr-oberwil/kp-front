@@ -125,8 +125,8 @@ export function personStatusHint(
     && (t.leaderPersonId === personId || (t.memberPersonIds ?? []).includes(personId)))
   if (inTrupp) return { label: A.statusUnderPa, tone: 'warn' }
   const e = attendance[personId]
-  if (!e) return { label: A.legendFrei, tone: 'muted' }
-  if (!isPresent(e)) return { label: A.legendLeft, tone: 'muted' }
+  if (!e) return { label: A.statusFrei, tone: 'muted' }
+  if (!isPresent(e)) return { label: A.statusLeft, tone: 'muted' }
   // present — so where they are standing, and then WHAT THEY ARE DOING
   if (ortOf(e) === 'station') return { label: A.ortStation, tone: 'info' }
   // ⚠️ The job they already hold, off their Anwesenheits-Bemerkung. It used to stop at the two

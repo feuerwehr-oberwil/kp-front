@@ -10,7 +10,9 @@ import type { HoldTarget } from '../lib/useHoldEntry'
  *
  * `data-hold-target` is the hit-test hook: the button owns the pointer capture for the whole
  * gesture, so useHoldEntry finds these with elementFromPoint rather than by pointer events of
- * their own. `pointer-events: none` in the CSS for the same reason — nothing here is clicked.
+ * their own. ⚠️ They must therefore stay HIT-TESTABLE — elementFromPoint skips anything with
+ * `pointer-events: none`, which is why the container carries it and the targets undo it.
+ * Nothing here is ever clicked; they only have to be findable by geometry.
  */
 export function HoldTargets({ hover, placement }: { hover: HoldTarget | null; placement: 'above' | 'below' }) {
   const C = appConfig.copy.journal

@@ -2629,7 +2629,6 @@ export function IncidentWorkspace({
         onHoldStart={linkScoped ? undefined : startVoiceMemo}
         onHoldEnd={linkScoped ? undefined : voice.stop}
         onHoldPhoto={linkScoped ? undefined : startQuickPhoto}
-        onHoldCancel={linkScoped ? undefined : voice.cancel}
         onUndo={mode === 'plans' ? () => planHist.current?.undo() : undo}
         onRedo={mode === 'plans' ? () => planHist.current?.redo() : redo}
         canUndo={mode === 'plans' ? planCan.canUndo : canUndo}
@@ -3688,7 +3687,6 @@ export function IncidentWorkspace({
           onHoldStart={startVoiceMemo}
           onHoldStop={voice.stop}
           onHoldPhoto={startQuickPhoto}
-          onHoldCancel={voice.cancel}
         />
       )}
 

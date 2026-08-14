@@ -188,6 +188,6 @@ describe('personStatusHint', () => {
 
   it('somebody who has gone home is still the more important fact', () => {
     const st: AttendanceState = { ...left, p1: { ...left.p1, note: 'Fahrer TLF' } }
-    expect(personStatusHint('p1', st, [])).toMatchObject({ label: A.legendLeft })
+    expect(personStatusHint('p1', st, [])).toMatchObject({ label: A.statusLeft })
   })
 })
