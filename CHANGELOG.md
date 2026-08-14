@@ -29,6 +29,119 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ## [Unreleased]
 
+### Added
+
+- **Filters are one button per surface, and the search line is the same line everywhere.**
+  Grad, Status and Kategorie were an inline segmented track and a legend strip – two rows of
+  chrome above the list you came for, over controls that are barely reached in the field. They
+  are dropdown buttons now, at every size, and multi-select: picks inside a facet OR together
+  («Of + Wm» is the Kader), facets AND with each other. Ort is deliberately not its own facet –
+  only somebody who is here can be «Vor Ort», and as a separate group the two could be combined
+  into a contradiction whose only honest answer is an empty list.
+
+- **Einsätze nobody ever came back to are swept up.** Closing an Einsatz is a deliberate act, and
+  somebody who does not know the act exists never performs it, so incidents that *were* worked on
+  and then left open accumulated forever. `alarms.staleIncidentDays` is a second, much longer
+  clock for exactly those, kept apart from `autoArchiveDays`, which only ever swept alarm noise
+  nobody had recorded anything on. Both archive **reversibly**, neither stamps `report_done_at` –
+  the Rapport was not finished and the record must never claim it was – and each writes its own
+  Verlauf row naming the clock that ran out. An Einsatz that disappears off the list without a
+  word is the failure mode this sweep must not have.
+
+- **The landing page speaks English and Italian**, laid over the German base the same way French
+  is. Both carry the same visible line French does: no firefighter who speaks the language has
+  read them yet. Terminology follows the national bodies rather than a dictionary, and the app's
+  own glossary rather than a translator's – SCBA, not «breathing apparatus».
+
+- **The Wiedergabe shows what was written.** The Verlauf now runs under the scrubber as a lane of
+  ticks, and the entry the playhead stands in reads along the bottom of the bar like a subtitle,
+  narrating the Einsatz while it plays. «im Verlauf» opens the Verlauf landed on that row, and –
+  the other direction – **every row in the Verlauf sets the moment** during a Wiedergabe, so the
+  whole picture reads as it did when the line was written. Rows the playhead has not reached are
+  dimmed: they had not been written yet.
+
+### Changed
+
+- **All four locales are complete, and a half-translated one fails the build.** Every locale is a
+  partial overlay deep-merged over German, so a forgotten string never breaks anything – it just
+  quietly renders in German, and a Romand crew meets it for the first time during an Einsatz.
+  567 strings were missing in English, 867 in French and Italian. All 2 277 are translated now,
+  and the gap is a build error rather than a discovery in the field.
+
+- **The Eintrag sheet fits a phone with the keyboard up.** It was capped against the whole screen
+  while being lifted by the keyboard, so a tall sheet grew out of the TOP: the mode tabs, the ✕
+  and half the line being typed were gone, with no way to scroll to them. It is capped against
+  what the keyboard leaves now, nothing inside it shrinks, and the three media buttons drop their
+  labels into one strip of icons while typing – so Aufnehmen · Audio · Foto stay on screen
+  instead of below a fold, which is exactly when a hand in the field needs them. The sheet also
+  lost a good deal of noise: one blue thing («Erfassen»), one gap (8px, sideways and downwards),
+  and suggestion words that no longer look like the ART chips they sit above.
+
+- **An audio row in the Verlauf is one row again.** «Durchhören» and «Transkript ergänzen» were
+  two full-width buttons that never fitted side by side on a phone, so every voice memo was a
+  three-line block with an amber button shouting louder than the entry it belonged to. They are
+  icon buttons in the row itself now; the missing-transcript state keeps its amber on the icon's
+  frame.
+
+- **The scrubber says one thing.** Its rail carried a coloured dot per audit event – and freehand
+  drawing emits one per stroke, so a busy minute was a smear of overlapping circles that could
+  neither be read nor aimed at. The rail is now filled where work happened and broken where
+  nothing did; what was written gets its own lane.
+
+### Removed
+
+- **«An aktueller Kartenmitte anheften» on a journal entry.** It stored the centre of whatever
+  happened to be on screen – neither where the author stood nor where the event was – and nothing
+  was ever drawn there; the only payoff was that the row could later fly the map back to that
+  spot. The question it was really being asked is «wie sah es da aus?», which the Wiedergabe now
+  answers properly by scrubbing the whole picture to the moment. Rows written before this keep
+  their coordinate and stay clickable.
+
+### Fixed
+
+- **The camera never opened from ＋ · Foto on a phone.** Safari opens a file chooser only for an
+  input it actually renders, and all three file inputs were `hidden`, so `click()` was a silent
+  no-op: the target lit up and nothing happened. This also affected «Foto» and «Audio» inside the
+  composer.
+
+- **The Wiedergabe never had the Verlauf at all.** It read it from the reconstructed workspace
+  blob, which returns only the frozen legacy echo since the journal moved to its own append-only
+  store – empty on every incident created since. So the new lane and caption were blind, and so
+  was the *existing* gap detection: a stretch where somebody only wrote entries counted as
+  silence and was skipped. The Verlauf is append-only, so the live list is the finished list;
+  it is handed in rather than reconstructed.
+
+- **Holding «Eintrag» no longer leaves a recording behind.** The hold offers Sprachnotiz · Foto
+  and acts on RELEASE, onto whichever target the finger let go over; the button itself becomes
+  the ✕, so releasing where you started cancels the whole gesture. A plain tap settles on the
+  click rather than on pointerup, because iOS drops the pointerup often enough that every tap on
+  the phone FAB used to resolve as a hold and start recording.
+
+- **The app could be dragged up the screen, and the bottom bar travelled with the keyboard.**
+  `overflow: hidden` on the body is a suggestion on iOS – the document still scrolls, which is
+  both of those bugs. A body that is itself `position: fixed` has nothing to scroll. What is left
+  is iOS panning the *visual* viewport to lift a focused field; the top bar and the nav rail now
+  translate back to where they would be with no keyboard at all, and let the keyboard cover what
+  it covers, the way a native tab bar does.
+
+- **Typing «sani» offered Schneider Melanie and Wyss Daniel.** Both are subsequence matches –
+  every letter present, in order, somewhere – and with a handful of terms in a station's
+  vocabulary those coincidences filled all four suggestion slots. What is typed must now begin
+  one of the term's words, at every length; the score still ranks what survives, it just no
+  longer decides who qualifies.
+
+- **The «Rückmeldung ELZ» chip in the Abschluss-Kontrolle flashed the Einsatzende too**, because
+  its marker sat on the grid the two share. A step has to point at the fields that make it go
+  away and no others.
+
+- **The connector between two Verlauf entries reached the next one only on single-line rows.** It
+  was a fixed 16px stub hanging off the node; an audio entry is twice that tall, so the line
+  stopped in mid-air. Each row now draws its own half.
+
+- **`just ci` was missing the only step that parses CSS.** A stray brace in a stylesheet passed a
+  fully green local run and would have turned main red – `tsc` and `eslint` never open a
+  stylesheet. The landing page's drift check was absent for the same reason.
+
 ## [0.6.0] – 2026-08-12
 
 ### Added
