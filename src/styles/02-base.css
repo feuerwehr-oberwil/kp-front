@@ -7,9 +7,21 @@ html { background: var(--app-bg); }
    main.tsx). Without this its content was trapped under `body { overflow: hidden }` and
    everything past the viewport showed as an unpainted white band. */
 html.page-scroll, html.page-scroll body { height: auto; min-height: 100%; overflow: visible; }
-html.page-scroll body { background: var(--app-bg); }
+/* …and it is a real page, so it must NOT carry the app shell's fixed body (see below) */
+html.page-scroll body { position: static; background: var(--app-bg); }
 html.page-scroll #root { height: auto; min-height: 100%; background: var(--app-bg); }
+/* ⚠️ POSITION: FIXED, not merely `overflow: hidden`.
+   iOS treats `overflow: hidden` on the body as a suggestion: the document still rubber-bands,
+   and — worse — it still SCROLLS. Two things came of that, and they are the same bug:
+   the whole app could be dragged up the screen leaving a white band under the bottom bar, and
+   focusing a field made iOS scroll the layout viewport to keep the caret above the keyboard,
+   dragging every `position: fixed` element up with it. A native app's tab bar does not do that;
+   it stays where it is and the keyboard covers it.
+   A body that is itself fixed has nothing to scroll, so neither can happen. The Erfassungs-
+   Poster opts back out above (html.page-scroll) — it is a page and is meant to scroll. Printing
+   is unaffected: the rapport PDF is rendered server-side, nothing here goes through window.print. */
 body {
+  position: fixed; inset: 0; width: 100%; height: 100%;
   font-family: var(--body); color: var(--ink); overflow: hidden;
   -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
   background:

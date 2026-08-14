@@ -131,6 +131,10 @@
    side overflow on every platform (the iOS/iPadOS one ignores width and shows its intrinsic
    size). One per row gives each the full width and they line up. */
 .report-meta-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+/* The Rückmeldung's two halves, boxed together so the «noch offen» chip can point at them and
+   NOT at the Einsatzende they share a grid with (see ReportPreflight). Same single column and
+   same gap as the grid it sits in, so it changes nothing about the layout. */
+.rz-rueck { display: grid; grid-template-columns: 1fr; gap: 12px; min-width: 0; }
 /* Ende input takes the full row so it matches the Beginn field's width; "Jetzt" wraps below */
 /* min-width:0 on the flex CONTAINER too (not just the input) so it can shrink below the native
    datetime control's intrinsic width inside the grid column; input keeps flex-basis:100% so it

@@ -1234,7 +1234,7 @@ export function ReportPreflight({
               <textarea className="ip-textarea" value={lehren} rows={3} placeholder={P.lehrenPlaceholder}
                 onChange={(e) => { const v = stripUnprintable(e.target.value); setLehren(v); persist({ lehren: v.trim() || undefined }) }} />
             </label>
-            <div className="report-meta-grid rz-rueck-grid" data-step="rueckmeldung">
+            <div className="report-meta-grid">
               {/* Einsatzende leads the block. ⚠️ It carries `data-step="zeiten"` because it IS
                   the Zeiten step (lib/abschluss · stepDone) — the «Zeiten» chip has to land on
                   the field that makes it go away, not on the Alarmierung grid it used to sit in. */}
@@ -1247,40 +1247,48 @@ export function ReportPreflight({
                 </div>
                 {zeitWarn('ende')}
               </label>
-              {/* who reported back to the ELZ — a roster pick like Einsatzleiter, free text allowed */}
-              <PersonField
-                label={P.rueckmeldungLabel} placeholder={P.rueckmeldungName}
-                value={{ name: rueckName }} onChange={(slot) => {
-                  setRueckName(slot.name)
-                  persist(rueckOver(slot.name, rueckAt))
-                  // ⚠️ `presence`, NOT `el`. Whoever reported back to the ELZ was on scene to
-                  // have something to report — that is all this field says. Filed as `el` it
-                  // inherited the Einsatzleiter conflict check and warned «X ist Einsatzleiter
-                  // und zugleich im Trupp 2» about somebody who had just made a phone call.
-                  onRolePicked?.(slot.personId, 'presence')
-                }}
-                personnel={personnel} legacyRoster={[]} presentIds={presentIds}
-                assignedIds={NO_IDS} usedIds={NO_IDS} usedNames={NO_IDS}
-                rolesById={rolesById}
-                // `presence` here too (see onRolePicked above): whoever phoned the ELZ was on
-                // scene, which is all this field says — it does not make them Einsatzleiter.
-                onAddGuest={onAddGuest && ((name) => onAddGuest(name, 'presence'))}
-                rankFirst
-              />
-              <div className="ip-field">
-                <span>{P.rueckmeldungZeit}</span>
-                {/* Datum + Zeit, the same control the Einsatzende uses — with «Jetzt» beside it,
-                    because the ordinary case is that the call has just been made. */}
-                <div className="report-meta-end dtrow">
-                  <DateTimeField ariaLabel={P.rueckmeldungZeit} value={rueckAt}
-                    onCommit={(iso) => { setRueckAt(iso ?? ''); persist(rueckOver(rueckName, iso ?? '')) }} />
-                  <button type="button" className="ip-btn"
-                    onClick={() => { const iso = new Date().toISOString(); setRueckAt(iso); persist(rueckOver(rueckName, iso)) }}>{P.now}</button>
+              {/* ⚠️ `data-step` on the two Rückmeldung fields TOGETHER, never on the grid around
+                  them: the grid also holds the Einsatzende, so the chip flashed that too and
+                  pointed at a field it has nothing to say about. This is the same mistake
+                  `kontaktperson` was split out of `einsatzleiter` for on 11.08. — a step has to
+                  name the fields that make it go away and no others. Both halves are inside,
+                  because `stepDone` wants the name AND the time (lib/abschluss). */}
+              <div className="rz-rueck" data-step="rueckmeldung">
+                {/* who reported back to the ELZ — a roster pick like Einsatzleiter, free text allowed */}
+                <PersonField
+                  label={P.rueckmeldungLabel} placeholder={P.rueckmeldungName}
+                  value={{ name: rueckName }} onChange={(slot) => {
+                    setRueckName(slot.name)
+                    persist(rueckOver(slot.name, rueckAt))
+                    // ⚠️ `presence`, NOT `el`. Whoever reported back to the ELZ was on scene to
+                    // have something to report — that is all this field says. Filed as `el` it
+                    // inherited the Einsatzleiter conflict check and warned «X ist Einsatzleiter
+                    // und zugleich im Trupp 2» about somebody who had just made a phone call.
+                    onRolePicked?.(slot.personId, 'presence')
+                  }}
+                  personnel={personnel} legacyRoster={[]} presentIds={presentIds}
+                  assignedIds={NO_IDS} usedIds={NO_IDS} usedNames={NO_IDS}
+                  rolesById={rolesById}
+                  // `presence` here too (see onRolePicked above): whoever phoned the ELZ was on
+                  // scene, which is all this field says — it does not make them Einsatzleiter.
+                  onAddGuest={onAddGuest && ((name) => onAddGuest(name, 'presence'))}
+                  rankFirst
+                />
+                <div className="ip-field">
+                  <span>{P.rueckmeldungZeit}</span>
+                  {/* Datum + Zeit, the same control the Einsatzende uses — with «Jetzt» beside it,
+                      because the ordinary case is that the call has just been made. */}
+                  <div className="report-meta-end dtrow">
+                    <DateTimeField ariaLabel={P.rueckmeldungZeit} value={rueckAt}
+                      onCommit={(iso) => { setRueckAt(iso ?? ''); persist(rueckOver(rueckName, iso ?? '')) }} />
+                    <button type="button" className="ip-btn"
+                      onClick={() => { const iso = new Date().toISOString(); setRueckAt(iso); persist(rueckOver(rueckName, iso)) }}>{P.now}</button>
+                  </div>
+                  {/* the same plausibility hint the Einsatzende carries — this field has a DATE
+                      wheel and is usually filled in from memory, so it is the likeliest of the
+                      four to land on the wrong day */}
+                  {zeitWarn('rueckmeldung')}
                 </div>
-                {/* the same plausibility hint the Einsatzende carries — this field has a DATE
-                    wheel and is usually filled in from memory, so it is the likeliest of the
-                    four to land on the wrong day */}
-                {zeitWarn('rueckmeldung')}
               </div>
             </div>
             {/* Partnerorganisationen: WHO was there, from whom, reachable how — and the remark,
