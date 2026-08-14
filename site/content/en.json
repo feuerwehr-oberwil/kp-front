@@ -1,10 +1,9 @@
 {
-  "notice": "This English version has not yet been reviewed by an English-speaking firefighter, and the demo itself runs in German. Something that reads wrong? <a href=\"#kontakt\">Tell us</a> and we will fix it.",
   "meta": {
-    "title": "KP Front – incident command for the militia fire service",
-    "description": "KP Front is the digital command post at the scene: situation, plans, breathing apparatus, log and report in one offline-capable open-source app.",
-    "ogTitle": "KP Front – incident command for the militia fire service",
-    "ogDescription": "The digital command post at the scene: situation, plans, breathing apparatus, log and report in one offline-capable open-source app."
+    "title": "KP Front – incident command for the militia fire brigade",
+    "description": "KP Front is the digital command post at the scene: situation, plans, SCBA, log and report in one offline-capable open-source app.",
+    "ogTitle": "KP Front – incident command for the militia fire brigade",
+    "ogDescription": "The digital command post at the scene: situation, plans, SCBA, log and report in one offline-capable open-source app."
   },
   "nav": {
     "aria": "Main navigation",
@@ -16,8 +15,8 @@
   },
   "hero": {
     "eyebrow": "Open source&nbsp;· Switzerland",
-    "h1": "Digital incident command for the fire service.",
-    "lede": "KP Front is the digital command post at the scene:\n      <strong>situation, plans, breathing apparatus, log and report</strong> in one app.",
+    "h1": "Digital incident command for the fire brigade.",
+    "lede": "KP Front is the digital command post at the scene:\n      <strong>situation, plans, SCBA, log and report</strong> in one app.",
     "cta": "Open the demo",
     "ctaNote": "No login – in the demo, Musterdorf is on fire right now (interface in German)",
     "frameAddr": "LAGE · ZIMMERBRAND · 2611624 / 1263070",
@@ -26,10 +25,10 @@
   "fit": {
     "whoLabel": "For whom",
     "who": [
-      "Militia fire services",
-      "Local fire services",
-      "Regional support fire services",
-      "Career fire services"
+      "Militia fire brigades",
+      "Local fire brigades",
+      "Regional support fire brigades",
+      "Professional fire brigades"
     ],
     "whatLabel": "For what",
     "what": [
@@ -43,13 +42,13 @@
   },
   "tenet": {
     "eyebrow": "The measure",
-    "quote": "«Usable at <em>3 in the morning</em> – after six months without practice»",
-    "expl": "In a militia fire service nobody sits at the screen every day. So the app has to be\n        built for someone half asleep to get right:\n        <strong>everything that matters visible at once, sensible defaults instead of settings, and\n        every action can be undone.</strong>"
+    "quote": "«Usable at <em>3am</em> – after six months without practice»",
+    "expl": "In a militia fire brigade nobody sits at the screen every day. So the app has to be\n        built for someone half asleep to get right:\n        <strong>everything that matters visible at once, sensible defaults instead of settings, and\n        every action can be undone.</strong>"
   },
   "incident": {
     "eyebrow": "From the call to the report",
     "h2": "One incident, one app.",
-    "lede": "This is what a night with KP Front looks like – the situation, breathing apparatus and\n        documentation stay consistent and traceable for everyone involved.",
+    "lede": "This is what a night with KP Front looks like – the situation, SCBA and\n        documentation stay consistent and traceable for everyone involved.",
     "entries": [
       {
         "time": "03:01",
@@ -65,7 +64,7 @@
       },
       {
         "time": "03:12",
-        "tag": "Breathing apparatus",
+        "tag": "SCBA",
         "h3": "Team 1 goes in.",
         "p": "Cylinder pressure, turnaround time and contact clock run per team. The app speaks up\n            before it gets tight – even when nobody happens to be watching the clock."
       },
@@ -113,8 +112,8 @@
         "sub": "Building and pre-incident plans with tactical symbols, markings and measuring to scale"
       },
       {
-        "alt": "Breathing apparatus view: teams with cylinder pressure and a running contact clock",
-        "title": "Breathing apparatus",
+        "alt": "SCBA view: teams with cylinder pressure and a running contact clock",
+        "title": "SCBA",
         "sub": "Monitoring of teams, times, pressures and check-ins"
       },
       {
@@ -166,7 +165,7 @@
         "with": "Situation picture on every device"
       },
       {
-        "today": "BA board and stopwatch",
+        "today": "SCBA board and stopwatch",
         "with": "Monitoring that speaks up by itself"
       },
       {
@@ -207,7 +206,7 @@
       {
         "h3": "Crew &amp; resources",
         "items": [
-          "<strong>Breathing apparatus monitoring</strong>: pressure, turnaround time, contact clock, alarms",
+          "<strong>SCBA monitoring</strong>: pressure, turnaround time, contact clock, alarms",
           "Teams on the map, on the plan and in the stack of floors – each with its own team colour, the same everywhere",
           "Attendance with arrival times and ranks",
           "<strong>Shift plan</strong>: plan shifts per person, coverage line across the whole\n            incident, printable as a command form",
@@ -239,8 +238,8 @@
           "Can take over alerts from Divera <span class=\"opt\">optional</span>",
           "Vehicle positions by GPS <span class=\"opt\">optional</span>",
           "PDF printing at the station <span class=\"opt\">optional</span>",
-          "<strong>Your own administration area</strong> per fire service: crew, vehicles, checklists, map layers and templates",
-          "Interface in German, English, French or Italian – set per fire service"
+          "<strong>Your own administration area</strong> per fire brigade: crew, vehicles, checklists, map layers and templates",
+          "Interface in German, English, French or Italian – set per fire brigade"
         ]
       }
     ]
@@ -257,11 +256,11 @@
     "items": [
       {
         "q": "Why switch?",
-        "a": "Everyone sees the same situation at the same time – in the command vehicle, on the\n          tablet and at the incident commander. No message is lost on a scrap of paper. The BA\n          monitoring speaks up by itself before it gets tight. Less radio traffic for questions\n          that are already answered on the situation picture – and the report is nearly done as\n          you head back, instead of the weekend after. KP Front helps the incident commander keep\n          the situation free of contradictions and make the odd one out visible: a team out of\n          radio contact, an appliance that is nowhere, a check-in that never came."
+        "a": "Everyone sees the same situation at the same time – in the command vehicle, on the\n          tablet and at the incident commander. No message is lost on a scrap of paper. The SCBA\n          monitoring speaks up by itself before it gets tight. Less radio traffic for questions\n          that are already answered on the situation picture – and the report is nearly done as\n          you head back, instead of the weekend after. KP Front helps the incident commander keep\n          the situation free of contradictions and make the odd one out visible: a team out of\n          radio contact, an appliance that is nowhere, a check-in that never came."
       },
       {
         "q": "Who owns the data?",
-        "a": "You do. Every fire service runs its own KP Front – on its own machine at the station\n          or in the cloud. You decide where maps, plans and incident data live; nothing goes to a\n          vendor or to third parties."
+        "a": "You do. Every fire brigade runs its own KP Front – on its own machine at the station\n          or in the cloud. You decide where maps, plans and incident data live; nothing goes to a\n          vendor or to third parties."
       },
       {
         "q": "What does it cost?",
@@ -269,15 +268,15 @@
       },
       {
         "q": "What does it take to run?",
-        "a": "Less than most people assume. A small mini PC or server at the station is enough, and\n          setting it up takes a few hours. After that the system largely looks after itself, and\n          updates are one command. You need somebody to set it up once – in the fire service, at\n          the municipality, or a friendly IT contact. And if you have nobody: get in touch, we\n          will help you set it up."
+        "a": "Less than most people assume. A small mini PC or server at the station is enough, and\n          setting it up takes a few hours. After that the system largely looks after itself, and\n          updates are one command. You need somebody to set it up once – in the fire brigade, at\n          the municipality, or a friendly IT contact. And if you have nobody: get in touch, we\n          will help you set it up."
       },
       {
         "q": "Can we adapt it to how we work?",
-        "a": "Yes. Every fire service has its own administration area: crew, vehicles, doctrine and\n          templates are all set there. Checklists, building plans and map layers come from your\n          own station data and are loaded with the command-line tools that ship with it. And\n          because the whole code is on <a href=\"https://github.com/feuerwehr-oberwil/kp-front\" target=\"_blank\" rel=\"noopener\">GitHub <svg class=\"ico\" style=\"width:13px;height:13px;vertical-align:-2px\"><use href=\"#i-gh\"/></svg></a>,\n          anything else can be built – by you or to your order."
+        "a": "Yes. Every fire brigade has its own administration area: crew, vehicles, doctrine and\n          templates are all set there. Checklists, building plans and map layers come from your\n          own station data and are loaded with the command-line tools that ship with it. And\n          because the whole code is on <a href=\"https://github.com/feuerwehr-oberwil/kp-front\" target=\"_blank\" rel=\"noopener\">GitHub <svg class=\"ico\" style=\"width:13px;height:13px;vertical-align:-2px\"><use href=\"#i-gh\"/></svg></a>,\n          anything else can be built – by you or to your order."
       },
       {
         "q": "What languages does the app run in?",
-        "a": "The interface comes in German, English, French and Italian. The language is set <strong>once per fire service</strong>, not per device – during an incident everybody reads the same terms, and that is deliberate: one situation, one vocabulary.\n          The public demo runs in <strong>German</strong>. The screenshots here are from that same instance – staged images would be a claim."
+        "a": "The interface comes in German, English, French and Italian. The language is set <strong>once per fire brigade</strong>, not per device – during an incident everybody reads the same terms, and that is deliberate: one situation, one vocabulary.\n          The public demo runs in <strong>German</strong>. The screenshots here are from that same instance – staged images would be a claim."
       },
       {
         "q": "How do we start?",
@@ -288,7 +287,7 @@
   "contact": {
     "eyebrow": "Contact",
     "h2": "Tell us what you think.",
-    "p": "Do you want to try KP Front at your fire service? Is something missing, or does\n          something not work the way you expect? Get in touch – we read everything.",
+    "p": "Do you want to try KP Front at your fire brigade? Is something missing, or does\n          something not work the way you expect? Get in touch – we read everything.",
     "alt": "For questions and open-ended ideas there are the\n          <a href=\"https://github.com/feuerwehr-oberwil/kp-front/discussions\" target=\"_blank\" rel=\"noopener\">GitHub discussions</a>.",
     "bug": {
       "t": "Report a fault",
@@ -323,7 +322,7 @@
     "zoom": "Zoom in"
   },
   "footer": {
-    "origin": "Born out of the operational work of <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">Feuerwehr Oberwil BL</a> –\n      because at incident after incident we kept seeing the same sources of error: double bookings, information\n      scattered across places, and transcription mistakes made by hand.\n      Every fire service runs its own KP Front, with its own maps, plans and data.",
+    "origin": "Born out of the operational work of <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">Feuerwehr Oberwil BL</a> –\n      because at incident after incident we kept seeing the same sources of error: double bookings, information\n      scattered across places, and transcription mistakes made by hand.\n      Every fire brigade runs its own KP Front, with its own maps, plans and data.",
     "demo": "Demo",
     "contact": "Contact"
   }
