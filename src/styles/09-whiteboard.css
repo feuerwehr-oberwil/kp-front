@@ -444,8 +444,9 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
    both surfaces' right edges read as a pair (tools scroll, zoom/fit pinned below) */
 .wb-tools { position: absolute; right: 16px; top: 88px; bottom: 16px; height: max-content; margin-block: auto;
   z-index: 30; max-height: calc(100dvh - 104px); }
-/* current-zoom readout — shares the [fit] row in the plan's pinned footer */
-.vrail-zoom-pct { display: grid; place-items: center; height: 44px; font-family: var(--mono); font-size: 11px; color: var(--ink-dim); }
+/* (the current-zoom % readout is gone: 100% meant «eingepasst», not a real-world scale, so
+   the number read as a precision the plan does not have. «Einpassen» states the one view
+   that matters.) */
 
 
 /* line arrowhead — a 0×0 svg (overflow visible) so the path tip sits exactly at the line end;

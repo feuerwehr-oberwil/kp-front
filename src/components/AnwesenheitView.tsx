@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Icon } from '../lib/icons'
-import type { AttendanceState, LngLat, Person, PresenceInterval, Shift, ShiftBand } from '../types'
+import type { AttendanceEntry, AttendanceState, LngLat, Person, PresenceInterval, Shift, ShiftBand } from '../types'
 import { ageMinutes, type LivePerson } from '../lib/usePersonPositions'
 import { fmtDistance, haversineM } from '../lib/geo'
 import type { ZeitplanSheet } from '../lib/zeitplanPrint'
@@ -10,17 +10,15 @@ import { useKeptState } from '../lib/draftKeep'
 import { fillTemplate, fmtSpanShort, hhmm, stripUnprintable } from '../lib/format'
 import { personnelProviderName } from '../lib/deploymentConfig'
 import { applyTimeToIso, isoOnDay } from '../lib/abschluss'
-import { rankAbbr, rankLabel, rankOrder } from '../lib/rank'
+import { rankAbbr, rankDisplay, rankOrder } from '../lib/rank'
 import { matchesQuery, searchQuery } from '../lib/search'
 import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
 import { ortCounts, ortOf } from '../lib/attendanceOrt'
-import { Overlay, Popover } from '../lib/overlays'
 import { fmtDayShort, fmtStartValue, incidentDays, isOtherDay } from '../lib/zeitplanFormat'
 import { loadPrefs, savePrefs } from '../lib/prefs'
-import { useIsPhone } from '../lib/useIsPhone'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import { Segmented } from './Segmented'
-import { Menu, Sheet } from '../lib/overlays'
+import { Menu, Overlay, Sheet } from '../lib/overlays'
 import { TimeBlockSheet } from './TimeBlockSheet'
 import { timeBlockLabels } from '../lib/timeBlockLabels'
 import { EmptyState } from './EmptyState'
@@ -34,8 +32,45 @@ import s from './Anwesenheit.module.css'
  *  somewhere else. */
 const HORIZONS = [3, 6, 9, 12, 18, 24, 36, 48, 72, 96, 120, 168]
 
-/** sentinel value for the «Alle» segment of the rank filter (no real rank uses it) */
-const RANK_ALL = '__all__'
+
+/** How the crew list is narrowed by STATE — one question with five answers, not two questions.
+ *
+ * ⚠️ Ort is not a facet of its own: only somebody who is HERE can be «Vor Ort» or «im Magazin»,
+ * so the two places are refinements of «anwesend», not an independent axis. As a second group
+ * they could be combined into a contradiction («nicht anwesend» + «Magazin») whose only honest
+ * answer is an empty list — a filter that can be set to return nothing is a filter that will be.
+ * One list; the two places sit under the state they belong to.
+ *
+ * Every value reads off the same `attendance` entry the row's own marks do, so a filtered list
+ * can never disagree with the marks that named it. */
+type StateKey = 'frei' | 'present' | 'left' | 'scene' | 'station'
+
+function stateMatches(f: StateKey, a: AttendanceEntry | undefined): boolean {
+  const present = isPresent(a)
+  switch (f) {
+    case 'frei': return !a
+    case 'present': return present
+    case 'left': return !!a && !present
+    case 'scene': return present && ortOf(a) !== 'station'
+    case 'station': return present && ortOf(a) === 'station'
+  }
+}
+
+/** Several picks inside ONE facet are an OR — «anwesend oder gegangen» is «wer war überhaupt
+ *  da». An empty set is «alle», not «keine»: a filter nobody has touched must not hide the list
+ *  it sits above. (Facets AND with each other — see `rows`.) */
+function matchesAny<T>(sel: ReadonlySet<T>, test: (v: T) => boolean): boolean {
+  if (sel.size === 0) return true
+  for (const v of sel) if (test(v)) return true
+  return false
+}
+
+/** Flip one value in a selection set (immutably — the state IS the set). */
+function toggled<T>(sel: ReadonlySet<T>, v: T): Set<T> {
+  const next = new Set(sel)
+  if (!next.delete(v)) next.add(v)
+  return next
+}
 
 /** The three readings of this surface. `bands` is the Schichten grid — shift-major over discrete
  *  time, the transpose of the Zeitplan (see BandGrid). It is a TAB and not an entry in the ⋯ menu
@@ -406,9 +441,8 @@ export function AnwesenheitView({
   /** stamps the remembered tab, so switching Einsatz starts on the crew list again */
   incidentId?: string
 }) {
-  const isPhone = useIsPhone()
   const [q, setQ] = useState('')
-  const [rankFilter, setRankFilter] = useState<string | null>(null)
+  const [rankSel, setRankSel] = useState<ReadonlySet<string>>(() => new Set())
   // Anwesenheit, Zeitplan and Schichten are three readings of the SAME filtered, ordered
   // Mannschaft — the search + rank filter above apply to all of them, so a name sits in the same
   // place whichever one is open.
@@ -467,6 +501,34 @@ export function AnwesenheitView({
   // hours still has to be plannable. Never applied to the crew list itself: that IS the
   // surface where people are marked present, and hiding the absent would hide the work.
   const [presentOnly, setPresentOnly] = useState(true)
+  // …and the state narrowing, plus the one genuinely orthogonal flag. Both are SETS: several
+  // picks inside a facet OR together («anwesend oder gegangen» = wer war überhaupt da), an empty
+  // set means «alle». Every row carries the MARK the person row carries — the grey/green/amber
+  // dot, the pin, the house, the Bemerkung dot — so picking a filter and looking up what a glyph
+  // means stay the same gesture.
+  const [stateSel, setStateSel] = useState<ReadonlySet<StateKey>>(() => new Set())
+  // «hat eine Bemerkung» is the one flag that really is independent: anybody in any state can
+  // carry one, so it rides ALONGSIDE the state rather than competing with it.
+  const [noteOnly, setNoteOnly] = useState(false)
+  const stateEntries = [
+    { key: 'frei', cls: [], mark: <i className={s.dotFrei} />, label: A.legendFrei },
+    { key: 'present', cls: [], mark: <i className={s.dotPresent} />, label: A.legendPresent },
+    { key: 'left', cls: [], mark: <i className={s.dotLeft} />, label: A.legendLeft },
+    // the two places, under the state they refine — both mean «anwesend, und zwar dort»
+    { key: 'scene', cls: [s.legendOrt], mark: <Icon id="pin" />, label: A.ortScene },
+    { key: 'station', cls: [s.legendOrt, s.legendOrtStation], mark: <Icon id="station" />, label: A.ortStation },
+  ] satisfies { key: StateKey; cls: string[]; mark: React.ReactNode; label: string }[]
+  /** ⚠️ What is on is named in the button's TOOLTIP and marked with a fixed-size dot — it is
+   *  never printed on the button. A label that appears when a filter is set changes the button's
+   *  width, which moves every control after it on the line AND re-anchors the dropdown: the menu
+   *  jumped sideways the moment you picked something in it. The dot is absolutely positioned, so
+   *  the geometry is identical filtered or not — which matters more now that a facet can hold
+   *  several picks and the label would be arbitrarily long. */
+  const stateOn = [
+    ...stateEntries.filter((e) => stateSel.has(e.key)).map((e) => e.label),
+    ...(noteOnly ? [A.legendNote] : []),
+  ].join(' · ')
+  const rankOn = ranksPresent.filter((r) => rankSel.has(r)).map(rankDisplay).join(' · ')
   const planning = view !== 'list'
   /** Attendance entries with no roster row: guests, mutual aid, an AdF who never synced. They
    *  are shaped like a Person so every row action below works on them unchanged — and the
@@ -484,11 +546,14 @@ export function AnwesenheitView({
     const needle = searchQuery(q)
     return [...people, ...guests]
       .filter((p) => !needle || matchesQuery(needle, p.displayName))
-      .filter((p) => !rankFilter || p.rank === rankFilter)
+      // within a facet the picks OR; the facets AND with each other and with the search
+      .filter((p) => matchesAny(rankSel, (r) => p.rank === r))
       .filter((p) => !(planning && presentOnly) || isPresent(attendance[p.id]))
+      .filter((p) => matchesAny(stateSel, (k) => stateMatches(k, attendance[p.id])))
+      .filter((p) => !noteOnly || !!attendance[p.id]?.note)
       // grouped by seniority (most senior first), alpha within a rank
       .sort((a, b) => rankOrder(a.rank) - rankOrder(b.rank) || a.displayName.localeCompare(b.displayName, 'de'))
-  }, [people, guests, q, rankFilter, planning, presentOnly, attendance])
+  }, [people, guests, q, rankSel, planning, presentOnly, stateSel, noteOnly, attendance])
 
   // frei → anwesend → gegangen → frei. A present+locked member jumps to the Trupp instead.
   const cycle = (p: Person) => {
@@ -535,16 +600,7 @@ export function AnwesenheitView({
   const showBands = bandsAvailable && view === 'bands'
 
   return (
-    // data-noswipe while the Zeitplan is showing: this surface is a grid you WORK on, and paging
-    // away from it by accident is the opposite of what a horizontal drag here means. Planning a
-    // shift IS a horizontal drag, and the two cannot share a finger — so the pager gives way, and
-    // it gives way for the whole surface rather than just the lanes, because a swipe that pages
-    // from the header but not from the row underneath it is worse than one that never pages.
-    // The bottom bar and the nav rail still switch surfaces; only the gesture is gone.
-    // …and while the Schichten grid is showing, for the same reason: from the fourth band it
-    // scrolls sideways, and a horizontal drag there means «show me the next column», not «page to
-    // the next surface».
-    <div className={s.surface} {...(showPlan || showBands ? { 'data-noswipe': true } : {})}>
+    <div className={s.surface}>
       <header className={s.head}>
         <div className={s.headTitles}>
           <h2>{A.title}</h2>
@@ -669,81 +725,106 @@ export function AnwesenheitView({
               aria-label={presentOnly ? A.presentOnlyOn : A.presentOnlyOff}
               onClick={() => setPresentOnly((v) => !v)}
             >
-              <Icon id="people" />
+              {/* a TICK, the same glyph Mittel's «In Verwendung» carries: both mean «show only
+                  the ones that count right now». It used to be the people glyph, which the Grad
+                  filter beside it has a better claim to. */}
+              <Icon id="check" />
             </button>
           )}
-          {ranksPresent.length > 1 && isPhone && (
+          {/* ⚠️ TWO buttons, one per QUESTION — «welcher Grad» and «wer ist wo». They were one
+              merged funnel for an afternoon and it was wrong: a menu you open to reach either
+              answer is slower than two you aim at, and the two facets have nothing to do with
+              each other. Different glyphs so they are told apart without reading: a star for the
+              Dienstgrad, the funnel for the state/place narrowing.
+              Both narrow independently and AND together with each other — «Of» + «anwesend» +
+              «Magazin» is one question, and each button says what IT has on. */}
+          {ranksPresent.length > 1 && (
             <Menu
               trigger={
-                <button className={cx(s.iconBtn, rankFilter && s.iconBtnOn)}
-                  aria-label={A.rankFilterLabel} title={A.rankFilterLabel}>
+                <button className={cx(s.iconBtn, rankSel.size > 0 && s.iconBtnOn)}
+                  aria-label={rankOn ? `${A.rankFilterLabel} – ${rankOn}` : A.rankFilterLabel}
+                  title={rankOn ? `${A.rankFilterLabel} – ${rankOn}` : A.rankFilterLabel}>
+                  {/* the crew glyph — this is the facet that sorts PEOPLE. It cost the
+                      «nur Anwesende» toggle its own people icon (that one is a tick now,
+                      matching Mittel's «In Verwendung»), because two identical glyphs side
+                      by side on the planning tabs is worse than either choice of icon. */}
+                  <Icon id="people" />
+                  {rankSel.size > 0 && <span className={s.filterDot} aria-hidden />}
+                </button>
+              }
+              popupClassName={s.menuPop}
+              itemClassName={() => s.menuItem}
+              // CHECKBOXES, not a one-of-N: «Of + Wm» is the Kader, and that is a real question.
+              // Base UI keeps the menu open on a checkbox, which is what composing a set needs.
+              // «Alle» stays as its own row — it is the readable «nothing is filtered» state, and
+              // un-ticking your way back out is a gesture nobody would find at 3am.
+              items={[
+                { kind: 'head' as const, label: A.rankFilterLabel },
+                { kind: 'check' as const, label: A.rankAll, checked: rankSel.size === 0, onChange: () => setRankSel(new Set()) },
+                // rankDisplay, NOT rankLabel: a rank the station's list does not cover came out
+                // as a blank row (see lib/rank)
+                ...ranksPresent.map((r) => ({
+                  kind: 'check' as const,
+                  label: rankDisplay(r),
+                  checked: rankSel.has(r),
+                  onChange: () => setRankSel((sel) => toggled(sel, r)),
+                })),
+              ]}
+            />
+          )}
+          {/* Status/Ort/Bemerkung only mean something on the crew list — the two planning tabs
+              are about time, and «wer ist im Magazin» is not a question you ask of a Zeitplan. */}
+          {view === 'list' && (
+            <Menu
+              trigger={
+                <button className={cx(s.iconBtn, (stateSel.size > 0 || noteOnly) && s.iconBtnOn)}
+                  aria-label={stateOn ? `${A.filterLabel} – ${stateOn}` : A.filterLabel}
+                  title={stateOn ? `${A.filterLabel} – ${stateOn}` : A.filterLabel}>
                   <Icon id="filter" />
-                  {/* the active rank rides ON the button: a filtered list that looks like the whole
-                      Mannschaft is the one way this control can mislead */}
-                  {rankFilter && <span className={s.filterOn}>{rankAbbr(rankFilter) || rankLabel(rankFilter)}</span>}
+                  {(stateSel.size > 0 || noteOnly) && <span className={s.filterDot} aria-hidden />}
                 </button>
               }
               popupClassName={s.menuPop}
               itemClassName={() => s.menuItem}
               items={[
-                { label: A.rankAll, onClick: () => setRankFilter(null) },
-                ...ranksPresent.map((r) => ({
-                  label: rankLabel(r),
-                  onClick: () => setRankFilter(r === rankFilter ? null : r),
+                { kind: 'head' as const, label: A.statusFilterLabel },
+                // «Alle» clears the states but LEAVES the Bemerkung flag: they are separate
+                // questions, and a row under «Status» that silently switched off a checkbox
+                // below the rule would be the same trap the split Ort group was.
+                { kind: 'check' as const, label: A.legendAll, checked: stateSel.size === 0, onChange: () => setStateSel(new Set()) },
+                ...stateEntries.map((e) => ({
+                  kind: 'check' as const,
+                  label: <span className={cx(s.legendMark, ...e.cls)}>{e.mark}{e.label}</span>,
+                  checked: stateSel.has(e.key),
+                  onChange: () => setStateSel((sel) => toggled(sel, e.key)),
                 })),
+                // a CHECKBOX, not one more state: «hat eine Bemerkung» is the one flag that
+                // really is orthogonal — anybody in any state can carry one. Base UI keeps the
+                // menu open on a checkbox, which is right: it is rarely the only thing set.
+                { kind: 'sep' as const },
+                {
+                  kind: 'check' as const,
+                  label: <span className={cx(s.legendMark, s.legendNote)}><i />{A.noteOnly}</span>,
+                  checked: noteOnly,
+                  onChange: setNoteOnly,
+                },
               ]}
             />
           )}
-          {/* the rank filter on a desk screen: on the SAME line as the search it narrows, not on a
-              band of its own underneath it. Two stacked rows of chrome over a Mannschaft list is
-              44px of vertical space spent saying «here are the controls». It wraps when the line
-              genuinely runs out, so nothing is ever cut off. */}
-          {ranksPresent.length > 1 && !isPhone && (
-            <Segmented<string> ariaLabel={A.rankFilterLabel} value={rankFilter ?? RANK_ALL}
-              onChange={(v) => setRankFilter(v === RANK_ALL || v === rankFilter ? null : v)}
-              options={[
-                { value: RANK_ALL, label: A.rankAll },
-                ...ranksPresent.map((r) => ({ value: r, label: rankAbbr(r) || rankLabel(r), title: rankLabel(r) })),
-              ]} />
+          {/* «Weitere Person» sits at the END of the search line, not under the list: you look
+              for somebody, they are not on the Mannschaftsliste, so you add them — one motion,
+              which used to end with a scroll past sixty names to reach the button. */}
+          {canEdit && onAddGuest && (
+            // a bare +, like every other control on this line — the words «Weitere Person» cost
+            // ~160px of a search row that has a field and two filters to fit as well. What it
+            // adds is named in the dialog it opens, and in its own tooltip/aria-label.
+            <button type="button" className={s.addGuest} onClick={() => setAddingGuest(true)}
+              title={A.addGuest} aria-label={A.addGuest}>
+              <Icon id="plus" />
+            </button>
           )}
-          {view === 'list' && !isPhone && (
-            <div className={s.legend} aria-hidden>
-              <span><i className={s.dotFrei} />{A.legendFrei}</span>
-              <span><i className={s.dotPresent} />{A.legendPresent}</span>
-              <span><i className={s.dotLeft} />{A.legendLeft}</span>
-              {/* the Ort button is a glyph on the row and nothing on it says which glyph means
-                  what. Here is where you look it up once and never again. */}
-              <span className={s.legendSep} />
-              <span className={s.legendOrt}><Icon id="pin" />{A.ortScene}</span>
-              <span className={cx(s.legendOrt, s.legendOrtStation)}><Icon id="station" />{A.ortStation}</span>
-              <span className={s.legendSep} />
-              <span className={s.legendNote}><i />{A.legendNote}</span>
-            </div>
-          )}
-          {/* …and on a phone the SAME legend behind an info button. It used to be dropped
-              entirely there — the one screen where a glyph-only row (a pin, a Magazin, a blue
-              dot on a clock) is all there is, and nothing anywhere said what any of them meant.
-              A dropped legend is not a smaller legend, it is no legend. */}
-          {view === 'list' && isPhone && (
-            <Popover
-              ariaLabel={A.legendTitle}
-              popupClassName={s.legendPop}
-              trigger={
-                <button type="button" className={s.iconBtn} aria-label={A.legendTitle} title={A.legendTitle}>
-                  <Icon id="info" />
-                </button>
-              }
-            >
-              <div className={cx(s.legend, s.legendStack)}>
-                <span><i className={s.dotFrei} />{A.legendFrei}</span>
-                <span><i className={s.dotPresent} />{A.legendPresent}</span>
-                <span><i className={s.dotLeft} />{A.legendLeft}</span>
-                <span className={s.legendOrt}><Icon id="pin" />{A.ortScene}</span>
-                <span className={cx(s.legendOrt, s.legendOrtStation)}><Icon id="station" />{A.ortStation}</span>
-                <span className={s.legendNote}><i />{A.legendNote}</span>
-              </div>
-            </Popover>
-          )}
+          {/* (the inline legend strip and its phone ⓘ popover are gone — both facets live in the
+              one funnel above, which is also where the marks are now looked up.) */}
           {/* how far the axis reaches — it belongs on the search line beside the thing it filters,
               not on a row of its own pushing the grid down */}
           {showPlan && (
@@ -834,7 +915,11 @@ export function AnwesenheitView({
                       : undefined}
                 >
                   <span className={cx(s.dot, present && s.dotPresent, left && s.dotLeft, !present && !left && s.dotFrei)} />
-                  {p.rank && <span className={s.rank} title={rankLabel(p.rank)}>{rankAbbr(p.rank)}</span>}
+                  {/* …and only when there is an abbreviation to put in it: a rank the station's
+                      list does not cover gave `rankAbbr` '' and rendered an EMPTY badge — a
+                      small blank chip in front of the name. No chip is better than a blank one;
+                      the full label (or the raw key) is still in the tooltip. */}
+                  {p.rank && rankAbbr(p.rank) && <span className={s.rank} title={rankDisplay(p.rank)}>{rankAbbr(p.rank)}</span>}
                   {/* somebody recorded for this Einsatz only — the badge sits where a Grad would,
                       so the row still reads «who is this» before it reads the name */}
                   {p.guest && <span className={cx(s.rank, s.guestBadge)}>{A.guestBadge}</span>}
@@ -900,13 +985,6 @@ export function AnwesenheitView({
               </div>
             )
           })}
-          {/* Mirrors «Anderes Mittel»: the list is the Mannschaft, and somebody is standing here
-              who is not on it. */}
-          {canEdit && onAddGuest && (
-            <button type="button" className={s.addGuest} onClick={() => setAddingGuest(true)}>
-              <Icon id="plus" /> {A.addGuest}
-            </button>
-          )}
         </div>
       )}
 

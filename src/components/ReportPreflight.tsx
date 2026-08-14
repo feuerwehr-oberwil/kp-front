@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import { Icon } from '../lib/icons'
 import { cx } from '../lib/cx'
 import { parseAlarmText } from '../lib/alarmText'
-import { confirmDialog, openPhoto, toast } from '../lib/ui'
+import { confirmDialog, openPhoto, toast, type ToastAction } from '../lib/ui'
 import { buildDirectReportPayload, downloadDirectReportPdf } from '../lib/reportPdfDirect'
 import { KrokiFramingPanel } from './KrokiFramingPanel'
 import { editorPrintTransport, enqueuePrint, fetchPrintStatus, prewarmPrint, type PrintRelayStatus } from '../lib/printRelay'
@@ -80,6 +80,14 @@ function CheckRow({ done, label, sub, onGo, anchor, children }: {
 // (a mutated `.current` box, not a reassigned binding — the react-compiler lint forbids
 // reassigning module variables inside the component)
 const savedScroll: { current: { incidentId: string; top: number } | null } = { current: null }
+
+// «Später» on the Abschluss-Band, per incident. Same kind of box as savedScroll and for the same
+// reason — the surface unmounts on every hop to Anwesenheit/Mittel/Verlauf, and a dismissal that
+// did not survive that would put the band back on screen two taps later. Deliberately NOT in the
+// workspace blob and NOT on disk: it is one operator postponing one decision on one device, and a
+// «Später» that outlived a reload would turn the only surface that says «dieser Einsatz ist noch
+// offen» permanently silent — which is the failure this whole band exists to fix.
+const bandDismissed: { current: Set<string> } = { current: new Set() }
 
 export function ReportPreflight({
   incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, onAddGuest, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], contactIntervalMin, contactGraceSec, plans = [], scene, board, building, captureUsage, canEdit = true, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onComplete, onFixTranscripts,
@@ -362,6 +370,11 @@ export function ReportPreflight({
     ...editedMeta(),
     ...over,
   })
+  // The freshest blob this surface has seen, for the one write that does NOT happen inside the
+  // event that triggered it (see stampReportMade). Updated in an effect rather than during
+  // render — a ref written while rendering is the pattern the immutability lint objects to.
+  const metaRef = useRef(reportMeta)
+  useEffect(() => { metaRef.current = reportMeta })
 
   // Commit the Kroki-seeded Einsatzleiter to the blob once, so the Abschluss-Checkliste and a
   // rapport printed from another device see the same name this field shows — a value that only
@@ -468,9 +481,27 @@ export function ReportPreflight({
     }
   }
   const [pdfBusy, setPdfBusy] = useState(false)
+  /** A rapport has just been produced (PDF in hand, or a print job on its way to the station
+   *  printer). The blob remembers WHEN, so the Rapport can tell whoever opens it next that the
+   *  paper already exists — on this device or on any other.
+   *  ⚠️ NOT through `persist`: this write lands SECONDS after the press that started it (a
+   *  server-rendered PDF takes a moment), and `persist` merges the form state of the render it
+   *  was created in — a Kurzbericht typed while the PDF was rendering would be overwritten with
+   *  the text it had when the button was hit. `metaRef` is the freshest blob instead, and every
+   *  field on this surface already persists itself on change, so there is nothing else to carry
+   *  — except `also`, the framing written by the same click (see startOutput). */
+  const stampReportMade = (also: Partial<ReportMeta>) =>
+    canEdit && onSaveMeta({ ...metaRef.current, ...also, reportMadeAt: new Date().toISOString() })
+  /** The one step left after the paper exists, offered beside the fact rather than demanded:
+   *  the Einsatz is still open, and nobody archives one unless they know they have to.
+   *  ⚠️ `undefined` while ANY Mindestangabe is missing — printing a half-filled sheet to finish
+   *  by hand, or a Zwischenausdruck taken mid-Einsatz, must never suggest closing the Einsatz.
+   *  Same condition the Band under the head uses, so the two can't disagree. */
+  const completeOffer = (): ToastAction | undefined =>
+    onComplete && !missing.length ? { label: A.complete, onClick: () => void complete() } : undefined
   // ONE button (decided 2026-07-18): the server composes the complete rapport — map
   // render included (app/kroki.py) — from pure data. No Druckansicht detour anymore.
-  const downloadPdf = async () => {
+  const downloadPdf = async (framing: Partial<ReportMeta> = {}) => {
     const draft = buildDraft()
     setPdfBusy(true)
     try {
@@ -480,7 +511,11 @@ export function ReportPreflight({
         vocab: journalVocabulary(personnel, attendance),
         roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
       })
-      // success needs no banner — the downloaded/opened PDF IS the feedback
+      // The PDF itself used to be the only feedback, and it still is the proof — but it is also
+      // the moment everything except the bookkeeping is done, and nothing ever said so.
+      stampReportMade(framing)
+      const offer = completeOffer()
+      if (offer) toast(P.madeToast, { icon: 'check', action: offer })
     } catch {
       toast(appConfig.copy.report.pdfFailed, { icon: 'warn', tone: 'warn' })
     } finally {
@@ -511,7 +546,7 @@ export function ReportPreflight({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [printStatus?.available, options.kroki, mapContentCount])
   const R = appConfig.copy.printRelay
-  const sendToPrinter = async () => {
+  const sendToPrinter = async (framing: Partial<ReportMeta> = {}) => {
     // ALWAYS confirm — «Ausdrucken» must never produce accidental paper; when the relay
     // is offline the modal doubles as the store-and-forward warning
     const ok = printStatus?.online
@@ -526,7 +561,11 @@ export function ReportPreflight({
         roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
       })
       const jobId = await enqueuePrint(t, incident.id, payload)
-      trackPrintJob(t, jobId)
+      stampReportMade(framing)
+      // …on the END of the job's own status chain, not as a second toast beside it: the sticky
+      // «gesendet → wird gedruckt → gedruckt» is already on screen, and the Einsatz is worth
+      // closing once the paper is out of the printer, not once it is queued.
+      trackPrintJob(t, jobId, completeOffer())
     } catch {
       toast(R.failed, { icon: 'warn', tone: 'warn' })
     } finally {
@@ -583,17 +622,21 @@ export function ReportPreflight({
     // here rather than on every pan, because «the last print's framing» is what it claims to be —
     // and a persist per map frame would be a workspace write per frame. Cleared for a read-only
     // surface by `persist` itself.
-    if (krokiPanel && options.krokiView) {
-      persist({
+    const framing: Partial<ReportMeta> = krokiPanel && options.krokiView
+      ? {
         krokiPrint: {
           view: options.krokiView,
           at: krokiAt != null && pastScene ? new Date(krokiAt).toISOString() : undefined,
           landscape: options.krokiLandscape,
         },
-      })
-    }
-    if (action === 'pdf') void downloadPdf()
-    else void sendToPrinter()
+      }
+      : {}
+    if (framing.krokiPrint) persist(framing)
+    // …and it rides along to the stamp that follows a successful export: that write lands after
+    // this one, merges onto its own snapshot of the blob, and would otherwise drop the framing
+    // that was just saved.
+    if (action === 'pdf') void downloadPdf(framing)
+    else void sendToPrinter(framing)
   }
   const P = appConfig.copy.preflight
   const A = appConfig.copy.abschluss
@@ -654,6 +697,18 @@ export function ReportPreflight({
       onComplete()
     }
   }
+
+  // The Abschluss-Band under the head (see the JSX): shown once a rapport has been produced and
+  // nothing is left open — the two facts that together mean «only the bookkeeping is missing».
+  // Both come off `meta`/`missing`, i.e. the LIVE form state: an Einsatzende typed a second ago
+  // makes the band appear without a round trip, exactly as it clears the head's «noch offen».
+  // Seeded once per mount, which is once per Einsatz — the workspace is keyed by incident id.
+  const [bandHidden, setBandHidden] = useState(() => bandDismissed.current.has(incident.id))
+  const hideBand = () => {
+    bandDismissed.current.add(incident.id)
+    setBandHidden(true)
+  }
+  const showCloseBand = !!onComplete && !!meta.reportMadeAt && missing.length === 0 && !bandHidden
 
   // Scroll keep-alive across the Anwesenheit/Mittel/Verlauf round trip (see savedScroll):
   // Restore before paint on mount, capture on unmount. There is no «close» any more: leaving is
@@ -907,6 +962,21 @@ export function ReportPreflight({
             </span>
           </div>
         </header>
+        {/* The Einsatz is done in every way except the bookkeeping: the paper exists, nothing is
+            missing, and it is still sitting on the open list. Archiving is a deliberate act that
+            nobody performs unless they know it exists, so this is the app saying it once, at the
+            one moment it is true — a line under the head, never a dialog. It blocks nothing:
+            «Später» takes it off the screen and the two buttons above are untouched. */}
+        {showCloseBand && (
+          <div className="rp-band">
+            <Icon id="check" className="rp-band-ok" />
+            <span className="rp-band-txt"><b>{P.bandDone}</b> {P.bandAsk}</span>
+            <button type="button" className="ip-btn" onClick={hideBand}>{P.bandLater}</button>
+            <button type="button" className="ip-btn primary" onClick={() => void complete()}>
+              <Icon id="archive" />{A.complete}
+            </button>
+          </div>
+        )}
         <div className="ip-body report-preflight-body" ref={bodyRef}>
           {/* TWO columns on a wide screen (one below 1080px, see app.css), because the rapport is
               worked in two different ways and they interleave: the FORM is typed straight through
@@ -930,12 +1000,13 @@ export function ReportPreflight({
                 the edit link that belongs to it, so a section title above it was the same words
                 twice. The other three sections have one because they have nothing else to say
                 what they are. */}
-            <div className="report-meta-dispatch">
+            {(() => {
+            const facts = (
+              <>
               <div className="report-meta-dispatch-head">
                 <span>{P.fromDispatch}</span>
-                {onEditDispatch && (
-                  <button type="button" className="report-meta-editlink" onClick={onEditDispatch}><Icon id="pen" /> {P.edit}</button>
-                )}
+                {/* a CUE, not the target — the whole block is the button (see below) */}
+                {onEditDispatch && <span className="report-meta-editlink"><Icon id="pen" /> {P.edit}</span>}
               </div>
               <dl className="report-meta-readout">
                 {/* The gateway hands us one field holding four different things (see
@@ -968,7 +1039,16 @@ export function ReportPreflight({
                 )}
                 <div><dt>{P.alarmierung}</dt><dd>{alarmiert ? formatDateTime(alarmiert) : <span className="report-meta-empty">{P.notRecorded}</span>}</dd></div>
               </dl>
-            </div>
+              </>
+            )
+            // The WHOLE card opens the Einsatzdaten, exactly like a person row in the
+            // Anwesenheit. «Bearbeiten» was a 12px link in the corner of a block half a screen
+            // tall — a target you aim at rather than one you hit.
+            return onEditDispatch ? (
+              <button type="button" className="report-meta-dispatch report-meta-dispatch-btn"
+                onClick={onEditDispatch} aria-label={`${P.fromDispatch} – ${P.edit}`}>{facts}</button>
+            ) : <div className="report-meta-dispatch">{facts}</div>
+            })()}
           </section>
 
           {/* «Rapportangaben» was ONE heading over everything after the dispatch facts — a blob a
@@ -1044,7 +1124,7 @@ export function ReportPreflight({
             </div>
           </section>
 
-          <section className="report-pre-section report-pre-meta" data-step="zeiten">
+          <section className="report-pre-section report-pre-meta">
             <h3>{P.sectionZeiten}</h3>
             {/* Ausgerückt: derived from the vehicle grid when it exists; the manual field
                 only appears on deployments WITHOUT configured vehicles (nothing else to
@@ -1131,15 +1211,10 @@ export function ReportPreflight({
                 </>
               )
             })()}
-            <label className="ip-field">
-              <span>{P.incidentEndLabel}</span>
-              <div className="report-meta-end dtrow">
-                <DateTimeField ariaLabel={P.incidentEndLabel} value={dtLocalToIso(endedAt)}
-                  onCommit={(iso) => { setEndedAt(dtLocalValue(iso ?? undefined)); persist({ endedAt: iso ?? undefined }) }} />
-                <button type="button" className="ip-btn" onClick={() => { const v = dtLocalValue(new Date().toISOString()); setEndedAt(v); persist({ endedAt: dtLocalToIso(v) }) }}>{P.now}</button>
-              </div>
-              {zeitWarn('ende')}
-            </label>
+            {/* (Einsatzende moved down to the Rückmeldung ELZ block — 2026-08-14. The two are
+                set in the same breath: you note the end time as you phone the Einsatzleitzentrale.
+                Everything left here is the Alarmierung, which is filled in from the other end of
+                the Einsatz.) */}
           </section>
 
           <section className="report-pre-section report-pre-meta">
@@ -1155,6 +1230,18 @@ export function ReportPreflight({
                 onChange={(e) => { const v = stripUnprintable(e.target.value); setLehren(v); persist({ lehren: v.trim() || undefined }) }} />
             </label>
             <div className="report-meta-grid rz-rueck-grid" data-step="rueckmeldung">
+              {/* Einsatzende leads the block. ⚠️ It carries `data-step="zeiten"` because it IS
+                  the Zeiten step (lib/abschluss · stepDone) — the «Zeiten» chip has to land on
+                  the field that makes it go away, not on the Alarmierung grid it used to sit in. */}
+              <label className="ip-field" data-step="zeiten">
+                <span>{P.incidentEndLabel}</span>
+                <div className="report-meta-end dtrow">
+                  <DateTimeField ariaLabel={P.incidentEndLabel} value={dtLocalToIso(endedAt)}
+                    onCommit={(iso) => { setEndedAt(dtLocalValue(iso ?? undefined)); persist({ endedAt: iso ?? undefined }) }} />
+                  <button type="button" className="ip-btn" onClick={() => { const v = dtLocalValue(new Date().toISOString()); setEndedAt(v); persist({ endedAt: dtLocalToIso(v) }) }}>{P.now}</button>
+                </div>
+                {zeitWarn('ende')}
+              </label>
               {/* who reported back to the ELZ — a roster pick like Einsatzleiter, free text allowed */}
               <PersonField
                 label={P.rueckmeldungLabel} placeholder={P.rueckmeldungName}
@@ -1331,9 +1418,13 @@ export function ReportPreflight({
                           )}
                           {on && (
                             <ClearableInput
-                              className="ip-input" value={partners[r.i].note ?? ''} placeholder={P.partnerNote}
-                              aria-label={`${r.org || P.partnerOrgShort} – ${P.partnerNote}`}
-                              clearLabel={P.partnerNote}
+                              /* a FREE row shares its line with the Organisation field and the
+                                 bin, so the example in the long placeholder gets cut mid-word
+                                 («Bemerkung (z. B. ü»). A listed row has the width for it. */
+                              className="ip-input" value={partners[r.i].note ?? ''}
+                              placeholder={r.custom ? P.partnerNoteShort : P.partnerNote}
+                              aria-label={`${r.org || P.partnerOrgShort} – ${P.partnerNoteShort}`}
+                              clearLabel={P.partnerNoteShort}
                               onChange={(v) => patchPartner(r.i, { note: stripUnprintable(v) })} maxLength={240}
                             />
                           )}

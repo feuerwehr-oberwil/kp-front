@@ -3,15 +3,20 @@ import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fmtMMSS } from '../lib/geo'
 import { useHoldEntry } from '../lib/useHoldEntry'
+import { HoldTargets } from './HoldTargets'
 
 // Mobile field-capture FAB. Same tap / long-hold gesture as the TopBar "Eintrag":
 // tap opens the composer, hold starts a (latched) voice memo, tap-while-recording stops it.
-export function FabEntry({ recording, recStartedAt, onTap, onHoldStart, onHoldStop }: {
+// Once the hold latches, two targets rise above the circle — slide onto «Foto» and release to
+// get the camera instead; release without moving and the memo just keeps recording.
+export function FabEntry({ recording, recStartedAt, onTap, onHoldStart, onHoldStop, onHoldPhoto, onHoldCancel }: {
   recording: boolean
   recStartedAt: number | null
   onTap: () => void
   onHoldStart: () => void
   onHoldStop: () => void
+  onHoldPhoto?: () => void
+  onHoldCancel?: () => void
 }) {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
@@ -20,7 +25,7 @@ export function FabEntry({ recording, recStartedAt, onTap, onHoldStart, onHoldSt
     return () => clearInterval(t)
   }, [recording])
   const recSec = recording && recStartedAt ? Math.max(0, Math.round((now - recStartedAt) / 1000)) : 0
-  const { pressing, handlers } = useHoldEntry({ recording, onTap, onHoldStart, onHoldStop })
+  const { pressing, latched, hover, handlers } = useHoldEntry({ recording, onTap, onHoldStart, onHoldStop, onHoldPhoto, onHoldCancel })
 
   // The circle steps back while something under it is being scrolled, so the row / curve it
   // covers can be read during the gesture. Scroll does not bubble, hence the capture listener:
@@ -45,12 +50,15 @@ export function FabEntry({ recording, recStartedAt, onTap, onHoldStart, onHoldSt
 
   return (
     <button
-      className={`fab-entry ${recording ? 'rec' : ''} ${quiet ? 'quiet' : ''}`}
+      // `latched` only lifts the button's `overflow: hidden` (there for the charging cue) so
+      // the slide targets can sit outside its bounds
+      className={`fab-entry ${recording ? 'rec' : ''} ${quiet ? 'quiet' : ''} ${latched ? 'latched' : ''}`}
       aria-label={recording ? appConfig.copy.journal.recordStop : appConfig.copy.journal.add}
       title={recording ? appConfig.copy.journal.recordStop : appConfig.copy.journal.addHint}
       {...handlers}
     >
       {pressing && !recording && <span className="tb-hold" />}
+      {latched && <HoldTargets hover={hover} placement="above" />}
       {recording
         ? <><span className="tb-stop" /><span>{fmtMMSS(recSec)}</span></>
         : <><Icon id="plus" /><span>{appConfig.copy.journal.add}</span></>}

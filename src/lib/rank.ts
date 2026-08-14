@@ -62,6 +62,19 @@ export function rankAbbr(key?: string): string {
   return r ? r.abbr || r.label : ''
 }
 
+/** What to SHOW for a rank key that is definitely present on somebody — the configured label,
+ *  or the raw key when the station's `roster.ranks` does not cover it.
+ *
+ * ⚠️ Never `rankLabel` alone in a LIST of ranks. The roster carries whatever Dienstgrad the
+ * provider sent; `roster.ranks` is a separate, hand-maintained list, and the two drift (a
+ * station that never filled its rank list in, or filled it in with different keys, is the
+ * normal case before the first configuration pass). `rankLabel` returns '' there, which as a
+ * filter row is an empty line you can neither read nor aim at — the raw key is ugly and
+ * honest, and it says which key is missing from the config. */
+export function rankDisplay(key: string): string {
+  return rankLabel(key) || key
+}
+
 /** Lowercase, strip accents, collapse whitespace — mirrors backend normalize_name(). */
 export function normalizeRank(text: string): string {
   return text

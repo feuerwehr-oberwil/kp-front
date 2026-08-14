@@ -25,7 +25,7 @@ beforeAll(() => {
 const ptr = (el: Element, type: string, clientX: number) =>
   fireEvent(el, new MouseEvent(type, { bubbles: true, cancelable: true, clientX }))
 /** the same, but from a FINGER — the lane treats the two differently, because on touch the browser
- *  and the section pager are both competing for a horizontal drag and a mouse has no such rivals */
+ *  itself competes for a horizontal drag (sideways panning) and a mouse has no such rival */
 const touch = (el: Element, type: string, clientX: number) => {
   const ev = new MouseEvent(type, { bubbles: true, cancelable: true, clientX })
   Object.defineProperty(ev, 'pointerType', { value: 'touch' })
@@ -74,9 +74,9 @@ describe('ZeitplanView', () => {
   })
 
   // A finger plans the same way a mouse does — no hold, no second idiom to learn. That only
-  // works because the two things that used to eat the gesture are gone: the section pager (off
-  // for this whole surface while the Zeitplan shows) and the browser's sideways panning (the lane
-  // takes it with `touch-action: pan-y`). Neither is visible from here, so these pin the outcome.
+  // works because the things that used to eat the gesture are gone: the section pager (removed
+  // entirely) and the browser's sideways panning (the lane takes it with `touch-action: pan-y`).
+  // Neither is visible from here, so these pin the outcome.
   describe('on touch, the sweep behaves exactly as it does with a mouse', () => {
     beforeEach(() => { vi.useFakeTimers() })
     afterEach(() => { vi.useRealTimers() })

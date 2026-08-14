@@ -6,6 +6,7 @@ import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { formatSymbolName } from '../lib/format'
 import { symbolMatchesQuery } from '../lib/symbolSearch'
+import { softHyphenate } from '../lib/symbolWrap'
 import { FORMEN_ORDER, SHAPE_DEFS, ShapeGlyph } from '../lib/shapes'
 
 // the geometric "Formen" section (Pfeil · Rechteck) renders right after this FireGIS category.
@@ -32,7 +33,10 @@ function Cell({ name, svg, onPick }: { name: string; svg: string; onPick: (n: st
   return (
     <button className="sym-cell" title={name} onClick={() => onPick(name)} draggable={false}>
       <span dangerouslySetInnerHTML={{ __html: svg }} />
-      <small>{formatSymbolName(name) || name}</small>
+      {/* soft hyphens at the COMPOUND seams (lib/symbolWrap) — the cell is ~94px, so a long
+          name wraps, and it has to wrap where the word does: «Kontroll-posten», never
+          «Kontrollpos-ten». Display only; `title` and search keep the plain label. */}
+      <small>{softHyphenate(formatSymbolName(name) || name)}</small>
     </button>
   )
 }
@@ -88,7 +92,10 @@ export function Palette({ sym, onPick, onClose, onPickShape }: Props) {
         <div className="sym-top">
           <label className="sym-search">
             <Icon id="search" />
-            <input ref={inputRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder={`${appConfig.copy.symbolSearchPlaceholder} (${sym.symbols.length})`} />
+            {/* just «Suchen …». The total used to ride in the placeholder as «(184)», which
+                answers a question nobody asks — how many symbols the pack has changes nothing
+                about the one you are looking for. */}
+            <input ref={inputRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder={appConfig.copy.symbolSearchPlaceholder} />
             {q && <button className="sym-clear" onClick={() => setQ('')} title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>}
           </label>
           <button className="sym-close" onClick={onClose} title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>

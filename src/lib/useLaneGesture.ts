@@ -23,11 +23,10 @@ export interface LaneDraw { from: number; to: number }
  *                              deleted: a stray tap on a busy grid must never drop somebody's plan
  *
  * The sweep is a plain drag on a finger too, not a hold-then-drag. Getting there took removing
- * the two things that were quietly eating the gesture: the section pager (now off for the whole
- * surface while the Zeitplan shows — see AnwesenheitView's data-noswipe) and the browser's own
- * horizontal panning (the lane claims it with `touch-action: pan-y`; the ruler and the Deckung
- * strip keep theirs, so the axis can still be pushed along by dragging those). A hold that has to
- * be discovered before the surface does anything is a worse answer than not needing one.
+ * the things that were quietly eating the gesture: the section pager (gone entirely now) and the
+ * browser's own horizontal panning (the lane claims it with `touch-action: pan-y`; the ruler and
+ * the Deckung strip keep theirs, so the axis can still be pushed along by dragging those). A hold
+ * that has to be discovered before the surface does anything is a worse answer than not needing one.
  *
  * Everything snaps to the half-hour grid (lib/shifts). Live gestures are reported through
  * `preview` / `draw` so a bar follows the finger without a workspace write per pointer event —

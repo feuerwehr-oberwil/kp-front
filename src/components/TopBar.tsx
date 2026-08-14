@@ -9,6 +9,7 @@ import type { Incident, WeatherData } from '../types'
 import { appConfig } from '../config/appConfig'
 import { loadPrefs, savePrefs } from '../lib/prefs'
 import { useHoldEntry } from '../lib/useHoldEntry'
+import { HoldTargets } from './HoldTargets'
 import { condition, fromLabel, fromLabelLong, windArrowRotation } from './WindBadge'
 
 type ClockMode = 'elapsed' | 'now' | 'start'
@@ -37,6 +38,10 @@ interface Props {
   onHoldStart?: () => void
   /** tap the recording button — stop + save the voice memo */
   onHoldEnd?: () => void
+  /** the hold was released over «Foto» — straight to the camera (see useHoldEntry) */
+  onHoldPhoto?: () => void
+  /** …and the memo that hold had already started is thrown away */
+  onHoldCancel?: () => void
   /** replaces the static incident title/address (e.g. the incident switcher) */
   titleSlot?: React.ReactNode
   /** global undo/redo — re-homed here from the old left Rail so both surfaces reach it */
@@ -76,7 +81,7 @@ interface Props {
 // Single-line top bar: incident identity + clock on the left, global journal +
 // undo/redo on the right (the surface switch moved to the left NavRail). The clock
 // interval lives here so the per-second tick re-renders only the bar, not the map below.
-export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, titleSlot, onUndo, onRedo, canUndo, canRedo, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, onOpenAtemschutz, gpsStale, gpsAgeMs, shareSlot }: Props) {
+export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, onHoldCancel, titleSlot, onUndo, onRedo, canUndo, canRedo, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, onOpenAtemschutz, gpsStale, gpsAgeMs, shareSlot }: Props) {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000)
@@ -109,11 +114,13 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
   // unconditionally — hooks can't be skipped — but with the button unrendered nothing ever
   // reaches these handlers, so the no-op fallbacks are only there to satisfy the signature.
   const noop = () => {}
-  const { pressing, handlers } = useHoldEntry({
+  const { pressing, latched, hover, handlers } = useHoldEntry({
     recording,
     onTap: onAddEntry ?? noop,
     onHoldStart: onHoldStart ?? noop,
     onHoldStop: onHoldEnd ?? noop,
+    onHoldPhoto,
+    onHoldCancel,
   })
 
   return (
@@ -181,11 +188,15 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
         </button>
         {onAddEntry && (
           <button
-            className={`tb-act tb-act-add ${recording ? 'rec' : ''}`}
+            // `latched` only lifts the button's `overflow: hidden` (there for the charging
+            // cue) so the slide targets can sit outside its bounds
+            className={`tb-act tb-act-add ${recording ? 'rec' : ''} ${latched ? 'latched' : ''}`}
             title={recording ? appConfig.copy.journal.recordStop : appConfig.copy.journal.addHint}
             {...handlers}
           >
             {pressing && !recording && <span className="tb-hold" />}
+            {/* below: this button lives in the TOP bar, so the targets open downward */}
+            {latched && <HoldTargets hover={hover} placement="below" />}
             {recording
               ? <><span className="tb-stop" /><span>{fmtMMSS(recSec)}</span></>
               : <><Icon id="plus" /><span>{appConfig.copy.journal.add}</span></>}

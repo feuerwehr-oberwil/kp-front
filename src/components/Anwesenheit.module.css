@@ -58,7 +58,10 @@
 .reloadFailed:hover { color: var(--amber-strong); border-color: var(--amber-strong); }
 .reload svg { width: 15px; height: 15px; }
 
-.controls { display: flex; align-items: center; gap: 16px; padding: 12px 22px; flex-wrap: wrap; }
+/* gap 8, not 16: the line used to hold one wide control per slot (search · rank track · legend
+   strip), where 16 was the seam between blocks. It is four --tap squares now, and 16px between
+   square buttons reads as four unrelated controls rather than one cluster. */
+.controls { display: flex; align-items: center; gap: 8px; padding: 12px 22px; flex-wrap: wrap; }
 .search { flex: 1 1 240px; display: flex; align-items: center; gap: 8px; min-width: 0;
   border: 1px solid var(--glass-edge); background: var(--surface); border-radius: var(--r-ctl); padding: 0 12px; min-height: var(--tap); }
 .search svg { width: 16px; height: 16px; color: var(--ink-faint); flex: none; }
@@ -81,22 +84,23 @@
   border-radius: 5px; padding: 2px 5px;
 }
 
-.legend { display: inline-flex; align-items: center; gap: 14px; flex: none; }
-.legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--ink-faint); }
-.legend i { width: 9px; height: 9px; border-radius: 50%; }
+/* ── the legend's marks ──
+   ⚠️ UNSCOPED on purpose. They used to live inside a `.legend` strip and were styled through
+   it; the strip is gone (everything filters from the one funnel now) and the same marks are
+   rendered as menu-row labels instead, where a `.legend …` selector would never match. They
+   are the row's own marks either way — a dot, the two Ort glyphs, the Bemerkung dot — so they
+   belong to the mark, not to whatever happens to contain it.
+   Every entry is a FILTER as well as a key: picking «Magazin» shows only those (see
+   AnwesenheitView · statusFilter/ortFilter), and reading what the house means is the same
+   gesture — which is why the menu rows carry the mark rather than describing it. */
+.legendMark { display: inline-flex; align-items: center; gap: 9px; }
+.legendMark i { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 /* the two Ort glyphs, in the colours they carry on the row — read once, then the row is enough */
-.legend .legendOrt svg { width: 14px; height: 14px; color: var(--ink-dim); }
-.legend .legendOrtStation svg { color: var(--blue-strong); }
-.legendSep { width: 1px; height: 14px; background: var(--glass-edge); }
+.legendOrt svg { width: 14px; height: 14px; color: var(--ink-dim); }
+.legendOrtStation svg { color: var(--blue-strong); }
 /* the blue dot that rides on the clock button when somebody has a Bemerkung — same size, same
    colour, so the legend entry IS the mark rather than a description of it */
-.legend .legendNote i { width: 6px; height: 6px; background: var(--blue); }
-/* the same legend, on a phone, behind the info button — one entry per line because there is no
-   width for a strip, and the ink goes up to --ink-dim: read once, deliberately, not scanned */
-.legendPop { max-width: min(280px, 88vw); padding: 12px 14px; border-radius: var(--r-ctl);
-  background: var(--surface); box-shadow: var(--shadow); border: 1px solid var(--glass-edge); z-index: 60; }
-.legendStack { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
-.legendStack span { font-size: 13px; color: var(--ink-dim); }
+.legendNote i { width: 6px; height: 6px; background: var(--blue); }
 
 /* the dense grid — auto-fill so a wide screen packs many columns, narrow ones fewer */
 .grid {
@@ -122,18 +126,25 @@
 
 /* «Weitere Person» closes the crew list, the way «Anderes Mittel» closes the Mittel list — same
    shape, same place, so the gesture is already known. */
+/* on the search line, at its end (see AnwesenheitView) — a square + at the shared control size,
+   so the field, the filters and this all measure --tap and sit on one baseline. Dashed border:
+   it adds something that is not on the Mannschaftsliste, which is not the same act as the solid
+   controls beside it. */
 .addGuest {
-  display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%;
-  min-height: 46px; margin-top: 2px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; flex: none;
+  width: var(--tap); min-width: var(--tap); min-height: var(--tap); padding: 0; cursor: pointer;
   border: 1px dashed var(--glass-edge); background: none; border-radius: var(--r-ctl);
-  font: 700 13.5px var(--body); color: var(--ink-dim);
+  color: var(--ink-dim);
 }
+.addGuest svg { width: 18px; height: 18px; }
 .addGuest:hover { border-color: var(--ink-faint); color: var(--ink); background: var(--surface); }
-.addGuest svg { width: 14px; height: 14px; }
 
 /* a row is the cycle button (personMain) plus, once anwesend/gegangen, a trailing time chip
    that opens an inline time input — correcting a wrong auto-stamped time in place */
 .person {
+  /* ONE width for the trailing glyph buttons (Ort + Uhr), so they read as a pair and the two
+     glyph columns line up down the whole list */
+  --row-act: 46px;
   display: flex; align-items: stretch; min-height: 46px;
   border: 1px solid var(--glass-edge); background: var(--surface); border-radius: var(--r-ctl);
   overflow: hidden; font: 700 14px var(--body); color: var(--ink);
@@ -168,8 +179,12 @@
    of the row and crushed the name to «B…», which is the one thing this list may never do. The row
    answers «who is here»; the sheet answers «since when, exactly», and it can show ALL of somebody's
    stretches instead of only the latest. */
+/* ⚠️ The SAME width as the Ort button beside it (--row-act). They are a pair at the end of
+   every row — a 46px pin next to a 38px clock read as one big button and one small one, and
+   the two columns of glyphs no longer lined up down the list. */
 .backBtn {
-  flex: none; align-self: stretch; display: inline-flex; align-items: center; padding: 0 11px;
+  flex: none; align-self: stretch; display: inline-flex; align-items: center; justify-content: center;
+  width: var(--row-act); padding: 0;
   border: none; border-left: 1px solid var(--glass-edge); background: none; cursor: pointer;
   color: var(--green); -webkit-tap-highlight-color: transparent;
 }
@@ -205,7 +220,7 @@
   /* ⚠️ ONE width for every row. The two states must not end at different x, or the names beside
      them stop lining up — on a list read by running an eye down it, that is the whole complaint. */
   flex: none; align-self: stretch; display: inline-flex; align-items: center; justify-content: center;
-  width: 46px; padding: 0;
+  width: var(--row-act); padding: 0;
   border: none; border-left: 1px solid var(--glass-edge); background: none;
   cursor: pointer; font: 700 11.5px var(--body); white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
@@ -259,6 +274,8 @@ button.ortStation:hover { background: color-mix(in srgb, var(--blue) 22%, transp
   /* the search yields so the Zeitraum can share its line — on its own row it cost ~56px of the
      little vertical space a phone has for the grid itself */
   .search { flex: 1 1 120px; }
+  /* (the add button is a square + now, so it fits the search line on a phone like the two
+     filter buttons do — it no longer needs a row of its own) */
   .horizon { flex: 0 1 auto; gap: 4px; }
   .horizonLabel { display: none; }
   .horizonValue { min-width: 2.6rem; }
@@ -267,11 +284,10 @@ button.ortStation:hover { background: color-mix(in srgb, var(--blue) 22%, transp
   .controls { padding: 10px 14px; gap: 10px; }
   /* one full-width column: two columns truncated most names («Binggeli Mic…») on a phone —
      a readable name beats density here (field feedback 2026-07-08) */
-  /* ⚠️ The Ort button matches the CLOCK beside it. At 46px it was the widest thing on the row
-     after the name — wider than the watch, which is the more consequential of the two — so on a
-     phone the two glyph buttons at the end of a row read as a big one and a small one rather
-     than as a pair. 38px is the clock's own width (11px padding + a 16px glyph). */
-  .ort { width: 38px; }
+  /* ⚠️ The pair (Ort + Uhr) narrows on a phone: at 46px they were the widest things on the row
+     after the name, and the name is what the list is read for. 38px is what the clock measured
+     before both were pinned to --row-act (11px padding around a 16px glyph). */
+  .person { --row-act: 38px; }
   /* the last person row clears the Eintrag FAB — the circle sat on a row's presence toggle and on
      its time chip, i.e. on the two controls this list exists for. --fab-safe is 0 without a FAB. */
   .grid { padding: 2px 14px calc(16px + var(--fab-safe, 0px)); grid-template-columns: 1fr; gap: 6px; }
@@ -327,7 +343,11 @@ button.ortStation:hover { background: color-mix(in srgb, var(--blue) 22%, transp
   color: var(--ink-dim); cursor: pointer; -webkit-tap-highlight-color: transparent;
   grid-auto-flow: column; gap: 6px;
 }
-.iconBtn:hover { color: var(--ink); border-color: var(--ink-faint); }
+/* :not(.iconBtnOn) — hover must NEVER override the ON state. `.iconBtn:hover` outweighs
+   `.iconBtnOn` on specificity, and after a tap the pointer (or, on touch, the sticky hover a
+   tap leaves behind) is still on the button: a filter you had just switched on rendered in
+   plain ink and only turned blue after a reload. Same rule as the tool rail's .vrail-tool. */
+.iconBtn:hover:not(.iconBtnOn) { color: var(--ink); border-color: var(--ink-faint); }
 .iconBtn svg { width: 16px; height: 16px; }
 /* a filter that is ON must never look like a filter that is off: the list underneath is a SUBSET
    of the Mannschaft, and mistaking it for the whole thing is the one costly error here */
@@ -336,13 +356,30 @@ button.ortStation:hover { background: color-mix(in srgb, var(--blue) 22%, transp
   background: color-mix(in srgb, var(--blue) 14%, transparent);
   color: var(--blue-strong);
 }
-.filterOn { font: 800 11px var(--mono); letter-spacing: .03em; }
+.iconBtnOn:hover {
+  border-color: color-mix(in srgb, var(--blue) 70%, transparent);
+  background: color-mix(in srgb, var(--blue) 20%, transparent);
+}
+/* ⚠️ A DOT, not a label. Printing the active filter on the button changes its width, which
+   shoves every control after it along the line and re-anchors the dropdown — the menu jumped
+   sideways the moment you picked something in it. Absolutely positioned, so the button measures
+   the same filtered or not; WHAT is filtered is in the tooltip and, more usefully, ticked in the
+   menu itself. A ring in the button's own fill keeps it readable on the tinted ON state. */
+.filterDot { position: absolute; top: 5px; right: 5px; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--blue); box-shadow: 0 0 0 2px var(--surface); pointer-events: none; }
+.iconBtnOn .filterDot { box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue) 14%, var(--surface)); }
 
 /* the shared dropdown for both header menus */
 .menuPop {
   /* max-width beside the min: collision handling shifts a popup back onto the screen, it cannot
-     shrink one that is wider than the screen to begin with. */
-  min-width: 190px; max-width: min(320px, 92vw); padding: 6px; border-radius: var(--r-ctl);
+     shrink one that is wider than the screen to begin with. Same for the HEIGHT — this menu
+     carries both facets now (Grad + Zustand/Ort, up to a dozen rows), and a taller-than-screen
+     popup is repositioned, never trimmed: its last rows simply ran off the bottom edge.
+     `--available-height` is what Base UI's positioner measured for this side; the dvh is the
+     fallback for when it has not. */
+  min-width: 190px; max-width: min(320px, 92vw);
+  max-height: var(--available-height, 70dvh); overflow-y: auto; overscroll-behavior: contain;
+  padding: 6px; border-radius: var(--r-ctl);
   background: var(--surface); box-shadow: var(--shadow); border: 1px solid var(--glass-edge);
   z-index: 60;
 }

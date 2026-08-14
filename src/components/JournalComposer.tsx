@@ -351,8 +351,12 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
     // outside-press already ignores the opening tap, so the old Android `armed` delay is gone.
     // dismissEscape=false: the composer holds unsaved text — Esc must not discard it (parity with
     // the old surface, which never closed on Esc). The keyboard inset lifts the phone bottom sheet.
+    // `--jc-kb` carries the measured keyboard height into CSS as well as the phone sheet's
+    // marginBottom: on a TABLET the card is top-anchored, so a bottom margin does nothing —
+    // the height has to be capped against the keyboard instead (see 10-journal.css).
     <Overlay open onClose={onClose} className="journal-composer" backdropClassName="modal-backdrop"
-      ariaLabel={C.composerTitle} dismissEscape={false} initialFocus={textRef} style={{ marginBottom: kbInset }}>
+      ariaLabel={C.composerTitle} dismissEscape={false} initialFocus={textRef}
+      style={{ marginBottom: kbInset, '--jc-kb': `${kbInset}px` } as React.CSSProperties}>
       <div onPaste={onPaste} style={{ display: 'contents' }}>
         <div className="jc-head">
           <span className="jc-title"><Icon id={mode === 'reminder' ? 'clock' : 'type'} />{mode === 'reminder' ? C.modeReminder : C.composerTitle}</span>

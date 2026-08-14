@@ -86,7 +86,10 @@ export function Combo({ value, options, groups, placeholder, allowCustom, custom
       const below = window.innerHeight - r.bottom - 12
       const above = r.top - 12
       const up = below < 200 && above > below
-      setPos({ left: r.left, top: up ? r.top : r.bottom, width: r.width, maxH: Math.max(140, Math.min(280, up ? above : below)), up })
+      // same ceiling as the roster picker (PersonField · MAX_MENU_H): the menu takes the room
+      // that is actually below/above the trigger, and the cap only keeps it from covering the
+      // whole form. It used to stop at 280px with half the sheet empty underneath.
+      setPos({ left: r.left, top: up ? r.top : r.bottom, width: r.width, maxH: Math.max(140, Math.min(440, up ? above : below)), up })
     }
     place()
     const onScroll = () => place()

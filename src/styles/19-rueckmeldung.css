@@ -105,6 +105,11 @@
      that extends its hit area outside itself steals from whatever it happens to sit next to. */
 }
 .jr-strip:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+/* The ticks' own box, inset from the strip's ends (the inline `insetInline` comes from
+   Journal · STRIP_INSET, which the tap→time maths uses too). Ticks placed straight on the
+   strip put the first and last one ON its rounded corners, where the radius and the inset
+   hairline eat them — and those two are the start and the end of the whole Einsatz. */
+.jr-strip-track { position: absolute; top: 0; bottom: 0; pointer-events: none; }
 .jr-strip i {
   position: absolute; top: 9px; width: 1.5px; height: 16px; margin-left: -0.75px;
   border-radius: 1px; background: var(--ink-faint); opacity: .7;

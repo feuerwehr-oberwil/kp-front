@@ -34,7 +34,7 @@ import { fmtDistance, fmtArea, hoseLengthHint } from '../lib/geo'
 import { buildView, remapPoint, type Ring } from '../lib/footprint'
 import { usePlanMeasure } from './usePlanMeasure'
 import { PlanScalePrompt, PlanScalePersist } from './PlanScalePrompts'
-import { useBoardView } from './useBoardView'
+import { MAX_SCALE, MIN_SCALE, useBoardView } from './useBoardView'
 import { useBoardDoc } from './useBoardDoc'
 import { useBoardGestures } from './useBoardGestures'
 import { WbToolDocks, WbInkLayer, WbVertexHandles } from './WbControls'
@@ -1019,7 +1019,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
 
   // pan / pinch-zoom / marquee multi-select + the shared stage pointer dispatcher live in
   // useBoardGestures; object manipulation is reached through manipMove/manipUp above.
-  const { marquee, stageDown, stageMove, stageUp } = useBoardGestures({
+  const { marquee, stageDown, stageMove, stageUp, trackDown, trackUp } = useBoardGestures({
     tool, annos, setSelId, setSelIds, applyView, zoomTo, scaleRef, posRef, canvasRef, boardRef, mapY, manipMove, manipUp,
   })
 
@@ -1504,6 +1504,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         <div
           ref={setCanvas}
           className={`wb-canvas tool-${tool} ${pending || pendingShape ? 'placing' : ''}`}
+          // capture-phase bookkeeping FIRST — it sees the fingers a chip's own handler
+          // swallows, which is what makes the two-finger gesture work on a busy board
+          onPointerDownCapture={trackDown}
+          onPointerUpCapture={trackUp}
+          onPointerCancelCapture={trackUp}
           onPointerDown={stageDown}
           onPointerMove={stageMove}
           onPointerUp={stageUp}
@@ -2088,9 +2093,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               footer cluster is CSS-hidden, so this is the plan's only zoom control. */}
           {readOnly && (!slimRail || isPhone) && (
             <div className="wb-zoom wb-zoom-float" onPointerDown={(e) => e.stopPropagation()}>
-              <button onClick={() => zoom(1 / 1.3)} disabled={scale <= 1} title={appConfig.copy.nav.zoomOut} aria-label={appConfig.copy.nav.zoomOut}><Icon id="minus" /></button>
-              <span>{Math.round(scale * 100)}%</span>
-              <button onClick={() => zoom(1.3)} disabled={scale >= 6} title={appConfig.copy.nav.zoomIn} aria-label={appConfig.copy.nav.zoomIn}><Icon id="plus" /></button>
+              <button onClick={() => zoom(1 / 1.3)} disabled={scale <= MIN_SCALE} title={appConfig.copy.nav.zoomOut} aria-label={appConfig.copy.nav.zoomOut}><Icon id="minus" /></button>
+              <button onClick={() => zoom(1.3)} disabled={scale >= MAX_SCALE} title={appConfig.copy.nav.zoomIn} aria-label={appConfig.copy.nav.zoomIn}><Icon id="plus" /></button>
               <button className="wb-fit" onClick={() => applyView(1, { x: 0, y: 0 })} disabled={scale === 1 && pos.x === 0 && pos.y === 0} title={appConfig.copy.nav.fit}>{appConfig.copy.whiteboard.fit}</button>
             </div>
           )}
@@ -2156,8 +2160,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           }}
           footer={
             <>
-              <button className="vrail-nbtn" title={appConfig.copy.nav.zoomOut} aria-label={appConfig.copy.nav.zoomOut} disabled={scale <= 1} onClick={() => zoom(1 / 1.3)}><span className="vrail-glyph"><Icon id="minus" /></span><span className="vrail-label">{appConfig.copy.nav.zoomOut}</span></button>
-              <button className="vrail-nbtn" title={appConfig.copy.nav.zoomIn} aria-label={appConfig.copy.nav.zoomIn} disabled={scale >= 6} onClick={() => zoom(1.3)}><span className="vrail-glyph"><Icon id="plus" /></span><span className="vrail-label">{appConfig.copy.nav.zoomIn}</span></button>
+              {/* zoom ±: desktop only (.vrail-zoom is hidden under 1024px) — the plan pinches
+                  on every touch form factor, and «Einpassen» below covers the one state that
+                  matters. */}
+              <button className="vrail-nbtn vrail-zoom" title={appConfig.copy.nav.zoomOut} aria-label={appConfig.copy.nav.zoomOut} disabled={scale <= MIN_SCALE} onClick={() => zoom(1 / 1.3)}><span className="vrail-glyph"><Icon id="minus" /></span><span className="vrail-label">{appConfig.copy.nav.zoomOut}</span></button>
+              <button className="vrail-nbtn vrail-zoom" title={appConfig.copy.nav.zoomIn} aria-label={appConfig.copy.nav.zoomIn} disabled={scale >= MAX_SCALE} onClick={() => zoom(1.3)}><span className="vrail-glyph"><Icon id="plus" /></span><span className="vrail-label">{appConfig.copy.nav.zoomIn}</span></button>
               <button className="vrail-nbtn" title={appConfig.copy.nav.fit} aria-label={appConfig.copy.nav.fit} disabled={scale === 1 && pos.x === 0 && pos.y === 0} onClick={() => applyView(1, { x: 0, y: 0 })}><span className="vrail-glyph"><Icon id="cross" /></span><span className="vrail-label">{appConfig.copy.nav.fit}</span></button>
               {/* Gebäude orientation toggle — only on a floor-stack that was auto-rotated */}
               {canOrient && (
@@ -2172,7 +2179,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                   ><span className="vrail-glyph"><Icon id="compass" /></span><span className="vrail-label">{building?.northUp ? appConfig.copy.whiteboard.orientLongAxis : appConfig.copy.whiteboard.orientNorthUp}</span></button>
                 </>
               )}
-              <div className="vrail-zoom-pct">{Math.round(scale * 100)}%</div>
             </>
           }
         />

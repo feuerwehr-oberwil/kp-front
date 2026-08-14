@@ -51,6 +51,14 @@
 .vrail-nbtn:not(.on):hover:not(:disabled) { background: var(--hover); color: var(--ink); }
 .vrail-nbtn.on { background: var(--ink-fill); color: var(--on-accent-ink); }
 .vrail-nbtn:disabled { opacity: var(--disabled); cursor: default; }
+/* zoom ± is a MOUSE affordance: every touch form factor pinches, so the two buttons only cost
+   rail height the tools need more. Phones already drop the whole footer (15-mobile.css); this
+   covers the tablet band in between.
+   ⚠️ `pointer: coarse` as well as the width. Width alone does NOT cover the primary device: an
+   iPad in LANDSCAPE is 1194 CSS px, so a width-only rule kept the buttons on exactly the screen
+   they were removed for. The two conditions together mean: gone on anything you touch, kept on
+   a mouse, whatever the window measures. */
+@media (max-width: 1023px), (pointer: coarse) { .vrail-zoom { display: none; } }
 .vrail-sep-foot { flex: none; margin: 2px 10px; }
 .vrail-compass { display: grid; place-items: center; transition: transform .15s ease; }
 /* expand toggle — mirrors the left rail's, but row-reversed so the chevron sits in the
@@ -221,10 +229,13 @@
 .sym-cell:hover { background: var(--fill-soft); border-color: var(--border-soft); }
 .sym-cell svg { width: 40px; height: 40px; }
 .sym-shape { width: 40px; height: 40px; display: block; }
-/* proper German hyphenation (lang=de) so long compounds split at valid points
-   ("Ver­wun­de­ten­nest"), not mid-word orphans like "Verwundetennes-t" */
+/* ⚠️ `hyphens: manual`, NOT auto. The browser's German dictionary breaks by SYLLABLE, so a
+   symbol read at arm's length came out as «Kontrollpos-ten» / «Verwundeten-nest» — broken
+   inside the very component the eye recognises it by. The legal breaks are named at the
+   compound seams instead (lib/symbolWrap · soft hyphens, inserted at render). `overflow-wrap`
+   stays as the last resort for a word with no seam that still cannot fit. */
 .sym-cell small { font-size: 12px; font-weight: 600; color: var(--ink-dim); text-align: center; line-height: 1.1;
-  hyphens: auto; -webkit-hyphens: auto; overflow-wrap: break-word; word-break: normal; }
+  hyphens: manual; -webkit-hyphens: manual; overflow-wrap: break-word; word-break: normal; }
 /* terse empty/transient line — search no-match, loading, load error (shared with .pp-empty) */
 .sym-empty, .pp-empty { text-align: center; color: var(--ink-faint); font: 500 13px var(--body); padding: 28px 0; }
 .sym-empty { grid-column: 1/-1; }

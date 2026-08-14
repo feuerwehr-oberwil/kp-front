@@ -239,7 +239,7 @@ export const de = {
         blocks: [
           { kind: 'lead', text: 'Ein gemeinsames, fortlaufendes Protokoll über Lage und Plan – die Einsatz-Chronik.' },
           { kind: 'list', items: [
-            '**+ Eintrag** (oben rechts): kurz tippen öffnet die Texteingabe; **gedrückt halten** nimmt eine **Sprachnotiz** auf. Fotos lassen sich ebenfalls anhängen.',
+            '**+ Eintrag** (oben rechts): kurz tippen öffnet die Texteingabe; **gedrückt halten** nimmt sofort eine **Sprachnotiz** auf. Beim Halten erscheinen zwei Felder – der Finger kann auf **Foto** schieben und loslassen, dann geht es direkt zur Kamera. Fotos lassen sich auch im Eintrag selbst anhängen.',
             'Ab **zwei Buchstaben** werden Namen vorgeschlagen – Mannschaft, Material, Partnerorganisationen, Fahrzeuge und Alarmgruppen. Angetippt wird der ganze Name eingesetzt; im Verlauf und auf dem gedruckten Rapport ist er hervorgehoben. Ein eigenes «Von»-Feld gibt es nicht: der Satz sagt schon, wer gemeldet hat.',
             'Wesentliche Aktionen (Symbol gesetzt, Zeichnung erstellt/entfernt …) landen automatisch im Verlauf.',
             '**Rückgängig/Wiederholen** gilt für Lage und Plan.',
@@ -539,7 +539,9 @@ export const de = {
     { id: 'line', icon: 'pen', label: 'Linie', kind: 'tool' },
     { id: 'area', icon: 'area', label: 'Fläche', kind: 'tool' },
     { id: 'circle', icon: 'circle', label: 'Absperrkreis', kind: 'tool' },
-    { id: 'sep-anno', sep: true, icon: '', label: '' },
+    // (no divider between Absperrkreis and Notiz any more — it cost a rail row to separate two
+    // groups that are both «etwas auf die Karte setzen». The one before Symbol stays: that IS a
+    // real seam, between choosing something and creating it.)
     { id: 'note', icon: 'type', label: 'Notiz', kind: 'tool' },
     { id: 'team', icon: 'flag', label: 'Trupp', kind: 'tool' },
     { id: 'measure', icon: 'measure', label: 'Messen', kind: 'tool' },
@@ -865,7 +867,7 @@ export const de = {
   journal: {
     open: 'Verlauf',
     add: 'Eintrag',
-    addHint: 'Tippen für Eintrag · gedrückt halten für Sprachnachricht',
+    addHint: 'Tippen für Eintrag · halten für Sprachnotiz, dann auf «Foto» schieben',
     title: 'Verlauf',
     empty: 'Noch keine Ereignisse erfasst',
     surfaceMap: 'Lage',
@@ -2666,6 +2668,14 @@ export const de = {
     // Printing ALWAYS happens — a half-filled Rapport that gets finished by hand in the Magazin
     // is a genuine way of working. But the PDF leaves the building and is the version that gets
     // filed: so name once what is missing, and then let it go.
+    // Nach dem Export: das Papier existiert, alle Mindestangaben sind drin – offen ist nur noch
+    // die Buchhaltung. Ein Einsatz wird nur archiviert, wenn jemand weiss, dass er das tun muss;
+    // sonst bleibt er für immer offen stehen. Deshalb sagt es die Oberfläche an genau dieser
+    // Stelle einmal selbst – als Band unter dem Kopf, nicht als Dialog: es blockiert nichts.
+    madeToast: 'Rapport erstellt',
+    bandDone: 'Rapport erstellt.',
+    bandAsk: 'Der Einsatz ist noch offen – abschliessen?',
+    bandLater: 'Später',
     exportIncompleteTitle: 'Angaben fehlen noch',
     exportIncompleteLead: 'Noch offen:',
     exportIncompleteMsg: 'Der Rapport lässt sich trotzdem erstellen – die offenen Felder bleiben leer und können von Hand ergänzt werden.',
@@ -2683,7 +2693,9 @@ export const de = {
     zurueckShort: 'zurück',
     rueckmeldungLabel: 'Rückmeldung ELZ',
     rueckmeldungName: 'Name',
-    rueckmeldungZeit: 'Zeit',
+    // ⚠️ Nicht bloss «Zeit»: das Feld steht jetzt neben dem Einsatzende, und zwei Zeitfelder
+    // untereinander, von denen eines «Zeit» heisst, sagen nicht welche Zeit gemeint ist.
+    rueckmeldungZeit: 'Zeit Rückmeldung ELZ',
     // Sections — no longer a block on the page: printing happens immediately with whatever is
     // set; ticking happens in the menu behind the ▾ next to «Einsatzrapport (PDF)».
     sectionsHead: 'Abschnitte',
@@ -2745,6 +2757,10 @@ export const de = {
     partnerOrg: 'Organisation (z. B. Polizei)',
     partnerOrgShort: 'Organisation',
     partnerNote: 'Bemerkung (z. B. übernimmt Verkehr)',
+    // ⚠️ Ohne Beispiel: auf einer frei eingegebenen Zeile teilt sich die Bemerkung den Platz
+    // mit dem Organisationsfeld und dem Papierkorb – das Beispiel wurde dort mitten im Wort
+    // abgeschnitten («Bemerkung (z. B. ü»), was schlimmer aussieht als gar keines.
+    partnerNoteShort: 'Bemerkung',
     partnersNone: 'keine erfasst',
     partnerAdd: 'Organisation hinzufügen',
     attachmentsHead: 'Fotos',
@@ -2912,11 +2928,17 @@ export const de = {
     loading: 'Lädt …',
     searchPlaceholder: 'Suchen',
     clearSearch: 'Suche löschen',
-    // the legend's own name — the phone shows it behind an info button
-    legendTitle: 'Was bedeuten die Zeichen?',
     legendFrei: 'nicht anwesend',
     legendPresent: 'anwesend',
     legendLeft: 'gegangen',
+    // Der Filter-Knopf deckt beide Facetten ab: Grad und Zustand/Ort. Die Legende IST das
+    // Zustand-Menü – jede Zeile trägt ihr Zeichen, also wird dort auch nachgeschaut.
+    filterLabel: 'Filtern',
+    legendAll: 'Alle',
+    // ⚠️ «Nach Status filtern», nicht «Was bedeuten die Zeichen?». Das Menü filtert – dass man
+    // daneben auch nachschaut, was der Punkt bedeutet, ist ein Nebeneffekt und kein Titel.
+    statusFilterLabel: 'Nach Status filtern',
+    noteOnly: 'Nur mit Bemerkung',
     loadFailedTitle: 'Mannschaft konnte nicht geladen werden.',
     loadFailedHint: 'Offline oder Server nicht erreichbar. Zuletzt geladene Liste bleibt erhalten.',
     emptyTitle: 'Keine Mannschaft vorhanden.',
@@ -3172,10 +3194,16 @@ export const de = {
     summary: '{lines} Positionen',
     summaryEmpty: 'Noch nichts erfasst',
     add: 'Mittel',
-    viewLabel: 'Ansicht',
-    viewList: 'Alle',
+    // «In Verwendung» ist ein Filter-Knopf auf der Suchzeile, kein Tab mehr – die Bezeichnung
+    // bleibt, sie ist jetzt Tooltip und aria-label. (viewLabel/viewList sind mit dem Tab weg.)
     viewBySource: 'In Verwendung',
+    // Suche + Kategorie-Filter, gebaut wie in der Anwesenheit: eine Zeile über der Liste
     noSource: 'Ohne Zuordnung',
+    searchPlaceholder: 'Suchen',
+    clearSearch: 'Suche löschen',
+    noMatches: 'Keine Treffer.',
+    categoryFilterLabel: 'Nach Kategorie filtern',
+    categoryAll: 'Alle',
     categoryOther: 'Übrige',
     // trailing group for free-typed (incident-local) lines in the unified list
     customGroup: 'Weitere',

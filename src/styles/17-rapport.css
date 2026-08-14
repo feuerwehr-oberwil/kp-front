@@ -53,8 +53,14 @@
    same weight, same tracking, different colour, stacked in one column. */
 .report-meta-dispatch-head > span { font: 700 11px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-dim); }
 .report-meta-editlink { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; margin: -4px -8px -4px 0;
-  font: 600 12px var(--body); color: var(--blue); background: none; border: none; border-radius: var(--r-sm); cursor: pointer; }
-.report-meta-editlink:hover { background: color-mix(in srgb, var(--blue) 10%, transparent); }
+  font: 600 12px var(--body); color: var(--blue); background: none; border: none; border-radius: var(--r-sm); }
+/* the whole dispatch card opens the Einsatzdaten (mirrors an Anwesenheit person row) — the
+   button keeps the block's own column layout, so nothing moves; only the target grows from a
+   12px corner link to the full card, and «Bearbeiten» is the cue that says so. */
+.report-meta-dispatch-btn { width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer;
+  background: none; border: 1px solid transparent; border-radius: var(--r-ctl); padding: 8px; margin: -8px; }
+.report-meta-dispatch-btn:hover { background: var(--fill-soft); border-color: var(--glass-edge); }
+.report-meta-dispatch-btn:hover .report-meta-editlink { background: color-mix(in srgb, var(--blue) 10%, transparent); }
 .report-meta-readout { margin: 0; display: flex; flex-direction: column; gap: 10px; }
 .report-meta-readout > div { display: grid; grid-template-columns: 116px 1fr; gap: 12px; align-items: baseline; }
 .report-meta-readout dt { margin: 0; font: 600 12px var(--body); color: var(--ink-dim); }
@@ -346,12 +352,21 @@
    the annotation line carried non-shrinking buttons (Durchhören + Transkript) */
 .jr-transcript { flex: 0 0 calc(100% - 74px); min-width: 0; margin: 2px 0 2px 74px; display: flex; flex-direction: column; gap: 6px; }
 .jr-transcript p { margin: 0; color: var(--ink-dim); font-size: 12px; line-height: 1.45; white-space: pre-wrap; }
-/* annotation-line actions under an audio row: Durchhören + Transkript side by side */
-.jr-tx-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* annotation-line actions under an audio row: Durchhören + Transkript side by side.
+   `stretch` on both axes so the two are always the SAME height — they carry different icons and
+   different padding (one is the shared .jr-open, the other .jr-transcript button), so left to
+   their content they came out a few px apart, which on two buttons sitting side by side is the
+   only thing you see. The row's height is the taller of them; both fill it. */
+.jr-tx-actions { display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap; }
+.jr-tx-actions > button { align-self: stretch; }
 /* Durchhören: opens the audio player sheet for long recordings (rows with audioMeta).
    `.jr-transcript button` would out-specify a bare class — hence the qualified selector. */
+/* ⚠️ --r-sm, the app's button radius (.ip-btn), NOT a 999px pill. Durchhören · 1× ·
+   Transkribieren were the only three fully-rounded buttons in the app and they sit right
+   beside square-cornered ones — three pills in a page of rounded rectangles reads as a
+   different kind of control. */
 .jr-transcript button.jr-open, button.jr-open { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border);
-  border-radius: 999px; background: var(--surface); color: var(--ink); padding: 6px 12px; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; flex: none; }
+  border-radius: var(--r-sm); background: var(--surface); color: var(--ink); padding: 6px 12px; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; flex: none; }
 .jr-open .i { width: 13px; height: 13px; }
 .jr-open:hover { background: var(--hover-strong); }
 /* jump chip on rows that annotate a recording — opens the player at that moment */

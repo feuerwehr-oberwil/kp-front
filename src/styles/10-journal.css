@@ -135,6 +135,34 @@
 @keyframes tbHold { from { width: 0; } to { width: 100%; } }
 .tb-act-add.rec { background: var(--red); animation: recPulse 1.4s ease-in-out infinite; }
 .tb-act-add.rec span { font-family: var(--mono); }
+
+/* ── the latched hold's two slide targets (Sprachnotiz · Foto) ──
+   They live INSIDE the button (it owns the pointer capture for the whole gesture and is the
+   only element the events reach), so the button's `overflow: hidden` — there for the charging
+   cue — has to give way while they show. `pointer-events: none`: nothing here is ever clicked,
+   the hit test is elementFromPoint against [data-hold-target] (see lib/useHoldEntry). */
+.tb-act-add.latched, .fab-entry.latched { overflow: visible; }
+.hold-targets { position: absolute; left: 50%; transform: translateX(-50%); z-index: 3;
+  display: flex; gap: 4px; padding: 4px; pointer-events: none; white-space: nowrap;
+  background: var(--surface); border: 1px solid var(--glass-line); border-radius: var(--r-ctl);
+  box-shadow: var(--shadow); animation: pop .12s var(--ease); }
+/* ⚠️ BOTH hosts set `position: relative` on every <span> they contain (.tb-act-add span above,
+   .fab-entry span in 15-mobile.css) so the label stacks over the charging cue. That selector is
+   0,1,1 and out-specifies a bare `.hold-targets` at 0,1,0 — so the chooser came out RELATIVE and
+   rendered as an inline box inside the button, on top of the label, instead of above/below it.
+   Scoped here to win. */
+.tb-act-add .hold-targets, .fab-entry .hold-targets { position: absolute; }
+/* clear of the button either way — the FAB sits at the bottom of the screen, the TopBar
+   button at the top, and the targets must never open off-screen */
+.hold-targets-above { bottom: calc(100% + 10px); }
+.hold-targets-below { top: calc(100% + 10px); }
+.hold-target { display: inline-flex; align-items: center; gap: 6px; padding: 10px 14px;
+  border-radius: var(--r-sm); font: 700 13px var(--body); color: var(--ink-dim);
+  transition: background .1s var(--ease), color .1s var(--ease); }
+.hold-target .i { width: 15px; height: 15px; }
+/* the one the finger is over — this is the whole feedback of the gesture, so it is not subtle */
+.hold-target.on { background: var(--btn-primary); color: var(--on-btn-primary); }
+@media (prefers-reduced-motion: reduce) { .hold-targets { animation: none; } }
 /* explicit stop affordance shown while recording — a white square reads as "stop" */
 .tb-stop { position: relative; z-index: 1; width: 11px; height: 11px; border-radius: 2px; background: var(--on-accent-ink); flex: none; }
 
@@ -197,6 +225,16 @@
   background: var(--surface);
   border: 1px solid var(--glass-line); border-radius: var(--r-hero); box-shadow: var(--shadow); padding: 16px;
   display: flex; flex-direction: column; gap: 12px; animation: pop .16s var(--ease); }
+/* Touch, tablet and up: the composer opens with the text field already focused, so the OS
+   keyboard is up before the card has finished animating in — and an iPad keyboard is close to
+   half the screen. Anchored at 11vh the media row and «Speichern» sat behind it. Ride up to the
+   top edge and cap the height against the measured keyboard (--jc-kb): on iOS the layout
+   viewport does NOT shrink for the keyboard, so dvh alone cannot see it. Phones keep the
+   bottom-sheet rule below (they lift by margin instead). */
+@media (pointer: coarse) and (min-width: 601px) {
+  .journal-composer { top: max(12px, env(safe-area-inset-top));
+    max-height: calc(100dvh - 24px - var(--jc-kb, 0px)); }
+}
 .jc-head { display: flex; align-items: center; }
 .jc-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: var(--ink); }
 .jc-title .i { width: 16px; height: 16px; }

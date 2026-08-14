@@ -11,6 +11,12 @@ import s from './Atemschutz.module.css'
 
 export type Slot = { name: string; personId?: string }
 
+/** Ceiling for the portalled roster menu. Not a target — the menu takes whatever room the
+ *  trigger actually has (see `place`); this only stops it from becoming a curtain over the
+ *  form it belongs to. ~9 name rows, which is enough that a Mannschaft rarely needs scrolling
+ *  before the search narrows it. */
+const MAX_MENU_H = 440
+
 // A combobox for a leader/AdF slot: pick from the Mannschaft dropdown (present crew first,
 // already-assigned flagged) OR just type a name (guests, mutual aid, Divera outage). Selecting
 // a person links the id; typing leaves it a manual snapshot. Replaces the old chip list.
@@ -52,9 +58,9 @@ export function PersonField({
   const az = appConfig.copy.atemschutz
   const [open, setOpen] = useState(false)
   const [officersOnly, setOfficersOnly] = useState(false)
-  // Narrowing the roster by typing. A 66-person Mannschaft in a 252px menu is ~5 visible rows,
-  // so finding somebody meant scrolling past sixty names with a gloved finger — the one
-  // complaint about this picker after the 08.08. Einsatz. NOT auto-focused: this stays a
+  // Narrowing the roster by typing. A 66-person Mannschaft in a short menu is a handful of
+  // visible rows, so finding somebody meant scrolling past sixty names with a gloved finger —
+  // the one complaint about this picker after the 08.08. Einsatz. NOT auto-focused: this stays a
   // roster-first picker, and a keyboard that opens by itself covers the list it is filtering.
   const [search, setSearch] = useState('')
   // Roster-first: the field is a tap-to-open picker (no keyboard). The OS keyboard only
@@ -131,7 +137,11 @@ export function PersonField({
       const below = window.innerHeight - r.bottom - 12
       const above = r.top - 12
       const up = below < 200 && above > below
-      setPos({ left: r.left, top: up ? r.top : r.bottom, width: r.width, maxH: Math.max(140, Math.min(252, up ? above : below)), up })
+      // TAKE the room that is there. The cap used to be 252px — about five names — so on a
+      // full-height Rapport the roster scrolled inside a short box with half the sheet empty
+      // underneath it. `below`/`above` already hold the real space, so the ceiling only has to
+      // stop the menu becoming a full-screen curtain over the form it belongs to.
+      setPos({ left: r.left, top: up ? r.top : r.bottom, width: r.width, maxH: Math.max(140, Math.min(MAX_MENU_H, up ? above : below)), up })
     }
     place()
     window.addEventListener('scroll', place, true)

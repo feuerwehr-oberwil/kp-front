@@ -52,7 +52,6 @@ import { useWorkspaceDoc } from './lib/useWorkspaceDoc'
 import { buildLabel } from './lib/buildInfo'
 import { consumeJustUpdated } from './lib/swUpdate'
 import { useIsPhone } from './lib/useIsPhone'
-import { useSectionSwipe, SWIPE_SECTIONS } from './lib/useSectionSwipe'
 import { useOnline } from './lib/useOnline'
 import { MapView } from './components/MapView'
 import { Splash } from './components/Splash'
@@ -475,13 +474,10 @@ export function IncidentWorkspace({
   // `phoneTools` (the second, stacked tool bar → its extra bottom clearances) is computed below,
   // once `planDocs` is known: a viewer-only plan renders NO tool bar, so it must reserve one bar,
   // not two.
-  // #10: horizontal swipe pages between sections in nav order. Non-canvas surfaces swipe anywhere;
-  // the map/plan canvas swipes from a phone screen edge (they keep pan/zoom). The wiring that needs
-  // the ordered plan list lives below planDocs; the refs + the canvas gate are here.
-  const sectionPagerRef = useRef<HTMLDivElement>(null)
-  const edgeLRef = useRef<HTMLDivElement>(null)
-  const edgeRRef = useRef<HTMLDivElement>(null)
-  const canvasEdge = isPhone && (mode === 'map' || mode === 'plans')
+  // (Horizontal swipe-to-page between sections is GONE — 2026-08-14. On the tablet it is the
+  // primary surface for, an invisible gesture that jumps the whole workspace to another section
+  // is a thing you trigger by accident, never on purpose. The NavRail and the `nav` hotkey are
+  // the two ways to change section.)
   // global tactical-symbol size (S/M/L), captions, offline cache radius, keep-screen-on —
   // device prefs shared with the landing Einstellungen (see useDevicePrefs; lazy loadPrefs
   // seed). Their persistence rides the mode/activePlanId effect below.
@@ -700,10 +696,9 @@ export function IncidentWorkspace({
     return () => document.documentElement.classList.remove('slim-tools')
   }, [slimRail])
 
-  // #10: the flat nav order (matches NavRail) — map, EACH plan doc, then the four sections. A swipe
-  // steps one destination at a time, so it walks through the modules individually instead of
-  // collapsing to whatever plan was last open (the Gebäude). Same target list for both the
-  // non-canvas content-swipe and the phone canvas edge-swipe.
+  // the flat nav order (matches NavRail) — map, EACH plan doc, then the four sections. The `nav`
+  // hotkey steps one destination at a time, so it walks through the modules individually instead
+  // of collapsing to whatever plan was last open (the Gebäude).
   const navList = useMemo(() => [
     { mode: 'map' as const },
     ...planDocs.map((d) => ({ mode: 'plans' as const, planId: d.id })),
@@ -716,20 +711,13 @@ export function IncidentWorkspace({
     const cur = navList.findIndex((n) => n.mode === mode && (n.mode !== 'plans' || n.planId === activePlanId))
     const next = cur >= 0 ? navList[cur + dir] : undefined
     if (!next) return
-    // swiping/stepping to the next section leaves the map exactly as the nav rail does — see
-    // clearMapUi. (Defined further down; this only ever runs from a swipe or a key, never at
-    // render time, same as enterReplay.)
+    // stepping to the next section leaves the map exactly as the nav rail does — see clearMapUi.
+    // (Defined further down; this only ever runs from a key, never at render time, same as
+    // enterReplay.)
     if (next.mode !== mode) clearMapUi()
     if (next.mode === 'plans') { setMode('plans'); setActivePlanId(next.planId) }
     else setMode(next.mode)
   }
-  useSectionSwipe(sectionPagerRef, {
-    enabled: (SWIPE_SECTIONS as readonly string[]).includes(mode),
-    onPrev: () => goToNav(-1), onNext: () => goToNav(1),
-  })
-  // left edge inward-swipe (→) = previous; right edge inward-swipe (←) = next
-  useSectionSwipe(edgeLRef, { enabled: canvasEdge, onPrev: () => goToNav(-1), onNext: () => goToNav(1) })
-  useSectionSwipe(edgeRRef, { enabled: canvasEdge, onPrev: () => goToNav(-1), onNext: () => goToNav(1) })
   // if the active plan vanished, fall back to the first available plan so the sidebar stays
   // in sync — BUT don't bump away from a remembered plan that's merely still loading: module
   // PDFs are filtered out of planDocs until their backend URL arrives, so a restored 'modul6'
@@ -1536,6 +1524,20 @@ export function IncidentWorkspace({
     toast(fillTemplate(appConfig.copy.toast.audioSaved, { secs }), { icon: 'mic', tone: 'success' })
   })
   const startVoiceMemo = () => { voiceStartCtx.current = { onPlan: mode === 'plans', planId: activePlanId }; void voice.start() }
+
+  // «Eintrag» hold released over «Foto» (see lib/useHoldEntry): straight to the camera, no
+  // composer in between — the picture IS the entry. The row is stamped at the moment of the
+  // GESTURE, not of the shot: framing and confirming a photo takes half a minute, and the
+  // Verlauf should say when you reached for the camera. The composer's own timestamp works the
+  // same way (composerOpenedAt).
+  const photoInputRef = useRef<HTMLInputElement>(null)
+  const startQuickPhoto = () => { composerOpenedAt.current = new Date().toISOString(); photoInputRef.current?.click() }
+  const onQuickPhotoPicked = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = [...(e.target.files ?? [])]
+    e.target.value = '' // the same file twice in a row must still fire
+    if (!files.length) return
+    addJournal({ text: '', pin: false, photoUrls: files.map((f) => URL.createObjectURL(f)) })
+  }
 
   // Every path through here ends the "I am reading this object" state — reaching for a tool means
   // you are done with the detail panel, exactly as it has always worked for a note (see the
@@ -2463,10 +2465,6 @@ export function IncidentWorkspace({
   return (
     <div className={`app mode-${mode}${phoneTools ? ' phone-tools' : ''}${mapUtility ? ' map-util' : ''}${mapUI ? ` maptool-${tool}` : ''} ${(tool === 'symbol' && pending) || (tool === 'shape' && pendingShape) ? 'placing' : ''}`}>
       <IconSprite />
-      {/* #10 phase 2: phone-only edge-swipe strips over the map/plan canvas — swipe inward from a
-          screen edge to change section (the canvas keeps its pan/zoom everywhere else). */}
-      {canvasEdge && <div className="edge-swipe edge-swipe-l" ref={edgeLRef} aria-hidden />}
-      {canvasEdge && <div className="edge-swipe edge-swipe-r" ref={edgeRRef} aria-hidden />}
       <AtemschutzAlarmHost trupps={trupps} muted={atemschutzMuted} active={!replayActive}
         logAlarm={logTruppAlarm} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
 
@@ -2630,6 +2628,8 @@ export function IncidentWorkspace({
           : undefined}
         onHoldStart={linkScoped ? undefined : startVoiceMemo}
         onHoldEnd={linkScoped ? undefined : voice.stop}
+        onHoldPhoto={linkScoped ? undefined : startQuickPhoto}
+        onHoldCancel={linkScoped ? undefined : voice.cancel}
         onUndo={mode === 'plans' ? () => planHist.current?.undo() : undo}
         onRedo={mode === 'plans' ? () => planHist.current?.redo() : redo}
         canUndo={mode === 'plans' ? planCan.canUndo : canUndo}
@@ -3196,8 +3196,11 @@ export function IncidentWorkspace({
                     saved-views menu (Nach Norden · Einpassen · Standort · Koordinaten · saved
                     framings · Ansicht speichern). */}
                 <MapViewsButton api={viewsApi} bearing={view.bearing} readOnly={readOnly} variant="rail" btnClassName="vrail-nbtn vrail-views" activeClassName="on" glyphClassName="vrail-compass" label={appConfig.copy.mapViews.title} open={viewsOpen} onOpenChange={toggleViews} coordsOn={coord.mode !== 'off'} onToggleCoords={coord.cycle} />
-                <button className="vrail-nbtn" title={c.zoomOut} aria-label={c.zoomOut} onClick={() => mapRef.current?.zoomOut()}><span className="vrail-glyph"><Icon id="minus" /></span><span className="vrail-label">{c.zoomOut}</span></button>
-                <button className="vrail-nbtn" title={c.zoomIn} aria-label={c.zoomIn} onClick={() => mapRef.current?.zoomIn()}><span className="vrail-glyph"><Icon id="plus" /></span><span className="vrail-label">{c.zoomIn}</span></button>
+                {/* zoom ±: desktop only (.vrail-zoom is hidden under 1024px). Every touch form
+                    factor pinches, and on a tablet the two buttons cost rail space that the
+                    tools above need more. */}
+                <button className="vrail-nbtn vrail-zoom" title={c.zoomOut} aria-label={c.zoomOut} onClick={() => mapRef.current?.zoomOut()}><span className="vrail-glyph"><Icon id="minus" /></span><span className="vrail-label">{c.zoomOut}</span></button>
+                <button className="vrail-nbtn vrail-zoom" title={c.zoomIn} aria-label={c.zoomIn} onClick={() => mapRef.current?.zoomIn()}><span className="vrail-glyph"><Icon id="plus" /></span><span className="vrail-label">{c.zoomIn}</span></button>
               </>
             )
           })()}
@@ -3382,8 +3385,6 @@ export function IncidentWorkspace({
         />
       )}
 
-      {(SWIPE_SECTIONS as readonly string[]).includes(mode) && (
-      <div className="section-pager" ref={sectionPagerRef}>
       {mode === 'checklists' && (
         <ChecklistsView
           checklists={checklists}
@@ -3495,8 +3496,6 @@ export function IncidentWorkspace({
           captureUsage={captureUsage}
         />
       )}
-      </div>
-      )}
 
       {/* time-travel replay scrubber — read-only past view, owns the playhead + fold */}
       {replayActive && (
@@ -3587,6 +3586,9 @@ export function IncidentWorkspace({
           events={timeline}
           readOnly={readOnly}
           initialSeekSec={player.seekSec}
+          // the same vocabulary the composer gets — «Eintrag an dieser Stelle» writes into the
+          // same Verlauf, so it completes and marks names identically
+          vocab={journalVocab}
           onAddEntry={!readOnly ? addPlayerEntry : undefined}
           onPatchEntry={!readOnly ? (rowId, text) => journal.appendPatch(rowId, { textEdit: text }) : undefined}
           onRetractEntry={!readOnly ? (rowId) => {
@@ -3685,9 +3687,16 @@ export function IncidentWorkspace({
           onTap={() => setComposerOpen(true)}
           onHoldStart={startVoiceMemo}
           onHoldStop={voice.stop}
+          onHoldPhoto={startQuickPhoto}
+          onHoldCancel={voice.cancel}
         />
       )}
 
+      {/* the camera behind the hold gesture's «Foto» target — one hidden input for both the
+          TopBar button and the phone FAB, so there is exactly one quick-photo path */}
+      {!readOnly && !linkScoped && (
+        <input ref={photoInputRef} type="file" accept="image/*" capture="environment" multiple hidden onChange={onQuickPhotoPicked} />
+      )}
     </div>
   )
 }

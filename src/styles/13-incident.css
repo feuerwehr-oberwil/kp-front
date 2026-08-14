@@ -105,22 +105,9 @@
 .ip-menu-rowmain:hover, .ip-menu-act:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); }
 .ip-menu-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ip-menu-sub { font: 500 12px var(--body); color: var(--ink-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* #10: event anchor for section swipe — wraps the non-canvas surfaces so a horizontal drag
-   bubbles to the pager handler. Fills the app so a swipe registers anywhere on the surface; the
-   child views keep their own absolute inset/z-index (rendered relative to this box). */
-/* touch-action pan-y: the browser keeps vertical scrolling but hands us horizontal gestures, so a
-   sideways drag fires pointermove (instead of ending in pointercancel as an assumed scroll). An
-   ancestor's touch-action restricts descendants, so this covers the scrollable views inside. */
-.section-pager { position: absolute; inset: 0; z-index: 20; touch-action: pan-y; }
-/* #10 phase 2: thin phone-only edge strips over the map/plan canvas that catch an inward swipe to
-   change section. Kept narrow so normal map/plan panning (from the middle) is unaffected. z-index
-   MUST sit above the Plan whiteboard (z-20, absolute inset:0 — it would otherwise swallow these
-   edge touches so only the map worked) but below the tool docks/controls (z-28+) so those still
-   win where they overlap. touch-action:none so the browser doesn't treat the drag as a scroll. */
-.edge-swipe { position: fixed; top: calc(96px + env(safe-area-inset-top)); bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom));
-  width: 22px; z-index: 24; touch-action: none; }
-.edge-swipe-l { left: 0; }
-.edge-swipe-r { right: 0; }
+/* (.section-pager and the phone .edge-swipe strips are gone — 2026-08-14, with swipe-to-page
+   itself. The section views carry their own absolute inset/z-index, so they never needed the
+   wrapper for layout.) */
 
 .ip-menu-sep { height: 1px; background: var(--glass-edge); margin: 4px; }
 /* tight variant: isolates a single terminal action (Einsatz abschliessen) without the full gap */
@@ -370,6 +357,12 @@
 .empty-state-sub { font: 500 13px var(--body); color: var(--ink-faint); max-width: 36ch; line-height: 1.45; }
 .empty-state-act { margin-top: 12px; display: flex; gap: 8px; align-self: stretch; }
 .empty-state-act .ip-btn { flex: 1; justify-content: center; }
+/* …but NOT on a full-surface empty state. `stretch` is right inside a card, where the CTA is as
+   wide as the text above it; on Mittel/Anwesenheit/Checklists the container is the whole screen,
+   so «+ Mittel» came out as a metre-wide bar under one short line. Content width there, centred
+   under the headline. Height is untouched — it still has to be hit with a glove. */
+.empty-state.empty-fill .empty-state-act { align-self: center; }
+.empty-state.empty-fill .empty-state-act .ip-btn { flex: 0 0 auto; }
 .ip-hist, .ip-ds {
   display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: var(--r-ctl);
   background: var(--surface-veil); box-shadow: var(--shadow-sm);
@@ -1014,6 +1007,23 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 /* the ✕ is a control on this row, so it obeys the row's floor — .ip-x is a 30px dialog affordance
    and this is a page you leave with gloves on */
 .rp-head .ip-x { display: grid; place-items: center; width: var(--tap); height: var(--tap); }
+/* The Abschluss-Band: shown under the head once the rapport has been produced and nothing is
+   left open, saying that the Einsatz itself is still on the open list (see ReportPreflight).
+   Deliberately a BAND and not a dialog — it is the one thing on this surface that interrupts
+   nothing: the head above it and the form below it both keep working, and «Später» removes it.
+   Green, because nothing here is wrong: the work is done, this is the receipt. It follows the
+   head's 22px so its text starts on the same line the title does. */
+.rp-band { flex: none; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 11px 22px; border-bottom: 1px solid var(--glass-edge);
+  background: color-mix(in srgb, var(--green) 9%, var(--surface)); }
+.rp-band-ok { width: 17px; height: 17px; flex: none; color: var(--green-strong); }
+/* takes the row and lets the buttons keep their size — below ~600px they wrap under the text
+   rather than squeezing it to two words per line */
+.rp-band-txt { flex: 1 1 260px; min-width: 0; font-size: 13px; color: var(--ink); }
+.rp-band-txt b { font-weight: 800; }
+/* shorter than the head's --tap controls: this is a suggestion sitting under the row that holds
+   the real actions, and matching their height would make it read as a third pair of buttons */
+.rp-band .ip-btn { min-height: 38px; }
 /* Content padding matches the head's 22px, so the cards line up with the title above them
    (`.ip-body`'s own 6px/20px is a dialog's, and left the first card glued to the head border).
    The bottom clears the FAB the way Anwesenheit, Mittel, Atemschutz, Checklists and Zeitplan all

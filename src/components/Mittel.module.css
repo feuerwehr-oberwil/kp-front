@@ -57,8 +57,6 @@
     column-gap: 22px; align-content: start; align-items: start;
   }
   .list > .group:nth-child(-n+2) { margin-top: 4px; }
-  /* «Anderes Mittel» closes the list, not one column of it */
-  .list > .addCustom { grid-column: 1 / -1; }
 }
 /* padding-left aligns the header label with the item labels inside the cards
    (card border 1px + row padding-left 12px) */
@@ -111,12 +109,73 @@
 .dialogRow { display: flex; gap: 10px; align-items: flex-start; }
 .dialogRow > * { flex: 1 1 0; min-width: 0; }
 
-/* trailing «Anderes Mittel» row — the composer path for free-typed entries */
-.addCustom { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%;
-  min-height: 48px; margin-top: 12px; cursor: pointer; border: 1px dashed var(--glass-edge);
-  background: none; border-radius: var(--r-sm); color: var(--ink-dim); font: 700 13px var(--body); }
+/* the search line over the list — geometry copied from Anwesenheit.module.css so the two
+   surfaces read as one pattern (search grows, chips and the add button keep their width, the
+   row wraps rather than truncating anything). */
+/* gap 8 — see the note on .controls in Anwesenheit.module.css: this line is --tap squares now */
+.controls { display: flex; align-items: center; gap: 8px; padding: 12px 22px; flex-wrap: wrap; }
+.search { flex: 1 1 240px; display: flex; align-items: center; gap: 8px; min-width: 0;
+  border: 1px solid var(--glass-edge); background: var(--surface); border-radius: var(--r-ctl); padding: 0 12px; min-height: var(--tap); }
+.search svg { width: 16px; height: 16px; color: var(--ink-faint); flex: none; }
+.search input { flex: 1 1 auto; min-width: 0; border: none; background: none; outline: none; color: var(--ink); font: 500 15px var(--body); padding: 10px 0; }
+.searchClear { border: none; background: none; cursor: pointer; color: var(--ink-faint); padding: 4px; display: grid; place-items: center; }
+.searchClear:hover { color: var(--ink); }
+.searchClear svg { width: 15px; height: 15px; }
+.controls > :global(.useg) { flex: none; }
+
+/* «Anderes Mittel» — a square + on the search line. It used to close the LIST, which meant
+   scrolling a full catalogue to reach the one thing the catalogue does not have. Dashed border
+   and the shared --tap size, exactly like the Anwesenheit's «Weitere Person». */
+.addCustom { display: flex; align-items: center; justify-content: center; flex: none;
+  width: var(--tap); min-width: var(--tap); min-height: var(--tap); padding: 0; cursor: pointer;
+  border: 1px dashed var(--glass-edge); background: none; border-radius: var(--r-ctl); color: var(--ink-dim); }
 .addCustom:hover { color: var(--ink); border-color: var(--ink-faint); }
-.addCustom svg { width: 15px; height: 15px; }
+.addCustom svg { width: 18px; height: 18px; }
+
+/* the category filter + its dropdown — the same control the Anwesenheit uses for Grad, down to
+   the class names, so the two surfaces' search lines are one pattern rather than two. */
+.iconBtn {
+  position: relative; flex: none; display: inline-grid; place-items: center;
+  min-width: var(--tap); min-height: var(--tap); padding: 0 8px;
+  border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface);
+  color: var(--ink-dim); cursor: pointer; -webkit-tap-highlight-color: transparent;
+  grid-auto-flow: column; gap: 6px;
+}
+/* :not(.iconBtnOn) — hover must never override the ON state; after a tap the pointer (or, on
+   touch, the sticky hover a tap leaves behind) is still on the button. Same rule as Anwesenheit. */
+.iconBtn:hover:not(.iconBtnOn):not(:disabled) { color: var(--ink); border-color: var(--ink-faint); }
+.iconBtn:disabled { opacity: var(--disabled); cursor: default; }
+.iconBtn svg { width: 16px; height: 16px; }
+.iconBtnOn {
+  border-color: color-mix(in srgb, var(--blue) 50%, transparent);
+  background: color-mix(in srgb, var(--blue) 14%, transparent);
+  color: var(--blue-strong);
+}
+.iconBtnOn:hover {
+  border-color: color-mix(in srgb, var(--blue) 70%, transparent);
+  background: color-mix(in srgb, var(--blue) 20%, transparent);
+}
+/* a DOT, not the category name — see the note on .filterDot in Anwesenheit.module.css: a label
+   that appears when a filter is set changes the button's width and re-anchors the dropdown */
+.filterDot { position: absolute; top: 5px; right: 5px; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--blue); box-shadow: 0 0 0 2px var(--surface); pointer-events: none; }
+.iconBtnOn .filterDot { box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue) 14%, var(--surface)); }
+/* height capped + scrollable for the same reason as the Anwesenheit's (see there): a station
+   with many categories makes a menu taller than the screen, and a too-tall popup is
+   repositioned, never trimmed. */
+.menuPop {
+  min-width: 190px; max-width: min(320px, 92vw);
+  max-height: var(--available-height, 70dvh); overflow-y: auto; overscroll-behavior: contain;
+  padding: 6px; border-radius: var(--r-ctl);
+  background: var(--surface); box-shadow: var(--shadow); border: 1px solid var(--glass-edge);
+  z-index: 60;
+}
+.menuItem {
+  display: flex; align-items: center; gap: 9px; width: 100%; min-height: var(--tap);
+  padding: 0 11px; border-radius: var(--r-sm); cursor: pointer;
+  font: 600 13.5px var(--body); color: var(--ink); outline: none;
+}
+.menuItem[data-highlighted] { background: color-mix(in srgb, var(--ink) 8%, transparent); }
 
 /* equipment rows stack the main line over the Retablierung chips */
 .rowTall { flex-direction: column; align-items: stretch; gap: 4px; }
@@ -154,6 +213,10 @@
   .headActions :global(.useg-btn) { flex: 1 1 0; }
   .headTitles h2 { font-size: 17px; }
   .headTitles p { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* ONE row of chrome above the list: field + filter + add, all at --tap. (The category chips
+     that used to wrap to three rows here are a dropdown now — see .iconBtn.) */
+  .controls { gap: 8px; padding: 10px 14px; }
+  .search { flex: 1 1 120px; }
   .composerFields { gap: 10px; }
   .field { flex: 1 1 100%; }
   .fieldNarrow { flex: 1 1 calc(50% - 5px); }

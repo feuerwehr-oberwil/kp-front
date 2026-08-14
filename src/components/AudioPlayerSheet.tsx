@@ -7,6 +7,8 @@ import { fillTemplate } from '../lib/format'
 import { ApiError, apiGet, apiPatch, apiPost } from '../lib/api'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
 import { acceptPhrase, suggestPhrases, type PhraseMatch } from '../lib/quickPhrases'
+import { acceptName, suggestLinks } from '../lib/journalEntry'
+import { linkParts, type JournalLink } from '../lib/journalLinks'
 import {
   audioWindowOf,
   clockTicks,
@@ -107,10 +109,13 @@ function useStt(audioUrl: string | undefined, enabled: boolean) {
 // The Durchhören sheet: the recording as a window on the incident timeline. Markers are
 // derived — every Verlauf row whose time falls into the window — and «Eintrag an dieser
 // Stelle» appends an ordinary journal row at the paused wall-clock instant.
-export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onPatchEntry, onRetractEntry, initialSeekSec, onClose }: {
+export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onPatchEntry, onRetractEntry, initialSeekSec, onClose, vocab = [] }: {
   row: TimelineEvent
   events: TimelineEvent[]
   readOnly: boolean
+  /** everything this Einsatz has words for — same list the composer gets (lib/journalLinks ·
+   *  journalVocabulary), so «Eintrag an dieser Stelle» completes and marks names identically */
+  vocab?: JournalLink[]
   /** append a journal row at the given absolute time; returns the created row id */
   onAddEntry?: (text: string, atIso: string, quiet?: boolean) => string
   /** append a text correction patch for a row this player created (append-only edit) */
@@ -321,17 +326,28 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onPatchEnt
   const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => { if (dragging.current) seekFromPointer(e) }
   const onPointerUp = () => { dragging.current = false }
 
-  // ---- «Eintrag an dieser Stelle» (with the composer's Textbausteine autocomplete)
+  // ---- «Eintrag an dieser Stelle» — the SAME writing aids as the composer: Textbausteine,
+  // name completion from this Einsatz's vocabulary, and the backdrop that marks what is already
+  // in the text. An entry typed here lands in the same Verlauf as one typed in the composer, so
+  // it has to spell names the same way; two fields writing into one journal with different
+  // spelling help is how «Baumann» / «Bauman» ends up in the same record.
   const [text, setText] = useState('')
   const quickPhrases = getDeploymentConfig().journal?.quickPhrases?.length
     ? getDeploymentConfig().journal!.quickPhrases!
     : appConfig.journal.quickPhrases
   const suggestions = useMemo(() => suggestPhrases(text, quickPhrases), [text, quickPhrases])
+  const nameHits = useMemo(() => suggestLinks(text, vocab), [text, vocab])
+  const parts = useMemo(() => linkParts(text, vocab), [text, vocab])
   const inputRef = useRef<HTMLInputElement>(null)
-  const accept = (m: PhraseMatch) => {
-    setText((t) => acceptPhrase(t, m.phrase, m.frag))
-    requestAnimationFrame(() => inputRef.current?.focus())
-  }
+  const marksRef = useRef<HTMLDivElement>(null)
+  const refocus = () => requestAnimationFrame(() => {
+    const el = inputRef.current
+    if (!el) return
+    el.focus()
+    el.setSelectionRange(el.value.length, el.value.length)
+  })
+  const accept = (m: PhraseMatch) => { setText((t) => acceptPhrase(t, m.phrase, m.frag)); refocus() }
+  const takeName = (name: string) => { setText((t) => acceptName(t, name)); refocus() }
   const sendEntry = () => {
     const body = text.trim()
     if (!body || !win || !onAddEntry) return
@@ -410,20 +426,45 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onPatchEnt
             <div className="ap-add">
               <span className="ap-add-label"><Icon id="type" />{C.playerEntryHere}<em>{wallClockAt(win, cur)}</em></span>
               <div className="ap-add-row">
-                <input
-                  ref={inputRef}
-                  value={text}
-                  placeholder={C.playerEntryPlaceholder}
-                  onChange={(e) => setText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') sendEntry()
-                    else if (e.key === 'Tab' && suggestions.length > 0) { e.preventDefault(); accept(suggestions[0]) }
-                  }}
-                />
+                {/* the marks backdrop, exactly as in the composer: the same text painted behind
+                    a see-through field so only the <mark> spans show. Both layers must share
+                    font, padding and border or the colours drift off their words. */}
+                <div className="ap-add-field">
+                  <div className="ap-add-marks" ref={marksRef} aria-hidden>
+                    {parts.map((p, i) => (p.kind
+                      ? <mark key={i} className={`jc-mark-${p.kind}`}>{p.text}</mark>
+                      : <span key={i}>{p.text}</span>))}
+                  </div>
+                  <input
+                    ref={inputRef}
+                    value={text}
+                    placeholder={C.playerEntryPlaceholder}
+                    onChange={(e) => setText(e.target.value)}
+                    onScroll={(e) => { if (marksRef.current) marksRef.current.scrollLeft = e.currentTarget.scrollLeft }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') sendEntry()
+                      // Tab takes the top suggestion — a NAME first when one is offered, because
+                      // that is the word you are mid-way through (same rule as the composer)
+                      else if (e.key === 'Tab' && (nameHits.length > 0 || suggestions.length > 0)) {
+                        e.preventDefault()
+                        if (nameHits.length > 0) takeName(nameHits[0].name)
+                        else accept(suggestions[0])
+                      }
+                    }}
+                  />
+                </div>
                 <button className="ap-send" disabled={!text.trim()} onClick={sendEntry}><Icon id="check" />{C.send}</button>
               </div>
-              {suggestions.length > 0 && (
+              {(nameHits.length > 0 || suggestions.length > 0) && (
                 <div className="jc-phrases" role="group" aria-label={C.quickPhrasesAria}>
+                  {nameHits.map((n) => (
+                    <button
+                      key={`n:${n.kind}:${n.id ?? n.name}`}
+                      className={`jc-phrase jc-phrase-link jc-link-${n.kind}`}
+                      onPointerDown={(e) => e.preventDefault()}
+                      onClick={() => takeName(n.name)}
+                    >{n.name}</button>
+                  ))}
                   {suggestions.map((m) => (
                     <button key={m.phrase} className="jc-phrase" onPointerDown={(e) => e.preventDefault()} onClick={() => accept(m)}>{m.phrase}</button>
                   ))}

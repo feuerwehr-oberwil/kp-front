@@ -51,7 +51,12 @@
 .navrail:not(.expanded) .nav-exp, .navrail.dragging .nav-exp { justify-content: center; }
 .nav-exp:hover { background: var(--hover); color: var(--ink); }
 .nav-exp-ic { width: 46px; min-width: 46px; display: grid; place-items: center; }
-.nav-exp .i { width: 18px; height: 18px; transition: transform .2s var(--ease); }
+/* ⚠️ 22px, the SAME as .nav-glyph .i. Both sit centred in a shared glyph column (46px
+   collapsed, 26px expanded), so an 18px chevron was centred 2px inboard of every icon under
+   it — the whole column lined up except its first row. The right rail does not have this
+   problem because its expanded glyph boxes shrink to the icon and pack against the rail's
+   right edge, which aligns their edges rather than their centres. */
+.nav-exp .i { width: 22px; height: 22px; transition: transform .2s var(--ease); }
 .navrail.expanded .nav-exp .i { transform: rotate(180deg); }
 .nav-exp-t { display: none; }
 .navrail.expanded:not(.dragging) .nav-exp-t { display: inline; }

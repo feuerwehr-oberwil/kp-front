@@ -28,6 +28,11 @@ function useAudioPlayer() {
   return { playing, toggle }
 }
 
+/** Breathing room, in px, at each end of the activity strip. THE source of truth for it: the
+ *  track is inset by this and the tap→time maths subtracts it, so the two cannot drift apart
+ *  and leave a tap landing a few minutes off what the ticks show. */
+const STRIP_INSET = 10
+
 // A row is clickable only when it carries a real jump target: a map entity, a
 // pinned map point, or a plan point. Plain log lines (undo/redo, deletions,
 // surface-only journal notes) are read-only — the journal is a record, not a UI.
@@ -171,8 +176,12 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
             aria-label={C.stripLabel}
             aria-valuemin={0} aria-valuemax={100} aria-valuenow={0}
             onPointerDown={(ev) => {
+              // …against the TRACK, not the strip: the ticks are inset by STRIP_INSET, so a tap
+              // on the strip's rounded end has to land on the first tick and not somewhere
+              // before it. Same inset on both, from the one constant.
               const box = ev.currentTarget.getBoundingClientRect()
-              const frac = Math.min(1, Math.max(0, (ev.clientX - box.left) / box.width))
+              const span = Math.max(1, box.width - STRIP_INSET * 2)
+              const frac = Math.min(1, Math.max(0, (ev.clientX - box.left - STRIP_INSET) / span))
               jumpTo(stripSpan.from + frac * (stripSpan.to - stripSpan.from))
             }}
             onKeyDown={(ev) => {
@@ -181,9 +190,15 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
               if (ev.key === 'ArrowLeft') { ev.preventDefault(); jumpTo(stripSpan.from + step * --strideRef.current) }
             }}
           >
-            {stripTicks.map((t, i) => (
-              <i key={i} style={{ left: `${((t - stripSpan.from) / (stripSpan.to - stripSpan.from)) * 100}%` }} />
-            ))}
+            {/* the ticks live on an INSET track. Positioned against the strip itself, the first
+                and last tick sat on its rounded ends — half-swallowed by the corner radius and
+                the inset hairline, so the two moments that bracket the whole Einsatz were the
+                two you could not see. */}
+            <div className="jr-strip-track" style={{ insetInline: STRIP_INSET }}>
+              {stripTicks.map((t, i) => (
+                <i key={i} style={{ left: `${((t - stripSpan.from) / (stripSpan.to - stripSpan.from)) * 100}%` }} />
+              ))}
+            </div>
           </div>
         )}
         <div className="history-list" ref={listRef}>

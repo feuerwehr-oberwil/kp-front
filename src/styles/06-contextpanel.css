@@ -95,7 +95,12 @@
    one-tap access (the reason the threshold is generous in the first place — a doctrine list must
    not hide behind a dropdown), no well pretending to be a track. */
 .useg:has(> :nth-child(5)) { background: none; padding: 0; gap: 6px; }
-.useg:has(> :nth-child(5)) > .useg-btn { border: 1px solid var(--glass-edge); background: var(--surface); }
+/* ⚠️ min-height back up to the FULL --tap. In track mode the control measures 44px as 3px of
+   padding around a 38px option; dropping the padding for chips left the chips themselves at
+   38px, so the same control was 6px shorter as chips than as a track — which is why the rank
+   filter beside the Anwesenheit search sat lower than the search field it belongs to. The chip
+   IS the control here, so it carries the whole tap target. */
+.useg:has(> :nth-child(5)) > .useg-btn { border: 1px solid var(--glass-edge); background: var(--surface); min-height: var(--tap); }
 .useg:has(> :nth-child(5)) > .useg-btn:hover:not(.on):not(:disabled) { border-color: var(--ink-faint); }
 /* ⚠️ The chip rule above sets `background: var(--surface)` at a HIGHER specificity than
    `.useg-btn.on`, so the active chip lost the blue fill but KEPT `color: var(--on-fill)` — white

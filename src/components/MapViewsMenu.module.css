@@ -60,12 +60,16 @@
 .mini :global(.i) { width: 16px; height: 16px; }
 
 .sep { height: 1px; background: rgba(255, 255, 255, .15); margin: 5px 4px; }
-.empty { padding: 6px 10px 10px; font-size: 12.5px; line-height: 1.4; color: rgba(255, 255, 255, .6); }
+/* ⚠️ 8px, the same inset the row labels carry (.go/.north/.save) — and the same the inline
+   help text below carries (DockInfo · .wb-dock-tip-inline). The two prose blocks in this
+   popover sat at 10px and 2px, so one paragraph started six pixels right of the other. */
+.empty { padding: 6px 8px 10px; font-size: 12.5px; line-height: 1.4; color: rgba(255, 255, 255, .6); }
 
 .editing { padding: 0 8px; gap: 10px; }
 .input { flex: 1 1 auto; min-width: 0; height: 34px; padding: 0 8px; font: inherit; font-size: 14px;
   color: var(--on-accent-ink); background: rgba(255, 255, 255, .1);
   border: 1px solid rgba(255, 255, 255, .3); border-radius: var(--r-sm); outline: none; }
 
-/* the ⓘ sits bottom-right, like the dock's trailing info affordance */
-.foot { display: flex; justify-content: flex-end; padding: 1px 2px 0; }
+/* the ⓘ sits bottom-right, like the dock's trailing info affordance — flush to the popover's
+   own padding, exactly as the close button does at the head (.head) */
+.foot { display: flex; justify-content: flex-end; padding: 1px 0 0; }

@@ -13,6 +13,10 @@ export interface VoiceMemo {
   start: () => Promise<void>
   /** tap-to-stop; if the mic grant is still pending, stops as soon as it arrives */
   stop: () => void
+  /** THROW the memo away — no clip, no journal row, mic released. The hold gesture starts
+   *  recording the moment it latches; sliding onto «Foto» instead has to undo that, and a
+   *  two-second clip of somebody deciding is not a record of anything. */
+  cancel: () => void
 }
 
 /**
@@ -59,6 +63,19 @@ export function useVoiceMemo(onClip: (clip: { url: string; secs: number }) => vo
     } catch { toast(appConfig.copy.toast.micDenied, { icon: 'mic', tone: 'warn' }) }
   }
   const stop = () => { if (recRef.current?.rec.state === 'recording') recRef.current.rec.stop(); else stopWhenReady.current = true }
+  // same teardown as the unmount effect: drop `onstop` FIRST so no clip is emitted, then stop
+  // the recorder and release the mic. `stopWhenReady` is cleared too, or a grant that lands
+  // after the cancel would start a recording nobody asked for.
+  const cancel = () => {
+    stopWhenReady.current = false
+    const r = recRef.current?.rec
+    recRef.current = null
+    setRecording(false); setRecStartedAt(null)
+    if (!r) return
+    r.onstop = null
+    try { if (r.state !== 'inactive') r.stop() } catch { /* already stopped */ }
+    r.stream?.getTracks().forEach((t) => t.stop())
+  }
 
-  return { recording, recStartedAt, start, stop }
+  return { recording, recStartedAt, start, stop, cancel }
 }
