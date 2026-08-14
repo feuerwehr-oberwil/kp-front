@@ -268,6 +268,23 @@
   .tb-az { gap: 5px; padding: 6px 9px; }
   .topbar:has(.tb-az) :is(.tb-act-history, .tb-vr-history) { display: none; }
 
+  /* ── Chrome stays on the SCREEN while the keyboard is up ──
+     The document cannot scroll any more (02-base.css · fixed body), but iOS still PANS the
+     visual viewport to keep a focused field above the keyboard — and everything laid out in the
+     layout viewport, which is all of this chrome, slides up with it. `--vv-pan` is how far that
+     pan has gone (lib/useViewportPan), so translating by it puts the two bars back where they
+     would be with no keyboard at all: the top bar at the top, the nav rail at the bottom, where
+     the keyboard is free to cover it. That is what a native app's tab bar does.
+     ⚠️ CHROME ONLY. Translating the box that contains the caret moves the field back under the
+     keyboard, iOS pans further to reveal it, and round it goes — the loop useKeyboardInset
+     documents. Neither of these two holds a text field.
+     ⚠️ NOT the FAB: it already carries transforms of its own (`:active` scale, the «quiet»
+     step-back while something under it scrolls), and a second `transform` on the same element
+     replaces rather than composes — the circle would snap back to the panned position the moment
+     a thumb touched it. It is a floating action anyway; those ride above a keyboard in native
+     apps too. */
+  .topbar, .navrail { transform: translateY(var(--vv-pan, 0px)); }
+
   /* ── NavRail → bottom bar on a phone ── the SAME surface items, re-laid-out as a
      horizontally-scrollable row in the thumb zone (Karte · M1 M2 … · Checkliste ·
      Atemschutz · object · Ebenen/base). Desktop keeps the vertical left rail. */
