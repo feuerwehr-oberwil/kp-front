@@ -51,6 +51,12 @@ export interface ReportMeta {
    *  shows, and the page shape. Remembered so a reprint (a correction, a second copy for the
    *  Gemeinde) comes out of the same window instead of being framed from scratch. */
   krokiPrint?: { view?: KrokiView; at?: string; landscape?: boolean }
+  /** When a rapport was last produced from this Einsatz (PDF downloaded or print job queued).
+   *  It is what lets the Rapport say «der Einsatz ist noch offen» at the one moment that is
+   *  actually true — the paper exists, everything is filled in, and only the bookkeeping is
+   *  left. In the blob rather than on the device because the Einsatz is worked on from several
+   *  of them: whoever opens the Rapport next should see that the paper has already been made. */
+  reportMadeAt?: string
   /** Gerettete: people / animals (counts; absent ≠ 0 — absent means not recorded) */
   gerettete?: { personen?: number; tiere?: number }
   /** who recorded via the Erfassung (/e/) — comma-separated, each person once */

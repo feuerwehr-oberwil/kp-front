@@ -162,6 +162,10 @@ One JSON document, stored as the single `deployment_config` row, returned by `GE
                                                   // export's editor_opened_at filter, docs/STATS-EXPORT.md
     "autoArchiveDays": 7,                         // archive untouched auto-opened incidents (never any
                                                   // workspace sync) after N days; 0 = sweep off
+    "staleIncidentDays": 30,                      // …and incidents that WERE worked on but never closed,
+                                                  // N days after the last edit. Never stamps report_done_at
+                                                  // (the Rapport was not finished) and stays reversible via
+                                                  // Reaktivieren; the Verlauf records why. 0 = off
     "captureWindowHours": 12,                     // how long the Erfassungs-Poster link (below) reaches
                                                   // an incident after it opened
     "webhooks": [],                               // outbound: POST on every incident creation (payload +

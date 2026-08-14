@@ -8808,6 +8808,12 @@
             "title": "Autoarchivedays",
             "default": 7
           },
+          "staleIncidentDays": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Staleincidentdays",
+            "default": 30
+          },
           "captureWindowHours": {
             "type": "integer",
             "maximum": 168.0,

@@ -4,7 +4,8 @@
 (generic `/api/alarms` intake, the Divera poller and the Einsatz-Link's rescue path all land
 here); manual creation keeps its own endpoint. Auto-opened incidents are marked `auto_opened`
 so the sweep can archive the untouched ones (`workspace_rev == 0`, nobody ever synced a
-workspace) after `alarms.autoArchiveDays`.
+workspace) after `alarms.autoArchiveDays` — and the same sweep clears out incidents that WERE
+worked on but never closed, on their own much longer `alarms.staleIncidentDays` clock.
 
 An alarm opens on arrival, with no human in the loop — so «an incident exists» no longer
 means «the station attended an Einsatz». That line is `Incident.editor_opened_at`: stamped on
@@ -13,6 +14,7 @@ Einsatz-Link responder is one). Unconfirmed incidents stay out of the stats expo
 """
 
 import logging
+import uuid
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
@@ -202,14 +204,30 @@ async def create_incident_from_alarm(
 
 
 async def auto_archive_sweep(db: AsyncSession) -> int:
-    """Archive auto-opened incidents nobody ever touched (`workspace_rev == 0`) once they
-    are older than `alarms.autoArchiveDays`. Human-created incidents are never swept."""
+    """Archive the incidents nobody is coming back to. Two clocks, deliberately separate.
+
+    * ``alarms.autoArchiveDays`` — auto-opened incidents nobody ever touched
+      (``workspace_rev == 0``): alarm noise, nothing was ever recorded on them. Human-created
+      incidents are never swept by this clock, however empty they are.
+    * ``alarms.staleIncidentDays`` — incidents that WERE worked on and then never closed.
+      Closing is a deliberate act, and an operator who does not know it exists never performs
+      it, so these accumulate forever. Much longer clock, because this one sweeps real work.
+
+    Both archive REVERSIBLY (Reaktivieren) and neither stamps ``report_done_at``: the Rapport
+    was not finished, and the record must never claim otherwise. Each carries its own Verlauf
+    row saying which clock ran out — an Einsatz that vanishes off the list without a word is
+    the failure mode this whole sweep must not have.
+    """
     cfg = await get_alarms_config(db)
-    if cfg.autoArchiveDays <= 0:
-        return 0
-    cutoff = datetime.now(UTC) - timedelta(days=cfg.autoArchiveDays)
-    rows = list(
-        (
+    now = datetime.now(UTC)
+    # (incident, why) — one list so a single pass writes the audit trail for both clocks, and
+    # so an untouched incident old enough for BOTH is archived once, by the clock that names it
+    # most precisely (`seen` keeps the first, i.e. the untouched one).
+    rows: list[tuple[Incident, str]] = []
+    seen: set[uuid.UUID] = set()
+    if cfg.autoArchiveDays > 0:
+        cutoff = now - timedelta(days=cfg.autoArchiveDays)
+        untouched = (
             await db.execute(
                 select(Incident).where(
                     Incident.is_archived.is_(False),
@@ -219,15 +237,35 @@ async def auto_archive_sweep(db: AsyncSession) -> int:
                 )
             )
         ).scalars()
-    )
+        for inc in untouched:
+            seen.add(inc.id)
+            rows.append((inc, "Einsatz automatisch archiviert (nicht verwendet)"))
+    if cfg.staleIncidentDays > 0:
+        # `updated_at`, not `started_at`: the question is when anybody last did anything with
+        # this Einsatz, not how long ago it was alarmed. A month-old Einsatz that somebody
+        # corrected yesterday is still being worked on.
+        cutoff = now - timedelta(days=cfg.staleIncidentDays)
+        stale = (
+            await db.execute(
+                select(Incident).where(
+                    Incident.is_archived.is_(False),
+                    Incident.updated_at < cutoff,
+                )
+            )
+        ).scalars()
+        for inc in stale:
+            if inc.id in seen:
+                continue
+            seen.add(inc.id)
+            rows.append((inc, f"Einsatz automatisch archiviert ({cfg.staleIncidentDays} Tage ohne Bearbeitung)"))
     if not rows:
         return 0
     from .api.journal import append_system_row  # lazy — service module must not pull the API layer at import
 
-    for inc in rows:
+    for inc, why in rows:
         inc.is_archived = True
         if inc.closed_at is None:
-            inc.closed_at = datetime.now(UTC)
+            inc.closed_at = now
         await audit.append_event(
             db,
             incident_id=inc.id,
@@ -236,6 +274,6 @@ async def auto_archive_sweep(db: AsyncSession) -> int:
             user_id=None,
             payload={"archived": True, "auto": True},
         )
-        await append_system_row(db, inc.id, icon="flag", text="Einsatz automatisch archiviert (nicht verwendet)")
-    logger.info("Auto-archive sweep: %d untouched incident(s) archived", len(rows))
+        await append_system_row(db, inc.id, icon="flag", text=why)
+    logger.info("Auto-archive sweep: %d incident(s) archived", len(rows))
     return len(rows)

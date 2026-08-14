@@ -210,8 +210,9 @@ class Settings(BaseSettings):
     # Public origin of this deployment (e.g. https://front.example.org) — used to compose
     # absolute links in outbound webhooks (capture URL on the alarm slip). Empty = links omitted.
     public_url: str = ""
-    # Auto-archive sweep cadence for untouched auto-opened incidents (the day threshold
-    # itself is deployment config: alarms.autoArchiveDays).
+    # Auto-archive sweep cadence (the day thresholds themselves are deployment config:
+    # alarms.autoArchiveDays for untouched auto-opened incidents, alarms.staleIncidentDays
+    # for the ones that were worked on and never closed).
     auto_archive_check_seconds: int = 3600
 
     # --- Station print relay ---

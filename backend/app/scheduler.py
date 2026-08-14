@@ -352,7 +352,9 @@ async def start_scheduler(app: FastAPI) -> None:
             coalesce=True,
         )
         jobs.append(f"print-job sweep ({PRINT_JOB_SWEEP_SECONDS}s)")
-    # Always on: a cheap no-op unless auto-opened incidents exist AND alarms.autoArchiveDays > 0.
+    # Always on: a cheap no-op unless there is something for one of its two clocks to sweep
+    # (alarms.autoArchiveDays for untouched auto-opened ones, alarms.staleIncidentDays for the
+    # worked-on-but-never-closed ones); both at 0 makes it two indexed queries and done.
     _scheduler.add_job(
         _auto_archive_sweep,
         "interval",

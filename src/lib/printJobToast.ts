@@ -4,7 +4,7 @@
 // watches it actually happen instead of getting one optimistic toast and then silence.
 
 import { appConfig } from '../config/appConfig'
-import { toast, updateToast, dismissToast, type ToastStep } from './ui'
+import { toast, updateToast, dismissToast, type ToastAction, type ToastStep } from './ui'
 import { cancelPrint, pollJobUntilDone, type PrintTransport } from './printRelay'
 
 const TERMINAL = ['done', 'failed', 'cancelled']
@@ -25,7 +25,14 @@ function steps(stage: 'queued' | 'printing' | 'done'): ToastStep[] {
   return [sent, printing, printed]
 }
 
-export function trackPrintJob(t: PrintTransport, jobId: string): void {
+/**
+ * Follow a queued print job to its end on one sticky toast.
+ *
+ * `done` is what to offer once the paper is actually out — the editor passes «Einsatz
+ * abschliessen» there (the Rapport is printed, only the bookkeeping is left). Omitted by the
+ * capture poster, which prints the same sheet but has no business closing an Einsatz.
+ */
+export function trackPrintJob(t: PrintTransport, jobId: string, done?: ToastAction): void {
   const R = appConfig.copy.printRelay
   // Undo cancels iff still queued; once printing the backend says «zu spät». Kept on the
   // toast through queued AND printing so the button is always honest about the outcome.
@@ -39,7 +46,9 @@ export function trackPrintJob(t: PrintTransport, jobId: string): void {
   const id = toast(R.queued, { sticky: true, steps: steps('queued'), action: undo })
   void pollJobUntilDone(t, jobId, (s) => {
     if (s.status === 'printing') updateToast(id, R.printing, { steps: steps('printing'), action: undo })
-    else if (s.status === 'done') updateToast(id, R.printed, { steps: steps('done'), duration: 4000 })
+    // …and the offer rides the last step, so «gedruckt» stands a little longer than it used to:
+    // 4 s is enough to read a word, not to notice a button and decide to press it.
+    else if (s.status === 'done') updateToast(id, R.printed, { steps: steps('done'), duration: done ? 8000 : 4000, action: done ?? null })
     // a failure drops the chain and keeps the sentence: «wo es hängt» is obvious, «Drucker
     // prüfen» is the part the Erfasser has to read, and it does not fit next to three stages
     else if (s.status === 'failed') updateToast(id, R.printFailed, { icon: 'warn', tone: 'warn', duration: 6000 })

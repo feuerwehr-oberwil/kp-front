@@ -10,7 +10,7 @@ import { Overlay } from './overlays'
 // module store; mount <Overlays/> once at the app root.
 
 type Tone = 'default' | 'warn' | 'success'
-interface ToastAction { label: string; onClick: () => void }
+export interface ToastAction { label: string; onClick: () => void }
 /** One stage of a multi-step toast (the live print job). `icon` omitted = an unreached step,
  * drawn as a dim pip; `printer` is the animated «paper coming out» glyph. */
 export interface ToastStep {

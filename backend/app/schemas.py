@@ -717,6 +717,13 @@ class AlarmsConfig(BaseModel):
     autoOpenPriorities: list[Literal["HIGH", "LOW"]] | None = None
     autoOpenKeywords: list[str] | None = None
     autoArchiveDays: int = Field(default=7, ge=0)  # 0 = sweep off
+    # …and the OTHER way an Einsatz stays open forever: one that WAS worked on and then simply
+    # never closed. Archiving is a deliberate act nobody performs unless they know they have to,
+    # so the open list grows by one row per Einsatz until somebody tidies up. Its own, much
+    # longer clock — this one sweeps real work, so it must sit far past any chance of the Einsatz
+    # still being in use. Archived WITHOUT stamping report_done_at: the Rapport was never
+    # finished and the record must not claim it was. Reversible like every archive. 0 = off.
+    staleIncidentDays: int = Field(default=30, ge=0)
     # How long after an incident opened the station capture link (Erfassungs-Poster QR)
     # may still reach it once its Rapport is done. Incidents WITHOUT a completed Rapport
     # (and not archived) stay reachable regardless of age — the poster shows the open

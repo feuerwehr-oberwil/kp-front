@@ -284,7 +284,8 @@ def _incident(**kw) -> Incident:
 
 
 async def test_sweep_archives_only_untouched_auto_opened(db_session):
-    await _set_alarms_config(db_session, {"autoArchiveDays": 7})
+    # the untouched clock ALONE — the stale one has its own tests below
+    await _set_alarms_config(db_session, {"autoArchiveDays": 7, "staleIncidentDays": 0})
     old = datetime.now(UTC) - timedelta(days=8)
     fresh = datetime.now(UTC) - timedelta(days=1)
     swept = _incident(auto_opened=True, workspace_rev=0, started_at=old, source_ref="a1")
@@ -306,8 +307,45 @@ async def test_sweep_archives_only_untouched_auto_opened(db_session):
 
 
 async def test_sweep_disabled_at_zero_days(db_session):
-    await _set_alarms_config(db_session, {"autoArchiveDays": 0})
+    await _set_alarms_config(db_session, {"autoArchiveDays": 0, "staleIncidentDays": 0})
     old = datetime.now(UTC) - timedelta(days=30)
     db_session.add(_incident(auto_opened=True, workspace_rev=0, started_at=old, source_ref="z1"))
     await db_session.commit()
     assert await auto_archive_sweep(db_session) == 0
+
+
+async def test_sweep_archives_worked_on_incidents_nobody_ever_closed(db_session):
+    """The second clock: real work that was never closed. Measured from the LAST EDIT, and it
+    must never claim the Rapport was finished."""
+    await _set_alarms_config(db_session, {"autoArchiveDays": 0, "staleIncidentDays": 30})
+    long_ago = datetime.now(UTC) - timedelta(days=31)
+    started = datetime.now(UTC) - timedelta(days=40)
+    stale = _incident(source="manual", workspace_rev=12, started_at=started, updated_at=long_ago)
+    # old Einsatz, corrected yesterday — somebody is still working on it
+    worked_on = _incident(
+        source="manual", workspace_rev=12, started_at=started, updated_at=datetime.now(UTC) - timedelta(days=1)
+    )
+    db_session.add_all([stale, worked_on])
+    await db_session.commit()
+
+    n = await auto_archive_sweep(db_session)
+    await db_session.commit()
+    assert n == 1
+    await db_session.refresh(stale)
+    await db_session.refresh(worked_on)
+    assert stale.is_archived is True
+    assert stale.closed_at is not None
+    assert stale.report_done_at is None  # archived ≠ Rapport abgeschlossen
+    assert worked_on.is_archived is False
+
+
+async def test_sweep_archives_an_incident_due_on_both_clocks_once(db_session):
+    """An untouched auto-opened Einsatz old enough for both clocks must not be archived — and
+    journalled — twice."""
+    await _set_alarms_config(db_session, {"autoArchiveDays": 7, "staleIncidentDays": 30})
+    long_ago = datetime.now(UTC) - timedelta(days=40)
+    both = _incident(auto_opened=True, workspace_rev=0, started_at=long_ago, updated_at=long_ago, source_ref="b1")
+    db_session.add(both)
+    await db_session.commit()
+
+    assert await auto_archive_sweep(db_session) == 1

@@ -233,6 +233,10 @@ EXAMPLE_CONFIG: dict[str, Any] = {
         # Untouched auto-opened incidents (never any workspace sync) archive after N days;
         # 0 disables the sweep. Archived incidents stay visible in the Verlauf/history.
         "autoArchiveDays": 7,
+        # …and incidents that WERE worked on but never closed — nobody archives an Einsatz
+        # unless they know they have to, so without this they stay open forever. Own, longer
+        # clock, measured from the last edit; never stamps report_done_at. 0 disables it.
+        "staleIncidentDays": 30,
         # Erfassungs-Poster reach: how long after opening an incident the station capture
         # link (/e/<token>) can still record attendance/material/notes for it.
         "captureWindowHours": 12,
