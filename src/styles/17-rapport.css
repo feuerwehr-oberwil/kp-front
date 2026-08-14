@@ -346,35 +346,27 @@
   font: 700 12.5px var(--body); padding: 7px 12px; border-radius: var(--r-sm); }
 .report-pre-fix:hover { filter: brightness(.96); }
 
-/* transcript wraps onto its own line below the (flex) event row, indented to sit
-   under the event text rather than the time/icon columns */
+/* The transcript TEXT (or the field to write it in) wraps onto its own line below the (flex)
+   event row, indented to sit under the event text rather than the time/icon columns.
+   ⚠️ Only the text lives here. «Durchhören» and «Transkript ergänzen» used to be two labelled
+   buttons on this line; they are icon buttons IN the row since 2026-08-14, because on a phone
+   they never fitted side by side and made every voice memo a three-line block (see Journal). */
 .hist-ev:has(.jr-transcript) { flex-wrap: wrap; }
-/* basis must leave room for the 74px indent — 100% + margin overflowed the drawer once
-   the annotation line carried non-shrinking buttons (Durchhören + Transkript) */
+/* basis must leave room for the 74px indent — 100% + margin overflowed the drawer */
 .jr-transcript { flex: 0 0 calc(100% - 74px); min-width: 0; margin: 2px 0 2px 74px; display: flex; flex-direction: column; gap: 6px; }
 .jr-transcript p { margin: 0; color: var(--ink-dim); font-size: 12px; line-height: 1.45; white-space: pre-wrap; }
-/* annotation-line actions under an audio row: Durchhören + Transkript side by side.
-   `stretch` on both axes so the two are always the SAME height — they carry different icons and
-   different padding (one is the shared .jr-open, the other .jr-transcript button), so left to
-   their content they came out a few px apart, which on two buttons sitting side by side is the
-   only thing you see. The row's height is the taller of them; both fill it. */
-.jr-tx-actions { display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap; }
-.jr-tx-actions > button { align-self: stretch; }
-/* Durchhören: opens the audio player sheet for long recordings (rows with audioMeta).
-   `.jr-transcript button` would out-specify a bare class — hence the qualified selector. */
-/* ⚠️ --r-sm, the app's button radius (.ip-btn), NOT a 999px pill. Durchhören · 1× ·
-   Transkribieren were the only three fully-rounded buttons in the app and they sit right
-   beside square-cornered ones — three pills in a page of rounded rectangles reads as a
-   different kind of control. */
-.jr-transcript button.jr-open, button.jr-open { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border);
-  border-radius: var(--r-sm); background: var(--surface); color: var(--ink); padding: 6px 12px; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; flex: none; }
-.jr-open .i { width: 13px; height: 13px; }
-.jr-open:hover { background: var(--hover-strong); }
-/* jump chip on rows that annotate a recording — opens the player at that moment */
+/* jump chip on rows that annotate a recording — opens the player at that moment. The same
+   chip carries «Durchhören» and «Transkript» on an audio row, so the three read as one family
+   of small square controls between the text and the green play circle. */
 .jr-jump { width: 32px; height: 32px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface);
   color: var(--ink-dim); display: grid; place-items: center; cursor: pointer; flex: none; }
 .jr-jump .i { width: 13px; height: 13px; }
 .jr-jump:hover { color: var(--ink); background: var(--hover-strong); }
+/* no transcript yet: amber on the FRAME, not a filled amber block. It is a gap in the record
+   worth noticing, not a warning that should outshout the entry it hangs off. */
+.jr-jump.jr-jump-miss { color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 12%, transparent);
+  border-color: color-mix(in srgb, var(--amber) 55%, transparent); }
+.jr-jump.jr-jump-miss:hover { background: color-mix(in srgb, var(--amber) 20%, transparent); color: var(--amber-strong); }
 
 /* «noch offen» chips are BUTTONS that jump to the section they name (ReportPreflight ·
    jumpToStep). Same amber pill as before — the chip already looked like a thing you could press,
@@ -383,18 +375,11 @@
   border-radius: var(--r-pill); cursor: pointer;
   color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 14%, transparent); }
 .rp-head-open-go:hover { background: color-mix(in srgb, var(--amber) 26%, transparent); }
-/* …and the target says «here». ⚠️ The SAME two-beat ink ring the Atemschutz board uses when a
-   locked Anwesenheits-Zeile sends you to a card (Atemschutz.module.css · truppFlash) — one app,
-   one way of pointing. A 1.2 s background wash read as a rendering artefact instead of a point,
-   and INK is deliberate: every hue on this sheet already means something (amber = noch offen,
-   blue = attention), so a coloured ring would say one of those a second time. */
-@keyframes rp-flash-ring {
-  0%, 22%, 48%, 74% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 62%, transparent); }
-  11%, 36%, 62%, 100% { box-shadow: 0 0 0 4px transparent; }
-}
-/* ⚠️ `--r-sm`: `--r-md` is not a token (the scale is xs/sm/pill · ctl/btn/surface/hero), so the
+/* …and the target says «here» — with the shared ink ring (02-base.css · ui-flash-ring), the same
+   one the Atemschutz board and the Verlauf point with. One app, one way of pointing.
+   ⚠️ `--r-sm`: `--r-md` is not a token (the scale is xs/sm/pill · ctl/btn/surface/hero), so the
    ring used to square off around a row whose own corners are rounded. */
-.rp-flash { animation: rp-flash-ring 1.9s ease-out 1; border-radius: var(--r-sm); }
+.rp-flash { animation: ui-flash-ring 1.9s ease-out 1; border-radius: var(--r-sm); }
 @media (prefers-reduced-motion: reduce) {
   .rp-flash { animation: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 62%, transparent); }
 }

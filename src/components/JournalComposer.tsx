@@ -37,7 +37,6 @@ export interface JournalDraft {
   audioMeta?: TimelineEvent['audioMeta']
   /** several: one damage is rarely one picture (see the composer's photos state) */
   photoUrls?: string[]
-  pin: boolean
   /** set in Wiedervorlage mode: ISO time this entry becomes due (makes it a reminder) */
   dueAt?: string
   /** Info · Auftrag · Sofortmassnahme; absent = an ordinary entry */
@@ -98,12 +97,15 @@ function TimeStepper({ hhmm, onChange }: { hhmm: string; onChange: (v: string) =
   )
 }
 
-// Quick-add for the unified journal: a free-text note and/or a voice memo,
-// optionally pinned to the current view. Reachable from both surfaces (mounted
-// at app level), it records its own clip so the audio is attached to the entry
-// rather than auto-logged. `surface` only drives the pin label + default.
-export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, uploadAudio, vocab = [] }: {
-  surface: 'map' | 'plan'
+// Quick-add for the unified journal: a free-text note and/or a voice memo. Reachable from both
+// surfaces (mounted at app level), it records its own clip so the audio is attached to the entry
+// rather than auto-logged.
+// ⚠️ It no longer knows WHICH surface it was opened over, and does not need to: the «anheften»
+// toggle is gone (14.08.). Its whole payoff was that the row could later fly the map to a
+// coordinate, which is the weak version of what the Wiedergabe does — scrub to the moment and
+// the entire picture is the one from back then. The row still records its surface; that is
+// addJournal's business, not this sheet's.
+export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudio, vocab = [] }: {
   onSubmit: (d: JournalDraft) => void
   onClose: () => void
   /** everything this Einsatz has words for — Mannschaft, Mittel, Partnerorganisationen,
@@ -156,7 +158,6 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
   const [mode, setMode] = useState<'entry' | 'reminder'>('entry')
   const [dueSel, setDueSel] = useState<DueSel>(null)
   const dueAt = mode === 'reminder' ? resolveDueAt(dueSel) : undefined
-  const [pin, setPin] = useState(false)
   // Who said it, and what kind of statement it is. Both OPTIONAL and both empty by
   // default: the composer's job is still to take a sentence, and a form that asks two
   // questions before it accepts one is a form nobody opens at 3am.
@@ -300,7 +301,7 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
       const { url } = await uploadAudio(blob, imported.name)
       if (!alive.current) return // closed mid-upload — cancelled, no row
       onSubmit({
-        text: text.trim(), pin, photoUrls: photos.length ? photos : undefined,
+        text: text.trim(), photoUrls: photos.length ? photos : undefined,
         entryType: entryType ?? undefined,
         audioUrl: url, secs: imported.durationSec ?? undefined,
         audioMeta: {
@@ -336,10 +337,10 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
       : text.trim().length > 0 || (mode === 'entry' && (clip != null || photos.length > 0))
   const submit = () => {
     if (!canSend || uploading) return
-    if (mode === 'reminder') { onSubmit({ text: text.trim(), pin: false, dueAt: dueAt! }); return }
+    if (mode === 'reminder') { onSubmit({ text: text.trim(), dueAt: dueAt! }); return }
     if (imported) { void submitImported(); return }
     onSubmit({
-      text: text.trim(), audioUrl: clip?.url, secs: clip?.secs, photoUrls: photos.length ? photos : undefined, pin,
+      text: text.trim(), audioUrl: clip?.url, secs: clip?.secs, photoUrls: photos.length ? photos : undefined,
       entryType: entryType ?? undefined,
       audioMeta: clip ? { source: 'recorded', startedAt: clip.startedAt, durationSec: clip.secs } : undefined,
     })
@@ -354,7 +355,9 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
     // `--jc-kb` carries the measured keyboard height into CSS as well as the phone sheet's
     // marginBottom: on a TABLET the card is top-anchored, so a bottom margin does nothing —
     // the height has to be capped against the keyboard instead (see 10-journal.css).
-    <Overlay open onClose={onClose} className="journal-composer" backdropClassName="modal-backdrop"
+    // `is-kb` is the same fact as a class: on a PHONE it collapses the four media buttons to
+    // icons so the whole sheet still fits in what the keyboard leaves (see 15-mobile.css).
+    <Overlay open onClose={onClose} className={`journal-composer ${kbInset > 0 ? 'is-kb' : ''}`} backdropClassName="modal-backdrop"
       ariaLabel={C.composerTitle} dismissEscape={false} initialFocus={textRef}
       style={{ marginBottom: kbInset, '--jc-kb': `${kbInset}px` } as React.CSSProperties}>
       <div onPaste={onPaste} style={{ display: 'contents' }}>
@@ -477,9 +480,12 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
         {mode === 'entry' && (
           <div className="jc-meta">
             {/* Art — quiet by design: three small chips, none preselected. «Info» is the
-                ordinary case and prints no marker at all (lib/journalEntry). */}
+                ordinary case and prints no marker at all (lib/journalEntry).
+                ⚠️ No «ART» eyebrow above them. Info · Auftrag · Sofortmassnahme say what they
+                are; a heading that only repeated it cost a row on the one surface fighting the
+                keyboard for every row it has. The group keeps the word as its accessible name,
+                so a screen reader still hears it. */}
             <div className="jc-meta-row" role="group" aria-label={C.typeLabel}>
-              <span className="jc-meta-lbl">{C.typeLabel}</span>
               {(['info', 'auftrag', 'sofort'] as const).map((t) => (
                 <button
                   key={t}
@@ -495,26 +501,35 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
 
         {/* media: record a voice memo or attach a photo (entry mode only — a Wiedervorlage is text + due) */}
         {mode === 'entry' && (<>
-          <input ref={fileRef} type="file" accept="image/*" capture="environment" multiple hidden onChange={onPhotoPicked} />
-          <input ref={audioFileRef} type="file" accept={AUDIO_IMPORT_ACCEPT} hidden onChange={(e) => void onAudioPicked(e)} />
+          {/* ⚠️ `.file-picker`, never `hidden`: Safari opens a file chooser only for an input it
+              actually renders, so `.click()` on a display:none input is a silent no-op on iOS
+              (see 02-base.css). Off-screen and transparent, both pickers work on a phone. */}
+          <input ref={fileRef} type="file" accept="image/*" capture="environment" multiple
+            className="file-picker" tabIndex={-1} onChange={onPhotoPicked} />
+          <input ref={audioFileRef} type="file" accept={AUDIO_IMPORT_ACCEPT}
+            className="file-picker" tabIndex={-1} onChange={(e) => void onAudioPicked(e)} />
           <div className="jc-audio">
             {/* recording shows the stop square + the running time, NOT «Aufnahme stoppen · 22s»:
                 this button is one of three in a fixed 1fr grid and that label never fitted, so it
                 ran out past the red rounded corner. It is also what the TopBar and the FAB already
                 turn into while recording — a red pulsing button with a square and a clock reads as
                 «tap to stop» without spending a third of the row saying so. */}
-            <button className={`jc-rec ${recording ? 'on' : ''}`} onClick={toggleRecord} title={recording ? C.recordStop : C.record}>
+            {/* ⚠️ Every label in this row sits in its own <span class="jc-lbl">. On a phone with
+                the keyboard up the row shrinks to four icons (see 15-mobile.css · .is-kb), and a
+                bare text node cannot be hidden by CSS. The `title` carries the word for anyone
+                hovering, and the labels come straight back the moment the keyboard closes. */}
+            <button className={`jc-rec ${recording ? 'on' : ''}`} onClick={toggleRecord} title={recording ? C.recordStop : C.record} aria-label={recording ? C.recordStop : C.record}>
               {recording
                 ? <><span className="tb-stop" /><span className="jc-rec-time">{elapsed}s</span></>
-                : <><Icon id="mic" />{C.record}</>}
+                : <><Icon id="mic" /><span className="jc-lbl">{C.record}</span></>}
             </button>
-            {/* the three media buttons share one row at a third of the width each — not even a
+            {/* the media buttons share one row at a third of the width each — not even a
                 desktop third fits «Audio hochladen», so the short form labels the button and the
                 full one stays as its tooltip. The upload arrow carries the rest. */}
-            <button className="jc-rec" onClick={() => audioFileRef.current?.click()} title={C.audioUpload}>
-              <Icon id="upload" />{C.audioUploadShort}
+            <button className="jc-rec" onClick={() => audioFileRef.current?.click()} title={C.audioUpload} aria-label={C.audioUpload}>
+              <Icon id="upload" /><span className="jc-lbl">{C.audioUploadShort}</span>
             </button>
-            <button className="jc-rec" onClick={() => fileRef.current?.click()} title={C.photo}><Icon id="cam" />{C.photo}</button>
+            <button className="jc-rec" onClick={() => fileRef.current?.click()} title={C.photo} aria-label={C.photo}><Icon id="cam" /><span className="jc-lbl">{C.photo}</span></button>
             {clip && (
               <span className="jc-clip">
                 <button className={`tl-play ${clipPlaying ? 'playing' : ''}`} title={clipPlaying ? C.recordStop : appConfig.copy.play} aria-label={clipPlaying ? C.recordStop : appConfig.copy.play} onClick={toggleClip}><Icon id={clipPlaying ? 'pause' : 'play'} /></button>
@@ -558,12 +573,10 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
           )}
         </>)}
 
+        {/* the send, alone. The pin moved up into the media row (see .jc-audio) — it describes
+            the entry, not the act of saving it, and «Erfassen» is the one thing on this sheet
+            that must never share a row with anything else. */}
         <div className="jc-foot">
-          {mode === 'entry' ? (
-            <button className={`jc-pin ${pin ? 'on' : ''}`} aria-pressed={pin} onClick={() => setPin((v) => !v)}>
-              <Icon id="coords" />{surface === 'plan' ? C.pinPlan : C.pinMap}
-            </button>
-          ) : <span className="jc-pin-spacer" />}
           <button className="jc-send" disabled={!canSend || uploading} onClick={submit}>
             <Icon id="check" />{uploading ? C.audioUploading : mode === 'reminder' ? C.reminderSend : C.send}
           </button>

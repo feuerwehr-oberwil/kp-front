@@ -314,16 +314,55 @@
      bottom-anchored here, so a row that comes and goes between the field and the chips moves
      the FIELD — and matches come and go on nearly every keystroke, which is what made typing
      with a photo attached feel like the text was hopping under the caret. One reserved row
-     (its own height, no border, no fill) costs nothing and holds the field still. */
-  .jc-phrases.is-empty { display: block; min-height: 44px; }
+     (its own height, no border, no fill) costs nothing and holds the field still.
+     ⚠️ QUALIFIED with .journal-composer, and that is the whole rule. As a bare
+     `.jc-phrases.is-empty` it tied with the `display: none` in 18-audio.css — which is imported
+     AFTER this file, so the later one won and this row has never been reserved on a phone. The
+     hop it was written to stop was still there, silently, and no amount of reading either rule
+     showed it: only the load order in app.css does. */
+  .journal-composer .jc-phrases.is-empty { display: block; min-height: 44px; }
 
   /* journal composer → full-width bottom sheet that lifts above the keyboard (the inline
-     marginBottom = keyboard height keeps the actions + send reachable) */
+     marginBottom = keyboard height keeps the actions + send reachable).
+     ⚠️ The cap SUBTRACTS the keyboard. It used to be a flat `86dvh`, measured against the whole
+     screen, while the sheet was pushed up by the keyboard's height — so a tall sheet grew out
+     of the TOP of the screen: the mode tabs, the ✕ and half the line you were typing were gone,
+     and since nothing overflowed there was no scrolling to them either. Capped against what the
+     keyboard actually leaves, the sheet scrolls instead of escaping.
+     ⚠️ `min()`, not a flat subtraction: with the keyboard up the sheet may have ALL the room
+     that is left (a strip below 86dvh would be squeezed for no reason), with it down it keeps
+     the old 86dvh so the map still shows above it. */
   .journal-composer { left: 0; right: 0; bottom: 0; top: auto; transform: none;
     width: 100%; max-width: none;
-    border-radius: var(--r-hero) var(--r-hero) 0 0; max-height: 86dvh; overflow-y: auto;
+    border-radius: var(--r-hero) var(--r-hero) 0 0; overflow-y: auto;
+    max-height: min(86dvh, calc(100dvh - var(--jc-kb, 0px) - 10px - env(safe-area-inset-top)));
     padding-bottom: calc(16px + env(safe-area-inset-bottom));
     animation: sheetUp .22s var(--ease); }
+  /* ⚠️ Nothing in the sheet shrinks. A flex column shrinks its items before the container
+     scrolls, so a sheet a few px over its cap silently compressed every row instead of
+     scrolling — the suggestion chips lost their bottom half and read as clipped. Now the
+     rows keep their height and the sheet scrolls, which is what `overflow-y: auto` is for. */
+  .journal-composer > * { flex: none; }
+
+  /* ── Tastatur oben: dieselbe Leiste, nur als Symbole ──
+     With the keyboard up there are ~460px of screen left, and the full sheet needs ~600. Rather
+     than scroll it (which buries Aufnehmen · Audio · Foto below the fold exactly when a hand in
+     the field needs them), the three «what does this entry carry» buttons drop their labels. Everything stays on screen and nothing moves anywhere else: close the
+     keyboard and every word is back. The labels live in .jc-lbl for exactly this. */
+  /* the keyboard covers the home indicator, so the safe-area reserve below is dead space —
+     16px, the same as the top, so the sheet is framed evenly */
+  .journal-composer.is-kb { padding-bottom: 16px; }
+  .journal-composer.is-kb .jc-rec { padding: 8px 4px; }
+  .journal-composer.is-kb .jc-rec .jc-lbl { display: none; }
+  .journal-composer.is-kb .jc-rec .i { width: 19px; height: 19px; }
+  /* ⚠️ Nothing about the suggestion band is overridden here. It is ONE sideways-scrolling row
+     on every screen (see .jc-phrases in 18-audio.css), so it is 44px tall with the keyboard up
+     and down alike — and the reserved empty row is the same 44px, so the sheet keeps its height
+     whether there is a match or not. Anything that made it a different height here would bring
+     the caret-hopping back on exactly the surface it was reported from. */
+  /* the field keeps ~3 lines while typing — the Verlauf shows what was written, this shows
+     what is being written */
+  .journal-composer.is-kb .jc-text { min-height: 62px; }
   /* every ip-sheet is bottom-anchored on phones — rise from below, not pop in place */
   .ip-sheet, .pp-sheet:not(.pp-nomap), .sym-modal { animation: sheetUp .22s var(--ease); }
 

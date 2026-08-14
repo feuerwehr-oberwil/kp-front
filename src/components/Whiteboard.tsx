@@ -120,8 +120,10 @@ interface Props {
   /** a Verlauf row asked to revisit a plan point — center + select on arrival. */
   /** `flash` shows the anno (a few-second outline) instead of selecting it — see the focus effect */
   focus: { x: number; y: number; floor: number; annoId?: string; flash?: boolean; nonce: number } | null
-  /** report the current plan-view centre (tile-local) so a journal pin can anchor to it. */
-  onView: (c: { x: number; y: number; floor: number }) => void
+  /** report the current plan-view centre (tile-local). Optional and currently unused: it existed
+   *  for the composer's «an der Planmitte anheften», which went away on 14.08. — the Wiedergabe
+   *  answers «wie sah es da aus» by scrubbing the whole picture instead of storing a point. */
+  onView?: (c: { x: number; y: number; floor: number }) => void
   /** currently monitored Atemschutz Trupps — offered when placing a team chip on the plan. */
   trupps?: Trupp[]
   /** link a placed chip to a tracked Trupp (chip ↔ Trupp; sets the Trupp's annoId/planId). */
@@ -1290,7 +1292,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const s = scaleRef.current, w = fit.w * s, h = fit.h * s
     const nx = clamp01((w / 2 - pos.x) / w), ny = clamp01((h / 2 - pos.y) / h)
     const floor = stack ? floorAt(ny) : 0
-    onView({ x: nx, y: stack ? localY(ny, floor) : ny, floor })
+    onView?.({ x: nx, y: stack ? localY(ny, floor) : ny, floor })
   }, [pos, scale, fit.w, fit.h, activeId, stack, N]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // a Verlauf row asked to revisit a plan point. Apply once per request (tracked

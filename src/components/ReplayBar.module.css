@@ -1,6 +1,7 @@
 /* ---- Time-travel replay scrubber (audit-trail sub-phase B) ----
    A bottom-anchored read-only past view in the light "Karte Minimal" style: a clear
-   VERLAUF/WIEDERGABE banner + a draggable track with event markers and play/speed. */
+   VERLAUF/WIEDERGABE banner, a draggable track, the Verlauf as a lane of ticks under it,
+   and the line the playhead stands in running along underneath. */
 .replay {
   position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
   /* must clear the Plan whiteboard (.whiteboard z-index 20, inset:0) so the scrubber
@@ -74,19 +75,32 @@
   background-size: 1.5px 9px, 1.5px 9px, 5px 9px;
   background-position: left center, right center, center center;
   background-repeat: no-repeat, no-repeat, repeat-x; }
-.replay-marker {
-  position: absolute; top: 50%; width: 8px; height: 8px; border-radius: 50%; padding: 0;
-  border: 1.5px solid #fff; transform: translate(-50%, -50%); cursor: pointer; opacity: .85;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, .18); transition: transform .12s, opacity .12s; }
-/* the 8px dot stays the visual, but jump-to-event needs a finger-sized hit area (the
-   full 24px track height, ~28px wide — full 44px would swallow neighbouring events) */
-.replay-marker::before { content: ''; position: absolute; left: 50%; top: 50%;
-  width: 28px; height: 24px; transform: translate(-50%, -50%); }
-.replay-marker:hover { transform: translate(-50%, -50%) scale(1.3); opacity: 1; }
 .replay-handle {
   position: absolute; top: 50%; width: 16px; height: 16px; border-radius: 50%;
   background: var(--surface); border: 3px solid var(--blue); transform: translate(-50%, -50%);
   box-shadow: var(--shadow-sm); pointer-events: none; z-index: 2; }
+/* ── Verlaufsspur: the Verlauf's own row under the rail ──
+   Its own lane, not more dots on the track. Journal rows are the densest thing on this axis —
+   a busy Einsatz writes far more lines than it places symbols. The rail itself carries no dots
+   at all any more: it says one thing — filled = worked, broken = nothing happened — and what
+   was written gets this lane. Ticks rather than dots, because a tick reads as a moment on a
+   scale; only the one the playhead stands in carries colour.
+   ⚠️ NO visible label on this lane. It had one («VERLAUF», small caps at the left edge) and it
+   sat exactly where the first tick does: the alarm text is logged at the incident's start, so on
+   essentially every Einsatz the label and the first entry occupied the same 40px. The lane is
+   directly under the rail, and the tick the playhead stands in is the same blue as the handle
+   and as the caption's time — that says what it is. The name survives as the group's
+   accessible label. */
+.replay-lane { position: relative; height: 18px; margin-top: 1px; }
+.replay-jr { position: absolute; top: 3px; width: 3px; height: 12px; padding: 0; border: none;
+  border-radius: 2px; background: var(--ink-faint); opacity: .55; cursor: pointer;
+  transform: translateX(-50%); transition: opacity .12s, background .12s; }
+/* the 3px tick stays the visual; the finger gets the lane's full height and ~24px of width */
+.replay-jr::before { content: ''; position: absolute; left: 50%; top: 50%; width: 24px; height: 22px;
+  transform: translate(-50%, -50%); }
+.replay-jr:hover { opacity: 1; background: var(--ink); }
+.replay-jr-on { opacity: 1; width: 4px; background: var(--blue); }
+
 .replay-range { display: flex; justify-content: space-between; gap: 8px;
   font-family: var(--mono); font-size: 9.5px; color: var(--ink-faint); line-height: 1.2; padding: 0 1px; }
 .replay-range span:last-child { text-align: right; }
@@ -113,4 +127,37 @@
      below so it isn't squeezed to a sliver (and the time bubble no longer runs off the edge) */
   .replay-controls { gap: 9px; padding: 10px; flex-wrap: wrap; row-gap: 4px; }
   .replay-scrub { flex-basis: 100%; order: 3; }
+}
+
+/* ── Untertitel: the row the playhead is standing in ──
+   Runs under the bar the way subtitles run under a film — while it plays it narrates the
+   Einsatz, and while it is dragged it says what was being written at that moment.
+   ⚠️ ONE line, ellipsised. This bar floats over the map; a caption that wrapped to three lines
+   would cover the picture it is describing. The full text is one tap away. */
+/* ⚠️ ONE height, with a line or without. The empty state carries no time chip and no button, so
+   left to its content the row was ~14px shorter than the filled one — and this bar is anchored
+   to the BOTTOM, so the difference shoved the whole scrubber up and down as the playhead crossed
+   the first entry. The floor is the tall state's: text plus the button plus the padding. */
+.replay-caption { display: flex; align-items: center; gap: 9px; padding: 9px 14px;
+  /* a fixed height, not a floor: the line never wraps (one line, ellipsised), and «min» left the
+     filled row 1px taller than the empty one — the mono time chip's line box is a hair taller
+     than the button it sits beside. On a bar anchored to the BOTTOM even 1px shows up as the
+     whole scrubber twitching as the playhead crosses an entry. */
+  height: 50px; box-sizing: border-box;
+  border-top: 1px solid var(--glass-edge); background: color-mix(in srgb, var(--blue) 7%, transparent);
+  font-size: 12.5px; }
+.replay-caption-t { flex: none; font-family: var(--mono); font-size: 11px; font-weight: 700;
+  color: var(--blue-strong); font-variant-numeric: tabular-nums; }
+.replay-caption-tx { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; color: var(--ink); font-weight: 600; }
+.replay-caption-none { color: var(--ink-faint); font-weight: 600; }
+.replay-caption-go { flex: none; border: 1px solid var(--border); background: var(--surface);
+  color: var(--ink-dim); border-radius: var(--r-xs); padding: 5px 10px; min-height: 32px;
+  font: 700 11.5px var(--body); cursor: pointer; }
+.replay-caption-go:hover { color: var(--ink); background: var(--hover-strong); }
+/* …and the same on a touch screen, where the button grows to the gloved floor and takes the
+   row with it */
+@media (pointer: coarse) {
+  .replay-caption-go { min-height: var(--tap); }
+  .replay-caption { height: calc(var(--tap) + 18px); }
 }

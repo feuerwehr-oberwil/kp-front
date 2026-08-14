@@ -954,8 +954,6 @@ export const de = {
     // different things. «Sofortmassnahme» is a doctrine word — abbreviating it is what made the
     // chip read as a hurry rather than as a kind of entry.
     entryTypes: { info: 'Info', auftrag: 'Auftrag', sofort: 'Sofortmassnahme' } as Record<string, string>,
-    pinMap: 'An aktueller Kartenmitte anheften',
-    pinPlan: 'An aktueller Planmitte anheften',
     send: 'Erfassen',
     saved: 'Journaleintrag erfasst',
     // audio-note transcript editing (Verlauf row)
@@ -2497,13 +2495,11 @@ export const de = {
     speed: 'Geschwindigkeit',
     timepoint: 'Zeitpunkt',
     now: 'Jetzt',
-    // scrubber track marker labels (deriveMarkers)
-    markerSymbol: 'Symbol gesetzt',
-    markerDraw: 'Zeichnung',
-    markerStatus: 'Status',
-    markerDivera: 'Divera',
-    markerIncidentOpen: 'Einsatz eröffnet',
-    markerSave: 'Speicherpunkt',
+    // Verlaufsspur + mitlaufender Untertitel unter dem Balken
+    laneLabel: 'Verlauf',
+    captionOpen: 'im Verlauf',
+    laneEntries: '{n} Einträge',
+    captionNone: 'Kein Eintrag zu diesem Zeitpunkt',
   },
   // Einsatzrapport: print preflight (ReportPreflight) + the printed document (ReportPrintView)
   report: {

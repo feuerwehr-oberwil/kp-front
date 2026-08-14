@@ -43,14 +43,36 @@ body {
    directly (overlapping invisible targets would cause mis-taps). */
 .ctx-x, .sym-close, .sym-clear, .tl-play,
 .journal-x, .wb-dock-x, .ip-x, .jc-clip-x, .pp-clear, .step-clear,
-.wb-dock-tog, .wb-dock-go, .jr-jump, .jr-open { position: relative; }
+.wb-dock-tog, .wb-dock-go, .jr-jump { position: relative; }
 .ctx-x::after, .sym-close::after, .sym-clear::after,
 .tl-play::after, .wb-del::after,
 .journal-x::after, .wb-dock-x::after, .ip-x::after,
 .jc-clip-x::after, .pp-clear::after, .step-clear::after,
-.wb-dock-tog::after, .wb-dock-go::after, .jr-jump::after, .jr-open::after {
+.wb-dock-tog::after, .wb-dock-go::after, .jr-jump::after {
   content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px;
   transform: translate(-50%, -50%);
+}
+
+/* ⚠️ The file inputs behind «Foto» and «Audio» are NOT `hidden`. Safari only opens a file
+   chooser for an input that is actually RENDERED — `display: none` (which the `hidden`
+   attribute is) makes `input.click()` a silent no-op on iOS, which is why holding ＋ and
+   letting go on «Foto» lit the target up and then did nothing at all. Off-screen and
+   transparent it is still laid out, so the picker opens; `pointer-events: none` and
+   `tabindex="-1"` keep it out of every other way. */
+.file-picker { position: fixed; left: 0; bottom: 0; width: 1px; height: 1px;
+  opacity: 0; pointer-events: none; z-index: -1; overflow: hidden; }
+
+/* ── «this one» ────────────────────────────────────────────────────────────────────────────
+   The two-beat ink ring every surface uses to point at the thing it just scrolled to: the
+   Rapport's «noch offen» chips (.rp-flash), the Atemschutz board when a locked Anwesenheits-Zeile
+   sends you to a card, and the Verlauf when the Wiedergabe's «im Verlauf» lands on a row.
+   ⚠️ INK, not a hue: on every one of those surfaces the colours already mean something (amber =
+   noch offen, blue = attention, red = fault), so a coloured ring would say one of them a second
+   time. And a ring rather than a background wash — a 1.2 s wash read as a rendering artefact
+   rather than as a point. Defined here so the three cannot drift apart. */
+@keyframes ui-flash-ring {
+  0%, 22%, 48%, 74% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 62%, transparent); }
+  11%, 36%, 62%, 100% { box-shadow: 0 0 0 4px transparent; }
 }
 
 /* Scrollbars — one thin treatment for every scrollable pane. Styling ::-webkit-scrollbar

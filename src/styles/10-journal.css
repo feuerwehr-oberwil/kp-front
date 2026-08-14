@@ -273,7 +273,12 @@
      open animation, which is the other half of the desktop jank. Same for .sym-modal/.confirm-card. */
   background: var(--surface);
   border: 1px solid var(--glass-line); border-radius: var(--r-hero); box-shadow: var(--shadow); padding: 16px;
-  display: flex; flex-direction: column; gap: 12px; animation: pop .16s var(--ease); }
+  /* ⚠️ ONE gap on this whole sheet, sideways and downwards alike: 8px. It was 12 between the
+     banks and 8 inside them, which is why «Anheften» sat closer to the media row than that row
+     sat to ART. One number means there is no second one to get wrong, and the tighter of the
+     two keeps a phone sheet short enough to stand above the keyboard. The 16px padding is the
+     frame and stays larger — that is the edge, not a step in the rhythm. */
+  display: flex; flex-direction: column; gap: 8px; animation: pop .16s var(--ease); }
 /* Touch, tablet and up: the composer opens with the text field already focused, so the OS
    keyboard is up before the card has finished animating in — and an iPad keyboard is close to
    half the screen. Anchored at 11vh the media row and «Speichern» sat behind it. Ride up to the
@@ -329,6 +334,8 @@
    used to wrap 2+1 (Aufnehmen · Audio / Foto) and 4+2 (chips), and the pin button was 50px
    next to a 44px Erfassen because its label took two lines — three different heights in one
    dialog, and a sheet that changed height when you switched mode. */
+/* 8px both ways, like the sheet around it — «Anheften» is a row of this grid, so its gap to the
+   media buttons above it has to be the same step as every other one (see .journal-composer). */
 .jc-audio { display: grid; grid-template-columns: repeat(3, 1fr); align-items: center; gap: 8px; }
 /* the recorded-clip readout is a full-width row under the three buttons, not a fourth column */
 .jc-audio .jc-clip { grid-column: 1 / -1; }
@@ -360,19 +367,10 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jc-import-start { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .jc-import-hint { margin: 0; font-size: 12.5px; color: var(--ink-dim); }
-/* the last two rows of the same grid: the pin, then the send. Not a flex row with the send
-   pushed right – at 44px that wastes the row it sits in, and it left Eintrag two rows deep
-   while Erinnerung was four, so the dialog changed height when you switched mode. */
+/* the send, on a row of its own. Not a flex row with it pushed right – at 44px that wastes the
+   row it sits in. (The pin used to be the row above it and now sits in .jc-audio, where the
+   other three «what does this entry carry» buttons are.) */
 .jc-foot { display: grid; grid-template-columns: 1fr; gap: 8px; }
-/* reminder mode has no pin — its spacer must not leave an empty row behind */
-.jc-pin-spacer { display: none; }
-.jc-pin { display: flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid var(--glass-edge); background: var(--surface-2);
-  color: var(--ink-dim); border-radius: var(--r-sm); padding: 8px 12px; height: var(--tap); font-size: 12.5px; font-weight: 700; cursor: pointer;
-  font-family: inherit; white-space: nowrap; }
-.jc-pin { width: 100%; }
-.jc-pin .i { width: 15px; height: 15px; flex: none; }
-.jc-pin:hover { color: var(--ink); }
-.jc-pin.on { background: color-mix(in srgb, var(--blue) 12%, transparent); border-color: color-mix(in srgb, var(--blue) 50%, transparent); color: var(--blue-strong); }
 .jc-send { width: 100%; display: flex; align-items: center; justify-content: center; gap: 7px; border: none; cursor: pointer;
   background: var(--blue); color: var(--on-fill); border-radius: var(--r-sm); padding: 9px 16px; height: var(--tap); font-size: 12.5px; font-weight: 800;
   font-family: inherit; white-space: nowrap; }
@@ -384,6 +382,12 @@
    beside the ✕ (it names the sheet, so it gets the width) with composer-size tap targets */
 .jc-mode .useg { display: flex; flex: 1 1 auto; min-width: 0; }
 .jc-mode .useg-btn { flex: 1; }
+/* ⚠️ The active tab is NOT the shared blue fill here. This sheet has exactly one thing worth
+   a colour — «Erfassen» — and a filled blue tab three rows above it competed for the same
+   attention, which is half of what made the whole surface read as noisy. White on the grey track still reads as
+   selected (it is the ordinary segmented look), and it leaves the sheet with one blue thing. */
+.jc-mode .useg-btn.on { background: var(--surface); color: var(--ink);
+  box-shadow: 0 1px 2px rgba(30, 45, 70, .16); }
 
 /* Erinnerung due-time picker */
 .jc-due { display: flex; flex-direction: column; gap: 8px; }
@@ -422,7 +426,6 @@
   color: var(--blue-strong); }
 .jc-due-preview .i { width: 15px; height: 15px; }
 .jc-due-preview em { font-style: normal; color: var(--ink-dim); font-weight: 600; }
-.jc-pin-spacer { flex: 1; }
 
 /* open-reminders count badge on the Verlauf button */
 .tb-rem-count { position: absolute; top: -5px; right: -5px; min-width: 17px; height: 17px; padding: 0 4px; box-sizing: border-box;

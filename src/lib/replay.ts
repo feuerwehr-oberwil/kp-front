@@ -14,7 +14,6 @@
 // Anything the fold can't apply is harmlessly skipped — the next snapshot corrects it.
 
 import { apiGet } from './api'
-import { appConfig } from '../config/appConfig'
 import type { Saved } from './workspace'
 import type { BoardAnno, BoardDoc, BuildingDoc, Drawing, Entity, LayerId, LngLat, WeatherData } from '../types'
 
@@ -74,26 +73,6 @@ export interface ReplayBundle {
 }
 
 const ms = (iso: string) => new Date(iso).getTime()
-
-/** Markers placed on the scrubber track — clickable jump points. */
-export interface ReplayMarker {
-  ms: number
-  seq: number
-  kind: 'symbol' | 'draw' | 'status' | 'divera' | 'save' | 'other'
-  label: string
-}
-
-// op_type → marker kind (stable) + the replay-copy key carrying its label. The label is
-// resolved inside deriveMarkers (not here) so the boot-resolved locale applies.
-type MarkerLabelKey = 'markerSymbol' | 'markerDraw' | 'markerStatus' | 'markerDivera' | 'markerIncidentOpen' | 'markerSave'
-const MARKER_KIND: Record<string, { kind: ReplayMarker['kind']; labelKey: MarkerLabelKey }> = {
-  'entity.add': { kind: 'symbol', labelKey: 'markerSymbol' },
-  'draw.add': { kind: 'draw', labelKey: 'markerDraw' },
-  'status.change': { kind: 'status', labelKey: 'markerStatus' },
-  'divera.update': { kind: 'divera', labelKey: 'markerDivera' },
-  'incident.create': { kind: 'status', labelKey: 'markerIncidentOpen' },
-  'workspace.save': { kind: 'save', labelKey: 'markerSave' },
-}
 
 // Structural events that are NOT a content change — they must not stretch the scrub range into
 // idle time (incident.create fires at the incident's open, often well before any real work).
@@ -193,6 +172,44 @@ export function activityMoments(
     if (Number.isFinite(t)) out.push(t)
   }
   return out
+}
+
+/** One Verlauf row placed on the replay axis: what was written, and when. */
+export interface JournalMoment {
+  id: string
+  ms: number
+  text: string
+}
+
+/**
+ * The Verlauf as points on the scrubber — the lane under the track, and the line that runs
+ * under the bar while it plays.
+ *
+ * ⚠️ Rows whose `at` will not parse are DROPPED rather than placed at 0. A row with no absolute
+ * date is a legacy row (the Verlauf used to carry clock strings), and putting it at the start of
+ * the incident would be a confident lie about when it was said — in the one view whose whole
+ * claim is «this is how it was at this moment».
+ */
+export function journalMoments(timeline: { id?: string; at?: string; text?: string }[]): JournalMoment[] {
+  const out: JournalMoment[] = []
+  for (const r of timeline) {
+    if (!r.at || !r.id) continue
+    const t = ms(r.at)
+    if (!Number.isFinite(t)) continue
+    out.push({ id: r.id, ms: t, text: r.text ?? '' })
+  }
+  return out.sort((a, b) => a.ms - b.ms)
+}
+
+/** The moment the playhead is currently «in» — the last one at or before it, or null before the
+ *  first. Linear from the end: the playhead usually moves forward by one. */
+export function momentAt(moments: JournalMoment[], tMs: number): JournalMoment | null {
+  let found: JournalMoment | null = null
+  for (const m of moments) {
+    if (m.ms > tMs) break
+    found = m
+  }
+  return found
 }
 
 /** A stretch that DOES contain activity — the complement of the gaps, and what the track
@@ -343,19 +360,6 @@ export function stepMoment(moments: number[], tMs: number, dir: 1 | -1): number 
   return best
 }
 
-/** Pick the events worth showing as track markers (skip noisy move/edit/toggle). */
-export function deriveMarkers(events: ReplayEvent[]): ReplayMarker[] {
-  const copy = appConfig.copy.replay
-  const out: ReplayMarker[] = []
-  for (const e of events) {
-    const m = MARKER_KIND[e.op_type]
-    if (!m) continue
-    if (e.op_type === 'workspace.save') continue // too dense to mark; it's the fold anchor
-    out.push({ ms: ms(e.occurred_at), seq: e.seq, kind: m.kind, label: copy[m.labelKey] })
-  }
-  return out
-}
-
 /**
  * Load everything needed to scrub an incident locally. One round-trip for the event
  * range (+ samples); snapshots are fetched lazily per anchor and memoised.
@@ -478,7 +482,8 @@ function applyEvent(ws: Saved, e: ReplayEvent): void {
     }
     // status.change / divera.update / journal.add / undo / redo / workspace.save:
     // no workspace-shape mutation we can faithfully fold from the minimal payload;
-    // the snapshot anchor carries their net effect. They still drive markers.
+    // the snapshot anchor carries their net effect. They still count as activity
+    // (activityMoments), which is what decides where the track is filled.
     default:
       break
   }

@@ -24,7 +24,9 @@
 .ap-btn-main:hover { background: var(--btn-primary-hover); }
 .ap-skip { display: grid; place-items: center; line-height: 1; }
 .ap-skip small { font-size: 9px; font-weight: 800; margin-top: 1px; }
-/* --r-sm like every other button (.ip-btn) — see the note on .jr-open in 17-rapport.css */
+/* --r-sm like every other button (.ip-btn), NOT a 999px pill: «1×» and «Transkribieren» sit
+   right beside square-cornered controls, and pills among rounded rectangles read as a
+   different kind of control altogether. */
 .ap-speed { border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); padding: 10px 15px;
   font: 800 13px var(--mono); color: var(--ink); cursor: pointer; min-height: var(--tap); }
 .ap-time { margin-left: auto; text-align: right; }
@@ -121,13 +123,10 @@
 .ap-row-input { flex: 1; min-width: 0; border: 1px solid var(--glass-edge); border-radius: 10px; background: var(--surface);
   padding: 7px 10px; font: inherit; font-size: 13px; color: var(--ink); }
 .ap-row-input:focus { outline: none; border-color: color-mix(in srgb, var(--blue) 50%, transparent); }
+/* Abbrechen · Speichern under the transcript field. The two ways INTO the field are icon
+   buttons up in the row itself (.jr-jump / .jr-jump-miss in 17-rapport.css). */
 .jr-transcript button { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--ink); padding: 6px 8px; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
 .jr-transcript button .i { width: 14px; height: 14px; }
-/* a still-missing transcript is an amber call-to-action, not a quiet grey button — so the
-   reminder to fill it actually gets noticed */
-.jr-transcript button.jr-tx-missing { background: color-mix(in srgb, var(--amber) 16%, transparent);
-  border-color: color-mix(in srgb, var(--amber) 45%, transparent); color: var(--amber-strong); }
-.jr-transcript button.jr-tx-missing .i { color: var(--amber-strong); }
 .jr-transcript textarea { width: min(420px, 100%); resize: vertical; border: 1px solid var(--border); border-radius: var(--r-xs); background: var(--surface); color: var(--ink); padding: 8px; font: inherit; font-size: 12px; }
 .jr-transcript-actions { display: flex; gap: 6px; }
 
@@ -143,46 +142,92 @@
   .report-meta-grid, .report-toggles { grid-template-columns: 1fr; }
 }
 
-/* Textbausteine: standard radio-message chips under the composer text */
-.jc-phrases { display: flex; flex-wrap: wrap; gap: 6px; }
+/* Textbausteine: standard radio-message chips under the composer text.
+   ── ONE ROW that scrolls SIDEWAYS ──────────────────────────────────────────────────────────
+   Never wrapping. The two sources cap themselves separately and know nothing of each other —
+   up to 4 names (suggestLinks) plus up to 3 phrases (MAX_SUGGESTIONS) — so wrapped, the band
+   was seven chips over three rows, which on a phone is most of the sheet, and it changed height
+   with almost every keystroke. One row is one row: the sheet's shape stops depending on how
+   many matches the last letter happened to produce.
+   Nothing is dropped. The DOM order is already priority order — names first (the cursor is
+   inside one), then phrases by score — so the best matches are the ones on screen and the rest
+   are a swipe away. The chip cut off at the right edge is the cue that there are more.
+   8px gap like every other gap on this sheet. */
+.jc-phrases { display: flex; flex-wrap: nowrap; gap: 8px;
+  overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain;
+  /* no scrollbar: at 44px the band has no height to spare for one, and it would sit across the
+     chips rather than under them */
+  scrollbar-width: none; }
+.jc-phrases::-webkit-scrollbar { display: none; }
+/* ⚠️ `flex: none` + `nowrap` on the chip: without them the row's shrink squeezes each chip
+   until its own text wraps, and the second line is then cut off by the band. */
+.jc-phrase { flex: none; white-space: nowrap; }
 /* nothing to suggest: no row, no gap. The phone reserves it instead — see 15-mobile.css */
 .jc-phrases.is-empty { display: none; }
-.jc-phrase { min-height: 44px; padding: 8px 12px; font-size: 12.5px; font-weight: 600; cursor: pointer;
-  border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface); color: var(--ink); }
+/* ⚠️ NO BORDER. These are words to drop into a sentence, not controls — and framed like
+   controls they were indistinguishable from the ART chips one row below, which are a decision
+   that stays. Two identical-looking chip rows doing opposite things is most of what made this
+   sheet read as noisy (14.08.). A quiet fill is enough to say «tappable»; the frames on this
+   surface now belong to the things that DO something. */
+/* ⚠️ an ink mix, NOT --surface-2: that token is white at 60% in the day theme, which on this
+   white sheet is nothing at all — the borderless chips read as bare bold text nobody would
+   think to tap. A mix off --ink carries the same weight in both themes. */
+.jc-phrase { min-height: 44px; padding: 8px 14px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  border: none; border-radius: var(--r-pill); color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 8%, transparent); }
 /* a NAME suggestion is a different offer from a Textbaustein — it completes the WORD under the
-   cursor rather than the sentence, and what it carries is the spelling the rest of the app uses */
-.jc-phrase-link { border-color: color-mix(in srgb, var(--blue) 40%, transparent);
-  background: color-mix(in srgb, var(--blue) 10%, var(--surface)); color: var(--blue-strong); }
-.jc-link-material { border-color: color-mix(in srgb, var(--green) 40%, transparent);
-  background: color-mix(in srgb, var(--green) 10%, var(--surface)); color: var(--green-strong); }
-.jc-link-partner { border-color: color-mix(in srgb, var(--amber) 45%, transparent);
-  background: color-mix(in srgb, var(--amber) 12%, var(--surface)); color: var(--amber-strong); }
-.jc-link-vehicle { border-color: color-mix(in srgb, var(--accent) 40%, transparent);
-  background: color-mix(in srgb, var(--accent) 10%, var(--surface)); color: var(--accent); }
-.jc-link-group { border-color: var(--glass-edge); background: var(--surface); color: var(--ink); }
-.jc-phrase:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--glass-edge));
-  background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+   cursor rather than the sentence, and what it carries is the spelling the rest of the app uses.
+   The tints carry a touch more colour than they did as outlined chips: the border used to do
+   half the work of telling them apart. */
+.jc-phrase-link { background: color-mix(in srgb, var(--blue) 14%, transparent); color: var(--blue-strong); }
+.jc-link-material { background: color-mix(in srgb, var(--green) 15%, transparent); color: var(--green-strong); }
+.jc-link-partner { background: color-mix(in srgb, var(--amber) 17%, transparent); color: var(--amber-strong); }
+.jc-link-vehicle { background: color-mix(in srgb, var(--accent) 13%, transparent); color: var(--accent); }
+.jc-link-group { background: color-mix(in srgb, var(--ink) 8%, transparent); color: var(--ink); }
+.jc-phrase:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
 
 /* ── Von / Art ────────────────────────────────────────────────────────────────────────────
    One quiet strip under the text. Deliberately NOT field-shaped: the sentence is what this
    surface is for, and a control that looks like a required field is one that makes people
    close the composer. So: a small label, small chips, nothing preselected, and 12px of ink. */
-.jc-meta { display: flex; flex-direction: column; gap: 6px; }
-/* THREE EQUAL COLUMNS, label on its own line above them. The chips used to sit inline after a
-   34px «ART», sized by their own text — which worked only as long as the longest one was a
+.jc-meta { display: flex; flex-direction: column; gap: 8px; }
+/* THREE EQUAL COLUMNS, and no heading over them. The chips used to sit inline after a 34px
+   «ART», sized by their own text — which worked only as long as the longest one was a
    six-letter abbreviation. «Sofortmassnahme» is the word the Verlauf prints, so it is the word
    the chip says; at its natural width it took the whole row and pushed the other two onto a
    second line. Equal columns keep the three Arten one row, one shape, one tap target, and the
-   long one wraps INSIDE its own chip on a narrow phone rather than truncating. */
+   long one wraps INSIDE its own chip on a narrow phone rather than truncating.
+   The «ART» eyebrow above them is gone too (2026-08-14) — it repeated what the three chips
+   already say and cost a row on a phone. The word survives as the group's accessible name. */
+/* ⚠️ 8px, the same fugue as .jc-audio / .jc-foot / .jc-due-chips. These are two three-column
+   grids sitting directly on top of each other; at 6px against 8px their vertical seams missed
+   each other by 2px and the chips came out different widths than the buttons below them —
+   which is exactly what you see before you can say what you are seeing. */
 .jc-meta-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
-  align-items: stretch; gap: 6px; min-width: 0; }
-.jc-meta-lbl { grid-column: 1 / -1; font: 700 10.5px var(--body); letter-spacing: .04em;
-  text-transform: uppercase; color: var(--ink-faint); }
+  align-items: stretch; gap: 8px; min-width: 0; }
+/* ⚠️ `min-width: 0` + a break opportunity, or the long one does NOT wrap: a grid item's
+   min-width is `auto`, so «Sofortmassnahme» — one word with nowhere to break — sized its own
+   column to the whole word and hung over the right edge of a phone screen (visible in the
+   14:56 shot from 14.08.). `minmax(0, 1fr)` on the TRACK can't stop that; the item has to
+   allow it. German hyphenation splits it properly (<html lang="de">); `anywhere` is the
+   fallback for engines that don't hyphenate. */
+/* ⚠️ --r-sm, not a 999px pill: one shape for everything on this sheet that is a control (the
+   media strip, «Erfassen», these), and the rounded pill reserved for the suggestion words above.
+   Shape now says which of the two rows you are looking at, before you have read either. */
+/* ⚠️ --tap, the same height as the media buttons below them. They were 32px: a shorter band in
+   a sheet where every other row is 44, which read as a rhythm error before you could name it,
+   and a target below the gloved floor everything else on this surface respects. «Quiet» is
+   carried by the thin outline and the small type, not by being stunted. */
 .jc-chip {
-  min-height: 32px; padding: 5px 8px; border-radius: 999px; cursor: pointer;
+  min-width: 0; min-height: var(--tap); padding: 5px 8px; border-radius: var(--r-sm); cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center; text-align: center;
   border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink-dim);
   font: 600 12px var(--body); line-height: 1.15; -webkit-tap-highlight-color: transparent;
+  -webkit-hyphens: auto; hyphens: auto; overflow-wrap: anywhere;
+  /* …and never break off a two-letter tail: left to itself the engine takes the LAST break
+     that fits and produced «Sofortmassnah-me». At least four characters on each side it
+     reads as the compound it is. Ignored where unsupported — the word still wraps. */
+  hyphenate-limit-chars: 8 4 4;
 }
 .jc-chip:hover { color: var(--ink); border-color: var(--ink-faint); }
 /* --blue, never --accent: this is a SELECTED state, and --accent is the deployment's brand red */

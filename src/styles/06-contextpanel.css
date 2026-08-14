@@ -347,6 +347,12 @@
 /* overflow: hidden — the connector halves below are drawn 100vh long and clipped to the row */
 .hist-ev { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--r-ctl); font-size: 13px; font-weight: 500; overflow: hidden; }
 .hist-ev.clickable { cursor: pointer; }
+/* ⚠️ Rows the replay playhead has not reached yet. Dimmed, never hidden: the Verlauf stays whole
+   and searchable while you scrub — but nothing on screen may look like part of the moment being
+   examined when it had not been written yet. Still tappable, and tapping one seeks FORWARD to it,
+   which is the fastest way to «und dann?». */
+.hist-ev.jr-future { opacity: .4; }
+.hist-ev.jr-future.clickable:hover { opacity: .75; }
 .hist-ev.clickable:hover { background: var(--hover); }
 /* persistent affordance so touch users can tell a row navigates without hovering */
 .hist-go { margin-left: auto; color: var(--ink-faint); display: grid; place-items: center; flex: none; opacity: .55; transition: transform .14s var(--ease), opacity .14s var(--ease); }

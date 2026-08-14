@@ -114,7 +114,14 @@
   position: absolute; top: 9px; width: 1.5px; height: 16px; margin-left: -0.75px;
   border-radius: 1px; background: var(--ink-faint); opacity: .7;
 }
-/* the row the strip just jumped to, briefly — otherwise a smooth scroll ends somewhere with no
-   sign of which line was meant */
-@keyframes jr-flash { from { background: color-mix(in srgb, var(--blue) 18%, transparent); } to { background: transparent; } }
-.hist-ev.jr-flash { animation: jr-flash .9s var(--ease); }
+/* The row the strip — or the Wiedergabe's «im Verlauf» — just landed on. Without it a scroll
+   ends somewhere with no sign of which line was meant.
+   ⚠️ The SHARED ink ring (02-base.css · ui-flash-ring), not a background wash of its own. The
+   wash it used to be was 0.9 s of pale blue, which on a list that already tints rows blue for
+   «Lage» read as a rendering artefact rather than as a point — the same finding the Rapport
+   made. `--r-ctl` because that is the row's own radius; a square ring around rounded corners
+   looks like a bug. */
+.hist-ev.jr-flash { animation: ui-flash-ring 1.9s ease-out 1; border-radius: var(--r-ctl); }
+@media (prefers-reduced-motion: reduce) {
+  .hist-ev.jr-flash { animation: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 62%, transparent); }
+}

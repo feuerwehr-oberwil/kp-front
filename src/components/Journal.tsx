@@ -54,7 +54,7 @@ const chip = (e: TimelineEvent, plans: PlanDocument[]): string => {
 // The unified Verlauf — the single, append-only stream of everything that
 // happens on either surface. Rendered as a slide-over so it can open over the
 // map or the plan; a row jumps back to wherever its event happened.
-export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose, onTranscript, onReplay, openReminders, onReminderDone, mediaStatusOf, onOpenPlayer, onEditText }: {
+export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose, onTranscript, onReplay, openReminders, onReminderDone, mediaStatusOf, onOpenPlayer, onEditText, replayAtMs, onSeekTo, landOn }: {
   events: TimelineEvent[]
   plans: PlanDocument[]
   /** the linkable vocabulary (lib/journalLinks) — the SAME memo the composer marks with, so a
@@ -82,6 +82,19 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
   /** correct an annotation row's text (append-only textEdit patch — same pattern as the
    *  transcript edit; offered on rows inside a recording's window) */
   onEditText?: (id: string, text: string) => void
+  /**
+   * The replay playhead. Set ⇒ this Verlauf is being read alongside a Wiedergabe: rows after
+   * this instant are the FUTURE and render dimmed, and the row the playhead stands in is marked.
+   * ⚠️ It is not a live clock — it only changes when the playhead crosses a row (ReplayBar ·
+   * onPlayhead), so this list does not re-render on every playback frame.
+   */
+  replayAtMs?: number | null
+  /** during replay a row sets the MOMENT rather than flying to a place — the whole picture then
+   *  reads as it did when the line was written, which is the question a pin only half answered */
+  onSeekTo?: (e: TimelineEvent) => void
+  /** scroll to one row and flash it when the drawer opens onto it (the Wiedergabe caption's
+   *  «im Verlauf»). `nonce` so the same row twice in a row still lands. */
+  landOn?: { id: string; nonce: number } | null
 }) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.journal
@@ -141,13 +154,121 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
     if (!best) return
     jumpToRow(best)
   }
-  /** Scroll to one row by id and flash it — the strip and the pinned Erinnerungen share it. */
-  const jumpToRow = (id: string) => {
-    const el = listRef.current?.querySelector(`[data-ev="${CSS.escape(id)}"]`)
-    el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-    el?.classList.add('jr-flash')
-    window.setTimeout(() => el?.classList.remove('jr-flash'), 900)
+  /** The row element for an id. ⚠️ Matched on `dataset`, not through a `[data-ev="…"]` selector:
+   *  that needs `CSS.escape` for ids it cannot predict, and reaching for a global that does not
+   *  exist everywhere (jsdom has no `CSS`) threw inside a requestAnimationFrame, where nothing
+   *  catches it. A row id is data; walking the rows is cheap and cannot be mis-escaped. */
+  const findRow = (id: string) => {
+    const list = listRef.current
+    if (!list) return null
+    for (const el of list.querySelectorAll<HTMLElement>('[data-ev]')) if (el.dataset.ev === id) return el
+    return null
   }
+  /** How far the row is from the middle of the list, in px. 0 = centred. */
+  const offCentre = (list: HTMLElement, el: HTMLElement) => {
+    const lr = list.getBoundingClientRect()
+    const er = el.getBoundingClientRect()
+    return (er.top - lr.top) - (lr.height - er.height) / 2
+  }
+  /**
+   * Scroll to one row by id and flash it — the strip, the pinned Erinnerungen and the
+   * Wiedergabe's «im Verlauf» all share it. Returns whether the row was there to scroll to.
+   *
+   * ⚠️ The list is scrolled by a MEASURED delta first, and `scrollIntoView` is only the fallback.
+   * That call walks up to whatever it decides is the scroll parent and animates it, and here it
+   * is asked to do so on a drawer that is still animating open — so it scrolled the wrong box or
+   * was undone by the layout that followed, and the Verlauf opened at the top with the row
+   * nowhere in sight. Two rects and one assignment cannot pick the wrong container; but if the
+   * assignment provably did not move the list (a scroll container this code did not expect),
+   * the platform's own method still gets its turn rather than leaving the operator stranded.
+   */
+  const jumpToRow = (id: string) => {
+    const list = listRef.current
+    const el = findRow(id)
+    if (!list || !el) return false
+    // ⚠️ removed + reflowed + re-added, so landing on the SAME row twice runs the ring again;
+    // an animation that is already on the element does not restart by itself (the Rapport's
+    // jumpToStep does the same for its chips)
+    el.classList.remove('jr-flash')
+    void el.offsetWidth
+    el.classList.add('jr-flash')
+    window.setTimeout(() => el.classList.remove('jr-flash'), 2000)
+    const lr = list.getBoundingClientRect()
+    // before layout (jsdom, or a frame too early) every rect is 0 — the flash above is what says
+    // «this is the one» either way
+    if (lr.height <= 0) return true
+    const before = list.scrollTop
+    const delta = offCentre(list, el)
+    list.scrollTop += delta
+    // it should have moved. If it did not, this list is not the box that scrolls.
+    if (Math.abs(delta) > 2 && list.scrollTop === before) el.scrollIntoView({ block: 'center' })
+    return true
+  }
+  /**
+   * Opened ONTO one row — «im Verlauf» on the Wiedergabe caption.
+   *
+   * Three things have to go right, and each of them bit:
+   *   · LAYOUT — the drawer mounts on the same click that asks it to land, so for the first
+   *     frames the row exists while the list has no box, and a delta computed from two
+   *     zero-height rects moves nothing. So: wait for the list to have a height.
+   *   · SETTLING — web fonts swap, media chips arrive, transcripts render. Every one of them
+   *     changes the height of rows ABOVE the target, which slides it back out of the middle
+   *     after a correct scroll. So: keep correcting for a few hundred ms until it holds still.
+   *   · THE OPERATOR — who may start scrolling in the middle of all that, and must win. Any
+   *     touch, wheel or drag on the list ends the settling immediately.
+   *
+   * ⚠️ NO «already landed» ref guard. There was one, and under <StrictMode> — which this app
+   * mounts in — it made the whole thing dead code in development: React runs an effect, its
+   * cleanup, then the effect again, so the first run recorded the nonce, the cleanup cancelled
+   * its frame, and the second run saw its own nonce and returned. Nothing ever scrolled. The
+   * dependency is the whole guard that is needed: `landOn` is state, so its identity changes
+   * exactly when a new landing is requested.
+   */
+  useEffect(() => {
+    if (!landOn) return
+    let raf = 0
+    let tries = 0
+    let stable = 0
+    let cancelled = false
+    const stop = () => { cancelled = true }
+    const list0 = listRef.current
+    list0?.addEventListener('wheel', stop, { passive: true })
+    list0?.addEventListener('touchstart', stop, { passive: true })
+    list0?.addEventListener('pointerdown', stop)
+
+    const settle = () => {
+      if (cancelled) return
+      const list = listRef.current
+      const el = findRow(landOn.id)
+      if (!list || !el || list.getBoundingClientRect().height <= 0) return
+      const delta = offCentre(list, el)
+      if (Math.abs(delta) > 2) { list.scrollTop += delta; stable = 0 } else stable += 1
+      // three quiet frames, or ~40 frames of trying — whichever comes first
+      if (stable < 3 && ++tries < 40) raf = requestAnimationFrame(settle)
+    }
+    const attempt = () => {
+      if (cancelled) return
+      const list = listRef.current
+      const el = findRow(landOn.id)
+      const laidOut = !!list && !!el && list.getBoundingClientRect().height > 0
+      if (laidOut || ++tries > 20) {
+        if (el) { jumpToRow(landOn.id); tries = 0; raf = requestAnimationFrame(settle) }
+        return
+      }
+      raf = requestAnimationFrame(attempt)
+    }
+    raf = requestAnimationFrame(attempt)
+    // fonts land late and re-flow every row above the target — one more correction when they do
+    document.fonts?.ready.then(() => { if (!cancelled) settle() }).catch(() => {})
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(raf)
+      list0?.removeEventListener('wheel', stop)
+      list0?.removeEventListener('touchstart', stop)
+      list0?.removeEventListener('pointerdown', stop)
+    }
+  }, [landOn])
+
   // Overdue first, then by Fälligkeit — the same order the Atemschutz board sorts its cards in:
   // the one that has been waiting longest is the one that is about to be forgotten.
   const pinnedReminders = useMemo(
@@ -245,7 +366,19 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
               {g.label && <div className="jr-day-sep" role="separator">{g.label}</div>}
               {g.events.map((e) => {
             const target = targetOf(e)
-            const clickable = target != null
+            // ── during a Wiedergabe every row is a way into the picture ──
+            // A row's tap sets the MOMENT, so the map, the Trupps and the Plan all read as they
+            // did when the line was written. That is the question the old «anheften» toggle was
+            // really being asked, and this answers it for EVERY row rather than for the few
+            // somebody remembered to pin — including the ones written before the toggle existed.
+            const rowMs = e.at ? Date.parse(e.at) : NaN
+            const seekable = onSeekTo != null && Number.isFinite(rowMs)
+            const clickable = seekable || target != null
+            const onRow = seekable ? () => onSeekTo(e) : target != null ? () => onSelect(e) : undefined
+            // …and rows the playhead has not reached yet are the future: shown (the Verlauf stays
+            // whole and searchable) but visibly not-yet, so nothing on screen claims to be part of
+            // the moment being looked at.
+            const future = replayAtMs != null && Number.isFinite(rowMs) && rowMs > replayAtMs
             // a `created` reminder row: still-open (look up derived state) ⇒ show due + done
             // toggle; gone from the open set ⇒ already erledigt (checked + struck through).
             const isReminder = e.kind === 'reminder' && e.reminder?.op === 'created'
@@ -254,13 +387,13 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
             const remOverdue = !!openRem && Date.parse(openRem.dueAt) <= now
             return (
               <div
-                className={`hist-ev ${clickable ? 'clickable' : ''}`}
+                className={`hist-ev ${clickable ? 'clickable' : ''} ${future ? 'jr-future' : ''}`}
                 key={e.id}
                 data-ev={e.id}
                 role={clickable ? 'button' : undefined}
                 tabIndex={clickable ? 0 : undefined}
-                onClick={clickable ? () => onSelect(e) : undefined}
-                onKeyDown={clickable ? (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onSelect(e) } } : undefined}
+                onClick={onRow}
+                onKeyDown={onRow ? (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onRow() } } : undefined}
               >
                 <span className="t">{rowTime(e)}</span>
                 <span className="ic"><Icon id={e.icon || 'doc'} /></span>
@@ -337,6 +470,31 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                     </>
                   )
                 })()}
+                {/* ── Durchhören + Transkript, IN der Zeile ──
+                    These were two full-width labelled buttons on a line of their own below the
+                    row. On a phone they never fitted side by side, so every voice memo was a
+                    three-line block and the amber «Transkript ergänzen» shouted louder than the
+                    entry it belonged to — two memos in a row and half the Verlauf was button.
+                    As icons beside the play circle an audio row is one row again, like every
+                    other row. The missing-transcript state keeps its amber, on the icon's frame
+                    rather than as a filled block; the transcript TEXT still gets its own line
+                    below (see .jr-transcript) — that is content, not a control. */}
+                {e.audioUrl && e.audioMeta && onOpenPlayer && (
+                  <button
+                    className="jr-jump"
+                    title={C.playerOpen}
+                    aria-label={C.playerOpen}
+                    onClick={(ev) => { ev.stopPropagation(); onOpenPlayer(e) }}
+                  ><Icon id="wave" /></button>
+                )}
+                {e.audioUrl && onTranscript && (
+                  <button
+                    className={`jr-jump ${e.transcript ? '' : 'jr-jump-miss'}`}
+                    title={e.transcript ? C.transcriptEdit : C.transcriptAdd}
+                    aria-label={e.transcript ? C.transcriptEdit : C.transcriptAdd}
+                    onClick={(ev) => { ev.stopPropagation(); setEditTx({ id: e.id, value: e.transcript ?? '' }) }}
+                  ><Icon id={e.transcript ? 'type' : 'warn'} /></button>
+                )}
                 {e.audioUrl && (
                   <button
                     className={`tl-play ${audio.playing === e.id ? 'playing' : ''}`}
@@ -353,7 +511,9 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                   </span>
                 )}
                 {clickable && <span className="hist-go" aria-hidden><Icon id={e.pinned ? 'coords' : 'chevron'} /></span>}
-                {e.audioUrl && (onTranscript || (e.audioMeta && onOpenPlayer)) && (
+                {/* the transcript itself, on its own line under the row — either the text, or
+                    the field to write it in. The two ways IN live in the row above. */}
+                {e.audioUrl && (editTx?.id === e.id || e.transcript) && (
                   <div className="jr-transcript" onClick={(ev) => ev.stopPropagation()}>
                     {editTx?.id === e.id ? (
                       <>
@@ -370,26 +530,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                           <button onClick={saveTranscript}><Icon id="check" />{C.transcriptSave}</button>
                         </div>
                       </>
-                    ) : (
-                      <>
-                        {e.transcript && <p>{e.transcript}</p>}
-                        <div className="jr-tx-actions">
-                          {e.audioMeta && onOpenPlayer && (
-                            <button className="jr-open" title={C.playerOpen} onClick={() => onOpenPlayer(e)}>
-                              <Icon id="wave" />{C.playerOpen}
-                            </button>
-                          )}
-                          {onTranscript && (
-                            <button
-                              className={e.transcript ? '' : 'jr-tx-missing'}
-                              onClick={() => setEditTx({ id: e.id, value: e.transcript ?? '' })}
-                            >
-                              <Icon id={e.transcript ? 'type' : 'warn'} />{e.transcript ? C.transcriptEdit : C.transcriptAdd}
-                            </button>
-                          )}
-                        </div>
-                      </>
-                    )}
+                    ) : <p>{e.transcript}</p>}
                   </div>
                 )}
                 {editRow?.id === e.id && (

@@ -768,7 +768,6 @@ export function IncidentWorkspace({
     return () => clearTimeout(t)
   }, [flashDrawingId])
   // last reported plan-view centre, so a journal pin on the plan anchors to "here"
-  const planCenter = useRef<{ x: number; y: number; floor: number }>({ x: 0.5, y: 0.5, floor: 0 })
   // the note being edited inline with raw text directly on the map — exactly like the Plan
   // whiteboard's text notes (placement auto-edits; double-click re-enters; single tap just selects)
   const [editNoteId, setEditNoteId] = useState<string | null>(null)
@@ -1379,6 +1378,19 @@ export function IncidentWorkspace({
   // sure nothing is mid-edit on entry — including the lasso halos and the «Welcher Trupp?» picker,
   // which its old hand-written list missed and which then sat over a read-only past.
   const enterReplay = () => { clearMapUi(); setReplayActive(true) }
+  // ── Verlauf ⇄ Wiedergabe ──
+  // The bar owns the playhead (it ticks four times a second at 4×; lifting that here would
+  // re-render the workspace on every frame). It reports the playhead only when it CROSSES a
+  // Verlauf row, and hands its seek down through a ref — the same imperative-handle pattern the
+  // Plan's fit and history already use. Together those two make a row a way into the moment.
+  const replaySeek = useRef<((ms: number) => void) | null>(null)
+  const [journalLandOn, setJournalLandOn] = useState<{ id: string; nonce: number } | null>(null)
+  const [replayAtMs, setReplayAtMs] = useState<number | null>(null)
+  const onReplayPlayhead = useCallback((ms: number) => setReplayAtMs(ms), [])
+  const seekToEvent = (e: TimelineEvent) => {
+    const t = e.at ? Date.parse(e.at) : NaN
+    if (Number.isFinite(t)) replaySeek.current?.(t)
+  }
 
   // Ebenen shares the dock slot with the views popover and the tool docks — opening it
   // drops the active tool and closes the views menu (mirror of toggleViews below).
@@ -1390,6 +1402,9 @@ export function IncidentWorkspace({
 
   // navigate from a Verlauf row back to wherever the event happened, then close
   // the drawer. Plan rows switch surface + document and (when located) recenter.
+  // leaving replay drops the playhead with it, or a later Verlauf would still dim its own future
+  useEffect(() => { if (!replayActive) setReplayAtMs(null) }, [replayActive])
+
   const focusEvent = (e: TimelineEvent) => {
     if (e.surface === 'plan' && e.planId) {
       if (e.planId === gebaeudeDoc.id && !building) { setJournalOpen(false); return } // floor-stack gone
@@ -1431,12 +1446,12 @@ export function IncidentWorkspace({
       toast(appConfig.copy.journal.reminderSaved, { icon: 'clock', tone: 'success' })
       return
     }
-    let coord: LngLat | undefined, px: number | undefined, py: number | undefined, floor: number | undefined
-    if (d.pin) {
-      if (onPlan) { ({ x: px, y: py, floor } = planCenter.current) }
-      else { const c = mapRef.current?.getMap().getCenter(); if (c) coord = [c.lng, c.lat] }
-    }
-    const pinned = d.pin && (coord != null || px != null)
+    // ⚠️ No coordinate. «An aktueller Kartenmitte anheften» is gone (14.08.): it wrote the
+    // centre of whatever happened to be on screen — neither where the author stood nor where
+    // the event was — and its only payoff was that the row could fly the map back to that spot.
+    // The Wiedergabe answers the question it was really asked («wie sah es da aus?») properly,
+    // by scrubbing the whole picture to the moment. Rows written BEFORE this still carry their
+    // coord and stay clickable; nothing reads `pinned` to decide anything else.
     const photoUrls = d.photoUrls ?? []
     const icon = d.audioUrl ? 'mic' : photoUrls.length ? 'photo' : 'type'
     const kind = d.audioUrl ? 'audio' : photoUrls.length ? 'photo' : 'journal'
@@ -1455,7 +1470,7 @@ export function IncidentWorkspace({
       audioUrl: d.audioUrl, photoUrls: photoUrls.length ? photoUrls : undefined, audioMeta: d.audioMeta,
       // an imported memo lands at its confirmed recording start; everything else at composer-open
       at: (imported ? d.audioMeta?.startedAt : undefined) ?? composerOpenedAt.current ?? undefined,
-      surface: onPlan ? 'plan' : 'map', planId: onPlan ? activePlanId : undefined, coord, px, py, floor, pinned,
+      surface: onPlan ? 'plan' : 'map', planId: onPlan ? activePlanId : undefined,
     }, rowId)
     // one upload per picture; each swaps ITS OWN blob: URL for the server URL when it lands
     for (const url of photoUrls) void uploadPhotoForRow(rowId, url)
@@ -1536,7 +1551,7 @@ export function IncidentWorkspace({
     const files = [...(e.target.files ?? [])]
     e.target.value = '' // the same file twice in a row must still fire
     if (!files.length) return
-    addJournal({ text: '', pin: false, photoUrls: files.map((f) => URL.createObjectURL(f)) })
+    addJournal({ text: '', photoUrls: files.map((f) => URL.createObjectURL(f)) })
   }
 
   // Every path through here ends the "I am reading this object" state — reaching for a tool means
@@ -3360,7 +3375,6 @@ export function IncidentWorkspace({
           fitRef={planFit}
           keysRef={planKeys}
           focus={planFocus}
-          onView={(c) => { planCenter.current = c }}
           trupps={effTrupps}
           truppSeverities={azAlarm.severities}
           onLinkTrupp={(annoId, truppId) => updateTrupp(truppId, { annoId, planId: activePlanId })}
@@ -3504,6 +3518,18 @@ export function IncidentWorkspace({
           onState={onReplayState}
           onVehicles={onReplayVehicles}
           onExit={exitReplay}
+          journal={timeline}
+          onPlayhead={onReplayPlayhead}
+          seekRef={replaySeek}
+          // «im Verlauf» on the caption: open the drawer and land on that row.
+          // ⚠️ Offered only while the Verlauf is CLOSED. The drawer is modal — a full-screen
+          // scrim at z-index 60 over a bar at 50 — so with it open the button cannot be reached
+          // at all: the click lands on the scrim (which closes the drawer) or, where the drawer
+          // itself overlaps the bar, on one of its rows, which during a Wiedergabe seeks. Both
+          // read as «the button does nothing». With the Verlauf open it is redundant anyway:
+          // every row is right there, the one at the playhead is marked, and tapping any of them
+          // moves the moment.
+          onShowEntry={journalOpen ? undefined : (rowId) => { setJournalOpen(true); setJournalLandOn({ id: rowId, nonce: Date.now() }) }}
         />
       )}
 
@@ -3569,7 +3595,14 @@ export function IncidentWorkspace({
           closedAt={incidentMeta.closed_at}
           plans={planDocs}
           onSelect={focusEvent}
-          onClose={() => { setJournalOpen(false); if (journalFromRapport) { setJournalFromRapport(false); openRapport() } }}
+          replayAtMs={replayActive ? replayAtMs : null}
+          onSeekTo={replayActive ? seekToEvent : undefined}
+          landOn={journalLandOn}
+          // ⚠️ The landing is CONSUMED on close. The drawer remounts every time it opens, so the
+          // «already landed» guard inside it resets — and a stale `landOn` left lying around
+          // meant the next ordinary open (TopBar, checklist, Rapport) silently jumped to
+          // whatever row the Wiedergabe caption had pointed at, possibly hours ago.
+          onClose={() => { setJournalOpen(false); setJournalLandOn(null); if (journalFromRapport) { setJournalFromRapport(false); openRapport() } }}
           onTranscript={!readOnly ? (id, transcript) => journal.appendPatch(id, { transcript: transcript.trim() }) : undefined}
           onReplay={!replayActive ? () => { setJournalOpen(false); enterReplay() } : undefined}
           openReminders={reminders.open}
@@ -3602,7 +3635,6 @@ export function IncidentWorkspace({
       )}
       {composerOpen && (
         <JournalComposer
-          surface={mode === 'plans' ? 'plan' : 'map'}
           // everything this Einsatz has words for — Mannschaft, Mittel, Partnerorganisationen,
           // Fahrzeuge, Alarmgruppen. Typing three letters of any of them completes it.
           vocab={journalVocab}
@@ -3690,10 +3722,13 @@ export function IncidentWorkspace({
         />
       )}
 
-      {/* the camera behind the hold gesture's «Foto» target — one hidden input for both the
-          TopBar button and the phone FAB, so there is exactly one quick-photo path */}
+      {/* the camera behind the hold gesture's «Foto» target — one input for both the TopBar
+          button and the phone FAB, so there is exactly one quick-photo path.
+          ⚠️ `.file-picker`, not `hidden`: iOS never opens a picker for a display:none input
+          (see 02-base.css) — that is the whole reason this target did nothing on a phone. */}
       {!readOnly && !linkScoped && (
-        <input ref={photoInputRef} type="file" accept="image/*" capture="environment" multiple hidden onChange={onQuickPhotoPicked} />
+        <input ref={photoInputRef} type="file" accept="image/*" capture="environment" multiple
+          className="file-picker" tabIndex={-1} onChange={onQuickPhotoPicked} />
       )}
     </div>
   )

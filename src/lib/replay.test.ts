@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activeReplayRange, activityMoments, deriveMarkers, findGaps, fractionAtTime, gapAt, layoutTrack, segmentsFromGaps, stateAt, stepMoment, timeAtFraction, vehiclesAt } from './replay'
+import { activeReplayRange, activityMoments, findGaps, fractionAtTime, gapAt, journalMoments, layoutTrack, momentAt, segmentsFromGaps, stateAt, stepMoment, timeAtFraction, vehiclesAt } from './replay'
 import type { ReplayBundle, ReplayEvent, VehicleSampleRow } from './replay'
 import type { Saved } from './workspace'
 
@@ -67,41 +67,6 @@ describe('activeReplayRange — trim idle head/tail to where changes happened', 
   it('falls back to the full window when nothing but incident.create was recorded', () => {
     expect(activeReplayRange([ev({ op_type: 'incident.create', occurred_at: iso(0) })], [], WIN_START, WIN_END)).toEqual({ startMs: WIN_START, endMs: WIN_END })
     expect(activeReplayRange([], [], WIN_START, WIN_END)).toEqual({ startMs: WIN_START, endMs: WIN_END })
-  })
-})
-
-describe('deriveMarkers', () => {
-  it('maps known op types to their kind + label', () => {
-    const markers = deriveMarkers([
-      ev({ seq: 1, op_type: 'entity.add', occurred_at: iso(1000) }),
-      ev({ seq: 2, op_type: 'draw.add', occurred_at: iso(2000) }),
-      ev({ seq: 3, op_type: 'status.change', occurred_at: iso(3000) }),
-      ev({ seq: 4, op_type: 'incident.create', occurred_at: iso(500) }),
-    ])
-    expect(markers).toEqual([
-      { ms: 1000, seq: 1, kind: 'symbol', label: 'Symbol gesetzt' },
-      { ms: 2000, seq: 2, kind: 'draw', label: 'Zeichnung' },
-      { ms: 3000, seq: 3, kind: 'status', label: 'Status' },
-      { ms: 500, seq: 4, kind: 'status', label: 'Einsatz eröffnet' },
-    ])
-  })
-
-  it('skips workspace.save (the fold anchor — too dense to mark)', () => {
-    const markers = deriveMarkers([ev({ op_type: 'workspace.save', occurred_at: iso(1) })])
-    expect(markers).toEqual([])
-  })
-
-  it('skips unknown / noisy op types', () => {
-    const markers = deriveMarkers([
-      ev({ op_type: 'entity.move' }),
-      ev({ op_type: 'layer.toggle' }),
-      ev({ op_type: 'mystery' }),
-    ])
-    expect(markers).toEqual([])
-  })
-
-  it('returns an empty array for no events', () => {
-    expect(deriveMarkers([])).toEqual([])
   })
 })
 
@@ -331,6 +296,40 @@ describe('activityMoments', () => {
   it('ignores unparseable timestamps rather than emitting NaN', () => {
     expect(activityMoments([{ occurred_at: 'not-a-date', op_type: 'status.change' }])).toEqual([])
     expect(activityMoments([], [{ at: 'not-a-date' }])).toEqual([])
+  })
+})
+
+describe('journalMoments / momentAt — the Verlauf on the replay axis', () => {
+  const rows = [
+    { id: 'c', at: iso(3_000), text: 'Feuer aus' },
+    { id: 'a', at: iso(1_000), text: 'Erkundung läuft' },
+    { id: 'b', at: iso(2_000), text: 'Trupp 1 eingesetzt' },
+  ]
+
+  it('sorts by time — the lane is an axis, not the order rows were written in', () => {
+    expect(journalMoments(rows).map((m) => m.id)).toEqual(['a', 'b', 'c'])
+  })
+
+  it('⚠️ drops rows with no absolute date rather than placing them at 0', () => {
+    // Legacy rows carry only HH:MM. At 0 they would sit at the start of the incident — a
+    // confident lie about when something was said, in the one view whose claim is «this is
+    // how it was at this moment».
+    expect(journalMoments([{ id: 'x', text: 'legacy' }, { id: 'y', at: 'not-a-date', text: '' }])).toEqual([])
+  })
+
+  it('needs an id — a moment nothing can be seeked to is not one', () => {
+    expect(journalMoments([{ at: iso(1_000), text: 'orphan' }])).toEqual([])
+  })
+
+  it('momentAt takes the last row at or before the playhead', () => {
+    const ms = journalMoments(rows)
+    expect(momentAt(ms, 2_500)?.id).toBe('b')
+    expect(momentAt(ms, 2_000)?.id).toBe('b') // exactly on a row is that row
+    expect(momentAt(ms, 9_000)?.id).toBe('c')
+  })
+
+  it('momentAt is null before the first row — nothing had been written yet', () => {
+    expect(momentAt(journalMoments(rows), 500)).toBeNull()
   })
 })
 
