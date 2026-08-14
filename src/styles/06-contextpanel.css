@@ -344,7 +344,8 @@
 /* overflow-x hidden: with overflow-y:auto the x-axis otherwise computes to `auto` and the
    Verlauf scrolls sideways on a tablet — rows must line-wrap, never scroll horizontally */
 .history-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 2px; }
-.hist-ev { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--r-ctl); font-size: 13px; font-weight: 500; }
+/* overflow: hidden — the connector halves below are drawn 100vh long and clipped to the row */
+.hist-ev { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--r-ctl); font-size: 13px; font-weight: 500; overflow: hidden; }
 .hist-ev.clickable { cursor: pointer; }
 .hist-ev.clickable:hover { background: var(--hover); }
 /* persistent affordance so touch users can tell a row navigates without hovering */
@@ -356,9 +357,22 @@
 /* timeline node + connector */
 .hist-ev .ic { position: relative; width: 26px; height: 26px; border-radius: 50%; background: var(--surface-2);
   border: 1px solid var(--border-soft); color: var(--ink-dim); font-size: 13px; display: grid; place-items: center; flex: none; }
-.hist-ev .ic::after { content: ''; position: absolute; top: calc(100% + 1px); left: 50%; transform: translateX(-50%);
-  width: 2px; height: 16px; background: var(--border); }
-.hist-ev:last-child .ic::after { display: none; }
+/* ⚠️ Each row draws its OWN HALF of the connector — top edge → node, node → bottom edge — and
+   the row clips them (overflow above). The old line was a fixed 16px stub hanging off the node,
+   which reached the next node only on a single-line row: an audio row carries «Durchhören» and
+   «Transkript» beneath it and is twice that tall, so the line stopped in mid-air. Halves are
+   height-independent by construction, and adjacent rows join seamlessly (.history-list has no
+   gap between them).
+   The sibling selectors keep the line inside a RUN of rows: it never grows out of the day
+   separator above, and never dangles below the last one. */
+.hist-ev .ic::before, .hist-ev .ic::after {
+  content: ''; position: absolute; left: 50%; transform: translateX(-50%);
+  width: 2px; height: 100vh; background: var(--border); display: none;
+}
+.hist-ev .ic::before { bottom: calc(100% + 1px); }
+.hist-ev .ic::after { top: calc(100% + 1px); }
+.hist-ev + .hist-ev .ic::before { display: block; }
+.hist-ev:has(+ .hist-ev) .ic::after { display: block; }
 .hist-ev .tx { flex: 1; }
 
 /* reminder (Erinnerung) row: due label + checklist-style done toggle */
