@@ -57,6 +57,24 @@ describe('typing a term', () => {
     expect(suggestLinks('L', vocab)).toEqual([])
   })
 
+  it('⚠️ …and neither does a LONGER fuzzy subsequence — «sani» is nobody', () => {
+    // reported 14.08.: «sani» offered Schneider Melanie (…mel-a-n-i-e) and Wyss Daniel
+    // (…wy-s-s d-a-n-i-el). Every letter is present, in order — which is the whole trick, and
+    // why the word-start rule has to hold at every length, not just at two.
+    const crew: JournalLink[] = [
+      { name: 'Schneider Melanie', kind: 'person', present: true },
+      { name: 'Wyss Daniel', kind: 'person', present: true },
+    ]
+    expect(suggestLinks('sani', crew)).toEqual([])
+    expect(suggestLinks('schnei', crew).map((l) => l.name)).toEqual(['Schneider Melanie'])
+  })
+
+  it('⚠️ folds umlauts the same way the score does — «olbind» still reaches «Ölbinder»', () => {
+    // the word-start check and fuzzyScore normalise separately; if they disagreed, a term could
+    // score well and be thrown out again by the check that is supposed to qualify it
+    expect(suggestLinks('3 Sack olbind', vocab).map((l) => l.kind)).toEqual(['material'])
+  })
+
   it('⚠️ stops offering a term once it is written out — a second tap wrote it twice', () => {
     // a full name is two words, so the word under the cursor still matches after accepting
     expect(suggestLinks('Baumann Michael', vocab).map((l) => l.name)).not.toContain('Baumann Michael')

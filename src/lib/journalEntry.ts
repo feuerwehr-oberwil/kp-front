@@ -1,7 +1,7 @@
 import { appConfig } from '../config/appConfig'
 import type { JournalEntryType } from '../types'
 import type { JournalLink } from './journalLinks'
-import { fuzzyScore } from './quickPhrases'
+import { fuzzyScore, norm } from './quickPhrases'
 
 /**
  * «Wer hat es gesagt» and «was für eine Aussage ist das» — on one line.
@@ -41,14 +41,21 @@ export function composeJournalText(
  * and the SPELLING comes for free — «Baum» becomes «Baumann Michael», «Ölbind» becomes
  * «Ölbinder (Granulat)». A journal holding «Baumann», «Baumann M.» and «Bauman» is one nobody
  * can search afterwards, and a Mittel spelled three ways is three materials in the Rapport.
+ *
+ * ⚠️ What is typed must START A WORD of the term, at EVERY length. `fuzzyScore` alone is a
+ * subsequence match — every letter present, in order, anywhere — which from three letters on
+ * matched almost anything: «sani» offered «Schneider Melanie» (…mel-A-N-I-e) and «Wyss Daniel»
+ * (…wy-S-s d-A-N-I-el), and with only a handful of candidates in the list those coincidences
+ * filled all four slots. The rule was there but applied at exactly two letters, so the case it
+ * was written for was the only one it covered. fuzzyScore still RANKS what survives (a prefix
+ * of the whole term wins, then contiguity), it just no longer decides what qualifies.
  */
 export function suggestLinks(text: string, vocab: JournalLink[], limit = 4): JournalLink[] {
   const word = currentWord(text)
   if (word.length < MIN_NAME_FRAGMENT) return []
   const written = text.toLowerCase().trimEnd()
-  const strict = word.length === MIN_NAME_FRAGMENT
   return vocab
-    .filter((l) => !strict || startsAWord(word, l.name))
+    .filter((l) => startsAWord(word, l.name))
     .map((l) => ({ l, score: fuzzyScore(word, l.name) }))
     // ⚠️ Compared against the whole TEXT, not the word. A full name is two words, so after
     // accepting «Baumann Michael» the word under the cursor is «Michael» — which still matches,
@@ -73,12 +80,14 @@ export function currentWord(text: string): string {
 /** A term is worth offering from this many letters on. */
 const MIN_NAME_FRAGMENT = 2
 
-/** …but at exactly two letters only a WORD START counts. Two letters of fuzzy subsequence put
- *  half the Mannschaft under every «zu», «am», «in» somebody types; «Ba» → «Baumann Michael»
- *  and «Mi» → «Baumann Michael» is what the two letters were actually meant to do. */
+/** What is typed has to be the beginning of one of the term's words — «Ba» and «Mi» both reach
+ *  «Baumann Michael», «Kellerbrand im» reaches nobody.
+ *  ⚠️ Normalised with the SAME `norm` the score uses, or the two disagree about umlauts: «olbind»
+ *  typed without one scores fine and would then be thrown out here, and «Ölbind» → «Ölbinder
+ *  (Granulat)» is one of the two cases this whole feature exists for. */
 function startsAWord(word: string, name: string): boolean {
-  const q = word.toLowerCase()
-  return name.toLowerCase().split(/[\s(/-]+/).some((w) => w.startsWith(q))
+  const q = norm(word)
+  return norm(name).split(/[\s(/-]+/).some((w) => w.startsWith(q))
 }
 
 /** Replace the word being typed with the accepted term, keeping everything before it. */

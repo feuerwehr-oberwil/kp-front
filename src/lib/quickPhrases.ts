@@ -18,7 +18,9 @@ export interface PhraseMatch {
   frag: string
 }
 
-const norm = (s: string) =>
+/** Case- and umlaut-folded for matching. Exported so the name matcher folds identically —
+ *  two normalisers that disagree let a term score well and then be filtered out again. */
+export const norm = (s: string) =>
   s.toLowerCase().replace(/ä/g, 'a').replace(/ö/g, 'o').replace(/ü/g, 'u').replace(/é|è/g, 'e')
 
 /**
