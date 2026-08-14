@@ -17,6 +17,7 @@ import {
 } from '../lib/mittel'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import s from './Mittel.module.css'
+import c from './SurfaceControls.module.css'
 
 /** What the sheet hands back on every save: the material+unit+source identity plus the new
  *  running TOTAL. App.tsx turns it into an append-only event (no-op if unchanged). */
@@ -249,11 +250,11 @@ export function MittelView({ entries, canEdit, onSave, captureUsage }: {
           button lives HERE rather than under the list: «ich suche X – X gibt es nicht – also
           erfasse ich X» is one motion, and it used to end with a scroll to the bottom. */}
       {!empty && (
-        <div className={s.controls}>
-          <label className={s.search}>
+        <div className={c.controls}>
+          <label className={c.search}>
             <Icon id="search" />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={M.searchPlaceholder} inputMode="search" />
-            {q && <button className={s.searchClear} onClick={() => setQ('')} aria-label={M.clearSearch}><Icon id="close" /></button>}
+            {q && <button className={c.searchClear} onClick={() => setQ('')} aria-label={M.clearSearch}><Icon id="close" /></button>}
           </label>
           {/* «In Verwendung» is a FILTER, not a second way of reading the surface — it narrows
               the same catalogue to what was actually used, grouped by Fahrzeug. As a tab beside
@@ -262,7 +263,7 @@ export function MittelView({ entries, canEdit, onSave, captureUsage }: {
               not shift the line under the thumb. */}
           <button
             type="button"
-            className={cx(s.iconBtn, view === 'source' && s.iconBtnOn)}
+            className={cx(c.iconBtn, view === 'source' && c.iconBtnOn)}
             aria-pressed={view === 'source'} disabled={lines === 0}
             title={M.viewBySource} aria-label={M.viewBySource}
             onClick={() => setView((v) => (v === 'source' ? 'list' : 'source'))}
@@ -280,15 +281,15 @@ export function MittelView({ entries, canEdit, onSave, captureUsage }: {
           {view === 'list' && categories.length > 1 && (
             <Menu
               trigger={
-                <button className={cx(s.iconBtn, categorySel.size > 0 && s.iconBtnOn)}
+                <button className={cx(c.iconBtn, categorySel.size > 0 && c.iconBtnOn)}
                   aria-label={categoryOn ? `${M.categoryFilterLabel} – ${categoryOn}` : M.categoryFilterLabel}
                   title={categoryOn ? `${M.categoryFilterLabel} – ${categoryOn}` : M.categoryFilterLabel}>
                   <Icon id="filter" />
-                  {categorySel.size > 0 && <span className={s.filterDot} aria-hidden />}
+                  {categorySel.size > 0 && <span className={c.filterDot} aria-hidden />}
                 </button>
               }
-              popupClassName={s.menuPop}
-              itemClassName={() => s.menuItem}
+              popupClassName={c.menuPop}
+              itemClassName={() => c.menuItem}
               // headed and multi-select, like the Anwesenheit's: «Schläuche + Geräte» is a real
               // question, and Base UI keeps the menu open on a checkbox so a set can be composed
               // in one visit. «Alle» stays as the readable «nothing is filtered» row.
@@ -307,7 +308,7 @@ export function MittelView({ entries, canEdit, onSave, captureUsage }: {
           {canEdit && !adding && (
             // a bare +, like the Anwesenheit's «Weitere Person» — the words cost a search row
             // that has a field and a filter to fit as well
-            <button type="button" className={s.addCustom} onClick={() => setAdding(true)}
+            <button type="button" className={c.addBtn} onClick={() => setAdding(true)}
               title={M.customMaterial} aria-label={M.customMaterial}>
               <Icon id="plus" />
             </button>

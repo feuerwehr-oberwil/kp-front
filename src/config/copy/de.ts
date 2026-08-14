@@ -2931,8 +2931,8 @@ export const de = {
     legendFrei: 'nicht anwesend',
     legendPresent: 'anwesend',
     legendLeft: 'gegangen',
-    // Der Filter-Knopf deckt beide Facetten ab: Grad und Zustand/Ort. Die Legende IST das
-    // Zustand-Menü – jede Zeile trägt ihr Zeichen, also wird dort auch nachgeschaut.
+    // Zwei Filter-Knöpfe: Grad (Mannschafts-Glyphe) und Zustand (Trichter). Die Legende IST
+    // das Zustand-Menü – jede Zeile trägt ihr Zeichen, also wird dort auch nachgeschaut.
     filterLabel: 'Filtern',
     legendAll: 'Alle',
     // ⚠️ «Nach Status filtern», nicht «Was bedeuten die Zeichen?». Das Menü filtert – dass man

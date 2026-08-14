@@ -13,6 +13,7 @@ import { applyTimeToIso, isoOnDay } from '../lib/abschluss'
 import { rankAbbr, rankDisplay, rankOrder } from '../lib/rank'
 import { matchesQuery, searchQuery } from '../lib/search'
 import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
+import { matchesAny, stateMatches, toggled, type StateKey } from '../lib/attendanceFilter'
 import { ortCounts, ortOf } from '../lib/attendanceOrt'
 import { fmtDayShort, fmtStartValue, incidentDays, isOtherDay } from '../lib/zeitplanFormat'
 import { loadPrefs, savePrefs } from '../lib/prefs'
@@ -25,6 +26,7 @@ import { EmptyState } from './EmptyState'
 import { ZeitplanView } from './ZeitplanView'
 import { BandGrid } from './BandGrid'
 import s from './Anwesenheit.module.css'
+import c from './SurfaceControls.module.css'
 
 /** Zeitraum stops for the Zeitplan axis, in hours — from one watch to a WEEK. The long tail
  *  (120 h, 168 h) is for the deployment that does not end on day four: an Elementarereignis
@@ -33,44 +35,6 @@ import s from './Anwesenheit.module.css'
 const HORIZONS = [3, 6, 9, 12, 18, 24, 36, 48, 72, 96, 120, 168]
 
 
-/** How the crew list is narrowed by STATE — one question with five answers, not two questions.
- *
- * ⚠️ Ort is not a facet of its own: only somebody who is HERE can be «Vor Ort» or «im Magazin»,
- * so the two places are refinements of «anwesend», not an independent axis. As a second group
- * they could be combined into a contradiction («nicht anwesend» + «Magazin») whose only honest
- * answer is an empty list — a filter that can be set to return nothing is a filter that will be.
- * One list; the two places sit under the state they belong to.
- *
- * Every value reads off the same `attendance` entry the row's own marks do, so a filtered list
- * can never disagree with the marks that named it. */
-type StateKey = 'frei' | 'present' | 'left' | 'scene' | 'station'
-
-function stateMatches(f: StateKey, a: AttendanceEntry | undefined): boolean {
-  const present = isPresent(a)
-  switch (f) {
-    case 'frei': return !a
-    case 'present': return present
-    case 'left': return !!a && !present
-    case 'scene': return present && ortOf(a) !== 'station'
-    case 'station': return present && ortOf(a) === 'station'
-  }
-}
-
-/** Several picks inside ONE facet are an OR — «anwesend oder gegangen» is «wer war überhaupt
- *  da». An empty set is «alle», not «keine»: a filter nobody has touched must not hide the list
- *  it sits above. (Facets AND with each other — see `rows`.) */
-function matchesAny<T>(sel: ReadonlySet<T>, test: (v: T) => boolean): boolean {
-  if (sel.size === 0) return true
-  for (const v of sel) if (test(v)) return true
-  return false
-}
-
-/** Flip one value in a selection set (immutably — the state IS the set). */
-function toggled<T>(sel: ReadonlySet<T>, v: T): Set<T> {
-  const next = new Set(sel)
-  if (!next.delete(v)) next.add(v)
-  return next
-}
 
 /** The three readings of this surface. `bands` is the Schichten grid — shift-major over discrete
  *  time, the transpose of the Zeitplan (see BandGrid). It is a TAB and not an entry in the ⋯ menu
@@ -652,7 +616,7 @@ export function AnwesenheitView({
           {(showPlan || showBands) && (onPrintZeitplan || onDownloadZeitplan) && (
             <Menu
               trigger={
-                <button className={s.iconBtn} aria-label={appConfig.copy.zeitplan.paperMenu}
+                <button className={c.iconBtn} aria-label={appConfig.copy.zeitplan.paperMenu}
                   title={appConfig.copy.zeitplan.paperMenu}>
                   <Icon id="printer" />
                   {onPrintZeitplan && (
@@ -660,8 +624,8 @@ export function AnwesenheitView({
                   )}
                 </button>
               }
-              popupClassName={s.menuPop}
-              itemClassName={() => s.menuItem}
+              popupClassName={c.menuPop}
+              itemClassName={() => c.menuItem}
               items={[
                 ...(bands?.length ? [{
                   label: appConfig.copy.zeitplan.sheetSchichtplan,
@@ -709,17 +673,17 @@ export function AnwesenheitView({
       </header>
 
       {!empty && (
-        <div className={s.controls}>
-          <label className={s.search}>
+        <div className={c.controls}>
+          <label className={c.search}>
             <Icon id="search" />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={A.searchPlaceholder} inputMode="search" />
-            {q && <button className={s.searchClear} onClick={() => setQ('')} aria-label={A.clearSearch}><Icon id="close" /></button>}
+            {q && <button className={c.searchClear} onClick={() => setQ('')} aria-label={A.clearSearch}><Icon id="close" /></button>}
           </label>
           {/* Only on the planning tabs — see the `presentOnly` note above. */}
           {planning && (
             <button
               type="button"
-              className={cx(s.iconBtn, presentOnly && s.iconBtnOn)}
+              className={cx(c.iconBtn, presentOnly && c.iconBtnOn)}
               aria-pressed={presentOnly}
               title={presentOnly ? A.presentOnlyOn : A.presentOnlyOff}
               aria-label={presentOnly ? A.presentOnlyOn : A.presentOnlyOff}
@@ -734,14 +698,15 @@ export function AnwesenheitView({
           {/* ⚠️ TWO buttons, one per QUESTION — «welcher Grad» and «wer ist wo». They were one
               merged funnel for an afternoon and it was wrong: a menu you open to reach either
               answer is slower than two you aim at, and the two facets have nothing to do with
-              each other. Different glyphs so they are told apart without reading: a star for the
-              Dienstgrad, the funnel for the state/place narrowing.
-              Both narrow independently and AND together with each other — «Of» + «anwesend» +
-              «Magazin» is one question, and each button says what IT has on. */}
+              each other. Different glyphs so they are told apart without reading: the crew
+              glyph for the Dienstgrad, the funnel for the state narrowing.
+              Both narrow independently and AND together — «Of» + «anwesend» is one question.
+              Neither button PRINTS what it has on (that changed its width and re-anchored the
+              dropdown); each carries a fixed-position dot and names it in its tooltip. */}
           {ranksPresent.length > 1 && (
             <Menu
               trigger={
-                <button className={cx(s.iconBtn, rankSel.size > 0 && s.iconBtnOn)}
+                <button className={cx(c.iconBtn, rankSel.size > 0 && c.iconBtnOn)}
                   aria-label={rankOn ? `${A.rankFilterLabel} – ${rankOn}` : A.rankFilterLabel}
                   title={rankOn ? `${A.rankFilterLabel} – ${rankOn}` : A.rankFilterLabel}>
                   {/* the crew glyph — this is the facet that sorts PEOPLE. It cost the
@@ -749,11 +714,11 @@ export function AnwesenheitView({
                       matching Mittel's «In Verwendung»), because two identical glyphs side
                       by side on the planning tabs is worse than either choice of icon. */}
                   <Icon id="people" />
-                  {rankSel.size > 0 && <span className={s.filterDot} aria-hidden />}
+                  {rankSel.size > 0 && <span className={c.filterDot} aria-hidden />}
                 </button>
               }
-              popupClassName={s.menuPop}
-              itemClassName={() => s.menuItem}
+              popupClassName={c.menuPop}
+              itemClassName={() => c.menuItem}
               // CHECKBOXES, not a one-of-N: «Of + Wm» is the Kader, and that is a real question.
               // Base UI keeps the menu open on a checkbox, which is what composing a set needs.
               // «Alle» stays as its own row — it is the readable «nothing is filtered» state, and
@@ -777,15 +742,15 @@ export function AnwesenheitView({
           {view === 'list' && (
             <Menu
               trigger={
-                <button className={cx(s.iconBtn, (stateSel.size > 0 || noteOnly) && s.iconBtnOn)}
+                <button className={cx(c.iconBtn, (stateSel.size > 0 || noteOnly) && c.iconBtnOn)}
                   aria-label={stateOn ? `${A.filterLabel} – ${stateOn}` : A.filterLabel}
                   title={stateOn ? `${A.filterLabel} – ${stateOn}` : A.filterLabel}>
                   <Icon id="filter" />
-                  {(stateSel.size > 0 || noteOnly) && <span className={s.filterDot} aria-hidden />}
+                  {(stateSel.size > 0 || noteOnly) && <span className={c.filterDot} aria-hidden />}
                 </button>
               }
-              popupClassName={s.menuPop}
-              itemClassName={() => s.menuItem}
+              popupClassName={c.menuPop}
+              itemClassName={() => c.menuItem}
               items={[
                 { kind: 'head' as const, label: A.statusFilterLabel },
                 // «Alle» clears the states but LEAVES the Bemerkung flag: they are separate
@@ -818,7 +783,7 @@ export function AnwesenheitView({
             // a bare +, like every other control on this line — the words «Weitere Person» cost
             // ~160px of a search row that has a field and two filters to fit as well. What it
             // adds is named in the dialog it opens, and in its own tooltip/aria-label.
-            <button type="button" className={s.addGuest} onClick={() => setAddingGuest(true)}
+            <button type="button" className={c.addBtn} onClick={() => setAddingGuest(true)}
               title={A.addGuest} aria-label={A.addGuest}>
               <Icon id="plus" />
             </button>

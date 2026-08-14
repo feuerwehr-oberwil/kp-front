@@ -1000,13 +1000,27 @@ export function ReportPreflight({
                 the edit link that belongs to it, so a section title above it was the same words
                 twice. The other three sections have one because they have nothing else to say
                 what they are. */}
-            {(() => {
-            const facts = (
-              <>
+            {/* ⚠️ The card is CLICKABLE, not a <button>. Wrapping the whole thing in a button
+                made the dispatch facts part of its label: a screen reader then gets one stop
+                announcing «Aus den Einsatzdaten – Bearbeiten», and the Alarmmeldung, the
+                Einsatzplan and the Alarmierung — the things this block exists to state —
+                collapse into it. So the <dl> stays readable content, the click on the card is
+                pure pointer convenience, and «Bearbeiten» remains a real button: the keyboard
+                and AT target, and the visible cue that the card does something. */}
+            <div
+              className={`report-meta-dispatch${onEditDispatch ? ' report-meta-dispatch-click' : ''}`}
+              onClick={onEditDispatch}
+            >
               <div className="report-meta-dispatch-head">
                 <span>{P.fromDispatch}</span>
-                {/* a CUE, not the target — the whole block is the button (see below) */}
-                {onEditDispatch && <span className="report-meta-editlink"><Icon id="pen" /> {P.edit}</span>}
+                {onEditDispatch && (
+                  // stopPropagation: without it the card's own handler fires too and the
+                  // Einsatzdaten panel is asked to open twice from one tap
+                  <button type="button" className="report-meta-editlink"
+                    onClick={(e) => { e.stopPropagation(); onEditDispatch() }}>
+                    <Icon id="pen" /> {P.edit}
+                  </button>
+                )}
               </div>
               <dl className="report-meta-readout">
                 {/* The gateway hands us one field holding four different things (see
@@ -1039,16 +1053,7 @@ export function ReportPreflight({
                 )}
                 <div><dt>{P.alarmierung}</dt><dd>{alarmiert ? formatDateTime(alarmiert) : <span className="report-meta-empty">{P.notRecorded}</span>}</dd></div>
               </dl>
-              </>
-            )
-            // The WHOLE card opens the Einsatzdaten, exactly like a person row in the
-            // Anwesenheit. «Bearbeiten» was a 12px link in the corner of a block half a screen
-            // tall — a target you aim at rather than one you hit.
-            return onEditDispatch ? (
-              <button type="button" className="report-meta-dispatch report-meta-dispatch-btn"
-                onClick={onEditDispatch} aria-label={`${P.fromDispatch} – ${P.edit}`}>{facts}</button>
-            ) : <div className="report-meta-dispatch">{facts}</div>
-            })()}
+            </div>
           </section>
 
           {/* «Rapportangaben» was ONE heading over everything after the dispatch facts — a blob a

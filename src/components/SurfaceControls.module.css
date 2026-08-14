@@ -1,0 +1,102 @@
+/* ============================================================================
+   The search line that sits above a working list — one definition, two surfaces.
+   ============================================================================
+
+   Anwesenheit and Mittel both open with the same row: a search field that takes the slack,
+   one or two --tap filter buttons, and a dashed + to add what the list does not have. It was
+   built for the Anwesenheit and then COPIED into Mittel, which is how the two drift: a fix to
+   one silently never reaches the other. This is that row, defined once.
+
+   Imported alongside each surface's own module (`import c from './SurfaceControls.module.css'`)
+   rather than composed or made global — the repo has no `composes:` anywhere, and a global
+   `.controls` is far too generic a name to put in the shared namespace. Surface-specific
+   tweaks stay in the surface's own module.
+   ============================================================================ */
+
+/* gap 8, not 16: the line used to hold one wide control per slot (search · rank track · legend
+   strip), where 16 was the seam between blocks. It is --tap squares now, and 16px between
+   square buttons reads as separate controls rather than one cluster. */
+.controls { display: flex; align-items: center; gap: 8px; padding: 12px 22px; flex-wrap: wrap; }
+
+.search { flex: 1 1 240px; display: flex; align-items: center; gap: 8px; min-width: 0;
+  border: 1px solid var(--glass-edge); background: var(--surface); border-radius: var(--r-ctl); padding: 0 12px; min-height: var(--tap); }
+.search svg { width: 16px; height: 16px; color: var(--ink-faint); flex: none; }
+.search input { flex: 1 1 auto; min-width: 0; border: none; background: none; outline: none; color: var(--ink); font: 500 15px var(--body); padding: 10px 0; }
+.searchClear { border: none; background: none; cursor: pointer; color: var(--ink-faint); padding: 4px; display: grid; place-items: center; }
+.searchClear:hover { color: var(--ink); }
+.searchClear svg { width: 15px; height: 15px; }
+
+/* a filter button: one glyph, --tap square, opening a Menu */
+.iconBtn {
+  position: relative; flex: none; display: inline-grid; place-items: center;
+  min-width: var(--tap); min-height: var(--tap); padding: 0;
+  border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface);
+  color: var(--ink-dim); cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+/* :not(.iconBtnOn) — hover must NEVER override the ON state. `.iconBtn:hover` outweighs
+   `.iconBtnOn` on specificity, and after a tap the pointer (or, on touch, the sticky hover a
+   tap leaves behind) is still on the button: a filter you had just switched on rendered in
+   plain ink and only turned blue after a reload. Same rule as the tool rail's .vrail-tool. */
+.iconBtn:hover:not(.iconBtnOn):not(:disabled) { color: var(--ink); border-color: var(--ink-faint); }
+.iconBtn:disabled { opacity: var(--disabled); cursor: default; }
+.iconBtn svg { width: 16px; height: 16px; }
+/* a filter that is ON must never look like a filter that is off: the list underneath is a SUBSET
+   of the whole, and mistaking it for the whole thing is the one costly error here */
+.iconBtnOn {
+  border-color: color-mix(in srgb, var(--blue) 50%, transparent);
+  background: color-mix(in srgb, var(--blue) 14%, transparent);
+  color: var(--blue-strong);
+}
+.iconBtnOn:hover {
+  border-color: color-mix(in srgb, var(--blue) 70%, transparent);
+  background: color-mix(in srgb, var(--blue) 20%, transparent);
+}
+/* ⚠️ A DOT, not a label. Printing the active filter on the button changes its width, which
+   shoves every control after it along the line and re-anchors the dropdown — the menu jumped
+   sideways the moment you picked something in it. Absolutely positioned, so the button measures
+   the same filtered or not; WHAT is filtered is in the tooltip and, more usefully, ticked in the
+   menu itself. A ring in the button's own fill keeps it readable on the tinted ON state. */
+.filterDot { position: absolute; top: 5px; right: 5px; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--blue); box-shadow: 0 0 0 2px var(--surface); pointer-events: none; }
+.iconBtnOn .filterDot { box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue) 14%, var(--surface)); }
+
+/* «Weitere Person» / «Anderes Mittel» — a square + at the end of the line. Dashed, because it
+   adds something the list does not have, which is not the same act as the solid controls
+   beside it. The words are in the tooltip: they cost ~160px of a row that has a field and two
+   filters to fit as well, and what is added is named in the dialog it opens. */
+.addBtn {
+  display: flex; align-items: center; justify-content: center; flex: none;
+  width: var(--tap); min-width: var(--tap); min-height: var(--tap); padding: 0; cursor: pointer;
+  border: 1px dashed var(--glass-edge); background: none; border-radius: var(--r-ctl);
+  color: var(--ink-dim);
+}
+.addBtn:hover { border-color: var(--ink-faint); color: var(--ink); background: var(--surface); }
+.addBtn svg { width: 18px; height: 18px; }
+
+/* the dropdown each filter button opens */
+.menuPop {
+  /* max-width beside the min: collision handling shifts a popup back onto the screen, it cannot
+     shrink one that is wider than the screen to begin with. Same for the HEIGHT — a station with
+     many ranks or categories makes a menu taller than the screen, and a too-tall popup is
+     repositioned, never trimmed: its last rows simply ran off the bottom edge.
+     `--available-height` is what Base UI's positioner measured for this side; the dvh is the
+     fallback for when it has not. */
+  min-width: 190px; max-width: min(320px, 92vw);
+  max-height: var(--available-height, 70dvh); overflow-y: auto; overscroll-behavior: contain;
+  padding: 6px; border-radius: var(--r-ctl);
+  background: var(--surface); box-shadow: var(--shadow); border: 1px solid var(--glass-edge);
+  z-index: 60;
+}
+.menuItem {
+  display: flex; align-items: center; gap: 9px; width: 100%; min-height: var(--tap);
+  padding: 0 11px; border-radius: var(--r-sm); cursor: pointer;
+  font: 600 13.5px var(--body); color: var(--ink); outline: none;
+}
+.menuItem[data-highlighted] { background: color-mix(in srgb, var(--ink) 8%, transparent); }
+
+/* phones: tighter gutters, and the search yields so the buttons share its line rather than
+   claiming rows of their own — vertical space is what the list underneath is short of */
+@media (max-width: 600px) {
+  .controls { gap: 8px; padding: 10px 14px; }
+  .search { flex: 1 1 120px; }
+}

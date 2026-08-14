@@ -53,14 +53,15 @@
    same weight, same tracking, different colour, stacked in one column. */
 .report-meta-dispatch-head > span { font: 700 11px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-dim); }
 .report-meta-editlink { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; margin: -4px -8px -4px 0;
-  font: 600 12px var(--body); color: var(--blue); background: none; border: none; border-radius: var(--r-sm); }
+  font: 600 12px var(--body); color: var(--blue); background: none; border: none; border-radius: var(--r-sm); cursor: pointer; }
 /* the whole dispatch card opens the Einsatzdaten (mirrors an Anwesenheit person row) — the
-   button keeps the block's own column layout, so nothing moves; only the target grows from a
-   12px corner link to the full card, and «Bearbeiten» is the cue that says so. */
-.report-meta-dispatch-btn { width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer;
-  background: none; border: 1px solid transparent; border-radius: var(--r-ctl); padding: 8px; margin: -8px; }
-.report-meta-dispatch-btn:hover { background: var(--fill-soft); border-color: var(--glass-edge); }
-.report-meta-dispatch-btn:hover .report-meta-editlink { background: color-mix(in srgb, var(--blue) 10%, transparent); }
+   target grows from a 12px corner link to the full card, without the card BEING a button:
+   the <dl> has to stay readable content rather than become a button's label (see
+   ReportPreflight). «Bearbeiten» is still the real button, and the cue that says so. */
+.report-meta-dispatch-click { cursor: pointer;
+  border: 1px solid transparent; border-radius: var(--r-ctl); padding: 8px; margin: -8px; }
+.report-meta-dispatch-click:hover { background: var(--fill-soft); border-color: var(--glass-edge); }
+.report-meta-dispatch-click:hover .report-meta-editlink { background: color-mix(in srgb, var(--blue) 10%, transparent); }
 .report-meta-readout { margin: 0; display: flex; flex-direction: column; gap: 10px; }
 .report-meta-readout > div { display: grid; grid-template-columns: 116px 1fr; gap: 12px; align-items: baseline; }
 .report-meta-readout dt { margin: 0; font: 600 12px var(--body); color: var(--ink-dim); }
