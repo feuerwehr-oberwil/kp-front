@@ -184,7 +184,7 @@ export const fr: Localizable<Copy> = {
         blocks: [
           { kind: 'lead', text: 'Un journal partagé et continu à travers Situation et Plan – la chronique de l’intervention.' },
           { kind: 'list', items: [
-            '**+ Entrée** (en haut à droite) : un appui court ouvre la saisie de texte ; **maintenir appuyé** enregistre une **note vocale**. Des photos peuvent aussi être jointes.',
+            '**+ Entrée** (en haut à droite) : un appui court ouvre la saisie de texte. **Maintenir appuyé** déplie deux champs – **note vocale** en premier, **photo** au-delà. Le doigt glisse sur l’un des deux puis relâche. Le bouton devient alors une **✕** : relâcher sans avoir glissé annule et ne laisse rien. L’enregistrement ne démarre – et l’appareil photo ne s’ouvre – qu’au relâchement. Des photos peuvent aussi être jointes dans l’entrée même.',
             'Dès **deux lettres**, des noms sont proposés – effectif, matériel, organisations partenaires, véhicules et groupes d’alarme. Un toucher insère le nom entier ; il est mis en évidence dans le journal et sur le rapport imprimé. Il n’y a pas de champ « de » séparé : la phrase dit déjà qui a annoncé.',
             'Les actions importantes (symbole posé, dessin créé/supprimé …) sont consignées automatiquement au journal.',
             '**Annuler/Rétablir** s’applique à Situation et Plan.',
@@ -600,6 +600,7 @@ export const fr: Localizable<Copy> = {
     discardAudio: 'Abandonner l’enregistrement',
     audioUpload: 'Téléverser un audio',
     audioUploadShort: 'Audio',
+    audioClipLabel: 'Note vocale',
     audioImportLabel: 'Enregistrement audio externe',
     audioStartLabel: 'Début de l’enregistrement',
     audioStartHint: 'Vérifier l’heure de début à l’aide du mémo vocal.',

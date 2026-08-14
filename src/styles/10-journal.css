@@ -127,7 +127,13 @@
    the one button in the bar that has to look pressable. A hover deepens the fill in both
    themes, and the ink stays the fill's own contrast colour. */
 .tb-act-add:hover { background: color-mix(in srgb, var(--blue) 88%, var(--ink)); color: var(--on-fill); }
-.tb-act-add .i, .tb-act-add span { position: relative; z-index: 1; }
+/* ⚠️ Names the LABEL, not every span. It used to read `.tb-act-add span`, which at (0,1,1)
+   also out-specified the charging cue's own `.tb-hold { position: absolute }` (0,1,0) — so on
+   every press the cue stopped being absolute, became an in-flow flex item, and animated its
+   width from 0 to 100% IN THE LAYOUT: the «Eintrag» label was shoved to the right and a pale
+   block grew across the button. A blanket span selector inside a button is a trap for every
+   span anyone adds later; this one says what it lifts. */
+.tb-act-add .i, .tb-act-add .tb-act-label { position: relative; z-index: 1; }
 /* press-and-hold "charging" cue: a bar fills across the button over the hold
    window, then the button flips to red (recording) — so the hold reads as doing something */
 /* ⚠️ It rounds its OWN corners (border-radius: inherit) rather than being clipped by the
@@ -138,51 +144,73 @@
 .tb-hold { position: absolute; left: 0; top: 0; bottom: 0; width: 0; z-index: 0; background: rgba(255, 255, 255, .28);
   border-radius: inherit; animation: tbHold .22s linear forwards; }
 @keyframes tbHold { from { width: 0; } to { width: 100%; } }
+/* ── while the chooser is up, the button IS the cancel ──
+   A plus turned 45° is already an ✕, so the button does not swap its icon for a second one: the
+   one that is there rotates. Nothing enters or leaves the DOM, nothing can reflow under the
+   finger, and the turn itself carries the meaning — the affordance you pressed visibly becomes
+   the way out of it.
+   ⚠️ The label is dropped, not faded, and the button's width is FROZEN inline from the rect the
+   hook already measured (components/TopBar · FabEntry). Fading it left the mark stranded off
+   to one side of a wide empty button; dropping it without freezing the width would have let the
+   button snap down to its min-width mid-gesture — the very shift this whole pass was about. Held
+   at its own width, the ✕ simply lands in the middle of the button that was already there.
+   No red: the mark sits on the filled accent button, where red reads as a fault rather than as
+   a way out. The lit option is the feedback — none lit means the release does nothing. */
+.tb-act-add .i, .fab-entry .i { transition: transform .18s var(--ease); }
+.tb-act-add.cancelling > .i, .fab-entry.cancelling > .i { transform: rotate(45deg); }
+.tb-act-add.cancelling .tb-act-label, .fab-entry.cancelling .tb-act-label { display: none; }
+
 .tb-act-add.rec { background: var(--red); animation: recPulse 1.4s ease-in-out infinite; }
 .tb-act-add.rec span { font-family: var(--mono); }
 
 /* ── the latched hold's two slide targets (Sprachnotiz · Foto) ──
-   They live INSIDE the button (it owns the pointer capture for the whole gesture and is the
-   only element the events reach), so the button's `overflow: hidden` — there for the charging
-   cue — has to give way while they show. */
-/* ⚠️ The CONTAINER is `pointer-events: none` so the gap between the two targets falls through,
-   but each TARGET must be hit-testable: `document.elementFromPoint` skips anything with
-   pointer-events none, so with it inherited the hit test could never match and sliding onto
-   «Foto» silently did nothing (see lib/useHoldEntry · onPointerMove). Nothing here is ever
-   clicked — the button holds the capture — they only have to be FINDABLE by geometry. */
-/* ⚠️ RIGHT-anchored, not centred. Both hosts live against the right edge of the screen — the
-   TopBar «Eintrag» and the phone FAB — and the chooser is wider than either button, so centring
-   it on the button hung it off the right edge of the viewport. Anchored to the button's own
-   right edge it opens inward, where there is room. */
-.hold-targets { position: absolute; right: 0; z-index: 3;
-  display: flex; gap: 4px; padding: 4px; pointer-events: none; white-space: nowrap;
-  background: var(--surface); border: 1px solid var(--glass-line); border-radius: var(--r-ctl);
-  box-shadow: var(--shadow); }
-.hold-target { pointer-events: auto; }
-/* ⚠️ BOTH hosts set `position: relative` AND `z-index: 1` on every <span> they contain
-   (.tb-act-add span above, .fab-entry span in 15-mobile.css) so the label stacks over the
-   charging cue. That selector is 0,1,1 and out-specifies a bare `.hold-targets` at 0,1,0 — so
-   the chooser came out RELATIVE and rendered as an inline box inside the button, on top of the
-   label, instead of above or below it. Everything positional is repeated here to win the tie. */
-.tb-act-add .hold-targets, .fab-entry .hold-targets { position: absolute; right: 0; z-index: 3; }
-/* clear of the button either way — the FAB sits at the bottom of the screen, the TopBar
-   button at the top — and each grows OUT of its button, so the gesture reads as the button
-   opening rather than a panel appearing from nowhere. 140ms: long enough to be seen at the
-   moment the hold latches, short enough that the finger is never waiting for it. */
-.hold-targets-above { bottom: calc(100% + 10px); animation: holdRise .14s var(--ease); }
-.hold-targets-below { top: calc(100% + 10px); animation: holdDrop .14s var(--ease); }
-@keyframes holdRise { from { opacity: 0; transform: translateY(7px) scale(.96); } }
-@keyframes holdDrop { from { opacity: 0; transform: translateY(-7px) scale(.96); } }
-.hold-target { display: inline-flex; align-items: center; gap: 6px; padding: 10px 14px;
-  border-radius: var(--r-sm); font: 700 13px var(--body); color: var(--ink-dim);
+   ⚠️ PORTALLED to <body> and positioned from the button's measured rect (components/
+   HoldTargets), so nothing here is relative to a host any more. It lived inside the button
+   until 2026-08-14 and every way that can fail did: the button clipped it (`overflow: hidden`,
+   for the charging cue) so a dark fragment of it flashed INSIDE the button as the hold latched;
+   `.tb-act-add span { position: relative }` fought its `position: absolute` on specificity;
+   and the top bar's stacking context boxed it in. Out here there is no ancestor left to clip
+   it, restyle it or stack over it.
+   The z-index clears the top bar (56) and the FAB (55).
+   ⚠️ The CONTAINER is `pointer-events: none` so the gap between the two targets falls through,
+   but each TARGET undoes it: `document.elementFromPoint` skips anything with pointer-events
+   none, so with it inherited the hit test could never match and sliding onto «Foto» silently
+   did nothing (see lib/useHoldEntry · onPointerMove). Nothing here is ever clicked — the button
+   holds the capture — they only have to be FINDABLE by geometry. */
+.hold-targets { z-index: 210;
+  display: flex; flex-direction: column; gap: 6px; pointer-events: none; white-space: nowrap; }
+/* ⚠️ column-REVERSE when the chooser opens upward, so DOM order can stay «nearest the button
+   first» in both directions. The finger leaves the button in ONE direction and meets Sprachnotiz
+   first, Foto beyond it — distance picks the option, and nothing asks a gloved thumb at the
+   corner of the screen for sideways precision. These were side by side until 2026-08-14, which
+   read as a strip of buttons rather than as two places to go. */
+.hold-targets-above { flex-direction: column-reverse; }
+/* ⚠️ Each option animates, not the container. The container used to slide in as one slab, which
+   read as a panel arriving — the opposite of what the gesture is. Now they come out of the
+   button one after the other along the axis the finger is about to travel, nearest first, so the
+   motion itself shows the way. `backwards` keeps the far one invisible during its delay, and
+   the origin points back at the button so each grows out of it rather than swelling in place. */
+.hold-targets-above .hold-target { transform-origin: 50% 100%; animation: holdOut .16s var(--ease) backwards; }
+.hold-targets-below .hold-target { transform-origin: 50% 0; animation: holdOut .16s var(--ease) backwards; }
+.hold-targets-above .hold-target:nth-child(2), .hold-targets-below .hold-target:nth-child(2) { animation-delay: .05s; }
+@keyframes holdOut { from { opacity: 0; transform: scale(.82); } }
+/* each target is its OWN surface, not a segment of a shared bar — two destinations, not one
+   control. Sized off the button: same height, same radius, same right edge, and the container
+   takes the button's width as a floor, so the three read as one column rather than as two
+   oversized cards that happen to be nearby. */
+.hold-target { pointer-events: auto; display: flex; align-items: center; gap: 8px;
+  padding: 7px 12px; min-height: 42px;
+  background: var(--surface); border: 1px solid var(--glass-line); border-radius: var(--r-sm);
+  box-shadow: var(--shadow-sm); font: 700 12.5px var(--body); color: var(--ink-dim);
   transition: background .12s var(--ease), color .12s var(--ease), transform .12s var(--ease); }
 .hold-target .i { width: 15px; height: 15px; }
 /* the one the finger is over — this is the whole feedback of the gesture, so it is not subtle.
    The nudge is what makes a slide feel like it LANDED rather than merely recoloured something. */
 .hold-target.on { background: var(--btn-primary); color: var(--on-btn-primary); transform: scale(1.04); }
 @media (prefers-reduced-motion: reduce) {
-  .hold-targets-above, .hold-targets-below { animation: none; }
+  .hold-target { animation: none; }
   .hold-target, .hold-target.on { transition: none; transform: none; }
+  .tb-act-add .i, .fab-entry .i { transition: none; }
 }
 /* explicit stop affordance shown while recording — a white square reads as "stop" */
 .tb-stop { position: relative; z-index: 1; width: 11px; height: 11px; border-radius: 2px; background: var(--on-accent-ink); flex: none; }
@@ -308,12 +336,16 @@
   color: var(--ink-dim); border-radius: var(--r-sm); padding: 8px 10px; height: var(--tap); min-width: 0; font-size: 12.5px; font-weight: 700; cursor: pointer;
   font-family: inherit; white-space: nowrap; }
 .jc-rec .i { flex: none; }
+.jc-rec-time { font-family: var(--mono); }
 .jc-rec .i { width: 15px; height: 15px; }
 .jc-rec:hover { color: var(--ink); }
 .jc-rec.on { background: var(--red); border-color: var(--red); color: var(--on-fill); animation: recPulse 1.4s ease-in-out infinite; }
 @keyframes recPulse { 50% { opacity: .72; } }
-.jc-clip { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-dim); font-weight: 600; }
-.jc-clip-len { font-family: var(--mono); }
+/* framed exactly like the imported-memo row below it — the two say the same thing about the same
+   kind of thing, and a bare play/length/✕ floating on an empty row read as unfinished next to it */
+.jc-clip { display: flex; align-items: center; gap: 10px; min-width: 0;
+  border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface-2);
+  padding: 10px 12px; font-weight: 600; }
 .jc-clip-x { width: 32px; height: 32px; border-radius: var(--r-sm); border: none; cursor: pointer; display: grid; place-items: center;
   background: var(--fill-soft); color: var(--ink-dim); }
 .jc-clip-x:hover { background: var(--fill-soft); color: var(--ink); }
@@ -322,9 +354,9 @@
 .jc-import { display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--glass-edge);
   border-radius: var(--r-ctl); background: var(--surface-2); padding: 10px 12px; }
 .jc-import-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.jc-import-name { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
-.jc-import-name strong { font-size: 12.5px; color: var(--ink); }
-.jc-import-name em { font-style: normal; font-size: 12px; color: var(--ink-dim); font-family: var(--mono);
+.jc-import-name, .jc-clip-name { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.jc-import-name strong, .jc-clip-name strong { font-size: 12.5px; color: var(--ink); }
+.jc-import-name em, .jc-clip-name em { font-style: normal; font-size: 12px; color: var(--ink-dim); font-family: var(--mono);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jc-import-start { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .jc-import-hint { margin: 0; font-size: 12.5px; color: var(--ink-dim); }

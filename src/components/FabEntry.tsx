@@ -24,7 +24,7 @@ export function FabEntry({ recording, recStartedAt, onTap, onHoldStart, onHoldSt
     return () => clearInterval(t)
   }, [recording])
   const recSec = recording && recStartedAt ? Math.max(0, Math.round((now - recStartedAt) / 1000)) : 0
-  const { pressing, latched, hover, handlers } = useHoldEntry({ recording, onTap, onHoldStart, onHoldStop, onHoldPhoto })
+  const { pressing, latched, hover, anchor, handlers } = useHoldEntry({ recording, onTap, onHoldStart, onHoldStop, onHoldPhoto })
 
   // The circle steps back while something under it is being scrolled, so the row / curve it
   // covers can be read during the gesture. Scroll does not bubble, hence the capture listener:
@@ -49,18 +49,18 @@ export function FabEntry({ recording, recStartedAt, onTap, onHoldStart, onHoldSt
 
   return (
     <button
-      // `latched` only lifts the button's `overflow: hidden` (there for the charging cue) so
-      // the slide targets can sit outside its bounds
-      className={`fab-entry ${recording ? 'rec' : ''} ${quiet ? 'quiet' : ''} ${latched ? 'latched' : ''}`}
+      className={`fab-entry ${recording ? 'rec' : ''} ${quiet ? 'quiet' : ''} ${latched ? 'cancelling' : ''}`}
+      style={latched && anchor ? { width: anchor.width } : undefined}
       aria-label={recording ? appConfig.copy.journal.recordStop : appConfig.copy.journal.add}
       title={recording ? appConfig.copy.journal.recordStop : appConfig.copy.journal.addHint}
+      data-hold-target="cancel"
       {...handlers}
     >
       {pressing && !recording && <span className="tb-hold" />}
-      {latched && <HoldTargets hover={hover} placement="above" />}
+      {latched && <HoldTargets hover={hover} placement="above" anchor={anchor} />}
       {recording
-        ? <><span className="tb-stop" /><span>{fmtMMSS(recSec)}</span></>
-        : <><Icon id="plus" /><span>{appConfig.copy.journal.add}</span></>}
+        ? <><span className="tb-stop" /><span className="tb-act-label">{fmtMMSS(recSec)}</span></>
+        : <><Icon id="plus" /><span className="tb-act-label">{appConfig.copy.journal.add}</span></>}
     </button>
   )
 }

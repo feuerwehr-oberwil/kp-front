@@ -184,7 +184,7 @@ export const it: Localizable<Copy> = {
         blocks: [
           { kind: 'lead', text: 'Un diario condiviso e continuo tra Situazione e Piano – la cronaca dell’intervento.' },
           { kind: 'list', items: [
-            '**+ Voce** (in alto a destra): un tocco breve apre l’immissione testo; **tieni premuto** per registrare una **nota vocale**. Si possono allegare anche foto.',
+            '**+ Voce** (in alto a destra): un tocco breve apre l’immissione testo. **Tieni premuto** per aprire due campi – **nota vocale** per prima, **foto** oltre. Il dito scorre su uno dei due e rilascia. Il pulsante stesso diventa una **✕**: rilasciare senza aver scorso annulla e non lascia nulla. La registrazione parte – e la fotocamera si apre – solo al rilascio. Si possono allegare foto anche nella voce stessa.',
             'Da **due lettere** in poi vengono proposti nomi – organico, materiale, organizzazioni partner, veicoli e gruppi d’allarme. Toccandone uno si inserisce il nome intero; è evidenziato nel diario e sul rapporto stampato. Non c’è un campo «da» separato: la frase dice già chi ha segnalato.',
             'Le azioni rilevanti (simbolo posizionato, disegno creato/rimosso …) finiscono automaticamente nel diario.',
             '**Annulla/Ripeti** vale per Situazione e Piano.',
@@ -600,6 +600,7 @@ export const it: Localizable<Copy> = {
     discardAudio: 'Scarta registrazione',
     audioUpload: 'Carica audio',
     audioUploadShort: 'Audio',
+    audioClipLabel: 'Nota vocale',
     audioImportLabel: 'Registrazione audio esterna',
     audioStartLabel: 'Inizio registrazione',
     audioStartHint: 'Verificare l’ora di inizio con il memo vocale.',

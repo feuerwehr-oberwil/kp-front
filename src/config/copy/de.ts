@@ -239,7 +239,7 @@ export const de = {
         blocks: [
           { kind: 'lead', text: 'Ein gemeinsames, fortlaufendes Protokoll über Lage und Plan – die Einsatz-Chronik.' },
           { kind: 'list', items: [
-            '**+ Eintrag** (oben rechts): kurz tippen öffnet die Texteingabe. **Gedrückt halten** zeigt zwei Felder – **Sprachnotiz** und **Foto**. Der Finger schiebt auf eines davon und lässt los; ohne Schieben kommt die Sprachnotiz. Erst beim Loslassen läuft die Aufnahme bzw. öffnet die Kamera. Fotos lassen sich auch im Eintrag selbst anhängen.',
+            '**+ Eintrag** (oben rechts): kurz tippen öffnet die Texteingabe. **Gedrückt halten** klappt zwei Felder auf – **Sprachnotiz** zuerst, **Foto** dahinter. Der Finger schiebt auf eines davon und lässt los. Der Knopf selbst wird dabei zum **✕**: loslassen, ohne geschoben zu haben, bricht ab und hinterlässt nichts. Erst beim Loslassen läuft die Aufnahme bzw. öffnet die Kamera. Fotos lassen sich auch im Eintrag selbst anhängen.',
             'Ab **zwei Buchstaben** werden Namen vorgeschlagen – Mannschaft, Material, Partnerorganisationen, Fahrzeuge und Alarmgruppen. Angetippt wird der ganze Name eingesetzt; im Verlauf und auf dem gedruckten Rapport ist er hervorgehoben. Ein eigenes «Von»-Feld gibt es nicht: der Satz sagt schon, wer gemeldet hat.',
             'Wesentliche Aktionen (Symbol gesetzt, Zeichnung erstellt/entfernt …) landen automatisch im Verlauf.',
             '**Rückgängig/Wiederholen** gilt für Lage und Plan.',
@@ -886,6 +886,7 @@ export const de = {
     audioUpload: 'Audio hochladen',
     // short form for the phone row, where the three media buttons get a third of the width each
     audioUploadShort: 'Audio',
+    audioClipLabel: 'Sprachnotiz',
     audioImportLabel: 'Externe Audioaufnahme',
     audioStartLabel: 'Aufnahme begann',
     audioStartHint: 'Startzeit anhand der Sprachmemo kontrollieren.',

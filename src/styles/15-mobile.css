@@ -21,7 +21,8 @@
   animation: pop .2s var(--ease); transition: transform .12s var(--ease), filter .14s var(--ease); }
 .fab-entry:hover { filter: brightness(1.05); }
 .fab-entry:active { transform: scale(.95); }
-.fab-entry .i, .fab-entry span { position: relative; z-index: 1; }
+/* names the LABEL, not every span — see the note on .tb-act-add in 10-journal.css */
+  .fab-entry .i, .fab-entry .tb-act-label { position: relative; z-index: 1; }
 .fab-entry .i { width: 18px; height: 18px; }
 /* recording: the FAB turns red + shows the running timer, same as the TopBar Eintrag */
 .fab-entry.rec { background: var(--red); animation: recPulse 1.4s ease-in-out infinite; }

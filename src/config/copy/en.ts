@@ -185,7 +185,7 @@ export const en: Localizable<Copy> = {
         blocks: [
           { kind: 'lead', text: 'A shared, running log across Situation and Plan – the incident chronicle.' },
           { kind: 'list', items: [
-            '**+ Entry** (top right): a short tap opens text input; **press and hold** records a **voice note**. Photos can be attached too.',
+            '**+ Entry** (top right): a short tap opens text input. **Press and hold** unfolds two fields – **voice memo** first, **photo** beyond it. Slide onto one and let go. The button itself becomes an **✕** meanwhile: releasing without having slid cancels and leaves nothing behind. Nothing records, and no camera opens, until you let go. Photos can be attached in the entry itself too.',
             'From **two letters** on, names are suggested – crew, resources, partner organisations, vehicles and alarm groups. Tapping one inserts the whole name; it is highlighted in the log and on the printed report. There is no separate «from» field: the sentence already says who reported it.',
             'Significant actions (symbol placed, drawing created/removed …) land in the log automatically.',
             '**Undo/Redo** applies to Situation and Plan.',
@@ -598,6 +598,7 @@ export const en: Localizable<Copy> = {
     discardAudio: 'Discard recording',
     audioUpload: 'Upload audio',
     audioUploadShort: 'Audio',
+    audioClipLabel: 'Voice memo',
     audioImportLabel: 'External audio recording',
     audioStartLabel: 'Recording started',
     audioStartHint: 'Check the start time against the voice memo.',

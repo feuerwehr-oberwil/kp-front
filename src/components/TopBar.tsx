@@ -112,7 +112,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
   // unconditionally — hooks can't be skipped — but with the button unrendered nothing ever
   // reaches these handlers, so the no-op fallbacks are only there to satisfy the signature.
   const noop = () => {}
-  const { pressing, latched, hover, handlers } = useHoldEntry({
+  const { pressing, latched, hover, anchor, handlers } = useHoldEntry({
     recording,
     onTap: onAddEntry ?? noop,
     onHoldStart: onHoldStart ?? noop,
@@ -185,18 +185,19 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
         </button>
         {onAddEntry && (
           <button
-            // `latched` only lifts the button's `overflow: hidden` (there for the charging
-            // cue) so the slide targets can sit outside its bounds
-            className={`tb-act tb-act-add ${recording ? 'rec' : ''} ${latched ? 'latched' : ''}`}
+            className={`tb-act tb-act-add ${recording ? 'rec' : ''} ${latched ? 'cancelling' : ''}`}
+            // held at its measured width while it is an ✕, so dropping the label cannot resize it
+            style={latched && anchor ? { width: anchor.width } : undefined}
             title={recording ? appConfig.copy.journal.recordStop : appConfig.copy.journal.addHint}
+            data-hold-target="cancel"
             {...handlers}
           >
             {pressing && !recording && <span className="tb-hold" />}
             {/* below: this button lives in the TOP bar, so the targets open downward */}
-            {latched && <HoldTargets hover={hover} placement="below" />}
+            {latched && <HoldTargets hover={hover} placement="below" anchor={anchor} />}
             {recording
-              ? <><span className="tb-stop" /><span>{fmtMMSS(recSec)}</span></>
-              : <><Icon id="plus" /><span>{appConfig.copy.journal.add}</span></>}
+              ? <><span className="tb-stop" /><span className="tb-act-label">{fmtMMSS(recSec)}</span></>
+              : <><Icon id="plus" /><span className="tb-act-label">{appConfig.copy.journal.add}</span></>}
           </button>
         )}
         {/* wrapped in a stable class so the phone rule can lift it out of the bar — see

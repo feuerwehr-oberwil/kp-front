@@ -498,8 +498,15 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
           <input ref={fileRef} type="file" accept="image/*" capture="environment" multiple hidden onChange={onPhotoPicked} />
           <input ref={audioFileRef} type="file" accept={AUDIO_IMPORT_ACCEPT} hidden onChange={(e) => void onAudioPicked(e)} />
           <div className="jc-audio">
+            {/* recording shows the stop square + the running time, NOT «Aufnahme stoppen · 22s»:
+                this button is one of three in a fixed 1fr grid and that label never fitted, so it
+                ran out past the red rounded corner. It is also what the TopBar and the FAB already
+                turn into while recording — a red pulsing button with a square and a clock reads as
+                «tap to stop» without spending a third of the row saying so. */}
             <button className={`jc-rec ${recording ? 'on' : ''}`} onClick={toggleRecord} title={recording ? C.recordStop : C.record}>
-              <Icon id="mic" />{recording ? `${C.recordStop} · ${elapsed}s` : C.record}
+              {recording
+                ? <><span className="tb-stop" /><span className="jc-rec-time">{elapsed}s</span></>
+                : <><Icon id="mic" />{C.record}</>}
             </button>
             {/* the three media buttons share one row at a third of the width each — not even a
                 desktop third fits «Audio hochladen», so the short form labels the button and the
@@ -511,7 +518,10 @@ export function JournalComposer({ surface, onSubmit, onClose, incidentStartAt, u
             {clip && (
               <span className="jc-clip">
                 <button className={`tl-play ${clipPlaying ? 'playing' : ''}`} title={clipPlaying ? C.recordStop : appConfig.copy.play} aria-label={clipPlaying ? C.recordStop : appConfig.copy.play} onClick={toggleClip}><Icon id={clipPlaying ? 'pause' : 'play'} /></button>
-                <span className="jc-clip-len">{clip.secs}s</span>
+                <span className="jc-clip-name">
+                  <strong>{C.audioClipLabel}</strong>
+                  <em>{clip.secs}s</em>
+                </span>
                 <button className="jc-clip-x" title={C.discardAudio} aria-label={C.discardAudio} onClick={discardClip}><Icon id="close" /></button>
               </span>
             )}
