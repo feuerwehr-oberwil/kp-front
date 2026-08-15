@@ -42,6 +42,7 @@ Behaviour:
 import argparse
 import asyncio
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -247,6 +248,80 @@ EXAMPLE_CONFIG: dict[str, Any] = {
 }
 
 
+def _push(doc_json: dict[str, Any], base: str, admin_secret: str, dry_run: bool, force: bool) -> int:
+    """Publish a config file to a RUNNING deployment over its HTTP API.
+
+    The other three station CLIs (`admin_geodata`, `admin_objects`, `admin_checklists`) already
+    have this; `admin_config` did not, and it was the one that needed it most. Everything else
+    here talks to ``DATABASE_URL`` directly, which is fine on Railway and in dev but false on the
+    documented docker-compose deployment: there is no Python toolchain on that host and the
+    database is deliberately not reachable from outside the compose network. The setup guide's
+    "make it your station" step was therefore not runnable as written, and the obvious way to
+    make it run — publishing the Postgres port — is a security regression caused by a doc gap.
+
+    Same guarantees as `load`, enforced against the REMOTE document:
+
+    * the runtime-written sections are carried over (`referenceLayers`, `identity.assets`), so a
+      file that never mentions them cannot delete a station's hydrants or its brandmark;
+    * a push that would EMPTY a populated section is refused without ``--force``;
+    * ``If-Match`` carries the version just read, so a deployment that changed underneath this
+      push is a 409 rather than a silent overwrite.
+    """
+    import httpx  # lazy: only `push` needs the network
+
+    base = base.rstrip("/")
+    with httpx.Client(base_url=base, timeout=120.0) as c:
+        r = c.post("/api/admin/login", json={"secret": admin_secret})
+        if r.status_code != 200:
+            _fail(f"ERROR: admin login to {base} failed ({r.status_code}): {r.text[:200]}")
+
+        got = c.get("/api/config")
+        if got.status_code != 200:
+            _fail(f"ERROR: GET /api/config failed ({got.status_code}): {got.text[:200]}")
+        remote = got.json()
+        version = remote.get("version")
+        # ⚠️ Strip the RESPONSE-ONLY fields before comparing. `integrations` is env-derived,
+        # `alarmVocabulary` is a computed summary and `version` is the document's own hash —
+        # none of them exist in a config FILE, so leaving them in made `emptied_sections` report
+        # "this push would empty alarmVocabulary and version" on a push of the deployment's own
+        # config. A refusal that fires on a no-op is a refusal nobody will read twice.
+        for response_only in ("integrations", "alarmVocabulary", "version"):
+            remote.pop(response_only, None)
+
+        carried = _carry_runtime_sections(remote, doc_json)
+        dropped = emptied_sections(remote, doc_json)
+        if dropped and not force:
+            print(f"REFUSED: this would EMPTY {len(dropped)} section(s) on {base}:", file=sys.stderr)
+            for d in dropped:
+                print(f"  - {d}", file=sys.stderr)
+            print("", file=sys.stderr)
+            print("That is what publishing an OLD config file looks like. Check the file is the", file=sys.stderr)
+            print("one you meant (`admin_config diff` against a local copy), or repeat with --force.", file=sys.stderr)
+            return 2
+
+        if dry_run:
+            print(f"OK (dry-run): authenticated to {base}; would write {_summary(doc_json)}. Nothing written.")
+            if carried:
+                print(f"    would keep from the deployment (runtime-written): {', '.join(carried)}")
+            return 0
+
+        headers = {"If-Match": version} if version else {}
+        put = c.put("/api/config", json=doc_json, headers=headers)
+        if put.status_code == 409:
+            _fail(
+                "ERROR: the deployment's config changed while this push was being prepared. "
+                "Nothing was written — re-run to pick up the newer document."
+            )
+        if put.status_code != 200:
+            _fail(f"ERROR: PUT /api/config failed ({put.status_code}): {put.text[:300]}")
+
+    print(f"OK: pushed to {base}. Top-level keys set: {_summary(doc_json)}")
+    if carried:
+        print(f"    kept from the deployment (runtime-written, not in the file): {', '.join(carried)}")
+    print(f"    {_vocabulary_line(doc_json)}")
+    return 0
+
+
 def _fail(message: str) -> None:
     """Print an error to stderr and exit non-zero (nothing written)."""
     print(message, file=sys.stderr)
@@ -442,7 +517,10 @@ async def _restore(entry_id: int) -> dict[str, Any] | None:
 
 def _normalize_argv(argv: list[str]) -> list[str]:
     """Back-compat shim: map the legacy ``<file>`` and ``--show`` forms onto subcommands."""
-    cmds = {"schema", "example", "validate", "diff", "load", "show", "history", "restore"}
+    # ⚠️ Every subcommand must be listed here. It is not a nicety: anything missing falls
+    # through to the legacy branch and is rewritten as `load <name>` — so a new command silently
+    # becomes a load of a file that does not exist, or worse, of one that does.
+    cmds = {"schema", "example", "validate", "diff", "load", "push", "show", "history", "restore"}
     if not argv or argv == ["--show"]:
         return ["show"]
     if argv[0] in cmds or argv[0] in ("-h", "--help"):
@@ -470,6 +548,20 @@ async def _amain(argv: list[str]) -> int:
         "--force",
         action="store_true",
         help="load even if it would EMPTY sections that currently have content (see the refusal)",
+    )
+    p_push = sub.add_parser("push", help="publish a file to a RUNNING deployment via its API (no DB access needed)")
+    p_push.add_argument("file")
+    p_push.add_argument("--base", default=os.environ.get("KP_BASE_URL"), help="deployment base URL (env KP_BASE_URL)")
+    p_push.add_argument(
+        "--admin-secret",
+        default=os.environ.get("KP_ADMIN_SECRET"),
+        help="deployment ADMIN_SECRET (env KP_ADMIN_SECRET)",
+    )
+    p_push.add_argument("--dry-run", action="store_true", help="authenticate + report only, do not write")
+    p_push.add_argument(
+        "--force",
+        action="store_true",
+        help="push even if it would EMPTY sections that currently have content (see the refusal)",
     )
     sub.add_parser("show", help="print the currently-stored config")
     sub.add_parser("history", help="list the kept previous configs (newest first)")
@@ -500,6 +592,10 @@ async def _amain(argv: list[str]) -> int:
             print("\n".join(changes))
         print(_vocabulary_line(doc_json))
         return 0
+    if args.cmd == "push":
+        if not args.base or not args.admin_secret:
+            _fail("ERROR: push needs --base and --admin-secret (or KP_BASE_URL / KP_ADMIN_SECRET).")
+        return _push(_read_and_validate(Path(args.file)), args.base, args.admin_secret, args.dry_run, args.force)
     if args.cmd == "load":
         doc_json = _read_and_validate(Path(args.file))
         if args.dry_run:

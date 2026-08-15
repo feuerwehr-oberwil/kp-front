@@ -49,7 +49,9 @@ repo root does the whole thing (Postgres + backend + frontend) in one terminal. 
 
 ## Seeding
 - **Users:** `app/seed_users.json` (display_name, role, 6-digit PIN) – default user `fu`
-  (Führungsunterstützung), role `editor`, PIN `000000`. Edit before first run; PIN reset is
+  (Führungsunterstützung), role `editor`. The file's `000000` is used in DEVELOPMENT only:
+  in production `SEED_PIN` is required and the seeding raises without it, which now aborts the
+  boot rather than leaving a deployment with no accounts (`app/main.py`). PIN reset is
   admin/CLI only. `uv run python -m app.seed`.
 - **Reference data:** seeds only the global symbol pack (`symbols:tactical`, from
   `public/tactical-symbols.json`). Station data – geodata, object plans, checklists – is

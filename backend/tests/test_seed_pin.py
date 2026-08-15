@@ -133,3 +133,40 @@ async def test_fresh_production_database_seeds_with_a_pin(production, monkeypatc
     monkeypatch.setattr(settings, "seed_pin", "482913")
 
     assert await seed_module.seed_users() == 1
+
+
+def test_init_env_generates_a_seed_pin_the_backend_will_accept():
+    """⚠️ The other half of the promise above, and the half that was missing.
+
+    `resolve_seed_pin` refusing is only useful if a deployment ever HAS a PIN to refuse. The
+    generator wrote POSTGRES_PASSWORD, SECRET_KEY and ADMIN_SECRET and left SEED_PIN blank, so
+    the documented setup path produced exactly the state this module raises on — and `main.py`
+    logged it and carried on, leaving a green stack with no accounts.
+
+    Pinned as a property of the script, not of one run: six digits, substituted into the file,
+    and never one of the PINs this module rejects.
+    """
+    import re
+    import shutil
+    import subprocess
+    import tempfile
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+    with tempfile.TemporaryDirectory() as tmp:
+        fake = Path(tmp)
+        (fake / "scripts").mkdir()
+        (fake / ".env.example").write_text((root / ".env.example").read_text(encoding="utf-8"), encoding="utf-8")
+        (fake / "scripts" / "init-env.sh").write_text(
+            (root / "scripts" / "init-env.sh").read_text(encoding="utf-8"), encoding="utf-8"
+        )
+        bash = shutil.which("bash")
+        assert bash, "bash is needed to exercise the setup script"
+        subprocess.run([bash, "scripts/init-env.sh"], cwd=fake, check=True, capture_output=True)  # noqa: S603
+        env = (fake / ".env").read_text(encoding="utf-8")
+
+    pin = re.search(r"^SEED_PIN=(.*)$", env, re.MULTILINE)
+    assert pin, "init-env.sh left no SEED_PIN line at all"
+    value = pin.group(1).strip()
+    assert re.fullmatch(r"\d{6}", value), f"SEED_PIN must be six digits, got {value!r}"
+    assert value not in seed_module._TRIVIAL_PINS, "generated a PIN the backend refuses as public"

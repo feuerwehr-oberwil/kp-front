@@ -66,10 +66,17 @@ volume-permission problem, and it is much easier to fix now than after you have 
 ## 2. Take over the seeded account
 
 First boot seeds one editor from `backend/app/seed_users.json`: user **`fu`**
-(Führungsunterstützung), PIN **`000000`**.
+(Führungsunterstützung). Its PIN is the **`SEED_PIN`** that `just init-env` generated and
+printed in §1 — not the `000000` in the seed file, which the backend refuses to use in
+production precisely because it is public.
+
+> **Nothing to log in with?** If `SEED_PIN` is empty in your `.env`, the backend refuses to
+> seed an account rather than create a publicly-known one, and the login screen will say
+> *«Keine Benutzer hinterlegt»*. Put a six-digit `SEED_PIN` in `.env` and restart:
+> `docker compose up -d`. Seeding runs again because there is still nothing to seed over.
 
 1. Log in with it.
-2. **Change the PIN immediately.** It is a documented default in a public repository.
+2. **Change the PIN.** It was generated for the setup, not chosen by the person using it.
 3. Open `/admin` (unlock with the `ADMIN_SECRET` from step 1) and create the accounts your crew
    will actually use.
 
@@ -85,18 +92,37 @@ it *your station's* app.
 Station configuration is **managed as code** so the deployment stays repeatable and reviewable.
 The admin UI is for inspection and small edits, not the primary path.
 
+Author the file **on your own machine** (a checkout of this repo, `uv` installed) and
+**push** it to the running deployment over its API — `push` needs no database access and no
+toolchain on the server, so it works the same on docker-compose, Railway or anything else:
+
 ```bash
 cd backend
 uv run python -m app.admin_config example > private/mystation.config.json
 # edit it: identity, branding, accent colour, map centre, fleet, doctrine, locale
 uv run python -m app.admin_config validate private/mystation.config.json
-uv run python -m app.admin_config diff     private/mystation.config.json   # ← read this
-uv run python -m app.admin_config load     private/mystation.config.json
+
+export KP_BASE_URL=https://kp.meine-wehr.ch
+export KP_ADMIN_SECRET=…                     # the ADMIN_SECRET from §1
+uv run python -m app.admin_config push --dry-run private/mystation.config.json   # ← read this
+uv run python -m app.admin_config push           private/mystation.config.json
 ```
 
-**Always run `diff` before `load`.** `load` replaces what is there. If anyone has edited config
-through the admin UI since your file was written, a blind `load` silently reverts their changes –
-this has bitten us on our own production deployment.
+`push` refuses, without `--force`, anything that would **empty a section that currently has
+content** — that is what publishing an outdated file looks like, and it is how a station loses
+its Dienstgrade and its Partnerorganisationen in one command. It also carries over the parts the
+deployment owns and your file never mentions (the uploaded brandmark, the reference layers), and
+sends the version it just read, so a deployment somebody else changed in the meantime is a
+refusal rather than a silent overwrite.
+
+> **On the machine that holds the database** — a dev box, or `railway run` — you can use
+> `diff` / `load` instead, which talk to `DATABASE_URL` directly. Same guarantees, no HTTP.
+> They are *not* usable against a compose deployment: that Postgres is deliberately not
+> reachable from outside the compose network, and it should stay that way.
+
+**Always run `push --dry-run` (or `diff`) first.** Both replace what is there. If anyone has
+edited config through the admin UI since your file was written, a blind write silently reverts
+their changes – this has bitten us on our own production deployment, four times.
 
 Set the **locale** here too (`identity.locale`). It is a per-deployment setting resolved once at
 boot, not a per-device preference: one brigade, one language. German, French, Italian and English

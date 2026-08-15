@@ -39,16 +39,28 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.info("dev_create_all: tables ensured")
 
     if settings.seed_database:
-        try:
-            from .seed import seed_users
-            from .seed_config import seed_deployment_config
-            from .seed_reference import seed_reference
+        from .seed import seed_users
+        from .seed_config import seed_deployment_config
+        from .seed_reference import seed_reference
 
-            await seed_users()
+        # ⚠️ ACCOUNTS FIRST, AND LOUDLY. This used to share one try/except with the two blocks
+        # below, which logged and continued — so a production boot with no SEED_PIN (the state
+        # `scripts/init-env.sh` used to leave behind) came up with NO USER ACCOUNTS, reported
+        # `/ready` ok, passed the SETUP smoke test, and met the operator as «Keine Benutzer
+        # hinterlegt» on a login screen, while the docs told them the PIN was 000000. It also
+        # took the symbol pack and the config row with it, because they were in the same block.
+        # A first boot that cannot create a login is not a running deployment; failing here is
+        # the cheapest place to find that out. `seed.py` says so and now it is true.
+        await seed_users()
+
+        # These two are genuinely best-effort: the bundled symbol pack is authoritative in the
+        # frontend (lib/useSymbols) and a missing config row is served as an empty config
+        # (api/config · get_config), so a station degrades visibly rather than breaking.
+        try:
             await seed_reference()
             await seed_deployment_config()
-        except Exception:  # the probe must report, never raise  # never let locale loading block startup
-            logger.exception("Seeding failed (continuing)")
+        except Exception:
+            logger.exception("Reference/config seeding failed (continuing — the app degrades safely)")
 
     # Load the deployment locale for error-detail i18n (null-safe; stays de-CH otherwise).
     try:

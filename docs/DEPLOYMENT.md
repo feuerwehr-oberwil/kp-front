@@ -125,8 +125,10 @@ docker compose up -d
 docker compose --profile tls up -d
 
 # 4. The first incident editor account is seeded from backend/app/seed_users.json on
-#    first boot: user "fu" (Führungsunterstützung), stored role editor, PIN 000000.
-#    Change the PIN after first login.
+#    first boot: user "fu" (Führungsunterstützung), stored role editor. Its PIN is the
+#    SEED_PIN from your .env — in production the backend REFUSES to fall back to the seed
+#    file's public 000000, and a missing SEED_PIN means no account is created at all.
+#    `just init-env` generates and prints one. Change the PIN after first login.
 ```
 
 > **Production hardening is automatic** under compose: the app runs with `ENVIRONMENT=production`,
