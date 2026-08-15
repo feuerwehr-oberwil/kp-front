@@ -134,6 +134,13 @@
 /* The Rückmeldung's two halves, boxed together so the «noch offen» chip can point at them and
    NOT at the Einsatzende they share a grid with (see ReportPreflight). Same single column and
    same gap as the grid it sits in, so it changes nothing about the layout. */
+/* ⚠️ This rule was being clobbered further down the file by a leftover
+   `.rz-rueck { display: flex }` from the markup this block USED to have — two bare inputs, a name
+   and a `type="time"`. Those inputs are a PersonField and a DateTimeField now, so its two child
+   selectors matched nothing, but the `display: flex` still won by source order and laid the name
+   picker and the whole Datum+Zeit+«Jetzt» group out on one unwrappable row: the label broke over
+   two lines, the Name field was squeezed to nothing and «Jetzt» hung off the right edge of the
+   card. Deleted there; one column here, like the Einsatzende it sits under. */
 .rz-rueck { display: grid; grid-template-columns: 1fr; gap: 12px; min-width: 0; }
 /* Ende input takes the full row so it matches the Beginn field's width; "Jetzt" wraps below */
 /* min-width:0 on the flex CONTAINER too (not just the input) so it can shrink below the native
@@ -163,9 +170,6 @@
 .rz-counts { display: flex; flex-direction: column; gap: 6px; }
 .rz-count { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: var(--tap); }
 .rz-count > span { font: 600 13px var(--body); color: var(--ink-dim); }
-.rz-rueck { display: flex; gap: 8px; }
-.rz-rueck input:first-child { flex: 1; min-width: 0; }
-.rz-rueck input[type="time"] { flex: none; width: 112px; font-variant-numeric: tabular-nums; }
 
 /* partner-organisation contact rows (org+contact on top, phone+note below, ✕ spans both) */
 .rm-partners { display: flex; flex-direction: column; gap: 10px; }

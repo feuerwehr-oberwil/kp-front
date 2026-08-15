@@ -199,9 +199,6 @@ export default function CaptureApp() {
   }, [incident])
   // device-vs-server clock skew in minutes (from X-Server-Time), only when > 3min
   const [skewMin, setSkewMin] = useState<number | null>(null)
-  // read ONCE, only to bound the pickers' day wheel: a ticking clock at this level re-renders
-  // the whole poster every second, which is the exact shape that once cost the phone its battery
-  const [nowRef] = useState(() => Date.now())
   // cross-visibility: the KP tablet has opened this incident (editor_opened_at latch) — the
   // full rapport (incl. Lageskizze) will come from there, so printing here is optional
   const [kpActive, setKpActive] = useState(false)
@@ -779,7 +776,13 @@ export default function CaptureApp() {
   // --- screen 2: the capture sections (Personen · Material · Zeiten · Angaben) ---
   // The Einsatz' own days, for the clocks that may legitimately fall on another one. On an
   // Einsatz that finished the same evening this is a single day and no wheel appears at all.
-  const zeitDays = incidentDays(incident.started_at, nowRef)
+  // ⚠️ Read on render, not once on mount. It bounds the pickers' day wheel at «today», and this
+  // poster is opened in the Magazin and left standing: a `now` frozen at mount stops growing, so
+  // an Einsatz that ran over midnight offered only the day it started and a clock entered
+  // afterwards could not be put on the right day. A read is not a ticking clock — nothing here
+  // schedules a re-render, so the per-second re-render that once cost the phone its battery
+  // stays gone.
+  const zeitDays = incidentDays(incident.started_at, Date.now())
   return (
     <div className="cv-shell"><IconSprite /><Overlays />
       <header className="cv-head">

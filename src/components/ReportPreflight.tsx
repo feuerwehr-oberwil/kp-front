@@ -216,7 +216,6 @@ export function ReportPreflight({
   // instant is what makes a rapport able to show the Rettung that has since left, or the moment
   // the Lage was at its worst. Reconstructed locally from the event journal (lib/replay), the
   // same fold the Wiedergabe uses — so the paper and the replay can never disagree.
-  const [nowRef] = useState(() => Date.now())
   const [krokiAt, setKrokiAt] = useState<number | null>(
     () => (reportMeta.krokiPrint?.at ? Date.parse(reportMeta.krokiPrint.at) || null : null),
   )
@@ -440,8 +439,18 @@ export function ReportPreflight({
   const alarmiert = meta.alarmiertAt
   // Plausibility of the three clocks, as a HINT under the field that is wrong. Never a block:
   // printing must not depend on what somebody typed, and an Einsatz over midnight is normal.
-  // `nowRef` is read once per sheet — a live clock here would re-render the form every second
-  // and is exactly the shape that once cost the phone its battery.
+  //
+  // ⚠️ `Date.now()`, NOT the `nowRef` captured when this surface mounted. The Rapport is a
+  // surface, not a dialog — it is opened early in an Einsatz and left open for hours — so a
+  // mount-time «now» goes stale while it sits there, and «liegt in der Zukunft» then fired on
+  // exactly the stamp that cannot possibly be in the future: the one «Jetzt» had just written.
+  // Any Einsatz longer than the 5-minute slack showed it, which is most of them. (It failed the
+  // other way too: a genuinely future time typed later was measured against the same stale
+  // mark and stayed unflagged.)
+  //
+  // This is a read during render, not a ticking clock — nothing schedules a re-render, so the
+  // battery footgun the frozen `nowRef` exists for is not reintroduced. The hint is re-evaluated
+  // whenever anything on the form moves, which is precisely when it can change.
   const issues = zeitIssues(
     {
       alarmiertAt: alarmiert,
@@ -449,7 +458,7 @@ export function ReportPreflight({
       endedAt: dtLocalToIso(endedAt),
       rueckmeldungAt: rueckIso,
     },
-    nowRef,
+    Date.now(),
   )
   const issueFor = (kind: ZeitKind) => {
     const i = issues.find((x) => x.kind === kind)
@@ -1228,7 +1237,13 @@ export function ReportPreflight({
               // an Ausrückzeit of 00:15 after an Alarmierung um 23:50 is the NEXT day, and used
               // to land 23h35 before the alarm. Same rule and same day wheel as the Rückmeldung
               // ELZ field below; `day` arrives only on an incident that spans more than one.
-              const zeitDays = incidentDays(meta.startedAt ?? incident.started_at, nowRef)
+              // ⚠️ A LIVE clock, for the same reason the plausibility check above uses one: this
+              // list runs from the Alarmierung to «now», and a «now» frozen when the surface
+              // mounted stops growing while the surface sits open. An Einsatz that started at
+              // 23:50 and is still being written at 00:30 — the ordinary night Einsatz — then
+              // offered only the day before, so a clock typed after midnight could not be put on
+              // the day it actually happened.
+              const zeitDays = incidentDays(meta.startedAt ?? incident.started_at, Date.now())
               const onGruppe = (id: string, hhmm: string, day?: Date) => {
                 const iso = zeitFromClock(incident.started_at, hhmm, day)
                 const next = setGruppeZeit(gruppen, id, iso)
