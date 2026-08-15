@@ -1293,3 +1293,24 @@
   .adm-hist-row { flex-wrap: wrap; }
   .adm-hist-when { width: 100%; }
 }
+
+/* «Einrichtung» (System & Wartung) — what a fresh instance still needs. Rows are BUTTONS where
+   the fix is on another page; the one that is env-only is a static row with no chevron, because
+   a chevron promises a screen that does not exist (see SetupChecklist). */
+.adm-setup { display: flex; flex-direction: column; gap: 2px; }
+.adm-setup-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: var(--tap);
+  padding: 6px 10px; border: none; border-radius: var(--r-ctl); background: none;
+  color: inherit; text-align: left; font: inherit; cursor: pointer; }
+.adm-setup-row:hover { background: var(--fill-soft); }
+.adm-setup-row.is-static { cursor: default; }
+.adm-setup-row.is-static:hover { background: none; }
+.adm-setup-dot { flex: none; display: grid; place-items: center; width: 24px; height: 24px;
+  border-radius: 50%; border: 1.5px solid color-mix(in srgb, var(--ink-faint) 55%, transparent);
+  color: var(--ink-faint); font-size: 13px; font-weight: 700; }
+.adm-setup-dot.done { border-color: color-mix(in srgb, var(--ink-faint) 80%, transparent); color: var(--ink); }
+.adm-setup-txt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.adm-setup-lbl { font: 600 13.5px var(--body); }
+/* the CONSEQUENCE of leaving it undone, not an instruction — this card nudges, it does not nag */
+.adm-setup-sub { font: 500 11.5px/1.4 var(--body); color: var(--ink-faint); }
+.adm-setup-row .adm-setup-dot.done ~ .adm-setup-txt .adm-setup-lbl { color: var(--ink-dim); }
+.adm-setup-go { flex: none; color: var(--ink-faint); font-size: 16px; }

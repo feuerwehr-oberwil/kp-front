@@ -115,7 +115,7 @@ const CONFIG_SECTIONS = new Set<SectionId>(['identitaet', 'doktrin', 'journal', 
 // (Fahrzeuge, Kartenebenen, Objektpläne) are read-only — edited via the CLI — so no save bar.
 const AUTOSAVE_SECTIONS = new Set<SectionId>(['identitaet', 'doktrin', 'journal', 'rapport', 'mannschaft'])
 
-function renderSection(id: SectionId, _navigate: (id: SectionId) => void) {
+function renderSection(id: SectionId, navigate: (id: SectionId) => void) {
   switch (id) {
     case 'identitaet': return <IdentitySection />
     case 'doktrin': return <DoctrineSection />
@@ -132,7 +132,16 @@ function renderSection(id: SectionId, _navigate: (id: SectionId) => void) {
     case 'traccar': return <VehicleProviderView />
     case 'statistik': return <StatsAdminView />
     case 'einsatzlink': return <IncidentLinkAdminView />
-    case 'system': return <SystemView />
+    // the Einrichtung card links into the pages that fix each row, so this one navigates.
+    // ⚠️ Narrowed by a real lookup rather than cast: SetupChecklist names its targets as plain
+    // strings (it has no business importing this union), and a typo there should do nothing
+    // rather than push an id the shell cannot render.
+    case 'system': return (
+      <SystemView onNavigate={(id) => {
+        const hit = ALL_ENTRIES.find((e) => e.id === id)
+        if (hit) navigate(hit.id)
+      }} />
+    )
     case 'sicherung': return <BackupView />
   }
 }

@@ -238,4 +238,9 @@ async def get_system(
         "storage": storage,
         "integrations": integrations,
         "connectors": connectors,
+        # Whether this deployment can tell anybody it has died. A BOOLEAN, never the URL: the
+        # ping address is a write endpoint for the monitor and has no business on a screen.
+        # It is env-only (HEALTHCHECK_PING_URL), so the admin UI cannot set it — but it can at
+        # least stop a station from believing somebody would be told. See scheduler · _heartbeat.
+        "monitoring": {"heartbeatConfigured": bool(settings.healthcheck_ping_url.strip())},
     }

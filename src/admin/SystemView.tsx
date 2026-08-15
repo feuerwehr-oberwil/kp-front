@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { apiGet } from '../lib/api'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
+import { useConfig } from './ConfigContext'
+import { SetupChecklist } from './SetupChecklist'
 import { fillTemplate } from '../lib/format'
 import { providerLabel } from '../lib/deploymentConfig'
 import { Card, StatusBadge, Metric, UsageBar, EmptyState, ResultChip } from './ui'
@@ -18,6 +20,7 @@ interface SystemVersion {
 interface SystemDatabase {
   ok: boolean
 }
+interface SystemMonitoring { heartbeatConfigured: boolean }
 interface SystemCounts {
   incidents: number | null
   incidents_open: number | null
@@ -60,6 +63,8 @@ interface SystemResponse {
   storage: SystemStorage | null
   integrations: SystemIntegrations | null
   connectors: SystemConnector[] | null
+  /** whether this deployment can tell anybody it has died (api/system) — a boolean, never the URL */
+  monitoring: SystemMonitoring | null
 }
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -238,7 +243,8 @@ type ServerState =
   | { kind: 'error' }
   | { kind: 'ok'; data: SystemResponse }
 
-export function SystemView() {
+export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void } = {}) {
+  const { draft } = useConfig()
   const [state, setState] = useState<ServerState>({ kind: 'loading' })
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
   const C = appConfig.copy.admin.system
@@ -275,11 +281,23 @@ export function SystemView() {
       )}
 
       {state.kind === 'ok' && (() => {
-        const { version, database, counts, storage } = state.data
+        const { version, database, counts, storage, monitoring } = state.data
         const commitShort = version ? version.commit.slice(0, 7) : '—'
         const isProd = version?.env === 'production'
         return (
           <>
+            {/* First on the page, above the health read-out: a fresh instance's most useful
+                question is «what still needs doing», and the card removes itself once the
+                answer is «nothing». */}
+            <SetupChecklist
+              cfg={draft}
+              facts={{
+                users: counts?.users ?? null,
+                personnelActive: counts?.personnel_active ?? null,
+                heartbeatConfigured: !!monitoring?.heartbeatConfigured,
+              }}
+              onGo={(id) => onNavigate?.(id)}
+            />
             <div className="adm-sys-summary" aria-label={C.healthSummary}>
               <div>
                 <span className="adm-sys-summary-label">{C.server}</span>
