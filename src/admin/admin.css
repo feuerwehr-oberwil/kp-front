@@ -1262,3 +1262,34 @@
 .adm-tel-payload { margin: 0 0 10px; padding: 10px 12px; max-height: 340px; overflow: auto;
   background: var(--surface-2, rgba(127, 127, 127, .08)); border-radius: 6px;
   font: 400 11.5px var(--mono); white-space: pre; }
+
+/* «Letzte Änderungen» (System › Sicherung) — the kept configurations, and the way back.
+   One row per write, leading with WHAT IT EMPTIED rather than with a diff: a diff of a
+   clobbered config is hundreds of lines of noise, and «hat 4 Abschnitte geleert» is the
+   damage in the words of the thing that was lost. See api/config · list_config_history. */
+.adm-hist { display: flex; flex-direction: column; gap: 2px; }
+.adm-hist-row { display: flex; align-items: center; gap: 12px; min-height: 52px;
+  padding: 8px 10px; border-radius: var(--r-ctl); }
+.adm-hist-row:hover { background: var(--fill-soft); }
+/* the live document, marked as such: the newest KEPT entry is the state BEFORE the most recent
+   write, and confusing the two is the one mistake somebody restoring under pressure must not make */
+.adm-hist-now { background: color-mix(in srgb, var(--blue) 8%, transparent); }
+.adm-hist-badge { flex: none; font: 700 10.5px var(--body); letter-spacing: .06em;
+  text-transform: uppercase; color: var(--blue); }
+.adm-hist-when { flex: none; width: 152px; font: 600 12px var(--mono); color: var(--ink); }
+.adm-hist-what { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.adm-hist-src { font: 600 13px var(--body); color: var(--ink); }
+.adm-hist-sub { font: 500 11.5px var(--body); color: var(--ink-faint);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* amber, not red: a write that emptied something is «schau hier hin», not an error the app is
+   refusing over — it may well have been intended (a station dropping its Partnerliste) */
+.adm-hist-warn { font: 600 11.5px/1.45 var(--body); color: var(--amber-strong); }
+.adm-hist-btn { flex: none; min-height: var(--tap); padding: 7px 13px; cursor: pointer;
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--surface); color: var(--ink); font: 700 12.5px var(--body); }
+.adm-hist-btn:hover:not(:disabled) { border-color: var(--ink-faint); }
+.adm-hist-btn:disabled { opacity: .5; cursor: default; }
+@media (max-width: 620px) {
+  .adm-hist-row { flex-wrap: wrap; }
+  .adm-hist-when { width: 100%; }
+}

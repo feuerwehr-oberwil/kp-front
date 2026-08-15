@@ -1128,6 +1128,29 @@ class ConfigIntegrations(BaseModel):
     providers: list[ProviderRegistration] = Field(default_factory=list)
 
 
+class ConfigHistoryEntry(BaseModel):
+    """One kept previous configuration, for the «Letzte Änderungen» list in Verwaltung.
+
+    Deliberately NOT the document itself: the list is read to answer «what happened to our
+    config», and shipping a full config per row would make that a scroll through hundreds of
+    lines of JSON. What identifies the damage is `emptied` — sections that had content before
+    this write and none after — which is the shape every one of these incidents has taken.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+    id: int
+    replacedAt: datetime
+    #: which path did the replacing — `api` (Verwaltung/HTTP), `cli`, `branding`, `geodata`
+    source: str | None = None
+    #: the admin behind it, resolved to a display name. NULL for a CLI push — and «api, nobody»
+    #: is itself the signature of an unattended writer, which is worth being able to see.
+    replacedBy: str | None = None
+    #: top-level sections that had content in this kept document
+    sections: list[str] = Field(default_factory=list)
+    #: what the write that replaced it left EMPTY (config_history · emptied_sections)
+    emptied: list[str] = Field(default_factory=list)
+
+
 class DeploymentConfigOut(DeploymentConfigIn):
     """GET/PUT response projection: the validated document PLUS env-derived integration
     flags. NEVER includes updated_by, raw secrets, or API keys.

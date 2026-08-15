@@ -48,12 +48,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..alarm_keywords import SHIPPED
 from ..auth.dependencies import CurrentAdmin, OptionalUser, _admin_session_valid
-from ..config_history import keep_previous
+from ..config_history import emptied_sections, keep_previous
 from ..database import get_db
 from ..i18n import set_locale
-from ..models import DeploymentConfig, User
+from ..models import DeploymentConfig, DeploymentConfigHistory, User
 from ..providers import integrations
-from ..schemas import AlarmVocabularyStatus, DeploymentConfigIn, DeploymentConfigOut
+from ..schemas import AlarmVocabularyStatus, ConfigHistoryEntry, DeploymentConfigIn, DeploymentConfigOut
 
 logger = logging.getLogger(__name__)
 
@@ -308,4 +308,120 @@ async def put_config(
     # …the PERSISTED document, not the body: they differ by the carried-over branding slots, and
     # the admin UI re-seeds its draft from this response — echoing the body would hand it back
     # the very nulls that were just refused, ready to be written again on the next edit.
+    return _projection(DeploymentConfigIn.model_validate(doc_json), version=_version(doc_json))
+
+
+@router.get("/history", response_model=list[ConfigHistoryEntry])
+async def list_config_history(
+    _admin: CurrentAdmin,
+    db: AsyncSession = Depends(get_db),
+    limit: int = 30,
+) -> list[ConfigHistoryEntry]:
+    """The kept previous configurations, newest first — the undo for the most destructive
+    operation this app has.
+
+    ⚠️ This existed only as a shell command (``admin_config history`` / ``restore``) while being
+    the recovery path for a failure that has now happened four times. The table was write-only
+    from a browser's point of view: every write kept its predecessor and nobody could see them.
+
+    Each entry says WHERE the write came from and, more usefully, **what it emptied** — sections
+    that had content before and none after. That is the shape of the damage every time; a full
+    diff of a clobbered config is hundreds of lines and reads as noise. `replaced_by` resolves to
+    a display name where a person was behind it, and stays null for a CLI push, which is itself
+    a useful distinction: «via api, nobody» is what an unattended writer looks like.
+    """
+    rows = (
+        (
+            await db.execute(
+                select(DeploymentConfigHistory)
+                .order_by(DeploymentConfigHistory.replaced_at.desc())
+                .limit(max(1, min(limit, 200)))
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    # who, for the entries that have a user behind them
+    ids = {r.replaced_by for r in rows if r.replaced_by}
+    names: dict[object, str] = {}
+    if ids:
+        for u in (await db.execute(select(User).where(User.id.in_(ids)))).scalars():
+            names[u.id] = u.display_name
+
+    current = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+    live = (current.config_json if current else None) or {}
+
+    out: list[ConfigHistoryEntry] = []
+    # `rows` is newest-first, so the document that REPLACED entry i is entry i-1's kept copy —
+    # and for the newest entry it is the live document. That is what makes "what did this write
+    # empty" answerable at all: an entry stores the state BEFORE a write, never the write itself.
+    for i, r in enumerate(rows):
+        successor = (rows[i - 1].config_json if i > 0 else live) or {}
+        out.append(
+            ConfigHistoryEntry(
+                id=r.id,
+                replacedAt=r.replaced_at,
+                source=r.source,
+                replacedBy=names.get(r.replaced_by) if r.replaced_by else None,
+                sections=sorted(k for k, v in (r.config_json or {}).items() if v),
+                emptied=emptied_sections(r.config_json, successor),
+            )
+        )
+    return out
+
+
+@router.post("/history/{entry_id}/restore", response_model=DeploymentConfigOut)
+async def restore_config(
+    entry_id: int,
+    _admin: CurrentAdmin,
+    actor: OptionalUser,
+    db: AsyncSession = Depends(get_db),
+) -> DeploymentConfigOut:
+    """Put a kept configuration back.
+
+    The document being replaced is kept first, so a restore is as undoable as anything else —
+    including a restore of the wrong entry, which is the mistake somebody makes while hurrying
+    to fix a clobber.
+    """
+    entry = (
+        await db.execute(select(DeploymentConfigHistory).where(DeploymentConfigHistory.id == entry_id))
+    ).scalar_one_or_none()
+    if entry is None or not entry.config_json:
+        raise HTTPException(status_code=404, detail=f"Kein aufbewahrter Stand mit der Nummer {entry_id}.")
+
+    # ⚠️ Validate before writing. A document kept by an OLDER build can contain sections this one
+    # no longer accepts; writing it unvalidated would put the row into the state that makes
+    # GET fall back to an empty config — i.e. the restore would look like a worse clobber.
+    try:
+        doc = DeploymentConfigIn.model_validate(entry.config_json)
+    except Exception as e:  # the message is for a person, not a caller
+        raise HTTPException(
+            status_code=422,
+            detail=f"Dieser Stand lässt sich mit der laufenden Version nicht wiederherstellen: {e}",
+        ) from e
+
+    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+    await keep_previous(db, "api", actor.id if actor else None)
+    # ⚠️ The brandmark is carried from the LIVE document, not taken from the restored one — the
+    # same rule a PUT follows. Restoring a config from before a logo upload must not delete the
+    # logo: the asset URLs are written by the upload endpoints and point at blobs that exist now.
+    doc_json = _keep_assets(row.config_json if row else None, doc.model_dump(mode="json"))
+    if row is None:
+        row = DeploymentConfig(id=1, config_json=doc_json, updated_by=actor.id if actor else None)
+        db.add(row)
+    else:
+        row.config_json = doc_json
+        row.updated_by = actor.id if actor else None
+    # ⚠️ COMMIT here, not at dependency teardown. `get_db` commits after the response has been
+    # returned, and this is the one endpoint whose caller immediately re-reads what it just
+    # wrote: the Verwaltung refreshes «Letzte Änderungen» so the restored-over document appears
+    # as a new entry. Against the teardown commit that refetch races and loses — the list came
+    # back one row short and only a page reload showed the truth, which on an undo list reads as
+    # «the restore did not take».
+    await db.commit()
+    set_locale(doc.identity.locale if doc.identity else None)
+    from ..divera import reset_vocabulary_cache
+
+    reset_vocabulary_cache()
     return _projection(DeploymentConfigIn.model_validate(doc_json), version=_version(doc_json))

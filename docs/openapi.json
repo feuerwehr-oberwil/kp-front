@@ -926,6 +926,145 @@
         }
       }
     },
+    "/api/config/history": {
+      "get": {
+        "tags": [
+          "config"
+        ],
+        "summary": "List Config History",
+        "description": "The kept previous configurations, newest first — the undo for the most destructive\noperation this app has.\n\n⚠️ This existed only as a shell command (``admin_config history`` / ``restore``) while being\nthe recovery path for a failure that has now happened four times. The table was write-only\nfrom a browser's point of view: every write kept its predecessor and nobody could see them.\n\nEach entry says WHERE the write came from and, more usefully, **what it emptied** — sections\nthat had content before and none after. That is the shape of the damage every time; a full\ndiff of a clobbered config is hundreds of lines and reads as noise. `replaced_by` resolves to\na display name where a person was behind it, and stays null for a CLI push, which is itself\na useful distinction: «via api, nobody» is what an unattended writer looks like.",
+        "operationId": "list_config_history_api_config_history_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 30,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConfigHistoryEntry"
+                  },
+                  "title": "Response List Config History Api Config History Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/config/history/{entry_id}/restore": {
+      "post": {
+        "tags": [
+          "config"
+        ],
+        "summary": "Restore Config",
+        "description": "Put a kept configuration back.\n\nThe document being replaced is kept first, so a restore is as undoable as anything else —\nincluding a restore of the wrong entry, which is the mistake somebody makes while hurrying\nto fix a clobber.",
+        "operationId": "restore_config_api_config_history__entry_id__restore_post",
+        "parameters": [
+          {
+            "name": "entry_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Entry Id"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentConfigOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/plan-scales": {
       "get": {
         "tags": [
@@ -9204,6 +9343,62 @@
         "type": "object",
         "title": "ClientError",
         "description": "A bounded report of a frontend error. All fields optional/length-capped."
+      },
+      "ConfigHistoryEntry": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "replacedAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Replacedat"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "replacedBy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replacedby"
+          },
+          "sections": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sections"
+          },
+          "emptied": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Emptied"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "replacedAt"
+        ],
+        "title": "ConfigHistoryEntry",
+        "description": "One kept previous configuration, for the «Letzte Änderungen» list in Verwaltung.\n\nDeliberately NOT the document itself: the list is read to answer «what happened to our\nconfig», and shipping a full config per row would make that a scroll through hundreds of\nlines of JSON. What identifies the damage is `emptied` — sections that had content before\nthis write and none after — which is the shape every one of these incidents has taken."
       },
       "ConfigIntegrations": {
         "properties": {

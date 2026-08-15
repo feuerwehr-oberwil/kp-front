@@ -383,6 +383,7 @@ async def test_allowlist_entries_all_name_a_real_route():
 #: OWN incident, so a refusal can only come from the allowlist — never from the scope check.
 _PARAM_VALUES = {
     "dataset_id": "hydranten",
+    "entry_id": "1",
     "divera_id": "12345",
     "index": "0",
     "job_id": "00000000-0000-0000-0000-00000000000b",

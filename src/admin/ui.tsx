@@ -19,6 +19,18 @@ export function fmtDate(iso: string | null | undefined): string {
   return d.toLocaleDateString('de-CH')
 }
 
+/** Date AND time, for lists where several entries share a day.
+ *  ⚠️ The config history is exactly that: a Verwaltung session writes one kept document per
+ *  save, so «15.8.2026» five times over is not an answer to «which one do I put back». */
+export function fmtDateTime(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleString('de-CH', {
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  })
+}
+
 /** Section card — the single container used by every admin view. `title` is optional:
  *  a single-card page leans on the page head (h1 + lede + tip) and renders the card as a
  *  plain panel, so the title/caption aren't duplicated. Multi-card pages title each card. */

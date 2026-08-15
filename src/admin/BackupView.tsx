@@ -1,6 +1,7 @@
 import { useConfig } from './ConfigContext'
 import { Card } from './ui'
 import { ConfigBackup } from './ConfigBackup'
+import { ConfigHistory } from './ConfigHistory'
 import { appConfig } from '../config/appConfig'
 
 // System › Sicherung. Reuses the loaded config document from ConfigContext as the export
@@ -18,6 +19,13 @@ export function BackupView() {
         {cfg
           ? <ConfigBackup config={cfg} onImported={applyServerConfig} />
           : <div className="adm-state">{C.common.configLoading}</div>}
+      </Card>
+      {/* The kept configurations, under the file export they belong with: both answer «how do I
+          get the old one back». Until now this page offered only the half that requires having
+          thought ahead — the history is the half that works after the fact, and it was
+          reachable only over SSH. */}
+      <Card title={C.backup.histTitle}>
+        <ConfigHistory onRestored={applyServerConfig} />
       </Card>
     </div>
   )
