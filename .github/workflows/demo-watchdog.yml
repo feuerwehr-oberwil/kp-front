@@ -16,6 +16,19 @@ name: Demo watchdog
 #
 # Recovery when it fires: `admin_config history` then `admin_config restore <id>` against the demo
 # database — or re-run «Demo reset», which rebuilds from the seed file.
+#
+# ⚠️ FIRST look for a WRITER, not just for damage. The fourth incident (12.–15.08.2026) survived
+# three nightly resets: «Demo reset» restored the config correctly every night and something put
+# the old one back within two hours, so the reset log said OK while the demo stayed wrong. What
+# `admin_config history` showed was the tell — the SAME document (one sha, 36 times) rewritten
+# `via api` every ~2 h with `replaced_by` NULL, i.e. not a person and not this repo.
+#
+# It was the ARCHIVED pre-squash repo, `kp-front-legacy`: it still had its own «Demo reset» on
+# the old `cron: "0 */2 * * *"`, still held DEMO_DATABASE_URL / DEMO_ADMIN_SECRET, and was
+# pushing its pre-squash `examples/demo-data/config.json` — which predates the Dienstgrade, the
+# Fahrzeuge, the Alarmgruppen and the Atemschutz-Doktrin — straight over the live demo. Disabled
+# there on 15.08. If this fires again and the history shows a repeating foreign document, look
+# for another scheduled job holding the demo secrets before touching the config.
 
 on:
   schedule:
