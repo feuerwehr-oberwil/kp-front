@@ -19,6 +19,7 @@ import {
   type ReportLink, type ReportLinkFacts,
 } from '../lib/reportLinks'
 import { Icon } from '../lib/icons'
+import { StringList } from './StringList'
 
 // The five "Station" pages. Each edits one facet of the single config document via the
 // shared ConfigContext (draft + Save live in the provider, not here). Section-level help
@@ -391,6 +392,18 @@ export function ReportSection() {
           />
         </Field>
       </div>
+
+      {/* Partnerorganisationen — printed as an Ankreuz-Zeile on the Rapport AND on the paper
+          Erfassungsblatt (admin/capturePdf). It sat in the config document with no editor, so a
+          Wehr could not add one without a JSON file and a terminal. */}
+      <h3 className="adm-fieldgroup">{C.groupPartners}</h3>
+      <p className="adm-hint">{C.partnersTip}</p>
+      <StringList
+        ariaLabel={C.groupPartners}
+        value={getPath<string[]>(draft, ['report', 'partnerOrgs']) ?? []}
+        onChange={(next) => set(['report', 'partnerOrgs'], next)}
+        placeholder={C.partnerAddPlaceholder}
+      />
 
       <h3 className="adm-fieldgroup">{C.groupLinks}</h3>
       <p className="adm-hint">{C.linksTip}</p>

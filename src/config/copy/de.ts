@@ -3567,6 +3567,9 @@ export const de = {
       mergeGapMin: 'Lücke bis (min)',
       mergeGapMinTip: 'Kürzere Unterbrüche gelten auf dem Rapport als eine Strecke. 0 druckt jeden erfassten Block einzeln.',
       // Die eigenen Formulare der Wehr, als abhakbare Liste auf dem Rapport.
+      groupPartners: 'Partnerorganisationen',
+      partnersTip: 'Erscheinen als Ankreuz-Zeile auf dem Rapport und auf dem gedruckten Erfassungsblatt. Frei eingetragene Organisationen bleiben überall möglich – das hier ist die Liste, die ohne Tippen angeboten wird.',
+      partnerAddPlaceholder: 'Organisation hinzufügen …',
       groupLinks: 'Formulare & Links',
       linksTip: 'Formulare, die nach einem Einsatz sowieso noch auszufüllen sind – die Getränkeabrechnung, eine Schadenmeldung, ein eigenes Formular. Sie erscheinen auf dem Rapport als Liste zum Abhaken; ohne Eintrag gibt es den Abschnitt dort nicht. Auf dem gedruckten Rapport stehen sie nie.',
       linkTitle: 'Titel',

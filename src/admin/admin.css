@@ -1314,3 +1314,23 @@
 .adm-setup-sub { font: 500 11.5px/1.4 var(--body); color: var(--ink-faint); }
 .adm-setup-row .adm-setup-dot.done ~ .adm-setup-txt .adm-setup-lbl { color: var(--ink-dim); }
 .adm-setup-go { flex: none; color: var(--ink-faint); font-size: 16px; }
+
+/* A list of words, as chips (Partnerorganisationen, Mittel-Einheiten, Attribut-Optionen — all
+   `list[str]` in the config). Chips rather than rows because the entries are short and the
+   ORDER is the printed order on the Rapport's Ankreuz-Zeile: seeing them on one line is
+   seeing what the sheet will look like. */
+.adm-slist { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.adm-slist-item { display: inline-flex; align-items: center; gap: 8px; min-height: 40px;
+  padding: 0 6px 0 13px; border: 1px solid var(--border); border-radius: var(--r-pill);
+  background: var(--surface); font: 600 13.5px var(--body); color: var(--ink); }
+.adm-slist-x { display: grid; place-items: center; width: 26px; height: 26px; padding: 0;
+  border: none; border-radius: 50%; background: transparent; color: var(--ink-faint);
+  font-size: 15px; line-height: 1; cursor: pointer; }
+.adm-slist-x:hover { background: color-mix(in srgb, var(--red) 14%, transparent); color: var(--red); }
+/* the input is a chip-shaped gap in the row, not a form field under it — it is where the next
+   one goes, and it should look like it */
+.adm-slist-add { min-height: 40px; min-width: 200px; flex: 0 1 auto; padding: 0 13px;
+  border: 1px dashed var(--border); border-radius: var(--r-pill); background: transparent;
+  color: var(--ink); font: 500 13.5px var(--body); outline: none; }
+.adm-slist-add:focus { border-style: solid; border-color: var(--blue); background: var(--surface); }
+.adm-slist-add::placeholder { color: var(--ink-faint); }
