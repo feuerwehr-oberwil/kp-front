@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { apiGet, apiPost, ApiError } from './api'
 import { idbGet, idbSet, idbDel } from './idb'
-import { isDemoMode } from './deploymentConfig'
+import { isDemoMode, loadDeploymentConfig } from './deploymentConfig'
 
 // The demo's public PIN (shown to every visitor) — used to auto-sign-in on demo instances so
 // there's no login screen. Only ever sent when isDemoMode() is true; real stations never use it.
@@ -114,6 +114,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const u = await apiPost<AuthUser>('/api/auth/login', { user_id: userId, pin })
     setUser(u)
     writeCachedUser(u)
+    // ⚠️ Re-read the deployment config now that there IS a session. Parts of it are withheld
+    // from anonymous callers (`report.links` — the station's own Formulare, whose URLs are
+    // capabilities; see backend api/config · get_config), and the boot fetch necessarily ran
+    // before this login. Every later boot carries the session cookie and needs nothing extra.
+    // Best-effort: a station that cannot re-read still has the config it booted with, and
+    // failing the login over a config refresh would be the worse trade at 3am.
+    try { await loadDeploymentConfig() } catch { /* keep the booted config */ }
   }
 
   const logout = async () => {

@@ -388,11 +388,22 @@ Use the narrow tokens (`{datum}`, `{stichwort}`, `{wehr}`) for third-party forms
 `{kurzbericht}`, `{ort}` and the two names for forms your own Gemeinde or Kanton hosts. A
 Google Form means Google. See [`PRIVACY.md`](../PRIVACY.md).
 
-**The links themselves are public.** `GET /api/config` is unauthenticated by design (the login
-screen needs the station's branding before anyone logs in), and `report.links` rides along with
-the rest of the document. Treat a configured URL as world-readable: a Google Form id is a
-capability – whoever has it can submit to the form – so do not put tokens, keys or a secret path
-in a link. This is a property of the config endpoint as a whole, not of this field.
+**The links are withheld from anonymous callers.** `GET /api/config` is unauthenticated by
+design (the login screen needs the station's branding before anyone logs in), but `report.links`
+is served only to a **signed-in** session – a PIN user or an admin. A prefill URL is a
+capability: whoever holds it can submit to that form. An anonymous caller sees `links: []`,
+byte-identical to a station that has configured none, so the withholding does not announce
+itself either.
+
+The app reads the config at boot, *before* login, so the very first fetch on a fresh device
+comes back without them; the login re-reads it (`lib/auth` · `login`), and every later boot
+already carries the session cookie.
+
+That means "everyone with the station PIN", not "everyone". It is not a secret store: anyone who
+can open the Rapport can read the URL, and it is in their browser history the moment they use
+it. Do not put a token, a key or a secret path in a link, and prefer a form that is itself
+restricted (Google Forms can require a sign-in from your own organisation) over one that is
+open to whoever has the address.
 
 ### What it deliberately is not
 

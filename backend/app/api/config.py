@@ -101,7 +101,11 @@ def _version(doc: dict | None) -> str:
 
 
 def _projection(
-    doc: DeploymentConfigIn, *, include_keywords: bool = True, version: str | None = None
+    doc: DeploymentConfigIn,
+    *,
+    include_keywords: bool = True,
+    include_links: bool = True,
+    version: str | None = None,
 ) -> DeploymentConfigOut:
     """Validated document + env-derived integration flags → the response projection.
 
@@ -110,17 +114,30 @@ def _projection(
     with no unauthenticated reader: matching happens server-side and nothing in the frontend
     reads it. Publishing it would be surface for nothing.
 
+    ``include_links=False`` empties ``report.links`` — the station's own Formulare (see
+    lib/reportLinks). Those URLs are CAPABILITIES: a Google-Forms prefill link is submittable by
+    anyone who has it, and the list also names a Wehr's internal paperwork and the hosts it
+    lives on. There is no unauthenticated reader for them — only the Rapport shows them, and the
+    Rapport is behind the PIN.
+
+    An anonymous caller therefore sees ``links: []``, which is byte-identical to what a station
+    that has configured none returns: the withholding does not announce itself. (Removing the
+    key is not an option anyway — ``DeploymentConfigOut`` types the section, so the field comes
+    back with its default whatever the dict says.)
+
     The ``alarmVocabulary`` SUMMARY stays public either way — it carries counts and which
     source is active, never the words — because "is my override live?" must be answerable
     without a session.
 
-    ⚠️ Withholding it from an ADMIN would be a data-loss bug, not a tightening: the admin UI
+    ⚠️ Withholding either from an ADMIN would be a data-loss bug, not a tightening: the admin UI
     does a full-document PUT (GET → draft → PUT), so a config the admin never received is a
-    config the next unrelated edit silently deletes. Hence the flag rather than a blanket drop.
+    config the next unrelated edit silently deletes. Hence the flags rather than a blanket drop.
     """
     payload = doc.model_dump()
     if not include_keywords:
         payload.pop("alarmKeywords", None)
+    if not include_links:
+        payload["report"] = {**(payload.get("report") or {}), "links": []}
     return DeploymentConfigOut(
         **payload,
         integrations=integrations(),
@@ -160,12 +177,22 @@ def _keep_assets(stored: dict | None, incoming: dict) -> dict:
 @router.get("", response_model=DeploymentConfigOut)
 async def get_config(
     db: AsyncSession = Depends(get_db),
+    actor: OptionalUser = None,
     admin_session: str | None = Cookie(default=None),
 ) -> DeploymentConfigOut:
     """PUBLIC (no auth) — the login screen needs branding before login.
 
-    One section is withheld from anonymous callers: ``alarmKeywords``. See ``_projection``.
-    An admin session gets the full document, because the admin UI round-trips it.
+    Two sections are withheld from ANONYMOUS callers, and each for its own reason:
+
+    * ``alarmKeywords`` — admin only; nothing in the frontend reads it (see ``_projection``).
+    * ``report.links`` — the station's own Formulare. Withheld from anonymous callers but
+      served to any SIGNED-IN one (PIN user or admin), because the Rapport that shows them is
+      itself behind the PIN. A prefill URL is a capability — whoever has it can submit to that
+      form — so «anyone who can reach the login screen» is the wrong audience for it.
+
+    ⚠️ The app reads this at BOOT, before login, so a first fetch on a fresh device legitimately
+    comes back without the links; ``AuthProvider.login`` re-reads the config on the way in (see
+    lib/auth), and every later boot already carries the session cookie.
 
     Last-good fallback: if the persisted ``config_json`` is missing or fails validation
     (e.g. a hand-edited bad row), serve a safe empty config and log a warning. Never raises.
@@ -177,7 +204,13 @@ async def get_config(
     except Exception:  # noqa: BLE001 — never let a bad stored row brick GET
         logger.warning("deployment_config row failed validation; serving empty fallback", exc_info=True)
         doc = DeploymentConfigIn()
-    return _projection(doc, include_keywords=await _admin_session_valid(admin_session), version=_version(raw))
+    is_admin = await _admin_session_valid(admin_session)
+    return _projection(
+        doc,
+        include_keywords=is_admin,
+        include_links=is_admin or actor is not None,
+        version=_version(raw),
+    )
 
 
 @router.get("/meta")

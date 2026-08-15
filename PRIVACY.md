@@ -45,10 +45,13 @@ Where a station does configure one, two things are worth being deliberate about:
   browser, to the form's host: its logs, and the device's own browser history. If the form is a
   Google Form, the host is Google. The app opens the link with `noreferrer`, which is beside the
   point here – the data is the address being requested, not the referrer.
-- **The configured links themselves are readable by anyone.** They are part of the station config
-  served by the app's public `/api/config` (the login screen needs branding before login). A form
-  id is a capability: whoever knows it can submit to that form. Do not put a token, key or secret
-  path in a link.
+- **The configured links are readable by everyone who can sign in.** They are withheld from
+  anonymous callers of the app's otherwise-public `/api/config`, but any PIN session can read
+  them – which is right, because the Rapport that shows them is behind the same PIN. So this is
+  not a secret store: a form id is a capability, whoever knows it can submit to that form, and it
+  lands in the browser history of every device that opens it. Do not put a token, key or secret
+  path in a link, and prefer a form your own organisation restricts over one that is open to
+  whoever has the address.
 
 Neither of these sends anything to the maintainer, and neither is affected by the telemetry
 switch below — this is your Wehr's own configuration talking to your Wehr's own choice of form
