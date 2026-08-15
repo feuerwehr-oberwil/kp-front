@@ -429,7 +429,11 @@ function ReportLinksEditor() {
   // straight into the DB, and a hand-edited `links: {}` would otherwise white-screen this page
   // on `.map` — the one config surface somebody would go to in order to FIX that.
   const raw = getPath<ReportLink[]>(draft, ['report', 'links'])
-  const rows = Array.isArray(raw) ? raw : []
+  const stored = Array.isArray(raw) ? raw : []
+  // The rows as they are being EDITED — the stored ones plus any that are not finished yet.
+  // Null until the first edit, so a config arriving from elsewhere still shows through.
+  const [editing, setEditing] = useState<ReportLink[] | null>(null)
+  const rows = editing ?? stored
   // the URL field a chip inserts into: the one that was focused last. Held as an element ref
   // rather than an index, because the insert needs its live selection anyway.
   const urlRef = useRef<HTMLTextAreaElement | null>(null)
@@ -440,7 +444,18 @@ function ReportLinksEditor() {
   // 700 ms autosave retry loop, until the tab is reloaded (which throws the edit away). The
   // «a cleared section should look untouched» idea was void anyway — `model_dump` fills the
   // default, so every saved document carries `"links": []` whatever we send.
-  const write = (next: ReportLink[]) => set(['report', 'links'], next)
+  const write = (next: ReportLink[]) => {
+    setEditing(next)
+    // ⚠️ Only COMPLETE rows reach the config document. «Link hinzufügen» necessarily creates an
+    // empty row, and the backend refuses a blank title or a non-http URL (schemas.py) — so
+    // writing the half-typed row straight into the draft made the whole document invalid. Not
+    // just this page: Verwaltung PUTs the WHOLE config, so one empty row 422'd every other
+    // Station page too, and the autosave re-sent it every 700 ms until the tab was reloaded.
+    // The row stays on screen and keeps its warning («erscheint nicht auf dem Rapport») until
+    // it is worth saving; the same predicate `reportLinks()` uses decides that, so what the
+    // preview promises and what gets stored cannot drift apart.
+    set(['report', 'links'], next.filter((l) => !!l.title?.trim() && isOpenableUrl(l.url ?? '')))
+  }
   const patch = (i: number, over: Partial<ReportLink>) =>
     write(rows.map((r, j) => (j === i ? { ...r, ...over } : r)))
 
