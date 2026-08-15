@@ -20,14 +20,33 @@ KEEP="${BACKUP_KEEP:-14}"
 STAMP="$(date +%F-%H%M%S)"
 mkdir -p "$DIR"
 
+# ⚠️ Write to .part, verify, THEN rename — the same shape backend/start.sh uses for the
+# pre-migration dump, and for the same reason. Writing straight to the final name means a dump
+# that dies half-way (the container restarts, the disk fills, the connection drops) leaves a
+# truncated file sitting there looking like a backup. `set -euo pipefail` aborts the script, but
+# the fragment stays — and the NEXT run's retention counts it as one of the newest $KEEP and
+# rotates a good backup out to make room for it. A directory of fragments is worse than a
+# directory with one missing night, because it looks fine.
+dump() {   # dump <final-path> <command...>
+  local out="$1"; shift
+  if "$@" > "$out.part" && [ -s "$out.part" ] && gzip -t "$out.part" 2>/dev/null; then
+    mv "$out.part" "$out"
+  else
+    rm -f "$out.part"
+    echo "ERROR: $(basename "$out") failed or produced an unreadable file — NOT kept." >&2
+    exit 1
+  fi
+}
+
 echo "→ 1/2  Postgres dump"
-docker compose exec -T db pg_dump -U "${POSTGRES_USER:-kpfront}" "${POSTGRES_DB:-kpfront}" \
-  | gzip > "$DIR/db-$STAMP.sql.gz"
+dump "$DIR/db-$STAMP.sql.gz" sh -c \
+  'docker compose exec -T db pg_dump -U "${POSTGRES_USER:-kpfront}" "${POSTGRES_DB:-kpfront}" | gzip'
 
 echo "→ 2/2  storage volume (media, plans, snapshots)"
-docker compose exec -T app tar czf - -C /data/storage . > "$DIR/storage-$STAMP.tar.gz"
+dump "$DIR/storage-$STAMP.tar.gz" docker compose exec -T app tar czf - -C /data/storage .
 
-# Retention: keep the newest $KEEP of each series.
+# Retention: keep the newest $KEEP of each series. Only complete files are ever named like this
+# (see `dump` above), so this can never rotate a good backup out in favour of a fragment.
 ls -1t "$DIR"/db-*.sql.gz 2>/dev/null | tail -n +"$((KEEP + 1))" | xargs -r rm -f --
 ls -1t "$DIR"/storage-*.tar.gz 2>/dev/null | tail -n +"$((KEEP + 1))" | xargs -r rm -f --
 

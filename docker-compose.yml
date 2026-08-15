@@ -87,6 +87,11 @@ services:
       # trap as the telemetry pair above: an empty value switches the surface off, so the
       # fallback repeats the application default from app/config.py.
       OVERPASS_MIRRORS: ${OVERPASS_MIRRORS-https://overpass.kumi.systems/api/interpreter,https://overpass-api.de/api/interpreter,https://maps.mail.ru/osm/tools/overpass/api/interpreter}
+      # ⚠️ The dead-man's switch, and it has to be listed here like everything else: an
+      # operator who sets HEALTHCHECK_PING_URL in .env and never sees a ping would have no way
+      # to tell "the monitor is misconfigured" from "compose never passed it in". Blank = off,
+      # which is also the default in app/config.py, so no fallback value is needed.
+      HEALTHCHECK_PING_URL: ${HEALTHCHECK_PING_URL:-}
       # Optional integrations — leave blank to disable. See .env.example.
       DIVERA_ACCESS_KEY: ${DIVERA_ACCESS_KEY:-}
       DIVERA_WEBHOOK_SECRET: ${DIVERA_WEBHOOK_SECRET:-}

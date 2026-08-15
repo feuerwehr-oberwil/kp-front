@@ -39,9 +39,16 @@ jobs:
         run: |
           if [ -n "$DEMO_DATABASE_URL" ]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
+          elif [ -f .github/demo-enabled ]; then
+            # ⚠️ See the watchdog: on a repo that HAS a demo, a missing secret is a failure and
+            # not a skip. A green "reset" that reset nothing is how three nights in a row looked.
+            echo "::error::DEMO_DATABASE_URL is empty but .github/demo-enabled exists — this repo"
+            echo "::error::HAS a demo, so the secret has been rotated, renamed or removed. The"
+            echo "::error::nightly reset has not been running."
+            exit 1
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "DEMO_* secrets not set — skipping (configure them in repo settings to enable)."
+            echo "DEMO_* secrets not set and no .github/demo-enabled marker — this repo has no demo."
           fi
 
       - name: Install uv

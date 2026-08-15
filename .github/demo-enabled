@@ -1,0 +1,5 @@
+This repository runs the public demo (demo.kp-front.ch).
+
+Its presence makes the demo workflows FAIL when their secrets are missing, instead of
+skipping quietly — see .github/workflows/demo-watchdog.yml. Delete this file in a fork
+or on any deployment that has no demo; do not delete it here to silence a red run.

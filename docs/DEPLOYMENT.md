@@ -201,7 +201,15 @@ is fixes only and always safe; a **MINOR** bump adds features and migrates autom
 - The new image carries its DB migrations; **they run automatically on boot** (D8, via
   `start.sh` → `alembic upgrade head`). When a migration is actually pending, `start.sh`
   first writes a **pre-migration dump** to `<MEDIA_STORAGE_DIR>/backups/pre-migrate-*.sql.gz`
-  (best-effort, newest 5 kept), so a bad migration is recoverable even without external backups.
+  (newest 5 kept), so a bad migration is recoverable even without external backups.
+  **This is not best-effort: if the dump cannot be written, the boot is refused** rather than
+  migrating an un-backed-up database. The usual causes are a root-owned volume and a `pg_dump`
+  older than the server (the client major is baked into the image; a managed host that upgraded
+  Postgres under you does this). The container will say which. Override with
+  `ALLOW_MIGRATION_WITHOUT_BACKUP=1` only when you have a backup by other means — and take one
+  first (§6).
+- **The whole batch of pending migrations runs in ONE transaction**, so there is no
+  half-migrated schema to clean up: either they all land or none do.
 - **Rollback:** set `KP_FRONT_TAG` to the previous version and re-run the two commands.
   Migrations are kept backward-safe within a minor series, so the prior image runs against the
   migrated schema.
@@ -211,6 +219,21 @@ is fixes only and always safe; a **MINOR** bump adds features and migrates autom
   read by a 17 server. Stay on `postgres:16` for the life of the volume; to move majors, take a
   `pg_dump` (see §6), start a fresh volume on the new major, and restore.
 - Watch the release notes for any breaking config changes.
+
+## 5.5 Knowing when it is down
+
+Nothing tells you by itself. `restart: unless-stopped` reacts to a container that *exits*, not
+to one that is merely broken — an app answering 503 because its disk is full stays up and stays
+wrong, and the compose healthcheck has no consumer that alerts anybody.
+
+The app has a **dead-man's switch** built in and switched off. Set `HEALTHCHECK_PING_URL` in
+`.env` to a ping URL (healthchecks.io is free and enough; period 5 min, grace 5 min) and it
+pings every 60 s while it is alive. When the pings stop, the monitor tells *you* — instead of an
+Einsatzleiter telling you at 03:00, holding a tablet that shows a spinner.
+
+Worth watching alongside it: **disk**. `/admin` → System reports storage use, and the volume is
+shared by media, the reference blobs and the pre-migration dumps. A full volume flips `/ready`
+to 503, which on compose does not restart anything.
 
 ## 6. Backups & data protection
 
@@ -244,6 +267,14 @@ docker compose exec -T app sh -c 'tar xzf - -C /data/storage' < storage-YYYY-MM-
   guidance. Minimum operational stance for an internal station release: keep exports and database
   backups access-controlled, document who can restore them, and define how long incident records,
   roster data, GPS traces, uploaded plans, photos, and audio notes are retained.
+
+### ⚠️ Back up `.env` somewhere else
+
+The dump and the volume tarball hold the data. They do **not** hold `.env`, and `SECRET_KEY`
+peppers every PIN hash: restore a database without the same `SECRET_KEY` and every account is
+locked out, with no way to tell that from "wrong PIN". Keep a copy of `.env` wherever you keep
+the ADMIN_SECRET — a password manager, a sealed envelope in the Magazin — not only on the box
+the backups are protecting.
 
 ## 7. "Can you host it for us?"
 
