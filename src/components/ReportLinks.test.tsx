@@ -78,6 +78,18 @@ describe('Rapport · Formulare & Links', () => {
     expect(screen.getByText('0 von 2 erledigt')).toBeTruthy()
   })
 
+  it('⚠️ sits in the Beilagen tab on a phone, beside the Fotos it belongs with', () => {
+    // The phone tabs gate by `data-tab` in CSS (see .report-preflight-body[data-phone-tab]),
+    // so this attribute IS the wiring — a row that loses it reappears under every tab, and one
+    // given the wrong name disappears from the surface without anything failing.
+    setup()
+    const row = screen.getByText('Getränke-Konsum').closest('.rp-check')
+    expect(row?.getAttribute('data-tab')).toBe('beilagen')
+    // …the same tab the Fotos card is on
+    const fotos = screen.getByText('Fotos').closest('.rp-check')
+    expect(fotos?.getAttribute('data-tab')).toBe('beilagen')
+  })
+
   it('ticks a form off into the blob — the app never sets this itself', () => {
     const { onSaveMeta } = setup()
     fireEvent.click(tickOf('Getränke-Konsum'))

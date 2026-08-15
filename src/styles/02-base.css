@@ -3,6 +3,22 @@ html, body, #root { margin: 0; height: 100%; }
 /* paint the themed backdrop on html too: iOS over-scroll and the safe-area bands around
    standalone/browser chrome show html's background — without this they render white */
 html { background: var(--app-bg); }
+/* ⚠️ ON HTML, not only on `body` (which also sets it, further down, where it is INERT).
+   `overscroll-behavior` reaches the viewport through the root element: from <html>, or from
+   <body> only while body is the element that propagates to the viewport. Our body is
+   `position: fixed` — out of flow — so it propagates nothing, and the viewport kept the default
+   `auto` no matter what body said.
+   What that looked like: a drag that begins somewhere NOT scrollable — a surface header, the
+   Rapport's tab bar, the «Mittel» title — has no scroll container to consume it, so iOS gave it
+   to the viewport and rubber-banded the whole document. Every `position: fixed` element rode
+   along: the top bar peeled away from the status bar, the nav rail lifted off the bottom edge,
+   and the surface's own header slid under the top bar. Dragging on the scrolling body of a
+   surface never showed it, because that element consumes the gesture and its
+   `overscroll-behavior: contain` stops the chain there — which is exactly why this only ever
+   happened «on the headers».
+   `:not(.page-scroll)` keeps the Erfassungs-Poster out of it: that one IS a page and is meant
+   to scroll, bounce included. */
+html:not(.page-scroll) { overscroll-behavior: none; }
 /* An ordinary scrolling PAGE rather than the app's fixed shell (the Erfassungs-Poster, see
    main.tsx). Without this its content was trapped under `body { overflow: hidden }` and
    everything past the viewport showed as an unpainted white band. */
@@ -31,6 +47,8 @@ body {
      (touch-action is the reliable method — iOS ignores user-scalable=no). The map and
      plan stage opt back into raw gestures below so THEY still zoom. */
   touch-action: pan-x pan-y;
+  /* kept for the body's OWN scrollport; the viewport is governed from <html> above — a fixed
+     body propagates nothing, which is why this alone never stopped the rubber-band */
   overscroll-behavior: none;
   -webkit-touch-callout: none;
 }
