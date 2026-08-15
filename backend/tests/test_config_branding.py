@@ -270,3 +270,36 @@ async def test_a_browser_put_with_a_current_version_still_writes(client, editor,
     )
     assert ok.status_code == 200, ok.text
     assert (await client.get("/api/config")).json()["identity"]["appName"] == "Zweite"
+
+
+async def test_a_branding_upload_hands_back_the_new_version(client, editor, admin_login):
+    """⚠️ Uploading a logo must return the version of the document it just wrote.
+
+    It did not: both branding endpoints called `_projection(doc)` and the `version` parameter
+    defaults to None. The Verwaltung keeps the version it read (`safe.version ?? versionRef`),
+    so after an upload the tab still held the PRE-upload hash — and the admin's very next
+    keystroke PUT a stale `If-Match` and was told, alone in the building, that somebody else had
+    changed the configuration. Uploading the brandmark is usually a new station's first action.
+    """
+    await _login(client, editor)
+    await admin_login(client)
+    before = (await client.get("/api/config")).json()["version"]
+
+    up = await client.post(
+        "/api/branding/logo",
+        files={"file": ("logo.png", b"\x89PNG\r\n\x1a\n" + b"0" * 32, "image/png")},
+    )
+    assert up.status_code == 200, up.text
+    returned = up.json()["version"]
+
+    assert returned is not None, "the upload response carried no version at all"
+    assert returned != before, "the document changed, so its version must have changed with it"
+    assert returned == (await client.get("/api/config")).json()["version"]
+
+    # …and the version it handed back is one the next save is allowed to use
+    ok = await client.put(
+        "/api/config",
+        json={"identity": {"appName": "Nach dem Logo"}},
+        headers={"Sec-Fetch-Site": "same-origin", "If-Match": returned},
+    )
+    assert ok.status_code == 200, ok.text

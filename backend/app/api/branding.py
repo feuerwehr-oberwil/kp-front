@@ -22,7 +22,7 @@ from ..config import settings
 from ..database import get_db
 from ..models import DeploymentConfig
 from ..schemas import DeploymentConfigIn, DeploymentConfigOut
-from .config import _projection
+from .config import _projection, _version
 
 router = APIRouter(prefix="/branding", tags=["branding"])
 
@@ -106,7 +106,12 @@ async def upload_branding(
     doc = _set_asset(row, slot, f"/api/branding/file/{key}")
     row.updated_by = actor.id if actor else None
     await db.flush()
-    return _projection(doc)
+    # ⚠️ WITH the version. Without it the response carries `version: None`, ConfigContext keeps
+    # the hash it read BEFORE the upload (`safe.version ?? versionRef.current`), and the admin's
+    # next keystroke PUTs a stale If-Match — 409 «Die Konfiguration wurde inzwischen an anderer
+    # Stelle geändert» while they are working alone. Uploading the logo is usually the first
+    # thing a new station does, so this greeted them on their first edit.
+    return _projection(doc, version=_version(row.config_json))
 
 
 @router.delete("/{slot}", response_model=DeploymentConfigOut)
@@ -122,7 +127,12 @@ async def delete_branding(
     doc = _set_asset(row, slot, None)  # leaving the orphaned blob is fine
     row.updated_by = actor.id if actor else None
     await db.flush()
-    return _projection(doc)
+    # ⚠️ WITH the version. Without it the response carries `version: None`, ConfigContext keeps
+    # the hash it read BEFORE the upload (`safe.version ?? versionRef.current`), and the admin's
+    # next keystroke PUTs a stale If-Match — 409 «Die Konfiguration wurde inzwischen an anderer
+    # Stelle geändert» while they are working alone. Uploading the logo is usually the first
+    # thing a new station does, so this greeted them on their first edit.
+    return _projection(doc, version=_version(row.config_json))
 
 
 @router.get("/file/{key:path}")

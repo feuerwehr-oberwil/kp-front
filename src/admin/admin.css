@@ -143,6 +143,11 @@
   margin-left: 2px; padding: 0; border: none; background: transparent;
   color: var(--blue); font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer;
 }
+/* message over instruction. The chip is a pill on one line until there IS a hint — a save error
+   is the one place here that has to be readable rather than compact. */
+.adm-autosave-msg { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.adm-autosave-hint { font-style: normal; font-weight: 500; opacity: .85; }
+.adm-autosave:has(.adm-autosave-hint) { border-radius: var(--r-ctl); align-items: flex-start; }
 
 /* ── responsive: sidebar collapses to a slide-in drawer ───────────────────── */
 @media (max-width: 720px) {

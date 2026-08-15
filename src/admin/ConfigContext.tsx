@@ -43,6 +43,8 @@ export function getPath<T = unknown>(obj: unknown, path: (string | number)[]): T
 // ─── context ───────────────────────────────────────────────────────────────────
 
 const AUTOSAVE_DELAY_MS = 700
+/** consecutive failures after which the autosave stops trying by itself (see SaveState.halted) */
+const MAX_AUTOSAVE_FAILURES = 2
 
 type SaveState =
   | { kind: 'idle' }
@@ -53,7 +55,12 @@ type SaveState =
    *  STOP the autosave, because the whole point is that a full-document write no longer wins by
    *  default. «Übernehmen» re-sends on top of the newer document; reloading the page takes it. */
   | { kind: 'conflict' }
-  | { kind: 'error'; message: string; reauth?: boolean }
+  /** `halted` = the autosave has GIVEN UP and will not re-fire on its own. Without it the
+   *  effect below re-ran on every `error → saving → error` cycle: one PUT every 700 ms, for as
+   *  long as the draft stayed invalid, with the chip flickering so fast the message could not be
+   *  read — and «Erneut versuchen» was decorative, because it was already retrying. The draft is
+   *  safe in memory either way; halting only stops the hammering. */
+  | { kind: 'error'; message: string; reauth?: boolean; halted?: boolean; hint?: string }
 
 interface ConfigCtx {
   draft: DeploymentConfig | null
@@ -77,6 +84,11 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [save, setSave] = useState<SaveState>({ kind: 'idle' })
   const savingRef = useRef(false)
+  //
+  // Consecutive failed saves. Two is enough to tell a blip (a dropped connection, a redeploy
+  // mid-PUT) from a document the server will keep refusing — and one retry is worth having,
+  // because the first class is the common one.
+  const failuresRef = useRef(0)
   /** The version of the document the SERVER holds, as last seen. Sent as `If-Match` on every
    *  save (backend · api/config · put_config) so a stale tab is refused rather than obeyed. */
   const versionRef = useRef<string | null>(null)
@@ -140,13 +152,23 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
           return
         }
         const reauth = e.status === 401 || e.status === 403
+        failuresRef.current += 1
         setSave({
           kind: 'error',
           message: reauth ? appConfig.copy.admin.autosave.sessionExpired : e.detail,
           reauth,
+          // a dead session cannot be retried into life, so that one gives up at once
+          halted: reauth || failuresRef.current >= MAX_AUTOSAVE_FAILURES,
+          // the instruction, not just the diagnosis — at 3am the instruction is the point
+          hint: e.hint,
         })
       } else {
-        setSave({ kind: 'error', message: appConfig.copy.admin.autosave.saveFailed })
+        failuresRef.current += 1
+        setSave({
+          kind: 'error',
+          message: appConfig.copy.admin.autosave.saveFailed,
+          halted: failuresRef.current >= MAX_AUTOSAVE_FAILURES,
+        })
       }
       return
     }
@@ -163,6 +185,7 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
     const merged = assets ? { ...sent, identity: { ...(sent.identity ?? {}), assets } } : sent
     setSaved(merged)
     if (merged !== sent) setDraft((d) => (d ? { ...d, identity: { ...(d.identity ?? {}), assets } } : d))
+    failuresRef.current = 0
     setSave({ kind: 'ok' })
     // Best-effort: re-resolve the singleton + re-apply branding so title/accent update
     // live. A failure here must not flip the (already successful) save to an error.
@@ -178,6 +201,8 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
     // a refused save must not re-fire on its own — that would be the silent overwrite again,
     // one debounce later. It waits for «Übernehmen» (retry).
     if (save.kind === 'conflict') return
+    // …and not while the autosave has given up; «Erneut versuchen» is the way back (see `retry`)
+    if (save.kind === 'error' && save.halted) return
     if (JSON.stringify(draft) === JSON.stringify(saved)) return
     if (savingRef.current) return
     const t = setTimeout(() => { void persist(draft) }, AUTOSAVE_DELAY_MS)
@@ -188,7 +213,11 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
     setDraft((d) => setPath(d ?? {}, path, val))
   }
 
-  const retry = () => { if (draft && !savingRef.current) void persist(draft) }
+  const retry = () => {
+    if (!draft || savingRef.current) return
+    failuresRef.current = 0 // a deliberate press earns the same two attempts again
+    void persist(draft)
+  }
 
   const applyServerConfig = (cfg: DeploymentConfig) => {
     const safe = cfg && typeof cfg === 'object' ? cfg : {}
@@ -236,10 +265,21 @@ export function ConfigAutosaveStatus() {
   }
   if (save.kind === 'error') {
     return (
-      <span className="adm-autosave err">
+      <span className="adm-autosave err" title={save.hint ?? undefined}>
         <span className="adm-autosave-dot" aria-hidden />
-        {save.message}
-        <button type="button" className="adm-autosave-retry" onClick={retry}>{C.retry}</button>
+        <span className="adm-autosave-msg">
+          {save.message}
+          {/* the INSTRUCTION, where the API sent one (lib/api · ApiError.hint). The message says
+              what went wrong; the hint says what to do about it, and it was being thrown away. */}
+          {save.hint && <em className="adm-autosave-hint">{save.hint}</em>}
+        </span>
+        {/* Only offered once the autosave has actually stopped. While it is still retrying by
+            itself the button did nothing a wait would not, which is how it came to read as
+            broken. A dead session halts at once and cannot be retried into life — say so
+            instead of offering an action that must fail. */}
+        {save.halted && !save.reauth && (
+          <button type="button" className="adm-autosave-retry" onClick={retry}>{C.retry}</button>
+        )}
       </span>
     )
   }
