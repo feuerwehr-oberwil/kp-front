@@ -277,6 +277,41 @@ for (const locale of config.locales) {
   }
 }
 
+// ─── 404 ──────────────────────────────────────────────────────────────────────
+//
+// ONE file for every unmatched address. GitHub Pages serves `/404.html` for /tippfehler and
+// for /fr/vieux-lien alike, so — unlike every page above — this one cannot be built per
+// language and put in a folder: it has to carry all of them and pick at display time. Every
+// language's block is rendered into it; the template's script reveals the one that matches the
+// first path segment and leaves the base language standing when nothing does.
+//
+// Without it GitHub serves its own «Page not found · GitHub Pages» — grey, GitHub-branded, and
+// with no way back to kp-front.ch.
+{
+  const notFoundTpl = read('404.template.html').replace(TEMPLATE_ONLY, '').replace(STANDALONE, '$1')
+  const missing = new Set()
+  const pages = config.locales.map((locale) => {
+    const isBase = locale.code === baseLocale.code
+    const content = isBase ? base : merge(base, readJson('content', `${locale.code}.json`))
+    return {
+      ...content,
+      lang: locale.code,
+      // absolute, because this page is displayed at an address that is not its own
+      home: `/${dirOf(locale)}`,
+      hidden: !isBase,
+    }
+  })
+  const html = render(notFoundTpl, [{
+    pages,
+    baseLang: baseLocale.code,
+    baseTitle: base.notFound.pageTitle,
+  }], missing)
+    .replace(/^<!doctype html>/i, `<!doctype html>\n${BANNER(`${baseLocale.code} (+ ${config.locales.length - 1} more)`)}`)
+  if (missing.size) problems.push(`404: ${[...missing].join(', ')}`)
+  put('404.html', html)
+  // No dist/ variant: the single-file hand-out has no server to 404 with.
+}
+
 if (problems.length) {
   console.error('Unknown keys in the template:')
   problems.forEach((p) => console.error(`  · ${p}`))

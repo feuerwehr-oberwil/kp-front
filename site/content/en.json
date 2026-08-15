@@ -13,6 +13,14 @@
     "githubAria": "KP Front on GitHub",
     "languageAria": "Language"
   },
+  "notFound": {
+    "pageTitle": "Page not found – KP Front",
+    "code": "Error 404",
+    "title": "This page does not exist.",
+    "body": "Maybe a typo in the address, maybe an old link.",
+    "home": "To the home page",
+    "demo": "Open the demo"
+  },
   "hero": {
     "eyebrow": "Open source&nbsp;· Switzerland",
     "h1": "Digital incident command for the fire brigade.",

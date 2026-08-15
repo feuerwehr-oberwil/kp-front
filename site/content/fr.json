@@ -14,6 +14,14 @@
     "githubAria": "KP Front sur GitHub",
     "languageAria": "Langue"
   },
+  "notFound": {
+    "pageTitle": "Page introuvable – KP Front",
+    "code": "Erreur 404",
+    "title": "Cette page n’existe pas.",
+    "body": "Peut-être une faute de frappe dans l’adresse, peut-être un ancien lien.",
+    "home": "Vers l’accueil",
+    "demo": "Ouvrir la démo"
+  },
   "hero": {
     "eyebrow": "Open source&nbsp;· Suisse",
     "h1": "La conduite d’intervention numérique pour les sapeurs-pompiers.",

@@ -1,0 +1,119 @@
+<!doctype html>
+<!-- Built from site/index.template.html + site/content/de (+ 3 more).json.
+     Edits here are lost on the next `node site/build.mjs`. -->
+<html lang="de">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Seite nicht gefunden – KP Front</title>
+<!-- A 404 is not a page anybody should be sent to from a search result. -->
+<meta name="robots" content="noindex">
+<!--
+  ⚠️ ABSOLUTE paths, everywhere on this page. GitHub Pages serves this ONE file for EVERY
+  unmatched address, at every depth — /tippfehler, /fr/vieux-lien, /a/b/c — and the browser
+  resolves relative URLs against that address, not against where the file lives. A relative
+  `landing.css` would load on /tippfehler and 404 on /fr/vieux-lien: the 404 page would itself
+  be broken exactly where somebody has already hit something broken.
+-->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231b2330'/%3E%3Cg transform='translate(16 16.5) scale(0.085) translate(-257 -274)'%3E%3Cg stroke='%23c4cedb' stroke-width='3' stroke-linejoin='round'%3E%3Cpolygon points='100,216 198,190 198,380 100,406' fill='%23e7edf4'/%3E%3Cpolygon points='208,190 306,216 306,406 208,380' fill='%23ffffff'/%3E%3Cpolygon points='316,216 414,190 414,380 316,406' fill='%23d8e1ec'/%3E%3C/g%3E%3Cpath fill='%23e8392b' d='M256 350 C221 297 186 260 186 206 A70 70 0 1 1 326 206 C326 260 291 297 256 350 Z'/%3E%3Ccircle cx='256' cy='200' r='30' fill='%23fff'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="stylesheet" href="/landing.css">
+
+<style>
+  /* Inline, because this page has to stand up even when it is the only thing that loads.
+     Everything it can take from landing.css (.btn, the colour tokens) it does. */
+  .nf { display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; min-height: 80vh; padding: 72px 24px 88px; }
+  .nf-code { font-family: var(--mono); font-size: 12.5px; font-weight: 500; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--red); margin: 0 0 18px; }
+  .nf h1 { font-size: clamp(27px, 4.2vw, 42px); line-height: 1.12; letter-spacing: -.02em;
+    color: var(--ink); margin: 0 0 14px; }
+  .nf-lead { font-size: 17px; line-height: 1.6; color: var(--ink-dim); margin: 0 0 30px; max-width: 46ch; }
+  .nf-acts { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+  .nf-links { display: flex; flex-wrap: wrap; gap: 10px 26px; justify-content: center;
+    margin-top: 34px; padding-top: 24px; border-top: 1px solid var(--line);
+    width: 100%; max-width: 620px; }
+  .nf-links a { font-size: 14.5px; font-weight: 600; color: var(--ink-dim); text-decoration: none; }
+  .nf-links a:hover { color: var(--ink); text-decoration: underline; }
+  /* All languages ship in the one file; the script below reveals the matching one. With no JS
+     the base language stays visible — which is the site's base language, not a blank page. */
+  .nf[hidden] { display: none; }
+</style>
+
+<main>
+<section class="nf" lang="de" data-lang="de">
+  <p class="nf-code">Fehler 404</p>
+  <h1>Diese Seite gibt es nicht.</h1>
+  <p class="nf-lead">Vielleicht ein Tippfehler in der Adresse, vielleicht ein alter Link.</p>
+  <div class="nf-acts">
+    <a class="btn btn-primary" href="/">Zur Startseite</a>
+    <a class="btn btn-ghost" href="https://demo.kp-front.ch" target="_blank" rel="noopener">Demo öffnen</a>
+  </div>
+  <nav class="nf-links" aria-label="Hauptnavigation">
+    <a href="/#funktionen">Funktionen</a>
+    <a href="/#kontakt">Kontakt</a>
+    <a href="https://github.com/feuerwehr-oberwil/kp-front" target="_blank" rel="noopener">GitHub</a>
+    <a href="https://kp-rueck.ch">KP Rück</a>
+  </nav>
+</section>
+<section class="nf" lang="fr" data-lang="fr" hidden>
+  <p class="nf-code">Erreur 404</p>
+  <h1>Cette page n’existe pas.</h1>
+  <p class="nf-lead">Peut-être une faute de frappe dans l’adresse, peut-être un ancien lien.</p>
+  <div class="nf-acts">
+    <a class="btn btn-primary" href="/fr/">Vers l’accueil</a>
+    <a class="btn btn-ghost" href="https://demo.kp-front.ch" target="_blank" rel="noopener">Ouvrir la démo</a>
+  </div>
+  <nav class="nf-links" aria-label="Navigation principale">
+    <a href="/fr/#funktionen">Fonctions</a>
+    <a href="/fr/#kontakt">Contact</a>
+    <a href="https://github.com/feuerwehr-oberwil/kp-front" target="_blank" rel="noopener">GitHub</a>
+    <a href="https://kp-rueck.ch">KP Rück</a>
+  </nav>
+</section>
+<section class="nf" lang="it" data-lang="it" hidden>
+  <p class="nf-code">Errore 404</p>
+  <h1>Questa pagina non esiste.</h1>
+  <p class="nf-lead">Forse un errore di battitura nell’indirizzo, forse un vecchio link.</p>
+  <div class="nf-acts">
+    <a class="btn btn-primary" href="/it/">Alla pagina iniziale</a>
+    <a class="btn btn-ghost" href="https://demo.kp-front.ch" target="_blank" rel="noopener">Apri la demo</a>
+  </div>
+  <nav class="nf-links" aria-label="Navigazione principale">
+    <a href="/it/#funktionen">Funzioni</a>
+    <a href="/it/#kontakt">Contatto</a>
+    <a href="https://github.com/feuerwehr-oberwil/kp-front" target="_blank" rel="noopener">GitHub</a>
+    <a href="https://kp-rueck.ch">KP Rück</a>
+  </nav>
+</section>
+<section class="nf" lang="en" data-lang="en" hidden>
+  <p class="nf-code">Error 404</p>
+  <h1>This page does not exist.</h1>
+  <p class="nf-lead">Maybe a typo in the address, maybe an old link.</p>
+  <div class="nf-acts">
+    <a class="btn btn-primary" href="/en/">To the home page</a>
+    <a class="btn btn-ghost" href="https://demo.kp-front.ch" target="_blank" rel="noopener">Open the demo</a>
+  </div>
+  <nav class="nf-links" aria-label="Main navigation">
+    <a href="/en/#funktionen">Features</a>
+    <a href="/en/#kontakt">Contact</a>
+    <a href="https://github.com/feuerwehr-oberwil/kp-front" target="_blank" rel="noopener">GitHub</a>
+    <a href="https://kp-rueck.ch">KP Rück</a>
+  </nav>
+</section>
+</main>
+
+<script>
+  // Which language the visitor was already in. The server cannot tell this page — one file
+  // answers every address — so the first path segment does: /fr/vieux-lien → fr. Anything the
+  // site does not publish keeps the base language that is already on screen, so a miss here
+  // changes nothing. Each block carries its own links, so nothing has to be rewritten.
+  (function () {
+    var seg = location.pathname.split('/')[1]
+    var wanted = seg && document.querySelector('.nf[data-lang="' + seg.replace(/[^a-z]/gi, '') + '"]')
+    if (!wanted || !wanted.hidden) return
+    var all = document.querySelectorAll('.nf')
+    for (var i = 0; i < all.length; i++) all[i].hidden = all[i] !== wanted
+    document.documentElement.lang = seg
+  })()
+</script>
+</html>

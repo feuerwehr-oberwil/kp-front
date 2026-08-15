@@ -14,6 +14,14 @@
     "githubAria": "KP Front su GitHub",
     "languageAria": "Lingua"
   },
+  "notFound": {
+    "pageTitle": "Pagina non trovata – KP Front",
+    "code": "Errore 404",
+    "title": "Questa pagina non esiste.",
+    "body": "Forse un errore di battitura nell’indirizzo, forse un vecchio link.",
+    "home": "Alla pagina iniziale",
+    "demo": "Apri la demo"
+  },
   "hero": {
     "eyebrow": "Open source&nbsp;· Svizzera",
     "h1": "La condotta d’intervento digitale per i pompieri.",
