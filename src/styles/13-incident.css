@@ -505,12 +505,29 @@
    will have holes in it, which is worth noticing but is not an error — printing a form with
    blanks is a normal, deliberate thing to do here. Full row so it never shares a line with the
    buttons it is about. */
-.cv-missing { flex: 1 0 100%; display: flex; align-items: flex-start; gap: 8px; margin: 2px 0 0;
-  padding: 8px 11px; border-radius: var(--r-sm);
+/* ⚠️ It sits ABOVE the print buttons and every entry is a BUTTON that opens the section it
+   names (CaptureApp · jumpToStep) — the tablet's «noch offen» chips, on the poster. As one
+   comma-separated sentence under the buttons it named the gaps and then left you to find them
+   yourself down a six-section page, after the paper was already on its way. */
+.cv-missing { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; margin: 10px 0 0;
+  padding: 10px 12px; border-radius: var(--r-sm);
   background: color-mix(in srgb, var(--amber) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--amber) 30%, transparent);
   font: 600 13px/1.4 var(--body); color: var(--ink); }
-.cv-missing svg { width: 16px; height: 16px; flex: none; margin-top: 1px; color: var(--amber-strong); }
+.cv-missing svg { width: 16px; height: 16px; flex: none; color: var(--amber-strong); }
+.cv-missing-k { color: var(--ink-dim); }
+.cv-missing-go { font: inherit; font-weight: 700; min-height: 32px; padding: 4px 11px; border: none;
+  border-radius: var(--r-pill); cursor: pointer;
+  color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 22%, transparent); }
+.cv-missing-go:hover { background: color-mix(in srgb, var(--amber) 34%, transparent); }
+/* the reassurance, on its own line: nothing here blocks the print */
+.cv-missing-note { flex: 1 0 100%; font-weight: 500; color: var(--ink-dim); }
+/* …and the target says «here», with the shared ink ring the whole app points with
+   (02-base.css · ui-flash-ring) */
+.cv-flash { animation: ui-flash-ring 1.9s ease-out 1; border-radius: var(--r-sm); }
+@media (prefers-reduced-motion: reduce) {
+  .cv-flash { animation: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 62%, transparent); }
+}
 /* clock-skew warning — non-blocking, but a drifted device clock corrupts every erfasste Zeit */
 .cv-skew { display: flex; align-items: center; gap: 6px; margin: 0;
   font: 600 13px var(--body); color: var(--amber-strong); }
@@ -563,6 +580,25 @@
   border: 1px solid var(--glass-line); background: var(--surface); color: var(--ink-dim); border-radius: var(--r-sm); }
 .cv-info.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
 .cv-info svg { width: 18px; height: 18px; }
+/* «Erfasste N» — the check-back filter beside the search box. GREEN when on, the same ink the
+   anwesend rows carry, so the filter and what it keeps read as one idea; --accent is the brand
+   red and never means state. Off it is a plain neutral control, so an unfiltered roster can
+   never be mistaken for a filtered one. */
+.cv-filter { display: inline-flex; align-items: center; gap: 6px; flex: none; height: 44px; padding: 0 12px;
+  cursor: pointer; border: 1px solid var(--glass-line); background: var(--surface); color: var(--ink-dim);
+  border-radius: var(--r-sm); font: 700 13px var(--body); white-space: nowrap; }
+.cv-filter svg { width: 15px; height: 15px; }
+.cv-filter.on { color: var(--green-strong); border-color: color-mix(in srgb, var(--green) 50%, transparent);
+  background: color-mix(in srgb, var(--green) 14%, var(--surface)); }
+/* «Nichts verwendet» — the one tick that makes the Material Mindestangabe answerable from here
+   (see lib/abschluss · stepDone). Pressed = the answer is on the record. */
+.cv-none { align-self: flex-start; min-height: 44px; padding: 8px 14px; cursor: pointer;
+  border: 1px dashed var(--glass-edge); border-radius: var(--r-sm);
+  background: none; color: var(--ink); font: 600 13.5px var(--body); }
+.cv-none.on { border-style: solid; color: var(--green-strong);
+  border-color: color-mix(in srgb, var(--green) 50%, transparent);
+  background: color-mix(in srgb, var(--green) 14%, transparent); }
+.cv-none:disabled { opacity: var(--disabled); }
 /* Partnerorganisationen on the poster: organisation + one free line, same two fields the
    tablet asks for. Stacks on a phone, which is what the poster is scanned with. */
 .cv-partners { display: flex; flex-direction: column; gap: 8px; width: 100%; }
@@ -686,6 +722,9 @@
 /* fixed width so «von» and «bis» rows align — the tag sits between the flexible name
    button and the time field; differing word widths would shift both per row */
 .cv-time-tag { flex: none; width: 28px; text-align: right; font: 700 13px var(--body); color: var(--ink-dim); }
+/* the day behind a von/bis, and only when it is NOT the Einsatz' own (CaptureApp · dayTag).
+   On the ordinary same-evening Einsatz nothing renders here at all. */
+.cv-date-tag { flex: none; font: 600 12px var(--body); color: var(--ink-faint); font-variant-numeric: tabular-nums; }
 /* keep name + von/bis + time + Jetzt on one 360px row: tighter chrome inside the row */
 .cv-person-row .timefield { gap: 6px; }
 .cv-person-row .timefield-trigger { min-width: 64px; }
@@ -1076,11 +1115,43 @@ select.cv-input { appearance: none; -webkit-appearance: none;
   .rp-head-actions .ip-btn.print-send.offline { width: auto; padding: 0 10px; }
   .rp-head-actions .print-send-main { gap: 5px; }
 }
+/* ⚠️ Rendered on every width, hidden everywhere but the phone — so the tab STATE is always
+   there (a resize cannot land on a surface with no tab chosen) while the layout above 600px
+   never sees it. Declared BEFORE the media query below, which turns it back on. */
+.rp-tabs { display: none; }
+
 @media (max-width: 600px) {
   .rp-head { padding: 10px 14px; gap: 10px 12px; }
   .report-preflight-surface > .ip-body { padding: 12px 14px calc(16px + var(--fab-safe, 0px)); }
   .report-pre-section { padding: 12px 13px; }
 
+  /* THE PHONE'S THREE TABS (ReportPreflight · PhoneTab). Stacked, this surface is four form
+     sections, a five-part round-up and the Kroki — five phone screens, with the Anwesenheits-
+     Liste that gets read out at the Appell at the far end of them.
+     ⚠️ The whole mechanism lives inside this media query and nowhere else: above 600px the bar
+     is `display: none` and `[data-tab]` selects nothing, so the one-column band (601–1080) and
+     the two-column layout (1080+) are exactly what they were. */
+  .rp-tabs { display: block; flex: none; padding: 8px 14px 0; }
+  .rp-tabs > .useg { display: flex; width: 100%; }
+  .rp-tabs .useg-btn { flex: 1; min-width: 0; min-height: var(--tap); position: relative;
+    padding: 6px 8px; white-space: nowrap; }
+  /* the same amber the head's «noch offen» chips carry — one page, one meaning for «offen» */
+  .rp-tab-dot { position: absolute; top: 7px; right: 8px; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--amber); }
+  .useg-btn.on .rp-tab-dot { background: var(--on-fill); }
+
+  /* One rule per tab: everything carrying a DIFFERENT tab is off screen. Blocks with no
+     `data-tab` at all (the fieldset, the columns) stay — they are structure, not content. */
+  .report-preflight-body[data-phone-tab="bericht"] [data-tab="werwas"],
+  .report-preflight-body[data-phone-tab="bericht"] [data-tab="beilagen"],
+  .report-preflight-body[data-phone-tab="werwas"] [data-tab="bericht"],
+  .report-preflight-body[data-phone-tab="werwas"] [data-tab="beilagen"],
+  .report-preflight-body[data-phone-tab="beilagen"] [data-tab="bericht"],
+  .report-preflight-body[data-phone-tab="beilagen"] [data-tab="werwas"] { display: none; }
+  /* the QR chip belongs to «Wer & Was» — see the component for why it is hidden here and not
+     wrapped in an element of its own */
+  .report-preflight-body[data-phone-tab="bericht"] .capture-usage-chip,
+  .report-preflight-body[data-phone-tab="beilagen"] .capture-usage-chip { display: none; }
 }
 .report-preflight > .ip-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
 

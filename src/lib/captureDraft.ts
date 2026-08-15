@@ -3,7 +3,7 @@
 // chains overlapping saves per field/line, and the clock-skew readout for the backend's
 // X-Server-Time header. Pure logic — the CaptureApp wires it to inputs and saveAction.
 
-/** Storage-shaped for tests; sessionStorage in the app (same spirit as RECORDER_KEY). */
+/** Storage-shaped for tests; sessionStorage in the app. */
 export interface DraftStore {
   getItem(key: string): string | null
   setItem(key: string, value: string): void

@@ -2116,7 +2116,9 @@ export const de = {
     logAttendanceCleared: '{name} aus der Anwesenheit entfernt (QR)',
     logAttendanceRestored: '{name} wiederhergestellt (QR)',
     logTimes: 'Zeiten von {name} korrigiert (QR)',
-    logMittel: '{label}: {menge} {unit} (QR, {by})',
+    // ⚠️ kein «von wem»: der Poster fragt seit 15.08. nicht mehr, wer erfasst – «(QR)» ist die
+    // ganze Wahrheit über die Herkunft dieser Zeile.
+    logMittel: '{label}: {menge} {unit} (QR)',
     logAttachmentAdd: 'Rapport-Foto hinzugefügt (QR)',
     logAttachmentRemove: 'Rapport-Foto entfernt (QR)',
     logMeta: 'Rapportangaben geändert (QR): {fields}',
@@ -2124,8 +2126,9 @@ export const de = {
     invalid: 'Link ungültig oder Erfassung deaktiviert.',
     noIncidents: 'Zurzeit kein erfassbarer Einsatz.',
     noIncidentsHint: 'Hier erscheinen laufende und noch nicht rapportierte Einsätze. Fehlt euer Einsatz? Auf dem Papier-Erfassungsblatt notieren oder der Einsatzleitung melden – sie kann ihn später nachtragen.',
-    whoTitle: 'Wer erfasst?',
     searchName: 'Name suchen …',
+    // Schnellfilter neben der Suche: alle, die schon abgehakt sind – gekommen wie gegangen
+    filterRecorded: 'Erfasste {n}',
     back: 'Zurück',
     alarmedAt: 'Alarm {t}',
     saveFailed: 'Speichern fehlgeschlagen – nochmals versuchen.',
@@ -2177,14 +2180,17 @@ export const de = {
     sectionAngaben: 'Angaben',
     zeitenFilled: '{n} Zeiten erfasst',
     abschlussHead: 'Abschluss',
-    pdfMissing: 'Noch leer (wird als Leerfeld gedruckt): {fields}',
+    // Was vor dem Ausdrucken noch fehlt – dieselben Mindestangaben wie auf dem KP-Tablet
+    // (lib/abschluss). Jeder Punkt ist ein Chip, der seinen Abschnitt öffnet und das Feld zeigt.
+    missingHead: 'Noch offen:',
+    missingGo: '{step} öffnen',
+    missingNote: 'Wird als Leerfeld gedruckt.',
     ausgerueckt: 'Ausgerückt',
     kontaktperson: 'Kontaktperson',
     kontaktpersonPlaceholder: 'Eigentümer / Melder / Verantwortliche(r)',
     von: 'von',
     bis: 'bis',
     ende: 'Einsatzende',
-    endeNow: 'Jetzt setzen',
     sectionPersonen: 'Anwesenheit',
     presentCount: '{n} anwesend',
     tapHint: 'Antippen: nicht anwesend → Magazin → Vor Ort → gegangen. Zeit daneben: von = Ankunft, nach Weggang bis = Weggang.',
@@ -2193,8 +2199,6 @@ export const de = {
     stateLeft: 'gegangen',
     sectionMaterial: 'Material',
     sectionAllgemein: 'Allgemein',
-    selectPerson: 'Name wählen …',
-    whoHint: 'Wird im Rapport als «Erfasst von» festgehalten.',
     cancel: 'Abbrechen',
     mittelCount: '{n} Positionen',
     pickMaterial: 'Material wählen …',
@@ -2210,6 +2214,8 @@ export const de = {
     // print buttons — the full rapport (incl. Lageskizze) will come from the KP.
     kpActive: 'KP-Tablet aktiv',
     kpActiveHint: 'Das KP-Tablet ist im Einsatz – der vollständige Rapport (mit Kroki) kommt von dort.',
+    // dasselbe, aber ohne laufendes KP-Tablet: der Normalfall, nicht eine Meldung über jetzt
+    kpNormallyHint: 'Der vollständige Rapport (mit Kroki) kommt normalerweise vom KP-Tablet.',
     // tablet-side mirror: chip on the QR-writable surfaces (Anwesenheit, Mittel, Rapport)
     usageChip: 'QR: {n} Einträge · zuletzt {t}',
     usageChipOne: 'QR: 1 Eintrag · zuletzt {t}',
@@ -2620,6 +2626,10 @@ export const de = {
     headCounts: '{n} Personen · {m} Positionen',
     headAllRecorded: 'alle Angaben erfasst',
     headStillOpen: 'noch offen',
+    // Handy (≤600px): die drei Reiter, die den Rapport in drei Bildschirme statt fünf teilen.
+    // Tablet und Desktop sehen sie nie — siehe ReportPreflight · PhoneTab.
+    tabsLabel: 'Teil des Rapports',
+    tabs: { bericht: 'Bericht', werwas: 'Wer & Was', beilagen: 'Beilagen' },
     // a «noch offen» chip is a button: it scrolls to the thing it names and flashes it
     headOpenGo: 'Zu «{step}» springen',
     // Rapportangaben section

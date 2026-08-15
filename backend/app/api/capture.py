@@ -215,7 +215,7 @@ async def capture_roster(
     x_capture_token: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
 ):
-    """Active Mannschaft for the attendance checklist + «Wer erfasst?» attribution picker."""
+    """Active Mannschaft for the attendance checklist and the Einsatzleiter/Rückmeldung pickers."""
     await _check_token(db, request, x_capture_token)
     rows = list((await db.execute(select(Personnel).where(Personnel.is_active.is_(True)))).scalars())
     # Same names, same order, same sort as the KP tablet's roster — the two lists are read

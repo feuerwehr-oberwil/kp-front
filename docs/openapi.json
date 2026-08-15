@@ -3389,7 +3389,7 @@
           "capture"
         ],
         "summary": "Capture Roster",
-        "description": "Active Mannschaft for the attendance checklist + «Wer erfasst?» attribution picker.",
+        "description": "Active Mannschaft for the attendance checklist and the Einsatzleiter/Rückmeldung pickers.",
         "operationId": "capture_roster_api_capture_roster_get",
         "parameters": [
           {

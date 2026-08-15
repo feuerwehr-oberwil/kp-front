@@ -3,9 +3,11 @@
 // incident (the list carries the fresh ones plus the unreported backlog; a single fresh
 // incident skips the picker — autoOpenTarget), then THREE clearly separated
 // sections behind collapsed headers — Personen · Material · Allgemein — so nothing hides
-// below a long scroll (feedback 2026-07-08). «Wer erfasst?» is deferred (2026-07-18): the
-// page opens editable, and the question rides in the modal that fronts Rapport-PDF and
-// Ausdrucken — which also makes every print an explicit two-step. Everything writes
+// below a long scroll (feedback 2026-07-08). «Wer erfasst?» is GONE (2026-08-15): it asked
+// whoever happened to be holding the phone for a name and printed the answer as a fact, and
+// the rapport normally comes off the KP tablet anyway — which is what the modal fronting
+// Rapport-PDF and Ausdrucken says instead. That modal stays, so every print is an explicit
+// two-step and no stray tap reaches the station printer. Everything writes
 // into the same incident workspace the KP tablet syncs (task-scoped merge, second-editor
 // semantics). Untrained-operator rails (2026-07-10): the one destructive tap (gegangen →
 // frei) gets confirm-with-undo, material lines get ± steppers so a fat-fingered amount is
@@ -18,7 +20,7 @@ import { fillTemplate, hhmm, stripUnprintable } from '../lib/format'
 import { Icon, IconSprite } from '../lib/icons'
 import { Splash } from '../components/Splash'
 import { currentLineFor, visibleMittel } from '../lib/mittel'
-import { applyTimeToIso } from '../lib/abschluss'
+import { applyTimeToIso, isoOnDay, keepEndAfterStart, keepStartBeforeEnd, missingSteps, type AbschlussFacts, type AbschlussStep } from '../lib/abschluss'
 import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
 import { ortOf } from '../lib/attendanceOrt'
 import { Overlays, toast } from '../lib/ui'
@@ -64,14 +66,66 @@ const toTime = (iso?: string): string => {
   return hhmm(d)
 }
 
-// per-INCIDENT: who records is a fresh question on every Einsatz (a stale name from the
-// last emergency must never pre-fill), but a mid-capture reload of the SAME incident may
-// restore it — hence sessionStorage keyed by incident id, not a device-wide value.
-const RECORDER_KEY = (incidentId: string) => `kp.capture.recorder.${incidentId}`
 // cross-visibility poll cadence: only runs while the KP latch is still false (once true it's
 // latched for good), and skips hidden tabs — the common case needs zero polls (initial list)
 const KP_POLL_MS = 45_000
 type Section = 'personen' | 'material' | 'zeiten' | 'angaben' | 'partner' | 'beilagen'
+
+/** Which block of this page makes a Mindestangabe go away. The «noch offen» chips above the
+ *  print buttons open that block and point at the field inside it (see jumpToStep) — the same
+ *  seven steps the tablet's Rapport checks (lib/abschluss), so the poster and the KP can never
+ *  disagree about what is still missing. 'abschluss' is the un-collapsed card at the bottom. */
+const STEP_TARGET: Record<AbschlussStep, Section | 'abschluss'> = {
+  // ⚠️ the EINSATZENDE in that card, not the «Zeiten» section of the same name above it —
+  // that one holds the Alarmierungs- und Ausrückzeiten, which no Mindestangabe asks for
+  zeiten: 'abschluss',
+  anwesenheit: 'personen',
+  mittel: 'material',
+  einsatzleiter: 'angaben',
+  kontaktperson: 'angaben',
+  kurzbericht: 'angaben',
+  rueckmeldung: 'abschluss',
+}
+/** …and the steps that land on a FIELD, which is where the cursor belongs. Anwesenheit and
+ *  Material land on a list instead, and focusing their search box would raise the keyboard
+ *  over the rows the chip just scrolled to. */
+const STEP_FOCUS = new Set<AbschlussStep>(['zeiten', 'einsatzleiter', 'kontaktperson', 'kurzbericht', 'rueckmeldung'])
+
+/**
+ * Where a corrected «von»/«bis» on a person's row lands.
+ *
+ * A day picked off the wheel is the operator's ANSWER and is kept as such — only the ordering
+ * guard survives it, so a presence block can never end before it starts (a reversed block
+ * renders as nothing and counts zero minutes on the Rapport). Without a day nothing changes:
+ * the day is inferred from the neighbouring stamp, the same rule the Anwesenheit view applies,
+ * so the two surfaces cannot drift.
+ */
+const personTimeIso = (
+  clock: string, day: Date | undefined, edge: 'from' | 'to',
+  block: { from?: string; to?: string }, baseIso: string,
+): string | null => {
+  if (!day) {
+    return edge === 'to'
+      ? applyTimeToIso(block.to ?? baseIso, clock, { nextDayIfBefore: block.from })
+      : applyTimeToIso(baseIso, clock, { prevDayIfAfter: block.to })
+  }
+  const iso = isoOnDay(day, clock)
+  if (!iso) return null
+  if (edge === 'to') return block.from ? keepEndAfterStart(block.from, iso) : iso
+  return block.to ? keepStartBeforeEnd(iso, block.to) : iso
+}
+
+/** The calendar day of a recorded time — but ONLY when it is not the Einsatz' own start day.
+ *  An Einsatz that ends the same evening (nearly all of them) reads as a bare clock exactly as
+ *  before; one that runs past midnight says which day a «bis 01:15» belongs to. */
+const dayTag = (iso: string | undefined, baseIso: string): string | null => {
+  if (!iso) return null
+  const d = new Date(iso)
+  const base = new Date(baseIso)
+  if (!Number.isFinite(d.getTime()) || !Number.isFinite(base.getTime())) return null
+  if (d.toDateString() === base.toDateString()) return null
+  return d.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit' })
+}
 
 // «Übung» reaches the poster exactly like a real Einsatz — the badge is what keeps a drill
 // (or a test run before a rollout) from being ticked off as the real thing. Same amber
@@ -100,9 +154,9 @@ function AccHead({ open, label, sub, onToggle }: { open: boolean; label: string;
 }
 
 // Text fields save on blur AND ~1s after typing pauses, plus a sessionStorage draft per
-// incident+field (same spirit as RECORDER_KEY) — a phone lock mid-sentence must not lose
-// the Kurzbericht. The draft clears once the server accepted the text; a restored draft
-// is unsaved by definition (drafts clear on success), so it flushes right after mount.
+// incident+field — a phone lock mid-sentence must not lose the Kurzbericht. The draft clears
+// once the server accepted the text; a restored draft is unsaved by definition (drafts clear
+// on success), so it flushes right after mount.
 function DraftField({ incidentId, field, saved, commit, textarea, number, className, placeholder, ariaLabel, autoCapitalize, enterKeyHint }: {
   incidentId: string
   field: string
@@ -169,7 +223,6 @@ export default function CaptureApp() {
   const [error, setError] = useState<string | null>(null)
   const [incident, setIncident] = useState<IncidentMeta | null>(null)
   const [roster, setRoster] = useState<CapturePerson[]>([])
-  const [recorder, setRecorder] = useState<string>('')
   const [ws, setWs] = useState<Workspace | null>(null)
   const [busy, setBusy] = useState(false)
   // offline vs. server error read differently under stress ("wait for signal" vs "try again");
@@ -180,6 +233,11 @@ export default function CaptureApp() {
   // page should already show it instead of asking for a decision (first-action cue)
   const [open, setOpen] = useState<Section | null>('personen')
   const [search, setSearch] = useState('')
+  // «Erfasste» — everybody who has come or gone, i.e. every name already ticked off. Half an
+  // hour into an Einsatz the question stops being «who is on the Mannschaft» and becomes «who
+  // have I got so far», and answering it meant scrolling a 60-name roster looking for tinted
+  // rows. A checkmark toggle beside the search box, ANDed with it like the tablet's facets.
+  const [onlyRecorded, setOnlyRecorded] = useState(false)
   const [matSearch, setMatSearch] = useState('')
   // the tap-cycle explanation lives behind an ⓘ toggle — inline it crowded the section
   const [showTapHelp, setShowTapHelp] = useState(false)
@@ -223,6 +281,34 @@ export default function CaptureApp() {
     })
   }
 
+  /**
+   * A «noch offen» chip points at the block that answers it: open that section, bring the field
+   * under the sticky header, flash it, and put the cursor in it where the step IS a field.
+   * Naming what is missing without pointing at it leaves the reader hunting down a page that is
+   * six sections long — the same gesture (and the same ink ring) the tablet's Rapport uses.
+   *
+   * Anchored on `data-step`, not on refs: the seven steps live in four different shapes (a whole
+   * section, a labelled row, a person picker, a time field) and one attribute is the only thing
+   * they can all carry without being restructured around it.
+   */
+  const jumpToStep = (step: AbschlussStep) => {
+    const target = STEP_TARGET[step]
+    if (target !== 'abschluss') setOpen(target)
+    // two frames: the accordion body mounts on the first, the layout settles on the second
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const el = document.querySelector<HTMLElement>(`[data-step="${step}"]`)
+      if (!el) return
+      const head = document.querySelector<HTMLElement>('.cv-head')
+      el.style.scrollMarginTop = `${(head?.offsetHeight ?? 0) + 8}px`
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      el.classList.remove('cv-flash')
+      void el.offsetWidth // restart the animation when the same chip is tapped twice
+      el.classList.add('cv-flash')
+      window.setTimeout(() => el.classList.remove('cv-flash'), 2000)
+      if (STEP_FOCUS.has(step)) el.querySelector<HTMLElement>('textarea, input, button')?.focus({ preventScroll: true })
+    }))
+  }
+
   const load = useCallback(async () => {
     if (!token) { setError(appConfig.copy.capture.invalid); return }
     try {
@@ -257,9 +343,6 @@ export default function CaptureApp() {
       // seed from the list response — the common case (KP already on it) needs zero polls
       setKpActive(i.editor_opened_at != null)
       setOpen('personen') // first action on an Einsatz is ticking people off — show it
-      // restore who-records only for THIS incident (reload survival); a different Einsatz
-      // starts blank and asks again
-      setRecorder(sessionStorage.getItem(RECORDER_KEY(i.id)) ?? '')
     } catch (e) { setError(loadErrorMsg(e)) }
     finally { setOpening(false) }
   }, [token])
@@ -337,7 +420,12 @@ export default function CaptureApp() {
     } finally { setBusy(false) }
   }
 
-  const attendance = (ws?.attendance as Record<string, AttendanceEntry> | undefined) ?? {}
+  // memoized because the roster filter below depends on it: the `?? {}` fallback mints a fresh
+  // object on every render, which would make that useMemo recompute on every keystroke anywhere
+  // on the page
+  const attendance = useMemo(
+    () => (ws?.attendance as Record<string, AttendanceEntry> | undefined) ?? {}, [ws],
+  )
   const mittel = (ws?.mittel as MittelEntry[] | undefined) ?? []
   const rm = (ws?.reportMeta as ReportMeta | undefined)
 
@@ -480,9 +568,13 @@ export default function CaptureApp() {
       .map(([cat, items]) => [cat, items.filter((i) => i.label.toLowerCase().includes(q))] as const)
       .filter(([, items]) => items.length > 0)
   }, [catalogueGroups, matSearch])
+  /** everybody with an attendance entry — anwesend AND gegangen: what the toggle answers is
+   *  «wen habe ich schon abgehakt», and somebody who has left is abgehakt. */
+  const recordedCount = roster.filter((p) => attendance[p.id]).length
   const filteredRoster = useMemo(
-    () => roster.filter((p) => p.display_name.toLowerCase().includes(search.toLowerCase())),
-    [roster, search],
+    () => roster.filter((p) => p.display_name.toLowerCase().includes(search.toLowerCase()))
+      .filter((p) => !onlyRecorded || !!attendance[p.id]),
+    [roster, search, onlyRecorded, attendance],
   )
 
   // --- material: the WHOLE catalogue as a stepper list (no picker — recognition over
@@ -496,7 +588,9 @@ export default function CaptureApp() {
   const matFlushers = useRef(new Map<string, DebouncedFlush<{ probe: MatProbe; menge: number }>>())
   const flushMittel = async (key: string, probe: MatProbe, menge: number): Promise<boolean> => {
     if (!token || !incident) return false
-    const base = { kind: 'setMittel' as const, ...probe, by: recorder }
+    // no `by`: the poster stopped asking who is recording (2026-08-15), so there is no name to
+    // attribute a line to — the Verlaufszeile says «(QR)» and that is the whole truth of it
+    const base = { kind: 'setMittel' as const, ...probe }
     const prev = currentLineFor(mittel, { ...probe })?.menge ?? 0
     try {
       const { workspace } = await saveAction(token, incident.id, { ...base, menge })
@@ -547,6 +641,7 @@ export default function CaptureApp() {
       setGerettetePending({})
       setMatPending({})
       setMatSearch('')
+      setOnlyRecorded(false) // a filtered roster carried into another Einsatz reads as an empty one
     }
   }, [incidentId])
   // recorded lines that are NOT a plain catalogue row (sourced from the tablet, or free labels)
@@ -560,12 +655,15 @@ export default function CaptureApp() {
   // The heavy composer chunk loads on demand.
   const [pdfBusy, setPdfBusy] = useState(false)
   // printing NEVER blocks (form model 2026-07-17): whatever is still empty prints as a
-  // labeled write-in field. The hint just says so, as a nudge, not a gate.
-  const pdfMissing = [
-    !endedAt ? C.ende : null,
-    Object.values(attendance).length === 0 ? C.sectionPersonen : null,
-    !rm?.summary?.trim() ? C.kurzberichtHead : null,
-  ].filter((x): x is Exclude<typeof x, null> => !!x)
+  // labeled write-in field. The list just says so, as a nudge, not a gate — and it is the
+  // SAME derivation the tablet's Rapport uses (lib/abschluss · missingSteps), because a
+  // poster that counted three fields while the KP counted seven let a station tick the sheet
+  // off and still meet an incomplete rapport the next morning.
+  const missing = missingSteps({
+    reportMeta: rm ?? {},
+    attendanceCount: Object.keys(attendance).length,
+    mittelCount: lines.length,
+  } satisfies AbschlussFacts)
   const printRapport = async () => {
     if (!token || !incident || pdfBusy) return
     setPdfBusy(true)
@@ -597,6 +695,9 @@ export default function CaptureApp() {
   // needs no printer setup. Hidden unless the deployment runs a relay (fail-closed).
   const R = appConfig.copy.printRelay
   const A = appConfig.copy.anwesenheit
+  // the closing-step names, shared with the tablet's Rapport so both surfaces call the same
+  // missing field the same thing
+  const AB = appConfig.copy.abschluss
   const [printStatus, setPrintStatus] = useState<PrintRelayStatus | null>(null)
   const [printBusy, setPrintBusy] = useState(false)
   useEffect(() => {
@@ -605,37 +706,24 @@ export default function CaptureApp() {
     void fetchPrintStatus(capturePrintTransport(token)).then((s) => { if (alive) setPrintStatus(s) })
     return () => { alive = false }
   }, [token, incident])
-  // «Wer erfasst?» is asked HERE, not up front (decided 2026-07-18): the page opens
-  // editable, and the question rides in the modal that fronts PDF + Ausdrucken — which
-  // also makes every print an explicit two-step, so no accidental paper.
-  const [askWho, setAskWho] = useState<null | 'pdf' | 'print'>(null)
-  const [whoDraft, setWhoDraft] = useState('')
-  const openWho = (what: 'pdf' | 'print') => { setWhoDraft(recorder); setAskWho(what) }
+  // The modal in front of PDF + Ausdrucken. It used to ask «Wer erfasst?» and that question is
+  // gone (2026-08-15) — it was put to whoever happened to be holding the phone, and the answer
+  // printed on the rapport as a fact. What is worth saying at this moment is where the real
+  // rapport comes from, so that is what the modal says. It stays a modal because it also makes
+  // every print an explicit two-step: no stray tap reaches the station printer.
+  const [confirmOut, setConfirmOut] = useState<null | 'pdf' | 'print'>(null)
   // the page is a scrolling document (mount effect above) — freeze it behind the modal,
   // compensating the vanished scrollbar's width so the layout doesn't shift (desktop)
   useEffect(() => {
     const sw = window.innerWidth - document.documentElement.clientWidth
-    document.body.style.overflowY = askWho ? 'hidden' : 'auto'
-    document.body.style.paddingRight = askWho && sw > 0 ? `${sw}px` : ''
+    document.body.style.overflowY = confirmOut ? 'hidden' : 'auto'
+    document.body.style.paddingRight = confirmOut && sw > 0 ? `${sw}px` : ''
     return () => { document.body.style.overflowY = 'auto'; document.body.style.paddingRight = '' }
-  }, [askWho])
-  const commitRecorder = (v: string) => {
-    if (!incident) return
-    sessionStorage.setItem(RECORDER_KEY(incident.id), v)
-    setRecorder(v)
-    // the Erfasser belongs on the record: collect every distinct recorder into
-    // reportMeta.erfasser (shows on the Rapport-PDF facts)
-    const cur = (rm?.erfasser ?? '').split(', ').filter(Boolean)
-    if (v && !cur.includes(v)) {
-      void saveAction(token!, incident.id, { kind: 'setMeta', patch: { erfasser: [...cur, v].join(', ') } })
-        .then(({ workspace }) => setWs(workspace)).catch(() => {})
-    }
-  }
-  const confirmWho = () => {
-    const what = askWho
-    if (!what || !whoDraft) return
-    commitRecorder(whoDraft)
-    setAskWho(null)
+  }, [confirmOut])
+  const confirmOutput = () => {
+    const what = confirmOut
+    if (!what) return
+    setConfirmOut(null)
     if (what === 'pdf') void printRapport()
     else void sendToPrinter()
   }
@@ -711,6 +799,14 @@ export default function CaptureApp() {
   // the first-action cue is Anwesenheit; where that section does not exist, fall through to
   // the first one that does rather than opening the page onto nothing
   const openSection = open === null || sections.includes(open) ? open : sections[0]
+  // …and a chip must LAND somewhere. A station that configures no Mittel-Katalog renders no
+  // Material section, so «Mittel» would have nothing to open, nothing to scroll to and no
+  // «Nichts verwendet» to tick — an amber chip that does nothing when pressed and can never be
+  // cleared. The step stays open on the tablet, which is where such a station answers it.
+  const shownMissing = missing.filter((s) => {
+    const target = STEP_TARGET[s]
+    return target === 'abschluss' || sections.includes(target)
+  })
 
   // shown on both screens right under the header — wrong device time corrupts every
   // erfasste Zeit, so warn (non-blocking) while everything keeps working
@@ -813,13 +909,28 @@ export default function CaptureApp() {
 
       <div className="cv-acc">
         {hasPersonen && (
-        <section className="cv-card cv-acc-card" ref={(el) => { sectionRefs.current.personen = el }}>
+        <section className="cv-card cv-acc-card" data-step="anwesenheit" ref={(el) => { sectionRefs.current.personen = el }}>
           <AccHead open={openSection === 'personen'} label={C.sectionPersonen} sub={fillTemplate(C.presentCount, { n: presentCount })} onToggle={() => toggleSection('personen')} />
           {openSection === 'personen' && (
             <div className="cv-acc-body">
               <div className="cv-search-row cv-sticky-search">
                 <input className="cv-input" placeholder={C.searchName} value={search} onChange={(e) => setSearch(e.target.value)}
                   autoCapitalize="none" autoCorrect="off" autoComplete="off" spellCheck={false} enterKeyHint="search" />
+                {/* «Erfasste N» — the check-back filter. Only once there IS something to check
+                    back on: on an untouched roster it would filter to an empty list, and a
+                    control that can only produce nothing is a trap on a phone at a door.
+                    ⚠️ …but it must also stay while it is ON, even at zero. The fourth tap on a
+                    row DELETES that person's entry, so filtering down to the last recorded
+                    person and tapping them once more took the count to 0 — and a toggle that
+                    unmounts while still filtering leaves an empty roster with nothing on screen
+                    to switch it off again. */}
+                {(recordedCount > 0 || onlyRecorded) && (
+                  <button type="button" className={`cv-filter${onlyRecorded ? ' on' : ''}`}
+                    aria-pressed={onlyRecorded} onClick={() => setOnlyRecorded((v) => !v)}>
+                    <Icon id="check" />
+                    <span>{fillTemplate(C.filterRecorded, { n: recordedCount })}</span>
+                  </button>
+                )}
                 <button type="button" className={`cv-info${showTapHelp ? ' on' : ''}`} aria-label={C.tapHelp}
                   aria-expanded={showTapHelp} onClick={() => setShowTapHelp((v) => !v)}><Icon id="info" /></button>
               </div>
@@ -865,24 +976,34 @@ export default function CaptureApp() {
                           ariaLabel={here ? C.von : C.bis}
                           value={toTime(here ? cur?.from : cur?.to)}
                           disabled={busy}
-                          onCommit={(hhmm) => {
+                          // the Einsatz' own days, exactly like the Zeiten grid below. The poster
+                          // is filled in hours later and an Einsatz that ran past midnight has two
+                          // of them — «bis 01:15» was silently filed on the wrong one, because a
+                          // bare clock can only be inferred from the neighbouring stamp.
+                          days={zeitDays}
+                          // …and the wheel opens on the day this stamp is ON (see TimeField ·
+                          // valueDay). Without it the day wheel starts at today, and a correction
+                          // made the morning after would move the block to the morning after.
+                          valueDay={(() => {
+                            const iso = here ? cur?.from : cur?.to
+                            return iso ? new Date(iso) : undefined
+                          })()}
+                          onCommit={(hhmm, day) => {
                             if (!hhmm) return
-                            if (!here) {
-                              const iso = applyTimeToIso(cur?.to ?? vonBase, hhmm, { nextDayIfBefore: cur?.from })
-                              if (iso) void run({ kind: 'setTimes', personId: p.id, index: bi, to: iso }).then((ok) => { if (ok) savedToast() })
-                            } else {
-                              // The Anwesenheit view's guard, so the two surfaces cannot drift:
-                              // a start typed after its own end belongs to the previous day (a
-                              // night shift), never backwards in time — a reversed block renders
-                              // as nothing and counts zero minutes on the Rapport. Here the block
-                              // being corrected is by definition the OPEN one, so today there is
-                              // no `to` to trip over; it is the identical rule that matters.
-                              const iso = applyTimeToIso(vonBase, hhmm, { prevDayIfAfter: cur?.to })
-                              if (iso) void run({ kind: 'setTimes', personId: p.id, index: bi, from: iso }).then((ok) => { if (ok) savedToast() })
-                            }
+                            const iso = personTimeIso(hhmm, day, here ? 'from' : 'to',
+                              { from: cur?.from, to: cur?.to }, vonBase)
+                            if (!iso) return
+                            const patch = here ? { from: iso } : { to: iso }
+                            void run({ kind: 'setTimes', personId: p.id, index: bi, ...patch }).then((ok) => { if (ok) savedToast() })
                           }}
                         />
                       )}
+                      {/* the day, and ONLY when it is not the Einsatz' own — see dayTag. On the
+                          ordinary same-evening Einsatz the row looks exactly as it did. */}
+                      {a && (() => {
+                        const tag = dayTag(here ? cur?.from : cur?.to, incident.started_at)
+                        return tag ? <span className="cv-date-tag">{tag}</span> : null
+                      })()}
                     </div>
                   )
                 })}
@@ -893,7 +1014,7 @@ export default function CaptureApp() {
         )}
 
         {hasMaterial && (
-        <section className="cv-card cv-acc-card" ref={(el) => { sectionRefs.current.material = el }}>
+        <section className="cv-card cv-acc-card" data-step="mittel" ref={(el) => { sectionRefs.current.material = el }}>
           <AccHead open={openSection === 'material'} label={C.sectionMaterial} sub={fillTemplate(C.mittelCount, { n: lines.length })} onToggle={() => toggleSection('material')} />
           {openSection === 'material' && (
             <div className="cv-acc-body">
@@ -901,6 +1022,17 @@ export default function CaptureApp() {
                 <input className="cv-input" placeholder={C.searchMaterial} value={matSearch} onChange={(e) => setMatSearch(e.target.value)}
                   autoCapitalize="none" autoCorrect="off" autoComplete="off" spellCheck={false} enterKeyHint="search" />
               </div>
+              {/* «Nichts verwendet» — the same tick the tablet's Rapport carries (lib/abschluss ·
+                  stepDone). Without it the Material chip in the «noch offen» list could not be
+                  cleared from this page at all: an Einsatz where nothing was used is a legitimate
+                  rapport, but only once somebody has SAID so. */}
+              {lines.length === 0 && (
+                <button type="button" className={`cv-none${rm?.mittelConfirmedNone ? ' on' : ''}`} disabled={busy}
+                  aria-pressed={!!rm?.mittelConfirmedNone}
+                  onClick={() => { void run({ kind: 'setMeta', patch: { mittelConfirmedNone: !rm?.mittelConfirmedNone } }).then((ok) => { if (ok) savedToast() }) }}>
+                  {rm?.mittelConfirmedNone ? AB.mittelNoneOn : AB.mittelNone}
+                </button>
+              )}
               {shownGroups.map(([cat, items]) => (
                 <div key={cat || '_'} className="cv-matgroup">
                   {cat && <div className="cv-matgroup-head">{cat}</div>}
@@ -959,6 +1091,7 @@ export default function CaptureApp() {
                       <span key={c.id} className="cv-zrow">
                         <span className="cv-zname">{c.label}{c.color ? ` (${c.color})` : ''}</span>
                         <TimeField ariaLabel={c.label} value={toTime(v?.alarmedAt)} disabled={busy} days={zeitDays}
+                          valueDay={v?.alarmedAt ? new Date(v.alarmedAt) : undefined}
                           onCommit={(hhmm, day) => onGruppeZeit(c.id, hhmm, day)} />
                       </span>
                     ))}
@@ -973,6 +1106,7 @@ export default function CaptureApp() {
                       <span key={c.id} className="cv-zrow">
                         <span className="cv-zname">{c.label}</span>
                         <TimeField ariaLabel={c.label} value={toTime(v?.ausgerueckt)} disabled={busy} days={zeitDays}
+                          valueDay={v?.ausgerueckt ? new Date(v.ausgerueckt) : undefined}
                           onCommit={(hhmm, day) => onFahrzeugZeit(c.id, hhmm, day)} />
                       </span>
                     ))}
@@ -988,7 +1122,7 @@ export default function CaptureApp() {
           <AccHead open={openSection === 'angaben'} label={C.sectionAngaben} sub={rm?.einsatzleiter ?? '—'} onToggle={() => toggleSection('angaben')} />
           {openSection === 'angaben' && (
             <div className="cv-acc-body">
-              <div className="cv-row">
+              <div className="cv-row" data-step="einsatzleiter">
                 <span>{C.einsatzleiter}</span>
                 <div className="cv-rueck-name">
                   <Combo
@@ -1010,7 +1144,7 @@ export default function CaptureApp() {
                   />
                 </div>
               </div>
-              <div className="cv-row">
+              <div className="cv-row" data-step="kontaktperson">
                 <span>{C.kontaktperson}</span>
                 <DraftField key={`${incident.id}:kontaktperson`} incidentId={incident.id} field="kontaktperson"
                   saved={kontaktperson ?? ''} className="cv-input" placeholder={C.kontaktpersonPlaceholder}
@@ -1040,7 +1174,7 @@ export default function CaptureApp() {
               </div>
               {/* Kurzbericht lives HERE (moved from its own Bericht section 2026-07-18 —
                   one section fewer; Bemerkungen dropped: it only duplicated confusion) */}
-              <div className="cv-row top">
+              <div className="cv-row top" data-step="kurzbericht">
                 <span>{C.kurzberichtHead}</span>
                 <DraftField key={`${incident.id}:summary`} incidentId={incident.id} field="summary"
                   textarea saved={rm?.summary ?? ''} className="cv-input cv-textarea" placeholder={C.kurzberichtPlaceholder}
@@ -1167,15 +1301,20 @@ export default function CaptureApp() {
           the LAST actions of an Einsatz, not something to hunt for inside a section */}
       <section className="cv-card cv-abschluss">
         <div className="cv-matgroup-head">{C.abschlussHead}</div>
-              <div className="cv-row">
+              {/* «Jetzt» on both: the ordinary case is that the Einsatz has just ended and the
+                  ELZ has just been phoned, and hunting the current time down a wheel to record
+                  the moment you are standing in is work the tablet's Rapport does not ask for
+                  either. The wheel stays for everything filled in the morning after. */}
+              <div className="cv-row" data-step="zeiten">
                 <span>{C.ende}</span>
-                <TimeField ariaLabel={C.ende} value={toTime(endedAt)} disabled={busy}
-                  onCommit={(hhmm) => {
-                    const iso = hhmm ? applyTimeToIso(endedAt ?? incident.started_at, hhmm, { nextDayIfBefore: incident.started_at }) : null
+                <TimeField ariaLabel={C.ende} value={toTime(endedAt)} disabled={busy} nowLabel={C.jetzt}
+                  days={zeitDays} valueDay={endedAt ? new Date(endedAt) : undefined}
+                  onCommit={(hhmm, day) => {
+                    const iso = zeitFromClock(incident.started_at, hhmm ?? '', day)
                     if (iso) void run({ kind: 'setMeta', patch: { endedAt: iso } }).then((ok) => { if (ok) savedToast() })
                   }} />
               </div>
-              <div className="cv-row">
+              <div className="cv-row" data-step="rueckmeldung">
                 <span>{C.rueckmeldung}</span>
                 <div className="cv-row-controls">
                   <div className="cv-rueck-name">
@@ -1197,24 +1336,47 @@ export default function CaptureApp() {
                       }}
                     />
                   </div>
-                  <TimeField ariaLabel={C.rueckZeit} value={toTime(rm?.rueckmeldungElz?.at)} disabled={busy}
-                    onCommit={(hhmm) => {
-                      const iso = hhmm ? applyTimeToIso(rm?.rueckmeldungElz?.at ?? incident.started_at, hhmm, { nextDayIfBefore: incident.started_at }) : null
+                  <TimeField ariaLabel={C.rueckZeit} value={toTime(rm?.rueckmeldungElz?.at)} disabled={busy} nowLabel={C.jetzt}
+                    days={zeitDays} valueDay={rm?.rueckmeldungElz?.at ? new Date(rm.rueckmeldungElz.at) : undefined}
+                    onCommit={(hhmm, day) => {
+                      const iso = zeitFromClock(incident.started_at, hhmm ?? '', day)
                       if (iso) void run({ kind: 'setMeta', patch: { rueckmeldungElz: { ...rm?.rueckmeldungElz, at: iso } } }).then((ok) => { if (ok) savedToast() })
                     }} />
                 </div>
               </div>
       </section>
 
+      {/* What is still missing, BEFORE the buttons that make the paper — the same seven
+          Mindestangaben the tablet checks, each one a chip that opens its section and points at
+          the field (jumpToStep). It used to be a comma-separated sentence UNDER the buttons: you
+          read «Noch leer: Einsatzende, Kurzbericht», then hunted for them yourself down a page
+          six sections long, after having already pressed print. */}
+      {shownMissing.length > 0 && (
+        <div className="cv-missing" role="status">
+          <Icon id="warn" />
+          <span className="cv-missing-k">{C.missingHead}</span>
+          {shownMissing.map((s) => (
+            <button key={s} type="button" className="cv-missing-go"
+              title={fillTemplate(C.missingGo, { step: AB.steps[s] })}
+              aria-label={fillTemplate(C.missingGo, { step: AB.steps[s] })}
+              onClick={() => jumpToStep(s)}
+            >{AB.steps[s]}</button>
+          ))}
+          {/* printing is never blocked by this (form model 2026-07-17) — say so, so nobody
+              waits for a complete sheet before taking one to the Magazin */}
+          <span className="cv-missing-note">{C.missingNote}</span>
+        </div>
+      )}
+
       <div className="cv-pdfbar">
         {/* KP active → the buttons step back to quiet secondary styling (never hidden or
             disabled — a phone print must stay possible, it's just no longer the main path) */}
-        <button className={`cv-btn cv-pdf${kpActive ? ' cv-quiet' : ''}`} disabled={busy || pdfBusy} onClick={() => openWho('pdf')}>
+        <button className={`cv-btn cv-pdf${kpActive ? ' cv-quiet' : ''}`} disabled={busy || pdfBusy} onClick={() => setConfirmOut('pdf')}>
           <Icon id="doc" /> {pdfBusy ? R.sending : C.rapportPdf}
         </button>
         {printStatus?.available && (
           <button className={`cv-btn print-send${kpActive ? ' cv-quiet' : ''}${printStatus.online ? '' : ' offline'}`}
-            disabled={busy || printBusy} onClick={() => openWho('print')}
+            disabled={busy || printBusy} onClick={() => setConfirmOut('print')}
             title={printStatus.online ? R.online : R.offline}>
             <span className="print-send-main">
               <Icon id="printer" />
@@ -1224,57 +1386,37 @@ export default function CaptureApp() {
             {!printStatus.online && <span className="print-send-off">{R.offline}</span>}
           </button>
         )}
-        {/* «Was noch leer ist» is the one thing on this row worth reading before printing — it
-            is the difference between a rapport and a rapport with holes in it. As plain grey text
-            beside a filled button it disappeared; it is a marked note now, on its own line so it
-            does not compete with the buttons for the row's width. */}
-        {pdfMissing.length > 0 && (
-          <p className="cv-missing">
-            <Icon id="warn" />
-            <span>{fillTemplate(C.pdfMissing, { fields: pdfMissing.join(', ') })}</span>
-          </p>
-        )}
       </div>
 
-      {/* «Wer erfasst?» + confirm in ONE modal — fronts both outputs, so a stray tap on
-          Ausdrucken can never reach the printer, and the Erfasser lands on the record */}
-      {askWho && (
-        <div className="cv-modal-ovl" onClick={() => setAskWho(null)}>
+      {/* The confirm in front of both outputs, so a stray tap on Ausdrucken can never reach the
+          station printer. It carries the one thing worth reading at this moment: where the real
+          rapport normally comes from — the KP tablet, with the Lageskizze this page cannot draw. */}
+      {confirmOut && (
+        <div className="cv-modal-ovl" onClick={() => setConfirmOut(null)}>
           <div className="cv-card cv-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
-            <h2>{askWho === 'print' ? R.confirmTitle : C.rapportPdf}</h2>
-            {/* the KP-aktiv notice lives HERE, at the print/PDF decision — not in the bar */}
-            {kpActive && (
+            <h2>{confirmOut === 'print' ? R.confirmTitle : C.rapportPdf}</h2>
+            {/* the KP-aktiv notice lives HERE, at the print/PDF decision — not in the bar. With
+                the tablet actually on the incident it is a live fact (green dot); otherwise it is
+                the standing one, that this is the exception and not the usual route to paper. */}
+            {kpActive ? (
               <p className="cv-modal-kp"><span className="cv-kp-dot" aria-hidden /> {C.kpActiveHint}</p>
+            ) : (
+              <p className="cv-hint">{C.kpNormallyHint}</p>
             )}
             {/* an Übung produces a Rapport that looks exactly like a real one on paper — say
                 so at the one moment it can still be stopped, right before it is printed */}
             {incident.is_exercise && (
               <p className="cv-hint cv-modal-warn"><Icon id="warn" /> {C.exerciseHint}</p>
             )}
-            <div className="cv-modal-who">
-              <span>{C.whoTitle}</span>
-              {/* NOT an oversight that this pick marks nobody present, unlike Einsatzleiter and
-                  Rückmeldung: whoever fills the sheet in is often the Fourier at the desk the
-                  next morning, not somebody who was at the Einsatz. Ticking them off here would
-                  invent an Anwesenheit — and the hours behind it. */}
-              <Combo
-                value={whoDraft}
-                options={roster.map((p) => p.display_name)}
-                placeholder={C.selectPerson}
-                clearable={false}
-                onChange={setWhoDraft}
-              />
-            </div>
-            <p className="cv-hint">{C.whoHint}</p>
             {/* the title + Ausdrucken button ARE the confirmation — no filler sentence;
                 only the offline store-and-forward warning earns a line */}
-            {askWho === 'print' && !printStatus?.online && (
+            {confirmOut === 'print' && !printStatus?.online && (
               <p className="cv-hint cv-modal-warn"><Icon id="warn" /> {R.offlineConfirmMsg}</p>
             )}
             <div className="cv-modal-actions">
-              <button className="cv-btn" onClick={() => setAskWho(null)}>{C.cancel}</button>
-              <button className="cv-btn cv-primary" disabled={!whoDraft} onClick={confirmWho}>
-                {askWho === 'print'
+              <button className="cv-btn" onClick={() => setConfirmOut(null)}>{C.cancel}</button>
+              <button className="cv-btn cv-primary" onClick={confirmOutput}>
+                {confirmOut === 'print'
                   ? (printStatus?.online ? R.confirmBtn : R.offlineConfirmBtn)
                   : C.rapportPdf}
               </button>

@@ -30,7 +30,9 @@ export type CaptureAction =
    *  per-incident field the Anwesenheit view writes; presence itself stays untouched */
   | { kind: 'setAttendanceNote'; personId: string; note?: string }
   | { kind: 'setMeta'; patch: Partial<ReportMeta> }
-  | { kind: 'setMittel'; materialId?: string; label: string; unit: string; sourceId?: string; sourceLabel?: string; menge: number; by: string }
+  /** `by` is what the tablet fills with the signed-in name. The poster has none — it stopped
+   *  asking «Wer erfasst?» (2026-08-15) — so its lines carry no author and say «(QR)» instead. */
+  | { kind: 'setMittel'; materialId?: string; label: string; unit: string; sourceId?: string; sourceLabel?: string; menge: number; by?: string }
   /** Rapport-Beilage: a photo that belongs to the report (an Ausweis, a damage close-up). The
    *  bytes are already on the server (captureApi.uploadPhoto) — this only records the row. */
   | { kind: 'addAttachment'; id: string; url: string; caption?: string }
@@ -114,7 +116,7 @@ export function captureJournalRow(
       }))
     case 'setMittel':
       return row('box', fillTemplate(C.logMittel, {
-        label: action.label, menge: String(action.menge), unit: action.unit, by: action.by,
+        label: action.label, menge: String(action.menge), unit: action.unit,
       }))
     case 'addAttachment':
       return row('photo', C.logAttachmentAdd)

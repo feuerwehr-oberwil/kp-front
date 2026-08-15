@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { ReportMeta } from '../lib/workspace'
 
 // Only `reportLinks` is stubbed — everything else on the config module (and the rest of the
@@ -22,6 +22,18 @@ vi.mock('./KrokiFramingPanel', () => ({ KrokiFramingPanel: () => null }))
 
 import { ReportPreflight } from './ReportPreflight'
 import { Overlays } from '../lib/ui'
+
+// The Rapport asks whether it is on a phone (useIsPhone → matchMedia) to decide whether the
+// Kroki map may be mounted; jsdom implements no matchMedia. Pinned to «not a phone», which is
+// the surface these tests are about.
+beforeAll(() => {
+  window.matchMedia = ((q: string) => ({
+    matches: false, media: q, onchange: null,
+    addEventListener: () => {}, removeEventListener: () => {},
+    addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
+  })) as unknown as typeof window.matchMedia
+})
+
 
 afterEach(cleanup)
 

@@ -22,9 +22,21 @@ export function parseHHMM(raw: string): string | null {
   return `${pad2(h)}:${pad2(min)}`
 }
 
-export function TimeField({ value, onCommit, disabled, ariaLabel, nowLabel, className, shortcut, clearLabel, clearActive, days, placeholder, token }: {
+export function TimeField({ value, valueDay, onCommit, disabled, ariaLabel, nowLabel, className, shortcut, clearLabel, clearActive, days, placeholder, token }: {
   /** current value as 'HH:MM' ('' = unset) */
   value: string
+  /**
+   * The calendar day `value` actually sits on — what the day wheel opens on.
+   *
+   * ⚠️ Only matters together with `days`, and then it matters a great deal: the picker used to
+   * seed itself from `new Date()` and copy only the clock off `value`, so the day wheel opened
+   * on TODAY whatever day the stamp was on. Because the popover hands a day back on every
+   * commit once the incident spans more than one (see onCommit below), correcting 22:15 → 22:10
+   * on Wednesday morning moved a Monday-night arrival to Wednesday — a silent two-day jump on a
+   * field nobody re-reads. Omit it and nothing changes: the picker still opens on today, which
+   * is right for an empty field.
+   */
+  valueDay?: Date
   /** 'HH:MM' from wheels/typing/«Jetzt»; null when cleared. `day` comes back only when the picker
    *  offered a day wheel and the operator moved it — the caller then knows the calendar day for
    *  certain and does not have to infer it from the old stamp. */
@@ -57,13 +69,17 @@ export function TimeField({ value, onCommit, disabled, ariaLabel, nowLabel, clas
 
   const initial = (() => {
     const m = /^(\d{2}):(\d{2})$/.exec(value)
-    const d = new Date()
+    const d = valueDay && Number.isFinite(valueDay.getTime()) ? new Date(valueDay) : new Date()
     if (m) d.setHours(Number(m[1]), Number(m[2]), 0, 0)
     return d
   })()
   const stampNow = () => {
     const d = new Date()
-    onCommit(`${pad2(d.getHours())}:${pad2(d.getMinutes())}`)
+    // …carrying the DAY wherever a day wheel is on offer. Without it the caller has to infer the
+    // day from a neighbouring stamp, and every such rule can only reach one day either side: on
+    // an Einsatz that has been running since Monday, «Jetzt» pressed on Wednesday was filed on
+    // Tuesday. Callers that pass no `days` are untouched — the day stays undefined for them.
+    onCommit(`${pad2(d.getHours())}:${pad2(d.getMinutes())}`, days && days.length > 1 ? d : undefined)
   }
 
   return (

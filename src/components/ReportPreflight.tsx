@@ -30,6 +30,8 @@ import type { AttendanceState, BoardDoc, BuildingDoc, CaptionMode, Drawing, Enti
 import { visibleMittel } from '../lib/mittel'
 import { ClearableInput } from './ClearableInput'
 import { PersonField } from './PersonField'
+import { Segmented } from './Segmented'
+import { useIsPhone } from '../lib/useIsPhone'
 import { journalVocabulary } from '../lib/journalLinks'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import { DateTimeField, TimeField } from './TimeField'
@@ -49,17 +51,19 @@ function clockOf(iso?: string): string {
   return hhmm(d)
 }
 
-function CheckRow({ done, label, sub, onGo, anchor, children }: {
+function CheckRow({ done, label, sub, onGo, anchor, tab, children }: {
   done: boolean
   label: string
   sub: string
   onGo?: () => void
   /** the Abschluss step this row answers — the «noch offen» chips scroll to it (see jumpToStep) */
   anchor?: string
+  /** which phone tab this row belongs to — inert above 600px (see PhoneTab) */
+  tab?: PhoneTab
   children?: ReactNode
 }) {
   return (
-    <div className="rp-check" data-step={anchor}>
+    <div className="rp-check" data-step={anchor} data-tab={tab}>
       <button type="button" className="rp-check-main" onClick={onGo} disabled={!onGo}>
         <span className={`rp-check-dot${done ? ' done' : ''}`}>
           <Icon id={done ? 'check' : 'minus'} />
@@ -74,13 +78,41 @@ function CheckRow({ done, label, sub, onGo, anchor, children }: {
 }
 
 
+/**
+ * PHONE ONLY (≤600px, the width at which the rail becomes a bottom bar and every other surface
+ * switches too). Stacked, this page is four form sections, a five-part round-up and the Kroki —
+ * about five phone screens, and the Anwesenheits-Liste read out at the Appell sits at the far
+ * end of them. Three tabs put each of those within one screen.
+ *
+ * ⚠️ It decides what is SHOWN, never the order: the DOM stays in the printed rapport's order
+ * (report_pdf.py / admin/capturePdf.ts), and from 601px up the bar is `display: none` and every
+ * section is on screen exactly as it is today — the two-column layout at 1080 is untouched.
+ */
+type PhoneTab = 'bericht' | 'werwas' | 'beilagen'
+const PHONE_TABS: PhoneTab[] = ['bericht', 'werwas', 'beilagen']
+/** Which tab a still-open Mindestangabe lives in — the head's «noch offen» chips switch to it
+ *  before they scroll, and the tab itself carries a dot while one of its steps is open. */
+const STEP_TAB: Record<AbschlussStep, PhoneTab> = {
+  zeiten: 'bericht',
+  einsatzleiter: 'bericht',
+  kontaktperson: 'bericht',
+  kurzbericht: 'bericht',
+  rueckmeldung: 'bericht',
+  anwesenheit: 'werwas',
+  mittel: 'werwas',
+}
+
 // The preflight UNMOUNTS while the operator hops to Anwesenheit / Mittel / Verlauf («Zurück
 // zum Einsatzrapport» remounts it) — remember the body's scroll position per incident so the
 // return lands where they left off, not back at the top. A deliberate close (X / overlay /
 // Abbrechen / Abschliessen) resets it, so a later fresh open starts at the top again.
+// ⚠️ The phone TAB rides in the same box and for the same reason: the Appell is «Rapport →
+// Wer & Was → hop to Anwesenheit to correct → back», and a return that landed on «Bericht»
+// would cost a tap on every single round trip. A genuinely fresh open — another Einsatz, or
+// after Abschliessen — still starts on «Bericht».
 // (a mutated `.current` box, not a reassigned binding — the react-compiler lint forbids
 // reassigning module variables inside the component)
-const savedScroll: { current: { incidentId: string; top: number } | null } = { current: null }
+const savedScroll: { current: { incidentId: string; top: number; tab: PhoneTab } | null } = { current: null }
 
 // «Später» on the Abschluss-Band, per incident. Same kind of box as savedScroll and for the same
 // reason — the surface unmounts on every hop to Anwesenheit/Mittel/Verlauf, and a dismissal that
@@ -744,6 +776,24 @@ export function ReportPreflight({
     + (unresolvedNames.length > 0 ? 1 : 0)
   const [controlOpen, setControlOpen] = useState(false)
 
+  // ⚠️ Used ONLY to decide whether the Kroki panel is mounted (see the section itself) — the
+  // tabs themselves are pure CSS, because a layout that depends on a JS breakpoint and one that
+  // depends on a media query drift apart on exactly the widths nobody tests.
+  const isPhone = useIsPhone()
+  // The phone's three tabs (see PhoneTab). Seeded from the box that also carries the scroll
+  // position, so a hop to Anwesenheit and back returns to the tab it left from; a fresh Einsatz
+  // opens on «Bericht», which is the first section of the printed rapport.
+  const [phoneTab, setPhoneTab] = useState<PhoneTab>(
+    () => (savedScroll.current?.incidentId === incident.id ? savedScroll.current.tab : 'bericht'),
+  )
+  /** Picked by hand — each tab starts at ITS top, never at the scroll offset of the one before
+   *  (which is a different page of different length). The «noch offen» chips do NOT go through
+   *  here: they scroll to their own field instead. */
+  const pickTab = (t: PhoneTab) => {
+    setPhoneTab(t)
+    if (bodyRef.current) bodyRef.current.scrollTop = 0
+  }
+
   // The head's one line, in the voice the other surfaces use («12 anwesend · 3 gegangen · 28
   // Mannschaft»): what is recorded, then the verdict. «Alle Angaben erfasst» is a claim, so it is
   // made only when the same Mindestangaben the Abschluss-Confirm checks are all in — and when
@@ -802,6 +852,13 @@ export function ReportPreflight({
    * they can all carry without being restructured around it.
    */
   const jumpToStep = (step: AbschlussStep) => {
+    // On a phone the field may be in a tab that is not on screen, and a hidden element measures
+    // as nothing — so switch first and measure a frame later. Above 600px no tab is ever hidden
+    // and this is the same jump it always was, one frame later.
+    setPhoneTab(STEP_TAB[step])
+    requestAnimationFrame(() => requestAnimationFrame(() => flashStep(step)))
+  }
+  const flashStep = (step: AbschlussStep) => {
     const body = bodyRef.current
     const el = body?.querySelector<HTMLElement>(`[data-step="${step}"]`)
     if (!body || !el) return
@@ -825,10 +882,16 @@ export function ReportPreflight({
   }
 
   const bodyRef = useRef<HTMLDivElement>(null)
+  // …and the tab rides with it (see savedScroll). Read through a ref in the cleanup because the
+  // effect below is mount-only and would otherwise capture the tab this surface OPENED on.
+  const phoneTabRef = useRef(phoneTab)
+  useEffect(() => { phoneTabRef.current = phoneTab })
   useLayoutEffect(() => {
     const el = bodyRef.current
     if (el && savedScroll.current?.incidentId === incident.id) el.scrollTop = savedScroll.current.top
-    return () => { if (el) savedScroll.current = { incidentId: incident.id, top: el.scrollTop } }
+    return () => {
+      if (el) savedScroll.current = { incidentId: incident.id, top: el.scrollTop, tab: phoneTabRef.current }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -1052,7 +1115,27 @@ export function ReportPreflight({
             </button>
           </div>
         )}
-        <div className="ip-body report-preflight-body" ref={bodyRef}>
+        {/* PHONE ONLY — `display: none` from 601px up, so tablet and desktop are byte-identical
+            to what they were. Outside the scrolling body on purpose: it is a flex item of the
+            surface, like the head, so it cannot scroll away from under the thumb. The dot marks
+            a tab holding a Mindestangabe that is still open — the same amber the head's chips
+            use, so «noch offen» means one thing on this page. */}
+        <div className="rp-tabs">
+          <Segmented<PhoneTab>
+            ariaLabel={P.tabsLabel}
+            value={phoneTab}
+            onChange={pickTab}
+            options={PHONE_TABS.map((t) => {
+              const open = missing.some((s) => STEP_TAB[s] === t)
+              return {
+                value: t,
+                title: open ? `${P.tabs[t]} – ${P.headStillOpen}` : P.tabs[t],
+                label: <>{P.tabs[t]}{open && <span className="rp-tab-dot" aria-hidden />}</>,
+              }
+            })}
+          />
+        </div>
+        <div className="ip-body report-preflight-body" data-phone-tab={phoneTab} ref={bodyRef}>
           {/* TWO columns on a wide screen (one below 1080px, see app.css), because the rapport is
               worked in two different ways and they interleave: the FORM is typed straight through
               — dispatch readout, Zusammenfassung, the Zeiten, Bemerkungen — while the ROUND-UP
@@ -1070,7 +1153,7 @@ export function ReportPreflight({
               recorded value here and change none of it. `persist` refuses too, so a stray
               handler can't slip past the markup. */}
           <fieldset className="report-fieldset" disabled={!canEdit}>
-          <section className="report-pre-section report-pre-meta">
+          <section className="report-pre-section report-pre-meta" data-tab="bericht">
             {/* No <h3> here: the dispatch block carries its own «Aus den Einsatzdaten» heading and
                 the edit link that belongs to it, so a section title above it was the same words
                 twice. The other three sections have one because they have nothing else to say
@@ -1135,7 +1218,7 @@ export function ReportPreflight({
               screen and a half long in which nothing could be found by looking. It is four
               sections now, each named after the question it answers, in exactly the order they
               were already in (that order is the printed rapport's). */}
-          <section className="report-pre-section report-pre-meta">
+          <section className="report-pre-section report-pre-meta" data-tab="bericht">
             <h3>{P.sectionBericht}</h3>
             {/* after-arrival — editable inline (replaces the old Bearbeiten modal) */}
             <label className="ip-field" data-step="kurzbericht">
@@ -1204,7 +1287,7 @@ export function ReportPreflight({
             </div>
           </section>
 
-          <section className="report-pre-section report-pre-meta">
+          <section className="report-pre-section report-pre-meta" data-tab="bericht">
             <h3>{P.sectionZeiten}</h3>
             {/* Ausgerückt: derived from the vehicle grid when it exists; the manual field
                 only appears on deployments WITHOUT configured vehicles (nothing else to
@@ -1303,7 +1386,7 @@ export function ReportPreflight({
                 the Einsatz.) */}
           </section>
 
-          <section className="report-pre-section report-pre-meta">
+          <section className="report-pre-section report-pre-meta" data-tab="bericht">
             <h3>{P.sectionNachbearbeitung}</h3>
             <label className="ip-field">
               <span>{P.remarksLabel}</span>
@@ -1391,9 +1474,13 @@ export function ReportPreflight({
               They still belong together and still read in this order (it is the printed one):
               all four answer «wer und was war da», and all four are filled in after the fact. */}
           <div className="rp-checks">
+            {/* Rides with «Wer & Was» on a phone — it reports on what the poster wrote, which is
+                Anwesenheit and Mittel. Hidden by CSS rather than by a wrapper element: the chip
+                renders nothing until the first QR write, and an empty wrapper would still cost
+                this flex column one gap on every Einsatz that never used the poster. */}
             <CaptureUsageChip usage={captureUsage} />
             <CheckRow
-              anchor="anwesenheit"
+              anchor="anwesenheit" tab="werwas"
               done={stepDone('anwesenheit', facts)}
               label={A.steps.anwesenheit}
               sub={fillTemplate(A.personen, { n: attendanceCount })}
@@ -1423,7 +1510,7 @@ export function ReportPreflight({
                 </div>
               )}
             </CheckRow>
-            <CheckRow anchor="mittel" done={stepDone('mittel', facts)} label={A.steps.mittel} sub={fillTemplate(A.mittelCount, { n: mittelCount })} onGo={onOpenMittel}>
+            <CheckRow anchor="mittel" tab="werwas" done={stepDone('mittel', facts)} label={A.steps.mittel} sub={fillTemplate(A.mittelCount, { n: mittelCount })} onGo={onOpenMittel}>
               {mittelCount > 0 && (
                 <div className="rp-check-extra">
                   <div className="rp-people">
@@ -1459,6 +1546,7 @@ export function ReportPreflight({
                 the one that turns up is not always on it), and one free line beside it carries
                 whatever is worth saying: «Wm. Keller, übernimmt Verkehr ab Kreisel». */}
             <CheckRow
+              tab="werwas"
               /* ⚠️ the FILLED rows, not `partners.length` — the block always carries two blank
                  free rows, and counting those ticked the step off before anything was recorded */
               done={partners.some(partnerFilled)}
@@ -1545,6 +1633,7 @@ export function ReportPreflight({
                 what else belongs to this rapport. Tapping a thumbnail opens the picture full-size
                 (lib/ui · openPhoto), because a 52px square is not something you can check. */}
             <CheckRow
+              tab="beilagen"
               done={attachments.length > 0}
               label={P.attachmentsHead}
               sub={attachments.length ? fillTemplate(P.attachmentsCount, { n: attachments.length }) : P.attachmentsNone}
@@ -1607,6 +1696,7 @@ export function ReportPreflight({
                 none the whole card is absent rather than empty. */}
             {stationLinks.length > 0 && (
               <CheckRow
+                tab="beilagen"
                 done={linksDoneCount === stationLinks.length}
                 label={P.linksHead}
                 sub={fillTemplate(P.linksCount, { done: linksDoneCount, n: stationLinks.length })}
@@ -1659,8 +1749,16 @@ export function ReportPreflight({
           {/* No fold. The panel is the only thing on this page that shows what the picture will
               be, and a section that is open every time it is looked at is a section with a
               chevron in front of it for nothing. */}
-          {krokiPanel && (
-            <section className="report-pre-section rp-kroki">
+          {/* ⚠️ On a phone it is MOUNTED only while its own tab is on screen — hiding it with CSS
+              is not enough for this one. A MapLibre canvas created inside a `display: none` box
+              is created at 0×0: the mount-time `fitBounds` runs against nothing, and when the tab
+              is finally opened the map resizes without re-fitting (it is still «following», so
+              nothing changed its deps) and reports that over-zoomed crop back as the Einsatz'
+              framing. This panel decides what the printed Kroki shows, so a crop nobody chose is
+              not a cosmetic bug. Above 600px `isPhone` is false and this is the same always-on
+              panel it was. */}
+          {krokiPanel && (!isPhone || phoneTab === 'beilagen') && (
+            <section className="report-pre-section rp-kroki" data-tab="beilagen">
               <h3>{P.krokiHead}</h3>
               <KrokiFramingPanel
                   scene={effScene}

@@ -1,10 +1,22 @@
 // @vitest-environment jsdom
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('./KrokiFramingPanel', () => ({ KrokiFramingPanel: () => null }))
 
 import { ReportPreflight } from './ReportPreflight'
+
+// The Rapport asks whether it is on a phone (useIsPhone → matchMedia) to decide whether the
+// Kroki map may be mounted; jsdom implements no matchMedia. Pinned to «not a phone», which is
+// the surface these tests are about.
+beforeAll(() => {
+  window.matchMedia = ((q: string) => ({
+    matches: false, media: q, onchange: null,
+    addEventListener: () => {}, removeEventListener: () => {},
+    addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
+  })) as unknown as typeof window.matchMedia
+})
+
 
 afterEach(() => { cleanup(); vi.useRealTimers() })
 

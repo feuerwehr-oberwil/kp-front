@@ -281,13 +281,14 @@ describe('captureJournalRow — the poster writes to the Verlauf too', () => {
     expect(captureJournalRow({ kind: 'setMeta', patch: { erfasser: 'Meier' } }, NOW)).toBeNull()
   })
 
-  it('carries the material, the amount and who booked it', () => {
+  it('carries the material and the amount', () => {
     const row = captureJournalRow(
-      { kind: 'setMittel', label: 'Ölbindemittel', unit: 'Sack', menge: 3, by: 'Meier' }, NOW,
+      { kind: 'setMittel', label: 'Ölbindemittel', unit: 'Sack', menge: 3 }, NOW,
     )
     expect(row?.text).toContain('Ölbindemittel')
     expect(row?.text).toContain('3')
-    expect(row?.text).toContain('Meier')
+    // …and no author: the poster has none to name (see CaptureAction · setMittel)
+    expect(row?.text).toContain('(QR)')
   })
 
   it('gives same-millisecond rows distinct ids', () => {
