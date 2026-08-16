@@ -8,7 +8,7 @@ import { cx } from '../lib/cx'
 import { EmptyState } from './EmptyState'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
-import { useIsPhone } from '../lib/useIsPhone'
+import { useIsPhone, useMediaQuery } from '../lib/useIsPhone'
 import s from './Checklists.module.css'
 
 const EMPTY_STATE: TemplateState = { ticks: {}, activeBranch: {} }
@@ -58,11 +58,18 @@ export function ChecklistsView({
     else if (entries[0]) setSel({ kind: 'entry', id: entries[0].id })
   }, [sel, ready, actionTemplates, entries])
 
-  // phone: the picker rail collapses to a single toggle row once something is picked, so the
-  // checklist/playbook text gets the full screen height; tapping the row reopens the list
+  // The picker rail collapses to a single toggle row once something is picked, so the
+  // checklist/playbook text gets the full height; tapping the row reopens the list.
+  //
+  // ⚠️ 760px, not `useIsPhone` (600px). The rail is a FIXED 248px, so between 601 and ~730 it kept
+  // its full width while the runner column shrank to ~276px — measured at 640px (iPad Split View,
+  // half) six of eight task texts overflowed their box and painted over the Plan/Journal chip.
+  // Phones were never the problem; the band just above them was, and the collapse mechanism that
+  // fixes it already existed and simply stopped 160px short.
+  const railNarrow = useMediaQuery('(max-width: 760px)')
   const isPhone = useIsPhone()
   const [railOpen, setRailOpen] = useState(true)
-  const pick = (v: { kind: 'tpl' | 'entry'; id: string }) => { setSel(v); if (isPhone) setRailOpen(false) }
+  const pick = (v: { kind: 'tpl' | 'entry'; id: string }) => { setSel(v); if (railNarrow) setRailOpen(false) }
 
   const [query, setQuery] = useState('')
   const results = useMemo(() => searchEntries(entries, query), [entries, query])
@@ -90,14 +97,14 @@ export function ChecklistsView({
 
   return (
     <div className={s['cl-surface']}>
-      {isPhone && !railOpen ? (
+      {railNarrow && !railOpen ? (
         <button className={s['cl-rail-toggle']} onClick={() => setRailOpen(true)} aria-expanded={false} aria-label={CL.showList}>
           <Icon id="search" />
           <span>{selTitle}</span>
           <Icon id="chevron-down" />
         </button>
       ) : (
-      <nav className={cx(s['cl-rail'], isPhone && railOpen && s['cl-rail-full'])} aria-label={CL.railLabel}>
+      <nav className={cx(s['cl-rail'], railNarrow && railOpen && s['cl-rail-full'])} aria-label={CL.railLabel}>
         <div className={cx(s['cl-search'], s['cl-rail-search'])}>
           <Icon id="search" />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={CL.searchPlaceholder} aria-label={CL.searchAria} />
@@ -155,7 +162,7 @@ export function ChecklistsView({
 
       {/* #4: on a phone, while the list is open show ONLY the list (no small preview underneath).
           Opening an item collapses the list to the toggle row and gives the checklist the screen. */}
-      {!(isPhone && railOpen) && (
+      {!(railNarrow && railOpen) && (
         <main className={s['cl-main']}>
           {activeTemplate ? (
             <ChecklistRunner

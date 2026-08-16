@@ -195,11 +195,16 @@
 .cl-rail-toggle { display: none; }
 
 /* phone: rail becomes a scrollable block above a single-column main pane */
-@media (max-width: 600px) {
-  /* full width below the top bar (78px clears the floating bar with a visible gap — at 64px
-     the header sat glued under it); the bottom inset clears the NavRail bottom bar */
-  .cl-surface { inset: calc(78px + env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
-    calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); flex-direction: column; gap: 0; }
+/* ---- narrow: the picker rail becomes a row, not a column -------------------------------------
+   ⚠️ 760px, NOT the 600px phone breakpoint. `.cl-rail` is a fixed 248px, so from 601px up it kept
+   its full width while the runner column collapsed around it — at 640px (iPad Split View, half)
+   that left the runner ~276px and six of eight task texts overflowed their box and painted over
+   the Plan/Journal chip. The mechanism below already fixed it; it just stopped 160px short.
+   Only the rail behaviour lives here. The phone block further down keeps what is genuinely about
+   a phone — the surface insets, which are sized for the bottom NavRail bar that does not exist at
+   these widths. Gated in React by the same threshold (ChecklistsView · railNarrow). */
+@media (max-width: 760px) {
+  .cl-surface { flex-direction: column; gap: 0; }
   /* the picker rail collapses to the .cl-rail-toggle row after a pick (ChecklistsView), so
      while open it may take real height — picking is the only job of that moment */
   .cl-rail { flex: none; max-height: 44vh; width: auto; border-right: none;
@@ -223,6 +228,13 @@
   .cl-rail-label { padding: 2px 6px 2px; }
   .cl-rail-item { padding: 8px 10px; }
   .cl-rail-entry { padding: 6px 10px; }
+}
+
+@media (max-width: 600px) {
+  /* full width below the top bar (78px clears the floating bar with a visible gap — at 64px
+     the header sat glued under it); the bottom inset clears the NavRail bottom bar */
+  .cl-surface { inset: calc(78px + env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
+    calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); flex-direction: column; gap: 0; }
   /* lift the main pane clear of the Eintrag FAB (bottom-right, z55) + tighten padding */
   .cl-main { padding: 14px 14px; padding-bottom: calc(14px + var(--fab-safe, 0px)); }
   /* shrink the runner head so the actual phase list leads sooner */
