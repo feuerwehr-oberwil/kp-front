@@ -309,7 +309,8 @@ export const en: Localizable<Copy> = {
           { kind: 'note', text: '**«Missing» means two different things.** A person missing from the Mannschaft sheet is **deactivated**, never deleted – closed incidents resolve their name through that row. An id missing from any of the other lists is **removed**. The preview uses those two words and names the rows rather than counting them.' },
           { kind: 'sub', text: 'When something goes wrong anyway' },
           { kind: 'list', items: [
-            'Every change to the station data keeps the previous state: **Sicherung › Letzte Änderungen** lists them with a timestamp and puts one back – whether a form, the workbook or a terminal wrote it.',
+            'Every change to the **lists** keeps the previous state: **Sicherung › Letzte Änderungen** lists them with a timestamp and puts one back – whether a form, the workbook or a terminal wrote it.',
+            '**The crew is not in there.** People are their own records, not configuration – an import that touches only the Mannschaft sheet does not appear under «Letzte Änderungen» at all. In exchange nobody is ever deleted there, only deactivated: undoing it means re-activating. To put the whole list back, use the file you downloaded before the import.',
             'The workbook is **not a backup**: it covers the lists only. The backup is the JSON export under **Sicherung**.',
           ] },
         ],
@@ -2539,7 +2540,7 @@ export const en: Localizable<Copy> = {
       errorsTitle: 'Refused rows',
       errorsLead: 'While one row is refused nothing is applied \u2013 not even the good rows. The sheet and the row number are named so the spot is findable in your own file.',
       confirm: 'Apply now',
-      confirmHint: 'Cancelling writes nothing. After applying, the previous state is under \u00abBackup\u00bb \u203a \u00abRecent changes\u00bb.',
+      confirmHint: 'Cancelling writes nothing. After applying, the previous state of the LISTS is under \u00abBackup\u00bb \u203a \u00abRecent changes\u00bb \u2013 the crew is not in there. Undo that with the file you downloaded before the import; nobody is deleted anyway, anyone missing is only deactivated.',
       blockedHint: 'Please correct the refused rows in the file and check it again.',
       importFailed: 'The workbook was not applied.',
       doneTitle: 'Applied',

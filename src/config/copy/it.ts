@@ -308,7 +308,8 @@ export const it: Localizable<Copy> = {
           { kind: 'note', text: '**«Manca» significa due cose.** Una persona che manca nel foglio Mannschaft viene **disattivata**, mai cancellata – gli interventi chiusi risolvono il suo nome tramite quella riga. Un identificativo che manca in uno degli altri elenchi viene **rimosso**. L’anteprima usa queste due parole e nomina le righe invece di contarle.' },
           { kind: 'sub', text: 'Se qualcosa va storto lo stesso' },
           { kind: 'list', items: [
-            'Ogni modifica ai dati della stazione conserva lo stato precedente: **Sicherung › Letzte Änderungen** li elenca con l’orario e ne ripristina uno – che abbia scritto un modulo, la cartella di lavoro o un terminale.',
+            'Ogni modifica agli **elenchi** conserva lo stato precedente: **Sicherung › Letzte Änderungen** li elenca con l’orario e ne ripristina uno – che abbia scritto un modulo, la cartella di lavoro o un terminale.',
+            '**Il personale non è lì dentro.** Le persone sono record propri, non configurazione – un import che tocca solo il foglio Mannschaft non compare affatto sotto «Letzte Änderungen». In compenso lì non viene mai cancellato nessuno, solo disattivato: annullare significa riattivare. Per ripristinare l’intero elenco si usa il file scaricato prima dell’import.',
             'La cartella di lavoro **non è un backup**: copre solo gli elenchi. Il backup è l’export JSON sotto **Sicherung**.',
           ] },
         ],
@@ -2358,7 +2359,7 @@ export const it: Localizable<Copy> = {
       errorsTitle: 'Righe rifiutate',
       errorsLead: 'Finch\u00e9 una riga \u00e8 rifiutata non viene applicato nulla \u2013 nemmeno le righe corrette. Foglio e numero di riga sono indicati per ritrovare il punto nel proprio file.',
       confirm: 'Applica ora',
-      confirmHint: 'Annullare non scrive nulla. Dopo l\u2019applicazione lo stato precedente si trova sotto \u00abBackup\u00bb \u203a \u00abUltime modifiche\u00bb.',
+      confirmHint: 'Annullare non scrive nulla. Dopo l\u2019applicazione lo stato precedente degli ELENCHI si trova sotto \u00abBackup\u00bb \u203a \u00abUltime modifiche\u00bb \u2013 il personale non c\u2019\u00e8. Si annulla con il file scaricato prima dell\u2019import; nessuno viene comunque cancellato, chi manca viene solo disattivato.',
       blockedHint: 'Correggere le righe rifiutate nel file e verificare di nuovo.',
       importFailed: 'La cartella di lavoro non \u00e8 stata applicata.',
       doneTitle: 'Applicata',

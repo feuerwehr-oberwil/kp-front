@@ -1413,8 +1413,18 @@ export, edit the JSON, import; or `admin_config`). The row and the reason are na
 preview, which is where you find out which one it is. (Ids the config *already* holds are
 deliberately exempt from the format rule, so an old non-slug `Kennung` is never the cause.)
 
-Every write that *does* change something **keeps the document it replaced**, filed under source
-`workbook`, so «Letzte Änderungen» undoes an import the same way it undoes a form edit (§9b).
+Every write that *does* change a **config section** keeps the document it replaced, filed under
+source `workbook`, so «Letzte Änderungen» undoes that half the same way it undoes a form edit (§9b).
+
+⚠️ **The Mannschaft is not in that safety net.** Personnel are rows in their own table, and
+`keep_previous` runs only when a config section actually changed — so an import that touches *only*
+the `Mannschaft` sheet writes **no history row at all**, and «Letzte Änderungen» will not show it.
+Two things limit what that costs: a person missing from the sheet is **deactivated, not deleted**
+(past incidents, notes and media still reference them), so undoing it is a re-activation rather than
+a recovery; and the workbook is its own undo — the export you take before an import is the file that
+puts the roster back. The one genuinely irreversible edit is a **rename** of a person carrying a
+provider identity, which drops the stored first/last split; the preview warns when that would
+happen.
 
 #### What it does not cover, and what it will not touch
 

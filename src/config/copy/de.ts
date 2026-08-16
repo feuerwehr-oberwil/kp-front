@@ -341,7 +341,8 @@ export const de = {
           { kind: 'note', text: '**«Fehlt» heisst zweierlei.** Eine Person, die im Blatt Mannschaft fehlt, wird **deaktiviert** und nie gelöscht – abgeschlossene Einsätze lösen ihren Namen über diese Zeile auf. Eine Kennung, die in einer der anderen Listen fehlt, wird **entfernt**. Die Vorschau benennt beides mit genau diesen Wörtern und zählt es nicht nur.' },
           { kind: 'sub', text: 'Wenn doch etwas schiefgeht' },
           { kind: 'list', items: [
-            'Jede Änderung an den Stationsdaten hebt den Stand von vorher auf: **Sicherung › Letzte Änderungen** zeigt sie mit Zeitpunkt und holt einen davon zurück – egal ob ein Formular, die Arbeitsmappe oder das Terminal geschrieben hat.',
+            'Jede Änderung an den **Listen** hebt den Stand von vorher auf: **Sicherung › Letzte Änderungen** zeigt sie mit Zeitpunkt und holt einen davon zurück – egal ob ein Formular, die Arbeitsmappe oder das Terminal geschrieben hat.',
+            '**Die Mannschaft steht dort nicht drin.** Personen sind keine Konfiguration, sondern eigene Einträge – ein Import, der nur das Blatt Mannschaft anfasst, taucht unter «Letzte Änderungen» gar nicht auf. Dafür wird dort auch nie jemand gelöscht, nur deaktiviert: rückgängig heisst wieder aktivieren. Wer die Liste als Ganzes zurückholen will, nimmt die Datei, die er vor dem Import heruntergeladen hat.',
             'Die Arbeitsmappe ist **keine Sicherung**: sie deckt nur die Listen ab. Die Sicherung ist der JSON-Export unter **Sicherung**.',
           ] },
         ],
@@ -3501,7 +3502,7 @@ export const de = {
       errorsTitle: 'Abgelehnte Zeilen',
       errorsLead: 'Solange eine Zeile abgelehnt ist, wird nichts übernommen – auch die guten Zeilen nicht. Blatt und Zeilennummer stehen dabei, damit die Stelle in der eigenen Datei zu finden ist.',
       confirm: 'Jetzt übernehmen',
-      confirmHint: 'Abbrechen schreibt nichts. Nach dem Übernehmen steht der vorherige Stand unter «Sicherung» › «Letzte Änderungen».',
+      confirmHint: 'Abbrechen schreibt nichts. Nach dem Übernehmen steht der vorherige Stand der Listen unter «Sicherung» › «Letzte Änderungen» – die Mannschaft steht dort nicht drin. Rückgängig gemacht wird sie über die Datei, die du vor dem Import heruntergeladen hast; gelöscht wird ohnehin niemand, wer fehlt wird nur deaktiviert.',
       blockedHint: 'Bitte die abgelehnten Zeilen in der Datei korrigieren und erneut prüfen.',
       importFailed: 'Die Arbeitsmappe wurde nicht übernommen.',
       doneTitle: 'Übernommen',

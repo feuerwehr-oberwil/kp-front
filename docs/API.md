@@ -129,8 +129,16 @@ nothing.
 verified against the uploaded file and a mismatch is **409** – the file was edited between
 preview and confirm. It is deliberately **optional**, so a script may import without previewing;
 the confirm handshake is an operator guarantee, not an enforced protocol. `import` is
-all-or-nothing (`ok: false` → **400**, nothing written), and every write keeps the document it
-replaced under source `workbook`, so «Letzte Änderungen» can undo it.
+all-or-nothing (`ok: false` → **400**, nothing written), and every write that changes the
+**config** keeps the document it replaced under source `workbook`, so «Letzte Änderungen» can undo
+that half.
+
+⚠️ **The Mannschaft half is not covered by config history.** Personnel live in their own table;
+`keep_previous` runs only when a config section actually changed, so a Mannschaft-only import
+writes no history row at all. What limits the damage instead: a person missing from the sheet is
+**deactivated, never deleted** (past incidents still reference them), so the reverse is a
+re-activation rather than a recovery. The undo for the roster is the export taken **before** the
+import.
 
 Refusals: a filename not ending `.xlsx` → **400**, an empty file → **400**, over
 `MAX_UPLOAD_MB` → **413**. Refused rows come back in `errors[]` as

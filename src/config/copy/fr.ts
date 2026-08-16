@@ -308,7 +308,8 @@ export const fr: Localizable<Copy> = {
           { kind: 'note', text: '**«Absent» veut dire deux choses.** Une personne absente de la feuille Mannschaft est **désactivée**, jamais supprimée – les interventions clôturées résolvent son nom par cette ligne. Un identifiant absent d’une des autres listes est **supprimé**. La prévisualisation emploie ces deux mots et nomme les lignes au lieu de les compter.' },
           { kind: 'sub', text: 'Si malgré tout ça tourne mal' },
           { kind: 'list', items: [
-            'Chaque modification des données de la station conserve l’état précédent : **Sicherung › Letzte Änderungen** les liste avec l’heure et en restaure un – que l’auteur soit un formulaire, le classeur ou un terminal.',
+            'Chaque modification des **listes** conserve l’état précédent : **Sicherung › Letzte Änderungen** les liste avec l’heure et en restaure un – que l’auteur soit un formulaire, le classeur ou un terminal.',
+            '**Le personnel n’y figure pas.** Les personnes sont des enregistrements propres, pas de la configuration – un import qui ne touche que la feuille Mannschaft n’apparaît pas du tout sous «Letzte Änderungen». En contrepartie personne n’y est jamais supprimé, seulement désactivé : annuler revient à réactiver. Pour restaurer la liste entière, reprenez le fichier téléchargé avant l’import.',
             'Le classeur n’est **pas une sauvegarde** : il ne couvre que les listes. La sauvegarde est l’export JSON sous **Sicherung**.',
           ] },
         ],
@@ -2358,7 +2359,7 @@ export const fr: Localizable<Copy> = {
       errorsTitle: 'Lignes refus\u00e9es',
       errorsLead: 'Tant qu\u2019une ligne est refus\u00e9e, rien n\u2019est repris \u2013 pas m\u00eame les bonnes lignes. La feuille et le num\u00e9ro de ligne sont indiqu\u00e9s pour retrouver l\u2019endroit dans votre fichier.',
       confirm: 'Appliquer maintenant',
-      confirmHint: 'Annuler n\u2019\u00e9crit rien. Apr\u00e8s l\u2019application, l\u2019\u00e9tat pr\u00e9c\u00e9dent se trouve sous \u00abSauvegarde\u00bb \u203a \u00abDerni\u00e8res modifications\u00bb.',
+      confirmHint: 'Annuler n\u2019\u00e9crit rien. Apr\u00e8s l\u2019application, l\u2019\u00e9tat pr\u00e9c\u00e9dent des LISTES se trouve sous \u00abSauvegarde\u00bb \u203a \u00abDerni\u00e8res modifications\u00bb \u2013 le personnel n\u2019y est pas. Annulez-le avec le fichier t\u00e9l\u00e9charg\u00e9 avant l\u2019import ; personne n\u2019est supprim\u00e9, les absents sont seulement d\u00e9sactiv\u00e9s.',
       blockedHint: 'Merci de corriger les lignes refus\u00e9es dans le fichier et de rev\u00e9rifier.',
       importFailed: 'Le classeur n\u2019a pas \u00e9t\u00e9 appliqu\u00e9.',
       doneTitle: 'Appliqu\u00e9',
