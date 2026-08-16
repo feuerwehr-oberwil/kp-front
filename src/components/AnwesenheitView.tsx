@@ -155,6 +155,10 @@ function PresenceSheet({ person, blocks, note, canEdit, startedAt, onSetTimes, o
         key: String(i),
         from: toHM(iv.from),
         to: iv.to ? toHM(iv.to) : undefined,
+        // the day each end sits on — see TimeBlock.fromDay. Latent here today (the wheel only
+        // appears once the incident spans more than one day) and wrong the moment it does.
+        fromDay: new Date(iv.from),
+        toDay: iv.to ? new Date(iv.to) : undefined,
         openLabel: A.stillHere,
         // Same card as the Zeitplan, but the head is a READ-OUT here: a stretch of presence has no
         // second state to flip into — it is running or it is finished, and that is decided by the

@@ -6,6 +6,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TimeField } from './TimeField'
+import { TimeBlockSheet } from './TimeBlockSheet'
 
 afterEach(() => { cleanup(); vi.useRealTimers() })
 
@@ -47,6 +48,34 @@ describe('TimeField · the day a stamp lands on', () => {
     // committed without touching a wheel — the correction is to the CLOCK, not to the day
     fireEvent.click(screen.getByRole('button', { name: 'OK' }))
     expect(committedDay(onCommit)).toBe(MON.toDateString())
+  })
+
+  // ⚠️ …and the field being right is only half of it: something has to HAND it the day. TimeField
+  // has behaved correctly since the test above, but TimeBlockSheet never passed `valueDay`, so
+  // every Zeitplan and Anwesenheit block re-opened on today and wrote today back. Reproduced by
+  // hand on 16.08.: setting «bis» to Tuesday, then correcting only the MINUTE, moved it to today.
+  // This pins the wiring, not the control — that is where the bug actually lived.
+  it('a block sheet hands each end its own day, so correcting the clock cannot move it', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 7, 12, 9, 0)) // Wednesday morning — neither end is today
+    const onFrom = vi.fn()
+    render(
+      <TimeBlockSheet
+        title="Schicht" subject="Müller Hans" sectionTitle="Zeiten" emptyLabel="keine"
+        onClose={() => {}} days={DAYS}
+        labels={{ from: 'von', to: 'bis', done: 'beendet', remove: 'entfernen',
+                  fromStart: 'ab Beginn', reopen: 'noch da', flip: 'umschalten' }}
+        blocks={[{
+          key: 'a', from: '22:15', to: '06:00',
+          fromDay: MON, toDay: TUE,           // ← the wiring under test
+          head: { label: 'beendet', tone: 'done' as const },
+          onFrom, onTo: () => {},
+        }]}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'von – Müller Hans' }))
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }))
+    expect(committedDay(onFrom)).toBe(MON.toDateString())
   })
 
   // ⚠️ «Jetzt» used to hand back a bare HH:MM. Every caller then had to infer the day from a

@@ -248,6 +248,7 @@ function BandSheet({ band, bands, startedAt, onCreate, onSave, onRemove, onClose
         <span className={s.field}>
           <span className={s.fieldLabel}>{appConfig.copy.zeitplan.from}</span>
           <TimeField ariaLabel={`${appConfig.copy.zeitplan.from} – ${subject}`} value={clock(from)} days={days}
+            valueDay={new Date(from)}
             onCommit={(v, day) => {
               if (!v) return
               // a von typed after the bis means this band STARTED the previous day, exactly as on
@@ -265,6 +266,7 @@ function BandSheet({ band, bands, startedAt, onCreate, onSave, onRemove, onClose
         <span className={s.field}>
           <span className={s.fieldLabel}>{appConfig.copy.zeitplan.to}</span>
           <TimeField ariaLabel={`${appConfig.copy.zeitplan.to} – ${subject}`} value={clock(to)} days={days}
+            valueDay={new Date(to)}
             onCommit={(v, day) => {
               if (!v) return
               // «Nacht 22–06»: a bis before the von runs past midnight, it does not run backwards

@@ -59,6 +59,9 @@ export function PersonShiftSheet({ person, shifts, blocks, canEdit, startedAt, c
         key: sh.id,
         from: clock(sh.from),
         to: clock(sh.to),
+        // the day each end sits on — see TimeBlock.fromDay
+        fromDay: sh.from ? new Date(sh.from) : undefined,
+        toDay: sh.to ? new Date(sh.to) : undefined,
         warn: conflicts.has(sh.id) || Date.parse(sh.to) <= Date.parse(sh.from),
         // mirror of onTo: a von typed after the bis means the shift STARTED the previous day,
         // not that it runs backwards — a reversed shift renders as nothing at all

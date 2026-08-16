@@ -67,6 +67,12 @@ export interface TimeBlock {
   head: TimeBlockHead
   /** how long it lasts, already formatted (fmtSpanShort) — «4 h 00», «seit 29 min» */
   duration?: string
+  /** the DAY each end actually sits on. ⚠️ Without these the day wheel opens on TODAY and writes
+   *  today back on the next commit — so correcting only the minute of a shift silently moved it
+   *  to the current date. `TimeField` documents the trap; only CaptureApp had been fixed. The
+   *  callers hold the full ISO anyway, so this is the value they already have, passed on. */
+  fromDay?: Date
+  toDay?: Date
   onFrom?: (hhmm: string, day?: Date) => void
   onTo?: (hhmm: string, day?: Date) => void
   onRemove?: () => void
@@ -154,6 +160,7 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
               <span className={s.field}>
                 <span className={s.label}>{labels.from}</span>
                 <TimeField className={s.time} ariaLabel={`${labels.from} – ${subject}`} value={b.from}
+                  valueDay={b.fromDay}
                   disabled={!b.onFrom} onCommit={(v, day) => { if (v) b.onFrom?.(v, day) }}
                   days={days}
                   token={b.fromIsStart ? { label: labels.fromStart, tone: 'start' as const } : undefined}
@@ -174,6 +181,7 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
                 <TimeField className={cx(s.time, b.to == null && s.timeOpen)}
                   ariaLabel={`${labels.to} – ${subject}`} value={b.to ?? ''}
                   token={b.to == null && b.openLabel ? { label: b.openLabel, tone: 'open' as const } : undefined}
+                  valueDay={b.toDay}
                   disabled={!b.onTo} onCommit={(v, day) => { if (v == null) b.onReopen?.(); else b.onTo?.(v, day) }}
                   clearLabel={b.onReopen ? labels.reopen : undefined}
                   clearActive={b.to == null} days={days} />
