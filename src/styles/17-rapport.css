@@ -428,3 +428,13 @@
 @media (prefers-reduced-motion: reduce) {
   .rp-flash { animation: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 62%, transparent); }
 }
+
+/* «{n} noch offen» — the narrow-screen form of the chip strip (ReportPreflight · narrowHead).
+   Sized like the head's other buttons so the row reads as one set, and amber because it is the
+   same signal the chips carried. Reaches the tap floor, which four wrapped chips never could. */
+.rp-head-open-menu { display: inline-flex; align-items: center; gap: 7px; min-height: var(--tap);
+  padding: 0 12px; border: 1px solid color-mix(in srgb, var(--amber) 45%, transparent);
+  border-radius: var(--r-sm); cursor: pointer; font: 700 13px var(--body);
+  color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 14%, transparent); }
+.rp-head-open-menu:hover { background: color-mix(in srgb, var(--amber) 26%, transparent); }
+.rp-head-open-menu :global(.i), .rp-head-open-menu .i { width: 15px; height: 15px; flex: none; }

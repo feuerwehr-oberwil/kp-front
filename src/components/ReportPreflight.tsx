@@ -37,6 +37,7 @@ import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import { DateTimeField, TimeField } from './TimeField'
 import { Stepper } from './Stepper'
 import { Menu, Popover } from '../lib/overlays'
+import { useMediaQuery } from '../lib/useIsPhone'
 
 const NO_IDS = new Set<string>()
 
@@ -802,6 +803,17 @@ export function ReportPreflight({
   // are warnings, they live beside the buttons they must be read before, and a header that also
   // mentioned them would be the second place to look for the same thing.
   const missing = missingSteps(facts)
+  /* «noch offen» as chips or as one dropdown. Measured with four open steps: the strip wraps onto a
+   * second row below 834px and fits on one line from there up — so below that it becomes a single
+   * control that rides with the other head buttons, and above it the chips stay exactly as they
+   * were. 860 rather than 834 because it is a threshold this codebase already uses, and because
+   * the wrap point moves with the number of open steps anyway (five would wrap wider).
+   *
+   * Raising the chips to var(--tap) was tried first and reverted: four 44px pills take over the
+   * head, and the ::after-pad trick cannot help once the strip wraps — the pads of two rows
+   * overlap and a tap between «Zeiten» and «Kurzbericht» becomes a coin flip. One control can be
+   * 44px; four in a wrapped strip cannot. */
+  const narrowHead = useMediaQuery('(max-width: 860px)')
   const headCounts = fillTemplate(P.headCounts, { n: attendanceCount, m: mittelCount })
 
   // «Einsatz abschliessen» is bookkeeping, not the artefact: it stamps report_done_at and
@@ -924,7 +936,7 @@ export function ReportPreflight({
                 wrap onto a second row and are named in full however many there are. */}
             <p className="rp-head-sum">
               <span className="rp-head-counts">{headCounts}</span>
-              {missing.length > 0 ? (
+              {missing.length > 0 && !narrowHead ? (
                 <span className="rp-head-open">
                   <span className="rp-head-open-k">{P.headStillOpen}</span>
                   {/* each chip JUMPS to the thing it names — see jumpToStep */}
@@ -937,9 +949,9 @@ export function ReportPreflight({
                     >{A.steps[s]}</button>
                   ))}
                 </span>
-              ) : (
+              ) : missing.length === 0 ? (
                 <span className="rp-head-done"><Icon id="check" />{P.headAllRecorded}</span>
-              )}
+              ) : null}
             </p>
           </div>
           {/* The controls sit HERE, with the other surfaces' controls, and the readiness state
@@ -950,6 +962,27 @@ export function ReportPreflight({
               bottom of a scrolling form would be exactly the failure the never-behind-a-fold rule
               prevents; they move together or not at all. */}
           <div className="rp-head-actions">
+            {/* Same row as the archive and print buttons — the head has one line of controls and
+                this belongs on it, not above it. Only rendered where the chips would wrap. */}
+            {narrowHead && missing.length > 0 && (
+              <Menu
+                trigger={
+                  <button type="button" className="rp-head-open-menu"
+                    aria-label={`${missing.length} ${P.headStillOpen}`} title={`${missing.length} ${P.headStillOpen}`}>
+                    <Icon id="warn" />
+                    <span>{missing.length} {P.headStillOpen}</span>
+                    <Icon id="chevron-down" />
+                  </button>
+                }
+                popupClassName="rp-print-menu"
+                itemClassName={() => 'rp-print-menu-item'}
+                items={missing.map((s) => ({
+                  label: A.steps[s],
+                  // the same jump the chip made — one control, same destinations
+                  onClick: () => jumpToStep(s),
+                }))}
+              />
+            )}
             {/* The chip appears ONLY when something is wrong. A green «Alles bereit» spent a
                 control on the most contested row of the surface to announce that nothing had
                 happened — and the line under the title already says whether the Angaben are
