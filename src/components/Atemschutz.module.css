@@ -921,4 +921,11 @@ button.stepVal:hover { border-color: var(--blue); }
    there is nothing below it to scroll against — so it opened part-way down and its lower half
    (Druck, Rückzug, Raus) stayed below the fold, which is the underscroll case. The spacer only
    exists while a card is open, so the list never carries dead space at rest. */
-.rowListOpen { padding-bottom: 62dvh; }
+.rowListOpen { padding-bottom: var(--az-open-pad, 0px); }
+
+/* The surface header's controls, as one block. They used to be direct children of `.head`, which
+   wraps — so each one wrapped on its own and they scattered across two rows at phone width. As a
+   group they move together and hug the right edge, which is also where they sit on a tablet, so
+   the arrangement does not change identity between devices. */
+.headActs { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end;
+  gap: var(--head-gap); flex: 0 0 auto; margin-left: auto; }

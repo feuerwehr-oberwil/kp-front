@@ -310,6 +310,28 @@ export function AtemschutzView({
   const compact = isPhone
   const [openRow, setOpenRow] = useState<string | null>(null)
 
+  /* Park an opened card at the top of the scroll port — and buy exactly enough room to do it.
+   *
+   * ⚠️ The first version padded the list with a flat 62dvh whenever a card was open. That let the
+   * operator scroll clean past the card into an empty screen: the board looked as if every Trupp
+   * had vanished. The room needed is knowable — port height minus card height — so it is measured
+   * instead of guessed, and a card taller than the port gets none at all.
+   *
+   * This lives here rather than in TruppCard because the spacer has to exist BEFORE the scroll:
+   * child effects run before the parent's, so a card parking itself would run out of list to
+   * scroll against. */
+  const bodyRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const list = listRef.current, port = bodyRef.current
+    if (!list || !port) return
+    if (!compact || !openRow) { list.style.removeProperty('--az-open-pad'); return }
+    const card = list.querySelector<HTMLElement>('[data-az-open]')
+    if (!card) return
+    list.style.setProperty('--az-open-pad', `${Math.max(0, port.clientHeight - card.offsetHeight - 16)}px`)
+    card.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [compact, openRow])
+
   const cards = (list: Trupp[]) => list.map((t) => (
     compact && openRow !== t.id ? (
       <TruppRow
@@ -350,6 +372,11 @@ export function AtemschutzView({
           <h2>{az.title}</h2>
           <p>{az.subtitle}</p>
         </div>
+        {/* ⚠️ ONE group, not four siblings. `.head` wraps, and as direct children the badge, the
+            sort menu, the mute toggle and «Trupp anlegen» wrapped INDIVIDUALLY — on a phone the
+            filter stayed up beside the title while the other two dropped to a second row and
+            left-aligned under it. Grouped, they wrap as a block and stay together. */}
+        <div className={s.headActs}>
         {mostOverdue && (
           /* ⚠️ A BUTTON. It used to be a <div>: the loudest thing on the screen, saying that a
               Trupp is out of contact, and pressing it did nothing — so on a board with eight
@@ -408,9 +435,10 @@ export function AtemschutzView({
             <Icon id="plus-bold" /><span>{az.newTrupp}</span>
           </button>
         )}
+        </div>
       </header>
 
-      <div className={s.body}>
+      <div className={s.body} ref={bodyRef}>
         {trupps.length === 0 ? (
           <div className={s.empty}>
             <Icon id="warn" />
@@ -418,7 +446,7 @@ export function AtemschutzView({
             <span>{az.emptyHint}</span>
           </div>
         ) : (
-          <div className={cx(compact ? s.rowList : s.grid, compact && openRow && s.rowListOpen)}>
+          <div ref={listRef} className={cx(compact ? s.rowList : s.grid, compact && openRow && s.rowListOpen)}>
             {cards(activeTrupps)}
             {done.length > 0 && <div className={s.sep}>{az.status.raus}</div>}
             {cards(done)}
@@ -684,20 +712,6 @@ function TruppCard({
     if (!flash) return
     cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }, [flash])
-  // Opened from a row (compact mode): park the card at the TOP of the scroll port. Without this
-  // the card simply replaced the row wherever that row happened to sit — tap the last one and it
-  // opened mostly below the fold; tap the first and half the port sat empty above it. `block:
-  // 'start'` puts its top edge at the container's top edge, so every Trupp opens to the same
-  // place. Runs once per opened card (the card only mounts when its row is tapped).
-  // …once, not on every render: re-running would yank the view back to the top while the operator
-  // is reading further down the card. A ref rather than an empty dep array, so the lint rule stays
-  // satisfied instead of suppressed.
-  const parkedRef = useRef(false)
-  useEffect(() => {
-    if (!onCollapse || parkedRef.current) return
-    parkedRef.current = true
-    cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }, [onCollapse])
   const inField = t.status === 'aktiv' || t.status === 'rueckzug'
   const auftrag = auftragTypeLabel(t)
   const sev = contactSeverity(live.sinceContactSec, intervalMin, graceSec)
@@ -741,7 +755,7 @@ function TruppCard({
   }
 
   return (
-    <div ref={cardRef} className={cx(s.card, s[`st-${status}`], flash && s.cardFlash)}>
+    <div ref={cardRef} data-az-open={onCollapse ? "" : undefined} className={cx(s.card, s[`st-${status}`], flash && s.cardFlash)}>
       <div className={s.cardBanner}>
         {/* ⚠️ NO dot in front of the status. A card already carries one coloured disc — the
             Truppfarbe beside the name, which is the Trupp's identity on the Lage and the plan.

@@ -27,4 +27,37 @@
      The negative margin keeps it optically flush with the eyebrow it sits beside, so it has to
      grow with the hit area rather than being left behind by it. */
   .report-meta-editlink { min-height: var(--tap); padding: 0 8px; margin: -8px -8px -8px 0; }
+  /* ⚠️ NOT the «noch offen» chips next to it, though they are the smallest targets in the product
+     (55×18px, 5–7px apart) and are real jump-links — each switches the phone tab, scrolls the
+     sheet, flashes the target and focuses the field.
+     Raising them to var(--tap) was tried and reverted: four 44px pills wrap onto two rows and take
+     over the Rapport head, and the ::after-pad trick used elsewhere in this file does not rescue
+     it either — once the strip wraps, the pads of two rows overlap and a tap between «Zeiten» and
+     «Kurzbericht» becomes a coin flip. You cannot have 44px here without a taller header.
+     The fix belongs in the markup, not the floor: collapse the strip to one control («4 offen ▾»)
+     that opens the list. Until then these stay small on purpose. */
+}
+
+/* ---- App chrome: the floor every surface inherits ------------------------------------------
+   The two blocks above are per-surface patches, and that is the pattern this file has followed:
+   a hand-kept list, extended whenever a surface was looked at. The controls below are the ones
+   that sit on EVERY screen, so a miss here is a miss everywhere — which is why they outlasted
+   both passes above.
+
+   ⚠️ `.tb-act` is the instructive one. Its floor already existed at 15-mobile.css, but inside
+   `@media (max-width: 860px)` — so it applied BELOW 860px and stopped above it. Measured: the
+   iPad mini (744px) got 44×44 and the iPad Pro 11" landscape (1194px), the primary field device,
+   got 42×42. The condition was never about width; it was about a finger. */
+@media (pointer: coarse) {
+  .tb-act { min-width: var(--tap); min-height: var(--tap); }
+  .tb-act.icon { min-width: var(--tap); }
+  /* The one alarm affordance in the app — what you tap when a Trupp is überfällig — and it was
+     26px tall on every device, phone to desktop. `padding-block: 0` lets min-height do the work
+     without the pill growing past the bar. */
+  .tb-az { min-height: var(--tap); padding-block: 0; }
+  /* The way to reach what the rail has hidden was itself 22px. It bites hardest exactly where it
+     matters: on a landscape phone the rail shows 4 of 11 surfaces, and this is the whole route to
+     the other seven. (It only renders while that edge actually overflows, so on a rail that fits
+     there is no cost.) */
+  .nav-more, .vrail-more { height: var(--tap); }
 }
