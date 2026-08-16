@@ -812,6 +812,7 @@ export const en: Localizable<Copy> = {
     clockOverdue: 'Overdue',
     overdueBadge: '{n} overdue',
     overdueBadgeGo: 'Go to team {name} – longest without contact',
+    collapse: 'To overview',
     actEnter: 'Deployed',
     actContact: 'Contact',
     actRueckzug: 'Withdraw',

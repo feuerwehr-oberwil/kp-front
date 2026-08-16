@@ -807,6 +807,7 @@ export const it: Localizable<Copy> = {
     clockOverdue: 'In ritardo',
     overdueBadge: '{n} in ritardo',
     overdueBadgeGo: 'Vai alla squadra {name} – senza contatto da più tempo',
+    collapse: 'Panoramica',
     actEnter: 'Entrata',
     actContact: 'Contatto',
     actRueckzug: 'Ritiro',

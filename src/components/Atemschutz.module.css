@@ -761,3 +761,164 @@ button.stepVal:hover { border-color: var(--blue); }
   .team { flex: none; }
   .teamList { flex: none; max-height: 38dvh; }
 }
+
+/* ===========================================================================================
+   Compact rows — the board as a COMPARISON, not a stack of single-Trupp readouts.
+   ===========================================================================================
+   Atemschutzüberwachung answers one question: «which Trupp is closest to its limit». The card is
+   built for the other question, «tell me everything about this one», and spends ~641px of fixed
+   height doing it — taller than a phone's entire 575px scroll port, so a Trupp's clock and its
+   Rückzug/Raus row can never be seen at once. These rows are the phone's answer to that.
+
+   Only phones use them (AtemschutzView · `compact`). The wider track sets below are still live —
+   a phone in LANDSCAPE is 852px wide, and the intermediate steps are what keep the row readable
+   between there and 600px.
+
+   ⚠️ GRID, not flex. The first version laid each row out with flex, which meant every row sized
+   its own columns from its own content: a Trupp with no Kontakt button (angemeldet) let its
+   pressure slide into the space where the button sits on every other row, and the identity column
+   collapsed to «Sch…» while dead space sat in the middle. Nothing lined up down the board, which
+   is the entire point of the view. Fixed tracks fix both: every cell is always present (an empty
+   one still occupies its track), so the eye can run straight down the clock column. */
+.rowList { display: flex; flex-direction: column; gap: 8px; }
+
+.trow { display: grid; align-items: center; gap: 14px; width: 100%; text-align: left;
+  /* identity · state · clock · pressure · action · chevron.
+     ⚠️ the identity track carries a real MINIMUM, not `minmax(0, 1fr)`. With a 0 minimum the fixed
+     tracks win every argument, and at 640px they left ~26px for the name — every Trupp rendered as
+     a single letter («M», «S.», «H»), which is worse than the flex version it replaced. */
+  grid-template-columns: minmax(140px, 1fr) 104px 132px 84px 148px var(--tap);
+  background: var(--surface); border: none; border-left: 5px solid var(--ink-faint);
+  border-radius: var(--r-ctl); padding: 11px 13px; cursor: pointer; font-family: var(--body);
+  box-shadow: 0 0 0 1px var(--border-soft), var(--shadow-sm); }
+.trowWarn { border-left-color: var(--amber); background: color-mix(in srgb, var(--amber) 6%, var(--surface)); }
+.trowCrit { border-left-color: var(--red); background: color-mix(in srgb, var(--red) 6%, var(--surface)); }
+.trowIdle { border-left-color: var(--blue); }
+
+/* identity — the only elastic track, so it takes whatever the fixed ones leave */
+.trowId { min-width: 0; }
+.trowName { display: flex; align-items: center; gap: 8px; font-size: 16.5px; font-weight: 800; color: var(--ink); }
+.trowDot { width: 11px; height: 11px; border-radius: var(--r-pill); flex: none; }
+/* the ellipsis has to live on a child: `text-overflow` needs a block with inline content, and
+   .trowName is a flex container — on it, a long name was chopped mid-letter with no «…» */
+.trowNameTxt { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.trowTeam { font-size: 12.5px; color: var(--ink-faint); white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; margin-top: 1px; }
+
+/* the Planungshilfe under the name. Hidden by default — on a wide row the pressure has its own
+   column; this is the phone's substitute for it, in space that is already there. */
+/* indented past the colour dot (11px + 7px gap) so it hangs under the NAME rather than under the
+   dot — the two lines then read as one block instead of two things that happen to be stacked */
+.trowEst { display: none; font-family: var(--mono); font-size: 12.5px; font-weight: 700;
+  color: var(--ink-dim); font-variant-numeric: tabular-nums; margin-top: 2px; padding-left: 18px; }
+.trowEstLow { color: var(--red); }
+
+.trowState { font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--ink-faint); }
+.trowWarn .trowState { color: var(--amber-strong); }
+.trowCrit .trowState { color: var(--red); }
+
+/* the number the whole surface exists for — mono and tabular so the digits line up down the column */
+.trowClock { text-align: right; }
+.trowClockVal { display: block; font-family: var(--mono); font-size: 28px; font-weight: 800;
+  line-height: 1; color: var(--green); font-variant-numeric: tabular-nums; }
+.trowWarn .trowClockVal { color: var(--amber); }
+.trowCrit .trowClockVal { color: var(--red); }
+.trowSub { display: block; font-size: 9.5px; font-weight: 600; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--ink-faint); margin-top: 5px; white-space: nowrap; }
+
+.trowPress { text-align: right; font-family: var(--mono); font-size: 16px; font-weight: 700;
+  color: var(--ink); font-variant-numeric: tabular-nums; }
+.trowPressUnit { font-family: var(--body); font-size: 12px; font-weight: 600; color: var(--ink-faint); }
+
+/* the action track is reserved whether or not this Trupp has a Kontakt button — an angemeldeter
+   Trupp leaving a hole here is what pulled every other column out of line */
+.trowAct { justify-self: stretch; }
+.trowKontakt { width: 100%; padding: 0 12px; min-height: 48px; border-radius: var(--r-ctl); font-size: 13.5px; }
+.trowKontakt :global(.i) { width: 16px; height: 16px; }
+.trowChevron { width: var(--tap); height: var(--tap); display: grid; place-items: center; color: var(--ink-faint); }
+.trowChevron :global(.i) { width: 18px; height: 18px; }
+
+/* Each step drops the least operational thing left, so the NAME and the CLOCK survive to the
+   narrowest width. What goes, in order: the crew line · the caption · the pressure · the state
+   word. Nothing that goes is lost — it is all on the card behind the tap. */
+@media (max-width: 1023px) {
+  /* «SEIT LETZTEM KONTAKT» is ~118px of nowrap text; below this the clock track can no longer hold
+     it and it ran out under the Kontakt button. The column stays self-evident: one mono number per
+     row, colour-coded, under a header that already says what the board is. */
+  .trow { grid-template-columns: minmax(120px, 1fr) 96px 92px 140px var(--tap); }
+  .trowTeam, .trowSub, .trowPress { display: none; }
+}
+@media (max-width: 760px) {
+  /* the state word goes too — the left border colour and the clock colour already carry it, and
+     from here every pixel belongs to the name */
+  /* Tracks trimmed to the minimum each cell actually needs, because «Widmer Céline» wanted ~108px
+     of the ~102px the name had and ellipsised one character short. Clock 25px mono × 5 chars ≈ 72,
+     icon-only Kontakt 52, chevron 24, gap 7 — together ~15px handed back to the name. */
+  .trow { grid-template-columns: minmax(90px, 1fr) 72px 46px 24px; gap: 7px; padding: 10px 11px; }
+  .trowState { display: none; }
+  .trowClockVal { font-size: 25px; }
+  .trowEst { display: block; }
+  /* trimmed to 44px — the repo's --tap floor exactly, not below it. AGENTS.md asks primary actions
+     for 48–56px and this is the surface's primary action, so it sits at the bottom of what is
+     allowed rather than in the comfortable band; deliberate, to buy the name its width back. */
+  .trowKontakt { padding: 0; min-height: var(--tap); }
+  .trowKontakt span { display: none; }
+  /* every remaining pixel goes to the name: the clock needs 4 mono characters, the chevron is only
+     a hint (the whole row is the button), and 15.5px still clears the 12.5px floor comfortably */
+  .trowChevron { width: 24px; }
+  .trowChevron :global(.i) { width: 15px; height: 15px; }
+  .trowName { font-size: 15.5px; gap: 7px; }
+}
+
+/* An opened card inside the row list. It was built to sit in a ~290–370px grid column; dropped
+   into a full-width list it stretched to the viewport, so the clock floated in the middle of a
+   2000px box and Rückzug/Raus became metre-wide bars. Hold it to a card's natural width. */
+.rowList .card { max-width: 440px; width: 100%; }
+/* the collapse control sits where the row's «›» was, so the same place toggles the card. It has to
+   be visibly a different zone from «Entfernen» next to it — a gap plus a hairline, because the two
+   are one finger-width apart and one of them is destructive. */
+.collapseBtn { margin-left: 10px; padding-left: 10px; border-left: 1px solid var(--glass-edge); }
+
+/* Opening a row: the card grows out of the line that was tapped rather than appearing on top of
+   it. `transform-origin: top` plus a small scale/lift makes the motion read as «this line
+   unfolded», which is what actually happened — the row is gone and the card stands in its place.
+   Short (170ms) because this sits in the middle of a working loop, not a first-run flourish.
+   Only the ENTER is animated: React removes the card on collapse, and holding it on screen to
+   play an exit would delay the board redrawing — the wrong trade on this surface. */
+@keyframes az-cardOpen {
+  from { opacity: 0; transform: scale(.97) translateY(-6px); }
+  to   { opacity: 1; transform: none; }
+}
+.rowList .card { animation: az-cardOpen .17s var(--ease) both; transform-origin: top center; }
+/* the chevron turns with the state instead of cutting to it */
+.trowChevron :global(.i), .collapseBtn :global(.i) { transition: transform .17s var(--ease); }
+
+@media (prefers-reduced-motion: reduce) {
+  .rowList .card { animation: none; }
+  .trowChevron :global(.i), .collapseBtn :global(.i) { transition: none; }
+}
+
+/* --- the opened card inside the row list: one banner height, always -----------------------------
+   `.cardBanner` wraps by design (a narrow grid column has to be able to break), but in the row list
+   that produced two different card heights depending on the status word: «ÜBERFÄLLIG» left the five
+   icons on one line, «ANGEMELDET» is a few pixels wider and pushed them onto a second. Same card,
+   two heights, and the list jumped as you opened different Trupps.
+   The five buttons + «ANGEMELDET» come to ~356px against a ~349px card — it overflowed by a
+   hair — so the gap and the collapse separator give back 12px and the banner is told not to wrap.
+   The status word keeps its rule: it never shrinks and never ellipses. */
+.rowList .cardBanner { flex-wrap: nowrap; gap: 6px; min-height: 54px; }
+.rowList .collapseBtn { margin-left: 8px; padding-left: 8px; }
+
+/* «+ Trupp anlegen» collapsed to an icon sat at 38px with a 16px glyph beside 44px/18px neighbours
+   — the 16px is right when it has a 14px label next to it, wrong once it is a bare icon. */
+@media (max-width: 600px) {
+  .newBtn { padding: 13px; }
+  .newBtn :global(.i) { width: 18px; height: 18px; }
+}
+
+/* Room to park an opened card at the top of the port. Without it the LAST card cannot get there —
+   there is nothing below it to scroll against — so it opened part-way down and its lower half
+   (Druck, Rückzug, Raus) stayed below the fold, which is the underscroll case. The spacer only
+   exists while a card is open, so the list never carries dead space at rest. */
+.rowListOpen { padding-bottom: 62dvh; }

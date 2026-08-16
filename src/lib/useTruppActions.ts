@@ -329,14 +329,29 @@ export function useTruppActions(deps: Deps) {
 
   // record a Funkkontakt: resets the contact clock (the core FKS safety signal) and appends a
   // log row carrying the current pressure (so the Verlauf shows the trend even at radio checks)
+  //
+  // ⚠️ This was the ONE mutation in the app with no undo, and the one that most needed it. The
+  // board floats überfällige Trupps to the front, so a Kontakt drops its card out of that group
+  // and everything below slides up: measured, the pixel the finger had just left belonged to a
+  // DIFFERENT Trupp ~250ms later. A Kontakt booked on the wrong Trupp is a false statement in the
+  // legal record — «this crew was reached» — and it silences that Trupp's alarm. The sort freeze
+  // in AtemschutzView stops it happening; this is the way back when it does.
   const recordContact = (id: string) => {
     const tr = trupps.find((t) => t.id === id)
+    const snapshot = tr // the Trupp as it was BEFORE the contact — for the undo
     const now = new Date().toISOString()
     setTrupps((ts) => ts.map((t) => (t.id === id
       ? { ...t, lastContactTime: now, readings: [...(t.readings ?? []), { t: now, bar: t.lastPressureBar ?? t.entryPressureBar, kind: 'contact' }] }
       : t)))
     log('radio', fillTemplate(appConfig.copy.atemschutz.logContact, { name: tr?.name ?? '' }), 'team')
     emit('atemschutz.contact', { id })
+    if (snapshot) {
+      // names the Trupp, because the whole failure mode is having meant a different one
+      toast(fillTemplate(appConfig.copy.atemschutz.logContact, { name: tr?.name ?? '' }), {
+        icon: 'radio',
+        action: { label: appConfig.copy.undo, onClick: () => setTrupps((ts) => ts.map((t) => (t.id === id ? snapshot : t))) },
+      })
+    }
   }
   // record a cylinder pressure reading — logged for the record, and counts as a contact. All
   // derived state (lowestBar, the log row) is computed INSIDE the updater so it never reads stale.

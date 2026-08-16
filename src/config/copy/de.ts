@@ -1212,6 +1212,9 @@ export const de = {
     overdueBadgeGo: 'Zu Trupp {name} – am längsten ohne Kontakt',
     // cross-surface TopBar chip (shown on any surface while a Trupp is fällig/überfällig)
     chipHint: 'Atemschutz – antippen zur Überwachung',
+    // back from an opened card to the compact row it was opened from (only shown in that mode —
+    // «Übersicht» rather than «Einklappen», because what you go back to is the comparison)
+    collapse: 'Zur Übersicht',
     // lifecycle action buttons
     actEnter: 'Eingerückt',
     actContact: 'Kontakt',

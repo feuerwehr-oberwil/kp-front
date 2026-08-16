@@ -11,6 +11,7 @@ import { contactSeverity, deriveTruppLive, estimatePressure, fmtClock, pressureA
 import { isPresent } from '../lib/attendanceIntervals'
 import { ortOf } from '../lib/attendanceOrt'
 import { truppStatusLabel } from '../lib/report'
+import { useIsPhone } from '../lib/useIsPhone'
 import type { AttendanceState, Person, Trupp, TruppFields } from '../types'
 import { abbreviateName, assignedPersonIds, personIdForName, rosterFromList, rosterIdByName, truppSlots } from '../lib/personnel'
 import { truppLineNo, type LeitungOption } from '../lib/truppLines'
@@ -167,7 +168,7 @@ export function AtemschutzView({
    * The MODE is per-device (a way of looking); the hand-set order is synced (it is data).
    */
   const orderKey = (t: Trupp) => trupps.findIndex((x) => x.id === t.id)
-  const sortTrupps = (list: Trupp[]) => [...list].sort((a, b) => {
+  const baseSort = (list: Trupp[]) => [...list].sort((a, b) => {
     const overdue = Number(live.get(b.id)?.status === 'ueberfaellig') - Number(live.get(a.id)?.status === 'ueberfaellig')
     if (overdue) return overdue
     if (order === 'name') return a.name.localeCompare(b.name, 'de') || orderKey(a) - orderKey(b)
@@ -180,8 +181,42 @@ export function AtemschutzView({
     }
     return (a.order ?? orderKey(a)) - (b.order ?? orderKey(b))
   })
+
+  /* Hold the ARRANGEMENT still for a moment after any change made on this board.
+   *
+   * The überfällig float above is right and stays — but it means a Kontakt re-sorts the board
+   * under the finger. Measured at 1194×834: pressing Kontakt on the card in slot 1 reset its
+   * clock, dropped it out of the überfällig group, and slid everything below up, so ~250ms later
+   * `elementFromPoint` at the pressed pixel returned a DIFFERENT Trupp's card. With four
+   * überfällige and an Überwacher working down the board, every Kontakt reshuffles the rest.
+   *
+   * Only the ORDER is frozen — clocks, colours, pressures and the überfällig banner keep updating,
+   * so nothing is hidden, the cards just don't move out from under the hand. Anything new appears
+   * after the frozen ones (stable sort on equal keys) rather than jumping into the middle. */
+  const isPhone = useIsPhone()
+
+  const FREEZE_MS = 2000
+  const [frozenIds, setFrozenIds] = useState<string[] | null>(null)
+  const freezeTimer = useRef<number | undefined>(undefined)
+
+  const sortTrupps = (list: Trupp[]) => {
+    const sorted = baseSort(list)
+    if (!frozenIds) return sorted
+    const rank = new Map(frozenIds.map((id, i) => [id, i]))
+    return sorted.sort((a, b) => (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER))
+  }
   const activeTrupps = sortTrupps(trupps.filter((t) => t.status !== 'raus'))
   const done = sortTrupps(trupps.filter((t) => t.status === 'raus'))
+
+  // Called from the card's action handlers — i.e. after render, so it simply closes over the
+  // arrangement the operator is currently looking at. (A ref would have to be written during
+  // render, which is exactly what react-hooks/refs warns about.)
+  const freezeOrder = () => {
+    setFrozenIds([...activeTrupps, ...done].map((t) => t.id))
+    window.clearTimeout(freezeTimer.current)
+    freezeTimer.current = window.setTimeout(() => setFrozenIds(null), FREEZE_MS)
+  }
+  useEffect(() => () => window.clearTimeout(freezeTimer.current), [])
 
   // roster of everyone already entered on any Trupp (GF + AdF) — offered as quick-select chips
   // in the form so names don't have to be retyped each time.
@@ -262,17 +297,50 @@ export function AtemschutzView({
     setForm(null)
   }
 
+  /* Compact rows vs cards — a NARROW-SCREEN layout, nothing else (decided 16.08.).
+   *
+   * A card is ~641px tall against a 575px scroll port on a phone, so a single Trupp's clock and
+   * its Rückzug/Raus row can never be on screen at once — that is what the rows exist for. A row
+   * opens its own card on tap, so nothing is unreachable, it is one tap deeper.
+   *
+   * A Trupp-count trigger was tried and dropped: it flipped a 1920px screen to rows at 4 Trupps
+   * where five cards fitted comfortably. The board CAN still under-report on a wide screen (6
+   * Trupps, 3 columns, no scroll cue) — that is a real and separate finding, and the fix for it
+   * belongs on the card grid (a total in the header, a fade at the edge), not in this switch. */
+  const compact = isPhone
+  const [openRow, setOpenRow] = useState<string | null>(null)
+
   const cards = (list: Trupp[]) => list.map((t) => (
+    compact && openRow !== t.id ? (
+      <TruppRow
+        key={t.id} t={t} live={live.get(t.id)!} now={now} color={truppColors[t.id]} canEdit={canEdit}
+        intervalMin={intervalMin} graceSec={graceSec}
+        flash={activeFocus?.id === t.id}
+        onContact={(id) => { freezeOrder(); recordContact(id) }}
+        onOpen={() => setOpenRow(t.id)}
+      />
+    ) : (
+    // Every mutation that can move a card between slots freezes the arrangement first (FREEZE_MS).
+    //
+    // ⚠️ `onMove` is withheld in row mode. Seven controls do not fit the banner at 375px —
+    // `.cardActs` wraps, and the wrapped «Zur Übersicht» landed directly under «Entfernen» at the
+    // same x, recreating the exact open-then-delete collision that moving it was meant to prevent.
+    // The ‹ › pair is the right one to drop: in row mode the card is a detail view, not a board
+    // slot (and those arrows are separately known to move the wrong card).
     <TruppCard
       key={t.id} t={t} live={live.get(t.id)!} now={now} color={truppColors[t.id]} canEdit={canEdit} intervalMin={intervalMin} graceSec={graceSec}
       flash={activeFocus?.id === t.id}
-      onContact={recordContact} onPressure={recordPressure} onStatus={setTruppStatus}
+      onContact={(id) => { freezeOrder(); recordContact(id) }}
+      onPressure={(id, bar) => { freezeOrder(); recordPressure(id, bar) }}
+      onStatus={(id, s) => { freezeOrder(); setTruppStatus(id, s) }}
       onEdit={() => openForm('edit', t)} onReenter={() => openForm('redeploy', t)}
       onDelete={deleteTrupp} onRestore={restoreTrupp} onPlace={handlePlace} onShowPlan={focusTruppOnPlan}
-      onMove={order === 'manuell' ? onMove : undefined}
+      onMove={order === 'manuell' && !compact ? onMove : undefined}
       onPickLine={pickTruppLine}
       onShowLine={showTruppLine} hasLine={truppsWithLine.has(t.id)}
+      onCollapse={compact ? () => setOpenRow(null) : undefined}
     />
+    )
   ))
 
   return (
@@ -350,7 +418,7 @@ export function AtemschutzView({
             <span>{az.emptyHint}</span>
           </div>
         ) : (
-          <div className={s.grid}>
+          <div className={cx(compact ? s.rowList : s.grid, compact && openRow && s.rowListOpen)}>
             {cards(activeTrupps)}
             {done.length > 0 && <div className={s.sep}>{az.status.raus}</div>}
             {cards(done)}
@@ -495,8 +563,83 @@ function PressureInline({ value, onCommit }: { value: number; onCommit: (bar: nu
 // One big glanceable monitoring card. The dominant element is the contact clock (time since last
 // Funkkontakt) with a large Kontakt reset; the inline Druck control + an expandable Verlauf log
 // sit below, and the lifecycle actions run along the bottom.
+/** One Trupp as a single comparable line — see `.rowList` in Atemschutz.module.css for why the
+ *  board needs this view at all. The whole row is the button that opens the full card; the only
+ *  control that survives onto the row is «Kontakt», because it is the one action the comparison
+ *  leads to. Everything else (Druck, Rückzug, Raus, Leitung, Bearbeiten, Entfernen) stays in the
+ *  card, one tap deeper — including delete, which is a good place for it to be. */
+function TruppRow({
+  t, live, now, color, canEdit, intervalMin, graceSec, onContact, onOpen, flash,
+}: {
+  t: Trupp; live: TruppLive; now: number; color?: string; canEdit: boolean
+  intervalMin: number; graceSec: number
+  onContact: (id: string) => void
+  onOpen: () => void
+  flash?: boolean
+}) {
+  const az = appConfig.copy.atemschutz
+  const status = live.status
+  // the same derivations the card makes, so a row and its card never disagree about state
+  const inField = t.status === 'aktiv' || t.status === 'rueckzug'
+  const sev = contactSeverity(live.sinceContactSec, intervalMin, graceSec)
+  // The Planungshilfe — «how much air do they have RIGHT NOW», which is the other half of «who is
+  // closest to their limit» and the reason the clock alone is not enough. Marked «≈» and tinted
+  // when it crosses the Alarmdruck; it is a projection, never a measurement, so it must not look
+  // like the logged Druck. Same source and same rule as the card (estimatePressure / pressureAlarm).
+  const dz = atemschutzDoctrine()
+  const estimate = inField ? estimatePressure(t, now, dz.cylinderLiters, dz.estConsumptionLPerMin) : null
+  const estimateLow = pressureAlarm(estimate?.bar ?? null, dz.alarmBar)
+  const tone = sev >= 2 ? s.trowCrit : sev === 1 ? s.trowWarn : inField ? '' : s.trowIdle
+  const rowRef = useRef<HTMLButtonElement>(null)
+  // same courtesy the card gets: a Trupp somebody was sent to must land under their eyes
+  useEffect(() => { if (flash) rowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }, [flash])
+  const team = (t.members ?? []).filter(Boolean).join(' · ')
+  return (
+    <button ref={rowRef} type="button" className={cx(s.trow, tone, flash && s.cardFlash)} onClick={onOpen}
+      aria-label={`${t.name} — ${az.status[status] ?? status}`}>
+      <span className={s.trowId}>
+        <span className={s.trowName}>
+          <span className={s.trowDot} style={color ? { background: color } : undefined} />
+          <span className={s.trowNameTxt}>{t.name}</span>
+        </span>
+        {team && <span className={s.trowTeam}>{team}</span>}
+        {/* phone-only second line: the crew line is hidden there, so this costs no width at all —
+            which is what let the name keep its column instead of paying for the extra fact */}
+        {estimate && (
+          <span className={cx(s.trowEst, estimateLow && s.trowEstLow)}>
+            ≈ {estimate.bar} bar
+          </span>
+        )}
+      </span>
+      <span className={s.trowState}>{status === 'raus' ? truppStatusLabel(t) : (az.status[status] ?? status)}</span>
+      <span className={s.trowClock}>
+        <span className={s.trowClockVal}>{fmtClock(live.sinceContactSec)}</span>
+        <span className={s.trowSub}>{az.sinceContact}</span>
+      </span>
+      <span className={s.trowPress}>{live.currentBar}<span className={s.trowPressUnit}> bar</span></span>
+      {/* ⚠️ always rendered, even when there is no button in it: these are fixed grid tracks, so a
+          missing cell would pull every column after it out of line on that one row */}
+      <span className={s.trowAct}>
+        {canEdit && inField && (
+          // stopPropagation: the row itself opens the card, and the one thing you must be able to
+          // do without opening anything is confirm the radio check
+          <span role="button" tabIndex={0}
+            className={cx(s.kontaktBtn, s.trowKontakt, sev === 1 && s.kontaktWarn, sev >= 2 && s.kontaktCrit)}
+            onClick={(e) => { e.stopPropagation(); onContact(t.id) }}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); onContact(t.id) } }}>
+            <Icon id="radio" /><span>{az.actContact}</span>
+          </span>
+        )}
+      </span>
+      {/* DOWN, not right: this expands the card in place, it does not navigate anywhere. The
+          collapse control it turns into points back up, so the pair reads as one toggle. */}
+      <span className={s.trowChevron}><Icon id="chevron-down" /></span>
+    </button>
+  )
+}
+
 function TruppCard({
-  t, live, now, color, canEdit, intervalMin, graceSec, flash, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onRestore, onPlace, onShowPlan, onMove, onPickLine, onShowLine, hasLine,
+  t, live, now, color, canEdit, intervalMin, graceSec, flash, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onRestore, onPlace, onShowPlan, onMove, onPickLine, onShowLine, hasLine, onCollapse,
 }: {
   t: Trupp; live: TruppLive; now: number; canEdit: boolean
   /** the colour this Trupp wears on the Lage / plan (useTruppActions · truppColors) — set for
@@ -523,6 +666,8 @@ function TruppCard({
   /** is there actually a hose drawn for this Trupp? Decides whether the chip is a jump or plain
    *  text — a button that goes nowhere is worse than no button. */
   hasLine: boolean
+  /** set only in compact mode, where this card was opened from a row — collapses back to it */
+  onCollapse?: () => void
 }) {
   const az = appConfig.copy.atemschutz // read per-render so the resolved locale applies
   const status = live.status
@@ -539,6 +684,20 @@ function TruppCard({
     if (!flash) return
     cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }, [flash])
+  // Opened from a row (compact mode): park the card at the TOP of the scroll port. Without this
+  // the card simply replaced the row wherever that row happened to sit — tap the last one and it
+  // opened mostly below the fold; tap the first and half the port sat empty above it. `block:
+  // 'start'` puts its top edge at the container's top edge, so every Trupp opens to the same
+  // place. Runs once per opened card (the card only mounts when its row is tapped).
+  // …once, not on every render: re-running would yank the view back to the top while the operator
+  // is reading further down the card. A ref rather than an empty dep array, so the lint rule stays
+  // satisfied instead of suppressed.
+  const parkedRef = useRef(false)
+  useEffect(() => {
+    if (!onCollapse || parkedRef.current) return
+    parkedRef.current = true
+    cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [onCollapse])
   const inField = t.status === 'aktiv' || t.status === 'rueckzug'
   const auftrag = auftragTypeLabel(t)
   const sev = contactSeverity(live.sinceContactSec, intervalMin, graceSec)
@@ -594,6 +753,8 @@ function TruppCard({
         {/* The actions ride in their own group so they wrap as a block if a card ever gets narrow
             enough — the status word must never be the thing that gets abbreviated. */}
         <div className={s.cardActs}>
+          {/* Back to the row. Present only while the board is in compact mode, where this card was
+              opened FROM a row — otherwise there is nothing to collapse to. */}
           {/* Only while the hand-set order is the one on screen: moving a card under any other
               sort would rearrange something the sort is about to rearrange back. */}
           {onMove && canEdit && (
@@ -636,6 +797,15 @@ function TruppCard({
           {canEdit && (
             <button className={`${s.iconBtn} ${s.danger}`} aria-label={az.remove} title={az.remove} onClick={doDelete}>
               <Icon id="trash" />
+            </button>
+          )}
+          {/* ⚠️ LAST, i.e. the rightmost control — deliberately the pixel the row's own «›» sat on.
+              With the collapse first, that pixel belonged to «Entfernen»: tap a row to open it, tap
+              the same spot again, and you deleted the Trupp. Now the same place toggles the card
+              open and shut, and it shields the destructive button behind it. */}
+          {onCollapse && (
+            <button className={`${s.iconBtn} ${s.collapseBtn}`} aria-label={az.collapse} title={az.collapse} onClick={onCollapse}>
+              <Icon id="chevron-up" />
             </button>
           )}
         </div>
