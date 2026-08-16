@@ -60,9 +60,23 @@ export function NavRail(p: Props) {
     return () => { el.removeEventListener('scroll', update); ro?.disconnect(); window.removeEventListener('resize', update) }
   }, [p.planDocs.length, expanded])
 
-  // tapping a "scroll for more" chevron jumps fully to that end of the list (the rail is short,
-  // so a single tap to the top/bottom is what's expected — earlier partial paging over/under-shot).
-  const nudge = (dir: 1 | -1) => { const el = scrollRef.current; if (el) el.scrollTo({ top: dir === 1 ? el.scrollHeight : 0, behavior: 'smooth' }) }
+  // Tapping a "scroll for more" chevron pages by one screenful, keeping ~one item of overlap so
+  // nothing is stepped over — EXCEPT when what's left is under a screenful, where it still jumps
+  // to the end. That last part is the earlier fix, and it was right for the case it was written
+  // for: on a tablet the whole list is one screenful away, so paging over/under-shot.
+  //
+  // Jumping unconditionally broke the case it was never measured against. On a landscape phone
+  // the rail has 289px of band for 576px of content — 4 of 11 surfaces visible — so one tap flew
+  // past the middle to the last item, and «Atemschutz», «Anwesenheit» and «Checkliste» were
+  // reachable by neither end. The chevron is the entire route to seven surfaces there.
+  const nudge = (dir: 1 | -1) => {
+    const el = scrollRef.current
+    if (!el) return
+    const page = Math.max(el.clientHeight - 50, 50)   // a screenful, less one item of overlap
+    const rest = dir === 1 ? el.scrollHeight - el.clientHeight - el.scrollTop : el.scrollTop
+    const top = rest <= page ? (dir === 1 ? el.scrollHeight : 0) : el.scrollTop + dir * page
+    el.scrollTo({ top, behavior: 'smooth' })
+  }
 
   // keep the ACTIVE surface visible: the phone bottom bar (and a crowded tablet rail) scrolls,
   // and after a switch via deep link — or a thumb-scroll that drifted — the highlighted item

@@ -72,9 +72,17 @@ export function ToolRail({ primary, tools, active, onPick, toolRefs, extras, foo
     return () => { el.removeEventListener('scroll', update); ro?.disconnect(); window.removeEventListener('resize', update) }
   }, [tools.length, expanded])
 
-  // tapping a "scroll for more" chevron jumps fully to that end of the tool list (the rail is
-  // short, so a single tap to the top/bottom is what's expected — partial paging over/under-shot).
-  const nudge = (dir: 1 | -1) => { const el = scrollRef.current; if (el) el.scrollTo({ top: dir === 1 ? el.scrollHeight : 0, behavior: 'smooth' }) }
+  // pages by a screenful, jumping only over the last one — see the same change on NavRail, and the
+  // reason: at 852×393 this rail shows 2 of 9 tools, so a jump to the end skipped «Symbol», the
+  // main action of the surface, in both directions.
+  const nudge = (dir: 1 | -1) => {
+    const el = scrollRef.current
+    if (!el) return
+    const page = Math.max(el.clientHeight - 50, 50)
+    const rest = dir === 1 ? el.scrollHeight - el.clientHeight - el.scrollTop : el.scrollTop
+    const top = rest <= page ? (dir === 1 ? el.scrollHeight : 0) : el.scrollTop + dir * page
+    el.scrollTo({ top, behavior: 'smooth' })
+  }
 
   // keep the ACTIVE tool visible — same courtesy as the NavRail: picking a tool from the
   // palette (or a mode change) must never leave its lit button outside the scrolled strip.
