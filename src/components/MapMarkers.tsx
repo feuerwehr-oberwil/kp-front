@@ -318,12 +318,27 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
         const gpx = e.kind === 'shape' ? shapePx(e.sizeM, e.coord[1], zoom)
           : e.kind === 'note' || e.kind === 'photo' || e.kind === 'team' ? 56
           : symPx(e.kind, e.coord[1], zoom, symMul)
+        // Tactical stacking. Every MapLibre marker is its own stacking context (it carries a
+        // transform), so what is on top is decided HERE, on the container — a z-index inside the
+        // marker cannot lift it past a sibling.
+        //
+        // ⚠️ The hose line-end tag sits at zIndex 3 (MapView, deliberately, so a Leitung running
+        // under its own tag does not paint through the text). Everything tactical has to clear
+        // that: measured, the tag «1 · +2 · Müller H.» covered the Rettungstrupp, the Einsatzort
+        // ring and two more symbols, and — being pointer-events:auto as a drag handle — it took
+        // their taps too. A crew is the thing you must be able to see and hit; a label about a
+        // hose is not.
+        const zTac = e.kind === 'team' ? 8
+          : e.kind === 'note' || e.kind === 'photo' ? 4
+          : e.kind === 'shape' ? 5
+          : 6
         return (
         <Marker
           key={e.id}
           longitude={e.coord[0]}
           latitude={e.coord[1]}
           anchor="center"
+          style={{ zIndex: zTac }}
           draggable={false}
           // swallow the synthetic click so it can't reach the map (deselect / placement); selection
           // itself is reported by the hold gesture's onTap, which fires even on a slightly-moved touch

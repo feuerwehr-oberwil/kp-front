@@ -1235,7 +1235,13 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
               it the decorations of a line that runs under its own tag paint straight through
               the text, and the tag is the one thing on a Leitung that has to stay readable. */}
           {(ld.d.content || ld.d.lineNo != null || ld.d.floorTag != null || ld.trupp) && (
-            <Marker longitude={(ld.d.endLabelAt ?? ld.anchor)[0]} latitude={(ld.d.endLabelAt ?? ld.anchor)[1]} anchor="center" offset={[0, -14]} style={{ zIndex: 3 }}>
+            <Marker longitude={(ld.d.endLabelAt ?? ld.anchor)[0]} latitude={(ld.d.endLabelAt ?? ld.anchor)[1]} anchor="center" offset={[0, -14]}
+              // …and ABOVE the tactical symbols (MapMarkers · zTac, 4–8) once its own line is
+              // selected. At rest the tag stays at 3, under the symbols, so it can neither cover
+              // nor steal the tap of a Trupp. Selected means «I am working on this Leitung» — then
+              // its handle has to be the thing on top, or it cannot be grabbed where it matters:
+              // right at the incident point, which is exactly where lines and symbols pile up.
+              style={{ zIndex: ld.d.id === selectedDrawingId ? 9 : 3 }}>
               {/* the -14 offset lifts the tag clear of the line end; dragging pins it to a georeferenced anchor */}
               <div className={`line-end-tag-wrap draggable${ld.d.id === selectedDrawingId ? ' sel' : ''}`}
                 style={{ cursor: onLabelMove ? 'move' : undefined }}
