@@ -3,7 +3,7 @@
    did not, so on iPad — no phone media query — nothing here cleared a notch). Inert on iOS, where
    the status bar insets the web view itself and the inset is always 0 (see index.html); kept so
    the base rules do not have to be rediscovered if any platform ever does report one. */
-.topbar { position: absolute; top: calc(16px + env(safe-area-inset-top)); left: 16px; display: flex; align-items: center;
+.topbar { position: absolute; top: calc(16px + env(safe-area-inset-top)); left: max(16px, env(safe-area-inset-left)); display: flex; align-items: center;
   gap: 14px; background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
   border-radius: var(--r-hero); padding: 8px 8px 8px 18px; z-index: 56; box-shadow: var(--shadow); max-width: calc(100vw - 32px); }
 

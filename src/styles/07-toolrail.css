@@ -8,7 +8,8 @@
    top/bottom both set + margin-block:auto centres it vertically WHEN there's room, but lets it
    grow downward (toward the bottom edge) to fit a long list before it has to scroll. The top
    stays at 80px (clear of the top bar); only a list taller than the full height scrolls. */
-.tool-rail { position: absolute; right: 16px; top: 88px; bottom: 16px; height: max-content; margin-block: auto;
+/* right-edge safe area — see the note on .navrail's `left` (05-navrail.css) */
+.tool-rail { position: absolute; right: max(16px, env(safe-area-inset-right)); top: 88px; bottom: 16px; height: max-content; margin-block: auto;
   z-index: 30; max-height: calc(100dvh - 104px); }
 /* width is driven by --vrail-w (compact 64 / wide 212) so the rail expands like the left
    NavRail — but leftward, since it's anchored to the right edge. apply() sets it on toggle;
