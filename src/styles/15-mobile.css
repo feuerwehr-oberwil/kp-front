@@ -13,6 +13,15 @@
    0 unless the FAB is actually on screen (viewer, composer, open panel, tool dock → no reserve). */
 .app { --fab-safe: 0px; }
 .app:has(.fab-entry) { --fab-safe: 66px; }
+/* ⚠️ …and the same pair on :root, because the reserve has one consumer that is NOT inside .app:
+   the toast host. `<Overlays />` is mounted at the ROOT on purpose (App.tsx — .app is a stacking
+   context, so a confirm opened from a root-level sheet painted under it), so `.toaster` never
+   inherited the .app-scoped value and never saw the reserve at all. It showed: the toast's
+   «Rückgängig» button landed on the FAB and won the hit test — measured 35×42px of overlap,
+   `elementFromPoint` at the FAB's own visual centre returned the undo button. Tapping «+ Eintrag»
+   undid the entry you had just made. Same values, so nothing inside .app changes. */
+:root { --fab-safe: 0px; }
+:root:has(.fab-entry) { --fab-safe: 66px; }
 .fab-entry { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: calc(18px + env(safe-area-inset-bottom)); z-index: 55;
   display: inline-flex; align-items: center; gap: 8px; padding: 14px 20px 14px 16px;
   border: none; border-radius: var(--r-pill); background: var(--btn-primary); color: var(--on-btn-primary);
@@ -428,6 +437,14 @@
      the tool bar, covering its buttons), matching .phone-tools .coord-read / .fab-entry */
   .toaster { bottom: calc(var(--rail-h) + 24px + env(safe-area-inset-bottom)); }
   .phone-tools .toaster { bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom)); }
+  /* …and clear the FAB sideways. Lifting the toast instead would put it over the content it is
+     reporting on; the pill is far narrower than the bar, so it simply stops short of the corner.
+     The container is pointer-events:none, but `.toast-action` deliberately re-enables it (an undo
+     you cannot press is useless) — so it was the Rückgängig BUTTON, not the pill, that swallowed
+     the tap. The map surface escaped only by luck: .phone-tools lifts the FAB a whole bar height.
+     Every surface WITHOUT a tool bar — Anwesenheit, Mittel, Rapport, Checkliste — overlapped, and
+     those are exactly the surfaces where an undoable mutation raises a toast in the first place. */
+  .toaster { padding-right: var(--fab-safe); }
   /* long toast texts wrap on phones instead of nowrap-overflowing the fixed toaster
      (same layout-viewport-widening failure mode as the banners) */
   .toast { white-space: normal; }
