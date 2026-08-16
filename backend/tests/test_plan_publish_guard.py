@@ -231,8 +231,11 @@ def test_the_cli_declares_a_digest_for_every_plan(tmp_path, monkeypatch):
         status_code = 200
         text = "{}"
 
-        def json(self) -> dict:
-            return {}
+        def __init__(self, payload: object = None) -> None:
+            self._payload = {} if payload is None else payload
+
+        def json(self) -> object:
+            return self._payload
 
     class _Client:
         def __init__(self, *a, **kw) -> None: ...
@@ -242,6 +245,11 @@ def test_the_cli_declares_a_digest_for_every_plan(tmp_path, monkeypatch):
         def __exit__(self, *a) -> None: ...
         def post(self, *a, **kw) -> _Resp:
             return _Resp()
+
+        def get(self, url: str, **kw) -> _Resp:
+            # `push` reads the deployment's current objects first, so it can report which ones
+            # it CREATED rather than only «upserted N». This deployment has none yet.
+            return _Resp([])
 
         def put(self, url: str, **kw) -> _Resp:
             sent.append({"url": url, "data": kw.get("data") or {}})

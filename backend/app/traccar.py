@@ -11,8 +11,6 @@ from urllib.parse import urlsplit
 import httpx
 from pydantic import BaseModel
 
-from .config import settings
-
 
 class TraccarDevice(BaseModel):
     id: int
@@ -60,10 +58,32 @@ class VehicleTrail(BaseModel):
 
 
 class TraccarClient:
-    def __init__(self) -> None:
-        self.base_url = settings.traccar_url.rstrip("/") if settings.traccar_url else ""
-        self.email = settings.traccar_email
-        self.password = settings.traccar_password
+    """Stateless client whose credentials are resolved PER CALL, never at construction.
+
+    ⚠️ They used to be read in ``__init__``, which ran at import — so the module-level
+    ``traccar_client`` below froze whatever ``.env`` said at boot and a station could not
+    connect its fleet tracking without a restart. Every read now goes through
+    ``app.credentials``, which serves ``.env`` first and the admin-set value otherwise; the
+    properties are the same three names, so nothing downstream changed.
+    """
+
+    @property
+    def base_url(self) -> str:
+        from .credentials import get as credential
+
+        return credential("traccar_url").rstrip("/")
+
+    @property
+    def email(self) -> str:
+        from .credentials import get as credential
+
+        return credential("traccar_email")
+
+    @property
+    def password(self) -> str:
+        from .credentials import get as credential
+
+        return credential("traccar_password")
 
     @property
     def host(self) -> str | None:
@@ -73,7 +93,7 @@ class TraccarClient:
     @property
     def is_configured(self) -> bool:
         # SSRF defence-in-depth: the Traccar URL is config-driven (not user input), but pin
-        # it to https so a mis-set settings.traccar_url can't be aimed at an internal http
+        # it to https so a mis-set TRACCAR_URL can't be aimed at an internal http
         # endpoint. All requests build off this single base_url, so guarding it here covers
         # every outbound call below.
         if not (self.base_url and self.email and self.password):

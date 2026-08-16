@@ -18,9 +18,15 @@ bucket or AWS itself all work, and a self-hoster is never told which to use.
 
 **What the store publishes** (metadata only in the index, never bytes):
 
-    plans/index.json                  {"generated_at": …, "plans": [{object_id, module,
+    plans/index.json                  {"generated_at": …, "plans": [{folder, module,
                                        filename, size, sha256, address_full?}, …]}
-    plans/<object-id>/<module>.pdf    the PDF
+    plans/<folder>/<module>.pdf       the PDF
+
+``folder`` is REQUIRED and is the field that resolves a row: it is matched against
+``ObjectSite.source_key`` (see :func:`parse_index`, which refuses the whole index without it).
+It is deliberately the station's own human key, not a UUID — re-deriving the publisher's UUID
+is exactly what this field replaced. A publisher written against an older description of this
+shape, emitting ``object_id``, produces an index that is refused on every single run.
 
 **Fail-closed and fail-safe.** Unconfigured store → no job is scheduled and nothing here ever
 runs. A malformed or incomplete index → the whole run is refused and nothing changes; an index

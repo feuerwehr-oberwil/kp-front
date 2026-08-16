@@ -410,6 +410,11 @@ def _amain(argv: list[str]) -> int:
         return _show_config(base)
     # run
     s = _read_scenario(Path(args.scenario))
+    # ⚠️ The env fallbacks only find a secret this deployment kept in `.env`. Since the two
+    # webhook secrets became browser-settable (app/credentials), a station that set them in
+    # /admin has them in the DATABASE, which this CLI has no connection to — so `--divera-secret`
+    # / `--alarm-secret` are the answer there, and the help text says so. Not worth a DB
+    # connection: this is a developer/demo tool run from a workstation, not from the container.
     divera_secret = args.divera_secret or settings.divera_webhook_secret
     alarm_secret = args.alarm_secret or settings.alarm_webhook_secret
     print(f"Szenario {s.name or Path(args.scenario).stem!r} → {base}")

@@ -29,7 +29,20 @@ from .models import DeploymentConfig, Incident, JournalEntry, PushSubscription
 
 logger = logging.getLogger(__name__)
 
-push_enabled = lambda: bool(settings.vapid_private_key and settings.vapid_public_key)  # noqa: E731
+
+def push_enabled() -> bool:
+    """Whether this deployment can send Web Push at all.
+
+    Reads through ``app.credentials`` (env first, admin-set otherwise) rather than off the
+    boot-time settings object, so a station that generates a VAPID pair in the browser gets
+    push on the next sweep instead of after a restart. Synchronous, because it is also read
+    from the sending thread — the snapshot behind it is refreshed on every request path and
+    every 30 s by the scheduler.
+    """
+    from .credentials import get as credential
+
+    return bool(credential("vapid_private_key") and credential("vapid_public_key"))
+
 
 # ---------------------------------------------------------------------------------------
 # due-ness (pure, unit-tested — mirrors src/lib/atemschutz.ts + src/lib/reminders.ts)
@@ -113,12 +126,14 @@ def _send_one(sub: dict, payload: str) -> bool:
     (endpoint gone per the push service, or the stored keys are unusable)."""
     from pywebpush import WebPushException, webpush
 
+    from .credentials import get as credential
+
     try:
         webpush(
             subscription_info={"endpoint": sub["endpoint"], "keys": {"p256dh": sub["p256dh"], "auth": sub["auth"]}},
             data=payload,
-            vapid_private_key=settings.vapid_private_key,
-            vapid_claims={"sub": settings.vapid_subject},
+            vapid_private_key=credential("vapid_private_key"),
+            vapid_claims={"sub": credential("vapid_subject")},
             ttl=120,
             timeout=PUSH_TIMEOUT_SECONDS,
         )

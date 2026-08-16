@@ -303,3 +303,47 @@ async def test_a_branding_upload_hands_back_the_new_version(client, editor, admi
         headers={"Sec-Fetch-Site": "same-origin", "If-Match": returned},
     )
     assert ok.status_code == 200, ok.text
+
+
+async def test_an_uploaded_filename_cannot_choose_what_the_browser_executes(client, editor, admin_login):
+    """The stored extension comes from the VALIDATED content type, never from the filename.
+
+    `serve_branding` is public by design — the login screen needs the logo before anybody signs
+    in — and it derives the response's Content-Type from the stored key. So a filename that
+    picked the extension picked what the browser would run: `Content-Type: image/png` (which
+    passes the allowlist) plus `filename="logo.html"` was stored as `…/<uuid>.html` and came
+    back as `text/html` from the app's own origin. Persistent same-origin XSS against every
+    viewer, editor and Einsatz-Link holder, surviving a config restore because the blob is
+    never deleted.
+    """
+    await _login(client, editor)
+    await admin_login(client)
+
+    up = await client.post("/api/branding/logo", files={"file": ("logo.html", _PNG, "image/png")})
+    assert up.status_code == 200, up.text
+    url = up.json()["identity"]["assets"]["logo"]
+    assert url.endswith(".png"), f"the filename chose the extension: {url}"
+
+    served = await client.get(url)
+    assert served.status_code == 200
+    assert served.headers["content-type"].startswith("image/png")
+
+
+async def test_branding_files_are_served_with_nosniff_and_a_csp(client, editor, admin_login):
+    """The headers that keep an SVG logo from being a script.
+
+    ⚠️ SVG STAYS ALLOWED — stations legitimately only have their mark as one — and an SVG is a
+    document: navigate straight to it and any `<script>` inside runs on this origin. `sandbox`
+    plus a `default-src 'none'` fallback for `script-src` is what stops that, so these headers
+    are load-bearing rather than decorative. `nosniff` covers the other half: a browser deciding
+    for itself that a PNG looked more interesting than a PNG.
+    """
+    await _login(client, editor)
+    await admin_login(client)
+    up = await client.post("/api/branding/logo", files={"file": ("logo.png", _PNG, "image/png")})
+    served = await client.get(up.json()["identity"]["assets"]["logo"])
+
+    assert served.headers["x-content-type-options"] == "nosniff"
+    csp = served.headers["content-security-policy"]
+    assert "default-src 'none'" in csp
+    assert "sandbox" in csp

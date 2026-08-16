@@ -8,8 +8,10 @@ render config (group/label/colour/symbol/tiles) is written into the ``deployment
 row's ``referenceLayers``, which the frontend turns into map layers (see
 ``src/lib/deploymentConfig.ts`` → ``referenceLayersFromConfig``).
 
-Run from ``backend/`` via ``uv run python -m app.admin_geodata <cmd>`` (against SQLite locally,
-or production by exporting ``DATABASE_URL`` first):
+Run from ``backend/`` via ``uv run python -m app.admin_geodata <cmd>``. It talks to whatever
+``DATABASE_URL`` points at — the local dev Postgres from ``just db`` by default; export a
+different ``DATABASE_URL`` to target another deployment. (kp-front is Postgres-only: there is
+no database file anywhere. SQLite exists solely as a pytest fallback.)
 
     schema                 print the JSON Schema of a manifest entry (the contract)
     example                print a populated example manifest you can edit
@@ -45,9 +47,10 @@ from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
 from sqlalchemy import select
 
 from . import storage
+from .admin_manifest import template_hint
 from .database import async_session_maker
 from .models import DeploymentConfig, ReferenceDataset
-from .schemas import DeploymentConfigIn, ReferenceLayerConfig
+from .schemas import ReferenceLayerConfig, load_stored_config
 
 
 class GeodataManifestEntry(BaseModel):
@@ -264,7 +267,10 @@ async def _write_config(db, ref_layers: list[dict[str, Any]]) -> None:
     row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     current = dict(row.config_json) if (row and row.config_json) else {}
     current["referenceLayers"] = ref_layers
-    normalized = DeploymentConfigIn(**current).model_dump(mode="json")
+    # Everything but `referenceLayers` here is a STORED document (schemas · load_stored_config):
+    # a geodata push must not fail on a field somebody else typed months ago and that has grown
+    # a rule since — it is pushing layers, and it is the only writer that never sees those fields.
+    normalized = load_stored_config(current).model_dump(mode="json")
     if row is None:
         db.add(DeploymentConfig(id=1, config_json=normalized))
     else:
@@ -387,7 +393,10 @@ def _validate_files(manifest_path: Path, entries: list[GeodataManifestEntry]) ->
         if e.kind == "geojson" and e.file:
             src = _resolve(manifest_path, e)
             if not src.is_file():
-                _fail(f"ERROR: {manifest_path}: layer {e.id!r} file not found: {src}")
+                _fail(
+                    f"ERROR: {manifest_path}: layer {e.id!r} file not found: {src}"
+                    + template_hint(manifest_path, complete_example="examples/demo-data/geodata.manifest.json")
+                )
             counts[e.id] = _validate_geojson_wgs84(src)
     return counts
 

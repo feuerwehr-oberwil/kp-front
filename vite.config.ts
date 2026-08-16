@@ -1,7 +1,8 @@
 /// <reference types="vitest/config" />
 import { execSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
-import { defineConfig, loadEnv } from 'vite'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
@@ -15,6 +16,59 @@ let gitSha = 'dev'
 try { gitSha = execSync('git rev-parse --short HEAD').toString().trim() } catch { /* no git */ }
 if (gitSha === 'dev' && process.env.GIT_SHA) gitSha = process.env.GIT_SHA.slice(0, 7)
 const buildTime = new Date().toISOString()
+
+// ⚠️ The web manifest is NOT a static file at runtime: the backend serves it
+// (backend/app/webmanifest.py), overlaying the station's own name, accent colour and app
+// icons onto the one built here, so the installed PWA on a crew tablet carries the station's
+// identity and not ours.
+//
+// That only works if the service worker never answers for it. vite-plugin-pwa force-adds
+// `manifest.webmanifest` to the precache list via workbox's `additionalManifestEntries` —
+// `globPatterns` above neither matches it nor can exclude it, and `manifestTransforms` runs
+// BEFORE that entry is appended (workbox-build/src/lib/transform-manifest.ts: "Run
+// additionalManifestEntriesTransform last"), so neither knob reaches it. A precached manifest
+// is frozen at service-worker INSTALL time, which is exactly the state this feature has to
+// survive: a station that rebrands after the tablets were set up would keep the old identity
+// until the next deploy.
+//
+// So the entry is removed from the generated sw.js after vite-plugin-pwa writes it. Nothing
+// is lost offline — the OS keeps its own copy of an installed app's manifest, and the manifest
+// is only ever read when the app is (re-)added to a home screen.
+//
+// Deliberately LOUD: if a vite-plugin-pwa/workbox upgrade changes the generated shape, the
+// build fails here rather than silently restoring the stale-manifest behaviour.
+function dropManifestFromPrecache(): Plugin {
+  const ENTRY = /,?\{url:"manifest\.webmanifest",revision:"[^"]*"\},?/
+  let outDir = 'dist'
+  return {
+    name: 'kp-drop-manifest-from-precache',
+    apply: 'build',
+    // `enforce: 'post'` puts us in the same ordering bucket as VitePWA's build plugin, so
+    // the array order below decides — without it rollup sorts us into the earlier bucket and
+    // we run before sw.js has been written.
+    enforce: 'post',
+    configResolved(config) { outDir = resolve(config.root, config.build.outDir) },
+    // `sequential` is required, not cosmetic: rollup runs closeBundle hooks in PARALLEL by
+    // default, and VitePWA declares its own as sequential — without this we race it and find
+    // no sw.js at all. Plugin order in the array then puts us after it.
+    closeBundle: {
+      sequential: true,
+      handler() {
+        const swPath = resolve(outDir, 'sw.js')
+        const sw = readFileSync(swPath, 'utf-8')
+        if (!ENTRY.test(sw)) {
+          throw new Error(
+            'kp-drop-manifest-from-precache: no manifest.webmanifest entry found in the generated '
+            + 'sw.js. Either vite-plugin-pwa stopped precaching it (then delete this plugin) or the '
+            + 'generated shape changed (then fix the pattern) — do NOT ship a precached manifest.',
+          )
+        }
+        // keep exactly one separator when the entry sat between two others
+        writeFileSync(swPath, sw.replace(ENTRY, (m) => (m.startsWith(',') && m.endsWith(',') ? ',' : '')))
+      },
+    },
+  }
+}
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
@@ -142,6 +196,8 @@ export default defineConfig(({ mode }) => {
         },
         devOptions: { enabled: false },
       }),
+      // MUST stay after VitePWA — it rewrites the sw.js that plugin has just written.
+      dropManifestFromPrecache(),
     ],
     server: {
       host: true,

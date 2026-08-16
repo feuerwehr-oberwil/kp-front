@@ -28,7 +28,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..alarms import get_config_model
 from ..auth.dependencies import CurrentUser
-from ..config import settings
+from ..credentials import get as credential
+from ..credentials import load as load_credentials
 from ..database import execute_dml, get_db
 from ..models import Incident, PrintJob
 from ..report_pdf import ReportPayload
@@ -82,7 +83,9 @@ _last_seen: datetime | None = None
 
 
 def relay_available() -> bool:
-    return bool(settings.print_agent_secret)
+    """Whether the print relay is switched on at all — read live, not at boot, so a station
+    that pastes its agent secret into /admin sees the «An Stationsdrucker» button appear."""
+    return bool(credential("print_agent_secret"))
 
 
 def relay_online() -> bool:
@@ -97,7 +100,7 @@ def _mark_seen() -> None:
 
 
 def _check_agent_secret(provided: str | None) -> None:
-    expected = settings.print_agent_secret
+    expected = credential("print_agent_secret")
     if not expected:
         # Fail CLOSED: no secret configured → the whole relay surface is off.
         raise HTTPException(status_code=403, detail="Druck-Relay deaktiviert (PRINT_AGENT_SECRET nicht gesetzt)")
@@ -122,8 +125,12 @@ def relay_status() -> dict:
 
 
 @router.get("/print/status")
-async def get_print_status(_user: CurrentUser) -> dict:
-    """Availability + heartbeat freshness for the «An Stationsdrucker» button."""
+async def get_print_status(_user: CurrentUser, db: AsyncSession = Depends(get_db)) -> dict:
+    """Availability + heartbeat freshness for the «An Stationsdrucker» button.
+
+    Reads the credential store fresh: this is what makes the button appear on the tablets
+    minutes after an admin pastes the agent secret, with nothing restarted."""
+    await load_credentials(db)
     return print_status()
 
 
@@ -351,6 +358,7 @@ async def agent_claim(
     """Long-poll: claim the oldest queued job (→ metadata JSON), or hang up to CLAIM_HANG_SEC
     and answer 204 when the queue stays idle. Woken instantly by `_job_ready` on enqueue.
     Every call is also the heartbeat that keeps the relay «online» in the UI."""
+    await load_credentials(db)
     _check_agent_secret(x_print_agent_secret)
     _mark_seen()
     loop = asyncio.get_running_loop()
@@ -377,6 +385,7 @@ async def agent_job_file(
     x_print_agent_secret: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> Response:
+    await load_credentials(db)
     _check_agent_secret(x_print_agent_secret)
     _mark_seen()
     job = (await db.execute(select(PrintJob).where(PrintJob.id == job_id))).scalar_one_or_none()
@@ -394,6 +403,7 @@ async def agent_job_status(
     x_print_agent_secret: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
+    await load_credentials(db)
     _check_agent_secret(x_print_agent_secret)
     _mark_seen()
     if body.status not in {"done", "failed"}:

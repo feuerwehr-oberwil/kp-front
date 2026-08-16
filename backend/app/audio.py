@@ -15,7 +15,7 @@ from array import array
 import httpx
 
 from . import storage
-from .config import settings
+from .credentials import get as credential
 
 PEAKS_BUCKETS = 2000
 _RATE = 8000  # mono decode rate — plenty for a speech amplitude envelope
@@ -130,16 +130,17 @@ async def transcribe(src_path: str) -> list[dict]:
     """Send the (re-encoded) recording to the configured OpenAI-compatible
     `/v1/audio/transcriptions` endpoint and return utterance drafts
     `[{'start': sec, 'end': sec, 'text': str}]`. Raises SttError on any failure."""
-    if not settings.stt_base_url:
+    if not credential("stt_base_url"):
         raise SttError("Kein STT-Server konfiguriert")
     with tempfile.TemporaryDirectory() as td:
         ogg = os.path.join(td, "audio.ogg")
         await reencode_for_stt(src_path, ogg)
-        url = settings.stt_base_url.rstrip("/") + "/v1/audio/transcriptions"
-        headers = {"Authorization": f"Bearer {settings.stt_api_key}"} if settings.stt_api_key else {}
-        data = {"model": settings.stt_model, "response_format": "verbose_json"}
-        if settings.stt_language:
-            data["language"] = settings.stt_language
+        url = credential("stt_base_url").rstrip("/") + "/v1/audio/transcriptions"
+        api_key = credential("stt_api_key")
+        headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+        data = {"model": credential("stt_model"), "response_format": "verbose_json"}
+        if language := credential("stt_language"):
+            data["language"] = language
         try:
             async with httpx.AsyncClient(timeout=STT_TIMEOUT_SEC) as client:
                 # ASYNC230 suppressed: the handle is not read here — it is handed to httpx, which

@@ -10,13 +10,14 @@ export interface SetupFacts {
   heartbeatConfigured: boolean
 }
 
+/** A row somebody can actually tick: it counts towards «x von n» and keeps the card up. */
 interface Row {
   key: string
   done: boolean
   label: string
   sub: string
-  /** the section to open; omitted where the fix is not in this UI at all (see below) */
-  go?: string
+  /** the section this row opens */
+  go: string
 }
 
 /**
@@ -24,13 +25,23 @@ interface Row {
  *
  * A new deployment is otherwise a set of blank forms with nothing saying which of them matter.
  * Every fact here is one the System page already holds or one line of config, so the card costs
- * no request; it disappears once there is nothing left to say.
+ * no request; it disappears once there is nothing left for this UI to offer.
  *
  * ⚠️ Deliberately NOT a wizard and NOT a progress bar. SETUP.md §4 already tells a station «you
  * do not owe anyone a complete inventory» — a Wehr with no vehicle list is operational, it just
  * gets no Ausrückzeiten grid. This card is the screen version of that sentence, so every row
  * names the CONSEQUENCE of leaving it undone rather than nagging, and nothing here blocks
  * anything.
+ *
+ * ⚠️ Every line here is a ROW, and the rule behind that is: this card only ever lists things
+ * this UI can finish. «Überwachung» used to be the exception — HEALTHCHECK_PING_URL was
+ * env-only, so it was reported without a chevron and kept out of the «x von n» count, because
+ * a row nobody could tick would have parked the card at «6 von 7» on the admin's landing page
+ * forever. That is no longer true: the ping URL is one of the sixteen credentials
+ * «Zugangsdaten» sets (backend/app/credentials.py), so it is now finishable in two taps like
+ * every other row and counts like every other row. The exception, and the `Note` type that
+ * existed for it, are gone — if a future line genuinely cannot be finished from a browser, it
+ * does not belong on this card at all.
  */
 export function SetupChecklist({ cfg, facts, onGo }: {
   cfg: DeploymentConfig | null
@@ -42,7 +53,15 @@ export function SetupChecklist({ cfg, facts, onGo }: {
 
   const assets = cfg.identity?.assets
   const vehicles = cfg.fleet?.vehicles?.length ?? 0
-  const center = cfg.map?.defaultView?.center
+  // ⚠️ A centre can be stored in EITHER CRS, and they are mutually exclusive
+  // (schemas.py · MapDefaultView._one_crs): picking LV95 in the Station form writes
+  // `centerLv95` and NULLs `center`. Ticking on `center` alone therefore left every LV95
+  // station — i.e. the Swiss default this product is built for — with a row it could never
+  // finish, parking the card on the admin's landing page forever. That is the exact failure
+  // this card's own «only ever lists things this UI can finish» rule exists to prevent.
+  const pair = (v: unknown): [number, number] | null =>
+    Array.isArray(v) && v.length === 2 && v.every((n) => typeof n === 'number') ? (v as [number, number]) : null
+  const centre = pair(cfg.map?.defaultView?.center) ?? pair(cfg.map?.defaultView?.centerLv95)
 
   const rows: Row[] = [
     {
@@ -50,11 +69,9 @@ export function SetupChecklist({ cfg, facts, onGo }: {
       label: C.name, sub: cfg.identity?.appName?.trim() || C.nameOpen,
     },
     {
-      key: 'map', done: Array.isArray(center) && center.length === 2, go: 'identitaet',
+      key: 'map', done: !!centre, go: 'identitaet',
       label: C.map,
-      sub: Array.isArray(center) && center.length === 2
-        ? fillTemplate(C.mapSet, { lon: String(center[0]), lat: String(center[1]) })
-        : C.mapOpen,
+      sub: centre ? fillTemplate(C.mapSet, { lon: String(centre[0]), lat: String(centre[1]) }) : C.mapOpen,
     },
     {
       key: 'logo', done: !!assets?.logo, go: 'identitaet',
@@ -79,12 +96,12 @@ export function SetupChecklist({ cfg, facts, onGo }: {
       label: C.fleet, sub: vehicles > 0 ? fillTemplate(C.fleetSet, { n: vehicles }) : C.fleetOpen,
     },
     {
-      // ⚠️ NO `go`. This one lives in the environment (HEALTHCHECK_PING_URL), which a browser
-      // can neither read nor set — so it is reported, not offered. A chevron here would promise
-      // a screen that does not exist. It stays on the list because a station that never learns
-      // its instance is down is the failure the whole ops story is about, and this page is where
-      // somebody would look for it.
-      key: 'monitoring', done: facts.heartbeatConfigured,
+      // A station that never learns its instance is down is the failure the whole ops story is
+      // about — and «Zugangsdaten» is now a screen that fixes it, so this row leads there
+      // rather than naming an environment variable nobody at a tablet can reach.
+      // `heartbeatConfigured` is /api/system's boolean and already reads through the credential
+      // layer, so a value set in .env ticks this row exactly like one set in the browser.
+      key: 'monitoring', done: facts.heartbeatConfigured, go: 'zugaenge',
       label: C.monitoring, sub: facts.heartbeatConfigured ? C.monitoringSet : C.monitoringOpen,
     },
   ]
@@ -99,7 +116,7 @@ export function SetupChecklist({ cfg, facts, onGo }: {
         <span className="adm-setup-lbl">{r.label}</span>
         <span className="adm-setup-sub">{r.sub}</span>
       </span>
-      {r.go && <span className="adm-setup-go" aria-hidden>›</span>}
+      <span className="adm-setup-go" aria-hidden>›</span>
     </>
   )
 
@@ -113,13 +130,10 @@ export function SetupChecklist({ cfg, facts, onGo }: {
       </header>
       <div className="adm-card-body">
         <div className="adm-setup">
-          {rows.map((r) => (r.go
-            ? (
-              <button type="button" className="adm-setup-row" key={r.key} onClick={() => onGo(r.go!)}>
-                {body(r)}
-              </button>
-            )
-            : <div className="adm-setup-row is-static" key={r.key}>{body(r)}</div>
+          {rows.map((r) => (
+            <button type="button" className="adm-setup-row" key={r.key} onClick={() => onGo(r.go)}>
+              {body(r)}
+            </button>
           ))}
         </div>
       </div>

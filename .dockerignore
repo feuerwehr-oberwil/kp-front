@@ -22,3 +22,20 @@ docs/design-concepts
 **/.env.*
 !.env.example
 !**/.env.example
+
+# Same rule, second miss: a STATION's own data must not enter the build context either. These
+# paths are all gitignored — they are exactly the things that never belong in the public repo —
+# but `.gitignore` has no bearing on the build context, so `COPY . .` baked them into an image
+# layer. Verified 2026-08-16 on a `--build` install: backend/private/oberwil.config.json and
+# live.config.json were sitting in /app inside the running container. That matters more now that
+# `./scripts/setup.sh --build` is a documented path, and it is how one station's config would
+# reach another station's image.
+backend/private/
+public/leitungskataster/
+tmp/
+
+# Maintainer-internal working notes. Not secret, but nothing here is needed at runtime and it
+# should not ship inside a station's image.
+docs/planning/
+mockups/
+todo.md

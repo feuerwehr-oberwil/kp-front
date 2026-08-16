@@ -11,6 +11,7 @@ import {
   DoctrineSection,
   JournalSection,
   ReportSection,
+  AlarmsSection,
   FleetSection,
   LayersSection,
   ModulesSection,
@@ -21,18 +22,23 @@ import { CaptureAdminView } from './CaptureAdminView'
 import { StatsAdminView } from './StatsAdminView'
 import { IncidentLinkAdminView } from './IncidentLinkAdminView'
 import { AlarmProviderView, VehicleProviderView } from './DataView'
+import { StationWorkbookView } from './StationWorkbookView'
 import { SystemView } from './SystemView'
 import { BackupView } from './BackupView'
 import { IncidentHistoryView } from './IncidentHistoryView'
+import { ChecklistsView } from './ChecklistsView'
+import { CredentialsView } from './CredentialsView'
 
 // Every admin destination. The sidebar is the ONE navigation surface — no in-page
 // anchor sub-nav, no giant scrolling forms. The former 7-section Konfiguration page is
 // split into five focused "Station" pages that share a single config draft + Save bar
 // (see ConfigContext); everything else is one self-contained page per entry.
 type SectionId =
-  | 'identitaet' | 'doktrin' | 'journal' | 'rapport' | 'fahrzeuge' | 'ebenen' | 'objektplaene'
+  | 'identitaet' | 'doktrin' | 'journal' | 'rapport' | 'alarme' | 'fahrzeuge' | 'ebenen' | 'objektplaene'
+  | 'checklisten'
   | 'mitglieder' | 'mannschaft' | 'erfassung'
-  | 'einsaetze' | 'divera' | 'traccar' | 'statistik' | 'einsatzlink'
+  | 'einsaetze' | 'divera' | 'traccar' | 'statistik' | 'einsatzlink' | 'arbeitsmappe'
+  | 'zugaenge'
   | 'system' | 'sicherung'
 
 // Nav copy (label/title/lede/[tip]) lives in appConfig.copy.admin.nav.<id>; entries carry
@@ -56,9 +62,11 @@ const NAV: NavGroup[] = [
       { id: 'doktrin', icon: 'compass' },
       { id: 'journal', icon: 'history' },
       { id: 'rapport', icon: 'doc' },
+      { id: 'alarme', icon: 'bell' },
       { id: 'fahrzeuge', icon: 'truck' },
       { id: 'ebenen', icon: 'layers' },
       { id: 'objektplaene', icon: 'doc' },
+      { id: 'checklisten', icon: 'checklist' },
     ],
   },
   {
@@ -77,11 +85,16 @@ const NAV: NavGroup[] = [
       { id: 'traccar', icon: 'truck' },
       { id: 'statistik', icon: 'gauge' },
       { id: 'einsatzlink', icon: 'eye' },
+      { id: 'arbeitsmappe', icon: 'download' },
     ],
   },
   {
     heading: 'groupSystem',
+    // «Zugangsdaten» sits under System rather than under Daten: it is not one integration's
+    // page, it is the one place every integration's key is entered — and the question that
+    // brings somebody here («warum kommt kein Alarm an?») is a system question.
     entries: [
+      { id: 'zugaenge', icon: 'lock' },
       { id: 'system', icon: 'gauge' },
       { id: 'sicherung', icon: 'swap' },
     ],
@@ -110,10 +123,14 @@ function initialSection(): SectionId {
 // Station pages that read the shared config document — they get the ConfigGate (draft-loading state).
 // 'mannschaft' is on the list for ONE config field (the station's name order); the rest of that
 // page talks to the personnel API directly.
-const CONFIG_SECTIONS = new Set<SectionId>(['identitaet', 'doktrin', 'journal', 'rapport', 'fahrzeuge', 'ebenen', 'objektplaene', 'mannschaft'])
-// Of those, only the genuinely-editable pages get the sticky autosave bar. The viewers
-// (Fahrzeuge, Kartenebenen, Objektpläne) are read-only — edited via the CLI — so no save bar.
-const AUTOSAVE_SECTIONS = new Set<SectionId>(['identitaet', 'doktrin', 'journal', 'rapport', 'mannschaft'])
+const CONFIG_SECTIONS = new Set<SectionId>(['identitaet', 'doktrin', 'journal', 'rapport', 'alarme', 'fahrzeuge', 'ebenen', 'objektplaene', 'mannschaft'])
+// Of those, only the genuinely-editable pages get the sticky autosave bar. Objektpläne is a
+// read-only viewer — edited via the CLI — so no save bar. 'fahrzeuge' IS on the list: its vehicle
+// list is edited in place (ConfigSections · FleetVehiclesEditor), and a page that autosaves
+// without saying so is a page nobody can tell has saved. 'ebenen' likewise, since its raster
+// layers (WMS/WMTS) became editable (ConfigSections · ReferenceRasterEditor) — the overview
+// above them stays a viewer.
+const AUTOSAVE_SECTIONS = new Set<SectionId>(['identitaet', 'doktrin', 'journal', 'rapport', 'alarme', 'fahrzeuge', 'ebenen', 'mannschaft'])
 
 function renderSection(id: SectionId, navigate: (id: SectionId) => void) {
   switch (id) {
@@ -121,9 +138,13 @@ function renderSection(id: SectionId, navigate: (id: SectionId) => void) {
     case 'doktrin': return <DoctrineSection />
     case 'journal': return <JournalSection />
     case 'rapport': return <ReportSection />
+    case 'alarme': return <AlarmsSection />
     case 'fahrzeuge': return <FleetSection />
     case 'ebenen': return <LayersSection />
     case 'objektplaene': return <ModulesSection />
+    // Not a CONFIG_SECTION: checklist templates are reference datasets, not config-document
+    // fields, so this page needs no draft and must not sit behind the ConfigGate.
+    case 'checklisten': return <ChecklistsView />
     case 'mitglieder': return <MembersView />
     case 'mannschaft': return <RosterView />
     case 'erfassung': return <CaptureAdminView />
@@ -132,6 +153,14 @@ function renderSection(id: SectionId, navigate: (id: SectionId) => void) {
     case 'traccar': return <VehicleProviderView />
     case 'statistik': return <StatsAdminView />
     case 'einsatzlink': return <IncidentLinkAdminView />
+    // Not a CONFIG_SECTION: the workbook is parsed and applied SERVER-side, so this page holds
+    // no config draft — one that did would be the client-side full-document write the whole
+    // design exists to avoid.
+    case 'arbeitsmappe': return <StationWorkbookView />
+    // Also not a CONFIG_SECTION, and this one deliberately so: integration credentials live in
+    // their own table, NOT in the config document — GET /api/config is public and the Sicherung
+    // round-trip replaces that document wholesale.
+    case 'zugaenge': return <CredentialsView />
     // the Einrichtung card links into the pages that fix each row, so this one navigates.
     // ⚠️ Narrowed by a real lookup rather than cast: SetupChecklist names its targets as plain
     // strings (it has no business importing this union), and a typo there should do nothing

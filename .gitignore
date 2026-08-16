@@ -17,7 +17,15 @@ __pycache__/
 /playwright/.cache/
 
 # Self-host secrets (compose). The committed template is .env.example.
+#
+# ⚠️ The SUFFIXED forms matter as much as the bare one, and only `.dockerignore` had them.
+# `scripts/init-env.sh` edits through `sed -i.bak`, so an install that is interrupted between
+# the write and the `rm -f` on the next line leaves `.env.bak` holding SECRET_KEY,
+# POSTGRES_PASSWORD and ADMIN_SECRET — in a PUBLIC repository, one `git add -A` from being
+# published. Same for the `.env.local` / `.env.prod` an operator invents for themselves.
 .env
+.env.*
+!.env.example
 
 # Backend runtime object storage (media_storage_dir defaults to data/storage)
 /data/
@@ -39,7 +47,11 @@ docs/design-concepts/
 # was a promise nothing enforced — one `git add -A` would have published nine of them.
 # Ignore the directory, then re-admit the two that are deliberately kept as historical
 # record (docs/README.md and AGENTS.md both point at them).
-/mockups/*.html
+# …and the pattern is the whole directory, not just `*.html`: a decision round leaves an
+# index (`README-admin-entscheidungen.md`) next to the variants, which links to files this
+# rule ignores — committing it would publish a page of dead links. Same gap, one extension
+# further along.
+/mockups/*
 !/mockups/app-lage.html
 !/mockups/nav-concepts.html
 
@@ -66,3 +78,7 @@ tools/symbols-review.html
 
 # Die Ein-Datei-Variante der Landingpage wird gebaut, nicht eingecheckt.
 site/dist/
+
+# Local compose customisations (build-from-source, host-specific ports). The .example is
+# tracked and copied by `scripts/setup.sh --build`; the copy is yours and never ours.
+docker-compose.override.yml

@@ -16,6 +16,7 @@ import {
   type ObjectWithPlans,
   type ReferenceDataset,
 } from '../../lib/incidents'
+import { getAdminSession } from '../../admin/adminAuth'
 import { Modal, fmtWhen } from './_shared'
 
 // --- Datenquellen (Phase 7) ---------------------------------------------------------
@@ -27,6 +28,25 @@ export function DatenquellenPanel({ isEditor, incidentCoord, onClose }: {
   const ds = appConfig.copy.datenquellen
   const [refs, setRefs] = useState<ReferenceDataset[]>([])
   const [objects, setObjects] = useState<ObjectWithPlans[]>([])
+  // ⚠️ Uploading here is NOT an editor right. Both writes this panel makes — `PUT /api/reference/{id}`
+  // (api/reference · replace_reference) and the full-document `PUT /api/config` behind
+  // `upsertReferenceLayer` (api/config · put_config) — sit behind `CurrentAdmin`, the deployment
+  // ADMIN_SECRET session, which the editor PIN does not grant. Gated on `isEditor` alone, a plain
+  // Bearbeiter saw «Ersetzen» and «Neue Geo-Ebene …» and got a 403 every single time. Reference
+  // data is deployment-level, not incident-level, so the admin requirement is the deliberate half:
+  // the button follows the server, not the other way round. `/api/admin/session` is unauthenticated
+  // and answers {configured, authenticated} — it never leaks the secret.
+  const [adminSession, setAdminSession] = useState(false)
+  useEffect(() => {
+    let alive = true
+    void getAdminSession()
+      .then((s) => { if (alive) setAdminSession(s.authenticated) })
+      .catch(() => { /* no admin surface / offline → no upload affordance, which is the truth */ })
+    return () => { alive = false }
+  }, [])
+  // …and still only for an editor: a Betrachter or an Einsatz-Link guest must never see a write
+  // control, whatever cookies the browser happens to be carrying.
+  const canUpload = isEditor && adminSession
   const reload = async () => {
     try { setRefs(await listReference()) } catch { /* ignore */ }
     try { setObjects(await listObjects(undefined, incidentCoord ? `${incidentCoord[0]},${incidentCoord[1]}` : undefined)) } catch { /* ignore */ }
@@ -118,7 +138,7 @@ export function DatenquellenPanel({ isEditor, incidentCoord, onClose }: {
               </div>
               {d.source_note && <div className="ip-ds-note">{d.source_note}</div>}
             </div>
-            {isEditor && (
+            {canUpload && (
               <label className="ip-btn ghost">
                 {ds.replace}
                 <input type="file" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void upload(d.id, f) }} />
@@ -126,12 +146,15 @@ export function DatenquellenPanel({ isEditor, incidentCoord, onClose }: {
             )}
           </div>
         ))}
-        {isEditor && !addOpen && (
+        {/* An editor without the admin session gets the INSTRUCTION instead of a button that
+            403s — the one thing the old screen never said is where the upload actually lives. */}
+        {isEditor && !adminSession && <div className="ip-ds-note">{ds.adminOnlyNote}</div>}
+        {canUpload && !addOpen && (
           <button type="button" className="ip-btn ghost" style={{ marginTop: 6 }} onClick={() => setAddOpen(true)}>
             <Icon id="area" /> {ds.newGeoLayer}
           </button>
         )}
-        {isEditor && addOpen && (
+        {canUpload && addOpen && (
           <div className="ip-addlayer">
             <label className="ip-btn ghost">
               {nf ? nf.name : ds.chooseGeojson}

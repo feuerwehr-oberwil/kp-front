@@ -81,6 +81,18 @@ export class ApiError extends Error {
   hint?: string
   /** seconds to wait, parsed from the Retry-After header when the server sends one (429) */
   retryAfter?: number
+  /** Which FIELDS the server refused, when it answered with FastAPI's 422 validation array.
+   *  `detail` flattens those into English Pydantic prose («Input should be a valid list»),
+   *  which is what a German-speaking volunteer was shown when a coordinate went in wrong. A
+   *  caller that knows its own document — the Verwaltung config editor — turns the dotted
+   *  paths here into a sentence naming the field in the operator's language.
+   *
+   *  `kind` and `input` are FastAPI's `type` and `input` verbatim: the machine-readable half of
+   *  the same answer. `kind` says what was EXPECTED («string_type») and `input` what was
+   *  actually there («TLF 31») — the two things a config import has to say out loud, because
+   *  the file is hand-edited and the shape is the whole question (admin/ConfigContext ·
+   *  describeRejectedFields). */
+  fields?: { path: string; msg: string; kind?: string; input?: unknown }[]
   constructor(status: number, detail: string, retryAfter?: number) {
     super(detail)
     this.name = 'ApiError'
@@ -151,14 +163,24 @@ async function request<T>(path: string, init?: RequestInit, timeoutMs = DEFAULT_
     const mapped = statusMessage(res.status)
     let detail = mapped?.detail ?? res.statusText ?? ''
     let hint = mapped?.hint
+    let fields: { path: string; msg: string; kind?: string; input?: unknown }[] | undefined
     try {
       const body = await res.json()
       if (body && typeof body.detail === 'string') { detail = body.detail; hint = undefined }
       else if (Array.isArray(body?.detail)) {
-        detail = body.detail.map((item: { loc?: unknown[]; msg?: string }) => {
-          const field = Array.isArray(item.loc) ? item.loc.filter((part) => part !== 'body').join('.') : ''
-          return `${field ? `${field}: ` : ''}${item.msg ?? 'Ungültiger Wert'}`
-        }).join(' · ')
+        // Kept as structured pairs as well as the flattened line: the flattened one is English
+        // Pydantic prose and only a caller that knows the document can say what it means (see
+        // ApiError.fields).
+        const parsed: { path: string; msg: string; kind?: string; input?: unknown }[] = body.detail.map(
+          (item: { loc?: unknown[]; msg?: string; type?: string; input?: unknown }) => ({
+            path: Array.isArray(item.loc) ? item.loc.filter((part) => part !== 'body').join('.') : '',
+            msg: item.msg ?? 'Ungültiger Wert',
+            kind: item.type,
+            input: item.input,
+          }),
+        )
+        fields = parsed
+        detail = parsed.map(({ path, msg }) => `${path ? `${path}: ` : ''}${msg}`).join(' · ')
         hint = undefined
       }
     } catch { /* non-JSON error body (the usual proxy HTML) — the mapped wording stands */ }
@@ -167,6 +189,7 @@ async function request<T>(path: string, init?: RequestInit, timeoutMs = DEFAULT_
     const retryAfter = ra != null && ra !== '' ? Number(ra) : undefined
     const err = new ApiError(res.status, detail, Number.isFinite(retryAfter) ? retryAfter : undefined)
     err.hint = hint
+    err.fields = fields
     throw err
   }
 

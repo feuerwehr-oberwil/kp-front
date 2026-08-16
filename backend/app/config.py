@@ -6,6 +6,7 @@ the SPA), so there is no CORS config and cookies are SameSite=Lax.
 
 import os
 import secrets
+import sys
 from datetime import timedelta
 
 from pydantic import AliasChoices, Field, field_validator
@@ -50,6 +51,15 @@ class Settings(BaseSettings):
     version: str = "0.6.0"
     api_prefix: str = "/api"
 
+    # --- Build stamp: WHICH build is running ---
+    # A release number alone cannot tell a from-source build of `main` apart from a published
+    # image of the same tag — both answer "0.6.0", which made two install bugs undebuggable.
+    # These come in as build args baked into the image (see the Dockerfile's runtime stage);
+    # Railway additionally injects RAILWAY_GIT_COMMIT_SHA for the declared ARG. Empty in a
+    # plain `uv run` dev process, where the checkout in front of you is the answer.
+    git_sha: str = ""
+    build_time: str = ""  # ISO-8601 UTC, stamped at image build
+
     # --- Uvicorn ---
     # S104 suppressed: binding all interfaces is correct for a containerised service — the container
     # network, not the process, is the boundary. Same call kp-rueck's bandit B104 annotation makes.
@@ -76,7 +86,29 @@ class Settings(BaseSettings):
             if is_production():
                 raise ValueError("SECRET_KEY is required in production (openssl rand -hex 32).")
             generated = secrets.token_hex(32)
-            print(f"\U0001f511 Generated development SECRET_KEY: {generated[:8]}…")
+            # ⚠️ STDERR, never stdout. Importing this module is the first thing every
+            # `app.admin_*` CLI does, and those CLIs write their PAYLOAD to stdout. The
+            # config-as-code path in `docs/SETUP.md §3` opens with a redirect:
+            #     uv run python -m app.admin_config example > ~/kp-station/config.json
+            # With this line on stdout the file began with «🔑 …» instead of «{», so the very
+            # next documented command died with "is not valid JSON: Expecting value: line 1
+            # column 1". It also printed above `--help`. Anything that is not the payload
+            # belongs on stderr; that keeps every redirect and pipe in the docs correct without
+            # this module having to know which subcommand is running (it has no business
+            # sniffing argv, and a notice that vanishes for some commands is a notice an
+            # operator learns not to trust).
+            #
+            # The WORDING is load-bearing too. SETUP §7.1 warns that changing SECRET_KEY
+            # invalidates every PIN, and «Generated development SECRET_KEY» read as though this
+            # process had just done that to the operator's deployment. It has not: this key
+            # exists only inside this process and dies with it.
+            print(
+                "\U0001f511 No SECRET_KEY is set, so this process made up a throwaway one "
+                f"({generated[:8]}…) for itself. It is never stored, it is different on every "
+                "start, and it changes nothing about your deployment's own SECRET_KEY. Fine "
+                "for local development; production refuses to boot without a real one.",
+                file=sys.stderr,
+            )
             return generated
         if len(v) < 32:
             raise ValueError("SECRET_KEY must be at least 32 characters (openssl rand -hex 32).")
@@ -392,6 +424,22 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return is_production()
+
+    @property
+    def build(self) -> dict[str, str]:
+        """Which build this process IS — release, commit and build moment.
+
+        One place, so /health, /ready and the admin System tab cannot disagree. `commit` stays
+        a string ('dev' when unknown) because the admin UI slices it; `built_at` is empty
+        rather than absent for the same reason. Railway's own env var is the fallback so
+        existing deploys keep reporting a commit without a rebuild.
+        """
+        sha = (self.git_sha or os.getenv("RAILWAY_GIT_COMMIT_SHA") or "").strip()
+        return {
+            "release": self.version,
+            "commit": sha or "dev",
+            "built_at": self.build_time.strip(),
+        }
 
     @property
     def api_docs_enabled(self) -> bool:

@@ -438,7 +438,13 @@ class DeploymentConfig(Base):
 
     ``config_json`` is the admin-edited JSON described in docs/CONFIGURATION.md §1
     (identity/map/referenceLayers/fleet/symbols/doctrine/roster). It is validated
-    through the Pydantic schema in schemas.py before persistence; secrets stay in env.
+    through the Pydantic schema in schemas.py before persistence.
+
+    ⚠️ NO SECRET EVER GOES IN ``config_json``. ``GET /api/config`` is public and the Sicherung
+    export/import round-trip replaces the whole document, so a secret in there would be both a
+    leak and one bad import away from deletion. The station-level ones are columns below;
+    integration credentials (Divera, Traccar, VAPID, STT, the webhooks, the monitor) live in
+    ``integration_credentials``, encrypted — see app/credentials.py.
     """
 
     __tablename__ = "deployment_config"
@@ -688,3 +694,65 @@ class TelemetryOutbox(Base):
     last_error: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
     __table_args__ = (Index("ix_telemetry_outbox_pending", "sent_at", "created_at"),)
+
+
+# --- Integration credentials (browser-settable, encrypted at rest) ---------------------
+
+
+class IntegrationCredential(Base):
+    """One integration credential a station set from the browser, encrypted at rest.
+
+    ⚠️ Its own table rather than a field of ``deployment_config.config_json``, and that is
+    the load-bearing part. ``GET /api/config`` is PUBLIC — the login screen brands itself
+    before anybody logs in — and the Sicherung export/import round-trip replaces that whole
+    document. A credential inside it would make the export a leak and the import a
+    credential-deletion button. The three station secrets that came before this
+    (``capture_secret``, ``stats_secret``, ``incident_link_key``) are columns for exactly
+    that reason; there are sixteen of these and they each carry their own «changed when, by
+    whom», so they get a table instead.
+
+    ``value_encrypted`` is ``version ‖ nonce ‖ AES-256-GCM(value, aad=name)`` under a key
+    HKDF-derived from ``SECRET_KEY``, which stays in ``.env`` (see app/credentials.py). So a
+    database dump on its own — the nightly backup, the pre-migration safety dump, a laptop
+    with a restore on it — carries no usable credential.
+
+    ⚠️ Which also means rotating ``SECRET_KEY`` makes every row here unreadable, the same way
+    it invalidates every PIN. That is reported as «unlesbar, bitte neu setzen», never as «nicht
+    konfiguriert» — an operator who is told a credential is missing goes and looks for a
+    setting they already made.
+    """
+
+    __tablename__ = "integration_credentials"
+
+    #: The ``Settings`` attribute name (``divera_access_key``, …). One string is the DB key,
+    #: the env-variable name (upper-cased) and the settings attribute, so they cannot drift.
+    name: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value_encrypted: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+    #: The admin who set it, where a person was behind it; NULL for a CLI/automated write.
+    updated_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+
+
+class IntegrationCredentialAudit(Base):
+    """That a credential changed, when, and by whom — never the value, not even encrypted.
+
+    Config writes keep the previous document so a bad one is undoable. A credential must NOT
+    work that way: keeping old values would mean a leaked ``SECRET_KEY`` exposes every
+    credential this station has ever held, not just its current ones. So this table records
+    the event and nothing else, and «undo» is «set it again», which for a credential is the
+    only honest undo anyway — the far end has to be told either way.
+    """
+
+    __tablename__ = "integration_credential_audit"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(64), nullable=False)
+    #: 'set' (first time) | 'rotated' (replaced an existing value) | 'cleared'
+    action: Mapped[str] = mapped_column(String(16), nullable=False)
+    #: which path did it — 'api' (Verwaltung) today; kept for the same reason
+    #: ``deployment_config_history.source`` exists: «browser or terminal» was unanswerable.
+    source: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
+    actor_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)

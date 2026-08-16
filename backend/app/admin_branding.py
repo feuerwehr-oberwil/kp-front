@@ -25,7 +25,9 @@ uploaded by a person. It writes the blob under a key derived from the SLOT, so r
 overwrites in place instead of leaving a new orphan behind every night.
 
 Slots: ``logo`` (login screen, header), ``reportLogo`` (letterhead of the printed
-Einsatzrapport; falls back to ``logo`` when unset), ``favicon`` (browser tab).
+Einsatzrapport; falls back to ``logo`` when unset), ``favicon`` (browser tab),
+``iconPng192``/``iconPng512`` (home-screen icon of the installed PWA — served through
+``/manifest.webmanifest``; must be square PNGs, see app/api/branding.py).
 """
 
 import argparse
@@ -33,7 +35,7 @@ import os
 import sys
 from pathlib import Path
 
-SLOTS = ("logo", "reportLogo", "favicon")
+SLOTS = ("logo", "reportLogo", "favicon", "iconPng192", "iconPng512")
 
 #: Mirrors the API allowlist (app/api/branding.py). Checked here too so a typo fails on the
 #: workstation with a readable message instead of as a 415 after the upload has been sent.
@@ -79,14 +81,24 @@ def _push(slot: str, path: Path, base: str, admin_secret: str) -> str:
 
 async def _load(slot: str, path: Path) -> str:
     """Write the file into the blob store and point ``identity.assets[slot]`` at it."""
+    from fastapi import HTTPException
     from sqlalchemy import select
 
     from . import storage
+    from .api.branding import _check_icon
     from .database import async_session_maker
     from .models import DeploymentConfig
 
+    data = path.read_bytes()
+    # Same rule as the HTTP upload, from the same function — a DB-direct load must not be the
+    # way an unusable install icon gets into a deployment. (`push` is checked server-side.)
+    try:
+        _check_icon(slot, data)
+    except HTTPException as e:
+        _fail(f"ERROR: {e.detail}")
+
     key = _stable_key(slot, path.suffix.lower())
-    storage.put_bytes(key, path.read_bytes())
+    storage.put_bytes(key, data)
     url = f"/api/branding/file/{key}"
     async with async_session_maker() as db:
         row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()

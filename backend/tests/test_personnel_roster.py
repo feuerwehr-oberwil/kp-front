@@ -78,7 +78,14 @@ async def test_import_csv_happy_path(client, editor):
     r = await client.post("/api/personnel/import-csv", files=files)
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body == {"imported": 2, "skipped": 0, "errors": []}
+    assert body == {
+        "imported": 2,
+        "created": 2,
+        "updated": 0,
+        "skipped": 0,
+        "errors": [],
+        "adopted_ranks": [],
+    }
 
     roster = (await client.get("/api/personnel")).json()
     by_name = {p["display_name"]: p for p in roster}
@@ -146,14 +153,12 @@ async def test_import_csv_bad_row(client, editor):
 
 async def test_import_csv_with_rank_column(client, editor):
     await _login(client, editor)
-    # rank given by label / abbr / key — all map to the config rank key; unknown → null + note
-    csv_text = "name,divera_id,rank\nMeier Hans,1001,Hauptmann\nMüller Anna,,Fwm\nWeber Urs,,Admiral\n"
+    # rank given by label / abbr / key — all map to the config rank key
+    csv_text = "name,divera_id,rank\nMeier Hans,1001,Hauptmann\nMüller Anna,,Fwm\nWeber Urs,,\n"
     files = {"file": ("roster.csv", csv_text.encode("utf-8"), "text/csv")}
     r = await client.post("/api/personnel/import-csv", files=files)
     assert r.status_code == 200, r.text
-    body = r.json()
-    assert body["imported"] == 3
-    assert any("Admiral" in e for e in body["errors"])  # unknown rank noted, row still imported
+    assert r.json()["imported"] == 3
 
     by_name = {p["display_name"]: p for p in (await client.get("/api/personnel")).json()}
     assert by_name["Meier Hans"]["rank"] == "hptm"

@@ -19,6 +19,26 @@ async def test_health_is_static_ok(client):
     assert "version" in body
 
 
+async def test_health_names_the_build_not_just_the_release(client, monkeypatch):
+    """A from-source build of `main` and a published image of the same tag both answer "0.6.0",
+    which is why two install bugs could not be pinned to a build. `curl /health` is the first
+    thing anybody does to a misbehaving deployment, so the sha and the build moment live there.
+    """
+    from app.config import settings
+
+    body = (await client.get("/health")).json()
+    assert body["commit"] == "dev", "an un-stamped dev process must say so rather than guess"
+    assert body["built_at"] == ""
+
+    # What the image build args produce (Dockerfile GIT_SHA / BUILD_TIME → settings).
+    monkeypatch.setattr(settings, "git_sha", "9f86d08188")
+    monkeypatch.setattr(settings, "build_time", "2026-08-16T04:12:00Z")
+    body = (await client.get("/health")).json()
+    assert body["commit"] == "9f86d08188"
+    assert body["built_at"] == "2026-08-16T04:12:00Z"
+    assert body["version"] == settings.version
+
+
 async def test_ready_ok(client, engine, monkeypatch):
     import app.main as main_mod
 

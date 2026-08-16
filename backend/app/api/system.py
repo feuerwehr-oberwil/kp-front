@@ -20,6 +20,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth.dependencies import CurrentAdmin
 from ..config import settings
+from ..credentials import get as credential
+from ..credentials import load as load_credentials
 from ..database import get_db
 from ..models import Incident, Personnel, ReferenceDataset, User
 from ..providers import integrations as provider_integrations
@@ -33,15 +35,15 @@ def _version() -> dict:
     """Release version + build stamp.
 
     `release` is the tagged version this image was published as (the number in the release
-    notes / the KP_FRONT_TAG a self-hoster pins); commit/branch come from Railway's injected
-    git env vars and pin down the exact build when running from `main` between releases.
+    notes / the KP_FRONT_TAG a self-hoster pins). `commit` and `built_at` come from the build
+    args baked into the image (`settings.build`), falling back to Railway's injected git env
+    vars — they are what tells a from-source build of `main` apart from a published image of
+    the same release, which both otherwise report as the same three digits. `branch` is
+    Railway-only and stays null elsewhere.
     """
-    commit = os.getenv("RAILWAY_GIT_COMMIT_SHA") or "dev"
-    branch = os.getenv("RAILWAY_GIT_BRANCH") or None
     return {
-        "release": settings.version,
-        "commit": commit,
-        "branch": branch,
+        **settings.build,
+        "branch": os.getenv("RAILWAY_GIT_BRANCH") or None,
         "env": "production" if settings.is_production else "dev",
     }
 
@@ -135,6 +137,7 @@ async def _connectors(db: AsyncSession) -> list[dict]:
     from ..push import push_enabled
     from .print_relay import relay_status
 
+    await load_credentials(db)
     row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
 
     relay = relay_status()
@@ -163,14 +166,14 @@ async def _connectors(db: AsyncSession) -> list[dict]:
         {
             "id": "divera_webhook",
             "direction": "in",
-            "configured": bool(settings.divera_webhook_secret),
+            "configured": bool(credential("divera_webhook_secret")),
             "state": None,
             "detail": None,
         },
         {
             "id": "alarm_webhook",
             "direction": "in",
-            "configured": bool(settings.alarm_webhook_secret),
+            "configured": bool(credential("alarm_webhook_secret")),
             "state": None,
             "detail": None,
         },
@@ -184,9 +187,9 @@ async def _connectors(db: AsyncSession) -> list[dict]:
         {
             "id": "stt",
             "direction": "out",
-            "configured": bool(settings.stt_base_url),
+            "configured": bool(credential("stt_base_url")),
             "state": None,
-            "detail": settings.stt_base_url or None,
+            "detail": credential("stt_base_url") or None,
         },
     ]
 
@@ -220,6 +223,7 @@ async def get_system(
         storage = None
 
     try:
+        await load_credentials(db)
         integrations = provider_integrations().model_dump()
     except Exception:  # noqa: BLE001
         logger.warning("system: integrations section failed", exc_info=True)
@@ -239,8 +243,8 @@ async def get_system(
         "integrations": integrations,
         "connectors": connectors,
         # Whether this deployment can tell anybody it has died. A BOOLEAN, never the URL: the
-        # ping address is a write endpoint for the monitor and has no business on a screen.
-        # It is env-only (HEALTHCHECK_PING_URL), so the admin UI cannot set it — but it can at
-        # least stop a station from believing somebody would be told. See scheduler · _heartbeat.
-        "monitoring": {"heartbeatConfigured": bool(settings.healthcheck_ping_url.strip())},
+        # ping address is a write endpoint for the monitor, and anyone holding it can keep the
+        # monitor believing a dead station is alive — so it stays write-only even though the
+        # admin UI can now SET it (Zugangsdaten · Monitor). See scheduler · _heartbeat.
+        "monitoring": {"heartbeatConfigured": bool(credential("healthcheck_ping_url").strip())},
     }

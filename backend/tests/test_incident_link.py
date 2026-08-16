@@ -390,6 +390,8 @@ _PARAM_VALUES = {
     "key": "logo.png",
     "media_id": "00000000-0000-0000-0000-00000000000a",
     "module": "grundriss",
+    # an integration-credential slot (app/api/credentials) — a link session must be refused it
+    "name": "divera_access_key",
     "object_id": "obj-1",
     "person_id": "1",
     "slot": "logo",

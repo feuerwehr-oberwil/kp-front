@@ -28,6 +28,10 @@ dependencies = [
     "pywebpush>=2.3.0",
     "resvg-py>=0.3.3",
     "pypdfium2>=5.12.1",
+    # Station-data workbook (app/services/station_workbook): the .xlsx a station downloads,
+    # edits in Excel/Numbers/LibreOffice and uploads back. Read-only for the import (values
+    # only, `data_only=True`), write for the export. MIT.
+    "openpyxl>=3.1.5",
 ]
 
 [project.optional-dependencies]

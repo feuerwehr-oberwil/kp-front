@@ -14,6 +14,19 @@ describe('Menu', () => {
     expect(screen.getByRole('menuitem', { name: 'Löschen' })).toBeTruthy()
   })
 
+  // The popup is portalled to <body> inside a positioner that Base UI transforms — which makes
+  // the positioner a stacking context, so a z-index on the popup is inert. `.ui-menu-pos` is the
+  // one hook the stylesheet has to lift the whole menu over fixed chrome; without it every row
+  // action in the admin opened invisible and unclickable (shipped that way in v0.6.0). jsdom has
+  // no compositor, so this guards the hook, and e2e/admin-row-menu.spec.ts guards the paint.
+  it('puts the class the stylesheet stacks on onto the positioner, not the popup', () => {
+    render(<Menu trigger={<button>Aktionen</button>} items={[{ label: 'Umbenennen', onClick: vi.fn() }]} popupClassName="adm-menu-list" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Aktionen' }))
+    const popup = screen.getByRole('menu')
+    expect(popup.className).toContain('adm-menu-list')
+    expect(popup.parentElement?.className).toContain('ui-menu-pos')
+  })
+
   it('runs the item onClick and closes on select', () => {
     const onClick = vi.fn()
     render(<Menu trigger={<button>Aktionen</button>} items={[{ label: 'Umbenennen', onClick }]} />)

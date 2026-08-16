@@ -48,12 +48,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..alarm_keywords import SHIPPED
 from ..auth.dependencies import CurrentAdmin, OptionalUser, _admin_session_valid
-from ..config_history import emptied_sections, keep_previous
+from ..config_history import changed_sections, emptied_sections, keep_previous
+from ..credentials import load as load_credentials
 from ..database import get_db
 from ..i18n import set_locale
 from ..models import DeploymentConfig, DeploymentConfigHistory, User
 from ..providers import integrations
-from ..schemas import AlarmVocabularyStatus, ConfigHistoryEntry, DeploymentConfigIn, DeploymentConfigOut
+from ..schemas import (
+    AlarmVocabularyStatus,
+    ConfigHistoryEntry,
+    DeploymentConfigIn,
+    DeploymentConfigOut,
+    load_stored_config,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -196,11 +203,20 @@ async def get_config(
 
     Last-good fallback: if the persisted ``config_json`` is missing or fails validation
     (e.g. a hand-edited bad row), serve a safe empty config and log a warning. Never raises.
+
+    ⚠️ Read through ``load_stored_config``, not the strict PUT-body model: a field that has
+    grown a rule since the row was written (``identity.accentColor``) must be dropped, not
+    refused. Refusing it lands in the fallback below — and answering one bad colour by serving
+    the login screen a station with no name, no logo and no fleet is the wrong trade.
     """
+    # `integrations` in the projection is derived from the credential store, so refresh it —
+    # otherwise a station that just connected Divera would keep seeing «nicht konfiguriert»
+    # on the surface it went to check.
+    await load_credentials(db)
     row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     raw = row.config_json if (row and row.config_json) else {}
     try:
-        doc = DeploymentConfigIn.model_validate(raw)
+        doc = load_stored_config(raw)
     except Exception:  # noqa: BLE001 — never let a bad stored row brick GET
         logger.warning("deployment_config row failed validation; serving empty fallback", exc_info=True)
         doc = DeploymentConfigIn()
@@ -324,11 +340,18 @@ async def list_config_history(
     the recovery path for a failure that has now happened four times. The table was write-only
     from a browser's point of view: every write kept its predecessor and nobody could see them.
 
-    Each entry says WHERE the write came from and, more usefully, **what it emptied** — sections
-    that had content before and none after. That is the shape of the damage every time; a full
-    diff of a clobbered config is hundreds of lines and reads as noise. `replaced_by` resolves to
-    a display name where a person was behind it, and stays null for a CLI push, which is itself
-    a useful distinction: «via api, nobody» is what an unattended writer looks like.
+    Each entry says WHERE the write came from and **what that write did**: `emptied` for sections
+    that had content before and none after (the shape of the damage every time), and `sections`
+    for what it CHANGED. `replaced_by` resolves to a display name where a person was behind it,
+    and stays null for a CLI push, which is itself a useful distinction: «via api, nobody» is what
+    an unattended writer looks like.
+
+    ⚠️ `sections` used to list what a kept document CONTAINED, which — because every writer
+    replaces the whole document — was the identical nine section names on every row: 26 rows of
+    «alarms, doctrine, fleet, identity, journal, map, mittel, report, roster» after one afternoon
+    of setting a station up. A list nobody can tell apart cannot answer «which entry do I go back
+    to?». It now carries `changed_sections(kept, successor)` instead — one line per row that
+    differs from its neighbours. Nothing about what is STORED changed.
     """
     rows = (
         (
@@ -355,7 +378,9 @@ async def list_config_history(
     out: list[ConfigHistoryEntry] = []
     # `rows` is newest-first, so the document that REPLACED entry i is entry i-1's kept copy —
     # and for the newest entry it is the live document. That is what makes "what did this write
-    # empty" answerable at all: an entry stores the state BEFORE a write, never the write itself.
+    # change/empty" answerable at all: an entry stores the state BEFORE a write, never the write
+    # itself. ⚠️ The OLDEST row in the page has no predecessor here, but it does not need one:
+    # both answers are about the write that came AFTER the kept document, never before it.
     for i, r in enumerate(rows):
         successor = (rows[i - 1].config_json if i > 0 else live) or {}
         out.append(
@@ -364,7 +389,7 @@ async def list_config_history(
                 replacedAt=r.replaced_at,
                 source=r.source,
                 replacedBy=names.get(r.replaced_by) if r.replaced_by else None,
-                sections=sorted(k for k, v in (r.config_json or {}).items() if v),
+                sections=changed_sections(r.config_json, successor),
                 emptied=emptied_sections(r.config_json, successor),
             )
         )
@@ -393,8 +418,12 @@ async def restore_config(
     # ⚠️ Validate before writing. A document kept by an OLDER build can contain sections this one
     # no longer accepts; writing it unvalidated would put the row into the state that makes
     # GET fall back to an empty config — i.e. the restore would look like a worse clobber.
+    # …but as a STORED document (`load_stored_config`): the history is the recovery path after a
+    # clobber, and refusing to give a station its fleet and roster back because a colour kept in
+    # 2026 no longer passes today's rule would break the one thing this endpoint is for. Such a
+    # field comes back unset; everything else comes back.
     try:
-        doc = DeploymentConfigIn.model_validate(entry.config_json)
+        doc = load_stored_config(entry.config_json)
     except Exception as e:  # the message is for a person, not a caller
         raise HTTPException(
             status_code=422,

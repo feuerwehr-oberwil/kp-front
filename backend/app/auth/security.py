@@ -15,6 +15,19 @@ from jose import JWTError, jwt
 
 from ..config import settings
 
+# PINs that are not secrets, whatever the deployment. Rejecting these stops "set a PIN" from
+# becoming a box-ticking exercise satisfied by retyping the value we are trying to remove.
+#
+# ONE list, read by both ends of a PIN's life: `seed.resolve_seed_pin` at boot, and the admin
+# API's `auth.router._hash_pin_or_400` on every create/reset. The API half is the half that
+# matters most — SETUP.md §2 makes "change the seeded PIN" a station's first action — and was
+# for a while the only place the rule was missing.
+#
+# Deliberately NOT enforced inside `hash_pin`: the public demo publishes 000000 on its own
+# login screen (demo_reset.DEMO_USERS + identity.demoNote), which is an announced choice, and
+# `hash_pin` is what that out-of-band CLI path calls.
+TRIVIAL_PINS = frozenset({"000000", "111111", "123456", "654321", "999999", "012345"})
+
 
 def _pepper(pin: str) -> bytes:
     """HMAC-SHA256(pin, SECRET_KEY) → 64-char hex digest (bytes)."""

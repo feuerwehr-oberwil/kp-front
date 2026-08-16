@@ -8,13 +8,18 @@ import {
   updatePerson,
   deactivatePerson,
   importRosterCsv,
+  previewRosterCsv,
   type RosterPerson,
+  type RosterImportPreview,
   type RosterImportResult,
+  type RosterRankDecision,
 } from './rosterApi'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
-import { providerLabel } from '../lib/deploymentConfig'
-import { rankAbbr, rankLabel } from '../lib/rank'
+import { loadDeploymentConfig, providerLabel } from '../lib/deploymentConfig'
+import { rankAbbr, rankDisplay, rankLabel } from '../lib/rank'
+import { Icon } from '../lib/icons'
+import { Sheet } from '../lib/overlays'
 import { InfoTip } from './InfoTip'
 import { ActionMenu, Field, Select } from './ui'
 import { useConfig, getPath } from './ConfigContext'
@@ -145,6 +150,206 @@ function EditRow({ person, onSaved, onCancel }: {
   )
 }
 
+// ─── CSV import: the mapping step ──────────────────────────────────────────────
+
+/** One decision per unknown VALUE, keyed by that value. */
+type Decisions = Record<string, RosterRankDecision>
+
+/** What the picker for one unknown value offers, encoded as a single string:
+ *  `adopt` · `skip` · `rank:<key>`. */
+const ADOPT = 'adopt'
+const SKIP = 'skip'
+
+function decisionToOption(d: RosterRankDecision): string {
+  return d.action === 'map' ? `rank:${d.rank}` : d.action
+}
+
+function optionToDecision(value: string, option: string): RosterRankDecision {
+  if (option === ADOPT) return { value, action: 'adopt' }
+  if (option === SKIP) return { value, action: 'skip' }
+  return { value, action: 'map', rank: option.slice('rank:'.length) }
+}
+
+/** The first thing offered for a value: the rank whose spelling the server found closest, or
+ *  else adopting it as a new one. Never a silent drop — «weglassen» has to be chosen. */
+function initialDecisions(preview: RosterImportPreview): Decisions {
+  const out: Decisions = {}
+  for (const g of preview.unknown_ranks) {
+    out[g.value] = g.suggestion
+      ? { value: g.value, action: 'map', rank: g.suggestion }
+      : { value: g.value, action: 'adopt' }
+  }
+  return out
+}
+
+/**
+ * The confirmation step — shown for EVERY file, before a single row is written.
+ *
+ * It answers two questions, and the first one is why it is unconditional: how many of these
+ * people the station already has (they get updated) and how many are new. A station imported a
+ * 14-person roster, re-picked the same file, and got 28 rows behind a green «14 importiert» —
+ * because the only confirmation this import had was the rank mapping below, and after the first
+ * import every rank was known, so the second one went straight through.
+ *
+ * The second question is the mapping, which appears only when the file uses a Dienstgrad the
+ * station's list does not know: ONE row per unknown VALUE, with three answers
+ * (mockups/admin-csv-b-zuordnung.html) — put it on a rank the station has, adopt it as a new
+ * rank of the station, or import those people without a Dienstgrad.
+ *
+ * ⚠️ «Übernehmen» writes the station's `roster.ranks`. On a station that has never configured
+ * one, this sheet is the only place in the browser where a rank list can come into existence at
+ * all (it is otherwise a CLI push), which is why the option is here and not behind a warning.
+ */
+function ImportConfirmSheet({ file, preview, onCancel, onDone }: {
+  file: File
+  preview: RosterImportPreview
+  onCancel: () => void
+  onDone: (result: RosterImportResult) => void
+}) {
+  const C = appConfig.copy.admin.roster
+  const Cc = appConfig.copy.admin.common2
+  const [decisions, setDecisions] = useState<Decisions>(() => initialDecisions(preview))
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const groups = preview.unknown_ranks
+  const mapping = groups.length > 0
+  const nothing = preview.creates + preview.updates === 0
+  const adoptAll = () =>
+    setDecisions(Object.fromEntries(groups.map((g) => [g.value, { value: g.value, action: 'adopt' as const }])))
+  const allAdopted = mapping && groups.every((g) => decisions[g.value]?.action === 'adopt')
+  const anyAdopted = groups.some((g) => decisions[g.value]?.action === 'adopt')
+
+  const options = [
+    { value: ADOPT, label: '' }, // filled per row below
+    ...preview.known_ranks.map((r) => ({
+      value: `rank:${r.key}`,
+      label: r.abbr ? `${r.label} · ${r.abbr}` : r.label,
+    })),
+    { value: SKIP, label: C.mapDropOption },
+  ]
+
+  const apply = async () => {
+    if (busy) return
+    setBusy(true)
+    setErr(null)
+    try {
+      onDone(await importRosterCsv(file, groups.map((g) => decisions[g.value])))
+    } catch (e) {
+      setErr(errText(e))
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Sheet
+      open
+      onClose={onCancel}
+      title={mapping ? C.mapTitle : C.confirmTitle}
+      footer={
+        <>
+          <button type="button" className="ip-btn ghost" onClick={onCancel} disabled={busy}>{Cc.cancel}</button>
+          <button type="button" className="ip-btn primary" onClick={() => void apply()} disabled={busy || nothing}>
+            {busy
+              ? C.importing
+              : mapping
+                ? fillTemplate(allAdopted ? C.mapAdoptAndImport : C.mapApplyAndImport, { n: preview.total })
+                : C.confirmImport}
+          </button>
+        </>
+      }
+    >
+      <p className="ip-head-sub">{fillTemplate(C.confirmSubtitle, { file: file.name, n: preview.total })}</p>
+
+      {/* Both numbers, always — «Neu: 0 · Wird aktualisiert: 14» is the one sentence that tells
+          an operator the file has already been imported. */}
+      <ul className="adm-roster-plan">
+        <li>{fillTemplate(C.confirmNew, { n: preview.creates })}</li>
+        <li>{fillTemplate(C.confirmUpdated, { n: preview.updates })}</li>
+        {preview.skipped > 0 && <li>{fillTemplate(C.confirmSkippedRows, { n: preview.skipped })}</li>}
+      </ul>
+      <p className="ip-hint">{nothing ? C.confirmNothing : C.confirmMatchHint}</p>
+
+      {mapping && <p className="ip-hint">{C.mapIntro}</p>}
+
+      {/* The station is still on the shipped list — then the file is usually the better source,
+          and working through six rows one by one is busywork. */}
+      {!preview.has_own_ranks && groups.length > 1 && (
+        <div className="adm-rankmap-note">
+          <Icon id="info" />
+          <div className="adm-rankmap-note-txt">
+            <span className="adm-rankmap-note-t">{C.mapNoOwnListTitle}</span>
+            <span className="adm-rankmap-note-b">{C.mapNoOwnListBody}</span>
+            <div className="adm-rankmap-note-acts">
+              <button type="button" className="btn adm-save-btn" onClick={adoptAll} disabled={busy || allAdopted}>
+                {fillTemplate(C.mapAdoptAll, { n: groups.length })}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {mapping && (
+        <div className="adm-table-wrap adm-rankmap-wrap">
+          <table className="adm-table adm-rankmap">
+            <thead>
+              <tr>
+                <th>{C.mapColValue}</th>
+                <th>{C.mapColAffected}</th>
+                <th className="adm-rankmap-target">{C.mapColTarget}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {groups.map((g) => (
+                <tr key={g.value}>
+                  <td>
+                    <span className="adm-rankmap-raw">{g.value}</span>
+                    <div className="adm-rankmap-count">
+                      {g.count === 1 ? C.mapPeopleCountOne : fillTemplate(C.mapPeopleCount, { n: g.count })}
+                    </div>
+                  </td>
+                  <td className="adm-rankmap-count">
+                    {g.people.join(', ')}
+                    {g.count > g.people.length && ` …`}
+                  </td>
+                  <td>
+                    <Select
+                      ariaLabel={fillTemplate(C.mapTargetFor, { value: g.value })}
+                      value={decisionToOption(decisions[g.value])}
+                      onChange={(o) => setDecisions((d) => ({ ...d, [g.value]: optionToDecision(g.value, o) }))}
+                      options={options.map((o) =>
+                        o.value === ADOPT ? { ...o, label: fillTemplate(C.mapAdoptOption, { value: g.value }) } : o,
+                      )}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Only where it is true: an adopted rank IS known next time, because it is in the
+          station's list from then on. A mapping is a one-off decision about one file. */}
+      {anyAdopted && (
+        <div className="adm-rankmap-note">
+          <Icon id="info" />
+          <div className="adm-rankmap-note-txt">
+            <span className="adm-rankmap-note-t">{C.mapAdoptNoteTitle}</span>
+            <span className="adm-rankmap-note-b">{C.mapAdoptNoteBody}</span>
+          </div>
+        </div>
+      )}
+      {!preview.has_own_ranks && anyAdopted && <p className="ip-hint">{C.mapMaterialiseHint}</p>}
+      {preview.errors.length > 0 && (
+        <ul className="adm-roster-errors">
+          {preview.errors.map((e, i) => <li key={i}>{e}</li>)}
+        </ul>
+      )}
+      {err && <div className="adm-state adm-state-err">{err}</div>}
+    </Sheet>
+  )
+}
+
 // ─── CSV import card ───────────────────────────────────────────────────────────
 
 function CsvImportCard({ onImported }: { onImported: () => void }) {
@@ -152,6 +357,8 @@ function CsvImportCard({ onImported }: { onImported: () => void }) {
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<RosterImportResult | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  const [pending, setPending] = useState<{ file: File; preview: RosterImportPreview } | null>(null)
+  const { applyServerRanks } = useConfig()
   const C = appConfig.copy.admin.roster
 
   // Provider-neutral portable baseline. Provider identities are established by sync.
@@ -161,6 +368,26 @@ function CsvImportCard({ onImported }: { onImported: () => void }) {
     downloadBlob(blob, 'mannschaft-vorlage.csv')
   }
 
+  /** Everything the import wrote is now on the server — including, after an adoption, a rank
+   *  list this tab's config draft has never seen (see ConfigContext · applyServerRanks).
+   *
+   *  ⚠️ The order is the fix for «der Grad bleibt leer bis zum Neuladen». An adopted rank key
+   *  only resolves to a label once `loadDeploymentConfig()` has replaced the module singleton
+   *  every read site uses (src/lib/rank · activeRanks); `applyServerRanks` alone updates the
+   *  Verwaltung's own draft, not that singleton. Reloading the list first would render the
+   *  brand-new keys through a list that does not contain them — blank, right after the sheet
+   *  promised «dann sind sie bekannt». */
+  const finish = async (res: RosterImportResult) => {
+    setResult(res)
+    setPending(null)
+    // loadDeploymentConfig() never throws: a failed refresh is a stale tab, not lost data.
+    if (res.adopted_ranks.length > 0) applyServerRanks(await loadDeploymentConfig())
+    onImported()
+  }
+
+  // Pick a file → find out what it WOULD do, and say so. NOTHING is written before the operator
+  // confirms — not even a file whose ranks are all known, which is exactly the file a second
+  // import of an already-imported roster produces.
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -168,9 +395,7 @@ function CsvImportCard({ onImported }: { onImported: () => void }) {
     setErr(null)
     setResult(null)
     try {
-      const res = await importRosterCsv(file)
-      setResult(res)
-      onImported()
+      setPending({ file, preview: await previewRosterCsv(file) })
     } catch (e2) {
       setErr(errText(e2))
     } finally {
@@ -209,14 +434,40 @@ function CsvImportCard({ onImported }: { onImported: () => void }) {
         {err && <div className="adm-state adm-state-err">{err}</div>}
         {result && (
           <div className="adm-roster-result">
-            <span className="adm-badge on">
-              <span className="adm-badge-dot" aria-hidden />
-              <span className="adm-badge-state">{fillTemplate(C.imported, { n: result.imported })}</span>
-            </span>
+            {/* New and updated stay apart afterwards too — «14 importiert» is exactly what a
+                station read while its Wehr was being written a second time. */}
+            {result.created > 0 && (
+              <span className="adm-badge on">
+                <span className="adm-badge-dot" aria-hidden />
+                <span className="adm-badge-state">{fillTemplate(C.createdBadge, { n: result.created })}</span>
+              </span>
+            )}
+            {result.updated > 0 && (
+              <span className="adm-badge on">
+                <span className="adm-badge-dot" aria-hidden />
+                <span className="adm-badge-state">{fillTemplate(C.updatedBadge, { n: result.updated })}</span>
+              </span>
+            )}
+            {result.imported === 0 && (
+              <span className="adm-badge">
+                <span className="adm-badge-dot" aria-hidden />
+                <span className="adm-badge-state">{fillTemplate(C.imported, { n: 0 })}</span>
+              </span>
+            )}
             {result.skipped > 0 && (
               <span className="adm-badge warn">
                 <span className="adm-badge-dot" aria-hidden />
                 <span className="adm-badge-state">{fillTemplate(C.skipped, { n: result.skipped })}</span>
+              </span>
+            )}
+            {result.adopted_ranks.length > 0 && (
+              <span className="adm-badge on">
+                <span className="adm-badge-dot" aria-hidden />
+                <span className="adm-badge-state">
+                  {result.adopted_ranks.length === 1
+                    ? C.ranksAdoptedOne
+                    : fillTemplate(C.ranksAdopted, { n: result.adopted_ranks.length })}
+                </span>
               </span>
             )}
             {result.errors.length > 0 && (
@@ -229,6 +480,16 @@ function CsvImportCard({ onImported }: { onImported: () => void }) {
           </div>
         )}
       </div>
+      {/* ⚠️ Cancelling here leaves the station exactly as it was: the preview wrote nothing, and
+          the import that would have is never sent. */}
+      {pending && (
+        <ImportConfirmSheet
+          file={pending.file}
+          preview={pending.preview}
+          onCancel={() => setPending(null)}
+          onDone={(res) => void finish(res)}
+        />
+      )}
     </section>
   )
 }
@@ -409,8 +670,11 @@ export function RosterView() {
                       <tr key={p.id} className={p.is_active ? '' : 'adm-members-inactive'}>
                         <td><span className="adm-members-name">{p.display_name}</span></td>
                         <td>
+                          {/* ⚠️ rankDisplay, never rankLabel alone: a key the station's list
+                              does not (yet) cover renders as the raw key, not as an empty cell.
+                              A Dienstgrad that IS in the database must never look absent. */}
                           <span className="adm-members-rank" title={rankLabel(p.rank ?? undefined)}>
-                            {p.rank ? (rankAbbr(p.rank) || rankLabel(p.rank)) : C.rankNone}
+                            {p.rank ? (rankAbbr(p.rank) || rankDisplay(p.rank)) : C.rankNone}
                           </span>
                         </td>
                         <td>

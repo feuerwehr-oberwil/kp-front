@@ -6,8 +6,8 @@ import { demoNote } from '../lib/deploymentConfig'
 import { IconSprite, Icon } from '../lib/icons'
 import { fillTemplate, initials, roleLabel } from '../lib/format'
 import { appConfig } from '../config/appConfig'
+import { PinPad } from './PinPad'
 
-const PIN_LENGTH = 6
 const NEUTRAL_COLOR = '#6c7686' // --ink-faint, for roster tiles without an assigned colour
 
 // Kiosk login gate. Built for fast, gloved 3am use on shared station/vehicle
@@ -51,7 +51,7 @@ export function LoginScreen() {
         {demoNote() && <p className="login-demo-note">{demoNote()}</p>}
 
         {selected
-          ? <PinPad user={selected} onLogin={login} onBack={() => setSelected(null)} />
+          ? <LoginPinPad user={selected} onLogin={login} onBack={() => setSelected(null)} />
           : <Roster roster={roster} error={rosterError} onPick={setSelected} onRetry={() => setAttempt((n) => n + 1)} />}
       </div>
     </div>
@@ -117,7 +117,9 @@ function Roster({ roster, error, onPick, onRetry }: {
   )
 }
 
-function PinPad({ user, onLogin, onBack }: {
+// The login gate's use of the shared pad (src/components/PinPad.tsx): auto-submit on the 6th
+// digit, plus the 429 cooldown lock that only this caller has.
+function LoginPinPad({ user, onLogin, onBack }: {
   user: RosterEntry
   onLogin: (userId: string, pin: string) => Promise<void>
   onBack: () => void
@@ -165,63 +167,20 @@ function PinPad({ user, onLogin, onBack }: {
     }
   }
 
-  const press = (digit: string) => {
-    if (disabled || pin.length >= PIN_LENGTH) return
-    setError(null)
-    const next = pin + digit
-    setPin(next)
-    if (next.length === PIN_LENGTH) void submit(next) // auto-submit on the 6th digit
-  }
-  const backspace = () => { if (!disabled) setPin((p) => p.slice(0, -1)) }
-
-  // Physical keyboard: digits append, Backspace deletes, Enter submits a full PIN.
-  // Mirrors the on-screen pad; inert while the cooldown lock disables it.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (disabled) return
-      if (e.key >= '0' && e.key <= '9') { e.preventDefault(); press(e.key) }
-      else if (e.key === 'Backspace' || e.key === 'Delete') { e.preventDefault(); backspace() }
-      else if (e.key === 'Enter') { e.preventDefault(); if (pin.length === PIN_LENGTH) void submit(pin) }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [pin, disabled]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const keys: (string | 'back')[] = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'back']
-
   return (
-    <div className="pinpad">
-      <button className="pin-backuser" onClick={onBack}>
-        <Icon id="chevron" />
-        <span className="pin-avatar" style={{ background: user.color ?? NEUTRAL_COLOR }}>{initials(user.display_name)}</span>
-        <span className="pin-username">{user.display_name}</span>
-      </button>
-
-      <div className={`pin-dots ${error ? 'err' : ''}`}>
-        {Array.from({ length: PIN_LENGTH }).map((_, i) => (
-          <span key={i} className={`pin-dot ${i < pin.length ? 'on' : ''}`} />
-        ))}
-      </div>
-
-      <div className="pin-msg" role="status">
-        {error ?? (locked ? appConfig.copy.login.pleaseWait :' ')}
-      </div>
-
-      <div className="pin-grid">
-        {keys.map((k, i) => {
-          if (k === '') return <span key={i} className="pin-key-spacer" />
-          if (k === 'back') {
-            return (
-              <button key={i} className="pin-key pin-key-fn" onClick={backspace} disabled={disabled || pin.length === 0} aria-label={appConfig.copy.login.clearDigit}>
-                <Icon id="close" />
-              </button>
-            )
-          }
-          return (
-            <button key={i} className="pin-key" onClick={() => press(k)} disabled={disabled}>{k}</button>
-          )
-        })}
-      </div>
-    </div>
+    <PinPad
+      value={pin}
+      onChange={(next) => { setError(null); setPin(next) }}
+      onComplete={(full) => void submit(full)} // auto-submit on the 6th digit
+      disabled={disabled}
+      message={error ?? (locked ? appConfig.copy.login.pleaseWait : undefined)}
+      header={
+        <button className="pin-backuser" onClick={onBack}>
+          <Icon id="chevron" />
+          <span className="pin-avatar" style={{ background: user.color ?? NEUTRAL_COLOR }}>{initials(user.display_name)}</span>
+          <span className="pin-username">{user.display_name}</span>
+        </button>
+      }
+    />
   )
 }

@@ -1,11 +1,14 @@
 """Pydantic request/response schemas (grows per phase)."""
 
+import logging
 import re
 import uuid
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
+
+logger = logging.getLogger(__name__)
 
 
 # --- Auth ---------------------------------------------------------------------------
@@ -491,6 +494,62 @@ class PersonnelUpdate(BaseModel):
     is_active: bool | None = None
 
 
+class RosterRankOption(BaseModel):
+    """One rank the station's list knows, as the mapping sheet offers it."""
+
+    key: str
+    label: str
+    abbr: str | None = None
+
+
+class RosterUnknownRank(BaseModel):
+    """One rank VALUE from the file that the station's list does not cover.
+
+    Counted by value, never by row: three people spelled «Sdt» are one decision, not three
+    warnings. A 40-person import with one unfamiliar rank must ask once, not forty times —
+    that is what makes the mapping step usable instead of a wall of warnings to click past."""
+
+    value: str
+    count: int
+    #: a few of the affected names, so the operator can see who this is about
+    people: list[str] = Field(default_factory=list)
+    #: rank key whose spelling is closest — a proposal for the picker, never applied by itself
+    suggestion: str | None = None
+
+
+class RosterImportPreview(BaseModel):
+    """What a CSV import WOULD do. Nothing is written to produce this."""
+
+    #: rows that carry a usable name — the number of people the import would touch
+    total: int
+    skipped: int
+    errors: list[str] = Field(default_factory=list)
+    unknown_ranks: list[RosterUnknownRank] = Field(default_factory=list)
+    known_ranks: list[RosterRankOption] = Field(default_factory=list)
+    #: False while the station is still running on the shipped Swiss default list — the case in
+    #: which adopting a rank also materialises that default (app/personnel.adopt_ranks)
+    has_own_ranks: bool = False
+
+
+class RosterRankDecision(BaseModel):
+    """What to do with ONE unknown rank value: put it on a known rank, adopt it as a new one,
+    or import those people without a Dienstgrad. There is no fourth option and no default —
+    an undecided value stops the import before anything is written."""
+
+    value: str
+    action: Literal["map", "adopt", "skip"]
+    #: target rank key, required for ``map`` and ignored otherwise
+    rank: str | None = None
+
+
+class RosterImportResult(BaseModel):
+    imported: int
+    skipped: int
+    errors: list[str] = Field(default_factory=list)
+    #: rank keys written into ``roster.ranks`` by this import (empty unless something was adopted)
+    adopted_ranks: list[str] = Field(default_factory=list)
+
+
 class PersonnelSyncPreview(BaseModel):
     """Read-only diff of Divera members vs the personnel table (no writes applied)."""
 
@@ -533,11 +592,56 @@ class IdentityAssets(BaseModel):
     favicon: str | None = None
 
 
+#: What `identity.accentColor` may be. The NARROWEST consumer sets the format: the PWA
+#: manifest's `theme_color` is hex-only (webmanifest.py · _HEX_COLOR — an unparseable one makes
+#: some Chromium versions reject the whole manifest), and the same string is also painted as the
+#: CSS `--accent` on the login screen and the splash and printed on the Rapport letterhead. So
+#: hex, in the four forms CSS knows. The leading `#` is optional on the way IN — a value pasted
+#: out of a design tool often has none — and always present on the way out, so what is stored is
+#: exactly what the manifest trusts.
+_ACCENT_HEX = re.compile(r"^#?(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$")
+_ACCENT_ERROR = "Akzentfarbe muss ein Hex-Farbwert sein, z. B. #e8392b (leer = Standardfarbe)"
+
+
 class IdentityConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
     appName: str | None = None
     locale: str | None = None
     accentColor: str | None = None
+
+    @field_validator("accentColor", mode="before")
+    @classmethod
+    def _accent_is_a_colour(cls, v: Any, info: ValidationInfo) -> str | None:
+        """Refuse an accent colour that is not a colour — and never let a STORED one brick the
+        document it sits in.
+
+        Until now this field was free text: «nicht-eine-farbe» was answered with 200 and
+        «Gespeichert», the swatch went black, and the value went on to the login screen, the
+        splash and the Rapport letterhead (the manifest was the one consumer that already
+        checked, so it silently served the build-time colour instead).
+
+        ⚠️ A document that is ALREADY IN THE DATABASE is read through this same model, so a
+        refusal there would be far worse than the bad colour: `get_config` falls back to an
+        EMPTY config when validation fails, which would drop the station's fleet, roster and
+        doctrine off the login screen over one field. Stored documents are therefore validated
+        with `context={"stored": True}` (see `load_stored_config`), where an unusable colour is
+        dropped to `None` instead — the app falls back to its built-in brand red, and Verwaltung
+        shows the field empty and SAVABLE rather than 422-ing every later edit on every page.
+        """
+        if v is None:
+            return None
+        if not isinstance(v, str):
+            raise ValueError(_ACCENT_ERROR)
+        text = v.strip()
+        if not text:
+            return None  # a cleared field is «unset», never the empty string
+        if _ACCENT_HEX.match(text):
+            return "#" + text.lstrip("#").lower()
+        if (info.context or {}).get("stored"):
+            logger.warning("identity.accentColor %r is not a hex colour — serving it unset", text)
+            return None
+        raise ValueError(_ACCENT_ERROR)
+
     assets: IdentityAssets = Field(default_factory=IdentityAssets)
     helpIntro: str | None = None
     # Station Kommandant (display name) — pre-fills the Kommandant signature line on the
@@ -1140,12 +1244,18 @@ class ConfigHistoryEntry(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: int
     replacedAt: datetime
-    #: which path did the replacing — `api` (Verwaltung/HTTP), `cli`, `branding`, `geodata`
+    #: which path did the replacing — `api` (Verwaltung/HTTP), `cli`, `branding`, `geodata`,
+    #: `roster` (a rank adopted during a CSV import)
     source: str | None = None
     #: the admin behind it, resolved to a display name. NULL for a CLI push — and «api, nobody»
     #: is itself the signature of an unattended writer, which is worth being able to see.
     replacedBy: str | None = None
-    #: top-level sections that had content in this kept document
+    #: what the write that replaced this document actually CHANGED, diffed against its successor
+    #: one level deep (config_history · changed_sections) — the same depth rule as `emptied`.
+    #: ⚠️ NOT «sections present in the kept document», which is what it used to carry: every
+    #: writer replaces the WHOLE document, so that printed the identical nine names on every row
+    #: and «Letzte Änderungen» became 26 entries nobody could tell apart — on the list a station
+    #: is sent to (docs/SETUP.md §3) when a config write has gone wrong.
     sections: list[str] = Field(default_factory=list)
     #: what the write that replaced it left EMPTY (config_history · emptied_sections)
     emptied: list[str] = Field(default_factory=list)
@@ -1165,3 +1275,20 @@ class DeploymentConfigOut(DeploymentConfigIn):
     # winning. See app/api/config · put_config. NOT part of the document; `DeploymentConfigIn`
     # ignores extras, so echoing this response straight back as a body is harmless.
     version: str | None = None
+
+
+def load_stored_config(raw: Any) -> DeploymentConfigIn:
+    """Validate a config document that is ALREADY IN THE DATABASE.
+
+    Same model as the PUT body, one difference: a stored value that today's rules would REFUSE
+    must not take the whole document down with it. A field that has grown a rule since the row
+    was written (`identity.accentColor`) is dropped to its unset default and logged, instead of
+    raising — because every reader of the stored row falls back to an EMPTY config when
+    validation fails, and losing a station's fleet, roster and doctrine is not a proportionate
+    answer to one bad colour.
+
+    ⚠️ Use this for every read of the singleton row. A fresh WRITE (`PUT /api/config`, an
+    `admin_config load`) validates strictly through `DeploymentConfigIn` itself — that is where
+    a value is still being chosen, and where refusing it costs nothing but a corrected keystroke.
+    """
+    return DeploymentConfigIn.model_validate(raw, context={"stored": True})

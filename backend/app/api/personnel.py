@@ -1,19 +1,22 @@
 """Personnel (Mannschaft) endpoints: roster list + manual CRUD + CSV import +
 editor-only Divera member sync."""
 
-import csv
-import io
+import json
 import uuid
 
 import httpx
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Cookie, Depends, File, Form, HTTPException, UploadFile
+from pydantic import TypeAdapter, ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import personnel as personnel_svc
-from ..auth.dependencies import EditorOrAdmin, UserOrAdmin
+from ..auth.dependencies import EditorOrAdmin, OptionalUser, UserOrAdmin, _admin_session_valid
 from ..config import settings
+from ..credentials import get as credential
+from ..credentials import load as load_credentials
 from ..database import get_db
+from ..divera import DiveraApiError
 from ..models import Personnel, PersonnelExternalIdentity
 from ..schemas import (
     PersonnelCreate,
@@ -22,9 +25,34 @@ from ..schemas import (
     PersonnelSyncPreview,
     PersonnelSyncResult,
     PersonnelUpdate,
+    RosterImportPreview,
+    RosterImportResult,
+    RosterRankDecision,
+    RosterRankOption,
+    RosterUnknownRank,
 )
 
 router = APIRouter(prefix="/personnel", tags=["personnel"])
+
+
+class RosterImportPreviewOut(RosterImportPreview):
+    """:class:`RosterImportPreview` plus the two numbers the confirmation step is built on.
+
+    Both are counted with the very planner the write uses (app/personnel.plan_roster_rows), so
+    what the operator confirms is what happens — a preview that guessed differently would be
+    worse than none."""
+
+    #: people in this file the station does not have yet
+    creates: int = 0
+    #: people the file will update in place instead of adding a second time
+    updates: int = 0
+
+
+class RosterImportResultOut(RosterImportResult):
+    """:class:`RosterImportResult` split the way the confirmation promised it."""
+
+    created: int = 0
+    updated: int = 0
 
 
 async def _identity_map(
@@ -151,103 +179,250 @@ async def deactivate_person(
     return {"ok": True}
 
 
-@router.post("/import-csv")
-async def import_csv(
-    _user: EditorOrAdmin,
-    file: UploadFile = File(...),
-    db: AsyncSession = Depends(get_db),
-) -> dict:
-    """Import a UTF-8 CSV. ``name`` is required; ``rank`` is optional. Provider-neutral
-    ``provider`` + ``external_id`` columns may upsert an externally managed record. The legacy
-    ``divera_id`` column remains accepted during the compatibility window.
-    """
+async def _csv_text(file: UploadFile) -> str:
+    """The uploaded file as text, or the HTTP error that says why it isn't."""
     data = await file.read()
     if len(data) > settings.max_upload_mb * 1024 * 1024:
         raise HTTPException(status_code=413, detail=f"Datei zu gross (max. {settings.max_upload_mb} MB)")
     try:
-        text = data.decode("utf-8-sig")
+        return data.decode("utf-8-sig")
     except UnicodeDecodeError as e:
         raise HTTPException(status_code=400, detail="Datei ist nicht UTF-8 kodiert") from e
 
-    reader = csv.DictReader(io.StringIO(text))
-    if reader.fieldnames is None or "name" not in {(f or "").strip().lower() for f in reader.fieldnames}:
-        raise HTTPException(status_code=400, detail="CSV-Kopfzeile fehlt oder enthält keine Spalte 'name'")
 
-    # Existing rows indexed by generic provider identity for optional upsert.
-    existing = list((await db.execute(select(Personnel))).scalars())
-    identity_rows = list((await db.execute(select(PersonnelExternalIdentity))).scalars())
-    by_external = {(i.provider, i.external_id): i.personnel_id for i in identity_rows}
-    by_person = {p.id: p for p in existing}
-    ranks = await personnel_svc.load_roster_ranks(db)  # for the optional rank column
+def _parse(text: str) -> personnel_svc.ParsedRoster:
+    try:
+        return personnel_svc.parse_roster_csv(text)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
-    imported = 0
-    skipped = 0
-    errors: list[str] = []
 
-    for i, row in enumerate(reader, start=2):  # line 1 is the header
-        cells = {(k or "").strip().lower(): (v or "").strip() for k, v in row.items()}
-        name = cells.get("name", "")
-        if not name:
-            skipped += 1
-            errors.append(f"Zeile {i}: 'name' fehlt")
-            continue
-        legacy_divera = cells.get("divera_id") or ""
-        try:
-            if legacy_divera:
-                int(legacy_divera)  # legacy contract was numeric; keep rejecting malformed rows
-        except ValueError:
-            skipped += 1
-            errors.append(f"Zeile {i}: ungültige Zahl (divera_id)")
-            continue
-        provider = (cells.get("provider") or ("divera" if legacy_divera else "")).lower()
-        external_id = cells.get("external_id") or legacy_divera or ""
-        if provider and not external_id:
-            skipped += 1
-            errors.append(f"Zeile {i}: provider braucht external_id")
-            continue
+_DECISIONS = TypeAdapter(list[RosterRankDecision])
 
-        rank = personnel_svc.match_rank(cells.get("rank", ""), ranks)
-        if cells.get("rank") and rank is None:
-            errors.append(f"Zeile {i}: unbekannter Grad '{cells['rank']}' — Person ohne Grad importiert")
 
-        identity_key = (provider, external_id) if provider and external_id else None
-        if identity_key is not None and identity_key in by_external:
-            person = by_person[by_external[identity_key]]
-            person.display_name = name
-            person.rank = rank
-            person.is_active = True
+def _decisions(raw: str | None) -> dict[str, RosterRankDecision]:
+    """The submitted decisions, keyed by NORMALIZED value so «Sdt» and «sdt» resolve to the
+    same one — exactly as :func:`personnel.group_unknown_ranks` grouped them."""
+    if not raw or not raw.strip():
+        return {}
+    try:
+        parsed = _DECISIONS.validate_python(json.loads(raw))
+    except (json.JSONDecodeError, ValidationError) as e:
+        raise HTTPException(status_code=422, detail=f"Zuordnung nicht lesbar: {e}") from e
+    return {personnel_svc.normalize_name(d.value): d for d in parsed}
+
+
+def _duplicate_notes(plan: personnel_svc.RosterPlan) -> list[str]:
+    """The file naming one person twice is not an error, but it IS the difference between the
+    row count and the people count — so it is said out loud rather than left as a mismatch."""
+    return [f"«{name}» steht mehrfach in der Datei – wird als eine Person importiert." for name in plan.duplicate_names]
+
+
+@router.post("/import-csv/preview", response_model=RosterImportPreviewOut)
+async def import_csv_preview(
+    _user: EditorOrAdmin,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+) -> RosterImportPreviewOut:
+    """What this file would do — read-only. **Writes nothing**, by construction: nothing here
+    touches the session.
+
+    Two questions are answered here, and EVERY import asks both before anything is written:
+
+    * how many people are new and how many the file updates in place (:func:`plan_roster_rows`),
+      because the answer «14 neu» to a file that was already imported is the one thing that
+      would have stopped a station from duplicating its whole Wehr;
+    * which rank values the station's list does not know, grouped BY VALUE with the people they
+      affect and a spelling proposal.
+
+    The old import wrote first and explained afterwards, under a green «14 importiert» badge.
+    """
+    parsed = _parse(await _csv_text(file))
+    ranks, has_own = await personnel_svc.load_roster_ranks_info(db)
+    groups = personnel_svc.group_unknown_ranks(parsed.rows, ranks)
+    plan = personnel_svc.plan_roster_rows(parsed.rows, await personnel_svc.load_roster_index(db))
+    return RosterImportPreviewOut(
+        total=len(parsed.rows),
+        creates=plan.creates,
+        updates=plan.updates,
+        skipped=parsed.skipped,
+        errors=parsed.errors + _duplicate_notes(plan),
+        unknown_ranks=[
+            RosterUnknownRank(value=g.value, count=g.count, people=g.people, suggestion=g.suggestion) for g in groups
+        ],
+        known_ranks=[
+            RosterRankOption(key=str(r.get("key")), label=str(r.get("label") or r.get("key")), abbr=r.get("abbr"))
+            for r in ranks
+        ],
+        has_own_ranks=has_own,
+    )
+
+
+@router.post("/import-csv", response_model=RosterImportResultOut)
+async def import_csv(
+    _user: EditorOrAdmin,
+    actor: OptionalUser,
+    file: UploadFile = File(...),
+    decisions: str | None = Form(default=None),
+    admin_session: str | None = Cookie(default=None),
+    db: AsyncSession = Depends(get_db),
+) -> RosterImportResultOut:
+    """Import a UTF-8 CSV. ``name`` is required; ``rank`` is optional. Provider-neutral
+    ``provider`` + ``external_id`` columns may upsert an externally managed record. The legacy
+    ``divera_id`` column remains accepted during the compatibility window.
+
+    ⚠️ **Idempotent.** A row that resolves to somebody the station already has UPDATES that
+    person — it never adds a second one. See app/personnel «who a CSV row is» for the key and
+    for the one case it gets wrong (two different people spelled identically).
+
+    ``decisions`` is the JSON array from the mapping step (:class:`RosterRankDecision` per
+    unknown VALUE, not per row); ``/import-csv/preview`` produces the list of values to decide.
+
+    ⚠️ **All or nothing.** Every rank value the station does not know must carry a decision, or
+    the request is refused with 409 and NOTHING is written — not the people, not the ranks. The
+    file is fully parsed and every decision validated before the first row is inserted, so an
+    abort cannot leave half a crew behind. (The old contract imported those people rankless and
+    listed the fact afterwards; a station that misses the list has silently lost data.)
+
+    ``adopt`` writes the station's ``roster.ranks`` (app/personnel.adopt_ranks) and therefore
+    needs an admin session — a config write is admin-only everywhere else in this app, and the
+    Verwaltung that offers this is an admin surface. An incident editor can still import, map
+    and skip.
+    """
+    text = await _csv_text(file)
+    parsed = _parse(text)
+    ranks, _has_own = await personnel_svc.load_roster_ranks_info(db)
+    groups = personnel_svc.group_unknown_ranks(parsed.rows, ranks)
+    decided = _decisions(decisions)
+
+    # ── decide everything BEFORE writing anything ──────────────────────────────────────
+    undecided = [g for g in groups if personnel_svc.normalize_name(g.value) not in decided]
+    if undecided:
+        listed = ", ".join(f"«{g.value}» ({g.count})" for g in undecided)
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Unbekannte Grade in der Datei: {listed}. "
+                "Es wurde nichts importiert — bitte jeden Wert zuordnen, übernehmen oder weglassen."
+            ),
+        )
+    known_keys = {str(r.get("key")) for r in ranks}
+    resolved: dict[str, str | None] = {}  # normalized unknown value → rank key (or None)
+    adopt_values: list[str] = []
+    for group in groups:
+        norm = personnel_svc.normalize_name(group.value)
+        decision = decided[norm]
+        if decision.action == "map":
+            if decision.rank not in known_keys:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"«{group.value}» soll auf den Grad «{decision.rank}» gelegt werden, den es nicht gibt.",
+                )
+            resolved[norm] = decision.rank
+        elif decision.action == "adopt":
+            adopt_values.append(group.value)
         else:
-            person = Personnel(
-                display_name=name,
-                rank=rank,
-                is_active=True,
+            resolved[norm] = None
+
+    adopted_keys: list[str] = []
+    if adopt_values:
+        if not await _admin_session_valid(admin_session):
+            raise HTTPException(
+                status_code=403,
+                detail="Neue Grade kann nur die Verwaltung übernehmen (Admin-Anmeldung erforderlich).",
             )
+        updated = await personnel_svc.adopt_ranks(db, adopt_values, actor.id if actor else None)
+        # append_ranks appends in the order it was given, so the tail lines up with adopt_values
+        adopted_keys = [str(r.get("key")) for r in updated[-len(adopt_values) :]]
+        for value, key in zip(adopt_values, adopted_keys, strict=True):
+            resolved[personnel_svc.normalize_name(value)] = key
+
+    # ── write ───────────────────────────────────────────────────────────────────────────
+    # The SAME plan the preview showed: every row already knows whether it is a person the
+    # station has (→ update) or one it does not (→ insert), so a re-import cannot double a Wehr.
+    index = await personnel_svc.load_roster_index(db)
+    plan = personnel_svc.plan_roster_rows(parsed.rows, index)
+    by_person = {p.id: p for p in (await db.execute(select(Personnel))).scalars()}
+    made: dict[int, Personnel] = {}  # owner index → the row this pass inserted
+
+    for i, target in enumerate(plan.targets):
+        row = target.row
+        rank = personnel_svc.match_rank(row.rank_text, ranks) if row.rank_text else None
+        if rank is None and row.rank_text:
+            rank = resolved.get(personnel_svc.normalize_name(row.rank_text))
+
+        person = by_person[target.person_id] if target.person_id is not None else made.get(target.owner)
+        if person is None:
+            person = Personnel(display_name=row.name, rank=rank, is_active=True)
             db.add(person)
             await db.flush()
-            if identity_key is not None:
-                await personnel_svc.attach_external_identity(
-                    db, person=person, provider=provider, external_id=external_id
-                )
-                by_external[identity_key] = person.id
-                by_person[person.id] = person
-        imported += 1
+            made[i] = person
+            by_person[person.id] = person
+        else:
+            person.display_name = row.name
+            # ⚠️ Only a rank the row actually names is written. An empty cell — or a value the
+            # station decided to drop — means «not stated», and a re-import of a file without a
+            # rank column must not strip the Dienstgrad off the whole Wehr.
+            if rank is not None:
+                person.rank = rank
+            person.is_active = True
+        if row.provider and row.external_id and (person.id, row.provider) not in index.providers:
+            # A person may hold only ONE identity per provider (uq_personnel_external_person_provider);
+            # a name-matched row that would contradict an existing one is left alone.
+            await personnel_svc.attach_external_identity(
+                db, person=person, provider=row.provider, external_id=row.external_id
+            )
+            index.providers.add((person.id, row.provider))
+            index.by_external[(row.provider, row.external_id)] = person.id
 
     await db.flush()
-    return {"imported": imported, "skipped": skipped, "errors": errors}
+    # What was deliberately dropped is still worth reading back — but now it is a consequence of
+    # a decision somebody made, not a surprise underneath a success badge.
+    errors = list(parsed.errors) + _duplicate_notes(plan)
+    for group in groups:
+        if decided[personnel_svc.normalize_name(group.value)].action == "skip":
+            people = "1 Person" if group.count == 1 else f"{group.count} Personen"
+            errors.append(f"«{group.value}» weggelassen: {people} ohne Grad importiert")
+    return RosterImportResultOut(
+        imported=plan.creates + plan.updates,
+        created=plan.creates,
+        updated=plan.updates,
+        skipped=parsed.skipped,
+        errors=errors,
+        adopted_ranks=adopted_keys,
+    )
 
 
-def _require_divera() -> None:
-    if not settings.divera_access_key:
+async def _require_divera(db: AsyncSession) -> None:
+    """503 unless a Divera access key is configured — read live, so a key pasted into
+    /admin makes «Mannschaft synchronisieren» work on the next tap, not the next restart."""
+    await load_credentials(db)
+    if not credential("divera_access_key"):
         raise HTTPException(status_code=503, detail="Divera nicht konfiguriert (kein Access Key)")
+
+
+def _divera_unreachable(e: Exception) -> str:
+    """The 502 detail for a failed Divera call — never the exception's own text.
+
+    ⚠️ This used to be `f"Divera nicht erreichbar: {e}"`, and both endpoints below are
+    `EditorOrAdmin`. An `httpx.HTTPStatusError` stringifies to «… for url '…?accesskey=<the
+    key>'», so any incident editor who could make Divera answer non-2xx (a 429 will do) read
+    back a credential that `/api/integrations/credentials` refuses even to an admin. The
+    source is fixed too — `divera.check_response` no longer builds such a message — and this
+    is the second lock on the same door: only `DiveraApiError`, which is URL-free by
+    construction, is ever quoted. Everything else leaves as its type name, the way
+    `audio.transcribe` reports an unreachable STT server.
+    """
+    return f"Divera nicht erreichbar: {e if isinstance(e, DiveraApiError) else type(e).__name__}"
 
 
 @router.post("/sync/preview", response_model=PersonnelSyncPreview)
 async def sync_preview(_user: EditorOrAdmin, db: AsyncSession = Depends(get_db)):
-    _require_divera()
+    await _require_divera(db)
     try:
         return await personnel_svc.build_sync_preview(db)
-    except (httpx.HTTPError, ValueError) as e:
-        raise HTTPException(status_code=502, detail=f"Divera nicht erreichbar: {e}") from e
+    except (DiveraApiError, httpx.HTTPError, ValueError) as e:
+        raise HTTPException(status_code=502, detail=_divera_unreachable(e)) from None
 
 
 @router.post("/sync/execute", response_model=PersonnelSyncResult)
@@ -256,10 +431,10 @@ async def sync_execute(
     body: PersonnelSyncExecuteBody | None = None,
     db: AsyncSession = Depends(get_db),
 ):
-    _require_divera()
+    await _require_divera(db)
     try:
         return await personnel_svc.execute_sync(
             db, deactivate_stale=(body or PersonnelSyncExecuteBody()).deactivate_stale
         )
-    except (httpx.HTTPError, ValueError) as e:
-        raise HTTPException(status_code=502, detail=f"Divera nicht erreichbar: {e}") from e
+    except (DiveraApiError, httpx.HTTPError, ValueError) as e:
+        raise HTTPException(status_code=502, detail=_divera_unreachable(e)) from None

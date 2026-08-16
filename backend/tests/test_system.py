@@ -27,11 +27,12 @@ async def test_system_shape_as_admin(client, editor, admin_login):
     body = r.json()
 
     # Top-level sections present.
-    for key in ("version", "database", "counts", "storage", "integrations"):
+    for key in ("version", "database", "counts", "storage", "integrations", "connectors", "monitoring"):
         assert key in body
 
-    # Version block.
-    assert set(body["version"]) == {"release", "commit", "branch", "env"}
+    # Version block. `built_at` sits beside `commit`: the release number alone cannot tell a
+    # from-source build of `main` apart from a published image of the same tag.
+    assert set(body["version"]) == {"release", "commit", "branch", "built_at", "env"}
     assert body["version"]["env"] in {"production", "dev"}
 
     # DB probe is live against the test session.
@@ -90,6 +91,17 @@ async def test_system_shape_as_admin(client, editor, admin_login):
         assert isinstance(c["configured"], bool)
     # nothing configured in the bare test env → no state, fail-closed everywhere
     assert connectors["print_relay"]["state"] is None
+
+    # Monitoring – a BOOLEAN and nothing else: the ping URL is a write endpoint for the monitor,
+    # and anyone holding it can keep the monitor believing a dead station is alive.
+    #
+    # ⚠️ Its absence is silent where it matters. SystemView reads `monitoring.heartbeatConfigured`
+    # into the admin landing page's SetupChecklist; a missing key reads as `false`, so the
+    # «Einrichtung» card would sit there telling a station that HAS configured its heartbeat to go
+    # configure it, forever – the class of failure this file's header says it exists to catch.
+    assert set(body["monitoring"]) == {"heartbeatConfigured"}
+    assert isinstance(body["monitoring"]["heartbeatConfigured"], bool)
+    assert body["monitoring"]["heartbeatConfigured"] is False  # nothing configured in the test env
 
 
 async def test_system_connector_print_relay_online(client, editor, admin_login, monkeypatch):

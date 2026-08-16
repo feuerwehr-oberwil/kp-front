@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 #: Which path is doing the replacing. Recorded because after the fact nobody could say whether a
 #: clobbered config had come from a browser tab or from a terminal — and the answer decides which
 #: guard was missing.
-Source = Literal["api", "cli", "branding", "geodata"]
+Source = Literal["api", "cli", "branding", "geodata", "roster", "workbook"]
 
 
 async def keep_previous(db: AsyncSession, source: Source, actor_id: uuid.UUID | None = None) -> None:
@@ -90,5 +90,40 @@ def emptied_sections(old: dict[str, Any] | None, new: dict[str, Any]) -> list[st
                 if not empty(old_sub) and empty(new_val.get(sub)):
                     out.append(f"{key}.{sub}")
         elif not empty(old_val) and empty(new_val):
+            out.append(key)
+    return out
+
+
+def changed_sections(old: dict[str, Any] | None, new: dict[str, Any] | None) -> list[str]:
+    """Which parts of the config a write actually TOUCHED — «fleet.vehicles», «map.defaultView».
+
+    ⚠️ The obvious thing to list about a kept document — which sections it CONTAINS — turned out
+    to be worthless: every writer replaces the whole document, so every row of «Letzte Änderungen»
+    read «alarms, doctrine, fleet, identity, journal, map, mittel, report, roster», 26 times in a
+    row after one afternoon of setup. A list whose rows cannot be told apart cannot answer the one
+    question it is read for: *which* entry do I go back to?
+
+    So compare the kept document against the one that replaced it (its successor in the table, or
+    the live document for the newest entry) and name what differs. Same depth as
+    :func:`emptied_sections` — one level into the top-level sections, where the config's meaning
+    lives; deeper than that a "section" is a single field and the noise returns.
+
+    An empty list is meaningful and not an error: the write stored a document byte-identical to
+    the one before it, which is what an autosave firing on a re-render looks like.
+    """
+    old = old or {}
+    new = new or {}
+    out: list[str] = []
+    for key in sorted(set(old) | set(new)):
+        old_val, new_val = old.get(key), new.get(key)
+        if old_val == new_val:
+            continue
+        # A section that appeared or vanished entirely still names the parts of it that moved:
+        # «report.partnerOrgs», not a bare «report» that says nothing about what was in it.
+        if isinstance(old_val, dict | None) and isinstance(new_val, dict | None):
+            o, n = old_val or {}, new_val or {}
+            subs = sorted(set(o) | set(n))
+            out.extend(f"{key}.{sub}" for sub in subs if o.get(sub) != n.get(sub))
+        else:
             out.append(key)
     return out

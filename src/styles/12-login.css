@@ -100,7 +100,12 @@
 .pin-dots.err .pin-dot.on { background: var(--red); box-shadow: 0 0 0 4px color-mix(in srgb, var(--red) 18%, transparent); }
 @keyframes pinShake { 10%, 90% { transform: translateX(-2px); } 30%, 70% { transform: translateX(5px); } 50% { transform: translateX(-6px); } }
 
+/* The line above the keys. Red is the default because on the login gate it is always a refusal;
+   the admin PIN sheet also uses it to say what to do next (hint) and that the second entry
+   matched (ok), so the tone is a modifier rather than a second element. */
 .pin-msg { min-height: 17px; font-size: 13px; font-weight: 600; color: var(--red); text-align: center; line-height: 1.3; }
+.pin-msg.hint { color: var(--ink-faint); }
+.pin-msg.ok { color: var(--green-strong); }
 
 .pin-grid { display: grid; grid-template-columns: repeat(3, 76px); gap: 13px; }
 .pin-key { width: 76px; height: 76px; border-radius: 50%; border: 1px solid var(--glass-edge);

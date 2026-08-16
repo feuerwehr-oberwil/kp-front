@@ -21,10 +21,43 @@ logger = logging.getLogger(__name__)
 _scheduler: AsyncIOScheduler | None = None
 
 
+#: How often the integration-credential snapshot is refreshed from the database.
+#:
+#: The jobs below are all registered UNCONDITIONALLY now (see `start_scheduler`), because a
+#: credential set in the browser must start working without a restart — and a job that was
+#: never scheduled cannot start working at all. Each one instead checks its own credential on
+#: every tick and returns immediately when there is none, which is what makes «configured
+#: while I was already running» a state they handle rather than a state they miss.
+CREDENTIALS_REFRESH_SECONDS = 30
+
+
+async def _refresh_credentials() -> None:
+    """Keep the process-wide credential snapshot warm for the SYNCHRONOUS readers.
+
+    Request paths await `credentials.load(db)` themselves and are never stale. This exists
+    for the readers that have no session to await with — `push_enabled()`, the Traccar
+    client, the provider registry — so that a value written by another process (or before
+    this one booted) reaches them within half a minute rather than at the next deploy.
+    """
+    from .credentials import load
+
+    try:
+        await load(force=True)
+    except Exception:  # noqa: BLE001 — a stale snapshot is survivable, a wedged scheduler is not
+        logger.warning("Credential refresh failed (keeping the previous snapshot)", exc_info=True)
+
+
 async def _poll_divera() -> None:
+    from .credentials import get as credential
+    from .credentials import load as load_credentials
     from .divera import fetch_and_upsert
 
     async with async_session_maker() as db:
+        # Re-read every tick: the key may have been set in the browser since boot, and may
+        # have been cleared since the last tick.
+        await load_credentials(db)
+        if not credential("divera_access_key"):
+            return
         try:
             new = await fetch_and_upsert(db)
             await db.commit()
@@ -36,9 +69,13 @@ async def _poll_divera() -> None:
 
 
 async def _push_sweep() -> None:
-    from .push import check_and_push
+    from .credentials import load as load_credentials
+    from .push import check_and_push, push_enabled
 
     async with async_session_maker() as db:
+        await load_credentials(db)
+        if not push_enabled():
+            return  # no VAPID pair yet — the in-app tone/notification path is unaffected
         try:
             sent = await check_and_push(db)
             await db.commit()
@@ -84,9 +121,14 @@ PRINT_JOB_SWEEP_SECONDS = 3600
 async def _print_jobs_sweep() -> None:
     from sqlalchemy import delete
 
+    from .credentials import get as credential
+    from .credentials import load as load_credentials
     from .models import PrintJob
 
     async with async_session_maker() as db:
+        await load_credentials(db)
+        if not credential("print_agent_secret"):
+            return  # no relay configured — there is no queue to retire
         try:
             cutoff = datetime.now(UTC) - timedelta(days=PRINT_JOB_RETENTION_DAYS)
             res = await execute_dml(db, delete(PrintJob).where(PrintJob.created_at < cutoff))
@@ -136,13 +178,18 @@ async def _vehicle_samples_sweep() -> None:
     """
     from sqlalchemy import select
 
+    from .credentials import load as load_credentials
     from .geo_util import haversine_m
     from .models import Incident, VehicleSample
     from .traccar import traccar_client
 
-    if not traccar_client.is_configured:
-        return
     async with async_session_maker() as db:
+        # ⚠️ The configured-check moved INSIDE the job (it used to gate registration in
+        # `start_scheduler`). A station that connects Traccar from the browser gets its
+        # vehicle track from the next tick instead of the next restart.
+        await load_credentials(db)
+        if not traccar_client.is_configured:
+            return
         try:
             open_ids = list(
                 (
@@ -271,10 +318,22 @@ async def _heartbeat() -> None:
     """Dead-man's-switch: ping an external check URL (healthchecks.io / cron-monitor) on a short
     cadence. If the app or its event loop dies, the pings stop and the monitor alerts — catching
     the "silently down / scheduler wedged" class a plain HTTP probe of /ready can miss. Fail-open:
-    no URL = disabled; a failed ping never disturbs the app."""
+    no URL = disabled; a failed ping never disturbs the app.
+
+    ⚠️ Registered unconditionally and no-oping without a URL, rather than gated at boot the way
+    it used to be. The thing that tells anybody the station is down was the one setting an
+    operator could not switch on without a terminal and a restart — and «I turned the monitor
+    on and no ping ever arrived» is the exact shape of failure it exists to prevent."""
+    from .credentials import get as credential
+    from .credentials import load as load_credentials
+
+    await load_credentials()
+    url = credential("healthcheck_ping_url")
+    if not url:
+        return
     try:
         async with httpx.AsyncClient(timeout=10) as client:
-            await client.get(settings.healthcheck_ping_url)
+            await client.get(url)
     except Exception:  # noqa: BLE001 — fail-open: a dead monitor must not disturb the app
         logger.warning("Heartbeat ping failed (non-fatal)")
 
@@ -302,34 +361,68 @@ async def _telemetry_flush() -> None:
 async def start_scheduler(app: FastAPI) -> None:
     global _scheduler
     from .plans import plans_pull_enabled
-    from .push import push_enabled
 
     jobs: list[str] = []
     _scheduler = AsyncIOScheduler()
-    if settings.divera_access_key:
-        _scheduler.add_job(
-            _poll_divera,
-            "interval",
-            seconds=settings.divera_poll_interval_seconds,
-            id="divera_poll",
-            max_instances=1,
-            coalesce=True,
-        )
-        jobs.append(f"divera poll ({settings.divera_poll_interval_seconds}s)")
-    else:
-        logger.info("Divera poll disabled (no DIVERA_ACCESS_KEY)")
-    if push_enabled():
-        _scheduler.add_job(
-            _push_sweep,
-            "interval",
-            seconds=settings.push_check_seconds,
-            id="push_sweep",
-            max_instances=1,
-            coalesce=True,
-        )
-        jobs.append(f"push sweep ({settings.push_check_seconds}s)")
-    else:
-        logger.info("Web push disabled (no VAPID keys)")
+    # ⚠️ THE FOUR JOBS BELOW ARE REGISTERED UNCONDITIONALLY, and each no-ops on a tick where
+    # its credential is missing. They used to be gated here, at boot, off `settings` — which
+    # is exactly why none of these integrations could be connected from a browser: the value
+    # is only half the problem, the other half is that the job which would have used it was
+    # never scheduled. The telemetry flush has worked this way since it shipped and is the
+    # precedent. The cost is four timers ticking on a station that uses none of them, each
+    # one a dictionary lookup against a cached snapshot.
+    _scheduler.add_job(
+        _poll_divera,
+        "interval",
+        seconds=settings.divera_poll_interval_seconds,
+        id="divera_poll",
+        max_instances=1,
+        coalesce=True,
+    )
+    jobs.append(f"divera poll ({settings.divera_poll_interval_seconds}s, idle without a key)")
+    _scheduler.add_job(
+        _push_sweep,
+        "interval",
+        seconds=settings.push_check_seconds,
+        id="push_sweep",
+        max_instances=1,
+        coalesce=True,
+    )
+    jobs.append(f"push sweep ({settings.push_check_seconds}s, idle without VAPID keys)")
+    _scheduler.add_job(
+        _print_jobs_sweep,
+        "interval",
+        seconds=PRINT_JOB_SWEEP_SECONDS,
+        id="print_jobs_sweep",
+        max_instances=1,
+        coalesce=True,
+    )
+    jobs.append(f"print-job sweep ({PRINT_JOB_SWEEP_SECONDS}s, idle without a relay secret)")
+    _scheduler.add_job(
+        _vehicle_samples_sweep,
+        "interval",
+        seconds=VEHICLE_SAMPLE_SECONDS,
+        id="vehicle_samples",
+        max_instances=1,
+        coalesce=True,
+    )
+    jobs.append(f"vehicle samples ({VEHICLE_SAMPLE_SECONDS}s, idle without Traccar)")
+    _scheduler.add_job(_heartbeat, "interval", seconds=60, id="heartbeat", max_instances=1, coalesce=True)
+    jobs.append("heartbeat (60s, idle without a ping URL)")
+    # Keeps the snapshot the SYNCHRONOUS credential readers see from going stale — see
+    # `_refresh_credentials`.
+    _scheduler.add_job(
+        _refresh_credentials,
+        "interval",
+        seconds=CREDENTIALS_REFRESH_SECONDS,
+        id="credentials_refresh",
+        max_instances=1,
+        coalesce=True,
+    )
+    jobs.append(f"credential refresh ({CREDENTIALS_REFRESH_SECONDS}s)")
+    # Still boot-gated, and correctly so: PLANS_S3_* is not on the browser-settable list (the
+    # bucket credentials belong to the system that maintains the plan library, not to this
+    # station's admin), so nothing about it can change while the process runs.
     if plans_pull_enabled():
         _scheduler.add_job(
             _plan_pull,
@@ -342,16 +435,6 @@ async def start_scheduler(app: FastAPI) -> None:
         jobs.append(f"Objektplan-Pull ({settings.plans_pull_interval_minutes}min)")
     else:
         logger.info("Objektplan-Pull disabled (no PLANS_S3_* store configured)")
-    if settings.print_agent_secret:
-        _scheduler.add_job(
-            _print_jobs_sweep,
-            "interval",
-            seconds=PRINT_JOB_SWEEP_SECONDS,
-            id="print_jobs_sweep",
-            max_instances=1,
-            coalesce=True,
-        )
-        jobs.append(f"print-job sweep ({PRINT_JOB_SWEEP_SECONDS}s)")
     # Always on: a cheap no-op unless there is something for one of its two clocks to sweep
     # (alarms.autoArchiveDays for untouched auto-opened ones, alarms.staleIncidentDays for the
     # worked-on-but-never-closed ones); both at 0 makes it two indexed queries and done.
@@ -375,23 +458,6 @@ async def start_scheduler(app: FastAPI) -> None:
         coalesce=True,
     )
     jobs.append(f"position sweep ({POSITION_SWEEP_SECONDS}s)")
-    # Only where a fleet is actually tracked — the job no-ops without Traccar, but there is no
-    # point holding a timer for it.
-    from .traccar import traccar_client
-
-    if traccar_client.is_configured:
-        _scheduler.add_job(
-            _vehicle_samples_sweep,
-            "interval",
-            seconds=VEHICLE_SAMPLE_SECONDS,
-            id="vehicle_samples",
-            max_instances=1,
-            coalesce=True,
-        )
-        jobs.append(f"vehicle samples ({VEHICLE_SAMPLE_SECONDS}s)")
-    if settings.healthcheck_ping_url:
-        _scheduler.add_job(_heartbeat, "interval", seconds=60, id="heartbeat", max_instances=1, coalesce=True)
-        jobs.append("heartbeat (60s)")
     # Always on, and a no-op unless an admin has opted in — see _telemetry_flush.
     _scheduler.add_job(
         _telemetry_flush,

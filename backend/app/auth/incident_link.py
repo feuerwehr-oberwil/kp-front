@@ -77,6 +77,10 @@ LINK_COOKIE = "link_session"
 #: The SPA fallback route in spa.py.
 _SPA_FALLBACK = "/{full_path:path}"
 
+#: The per-deployment PWA manifest in webmanifest.py. Registered before the SPA fallback, so
+#: it is its own route and needs its own entry below.
+_WEBMANIFEST = "/manifest.webmanifest"
+
 #: Allowlisted AND exempt from the liveness checks — the two surfaces that have to work
 #: while the caller's link session is stale, expired or bound to a finished Einsatz.
 #:
@@ -88,9 +92,13 @@ _SPA_FALLBACK = "/{full_path:path}"
 #:
 #: The SPA shell is here so a responder whose link really has died gets the app's own
 #: explanation instead of a bare JSON 403 where the HTML should be.
+#: The PWA manifest is here for the same reason as the SPA shell: the browser fetches it
+#: alongside the HTML with no session of its own, it carries nothing about any incident, and
+#: refusing it would put a 403 in the console of a responder whose link has simply expired.
 _LIVENESS_EXEMPT: frozenset[tuple[str, str]] = frozenset(
     {
         ("GET", _SPA_FALLBACK),
+        ("GET", _WEBMANIFEST),
         ("POST", "/api/incident-link/session"),
     }
 )
@@ -136,6 +144,8 @@ LINK_ALLOWED: frozenset[tuple[str, str]] = frozenset(
         # single thing. (The `/assets` StaticFiles mount is not an APIRoute and never
         # reaches here.)
         ("GET", "/{full_path:path}"),
+        # …and the manifest that goes with it (public, no session, no incident data).
+        ("GET", _WEBMANIFEST),
         # Re-opening a link that is already open must not be refused by its own guard.
         ("POST", "/api/incident-link/session"),
         # Signing in must stay reachable *from* a link session. Someone who tapped the link

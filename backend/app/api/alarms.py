@@ -18,7 +18,8 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..alarms import create_incident_from_alarm, find_by_source_ref, get_config_model
-from ..config import settings
+from ..credentials import get as credential
+from ..credentials import load as load_credentials
 from ..database import execute_dml, get_db
 from ..models import DiveraEmergency, Incident
 from ..push import notify_new_alarm
@@ -28,7 +29,9 @@ router = APIRouter(prefix="/alarms", tags=["alarms"])
 
 
 def _check_secret(provided: str | None) -> None:
-    expected = settings.alarm_webhook_secret
+    """⚠️ Preceded by ``await load_credentials(db)`` at every call site — the secret is now
+    settable from /admin and must be live on the next request, not the next restart."""
+    expected = credential("alarm_webhook_secret")
     if not expected:
         # Fail CLOSED: with no secret configured, anyone could open incidents remotely.
         # Setting ALARM_WEBHOOK_SECRET is the deployment's opt-in to generic intake.
@@ -51,6 +54,7 @@ async def intake(
     """Receive an alarm. Secret via ?secret= or X-Webhook-Secret (same convention as the
     Divera webhook). Returns 201 with the new incident id, or 200 with the existing one
     when the same (source, source_id) was already delivered."""
+    await load_credentials(db)
     _check_secret(request.query_params.get("secret") or x_webhook_secret)
     if payload.source in RESERVED_ALARM_SOURCES:
         raise HTTPException(

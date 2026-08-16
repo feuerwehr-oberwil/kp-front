@@ -1,0 +1,45 @@
+# Build the app from THIS checkout instead of pulling the published image.
+#
+#   cp docker-compose.override.yml.example docker-compose.override.yml
+#   GIT_SHA=$(git rev-parse --short HEAD) docker compose up -d --build
+#
+# (`./scripts/setup.sh --build` does both for you, sha included.)
+#
+# Why a separate file: `docker-compose.override.yml` is picked up automatically by compose and
+# is gitignored, so building from source costs you no edit to a tracked file — and therefore no
+# merge conflict on the next `git pull`. The published image lags `main`, so this is the path
+# for contributors, for a patched fork, and for anyone who wants the commit they checked out
+# rather than the newest release.
+#
+# Nothing else changes: the same .env, the same volumes, the same `--profile tls`.
+#
+# ⚠️ Renaming the image is what actually switches the source off — `image:` here overrides the
+# ghcr.io one in docker-compose.yml, so a stale `ghcr.io/…:latest` already on the host can no
+# longer be started by accident. It also means KP_FRONT_TAG no longer decides anything: what
+# runs is your working tree. `git log -1` is the version.
+#
+# ⚠️ First build takes several minutes and needs ~2 GB free. Rebuild after every `git pull`:
+# `docker compose up -d --build` — without `--build`, compose keeps running the image it
+# built last time.
+
+services:
+  app:
+    image: kp-front:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # WHICH build is this? Without these args, a source build of an unreleased working tree answers
+      # `/health` with the release number of the last tag — «0.6.0», the same string a published
+      # image of that tag gives — and the one question you ask a deployment that is behaving
+      # oddly («is this even my code?») has no answer. `.git` is dockerignored, so the Dockerfile
+      # cannot look the commit up itself and takes it as a build arg; compose has to hand it in.
+      #
+      # Both are read from the ENVIRONMENT of the `docker compose` command and both are optional:
+      # unset, they stay empty and the image reports commit «dev» exactly as before, so this file
+      # still needs no editing and works in a tarball with no `.git` at all. ⚠️ Deliberately NOT
+      # read from `.env`: a value written there once would survive the next `git pull` and the
+      # image would then report a commit it was not built from, which is worse than not knowing.
+      args:
+        GIT_SHA: ${GIT_SHA:-}
+        # ISO-8601 UTC. `date -u +%Y-%m-%dT%H:%M:%SZ` if you are setting it by hand.
+        BUILD_TIME: ${BUILD_TIME:-}

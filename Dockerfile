@@ -88,5 +88,16 @@ RUN useradd --uid 10001 --create-home app \
     && mkdir -p /data/storage /mnt/data/storage \
     && chown -R app:app /app /data /mnt/data \
     && chmod +x /app/backend/start.sh
+# Which build is this? A release number cannot tell a from-source build of `main` apart from a
+# published image of the same tag. .git is dockerignored, so the sha comes in as a build arg
+# (release.yml passes GIT_SHA; Railway passes RAILWAY_GIT_COMMIT_SHA for a declared ARG).
+# Surfaced by /health and /api/system – see Settings.build.
+# Last in the stage on purpose: a changing sha invalidates no layer above it.
+ARG GIT_SHA=""
+ARG RAILWAY_GIT_COMMIT_SHA=""
+ARG BUILD_TIME=""
+ENV GIT_SHA=${GIT_SHA:-$RAILWAY_GIT_COMMIT_SHA} \
+    BUILD_TIME=${BUILD_TIME}
+
 USER app
 CMD ["/app/backend/start.sh"]

@@ -1,0 +1,84 @@
+/* Station data that is now written from the browser: the Einsatzobjekt sheet (ObjectSheet.tsx)
+   and the Checklisten page (ChecklistsView.tsx). A separate file from admin.css so these two
+   surfaces stay together and the 1400-line base sheet does not keep growing; imported by the
+   components themselves. Same rules as admin.css: global tokens only, never a frozen colour,
+   and --accent (the brand red) is never used to mean "selected". */
+
+/* ── Einsatzobjekt sheet ──────────────────────────────────────────────────── */
+
+/* The plan half is a long list, so the sheet gets the wide frame and its own scroll. */
+.adm-objsheet .ip-body { display: flex; flex-direction: column; gap: 2px; }
+
+/* the derived / stored object id, under the key field */
+.adm-obj-idline { display: flex; align-items: baseline; gap: 8px; margin: 2px 0 10px; }
+.adm-obj-idline code {
+  font-family: var(--mono); font-size: 11.5px; color: var(--ink-dim);
+  padding: 2px 7px; border-radius: var(--r-xs);
+  background: var(--surface-2); border: 1px solid var(--border-soft);
+}
+
+/* «Bearbeiten» on a list row — quiet, and out of the click path of the row itself */
+.adm-obj-edit { margin-left: auto; }
+
+/* ── per-module upload slots ──────────────────────────────────────────────── */
+.adm-slots { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.adm-slot {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto;
+  align-items: center; gap: 12px;
+  padding: 9px 10px; border-radius: var(--r-ctl);
+  border-bottom: 1px solid var(--border-soft);
+}
+.adm-slot:last-child { border-bottom: none; }
+.adm-slot:hover { background: color-mix(in srgb, var(--blue) 4%, transparent); }
+.adm-slot-id { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.adm-slot-title { font-size: 13px; font-weight: 700; color: var(--ink); }
+.adm-slot-state { min-width: 0; font-size: 12px; }
+.adm-slot-act { justify-self: end; }
+/* the row's own failure, spanning all three columns so it reads as one sentence */
+.adm-slot-err { grid-column: 1 / -1; margin: 4px 0 0; }
+.adm-slot-plan { display: inline-flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 11.5px; }
+.adm-slot-plan .i { width: 13px; height: 13px; color: var(--ink-faint); }
+.adm-slot-plan .adm-ref-note { display: inline; }
+/* the «add a sub-slot» row of a family module (Modul 5 – Wasser) */
+.adm-slot-new { background: var(--surface-2); }
+.adm-slot-suffix { max-width: 200px; }
+
+/* ── Checklisten ──────────────────────────────────────────────────────────── */
+
+.adm-ck-sheet .ip-body { display: flex; flex-direction: column; gap: 2px; }
+
+/* what the picked file IS, before anything is written */
+.adm-ck-facts { list-style: none; margin: 12px 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.adm-ck-facts li { display: flex; align-items: baseline; gap: 10px; font-size: 12.5px; }
+.adm-ck-facts li > span:first-child { flex: 0 0 130px; color: var(--ink-faint); }
+.adm-ck-facts code {
+  font-family: var(--mono); font-size: 11.5px; color: var(--ink-dim);
+  padding: 2px 7px; border-radius: var(--r-xs);
+  background: var(--surface-2); border: 1px solid var(--border-soft);
+}
+
+/* two visible row actions instead of a ⋮ menu — see the note in ChecklistsView */
+.adm-ck-actions { white-space: nowrap; text-align: right; }
+.adm-ck-actions .btn + .btn { margin-left: 8px; }
+.adm-ck-del { color: var(--red); }
+
+.adm-ck-assets { list-style: none; margin: 8px 0 14px; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.adm-ck-assets li {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 6px 10px; border-radius: var(--r-ctl); background: var(--surface-2);
+}
+
+/* diagram datasets whose template is gone — the ghost a rename leaves behind */
+.adm-ck-orphans {
+  margin-top: 16px; padding: 12px; border-radius: var(--r-ctl);
+  background: var(--surface-2); border: 1px solid var(--border-soft);
+  display: flex; flex-direction: column; gap: 8px; align-items: flex-start;
+}
+
+@media (max-width: 720px) {
+  .adm-slot { grid-template-columns: 1fr; align-items: start; gap: 6px; }
+  .adm-slot-act { justify-self: start; }
+  .adm-ck-facts li { flex-direction: column; gap: 2px; }
+  .adm-ck-facts li > span:first-child { flex: none; }
+}

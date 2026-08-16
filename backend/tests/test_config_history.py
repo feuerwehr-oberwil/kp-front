@@ -12,7 +12,7 @@ refused rather than reported as success.
 import pytest
 from sqlalchemy import select
 
-from app.config_history import emptied_sections
+from app.config_history import changed_sections, emptied_sections
 from app.models import DeploymentConfigHistory
 
 # --- emptied_sections: the shape of the damage, not a diff ---------------------------
@@ -58,6 +58,46 @@ def test_a_whole_top_level_section_disappearing_is_reported():
 def test_nothing_stored_yet_means_nothing_can_be_lost():
     assert emptied_sections(None, {"identity": {"appName": "X"}}) == []
     assert emptied_sections({}, {"identity": {"appName": "X"}}) == []
+
+
+# --- changed_sections: what makes one row different from the next ---------------------
+#
+# ⚠️ «Letzte Änderungen» used to list what a kept document CONTAINED. Since every writer replaces
+# the whole document, that was the same nine section names on every row — 26 of them after one
+# afternoon of setting a station up, four inside the same minute. The list could not answer the
+# question it is opened with: WHICH entry do I go back to?
+
+
+def test_names_only_what_the_write_touched():
+    old = {"identity": {"appName": "Alt"}, "fleet": {"vehicles": [1]}, "map": {"defaultView": {"z": 14}}}
+    new = {"identity": {"appName": "Alt"}, "fleet": {"vehicles": [1, 2]}, "map": {"defaultView": {"z": 14}}}
+    assert changed_sections(old, new) == ["fleet.vehicles"]
+
+
+def test_an_added_or_removed_section_is_a_change():
+    old = {"identity": {"appName": "X"}, "report": {"partnerOrgs": ["Polizei"]}}
+    new = {"identity": {"appName": "X"}, "roster": {"ranks": [1]}}
+    assert changed_sections(old, new) == ["report.partnerOrgs", "roster.ranks"]
+
+
+def test_an_autosave_that_rewrote_the_same_document_says_so():
+    """Not an error and not a gap: an empty list is what makes such a write collapsible."""
+    doc = {"identity": {"appName": "X"}, "fleet": {"vehicles": [1]}}
+    assert changed_sections(doc, dict(doc)) == []
+
+
+def test_it_stops_one_level_down():
+    """Deeper than this a "section" is a single field and the noise the whole list suffers from
+    comes straight back."""
+    old = {"map": {"defaultView": {"lat": 47.0, "lon": 7.0, "zoom": 14}}}
+    new = {"map": {"defaultView": {"lat": 47.5, "lon": 7.5, "zoom": 16}}}
+    assert changed_sections(old, new) == ["map.defaultView"]
+
+
+def test_a_missing_side_is_not_a_crash():
+    assert changed_sections(None, {"identity": {"appName": "X"}}) == ["identity.appName"]
+    assert changed_sections({"identity": {"appName": "X"}}, None) == ["identity.appName"]
+    assert changed_sections(None, None) == []
 
 
 # --- the kept document ----------------------------------------------------------------

@@ -1,4 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { ObjectSheet } from './ObjectSheet'
 import { apiGet, apiPost, ApiError } from '../lib/api'
 import {
   listObjects,
@@ -409,10 +410,42 @@ function PlanChips({ obj }: { obj: ObjectWithPlans }) {
   )
 }
 
+/**
+ * Objekte & Pläne — the list, the map, and (since the endpoints finally have a caller) the
+ * editing. `POST/PUT /api/objects` and `PUT /api/objects/{id}/plans/{module}` existed with no
+ * frontend at all; the sheet behind «Objekt hinzufügen» / «Bearbeiten» is that frontend.
+ *
+ * ⚠️ What this page can NOT do, and says so: set the object's `source_key`. That is the key the
+ * scheduled Planspeicher-Abgleich matches an index row against (plans.py:370) and it is absent
+ * from the `ObjectIn` schema, so only `admin_objects` can write it. The pull attaches plans to
+ * objects that already exist — it never creates one — and a row whose key matches nothing is
+ * skipped and counted. Both halves of that are on the page, because the failure it produces is
+ * silent: a plan that was published and simply never appeared.
+ */
 export function ObjectsView() {
   const [state, setState] = useState<Async<ObjectWithPlans[]>>({ kind: 'loading' })
   const [selected, setSelected] = useState<string | null>(null)
   const [hovered, setHovered] = useState<string | null>(null)
+  // null = closed, 'new' = create, otherwise the id being edited.
+  const [editing, setEditing] = useState<string | null>(null)
+
+  /**
+   * Re-read the object list after a write.
+   *
+   * This used to re-read a second time when the write it had just made was missing, because the
+   * backend had a real read-after-write race (roughly 1 in 15). It doesn't any more: `get_db`
+   * commits before the response is sent, not in FastAPI's request-scope teardown after it, so a
+   * GET issued the instant a write returns sees that write. Guarded by
+   * backend/tests/test_db_commit_ordering.py — if that ever goes red, this is one of the pages
+   * that starts lying about what was saved.
+   */
+  const load = useCallback(async () => {
+    try {
+      setState({ kind: 'ok', data: await listObjects() })
+    } catch (e) {
+      setState({ kind: classify(e) })
+    }
+  }, [])
 
   useEffect(() => {
     let alive = true
@@ -428,7 +461,9 @@ export function ObjectsView() {
   }, [])
 
   const C = appConfig.copy.admin.data
+  const CO = appConfig.copy.admin.objects
   const objs = state.kind === 'ok' ? state.data : []
+  const editTarget = editing && editing !== 'new' ? (objs.find((o) => o.id === editing) ?? null) : null
   // Memoised so the array identity is STABLE across re-renders (e.g. hover changes). Otherwise
   // ObjectsMap's objects-dependent effects re-run every render and the map keeps snapping back
   // to the fit-all view, discarding the selected zoom.
@@ -442,6 +477,17 @@ export function ObjectsView() {
   return (
     <div className="adm-editor">
       <Card>
+        <div className="adm-brand-row">
+          <button type="button" className="btn primary adm-int-btn" onClick={() => setEditing('new')}>
+            {CO.add}
+          </button>
+        </div>
+        {/* The pull's shape, on the page, because its failure is silent: a plan that was
+            published and never appeared. Both sentences matter — it only ATTACHES, and it
+            matches on a key this form cannot write. */}
+        <p className="adm-hint">{CO.pullNote}</p>
+        <p className="adm-hint">{CO.pullKeyNote}</p>
+
         {state.kind === 'loading' && <EmptyState message={C.objectsLoading} />}
         {state.kind === 'unconfigured' && <EmptyState message={C.objectsUnavailable} />}
         {state.kind === 'error' && <EmptyState tone="err" message={C.objectsError} />}
@@ -487,6 +533,15 @@ export function ObjectsView() {
                       <span className="adm-obj-name">{obj.name}</span>
                       {obj.address && <span className="adm-obj-addr">{obj.address}</span>}
                       {!onMap && <span className="adm-obj-noloc">{C.noLocation}</span>}
+                      {/* stopPropagation: the row itself is the map's select target */}
+                      <button
+                        type="button"
+                        className="btn adm-int-btn adm-obj-edit"
+                        onClick={(e) => { e.stopPropagation(); setEditing(obj.id) }}
+                        aria-label={fillTemplate(CO.editAria, { name: obj.name })}
+                      >
+                        {CO.edit}
+                      </button>
                     </div>
                     <PlanChips obj={obj} />
                   </li>
@@ -496,6 +551,18 @@ export function ObjectsView() {
           </div>
         )}
       </Card>
+
+      {editing && (
+        <ObjectSheet
+          key={editing}
+          object={editTarget}
+          onClose={() => setEditing(null)}
+          // The sheet keeps its own copy of the saved object (a newly created one has no row in
+          // the list yet), so this only refreshes the list + map behind it — `editing` must NOT
+          // change, or the sheet remounts and a half-finished plan upload loses its object.
+          onChanged={() => { void load() }}
+        />
+      )}
     </div>
   )
 }

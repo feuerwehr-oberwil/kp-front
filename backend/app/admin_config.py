@@ -4,8 +4,10 @@ A single kp-front build serves many fire-brigade deployments; each one's per-sta
 config (identity/map/referenceLayers/fleet/symbols/doctrine/roster/mittel) lives in the
 ``deployment_config`` singleton row and is served to the frontend by the PUBLIC
 ``GET /api/config`` (see app/api/config.py). This command is how an admin (or an agent)
-authors, validates, and applies that config from a JSON file — locally against SQLite or
-against production by exporting ``DATABASE_URL`` first.
+authors, validates, and applies that config from a JSON file — against whatever
+``DATABASE_URL`` points at (the local dev Postgres from ``just db`` by default; export a
+different ``DATABASE_URL`` to target another deployment). kp-front is Postgres-only; there
+is no database file to go looking for.
 
 Designed to be driven by an LLM/agent: the loop is
 

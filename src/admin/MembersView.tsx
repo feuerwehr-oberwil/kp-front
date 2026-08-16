@@ -2,7 +2,11 @@ import { useCallback, useEffect, useState } from 'react'
 import { apiGet, apiPost, apiPatch, ApiError } from '../lib/api'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
-import { ActionMenu, Select, fmtDate } from './ui'
+import { Icon } from '../lib/icons'
+import { ActionMenu, fmtDate } from './ui'
+import { RoleChoice, type MemberRole } from './RoleChoice'
+import { PinSheet } from './PinSheet'
+import { PIN_LENGTH } from '../components/PinPad'
 
 // ─── types ───────────────────────────────────────────────────────────────────
 
@@ -10,7 +14,7 @@ interface AdminUser {
   id: string
   username: string
   display_name: string
-  role: 'editor' | 'viewer'
+  role: MemberRole
   color: string | null
   is_active: boolean
   created_at: string
@@ -19,7 +23,7 @@ interface AdminUser {
   el_view_default: boolean
 }
 
-const PIN_LEN = 6 // mirrors backend settings.pin_length
+const PIN_LEN = PIN_LENGTH // mirrors backend settings.pin_length
 
 // ─── helpers ───────────────────────────────────────────────────────────────
 
@@ -43,14 +47,17 @@ function AddMemberForm({ onCreated }: { onCreated: () => void }) {
   const [open, setOpen] = useState(false)
   const [username, setUsername] = useState('')
   const [displayName, setDisplayName] = useState('')
-  const [role, setRole] = useState<'editor' | 'viewer'>('viewer')
+  // NO default: the role is a question the form asks, not a value it pre-fills. Three crew
+  // accounts were once created without noticing the «Betrachter» default and all three came out
+  // read-only — found only when somebody could not write during an incident.
+  const [role, setRole] = useState<MemberRole | null>(null)
   const [color, setColor] = useState('')
   const [pin, setPin] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
   const reset = () => {
-    setUsername(''); setDisplayName(''); setRole('viewer'); setColor(''); setPin('')
+    setUsername(''); setDisplayName(''); setRole(null); setColor(''); setPin('')
     setErr(null)
   }
 
@@ -58,11 +65,12 @@ function AddMemberForm({ onCreated }: { onCreated: () => void }) {
   const valid =
     username.trim().length > 0 &&
     displayName.trim().length > 0 &&
+    role !== null &&
     isValidPin(pin)
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!valid || busy) return
+    if (!valid || busy || role === null) return
     setBusy(true)
     setErr(null)
     try {
@@ -124,19 +132,26 @@ function AddMemberForm({ onCreated }: { onCreated: () => void }) {
             />
           </label>
         </div>
+        <RoleChoice
+          value={role}
+          onChange={setRole}
+          label={fillTemplate(C.roleQuestion, { name: displayName.trim() || C.roleQuestionAnon })}
+          hint={C.roleChangeableHint}
+        />
         <div className="adm-row-2">
-          <div className="adm-field">
-            <span className="adm-field-label">{C.role}</span>
-            <Select
-              ariaLabel={C.role}
-              value={role}
-              onChange={(v) => setRole(v as 'editor' | 'viewer')}
-              options={[
-                { value: 'viewer', label: C.roleViewer },
-                { value: 'editor', label: C.roleEditor },
-              ]}
+          <label className="adm-field">
+            <span className="adm-field-label">
+              {C.pinLabel} <span className="adm-field-hint">{fillTemplate(C.pinDigits, { n: PIN_LEN })}</span>
+            </span>
+            <input
+              className="adm-input adm-input-mono"
+              value={pin}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, PIN_LEN))}
+              inputMode="numeric"
+              autoComplete="off"
+              placeholder="••••••"
             />
-          </div>
+          </label>
           <label className="adm-field">
             <span className="adm-field-label">
               {C.colorLabel} <span className="adm-field-hint">{C.colorOptional}</span>
@@ -158,23 +173,16 @@ function AddMemberForm({ onCreated }: { onCreated: () => void }) {
             </div>
           </label>
         </div>
-        <label className="adm-field">
-          <span className="adm-field-label">
-            {C.pinLabel} <span className="adm-field-hint">{fillTemplate(C.pinDigits, { n: PIN_LEN })}</span>
-          </span>
-          <input
-            className="adm-input adm-input-mono"
-            value={pin}
-            onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, PIN_LEN))}
-            inputMode="numeric"
-            autoComplete="off"
-            placeholder="••••••"
-          />
-        </label>
 
         {err && <div className="adm-state adm-state-err">{err}</div>}
 
         <div className="adm-members-formbtns">
+          {role === null && (
+            <span className="adm-rolepick-why">
+              <Icon id="info" />
+              {C.rolePickFirst}
+            </span>
+          )}
           <button
             type="button"
             className="btn adm-int-btn"
@@ -192,14 +200,19 @@ function AddMemberForm({ onCreated }: { onCreated: () => void }) {
   )
 }
 
-// ─── per-row inline edit (rename / recolor) ──────────────────────────────────
+// ─── per-row inline edit (rename / role / recolor) ───────────────────────────
 
-function EditRow({ user, onSaved, onCancel }: {
+function EditRow({ user, canDemote, onSaved, onCancel }: {
   user: AdminUser
+  /** false when this is the last active editor — the server refuses the demotion anyway. */
+  canDemote: boolean
   onSaved: () => void
   onCancel: () => void
 }) {
   const [displayName, setDisplayName] = useState(user.display_name)
+  // Editing is the OTHER situation: the value exists, so the current role is the selected card
+  // and there is no way back to «nothing chosen».
+  const [role, setRole] = useState<MemberRole>(user.role)
   const [color, setColor] = useState(user.color ?? '')
   const [elViewDefault, setElViewDefault] = useState(user.el_view_default ?? false)
   const [busy, setBusy] = useState(false)
@@ -214,6 +227,7 @@ function EditRow({ user, onSaved, onCancel }: {
     try {
       await apiPatch(`/api/auth/users/${user.id}`, {
         display_name: displayName.trim(),
+        role,
         color: color.trim() || null,
         el_view_default: elViewDefault,
       })
@@ -237,6 +251,12 @@ function EditRow({ user, onSaved, onCancel }: {
               autoFocus
             />
           </label>
+          <RoleChoice
+            value={role}
+            onChange={setRole}
+            label={fillTemplate(C.roleQuestion, { name: displayName.trim() || user.display_name })}
+            locked={canDemote ? undefined : { role: 'viewer', reason: C.guardLastCmdRole }}
+          />
           <label className="adm-field">
             <span className="adm-field-label">{C.colorLabel}</span>
             <div className="adm-color-row">
@@ -255,7 +275,7 @@ function EditRow({ user, onSaved, onCancel }: {
               />
             </div>
           </label>
-          {user.role === 'editor' && (
+          {role === 'editor' && (
             <label className="adm-field adm-check">
               <input
                 type="checkbox"
@@ -295,6 +315,8 @@ export function MembersView() {
   const [editing, setEditing] = useState<string | null>(null)
   const [rowErr, setRowErr] = useState<{ id: string; detail: string } | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
+  /** the member whose PIN is being set — the pinpad Sheet is open while this is non-null */
+  const [pinFor, setPinFor] = useState<AdminUser | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -335,21 +357,20 @@ export function MembersView() {
 
   const C = appConfig.copy.admin.members
 
-  const resetPin = (u: AdminUser) => {
-    const pin = window.prompt(
-      fillTemplate(C.newPinPrompt, { name: u.display_name, n: PIN_LEN }),
-    )
-    if (pin == null) return
-    if (!isValidPin(pin)) {
-      setRowErr({ id: u.id, detail: fillTemplate(C.pinInvalid, { n: PIN_LEN }) })
-      return
-    }
-    void mutate(u.id, () => apiPost(`/api/auth/users/${u.id}/pin`, { pin }))
-  }
-
   return (
     <div className="adm-editor">
       <AddMemberForm onCreated={() => void load()} />
+
+      {/* Setting a PIN goes through the app's own pinpad in a Sheet — window.prompt() can be
+          suppressed without a trace on an installed iOS PWA, and this is the first action the
+          setup docs ask for. */}
+      {pinFor && (
+        <PinSheet
+          user={pinFor}
+          onClose={() => setPinFor(null)}
+          onSaved={() => { setPinFor(null); void load() }}
+        />
+      )}
 
       <section className="adm-card">
         <header className="adm-card-head">
@@ -393,6 +414,7 @@ export function MembersView() {
                         <EditRow
                           key={u.id}
                           user={u}
+                          canDemote={!blockDemote}
                           onSaved={() => { setEditing(null); void load() }}
                           onCancel={() => setEditing(null)}
                         />
@@ -446,7 +468,7 @@ export function MembersView() {
                                 title: blockDeactivate ? C.guardLastCmdDeactivate : undefined,
                                 danger: u.is_active,
                               },
-                              { label: C.resetPin, onClick: () => resetPin(u) },
+                              { label: C.resetPin, onClick: () => setPinFor(u) },
                             ]}
                           />
                           {rowErr?.id === u.id && (

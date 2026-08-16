@@ -34,6 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from . import audit
 from .alarm_keywords import SHIPPED, InvalidVocabularyError, Vocabulary, parse
 from .config import settings
+from .credentials import get as credential
 from .models import DiveraEmergency, Incident
 from .push import notify_new_alarm
 from .schemas import DiveraWebhookPayload
@@ -345,9 +346,42 @@ async def maybe_auto_open(db: AsyncSession, em: DiveraEmergency) -> Incident | N
     return await open_emergency(db, em)
 
 
+class DiveraApiError(Exception):
+    """A Divera call failed, described WITHOUT the request URL.
+
+    ⚠️ THE REASON THIS TYPE EXISTS. Divera authenticates with the key in the QUERY STRING
+    (``?accesskey=…``); it takes it no other way, so the URL of every call this app makes to
+    Divera *is* a secret. ``httpx.Response.raise_for_status`` renders that URL into its message:
+
+        Client error '401 Unauthorized' for url '…/api/alarms?accesskey=<the key in plain text>'
+
+    which went two places it must not. It reached any ``editor`` — a role BELOW the one the
+    credential surface refuses — through the 502 body of ``POST /api/personnel/sync/preview``,
+    and it reached the container log through ``scheduler._poll_divera``'s ``logger.exception``.
+    Both matter more since the key became browser-settable: ``app/api/credentials`` promises an
+    admin that a stored secret can never be read back, and ``app/credentials`` is built so that
+    a stolen database dump yields nothing — a promise a log file undoes for free.
+
+    So no Divera response is ever passed to ``raise_for_status``. :func:`check_response` is the
+    single door, and it keeps the one thing worth keeping: the status code.
+    """
+
+
+def check_response(response: httpx.Response) -> None:
+    """``response.raise_for_status()`` minus the credential-bearing URL.
+
+    Every outbound Divera call goes through this — see :class:`DiveraApiError` for why. The
+    status code is the whole diagnosis anyway: 401/403 means the key is wrong or its scope
+    changed, 429 means we are polling too hard, 5xx means Divera is having a day.
+    """
+    if response.is_success:
+        return
+    raise DiveraApiError(f"Divera antwortete mit HTTP {response.status_code}")
+
+
 async def fetch_and_upsert(db: AsyncSession) -> int:
     """Poll Divera /alarms once and upsert into the pool. Returns new-alarm count."""
-    if not settings.divera_access_key:
+    if not credential("divera_access_key"):
         return 0
     url = f"{settings.divera_api_url}/alarms"
     # SSRF defence-in-depth: divera_api_url is config-driven (not user input), but pin it to
@@ -356,8 +390,8 @@ async def fetch_and_upsert(db: AsyncSession) -> int:
         logger.warning("Divera API URL is not https; skipping fetch")
         return 0
     async with httpx.AsyncClient(timeout=30.0) as client:
-        r = await client.get(url, params={"accesskey": settings.divera_access_key})
-        r.raise_for_status()
+        r = await client.get(url, params={"accesskey": credential("divera_access_key")})
+        check_response(r)
         data = r.json()
     new = 0
     for alarm in parse_alarms_response(data)[: settings.divera_poll_max_alarms]:

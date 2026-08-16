@@ -13,7 +13,8 @@ from .. import audit
 from .. import divera as divera_svc
 from ..alarms import is_demo_deployment
 from ..auth.dependencies import CurrentEditor, EditorOrAdmin
-from ..config import settings
+from ..credentials import get as credential
+from ..credentials import load as load_credentials
 from ..database import get_db
 from ..geocode import geocode
 from ..models import DiveraEmergency, Incident
@@ -24,7 +25,9 @@ router = APIRouter(prefix="/divera", tags=["divera"])
 
 
 def _check_secret(provided: str | None) -> None:
-    expected = settings.divera_webhook_secret
+    """⚠️ Call ``await load_credentials(db)`` before this — it reads the cached snapshot, and a
+    secret set in /admin thirty seconds ago has to be live now, not at the next restart."""
+    expected = credential("divera_webhook_secret")
     if not expected:
         # Fail CLOSED: with no secret configured, anyone could inject fake alarms that an
         # editor then "takes" into a real incident. Set DIVERA_WEBHOOK_SECRET to enable
@@ -45,6 +48,7 @@ async def webhook(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Receive an alarm. Secret via ?secret= or X-Webhook-Secret. 200 even on duplicate."""
+    await load_credentials(db)
     _check_secret(request.query_params.get("secret") or x_webhook_secret)
     em = await divera_svc.upsert_emergency(db, payload)
     inc = None
@@ -74,9 +78,16 @@ async def pool(_user: CurrentEditor, db: AsyncSession = Depends(get_db)):
 
 @router.post("/pool/refresh")
 async def refresh(_user: EditorOrAdmin, db: AsyncSession = Depends(get_db)) -> dict:
-    if not settings.divera_access_key:
+    await load_credentials(db)
+    if not credential("divera_access_key"):
         raise HTTPException(status_code=503, detail="Divera nicht konfiguriert (kein Access Key)")
-    new = await divera_svc.fetch_and_upsert(db)
+    # A refused key is the ordinary failure here (rotated, or its scope changed), and it is
+    # worth an answer rather than a 500. `DiveraApiError` carries the status code and never
+    # the request URL — the URL is where the access key rides. See divera.DiveraApiError.
+    try:
+        new = await divera_svc.fetch_and_upsert(db)
+    except divera_svc.DiveraApiError as e:
+        raise HTTPException(status_code=502, detail=f"Divera nicht erreichbar: {e}") from None
     return {"new": new}
 
 

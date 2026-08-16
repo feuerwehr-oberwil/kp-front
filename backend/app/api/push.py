@@ -11,7 +11,8 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth.dependencies import CurrentUser
-from ..config import settings
+from ..credentials import get as credential
+from ..credentials import load as load_credentials
 from ..database import get_db
 from ..models import PushSubscription
 from ..push import push_enabled
@@ -30,9 +31,15 @@ class SubscriptionIn(BaseModel):
 
 
 @router.get("/vapid-key")
-async def vapid_key(_user: CurrentUser) -> dict:
-    """The deployment's VAPID public key — null while push is not configured."""
-    return {"key": settings.vapid_public_key or None, "enabled": push_enabled()}
+async def vapid_key(_user: CurrentUser, db: AsyncSession = Depends(get_db)) -> dict:
+    """The deployment's VAPID public key — null while push is not configured.
+
+    Reads the credential store fresh: a station that just generated its VAPID pair in
+    /admin must be able to subscribe a browser without waiting for anything, and this is
+    the endpoint that browser asks first.
+    """
+    await load_credentials(db)
+    return {"key": credential("vapid_public_key") or None, "enabled": push_enabled()}
 
 
 @router.post("/subscriptions", status_code=201)

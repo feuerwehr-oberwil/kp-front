@@ -1,9 +1,9 @@
 """Integration tests for the user-management endpoints (Slice 2).
 
 Covers create (incl. 409 on duplicate username + PIN policy), the role/active
-PATCH path, the PIN reset → re-login flow, and the two server-side safety guards
-(self-deactivate/demote, last-active-editor). Runs against the test DB
-(SQLite locally, postgres in CI).
+PATCH path, the PIN reset → re-login flow, the well-known-PIN refusal on both PIN
+writers, and the two server-side safety guards (self-deactivate/demote,
+last-active-editor). Runs against the test DB (SQLite locally, postgres in CI).
 
 User CRUD lives behind the deployment-admin gate (ADMIN_SECRET session), separate from
 the editor role: each client must both log in (for the audit identity used by the self
@@ -12,7 +12,15 @@ guard) AND unlock admin via the ``admin_login`` fixture.
 
 import pytest
 
+from app.auth.security import TRIVIAL_PINS
+from app.config import settings
+
 pytestmark = pytest.mark.asyncio
+
+# The two German refusals a PIN write can produce (app/auth/router.py). Asserted verbatim
+# because the admin PIN sheet renders `detail` straight onto the operator's screen.
+PIN_TOO_SIMPLE = "Diese PIN ist zu einfach – bitte eine andere wählen."
+PIN_WRONG_LENGTH = f"PIN muss genau {settings.pin_length} Ziffern haben."
 
 
 async def _login(client, user) -> None:
@@ -67,7 +75,7 @@ async def test_create_user_then_login(client, editor, admin_login):
             "username": "neo",
             "display_name": "Neo",
             "role": "viewer",
-            "pin": "654321",
+            "pin": "481625",
         },
     )
     assert r.status_code == 201, r.text
@@ -82,7 +90,7 @@ async def test_create_user_then_login(client, editor, admin_login):
 
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as fresh:
-        lr = await fresh.post("/api/auth/login", json={"user_id": new_id, "pin": "654321"})
+        lr = await fresh.post("/api/auth/login", json={"user_id": new_id, "pin": "481625"})
         assert lr.status_code == 200
         assert lr.json()["role"] == "viewer"
 
@@ -90,7 +98,7 @@ async def test_create_user_then_login(client, editor, admin_login):
 async def test_create_user_duplicate_username_409(client, editor, admin_login):
     await _login(client, editor)
     await admin_login(client)
-    body = {"username": "dup", "display_name": "Dup", "role": "viewer", "pin": "654321"}
+    body = {"username": "dup", "display_name": "Dup", "role": "viewer", "pin": "481625"}
     assert (await client.post("/api/auth/users", json=body)).status_code == 201
     r = await client.post("/api/auth/users", json=body)
     assert r.status_code == 409
@@ -110,6 +118,56 @@ async def test_create_user_bad_pin_policy_400(client, editor, admin_login):
         },
     )
     assert r.status_code == 400
+    # …and it says so in German. This was the one raw English string (`hash_pin`'s ValueError)
+    # that reached an operator's screen; the admin PIN sheet carried a client-side special case
+    # just to recognise and replace it.
+    assert r.json()["detail"] == PIN_WRONG_LENGTH
+
+
+@pytest.mark.parametrize("weak", sorted(TRIVIAL_PINS))
+async def test_create_user_refuses_a_well_known_pin(client, editor, admin_login, weak):
+    await _login(client, editor)
+    await admin_login(client)
+    r = await client.post(
+        "/api/auth/users",
+        json={"username": f"weak{weak}", "display_name": "Weak", "role": "viewer", "pin": weak},
+    )
+    assert r.status_code == 400, r.text
+    assert r.json()["detail"] == PIN_TOO_SIMPLE
+    # nothing was created — a refused PIN must not leave a half-made account behind
+    assert not any(u["username"] == f"weak{weak}" for u in (await client.get("/api/auth/users")).json())
+
+
+async def test_create_user_echoes_the_el_view_default_it_stored(client, editor, admin_login):
+    """A 201 body that contradicts the row is worse than no body: the admin UI renders the
+    response, so an Einsatzleiter login created with the EL view on would have looked as though
+    it had been created with it off. Both ends of the write are asserted — what came back and
+    what a subsequent read sees — because that pair is what a field report said disagreed.
+    """
+    await _login(client, editor)
+    await admin_login(client)
+    r = await client.post(
+        "/api/auth/users",
+        json={
+            "username": "el",
+            "display_name": "EL",
+            "role": "editor",
+            "el_view_default": True,
+            "pin": "481625",
+        },
+    )
+    assert r.status_code == 201, r.text
+    assert r.json()["el_view_default"] is True
+
+    stored = next(u for u in (await client.get("/api/auth/users")).json() if u["username"] == "el")
+    assert stored["el_view_default"] is True
+
+    # ...and the default really is False, so the assertion above is not passing on a default.
+    r2 = await client.post(
+        "/api/auth/users",
+        json={"username": "plain", "display_name": "Plain", "role": "editor", "pin": "481625"},
+    )
+    assert r2.json()["el_view_default"] is False
 
 
 # --- pin reset ---------------------------------------------------------------------
@@ -136,6 +194,36 @@ async def test_pin_reset_changes_login(client, editor, viewer, admin_login):
         assert (
             await fresh.post("/api/auth/login", json={"user_id": str(viewer.id), "pin": "135790"})
         ).status_code == 401
+
+
+@pytest.mark.parametrize("weak", sorted(TRIVIAL_PINS))
+async def test_pin_reset_refuses_a_well_known_pin(client, editor, viewer, admin_login, weak):
+    """The gap this closes, and the place it mattered most.
+
+    `seed.resolve_seed_pin` has always refused these at boot, but SETUP.md §2 makes "change the
+    seeded PIN" the very first thing a new station does — and that write went through this
+    endpoint, which only checked length and digits. Setting 123456 returned 200 and stored it
+    (verified against a live station, 2026-08-16).
+
+    Driven through the real HTTP endpoint on purpose: the seed-side sibling test only exercises
+    the helper, which is exactly how the endpoint's own gap went unnoticed.
+    """
+    await _login(client, editor)
+    await admin_login(client)
+    r = await client.post(f"/api/auth/users/{viewer.id}/pin", json={"pin": weak})
+    assert r.status_code == 400, r.text
+    assert r.json()["detail"] == PIN_TOO_SIMPLE
+
+    # the refusal is total: the old PIN still logs in, so nothing was half-written
+    import httpx
+
+    from app.main import app
+
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as fresh:
+        assert (
+            await fresh.post("/api/auth/login", json={"user_id": str(viewer.id), "pin": "135790"})
+        ).status_code == 200
 
 
 # --- patch: rename / role / activate ------------------------------------------------
@@ -186,7 +274,7 @@ async def test_cannot_deactivate_last_editor(client, editor, admin_login):
             "username": "cmd2",
             "display_name": "Cmd Two",
             "role": "editor",
-            "pin": "654321",
+            "pin": "481625",
         },
     )
     cmd2_id = r2.json()["id"]
@@ -202,7 +290,7 @@ async def test_cannot_deactivate_last_editor(client, editor, admin_login):
 
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as c2:
-        await c2.post("/api/auth/login", json={"user_id": cmd2_id, "pin": "654321"})
+        await c2.post("/api/auth/login", json={"user_id": cmd2_id, "pin": "481625"})
         await admin_login(c2)
         # cmd2 demotes the original editor → still one active editor (cmd2) → ok
         assert (await c2.patch(f"/api/auth/users/{editor.id}", json={"role": "viewer"})).status_code == 200

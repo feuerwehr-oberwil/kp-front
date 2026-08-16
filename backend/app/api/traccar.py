@@ -17,6 +17,8 @@ from pydantic import BaseModel, Field
 
 from ..auth.dependencies import UserOrAdmin
 from ..config import settings
+from ..credentials import get as credential
+from ..credentials import load as load_credentials
 from ..traccar import VehiclePosition, VehicleTrail, traccar_client
 
 router = APIRouter(prefix="/traccar", tags=["traccar"])
@@ -45,7 +47,7 @@ def _check_fake_access(request: Request, x_webhook_secret: str | None) -> None:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Fake-Positionen deaktiviert (TRACCAR_FAKE nicht gesetzt)",
         )
-    expected = settings.alarm_webhook_secret
+    expected = credential("alarm_webhook_secret")
     if not expected:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -63,6 +65,7 @@ async def set_fake_positions(
     x_webhook_secret: str | None = Header(default=None),
 ) -> dict:
     """Replace the injected fake fleet (secret via ?secret= or X-Webhook-Secret)."""
+    await load_credentials()
     _check_fake_access(request, x_webhook_secret)
     now = datetime.now(UTC)
     _fake_positions[:] = [
@@ -88,6 +91,7 @@ async def clear_fake_positions(
     request: Request,
     x_webhook_secret: str | None = Header(default=None),
 ) -> dict:
+    await load_credentials()
     _check_fake_access(request, x_webhook_secret)
     _fake_positions.clear()
     return {"ok": True, "count": 0}
@@ -95,6 +99,7 @@ async def clear_fake_positions(
 
 @router.get("/status")
 async def traccar_status(_user: UserOrAdmin) -> dict:
+    await load_credentials()
     if settings.traccar_fake:
         return {"configured": True, "host": "fake"}
     # host is the non-secret server name (no scheme/credentials), for status display.
@@ -103,6 +108,7 @@ async def traccar_status(_user: UserOrAdmin) -> dict:
 
 @router.get("/positions", response_model=list[VehiclePosition])
 async def positions(_user: UserOrAdmin) -> list[VehiclePosition]:
+    await load_credentials()
     if settings.traccar_fake:
         return list(_fake_positions)
     if not traccar_client.is_configured:
@@ -115,6 +121,7 @@ async def positions(_user: UserOrAdmin) -> list[VehiclePosition]:
 
 @router.get("/trails", response_model=list[VehicleTrail])
 async def trails(_user: UserOrAdmin, minutes: int = 30) -> list[VehicleTrail]:
+    await load_credentials()
     if settings.traccar_fake:
         return []  # fake fleet has no history
     if not traccar_client.is_configured:

@@ -8,6 +8,15 @@ import { Menu as BaseMenu } from '@base-ui/react/menu'
  *
  * The trigger keeps its own element/classes via `render`; Base UI wires aria-haspopup/expanded
  * and a `data-popup-open` attribute onto it (style the open trigger with `[data-popup-open]`).
+ *
+ * ⚠️ STACKING BELONGS ON THE POSITIONER, never on the popup. Base UI portals the popup to
+ * <body> inside a Positioner it moves with a `transform` — and a transform makes that positioner
+ * its own stacking context, so any `z-index` a caller puts on `popupClassName` is trapped inside
+ * it and does nothing at all. That is not theory: on v0.6.0 every row action in the admin
+ * (Bearbeiten, Rolle ändern, Deaktivieren, PIN zurücksetzen) opened INVISIBLE and unclickable
+ * behind `.adm` (position:fixed, z-index:100), because `.adm-menu-portal { z-index: 1200 }` sat
+ * on the popup. So the positioner carries a stable class — `.ui-menu-pos` — and the app's
+ * stylesheet owns the one z-index (sibling to ContextMenu's `.ui-ctxmenu-pos`).
  */
 /** A checkbox row INSIDE the menu — for settings you want to flip without leaving it. Base UI
  *  keeps the menu open on a checkbox click, which is the whole point: «what goes on the paper»
@@ -141,7 +150,7 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
     <BaseMenu.Root>
       <BaseMenu.Trigger render={trigger} />
       <BaseMenu.Portal>
-        <BaseMenu.Positioner side={side} align={align} sideOffset={sideOffset} collisionPadding={collisionPadding}>
+        <BaseMenu.Positioner className="ui-menu-pos" side={side} align={align} sideOffset={sideOffset} collisionPadding={collisionPadding}>
           <BaseMenu.Popup className={popupClassName}>
             {blocks.map((b, i) => (
               // no label = nothing to associate, so no wrapper either — an extra div around the

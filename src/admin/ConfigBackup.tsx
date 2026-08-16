@@ -4,6 +4,8 @@ import type { DeploymentConfig } from '../lib/deploymentConfig'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { downloadBlob } from '../lib/download'
+import { Sheet } from '../lib/overlays'
+import { describeRejectedFields, rejectedFieldLabel } from './ConfigContext'
 
 // Config backup (Batch A · A1): export the current config to a JSON file, import one back,
 // and show who last changed it & when. `integrations` is env-derived/read-only so it's
@@ -28,7 +30,47 @@ type State =
   | { kind: 'idle' }
   | { kind: 'busy' }
   | { kind: 'ok'; message: string }
-  | { kind: 'error'; message: string }
+  /** `fields` = the refused paths as German lines (ConfigContext · describeRejectedFields).
+   *  Listed, not run into one sentence: each is a separate edit in the file. */
+  | { kind: 'error'; message: string; fields?: string[] }
+
+/** A file waiting on the replace confirmation. Parsed already — the confirmation is about what
+ *  the import DOES, so it must not be the place a broken JSON file is discovered. */
+interface Pending {
+  name: string
+  payload: Record<string, unknown>
+  /** Sections that HAVE content today and are empty in the file — i.e. what this replace wipes.
+   *  Mirrors the server's own `emptied_sections` (backend/app/config_history.py), which is what
+   *  «Letzte Änderungen» reports after the fact. Saying it BEFORE is the whole point of a
+   *  confirmation. */
+  empties: string[]
+}
+
+/** True for absence, not for a value somebody chose: `0` and `false` are content.
+ *  ⚠️ Keep in step with `empty()` in backend/app/config_history.py. */
+function isEmpty(v: unknown): boolean {
+  if (v == null) return true
+  if (typeof v === 'string' || Array.isArray(v)) return v.length === 0
+  if (typeof v === 'object') return Object.keys(v).length === 0
+  return false
+}
+
+/** Which populated parts of `current` the imported `next` would leave empty — one level into
+ *  the top-level sections, exactly where config_history.emptied_sections looks. */
+function emptiedSections(current: Record<string, unknown>, next: Record<string, unknown>): string[] {
+  const out: string[] = []
+  for (const [key, oldVal] of Object.entries(current)) {
+    if (key === 'integrations' || key === 'version' || key === 'alarmVocabulary') continue
+    const newVal = next[key]
+    if (oldVal && typeof oldVal === 'object' && !Array.isArray(oldVal)
+        && newVal && typeof newVal === 'object' && !Array.isArray(newVal)) {
+      for (const [sub, oldSub] of Object.entries(oldVal as Record<string, unknown>)) {
+        if (!isEmpty(oldSub) && isEmpty((newVal as Record<string, unknown>)[sub])) out.push(`${key}.${sub}`)
+      }
+    } else if (!isEmpty(oldVal) && isEmpty(newVal)) out.push(key)
+  }
+  return out.map(rejectedFieldLabel)
+}
 
 export function ConfigBackup({ config, onImported }: {
   /** The currently-loaded config (used as the export source). */
@@ -38,8 +80,10 @@ export function ConfigBackup({ config, onImported }: {
 }) {
   const [meta, setMeta] = useState<ConfigMeta | null>(null)
   const [state, setState] = useState<State>({ kind: 'idle' })
+  const [pending, setPending] = useState<Pending | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const C = appConfig.copy.admin.backup
+  const Cc = appConfig.copy.admin.common2
 
   const refreshMeta = () => {
     apiGet<ConfigMeta>('/api/config/meta')
@@ -57,31 +101,47 @@ export function ConfigBackup({ config, onImported }: {
 
   const onExport = () => exportConfig('kp-front-config.json')
 
+  /** Step 1 — read + parse the file and ASK. Nothing is written here. */
   const onImportFile = async (file: File) => {
     setState({ kind: 'busy' })
+    const clearInput = () => { if (fileRef.current) fileRef.current.value = '' }
     let parsed: unknown
     try {
       parsed = JSON.parse(await file.text())
     } catch {
       setState({ kind: 'error', message: C.notJson })
-      if (fileRef.current) fileRef.current.value = ''
+      clearInput()
       return
     }
-    if (!parsed || typeof parsed !== 'object') {
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
       setState({ kind: 'error', message: C.notConfig })
-      if (fileRef.current) fileRef.current.value = ''
+      clearInput()
       return
     }
-    if (!window.confirm(C.replaceConfirm)) {
-      setState({ kind: 'idle' })
-      if (fileRef.current) fileRef.current.value = ''
-      return
-    }
+    const { integrations: _ignore, symbols: _drop, ...payload } = parsed as Record<string, unknown>
+    setState({ kind: 'idle' })
+    setPending({
+      name: file.name,
+      payload,
+      empties: emptiedSections(config as unknown as Record<string, unknown>, payload),
+    })
+    // ⚠️ Cleared HERE, not after the write: the same file picked twice in a row fires no
+    // `change` event otherwise, so cancelling once made the button dead until a reload.
+    clearInput()
+  }
+
+  const cancelImport = () => {
+    setPending(null)
+    setState({ kind: 'idle' })
+  }
+
+  /** Step 2 — the operator confirmed the replace. */
+  const runImport = async ({ payload }: Pending) => {
+    setPending(null)
+    setState({ kind: 'busy' })
     // One-click rollback: save the pre-import config before replacing it (3am tenet —
     // nothing that can't be undone). Best-effort; a failed download must not block import.
     try { exportConfig('kp-front-config-vorher.json') } catch { /* rollback file is a safety net */ }
-    const { integrations: _ignore, symbols: _drop, ...payload } =
-      parsed as Record<string, unknown>
     try {
       // ⚠️ The version is read FRESH here, not taken from this page's draft. Importing a backup
       // IS «replace the whole document with this file» — the user picked it, confirmed it, and
@@ -99,12 +159,14 @@ export function ConfigBackup({ config, onImported }: {
       setState({ kind: 'ok', message: C.imported })
       refreshMeta()
     } catch (e: unknown) {
+      // ⚠️ A 422 carries the exact answer — which field, which entry, what was found — and it
+      // used to be dropped for «Konfiguration ungültig (422) – Datei passt nicht zum Schema»,
+      // which is a restatement of «it did not work». Say what the server said, in German.
+      const fields = e instanceof ApiError && e.status === 422 ? describeRejectedFields(e) : []
       const msg = e instanceof ApiError
-        ? (e.status === 422 ? C.invalidSchema : e.detail)
+        ? (e.status === 422 ? (fields.length ? C.invalidFields : C.invalidSchema) : e.detail)
         : C.importFailed
-      setState({ kind: 'error', message: msg })
-    } finally {
-      if (fileRef.current) fileRef.current.value = ''
+      setState({ kind: 'error', message: msg, fields: fields.length ? fields : undefined })
     }
   }
 
@@ -141,7 +203,55 @@ export function ConfigBackup({ config, onImported }: {
         />
       </div>
       {state.kind === 'ok' && <span className="adm-save-ok">{state.message}</span>}
-      {state.kind === 'error' && <span className="adm-save-err">{state.message}</span>}
+      {state.kind === 'error' && (
+        <div className="adm-save-err">
+          {state.message}
+          {/* one line per refused field — each is its own edit in the file, and a run-on
+              sentence is read to the end by nobody */}
+          {state.fields && (
+            <ul className="adm-import-errs">
+              {state.fields.map((line) => <li key={line}>{line}</li>)}
+            </ul>
+          )}
+        </div>
+      )}
+      {/* ⚠️ The product's own overlay, not `window.confirm()`. This is the most destructive
+          action in Verwaltung — a FULL-DOCUMENT replace — and it was the one still confirming
+          with a browser dialog an installed iOS PWA may suppress without a trace (the same
+          reason the PIN got its own sheet). `.adm` sits at z-index 100; admin.css lifts
+          `.ui-backdrop`/`.ip-sheet.ui-dialog` above it, which is why a Sheet is the primitive
+          that works here. */}
+      {pending && (
+        <Sheet
+          open
+          onClose={cancelImport}
+          title={C.replaceTitle}
+          fit
+          modal
+          footer={
+            <>
+              <button type="button" className="ip-btn ghost" onClick={cancelImport}>{Cc.cancel}</button>
+              <button type="button" className="ip-btn ip-btn-danger" onClick={() => void runImport(pending)}>
+                {C.replaceGo}
+              </button>
+            </>
+          }
+        >
+          <p className="adm-card-cap">{fillTemplate(C.replaceLead, { file: pending.name })}</p>
+          {/* Not «is that ok?» but «here is what disappears». The server reports exactly this
+              AFTER the fact in «Letzte Änderungen»; before the fact is when it can still be
+              acted on. */}
+          {pending.empties.length > 0 && (
+            <>
+              <p className="adm-card-cap">{C.replaceEmpties}</p>
+              <ul className="adm-import-errs">
+                {pending.empties.map((s) => <li key={s}>{s}</li>)}
+              </ul>
+            </>
+          )}
+          <p className="adm-hint">{C.replaceRollback}</p>
+        </Sheet>
+      )}
     </div>
   )
 }

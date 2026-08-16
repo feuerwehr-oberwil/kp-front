@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from . import audit
 from .geocode import geocode
 from .models import DeploymentConfig, Incident
-from .schemas import AlarmsConfig, DeploymentConfigIn
+from .schemas import AlarmsConfig, DeploymentConfigIn, load_stored_config
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,10 @@ async def get_config_model(db: AsyncSession) -> DeploymentConfigIn:
     row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     raw = row.config_json if (row and row.config_json) else {}
     try:
-        return DeploymentConfigIn.model_validate(raw)
+        # a STORED row (see schemas · load_stored_config): a field that has grown a rule since it
+        # was written is dropped, not refused — intake must not lose the station's whole alarm
+        # vocabulary to it and fall through to the defaults below.
+        return load_stored_config(raw)
     except Exception:  # noqa: BLE001 — a bad stored row must never break intake
         logger.warning("deployment_config failed validation; using defaults")
         return DeploymentConfigIn()

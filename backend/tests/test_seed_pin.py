@@ -7,11 +7,16 @@ DEPLOYMENT.md. kp-rueck already refuses to seed shared accounts in production wi
 explicit password; this is the same rule for kp-front.
 
 Development is deliberately untouched — the frictionless `just dev` login is the point there.
+
+The list of publicly-known PINs is shared with the admin API (`auth.security.TRIVIAL_PINS`),
+which refuses the same six on every create/reset — see test_user_admin.py. Boot-time and
+API-time are the two ends of one rule, not two lists.
 """
 
 import pytest
 
 from app import seed as seed_module
+from app.auth.security import TRIVIAL_PINS
 from app.config import settings
 
 
@@ -39,9 +44,28 @@ def test_production_rejects_the_shipped_default(production, monkeypatch):
         seed_module.resolve_seed_pin()
 
 
-@pytest.mark.parametrize("weak", ["111111", "123456", "654321", "999999", "012345"])
+@pytest.mark.parametrize("weak", sorted(TRIVIAL_PINS - {"000000"}))
 def test_production_rejects_other_well_known_pins(production, monkeypatch, weak):
     monkeypatch.setattr(settings, "seed_pin", weak)
+    with pytest.raises(ValueError, match="weak PINs"):
+        seed_module.resolve_seed_pin()
+
+
+def test_the_seeder_reads_the_shared_list(monkeypatch):
+    """One rule, one list. If seed.py ever grew its own copy again, this fails.
+
+    The rule already lived in three places once — seed.py, the admin PIN sheet's mirrored
+    client-side copy, and nowhere on the write path that actually mattered.
+
+    ⚠️ The identity check below is what actually detects a second copy, and the monkeypatch that
+    follows it does NOT: a drifted local `TRIVIAL_PINS = {...}` in seed.py is patched exactly as
+    the imported name is, so `resolve_seed_pin` would follow the swap and this test would pass
+    over the very duplication it is named for. `is` is the whole assertion; the swap only shows
+    that the name is the one being read.
+    """
+    assert seed_module.TRIVIAL_PINS is TRIVIAL_PINS, "seed.py carries its own copy of the list"
+    monkeypatch.setattr("app.seed.TRIVIAL_PINS", frozenset({"482913"}))
+    monkeypatch.setattr(settings, "seed_pin", "482913")
     with pytest.raises(ValueError, match="weak PINs"):
         seed_module.resolve_seed_pin()
 
@@ -84,7 +108,7 @@ def test_shipped_seed_file_is_still_the_thing_we_are_protecting_against():
 
     path = Path(seed_module.__file__).parent / "seed_users.json"
     entries = json.loads(path.read_text(encoding="utf-8"))
-    assert any(str(e.get("pin")) in seed_module._TRIVIAL_PINS and e.get("role") == "editor" for e in entries), (
+    assert any(str(e.get("pin")) in TRIVIAL_PINS and e.get("role") == "editor" for e in entries), (
         "seed file no longer ships a weak editor PIN — re-read test_seed_pin.py's premise"
     )
 
@@ -169,4 +193,20 @@ def test_init_env_generates_a_seed_pin_the_backend_will_accept():
     assert pin, "init-env.sh left no SEED_PIN line at all"
     value = pin.group(1).strip()
     assert re.fullmatch(r"\d{6}", value), f"SEED_PIN must be six digits, got {value!r}"
-    assert value not in seed_module._TRIVIAL_PINS, "generated a PIN the backend refuses as public"
+    assert value not in TRIVIAL_PINS, "generated a PIN the backend refuses as public"
+
+
+def test_init_env_excludes_exactly_the_backends_list():
+    """The generator carries the blocklist a SECOND time, in bash — so pin the copy.
+
+    The test above only samples one random PIN, so a list that drifted would pass it 999_994
+    times out of a million: the generator would keep emitting a PIN the backend refuses and the
+    station would meet it as a boot loop. Compared as sets against the shared Python one.
+    """
+    import re
+    from pathlib import Path
+
+    script = (Path(__file__).resolve().parents[2] / "scripts" / "init-env.sh").read_text(encoding="utf-8")
+    case = re.search(r"^\s*([\d|]+)\)\s*continue\s*;;", script, re.MULTILINE)
+    assert case, "init-env.sh no longer has a `<pin>|<pin>) continue ;;` exclusion arm"
+    assert set(case.group(1).split("|")) == set(TRIVIAL_PINS)

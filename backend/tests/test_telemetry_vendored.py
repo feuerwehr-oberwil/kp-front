@@ -29,7 +29,7 @@ TELEMETRY = Path(__file__).resolve().parent.parent / "app" / "telemetry"
 # sha256 of each vendored file, as it exists in feuerwehr-oberwil/kp-front.
 # Regenerate with:  shasum -a 256 backend/app/telemetry/{scrub,envelope,outbox,forwarder}.py
 VENDORED = {
-    "scrub.py": "f493aa6306e6d90ce527ee49d5279d84c9c3ffb5c1ec51f202d1bfe451269912",
+    "scrub.py": "9fdf5f93c6f1cba9dee68f336bd0d76681b65d9b67026fd8108017b9d2d57039",
     "envelope.py": "fa581ba2ec4224426ce67750c4e575c6d44a12a5cc63a81498da2e245430995f",
     "outbox.py": "e59113482ba07ff52fcbe4f8cc318d1b3143993e88367298fbccc503facc428a",
     "forwarder.py": "7256d10b5c25c4b9056836b6c53862ece0b2836e41e1684738fa91daf0cfee13",

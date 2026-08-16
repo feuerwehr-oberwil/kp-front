@@ -5,6 +5,7 @@ same origin — so cookies are SameSite=Lax and there is no CORS.
 """
 
 import logging
+import re
 from contextlib import asynccontextmanager
 
 logging.basicConfig(level=logging.INFO)
@@ -12,6 +13,84 @@ logging.basicConfig(level=logging.INFO)
 # Divera accesskey (passed as ?accesskey=...) into the logs. Silence its per-request line;
 # our own code logs what matters without the secret.
 logging.getLogger("httpx").setLevel(logging.WARNING)
+
+
+#: Query parameters whose VALUE is a credential, as they appear in a URL anywhere in a log
+#: line. `accesskey` is Divera's own spelling; `secret` is how both webhook intakes and the
+#: capture/stats links accept theirs (`?secret=…`), which uvicorn's access log writes out in
+#: full on every legitimate call.
+_SECRET_QUERY_PARAM = re.compile(
+    r"(?i)([?&](?:accesskey|access_key|api_key|apikey|key|secret|token|password|passwd|pwd))=[^&\s'\"]*"
+)
+
+
+def _redact(value: object) -> object:
+    """`?accesskey=abc` → `?accesskey=<redacted>`, for anything that is a string."""
+    return _SECRET_QUERY_PARAM.sub(r"\1=<redacted>", value) if isinstance(value, str) else value
+
+
+class RedactSecretsInUrls(logging.Filter):
+    """The last line of defence against a credential in a log line.
+
+    ⚠️ THE SAME MITIGATION AS THE `httpx` LINE ABOVE, one step further along. Silencing httpx
+    covered the request log httpx emits itself. It does not cover a URL that reaches a log any
+    OTHER way, and two do:
+
+      * an exception message rendered into a traceback — `httpx.HTTPStatusError` stringifies
+        as «… for url '…?accesskey=<the key>'», which is how `scheduler._poll_divera`'s
+        `logger.exception` wrote the station's Divera key to the container log on every failed
+        poll;
+      * uvicorn's access log, which writes the full query string of every request — so an
+        alerting system posting to `/api/divera/webhook?secret=…` printed the station's
+        webhook secret once per alarm.
+
+    Attached to HANDLERS rather than loggers, because `uvicorn.access` sets `propagate = False`
+    and never reaches the root handler.
+
+    ⚠️ `exc_text` is pre-rendered here on purpose. `logging.Formatter.format` reuses a record's
+    `exc_text` when it is already set and only falls back to formatting `exc_info` itself, so
+    filling it in with a redacted rendering is what lets a FILTER — which otherwise sees only
+    `msg` and `args` — reach the traceback where the leak actually lived.
+
+    ⚠️ Belt, not braces. The braces are that no credential reaches a message in the first place
+    (`divera.check_response`, `audio.transcribe`, `api/personnel._divera_unreachable`). A
+    scrubber can only redact shapes it was taught — this one knows nothing about a secret that
+    appears without a `?name=` in front of it — so it must never become the reason a call site
+    stops being careful.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.msg = _redact(record.msg)
+        if record.args:
+            if isinstance(record.args, dict):
+                record.args = {k: _redact(v) for k, v in record.args.items()}
+            else:
+                record.args = tuple(_redact(a) for a in record.args)
+        if record.exc_info and not record.exc_text:
+            record.exc_text = logging.Formatter().formatException(record.exc_info)
+        if record.exc_text:
+            record.exc_text = _redact(record.exc_text)  # type: ignore[assignment]
+        return True
+
+
+def install_log_redaction() -> None:
+    """Put :class:`RedactSecretsInUrls` on every configured handler.
+
+    ⚠️ Called TWICE, and both times are load-bearing. At import time it covers the root handler
+    `basicConfig` just made, which is where this app's own loggers land. At lifespan startup it
+    covers `uvicorn.*`, configured by uvicorn's own `dictConfig` at a moment this module cannot
+    order itself against. Idempotent, so the second pass cannot double-redact.
+    """
+    handlers = list(logging.getLogger().handlers)
+    for name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
+        handlers.extend(logging.getLogger(name).handlers)
+    for handler in handlers:
+        if not any(isinstance(f, RedactSecretsInUrls) for f in handler.filters):
+            handler.addFilter(RedactSecretsInUrls())
+
+
+install_log_redaction()
+
 logger = logging.getLogger(__name__)
 
 from collections.abc import AsyncGenerator
@@ -28,10 +107,15 @@ from .config import settings
 from .database import Base, engine
 from .i18n import set_locale, translate_detail
 from .spa import mount_spa
+from .webmanifest import register_manifest_route
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    # Second pass, now that uvicorn has installed its own handlers — `uvicorn.access` does not
+    # propagate to root, and it is the log that prints `?secret=…` on every webhook call.
+    install_log_redaction()
+
     # Dev convenience: create tables from models. Production uses Alembic migrations.
     if settings.dev_create_all and not settings.is_production:
         async with engine.begin() as conn:
@@ -76,6 +160,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         set_locale(identity.get("locale"))
     except Exception:
         logger.exception("Loading deployment locale failed (defaulting to de-CH)")
+
+    # Prime the integration-credential snapshot BEFORE anything serves a request. The
+    # synchronous readers (push_enabled, the Traccar client, the provider registry) read this
+    # snapshot, so a cold one would make a configured integration look off for the first few
+    # seconds of a boot. `load` never raises — a database that isn't up yet leaves the
+    # snapshot empty, which is the fail-closed state those consumers already handle.
+    try:
+        from .credentials import load as load_credentials
+
+        await load_credentials(force=True)
+    except Exception:
+        logger.exception("Priming the integration credentials failed (continuing — they reload on demand)")
 
     await token_blocklist.start_cleanup_task()
 
@@ -204,8 +300,21 @@ async def limit_body_size(request: Request, call_next):
 @app.get("/health")
 async def health() -> dict:
     """Liveness only — static by design. Readiness (DB + storage) is /ready; point container
-    and platform healthchecks THERE, or an unreachable database still reports healthy."""
-    return {"status": "ok", "service": settings.project_name, "version": settings.version}
+    and platform healthchecks THERE, or an unreachable database still reports healthy.
+
+    Carries the BUILD, not just the version: `curl /health` is the first thing anybody does to
+    a deployment that is behaving oddly, and `{"version": "0.6.0"}` is the same answer from a
+    from-source build of `main` and from a three-day-old published image. `commit`/`built_at`
+    say which one is actually running (see `Settings.build`).
+    """
+    build = settings.build
+    return {
+        "status": "ok",
+        "service": settings.project_name,
+        "version": settings.version,  # == build["release"]; the pre-existing key, kept for callers
+        "commit": build["commit"],
+        "built_at": build["built_at"],
+    }
 
 
 @app.get("/ready")
@@ -257,6 +366,7 @@ def _register_optional_routers() -> None:
         ("app.api.capture", "router"),
         ("app.api.incident_link", "router"),
         ("app.api.personnel", "router"),
+        ("app.api.station_workbook", "router"),
         ("app.api.traccar", "router"),
         ("app.api.weather", "router"),
         ("app.api.geocode", "router"),
@@ -271,6 +381,7 @@ def _register_optional_routers() -> None:
         ("app.api.print_relay", "router"),
         ("app.api.stats", "router"),
         ("app.api.system", "router"),
+        ("app.api.credentials", "router"),
         ("app.api.diag", "router"),
     ]:
         try:
@@ -281,6 +392,11 @@ def _register_optional_routers() -> None:
 
 
 _register_optional_routers()
+
+# The PWA manifest is generated per-deployment from the station's identity, so it must be a
+# route — and it must be registered BEFORE mount_spa, whose catch-all would otherwise serve
+# the build-time file straight from dist/. See webmanifest.py.
+register_manifest_route(app)
 
 # SPA fallback must be mounted LAST so it doesn't shadow /api, /health, or /ready.
 mount_spa(app)

@@ -31,12 +31,55 @@ export interface RosterUpdate {
   is_active?: boolean
 }
 
-/** Result of a CSV import. */
+/** Result of a CSV import. `imported` is `created + updated` — people touched, not rows read. */
 export interface RosterImportResult {
   imported: number
+  created: number
+  updated: number
   skipped: number
   errors: string[]
+  /** rank keys this import wrote into the station's roster.ranks */
+  adopted_ranks: string[]
 }
+
+/** One rank the station's list knows — an option in the mapping picker. */
+export interface RosterRankOption {
+  key: string
+  label: string
+  abbr: string | null
+}
+
+/** One rank VALUE the file uses and the station's list does not know.
+ *  ⚠️ Per value, not per row: three people spelled «Sdt» are ONE of these. */
+export interface RosterUnknownRank {
+  value: string
+  count: number
+  people: string[]
+  suggestion: string | null
+}
+
+/** What an import WOULD do — the backend writes nothing to answer this. */
+export interface RosterImportPreview {
+  /** rows carrying a usable name (a file may name one person twice → `creates + updates` is lower) */
+  total: number
+  /** people this file adds */
+  creates: number
+  /** people it updates in place instead of adding a second time */
+  updates: number
+  skipped: number
+  errors: string[]
+  unknown_ranks: RosterUnknownRank[]
+  known_ranks: RosterRankOption[]
+  /** false while the station is still running on the shipped Swiss default rank list */
+  has_own_ranks: boolean
+}
+
+/** What to do with one unknown value: put it on a known rank, adopt it as a new rank of the
+ *  station, or import those people without a Dienstgrad. */
+export type RosterRankDecision =
+  | { value: string; action: 'map'; rank: string }
+  | { value: string; action: 'adopt' }
+  | { value: string; action: 'skip' }
 
 export function listRoster(includeInactive = false): Promise<RosterPerson[]> {
   return apiGet<RosterPerson[]>(`/api/personnel${includeInactive ? '?include_inactive=true' : ''}`)
@@ -54,8 +97,18 @@ export function deactivatePerson(id: string): Promise<{ ok: boolean }> {
   return apiDelete<{ ok: boolean }>(`/api/personnel/${id}`)
 }
 
-export function importRosterCsv(file: File): Promise<RosterImportResult> {
+/** Read-only: what this file would import, and which rank values need a decision first. */
+export function previewRosterCsv(file: File): Promise<RosterImportPreview> {
   const form = new FormData()
   form.append('file', file)
+  return apiUpload<RosterImportPreview>('/api/personnel/import-csv/preview', form)
+}
+
+/** Apply the import. ⚠️ Every unknown rank value must carry a decision — otherwise the server
+ *  refuses the whole file (409) and writes nothing at all, people included. */
+export function importRosterCsv(file: File, decisions: RosterRankDecision[] = []): Promise<RosterImportResult> {
+  const form = new FormData()
+  form.append('file', file)
+  if (decisions.length) form.append('decisions', JSON.stringify(decisions))
   return apiUpload<RosterImportResult>('/api/personnel/import-csv', form)
 }

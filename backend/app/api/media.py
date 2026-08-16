@@ -21,7 +21,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import audio, database, storage
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..auth.incident_link import link_session_incident
-from ..config import settings
+from ..credentials import get as credential
+from ..credentials import load as load_credentials
 from ..database import get_db
 from ..models import Incident, Media, SttJob
 
@@ -210,7 +211,8 @@ async def start_transcription(
     the suggestions instead of returning nothing — and because POST responses are never
     HTTP-cached, this path also survives clients with a stale cached status GET. Confirmed
     segments stay confirmed (re-opening them would invite duplicate journal rows)."""
-    if not settings.stt_base_url:
+    await load_credentials(db)
+    if not credential("stt_base_url"):
         raise HTTPException(status_code=503, detail="Kein STT-Server konfiguriert")
     media = (await db.execute(select(Media).where(Media.id == media_id))).scalar_one_or_none()
     if media is None or media.kind != "audio" or not storage.exists(media.storage_key):

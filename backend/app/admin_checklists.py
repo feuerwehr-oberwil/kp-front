@@ -12,8 +12,10 @@ It mirrors ``admin_objects``: ``import_einsatzplaene.py`` → manifest+plans →
 the objects pipeline; the station's checklist authoring → manifest+templates → ``admin_checklists``
 is the checklists pipeline. The OSS CLI is generic; the private data repo owns the station content.
 
-Run from ``backend/`` via ``uv run python -m app.admin_checklists <cmd>`` (against SQLite locally,
-or production by exporting ``DATABASE_URL`` first):
+Run from ``backend/`` via ``uv run python -m app.admin_checklists <cmd>``. It talks to whatever
+``DATABASE_URL`` points at — the local dev Postgres from ``just db`` by default; export a
+different ``DATABASE_URL`` to target another deployment. (kp-front is Postgres-only: there is
+no database file anywhere. SQLite exists solely as a pytest fallback.)
 
     schema                 print the JSON Schema of a manifest entry (the contract)
     example                print a populated example manifest you can edit
@@ -45,6 +47,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
 from sqlalchemy import select
 
 from . import storage
+from .admin_manifest import template_hint
 from .database import async_session_maker
 from .models import ReferenceDataset
 
@@ -204,12 +207,18 @@ def _validate_files(manifest_path: Path, entries: list[ChecklistEntry]) -> tuple
     for e in entries:
         src = _resolve(manifest_path, e.file)
         if not src.is_file():
-            _fail(f"ERROR: {manifest_path}: entry {e.id!r} template file not found: {src}")
+            _fail(
+                f"ERROR: {manifest_path}: entry {e.id!r} template file not found: {src}"
+                + template_hint(manifest_path, complete_example="examples/demo-data/checklists.manifest.json")
+            )
         _validate_template_json(src, e)
         for a in e.assets:
             asrc = _resolve(manifest_path, a.file)
             if not asrc.is_file():
-                _fail(f"ERROR: {manifest_path}: entry {e.id!r} asset p{a.page} file not found: {asrc}")
+                _fail(
+                    f"ERROR: {manifest_path}: entry {e.id!r} asset p{a.page} file not found: {asrc}"
+                    + template_hint(manifest_path, complete_example="examples/demo-data/checklists.manifest.json")
+                )
             n_assets += 1
     return len(entries), n_assets
 

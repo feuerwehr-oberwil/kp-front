@@ -996,6 +996,13 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 /* Shared menu parts (see lib/overlays · Menu). The indicator keeps its BOX whether or not it is
    ticked — `keepMounted` plus a hidden tick — so the labels in a checkbox menu line up in one
    column instead of shifting sideways as things are switched on and off. */
+/* The portalled positioner. A menu is the topmost transient layer of whatever opened it, so it
+   stacks with `.ui-ctxmenu-pos` (210) — over every surface a menu can be opened from: the sheet
+   tier (80/81), the confirm card (96), the admin shell (100) and the intake sheet (121). It has
+   to sit HERE, on the positioner, and not on the popup: the popup is `position: static` inside a
+   transformed positioner, so a z-index on it is inert (see the ⚠️ in lib/overlays/Menu.tsx).
+   The admin raises this while it is mounted — see the scoped block at the end of admin.css. */
+.ui-menu-pos { z-index: 210; }
 .ui-menu-sep { height: 1px; margin: 5px 8px; background: var(--glass-edge); }
 .ui-menu-head { padding: 6px 10px 3px; font: 700 10.5px var(--body); letter-spacing: .08em;
   text-transform: uppercase; color: var(--ink-faint); }

@@ -18,16 +18,12 @@ import os
 
 from sqlalchemy import select
 
-from .auth.security import hash_pin
+from .auth.security import TRIVIAL_PINS, hash_pin
 from .config import settings
 from .database import async_session_maker
 from .models import User
 
 logger = logging.getLogger(__name__)
-
-# PINs that are not secrets, whatever the environment. Rejecting these stops SEED_PIN from
-# becoming a box-ticking exercise satisfied by retyping the value we are trying to remove.
-_TRIVIAL_PINS = {"000000", "111111", "123456", "654321", "999999", "012345"}
 
 
 def resolve_seed_pin() -> str | None:
@@ -51,7 +47,7 @@ def resolve_seed_pin() -> str | None:
 
     if len(pin) != settings.pin_length or not pin.isdigit():
         raise ValueError(f"SEED_PIN must be exactly {settings.pin_length} digits.")
-    if pin in _TRIVIAL_PINS:
+    if pin in TRIVIAL_PINS:
         raise ValueError("SEED_PIN is one of the well-known weak PINs — choose another.")
     return pin
 

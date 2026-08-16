@@ -90,6 +90,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # The build moment, stamped once here so both architectures of the manifest report the
+      # same `built_at` (it lands as the BUILD_TIME build arg – see Settings.build).
+      - name: Stamp the build time
+        id: stamp
+        run: echo "built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
       # amd64 for the typical station VPS, arm64 so an ARM host (Hetzner CAX, Oracle Ampere,
       # a Pi 5) is a real option too. Both are wheel installs, not source builds: pypdfium2
       # and resvg-py publish manylinux aarch64 wheels, so nothing compiles under emulation.
@@ -107,6 +113,7 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             GIT_SHA=${{ github.sha }}
+            BUILD_TIME=${{ steps.stamp.outputs.built_at }}
           tags: ${{ steps.v.outputs.tags }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}

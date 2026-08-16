@@ -56,6 +56,26 @@ def test_absolute_paths_lose_everything_but_the_basename(raw: str):
         ("token=abc123def456", "abc123def456"),  # gitleaks:allow
         ("Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abc", "eyJhbGciOiJIUzI1NiJ9"),
         ("GET /api/incidents?token=s3cret&address=Dorfstrasse", "s3cret"),
+        # --- The integration credentials, now that a station can set them from the browser
+        # (app/credentials.py). They are stored encrypted and never returned by an endpoint,
+        # but they still pass through this process in plain text on their way to Divera /
+        # Traccar / the STT server — so the shapes an exception would carry them in are the
+        # ones that must not reach anybody's ingest.
+        ("Divera 401: accesskey=abcd1234efgh", "abcd1234efgh"),  # gitleaks:allow
+        ("HTTPError with access_key ABCD-1234-EFGH", "ABCD-1234-EFGH"),  # gitleaks:allow
+        ("vapid_private_key=k9QhVh5T0m2LqO", "k9QhVh5T0m2LqO"),  # gitleaks:allow
+        ("Traccar login failed for password=Sommer2026!", "Sommer2026!"),  # gitleaks:allow
+        ("STT rejected the request: stt_api_key sk-live-9f8e7d", "sk-live-9f8e7d"),  # gitleaks:allow
+        ("Traccar passwort: geheim-123", "geheim-123"),  # gitleaks:allow
+        # The monitor ping URL is not label-shaped, so it leans on the host rule instead —
+        # what leaves is the shape of a request, never which check it belongs to.
+        ("heartbeat GET https://hc-ping.com/2b9f-uuid failed", "hc-ping.com"),
+        # ⚠️ …and not just the host. For THIS credential the PATH is the secret: whoever holds
+        # `https://<monitor>/<token>` can ping it and keep the monitor believing a dead station
+        # is alive. The absolute-path rule used to run first and keep the basename — right for
+        # a stack frame, exactly wrong here — so the token left the building inside `…/<token>`.
+        ("ping https://uptime.example.org/api/push/abc123XY failed", "abc123XY"),  # gitleaks:allow
+        ("HEALTHCHECK_PING_URL=https://hc-ping.com/deadbeefcafe", "deadbeefcafe"),
     ],
 )
 def test_personal_and_secret_shapes_never_survive(raw: str, gone: str):

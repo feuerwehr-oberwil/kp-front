@@ -43,8 +43,20 @@ async def test_history_names_what_a_write_emptied(client, three_writes):
     # document — which is exactly the entry an operator needs to find and put back
     newest = rows[0]
     assert set(newest["emptied"]) >= {"report.partnerOrgs", "roster.ranks"}, newest
-    assert "identity" in newest["sections"]
     assert newest["source"] == "api"
+
+
+async def test_a_row_says_what_its_write_changed(client, three_writes):
+    """⚠️ `sections` is what the write TOUCHED, not what the kept document contained.
+
+    The latter is every section every time — every writer replaces the whole document — which is
+    how a station ended up with 26 rows all reading «alarms, doctrine, fleet, identity, journal,
+    map, mittel, report, roster» and no way to tell which one to go back to.
+    """
+    newest = (await client.get("/api/config/history")).json()[0]
+    assert set(newest["sections"]) >= {"report.partnerOrgs", "roster.ranks"}, newest
+    # identity survived the clobber unchanged, so it has no business on this row
+    assert not [s for s in newest["sections"] if s.startswith("identity")], newest
 
 
 async def test_history_is_admin_only(client, editor):

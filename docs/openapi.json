@@ -8,7 +8,7 @@
     "/health": {
       "get": {
         "summary": "Health",
-        "description": "Liveness only — static by design. Readiness (DB + storage) is /ready; point container\nand platform healthchecks THERE, or an unreachable database still reports healthy.",
+        "description": "Liveness only — static by design. Readiness (DB + storage) is /ready; point container\nand platform healthchecks THERE, or an unreachable database still reports healthy.\n\nCarries the BUILD, not just the version: `curl /health` is the first thing anybody does to\na deployment that is behaving oddly, and `{\"version\": \"0.6.0\"}` is the same answer from a\nfrom-source build of `main` and from a three-day-old published image. `commit`/`built_at`\nsay which one is actually running (see `Settings.build`).",
         "operationId": "health_health_get",
         "responses": {
           "200": {
@@ -692,7 +692,7 @@
           "config"
         ],
         "summary": "Get Config",
-        "description": "PUBLIC (no auth) — the login screen needs branding before login.\n\nTwo sections are withheld from ANONYMOUS callers, and each for its own reason:\n\n* ``alarmKeywords`` — admin only; nothing in the frontend reads it (see ``_projection``).\n* ``report.links`` — the station's own Formulare. Withheld from anonymous callers but\n  served to any SIGNED-IN one (PIN user or admin), because the Rapport that shows them is\n  itself behind the PIN. A prefill URL is a capability — whoever has it can submit to that\n  form — so «anyone who can reach the login screen» is the wrong audience for it.\n\n⚠️ The app reads this at BOOT, before login, so a first fetch on a fresh device legitimately\ncomes back without the links; ``AuthProvider.login`` re-reads the config on the way in (see\nlib/auth), and every later boot already carries the session cookie.\n\nLast-good fallback: if the persisted ``config_json`` is missing or fails validation\n(e.g. a hand-edited bad row), serve a safe empty config and log a warning. Never raises.",
+        "description": "PUBLIC (no auth) — the login screen needs branding before login.\n\nTwo sections are withheld from ANONYMOUS callers, and each for its own reason:\n\n* ``alarmKeywords`` — admin only; nothing in the frontend reads it (see ``_projection``).\n* ``report.links`` — the station's own Formulare. Withheld from anonymous callers but\n  served to any SIGNED-IN one (PIN user or admin), because the Rapport that shows them is\n  itself behind the PIN. A prefill URL is a capability — whoever has it can submit to that\n  form — so «anyone who can reach the login screen» is the wrong audience for it.\n\n⚠️ The app reads this at BOOT, before login, so a first fetch on a fresh device legitimately\ncomes back without the links; ``AuthProvider.login`` re-reads the config on the way in (see\nlib/auth), and every later boot already carries the session cookie.\n\nLast-good fallback: if the persisted ``config_json`` is missing or fails validation\n(e.g. a hand-edited bad row), serve a safe empty config and log a warning. Never raises.\n\n⚠️ Read through ``load_stored_config``, not the strict PUT-body model: a field that has\ngrown a rule since the row was written (``identity.accentColor``) must be dropped, not\nrefused. Refusing it lands in the fallback below — and answering one bad colour by serving\nthe login screen a station with no name, no logo and no fleet is the wrong trade.",
         "operationId": "get_config_api_config_get",
         "parameters": [
           {
@@ -932,7 +932,7 @@
           "config"
         ],
         "summary": "List Config History",
-        "description": "The kept previous configurations, newest first — the undo for the most destructive\noperation this app has.\n\n⚠️ This existed only as a shell command (``admin_config history`` / ``restore``) while being\nthe recovery path for a failure that has now happened four times. The table was write-only\nfrom a browser's point of view: every write kept its predecessor and nobody could see them.\n\nEach entry says WHERE the write came from and, more usefully, **what it emptied** — sections\nthat had content before and none after. That is the shape of the damage every time; a full\ndiff of a clobbered config is hundreds of lines and reads as noise. `replaced_by` resolves to\na display name where a person was behind it, and stays null for a CLI push, which is itself\na useful distinction: «via api, nobody» is what an unattended writer looks like.",
+        "description": "The kept previous configurations, newest first — the undo for the most destructive\noperation this app has.\n\n⚠️ This existed only as a shell command (``admin_config history`` / ``restore``) while being\nthe recovery path for a failure that has now happened four times. The table was write-only\nfrom a browser's point of view: every write kept its predecessor and nobody could see them.\n\nEach entry says WHERE the write came from and **what that write did**: `emptied` for sections\nthat had content before and none after (the shape of the damage every time), and `sections`\nfor what it CHANGED. `replaced_by` resolves to a display name where a person was behind it,\nand stays null for a CLI push, which is itself a useful distinction: «via api, nobody» is what\nan unattended writer looks like.\n\n⚠️ `sections` used to list what a kept document CONTAINED, which — because every writer\nreplaces the whole document — was the identical nine section names on every row: 26 rows of\n«alarms, doctrine, fleet, identity, journal, map, mittel, report, roster» after one afternoon\nof setting a station up. A list nobody can tell apart cannot answer «which entry do I go back\nto?». It now carries `changed_sections(kept, successor)` instead — one line per row that\ndiffers from its neighbours. Nothing about what is STORED changed.",
         "operationId": "list_config_history_api_config_history_get",
         "parameters": [
           {
@@ -1307,7 +1307,7 @@
           "branding"
         ],
         "summary": "Serve Branding",
-        "description": "PUBLIC (no auth) — the login screen needs the logo/favicon before sign-in.\n\nSECURITY: only serve keys under the ``branding/`` prefix and reject any traversal\nsequence so this endpoint can't be turned into an arbitrary-file read.",
+        "description": "PUBLIC (no auth) — the login screen needs the logo/favicon before sign-in.\n\nSECURITY: only serve keys under the ``branding/`` prefix and reject any traversal\nsequence so this endpoint can't be turned into an arbitrary-file read.\n\nSECURITY, the second half: this route hands back a file an admin uploaded, from the app's\nOWN origin, to anybody at all. Three things keep that from being a script-execution surface:\n\n* the extension comes from the validated content type (``_ext_for``), so the response type\n  is one of the six in ``_ALLOWED`` and never ``text/html``;\n* ``X-Content-Type-Options: nosniff``, so a browser cannot decide for itself that a PNG is\n  really something more interesting;\n* a per-response CSP. ⚠️ THIS ONE IS LOAD-BEARING, because ``image/svg+xml`` is on the\n  allowlist and stays there — SVG logos are a used feature and a station's mark is often\n  only available as one. An SVG is a document: navigate to it directly and any ``<script>``\n  inside runs on this origin. ``script-src 'none'`` plus ``sandbox`` stops that while\n  leaving the file perfectly good as an ``<img src>``, which is how the app itself uses it.\n\n⚠️ The CSP here covers THIS route only. The app has no global CSP, which is a separate and\nwider change — so do not read this header as one.",
         "operationId": "serve_branding_api_branding_file__key__get",
         "parameters": [
           {
@@ -4867,14 +4867,14 @@
         }
       }
     },
-    "/api/personnel/import-csv": {
+    "/api/personnel/import-csv/preview": {
       "post": {
         "tags": [
           "personnel"
         ],
-        "summary": "Import Csv",
-        "description": "Import a UTF-8 CSV. ``name`` is required; ``rank`` is optional. Provider-neutral\n``provider`` + ``external_id`` columns may upsert an externally managed record. The legacy\n``divera_id`` column remains accepted during the compatibility window.",
-        "operationId": "import_csv_api_personnel_import_csv_post",
+        "summary": "Import Csv Preview",
+        "description": "What this file would do — read-only. **Writes nothing**, by construction: nothing here\ntouches the session.\n\nTwo questions are answered here, and EVERY import asks both before anything is written:\n\n* how many people are new and how many the file updates in place (:func:`plan_roster_rows`),\n  because the answer «14 neu» to a file that was already imported is the one thing that\n  would have stopped a station from duplicating its whole Wehr;\n* which rank values the station's list does not know, grouped BY VALUE with the people they\n  affect and a spelling proposal.\n\nThe old import wrote first and explained afterwards, under a green «14 importiert» badge.",
+        "operationId": "import_csv_preview_api_personnel_import_csv_preview_post",
         "parameters": [
           {
             "name": "access_token",
@@ -4914,6 +4914,82 @@
           "content": {
             "multipart/form-data": {
               "schema": {
+                "$ref": "#/components/schemas/Body_import_csv_preview_api_personnel_import_csv_preview_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RosterImportPreviewOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/personnel/import-csv": {
+      "post": {
+        "tags": [
+          "personnel"
+        ],
+        "summary": "Import Csv",
+        "description": "Import a UTF-8 CSV. ``name`` is required; ``rank`` is optional. Provider-neutral\n``provider`` + ``external_id`` columns may upsert an externally managed record. The legacy\n``divera_id`` column remains accepted during the compatibility window.\n\n⚠️ **Idempotent.** A row that resolves to somebody the station already has UPDATES that\nperson — it never adds a second one. See app/personnel «who a CSV row is» for the key and\nfor the one case it gets wrong (two different people spelled identically).\n\n``decisions`` is the JSON array from the mapping step (:class:`RosterRankDecision` per\nunknown VALUE, not per row); ``/import-csv/preview`` produces the list of values to decide.\n\n⚠️ **All or nothing.** Every rank value the station does not know must carry a decision, or\nthe request is refused with 409 and NOTHING is written — not the people, not the ranks. The\nfile is fully parsed and every decision validated before the first row is inserted, so an\nabort cannot leave half a crew behind. (The old contract imported those people rankless and\nlisted the fact afterwards; a station that misses the list has silently lost data.)\n\n``adopt`` writes the station's ``roster.ranks`` (app/personnel.adopt_ranks) and therefore\nneeds an admin session — a config write is admin-only everywhere else in this app, and the\nVerwaltung that offers this is an admin surface. An incident editor can still import, map\nand skip.",
+        "operationId": "import_csv_api_personnel_import_csv_post",
+        "parameters": [
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
                 "$ref": "#/components/schemas/Body_import_csv_api_personnel_import_csv_post"
               }
             }
@@ -4925,9 +5001,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Import Csv Api Personnel Import Csv Post"
+                  "$ref": "#/components/schemas/RosterImportResultOut"
                 }
               }
             }
@@ -5075,6 +5149,190 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PersonnelSyncResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/station-workbook/export": {
+      "get": {
+        "tags": [
+          "station-workbook"
+        ],
+        "summary": "Export Workbook",
+        "description": "The station's current data as a workbook — the template AND the undo.\n\n⚠️ Not a backup. It carries six of a dozen config sections; ``identity`` (logos included),\n``map``, ``doctrine``, ``referenceLayers``, ``modules``, ``alarms``, ``alarmKeywords``,\n``report.links`` and ``journal`` are outside it entirely, and re-importing this file\nrestores none of them. The backup is Sicherung's JSON export plus ``admin_config\nhistory/restore``, and the admin page says so in as many words.",
+        "operationId": "export_workbook_api_station_workbook_export_get",
+        "parameters": [
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/station-workbook/preview": {
+      "post": {
+        "tags": [
+          "station-workbook"
+        ],
+        "summary": "Preview Workbook",
+        "description": "What this file would do, per sheet — read-only. **Writes nothing**, by construction:\nnothing on this path touches the session.\n\nThe response is the confirmation screen. Per sheet: how many rows are new, how many change,\nwhat would be deactivated or removed BY NAME, plus every refused row with its sheet and its\nrow number so the operator can find it in their own file, plus the config sections the\nwrite would leave empty.\n\n⚠️ kp-rueck computes the destructive figures and its settings page never renders them; its\nown troubleshooting guide now carries a row titled «An Excel import deleted the whole\nroster». The numbers being available is not the point — the operator seeing them is.",
+        "operationId": "preview_workbook_api_station_workbook_preview_post",
+        "parameters": [
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_preview_workbook_api_station_workbook_preview_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkbookPreview"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/station-workbook/import": {
+      "post": {
+        "tags": [
+          "station-workbook"
+        ],
+        "summary": "Import Workbook",
+        "description": "Apply the workbook. Upsert only — a row's absence from a sheet that is PRESENT is the\nonly way anything goes away, and it was named in the preview before it happened.\n\n``digest`` is the sha256 the preview reported for the file it read. Sent back here, it is\nwhat makes \"confirm\" mean *this* file: an operator who saves a further edit in Excel between\nthe preview and the confirmation gets a 409 and a fresh preview, not a silent apply of\nsomething nobody looked at. A caller that skips the preview (a script) may omit it.\n\n⚠️ Refused as a WHOLE. One bad cell and nothing is written — not the people, not the config.\nThe alternative is a half-imported station whose two halves disagree about which Dienstgrade\nexist.",
+        "operationId": "import_workbook_api_station_workbook_import_post",
+        "parameters": [
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_import_workbook_api_station_workbook_import_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkbookImportResult"
                 }
               }
             }
@@ -7114,7 +7372,7 @@
           "push"
         ],
         "summary": "Vapid Key",
-        "description": "The deployment's VAPID public key — null while push is not configured.",
+        "description": "The deployment's VAPID public key — null while push is not configured.\n\nReads the credential store fresh: a station that just generated its VAPID pair in\n/admin must be able to subscribe a browser without waiting for anything, and this is\nthe endpoint that browser asks first.",
         "operationId": "vapid_key_api_push_vapid_key_get",
         "parameters": [
           {
@@ -7412,7 +7670,7 @@
           "print-relay"
         ],
         "summary": "Get Print Status",
-        "description": "Availability + heartbeat freshness for the «An Stationsdrucker» button.",
+        "description": "Availability + heartbeat freshness for the «An Stationsdrucker» button.\n\nReads the credential store fresh: this is what makes the button appear on the tablets\nminutes after an admin pastes the agent secret, with nothing restarted.",
         "operationId": "get_print_status_api_print_status_get",
         "parameters": [
           {
@@ -8266,6 +8524,282 @@
         }
       }
     },
+    "/api/integrations/credentials": {
+      "get": {
+        "tags": [
+          "integrations"
+        ],
+        "summary": "List Credentials",
+        "description": "Every settable credential and where it currently comes from. Never a secret value.",
+        "operationId": "list_credentials_api_integrations_credentials_get",
+        "parameters": [
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CredentialState"
+                  },
+                  "title": "Response List Credentials Api Integrations Credentials Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/credentials/{name}": {
+      "put": {
+        "tags": [
+          "integrations"
+        ],
+        "summary": "Put Credential",
+        "description": "Set or replace one credential. The response says THAT it is set, never what it is.",
+        "operationId": "put_credential_api_integrations_credentials__name__put",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CredentialIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CredentialState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "integrations"
+        ],
+        "summary": "Delete Credential",
+        "description": "Remove a stored credential — the integration falls back to off (fail-closed).",
+        "operationId": "delete_credential_api_integrations_credentials__name__delete",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CredentialState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/credentials-audit": {
+      "get": {
+        "tags": [
+          "integrations"
+        ],
+        "summary": "List Credential Audit",
+        "description": "Which credentials changed, when and by whom — the record, never the values.\n\nThe point of the record is the question nobody could answer after the fact about the\nconfig document: was that a person or an unattended writer, and which one. A row with no\nname is not a gap, it is «nobody was signed in behind it».",
+        "operationId": "list_credential_audit_api_integrations_credentials_audit_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 30,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CredentialAuditEntry"
+                  },
+                  "title": "Response List Credential Audit Api Integrations Credentials Audit Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/diag/client-error": {
       "post": {
         "tags": [
@@ -8523,6 +9057,26 @@
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/manifest.webmanifest": {
+      "get": {
+        "tags": [
+          "branding"
+        ],
+        "summary": "Webmanifest",
+        "description": "PUBLIC (no auth — the browser fetches this with no session): the PWA manifest,\nwith the station's name, colour and app icons overlaid onto the built one.",
+        "operationId": "webmanifest_manifest_webmanifest_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           }
@@ -9041,6 +9595,17 @@
             "type": "string",
             "contentMediaType": "application/octet-stream",
             "title": "File"
+          },
+          "decisions": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decisions"
           }
         },
         "type": "object",
@@ -9048,6 +9613,59 @@
           "file"
         ],
         "title": "Body_import_csv_api_personnel_import_csv_post"
+      },
+      "Body_import_csv_preview_api_personnel_import_csv_preview_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_import_csv_preview_api_personnel_import_csv_preview_post"
+      },
+      "Body_import_workbook_api_station_workbook_import_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          },
+          "digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Digest"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_import_workbook_api_station_workbook_import_post"
+      },
+      "Body_preview_workbook_api_station_workbook_preview_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_preview_workbook_api_station_workbook_preview_post"
       },
       "Body_replace_reference_api_reference__dataset_id__put": {
         "properties": {
@@ -9451,6 +10069,155 @@
           "consent"
         ],
         "title": "ConsentUpdate"
+      },
+      "CredentialAuditEntry": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "at": {
+            "type": "string",
+            "title": "At"
+          },
+          "by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "By"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "label",
+          "action",
+          "source",
+          "at",
+          "by"
+        ],
+        "title": "CredentialAuditEntry"
+      },
+      "CredentialIn": {
+        "properties": {
+          "value": {
+            "type": "string",
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value"
+        ],
+        "title": "CredentialIn"
+      },
+      "CredentialState": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "group": {
+            "type": "string",
+            "title": "Group"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "secret": {
+            "type": "boolean",
+            "title": "Secret"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "configured": {
+            "type": "boolean",
+            "title": "Configured"
+          },
+          "env": {
+            "type": "string",
+            "title": "Env"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "updatedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updatedat"
+          },
+          "updatedByName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updatedbyname"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "group",
+          "label",
+          "secret",
+          "source",
+          "configured",
+          "env"
+        ],
+        "title": "CredentialState",
+        "description": "One credential's state. ``value`` is present ONLY for the non-secret fields."
       },
       "DeploymentConfigIn": {
         "properties": {
@@ -13425,6 +14192,171 @@
         "type": "object",
         "title": "RosterConfig"
       },
+      "RosterImportPreviewOut": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "skipped": {
+            "type": "integer",
+            "title": "Skipped"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Errors"
+          },
+          "unknown_ranks": {
+            "items": {
+              "$ref": "#/components/schemas/RosterUnknownRank"
+            },
+            "type": "array",
+            "title": "Unknown Ranks"
+          },
+          "known_ranks": {
+            "items": {
+              "$ref": "#/components/schemas/RosterRankOption"
+            },
+            "type": "array",
+            "title": "Known Ranks"
+          },
+          "has_own_ranks": {
+            "type": "boolean",
+            "title": "Has Own Ranks",
+            "default": false
+          },
+          "creates": {
+            "type": "integer",
+            "title": "Creates",
+            "default": 0
+          },
+          "updates": {
+            "type": "integer",
+            "title": "Updates",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "skipped"
+        ],
+        "title": "RosterImportPreviewOut",
+        "description": ":class:`RosterImportPreview` plus the two numbers the confirmation step is built on.\n\nBoth are counted with the very planner the write uses (app/personnel.plan_roster_rows), so\nwhat the operator confirms is what happens — a preview that guessed differently would be\nworse than none."
+      },
+      "RosterImportResultOut": {
+        "properties": {
+          "imported": {
+            "type": "integer",
+            "title": "Imported"
+          },
+          "skipped": {
+            "type": "integer",
+            "title": "Skipped"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Errors"
+          },
+          "adopted_ranks": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Adopted Ranks"
+          },
+          "created": {
+            "type": "integer",
+            "title": "Created",
+            "default": 0
+          },
+          "updated": {
+            "type": "integer",
+            "title": "Updated",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "imported",
+          "skipped"
+        ],
+        "title": "RosterImportResultOut",
+        "description": ":class:`RosterImportResult` split the way the confirmation promised it."
+      },
+      "RosterRankOption": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "abbr": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abbr"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label"
+        ],
+        "title": "RosterRankOption",
+        "description": "One rank the station's list knows, as the mapping sheet offers it."
+      },
+      "RosterUnknownRank": {
+        "properties": {
+          "value": {
+            "type": "string",
+            "title": "Value"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "people": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "People"
+          },
+          "suggestion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggestion"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value",
+          "count"
+        ],
+        "title": "RosterUnknownRank",
+        "description": "One rank VALUE from the file that the station's list does not cover.\n\nCounted by value, never by row: three people spelled «Sdt» are one decision, not three\nwarnings. A 40-person import with one unfamiliar rank must ask once, not forty times —\nthat is what makes the mapping step usable instead of a wall of warnings to click past."
+      },
       "RosterUser": {
         "properties": {
           "id": {
@@ -13499,6 +14431,68 @@
           "status"
         ],
         "title": "SegmentPatch"
+      },
+      "SheetImpact": {
+        "properties": {
+          "sheet": {
+            "type": "string",
+            "title": "Sheet"
+          },
+          "present": {
+            "type": "boolean",
+            "title": "Present"
+          },
+          "rows": {
+            "type": "integer",
+            "title": "Rows",
+            "default": 0
+          },
+          "created": {
+            "type": "integer",
+            "title": "Created",
+            "default": 0
+          },
+          "updated": {
+            "type": "integer",
+            "title": "Updated",
+            "default": 0
+          },
+          "unchanged": {
+            "type": "integer",
+            "title": "Unchanged",
+            "default": 0
+          },
+          "removed": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Removed",
+            "default": []
+          },
+          "removed_total": {
+            "type": "integer",
+            "title": "Removed Total",
+            "default": 0
+          },
+          "removal_kind": {
+            "type": "string",
+            "enum": [
+              "removed",
+              "deactivated",
+              "none"
+            ],
+            "title": "Removal Kind",
+            "default": "none"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sheet",
+          "present"
+        ],
+        "title": "SheetImpact",
+        "description": "What one sheet would do — the numbers the confirmation screen is built on.\n\n``removal_kind`` exists because \"absent\" means two different things in one workbook, and\nthe two need different German words. A person missing from ``Mannschaft`` is DEACTIVATED\n(soft — closed incidents resolve names through the row, so it is never deleted); a vehicle\nid missing from ``Fahrzeuge`` is REMOVED from the list. An operator who reads one and gets\nthe other has been misled by the screen that was supposed to protect them."
       },
       "SnapshotOut": {
         "properties": {
@@ -14140,6 +15134,89 @@
         },
         "type": "object",
         "title": "WeatherData"
+      },
+      "WorkbookImportResult": {
+        "properties": {
+          "sheets": {
+            "items": {
+              "$ref": "#/components/schemas/SheetImpact"
+            },
+            "type": "array",
+            "title": "Sheets"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings",
+            "default": []
+          },
+          "emptied": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Emptied",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "sheets"
+        ],
+        "title": "WorkbookImportResult"
+      },
+      "WorkbookPreview": {
+        "properties": {
+          "sheets": {
+            "items": {
+              "$ref": "#/components/schemas/SheetImpact"
+            },
+            "type": "array",
+            "title": "Sheets"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Errors",
+            "default": []
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings",
+            "default": []
+          },
+          "emptied": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Emptied",
+            "default": []
+          },
+          "digest": {
+            "type": "string",
+            "title": "Digest",
+            "default": ""
+          },
+          "ok": {
+            "type": "boolean",
+            "title": "Ok",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "sheets"
+        ],
+        "title": "WorkbookPreview",
+        "description": "The whole confirmation screen's payload. Nothing is written to produce it."
       },
       "WorkspaceOut": {
         "properties": {

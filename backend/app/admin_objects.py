@@ -14,8 +14,10 @@ geodata pipeline; ``import_einsatzplaene.py`` → manifest+plans → ``admin_obj
 pipeline. The OSS CLI is generic (knows nothing about OneDrive); the private importer owns the
 station specifics.
 
-Run from ``backend/`` via ``uv run python -m app.admin_objects <cmd>`` (against SQLite locally,
-or production by exporting ``DATABASE_URL`` first):
+Run from ``backend/`` via ``uv run python -m app.admin_objects <cmd>``. It talks to whatever
+``DATABASE_URL`` points at — the local dev Postgres from ``just db`` by default; export a
+different ``DATABASE_URL`` to target another deployment. (kp-front is Postgres-only: there is
+no database file anywhere. SQLite exists solely as a pytest fallback.)
 
     schema                 print the JSON Schema of a manifest object (the contract)
     example                print a populated example manifest you can edit
@@ -30,8 +32,11 @@ goes through a running server's HTTP API (ADMIN_SECRET), so the server writes it
 way to refresh a remote deployment's object plans from a workstation.
 
 Manifest = a JSON list of objects (or ``{"objects": [...]}``). Paths in each plan's ``file`` are
-resolved relative to the manifest's own directory. Object ``id`` is a stable UUID (the importer
-derives a deterministic uuid5 per folder), so reruns upsert in place rather than duplicating.
+resolved relative to the manifest's own directory. Every object is keyed by a stable UUID, so
+reruns upsert in place rather than duplicating — give it either as ``id`` (what the private
+importer's deterministic uuid5 per folder writes) or, when a human maintains the manifest, as
+``key``: a short string this module hashes to the same uuid5 every time (see
+:func:`object_id_for_key`).
 """
 
 import argparse
@@ -41,13 +46,15 @@ import json
 import os
 import sys
 import uuid
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 from sqlalchemy import func, select
 
 from . import storage
+from .admin_manifest import template_hint
 from .database import async_session_maker
 from .models import ObjectSite, ReferenceDataset
 
@@ -92,11 +99,58 @@ class PlanEntry(BaseModel):
         return self
 
 
+#: Namespace for :func:`object_id_for_key`. ⚠️ NEVER change this value: it is half of what makes
+#: a ``key`` mean the same Einsatzobjekt next year as it does today. Changing it would turn every
+#: keyed manifest into a set of brand-new objects on the next load.
+OBJECT_KEY_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://kp-front.ch/einsatzobjekte")
+
+
+def object_id_for_key(key: str) -> uuid.UUID:
+    """The stable object UUID for a station's own ``key`` (uuid5, so the same key always wins).
+
+    An id an operator invents by hand is a trap: the shipped example manifest carried a literal
+    ``11111111-2222-5333-8444-555555555555``, and a UUID that is reused (or retyped with one
+    digit wrong) a year later silently DUPLICATES the object instead of updating it — the
+    upsert matches on the id and nothing else. A ``key`` is retypable: it is the station's own
+    name for the site ("schulhaus-dorfmatt"), and the same key hashes to the same id from any
+    checkout, on any machine, forever.
+
+    Normalised before hashing — whitespace collapsed and case folded — so «Schulhaus Dorfmatt»,
+    «schulhaus dorfmatt» and a stray trailing space are one object, not three.
+    """
+    normalised = " ".join(key.split()).casefold()
+    if not normalised:
+        raise ValueError("object 'key' must not be empty")
+    return uuid.uuid5(OBJECT_KEY_NAMESPACE, normalised)
+
+
 class ObjectEntry(BaseModel):
     """One Einsatzobjekt in a station's objects manifest."""
 
     model_config = ConfigDict(extra="forbid")
-    id: uuid.UUID
+    #: The object's stable UUID. Give this OR ``key``, not neither. Machine-generated manifests
+    #: (the private importer) write the uuid5 they derived; a hand-maintained manifest is far
+    #: better off with ``key``, which produces the same id without anyone inventing a UUID.
+    id: uuid.UUID | None = Field(
+        default=None,
+        description=(
+            "Stable UUID of this Einsatzobjekt — the upsert key, so it must be the SAME value "
+            "every time this object is loaded. Optional if 'key' is given (then it is derived "
+            "from it, uuid5). Do not invent one by hand and do not copy the example's: a reused "
+            "or mistyped UUID creates a second object instead of updating the first."
+        ),
+    )
+    #: A stable, human-retypable name for this object, hashed to ``id``. See ``object_id_for_key``.
+    key: str | None = Field(
+        default=None,
+        description=(
+            "The station's own stable name for this object (e.g. 'schulhaus-dorfmatt'), hashed "
+            "to a fixed uuid5 that becomes 'id'. Use this instead of 'id' in a manifest a person "
+            "maintains: the same key always addresses the same Einsatzobjekt, so retyping it "
+            "next year updates the object rather than duplicating it. Case and surrounding "
+            "whitespace are ignored. Independent of 'sourceKey', which the plan pull matches on."
+        ),
+    )
     name: str
     address: str | None = None
     lat: float | None = None
@@ -107,20 +161,44 @@ class ObjectEntry(BaseModel):
     sourceNote: str | None = None
     plans: list[PlanEntry] = []
 
+    @property
+    def object_id(self) -> uuid.UUID:
+        """The UUID this entry upserts under — ``id`` verbatim, or the uuid5 of ``key``.
+
+        Always resolvable: ``_check`` refuses an entry that carries neither.
+        """
+        return self.id if self.id is not None else object_id_for_key(self.key or "")
+
     @model_validator(mode="after")
     def _check(self) -> "ObjectEntry":
+        if self.id is None and self.key is None:
+            raise ValueError(
+                f"object {self.name!r}: needs 'key' (recommended — a stable name we hash to a "
+                "uuid5) or 'id' (an explicit UUID). One of them is what makes a rerun update "
+                "this object instead of creating a second one."
+            )
+        if self.key is not None and not self.key.strip():
+            raise ValueError("object: 'key' must not be empty")
+        if self.id is not None and self.key is not None and self.id != object_id_for_key(self.key):
+            raise ValueError(
+                f"object {self.name!r}: 'id' {self.id} is not the uuid5 of 'key' {self.key!r} "
+                f"(that would be {object_id_for_key(self.key)}). Keep whichever one already "
+                "addresses the stored object and drop the other — two disagreeing keys is how "
+                "an object gets duplicated."
+            )
+        oid = self.object_id
         if not self.name.strip():
-            raise ValueError(f"object {self.id}: 'name' must not be empty")
+            raise ValueError(f"object {oid}: 'name' must not be empty")
         if (self.lat is None) != (self.lng is None):
-            raise ValueError(f"object {self.id}: lat and lng must both be set or both omitted")
+            raise ValueError(f"object {oid}: lat and lng must both be set or both omitted")
         if self.lat is not None and self.lng is not None and (abs(self.lat) > 90 or abs(self.lng) > 180):
             raise ValueError(
-                f"object {self.id}: ({self.lat}, {self.lng}) is not WGS84 [lat, lng] — reproject before loading"
+                f"object {oid}: ({self.lat}, {self.lng}) is not WGS84 [lat, lng] — reproject before loading"
             )
         seen: set[str] = set()
         for p in self.plans:
             if p.module in seen:
-                raise ValueError(f"object {self.id}: duplicate plan module {p.module!r}")
+                raise ValueError(f"object {oid}: duplicate plan module {p.module!r}")
             seen.add(p.module)
         return self
 
@@ -128,7 +206,10 @@ class ObjectEntry(BaseModel):
 EXAMPLE_MANIFEST: dict[str, Any] = {
     "objects": [
         {
-            "id": "11111111-2222-5333-8444-555555555555",
+            # `key`, not a literal UUID: the placeholder that used to sit here got copied,
+            # reused and retyped, and every one of those is a duplicated object rather than an
+            # updated one. A key is retypable and hashes to the same id every time.
+            "key": "schulhaus-dorfmatt",
             "name": "Schulhaus Dorfmatt",
             "address": "Schulstrasse 7",
             "lat": 47.52382,
@@ -184,9 +265,9 @@ def _read_manifest(path: Path) -> list[ObjectEntry]:
                 field = ".".join(str(p) for p in err["loc"]) or "(root)"
                 lines.append(f"  {field}: {err['msg']} [{err['type']}]")
             _fail("\n".join(lines))
-        if entry.id in seen:
-            _fail(f"ERROR: {path}: duplicate object id {entry.id}.")
-        seen.add(entry.id)
+        if entry.object_id in seen:
+            _fail(f"ERROR: {path}: duplicate object id {entry.object_id} ({entry.name!r}).")
+        seen.add(entry.object_id)
         objects.append(entry)
     return objects
 
@@ -209,7 +290,10 @@ def _validate_files(manifest_path: Path, objects: list[ObjectEntry]) -> int:
         for p in o.plans:
             src = _resolve(manifest_path, p)
             if not src.is_file():
-                _fail(f"ERROR: {manifest_path}: object {o.id} plan {p.module!r} file not found: {src}")
+                _fail(
+                    f"ERROR: {manifest_path}: object {o.object_id} plan {p.module!r} file not found: {src}"
+                    + template_hint(manifest_path, complete_example="examples/demo-data/objects.manifest.json")
+                )
             raw = src.read_bytes()
             if raw[:5] != b"%PDF-":
                 _fail(f"ERROR: {src} is not a PDF (missing %PDF- header).")
@@ -231,15 +315,59 @@ def _validate_files(manifest_path: Path, objects: list[ObjectEntry]) -> int:
 # --- DB writes (server-side) ------------------------------------------------------------
 
 
-async def _load(manifest_path: Path, objects: list[ObjectEntry]) -> tuple[int, int]:
-    """Upsert objects + copy their PDFs into the local store. Returns (objects, plans) written."""
+@dataclass
+class WriteResult:
+    """What a `load` or `push` actually did — the thing the command has to print.
+
+    Both used to answer with two integers, which could not tell «created» from «updated» and
+    had no way at all to say «this plan did not land». During a fresh-station install a push
+    produced an object with no plans, no output and exit 0, and the operator had no way to know
+    the difference between that and success. Silence is not a report.
+    """
+
+    created: list[str] = field(default_factory=list)  # object names newly inserted
+    updated: list[str] = field(default_factory=list)  # object names that already existed
+    #: Plan PDFs attached — or, on a dry run, the number that would be.
+    plans_written: int = 0
+    #: (object name, module, why) for every plan the run did NOT attach. Never silent: a run
+    #: with anything in here reports INCOMPLETE and exits non-zero.
+    plans_skipped: list[tuple[str, str, str]] = field(default_factory=list)
+
+    def report(self, *, where: str, dry_run: bool = False) -> int:
+        """Print the summary and return the process exit code (non-zero if anything was skipped)."""
+        counts = f"{len(self.created)} object(s) created, {len(self.updated)} updated"
+        if dry_run:
+            print(
+                f"OK (dry-run): would be {counts}, {self.plans_written} plan PDF(s) uploaded {where}. Nothing written."
+            )
+            return 0
+        for name, module, why in self.plans_skipped:
+            print(f"  ! {name} / {module} — NOT attached: {why}", file=sys.stderr)
+        if self.plans_skipped:
+            print(
+                f"INCOMPLETE: {counts}, {self.plans_written} plan PDF(s) attached, "
+                f"{len(self.plans_skipped)} NOT attached {where}. Nothing else was changed — "
+                f"fix the reasons above and run it again."
+            )
+            return 1
+        print(f"OK: {counts}, {self.plans_written} plan PDF(s) attached {where}.")
+        return 0
+
+
+async def _load(manifest_path: Path, objects: list[ObjectEntry]) -> WriteResult:
+    """Upsert objects + copy their PDFs into the local store."""
+    res = WriteResult()
     async with async_session_maker() as db:
-        n_plans = 0
         for o in objects:
-            existing = (await db.execute(select(ObjectSite).where(ObjectSite.id == o.id))).scalar_one_or_none()
+            oid = o.object_id
+            existing = (await db.execute(select(ObjectSite).where(ObjectSite.id == oid))).scalar_one_or_none()
+            is_new = existing is None
             if existing is None:
-                existing = ObjectSite(id=o.id)
+                existing = ObjectSite(id=oid)
                 db.add(existing)
+                res.created.append(o.name)
+            else:
+                res.updated.append(o.name)
             existing.name = o.name
             existing.address = o.address
             existing.lat = o.lat
@@ -248,20 +376,20 @@ async def _load(manifest_path: Path, objects: list[ObjectEntry]) -> tuple[int, i
             existing.source_note = o.sourceNote
 
             for p in o.plans:
-                ds_id = f"plan:{o.id}:{p.module}"
+                ds_id = f"plan:{oid}:{p.module}"
                 src = _resolve(manifest_path, p)
                 data = src.read_bytes()
-                key = storage.new_key(f"plans/{o.id}", f"-{p.module}.pdf")
+                key = storage.new_key(f"plans/{oid}", f"-{p.module}.pdf")
                 storage.put_bytes(key, data)
                 ds = (
                     await db.execute(select(ReferenceDataset).where(ReferenceDataset.id == ds_id))
                 ).scalar_one_or_none()
                 if ds is None:
-                    ds = ReferenceDataset(id=ds_id, object_id=o.id, module=p.module, kind="pdf")
+                    ds = ReferenceDataset(id=ds_id, object_id=oid, module=p.module, kind="pdf")
                     db.add(ds)
                 else:
                     ds.current_version += 1
-                ds.object_id = o.id
+                ds.object_id = oid
                 ds.module = p.module
                 ds.kind = "pdf"
                 ds.title = p.title or ds.title or f"{o.name} – {p.module}"
@@ -270,36 +398,45 @@ async def _load(manifest_path: Path, objects: list[ObjectEntry]) -> tuple[int, i
                 ds.storage_key = key
                 ds.content_type = "application/pdf"
                 ds.size_bytes = len(data)
-                n_plans += 1
+                res.plans_written += 1
+            print(f"  {'+' if is_new else '~'} {o.name}  ({len(o.plans)} plan PDF(s))")
         await db.commit()
-    return len(objects), n_plans
+    return res
 
 
-def _push(
-    manifest_path: Path, objects: list[ObjectEntry], base: str, admin_secret: str, dry_run: bool
-) -> tuple[int, int]:
+def _push(manifest_path: Path, objects: list[ObjectEntry], base: str, admin_secret: str, dry_run: bool) -> WriteResult:
     """Push objects + their PDFs to a RUNNING deployment over its HTTP API. Each object is PUT to
     /api/objects/<id> and each plan PUT to /api/objects/<id>/plans/<module> (the server writes its
     OWN volume). Authenticates with the deployment ADMIN_SECRET (not an editor PIN).
-    Returns (objects, plans) written."""
+
+    Reads the deployment's current object list first — one GET — purely so the run can say which
+    objects it CREATED and which it updated. An upsert answers 200 either way, and «upserted 3
+    objects» is the sentence that hid a fresh-station install writing an object nobody expected.
+    """
     import httpx  # lazy: only `push` needs the network
 
     base = base.rstrip("/")
-    total_plans = sum(len(o.plans) for o in objects)
+    res = WriteResult()
     with httpx.Client(base_url=base, timeout=180.0) as c:
         r = c.post("/api/admin/login", json={"secret": admin_secret})
         if r.status_code != 200:
             _fail(f"ERROR: admin login to {base} failed ({r.status_code}): {r.text[:200]}")
-        if dry_run:
-            print(
-                f"OK (dry-run): authenticated to {base}; would upsert {len(objects)} object(s) "
-                f"and upload {total_plans} plan(s). Nothing written."
-            )
-            return 0, 0
-        n_obj = n_plans = 0
+        rl = c.get("/api/objects")
+        if rl.status_code != 200:
+            _fail(f"ERROR: reading the objects already at {base} failed ({rl.status_code}): {rl.text[:200]}")
+        known: set[str] = {str(o["id"]) for o in rl.json()}
+
         for o in objects:
+            (res.updated if str(o.object_id) in known else res.created).append(o.name)
+        if dry_run:
+            res.plans_written = sum(len(o.plans) for o in objects)  # would-be, not did (see the field)
+            return res
+
+        for o in objects:
+            oid = str(o.object_id)
+            is_new = oid not in known
             ro = c.put(
-                f"/api/objects/{o.id}",
+                f"/api/objects/{oid}",
                 json={
                     "name": o.name,
                     "address": o.address,
@@ -310,8 +447,8 @@ def _push(
                 },
             )
             if ro.status_code != 200:
-                _fail(f"ERROR: upsert object {o.id} failed ({ro.status_code}): {ro.text[:200]}")
-            n_obj += 1
+                _fail(f"ERROR: upsert object {oid} failed ({ro.status_code}): {ro.text[:200]}")
+            attached = 0
             for p in o.plans:
                 src = _resolve(manifest_path, p)
                 raw = src.read_bytes()
@@ -325,15 +462,26 @@ def _push(
                 if p.sourceNote:
                     form["source_note"] = p.sourceNote
                 rp = c.put(
-                    f"/api/objects/{o.id}/plans/{p.module}",
+                    f"/api/objects/{oid}/plans/{p.module}",
                     files={"file": (src.name, raw, "application/pdf")},
                     data=form,
                 )
+                if rp.status_code == 404:
+                    # The object was PUT one request ago and the server says it has no such
+                    # object. Counted and NAMED rather than aborting the manifest: the rest of
+                    # the push is still worth doing, and a plan that silently never arrived is
+                    # exactly the failure this command was hiding — an Einsatzobjekt with
+                    # "plans": [] and an exit code of 0.
+                    res.plans_skipped.append(
+                        (o.name, p.module, f"the server has no object {oid} (404) — rerun the push")
+                    )
+                    continue
                 if rp.status_code != 200:
-                    _fail(f"ERROR: upload {o.id}/{p.module} failed ({rp.status_code}): {rp.text[:200]}")
-                n_plans += 1
-            print(f"  ↑ {o.name}  ({len(o.plans)} plan(s))")
-    return n_obj, n_plans
+                    _fail(f"ERROR: upload {oid}/{p.module} failed ({rp.status_code}): {rp.text[:200]}")
+                res.plans_written += 1
+                attached += 1
+            print(f"  {'+' if is_new else '~'} {o.name}  ({attached}/{len(o.plans)} plan PDF(s))")
+    return res
 
 
 async def _show() -> list[dict[str, Any]]:
@@ -408,9 +556,7 @@ async def _amain(argv: list[str]) -> int:
             tag = "dry-run" if args.cmd == "load" else "valid"
             print(f"OK ({tag}): {len(objects)} object(s), {n_plans} plan PDF(s). Nothing written.")
             return 0
-        n_obj, written = await _load(path, objects)
-        print(f"OK: upserted {n_obj} object(s) and wrote {written} plan(s) to the reference store.")
-        return 0
+        return (await _load(path, objects)).report(where="in the local reference store")
     if args.cmd == "push":
         if not args.base or not args.admin_secret:
             _fail("ERROR: push needs --base and --admin-secret (or KP_BASE_URL / KP_ADMIN_SECRET).")
@@ -418,10 +564,8 @@ async def _amain(argv: list[str]) -> int:
         objects = _read_manifest(path)
         if not args.dry_run:
             _validate_files(path, objects)  # reject missing/non-PDF files before uploading anything
-        n_obj, n_plans = _push(path, objects, args.base, args.admin_secret, args.dry_run)
-        if not args.dry_run:
-            print(f"OK: upserted {n_obj} object(s) and uploaded {n_plans} plan(s) to {args.base}.")
-        return 0
+        res = _push(path, objects, args.base, args.admin_secret, args.dry_run)
+        return res.report(where=f"at {args.base}", dry_run=args.dry_run)
     # show
     rows = await _show()
     print(json.dumps(rows, indent=2, ensure_ascii=False) if rows else "No objects stored.")

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, apiBeacon, apiDelete, apiGet, apiGetRaw, apiPost } from './api'
+import { ApiError, apiBeacon, apiDelete, apiGet, apiGetRaw, apiPost, apiPut } from './api'
 
 // api.ts is the fetch wrapper under EVERY backend call: typed errors, the transparent
 // 401→refresh→retry, 429 Retry-After parsing, offline (status 0) detection, and empty-body
@@ -103,6 +103,87 @@ describe('request — error mapping', () => {
     expect(err).toBeInstanceOf(ApiError)
     expect((err as ApiError).status).toBe(429)
     expect((err as ApiError).retryAfter).toBeUndefined()
+  })
+})
+
+// FastAPI answers an invalid document with an ARRAY of validation items rather than a `{detail}`
+// string, and that array is the only machine-readable account of what was wrong. Flattened it is
+// English Pydantic prose («Input should be a valid list»), which is what a German-speaking
+// volunteer was actually shown when a coordinate went in wrong – so the parsed pairs are kept as
+// `ApiError.fields` and admin/ConfigContext · describeRejectedFields turns them into a sentence
+// naming the field.
+//
+// ⚠️ That consumer is tested against a hand-built ApiError of its own (ConfigAutosave.test.tsx,
+// ConfigBackup.test.tsx both define one in vi.hoisted()), so nothing there can notice if THIS
+// parser stops producing the shape: rename `path` to `loc` and both suites stay green while the
+// UI silently falls back to the raw English prose the whole feature exists to replace. These
+// cases drive the real parser against a genuine FastAPI 422 body.
+describe('request – the 422 validation array (ApiError.fields)', () => {
+  /** Verbatim shape of a FastAPI/Pydantic v2 422 for a config PUT. */
+  const validation422 = (items: unknown[]) => json({ detail: items }, { status: 422 })
+
+  const badVehicleName = {
+    type: 'string_type',
+    loc: ['body', 'fleet', 'vehicles', 2, 'name'],
+    msg: 'Input should be a valid string',
+    input: { kurz: 'TLF 31' },
+    url: 'https://errors.pydantic.dev/2.11/v/string_type',
+  }
+  const badLinks = {
+    type: 'list_type',
+    loc: ['body', 'report', 'links'],
+    msg: 'Input should be a valid list',
+    input: 'https://formulare.example.ch/rapport.pdf',
+    url: 'https://errors.pydantic.dev/2.11/v/list_type',
+  }
+
+  it('parses each item into path / msg / kind / input', async () => {
+    fetchMock.mockResolvedValueOnce(validation422([badVehicleName, badLinks]))
+    const err = (await apiPut('/api/config', {}).catch((e: unknown) => e)) as ApiError
+    expect(err.status).toBe(422)
+    expect(err.fields).toEqual([
+      {
+        // 'body' dropped, the index KEPT – describeRejectedFields reads the last index to say
+        // «Fahrzeuge, Eintrag 3», and a person counts entries, not JSON paths
+        path: 'fleet.vehicles.2.name',
+        msg: 'Input should be a valid string',
+        kind: 'string_type',
+        input: { kurz: 'TLF 31' },
+      },
+      { path: 'report.links', msg: 'Input should be a valid list', kind: 'list_type', input: 'https://formulare.example.ch/rapport.pdf' },
+    ])
+  })
+
+  it('keeps `kind` and `input` – what was EXPECTED and what was actually there', async () => {
+    fetchMock.mockResolvedValueOnce(validation422([badVehicleName]))
+    const err = (await apiPut('/api/config', {}).catch((e: unknown) => e)) as ApiError
+    // FastAPI's `type`/`input` under our names; the config import says both out loud because the
+    // file is hand-edited and the shape is the whole question.
+    expect(err.fields?.[0].kind).toBe('string_type')
+    expect(err.fields?.[0].input).toEqual({ kurz: 'TLF 31' })
+  })
+
+  it('still flattens the array into a readable `detail`, and drops the generic hint', async () => {
+    fetchMock.mockResolvedValueOnce(validation422([badVehicleName, badLinks]))
+    const err = (await apiPut('/api/config', {}).catch((e: unknown) => e)) as ApiError
+    expect(err.detail).toBe(
+      'fleet.vehicles.2.name: Input should be a valid string · report.links: Input should be a valid list',
+    )
+    expect(err.hint).toBeUndefined()
+  })
+
+  it('survives an item with no loc and no msg rather than dropping the whole answer', async () => {
+    fetchMock.mockResolvedValueOnce(validation422([{ type: 'value_error' }]))
+    const err = (await apiPut('/api/config', {}).catch((e: unknown) => e)) as ApiError
+    expect(err.fields).toEqual([{ path: '', msg: 'Ungültiger Wert', kind: 'value_error', input: undefined }])
+    expect(err.detail).toBe('Ungültiger Wert') // no stray «: » prefix for a pathless item
+  })
+
+  it('leaves `fields` unset for a plain {detail} error – the German server message stands alone', async () => {
+    fetchMock.mockResolvedValueOnce(json({ detail: 'Die Konfiguration wurde inzwischen geändert.' }, { status: 409 }))
+    const err = (await apiPut('/api/config', {}).catch((e: unknown) => e)) as ApiError
+    expect(err.fields).toBeUndefined()
+    expect(err.detail).toBe('Die Konfiguration wurde inzwischen geändert.')
   })
 })
 

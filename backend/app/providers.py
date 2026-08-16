@@ -1,16 +1,22 @@
-"""Provider capability registry shared by public config and admin system status."""
+"""Provider capability registry shared by public config and admin system status.
 
-from .config import settings
+⚠️ Reads through ``app.credentials`` (env first, admin-set otherwise) rather than off the
+boot-time settings object. Synchronous by design — ``api/config._projection`` builds this
+inside a response model — so it serves the process-wide snapshot; every caller awaits
+``credentials.load(db)`` on the way in, and the scheduler refreshes it every 30 s regardless.
+"""
+
+from .credentials import get as credential
 from .schemas import ConfigIntegrations, ProviderCapability, ProviderRegistration
 
 
 def integrations() -> ConfigIntegrations:
-    divera = bool(settings.divera_access_key)
-    traccar = bool(settings.traccar_url and settings.traccar_email and settings.traccar_password)
+    divera = bool(credential("divera_access_key"))
+    traccar = bool(credential("traccar_url") and credential("traccar_email") and credential("traccar_password"))
     return ConfigIntegrations(
         diveraConfigured=divera,
         traccarConfigured=traccar,
-        sttConfigured=bool(settings.stt_base_url),
+        sttConfigured=bool(credential("stt_base_url")),
         personnel=ProviderCapability(
             provider="divera" if divera else None,
             configured=divera,

@@ -87,6 +87,21 @@ async def engine(database_url: str):
         await eng.dispose()
 
 
+@pytest.fixture(autouse=True)
+def _clean_credential_cache():
+    """The integration-credential store caches its DB rows process-wide (app/credentials).
+
+    Each test gets its own database, so a value one test stored would otherwise still be in
+    the snapshot for the next one. The environment half is not cached at all, so a
+    ``monkeypatch.setattr(settings, …)`` is live immediately either way.
+    """
+    from app.credentials import reset_cache
+
+    reset_cache()
+    yield
+    reset_cache()
+
+
 @pytest_asyncio.fixture
 async def session_factory(engine) -> async_sessionmaker[AsyncSession]:
     return async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False, autoflush=False)

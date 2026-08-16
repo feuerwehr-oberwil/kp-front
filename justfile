@@ -20,6 +20,9 @@ default:
 
 # --- Setup -------------------------------------------------------------------
 
+# (A DEVELOPER machine: needs pnpm and uv. This is not the self-host path — a station server
+# has neither, and never runs `just` at all. That path is `self-host` below, which is plain
+# bash + docker on purpose.)
 # Install ALL deps (frontend + backend) — run this once after cloning.
 [group('Setup')]
 setup:
@@ -27,10 +30,44 @@ setup:
     cd backend && uv sync --extra dev
     @echo "\033[1;32m✓ Setup complete. Next: 'just demo-load' (demo data), then 'just dev' (db + backend + frontend).\033[0m"
 
-# Generate a deployment .env with strong secrets (POSTGRES_PASSWORD / SECRET_KEY / ADMIN_SECRET).
+# (The real entry point is `bash scripts/setup.sh` — this recipe is only here so a developer
+# who lives in `just --list` can find it. It asks for the domain and the port and decides the
+# things people get wrong from those two answers: COOKIE_SECURE, the tls profile, a free
+# APP_PORT, KP_FRONT_TAG, and all four secrets. Pass flags through: `just self-host --build`,
+# `just self-host --yes --lan`.)
+# Guided first-run install of a station server — asks three questions, then starts the stack.
+[group('Setup')]
+self-host *args:
+    bash scripts/setup.sh {{args}}
+
+# (The non-interactive half of `self-host`, and the same code: it generates the secrets and
+# stops. Nothing is asked, nothing is started — you set DOMAIN / APP_PORT / APP_BIND /
+# COOKIE_SECURE / KP_FRONT_TAG in the .env yourself and run `docker compose up -d`.)
+# Generate a deployment .env with all four required secrets (POSTGRES_PASSWORD / SECRET_KEY / ADMIN_SECRET / SEED_PIN).
 [group('Setup')]
 init-env:
     bash scripts/init-env.sh
+
+# --- Operations  (the scripts a station runs; `just` is never required for them) ----
+
+# (Read-only: it starts and stops nothing. Walks host → stack → app → backups and names the
+# fix for each thing it finds, using the same diagnosis `setup.sh` prints on a failed install —
+# one implementation, in scripts/lib.sh. A station runs `bash scripts/doctor.sh` directly.)
+# Check a deployment and say what is wrong with it, in plain language.
+[group('Operations')]
+doctor *args:
+    bash scripts/doctor.sh {{args}}
+
+# (⚠️ DESTRUCTIVE — it drops the schema and refills the asset volume. Confirmation is the typed
+# word `restore`, not y/N. Restores the database and the storage volume TOGETHER, because a
+# database restored against a mismatched volume leaves media rows pointing at blobs that are not
+# there. `--dry-run` first – it restores nothing, but it does START the db container to read what
+# it would replace, so it is not read-only on a stopped stack. Deliberately a script and never a
+# button: you need it when the app is down.)
+# Restore a deployment from a backup pair — run the drill once before you rely on it.
+[group('Operations')]
+restore *args:
+    bash scripts/restore.sh {{args}}
 
 # --- Development -------------------------------------------------------------
 
@@ -114,19 +151,34 @@ demo-reset:
 # not — so a fully green `just ci` still pushed a red main. And a third time with `pnpm build`,
 # which is the ONLY step that parses CSS — `tsc` and `pnpm lint` never open a stylesheet, so a
 # syntax error in one sailed through a green `just ci`. The landing page's drift check was
-# missing for the same reason. Not covered — both need Docker: the gitleaks scan and the image
-# build.)
+# missing for the same reason. And a FOURTH time, differently: this recipe ran pytest with no
+# DATABASE_URL, so tests/conftest.py fell back to SQLite in-memory while ci.yml runs them
+# against Postgres 16 — and SQLite does NOT abort a transaction on a statement error, which is
+# the class of bug that difference hides. It now runs them where CI runs them, in their own
+# database so nobody's dev data is dropped. Not covered — both need more than a container:
+# the gitleaks scan and the image build.)
 # Run everything CI would fail you on, before you push.
 [group('Quality')]
-ci:
+ci: test-backend
     pnpm build
     node site/build.mjs --check
     pnpm test
     cd backend && uv run ruff format --check .
     cd backend && uv run ruff check .
     cd backend && uv run mypy app
-    cd backend && uv run pytest -q
     pnpm lint
+
+# (Uses its OWN database on the dev Postgres — the suite creates and drops the schema, so
+# pointing it at `kpfront` would take your dev data with it. `|| true` on the create: the
+# second run is a duplicate-database error and that is the normal case.)
+# Backend tests on Postgres, the way CI runs them (not the SQLite fallback).
+[group('Quality')]
+test-backend:
+    docker compose -f docker-compose.dev.yml up -d --wait
+    -docker compose -f docker-compose.dev.yml exec -T db psql -qU kpfront -d postgres \
+      -c 'create database kpfront_test' 2>/dev/null
+    cd backend && DATABASE_URL=postgresql+asyncpg://kpfront:kpfront@localhost:5434/kpfront_test \
+      uv run pytest -q
 
 # (Scope is CI's: `.`, not `app tests` — alembic/ is lint-clean too, and code CI checks but you
 # don't is code that breaks on push rather than on save. Includes the format check.)
@@ -202,6 +254,8 @@ release-tag version:
 # Read-only — it never writes to the deployment. `railway run` does NOT work for this: the
 # DATABASE_URL it injects is the INTERNAL hostname and does not resolve from a laptop, so the
 # public TCP proxy is read off the Postgres service instead.
+#
+# Pull a live deployment's config to a local file (read-only; via Railway's public Postgres proxy).
 [group('Deployment config')]
 config-pull out="backend/private/live.config.json" service="Postgres":
     @DB=$(railway variables --service {{service}} --kv | grep '^DATABASE_PUBLIC_URL=' | cut -d= -f2-); \
@@ -224,20 +278,66 @@ config-validate file:
 config-diff file:
     cd backend && uv run python -m app.admin_config diff "{{absolute_path(file)}}"
 
+# ── load vs push ──────────────────────────────────────────────────────────────
+# All five admin CLIs have both verbs and they are NOT interchangeable: `load` writes the
+# database in DATABASE_URL plus this machine's storage (local dev, demo-reset), `push` goes
+# through a running deployment's admin API so the server writes its own volume (a live
+# station, from a workstation). Reach for `push` against anything real. Both take --dry-run:
+# `just config-push file.json --dry-run`. Full comparison: docs/CONFIGURATION.md §9a.
+
 # Load a config file into the deployment (needs DATABASE_URL).
 [group('Deployment config')]
 config-load file:
     cd backend && uv run python -m app.admin_config load "{{absolute_path(file)}}"
+
+# Publish a config file to a RUNNING deployment via its API (KP_BASE_URL + KP_ADMIN_SECRET).
+[group('Deployment config')]
+config-push file *args:
+    cd backend && uv run python -m app.admin_config push "{{absolute_path(file)}}" {{args}}
 
 # Load a reference-geodata manifest (hydrants, WMS layers, …) into the deployment (DATABASE_URL).
 [group('Deployment config')]
 geodata-load file:
     cd backend && uv run python -m app.admin_geodata load "{{absolute_path(file)}}"
 
+# Publish a reference-geodata manifest to a RUNNING deployment via its API.
+[group('Deployment config')]
+geodata-push file *args:
+    cd backend && uv run python -m app.admin_geodata push "{{absolute_path(file)}}" {{args}}
+
 # Load an object-plans manifest (Einsatzobjekte + Modul-PDFs) into the deployment (DATABASE_URL).
 [group('Deployment config')]
 objects-load file:
     cd backend && uv run python -m app.admin_objects load "{{absolute_path(file)}}"
+
+# Publish an object-plans manifest (+ the PDFs) to a RUNNING deployment via its API.
+[group('Deployment config')]
+objects-push file *args:
+    cd backend && uv run python -m app.admin_objects push "{{absolute_path(file)}}" {{args}}
+
+# Load a checklist-templates manifest (+ diagram assets) into the deployment (DATABASE_URL).
+[group('Deployment config')]
+checklists-load file:
+    cd backend && uv run python -m app.admin_checklists load "{{absolute_path(file)}}"
+
+# Publish a checklist-templates manifest (+ diagram assets) to a RUNNING deployment via its API.
+[group('Deployment config')]
+checklists-push file *args:
+    cd backend && uv run python -m app.admin_checklists push "{{absolute_path(file)}}" {{args}}
+
+# (Slot is one of: logo | reportLogo | favicon | iconPng192 | iconPng512 – the last two are the
+# installed PWA's home-screen icons and must be square PNGs of exactly that edge (or a larger
+# square, up to 4×). Branding is the odd one out among the five CLIs – it has no
+# schema/example/validate, because the payload is an image, not a document.)
+# Load a branding asset into the deployment (DATABASE_URL + its blob store).
+[group('Deployment config')]
+branding-load slot file:
+    cd backend && uv run python -m app.admin_branding load {{slot}} "{{absolute_path(file)}}"
+
+# Publish a branding asset (logo | reportLogo | favicon | iconPng192 | iconPng512) to a RUNNING deployment.
+[group('Deployment config')]
+branding-push slot file *args:
+    cd backend && uv run python -m app.admin_branding push {{slot}} "{{absolute_path(file)}}" {{args}}
 
 # --- Symbol tooling ----------------------------------------------------------
 

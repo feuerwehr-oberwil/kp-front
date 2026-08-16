@@ -52,20 +52,51 @@ REDACTED = "‹entfernt›"
 
 _RULES: tuple[tuple[re.Pattern[str], str], ...] = (
     # Secrets first — a leaked token is the only item here that is actively dangerous.
+    #
+    # `accesskey`/`access_key`/`vapid`/`credential`/`passwort` joined the list when the
+    # station's integration credentials became settable from the browser and therefore
+    # storable, decryptable and — the reason this line exists — mentionable in an exception.
+    # `accesskey` is Divera's own spelling of its query parameter, so `accesskey=abc123` in a
+    # message or a stack frame is the exact shape that leak would take.
+    #
+    # ⚠️ The secret words match INSIDE a longer identifier (`stt_api_key`, `vapid_private_key`,
+    # `DIVERA_ACCESS_KEY`) — that is what the surrounding `\w*` is for, and the whole
+    # identifier is captured so the message still says which one it was. `pin` is the one
+    # exception and stays tightly bounded: it is three letters that live inside ordinary
+    # German words, and a rule that redacted the rest of the sentence after «Spinne» would be
+    # an over-eager scrubber, which is a scrubber somebody switches off.
+    #
+    # ⚠️ `healthcheck`/`ping_url` are here because ONE of the sixteen credentials is not
+    # token-shaped at all: `healthcheck_ping_url` IS the secret — anyone holding the URL can
+    # ping it and keep a monitor believing a dead station is alive, which is why api/system
+    # reports it as a boolean. Its name matched none of the words above.
     (
-        re.compile(r"\b(bearer|token|secret|apikey|api_key|password|pin)\b\s*[:=]?\s*\S+", re.I),
+        re.compile(
+            r"\b((?:\w*(?:bearer|token|secret|apikey|api_key|accesskey|access_key|vapid|credential"
+            r"|healthcheck|ping_url|password|passwort)\w*)|pin)\b\s*[:=]?\s*\S+",
+            re.I,
+        ),
         rf"\1 {REDACTED}",
     ),
     # JWTs are recognisable on their own, with or without a label.
     (re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]+"), REDACTED),
+    # http(s) URLs → the fact that there was one, and nothing else.
+    #
+    # ⚠️ ORDER: this MUST stay above the absolute-path rules below, and it must swallow the
+    # PATH as well as the host. It used to do neither, and the combination leaked exactly the
+    # credential the rule above now names. The path rule ran first and rewrote
+    # `https://uptime.example.org/api/push/<token>` to `…/<token>` — «keep the basename» is
+    # right for a stack frame, where the basename is a module name, and precisely wrong for a
+    # ping URL, where the basename IS the token. Then the origin rule matched only up to the
+    # first `/`, so even alone it would have left the path standing. A URL in a log line is an
+    # outbound destination, never a code location: there is no signal in it worth this.
+    (re.compile(r"https?://[^\s\"'<>]+"), "https://…"),
     # Query strings: the values are the risk (?token=, ?address=), the path is the signal.
     (re.compile(r"\?[^\s\"']{1,400}"), "?…"),
     # Absolute paths → basename. Keeps the useful half of a stack frame, drops the
     # username and the directory layout of someone else's server.
     (re.compile(r"(?:file://)?(?:/[\w.\-@ ]+){2,}/([\w.\-]+)"), r"…/\1"),
     (re.compile(r"[A-Za-z]:\\(?:[\w.\-@ ]+\\){1,}([\w.\-]+)"), r"…\\\1"),
-    # http(s) origins in stack frames / messages → scheme + path shape, no host.
-    (re.compile(r"https?://[^\s/\"']+"), "https://…"),
     (re.compile(r"[\w.+-]+@[\w-]+\.[\w.]{2,}"), REDACTED),
     # Swiss phone shapes: +41 79 123 45 67, 0041…, 079 123 45 67, with any separators.
     (re.compile(r"(?:\+41|0041|\b0)\s?\d{2}[\s./-]?\d{3}[\s./-]?\d{2}[\s./-]?\d{2}\b"), REDACTED),

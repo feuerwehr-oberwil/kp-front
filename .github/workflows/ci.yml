@@ -173,6 +173,11 @@ jobs:
       # dies on an IndexError, which says nothing about the actual cause. Six digits, none of
       # the well-known ones (backend/app/seed.py rejects those); both smokes log in with it.
       SEED_PIN: '194731'
+      # The admin surface is fail-closed: empty ADMIN_SECRET = /admin returns 403 and the admin
+      # e2e can't run at all. A throwaway CI value (≥16 chars, see config.py) so the browser
+      # smoke can reach «Mitglieder & Zugriff» — the surface where a stacking-order regression
+      # made every row action unclickable and shipped unnoticed in v0.6.0.
+      ADMIN_SECRET: 'ci-only-admin-secret-not-a-credential'
     steps:
       - uses: actions/checkout@v7
 
@@ -190,6 +195,7 @@ jobs:
             echo "APP_PORT=8000"
             echo "COOKIE_SECURE=false"
             echo "SEED_PIN=$SEED_PIN"
+            echo "ADMIN_SECRET=$ADMIN_SECRET"
             # compose pulls ghcr.io/…:${KP_FRONT_TAG:-latest}; point it at the image built
             # below so the stack boots THIS commit instead of the last published release.
             echo "KP_FRONT_TAG=ci"
@@ -256,6 +262,7 @@ jobs:
         env:
           E2E_BASE_URL: http://localhost:8000
           E2E_PIN: ${{ env.SEED_PIN }}  # the browser login needs the same PIN the seed used
+          E2E_ADMIN_SECRET: ${{ env.ADMIN_SECRET }}  # unlocks /admin for the row-menu spec
         run: pnpm exec playwright test
 
       - name: Upload Playwright report (on failure)

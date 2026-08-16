@@ -323,6 +323,29 @@ export const de = {
           ] },
         ],
       },
+      // Die Stationsdaten stehen hier, weil die zwei Regeln der Arbeitsmappe sonst nur in einer
+      // Anleitung für Selbst-Betreiber stünden – und wer gleich die Mannschaft überschreibt,
+      // liest die nicht. Kurz gehalten: die Verwaltung erklärt sich auf ihren eigenen Seiten,
+      // hier steht das, was man vorher wissen muss.
+      {
+        id: 'verwaltung', title: 'Verwaltung & Stationsdaten', icon: 'gear',
+        blocks: [
+          { kind: 'lead', text: 'Was für die ganze Wehr gilt – Mannschaft, Dienstgrade, Fahrzeuge, Material, Kartenebenen, Objektpläne, Checklisten – wird unter **Verwaltung** gepflegt, nicht im Einsatz. Der Zugang dorthin ist ein eigenes Passwort, nicht die Einsatz-PIN.' },
+          { kind: 'sub', text: 'Die Arbeitsmappe (Excel)' },
+          { kind: 'list', items: [
+            'Unter **Daten › Arbeitsmappe** gibt es die Listen der Wehr als eine einzige Excel-Datei: herunterladen, in Excel, Numbers oder LibreOffice bearbeiten, wieder hochladen. Acht Blätter – Mannschaft, Dienstgrade, Fahrzeuge, Mittel, Mittel-Bestände, Quellen, Partnerorganisationen, Symbolfelder.',
+            'Vor dem Schreiben kommt immer eine **Vorschau**: Blatt für Blatt, was neu wäre, was sich ändert, was wegfällt – und jede abgelehnte Zeile mit Blatt und Zeilennummer. Bis zur Bestätigung ist nichts geschrieben, und Abbrechen schreibt nichts.',
+            'Dieselbe Datei nochmals hochgeladen ändert gar nichts. Der Download ist damit auch die Vorlage – und man kann ihn gefahrlos nur zum Nachschauen holen.',
+          ] },
+          { kind: 'note', text: '**Ein fehlendes Blatt ist kein leeres Blatt.** Ein Blatt ganz aus der Datei zu löschen lässt diese Liste unverändert. Nur die Zeilen zu löschen und die Titelzeile stehen zu lassen leert sie – genau so leert man eine Liste absichtlich.' },
+          { kind: 'note', text: '**«Fehlt» heisst zweierlei.** Eine Person, die im Blatt Mannschaft fehlt, wird **deaktiviert** und nie gelöscht – abgeschlossene Einsätze lösen ihren Namen über diese Zeile auf. Eine Kennung, die in einer der anderen Listen fehlt, wird **entfernt**. Die Vorschau benennt beides mit genau diesen Wörtern und zählt es nicht nur.' },
+          { kind: 'sub', text: 'Wenn doch etwas schiefgeht' },
+          { kind: 'list', items: [
+            'Jede Änderung an den Stationsdaten hebt den Stand von vorher auf: **Sicherung › Letzte Änderungen** zeigt sie mit Zeitpunkt und holt einen davon zurück – egal ob ein Formular, die Arbeitsmappe oder das Terminal geschrieben hat.',
+            'Die Arbeitsmappe ist **keine Sicherung**: sie deckt nur die Listen ab. Die Sicherung ist der JSON-Export unter **Sicherung**.',
+          ] },
+        ],
+      },
     ] as HelpSection[],
   },
   // Tactical-symbol DISPLAY labels, keyed by the RAW FireGIS name (same keys as
@@ -2432,9 +2455,18 @@ export const de = {
     invalidFilename: 'Dateiname ergibt keine gültige Kennung',
     layerAdded: 'Ebene «{name}» hinzugefügt – beim nächsten Laden sichtbar',
     addLayerFailed: 'Konnte Ebene nicht hinzufügen',
+    // ⚠️ Die Konfiguration wurde zwischen Lesen und Schreiben anderswo geändert (CLI, Verwaltung,
+    // zweites Tablet). Nochmals drücken liest neu und legt die Ebene sauber obendrauf – blind
+    // überschreiben würde genau das kaputtmachen, wogegen der Schutz eingebaut wurde.
+    layerConflict: 'Die Kartenebenen wurden gerade an anderer Stelle geändert. Bitte nochmals «Hinzufügen» drücken.',
+    // ⚠️ Etwas anderes als ein Konflikt: die Konfiguration liess sich gar nicht erst lesen (die
+    // Antwort war nicht das Dokument – Portal-Seite, Proxy-Fehler, Offline-Hülle). Nochmals
+    // drücken hilft hier nie, deshalb steht hier auch nicht «nochmals versuchen».
+    layerNoVersion: 'Die Konfiguration konnte nicht gelesen werden – die Ebene wurde nicht gespeichert. Bitte die Verbindung prüfen und die Seite neu laden.',
     globalDatasets: 'Globale Datensätze',
     objectsCount: 'Objekte',
     replace: 'Ersetzen',
+    adminOnlyNote: 'Datensätze ersetzen oder eine neue Ebene hinzufügen kann nur, wer /admin in diesem Browser entsperrt hat (ADMIN_SECRET).',
     newGeoLayer: 'Neue Geo-Ebene …',
     chooseGeojson: 'GeoJSON wählen …',
     labelPlaceholder: 'Bezeichnung (z. B. Hydranten)',
@@ -3311,6 +3343,17 @@ export const de = {
       confirmYes: 'Ja, ausführen',
       confirmNo: 'Abbrechen',
     },
+    // ⚠️ Warum ein getippter Wert (noch) nicht gespeichert ist. Die ganze Konfiguration wird als
+    // EIN Dokument geschrieben – ein einziges abgelehntes Feld stoppt die automatische Speicherung
+    // aller Stations-Seiten gleichzeitig. Deshalb bleibt ein Wert, den die Schnittstelle ablehnen
+    // würde, lokal stehen, und diese Zeile sagt, was erwartet wird. Die drei Formen, die das
+    // Schema wirklich kennt: ganze Zahl ohne Grenzen, ganze Zahl mit Grenzen, Dezimalzahl über
+    // einer unteren Schranke (backend/app/schemas.py).
+    numbers: {
+      integer: 'Wert noch nicht gespeichert – erwartet wird eine ganze Zahl.',
+      integerRange: 'Wert noch nicht gespeichert – erwartet wird eine ganze Zahl zwischen {min} und {max}.',
+      decimalOver: 'Wert noch nicht gespeichert – erwartet wird eine Zahl über {min} und höchstens {max}.',
+    },
     shell: {
       verwaltung: 'Verwaltung',
       toLageMap: '← Zur Lagekarte',
@@ -3343,18 +3386,29 @@ export const de = {
       doktrin: { label: 'Doktrin', title: 'Doktrin', lede: 'FKS-Vorgaben dieser Wehr: Standard-Funkkanal, AGT-Kontaktintervall und Warn-Vorlauf.' },
       journal: { label: 'Journal', title: 'Journal', lede: 'Textbausteine für den Verlauf: Vorschläge, die beim Tippen per Fuzzy-Suche vervollständigen.' },
       rapport: { label: 'Rapport', title: 'Rapport', lede: 'Wie die Einsatzstunden auf dem gedruckten Rapport gerundet werden – und welche eigenen Formulare am Schluss noch auszufüllen sind.' },
+      alarme: {
+        label: 'Alarme & Einsätze',
+        title: 'Alarme & Einsätze',
+        lede: 'Die alarmierbaren Gruppen dieser Wehr, wie lange Einsätze offen bleiben, bis sie von selbst ins Archiv wandern, wie lange das Erfassungs-Poster einen fertigen Einsatz noch erreicht – und wohin ein neuer Einsatz gemeldet wird.',
+      },
       fahrzeuge: {
-        label: 'Symbole',
-        title: 'Symbole',
-        lede: 'Symbol-Felder dieser Wehr und ihre Auswahllisten (schreibgeschützt). Listen werden via admin_config-CLI gepflegt; ohne Konfiguration bleibt ein Feld Freitext.',
+        label: 'Fahrzeuge & Symbole',
+        title: 'Fahrzeuge & Symbole',
+        lede: 'Die Fahrzeuge der Wehr – hier bearbeitbar; sie ergeben das Raster für Ausrückzeiten auf dem Rapport. Darunter die Symbol-Felder und ihre Auswahllisten (schreibgeschützt).',
         tip: 'Jede Liste hängt Auswahl-Vorschläge an ein Symbol-Feld – z. B. Fahrzeugtypen an «VKF Fahrzeug · Titel». Vorschläge nur; freies Tippen bleibt in der Lage immer möglich.',
       },
-      ebenen: { label: 'Kartenebenen', title: 'Kartenebenen & Geodaten', lede: 'Referenzebenen dieser Wehr (Hydranten, Leitungskataster, Kanton-WMS …) mit Lade-Status sowie die geladenen Datensätze. Bearbeiten via admin_geodata-CLI; Grundkarten sind national/mitgeliefert.' },
+      ebenen: { label: 'Kartenebenen', title: 'Kartenebenen & Geodaten', lede: 'Referenzebenen dieser Wehr (Hydranten, Leitungskataster, Kanton-WMS …) mit Lade-Status sowie die geladenen Datensätze. GeoJSON-Dateien und Raster-Ebenen (WMS/WMTS) sind hier einrichtbar, ganze Manifeste via admin_geodata-CLI; Grundkarten sind national/mitgeliefert.' },
       objektplaene: {
         label: 'Objektpläne',
         title: 'Objektpläne',
-        lede: 'Modul-Katalog dieser Wehr (Kacheln M1/2-3 …, Erkennungsregeln) mit Abdeckung sowie die geladenen Objekte & Pläne. Bearbeiten via admin_config-CLI; leer = mitgelieferte Standard-Module.',
+        lede: 'Modul-Katalog dieser Wehr (Kacheln M1/2-3 …, Erkennungsregeln) mit Abdeckung sowie die Einsatzobjekte & ihre Pläne. Objekte und Modul-PDFs werden hier angelegt und ersetzt; der Katalog selbst via admin_config-CLI, leer = mitgelieferte Standard-Module.',
         tip: 'Der Modul-Katalog konfiguriert beides: die Plan-Kacheln in der App und das Datei-Parsing von import_einsatzplaene (der Importer holt die Liste via /api/config). «Familie» erzeugt Untermodule aus dem Dateinamen (Modul 5 - Wasser → modul5-wasser); «Kombiniert mit» füllt mehrere Slots aus einem Sammelblatt (Modul 2-3 → modul2, modul3).',
+      },
+      checklisten: {
+        label: 'Checklisten',
+        title: 'Checklisten',
+        lede: 'Die Vorlagen hinter der Checkliste-Ansicht: Aufgabenlisten, Lagerapport und das Einsatzleiter-Nachschlagewerk. Hochladen, ersetzen und löschen.',
+        tip: 'Eine Vorlage ist eine JSON-Datei mit einer eigenen «id» – die entscheidet, welche Vorlage ersetzt wird. Wird eine Vorlage unter neuem Namen hochgeladen, bleibt die alte bestehen und wird weiter an alle Geräte ausgeliefert, bis sie hier gelöscht wird.',
       },
       mitglieder: { label: 'Mitglieder & Zugriff', title: 'Mitglieder & Zugriff', lede: 'Wer sich anmelden darf, mit welcher Rolle und welcher PIN.' },
       mannschaft: { label: 'Mannschaft', title: 'Mannschaft', lede: 'Lokaler Personenstamm der Wehr: Handeingabe und CSV funktionieren immer; eine konfigurierte Personalquelle kann zusätzlich synchronisieren.' },
@@ -3382,6 +3436,18 @@ export const de = {
         title: 'Einsatz-Link',
         lede: 'Der Schlüssel, mit dem die Alarmierung Links erzeugt, die genau einen Einsatz schreibgeschützt öffnen – ohne Anmeldung.',
       },
+      zugaenge: {
+        label: 'Zugangsdaten',
+        title: 'Zugangsdaten der Anbindungen',
+        lede: 'Divera, Fahrzeugortung, Push-Meldungen, Spracherkennung, Webhooks und Überwachung – hier eintragen statt in .env, ohne Neustart.',
+        tip: 'Eingetragene Schlüssel werden verschlüsselt gespeichert und nie wieder angezeigt – auch hier nicht. Ersetzen ist möglich, Auslesen nicht.',
+      },
+      arbeitsmappe: {
+        label: 'Arbeitsmappe',
+        title: 'Stationsdaten als Arbeitsmappe',
+        lede: 'Mannschaft, Dienstgrade, Fahrzeuge, Mittel und Partnerorganisationen als eine Excel-Datei herunterladen, bearbeiten und wieder einspielen.',
+        tip: 'Vor dem Schreiben zeigt die Vorschau je Blatt, was neu ist, was sich ändert und was wegfällt – benannt, nicht gezählt. Erst «Jetzt übernehmen» schreibt.',
+      },
       objekte: {
         label: 'Objekte & Pläne',
         title: 'Objekte & Pläne',
@@ -3396,6 +3462,56 @@ export const de = {
       },
       system: { label: 'System & Wartung', title: 'System & Wartung', lede: 'Status & Wartung: Version, Datenbank, Bestand, Speicher und der Offline-Cache dieses Geräts.' },
       sicherung: { label: 'Sicherung', title: 'Sicherung', lede: 'Konfiguration als Datei sichern oder eine gesicherte Datei einspielen.' },
+    },
+    // Verwaltung › Daten › Arbeitsmappe (admin/StationWorkbookView). Die Vorschau IST das
+    // Feature: was neu ist, was sich ändert, was wegfällt – benannt, vor dem Schreiben.
+    workbook: {
+      caption: 'Eine Excel-Datei mit den Listen dieser Wehr: herunterladen, in Excel, Numbers oder LibreOffice bearbeiten, wieder hochladen.',
+      covers: 'Enthalten sind acht Blätter: Mannschaft, Dienstgrade, Fahrzeuge, Mittel, Mittel-Bestände, Quellen, Partnerorganisationen und Symbolfelder.',
+      notBackup: 'Das ist keine Sicherung.',
+      notBackupBody: 'Die Arbeitsmappe deckt nur die Listen ab. Name, Sprache, Markenfarbe, Karte, Doktrin, Alarmierung und Journal stehen nicht darin – wer sie zurückspielt, stellt davon nichts wieder her. Die Sicherung ist die JSON-Datei unter «Sicherung», zusammen mit «Letzte Änderungen».',
+      carriesNot: 'Nicht enthalten – und absichtlich nicht: Schlüssel und Passwörter, Logos, Objektpläne, Kartenebenen, eigene Formulare und die Alarm-Stichwörter.',
+      nameNote: 'Personen werden über Quelle + Externe ID erkannt, sonst über den Namen. Zwei Personen mit exakt gleicher Schreibweise gelten deshalb als eine – in dem Fall eine der beiden im Namen unterscheiden (z. B. zweiter Vorname) oder beiden eine Externe ID geben. Wer im Blatt Mannschaft fehlt, wird deaktiviert und nie gelöscht – abgeschlossene Einsätze lösen den Namen über diese Zeile auf. Eine Kennung, die in einer der anderen Listen fehlt, wird dagegen entfernt.',
+      step1Title: '1. Arbeitsmappe herunterladen',
+      step1Body: 'Der aktuelle Stand der Station – gleichzeitig die Vorlage und das Rückgängig: dieselbe Datei nochmals eingespielt ändert nichts. Ein Blatt ganz aus der Datei zu löschen lässt diese Liste unverändert; nur die Zeilen zu löschen und die Titelzeile stehen zu lassen leert sie – so leert man eine Liste absichtlich.',
+      download: 'Arbeitsmappe herunterladen',
+      downloadFailed: 'Die Arbeitsmappe konnte nicht heruntergeladen werden.',
+      step2Title: '2. Bearbeitete Datei prüfen',
+      step2Body: 'Zuerst wird nur gelesen und gerechnet. Geschrieben wird erst nach der Bestätigung.',
+      choose: 'Datei auswählen',
+      chooseOther: 'Andere Datei',
+      busy: 'Wird gelesen …',
+      previewFailed: 'Die Datei konnte nicht gelesen werden.',
+      previewTitle: '3. Das würde passieren',
+      previewLead: 'Aus «{file}». Bis hierhin ist nichts geschrieben worden.',
+      colSheet: 'Blatt',
+      colRows: 'Zeilen',
+      colNew: 'Neu',
+      colChanged: 'Geändert',
+      colUnchanged: 'Unverändert',
+      colGone: 'Fällt weg',
+      sheetAbsent: 'nicht in der Datei – bleibt unverändert',
+      // Zwei Bedeutungen von «fehlt», zwei Wörter: Personen werden deaktiviert (nie gelöscht,
+      // Einsätze lösen ihren Namen darüber auf), Einträge einer Liste werden entfernt.
+      deactivated: '{n} deaktiviert:',
+      removedLabel: '{n} entfernt:',
+      andMore: 'und {n} weitere',
+      warningsTitle: 'Hinweise',
+      emptiedTitle: 'Diese Abschnitte wären danach leer',
+      errorsTitle: 'Abgelehnte Zeilen',
+      errorsLead: 'Solange eine Zeile abgelehnt ist, wird nichts übernommen – auch die guten Zeilen nicht. Blatt und Zeilennummer stehen dabei, damit die Stelle in der eigenen Datei zu finden ist.',
+      confirm: 'Jetzt übernehmen',
+      confirmHint: 'Abbrechen schreibt nichts. Nach dem Übernehmen steht der vorherige Stand unter «Sicherung» › «Letzte Änderungen».',
+      blockedHint: 'Bitte die abgelehnten Zeilen in der Datei korrigieren und erneut prüfen.',
+      importFailed: 'Die Arbeitsmappe wurde nicht übernommen.',
+      doneTitle: 'Übernommen',
+      done: 'Die Arbeitsmappe wurde übernommen.',
+      undoHint: 'Der Stand von vorher liegt unter «Sicherung» › «Letzte Änderungen» und lässt sich dort zurückholen.',
+      // ⚠️ Der Import ist durch, aber dieser Tab konnte das neu geschriebene Dokument nicht mehr
+      // lesen – er hält also noch den Stand von VOR dem Import. Wer jetzt irgendwo in der
+      // Verwaltung weiterklickt, bekommt einen Konflikt angeboten, dessen «Übernehmen» den Import
+      // überschreiben würde. Neu laden ist der einzige Weg, und das muss dastehen.
+      reloadHint: 'Die Änderungen sind gespeichert, aber diese Seite zeigt noch den Stand von vorher. Bitte die Seite neu laden, bevor hier weitergearbeitet wird.',
     },
     erfassung: {
       cardTitle: 'Erfassungs-Poster',
@@ -3492,6 +3608,77 @@ export const de = {
       docsLink: 'Integrations-Doku',
       hint: 'Der Schlüssel wird hier erzeugt und in die Alarmierung kopiert – KP Front nimmt keinen fremden Schlüssel entgegen und wird beim Alarmieren nie aufgerufen: Die Alarmierung signiert die Links selbst. Schlüssel geheim halten, er öffnet Lesezugriff auf jeden laufenden Einsatz. Ohne Schlüssel gibt es keine Einsatz-Links – «Deaktivieren» schaltet die Funktion ganz ab.',
     },
+    // Zugangsdaten — die Schlüssel der Anbindungen, aus dem Terminal in den Browser geholt.
+    // ⚠️ Der Text sagt an jeder Stelle dasselbe wie die API: gesetzt ja/nein, nie der Wert.
+    // «Ersetzen» statt «Ändern», weil man einen Schlüssel hier nicht sieht und deshalb auch
+    // nicht bearbeitet – man legt einen neuen hin.
+    zugaenge: {
+      loadFailed: 'Zugangsdaten konnten nicht geladen werden.',
+      stateEnv: 'vom Server vorgegeben',
+      stateStored: 'gesetzt',
+      stateUnset: 'nicht gesetzt',
+      stateUnreadable: 'unlesbar',
+      changedAt: 'geändert am',
+      fromEnv: 'Kommt aus der Server-Umgebung und lässt sich hier nicht ändern – Variable:',
+      unreadableHint: 'Dieser Wert lässt sich nicht mehr entschlüsseln – der SECRET_KEY dieser Installation hat sich geändert. Bitte neu setzen; die Anbindung ist bis dahin aus.',
+      placeholderSet: 'Wert eintragen',
+      placeholderReplace: 'Neuen Wert eintragen, um den bestehenden zu ersetzen',
+      saveBtn: 'Speichern',
+      replaceBtn: 'Ersetzen',
+      saved: 'Gespeichert – ab sofort aktiv, ohne Neustart.',
+      removeBtn: 'Entfernen',
+      removeMsg: 'Wert entfernen? Die Anbindung ist danach aus, bis wieder einer gesetzt wird.',
+      removed: 'Entfernt – Anbindung aus.',
+      failed: 'Aktion fehlgeschlagen',
+      groups: {
+        divera: {
+          title: 'Divera 24/7',
+          caption: 'Accesskey für Alarme und Mannschaft, plus das Secret für den Webhook. Der zweite Accesskey ist nur nötig, wenn die Dienstgrade aus den Qualifikationen kommen sollen.',
+        },
+        traccar: {
+          title: 'Fahrzeugortung (Traccar)',
+          caption: 'Adresse des Traccar-Servers und die Anmeldung, mit der KP Front die Positionen abholt. Die Adresse muss https sein – sonst bleibt die Ortung aus.',
+        },
+        push: {
+          title: 'Push-Meldungen',
+          caption: 'VAPID-Schlüsselpaar für Alarme an geschlossene Apps (Atemschutz überfällig, Wiedervorlagen, neuer Einsatz). Erzeugen: docker compose exec app uv run python -m app.gen_vapid.',
+        },
+        stt: {
+          title: 'Sprachnotizen → Text',
+          caption: 'OpenAI-kompatibler Server für die Transkription. Ohne Adresse fehlt der Knopf «Transkribieren» – alles andere am Sprachmemo funktioniert.',
+        },
+        webhooks: {
+          title: 'Webhooks & Stationsdrucker',
+          caption: 'Gemeinsame Geheimnisse für die Alarm-Schnittstelle fremder Leitstellen und für den Druck-Agenten auf der Wache. Ohne Eintrag sind beide Türen zu.',
+        },
+        monitoring: {
+          title: 'Überwachung',
+          caption: 'Ping-Adresse eines Monitors (z. B. healthchecks.io). Solange KP Front läuft, meldet es sich jede Minute – bleiben die Pings aus, alarmiert der Monitor. Ohne diese Adresse erfährt niemand, dass die Wache steht.',
+        },
+      },
+      staysInEnv: {
+        title: 'Was bewusst in .env bleibt',
+        caption: 'Nicht vergessen, sondern ausgeschlossen: jeder dieser Werte würde sich selbst aushebeln, wenn er hier stünde.',
+        items: [
+          { name: 'SECRET_KEY', why: 'verschlüsselt die PINs und die Werte auf dieser Seite – er kann nicht in der Datenbank liegen, die er schützt.' },
+          { name: 'ADMIN_SECRET', why: 'öffnet genau diese Verwaltung. Wer sie öffnen kann, dürfte sich sonst selbst neuen Zugang geben.' },
+          { name: 'KP_TELEMETRY_ENABLED / _DSN', why: 'ist das Veto des Betreibers über die Verwaltung. Ein Veto, das die Verwaltung ändern kann, ist keins.' },
+          { name: 'DATABASE_URL, POSTGRES_*', why: 'werden gebraucht, bevor überhaupt eine Datenbankverbindung besteht.' },
+          { name: 'APP_PORT, DOMAIN, KP_FRONT_TAG', why: 'liest Docker Compose, nicht die App – ein Neustart ist hier unvermeidlich.' },
+        ],
+      },
+      audit: {
+        title: 'Letzte Änderungen',
+        caption: 'Wer wann welchen Zugang gesetzt, ersetzt oder entfernt hat. Der Wert selbst wird nirgends mitgeschrieben.',
+        empty: 'Noch nichts geändert.',
+        noUser: 'nicht angemeldet',
+        actions: {
+          set: 'gesetzt',
+          rotated: 'ersetzt',
+          cleared: 'entfernt',
+        } as Record<string, string>,
+      },
+    },
     incidentHistory: {
       loading: 'Einsätze werden geladen…', error: 'Einsätze konnten nicht geladen werden.', search: 'Titel, Adresse oder Herkunft suchen…',
       none: 'Keine Einsätze vorhanden.', noMatches: 'Keine Einsätze passen zur Suche.', started: 'Beginn', incident: 'Einsatz', status: 'Status',
@@ -3523,29 +3710,93 @@ export const de = {
       conflict: 'Konfiguration wurde anderswo geändert',
       conflictHint: 'Neu laden zeigt den aktuellen Stand. «Übernehmen» schreibt die Änderungen dieser Seite darüber.',
       conflictApply: 'Übernehmen',
+      // ⚠️ Der Server antwortet auf ein ungültiges Dokument mit der Pydantic-Meldung von
+      // FastAPI – englisch, mit dem Feldpfad davor: «map.defaultView.center: Input should be a
+      // valid list». Genau das stand bei einer Ersteinrichtung auf dem Bildschirm einer
+      // Deutschsprachigen, und der angebotene Ausweg («Erneut versuchen») half nicht. Hier steht
+      // stattdessen das Feld, wie es auf der Seite heisst (ConfigContext · rejectedFieldLabel).
+      rejected: 'Vom Server nicht angenommen: {fields}',
+      rejectedHint: 'Bitte den genannten Wert korrigieren – die übrigen Änderungen dieser Seite sind noch nicht gespeichert.',
     },
     usageBar: { aria: '{pct}% belegt' },
     identity: {
-      appName: 'App-Name',
+      // Muss «admin.setup.name» wortgleich bleiben: die Einrichtungs-Zeile führt genau hierher,
+      // und eine Zeile, die auf ein anders benanntes Feld zeigt, lässt einen suchen.
+      appName: 'Name der Wehr',
       appNameTip: 'Wird in Titelleiste, Login und Hilfe angezeigt. Leer = «KP Front».',
       accentColor: 'Akzentfarbe',
       accentColorHint: 'Markenfarbe (Login / Splash)',
-      accentColorTip: 'Markenfarbe der Wehr; fliesst durch das gesamte --accent-Farbsystem (Login, Splash, Akzente).',
+      accentColorTip: 'Markenfarbe der Wehr; fliesst durch das gesamte --accent-Farbsystem (Login, Splash, Akzente). Hex-Wert wie #e8392b – oder links im Farbfeld wählen.',
       pickAccentColor: 'Akzentfarbe wählen',
+      // ⚠️ Wie beim Kartenzentrum: die Regel steht IN der Meldung, nicht nur im Tooltip, und die
+      // Meldung sagt zuerst, dass der Wert (noch) nicht gespeichert ist. «nicht-eine-farbe» wurde
+      // vorher mit 200 und «Gespeichert» quittiert und landete auf Login, Splash und Rapport.
+      accentColorInvalid: 'Farbe noch nicht gespeichert – erwartet wird ein Hex-Wert wie #e8392b (mit Transparenz: #e8392bcc). Am einfachsten links im Farbfeld wählen.',
       language: 'Sprache',
       languageHint: 'UI-Sprache der ganzen Wehr',
       languageTip: 'Sprache aller Bedienoberflächen-Texte. Gilt für die gesamte Wehr (ein Deployment = eine Sprache); wird beim Laden der App angewendet. fr/it sind erst teilweise übersetzt und fallen sonst auf Deutsch zurück.',
+      // Die Option, solange `identity.locale` leer ist: das Deployment hat keine Sprache
+      // gewählt, es läuft auf dem Landesvorgabewert. Ohne diese Option zeigte die Auswahl
+      // «Deutsch» und behauptete damit eine Entscheidung, die nie getroffen wurde.
+      languageDefault: 'Deutsch (Standard)',
       pickLanguage: 'Sprache wählen',
       kommandant: 'Kommandant',
       kommandantTip: 'Name des Kommandanten – wird auf dem Einsatzrapport neben der Unterschriftszeile «Kommandant» vorgedruckt. Leer = nur die Beschriftung.',
+      // Der erste Abschnitt der In-App-Hilfe – der Text, den jede neue AdF als Erstes liest.
+      helpIntro: 'Einleitung in der Hilfe',
+      helpIntroTip: 'Steht zuoberst unter «Was kann KP Front?». Ein bis zwei Sätze in den Worten der Wehr – wofür diese App bei euch da ist. Leer = der mitgelieferte Text.',
     },
     map: {
       centerLon: 'Zentrum – Länge (lon)',
       centerLonTip: 'Längengrad (WGS84) des Kartenstarts, bevor ein Einsatz gewählt ist.',
       centerLat: 'Zentrum – Breite (lat)',
       centerLatTip: 'Breitengrad (WGS84) des Kartenstarts, bevor ein Einsatz gewählt ist.',
+      // Das Zentrum ist EIN Wert (ein Koordinatenpaar) in zwei Feldern – so heisst es, wenn
+      // von beiden zusammen die Rede ist (Fehlermeldung der Verwaltung).
+      centerField: 'Kartenzentrum',
+      centerIncomplete: 'Zentrum noch nicht gespeichert – Länge und Breite gehören zusammen. Beide ausfüllen (oder beide leeren).',
+      centerOutOfRange: 'Zentrum noch nicht gespeichert – Länge liegt zwischen −180 und 180, Breite zwischen −90 und 90. In der Schweiz: Länge ≈ 8, Breite ≈ 47.',
       zoom: 'Zoom',
       zoomTip: 'Anfangs-Zoomstufe der Karte (höher = näher; ~16 zeigt einen Quartierausschnitt).',
+      // Das Zentrum wird in EINER von zwei Formen gespeichert – nie in beiden (schemas.py ·
+      // MapDefaultView). Die Umschaltung rechnet den eingetippten Wert um, statt ein zweites
+      // Feld anzubieten, das dem ersten widersprechen kann.
+      crs: 'Koordinaten',
+      crsTip: 'In welcher Form die Koordinaten eingetippt werden. Umschalten rechnet den bereits eingetragenen Wert um – gespeichert wird immer nur eine der beiden Formen.',
+      crsWgs84: 'WGS84 – Länge / Breite',
+      crsLv95: 'LV95 – E / N',
+      pickCrs: 'Koordinatenform wählen',
+      centerE: 'Zentrum – E (Ost)',
+      centerETip: 'Landeskoordinate E (LV95, EPSG:2056) des Kartenstarts. Schweizweit siebenstellig, beginnend mit 2 – z. B. 2 611 500.',
+      centerN: 'Zentrum – N (Nord)',
+      centerNTip: 'Landeskoordinate N (LV95, EPSG:2056) des Kartenstarts. Schweizweit siebenstellig, beginnend mit 1 – z. B. 1 258 300.',
+      centerLv95OutOfRange: 'Zentrum noch nicht gespeichert – LV95 liegt in der Schweiz bei E ≈ 2 480 000–2 840 000 und N ≈ 1 070 000–1 300 000. Sechsstellige Werte (600 000 / 200 000) sind das alte LV03: dort je 2 000 000 bzw. 1 000 000 dazuzählen.',
+      // Adresssuche: ohne Heimatort sucht «Hauptstrasse 3» in der ganzen Schweiz.
+      groupGeocoder: 'Adresssuche',
+      geocoderTip: 'Die Adresssuche im Einsatz-Eröffnen fragt swisstopo ab. Ohne diese beiden Angaben sucht sie landesweit – «Hauptstrasse 3» gibt es in jedem zweiten Dorf.',
+      locality: 'Heimatort',
+      localityTip: 'Wird angehängt, wenn jemand nur eine Strasse eintippt («Hauptstrasse 3» → «Hauptstrasse 3, 4104 Musterdorf BL»). Sobald selbst ein Ort oder eine PLZ getippt wird, bleibt die Eingabe unangetastet.',
+      localityPlaceholder: 'z. B. 4104 Musterdorf BL',
+      bbox: 'Suchbereich (LV95)',
+      bboxTip: 'Rechteck in Landeskoordinaten, innerhalb dessen Treffer zuerst kommen: minE,minN,maxE,maxN. Gefunden wird auch ausserhalb – der Bereich entscheidet nur die Reihenfolge.',
+      bboxPlaceholder: 'minE,minN,maxE,maxN',
+      bboxInvalid: 'Suchbereich noch nicht gespeichert – erwartet werden vier LV95-Zahlen in der Reihenfolge minE,minN,maxE,maxN (min kleiner als max).',
+      bboxFromCenter: 'Aus Kartenzentrum ableiten (±5 km)',
+      bboxFromCenterHint: 'Braucht ein gespeichertes Kartenzentrum weiter oben.',
+      // Kantonale GIS-Portale, aufgerufen mit den Koordinaten des Einsatzes.
+      groupExternal: 'Externe Kartenportale',
+      externalTip: 'Erscheinen im Einsatz unter «Datenquellen» als Knöpfe, die das Portal direkt auf dem Einsatzort öffnen. Ohne Eintrag gibt es dort keine Knöpfe.',
+      extLabel: 'Beschriftung',
+      extLabelPlaceholder: 'z. B. GeoView Kanton',
+      extUrl: 'URL-Vorlage',
+      extUrlTip: 'Im Kartenportal auf den Einsatzort zoomen, die Adresszeile hierher kopieren – und die Koordinaten darin durch die Platzhalter unten ersetzen. {E}/{N} sind Landeskoordinaten (LV95), {lng}/{lat} Länge/Breite (WGS84).',
+      extUrlPlaceholder: 'https://…?E={E}&N={N}',
+      extTokens: 'Platzhalter einfügen',
+      extPreview: 'Vorschau mit einem Beispiel-Standort',
+      extAdd: 'Kartenportal hinzufügen',
+      extRemove: 'Kartenportal entfernen',
+      extNoTitle: 'Ohne Beschriftung erscheint dieser Eintrag nicht unter «Datenquellen».',
+      extNoUrl: 'Keine gültige Adresse (http oder https) – dieser Eintrag erscheint nicht unter «Datenquellen».',
     },
     journal: {
       quickPhrases: 'Textbausteine',
@@ -3588,6 +3839,57 @@ export const de = {
       linkPreview: 'Vorschau mit einem Beispiel-Einsatz',
       linkPreviewNone: 'Kein gültiger Link (http oder https) – dieser Eintrag erscheint nicht auf dem Rapport.',
       linkPreviewNoTitle: 'Ohne Titel erscheint dieser Eintrag nicht auf dem Rapport.',
+      // Nur für Wehren mit Stationsdrucker (Druck-Relay). Betrifft ausschliesslich den Weg
+      // zum Drucker – ein heruntergeladenes PDF ist immer in Leserichtung.
+      groupPrint: 'Druck am Stationsdrucker',
+      printTip: 'Betrifft nur den Rapport, der an den Stationsdrucker geschickt wird. Ein heruntergeladenes PDF bleibt immer in Leserichtung.',
+      reverseOrder: 'Seiten in umgekehrter Reihenfolge senden',
+      reverseOrderHint: 'Für Drucker, die das Blatt mit der bedruckten Seite nach oben auswerfen: der Stapel liegt sonst verkehrt herum und muss von Hand sortiert werden. Wirft dein Drucker nach unten aus, schalte es ab.',
+    },
+    // Alarme & Einsätze: die drei Uhren am Lebenslauf eines Einsatzes plus die Webhooks,
+    // über die ein zweites System (z. B. der Zettel-Drucker von kp-rück) überhaupt erst
+    // von einem neuen Einsatz erfährt.
+    alarms: {
+      // Alarmgruppen: die Gruppen-Hälfte des Zeiten-Rasters auf Rapport und Erfassungsblatt –
+      // die Fahrzeug-Hälfte steht auf «Fahrzeuge & Symbole».
+      groupGroups: 'Alarmgruppen',
+      groupsTip: 'Die alarmierbaren Gruppen dieser Wehr. Sie ergeben die Zeilen «Alarmierungszeiten» auf dem Rapport und auf dem gedruckten Erfassungsblatt; die Alarmierung meldet die Alarmzeit je Gruppe auf die Kennung. Die Fahrzeug-Zeilen desselben Rasters stehen unter «Fahrzeuge & Symbole».',
+      groupsEmpty: 'Keine Alarmgruppe hinterlegt – auf dem Rapport und auf dem Erfassungsblatt erscheint dann keine einzige Gruppen-Zeile.',
+      groupLabel: 'Bezeichnung',
+      groupLabelTip: 'Wie die Gruppe hier heisst – «Gr. 2», «Kdo», «Tagespikett». Genau so steht sie auf dem Rapport.',
+      groupLabelPlaceholder: 'Gr. 2',
+      groupId: 'Kennung',
+      groupIdTip: 'Der Schlüssel, auf den die Alarmierung die Alarmzeit meldet. Folgt der Bezeichnung, bis er von Hand geändert wird – eine bestehende Kennung nie ändern, sonst finden ältere Einsätze ihre Zeile nicht mehr.',
+      groupIdPlaceholder: 'gr-2',
+      groupNote: 'Zusatz in Klammern (optional)',
+      groupNoteTip: 'Steht auf Rapport und Erfassungsblatt in Klammern hinter der Bezeichnung. Gedacht für das, was die Gruppe im Zug unterscheidet – Farbe, Kürzel, «Tag. Pikett».',
+      groupNotePlaceholder: 'Rot',
+      groupPreview: 'Auf dem Rapport: {zeile}',
+      groupAdd: 'Alarmgruppe hinzufügen',
+      groupRemove: 'Alarmgruppe entfernen',
+      groupIncomplete: 'Noch nicht gespeichert – Bezeichnung und Kennung müssen ausgefüllt sein.',
+      groupDuplicate: 'Diese Kennung gibt es schon – zwei Gruppen mit derselben Kennung würden auf dem Rapport zu einer einzigen Zeile.',
+      groupArchive: 'Automatisch archivieren',
+      archiveTip: 'Archivieren ist rückgängig zu machen und ändert nichts an den Daten – es räumt nur die Einsatzliste auf. Zwei Uhren, weil ein nie angefasster Alarm und ein bearbeiteter, aber nie abgeschlossener Einsatz nicht dasselbe sind.',
+      autoArchiveDays: 'Nie bearbeitete Einsätze nach (Tagen)',
+      autoArchiveDaysTip: 'Ein Alarm, der einen Einsatz eröffnet hat, den aber nie jemand angefasst hat – Testalarm, Nachbarhilfe, BMA-Lauf. 0 schaltet die Automatik ab.',
+      staleIncidentDays: 'Bearbeitete, nie abgeschlossene Einsätze nach (Tagen)',
+      staleIncidentDaysTip: 'Der andere Fall: es wurde gearbeitet, aber nie abgeschlossen. Deutlich längere Uhr, denn hier wird echte Arbeit weggeräumt. Der Rapport wird dabei NICHT als fertig markiert. 0 schaltet die Automatik ab.',
+      groupCapture: 'Erfassungs-Poster',
+      captureTip: 'Der QR-Code im Magazin führt auf die Erfassung eines laufenden Einsatzes. Einsätze ohne fertigen Rapport bleiben immer erreichbar – diese Frist gilt nur für bereits abgeschlossene.',
+      captureWindowHours: 'Fertige Einsätze noch erreichbar (Stunden)',
+      captureWindowHoursTip: 'Wer das Blatt erst am Morgen danach ausfüllt, braucht mehr als die voreingestellten 12 Stunden. Zwischen 1 und 168 (eine Woche).',
+      // EINE Meldung für alle drei Zahlen – sie sagt die Regel, nicht nur dass etwas falsch ist.
+      numberRange: 'Wert noch nicht gespeichert – erwartet wird eine ganze Zahl zwischen {min} und {max}.',
+      groupWebhooks: 'Webhooks',
+      webhooksTip: 'Jede Adresse hier bekommt bei jedem neuen Einsatz eine Meldung – egal auf welchem Weg er entstanden ist. So erfährt ein zweites System davon, etwa der Zettel-Drucker von kp-rück. Die Zustellung wird wiederholt und blockiert nie einen Alarm.',
+      webhookUrl: 'Ziel-Adresse',
+      webhookPlaceholder: 'https://…',
+      webhookAdd: 'Webhook hinzufügen',
+      webhookRemove: 'Webhook entfernen',
+      webhookInvalid: 'Noch nicht gespeichert – erwartet wird eine vollständige Adresse mit http:// oder https://.',
+      webhookDuplicate: 'Diese Adresse steht schon in der Liste.',
+      webhooksEmpty: 'Kein Webhook eingerichtet – ein neuer Einsatz wird nirgends gemeldet.',
     },
     doctrine: {
       groupFunk: 'Funk',
@@ -3645,7 +3947,7 @@ export const de = {
       fleetOpen: 'Ohne sie hat der Rapport kein Raster für Ausrückzeiten',
       monitoring: 'Überwachung',
       monitoringSet: 'Eingerichtet – ein Ausfall meldet sich',
-      monitoringOpen: 'HEALTHCHECK_PING_URL ist leer – ein Ausfall fällt niemandem auf (nur in der .env setzbar)',
+      monitoringOpen: 'Keine Ping-Adresse hinterlegt – ein Ausfall fällt niemandem auf',
     },
     backup: {
       title: 'Sicherung',
@@ -3656,9 +3958,39 @@ export const de = {
       lastChanged: 'Zuletzt geändert am {date}',
       notJson: 'Datei ist kein gültiges JSON.',
       notConfig: 'Datei enthält keine gültige Konfiguration.',
-      replaceConfirm: 'Diese Datei ersetzt die aktuelle Konfiguration vollständig. Die bisherige wird vorher als Sicherung heruntergeladen. Fortfahren?',
+      // Der Import ist ein VOLLSTÄNDIGES Ersetzen – kein Zusammenführen. Das stand vorher in
+      // einem `window.confirm()`, dem einzigen im ganzen /admin: ein installiertes iOS-PWA darf
+      // solche Dialoge spurlos unterdrücken, ausgerechnet bei der zerstörendsten Aktion hier.
+      replaceTitle: 'Konfiguration ersetzen?',
+      replaceLead: '«{file}» ersetzt die gesamte Konfiguration dieser Wehr. Nichts wird zusammengeführt: Was in der Datei fehlt, ist danach leer.',
+      replaceEmpties: 'Diese Abschnitte sind heute gefüllt und in der Datei leer – sie werden dabei geleert:',
+      replaceRollback: 'Der bisherige Stand wird vorher als «kp-front-config-vorher.json» heruntergeladen.',
+      replaceGo: 'Ersetzen',
       imported: 'Konfiguration importiert.',
       invalidSchema: 'Konfiguration ungültig (422) – Datei passt nicht zum Schema.',
+      // ⚠️ Der Server sagt genau, WAS nicht passt (`loc: ["body","mittel","sources",0]`,
+      // `input: "TLF 31"`) – die Oberfläche warf das weg und zeigte nur den 422 darüber. Eine
+      // Testperson brauchte damit drei blinde Anläufe, um zu finden, dass `units` Zeichenketten
+      // und `sources` Objekte sind. Jetzt steht pro Feld eine Zeile darunter.
+      invalidFields: 'Diese Datei passt nicht zur Konfiguration:',
+      invalidEntry: 'Eintrag {n}',
+      invalidFound: 'gefunden: {value}',
+      expectText: 'Text erwartet',
+      expectObject: 'Objekt erwartet',
+      expectList: 'Liste erwartet',
+      expectNumber: 'Zahl erwartet',
+      expectInteger: 'Ganze Zahl erwartet',
+      expectBool: 'Ja/Nein erwartet',
+      expectMissing: 'fehlt',
+      expectUnknown: 'unbekanntes Feld',
+      // Der Mittel-Katalog hat kein eigenes Formular in der Verwaltung: Katalog, Quellen und
+      // Bestände schreibt die Arbeitsmappe (Blätter «Mittel», «Quellen», «Mittel-Bestände»),
+      // die Einheiten nur eine Konfigurationsdatei. Beide Wege melden Fehler über diese Labels
+      // zurück, also braucht der Abschnitt hier seine deutschen Namen
+      // (ConfigContext · rejectedFieldLabel).
+      fieldMittelCatalogue: 'Mittel – Katalog',
+      fieldMittelSources: 'Mittel – Quellen',
+      fieldMittelUnits: 'Mittel – Einheiten',
       importFailed: 'Import fehlgeschlagen.',
       histTitle: 'Letzte Änderungen',
       histCaption: 'Jede Änderung an der Konfiguration wird aufbewahrt. «Wiederherstellen» schreibt den Stand von damals zurück – auch das ist wieder rückgängig zu machen.',
@@ -3671,9 +4003,19 @@ export const de = {
       histBy: '{source} · {name}',
       histSourceApi: 'Verwaltung',
       histSourceCli: 'Kommandozeile',
+      histSourceWorkbook: 'Arbeitsmappe',
       histSourceBranding: 'Logo-Upload',
       histSourceGeodata: 'Geodaten-Push',
+      histSourceRoster: 'Mannschaftsimport',
       histSourceUnknown: 'Unbekannt',
+      histAdminOnly: 'nur mit Adminschlüssel',
+      histChanged: 'geändert: {what}',
+      histNoChange: 'nichts geändert – dasselbe Dokument nochmals gespeichert',
+      histMore: '+{n} weitere',
+      histBurst: '{n} Speicherungen',
+      histBurstShow: 'einzeln zeigen',
+      histBurstHide: 'zusammenfassen',
+      histUntil: 'bis {time}',
       histRestoreConfirm: 'Den Stand vom {when} wiederherstellen? Die aktuelle Konfiguration wird vorher aufbewahrt.',
       histRestored: 'Stand wiederhergestellt.',
       histRestoreFailed: 'Wiederherstellen fehlgeschlagen.',
@@ -3694,6 +4036,24 @@ export const de = {
       removeItem: '{item} entfernen',
     },
     fleet: {
+      // ── Fahrzeuge: die einzige bearbeitbare Liste auf dieser Seite ──
+      groupVehicles: 'Fahrzeuge',
+      vehiclesTip: 'Diese Liste ergibt das Raster «Alarmierungs-/Ausrückzeiten» auf dem Rapport und auf dem gedruckten Erfassungsblatt. Ohne Eintrag fehlt das Raster ganz.',
+      vehiclesEmpty: 'Noch keine Fahrzeuge hinterlegt – der Rapport druckt dann kein Raster für Ausrückzeiten.',
+      vehicleLabel: 'Bezeichnung',
+      vehicleLabelTip: 'So steht das Fahrzeug auf dem Rapport und auf dem Erfassungsblatt – z. B. «TLF 1».',
+      vehicleLabelPlaceholder: 'TLF 1',
+      vehicleId: 'Kennung',
+      vehicleIdTip: 'Der technische Schlüssel: klein, ohne Leerzeichen und identisch mit dem Gerätenamen in der Fahrzeugortung (z. B. «tlf-1») – nur so landen GPS- und Alarmzeiten beim richtigen Fahrzeug. Wird sie später geändert, erscheinen bereits erfasste Zeiten als zusätzliche Zeile.',
+      vehicleIdPlaceholder: 'tlf-1',
+      vehicleAdd: 'Fahrzeug hinzufügen',
+      vehicleRemove: 'Fahrzeug entfernen',
+      vehicleIncomplete: 'Unvollständig – die Zeile wird erst mit Bezeichnung und Kennung gespeichert.',
+      vehicleDuplicate: 'Diese Kennung gibt es schon – die Zeile wird nicht gespeichert.',
+      // ── Symbol-Auswahllisten: hier nur Ansicht, geschrieben wird auf dem Blatt «Symbolfelder» ──
+      attributesTitle: 'Auswahllisten der Symbole',
+      cliHint: 'Diese Tabelle zeigt nur an. Bearbeitet werden die Listen unter «Daten» → «Arbeitsmappe», auf dem Blatt «Symbolfelder» – eine Zeile je Option (Symbol, Feld, Option). Ohne Tabellenprogramm: «Sicherung» → Konfiguration exportieren, in der Datei fleet.attributeLists ergänzen und wieder importieren. Mit Kommandozeile, im Verzeichnis backend/:',
+      cliCmd: 'uv run python -m app.admin_config push station.json',
       filterPlaceholder: 'Symbol suchen …',
       loading: 'Symbolbibliothek wird geladen …',
       noMatches: 'Kein Symbol passt zur Suche.',
@@ -3780,8 +4140,28 @@ export const de = {
       guardSelfDeactivate: 'Du kannst dein eigenes Konto nicht deaktivieren.',
       guardLastCmdDeactivate: 'Das letzte aktive Bearbeiter-Konto kann nicht deaktiviert werden.',
       guardLabel: 'Geschützte Aktionen für {name}',
-      newPinPrompt: 'Neue PIN für {name} ({n} Ziffern):',
-      pinInvalid: 'PIN muss genau {n} Ziffern haben.',
+      // Rolle als bewusste Wahl (keine Vorauswahl) — die Karten benennen die Folge im
+      // Einsatz, nicht das Datenmodell.
+      roleQuestion: 'Was darf {name} im Einsatz?',
+      roleQuestionAnon: 'diese Person',
+      roleRequired: 'Pflichtangabe',
+      roleEditorMeans: 'Trägt im Einsatz ein: Journal, Anwesenheit, Lage und Rapport.',
+      roleViewerMeans: 'Liest nur mit. Kann im Einsatz nichts eintragen – auch die eigene Anwesenheit nicht.',
+      roleChangeableHint: 'Beides lässt sich später ändern. Nur nicht mitten im Einsatz, wenn niemand die Verwaltung offen hat.',
+      rolePickFirst: 'Rolle wählen, dann anlegen',
+      // PIN setzen im eigenen Pinpad-Sheet (statt window.prompt)
+      pinSheetTitle: 'Neue PIN setzen',
+      pinSheetSub: 'Die bisherige PIN gilt sofort nicht mehr.',
+      pinConfirmTitle: 'Nochmals eingeben',
+      pinConfirmSub: 'Damit ein Vertipper niemanden aussperrt.',
+      pinEnterHint: '{n} Ziffern eingeben',
+      pinConfirmHint: 'Zur Bestätigung nochmals eingeben',
+      pinMatch: 'Stimmt überein',
+      pinMismatch: 'Die beiden Eingaben stimmen nicht überein.',
+      pinTrivial: 'Diese PIN ist zu einfach – bitte eine andere wählen.',
+      pinNext: 'Weiter',
+      pinBack: 'Zurück',
+      pinSave: 'PIN speichern',
     },
     roster: {
       // Name format — one order for the whole Wehr. It sits here because the effect is visible
@@ -3823,6 +4203,40 @@ export const de = {
       inactive: 'Inaktiv',
       deactivate: 'Deaktivieren',
       reactivate: 'Reaktivieren',
+      // Grade zuordnen — der Schritt VOR dem Schreiben. Ein unbekannter Grad ist eine Frage
+      // pro Wert (nicht pro Zeile), und solange eine offen ist, wird nichts importiert.
+      mapTitle: 'Grade zuordnen',
+      mapIntro: 'Die Datei nennt Grade, welche die Gradliste der Station nicht kennt. Zuordnen, übernehmen oder weglassen – ohne Entscheid wird nichts importiert.',
+      mapColValue: 'Aus der Datei',
+      mapColAffected: 'Betrifft',
+      mapColTarget: 'Wird zu',
+      mapPeopleCount: '{n} Personen',
+      mapPeopleCountOne: '1 Person',
+      mapTargetFor: 'Wird zu – {value}',
+      mapAdoptOption: 'Neuer Grad: {value}',
+      mapDropOption: 'Ohne Grad importieren',
+      mapApplyAndImport: 'Zuordnen und {n} importieren',
+      mapAdoptAndImport: 'Übernehmen und {n} importieren',
+      mapAdoptAll: 'Alle {n} Grade übernehmen',
+      mapNoOwnListTitle: 'Die Station hat noch keine eigene Gradliste.',
+      mapNoOwnListBody: 'Bis jetzt gilt die mitgelieferte Schweizer Liste. Kommt die Datei aus der bisherigen Mannschaftsliste, sind ihre Grade die richtigen – einmal übernehmen, dann sind sie bekannt.',
+      mapAdoptNoteTitle: 'Übernommene Grade kommen in die Gradliste der Station.',
+      mapAdoptNoteBody: 'Beim nächsten Import sind sie bekannt und diese Frage kommt nicht wieder. Neue Grade stehen am Ende der Liste – zuunterst in der Rangfolge.',
+      mapMaterialiseHint: 'Die mitgelieferten Grade bleiben erhalten: sie werden zur eigenen Liste der Station, ergänzt um die neuen.',
+      ranksAdopted: '{n} Grade übernommen',
+      ranksAdoptedOne: '1 Grad übernommen',
+      // Bestätigung vor JEDEM Import — nicht nur, wenn ein Grad unbekannt ist. Genau diese
+      // Lücke hat einer Station beim zweiten Klick auf dieselbe Datei die Mannschaft verdoppelt.
+      confirmTitle: 'Import prüfen',
+      confirmSubtitle: '{file} · {n} Zeilen mit Namen',
+      confirmNew: 'Neu: {n}',
+      confirmUpdated: 'Wird aktualisiert: {n}',
+      confirmSkippedRows: 'Unlesbar, wird übersprungen: {n}',
+      confirmMatchHint: 'Erkannt wird über den Namen – wer bereits erfasst ist, wird aktualisiert statt ein zweites Mal angelegt.',
+      confirmNothing: 'Diese Datei enthält keine Zeile, die importiert werden kann.',
+      confirmImport: 'Importieren',
+      createdBadge: '{n} neu',
+      updatedBadge: '{n} aktualisiert',
     },
     data: {
       testConnection: 'Verbindung testen',
@@ -3863,8 +4277,8 @@ export const de = {
       objectsUnavailable: 'Objekte nicht verfügbar.',
       objectsError: 'Objekte konnten nicht geladen werden.',
       objectsNone: 'Keine Objekte hinterlegt.',
-      objectsHintBefore: 'Objekte und ihre Pläne werden serverseitig eingespielt – per ',
-      objectsHintAfter: ' aus dem privaten Datenrepository. Hier erscheinen sie danach zur Ansicht.',
+      objectsHintBefore: 'Hier anlegen – oder viele auf einmal per ',
+      objectsHintAfter: ' aus einem Manifest. Erst wenn ein Objekt existiert, kann ein Plan überhaupt daran hängen.',
       mapLoading: 'Karte wird geladen…',
       noLocation: 'kein Standort',
       geodataLoading: 'Daten werden geladen…',
@@ -3889,6 +4303,131 @@ export const de = {
       showAll: 'Alle zeigen',
       showAllTitle: 'Alle Objekte zeigen',
     },
+    // ── Einsatzobjekte: anlegen, korrigieren, Modul-PDFs anhängen ──
+    // Der zeitgesteuerte Abgleich aus dem Planspeicher hängt nur an, er legt nichts an – und er
+    // trifft über den Ordner-Schlüssel, den diese Maske nicht schreiben kann. Beides steht auf
+    // der Seite, weil der Fehler sonst lautlos ist: ein veröffentlichter Plan, der nie auftaucht.
+    objects: {
+      add: 'Objekt hinzufügen',
+      edit: 'Bearbeiten',
+      editAria: '{name} bearbeiten',
+      newTitle: 'Neues Einsatzobjekt',
+      editTitle: 'Einsatzobjekt bearbeiten',
+      keyLabel: 'Schlüssel',
+      keyHint: 'kurz und wiedertippbar',
+      keyPlaceholder: 'schulhaus-dorfmatt',
+      keyTip: 'Der Schlüssel ergibt die feste Objekt-ID – derselbe Schlüssel trifft immer dasselbe '
+        + 'Objekt, auch aus einem admin_objects-Manifest. Darum nie eine UUID tippen. Später nicht '
+        + 'mehr änderbar: ein neuer Schlüssel ist ein neues Objekt.',
+      keyRequired: 'Ohne Schlüssel lässt sich keine Objekt-ID bilden.',
+      keyInsecure: 'Dieser Browser gibt die nötige Krypto-Funktion nur über HTTPS frei. Objekt '
+        + 'anlegen geht deshalb hier nicht – die Anlage über https aufrufen oder das Objekt mit '
+        + 'admin_objects anlegen.',
+      derivedId: 'Objekt-ID',
+      nameLabel: 'Name',
+      addressLabel: 'Adresse',
+      addressHint: 'wie in der Alarmdepesche',
+      addressTip: 'Die Adresse ist das erste Zuordnungsmerkmal: stimmt sie mit der Einsatzadresse '
+        + 'überein, erscheint dieses Objekt am Einsatz – unabhängig von der Distanz.',
+      latLabel: 'Breite',
+      lngLabel: 'Länge',
+      coordsTip: 'WGS84 in Dezimalgrad (z. B. 47.4712 / 7.5501). LV95-Meter werden abgewiesen.',
+      coordsPair: 'Breite und Länge nur zusammen – oder beide leer.',
+      coordsInvalid: 'Koordinaten müssen Dezimalgrad sein (Breite −90…90, Länge −180…180).',
+      coordsProjected: 'Das sieht nach LV95-Metern aus, nicht nach WGS84-Grad. Zuerst umrechnen.',
+      noteLabel: 'Notiz',
+      noteHint: 'woher die Angaben stammen',
+      save: 'Speichern',
+      saving: 'Speichere…',
+      saveFailed: 'Objekt konnte nicht gespeichert werden.',
+      plansTitle: 'Modulpläne',
+      plansHint: 'Ein erneuter Upload ersetzt den Plan: gleiche Kachel, neue Version – nie ein zweiter Eintrag.',
+      plansHintNew: 'Pläne lassen sich anhängen, sobald das Objekt gespeichert ist.',
+      choosePdf: 'PDF wählen',
+      replacePdf: 'PDF ersetzen',
+      uploading: 'Lädt hoch…',
+      uploadFailed: 'Plan konnte nicht hochgeladen werden.',
+      planVersion: 'v{n} · {date}',
+      noPlanYet: 'kein Plan',
+      offCatalogue: 'nicht im Katalog',
+      subslotLabel: 'Untermodul',
+      subslotAdd: '{module}: Untermodul anlegen',
+      subslotPlaceholder: 'wasser',
+      pullNote: 'Der zeitgesteuerte Abgleich aus dem Planspeicher hängt Pläne nur an bestehende '
+        + 'Objekte an – er legt keine an. Ein Plan ohne passendes Objekt wird übersprungen und gezählt.',
+      pullKeyNote: 'Zugeordnet wird über den Ordner-Schlüssel des Planspeichers. Den setzt nur '
+        + 'admin_objects; hier angelegte Objekte nehmen ihre Pläne über den Upload in der Maske entgegen.',
+    },
+    // ── Checklisten ──
+    // ⚠️ Löschen ist der Grund, warum diese Seite mehr als einen Upload-Knopf hat: der Server
+    // kennt nur «behalte genau diese» (prune), nicht «lösche jene». Eine umbenannte Vorlage
+    // bliebe sonst als Geist liegen und würde weiter an jedes Tablet ausgeliefert.
+    checklists: {
+      intro: 'Die Checklisten dieser Wehr: Aufgabenlisten (FU), Lagerapport und das '
+        + 'Einsatzleiter-Nachschlagewerk. Eine Vorlage ist eine JSON-Datei; sie gilt für alle Geräte.',
+      pruneNote: 'Löschen läuft über denselben Weg wie admin_checklists: Der Server behält genau '
+        + 'die Vorlagen, die diese Seite ihm nennt. Wird eine Vorlage unter neuem Namen hochgeladen, '
+        + 'bleibt die alte bestehen, bis sie hier gelöscht wird.',
+      cliHint: 'Viele Vorlagen auf einmal – aus einem Manifest, im Verzeichnis backend/:',
+      cliCmd: 'uv run python -m app.admin_checklists push checklists.manifest.json',
+      upload: 'Vorlage hochladen',
+      loading: 'Checklisten werden geladen…',
+      loadError: 'Checklisten konnten nicht geladen werden.',
+      none: 'Keine Checklisten hinterlegt.',
+      noneHint: 'Solange keine hinterlegt ist, zeigt die Checkliste-Ansicht die mitgelieferte Beispielliste.',
+      colTitle: 'Checkliste',
+      colSlug: 'Kennung',
+      colVersion: 'Version',
+      colUpdated: 'Stand',
+      colAssets: 'Diagramme',
+      colActions: 'Aktionen',
+      deleteAria: '{title} löschen',
+      addAsset: 'Diagramme',
+      delete: 'Löschen',
+      deleting: 'Lösche…',
+      deleted: '{n} Datensätze gelöscht.',
+      deleteFailed: 'Löschen fehlgeschlagen.',
+      deleteTitle: 'Checkliste löschen',
+      deleteBody: '«{title}» wird nicht mehr ausgeliefert. Diese Datensätze werden entfernt:',
+      deleteNote: 'Tablets, die die Vorlage schon geladen haben, behalten ihre Kopie bis zum nächsten Abgleich.',
+      orphans: '{n} Diagramme ohne Vorlage – Reste einer umbenannten oder gelöschten Checkliste.',
+      cleanOrphans: 'Reste entfernen',
+      uploadTitle: 'Checklisten-Vorlage hochladen',
+      uploadHint: 'Die Datei bestimmt selbst, wohin sie gehört: ihre eigene «id» ist die Kennung. '
+        + 'Gleiche Kennung heisst ersetzen.',
+      pickFile: 'JSON wählen',
+      uploadConfirm: 'Hochladen',
+      uploadingLabel: 'Lädt hoch…',
+      uploadFailed: 'Vorlage konnte nicht hochgeladen werden.',
+      factTitle: 'Titel',
+      factSlot: 'Ablage',
+      factKind: 'Art',
+      factSections: 'Abschnitte',
+      willCreate: 'Wird neu angelegt.',
+      willReplace: 'Ersetzt «{title}» (bisher v{v}).',
+      orderLabel: 'Reihenfolge',
+      orderHint: 'kleiner = weiter oben in der Leiste',
+      kindAction: 'Aufgaben',
+      kindRapport: 'Lagerapport',
+      kindReference: 'Nachschlagen',
+      added: '«{title}» hinzugefügt.',
+      replaced: '«{title}» ersetzt.',
+      assetTitle: 'Diagramme – {title}',
+      assetHint: 'Seitenbilder des Nachschlagewerks. Die Seitenzahl ist die, auf die sich die '
+        + 'Vorlage bezieht.',
+      assetPage: 'Seite',
+      assetPageHint: 'wie in der Vorlage',
+      assetFile: 'Bild',
+      pickImage: 'Bild wählen',
+      assetAdded: 'Diagramm zu Seite {page} gespeichert.',
+      notJson: 'Das ist keine gültige JSON-Datei.',
+      notObject: 'Eine Vorlage muss ein JSON-Objekt sein.',
+      fieldMissing: 'Vorlage: Feld «{field}» fehlt oder ist leer.',
+      badKind: 'Vorlage: unbekannte Art «{kind}» (erwartet: action, rapport oder reference).',
+      needsPhasesOrEntries: 'Vorlage braucht genau eines von «phases» (Aufgaben/Lagerapport) oder '
+        + '«entries» (Nachschlagen).',
+      badId: 'Die «id» der Vorlage darf keinen Doppelpunkt und keine Leerzeichen enthalten.',
+    },
     modules: {
       empty: 'Keine Module konfiguriert.',
       usingDefaults: 'Keine eigenen Module konfiguriert – es gelten die mitgelieferten Standard-Module.',
@@ -3911,6 +4450,10 @@ export const de = {
       viewerBadge: 'Nur Ansicht',
       viewerHint: 'PDF ohne Zeichnen',
       objectsTitle: 'Objekte & Pläne',
+      cliHint: 'Einzelne Objekte und ihre Modulpläne werden unten bearbeitet. Der Modul-Katalog '
+        + 'selbst und ganze Plan-Importe laufen über die Kommandozeile, im Verzeichnis backend/:',
+      cliCmdObjects: 'uv run python -m app.admin_objects push manifest.json',
+      cliCmdConfig: 'uv run python -m app.admin_config push station.json',
     },
     layers: {
       filterPlaceholder: 'Ebene suchen …',
@@ -3940,6 +4483,64 @@ export const de = {
       attribution: 'Quelle',
       source: 'Quelle',
       datasetsTitle: 'Geladene Datensätze',
+      cliHint: 'Nur diese Übersicht ist schreibgeschützt. Raster-Ebenen (WMS/WMTS) und GeoJSON-Ebenen werden weiter unten auf dieser Seite eingerichtet. Ganze Manifeste – viele Ebenen und Geodaten auf einmal – gehen über die Kommandozeile, im Verzeichnis backend/:',
+      cliCmd: 'uv run python -m app.admin_geodata push manifest.json',
+      panelHint: 'Beim GeoJSON-Upload werden Datei und Ebene zusammen eingerichtet – eines ohne das andere nützt nichts.',
+      // GeoJSON-Ebenen: eigene Geodaten als Datei. Der Upload macht beide Hälften – Datei in
+      // den Datensatz-Speicher UND Ebene in die Konfiguration –, denn eine ohne die andere
+      // nützt nichts.
+      geojsonTitle: 'GeoJSON-Ebenen (Vektor)',
+      geojsonTip: 'Eigene Geodaten als Datei: Hydranten, ein Leitungskataster-Export, der Zonenplan der Gemeinde. Datei auswählen, benennen, hochladen – die Ebene erscheint danach im Einsatz unter «Ebenen». Bedingung: GeoJSON in WGS84 [lng, lat], also EPSG:4326. Schweizer Exporte kommen meist in LV95 und müssen vorher umprojiziert werden.',
+      geojsonEmpty: 'Noch keine GeoJSON-Ebene geladen.',
+      geojsonAdd: 'GeoJSON-Ebene hinzufügen',
+      geojsonLabel: 'Bezeichnung',
+      geojsonLabelPlaceholder: 'z. B. Hydranten',
+      geojsonId: 'Kennung',
+      geojsonIdTip: 'Technischer Name der Ebene – er bestimmt auch, unter welchem Namen die Datei gespeichert wird (geo:kennung). Folgt der Bezeichnung, solange keine Datei geladen ist; danach bleibt er stehen, denn das Gerät merkt sich daran, ob die Ebene eingeschaltet war.',
+      geojsonIdPlaceholder: 'hydranten',
+      geojsonGroupPlaceholder: 'z. B. Wasser',
+      geojsonGeometryTip: 'Punkte werden als Symbol gezeichnet, Linien und Flächen als Strich. Wird aus der Datei vorgeschlagen.',
+      geojsonFile: 'Datei',
+      geojsonFileTip: 'GeoJSON FeatureCollection in WGS84 [lng, lat]. Wird vor dem Hochladen geprüft – Anzahl Features und Geometrie stehen danach hier.',
+      geojsonPick: 'Datei auswählen',
+      geojsonPickOther: 'Andere Datei',
+      geojsonUpload: 'Hochladen und Ebene anlegen',
+      geojsonUploading: 'Wird hochgeladen …',
+      geojsonCancel: 'Abbrechen',
+      geojsonReplace: 'Datei ersetzen',
+      geojsonRemove: 'Ebene entfernen',
+      geojsonIncomplete: 'Noch nicht gespeichert – Datei und Bezeichnung gehören zusammen.',
+      geojsonNoId: 'Noch nicht gespeichert – ohne Kennung fehlt der Ebene der Name, unter dem sie geführt wird.',
+      geojsonNoLabel: 'Ohne Bezeichnung erscheint auf der Karte die Kennung.',
+      geojsonDatasetTaken: 'Unter dieser Kennung liegt schon eine Datei im Speicher – sie wird beim Hochladen ersetzt.',
+      geojsonDatasetMissing: 'Datei nicht im Speicher – mit «Datei ersetzen» neu hochladen.',
+      geojsonVersion: 'Version {v}',
+      geojsonStored: '«{name}» gespeichert – {n} Features. Die Ebene erscheint im Einsatz unter «Ebenen».',
+      geojsonReplaced: 'Ersetzt – Version {v}, {n} Features.',
+      geojsonUploadFailed: 'Hochladen fehlgeschlagen.',
+      // Die Absage nennt den Weg hinaus, nicht nur das Problem: LV95 ist der Normalfall
+      // schweizerischer Exporte, und ohne diese Zeile bleibt die Wehr beim «geht nicht» stehen.
+      geojsonReproject: 'Umprojizieren: in QGIS «Layer → Speichern als …» mit KBS EPSG:4326, oder auf der Kommandozeile ogr2ogr -f GeoJSON -t_srs EPSG:4326 neu.geojson alt.geojson.',
+      // Raster-Ebenen sind der eine Fall, den der Kanton fertig liefert: eine URL-Vorlage,
+      // die es hierher zu kopieren gilt.
+      rasterTitle: 'Raster-Ebenen (WMS/WMTS)',
+      rasterTip: 'Karten, die als Bildkacheln von einem fremden Server kommen – typischerweise vom Kanton: Leitungskataster, Gewässerschutz, Zonenplan. Der Kanton gibt eine URL-Vorlage heraus; die gehört hierher. Eigene Geodaten als Datei gehören weiter oben unter «GeoJSON-Ebenen».',
+      rasterEmpty: 'Noch keine Raster-Ebene eingerichtet.',
+      rasterLabel: 'Bezeichnung',
+      rasterLabelPlaceholder: 'z. B. Leitungskataster',
+      rasterId: 'Kennung',
+      rasterIdTip: 'Technischer Name der Ebene – folgt der Bezeichnung, bis er von Hand geändert wird. Muss eindeutig sein; das Gerät merkt sich daran, ob die Ebene eingeschaltet war.',
+      rasterIdPlaceholder: 'leitungskataster',
+      rasterGroupPlaceholder: 'z. B. Kanton',
+      rasterKind: 'Dienst',
+      rasterTiles: 'URL-Vorlage',
+      rasterTilesTip: 'Eine Vorlage pro Zeile. WMTS enthält {z}/{x}/{y}, WMS eine GetMap-Adresse mit {bbox-epsg-3857}. Steht so in der Doku des Kantons – am einfachsten von dort kopieren.',
+      rasterTilesPlaceholder: 'https://…/{z}/{x}/{y}.png',
+      rasterAttributionPlaceholder: 'z. B. © Geodaten Kanton Basel-Landschaft',
+      rasterAdd: 'Raster-Ebene hinzufügen',
+      rasterRemove: 'Ebene entfernen',
+      rasterIncomplete: 'Noch nicht gespeichert – Bezeichnung, Kennung und mindestens eine URL-Vorlage gehören zusammen.',
+      rasterDuplicate: 'Diese Kennung ist schon vergeben – jede Ebene braucht eine eigene.',
     },
     branding: {
       logo: 'Logo',
@@ -3948,6 +4549,10 @@ export const de = {
       reportLogoHint: 'Kopf des gedruckten Einsatzrapports – leer = Logo oben',
       favicon: 'Favicon',
       faviconHint: 'Browser-Tab',
+      appIcon192: 'App-Icon 192',
+      appIcon192Hint: 'Startbildschirm – quadratisches PNG, 192×192',
+      appIcon512: 'App-Icon 512',
+      appIcon512Hint: 'Startbildschirm & Splash – quadratisches PNG, 512×512',
       usingDefault: 'Standard',
       upload: 'Bild auswählen',
       uploading: 'Wird hochgeladen…',
@@ -3955,7 +4560,10 @@ export const de = {
       removeConfirm: 'Dieses Bild entfernen?',
       uploadFailed: 'Hochladen fehlgeschlagen',
       removeFailed: 'Entfernen fehlgeschlagen',
-      iconsNote: 'App-/Startbildschirm-Icons werden beim Build gesetzt (separat).',
+      // ⚠️ Die iOS-Warnung ist kein Beiwerk: das Home-Screen-Icon wird beim Hinzufügen
+      // eingefroren und nie neu gelesen – das ist die häufigste «das Rebranding hat nicht
+      // funktioniert»-Frage, und diese Zeile ist der Ort, wo eine Wehr sie beantwortet sieht.
+      iconsNote: 'Name, Farbe und diese Icons erscheinen auf dem Startbildschirm der installierten App. Achtung: iOS merkt sich das Icon beim Hinzufügen zum Startbildschirm und liest es nie wieder neu – auf einem Tablet, auf dem die App bereits liegt, bleibt das alte Icon, bis sie entfernt und neu hinzugefügt wird.',
     },
     system: {
       loading: 'Systemdaten werden geladen…',

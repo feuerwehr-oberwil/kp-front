@@ -480,6 +480,12 @@
 .adm-save-ok { color: var(--green-strong); font-size: 12.5px; font-weight: 600; }
 .adm-save-err { color: var(--red); font-size: 12.5px; font-weight: 600; }
 
+/* What the server refused, field by field — a config import 422 (ConfigBackup), and the same
+   list re-used to say which sections a replace would empty. Regular weight inside a bold
+   heading line: the heading is the verdict, these are the individual edits to make. */
+.adm-import-errs { margin: 6px 0 0; padding-left: 18px; font-weight: 500; line-height: 1.55; }
+.adm-import-errs li { margin: 2px 0; }
+
 /* ── custom dropdown (Select) — themed listbox replacing native <select> ───── */
 .adm-select { position: relative; }
 .adm-select-btn {
@@ -1092,6 +1098,48 @@
   margin: 4px 0 0; padding-left: 18px;
   font-size: 12px; color: var(--ink-soft); line-height: 1.5;
 }
+/* «Neu: 0 · Wird aktualisiert: 14» — the sentence that tells an operator this file has already
+   been imported. Full ink, not the muted grey of the error list underneath it. */
+.adm-roster-plan {
+  margin: 8px 0 0; padding-left: 18px;
+  font-size: 13.5px; color: var(--ink); line-height: 1.7;
+}
+
+/* ── Grade zuordnen: the mapping sheet a CSV import stops at ──────────────────
+   One row per unknown VALUE (never per person), so the raw string is what the eye lands on
+   and the count sits under it as the consequence. */
+/* ⚠️ `flex: none`, because `.ip-body` is a flex column with a bounded height: as a shrinkable
+   item, the scroll container collapsed to ~10px on a phone and the table drew straight over the
+   panel below it. The sheet body is the thing that scrolls, not the table. */
+.adm-rankmap-wrap { flex: none; }
+.adm-rankmap td { vertical-align: middle; }
+.adm-rankmap-target { width: 240px; }
+.adm-rankmap-raw { font-family: var(--mono); font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.adm-rankmap-count { font-size: 11.5px; color: var(--ink-faint); }
+/* The blue «somebody has to decide» panel — never the brand red, which means alarm. */
+.adm-rankmap-note {
+  display: flex; gap: 12px; padding: 13px 15px; border-radius: var(--r-ctl);
+  background: color-mix(in srgb, var(--blue) 7%, var(--surface-2));
+  border: 1px solid color-mix(in srgb, var(--blue) 30%, var(--border-soft));
+}
+.adm-rankmap-note > .i { flex: none; width: 20px; height: 20px; color: var(--blue); margin-top: 1px; }
+.adm-rankmap-note-txt { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.adm-rankmap-note-t { font-size: 13px; font-weight: 700; color: var(--ink); }
+.adm-rankmap-note-b { font-size: 12.5px; line-height: 1.5; color: var(--ink-faint); }
+.adm-rankmap-note-acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+/* On a phone the three columns become one block per value. ⚠️ NOT a horizontal scroll: the
+   picker is the widest cell, so scrolling to reach it pushes the raw value — the thing being
+   decided about — off the left edge, and you end up choosing a Grad for a word you can no
+   longer read. */
+@media (max-width: 620px) {
+  .adm-rankmap-wrap { overflow-x: visible; }
+  .adm-rankmap thead { display: none; }
+  .adm-rankmap tr { display: block; padding: 12px 0; border-bottom: 1px solid var(--border-soft); }
+  .adm-rankmap tr:last-child { border-bottom: none; }
+  .adm-rankmap td { display: block; width: auto; padding: 0 0 8px; border: none; }
+  .adm-rankmap td:last-child { padding-bottom: 0; }
+  .adm-rankmap-target { width: auto; }
+}
 
 /* ── System view (Batch E): metrics, usage bars, maintenance actions ─────────── */
 .adm-sys-counts, .adm-sys-storage, .adm-sys-caches { display: flex; flex-direction: column; gap: 10px; }
@@ -1198,8 +1246,12 @@
   border-radius: var(--r-ctl); box-shadow: var(--shadow);
 }
 /* portalled to <body> (fixed coords from the trigger) so a long menu never forces the
-   table's scroll container to scroll; z above the admin chrome */
-.adm-menu-portal { z-index: 1200; }
+   table's scroll container to scroll.
+   ⚠️ Deliberately carries NO z-index. This class lands on Base UI's POPUP, which is
+   `position: static` inside a transformed positioner — a z-index here is inert, and on v0.6.0
+   that left every row action painting behind `.adm` (fixed, z-index:100): invisible and
+   unclickable. The stacking lives on the positioner (`.ui-menu-pos`, 13-incident.css) plus the
+   admin-scoped raise at the end of this file. */
 .adm-menu-item {
   display: flex; flex-direction: column; gap: 2px; width: 100%;
   padding: 8px 10px; border: none; border-radius: var(--r-sm);
@@ -1264,9 +1316,11 @@
   font: 400 11.5px var(--mono); white-space: pre; }
 
 /* «Letzte Änderungen» (System › Sicherung) — the kept configurations, and the way back.
-   One row per write, leading with WHAT IT EMPTIED rather than with a diff: a diff of a
-   clobbered config is hundreds of lines of noise, and «hat 4 Abschnitte geleert» is the
-   damage in the words of the thing that was lost. See api/config · list_config_history. */
+   One row per write, leading with WHAT IT EMPTIED or CHANGED rather than with a diff: a diff of
+   a clobbered config is hundreds of lines of noise, and «hat 4 Abschnitte geleert» is the
+   damage in the words of the thing that was lost. See api/config · list_config_history.
+   A burst of autosaves from one hand is ONE row (.adm-hist-burst) that can be opened into its
+   individual writes (.adm-hist-nested) — see ConfigHistory · groupBursts. */
 .adm-hist { display: flex; flex-direction: column; gap: 2px; }
 .adm-hist-row { display: flex; align-items: center; gap: 12px; min-height: 52px;
   padding: 8px 10px; border-radius: var(--r-ctl); }
@@ -1289,9 +1343,18 @@
   background: var(--surface); color: var(--ink); font: 700 12.5px var(--body); }
 .adm-hist-btn:hover:not(:disabled) { border-color: var(--ink-faint); }
 .adm-hist-btn:disabled { opacity: .5; cursor: default; }
+/* a collapsed burst: the summary row plus, once opened, its individual writes indented under it */
+.adm-hist-burst { display: flex; flex-direction: column; gap: 2px; }
+.adm-hist-when-to { display: block; font: 500 11px var(--mono); color: var(--ink-faint); }
+.adm-hist-count { margin-left: 8px; font: 600 11.5px var(--body); color: var(--ink-faint); }
+.adm-hist-toggle { align-self: flex-start; margin-top: 2px; padding: 0; cursor: pointer;
+  border: 0; background: none; color: var(--blue); font: 600 11.5px var(--body); }
+.adm-hist-toggle:hover { text-decoration: underline; }
+.adm-hist-nested { margin-left: 22px; border-left: 2px solid var(--border); }
 @media (max-width: 620px) {
   .adm-hist-row { flex-wrap: wrap; }
   .adm-hist-when { width: 100%; }
+  .adm-hist-when-to { display: inline; margin-left: 6px; }
 }
 
 /* «Einrichtung» (System & Wartung) — what a fresh instance still needs. Rows are BUTTONS where
@@ -1302,8 +1365,6 @@
   padding: 6px 10px; border: none; border-radius: var(--r-ctl); background: none;
   color: inherit; text-align: left; font: inherit; cursor: pointer; }
 .adm-setup-row:hover { background: var(--fill-soft); }
-.adm-setup-row.is-static { cursor: default; }
-.adm-setup-row.is-static:hover { background: none; }
 .adm-setup-dot { flex: none; display: grid; place-items: center; width: 24px; height: 24px;
   border-radius: 50%; border: 1.5px solid color-mix(in srgb, var(--ink-faint) 55%, transparent);
   color: var(--ink-faint); font-size: 13px; font-weight: 700; }
@@ -1334,3 +1395,59 @@
   color: var(--ink); font: 500 13.5px var(--body); outline: none; }
 .adm-slist-add:focus { border-style: solid; border-color: var(--blue); background: var(--surface); }
 .adm-slist-add::placeholder { color: var(--ink-faint); }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   Mitglieder: Rolle als bewusste Wahl, und die PIN im eigenen Pinpad-Sheet
+   (mockups/admin-rolle-a-explizite-wahl.html · mockups/admin-pin-a-pinpad-sheet.html)
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* Two cards, nothing preselected. «Gewählt» is BLUE — the brand red means danger in this
+   product and must never stand for "this one is picked". */
+.adm-rolepick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.adm-rolepick-opt { display: flex; flex-direction: column; gap: 4px; align-items: flex-start;
+  padding: 13px 15px; min-height: var(--tap); text-align: left; cursor: pointer;
+  border: 1px solid var(--border); border-radius: var(--r-ctl);
+  background: var(--fill-soft); color: var(--ink); font-family: var(--body);
+  transition: background .12s var(--ease), border-color .12s var(--ease), box-shadow .14s var(--ease); }
+.adm-rolepick-opt:hover:not(:disabled) { border-color: color-mix(in srgb, var(--blue) 35%, var(--border)); }
+.adm-rolepick-opt:disabled { opacity: var(--disabled); cursor: not-allowed; }
+.adm-rolepick-opt.on { background: color-mix(in srgb, var(--blue) 12%, var(--surface));
+  border-color: color-mix(in srgb, var(--blue) 45%, var(--border)); box-shadow: var(--shadow-sm); }
+.adm-rolepick-head { display: flex; align-items: center; gap: 8px; font: 700 14px var(--body); }
+.adm-rolepick-mark { width: 18px; height: 18px; flex: none; border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, var(--ink-faint) 60%, transparent);
+  display: grid; place-items: center; }
+.adm-rolepick-opt.on .adm-rolepick-mark { border-color: var(--blue); background: var(--blue); color: var(--on-fill); }
+.adm-rolepick-opt.on .adm-rolepick-mark .i { width: 11px; height: 11px; stroke-width: 3; }
+.adm-rolepick-sub { font: 500 12px/1.45 var(--body); color: var(--ink-dim); padding-left: 26px; }
+/* the «why is Anlegen off» line, left of the buttons */
+.adm-rolepick-why { display: inline-flex; align-items: center; gap: 7px;
+  font: 600 12px var(--body); color: var(--ink-faint); }
+.adm-rolepick-why .i { width: 14px; height: 14px; }
+.adm-members-formbtns { align-items: center; }
+/* the inline edit row caps its fields at 360px — two role cards need more than that */
+.adm-members-editbox .adm-rolefield { max-width: 560px; }
+
+/* ⚠️ The admin shell is a FIXED, z-index:100 surface (`.adm` at the top of this file), while an
+   app Sheet is portalled to <body> at z-index 80 (scrim) / 81 (popup). So a Sheet opened from an
+   admin view is laid out, focus-trapped and completely invisible — it paints BEHIND the admin.
+   The row menus had the same wound (and an attempted patch that could not work — see
+   `.adm-menu-portal` further up); they are lifted the same way, one rule below.
+   Scoped to «while the admin is mounted», so returning to the map restores the app's own order. */
+body:has(.adm) .ui-backdrop { z-index: 1200; }
+body:has(.adm) .ip-sheet.ui-dialog { z-index: 1201; }
+/* …and a row menu goes over BOTH, for the same reason it sits at 210 in the app: it is the
+   topmost transient layer of whatever opened it, and one of those things is a sheet opened from
+   an admin view. Same scope, so the app's own order returns with the map. */
+body:has(.adm) .ui-menu-pos { z-index: 1202; }
+
+/* PIN sheet — narrower than the standard 720px frame, because it holds one pinpad */
+.adm-pin-sheet.ip-sheet { width: min(440px, 94vw); }
+.adm-pin-sub { margin: 0 0 2px; font: 500 12.5px var(--body); color: var(--ink-faint); }
+/* the member being changed: the login screen's identity row, minus the "go back" affordance */
+.adm-pin-who { cursor: default; }
+.adm-pin-who:hover { background: var(--surface-2); }
+
+@media (max-width: 720px) {
+  .adm-rolepick { grid-template-columns: 1fr; }
+}

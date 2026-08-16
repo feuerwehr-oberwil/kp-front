@@ -8,10 +8,15 @@ on request, never hard-deleted — old incidents/reports keep referencing them.
 The diff (:func:`diff_members`) is pure so it can be unit-tested without a database.
 """
 
+import csv
+import difflib
+import io
 import logging
+import re
 import unicodedata
+import uuid
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Literal, Protocol
 
@@ -19,7 +24,8 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .config import settings
+from .credentials import get as credential
+from .divera import check_response
 from .models import DeploymentConfig, Personnel, PersonnelExternalIdentity
 
 logger = logging.getLogger(__name__)
@@ -225,18 +231,28 @@ def derive_rank_from_quals(qual_names: list[str], ranks: list[dict]) -> str | No
     return ranks[-1]["key"]  # base rank — everyone is at least this
 
 
-async def load_roster_ranks(db: AsyncSession) -> list[dict]:
-    """The active station rank list (stored config → in-code default), for import mapping.
+async def load_roster_ranks_info(db: AsyncSession) -> tuple[list[dict], bool]:
+    """``(active rank list, station has one of its own)``.
 
-    Reads the singleton deployment-config row; falls back to the shipped Swiss default when a
-    station hasn't configured ``roster.ranks`` (mirrors the frontend fallback in rank.ts)."""
+    ⚠️ The second half is the part that is easy to get wrong. A station whose ``roster.ranks``
+    is EMPTY is not a station without ranks — every reader falls back to the shipped Swiss list
+    (here and in src/lib/rank.ts), so «Wm» matches on a brand-new install and only a genuinely
+    foreign value like «Sdt» is unknown. Anything that offers to WRITE the rank list has to know
+    which of the two lists it is looking at: appending to the fallback without materialising it
+    first would replace twelve working ranks with one (see :func:`adopt_ranks`)."""
     from .admin_config import EXAMPLE_CONFIG  # local import avoids an import cycle
 
     row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     ranks = ((row.config_json or {}).get("roster", {}) or {}).get("ranks") if row else None
     if ranks:
-        return ranks
-    return EXAMPLE_CONFIG["roster"]["ranks"]
+        return list(ranks), True
+    return list(EXAMPLE_CONFIG["roster"]["ranks"]), False
+
+
+async def load_roster_ranks(db: AsyncSession) -> list[dict]:
+    """The active station rank list (stored config → in-code default), for import mapping."""
+    ranks, _own = await load_roster_ranks_info(db)
+    return ranks
 
 
 async def load_roster_name_order(db: AsyncSession) -> NameOrder:
@@ -249,6 +265,354 @@ async def load_roster_name_order(db: AsyncSession) -> NameOrder:
     return "first-last" if value == "first-last" else DEFAULT_NAME_ORDER
 
 
+# ─── CSV roster import ─────────────────────────────────────────────────────────────────
+#
+# Parsing, grouping and rank adoption for the CSV import. Split out of the endpoint because the
+# import happens in two passes over the SAME file: a preview that writes nothing, and an apply
+# that writes only after every unknown rank has been decided. Both passes must read the file
+# identically, so there is exactly one parser.
+
+
+@dataclass
+class RosterCsvRow:
+    """One accepted data row of a roster CSV. ``line`` is the 1-based line in the file
+    (header = 1), which is what an error message has to name to be actionable."""
+
+    line: int
+    name: str
+    rank_text: str
+    provider: str
+    external_id: str
+
+
+@dataclass
+class ParsedRoster:
+    rows: list[RosterCsvRow] = field(default_factory=list)
+    #: rows that cannot be imported at all (no name, malformed identity) — never written
+    skipped: int = 0
+    errors: list[str] = field(default_factory=list)
+
+
+@dataclass
+class UnknownRankGroup:
+    """One rank VALUE the station's list does not know — not one row, one value.
+
+    ⚠️ Value, not row. Forty people with the same «Sdt» are one question, and the old import
+    answered it forty times in a list of grey bullets under a green success badge. ``people``
+    carries a few names so the operator can see WHO is affected without opening the file."""
+
+    value: str
+    count: int
+    people: list[str]
+    #: a known rank key this value probably means (close spelling), or None
+    suggestion: str | None
+
+
+def parse_roster_csv(text: str) -> ParsedRoster:
+    """Read a roster CSV into rows + the row-level problems. Pure, writes nothing.
+
+    Raises :class:`ValueError` when the file has no usable header — the one condition under
+    which there is nothing to preview and nothing to import.
+    """
+    reader = csv.DictReader(io.StringIO(text))
+    if reader.fieldnames is None or "name" not in {(f or "").strip().lower() for f in reader.fieldnames}:
+        raise ValueError("CSV-Kopfzeile fehlt oder enthält keine Spalte 'name'")
+
+    out = ParsedRoster()
+    for line, raw in enumerate(reader, start=2):  # line 1 is the header
+        cells = {(k or "").strip().lower(): (v or "").strip() for k, v in raw.items()}
+        name = cells.get("name", "")
+        if not name:
+            out.skipped += 1
+            out.errors.append(f"Zeile {line}: 'name' fehlt")
+            continue
+        legacy_divera = cells.get("divera_id") or ""
+        if legacy_divera:
+            try:
+                int(legacy_divera)  # legacy contract was numeric; keep rejecting malformed rows
+            except ValueError:
+                out.skipped += 1
+                out.errors.append(f"Zeile {line}: ungültige Zahl (divera_id)")
+                continue
+        provider = (cells.get("provider") or ("divera" if legacy_divera else "")).lower()
+        external_id = cells.get("external_id") or legacy_divera or ""
+        if provider and not external_id:
+            out.skipped += 1
+            out.errors.append(f"Zeile {line}: provider braucht external_id")
+            continue
+        out.rows.append(
+            RosterCsvRow(
+                line=line,
+                name=name,
+                rank_text=cells.get("rank", ""),
+                provider=provider,
+                external_id=external_id,
+            )
+        )
+    return out
+
+
+#: How alike two rank spellings have to be before one is offered as the other's meaning.
+#: Tuned so «Oblt.» → oblt (0.89) is proposed and «Sdt» → kdt (0.67) is not: a wrong proposal
+#: that gets confirmed at 3am is worse than no proposal at all.
+_RANK_SUGGEST_CUTOFF = 0.82
+
+
+def suggest_rank(value: str, ranks: Sequence[dict]) -> str | None:
+    """The known rank key whose key/label/abbr is spelled closest to ``value`` — or None.
+
+    A proposal only, never applied on its own: the operator sees it preselected in the mapping
+    sheet and can overrule it (mockups/admin-csv-b-zuordnung.html)."""
+    needle = normalize_name(value)
+    if not needle:
+        return None
+    best: tuple[float, str] | None = None
+    for r in ranks:
+        for candidate in (r.get("key"), r.get("label"), r.get("abbr")):
+            if not candidate:
+                continue
+            score = difflib.SequenceMatcher(None, needle, normalize_name(candidate)).ratio()
+            if score >= _RANK_SUGGEST_CUTOFF and (best is None or score > best[0]):
+                best = (score, str(r.get("key")))
+    return best[1] if best else None
+
+
+#: How many affected names travel with a group — enough to recognise the people, few enough
+#: that a 40-row file stays one screen.
+_GROUP_SAMPLE_NAMES = 6
+
+
+def group_unknown_ranks(rows: Sequence[RosterCsvRow], ranks: Sequence[dict]) -> list[UnknownRankGroup]:
+    """Every rank value in the file that ``ranks`` does not cover, grouped BY VALUE.
+
+    Spelling variants of one value («Sdt», «sdt», « SDT ») are one group, labelled with the
+    first spelling seen. Groups keep file order: the file's own order is the only ordering the
+    operator can check against, and for a station adopting the whole column it becomes the
+    seniority order of the new rank list."""
+    groups: dict[str, UnknownRankGroup] = {}
+    for row in rows:
+        if not row.rank_text or match_rank(row.rank_text, list(ranks)):
+            continue
+        key = normalize_name(row.rank_text)
+        group = groups.get(key)
+        if group is None:
+            group = UnknownRankGroup(
+                value=row.rank_text, count=0, people=[], suggestion=suggest_rank(row.rank_text, ranks)
+            )
+            groups[key] = group
+        group.count += 1
+        if len(group.people) < _GROUP_SAMPLE_NAMES:
+            group.people.append(row.name)
+    return list(groups.values())
+
+
+def _rank_key(value: str, taken: set[str]) -> str:
+    """A config key for an adopted rank: a slug of the value, kept unique.
+
+    Uniqueness matters more than beauty — two entries sharing a key would make one of them
+    unreachable, and a person would carry a Dienstgrad that resolves to the other one."""
+    base = re.sub(r"[^a-z0-9]+", "-", normalize_name(value)).strip("-") or "grad"
+    key = base
+    n = 2
+    while key in taken:
+        key = f"{base}-{n}"
+        n += 1
+    return key
+
+
+def append_ranks(ranks: Sequence[dict], values: Sequence[str]) -> list[dict]:
+    """``ranks`` + one new entry per value, appended in the given order. Pure.
+
+    New ranks land at the END, i.e. junior-most: position in the list IS seniority here, and
+    nothing in a CSV says where an unknown rank belongs. Guessing would silently reorder a
+    station's hierarchy; appending is wrong in a way that is visible and fixable."""
+    out = [dict(r) for r in ranks]
+    taken = {str(r.get("key")) for r in out}
+    for value in values:
+        key = _rank_key(value, taken)
+        taken.add(key)
+        # label AND abbr are the raw value: the file is all we know, and inventing a long form
+        # («Sdt» → «Soldat») would put a word on a Rapport that the station never wrote.
+        out.append({"key": key, "label": value, "abbr": value, "tier": "crew"})
+    return out
+
+
+async def adopt_ranks(db: AsyncSession, values: Sequence[str], actor_id: uuid.UUID | None) -> list[dict]:
+    """Write ``values`` into the station's ``roster.ranks`` and return the new list.
+
+    ⚠️ This is a deployment-config write, and this config document has no partial writes — every
+    writer replaces the whole thing, which has cost this project its config four times. Two rules
+    keep this one safe:
+
+    * The document is read from the DATABASE and one key path is changed. No client-side draft is
+      involved, so no other section can be carried in stale and emptied — the same shape as the
+      branding upload (app/api/branding.py), and the reason this does not need the If-Match guard
+      that the Verwaltung's full-document PUT does.
+    * :func:`config_history.keep_previous` runs first, in this session, so the write is undoable
+      through «Letzte Änderungen» like every other one.
+
+    ⚠️ On a station with no list of its OWN, the shipped Swiss default is materialised first. It
+    was already the effective list, so this changes nothing anybody can see — but writing only the
+    adopted ranks would leave every person already carrying «wm» or «kpl» pointing at a key that
+    no longer exists.
+
+    Caller's transaction: nothing is committed here, so an import that aborts afterwards takes
+    the rank write down with it.
+    """
+    from .config_history import keep_previous  # local imports avoid an import cycle
+    from .schemas import load_stored_config
+
+    ranks, has_own = await load_roster_ranks_info(db)
+    updated = append_ranks(ranks, values)
+    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+    await keep_previous(db, "roster", actor_id)
+    raw = dict((row.config_json if row else None) or {})
+    raw["roster"] = {**(raw.get("roster") or {}), "ranks": updated}
+    # Read as a STORED document (`schemas · load_stored_config`), not through the strict PUT-body
+    # model: a field that has grown a rule since it was written – an accentColor from before hex
+    # was enforced – must not make a CSV import 500 on a document it never touched. The result is
+    # still normalized, so the stored document stays canonical and GET round-trips it unchanged.
+    doc_json = load_stored_config(raw).model_dump(mode="json")
+    if row is None:
+        row = DeploymentConfig(id=1, config_json=doc_json, updated_by=actor_id)
+        db.add(row)
+    else:
+        row.config_json = doc_json
+        row.updated_by = actor_id
+    await db.flush()
+    logger.info(
+        "roster.ranks: adopted %s from a CSV import (station had %s list, now %d ranks)",
+        list(values),
+        "its own" if has_own else "no",
+        len(updated),
+    )
+    return updated
+
+
+# ─── who a CSV row is ──────────────────────────────────────────────────────────────────
+#
+# A roster CSV carries no stable id, so every row has to be decided against the roster that is
+# already there: does this line mean somebody the station has, or somebody new? Answering "new"
+# by default is what let a second pick of the SAME file insert a whole Wehr a second time.
+#
+# The key, in this order:
+#   1. ``provider`` + ``external_id`` — the canonical identity (personnel_external_identities).
+#      The only key a system of record can hand us, and the one the sync already uses.
+#   2. the person's NAME, normalized (accent-, case- and whitespace-insensitive). For anyone
+#      whose name is stored split, BOTH spelling orders are indexed, so flipping
+#      ``roster.nameOrder`` between two imports does not produce a second Wehr either.
+#
+# ⚠️ A name is not an identity. Two genuinely different people spelled the same collapse into
+# ONE roster row: the second import updates the first person instead of adding the second. That
+# trade is deliberate — a station of ~100 with two identical spellings is rare, an operator
+# re-picking the same file is not, and the duplicate direction is the one the Verwaltung cannot
+# undo (rows are referenced by Einsätze, so they are deactivated, never deleted). A real clash
+# is resolved by spelling one of them apart (a middle initial) or by giving the file
+# ``provider``/``external_id`` columns.
+
+
+def roster_name_key(name: str) -> str:
+    """The key a roster name is matched under — see the section note above."""
+    return normalize_name(name)
+
+
+def _name_variants(person: _SplitNamePerson, order: NameOrder) -> list[str]:
+    """Every spelling of ``person`` an import may legitimately arrive with: what is stored,
+    what the app currently SERVES, and — only where the split is known for certain — both
+    orders. Guessing the halves of a one-string name is what :func:`person_display_name`
+    refuses to do, and this must not do it either."""
+    names = [person.display_name, person_display_name(person, order)]
+    first = (person.first_name or "").strip()
+    last = (person.last_name or "").strip()
+    if first and last:
+        names += [f"{last} {first}", f"{first} {last}"]
+    return [n for n in names if n]
+
+
+@dataclass
+class RosterIndex:
+    """What the roster looks like to an import, resolved once per pass."""
+
+    by_external: dict[tuple[str, str], uuid.UUID]
+    by_name: dict[str, uuid.UUID]
+    #: ``(person, provider)`` pairs that already carry an identity — a second one for the same
+    #: provider would violate uq_personnel_external_person_provider
+    providers: set[tuple[uuid.UUID, str]]
+
+
+@dataclass
+class RosterTarget:
+    """What one CSV row will do."""
+
+    row: RosterCsvRow
+    #: the existing roster row this touches, or None when this person does not exist yet
+    person_id: uuid.UUID | None
+    #: index of the plan entry that OWNS this person — its own index when this row is the first
+    #: to name them. Two rows naming one person in one file are one person, not two.
+    owner: int
+
+
+@dataclass
+class RosterPlan:
+    """The whole file's effect, decided before anything is written. The preview and the write
+    run the SAME planner, so the numbers the operator confirms are the numbers that happen."""
+
+    targets: list[RosterTarget]
+    creates: int
+    updates: int
+    #: names the FILE itself lists more than once, first spelling seen
+    duplicate_names: list[str] = field(default_factory=list)
+
+
+def plan_roster_rows(rows: Sequence[RosterCsvRow], index: RosterIndex) -> RosterPlan:
+    """Resolve every row onto an existing person or onto a new one. Pure — no session touched."""
+    targets: list[RosterTarget] = []
+    owners: dict[tuple[str, str], int] = {}
+    duplicates: dict[str, str] = {}
+    creates = updates = 0
+    for i, row in enumerate(rows):
+        person_id: uuid.UUID | None = None
+        if row.provider and row.external_id:
+            person_id = index.by_external.get((row.provider, row.external_id))
+        name_key = roster_name_key(row.name)
+        if person_id is None:
+            person_id = index.by_name.get(name_key)
+        marker = ("id", str(person_id)) if person_id is not None else ("name", name_key)
+        owner = owners.get(marker)
+        if owner is None:
+            owner = i
+            owners[marker] = i
+            if person_id is None:
+                creates += 1
+            else:
+                updates += 1
+        else:
+            duplicates.setdefault(name_key, row.name)
+        targets.append(RosterTarget(row=row, person_id=person_id, owner=owner))
+    return RosterPlan(targets=targets, creates=creates, updates=updates, duplicate_names=list(duplicates.values()))
+
+
+async def load_roster_index(db: AsyncSession) -> RosterIndex:
+    """Read the roster into the lookup tables :func:`plan_roster_rows` matches against.
+
+    ⚠️ The OLDEST row wins a name collision inside the roster. A station that already carries
+    two people spelled the same — the duplicates every import before this fix left behind — gets
+    those rows updated; it never gets a third one on top.
+    """
+    identities = list((await db.execute(select(PersonnelExternalIdentity))).scalars())
+    people = list((await db.execute(select(Personnel).order_by(Personnel.created_at, Personnel.id))).scalars())
+    order = await load_roster_name_order(db)
+    by_name: dict[str, uuid.UUID] = {}
+    for person in people:
+        for name in _name_variants(person, order):
+            by_name.setdefault(roster_name_key(name), person.id)
+    return RosterIndex(
+        by_external={(i.provider, i.external_id): i.personnel_id for i in identities},
+        by_name=by_name,
+        providers={(i.personnel_id, i.provider) for i in identities},
+    )
+
+
 async def fetch_divera_members(order: NameOrder = DEFAULT_NAME_ORDER) -> list[dict]:
     """Fetch crew members from the Divera pull API.
 
@@ -258,14 +622,16 @@ async def fetch_divera_members(order: NameOrder = DEFAULT_NAME_ORDER) -> list[di
     resolved via the cluster catalogue — empty list when the key can't see them). Rank is
     derived from these at sync time.
     """
-    access_key = settings.divera_personnel_access_key or settings.divera_access_key
+    access_key = credential("divera_personnel_access_key") or credential("divera_access_key")
     if not access_key:
         raise ValueError("Divera access key not configured")
 
     url = f"{DIVERA_PULL_BASE_URL}/pull/all"
     async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.get(url, params={"accesskey": access_key})
-        response.raise_for_status()
+        # NOT `raise_for_status()` — its message carries the URL, and the URL carries the
+        # access key. See divera.DiveraApiError; this is the pull half of the same door.
+        check_response(response)
         data = response.json()
 
     if not data.get("success"):

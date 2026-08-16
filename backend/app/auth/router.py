@@ -9,6 +9,7 @@ from jose import JWTError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..config import settings
 from ..database import get_db
 from ..models import User
 from ..schemas import (
@@ -29,6 +30,7 @@ from .cookies import (
 from .dependencies import CurrentAdmin, CurrentUser, OptionalUser
 from .pin_limiter import pin_limiter
 from .security import (
+    TRIVIAL_PINS,
     create_access_token,
     create_refresh_token,
     decode_token,
@@ -137,12 +139,28 @@ async def me(current_user: CurrentUser) -> User:
 # so audit-log FKs (incident_events.user_id, notes, …) stay intact.
 
 
+# Operator-facing German, like every other refusal this router returns ("Falsche PIN",
+# "Benutzername bereits vergeben"). Both are the wording the admin PIN sheet already shows
+# (src/config/copy · admin.members.pinTrivial / pinInvalid), so the sheet's own guard and the
+# server's say the same sentence. `hash_pin`'s ValueError stays English: it is a console/CLI
+# message and used to be the one raw English string that reached an operator's screen.
+_PIN_TOO_SIMPLE = "Diese PIN ist zu einfach – bitte eine andere wählen."
+_PIN_WRONG_LENGTH = f"PIN muss genau {settings.pin_length} Ziffern haben."
+
+
 def _hash_pin_or_400(pin: str) -> str:
-    """Hash a PIN through the canonical hasher, mapping its policy error to HTTP 400."""
+    """Hash a PIN for storage, refusing anything an operator must not be able to set.
+
+    The single gate for BOTH PIN writers (create_user and reset_pin), so the well-known-PIN
+    rule the seeder applies at boot (security.TRIVIAL_PINS) is the same rule the API applies.
+    Checked before hashing — no point spending a bcrypt round on a PIN we are rejecting.
+    """
+    if pin in TRIVIAL_PINS:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_PIN_TOO_SIMPLE)
     try:
         return hash_pin(pin)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_PIN_WRONG_LENGTH) from e
 
 
 async def _count_active_editors(db: AsyncSession, *, exclude_id: uuid.UUID | None = None) -> int:
