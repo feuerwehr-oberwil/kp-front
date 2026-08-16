@@ -22,8 +22,21 @@ since 2026-08-02. Auto-open is no longer configurable and no longer filtered: an
 attends is kept out of the statistics afterwards (`editor_opened_at`,
 [`STATS-EXPORT.md`](STATS-EXPORT.md)), not kept out of the app beforehand.
 
-- **Auth:** `ALARM_WEBHOOK_SECRET` env var, sent as `?secret=` or `X-Webhook-Secret`.
-  Fail-closed: unset → 403 for everyone. Setting it is the opt-in.
+- **Auth:** the alarm webhook secret, sent as `?secret=` or `X-Webhook-Secret`. Fail-closed:
+  unset → 403 for everyone. Setting it is the opt-in.
+  - **Where a station sets and rotates it: `/admin` → Zugangsdaten.** `./scripts/setup.sh`
+    mints it on a fresh install into the **encrypted credential store**, not into `.env`, so a
+    normal deployment already has one and nobody has to generate anything. Rotating it there
+    takes effect **without a restart** – and invalidates every sender still using the old value,
+    so change the alerting system's copy in the same sitting. `./scripts/setup.sh --credentials`
+    re-runs just that step against an already-installed deployment and never clobbers a value
+    that has been rotated.
+  - It is **write-only**: the page can set and rotate it, never show it back. If nobody wrote
+    down what the installer minted, rotate to a value you choose rather than trying to read it.
+  - `ALARM_WEBHOOK_SECRET` in `.env` still works and **outranks** the stored value, which then
+    reports itself as server-set and refuses to save (409). Use it when you want this
+    deployment's environment, and nobody with an admin session, to own the secret.
+    [`CONFIGURATION.md` §6](CONFIGURATION.md#6-environment-variables-secrets--infra--operator-not-admin).
 - **Idempotent:** one incident per `(source, source_id)` – a retried delivery returns the
   existing incident (`200`, `"created": false`) instead of duplicating it.
 - `type`/`priority` fall back to the same keyword inference the Divera path uses – the alarm
@@ -351,9 +364,13 @@ deployment, leave `incident_link_key` unset and the surface does not exist.
 
 ## Security notes
 
-- All four secrets are independent and fail-closed: `ALARM_WEBHOOK_SECRET` (inbound),
-  the poster token (capture), `incident_link_key` (Einsatz-Link), `ADMIN_SECRET`
-  (administration).
+- All four secrets are independent and fail-closed: the alarm webhook secret (inbound), the
+  poster token (capture), `incident_link_key` (Einsatz-Link), `ADMIN_SECRET` (administration).
+  Three of the four are managed in the browser and stored in the database – the alarm webhook
+  secret at `/admin` → **Zugangsdaten** (encrypted; `ALARM_WEBHOOK_SECRET` in `.env` outranks and
+  locks it), the poster token under Personen › Erfassung, `incident_link_key` under Daten ›
+  Einsatz-Link. **Only `ADMIN_SECRET` is env-only**, and deliberately so: it gates writing the
+  very document it would otherwise live in.
 - Outbound webhook URLs are admin-set config, pinned to `http(s)`; the payload contains the
   capture URL (a capability) – point webhooks only at receivers you trust.
 - The capture surface reaches unarchived incidents without a completed Rapport at **any**

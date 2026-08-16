@@ -5,7 +5,7 @@ a yearly-statistics dashboard).
 
 ## Auth
 
-Station-level token, managed in the admin UI (**Datenquellen › Statistik-Export**:
+Station-level token, managed in the admin UI (**Daten › Statistik-Export**:
 activate / rotate / disable). Fail-closed: no token configured → every call answers
 `403`; wrong/missing token → `401`. Strictly read-only; the token grants nothing else.
 

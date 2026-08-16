@@ -79,6 +79,9 @@ Interested in using or contributing to KP Front? Start a
 
 ## Quick start
 
+**Setting up a station, not hacking on the code? Skip to [Self-host](#self-host)** – this
+section is the developer machine.
+
 Recipes use [`just`](https://github.com/casey/just) (`brew install just`). See the
 [`justfile`](justfile) for the underlying commands.
 
@@ -130,9 +133,16 @@ image – no build toolchain on the server. Setting up a station for the first t
 [`deployment guide`](docs/DEPLOYMENT.md) is the reference behind it.
 
 ```bash
-just init-env
-docker compose up -d          # ghcr.io/feuerwehr-oberwil/kp-front:${KP_FRONT_TAG:-latest}
+git checkout "$(git tag -l 'v*' --sort=-v:refname | head -n1)"   # newest release, not main
+./scripts/setup.sh            # ghcr.io/feuerwehr-oberwil/kp-front:${KP_FRONT_TAG:-latest}
 ```
+
+`setup.sh` is plain bash and docker – **a station server never needs `just`, `uv` or `pnpm`**,
+and the recipes above are the developer toolchain, not the install. It asks for your domain, the
+host port and whether to back the station up nightly, checks the port is free *before* anything
+starts, generates all four secrets, waits until the app answers, and then mints the Web Push pair
+and the two webhook secrets into the encrypted credential store – so they stay rotatable in
+`/admin` instead of frozen in `.env`. `just self-host` runs the identical script.
 
 **Getting your data in.** A fresh deployment is meant to be run empty – swisstopo base map, no
 layers, no plans, no roster, and nothing errors – then filled in whichever way suits you. There are

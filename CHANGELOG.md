@@ -76,6 +76,28 @@ so this file – not the log – is the record of what shipped up to that point.
   whole picture reads as it did when the line was written. Rows the playhead has not reached are
   dimmed: they had not been written yet.
 
+- **The station's lists are one Excel file you edit and give back.** Verwaltung › Daten ›
+  **Arbeitsmappe** downloads the Wehr's Mannschaft, Dienstgrade, Fahrzeuge, Mittel,
+  Mittel-Bestände, Quellen, Partnerorganisationen and Symbolfeld-Optionen as one `.xlsx`,
+  editable in Excel, Numbers or LibreOffice and uploaded back. The Mittel-Katalog and the
+  Dienstgrade in particular had no browser route at all. **Before anything is written the
+  screen says what would happen** – per sheet: how many rows are new, how many change, and what
+  would be *deactivated* (people, never deleted – Einsätze resolve their names through those
+  rows) or *removed* (list entries), named rather than counted, plus every refused row with its
+  sheet and row number so it can be found in the operator's own file. Cancelling writes nothing.
+  There is **no «Ersetzen» mode**: a row's absence from a sheet that is present is the only way
+  anything goes away, and a sheet the file does not carry is not touched at all – a workbook
+  with no `Fahrzeuge` tab leaves the fleet alone, while a `Fahrzeuge` tab holding only its
+  header clears it, on purpose, after saying so. The file is parsed on the server and only the
+  key paths it has sheets for are rewritten, so nothing else in the configuration can ride along
+  and the write stays undoable through «Letzte Änderungen». Ids are treated as the join keys
+  they are: a Kennung Excel turned into a date or a number is refused with the cell quoted back
+  rather than silently rewritten, formulas never import as their own text, and
+  `mittel.catalogue[].when` – a rule no spreadsheet column can express – is carried over
+  untouched. ⚠️ **It is not a backup**: it covers the list-shaped data only, and the page says
+  so. Name, Sprache, Karte, Doktrin, Alarmierung, Logos, Objektpläne, Kartenebenen and die
+  eigenen Formulare stay with the Sicherung's JSON export.
+
 ### Changed
 
 - **All four locales are complete, and a half-translated one fails the build.** Every locale is a

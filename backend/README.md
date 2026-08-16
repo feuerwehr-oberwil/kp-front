@@ -111,9 +111,18 @@ uv run python -m app.admin_objects schema                 # the manifest contrac
 uv run python -m app.admin_objects example                # a populated example manifest
 uv run python -m app.admin_objects validate <manifest>    # parse + check every PDF exists (no DB)
 uv run python -m app.admin_objects load <manifest>        # upsert objects + copy PDFs (writes DB + storage)
-uv run python -m app.admin_objects push <manifest> --base <url> --user-id <id> --pin <pin>   # → running deployment
+uv run python -m app.admin_objects push <manifest> --base <url> --admin-secret <ADMIN_SECRET>  # → running deployment
 uv run python -m app.admin_objects show                   # list stored objects + plan counts
 ```
+
+Every object needs a **stable** key, because that is what makes a rerun *update* the object
+instead of creating a second one. Give it as `"key": "schulhaus-dorfmatt"` – a short name you
+can retype next year, hashed to a fixed uuid5 – or, for manifests the private importer writes,
+as the explicit `"id"` UUID it derived. Never invent a UUID by hand.
+
+`load` and `push` always report what they did: which objects were created, which were updated,
+how many plan PDFs were attached, and – by name – any plan that did **not** land. A push that
+could not attach a plan exits non-zero.
 
 Each object becomes an `ObjectSite` row and each Modul-PDF a `ReferenceDataset`
 (`plan:<obj>:<module>`, blob in object storage), auto-surfaced on a nearby incident.

@@ -77,9 +77,30 @@ the manifest with authoritative ones from the FireGIS amtliche Vermessung regist
 
 Every path writes the same three things – an `ObjectSite` row, a `ReferenceDataset` per Modul
 (`plan:<obj>:<module>`), and the PDF blob in object storage. The deterministic `uuid5` keys
-everything, so reruns upsert in place rather than duplicating. (A third way in – the deployment
-fetching plans for itself, «Pull» below – writes through the same function, not a second copy of
-these rules.)
+everything, so reruns upsert in place rather than duplicating. (Two further ways in write through
+the same function rather than a second copy of these rules: the browser – below – and the
+deployment fetching plans for itself, «Pull» further down.)
+
+> **A single object does not need a manifest.** `/admin` → **Objektpläne** creates and edits one
+> Einsatzobjekt and uploads its Modul-PDFs slot by slot – the ordinary way a station adds the
+> building it got sent to last week. **Nobody types a UUID:** the form takes the same human `key`
+> a manifest does (`schulhaus-dorfmatt`) and hashes it to the identical `uuid5` the CLI derives
+> (`uuid5(uuid5(NAMESPACE_URL, "https://kp-front.ch/einsatzobjekte"), key)`, key whitespace-collapsed
+> and case-folded), showing the derived id live. So the browser and the manifest **address the
+> same object**: retyping the key next year updates it from either door, and a manifest run over an
+> object somebody created by hand updates it instead of duplicating it.
+>
+> ⚠️ **One thing the browser door does not set: `source_key`.** That column is what the scheduled
+> **Pull** matches on, and only `admin_objects` writes it – `PUT /api/objects/{id}` has no field
+> for it, by design or otherwise. An object created in the browser is therefore complete and
+> usable for the PDFs you upload there, and **invisible to the pull**: its plans are counted as
+> `skipped` on every run, with nothing on screen to say why. Running `admin_objects` over the
+> same `key` afterwards repairs it in place (it sets `source_key` on the existing row) – so the
+> rule is: **PDFs by hand → the browser is enough; PDFs on a timer → the object has to have come
+> through `admin_objects` at least once.**
+>
+> The manifest stays the answer for **a library at once**, for anything an importer regenerates,
+> and for a station reproduced on a second deployment.
 
 ```mermaid
 flowchart TD
@@ -105,12 +126,12 @@ flowchart TD
 | Path | Runs | Use when |
 | --- | --- | --- |
 | `load <manifest>` | **server-side** (storage = the server volume) | first seeding a deployment from a shell that has the data |
-| `push <manifest> --base URL` | workstation → server **API** (editor PIN today; deployment-admin auth target) | **refresh a live deployment** from your machine (`just push-objects`) |
+| `push <manifest> --base URL` | workstation → server **API** (the deployment's `ADMIN_SECRET`, not the editor PIN – `--admin-secret` / `KP_ADMIN_SECRET`) | **refresh a live deployment** from your machine (`just push-objects`) |
 
 ```bash
 uv run python -m app.admin_objects validate <manifest>    # parse + check every PDF exists (no DB)
 uv run python -m app.admin_objects load <manifest>        # server-side: upsert objects + copy PDFs
-uv run python -m app.admin_objects push <manifest> --base <url> --user-id <id> --pin <pin>
+uv run python -m app.admin_objects push <manifest> --base <url> --admin-secret <ADMIN_SECRET>
 uv run python -m app.admin_objects show                   # list stored objects + plan counts
 ```
 
@@ -222,7 +243,7 @@ environment, and revoking it means revoking the operator's own admin access too.
 reads it on a schedule with a **read-only key of its own**. Nothing outside the deployment
 holds a credential for it. Any S3-compatible store works – MinIO, Backblaze B2, a hosted
 bucket, AWS – because endpoint, bucket, prefix, region and keys are all environment
-(`PLANS_S3_*`, [`CONFIGURATION.md`](CONFIGURATION.md) §6) and path-style addressing is all the
+(`PLANS_S3_*`, [`CONFIGURATION.md`](CONFIGURATION.md) §6a) and path-style addressing is all the
 app assumes. Nothing about a provider is in the code.
 
 ```mermaid
@@ -261,6 +282,7 @@ plans/<object-id>/<module>.pdf    the PDF itself
   "plans": [
     {
       "object_id": "3f2a…-…-…",
+      "folder": "schulhaus-dorfmatt",
       "module": "modul1",
       "filename": "modul1.pdf",
       "size": 4812345,
@@ -271,11 +293,14 @@ plans/<object-id>/<module>.pdf    the PDF itself
 }
 ```
 
-`object_id` is the **Einsatzobjekt's id in this deployment** – the same deterministic `uuid5`
-the manifest and `admin_objects` use – because that is what makes the dataset id
-`plan:<obj>:<module>` come out identical whichever door the plan arrives through. `module` is a
-slug from the module catalog (`modul1`, `modul5-wasser`, …). `address_full` is not used to match
-anything; it is there so a log line about a skipped plan names an object a human recognises.
+**`folder` is what a row is matched on**, and it is **required** – a row without it refuses the
+whole index. It is the station's own human key for the object (`schulhaus-dorfmatt`), and it is
+resolved against **`ObjectSite.source_key`**, which only `admin_objects` writes. `object_id` is
+the **publisher's** id and is used for one thing: locating the bytes at
+`plans/<object_id>/<filename>`. The dataset id `plan:<obj>:<module>` is then built from the
+**local** object, so both doors mint the same id for the same plan. `module` is a slug from the
+module catalog (`modul1`, `modul5-wasser`, …). `address_full` matches nothing; it is there so a
+log line about a skipped plan names an object a human recognises.
 
 ### The rules the pull holds itself to
 
@@ -287,7 +312,7 @@ anything; it is there so a log line about a skipped plan names an object a human
 | **Nothing is ever deleted.** A plan that disappears from the index stays. | The likeliest reason a plan vanishes from an index is a broken publish, not a decision. Removing a plan stays a deliberate act. |
 | **The upload cap applies** (`MAX_UPLOAD_MB`), checked against the index *and* the bytes arriving. | A plan the admin UI would have rejected must not enter through the back door; a lying index must not be able to fill the disk. |
 | **Only PDFs, only matching bytes.** The download must hash to what the index promised and start with `%PDF-`, or it is skipped and the existing plan kept. | An error page served with HTTP 200 is a real failure mode of object stores behind proxies. |
-| **Objects are not invented.** A plan for an unknown `object_id` is skipped and logged. | The index carries an address, not a name or coordinates; objects come from the object path. |
+| **Objects are not invented.** A plan whose `folder` matches no `ObjectSite.source_key` is skipped and logged, by key. | The index carries an address, not a name or coordinates; objects come from the object path. ⚠️ An object created in the browser has **no** `source_key`, so it never matches – see the caveat under «Ingest» above. |
 
 **Fail-closed:** with no `PLANS_S3_ENDPOINT` / bucket / key / secret the job is never scheduled
 and none of this code runs – the deployment behaves exactly as it did before, and the push path
@@ -356,9 +381,13 @@ combined sheet, `family` for a generative sub-slot). The same list drives **both
   – and parses filenames with the `match`/`combinedWith`/`family` rules. The built-in reproduces
   the canonical mapping exactly (verified: 0 slot mismatches over 154 objects).
 
-Edit it as code with the config CLI and upload via the same path as any config:
+**The `modules` catalogue itself has no browser editor** – the Objektpläne admin page lists it and
+names the CLI, and the objects and their PDFs are what you edit there. Edit the catalogue as code
+with the config CLI and upload via the same path as any config:
 `cd backend && uv run python -m app.admin_config <example|validate|load>` (`example` prints a
-populated `modules` block). **CLI upload of everything**: `admin_config load <config>` (catalog +
+populated `modules` block; prefix with `docker compose exec app` on a Docker-only host, though a
+`load` still needs the file to be somewhere the process can read it). **CLI upload of everything**:
+`admin_config load <config>` (catalog +
 all config) → `import_einsatzplaene` (rebuilds manifest+plans using that catalog) →
 `admin_objects push` (objects + PDFs). Oversized scans are auto-compressed to fit the upload cap.
 

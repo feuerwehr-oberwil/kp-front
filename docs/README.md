@@ -16,11 +16,11 @@ requirement) now live in the [root README](../README.md).
 | --- | --- | --- |
 | [`SETUP.md`](SETUP.md) | 🟢 | **Start here for a new station.** The ordered path from an empty Docker host to a deployment that can run an incident: boot, take over the seeded account, station config, station data, integrations, backups – plus the gotchas that catch people and a pre-field checklist. Links to the reference docs below rather than repeating them. |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | 🟢 | System overview: how the PWA, FastAPI service, Postgres, and external sources fit together, plus where each dataset comes from. Mermaid diagrams for system context, backend modules, config layers, sync/audit flow, and deployment. |
-| [`CONFIGURATION.md`](CONFIGURATION.md) | 🟢 | Live data contract for per-deployment configuration: config-as-code/CLI as the primary path, admin UI for inspection/basic edits, the four config layers, reference-data formats, roster/auth notes, and empty-state rules. Its §4c publishes the **roster-snapshot contract** – [`roster-snapshot.schema.json`](roster-snapshot.schema.json) and [`roster-snapshot-outcome.schema.json`](roster-snapshot-outcome.schema.json), the versioned shape of a roster file another system publishes and this one reads. 🔵 The schema is shipped; the ingestion that would read such a file is **not built yet**. |
+| [`CONFIGURATION.md`](CONFIGURATION.md) | 🟢 | Live data contract for per-deployment configuration: every field of the document, the four config layers, reference-data formats, roster/auth notes, and empty-state rules. Two doors write these rows – forms at `/admin` (where a station normally lives) and the CLIs, for config that should be reviewable, versioned and reproducible on a second deployment. Its §4c publishes the **roster-snapshot contract** – [`roster-snapshot.schema.json`](roster-snapshot.schema.json) and [`roster-snapshot-outcome.schema.json`](roster-snapshot-outcome.schema.json), the versioned shape of a roster file another system publishes and this one reads. 🔵 The schema is shipped; the ingestion that would read such a file is **not built yet**. |
 | [`STATION-DATA.md`](STATION-DATA.md) | 🟢 | Practical path from the synthetic example to a private, field-ready station-data repository: layout, provenance, validation, loading, and readiness checks. |
 | [`ALARM-INTEGRATIONS.md`](ALARM-INTEGRATIONS.md) | 🟢 | Alarm in/out for any station: generic `POST /api/alarms` intake (auto-open, idempotent, fail-closed), milestone enrichment (`/api/alarms/milestones`), outbound `alarms.webhooks` on incident-create (payload schema, fail-open), the kp-rueck QR-slip example adapter, and the trust models for the Erfassungs-Poster and the read-only Einsatz-Link (`/l/<token>`, one incident, allowlisted, fail-closed). |
 | [`STATS-EXPORT.md`](STATS-EXPORT.md) | 🟢 | API reference for the read-only statistics feed `GET /api/stats/incidents`: auth/token model, params, full field table, consumer notes (WinFAP matching). |
-| [`geodata-architecture.md`](geodata-architecture.md) | 🟢 | How per-station reference geodata flows from external sources → a private data repo → the deployment → the map. Mermaid diagrams of the ingest paths (`admin_geodata` CLI / API push / Datenquellen UI) and the runtime render. |
+| [`geodata-architecture.md`](geodata-architecture.md) | 🟢 | How per-station reference geodata flows from external sources → a private data repo → the deployment → the map. Mermaid diagrams of the ingest paths (`admin_geodata` CLI / API push / `/admin` → Kartenebenen) and the runtime render. |
 | [`objektplaene-architecture.md`](objektplaene-architecture.md) | 🟢 | How the brigade's pre-planned Einsatzobjekte + Modul-PDFs flow from the OneDrive plan library → import/geocode CLI → the deployment, and auto-surface by proximity on incident load. Mermaid diagrams of the importer, refresh path, and runtime render; notes the skipped Modul 4 / 5 (Wasser/PV). Also the optional **pull** – fetching plans from an S3-compatible bucket instead of handing a plan-library system an `ADMIN_SECRET` to push with. |
 | [`DEPLOYMENT.md`](DEPLOYMENT.md) | 🟢 | Self-hosting / deployment guide: docker-compose quick start (HTTP or auto-HTTPS), config split, updating, backups, data-protection operating notes, and troubleshooting. Tested on a VPS; runs alongside the Railway deployment. |
 | [`RUNNING-BOTH.md`](https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RUNNING-BOTH.md) | 🟢 | **Lives in the kp-rueck repo** (one copy, so the two can't drift). For stations running KP Front *and* KP Rück on one host: the three places two independent stacks collide – host ports (only one can own 443), `PUBLIC_URL` meaning something different in each, and per-deployment alarm secrets with non-interchangeable payloads. |
@@ -53,6 +53,20 @@ than the [CHANGELOG](../CHANGELOG.md), the
 
 Per-station data (config, rosters, reference geodata, object plans, checklists) is never in this
 repository either – see [`STATION-DATA.md`](STATION-DATA.md).
+
+**Two documents every operating station writes for itself**, because they are one Wehr's
+decisions and no template could be right for another – the reader would file it instead of
+deciding:
+
+- **A data-retention policy** – data type → retention period → reason. Required by
+  [`DEPLOYMENT.md`](DEPLOYMENT.md) §6; the answer is your canton's (DSG / IDG) and your
+  Kommando's.
+- **Operating rules** – who deploys, who holds the backups and has done a restore drill, who
+  resets a PIN, what happens during an outage at 03:00.
+
+The technical facts they build on are in [`DEPLOYMENT.md`](DEPLOYMENT.md) (backups, restore,
+`.env`), [`PRIVACY.md`](../PRIVACY.md) (what leaves the deployment at all) and
+[`verlauf-coverage.md`](verlauf-coverage.md) (what is on the record in the first place).
 
 **Running KP Front and KP Rück at the same station** is documented once, in the sibling project:
 [`RUNNING-BOTH.md`](https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RUNNING-BOTH.md).

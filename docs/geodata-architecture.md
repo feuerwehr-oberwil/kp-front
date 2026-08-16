@@ -5,7 +5,7 @@ external sources into the map. The governing rule: **no station data lives in th
 app ships only base maps + operational Lage layers; everything else is loaded into a deployment
 at runtime from a station's own (often private) data.
 
-See also [`CONFIGURATION.md`](CONFIGURATION.md) §2 (layer schema) and §9c (the `admin_geodata`
+See also [`CONFIGURATION.md`](CONFIGURATION.md) §2 (layer schema) and §9d (the `admin_geodata`
 CLI). Restricted utility cadastre (gas/electricity/water/sewer) is held under data-sharing
 agreements – it stays in a **private data repo**, never here.
 
@@ -66,7 +66,7 @@ flowchart TD
     L2["load --config-only<br/>(workstation → remote DB)"]
     L3["push --base URL<br/>(workstation → server API)"]
   end
-  UI["Datenquellen panel<br/>(Neue Geo-Ebene / Ersetzen)"]
+  UI["/admin → Kartenebenen<br/>(GeoJSON-Ebene anlegen / Datei ersetzen)"]
 
   STORE[("reference store<br/>(server volume)")]
   CFG[("referenceLayers<br/>(DB)")]
@@ -84,8 +84,8 @@ flowchart TD
 | --- | --- | --- | --- | --- |
 | `load` | **server-side** (storage = the server volume) | ✅ | ✅ | first seeding a deployment from a shell that has the data |
 | `load --config-only` | workstation → remote DB | – | ✅ | files already on the server; you only changed colours/labels/groups |
-| `push --base URL` | workstation → server **API** (editor PIN today; deployment-admin auth target) | ✅ | ✅ | **refresh a live deployment's data** from your machine (`just push`) |
-| Datenquellen UI | browser → server API | ✅ (one file) | ✅ | ad hoc inspection/basic edit: add/replace a single layer in the running app |
+| `push --base URL` | workstation → server **API**, authenticated with `--admin-secret` / `KP_ADMIN_SECRET` | ✅ | ✅ | **refresh a live deployment's data** from your machine (`just geodata-push`) |
+| `/admin` → Kartenebenen | browser → server API | ✅ (one file) | ✅ | **the everyday door**: add or replace a single layer without a terminal. A replace bumps the dataset version in place, so consumers keyed on `?v=` re-fetch. Needs an unlocked admin session – both writes are admin-only |
 
 **The storage caveat (why `push` and `--config-only` exist):** a plain `load` writes the GeoJSON
 to its *local* `MEDIA_STORAGE_DIR`. Run from a laptop against a remote DB it would point the
