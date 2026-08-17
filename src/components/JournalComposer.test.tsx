@@ -79,11 +79,27 @@ describe('JournalComposer · writing a Meldung', () => {
     expect(d.pendenz).toBeUndefined()
   })
 
-  // ⚠️ The switch is hidden here on purpose: it edited the PENDENZ, so a control on one Meldung
-  // silently re-ranked the whole item.
-  it('offers no ○ switch — a Meldung does not re-rank its item', () => {
-    setup({ noteOn })
-    expect(document.querySelector('.jc-open')).toBeNull()
+  // ⚠️ The ring stays, and is the ONE place «what is this line?» is asked — but in this mode it
+  // offers no «Neue Pendenz» and no urgency: this entry already belongs to something, and a
+  // switch on one Meldung that re-ranks the whole item is not what it looks like.
+  it('keeps the ○ switch, offering re-target and unlink but no new item', async () => {
+    const onClearNote = vi.fn()
+    const { onLinkPendenz } = setup({ noteOn, onClearNote })
+    fireEvent.click(ring())
+    expect(await screen.findByRole('menuitem', { name: /Verknüpfung lösen/ })).toBeTruthy()
+    expect(screen.queryByRole('menuitem', { name: /^Neue Pendenz$/ })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: /Dringende Pendenz/ })).toBeNull()
+
+    fireEvent.click(screen.getByRole('menuitem', { name: /Patient an Sanität/ }))
+    expect(onLinkPendenz).toHaveBeenCalledWith(expect.objectContaining({ id: 'p2' }))
+  })
+
+  it('…and lets go of the link entirely', async () => {
+    const onClearNote = vi.fn()
+    setup({ noteOn, onClearNote })
+    fireEvent.click(ring())
+    fireEvent.click(await screen.findByRole('menuitem', { name: /Verknüpfung lösen/ }))
+    expect(onClearNote).toHaveBeenCalled()
   })
 })
 

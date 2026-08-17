@@ -210,13 +210,9 @@
    through its three states moves nothing: the three chips keep the width they had. */
 .jc-meta-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) var(--tap);
   align-items: stretch; gap: 8px; min-width: 0; }
-/* ⚠️ …and THREE tracks when there is no switch. Writing a Meldung hides it (a control on one
-   Meldung must not re-rank the whole Pendenz), and a reserved-but-empty fourth track then took
-   44px plus a gutter from three chips that need every pixel — «Sofortmassnahme» hyphenated onto a
-   second line and the strip grew taller on the sheet with the LEAST in it. Keeping the columns
-   identical across the two sheets was the intent; costing a line of height for a column that
-   holds nothing is not worth it. */
-.jc-meta-row:not(:has(.jc-openwrap)) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* (There was a three-track fallback here for the sheet that had no ○ switch. The switch is in
+   both modes now — a Meldung sets which item it reports on with the same control — so the row
+   always has four, and a rule for a case that cannot happen is a trap for the next reader.) */
 /* ⚠️ `min-width: 0` + a break opportunity, or the long one does NOT wrap: a grid item's
    min-width is `auto`, so «Sofortmassnahme» — one word with nowhere to break — sized its own
    column to the whole word and hung over the right edge of a phone screen (visible in the

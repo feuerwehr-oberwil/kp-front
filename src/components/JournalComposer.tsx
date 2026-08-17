@@ -207,7 +207,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
     () => (noteOn || mode === 'reminder' ? [] : suggestPendenzen(text, openPendenzen as OpenReminder[])),
     [text, openPendenzen, noteOn, mode],
   )
-  const canLink = !noteOn && mode === 'entry' && openPendenzen.length > 0 && !!onLinkPendenz
+  const canLink = mode === 'entry' && openPendenzen.length > 0 && !!onLinkPendenz
   // ── the ○ opens a menu; it no longer cycles ───────────────────────────────────────────────
   // ⚠️ Three states reached by tapping the same ring in turn were a guessing game, and the way to
   // «hang this on something already open» was a long press — a gesture that cannot announce
@@ -466,45 +466,17 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
               // band it pushed everything below it down, so the Meldung sheet stood a row taller
               // than the ordinary one — the same card, two heights, depending on how it was
               // opened. «Meldung» leads, the item follows: what this is, then what it is about.
-              // ⚠️ The header line IS the control. Merging the link into it took away the ✕ that
-              // used to unlink — «wrong row tapped» needed a way back, and adding a second ✕ beside
-              // the one that closes the sheet is how you build a card nobody dares press. So the
-              // line opens the same menu the ○ switch opens: re-target it, make it a new Pendenz,
-              // or let go of the link entirely.
-              <Menu
-                side="bottom"
-                align="start"
-                // ⚠️ Pulls the popup left by its own inset (6px popup padding + 11px item padding)
-                // so the ring column of the MENU continues the ring on the header that opened it.
-                // Without it the two sit 17px apart — near enough to look like a mistake, far
-                // enough that it is one.
-                alignOffset={-17}
-                popupClassName="rp-print-menu jc-pendenz-menu"
-                itemClassName={() => 'rp-print-menu-item'}
-                items={[
-                  { kind: 'head' as const, label: C.linkPendenzTitle },
-                  ...openPendenzen.map((r) => ({
-                    label: menuRow(r.urgent ? 2 : 1, r.text, r.id === noteOn.id),
-                    onClick: () => onLinkPendenz?.(r),
-                  })),
-                  // ⚠️ LAST and pinned to the bottom, like the ring's menu — not first and pinned
-                  // to the top. This one is declared `side="bottom"`, and on a desktop that is
-                  // where it goes; but the sheet is bottom-anchored on a phone, so the popup
-                  // collides with the screen edge and Base UI flips it UPWARDS. Pinning to the
-                  // end it opened from would then have to know which way it actually went. The
-                  // bottom is the answer either way: it is nearest the thumb when the menu opens
-                  // upwards, and still on screen without scrolling when it opens down.
-                  ...(onClearNote ? [{ label: menuRow(0, C.noteOnClear, false), onClick: onClearNote, sticky: true }] : []),
-                ]}
-                trigger={(
-                  <button type="button" className="jc-mode-title jc-mode-note" title={C.linkPendenzTitle}>
-                    <span className="jc-ring" aria-hidden />
-                    <b>{C.noteOnTitle}</b>
-                    <em>{C.noteOnLabel}</em>
-                    <span className="jc-mode-note-name">{noteOn.text}</span>
-                  </button>
-                )}
-              />
+              // ⚠️ A LABEL, not a control. It was a button opening the same menu the ○ switch
+              // opens — and then «what is this line?» had two places to be asked, at opposite ends
+              // of the sheet, depending on how the sheet had been opened. The ring is that one
+              // place in both modes now (it stays visible while writing a Meldung and carries the
+              // note-mode rows); this line says what the answer currently is.
+              <span className="jc-mode-title jc-mode-note">
+                <span className="jc-ring" aria-hidden />
+                <b>{C.noteOnTitle}</b>
+                <em>{C.noteOnLabel}</em>
+                <span className="jc-mode-note-name">{noteOn.text}</span>
+              </span>
             )
             : (
               <Segmented
@@ -667,11 +639,13 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                   ⚠️ The ring, not a word: it is the same ring that appears on the Verlauf row and
                   in the Pendenzen list, where tapping it fills it in. Three sightings of one shape
                   carry further than a label that only exists here.
-                  ⚠️ ABSENT while writing a Meldung. The item it reports on is already open — and
-                  the two-state version tried there edited the PENDENZ, so a switch on one Meldung
-                  re-ranked the whole thing. Its grid track goes with it (18-audio.css), or the
-                  three chips would pay 44px for a column holding nothing. */}
-              {!noteOn && (
+                  ⚠️ It stays while writing a MELDUNG, and carries that mode's menu — re-target the
+                  item, or let the link go. It was hidden there for a while and the same choices
+                  lived on the header link instead, which meant the control moved to the other end
+                  of the sheet depending on how the sheet had been opened. One place for «what is
+                  this line?», whatever the answer currently is.
+                  ⚠️ What it does NOT do in that mode is set urgency. That was tried: a two-state
+                  switch on one Meldung re-ranked the whole Pendenz it reports on. */}
               <span className="jc-openwrap">
               <Menu
                 side="top"
@@ -685,7 +659,21 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                 // on screen means bottom, which means under the thumb.
                 // The «Meldung zu» group keeps its heading ABOVE its own rows: a label under the
                 // things it names is not a heading, whichever way the list is read.
-                items={[
+                items={noteOn
+                  ? [
+                    // Writing a Meldung: the only open questions are WHICH item it reports on and
+                    // whether it should report on one at all. «Neue Pendenz» is not among them —
+                    // this line already belongs to something.
+                    { kind: 'head' as const, label: C.linkPendenzTitle },
+                    ...openPendenzen.map((r) => ({
+                      label: menuRow(r.urgent ? 2 : 1, r.text, r.id === noteOn.id),
+                      onClick: () => onLinkPendenz?.(r),
+                    })),
+                    ...(onClearNote
+                      ? [{ label: menuRow(0, C.noteOnClear, false), onClick: onClearNote, sticky: true }]
+                      : []),
+                  ]
+                  : [
                   // ⚠️ Every row carries THE RING, in the state it produces — empty, amber, or red
                   // with the bang. The menu is opened from that ring and sets that ring, so a list
                   // of bare sentences made the two look like unrelated things; the same shape in
@@ -708,7 +696,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                   ...(openState > 0 ? [{ label: menuRow(0, C.pendenzNotOpen, false), onClick: () => setOpenState(0), sticky: true }] : []),
                   { label: menuRow(2, C.pendenzNewUrgent, openState === 2), onClick: () => setOpenState(2), sticky: true },
                   { label: menuRow(1, C.pendenzNew, openState === 1), onClick: () => setOpenState(1), sticky: true },
-                ]}
+                  ]}
                 // ⚠️ The ring IS the trigger. It was an invisible anchor beside it for a while,
                 // with the open state held here — and then a second press on the ring counted as
                 // an OUTSIDE press, so Base UI closed the menu and the click handler opened it
@@ -718,9 +706,9 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                   <button
                     type="button"
                     className="jc-open"
-                    data-state={openState}
-                    title={C.openStates[openState]}
-                    aria-label={C.openStates[openState]}
+                    data-state={noteOn ? 1 : openState}
+                    title={noteOn ? C.linkPendenzTitle : C.openStates[openState]}
+                    aria-label={noteOn ? C.linkPendenzTitle : C.openStates[openState]}
                   >
                     {/* ⚠️ Not the `warn` triangle. A triangle's optical centre sits below its
                         bounding box, so inside a ring it reads as hanging — and a triangle inside
@@ -730,7 +718,6 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                 )}
               />
               </span>
-              )}
             </div>
           </div>
         )}
